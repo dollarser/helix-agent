@@ -65,7 +65,7 @@ Browser/Mobile Use 的观察结果复用现有 ToolResult、InvocationOutcome �
 
 HXA-286 同时冻结跨域身份和完成语义：Turn/call 由原持久准入与调用建档创建；实际异步路径才创建 jobId/executionId；长期 ExecutionResource 的 resourceId/generation、生命周期 owner 与控制调用分开；artifactId 由原发布路径创建并保存来源与引用。MCP 内容 URI 不作为执行资源句柄。各 ID 的创建、持久、引用与清理责任沿原 owner，不以 ID 代替授权，也不让 287 按尚未定义的 Job 语义固定存储端口。
 
-[HXA-288](../../development/tasks/HXA-288.md) 实现这些契约：调用返回、实际执行退出、输出收尽与结果落盘分别有判据，关联原 Job 状态和产物发布；覆盖直接调用、观察和启动后观察。无进程/输出流时明确不适用，MCP/HTTP 不套 POSIX exit code 或完整 Job 生命周期。产物包含可信来源、会话/调用归属、用途、内容身份与引用；内部观察、交付文件、模型视觉输入不能靠工具名推断。保存、用户展示和实际披露给模型是不同事实，GC 服从活跃引用；产物不授予权限。
+[HXA-288](../../development/tasks/HXA-288.md) 在既有执行/结果通路上按实际缺口接续这些契约，不重建 Dispatcher/Job/产物平台：调用返回、实际执行退出、输出收尽与结果落盘分别有判据，关联原 Job 状态和产物发布；覆盖直接调用、观察和启动后观察。无进程/输出流时明确不适用，MCP/HTTP 不套 POSIX exit code 或完整 Job 生命周期。产物包含可信来源、会话/调用归属、用途、内容身份与引用；内部观察、交付文件、模型视觉输入不能靠工具名推断。保存、用户展示和实际披露给模型是不同事实，GC 服从活跃引用；产物不授予权限。
 
 现有 R1 原子绑定、execution-start 屏障、审批消费和 UNKNOWN 不重放继续成立。逻辑完成/取消不证明 executor 退出；开始后失败不能宣称零副作用。新增工具必须沿同一 Dispatcher，实际 Runtime 隔离和平台约束不因统一契约而放宽。
 
@@ -83,7 +83,7 @@ HXA-286/287/288 保留参数准备、规范化/schema 校验、policy/授权、�
 
 文件/执行工具保持独立具名 Schema，参数经原请求捕获的可信 Workspace/environment/mapping 解析后进入同一验证、授权、限额和审计链；模型可按 Schema 请求已暴露目标，但模型输出、MCP URI 或插件描述不能自行声明可信执行身份或赋予权限。ResourceRef、网页 URL、执行路径、运行句柄和 artifact 引用明确区分，同名或相同字符串不建立等价关系。
 
-工具向模型提供实际环境/cwd、live/snapshot、输入映射和产物去向；不支持、不可用、输入未导入、源冲突、已保存未发布有不同可操作结果。产物发布和源回写分别结算，Provider 无真实条件写机制时不宣称原子 CAS；外部效果后失败保留部分/未知事实。UI 标题仍只显示操作和文件名，完整来源、参数与状态放详情；显示投影不修改执行身份。迁移和反例归 [Harness §23.3.1](../../architecture/harness-refactor-plan.md#2331-目录资源与执行环境) 与 286～294，不再复制工具名/JSON 特判。
+工具向模型提供实际环境/cwd、live/snapshot、输入映射和产物去向；不支持、不可用、输入未导入、源冲突、已保存未发布有不同可操作结果。产物发布和源回写分别结算，Provider 无真实条件写机制时不宣称原子 CAS；外部效果后失败保留部分/未知事实。UI 标题仍只显示操作和文件名，完整来源、参数与状态放详情；显示投影不修改执行身份。迁移和反例归 [Harness §23.3.1](../../architecture/harness-refactor-plan.md#2331-目录资源与执行环境) 与 286～294 的实际改动；现有工具名/JSON 展示适配不能成为第二身份权威，也不因有分支就自动列为无效代码。
 
 ## Alternatives considered
 
@@ -163,3 +163,7 @@ Owner 授权当前独立优化与后续任务收敛：303 将配套发现从宿�
 ## Decision history — 2026-10-12：最小观察事实接线
 
 279直接替换Browser snapshot/find/screenshot及Mobile Use snapshot/find/wait的所涉结果版本。Browser采用实际WEBVIEW_DOM、观察时间和已知TTL/页面失效事实；查找总数与返回上限分离，截断不证明唯一或全局不存在。Mobile Use保留实际后端、不编造不同后端的统一TTL。pixelsAttached表示经视觉准备提供artifact，实际请求图像仍由原receipt与最后读取/编码证明；仅保存路径为false，字段不能替代授权。两项只读工具沿现有schema/policy/授权/执行/审计，R1绑定算法、发现上限与未知副作用结算不改。
+
+## Decision history — 2026-10-24：已交付绑定与内容贡献分开
+
+Registry/Binding 与 303 发现配套是现行基线，不再迁移。286 聚焦当前插件内容/目录/readiness 的来源快照；293-A 消费同一快照协调可选预算，不是权限或新注册表。内部观察 executor 类型、原调用 ID 校验和截图名条件当前有安全/容量职责；仅在等价可信契约有明确消费者收益且保留反例时局部替换。没有证据要求所有结果/JSON 一次迁移，不允许以远端声明取得内部观察资格。

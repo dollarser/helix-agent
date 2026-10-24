@@ -391,3 +391,21 @@ Owner 追加要求：充分参考支持云端/远端执行的 Agent，给出当�
 ### 11.6 2026-10-19：原位默认与近期边界
 
 Owner 明确默认选定真实工作区原位操作，独立终端无需聊天，worktree/snapshot 显式选择。对照 [VS Code 终端](https://code.visualstudio.com/docs/terminal/basics)在工作区起始并独立管理实例、[Claude Code worktrees](https://code.claude.com/docs/en/worktrees)为并行隔离显式创建 checkout，以及 [ContentResolver](https://developer.android.com/reference/android/content/ContentResolver#openOutputStream(android.net.Uri))按 URI 打开输出流：采用能力决定桥接，而非按 URI/远程标签一律复制。Provider 可写不推导 Shell/Git 或原子条件写能力；远程协议仍未立项。287/288 必须同时验原位与显式快照的权限/身份/恢复；当前 `code.linux.run` 保持快照到完整迁移，近期只改善真实来源、模式、输出与既有冲突/Git 入口，不提前实现通用变更账本或逐调用 diff。
+
+## 12. 2026-10-24 当前实现与后续计划校核
+
+Owner 要求结合现状优化原重构计划与任务。本节为一手资料复核与采用理由，当前状态矩阵仍只在 [Harness §23.1](../../architecture/harness-refactor-plan.md#231-设计判断范围和现有工作去重)，详细实施/验收只在原 HXA，不另建总计划。核查日期 2026-10-24；GitHub 链接为当日 main 及在线文档，未固定 commit SHA，不是固定版本源码审计或性能比较。没有复制参考实现，不能从设计相似推出 Helix 已通过验收。
+
+| 一手来源 | 本轮可采纳的边界 | 明确不采纳/证据限制 |
+| --- | --- | --- |
+| [Claude plugin manifest](https://code.claude.com/docs/en/plugins-reference)、[pi 扩展](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/extensions.md) | 工具注册与内容/生命周期贡献有不同职责，支持保留 ToolRegistry，只补当前内容贡献接缝 | 不把 hooks 直接移入 Helix，不允许任意改写历史、系统安全约束或取得工具权限 |
+| [Operit PromptHookRegistry](https://github.com/AAswordman/Operit/blob/main/app/src/main/java/com/ai/assistance/operit/core/chat/hooks/PromptHookRegistry.kt)、[AIToolHandler](https://github.com/AAswordman/Operit/blob/main/app/src/main/java/com/ai/assistance/operit/core/tools/AIToolHandler.kt) | 提示阶段与工具入口可区分，当前 docs/插件只需要窄内容接口 | 它仍有 Android/UI 依赖，不能称作严格分层范本；不复制 hook runner、注册系统或其代码 |
+| [Claude Skills](https://code.claude.com/docs/en/skills)、[pi Skills](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/skills.md)、[Claude MCP tool search](https://code.claude.com/docs/en/mcp#scale-with-mcp-tool-search) | 目录/简短说明与正文分开，允许按需读取；支持对 Helix 现有 search/read 与预载摘要做有限对照 | 可读不保证模型读；模型兼容/回退条件有差别。不能凭 1000 字预载判为无检索，必要指令不被裁掉，默认策略须效果实测 |
+| [pi bash 输出](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/src/core/tools/bash.ts) | 大输出保留可定位全文引用与退出事实，支持按需补读 | Android 用受控资源/调用 ID，不照搬主机临时路径。Helix Result/Log 已交付，不重复建设，实际模型消费另验 |
+| [pi AgentSession](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/src/core/agent-session.ts) | 浅业务编排仍可有有界、可取消的技术恢复 | 保留 Helix 当前恢复实现及上限/取消/最终失败回归；不叠加另一层业务重试或把未知写效果当可安全重放 |
+| [Codex App Server](https://openai.com/index/unlocking-the-codex-harness/)（2026-02-04） | 核心循环/配置/执行与客户端可通过应用接口分开，支持缩窄 AppAgentRuntime 对 ChatService 的依赖 | Helix 当前单 Android 产品不因此新增常驻服务、RPC 或事件总线；真实 Room/Runtime 适配仍有必要 |
+| [Operit EnhancedAIService](https://github.com/AAswordman/Operit/blob/main/app/src/main/java/com/ai/assistance/operit/api/chat/EnhancedAIService.kt) | 参考具体职责与调用，而非类名 | 仍耦合 Android Context；pi AgentSession 也有 theme import，不能宣称竞品已全面“纯 Core” |
+
+本地裁决依据：PluginExecutionContext 仍有 helix-docs 特判/拼串，ChatRequestAssembler 合并 readiness；AppRuntime/Engine 已有单 owner，而 ChatService/批次投影仍有收窄空间。PRoot 设置调用 app 级被动状态/显式维修入口，属于展示耦合，不是绕权 executor；Android string resource ID 与安全访问 resource ID 完全不同，不以“统一资源标识”混合它们。
+
+旧默认快照前提已被后续原位交付替代；Job 观察 executor 识别、截图披露条件和 FileHistoryPaths 展示分支仍有真实职责，尚无证据支持全域删除。知识库的原件/核对笔记与 Memory 的作用域/记忆资格也不因 Markdown 共性合并。未覆盖设备、服务端质量、模型漏读与结构缺口分别归因，不能靠重构计划将任何一类伪报修复。

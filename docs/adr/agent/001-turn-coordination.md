@@ -54,15 +54,15 @@ TurnEngine 同时拥有 durable lifecycle 与 process-local AgentLoop driver；C
 
 应用服务提供业务命令、只读状态和结构化恢复目标，页面解释导航。HXA-274 直接替换所涉 `recoveryModelsNavigation` / `recoveryPermissionsNavigation` 服务回调：恢复原因、目标类型和必要归属以数据表达，用户点击后由当前 UI 导航；无订阅、旋转、重复订阅、切换会话不自动触发跳转或执行。保留 HXA-271 已交付的原因说明和显式设置行为，不以结构调整重做系统授权。就绪与恢复目标的内容归 [ADR-CONNECTORS-003](../connectors/003-ownership-and-installation.md)，本节约束其应用/表现依赖。
 
-2026-10-15 将应用命令收窄与完整 Turn 领域宿主合并为 HXA-287：当前 App/Room 解耦和完整无页面 Turn 验证就是明确需求，不再等待第二个产品消费者。复用 SessionDirectory、ComposerInputState、TaskDashboardProjection、SessionCatalog；统一入口不再回调宽 ChatService，领域协调不依赖 Android、Room Entity 或 UI 类型。应用/工具服务与持久/恢复共同设计，按完整路径切换，避免两次提取半个宿主。不以空壳化、类行数或模块数量验收，不预建 CLI、远程服务或第二个 Engine。
+HXA-287 的应用命令收窄与完整 Turn 领域宿主中立化仍是明确未完成目标，不需要第二产品消费者；已有薄端口/唯一 Engine 不等于整体完成。按 2026-10-24 目标分层可直接重组当前类、接口、模块及全部调用者，不兼容旧内部入口。复用 SessionDirectory、ComposerInputState、TaskDashboardProjection、SessionCatalog；统一入口不再回调宽 ChatService，领域协调不依赖 Android、Room Entity 或 UI 类型。应用/工具服务与持久/恢复共同设计，按完整路径切换，避免两次提取半个宿主。不以空壳化、类行数或模块数量验收，不预建 CLI、远程服务或第二个 Engine。
 
-[HXA-286](../../development/tasks/HXA-286.md#共同契约与退出条件) 先共同定义 Turn/call/Job/长期 ExecutionResource/artifact 身份及归属，调用返回/物理退出/输出收尽/结果落盘、cancel requested/confirmed、迟到事实、重启 reconcile 和清理责任。TurnEngine 与调用建档仍创建原 turnId/toolCallId，Job/资源由实际执行 owner 管理，领域持久端口保存这些事实及引用；不在语义尚未明确时固定数据库接口。
+沿 [HXA-286](../../development/tasks/HXA-286.md#共同契约与退出条件)与现行 ADR/实现区分 Turn/call/Job/长期 ExecutionResource/artifact 身份及归属，调用返回/物理退出/输出收尽/结果落盘、cancel requested/confirmed、迟到事实、重启 reconcile 和清理责任。TurnEngine 与调用建档仍创建原 turnId/toolCallId，Job/资源由实际执行 owner 管理，领域持久端口保存这些事实及引用；不在语义尚未明确时固定数据库接口。
 
-实施按 286 →（287-A 完整 Turn 最小纵切、288-A 执行核心）→ 共同集成推进。287-A 用 fake executor 和可重载事实夹具验证无 UI 提交/审批/停止、crash/reload、原 call/result 配对及上下文快照；288-A 独立实现执行核心。两片就绪后接真实文件读取、受控副作用路径与最小 Room，验证开始前、效果后提交前和提交后通知前三个窗口，再扩展各自生命周期/领域切片；二者不以整任务完成互为启动条件。只读或纯夹具通过不替代真实 Room/执行证据，294 不承担首次正确性验证。
+2026-10-24 接续改为既有唯一 Engine 上的应用命令/批次投影小片：287-A 收窄提交/停止，287-B 分开持久命令与展示；完整中立宿主是 287-C 的未完成目标；应消除现 Engine 对 App/具体 Room 的依赖，保持唯一生命周期/事务/恢复语义而非保留现类，不为结构迁移制造第二 Engine。286 内容快照与 293-A 协同，288 仅改有证据的执行接缝，不再等待两套核心重建后共同接线。每个改动仍验证开始前、效果后提交前、提交后通知前三个窗口，fake ports 不代替真实 Room/执行证据，294 汇总而不推迟首次正确性验证。
 
 区分四类所有权：TurnEngine 管整轮 live driver 与持久生命周期；ToolScheduler 管调度/观察槽位；Executor/Runtime 管实际执行容量及原执行身份；插件/宿主管共享资源引用。完成观察等待可释放 worker，Turn 终态、UI detach 或取消信号都不能证明 executor 已退出。HXA-277 的原生资源句柄消费现有 ExecutionOwnership / Runtime 退出与对账事实，不复制执行状态或替代原取消协议。权限准入始终归原 Dispatcher；就绪投影和资源引用不授予执行能力。
 
-本节恢复导航与原生资源接线为 accepted，HXA-274/277 已完成各自有界实施与验收；新目标 HXA-287/288 已排期、未实施。按单一目标迁移当前调用者并删除旧内部 adapter、双写和双注册；Android/Room/Runtime 的真实基础设施适配保留。领域持久端口表达原子命令，不透出通用 DAO 或事务 lambda；Steer/最终答复、首 ModelCall/step、GoalRun/Turn 事务不可拆散。Room 是唯一生产持久事实，内存宿主只做测试。同一组完整 Turn 断言分别验证纯 JVM 宿主和真实 Room，必须保留幂等、取消、UNKNOWN、原调用身份及重建恢复。
+本节恢复导航与原生资源接线为 accepted，HXA-274/277 已完成各自有界实施与验收；新目标 HXA-287/288 已有部分交付基线，剩余范围按任务小片与当前矩阵记录；不得概括为全未实施或全完成。按单一目标迁移当前调用者并删除旧内部 adapter、双写和双注册；Android/Room/Runtime 的真实基础设施适配保留。领域持久端口表达原子命令，不透出通用 DAO 或事务 lambda；Steer/最终答复、首 ModelCall/step、GoalRun/Turn 事务不可拆散。Room 是唯一生产持久事实，内存宿主只做测试。同一组完整 Turn 断言分别验证纯 JVM 宿主和真实 Room，必须保留幂等、取消、UNKNOWN、原调用身份及重建恢复。
 
 HXA-287 同时保留参数准备、execution-start、持久结算和通知的阶段边界。持久提交是结果权威，后置通知失败不能撤销或重复提交终态；慢回调和外部代码不得在 Room 事务、准入锁内执行。未来 hooks 按 [工具契约](../tools/001-descriptor-contract.md)接入，不能直接拥有 Turn 状态或恢复调度权。
 
@@ -310,6 +310,8 @@ ModelCall 和 ToolCall 在原 Turn 内各有事务分配的 ordinal 与 createdA
 GC 引用查询具有索引；目录按需遍历，仅每个候选的引用复核与删除持有正文发布协调锁，不能把整个目录遍历放入该锁。搜索投影不是额外的内容保留引用；会话删除时随消息删除，仍保留原隐私清理边界。
 
 ## Decision history
+
+- 2026-10-24：按当前唯一 Engine/Runtime 端口、已交付 UI/原位/日志与残余 ChatService/批次投影调整规划顺序；保留完整中立宿主的未完成边界。未修改 durable/审批/UNKNOWN/取消/真实退出语义，不引入第二 writer 或业务恢复流程。
 
 - 2026-10-16（发布前恢复审查）：Owner 再确认架构取舍以当前合理性、未来能力集成及主流实践为准，不为旧开发库/旧内部接口留兼容约束；删除本 ADR 的旧 v29/review-resume 兼容要求。三个崩溃窗口是当前正确性与未来迁移均须验证的时点，不是自动延期的缺陷清单；当前故障注入及修复见[审查记录](../../evidence/development/crash-window-review-2026-10-16.md)。取消、授权、原调用事实和同版本恢复不作为兼容负担删除。
 

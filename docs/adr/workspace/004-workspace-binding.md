@@ -1,7 +1,7 @@
 # ADR-WORKSPACE-004: 独立会话工作目录与外部资源绑定
 
 Status: accepted
-Date: 2026-09-16; revised 2026-10-17
+Date: 2026-09-16; revised 2026-10-24
 HXA: HXA-209, HXA-210, HXA-286, HXA-287, HXA-288, HXA-289
 Deciders: project owner (2026-09-27)
 
@@ -114,11 +114,11 @@ SAF 可能由远端文档服务提供，不能将 content URI 一律当作本地
 
 ### 9. 执行工作副本与映射（2026-10-17 目标契约）
 
-目标需要资源身份、会话绑定版本和不可变请求快照，并表达执行所需的工作副本/来源、live 或 snapshot 模式、environment/generation、cwd/映射版本及生命周期事实。现有 Entity、表结构和接口仅是评估基线，可按目标完整替换，生产中只保留一套权威账本。请求后切目录、环境重建或旧回包都不能改写原绑定。近期信息展示按当前手动 live 终端与 snapshot Job 如实报告；重构默认模式由目标语义决定，不承担旧行为兼容。
+目标需要资源身份、会话绑定版本和不可变请求快照，并表达执行所需的工作副本/来源、live 或 snapshot 模式、environment/generation、cwd/映射版本及生命周期事实。现有 Entity、表结构和接口仅是评估基线，可按目标完整替换，生产中只保留一套权威账本。请求后切目录、环境重建或旧回包都不能改写原绑定。现行手动终端与支持的 POSIX Job 默认操作真实工作区；snapshot 为显式模式。信息展示按实际原位/副本事实报告，不恢复旧默认。
 
-默认直接操作选定的真实工作区，URI-native 消费者通过 Provider 原位读写。只有具体消费者不能使用 URI、确需 POSIX 桥接时才物化为明确副本；源引用、映射与输出单独表达，导回按当前授权和可提供的源版本保证处理。远程环境可直接访问真实资源时同样原位操作，远程不意味着必须复制。同源、同项目和同名均不证明副本一致；失效不静默回退，取消不回滚，断连核查原执行。副本保留/回收按真实 owner、引用及在途使用，不能随页面关闭清除。实现与双路径矩阵归 [HXA-287](../../development/tasks/HXA-287.md)/[288](../../development/tasks/HXA-288.md)，不引入透明同步或任意 SAF 的 POSIX 仿真。
+默认直接操作选定的真实工作区，URI-native 消费者通过 Provider 原位读写。只有具体消费者不能使用 URI、确需 POSIX 桥接时才物化为明确副本；源引用、映射与输出单独表达，导回按当前授权和可提供的源版本保证处理。远程环境可直接访问真实资源时同样原位操作，远程不意味着必须复制。同源、同项目和同名均不证明副本一致；失效不静默回退，取消不回滚，断连核查原执行。副本保留/回收按真实 owner、引用及在途使用，不能随页面关闭清除。现行实现与有界双路径证据见[原位执行](../../development/proot-in-place-execution.md)及[结果日志](../../development/result-log-closeout.md)；[287](../../development/tasks/HXA-287.md)/[288](../../development/tasks/HXA-288.md)只承接实际改动的接缝，不引入透明同步或任意 SAF 的 POSIX 仿真。
 
-目标补充：同一 binding 的文件/exec/终端在支持时共享真实资源；手动终端无需会话。worktree/snapshot 是明确选择的模式，普通非 Git 目录不强制复制或 Git 化。现有 Git 累积差异和后续逐调用变更记录分别表达；审批预览不是执行结果，写后 diff 不是权限或无损撤销保证，不对任意 Shell 宣称 CAS 或增加全局文件锁。当前 Job 仍为输入快照，完整目标在 286/287/288 授权、映射、原位与快照恢复验收后切换，信息展示补丁不切模式。
+目标补充：同一 binding 的文件/exec/终端在支持时共享真实资源；手动终端无需会话。worktree/snapshot 是明确选择的模式，普通非 Git 目录不强制复制或 Git 化。现有 Git 累积差异和后续逐调用变更记录分别表达；审批预览不是执行结果，写后 diff 不是权限或无损撤销保证，不对任意 Shell 宣称 CAS 或增加全局文件锁。当前 LinuxRunTool 已默认 in_place 并支持严格相对嵌套 cwd，主应用只收取输出/登记引用；snapshot 是明确选择的有效模式，其现行命名不能当默认强制归档残留删除。跨来源层级 manifest 仍是独立候选；已交付默认原位不等待整套 286/287/288 再切换。
 
 ## Alternatives considered
 
@@ -153,13 +153,15 @@ SAF 可能由远端文档服务提供，不能将 content URI 一律当作本地
 | 数据转换 | 旧共享文件保留、新默认目录、重复启动与中断对账，不要求保留旧授权行为 |
 | UI | 目录类型、支持能力、不可用原因、运行中旧目录任务、三语言与窄屏/大字体 |
 
-实现任务须登记准确命令：完整主机门禁 `./scripts/check-all.sh --all`，API29/36 × consumer/developer 独占设备专项，涉及 schema 时验证 Room 转换与真实重启。SAF 测试覆盖能力不同的可控测试 Provider 和实际系统文档入口，不依赖真实云账号作为默认门禁。通用 SAF 通过不代表所有云 Provider 或 OEM 已验收。
+实现任务须登记准确命令，按当前 AGENTS 日常默认 `./scripts/check-all.sh --debug`；明确发行/全门禁或缩减敏感改动才运行 `--all`/Release/R8。按影响选择 API29/36 × consumer/developer 专项，设备须当次 Owner 授权；涉及 schema 时另验数据保全、Room 转换与真实重启，不能用清库代替恢复。SAF 测试覆盖能力不同的可控测试 Provider 和实际系统文档入口，不依赖真实云账号作为默认门禁。通用 SAF 通过不代表所有云 Provider 或 OEM 已验收。
 
 ## Reconsider when
 
 需要 FULL_ACCESS 之外仍绝对隔离会话、SAF 完整 POSIX 执行、附加目录、Git worktree、自动永久删除或云 Provider 离线保证时，明确新增范围与验收，不从目录绑定中隐含推导。
 
 ## Decision history
+
+- 2026-10-24：按当前代码和原位/日志验收修正现行正文中“Job 仍为输入快照”的过时前提；保留当时 Decision history 的快照事实。只更新计划/语义说明，不重开已交付实现，不授权清数据或设备操作。
 
 - 2026-10-22：正文与现行 PreviewDatabaseGate/AppStartupScreen 对齐：旧 baseline 重建须前台明确确认，不从历史自动删库表述继承同意。废弃 Goal 重试计数无现行消费者，按当前 v1 baseline 删除，不为自我往返保留；不迁移旧开发库，本轮不操作日常用户库。
 
