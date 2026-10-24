@@ -1,4 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="knowledge_agent_access_title">Agent retrieval</string>
+    <string name="knowledge_search_notes">Search notes</string>
+    <string name="knowledge_search_sources">Search sources</string>
+    <string name="knowledge_no_search_results">No matches. Try another keyword. Your saved content is unchanged.</string>
+    <string name="knowledge_notes_empty">Write a Markdown note, distill a source, or save a cited answer here.</string>
+    <string name="knowledge_library_settings">Privacy &amp; access</string>
+    <string name="knowledge_clear_selection">Clear selection (%1$d)</string>
+    <string name="knowledge_reading_mode">Read Markdown</string>
+    <string name="knowledge_edit_mode">Edit Markdown</string>
+    <string name="knowledge_note_actions">Note actions &amp; references</string>
+    <string name="knowledge_note_blank">This note is empty. Switch to Edit Markdown to start writing.</string>
+    <string name="knowledge_local_only">Saved on this device · no automatic model upload</string>
+    <string name="knowledge_library_sources">Sources</string>
+    <string name="knowledge_library_notes">Notes</string>
+    <string name="knowledge_new_note_action">New note</string>
 </resources>

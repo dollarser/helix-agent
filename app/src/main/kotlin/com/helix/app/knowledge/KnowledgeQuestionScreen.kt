@@ -227,7 +227,7 @@ internal fun KnowledgeQuestionScreen(
                 verticalArrangement = Arrangement.spacedBy(4.dp),
                 modifier = Modifier.testTag("knowledge-answer-${answer.id}"),
             ) {
-                Text(answer.question)
+                Text(answer.question, style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
                 Text(stringResource(R.string.knowledge_qa_generated))
                 Text(
                     stringResource(
@@ -241,7 +241,10 @@ internal fun KnowledgeQuestionScreen(
                 )
                 val target = remember(answer.targetJson) { org.json.JSONObject(answer.targetJson) }
                 Text("${target.optString("model")}\n${target.optString("origin")}")
-                SelectionContainer { Text(answer.body) }
+                SelectionContainer {
+                    com.helix.app.ui
+                        .MarkdownText(answer.body)
+                }
                 if (answer.state ==
                     "RUNNING"
                 ) {

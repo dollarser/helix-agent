@@ -19,6 +19,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -43,8 +44,10 @@ internal fun KnowledgeNoteEditor(
     onBack: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
-    var title by remember(note.id) { mutableStateOf(note.title) }
-    var body by remember(note.id) { mutableStateOf(note.body) }
+    var title by rememberSaveable(note.id) { mutableStateOf(note.title) }
+    var body by rememberSaveable(note.id) { mutableStateOf(note.body) }
+    var editing by rememberSaveable(note.id) { mutableStateOf(note.body.isBlank()) }
+    var management by rememberSaveable(note.id) { mutableStateOf(false) }
     var sources by remember(note.id) { mutableStateOf(emptyList<KnowledgeNoteSource>()) }
     var failed by remember(note.id) { mutableStateOf(false) }
     var leave by remember { mutableStateOf(false) }
@@ -188,8 +191,6 @@ internal fun KnowledgeNoteEditor(
         )
     }
     LazyColumn(modifier.testTag("knowledge-note-editor"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        item { KnowledgeNoteManagement(note, service, dirty) }
-        item { KnowledgeReferenceManagement(note, service, sources, dirty) }
         item {
             TextButton(onClick = { goBack() }, modifier = Modifier.testTag("knowledge-note-back")) {
                 Text(stringResource(R.string.knowledge_back))
@@ -207,38 +208,78 @@ internal fun KnowledgeNoteEditor(
             )
         }
         item {
-            OutlinedTextField(
-                title,
-                { title = it.take(160) },
-                enabled = !busy,
-                label = { Text(stringResource(R.string.knowledge_note_title)) },
-                modifier = Modifier.fillMaxWidth().testTag("knowledge-note-title"),
-            )
+            androidx.compose.foundation.layout.FlowRow {
+                TextButton(
+                    onClick = { editing = !editing },
+                    modifier = Modifier.testTag("knowledge-note-toggle-mode"),
+                ) {
+                    Text(stringResource(if (editing) R.string.knowledge_reading_mode else R.string.knowledge_edit_mode))
+                }
+                TextButton(
+                    onClick = { management = !management },
+                    modifier = Modifier.testTag("knowledge-note-management"),
+                ) {
+                    Text(stringResource(R.string.knowledge_note_actions))
+                }
+            }
+        }
+        if (management) {
+            item { KnowledgeNoteManagement(note, service, dirty) }
+            item { KnowledgeReferenceManagement(note, service, sources, dirty) }
+        }
+        if (editing) {
+            item {
+                OutlinedTextField(
+                    title,
+                    { title = it.take(160) },
+                    enabled = !busy,
+                    label = { Text(stringResource(R.string.knowledge_note_title)) },
+                    modifier = Modifier.fillMaxWidth().testTag("knowledge-note-title"),
+                )
+            }
+            item {
+                OutlinedTextField(
+                    body,
+                    { body = it.take(MAX_KNOWLEDGE_TEXT) },
+                    enabled = !busy,
+                    minLines = 8,
+                    maxLines = 20,
+                    label = { Text(stringResource(R.string.knowledge_note_body)) },
+                    modifier = Modifier.fillMaxWidth().testTag("knowledge-note-body"),
+                )
+            }
+        } else {
+            item { Text(title, style = androidx.compose.material3.MaterialTheme.typography.headlineSmall) }
+            item {
+                SelectionContainer {
+                    com.helix.app.ui.MarkdownText(
+                        body.ifBlank { stringResource(R.string.knowledge_note_blank) },
+                        Modifier.fillMaxWidth().testTag("knowledge-note-preview"),
+                    )
+                }
+            }
+        }
+        if (dirty) {
+            item {
+                Text(
+                    stringResource(R.string.knowledge_unsaved),
+                    style = androidx.compose.material3.MaterialTheme.typography.labelMedium,
+                )
+            }
         }
         item {
-            OutlinedTextField(
-                body,
-                { body = it.take(MAX_KNOWLEDGE_TEXT) },
-                enabled = !busy,
-                minLines = 5,
-                maxLines = 12,
-                label = { Text(stringResource(R.string.knowledge_note_body)) },
-                modifier = Modifier.fillMaxWidth().testTag("knowledge-note-body"),
-            )
-        }
-        item {
-            Button(
-                onClick = { save(true) },
-                enabled = !busy && title.isNotBlank(),
-                modifier = Modifier.testTag("knowledge-note-save"),
-            ) { Text(stringResource(R.string.knowledge_note_save)) }
-        }
-        item {
-            TextButton(
-                onClick = { save(false) },
-                enabled = !busy,
-                modifier = Modifier.testTag("knowledge-note-save-draft"),
-            ) { Text(stringResource(R.string.knowledge_save_draft)) }
+            androidx.compose.foundation.layout.FlowRow {
+                Button(
+                    onClick = { save(true) },
+                    enabled = !busy && title.isNotBlank(),
+                    modifier = Modifier.testTag("knowledge-note-save"),
+                ) { Text(stringResource(R.string.knowledge_note_save)) }
+                TextButton(
+                    onClick = { save(false) },
+                    enabled = !busy && title.isNotBlank(),
+                    modifier = Modifier.testTag("knowledge-note-save-draft"),
+                ) { Text(stringResource(R.string.knowledge_save_draft)) }
+            }
         }
         if (sources.isNotEmpty()) {
             item { Text(stringResource(R.string.knowledge_frozen_sources, sources.size)) }
@@ -316,7 +357,10 @@ internal fun KnowledgeNoteEditor(
             item { Text(stringResource(R.string.knowledge_generated_unreviewed)) }
             item {
                 TextButton(
-                    onClick = { body = note.generatedDraft },
+                    onClick = {
+                        body = note.generatedDraft
+                        editing = true
+                    },
                     modifier = Modifier.testTag("knowledge-load-draft"),
                 ) {
                     Text(stringResource(R.string.knowledge_load_draft))

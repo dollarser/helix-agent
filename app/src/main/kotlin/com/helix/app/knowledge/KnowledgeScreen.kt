@@ -2,7 +2,6 @@ package com.helix.app.knowledge
 
 import android.content.Intent
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -22,6 +21,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -31,7 +31,6 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.R
-import com.helix.app.ui.HelixCard
 import com.helix.core.storage.knowledge.CollectedSource
 import kotlinx.coroutines.launch
 import org.json.JSONArray
@@ -64,13 +63,13 @@ fun KnowledgeScreen(
     val request by service.openRequests.collectAsStateWithLifecycle()
     val error by service.captureError.collectAsStateWithLifecycle()
     val deletionError by service.deletionError.collectAsStateWithLifecycle()
-    var selected by remember { mutableStateOf<String?>(null) }
-    var query by remember { mutableStateOf("") }
+    var selected by rememberSaveable { mutableStateOf<String?>(null) }
+    var query by rememberSaveable { mutableStateOf("") }
     var hits by remember { mutableStateOf<List<CollectedSource>>(emptyList()) }
     var noteHits by remember { mutableStateOf(notes) }
-    var showNotes by remember { mutableStateOf(false) }
-    var showQuestions by remember { mutableStateOf(false) }
-    var selectedNote by remember { mutableStateOf<String?>(null) }
+    var showNotes by rememberSaveable { mutableStateOf(false) }
+    var showQuestions by rememberSaveable { mutableStateOf(false) }
+    var selectedNote by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedSources by remember { mutableStateOf(emptySet<String>()) }
     var failed by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -112,7 +111,10 @@ fun KnowledgeScreen(
     BackHandler(item != null && note == null) { selected = null }
     Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (note != null || showQuestions || item != null) {
-            Text(stringResource(R.string.knowledge_privacy), style = MaterialTheme.typography.bodySmall)
+            Text(
+                stringResource(if (note != null) R.string.knowledge_local_only else R.string.knowledge_privacy),
+                style = MaterialTheme.typography.bodySmall,
+            )
         }
         if (deletionError) Text(stringResource(R.string.knowledge_management_failed))
         if (error) Text(stringResource(R.string.knowledge_capture_failed))
@@ -129,146 +131,63 @@ fun KnowledgeScreen(
                 showNotes = true
             }
         } else if (item == null) {
-            LazyColumn(
-                Modifier.weight(1f).testTag(if (showNotes) "knowledge-notes-list" else "knowledge-list"),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                item(key = "privacy") {
-                    Text(stringResource(R.string.knowledge_privacy), style = MaterialTheme.typography.bodySmall)
-                }
-                item(key = "import") { KnowledgeImportAction(service) }
-                if (selectedSources.isNotEmpty()) {
-                    item(key = "delete") { KnowledgeDeleteSources(service, all.filter { it.id in selectedSources }) }
-                }
-                item(key = "tabs") {
-                    androidx.compose.foundation.layout.Row {
-                        TextButton(
-                            onClick = { showNotes = false },
-                            modifier = Modifier.testTag("knowledge-tab-sources"),
-                        ) {
-                            Text(stringResource(R.string.knowledge_sources_tab))
+            KnowledgeLibrary(
+                notesTab = showNotes,
+                onTab = { showNotes = it },
+                onQuestions = { showQuestions = true },
+                query = query,
+                onQuery = { query = it.take(200) },
+                sources = hits,
+                notes = noteHits,
+                selected = selectedSources,
+                onSelect = { id, checked ->
+                    selectedSources =
+                        if (!checked) {
+                            selectedSources - id
+                        } else if (selectedSources.size < 8) {
+                            selectedSources + id
+                        } else {
+                            selectedSources
                         }
-                        TextButton(onClick = { showNotes = true }, modifier = Modifier.testTag("knowledge-tab-notes")) {
-                            Text(stringResource(R.string.knowledge_notes_tab))
-                        }
-                        TextButton(
-                            onClick = { showQuestions = true },
-                            modifier = Modifier.testTag("knowledge-tab-questions"),
-                        ) {
-                            Text(stringResource(R.string.knowledge_qa_tab))
-                        }
-                    }
-                }
-                if (showNotes) {
-                    item(key = "new-note") {
-                        TextButton(
-                            onClick = { createNote(emptyList()) },
-                            modifier = Modifier.testTag("knowledge-new-note"),
-                        ) {
-                            Text(stringResource(R.string.knowledge_note_new))
-                        }
-                    }
-                } else if (selectedSources.isNotEmpty()) {
-                    item(key = "selected-actions") {
-                        TextButton(
-                            onClick = { createNote(selectedSources.toList()) },
-                            modifier = Modifier.testTag("knowledge-synthesize"),
-                        ) {
-                            Text(stringResource(R.string.knowledge_synthesize, selectedSources.size))
-                        }
-                        TextButton(onClick = {
+                },
+                onSource = { selected = it },
+                onNote = { selectedNote = it },
+                controls = {
+                    KnowledgeImportAction(service, if (showNotes) ({ createNote(emptyList()) }) else null)
+                },
+                selectionActions = {
+                    KnowledgeSelectionActions(
+                        selectedSources.size,
+                        { selectedSources = emptySet() },
+                        { createNote(selectedSources.toList()) },
+                        {
                             scope.launch {
                                 val chosen = all.filter { it.id in selectedSources }
-                                val references =
-                                    chosen.map {
-                                        service.citation(
-                                            it,
-                                            minOf(20_000, 24_000 / chosen.size),
-                                        )
-                                    }
-                                onReference(references.joinToString("\n\n"))
+                                if (chosen.isNotEmpty()) {
+                                    onReference(
+                                        chosen
+                                            .map {
+                                                service.citation(it, minOf(20_000, 24_000 / chosen.size))
+                                            }.joinToString("\n\n"),
+                                    )
+                                }
                             }
-                        }, modifier = Modifier.testTag("knowledge-selected-question")) {
-                            Text(stringResource(R.string.knowledge_selected_question))
-                        }
-                    }
-                }
-                if (!showNotes) {
-                    item(key = "source-heading") {
-                        Text(stringResource(R.string.knowledge_sources), style = MaterialTheme.typography.titleSmall)
-                    }
-                }
-                item(key = "search") {
-                    OutlinedTextField(
-                        query,
-                        { query = it.take(200) },
-                        label = { Text(stringResource(R.string.knowledge_search)) },
-                        modifier = Modifier.fillMaxWidth().testTag("knowledge-search"),
-                    )
-                }
-                if (showNotes) {
-                    items(noteHits, key = { it.id }) { row ->
-                        HelixCard(
-                            Modifier
-                                .fillMaxWidth()
-                                .clickable { selectedNote = row.id }
-                                .testTag("knowledge-note-${row.id}"),
-                        ) {
-                            Column(Modifier.padding(12.dp)) {
-                                Text(row.title)
-                                Text(
-                                    stringResource(
-                                        if (row.state == "REVIEWED") {
-                                            R.string.knowledge_note_reviewed
-                                        } else {
-                                            R.string.knowledge_note_draft
-                                        },
-                                    ),
-                                )
-                            }
-                        }
-                    }
-                } else {
-                    if (hits.isEmpty()) {
-                        item(key = "empty") {
-                            Text(stringResource(R.string.knowledge_empty), style = MaterialTheme.typography.bodyMedium)
-                        }
-                    }
-                    items(hits, key = { it.id }) { row ->
-                        val rowTag = "knowledge-item-${row.id}"
-                        HelixCard(Modifier.fillMaxWidth().clickable { selected = row.id }.testTag(rowTag)) {
-                            Column(Modifier.padding(12.dp)) {
-                                androidx.compose.material3.Checkbox(
-                                    checked = row.id in selectedSources,
-                                    onCheckedChange = { checked ->
-                                        if (!checked) {
-                                            selectedSources = selectedSources - row.id
-                                        } else if (selectedSources.size < 8) {
-                                            selectedSources = selectedSources + row.id
-                                        }
-                                    },
-                                    modifier = Modifier.testTag("knowledge-select-${row.id}"),
-                                )
-                                Text(row.title)
-                                Text(knowledgeStatus(row))
-                                Text(row.sourceUrl.ifBlank { row.source })
-                            }
-                        }
-                    }
-                }
-            }
+                        },
+                    ) { KnowledgeDeleteSources(service, all.filter { it.id in selectedSources }) }
+                },
+                modifier = Modifier.weight(1f),
+            )
         } else {
             TextButton(onClick = { selected = null }, modifier = Modifier.testTag("knowledge-back")) {
                 Text(stringResource(R.string.knowledge_back))
             }
-            KnowledgeDeleteSources(service, listOf(item))
             KnowledgeDetail(item, service, onReference) { createNote(listOf(item.id)) }
         }
     }
 }
 
 @Composable
-private fun knowledgeStatus(item: CollectedSource): String =
+internal fun knowledgeStatus(item: CollectedSource): String =
     stringResource(
         when (item.state) {
             "READY" -> R.string.knowledge_ready
@@ -304,11 +223,11 @@ private fun KnowledgeDetail(
                 Text(stringResource(R.string.knowledge_distill))
             }
         }
+        item { Text(item.title, style = MaterialTheme.typography.headlineSmall) }
         item {
             SelectionContainer {
                 Text(
                     listOf(
-                        item.title,
                         item.sourceUrl,
                         item.source,
                         java.time.Instant
@@ -401,5 +320,6 @@ private fun KnowledgeDetail(
             }
         }
         if (summaryFailed) item { Text(stringResource(R.string.knowledge_capture_failed)) }
+        item { KnowledgeDeleteSources(service, listOf(item)) }
     }
 }

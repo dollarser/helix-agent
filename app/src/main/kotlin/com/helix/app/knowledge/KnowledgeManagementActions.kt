@@ -3,8 +3,11 @@ package com.helix.app.knowledge
 import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -18,12 +21,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.R
-import com.helix.app.ui.SettingsGroup
 import com.helix.core.storage.knowledge.CollectedSource
 import com.helix.core.storage.knowledge.KnowledgeNote
 import kotlinx.coroutines.CancellationException
@@ -33,7 +36,10 @@ import kotlinx.coroutines.withContext
 
 @Composable
 @Suppress("FunctionName")
-internal fun KnowledgeImportAction(service: KnowledgeService) {
+internal fun KnowledgeImportAction(
+    service: KnowledgeService,
+    onNewNote: (() -> Unit)? = null,
+) {
     val enabled by service.agentAccess.enabled.collectAsStateWithLifecycle()
     val accessTitle = stringResource(R.string.knowledge_agent_access_title)
     val picker =
@@ -48,23 +54,47 @@ internal fun KnowledgeImportAction(service: KnowledgeService) {
                 )
             }
         }
-    SettingsGroup {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                accessTitle,
-                Modifier.weight(1f),
-                style = MaterialTheme.typography.titleSmall,
-            )
-            androidx.compose.material3.Switch(
-                checked = enabled,
-                onCheckedChange = service.agentAccess::setEnabled,
-                modifier = Modifier.semantics { contentDescription = accessTitle },
+    var details by androidx.compose.runtime.saveable
+        .rememberSaveable { mutableStateOf(false) }
+    Column {
+        androidx.compose.foundation.layout.FlowRow(Modifier.fillMaxWidth()) {
+            if (onNewNote != null) {
+                TextButton(onNewNote, modifier = Modifier.testTag("knowledge-new-note")) {
+                    Text(stringResource(R.string.knowledge_new_note_action))
+                }
+            }
+            TextButton(onClick = { picker.launch(arrayOf("*/*")) }, modifier = Modifier.testTag("knowledge-import")) {
+                Text(stringResource(R.string.knowledge_import_files))
+            }
+            TextButton(onClick = { details = !details }, modifier = Modifier.testTag("knowledge-library-settings")) {
+                Text(stringResource(R.string.knowledge_library_settings))
+            }
+        }
+        Text(stringResource(R.string.knowledge_local_only), style = MaterialTheme.typography.bodySmall)
+        if (details) {
+            AlertDialog(
+                onDismissRequest = { details = false },
+                title = { Text(stringResource(R.string.knowledge_library_settings)) },
+                text = {
+                    Column(Modifier.verticalScroll(rememberScrollState())) {
+                        Text(stringResource(R.string.knowledge_privacy), style = MaterialTheme.typography.bodySmall)
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Text(accessTitle, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+                            androidx.compose.material3.Switch(
+                                checked = enabled,
+                                onCheckedChange = service.agentAccess::setEnabled,
+                                modifier = Modifier.semantics { contentDescription = accessTitle },
+                            )
+                        }
+                        Text(
+                            stringResource(R.string.knowledge_agent_access),
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                },
+                confirmButton = { TextButton({ details = false }) { Text(stringResource(R.string.knowledge_close)) } },
             )
         }
-        Text(stringResource(R.string.knowledge_agent_access), style = MaterialTheme.typography.bodySmall)
-        TextButton(
-            onClick = { picker.launch(arrayOf("*/*")) },
-        ) { Text(stringResource(R.string.knowledge_import_files)) }
     }
 }
 
