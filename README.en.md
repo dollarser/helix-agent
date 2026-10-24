@@ -39,7 +39,7 @@ Choose **Collect in Helix** (or **Collect in Helix Advanced**) from another app�
 
 Knowledge notes are independent: write directly, distill one source, or select several sources to synthesize. Optional model generation requires choosing a provider/model and confirming the destination and selected content. Its output remains an unreviewed suggestion until you load it into the editor, edit and save a reviewed note. Citation snapshots remain fixed when sources are re-extracted. You can also ask in chat using selected search results without creating a note. Original sources remain in the library; no inbox-clearing workflow is required.
 
-Public pages are fetched without login. Unavailable, title-only, login-dependent or unsupported material is marked incomplete; images are retained without claiming OCR. The library is separate from personal memory and is never automatically injected wholesale into model context. This feature is not yet published; see [HXA-308](docs/development/tasks/HXA-308.md).
+Public pages are fetched without login. Unavailable, title-only, login-dependent or unsupported material is marked incomplete; images are retained without claiming OCR. The library is separate from personal memory and is never automatically injected wholesale into model context. For implementation and validation scope, see [HXA-308](docs/development/tasks/HXA-308.md).
 
 ## Your first task
 
@@ -78,6 +78,8 @@ Supported operations prefer available **Root → Shizuku → Accessibility** bac
 Build editions are separate from conversation permission modes. Subscription adapters require eligible accounts and service-specific testing; they do not imply official provider endorsement. Plans using an API address and key belong under API configuration.
 
 The **[v0.0.7 development preview](https://github.com/dollarser/helix-agent/releases/tag/v0.0.7)** provides ARM64 Standard and Advanced, R8 optimized and non-debuggable, with versionCode 2 and the existing development certificate. The Release body is authoritative for publication status, exact commit, checksums and CI.
+
+Download: [Standard ARM64](https://github.com/dollarser/helix-agent/releases/download/v0.0.7/helix-v0.0.7-consumer-arm64-v8a.apk) · [Advanced ARM64](https://github.com/dollarser/helix-agent/releases/download/v0.0.7/helix-v0.0.7-developer-arm64-v8a.apk)
 
 Install your edition over the existing app without uninstalling or clearing data. Incompatible preview databases require explicit on-device confirmation; cancellation preserves data. Built-in models require account login. Custom APIs, supported subscriptions and downloaded local models remain available without a Helix account. Offline ASR/TTS weights are downloaded on demand.
 

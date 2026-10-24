@@ -25,7 +25,7 @@
 - 合成语音同一 PCM 的 HTTP/WS 传输通过，但“接入→接助”等字词差异仍在；TTS 服务全局单会话及排队/取消收尾需要服务端配合。模拟音频、播放控制和网络测试不代表真实麦克风/耳机体验。
 - 原位文件、Binder/Room 登记、失败日志及原调用不重发已有后续模拟器/模型证据，不能继续按最初“未做设备”阶段重开实现。完整 OEM/低内存/全部 Runtime 矩阵未由此覆盖。
 - 早期 OnePlus 的本地终端/模型验证范围见[真机记录](../evidence/development/physical-workspace-model-2026-10-19.md)。手机活动终端覆盖安装恢复、横竖屏/字体矩阵仍未由该记录覆盖；不继承当时设备或删数据授权。
-- v0.0.6 是[既有发布](../evidence/development/v0.0.6-publication-2026-10-18.md)，不是当前任意工作区的 Release 通过证据。日常迭代用 Debug；发行另验签名、升级、渠道和 R8，见[发行就绪](release-readiness.md)。
+- v0.0.7 ARM64 双渠道开发预览已发布，精确构建来源与分开的 CI/模拟器证据见[发布记录](../evidence/development/v0.0.7-publication-2026-10-24.md)。新知识库前端提案尚未接入，不属于该 APK；后续工作区修改也不继承发行通过。日常迭代用 Debug，发行边界见[发行就绪](release-readiness.md)。
 
 ## 仍开放与未启动
 

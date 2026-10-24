@@ -53,7 +53,7 @@ Mobile Use 是可选插件，浏览器、文件和工具各有自己的授权边
 提醒页的独立“定时 Agent 分析与检索”入口可明确选择已有结果会话，核对任务、模型目标、工作区和固定时区后保存/启用。首版仅只读 PLAN；现有会话上下文和读取结果可能发送至所选云端模型，本地保存规则不等于本地推理。最大运行时长逐规则确认（初始 120 秒，可调整），到期请求停止并等待实际退出；Android 可能更早中断。每次模型请求最多输出 2048 token；WorkManager 近似唤醒，超出 15 分钟记错过，不补跑。暂停未来与停止当前分开，失败/中断/未知不会自动重试；明确重试仍须核对原范围与未决效果。见 [HXA-314](docs/development/tasks/HXA-314.md)。
 
 1. 从 [Releases](https://github.com/dollarser/helix-agent/releases) 下载 APK，按 Android 提示安装。版本说明和 APK 校验值以对应发布页正文为准。
-2. 当前本地开发版会在对话模型选择中动态获取 **Helix 内置模型**目录，现需在设置或对话选模中登录 Helix 账号，无需填写 API Key；目录列出不代表推理连接已通过。它使用项目云端服务，账号权限与额度由服务端管理，消息、上下文、工具结果及所选图片会发送至服务端。未登录时仅可在**模型**中配置自己的 API、订阅或下载本地模型；已有选择不会覆盖。此前公开标识阶段已验证内置文字、图片和有界文件任务，当前账号验证另行记录；服务实时状态仍以实际请求为准。内置服务的历史验收范围见[HXA-307](docs/development/tasks/HXA-307.md)，当前账号契约与验证见[账号接入记录](docs/development/account-login-integration.md)。
+2. v0.0.7 会在对话模型选择中动态获取 **Helix 内置模型**目录，现需在设置或对话选模中登录 Helix 账号，无需填写 API Key；目录列出不代表推理连接已通过。它使用项目云端服务，账号权限与额度由服务端管理，消息、上下文、工具结果及所选图片会发送至服务端。未登录时仅可在**模型**中配置自己的 API、订阅或下载本地模型；已有选择不会覆盖。此前公开标识阶段已验证内置文字、图片和有界文件任务，当前账号验证另行记录；服务实时状态仍以实际请求为准。内置服务的历史验收范围见[HXA-307](docs/development/tasks/HXA-307.md)，当前账号契约与验证见[账号接入记录](docs/development/account-login-integration.md)。
 3. 新建会话并选择模型，从一个简单文件任务开始：
 
 ```text
@@ -84,6 +84,8 @@ Mobile Use 是可选插件，浏览器、文件和工具各有自己的授权边
 安装包渠道与会话权限模式是不同概念。第三方订阅适配需要对应账号权益，兼容性逐服务验证，不代表服务提供商官方授权。使用 API 地址与 Key 的套餐仍属于 API 配置。
 
 **[v0.0.7 开发预览版](https://github.com/dollarser/helix-agent/releases/tag/v0.0.7)** 提供 ARM64 Standard 与 Advanced，R8 优化、不可调试，内部版本码 2，沿用原开发证书。发布状态、精确提交、校验值与 CI 以 Release 正文为准。
+
+下载：[Standard ARM64](https://github.com/dollarser/helix-agent/releases/download/v0.0.7/helix-v0.0.7-consumer-arm64-v8a.apk) · [Advanced ARM64](https://github.com/dollarser/helix-agent/releases/download/v0.0.7/helix-v0.0.7-developer-arm64-v8a.apk)
 
 同渠道手动覆盖安装，勿先卸载或清数据；不兼容预览数据库须现场明确确认，取消保留数据。账号登录后可用内置模型，未登录仍可使用自配 API、渠道允许的订阅或下载本地模型。离线 ASR/TTS 权重按需下载，不随安装包打包。
 
