@@ -2,6 +2,8 @@ package com.helix.app.chat
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import com.helix.app.application.context.SystemPromptContext
+import com.helix.app.infrastructure.prompt.packagedPromptTemplates
 import com.helix.app.memory.MemoryService
 import com.helix.app.projects.ProjectService
 import com.helix.core.agent.TrustLevel
@@ -66,7 +68,7 @@ class MemoryPromptDeviceTest {
                     "SECOND_MEMORY",
                     "new",
                 )
-                val builder = SystemPromptContext(storage, { "" }, memory = memory)
+                val builder = SystemPromptContext(storage, { "" }, packagedPromptTemplates, memory = memory)
                 listOf(a, b).forEach { session ->
                     storage.sessionPermissionConfigs.setForSession(
                         session,
@@ -75,15 +77,18 @@ class MemoryPromptDeviceTest {
                     )
                 }
                 val directory = FileScopePath.fromModelReference(shared)
-                val promptA = builder.build(a, AgentMode.ACT, false, true, directory = directory)
-                val promptB = builder.build(b, AgentMode.ACT, false, true, directory = directory)
+                val promptA = builder.build(a, AgentMode.ACT, setOf("memory.read"), directory = directory)
+                val promptB = builder.build(b, AgentMode.ACT, setOf("memory.read"), directory = directory)
                 assertTrue(promptA.content.contains("FIRST_MEMORY"))
                 assertTrue(promptA.content.contains("FIRST_INSTRUCTIONS"))
                 assertFalse(promptA.content.contains("SECOND_MEMORY"))
                 assertFalse(promptA.content.contains("SECOND_INSTRUCTIONS"))
                 assertTrue(promptB.content.contains("SECOND_MEMORY"))
                 assertFalse(promptB.content.contains("FIRST_MEMORY"))
-                assertEquals(TrustLevel.UNTRUSTED, promptA.sections.single { it.name == "memory.context" }.trust)
+                assertEquals(
+                    TrustLevel.UNTRUSTED,
+                    promptA.sections.single { it.name == "memory.summary.project" }.trust,
+                )
                 assertEquals(storage.sessions.resolve(a).directoryRef, storage.sessions.resolve(b).directoryRef)
             } finally {
                 storage.close()
@@ -111,14 +116,13 @@ class MemoryPromptDeviceTest {
                 FileScopePath.fromModelReference(
                     requireNotNull(storage.sessions.resolve("session").directoryRef),
                 )
-            val builder = SystemPromptContext(storage, { "" }, memory = service)
+            val builder = SystemPromptContext(storage, { "" }, packagedPromptTemplates, memory = service)
             assertFalse(
                 builder
                     .build(
                         "session",
                         AgentMode.ACT,
-                        false,
-                        true,
+                        setOf("memory.read"),
                         directory = path,
                     ).content
                     .contains("MEMORY_FIXTURE_CONTENT"),
@@ -128,17 +132,16 @@ class MemoryPromptDeviceTest {
                 SessionPermissionConfig.of(SessionPermissionMode.FULL_ACCESS),
                 2,
             )
-            val enabled = builder.build("session", AgentMode.ACT, false, true, directory = path)
+            val enabled = builder.build("session", AgentMode.ACT, setOf("memory.read"), directory = path)
             assertTrue(enabled.content.contains("MEMORY_FIXTURE_CONTENT"))
-            assertEquals(TrustLevel.UNTRUSTED, enabled.sections.single { it.name == "memory.context" }.trust)
+            assertEquals(TrustLevel.UNTRUSTED, enabled.sections.single { it.name == "memory.summary.global" }.trust)
             flags["enabled"] = false
             assertFalse(
                 builder
                     .build(
                         "session",
                         AgentMode.ACT,
-                        false,
-                        true,
+                        setOf("memory.read"),
                         directory = path,
                     ).content
                     .contains("MEMORY_FIXTURE_CONTENT"),

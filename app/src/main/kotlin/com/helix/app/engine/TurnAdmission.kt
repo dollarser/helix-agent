@@ -2,8 +2,8 @@ package com.helix.app.engine
 
 import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
-import com.helix.app.chat.GoalRunCoordinator
-import com.helix.app.chat.GoalTurnStart
+import com.helix.app.application.agent.GoalRunCoordinator
+import com.helix.app.application.agent.GoalTurnStart
 import com.helix.core.agent.GoalWakeReason
 import com.helix.core.agent.RunControlConfig
 import com.helix.core.model.AgentMode

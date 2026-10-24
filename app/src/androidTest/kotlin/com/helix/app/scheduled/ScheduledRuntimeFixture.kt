@@ -67,8 +67,21 @@ internal class ScheduledRuntimeFixture(
 
     init {
         BuiltInModelRegistration.ensureRegistered(storage)
-        val status = ProviderTestStatusStore(InMemoryLineStore())
+        // Only a supplied mock wire gets a synthetic account binding. The optional real-wire
+        // path retains the signed-out default and must satisfy real account authorization.
+        val status =
+            if (wire == null) {
+                ProviderTestStatusStore(InMemoryLineStore())
+            } else {
+                ProviderTestStatusStore(InMemoryLineStore(), accountIdentity = { "synthetic-scheduled-account" })
+            }
         status.builtInCatalog.save(BuiltInModelCatalog(System.currentTimeMillis(), listOf(BuiltInModel.MODEL_ID)))
+        if (wire != null) {
+            check(status.builtInCatalog.accountAvailable()) { "Mock scheduled fixture requires its synthetic identity" }
+            check(BuiltInModel.MODEL_ID in status.builtInCatalog.read().models) {
+                "Mock catalog must be bound to the same synthetic identity"
+            }
+        }
         val factory =
             if (wire == null) {
                 ProviderFactory({ error("No user credentials") }, ProviderFactory.defaultWire(), { error("No images") })

@@ -1,5 +1,6 @@
 package com.helix.app.chat
 
+import com.helix.app.application.agent.GoalRoundAllowance
 import com.helix.app.goal.toRuntimeGoal
 import com.helix.app.goal.toStoredGoal
 import com.helix.core.agent.GoalEvent

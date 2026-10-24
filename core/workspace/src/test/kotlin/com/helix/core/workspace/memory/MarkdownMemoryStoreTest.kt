@@ -96,10 +96,12 @@ class MarkdownMemoryStoreTest {
     @Test fun summaryOnlyContextIsBoundedAndTopicsRequireExplicitDiscovery() {
         store().write(global, "memory_summary.md", text("Prefer concise Chinese responses."), "new")
         store().write(global, "user.md", text("TOPIC_NOT_PRELOADED"), "new")
-        val context = MemoryContext.render(store(), listOf(global))
+        val snapshot = MemoryContext.snapshot(store(), listOf(global))
+        val context = snapshot.summaries.joinToString { it.markdown }
         assertTrue(context.contains("Prefer concise Chinese"))
         assertFalse(context.contains("TOPIC_NOT_PRELOADED"))
-        assertTrue(context.contains("UNTRUSTED_MEMORY"))
+        assertEquals(global, snapshot.summaries.single().scope)
+        assertEquals(store().read(global, "memory_summary.md").hash, snapshot.summaries.single().sourceHash)
         assertTrue(context.toByteArray().size <= MemoryContext.MAX_CONTEXT_BYTES)
         assertEquals("user.md", store().search(global, "TOPIC_NOT_PRELOADED").single().path)
     }
@@ -115,6 +117,8 @@ class MarkdownMemoryStoreTest {
 
     @Test fun unavailableSummaryDoesNotBlockContextOrLoadOtherFiles() {
         store().write(global, "user.md", text("not preloaded"), "new")
-        assertFalse(MemoryContext.render(store(), listOf(global)).contains("not preloaded"))
+        assertFalse(
+            MemoryContext.snapshot(store(), listOf(global)).summaries.any { it.markdown.contains("not preloaded") },
+        )
     }
 }

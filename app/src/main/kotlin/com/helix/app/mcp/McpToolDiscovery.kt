@@ -193,43 +193,44 @@ internal class McpToolDiscovery(
             .values
             .map { it.maxBy { version -> version.version.value } }
 
-    /** Same admitted snapshot as this request's schemas; metadata is data, never permission. */
-    fun catalog(sessionId: String): String? {
+    /** Same admitted snapshot as the schemas; capture facts before the App prompt projection. */
+    fun catalog(sessionId: String): ToolSourceCatalogSnapshot? {
         val admitted = synchronized(this) { admittedWindows[sessionId]?.toList().orEmpty() }
-        val rows =
+        val groups =
             admitted
                 .filter { availability(sessionId, it) }
-                .map(ToolDiscoveryMetadata::of)
-                .groupBy { it.source }
+                .groupBy { ToolDiscoveryMetadata.of(it).source }
                 .toSortedMap()
-                .map { (source, tools) ->
-                    buildJsonObject {
-                        put("source", JsonPrimitive(source))
-                        put(
-                            "categories",
-                            JsonArray(
-                                tools
-                                    .map { it.category }
-                                    .distinct()
-                                    .sorted()
-                                    .map(::JsonPrimitive),
-                            ),
-                        )
-                    }.toString()
-                }
-        if (rows.isEmpty()) return null
-        val included = mutableListOf<String>()
+        if (groups.isEmpty()) return null
+        val included = mutableListOf<ToolSourceCatalogEntry>()
         var bytes = 0
-        for (row in rows) {
-            val size = row.toByteArray(Charsets.UTF_8).size + 1
+        for ((source, descriptors) in groups) {
+            val versions =
+                descriptors.sortedBy { it.name.value }.joinToString(
+                    "\n",
+                ) { "${it.name.value}@${it.version.value}" }
+            val revision =
+                java.security.MessageDigest
+                    .getInstance("SHA-256")
+                    .digest(versions.toByteArray(Charsets.UTF_8))
+                    .joinToString("") { "%02x".format(it) }
+            val row =
+                ToolSourceCatalogEntry(
+                    source,
+                    descriptors.map { ToolDiscoveryMetadata.of(it).category }.distinct().sorted(),
+                    revision,
+                )
+            val size =
+                row
+                    .facts()
+                    .toString()
+                    .toByteArray(Charsets.UTF_8)
+                    .size + 1
             if (bytes + size > CATALOG_BYTES) break
             included += row
             bytes += size
         }
-        return "[TOOL SOURCES: metadata only; use tools.search for callable schemas]\n" +
-            included.joinToString("\n") +
-            (if (included.size < rows.size) "\nMore sources are searchable; directory summary truncated." else "") +
-            "\n[/TOOL SOURCES]"
+        return ToolSourceCatalogSnapshot(included.toList(), groups.size - included.size)
     }
 
     fun register(

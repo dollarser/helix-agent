@@ -14,7 +14,7 @@ import com.helix.core.storage.HelixStorage
  * The goal system prompt is assembled through [PromptRegistry] (HX2-04): the ad-hoc block
  * becomes ordered, scoped sections — identity, protocol, safety, the PROJECT section, the
  * objective — so the goal path rides the SAME registry every mode assembles through. The
- * production entry ([com.helix.app.chat.SystemPromptContext]) registers these AFTER the
+ * production entry ([com.helix.app.application.context.SystemPromptContext]) registers these AFTER the
  * environment sections, so the harness invariants always precede the goal's own text.
  * [projectInstructionsProvider] is invoked ONLY once the active durable goal is confirmed, so a
  * non-goal turn never touches the workspace file read; it yields "" when the session carries no
@@ -102,16 +102,16 @@ internal fun planStepsSection(plan: PlanArtifact): String =
 // project → objective). Content is unchanged from the prior ad-hoc block; only the assembly path
 // (one registry) and the section boundaries moved.
 private val IDENTITY =
-    com.helix.app.chat.packagedPromptTemplates
+    com.helix.app.infrastructure.prompt.packagedPromptTemplates
         .text("goal-identity")
         .trim()
 
 private val PROTOCOL =
-    com.helix.app.chat.packagedPromptTemplates
+    com.helix.app.infrastructure.prompt.packagedPromptTemplates
         .text("goal-protocol")
         .trim()
 
 private val SAFETY =
-    com.helix.app.chat.packagedPromptTemplates
+    com.helix.app.infrastructure.prompt.packagedPromptTemplates
         .text("goal-safety")
         .trim()

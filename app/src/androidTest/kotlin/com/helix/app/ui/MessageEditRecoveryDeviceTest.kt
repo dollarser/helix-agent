@@ -3,8 +3,8 @@ package com.helix.app.ui
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import com.helix.app.MainActivity
 import com.helix.app.agent.TurnStartSpec
+import com.helix.app.application.agent.TurnInputFingerprint
 import com.helix.app.chat.ChatSubmission
-import com.helix.app.chat.TurnInputFingerprint
 import com.helix.app.chat.toInputSnapshot
 import com.helix.app.engine.TurnAdmissionResult
 import com.helix.app.engine.TurnEngine

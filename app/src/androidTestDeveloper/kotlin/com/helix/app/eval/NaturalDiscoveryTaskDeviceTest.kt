@@ -3,6 +3,7 @@ package com.helix.app.eval
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.HelixApplication
+import com.helix.app.proot.diagnosticJson
 import com.helix.app.provider.BuiltInModel
 import com.helix.core.agent.SubmitTurnCommand
 import com.helix.core.model.AgentMode
@@ -143,7 +144,12 @@ class NaturalDiscoveryTaskDeviceTest {
                             put("modelCalls", modelCalls.size)
                             if (writable) put("extraCalls", (calls.size - 2).coerceAtLeast(0))
                             put("successfulArchives", archives)
-                            put("catalog", c.toolPipeline.mcpDiscovery.catalog(session))
+                            put(
+                                "catalog",
+                                c.toolPipeline.mcpDiscovery
+                                    .catalog(session)
+                                    .diagnosticJson(),
+                            )
                             put(
                                 "calls",
                                 JsonArray(

@@ -18,6 +18,7 @@ internal class HeadlessTurnJournal : AgentTurnJournal {
     val log = mutableListOf<String>()
     var failManifest = false
     var compactions = 0
+    val promptSnapshots = mutableListOf<Pair<PromptSnapshot?, Boolean>>()
 
     override fun snapshot() = runtime.snapshot()
 
@@ -44,8 +45,8 @@ internal class HeadlessTurnJournal : AgentTurnJournal {
         prompt: PromptSnapshot?,
         compacting: Boolean,
     ) {
-        log +=
-            "prompt:${snapshot().modelCallId}"
+        promptSnapshots += prompt to compacting
+        log += "prompt:${snapshot().modelCallId}"
     }
 
     override suspend fun recordRequestManifest(manifestJson: String?) {

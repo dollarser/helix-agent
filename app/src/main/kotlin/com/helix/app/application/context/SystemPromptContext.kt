@@ -1,4 +1,4 @@
-package com.helix.app.chat
+package com.helix.app.application.context
 
 import com.helix.app.goal.registerGoalPromptSections
 import com.helix.core.agent.PromptRegistry
@@ -26,21 +26,27 @@ import com.helix.core.storage.repository.ExpertProfile
 internal class SystemPromptContext(
     private val storage: HelixStorage,
     private val projectInstructionsReader: (com.helix.core.workspace.FileScopePath) -> String,
-    private val templates: PromptTemplateSource = packagedPromptTemplates,
+    private val templates: PromptTemplateSource,
     private val memory: com.helix.app.memory.MemoryService? = null,
 ) {
     fun build(
         sessionId: String,
         mode: AgentMode,
-        fileToolsAvailable: Boolean,
-        toolsAvailable: Boolean,
+        toolNames: Set<String>,
         expert: ExpertProfile? = null,
         directory: com.helix.core.workspace.FileScopePath,
-        pluginInstructions: String? = null,
+        contents: List<PromptSection> = emptyList(),
     ): PromptSnapshot {
         val registry = PromptRegistry()
-        registerEnvironment(registry, directory, mode, fileToolsAvailable, pluginInstructions)
-        if (toolsAvailable) {
+        PromptEnvironmentSections.register(
+            registry,
+            directory,
+            mode,
+            toolNames.any { it in FILE_TOOL_NAMES },
+            templates,
+        )
+        contents.forEach(registry::register)
+        if (toolNames.isNotEmpty()) {
             registry.register(
                 PromptSection(
                     name = "tool.presentation",
@@ -48,10 +54,29 @@ internal class SystemPromptContext(
                     scope = PromptScope.TOOL,
                     source = PromptSource.BUILTIN_TEMPLATE,
                 ) {
-                    ToolPresentationMetadata.PROMPT_GUIDANCE
+                    templates.text("tool-presentation").trim()
                 },
             )
         }
+        registerExpert(registry, expert)
+        registerProject(registry, sessionId)
+        registerMemory(registry, sessionId, toolNames)
+        val projectInstructions = { authorizedProjectInstructions(sessionId, directory) }
+        val goal = storage.registerGoalPromptSections(sessionId, projectInstructions, registry)
+        if (!goal) {
+            registry.register(
+                PromptSection("workspace.project", 200, PromptScope.PROJECT, PromptSource.WORKSPACE_INSTRUCTION) {
+                    projectInstructions()
+                },
+            )
+        }
+        return registry.resolveAndAssemble()
+    }
+
+    private fun registerExpert(
+        registry: PromptRegistry,
+        expert: ExpertProfile?,
+    ) {
         expert?.let { profile ->
             registry.register(
                 PromptSection(
@@ -81,34 +106,7 @@ internal class SystemPromptContext(
                 },
             )
         }
-        registerProject(registry, sessionId)
-        registerMemory(registry, sessionId)
-        val projectInstructions = { authorizedProjectInstructions(sessionId, directory) }
-        val goal = storage.registerGoalPromptSections(sessionId, projectInstructions, registry)
-        if (!goal) {
-            registry.register(
-                PromptSection("workspace.project", 200, PromptScope.PROJECT, PromptSource.WORKSPACE_INSTRUCTION) {
-                    projectInstructions()
-                },
-            )
-        }
-        return registry.resolveAndAssemble()
     }
-
-    private fun registerEnvironment(
-        registry: PromptRegistry,
-        directory: com.helix.core.workspace.FileScopePath,
-        mode: AgentMode,
-        fileToolsAvailable: Boolean,
-        pluginInstructions: String?,
-    ) = PromptEnvironmentSections.register(
-        registry,
-        directory,
-        mode,
-        fileToolsAvailable,
-        templates,
-        pluginInstructions,
-    )
 
     private fun registerProject(
         registry: PromptRegistry,
@@ -127,21 +125,60 @@ internal class SystemPromptContext(
     private fun registerMemory(
         registry: PromptRegistry,
         sessionId: String,
+        toolNames: Set<String>,
     ) {
+        val permissions =
+            storage.sessionPermissionConfigs.forSession(sessionId) ?: storage.sessionPermissionConfigs.appDefault()
+        if (permissions.ruleFor(com.helix.core.model.OperationEffect.FILE_READ_EXTERNAL) !=
+            com.helix.core.model.OperationRule.ALLOW
+        ) {
+            return
+        }
+        val snapshot = memory?.contextSnapshot(sessionId) ?: return
         registry.register(
-            PromptSection("memory.context", 250, PromptScope.PROJECT, PromptSource.EXTERNAL_CONTENT) {
-                val permissions =
-                    storage.sessionPermissionConfigs.forSession(sessionId)
-                        ?: storage.sessionPermissionConfigs.appDefault()
-                if (permissions.ruleFor(com.helix.core.model.OperationEffect.FILE_READ_EXTERNAL) ==
-                    com.helix.core.model.OperationRule.ALLOW
-                ) {
-                    memory?.context(sessionId).orEmpty()
-                } else {
-                    ""
-                }
+            PromptSection("memory.guidance", 249, PromptScope.PROJECT, PromptSource.EXTERNAL_CONTENT) {
+                "[UNTRUSTED_MEMORY]\n${com.helix.core.workspace.memory.MemoryContext.GUIDANCE}\n[/UNTRUSTED_MEMORY]"
             },
         )
+        snapshot.summaries.forEachIndexed { index, summary ->
+            val project = summary.scope as? com.helix.core.workspace.memory.MemoryScope.Project
+            val scope = if (project == null) "global" else "project"
+            val resourceOwner = project?.key?.value?.let { "memory:project:$it" } ?: "memory:global"
+            val readReference =
+                if ("memory.read" in toolNames) {
+                    com.helix.core.agent.PromptContentReadReference(
+                        "memory.read",
+                        kotlinx.serialization.json
+                            .buildJsonObject {
+                                put("scope", kotlinx.serialization.json.JsonPrimitive(scope))
+                                put("path", kotlinx.serialization.json.JsonPrimitive("memory_summary.md"))
+                            }.toString(),
+                    )
+                } else {
+                    null
+                }
+            registry.register(
+                PromptSection(
+                    name = "memory.summary.$scope",
+                    order = 250 + index,
+                    scope = PromptScope.PROJECT,
+                    source = PromptSource.EXTERNAL_CONTENT,
+                    retention = com.helix.core.agent.PromptContentRetention.OPTIONAL,
+                    priority = 50,
+                    identity =
+                        com.helix.core.agent.PromptContentIdentity(
+                            resourceOwner,
+                            summary.sourceHash,
+                            "memory_summary.md",
+                        ),
+                    readReference = readReference,
+                ) {
+                    "[UNTRUSTED_MEMORY scope=$scope sourceHash=${summary.sourceHash} " +
+                        "prefixTruncated=${summary.truncated}]\n" +
+                        summary.markdown + "\n[/UNTRUSTED_MEMORY]"
+                },
+            )
+        }
     }
 
     private fun authorizedProjectInstructions(
@@ -157,5 +194,9 @@ internal class SystemPromptContext(
         } else {
             ""
         }
+    }
+
+    private companion object {
+        val FILE_TOOL_NAMES = setOf("read", "view_image", "write", "edit", "files.list", "files.stat", "files.search")
     }
 }

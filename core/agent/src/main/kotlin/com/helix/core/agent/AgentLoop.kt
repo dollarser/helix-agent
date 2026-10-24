@@ -38,8 +38,9 @@ class AgentLoop(
     private val events: AgentLoopEvents,
     private val clock: Clock,
     private val idGenerator: () -> String,
-    private val beforeModelStream:
-        (suspend (String, String, com.helix.provider.api.ProviderDescriptor, ModelRequest) -> Unit)? = null,
+    private val beforeModelStream: (
+        suspend (String, String, com.helix.provider.api.ProviderDescriptor, ModelRequest) -> Unit
+    )? = null,
 ) {
     enum class Entry { INITIAL, BACKFILL }
 
@@ -99,6 +100,8 @@ class AgentLoop(
                 context = contextAssembler.buildBackfill(sessionId, turnId, control)
             }
             if (finalResponsePending) context = context.copy(tools = emptyList())
+            val prepared = compactionRound.prepare(context)
+            context = prepared.context
             coordinator.recordDiagnostic(
                 "budget.request",
                 RequestBudgetDiagnostics.request(
@@ -110,7 +113,6 @@ class AgentLoop(
                     contextSettings.windowSource,
                 ),
             )
-            val prepared = compactionRound.prepare(context)
             prepared.failure?.let {
                 coordinator.recordDiagnostic(
                     "budget.result",
@@ -173,7 +175,7 @@ class AgentLoop(
                     provider,
                     request,
                     compaction == null,
-                    context.prompt,
+                    if (compaction == null) context.prompt else summaryPromptSnapshot(request),
                     sessionId,
                     if (compaction == null) context.sourceMessageIds else emptySet(),
                     manifestJson,

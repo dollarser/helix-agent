@@ -1333,6 +1333,28 @@ Mobile Use 首要验收对象仍是 `观察 → 动作 → 新观察 → 模型�
 
 模块按依赖方向、领域归属及可独立验证性划分；可以增删、合并或重组现有 Gradle module，但每次变动须解决明确的依赖或测试边界问题。既不预设“首轮不新增模块”，也不因分层图有一个框就建一个模块。框架、进程和远程执行域仍需各自真实需求，移动目录不构成隔离保证。
 
+#### 阶段 1 的目录落点与迁移次序
+
+2026-10-24 owner 追加要求：目录随真实职责重组，不兼容旧包名。当前 `app/chat` 混合页面投影、Turn 命令和请求组装；`core/storage` 的名称也不能掩盖其 Room/Android 基础设施属性。以下是迁移目标，不表示这些目录和依赖已经全部落地：
+
+```text
+app/
+  composition / Android lifecycle / presentation
+  application/agent       # 提交、停止、队列与恢复入口；不拥有第二套 Turn 事实
+  application/context     # 内容源映射、请求组装；不加载 classpath/访问 UI
+  infrastructure/prompt   # 打包模板加载等宿主实现
+core/agent                # 宿主中立 Loop、Turn 协调和所需领域端口
+core/model, workspace     # 已有领域值与契约；不导入 App/Compose/Room
+storage adapters          # Room 原子命令实现；实际模块迁移随领域端口收敛
+extensions/*, runtime/*   # 插件贡献和执行适配，保持真实隔离边界
+```
+
+依赖从装配/展示进入应用命令，应用命令调用领域契约；基础设施实现契约，由装配注入。领域层不得反向引用 App、Room 或 UI。局部展开、滚动和导航状态不提升为领域事实；配置、执行身份和 Turn 终态仍各自只有既有持久权威。
+
+先完成内容贡献和停止命令的行为替换及测试，再迁移纯上下文文件族与模板加载实现；提交/队列/恢复三入口随后一起收敛，最后按真实端口拆离 Turn 与 Room。每片迁移同步 package/import、测试、脚本及导航链接，检查 DI、Manifest、反射、序列化和变体引用，删除旧路径而不留下纯转发别名。共享文件由一个写入者迁移，不移动其他执行者正在编辑的文件。`core/storage` 的物理重命名不能先于其真实适配职责裁决，也不能以迁移为由清除用户数据。
+
+退出条件除编译和行为回归外，还包括：旧路径无有效引用、依赖方向检查通过、相同命令仍落在同一事务/权限/取消边界、没有新增事实源或新旧双入口。应用 ID、签名和发布的 v0.0.7 不受目录迁移影响。
+
 **完整 Turn 领域宿主抽离纳入本提案的完成目标。**当前 TurnEngine/TurnExecutionDriver 直接依赖 HelixStorage，AppAgentRuntime 的 submit/cancel 仍回调 ChatService；消除持久细节泄漏、让统一应用入口脱离页面服务、运行完整无页面契约测试，已构成本地价值，无需等待第二个产品消费者。抽离范围覆盖准入、执行驱动、停止、park/review、终态与恢复的领域协调；Android 生命周期、Room 和通知等实际适配留在基础设施。验收依据是依赖消除和完整行为可测，不是仅把代码搬进纯 JVM 目录。
 
 在 AgentTurnStore/AgentTurnJournal 已有领域契约上重组或扩展，把准入、cancel、park、终态/Goal 联动定义为**原子领域命令**，由 Room 适配提交。保留已验证的原子性和归属约束，不冻结原 DAO 布局；不得暴露通用 DAO 或让外部 `withTransaction` lambda 夹带跨层状态。Steer 与最终答复、首 ModelCall 与 step、GoalRun 与 Turn 的原事务不可拆散。内存测试实现只用于契约验证，不成为生产事实源；同一套领域断言还需检验真实 Room 适配。

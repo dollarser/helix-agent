@@ -5,6 +5,8 @@ import androidx.test.core.app.ApplicationProvider
 import com.helix.app.agent.GoalDetachedBudget
 import com.helix.app.agent.GoalTimeBudget
 import com.helix.app.agent.TurnStartSpec
+import com.helix.app.application.agent.GoalRunCoordinator
+import com.helix.app.application.agent.GoalTurnStart
 import com.helix.core.agent.GoalWakeReason
 import com.helix.core.model.Clock
 import com.helix.core.model.GoalBudgets

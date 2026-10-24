@@ -94,26 +94,128 @@ class PluginRegistryTest {
                 userActivations = { _, _ -> activations },
             )
         val key = repository.list("s").single().key
-        val discovered = requireNotNull(registry.instructions(repository, "s", "turn"))
-        assertTrue(discovered.startsWith("Mandatory rule"))
-        assertTrue(discovered.contains("SKILL CATALOG"))
-        assertTrue(!discovered.contains("Observe before acting"))
+        val discovered = registry.contentContributions(repository, "s", "turn")
+        assertEquals(
+            "Mandatory rule",
+            discovered.filterIsInstance<PluginContentContribution.RequiredInstructions>().single().text,
+        )
+        assertEquals(key, discovered.filterIsInstance<PluginContentContribution.SkillCatalog>().single().key)
+        assertTrue(discovered.none { it is PluginContentContribution.ActivatedSkill })
         val activation = repository.prepareUserActivation(key, "s", "user argument")
         activations = listOf(activation, activation)
-        val text = requireNotNull(registry.instructions(repository, "s", "turn"))
-        assertEquals(1, Regex("Observe before acting").findAll(text).count())
-        assertTrue(text.contains("@${key.snapshotHash}"))
-        assertTrue(text.contains("user argument"))
-        assertEquals(discovered, registry.instructions(repository, "s"))
+        val activated =
+            registry
+                .contentContributions(repository, "s", "turn")
+                .filterIsInstance<PluginContentContribution.ActivatedSkill>()
+                .single()
+        assertEquals(key, activated.key)
+        assertEquals(guide.body, activated.body)
+        assertEquals("user argument", activated.acceptedArguments)
+        assertEquals(listOf("fixture"), activated.owners.map { it.pluginId })
+        assertEquals(discovered, registry.contentContributions(repository, "s"))
         repository.setEnabled(key, false, com.helix.extensions.skills.SkillEnablementScope.SESSION, "s")
-        assertThrows(IllegalArgumentException::class.java) { registry.instructions(repository, "s", "turn") }
+        assertThrows(IllegalArgumentException::class.java) { registry.contentContributions(repository, "s", "turn") }
         activations = emptyList()
-        assertEquals("Mandatory rule", registry.instructions(repository, "s", "next"))
+        val disabled = registry.contentContributions(repository, "s", "next")
+        assertEquals(1, disabled.size)
+        assertEquals("Mandatory rule", (disabled.single() as PluginContentContribution.RequiredInstructions).text)
         catalog.selections.clear()
-        assertEquals(null, registry.instructions(repository, "s", "next"))
+        assertTrue(registry.contentContributions(repository, "s", "next").isEmpty())
         assertThrows(IllegalArgumentException::class.java) { repository.read(key, "s") }
         activations = listOf(activation.copy(key = key.copy(snapshotHash = "missing")))
-        assertThrows(IllegalArgumentException::class.java) { registry.instructions(repository, "s", "next") }
+        assertThrows(IllegalArgumentException::class.java) { registry.contentContributions(repository, "s", "next") }
+    }
+
+    @Test fun contributionIdentitySurvivesEqualTextAndSelectionRevocation() {
+        val catalog = MemoryNativePluginCatalog()
+        val registry = PluginRegistry(ToolRegistry(), catalog)
+        listOf("first", "second").forEach { id ->
+            val base = plugin(id)
+            registry.register(
+                object : HelixPlugin by base {
+                    override val requiredInstructions = "Same external instruction"
+                },
+            )
+            catalog.selections["s" to id] = "selection-$id"
+        }
+        val root =
+            java.nio.file.Files
+                .createTempDirectory("content-identity")
+        val repository =
+            com.helix.extensions.skills.SkillRepository(
+                root.resolve("snapshots"),
+                root.resolve("state"),
+                root.resolve("trash"),
+                builtIns = emptyList(),
+            )
+        val before =
+            registry
+                .contentContributions(repository, "s")
+                .filterIsInstance<PluginContentContribution.RequiredInstructions>()
+        assertEquals(listOf("first", "second"), before.map { it.owner.pluginId })
+        assertEquals(1, before.map { it.contentHash }.distinct().size)
+        assertTrue(before.all { it.owner.revision > 0 && it.owner.fingerprint.isNotBlank() })
+        catalog.selections.remove("s" to "first")
+        assertEquals(
+            listOf("second"),
+            registry
+                .contentContributions(repository, "s")
+                .filterIsInstance<PluginContentContribution.RequiredInstructions>()
+                .map { it.owner.pluginId },
+        )
+        assertEquals(2, before.size)
+        registry.setEnabled("second", false)
+        assertTrue(registry.contentContributions(repository, "s").isEmpty())
+    }
+
+    @Test fun hostCatalogMetadataIsExplicitAndCannotBeGrantedByImportedFrontmatter() {
+        val catalog = MemoryNativePluginCatalog()
+        val registry = PluginRegistry(ToolRegistry(), catalog)
+        val trusted = skill("different-host-name").copy(hostCatalogued = true)
+        val spoofed =
+            skill("helix-docs").copy(
+                catalogEntry =
+                    skill("helix-docs").catalogEntry.copy(
+                        source = com.helix.extensions.skills.SkillSource.USER_IMPORTED,
+                    ),
+                hostCatalogued = true,
+                additionalFields = mapOf("hostCatalogued" to true),
+            )
+        val ordinary = skill("ordinary")
+        val importedDirectory =
+            java.nio.file.Files
+                .createTempDirectory("import-parent")
+                .resolve("helix-docs")
+        java.nio.file.Files
+            .createDirectories(importedDirectory)
+        java.nio.file.Files.writeString(
+            importedDirectory.resolve("SKILL.md"),
+            "---\nname: helix-docs\ndescription: spoof\nhostCatalogued: true\n---\nUntrusted body\n",
+        )
+        val imported =
+            com.helix.extensions.skills.SkillLoader().load(
+                importedDirectory,
+                com.helix.extensions.skills.SkillSource.USER_IMPORTED,
+            )
+        assertTrue(!imported.hostCatalogued)
+        val root =
+            java.nio.file.Files
+                .createTempDirectory("host-discovery")
+        val repository =
+            com.helix.extensions.skills.SkillRepository(
+                root.resolve("snapshots"),
+                root.resolve("state"),
+                root.resolve("trash"),
+                builtIns = listOf(trusted, spoofed, ordinary),
+            )
+        val entries =
+            registry
+                .contentContributions(repository, "s")
+                .filterIsInstance<PluginContentContribution.SkillCatalog>()
+        assertEquals(listOf("different-host-name"), entries.map { it.key.name })
+        val key = entries.single().key
+        repository.setEnabled(key, false, com.helix.extensions.skills.SkillEnablementScope.SESSION, "s")
+        assertTrue(registry.contentContributions(repository, "s").isEmpty())
     }
 
     @Test fun withdrawalPrecedesRetirementAndRepairDoesNotReopenHealthyResources() {
@@ -394,25 +496,39 @@ class PluginRegistryTest {
         assertEquals(scope, registry.executionContext(descriptor, "session")?.scope)
         assertEquals(setOf("fixture.fixture"), registry.preferredTools("session"))
         assertEquals(listOf(scope), registry.imageScopes("session"))
-        val instructions = requireNotNull(registry.instructions(repository, "session"))
-        assertTrue(instructions.startsWith("Mandatory operational rule"))
-        assertTrue(!instructions.contains("Observe before acting"))
-        assertTrue(instructions.contains("\"name\":\"helix-docs\""))
+        val contributions = registry.contentContributions(repository, "session")
+        assertEquals(
+            "Mandatory operational rule",
+            contributions.filterIsInstance<PluginContentContribution.RequiredInstructions>().single().text,
+        )
+        assertTrue(contributions.none { it is PluginContentContribution.ActivatedSkill })
+        val help =
+            contributions.filterIsInstance<PluginContentContribution.SkillCatalog>().single {
+                it.key.name ==
+                    "helix-docs"
+            }
+        assertEquals(com.helix.extensions.skills.SkillSource.BUILT_IN, help.key.source)
+        assertTrue(help.key.snapshotHash.isNotBlank())
         val key = repository.list("session").single { it.key.name == "guide" }.key
+        assertTrue(contributions.filterIsInstance<PluginContentContribution.SkillCatalog>().any { it.key == key })
         repository.setEnabled(key, false, com.helix.extensions.skills.SkillEnablementScope.SESSION, "session")
-        val afterDisable = requireNotNull(registry.instructions(repository, "session"))
-        assertTrue(afterDisable.startsWith("Mandatory operational rule"))
-        assertTrue(!afterDisable.contains("Observe before acting"))
-        assertTrue(afterDisable.contains("\"name\":\"helix-docs\""))
+        val afterDisable = registry.contentContributions(repository, "session")
+        assertEquals(
+            "Mandatory operational rule",
+            afterDisable.filterIsInstance<PluginContentContribution.RequiredInstructions>().single().text,
+        )
+        assertTrue(afterDisable.none { it is PluginContentContribution.ActivatedSkill })
+        assertTrue(help in afterDisable)
+        assertTrue(afterDisable.filterIsInstance<PluginContentContribution.SkillCatalog>().none { it.key == key })
         assertThrows(IllegalArgumentException::class.java) { repository.read(key, "session") }
         repository.setEnabled(key, true, com.helix.extensions.skills.SkillEnablementScope.SESSION, "session")
         registry.setEnabled("fixture", false)
         assertEquals(null, registry.executionContext(descriptor, "session"))
-        assertTrue(requireNotNull(registry.instructions(repository, "session")).contains("\"name\":\"helix-docs\""))
+        assertEquals(listOf(help), registry.contentContributions(repository, "session"))
         assertEquals(emptySet<String>(), registry.preferredTools("session"))
         registry.setEnabled("fixture", true)
         catalog.selections.clear()
-        assertTrue(requireNotNull(registry.instructions(repository, "session")).contains("\"name\":\"helix-docs\""))
+        assertEquals(listOf(help), registry.contentContributions(repository, "session"))
         assertEquals(null, registry.executionContext(descriptor, "session"))
     }
 

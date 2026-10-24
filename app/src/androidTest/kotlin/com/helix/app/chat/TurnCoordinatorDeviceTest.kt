@@ -33,6 +33,43 @@ import java.util.UUID
 @RunWith(AndroidJUnit4::class)
 class TurnCoordinatorDeviceTest {
     @Test
+    fun summaryPromptIdentityIsPersistedWithoutStoringPromptBody() {
+        val storage = isolatedStorage()
+        try {
+            storage.sessions.create("summary-session", "Synthetic summary", null, null, 1000L)
+            var nextId = 0
+            val coordinator =
+                startFixtureTurn(
+                    storage,
+                    FixedClock(2000L),
+                    { "summary-generated-${nextId++}" },
+                    TurnStartSpec("summary-session", "summary-turn", "summary-call", "snapshot", "hello"),
+                )
+            val prompt =
+                com.helix.core.agent
+                    .PromptRegistry()
+                    .register(
+                        com.helix.core.agent.PromptSection(
+                            "context.compaction",
+                            0,
+                            com.helix.core.agent.PromptScope.RUNTIME,
+                            com.helix.core.agent.PromptSource.BUILTIN_TEMPLATE,
+                            verbatim = true,
+                        ) { "Synthetic summary SYSTEM.\nHISTORY DATA:\n" },
+                    ).resolveAndAssemble()
+            coordinator.recordPromptSnapshot(prompt, summary = true)
+            val call = storage.modelCalls.resolve("summary-call")
+            assertEquals(prompt.fingerprint, call.promptFingerprint)
+            val metadata = requireNotNull(call.promptSections)
+            assertTrue(metadata.contains("context.compaction"))
+            assertTrue(!metadata.contains("Synthetic summary SYSTEM"))
+            assertTrue(!metadata.contains("HISTORY DATA"))
+        } finally {
+            storage.close()
+        }
+    }
+
+    @Test
     fun repositoryRejectsTurnStateBypass() {
         val storage = isolatedStorage()
         try {

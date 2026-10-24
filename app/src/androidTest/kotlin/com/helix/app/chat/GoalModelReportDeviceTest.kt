@@ -3,6 +3,8 @@ package com.helix.app.chat
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.helix.app.agent.TurnStartSpec
+import com.helix.app.application.agent.GoalTurnStart
+import com.helix.app.application.agent.StartedGoalTurn
 import com.helix.app.goal.GoalLifecycleService
 import com.helix.app.goal.GoalLifecycleTools
 import com.helix.app.goal.GoalReportTool

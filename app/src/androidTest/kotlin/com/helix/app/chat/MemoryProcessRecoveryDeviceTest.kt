@@ -4,6 +4,8 @@ import android.content.Context
 import android.os.Process
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
+import com.helix.app.application.context.SystemPromptContext
+import com.helix.app.infrastructure.prompt.packagedPromptTemplates
 import com.helix.app.memory.MemoryService
 import com.helix.app.memory.createMemoryService
 import com.helix.app.projects.ProjectService
@@ -61,12 +63,18 @@ class MemoryProcessRecoveryDeviceTest {
                     requireNotNull(storage.sessions.resolve(SESSION).directoryRef),
                 )
             val prompt =
-                SystemPromptContext(storage, { "" }, memory = memory)
-                    .build(SESSION, AgentMode.ACT, false, true, directory = directory)
+                SystemPromptContext(storage, { "" }, packagedPromptTemplates, memory = memory)
+                    .build(SESSION, AgentMode.ACT, setOf("memory.read"), directory = directory)
             assertTrue(prompt.content.contains(FIXTURE))
             assertTrue(prompt.content.contains(PROJECT_FIXTURE))
             assertTrue(prompt.content.contains("PROJECT_RECOVERY_INSTRUCTIONS"))
-            assertEquals(TrustLevel.UNTRUSTED, prompt.sections.single { it.name == "memory.context" }.trust)
+            assertEquals(2, prompt.sections.count { it.name.startsWith("memory.summary.") })
+            assertTrue(
+                prompt.sections.filter { it.name.startsWith("memory.summary.") }.all {
+                    it.trust ==
+                        TrustLevel.UNTRUSTED
+                },
+            )
         } finally {
             storage.close()
             context.deleteDatabase(DATABASE)

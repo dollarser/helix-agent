@@ -1,9 +1,10 @@
-package com.helix.app.chat
+package com.helix.app.application.agent
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.agent.TurnStartSpec
+import com.helix.app.chat.GoalBlockerResolution
 import com.helix.app.test.FixtureGoalRunCoordinator
 import com.helix.app.test.settleFixtureTerminal
 import com.helix.core.agent.GoalBudgetDefaults

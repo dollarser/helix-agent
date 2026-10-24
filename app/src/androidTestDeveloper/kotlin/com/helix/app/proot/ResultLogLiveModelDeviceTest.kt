@@ -99,19 +99,23 @@ class ResultLogLiveModelDeviceTest {
         container: AppContainer,
         failed: ToolDispatchOutcome.ExecutionFailed,
     ): MutableList<ModelMessage> {
-        // Match ChatRequestAssembler.pluginInstructions: schemas and source metadata share admission.
-        container.toolPipeline.mcpDiscovery.visible(
-            "session",
-            container.toolPipeline.registry.all(),
-            com.helix.app.chat.ModelToolExposureOrder
-                .defaultNames(emptySet()),
-        )
+        // Match ChatRequestAssembler.contentSections: schemas and source metadata share admission.
+        val exposed =
+            container.toolPipeline.mcpDiscovery.visible(
+                "session",
+                container.toolPipeline.registry.all(),
+                com.helix.app.chat.ModelToolExposureOrder
+                    .defaultNames(emptySet()),
+            )
         val messages = originalMessages(failed)
         messages.add(
             1,
             ModelMessage(
                 ModelRole.SYSTEM,
-                requireNotNull(container.toolPipeline.mcpDiscovery.catalog("session")),
+                container.toolPipeline.mcpDiscovery
+                    .catalog(
+                        "session",
+                    ).modelContext(exposed.map { it.name.value }.toSet()),
             ),
         )
         return messages

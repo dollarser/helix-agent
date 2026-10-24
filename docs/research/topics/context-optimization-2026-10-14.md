@@ -84,7 +84,7 @@
 
 首先改善 1,000 字符硬切：按完整条目／段落和 Unicode 边界截取，给出截断及继续读取入口；把真实内容 hash 与 scope 带入选择记录，区分缺失、未启用、权限不足和超预算。若检索质量有证据不足，再比较固定摘要、短索引、确定性关键词候选三种方式；不默认增加一次模型检索调用，也不引入向量库或后台 Memory Agent。
 
-继续保持 [ADR-AGENT-013](../../adr/agent/013-markdown-memory.md) 的默认关闭、独立自动维护开关、可信 Project 成员关系、expectedHash 冲突与不可信内容边界。[SystemPromptContext.registerMemory](../../../app/src/main/kotlin/com/helix/app/chat/SystemPromptContext.kt) 当前先检查外部读取权限；新的“相关性”不能越过权限加载正文。仓库 `MEMORY.md` 与应用的 global／project Memory 不能因同名或相似内容合并来源。
+继续保持 [ADR-AGENT-013](../../adr/agent/013-markdown-memory.md) 的默认关闭、独立自动维护开关、可信 Project 成员关系、expectedHash 冲突与不可信内容边界。[SystemPromptContext.registerMemory](../../../app/src/main/kotlin/com/helix/app/application/context/SystemPromptContext.kt) 当前先检查外部读取权限；新的“相关性”不能越过权限加载正文。仓库 `MEMORY.md` 与应用的 global／project Memory 不能因同名或相似内容合并来源。
 
 ### 4.2 连续性：事实投影、语义摘要和操作凭据分开
 

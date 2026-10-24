@@ -58,7 +58,17 @@ class ContextCompactionRound(
         )
 
     override suspend fun prepare(request: TurnContextRequest): com.helix.core.agent.PreparedContext {
-        val bounded = request.copy(maxOutputTokens = minOf(request.maxOutputTokens, settings.window / 4))
+        currentCoroutineContext().ensureActive()
+        val bounded =
+            try {
+                ContextCompiler.projectContent(
+                    request.copy(maxOutputTokens = minOf(request.maxOutputTokens, settings.window / 4)),
+                    settings,
+                    inputScale,
+                )
+            } catch (failure: ContextCapacityException) {
+                return PreparedContext(null, null, ModelStreamTerminal(TurnState.FAILED, failure.code), request)
+            }
         val calibratedTrigger = shouldCompact(bounded)
         var planningFailure: String? = null
         val plan =
@@ -94,6 +104,7 @@ class ContextCompactionRound(
             if (code == null) plan?.request ?: bounded.modelRequest() else null,
             plan,
             code?.let { ModelStreamTerminal(TurnState.FAILED, it) },
+            bounded,
         )
     }
 

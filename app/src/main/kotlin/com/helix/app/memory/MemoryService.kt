@@ -118,11 +118,11 @@ class MemoryService(
         }
     }
 
-    fun context(sessionId: String): String =
+    fun contextSnapshot(sessionId: String): com.helix.core.workspace.memory.MemoryContextSnapshot? =
         if (!enabled) {
-            ""
+            null
         } else {
-            MemoryContext.render(
+            MemoryContext.snapshot(
                 store,
                 listOfNotNull(MemoryScope.Global, project(sessionId)?.let(MemoryScope::Project)),
             )

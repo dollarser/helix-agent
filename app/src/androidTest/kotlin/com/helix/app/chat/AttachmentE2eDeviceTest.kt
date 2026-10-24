@@ -6,6 +6,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.HelixApplication
 import com.helix.app.agent.ChatHistoryBuilder
+import com.helix.app.application.agent.GoalRoundAllowance
 import com.helix.app.internal.InMemoryLineStore
 import com.helix.app.language.AppLanguage
 import com.helix.app.language.AppLanguageStore

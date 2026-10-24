@@ -1,6 +1,6 @@
 package com.helix.app.plan
 
-import com.helix.app.chat.GoalRunCoordinator
+import com.helix.app.application.agent.GoalRunCoordinator
 import com.helix.core.model.Clock
 import com.helix.core.model.GoalBudgets
 import com.helix.core.model.PlanArtifact

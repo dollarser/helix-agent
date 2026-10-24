@@ -1,4 +1,4 @@
-package com.helix.app.chat
+package com.helix.app.application.agent
 
 import com.helix.app.agent.TurnCoordinator
 import com.helix.app.goal.toRuntimeGoal

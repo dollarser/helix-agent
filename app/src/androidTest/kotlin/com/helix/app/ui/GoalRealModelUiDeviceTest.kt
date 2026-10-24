@@ -17,7 +17,7 @@ import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.MainActivity
-import com.helix.app.chat.GoalRoundAllowance
+import com.helix.app.application.agent.GoalRoundAllowance
 import com.helix.app.provider.ProviderDraft
 import com.helix.core.agent.TurnBudgetBounds
 import com.helix.core.model.NormalizedEndpoint

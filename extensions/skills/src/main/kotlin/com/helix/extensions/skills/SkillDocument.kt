@@ -29,6 +29,8 @@ data class SkillDocument(
     val invocation: SkillInvocationPolicy = SkillInvocationPolicy(),
     /** Immutable UTF-8 data supplied by a native package, covered by the catalog content hash. */
     val resources: Map<String, String> = emptyMap(),
+    /** Host-owned discovery metadata; never parsed from imported frontmatter. */
+    val hostCatalogued: Boolean = false,
 )
 
 data class SkillCatalogDiagnostic(

@@ -98,6 +98,12 @@ data class PromptSection(
     val scope: PromptScope,
     val source: PromptSource,
     val emptyReason: PromptOmissionReason = PromptOmissionReason.EMPTY,
+    val retention: PromptContentRetention = PromptContentRetention.REQUIRED,
+    val priority: Int = 0,
+    val identity: PromptContentIdentity? = null,
+    val readReference: PromptContentReadReference? = null,
+    /** Exact wire framing, e.g. a summary instruction, may intentionally end with whitespace. */
+    val verbatim: Boolean = false,
     val provider: () -> String,
 ) {
     init {
@@ -119,7 +125,7 @@ enum class PromptOmissionReason {
     EMPTY,
     FILE_TOOLS_UNAVAILABLE,
     NOT_PLAN_MODE,
-    NO_PLUGIN_CONTEXT,
+    CONTENT_BUDGET,
 }
 
 /**
@@ -137,6 +143,10 @@ data class ResolvedPromptSection(
     val content: String,
     val contentHash: String,
     val omissionReason: PromptOmissionReason? = null,
+    val retention: PromptContentRetention = PromptContentRetention.REQUIRED,
+    val priority: Int = 0,
+    val identity: PromptContentIdentity? = null,
+    val readReference: PromptContentReadReference? = null,
 )
 
 /**
@@ -201,7 +211,7 @@ class PromptRegistry {
 
     private fun resolveAll(): List<ResolvedPromptSection> =
         orderedSections().map { section ->
-            val content = section.provider().trim()
+            val content = section.provider().let { if (section.verbatim) it else it.trim() }
             ResolvedPromptSection(
                 name = section.name,
                 order = section.order,
@@ -210,7 +220,11 @@ class PromptRegistry {
                 trust = section.trust,
                 content = content,
                 contentHash = sha256Hex(content),
-                omissionReason = section.emptyReason.takeIf { content.isEmpty() },
+                omissionReason = section.emptyReason.takeIf { content.isBlank() },
+                retention = section.retention,
+                priority = section.priority,
+                identity = section.identity,
+                readReference = section.readReference,
             )
         }
 
@@ -223,8 +237,7 @@ class PromptRegistry {
      */
     fun resolveAndAssemble(): PromptSnapshot {
         val (resolved, omitted) = resolveAll().partition { it.omissionReason == null }
-        val content = resolved.joinToString(separator = "\n\n") { it.content }
-        return PromptSnapshot(resolved, content, sha256Hex(content), omitted)
+        return assemblePromptSnapshot(resolved, omitted)
     }
 
     /**
@@ -232,10 +245,26 @@ class PromptRegistry {
      * Returns an empty string when nothing is non-blank.
      */
     fun assemble(): String = resolveAndAssemble().content
-
-    private fun sha256Hex(content: String): String =
-        MessageDigest
-            .getInstance("SHA-256")
-            .digest(content.toByteArray())
-            .joinToString("") { "%02x".format(it) }
 }
+
+/** Reassemble only selected whole sections; omitted bodies remain transient candidates for reprojection. */
+internal fun assemblePromptSnapshot(
+    included: List<ResolvedPromptSection>,
+    omitted: List<ResolvedPromptSection>,
+): PromptSnapshot {
+    val ordered = included.sortedWith(compareBy({ it.order }, { it.name }))
+    val content = ordered.joinToString("\n\n") { it.content }
+    return PromptSnapshot(
+        ordered,
+        content,
+        sha256Hex(content),
+        omitted.sortedWith(compareBy({ it.order }, { it.name })),
+    )
+}
+
+private fun sha256Hex(content: String): String =
+    MessageDigest
+        .getInstance(
+            "SHA-256",
+        ).digest(content.toByteArray(Charsets.UTF_8))
+        .joinToString("") { "%02x".format(it) }

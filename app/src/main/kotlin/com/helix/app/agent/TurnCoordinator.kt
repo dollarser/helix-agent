@@ -178,18 +178,17 @@ internal class TurnCoordinator private constructor(
      * model-call row's prompt columns and the `prompt.assembled` audit event commit in ONE
      * transaction — the record of a request either fully exists or not at all. The section
      * list + fingerprint are redacted (provenance and content hash, never content). No-op for
-     * an empty snapshot and for the compaction summary call ([summary] — its prompt is the
-     * serialized history, not the assembled system prompt). The flag is the caller's fact about
-     * THIS call: it is read before [beginModelStream] runs, so the coordinator's own
-     * [summaryStream] state (set by the previous call's stream) is not authoritative here.
+     * an empty snapshot. Summary calls supply their own exact SYSTEM template snapshot;
+     * serialized history remains outside this redacted metadata record. The caller's flag
+     * identifies THIS call, before beginModelStream updates the live stream state.
      */
     fun recordPromptSnapshot(
         snapshot: PromptSnapshot?,
         summary: Boolean,
     ) {
-        if (snapshot == null || summary) return
+        if (snapshot == null) return
         val current = runtime.snapshot()
-        val record = promptSnapshotRecord(snapshot, current.modelCallId, turnId) ?: return
+        val record = promptSnapshotRecord(snapshot, current.modelCallId, turnId, compacting = summary) ?: return
         storage.withTransaction {
             storage.modelCalls.recordPrompt(record.modelCallId, record.fingerprint, record.sectionsJson)
             storage.auditEvents.append(

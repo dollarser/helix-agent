@@ -19,10 +19,10 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.MainActivity
 import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
+import com.helix.app.application.agent.TurnInputFingerprint
 import com.helix.app.chat.ChatService
 import com.helix.app.chat.ChatSubmission
 import com.helix.app.chat.ChatSubmissionOutcome
-import com.helix.app.chat.TurnInputFingerprint
 import com.helix.app.provider.LoopbackModelServer
 import com.helix.app.provider.ProviderDraft
 import com.helix.app.test.TransferTestDocumentsProvider

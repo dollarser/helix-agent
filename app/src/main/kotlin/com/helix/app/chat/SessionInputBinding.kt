@@ -1,5 +1,6 @@
 package com.helix.app.chat
 
+import com.helix.app.application.agent.SessionInputConfiguration
 import com.helix.core.agent.RunControlConfig
 import com.helix.core.storage.content.FileContentStore
 import com.helix.core.storage.repository.InputConfiguration
@@ -23,7 +24,7 @@ internal object SessionInputBinding {
             providerId,
             modelId,
             control.mode.name,
-            "v1:${configurationHash(providerFacts, control, selectedMode)}:${intentHash(request)}",
+            "v1:${SessionInputConfiguration.hash(providerFacts, control, selectedMode)}:${intentHash(request)}",
         )
 
     fun matches(
@@ -32,25 +33,6 @@ internal object SessionInputBinding {
     ): Boolean =
         request.sessionId == input.sessionId && request.clientRequestId == input.inputId &&
             input.configuration.fingerprint.substringAfterLast(':') == intentHash(request)
-
-    fun matchesConfiguration(
-        input: SessionInputRecord,
-        providerFacts: String,
-        control: RunControlConfig,
-        selectedMode: String,
-    ): Boolean =
-        input.configuration.fingerprint.substringBeforeLast(':') ==
-            "v1:${configurationHash(providerFacts, control, selectedMode)}"
-
-    private fun configurationHash(
-        providerFacts: String,
-        control: RunControlConfig,
-        selectedMode: String,
-    ): String {
-        // A default for future messages cannot invalidate already accepted queue entries.
-        val executionControl = control.copy(immediateMessages = false)
-        return hash("$providerFacts\n$executionControl\n$selectedMode")
-    }
 
     private fun intentHash(request: ChatSubmission): String =
         hash(

@@ -1,4 +1,4 @@
-package com.helix.app.chat
+package com.helix.app.application.agent
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider

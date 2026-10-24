@@ -18,7 +18,7 @@ import java.io.File
 internal class LogComparisonWire(
     private val delegate: WireClient,
     private val directory: File,
-    private val catalog: () -> String,
+    private val catalog: (Set<String>) -> String,
 ) : WireClient {
     var minimal = false
     var calls = 0
@@ -27,7 +27,7 @@ internal class LogComparisonWire(
         if (request.method != "POST" || request.url != BuiltInModel.GENERATION_URL) return delegate.open(request)
         val original = requireNotNull(request.body)
         val body = Json.parseToJsonElement(original.toString(Charsets.UTF_8)).jsonObject
-        val sent = if (minimal) minimalLogContext(body, catalog()) else body
+        val sent = if (minimal) minimalLogContext(body, catalog(callableTools(body))) else body
         val bytes = if (minimal) sent.toString().toByteArray() else original
         val evidence =
             buildJsonObject {
@@ -43,6 +43,17 @@ internal class LogComparisonWire(
         return delegate.open(WireRequest(request.method, request.url, request.headers, bytes))
     }
 }
+
+private fun callableTools(body: JsonObject): Set<String> =
+    (body["tools"] as? JsonArray)
+        .orEmpty()
+        .mapNotNull { tool ->
+            tool.jsonObject["function"]
+                ?.jsonObject
+                ?.get("name")
+                ?.jsonPrimitive
+                ?.content
+        }.toSet()
 
 internal const val LOG_COMPARISON_PROMPT =
     "上一次执行失败。请查看它保存的错误日志，说明实际错误标记与退出码，不要重新执行命令。原始日志引用为 turn/call。"

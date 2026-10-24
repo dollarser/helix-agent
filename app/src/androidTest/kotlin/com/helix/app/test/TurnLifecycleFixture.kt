@@ -3,9 +3,9 @@ package com.helix.app.test
 import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.agent.TurnSteeringDraft
-import com.helix.app.chat.GoalRunCoordinator
-import com.helix.app.chat.GoalTurnStart
-import com.helix.app.chat.StartedGoalTurn
+import com.helix.app.application.agent.GoalRunCoordinator
+import com.helix.app.application.agent.GoalTurnStart
+import com.helix.app.application.agent.StartedGoalTurn
 import com.helix.app.engine.TurnAdmissionResult
 import com.helix.app.engine.TurnEngine
 import com.helix.core.agent.Checkpoint

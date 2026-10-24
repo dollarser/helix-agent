@@ -50,7 +50,7 @@ TurnEngine 同时拥有 durable lifecycle 与 process-local AgentLoop driver；C
 
 ### 1.2 应用入口、表现与执行资源边界（2026-10-11）
 
-`AgentRuntime` 的 submit/cancel/observe 是稳定职责边界，当前 `AppAgentRuntime` 通过原 ChatService 命令和 Engine runtime view 实现。它不持有执行状态，也不意味着完整 Harness 已成为独立 Server。Core Loop 的可替换端口、完整 Turn 宿主、实际 Tool Runtime 是不同范围；`core:storage` 是 Android/Room 基础设施，不能因目录名将其视为纯 JVM 领域层。
+`AgentRuntime` 的 submit/cancel/observe 是稳定职责边界，当前 `AppAgentRuntime` 直接调用 `application/agent` 的提交与停止命令，并读取同一 Engine runtime view。它不持有执行状态，也不意味着完整 Harness 已成为独立 Server。Core Loop 的可替换端口、完整 Turn 宿主、实际 Tool Runtime 是不同范围；`core:storage` 是 Android/Room 基础设施，不能因目录名将其视为纯 JVM 领域层。
 
 应用服务提供业务命令、只读状态和结构化恢复目标，页面解释导航。HXA-274 直接替换所涉 `recoveryModelsNavigation` / `recoveryPermissionsNavigation` 服务回调：恢复原因、目标类型和必要归属以数据表达，用户点击后由当前 UI 导航；无订阅、旋转、重复订阅、切换会话不自动触发跳转或执行。保留 HXA-271 已交付的原因说明和显式设置行为，不以结构调整重做系统授权。就绪与恢复目标的内容归 [ADR-CONNECTORS-003](../connectors/003-ownership-and-installation.md)，本节约束其应用/表现依赖。
 
@@ -310,6 +310,8 @@ ModelCall 和 ToolCall 在原 Turn 内各有事务分配的 ordinal 与 createdA
 GC 引用查询具有索引；目录按需遍历，仅每个候选的引用复核与删除持有正文发布协调锁，不能把整个目录遍历放入该锁。搜索投影不是额外的内容保留引用；会话删除时随消息删除，仍保留原隐私清理边界。
 
 ## Decision history
+
+- 2026-10-24 阶段 1：普通提交、队列交付和恢复检查汇入应用提交命令，停止汇入应用停止命令，均继续调用原 Engine/Room 准入。会话必须显式绑定，不回落到当前页面；准入重验归档与 Provider/model 绑定。拒绝是类型化事实，由 UI 映射文案，不能伪装已启动。此应用边界不代表完整 Turn 宿主已中立化，事务、执行身份、权限、取消及终态仍只有原权威。
 
 - 2026-10-24：按当前唯一 Engine/Runtime 端口、已交付 UI/原位/日志与残余 ChatService/批次投影调整规划顺序；保留完整中立宿主的未完成边界。未修改 durable/审批/UNKNOWN/取消/真实退出语义，不引入第二 writer 或业务恢复流程。
 

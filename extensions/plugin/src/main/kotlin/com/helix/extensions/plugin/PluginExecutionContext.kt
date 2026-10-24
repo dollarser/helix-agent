@@ -3,8 +3,6 @@ package com.helix.extensions.plugin
 import com.helix.core.policy.DataOrigin
 import com.helix.core.policy.UserScope
 import com.helix.tools.framework.ToolDescriptor
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
 
 /** Trusted native contributions. Actual execution must still pass the normal Dispatcher. */
 data class PluginExecutionContext(
@@ -23,71 +21,99 @@ fun PluginRegistry.executionContext(
             }?.let { PluginExecutionContext(it.scopeFor(tool, sessionId), it.dataOrigin) }
     }
 
-/** Content uses the same repository and source/selection checks as skills.read. */
-fun PluginRegistry.instructions(
+/** Immutable external content facts. Required means budget retention, never trust or authority. */
+sealed interface PluginContentContribution {
+    data class RequiredInstructions(
+        val owner: NativePluginState,
+        val text: String,
+        val contentHash: String,
+    ) : PluginContentContribution
+
+    data class SkillCatalog(
+        val key: com.helix.extensions.skills.SkillKey,
+        val description: String,
+        val owner: NativePluginState? = null,
+    ) : PluginContentContribution
+
+    /** Body and already accepted user arguments must be retained/omitted together. */
+    data class ActivatedSkill(
+        val key: com.helix.extensions.skills.SkillKey,
+        val body: String,
+        val acceptedArguments: String,
+        val owners: List<NativePluginState>,
+    ) : PluginContentContribution
+}
+
+/** Same snapshot eligibility as skills.read; no frontmatter grants ambient discovery. */
+fun PluginRegistry.contentContributions(
     repository: com.helix.extensions.skills.SkillRepository,
     sessionId: String,
     turnId: String? = null,
-): String? {
+): List<PluginContentContribution> {
     val eligible =
         repository
             .listForModel(sessionId, turnId)
             .filter { it.enabled }
             .map { it.key }
             .toSet()
-    val directory =
-        (
-            repository.list(sessionId).mapNotNull { item ->
-                if (!item.enabled || item.key !in eligible) return@mapNotNull null
-                val document = repository.inspect(item.key)
-                if (document.catalogEntry.source != com.helix.extensions.skills.SkillSource.BUILT_IN ||
-                    document.catalogEntry.name != "helix-docs"
-                ) {
-                    return@mapNotNull null
+    val owners = selectedContentOwners(sessionId)
+
+    fun key(document: com.helix.extensions.skills.SkillDocument) =
+        document.catalogEntry.let {
+            com.helix.extensions.skills
+                .SkillKey(it.source, it.name, it.contentHash)
+        }
+    return buildList {
+        owners.forEach { (owner, plugin) ->
+            plugin.requiredInstructions.takeIf { it.isNotBlank() }?.let { text ->
+                val hash =
+                    java.security.MessageDigest
+                        .getInstance("SHA-256")
+                        .digest(text.toByteArray(Charsets.UTF_8))
+                        .joinToString("") { "%02x".format(it) }
+                add(PluginContentContribution.RequiredInstructions(owner, text, hash))
+            }
+        }
+        repository.list(sessionId).filter { it.enabled && it.key in eligible }.forEach { item ->
+            val document = repository.inspect(item.key)
+            if (document.catalogEntry.source == com.helix.extensions.skills.SkillSource.BUILT_IN &&
+                document.hostCatalogued
+            ) {
+                add(PluginContentContribution.SkillCatalog(item.key, item.description))
+            }
+        }
+        owners.forEach { (owner, plugin) ->
+            plugin.skills.distinctBy(::key).filter { key(it) in eligible }.forEach { document ->
+                add(PluginContentContribution.SkillCatalog(key(document), document.catalogEntry.description, owner))
+            }
+        }
+        turnId?.let { turn ->
+            repository
+                .activatedContent(sessionId, turn)
+                .distinctBy { (document, arguments) ->
+                    key(document) to arguments
+                }.forEach { (document, arguments) ->
+                    val skillKey = key(document)
+                    add(
+                        PluginContentContribution.ActivatedSkill(
+                            skillKey,
+                            document.body,
+                            arguments,
+                            owners.filter { (_, plugin) -> plugin.skills.any { key(it) == skillKey } }.map { it.first },
+                        ),
+                    )
                 }
-                document
-            } + skillDocuments(sessionId)
-        ).groupBy { it.catalogEntry }
-            .map { (entry, docs) -> docs.first { it.catalogEntry == entry } }
-            .filter { document ->
-                val entry = document.catalogEntry
-                com.helix.extensions.skills
-                    .SkillKey(entry.source, entry.name, entry.contentHash) in eligible
-            }.map { document ->
-                val entry = document.catalogEntry
-                buildJsonObject {
-                    put("source", entry.source.name)
-                    put("name", entry.name)
-                    put("snapshotHash", entry.contentHash)
-                    put("description", entry.description)
-                }.toString()
-            }.distinct()
-            .joinToString("\n")
-            .takeIf { it.isNotBlank() }
-    return selectedRuntimes(sessionId)
-        .map { it.requiredInstructions }
-        .filter { it.isNotBlank() }
-        .plus(directory?.let { "[SKILL CATALOG]\n$it\n[/SKILL CATALOG]" }.let(::listOfNotNull))
-        .plus(
-            turnId
-                ?.let {
-                    repository
-                        .activatedContent(sessionId, it)
-                        .distinctBy { (document, arguments) ->
-                            document.catalogEntry to arguments
-                        }.map { (document, arguments) ->
-                            val entry = document.catalogEntry
-                            "[SKILL ${entry.source}:${entry.name}@${entry.contentHash}]\n${document.body}\n" +
-                                "[USER SKILL ARGUMENTS]\n$arguments\n[/USER SKILL ARGUMENTS]\n[/SKILL]"
-                        }
-                }.orEmpty(),
-        ).distinct()
-        .joinToString("\n\n")
-        .takeIf { it.isNotBlank() }
+        }
+    }
 }
 
 fun PluginRegistry.preferredTools(sessionId: String): Set<String> =
-    selectedRuntimes(sessionId).flatMap { it.preferredTools }.toSet()
+    selectedRuntimes(sessionId)
+        .flatMap {
+            it.preferredTools
+        }.toSet()
 
 fun PluginRegistry.imageScopes(sessionId: String): List<UserScope> =
-    selectedRuntimes(sessionId).mapNotNull { it.imageScope(sessionId) }
+    selectedRuntimes(sessionId).mapNotNull {
+        it.imageScope(sessionId)
+    }

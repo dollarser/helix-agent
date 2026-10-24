@@ -30,7 +30,7 @@ def main():
                "com.helix.app.chat.ConversationDraftRecoveryDeviceTest",
                "com.helix.app.ui.ChatStopProgressDeviceTest",
                "com.helix.app.ui.TasksDashboardDeviceTest",
-               "com.helix.app.chat.GoalRunCoordinatorDeviceTest",
+               "com.helix.app.application.agent.GoalRunCoordinatorDeviceTest",
                "com.helix.app.chat.GoalUsageReservationsDeviceTest",
                "com.helix.app.chat.GoalTurnBindingDeviceTest"]
     outcomes = []

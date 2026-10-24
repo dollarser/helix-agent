@@ -1,6 +1,7 @@
 package com.helix.app.goal
 
-import com.helix.app.chat.GoalRunCoordinator
+import com.helix.app.application.agent.GoalRoundAllowance
+import com.helix.app.application.agent.GoalRunCoordinator
 import com.helix.core.agent.GoalEvent
 import com.helix.core.agent.GoalReducer
 import com.helix.core.model.Clock
@@ -265,8 +266,7 @@ internal class GoalLifecycleService(
                     )
                     put(
                         "rounds_started",
-                        com.helix.app.chat
-                            .GoalRoundAllowance(storage)
+                        GoalRoundAllowance(storage)
                             .used(goal.id),
                     )
                     put("model_calls", goal.modelCalls)

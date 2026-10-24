@@ -287,10 +287,10 @@ class McpToolDiscoveryTest {
         val filtered =
             McpToolDiscovery(registry) { _, descriptor -> descriptor == search || descriptor.name in allowed }
         filtered.visible("session", registry.all())
-        assertTrue(requireNotNull(filtered.catalog("session")).contains("mcp:catalog"))
+        assertTrue(requireNotNull(filtered.catalog("session")).entries.any { it.source == "mcp:catalog" })
         assertNull(filtered.catalog("other-session"))
         allowed.clear()
-        assertFalse(requireNotNull(filtered.catalog("session")).contains("mcp:catalog"))
+        assertFalse(requireNotNull(filtered.catalog("session")).entries.any { it.source == "mcp:catalog" })
         filtered.visible("session", emptyList())
         assertNull(filtered.catalog("session"))
     }

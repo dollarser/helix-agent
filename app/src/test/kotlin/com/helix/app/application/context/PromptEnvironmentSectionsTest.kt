@@ -1,5 +1,6 @@
-package com.helix.app.chat
+package com.helix.app.application.context
 
+import com.helix.app.infrastructure.prompt.packagedPromptTemplates
 import com.helix.core.agent.PromptRegistry
 import com.helix.core.agent.PromptScope
 import com.helix.core.agent.PromptSource
@@ -36,7 +37,6 @@ class PromptEnvironmentSectionsTest {
             mapOf(
                 "env.files" to "FILE_TOOLS_UNAVAILABLE",
                 "env.plan" to "NOT_PLAN_MODE",
-                "env.plugins" to "NO_PLUGIN_CONTEXT",
             ),
             snapshot.omittedSections.associate { it.name to it.omissionReason!!.name },
         )
@@ -51,9 +51,31 @@ class PromptEnvironmentSectionsTest {
                 directory,
                 mode,
                 false,
-                pluginInstructions = "Plugin guidance: ui.wait; ACTION_OUTCOME_UNKNOWN; does not grant permission",
+                packagedPromptTemplates,
             )
-            val mobile = registry.resolve().single { it.name == PromptEnvironmentSections.PLUGIN_NAME }
+            val owner =
+                com.helix.extensions.plugin.NativePluginState(
+                    "mobile",
+                    "mobile-runtime",
+                    "1",
+                    "a".repeat(64),
+                    true,
+                    1,
+                )
+            PromptContentContributions
+                .sections(
+                    listOf(
+                        com.helix.extensions.plugin.PluginContentContribution.RequiredInstructions(
+                            owner,
+                            "Plugin guidance: ui.wait; ACTION_OUTCOME_UNKNOWN; does not grant permission",
+                            "b".repeat(64),
+                        ),
+                    ),
+                    null,
+                    null,
+                    emptySet(),
+                ).forEach(registry::register)
+            val mobile = registry.resolve().single { it.name.startsWith("plugin.required.") }
             assertEquals(PromptSource.EXTERNAL_CONTENT, mobile.source)
             assertEquals(PromptScope.SKILL, mobile.scope)
             assertTrue(mobile.content.contains("does not grant permission"))
@@ -65,8 +87,8 @@ class PromptEnvironmentSectionsTest {
             )
         }
         val registry = PromptRegistry()
-        PromptEnvironmentSections.register(registry, directory, AgentMode.CHAT, false)
-        assertTrue(registry.resolve().none { it.name == PromptEnvironmentSections.PLUGIN_NAME })
+        PromptEnvironmentSections.register(registry, directory, AgentMode.CHAT, false, packagedPromptTemplates)
+        assertTrue(registry.resolve().none { it.name.startsWith("plugin.required.") })
         assertTrue(!registry.assemble().contains("ui.screenshot"))
     }
 
@@ -135,7 +157,7 @@ class PromptEnvironmentSectionsTest {
     fun packagedPromptExplainsParallelBatchesAndDependencyOrderInEveryMode() {
         for (mode in AgentMode.values()) {
             val registry = PromptRegistry()
-            PromptEnvironmentSections.register(registry, directory, mode, true)
+            PromptEnvironmentSections.register(registry, directory, mode, true, packagedPromptTemplates)
             val base = registry.resolve().single { it.name == PromptEnvironmentSections.BASE_NAME }
             assertEquals(PromptSource.BUILTIN_TEMPLATE, base.source)
             val prompt = registry.assemble()
@@ -151,7 +173,7 @@ class PromptEnvironmentSectionsTest {
     fun packagedDiscoveryGuidanceIsGenericAndPreservesAuthorityInEveryMode() {
         for (mode in AgentMode.values()) {
             val registry = PromptRegistry()
-            PromptEnvironmentSections.register(registry, directory, mode, true)
+            PromptEnvironmentSections.register(registry, directory, mode, true, packagedPromptTemplates)
             val prompt = registry.assemble()
             assertTrue(prompt.contains("combine concise keywords for related capabilities"))
             assertTrue(prompt.contains("valid recent tools remain within a schema byte budget"))

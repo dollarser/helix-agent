@@ -2,7 +2,6 @@ package com.helix.app.plugin
 
 import com.helix.extensions.plugin.PluginComponentKind
 import com.helix.extensions.plugin.PluginComponentState
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -23,22 +22,16 @@ class PluginRequestReadinessTest {
                 requestAvailable = false,
             )
         val offline = fact.copy(kind = PluginComponentKind.MCP, state = PluginComponentState.NOT_CONNECTED)
-        val snapshot =
-            PluginReadinessSnapshot(
-                "plugin",
-                7,
-                true,
-                true,
-                listOf(fact, fact, offline),
-                emptyList(),
+        val context =
+            pluginReadinessContext(
+                listOf(PluginReadinessSnapshot("plugin", 7, true, true, listOf(fact, fact, offline), emptyList())),
+                1,
+                false,
             )
-        val json = Json.parseToJsonElement(pluginRequestReadiness(listOf(snapshot), 1, false)).jsonObject
         val rows =
-            json
-                .getValue("plugins")
-                .jsonArray
+            context.plugins
                 .single()
-                .jsonObject
+                .requestSummary()
                 .getValue("components")
                 .jsonArray
         assertEquals(
@@ -62,13 +55,13 @@ class PluginRequestReadinessTest {
                 .getValue("requestState")
                 .jsonPrimitive.content,
         )
-        val host =
-            json
+        assertEquals(
+            "HOST_UNAVAILABLE",
+            context
+                .acquisitionSummary()
                 .getValue("browserHost")
-                .jsonObject
-                .getValue("state")
-                .jsonPrimitive.content
-        assertEquals("HOST_UNAVAILABLE", host)
+                .jsonPrimitive.content,
+        )
     }
 
     @Test fun unicodeAndManyComponentsStayBoundedWithExplicitOmissionsAndSelectedPriority() {
@@ -83,33 +76,18 @@ class PluginRequestReadinessTest {
             )
         val snapshots =
             (0..63).map {
-                PluginReadinessSnapshot(
-                    "plugin-$it",
-                    1,
-                    it == 63,
-                    true,
-                    List(1000) { component },
-                    emptyList(),
-                )
+                PluginReadinessSnapshot("plugin-$it", 1, it == 63, true, List(1000) { component }, emptyList())
             }
-        val text = pluginRequestReadiness(snapshots, 64, true)
-        assertTrue(text.toByteArray().size <= MAX_PLUGIN_READINESS_BYTES)
-        assertTrue(!text.contains("secret metadata"))
-        val json = Json.parseToJsonElement(text).jsonObject
-        assertEquals(
-            "plugin-63",
-            json
-                .getValue("plugins")
-                .jsonArray
-                .first()
-                .jsonObject
-                .getValue("pluginId")
-                .jsonPrimitive.content,
-        )
-        assertTrue(json.getValue("omittedPlugins").jsonPrimitive.int > 0)
+        val context = pluginReadinessContext(snapshots, 64, true)
+        val serialized = context.plugins.joinToString { it.requestSummary().toString() }
+        assertTrue(serialized.toByteArray().size <= MAX_PLUGIN_READINESS_BYTES)
+        assertTrue(!serialized.contains("secret metadata"))
+        assertEquals("plugin-63", context.plugins.first().pluginId)
+        assertTrue(context.omittedPlugins > 0)
         val huge = snapshots.last().copy(pluginId = "中文".repeat(10000))
-        val omitted = Json.parseToJsonElement(pluginRequestReadiness(listOf(huge), 1, true)).jsonObject
-        assertEquals(1, omitted.getValue("omittedSelectedPlugins").jsonPrimitive.int)
-        assertTrue(omitted.getValue("plugins").jsonArray.isEmpty())
+        val omitted = pluginReadinessContext(listOf(huge), 1, true)
+        assertEquals(1, omitted.omittedSelectedPlugins)
+        assertTrue(omitted.plugins.isEmpty())
+        assertTrue(context.acquisitionSummary().toString().contains("Individual optional rows"))
     }
 }

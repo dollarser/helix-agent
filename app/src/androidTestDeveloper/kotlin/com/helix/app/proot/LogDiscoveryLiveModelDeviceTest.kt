@@ -74,7 +74,21 @@ class LogDiscoveryLiveModelDeviceTest {
                                     "The log reader, if found, accepts source=saved, stream=stderr, offset=0.",
                             ),
                         )
-                    messages.add(1, ModelMessage(ModelRole.SYSTEM, requireNotNull(discovery.catalog("session"))))
+                    messages.add(
+                        1,
+                        ModelMessage(
+                            ModelRole.SYSTEM,
+                            discovery
+                                .catalog(
+                                    "session",
+                                ).modelContext(
+                                    exposed
+                                        .map {
+                                            it.name.value
+                                        }.toSet(),
+                                ),
+                        ),
+                    )
                     for (round in 0..1) {
                         val events =
                             withTimeout(90_000) {

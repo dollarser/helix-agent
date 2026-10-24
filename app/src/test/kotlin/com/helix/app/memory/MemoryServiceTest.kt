@@ -32,12 +32,12 @@ class MemoryServiceTest {
             service.newMarkdown("user", "user", "Answer in Chinese"),
             "new",
         )
-        assertEquals("", service.context("a"))
+        assertEquals(null, service.contextSnapshot("a"))
         service.configure("enabled", true)
-        assertTrue(service.context("a").contains("Answer in Chinese"))
-        assertEquals(service.context("a"), service.context("b"))
+        assertTrue(service.contextSnapshot("a")!!.summaries.any { it.markdown.contains("Answer in Chinese") })
+        assertEquals(service.contextSnapshot("a"), service.contextSnapshot("b"))
         service.configure("enabled", false)
-        assertEquals("", service.context("a"))
+        assertEquals(null, service.contextSnapshot("a"))
         assertEquals(1, service.list(MemoryScope.Global).size)
         assertThrows(IllegalArgumentException::class.java) { service.scope("project", "a") }
     }
@@ -71,10 +71,14 @@ class MemoryServiceTest {
             service.newMarkdown("user", "user", "Only project A knows this"),
             "new",
         )
-        assertTrue(service.context("one").contains("Only project A knows this"))
-        assertFalse(service.context("two").contains("Only project A knows this"))
+        assertTrue(service.contextSnapshot("one")!!.summaries.any { it.markdown.contains("Only project A knows this") })
+        assertFalse(
+            service.contextSnapshot("two")!!.summaries.any { it.markdown.contains("Only project A knows this") },
+        )
         membership["one"] = "project-b"
-        assertFalse(service.context("one").contains("Only project A knows this"))
+        assertFalse(
+            service.contextSnapshot("one")!!.summaries.any { it.markdown.contains("Only project A knows this") },
+        )
         membership.remove("one")
         assertFalse(service.projectAvailable("one"))
         assertThrows(IllegalArgumentException::class.java) { service.scope("project", "one") }

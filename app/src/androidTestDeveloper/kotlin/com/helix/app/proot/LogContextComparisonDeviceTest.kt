@@ -85,10 +85,10 @@ class LogContextComparisonDeviceTest {
                     val label = if (minimal) "minimal" else "full"
                     val caseDirectory = File(directory, label).apply { check(mkdirs() || isDirectory) }
                     val wire =
-                        LogComparisonWire(originalWire, caseDirectory) {
+                        LogComparisonWire(originalWire, caseDirectory) { tools ->
                             c.toolPipeline.mcpDiscovery
                                 .catalog("session")
-                                .orEmpty()
+                                .modelContext(tools)
                         }.also { it.minimal = minimal }
                     wireField.set(factory, wire)
                     val turn =
@@ -274,27 +274,34 @@ class LogContextComparisonDeviceTest {
             put("answer", answer)
             put("requests", requests)
             put("originalSubmissions", submissions)
-            put("catalog", c.toolPipeline.mcpDiscovery.catalog("session"))
             put(
-                "calls",
-                JsonArray(
-                    calls.map { call ->
-                        buildJsonObject {
-                            put("name", call.name)
-                            put("arguments", call.argsJson)
-                            put("state", call.state)
-                            put(
-                                "result",
-                                c.storage.toolResults
-                                    .byToolCall(call.id)
-                                    ?.let(c.storage.toolResults::readContent),
-                            )
-                        }
-                    },
-                ),
+                "catalog",
+                c.toolPipeline.mcpDiscovery
+                    .catalog("session")
+                    .diagnosticJson(),
             )
+            put("calls", callEvidence(c, calls))
         }
     }
+
+    private fun callEvidence(
+        c: AppContainer,
+        calls: List<com.helix.core.storage.entity.ToolCallEntity>,
+    ) = JsonArray(
+        calls.map { call ->
+            buildJsonObject {
+                put("name", call.name)
+                put("arguments", call.argsJson)
+                put("state", call.state)
+                put(
+                    "result",
+                    c.storage.toolResults
+                        .byToolCall(call.id)
+                        ?.let(c.storage.toolResults::readContent),
+                )
+            }
+        },
+    )
 
     @Suppress("UNCHECKED_CAST") // Debug test-only cache reset, not permission or persisted state.
     private fun resetExposure(c: AppContainer) {

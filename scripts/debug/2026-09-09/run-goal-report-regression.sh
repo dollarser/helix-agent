@@ -6,7 +6,7 @@ port=$3
 output=$4
 suffix=
 if [ "$variant" = developer ]; then suffix=.developer; fi
-classes=com.helix.app.chat.GoalModelReportDeviceTest,com.helix.app.ui.GoalModelReportFlowDeviceTest,com.helix.app.chat.GoalRunCoordinatorDeviceTest,com.helix.app.chat.GoalTurnBindingDeviceTest,com.helix.app.chat.GoalUsageReservationsDeviceTest,com.helix.app.chat.GoalModelCancellationDeviceTest,com.helix.app.chat.BackgroundTaskStorageDeviceTest,com.helix.app.chat.ContextCompactionDeviceTest,com.helix.app.chat.LongTurnCompactionDeviceTest,com.helix.app.ui.ChatCompactionFlowDeviceTest,com.helix.app.ui.BackgroundTaskFlowDeviceTest,com.helix.app.ui.GoalEditorDeviceTest,com.helix.app.ui.GoalDialogDeviceTest
+classes=com.helix.app.chat.GoalModelReportDeviceTest,com.helix.app.ui.GoalModelReportFlowDeviceTest,com.helix.app.application.agent.GoalRunCoordinatorDeviceTest,com.helix.app.chat.GoalTurnBindingDeviceTest,com.helix.app.chat.GoalUsageReservationsDeviceTest,com.helix.app.chat.GoalModelCancellationDeviceTest,com.helix.app.chat.BackgroundTaskStorageDeviceTest,com.helix.app.chat.ContextCompactionDeviceTest,com.helix.app.chat.LongTurnCompactionDeviceTest,com.helix.app.ui.ChatCompactionFlowDeviceTest,com.helix.app.ui.BackgroundTaskFlowDeviceTest,com.helix.app.ui.GoalEditorDeviceTest,com.helix.app.ui.GoalDialogDeviceTest
 python3 scripts/run-owned-emulator.py --raw-results \
  --avd "Helix_M11_Test_API_$api" --port "$port" \
  --apk "app/build/outputs/apk/$variant/debug/app-$variant-debug.apk" \

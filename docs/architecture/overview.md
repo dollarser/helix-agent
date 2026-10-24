@@ -1,13 +1,13 @@
 # Helix 总体架构
 
-本文说明当前职责与已接受的演进边界；2026-10-14 定向复核执行接口、Memory、插件资源与恢复导航。实际交付以[实施状态](../development/status.md)和[完成记录](../completion-records/index.md)为准。接受设计不代表对应功能已上线；当前源码证据与重新调研见[执行引擎研究 §10](../research/modules/01-architecture-and-execution-engine.md#10-2026-10-14-执行边界与新目标设计复核)，2026-10-15 评审后的单一目标设计见[Harness 方案 §23](harness-refactor-plan.md#23-2026-10-14-执行边界重构提案)，已登记 HXA-286～294，尚未实施。
+本文说明当前职责与已接受的演进边界；2026-10-14 定向复核执行接口、Memory、插件资源与恢复导航。实际交付以[实施状态](../development/status.md)和[完成记录](../completion-records/index.md)为准。接受设计不代表对应功能已上线；当前源码证据与重新调研见[执行引擎研究 §10](../research/modules/01-architecture-and-execution-engine.md#10-2026-10-14-执行边界与新目标设计复核)，2026-10-15 评审后的单一目标设计见[Harness 方案 §23](harness-refactor-plan.md#23-2026-10-14-执行边界重构提案)，已登记 HXA-286～294；286/287/293 的阶段 1 正在实施，完整 Turn 宿主中立化尚未完成。
 
 ## 职责与调用路径
 
 | 层 | 所有权 | 不承担的职责 |
 | --- | --- | --- |
 | UI / feature | 用户意图、导航、展示、人工操作入口，订阅应用读模型 | 直接访问 DAO、网络客户端或执行器；持有 Turn worker |
-| 应用协调 / ChatService | 用户提交/确认、composer、会话配置与 UI-facing projection；AppAgentRuntime 将 submit/cancel/observe 接到原应用命令及 Engine 观察接口 | 持有第二个 worker/startGate 或改写 Turn terminal/review |
+| 应用命令 / ChatService 展示适配 | application/agent 汇合提交、队列、恢复与停止；ChatService 保留 composer、会话配置和 UI-facing projection，AppAgentRuntime 调命令并观察 Engine | 持有第二个 worker/startGate 或改写 Turn terminal/review |
 | TurnEngine / TurnExecutionDriver | durable admission/cancel/review/terminal/recovery、session blocker、runtime snapshot、live AgentLoop driver/observation | UI 导航、重新定义工具策略或 Runtime 退出事实 |
 | Core Agent | 纯 JVM 的唯一 AgentLoop、模型调用、工具结果回填、上下文压缩与预算；通过端口使用宿主与 Goal 事实 | 依赖 App/Room/UI、凭模型内容创建用户授权 |
 | 宿主适配 | AgentLoopHost 装配端口；TurnCoordinator 经 AgentTurnJournal 提供 round checkpoint；ChatToolCalls 实现 AgentToolGateway、持久调用与批次结果适配 | 另建循环或取得 Turn 最终结算权 |
@@ -19,7 +19,8 @@
 flowchart TD
   UI[会话与任务 UI] --> Coordinator[应用协调 / ChatService]
   Coordinator --> Entry[AgentRuntime / AppAgentRuntime 接入原应用命令]
-  Entry --> Engine[TurnEngine / TurnExecutionDriver]
+  Entry --> Commands[application/agent 提交与停止命令]
+  Commands --> Engine[TurnEngine / TurnExecutionDriver]
   Engine --> Host[AgentLoopHost / 本机适配]
   Host --> Loop[core:agent / 唯一 AgentLoop]
   Engine --> State[Room durable state / runtime checkpoint]
@@ -37,15 +38,17 @@ flowchart TD
   Provider --> Subscription[可选订阅客户端与私有进程]
 ```
 
-图表示职责与调用方向，不表示每层一个进程或 Server。`AppAgentRuntime` 当前由 ChatService 构造，submit/cancel 回调原应用命令；它是端口适配，不是已经独立部署的 Harness。Engine 持久结算后才释放 live owner 并发布相应观察；UI 投影不反向提交终态。
+图表示职责与调用方向，不表示每层一个进程或 Server。`AppAgentRuntime` 当前由 ChatService 构造，submit/cancel 直接调用 `application/agent` 的提交/停止命令；它是端口适配，不是已经独立部署的 Harness。Engine 持久结算后才释放 live owner 并发布相应观察；UI 投影不反向提交终态。
 
 手动文件管理、组件安装和浏览器拥有独立服务路径，不必先建立 Agent Turn。feature 通过应用接口提交动作。[ADR-AGENT-001](../adr/agent/001-turn-coordination.md)已将 live driver/observation 与 durable lifecycle 同归 TurnEngine；HXA-220/223 的交付不能继续画成 ChatService 持有 live worker 的迁移期结构。
 
-会话应用层内部由`SessionDirectory`持有目录/检索投影、Job与取消发布边界，`ComposerInputState`持有原草稿与附件原子快照/锁，`TaskDashboardProjection`持有任务面板六类读投影。`SessionCatalog`集中元数据及模型默认/运行配置的Room事务；ChatService继续仲裁原用户动作、准入和权限重验，运行配置仍由原`SessionRunControlStore`保存。这些协作者共用原Room、clock、ID及工作区恢复对象，不新增执行循环、状态副本或动作队列；历史页消费目录接口与动作回调。具体交付及验证边界见[status](../development/status.md)。
+会话应用层内部由`SessionDirectory`持有目录/检索投影、Job与取消发布边界，`ComposerInputState`持有原草稿与附件原子快照/锁，`TaskDashboardProjection`持有任务面板六类读投影。`SessionCatalog`集中元数据及模型默认/运行配置的Room事务；ChatService负责用户动作与展示，`TurnSubmissionCommandHandler` 汇合普通、队列和恢复提交的准备/准入，`StopTurnCommandHandler` 汇合停止命令；权限仍在原治理链重验，运行配置仍由原`SessionRunControlStore`保存。这些协作者共用原Room、clock、ID及工作区恢复对象，不新增执行循环、状态副本或动作队列；历史页消费目录接口与动作回调。具体交付及验证边界见[status](../development/status.md)。
 
 [HXA-234](../development/tasks/HXA-234.md) 已将实际 Loop、状态/预算值、执行端口与上下文选择迁入 Core，Android 侧保留适配与同一 Room 事务。应用协调、原历史编解码和权限/附件 I/O 仍在宿主；这不是把所有 App 逻辑搬入 Core，也没有创建远程 Execution Host。实现、主机与真实设备验收分别记账。
 
 ## 运行、上下文与恢复
+
+`application/context` 组装类型化内容，打包模板由 `infrastructure/prompt` 经接口提供；插件事实不依赖 Core 编排，唯一 ContextCompiler 共同投影可选目录/Memory 内容并保留来源、省略和受控重读信息。
 
 `ChatRequestAssembler` 实现 Core 的请求端口；`ContextCompaction` 读取有界历史快照后调用纯 `ContextCompiler`，`ContextCompactionRound` 在 Core 编排摘要，原 Turn 日志提交 checkpoint。`AgentTurnStore` 以领域命令提交终态；`ChatToolCalls` 仅适配执行，`ChatToolMessages` 仅适配消息，二者不互相授予权限。
 Chat、Plan、Act、Goal 共用执行循环，差异由工具曝光与 Policy 决定。生产请求组装保留持久历史、摘要、附件恢复、工具调用配对与图片绑定；整理上下文不能用旧测试 Builder 替换这些语义。MCP 已有按需发现和会话曝光，内置工具预算是独立优化。

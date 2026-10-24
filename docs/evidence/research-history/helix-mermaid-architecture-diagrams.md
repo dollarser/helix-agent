@@ -176,7 +176,7 @@ flowchart TB
     DISARM -->|"用户明确继续"| SERVICE
 ```
 
-依据 [Goal ADR](../../adr/goal/001-lifecycle-and-completion.md)、[状态枚举](../../../core/model/src/main/kotlin/com/helix/core/model/GoalState.kt)、[续跑驱动](../../../app/src/main/kotlin/com/helix/app/chat/GoalContinuationDriver.kt)。旧注释中“所有新 run 只能由用户逐次创建”不再概括当前行为；进程死亡后明确继续的约束仍成立。模型报告完成不恢复全局强制 verifier；测试失败且还能修复，不应直接判为无法推进的 blocked。
+依据 [Goal ADR](../../adr/goal/001-lifecycle-and-completion.md)、[状态枚举](../../../core/model/src/main/kotlin/com/helix/core/model/GoalState.kt)、[续跑驱动](../../../app/src/main/kotlin/com/helix/app/application/agent/GoalContinuationDriver.kt)。旧注释中“所有新 run 只能由用户逐次创建”不再概括当前行为；进程死亡后明确继续的约束仍成立。模型报告完成不恢复全局强制 verifier；测试失败且还能修复，不应直接判为无法推进的 blocked。
 
 ## 8. 已实现的恢复原则与待补体验
 

@@ -1,5 +1,6 @@
 package com.helix.app.chat
 
+import com.helix.app.infrastructure.prompt.packagedPromptTemplates
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass

@@ -44,6 +44,41 @@ class PromptSnapshotRecordTest {
     }
 
     @Test
+    fun contentIdentityAndReadReferenceSurviveWithoutPersistingActivatedText() {
+        val snapshot =
+            PromptRegistry()
+                .register(
+                    PromptSection(
+                        "skill.activation",
+                        0,
+                        PromptScope.SKILL,
+                        PromptSource.EXTERNAL_CONTENT,
+                        identity =
+                            com.helix.core.agent
+                                .PromptContentIdentity("fixture", "revision", "resource"),
+                        readReference =
+                            com.helix.core.agent.PromptContentReadReference(
+                                "skills.read",
+                                "{\"name\":\"fixture\",\"snapshotHash\":\"revision\"}",
+                            ),
+                    ) { "PRIVATE-BODY PRIVATE-ACCEPTED-ARGUMENTS" },
+                ).resolveAndAssemble()
+        val record = requireNotNull(promptSnapshotRecord(snapshot, "call", "turn"))
+        val section =
+            Json
+                .parseToJsonElement(record.sectionsJson)
+                .jsonArray
+                .single()
+                .jsonObject
+        assertEquals("fixture", section["identity"]!!.jsonObject["owner"]!!.jsonPrimitive.content)
+        assertEquals("skills.read", section["readReference"]!!.jsonObject["tool"]!!.jsonPrimitive.content)
+        assertEquals("true", section["rereadable"]!!.jsonPrimitive.content)
+        assertTrue("PRIVATE-BODY" !in record.auditPayload)
+        assertTrue("PRIVATE-ACCEPTED-ARGUMENTS" !in record.sectionsJson)
+        assertEquals(sha256Hex(snapshot.content), record.fingerprint)
+    }
+
+    @Test
     fun anEmptyAssemblyRecordsNothing() {
         assertNull(promptSnapshotRecord(PromptRegistry().resolveAndAssemble(), "mc-1", "t-1"))
     }

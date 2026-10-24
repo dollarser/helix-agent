@@ -5,6 +5,8 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
+import com.helix.app.application.agent.GoalContinuationDriver
+import com.helix.app.application.agent.GoalTurnStart
 import com.helix.app.engine.TurnRecovery
 import com.helix.app.goal.GoalLifecycleService
 import com.helix.app.test.FixtureGoalRunCoordinator

@@ -1,5 +1,11 @@
 package com.helix.app.chat
 
+import com.helix.app.application.agent.TurnStartBlocked
+import com.helix.app.application.agent.TurnStopCommands
+import com.helix.app.application.agent.TurnSubmissionBlock
+import com.helix.app.application.agent.TurnSubmissionCommands
+import com.helix.app.application.agent.TurnSubmissionResult
+import com.helix.app.application.agent.runControl
 import com.helix.app.engine.TurnObservation
 import com.helix.app.engine.TurnRuntimeView
 import com.helix.core.agent.AttachmentBindingIntent
@@ -20,7 +26,6 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AppAgentRuntimeTest {
@@ -78,9 +83,12 @@ class AppAgentRuntimeTest {
     fun blockedStartSurfacesTurnStartBlocked() {
         val fixture = Fixture().apply { nextStartTurnId = null }
 
-        assertThrows(TurnStartBlocked::class.java) {
-            runBlocking { fixture.agent.submit(command()) }
-        }
+        val error =
+            assertThrows(TurnStartBlocked::class.java) {
+                runBlocking { fixture.agent.submit(command()) }
+            }
+        assertEquals("s1", error.sessionId)
+        assertEquals(TurnSubmissionBlock.SESSION_BUSY, error.reason)
     }
 
     @Test
@@ -96,11 +104,11 @@ class AppAgentRuntimeTest {
     }
 
     @Test
-    fun cancelUnknownTurnIsNotFoundWithoutCallingCancelSeam() {
+    fun cancelDelegatesUnknownTurnToAuthoritativeCommandHandler() {
         val fixture = Fixture()
 
         assertEquals(CancelResult.NotFound, runBlocking { fixture.agent.cancel(turnId) })
-        assertTrue(fixture.cancelled.isEmpty())
+        assertEquals(listOf("t1"), fixture.cancelled)
     }
 
     @Test
@@ -117,7 +125,7 @@ class AppAgentRuntimeTest {
         val fixture =
             Fixture().apply {
                 phase = TurnState.COMPLETED
-                cancelOutcome = TurnCancelOutcome.NotFound
+                cancelOutcome = CancelResult.NotFound
             }
         assertEquals(CancelResult.NotFound, runBlocking { fixture.agent.cancel(turnId) })
         assertEquals(listOf("t1"), fixture.cancelled)
@@ -128,7 +136,7 @@ class AppAgentRuntimeTest {
         val fixture =
             Fixture().apply {
                 phase = TurnState.RUNNING_TOOL
-                cancelOutcome = TurnCancelOutcome.StoppedLive
+                cancelOutcome = CancelResult.StopAccepted
             }
 
         assertEquals(CancelResult.StopAccepted, runBlocking { fixture.agent.cancel(turnId) })
@@ -139,10 +147,32 @@ class AppAgentRuntimeTest {
         val fixture =
             Fixture().apply {
                 phase = TurnState.NEEDS_REVIEW
-                cancelOutcome = TurnCancelOutcome.ReviewRequired
+                cancelOutcome = CancelResult.ReviewRequired
             }
 
         assertEquals(CancelResult.ReviewRequired, runBlocking { fixture.agent.cancel(turnId) })
+    }
+
+    @Test
+    fun cancellationFailureIsNotConvertedToAcceptedStop() {
+        val fixture = Fixture().apply { cancellationFailure = IllegalStateException("durable stop failed") }
+
+        assertThrows(IllegalStateException::class.java) {
+            runBlocking { fixture.agent.cancel(turnId) }
+        }
+        assertEquals(listOf("t1"), fixture.cancelled)
+    }
+
+    @Test
+    fun cancellationTargetsOriginalTurnEvenWhenObservationIsStale() {
+        val fixture =
+            Fixture().apply {
+                phase = TurnState.COMPLETED
+                cancelOutcome = CancelResult.ReviewRequired
+            }
+
+        assertEquals(CancelResult.ReviewRequired, runBlocking { fixture.agent.cancel(turnId) })
+        assertEquals(listOf("t1"), fixture.cancelled)
     }
 
     @Test
@@ -219,30 +249,38 @@ class AppAgentRuntimeTest {
     private class Fixture : TurnRuntimeView {
         var nextStartTurnId: String? = "t1"
         var lastCommand: SubmitTurnCommand? = null
-        var lastControl: RunControlConfig? = null
+        val lastControl: RunControlConfig? get() = lastCommand?.runControl()
         var phase: TurnState? = null
         var assistantText: String? = null
         var observations: List<TurnObservation> = emptyList()
-        var cancelOutcome: TurnCancelOutcome? = null
+        var cancelOutcome: CancelResult? = null
+        var cancellationFailure: RuntimeException? = null
         val cancelled = mutableListOf<String>()
         val startedTurns = mutableListOf<String>()
         private val claimedClientIds = HashMap<String, String>()
 
         val agent =
             AppAgentRuntime(
-                startTurn = { command, control ->
-                    claimedClientIds[command.clientRequestId]
-                        ?: nextStartTurnId?.also { turn ->
-                            lastCommand = command
-                            lastControl = control
-                            claimedClientIds[command.clientRequestId] = turn
-                            startedTurns += turn
+                submissionCommands =
+                    TurnSubmissionCommands { command ->
+                        val existing = claimedClientIds[command.clientRequestId]
+                        if (existing != null) {
+                            TurnSubmissionResult.Started(existing, deduplicated = true)
+                        } else {
+                            nextStartTurnId?.let { turn ->
+                                lastCommand = command
+                                claimedClientIds[command.clientRequestId] = turn
+                                startedTurns += turn
+                                TurnSubmissionResult.Started(turn)
+                            } ?: TurnSubmissionResult.Blocked(TurnSubmissionBlock.SESSION_BUSY)
                         }
-                },
-                cancelTurn = { id ->
-                    cancelled += id
-                    cancelOutcome ?: TurnCancelOutcome.AlreadyTerminal(requireNotNull(phase))
-                },
+                    },
+                stopCommands =
+                    TurnStopCommands { id ->
+                        cancelled += id.value
+                        cancellationFailure?.let { throw it }
+                        cancelOutcome ?: phase?.let { CancelResult.AlreadyTerminal(it) } ?: CancelResult.NotFound
+                    },
                 runtime = this,
             )
 

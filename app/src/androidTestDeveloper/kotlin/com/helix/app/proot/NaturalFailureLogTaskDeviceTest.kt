@@ -162,7 +162,12 @@ class NaturalFailureLogTaskDeviceTest {
                                 .listByTurn(id)
                                 .size,
                         )
-                        put("catalog", c.toolPipeline.mcpDiscovery.catalog("session"))
+                        put(
+                            "catalog",
+                            c.toolPipeline.mcpDiscovery
+                                .catalog("session")
+                                .diagnosticJson(),
+                        )
                         put(
                             "modelToolHistory",
                             JsonArray(

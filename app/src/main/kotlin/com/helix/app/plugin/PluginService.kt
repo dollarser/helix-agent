@@ -312,7 +312,7 @@ class PluginService(
     fun requestReadiness(
         sessionId: String,
         turnId: String? = null,
-    ): String =
+    ): PluginReadinessContext =
         run {
             val selected = catalog.selected(sessionId)
             val installed = list()
@@ -322,7 +322,7 @@ class PluginService(
                 installed.sortedByDescending { it.id in selected }.take(64).map {
                     readinessSnapshot(it, items, readable).copy(selected = it.id in selected)
                 }
-            pluginRequestReadiness(
+            pluginReadinessContext(
                 snapshots,
                 installed.size,
                 browserHostAvailable(),

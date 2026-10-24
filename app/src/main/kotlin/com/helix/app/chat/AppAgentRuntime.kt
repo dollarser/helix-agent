@@ -1,10 +1,13 @@
 package com.helix.app.chat
 
+import com.helix.app.application.agent.TurnStartBlocked
+import com.helix.app.application.agent.TurnStopCommands
+import com.helix.app.application.agent.TurnSubmissionCommands
+import com.helix.app.application.agent.TurnSubmissionResult
 import com.helix.app.engine.TurnObservation
 import com.helix.app.engine.TurnRuntimeView
 import com.helix.core.agent.AgentRuntime
 import com.helix.core.agent.CancelResult
-import com.helix.core.agent.RunControlConfig
 import com.helix.core.agent.SubmitTurnCommand
 import com.helix.core.agent.TurnSnapshot
 import com.helix.core.model.TurnId
@@ -19,33 +22,17 @@ import kotlinx.coroutines.flow.map
  * Engine-owned runtime view. It owns no Turn execution state.
  */
 internal class AppAgentRuntime(
-    private val startTurn: suspend (SubmitTurnCommand, RunControlConfig) -> String?,
-    private val cancelTurn: suspend (String) -> TurnCancelOutcome,
+    private val submissionCommands: TurnSubmissionCommands,
+    private val stopCommands: TurnStopCommands,
     private val runtime: TurnRuntimeView,
 ) : AgentRuntime {
-    override suspend fun submit(command: SubmitTurnCommand): TurnId {
-        val control =
-            RunControlConfig(
-                command.mode,
-                command.chatToolsEnabled,
-                command.budgets,
-                command.reasoning,
-                command.goalBudgets ?: com.helix.core.agent.GoalBudgetDefaults.VALUE,
-            )
-        val turnId = startTurn(command, control) ?: throw TurnStartBlocked()
-        return TurnId(turnId)
-    }
-
-    override suspend fun cancel(turnId: TurnId): CancelResult {
-        val phase = runtime.persistedPhase(turnId.value)
-        if (phase == null) return CancelResult.NotFound
-        return when (val outcome = cancelTurn(turnId.value)) {
-            TurnCancelOutcome.NotFound -> CancelResult.NotFound
-            is TurnCancelOutcome.AlreadyTerminal -> CancelResult.AlreadyTerminal(outcome.phase)
-            TurnCancelOutcome.StoppedLive -> CancelResult.StopAccepted
-            TurnCancelOutcome.ReviewRequired -> CancelResult.ReviewRequired
+    override suspend fun submit(command: SubmitTurnCommand): TurnId =
+        when (val result = submissionCommands.submit(command)) {
+            is TurnSubmissionResult.Started -> TurnId(result.turnId)
+            is TurnSubmissionResult.Blocked -> throw TurnStartBlocked(command.session.value, result.reason)
         }
-    }
+
+    override suspend fun cancel(turnId: TurnId): CancelResult = stopCommands.cancel(turnId)
 
     override fun observe(turnId: TurnId): Flow<TurnSnapshot> =
         flow {
@@ -105,20 +92,4 @@ internal class AppAgentRuntime(
     private companion object {
         val PARKED_PHASES = setOf(TurnState.NEEDS_REVIEW, TurnState.INTERRUPTED)
     }
-}
-
-internal class TurnStartBlocked(
-    message: String = "the turn could not start; its session refused the start",
-) : RuntimeException(message)
-
-internal sealed interface TurnCancelOutcome {
-    data object NotFound : TurnCancelOutcome
-
-    data class AlreadyTerminal(
-        val phase: TurnState,
-    ) : TurnCancelOutcome
-
-    data object StoppedLive : TurnCancelOutcome
-
-    data object ReviewRequired : TurnCancelOutcome
 }

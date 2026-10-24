@@ -87,22 +87,7 @@ class PluginSkillContributionDeviceTest {
             // Explicit configuration action; installation alone does not create a live server row.
             val endpoint = installed.endpoints.single()
             c.mcpService.registerDisabled(endpoint.id, endpoint.endpoint.url, null)
-            repeat(3) {
-                val state = c.pluginService.sessionRows(session).single { it.id == installed.id }
-                assertTrue(state.selected)
-                assertEquals(1, state.readyComponents)
-                assertEquals(2, state.totalComponents)
-                assertFalse(state.ready)
-                assertEquals(null, state.setupReason)
-                val mcp =
-                    requireNotNull(state.readiness).components.single {
-                        it.kind == com.helix.extensions.plugin.PluginComponentKind.MCP
-                    }
-                assertTrue(mcp.saved)
-                assertFalse(mcp.loaded)
-                assertFalse(c.mcpService.isActive(installed.endpoints.single().id))
-                assertTrue(c.pluginService.requestReadiness(session).contains("NOT_CONNECTED"))
-            }
+            assertReadiness(c.pluginService, installed.id, session) { c.mcpService.isActive(endpoint.id) }
             assertEquals(
                 "Draft only",
                 c.skillRepository
@@ -111,7 +96,11 @@ class PluginSkillContributionDeviceTest {
                     .trim(),
             )
             c.pluginService.selectFromUser(session, installed.id, false)
-            assertTrue(c.pluginService.requestReadiness(session).contains("NOT_SELECTED"))
+            assertTrue(
+                c.pluginService.requestReadiness(session).plugins.any {
+                    it.requestSummary().toString().contains("NOT_SELECTED")
+                },
+            )
         } finally {
             c.pluginService.remove(installed)
             c.storage.deleteSessionPermanently(session)
@@ -171,6 +160,34 @@ class PluginSkillContributionDeviceTest {
                 .filter { it.id == installed.id }
                 .forEach(c.pluginService::remove)
             c.storage.deleteSessionPermanently(session)
+        }
+    }
+
+    private fun assertReadiness(
+        service: PluginService,
+        pluginId: String,
+        session: String,
+        mcpActive: () -> Boolean,
+    ) {
+        repeat(3) {
+            val state = service.sessionRows(session).single { it.id == pluginId }
+            assertTrue(state.selected)
+            assertEquals(1, state.readyComponents)
+            assertEquals(2, state.totalComponents)
+            assertFalse(state.ready)
+            assertEquals(null, state.setupReason)
+            val mcp =
+                requireNotNull(state.readiness).components.single {
+                    it.kind == com.helix.extensions.plugin.PluginComponentKind.MCP
+                }
+            assertTrue(mcp.saved)
+            assertFalse(mcp.loaded)
+            assertFalse(mcpActive())
+            assertTrue(
+                service.requestReadiness(session).plugins.any {
+                    it.requestSummary().toString().contains("NOT_CONNECTED")
+                },
+            )
         }
     }
 }

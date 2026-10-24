@@ -1,6 +1,8 @@
 package com.helix.app.agent
 
+import com.helix.core.agent.PromptContentIdentity
 import com.helix.core.agent.PromptSnapshot
+import com.helix.core.agent.ResolvedPromptSection
 import com.helix.core.agent.TokenEstimator
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonArray
@@ -29,31 +31,14 @@ internal fun promptSnapshotRecord(
     snapshot: PromptSnapshot,
     modelCallId: String,
     turnId: String,
+    compacting: Boolean = false,
 ): PromptSnapshotRecord? {
     if (snapshot.sections.isEmpty() && snapshot.omittedSections.isEmpty()) return null
     val sections =
         buildJsonArray {
-            val considered =
-                (snapshot.sections + snapshot.omittedSections).sortedWith(
-                    compareBy({ it.order }, { it.name }),
-                )
-            considered.forEach { section ->
-                add(
-                    buildJsonObject {
-                        put("name", section.name)
-                        put("order", section.order)
-                        put("scope", section.scope.name)
-                        put("source", section.source.name)
-                        put("trust", section.trust.name)
-                        put("contentHash", section.contentHash)
-                        put("included", section.omissionReason == null)
-                        put("reason", section.omissionReason?.name ?: "NON_EMPTY")
-                        val bytes = TokenEstimator.utf8Bytes(section.content)
-                        put("utf8Bytes", bytes)
-                        put("estimatedTextTokens", TokenEstimator.estimateTokens(bytes))
-                    },
-                )
-            }
+            (snapshot.sections + snapshot.omittedSections)
+                .sortedWith(compareBy({ it.order }, { it.name }))
+                .forEach { add(it.redactedRecord()) }
         }
     return PromptSnapshotRecord(
         modelCallId = modelCallId,
@@ -62,7 +47,8 @@ internal fun promptSnapshotRecord(
         sectionsJson = sections.toString(),
         auditPayload =
             buildJsonObject {
-                put("version", 2)
+                put("version", 3)
+                put("contextKind", if (compacting) "COMPACTION" else "TASK")
                 put("estimateMethod", "utf8_bytes_ceil_div_4")
                 put("promptUtf8Bytes", TokenEstimator.utf8Bytes(snapshot.content))
                 put(
@@ -76,3 +62,58 @@ internal fun promptSnapshotRecord(
             }.toString(),
     )
 }
+
+private fun ResolvedPromptSection.redactedRecord() =
+    buildJsonObject {
+        put("name", name)
+        put("order", order)
+        put("scope", scope.name)
+        put("source", source.name)
+        put("trust", trust.name)
+        put("contentHash", contentHash)
+        put("retention", retention.name)
+        put("priority", priority)
+        identity?.let { put("identity", it.redactedIdentity()) }
+        put("rereadable", readReference != null)
+        readReference?.let { reference ->
+            put(
+                "readReference",
+                buildJsonObject {
+                    put("tool", reference.tool)
+                    put(
+                        "arguments",
+                        kotlinx.serialization.json.Json
+                            .parseToJsonElement(reference.argumentsJson),
+                    )
+                },
+            )
+        }
+        put("included", omissionReason == null)
+        put("reason", omissionReason?.name ?: "NON_EMPTY")
+        val bytes = TokenEstimator.utf8Bytes(content)
+        put("utf8Bytes", bytes)
+        put("estimatedTextTokens", TokenEstimator.estimateTokens(bytes))
+    }
+
+private fun PromptContentIdentity.redactedIdentity() =
+    buildJsonObject {
+        put("owner", owner)
+        put("revision", revision)
+        resource?.let { put("resource", it) }
+        put(
+            "owners",
+            buildJsonArray {
+                owners.forEach { owner ->
+                    add(
+                        buildJsonObject {
+                            put("id", owner.id)
+                            put("runtimeId", owner.runtimeId)
+                            put("version", owner.version)
+                            put("revision", owner.revision)
+                            put("fingerprint", owner.fingerprint)
+                        },
+                    )
+                }
+            },
+        )
+    }

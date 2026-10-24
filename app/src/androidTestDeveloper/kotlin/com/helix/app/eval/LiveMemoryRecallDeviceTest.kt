@@ -3,7 +3,8 @@ package com.helix.app.eval
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.HelixApplication
-import com.helix.app.chat.SystemPromptContext
+import com.helix.app.application.context.SystemPromptContext
+import com.helix.app.infrastructure.prompt.packagedPromptTemplates
 import com.helix.app.memory.MemoryService
 import com.helix.app.projects.ProjectService
 import com.helix.core.model.AgentMode
@@ -77,7 +78,7 @@ class LiveMemoryRecallDeviceTest {
                         "new",
                     )
                 }
-                val builder = SystemPromptContext(storage, { "" }, memory = memory)
+                val builder = SystemPromptContext(storage, { "" }, packagedPromptTemplates, memory = memory)
                 for ((index, allowed) in listOf(0 to true, 1 to true, 0 to false, 1 to false)) {
                     val session = projects.newSession(listOf(first, second)[index], null, null)
                     if (allowed) {
@@ -89,7 +90,7 @@ class LiveMemoryRecallDeviceTest {
                     }
                     val directory =
                         FileScopePath.fromModelReference(requireNotNull(storage.sessions.resolve(session).directoryRef))
-                    val prompt = builder.build(session, AgentMode.ACT, false, true, directory = directory)
+                    val prompt = builder.build(session, AgentMode.ACT, emptySet(), directory = directory)
                     assertFalse(prompt.content.contains(markers[1 - index]))
                     assertTrue(prompt.content.contains(markers[index]) == allowed)
                     assertTrue(prompt.content.contains(global) == allowed)

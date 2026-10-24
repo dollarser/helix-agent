@@ -64,6 +64,14 @@ class PluginRegistry(
                 .toList()
         }
 
+    /** Freeze owner identity together with selected runtime eligibility. */
+    internal fun selectedContentOwners(sessionId: String): List<Pair<NativePluginState, HelixPlugin>> =
+        synchronized(catalog.mutationLock) {
+            selectedRuntimes(sessionId).map { plugin ->
+                requireNotNull(catalog.find(plugin.manifest.name)) to plugin
+            }
+        }
+
     internal fun runtime(descriptor: com.helix.tools.framework.ToolDescriptor): HelixPlugin? =
         synchronized(catalog.mutationLock) {
             val origin = descriptor.origin as? ToolOrigin.PluginOrigin ?: return@synchronized null
@@ -115,7 +123,10 @@ class PluginRegistry(
 
     /** Nonblocking presentation hint only; execution still resolves the authoritative binding. */
     fun hasPublishedTools(pluginId: String): Boolean =
-        toolRegistry.snapshot().any { it.ref.owner == bindingOwner("plugin", pluginId) }
+        toolRegistry.snapshot().any {
+            it.ref.owner ==
+                bindingOwner("plugin", pluginId)
+        }
 
     /** Immutable content facts; management sees installed content, execution sees selected owners. */
     fun skillDocuments(sessionId: String?): List<SkillDocument> =
@@ -137,7 +148,9 @@ class PluginRegistry(
         }
 
     fun ownsSkill(key: com.helix.extensions.skills.SkillKey): Boolean =
-        synchronized(catalog.mutationLock) { factories.values.any { plugin -> plugin.skills.any { matches(it, key) } } }
+        synchronized(catalog.mutationLock) {
+            factories.values.any { plugin -> plugin.skills.any { matches(it, key) } }
+        }
 
     private fun matches(
         document: SkillDocument,

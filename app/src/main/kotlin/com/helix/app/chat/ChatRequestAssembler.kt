@@ -3,6 +3,9 @@ package com.helix.app.chat
 import com.helix.app.agent.ChatHistoryBuilder
 import com.helix.app.agent.ContextCompaction
 import com.helix.app.agent.RecoveryContextPolicy
+import com.helix.app.application.context.PromptContentContributions
+import com.helix.app.application.context.SystemPromptContext
+import com.helix.app.infrastructure.prompt.packagedPromptTemplates
 import com.helix.app.provider.ProviderService
 import com.helix.app.tool.ToolPipeline
 import com.helix.core.agent.ContextCheckpoint
@@ -20,7 +23,7 @@ import com.helix.core.model.ModelToolSchema
 import com.helix.core.model.ReasoningEffort
 import com.helix.core.model.VisionLimits
 import com.helix.core.storage.HelixStorage
-import com.helix.extensions.plugin.instructions
+import com.helix.extensions.plugin.contentContributions
 import com.helix.extensions.plugin.preferredTools
 
 /**
@@ -65,16 +68,11 @@ internal class ChatRequestAssembler(
     // [PromptSnapshot] rides every built request so the request's records carry the section
     // list + fingerprint (research doc section 4.4).
     private val systemPrompt =
-        SystemPromptContext(storage, projectInstructionsReader, memory = memory)
+        SystemPromptContext(storage, projectInstructionsReader, packagedPromptTemplates, memory = memory)
 
-    // The local file tools whose visibility decides the `env.files` section (mainline rule: the
-    // working-directory guidance ships only when the file tools are actually exposed).
     private fun com.helix.core.storage.entity.SessionWorkspaceEntity.snapshot() =
         com.helix.core.agent
             .WorkspaceBindingSnapshot(sessionId, workspaceId, relativePath, revision)
-
-    private fun fileToolsAvailable(tools: List<ModelToolSchema>): Boolean =
-        tools.any { it.name.value in FILE_TOOL_NAMES }
 
     // AgentLoop port (HX2-02): the loop-facing names of the two plain request paths.
     override suspend fun build(
@@ -124,11 +122,10 @@ internal class ChatRequestAssembler(
             systemPrompt.build(
                 sessionId,
                 control.mode,
-                fileToolsAvailable(tools),
-                tools.isNotEmpty(),
+                tools.map { it.name.value }.toSet(),
                 storage.sessionExperts.forSession(sessionId),
                 directory,
-                pluginInstructions = pluginInstructions(sessionId, null),
+                contents = contentSections(sessionId, null, tools),
             )
         val request =
             TurnContextRequest(
@@ -141,12 +138,21 @@ internal class ChatRequestAssembler(
                 directory = directory,
                 workspaceBinding = binding?.snapshot(),
             )
-        val window = providerService.contextSettings(config.id, model).window
-        return com.helix.core.agent.ContextCapacity.forContinuation(
-            request,
-            prompt,
+        val settings = providerService.contextSettings(config.id, model)
+        val bounded =
+            request.copy(
+                messages = request.messages + ModelMessage(ModelRole.USER, prompt),
+                maxOutputTokens = minOf(request.maxOutputTokens, settings.window / 4),
+            )
+        val projected =
+            com.helix.core.agent.ContextCompiler
+                .projectContent(bounded, settings)
+        return com.helix.core.agent.ContextCapacity.failure(
+            projected.messages.size,
+            projected.inputTokens(),
+            projected.maxOutputTokens,
             com.helix.provider.api.ProviderCapabilities.MAX_CONTEXT_BOUND,
-            window,
+            settings.window,
         ) == null
     }
 
@@ -188,11 +194,10 @@ internal class ChatRequestAssembler(
             systemPrompt.build(
                 sessionId,
                 control.mode,
-                fileToolsAvailable(tools),
-                tools.isNotEmpty(),
+                tools.map { it.name.value }.toSet(),
                 expert,
                 directory,
-                pluginInstructions = pluginInstructions(sessionId, turnId),
+                contents = contentSections(sessionId, turnId, tools),
             )
         val history = persistedHistory(sessionId, turnId, retryTurnId, system, directory)
         require(history.messages.lastOrNull()?.role == ModelRole.USER) {
@@ -256,11 +261,10 @@ internal class ChatRequestAssembler(
             systemPrompt.build(
                 sessionId,
                 control.mode,
-                fileToolsAvailable(tools),
-                tools.isNotEmpty(),
+                tools.map { it.name.value }.toSet(),
                 expert,
                 directory,
-                pluginInstructions = pluginInstructions(sessionId, turnId),
+                contents = contentSections(sessionId, turnId, tools),
             )
         val history = persistedHistory(sessionId, turnId, null, system, directory)
         require(history.messages.lastOrNull()?.role in setOf(ModelRole.TOOL, ModelRole.USER)) {
@@ -300,20 +304,17 @@ internal class ChatRequestAssembler(
             buildRequest(sessionId, turnId, retryTurnId, control)
         }
 
-    /** Latest registered contracts admitted by the selected mode. This is exposure only. */
-    private fun pluginInstructions(
+    /** All content consumes the same actually admitted tool snapshot, never another Registry. */
+    private fun contentSections(
         sessionId: String,
         turnId: String?,
-    ): String? =
-        listOfNotNull(
-            toolPipeline.mcpDiscovery.catalog(sessionId),
-            toolPipeline.skills?.let { toolPipeline.plugins?.instructions(it, sessionId, turnId) },
-            toolPipeline.pluginReadiness
-                ?.invoke(
-                    sessionId,
-                    turnId,
-                )?.let { "[PLUGIN READINESS]\n$it\n[/PLUGIN READINESS]" },
-        ).joinToString("\n\n").takeIf { it.isNotBlank() }
+        tools: List<ModelToolSchema>,
+    ) = PromptContentContributions.sections(
+        toolPipeline.skills?.let { toolPipeline.plugins?.contentContributions(it, sessionId, turnId) }.orEmpty(),
+        toolPipeline.mcpDiscovery.catalog(sessionId),
+        toolPipeline.pluginReadiness?.invoke(sessionId, turnId),
+        tools.map { it.name.value }.toSet(),
+    )
 
     private fun modelTools(
         sessionId: String,
@@ -543,10 +544,7 @@ internal class ChatRequestAssembler(
     }
 
     private fun sessionProviderId(sessionId: String): String =
-        requireNotNull(storage.sessions.resolve(sessionId).providerId) { "session has no provider" }
-
-    private companion object {
-        val FILE_TOOL_NAMES =
-            setOf("read", "view_image", "write", "edit", "files.list", "files.stat", "files.search")
-    }
+        requireNotNull(storage.sessions.resolve(sessionId).providerId) {
+            "session has no provider"
+        }
 }

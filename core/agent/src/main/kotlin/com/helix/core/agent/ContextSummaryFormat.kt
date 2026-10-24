@@ -60,3 +60,18 @@ class ContextSummaryFormat(
         private const val SUMMARY_CHUNK_CHARS = 60_000
     }
 }
+
+/** Summary requests use their actual, separately framed instruction, never the task prompt snapshot. */
+internal fun summaryPromptSnapshot(request: com.helix.core.model.ModelRequest): PromptSnapshot {
+    val system = request.messages.filter { it.role == ModelRole.SYSTEM }.single()
+    return PromptRegistry()
+        .register(
+            PromptSection(
+                name = "context.compaction",
+                order = 0,
+                scope = PromptScope.RUNTIME,
+                source = PromptSource.BUILTIN_TEMPLATE,
+                verbatim = true,
+            ) { system.text },
+        ).resolveAndAssemble()
+}

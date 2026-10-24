@@ -229,6 +229,51 @@ class AgentLoopHeadlessTest {
             assertTrue(fixture.dispatched.isEmpty())
         }
 
+    @Test fun summaryWireAndRecordedPromptUseTheSameVerbatimSystemContent() =
+        runBlocking {
+            var planned = false
+            val fixture =
+                HeadlessLoopFixture {
+                    listOf(ModelEvent.TextDelta("Condensed facts."), ModelEvent.Completed("stop"))
+                }
+            fixture.source =
+                object : ContextCompactionSource {
+                    override suspend fun inputFloor(model: String) = 0L
+
+                    override suspend fun plan(
+                        request: TurnContextRequest,
+                        control: RunControlConfig,
+                        settings: com.helix.provider.api.ProviderContextSettings,
+                        force: Boolean,
+                        inputScale: Double,
+                    ): ContextCompactionPlan? {
+                        if (planned) return null
+                        planned = true
+                        return ContextCompactionPlan(
+                            1,
+                            SummaryOutputBudget(128, 128).modelRequest(
+                                request.model,
+                                "Historical fixture",
+                                ContextSummaryFormat("Summarize.", "Preserve facts."),
+                            ),
+                            request,
+                            originalInputTokens = 10000,
+                        )
+                    }
+                }
+            fixture.loop().runToolLoop("s", fixture.journal, "p", null, fixture.control)
+            val recorded = fixture.journal.promptSnapshots.first()
+            assertTrue(recorded.second)
+            assertEquals(
+                fixture.requests
+                    .first()
+                    .messages
+                    .filter { it.role == ModelRole.SYSTEM },
+                requireNotNull(recorded.first).modelMessages(),
+            )
+            assertTrue(requireNotNull(recorded.first).content.endsWith("HISTORY DATA:\n"))
+        }
+
     private fun calls(fragmented: Boolean): List<ModelEvent> =
         buildList {
             listOf("wire-a", "wire-b").forEachIndexed { index, id ->

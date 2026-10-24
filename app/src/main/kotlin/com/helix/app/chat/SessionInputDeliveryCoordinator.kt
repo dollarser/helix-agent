@@ -1,6 +1,10 @@
 package com.helix.app.chat
 
 import android.util.Log
+import com.helix.app.application.agent.SessionInputConfiguration
+import com.helix.app.application.agent.TurnSubmissionCommandHandler
+import com.helix.app.application.agent.TurnSubmissionResult
+import com.helix.app.application.agent.turnIdOrNull
 import com.helix.app.engine.TurnEngine
 import com.helix.app.provider.ProviderService
 import com.helix.app.runcontrol.SessionRunControlStore
@@ -33,13 +37,8 @@ internal class SessionInputDeliveryCoordinator(
     private val providerSnapshot: suspend (String, String?) -> String,
     private val clock: Clock,
     private val turnGate: Any,
-    private val launchQueuedTurn: suspend (
-        SessionInputRecord,
-        String,
-        List<MessageAttachmentRepository.Binding>,
-        RunControlConfig,
-        Boolean,
-    ) -> String?,
+    private val submissionCommands: TurnSubmissionCommandHandler,
+    private val onAdmissionResult: (String, TurnSubmissionResult) -> String?,
     private val skillActivationsValid: (
         String,
         List<com.helix.core.storage.repository.InputSkillActivation>,
@@ -49,19 +48,7 @@ internal class SessionInputDeliveryCoordinator(
     fun queueStillConsumable(
         input: SessionInputRecord,
         requireHead: Boolean,
-    ): Boolean {
-        val current = storage.sessionInputs.get(input.inputId) ?: return false
-        val headMatches = !requireHead || storage.sessionInputs.headQueue(input.sessionId)?.inputId == input.inputId
-        val unsettled =
-            storage.turns.listBySession(input.sessionId).any { turn ->
-                val state =
-                    com.helix.core.model.TurnState
-                        .valueOf(turn.state)
-                !state.isTerminal && state != com.helix.core.model.TurnState.NEEDS_REVIEW
-            }
-        val unchangedPending = current.state == SessionInputState.PENDING && current.revision == input.revision
-        return unchangedPending && headMatches && !unsettled
-    }
+    ): Boolean = submissionCommands.queueStillConsumable(input, requireHead)
 
     suspend fun consumeQueue(
         input: SessionInputRecord,
@@ -76,7 +63,17 @@ internal class SessionInputDeliveryCoordinator(
             null
         } else {
             val control = controlFor(input)
-            val turnId = launchQueuedTurn(input, prepared.first, prepared.second, control, requireHead)
+            val result =
+                submissionCommands.deliverQueued(
+                    input.inputId,
+                    input.revision,
+                    prepared.first,
+                    prepared.second,
+                    control,
+                    requireHead,
+                )
+            onAdmissionResult(input.sessionId, result)
+            val turnId = result.turnIdOrNull()
             if (turnId == null) markAdmissionFailureIfStillIdle(input)
             turnId
         }
@@ -117,7 +114,7 @@ internal class SessionInputDeliveryCoordinator(
             val valid =
                 session.providerId == provider &&
                     (session.modelId ?: providerService.storedConfig(provider).model) == input.configuration.modelId &&
-                    SessionInputBinding.matchesConfiguration(
+                    SessionInputConfiguration.matches(
                         input,
                         facts,
                         control,

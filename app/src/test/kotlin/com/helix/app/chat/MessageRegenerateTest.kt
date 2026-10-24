@@ -1,5 +1,6 @@
 package com.helix.app.chat
 
+import com.helix.app.application.agent.TurnInputFingerprint
 import com.helix.app.engine.SubmitReceipt
 import com.helix.app.engine.SubmitReceiptDecision
 import com.helix.core.agent.SubmitTurnCommand

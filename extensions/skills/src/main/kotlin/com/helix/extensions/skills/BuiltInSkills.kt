@@ -189,11 +189,12 @@ object BuiltInSkills {
         val revision = HelixUserGuide.revision
         val manifest = HelixUserGuide.manifest(identity)
         val skillContent = content.replace("{{DOCS_REVISION}}", revision)
-        return loader.loadBuiltIn(
-            skillContent,
-            "helix-docs",
-            resources + ("references/manifest.json" to manifest),
-        )
+        return loader
+            .loadBuiltIn(
+                skillContent,
+                "helix-docs",
+                resources + ("references/manifest.json" to manifest),
+            ).copy(hostCatalogued = true)
     }
 
     private fun skill(

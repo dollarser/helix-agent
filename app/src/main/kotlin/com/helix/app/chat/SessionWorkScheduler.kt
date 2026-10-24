@@ -2,6 +2,7 @@ package com.helix.app.chat
 
 import android.util.Log
 import com.helix.app.agent.AutomaticGoalContinuation
+import com.helix.app.application.agent.GoalContinuationDriver
 import com.helix.core.agent.SubmitTurnCommand
 import com.helix.core.model.Clock
 import com.helix.core.model.TurnState

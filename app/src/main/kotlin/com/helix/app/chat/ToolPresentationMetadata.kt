@@ -101,11 +101,6 @@ internal object ToolPresentationMetadata {
             ?.takeIf { ForbiddenContentGuard.reasonFor(it) == null }
             ?.takeIf { !RESULT_CLAIM_PREFIX.containsMatchIn(it) }
 
-    val PROMPT_GUIDANCE =
-        com.helix.app.chat.packagedPromptTemplates
-            .text("tool-presentation")
-            .trim()
-
     private val RESULT_CLAIM_PREFIX =
         Regex(
             "^(?:✅|✓|done\\b|completed\\b|succeeded\\b|success\\b|fixed\\b|passed\\b|" +

@@ -7,6 +7,10 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.agent.GoalTimeBudget
 import com.helix.app.agent.TurnStartSpec
+import com.helix.app.application.agent.GoalContinuationDriver
+import com.helix.app.application.agent.GoalRoundAllowance
+import com.helix.app.application.agent.GoalRunCoordinator
+import com.helix.app.application.agent.GoalTurnStart
 import com.helix.app.engine.TurnRecovery
 import com.helix.app.recovery.GoalUsageReservations
 import com.helix.core.agent.GoalWakeReason

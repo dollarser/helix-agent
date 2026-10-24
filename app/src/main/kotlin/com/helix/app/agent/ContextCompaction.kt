@@ -28,10 +28,10 @@ internal object ContextCompaction {
     const val MAX_SUMMARY_CHARS = com.helix.core.agent.ContextSummaryFormat.MAX_SUMMARY_CHARS
     val summaries =
         com.helix.core.agent.ContextSummaryFormat(
-            com.helix.app.chat.packagedPromptTemplates
+            com.helix.app.infrastructure.prompt.packagedPromptTemplates
                 .text("compaction")
                 .trim(),
-            com.helix.app.chat.packagedPromptTemplates
+            com.helix.app.infrastructure.prompt.packagedPromptTemplates
                 .text("compaction-continuity")
                 .trim(),
         )

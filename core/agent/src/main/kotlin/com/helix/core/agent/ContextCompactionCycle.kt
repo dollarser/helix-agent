@@ -10,6 +10,8 @@ data class PreparedContext(
     val request: ModelRequest?,
     val plan: ContextCompactionPlan?,
     val failure: ModelStreamTerminal?,
+    /** The exact projected context for diagnostics, manifests and prompt persistence. */
+    val context: TurnContextRequest,
 )
 
 /** Per-Turn bounded summary cycle; only the journal can publish its resulting checkpoint. */

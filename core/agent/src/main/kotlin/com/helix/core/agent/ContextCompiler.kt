@@ -97,6 +97,87 @@ class ContextCompiler(
     }
 
     companion object {
+        /**
+         * One optional-content budget over the actual request, including history, schemas, images and output reserve.
+         * A protected base may still need the existing history compactor; it is never rejected here merely because
+         * old history fills the window. Omitted whole bodies remain in the same snapshot, so a shorter history can
+         * readmit them without rereading sources or retaining a parallel prompt payload.
+         */
+        fun projectContent(
+            request: TurnContextRequest,
+            settings: ProviderContextSettings,
+            inputScale: Double = 1.0,
+        ): TurnContextRequest {
+            require(inputScale.isFinite() && inputScale >= 1.0)
+            val snapshot = request.prompt ?: return request
+            val all = snapshot.sections + snapshot.omittedSections
+            val candidates =
+                all
+                    .filter {
+                        it.omissionReason == null || it.omissionReason == PromptOmissionReason.CONTENT_BUDGET
+                    }.map { it.copy(omissionReason = null) }
+            val selected = candidates.filter { it.retention == PromptContentRetention.REQUIRED }.toMutableList()
+            val optional =
+                candidates
+                    .filter { it.retention == PromptContentRetention.OPTIONAL }
+                    .sortedWith(
+                        compareByDescending<ResolvedPromptSection> { it.priority }
+                            .thenBy { it.order }
+                            .thenBy { it.name },
+                    )
+            val otherOmissions =
+                all.filter {
+                    it.omissionReason != null && it.omissionReason != PromptOmissionReason.CONTENT_BUDGET
+                }
+            val omitted =
+                optional
+                    .map { it.copy(omissionReason = PromptOmissionReason.CONTENT_BUDGET) }
+                    .toMutableList()
+            val targetWindow =
+                if (settings.autoCompact) settings.window * settings.triggerPercent / 100 - 1 else settings.window
+            for (candidate in optional) {
+                val trialSnapshot =
+                    assemblePromptSnapshot(
+                        selected + candidate,
+                        otherOmissions + omitted.filterNot { it.name == candidate.name },
+                    )
+                val trial = replacePrompt(request, trialSnapshot)
+                val calibrated = (trial.inputTokens() * inputScale).toLong()
+                if (ContextCapacity.failure(
+                        trial.messages.size,
+                        calibrated,
+                        trial.maxOutputTokens,
+                        com.helix.provider.api.ProviderCapabilities.MAX_CONTEXT_BOUND,
+                        targetWindow,
+                    ) == null
+                ) {
+                    selected += candidate
+                    omitted.removeAll { it.name == candidate.name }
+                }
+            }
+            return replacePrompt(request, assemblePromptSnapshot(selected, otherOmissions + omitted))
+        }
+
+        private fun replacePrompt(
+            request: TurnContextRequest,
+            prompt: PromptSnapshot,
+        ): TurnContextRequest {
+            val previous = requireNotNull(request.prompt)
+            val messages = request.messages.toMutableList()
+            if (previous.content.isEmpty()) {
+                messages.addAll(0, prompt.modelMessages())
+            } else {
+                val index =
+                    messages.indexOfFirst {
+                        it.role == com.helix.core.model.ModelRole.SYSTEM && it.text == previous.content
+                    }
+                if (index < 0) throw ContextCapacityException("PROMPT_SNAPSHOT_MISMATCH")
+                messages.removeAt(index)
+                messages.addAll(index, prompt.modelMessages())
+            }
+            return request.copy(messages = messages, prompt = prompt)
+        }
+
         /** Pure bounded projection through the same compiler. No Runtime reads or autonomous model activation. */
         fun withJobObservations(
             request: TurnContextRequest,
