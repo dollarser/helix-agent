@@ -80,3 +80,8 @@ class AgentLayerBoundariesTest(unittest.TestCase):
         self.assertNotIn('freshGuard:', admission)
         self.assertNotIn('resolveGoal:', admission)
         self.assertNotIn('typealias', admission)
+
+    def test_live_goal_eligibility_does_not_persist_budget_state(self):
+        source = (ROOT / 'app/src/main/kotlin/com/helix/app/application/agent/GoalContinuationDriver.kt').read_text()
+        self.assertNotIn('blockIfExhausted(', source)
+        self.assertNotIn('withTransaction', source)

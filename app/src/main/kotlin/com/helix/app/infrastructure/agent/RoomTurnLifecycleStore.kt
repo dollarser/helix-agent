@@ -102,7 +102,18 @@ internal class RoomTurnLifecycleStore(
             if (outcome.state != TurnState.COMPLETED && !goalLocalLimit) {
                 storage.sessionInputs.parkSessionInputs(sessionId, "TURN_NOT_COMPLETED", clock.now().toEpochMilli())
             }
+            val goalsToReconcile =
+                buildSet {
+                    storage.goalTurnBindings.byTurn(turnId)?.let { add(storage.goalRuns.resolve(it.runId).goalId) }
+                    storage.goalControls.pendingForTurn(turnId).forEach { add(it.goalId) }
+                }
             val discarded = RoomGoalEditSettlement(storage, clock, idGenerator).settle(turnId)
+            goalsToReconcile.forEach {
+                com.helix.app.application.agent
+                    .GoalRoundAllowance(
+                        storage,
+                    ).blockIfExhausted(it)
+            }
             storage.sessionInputs
                 .listPending(sessionId)
                 .filter {

@@ -174,7 +174,7 @@ internal class GoalContinuationDriver(
 
     @Suppress("ReturnCount") // Prepared human requests and settled automatic predecessors have distinct admission.
     private fun eligible(activation: Activation): Boolean {
-        if (GoalRoundAllowance(storage).blockIfExhausted(activation.goalId)) return false
+        if (!GoalRoundAllowance(storage).available(activation.goalId)) return false
         val turn = storage.turns.resolve(activation.lastTurnId)
         val goal = storage.goals.resolve(activation.goalId).toRuntimeGoal()
         if (activation.prepared) {

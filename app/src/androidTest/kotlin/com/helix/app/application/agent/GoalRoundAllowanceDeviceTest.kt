@@ -4,7 +4,7 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.agent.TurnStartSpec
-import com.helix.app.chat.GoalBlockerResolution
+import com.helix.app.application.agent.GoalBlockerResolution
 import com.helix.app.test.FixtureGoalRunCoordinator
 import com.helix.app.test.settleFixtureTerminal
 import com.helix.core.agent.GoalBudgetDefaults
@@ -66,7 +66,90 @@ class GoalRoundAllowanceDeviceTest {
             assertEquals(1, GoalRoundAllowance(f.storage).used(f.goal))
         }
 
-    private class Fixture : AutoCloseable {
+    @Test fun continuationQueriesNeverPersistRoundExhaustionAndTerminalPreparationOwnsIt() =
+        Fixture(maxRounds = 1).use { f ->
+            val turn = f.start(GoalWakeReason.FOREGROUND_CONTINUATION)
+            val driver = GoalContinuationDriver(f.storage)
+            driver.started(
+                "session",
+                f.goal,
+                "synthetic-provider",
+                com.helix.core.agent.RunControlConfig(
+                    com.helix.core.model.AgentMode.GOAL,
+                    false,
+                    TurnBudgetBounds.DEFAULT,
+                ),
+                turn.coordinator.id,
+                null,
+                "snapshot",
+            )
+            f.finish(turn)
+            val before = f.storage.goals.resolve(f.goal)
+            assertEquals("PAUSED", before.state)
+            assertNull(driver.next("session", turn.coordinator.id))
+            assertEquals(before, f.storage.goals.resolve(f.goal))
+            val store =
+                com.helix.app.infrastructure.agent.RoomTurnLifecycleStore(
+                    f.storage,
+                    f.clock,
+                    f.ids,
+                    { "Synthetic recovery unavailable" },
+                )
+            store.prepareTerminalRelease(turn.coordinator.id, "session", ModelStreamTerminal(TurnState.COMPLETED, null))
+            val blocked = f.storage.goals.resolve(f.goal)
+            assertEquals("BLOCKED", blocked.state)
+            assertEquals("BLOCKED(round-limit)", blocked.finishReason)
+            store.prepareTerminalRelease(turn.coordinator.id, "session", ModelStreamTerminal(TurnState.COMPLETED, null))
+            assertEquals(blocked, f.storage.goals.resolve(f.goal))
+            assertFalse(driver.hasActivation("session"))
+        }
+
+    @Test fun pendingGoalEditIsReconciledEvenWhenTheCompletedHumanTurnHasNoGoalBinding() =
+        Fixture(maxRounds = 1).use { f ->
+            f.finish(f.start(GoalWakeReason.FOREGROUND_CONTINUATION))
+            val edit =
+                com.helix.app.test.startFixtureTurn(
+                    f.storage,
+                    f.clock,
+                    f.ids,
+                    TurnStartSpec("session", "edit", "edit-model", "snapshot", "Synthetic edit"),
+                )
+            if (f.storage.goalControls.find(f.goal) == null) {
+                f.storage.goalControls.insert(
+                    com.helix.core.storage.entity
+                        .GoalControlEntity(f.goal, "session", 0, null, null),
+                )
+            }
+            val revision = requireNotNull(f.storage.goalControls.find(f.goal)).revision
+            assertEquals(
+                1,
+                f.storage.goalControls.stage(
+                    f.goal,
+                    revision,
+                    "edit",
+                    """{"objective":"Edited synthetic target"}""",
+                ),
+            )
+            kotlinx.coroutines.runBlocking { edit.beginModelStream() }
+            edit.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
+            assertNull(f.storage.goalTurnBindings.byTurn("edit"))
+            val store =
+                com.helix.app.infrastructure.agent.RoomTurnLifecycleStore(
+                    f.storage,
+                    f.clock,
+                    f.ids,
+                    { "Synthetic recovery unavailable" },
+                )
+            store.prepareTerminalRelease("edit", "session", ModelStreamTerminal(TurnState.COMPLETED, null))
+            val goal = f.storage.goals.resolve(f.goal)
+            assertEquals("Edited synthetic target", goal.objective)
+            assertEquals("BLOCKED", goal.state)
+            assertEquals("BLOCKED(round-limit)", goal.finishReason)
+        }
+
+    private class Fixture(
+        maxRounds: Int = 256,
+    ) : AutoCloseable {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val ids = { UUID.randomUUID().toString() }
         val name = "goal-rounds-${ids()}.db"
@@ -80,7 +163,12 @@ class GoalRoundAllowanceDeviceTest {
 
         init {
             storage.sessions.create("session", "Goal rounds", null, null, 1000)
-            goal = coordinator().create("Finish work", emptyList(), GoalBudgetDefaults.VALUE)
+            goal =
+                coordinator().create(
+                    "Finish work",
+                    emptyList(),
+                    GoalBudgetDefaults.VALUE.copy(maxGoalRounds = maxRounds),
+                )
         }
 
         fun coordinator() = FixtureGoalRunCoordinator(storage, clock, ids)

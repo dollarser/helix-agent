@@ -53,3 +53,9 @@ Root 发现新增 Room composition 将恢复失败文案过早解析为容器创
 Release 产物来自成功构建的 output-metadata 指向的未签名 APK，不使用旧签名包或失败构建遗留文件。构建时基于 `9fe88ca5` 加本片工作树，后续提交只固定同一源码内容；构建内 VCS 元数据不冒称是尚未产生的提交。没有为提交重建字节未变的候选。
 
 本片源码与测试固定为本地 `f7de1dfbfa6e77d66cb2882a6bdda672ef84e70b`；未推送。文档跟随下一独立本地提交。原有指南两行改动、未采纳知识库原型未纳入本片。
+
+### 后续语义复核更正
+
+后续效果实验准备发现 Goal continuation 资格查询会间接调用持久 budget blocking，故本文关于终态 hook 仅本地交接的表述过强；不是由既有测试数字证明不存在该路径。本轮按同一生命周期目标实际修正，范围、回归与结果见[后续记录](../../development/memory-log-effect-experiment.md)。Core 无 App/Room 依赖、当次真实测试通过与旧包删除仍是有效事实，不扩大为整个应用命令均纯中立。
+
+后续修正验收：Goal 资格查询与 Room 结算相关的独立 Advanced/API 36 模拟器共 33 项通过、无跳过；本地证据为 `build/memory-log-experiment-2026-10-24/goal-device/`。两渠道单元检查、AndroidTest 编译与静态检查通过。此结果只覆盖该补丁，不将此前 Release 候选的通过结果转记为补丁的发行验收。
