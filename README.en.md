@@ -48,7 +48,7 @@ Public pages are fetched without login. Unavailable, title-only, login-dependent
 Open **Work → Notes & reminders** for an untimed note, or confirm a date, fixed time zone and once/daily/weekly/monthly recurrence. Alerts post a system notification without calling a model; tapping opens the entry. Editing replaces the old alarm; completing or cancelling stops the entire series. Without exact-alarm access, alerts are approximate. Disabled notifications/channels cannot display them; battery restrictions may delay them and force-stop requires reopening the app. Occurrences over 15 minutes late are recorded as missed without replay. See [HXA-309](docs/development/tasks/HXA-309.md).
 
 1. Download an APK from [Releases](https://github.com/dollarser/helix-agent/releases) and follow Android's installation prompts. Use the notes and APK checksums in that version's Release body.
-2. The v0.0.6 reissue dynamically fetches **Helix built-in models** in the conversation model picker without a key. Directory membership does not verify inference connectivity. This project cloud service has shared limits and receives messages, context, tool results and selected images. You can add your own API or on-device model under **Models**; existing choices are preserved. Built-in text, image and bounded file workflows have been validated; current shared-service availability still depends on actual requests. See [HXA-307](docs/development/tasks/HXA-307.md) for the validation scope.
+2. The current app fetches **Helix built-in models** in the conversation model picker after Helix account login, without an API key. Directory membership does not verify inference connectivity. This project cloud service has shared limits and receives messages, context, tool results and selected images. You can add your own API or on-device model under **Models**; existing choices are preserved. Built-in text, image and bounded file workflows have been validated; current shared-service availability still depends on actual requests. See [HXA-307](docs/development/tasks/HXA-307.md) for the validation scope.
 3. Start a conversation, select a model, and try a small file task:
 
 ```text
@@ -77,18 +77,11 @@ Supported operations prefer available **Root → Shizuku → Accessibility** bac
 
 Build editions are separate from conversation permission modes. Subscription adapters require eligible accounts and service-specific testing; they do not imply official provider endorsement. Plans using an API address and key belong under API configuration.
 
-The **[v0.0.6 development preview](https://github.com/dollarser/helix-agent/releases/tag/v0.0.6)** targets ARM64 with R8-optimized, non-debuggable APKs. The 2026-10-18 reissue keeps `versionCode=1` and the same development certificate. Existing users must manually download and install the APK for their edition over the original; the unchanged code does not provide a newer version-number prompt:
+The **[v0.0.7 development preview](https://github.com/dollarser/helix-agent/releases/tag/v0.0.7)** provides ARM64 Standard and Advanced, R8 optimized and non-debuggable, with versionCode 2 and the existing development certificate. The Release body is authoritative for publication status, exact commit, checksums and CI.
 
-| Edition | Package |
-| --- | --- |
-| Standard | `helix-v0.0.6-consumer-arm64-v8a.apk` |
-| Advanced | `helix-v0.0.6-developer-arm64-v8a.apk` |
+Install your edition over the existing app without uninstalling or clearing data. Incompatible preview databases require explicit on-device confirmation; cancellation preserves data. Built-in models require account login. Custom APIs, supported subscriptions and downloaded local models remain available without a Helix account. Offline ASR/TTS weights are downloaded on demand.
 
-This version focuses on plugin and conversation UX, file-path presentation, task results and recovery reliability, and on-demand Linux preparation in Advanced. The first authorized Linux task or manually opened terminal prepares bundled resources automatically, without requiring a verification step in Settings. Execution remains subject to the current mode and authorization scope.
-
-This version also fixes browser page layout and snapshots, notification gestures cancelled by valid window transitions, empty progress disclosures and automatic conversation titles, while retaining the compact inline composer.
-
-See the [v0.0.6 notes and validation boundaries](docs/product/releases/v0.0.6.en.md). Version Releases provide only APKs and tag-based source archives. Check the APK SHA-256 in the Release body, which also links exact third-party sources and licenses. Validation primarily uses the API36 ARM64 emulator, without physical-phone/OEM acceptance. Browser resource testing lasted 15 minutes; the Douyin task passed after supplying download facts and a menu entry, and the model can still search or act redundantly. Preserve existing data when signatures conflict, the installed versionCode exceeds 1, or the database is incompatible; do not immediately uninstall or clear data.
+See the [v0.0.7 notes](docs/product/releases/v0.0.7.en.md). Only APKs and tagged source archives are distributed on the version page; exact third-party sources and notices remain in the runtime asset Release. Emulator checks do not imply physical-device, store-signing or long-term migration acceptance.
 
 ## Privacy and control
 
