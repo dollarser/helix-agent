@@ -1,12 +1,12 @@
 package com.helix.app.chat
 
 import com.helix.app.agent.ChatContextProjection
-import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.provider.ProviderModelsIntegrationDeviceTest
 import com.helix.app.test.settleFixtureTerminal
 import com.helix.app.test.startFixtureTurn
 import com.helix.core.agent.ModelStreamTerminal
+import com.helix.core.agent.turn.TurnRoundCoordinator
 import com.helix.core.model.Clock
 import com.helix.core.model.ModelEvent
 import com.helix.core.model.TurnState
@@ -49,7 +49,7 @@ class SessionContextUsageDeviceTest {
                 input: Long,
             ) {
                 val turn = start(session)
-                val stream = turn.beginModelStream()
+                val stream = kotlinx.coroutines.runBlocking { turn.beginModelStream() }
                 stream.apply(ModelEvent.TextDelta("ok"))
                 stream.apply(ModelEvent.Usage(input, 1))
                 stream.apply(ModelEvent.Completed("stop"))
@@ -63,8 +63,8 @@ class SessionContextUsageDeviceTest {
             assertEquals(12345L, input("b"))
             val pending = start("a")
             assertEquals(7474L, input("a"))
-            val stream = pending.beginModelStream(compacting = true)
-            pending.recordDiagnostic("budget.admitted", """{"kind":"summary"}""")
+            val stream = kotlinx.coroutines.runBlocking { pending.beginModelStream(compacting = true) }
+            kotlinx.coroutines.runBlocking { pending.recordDiagnostic("budget.admitted", """{"kind":"summary"}""") }
             stream.apply(ModelEvent.TextDelta("oversized summary"))
             stream.apply(ModelEvent.Usage(872, 971))
             stream.apply(ModelEvent.Completed("stop"))
@@ -76,12 +76,12 @@ class SessionContextUsageDeviceTest {
             assertEquals(8000L, input("a"))
             assertEquals(12345L, input("b"))
             val working = start("a")
-            working.beginModelStream().apply {
+            kotlinx.coroutines.runBlocking { working.beginModelStream() }.apply {
                 apply(ModelEvent.Usage(9200, 12))
                 apply(ModelEvent.Completed("tool_calls"))
             }
-            working.beginToolBatch(listOf("tool"))
-            working.commitModelToolStep("[]")
+            kotlinx.coroutines.runBlocking { working.beginToolBatch(listOf("tool")) }
+            kotlinx.coroutines.runBlocking { working.commitModelToolStep("[]") }
             assertEquals(TurnState.RUNNING_TOOL, working.snapshot().phase)
             assertEquals(9200L, input("a"))
             assertEquals(12345L, input("b"))

@@ -1,9 +1,9 @@
 package com.helix.app.documents
 
 import com.helix.core.model.ExecutionTargetType
+import com.helix.core.model.NoCancellation
 import com.helix.extensions.documents.DocumentException
 import com.helix.tools.framework.ExecutableToolCall
-import com.helix.tools.framework.NoCancellation
 import kotlinx.serialization.json.JsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -70,7 +70,7 @@ class DocumentParseCapacityTest {
                 capacity.acquire(
                     call().copy(
                         cancel =
-                            object : com.helix.tools.framework.CancelSignal {
+                            object : com.helix.core.model.CancelSignal {
                                 override fun isCancelled() = true
                             },
                     ),

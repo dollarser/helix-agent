@@ -1,5 +1,6 @@
-package com.helix.app.chat
+package com.helix.app.application.tools
 
+import com.helix.app.application.tools.DurableToolLoopProgress
 import com.helix.core.agent.ToolLoopProgress
 import com.helix.core.model.Capability
 import com.helix.core.model.ToolName

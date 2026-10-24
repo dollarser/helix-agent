@@ -66,7 +66,7 @@ class ManualSharedFileDeviceTest {
                             java.time.Instant
                                 .now()
                                 .plusSeconds(10),
-                        cancel = com.helix.tools.framework.NoCancellation,
+                        cancel = com.helix.core.model.NoCancellation,
                     ),
                 )
             assertTrue(result is com.helix.tools.framework.ToolExecutorResult.Failed)

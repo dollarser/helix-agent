@@ -1,9 +1,9 @@
 package com.helix.tools.files
 
 import com.helix.core.model.ExecutionTargetType
+import com.helix.core.model.NoCancellation
 import com.helix.core.model.VisualArtifact
 import com.helix.tools.framework.ExecutableToolCall
-import com.helix.tools.framework.NoCancellation
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolVisualPreparation
 import com.helix.tools.framework.VisualPreparationException
@@ -91,7 +91,7 @@ class ViewImageToolTest {
             executor.execute(
                 call().copy(
                     cancel =
-                        object : com.helix.tools.framework.CancelSignal {
+                        object : com.helix.core.model.CancelSignal {
                             override fun isCancelled() = true
                         },
                 ),

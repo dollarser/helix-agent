@@ -8,6 +8,13 @@ import com.helix.app.HelixApplication
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.application.agent.GoalRunCoordinator
 import com.helix.app.application.agent.GoalTurnStart
+import com.helix.app.application.tools.GoalToolCallBudget
+import com.helix.app.application.tools.PreDispatchDenialKind
+import com.helix.app.application.tools.ToolPresentationFact
+import com.helix.app.application.tools.ToolPresentationSink
+import com.helix.app.application.tools.ToolSettlement
+import com.helix.app.application.tools.ToolSettlementWriter
+import com.helix.app.approval.StorageAuditSink
 import com.helix.app.engine.TurnRecovery
 import com.helix.core.agent.GoalWakeReason
 import com.helix.core.model.BoundToolResult
@@ -15,6 +22,7 @@ import com.helix.core.model.Clock
 import com.helix.core.model.DispatchOutcomeCode
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.GoalBudgets
+import com.helix.core.model.NoCancellation
 import com.helix.core.model.Sha256
 import com.helix.core.model.ToolCallState
 import com.helix.core.model.ToolDispatchOutcome
@@ -22,9 +30,7 @@ import com.helix.core.model.TurnBudgets
 import com.helix.core.model.TurnState
 import com.helix.core.storage.HelixStorage
 import com.helix.tools.framework.ExecutableToolCall
-import com.helix.tools.framework.NoCancellation
 import com.helix.tools.framework.ToolExecutorResult
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import org.junit.Assert.assertEquals
@@ -40,19 +46,120 @@ import java.util.UUID
 
 @RunWith(AndroidJUnit4::class)
 class ToolSettlementRecoveryDeviceTest {
+    @Test fun committedFactsReachPresentationOnlyAfterResultAndBudgetCommit() =
+        Fixture().use { f ->
+            val call = f.call("fact-order")
+            var published = 0
+            val settlement =
+                ToolSettlement(
+                    f.storage,
+                    StorageAuditSink(f.storage.auditEvents) { UUID.randomUUID().toString() },
+                    f.clock,
+                    { UUID.randomUUID().toString() },
+                    ToolPresentationSink { fact ->
+                        published++
+                        check(fact is ToolPresentationFact.Settled)
+                        assertEquals(ToolCallState.COMPLETED, fact.state)
+                        assertEquals(
+                            "COMPLETED",
+                            f.storage.toolCalls
+                                .resolve(call.id)
+                                .state,
+                        )
+                        assertEquals(
+                            true,
+                            f.storage.toolResults
+                                .byToolCall(call.id)
+                                ?.verified,
+                        )
+                        assertEquals(
+                            1,
+                            f.storage.goals
+                                .resolve(f.goalId)
+                                .toolCalls,
+                        )
+                    },
+                    { null },
+                )
+            val outcome = ToolDispatchOutcome.Succeeded(BoundToolResult("saved", Sha256("a".repeat(64)), false, 1))
+            settlement.settleToolCall(call, call.callId, call.name, outcome)
+            settlement.settleToolCall(call, call.callId, call.name, outcome)
+            assertEquals(2, published)
+            assertEquals(
+                1,
+                f.storage.goals
+                    .resolve(f.goalId)
+                    .toolCalls,
+            )
+            assertEquals(
+                1,
+                f.storage.toolCalls
+                    .listByTurn("turn")
+                    .size,
+            )
+        }
+
+    @Test fun preDispatchRejectionCommitsOriginalIdentityResultAndAuditBeforeProjection() =
+        Fixture().use { f ->
+            var published = 0
+            val settlement =
+                ToolSettlement(
+                    f.storage,
+                    StorageAuditSink(f.storage.auditEvents) { UUID.randomUUID().toString() },
+                    f.clock,
+                    { UUID.randomUUID().toString() },
+                    ToolPresentationSink { fact ->
+                        published++
+                        check(fact is ToolPresentationFact.Settled)
+                        assertEquals(true, fact.preDispatch)
+                        assertEquals(
+                            "FAILED",
+                            f.storage.toolCalls
+                                .resolve("malformed-call")
+                                .state,
+                        )
+                        assertEquals(
+                            "FAILED",
+                            f.storage.toolResults
+                                .byToolCall("malformed-call")
+                                ?.status,
+                        )
+                        assertEquals(
+                            1,
+                            f.storage.auditEvents
+                                .listByCorrelation("malformed-call")
+                                .size,
+                        )
+                    },
+                    { null },
+                )
+            val outcome =
+                settlement.persistPreDispatchDenied(
+                    f.storage.turns.resolve("turn"),
+                    "malformed-call",
+                    "bad name",
+                    "[]",
+                    "unknown",
+                    DispatchOutcomeCode.UNKNOWN_TOOL,
+                    "Unavailable binding",
+                    PreDispatchDenialKind.FRAMEWORK_REJECTED,
+                )
+            assertEquals(DispatchOutcomeCode.UNKNOWN_TOOL, outcome.code)
+            assertEquals(1, published)
+        }
+
     @Test fun failedDiagnosticsSurviveProjectionFailureAndRoomReopenWithoutReplay() =
         Fixture().use { f ->
             val call = f.call("failed-diagnostics")
             val app = ApplicationProvider.getApplicationContext<HelixApplication>().appContainer
             val strings: (Int, Array<out Any>) -> String = { _, _ -> error("projection unavailable") }
             val settlement =
-                ChatToolSettlement(
+                ToolSettlement(
                     f.storage,
-                    app.toolPipeline,
+                    app.toolPipeline.auditSink,
                     f.clock,
                     { UUID.randomUUID().toString() },
-                    strings,
-                    ChatToolTimeline(MutableStateFlow(app.chatService.screen.value), strings),
+                    ToolPresentationSink { strings(0, emptyArray()) },
                     { null },
                 )
             val outcome =
@@ -100,13 +207,12 @@ class ToolSettlementRecoveryDeviceTest {
                 "projection"
             }
             val settlement =
-                ChatToolSettlement(
+                ToolSettlement(
                     f.storage,
-                    app.toolPipeline,
+                    app.toolPipeline.auditSink,
                     f.clock,
                     { UUID.randomUUID().toString() },
-                    strings,
-                    ChatToolTimeline(MutableStateFlow(app.chatService.screen.value), strings),
+                    ToolPresentationSink { strings(0, emptyArray()) },
                     { null },
                 )
             val outcome = ToolDispatchOutcome.Succeeded(BoundToolResult("payload", Sha256("a".repeat(64)), false, 1))
@@ -138,20 +244,18 @@ class ToolSettlementRecoveryDeviceTest {
         Fixture().use { f ->
             val call = f.call("committed")
             val app = ApplicationProvider.getApplicationContext<HelixApplication>().appContainer
-            val screen = MutableStateFlow(app.chatService.screen.value)
             var notifications = 0
             val strings: (Int, Array<out Any>) -> String = { _, _ ->
                 notifications++
                 error("injected projection failure after commit")
             }
             val settlement =
-                ChatToolSettlement(
+                ToolSettlement(
                     f.storage,
-                    app.toolPipeline,
+                    app.toolPipeline.auditSink,
                     f.clock,
                     { UUID.randomUUID().toString() },
-                    strings,
-                    ChatToolTimeline(screen, strings),
+                    ToolPresentationSink { strings(0, emptyArray()) },
                     { null },
                 )
             val outcome = ToolDispatchOutcome.Succeeded(BoundToolResult("payload", Sha256("a".repeat(64)), false, 1))

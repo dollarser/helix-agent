@@ -91,7 +91,7 @@ class MessageEditRecoveryDeviceTest {
                 ).bindFixtureLifecycle(engine)
         val coordinator = (admitted as TurnAdmissionResult.Started).turn.coordinator
         assertEquals(accepted.clientRequestId, storage.messages.resolve("accepted-target").supersededBy)
-        coordinator.beginModelStream()
+        kotlinx.coroutines.runBlocking { coordinator.beginModelStream() }
         coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
     }
 

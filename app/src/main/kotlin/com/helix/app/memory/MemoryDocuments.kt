@@ -2,6 +2,7 @@ package com.helix.app.memory
 
 import android.content.ContentResolver
 import android.net.Uri
+import com.helix.app.application.security.ForbiddenContentGuard
 import com.helix.core.workspace.memory.MemoryMarkdown
 
 /** Only invoked for a document URI returned by an explicit system picker action. */
@@ -27,7 +28,7 @@ class MemoryDocuments(
                 .decode(java.nio.ByteBuffer.wrap(bytes))
                 .toString()
         require(
-            com.helix.app.chat.ForbiddenContentGuard
+            com.helix.app.application.security.ForbiddenContentGuard
                 .reasonFor(markdown) == null,
         ) { "MEMORY_SENSITIVE_CONTENT" }
         return markdown
@@ -39,7 +40,7 @@ class MemoryDocuments(
     ) {
         require(markdown.toByteArray(Charsets.UTF_8).size <= MemoryMarkdown.MAX_BYTES)
         require(
-            com.helix.app.chat.ForbiddenContentGuard
+            com.helix.app.application.security.ForbiddenContentGuard
                 .reasonFor(markdown) == null,
         ) { "MEMORY_SENSITIVE_CONTENT" }
         requireNotNull(resolver.openOutputStream(uri, "wt")).use { it.write(markdown.toByteArray(Charsets.UTF_8)) }

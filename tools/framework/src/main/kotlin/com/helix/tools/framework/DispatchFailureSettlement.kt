@@ -1,5 +1,6 @@
 package com.helix.tools.framework
 
+import com.helix.core.model.CancelSignal
 import com.helix.core.model.DispatchOutcomeCode
 import com.helix.core.model.ToolDispatchOutcome
 

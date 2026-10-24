@@ -1,6 +1,8 @@
 package com.helix.tools.framework
 
+import com.helix.core.model.CancelSignal
 import com.helix.core.model.ExecutionTargetType
+import com.helix.core.model.NoCancellation
 import kotlinx.serialization.json.buildJsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

@@ -96,7 +96,7 @@ class GoalRoundAllowanceDeviceTest {
         fun start(reason: GoalWakeReason) = requireNotNull(coordinator().start(request(reason)))
 
         fun finish(turn: StartedGoalTurn) {
-            turn.coordinator.beginModelStream()
+            kotlinx.coroutines.runBlocking { turn.coordinator.beginModelStream() }
             turn.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
         }
 

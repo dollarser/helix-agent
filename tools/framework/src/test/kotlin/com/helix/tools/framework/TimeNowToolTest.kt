@@ -2,6 +2,7 @@ package com.helix.tools.framework
 
 import com.helix.core.model.Clock
 import com.helix.core.model.ExecutionTargetType
+import com.helix.core.model.NoCancellation
 import com.helix.core.model.ToolOperationClass
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject

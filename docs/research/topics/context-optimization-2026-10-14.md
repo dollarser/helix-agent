@@ -53,7 +53,7 @@
 - 保留严格相等检查及原身份核验。不要删除引用来“让两边相等”，不要按文本相似度、位置猜测或忽略任意正文差异来放行。
 - send、backfill、retry、fork、recovery 复用物化规则，但不要求所有未来请求永久复用同一快照。输入接受快照保持原内容；新请求可依据当前合法状态重建；每次请求内部版本一致。重试／恢复仍重验权限、绑定、附件字节与目标配置。
 - 视觉像素是经披露和能力检查后的请求投影，不应复制进压缩正文；保留现有 `withoutVisualProjection` 的窄边界。
-- 现有 [TurnCoordinator.commitCompaction](../../../app/src/main/kotlin/com/helix/app/agent/TurnCoordinator.kt) 已在事务内检查取消并提交摘要及调用结算；新增一致性身份应接入这一 owner。测试摘要生成期间历史／checkpoint 变化的提交与拒绝条件，不能另造一个 checkpoint 提交者。这里是需补验证的契约，尚未证明存在并发漏洞。
+- 现有 [RoomTurnRoundStore.commitCompaction](../../../app/src/main/kotlin/com/helix/app/infrastructure/agent/RoomTurnRoundStore.kt) 已在事务内检查取消并提交摘要及调用结算；新增一致性身份应接入这一 owner。测试摘要生成期间历史／checkpoint 变化的提交与拒绝条件，不能另造一个 checkpoint 提交者。这里是需补验证的契约，尚未证明存在并发漏洞。
 
 ## 3. 统一预算：共享容量计算，分开硬限制与选择策略
 

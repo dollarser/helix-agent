@@ -6,6 +6,7 @@ import com.helix.app.HelixApplication
 import com.helix.app.MainActivity
 import com.helix.app.approval.SessionPermissionService
 import com.helix.core.model.ExecutionTargetType
+import com.helix.core.model.NoCancellation
 import com.helix.core.model.OperationEffect
 import com.helix.core.model.OperationRule
 import com.helix.core.model.SessionPermissionMode
@@ -20,7 +21,6 @@ import com.helix.runtime.proot.ipc.ProotJobState
 import com.helix.runtime.proot.ipc.ProotRuntimeProtocol
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.ExecutionOwnership
-import com.helix.tools.framework.NoCancellation
 import com.helix.tools.framework.ToolExecutorResult
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
@@ -258,7 +258,7 @@ class DetachedJobCollectionDeviceTest {
                             collector.collect(
                                 f.job.binding,
                                 ProotRuntimeProtocol.REPLY_JOB_NOT_FOUND,
-                                object : com.helix.tools.framework.CancelSignal {
+                                object : com.helix.core.model.CancelSignal {
                                     override fun isCancelled() = true
                                 },
                                 permit,

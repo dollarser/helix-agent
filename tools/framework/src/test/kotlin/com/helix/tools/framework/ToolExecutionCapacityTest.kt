@@ -1,5 +1,6 @@
 package com.helix.tools.framework
 
+import com.helix.core.model.CancelSignal
 import com.helix.core.model.Clock
 import com.helix.core.model.ExecutionTargetType
 import kotlinx.serialization.json.buildJsonObject

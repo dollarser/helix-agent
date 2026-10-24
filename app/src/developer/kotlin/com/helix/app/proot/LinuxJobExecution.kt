@@ -1,5 +1,6 @@
 package com.helix.app.proot
 
+import com.helix.app.application.diagnostics.DiagnosticRedaction
 import com.helix.app.proot.LinuxRunTool.LinuxExecutor
 import com.helix.app.proot.LinuxRunTool.MAX_IMPORT_BYTES
 import com.helix.app.proot.LinuxRunTool.ParsedLinuxCall
@@ -462,7 +463,7 @@ internal class LinuxJobExecution(
             } else {
                 bytes
             }
-        return com.helix.app.chat.DiagnosticRedaction
+        return com.helix.app.application.diagnostics.DiagnosticRedaction
             .redact(String(slice, Charsets.UTF_8), knownSecretValues())
     }
 

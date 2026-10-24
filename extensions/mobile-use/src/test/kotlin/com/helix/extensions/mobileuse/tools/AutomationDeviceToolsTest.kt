@@ -2,6 +2,7 @@ package com.helix.extensions.mobileuse.tools
 
 import com.helix.core.model.Capability
 import com.helix.core.model.ExecutionTargetType
+import com.helix.core.model.NoCancellation
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.VisualArtifact
 import com.helix.extensions.mobileuse.automation.AutomationActionResult
@@ -21,7 +22,6 @@ import com.helix.extensions.mobileuse.automation.AutomationSnapshotStatus
 import com.helix.extensions.mobileuse.automation.AutomationStroke
 import com.helix.extensions.mobileuse.automation.AutomationToolPort
 import com.helix.tools.framework.ExecutableToolCall
-import com.helix.tools.framework.NoCancellation
 import com.helix.tools.framework.PublishedToolImage
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolImagePublication
@@ -373,7 +373,7 @@ class AutomationDeviceToolsTest {
                 ),
             ).copy(
                 cancel =
-                    object : com.helix.tools.framework.CancelSignal {
+                    object : com.helix.core.model.CancelSignal {
                         override fun isCancelled() = true
                     },
             )

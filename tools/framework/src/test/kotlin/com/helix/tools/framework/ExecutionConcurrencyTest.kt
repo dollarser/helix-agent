@@ -1,6 +1,7 @@
 package com.helix.tools.framework
 
 import com.helix.core.model.ExecutionTargetType
+import com.helix.core.model.NoCancellation
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals

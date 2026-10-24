@@ -1,9 +1,9 @@
 package com.helix.extensions.mobileuse
 
 import com.helix.core.model.ExecutionTargetType
+import com.helix.core.model.NoCancellation
 import com.helix.extensions.mobileuse.automation.AutomationRuntimePresentation
 import com.helix.tools.framework.ExecutableToolCall
-import com.helix.tools.framework.NoCancellation
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import kotlinx.serialization.json.JsonObject
@@ -142,7 +142,7 @@ class MobileUsePresentedExecutorTest {
         val cancelled =
             call.copy(
                 cancel =
-                    object : com.helix.tools.framework.CancelSignal {
+                    object : com.helix.core.model.CancelSignal {
                         override fun isCancelled() = true
                     },
             )
@@ -155,7 +155,7 @@ class MobileUsePresentedExecutorTest {
         val cancellable =
             call.copy(
                 cancel =
-                    object : com.helix.tools.framework.CancelSignal {
+                    object : com.helix.core.model.CancelSignal {
                         override fun isCancelled() = cancelled
                     },
             )

@@ -1,12 +1,12 @@
 package com.helix.app.vision
 
 import com.helix.core.model.ExecutionTargetType
+import com.helix.core.model.NoCancellation
 import com.helix.core.model.VisualArtifact
 import com.helix.core.workspace.FileScopePath
 import com.helix.core.workspace.ScopeRootResolver
 import com.helix.core.workspace.WorkspaceArtifactStore
 import com.helix.tools.framework.ExecutableToolCall
-import com.helix.tools.framework.NoCancellation
 import com.helix.tools.framework.ToolVisualPreparation
 import com.helix.tools.framework.VisualPreparationException
 import kotlinx.serialization.json.JsonObject

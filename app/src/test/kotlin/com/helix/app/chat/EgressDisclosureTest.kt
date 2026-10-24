@@ -1,6 +1,7 @@
 package com.helix.app.chat
 
 import com.helix.app.R
+import com.helix.app.application.security.ForbiddenContentGuard
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.ProviderResidence
 import org.junit.Assert.assertEquals

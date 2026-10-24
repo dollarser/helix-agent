@@ -1,7 +1,7 @@
 package com.helix.tools.browser
 
+import com.helix.core.model.CancelSignal
 import com.helix.core.model.ExecutionTargetType
-import com.helix.tools.framework.CancelSignal
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult

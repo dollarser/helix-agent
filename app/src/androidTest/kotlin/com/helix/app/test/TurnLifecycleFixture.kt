@@ -1,16 +1,18 @@
 package com.helix.app.test
 
-import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.agent.TurnSteeringDraft
+import com.helix.app.agent.toRoundInput
 import com.helix.app.application.agent.GoalRunCoordinator
 import com.helix.app.application.agent.GoalTurnStart
 import com.helix.app.application.agent.StartedGoalTurn
 import com.helix.app.engine.TurnAdmissionResult
 import com.helix.app.engine.TurnEngine
+import com.helix.app.infrastructure.agent.RoomTurnRoundStore
 import com.helix.core.agent.Checkpoint
 import com.helix.core.agent.ModelStreamTerminal
 import com.helix.core.agent.ResponseInputBoundary
+import com.helix.core.agent.turn.TurnRoundCoordinator
 import com.helix.core.model.Clock
 import com.helix.core.model.GoalBudgets
 import com.helix.core.model.PlanId
@@ -21,9 +23,9 @@ import java.util.WeakHashMap
 
 // Test construction metadata only, keyed by object identity. Never a source of durable Turn facts.
 // Weak keys allow completed fixture metadata to be collected; no fallback to guessed/global context.
-private val fixtureOwners = WeakHashMap<TurnCoordinator, TurnEngine>()
+private val fixtureOwners = WeakHashMap<TurnRoundCoordinator, TurnEngine>()
 
-internal fun TurnCoordinator.bindFixtureLifecycle(engine: TurnEngine): TurnCoordinator =
+internal fun TurnRoundCoordinator.bindFixtureLifecycle(engine: TurnEngine): TurnRoundCoordinator =
     apply {
         synchronized(fixtureOwners) {
             val previous = fixtureOwners[this]
@@ -37,7 +39,7 @@ internal fun TurnAdmissionResult.bindFixtureLifecycle(engine: TurnEngine): TurnA
         if (this is TurnAdmissionResult.Started) turn.coordinator.bindFixtureLifecycle(engine)
     }
 
-private fun fixtureOwner(coordinator: TurnCoordinator): TurnEngine =
+private fun fixtureOwner(coordinator: TurnRoundCoordinator): TurnEngine =
     synchronized(fixtureOwners) {
         checkNotNull(fixtureOwners[coordinator]) { "unregistered fixture lifecycle" }
     }
@@ -47,8 +49,8 @@ internal fun startFixtureTurn(
     clock: Clock,
     idGenerator: () -> String,
     spec: TurnStartSpec,
-): TurnCoordinator =
-    TurnCoordinator
+): TurnRoundCoordinator =
+    RoomTurnRoundStore
         .start(
             storage,
             clock,
@@ -98,18 +100,17 @@ internal class FixtureGoalRunCoordinator(
     ): Boolean = delegate.setCheckpoint(goalId, checkpoint)
 }
 
-internal fun TurnCoordinator.settleFixtureTerminal(outcome: ModelStreamTerminal) {
+internal fun TurnRoundCoordinator.settleFixtureTerminal(outcome: ModelStreamTerminal) {
     val coordinator = this
     val engine = fixtureOwner(coordinator)
     runBlocking { engine.settleTerminal(coordinator, outcome) }
 }
 
-internal fun TurnCoordinator.parkFixtureForReview(reviewCallIds: List<String>) {
+internal fun TurnRoundCoordinator.parkFixtureForReview(reviewCallIds: List<String>) {
     fixtureOwner(this).parkForReview(this, terminalCheckpoint().sessionId, reviewCallIds)
 }
 
-internal fun TurnCoordinator.completeResponseOrContinueFixture(
+internal fun TurnRoundCoordinator.completeResponseOrContinueFixture(
     prepared: TurnSteeringDraft?,
     nextModelCallId: String,
-): ResponseInputBoundary =
-    completeResponseOrContinue(prepared, nextModelCallId, fixtureOwner(this)::persistTerminalInTransaction)
+): ResponseInputBoundary = completeResponseOrContinue(prepared?.toRoundInput(), nextModelCallId)

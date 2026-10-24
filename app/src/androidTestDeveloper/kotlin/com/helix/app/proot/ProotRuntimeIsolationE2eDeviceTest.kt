@@ -5,11 +5,11 @@ import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.helix.core.model.CancelSignal
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.workspace.WorkspaceArtifactStore
 import com.helix.runtime.proot.client.ProotJobClient
 import com.helix.runtime.proot.client.ProotRuntimeSupervisor
-import com.helix.tools.framework.CancelSignal
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.ToolExecutorResult
 import kotlinx.serialization.json.JsonPrimitive

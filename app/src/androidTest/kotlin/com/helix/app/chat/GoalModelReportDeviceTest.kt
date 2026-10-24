@@ -14,19 +14,19 @@ import com.helix.app.test.FixtureGoalRunCoordinator
 import com.helix.app.test.settleFixtureTerminal
 import com.helix.core.agent.GoalWakeReason
 import com.helix.core.agent.ModelStreamTerminal
+import com.helix.core.model.CancelSignal
 import com.helix.core.model.Clock
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.GoalBudgets
 import com.helix.core.model.ModelToolSchema
+import com.helix.core.model.NoCancellation
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolVersion
 import com.helix.core.model.TurnBudgets
 import com.helix.core.model.TurnState
 import com.helix.core.storage.HelixStorage
-import com.helix.tools.framework.CancelSignal
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.ExecutionOwnership
-import com.helix.tools.framework.NoCancellation
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolRegistry
 import com.helix.tools.framework.ToolSchemaValidation
@@ -51,7 +51,7 @@ class GoalModelReportDeviceTest {
     @Test fun modelCanCompleteAnOpenEndedUnboundGoal() =
         fixture { s, g, start ->
             report(s, "t", "complete")
-            start.coordinator.beginModelStream()
+            kotlinx.coroutines.runBlocking { start.coordinator.beginModelStream() }
             start.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
             assertEquals("COMPLETED", s.goals.resolve(g).state)
             assertEquals("MODEL_COMPLETED", s.goalRuns.resolve(start.runId).outcome)
@@ -72,7 +72,7 @@ class GoalModelReportDeviceTest {
 
     @Test fun noReportDoesNotCompleteOrBlockForMissingBindings() =
         fixture { s, g, start ->
-            start.coordinator.beginModelStream()
+            kotlinx.coroutines.runBlocking { start.coordinator.beginModelStream() }
             start.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
             assertEquals("PAUSED", s.goals.resolve(g).state)
             assertTrue(GoalSummaryQuery(s).forSession("s").single().canContinue)
@@ -81,7 +81,7 @@ class GoalModelReportDeviceTest {
     @Test fun unfinishedReportRemainsResumable() =
         fixture { s, g, start ->
             report(s, "t", "in_progress")
-            start.coordinator.beginModelStream()
+            kotlinx.coroutines.runBlocking { start.coordinator.beginModelStream() }
             start.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
             assertEquals("PAUSED", s.goals.resolve(g).state)
         }
@@ -89,7 +89,7 @@ class GoalModelReportDeviceTest {
     @Test fun modelBlockerRequiresExplicitRepair() =
         fixture { s, g, start ->
             report(s, "t", "blocked")
-            start.coordinator.beginModelStream()
+            kotlinx.coroutines.runBlocking { start.coordinator.beginModelStream() }
             start.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
             assertEquals("BLOCKED", s.goals.resolve(g).state)
             assertFalse(GoalSummaryQuery(s).forSession("s").single().canContinue)
@@ -117,7 +117,7 @@ class GoalModelReportDeviceTest {
         fixture { s, g, start ->
             s.toolCalls.append("unknown", "t", "unknown", "files.write", "1", "{}", "NEEDS_REVIEW")
             report(s, "t", "complete")
-            start.coordinator.beginModelStream()
+            kotlinx.coroutines.runBlocking { start.coordinator.beginModelStream() }
             start.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
             assertEquals("BLOCKED", s.goals.resolve(g).state)
         }
@@ -127,7 +127,7 @@ class GoalModelReportDeviceTest {
             report(s, "t", "complete")
             s.toolCalls.append("later", "t", "later", "time.now", "1", "{}", "COMPLETED")
             assertNull(s.goalModelReport("t"))
-            start.coordinator.beginModelStream()
+            kotlinx.coroutines.runBlocking { start.coordinator.beginModelStream() }
             start.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
             assertEquals("PAUSED", s.goals.resolve(g).state)
         }
@@ -165,7 +165,7 @@ class GoalModelReportDeviceTest {
                     override fun isCancelled(): Boolean = true
                 }
             assertEquals(ToolExecutorResult.Cancelled, executor.execute(executableReport().copy(cancel = cancelled)))
-            start.coordinator.beginModelStream()
+            kotlinx.coroutines.runBlocking { start.coordinator.beginModelStream() }
             start.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
             assertTrue(executor.execute(executableReport()) is ToolExecutorResult.Failed)
         }
@@ -176,7 +176,7 @@ class GoalModelReportDeviceTest {
             s.toolCalls.append("unverified", "t", "report", "goal.report", "1", args, "COMPLETED")
             s.toolResults.append("result", "unverified", "SUCCEEDED", "unchecked", args)
             assertNull(s.goalModelReport("t"))
-            start.coordinator.beginModelStream()
+            kotlinx.coroutines.runBlocking { start.coordinator.beginModelStream() }
             start.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
             assertEquals("PAUSED", s.goals.resolve(g).state)
         }
@@ -228,7 +228,7 @@ class GoalModelReportDeviceTest {
                         ),
                     ),
                 )
-            next.coordinator.beginModelStream()
+            kotlinx.coroutines.runBlocking { next.coordinator.beginModelStream() }
             next.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
             assertEquals("PAUSED", s.goals.resolve(g).state)
             assertNull(
@@ -241,7 +241,7 @@ class GoalModelReportDeviceTest {
 
     @Test fun newestContextBlockerWinsWhenRunTimestampsTie() =
         fixture { s, g, start ->
-            start.coordinator.beginModelStream()
+            kotlinx.coroutines.runBlocking { start.coordinator.beginModelStream() }
             start.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
             val next =
                 requireNotNull(
@@ -308,7 +308,7 @@ class GoalModelReportDeviceTest {
             reservations.checkpointLease("lease", 100, 2000, terminal = true)
             assertTrue(executor.execute(executableReport()) is ToolExecutorResult.Completed)
             report(s, "t", "complete")
-            start.coordinator.beginModelStream()
+            kotlinx.coroutines.runBlocking { start.coordinator.beginModelStream() }
             start.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
             assertEquals("COMPLETED", s.goals.resolve(goal).state)
             assertTrue(owner.retainedOwners().singleOrNull() != null)

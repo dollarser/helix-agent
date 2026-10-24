@@ -1,10 +1,10 @@
 package com.helix.app.proot
 
+import com.helix.core.model.CancelSignal
 import com.helix.core.model.TurnState
 import com.helix.core.storage.HelixStorage
 import com.helix.runtime.proot.ipc.DetachedJobBinding
 import com.helix.runtime.proot.ipc.ProotRuntimeProtocol
-import com.helix.tools.framework.CancelSignal
 import com.helix.tools.framework.ExecutionOwnership
 import com.helix.tools.framework.ToolExecutorResult
 import kotlinx.serialization.json.buildJsonObject

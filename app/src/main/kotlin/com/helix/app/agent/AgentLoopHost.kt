@@ -13,12 +13,11 @@ import com.helix.core.agent.ContextCompactionCycles
 import com.helix.core.agent.LoopExecutionControl
 import com.helix.core.agent.LoopNotice
 import com.helix.core.agent.LoopNotices
-import com.helix.core.agent.ModelStreamTerminal
 import com.helix.core.agent.RunControlConfig
 import com.helix.core.agent.ToolMessageMaterializer
 import com.helix.core.agent.TurnContextAssembler
 import com.helix.core.agent.TurnLoopResult
-import com.helix.core.agent.TurnTerminalCheckpoint
+import com.helix.core.agent.turn.TurnRoundCoordinator
 import com.helix.core.model.Clock
 import com.helix.core.model.ModelRequest
 import com.helix.core.model.ReasoningEffort
@@ -39,7 +38,6 @@ internal class AgentLoopHost(
     strings: (Int, Array<out Any>) -> String,
     refreshScreen: () -> Unit,
     onTextChanged: (String, String) -> Unit,
-    private val persistTerminalInTransaction: (TurnTerminalCheckpoint, ModelStreamTerminal) -> ModelStreamTerminal,
     private val inputDelivery: TurnInputDelivery? = null,
     private val beforeModelStream: (suspend (String, String, ProviderDescriptor, ModelRequest) -> Unit)? = null,
 ) {
@@ -107,7 +105,7 @@ internal class AgentLoopHost(
 
     suspend fun runToolLoop(
         sessionId: String,
-        coordinator: TurnCoordinator,
+        coordinator: TurnRoundCoordinator,
         providerId: String,
         retryTurnId: String?,
         control: RunControlConfig,
@@ -116,7 +114,7 @@ internal class AgentLoopHost(
         require(coordinator.terminalCheckpoint().sessionId == sessionId) { "LOOP_SESSION_MISMATCH" }
         return core.runToolLoop(
             sessionId,
-            RoomTurnJournal(coordinator),
+            coordinator,
             providerId,
             retryTurnId,
             control,
@@ -127,7 +125,6 @@ internal class AgentLoopHost(
                     coordinator,
                     it,
                     idGenerator,
-                    persistTerminalInTransaction,
                 )
             },
         )

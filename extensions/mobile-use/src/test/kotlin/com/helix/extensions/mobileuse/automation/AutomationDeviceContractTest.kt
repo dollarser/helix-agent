@@ -1,8 +1,8 @@
 package com.helix.extensions.mobileuse.automation
 
 import com.helix.core.model.ExecutionTargetType
+import com.helix.core.model.NoCancellation
 import com.helix.tools.framework.ExecutableToolCall
-import com.helix.tools.framework.NoCancellation
 import kotlinx.serialization.json.JsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -172,7 +172,7 @@ class AutomationDeviceContractTest {
         pending.complete("result")
         var checks = 0
         val cancelled =
-            object : com.helix.tools.framework.CancelSignal {
+            object : com.helix.core.model.CancelSignal {
                 override fun isCancelled(): Boolean = ++checks > 1
             }
         assertNull(pending.await(call(Instant.now().plusSeconds(1)).copy(cancel = cancelled)))

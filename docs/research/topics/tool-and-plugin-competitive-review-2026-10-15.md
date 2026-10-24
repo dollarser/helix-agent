@@ -356,7 +356,7 @@ Owner 追加要求：充分参考支持云端/远端执行的 Agent，给出当�
 | Linux Job | 输入经有界复制/归档进入 Job 独立 workspace，再挂载 `/workspace` | 是 snapshot，非聊天目录 live mount。输入被压平成 basename，第二项起每项都追加序号，即使不重名；cwd 只接受单层目录名。输出收取/产物发布不等于回写源文件 |
 | Room 与模型历史 | WorkspaceEntity 保存资源身份，SessionWorkspaceEntity 保存绑定及 revision，ModelCallWorkspaceEntity 保存原请求目录快照 | 这组职责有价值，应扩展原契约而非废弃重写；显示名/相对路径不能代替持久身份 |
 
-核对入口：[文件参数](../../../app/src/main/kotlin/com/helix/app/chat/FileToolArguments.kt)、[Workspace 持久身份](../../../core/storage/src/main/kotlin/com/helix/core/storage/entity/WorkspaceEntity.kt)、[会话目录服务](../../../app/src/main/kotlin/com/helix/app/chat/SessionWorkspaceService.kt)、[输入快照](../../../app/src/developer/kotlin/com/helix/app/proot/LinuxInputSnapshot.kt)、[Job 参数](../../../app/src/developer/kotlin/com/helix/app/proot/LinuxRunTool.kt)、[Job 挂载](../../../runtime/proot-app/src/main/kotlin/com/helix/runtime/proot/app/ProotJobRunner.kt)、[PTY 挂载](../../../runtime/proot-app/src/main/kotlin/com/helix/runtime/proot/app/ProotTerminalLaunch.kt)、[抽屉终端装配](../../../app/src/main/kotlin/com/helix/app/DefaultAppContainer.kt)、[文件来源展示](../../../app/src/main/kotlin/com/helix/app/files/WorkspaceFileSources.kt)。RootFS 提供程序运行环境，工作目录提供任务文件，产物库保存已发布结果；三个位置不能互相替代。
+核对入口：[文件参数](https://github.com/dollarser/helix-agent/blob/9965d2dff694441458b4036942c4b8b9749f0f8e/app/src/main/kotlin/com/helix/app/chat/FileToolArguments.kt)、[Workspace 持久身份](../../../core/storage/src/main/kotlin/com/helix/core/storage/entity/WorkspaceEntity.kt)、[会话目录服务](../../../app/src/main/kotlin/com/helix/app/chat/SessionWorkspaceService.kt)、[输入快照](../../../app/src/developer/kotlin/com/helix/app/proot/LinuxInputSnapshot.kt)、[Job 参数](../../../app/src/developer/kotlin/com/helix/app/proot/LinuxRunTool.kt)、[Job 挂载](../../../runtime/proot-app/src/main/kotlin/com/helix/runtime/proot/app/ProotJobRunner.kt)、[PTY 挂载](../../../runtime/proot-app/src/main/kotlin/com/helix/runtime/proot/app/ProotTerminalLaunch.kt)、[抽屉终端装配](../../../app/src/main/kotlin/com/helix/app/DefaultAppContainer.kt)、[文件来源展示](../../../app/src/main/kotlin/com/helix/app/files/WorkspaceFileSources.kt)。RootFS 提供程序运行环境，工作目录提供任务文件，产物库保存已发布结果；三个位置不能互相替代。
 
 ### 11.3 设计结论与分工
 
@@ -409,3 +409,5 @@ Owner 要求结合现状优化原重构计划与任务。本节为一手资料�
 本地裁决依据：PluginExecutionContext 仍有 helix-docs 特判/拼串，ChatRequestAssembler 合并 readiness；AppRuntime/Engine 已有单 owner，而 ChatService/批次投影仍有收窄空间。PRoot 设置调用 app 级被动状态/显式维修入口，属于展示耦合，不是绕权 executor；Android string resource ID 与安全访问 resource ID 完全不同，不以“统一资源标识”混合它们。
 
 旧默认快照前提已被后续原位交付替代；Job 观察 executor 识别、截图披露条件和 FileHistoryPaths 展示分支仍有真实职责，尚无证据支持全域删除。知识库的原件/核对笔记与 Memory 的作用域/记忆资格也不因 Markdown 共性合并。未覆盖设备、服务端质量、模型漏读与结构缺口分别归因，不能靠重构计划将任何一类伪报修复。
+
+> 2026-10-24 目录迁移说明：已删除旧类的链接指向公开 v0.0.7 发布基线，供追溯该旧路径；不证明当年未提交快照逐字可重建。当前替换入口和验收以 [HXA-287](../../development/tasks/HXA-287.md) 为准，旧结构不再是现行规范。

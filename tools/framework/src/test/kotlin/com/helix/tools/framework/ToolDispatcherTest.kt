@@ -1,10 +1,12 @@
 package com.helix.tools.framework
 
 import com.helix.core.model.AgentMode
+import com.helix.core.model.CancelSignal
 import com.helix.core.model.Capability
 import com.helix.core.model.Clock
 import com.helix.core.model.DispatchOutcomeCode
 import com.helix.core.model.ExecutionTargetType
+import com.helix.core.model.NoCancellation
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderId
 import com.helix.core.model.SafetyProfile

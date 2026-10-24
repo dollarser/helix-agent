@@ -5,6 +5,8 @@ import com.helix.app.agent.ContextCompaction
 import com.helix.app.agent.RecoveryContextPolicy
 import com.helix.app.application.context.PromptContentContributions
 import com.helix.app.application.context.SystemPromptContext
+import com.helix.app.application.tools.FileToolArguments
+import com.helix.app.application.tools.ToolPresentationMetadata
 import com.helix.app.infrastructure.prompt.packagedPromptTemplates
 import com.helix.app.provider.ProviderService
 import com.helix.app.tool.ToolPipeline

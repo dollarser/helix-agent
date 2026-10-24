@@ -6,7 +6,6 @@ import com.helix.app.agent.ChatHistoryBuilder
 import com.helix.app.agent.ContextCompaction
 import com.helix.app.agent.ContextHistoryMapping
 import com.helix.app.agent.GoalModelCallBudget
-import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.agent.contextCompactionRound
 import com.helix.app.application.agent.GoalTurnStart
@@ -20,6 +19,7 @@ import com.helix.core.agent.ModelStreamTerminal
 import com.helix.core.agent.RunControlConfig
 import com.helix.core.agent.TurnBudgetTracker
 import com.helix.core.agent.TurnContextRequest
+import com.helix.core.agent.turn.TurnRoundCoordinator
 import com.helix.core.model.AgentMode
 import com.helix.core.model.Clock
 import com.helix.core.model.GoalBudgets
@@ -99,7 +99,7 @@ class LongTurnCompactionDeviceTest {
                     GoalModelCallBudget(storage, clock),
                 )
             assertNull(budget.failure)
-            val stream = coordinator.beginModelStream(true)
+            val stream = kotlinx.coroutines.runBlocking { coordinator.beginModelStream(true) }
             stream.apply(ModelEvent.TextDelta("ORANGE-42; no deletion. Verified steps 0–2. Next: step 3."))
             stream.apply(ModelEvent.Completed("stop"))
             assertNull(budget.finish(stream))
@@ -109,8 +109,7 @@ class LongTurnCompactionDeviceTest {
                         plan,
                         stream,
                         stream.terminal(false),
-                        com.helix.app.agent
-                            .RoomTurnJournal(coordinator),
+                        coordinator,
                         next(),
                         "Compacted",
                         "Unchanged",
@@ -125,7 +124,7 @@ class LongTurnCompactionDeviceTest {
             originals.forEach { (id, text) ->
                 assertEquals(text, storage.messages.readContent(storage.messages.resolve(id)))
             }
-            coordinator.beginModelStream().apply {
+            kotlinx.coroutines.runBlocking { coordinator.beginModelStream() }.apply {
                 apply(ModelEvent.TextDelta("Step complete"))
                 apply(ModelEvent.Completed("stop"))
             }
@@ -167,7 +166,7 @@ class LongTurnCompactionDeviceTest {
                 ).prepare(request(storage)).plan,
             )
             assertEquals(runs + 1, storage.goalRuns.listByGoal(goal).size)
-            second.coordinator.beginModelStream()
+            kotlinx.coroutines.runBlocking { second.coordinator.beginModelStream() }
             second.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.FAILED, "CONTEXT_WINDOW_LIMIT"))
             assertEquals("BLOCKED", storage.goals.resolve(goal).state)
             assertEquals(runs + 1, storage.goalRuns.listByGoal(goal).size)
@@ -200,7 +199,7 @@ class LongTurnCompactionDeviceTest {
             val round = contextCompactionRound(storage, "s", current.id, control, settings, false)
             repeat(2) {
                 val plan = requireNotNull(round.prepare(original).plan)
-                val stream = current.beginModelStream(true)
+                val stream = kotlinx.coroutines.runBlocking { current.beginModelStream(true) }
                 stream.apply(ModelEvent.TextDelta("not a useful summary ".repeat(750)))
                 stream.apply(ModelEvent.Completed("stop"))
                 assertFalse(ContextCompaction.hasUsefulGain(plan, stream.text))
@@ -210,8 +209,7 @@ class LongTurnCompactionDeviceTest {
                             plan,
                             stream,
                             stream.terminal(false),
-                            com.helix.app.agent
-                                .RoomTurnJournal(current),
+                            current,
                             next(),
                             "Compacted",
                             "Unchanged",
@@ -233,7 +231,7 @@ class LongTurnCompactionDeviceTest {
             repeat(4) { batch(storage, current.id, it) }
             val round = contextCompactionRound(storage, "s", current.id, control, settings, false)
             val plan = requireNotNull(round.prepare(request(storage)).plan)
-            val stream = current.beginModelStream(true)
+            val stream = kotlinx.coroutines.runBlocking { current.beginModelStream(true) }
             stream.apply(ModelEvent.Error(ModelErrorCode.SERVER_ERROR, false))
             runBlocking {
                 assertEquals(
@@ -243,8 +241,7 @@ class LongTurnCompactionDeviceTest {
                             plan,
                             stream,
                             stream.terminal(false),
-                            com.helix.app.agent
-                                .RoomTurnJournal(current),
+                            current,
                             next(),
                             "Compacted",
                             "Unchanged",
@@ -302,10 +299,10 @@ class LongTurnCompactionDeviceTest {
                     )
                 assertTrue(plan.coveredThrough > boundary)
                 boundary = plan.coveredThrough
-                val stream = current.beginModelStream(true)
+                val stream = kotlinx.coroutines.runBlocking { current.beginModelStream(true) }
                 stream.apply(ModelEvent.TextDelta("ORANGE-42. No deletion. Steps through ${cycle * 4 + 2} verified."))
                 stream.apply(ModelEvent.Completed("stop"))
-                current.commitCompaction(plan, next())
+                kotlinx.coroutines.runBlocking { current.commitCompaction(plan, next()) }
                 val messages = request(storage).messages
                 assertTrue(messages.any { it.role == ModelRole.USER && it.text.contains("do not delete") })
                 val remaining = messages.mapNotNull { it.toolCallId?.value }
@@ -328,11 +325,11 @@ class LongTurnCompactionDeviceTest {
                 requireNotNull(
                     ContextCompaction.plan(storage, "s", request(storage), control, settings, true, current.id),
                 )
-            current.beginModelStream(true).apply {
+            kotlinx.coroutines.runBlocking { current.beginModelStream(true) }.apply {
                 apply(ModelEvent.TextDelta("ORANGE-42; never delete original files."))
                 apply(ModelEvent.Completed("stop"))
             }
-            current.commitCompaction(plan, next())
+            kotlinx.coroutines.runBlocking { current.commitCompaction(plan, next()) }
             val before = request(storage)
             storage.close()
             storage = HelixStorage.open(context, name, directory)
@@ -360,7 +357,7 @@ class LongTurnCompactionDeviceTest {
                 )
             repeat(2) { attempt ->
                 val plan = requireNotNull(round.prepare(request(storage)).plan)
-                val stream = current.beginModelStream(true)
+                val stream = kotlinx.coroutines.runBlocking { current.beginModelStream(true) }
                 stream.apply(ModelEvent.TextDelta("not useful ".repeat(1450)))
                 stream.apply(ModelEvent.Completed("stop"))
                 val terminal =
@@ -369,8 +366,7 @@ class LongTurnCompactionDeviceTest {
                             plan,
                             stream,
                             stream.terminal(false),
-                            com.helix.app.agent
-                                .RoomTurnJournal(current),
+                            current,
                             next(),
                             "Compacted",
                             "Unchanged",
@@ -413,7 +409,7 @@ class LongTurnCompactionDeviceTest {
                 com.helix.app.agent.ContextHistory
                     .checkpoint(storage, "s"),
             )
-            val stream = current.beginModelStream(true)
+            val stream = kotlinx.coroutines.runBlocking { current.beginModelStream(true) }
             stream.apply(ModelEvent.TextDelta("ORANGE-42; preserve originals; last tool result pending verification."))
             stream.apply(ModelEvent.Completed("stop"))
             assertNull(
@@ -422,8 +418,7 @@ class LongTurnCompactionDeviceTest {
                         plan,
                         stream,
                         stream.terminal(false),
-                        com.helix.app.agent
-                            .RoomTurnJournal(current),
+                        current,
                         next(),
                         "Compacted",
                         "Unchanged",
@@ -467,7 +462,7 @@ class LongTurnCompactionDeviceTest {
             val original = request(storage)
             val round = contextCompactionRound(storage, "s", current.id, control, settings, false)
             val plan = requireNotNull(round.prepare(original).plan)
-            val stream = current.beginModelStream(true)
+            val stream = kotlinx.coroutines.runBlocking { current.beginModelStream(true) }
             stream.apply(ModelEvent.TextDelta("incomplete summary"))
             val cancelled = ModelStreamTerminal(TurnState.CANCELLED, null)
             assertEquals(
@@ -477,8 +472,7 @@ class LongTurnCompactionDeviceTest {
                         plan,
                         stream,
                         cancelled,
-                        com.helix.app.agent
-                            .RoomTurnJournal(current),
+                        current,
                         next(),
                         "Compacted",
                         "Unchanged",
@@ -505,7 +499,7 @@ class LongTurnCompactionDeviceTest {
             repeat(4) { batch(storage, current.id, it) }
             val round = contextCompactionRound(storage, "s", current.id, control, settings, false)
             val plan = requireNotNull(round.prepare(request(storage)).plan)
-            val stream = current.beginModelStream(true)
+            val stream = kotlinx.coroutines.runBlocking { current.beginModelStream(true) }
             stream.apply(ModelEvent.TextDelta("ORANGE-42; no deletion. Last result still needs verification."))
             stream.apply(ModelEvent.Completed("stop"))
             assertNull(
@@ -514,8 +508,7 @@ class LongTurnCompactionDeviceTest {
                         plan,
                         stream,
                         stream.terminal(false),
-                        com.helix.app.agent
-                            .RoomTurnJournal(current),
+                        current,
                         next(),
                         "Compacted",
                         "Unchanged",

@@ -7,6 +7,7 @@ import com.helix.app.HelixApplication
 import com.helix.app.approval.DispatchAuditRecord
 import com.helix.app.approval.StorageAuditSink
 import com.helix.core.model.AgentMode
+import com.helix.core.model.CancelSignal
 import com.helix.core.model.DispatchOutcomeCode
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.SafetyProfile
@@ -15,7 +16,6 @@ import com.helix.core.model.ToolDispatchOutcome
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolVersion
 import com.helix.core.policy.DataOrigin
-import com.helix.tools.framework.CancelSignal
 import com.helix.tools.framework.ToolDispatchRequest
 import com.helix.tools.framework.ToolScheduler
 import kotlinx.serialization.json.Json

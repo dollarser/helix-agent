@@ -36,7 +36,7 @@ class ExpertAdmissionDeviceTest {
                 firstExpert,
                 TurnRuntimeRecordCodec.decode(storage.turnRuntimeRecords.resolve("turn-a")).expert,
             )
-            first.turn.coordinator.beginModelStream()
+            kotlinx.coroutines.runBlocking { first.turn.coordinator.beginModelStream() }
             first.turn.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
 
             val secondExpert = ExpertProfile("expert-b", "Reviewer B", "Prefer implementation review.")

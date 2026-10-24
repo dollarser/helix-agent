@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.ParcelFileDescriptor
 import androidx.test.core.app.ApplicationProvider
 import com.helix.core.model.ExecutionTargetType
+import com.helix.core.model.NoCancellation
 import com.helix.core.model.ToolCallState
 import com.helix.core.storage.HelixStorage
 import com.helix.core.storage.content.FileContentStore
@@ -18,7 +19,6 @@ import com.helix.runtime.proot.ipc.ProotJobRecord
 import com.helix.runtime.proot.ipc.ProotJobSpec
 import com.helix.runtime.proot.ipc.ProotJobState
 import com.helix.tools.framework.ExecutableToolCall
-import com.helix.tools.framework.NoCancellation
 import com.helix.tools.framework.ToolExecutorResult
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject

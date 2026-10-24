@@ -117,7 +117,7 @@ class RootMobileUseDeviceTest {
         val cancelled =
             request("cancelled").copy(
                 cancel =
-                    object : com.helix.tools.framework.CancelSignal {
+                    object : com.helix.core.model.CancelSignal {
                         override fun isCancelled() = true
                     },
             )
@@ -268,7 +268,7 @@ class RootMobileUseDeviceTest {
             java.time.Instant
                 .now()
                 .plusSeconds(30),
-            com.helix.tools.framework.NoCancellation,
+            com.helix.core.model.NoCancellation,
             sessionId = session,
             authorizationScopeRef = center.conversationGrant(session)?.scope?.toScopeRef(),
         )

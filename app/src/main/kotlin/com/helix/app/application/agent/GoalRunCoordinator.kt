@@ -1,15 +1,16 @@
 package com.helix.app.application.agent
 
-import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.goal.toRuntimeGoal
 import com.helix.app.goal.toStoredGoal
+import com.helix.app.infrastructure.agent.RoomTurnRoundStore
 import com.helix.core.agent.Criterion
 import com.helix.core.agent.Goal
 import com.helix.core.agent.GoalEffect
 import com.helix.core.agent.GoalEvent
 import com.helix.core.agent.GoalReducer
 import com.helix.core.agent.GoalWakeReason
+import com.helix.core.agent.turn.TurnRoundCoordinator
 import com.helix.core.model.Clock
 import com.helix.core.model.CorrelationId
 import com.helix.core.model.GoalBudgets
@@ -29,7 +30,7 @@ internal data class GoalTurnStart(
 
 internal data class StartedGoalTurn(
     val runId: String,
-    val coordinator: TurnCoordinator,
+    val coordinator: TurnRoundCoordinator,
     val budgets: TurnBudgets,
 )
 
@@ -117,7 +118,7 @@ internal class GoalRunCoordinator(
                 storage.goals.updateGoal(step.state.toStoredGoal())
                 storage.goalRuns.open(runId, request.goalId, request.wakeReason.name, clock.now().toEpochMilli())
                 val turn =
-                    TurnCoordinator.start(
+                    RoomTurnRoundStore.start(
                         storage,
                         clock,
                         idGenerator,

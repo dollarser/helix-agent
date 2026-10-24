@@ -5,8 +5,8 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.AppContainer
 import com.helix.app.HelixApplication
 import com.helix.app.agent.ChatHistoryBuilder
+import com.helix.app.application.tools.ToolFailureContent
 import com.helix.app.chat.ChatToolMessageEncoder
-import com.helix.app.chat.ToolFailureContent
 import com.helix.app.provider.BuiltInModel
 import com.helix.core.agent.SettledCall
 import com.helix.core.model.AssistantToolCall

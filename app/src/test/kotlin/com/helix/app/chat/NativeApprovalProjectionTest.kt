@@ -5,8 +5,6 @@ import com.helix.app.approval.ApprovalCardUi
 import com.helix.core.model.SafetyProfile
 import com.helix.core.model.ToolOperationClass
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -43,10 +41,8 @@ class NativeApprovalProjectionTest {
         projection.register("turn-a", "call-a", a)
         projection.register("turn-b", "call-b", card("b"))
         assertEquals(listOf(a), projection.forTurn("turn-a"))
-        assertEquals("call-a", projection.callId("a"))
-        assertNull(projection.claim("turn-b", "a"))
-        assertEquals(a, projection.claim("turn-a", "a"))
-        assertNull(projection.claim("turn-a", "a"))
+        projection.remove("a")
+        assertTrue(projection.forTurn("turn-a").isEmpty())
         assertEquals(listOf(card("b")), projection.forTurn("turn-b"))
     }
 
@@ -56,10 +52,10 @@ class NativeApprovalProjectionTest {
         projection.register("a", "a2", card("a2"))
         projection.register("b", "b1", card("b1"))
         projection.finishCall("a1")
-        assertNull(projection.claim("a", "a1"))
+        assertTrue(projection.forTurn("a").none { it.approvalId == "a1" })
         assertEquals(listOf(card("a2")), projection.forTurn("a"))
         projection.finishTurn("a")
-        assertNull(projection.claim("a", "a2"))
+        assertTrue(projection.forTurn("a").isEmpty())
         assertEquals(listOf(card("b1")), projection.forTurn("b"))
         projection.remove("b1")
         assertTrue(projection.forTurn("b").isEmpty())
@@ -72,29 +68,7 @@ class NativeApprovalProjectionTest {
         assertEquals(listOf("z-first", "a-later"), projection.forTurn("a").map { it.approvalId })
         projection.register("a", "first", card("z-first"))
         assertEquals(listOf("z-first", "a-later"), projection.forTurn("a").map { it.approvalId })
-        projection.claim("a", "z-first")
+        projection.remove("z-first")
         assertEquals(listOf("a-later"), projection.forTurn("a").map { it.approvalId })
-    }
-
-    @Test fun competingTapsClaimTheExactRequestOnlyOnce() {
-        val projection = NativeApprovalProjection()
-        projection.register("a", "call", card("request"))
-        val ready = java.util.concurrent.CountDownLatch(1)
-        val winners =
-            java.util.concurrent.atomic
-                .AtomicInteger()
-        val threads =
-            (1..8).map {
-                Thread {
-                    ready.await()
-                    if (projection.claim("a", "request") != null) winners.incrementAndGet()
-                }.apply { start() }
-            }
-        ready.countDown()
-        threads.forEach {
-            it.join(1000)
-            assertFalse(it.isAlive)
-        }
-        assertEquals(1, winners.get())
     }
 }

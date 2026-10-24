@@ -4,7 +4,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.AppContainer
 import com.helix.app.HelixApplication
-import com.helix.app.chat.ToolFailureContent
+import com.helix.app.application.tools.ToolFailureContent
 import com.helix.app.provider.BuiltInModel
 import com.helix.core.agent.SubmitTurnCommand
 import com.helix.core.model.AgentMode

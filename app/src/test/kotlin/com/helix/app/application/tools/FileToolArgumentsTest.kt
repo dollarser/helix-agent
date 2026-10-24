@@ -1,5 +1,6 @@
-package com.helix.app.chat
+package com.helix.app.application.tools
 
+import com.helix.app.application.tools.FileToolArguments
 import com.helix.core.workspace.FileScopePath
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject

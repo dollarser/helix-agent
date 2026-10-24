@@ -15,6 +15,7 @@ import com.helix.app.provider.ProviderDraft
 import com.helix.app.sendTestMessage
 import com.helix.core.model.AgentMode
 import com.helix.core.model.ExecutionTargetType
+import com.helix.core.model.NoCancellation
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.SafetyProfile
@@ -33,7 +34,6 @@ import com.helix.extensions.mobileuse.automation.AutomationSnapshotStatus
 import com.helix.extensions.mobileuse.automation.PermissionCenterAutomationToolPort
 import com.helix.provider.api.ProbeOutcome
 import com.helix.tools.framework.ExecutableToolCall
-import com.helix.tools.framework.NoCancellation
 import com.helix.tools.framework.ToolDispatchRequest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job

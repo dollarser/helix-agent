@@ -1,6 +1,8 @@
 package com.helix.app.chat
 
 import com.helix.app.agent.ChatHistoryBuilder
+import com.helix.app.application.tools.FileToolArguments
+import com.helix.app.application.tools.ToolPresentationMetadata
 import com.helix.app.infrastructure.prompt.packagedPromptTemplates
 import com.helix.core.model.ModelRole
 import kotlinx.serialization.json.Json

@@ -1,9 +1,9 @@
 package com.helix.app.proot
 
 import android.os.SystemClock
+import com.helix.core.model.CancelSignal
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.storage.HelixStorage
-import com.helix.tools.framework.CancelSignal
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.ExecutionOwnership
 import com.helix.tools.framework.ToolExecutor

@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.helix.app.agent.ChatHistoryBuilder
 import com.helix.app.agent.ContextCompaction
-import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.test.settleFixtureTerminal
 import com.helix.app.test.startFixtureTurn
@@ -12,6 +11,7 @@ import com.helix.core.agent.ContextCompactionPlan
 import com.helix.core.agent.ModelStreamTerminal
 import com.helix.core.agent.TurnContextRequest
 import com.helix.core.agent.TurnMessageDraft
+import com.helix.core.agent.turn.TurnRoundCoordinator
 import com.helix.core.model.Clock
 import com.helix.core.model.ModelEvent
 import com.helix.core.model.ModelMessage
@@ -67,7 +67,7 @@ class TurnCancellationRaceDeviceTest {
                     kotlinx.serialization.json.JsonObject(emptyMap()),
                     com.helix.core.model.ExecutionTargetType.LOCAL_ANDROID,
                     Instant.now().plusSeconds(30),
-                    object : com.helix.tools.framework.CancelSignal {
+                    object : com.helix.core.model.CancelSignal {
                         override fun isCancelled() = cancelled.get()
                     },
                     "session",
@@ -136,7 +136,9 @@ class TurnCancellationRaceDeviceTest {
     @Test fun durableStopBeforeStreamStartIsCancellationRatherThanInternalFailure() =
         withFixture { storage, turn ->
             stopIntent(storage)
-            assertThrows(CancellationException::class.java) { turn.beginModelStream() }
+            assertThrows(
+                CancellationException::class.java,
+            ) { kotlinx.coroutines.runBlocking { turn.beginModelStream() } }
             assertEquals(TurnState.WAITING_MODEL, turn.snapshot().phase)
             assertEquals(TurnState.CANCELLING.name, storage.turns.resolve("turn").state)
             turn.settleFixtureTerminal(ModelStreamTerminal(TurnState.CANCELLED, null))
@@ -147,9 +149,11 @@ class TurnCancellationRaceDeviceTest {
 
     @Test fun durableStopBeforeToolBatchDoesNotAdvanceTheTurn() =
         withFixture { storage, turn ->
-            turn.beginModelStream()
+            kotlinx.coroutines.runBlocking { turn.beginModelStream() }
             stopIntent(storage)
-            assertThrows(CancellationException::class.java) { turn.beginToolBatch(listOf("tool")) }
+            assertThrows(CancellationException::class.java) {
+                kotlinx.coroutines.runBlocking { turn.beginToolBatch(listOf("tool")) }
+            }
             assertTrue(turn.snapshot().batchCalls.isEmpty())
             assertEquals(TurnState.CANCELLING.name, storage.turns.resolve("turn").state)
             turn.settleFixtureTerminal(ModelStreamTerminal(TurnState.CANCELLED, null))
@@ -157,11 +161,13 @@ class TurnCancellationRaceDeviceTest {
 
     @Test fun stopAfterBatchPreparationPreventsToolStepBeforeDispatcherRegistration() =
         withFixture { storage, turn ->
-            turn.beginModelStream()
-            turn.beginToolBatch(listOf("tool"))
+            kotlinx.coroutines.runBlocking { turn.beginModelStream() }
+            kotlinx.coroutines.runBlocking { turn.beginToolBatch(listOf("tool")) }
             // Only the in-memory batch exists; Dispatcher has not registered or executed its calls.
             stopIntent(storage)
-            assertThrows(CancellationException::class.java) { turn.commitModelToolStep("[]") }
+            assertThrows(
+                CancellationException::class.java,
+            ) { kotlinx.coroutines.runBlocking { turn.commitModelToolStep("[]") } }
             val messages = storage.messages.listBySession("session")
             assertTrue(messages.none { it.kind == ChatHistoryBuilder.KIND_TOOL_CALLS })
             assertEquals(listOf("model"), storage.modelCalls.listByTurn("turn").map { it.id })
@@ -173,13 +179,15 @@ class TurnCancellationRaceDeviceTest {
 
     @Test fun settledToolResultsSurviveStopWithoutOpeningAnotherModelCall() =
         withFixture { storage, turn ->
-            turn.beginModelStream()
-            turn.beginToolBatch(listOf("tool"))
-            turn.commitModelToolStep("[]")
+            kotlinx.coroutines.runBlocking { turn.beginModelStream() }
+            kotlinx.coroutines.runBlocking { turn.beginToolBatch(listOf("tool")) }
+            kotlinx.coroutines.runBlocking { turn.commitModelToolStep("[]") }
             turn.settleBatchCall("tool", sideEffectUnknown = false)
             stopIntent(storage)
             val result = TurnMessageDraft(ModelRole.TOOL, ChatHistoryBuilder.KIND_TOOL_RESULT, "settled result")
-            assertThrows(CancellationException::class.java) { turn.openNextModelCall(listOf(result), "next-call") }
+            assertThrows(CancellationException::class.java) {
+                kotlinx.coroutines.runBlocking { turn.openNextModelCall(listOf(result), "next-call") }
+            }
             val results =
                 storage.messages.listBySession("session").filter { it.kind == ChatHistoryBuilder.KIND_TOOL_RESULT }
             assertEquals(listOf("settled result"), results.map(storage.messages::readContent))
@@ -192,7 +200,7 @@ class TurnCancellationRaceDeviceTest {
 
     @Test fun durableStopPreventsCompactionCheckpointCommit() =
         withFixture { storage, turn ->
-            val stream = turn.beginModelStream(compacting = true)
+            val stream = kotlinx.coroutines.runBlocking { turn.beginModelStream(compacting = true) }
             stream.apply(ModelEvent.TextDelta("summary"))
             stream.apply(ModelEvent.Completed("stop"))
             val request =
@@ -205,7 +213,9 @@ class TurnCancellationRaceDeviceTest {
                 )
             val plan = ContextCompactionPlan(0, request.modelRequest(), request)
             stopIntent(storage)
-            assertThrows(CancellationException::class.java) { turn.commitCompaction(plan, "next-call") }
+            assertThrows(CancellationException::class.java) {
+                kotlinx.coroutines.runBlocking { turn.commitCompaction(plan, "next-call") }
+            }
             assertNull(ContextCompaction.checkpoint(storage, storage.messages.listBySession("session")))
             assertEquals(listOf("model"), storage.modelCalls.listByTurn("turn").map { it.id })
             turn.settleFixtureTerminal(ModelStreamTerminal(TurnState.CANCELLED, null))
@@ -219,7 +229,7 @@ class TurnCancellationRaceDeviceTest {
         }
     }
 
-    private fun withFixture(block: (HelixStorage, TurnCoordinator) -> Unit) {
+    private fun withFixture(block: (HelixStorage, TurnRoundCoordinator) -> Unit) {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val name = "turn-stop-${UUID.randomUUID()}.db"
         val files = File(context.filesDir, name)

@@ -27,7 +27,7 @@ internal fun evaluationAutomationPort(
             java.time.Instant
                 .now()
                 .plusSeconds(120),
-            com.helix.tools.framework.NoCancellation,
+            com.helix.core.model.NoCancellation,
             conversationId,
             "fixture-setup",
             grant.scope.toScopeRef(),

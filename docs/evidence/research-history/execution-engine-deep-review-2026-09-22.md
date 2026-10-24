@@ -38,7 +38,7 @@
 
 ## R6：让每个已执行槽位都有可恢复的结算事实
 
-位置：[ChatToolCalls.runToolBatch](../../../app/src/main/kotlin/com/helix/app/chat/ChatToolCalls.kt)（241–295）、[ChatToolSettlement](../../../app/src/main/kotlin/com/helix/app/chat/ChatToolSettlement.kt)（36–90）、[TurnRecovery（原 RecoveryCoordinatorApp）](../../../app/src/main/kotlin/com/helix/app/engine/TurnRecovery.kt)（73–125）。
+位置：[ChatToolCalls.runToolBatch](https://github.com/dollarser/helix-agent/blob/9a9b25dd50e24f4f631605968b6dbbde1be7f1f1/app/src/main/kotlin/com/helix/app/chat/ChatToolCalls.kt)（241–295）、[ChatToolSettlement](https://github.com/dollarser/helix-agent/blob/9a9b25dd50e24f4f631605968b6dbbde1be7f1f1/app/src/main/kotlin/com/helix/app/chat/ChatToolSettlement.kt)（36–90）、[TurnRecovery（原 RecoveryCoordinatorApp）](../../../app/src/main/kotlin/com/helix/app/engine/TurnRecovery.kt)（73–125）。
 
 batch执行后按序`map`写结果。成功路径先写ToolCall COMPLETED，再append正文/结果、markVerified、投影UI，最后结算Goal预算；外层没有覆盖这些写入的统一事务。局部写失败会中止后续槽位结算，随后Turn终局写仍可能成功。于是可能出现COMPLETED无结果、后续已执行槽位仍未结算；启动恢复只扫描非终态Turn，不能保证找回终态父级下的遗漏。
 
@@ -58,7 +58,7 @@ batch执行后按序`map`写结果。成功路径先写ToolCall COMPLETED，再a
 
 R4底层：[TurnRepository.updateState](../../../core/storage/src/main/kotlin/com/helix/core/storage/repository/TurnRepository.kt)（69–85）仍按传入快照校验，[TurnDao](../../../core/storage/src/main/kotlin/com/helix/core/storage/dao/TurnDao.kt)（59–69）仍仅按id更新。替身探针能重现旧值覆盖，但当前`cancelTurn`已在`turnGate + storage.withTransaction`内重新resolve；Coordinator迁移/终局和启动恢复也在事务内读取。**旧文“当前stopTask可把COMPLETED写回CANCELLING”应撤回。** 是否加CAS，应先核查全部写者；采用时用真Room验证两个写者、过期step和失败行数，不能只重复DAO替身实验。
 
-R8：[ChatService.runTurn/terminalize](../../../app/src/main/kotlin/com/helix/app/chat/ChatService.kt)（3612–3744）仍将终局与后置投影放在同一异常域，但[TurnCoordinator.terminalize](../../../app/src/main/kotlin/com/helix/app/agent/TurnCoordinator.kt)（497–503）在已终态时早退，ChatService随后读取持久结果。因此原文“再次提交FAILED必然非法/改写原结果”过强。剩余问题是提交后清理、投影、提醒、队列drain中途失败的幂等与补偿；在提交后/释放前/通知中注入异常，再确定最小提交结果对象与通知重试边界。
+R8：[ChatService.runTurn/terminalize](../../../app/src/main/kotlin/com/helix/app/chat/ChatService.kt)（3612–3744）仍将终局与后置投影放在同一异常域，但[TurnCoordinator.terminalize](https://github.com/dollarser/helix-agent/blob/9a9b25dd50e24f4f631605968b6dbbde1be7f1f1/app/src/main/kotlin/com/helix/app/agent/TurnCoordinator.kt)（497–503）在已终态时早退，ChatService随后读取持久结果。因此原文“再次提交FAILED必然非法/改写原结果”过强。剩余问题是提交后清理、投影、提醒、队列drain中途失败的幂等与补偿；在提交后/释放前/通知中注入异常，再确定最小提交结果对象与通知重试边界。
 
 R1当前保留按turnId释放的保护，正常持久终局后允许显式释放占用，不必为解决旧isActive问题再增加一套会话占用状态机。R5现有重新读库已解决原来的投影不一致；返回不可变receipt可作为后续简化，但不再列为未修复P1。
 

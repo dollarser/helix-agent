@@ -7,9 +7,9 @@ import android.content.Intent
 import androidx.core.content.FileProvider
 import com.helix.app.files.ShareCancelled
 import com.helix.app.files.ShareSnapshotCache
+import com.helix.core.model.CancelSignal
 import com.helix.core.workspace.FileScopePath
 import com.helix.core.workspace.WorkspaceArtifactStore
-import com.helix.tools.framework.CancelSignal
 import com.helix.tools.framework.ToolExecutorResult
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject

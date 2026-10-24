@@ -2,10 +2,10 @@ package com.helix.extensions.mcp
 
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.McpServerId
+import com.helix.core.model.NoCancellation
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.policy.DataSensitivity
 import com.helix.tools.framework.ExecutableToolCall
-import com.helix.tools.framework.NoCancellation
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolOrigin
 import com.helix.tools.framework.ToolRegistry

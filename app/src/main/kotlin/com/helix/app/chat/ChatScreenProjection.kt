@@ -123,7 +123,10 @@ internal class ChatScreenProjection(
                     modelIntent = call.modelIntent,
                     requestSummary = call.argsJson,
                     stateLabel = str(persistedStateLabelRes(persistedCallState(turn, call.state))),
-                    resultSummary = result?.summary,
+                    resultSummary =
+                        persistedToolSummary(persistedCallState(turn, call.state), result?.summary) {
+                            str(R.string.tool_summary_cancelled_before_start)
+                        },
                     card = null,
                     position =
                         call.modelCallId?.let { modelId ->
@@ -345,3 +348,10 @@ private fun persistedStateLabelRes(state: String): Int =
         ToolCallState.DENIED -> R.string.tool_state_denied
         null -> R.string.tool_state_unknown
     }
+
+/** CANCELLED is proof of no execution; unknown/after-start effects retain their actual diagnostics. */
+internal fun persistedToolSummary(
+    state: String,
+    summary: String?,
+    cancelledBeforeStart: () -> String,
+): String? = if (state == ToolCallState.CANCELLED.name) cancelledBeforeStart() else summary

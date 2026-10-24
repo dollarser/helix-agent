@@ -14,7 +14,6 @@ import androidx.compose.ui.test.performScrollToNode
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.chat.ArtifactQuery
 import com.helix.app.chat.ChatService
@@ -26,6 +25,7 @@ import com.helix.app.ui.ASYNC_UI_TIMEOUT_MILLIS
 import com.helix.app.ui.navigateTo
 import com.helix.app.ui.resetDeterministicUiState
 import com.helix.core.agent.ModelStreamTerminal
+import com.helix.core.agent.turn.TurnRoundCoordinator
 import com.helix.core.model.AgentMode
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.GoalBudgets
@@ -341,7 +341,10 @@ class TaskJourneyDeviceTest {
                 { UUID.randomUUID().toString() },
                 TurnStartSpec(sessionId, turnId, "$turnId-model", "journey-fixture", "HXA202 journey fixture"),
             )
-        coordinator.beginModelStream().apply(ModelEvent.TextDelta("HXA202 journey fixture result"))
+        kotlinx.coroutines
+            .runBlocking {
+                coordinator.beginModelStream()
+            }.apply(ModelEvent.TextDelta("HXA202 journey fixture result"))
         coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
     }
 

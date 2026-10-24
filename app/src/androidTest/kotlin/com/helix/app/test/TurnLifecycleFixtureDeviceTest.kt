@@ -2,9 +2,10 @@ package com.helix.app.test
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
-import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
+import com.helix.app.infrastructure.agent.RoomTurnRoundStore
 import com.helix.core.agent.ModelStreamTerminal
+import com.helix.core.agent.turn.TurnRoundCoordinator
 import com.helix.core.model.Clock
 import com.helix.core.model.ModelEvent
 import com.helix.core.model.TurnState
@@ -26,7 +27,7 @@ class TurnLifecycleFixtureDeviceTest {
                     override fun now(): Instant = Instant.ofEpochMilli(millis)
                 }
             val turn = startFixtureTurn(storage, clock, { "own-${nextId++}" }, spec())
-            turn.beginModelStream().apply(ModelEvent.TextDelta("owned response"))
+            kotlinx.coroutines.runBlocking { turn.beginModelStream() }.apply(ModelEvent.TextDelta("owned response"))
             val expectedId = "own-$nextId"
             millis = 2_000L
             turn.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
@@ -42,8 +43,8 @@ class TurnLifecycleFixtureDeviceTest {
                 object : Clock {
                     override fun now(): Instant = Instant.ofEpochMilli(1_000)
                 }
-            val turn = TurnCoordinator.start(storage, clock, { UUID.randomUUID().toString() }, spec())
-            turn.beginModelStream().apply(ModelEvent.TextDelta("uncommitted"))
+            val turn = RoomTurnRoundStore.start(storage, clock, { UUID.randomUUID().toString() }, spec())
+            kotlinx.coroutines.runBlocking { turn.beginModelStream() }.apply(ModelEvent.TextDelta("uncommitted"))
             val before = storage.messages.listBySession("session")
             assertThrows(IllegalStateException::class.java) {
                 turn.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))

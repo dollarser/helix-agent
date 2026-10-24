@@ -92,7 +92,7 @@ flowchart TD
 | --- | --- |
 | `AgentTurnHost`（历史路径，HXA-220 E1-B5 已删除）、[ChatService](../../../app/src/main/kotlin/com/helix/app/chat/ChatService.kt) | 当时的 start/cancel/observe 接缝；当前 live execution/observation 已收敛到 TurnEngine，ChatService 保留应用投影 |
 | [AgentLoop](https://github.com/dollarser/helix-agent/blob/05e910039e03095d98649d96a9e64a3a71bcb078/app/src/main/kotlin/com/helix/app/agent/AgentLoop.kt) | 模型请求—工具批—上下文回填循环，以及 Goal 时间约束 |
-| [TurnCoordinator](../../../app/src/main/kotlin/com/helix/app/agent/TurnCoordinator.kt) | 当前 ModelCall/stream 身份、批次聚合 phase、持久事务和终局 |
+| [TurnCoordinator](https://github.com/dollarser/helix-agent/blob/9965d2dff694441458b4036942c4b8b9749f0f8e/app/src/main/kotlin/com/helix/app/agent/TurnCoordinator.kt) | 当前 ModelCall/stream 身份、批次聚合 phase、持久事务和终局 |
 | [ModelLoopAdmission](https://github.com/dollarser/helix-agent/blob/05e910039e03095d98649d96a9e64a3a71bcb078/app/src/main/kotlin/com/helix/app/agent/ModelLoopAdmission.kt)、[TurnBudgetTracker](https://github.com/dollarser/helix-agent/blob/05e910039e03095d98649d96a9e64a3a71bcb078/app/src/main/kotlin/com/helix/app/agent/TurnBudgetTracker.kt) | 每次请求的预算准入、输出上限与用量结算 |
 | [ContextCompactionRound](https://github.com/dollarser/helix-agent/blob/05e910039e03095d98649d96a9e64a3a71bcb078/app/src/main/kotlin/com/helix/app/agent/ContextCompactionRound.kt) | 压缩规划、收益与失败判断、有限重试、checkpoint 发布 |
 | [SessionPermissionResolver](../../../core/policy/src/main/kotlin/com/helix/core/policy/SessionPermissionResolver.kt) | 汇总操作效果，得出免确认、精确审批或拒绝 |
@@ -371,3 +371,5 @@ QuickJS 是 isolated UID；developer APK 的 PRoot/Subscriptions 是共享宿主
 输入队列/steering 若获准，先更新 Agent/Goal 的相关决定，明确用户来源、消费事务、抢占和重启语义，再定义实现任务；恢复摘要先复用查询，改变执行语义时再单独评审。不得因本文出现候选接口就直接添加生产工具。
 
 更新本文时应重新核对生产调用链和外部版本，尤其避免四类失真：把旧三态授权当当前实现；把串行 reducer 当生产批次驱动；把持久历史恢复当任意执行恢复；把厂商未披露的机制写成不存在。源码、ADR、交付证据和比较推论保持分开。
+
+> 2026-10-24 目录迁移说明：已删除旧类的链接指向公开 v0.0.7 发布基线，供追溯该旧路径；不证明当年未提交快照逐字可重建。当前替换入口和验收以 [HXA-287](../../development/tasks/HXA-287.md) 为准，旧结构不再是现行规范。

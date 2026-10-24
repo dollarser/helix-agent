@@ -1,5 +1,8 @@
-package com.helix.app.chat
+package com.helix.app.application.tools
 
+import com.helix.app.application.diagnostics.DiagnosticRedaction
+import com.helix.app.application.tools.ToolFailureContent
+import com.helix.app.chat.ToolModelResult
 import com.helix.core.model.DispatchOutcomeCode
 import com.helix.core.model.ToolDispatchOutcome
 import kotlinx.serialization.json.Json

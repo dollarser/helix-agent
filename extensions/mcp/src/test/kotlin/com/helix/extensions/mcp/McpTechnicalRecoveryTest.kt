@@ -1,9 +1,9 @@
 package com.helix.extensions.mcp
 
+import com.helix.core.model.CancelSignal
 import com.helix.core.model.ExecutionTargetType
-import com.helix.tools.framework.CancelSignal
+import com.helix.core.model.NoCancellation
 import com.helix.tools.framework.ExecutableToolCall
-import com.helix.tools.framework.NoCancellation
 import kotlinx.coroutines.delay
 import kotlinx.serialization.json.buildJsonObject
 import org.junit.Assert.assertEquals

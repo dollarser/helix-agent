@@ -4,6 +4,7 @@ import com.helix.core.model.AgentMode
 import com.helix.core.model.Capability
 import com.helix.core.model.Clock
 import com.helix.core.model.ExecutionTargetType
+import com.helix.core.model.NoCancellation
 import com.helix.core.model.SafetyProfile
 import com.helix.core.model.ToolDispatchOutcome
 import com.helix.core.model.ToolName
@@ -21,7 +22,6 @@ import com.helix.tools.framework.ApprovalRequest
 import com.helix.tools.framework.AuditSink
 import com.helix.tools.framework.DispatchAuditEvent
 import com.helix.tools.framework.ExecutableToolCall
-import com.helix.tools.framework.NoCancellation
 import com.helix.tools.framework.ToolDispatchRequest
 import com.helix.tools.framework.ToolDispatcher
 import com.helix.tools.framework.ToolExecutorResult

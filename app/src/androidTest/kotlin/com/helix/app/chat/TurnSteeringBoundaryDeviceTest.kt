@@ -4,13 +4,14 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.agent.ChatHistoryBuilder
-import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.agent.TurnSteeringDraft
+import com.helix.app.agent.toRoundInput
 import com.helix.app.test.completeResponseOrContinueFixture
 import com.helix.app.test.startFixtureTurn
 import com.helix.core.agent.ResponseInputBoundary
 import com.helix.core.agent.TurnMessageDraft
+import com.helix.core.agent.turn.TurnRoundCoordinator
 import com.helix.core.model.Clock
 import com.helix.core.model.ModelEvent
 import com.helix.core.model.ModelRole
@@ -38,7 +39,9 @@ class TurnSteeringBoundaryDeviceTest {
     @Test
     fun acceptedAfterFinalSnapshotRequiresRecheckAndContinuesTheSameTurn() =
         fixture { storage, coordinator ->
-            coordinator.beginModelStream().apply(ModelEvent.TextDelta("first answer"))
+            kotlinx.coroutines.runBlocking { coordinator.beginModelStream() }.apply(
+                ModelEvent.TextDelta("first answer"),
+            )
             val draft = accept(storage)
             assertEquals(ResponseInputBoundary.RECHECK, coordinator.completeResponseOrContinueFixture(null, "next"))
             assertEquals(TurnState.RECEIVING_MODEL.name, storage.turns.resolve("turn").state)
@@ -58,20 +61,20 @@ class TurnSteeringBoundaryDeviceTest {
         fixture { storage, coordinator ->
             val stale = accept(storage)
             assertTrue(storage.sessionInputs.editPending("input", stale.input.revision, spec("updated", 1)))
-            assertFalse(coordinator.appendSteeringBeforeRequest(stale))
+            assertFalse(coordinator.appendSteeringBeforeRequest(stale.toRoundInput()))
             val history = storage.messages.listBySession("session").map(storage.messages::readContent)
             assertEquals(listOf("initial"), history)
             val current = requireNotNull(storage.sessionInputs.get("input"))
             val updated = TurnSteeringDraft(current, "updated", emptyList())
-            assertTrue(coordinator.appendSteeringBeforeRequest(updated))
-            assertFalse(coordinator.appendSteeringBeforeRequest(stale))
+            assertTrue(coordinator.appendSteeringBeforeRequest(updated.toRoundInput()))
+            assertFalse(coordinator.appendSteeringBeforeRequest(stale.toRoundInput()))
             assertEquals(2, storage.messages.listBySession("session").size)
         }
 
     @Test
     fun cancellationWinsWithoutAppendingOrOpeningAnotherRequest() =
         fixture { storage, coordinator ->
-            coordinator.beginModelStream().apply(ModelEvent.TextDelta("partial"))
+            kotlinx.coroutines.runBlocking { coordinator.beginModelStream() }.apply(ModelEvent.TextDelta("partial"))
             val draft = accept(storage)
             storage.withTransaction {
                 storage.turns.updateState(storage.turns.resolve("turn"), TurnState.CANCELLING, 1, null, null)
@@ -87,21 +90,25 @@ class TurnSteeringBoundaryDeviceTest {
     @Test
     fun steeringCannotSplitAnUnsettledToolBatch() =
         fixture { storage, coordinator ->
-            coordinator.beginModelStream()
-            coordinator.beginToolBatch(listOf("a", "b"))
-            coordinator.commitModelToolStep("[]")
+            kotlinx.coroutines.runBlocking { coordinator.beginModelStream() }
+            kotlinx.coroutines.runBlocking { coordinator.beginToolBatch(listOf("a", "b")) }
+            kotlinx.coroutines.runBlocking { coordinator.commitModelToolStep("[]") }
             val draft = accept(storage)
             coordinator.settleBatchCall("a", false)
-            assertThrows(IllegalArgumentException::class.java) { coordinator.appendSteeringBeforeRequest(draft) }
+            assertThrows(
+                IllegalArgumentException::class.java,
+            ) { coordinator.appendSteeringBeforeRequest(draft.toRoundInput()) }
             coordinator.settleBatchCall("b", false)
-            coordinator.openNextModelCall(
-                listOf(
-                    TurnMessageDraft(ModelRole.TOOL, ChatHistoryBuilder.KIND_TOOL_RESULT, "result-a"),
-                    TurnMessageDraft(ModelRole.TOOL, ChatHistoryBuilder.KIND_TOOL_RESULT, "result-b"),
-                ),
-                "next",
-            )
-            assertTrue(coordinator.appendSteeringBeforeRequest(draft))
+            kotlinx.coroutines.runBlocking {
+                coordinator.openNextModelCall(
+                    listOf(
+                        TurnMessageDraft(ModelRole.TOOL, ChatHistoryBuilder.KIND_TOOL_RESULT, "result-a"),
+                        TurnMessageDraft(ModelRole.TOOL, ChatHistoryBuilder.KIND_TOOL_RESULT, "result-b"),
+                    ),
+                    "next",
+                )
+            }
+            assertTrue(coordinator.appendSteeringBeforeRequest(draft.toRoundInput()))
             assertEquals(
                 listOf("TOOL", "TOOL", "USER"),
                 storage.messages
@@ -114,13 +121,13 @@ class TurnSteeringBoundaryDeviceTest {
     @Test
     fun requestReceiptOnlyBindsActuallySelectedMessages() =
         fixture { storage, coordinator ->
-            assertTrue(coordinator.appendSteeringBeforeRequest(accept(storage)))
-            coordinator.beginModelStream()
-            coordinator.recordInputRequestStarted(emptySet())
+            assertTrue(coordinator.appendSteeringBeforeRequest(accept(storage).toRoundInput()))
+            kotlinx.coroutines.runBlocking { coordinator.beginModelStream() }
+            kotlinx.coroutines.runBlocking { coordinator.recordInputRequestStarted(emptySet()) }
             assertNull(storage.sessionInputs.get("input")?.requestModelCallId)
             val messageId = requireNotNull(storage.sessionInputs.get("input")?.messageId)
-            coordinator.recordInputRequestStarted(setOf(messageId))
-            coordinator.recordInputRequestStarted(setOf(messageId))
+            kotlinx.coroutines.runBlocking { coordinator.recordInputRequestStarted(setOf(messageId)) }
+            kotlinx.coroutines.runBlocking { coordinator.recordInputRequestStarted(setOf(messageId)) }
             assertEquals("model", storage.sessionInputs.get("input")?.requestModelCallId)
         }
 
@@ -132,7 +139,7 @@ class TurnSteeringBoundaryDeviceTest {
                 val accepted = storage.sessionInputs.accept(request) as SessionInputAcceptResult.Accepted
                 assertTrue(
                     coordinator.appendSteeringBeforeRequest(
-                        TurnSteeringDraft(accepted.record, request.text, emptyList()),
+                        TurnSteeringDraft(accepted.record, request.text, emptyList()).toRoundInput(),
                     ),
                 )
             }
@@ -141,13 +148,13 @@ class TurnSteeringBoundaryDeviceTest {
                     .listBySession("session")
                     .map { it.id }
                     .toSet()
-            coordinator.beginModelStream()
-            coordinator.recordInputRequestStarted(selected)
+            kotlinx.coroutines.runBlocking { coordinator.beginModelStream() }
+            kotlinx.coroutines.runBlocking { coordinator.recordInputRequestStarted(selected) }
             val inputs = storage.sessionInputs.appendedForMessages("turn", selected)
             assertEquals(33, inputs.size)
             assertTrue(inputs.all { it.requestModelCallId == "model" })
             assertTrue(storage.sessionInputs.appendedForMessages("other-turn", selected).isEmpty())
-            coordinator.recordInputRequestStarted(selected)
+            kotlinx.coroutines.runBlocking { coordinator.recordInputRequestStarted(selected) }
             assertEquals(inputs, storage.sessionInputs.appendedForMessages("turn", selected))
         }
 
@@ -171,7 +178,7 @@ class TurnSteeringBoundaryDeviceTest {
         2_000,
     )
 
-    private fun fixture(block: (HelixStorage, TurnCoordinator) -> Unit) {
+    private fun fixture(block: (HelixStorage, TurnRoundCoordinator) -> Unit) {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val suffix = UUID.randomUUID().toString()
         val storage = HelixStorage.open(context, "steer-boundary-$suffix.db", File(context.filesDir, "steer-$suffix"))

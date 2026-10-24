@@ -1,6 +1,7 @@
 package com.helix.app.approval
 
 import com.helix.core.model.ApprovalDecision
+import com.helix.core.model.CancelSignal
 import com.helix.core.model.Clock
 import com.helix.core.policy.ApprovalMintOutcome
 import com.helix.core.policy.ApprovalProof
@@ -9,7 +10,6 @@ import com.helix.core.storage.repository.ApprovalRepository
 import com.helix.tools.framework.ApprovalAcquisition
 import com.helix.tools.framework.ApprovalBroker
 import com.helix.tools.framework.ApprovalRequest
-import com.helix.tools.framework.CancelSignal
 
 /**
  * Thrown by [StorageApprovalBroker.acquire] when the wait for the user's decision is

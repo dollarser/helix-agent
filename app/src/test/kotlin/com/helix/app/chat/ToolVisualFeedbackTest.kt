@@ -394,7 +394,7 @@ class ToolVisualFeedbackTest {
                     kotlinx.serialization.json.JsonObject(emptyMap()),
                     com.helix.core.model.ExecutionTargetType.LOCAL_ANDROID,
                     Instant.MAX,
-                    com.helix.tools.framework.NoCancellation,
+                    com.helix.core.model.NoCancellation,
                     "s",
                     "turn",
                 )

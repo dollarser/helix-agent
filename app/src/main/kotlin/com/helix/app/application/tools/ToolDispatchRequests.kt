@@ -1,4 +1,4 @@
-package com.helix.app.chat
+package com.helix.app.application.tools
 
 import com.helix.app.agent.TurnCancelSignal
 import com.helix.app.agent.TurnExecutionHandles
@@ -17,7 +17,7 @@ import com.helix.tools.framework.ToolDispatchRequest
 import kotlinx.serialization.json.JsonObject
 
 /** Builds a trusted request from live facts; cancellation and dispatch state stay with their owners. */
-internal class ChatDispatchRequests(
+internal class ToolDispatchRequests(
     private val toolPipeline: ToolPipeline,
     private val liveHandles: TurnExecutionHandles,
     private val lanScopes: () -> Set<com.helix.core.policy.NetworkOriginScope>,

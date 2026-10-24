@@ -3,7 +3,6 @@ package com.helix.app.chat
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.application.agent.GoalContinuationDriver
 import com.helix.app.application.agent.GoalTurnStart
@@ -15,15 +14,16 @@ import com.helix.app.test.startFixtureTurn
 import com.helix.core.agent.GoalWakeReason
 import com.helix.core.agent.ModelStreamTerminal
 import com.helix.core.agent.RunControlConfig
+import com.helix.core.agent.turn.TurnRoundCoordinator
 import com.helix.core.model.AgentMode
 import com.helix.core.model.Clock
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.GoalBudgets
+import com.helix.core.model.NoCancellation
 import com.helix.core.model.TurnBudgets
 import com.helix.core.model.TurnState
 import com.helix.core.storage.HelixStorage
 import com.helix.tools.framework.ExecutableToolCall
-import com.helix.tools.framework.NoCancellation
 import com.helix.tools.framework.ToolExecutorResult
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
@@ -72,7 +72,7 @@ class GoalContinuationDeviceTest {
                     goalBudgets = budgets,
                 )
             driver.started("session", goal, "provider", control, "limited", null, "snapshot")
-            first.coordinator.beginModelStream()
+            kotlinx.coroutines.runBlocking { first.coordinator.beginModelStream() }
             first.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.FAILED, "MODEL_CALL_LIMIT"))
             assertNull(driver.next("session", "limited"))
             assertEquals(goal, storage.goalRuns.resolve(first.runId).goalId)
@@ -104,12 +104,12 @@ class GoalContinuationDeviceTest {
                     goalBudgets = budgets,
                 )
             driver.started("session", goal, "provider", control, "goal-first", null, "snapshot")
-            first.coordinator.beginModelStream()
+            kotlinx.coroutines.runBlocking { first.coordinator.beginModelStream() }
             first.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
             driver.reserveUserHandoff("session", "goal-first")
             val user = turn(storage, "user-successor")
             driver.finishHandoff("session", "goal-first")
-            user.beginModelStream()
+            kotlinx.coroutines.runBlocking { user.beginModelStream() }
             user.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
             driver.reserveEligibleHandoff("session", "user-successor")
             assertNull(driver.next("session", "user-successor"))
@@ -159,7 +159,7 @@ class GoalContinuationDeviceTest {
             assertNull(driver.next("session", "first"))
             // Re-arm after testing that an unfinished predecessor cannot grant continuation.
             driver.started("session", goal, "provider", control, "first", null, "snapshot")
-            first.coordinator.beginModelStream()
+            kotlinx.coroutines.runBlocking { first.coordinator.beginModelStream() }
             first.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
             val next = requireNotNull(driver.next("session", "first"))
             assertTrue(driver.hasHandoff)
@@ -190,7 +190,7 @@ class GoalContinuationDeviceTest {
             assertEquals("session", storage.goalControls.find(goal.id)?.sessionId)
             assertTrue(storage.goalRuns.listByGoal(goal.id).isEmpty())
             assertNotNull(storage.goalControls.find(goal.id)?.pendingJson)
-            turn.beginModelStream()
+            kotlinx.coroutines.runBlocking { turn.beginModelStream() }
             turn.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
             service.settle("create")
             assertNull(storage.goalControls.find(goal.id)?.pendingJson)
@@ -228,7 +228,7 @@ class GoalContinuationDeviceTest {
             val args = """{"id":"$goal","expected_revision":0,"objective":"Changed",
             "budgets":{"max_goal_rounds":20},"user_request":"please"}"""
             assertTrue(service.execute(call("goal.update", "edit", args)) is ToolExecutorResult.Completed)
-            edit.beginModelStream()
+            kotlinx.coroutines.runBlocking { edit.beginModelStream() }
             edit.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
             service.settle("edit")
             assertEquals("Changed", storage.goals.resolve(goal).objective)
@@ -341,7 +341,7 @@ class GoalContinuationDeviceTest {
                     ),
                 )
             assertEquals(first, service.current("session")?.id)
-            started.coordinator.beginModelStream()
+            kotlinx.coroutines.runBlocking { started.coordinator.beginModelStream() }
             started.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
             assertEquals(first, service.current("session")?.id)
         }

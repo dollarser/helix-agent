@@ -12,13 +12,14 @@ import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
+import com.helix.app.infrastructure.agent.RoomTurnRoundStore
 import com.helix.app.provider.LoopbackModelServer
 import com.helix.app.provider.ProviderDraft
 import com.helix.app.ui.ASYNC_UI_TIMEOUT_MILLIS
 import com.helix.app.ui.container
 import com.helix.app.ui.resetDeterministicUiState
+import com.helix.core.agent.turn.TurnRoundCoordinator
 import com.helix.core.model.AgentMode
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
@@ -323,7 +324,7 @@ class RecoveryJourneyDeviceTest {
         createdAt: Long,
     ) {
         if (storage.turns.find(turnId) != null) return
-        TurnCoordinator.start(
+        RoomTurnRoundStore.start(
             storage,
             clock,
             { UUID.randomUUID().toString() },

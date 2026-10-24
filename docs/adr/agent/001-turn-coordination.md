@@ -36,7 +36,7 @@ Android 进程死亡还要求区分两类事实：数据库可以原子提交的
 
 TurnEngine 同时拥有 durable lifecycle 与 process-local AgentLoop driver；ChatService 只保留 UI、draft/composer、Goal/queue application projection seam，不再持有 worker/startGate/terminal/review settlement。Room 是 durable truth；Job、observation Flow、cancel signal、startGate 都是 Engine 管理的可丢进程内执行句柄。
 
-生产 fresh Turn 必须从 TurnAdmission 进入。GoalRunCoordinator 和 TurnCoordinator 可以作为 Engine 内部 collaborator，但其他入口不得直接调用它们创建 Turn。
+生产 fresh Turn 必须从 TurnAdmission 进入。GoalRunCoordinator 与 RoomTurnRoundStore.start 可以作为准入事务的内部协作者，其他生产入口不得直接调用它们创建 Turn。Core TurnRoundCoordinator 只拥有运行投影，构造它不产生持久准入或授权。
 
 ### 1.1 Core 与宿主边界（2026-10-01）
 
@@ -310,6 +310,8 @@ ModelCall 和 ToolCall 在原 Turn 内各有事务分配的 ordinal 与 createdA
 GC 引用查询具有索引；目录按需遍历，仅每个候选的引用复核与删除持有正文发布协调锁，不能把整个目录遍历放入该锁。搜索投影不是额外的内容保留引用；会话删除时随消息删除，仍保留原隐私清理边界。
 
 ## Decision history
+
+- 2026-10-24 阶段 B：Core TurnRoundCoordinator 直接实现 AgentTurnJournal，经 TurnRoundStore 调用原子持久命令，成功后推进唯一 BatchTurnRuntime；RoomTurnRoundStore 直接承接事务，删除旧 App coordinator 与 journal 转调层。工具业务持久/审批身份与可丢弃卡片、字符串和时间线投影分离；UI 缓存不参与审批授权，原 Room 身份/状态与 broker 校验继续生效。通用 CancelSignal 归 core:model，未改变执行后取消的 UNKNOWN 语义。完整 Engine/live driver 的宿主依赖仍由后续 C 收敛。
 
 - 2026-10-24 阶段 1：普通提交、队列交付和恢复检查汇入应用提交命令，停止汇入应用停止命令，均继续调用原 Engine/Room 准入。会话必须显式绑定，不回落到当前页面；准入重验归档与 Provider/model 绑定。拒绝是类型化事实，由 UI 映射文案，不能伪装已启动。此应用边界不代表完整 Turn 宿主已中立化，事务、执行身份、权限、取消及终态仍只有原权威。
 

@@ -4,13 +4,13 @@ import android.util.Log
 import com.helix.app.agent.AgentLoopHost
 import com.helix.app.agent.AutomaticGoalContinuation
 import com.helix.app.agent.GoalTimeLimitException
-import com.helix.app.agent.TurnCoordinator
 import com.helix.app.approval.ApprovalCancelledException
 import com.helix.core.agent.AgentLoop
 import com.helix.core.agent.ContextCapacityException
 import com.helix.core.agent.ModelStreamTerminal
 import com.helix.core.agent.RunControlConfig
 import com.helix.core.agent.TurnLoopResult
+import com.helix.core.agent.turn.TurnRoundCoordinator
 import com.helix.core.model.Clock
 import com.helix.core.model.ErrorCode
 import com.helix.core.model.TurnState
@@ -22,7 +22,7 @@ import kotlinx.coroutines.launch
 
 internal data class TurnExecutionRequest(
     val sessionId: String,
-    val coordinator: TurnCoordinator,
+    val coordinator: TurnRoundCoordinator,
     val providerId: String,
     val retryTurnId: String?,
     val control: RunControlConfig,
@@ -70,8 +70,8 @@ internal class TurnExecutionDriver(
     private val clock: Clock,
     private val liveExecution: TurnLiveRegistry,
     private val observations: TurnObservationHub,
-    private val parkForReview: (TurnCoordinator, String, List<String>) -> Unit,
-    private val settleTerminal: suspend (TurnCoordinator, ModelStreamTerminal) -> ModelStreamTerminal,
+    private val parkForReview: (TurnRoundCoordinator, String, List<String>) -> Unit,
+    private val settleTerminal: suspend (TurnRoundCoordinator, ModelStreamTerminal) -> ModelStreamTerminal,
     private val consumeSystemStop: (String) -> String?,
 ) {
     fun launch(

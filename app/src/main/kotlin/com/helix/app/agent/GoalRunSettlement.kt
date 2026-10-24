@@ -1,6 +1,5 @@
 package com.helix.app.agent
 
-import com.helix.app.agent.TurnCoordinator
 import com.helix.app.goal.goalModelReport
 import com.helix.app.goal.toRuntimeGoal
 import com.helix.app.goal.toStoredGoal

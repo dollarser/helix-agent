@@ -1,7 +1,7 @@
 package com.helix.app.memory
 
 import android.content.Context
-import com.helix.app.chat.ForbiddenContentGuard
+import com.helix.app.application.security.ForbiddenContentGuard
 import com.helix.core.workspace.memory.MarkdownMemoryStore
 import java.io.File
 

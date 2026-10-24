@@ -1,8 +1,8 @@
 package com.helix.app.reminder
 
+import com.helix.core.model.CancelSignal
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.storage.reminder.LocalReminder
-import com.helix.tools.framework.CancelSignal
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.ToolExecutorResult
 import kotlinx.serialization.json.Json

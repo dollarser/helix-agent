@@ -1,7 +1,6 @@
 package com.helix.app.engine
 
 import com.helix.app.agent.AgentLoopHost
-import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.review.TurnReviewResolutionResult
 import com.helix.core.agent.AgentLoop
@@ -9,6 +8,7 @@ import com.helix.core.agent.GoalWakeReason
 import com.helix.core.agent.ModelStreamTerminal
 import com.helix.core.agent.RunControlConfig
 import com.helix.core.agent.requireOutcome
+import com.helix.core.agent.turn.TurnRoundCoordinator
 import com.helix.core.model.Clock
 import com.helix.core.model.TurnState
 import com.helix.core.storage.HelixStorage
@@ -126,7 +126,7 @@ class TurnEngine internal constructor(
 
     /** Atomically parks the Turn, bound Goal and pending session delivery before dropping the live driver. */
     internal fun parkForReview(
-        coordinator: TurnCoordinator,
+        coordinator: TurnRoundCoordinator,
         sessionId: String,
         reviewCallIds: List<String>,
     ) {
@@ -146,7 +146,7 @@ class TurnEngine internal constructor(
 
     /** The only production entry that commits a live Turn terminal. */
     internal suspend fun settleTerminal(
-        coordinator: TurnCoordinator,
+        coordinator: TurnRoundCoordinator,
         outcome: ModelStreamTerminal,
     ): ModelStreamTerminal {
         val result =
@@ -158,12 +158,6 @@ class TurnEngine internal constructor(
         coordinator.markTerminalCommitted(settled.state)
         return settled
     }
-
-    /** Transaction-owned terminal write seam used by the Steer-vs-final-answer linearization. */
-    internal fun persistTerminalInTransaction(
-        checkpoint: com.helix.core.agent.TurnTerminalCheckpoint,
-        outcome: ModelStreamTerminal,
-    ): ModelStreamTerminal = settlement.settleInTransaction(checkpoint, outcome)
 
     /**
      * Durable cancellation admission. The caller supplies only whether this process still owns the

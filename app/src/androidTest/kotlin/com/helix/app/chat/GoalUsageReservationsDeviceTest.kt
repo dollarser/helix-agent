@@ -43,7 +43,7 @@ class GoalUsageReservationsDeviceTest {
             f.storage.goals.updateGoal(original.copy(state = "PAUSED"))
             assertFalse(query.forSession("session").single().canDelete)
             f.storage.goals.updateGoal(original)
-            f.started.coordinator.beginModelStream()
+            kotlinx.coroutines.runBlocking { f.started.coordinator.beginModelStream() }
             f.started.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
             val paused = query.forSession("session").single()
             assertTrue(paused.canContinue)

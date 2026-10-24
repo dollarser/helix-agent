@@ -1,27 +1,12 @@
 package com.helix.tools.framework
 
+import com.helix.core.model.CancelSignal
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolVersion
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import java.time.Instant
-
-/**
- * Cooperative cancellation for one dispatch (roadmap HXA-035 pipeline step "timeout/cancel").
- * The dispatcher checks the signal at stage boundaries and before starting execution; the
- * executor is expected to poll it while running and report [ToolExecutorResult.Cancelled].
- * Cancellation is cooperative by design: the framework never kills a mid-effect call and
- * never blindly replays one (doc 11).
- */
-interface CancelSignal {
-    fun isCancelled(): Boolean
-}
-
-/** The default signal: never cancelled. */
-data object NoCancellation : CancelSignal {
-    override fun isCancelled(): Boolean = false
-}
 
 /**
  * One registered tool implementation, atomically bound with its exact descriptor in ToolRegistry.

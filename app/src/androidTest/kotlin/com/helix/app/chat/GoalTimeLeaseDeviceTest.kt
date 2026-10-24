@@ -80,7 +80,7 @@ class GoalTimeLeaseDeviceTest {
         Fixture().use { f ->
             assertTrue(f.reserve())
             assertTrue(f.journal.checkpointLease("lease", 2_000, 3_000))
-            f.started.coordinator.beginModelStream()
+            kotlinx.coroutines.runBlocking { f.started.coordinator.beginModelStream() }
             f.started.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
             assertNull(
                 f.storage.goalRuns

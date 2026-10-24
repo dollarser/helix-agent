@@ -4,9 +4,9 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.rules.ActivityScenarioRule
 import com.helix.app.HelixApplication
 import com.helix.app.MainActivity
-import com.helix.app.agent.TurnCoordinator
 import com.helix.app.provider.ProviderDraft
 import com.helix.app.sendTestMessage
+import com.helix.core.agent.turn.TurnRoundCoordinator
 import com.helix.core.model.AgentMode
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
@@ -30,7 +30,7 @@ import org.junit.Test
 import java.io.File
 import java.security.MessageDigest
 
-/** Fixed file cases use the complete ChatService/TurnCoordinator rather than a synthetic model loop. */
+/** Fixed file cases use the complete ChatService/TurnRoundCoordinator rather than a synthetic model loop. */
 @Suppress("TooManyFunctions") // End-to-end fixed fixture keeps setup, approval and durable verifier helpers together.
 class FixedFileEvaluationDeviceTest {
     @get:Rule val activity = ActivityScenarioRule(MainActivity::class.java)

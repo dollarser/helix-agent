@@ -9,7 +9,9 @@ import android.graphics.Color
 import android.graphics.Rect
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.helix.core.model.CancelSignal
 import com.helix.core.model.ExecutionTargetType
+import com.helix.core.model.NoCancellation
 import com.helix.core.model.TurnState
 import com.helix.extensions.mobileuse.automation.AutomationActionStatus
 import com.helix.extensions.mobileuse.automation.AutomationPoint
@@ -22,9 +24,7 @@ import com.helix.extensions.mobileuse.automation.HelixAccessibilityService
 import com.helix.extensions.plugin.PluginTaskHost
 import com.helix.extensions.plugin.PluginTaskIdentity
 import com.helix.extensions.plugin.PluginTaskSnapshot
-import com.helix.tools.framework.CancelSignal
 import com.helix.tools.framework.ExecutableToolCall
-import com.helix.tools.framework.NoCancellation
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import kotlinx.serialization.json.JsonObject

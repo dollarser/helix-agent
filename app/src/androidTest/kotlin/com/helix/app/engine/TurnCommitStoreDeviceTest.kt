@@ -2,12 +2,13 @@ package com.helix.app.engine
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
-import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
+import com.helix.app.infrastructure.agent.RoomTurnRoundStore
 import com.helix.core.agent.AgentTurnStore
 import com.helix.core.agent.ModelStreamTerminal
 import com.helix.core.agent.TerminalCommitCommand
 import com.helix.core.agent.TerminalCommitResult
+import com.helix.core.agent.turn.TurnRoundCoordinator
 import com.helix.core.model.Clock
 import com.helix.core.model.ModelEvent
 import com.helix.core.model.TurnState
@@ -40,7 +41,7 @@ class TurnCommitStoreDeviceTest {
         fixture { storage, turn, store ->
             storage.sessions.create("other", "Other", null, null, 1_000)
             val otherSpec = TurnStartSpec("other", "other-t", "other-m", "snapshot", "other")
-            TurnCoordinator.start(storage, CLOCK, { UUID.randomUUID().toString() }, otherSpec)
+            RoomTurnRoundStore.start(storage, CLOCK, { UUID.randomUUID().toString() }, otherSpec)
             val original = command(turn)
             val forged = original.copy(checkpoint = original.checkpoint.copy(modelCallId = "other-m"))
             val result = store.commitTerminal(forged)
@@ -136,10 +137,14 @@ class TurnCommitStoreDeviceTest {
 
     @Test fun nextStepPrecedesStream() =
         fixture { storage, turn, store ->
-            turn.beginToolBatch(listOf("call"))
-            turn.commitModelToolStep("""[{"id":"call","name":"time.now","arguments":"{}"}]""")
+            kotlinx.coroutines.runBlocking { turn.beginToolBatch(listOf("call")) }
+            kotlinx.coroutines.runBlocking {
+                turn.commitModelToolStep(
+                    """[{"id":"call","name":"time.now","arguments":"{}"}]""",
+                )
+            }
             turn.settleBatchCall("call", false)
-            turn.openNextModelCall(emptyList(), "next")
+            kotlinx.coroutines.runBlocking { turn.openNextModelCall(emptyList(), "next") }
             assertEquals(turn.snapshot().modelStep, storage.turns.resolve("t").stepCount)
             assertEquals(2, storage.turns.resolve("t").stepCount)
             val stopped = ModelStreamTerminal(TurnState.CANCELLED, null)
@@ -149,7 +154,7 @@ class TurnCommitStoreDeviceTest {
             assertEquals("CANCELLED", storage.modelCalls.resolve("next").state)
         }
 
-    private fun command(turn: TurnCoordinator) =
+    private fun command(turn: TurnRoundCoordinator) =
         TerminalCommitCommand(turn.terminalCheckpoint(), ModelStreamTerminal(TurnState.COMPLETED, null))
 
     private fun assertUnchanged(storage: HelixStorage) {
@@ -157,7 +162,7 @@ class TurnCommitStoreDeviceTest {
         assertEquals("RUNNING", storage.modelCalls.resolve("m").state)
     }
 
-    private fun fixture(block: suspend (HelixStorage, TurnCoordinator, AgentTurnStore) -> Unit) =
+    private fun fixture(block: suspend (HelixStorage, TurnRoundCoordinator, AgentTurnStore) -> Unit) =
         runBlocking {
             val context = ApplicationProvider.getApplicationContext<Context>()
             val name = "turn-commit-${UUID.randomUUID()}.db"
@@ -166,9 +171,9 @@ class TurnCommitStoreDeviceTest {
             try {
                 storage.sessions.create("s", "Commit", null, null, 1_000)
                 val spec = TurnStartSpec("s", "t", "m", "snapshot", "question")
-                val turn = TurnCoordinator.start(storage, CLOCK, { UUID.randomUUID().toString() }, spec)
+                val turn = RoomTurnRoundStore.start(storage, CLOCK, { UUID.randomUUID().toString() }, spec)
                 assertEquals(turn.snapshot().modelStep, storage.turns.resolve("t").stepCount)
-                turn.beginModelStream().apply(ModelEvent.TextDelta("partial"))
+                kotlinx.coroutines.runBlocking { turn.beginModelStream() }.apply(ModelEvent.TextDelta("partial"))
                 block(storage, turn, TurnSettlement(storage, CLOCK) { UUID.randomUUID().toString() })
             } finally {
                 storage.close()

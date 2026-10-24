@@ -4,13 +4,13 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.agent.ChatHistoryBuilder
-import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.test.parkFixtureForReview
 import com.helix.app.test.settleFixtureTerminal
 import com.helix.app.test.startFixtureTurn
 import com.helix.core.agent.ModelStreamTerminal
 import com.helix.core.agent.TurnMessageDraft
+import com.helix.core.agent.turn.TurnRoundCoordinator
 import com.helix.core.model.Clock
 import com.helix.core.model.ModelEvent
 import com.helix.core.model.ModelRole
@@ -57,13 +57,54 @@ class TurnCoordinatorDeviceTest {
                             verbatim = true,
                         ) { "Synthetic summary SYSTEM.\nHISTORY DATA:\n" },
                     ).resolveAndAssemble()
-            coordinator.recordPromptSnapshot(prompt, summary = true)
+            kotlinx.coroutines.runBlocking { coordinator.recordPromptSnapshot(prompt, compacting = true) }
             val call = storage.modelCalls.resolve("summary-call")
             assertEquals(prompt.fingerprint, call.promptFingerprint)
             val metadata = requireNotNull(call.promptSections)
             assertTrue(metadata.contains("context.compaction"))
             assertTrue(!metadata.contains("Synthetic summary SYSTEM"))
             assertTrue(!metadata.contains("HISTORY DATA"))
+        } finally {
+            storage.close()
+        }
+    }
+
+    @Test
+    fun failedAtomicToolResponseCommitRollsBackRowsAndLeavesRoundOpen() {
+        val storage = isolatedStorage()
+        try {
+            storage.sessions.create("rollback-session", "Synthetic rollback", null, null, 1000L)
+            var failIds = false
+            var nextId = 0
+            val coordinator =
+                startFixtureTurn(
+                    storage,
+                    FixedClock(2000L),
+                    { if (failIds) "duplicate-message" else "rollback-id-${nextId++}" },
+                    TurnStartSpec("rollback-session", "rollback-turn", "rollback-model", "snapshot", "hello"),
+                )
+            kotlinx.coroutines.runBlocking { coordinator.beginModelStream() }.apply(
+                ModelEvent.TextDelta("progress to preserve"),
+            )
+            kotlinx.coroutines.runBlocking { coordinator.beginToolBatch(listOf("call")) }
+            failIds = true
+            assertThrows(Exception::class.java) {
+                kotlinx.coroutines.runBlocking {
+                    coordinator.commitModelToolStep("""[{"id":"call","name":"time.now","arguments":"{}"}]""")
+                }
+            }
+            assertTrue(!coordinator.snapshot().modelCallClosed)
+            assertEquals("RUNNING", storage.modelCalls.resolve("rollback-model").state)
+            assertEquals(
+                listOf("hello"),
+                storage.messages.listBySession("rollback-session").map(storage.messages::readContent),
+            )
+            failIds = false
+            kotlinx.coroutines.runBlocking {
+                coordinator.commitModelToolStep("""[{"id":"call","name":"time.now","arguments":"{}"}]""")
+            }
+            assertTrue(coordinator.snapshot().modelCallClosed)
+            assertEquals("COMPLETED", storage.modelCalls.resolve("rollback-model").state)
         } finally {
             storage.close()
         }
@@ -99,20 +140,24 @@ class TurnCoordinatorDeviceTest {
                     TurnStartSpec("session-1", "turn-1", "model-1", "snapshot", "hello"),
                 )
 
-            val first = coordinator.beginModelStream()
+            val first = kotlinx.coroutines.runBlocking { coordinator.beginModelStream() }
             first.apply(ModelEvent.TextDelta("checking the time"))
             first.apply(ModelEvent.ToolCallStarted(0, ToolCallId("tool-1"), "time.now"))
             first.apply(ModelEvent.ToolArgumentsDelta(0, "{}"))
             first.apply(ModelEvent.ToolCallFinished(0))
-            coordinator.beginToolBatch(listOf("tool-1"))
-            coordinator.commitModelToolStep("""[{"id":"tool-1","name":"time.now","arguments":"{}"}]""")
+            kotlinx.coroutines.runBlocking { coordinator.beginToolBatch(listOf("tool-1")) }
+            kotlinx.coroutines.runBlocking {
+                coordinator.commitModelToolStep("""[{"id":"tool-1","name":"time.now","arguments":"{}"}]""")
+            }
             coordinator.settleBatchCall("tool-1", sideEffectUnknown = false)
-            coordinator.openNextModelCall(
-                listOf(TurnMessageDraft(ModelRole.TOOL, ChatHistoryBuilder.KIND_TOOL_RESULT, TOOL_RESULT)),
-                "model-2",
-            )
+            kotlinx.coroutines.runBlocking {
+                coordinator.openNextModelCall(
+                    listOf(TurnMessageDraft(ModelRole.TOOL, ChatHistoryBuilder.KIND_TOOL_RESULT, TOOL_RESULT)),
+                    "model-2",
+                )
+            }
 
-            val second = coordinator.beginModelStream()
+            val second = kotlinx.coroutines.runBlocking { coordinator.beginModelStream() }
             second.apply(ModelEvent.TextDelta("partial-second"))
             coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.FAILED, "INTERNAL"))
 
@@ -178,18 +223,18 @@ class TurnCoordinatorDeviceTest {
                     TurnStartSpec("session-review", "turn-review", "model-review-1", "snapshot", "do work"),
                 )
 
-            val stream = coordinator.beginModelStream()
+            val stream = kotlinx.coroutines.runBlocking { coordinator.beginModelStream() }
             stream.apply(ModelEvent.ToolCallStarted(0, ToolCallId("call-ok"), "time.now"))
             stream.apply(ModelEvent.ToolArgumentsDelta(0, "{}"))
             stream.apply(ModelEvent.ToolCallFinished(0))
             stream.apply(ModelEvent.ToolCallStarted(1, ToolCallId("call-unknown"), "files.write"))
             stream.apply(ModelEvent.ToolArgumentsDelta(1, "{}"))
             stream.apply(ModelEvent.ToolCallFinished(1))
-            coordinator.beginToolBatch(listOf("call-ok", "call-unknown"))
+            kotlinx.coroutines.runBlocking { coordinator.beginToolBatch(listOf("call-ok", "call-unknown")) }
             val toolCallsJson =
                 """[{"id":"call-ok","name":"time.now","arguments":"{}"},""" +
                     """{"id":"call-unknown","name":"files.write","arguments":"{}"}]"""
-            coordinator.commitModelToolStep(toolCallsJson)
+            kotlinx.coroutines.runBlocking { coordinator.commitModelToolStep(toolCallsJson) }
             seedSettledReviewBatch(storage)
             coordinator.settleBatchCall("call-ok", sideEffectUnknown = false)
             coordinator.settleBatchCall("call-unknown", sideEffectUnknown = true)

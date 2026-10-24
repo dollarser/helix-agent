@@ -1,7 +1,7 @@
 package com.helix.app.proot
 
 import android.content.Context
-import com.helix.app.chat.DiagnosticRedaction
+import com.helix.app.application.diagnostics.DiagnosticRedaction
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass

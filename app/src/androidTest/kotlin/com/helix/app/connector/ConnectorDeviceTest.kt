@@ -194,7 +194,7 @@ class ConnectorDeviceTest {
                 java.time.Instant
                     .now()
                     .plusSeconds(30),
-                com.helix.tools.framework.NoCancellation,
+                com.helix.core.model.NoCancellation,
             )
         try {
             mcp.enable(snapshot, setOf("search"))

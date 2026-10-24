@@ -1,6 +1,6 @@
 package com.helix.app.agent
 
-import com.helix.tools.framework.CancelSignal
+import com.helix.core.model.CancelSignal
 
 /** The turn's [CancelSignal]: the stop button flips it; the dispatcher checks it at its stage checks. */
 internal class TurnCancelSignal(

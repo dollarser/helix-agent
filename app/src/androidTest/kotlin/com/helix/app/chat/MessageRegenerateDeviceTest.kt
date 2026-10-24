@@ -2,7 +2,6 @@ package com.helix.app.chat
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
-import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.engine.TurnAdmission
 import com.helix.app.engine.TurnAdmissionResult
@@ -12,6 +11,7 @@ import com.helix.app.test.settleFixtureTerminal
 import com.helix.core.agent.GoalWakeReason
 import com.helix.core.agent.ModelStreamTerminal
 import com.helix.core.agent.RunControlConfig
+import com.helix.core.agent.turn.TurnRoundCoordinator
 import com.helix.core.model.AgentMode
 import com.helix.core.model.Clock
 import com.helix.core.model.GoalBudgets
@@ -126,7 +126,7 @@ class MessageRegenerateDeviceTest {
                 admitRegenerate(admission, "t2", "regen-request", "regen-fingerprint", answerId)
                     .bindFixtureLifecycle(engine)
                     as TurnAdmissionResult.Started
-            first.turn.coordinator.beginModelStream()
+            kotlinx.coroutines.runBlocking { first.turn.coordinator.beginModelStream() }
             first.turn.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
 
             val probe = AdmissionProbe()
@@ -213,7 +213,7 @@ class MessageRegenerateDeviceTest {
         id: String,
         text: String?,
         regenerateTarget: String? = null,
-    ): TurnCoordinator {
+    ): TurnRoundCoordinator {
         val engine = TurnEngine(storage, testClock) { UUID.randomUUID().toString() }
         return (
             engine
@@ -233,7 +233,7 @@ class MessageRegenerateDeviceTest {
                     providerId = "provider",
                     modelId = "model",
                 ).bindFixtureLifecycle(engine) as TurnAdmissionResult.Started
-        ).turn.coordinator.also { it.beginModelStream() }
+        ).turn.coordinator.also { kotlinx.coroutines.runBlocking { it.beginModelStream() } }
     }
 
     private val control =

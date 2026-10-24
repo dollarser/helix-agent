@@ -2,6 +2,7 @@ package com.helix.app.chat
 
 import com.helix.app.R
 import com.helix.app.agent.ChatHistoryBuilder
+import com.helix.app.application.tools.ToolFailureContent
 import com.helix.core.agent.LocalToolCallBatch
 import com.helix.core.agent.SettledCall
 import com.helix.core.agent.TestRunResult

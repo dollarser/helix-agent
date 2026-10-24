@@ -1,12 +1,13 @@
 package com.helix.app.application.agent
 
-import com.helix.app.agent.TurnCoordinator
 import com.helix.app.goal.toRuntimeGoal
 import com.helix.app.goal.toStoredGoal
+import com.helix.app.infrastructure.agent.RoomTurnRoundStore
 import com.helix.app.recovery.GoalUsageReservations
 import com.helix.core.agent.GoalEffect
 import com.helix.core.agent.GoalEvent
 import com.helix.core.agent.GoalReducer
+import com.helix.core.agent.turn.TurnRoundCoordinator
 import com.helix.core.model.Clock
 import com.helix.core.storage.HelixStorage
 
@@ -44,7 +45,7 @@ internal class RecoveryGoalRunStart(
         val runId = ids()
         storage.goals.updateGoal(step.state.toStoredGoal())
         storage.goalRuns.open(runId, request.goalId, request.wakeReason.name, clock.now().toEpochMilli())
-        val coordinator = TurnCoordinator.start(storage, clock, ids, request.turn.copy(goalRunId = runId))
+        val coordinator = RoomTurnRoundStore.start(storage, clock, ids, request.turn.copy(goalRunId = runId))
         storage.auditEvents.append(
             ids(),
             request.turn.sessionId,

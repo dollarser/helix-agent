@@ -9,7 +9,6 @@ import com.helix.app.agent.ContextCompaction
 import com.helix.app.agent.GoalRunSettlement
 import com.helix.app.agent.GoalTimeBudget
 import com.helix.app.agent.TurnCancelSignal
-import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnInputDelivery
 import com.helix.app.agent.TurnSteeringDraft
 import com.helix.app.agent.UnresolvedEffectPolicy
@@ -22,6 +21,10 @@ import com.helix.app.application.agent.TurnSubmissionBlock
 import com.helix.app.application.agent.TurnSubmissionCommandHandler
 import com.helix.app.application.agent.TurnSubmissionResult
 import com.helix.app.application.agent.turnIdOrNull
+import com.helix.app.application.diagnostics.DiagnosticRedaction
+import com.helix.app.application.security.ForbiddenContentGuard
+import com.helix.app.application.tools.ApplicationToolGateway
+import com.helix.app.application.tools.FileToolArguments
 import com.helix.app.chat.ChatAttachmentRetry.RetryStagedCheck
 import com.helix.app.engine.TurnEngine
 import com.helix.app.engine.TurnExecutionHooks
@@ -243,20 +246,26 @@ class ChatService(
     private val stagingProcessor = StagedAttachmentProcessor(storage, attachmentStaging, idGenerator, strings)
     private val workScope = scope
     private val sessionActions = SessionActionQueue(workScope)
-    private val toolCalls by lazy {
-        ChatToolCalls(
+    private val toolPresentation by lazy {
+        ChatToolPresentation(
+            _screen,
+            strings,
+            ::refreshBackgroundTasks,
+            positionForCall = { session, call -> ChatTimelineOrder.positions(storage, session)[call] },
+        )
+    }
+    private val toolCalls: ApplicationToolGateway by lazy {
+        ApplicationToolGateway(
             storage,
             toolPipeline,
             clock,
             idGenerator,
             profile,
             workScope,
-            _screen,
+            toolPresentation,
             turnEngine.liveHandles,
-            strings,
             lanScopes,
             attachmentStaging.workspaceScopeId,
-            ::refreshBackgroundTasks,
         )
     }
 
@@ -295,7 +304,6 @@ class ChatService(
             strings,
             ::refreshScreen,
             ::publishModelText,
-            turnEngine::persistTerminalInTransaction,
             beforeModelStream = { turn, call, provider, request ->
                 scheduledModelGuard?.invoke(turn, call, provider, request)
             },
@@ -2693,7 +2701,7 @@ class ChatService(
         // Ready: the gate's attachments are in staged order — pair each with its staged entry
         // and build (a) the expanded model-visible user message (bounded UNTRUSTED blocks;
         // image blocks describe the pixels that travel as the message's image parts) and
-        // (b) the message_attachments bindings [TurnCoordinator.start] persists IN the turn's
+        // (b) the message_attachments bindings committed by the admission transaction in the turn's
         // transaction. An image BINDS THE NORMALIZED ARTIFACT (the bytes that leave) — the raw
         // artifact stays registered but unbound (local save/preview source).
         val blocks = attachmentContextBlocks(materialized, staged)
@@ -3066,7 +3074,7 @@ class ChatService(
 
     fun recoveryRetryNewCall(turnId: String) = turnRecovery.retryNewCall(turnId)
 
-    fun nativeApprovals(turnId: String) = toolCalls.nativeApprovals(turnId)
+    fun nativeApprovals(turnId: String) = toolPresentation.nativeApprovals(turnId)
 
     fun reviewNativeApproval(
         sessionId: String,

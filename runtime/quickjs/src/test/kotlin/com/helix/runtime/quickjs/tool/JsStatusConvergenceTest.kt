@@ -1,13 +1,13 @@
 package com.helix.runtime.quickjs.tool
 
 import com.helix.core.model.ExecutionTargetType
+import com.helix.core.model.NoCancellation
 import com.helix.runtime.quickjs.JsCancellation
 import com.helix.runtime.quickjs.JsExecuteParams
 import com.helix.runtime.quickjs.JsExecutionResult
 import com.helix.runtime.quickjs.JsExecutionStatus
 import com.helix.runtime.quickjs.JsHash
 import com.helix.tools.framework.ExecutableToolCall
-import com.helix.tools.framework.NoCancellation
 import com.helix.tools.framework.ToolExecutorResult
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject

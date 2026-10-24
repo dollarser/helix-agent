@@ -1,5 +1,6 @@
 package com.helix.app.chat
 
+import com.helix.app.application.security.ForbiddenContentGuard
 import com.helix.core.storage.HelixStorage
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope

@@ -1,12 +1,11 @@
-package com.helix.app.chat
+package com.helix.app.application.tools
 
 import android.util.Log
-import com.helix.app.R
 import com.helix.app.agent.TurnExecutionHandles
 import com.helix.app.agent.UnresolvedEffectPolicy
+import com.helix.app.application.tools.GoalToolCallBudget
+import com.helix.app.application.tools.PendingTurnApprovals
 import com.helix.app.approval.ApprovalCancelledException
-import com.helix.app.approval.ApprovalCardState
-import com.helix.app.approval.ApprovalUiMapper
 import com.helix.app.tool.ToolPipeline
 import com.helix.core.agent.AgentToolGateway
 import com.helix.core.agent.BufferedModelToolCall
@@ -33,7 +32,6 @@ import com.helix.tools.framework.ToolDescriptor
 import com.helix.tools.framework.ToolDispatchRequest
 import com.helix.tools.framework.ToolScheduler
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
@@ -44,33 +42,31 @@ import kotlinx.serialization.json.JsonObject
  * agent loop's [AgentToolGateway] port (HX2-02): the loop's tool rounds execute through here.
  */
 @Suppress("LongParameterList", "TooManyFunctions", "LargeClass")
-internal class ChatToolCalls(
+internal class ApplicationToolGateway(
     private val storage: HelixStorage,
     private val toolPipeline: ToolPipeline,
     private val clock: Clock,
     private val idGenerator: () -> String,
     private val profile: StateFlow<SafetyProfile>,
     private val workScope: CoroutineScope,
-    screen: MutableStateFlow<ChatScreenState>,
+    private val presentation: ToolPresentationSink,
     private val liveHandles: TurnExecutionHandles,
-    private val strings: (Int, Array<out Any>) -> String,
     private val lanScopes: () -> Set<com.helix.core.policy.NetworkOriginScope>,
     private val workspaceScopeId: String,
-    private val approvalChanged: () -> Unit,
 ) : AgentToolGateway {
-    private val requests = ChatDispatchRequests(toolPipeline, liveHandles, lanScopes)
-    private val timeline = ChatToolTimeline(screen, strings)
+    private val requests = ToolDispatchRequests(toolPipeline, liveHandles, lanScopes)
     private val outcomeStore =
-        ChatToolSettlement(storage, toolPipeline, clock, idGenerator, strings, timeline) {
-            dispatchFacts[it]?.descriptor?.origin
-        }
+        ToolSettlement(
+            storage,
+            toolPipeline.auditSink,
+            clock,
+            idGenerator,
+            presentation,
+        ) { dispatchFacts[it]?.descriptor?.origin }
     private val dispatchFacts = java.util.concurrent.ConcurrentHashMap<String, DispatchFacts>()
     private val executionStartTimes = java.util.concurrent.ConcurrentHashMap<String, Long>()
 
     private val pendingApprovals = PendingTurnApprovals()
-    private val nativeCards = NativeApprovalProjection()
-
-    fun nativeApprovals(turnId: String) = nativeCards.forTurn(turnId)
 
     fun reviewNativeApproval(
         sessionId: String,
@@ -85,26 +81,21 @@ internal class ChatToolCalls(
             ) {
                 return@launch
             }
-            val card = nativeCards.forTurn(turnId).firstOrNull { it.approvalId == approvalId } ?: return@launch
-            val call = storage.toolCalls.byTurnAndCallId(turnId, nativeCards.callId(approvalId) ?: return@launch)
+            val pending = pendingApprovals.find(approvalId)?.takeIf { it.turnId == turnId } ?: return@launch
+            val call = storage.toolCalls.byTurnAndCallId(turnId, pending.callId)
             if (call?.state != ToolCallState.AWAITING_APPROVAL.name) return@launch
-            if (nativeCards.claim(turnId, card.approvalId) == null) return@launch
-            decideApproval(card.approvalId, if (approve) ApprovalDecision.APPROVED else ApprovalDecision.DENIED)
+            if (pendingApprovals.claim(turnId, approvalId) == null) return@launch
+            decideApproval(approvalId, if (approve) ApprovalDecision.APPROVED else ApprovalDecision.DENIED)
         }
     }
 
-    private fun str(
-        resId: Int,
-        vararg args: Any,
-    ): String = strings(resId, args)
-
     fun cancelPendingApproval(turnId: String) {
-        nativeCards.finishTurn(turnId)
+        emit(ToolPresentationFact.TurnFinished(turnId))
         pendingApprovals.forTurn(turnId).forEach { toolPipeline.broker.cancel(it) }
     }
 
     fun finishTurn(turnId: String) {
-        nativeCards.finishTurn(turnId)
+        emit(ToolPresentationFact.TurnFinished(turnId))
         val callsForTurn = dispatchFacts.filterValues { it.turnId == turnId }.keys
         callsForTurn.forEach { executionStartTimes.remove(it) }
         dispatchFacts.values.removeIf { it.turnId == turnId }
@@ -121,9 +112,7 @@ internal class ChatToolCalls(
         decideApproval(approvalId, ApprovalDecision.DENIED)
     }
 
-    // The tap path must survive ANY failure on the stale-card / unknown-record path
-    // (the repository's one-time guard throws, but a broad catch guarantees the user's
-    // tap is always visibly handled — never a crash, never a silent no-op).
+    /** Durable broker decisions do not depend on disposable card publication success. */
     @Suppress("TooGenericExceptionCaught")
     private fun decideApproval(
         approvalId: String,
@@ -132,32 +121,14 @@ internal class ChatToolCalls(
         workScope.launch {
             try {
                 toolPipeline.broker.decide(approvalId, decision)
-                nativeCards.remove(approvalId)
-                approvalChanged()
-                if (decision == ApprovalDecision.APPROVED) {
-                    timeline.updateCard(approvalId) { it.copy(state = ApprovalCardState.APPROVED) }
-                } else {
-                    timeline.updateCard(approvalId) {
-                        it.copy(
-                            state = ApprovalCardState.DENIED,
-                            terminalDetail = str(R.string.approval_terminal_user_denied),
-                        )
-                    }
-                }
-            } catch (e: Exception) {
-                // A stale card (the record was already decided or the id is unknown): the
-                // repository's one-time guard throws — surface a stable card error, never a
-                // crash, never a silent no-op (the user's tap must be visible as handled).
-                nativeCards.remove(approvalId)
-                approvalChanged()
-                Log.e(TAG, "approval $approvalId could not be decided", e)
-                timeline.updateCard(approvalId) {
-                    it.copy(
-                        state = ApprovalCardState.FAILED,
-                        terminalDetail = str(R.string.approval_terminal_op_failed),
-                    )
-                }
+            } catch (failure: Exception) {
+                pendingApprovals.remove(approvalId)
+                Log.e(TAG, "approval $approvalId could not be decided", failure)
+                emit(ToolPresentationFact.ApprovalDecisionFailed(approvalId))
+                return@launch
             }
+            pendingApprovals.remove(approvalId)
+            emit(ToolPresentationFact.ApprovalDecided(approvalId, decision))
         }
     }
 
@@ -179,49 +150,30 @@ internal class ChatToolCalls(
         if (facts == null || descriptor == null) {
             error("approval card requested without dispatch facts for model call $callId")
         }
-        val card =
-            ApprovalUiMapper.buildCard(
-                approvalId = approvalId,
-                binding = request.binding,
-                state = ApprovalCardState.PENDING,
-                descriptor = descriptor,
-                arguments = facts.args,
-                profile = facts.profile,
-                dataOrigin = facts.dataOrigin,
-                egressOrigin = facts.egress?.endpoint?.origin,
-                egressResidence =
-                    facts.egress
-                        ?.endpoint
-                        ?.residence()
-                        ?.name,
-                egressCategory = facts.egress?.dataSensitivity,
-                boundedRule = ApprovalUiMapper.boundedRuleUi(request.boundedEgressRule),
-                confirmationDetail = request.confirmationDetail,
-                terminalDetail = null,
-            )
-        pendingApprovals.register(approvalId, facts.turnId)
-        storage.toolCalls
-            .byTurnAndCallId(facts.turnId, callId)
-            ?.let { row -> storage.toolCalls.updateState(row, ToolCallState.AWAITING_APPROVAL) }
-        nativeCards.register(facts.turnId, callId, card)
-        approvalChanged()
-        // The stream path publishes a request row before the dispatch, so the card
-        // attaches to it; a direct-dispatch caller (tests, future non-stream flows) has
-        // no row yet — create one from the trusted facts. A card is NEVER dropped:
-        // an approval that cannot be shown cannot be approved.
-        if (timeline.hasCall(callId)) {
-            timeline.attachCardToRow(callId, card)
-        } else {
-            timeline.publishToolRow(
-                turnId = facts.turnId,
-                callId = callId,
-                toolName = request.binding.toolName,
-                requestSummary = CanonicalArgs.canonicalize(facts.args),
-                stateLabel = str(R.string.tool_state_awaiting_approval),
-                resultSummary = null,
-                card = card,
-            )
+        pendingApprovals.register(approvalId, facts.turnId, callId)
+        storage.toolCalls.byTurnAndCallId(facts.turnId, callId)?.let { row ->
+            storage.toolCalls.updateState(row, ToolCallState.AWAITING_APPROVAL)
         }
+        // Required disclosure is not best-effort: an undisplayable approval must fail closed.
+        presentation.publish(
+            ToolPresentationFact.ApprovalRequested(
+                approvalId,
+                ToolCallFact(
+                    storage.turns.resolve(facts.turnId).sessionId,
+                    facts.turnId,
+                    callId,
+                    request.binding.toolName,
+                    CanonicalArgs.canonicalize(facts.args),
+                    null,
+                ),
+                request,
+                descriptor,
+                facts.args,
+                facts.profile,
+                facts.dataOrigin,
+                facts.egress,
+            ),
+        )
         return descriptor to
             com.helix.extensions.plugin
                 .PluginTaskIdentity(storage.turns.resolve(facts.turnId).sessionId, facts.turnId)
@@ -408,11 +360,9 @@ internal class ChatToolCalls(
             )?.requiresReview == true
     }
 
-    private fun publishFinishedCall(callId: String) =
-        publishToolProjection(callId) {
-            nativeCards.finishCall(callId)
-            approvalChanged()
-        }
+    private fun publishFinishedCall(callId: String) = emit(ToolPresentationFact.CallFinished(callId))
+
+    private fun emit(fact: ToolPresentationFact) = publishToolProjection(fact.callId) { presentation.publish(fact) }
 
     /** One prepared tool call: the persisted row + dispatch request, or a pre-settled rejection. */
     private class PreparedToolCall(
@@ -471,7 +421,7 @@ internal class ChatToolCalls(
                     businessArgs,
                     "unknown",
                     DispatchOutcomeCode.BUDGET_EXHAUSTED,
-                    str(R.string.model_error_goal_budget_limit),
+                    "Goal tool-call budget exhausted.",
                     PreDispatchDenialKind.FRAMEWORK_REJECTED,
                     modelIntent,
                     origin,
@@ -582,7 +532,7 @@ internal class ChatToolCalls(
                 ).copy(
                     bindingRef = bindingRef,
                     bindingPinned = true,
-                    onExecutionStarting = executionStarting(turn.id, toolCallId, row, toolNameRaw, canonical),
+                    onExecutionStarting = executionStarting(turn.id, toolCallId, row),
                 )
         dispatchFacts[toolCallId] =
             DispatchFacts(
@@ -600,41 +550,30 @@ internal class ChatToolCalls(
         row: com.helix.core.storage.entity.ToolCallEntity,
         sessionId: String,
     ) {
-        timeline.publishToolRow(
-            row.turnId,
-            row.callId,
-            row.name,
-            row.argsJson,
-            str(R.string.tool_state_processing),
-            null,
-            null,
-            modelIntent = row.modelIntent,
-            position = ChatTimelineOrder.positions(storage, sessionId)[row.callId],
-        )
+        emit(ToolPresentationFact.Prepared(callFact(row, sessionId)))
     }
+
+    private fun callFact(
+        row: com.helix.core.storage.entity.ToolCallEntity,
+        sessionId: String,
+    ) = ToolCallFact(
+        sessionId,
+        row.turnId,
+        row.callId,
+        row.name,
+        row.argsJson,
+        row.modelIntent,
+    )
 
     private fun executionStarting(
         turnId: String,
         toolCallId: String,
         row: com.helix.core.storage.entity.ToolCallEntity,
-        toolNameRaw: String,
-        canonical: String,
     ): () -> Unit =
         {
             executionStartTimes[toolCallId] = clock.now().toEpochMilli()
             storage.toolCalls.updateState(row, ToolCallState.RUNNING)
-            publishToolProjection(toolCallId) {
-                approvalChanged()
-                timeline.publishToolRow(
-                    turnId,
-                    toolCallId,
-                    toolNameRaw,
-                    canonical,
-                    str(R.string.tool_state_running),
-                    null,
-                    null,
-                )
-            }
+            emit(ToolPresentationFact.Running(callFact(row, storage.turns.resolve(turnId).sessionId)))
         }
 
     private fun recoveryEffectRejection(
@@ -662,7 +601,7 @@ internal class ChatToolCalls(
                 rawArgs = canonicalArgs,
                 version = descriptor.version.value.toString(),
                 code = DispatchOutcomeCode.POLICY_DENIED,
-                detail = str(R.string.tool_failure_requires_review),
+                detail = "Unresolved external effects require review before further actions.",
                 kind = PreDispatchDenialKind.RECOVERY_REVIEW_REQUIRED,
                 modelIntent = modelIntent,
                 origin = origin,
@@ -729,7 +668,7 @@ internal class ChatToolCalls(
                         rawArgsJson,
                         "unknown",
                         DispatchOutcomeCode.UNKNOWN_TOOL,
-                        str(R.string.tool_rejected_binding_unavailable),
+                        "The requested tool binding is unavailable.",
                         PreDispatchDenialKind.FRAMEWORK_REJECTED,
                         modelIntent,
                         origin,
@@ -750,7 +689,7 @@ internal class ChatToolCalls(
                         rawArgsJson,
                         descriptor?.version?.value?.toString() ?: "unknown",
                         DispatchOutcomeCode.INVALID_ARGUMENTS,
-                        str(R.string.tool_rejected_bad_args),
+                        "Tool arguments must be a valid JSON object.",
                         PreDispatchDenialKind.FRAMEWORK_REJECTED,
                         modelIntent,
                         origin,
@@ -846,15 +785,11 @@ internal class ChatToolCalls(
         } else {
             ToolDispatchOutcome.ExecutionFailed(
                 DispatchOutcomeCode.TOOL_FAILED,
-                str(
-                    R.string.tool_interrupted_by_orchestrator,
-                    error?.javaClass?.simpleName ?: str(R.string.common_unknown),
-                ),
+                "Tool execution interrupted by orchestrator: ${error?.javaClass?.simpleName ?: "Unknown"}",
             )
         }
 
     private companion object {
         const val TAG = "HelixChatTools"
-        const val SUMMARY_CAP = 500
     }
 }

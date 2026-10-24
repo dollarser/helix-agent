@@ -1,6 +1,7 @@
 package com.helix.extensions.mobileuse.tools
 
 import com.helix.core.model.ExecutionTargetType
+import com.helix.core.model.NoCancellation
 import com.helix.extensions.mobileuse.automation.AutomationActionResult
 import com.helix.extensions.mobileuse.automation.AutomationActionStatus
 import com.helix.extensions.mobileuse.automation.AutomationBackendState
@@ -16,7 +17,6 @@ import com.helix.extensions.mobileuse.automation.AutomationSnapshotStatus
 import com.helix.extensions.mobileuse.automation.AutomationToolPort
 import com.helix.extensions.mobileuse.automation.preferredAutomationClickBackend
 import com.helix.tools.framework.ExecutableToolCall
-import com.helix.tools.framework.NoCancellation
 import com.helix.tools.framework.ToolExecutorResult
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive

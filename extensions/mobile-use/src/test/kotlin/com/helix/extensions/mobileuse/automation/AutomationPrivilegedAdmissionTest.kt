@@ -1,10 +1,10 @@
 package com.helix.extensions.mobileuse.automation
 
+import com.helix.core.model.CancelSignal
 import com.helix.core.model.ExecutionTargetType
+import com.helix.core.model.NoCancellation
 import com.helix.extensions.mobileuse.config.MobileUseTestConfiguration
-import com.helix.tools.framework.CancelSignal
 import com.helix.tools.framework.ExecutableToolCall
-import com.helix.tools.framework.NoCancellation
 import kotlinx.serialization.json.JsonObject
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

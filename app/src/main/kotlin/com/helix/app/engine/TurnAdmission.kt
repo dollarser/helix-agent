@@ -1,11 +1,12 @@
 package com.helix.app.engine
 
-import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.application.agent.GoalRunCoordinator
 import com.helix.app.application.agent.GoalTurnStart
+import com.helix.app.infrastructure.agent.RoomTurnRoundStore
 import com.helix.core.agent.GoalWakeReason
 import com.helix.core.agent.RunControlConfig
+import com.helix.core.agent.turn.TurnRoundCoordinator
 import com.helix.core.model.AgentMode
 import com.helix.core.model.Clock
 import com.helix.core.model.TurnState
@@ -86,7 +87,7 @@ internal class TurnAdmission(
                 return@withTransaction
             }
 
-            val coordinator = goalStart?.coordinator ?: TurnCoordinator.start(storage, clock, idGenerator, spec)
+            val coordinator = goalStart?.coordinator ?: RoomTurnRoundStore.start(storage, clock, idGenerator, spec)
             val effectiveControl =
                 goalStart?.let {
                     control.copy(
@@ -153,7 +154,7 @@ internal class TurnAdmission(
     }
 
     /**
-     * REVISE/REGENERATE is an admission concern, not a TurnCoordinator concern. The caller's outer
+     * REVISE/REGENERATE is an admission concern, not a TurnRoundCoordinator concern. The caller's outer
      * Room transaction commits this mutation together with Goal/Turn/ModelCall/runtime creation.
      */
     private fun applyHistoryMutation(
@@ -231,7 +232,7 @@ internal sealed interface TurnAdmissionResult {
 }
 
 internal data class AdmittedTurn(
-    val coordinator: TurnCoordinator,
+    val coordinator: TurnRoundCoordinator,
     val control: RunControlConfig,
     val goalId: String?,
 )

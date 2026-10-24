@@ -202,7 +202,7 @@ class ToolVisionConsentTest {
                 kotlinx.serialization.json.JsonObject(emptyMap()),
                 com.helix.core.model.ExecutionTargetType.LOCAL_ANDROID,
                 now.plusSeconds(60),
-                com.helix.tools.framework.NoCancellation,
+                com.helix.core.model.NoCancellation,
                 "s",
                 turn,
             )

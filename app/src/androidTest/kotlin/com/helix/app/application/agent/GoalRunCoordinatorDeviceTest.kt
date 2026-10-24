@@ -209,7 +209,7 @@ class GoalRunCoordinatorDeviceTest {
             val coordinator = coordinator(storage)
             val id = coordinator.create("Check output", listOf("Verified output exists"), budgets)
             val first = requireNotNull(coordinator.start(request(id, "first")))
-            first.coordinator.beginModelStream()
+            kotlinx.coroutines.runBlocking { first.coordinator.beginModelStream() }
             first.coordinator.settleFixtureTerminal(ModelStreamTerminal(com.helix.core.model.TurnState.COMPLETED, null))
             assertEquals(GoalState.PAUSED.name, storage.goals.resolve(id).state)
             val closed = storage.goalRuns.resolve(first.runId)
@@ -242,7 +242,7 @@ class GoalRunCoordinatorDeviceTest {
             val id = coordinator.create("Check output", listOf("Verified output exists"), budgets)
             val started = requireNotNull(coordinator.start(request(id, "first")))
             storage.toolCalls.append("uncertain", "first", "uncertain", "files.write", "1", "{}", "NEEDS_REVIEW")
-            started.coordinator.beginModelStream()
+            kotlinx.coroutines.runBlocking { started.coordinator.beginModelStream() }
             started.coordinator.settleFixtureTerminal(
                 ModelStreamTerminal(com.helix.core.model.TurnState.COMPLETED, null),
             )

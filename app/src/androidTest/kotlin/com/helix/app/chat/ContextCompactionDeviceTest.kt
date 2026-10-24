@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.helix.app.agent.ChatHistoryBuilder
 import com.helix.app.agent.ContextCompaction
-import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.test.completeResponseOrContinueFixture
 import com.helix.app.test.settleFixtureTerminal
@@ -12,6 +11,7 @@ import com.helix.app.test.startFixtureTurn
 import com.helix.core.agent.ModelStreamTerminal
 import com.helix.core.agent.RunControlConfig
 import com.helix.core.agent.TurnContextRequest
+import com.helix.core.agent.turn.TurnRoundCoordinator
 import com.helix.core.model.Clock
 import com.helix.core.model.ModelEvent
 import com.helix.core.model.ReasoningEffort
@@ -69,7 +69,7 @@ class ContextCompactionDeviceTest {
                     ProviderContextSettings(),
                     true,
                 )
-            val stream = coordinator.beginModelStream(compacting = true)
+            val stream = kotlinx.coroutines.runBlocking { coordinator.beginModelStream(compacting = true) }
             stream.apply(ModelEvent.TextDelta("No useful reduction is possible."))
             stream.apply(ModelEvent.Usage(872, 971))
             stream.apply(ModelEvent.Completed("stop"))
@@ -79,8 +79,7 @@ class ContextCompactionDeviceTest {
                         plan,
                         stream,
                         stream.terminal(false),
-                        com.helix.app.agent
-                            .RoomTurnJournal(coordinator),
+                        coordinator,
                         next(),
                         "Compacted",
                         "Unchanged",
@@ -124,10 +123,10 @@ class ContextCompactionDeviceTest {
                         coordinator.id,
                     ),
                 )
-            val stream = coordinator.beginModelStream(compacting = true)
+            val stream = kotlinx.coroutines.runBlocking { coordinator.beginModelStream(compacting = true) }
             stream.apply(ModelEvent.TextDelta("Keep the original constraints and unresolved work."))
             stream.apply(ModelEvent.Completed("stop"))
-            coordinator.commitCompaction(plan, null)
+            kotlinx.coroutines.runBlocking { coordinator.commitCompaction(plan, null) }
             coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
             val checkpoint =
                 requireNotNull(
@@ -172,8 +171,13 @@ class ContextCompactionDeviceTest {
                     ),
                 )
             val before = storage.messages.listBySession("s").size
-            coordinator.beginModelStream(compacting = true).apply(ModelEvent.TextDelta("unfinished summary"))
-            assertThrows(IllegalArgumentException::class.java) { coordinator.commitCompaction(plan, null) }
+            kotlinx.coroutines
+                .runBlocking {
+                    coordinator.beginModelStream(compacting = true)
+                }.apply(ModelEvent.TextDelta("unfinished summary"))
+            assertThrows(IllegalArgumentException::class.java) {
+                kotlinx.coroutines.runBlocking { coordinator.commitCompaction(plan, null) }
+            }
             coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.CANCELLED, null))
             assertNull(ContextCompaction.checkpoint(storage, storage.messages.listBySession("s")))
             assertEquals(before, storage.messages.listBySession("s").size)
@@ -244,13 +248,13 @@ class ContextCompactionDeviceTest {
                         coordinator.id,
                     ),
                 )
-            val stream = coordinator.beginModelStream(compacting = true)
+            val stream = kotlinx.coroutines.runBlocking { coordinator.beginModelStream(compacting = true) }
             stream.apply(ModelEvent.TextDelta("Concise earlier history."))
             stream.apply(ModelEvent.Completed("stop"))
-            coordinator.commitCompaction(plan, "next-call")
+            kotlinx.coroutines.runBlocking { coordinator.commitCompaction(plan, "next-call") }
             assertEquals(2, storage.modelCalls.listByTurn(coordinator.id).size)
             assertEquals(TurnState.WAITING_MODEL.name, storage.turns.resolve(coordinator.id).state)
-            val reply = coordinator.beginModelStream()
+            val reply = kotlinx.coroutines.runBlocking { coordinator.beginModelStream() }
             reply.apply(ModelEvent.TextDelta("The requested answer."))
             reply.apply(ModelEvent.Completed("stop"))
             coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
@@ -278,10 +282,10 @@ class ContextCompactionDeviceTest {
                         coordinator.id,
                     ),
                 )
-            val stream = coordinator.beginModelStream(compacting = true)
+            val stream = kotlinx.coroutines.runBlocking { coordinator.beginModelStream(compacting = true) }
             stream.apply(ModelEvent.TextDelta("Durable constraints."))
             stream.apply(ModelEvent.Completed("stop"))
-            coordinator.commitCompaction(plan, "pending-after-summary")
+            kotlinx.coroutines.runBlocking { coordinator.commitCompaction(plan, "pending-after-summary") }
             val checkpoint = ContextCompaction.checkpoint(storage, storage.messages.listBySession("s"))
             val recovery =
                 com.helix.app.engine
@@ -311,11 +315,13 @@ class ContextCompactionDeviceTest {
                         coordinator.id,
                     ),
                 )
-            val stream = coordinator.beginModelStream(compacting = true)
+            val stream = kotlinx.coroutines.runBlocking { coordinator.beginModelStream(compacting = true) }
             stream.apply(ModelEvent.TextDelta("Incomplete notes."))
             stream.apply(ModelEvent.Refusal("Refused"))
             stream.apply(ModelEvent.Completed("stop"))
-            assertThrows(IllegalArgumentException::class.java) { coordinator.commitCompaction(plan, null) }
+            assertThrows(IllegalArgumentException::class.java) {
+                kotlinx.coroutines.runBlocking { coordinator.commitCompaction(plan, null) }
+            }
             coordinator.settleFixtureTerminal(stream.terminal(false))
             assertNull(ContextCompaction.checkpoint(storage, storage.messages.listBySession("s")))
             assertEquals("REFUSAL", storage.turns.resolve(coordinator.id).errorCode)
@@ -337,7 +343,7 @@ class ContextCompactionDeviceTest {
                         coordinator.id,
                     ),
                 )
-            val stream = coordinator.beginModelStream(compacting = true)
+            val stream = kotlinx.coroutines.runBlocking { coordinator.beginModelStream(compacting = true) }
             stream.apply(ModelEvent.TextDelta("Compact continuity notes."))
             stream.apply(ModelEvent.Completed("stop"))
             val accepted =
@@ -355,7 +361,7 @@ class ContextCompactionDeviceTest {
                         2_000,
                     ),
                 ) as com.helix.core.storage.repository.SessionInputAcceptResult.Accepted
-            coordinator.commitCompaction(plan, null, "Compacted")
+            kotlinx.coroutines.runBlocking { coordinator.commitCompaction(plan, null, "Compacted") }
             assertEquals(
                 com.helix.core.agent.ResponseInputBoundary.RECHECK,
                 coordinator.completeResponseOrContinueFixture(null, "after-manual"),
@@ -380,7 +386,7 @@ class ContextCompactionDeviceTest {
         }
     }
 
-    private fun seed(storage: HelixStorage): TurnCoordinator {
+    private fun seed(storage: HelixStorage): TurnRoundCoordinator {
         storage.sessions.create("s", "Compaction fixture", null, null, 1000)
         repeat(3) { index ->
             val old =
@@ -391,7 +397,7 @@ class ContextCompactionDeviceTest {
                     TurnStartSpec("s", "old-$index", next(), "{}", "constraint-$index " + "context ".repeat(600)),
                 )
             seedToolPair(storage, "old-$index", index)
-            val stream = old.beginModelStream()
+            val stream = kotlinx.coroutines.runBlocking { old.beginModelStream() }
             stream.apply(ModelEvent.TextDelta("answer-$index"))
             stream.apply(ModelEvent.Completed("stop"))
             old.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))

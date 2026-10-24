@@ -78,7 +78,7 @@ flowchart TD
 
 ### C. 移除生产代码中的测试专用结算桥（中高价值，中风险）
 
-[`TurnCoordinator.kt`](../../../app/src/main/kotlin/com/helix/app/agent/TurnCoordinator.kt) 的 `settleFixtureTerminal`、`parkFixtureForReview`、`completeResponseOrContinueFixture` 明确 deprecated 为 fixture-only，但当前多个设备测试仍调用它们。它们直接创建 `TurnSettlement` / `TurnReviewParking`，是已知测试迁移债，不是无人使用的死代码。
+[`TurnCoordinator.kt`](https://github.com/dollarser/helix-agent/blob/5d3f89e0765d4adb255a21c4fdd0da967d64606e/app/src/main/kotlin/com/helix/app/agent/TurnCoordinator.kt) 的 `settleFixtureTerminal`、`parkFixtureForReview`、`completeResponseOrContinueFixture` 明确 deprecated 为 fixture-only，但当前多个设备测试仍调用它们。它们直接创建 `TurnSettlement` / `TurnReviewParking`，是已知测试迁移债，不是无人使用的死代码。
 
 先区分两类：验证完整 admission/terminal/review 的旅程应走真实 TurnEngine；仅需准备持久状态的测试使用命名清晰的测试源集夹具。复用现有测试提交辅助，不让所有 repository 单测启动完整 Engine。迁移后核对所有调用者、原断言和失败/恢复路径，再移除生产桥；不得直接删掉调用它们的测试或用简单内存标志替代真实 Room 事实。
 

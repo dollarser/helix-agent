@@ -1,4 +1,6 @@
-package com.helix.app.chat
+package com.helix.app.application.diagnostics
+
+import com.helix.app.application.security.ForbiddenContentGuard
 
 /** Model-facing diagnostics use the existing credential patterns plus current installation secret values. */
 internal object DiagnosticRedaction {

@@ -10,13 +10,14 @@ import com.helix.app.HelixApplication
 import com.helix.app.MainActivity
 import com.helix.app.ToolArtifactRegistrationSink
 import com.helix.app.agent.ChatHistoryBuilder
-import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
+import com.helix.app.infrastructure.agent.RoomTurnRoundStore
 import com.helix.app.provider.ArtifactVisionImageSource
 import com.helix.app.vision.BoundImageAccess
 import com.helix.app.vision.ToolImagePreparer
 import com.helix.app.vision.ToolVisionConsent
 import com.helix.core.agent.SettledCall
+import com.helix.core.agent.turn.TurnRoundCoordinator
 import com.helix.core.model.ArtifactRef
 import com.helix.core.model.BoundToolResult
 import com.helix.core.model.Clock
@@ -25,6 +26,7 @@ import com.helix.core.model.ImageBinding
 import com.helix.core.model.ImageReference
 import com.helix.core.model.ModelEvent
 import com.helix.core.model.ModelRequest
+import com.helix.core.model.NoCancellation
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderAuth
 import com.helix.core.model.ProviderConnection
@@ -49,7 +51,6 @@ import com.helix.provider.openai.responses.ResponsesRequestEncoder
 import com.helix.tools.browser.BrowserTools
 import com.helix.tools.files.ViewImageTool
 import com.helix.tools.framework.ExecutableToolCall
-import com.helix.tools.framework.NoCancellation
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolOrigin
 import kotlinx.coroutines.CoroutineStart
@@ -108,7 +109,12 @@ class ToolVisionFlowDeviceTest {
                         val result = fixture.prepare() as ToolExecutorResult.Completed
                         assertTrue("Screenshot must contain actual pixels", result.visualArtifact != null)
                         fixture.coordinator.settleBatchCall("call", false)
-                        fixture.coordinator.openNextModelCall(listOf(fixture.draft(result)), "next")
+                        kotlinx.coroutines.runBlocking {
+                            fixture.coordinator.openNextModelCall(
+                                listOf(fixture.draft(result)),
+                                "next",
+                            )
+                        }
                         assertUnapprovedPixelsBlocked(fixture)
                         val messages = authorizeProjection(fixture)
                         val pixels = fixture.source.load(messages.last().images.single(), fixture.config)
@@ -149,7 +155,12 @@ class ToolVisionFlowDeviceTest {
             Fixture().use { fixture ->
                 val result = fixture.prepare() as ToolExecutorResult.Completed
                 fixture.coordinator.settleBatchCall("call", false)
-                fixture.coordinator.openNextModelCall(listOf(fixture.draft(result)), "next")
+                kotlinx.coroutines.runBlocking {
+                    fixture.coordinator.openNextModelCall(
+                        listOf(fixture.draft(result)),
+                        "next",
+                    )
+                }
                 assertUnapprovedPixelsBlocked(fixture)
                 val messages = authorizeProjection(fixture)
                 val pixels = fixture.source.load(messages.last().images.single(), fixture.config)
@@ -177,7 +188,12 @@ class ToolVisionFlowDeviceTest {
             Fixture(onDevice = true).use { fixture ->
                 val result = fixture.prepare() as ToolExecutorResult.Completed
                 fixture.coordinator.settleBatchCall("call", false)
-                fixture.coordinator.openNextModelCall(listOf(fixture.draft(result)), "next")
+                kotlinx.coroutines.runBlocking {
+                    fixture.coordinator.openNextModelCall(
+                        listOf(fixture.draft(result)),
+                        "next",
+                    )
+                }
                 val rows = fixture.history()
                 val projected =
                     fixture.feedback.restore(
@@ -216,7 +232,12 @@ class ToolVisionFlowDeviceTest {
                 Fixture(onDevice = local).use { fixture ->
                     val result = fixture.prepare() as ToolExecutorResult.Completed
                     fixture.coordinator.settleBatchCall("call", false)
-                    fixture.coordinator.openNextModelCall(listOf(fixture.draft(result)), "next")
+                    kotlinx.coroutines.runBlocking {
+                        fixture.coordinator.openNextModelCall(
+                            listOf(fixture.draft(result)),
+                            "next",
+                        )
+                    }
                     // Trusted captured-image fixture: no real Accessibility capture or network call.
                     fixture.consent.mobileScreens.register(
                         fixture.call.copy(toolName = "ui.screenshot"),
@@ -312,7 +333,7 @@ class ToolVisionFlowDeviceTest {
             fixture.coordinator.settleBatchCall("call", false)
             val before = fixture.storage.messages.listBySession("s")
             assertThrows(IllegalStateException::class.java) {
-                fixture.coordinator.openNextModelCall(listOf(invalid), "next")
+                kotlinx.coroutines.runBlocking { fixture.coordinator.openNextModelCall(listOf(invalid), "next") }
             }
             assertEquals(before, fixture.storage.messages.listBySession("s"))
             assertThrows(IllegalArgumentException::class.java) { fixture.storage.modelCalls.resolve("next") }
@@ -381,7 +402,7 @@ class ToolVisionFlowDeviceTest {
             }
         private val workspace = WorkspaceArtifactStore(roots).apply { ensureLayout("ws") }
         val input = File(root, "workspace/input/sample.png")
-        val coordinator: TurnCoordinator
+        val coordinator: TurnRoundCoordinator
         var phoneScope: com.helix.core.policy.AutomationSessionScope? =
             com.helix.core.policy
                 .AutomationSessionScope(emptySet(), emptySet(), 0, Instant.MAX, true, "fixture-grant")
@@ -457,17 +478,17 @@ class ToolVisionFlowDeviceTest {
             )
             storage.sessions.create("s", "Vision fixture", "p", "vision", 1000)
             coordinator =
-                TurnCoordinator.start(
+                RoomTurnRoundStore.start(
                     storage,
                     clock,
                     { UUID.randomUUID().toString() },
                     TurnStartSpec("s", "turn", "first", "fixture", "Inspect the image"),
                 )
-            val stream = coordinator.beginModelStream()
+            val stream = kotlinx.coroutines.runBlocking { coordinator.beginModelStream() }
             stream.apply(ModelEvent.ToolCallStarted(0, ToolCallId("call"), toolName))
             stream.apply(ModelEvent.ToolArgumentsDelta(0, call.args.toString()))
             stream.apply(ModelEvent.ToolCallFinished(0))
-            coordinator.beginToolBatch(listOf("call"))
+            kotlinx.coroutines.runBlocking { coordinator.beginToolBatch(listOf("call")) }
             val toolStep =
                 buildJsonArray {
                     add(
@@ -478,7 +499,7 @@ class ToolVisionFlowDeviceTest {
                         },
                     )
                 }.toString()
-            coordinator.commitModelToolStep(toolStep)
+            kotlinx.coroutines.runBlocking { coordinator.commitModelToolStep(toolStep) }
             createPixels()
         }
 

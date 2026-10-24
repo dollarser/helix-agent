@@ -2,10 +2,12 @@ package com.helix.tools.framework
 
 import com.helix.core.model.AgentMode
 import com.helix.core.model.BoundToolResult
+import com.helix.core.model.CancelSignal
 import com.helix.core.model.Clock
 import com.helix.core.model.DispatchOutcomeCode
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.Hex
+import com.helix.core.model.NoCancellation
 import com.helix.core.model.SafetyProfile
 import com.helix.core.model.Sha256
 import com.helix.core.model.ToolAvailabilityState

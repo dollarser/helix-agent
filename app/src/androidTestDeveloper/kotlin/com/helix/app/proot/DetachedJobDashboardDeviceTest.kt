@@ -10,7 +10,6 @@ import androidx.compose.ui.test.performScrollToNode
 import androidx.test.core.app.ApplicationProvider
 import com.helix.app.HelixApplication
 import com.helix.app.MainActivity
-import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.chat.BackgroundTaskQuery
 import com.helix.app.test.settleFixtureTerminal
@@ -19,6 +18,7 @@ import com.helix.app.ui.ASYNC_UI_TIMEOUT_MILLIS
 import com.helix.app.ui.navigateTo
 import com.helix.app.ui.resetDeterministicUiState
 import com.helix.core.agent.ModelStreamTerminal
+import com.helix.core.agent.turn.TurnRoundCoordinator
 import com.helix.core.model.ModelEvent
 import com.helix.core.model.SystemClock
 import com.helix.core.model.TurnState
@@ -171,7 +171,9 @@ class DetachedJobDashboardDeviceTest {
             { UUID.randomUUID().toString() },
             TurnStartSpec(id, id, "$id-model", "fixture", "Job projection"),
         ).apply {
-            beginModelStream().apply(ModelEvent.TextDelta("Turn complete"))
+            kotlinx.coroutines.runBlocking {
+                beginModelStream().apply(ModelEvent.TextDelta("Turn complete"))
+            }
             settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
         }
         storage.toolCalls.append(id, id, id, DetachedJobTools.START, "1", """{"script":"sleep 30"}""", "COMPLETED")

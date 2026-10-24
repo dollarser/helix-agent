@@ -13,10 +13,11 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ApplicationProvider
 import com.helix.app.HelixApplication
 import com.helix.app.MainActivity
-import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
+import com.helix.app.infrastructure.agent.RoomTurnRoundStore
 import com.helix.app.ui.navigateTo
 import com.helix.app.ui.resetDeterministicUiState
+import com.helix.core.agent.turn.TurnRoundCoordinator
 import com.helix.core.model.SystemClock
 import com.helix.runtime.proot.client.ProotConnection
 import com.helix.runtime.proot.client.ProotJobClient
@@ -101,7 +102,7 @@ class ProotLogStreamDeviceTest {
         val turn = "log-turn-${job.id}"
         val call = "log-call-${job.id}"
         storage.sessions.create(session, "Log journey", null, null, System.currentTimeMillis())
-        TurnCoordinator.start(storage, SystemClock(), {
+        RoomTurnRoundStore.start(storage, SystemClock(), {
             UUID.randomUUID().toString()
         }, TurnStartSpec(session, turn, "$turn-model", "fixture", "log fixture"))
         storage.toolCalls.append(

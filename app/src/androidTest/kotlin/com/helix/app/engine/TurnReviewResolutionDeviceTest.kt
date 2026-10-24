@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.agent.ChatHistoryBuilder
-import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.review.ToolReviewSubmission
 import com.helix.app.review.TurnReviewResolutionResult
@@ -14,6 +13,7 @@ import com.helix.app.test.parkFixtureForReview
 import com.helix.core.agent.GoalWakeReason
 import com.helix.core.agent.RunControlConfig
 import com.helix.core.agent.TurnMessageDraft
+import com.helix.core.agent.turn.TurnRoundCoordinator
 import com.helix.core.model.AgentMode
 import com.helix.core.model.Clock
 import com.helix.core.model.GoalBudgets
@@ -214,39 +214,45 @@ class TurnReviewResolutionDeviceTest {
 
     private fun completeFirstRound(
         storage: HelixStorage,
-        coordinator: TurnCoordinator,
+        coordinator: TurnRoundCoordinator,
     ) {
-        coordinator.beginModelStream()
-        coordinator.beginToolBatch(listOf(LOCAL_OLD))
-        coordinator.commitModelToolStep(
-            "[{\"id\":\"$WIRE_OLD\",\"localId\":\"$LOCAL_OLD\",\"name\":\"time.now\",\"arguments\":\"{}\"}]",
-        )
+        kotlinx.coroutines.runBlocking { coordinator.beginModelStream() }
+        kotlinx.coroutines.runBlocking { coordinator.beginToolBatch(listOf(LOCAL_OLD)) }
+        kotlinx.coroutines.runBlocking {
+            coordinator.commitModelToolStep(
+                "[{\"id\":\"$WIRE_OLD\",\"localId\":\"$LOCAL_OLD\",\"name\":\"time.now\",\"arguments\":\"{}\"}]",
+            )
+        }
         storage.toolCalls.append(LOCAL_OLD, TURN, LOCAL_OLD, "time.now", "1", "{}", ToolCallState.COMPLETED.name)
         storage.toolResults.append("result-old", LOCAL_OLD, "SUCCEEDED", "old-ok", null)
         coordinator.settleBatchCall(LOCAL_OLD, sideEffectUnknown = false)
-        coordinator.openNextModelCall(
-            listOf(
-                TurnMessageDraft(
-                    ModelRole.TOOL,
-                    ChatHistoryBuilder.KIND_TOOL_RESULT,
-                    "{\"id\":\"$WIRE_OLD\",\"tool\":\"time.now\",\"status\":\"SUCCEEDED\",\"summary\":\"old-ok\"}",
+        kotlinx.coroutines.runBlocking {
+            coordinator.openNextModelCall(
+                listOf(
+                    TurnMessageDraft(
+                        ModelRole.TOOL,
+                        ChatHistoryBuilder.KIND_TOOL_RESULT,
+                        "{\"id\":\"$WIRE_OLD\",\"tool\":\"time.now\",\"status\":\"SUCCEEDED\",\"summary\":\"old-ok\"}",
+                    ),
                 ),
-            ),
-            MODEL_CALL_2,
-        )
+                MODEL_CALL_2,
+            )
+        }
     }
 
     private fun parkReviewBatch(
         storage: HelixStorage,
-        coordinator: TurnCoordinator,
+        coordinator: TurnRoundCoordinator,
     ) {
-        coordinator.beginModelStream()
-        coordinator.beginToolBatch(listOf(LOCAL_OK, LOCAL_UNKNOWN))
-        coordinator.commitModelToolStep(
-            "[{\"id\":\"$WIRE_OK\",\"localId\":\"$LOCAL_OK\",\"name\":\"time.now\"," +
-                "\"arguments\":\"{}\"},{\"id\":\"$WIRE_UNKNOWN\",\"localId\":\"$LOCAL_UNKNOWN\"," +
-                "\"name\":\"files.write\",\"arguments\":\"{}\"}]",
-        )
+        kotlinx.coroutines.runBlocking { coordinator.beginModelStream() }
+        kotlinx.coroutines.runBlocking { coordinator.beginToolBatch(listOf(LOCAL_OK, LOCAL_UNKNOWN)) }
+        kotlinx.coroutines.runBlocking {
+            coordinator.commitModelToolStep(
+                "[{\"id\":\"$WIRE_OK\",\"localId\":\"$LOCAL_OK\",\"name\":\"time.now\"," +
+                    "\"arguments\":\"{}\"},{\"id\":\"$WIRE_UNKNOWN\",\"localId\":\"$LOCAL_UNKNOWN\"," +
+                    "\"name\":\"files.write\",\"arguments\":\"{}\"}]",
+            )
+        }
         storage.toolCalls.append(LOCAL_OK, TURN, LOCAL_OK, "time.now", "1", "{}", ToolCallState.COMPLETED.name)
         storage.toolResults.append("result-ok", LOCAL_OK, "SUCCEEDED", "new-ok", null)
         storage.toolCalls.append(
@@ -288,7 +294,7 @@ class TurnReviewResolutionDeviceTest {
         val clock: Clock,
         val ids: () -> String,
         val goalId: String,
-        val coordinator: TurnCoordinator,
+        val coordinator: TurnRoundCoordinator,
         val bindingRunId: String,
         val runCount: Int,
     )

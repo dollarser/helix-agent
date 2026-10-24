@@ -3,10 +3,11 @@
 package com.helix.app.proot
 
 import com.helix.app.R
+import com.helix.app.application.tools.FileToolArguments
 import com.helix.app.approval.ApprovalCardUi
+import com.helix.core.model.CancelSignal
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.ToolOperationClass
-import com.helix.tools.framework.CancelSignal
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolExecutorResult
@@ -48,7 +49,7 @@ class LinuxRunToolTest {
     fun modelExposurePreservesLinuxContractAndOnlyAnnotatesHostPaths() {
         val descriptor = LinuxRunTool.descriptor()
         val exposed =
-            com.helix.app.chat.FileToolArguments
+            com.helix.app.application.tools.FileToolArguments
                 .modelSchema(descriptor)
         assertEquals(descriptor.description, exposed.description)
         val schema =
@@ -65,7 +66,7 @@ class LinuxRunToolTest {
         val job = DetachedJobTools.start()
         assertEquals(
             job.description,
-            com.helix.app.chat.FileToolArguments
+            com.helix.app.application.tools.FileToolArguments
                 .modelSchema(job)
                 .description,
         )

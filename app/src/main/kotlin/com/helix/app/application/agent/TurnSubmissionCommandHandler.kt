@@ -1,7 +1,6 @@
 package com.helix.app.application.agent
 
 import com.helix.app.agent.AgentLoopHost
-import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.application.context.PromptTemplateSource
 import com.helix.app.engine.TurnEngine
@@ -15,6 +14,7 @@ import com.helix.app.runcontrol.SessionRunControlStore
 import com.helix.core.agent.AgentLoop
 import com.helix.core.agent.RunControlConfig
 import com.helix.core.agent.SubmitTurnCommand
+import com.helix.core.agent.turn.TurnRoundCoordinator
 import com.helix.core.model.AgentMode
 import com.helix.core.model.AttachmentPurpose
 import com.helix.core.model.Clock
@@ -476,7 +476,7 @@ internal class TurnSubmissionCommandHandler(
     /** The Engine owns the worker/start gate/AgentLoop lifecycle; Chat supplies only app projections. */
     private fun launchExecution(
         sessionId: String,
-        coordinator: TurnCoordinator,
+        coordinator: TurnRoundCoordinator,
         providerId: String,
         retryTurnId: String?,
         effectiveControl: RunControlConfig,

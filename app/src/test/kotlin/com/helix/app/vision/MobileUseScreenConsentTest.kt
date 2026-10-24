@@ -6,6 +6,7 @@ import com.helix.core.model.Clock
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.ImageBinding
 import com.helix.core.model.ImageReference
+import com.helix.core.model.NoCancellation
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.SecretAlias
@@ -13,7 +14,6 @@ import com.helix.core.model.VisualArtifact
 import com.helix.core.policy.AutomationSessionScope
 import com.helix.provider.api.ProviderConfig
 import com.helix.tools.framework.ExecutableToolCall
-import com.helix.tools.framework.NoCancellation
 import kotlinx.serialization.json.JsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

@@ -2,6 +2,7 @@ package com.helix.app.chat
 
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import com.helix.app.MainActivity
+import com.helix.app.application.tools.ToolPresentationMetadata
 import com.helix.app.provider.ProviderDraft
 import com.helix.app.ui.container
 import com.helix.app.ui.resetDeterministicUiState

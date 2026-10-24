@@ -2,7 +2,6 @@ package com.helix.app.chat
 
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import com.helix.app.MainActivity
-import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.application.agent.TurnInputFingerprint
 import com.helix.app.engine.TurnRecovery
@@ -11,6 +10,7 @@ import com.helix.app.test.startFixtureTurn
 import com.helix.app.ui.container
 import com.helix.app.ui.resetDeterministicUiState
 import com.helix.core.agent.ModelStreamTerminal
+import com.helix.core.agent.turn.TurnRoundCoordinator
 import com.helix.core.model.Clock
 import com.helix.core.model.SystemClock
 import com.helix.core.model.ToolCallState
@@ -77,7 +77,7 @@ class ComposerProcessRecoveryDeviceTest {
                         inputFingerprint = TurnInputFingerprint.of(accepted.text, emptyList()),
                     ),
                 )
-            coordinator.beginModelStream()
+            kotlinx.coroutines.runBlocking { coordinator.beginModelStream() }
             coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
             seedCancellationIntent(storage, clock)
             compose.container().chatService.closeSession()
@@ -131,12 +131,14 @@ class ComposerProcessRecoveryDeviceTest {
                 { UUID.randomUUID().toString() },
                 TurnStartSpec(CANCEL_SESSION, CANCEL_TURN, CANCEL_MODEL, "fixture", "Seeded cancellation boundary"),
             )
-        turn.beginModelStream()
-        turn.beginToolBatch(listOf(RUNNING_CALL, PENDING_CALL))
-        turn.commitModelToolStep(
-            """[{"id":"$RUNNING_CALL","name":"time.now","arguments":"{}"},""" +
-                """{"id":"$PENDING_CALL","name":"time.now","arguments":"{}"}]""",
-        )
+        kotlinx.coroutines.runBlocking { turn.beginModelStream() }
+        kotlinx.coroutines.runBlocking { turn.beginToolBatch(listOf(RUNNING_CALL, PENDING_CALL)) }
+        kotlinx.coroutines.runBlocking {
+            turn.commitModelToolStep(
+                """[{"id":"$RUNNING_CALL","name":"time.now","arguments":"{}"},""" +
+                    """{"id":"$PENDING_CALL","name":"time.now","arguments":"{}"}]""",
+            )
+        }
         storage.withTransaction {
             storage.toolCalls.append(RUNNING_CALL, CANCEL_TURN, RUNNING_CALL, "time.now", "1", "{}", "RUNNING")
             storage.toolCalls.append(PENDING_CALL, CANCEL_TURN, PENDING_CALL, "time.now", "1", "{}", "PENDING")

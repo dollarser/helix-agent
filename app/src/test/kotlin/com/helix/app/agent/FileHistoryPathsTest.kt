@@ -1,6 +1,6 @@
 package com.helix.app.agent
 
-import com.helix.app.chat.FileToolArguments
+import com.helix.app.application.tools.FileToolArguments
 import com.helix.core.agent.ContextCompiler
 import com.helix.core.agent.ContextSegments
 import com.helix.core.agent.ContextSourceRow

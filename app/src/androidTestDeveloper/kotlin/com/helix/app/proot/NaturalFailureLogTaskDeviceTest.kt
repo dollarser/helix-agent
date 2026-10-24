@@ -3,6 +3,7 @@ package com.helix.app.proot
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.HelixApplication
+import com.helix.app.application.tools.ToolFailureContent
 import com.helix.app.provider.BuiltInModel
 import com.helix.core.agent.SubmitTurnCommand
 import com.helix.core.model.AgentMode
@@ -61,7 +62,7 @@ class NaturalFailureLogTaskDeviceTest {
                     "row",
                     "FAILED",
                     "Original failed",
-                    com.helix.app.chat.ToolFailureContent
+                    com.helix.app.application.tools.ToolFailureContent
                         .encode(failed),
                 )
                 val original = c.storage.turns.resolve("turn")

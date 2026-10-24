@@ -2,7 +2,6 @@ package com.helix.app.chat
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
-import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.application.agent.GoalTurnStart
 import com.helix.app.engine.TurnRecovery
@@ -12,6 +11,7 @@ import com.helix.app.test.settleFixtureTerminal
 import com.helix.app.test.startFixtureTurn
 import com.helix.core.agent.GoalWakeReason
 import com.helix.core.agent.ModelStreamTerminal
+import com.helix.core.agent.turn.TurnRoundCoordinator
 import com.helix.core.model.Clock
 import com.helix.core.model.GoalBudgets
 import com.helix.core.model.TurnBudgets
@@ -78,7 +78,7 @@ class BackgroundTaskStorageDeviceTest : ForegroundDeviceTestHost() {
     @Test fun missingBindingsNeverBlockOrdinaryProgress() =
         fixture { storage, coordinator, goal ->
             val first = requireNotNull(coordinator.start(request(goal, "first")))
-            first.coordinator.beginModelStream()
+            kotlinx.coroutines.runBlocking { first.coordinator.beginModelStream() }
             first.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
             assertEquals("PAUSED", storage.goals.resolve(goal).state)
             TurnRecovery(storage, clock).recover()

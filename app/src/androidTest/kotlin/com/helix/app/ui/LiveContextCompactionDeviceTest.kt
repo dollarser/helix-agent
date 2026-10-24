@@ -4,13 +4,13 @@ import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.MainActivity
 import com.helix.app.agent.ContextCompaction
-import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.provider.ProviderDraft
 import com.helix.app.sendTestMessage
 import com.helix.app.test.settleFixtureTerminal
 import com.helix.app.test.startFixtureTurn
 import com.helix.core.agent.ModelStreamTerminal
+import com.helix.core.agent.turn.TurnRoundCoordinator
 import com.helix.core.model.AgentMode
 import com.helix.core.model.Clock
 import com.helix.core.model.ModelEvent
@@ -249,7 +249,7 @@ class LiveContextCompactionDeviceTest {
                 }
                 println("LIVE_BOUND_REFERENCE=accepted originalBodyHasCode=false")
             }
-            val stream = coordinator.beginModelStream()
+            val stream = kotlinx.coroutines.runBlocking { coordinator.beginModelStream() }
             stream.apply(ModelEvent.TextDelta("Understood."))
             stream.apply(ModelEvent.Completed("stop"))
             coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))

@@ -1,18 +1,16 @@
 package com.helix.app.agent
 
 import com.helix.core.agent.AgentInputBoundary
-import com.helix.core.agent.ModelStreamTerminal
 import com.helix.core.agent.ResponseInputBoundary
-import com.helix.core.agent.TurnTerminalCheckpoint
+import com.helix.core.agent.turn.TurnRoundCoordinator
 import kotlinx.coroutines.yield
 
 /** Input records and the terminal-vs-steering transaction stay in the existing host owner. */
 internal class TurnInputBoundaryAdapter(
     private val sessionId: String,
-    private val coordinator: TurnCoordinator,
+    private val coordinator: TurnRoundCoordinator,
     private val delivery: TurnInputDelivery,
     private val idGenerator: () -> String,
-    private val persistTerminal: (TurnTerminalCheckpoint, ModelStreamTerminal) -> ModelStreamTerminal,
 ) : AgentInputBoundary {
     override suspend fun appendBeforeRequest(
         sessionId: String,
@@ -23,7 +21,7 @@ internal class TurnInputBoundaryAdapter(
         var remaining = 32
         while (remaining-- > 0) {
             val input = delivery.prepareSteering(sessionId, turnId) ?: break
-            updated = coordinator.appendSteeringBeforeRequest(input) || updated
+            updated = coordinator.appendSteeringBeforeRequest(input.toRoundInput()) || updated
         }
         return updated
     }
@@ -36,7 +34,7 @@ internal class TurnInputBoundaryAdapter(
         var boundary: ResponseInputBoundary
         do {
             val steering = delivery.prepareSteering(sessionId, turnId)
-            boundary = coordinator.completeResponseOrContinue(steering, idGenerator(), persistTerminal)
+            boundary = coordinator.completeResponseOrContinue(steering?.toRoundInput(), idGenerator())
             if (boundary == ResponseInputBoundary.RECHECK) yield()
         } while (boundary == ResponseInputBoundary.RECHECK)
         return boundary

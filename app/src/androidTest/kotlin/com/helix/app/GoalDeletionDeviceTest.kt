@@ -121,7 +121,7 @@ class GoalDeletionDeviceTest : ForegroundDeviceTestHost() {
             assertEquals(0, cancellations)
             assertNull(storage.goalRuns.resolve(started.runId).endedAt)
             storage.goals.updateGoal(before)
-            started.coordinator.beginModelStream()
+            kotlinx.coroutines.runBlocking { started.coordinator.beginModelStream() }
             started.coordinator.settleFixtureTerminal(
                 ModelStreamTerminal(com.helix.core.model.TurnState.COMPLETED, null),
             )

@@ -3,6 +3,8 @@ package com.helix.app.plugin
 import android.os.SystemClock
 import androidx.test.core.app.ApplicationProvider
 import com.helix.app.HelixApplication
+import com.helix.app.application.tools.FileToolArguments
+import com.helix.app.application.tools.ToolPresentationMetadata
 import com.helix.extensions.plugin.PluginMeasurement
 import com.helix.extensions.plugin.preferredTools
 import kotlinx.coroutines.runBlocking
@@ -35,9 +37,9 @@ class PluginDiagnosticsDeviceTest {
                 }
             c.toolPipeline.registry.all().forEach { descriptor ->
                 val schema =
-                    com.helix.app.chat.FileToolArguments
+                    com.helix.app.application.tools.FileToolArguments
                         .modelSchema(descriptor)
-                com.helix.app.chat.ToolPresentationMetadata
+                com.helix.app.application.tools.ToolPresentationMetadata
                     .augment(schema)
             }
             plugins.forEach { c.pluginRegistry.ready(it.name) }

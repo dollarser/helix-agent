@@ -1,6 +1,6 @@
 package com.helix.app.proot
 
-import com.helix.app.chat.DiagnosticRedaction
+import com.helix.app.application.diagnostics.DiagnosticRedaction
 import com.helix.app.provider.BuiltInModel
 import com.helix.provider.api.wire.WireClient
 import com.helix.provider.api.wire.WireRequest

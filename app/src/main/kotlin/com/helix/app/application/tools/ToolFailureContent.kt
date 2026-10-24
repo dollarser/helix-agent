@@ -1,5 +1,6 @@
-package com.helix.app.chat
+package com.helix.app.application.tools
 
+import com.helix.app.application.diagnostics.DiagnosticRedaction
 import com.helix.core.model.ToolDispatchOutcome
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject

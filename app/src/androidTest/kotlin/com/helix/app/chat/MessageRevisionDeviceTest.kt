@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.helix.app.agent.ContextCompaction
 import com.helix.app.agent.ContextHistory
-import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.engine.TurnAdmissionResult
 import com.helix.app.engine.TurnEngine
@@ -14,6 +13,7 @@ import com.helix.app.test.startFixtureTurn
 import com.helix.core.agent.GoalWakeReason
 import com.helix.core.agent.ModelStreamTerminal
 import com.helix.core.agent.RunControlConfig
+import com.helix.core.agent.turn.TurnRoundCoordinator
 import com.helix.core.model.AgentMode
 import com.helix.core.model.Clock
 import com.helix.core.model.GoalBudgets
@@ -113,7 +113,7 @@ class MessageRevisionDeviceTest {
         }
 
     /**
-     * REVISE is an admission concern (HXA-220 moved history mutation out of `TurnCoordinator.start`,
+     * REVISE is an admission concern (HXA-220 moved history mutation out of `TurnRoundCoordinator.start`,
      * which now only creates the Turn row). The fixture must therefore go through `TurnAdmission`
      * for a revision to take effect at all.
      */
@@ -122,10 +122,10 @@ class MessageRevisionDeviceTest {
         id: String,
         text: String,
         target: String? = null,
-    ): TurnCoordinator =
+    ): TurnRoundCoordinator =
         (
             admit(storage, id, text, target) as TurnAdmissionResult.Started
-        ).turn.coordinator.also { it.beginModelStream() }
+        ).turn.coordinator.also { kotlinx.coroutines.runBlocking { it.beginModelStream() } }
 
     private fun admit(
         storage: HelixStorage,

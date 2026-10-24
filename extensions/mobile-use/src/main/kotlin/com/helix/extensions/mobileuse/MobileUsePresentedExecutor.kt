@@ -1,10 +1,10 @@
 package com.helix.extensions.mobileuse
 
+import com.helix.core.model.CancelSignal
 import com.helix.extensions.mobileuse.automation.AutomationRuntimePresentation
 import com.helix.extensions.mobileuse.automation.AutomationRuntimePresentationFactory
 import com.helix.extensions.mobileuse.automation.AutomationServiceController
 import com.helix.extensions.plugin.NativeResource
-import com.helix.tools.framework.CancelSignal
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult

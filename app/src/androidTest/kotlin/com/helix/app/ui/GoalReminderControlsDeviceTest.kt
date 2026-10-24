@@ -305,7 +305,7 @@ class GoalReminderControlsDeviceTest {
                     ),
                 ),
             )
-        started.coordinator.beginModelStream()
+        kotlinx.coroutines.runBlocking { started.coordinator.beginModelStream() }
         started.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
         return id
     }

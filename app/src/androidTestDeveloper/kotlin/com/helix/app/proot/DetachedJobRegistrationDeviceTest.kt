@@ -5,6 +5,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.helix.app.HelixApplication
 import com.helix.app.MainActivity
 import com.helix.core.model.ExecutionTargetType
+import com.helix.core.model.NoCancellation
 import com.helix.core.model.SessionPermissionMode
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolVersion
@@ -12,7 +13,6 @@ import com.helix.core.policy.SessionPermissionConfig
 import com.helix.core.workspace.WorkspaceArtifactStore
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.ExecutionOwnership
-import com.helix.tools.framework.NoCancellation
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolRegistry
 import kotlinx.serialization.json.buildJsonObject

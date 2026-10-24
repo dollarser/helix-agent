@@ -1,6 +1,6 @@
 package com.helix.app.export
 
-import com.helix.app.chat.ForbiddenContentGuard
+import com.helix.app.application.security.ForbiddenContentGuard
 import com.helix.core.storage.export.SessionExportSanitizer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray

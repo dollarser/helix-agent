@@ -31,16 +31,6 @@ internal class NativeApprovalProjection {
             }.sortedBy { it.sequence }
             .map { it.card }
 
-    fun claim(
-        turnId: String,
-        approvalId: String,
-    ): ApprovalCardUi? {
-        val entry = entries[approvalId]?.takeIf { it.turnId == turnId } ?: return null
-        return if (entries.remove(approvalId, entry)) entry.card else null
-    }
-
-    fun callId(approvalId: String): String? = entries[approvalId]?.callId
-
     fun remove(approvalId: String) {
         entries.remove(approvalId)
     }

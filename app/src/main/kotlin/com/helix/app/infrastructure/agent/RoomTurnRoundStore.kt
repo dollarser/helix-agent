@@ -1,94 +1,55 @@
-package com.helix.app.agent
+package com.helix.app.infrastructure.agent
 
-import com.helix.app.goal.toRuntimeGoal
-import com.helix.app.goal.toStoredGoal
-import com.helix.core.agent.BatchCallResolution
-import com.helix.core.agent.BatchTurnRuntime
-import com.helix.core.agent.BatchTurnSnapshot
+import com.helix.app.agent.AssistantToolResponseContent
+import com.helix.app.agent.ChatHistoryBuilder
+import com.helix.app.agent.ContextCompaction
+import com.helix.app.agent.TurnStartSpec
+import com.helix.app.agent.promptSnapshotRecord
+import com.helix.app.engine.TurnSettlement
 import com.helix.core.agent.ContextCompactionPlan
-import com.helix.core.agent.GoalEvent
-import com.helix.core.agent.GoalReducer
-import com.helix.core.agent.ModelStreamState
 import com.helix.core.agent.ModelStreamTerminal
 import com.helix.core.agent.PromptSnapshot
 import com.helix.core.agent.ResponseInputBoundary
 import com.helix.core.agent.TurnMessageDraft
-import com.helix.core.agent.TurnReviewCheckpoint
 import com.helix.core.agent.TurnTerminalCheckpoint
+import com.helix.core.agent.turn.ResponseCommitReceipt
+import com.helix.core.agent.turn.ToolResultsCommitReceipt
+import com.helix.core.agent.turn.TurnRoundCoordinator
+import com.helix.core.agent.turn.TurnRoundStore
+import com.helix.core.agent.turn.TurnSteeringInput
 import com.helix.core.model.Clock
-import com.helix.core.model.GoalState
 import com.helix.core.model.ModelRole
-import com.helix.core.model.ToolCallState
 import com.helix.core.model.TurnState
 import com.helix.core.storage.HelixStorage
 import com.helix.core.storage.repository.ConversationReferenceSnapshotInput
 import com.helix.core.storage.repository.MessageAttachmentRepository
 import kotlinx.coroutines.CancellationException
 
-internal data class TurnStartSpec(
-    val sessionId: String,
-    val turnId: String,
-    val firstModelCallId: String,
-    val providerSnapshot: String,
-    val userText: String?,
-    val attachments: List<MessageAttachmentRepository.Binding> = emptyList(),
-    val references: List<ConversationReferenceSnapshotInput> = emptyList(),
-    val goalRunId: String? = null,
-    // The persistent submit-dedup receipt (research doc section 34; HX2-01 §2e): written onto the
-    // turn row atomically with the turn so the client-request id survives a restart.
-    val clientRequestId: String? = null,
-    val inputFingerprint: String? = null,
-    val revisedMessageId: String? = null,
-    val inputRevision: Long? = null,
-    val regenerateMessageId: String? = null,
-    val recoveryFromTurnId: String? = null,
-)
-
-/** Materialized and checked outside the transaction; identity is rechecked before consuming. */
-internal data class TurnSteeringDraft(
-    val input: com.helix.core.storage.repository.SessionInputRecord,
-    val content: String,
-    val attachments: List<MessageAttachmentRepository.Binding>,
-    val references: List<ConversationReferenceSnapshotInput> = emptyList(),
-)
-
-/**
- * Live execution context for one Turn's model/tool rounds.
- *
- * Request/round checkpoints that are inseparable from AgentLoop progress remain here. Durable
- * admission, cancel/review/recovery and final terminal settlement are owned by TurnEngine and its
- * collaborators. External tool effects remain outside Room transactions; their durable per-call
- * settlements complete before model-visible backfill and the next ModelCall commit atomically.
- */
-@Suppress("TooManyFunctions") // one method per lifecycle step + the per-request prompt record (doc 4.4)
-internal class TurnCoordinator private constructor(
+/** Direct Room transaction adapter; owns no process-local round state. */
+@Suppress("TooManyFunctions") // One local atomic round journal, without another runtime owner.
+internal class RoomTurnRoundStore(
     private val storage: HelixStorage,
     private val clock: Clock,
     private val idGenerator: () -> String,
     private val sessionId: String,
     private val turnId: String,
     private val providerSnapshot: String,
-    private val runtime: BatchTurnRuntime,
-) {
-    private var summaryStream = false
+) : TurnRoundStore {
+    private val settlement = TurnSettlement(storage, clock, idGenerator)
 
-    val id: String
-        get() = turnId
-
-    fun snapshot(): BatchTurnSnapshot = runtime.snapshot()
-
-    fun currentStream(): ModelStreamState = runtime.currentStream()
-
-    /** Failed inference remains a distinct charged attempt; no tool or user message is replayed. */
-    fun retryEmptyModelStream(nextModelCallId: String) {
-        val current = runtime.snapshot()
-        val stream = runtime.currentStream()
-        require(current.phase == TurnState.RECEIVING_MODEL && current.batchCalls.isEmpty())
-        val untouched = !stream.receiving && !stream.hasToolCallFragments
-        require(!current.modelCallClosed && stream.retryableError && untouched)
+    override fun retryEmptyModelStream(
+        checkpoint: TurnTerminalCheckpoint,
+        nextModelCallId: String,
+    ) {
+        val current = checkpoint
         storage.withTransaction {
             val turn = requireNotCancelling()
-            storage.modelCalls.update(storage.modelCalls.resolve(current.modelCallId), "FAILED", stream.usageJson, null)
+            storage.modelCalls.update(
+                storage.modelCalls.resolve(current.modelCallId),
+                "FAILED",
+                checkpoint.usageJson,
+                null,
+            )
             val building =
                 storage.turns.updateState(
                     turn,
@@ -100,33 +61,10 @@ internal class TurnCoordinator private constructor(
             storage.modelCalls.append(nextModelCallId, turnId, providerSnapshot, CALL_RUNNING)
             storage.turns.updateState(building, TurnState.WAITING_MODEL, current.modelStep + 1, null, null)
         }
-        runtime.closeSummary(nextModelCallId)
     }
 
-    /** Snapshot-only seam: the Engine owns the terminal transaction that consumes these facts. */
-    fun terminalCheckpoint(): TurnTerminalCheckpoint {
-        val current = runtime.snapshot()
-        val stream = runtime.currentStream()
-        return TurnTerminalCheckpoint(
-            sessionId = sessionId,
-            turnId = turnId,
-            phase = current.phase,
-            modelCallId = current.modelCallId,
-            modelStep = current.modelStep,
-            modelCallClosed = current.modelCallClosed,
-            summaryStream = summaryStream,
-            assistantText = stream.text,
-            usageJson = stream.usageJson,
-        )
-    }
-
-    /** Called only after the Engine-owned terminal transaction has committed. */
-    fun markTerminalCommitted(state: TurnState) {
-        runtime.terminalize(state)
-    }
-
-    /** Metadata only: request limits and compaction outcomes survive process death. */
-    fun recordDiagnostic(
+    override fun recordDiagnostic(
+        modelCallId: String,
         type: String,
         payload: String,
     ) {
@@ -157,7 +95,7 @@ internal class TurnCoordinator private constructor(
         }
         storage.auditEvents.append(
             idGenerator(),
-            runtime.snapshot().modelCallId,
+            modelCallId,
             type,
             "agent",
             payload,
@@ -165,30 +103,13 @@ internal class TurnCoordinator private constructor(
         )
     }
 
-    fun beginModelStream(compacting: Boolean = false): ModelStreamState {
-        summaryStream = compacting
-        val current = runtime.snapshot()
-        require(current.phase == TurnState.WAITING_MODEL)
-        beginPersistedModelStream(current.modelStep)
-        return runtime.beginModelStream()
-    }
-
-    /**
-     * Records the request's system-prompt snapshot (research doc section 4.4): the current
-     * model-call row's prompt columns and the `prompt.assembled` audit event commit in ONE
-     * transaction — the record of a request either fully exists or not at all. The section
-     * list + fingerprint are redacted (provenance and content hash, never content). No-op for
-     * an empty snapshot. Summary calls supply their own exact SYSTEM template snapshot;
-     * serialized history remains outside this redacted metadata record. The caller's flag
-     * identifies THIS call, before beginModelStream updates the live stream state.
-     */
-    fun recordPromptSnapshot(
+    override fun recordPromptSnapshot(
+        modelCallId: String,
         snapshot: PromptSnapshot?,
         summary: Boolean,
     ) {
         if (snapshot == null) return
-        val current = runtime.snapshot()
-        val record = promptSnapshotRecord(snapshot, current.modelCallId, turnId, compacting = summary) ?: return
+        val record = promptSnapshotRecord(snapshot, modelCallId, turnId, compacting = summary) ?: return
         storage.withTransaction {
             storage.modelCalls.recordPrompt(record.modelCallId, record.fingerprint, record.sectionsJson)
             storage.auditEvents.append(
@@ -202,40 +123,36 @@ internal class TurnCoordinator private constructor(
         }
     }
 
-    /**
-     * HXA-217 / ADR-AGENT-005: Records the request context manifest compact JSON on the call row.
-     */
-    fun recordRequestManifest(manifestJson: String?) {
+    override fun recordRequestManifest(
+        modelCallId: String,
+        manifestJson: String?,
+    ) {
         if (manifestJson.isNullOrBlank()) return
-        val current = runtime.snapshot()
         storage.withTransaction {
-            storage.modelCalls.recordRequestManifest(current.modelCallId, manifestJson)
+            storage.modelCalls.recordRequestManifest(modelCallId, manifestJson)
         }
     }
 
-    fun beginToolBatch(callIds: List<String>) {
-        // Validate the full batch before changing durable state.
-        require(callIds.isNotEmpty())
-        require(callIds.all(String::isNotBlank)) { "toolCallId must not be blank" }
-        require(callIds.toSet().size == callIds.size) { "duplicate toolCallId in batch" }
-        val current = runtime.snapshot()
-        require(current.phase == TurnState.RECEIVING_MODEL)
-        transitionPersisted(TurnState.RUNNING_TOOL, current.modelStep)
-        runtime.beginBatch(callIds)
-    }
+    override fun beginModelStream(checkpoint: TurnTerminalCheckpoint) =
+        transitionPersisted(TurnState.RECEIVING_MODEL, checkpoint.modelStep)
 
-    /** Atomically closes the model call and commits the assistant tool-call message. */
-    fun commitModelToolStep(toolCallsJson: String) {
-        val current = runtime.snapshot()
+    override fun beginToolBatch(checkpoint: TurnTerminalCheckpoint) =
+        transitionPersisted(TurnState.RUNNING_TOOL, checkpoint.modelStep)
+
+    override fun commitModelToolStep(
+        checkpoint: TurnTerminalCheckpoint,
+        toolCallsJson: String,
+    ) {
+        val current = checkpoint
         require(current.phase == TurnState.RUNNING_TOOL)
-        val text = runtime.currentStream().text
+        val text = checkpoint.assistantText
         val response = AssistantToolResponseContent.attachText(toolCallsJson, text)
         storage.withTransaction {
             requireNotCancelling()
             storage.modelCalls.update(
                 storage.modelCalls.resolve(current.modelCallId),
                 CALL_COMPLETED,
-                runtime.currentStream().usageJson,
+                checkpoint.usageJson,
                 null,
             )
             if (text.isNotBlank()) {
@@ -258,71 +175,14 @@ internal class TurnCoordinator private constructor(
                     response,
                 ).also { storage.modelCalls.bindToolMessage(current.modelCallId, it.id) }
         }
-        runtime.markModelCallClosed()
     }
 
-    fun settleBatchCall(
-        callId: String,
-        sideEffectUnknown: Boolean,
-    ) {
-        runtime.settleCall(callId, sideEffectUnknown)
-    }
-
-    /** Fail-closed boundary hint only; durable ToolCall/Turn rows remain authoritative. */
-    fun hasUnknownBatch(): Boolean =
-        runtime
-            .snapshot()
-            .batchCalls.values
-            .any { it == BatchCallResolution.UNKNOWN }
-
-    /** Ordered UNKNOWN identities only when every sibling has reached an in-memory settlement. */
-    fun settledReviewCallIds(): List<String>? {
-        val snapshot = runtime.snapshot()
-        if (snapshot.batchCalls.values.any { it == BatchCallResolution.PENDING }) return null
-        return snapshot.batchCalls
-            .filterValues { it == BatchCallResolution.UNKNOWN }
-            .keys
-            .toList()
-            .takeIf { it.isNotEmpty() }
-    }
-
-    /** Snapshot-only seam for the Engine-owned durable review parking transaction. */
-    fun reviewCheckpoint(reviewCallIds: List<String>): TurnReviewCheckpoint {
-        val current = runtime.snapshot()
-        require(current.phase == TurnState.RUNNING_TOOL && current.modelCallClosed)
-        val unknown =
-            current.batchCalls
-                .filterValues { it == BatchCallResolution.UNKNOWN }
-                .keys
-                .toList()
-        require(unknown == reviewCallIds && reviewCallIds.isNotEmpty())
-        return TurnReviewCheckpoint(
-            sessionId = sessionId,
-            turnId = turnId,
-            modelStep = current.modelStep,
-            batchCalls = current.batchCalls,
-            reviewCallIds = reviewCallIds,
-        )
-    }
-
-    /** Advances process-local state only after the caller's durable transaction committed. */
-    internal fun markRuntimeParked(reviewCallIds: List<String>) {
-        runtime.parkForReview(reviewCallIds)
-    }
-
-    /** Atomically records ordered model-visible results and opens the next model step. */
-    fun openNextModelCall(
+    override fun openNextModelCall(
+        checkpoint: TurnTerminalCheckpoint,
         messages: List<TurnMessageDraft>,
         nextModelCallId: String,
-    ) {
-        val current = runtime.snapshot()
-        require(current.batchCalls.isNotEmpty()) { "no active tool batch" }
-        require(current.batchCalls.values.none { it == BatchCallResolution.PENDING }) {
-            "tool batch still has pending calls"
-        }
-        require(current.batchCalls.values.none { it == BatchCallResolution.UNKNOWN }) {
-            "tool batch has unknown side effects"
-        }
+    ): ToolResultsCommitReceipt {
+        val current = checkpoint
         var cancelled = false
         storage.withTransaction {
             var turn = storage.turns.resolve(turnId)
@@ -366,14 +226,17 @@ internal class TurnCoordinator private constructor(
                 storage.turns.updateState(turn, TurnState.WAITING_MODEL, current.modelStep + 1, null, null)
             }
         }
-        // Tool outcomes remain model-visible, but a durable stop never opens another request.
-        if (cancelled) throw CancellationException("Turn cancellation was persisted")
-        runtime.advanceModelCall(nextModelCallId)
+        return if (cancelled) {
+            ToolResultsCommitReceipt.RECORDED_CANCELLED
+        } else {
+            ToolResultsCommitReceipt.NEXT_MODEL_OPENED
+        }
     }
 
-    /** Only WAITING_MODEL is a pre-request input boundary, after the full prior batch settled. */
-    fun appendSteeringBeforeRequest(draft: TurnSteeringDraft): Boolean {
-        require(runtime.snapshot().phase == TurnState.WAITING_MODEL)
+    override fun appendSteeringBeforeRequest(
+        checkpoint: TurnTerminalCheckpoint,
+        draft: TurnSteeringInput,
+    ): Boolean {
         var appended = false
         storage.withTransaction {
             requireNotCancelling()
@@ -385,19 +248,12 @@ internal class TurnCoordinator private constructor(
         return appended
     }
 
-    /**
-     * Linearizes accepted Steer against a final answer. A newly accepted head not represented by
-     * the caller's checked snapshot requests revalidation; it cannot be lost to a final commit.
-     */
-    @Suppress("LongMethod") // One transaction linearizes accepted Steer against final-answer commit.
-    fun completeResponseOrContinue(
-        prepared: TurnSteeringDraft?,
+    override fun completeResponse(
+        checkpoint: TurnTerminalCheckpoint,
+        prepared: TurnSteeringInput?,
         nextModelCallId: String,
-        persistTerminal: (TurnTerminalCheckpoint, ModelStreamTerminal) -> ModelStreamTerminal,
-    ): ResponseInputBoundary {
-        val current = runtime.snapshot()
-        require(current.phase == TurnState.RECEIVING_MODEL && current.batchCalls.isEmpty())
-        require((summaryStream && current.modelCallClosed) || (!summaryStream && !current.modelCallClosed))
+    ): ResponseCommitReceipt {
+        val current = checkpoint
         var boundary = ResponseInputBoundary.TERMINAL
         var committedTerminal: ModelStreamTerminal? = null
         storage.withTransaction {
@@ -411,15 +267,15 @@ internal class TurnCoordinator private constructor(
                 if (prepared == null || !currentSteeringMatches(prepared)) {
                     boundary = ResponseInputBoundary.RECHECK
                 } else {
-                    val stream = runtime.currentStream()
-                    if (!current.modelCallClosed && stream.text.isNotBlank()) {
+                    val stream = checkpoint
+                    if (!current.modelCallClosed && stream.assistantText.isNotBlank()) {
                         storage.messages.append(
                             idGenerator(),
                             sessionId,
                             turnId,
                             ModelRole.ASSISTANT.name,
                             ChatHistoryBuilder.KIND_TEXT,
-                            stream.text,
+                            stream.assistantText,
                         )
                     }
                     if (!current.modelCallClosed) {
@@ -445,25 +301,26 @@ internal class TurnCoordinator private constructor(
                 }
             } else {
                 committedTerminal =
-                    persistTerminal(
-                        terminalCheckpoint(),
+                    settlement.settleInTransaction(
+                        checkpoint,
                         ModelStreamTerminal(TurnState.COMPLETED, null),
                     )
             }
         }
-        if (boundary == ResponseInputBoundary.CONTINUED) runtime.closeSummary(nextModelCallId)
-        committedTerminal?.let { runtime.terminalize(it.state) }
-        return boundary
+        return ResponseCommitReceipt(boundary, committedTerminal)
     }
 
-    private fun currentSteeringMatches(draft: TurnSteeringDraft): Boolean {
+    private fun currentSteeringMatches(draft: TurnSteeringInput): Boolean {
         val current = storage.sessionInputs.headSteer(sessionId, turnId) ?: return false
         return current.state == com.helix.core.storage.repository.SessionInputState.PENDING &&
-            current.inputId == draft.input.inputId && current.revision == draft.input.revision &&
-            current.configuration == draft.input.configuration && current.expectedTurnId == turnId
+            current.inputId == draft.inputId && current.revision == draft.revision &&
+            current.configuration.providerId == draft.configuration.providerId &&
+            current.configuration.modelId == draft.configuration.modelId &&
+            current.configuration.mode == draft.configuration.mode &&
+            current.configuration.fingerprint == draft.configuration.fingerprint && current.expectedTurnId == turnId
     }
 
-    private fun appendSteering(draft: TurnSteeringDraft) {
+    private fun appendSteering(draft: TurnSteeringInput) {
         val message =
             storage.messages.append(
                 idGenerator(),
@@ -473,14 +330,35 @@ internal class TurnCoordinator private constructor(
                 ChatHistoryBuilder.KIND_TEXT,
                 draft.content,
             )
-        if (draft.attachments.isNotEmpty()) storage.messageAttachments.bind(message.id, draft.attachments)
+        if (draft.attachments.isNotEmpty()) {
+            val bindings =
+                draft.attachments.map {
+                    MessageAttachmentRepository.Binding(it.artifactId, it.purpose, it.boundSha256)
+                }
+            storage.messageAttachments.bind(message.id, bindings)
+        }
         if (draft.references.isNotEmpty()) {
-            storage.messageReferenceSnapshots.bind(message.id, draft.references, clock.now().toEpochMilli())
+            storage.messageReferenceSnapshots.bind(
+                message.id,
+                draft.references.map { reference ->
+                    ConversationReferenceSnapshotInput(
+                        reference.sourceSessionId,
+                        reference.sourceSessionTitle,
+                        com.helix.core.storage.repository.ConversationReferenceKind
+                            .valueOf(reference.selectionKind),
+                        reference.sourceMessageIds,
+                        reference.content,
+                    ).also {
+                        check(it.contentSha256 == reference.contentSha256)
+                    }
+                },
+                clock.now().toEpochMilli(),
+            )
         }
         check(
             storage.sessionInputs.markAppended(
-                draft.input.inputId,
-                draft.input.revision,
+                draft.inputId,
+                draft.revision,
                 turnId,
                 message.id,
                 clock.now().toEpochMilli(),
@@ -488,11 +366,13 @@ internal class TurnCoordinator private constructor(
         ) { "Input consumption changed during its transaction" }
     }
 
-    /** Called only for source messages actually selected after capacity admission, before streaming. */
-    fun recordInputRequestStarted(messageIds: Set<String>) {
+    override fun recordInputRequestStarted(
+        checkpoint: TurnTerminalCheckpoint,
+        messageIds: Set<String>,
+    ) {
         storage.withTransaction {
             requireNotCancelling()
-            val callId = runtime.snapshot().modelCallId
+            val callId = checkpoint.modelCallId
             storage.sessionInputs
                 .appendedForMessages(turnId, messageIds)
                 .filter {
@@ -503,23 +383,16 @@ internal class TurnCoordinator private constructor(
         }
     }
 
-    /** A completed summary is durable before the next request replaces any history. */
-    @Suppress("CyclomaticComplexMethod") // Commit or discard the summary with its call outcome in one transaction.
-    fun commitCompaction(
+    override fun commitCompaction(
+        checkpoint: TurnTerminalCheckpoint,
         plan: ContextCompactionPlan,
         nextModelCallId: String?,
-        notice: String? = null,
-        failureReason: String? = null,
-        saveSummary: Boolean = true,
+        notice: String?,
+        failureReason: String?,
+        saveSummary: Boolean,
     ) {
-        val current = runtime.snapshot()
-        val stream = runtime.currentStream()
-        require(current.phase == TurnState.RECEIVING_MODEL && stream.finishedToolCalls.isEmpty())
-        require(summaryStream)
-        if (failureReason == null) require(stream.completed && stream.terminal(false).state == TurnState.COMPLETED)
-        require(!current.modelCallClosed && current.batchCalls.isEmpty())
-        require(nextModelCallId == null || nextModelCallId.isNotBlank())
-        require(saveSummary || (nextModelCallId == null && failureReason == null && notice != null))
+        val current = checkpoint
+        val stream = checkpoint
         storage.withTransaction {
             requireNotCancelling()
             if (failureReason == null && saveSummary) {
@@ -529,7 +402,7 @@ internal class TurnCoordinator private constructor(
                     turnId,
                     idGenerator(),
                     plan,
-                    stream.text,
+                    stream.assistantText,
                     current.modelCallId,
                 )
             }
@@ -555,15 +428,6 @@ internal class TurnCoordinator private constructor(
                 storage.modelCalls.append(nextModelCallId, turnId, providerSnapshot, CALL_RUNNING)
                 storage.turns.updateState(turn, TurnState.WAITING_MODEL, current.modelStep + 1, null, null)
             }
-        }
-        runtime.closeSummary(nextModelCallId)
-    }
-
-    /** Durable remote-request boundary for a live Turn. Old interrupted/reviewed Turns never re-enter here. */
-    private fun beginPersistedModelStream(step: Int) {
-        storage.withTransaction {
-            val turn = requireNotCancelling()
-            storage.turns.updateState(turn, TurnState.RECEIVING_MODEL, step, null, null)
         }
     }
 
@@ -594,7 +458,7 @@ internal class TurnCoordinator private constructor(
             clock: Clock,
             idGenerator: () -> String,
             spec: TurnStartSpec,
-        ): TurnCoordinator {
+        ): TurnRoundCoordinator {
             val now = clock.now().toEpochMilli()
             storage.withTransaction {
                 // The receipt (clientRequestId + inputFingerprint) commits WITH the turn row (research
@@ -621,14 +485,11 @@ internal class TurnCoordinator private constructor(
                 )
                 storage.turns.updateState(turn, TurnState.WAITING_MODEL, 1, null, null)
             }
-            return TurnCoordinator(
-                storage,
-                clock,
-                idGenerator,
+            return TurnRoundCoordinator(
                 spec.sessionId,
                 spec.turnId,
-                spec.providerSnapshot,
-                BatchTurnRuntime(spec.firstModelCallId),
+                spec.firstModelCallId,
+                RoomTurnRoundStore(storage, clock, idGenerator, spec.sessionId, spec.turnId, spec.providerSnapshot),
             )
         }
 

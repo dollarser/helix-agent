@@ -4,7 +4,7 @@ import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.test.core.app.ApplicationProvider
 import com.helix.app.HelixApplication
 import com.helix.app.MainActivity
-import com.helix.app.chat.FileToolArguments
+import com.helix.app.application.tools.FileToolArguments
 import com.helix.core.model.OperationEffect
 import com.helix.core.model.OperationRule
 import com.helix.core.model.SessionPermissionMode

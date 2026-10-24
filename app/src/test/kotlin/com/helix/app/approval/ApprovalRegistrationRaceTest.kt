@@ -3,6 +3,7 @@ package com.helix.app.approval
 import com.helix.core.model.ApprovalDecision
 import com.helix.core.model.Clock
 import com.helix.core.model.ExecutionTargetType
+import com.helix.core.model.NoCancellation
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.policy.ApprovalBinding
 import com.helix.core.storage.dao.ApprovalDao
@@ -10,7 +11,6 @@ import com.helix.core.storage.entity.ApprovalEntity
 import com.helix.core.storage.repository.ApprovalRepository
 import com.helix.tools.framework.ApprovalAcquisition
 import com.helix.tools.framework.ApprovalRequest
-import com.helix.tools.framework.NoCancellation
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.Instant

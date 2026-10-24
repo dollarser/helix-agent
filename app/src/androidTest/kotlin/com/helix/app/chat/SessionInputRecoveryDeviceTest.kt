@@ -3,10 +3,12 @@ package com.helix.app.chat
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.agent.TurnSteeringDraft
+import com.helix.app.agent.toRoundInput
 import com.helix.app.engine.TurnRecovery
+import com.helix.app.infrastructure.agent.RoomTurnRoundStore
+import com.helix.core.agent.turn.TurnRoundCoordinator
 import com.helix.core.model.SystemClock
 import com.helix.core.model.TurnState
 import com.helix.core.storage.HelixStorage
@@ -97,7 +99,7 @@ class SessionInputRecoveryDeviceTest {
         storage.sessions.create("session", "Recovery fixture", null, null, 1)
         var nextId = 0
         val coordinator =
-            TurnCoordinator.start(
+            RoomTurnRoundStore.start(
                 storage,
                 SystemClock(),
                 { "generated-${nextId++}" },
@@ -119,15 +121,17 @@ class SessionInputRecoveryDeviceTest {
         if (appended) {
             assertTrue(
                 coordinator.appendSteeringBeforeRequest(
-                    TurnSteeringDraft(accepted.record, spec.text, emptyList()),
+                    TurnSteeringDraft(accepted.record, spec.text, emptyList()).toRoundInput(),
                 ),
             )
         }
         if (requested) {
-            coordinator.beginModelStream()
-            coordinator.recordInputRequestStarted(
-                setOf(requireNotNull(storage.sessionInputs.get("input")?.messageId)),
-            )
+            kotlinx.coroutines.runBlocking { coordinator.beginModelStream() }
+            kotlinx.coroutines.runBlocking {
+                coordinator.recordInputRequestStarted(
+                    setOf(requireNotNull(storage.sessionInputs.get("input")?.messageId)),
+                )
+            }
         }
         if (cancelling) {
             storage.withTransaction {

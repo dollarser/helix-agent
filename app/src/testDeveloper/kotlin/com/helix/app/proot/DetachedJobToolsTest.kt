@@ -2,10 +2,10 @@ package com.helix.app.proot
 
 import com.helix.app.approval.ApprovalUiMapper
 import com.helix.core.model.ExecutionTargetType
+import com.helix.core.model.NoCancellation
 import com.helix.core.model.ToolOperationClass
 import com.helix.runtime.proot.core.JobManifestEntry
 import com.helix.tools.framework.ExecutableToolCall
-import com.helix.tools.framework.NoCancellation
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import kotlinx.serialization.json.JsonPrimitive
@@ -45,7 +45,7 @@ class DetachedJobToolsTest {
         val cancelled =
             call().copy(
                 cancel =
-                    object : com.helix.tools.framework.CancelSignal {
+                    object : com.helix.core.model.CancelSignal {
                         override fun isCancelled() = true
                     },
             )

@@ -1,13 +1,13 @@
 package com.helix.extensions.documents
 
+import com.helix.core.model.CancelSignal
 import com.helix.core.model.ExecutionTargetType
+import com.helix.core.model.NoCancellation
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
-import com.helix.tools.framework.CancelSignal
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
-import com.helix.tools.framework.NoCancellation
 import com.helix.tools.framework.PublishedToolImage
 import com.helix.tools.framework.ToolBinding
 import com.helix.tools.framework.ToolDescriptor

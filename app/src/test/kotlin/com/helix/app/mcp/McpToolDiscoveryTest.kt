@@ -1,10 +1,11 @@
 package com.helix.app.mcp
 
+import com.helix.app.application.tools.FileToolArguments
+import com.helix.core.model.CancelSignal
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
-import com.helix.tools.framework.CancelSignal
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.ToolDescriptor
 import com.helix.tools.framework.ToolExecutorResult
@@ -112,12 +113,12 @@ class McpToolDiscoveryTest {
             val loaded = discovery.visible("session", registry.all(), defaults)
             assertTrue(tool in loaded)
             loaded.forEach { descriptor ->
-                com.helix.app.chat.FileToolArguments
+                com.helix.app.application.tools.FileToolArguments
                     .modelSchema(descriptor)
             }
             assertEquals(
                 tool.description,
-                com.helix.app.chat.FileToolArguments
+                com.helix.app.application.tools.FileToolArguments
                     .modelSchema(tool)
                     .description,
             )

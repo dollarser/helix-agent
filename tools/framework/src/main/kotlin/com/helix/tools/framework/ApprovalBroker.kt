@@ -1,5 +1,7 @@
 package com.helix.tools.framework
 
+import com.helix.core.model.CancelSignal
+import com.helix.core.model.NoCancellation
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.policy.ApprovalBinding
 import com.helix.core.policy.ApprovalProof

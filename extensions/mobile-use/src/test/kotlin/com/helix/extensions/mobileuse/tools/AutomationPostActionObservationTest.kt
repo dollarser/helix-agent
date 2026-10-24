@@ -1,6 +1,8 @@
 package com.helix.extensions.mobileuse.tools
 
+import com.helix.core.model.CancelSignal
 import com.helix.core.model.ExecutionTargetType
+import com.helix.core.model.NoCancellation
 import com.helix.extensions.mobileuse.automation.AutomationActionResult
 import com.helix.extensions.mobileuse.automation.AutomationActionStatus
 import com.helix.extensions.mobileuse.automation.AutomationGlobalAction
@@ -12,9 +14,7 @@ import com.helix.extensions.mobileuse.automation.AutomationSnapshotNode
 import com.helix.extensions.mobileuse.automation.AutomationSnapshotResult
 import com.helix.extensions.mobileuse.automation.AutomationSnapshotStatus
 import com.helix.extensions.mobileuse.automation.AutomationToolPort
-import com.helix.tools.framework.CancelSignal
 import com.helix.tools.framework.ExecutableToolCall
-import com.helix.tools.framework.NoCancellation
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolSchemaValidation
 import com.helix.tools.framework.ToolSchemaValidator

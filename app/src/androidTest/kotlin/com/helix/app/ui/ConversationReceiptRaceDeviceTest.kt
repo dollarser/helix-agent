@@ -17,7 +17,6 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.MainActivity
-import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.application.agent.TurnInputFingerprint
 import com.helix.app.chat.ChatService
@@ -29,6 +28,7 @@ import com.helix.app.test.TransferTestDocumentsProvider
 import com.helix.app.test.settleFixtureTerminal
 import com.helix.app.test.startFixtureTurn
 import com.helix.core.agent.ModelStreamTerminal
+import com.helix.core.agent.turn.TurnRoundCoordinator
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.SystemClock
@@ -129,7 +129,7 @@ class ConversationReceiptRaceDeviceTest {
                             inputFingerprint = TurnInputFingerprint.of(acceptedBody, listOf(binding)),
                         ),
                     )
-                coordinator.beginModelStream()
+                kotlinx.coroutines.runBlocking { coordinator.beginModelStream() }
                 coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
                 assertNotNull(chat.acceptedComposerReceipt(request))
                 assertTrue(chat.currentStagedAttachmentIds(session).isEmpty())

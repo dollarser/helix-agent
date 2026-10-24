@@ -483,7 +483,7 @@ class ChatSubmissionReceiptDeviceTest {
                             java.time.Instant
                                 .now()
                                 .plusSeconds(30),
-                            object : com.helix.tools.framework.CancelSignal {
+                            object : com.helix.core.model.CancelSignal {
                                 override fun isCancelled() = false
                             },
                             session,

@@ -14,7 +14,6 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.AppContainer
 import com.helix.app.HelixApplication
 import com.helix.app.MainActivity
-import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.test.settleFixtureTerminal
 import com.helix.app.test.startFixtureTurn
@@ -22,6 +21,7 @@ import com.helix.app.ui.ASYNC_UI_TIMEOUT_MILLIS
 import com.helix.app.ui.navigateTo
 import com.helix.app.ui.resetDeterministicUiState
 import com.helix.core.agent.ModelStreamTerminal
+import com.helix.core.agent.turn.TurnRoundCoordinator
 import com.helix.core.model.ModelEvent
 import com.helix.core.model.SystemClock
 import com.helix.core.model.TurnState
@@ -119,7 +119,9 @@ class CommandResultBrowseDeviceTest {
             { UUID.randomUUID().toString() },
             TurnStartSpec(SESSION, TURN, "$TURN-model", "command-fixture", "HXA194 developer fixture"),
         ).apply {
-            beginModelStream().apply(ModelEvent.TextDelta("HXA194 developer fixture result"))
+            kotlinx.coroutines.runBlocking {
+                beginModelStream().apply(ModelEvent.TextDelta("HXA194 developer fixture result"))
+            }
             settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
         }
     }

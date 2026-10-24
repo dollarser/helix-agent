@@ -1,6 +1,7 @@
 package com.helix.runtime.quickjs.tool
 
 import com.helix.core.model.ExecutionTargetType
+import com.helix.core.model.NoCancellation
 import com.helix.core.model.ToolOperationClass
 import com.helix.runtime.quickjs.JsCancellation
 import com.helix.runtime.quickjs.JsExecuteParams
@@ -10,7 +11,6 @@ import com.helix.runtime.quickjs.JsExecutionStatus
 import com.helix.runtime.quickjs.JsHash
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
-import com.helix.tools.framework.NoCancellation
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolOrigin
 import com.helix.tools.framework.ToolRegistry
@@ -259,7 +259,7 @@ class CodeJavascriptRunToolTest {
         val request =
             call(successArgs()).copy(
                 cancel =
-                    object : com.helix.tools.framework.CancelSignal {
+                    object : com.helix.core.model.CancelSignal {
                         override fun isCancelled(): Boolean = cancelled.get()
                     },
             )
