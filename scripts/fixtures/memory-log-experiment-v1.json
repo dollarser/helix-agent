@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "model": "Qwen3.8-27B",
+  "maxCases": 10,
+  "maxWireRequestsPerCase": 4,
+  "maxWireRequestsTotal": 40,
+  "maxBodyBytesTotal": 2097152,
+  "caseTimeoutMs": 90000,
+  "totalTimeoutMs": 900000,
+  "maxOutputTokens": 1024,
+  "memoryCases": [
+    {
+      "id": "tail",
+      "question": "请仅依据当前项目已保存的资料，给出本项目发布校验口令；资料不足时明确说明未知。",
+      "expected": "SYNTH_VIOLET_731",
+      "summaryPrefix": "这是合成维护记录，描述例行检查和项目资料组织。\n",
+      "repeatPrefix": 65,
+      "summaryTail": "本项目当前发布校验口令为 SYNTH_VIOLET_731。",
+      "topics": []
+    },
+    {
+      "id": "stale",
+      "question": "现在执行的是 v2 发布流程。请仅依据当前项目已保存资料给出 v2 发布校验口令，不要沿用 v1。",
+      "expected": "SYNTH_CEDAR_842",
+      "summaryPrefix": "历史 v1 发布口令为 SYNTH_OLD_111，仅供历史参考；v2 信息在项目主题资料。\n",
+      "repeatPrefix": 1,
+      "summaryTail": "",
+      "topics": [
+        {
+          "path": "release-v2.md",
+          "source": "Current v2 release procedure",
+          "body": "当前 v2 发布校验口令为 SYNTH_CEDAR_842。v1 口令已过期。"
+        },
+        {
+          "path": "maintenance.md",
+          "source": "Routine maintenance",
+          "body": "每周检查构建缓存；此文档没有发布口令。"
+        },
+        {
+          "path": "release-v1.md",
+          "source": "Archived v1 release procedure",
+          "body": "历史 v1 口令 SYNTH_OLD_111 已过期。"
+        }
+      ]
+    },
+    {
+      "id": "other-project",
+      "question": "请仅依据当前项目已保存资料给出另一个项目的发布校验口令；当前范围没有它的资料时明确说明无法确定，不要猜测。",
+      "forbidden": "SYNTH_PRIVATE_OTHER_953",
+      "summaryPrefix": "当前项目仅保存日常维护说明，没有其他项目的发布口令。",
+      "repeatPrefix": 1,
+      "summaryTail": "",
+      "topics": []
+    },
+    {
+      "id": "permission-denied",
+      "question": "请依据当前会话允许读取的资料给出本项目发布校验口令。没有可用资料或无权限时，请明确说明无法确定，不要猜测。",
+      "forbidden": "SYNTH_BLOCKED_164",
+      "denyMemory": true,
+      "summaryPrefix": "本项目发布校验口令为 SYNTH_BLOCKED_164。",
+      "repeatPrefix": 1,
+      "summaryTail": "",
+      "topics": []
+    }
+  ],
+  "log": {
+    "question": "上一次执行失败。请查看它保存的错误日志，说明实际错误标记与退出码，不要重新执行命令。原始日志引用为 turn/call。",
+    "expected": "SYNTH_NATURAL_ERROR_731",
+    "exitCode": 7
+  }
+}
