@@ -1325,7 +1325,7 @@ Mobile Use 首要验收对象仍是 `观察 → 动作 → 新观察 → 模型�
 | 现有承接位置（可重组） | 保留或替换的内容 | 新能力接入方式 |
 | --- | --- | --- |
 | core:agent | 唯一 Loop、上下文与窄端口、原日志/终态命令 | 模型 Provider、内容源和工具网关通过端口注入，不导入 Android 服务 |
-| app/engine 与应用服务 | Turn owner、用户命令、Room 适配、会话/权限投影 | Turn 领域协调经原子持久端口工作；现有统一应用入口脱离 ChatService，Android 装配与 Room 实现独立适配 |
+| core:agent/runtime、app/application 与 app/infrastructure | Core Turn owner、应用命令、独立 Room 适配及会话/权限投影 | lifecycle/round 是闭合原子契约；Core 不接 App/Room，Android 只实现端口与 composition，旧 app/engine 及兼容转发删除 |
 | tools:framework | 唯一绑定、Scheduler、Dispatcher、执行完成契约 | 新 handler 提供 schema＋可信实现＋真实执行能力；不修改全局业务分支 |
 | core:workspace 与 core:storage | Memory/Workspace 内容与 Room 各自事实 | 领域端口由现有存储实现；不全量 event sourcing 或双写 |
 | extensions/* | 插件工具、内容、设置、原生资源和领域 UI | 新 native 插件独立贡献；共享权限/任务/产物端口，不依赖 ChatService |
@@ -1391,7 +1391,7 @@ Workspace 后端按实际能力提供 Path、SAF、Job snapshot 或 live mount �
 | 288 / 条件候选 | 仅修改有证据的观察/内部身份/用途适配；不得与其他片同时写 Dispatcher | 保留现有内部观察资格、真实退出/容量和屏幕披露；以目标扩展测试/依赖改善裁决，现类无保留豁免 |
 | 293-B / 需实验 | A 接缝稳定后只读/固定样本对照设计，模型/账号使用另有当次授权 | 预设有限预算，1000 字后事实可找回；无收益或样本不足保留默认，不持续试到成功 |
 
-存储端口只表达真实原子领域命令，不包一层通用 DAO 或事务 lambda。Room 仍是持久权威；无页面测试不代替真实 Room 原子性，纯 JVM 完整宿主尚未交付。若小片需要大量不相关模块、第二账本或外部部署，停止并缩回当前接口问题，而非继续扩大。
+存储端口只表达真实原子领域命令，不包一层通用 DAO 或事务 lambda。Room 仍是持久权威；无页面测试不代替真实 Room 原子性，287-C 的中立宿主和真实 Room 验证分别见阶段记录。若小片需要大量不相关模块、第二账本或外部部署，停止并缩回当前接口问题，而非继续扩大。
 
 #### 23.7.2 预览后能力与结构工作的优先级
 
@@ -1517,3 +1517,9 @@ JSONL 保留按需导出与独立离线读取，Room/ContentStore 持久事实�
 常驻不等于永不退出。Android 背景限制、系统回收、连接中断与模型失败都必须返回可核查状态；授权是否继续有效由原授权规则决定，执行句柄则按原实例重新取得。恢复不能复用旧 node/gesture、伪造 shell 内存或重放未决副作用。账号服务若要求比现有同 UID Runtime 更强的秘密隔离，先修改原 Runtime/Provider ADR 并证明机制，再允许接入；不能用产品文案代替隔离。
 
 上述候选待目标包/场景及当次实施授权后登记具体切片，已有任务不被默默扩容。近期优先交付 289/291/292/293-A 的确定增量，再按实际使用需求选择本地插件运行或模型跨会话投递；不存在“导入格式全识别后必须全部能运行”的隐含承诺。
+
+### 2026-10-24 阶段 1 C 实施检查点
+
+承接 A `8297a4be` 与 B `9fe88ca5`，完整 Engine/driver/停止/live 契约已实际进入 Core，不再仅抽 round facade。普通提交、Queue、inspection 的闭合准入和恢复/Goal edit/迟到 Steer 的真实 Room 提交集中 `app/infrastructure/agent`；原回调、重复 DTO、旧 Engine 包及停止桥删除，测试目录和 eval/健康探针选择器同步迁移。纯 JVM 与 Room/模拟器的证据分别维护于[生命周期记录](../evidence/development/harness-stage1-lifecycle-2026-10-24.md)，阶段最终 Debug/Release 主机与两渠道独立模拟器已通过，精确范围以该记录为准。
+
+目录与依赖方向见[总体架构](overview.md#当前目录与单一权威)。本次以职责和调用权威重组，没有增加 Gradle 模块或无需求通用框架；Room 模块身份保留不表示中立领域可依赖它。后续仅根据实际扩展/测试收益裁决新的模块边界，不保留旧 API 或预建假想版本兼容。

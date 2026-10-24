@@ -316,7 +316,7 @@ Owner 要求在 ARM64 预览本地收尾后，按竞品与当前实现更新既�
 | 终端/执行 | Job 与手动 PTY 已存在；302 的最终 R8 输入、页面重连、停止及身份读取修复已验 | 模型交互 PTY 未开放；进程死亡不能恢复 shell 内存；288 迁契约而不重做终端 UI |
 | Mobile Use | 插件、会话持久授权、应用范围、浮窗、后端重建、截图来源/返回已有实现及分项实测 | 尚未覆盖的系统/OEM/任务组合属于验证边界；特定 Qwen 数字误读已由 Owner 归属模型，不另列客户端待修 |
 
-源码入口：[应用适配](../../../app/src/main/kotlin/com/helix/app/chat/AppAgentRuntime.kt)、[TurnEngine](../../../app/src/main/kotlin/com/helix/app/engine/TurnEngine.kt)、[会话工具](../../../app/src/main/kotlin/com/helix/app/chat/SessionToolDescriptors.kt)、[引用物化](../../../app/src/main/kotlin/com/helix/app/agent/ContextHistoryContent.kt)、[Memory 当前策略](../../../core/workspace/src/main/kotlin/com/helix/core/workspace/memory/MemoryContext.kt)、[MCP facade](../../../extensions/mcp/src/main/kotlin/com/helix/extensions/mcp/McpClientFacade.kt)、[stdio Job](../../../app/src/developer/kotlin/com/helix/app/mcp/McpStdioJobBridge.kt)、[包导入](../../../extensions/plugin/src/main/kotlin/com/helix/extensions/plugin/PluginPackage.kt)、[组件审计](../../../extensions/plugin/src/main/kotlin/com/helix/extensions/plugin/PluginComponentAudit.kt)。运行边界以实际构建和 ADR-RUNTIME-001 为准，旧源码注释中的独立签名说法不改变当前同 UID 私有进程事实。
+源码入口：[应用适配](../../../app/src/main/kotlin/com/helix/app/chat/AppAgentRuntime.kt)、[TurnEngine](https://github.com/dollarser/helix-agent/blob/9965d2dff694441458b4036942c4b8b9749f0f8e/app/src/main/kotlin/com/helix/app/engine/TurnEngine.kt)、[会话工具](../../../app/src/main/kotlin/com/helix/app/chat/SessionToolDescriptors.kt)、[引用物化](../../../app/src/main/kotlin/com/helix/app/agent/ContextHistoryContent.kt)、[Memory 当前策略](../../../core/workspace/src/main/kotlin/com/helix/core/workspace/memory/MemoryContext.kt)、[MCP facade](../../../extensions/mcp/src/main/kotlin/com/helix/extensions/mcp/McpClientFacade.kt)、[stdio Job](../../../app/src/developer/kotlin/com/helix/app/mcp/McpStdioJobBridge.kt)、[包导入](../../../extensions/plugin/src/main/kotlin/com/helix/extensions/plugin/PluginPackage.kt)、[组件审计](../../../extensions/plugin/src/main/kotlin/com/helix/extensions/plugin/PluginComponentAudit.kt)。运行边界以实际构建和 ADR-RUNTIME-001 为准，旧源码注释中的独立签名说法不改变当前同 UID 私有进程事实。
 
 ### 10.3 本次裁决
 
@@ -411,3 +411,5 @@ Owner 要求结合现状优化原重构计划与任务。本节为一手资料�
 旧默认快照前提已被后续原位交付替代；Job 观察 executor 识别、截图披露条件和 FileHistoryPaths 展示分支仍有真实职责，尚无证据支持全域删除。知识库的原件/核对笔记与 Memory 的作用域/记忆资格也不因 Markdown 共性合并。未覆盖设备、服务端质量、模型漏读与结构缺口分别归因，不能靠重构计划将任何一类伪报修复。
 
 > 2026-10-24 目录迁移说明：已删除旧类的链接指向公开 v0.0.7 发布基线，供追溯该旧路径；不证明当年未提交快照逐字可重建。当前替换入口和验收以 [HXA-287](../../development/tasks/HXA-287.md) 为准，旧结构不再是现行规范。
+
+旧 App Engine 源码入口固定到公开 v0.0.7，供历史结构导航，不表示逐字恢复审查时的未提交代码；当前落点见[实施状态](../../development/status.md)。

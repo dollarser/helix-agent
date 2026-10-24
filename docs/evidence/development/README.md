@@ -1,5 +1,7 @@
 # 开发证据库
 
+- 2026-10-24 Harness 阶段 1：[应用与内容](harness-stage1-application-content-2026-10-24.md)、[round/工具边界](harness-stage1-round-tools-2026-10-24.md)、[完整生命周期](harness-stage1-lifecycle-2026-10-24.md)。每份只证明其冻结候选与实际验收范围，不外推未运行项。
+
 - [2026-10-19 三阶段收尾与朗读等待](phase-closeout-2026-10-19.md)：有界合成/播放、渠道分享目标、真实 Chrome 分享与配对延迟；两渠道自动验收及 Owner 延后手测的边界。
 
 - [2026-10-19 本机回复朗读](read-aloud-2026-10-19.md)：Melo INT8 按需资源、单项播放/取消/焦点、文件合成与原有知识库/提醒回归；真机主动试听单列。

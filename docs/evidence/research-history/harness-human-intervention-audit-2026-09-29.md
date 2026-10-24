@@ -29,7 +29,7 @@
 | P2 | 订阅与 PRoot 的查询、取回结果、确认回执失败后的重试主要由界面回调触发，没有纳入模型恢复闭环 | `SubscriptionRecoveryActions.kt:28-55`；`ChatRecoveryActions.kt:26-91,111-182`；`ProotAcknowledgementActions.kt` | 对账／查询／结果回收由自动恢复执行；用户仍可查看结果，查看按钮不承担启动恢复的责任 |
 | P2 | 提示词仍允许把无法安全协调的文件冲突或 blocker 交给用户解决，和新规则冲突 | `prompts/base.md:4`；`prompts/files.md:10`；`AutomationTools.kt:200,289-290` | 改为自主检查、在权限内补救、可解释放弃；提示词修改不能替代恢复工具与调度实现 |
 
-路径入口：[自动化](../../../extensions/mobile-use/src/main/kotlin/com/helix/extensions/mobileuse/automation/AutomationSessionManager.kt)、[调度](../../../app/src/main/kotlin/com/helix/app/chat/SessionWorkScheduler.kt)、[核查结算](../../../app/src/main/kotlin/com/helix/app/engine/ReviewResolutionSupport.kt)、[恢复投影](../../../app/src/main/kotlin/com/helix/app/ui/RecoveryFactsProjection.kt)、[Goal 结算](../../../app/src/main/kotlin/com/helix/app/agent/GoalRunSettlement.kt)、[队列](../../../app/src/main/kotlin/com/helix/app/ui/SessionInputQueuePanel.kt)、[Runtime 恢复](../../../app/src/main/kotlin/com/helix/app/chat/ChatRecoveryActions.kt)、[提示词](../../../app/src/main/resources/prompts/base.md)。
+路径入口：[自动化](../../../extensions/mobile-use/src/main/kotlin/com/helix/extensions/mobileuse/automation/AutomationSessionManager.kt)、[调度](../../../app/src/main/kotlin/com/helix/app/chat/SessionWorkScheduler.kt)、[核查结算](https://github.com/dollarser/helix-agent/blob/9965d2dff694441458b4036942c4b8b9749f0f8e/app/src/main/kotlin/com/helix/app/engine/ReviewResolutionSupport.kt)、[恢复投影](../../../app/src/main/kotlin/com/helix/app/ui/RecoveryFactsProjection.kt)、[Goal 结算](../../../app/src/main/kotlin/com/helix/app/agent/GoalRunSettlement.kt)、[队列](../../../app/src/main/kotlin/com/helix/app/ui/SessionInputQueuePanel.kt)、[Runtime 恢复](../../../app/src/main/kotlin/com/helix/app/chat/ChatRecoveryActions.kt)、[提示词](../../../app/src/main/resources/prompts/base.md)。
 
 ## 不是工具审批的其他确认入口
 
@@ -45,3 +45,5 @@
 4. 最后更新提示词、文案与测试；不能靠屏蔽 NEEDS_REVIEW、强制写成功或无限新建 Turn 达标。
 
 退出条件：所有非审批的可恢复问题均实际到达模型／平台恢复路径；不可恢复情况明确终结，不等待人工处理。覆盖超时前后部分副作用、原 executor 未退出、重复通知、进程重开、用户 Stop、权限撤销、模型不可用、额度耗尽、无进展和恢复再失败。测试断言同时检查“不出现人工恢复请求”与“未越权／未重复执行／未假报成功”。
+
+旧 App Engine 源码入口固定到公开 v0.0.7，供历史结构导航，不表示逐字恢复审查时的未提交代码；当前落点见[实施状态](../../development/status.md)。

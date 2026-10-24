@@ -1,16 +1,16 @@
 # Helix 总体架构
 
-本文说明当前职责与已接受的演进边界；2026-10-14 定向复核执行接口、Memory、插件资源与恢复导航。实际交付以[实施状态](../development/status.md)和[完成记录](../completion-records/index.md)为准。接受设计不代表对应功能已上线；当前源码证据与重新调研见[执行引擎研究 §10](../research/modules/01-architecture-and-execution-engine.md#10-2026-10-14-执行边界与新目标设计复核)，2026-10-15 评审后的单一目标设计见[Harness 方案 §23](harness-refactor-plan.md#23-2026-10-14-执行边界重构提案)，已登记 HXA-286～294；286/287/293 的阶段 1 正在实施，完整 Turn 宿主中立化尚未完成。
+本文说明当前职责与已接受的演进边界；2026-10-14 定向复核执行接口、Memory、插件资源与恢复导航。实际交付以[实施状态](../development/status.md)和[完成记录](../completion-records/index.md)为准。接受设计不代表对应功能已上线；当前源码证据与重新调研见[执行引擎研究 §10](../research/modules/01-architecture-and-execution-engine.md#10-2026-10-14-执行边界与新目标设计复核)，2026-10-15 评审后的单一目标设计见[Harness 方案 §23](harness-refactor-plan.md#23-2026-10-14-执行边界重构提案)，已登记 HXA-286～294；286/293-A 内容接缝及 287-A/B 已交付；287-C 中立生命周期代码已接入，当前验收边界见[生命周期记录](../evidence/development/harness-stage1-lifecycle-2026-10-24.md)。
 
 ## 职责与调用路径
 
 | 层 | 所有权 | 不承担的职责 |
 | --- | --- | --- |
 | UI / feature | 用户意图、导航、展示、人工操作入口，订阅应用读模型 | 直接访问 DAO、网络客户端或执行器；持有 Turn worker |
-| 应用命令 / ChatService 展示适配 | application/agent 汇合提交、队列、恢复与停止；ChatService 保留 composer、会话配置和 UI-facing projection，AppAgentRuntime 调命令并观察 Engine | 持有第二个 worker/startGate 或改写 Turn terminal/review |
-| TurnEngine / TurnExecutionDriver | durable admission/cancel/review/terminal/recovery、session blocker、runtime snapshot、live AgentLoop driver/observation | UI 导航、重新定义工具策略或 Runtime 退出事实 |
+| 应用命令 / ChatService 展示适配 | application/agent 汇合提交、队列与恢复准备；停止由 Core 命令处理；ChatService 保留 composer、会话配置和 UI-facing projection，AppAgentRuntime 调命令并观察 Engine | 持有第二个 worker/startGate 或改写 Turn terminal/review |
+| core:agent/runtime 的 TurnEngine / TurnExecutionDriver | durable admission/cancel/review/terminal/recovery、session blocker、runtime snapshot、live AgentLoop driver/observation | UI 导航、重新定义工具策略或 Runtime 退出事实 |
 | Core Agent | 纯 JVM 的唯一 AgentLoop、TurnRoundCoordinator 运行投影、模型/工具回填及上下文预算；语义提交经 Store，Room 仍为持久事实 | 依赖 App/Room/UI、凭模型内容创建用户授权 |
-| 宿主适配 | AgentLoopHost 装配端口；RoomTurnRoundStore 直接提交 round 原子命令；ApplicationToolGateway 实现 AgentToolGateway，ChatToolPresentation 仅显示事实 | 另建循环或取得 Turn 最终结算权 |
+| 宿主适配 | AgentLoopHost 装配端口；RoomTurnLifecycleStore/RoomTurnRoundStore 直接提交闭合原子命令；ApplicationToolGateway 实现 AgentToolGateway，ChatToolPresentation 仅显示事实 | 另建循环或取得 Turn 最终结算权 |
 | ToolScheduler | 有界批次调度、真实不可重入资源约束、原调用顺序结算 | 按潜在业务结果冲突建立全局写锁、决定用户授权 |
 | ToolDispatcher | schema/绑定、能力与策略、会话授权、执行前复检、期限及结果/审计处理 | 以展示就绪代替实时准入、把 Provider 请求当工具执行 |
 | ToolExecutor / Runtime / 数据 | 实际操作、执行身份与物理资源、Room 持久事实、Workspace 与结果对账 | 因重连而自动重放未知副作用、将取消请求等同实际退出 |
@@ -19,14 +19,16 @@
 flowchart TD
   UI[会话与任务 UI] --> Coordinator[应用协调 / ChatService]
   Coordinator --> Entry[AgentRuntime / AppAgentRuntime 接入原应用命令]
-  Entry --> Commands[application/agent 提交与停止命令]
+  Entry --> Commands[application 提交 / Core 停止命令]
   Commands --> Engine[TurnEngine / TurnExecutionDriver]
-  Engine --> Host[AgentLoopHost / 本机适配]
+  Engine --> Runner[Core TurnLoopRunner 端口]
+  Host[App AgentLoopHost / 本机适配] -.实现.-> Runner
   Host --> Loop[core:agent / 唯一 AgentLoop]
-  Engine --> State[Room durable state / runtime checkpoint]
+  Engine --> Store[Core LifecycleStore / RoundStore 原子端口]
+  Store --> State[Room durable state / runtime checkpoint]
   Loop --> Provider[ModelProvider]
   Loop --> Gateway[AgentToolGateway / 中立调用]
-  Gateway --> Adapter[ChatToolCalls / 持久调用适配]
+  Gateway --> Adapter[ApplicationToolGateway / 持久调用适配]
   Adapter --> Scheduler[ToolScheduler / 有界调度]
   Scheduler --> Dispatcher[ToolDispatcher / 执行准入]
   Dispatcher --> Tools[文件 / 网络 / 浏览器 / MCP 等工具]
@@ -38,7 +40,7 @@ flowchart TD
   Provider --> Subscription[可选订阅客户端与私有进程]
 ```
 
-图表示职责与调用方向，不表示每层一个进程或 Server。`AppAgentRuntime` 当前由 ChatService 构造，submit/cancel 直接调用 `application/agent` 的提交/停止命令；它是端口适配，不是已经独立部署的 Harness。Engine 持久结算后才释放 live owner 并发布相应观察；UI 投影不反向提交终态。
+图表示职责与调用方向，不表示每层一个进程或 Server。`AppAgentRuntime` 当前由 ChatService 构造，submit 调 `application/agent` 的提交准备，cancel 调 Core 停止命令；它是端口适配，不是已经独立部署的 Harness。Engine 持久结算后才释放 live owner 并发布相应观察；UI 投影不反向提交终态。
 
 手动文件管理、组件安装和浏览器拥有独立服务路径，不必先建立 Agent Turn。feature 通过应用接口提交动作。[ADR-AGENT-001](../adr/agent/001-turn-coordination.md)已将 live driver/observation 与 durable lifecycle 同归 TurnEngine；HXA-220/223 的交付不能继续画成 ChatService 持有 live worker 的迁移期结构。
 
@@ -57,13 +59,13 @@ Chat、Plan、Act、Goal 共用执行循环，差异由工具曝光与 Policy �
 
 ## 模块、权限与资源边界
 
-`core:model`、`core:agent`、`core:policy`、`core:workspace` 是 JVM 模块；`core:storage` 是承载 Room 的 Android Library。因此 `core/` 目录名不等于所有内容都可脱离 Android。`core:agent` 通过中立端口复用，完整 TurnEngine 与持久宿主仍在 App；当前没有另一个独立 Turn Server。真实模块依赖见[Gradle 声明](../../build.gradle.kts)。
+`core:model`、`core:agent`、`core:policy`、`core:workspace` 是 JVM 模块；`core:storage` 是承载 Room 的 Android Library。因此 `core/` 目录名不等于所有内容都可脱离 Android。`core:agent` 通过中立端口复用，完整 TurnEngine/driver/live owner 在 Core，经闭合生命周期/round 端口工作，Room 持久适配在 App infrastructure；当前没有另一个独立 Turn Server。真实模块依赖见[Gradle 声明](../../build.gradle.kts)。
 
 一次工具调用按原 Registry 绑定和 schema 校验，进入 live capability / Policy 硬约束、工具可用性与会话授权，再按需要取得精确审批；等待后开始执行前复检取消、权限和绑定。安装、会话选择、系统权限、配置就绪和某次调用的批准分别记录：系统权限满足能力条件，readiness 只说明可观察准备事实，均不能替代 Dispatcher 准入。具体规则归[权限 ADR](../adr/permissions/001-session-authorization.md)和[工具 ADR](../adr/tools/001-descriptor-contract.md)。
 
 区分四类所有权：Engine 的 Turn live owner、Scheduler 的调用槽位、Executor/Runtime 的实际容量及原执行身份、插件/宿主的共享资源引用。完成等待可以释放观察 worker，取消或超时不能释放仍运行的 executor 容量；插件撤销也不能关闭其他消费者还在使用的后端。原执行结果/退出事实继续由原 Runtime 提供，HXA-277 只补原生贡献资源引用与释放。
 
-UI 目前通过应用服务及 StateFlow 工作；ChatScreen 仍依赖较宽的 ChatService，但 HXA-274 所涉恢复导航已经改成消费 RecoveryRepairDestination，由当前页面在用户操作后执行导航，不再把页面导航回调存入服务。2026-10-14 发现的工具业务与卡片/字符串耦合已在 287-B 接入独立展示 sink；Core TurnRoundCoordinator 直接实现 AgentTurnJournal，原 App coordinator 和转调 journal 已删除，本片主机及两渠道独立模拟器验收通过；工具执行请求、取消、原 Job 身份与物理容量已存在，不应再建平行框架。其他命令/读模型继续复用 HXA-257/258 的状态 owner；完整 Turn 宿主提取已与应用命令合并为 HXA-287，执行结果/Job/产物为 HXA-288，不再等待第二消费者。完整 Engine/driver 对 App/Room 的依赖仍待 287-C，不将 round 提取等同完整宿主完成；实施顺序由[当前状态](../development/status.md)决定。
+UI 目前通过应用服务及 StateFlow 工作；ChatScreen 仍依赖较宽的 ChatService，但 HXA-274 所涉恢复导航已经改成消费 RecoveryRepairDestination，由当前页面在用户操作后执行导航，不再把页面导航回调存入服务。2026-10-14 发现的工具业务与卡片/字符串耦合已在 287-B 接入独立展示 sink；Core TurnRoundCoordinator 直接实现 AgentTurnJournal，原 App coordinator 和转调 journal 已删除，本片主机及两渠道独立模拟器验收通过；工具执行请求、取消、原 Job 身份与物理容量已存在，不应再建平行框架。其他命令/读模型继续复用 HXA-257/258 的状态 owner；完整 Turn 宿主提取已与应用命令合并为 HXA-287，执行结果/Job/产物为 HXA-288，不再等待第二消费者。287-C 已实际迁移 Engine/driver/停止命令和 live 契约，删除旧 App 路径；其纯 JVM 与真实 Room 验证分别记账，不将内存 fixture 外推为所有宿主通过；实施顺序由[当前状态](../development/status.md)决定。
 
 ## 专项契约
 
@@ -77,3 +79,19 @@ UI 目前通过应用服务及 StateFlow 工作；ChatScreen 仍依赖较宽的 
 - [用户操作链](../product/task-experience.md)：工作区、输出、变更和恢复之间的导航。
 
 本图只描述当前职责与已接受演进边界；具体功能是否已交付、仍有哪些收尾/发行任务，以[实施状态](../development/status.md)、[任务索引](../development/roadmap.md)和[完成记录](../completion-records/index.md)为准。
+
+## 当前目录与单一权威
+
+```text
+core/agent/runtime      Engine、driver、停止命令、live/deadline/观察契约
+core/agent/turn         RoundCoordinator、闭合 lifecycle/round 命令与 receipt
+app/application/agent  提交准备、Queue/Goal 的应用意图与交付协调
+app/application/tools  原 Dispatcher/审批/工具结果持久结算适配
+app/application/context 类型化上下文贡献
+app/agent              App 宿主的上下文/历史/Goal 集成适配，非 Core Engine
+app/infrastructure/agent Room 事务、恢复记录、Goal ownership/edit 与 Engine 装配
+app/infrastructure/prompt 打包模板适配
+app/chat               会话应用组合与 UI-facing 投影；不再有 Engine 或 journal 转发
+```
+
+上述是职责目录，不要求一目录一 Gradle 模块。没有新建 common/utils 总包或旧包名兼容 facade；所有调用者和设备测试选择器一并迁移。`core:storage` 保留现行 Android Room 模块身份，属于共享基础设施而非中立领域；通过依赖禁令及 App 适配包明确边界。仅改顶层目录名没有额外依赖/测试收益，因此本阶段不重建模块或数据库，不改用户数据。

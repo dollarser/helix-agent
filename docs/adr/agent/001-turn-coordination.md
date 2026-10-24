@@ -58,7 +58,7 @@ HXA-287 的应用命令收窄与完整 Turn 领域宿主中立化仍是明确未
 
 沿 [HXA-286](../../development/tasks/HXA-286.md#共同契约与退出条件)与现行 ADR/实现区分 Turn/call/Job/长期 ExecutionResource/artifact 身份及归属，调用返回/物理退出/输出收尽/结果落盘、cancel requested/confirmed、迟到事实、重启 reconcile 和清理责任。TurnEngine 与调用建档仍创建原 turnId/toolCallId，Job/资源由实际执行 owner 管理，领域持久端口保存这些事实及引用；不在语义尚未明确时固定数据库接口。
 
-2026-10-24 接续改为既有唯一 Engine 上的应用命令/批次投影小片：287-A 收窄提交/停止，287-B 分开持久命令与展示；完整中立宿主是 287-C 的未完成目标；应消除现 Engine 对 App/具体 Room 的依赖，保持唯一生命周期/事务/恢复语义而非保留现类，不为结构迁移制造第二 Engine。286 内容快照与 293-A 协同，288 仅改有证据的执行接缝，不再等待两套核心重建后共同接线。每个改动仍验证开始前、效果后提交前、提交后通知前三个窗口，fake ports 不代替真实 Room/执行证据，294 汇总而不推迟首次正确性验证。
+2026-10-24 接续改为既有唯一 Engine 上的应用命令/批次投影小片：287-A 收窄提交/停止，287-B 分开持久命令与展示；完整中立宿主由 287-C 实施并分别验证 Core/Room；消除 Engine 对 App/具体 Room 的依赖，保持唯一生命周期/事务/恢复语义而非保留现类，不为结构迁移制造第二 Engine。286 内容快照与 293-A 协同，288 仅改有证据的执行接缝，不再等待两套核心重建后共同接线。每个改动仍验证开始前、效果后提交前、提交后通知前三个窗口，fake ports 不代替真实 Room/执行证据，294 汇总而不推迟首次正确性验证。
 
 区分四类所有权：TurnEngine 管整轮 live driver 与持久生命周期；ToolScheduler 管调度/观察槽位；Executor/Runtime 管实际执行容量及原执行身份；插件/宿主管共享资源引用。完成观察等待可释放 worker，Turn 终态、UI detach 或取消信号都不能证明 executor 已退出。HXA-277 的原生资源句柄消费现有 ExecutionOwnership / Runtime 退出与对账事实，不复制执行状态或替代原取消协议。权限准入始终归原 Dispatcher；就绪投影和资源引用不授予执行能力。
 
@@ -446,3 +446,9 @@ HXA-306 修复草稿缓存提前持久化占位标题造成的命名缺口。采
 - 2026-10-21：Owner 授权结果/日志收尾。失败诊断复用 `tool_results` 与 ContentStore，保留未验证成功的区别；同会话受控补读不重执行。长输出投影与实际模型历史都保留原调用身份、副作用不确定性、关键失败和日志引用，日志视为不可信数据。实现与验收边界见[结果日志收尾](../../development/result-log-closeout.md)。
 
 - **2026-10-22**：Owner 要求用户消息仅编辑/复制，编辑不建分支、不自动重发。采用独立手动编辑命令与保留式正文证据，旧回复标记与派生摘要失效不改变原执行事实；UI/功能分层沿用现有应用服务，不新增引擎或存储框架。
+
+### 2026-10-24：完整生命周期与持久适配分开
+
+所有者授权不兼容旧内部接口和按职责重组目录。TurnEngine/driver/live owner、停止命令与 deadline/观察契约进入 `core:agent/runtime`；`turn` 定义闭合 lifecycle/round 命令。App infrastructure 以同一 Room 事务实现准入、停止、review、恢复和终态准备，插件或 UI 事实不能授予 scope。普通/Queue/inspection 使用同一 typed admission；删除 freshGuard/resolveGoal transaction callbacks 和旧 App engine/停止转发，不留双轨。
+
+模型执行异常与持久结算异常分离，提交失败不能再次把同 checkpoint 改写为 FAILED 或重跑模型。已提交终态的收尾失败保留原终态，队列单独以 TURN_RELEASE_FAILED 停泊；UNKNOWN 不被补成成功或自动重放。Goal edit/Steer/inspection 的持久收尾留在 Room，typed receipt 仅通知本地交接与显示；取消仍先写事实再 signal，真实 executor 退出/物理容量规则不变。实施与验证边界见[生命周期证据](../../evidence/development/harness-stage1-lifecycle-2026-10-24.md)。

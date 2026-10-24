@@ -38,7 +38,7 @@
 
 ## R6：让每个已执行槽位都有可恢复的结算事实
 
-位置：[ChatToolCalls.runToolBatch](https://github.com/dollarser/helix-agent/blob/9a9b25dd50e24f4f631605968b6dbbde1be7f1f1/app/src/main/kotlin/com/helix/app/chat/ChatToolCalls.kt)（241–295）、[ChatToolSettlement](https://github.com/dollarser/helix-agent/blob/9a9b25dd50e24f4f631605968b6dbbde1be7f1f1/app/src/main/kotlin/com/helix/app/chat/ChatToolSettlement.kt)（36–90）、[TurnRecovery（原 RecoveryCoordinatorApp）](../../../app/src/main/kotlin/com/helix/app/engine/TurnRecovery.kt)（73–125）。
+位置：[ChatToolCalls.runToolBatch](https://github.com/dollarser/helix-agent/blob/9a9b25dd50e24f4f631605968b6dbbde1be7f1f1/app/src/main/kotlin/com/helix/app/chat/ChatToolCalls.kt)（241–295）、[ChatToolSettlement](https://github.com/dollarser/helix-agent/blob/9a9b25dd50e24f4f631605968b6dbbde1be7f1f1/app/src/main/kotlin/com/helix/app/chat/ChatToolSettlement.kt)（36–90）、[TurnRecovery（原 RecoveryCoordinatorApp）](https://github.com/dollarser/helix-agent/blob/9965d2dff694441458b4036942c4b8b9749f0f8e/app/src/main/kotlin/com/helix/app/engine/TurnRecovery.kt)（73–125）。
 
 batch执行后按序`map`写结果。成功路径先写ToolCall COMPLETED，再append正文/结果、markVerified、投影UI，最后结算Goal预算；外层没有覆盖这些写入的统一事务。局部写失败会中止后续槽位结算，随后Turn终局写仍可能成功。于是可能出现COMPLETED无结果、后续已执行槽位仍未结算；启动恢复只扫描非终态Turn，不能保证找回终态父级下的遗漏。
 
@@ -91,3 +91,5 @@ python3 scripts/debug/2026-09-22/deep-review/verify-review.py --output build/doc
 实际使用JDK17和配置的Android SDK：Gradle exit0，35个任务实际执行，构建18秒；5个探针、0失败/错误/跳过，生产文件SHA变化0。这里**R1通过表示修复不变量成立；R2/R3/R4/R7通过表示诊断行为仍可复现**，不是5项产品缺陷都已修好，也不能把这些诊断断言永久接入CI。
 
 新证据位于ignored `build/document-review-convergence/probes-main/`，含HEAD、源码/探针SHA、Gradle日志、XML及verification.json。旧基线曾执行683项（含5个旧诊断探针），保留于 `build/deep-review/`；这次只执行5项，不重复宣称683项通过。DAO/transport使用替身，R3使用反射受控交错；本轮没有新的Room设备、真实网络或性能结论。
+
+旧 App Engine 源码入口固定到公开 v0.0.7，供历史结构导航，不表示逐字恢复审查时的未提交代码；当前落点见[实施状态](../../development/status.md)。

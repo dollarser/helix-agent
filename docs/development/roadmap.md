@@ -330,15 +330,15 @@ HXA-223 已完成并见[交付证据](../completion-records/HXA-223.md)：R4 sta
 | HXA-283 | 主机/双渠道制品交付；原生与模型设备验收not requested | 有界 PDF 读取与总结 | [任务](tasks/HXA-283.md) |
 | HXA-284 | 有界交付；API36原生文档及Qwen摘要补验通过，其他API/峰值边界保留 | 统一PDF/DOCX文档插件 | [任务](tasks/HXA-284.md) |
 | HXA-285 | 有界交付；API36 Room及保存引用的Qwen压缩/跟进通过 | 引用历史与压缩快照一致性收尾 | [任务](tasks/HXA-285.md) |
-| HXA-286 | 部分完成；P1 内容贡献接缝待实施 | 统一工具贡献与上下文接缝 | [任务](tasks/HXA-286.md) |
-| HXA-287 | 部分完成；P1 应用命令、批次投影与完整宿主待收敛 | 应用命令与 Turn 接缝收敛 | [任务](tasks/HXA-287.md) |
+| HXA-286 | P1 内容贡献已交付 | 统一工具贡献与上下文接缝 | [任务](tasks/HXA-286.md) |
+| HXA-287 | A/B/C 主线已交付；可选展示候选未启动 | 应用命令与 Turn 接缝收敛 | [任务](tasks/HXA-287.md) |
 | HXA-288 | 部分基线已交付；局部接缝按证据实施 | 执行观察与产物接缝局部收敛 | [任务](tasks/HXA-288.md) |
 | HXA-289 | 独立能力待实施；非架构收口前置 | Workspace 路径匹配与文件内容搜索 | [任务](tasks/HXA-289.md) |
 | HXA-290 | 独立能力待实施；Search 服务选型待决 | 网页搜索与正文读取工作流 | [任务](tasks/HXA-290.md) |
 | HXA-291 | 资源正文闭环待实施；认证连接不重做 | MCP Resources 发现、读取与引用 | [任务](tasks/HXA-291.md) |
 | HXA-292 | 既有动作基线已交付；新表单能力与待验组合分开 | Browser 表单与 Mobile Use 动作契约 | [任务](tasks/HXA-292.md) |
-| HXA-293 | A 待实施；B 需实验验证 | 内容预算接缝与 Memory 选择实验 | [任务](tasks/HXA-293.md) |
-| HXA-294 | 增量验收待执行；不阻塞独立能力队列 | 已交付切片的集成与恢复验收 | [任务](tasks/HXA-294.md) |
+| HXA-293 | A 已交付；B 需实验验证 | 内容预算接缝与 Memory 选择实验 | [任务](tasks/HXA-293.md) |
+| HXA-294 | 阶段 1 已交付；其他范围按真实切片验收 | 已交付切片的集成与恢复验收 | [任务](tasks/HXA-294.md) |
 | HXA-295 | A 已交付，301补有界运行；B/C 未实施 | 会话查询、管理与受控任务投递 | [任务](tasks/HXA-295.md) |
 | HXA-296 | 主机交付；设备/模型 not requested | 系统提示一致性与文件读写契约收尾 | [任务](tasks/HXA-296.md) |
 | HXA-297 | 主机范围完成；设备/模型 not requested | 会话存储、查询与执行来源优化 | [任务](tasks/HXA-297.md) |
