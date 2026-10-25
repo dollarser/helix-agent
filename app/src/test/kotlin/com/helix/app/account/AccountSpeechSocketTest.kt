@@ -29,6 +29,31 @@ class AccountSpeechSocketTest {
         }
     }
 
+    @Test fun refreshGatewayFailureRetainsServerStatusAndNeverOpensSocket() {
+        var connections = 0
+        val account =
+            AccountSession(
+                MemoryAccountTokens(AccountTokens("expired", "refresh", 1, 2000000, "session")),
+                object : com.helix.provider.api.wire.WireClient {
+                    override suspend fun open(request: com.helix.provider.api.wire.WireRequest) = accountResponse(530)
+                },
+                { 100L },
+            )
+        val failure =
+            assertThrows(SocketHandshakeFailure::class.java) {
+                account
+                    .speechSocket(
+                        endpoint,
+                        SocketConnector { _, _ ->
+                            connections++
+                            Fake()
+                        },
+                    ).connect(endpoint, emptyMap())
+            }
+        assertEquals(530, failure.status)
+        assertEquals(0, connections)
+    }
+
     @Test fun authorizationDeadlineIsTransportFailureAndNeverOpensSocket() {
         val account =
             AccountSession(

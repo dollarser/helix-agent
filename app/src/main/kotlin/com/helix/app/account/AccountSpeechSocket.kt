@@ -18,16 +18,19 @@ internal fun AccountSession.speechSocket(
     require(endpoint in setOf("wss://asr.sunlingzhang.com/ws/asr", "wss://tts.sunlingzhang.com/ws/tts"))
     val version = revision
 
+    @Suppress("SwallowedException") // Only the safe HTTP category crosses into the socket adapter.
     fun credentials(failed: String? = null): AccountTokens? =
         try {
             runBlocking { authorization(failed, expectedRevision = version) }
+        } catch (rejected: AccountRequestFailure) {
+            throw SocketHandshakeFailure(rejected.status)
         } catch (_: kotlinx.coroutines.TimeoutCancellationException) {
             throw java.net.SocketTimeoutException("Speech authorization timeout")
         }
     return SocketConnector { url, headers ->
         require(url == endpoint && headers.isEmpty())
         var credential =
-            credentials() ?: throw IOException("Sign in required")
+            credentials() ?: throw SocketHandshakeFailure(401)
         val identity = credential.identity
 
         fun connect(): SocketConnection =
@@ -45,7 +48,7 @@ internal fun AccountSession.speechSocket(
             } catch (rejected: SocketHandshakeFailure) {
                 if (rejected.status != 401) throw rejected
                 credential =
-                    credentials(credential.access) ?: throw IOException("Sign in required")
+                    credentials(credential.access) ?: throw SocketHandshakeFailure(401)
                 connect()
             }
         object : SocketConnection {

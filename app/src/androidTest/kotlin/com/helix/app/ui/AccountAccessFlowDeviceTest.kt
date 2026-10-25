@@ -6,6 +6,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
@@ -18,6 +19,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.text.AnnotatedString
+import com.helix.app.R
 import com.helix.app.account.AccountSession
 import com.helix.app.account.AccountStatus
 import com.helix.app.account.AccountTokenStorage
@@ -35,11 +37,13 @@ import org.junit.Test
 class AccountAccessFlowDeviceTest {
     @get:Rule val compose = createComposeRule()
     private var saves = 0
+    private var serviceFailureLabel = ""
 
     private fun picker(account: AccountSession) {
         val draft = mutableStateOf("Unsent draft")
         compose.setContent {
             MaterialTheme {
+                serviceFailureLabel = stringResource(R.string.account_error_service)
                 Column {
                     OutlinedTextField(draft.value, { draft.value = it }, Modifier.testTag("fixture-draft"))
                     ComposerModelMenu(
@@ -83,7 +87,7 @@ class AccountAccessFlowDeviceTest {
     }
 
     @Test fun successfulLoginReturnsToOriginalPickerWithoutSavingOrSending() {
-        val account = fakeAccount(200)
+        val account = fakeAccount { 200 }
         picker(account)
         submit()
         compose.waitUntil(10000) { account.status.value == AccountStatus.SIGNED_IN }
@@ -95,7 +99,7 @@ class AccountAccessFlowDeviceTest {
     }
 
     @Test fun failedLoginStaysOpenAndCancelReturnsWithoutLosingDraftOrQuery() {
-        val account = fakeAccount(401)
+        val account = fakeAccount { 401 }
         picker(account)
         submit()
         compose.waitUntil(10000) {
@@ -107,7 +111,25 @@ class AccountAccessFlowDeviceTest {
         assertEquals(AccountStatus.SIGNED_OUT, account.status.value)
     }
 
-    private fun fakeAccount(status: Int): AccountSession =
+    @Test fun unavailableServiceShowsSafeHintAndExplicitRetryRecovers() {
+        var status = 530
+        val account = fakeAccount { status }
+        picker(account)
+        submit()
+        compose.waitUntil(10000) {
+            compose.onAllNodesWithTag("account-failure").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose
+            .onNodeWithTag("account-failure")
+            .assertTextEquals(serviceFailureLabel)
+        compose.runOnIdle { status = 200 }
+        compose.onNodeWithTag("account-submit").performScrollTo().performClick()
+        compose.waitUntil(10000) { account.signedIn.value }
+        compose.waitUntil(10000) { compose.onAllNodesWithTag("account-sheet").fetchSemanticsNodes().isEmpty() }
+        assertOriginalTask()
+    }
+
+    private fun fakeAccount(status: () -> Int): AccountSession =
         AccountSession(
             object : AccountTokenStorage {
                 private var value: AccountTokens? = null
@@ -125,7 +147,7 @@ class AccountAccessFlowDeviceTest {
             object : WireClient {
                 override suspend fun open(request: WireRequest) =
                     WireResponse(
-                        status,
+                        status(),
                         emptyMap(),
                         object : WireBody {
                             override suspend fun bytes() =

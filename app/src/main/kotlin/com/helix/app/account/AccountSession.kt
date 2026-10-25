@@ -67,7 +67,7 @@ class AccountSession(
                 throw cancelled
             } catch (_: Exception) {
                 clear()
-                throw IOException("Invalid account response or storage failure")
+                throw AccountDataFailure()
             }
         }
     }
@@ -114,7 +114,7 @@ class AccountSession(
                     throw IOException("Account changed")
                 }
                 load()
-                if (blocked) throw IOException("Account storage unavailable")
+                if (blocked) throw AccountDataFailure()
                 var current = tokens ?: return@withLock null
                 if (current.refreshExpires <= now()) {
                     clear(AccountStatus.REAUTH_REQUIRED)
@@ -135,11 +135,17 @@ class AccountSession(
                         throw cancelled
                     } catch (rejected: AccountRequestFailure) {
                         clear(AccountStatus.REAUTH_REQUIRED)
-                        if (rejected.status == 401) return@withLock null
-                        throw IOException("Account refresh rejected")
+                        if (rejected.status in setOf(401, 403)) {
+                            return@withLock null
+                        }
+                        throw rejected
+                    } catch (network: IOException) {
+                        clear(AccountStatus.REAUTH_REQUIRED)
+                        // A rotating refresh may have been consumed even if its response was lost.
+                        throw network
                     } catch (_: Exception) {
                         clear(AccountStatus.REAUTH_REQUIRED)
-                        throw IOException("Account refresh failed; sign in again")
+                        throw AccountDataFailure()
                     }
                 }
                 current
@@ -159,7 +165,7 @@ class AccountSession(
         } catch (error: Exception) {
             blocked = true
             mutableStatus.value = AccountStatus.UNAVAILABLE
-            throw IOException("Account storage unavailable")
+            throw AccountDataFailure()
         }
     }
 
@@ -184,7 +190,7 @@ class AccountSession(
         operation: String,
         fields: Map<String, String>,
     ): ByteArray =
-        kotlinx.coroutines.withTimeout(30000) {
+        kotlinx.coroutines.withTimeoutOrNull(30000) {
             val body = buildJsonObject { fields.forEach { (key, value) -> put(key, value) } }.toString().toByteArray()
             val response =
                 auth.open(
@@ -206,6 +212,8 @@ class AccountSession(
                 response.body.close()
             }
         }
+
+            ?: throw java.net.SocketTimeoutException("Account response timeout")
 
     companion object {
         const val AUTH = "https://accounts.sunlingzhang.com"
@@ -243,13 +251,23 @@ private class AccountServiceWire(
                     setOf("authorization", "x-client-id", "cookie", "proxy-authorization")
             },
         )
-        val current = account.authorization(expectedRevision = revision) ?: return signedOut()
+        val current =
+            try {
+                account.authorization(expectedRevision = revision)
+            } catch (failure: AccountRequestFailure) {
+                return errorResponse(failure.status)
+            } ?: return errorResponse(401)
         boundIdentity.compareAndSet(null, current.identity)
         if (boundIdentity.get() != current.identity) throw IOException("Account changed")
         var response = send(request, current)
         if (response.status == 401) {
             response.body.close()
-            val next = account.authorization(current.access, revision) ?: return signedOut()
+            val next =
+                try {
+                    account.authorization(current.access, revision)
+                } catch (failure: AccountRequestFailure) {
+                    return errorResponse(failure.status)
+                } ?: return errorResponse(401)
             if (next.identity != current.identity) throw IOException("Account changed")
             response = send(request, next)
         }
@@ -297,9 +315,9 @@ private class AccountServiceWire(
             ),
         )
 
-    private fun signedOut() =
+    private fun errorResponse(status: Int) =
         WireResponse(
-            401,
+            status,
             emptyMap(),
             object : WireBody {
                 override suspend fun bytes() = ByteArray(0)
@@ -311,6 +329,9 @@ private class AccountServiceWire(
         )
 }
 
-private class AccountRequestFailure(
+internal class AccountRequestFailure(
     val status: Int,
 ) : IOException("Account request failed: HTTP $status")
+
+/** Sanitized local response/storage failure; never mislabeled as a network outage. */
+internal class AccountDataFailure : IOException("Account response or local storage unavailable")

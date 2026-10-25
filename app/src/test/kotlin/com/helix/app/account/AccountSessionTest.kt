@@ -43,7 +43,7 @@ class AccountSessionTest {
             assertEquals(AccountStatus.SIGNED_IN, refreshable.status.value)
         }
 
-    @Test fun failedRefreshRequiresSignInButModelNetworkFailureKeepsAccount() =
+    @Test fun refreshFailureRequiresSignInButPreservesHttpClassification() =
         runBlocking {
             val stale =
                 AccountSession(
@@ -51,13 +51,52 @@ class AccountSessionTest {
                     wire { accountResponse(503) },
                     { 100L },
                 )
-            assertThrows(IOException::class.java) { runBlocking { stale.wire(url).open(request()) } }
+            assertEquals(503, stale.wire(url).open(request()).status)
             assertEquals(AccountStatus.REAUTH_REQUIRED, stale.status.value)
             val valid = testAccount()
             assertThrows(IOException::class.java) {
                 runBlocking { valid.wire(url, wire { throw IOException("synthetic offline") }).open(request()) }
             }
             assertEquals(AccountStatus.SIGNED_IN, valid.status.value)
+        }
+
+    @Test fun gatewayFailureOnRefreshDoesNotSendModelAndCanRecover() =
+        runBlocking {
+            var available = false
+            var sends = 0
+            val account =
+                AccountSession(
+                    MemoryAccountTokens(AccountTokens("a", "r", 1, 200000, "id")),
+                    wire {
+                        if (available) accountResponse(200, payload) else accountResponse(530, "sensitive response")
+                    },
+                    { 100L },
+                )
+            val model =
+                account.wire(
+                    url,
+                    wire {
+                        sends++
+                        accountResponse(200)
+                    },
+                )
+            val failed = model.open(request())
+            assertEquals(530, failed.status)
+            assertTrue(failed.body.bytes().isEmpty())
+            assertEquals(0, sends)
+            assertEquals(AccountStatus.REAUTH_REQUIRED, account.status.value)
+            available = true
+            account.login("synthetic@example.test", "synthetic-password")
+            val recovered =
+                account.wire(
+                    url,
+                    wire {
+                        sends++
+                        accountResponse(200)
+                    },
+                )
+            assertEquals(200, recovered.open(request()).status)
+            assertEquals(1, sends)
         }
 
     @Test fun explicitLogoutHasNoExpiredLabelEvenWhenRevocationFails() =

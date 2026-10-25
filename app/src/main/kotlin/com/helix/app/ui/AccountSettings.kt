@@ -55,30 +55,30 @@ internal fun AccountAccessEntry(
     val scope = rememberCoroutineScope()
     var open by remember { mutableStateOf(false) }
     var loading by remember { mutableStateOf(false) }
-    var failure by remember { mutableStateOf(false) }
+    var failure by remember { mutableStateOf<Int?>(null) }
     var registered by remember { mutableStateOf(false) }
     var confirmLogout by remember { mutableStateOf(false) }
     LaunchedEffect(account) {
         try {
             account.restore()
             onChanged()
-        } catch (_: java.io.IOException) {
-            failure = true
+        } catch (error: java.io.IOException) {
+            failure = accountFailureLabel(error)
         }
     }
 
     fun perform(operation: suspend () -> Unit) {
         if (loading) return
         loading = true
-        failure = false
+        failure = null
         registered = false
         scope.launch {
             try {
                 operation()
             } catch (cancelled: CancellationException) {
                 throw cancelled
-            } catch (_: Exception) {
-                failure = true
+            } catch (error: Exception) {
+                failure = accountFailureLabel(error)
             } finally {
                 onRefreshProviders()
                 onChanged()
@@ -118,9 +118,9 @@ internal fun AccountAccessEntry(
                         color = MaterialTheme.colorScheme.primary,
                     )
                 }
-                if (failure) {
+                if (failure != null) {
                     Text(
-                        stringResource(R.string.account_failure),
+                        stringResource(requireNotNull(failure)),
                         Modifier.testTag("account-failure"),
                         color = MaterialTheme.colorScheme.error,
                     )

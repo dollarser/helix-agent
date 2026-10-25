@@ -2053,7 +2053,7 @@
     <string name="account_register">注册</string>
     <string name="account_logout">退出登录</string>
     <string name="account_registered">注册已提交，账号就绪后请登录。</string>
-    <string name="account_failure">账号操作失败，请检查网络和账号信息，或重新登录。</string>
+    <string name="account_failure">账号操作未完成，请稍后重试。</string>
     <string name="account_busy">正在处理…</string>
     <string name="account_welcome">欢迎使用 Helix</string>
     <string name="account_create_heading">注册 Helix 账号</string>
@@ -2088,4 +2088,10 @@
     <string name="tool_purpose_create_calendar_event">创建日历事件</string>
     <string name="tool_purpose_create_reminder">创建通知提醒</string>
     <string name="tool_purpose_cancel_reminder">取消通知提醒</string>
+    <string name="account_error_auth">登录信息无效或访问被拒绝，请核对账号信息后重试。</string>
+    <string name="account_error_rate_limited">请求过于频繁，请稍后重试。</string>
+    <string name="account_error_service">账号服务暂时不可用，请稍后重试。</string>
+    <string name="account_error_timeout">账号服务响应超时，请稍后重试。</string>
+    <string name="account_error_connection">暂时无法连接账号服务，请稍后重试。</string>
+    <string name="account_error_request">账号服务未接受此请求，请核对输入后重试。</string>
 </resources>

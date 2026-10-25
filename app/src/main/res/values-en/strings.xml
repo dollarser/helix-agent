@@ -2056,7 +2056,7 @@
     <string name="account_register">Register</string>
     <string name="account_logout">Sign out</string>
     <string name="account_registered">Registration submitted. Sign in when your account is ready.</string>
-    <string name="account_failure">Account operation failed. Check your connection and account details, or sign in again.</string>
+    <string name="account_failure">Account operation could not be completed. Try again later.</string>
     <string name="account_busy">Working…</string>
     <string name="account_welcome">Welcome to Helix</string>
     <string name="account_create_heading">Create a Helix account</string>
@@ -2091,4 +2091,10 @@
     <string name="tool_purpose_create_calendar_event">Create calendar event</string>
     <string name="tool_purpose_create_reminder">Create notification reminder</string>
     <string name="tool_purpose_cancel_reminder">Cancel notification reminder</string>
+    <string name="account_error_auth">Sign-in details are invalid or access was denied. Check your account details and try again.</string>
+    <string name="account_error_rate_limited">Too many requests. Try again later.</string>
+    <string name="account_error_service">The account service is temporarily unavailable. Try again later.</string>
+    <string name="account_error_timeout">The account service did not respond in time. Try again later.</string>
+    <string name="account_error_connection">Could not connect to the account service. Try again later.</string>
+    <string name="account_error_request">The account service did not accept this request. Check your input and try again.</string>
 </resources>
