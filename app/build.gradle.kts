@@ -29,7 +29,7 @@ android {
         ndk { abiFilters += distributionAbi?.let(::listOf) ?: listOf("arm64-v8a", "x86_64") }
         externalNativeBuild.cmake { abiFilters("arm64-v8a", "x86_64") }
         targetSdk = 36
-        versionCode = 2
+        versionCode = 1
         versionName = "0.0.7"
         testInstrumentationRunner = "com.helix.app.HelixAndroidJUnitRunner"
     }
