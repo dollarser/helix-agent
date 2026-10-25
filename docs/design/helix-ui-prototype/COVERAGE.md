@@ -31,7 +31,7 @@
 | [知识库](index.html#knowledge) | `knowledge` | [源码](../../../app/src/main/kotlin/com/helix/app/knowledge/KnowledgeScreen.kt) | 来源/笔记、搜索、多选、问答 | 正常 / 加载 / 空 / 错误 / 取消（评审控制） |
 | [来源详情](index.html#source) | `source` | [源码](../../../app/src/main/kotlin/com/helix/app/knowledge/KnowledgeScreen.kt) | 原件、提取、引用、笔记 | 正常 / 加载 / 空 / 错误 / 取消（评审控制） |
 | [知识笔记](index.html#note) | `note` | [源码](../../../app/src/main/kotlin/com/helix/app/knowledge/KnowledgeScreen.kt) | 编辑、引用快照、保存 | 正常 / 加载 / 空 / 错误 / 取消（评审控制） |
-| [知识问答](index.html#question) | `question` | [源码](../../../app/src/main/kotlin/com/helix/app/knowledge/KnowledgeQuestionScreen.kt) | 范围、内容去向、生成、引用、保存笔记 | 正常 / 加载 / 空 / 错误 / 取消（评审控制） |
+| [知识问答](index.html#question) | `question` | [现行历史入口](../../../app/src/main/kotlin/com/helix/app/knowledge/KnowledgeQuestionHistory.kt) | 旧原型历史记录；新问答与引用已收敛到现有会话 | 正常 / 加载 / 空 / 错误 / 取消（评审控制） |
 | [收集到 Helix](index.html#collect) | `collect` | [源码](../../../app/src/main/kotlin/com/helix/app/knowledge/KnowledgeCaptureActivity.kt) | 材料校验、收集、不自动发送 | 正常 / 加载 / 空 / 错误 / 取消（评审控制） |
 | [人格与记忆](index.html#memory) | `memory` | [源码](../../../app/src/main/kotlin/com/helix/app/ui/MemoryDialog.kt) | 会话人格、记忆编辑、显式保存 | 正常 / 加载 / 空 / 错误 / 取消（评审控制） |
 | [提醒](index.html#reminders) | `reminders` | [源码](../../../app/src/main/kotlin/com/helix/app/reminder/ReminderScreen.kt) | 列表、创建、暂停、时间解释 | 正常 / 加载 / 空 / 错误 / 取消（评审控制） |
@@ -95,7 +95,7 @@
 | 提醒 | 启用/暂停/删除确认、时间预览 | 固定演示日期、时区/重复核对、取消保留字段 | ReminderInterpretScreen |
 | 定时 Agent | 已暂停/启用、跳过/中断记录 | 保存必须确认模型/目录/工具/会话；停止当前与暂停未来分开 | ScheduledAgentScreen |
 | 收集 | 文本/演示文件、空正文/超限 | 保存来源不创建 Turn；原件与笔记分开 | KnowledgeCaptureActivity |
-| 知识问答 | 未选/已选、范围确认、回答/引用 | 空范围拒绝；展示去向；保存为笔记不删除来源 | KnowledgeQuestionScreen |
+| 知识问答（旧提案） | 当前新问答走会话引用，旧记录可读 | 保存为笔记不删除来源；当前接入见知识库融合原型 | KnowledgeQuestionHistory / ChatScreen |
 | 文件 | 正常/编辑/冲突、选择/恢复 | 冲突可另存或重载；直接编辑和执行副本分开 | FilesScreen / FilesPreviewDialog / FilesSafDialog |
 | 浏览器 | 地址无效/有效、后退、标签 | 不加载外部网页；网页请求本地操作被隔离 | BrowserScreen |
 | 终端 | 空命令/运行中/停止请求/退出 | 命令仅字符串，状态不冒充真实执行 | ManualTerminalScreen |
