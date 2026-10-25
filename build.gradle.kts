@@ -334,7 +334,7 @@ subprojects {
                 // HXA-211 exports an explicit JSONL projection; reuse the pinned tree codec.
                 dependencies.add("implementation", kotlinxSerializationJsonDependency.get())
                 pluginManager.apply("com.google.devtools.ksp")
-                // Commit the single pre-release Room v1 baseline beside Android storage tests.
+                // Commit Room schemas beside storage tests so additive upgrades can be verified.
                 extensions.configure<com.google.devtools.ksp.gradle.KspExtension> {
                     arg("room.schemaLocation", "$projectDir/src/androidTest/assets")
                     arg("room.incremental", "true")

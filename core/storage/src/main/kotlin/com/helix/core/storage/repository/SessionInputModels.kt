@@ -30,6 +30,7 @@ data class SessionInputSpec(
     val createdAt: Long,
     val reference: ConversationReferenceSnapshotInput? = null,
     val skillActivations: List<InputSkillActivation> = emptyList(),
+    val knowledgeReferences: List<KnowledgeReference> = emptyList(),
 )
 
 /** Immutable accepted reference metadata; body stays in ContentStore until delivery. */
@@ -66,6 +67,7 @@ data class SessionInputRecord(
     val reference: InputConversationReference? = null,
     val skillActivations: List<InputSkillActivation> = emptyList(),
     val skillActivationsRevoked: Boolean = false,
+    val knowledgeReferences: List<KnowledgeReference> = emptyList(),
 )
 
 sealed interface SessionInputAcceptResult {

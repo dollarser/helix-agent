@@ -57,6 +57,7 @@ data class SessionInputEntity(
     val updatedAt: Long,
     val skillActivationsJson: String = "[]",
     val skillActivationsRevoked: Boolean = false,
+    @androidx.room.ColumnInfo(defaultValue = "'[]'") val knowledgeReferencesJson: String = "[]",
 )
 
 /** NO_ACTION protects accepted attachment references from independent artifact deletion. */

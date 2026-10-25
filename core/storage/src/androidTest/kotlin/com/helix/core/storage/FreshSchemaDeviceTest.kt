@@ -12,7 +12,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** Runtime proof that a fresh install creates exactly the current v1 baseline. */
+/** Runtime proof that a fresh install creates the current additive schema. */
 @RunWith(AndroidJUnit4::class)
 class FreshSchemaDeviceTest {
     private val context: Context = ApplicationProvider.getApplicationContext()
@@ -69,7 +69,7 @@ class FreshSchemaDeviceTest {
             }.confirm()
             withDevelopmentDatabase { room ->
                 val db = room.openHelper.writableDatabase
-                assertEquals(1, db.version)
+                assertEquals(2, db.version)
                 db.query("SELECT name FROM sqlite_master WHERE name = 'earlier_development_marker'").use {
                     assertFalse(it.moveToFirst())
                 }
@@ -88,14 +88,14 @@ class FreshSchemaDeviceTest {
     }
 
     @Test
-    fun freshDatabaseUsesVersionOneWithForeignKeysAndCurrentTurnIndexes() {
+    fun freshDatabaseUsesCurrentVersionWithForeignKeysAndCurrentTurnIndexes() {
         context.deleteDatabase(DATABASE)
         val room = Room.databaseBuilder(context, HelixDatabase::class.java, DATABASE).build()
         try {
             val db = room.openHelper.writableDatabase
             db.query("PRAGMA user_version").use {
                 assertTrue(it.moveToFirst())
-                assertEquals(1, it.getInt(0))
+                assertEquals(2, it.getInt(0))
             }
             db.query("PRAGMA foreign_keys").use {
                 assertTrue(it.moveToFirst())

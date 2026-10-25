@@ -81,11 +81,12 @@ import com.helix.core.storage.entity.TurnReviewReceiptEntity
 import com.helix.core.storage.entity.TurnRuntimeRecordEntity
 
 /**
- * Helix local database. Before the first public release the current entity graph is the version-1
- * baseline; no migration chain for earlier internal development schemas is supported.
+ * Helix local database. Version 1 is the published preview baseline. Version 2 adds bounded
+ * library references to accepted inputs. Room preserves that exact baseline through additive migration;
+ * incompatible earlier internal schemas still require explicit owner reset.
  *
  * Foreign keys and indexes are declared by the current entities and enforced by Room. The
- * committed schema export is the current baseline contract, not an upgrade fixture. Managed credentials
+ * committed schema exports define the baseline and the supported additive upgrade contract. Managed credentials
  * stay in SecretStore: provider/MCP rows store aliases. User content and search projections may
  * contain user-provided sensitive text; content files are not an encryption boundary.
  */
@@ -147,7 +148,8 @@ import com.helix.core.storage.entity.TurnRuntimeRecordEntity
             TurnRuntimeRecordEntity::class,
             TurnReviewReceiptEntity::class,
         ],
-    version = 1,
+    version = 2,
+    autoMigrations = [androidx.room.AutoMigration(from = 1, to = 2)],
     exportSchema = true,
 )
 @Suppress("TooManyFunctions") // Room @Database requires one accessor per persisted aggregate/feature table.

@@ -21,6 +21,11 @@ data class KnowledgeNote(
     val generatedDraft: String = "",
     val generationState: String = "IDLE",
     val generationTarget: String = "",
+    @androidx.room.ColumnInfo(defaultValue = "'NOTE'") val kind: String = "NOTE",
+    @androidx.room.ColumnInfo(defaultValue = "'[]'") val originReferencesJson: String = "[]",
+    @androidx.room.ColumnInfo(defaultValue = "''") val originSessionId: String = "",
+    @androidx.room.ColumnInfo(defaultValue = "''") val originMessageId: String = "",
+    @androidx.room.ColumnInfo(defaultValue = "''") val originContentHash: String = "",
 )
 
 /** Frozen evidence selected by the user. Source re-extraction never changes saved note evidence. */

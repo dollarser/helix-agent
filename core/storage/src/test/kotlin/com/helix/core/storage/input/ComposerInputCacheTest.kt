@@ -13,6 +13,33 @@ import java.io.File
 class ComposerInputCacheTest {
     @get:Rule val temporary = TemporaryFolder()
 
+    @Test fun referenceOnlyDraftSurvivesDiskReopenAndOldReceiptCannotClearNewSelection() {
+        val root = temporary.newFolder()
+        val item =
+            com.helix.core.storage.repository.KnowledgeReference(
+                "NOTE",
+                "note-a",
+                "合成笔记",
+                "a".repeat(64),
+                "EXCERPT",
+                "合成正文",
+            )
+        val first =
+            input("a", 1, "first", "").copy(
+                knowledgeReferencesJson =
+                    com.helix.core.storage.repository.KnowledgeReferences
+                        .encode(listOf(item)),
+            )
+        val store = ComposerInputCache(root)
+        assertTrue(store.save(first))
+        val reopened = ComposerInputCache(root)
+        assertEquals(first, reopened.get("a"))
+        val second = first.copy(revision = 2, clientRequestId = "second", text = "next question")
+        assertTrue(reopened.save(second))
+        assertFalse(reopened.clear("a", 1, "first"))
+        assertEquals(second, ComposerInputCache(root).get("a"))
+    }
+
     @Test fun sessionsHaveIndependentFilesAndSurviveReopen() {
         val root = temporary.newFolder()
         val store = ComposerInputCache(root)

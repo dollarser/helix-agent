@@ -13,4 +13,5 @@ data class ComposerInputSnapshot(
     val referenceSourceSessionId: String? = null,
     val referenceKind: String? = null,
     val skillActivationsJson: String = "[]",
+    val knowledgeReferencesJson: String = "[]",
 )

@@ -6,11 +6,15 @@ import com.helix.core.storage.entity.SessionInputEntity
 internal object SessionInputValidation {
     fun validate(spec: SessionInputSpec) {
         InputSkillActivations.encode(spec.skillActivations)
+        KnowledgeReferences.encode(spec.knowledgeReferences)
         listOf(spec.inputId, spec.sessionId, spec.configuration.providerId).forEach(::identifier)
         spec.expectedTurnId?.let(::identifier)
         require(spec.revision >= 0 && spec.createdAt >= 0)
         require(spec.text.length <= SessionInputRepository.MAX_TEXT_CHARS && '\u0000' !in spec.text)
-        require(spec.text.isNotBlank() || spec.attachments.isNotEmpty() || spec.reference != null)
+        require(
+            spec.text.isNotBlank() || spec.attachments.isNotEmpty() || spec.reference != null ||
+                spec.knowledgeReferences.isNotEmpty(),
+        )
         require(spec.configuration.modelId.isNotBlank() && spec.configuration.modelId.length <= 256)
         require(spec.configuration.fingerprint.isNotBlank() && spec.configuration.fingerprint.length <= 1024)
         AgentMode.valueOf(spec.configuration.mode)
@@ -51,6 +55,17 @@ internal object SessionInputValidation {
             0L
         } else {
             InputSkillActivations
+                .encode(items)
+                .toByteArray(Charsets.UTF_8)
+                .size
+                .toLong()
+        }
+
+    fun knowledgeBytes(items: List<KnowledgeReference>): Long =
+        if (items.isEmpty()) {
+            0L
+        } else {
+            KnowledgeReferences
                 .encode(items)
                 .toByteArray(Charsets.UTF_8)
                 .size
@@ -105,6 +120,7 @@ internal object SessionInputValidation {
         createdAt = spec.createdAt,
         updatedAt = spec.createdAt,
         skillActivationsJson = InputSkillActivations.encode(spec.skillActivations),
+        knowledgeReferencesJson = KnowledgeReferences.encode(spec.knowledgeReferences),
     )
 
     private fun identifier(value: String) {

@@ -54,6 +54,9 @@ interface SessionInputDao {
     )
     fun observeDeliveryRevision(sessionId: String): kotlinx.coroutines.flow.Flow<Long>
 
+    @Query("SELECT * FROM session_inputs WHERE messageId = :messageId")
+    fun byMessage(messageId: String): SessionInputEntity?
+
     @Insert
     fun insert(input: SessionInputEntity)
 
@@ -70,7 +73,9 @@ interface SessionInputDao {
 
     @Query(
         "SELECT COALESCE(SUM(textBytes + referenceContentBytes + " +
-            "CASE WHEN skillActivationsJson = '[]' THEN 0 ELSE LENGTH(CAST(skillActivationsJson AS BLOB)) END), 0) " +
+            "CASE WHEN skillActivationsJson = '[]' THEN 0 ELSE LENGTH(CAST(skillActivationsJson AS BLOB)) END + " +
+            "CASE WHEN knowledgeReferencesJson = '[]' THEN 0 " +
+            "ELSE LENGTH(CAST(knowledgeReferencesJson AS BLOB)) END), 0) " +
             "FROM session_inputs WHERE sessionId = :sessionId " +
             "AND state IN ('PENDING','NEEDS_ATTENTION')",
     )

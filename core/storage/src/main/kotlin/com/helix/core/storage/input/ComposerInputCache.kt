@@ -40,6 +40,8 @@ class ComposerInputCache(
     fun save(draft: ComposerInputSnapshot): Boolean {
         com.helix.core.storage.repository.InputSkillActivations
             .decode(draft.skillActivationsJson)
+        com.helix.core.storage.repository.KnowledgeReferences
+            .decode(draft.knowledgeReferencesJson)
         require(draft.sessionId.isNotBlank() && draft.clientRequestId.isNotBlank() && draft.revision >= 0)
         get(draft.sessionId)
         val latest = latestRevision[draft.sessionId]
@@ -52,7 +54,7 @@ class ComposerInputCache(
         val empty =
             draft.text.isEmpty() && draft.attachmentIdsJson == "[]" &&
                 draft.revisedMessageId == null && draft.referenceSourceSessionId == null &&
-                draft.skillActivationsJson == "[]"
+                draft.skillActivationsJson == "[]" && draft.knowledgeReferencesJson == "[]"
         current[draft.sessionId] = if (empty) null else draft
         return if (empty) deleteFile(draft.sessionId) else writeFile(draft)
     }
@@ -180,6 +182,7 @@ class ComposerInputCache(
             put("expectedTurnId", draft.expectedTurnId)
             put("referenceSourceSessionId", draft.referenceSourceSessionId)
             put("referenceKind", draft.referenceKind)
+            put("knowledgeReferences", Json.parseToJsonElement(draft.knowledgeReferencesJson))
             put("skillActivations", Json.parseToJsonElement(draft.skillActivationsJson))
         }.toString()
 
@@ -214,6 +217,10 @@ class ComposerInputCache(
             optional("referenceKind"),
             (item["skillActivations"] ?: JsonArray(emptyList())).toString().also {
                 com.helix.core.storage.repository.InputSkillActivations
+                    .decode(it)
+            },
+            (item["knowledgeReferences"] ?: JsonArray(emptyList())).toString().also {
+                com.helix.core.storage.repository.KnowledgeReferences
                     .decode(it)
             },
         )

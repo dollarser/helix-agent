@@ -16,6 +16,8 @@ class SessionInputRepository internal constructor(
 ) {
     private val dao get() = database.sessionInputDao()
 
+    fun forMessage(messageId: String): SessionInputRecord? = transaction { dao.byMessage(messageId)?.record() }
+
     fun get(inputId: String): SessionInputRecord? = transaction { dao.byId(inputId)?.record() }
 
     /** Original accepted identity and current task state, never a model-provided invocation flag. */
@@ -170,7 +172,8 @@ class SessionInputRepository internal constructor(
             }
             val bytes =
                 SessionInputValidation.textBytes(spec) + SessionInputValidation.referenceBytes(spec) +
-                    SessionInputValidation.skillBytes(spec.skillActivations)
+                    SessionInputValidation.skillBytes(spec.skillActivations) +
+                    SessionInputValidation.knowledgeBytes(spec.knowledgeReferences)
             if (dao.pendingBytes(spec.sessionId) + bytes > MAX_PENDING_BYTES) {
                 return@transaction SessionInputAcceptResult.Rejected("INPUT_QUEUE_BYTES")
             }
@@ -213,10 +216,12 @@ class SessionInputRepository internal constructor(
             }
             val bytes =
                 SessionInputValidation.textBytes(replacement) + SessionInputValidation.referenceBytes(replacement) +
-                    SessionInputValidation.skillBytes(replacement.skillActivations)
+                    SessionInputValidation.skillBytes(replacement.skillActivations) +
+                    SessionInputValidation.knowledgeBytes(replacement.knowledgeReferences)
             val originalBytes =
                 old.textBytes + old.referenceContentBytes +
-                    SessionInputValidation.skillBytes(InputSkillActivations.decode(old.skillActivationsJson))
+                    SessionInputValidation.skillBytes(InputSkillActivations.decode(old.skillActivationsJson)) +
+                    SessionInputValidation.knowledgeBytes(KnowledgeReferences.decode(old.knowledgeReferencesJson))
             if (dao.pendingBytes(old.sessionId) - originalBytes + bytes >
                 MAX_PENDING_BYTES
             ) {
@@ -516,7 +521,8 @@ class SessionInputRepository internal constructor(
         return record.sessionId == spec.sessionId && record.delivery == spec.delivery &&
             record.expectedTurnId == spec.expectedTurnId && record.configuration == spec.configuration &&
             record.attachments == spec.attachments && readText(record) == spec.text &&
-            readReference(record) == spec.reference && record.skillActivations == spec.skillActivations
+            readReference(record) == spec.reference && record.skillActivations == spec.skillActivations &&
+            record.knowledgeReferences == spec.knowledgeReferences
     }
 
     private fun SessionInputEntity.record() =
@@ -542,6 +548,7 @@ class SessionInputRepository internal constructor(
             referenceRecord(),
             InputSkillActivations.decode(skillActivationsJson),
             skillActivationsRevoked,
+            KnowledgeReferences.decode(knowledgeReferencesJson),
         )
 
     private fun SessionInputEntity.referenceRecord(): InputConversationReference? {

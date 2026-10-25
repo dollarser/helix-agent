@@ -85,6 +85,7 @@ android {
     sourceSets.getByName("androidTest").assets.srcDir(rootProject.file("build/asr/test-assets"))
     sourceSets.getByName("androidTest").assets.srcDir(rootProject.file("build/asr-download/test-assets"))
     sourceSets.getByName("androidTest").assets.srcDir(rootProject.file("build/tts/test-assets"))
+    sourceSets.getByName("androidTest").assets.srcDir(rootProject.file("core/storage/src/androidTest/assets"))
     if (providers.gradleProperty("helix.asrBenchmark").orNull == "true") {
         require(providers.gradleProperty("helix.asrValidation").orNull == "true")
         sourceSets
