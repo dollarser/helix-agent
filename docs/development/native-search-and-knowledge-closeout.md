@@ -6,7 +6,7 @@
 
 按所有者针对性确认，Helix_API_36 / emulator-5554 上 Standard 与 Advanced 两个 Helix 包完成清空与安装。包名仍为 `com.helix.agent` / `com.helix.agent.developer`，均为 0.0.7 / versionCode 1；签名、安装字节及两库 schema 1 / Room 身份均核验。启动、知识／笔记／资料及引用选择取消烟测通过，模型调用为零。其他应用、共享工作区、真机及外部账号不在清理范围。原登录、配置及下载资源确已清除，不能声称保留数据。
 
-主机基线来自 `b0d4370d`，规范提交 `d5380864` 仅文档；安装证据在忽略的 `build/internal-version-install-2026-10-26/`。后续搜索代码不属于该已安装日常候选。
+主机基线来自 `b0d4370d`，规范提交 `d5380864` 仅文档；安装证据在忽略的 `build/internal-version-install-2026-10-26/`。该次初始安装尚不含后续搜索；下方最终日常包更新已接续。
 
 ## 本轮实现
 
@@ -30,3 +30,9 @@
 原始结果在忽略的 `build/native-search-2026-10-26/`：完整主机 `final-debug-gate.log`、测试汇总 `test-totals.json`、最终双渠道验证构建 `final-validation-build.log`／`cleanup-test-build.log`、最终 Advanced `knowledge-cleanup-fixed/` 与 Standard `standard-native/`。运行器记录每份实际安装 APK 哈希；只收取合成断言事实，不收集凭据或用户日志。全部自建实例退出，测试账号退出；日常实例未因后续验收再次清理／覆盖。
 
 边界：真实 SAF Provider 的撤权／遍历耗时、模型自主选择 glob／grep、真机／其他 OEM、大目录实际时延以及本轮 Release/R8 未验收。Document Backend 已有 JVM 同契约夹具，不冒充真实系统 Provider 验收；新搜索不依赖真实服务，知识闭环单样本成功不证明泛化质量。正式发布产物不变。
+
+## 最终日常包更新
+
+所有者接续安装请求后，将 `3c682f6b` / `5a7286be` / `acbdef6b` 对应的最终源码重新构建为普通 Standard／Advanced Debug 包（非 `.asrvalidation`）。两渠道 `assembleConsumerDebug` / `assembleDeveloperDebug` 成功，沿相同签名、versionName 0.0.7／versionCode 1 和两库 schema 1，在原 Helix_API_36 / emulator-5554 执行 `adb install -r` 覆盖；没有再次清数据、卸载、降 schema 或使用旧清除确认。签名与 UID 保持不变，安装字节与新候选一致；Room 当前身份及聊天／Provider／知识／模型调用等核心表计数保持不变。
+
+两个日常包均实际通过启动、知识／笔记／资料、引用选择取消，以及权限页只读查看 Registry 生成的 glob／grep 行；没有切换工具／权限或发送模型请求。临时 UI 脚本的冷启动／空层级旧快照和子页返回假设已更正，初次失败保留，未将失败包装成通过；最终操作按真实 Back／抽屉路径完成。仅清理本次 UI XML，最后停留在 Advanced 知识库页。安装及烟测证据位于忽略的 `build/native-search-2026-10-26/daily-install/`，其中保存精确签名／哈希／数据计数，不在文档镜像动态清单。正式发布、真机及其他应用均未操作。
