@@ -58,15 +58,19 @@ class FileHistoryPathsTest {
 
     @Test fun searchResultsKeepCrossDirectoryIdentityAndUserContentVerbatim() {
         val payload =
-            """{"path":"scope:ws:project","matches":["scope:ws:project/报告.txt","scope:other:报告.txt"],""" +
+            """{"path":"scope:ws:project","matches":[{"path":"scope:ws:project/报告.txt"},""" +
+                """{"path":"scope:other:报告.txt"}],""" +
                 """"content":"scope:ws:project/报告.txt"}"""
         val result =
             Json
                 .parseToJsonElement(
-                    FileHistoryPaths.project("files.search", payload, directory, result = true),
+                    FileHistoryPaths.project("glob", payload, directory, result = true),
                 ).jsonObject
         assertEquals(".", result.getValue("path").jsonPrimitive.content)
-        assertEquals(Json.parseToJsonElement("""["报告.txt","scope:other:报告.txt"]"""), result["matches"])
+        assertEquals(
+            Json.parseToJsonElement("""[{"path":"报告.txt"},{"path":"scope:other:报告.txt"}]"""),
+            result["matches"],
+        )
         assertEquals("scope:ws:project/报告.txt", result.getValue("content").jsonPrimitive.content)
     }
 

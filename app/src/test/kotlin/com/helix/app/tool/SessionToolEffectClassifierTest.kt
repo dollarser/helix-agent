@@ -28,6 +28,21 @@ import kotlin.time.Duration.Companion.seconds
  * the absence of a remote write.
  */
 class SessionToolEffectClassifierTest {
+    @Test fun nativeSearchDoesNotGrantExternalScope() {
+        val classifier = SessionToolEffectClassifier { "scope:ws:project" }
+        for (tool in listOf(
+            com.helix.tools.files.GlobTool
+                .descriptor(),
+            com.helix.tools.files.GrepTool
+                .descriptor(),
+        )) {
+            val local = classifier.classify(request("""{"path":"scope:ws:project/sub"}"""), tool)
+            val external = classifier.classify(request("""{"path":"scope:other:project"}"""), tool)
+            assertEquals(setOf(OperationEffect.FILE_READ_WORKSPACE), local.footprint.effects)
+            assertEquals(setOf(OperationEffect.FILE_READ_EXTERNAL), external.footprint.effects)
+        }
+    }
+
     @Test fun deviceFileHandoffRetainsBothScopedReadsAndDeviceAuthorization() {
         val effects =
             SessionToolEffectClassifier { "scope:ws:project" }

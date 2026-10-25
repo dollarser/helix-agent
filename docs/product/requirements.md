@@ -247,7 +247,7 @@ Advanced 扩大的是可选能力和可配置范围，不是绕过安全内核�
 | `write` | P0 | L1/L2 | 原子写，覆盖时升为 L2 |
 | `edit` | P0 | L1/L2 | old text 唯一匹配或带前置 hash |
 | `files.list` | P0 | L0/L1 | Workspace/SAF/All-files 作用域，限定数量 |
-| `files.search` | P0 | L0/L1 | 限文件数、命中数和时间 |
+| `glob` / `grep` | P0 | L0/L1 | 限文件数、命中数和时间 |
 | `files.stat` | P0 | L0 | 有界元数据和可选 hash |
 | `files.mkdir` | P0 | L1 | 禁止越界 |
 | `files.copy` | P1 | L1/L2 | 目标冲突和跨 scope 必须显式策略 |

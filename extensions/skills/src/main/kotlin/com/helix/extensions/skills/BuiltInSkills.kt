@@ -102,7 +102,7 @@ object BuiltInSkills {
 
                     Use this skill when the user wants to organize a workspace but has not approved mutations.
 
-                    1. Use `files.list`, `files.stat`, and bounded `files.search` calls to inspect
+                    1. Use `files.list`, `files.stat`, and bounded `glob` / `grep` calls to inspect
                        only the selected scope.
                     2. Group proposed moves or renames by reason and show source, destination,
                        conflicts, and uncertain cases.
@@ -152,7 +152,7 @@ object BuiltInSkills {
                     # Repository inspection
 
                     1. Establish the selected workspace scope and the concrete question.
-                    2. Use bounded `files.list`, `files.search`, `files.stat`, and `read` calls;
+                    2. Use bounded `files.list`, `glob` / `grep`, `files.stat`, and `read` calls;
                        start from manifests and local instructions.
                     3. Trace definitions, callers, tests, and configuration before drawing a conclusion.
                     4. Distinguish current source evidence from plans, comments, generated output,

@@ -154,7 +154,7 @@ Material Files 和 Amaze File Manager 只作为路径、冲突、长任务和 Ro
 | `edit` | LOCAL_MUTATION | 唯一匹配 patch 或带前置 hash 的 patch |
 | `bash` | CODE_EXECUTION | 仅 PRoot Runtime；不是 Android 主进程 Shell |
 | `files.list` | READ_ONLY | 有界目录枚举 |
-| `files.search` | READ_ONLY | 文件名或正文搜索，有文件数/时间限制 |
+| `glob` / `grep` | READ_ONLY | 文件名或正文搜索，有文件数/时间限制 |
 | `files.stat` | READ_ONLY | size、mtime、MIME、hash 可选 |
 | `files.mkdir` | LOCAL_MUTATION | 作用域内创建 |
 | `files.copy` | LOCAL_MUTATION | 分类源/目标范围与覆盖效果后授权 |
@@ -308,7 +308,7 @@ RootService 是更高权限的执行域，不是更强沙箱。它不得持有 P
 本节是完整工具目录的权威名称/分组清单；具体产品优先级和实现里程碑以 PRD/backlog 为准：
 
 ```text
-P0 核心：time.now, read, write, edit, files.list, files.search, files.stat,
+P0 核心：time.now, read, write, edit, files.list, glob, grep, files.stat,
          files.mkdir, code.javascript.run
 
 P1 文件：files.copy/move/delete/archive/extract

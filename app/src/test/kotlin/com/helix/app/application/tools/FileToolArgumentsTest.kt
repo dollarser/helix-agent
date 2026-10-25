@@ -40,7 +40,7 @@ class FileToolArgumentsTest {
                 "view_image",
                 "files.list",
                 "files.stat",
-                "files.search",
+                "glob",
                 "files.mkdir",
                 "files.copy",
                 "files.move",

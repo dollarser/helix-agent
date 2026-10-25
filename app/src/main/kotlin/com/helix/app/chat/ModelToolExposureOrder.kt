@@ -18,7 +18,8 @@ internal object ModelToolExposureOrder {
             "files.list",
             "files.stat",
             "files.mkdir",
-            "files.search",
+            "glob",
+            "grep",
             "view_image",
         ).withIndex().associate { (index, name) -> name to index }
 

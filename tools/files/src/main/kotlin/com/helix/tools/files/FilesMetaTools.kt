@@ -8,7 +8,7 @@ import kotlinx.serialization.json.jsonPrimitive
 
 /*
  * The `files.*` namespace of built-in file tools (roadmap HXA-042): FilesStatTool,
- * FilesListTool, FilesSearchTool (all READ_ONLY) and FilesMkdirTool (LOCAL_MUTATION).
+ * FilesListTool, GlobTool/GrepTool (all READ_ONLY) and FilesMkdirTool (LOCAL_MUTATION).
  *
  * They share the model-safe addressing contract of the other file tools: the model references a
  * location ONLY by its FileScopePath reference and never sees a real path (doc 10). Each keeps
@@ -20,8 +20,6 @@ import kotlinx.serialization.json.jsonPrimitive
 // ── files.stat ────────────────────────────────────────────────────────────────────────────
 
 // ── files.list ────────────────────────────────────────────────────────────────────────────
-
-// ── files.search ──────────────────────────────────────────────────────────────────────────
 
 // ── files.mkdir ───────────────────────────────────────────────────────────────────────────
 

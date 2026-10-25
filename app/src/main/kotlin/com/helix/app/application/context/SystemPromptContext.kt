@@ -197,6 +197,6 @@ internal class SystemPromptContext(
     }
 
     private companion object {
-        val FILE_TOOL_NAMES = setOf("read", "view_image", "write", "edit", "files.list", "files.stat", "files.search")
+        val FILE_TOOL_NAMES = setOf("read", "view_image", "write", "edit", "files.list", "files.stat", "glob", "grep")
     }
 }

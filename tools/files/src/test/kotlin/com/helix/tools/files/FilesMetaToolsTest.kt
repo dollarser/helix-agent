@@ -234,76 +234,6 @@ class FilesMetaToolsTest {
         assertTrue(failed(onFile).contains("not a directory"))
     }
 
-    // ── files.search ────────────────────────────────────────────────────────────────────
-
-    @Test
-    fun searchDescriptorIsAValidReadOnlyBuiltIn() {
-        assertDescriptor(
-            FilesSearchTool.descriptor(),
-            "files.search",
-            ToolOperationClass.READ_ONLY,
-        )
-    }
-
-    @Test
-    fun searchFindsCaseInsensitiveNameMatchesRecursively() {
-        val root = root()
-        write(root, "work/note.txt", "x".toByteArray())
-        write(root, "output/report.TXT", "x".toByteArray())
-        write(root, "work/other.md", "x".toByteArray())
-        val args =
-            buildJsonObject {
-                put("path", JsonPrimitive(FileScopePath("ws", "").toModelReference()))
-                put("needle", JsonPrimitive("note"))
-            }
-        val out = json(run(root, "files.search", FilesSearchTool::executor, args))
-        val matches = out.getValue("matches").jsonArray.map { it.jsonPrimitive.content }
-        assertEquals(listOf(FileScopePath("ws", "work/note.txt").toModelReference()), matches)
-        assertEquals(false, flag(out, "truncated"))
-    }
-
-    @Test
-    fun searchIsBoundedByMaxResultsAndFlagsTruncation() {
-        val root = root()
-        repeat(4) { i -> write(root, "work/hit$i.txt", "x".toByteArray()) }
-        val args =
-            buildJsonObject {
-                put("path", JsonPrimitive(FileScopePath("ws", "").toModelReference()))
-                put("needle", JsonPrimitive("hit"))
-                put("maxResults", JsonPrimitive(2))
-            }
-        val out = json(run(root, "files.search", FilesSearchTool::executor, args))
-        assertEquals(2, out.getValue("matches").jsonArray.size)
-        assertEquals(true, flag(out, "truncated"))
-    }
-
-    @Test
-    fun searchOfAMissingDirectoryOrBlankNeedleFailsClosed() {
-        val root = root()
-        val missing =
-            run(
-                root,
-                "files.search",
-                FilesSearchTool::executor,
-                buildJsonObject {
-                    put("path", JsonPrimitive(FileScopePath("ws", "work/nope").toModelReference()))
-                    put("needle", JsonPrimitive("x"))
-                },
-            )
-        assertTrue(failed(missing).contains("not a directory"))
-        val blank =
-            run(
-                root,
-                "files.search",
-                FilesSearchTool::executor,
-                buildJsonObject {
-                    put("path", JsonPrimitive(FileScopePath("ws", "").toModelReference()))
-                    put("needle", JsonPrimitive("  "))
-                },
-            )
-        assertTrue(failed(blank).contains("invalid"))
-    }
-
     // ── files.mkdir ─────────────────────────────────────────────────────────────────────
 
     @Test
@@ -368,11 +298,11 @@ class FilesMetaToolsTest {
         val searchArgs =
             buildJsonObject {
                 put("path", JsonPrimitive(path.toModelReference()))
-                put("needle", JsonPrimitive("x"))
+                put("pattern", JsonPrimitive("x"))
             }
         assertEquals(
             ToolExecutorResult.Cancelled,
-            run(root, "files.search", FilesSearchTool::executor, searchArgs, alreadyCancelled),
+            run(root, "glob", GlobTool::executor, searchArgs, alreadyCancelled),
         )
         assertEquals(
             ToolExecutorResult.Cancelled,
@@ -397,12 +327,12 @@ class FilesMetaToolsTest {
         val searchArgs =
             buildJsonObject {
                 put("path", JsonPrimitive(FileScopePath("ws", "").toModelReference()))
-                put("needle", JsonPrimitive("a"))
+                put("pattern", JsonPrimitive("a"))
             }
-        val searchOut = json(run(root, "files.search", FilesSearchTool::executor, searchArgs))
+        val searchOut = json(run(root, "glob", GlobTool::executor, searchArgs))
         assertEquals(
             ToolSchemaValidation.Valid,
-            ToolSchemaValidator.validate(FilesSearchTool.descriptor().outputSchema, searchOut),
+            ToolSchemaValidator.validate(GlobTool.descriptor().outputSchema, searchOut),
         )
         val mkdirOut =
             json(run(root, "files.mkdir", FilesMkdirTool::executor, pathArgs(FileScopePath("ws", "work/newdir"))))

@@ -17,7 +17,8 @@ internal object FileHistoryPaths {
             "edit",
             "files.list",
             "files.stat",
-            "files.search",
+            "glob",
+            "grep",
             "files.mkdir",
             "files.copy",
             "files.move",
@@ -50,8 +51,15 @@ internal object FileHistoryPaths {
                             path(value, directory)
                         }
 
-                        result && name == "files.search" && key == "matches" && value is JsonArray -> {
-                            JsonArray(value.map { path(it, directory) })
+                        result && name in setOf("glob", "grep") && key == "matches" && value is JsonArray -> {
+                            JsonArray(
+                                value.map { match ->
+                                    val row = match as? JsonObject
+                                    row?.takeIf { "path" in it }?.let {
+                                        JsonObject(it + ("path" to path(it.getValue("path"), directory)))
+                                    } ?: match
+                                },
+                            )
                         }
 
                         else -> {

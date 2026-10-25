@@ -9,8 +9,9 @@ import com.helix.tools.files.FilesExtractTool
 import com.helix.tools.files.FilesListTool
 import com.helix.tools.files.FilesMkdirTool
 import com.helix.tools.files.FilesMoveTool
-import com.helix.tools.files.FilesSearchTool
 import com.helix.tools.files.FilesStatTool
+import com.helix.tools.files.GlobTool
+import com.helix.tools.files.GrepTool
 import com.helix.tools.files.ReadTool
 import com.helix.tools.files.WriteTool
 import com.helix.tools.framework.ToolRegistry
@@ -30,7 +31,8 @@ internal object AppWorkspaceTools {
         WriteTool.register(toolRegistry, workspaceStore, artifactSink)
         EditTool.register(toolRegistry, workspaceStore, artifactSink)
         FilesListTool.register(toolRegistry, workspaceStore)
-        FilesSearchTool.register(toolRegistry, workspaceStore)
+        GlobTool.register(toolRegistry, workspaceStore)
+        GrepTool.register(toolRegistry, workspaceStore)
         FilesStatTool.register(toolRegistry, workspaceStore)
         FilesMkdirTool.register(toolRegistry, workspaceStore)
         // HXA-043: explicit conflict policy (copy/move refuse an existing destination without
