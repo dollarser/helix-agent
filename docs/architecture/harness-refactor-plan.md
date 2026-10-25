@@ -1159,12 +1159,12 @@ Automation 未来负责触发新 Run/Turn，不成为 AgentLoop 的工作流大�
 | 对象 | 2026-10-24 裁决与可核对证据 | 剩余/停止边界 |
 | --- | --- | --- |
 | Registry/Binding/发现配套 | **已完成相应范围**：`ToolRegistry` 唯一 ToolBindingStore、ToolDescriptor.discoveryCompanions；[231](../completion-records/HXA-231.md)、[303](../development/tasks/HXA-303.md) | 不重建 Registry/权限链；286 内容贡献沿同一 Registry 接入 |
-| Loop/TurnEngine/UI 分层 | **已完成基线、整体宿主部分完成**：AppAgentRuntime、TurnEngine 与 [当前架构](overview.md)、[UI 接入](../development/ui-prototype-integration.md) | [287](../development/tasks/HXA-287.md) A 已在 `8297a4be` 交付；B 的独立工具展示与 Core round 已接入并通过主机及两渠道模拟器验收；C 完整 Engine/driver 宿主仍未完成，不另建 owner |
+| Loop/TurnEngine/UI 分层 | **基线与完整宿主主线已交付**：AppAgentRuntime、TurnEngine 与 [当前架构](overview.md)、[UI 接入](../development/ui-prototype-integration.md) | [287](../development/tasks/HXA-287.md) A 已在 `8297a4be` 交付；B 的独立工具展示与 Core round 已接入并通过主机及两渠道模拟器验收；C 的完整 Engine/driver/Room 生命周期已交付，见[阶段证据](../evidence/development/harness-stage1-lifecycle-2026-10-24.md)；跨会话新能力不包含在内 |
 | 执行/日志/原位/清理 | **已完成有界交付**：[原位执行](../development/proot-in-place-execution.md)、[日志](../development/result-log-closeout.md)、[清理](../development/obsolete-path-cleanup.md) | 不重做原位默认、嵌套 cwd、结果补读、不重放或技术恢复。288 的类型/JSON 分支按具体职责评估，不一律删除 |
 | 插件内容/共同预算 | **结构接缝已交付**：`8297a4be` 的类型化贡献、可信帮助资格、实际调用工具读取引用及唯一 Compiler 预算；删除旧聚合与名称特判 | [286](../development/tasks/HXA-286.md)/[293-A](../development/tasks/HXA-293.md) 的结果以 checkpoint 证据为限；293-B 效果实验另行，不开放任意历史重写 |
-| 文件/网页/MCP Resources | **独立新能力未实施**：FilesSearchTool 为名称子串搜索，HttpFetchTool 为原始 HTTP；McpClientSession 有元数据无正文读取端口 | [289](../development/tasks/HXA-289.md)/[290](../development/tasks/HXA-290.md)/[291](../development/tasks/HXA-291.md) 不作为结构结算前置；Search 服务选型只阻塞其真实接线 |
+| 文件/网页/MCP Resources | **文件有界能力已交付，网页/Resources 仍未实施**：原生 glob/字面量 grep 通过主机与双渠道模拟器读回验证，HttpFetchTool 为原始 HTTP；McpClientSession 有元数据无正文读取端口 | [289](../development/tasks/HXA-289.md)/[290](../development/tasks/HXA-290.md)/[291](../development/tasks/HXA-291.md) 不作为结构结算前置；Search 服务选型只阻塞其真实接线 |
 | Browser/Mobile Use | **已有基线＋新能力/待验边界**：BrowserInteractionTools.browser.type、AutomationToolOutcome 的派发/未核实事实及既有后端 | [292](../development/tasks/HXA-292.md) 区分新表单能力、客户端可复现缺陷、仅待 OEM/生命周期验收和模型视觉局限，不重建手机规划器 |
-| Memory 选择 | **需实验验证**：MemoryContext 最多两域、每域摘要前 1000 字符；现有 list/search/read 已可读后续条目 | [293-B](../development/tasks/HXA-293.md) 固定样本单变量比较，包含 1000 字后关键事实；无收益保留现状，不新增检索平台 |
+| Memory 选择 | **有界实验已完成，保留默认策略**：MemoryContext 最多两域、每域摘要前 1000 字符；现有 list/search/read 已可读后续条目 | [293-B](../development/tasks/HXA-293.md) 更正有效样本 baseline/index 各 3/4，未证明候选收益；日志消费仍波动，见[实验记录](../development/memory-log-effect-experiment.md)，不新增检索平台 |
 | 默认快照/嵌套 cwd 重做前提 | **已被替代/取消**：LinuxRunTool 与原位/日志交付已证明默认 in_place 和严格嵌套 cwd | 取消重复功能实施，不给旧类/接口分层豁免；显式 snapshot 保留有效用途 |
 | 已有能力的其他设备组合 | **仅待验收**：已交付终端/资源/UI 的 OEM、低内存、长稳等未覆盖组合见 [status](../development/status.md) | 按明确授权验证具体组合；不先重构，也不把未覆盖当已知代码缺陷 |
 | 集成验收 | **按已交付切片待执行**：[294](../development/tasks/HXA-294.md) 引用已有主机/模拟器/模型证据 | 未实现、服务依赖、仅待设备、策略无结论分开；不是全部“只差测试”，也不是全部功能先做完 |

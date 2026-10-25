@@ -59,7 +59,7 @@ Helix 已覆盖文件、网页交互、手机操作、文档读取、代码执�
 
 源码依据：
 
-- 文件：[FilesSearchTool](../../../tools/files/src/main/kotlin/com/helix/tools/files/FilesSearchTool.kt)、[EditTool](../../../tools/files/src/main/kotlin/com/helix/tools/files/EditTool.kt)。已有精确编辑和内容 hash 校验，不能因竞品有 `apply_patch` 就断言 Helix 缺少安全编辑。
+- 文件：[当前 GlobTool](../../../tools/files/src/main/kotlin/com/helix/tools/files/GlobTool.kt)（原 FilesSearchTool 已在 HXA-289 删除）、[EditTool](../../../tools/files/src/main/kotlin/com/helix/tools/files/EditTool.kt)。已有精确编辑和内容 hash 校验，不能因竞品有 `apply_patch` 就断言 Helix 缺少安全编辑。
 - 网络和浏览器：[HttpFetchTool](../../../tools/android/src/main/kotlin/com/helix/tools/android/HttpFetchTool.kt)、[BrowserTools](../../../tools/browser/src/main/kotlin/com/helix/tools/browser/BrowserTools.kt)、[BrowserInteractionTools](../../../tools/browser/src/main/kotlin/com/helix/tools/browser/BrowserInteractionTools.kt)。
 - 手机：[AutomationTools](../../../extensions/mobile-use/src/main/kotlin/com/helix/extensions/mobileuse/tools/AutomationTools.kt)、[AutomationDeviceTools](../../../extensions/mobile-use/src/main/kotlin/com/helix/extensions/mobileuse/tools/AutomationDeviceTools.kt)。
 - 文档与帮助：[DocumentTools](../../../extensions/documents/src/main/kotlin/com/helix/extensions/documents/DocumentTools.kt)、[文档插件方案](../../product/document-processing-plugin.md)、[helix-docs 实现边界](helix-docs-design-2026-10-14.md)。
