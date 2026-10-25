@@ -31,7 +31,7 @@
 
 | 范围 | 边界与入口 |
 | --- | --- |
-| 完整架构重构 | 286 插件内容与 293-A 预算接缝已在 `8297a4be` 交付；287-A 应用命令已交付，B 展示/round 接缝主机与两渠道模拟器通过，C 完整宿主已交付，最终 Debug/Release 与两渠道各 103 项独立模拟器通过；288 仅保留有收益证据的局部候选。289～292 是独立能力/验证，293-B 固定实验夹具已建立、实际账号准备遇 HTTP 530，十个效果任务尚未运行，详见[实验记录](memory-log-effect-experiment.md)；294 按实际切片验收。已交付 Registry、Engine、UI、原位/日志与清理不重开；实施证据见[生命周期收尾](../evidence/development/harness-stage1-lifecycle-2026-10-24.md)，详见[当前矩阵](../architecture/harness-refactor-plan.md#231-设计判断范围和现有工作去重)和各 [HXA](tasks/README.md)，这里不维护第二执行队列 |
+| 完整架构重构 | 286 插件内容与 293-A 预算接缝已在 `8297a4be` 交付；287-A 应用命令已交付，B 展示/round 接缝主机与两渠道模拟器通过，C 完整宿主已交付，最终 Debug/Release 与两渠道各 103 项独立模拟器通过；288 仅保留有收益证据的局部候选。289～292 是独立能力/验证，293-B 服务恢复后的有界实验已完成，更正样本未证明候选优于默认，日志消费仍有波动，详见[实验记录](memory-log-effect-experiment.md)；294 按实际切片验收。已交付 Registry、Engine、UI、原位/日志与清理不重开；实施证据见[生命周期收尾](../evidence/development/harness-stage1-lifecycle-2026-10-24.md)，详见[当前矩阵](../architecture/harness-refactor-plan.md#231-设计判断范围和现有工作去重)和各 [HXA](tasks/README.md)，这里不维护第二执行队列 |
 | 后续能力 | Project Memory 完整设备验收仍开放；生产子 Agent、远程、hooks/LSP、模型 PTY、持久 Git 写凭据等依[候选索引](candidate-decisions.md)进入条件，不随文档清理启动 |
 | 服务与账号 | Notion/Linear 既定测试已结案，Claude/Grok 付费账号暂缓；新账号/付费额度/真实外部副作用需当前明确授权，配置缺失与无效分别处理 |
 | 系统与资源 | 其他 OEM/API、物理低内存/热压/Doze/16 KiB、24h 与全部 Runtime 组合未全部验收；已有资源结果不外推，见[资源复核](../evidence/development/resource-gate-review-2026-10-12.md)及[原生引用调查](../evidence/development/native-reference-release-trace.md) |

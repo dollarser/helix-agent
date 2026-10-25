@@ -241,6 +241,7 @@ class MemoryLogEffectDeviceTest {
                         spec["forbidden"]?.jsonPrimitive?.content,
                         required = true,
                         log = false,
+                        memoryAllowed = !denied,
                     )
                 } finally {
                     c.storage.deleteSessionPermanently(session)
@@ -271,7 +272,7 @@ class MemoryLogEffectDeviceTest {
         denied: Boolean = false,
     ) {
         val rules = SessionPermissionConfig.copyPreset(SessionPermissionMode.READ_ONLY).toMutableMap()
-        if (denied) rules[OperationEffect.FILE_READ_EXTERNAL] = OperationRule.DENY
+        rules[OperationEffect.FILE_READ_EXTERNAL] = if (denied) OperationRule.DENY else OperationRule.ALLOW
         c.storage.sessionPermissionConfigs.setForSession(session, SessionPermissionConfig.custom(rules), 1000)
     }
 
@@ -368,6 +369,7 @@ class MemoryLogEffectDeviceTest {
         forbidden: String?,
         required: Boolean,
         log: Boolean,
+        memoryAllowed: Boolean = false,
     ) {
         val directory = File(output, label).apply { check(mkdirs()) }
         val wire = EffectExperimentWire(original, directory, budget, transform)
@@ -455,7 +457,22 @@ class MemoryLogEffectDeviceTest {
                 read && answer.contains(expected) && (!log || exitCodeRead)
             }
         val firstRequest = File(directory, "request-0.json").takeIf { it.isFile }?.readText()
-        if (required && firstRequest != null) check(firstRequest.contains(REQUIRED))
+        if (required && firstRequest != null) {
+            check(firstRequest.contains(REQUIRED))
+            if (memoryAllowed) {
+                check(firstRequest.contains("UNTRUSTED_MEMORY scope=project")) {
+                    "Authorized Memory baseline absent: invalid comparison"
+                }
+                if (label.endsWith("-index")) {
+                    val request = Json.parseToJsonElement(firstRequest).jsonObject
+                    check(request.getValue("original") != request.getValue("sent")) {
+                        "Index ablation did not change authorized content"
+                    }
+                }
+            } else {
+                check(!firstRequest.contains("UNTRUSTED_MEMORY scope=project"))
+            }
+        }
         if (forbidden != null) {
             check(firstRequest?.contains(forbidden) != true) { "Forbidden scope leaked into initial request" }
             check(resultText.none { it.contains(forbidden) }) { "Forbidden scope leaked through tool result" }
@@ -484,6 +501,13 @@ class MemoryLogEffectDeviceTest {
         val row =
             buildJsonObject {
                 put("case", label)
+                put(
+                    "memoryReadRule",
+                    c.storage.sessionPermissionConfigs
+                        .forSession(session)
+                        ?.ruleFor(OperationEffect.FILE_READ_EXTERNAL)
+                        ?.name,
+                )
                 put(
                     "taskPassed",
                     correct && failure == null && settled?.state == "COMPLETED" && unexpectedStarts.isEmpty(),
