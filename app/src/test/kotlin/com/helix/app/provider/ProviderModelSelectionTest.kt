@@ -97,13 +97,14 @@ class ProviderModelSelectionTest {
         assertTrue(choice.toggle("b", false).models.isEmpty())
     }
 
-    @Test fun retiredDefaultIsIgnoredAndNoLongerWritten() {
+    @Test fun retiredDefaultAndPreviousFormatsAreNotAccepted() {
         val backing = InMemoryLineStore()
-        backing.setLines("provider-model-selection-v2-p", listOf("""{"models":["b"],"default":"b","custom":[]}"""))
+        backing.setLines("provider-model-selection-v2-p", listOf("""{"models":["b"],"custom":[]}"""))
+        backing.setLines("provider-selected-models-p", listOf("b"))
         val store = ProviderSelectedModels(backing)
-        assertEquals(listOf("b"), store.selection("p").models)
-        store.save("p", store.selection("p"))
-        assertFalse(backing.lines("provider-model-selection-v2-p").single().contains("default"))
+        assertFalse(store.selection("p").configured)
+        backing.setLines("provider-model-selection-v1-p", listOf("""{"models":["b"],"default":"b","custom":[]}"""))
+        assertThrows(IllegalArgumentException::class.java) { store.selection("p") }
     }
 
     @Test fun customChoicesAndOrderingSurviveHidingAndReopen() {
@@ -147,11 +148,11 @@ class ProviderModelSelectionTest {
         assertNull(status.modelEvidence.read("p", "endpoint").catalog)
     }
 
-    @Test fun existingExplicitSubsetIsPreservedWithoutImportingAnEntireCatalog() {
+    @Test fun currentExplicitSubsetDoesNotImportAnEntireCatalog() {
         val backing = InMemoryLineStore()
-        backing.setLines("provider-selected-models-p", listOf("b", "c"))
         val store = ProviderSelectedModels(backing)
-        assertEquals(listOf("b", "c"), store.read("p"))
+        store.write("p", listOf("b", "c"))
+        assertEquals(listOf("b", "c"), ProviderSelectedModels(backing).read("p"))
         store.write("p", emptyList())
         assertTrue(store.read("p").isEmpty())
         store.clear("p")

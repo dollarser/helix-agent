@@ -22,7 +22,7 @@ import kotlinx.serialization.json.put
 internal class ProotJobBindingStore(
     private val storage: HelixStorage,
     /**
-     * The live session-config read for the v2 binding row. The default (no config) is for
+     * The live session-config read for the current binding row. The default (no config) is for
      * the RECOVERY PATHS, which only call [resolve] and never [record]; the single writer
      * (the tool module) passes the live seam so every prepared-job row carries the
      * authorization version.
@@ -99,29 +99,25 @@ internal class ProotJobBindingStore(
         return binding
     }
 
-    /**
-     * Accepts every payload version this build has written. Version 1 (before the
-     * session binding existed) stays resolvable after an app update — the audit rows are
-     * durable and outlive the build that wrote them.
-     */
+    /** Only the current binding shape is accepted; execution mode is not a format version. */
     private fun requireVersion(payload: JsonObject) {
         val version = payload.getValue("version").jsonPrimitive.content
-        check(version in ACCEPTED_VERSIONS) { "unsupported proot job payload version: $version" }
+        check(version == PAYLOAD_VERSION.toString()) { "unsupported proot job payload version: $version" }
     }
 
     private fun eventId(toolCallId: String): String = "proot-job-$toolCallId"
 
     companion object {
-        const val PAYLOAD_VERSION = 2
-
-        private val ACCEPTED_VERSIONS = setOf("1", PAYLOAD_VERSION.toString(), "3")
+        const val PAYLOAD_VERSION = 1
 
         internal fun detachedBinding(
             payload: JsonObject,
             sessionId: String,
             toolCallId: String,
         ): DetachedJobBinding {
-            check(payload.getValue("version").jsonPrimitive.content == "3") { "not a detached job binding" }
+            check(
+                payload.getValue("version").jsonPrimitive.content == PAYLOAD_VERSION.toString(),
+            ) { "not a detached job binding" }
             check(payload.getValue("executionMode").jsonPrimitive.content == "DETACHED")
             check(payload.getValue("sessionId").jsonPrimitive.content == sessionId) { "job belongs to another session" }
             check(payload.getValue("toolCallId").jsonPrimitive.content == toolCallId) { "original call does not match" }
@@ -151,7 +147,7 @@ internal class ProotJobBindingStore(
             detached: Boolean = false,
         ): JsonObject =
             buildJsonObject {
-                put("version", if (detached) 3 else PAYLOAD_VERSION)
+                put("version", PAYLOAD_VERSION)
                 if (detached) put("executionMode", "DETACHED")
                 put("toolCallId", toolCallId)
                 put("turnId", turnId)

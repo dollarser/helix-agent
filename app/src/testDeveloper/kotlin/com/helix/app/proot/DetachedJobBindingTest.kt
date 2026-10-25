@@ -26,8 +26,8 @@ class DetachedJobBindingTest {
         }
     }
 
-    @Test fun synchronousAndLegacyBindingsCannotBecomeDetachedJobs() {
-        listOf("1", "2").forEach { version ->
+    @Test fun synchronousAndUnknownBindingsCannotBecomeDetachedJobs() {
+        listOf("2", "3").forEach { version ->
             val legacy = JsonObject(payload() + ("version" to JsonPrimitive(version)))
             assertThrows(IllegalStateException::class.java) {
                 ProotJobBindingStore.detachedBinding(legacy, "session", "call")

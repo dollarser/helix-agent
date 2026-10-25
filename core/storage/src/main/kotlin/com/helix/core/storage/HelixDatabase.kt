@@ -148,8 +148,7 @@ import com.helix.core.storage.entity.TurnRuntimeRecordEntity
             TurnRuntimeRecordEntity::class,
             TurnReviewReceiptEntity::class,
         ],
-    version = 2,
-    autoMigrations = [androidx.room.AutoMigration(from = 1, to = 2)],
+    version = 1,
     exportSchema = true,
 )
 @Suppress("TooManyFunctions") // Room @Database requires one accessor per persisted aggregate/feature table.

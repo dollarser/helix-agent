@@ -113,12 +113,7 @@ data class ProotJobRecord(
         }
     }
 
-    internal val schemaVersion: Int get() =
-        when {
-            terminalElapsedMs != null -> 3
-            elapsedDurationMs != null -> 2
-            else -> 1
-        }
+    internal val schemaVersion: Int get() = ProotJobRecordCodec.SUPPORTED_SCHEMA_VERSION
 
     /**
      * The stable identity of a terminal outcome; null while the job is not
@@ -169,7 +164,7 @@ data class ProotJobRecord(
  * entry is a protocol failure, never a trusted proof.
  */
 object ProotJobRecordCodec {
-    const val SUPPORTED_SCHEMA_VERSION: Int = 3
+    const val SUPPORTED_SCHEMA_VERSION: Int = 1
 
     private const val JOB_ID_PREFIX = "job_"
     private const val JOB_ID_HEX_LENGTH = 12
@@ -244,13 +239,8 @@ object ProotJobRecordCodec {
             throw ProotIpcException("job record is missing required key: $key")
         }
         val schemaVersion = long(obj, "schemaVersion")
-        if (schemaVersion !in 1L..SUPPORTED_SCHEMA_VERSION.toLong()) {
+        if (schemaVersion != SUPPORTED_SCHEMA_VERSION.toLong()) {
             throw ProotIpcException("unsupported job record schemaVersion: $schemaVersion")
-        }
-        if ((schemaVersion >= 2L) != ("elapsedDurationMs" in obj) ||
-            (schemaVersion == 3L) != ("terminalElapsedMs" in obj)
-        ) {
-            throw ProotIpcException("duration and terminal clock fields must match the record version")
         }
         val state = ProotJobState.fromWire(string(obj, "state"))
         val jobId = string(obj, "jobId")

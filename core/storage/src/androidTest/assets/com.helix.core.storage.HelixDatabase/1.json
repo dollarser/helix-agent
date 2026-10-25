@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "58499747982b0e6511c9257bb913e4f4",
+    "identityHash": "ae25b9881f52263e2b525c0f583650a1",
     "entities": [
       {
         "tableName": "projects",
@@ -3763,7 +3763,7 @@
       },
       {
         "tableName": "session_inputs",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`inputId` TEXT NOT NULL, `schemaVersion` INTEGER NOT NULL, `sessionId` TEXT NOT NULL, `sequence` INTEGER NOT NULL, `delivery` TEXT NOT NULL, `expectedTurnId` TEXT, `revision` INTEGER NOT NULL, `textRef` TEXT NOT NULL, `textBytes` INTEGER NOT NULL, `referenceSourceSessionId` TEXT, `referenceSourceSessionTitle` TEXT, `referenceSelectionKind` TEXT, `referenceSourceMessageIdsJson` TEXT, `referenceContentRef` TEXT, `referenceContentBytes` INTEGER NOT NULL, `referenceContentSha256` TEXT, `providerId` TEXT NOT NULL, `modelId` TEXT NOT NULL, `mode` TEXT NOT NULL, `configurationFingerprint` TEXT NOT NULL, `state` TEXT NOT NULL, `consumedTurnId` TEXT, `messageId` TEXT, `requestModelCallId` TEXT, `blockedReason` TEXT, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `skillActivationsJson` TEXT NOT NULL, `skillActivationsRevoked` INTEGER NOT NULL, PRIMARY KEY(`inputId`), FOREIGN KEY(`sessionId`) REFERENCES `sessions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`expectedTurnId`) REFERENCES `turns`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION , FOREIGN KEY(`consumedTurnId`) REFERENCES `turns`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION , FOREIGN KEY(`messageId`) REFERENCES `messages`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION , FOREIGN KEY(`requestModelCallId`) REFERENCES `model_calls`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`inputId` TEXT NOT NULL, `schemaVersion` INTEGER NOT NULL, `sessionId` TEXT NOT NULL, `sequence` INTEGER NOT NULL, `delivery` TEXT NOT NULL, `expectedTurnId` TEXT, `revision` INTEGER NOT NULL, `textRef` TEXT NOT NULL, `textBytes` INTEGER NOT NULL, `referenceSourceSessionId` TEXT, `referenceSourceSessionTitle` TEXT, `referenceSelectionKind` TEXT, `referenceSourceMessageIdsJson` TEXT, `referenceContentRef` TEXT, `referenceContentBytes` INTEGER NOT NULL, `referenceContentSha256` TEXT, `providerId` TEXT NOT NULL, `modelId` TEXT NOT NULL, `mode` TEXT NOT NULL, `configurationFingerprint` TEXT NOT NULL, `state` TEXT NOT NULL, `consumedTurnId` TEXT, `messageId` TEXT, `requestModelCallId` TEXT, `blockedReason` TEXT, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `skillActivationsJson` TEXT NOT NULL, `skillActivationsRevoked` INTEGER NOT NULL, `knowledgeReferencesJson` TEXT NOT NULL DEFAULT '[]', PRIMARY KEY(`inputId`), FOREIGN KEY(`sessionId`) REFERENCES `sessions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`expectedTurnId`) REFERENCES `turns`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION , FOREIGN KEY(`consumedTurnId`) REFERENCES `turns`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION , FOREIGN KEY(`messageId`) REFERENCES `messages`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION , FOREIGN KEY(`requestModelCallId`) REFERENCES `model_calls`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION )",
         "fields": [
           {
             "fieldPath": "inputId",
@@ -3927,6 +3927,13 @@
             "columnName": "skillActivationsRevoked",
             "affinity": "INTEGER",
             "notNull": true
+          },
+          {
+            "fieldPath": "knowledgeReferencesJson",
+            "columnName": "knowledgeReferencesJson",
+            "affinity": "TEXT",
+            "notNull": true,
+            "defaultValue": "'[]'"
           }
         ],
         "primaryKey": {
@@ -4350,7 +4357,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '58499747982b0e6511c9257bb913e4f4')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'ae25b9881f52263e2b525c0f583650a1')"
     ]
   }
 }

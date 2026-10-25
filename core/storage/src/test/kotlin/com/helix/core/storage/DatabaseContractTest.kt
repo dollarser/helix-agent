@@ -8,7 +8,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 
-/** Current schema and retained security/transaction contracts; published v1 is migrated additively. */
+/** Current schema and retained security/transaction contracts; pre-launch baseline stays at version 1. */
 class DatabaseContractTest {
     private val expectedTables =
         setOf(
@@ -72,9 +72,9 @@ class DatabaseContractTest {
         val property = System.getProperty("helix.schema.dir")
         val candidate =
             if (property.isNullOrBlank()) {
-                File("src/androidTest/assets/com.helix.core.storage.HelixDatabase/2.json")
+                File("src/androidTest/assets/com.helix.core.storage.HelixDatabase/1.json")
             } else {
-                File(property, "com.helix.core.storage.HelixDatabase/2.json")
+                File(property, "com.helix.core.storage.HelixDatabase/1.json")
             }
         assertTrue("schema export not found at ${candidate.absolutePath}", candidate.isFile)
         return candidate
@@ -99,7 +99,7 @@ class DatabaseContractTest {
     @Test
     fun `exported schema is the complete current version`() {
         val database = database()
-        assertEquals(2L, (database.entries.getValue("version") as Value.Num).value)
+        assertEquals(1L, (database.entries.getValue("version") as Value.Num).value)
         val tables = entities().map { (it.entries.getValue("tableName") as Value.Str).value }
         assertEquals(expectedTables, tables.toSet())
         assertEquals(expectedTables.size, tables.size)

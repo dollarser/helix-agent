@@ -20,7 +20,7 @@ object ProotRuntimeProtocol {
      * v2 added job transactions and v1 was handshake-only. Both APKs of the signed set ship the same revision, and a
      * mismatch is a stable PROTOCOL_MISMATCH, never a partial job.
      */
-    const val PROTOCOL_VERSION = 4
+    const val PROTOCOL_VERSION = 1
 
     /** Interface token written by the client and enforced by the server. */
     const val INTERFACE_DESCRIPTOR = "com.helix.runtime.proot.IRuntimeService/1"

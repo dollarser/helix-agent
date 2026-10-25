@@ -179,7 +179,7 @@ class SessionPermissionStageTest {
         val audit = checkNotNull(event.sessionPermissionEvaluated)
         assertEquals(SessionPermissionDecisionAudit.OUTCOME_DENIED, audit.outcome)
         assertEquals("CUSTOM", audit.mode)
-        assertEquals(2, audit.configVersion)
+        assertEquals(1, audit.configVersion)
         assertEquals("OPERATION_DENIED", audit.denyCode)
         assertEquals(listOf("FILE_MUTATION_EXTERNAL"), audit.effects)
     }

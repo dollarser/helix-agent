@@ -13,12 +13,12 @@ import org.junit.rules.TemporaryFolder
 class ExecutionOwnershipStoreTest {
     @get:Rule val temporary = TemporaryFolder()
 
-    @Test fun legacyIdentityIsPreservedButDoesNotBlockUnrelatedCalls() {
-        val file = temporary.newFile("legacy")
+    @Test fun currentIdentityDoesNotBlockUnrelatedCalls() {
+        val file = temporary.newFile("current")
         val owner = ExecutionOwnership.Owner("terminal", "generation")
         java.io.DataOutputStream(file.outputStream()).use {
             it.writeInt(1)
-            it.writeBoolean(true)
+            it.writeInt(1)
             it.writeUTF(owner.executionId)
             it.writeUTF(owner.generation)
         }

@@ -69,7 +69,7 @@ class FreshSchemaDeviceTest {
             }.confirm()
             withDevelopmentDatabase { room ->
                 val db = room.openHelper.writableDatabase
-                assertEquals(2, db.version)
+                assertEquals(1, db.version)
                 db.query("SELECT name FROM sqlite_master WHERE name = 'earlier_development_marker'").use {
                     assertFalse(it.moveToFirst())
                 }

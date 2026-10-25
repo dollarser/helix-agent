@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "178e8a8628efd2f2a4354c02eded6c44",
+    "identityHash": "9313c234ce6eabab37d07328e0644fd7",
     "entities": [
       {
         "tableName": "knowledge",
@@ -124,7 +124,7 @@
       },
       {
         "tableName": "knowledge_notes",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `title` TEXT NOT NULL, `body` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `state` TEXT NOT NULL, `generatedDraft` TEXT NOT NULL, `generationState` TEXT NOT NULL, `generationTarget` TEXT NOT NULL, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `title` TEXT NOT NULL, `body` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `state` TEXT NOT NULL, `generatedDraft` TEXT NOT NULL, `generationState` TEXT NOT NULL, `generationTarget` TEXT NOT NULL, `kind` TEXT NOT NULL DEFAULT 'NOTE', `originReferencesJson` TEXT NOT NULL DEFAULT '[]', `originSessionId` TEXT NOT NULL DEFAULT '', `originMessageId` TEXT NOT NULL DEFAULT '', `originContentHash` TEXT NOT NULL DEFAULT '', PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -179,6 +179,41 @@
             "columnName": "generationTarget",
             "affinity": "TEXT",
             "notNull": true
+          },
+          {
+            "fieldPath": "kind",
+            "columnName": "kind",
+            "affinity": "TEXT",
+            "notNull": true,
+            "defaultValue": "'NOTE'"
+          },
+          {
+            "fieldPath": "originReferencesJson",
+            "columnName": "originReferencesJson",
+            "affinity": "TEXT",
+            "notNull": true,
+            "defaultValue": "'[]'"
+          },
+          {
+            "fieldPath": "originSessionId",
+            "columnName": "originSessionId",
+            "affinity": "TEXT",
+            "notNull": true,
+            "defaultValue": "''"
+          },
+          {
+            "fieldPath": "originMessageId",
+            "columnName": "originMessageId",
+            "affinity": "TEXT",
+            "notNull": true,
+            "defaultValue": "''"
+          },
+          {
+            "fieldPath": "originContentHash",
+            "columnName": "originContentHash",
+            "affinity": "TEXT",
+            "notNull": true,
+            "defaultValue": "''"
           }
         ],
         "primaryKey": {
@@ -282,11 +317,71 @@
           "preferredOrder": "ASC"
         },
         "contentSyncTriggers": []
+      },
+      {
+        "tableName": "knowledge_answers",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `question` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `state` TEXT NOT NULL, `sourcesJson` TEXT NOT NULL, `targetJson` TEXT NOT NULL, `body` TEXT NOT NULL, `savedNoteId` TEXT NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "question",
+            "columnName": "question",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "state",
+            "columnName": "state",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sourcesJson",
+            "columnName": "sourcesJson",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "targetJson",
+            "columnName": "targetJson",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "body",
+            "columnName": "body",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "savedNoteId",
+            "columnName": "savedNoteId",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        }
       }
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '178e8a8628efd2f2a4354c02eded6c44')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '9313c234ce6eabab37d07328e0644fd7')"
     ]
   }
 }

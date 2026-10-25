@@ -77,15 +77,16 @@ class PtyPackageReplacementTest {
         assertEquals(recovered.acknowledge(), store.read("terminal"))
     }
 
-    @Test fun existingV1JournalsRemainReadableWithoutInventingReplacementProof() {
-        val v2 = PtySessionRecordCodec.encode(unknown)
-        val v1 = v2.copyOf(v2.size - 8).also { it[3] = 1 }
-        assertEquals(unknown, PtySessionRecordCodec.decode(v1))
-        assertNull(PtySessionRecordCodec.decode(v1).stopProof)
-        assertEquals(
-            unknown.afterPackageReplacement(proof),
-            PtySessionRecordCodec.decode(v1).afterPackageReplacement(proof),
-        )
+    @Test fun incompleteAndUnknownJournalsCannotInventReplacementProof() {
+        val current = PtySessionRecordCodec.encode(unknown)
+        assertEquals(unknown, PtySessionRecordCodec.decode(current))
+        assertNull(PtySessionRecordCodec.decode(current).stopProof)
+        assertThrows(java.io.EOFException::class.java) {
+            PtySessionRecordCodec.decode(current.copyOf(current.size - 8))
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            PtySessionRecordCodec.decode(current.copyOf().also { it[3] = 2 })
+        }
     }
 
     private fun PtySessionRecord.acknowledgeAfterReboot() = afterReboot(8).acknowledge()

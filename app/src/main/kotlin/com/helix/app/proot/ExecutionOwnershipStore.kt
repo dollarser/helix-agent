@@ -54,12 +54,8 @@ internal class ExecutionOwnershipStore(
         if (!file.exists()) return emptySet()
         check(file.length() in 5..MAX_RECORD_BYTES) { "execution admission record size invalid" }
         return DataInputStream(FileInputStream(file)).use { data ->
-            val count =
-                when (data.readInt()) {
-                    1 -> if (data.readBoolean()) 1 else 0
-                    VERSION -> data.readInt()
-                    else -> error("execution admission version unsupported")
-                }
+            check(data.readInt() == VERSION) { "execution admission version unsupported" }
+            val count = data.readInt()
             check(count in 0..MAX_OWNERS) { "execution identity count invalid" }
             val owners = List(count) { ExecutionOwnership.Owner(data.readUTF(), data.readUTF()) }.toSet()
             check(owners.size == count) { "duplicate execution identity" }
@@ -75,7 +71,7 @@ internal class ExecutionOwnershipStore(
         // All callers live in the application process. Runtime receives bound identities over IPC;
         // it never reads/writes this host admission store. Multiple wrappers share this CAS lock.
         private val lock = Any()
-        private const val VERSION = 2
+        private const val VERSION = 1
         private const val MAX_OWNERS = 1024
         private const val MAX_ID_CHARS = 128
         private const val MAX_RECORD_BYTES = 1024L * 1024L

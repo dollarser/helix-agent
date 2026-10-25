@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate Helix v2 exports independently of Kotlin; optionally stream reconstructed messages.
+"""Validate current Helix version-1 exports independently of Kotlin; optionally stream reconstructed messages.
 
 Only consumes the selected file. Never follows content references or executes exported tools.
 """
@@ -13,7 +13,7 @@ import sqlite3
 import tempfile
 
 FORMAT = "helix.session-export"
-FORMAT_VERSION = 2
+FORMAT_VERSION = 1
 LINE_BYTES = 256 * 1024
 FILE_BYTES = 128 * 1024 * 1024
 TYPES = ("header session turn message model_call tool_call tool_result execution approval "

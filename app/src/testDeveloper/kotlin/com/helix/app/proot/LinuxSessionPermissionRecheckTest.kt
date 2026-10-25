@@ -105,12 +105,12 @@ class LinuxSessionPermissionRecheckTest {
     @Test
     fun theBindingPayloadBindsTheJobToItsSessionAndConfigVersion() {
         val payload = payload(SessionPermissionConfig.of(SessionPermissionMode.WORKSPACE_TRUSTED))
-        assertEquals("2", payload.getValue("version").jsonPrimitive.content)
+        assertEquals("1", payload.getValue("version").jsonPrimitive.content)
         assertEquals("call-1", payload.getValue("toolCallId").jsonPrimitive.content)
         assertEquals("turn-1", payload.getValue("turnId").jsonPrimitive.content)
         assertEquals("s1", payload.getValue("sessionId").jsonPrimitive.content)
         assertEquals("WORKSPACE_TRUSTED", payload.getValue("mode").jsonPrimitive.content)
-        assertEquals("2", payload.getValue("configVersion").jsonPrimitive.content)
+        assertEquals("1", payload.getValue("configVersion").jsonPrimitive.content)
         assertEquals("job_0123456789ab", payload.getValue("jobId").jsonPrimitive.content)
         assertEquals("exec-1", payload.getValue("executionId").jsonPrimitive.content)
         assertEquals("a".repeat(64), payload.getValue("inputManifestSha256").jsonPrimitive.content)
@@ -138,7 +138,7 @@ class LinuxSessionPermissionRecheckTest {
         val payload = payload(null)
         assertTrue(payload.getValue("mode") is JsonNull)
         assertTrue(payload.getValue("configVersion") is JsonNull)
-        assertEquals("2", payload.getValue("version").jsonPrimitive.content)
+        assertEquals("1", payload.getValue("version").jsonPrimitive.content)
         assertEquals("s1", payload.getValue("sessionId").jsonPrimitive.content)
     }
 

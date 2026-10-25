@@ -11,8 +11,8 @@ import org.junit.Rule
 import org.junit.Test
 import java.util.UUID
 
-/** Published records survive the additive upgrade; no reset or daily database is used. */
-class KnowledgeMigrationDeviceTest {
+/** Fresh version-1 baselines reopen records; no migration chain or daily database is used. */
+class KnowledgeBaselineDeviceTest {
     @get:Rule val main =
         MigrationTestHelper(
             InstrumentationRegistry.getInstrumentation(),
@@ -25,7 +25,7 @@ class KnowledgeMigrationDeviceTest {
             KnowledgeDatabase::class.java,
         )
 
-    @Test fun publishedMainSchemaMigratesWithoutResettingConversationRecords() =
+    @Test fun currentMainBaselineReopensConversationRecords() =
         runBlocking {
             val context = InstrumentationRegistry.getInstrumentation().targetContext
             val name = "knowledge-migration-${UUID.randomUUID()}.db"
@@ -54,7 +54,7 @@ class KnowledgeMigrationDeviceTest {
                         ).build()
                 try {
                     val db = room.openHelper.writableDatabase
-                    assertEquals(2, db.version)
+                    assertEquals(1, db.version)
                     db.query("SELECT title FROM sessions WHERE id = 'retained'").use {
                         check(it.moveToFirst())
                         assertEquals("Synthetic", it.getString(0))
@@ -72,12 +72,12 @@ class KnowledgeMigrationDeviceTest {
             }
         }
 
-    @Test fun existingLibraryNotesRetainBodyAndReviewStateWithoutBecomingKnowledge() =
+    @Test fun currentLibraryBaselineReopensNotesWithoutChangingTheirKind() =
         runBlocking {
             val context = InstrumentationRegistry.getInstrumentation().targetContext
             val name = "knowledge-library-migration-${UUID.randomUUID()}.db"
             try {
-                library.createDatabase(name, 2).use {
+                library.createDatabase(name, 1).use {
                     it.execSQL(
                         "INSERT INTO knowledge_notes(id,title,body,createdAt,updatedAt,state,generatedDraft," +
                             "generationState,generationTarget) VALUES " +

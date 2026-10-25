@@ -273,7 +273,7 @@ val projectDependencies =
 
 subprojects {
     group = "com.helix"
-    version = "0.1.0-SNAPSHOT"
+    version = "1"
 
     dependencyLocking {
         lockAllConfigurations()
@@ -284,7 +284,7 @@ subprojects {
             pluginManager.apply("com.android.library")
 
             // HXA-062: :tools:browser and :feature:browser both default to the coordinate
-            // com.helix:browser:0.1.0-SNAPSHOT (project name "browser", default group
+            // com.helix:browser:1 (project name "browser", default group
             // "com.helix"). :app depends on both, so Gradle would conflict-resolve them to a
             // single artifact and silently drop the tool classes — the same collision
             // :tools:files resolved (HXA-042). A distinct group disambiguates the two without
@@ -549,7 +549,7 @@ subprojects {
             }
 
             // HXA-042: the JVM `:tools:files` module and the Android `:feature:files` module both
-            // default to the coordinate `com.helix:files:0.1.0-SNAPSHOT`. `:app` depends on BOTH
+            // default to the coordinate `com.helix:files:1`. `:app` depends on BOTH
             // (`:feature:files` from before; `:tools:files` joins now), so Gradle conflict-resolves
             // the two SNAPSHOT versions to a single artifact and silently drops the file TOOL
             // classes from the classpath. A distinct group disambiguates the two WITHOUT touching

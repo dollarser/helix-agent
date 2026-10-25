@@ -57,23 +57,13 @@ class ProviderSelectedModels(
 
     fun selection(id: String): ProviderModelSelection =
         synchronized(LOCK) {
-            val lines = store.lines("provider-model-selection-v2-$id")
-            if (lines.isEmpty()) {
-                // Preserve existing explicit choices only; an absent/empty old list never means all models.
-                val explicit = store.lines("provider-selected-models-$id")
-                validate(explicit)
-                return@synchronized if (explicit.isEmpty()) {
-                    ProviderModelSelection()
-                } else {
-                    ProviderModelSelection(explicit.distinct(), configured = true)
-                }
-            }
+            val lines = store.lines("provider-model-selection-v1-$id")
+            if (lines.isEmpty()) return@synchronized ProviderModelSelection()
             require(lines.size == 1 && lines.single().length <= 1024 * 1024)
             val parsed = Json.parseToJsonElement(lines.single())
             val document = requireNotNull(parsed as? kotlinx.serialization.json.JsonObject)
-            // Preserve explicit selections from older records, but discard their retired default.
             require(document.keys.containsAll(setOf("models", "custom")))
-            require(document.keys.all { it in setOf("models", "custom", "default", "displayNames") })
+            require(document.keys.all { it in setOf("models", "custom", "displayNames") })
             val models =
                 requireNotNull(document["models"] as? JsonArray).map {
                     require(it.jsonPrimitive.isString)
@@ -112,7 +102,7 @@ class ProviderSelectedModels(
         synchronized(LOCK) {
             check(expected == null || selection(id) == expected) { "Model selection changed; reload before saving" }
             store.setLines(
-                "provider-model-selection-v2-$id",
+                "provider-model-selection-v1-$id",
                 listOf(
                     buildJsonObject {
                         put("models", JsonArray(value.models.map(::JsonPrimitive)))
@@ -133,8 +123,7 @@ class ProviderSelectedModels(
 
     fun clear(id: String) =
         synchronized(LOCK) {
-            store.setLines("provider-model-selection-v2-$id", emptyList())
-            store.setLines("provider-selected-models-$id", emptyList())
+            store.setLines("provider-model-selection-v1-$id", emptyList())
         }
 
     companion object {

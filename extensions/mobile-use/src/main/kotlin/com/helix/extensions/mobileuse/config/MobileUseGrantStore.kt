@@ -71,6 +71,6 @@ class MobileUseGrantStore(
 
     companion object {
         const val CONFIG_KEY = "mobile-use-global-configuration"
-        private const val VERSION = "mobile-use-config-v2"
+        private const val VERSION = "mobile-use-config-v1"
     }
 }

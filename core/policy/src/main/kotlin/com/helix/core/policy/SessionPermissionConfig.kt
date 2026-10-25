@@ -54,8 +54,8 @@ data class SessionPermissionConfig(
     }
 
     companion object {
-        /** Version of the rule-set contract this build speaks; bump only on an explicit contract change. */
-        const val CURRENT_CONFIG_VERSION = 2
+        /** Current rule-set baseline; stays at 1 until the owner authorizes a formal-release upgrade. */
+        const val CURRENT_CONFIG_VERSION = 1
 
         /** Compiles a preset mode into the single config shape. CUSTOM has no implicit rules. */
         fun of(mode: SessionPermissionMode): SessionPermissionConfig {

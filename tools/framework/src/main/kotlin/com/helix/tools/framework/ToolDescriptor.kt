@@ -188,7 +188,7 @@ data class ToolDescriptor(
         private fun ToolDescriptor.contractCanonicalForm(): String =
             JsonArray(
                 listOf(
-                    "helix-tool-contract-v2",
+                    "helix-tool-contract-v1",
                     name.value,
                     version.value.toString(),
                     description,

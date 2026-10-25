@@ -45,7 +45,7 @@ class SessionExportProjectionTest {
         val direct = projection.project(SessionExportType.TOOL_CALL, directRow)
         assertEquals(JsonNull, direct["modelCallId"])
         assertEquals("non_model_call", direct.getValue("modelAssociation").jsonPrimitive.content)
-        assertEquals(2, SessionExportFormat.VERSION)
+        assertEquals(1, SessionExportFormat.VERSION)
     }
 
     @Test fun providerConfigurationAndHistoricalUnknownsCannotLeakOrBecomeInventedFacts() {

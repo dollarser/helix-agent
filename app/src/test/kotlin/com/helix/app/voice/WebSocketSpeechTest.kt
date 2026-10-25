@@ -280,6 +280,7 @@ class WebSocketSpeechTest {
                 "https://asr.sunlingzhang.com/v1/audio/transcriptions",
                 "https://tts.sunlingzhang.com/v1/audio/speech",
                 "true",
+                "false",
             ),
         )
         val http = store.read()

@@ -55,7 +55,7 @@ class ProotJobRecordTest {
     }
 
     @Test
-    fun monotonicDurationIsCommittedAndLegacyIdentityIsPreserved() {
+    fun monotonicDurationIsCommittedAtTheCurrentBaseline() {
         val legacy = succeeded()
         val record = legacy.copy(elapsedDurationMs = 3_500)
         val encoded = ProotJobRecordCodec.encode(record)
@@ -72,12 +72,12 @@ class ProotJobRecordTest {
     }
 
     @Test
-    fun durationRequiresATerminalRecordAndAnExplicitVersion() {
+    fun durationRequiresATerminalRecordAndOnlyVersionOneIsAccepted() {
         assertThrows(IllegalArgumentException::class.java) { pending().copy(elapsedDurationMs = 0) }
         assertThrows(IllegalArgumentException::class.java) { succeeded().copy(elapsedDurationMs = -1) }
         val encoded = ProotJobRecordCodec.encode(succeeded().copy(elapsedDurationMs = 3_500))
         assertThrows(ProotIpcException::class.java) {
-            ProotJobRecordCodec.parse(encoded.replace("\"schemaVersion\":2", "\"schemaVersion\":1"))
+            ProotJobRecordCodec.parse(encoded.replace("\"schemaVersion\":1", "\"schemaVersion\":2"))
         }
         assertThrows(ProotIpcException::class.java) {
             ProotJobRecordCodec.parse(
@@ -86,15 +86,15 @@ class ProotJobRecordTest {
         }
     }
 
-    @Test fun terminalMonotonicStampIsCommittedWithoutRewritingLegacyVersions() {
+    @Test fun optionalTerminalStampUsesVersionOneAndRemainsCommitted() {
         val timed = succeeded().copy(elapsedDurationMs = 3_500, terminalElapsedMs = 8_500)
         assertEquals(timed, ProotJobRecordCodec.parse(ProotJobRecordCodec.encode(timed)))
-        assertTrue(ProotJobRecordCodec.encode(timed).contains("\"schemaVersion\":3"))
+        assertTrue(ProotJobRecordCodec.encode(timed).contains("\"schemaVersion\":1"))
         assertThrows(ProotIpcException::class.java) {
             ProotJobRecordCodec.parse(ProotJobRecordCodec.encode(timed).replace("8500", "8501"))
         }
         val legacy = timed.copy(terminalElapsedMs = null)
-        assertTrue(ProotJobRecordCodec.encode(legacy).contains("\"schemaVersion\":2"))
+        assertTrue(ProotJobRecordCodec.encode(legacy).contains("\"schemaVersion\":1"))
         assertEquals(
             legacy.terminalCommit,
             ProotJobRecordCodec.parse(ProotJobRecordCodec.encode(legacy)).terminalCommit,
@@ -108,7 +108,7 @@ class ProotJobRecordTest {
         }
         val legacy = ProotJobRecordCodec.encode(succeeded().copy(elapsedDurationMs = 3_500))
         assertThrows(ProotIpcException::class.java) {
-            ProotJobRecordCodec.parse(legacy.replace("\"schemaVersion\":2", "\"schemaVersion\":3"))
+            ProotJobRecordCodec.parse(legacy.replace("\"schemaVersion\":1", "\"schemaVersion\":3"))
         }
     }
 

@@ -55,7 +55,7 @@ class SessionPermissionEditServiceTest {
         assertEquals("s1", audit.correlationId)
         assertEquals("session_config", audit.action())
         assertEquals("WORKSPACE_TRUSTED", audit.str("mode"))
-        assertEquals("2", audit.str("configVersion"))
+        assertEquals("1", audit.str("configVersion"))
         assertEquals("1", audit.str("revision"))
         assertEquals("1000", audit.str("changedAt"))
     }
@@ -208,7 +208,7 @@ class SessionPermissionEditServiceTest {
         assertEquals("custom_draft", audit.action())
         assertEquals("WORKSPACE_TRUSTED", audit.str("mode"))
         assertEquals("WORKSPACE_TRUSTED", audit.str("sourcePreset"))
-        assertEquals("2", audit.str("configVersion"))
+        assertEquals("1", audit.str("configVersion"))
         assertEquals("2000", audit.str("changedAt"))
     }
 

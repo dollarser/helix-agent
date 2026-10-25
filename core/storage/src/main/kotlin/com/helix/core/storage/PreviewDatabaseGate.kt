@@ -23,10 +23,8 @@ class PreviewDatabaseResetRequired(
     }
 }
 
-/** Checks Room identities without reading user records. Only the declared published baseline may migrate. */
+/** Read-only current Room identity check; no historical migration chain. */
 internal object PreviewDatabaseGate {
-    // Only the exact existing baseline is eligible for Room's additive migration.
-    private val previousPublishedSchema = Schema(1, "58499747982b0e6511c9257bb913e4f4")
     private val lock = Any()
     private var currentSchema: Schema? = null
 
@@ -37,7 +35,7 @@ internal object PreviewDatabaseGate {
         val file = context.getDatabasePath(name)
         if (!file.exists()) return@synchronized
         val schema = readSchema(file)
-        if (schema == expectedSchema(context) || schema == previousPublishedSchema) return@synchronized
+        if (schema == expectedSchema(context)) return@synchronized
         val observed = files(file)
         throw PreviewDatabaseResetRequired { beforeDelete ->
             synchronized(lock) {

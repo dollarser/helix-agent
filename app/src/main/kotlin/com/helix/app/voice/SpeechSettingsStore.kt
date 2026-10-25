@@ -79,7 +79,7 @@ class SpeechSettingsStore(
                 SpeechServiceSettings()
             }
 
-            rows.size == 6 && rows[0] == "account-v2" && rows[1] in setOf("true", "false") &&
+            rows.size == 6 && rows[0] == "account-v1" && rows[1] in setOf("true", "false") &&
                 rows[4] in setOf("true", "false") && rows[5] in setOf("true", "false") -> {
                 SpeechServiceSettings(
                     rows[1].toBooleanStrict(),
@@ -88,11 +88,6 @@ class SpeechSettingsStore(
                     rows[4].toBooleanStrict(),
                     rows[5].toBooleanStrict(),
                 )
-            }
-
-            rows.size == 5 && rows[0] == "account-v1" && rows[1] in setOf("true", "false") &&
-                rows[4] in setOf("true", "false") -> {
-                SpeechServiceSettings(rows[1].toBooleanStrict(), rows[2], rows[3], rows[4].toBooleanStrict())
             }
 
             else -> {
@@ -106,7 +101,7 @@ class SpeechSettingsStore(
         store.setLines(
             "settings",
             listOf(
-                "account-v2",
+                "account-v1",
                 settings.httpEnabled.toString(),
                 settings.asrEndpoint,
                 settings.ttsEndpoint,

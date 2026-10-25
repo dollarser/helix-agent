@@ -1,7 +1,6 @@
 package com.helix.core.storage.knowledge
 
 import android.content.Context
-import androidx.room.AutoMigration
 import androidx.room.Dao
 import androidx.room.Database
 import androidx.room.Entity
@@ -100,8 +99,7 @@ interface KnowledgeDao {
         CollectedSource::class, KnowledgeSearch::class, KnowledgeNote::class,
         KnowledgeNoteSource::class, KnowledgeNoteSearch::class, KnowledgeAnswer::class,
     ],
-    version = 3,
-    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3)],
+    version = 1,
     exportSchema = true,
 )
 abstract class KnowledgeDatabase : RoomDatabase() {

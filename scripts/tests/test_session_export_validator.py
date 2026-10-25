@@ -1,4 +1,4 @@
-"""v2 host contract fixture, derived from the retained historical Android v1 sample."""
+"""Current version-1 host contract fixture; historical samples are not compatibility contracts."""
 import importlib.util
 import io
 import json
@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[2]
 SPEC = importlib.util.spec_from_file_location("session_export", ROOT / "scripts/validate-session-export.py")
 EXPORT = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(EXPORT)
-SAMPLE = ROOT / "scripts/fixtures/session-export-v2.jsonl"
+SAMPLE = ROOT / "scripts/fixtures/session-export-current.jsonl"
 
 
 class SessionExportValidatorTest(unittest.TestCase):
@@ -36,7 +36,7 @@ class SessionExportValidatorTest(unittest.TestCase):
         self.assertEqual("tool", next(row for row in rows if row["type"] == "tool_result")["data"]["toolCallId"])
 
     def test_rejects_unsupported_version_and_mixed_export(self):
-        for field, value in (("formatVersion", 1), ("exportId", "other"), ("sessionId", "other"), ("sequence", 99)):
+        for field, value in (("formatVersion", 2), ("exportId", "other"), ("sessionId", "other"), ("sequence", 99)):
             with self.subTest(field=field):
                 rows = self.rows()
                 rows[2][field] = value
@@ -113,7 +113,7 @@ class SessionExportValidatorTest(unittest.TestCase):
     def test_rejects_duplicate_keys_bom_and_missing_final_lf(self):
         original = SAMPLE.read_bytes()
         for raw in (b"\xef\xbb\xbf" + original, original[:-1],
-                    original.replace(b'"formatVersion":2', b'"formatVersion":2,"formatVersion":2', 1)):
+                    original.replace(b'"formatVersion":1', b'"formatVersion":1,"formatVersion":1', 1)):
             with tempfile.TemporaryDirectory() as directory:
                 path = Path(directory) / "bad.jsonl"
                 path.write_bytes(raw)

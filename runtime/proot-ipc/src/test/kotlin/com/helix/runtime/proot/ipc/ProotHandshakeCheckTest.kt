@@ -35,7 +35,7 @@ class ProotHandshakeCheckTest {
     fun `protocol mismatch wins`() {
         val cause =
             ProotHandshakeClient.check(
-                descriptor(protocolVersion = ProotRuntimeProtocol.PROTOCOL_VERSION - 1),
+                descriptor(protocolVersion = ProotRuntimeProtocol.PROTOCOL_VERSION + 1),
                 ProotRuntimeProtocol.PROTOCOL_VERSION,
                 "arm64-v8a",
                 anchor,
