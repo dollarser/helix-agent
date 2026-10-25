@@ -1,8 +1,17 @@
 package com.helix.app.chat
 
 import android.net.Uri
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.isEnabled
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextReplacement
 import com.helix.app.MainActivity
+import com.helix.app.knowledge.createEmptyTestNote
 import com.helix.app.provider.LoopbackModelServer
 import com.helix.app.provider.ProviderDraft
 import com.helix.app.test.TransferTestDocumentsProvider
@@ -15,6 +24,7 @@ import com.helix.core.storage.repository.SessionInputDelivery
 import com.helix.core.storage.repository.SessionInputState
 import com.helix.core.workspace.FileScopePath
 import com.helix.provider.api.ProbeOutcome
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -32,6 +42,213 @@ import java.util.concurrent.atomic.AtomicInteger
 /** Loopback requests are held at the wire while real service admission accepts another input. */
 class SessionInputQueueDeviceTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
+
+    @Test fun visibleReplyCanBeSavedAsNoteWithoutAnotherModelRequest() =
+        runBlocking {
+            fixture { chat, session, entered, release, requests ->
+                val turn =
+                    compose.awaitAdmittedTurn(
+                        chat.sendSubmission(submission(session, "Synthetic reply to save")).await(),
+                    )
+                assertTrue(entered.await(10, TimeUnit.SECONDS))
+                release.countDown()
+                compose.waitUntil(15_000) { requests.get() == 1 && !chat.screen.value.isSending }
+                val reply =
+                    compose.container().storage.messages.byTurn(turn).last {
+                        it.role == "ASSISTANT" &&
+                            it.kind == "TEXT"
+                    }
+                val library = (compose.activity.application as com.helix.app.HelixApplication).knowledge
+                try {
+                    compose.onNodeWithTag("chat-message-toggle-${reply.id}").performScrollTo().performClick()
+                    compose.onNodeWithTag("chat-save-note-${reply.id}").performClick()
+                    compose.waitUntil(5000) {
+                        runBlocking {
+                            library.noteService.notes.first().any {
+                                it.originMessageId ==
+                                    reply.id
+                            }
+                        }
+                    }
+                    compose.onNodeWithTag("chat-save-note-${reply.id}").performClick()
+                    compose.waitForIdle()
+                    val saved =
+                        runBlocking {
+                            library.noteService.notes
+                                .first()
+                                .filter { it.originMessageId == reply.id }
+                        }
+                    assertEquals(1, saved.size)
+                    assertEquals("NOTE", saved.single().kind)
+                    assertEquals("DRAFT", saved.single().state)
+                    assertEquals("fixture answer", saved.single().body)
+                    assertEquals(1, requests.get())
+                    captureKnowledgeComposer("reply-saved-note")
+                } finally {
+                    library.noteService.notes.first().filter { it.originMessageId == reply.id }.forEach {
+                        library.noteService.management.remove(it)
+                    }
+                }
+            }
+        }
+
+    @Test fun realComposerSelectionCancelAddAndRemoveNeverSend() =
+        runBlocking {
+            fixture { chat, session, _, _, requests ->
+                val library = (compose.activity.application as com.helix.app.HelixApplication).knowledge
+                val id = library.noteService.createEmptyTestNote("Synthetic composer reference")
+                try {
+                    library.noteService.save(id, "Synthetic composer reference", "Selected synthetic text", false)
+                    compose.waitUntil(10_000) {
+                        compose
+                            .onAllNodes(hasTestTag("chat-input") and isEnabled())
+                            .fetchSemanticsNodes()
+                            .isNotEmpty()
+                    }
+                    compose.onNodeWithTag("chat-input").performTextReplacement("Keep this unsent question")
+
+                    fun openPicker() {
+                        compose.onNodeWithTag("chat-add").performClick()
+                        compose.onNodeWithTag("composer-add-knowledge-reference").performScrollTo().performClick()
+                        compose.waitUntil(5000) {
+                            compose
+                                .onAllNodes(hasTestTag("knowledge-reference-select-$id"))
+                                .fetchSemanticsNodes()
+                                .isNotEmpty()
+                        }
+                    }
+                    openPicker()
+                    compose.onNodeWithTag("knowledge-reference-select-$id").performClick()
+                    compose.onNodeWithTag("knowledge-reference-picker-close").performClick()
+                    compose.onNodeWithTag("chat-input").assertTextContains("Keep this unsent question")
+                    val cancelled = compose.onAllNodes(hasTestTag("knowledge-citation-$id")).fetchSemanticsNodes()
+                    assertTrue(cancelled.isEmpty())
+                    openPicker()
+                    compose.onNodeWithTag("knowledge-reference-select-$id").performClick()
+                    compose.onNodeWithTag("knowledge-reference-apply").assertIsDisplayed().performClick()
+                    compose.waitUntil(5000) {
+                        compose.onAllNodes(hasTestTag("knowledge-citation-$id")).fetchSemanticsNodes().isNotEmpty()
+                    }
+                    compose.onNodeWithTag("chat-input").assertTextContains("Keep this unsent question")
+                    captureKnowledgeComposer()
+                    compose.onNodeWithTag("knowledge-citation-remove-$id").assertIsDisplayed().performClick()
+                    compose.onNodeWithTag("chat-input").assertTextContains("Keep this unsent question")
+                    assertEquals(0, requests.get())
+                    assertTrue(
+                        compose
+                            .container()
+                            .storage.turns
+                            .listBySession(session)
+                            .isEmpty(),
+                    )
+                    val removed = compose.onAllNodes(hasTestTag("knowledge-citation-$id")).fetchSemanticsNodes()
+                    assertTrue(removed.isEmpty())
+                } finally {
+                    library.noteService.management.remove(requireNotNull(library.noteService.get(id)))
+                }
+            }
+        }
+
+    @Test fun libraryHandoffPreservesDraftAndRejectsAnotherTarget() =
+        runBlocking {
+            fixture { chat, session, _, _, requests ->
+                val storage = compose.container().storage
+                val library = (compose.activity.application as com.helix.app.HelixApplication).knowledge
+                val id = library.noteService.createEmptyTestNote("Synthetic handoff")
+                try {
+                    library.noteService.save(id, "Synthetic handoff", "First selected version", false)
+                    val first = library.references.select("NOTE", id, "FULL")
+                    val draft = submission(session, "Keep my unsent question")
+                    assertTrue(storage.composerDrafts.save(draft.toInputSnapshot()))
+                    assertFalse(chat.stageKnowledgeReferences("different-session", listOf(first)).await())
+                    assertTrue(chat.stageKnowledgeReferences(session, listOf(first)).await())
+                    library.noteService.save(id, "Synthetic handoff", "Explicitly selected new version", false)
+                    val replacement = library.references.select("NOTE", id, "FULL")
+                    assertTrue(chat.stageKnowledgeReferences(session, listOf(replacement)).await())
+                    val saved = requireNotNull(storage.composerDrafts.get(session)).toSubmission()
+                    assertEquals("Keep my unsent question", saved.text)
+                    assertEquals(listOf(replacement), saved.knowledgeReferences)
+                    assertEquals(0, requests.get())
+                    assertTrue(storage.turns.listBySession(session).isEmpty())
+                } finally {
+                    library.noteService.management.remove(requireNotNull(library.noteService.get(id)))
+                    storage.composerDrafts.removeSession(session)
+                }
+            }
+        }
+
+    @Test fun changedCitationCannotBeSentByAnOlderConfirmation() =
+        runBlocking {
+            fixture { chat, session, _, _, requests ->
+                val library = (compose.activity.application as com.helix.app.HelixApplication).knowledge
+                val id = library.noteService.createEmptyTestNote("Synthetic confirmation")
+                try {
+                    library.noteService.save(id, "Synthetic confirmation", "Original selected text", false)
+                    val reference = library.references.select("NOTE", id, "FULL")
+                    val input = submission(session, "Question").copy(knowledgeReferences = listOf(reference))
+                    val pending = chat.sendSubmission(input).await()
+                    assertTrue(pending.outcome is ChatSubmissionOutcome.PendingConfirmation)
+                    library.noteService.save(id, "Synthetic confirmation", "Changed before confirming", false)
+                    assertTrue(chat.confirmSubmission(input).await().outcome is ChatSubmissionOutcome.Rejected)
+                    assertEquals(0, requests.get())
+                    assertTrue(
+                        compose
+                            .container()
+                            .storage.turns
+                            .listBySession(session)
+                            .isEmpty(),
+                    )
+                } finally {
+                    library.noteService.management.remove(requireNotNull(library.noteService.get(id)))
+                }
+            }
+        }
+
+    @Test fun queuedKnowledgeRemainsFrozenAndEditingDoesNotSend() =
+        runBlocking {
+            val bodies = java.util.concurrent.CopyOnWriteArrayList<String>()
+            fixture(observe = { bodies += it }) { chat, session, entered, release, requests ->
+                val library = (compose.activity.application as com.helix.app.HelixApplication).knowledge
+                val noteId = library.noteService.createEmptyTestNote("Synthetic selected note")
+                try {
+                    library.noteService.save(noteId, "Synthetic selected note", "FrozenSelectedEvidence", false)
+                    val reference = library.references.select("NOTE", noteId, "FULL")
+                    compose.awaitAdmittedTurn(chat.sendSubmission(submission(session, "first")).await())
+                    assertTrue(entered.await(10, TimeUnit.SECONDS))
+                    val input =
+                        submission(session, "Question with citation")
+                            .copy(knowledgeReferences = listOf(reference))
+                    val held = chat.sendSubmission(input).await()
+                    assertTrue(held.outcome is ChatSubmissionOutcome.PendingConfirmation)
+                    assertEquals(1, requests.get())
+                    assertTrue(chat.confirmSubmission(input).await().outcome is ChatSubmissionOutcome.Enqueued)
+                    library.noteService.save(noteId, "Synthetic selected note", "LaterChangedEvidence", true)
+                    release.countDown()
+                    compose.waitUntil(20_000) { requests.get() == 2 && !chat.screen.value.isSending }
+                    val storage = compose.container().storage
+                    val accepted = requireNotNull(storage.sessionInputs.get(input.clientRequestId))
+                    assertEquals(listOf(reference), accepted.knowledgeReferences)
+                    val message = storage.messages.resolve(requireNotNull(accepted.messageId))
+                    val storedBody = requireNotNull(storage.messages.readContent(message))
+                    assertTrue(storedBody.contains("FrozenSelectedEvidence"))
+                    assertFalse(storedBody.contains("LaterChangedEvidence"))
+                    assertTrue(bodies.last().contains("FrozenSelectedEvidence"))
+                    assertFalse(bodies.last().contains("LaterChangedEvidence"))
+                    assertEquals(1, Regex("FrozenSelectedEvidence").findAll(bodies.last()).count())
+                    val editor = UserMessageEditor(storage)
+                    assertEquals("Question with citation", editor.load(session, message.id).text)
+                    val editResult = editor.save(editor.load(session, message.id), "Edited question")
+                    assertEquals(MessageEditResult.SAVED, editResult)
+                    assertEquals("Edited question", editor.load(session, message.id).text)
+                    val editedBody = requireNotNull(storage.messages.readContent(storage.messages.resolve(message.id)))
+                    assertTrue(editedBody.contains(reference.text))
+                    assertEquals(2, requests.get())
+                    assertEquals(2, storage.turns.listBySession(session).size)
+                } finally {
+                    library.noteService.management.remove(requireNotNull(library.noteService.get(noteId)))
+                }
+            }
+        }
 
     @Test fun sendQueuedNowKeepsIdentityAndJoinsOnlyTheDisplayedTurnOnce() =
         runBlocking {
@@ -416,6 +633,26 @@ class SessionInputQueueDeviceTest {
             }
         }
 
+    private fun captureKnowledgeComposer(name: String = "conversation-citations") {
+        val profile =
+            androidx.test.platform.app.InstrumentationRegistry
+                .getArguments()
+                .getString("knowledgeUiCapture") ?: return
+        require(profile.matches(Regex("[a-z0-9-]{1,30}")))
+        val bitmap =
+            com.helix.app.ui
+                .stableChatLayoutScreenshot()
+        val root = File(compose.activity.cacheDir, "knowledge-ui-captures")
+        check(root.isDirectory || root.mkdirs())
+        try {
+            File(root, "$profile-$name.png").outputStream().use {
+                check(bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it))
+            }
+        } finally {
+            bitmap.recycle()
+        }
+    }
+
     private fun assertRecoveryEnded(
         storage: com.helix.core.storage.HelixStorage,
         input: com.helix.core.storage.repository.SessionInputRecord,
@@ -441,6 +678,7 @@ class SessionInputQueueDeviceTest {
     ): ChatSubmission = ChatSubmission(session, 0, UUID.randomUUID().toString(), text)
 
     private suspend fun fixture(
+        observe: (String) -> Unit = {},
         block: suspend (ChatService, String, CountDownLatch, CountDownLatch, AtomicInteger) -> Unit,
     ) {
         compose.resetDeterministicUiState()
@@ -468,7 +706,8 @@ class SessionInputQueueDeviceTest {
             try {
                 val entered = CountDownLatch(1)
                 val requests = AtomicInteger()
-                server.scriptedChat = {
+                server.scriptedChat = { body ->
+                    observe(body)
                     if (requests.incrementAndGet() == 1) {
                         entered.countDown()
                         check(release.await(30, TimeUnit.SECONDS)) { "Input test did not release the first request" }

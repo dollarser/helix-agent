@@ -64,6 +64,18 @@ internal fun ComposerAddSheet(
         ) {
             Text(stringResource(R.string.composer_add_reference))
         }
+        actions.onKnowledgeReference?.let { add ->
+            TextButton(
+                onClick = {
+                    onDismiss()
+                    add()
+                },
+                enabled = messageEnabled,
+                modifier = Modifier.testTag("composer-add-knowledge-reference"),
+            ) {
+                Text(stringResource(R.string.knowledge_reference_add))
+            }
+        }
         HorizontalDivider()
         Text(stringResource(R.string.composer_add_session_group))
         TextButton(

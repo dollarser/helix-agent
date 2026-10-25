@@ -14,8 +14,20 @@ internal fun knowledgeMarkdown(
         appendLine("Status: ${note.state}; updated: ${java.time.Instant.ofEpochMilli(note.updatedAt)}")
         appendLine()
         appendLine(note.body)
+        if (note.originMessageId.isNotBlank()) {
+            appendLine()
+            appendLine("Origin conversation: ${note.originSessionId}; message: ${note.originMessageId}")
+            appendLine("Original response SHA256: ${note.originContentHash}")
+        }
         appendLine()
         appendLine("## Frozen references")
+        com.helix.core.storage.repository.KnowledgeReferences.decode(note.originReferencesJson).forEach { origin ->
+            appendLine()
+            appendLine("### ${origin.title.replace('\n', ' ')}")
+            appendLine("Resource: ${origin.kind}:${origin.resourceId}")
+            appendLine("Content SHA256: ${origin.sourceHash}; range: ${origin.range}")
+            origin.text.lineSequence().forEach { appendLine("> $it") }
+        }
         sources.forEach { source ->
             appendLine()
             appendLine("### ${source.title.replace('\n', ' ')}")

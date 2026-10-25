@@ -104,12 +104,16 @@ fun ChatScreen(
     var skillsOpen by remember(sessionId) { mutableStateOf(false) }
     var expertOpen by remember(sessionId) { mutableStateOf(false) }
     var referenceOpen by remember(sessionId) { mutableStateOf(false) }
+    var knowledgeOpen by remember(sessionId) { mutableStateOf(false) }
+    val knowledge = (context.applicationContext as? com.helix.app.HelixApplication)?.knowledge?.references
     var memoryOpen by remember(sessionId) { mutableStateOf(false) }
     if (memoryOpen && memory != null) MemoryDialog(memory, sessionId) { memoryOpen = false }
     var permissionRevision by remember(sessionId) { mutableStateOf(0) }
     var permissionMode by remember(sessionId) { mutableStateOf<SessionPermissionMode?>(null) }
     val referenceUnavailableReason = stringResource(R.string.chat_blocked_reference_unavailable)
     val modelRequiredReason = stringResource(R.string.chat_model_required_before_send)
+    val savedReplyNotice = stringResource(R.string.knowledge_saved_reply)
+    val failedReplyNotice = stringResource(R.string.knowledge_reply_failed)
     if (connectorsOpen && sessionId != null && connectors != null) {
         com.helix.app.connector
             .ConnectorSessionPanel(
@@ -371,6 +375,20 @@ fun ChatScreen(
             }
         }
     }
+    if (knowledgeOpen && knowledge != null && sessionId != null) {
+        com.helix.app.knowledge.KnowledgeReferencePicker(
+            knowledge,
+            buffer.value.knowledgeReferences,
+            onApply = { items ->
+                val canEdit = buffer.editable && !buffer.sending && chatService.screen.value.pendingDisclosure == null
+                if (chatService.screen.value.openSessionId == sessionId && canEdit) {
+                    buffer.knowledgeReferences(items)
+                }
+                knowledgeOpen = false
+            },
+            onDismiss = { knowledgeOpen = false },
+        )
+    }
     val input = buffer.value.text
     val referenceLabel =
         buffer.value.referenceSourceSessionId?.let { referenceSessionId ->
@@ -400,6 +418,19 @@ fun ChatScreen(
                 runControl = runControl,
                 permissionMode = permissionMode,
                 referenceLabel = referenceLabel,
+                hasKnowledgeReferences = buffer.value.knowledgeReferences.isNotEmpty(),
+                knowledgeReferenceContent = {
+                    com.helix.app.knowledge.KnowledgeReferenceChips(
+                        buffer.value.knowledgeReferences,
+                        knowledge,
+                        onChange =
+                            if (buffer.editable && !buffer.sending && screen.pendingDisclosure == null) {
+                                { buffer.knowledgeReferences(it) }
+                            } else {
+                                null
+                            },
+                    )
+                },
                 input = input,
                 onInput = buffer::edit,
                 composerAvailability =
@@ -556,6 +587,12 @@ fun ChatScreen(
                             if (sessionId != null && buffer.editable && !buffer.sending) referenceOpen = true
                         },
                         onClearReference = { buffer.reference(null, null) },
+                        onKnowledgeReference =
+                            knowledge?.let {
+                                {
+                                    if (sessionId != null && buffer.editable && !buffer.sending) knowledgeOpen = true
+                                }
+                            },
                         onExpert = {
                             val id = sessionId
                             if (id != null) {
@@ -597,6 +634,26 @@ fun ChatScreen(
                         onCompact = chatService::compactContext,
                         onFork = { messageId -> navigateAfterSave { chatService.forkFromMessage(messageId) } },
                         onRegenerateLatest = { messageId -> chatService.regenerateLatestTurn(messageId) },
+                        onSaveReply = { messageId ->
+                            val target = sessionId
+                            if (target != null) {
+                                scope.launch {
+                                    val saved = chatService.saveReplyAsNote(target, messageId).await()
+                                    val notice =
+                                        if (saved) {
+                                            savedReplyNotice
+                                        } else {
+                                            failedReplyNotice
+                                        }
+                                    android.widget.Toast
+                                        .makeText(
+                                            context,
+                                            notice,
+                                            android.widget.Toast.LENGTH_SHORT,
+                                        ).show()
+                                }
+                            }
+                        },
                         onEditMessage = { messageId ->
                             scope.launch {
                                 saveBuffer()

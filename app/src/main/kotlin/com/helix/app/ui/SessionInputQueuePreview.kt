@@ -70,6 +70,14 @@ private fun SessionInputPendingRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
+            if (record.knowledgeReferences.isNotEmpty()) {
+                Text(
+                    record.knowledgeReferences.joinToString(" · ") { it.title },
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.labelSmall,
+                )
+            }
             Text(
                 preview
                     .orEmpty()

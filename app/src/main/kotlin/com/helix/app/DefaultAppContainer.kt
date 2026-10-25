@@ -956,6 +956,8 @@ internal class DefaultAppContainer(
 
     override val chatService: ChatService =
         ChatService(
+            knowledgeReferences = (appContext.applicationContext as HelixApplication).knowledge.references,
+            knowledgeNotes = (appContext.applicationContext as HelixApplication).knowledge.noteService,
             storage = storage,
             providerService = providerService,
             profileStore = profileStore,

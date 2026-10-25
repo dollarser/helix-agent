@@ -3,13 +3,10 @@ package com.helix.app.knowledge
 import com.helix.core.storage.knowledge.KnowledgeNote
 import com.helix.core.storage.knowledge.KnowledgeNoteSource
 import com.helix.core.storage.knowledge.KnowledgeStore
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -17,13 +14,13 @@ import kotlinx.coroutines.withContext
 import java.util.UUID
 
 /** User-created notes and frozen many-to-many evidence; no automatic clustering or source mutation. */
+@Suppress("TooManyFunctions") // One mutation/recovery owner for notes and explicit knowledge creation.
 class KnowledgeNoteService(
     private val store: KnowledgeStore,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val mutation = Mutex()
     val notes = store.notes
-    val failure = MutableStateFlow<String?>(null)
     val recovery =
         scope.launch {
             store.interruptedNotes().forEach { note ->
@@ -41,35 +38,136 @@ class KnowledgeNoteService(
 
     val management = KnowledgeNoteMaintenance(store, mutation, recovery)
 
-    suspend fun create(
-        sourceIds: List<String>,
+    /** New editor content is not persisted until the user explicitly saves it. */
+    suspend fun saveNew(
+        note: KnowledgeNote,
         title: String,
+        body: String,
+        reviewed: Boolean,
+    ) = withContext(Dispatchers.IO) {
+        require(note.kind in setOf("NOTE", "KNOWLEDGE"))
+        require(title.isNotBlank() && title.length <= 160 && body.length <= MAX_KNOWLEDGE_TEXT)
+        mutation.withLock {
+            check(store.note(note.id) == null)
+            store.saveNote(
+                note.copy(
+                    title = title,
+                    body = body,
+                    updatedAt = System.currentTimeMillis(),
+                    state = if (reviewed) "REVIEWED" else "DRAFT",
+                ),
+            )
+        }
+    }
+
+    suspend fun createKnowledge(
+        source: KnowledgeNote,
+        title: String,
+        body: String,
     ): String =
         withContext(Dispatchers.IO) {
-            require(sourceIds.size <= 8 && sourceIds.distinct().size == sourceIds.size)
-            val id = UUID.randomUUID().toString()
-            val now = System.currentTimeMillis()
-            val budget = if (sourceIds.isEmpty()) 6000 else minOf(6000, 24_000 / sourceIds.size)
-            val sources =
-                sourceIds.map { sourceId ->
-                    val source = requireNotNull(store.get(sourceId))
-                    require(source.state != "DELETING")
-                    val text = source.extracted.ifBlank { source.rawText }
-                    val truncation = if (text.length > budget) "\n[Excerpt truncated to $budget characters]" else ""
-                    val excerpt = text.take(budget) + truncation
-                    KnowledgeNoteSource(
+            require(
+                source.body.isNotBlank() && title.isNotBlank() &&
+                    title.length <= 160 && body.isNotBlank() && body.length <= MAX_KNOWLEDGE_TEXT,
+            )
+            mutation.withLock {
+                check(store.note(source.id) == source) { "Knowledge source changed" }
+                val id = UUID.randomUUID().toString()
+                val now = System.currentTimeMillis()
+                val origin =
+                    com.helix.core.storage.repository.KnowledgeReference(
+                        source.kind,
+                        source.id,
+                        source.title,
+                        knowledgeHash(source.body),
+                        "EXCERPT",
+                        source.body.take(1800),
+                    )
+                val note =
+                    KnowledgeNote(
                         id,
-                        sourceId,
-                        source.title.take(160),
-                        source.sourceUrl.take(2000),
-                        source.receivedAt,
-                        excerpt,
-                        knowledgeHash(text),
-                        "${source.state}:${source.detail}",
+                        title,
+                        body,
+                        now,
+                        now,
+                        kind = "KNOWLEDGE",
+                        originReferencesJson =
+                            com.helix.core.storage.repository.KnowledgeReferences
+                                .encode(listOf(origin)),
+                    )
+                store.saveNote(note, store.noteSources(source.id).map { it.copy(noteId = id) })
+                id
+            }
+        }
+
+    suspend fun createFromSources(
+        selected: List<com.helix.core.storage.knowledge.CollectedSource>,
+        title: String,
+        body: String,
+    ): String =
+        withContext(Dispatchers.IO) {
+            require(selected.isNotEmpty() && selected.size <= 8 && selected.distinctBy { it.id }.size == selected.size)
+            require(title.isNotBlank() && title.length <= 160)
+            require(body.isNotBlank() && body.length <= MAX_KNOWLEDGE_TEXT)
+            mutation.withLock {
+                check(selected.all { it.state != "DELETING" && store.get(it.id) == it })
+                val id = UUID.randomUUID().toString()
+                val now = System.currentTimeMillis()
+                val budget = minOf(6000, 24000 / selected.size)
+                val links =
+                    selected.map { source ->
+                        val text = source.extracted.ifBlank { source.rawText }
+                        val excerpt = text.take(budget)
+                        val hint = if (text.length > budget) "\n[Excerpt truncated to $budget characters]" else ""
+                        KnowledgeNoteSource(
+                            id,
+                            source.id,
+                            source.title.take(160),
+                            source.sourceUrl.take(2000),
+                            source.receivedAt,
+                            excerpt + hint,
+                            knowledgeHash(text),
+                            source.state,
+                        )
+                    }
+                store.saveNote(KnowledgeNote(id, title, body, now, now, kind = "KNOWLEDGE"), links)
+                id
+            }
+        }
+
+    suspend fun saveReply(
+        sessionId: String,
+        messageId: String,
+        title: String,
+        text: String,
+        references: List<com.helix.core.storage.repository.KnowledgeReference>,
+    ): String =
+        withContext(Dispatchers.IO) {
+            require(sessionId.isNotBlank() && messageId.isNotBlank())
+            require(text.isNotBlank() && text.length <= MAX_KNOWLEDGE_TEXT)
+            val hash = knowledgeHash(text)
+            val id = UUID.nameUUIDFromBytes("reply:$sessionId:$messageId:$hash".toByteArray()).toString()
+            mutation.withLock {
+                if (store.note(id) == null) {
+                    val now = System.currentTimeMillis()
+                    store.saveNote(
+                        KnowledgeNote(
+                            id,
+                            title.take(160),
+                            text,
+                            now,
+                            now,
+                            originReferencesJson =
+                                com.helix.core.storage.repository.KnowledgeReferences
+                                    .encode(references),
+                            originSessionId = sessionId,
+                            originMessageId = messageId,
+                            originContentHash = hash,
+                        ),
                     )
                 }
-            store.saveNote(KnowledgeNote(id, title.take(160), "", now, now), sources)
-            id
+                id
+            }
         }
 
     suspend fun save(
@@ -94,77 +192,4 @@ class KnowledgeNoteService(
             )
         }
     }
-
-    suspend fun prepare(
-        id: String,
-        analysis: KnowledgeAnalysis,
-        providerId: String,
-        model: String,
-    ) = withContext(Dispatchers.IO) {
-        analysis.prepare(requireNotNull(store.note(id)), store.noteSources(id), providerId, model)
-    }
-
-    // Model failures retain the user's draft and leave a durable failure state.
-    @Suppress("TooGenericExceptionCaught")
-    fun generate(request: PreparedKnowledgeAnalysis) =
-        scope.launch {
-            recovery.join()
-            failure.value = null
-            val attempt = UUID.randomUUID().toString()
-            val target =
-                org.json
-                    .JSONObject()
-                    .put("providerId", request.destination.providerId)
-                    .put("model", request.model)
-                    .put("origin", request.destination.origin)
-                    .put("residence", request.destination.residence.name)
-                    .put("inputHash", request.inputHash)
-                    .put("inputCharacters", request.inputCharacters)
-                    .put("attempt", attempt)
-                    .toString()
-            var admitted = false
-            try {
-                mutation.withLock {
-                    val note = requireNotNull(store.note(request.note.id))
-                    check(note == request.note && store.noteSources(note.id) == request.sources)
-                    check(note.generationState != "RUNNING")
-                    store.saveNote(note.copy(generationState = "RUNNING", generationTarget = target))
-                    admitted = true
-                }
-                val generated = request.execute() + sourceFooter(request.sources)
-                finish(request.note.id, target, "READY", generated)
-            } catch (cancel: CancellationException) {
-                if (admitted) withContext(NonCancellable) { finish(request.note.id, target, "INTERRUPTED", "") }
-                throw cancel
-            } catch (_: Exception) {
-                failure.value = request.note.id
-                if (admitted) finish(request.note.id, target, "FAILED", "")
-            }
-        }
-
-    private suspend fun finish(
-        id: String,
-        target: String,
-        state: String,
-        generated: String,
-    ) {
-        mutation.withLock {
-            val note = requireNotNull(store.note(id))
-            if (note.generationState == "RUNNING" && note.generationTarget == target) {
-                store.saveNote(
-                    note.copy(
-                        generationState = state,
-                        generatedDraft = generated,
-                        updatedAt = System.currentTimeMillis(),
-                    ),
-                )
-            }
-        }
-    }
-
-    private fun sourceFooter(sources: List<KnowledgeNoteSource>): String =
-        "\n\n---\nSources (frozen selected excerpts):\n" +
-            sources.joinToString("\n") {
-                "- [source:${it.sourceId}] ${it.title} ${it.url} · ${it.completeness}"
-            }
 }

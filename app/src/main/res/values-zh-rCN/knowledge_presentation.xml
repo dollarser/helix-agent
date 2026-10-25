@@ -1,0 +1,26 @@
+<resources>
+    <string name="knowledge_more">更多</string>
+    <string name="knowledge_library_title">知识库</string>
+    <string name="knowledge_library_subtitle">记下想法，再慢慢整理成自己的理解。</string>
+    <string name="knowledge_ask_content">基于此内容提问</string>
+    <string name="knowledge_source_details">查看来源</string>
+    <string name="knowledge_review_toggle">更改核对标记</string>
+    <string name="knowledge_model_tools">已保存的生成建议</string>
+    <string name="knowledge_markdown_body">Markdown 正文</string>
+    <string name="knowledge_edit_hint">保存只记录修改，不代表已核对，也不会发送给模型。</string>
+    <string name="knowledge_recent_count">最近更新 · %1$d 篇</string>
+    <string name="knowledge_direct_create">直接写知识</string>
+    <string name="knowledge_select_sources">选择资料</string>
+    <string name="knowledge_source_info">资料信息与原件</string>
+    <string name="knowledge_empty_action">写下第一条笔记</string>
+    <string name="knowledge_clear_search">清除搜索</string>
+    <string name="knowledge_quote_action">引用</string>
+    <string name="knowledge_ref_updated_short">已更新</string>
+    <string name="knowledge_ref_missing_short">不可用</string>
+    <string name="knowledge_history_empty">暂无历史资料问答。新的问题可在对话中选择引用后提出。</string>
+    <string name="knowledge_reply_title">对话摘记</string>
+    <string name="knowledge_save_reply">保存为笔记</string>
+    <string name="knowledge_saved_reply">已保存为笔记，未自动标记为知识</string>
+    <string name="knowledge_reply_failed">未能保存笔记，请稍后重试</string>
+    <string name="knowledge_reply_provenance">来自用户明确保存的会话回答。笔记独立保存，后续会话变化不会修改笔记。</string>
+</resources>

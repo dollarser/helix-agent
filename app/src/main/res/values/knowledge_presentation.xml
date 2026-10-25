@@ -1,0 +1,26 @@
+<resources>
+    <string name="knowledge_more">More</string>
+    <string name="knowledge_library_title">Library</string>
+    <string name="knowledge_library_subtitle">Capture an idea. Make it your own over time.</string>
+    <string name="knowledge_ask_content">Ask about this</string>
+    <string name="knowledge_source_details">View sources</string>
+    <string name="knowledge_review_toggle">Change review mark</string>
+    <string name="knowledge_model_tools">Saved suggestion</string>
+    <string name="knowledge_markdown_body">Markdown content</string>
+    <string name="knowledge_edit_hint">Saving records your edits; it does not mark them reviewed or send them to a model.</string>
+    <string name="knowledge_recent_count">Recently updated · %1$d items</string>
+    <string name="knowledge_direct_create">Write knowledge</string>
+    <string name="knowledge_select_sources">Select sources</string>
+    <string name="knowledge_source_info">Source information and originals</string>
+    <string name="knowledge_empty_action">Write your first note</string>
+    <string name="knowledge_clear_search">Clear search</string>
+    <string name="knowledge_quote_action">Reference</string>
+    <string name="knowledge_ref_updated_short">updated</string>
+    <string name="knowledge_ref_missing_short">unavailable</string>
+    <string name="knowledge_history_empty">No source Q&amp;A history. Ask new questions in a conversation with selected references.</string>
+    <string name="knowledge_reply_title">Conversation note</string>
+    <string name="knowledge_save_reply">Save as note</string>
+    <string name="knowledge_saved_reply">Saved as a note, not automatically marked as knowledge</string>
+    <string name="knowledge_reply_failed">Unable to save the note. Please try again.</string>
+    <string name="knowledge_reply_provenance">Explicitly saved from a conversation response. Later conversation changes do not modify this note.</string>
+</resources>

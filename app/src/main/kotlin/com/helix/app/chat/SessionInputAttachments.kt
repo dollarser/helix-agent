@@ -17,8 +17,19 @@ internal class SessionInputAttachments(
     private val scan: (String) -> String?,
 ) {
     fun materialize(input: SessionInputRecord): Pair<String, List<MessageAttachmentRepository.Binding>> {
-        val text = storage.sessionInputs.readText(input)
-        require(scan(text) == null) { "INPUT_CREDENTIAL_DETECTED" }
+        val text =
+            com.helix.core.storage.repository.KnowledgeReferences.message(
+                storage.sessionInputs.readText(input),
+                input.knowledgeReferences,
+            )
+        require(
+            scan(
+                text +
+                    input.knowledgeReferences.joinToString("\n") {
+                        it.title + "\n" + it.text
+                    },
+            ) == null,
+        ) { "INPUT_CREDENTIAL_DETECTED" }
         val ready = verified(input)
         val blocks =
             ready.attachments.mapIndexed { index, value ->
@@ -64,6 +75,7 @@ internal class SessionInputAttachments(
             target,
             strings,
             storage.sessionInputs.readReference(input),
+            input.knowledgeReferences,
         )
 
     private fun verified(input: SessionInputRecord): AttachmentSendDecision.Ready {

@@ -21,6 +21,126 @@ import java.io.File
 import java.util.UUID
 
 class KnowledgeNotesDeviceTest {
+    @Test fun sourceCandidateDoesNotSaveWhenItsEvidenceChanges() =
+        fixture { library, store ->
+            val source = collectSources(library).first().let { requireNotNull(store.get(it)) }
+            store.save(source.copy(extracted = "Changed evidence"))
+            var refused = false
+            try {
+                library.noteService.createFromSources(listOf(source), "Conclusion", "Edited conclusion")
+            } catch (
+                _: IllegalStateException,
+            ) {
+                refused = true
+            }
+            assertTrue(refused)
+            assertTrue(store.notes.first().isEmpty())
+            assertEquals("Changed evidence", store.get(source.id)?.extracted)
+        }
+
+    @Test fun replySavingIsIdempotentAndNeverOverwritesLaterUserEdits() =
+        fixture { library, store ->
+            val id =
+                library.noteService.saveReply(
+                    "session",
+                    "message",
+                    "Conversation note",
+                    "Original reply",
+                    emptyList(),
+                )
+            library.noteService.save(id, "Edited title", "User edited body", false)
+            val repeated =
+                library.noteService.saveReply(
+                    "session",
+                    "message",
+                    "Conversation note",
+                    "Original reply",
+                    emptyList(),
+                )
+            assertEquals(id, repeated)
+            val saved = requireNotNull(store.note(id))
+            assertEquals("User edited body", saved.body)
+            assertEquals("NOTE", saved.kind)
+            assertEquals("DRAFT", saved.state)
+            assertEquals("session", saved.originSessionId)
+            assertEquals("message", saved.originMessageId)
+            assertEquals(knowledgeHash("Original reply"), saved.originContentHash)
+            assertEquals(1, store.notes.first().size)
+        }
+
+    @Test
+    fun selectedVersionRequiresExplicitKeepAndDeletionCannotBeBypassed() =
+        fixture { library, store ->
+            val id = createStoredTestNote(store, emptyList(), "Synthetic note")
+            library.noteService.save(id, "Synthetic note", "Original text", false)
+            val snapshot = library.references.select("NOTE", id, "FULL")
+            assertTrue(library.references.valid(listOf(snapshot)))
+            library.noteService.save(id, "Synthetic note", "Updated text", true)
+            assertEquals(KnowledgeReferenceService.State.CHANGED, library.references.state(snapshot))
+            assertFalse(library.references.valid(listOf(snapshot)))
+            assertTrue(library.references.valid(listOf(snapshot.copy(keepVersion = true))))
+            assertEquals("Original text", snapshot.text)
+            library.noteService.management.remove(requireNotNull(store.note(id)))
+            assertEquals(KnowledgeReferenceService.State.UNAVAILABLE, library.references.state(snapshot))
+            assertFalse(library.references.valid(listOf(snapshot.copy(keepVersion = true))))
+        }
+
+    @Test
+    fun knowledgeIsExplicitNewUnreviewedContentWithFrozenOrigins() =
+        fixture { library, store ->
+            val ids = collectSources(library)
+            val id = createStoredTestNote(store, ids, "Source note")
+            library.noteService.save(id, "Source note", "User authored observations", true)
+            val original = requireNotNull(store.note(id))
+            val knowledgeId = library.noteService.createKnowledge(original, "Conclusion", "Edited conclusion")
+            val knowledge = requireNotNull(store.note(knowledgeId))
+            assertEquals("NOTE", original.kind)
+            assertEquals("KNOWLEDGE", knowledge.kind)
+            assertEquals("DRAFT", knowledge.state)
+            assertEquals(original, store.note(id))
+            val origin =
+                com.helix.core.storage.repository.KnowledgeReferences
+                    .decode(knowledge.originReferencesJson)
+                    .single()
+            assertEquals(id, origin.resourceId)
+            assertEquals("User authored observations", origin.text)
+            assertTrue(
+                library.noteService.management
+                    .export(knowledge)
+                    .contains("User authored observations"),
+            )
+            val originalSources = store.noteSources(id).map { it.sourceId }
+            val knowledgeSources = store.noteSources(knowledgeId).map { it.sourceId }
+            assertEquals(originalSources, knowledgeSources)
+            library.noteService.save(id, "Changed", "Later text", false)
+            assertEquals(knowledge, store.note(knowledgeId))
+            assertEquals("Edited conclusion", library.references.select("KNOWLEDGE", knowledgeId, "FULL").text)
+        }
+
+    @Test
+    fun newEditorSnapshotHasNoDatabaseRowUntilExplicitSave() =
+        fixture { library, store ->
+            val note =
+                com.helix.core.storage.knowledge.KnowledgeNote(
+                    UUID.randomUUID().toString(),
+                    "New note",
+                    "",
+                    1L,
+                    1L,
+                )
+            assertEquals(null, store.note(note.id))
+            library.noteService.saveNew(note, "Saved", "Synthetic content", false)
+            assertEquals("Synthetic content", store.note(note.id)?.body)
+            var refused = false
+            try {
+                library.noteService.saveNew(note, "Duplicate", "Cannot replace existing", true)
+            } catch (_: IllegalStateException) {
+                refused = true
+            }
+            assertTrue(refused)
+            assertEquals("Synthetic content", store.note(note.id)?.body)
+        }
+
     @Test
     fun deletingSavedAnswerNoteDetachesMarkerAndAllowsExplicitSaveAgain() =
         fixture { library, store ->
@@ -48,7 +168,7 @@ class KnowledgeNotesDeviceTest {
     fun deleteNoteRemovesIndexAndLinksButPreservesSources() =
         fixture { library, store ->
             val ids = collectSources(library)
-            val id = library.noteService.create(ids, "UniqueDeletionFixture")
+            val id = createStoredTestNote(store, ids, "UniqueDeletionFixture")
             val note = requireNotNull(store.note(id))
             library.noteService.management.remove(note)
             assertEquals(null, store.note(id))
@@ -60,7 +180,7 @@ class KnowledgeNotesDeviceTest {
     @Test
     fun staleDeleteDoesNotDiscardNewEdits() =
         fixture { library, store ->
-            val id = library.noteService.create(collectSources(library), "Before")
+            val id = createStoredTestNote(store, collectSources(library), "Before")
             val old = requireNotNull(store.note(id))
             library.noteService.save(id, "After", "Keep edits", false)
             var refused = false
@@ -77,7 +197,7 @@ class KnowledgeNotesDeviceTest {
     fun explicitReferenceRefreshKeepsBodyAndMissingSourceLeavesEverythingUntouched() =
         fixture { library, store ->
             val ids = collectSources(library)
-            val id = library.noteService.create(ids, "References")
+            val id = createStoredTestNote(store, ids, "References")
             library.noteService.save(id, "References", "User body", true)
             val frozen = store.noteSources(id)
             val source = requireNotNull(store.get(ids.first()))
@@ -106,9 +226,9 @@ class KnowledgeNotesDeviceTest {
     fun manualAndManyToManyNotesKeepSourcesIndependent() =
         fixture { library, store ->
             val ids = collectSources(library)
-            val a = library.noteService.create(ids, "合成知识")
-            val b = library.noteService.create(listOf(ids.first()), "另一笔记")
-            val manual = library.noteService.create(emptyList(), "手写笔记")
+            val a = createStoredTestNote(store, ids, "合成知识")
+            val b = createStoredTestNote(store, listOf(ids.first()), "另一笔记")
+            val manual = createStoredTestNote(store, emptyList(), "手写笔记")
             library.noteService.save(manual, "手写笔记", "Independent authored knowledge", true)
             assertEquals(2, store.noteSources(a).size)
             assertEquals(1, store.noteSources(b).size)
@@ -135,7 +255,7 @@ class KnowledgeNotesDeviceTest {
     fun reExtractionDoesNotOverwriteReviewedKnowledgeOrCitationSnapshots() =
         fixture { library, store ->
             val ids = collectSources(library)
-            val id = library.noteService.create(ids, "Stable knowledge")
+            val id = createStoredTestNote(store, ids, "Stable knowledge")
             library.noteService.save(id, "Stable knowledge", "Owner edited note", true)
             val sources = store.noteSources(id)
             val original = requireNotNull(store.get(ids.first()))
@@ -145,99 +265,27 @@ class KnowledgeNotesDeviceTest {
             assertEquals(sources, store.noteSources(id))
         }
 
-    @Test
-    fun generatedSuggestionRequiresSeparateReviewAndSave() =
+    @Test fun savedSuggestionsSurviveAndInterruptedWorkIsNotReplayed() =
         fixture { library, store ->
-            val id = library.noteService.create(collectSources(library), "Synthesis")
-            library.noteService.save(id, "Synthesis", "User draft survives", false)
-            val request = prepared(library, id) { "Synthetic synthesis, needs review." }
-            library.noteService.generate(request).join()
-            val suggested = requireNotNull(store.note(id))
-            assertEquals("DRAFT", suggested.state)
-            assertEquals("READY", suggested.generationState)
-            assertEquals("User draft survives", suggested.body)
-            request.sources.forEach { assertTrue(suggested.generatedDraft.contains("[source:${it.sourceId}]")) }
-            library.noteService.save(id, "Reviewed synthesis", suggested.generatedDraft + "\nUser correction", true)
-            val saved = requireNotNull(store.note(id))
-            assertEquals("REVIEWED", saved.state)
-            assertTrue(saved.body.endsWith("User correction"))
-            assertEquals("", saved.generatedDraft)
-            assertEquals(request.sources, store.noteSources(id))
-        }
-
-    @Test
-    fun failedGenerationRetainsUserDraftAndExplicitRetryWorks() =
-        fixture { library, store ->
-            val id = library.noteService.create(collectSources(library), "Failure")
-            library.noteService.save(id, "Failure", "Do not lose edits", false)
-            val failed = prepared(library, id) { error("synthetic provider failure") }
-            library.noteService.generate(failed).join()
-            assertEquals("FAILED", store.note(id)?.generationState)
-            assertEquals("Do not lose edits", store.note(id)?.body)
-            assertEquals("", store.note(id)?.generatedDraft)
-            library.noteService.generate(prepared(library, id) { "Recovered suggestion" }).join()
-            assertEquals("READY", store.note(id)?.generationState)
-        }
-
-    @Test
-    fun cancellationPersistsInterruptionWithoutSavingGeneratedKnowledge() =
-        fixture { library, store ->
-            val id = library.noteService.create(collectSources(library), "Cancel")
-            val entered = CompletableDeferred<Unit>()
-            val job =
-                library.noteService.generate(
-                    prepared(library, id) {
-                        entered.complete(Unit)
-                        awaitCancellation()
-                    },
+            val id = createStoredTestNote(store, collectSources(library), "Retained note")
+            val original = requireNotNull(store.note(id))
+            val interrupted =
+                original.copy(
+                    body = "Saved user body",
+                    generatedDraft = "Retained suggestion",
+                    generationState = "RUNNING",
                 )
-            entered.await()
-            job.cancelAndJoin()
-            assertEquals("INTERRUPTED", store.note(id)?.generationState)
-            assertEquals("DRAFT", store.note(id)?.state)
-            assertEquals("", store.note(id)?.generatedDraft)
-        }
-
-    @Test
-    fun staleConfirmationDoesNotCallModelOrOverwriteEdits() =
-        fixture { library, store ->
-            val id = library.noteService.create(collectSources(library), "Identity")
-            var called = false
-            val request =
-                prepared(library, id) {
-                    called = true
-                    "must not run"
-                }
-            library.noteService.save(id, "Changed topic", "Changed draft", false)
-            library.noteService.generate(request).join()
-            assertFalse(called)
-            assertEquals("Changed draft", store.note(id)?.body)
-            assertEquals(id, library.noteService.failure.value)
-        }
-
-    @Test
-    fun modelStreamRejectsPartialToolCallsAndInventedCitations() =
-        runBlocking {
-            val good = flowOf(ModelEvent.TextDelta("Supported [source:real]"), ModelEvent.Completed("stop"))
-            assertEquals("Supported [source:real]", KnowledgeAnalysis.collectAnswer(good, setOf("real")))
-            val invalid =
-                listOf(
-                    flowOf(ModelEvent.TextDelta("partial")),
-                    flowOf(ModelEvent.TextDelta("partial"), ModelEvent.Error(ModelErrorCode.PROTOCOL, false)),
-                    flowOf(ModelEvent.TextDelta("limited"), ModelEvent.Completed("length")),
-                    flowOf(ModelEvent.TextDelta("False [source:invented]"), ModelEvent.Completed("stop")),
-                    flowOf(ModelEvent.ToolCallFinished(0), ModelEvent.Completed("tool_calls")),
-                )
-            invalid.forEach { events ->
-                var rejected = false
-                try {
-                    KnowledgeAnalysis.collectAnswer(events, setOf("real"))
-                } catch (
-                    _: IllegalStateException,
-                ) {
-                    rejected = true
-                }
-                assertTrue("An incomplete, tool-bearing or falsely cited stream must fail", rejected)
+            store.saveNote(interrupted)
+            val reopened = KnowledgeNoteService(store)
+            try {
+                reopened.recovery.join()
+                val restored = requireNotNull(store.note(id))
+                assertEquals("Saved user body", restored.body)
+                assertEquals("Retained suggestion", restored.generatedDraft)
+                assertEquals("INTERRUPTED", restored.generationState)
+                assertEquals("NOTE", restored.kind)
+            } finally {
+                reopened.close()
             }
         }
 
@@ -254,21 +302,6 @@ class KnowledgeNotesDeviceTest {
             }
         return service.items.first().map { it.id }
     }
-
-    private suspend fun prepared(
-        service: KnowledgeService,
-        id: String,
-        execute: suspend () -> String,
-    ): PreparedKnowledgeAnalysis =
-        PreparedKnowledgeAnalysis(
-            requireNotNull(service.noteService.get(id)),
-            service.noteService.sources(id),
-            EgressDisclosure.EgressTarget("synthetic", "Synthetic model", null, "", ProviderResidence.ON_DEVICE_LOCAL),
-            "synthetic-model",
-            100,
-            knowledgeHash("fixture"),
-            execute,
-        )
 
     private fun fixture(block: suspend (KnowledgeService, KnowledgeStore) -> Unit) =
         runBlocking {

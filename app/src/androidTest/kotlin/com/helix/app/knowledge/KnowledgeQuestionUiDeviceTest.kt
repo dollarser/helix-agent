@@ -1,7 +1,6 @@
 package com.helix.app.knowledge
 
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -24,34 +23,13 @@ import java.util.concurrent.atomic.AtomicReference
 class KnowledgeQuestionUiDeviceTest {
     @get:Rule val compose = createComposeRule()
 
-    @Test fun localSearchSelectionAndNoResultsNeverSendOrCreateANote() =
-        fixture { service, store, _ ->
-            compose.onNodeWithTag("knowledge-qa-question").performTextReplacement("Harbor")
-            compose.onNodeWithTag("knowledge-qa-search").performClick()
-            compose.waitUntil(5000) {
-                compose
-                    .onAllNodes(
-                        androidx.compose.ui.test
-                            .hasTestTag("knowledge-qa-select-source"),
-                    ).fetchSemanticsNodes()
-                    .isNotEmpty()
-            }
-            compose.onNodeWithTag("knowledge-qa-select-source").performScrollTo().performClick()
-            compose.onNodeWithTag("knowledge-qa-preview").performScrollTo().assertIsNotEnabled()
-            compose.onNodeWithTag("knowledge-qa-question").performScrollTo().performTextReplacement("Zephyr")
-            compose.onNodeWithTag("knowledge-qa-search").performClick()
-            compose.waitUntil(5000) {
-                compose
-                    .onAllNodes(
-                        androidx.compose.ui.test
-                            .hasTestTag("knowledge-qa-select-source"),
-                    ).fetchSemanticsNodes()
-                    .isEmpty()
-            }
-            runBlocking {
-                assertTrue(store.answers.first().isEmpty())
-                assertTrue(store.notes.first().isEmpty())
-            }
+    @Test fun historyHasNoNewQuestionOrModelGenerationEntry() =
+        fixture { _, store, _ ->
+            compose.onNodeWithTag("knowledge-qa-question").assertDoesNotExist()
+            compose.onNodeWithTag("knowledge-qa-search").assertDoesNotExist()
+            compose.onNodeWithTag("knowledge-qa-preview").assertDoesNotExist()
+            assertTrue(runBlocking { store.answers.first().isEmpty() })
+            assertTrue(runBlocking { store.notes.first().isEmpty() })
         }
 
     @Test fun generatedAnswerIsSeparateAndSaveOpensOnlyAnUnreviewedDraft() =
@@ -64,7 +42,7 @@ class KnowledgeQuestionUiDeviceTest {
                         "Harbor budget?",
                         2,
                         "READY",
-                        KnowledgeQuestionService.encodeSources(listOf(source)),
+                        encodeAnswerFixtureSources(listOf(source)),
                         "{}",
                         "137 [source:source]",
                     ),
@@ -74,11 +52,12 @@ class KnowledgeQuestionUiDeviceTest {
                 compose
                     .onAllNodes(
                         androidx.compose.ui.test
-                            .hasTestTag("knowledge-answer-save-answer"),
+                            .hasTestTag("knowledge-answer-answer"),
                     ).fetchSemanticsNodes()
                     .isNotEmpty()
             }
             assertTrue(runBlocking { store.notes.first().isEmpty() })
+            compose.onNodeWithTag("knowledge-answer-answer").performClick()
             compose.onNodeWithTag("knowledge-answer-save-answer").performScrollTo().performClick()
             compose.waitUntil(5000) { opened.get() != null }
             val note = runBlocking { requireNotNull(store.note(requireNotNull(opened.get()))) }
@@ -87,11 +66,11 @@ class KnowledgeQuestionUiDeviceTest {
             assertEquals(1, runBlocking { store.noteSources(note.id).size })
         }
 
-    private fun fixture(block: (KnowledgeQuestionService, KnowledgeStore, AtomicReference<String?>) -> Unit) {
+    private fun fixture(block: (KnowledgeAnswerHistory, KnowledgeStore, AtomicReference<String?>) -> Unit) {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val name = "knowledge-question-ui-${UUID.randomUUID()}.db"
         val store = KnowledgeStore(context, name)
-        val service = KnowledgeQuestionService(store)
+        val service = KnowledgeAnswerHistory(store)
         val opened = AtomicReference<String?>()
         val visible = androidx.compose.runtime.mutableStateOf(true)
         runBlocking {
@@ -101,7 +80,7 @@ class KnowledgeQuestionUiDeviceTest {
             store.save(source)
         }
         compose.setContent {
-            if (visible.value) MaterialTheme { KnowledgeQuestionScreen(service, null, {}, { opened.set(it) }) }
+            if (visible.value) MaterialTheme { KnowledgeQuestionHistory(service, {}, { opened.set(it) }) }
         }
         try {
             block(service, store, opened)

@@ -82,6 +82,7 @@ internal fun MessageRow(
     onFork: ((String) -> Unit)? = null,
     onEdit: ((String) -> Unit)? = null,
     onRegenerate: ((String) -> Unit)? = null,
+    onSaveReply: ((String) -> Unit)? = null,
     searchQuery: String? = null,
     isCurrentMatch: Boolean = false,
     readAloud: Boolean = true,
@@ -125,6 +126,8 @@ internal fun MessageRow(
                 Column {
                     imageContent()
                     MessageHistoryNotice(message)
+                    com.helix.app.knowledge
+                        .KnowledgeReferenceChips(message.knowledgeReferences)
                     val bodyModifier =
                         Modifier
                             .testTag("chat-message-body-${message.id}")
@@ -169,6 +172,7 @@ internal fun MessageRow(
                     onEdit = onEdit,
                     onRegenerate = onRegenerate,
                     readAloud = readAloud,
+                    onSaveReply = onSaveReply,
                 )
             }
         }
@@ -176,7 +180,7 @@ internal fun MessageRow(
 }
 
 @Composable
-@Suppress("FunctionName")
+@Suppress("FunctionName", "LongParameterList")
 private fun MessageActionRow(
     message: MessageUi,
     isUser: Boolean,
@@ -184,9 +188,18 @@ private fun MessageActionRow(
     onEdit: ((String) -> Unit)?,
     onRegenerate: ((String) -> Unit)?,
     readAloud: Boolean,
+    onSaveReply: ((String) -> Unit)?,
 ) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         CopyTextButton(message.content, "chat-copy-${message.id}")
+        if (!isUser && onSaveReply != null) {
+            IconButton(
+                onClick = { onSaveReply(message.id) },
+                modifier = Modifier.size(48.dp).testTag("chat-save-note-${message.id}"),
+            ) {
+                Icon(painterResource(R.drawable.ic_files_document), stringResource(R.string.knowledge_save_reply))
+            }
+        }
         if (readAloud && message.role == "assistant" && message.presentation == MessagePresentation.NORMAL) {
             ReadAloudAction(message.id, message.content, turnId = message.turnId)
         }

@@ -28,7 +28,17 @@ internal class UserMessageEditor(
         require(row.sessionId == sessionId && row.role == "USER" && row.kind == "TEXT" && row.supersededBy == null)
         val body = storage.messages.readContentBounded(row, MessageEditHistory.MAX_BYTES).orEmpty()
         val count = storage.messageAttachments.listByMessage(messageId).size
-        return MessageEditSnapshot(sessionId, messageId, row.contentRef, AttachmentContext.authoredPrefix(body, count))
+        val references =
+            storage.sessionInputs
+                .forMessage(messageId)
+                ?.knowledgeReferences
+                .orEmpty()
+        val prefix =
+            com.helix.core.storage.repository.KnowledgeReferences.authoredPrefix(
+                AttachmentContext.authoredPrefix(body, count),
+                references,
+            )
+        return MessageEditSnapshot(sessionId, messageId, row.contentRef, prefix)
     }
 
     fun save(
@@ -54,6 +64,7 @@ internal class UserMessageEditor(
             val previous = storage.messages.readContentBounded(row, MessageEditHistory.MAX_BYTES).orEmpty()
             val replacement =
                 if (original.text.isEmpty() &&
+                    !previous.startsWith("\n\n") &&
                     previous.isNotEmpty()
                 ) {
                     "$text\n\n$previous"

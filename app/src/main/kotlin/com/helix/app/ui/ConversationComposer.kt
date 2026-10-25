@@ -56,6 +56,7 @@ internal fun ConversationComposer(
     isSending: Boolean,
     hasAttachments: Boolean,
     actions: ComposerActions,
+    hasKnowledgeReferences: Boolean = false,
     referenceLabel: String? = null,
     onRemoveReference: () -> Unit = {},
     goalMode: Boolean = false,
@@ -75,6 +76,7 @@ internal fun ConversationComposer(
     attachmentsContent: @Composable () -> Unit = {},
     voiceActive: Boolean = false,
     voiceContent: @Composable () -> Unit = {},
+    referenceContent: @Composable () -> Unit = {},
     turnState: TurnState? = null,
     availability: ComposerAvailability = ComposerAvailability(),
 ) {
@@ -165,6 +167,7 @@ internal fun ConversationComposer(
                 .background(MaterialTheme.colorScheme.surfaceContainerLow, RoundedCornerShape(24.dp))
                 .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(24.dp)),
         ) {
+            referenceContent()
             voiceContent()
             attachmentsContent()
             BasicTextField(
@@ -250,7 +253,10 @@ internal fun ConversationComposer(
                 }
                 val sendEnabled =
                     input.isNotBlank() ||
-                        ((!goalMode || isSending) && (hasAttachments || referenceLabel != null))
+                        (
+                            (!goalMode || isSending) &&
+                                (hasAttachments || hasKnowledgeReferences || referenceLabel != null)
+                        )
                 IconButton(
                     onClick = {
                         if (!canDeliver || commandPending || permissionPending) return@IconButton
@@ -331,7 +337,8 @@ internal fun ConversationComposer(
                     )
                 }
             }
-            val hasUnsentContent = input.isNotBlank() || hasAttachments || referenceLabel != null
+            val hasUnsentContent =
+                input.isNotBlank() || hasAttachments || hasKnowledgeReferences || referenceLabel != null
             if (!availability.modelSelected && !localOnly && hasUnsentContent) {
                 TextButton(onClick = onChooseModel, modifier = Modifier.testTag("chat-select-model-reminder")) {
                     Text(stringResource(R.string.chat_model_required_before_send))

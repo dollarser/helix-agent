@@ -147,6 +147,7 @@ internal fun SessionInputQueuePanel(
             inputId = record.inputId,
             text = editText,
             saving = busy[record.inputId] == true,
+            references = record.knowledgeReferences,
             notice = notice,
             onChange = { editText = it },
             onDismiss = { editing = null },
@@ -163,12 +164,13 @@ internal fun SessionInputQueuePanel(
 }
 
 @Composable
-@Suppress("FunctionName")
+@Suppress("FunctionName", "LongParameterList")
 private fun SessionInputQueueEditor(
     inputId: String,
     text: String,
     saving: Boolean,
     notice: Int?,
+    references: List<com.helix.core.storage.repository.KnowledgeReference>,
     onChange: (String) -> Unit,
     onDismiss: () -> Unit,
     onSave: () -> Unit,
@@ -178,6 +180,8 @@ private fun SessionInputQueueEditor(
         title = { Text(stringResource(R.string.session_input_edit)) },
         text = {
             Column {
+                com.helix.app.knowledge
+                    .KnowledgeReferenceChips(references)
                 OutlinedTextField(
                     value = text,
                     onValueChange = onChange,

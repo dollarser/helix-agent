@@ -5,6 +5,7 @@ internal data class ComposerActions(
     val onPhoto: () -> Unit = {},
     val onCamera: () -> Unit = {},
     val onReference: () -> Unit = {},
+    val onKnowledgeReference: (() -> Unit)? = null,
     val onExpert: () -> Unit = {},
     val onSkills: () -> Unit = {},
     val onConnectors: () -> Unit = {},

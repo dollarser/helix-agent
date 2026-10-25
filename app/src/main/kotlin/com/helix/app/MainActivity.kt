@@ -706,10 +706,11 @@ private fun DestinationScreen(
             val context = androidx.compose.ui.platform.LocalContext.current
             com.helix.app.knowledge.KnowledgeScreen(
                 (context.applicationContext as HelixApplication).knowledge,
-                providers = container.providerService,
-                onReference = { text ->
-                    container.chatService.acceptShareDraft(text, emptyList(), emptyList())
-                    navController.navigate(ShellDestination.Sessions.route) { launchSingleTop = true }
+                onReference = { references ->
+                    val target = container.chatService.screen.value.openSessionId
+                    val applied = container.chatService.stageKnowledgeReferences(target, references).await()
+                    if (applied) navController.navigate(ShellDestination.Sessions.route) { launchSingleTop = true }
+                    applied
                 },
             )
         }

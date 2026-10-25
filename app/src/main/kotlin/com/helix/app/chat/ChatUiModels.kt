@@ -68,6 +68,7 @@ data class MessageUi(
     val presentation: MessagePresentation = MessagePresentation.NORMAL,
     val images: List<ChatImageUi> = emptyList(),
     val historyContext: MessageHistoryContext = MessageHistoryContext.CURRENT,
+    val knowledgeReferences: List<com.helix.core.storage.repository.KnowledgeReference> = emptyList(),
 )
 
 enum class MessageHistoryContext { CURRENT, BEFORE_EDIT, UNAVAILABLE }

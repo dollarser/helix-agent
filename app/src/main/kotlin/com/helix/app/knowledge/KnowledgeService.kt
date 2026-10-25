@@ -44,13 +44,14 @@ class KnowledgeService(
     val deletionError = MutableStateFlow(false)
     internal val agentAccess =
         KnowledgeAgentAccess(context.getSharedPreferences("knowledge-access", Context.MODE_PRIVATE), store)
+    val references = KnowledgeReferenceService(store)
     val noteService = KnowledgeNoteService(store)
-    val questionService = KnowledgeQuestionService(store)
+    val answerHistory = KnowledgeAnswerHistory(store)
 
     fun close() {
         scope.cancel()
         noteService.close()
-        questionService.close()
+        answerHistory.close()
         store.close()
     }
 

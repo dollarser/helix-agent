@@ -52,7 +52,7 @@ class KnowledgeShellDeviceTest {
                         .first { rows -> rows.any { token in it.rawText } }
                         .first { token in it.rawText }
                         .id
-                noteId = service.noteService.create(listOf(requireNotNull(sourceId)), "合成 Markdown 笔记")
+                noteId = service.noteService.createEmptyTestNote("合成 Markdown 笔记")
                 service.noteService.save(
                     requireNotNull(noteId),
                     "合成 Markdown 笔记",
@@ -73,7 +73,6 @@ class KnowledgeShellDeviceTest {
             compose.onNodeWithTag("knowledge-note-editor").performScrollToNode(hasTestTag("knowledge-note-preview"))
             compose.onNodeWithTag("knowledge-note-preview").assertIsDisplayed()
             capture("shell-reading")
-            compose.onNodeWithTag("knowledge-note-editor").performScrollToNode(hasTestTag("knowledge-note-back"))
             compose.onNodeWithTag("knowledge-note-back").performClick()
             assertEquals("REVIEWED", runBlocking { service.noteService.get(requireNotNull(noteId))?.state })
         } finally {
@@ -98,7 +97,7 @@ class KnowledgeShellDeviceTest {
         val savedBody = "# Saved synthetic body"
         val id =
             runBlocking {
-                service.noteService.create(emptyList(), "Rebuild synthetic note").also {
+                service.noteService.createEmptyTestNote("Rebuild synthetic note").also {
                     service.noteService.save(it, "Rebuild synthetic note", savedBody, true)
                 }
             }
@@ -114,8 +113,7 @@ class KnowledgeShellDeviceTest {
             }
             compose.onNodeWithTag("knowledge-search").assertTextContains("Rebuild")
             compose.onNodeWithTag("knowledge-note-$id").performClick()
-            compose.onNodeWithTag("knowledge-note-editor").performScrollToNode(hasTestTag("knowledge-note-toggle-mode"))
-            compose.onNodeWithTag("knowledge-note-toggle-mode").performClick()
+            compose.onNodeWithTag("knowledge-note-toggle-mode").assertIsDisplayed().performClick()
             compose.onNodeWithTag("knowledge-note-editor").performScrollToNode(hasTestTag("knowledge-note-body"))
             compose.onNodeWithTag("knowledge-note-body").performTextReplacement("## Unsaved draft retained")
             val second = compose.activity

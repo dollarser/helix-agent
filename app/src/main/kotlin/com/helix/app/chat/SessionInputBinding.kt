@@ -47,6 +47,11 @@ internal object SessionInputBinding {
                 put("referenceSession", request.referenceSourceSessionId)
                 put("referenceKind", request.referenceKind?.name)
                 put(
+                    "knowledgeReferences",
+                    com.helix.core.storage.repository.KnowledgeReferences
+                        .encode(request.knowledgeReferences),
+                )
+                put(
                     "skills",
                     com.helix.core.storage.repository.InputSkillActivations
                         .encode(request.skillActivations),

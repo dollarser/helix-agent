@@ -60,6 +60,8 @@ internal fun ConversationSection(
     intents: ConversationIntents,
     permissionMode: SessionPermissionMode? = null,
     referenceLabel: String? = null,
+    knowledgeReferenceContent: @Composable () -> Unit = {},
+    hasKnowledgeReferences: Boolean = false,
     composerAvailability: ComposerAvailability = ComposerAvailability(),
     composerStatus: @Composable () -> Unit = {},
     composerFeedback: @Composable () -> Unit = {},
@@ -351,6 +353,11 @@ internal fun ConversationSection(
                             val message = content.value
                             MessageRow(
                                 message = message,
+                                onSaveReply =
+                                    intents.onSaveReply?.takeIf {
+                                        message.role == "assistant" &&
+                                            !screen.isSending
+                                    },
                                 imageContent = { ChatMessageImages(message.images, intents.onPreviewImage) },
                                 onFork =
                                     intents.onFork?.takeIf { message.id == forkMessageId }?.let {
@@ -487,6 +494,7 @@ internal fun ConversationSection(
         composerFeedback()
         composerStatus()
         ConversationComposer(
+            referenceContent = knowledgeReferenceContent,
             voiceActive = voiceOpen,
             voiceContent = {
                 androidx.compose.runtime.key(screen.openSessionId) {
@@ -539,6 +547,7 @@ internal fun ConversationSection(
             onInput = onInput,
             isSending = screen.isSending,
             hasAttachments = screen.pendingAttachments.isNotEmpty(),
+            hasKnowledgeReferences = hasKnowledgeReferences,
             referenceLabel = referenceLabel,
             onRemoveReference = intents.onClearReference,
             goalMode = runControl.mode == AgentMode.GOAL,
@@ -621,6 +630,7 @@ internal fun ConversationSection(
                         }
                     },
                     onReference = intents.onReference,
+                    onKnowledgeReference = intents.onKnowledgeReference,
                     onExpert = intents.onExpert,
                     onSkills = intents.onSkills,
                     onConnectors = intents.onConnectors,

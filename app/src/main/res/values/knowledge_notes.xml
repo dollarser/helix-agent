@@ -4,12 +4,12 @@
     <string name="knowledge_note_new">Write a knowledge note</string>
     <string name="knowledge_synthesize">Synthesize %1$d selected sources</string>
     <string name="knowledge_distill">Distill this source into a note</string>
-    <string name="knowledge_note_draft">Draft · not reviewed knowledge</string>
+    <string name="knowledge_note_unreviewed">Saved · not reviewed</string>
     <string name="knowledge_note_reviewed">Knowledge note · saved after review</string>
     <string name="knowledge_note_title">Topic / title</string>
     <string name="knowledge_note_body">Your note, question or synthesis instructions</string>
-    <string name="knowledge_note_save">Save reviewed knowledge note</string>
-    <string name="knowledge_save_draft">Save draft</string>
+    <string name="knowledge_note_save">Save and mark reviewed</string>
+    <string name="knowledge_save_draft">Save without marking reviewed</string>
     <string name="knowledge_frozen_sources">%1$d selected source snapshots. Later extraction never silently overwrites this note or these references.</string>
     <string name="knowledge_choose_model">Choose provider and model</string>
     <string name="knowledge_generation_instructions">Optional model generation uses only these selected source excerpts and your topic/draft (up to 6000 draft characters). It does not search or merge the entire library. Review the output before saving it as knowledge.</string>
@@ -19,7 +19,7 @@
     <string name="knowledge_generated_unreviewed">Generated suggestion · not confirmed knowledge</string>
     <string name="knowledge_load_draft">Load suggestion into editor</string>
     <string name="knowledge_unsaved">Save your edits before leaving?</string>
-    <string name="knowledge_save_draft_back">Save draft and return</string>
+    <string name="knowledge_save_draft_back">Save and return</string>
     <string name="knowledge_keep_editing">Continue editing</string>
     <string name="knowledge_close">Close</string>
     <string name="knowledge_confirm_generation">Confirm content destination</string>

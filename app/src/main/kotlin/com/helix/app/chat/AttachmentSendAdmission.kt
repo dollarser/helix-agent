@@ -80,15 +80,40 @@ object AttachmentSendAdmission {
         target: EgressDisclosure.EgressTarget,
         strings: (Int, Array<out Any>) -> String,
         reference: ConversationReferenceSnapshotInput? = null,
+        knowledge: List<com.helix.core.storage.repository.KnowledgeReference> = emptyList(),
     ): Outcome {
+        com.helix.core.storage.repository.KnowledgeReferences
+            .encode(knowledge)
         return when (gate) {
             is AttachmentSendDecision.Ready -> {
-                if (text.isBlank() && gate.attachments.isEmpty() && reference == null) {
+                val hasReference = reference != null || knowledge.isNotEmpty()
+                if (text.isBlank() && gate.attachments.isEmpty() && !hasReference) {
                     return Outcome.Blocked(strings(R.string.admission_empty_message, emptyArray()))
                 }
-                val contents = outgoingContents(text, gate.attachments, reference)
+                val contents =
+                    outgoingContents(text, gate.attachments, reference) +
+                        knowledge.map { item ->
+                            EgressDisclosure.OutgoingContent.FileText(
+                                sourceLabel = item.title,
+                                sizeBytes =
+                                    item.text
+                                        .toByteArray(Charsets.UTF_8)
+                                        .size
+                                        .toLong(),
+                                sha256 =
+                                    com.helix.core.storage.content.FileContentStore.sha256Hex(
+                                        item.text.toByteArray(Charsets.UTF_8),
+                                    ),
+                                kindRes = R.string.kind_markdown,
+                            )
+                        }
                 Outcome.Egress(
-                    EgressDisclosure.decide(contents, guardText(text, gate.attachments, reference), target),
+                    EgressDisclosure.decide(
+                        contents,
+                        guardText(text, gate.attachments, reference) +
+                            knowledge.joinToString("\n") { it.title + "\n" + it.text },
+                        target,
+                    ),
                     gate.attachments,
                 )
             }

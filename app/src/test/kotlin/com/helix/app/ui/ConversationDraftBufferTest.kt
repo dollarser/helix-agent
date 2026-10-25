@@ -17,6 +17,77 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ConversationDraftBufferTest {
+    @Test fun persistedRestoredScreenAcceptsNewerLibraryReferencesWithoutLosingText() =
+        runBlocking {
+            val buffer = ConversationDraftBuffer("session")
+            buffer.initialize { null }
+            buffer.edit("Keep my question")
+            buffer.persist { true }
+            val scope =
+                object : SaverScope {
+                    override fun canBeSaved(value: Any) = true
+                }
+            val saved = with(ConversationDraftBuffer.saverFor("session")) { requireNotNull(scope.save(buffer)) }
+            val restored = requireNotNull(ConversationDraftBuffer.saverFor("session").restore(saved))
+            val item =
+                com.helix.core.storage.repository.KnowledgeReference(
+                    "NOTE",
+                    "note-a",
+                    "Synthetic",
+                    "a".repeat(64),
+                    "FULL",
+                    "Selected text",
+                )
+            val newer =
+                buffer.value.copy(
+                    revision = buffer.value.revision + 1,
+                    clientRequestId = "library-handoff",
+                    knowledgeReferences = listOf(item),
+                )
+            restored.initialize { newer }
+            assertEquals("Keep my question", restored.value.text)
+            assertEquals(listOf(item), restored.value.knowledgeReferences)
+        }
+
+    @Test fun knowledgeSelectionSurvivesRotationAndLateReceiptDoesNotEraseNewerDraft() =
+        runBlocking {
+            val buffer = ConversationDraftBuffer("session")
+            buffer.edit("Unsent question")
+            val item =
+                com.helix.core.storage.repository.KnowledgeReference(
+                    "NOTE",
+                    "note-a",
+                    "合成笔记",
+                    "a".repeat(64),
+                    "FULL",
+                    "original snapshot",
+                )
+            buffer.knowledgeReferences(listOf(item))
+            val scope =
+                object : SaverScope {
+                    override fun canBeSaved(value: Any) = true
+                }
+            val saved = with(ConversationDraftBuffer.saverFor("session")) { requireNotNull(scope.save(buffer)) }
+            val restored = requireNotNull(ConversationDraftBuffer.saverFor("session").restore(saved))
+            assertEquals(listOf(item), restored.value.knowledgeReferences)
+            assertEquals("Unsent question", restored.value.text)
+            val clicked = restored.captureSubmission()
+            restored.knowledgeReferences(listOf(item.copy(text = "next snapshot")))
+            val receipt = ChatSubmissionReceipt(clicked, ChatSubmissionOutcome.Accepted("turn"))
+            restored.accepted(receipt, { true }, { null })
+            assertEquals(
+                "next snapshot",
+                restored.value.knowledgeReferences
+                    .single()
+                    .text,
+            )
+            assertEquals("original snapshot", clicked.knowledgeReferences.single().text)
+            restored.knowledgeReferences(emptyList())
+            assertEquals("Unsent question", restored.value.text)
+            assertTrue(restored.value.knowledgeReferences.isEmpty())
+            assertNull(ConversationDraftBuffer.saverFor("other").restore(saved))
+        }
+
     @Test fun selectedSkillSurvivesRotationAndNewEditsAreNotClearedByOldReceipt() =
         runBlocking {
             val buffer = ConversationDraftBuffer("session")

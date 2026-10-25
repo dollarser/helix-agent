@@ -24,6 +24,29 @@ import org.junit.Test
  * attachment projection the caller binds to the turn.
  */
 class AttachmentSendAdmissionTest {
+    @Test fun knowledgeOnlySendRequiresConfirmationAndScansTheActualSelectedText() {
+        val reference =
+            com.helix.core.storage.repository.KnowledgeReference(
+                "NOTE",
+                "synthetic",
+                "Synthetic note",
+                "a".repeat(64),
+                "FULL",
+                "Safe text",
+            )
+
+        fun admission(text: String) =
+            AttachmentSendAdmission.admit(
+                AttachmentSendDecision.Ready(emptyList()),
+                "",
+                target,
+                strings,
+                knowledge = listOf(reference.copy(text = text)),
+            ) as AttachmentSendAdmission.Outcome.Egress
+        assertTrue(admission("Safe text").decision is EgressDisclosure.Decision.Confirm)
+        assertTrue(admission("key is sk-abcdefghijklmnopq").decision is EgressDisclosure.Decision.Rejected)
+    }
+
     private val target =
         EgressDisclosure.EgressTarget(
             providerId = "prov_1",

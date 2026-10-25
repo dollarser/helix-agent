@@ -23,12 +23,15 @@ data class ChatSubmission(
     val referenceSourceSessionId: String? = null,
     val referenceKind: com.helix.core.storage.repository.ConversationReferenceKind? = null,
     val skillActivations: List<com.helix.core.storage.repository.InputSkillActivation> = emptyList(),
+    val knowledgeReferences: List<com.helix.core.storage.repository.KnowledgeReference> = emptyList(),
 ) {
     init {
         require(sessionId.isNotBlank() && clientRequestId.isNotBlank())
         require(revision >= 0)
         com.helix.core.storage.repository.InputSkillActivations
             .encode(skillActivations)
+        com.helix.core.storage.repository.KnowledgeReferences
+            .encode(knowledgeReferences)
         require((referenceSourceSessionId == null) == (referenceKind == null))
         require(referenceSourceSessionId == null || referenceSourceSessionId != sessionId)
     }
@@ -72,6 +75,8 @@ internal fun ChatSubmission.toInputSnapshot() =
         referenceKind?.name,
         com.helix.core.storage.repository.InputSkillActivations
             .encode(skillActivations),
+        com.helix.core.storage.repository.KnowledgeReferences
+            .encode(knowledgeReferences),
     )
 
 internal fun com.helix.core.storage.input.ComposerInputSnapshot.toSubmission(): ChatSubmission {
@@ -95,5 +100,7 @@ internal fun com.helix.core.storage.input.ComposerInputSnapshot.toSubmission(): 
         referenceKind?.let(com.helix.core.storage.repository.ConversationReferenceKind::valueOf),
         com.helix.core.storage.repository.InputSkillActivations
             .decode(skillActivationsJson),
+        com.helix.core.storage.repository.KnowledgeReferences
+            .decode(knowledgeReferencesJson),
     )
 }

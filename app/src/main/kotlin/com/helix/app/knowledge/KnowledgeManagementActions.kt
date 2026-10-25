@@ -9,6 +9,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -39,9 +44,9 @@ import kotlinx.coroutines.withContext
 internal fun KnowledgeImportAction(
     service: KnowledgeService,
     onNewNote: (() -> Unit)? = null,
+    onKnowledge: () -> Unit,
+    onSelectSources: () -> Unit,
 ) {
-    val enabled by service.agentAccess.enabled.collectAsStateWithLifecycle()
-    val accessTitle = stringResource(R.string.knowledge_agent_access_title)
     val picker =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
             if (uris.isNotEmpty()) {
@@ -56,46 +61,76 @@ internal fun KnowledgeImportAction(
         }
     var details by androidx.compose.runtime.saveable
         .rememberSaveable { mutableStateOf(false) }
-    Column {
-        androidx.compose.foundation.layout.FlowRow(Modifier.fillMaxWidth()) {
-            if (onNewNote != null) {
-                TextButton(onNewNote, modifier = Modifier.testTag("knowledge-new-note")) {
-                    Text(stringResource(R.string.knowledge_new_note_action))
+    var menu by remember { mutableStateOf(false) }
+    Row {
+        if (onNewNote != null) {
+            Button(onNewNote, modifier = Modifier.testTag("knowledge-new-note"), shape = KnowledgeActionShape) {
+                Text(stringResource(R.string.knowledge_new_note_action))
+            }
+        }
+        androidx.compose.foundation.layout.Box {
+            IconButton({ menu = true }, Modifier.testTag("knowledge-library-more")) {
+                Icon(
+                    androidx.compose.ui.res
+                        .painterResource(R.drawable.ic_more_vertical),
+                    stringResource(R.string.knowledge_more),
+                )
+            }
+            DropdownMenu(menu, { menu = false }) {
+                KnowledgeMenuAction(R.string.knowledge_direct_create, "knowledge-new-knowledge") {
+                    menu = false
+                    onKnowledge()
+                }
+                KnowledgeMenuAction(R.string.knowledge_import_files, "knowledge-import") {
+                    menu = false
+                    picker.launch(arrayOf("*/*"))
+                }
+                KnowledgeMenuAction(R.string.knowledge_select_sources, "knowledge-select-mode") {
+                    menu = false
+                    onSelectSources()
+                }
+                KnowledgeMenuAction(R.string.knowledge_library_settings, "knowledge-library-settings") {
+                    menu = false
+                    details = true
                 }
             }
-            TextButton(onClick = { picker.launch(arrayOf("*/*")) }, modifier = Modifier.testTag("knowledge-import")) {
-                Text(stringResource(R.string.knowledge_import_files))
-            }
-            TextButton(onClick = { details = !details }, modifier = Modifier.testTag("knowledge-library-settings")) {
-                Text(stringResource(R.string.knowledge_library_settings))
-            }
-        }
-        Text(stringResource(R.string.knowledge_local_only), style = MaterialTheme.typography.bodySmall)
-        if (details) {
-            AlertDialog(
-                onDismissRequest = { details = false },
-                title = { Text(stringResource(R.string.knowledge_library_settings)) },
-                text = {
-                    Column(Modifier.verticalScroll(rememberScrollState())) {
-                        Text(stringResource(R.string.knowledge_privacy), style = MaterialTheme.typography.bodySmall)
-                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Text(accessTitle, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
-                            androidx.compose.material3.Switch(
-                                checked = enabled,
-                                onCheckedChange = service.agentAccess::setEnabled,
-                                modifier = Modifier.semantics { contentDescription = accessTitle },
-                            )
-                        }
-                        Text(
-                            stringResource(R.string.knowledge_agent_access),
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                    }
-                },
-                confirmButton = { TextButton({ details = false }) { Text(stringResource(R.string.knowledge_close)) } },
-            )
         }
     }
+    if (details) {
+        KnowledgeAccessDialog(service) { details = false }
+    }
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun KnowledgeAccessDialog(
+    service: KnowledgeService,
+    onDismiss: () -> Unit,
+) {
+    val enabled by service.agentAccess.enabled.collectAsStateWithLifecycle()
+    val accessTitle = stringResource(R.string.knowledge_agent_access_title)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.knowledge_library_settings)) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                Text(stringResource(R.string.knowledge_privacy), style = MaterialTheme.typography.bodySmall)
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(accessTitle, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+                    androidx.compose.material3.Switch(
+                        checked = enabled,
+                        onCheckedChange = service.agentAccess::setEnabled,
+                        modifier = Modifier.semantics { contentDescription = accessTitle },
+                    )
+                }
+                Text(
+                    stringResource(R.string.knowledge_agent_access),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+        },
+        confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.knowledge_close)) } },
+    )
 }
 
 @Composable
@@ -243,4 +278,18 @@ internal fun KnowledgeReferenceManagement(
             },
         ) { service.management.refresh(expected, frozen) }
     }
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun KnowledgeMenuAction(
+    label: Int,
+    tag: String,
+    action: () -> Unit,
+) {
+    DropdownMenuItem(
+        text = { Text(stringResource(label)) },
+        onClick = action,
+        modifier = Modifier.testTag(tag),
+    )
 }

@@ -191,6 +191,8 @@ class ChatService(
     private val memory: com.helix.app.memory.MemoryService? = null,
     mobileScreenScope: (String) -> com.helix.core.policy.AutomationSessionScope? = { null },
     mobileScreenSources: com.helix.app.internal.LineStore = InMemoryLineStore(),
+    private val knowledgeReferences: com.helix.app.knowledge.KnowledgeReferenceService? = null,
+    private val knowledgeNotes: com.helix.app.knowledge.KnowledgeNoteService? = null,
 ) {
     // The unified AgentRuntime (HX2-01): every in-app turn entry drives the turn through this —
     // none owns engine admission directly. The container re-exposes the SAME instance as the
@@ -1307,6 +1309,95 @@ class ChatService(
         }
     }
 
+    /** Trusted library navigation command. Preserves the target composer; never creates a Turn. */
+    fun saveReplyAsNote(
+        sessionId: String,
+        messageId: String,
+    ): kotlinx.coroutines.Deferred<Boolean> =
+        workScope.async {
+            try {
+                val message = storage.messages.resolve(messageId)
+                check(message.sessionId == sessionId && message.role == "ASSISTANT" && message.kind == "TEXT")
+                check(message.supersededBy == null)
+                val turn = storage.turns.resolve(requireNotNull(message.turnId))
+                check(TurnState.valueOf(turn.state).isTerminal)
+                val body = requireNotNull(storage.messages.readContentBounded(message, 800000))
+                val input =
+                    storage.messages.byTurn(turn.id).lastOrNull {
+                        it.role == "USER" &&
+                            it.sequence < message.sequence
+                    }
+                val refs = input?.let { storage.sessionInputs.forMessage(it.id)?.knowledgeReferences }.orEmpty()
+                requireNotNull(
+                    knowledgeNotes,
+                ).saveReply(sessionId, messageId, str(R.string.knowledge_reply_title), body, refs)
+                true
+            } catch (cancel: kotlinx.coroutines.CancellationException) {
+                throw cancel
+            } catch (_: IllegalArgumentException) {
+                false
+            } catch (_: IllegalStateException) {
+                false
+            } catch (_: java.io.IOException) {
+                false
+            } catch (_: android.database.sqlite.SQLiteException) {
+                false
+            }
+        }
+
+    /** Trusted library navigation command. Preserves the target composer; never creates a Turn. */
+    fun stageKnowledgeReferences(
+        expectedSessionId: String?,
+        items: List<com.helix.core.storage.repository.KnowledgeReference>,
+    ): kotlinx.coroutines.Deferred<Boolean> =
+        workScope.async {
+            try {
+                submissionGate.withLock {
+                    if (items.isEmpty() || knowledgeReferences?.valid(items) != true ||
+                        pendingSend != null
+                    ) {
+                        return@withLock false
+                    }
+                    if (openSessionId != expectedSessionId) return@withLock false
+                    val id = openSessionId ?: openSessionDraft(null) ?: return@withLock false
+                    val old =
+                        storage.composerDrafts.get(id)?.toSubmission()
+                            ?: ChatSubmission(id, 0, idGenerator(), "")
+                    val keys = items.map { it.kind to it.resourceId }.toSet()
+                    val merged = old.knowledgeReferences.filterNot { (it.kind to it.resourceId) in keys } + items
+                    com.helix.core.storage.repository.KnowledgeReferences
+                        .encode(merged)
+                    val next =
+                        old.copy(
+                            knowledgeReferences = merged,
+                            revision = ComposerEditClock.next(old.revision),
+                            clientRequestId = idGenerator(),
+                        )
+                    if (!storage.composerDrafts.save(next.toInputSnapshot())) return@withLock false
+                    refreshScreen()
+                    true
+                }
+            } catch (
+                cancel: kotlinx.coroutines.CancellationException,
+            ) {
+                throw cancel
+            } catch (
+                _: IllegalArgumentException,
+            ) {
+                false
+            } catch (
+                _: IllegalStateException,
+            ) {
+                false
+            } catch (
+                _: java.io.IOException,
+            ) {
+                false
+            } catch (_: android.database.sqlite.SQLiteException) {
+                false
+            }
+        }
+
     /** One-shot consume: the UI applied [ChatScreenState.shareDraftText] to the composer. */
     fun consumeShareDraftText() {
         inputState.share(null)
@@ -2364,7 +2455,8 @@ class ChatService(
         val validText = text.length <= maxText && '\u0000' !in text
         val hasContent =
             text.isNotBlank() || stagedAttachments.isNotEmpty() ||
-                !sessionDraft?.attachments.isNullOrEmpty() || request.referenceSourceSessionId != null
+                !sessionDraft?.attachments.isNullOrEmpty() || request.referenceSourceSessionId != null ||
+                request.knowledgeReferences.isNotEmpty()
         return validText && hasContent
     }
 
@@ -2397,7 +2489,8 @@ class ChatService(
             return submissionBlocked(str(R.string.chat_blocked_message_invalid, MAX_MODEL_TEXT_CHARS))
         }
         val staged = if (textOnly) emptyList() else stagedAttachments
-        val hasReference = submission?.referenceSourceSessionId != null
+        val hasReference =
+            submission?.referenceSourceSessionId != null || !submission?.knowledgeReferences.isNullOrEmpty()
         // An attachment-only send is valid (ADR-0014 §5): blank text is admitted while
         // staged attachments ride the send; blank text with nothing staged is still the
         // empty-send block of today.
@@ -2469,7 +2562,8 @@ class ChatService(
         // per staged attachment. With an empty gate this reproduces today's pure-text decide
         // call exactly (no regression).
         val gate = AttachmentSendGate.evaluate(staged.map { it.toStagedAttachment() }, credentialScan)
-        val outcome = AttachmentSendAdmission.admit(gate, text, target, strings, reference)
+        if (!validKnowledgeReferences(request)) return submissionBlocked(str(R.string.knowledge_reference_changed))
+        val outcome = AttachmentSendAdmission.admit(gate, text, target, strings, reference, request.knowledgeReferences)
         return when (outcome) {
             is AttachmentSendAdmission.Outcome.Blocked -> {
                 // The staged attachments STAY pending: the user removes the problem file
@@ -2522,7 +2616,7 @@ class ChatService(
         if (openSessionId != submission.sessionId) return ChatSubmissionOutcome.Rejected("SESSION_CHANGED")
         return when (decision) {
             EgressDisclosure.Decision.Proceed -> {
-                if (staged.isNotEmpty() || reference != null) {
+                if (staged.isNotEmpty() || reference != null || submission.knowledgeReferences.isNotEmpty()) {
                     // Unreachable by construction; fail closed so a staged file/reference is never
                     // silently dropped from the outgoing request or skips its disclosure.
                     return submissionBlocked(str(R.string.chat_blocked_egress_unconfirmed))
@@ -2588,6 +2682,10 @@ class ChatService(
     @Suppress("ReturnCount", "SwallowedException", "TooGenericExceptionCaught") // fail-closed gate checks
     private suspend fun confirmSendNow(request: ChatSubmission): ChatSubmissionOutcome {
         val text = pendingSend ?: return ChatSubmissionOutcome.Rejected("CONFIRMATION_CHANGED")
+        if (!validKnowledgeReferences(request)) {
+            cancelPendingSend()
+            return submissionBlocked(str(R.string.knowledge_reference_changed))
+        }
         val goalId = pendingGoalId
         // Capture the stable client-request id with the pending state it belongs to (HX2-01 §2e):
         // a possibly-re-driven confirm carries the same id, so the runtime dedups to the single
@@ -3479,6 +3577,11 @@ class ChatService(
         if (submission.revisedMessageId == null && goalId == null) {
             return acceptSessionInput(submission, providerId, attachments, reference)
         }
+        if (submission.knowledgeReferences.isNotEmpty()) {
+            return submissionBlocked(
+                str(R.string.knowledge_reference_new_input),
+            )
+        }
         if (submission.skillActivations.isNotEmpty()) return submissionBlocked("SKILL_ACTIVATION_REQUIRES_NEW_INPUT")
         val started =
             submitTurn(
@@ -3582,7 +3685,10 @@ class ChatService(
                 val invalidShape = text.length > MAX_MODEL_TEXT_CHARS || '\u0000' in text
                 val invalidText = invalidShape || credentialScan(text) != null
                 if (invalidText) return@withLock false
-                if (text.isBlank() && input.attachments.isEmpty() && input.reference == null) return@withLock false
+                val hasReference = input.reference != null || input.knowledgeReferences.isNotEmpty()
+                if (text.isBlank() && input.attachments.isEmpty() && !hasReference) {
+                    return@withLock false
+                }
                 synchronized(turnGate) {
                     var edited = false
                     storage.withTransaction {
@@ -3601,6 +3707,8 @@ class ChatService(
                                     input.configuration,
                                     clock.now().toEpochMilli(),
                                     reference = storage.sessionInputs.readReference(input),
+                                    skillActivations = input.skillActivations,
+                                    knowledgeReferences = input.knowledgeReferences,
                                 ),
                             )
                         if (edited) {
@@ -3731,6 +3839,7 @@ class ChatService(
         attachments: List<AttachmentBindingIntent>,
         reference: ConversationReferenceSnapshotInput?,
     ): ChatSubmissionOutcome {
+        if (!validKnowledgeReferences(request)) return submissionBlocked(str(R.string.knowledge_reference_changed))
         if (!validSkillActivations(request.sessionId, request.skillActivations)) {
             return submissionBlocked("SKILL_ACTIVATION_UNAVAILABLE")
         }
@@ -3764,6 +3873,9 @@ class ChatService(
         return current.consumedTurnId?.let { ChatSubmissionOutcome.Accepted(it) }
             ?: ChatSubmissionOutcome.Enqueued(current.inputId)
     }
+
+    private suspend fun validKnowledgeReferences(request: ChatSubmission): Boolean =
+        request.knowledgeReferences.isEmpty() || knowledgeReferences?.valid(request.knowledgeReferences) == true
 
     private suspend fun persistSessionInput(
         request: ChatSubmission,
@@ -3813,6 +3925,7 @@ class ChatService(
                             clock.now().toEpochMilli(),
                             reference = reference,
                             skillActivations = request.skillActivations,
+                            knowledgeReferences = request.knowledgeReferences,
                         ),
                     )
                 if (accepted is SessionInputAcceptResult.Accepted) {

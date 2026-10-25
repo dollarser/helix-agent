@@ -149,16 +149,7 @@ internal class ChatScreenProjection(
             sessionId?.let { storage.messages.recentBySession(it, HISTORY_PAGE_SIZE) }.orEmpty(),
     ): List<MessageUi> {
         if (sessionId == null) return screen.messages
-        val edits =
-            try {
-                MessageEditHistory.read(storage, sessionId)
-            } catch (
-                _: java.io.IOException,
-            ) {
-                null
-            } catch (_: IllegalArgumentException) {
-                null
-            }
+        val edits = messageEditRanges(storage, sessionId)
         val messages =
             history
                 .filter {
@@ -174,7 +165,9 @@ internal class ChatScreenProjection(
                             UserQuestionService.KIND,
                         )
                 }.mapNotNull { entity ->
-                    val content = storage.messages.readContent(entity)
+                    val originalContent = storage.messages.readContent(entity)
+                    val knowledge = messageKnowledgeReferences(storage, entity.id)
+                    val content = visibleContent(storage, entity.id, originalContent, knowledge)
                     if (content.isNullOrBlank() && entity.role != ModelRole.USER.name) {
                         null
                     } else {
@@ -185,6 +178,7 @@ internal class ChatScreenProjection(
                             entity.turnId,
                             entity.sequence,
                             images = messageImages(storage, sessionId, entity.id),
+                            knowledgeReferences = knowledge,
                             historyContext =
                                 when {
                                     entity.role != ModelRole.ASSISTANT.name -> MessageHistoryContext.CURRENT
@@ -335,6 +329,38 @@ internal fun scopedLiveRows(
 }
 
 /** A persisted tool_call state as its user label (corrupt values fail closed). */
+private fun messageKnowledgeReferences(
+    storage: HelixStorage,
+    messageId: String,
+) = storage.sessionInputs
+    .forMessage(messageId)
+    ?.knowledgeReferences
+    .orEmpty()
+
+private fun messageEditRanges(
+    storage: HelixStorage,
+    sessionId: String,
+) = try {
+    MessageEditHistory.read(storage, sessionId)
+} catch (_: java.io.IOException) {
+    null
+} catch (_: IllegalArgumentException) {
+    null
+}
+
+private fun visibleContent(
+    storage: HelixStorage,
+    messageId: String,
+    content: String?,
+    references: List<com.helix.core.storage.repository.KnowledgeReference>,
+): String? {
+    if (references.isEmpty()) return content
+    val original = content.orEmpty()
+    val prefix = AttachmentContext.authoredPrefix(original, storage.messageAttachments.listByMessage(messageId).size)
+    return com.helix.core.storage.repository.KnowledgeReferences
+        .authoredPrefix(prefix, references) + original.substring(prefix.length)
+}
+
 private fun persistedStateLabelRes(state: String): Int =
     when (runCatching { ToolCallState.valueOf(state) }.getOrNull()) {
         ToolCallState.PENDING -> R.string.tool_state_processing

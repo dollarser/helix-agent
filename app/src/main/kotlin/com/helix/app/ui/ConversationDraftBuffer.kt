@@ -44,7 +44,8 @@ internal class ConversationDraftBuffer(
             value != saved &&
                 (
                     saved != null || value.text.isNotEmpty() || value.attachmentIds.isNotEmpty() ||
-                        value.referenceSourceSessionId != null || value.skillActivations.isNotEmpty()
+                        value.referenceSourceSessionId != null || value.skillActivations.isNotEmpty() ||
+                        value.knowledgeReferences.isNotEmpty()
                 )
     val editable: Boolean get() = ready
     val canSubmit: Boolean get() = !sending && attachmentsReady && missingAttachments.isEmpty()
@@ -73,6 +74,7 @@ internal class ConversationDraftBuffer(
             .copy(
                 attachmentIds = value.attachmentIds.toList(),
                 skillActivations = value.skillActivations.toList(),
+                knowledgeReferences = value.knowledgeReferences.toList(),
             ).also {
                 submitted =
                     it
@@ -86,6 +88,19 @@ internal class ConversationDraftBuffer(
         value =
             value.copy(
                 skillActivations = items.toList(),
+                clientRequestId = newId(),
+                revision = ComposerEditClock.next(value.revision),
+            )
+    }
+
+    fun knowledgeReferences(items: List<com.helix.core.storage.repository.KnowledgeReference>) {
+        if (sending || value.knowledgeReferences == items) return
+        com.helix.core.storage.repository.KnowledgeReferences
+            .encode(items)
+        edited = true
+        value =
+            value.copy(
+                knowledgeReferences = items.toList(),
                 clientRequestId = newId(),
                 revision = ComposerEditClock.next(value.revision),
             )
@@ -259,7 +274,8 @@ internal class ConversationDraftBuffer(
             value.text == request.text &&
             value.attachmentIds == request.attachmentIds &&
             value.referenceSourceSessionId == request.referenceSourceSessionId &&
-            value.referenceKind == request.referenceKind && value.skillActivations == request.skillActivations
+            value.referenceKind == request.referenceKind && value.skillActivations == request.skillActivations &&
+            value.knowledgeReferences == request.knowledgeReferences
 
     companion object {
         /** rememberSaveable inputs do not validate a restored Activity snapshot's session. */
@@ -278,7 +294,9 @@ internal class ConversationDraftBuffer(
                         value = restored
                         saved = decode(fields[1])
                         submitted = decode(fields[2])
-                        edited = fields[3].toBoolean()
+                        // A restored, already-persisted value must accept newer library handoffs.
+                        // Unsaved restored edits and typing performed after restoration still win.
+                        edited = fields[3].toBoolean() && restored != saved
                     }
                 },
             )
@@ -301,6 +319,8 @@ internal class ConversationDraftBuffer(
                         value.referenceKind?.name.orEmpty(),
                         com.helix.core.storage.repository.InputSkillActivations
                             .encode(value.skillActivations),
+                        com.helix.core.storage.repository.KnowledgeReferences
+                            .encode(value.knowledgeReferences),
                     ),
                 )
             }
@@ -325,6 +345,8 @@ internal class ConversationDraftBuffer(
                 },
                 com.helix.core.storage.repository.InputSkillActivations
                     .decode(parts.getOrNull(10) ?: "[]"),
+                com.helix.core.storage.repository.KnowledgeReferences
+                    .decode(parts.getOrNull(11) ?: "[]"),
             )
         }
     }

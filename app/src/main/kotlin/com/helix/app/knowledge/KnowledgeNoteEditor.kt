@@ -27,20 +27,21 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.R
-import com.helix.app.provider.ProviderService
-import com.helix.core.model.ProviderResidence
 import com.helix.core.storage.knowledge.KnowledgeNote
 import com.helix.core.storage.knowledge.KnowledgeNoteSource
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 @Composable
-@Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod") // Compose state rendering and UI callbacks.
+@Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod", "LongParameterList", "TooGenericExceptionCaught")
 internal fun KnowledgeNoteEditor(
     note: KnowledgeNote,
     service: KnowledgeNoteService,
-    providers: ProviderService?,
     modifier: Modifier,
+    isNew: Boolean = false,
+    onKnowledgeCreated: ((String) -> Unit)? = null,
+    onReference: (suspend (List<com.helix.core.storage.repository.KnowledgeReference>) -> Boolean)? = null,
+    referenceService: KnowledgeReferenceService? = null,
     onBack: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
@@ -50,26 +51,22 @@ internal fun KnowledgeNoteEditor(
     var management by rememberSaveable(note.id) { mutableStateOf(false) }
     var sources by remember(note.id) { mutableStateOf(emptyList<KnowledgeNoteSource>()) }
     var failed by remember(note.id) { mutableStateOf(false) }
+    var knowledgeDraft by remember(note.id) { mutableStateOf(false) }
     var leave by remember { mutableStateOf(false) }
-    var showModels by remember { mutableStateOf(false) }
-    var expandedSource by remember { mutableStateOf<String?>(null) }
-    var target by remember { mutableStateOf<Pair<String, String>?>(null) }
-    var pending by remember { mutableStateOf<PreparedKnowledgeAnalysis?>(null) }
-    var preparing by remember { mutableStateOf(false) }
-    val busy = preparing || note.generationState == "RUNNING"
-    val rows =
-        providers
-            ?.rows
-            ?.collectAsStateWithLifecycle()
-            ?.value
-            .orEmpty()
-    val generationFailure by service.failure.collectAsStateWithLifecycle()
-    val analysis = remember(providers) { providers?.let(::KnowledgeAnalysis) }
+    var tools by rememberSaveable(note.id) { mutableStateOf(false) }
+    var showSources by rememberSaveable(note.id) { mutableStateOf(false) }
+    val busy = note.generationState == "RUNNING"
     LaunchedEffect(note.id, note.updatedAt) { sources = service.sources(note.id) }
     val dirty = title != note.title || body != note.body
 
     fun goBack() {
-        if (dirty) leave = true else onBack()
+        if (dirty) {
+            leave = true
+        } else if (editing && !isNew) {
+            editing = false
+        } else {
+            onBack()
+        }
     }
 
     fun save(
@@ -78,9 +75,19 @@ internal fun KnowledgeNoteEditor(
     ) {
         scope.launch {
             try {
-                service.save(note.id, title, body, reviewed)
+                if (isNew) {
+                    service.saveNew(
+                        note,
+                        title,
+                        body,
+                        reviewed,
+                    )
+                } else {
+                    service.save(note.id, title, body, reviewed)
+                }
                 failed = false
-                if (exit) onBack()
+                editing = false
+                if (exit && isNew) onBack()
             } catch (
                 cancel: CancellationException,
             ) {
@@ -98,6 +105,23 @@ internal fun KnowledgeNoteEditor(
             }
         }
     }
+    if (knowledgeDraft) {
+        KnowledgeDraftDialog(
+            note,
+            service,
+            onDismiss = { knowledgeDraft = false },
+            onSaved = { id ->
+                knowledgeDraft = false
+                if (onKnowledgeCreated !=
+                    null
+                ) {
+                    onKnowledgeCreated(id)
+                } else {
+                    onBack()
+                }
+            },
+        )
+    }
     BackHandler { goBack() }
     if (leave) {
         AlertDialog(
@@ -112,261 +136,234 @@ internal fun KnowledgeNoteEditor(
                 }
             },
             dismissButton = {
-                TextButton(
-                    onClick = { leave = false },
-                ) { Text(stringResource(R.string.knowledge_keep_editing)) }
-            },
-        )
-    }
-    if (showModels) {
-        AlertDialog(
-            onDismissRequest = { showModels = false },
-            title = { Text(stringResource(R.string.knowledge_choose_model)) },
-            text = {
-                LazyColumn(Modifier.heightIn(max = 320.dp)) {
-                    rows.filter { !it.managedExternally }.forEach { row ->
-                        items(row.conversationModels.filter(row::modelSelectable)) { model ->
-                            TextButton(onClick = {
-                                target = row.id to model
-                                showModels = false
-                            }) {
-                                Text("${row.displayName} · ${row.modelLabel(model)}\n${row.origin}")
-                            }
-                        }
+                androidx.compose.foundation.layout.FlowRow {
+                    TextButton(onClick = {
+                        leave = false
+                        title = note.title
+                        body = note.body
+                        if (isNew) onBack() else editing = false
+                    }) {
+                        Text(stringResource(R.string.common_discard_edit))
                     }
+                    TextButton(
+                        onClick = { leave = false },
+                    ) { Text(stringResource(R.string.knowledge_keep_editing)) }
                 }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = { showModels = false },
-                ) { Text(stringResource(R.string.knowledge_close)) }
             },
         )
     }
-    pending?.let { request ->
-        AlertDialog(
-            onDismissRequest = { pending = null },
-            title = { Text(stringResource(R.string.knowledge_confirm_generation)) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("${request.destination.providerName}\n${request.destination.origin}\n${request.model}")
-                    Text(
-                        stringResource(
-                            if (request.destination.residence == ProviderResidence.ON_DEVICE_LOCAL) {
-                                R.string.knowledge_generation_local
-                            } else {
-                                R.string.knowledge_generation_remote
-                            },
-                        ),
+
+    fun reference() {
+        scope.launch {
+            try {
+                val selected =
+                    requireNotNull(referenceService).select(
+                        note.kind,
+                        note.id,
+                        if (note.body.length > 1800) "EXCERPT" else "FULL",
                     )
-                    Text(
-                        stringResource(
-                            R.string.knowledge_generation_scope,
-                            request.sources.size,
-                            request.inputCharacters,
-                        ),
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    pending = null
-                    preparing = true
-                    scope.launch {
-                        try {
-                            service.generate(request).join()
-                        } finally {
-                            preparing = false
-                        }
-                    }
-                }, modifier = Modifier.testTag("knowledge-confirm-generate")) {
-                    Text(stringResource(R.string.knowledge_confirm_send))
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = { pending = null },
-                ) { Text(stringResource(R.string.knowledge_keep_editing)) }
-            },
-        )
+                if (onReference?.invoke(listOf(selected)) != true) failed = true
+            } catch (cancel: CancellationException) {
+                throw cancel
+            } catch (_: Exception) {
+                failed = true
+            }
+        }
     }
-    LazyColumn(modifier.testTag("knowledge-note-editor"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        item {
-            TextButton(onClick = { goBack() }, modifier = Modifier.testTag("knowledge-note-back")) {
-                Text(stringResource(R.string.knowledge_back))
-            }
-        }
-        item {
-            Text(
-                stringResource(
-                    if (note.state == "REVIEWED" && !dirty) {
-                        R.string.knowledge_note_reviewed
-                    } else {
-                        R.string.knowledge_note_draft
-                    },
-                ),
-            )
-        }
-        item {
-            androidx.compose.foundation.layout.FlowRow {
-                TextButton(
-                    onClick = { editing = !editing },
-                    modifier = Modifier.testTag("knowledge-note-toggle-mode"),
-                ) {
-                    Text(stringResource(if (editing) R.string.knowledge_reading_mode else R.string.knowledge_edit_mode))
-                }
-                TextButton(
-                    onClick = { management = !management },
-                    modifier = Modifier.testTag("knowledge-note-management"),
-                ) {
-                    Text(stringResource(R.string.knowledge_note_actions))
-                }
-            }
-        }
-        if (management) {
-            item { KnowledgeNoteManagement(note, service, dirty) }
-            item { KnowledgeReferenceManagement(note, service, sources, dirty) }
-        }
-        if (editing) {
-            item {
-                OutlinedTextField(
-                    title,
-                    { title = it.take(160) },
-                    enabled = !busy,
-                    label = { Text(stringResource(R.string.knowledge_note_title)) },
-                    modifier = Modifier.fillMaxWidth().testTag("knowledge-note-title"),
-                )
-            }
-            item {
-                OutlinedTextField(
-                    body,
-                    { body = it.take(MAX_KNOWLEDGE_TEXT) },
-                    enabled = !busy,
-                    minLines = 8,
-                    maxLines = 20,
-                    label = { Text(stringResource(R.string.knowledge_note_body)) },
-                    modifier = Modifier.fillMaxWidth().testTag("knowledge-note-body"),
-                )
-            }
-        } else {
-            item { Text(title, style = androidx.compose.material3.MaterialTheme.typography.headlineSmall) }
-            item {
-                SelectionContainer {
-                    com.helix.app.ui.MarkdownText(
-                        body.ifBlank { stringResource(R.string.knowledge_note_blank) },
-                        Modifier.fillMaxWidth().testTag("knowledge-note-preview"),
-                    )
-                }
-            }
-        }
-        if (dirty) {
-            item {
-                Text(
-                    stringResource(R.string.knowledge_unsaved),
-                    style = androidx.compose.material3.MaterialTheme.typography.labelMedium,
-                )
-            }
-        }
-        item {
-            androidx.compose.foundation.layout.FlowRow {
-                Button(
-                    onClick = { save(true) },
-                    enabled = !busy && title.isNotBlank(),
-                    modifier = Modifier.testTag("knowledge-note-save"),
-                ) { Text(stringResource(R.string.knowledge_note_save)) }
-                TextButton(
-                    onClick = { save(false) },
-                    enabled = !busy && title.isNotBlank(),
-                    modifier = Modifier.testTag("knowledge-note-save-draft"),
-                ) { Text(stringResource(R.string.knowledge_save_draft)) }
-            }
-        }
-        if (sources.isNotEmpty()) {
-            item { Text(stringResource(R.string.knowledge_frozen_sources, sources.size)) }
-            items(sources, key = { it.sourceId }) { source ->
+    if (management) {
+        com.helix.app.ui.ConversationSheet(stringResource(R.string.knowledge_more), "knowledge-note-more", {
+            management = false
+        }) {
+            KnowledgeNoteManagement(note, service, dirty)
+            KnowledgeReferenceManagement(note, service, sources, dirty)
+            if (note.kind == "KNOWLEDGE") {
                 TextButton(onClick = {
-                    expandedSource =
-                        if (expandedSource ==
-                            source.sourceId
-                        ) {
-                            null
-                        } else {
-                            source.sourceId
-                        }
+                    save(note.state != "REVIEWED")
+                    management = false
+                }, enabled = !busy && !dirty) {
+                    Text(stringResource(R.string.knowledge_review_toggle))
+                }
+            }
+            if (note.generatedDraft.isNotBlank()) {
+                TextButton(onClick = {
+                    management = false
+                    tools = true
                 }) {
-                    Text("[source:${source.sourceId}] ${source.title}\n${source.url}")
+                    Text(stringResource(R.string.knowledge_model_tools))
                 }
-                if (expandedSource == source.sourceId) {
-                    SelectionContainer {
+            }
+        }
+    }
+    if (tools) {
+        com.helix.app.ui.ConversationSheet(
+            stringResource(
+                R.string.knowledge_model_tools,
+            ),
+            "knowledge-saved-suggestion",
+            {
+                tools = false
+            },
+        ) {
+            Text(stringResource(R.string.knowledge_generated_unreviewed))
+            SelectionContainer {
+                com.helix.app.ui
+                    .MarkdownText(note.generatedDraft)
+            }
+            TextButton(onClick = {
+                body = note.generatedDraft
+                editing = true
+                tools = false
+            }, enabled = note.generatedDraft.isNotBlank(), modifier = Modifier.testTag("knowledge-load-draft")) {
+                Text(stringResource(R.string.knowledge_load_draft))
+            }
+        }
+    }
+    if (showSources) {
+        com.helix.app.ui.ConversationSheet(
+            stringResource(
+                R.string.knowledge_source_details,
+            ),
+            "knowledge-note-sources",
+            {
+                showSources = false
+            },
+        ) {
+            val origins =
+                com.helix.core.storage.repository.KnowledgeReferences
+                    .decode(note.originReferencesJson)
+            if (note.originMessageId.isNotBlank()) Text(stringResource(R.string.knowledge_reply_provenance))
+            if (origins.isNotEmpty()) KnowledgeReferenceChips(origins)
+            sources.forEach { source ->
+                Text(source.title, style = androidx.compose.material3.MaterialTheme.typography.titleSmall)
+                SelectionContainer { Text(source.excerpt) }
+                Text(source.url, style = androidx.compose.material3.MaterialTheme.typography.bodySmall)
+            }
+        }
+    }
+    Column(modifier) {
+        KnowledgeHeader(
+            stringResource(if (editing) R.string.knowledge_edit_mode else referenceKindLabel(note.kind)),
+            "knowledge-note-back",
+            ::goBack,
+            onMore = if (!editing) ({ management = true }) else null,
+            onSave = if (editing) ({ save(false) }) else null,
+            saveEnabled = !busy && title.isNotBlank(),
+        )
+        if (failed) Text(stringResource(R.string.knowledge_management_failed))
+        LazyColumn(
+            Modifier.weight(1f).testTag("knowledge-note-editor"),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            if (editing) {
+                item {
+                    OutlinedTextField(
+                        title,
+                        { title = it.take(160) },
+                        enabled = !busy,
+                        label = { Text(stringResource(R.string.knowledge_note_title)) },
+                        modifier = Modifier.fillMaxWidth().testTag("knowledge-note-title"),
+                    )
+                }
+                item {
+                    OutlinedTextField(
+                        body,
+                        { body = it.take(MAX_KNOWLEDGE_TEXT) },
+                        enabled = !busy,
+                        minLines = 6,
+                        maxLines = 16,
+                        label = { Text(stringResource(R.string.knowledge_markdown_body)) },
+                        modifier = Modifier.fillMaxWidth().testTag("knowledge-note-body"),
+                    )
+                }
+            } else {
+                item { Text(title, style = androidx.compose.material3.MaterialTheme.typography.headlineMedium) }
+                item {
+                    androidx.compose.foundation.layout.Row(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                    ) {
                         Text(
-                            "[source:${source.sourceId}] ${source.title}\n${source.url}\n${source.excerpt}",
+                            knowledgeDate(note.updatedAt),
+                            style = androidx.compose.material3.MaterialTheme.typography.labelMedium,
+                        )
+                        Text(
+                            stringResource(
+                                if (note.kind == "NOTE") {
+                                    R.string.knowledge_note_saved
+                                } else {
+                                    if (note.state ==
+                                        "REVIEWED"
+                                    ) {
+                                        R.string.knowledge_note_reviewed
+                                    } else {
+                                        R.string.knowledge_note_unreviewed
+                                    }
+                                },
+                            ),
+                            style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
                         )
                     }
                 }
-            }
-            item {
-                TextButton(
-                    onClick = { showModels = true },
-                    enabled = !busy && providers != null,
-                    modifier = Modifier.testTag("knowledge-note-model"),
-                ) {
-                    Text(target?.second ?: stringResource(R.string.knowledge_choose_model))
+                item {
+                    SelectionContainer {
+                        com.helix.app.ui.MarkdownText(
+                            body.ifBlank { stringResource(R.string.knowledge_note_blank) },
+                            Modifier.fillMaxWidth().testTag("knowledge-note-preview"),
+                        )
+                    }
                 }
-            }
-            item { Text(stringResource(R.string.knowledge_generation_instructions)) }
-            item {
-                TextButton(onClick = {
-                    val selected = target ?: return@TextButton
-                    val engine = analysis ?: return@TextButton
-                    preparing = true
-                    scope.launch {
-                        try {
-                            service.save(note.id, title, body, false)
-                            pending = service.prepare(note.id, engine, selected.first, selected.second)
-                            failed = false
-                        } catch (
-                            cancel: CancellationException,
+                if (sources.isNotEmpty() || note.originReferencesJson != "[]" || note.originMessageId.isNotBlank()) {
+                    item {
+                        TextButton(
+                            onClick = { showSources = true },
+                            modifier = Modifier.testTag("knowledge-note-sources"),
                         ) {
-                            throw cancel
-                        } catch (
-                            _: IllegalArgumentException,
-                        ) {
-                            failed = true
-                        } catch (
-                            _: IllegalStateException,
-                        ) {
-                            failed = true
-                        } catch (
-                            _: android.database.sqlite.SQLiteException,
-                        ) {
-                            failed = true
-                        } finally {
-                            preparing = false
+                            Text(stringResource(R.string.knowledge_source_details))
                         }
                     }
-                }, enabled = !busy && target != null, modifier = Modifier.testTag("knowledge-note-generate")) {
-                    Text(stringResource(R.string.knowledge_generate))
+                }
+                if (note.generatedDraft.isNotBlank()) {
+                    item {
+                        TextButton(onClick = { tools = true }) {
+                            Text(stringResource(R.string.knowledge_model_tools))
+                        }
+                    }
                 }
             }
         }
-        if (busy) item { Text(stringResource(R.string.knowledge_generating)) }
-        if (failed || generationFailure == note.id || note.generationState in setOf("FAILED", "INTERRUPTED")) {
-            item { Text(stringResource(R.string.knowledge_generation_failed)) }
-        }
-        if (note.generationState == "READY") {
-            item { Text(stringResource(R.string.knowledge_generated_unreviewed)) }
-            item {
-                TextButton(
-                    onClick = {
-                        body = note.generatedDraft
-                        editing = true
-                    },
-                    modifier = Modifier.testTag("knowledge-load-draft"),
-                ) {
-                    Text(stringResource(R.string.knowledge_load_draft))
+        if (!editing) {
+            androidx.compose.foundation.layout.FlowRow(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                if (onReference != null && referenceService != null) {
+                    Button(
+                        ::reference,
+                        shape = KnowledgeActionShape,
+                        enabled = !busy && note.body.isNotBlank(),
+                        modifier = Modifier.testTag("knowledge-note-reference"),
+                    ) {
+                        Text(stringResource(R.string.knowledge_ask_content))
+                    }
+                }
+                TextButton(onClick = { editing = true }, modifier = Modifier.testTag("knowledge-note-toggle-mode")) {
+                    Text(stringResource(R.string.knowledge_edit_mode))
+                }
+                if (note.kind == "NOTE") {
+                    TextButton(
+                        onClick = { knowledgeDraft = true },
+                        enabled = !busy && body.isNotBlank(),
+                        modifier = Modifier.testTag("knowledge-create-knowledge"),
+                    ) {
+                        Text(stringResource(R.string.knowledge_make_knowledge))
+                    }
                 }
             }
-            item { SelectionContainer { Text(note.generatedDraft, Modifier.testTag("knowledge-generated-draft")) } }
+        } else {
+            Text(
+                stringResource(R.string.knowledge_edit_hint),
+                style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+            )
         }
     }
 }

@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -55,11 +56,11 @@ fun KnowledgeNavigation(
 @Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod") // Sources/notes navigation and Compose callbacks.
 fun KnowledgeScreen(
     service: KnowledgeService,
-    onReference: (String) -> Unit,
-    providers: com.helix.app.provider.ProviderService? = null,
+    onReference: suspend (List<com.helix.core.storage.repository.KnowledgeReference>) -> Boolean,
 ) {
     val all by service.items.collectAsStateWithLifecycle(emptyList())
-    val notes by service.noteService.notes.collectAsStateWithLifecycle(emptyList())
+    val loadedNotes by service.noteService.notes.collectAsStateWithLifecycle(initialValue = null)
+    val notes = loadedNotes.orEmpty()
     val request by service.openRequests.collectAsStateWithLifecycle()
     val error by service.captureError.collectAsStateWithLifecycle()
     val deletionError by service.deletionError.collectAsStateWithLifecycle()
@@ -67,36 +68,65 @@ fun KnowledgeScreen(
     var query by rememberSaveable { mutableStateOf("") }
     var hits by remember { mutableStateOf<List<CollectedSource>>(emptyList()) }
     var noteHits by remember { mutableStateOf(notes) }
-    var showNotes by rememberSaveable { mutableStateOf(false) }
+    var section by rememberSaveable { mutableStateOf("NOTE") }
     var showQuestions by rememberSaveable { mutableStateOf(false) }
     var selectedNote by rememberSaveable { mutableStateOf<String?>(null) }
+    var newNoteId by rememberSaveable { mutableStateOf<String?>(null) }
+    var newNoteKind by rememberSaveable { mutableStateOf("NOTE") }
+    var newNoteCreatedAt by rememberSaveable { mutableStateOf(0L) }
     var selectedSources by remember { mutableStateOf(emptySet<String>()) }
+    var selectingSources by rememberSaveable { mutableStateOf(false) }
+    var candidateIds by rememberSaveable { mutableStateOf(emptyList<String>()) }
+    var candidateHashes by rememberSaveable { mutableStateOf(emptyList<String>()) }
     var failed by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val newNoteTitle = stringResource(R.string.knowledge_note_new)
 
-    fun createNote(ids: List<String>) {
-        scope.launch {
-            try {
-                selectedNote = service.noteService.create(ids, newNoteTitle)
-                selectedSources = emptySet()
-                selected = null
-                showNotes = true
-            } catch (
-                _: android.database.sqlite.SQLiteException,
-            ) {
-                failed = true
-            } catch (_: IllegalArgumentException) {
-                failed = true
-            }
+    fun createNote(
+        ids: List<String>,
+        requestedKind: String = "NOTE",
+    ) {
+        if (ids.isEmpty()) {
+            newNoteId =
+                java.util.UUID
+                    .randomUUID()
+                    .toString()
+            newNoteKind = requestedKind
+            newNoteCreatedAt = System.currentTimeMillis()
+            selectedNote = newNoteId
+            selected = null
+            return
         }
+        candidateIds = ids
+        candidateHashes =
+            ids.map { id ->
+                val source = all.first { it.id == id }
+                knowledgeHash(source.extracted.ifBlank { source.rawText })
+            }
+    }
+    if (candidateIds.isNotEmpty()) {
+        KnowledgeSourceDraftDialog(
+            candidateIds,
+            candidateHashes,
+            candidateIds.mapNotNull { id -> all.firstOrNull { it.id == id } },
+            service.noteService,
+            onDismiss = { candidateIds = emptyList() },
+            onSaved = { id ->
+                candidateIds = emptyList()
+                selectedSources = emptySet()
+                selectingSources = false
+                selected = null
+                selectedNote = id
+                section = "KNOWLEDGE"
+            },
+        )
     }
     LaunchedEffect(request) {
         if (request != null) {
             selected = request
             selectedNote = null
             showQuestions = false
-            showNotes = false
+            section = "SOURCE"
             service.openRequests.value = null
         }
     }
@@ -107,33 +137,55 @@ fun KnowledgeScreen(
     LaunchedEffect(query, all) { hits = if (query.isBlank()) all else service.search(query) }
     LaunchedEffect(query, notes) { noteHits = if (query.isBlank()) notes else service.noteService.search(query) }
     val item = all.firstOrNull { it.id == selected }
-    val note = notes.firstOrNull { it.id == selectedNote }
+    val storedNote = notes.firstOrNull { it.id == selectedNote }
+    val isNew = storedNote == null && selectedNote != null && selectedNote == newNoteId
+    val note =
+        storedNote ?: if (isNew) {
+            com.helix.core.storage.knowledge.KnowledgeNote(
+                requireNotNull(newNoteId),
+                newNoteTitle,
+                "",
+                newNoteCreatedAt,
+                newNoteCreatedAt,
+                kind = newNoteKind,
+            )
+        } else {
+            null
+        }
     BackHandler(item != null && note == null) { selected = null }
     Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        if (note != null || showQuestions || item != null) {
-            Text(
-                stringResource(if (note != null) R.string.knowledge_local_only else R.string.knowledge_privacy),
-                style = MaterialTheme.typography.bodySmall,
-            )
-        }
         if (deletionError) Text(stringResource(R.string.knowledge_management_failed))
         if (error) Text(stringResource(R.string.knowledge_capture_failed))
         if (failed) Text(stringResource(R.string.knowledge_capture_failed))
-        if (note != null) {
-            KnowledgeNoteEditor(note, service.noteService, providers, Modifier.weight(1f)) {
+        if (selectedNote != null && loadedNotes == null && !isNew) {
+            androidx.compose.material3.CircularProgressIndicator(Modifier.testTag("knowledge-note-loading"))
+        } else if (note != null) {
+            KnowledgeNoteEditor(
+                note,
+                service.noteService,
+                Modifier.weight(1f),
+                isNew = isNew,
+                onKnowledgeCreated = { id ->
+                    selectedNote = id
+                    section = "KNOWLEDGE"
+                },
+                onReference = onReference,
+                referenceService = service.references,
+            ) {
                 selectedNote = null
-                showNotes = true
+                newNoteId = null
+                section = note.kind
             }
         } else if (showQuestions) {
-            KnowledgeQuestionScreen(service.questionService, providers, { showQuestions = false }) { id ->
+            KnowledgeQuestionHistory(service.answerHistory, { showQuestions = false }) { id ->
                 selectedNote = id
                 showQuestions = false
-                showNotes = true
+                section = "NOTE"
             }
         } else if (item == null) {
             KnowledgeLibrary(
-                notesTab = showNotes,
-                onTab = { showNotes = it },
+                section = section,
+                onTab = { section = it },
                 onQuestions = { showQuestions = true },
                 query = query,
                 onQuery = { query = it.take(200) },
@@ -152,24 +204,61 @@ fun KnowledgeScreen(
                 },
                 onSource = { selected = it },
                 onNote = { selectedNote = it },
+                selectionMode = selectingSources,
+                onCreate = { createNote(emptyList()) },
+                onQuote = { kind, id ->
+                    scope.launch {
+                        try {
+                            val value = service.references.select(kind, id)
+                            if (!onReference(listOf(value))) failed = true
+                        } catch (cancel: kotlinx.coroutines.CancellationException) {
+                            throw cancel
+                        } catch (_: IllegalArgumentException) {
+                            failed = true
+                        } catch (_: IllegalStateException) {
+                            failed = true
+                        }
+                    }
+                },
                 controls = {
-                    KnowledgeImportAction(service, if (showNotes) ({ createNote(emptyList()) }) else null)
+                    KnowledgeImportAction(
+                        service,
+                        { createNote(emptyList()) },
+                        onKnowledge = { createNote(emptyList(), "KNOWLEDGE") },
+                        onSelectSources = {
+                            section = "SOURCE"
+                            selectingSources = true
+                        },
+                    )
                 },
                 selectionActions = {
                     KnowledgeSelectionActions(
                         selectedSources.size,
-                        { selectedSources = emptySet() },
+                        {
+                            selectedSources = emptySet()
+                            selectingSources = false
+                        },
                         { createNote(selectedSources.toList()) },
                         {
                             scope.launch {
                                 val chosen = all.filter { it.id in selectedSources }
                                 if (chosen.isNotEmpty()) {
-                                    onReference(
-                                        chosen
-                                            .map {
-                                                service.citation(it, minOf(20_000, 24_000 / chosen.size))
-                                            }.joinToString("\n\n"),
-                                    )
+                                    val references =
+                                        chosen.map { source ->
+                                            val text = source.extracted.ifBlank { source.rawText }
+                                            service.references.select(
+                                                "SOURCE",
+                                                source.id,
+                                                if (text.length >
+                                                    1800
+                                                ) {
+                                                    "EXCERPT"
+                                                } else {
+                                                    "FULL"
+                                                },
+                                            )
+                                        }
+                                    if (!onReference(references)) failed = true
                                 }
                             }
                         },
@@ -178,10 +267,7 @@ fun KnowledgeScreen(
                 modifier = Modifier.weight(1f),
             )
         } else {
-            TextButton(onClick = { selected = null }, modifier = Modifier.testTag("knowledge-back")) {
-                Text(stringResource(R.string.knowledge_back))
-            }
-            KnowledgeDetail(item, service, onReference) { createNote(listOf(item.id)) }
+            KnowledgeDetail(item, service, onReference, { selected = null }) { createNote(listOf(item.id)) }
         }
     }
 }
@@ -199,11 +285,12 @@ internal fun knowledgeStatus(item: CollectedSource): String =
     )
 
 @Composable
-@Suppress("FunctionName", "LongMethod")
+@Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod") // Source preview and explicit actions.
 private fun KnowledgeDetail(
     item: CollectedSource,
     service: KnowledgeService,
-    onReference: (String) -> Unit,
+    onReference: suspend (List<com.helix.core.storage.repository.KnowledgeReference>) -> Boolean,
+    onBack: () -> Unit,
     onDistill: () -> Unit,
 ) {
     if (item.state == "DELETING") {
@@ -216,110 +303,170 @@ private fun KnowledgeDetail(
     var summary by remember(item.id, item.summary) { mutableStateOf(item.summary) }
     var summaryFailed by remember { mutableStateOf(false) }
     val files = remember(item.filesJson) { JSONArray(item.filesJson) }
-    val analysisPrompt = stringResource(R.string.knowledge_analysis_prompt)
-    LazyColumn(Modifier.testTag("knowledge-detail"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        item {
-            Button(onClick = onDistill, modifier = Modifier.testTag("knowledge-distill")) {
-                Text(stringResource(R.string.knowledge_distill))
-            }
-        }
-        item { Text(item.title, style = MaterialTheme.typography.headlineSmall) }
-        item {
-            SelectionContainer {
-                Text(
-                    listOf(
-                        item.sourceUrl,
-                        item.source,
-                        java.time.Instant
-                            .ofEpochMilli(item.receivedAt)
-                            .toString(),
-                    ).joinToString("\n"),
-                )
-            }
-        }
-        item { Text(knowledgeStatus(item)) }
-        item { Text(stringResource(R.string.knowledge_source_disclosure)) }
-        if (item.state == "INCOMPLETE" || item.state == "FAILED") {
-            item { Text(stringResource(R.string.knowledge_limits)) }
-        }
-        if (item.detail.split(',').any { it in setOf("original-only", "no-readable-text") }) {
-            item { Text(stringResource(R.string.knowledge_visual_reading_hint)) }
-        }
-        if (item.detail == "import-interrupted") item { Text(stringResource(R.string.knowledge_reshare)) }
-        item { Text(stringResource(R.string.knowledge_original)) }
-        item { SelectionContainer { Text(item.rawText, Modifier.testTag("knowledge-raw")) } }
-        items(files.length()) { index ->
-            val metadata = files.getJSONObject(index)
-            TextButton(onClick = {
-                try {
-                    val uri =
-                        FileProvider.getUriForFile(
-                            context,
-                            "${context.packageName}.fileprovider",
-                            service.originalFile(item, index),
-                        )
-                    context.startActivity(
-                        Intent(Intent.ACTION_VIEW)
-                            .setDataAndType(uri, metadata.getString("mime"))
-                            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION),
-                    )
-                } catch (_: android.content.ActivityNotFoundException) {
-                    openFailed = true
-                }
-            }) { Text(metadata.getString("name")) }
-        }
-        if (openFailed) item { Text(stringResource(R.string.knowledge_no_viewer)) }
-        item { Text(stringResource(R.string.knowledge_extracted)) }
-        item { SelectionContainer { Text(item.extracted, Modifier.testTag("knowledge-extracted")) } }
-        if (item.state !in setOf("DELETING", "IMPORTING", "QUEUED", "EXTRACTING") &&
-            item.detail != "import-interrupted"
+
+    suspend fun referenceSource() {
+        try {
+            val text = item.extracted.ifBlank { item.rawText }
+            val reference = service.references.select("SOURCE", item.id, if (text.length > 1800) "EXCERPT" else "FULL")
+            if (!onReference(listOf(reference))) openFailed = true
+        } catch (
+            cancel: kotlinx.coroutines.CancellationException,
         ) {
-            item {
-                TextButton(onClick = { service.retry(item) }, modifier = Modifier.testTag("knowledge-retry")) {
-                    Text(stringResource(R.string.knowledge_retry))
-                }
-            }
+            throw cancel
+        } catch (
+            _: IllegalArgumentException,
+        ) {
+            openFailed = true
+        } catch (_: IllegalStateException) {
+            openFailed = true
         }
-        item {
-            Button(
-                onClick = { scope.launch { onReference(service.citation(item)) } },
-                modifier = Modifier.testTag("knowledge-reference"),
-            ) {
-                Text(stringResource(R.string.knowledge_reference))
-            }
-        }
-        item { Text(stringResource(R.string.knowledge_analysis_disclosure)) }
-        item {
-            TextButton(
-                onClick = { scope.launch { onReference(analysisPrompt + "\n\n" + service.citation(item)) } },
-                modifier = Modifier.testTag("knowledge-analyze"),
-            ) {
-                Text(stringResource(R.string.knowledge_analyze))
-            }
-        }
-        item {
-            OutlinedTextField(
-                summary,
-                { summary = it.take(MAX_KNOWLEDGE_TEXT) },
-                label = { Text(stringResource(R.string.knowledge_summary)) },
-                modifier = Modifier.fillMaxWidth().testTag("knowledge-summary"),
-            )
-        }
-        item {
-            TextButton(onClick = {
-                scope.launch {
-                    try {
-                        service.saveSummary(item.id, summary)
-                        summaryFailed = false
-                    } catch (_: android.database.sqlite.SQLiteException) {
-                        summaryFailed = true
+    }
+    var details by rememberSaveable(item.id) { mutableStateOf(false) }
+    val readable = item.extracted.ifBlank { item.rawText }
+    Column(Modifier.fillMaxSize()) {
+        KnowledgeHeader(
+            stringResource(R.string.knowledge_sources_tab),
+            "knowledge-back",
+            onBack,
+            onMore = { details = true },
+        )
+        LazyColumn(
+            Modifier.weight(1f).testTag("knowledge-detail"),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            item { Text(item.title, style = MaterialTheme.typography.headlineMedium) }
+            item { Text(knowledgeDate(item.receivedAt), style = MaterialTheme.typography.labelMedium) }
+            if (item.state != "READY") item { Text(knowledgeStatus(item)) }
+            if (readable.isBlank()) {
+                item { Text(stringResource(R.string.knowledge_visual_reading_hint)) }
+                item {
+                    TextButton(onClick = { details = true }) {
+                        Text(stringResource(R.string.knowledge_source_info))
                     }
                 }
-            }, modifier = Modifier.testTag("knowledge-save-summary")) {
-                Text(stringResource(R.string.knowledge_save_summary))
+            } else {
+                item {
+                    SelectionContainer {
+                        com.helix.app.ui
+                            .MarkdownText(readable, Modifier.fillMaxWidth().testTag("knowledge-source-body"))
+                    }
+                }
+            }
+            if (item.detail == "import-interrupted") item { Text(stringResource(R.string.knowledge_reshare)) }
+            if (item.detail != "import-interrupted" && item.state in setOf("FAILED", "INCOMPLETE")) {
+                item {
+                    TextButton(onClick = { service.retry(item) }, modifier = Modifier.testTag("knowledge-retry")) {
+                        Text(stringResource(R.string.knowledge_retry))
+                    }
+                }
             }
         }
-        if (summaryFailed) item { Text(stringResource(R.string.knowledge_capture_failed)) }
-        item { KnowledgeDeleteSources(service, listOf(item)) }
+        if (openFailed) Text(stringResource(R.string.knowledge_reference_failed))
+        androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                onClick = { scope.launch { referenceSource() } },
+                enabled = readable.isNotBlank(),
+                modifier = Modifier.testTag("knowledge-reference"),
+                shape = KnowledgeActionShape,
+            ) { Text(stringResource(R.string.knowledge_ask_content)) }
+            TextButton(onDistill, enabled = readable.isNotBlank(), modifier = Modifier.testTag("knowledge-distill")) {
+                Text(stringResource(R.string.knowledge_make_knowledge))
+            }
+        }
+    }
+    if (details) {
+        com.helix.app.ui.ConversationSheet(
+            stringResource(R.string.knowledge_source_info),
+            "knowledge-source-info",
+            { details = false },
+            scrollContent = false,
+        ) {
+            LazyColumn(
+                Modifier.heightIn(max = 440.dp).testTag("knowledge-source-info-list"),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                item { Text(item.title, style = MaterialTheme.typography.headlineSmall) }
+                item {
+                    SelectionContainer {
+                        Text(
+                            listOf(
+                                item.sourceUrl,
+                                item.source,
+                                java.time.Instant
+                                    .ofEpochMilli(item.receivedAt)
+                                    .toString(),
+                            ).joinToString("\n"),
+                        )
+                    }
+                }
+                item { Text(knowledgeStatus(item)) }
+                item { Text(stringResource(R.string.knowledge_source_disclosure)) }
+                if (item.state == "INCOMPLETE" || item.state == "FAILED") {
+                    item { Text(stringResource(R.string.knowledge_limits)) }
+                }
+                if (item.detail.split(',').any { it in setOf("original-only", "no-readable-text") }) {
+                    item { Text(stringResource(R.string.knowledge_visual_reading_hint)) }
+                }
+                if (item.detail == "import-interrupted") item { Text(stringResource(R.string.knowledge_reshare)) }
+                item { Text(stringResource(R.string.knowledge_original)) }
+                item { SelectionContainer { Text(item.rawText, Modifier.testTag("knowledge-raw")) } }
+                items(files.length()) { index ->
+                    val metadata = files.getJSONObject(index)
+                    TextButton(onClick = {
+                        try {
+                            val uri =
+                                FileProvider.getUriForFile(
+                                    context,
+                                    "${context.packageName}.fileprovider",
+                                    service.originalFile(item, index),
+                                )
+                            context.startActivity(
+                                Intent(Intent.ACTION_VIEW)
+                                    .setDataAndType(uri, metadata.getString("mime"))
+                                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION),
+                            )
+                        } catch (_: android.content.ActivityNotFoundException) {
+                            openFailed = true
+                        }
+                    }) { Text(metadata.getString("name")) }
+                }
+                if (openFailed) item { Text(stringResource(R.string.knowledge_no_viewer)) }
+                item { Text(stringResource(R.string.knowledge_extracted)) }
+                item { SelectionContainer { Text(item.extracted, Modifier.testTag("knowledge-extracted")) } }
+                if (item.state !in setOf("DELETING", "IMPORTING", "QUEUED", "EXTRACTING") &&
+                    item.detail != "import-interrupted"
+                ) {
+                    item {
+                        TextButton(onClick = { service.retry(item) }, modifier = Modifier.testTag("knowledge-retry")) {
+                            Text(stringResource(R.string.knowledge_retry))
+                        }
+                    }
+                }
+                item {
+                    OutlinedTextField(
+                        summary,
+                        { summary = it.take(MAX_KNOWLEDGE_TEXT) },
+                        label = { Text(stringResource(R.string.knowledge_summary)) },
+                        modifier = Modifier.fillMaxWidth().testTag("knowledge-summary"),
+                    )
+                }
+                item {
+                    TextButton(onClick = {
+                        scope.launch {
+                            try {
+                                service.saveSummary(item.id, summary)
+                                summaryFailed = false
+                            } catch (_: android.database.sqlite.SQLiteException) {
+                                summaryFailed = true
+                            }
+                        }
+                    }, modifier = Modifier.testTag("knowledge-save-summary")) {
+                        Text(stringResource(R.string.knowledge_save_summary))
+                    }
+                }
+                if (summaryFailed) item { Text(stringResource(R.string.knowledge_capture_failed)) }
+                item { KnowledgeDeleteSources(service, listOf(item)) }
+            }
+        }
     }
 }
