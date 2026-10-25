@@ -1,6 +1,6 @@
-# 会话 JSONL 格式 v2
+# 会话 JSONL 当前格式（内部版本 1）
 
-格式名 `helix.session-export`，主版本 `2`。这是 [ADR-AGENT-005](../adr/agent/005-session-jsonl-export.md) 的外部投影格式；初版证据见 [HXA-211](../completion-records/HXA-211.md)，当前 v2 实施见 [HXA-297](../development/tasks/HXA-297.md)。本文定义格式，具体交付边界以完成记录为准。
+格式名 `helix.session-export`，内部版本 `1`。这是 [ADR-AGENT-005](../adr/agent/005-session-jsonl-export.md) 的外部投影格式；初版证据见 [HXA-211](../completion-records/HXA-211.md)，历史实现见 [HXA-297](../development/tasks/HXA-297.md)。本文定义格式，具体交付边界以完成记录为准。
 
 ## 文件与信封
 
@@ -9,7 +9,7 @@ UTF-8，无 BOM；每个物理行是一个 JSON object，以 LF 结束，包括�
 | 字段 | 类型与语义 |
 | --- | --- |
 | `format` | 固定字符串 `helix.session-export` |
-| `formatVersion` | 整数 `2`；消费者拒绝不支持的主版本 |
+| `formatVersion` | 整数 `1`；消费者拒绝不支持的主版本 |
 | `exportId` | 本次快照 UUID，所有行一致；不同导出不能按源 ID 无条件覆盖 |
 | `sequence` | 从 0 开始的连续整数，仅表示导出顺序 |
 | `type` | 下表列出的类型 |
@@ -17,7 +17,7 @@ UTF-8，无 BOM；每个物理行是一个 JSON object，以 LF 结束，包括�
 | `sessionId` | 选定会话的原有 ID，所有行一致 |
 | `data` | 该记录的公开字段对象 |
 
-头必须在首行；尾必须在末行。未知可选字段可忽略，不能忽略不支持的主版本、未知记录类型或不完整文件。兼容新增字段不改变已有含义；关联或排序语义的破坏性变更必须升级主版本。
+头必须在首行；尾必须在末行。未知可选字段可忽略，不能忽略不支持的主版本、未知记录类型或不完整文件。上线前内部格式固定为 1，不保留旧格式兼容读取；仅 Owner 明确正式发布并授权升级版本后才调整版本号。内容身份、顺序和引用校验仍须准确。
 
 ## 类型与排序
 
@@ -78,10 +78,10 @@ UTF-8，无 BOM；每个物理行是一个 JSON object，以 LF 结束，包括�
 
 ## 独立消费
 
-[独立 Python 校验器](../../scripts/validate-session-export.py) 只依赖 Python 标准库，不调用 Android 或 Kotlin 导出代码，不解析原设备路径、不下载正文、不执行记录中的工具。[v2 合成样例](../../scripts/fixtures/session-export-v2.jsonl) 在主机上按当前契约从原 v1 测试样例派生，不包含用户数据；它不是当前版本的设备导出实测。[历史 v1 样例](../../scripts/fixtures/session-export-v1.jsonl) 保留原 Android 导出证据，当前校验器拒绝旧主版本。
+[独立 Python 校验器](../../scripts/validate-session-export.py) 只依赖 Python 标准库，不调用 Android 或 Kotlin 导出代码，不解析原设备路径、不下载正文、不执行记录中的工具。[当前合成样例](../../scripts/fixtures/session-export-current.jsonl) 按当前内部版本 1 契约验证，不包含用户数据；它不是当前版本的设备导出实测。[历史 v1 样例](../../scripts/fixtures/session-export-v1.jsonl) 保留原 Android 导出证据，当前校验器按当前字段、关系与顺序校验，历史相同数字不代表兼容。
 
 ```sh
-python3 scripts/validate-session-export.py scripts/fixtures/session-export-v2.jsonl
+python3 scripts/validate-session-export.py scripts/fixtures/session-export-current.jsonl
 python3 scripts/validate-session-export.py exported.jsonl --messages messages.jsonl --calls calls.jsonl
 python3 -m unittest discover -s scripts/tests -p test_session_export_validator.py
 ```
