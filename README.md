@@ -83,20 +83,21 @@ Mobile Use 是可选插件，浏览器、文件和工具各有自己的授权边
 
 安装包渠道与会话权限模式是不同概念。第三方订阅适配需要对应账号权益，兼容性逐服务验证，不代表服务提供商官方授权。使用 API 地址与 Key 的套餐仍属于 API 配置。
 
-**[v0.0.7 开发预览版](https://github.com/dollarser/helix-agent/releases/tag/v0.0.7)** 提供 ARM64 Standard 与 Advanced，R8 优化、不可调试，内部版本码 2，沿用原开发证书。发布状态、精确提交、校验值与 CI 以 Release 正文为准。
+**[v0.0.8 开发预览版](https://github.com/dollarser/helix-agent/releases/tag/v0.0.8)** 提供 ARM64 Standard 与 Advanced，R8 优化、不可调试，**versionCode 1**，沿用开发预览证书；不是稳定正式版或商店签名版本。
 
-下载：[Standard ARM64](https://github.com/dollarser/helix-agent/releases/download/v0.0.7/helix-v0.0.7-consumer-arm64-v8a.apk) · [Advanced ARM64](https://github.com/dollarser/helix-agent/releases/download/v0.0.7/helix-v0.0.7-developer-arm64-v8a.apk)
+下载：[Standard ARM64](https://github.com/dollarser/helix-agent/releases/download/v0.0.8/helix-v0.0.8-consumer-arm64-v8a.apk) · [Advanced ARM64](https://github.com/dollarser/helix-agent/releases/download/v0.0.8/helix-v0.0.8-developer-arm64-v8a.apk)
 
-同渠道手动覆盖安装，勿先卸载或清数据；不兼容预览数据库须现场明确确认，取消保留数据。账号登录后可用内置模型，未登录仍可使用自配 API、渠道允许的订阅或下载本地模型。离线 ASR/TTS 权重按需下载，不随安装包打包。
+已安装 v0.0.7／code 2 的设备可能需要卸载重装，卸载会清除应用本地数据；共享文档可能需要重新授权恢复。内置模型需登录，未登录仍可使用自配 API、渠道允许的订阅和本地模型。离线语音权重按需下载。
 
-详见 [v0.0.7 版本说明](docs/product/releases/v0.0.7.md)。仅发布两份 APK 与标签源码，第三方源码及许可仍由既有资源 Release 提供。本轮仅模拟器，不代表真机、商店签名或长期升级承诺。
+详见 [v0.0.8 版本说明](docs/product/releases/v0.0.8.md)。准确构建来源、CI、APK 校验值及第三方源码链接以 Release 正文为准。真机终端／Mobile Use 原问题、本轮真实线上语音及实际重装资料库授权仍未验证。
 
 ## 隐私与控制
 
 - **本机执行不等于数据完全离线。** 使用远程模型时，对话和任务所需的文件片段、工具结果或图像可能发送给所选模型服务。
 - 设备内对话模型在本地推理，但下载、网页和联网工具仍可能访问网络；对话模型权重不随 APK 提供。
-- 语音输入内置约 58 MiB 的中英双语离线模型，无需系统识别服务。点击麦克风后边说边预览，结束后可编辑并加入草稿，仍需主动发送；取消或失败保留原草稿。语音音频不上传、不保存，单次最多 120 秒。
-- 完整回复的消息操作提供本机朗读与停止/重播。首次需明确下载约 57.8 MiB 的 Melo INT8 单音色资源；文本不发送到云端，下载完成不会自动播放。切换会话、退后台、启动语音输入或丢失音频焦点时停止。
+- 登录后默认使用线上语音；离线 ASR/TTS 可显式按需下载，权重不随 APK 打包。首次线上语音使用仍需确认。转写进入输入框草稿，不自动发送；取消保留原草稿。
+- 回复支持朗读和停止；停止朗读不停止 Agent 任务。离线朗读在本机进行，选择线上服务时由该服务处理文字。
+- 笔记、知识与导入资料保存在共享 `Documents/Helix/library/`；账号凭据、Agent 记忆与会话等内部数据仍为私有。
 - 系统权限与工具授权分别管理。按需开放访问范围，并查看实际执行状态；模型说“完成”不等于操作已被验证。
 - 停止任务不会撤销已经发生的外部操作。首次体验请使用测试资料或副本。
 

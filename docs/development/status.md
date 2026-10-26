@@ -29,7 +29,7 @@
 - 早期 OnePlus 的本地终端/模型验证范围见[真机记录](../evidence/development/physical-workspace-model-2026-10-19.md)。手机活动终端覆盖安装恢复、横竖屏/字体矩阵仍未由该记录覆盖；不继承当时设备或删数据授权。
 - v0.0.7 ARM64 双渠道开发预览已发布，精确构建来源与分开的 CI/模拟器证据见[发布记录](../evidence/development/v0.0.7-publication-2026-10-24.md)。知识库融合原型已在后续本地修改中接入，实际能力与通过/未验范围见[接入记录](knowledge-conversation-integration.md)，不属于该 APK；后续修改不继承发行通过。日常迭代用 Debug，发行边界见[发行就绪](release-readiness.md)。
 
-- v0.0.8／versionCode 1 已完成本地源码主题提交及有界候选准备，尚未推送或发布；最终源码冻结、重建身份与复用设备结果的边界以[候选记录](v0.0.8-candidate.md)为准，不继承为稳定正式版或真机通过。
+- v0.0.8／versionCode 1 的开发预览源码冻结于 `0ec955c1`，公开状态与下载见[Release](https://github.com/dollarser/helix-agent/releases/tag/v0.0.8)；最终源码冻结、重建身份与复用设备结果的边界以[候选记录](v0.0.8-candidate.md)为准，不继承为稳定正式版或真机通过。
 
 ## 仍开放与未启动
 

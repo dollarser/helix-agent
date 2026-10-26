@@ -77,18 +77,20 @@ Supported operations prefer available **Root → Shizuku → Accessibility** bac
 
 Build editions are separate from conversation permission modes. Subscription adapters require eligible accounts and service-specific testing; they do not imply official provider endorsement. Plans using an API address and key belong under API configuration.
 
-The **[v0.0.7 development preview](https://github.com/dollarser/helix-agent/releases/tag/v0.0.7)** provides ARM64 Standard and Advanced, R8 optimized and non-debuggable, with versionCode 2 and the existing development certificate. The Release body is authoritative for publication status, exact commit, checksums and CI.
+The **[v0.0.8 development preview](https://github.com/dollarser/helix-agent/releases/tag/v0.0.8)** provides ARM64 Standard and Advanced, R8 optimized and non-debuggable, with **versionCode 1** and the existing development certificate. It is not a stable or production store-signed release.
 
-Download: [Standard ARM64](https://github.com/dollarser/helix-agent/releases/download/v0.0.7/helix-v0.0.7-consumer-arm64-v8a.apk) · [Advanced ARM64](https://github.com/dollarser/helix-agent/releases/download/v0.0.7/helix-v0.0.7-developer-arm64-v8a.apk)
+Download: [Standard ARM64](https://github.com/dollarser/helix-agent/releases/download/v0.0.8/helix-v0.0.8-consumer-arm64-v8a.apk) · [Advanced ARM64](https://github.com/dollarser/helix-agent/releases/download/v0.0.8/helix-v0.0.8-developer-arm64-v8a.apk)
 
-Install your edition over the existing app without uninstalling or clearing data. Incompatible preview databases require explicit on-device confirmation; cancellation preserves data. Built-in models require account login. Custom APIs, supported subscriptions and downloaded local models remain available without a Helix account. Offline ASR/TTS weights are downloaded on demand.
+Devices with v0.0.7 / code 2 may require uninstall/reinstall, which deletes that app's local data. Shared documents may require explicit restore access. Built-in models require login; custom APIs, supported subscriptions and local models remain available without a Helix account. Offline speech weights download on demand.
 
-See the [v0.0.7 notes](docs/product/releases/v0.0.7.en.md). Only APKs and tagged source archives are distributed on the version page; exact third-party sources and notices remain in the runtime asset Release. Emulator checks do not imply physical-device, store-signing or long-term migration acceptance.
+See the [v0.0.8 notes](docs/product/releases/v0.0.8.en.md). The Release body records exact source/build identity, CI, APK checksums and third-party source links. Reported phone terminal/Mobile Use issues, current live cloud speech and actual post-reinstall library authorization remain unverified.
 
 ## Privacy and control
 
 - **Local execution is not necessarily offline.** Remote models may receive conversations and task-relevant file excerpts, tool results, or images.
 - On-device models run inference locally, but downloads, browsing, and network tools may still access the internet. APKs do not include model weights.
+- Signed-in accounts default to online speech; offline ASR/TTS weights download only on request. First online use requires confirmation. Transcription stays in the editable draft until you send it; stopping playback does not stop the Agent.
+- Notes, knowledge and imported sources use shared `Documents/Helix/library/`; credentials, Agent memory and conversations remain private.
 - System permissions and tool authorization are managed separately. Grant the required scope and inspect execution status; a model saying “done” is not independent proof of success.
 - Stopping a task does not undo external actions already completed. Start with test data or copies.
 
@@ -99,6 +101,8 @@ Prepare **JDK 17, the Android SDK, and Python 3**. Follow the [development setup
 ```sh
 git clone https://github.com/dollarser/helix-agent.git
 cd helix-agent
+python3 scripts/build-asr-assets.py
+python3 scripts/build-tts-assets.py
 ./gradlew :app:assembleConsumerDebug
 # For the advanced build:
 ./gradlew :app:assembleDeveloperDebug
@@ -120,6 +124,6 @@ Helix's own source code is licensed under **[Apache License 2.0](LICENSE)**. Thi
 
 See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for third-party attribution and release review requirements. It is currently a partial inventory and review policy, not a complete release SBOM or confirmation that all redistribution obligations are satisfied.
 
-### Local reply reading
+### Reply reading
 
-Completed assistant replies offer an explicit read/stop action. First use requires an explicit download of about 57.8 MiB of pinned Melo INT8 voice resources. Text stays on the device; downloading does not start playback. Leaving the conversation, entering voice input, backgrounding or losing audio focus stops reading. Source builds prepare `python3 scripts/build-asr-assets.py` followed by `python3 scripts/build-tts-assets.py` before Gradle.
+Replies support explicit playback and stop. Online service choices send visible reply text to that service after first-use confirmation; offline Melo resources are downloaded on request. Downloading never starts playback. Leaving the conversation, entering voice input, backgrounding or losing audio focus stops reading.
