@@ -1,7 +1,7 @@
 <resources>
     <string name="network_dns_title">网络设置 · 域名解析</string>
     <string name="network_dns_help">适用于 API、订阅、MCP、A2A 和原生 HTTP 工具；不覆盖浏览器、终端及独立下载器。保留 HTTPS 校验与网络权限规则。</string>
-    <string name="network_hosts_help">每行填写“IP 地址 域名”，可跟随多个域名，支持 IPv4、IPv6、空行和 # 注释。保存会替换全部映射并持续生效；清空后保存即可恢复系统 DNS。只影响新建连接，不修改系统 hosts。</string>
+    <string name="network_hosts_help">Enter IP and hostname per line; # comments are supported. Saving replaces existing mappings. Clear and save to restore system DNS. Only new connections are affected.</string>
     <string name="network_hosts_label">hosts 内容</string>
     <string name="network_hosts_error">第 %1$d 行：%2$s</string>
     <string name="network_hosts_count">格式检查通过，共 %1$d 个域名</string>

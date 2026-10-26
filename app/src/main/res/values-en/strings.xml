@@ -28,7 +28,7 @@
     <string name="replay_cleanup_not_applicable">This build does not include subscription replay.</string>
     <string name="replay_cleanup_counts">This page: %1$d records (%2$s) checked; %3$d (%4$s) deleted; %5$d retained; %6$d failed.</string>
     <string name="context_compaction_unchanged">No useful reduction was found. Your original context is unchanged.</string>
-    <string name="context_window_estimated_note">The service has not reported its context limit. This percentage uses an estimated window. Input usage includes system instructions, tool descriptions and history, not only your message. The last confirmed value stays visible while sending.</string>
+    <string name="context_window_estimated_note">The service did not report its context limit. Usage is estimated; the previous confirmed value is shown while sending.</string>
     <string name="provider_account_connected">Account connected</string>
     <string name="provider_account_connection_test">Check account connection</string>
     <string name="context_server_window_unreported">The service has not reported this model’s context limit. You can set it manually; estimates are not official limits.</string>
@@ -127,11 +127,11 @@
     <string name="settings_current_standard">Current: Standard (default)</string>
     <string name="settings_switch_to_advanced">Switch to Advanced</string>
     <string name="settings_switch_back_standard">Switch back to Standard</string>
-    <string name="settings_advanced_m2_note">Advanced shows additional capability controls. Switching profiles does not grant system permissions, install a Runtime, start Root, or approve tool calls. Enable each capability explicitly and choose its scope.</string>
+    <string name="settings_advanced_m2_note">Configure and authorize advanced capabilities as needed. Switching modes does not enable or authorize them.</string>
     <string name="settings_consumer_standard_only">This build uses Standard and has no Advanced switch. Available capabilities are listed in its settings.</string>
     <string name="settings_advanced_confirm_title">Switch to Advanced — risk notice</string>
     <string name="settings_advanced_confirm_ok">I understand, confirm switch</string>
-    <string name="profile_advanced_risk_summary">Advanced provides additional capabilities. The built-in Linux environment is available by default and prepared when you first open a terminal or run an authorized Linux task.\n\nSwitching mode does not request system permissions or Root access, connect new network endpoints, or expand file authorization. Other capabilities still need their own setup and authorization.\n\nThe model cannot grant itself permission. Tool execution still follows policy, approval, execution limits, and audit rules.</string>
+    <string name="profile_advanced_risk_summary">Advanced provides additional capabilities and prepares Linux on first use. System permissions, Root, network and file access still require their own authorization.</string>
 
     <!-- HXA-069: domain string resources (zh/en parity checked by scripts/check-i18n.sh) -->
     <string name="admission_empty_message">Empty message: type something or select at least one sendable attachment.</string>
@@ -302,7 +302,7 @@
     <string name="chat_voice_unavailable">No system speech app was found. Helix offline recognition does not depend on this service.</string>
     <string name="chat_waiting_model">Waiting for the model response…</string>
     <string name="common_unknown">Unknown</string>
-    <string name="conn_error_auth">Authentication or access was rejected. Check the API key, or subscription login and account access. HTTP 403 can also indicate blocked network routing.</string>
+    <string name="conn_error_auth">The service denied access. Check the API key, sign-in status or account permissions.</string>
     <string name="conn_error_content_filter">Blocked by the service-side content filter</string>
     <string name="conn_error_output_token_limit">Output budget exhausted before content was generated</string>
     <string name="conn_error_http">HTTP error (endpoint or protocol mismatch)</string>
@@ -342,7 +342,7 @@
     <string name="egress_revoke">Revoke</string>
     <string name="egress_rule_detail">%1$s · %2$s · scope %3$s · valid until %4$s %5$s</string>
     <string name="egress_rule_expired">(expired)</string>
-    <string name="egress_rule_help">Bounded rules for high-sensitivity egress: strictly bound to an exact Provider/MCP, canonical origin and scope, auto-approved only while valid; they expire immediately on expiry, revocation, switching back to Standard, or any bound-field change. Per-call approval is unchanged.</string>
+    <string name="egress_rule_help">Allow only the specified service, destination and scope until expiry. Revocation or binding changes invalidate the rule. Other requests still require approval.</string>
     <string name="egress_target_id_label">Provider / MCP ID (no wildcards)</string>
     <string name="egress_title">Sensitive content sharing rules</string>
     <string name="egress_ttl_days_30">30 days</string>
@@ -495,7 +495,7 @@
     <string name="files_saf_directory_fallback">SAF directory</string>
     <string name="files_saf_empty">No authorized SAF sources yet.</string>
     <string name="files_saf_granted">Authorized SAF source: %1$s (read-only)</string>
-    <string name="files_saf_panel_desc">Revoking or re-authorizing takes effect immediately; models and tools only see the scopeId and relative paths. Android 11 and later block storage roots, the Download root, and Android/data or Android/obb here. Select an allowed subfolder. For broader shared-storage access, use All files on the Permissions page when available; other apps’ private data remains inaccessible.</string>
+    <string name="files_saf_panel_desc">Choose a folder to grant access. Revoking it stops access immediately. Android 11+ excludes storage roots, the Download root, Android/data and Android/obb.</string>
     <string name="files_saf_panel_title">SAF sources (read-only)</string>
     <string name="files_saf_read_only">SAF sources are read-only</string>
     <string name="files_saf_removed">Removed SAF source: %1$s</string>
@@ -504,7 +504,7 @@
     <string name="files_sha_omitted">(file too large, omitted)</string>
     <string name="files_share">Share file</string>
     <string name="files_share_chooser_title">Share</string>
-    <string name="files_share_failed">Cannot share: %1$s</string>
+    <string name="files_share_failed">Could not share this file. Try again.</string>
     <string name="files_skip">Skip</string>
     <string name="files_skipped_status">Skipped (not overwritten)</string>
     <string name="files_sort_name">Name</string>
@@ -581,7 +581,7 @@
     <string name="provider_form_header_value_label">Custom header value (optional)</string>
     <string name="provider_form_model_label">Model name (server identifier)</string>
     <string name="provider_model_add_entry">＋ Add model</string>
-    <string name="provider_model_add_help">Choose the model Helix will call. Enter the model name supplied by your service (such as deepseek-chat), or fetch its model list and select one. This is not a custom display name.</string>
+    <string name="provider_model_add_help">Enter the model ID supplied by the service, or fetch the list to select one. This is not a display name.</string>
     <string name="provider_form_name">Name</string>
     <string name="provider_requires_api_key">This provider requires an API key</string>
     <string name="provider_retryable">(retryable)</string>
@@ -641,7 +641,7 @@
     <string name="connector_install">Install portable components</string>
     <string name="connector_failed">Import or save failed. Check JSON, skill format, package size, and storage space.</string>
     <string name="connector_skill_review">Skills retain original instructions and files. Scripts do not run on installation. Review the source before enabling; host-specific tool names may need adaptation.</string>
-    <string name="connector_remove_note">Removal disables connections and deletes local connection credentials. Skill snapshots remain; skills shared by other connectors keep their state. Revoke provider consent at the provider.</string>
+    <string name="connector_remove_note">Remove the local connection and credentials; keep Skill snapshots. Revoke vendor authorization on the vendor side.</string>
     <string name="connector_remove">Remove plugin</string>
     <string name="connector_active">Tools enabled</string>
     <string name="connector_inactive">Tools inactive. Test the connection and select tools.</string>
@@ -772,11 +772,11 @@
     <string name="files_controls">File options</string>
     <string name="provider_note_openai">Uses the Responses API. For a service that only supports Chat Completions, choose the generic OpenAI-compatible template.</string>
     <string name="provider_note_generic">For SGLang, vLLM, Ollama or another compatible service, enter its API address (usually ending in /v1) and select the supported protocol.</string>
-    <string name="provider_note_ollama">The default address points to this device. For another device on your LAN, enter its address; HTTP is unencrypted. Helix warns without blocking the connection.</string>
+    <string name="provider_note_ollama">Enter the address of the device running Ollama. HTTPS is recommended.</string>
     <string name="provider_note_sglang">Enter the SGLang server address and port with /v1 as the path. Before using tools, configure the model’s tool-call parser on the server and run the connection test.</string>
     <string name="provider_note_openrouter">Capabilities such as tool calling depend on the routed upstream model. Check them with the connection test.</string>
     <string name="provider_note_vllm">Enter the vLLM server address and port, typically port 8000 with /v1 as the path. An API key is optional.</string>
-    <string name="provider_note_lmstudio">The default address is 127.0.0.1:1234/v1 on this device. For LM Studio on your LAN, enter that device’s address; HTTP is unencrypted. Helix warns without blocking the connection.</string>
+    <string name="provider_note_lmstudio">Use 127.0.0.1:1234/v1 for this device, or enter the address of the device running LM Studio. HTTPS is recommended.</string>
     <string name="skill_creator_title">Create and validate a Skill</string>
     <string name="skill_creator_intro">Save a Workspace draft, or ask the agent to create one in chat. Validation does not install or enable it.</string>
     <string name="skill_creator_name">Name (lowercase and hyphens)</string>
@@ -850,7 +850,7 @@
     <string name="chat_context_title">Context window</string>
     <string name="chat_context_unknown">Unknown</string>
     <string name="chat_context_usage">Context limit: %2$s tokens\nUsed: %1$s tokens</string>
-    <string name="chat_context_explanation" formatted="false">The ring uses this conversation’s last confirmed input usage, including instructions, tool descriptions and history. Updates after each completed model call, including calls followed by tools. While a call is still streaming, its previous confirmed value stays visible. Failed or ineffective compaction does not replace it. Percentages round down; usage below 1% displays as 0%. Committed compaction usage and unknown window limits may be estimated. Unsent text is excluded. The fallback window is 200,000 tokens; you can configure it per model. Compaction preserves original history and consumes model-call/token budgets.</string>
+    <string name="chat_context_explanation" formatted="false">Shows input usage from the latest model call, including instructions, tools and history, but not unsent input. Unknown usage may be estimated. Compaction keeps the original history and uses model quota.</string>
     <string name="chat_context_close">Close</string>
     <string name="chat_restore">Restore</string>
     <string name="files_shared_permission_required">Shared storage permission is required. You can also add a SAF folder.</string>
@@ -1459,7 +1459,7 @@
     <string name="conn_error_local_runtime">Local inference failed. Check the model asset and available memory, then retry.</string>
     <string name="conn_error_local_output_limit">The local model reached its output limit. No unfinished tool calls were executed. Try a shorter step or adjust the output budget.</string>
     <string name="local_model_title">On-device</string>
-    <string name="local_model_description">Choose a pinned public GGUF, or use Advanced import for an exact HTTPS URL, SHA-256 and size. Helix checks storage, supports compatible resume, verifies the asset, then runs connection and capability tests. Nothing switches conversations automatically.</string>
+    <string name="local_model_description">Choose a model to download, or import an exact URL, SHA-256 and size. Installing it does not switch the conversation model.</string>
     <string name="local_model_name">Display name</string>
     <string name="local_model_url">Direct HTTPS URL</string>
     <string name="local_model_size">Exact size in bytes</string>
@@ -1507,7 +1507,7 @@
     <string name="storage_usage_partial">Partial count; actual usage may be higher</string>
     <string name="storage_usage_failed">Unable to measure usage. Refresh to retry.</string>
     <string name="storage_usage_loading">Measuring…</string>
-    <string name="storage_usage_deletion">Deleting a conversation removes its records and unreferenced large bodies, while keeping workspace files; the database may not shrink immediately. Use the dedicated workspace cleanup action in the conversation; referenced or active work remains protected. Delete Memory entries individually in Memory. Manage models and partial downloads in Models. JSONL conversation export is not a complete file backup.</string>
+    <string name="storage_usage_deletion">Deleting a conversation removes its records and unreferenced content, but keeps workspace files. Manage memory, workspaces and models in their respective pages. Conversation exports do not include every file.</string>
     <string name="model_error_tool_loop_no_progress">Repeated tool calls made no progress. Completed work is preserved; adjust the approach and continue.</string>
     <string name="approval_operation">Operation</string>
     <string name="audit_all_operations">All operations</string>
@@ -1541,7 +1541,7 @@
     <string name="artifacts_share_unavailable">Could not open sharing. Try again later or use another export option.</string>
     <string name="chat_picker_unavailable">Could not open the file picker. Check that the system Files app is available and try again.</string>
     <string name="quickjs_native_title">QuickJS native access</string>
-    <string name="quickjs_native_description">Off by default: scripts run in isolation. Enabling allows access to app-accessible files (including private data), network and Android APIs, subject to system permissions. Run trusted scripts only. Disabling interrupts native tasks but does not undo completed operations.</string>
+    <string name="quickjs_native_description">Run only trusted scripts. Enabling this allows access to app files, network and Android APIs, including private data, subject to system permissions. Disabling interrupts tasks but cannot undo completed actions.</string>
     <string name="quickjs_native_enable">Enable</string>
     <string name="quickjs_native_cancel">Cancel</string>
     <string name="user_question_custom">Custom answer (overrides choices)</string>
@@ -1549,7 +1549,7 @@
     <string name="user_question_send">Send answer</string>
     <string name="user_question_skip">Skip</string>
     <string name="user_question_title">Your preference</string>
-    <string name="automatic_recovery_unavailable">The task was interrupted and automatic inspection did not finish. Existing effects and unknown outcomes are preserved; nothing will be replayed automatically. See the task details for the interruption reason.</string>
+    <string name="automatic_recovery_unavailable">The task was interrupted and some results could not be confirmed. Actions will not be replayed automatically. View task details.</string>
     <string name="session_input_recovery_ended">A queued request could not be revalidated automatically and has ended without being executed again. Its original content is retained; completed actions are unchanged.</string>
     <string name="git_diff_read_error">Could not read the diff. Refresh the repository and try again.</string>
     <string name="tool_rejected_binding_unavailable">This tool was not exposed in this request or its binding is no longer valid. Nothing was executed. Search the exact tool name with tools.search, then use the schema exposed in the next request. Do not repeat this call directly.</string>
@@ -1596,7 +1596,7 @@
     <string name="provider_model_generation_passed">Basic generation: verified</string>
     <string name="provider_model_generation_test">Test basic generation</string>
     <string name="provider_model_probe_cost">Generation and capability tests send synthetic requests and may consume provider quota. Local tests use device resources.</string>
-    <string name="provider_note_plan_api">This is API Key access, not managed account sign-in. Use the key issued for the selected plan, region and endpoint. Plan keys and pay-as-you-go keys may not be interchangeable. Helix never automatically falls back to pay-as-you-go or another account.</string>
+    <string name="provider_note_plan_api">Use an API key for the selected plan, region and endpoint. Plan and metered keys may differ. Billing methods are never switched automatically.</string>
     <string name="plugin_global_enabled">Plugin enabled</string>
     <string name="plugin_native_notice">Built into this app. Code updates arrive with app updates; device actions still need permission.</string>
     <string name="plugin_native_repair">Repair plugin</string>
@@ -1740,10 +1740,10 @@
     <string name="extensions_tool_details">Review or customize tools</string>
     <string name="extensions_component_status">Available components: %1$d / %2$d</string>
     <string name="extensions_search">Search installed plugins</string>
-    <string name="mobile_use_global_help">These settings apply to every conversation using Mobile Use. Saving does not enable it in any conversation. Select the plugin in conversation plugins. Scope changes invalidate previous observations and approvals.</string>
+    <string name="mobile_use_global_help">Applies to conversations with Mobile Use enabled. Saving does not enable the plugin. Scope changes invalidate prior observations and approvals.</string>
     <string name="mobile_use_save_settings">Save plugin settings</string>
     <string name="mobile_use_permissions_heading">1. Grant Helix system access</string>
-    <string name="mobile_use_permissions_help">Manage Accessibility, Root or Shizuku in System permissions. Choose an available method for your device; you do not need all three. System access provides the capability; the scope below determines which apps Mobile Use may operate.</string>
+    <string name="mobile_use_permissions_help">Authorize an available method: accessibility, Root or Shizuku. You do not need all three. The scope below controls which apps can be operated.</string>
     <string name="mobile_use_scope_heading">2. Choose which apps to allow</string>
     <string name="mobile_use_scope_help">Select only the apps needed for your task. Whole-phone access allows all apps, subject to system permissions and execution approvals.</string>
     <string name="mobile_use_session_heading">3. Enable in a conversation</string>
@@ -1766,7 +1766,7 @@
     <string name="mobile_root_grant_unknown">Root permission: not yet confirmed</string>
     <string name="mobile_root_connecting">Mobile Use execution service: connecting</string>
     <string name="mobile_root_connect">Connect Mobile Use Root service</string>
-    <string name="mobile_root_connection_help">Connect using the Root authorization already granted to Helix. If authorization is missing, open Authorization management below. Disconnecting affects only Mobile Use; it does not revoke system authorization or disconnect other features.</string>
+    <string name="mobile_root_connection_help">Connect using existing Root authorization, or open authorization management first. Disconnecting stops only the Mobile Use connection.</string>
     <string name="mobile_backend_root">Default preference: Root. Each tool still checks supported capabilities, application scope and live state.</string>
     <string name="mobile_backend_shizuku">Default preference: Shizuku. Its service connects on execution; each tool still checks scope and availability.</string>
     <string name="mobile_backend_accessibility">Default preference: Accessibility. Root and Shizuku are currently unavailable.</string>
@@ -1915,7 +1915,7 @@
     <string name="device_access_root_failed">Authorization or connection failed. Check Helix authorization in your Root manager and retry.</string>
     <string name="plugin_setup_title">Plugin setup required</string>
     <string name="plugin_setup_mobile_scope">Mobile Use has no saved phone access scope. Choose the whole phone or specific apps in Mobile Use settings, save, then return and enable it.</string>
-    <string name="plugin_setup_mobile_backend">Mobile Use has no available screen backend. In system permissions, authorize and connect Accessibility, Shizuku or Root. Confirm one is available, then return and enable the plugin.</string>
+    <string name="plugin_setup_mobile_backend">Authorize and connect accessibility, Shizuku or Root before enabling the plugin.</string>
     <string name="plugin_setup_generic">This plugin needs more setup. Complete the required settings in Plugins, then return and enable it.</string>
     <string name="plugin_setup_continue">Go to settings</string>
     <string name="plugin_setup_later">Not now</string>
@@ -1978,7 +1978,7 @@
     <string name="workspace_location_details">Location details</string>
     <string name="workspace_copy_location">Copy full path</string>
     <string name="preview_reset_title">Reset previous preview data</string>
-    <string name="preview_reset_message">The previous preview database is incompatible with this version. Continuing permanently clears conversations, tasks, configuration, and authorization records stored in the database. Files outside the database remain, but cannot restore these conversations. Nothing is cleared before confirmation. Exit and use the previous version if you need to save old data.</string>
+    <string name="preview_reset_message">Old test data is incompatible. Continuing permanently deletes conversations, tasks, settings and authorization records. Files outside the database remain. Cancel to keep the old records.</string>
     <string name="preview_reset_confirm">Clear old data and continue</string>
     <string name="preview_reset_cancel">Exit and keep data</string>
     <string name="preview_start_exit">Exit</string>
@@ -2030,18 +2030,18 @@
     <string name="knowledge_qa_running">Generating…</string>
     <string name="knowledge_qa_ready">Answer ready. Check its citations.</string>
     <string name="knowledge_qa_interrupted">Generation interrupted. No automatic retry.</string>
-    <string name="cloud_voice_upload">Audio recorded during this capture will be sent to your configured speech service. Up to 2 minutes. Review the final transcript before adding it to your draft.</string>
+    <string name="cloud_voice_upload">Online recognition requires sending your recording.</string>
     <string name="cloud_voice_confirm">Agree and continue</string>
-    <string name="cloud_tts_upload">The visible reply text will be sent to your configured speech service for playback. Stopping playback does not cancel the Agent task.</string>
-    <string name="cloud_voice_connection_error">Speech connection failed or timed out. Check the service configuration and try again. No automatic retry.</string>
+    <string name="cloud_tts_upload">Online playback requires sending the reply text.</string>
+    <string name="cloud_voice_connection_error">Could not reach the speech service. Try again shortly.</string>
     <string name="speech_services_title">Speech services</string>
     <string name="speech_http_input_title">Cloud speech input</string>
-    <string name="speech_http_description">HTTP file mode: ASR uploads the complete recording after you finish. TTS synthesizes each submitted text piece, then plays the returned WAV. This is not continuous WebSocket speech. HTTP sends content without encryption.</string>
-    <string name="speech_http_loopback">Enter addresses reachable from this Android device. 127.0.0.1 means the device itself, not your Mac. A Mac-only port mapping is not automatically reachable from a phone.</string>
-    <string name="speech_http_enable">Use configured cloud speech services (off uses existing offline speech)</string>
+    <string name="speech_http_description">HTTP mode recognizes completed recordings and synthesizes text segments. Continuous streaming is not supported. HTTP is unencrypted.</string>
+    <string name="speech_http_loopback">Enter an address reachable from Android. 127.0.0.1 refers to this device, not your computer.</string>
+    <string name="speech_http_enable">Online speech</string>
     <string name="speech_asr_endpoint">Full ASR transcription URL</string>
     <string name="speech_tts_endpoint">Full TTS speech URL</string>
-    <string name="speech_settings_invalid">Could not save. HTTP requires valid HTTP/HTTPS URLs; WebSocket requires official WSS endpoints and account login. URLs must have no credentials, query parameters or fragments.</string>
+    <string name="speech_settings_invalid">Check the speech service addresses and sign-in method.</string>
     <string name="speech_settings_save">Save speech settings</string>
     <string name="speech_http_asr_mode">HTTP mode: finish recording to upload the entire audio. No live partial transcript is available.</string>
     <string name="speech_http_tts_mode">HTTP mode: new visible reply text is submitted in pieces, and each returned WAV is played in order. This is not model-internal dual streaming.</string>
@@ -2071,8 +2071,8 @@
     <string name="account_logout_confirm">Sign out of this account?</string>
     <string name="account_cancel">Cancel</string>
     <string name="speech_ws_enable">Continuous speech (WebSocket)</string>
-    <string name="speech_ws_description">Sign in to stream PCM audio and receive partial transcripts. One connection receives visible answer text while playing incoming audio. Stopping speech closes the connection without cancelling the Agent.</string>
-    <string name="speech_model_busy">Speech model is busy. Wait briefly before retrying; cancelled inference may still be finishing.</string>
+    <string name="speech_ws_description">Continuous transcription and speech. Stopping playback keeps the task running.</string>
+    <string name="speech_model_busy">The speech service is busy. Try again shortly.</string>
     <string name="account_drawer_login">Sign in to Helix</string>
     <string name="account_model_access">Sign in to use built-in models</string>
     <string name="account_manage">Manage account</string>
@@ -2134,4 +2134,7 @@
     <string name="settings_proot_damaged">Installation needs repair</string>
     <string name="knowledge_storage_unavailable">Shared documents are temporarily unavailable. Try again later. Unsaved edits have not been saved.</string>
     <string name="knowledge_storage_retry">Retry</string>
+    <string name="files_preview_failed">Could not preview this file. Refresh and try again.</string>
+    <string name="files_access_failed">Could not access the file. Check its access permissions.</string>
+    <string name="files_file_unavailable">The file is unavailable. Refresh and try again.</string>
 </resources>

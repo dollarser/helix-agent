@@ -44,7 +44,7 @@ class GitWorkspaceReader(
                 }
             }.fold(
                 onSuccess = { GitWorkspaceResult.Ready(it, repoDir.name) },
-                onFailure = { GitWorkspaceResult.Error(it.message ?: "Could not read git status") },
+                onFailure = { GitWorkspaceResult.Error },
             )
         } ?: GitWorkspaceResult.NotARepository
 

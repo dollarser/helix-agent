@@ -1,7 +1,7 @@
 <resources>
     <string name="network_dns_title">Network settings · DNS</string>
     <string name="network_dns_help">Applies to API providers, subscriptions, MCP, A2A and native HTTP tools. Browsers, terminals and separate downloaders are excluded. TLS and network permissions remain enforced.</string>
-    <string name="network_hosts_help">Use IP address followed by one or more hostnames per line. IPv4, IPv6, blank lines and # comments are supported. Saving replaces all mappings until edited again. Save empty content to restore system DNS. Applies to new connections; system hosts is unchanged.</string>
+    <string name="network_hosts_help">Enter IP and hostname per line; # comments are supported. Saving replaces existing mappings. Clear and save to restore system DNS. Only new connections are affected.</string>
     <string name="network_hosts_label">hosts content</string>
     <string name="network_hosts_error">Line %1$d: %2$s</string>
     <string name="network_hosts_count">Valid format · %1$d hostnames</string>

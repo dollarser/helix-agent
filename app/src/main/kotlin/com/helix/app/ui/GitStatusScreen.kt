@@ -58,7 +58,6 @@ internal fun GitStatusScreenDestination(chat: com.helix.app.chat.ChatService) {
     val screen by chat.screen.collectAsStateWithLifecycle()
     val directory = remember { screen.directoryRef }
     val sessionTitle = remember { screen.sessionTitle }
-    val unavailable = stringResource(R.string.workspace_local_backend_unavailable)
     var reader by remember { mutableStateOf<GitWorkspaceReader?>(null) }
     var revision by remember { mutableStateOf(0) }
     var result by remember { mutableStateOf<GitWorkspaceResult?>(null) }
@@ -70,7 +69,7 @@ internal fun GitStatusScreenDestination(chat: com.helix.app.chat.ChatService) {
         result =
             withContext(Dispatchers.IO) {
                 reader = directory?.let { runCatching { chat.gitWorkspaceReader(it) }.getOrNull() }
-                reader?.readStatus() ?: GitWorkspaceResult.Error(unavailable)
+                reader?.readStatus() ?: GitWorkspaceResult.Error
             }
     }
 
@@ -100,8 +99,8 @@ internal fun GitStatusScreenDestination(chat: com.helix.app.chat.ChatService) {
                 )
             }
 
-            is GitWorkspaceResult.Error -> {
-                StateText(Modifier.testTag("git-error"), stringResource(R.string.git_error_title) + "：" + r.message)
+            GitWorkspaceResult.Error -> {
+                StateText(Modifier.testTag("git-error"), stringResource(R.string.git_error_title))
             }
 
             is GitWorkspaceResult.Ready -> {

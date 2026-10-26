@@ -18,6 +18,14 @@ import java.io.File
 class GitWorkspaceReaderTest {
     @get:Rule val tmp = TemporaryFolder()
 
+    @Test
+    fun `corrupt repository returns failure without exposing exception details`() {
+        val root = tmp.newFolder("private-repository")
+        initRepo(root).close()
+        File(root, ".git/index").writeBytes(byteArrayOf(1, 2, 3, 4))
+        assertEquals(GitWorkspaceResult.Error, GitWorkspaceReader(root).readStatus())
+    }
+
     /** Init a repo at [dir] with an initial commit of a.txt ("one") and b.txt ("B"). */
     private fun initRepo(dir: File): Git {
         val git = Git.init().setDirectory(dir).call()

@@ -80,7 +80,8 @@ internal fun FilesPreviewEffects(
                 } catch (cancelled: kotlinx.coroutines.CancellationException) {
                     throw cancelled
                 } catch (failure: Exception) {
-                    FilePreviewState.Failed(failure.message ?: actions.str(R.string.files_read_directory_error))
+                    android.util.Log.w("HelixFiles", "Preview failed: ${failure.javaClass.simpleName}")
+                    FilePreviewState.Failed(actions.str(fileFailureMessage(failure, R.string.files_preview_failed)))
                 }
             }
         // IO completion may resume on a test/effect dispatcher. Publish on Android's UI dispatcher.

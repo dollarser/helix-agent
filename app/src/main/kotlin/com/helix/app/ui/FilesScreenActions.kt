@@ -340,7 +340,8 @@ internal class FilesScreenActions(
                 } catch (cancelled: kotlinx.coroutines.CancellationException) {
                     throw cancelled
                 } catch (e: Exception) {
-                    status = str(R.string.files_share_failed, e.message.orEmpty())
+                    android.util.Log.w("HelixFiles", "Share preparation failed: ${e.javaClass.simpleName}")
+                    status = str(fileFailureMessage(e, R.string.files_share_failed))
                 }
             }
         }

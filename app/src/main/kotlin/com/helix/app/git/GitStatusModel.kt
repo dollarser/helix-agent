@@ -67,8 +67,6 @@ sealed interface GitWorkspaceResult {
         val repoName: String,
     ) : GitWorkspaceResult
 
-    /** A read failed after a repository was located; [message] is user-presentable. */
-    data class Error(
-        val message: String,
-    ) : GitWorkspaceResult
+    /** A read failed; technical exceptions never enter presentation state. */
+    data object Error : GitWorkspaceResult
 }

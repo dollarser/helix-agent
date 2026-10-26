@@ -28,7 +28,7 @@
     <string name="replay_cleanup_not_applicable">当前安装包不包含订阅回放。</string>
     <string name="replay_cleanup_counts">本页检查 %1$d 项（%2$s）；删除 %3$d 项（%4$s）；保留 %5$d 项；失败 %6$d 项。</string>
     <string name="context_compaction_unchanged">当前没有足够的压缩收益，已保留原上下文。</string>
-    <string name="context_window_estimated_note">服务未报告上下文上限，当前比例按估算窗口计算。输入用量包含系统提示、工具说明和历史，不只是本次问题。发送过程中保留上次已确认数值。</string>
+    <string name="context_window_estimated_note">The service did not report its context limit. Usage is estimated; the previous confirmed value is shown while sending.</string>
     <string name="provider_account_connected">账号连接正常</string>
     <string name="provider_account_connection_test">检查账号连接</string>
     <string name="context_server_window_unreported">服务未提供此模型的上下文上限；可手动设置，估算值不代表官方上限。</string>
@@ -128,11 +128,11 @@
     <string name="settings_current_standard">当前：Standard（默认）</string>
     <string name="settings_switch_to_advanced">切换到 Advanced</string>
     <string name="settings_switch_back_standard">切换回 Standard</string>
-    <string name="settings_advanced_m2_note">Advanced 显示额外能力的设置入口。切换配置不会自动授予系统权限、安装 Runtime、启动 Root 或批准工具调用；请按需启用各项能力并选择作用范围。</string>
+    <string name="settings_advanced_m2_note">Configure and authorize advanced capabilities as needed. Switching modes does not enable or authorize them.</string>
     <string name="settings_consumer_standard_only">此安装包使用 Standard，不提供 Advanced 切换入口。可用能力以当前设置中列出的选项为准。</string>
     <string name="settings_advanced_confirm_title">切换到 Advanced — 风险说明</string>
     <string name="settings_advanced_confirm_ok">我已了解，确认切换</string>
-    <string name="profile_advanced_risk_summary">Advanced 提供进阶能力。内置 Linux 环境默认可用，首次打开终端或执行已获准的 Linux 任务时自动准备。\n\n切换模式不会申请系统权限、请求 Root、连接新的网络端点或扩大文件授权范围。其他能力仍需按需配置和授权。\n\n模型不能自我授权；工具执行仍遵守权限、审批、执行限制与审计规则。</string>
+    <string name="profile_advanced_risk_summary">Advanced provides additional capabilities and prepares Linux on first use. System permissions, Root, network and file access still require their own authorization.</string>
 
     <!-- HXA-069: domain string resources (zh/en parity checked by scripts/check-i18n.sh) -->
     <string name="admission_empty_message">消息为空：请输入内容或至少选择一个可发送的附件</string>
@@ -303,7 +303,7 @@
     <string name="chat_voice_unavailable">No system speech app was found. Helix offline recognition does not depend on this service.</string>
     <string name="chat_waiting_model">正在等待模型响应…</string>
     <string name="common_unknown">未知</string>
-    <string name="conn_error_auth">认证或访问权限被服务端拒绝。API Provider 请检查 key；订阅 Provider 请检查登录与账号权限。若 HTTP 403，也可能是网络出口被拒绝。</string>
+    <string name="conn_error_auth">The service denied access. Check the API key, sign-in status or account permissions.</string>
     <string name="conn_error_content_filter">被服务端内容过滤拒绝</string>
     <string name="conn_error_output_token_limit">输出额度已耗尽，未生成内容</string>
     <string name="conn_error_http">HTTP 错误（端点或协议不匹配）</string>
@@ -343,7 +343,7 @@
     <string name="egress_revoke">撤销</string>
     <string name="egress_rule_detail">%1$s · %2$s · 作用域 %3$s · 有效期至 %4$s%5$s</string>
     <string name="egress_rule_expired">（已到期）</string>
-    <string name="egress_rule_help">为高敏数据出网建立的有界规则：严格绑定具体 Provider/MCP、规范 origin 与 scope，仅在有效期内自动放行；期满、撤销、切回 Standard 或任一绑定字段变化后立即失效，逐次审批保持不变。</string>
+    <string name="egress_rule_help">Allow only the specified service, destination and scope until expiry. Revocation or binding changes invalidate the rule. Other requests still require approval.</string>
     <string name="egress_target_id_label">Provider / MCP ID（无通配符）</string>
     <string name="egress_title">敏感内容发送规则</string>
     <string name="egress_ttl_days_30">30 天</string>
@@ -496,7 +496,7 @@
     <string name="files_saf_directory_fallback">SAF 目录</string>
     <string name="files_saf_empty">暂无已授权 SAF 来源。</string>
     <string name="files_saf_granted">已授权 SAF 来源：%1$s（只读）</string>
-    <string name="files_saf_panel_desc">撤销或重新授权即时生效；模型与工具只看到 scopeId 与相对路径。 Android 11 及以上不允许在此授权存储根目录、Download 根目录及 Android/data、Android/obb，请选择允许的子文件夹。需要更大范围的共享存储访问，可在支持该功能的版本中前往“权限”页设置 All files；其他应用的私有数据仍不可访问。</string>
+    <string name="files_saf_panel_desc">Choose a folder to grant access. Revoking it stops access immediately. Android 11+ excludes storage roots, the Download root, Android/data and Android/obb.</string>
     <string name="files_saf_panel_title">SAF 来源（只读）</string>
     <string name="files_saf_read_only">SAF 来源为只读</string>
     <string name="files_saf_removed">已移除 SAF 来源：%1$s</string>
@@ -505,7 +505,7 @@
     <string name="files_sha_omitted">（文件过大，已省略）</string>
     <string name="files_share">分享文件</string>
     <string name="files_share_chooser_title">分享</string>
-    <string name="files_share_failed">无法分享：%1$s</string>
+    <string name="files_share_failed">Could not share this file. Try again.</string>
     <string name="files_skip">跳过</string>
     <string name="files_skipped_status">已跳过（未覆盖）</string>
     <string name="files_sort_name">名称</string>
@@ -582,7 +582,7 @@
     <string name="provider_form_header_value_label">自定义 header 值（可选）</string>
     <string name="provider_form_model_label">模型名称（服务端标识）</string>
     <string name="provider_model_add_entry">＋ 添加模型</string>
-    <string name="provider_model_add_help">选择 Helix 要调用的模型。可以输入服务提供的模型名称（如 deepseek-chat），也可以从服务获取模型列表后选择；这里不是自定义显示名称。</string>
+    <string name="provider_model_add_help">Enter the model ID supplied by the service, or fetch the list to select one. This is not a display name.</string>
     <string name="provider_form_name">名称</string>
     <string name="provider_requires_api_key">该 Provider 需要 API Key</string>
     <string name="provider_retryable">（可重试）</string>
@@ -643,7 +643,7 @@
     <string name="connector_install">安装可迁移部分</string>
     <string name="connector_failed">导入或保存失败。请检查 JSON、Skill 格式、包大小及存储空间。</string>
     <string name="connector_skill_review">Skill 含原始指令和配套文件，脚本不会在安装时执行。启用前请审阅源文件；平台专有工具名可能需要适配。</string>
-    <string name="connector_remove_note">移除会停用连接并删除本机连接凭据。Skill 快照保留；其他连接器共用的 Skill 保持原状态。厂商授权需在厂商侧撤销。</string>
+    <string name="connector_remove_note">Remove the local connection and credentials; keep Skill snapshots. Revoke vendor authorization on the vendor side.</string>
     <string name="connector_remove">移除插件</string>
     <string name="connector_active">工具已启用</string>
     <string name="connector_inactive">工具未激活，请测试连接并选择工具</string>
@@ -774,11 +774,11 @@
     <string name="files_controls">文件选项</string>
     <string name="provider_note_openai">使用 Responses API。连接仅支持 Chat Completions 的服务时，可选择通用 OpenAI 兼容模板。</string>
     <string name="provider_note_generic">适用于 SGLang、vLLM、Ollama 等兼容服务。填写 API 地址（通常以 /v1 结尾），并选择服务支持的协议。</string>
-    <string name="provider_note_ollama">默认地址指向本设备。连接局域网中的其他设备时，请填写其地址；HTTP 连接未加密，Helix 会提示风险但不会因此阻止连接。</string>
+    <string name="provider_note_ollama">Enter the address of the device running Ollama. HTTPS is recommended.</string>
     <string name="provider_note_sglang">填写 SGLang 服务地址和端口，路径使用 /v1。使用工具调用前，请在服务端为模型配置相应解析器，并运行连接测试。</string>
     <string name="provider_note_openrouter">工具调用等能力取决于路由到的上游模型，请通过连接测试确认。</string>
     <string name="provider_note_vllm">填写 vLLM 服务地址和端口，通常使用端口 8000 和路径 /v1。API 密钥可选。</string>
-    <string name="provider_note_lmstudio">默认地址为本设备的 127.0.0.1:1234/v1。连接局域网中的 LM Studio 时，请填写其设备地址；HTTP 连接未加密，Helix 会提示风险但不会因此阻止连接。</string>
+    <string name="provider_note_lmstudio">Use 127.0.0.1:1234/v1 for this device, or enter the address of the device running LM Studio. HTTPS is recommended.</string>
     <string name="skill_creator_title">Create and validate a Skill</string>
     <string name="skill_creator_intro">Save a Workspace draft, or ask the agent to create one in chat. Validation does not install or enable it.</string>
     <string name="skill_creator_name">Name (lowercase and hyphens)</string>
@@ -852,7 +852,7 @@
     <string name="chat_context_title">上下文窗口</string>
     <string name="chat_context_unknown">未知</string>
     <string name="chat_context_usage">上下文上限：%2$s tokens\n已占用：%1$s tokens</string>
-    <string name="chat_context_explanation" formatted="false">圆环显示当前会话上次已确认的输入用量，包含系统提示、工具说明和历史；每次模型调用完成后更新，包括随后执行工具的中间调用；单次调用流式输出期间保留上次确认值。失败或未生效的压缩不替换该用量。百分比向下取整，不足 1% 时显示 0%。已生效压缩后的用量和未知窗口上限可能采用估算值，不含未发送文字。未知服务端上限时使用 200,000 tokens，可按模型设置。压缩保留原始历史，并计入调用与 token 预算。</string>
+    <string name="chat_context_explanation" formatted="false">Shows input usage from the latest model call, including instructions, tools and history, but not unsent input. Unknown usage may be estimated. Compaction keeps the original history and uses model quota.</string>
     <string name="chat_context_close">关闭</string>
     <string name="chat_restore">恢复</string>
     <string name="files_shared_permission_required">需要共享存储权限；也可添加 SAF 文件夹。</string>
@@ -1460,7 +1460,7 @@
     <string name="conn_error_local_runtime">Local inference failed. Check the model asset and available memory, then retry.</string>
     <string name="conn_error_local_output_limit">The local model reached its output limit. No unfinished tool calls were executed. Try a shorter step or adjust the output budget.</string>
     <string name="local_model_title">本地模型</string>
-    <string name="local_model_description">Choose a pinned public GGUF, or use Advanced import for an exact HTTPS URL, SHA-256 and size. Helix checks storage, supports compatible resume, verifies the asset, then runs connection and capability tests. Nothing switches conversations automatically.</string>
+    <string name="local_model_description">Choose a model to download, or import an exact URL, SHA-256 and size. Installing it does not switch the conversation model.</string>
     <string name="local_model_name">Display name</string>
     <string name="local_model_url">Direct HTTPS URL</string>
     <string name="local_model_size">Exact size in bytes</string>
@@ -1508,7 +1508,7 @@
     <string name="storage_usage_partial">仅完成部分统计，实际占用可能更高</string>
     <string name="storage_usage_failed">暂时无法统计占用，请刷新重试。</string>
     <string name="storage_usage_loading">正在统计…</string>
-    <string name="storage_usage_deletion">删除会话会清理对应记录和不再引用的正文，保留工作区文件；数据库文件可能不会立即缩小。工作区请在会话设置中清理，正在使用或仍被引用的内容会受到保护。记忆条目需在记忆管理中逐项删除；模型和下载残留在模型页管理。会话 JSONL 导出不包含全部文件。</string>
+    <string name="storage_usage_deletion">Deleting a conversation removes its records and unreferenced content, but keeps workspace files. Manage memory, workspaces and models in their respective pages. Conversation exports do not include every file.</string>
     <string name="model_error_tool_loop_no_progress">工具重复调用未取得进展。已保留完成的工作，请调整方法后继续。</string>
     <string name="approval_operation">操作类型</string>
     <string name="audit_all_operations">全部操作类型</string>
@@ -1542,7 +1542,7 @@
     <string name="artifacts_share_unavailable">无法打开分享面板，请稍后重试或选择其他导出方式。</string>
     <string name="chat_picker_unavailable">无法打开文件选择器，请检查系统文件应用是否可用后重试。</string>
     <string name="quickjs_native_title">QuickJS native access</string>
-    <string name="quickjs_native_description">Off by default: scripts run in isolation. Enabling allows access to app-accessible files (including private data), network and Android APIs, subject to system permissions. Run trusted scripts only. Disabling interrupts native tasks but does not undo completed operations.</string>
+    <string name="quickjs_native_description">Run only trusted scripts. Enabling this allows access to app files, network and Android APIs, including private data, subject to system permissions. Disabling interrupts tasks but cannot undo completed actions.</string>
     <string name="quickjs_native_enable">Enable</string>
     <string name="quickjs_native_cancel">Cancel</string>
     <string name="user_question_custom">Custom answer (overrides choices)</string>
@@ -1550,7 +1550,7 @@
     <string name="user_question_send">Send answer</string>
     <string name="user_question_skip">Skip</string>
     <string name="user_question_title">Your preference</string>
-    <string name="automatic_recovery_unavailable">原任务发生中断，自动核查未能完成。本次尝试已结束；已有操作与未知结果保持原样，不会自动重放。请查看任务详情中的具体中断原因。</string>
+    <string name="automatic_recovery_unavailable">The task was interrupted and some results could not be confirmed. Actions will not be replayed automatically. View task details.</string>
     <string name="git_diff_read_error">无法读取差异，请刷新仓库后重试。</string>
     <string name="tool_rejected_binding_unavailable">该工具未在本次请求开放或绑定已失效，未执行。请先用 tools.search 精确搜索工具名，再按下一轮提供的参数定义调用；不要直接重试本次调用。</string>
     <string name="quickjs_native_save_failed">无法读取或保存原生访问设置，请重试。</string>
@@ -1596,7 +1596,7 @@
     <string name="provider_model_generation_passed">基础生成：已验证</string>
     <string name="provider_model_generation_test">测试基础生成</string>
     <string name="provider_model_probe_cost">生成与能力测试会发送合成请求，网络来源可能消耗额度。本地模型测试会使用设备计算资源。</string>
-    <string name="provider_note_plan_api">这是 API Key 接入，不是账号订阅登录。请使用对应套餐、地区和地址签发的密钥；套餐密钥与按量计费密钥可能不互通。Helix 不会自动回退到按量计费或其他账号。</string>
+    <string name="provider_note_plan_api">Use an API key for the selected plan, region and endpoint. Plan and metered keys may differ. Billing methods are never switched automatically.</string>
     <string name="plugin_global_enabled">Plugin enabled</string>
     <string name="plugin_native_notice">Built into this app. Code updates arrive with app updates; device actions still need permission.</string>
     <string name="plugin_native_repair">Repair plugin</string>
@@ -1740,10 +1740,10 @@
     <string name="extensions_tool_details">查看或调整工具</string>
     <string name="extensions_component_status">可用组件：%1$d / %2$d</string>
     <string name="extensions_search">搜索已安装插件</string>
-    <string name="mobile_use_global_help">以下设置对所有启用 Mobile Use 的会话生效。保存不会自动启用任何会话。会话只需在插件中开启或关闭插件。修改范围后，旧观察和旧批准不再有效。</string>
+    <string name="mobile_use_global_help">Applies to conversations with Mobile Use enabled. Saving does not enable the plugin. Scope changes invalidate prior observations and approvals.</string>
     <string name="mobile_use_save_settings">保存插件设置</string>
     <string name="mobile_use_permissions_heading">1. 授予 Helix 系统权限</string>
-    <string name="mobile_use_permissions_help">在系统授权页管理无障碍、Root 或 Shizuku，按设备条件选择可用方式，不必全部开启。系统授权提供操作能力；下方应用范围决定 Mobile Use 可以操作哪些应用。</string>
+    <string name="mobile_use_permissions_help">Authorize an available method: accessibility, Root or Shizuku. You do not need all three. The scope below controls which apps can be operated.</string>
     <string name="mobile_use_scope_heading">2. 允许操作哪些应用</string>
     <string name="mobile_use_scope_help">建议只选择任务需要的应用。选择整个手机会允许操作所有应用，但仍受系统权限和执行审批约束。</string>
     <string name="mobile_use_session_heading">3. 在会话中启用</string>
@@ -1766,7 +1766,7 @@
     <string name="mobile_root_grant_unknown">Root 授权：尚未确认</string>
     <string name="mobile_root_connecting">Mobile Use 执行服务：正在连接</string>
     <string name="mobile_root_connect">连接 Mobile Use Root 服务</string>
-    <string name="mobile_root_connection_help">复用 Helix 已有的 Root 授权建立自动化连接。尚未授权时，请先打开下方“授权管理”。断开仅影响 Mobile Use，不撤销系统授权或断开其他功能。</string>
+    <string name="mobile_root_connection_help">Connect using existing Root authorization, or open authorization management first. Disconnecting stops only the Mobile Use connection.</string>
     <string name="mobile_backend_root">默认优先：Root。各工具仍按支持能力、应用范围和实时状态检查。</string>
     <string name="mobile_backend_shizuku">默认优先：Shizuku。执行时建立服务连接，各工具仍需校验范围与可用性。</string>
     <string name="mobile_backend_accessibility">默认优先：无障碍。Root 与 Shizuku 当前不可用。</string>
@@ -1915,7 +1915,7 @@
     <string name="device_access_root_failed">无法授权或连接，请检查 Root 管理器中的 Helix 授权后重试。</string>
     <string name="plugin_setup_title">插件尚未配置完成</string>
     <string name="plugin_setup_mobile_scope">尚未保存手机操作范围。请在 Mobile Use 设置中选择全手机或指定应用并保存，再返回开启插件。</string>
-    <string name="plugin_setup_mobile_backend">手机操作没有可用的屏幕后端。请到系统授权页配置无障碍、Shizuku 或 Root 中的一种，并确认连接可用，再返回开启插件。</string>
+    <string name="plugin_setup_mobile_backend">Authorize and connect accessibility, Shizuku or Root before enabling the plugin.</string>
     <string name="plugin_setup_generic">此插件还有未完成的配置。请到插件设置补全所需配置，再返回开启插件。</string>
     <string name="plugin_setup_continue">去设置</string>
     <string name="plugin_setup_later">暂不设置</string>
@@ -1978,7 +1978,7 @@
     <string name="workspace_location_details">位置详情</string>
     <string name="workspace_copy_location">复制完整路径</string>
     <string name="preview_reset_title">需要重置旧预览版数据</string>
-    <string name="preview_reset_message">旧预览版的数据结构与此版本不兼容。继续将永久清空数据库中的会话、任务、配置与授权记录。数据库外文件会保留，但无法通过这些旧记录恢复会话。未确认前不会清空；如需保存旧数据，请退出并使用旧版本处理。</string>
+    <string name="preview_reset_message">Old test data is incompatible. Continuing permanently deletes conversations, tasks, settings and authorization records. Files outside the database remain. Cancel to keep the old records.</string>
     <string name="preview_reset_confirm">清空旧数据并继续</string>
     <string name="preview_reset_cancel">退出并保留数据</string>
     <string name="preview_start_exit">退出</string>
@@ -2030,18 +2030,18 @@
     <string name="knowledge_qa_running">正在生成…</string>
     <string name="knowledge_qa_ready">回答已生成，请核对引用。</string>
     <string name="knowledge_qa_interrupted">生成已中断，未自动重试。</string>
-    <string name="cloud_voice_upload">Audio recorded during this capture will be sent to your configured speech service. Up to 2 minutes. Review the final transcript before adding it to your draft.</string>
+    <string name="cloud_voice_upload">Online recognition requires sending your recording.</string>
     <string name="cloud_voice_confirm">Agree and continue</string>
-    <string name="cloud_tts_upload">The visible reply text will be sent to your configured speech service for playback. Stopping playback does not cancel the Agent task.</string>
-    <string name="cloud_voice_connection_error">Speech connection failed or timed out. Check the service configuration and try again. No automatic retry.</string>
+    <string name="cloud_tts_upload">Online playback requires sending the reply text.</string>
+    <string name="cloud_voice_connection_error">Could not reach the speech service. Try again shortly.</string>
     <string name="speech_services_title">Speech services</string>
     <string name="speech_http_input_title">Cloud speech input</string>
-    <string name="speech_http_description">HTTP file mode: ASR uploads the complete recording after you finish. TTS synthesizes each submitted text piece, then plays the returned WAV. This is not continuous WebSocket speech. HTTP sends content without encryption.</string>
-    <string name="speech_http_loopback">Enter addresses reachable from this Android device. 127.0.0.1 means the device itself, not your Mac. A Mac-only port mapping is not automatically reachable from a phone.</string>
-    <string name="speech_http_enable">Use configured cloud speech services (off uses existing offline speech)</string>
+    <string name="speech_http_description">HTTP mode recognizes completed recordings and synthesizes text segments. Continuous streaming is not supported. HTTP is unencrypted.</string>
+    <string name="speech_http_loopback">Enter an address reachable from Android. 127.0.0.1 refers to this device, not your computer.</string>
+    <string name="speech_http_enable">Online speech</string>
     <string name="speech_asr_endpoint">Full ASR transcription URL</string>
     <string name="speech_tts_endpoint">Full TTS speech URL</string>
-    <string name="speech_settings_invalid">Could not save. HTTP requires valid HTTP/HTTPS URLs; WebSocket requires official WSS endpoints and account login. URLs must have no credentials, query parameters or fragments.</string>
+    <string name="speech_settings_invalid">Check the speech service addresses and sign-in method.</string>
     <string name="speech_settings_save">Save speech settings</string>
     <string name="speech_http_asr_mode">HTTP mode: finish recording to upload the entire audio. No live partial transcript is available.</string>
     <string name="speech_http_tts_mode">HTTP mode: new visible reply text is submitted in pieces, and each returned WAV is played in order. This is not model-internal dual streaming.</string>
@@ -2071,8 +2071,8 @@
     <string name="account_logout_confirm">Sign out of this account?</string>
     <string name="account_cancel">Cancel</string>
     <string name="speech_ws_enable">Continuous speech (WebSocket)</string>
-    <string name="speech_ws_description">Sign in to stream PCM audio and receive partial transcripts. One connection receives visible answer text while playing incoming audio. Stopping speech closes the connection without cancelling the Agent.</string>
-    <string name="speech_model_busy">Speech model is busy. Wait briefly before retrying; cancelled inference may still be finishing.</string>
+    <string name="speech_ws_description">Continuous transcription and speech. Stopping playback keeps the task running.</string>
+    <string name="speech_model_busy">The speech service is busy. Try again shortly.</string>
     <string name="account_drawer_login">Sign in to Helix</string>
     <string name="account_model_access">Sign in to use built-in models</string>
     <string name="account_manage">Manage account</string>
@@ -2134,4 +2134,7 @@
     <string name="settings_proot_damaged">安装异常，需要修复</string>
     <string name="knowledge_storage_unavailable">共享资料暂时无法读取或保存，请稍后重试。未保存的内容不会显示为已保存。</string>
     <string name="knowledge_storage_retry">重试</string>
+    <string name="files_preview_failed">Could not preview this file. Refresh and try again.</string>
+    <string name="files_access_failed">Could not access the file. Check its access permissions.</string>
+    <string name="files_file_unavailable">The file is unavailable. Refresh and try again.</string>
 </resources>

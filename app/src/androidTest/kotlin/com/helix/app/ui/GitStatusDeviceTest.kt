@@ -1,10 +1,15 @@
 package com.helix.app.ui
 
 import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasScrollToIndexAction
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToNode
 import com.helix.app.MainActivity
 import kotlinx.coroutines.runBlocking
 import org.eclipse.jgit.api.Git
@@ -20,6 +25,35 @@ import java.io.File
  */
 class GitStatusDeviceTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
+
+    @Test
+    fun unreadableRepositoryShowsConciseFailureWithoutExceptionOrPrivatePath() =
+        runBlocking {
+            compose.resetDeterministicUiState()
+            val container = compose.container()
+            val session = "git-error-${java.util.UUID.randomUUID()}"
+            container.storage.sessions.create(session, "Synthetic Git error", null, null, System.currentTimeMillis())
+            container.chatService.openSession(session)
+            compose.waitUntil(10_000) { container.chatService.screen.value.openSessionId == session }
+            val binding = requireNotNull(container.storage.workspaces.binding(session))
+            val root =
+                container.storage.workspaces
+                    .managedDirectory(binding.workspaceId)
+                    .toFile()
+            Git
+                .init()
+                .setDirectory(root)
+                .call()
+                .close()
+            File(root, ".git/index").writeBytes(byteArrayOf(1, 2, 3, 4))
+            compose.navigateTo("git")
+            compose.waitUntil(10_000) {
+                compose.onAllNodesWithTag("git-error").fetchSemanticsNodes().isNotEmpty()
+            }
+            val message = compose.activity.getString(com.helix.app.R.string.git_error_title)
+            compose.onNodeWithTag("git-error").assertTextEquals(message)
+            Unit
+        }
 
     @Test
     fun gitPageShowsStagedUnstagedUntrackedAndOpensDiff() {
@@ -67,9 +101,11 @@ class GitStatusDeviceTest {
             // The repo sits one level below the workspace root, so it is named "demo".
             compose.onNodeWithTag("git-repo", useUnmergedTree = true).assertTextContains("demo", substring = true)
             compose.onNodeWithTag("git-change-path-c.txt", useUnmergedTree = true).assertExists()
+            scrollToChange("d.txt")
             compose.onNodeWithTag("git-change-path-d.txt", useUnmergedTree = true).assertExists()
 
             // Open the diff for the unstaged-modified a.txt: the working-tree diff shows the add.
+            scrollToChange("a.txt")
             compose.onNodeWithTag("git-change-row-a.txt").performClick()
             compose.waitUntil(5_000) {
                 compose
@@ -84,5 +120,11 @@ class GitStatusDeviceTest {
             compose.waitForIdle()
             compose.onNodeWithTag("screen-git").assertExists()
         }
+    }
+
+    private fun scrollToChange(path: String) {
+        compose
+            .onNode(hasScrollToIndexAction() and hasAnyAncestor(hasTestTag("screen-git")))
+            .performScrollToNode(hasTestTag("git-change-row-$path"))
     }
 }
