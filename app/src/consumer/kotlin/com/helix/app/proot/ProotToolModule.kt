@@ -1,6 +1,7 @@
 package com.helix.app.proot
 
 import android.content.Context
+import com.helix.app.application.runtime.ProotInstallationStatus
 import com.helix.app.readiness.RuntimeReadiness
 import com.helix.core.model.SafetyProfile
 import com.helix.core.storage.HelixStorage
@@ -91,9 +92,10 @@ internal object ProotToolModule {
     fun verifyNow(nowEpochMs: Long = System.currentTimeMillis()): Nothing =
         error("ProotToolModule is not available in the consumer build (ADR-0005/0013)")
 
-    fun openEnvironmentNote(): ProotEntryNote? = error("Linux environment is unavailable in this distribution")
+    @Suppress("FunctionOnlyReturningConstant") // Channel contract: Linux maintenance is unavailable.
+    fun openEnvironment(): Boolean = false
 
-    fun installationStatusResource(): Int = error("Linux environment is unavailable in this distribution")
+    fun installationStatus(): ProotInstallationStatus = ProotInstallationStatus.NOT_AVAILABLE
 
     fun runtimeReadiness(): RuntimeReadiness = RuntimeReadiness.NOT_AVAILABLE
 

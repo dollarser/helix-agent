@@ -4,7 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.util.Log
 import com.helix.app.APP_SCOPE_ID
-import com.helix.app.R
+import com.helix.app.application.runtime.ProotInstallationStatus
 import com.helix.app.approval.SessionPermissionService
 import com.helix.app.readiness.RuntimeReadiness
 import com.helix.app.tool.SessionToolEffectClassifier
@@ -426,7 +426,7 @@ internal object ProotToolModule {
     /**
      * The flavor-neutral runtime readiness (HXA-205 readiness view): the LIVE [availabilityGate]
      * mapped to the flavor-neutral [RuntimeReadiness] enum. Bind-free, exactly like
-     * [installationStatusResource] — passive entry of the readiness view reads it without a cold bind.
+     * [installationStatus] — passive entry of the readiness view reads it without a cold bind.
      */
     fun runtimeReadiness(): RuntimeReadiness =
         when (availabilityGate()) {
@@ -440,13 +440,8 @@ internal object ProotToolModule {
     fun verifyNow(nowEpochMs: Long = System.currentTimeMillis()): ProotRuntimeAvailability =
         supervisor.verify(nowEpochMs)
 
-    fun openEnvironmentNote(): ProotEntryNote? =
-        when (openEnvironment()) {
-            RepairEntryResult.Opened -> null
-            is RepairEntryResult.Unavailable -> ProotEntryNote(appContext.getString(R.string.runtime_entry_failed))
-        }
-
-    fun openEnvironment(): RepairEntryResult = supervisor.openRepairActivity()
+    /** Opens the explicit maintenance surface; UI owns the localized failure message. */
+    fun openEnvironment(): Boolean = supervisor.openRepairActivity() == RepairEntryResult.Opened
 
     fun openLegalPage(): RepairEntryResult = supervisor.openLegalActivity()
 
@@ -457,17 +452,13 @@ internal object ProotToolModule {
     }
 
     /** Passive, current installation facts. No process is started by opening settings. */
-    fun installationStatusResource(): Int =
+    fun installationStatus(): ProotInstallationStatus =
         when (supervisor.installation().state) {
-            RuntimeInstallationState.NOT_PREPARED -> R.string.settings_proot_not_installed
-
-            RuntimeInstallationState.UPDATE_REQUIRED -> R.string.settings_proot_update_required
-
-            RuntimeInstallationState.DAMAGED,
-            RuntimeInstallationState.RESET_REQUIRED,
-            -> R.string.settings_proot_damaged
-
-            RuntimeInstallationState.PREPARED -> R.string.settings_proot_verified
+            RuntimeInstallationState.NOT_PREPARED -> ProotInstallationStatus.NOT_PREPARED
+            RuntimeInstallationState.UPDATE_REQUIRED -> ProotInstallationStatus.UPDATE_REQUIRED
+            RuntimeInstallationState.DAMAGED -> ProotInstallationStatus.DAMAGED
+            RuntimeInstallationState.RESET_REQUIRED -> ProotInstallationStatus.RESET_REQUIRED
+            RuntimeInstallationState.PREPARED -> ProotInstallationStatus.PREPARED
         }
 }
 

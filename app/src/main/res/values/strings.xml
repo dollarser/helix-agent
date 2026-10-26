@@ -2128,4 +2128,8 @@
     <string name="knowledge_knowledge_candidate">Knowledge candidate</string>
     <string name="knowledge_knowledge_candidate_scope">Saving creates separate, unreviewed knowledge and keeps the original note and source snapshots. No model is called.</string>
     <string name="knowledge_related_questions">Source Q&amp;A records</string>
+    <string name="settings_proot_verified">已准备</string>
+    <string name="settings_proot_not_installed">首次使用时自动准备</string>
+    <string name="settings_proot_update_required">需要更新</string>
+    <string name="settings_proot_damaged">安装异常，需要修复</string>
 </resources>

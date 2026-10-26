@@ -20,7 +20,7 @@ class RuntimeSetupDeviceTest {
         compose.navigateTo("setup/runtime")
         compose.onNodeWithTag("runtime-availability-notice").assertIsDisplayed()
         compose.onNodeWithTag("settings-proot-manage").assertDoesNotExist()
-        if (compose.activity.packageName.endsWith(".developer")) {
+        if (com.helix.app.proot.ProotToolModule.AVAILABLE) {
             compose.onNodeWithTag("runtime-enable-advanced").performClick()
             assertEquals(SafetyProfile.STANDARD, store.profile)
         } else {

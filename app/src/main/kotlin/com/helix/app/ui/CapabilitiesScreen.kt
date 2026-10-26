@@ -265,7 +265,7 @@ private fun buildCapabilityRows(
     val mcpCount = connector.list().sumOf { c -> c.endpoints.count { connector.enabled(it) } }
     val prootAvailable = ProotToolModule.AVAILABLE
     val prootStatus =
-        if (prootAvailable) ProotToolModule.installationStatusResource() else R.string.cap_status_unavailable
+        if (prootAvailable) ProotToolModule.installationStatus().labelRes() else R.string.cap_status_unavailable
     val prootGrant = if (prootAvailable) GrantState.GRANTED else GrantState.UNAVAILABLE
     val mcpGrant = if (mcpCount > 0) GrantState.GRANTED else GrantState.UNAVAILABLE
     return listOf(

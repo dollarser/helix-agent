@@ -47,7 +47,7 @@ class ProotUpdateLegalE2eDeviceTest : com.helix.app.test.ForegroundDeviceTestHos
         val original = supervisor.installation().manifest
         val marker = File(context.filesDir, "workspace-survives-maintenance").apply { writeText("keep") }
         try {
-            assertEquals(RepairEntryResult.Opened, ProotToolModule.openEnvironment())
+            assertTrue(ProotToolModule.openEnvironment())
             assertEquals(original, supervisor.installation().manifest)
             assertTrue(supervisor.installationReady())
             assertEquals("keep", marker.readText())

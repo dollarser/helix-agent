@@ -9,8 +9,6 @@
     <string name="allfiles_state_lost">系统状态：已失效</string>
     <string name="allfiles_state_unavailable">系统状态：此系统/版本不提供（API 低于 30）</string>
     <string name="allfiles_title">All files 访问</string>
-    <string name="settings_proot_verified">已准备</string>
-    <string name="settings_proot_not_installed">首次使用时自动准备</string>
     <string name="settings_proot_not_verified">需要准备或修复</string>
     <string name="settings_proot_disabled">被禁用/强制停止</string>
     <string name="proot_recovery_running">原作业仍在运行。</string>
@@ -19,6 +17,4 @@
     <string name="proot_recovery_ended">原作业已结束，未确认成功。</string>
     <string name="proot_recovery_stop_requested">已请求停止原作业，请重新查询状态。</string>
     <string name="proot_recovery_expired">原 Linux 任务的结果已过期。任务保持中断，不会自动重新执行。</string>
-    <string name="settings_proot_update_required">需要更新</string>
-    <string name="settings_proot_damaged">安装异常，需要修复</string>
 </resources>
