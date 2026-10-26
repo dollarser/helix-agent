@@ -29,8 +29,9 @@ class ReleaseSmokeTest {
 
     @Test fun offlineResourcesAreVisibleBeforeCloudConfiguration() {
         ui.click("应用导航", "App navigation")
-        ui.click("设置", "Settings")
-        ui.click("通用", "General")
+        ui.activate("设置", "Settings")
+        ui.activate("通用", "General")
+        ui.await("语音服务", "Speech services")
         ui.scrollTo("语音服务", "Speech services")
         ui.click("语音服务", "Speech services")
         ui.await("离线语音识别", "Offline speech recognition")
@@ -38,18 +39,16 @@ class ReleaseSmokeTest {
         ui.await("离线回复朗读", "Offline speech playback")
         ui.scrollTo("云端语音 · 主动启用", "Cloud voice · explicitly enabled")
         assertFalse("Cloud endpoint fields must stay hidden until enabled", ui.nodes().any { it.isEditable })
-        ui.click(
-            "使用配置的云端语音服务（关闭时使用现有离线语音）",
-            "Use configured cloud speech services (off uses existing offline speech)",
-        )
+        ui.click("在线语音", "Online speech")
         ui.scrollTo("ASR 转写完整地址", "Full ASR transcription URL")
         ui.await("ASR 转写完整地址", "Full ASR transcription URL")
     }
 
     @Test fun settingsAndAboutShowInstalledVersion() {
         ui.click("应用导航", "App navigation")
-        ui.click("设置", "Settings")
-        ui.click("通用", "General")
+        ui.activate("设置", "Settings")
+        ui.activate("通用", "General")
+        ui.await("语音服务", "Speech services")
         ui.scrollTo("关于 Helix", "About Helix")
         ui.await("关于 Helix", "About Helix")
         val info = ui.context.packageManager.getPackageInfo(ui.context.packageName, 0)
