@@ -8,8 +8,15 @@
     <string name="knowledge_save_before_manage">Save changes before exporting or deleting.</string>
     <string name="knowledge_management_failed">Operation incomplete; some data may have changed. Reload and check the result.</string>
     <string name="knowledge_deleting">Deleting; cleanup resumes after interruption</string>
-    <string name="knowledge_agent_access">Allow Agent library search (off by default). Returned snippets are sent to the current conversation model; each tool request returns bounded excerpts without automatic whole-library prompt injection.</string>
+    <string name="knowledge_agent_access">Allow the Agent to search the library. Relevant excerpts are sent to the conversation model; the entire library is not sent automatically.</string>
     <string name="knowledge_references_changed">A reference source changed or was removed. This note retains its frozen evidence.</string>
     <string name="knowledge_refresh_references">Refresh references</string>
     <string name="knowledge_refresh_references_warning">Replace frozen references with current sources. Keep the body, mark it draft and discard generated suggestions. Missing or processing sources block this action.</string>
+    <string name="knowledge_restore_library">Restore existing library</string>
+    <string name="knowledge_restore_description">Select the old library folder. Import into the current shared library; the original stays unchanged and is not synced.</string>
+    <string name="knowledge_restore_select">Select old library folder</string>
+    <string name="knowledge_restore_busy">Restoring…</string>
+    <string name="knowledge_restore_complete">Library restored.</string>
+    <string name="knowledge_restore_access_failed">Cannot access the folder. Select it again.</string>
+    <string name="knowledge_restore_failed">Restore incomplete. Check the folder, attachments or conflicting content, then retry. Restored items are kept.</string>
 </resources>

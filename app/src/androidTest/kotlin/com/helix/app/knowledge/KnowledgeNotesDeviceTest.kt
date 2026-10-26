@@ -48,7 +48,12 @@ class KnowledgeNotesDeviceTest {
                     "Original reply",
                     emptyList(),
                 )
-            library.noteService.save(id, "Edited title", "User edited body", false)
+            library.noteService.save(
+                requireNotNull(library.noteService.get(id)),
+                "Edited title",
+                "User edited body",
+                false,
+            )
             val repeated =
                 library.noteService.saveReply(
                     "session",
@@ -72,10 +77,20 @@ class KnowledgeNotesDeviceTest {
     fun selectedVersionRequiresExplicitKeepAndDeletionCannotBeBypassed() =
         fixture { library, store ->
             val id = createStoredTestNote(store, emptyList(), "Synthetic note")
-            library.noteService.save(id, "Synthetic note", "Original text", false)
+            library.noteService.save(
+                requireNotNull(library.noteService.get(id)),
+                "Synthetic note",
+                "Original text",
+                false,
+            )
             val snapshot = library.references.select("NOTE", id, "FULL")
             assertTrue(library.references.valid(listOf(snapshot)))
-            library.noteService.save(id, "Synthetic note", "Updated text", true)
+            library.noteService.save(
+                requireNotNull(library.noteService.get(id)),
+                "Synthetic note",
+                "Updated text",
+                true,
+            )
             assertEquals(KnowledgeReferenceService.State.CHANGED, library.references.state(snapshot))
             assertFalse(library.references.valid(listOf(snapshot)))
             assertTrue(library.references.valid(listOf(snapshot.copy(keepVersion = true))))
@@ -90,7 +105,12 @@ class KnowledgeNotesDeviceTest {
         fixture { library, store ->
             val ids = collectSources(library)
             val id = createStoredTestNote(store, ids, "Source note")
-            library.noteService.save(id, "Source note", "User authored observations", true)
+            library.noteService.save(
+                requireNotNull(library.noteService.get(id)),
+                "Source note",
+                "User authored observations",
+                true,
+            )
             val original = requireNotNull(store.note(id))
             val knowledgeId = library.noteService.createKnowledge(original, "Conclusion", "Edited conclusion")
             val knowledge = requireNotNull(store.note(knowledgeId))
@@ -112,7 +132,7 @@ class KnowledgeNotesDeviceTest {
             val originalSources = store.noteSources(id).map { it.sourceId }
             val knowledgeSources = store.noteSources(knowledgeId).map { it.sourceId }
             assertEquals(originalSources, knowledgeSources)
-            library.noteService.save(id, "Changed", "Later text", false)
+            library.noteService.save(requireNotNull(library.noteService.get(id)), "Changed", "Later text", false)
             assertEquals(knowledge, store.note(knowledgeId))
             assertEquals("Edited conclusion", library.references.select("KNOWLEDGE", knowledgeId, "FULL").text)
         }
@@ -182,7 +202,7 @@ class KnowledgeNotesDeviceTest {
         fixture { library, store ->
             val id = createStoredTestNote(store, collectSources(library), "Before")
             val old = requireNotNull(store.note(id))
-            library.noteService.save(id, "After", "Keep edits", false)
+            library.noteService.save(requireNotNull(library.noteService.get(id)), "After", "Keep edits", false)
             var refused = false
             try {
                 library.noteService.management.remove(old)
@@ -198,7 +218,7 @@ class KnowledgeNotesDeviceTest {
         fixture { library, store ->
             val ids = collectSources(library)
             val id = createStoredTestNote(store, ids, "References")
-            library.noteService.save(id, "References", "User body", true)
+            library.noteService.save(requireNotNull(library.noteService.get(id)), "References", "User body", true)
             val frozen = store.noteSources(id)
             val source = requireNotNull(store.get(ids.first()))
             store.save(source.copy(extracted = "Updated evidence"))
@@ -229,7 +249,12 @@ class KnowledgeNotesDeviceTest {
             val a = createStoredTestNote(store, ids, "合成知识")
             val b = createStoredTestNote(store, listOf(ids.first()), "另一笔记")
             val manual = createStoredTestNote(store, emptyList(), "手写笔记")
-            library.noteService.save(manual, "手写笔记", "Independent authored knowledge", true)
+            library.noteService.save(
+                requireNotNull(library.noteService.get(manual)),
+                "手写笔记",
+                "Independent authored knowledge",
+                true,
+            )
             assertEquals(2, store.noteSources(a).size)
             assertEquals(1, store.noteSources(b).size)
             assertTrue(store.noteSources(manual).isEmpty())
@@ -256,7 +281,12 @@ class KnowledgeNotesDeviceTest {
         fixture { library, store ->
             val ids = collectSources(library)
             val id = createStoredTestNote(store, ids, "Stable knowledge")
-            library.noteService.save(id, "Stable knowledge", "Owner edited note", true)
+            library.noteService.save(
+                requireNotNull(library.noteService.get(id)),
+                "Stable knowledge",
+                "Owner edited note",
+                true,
+            )
             val sources = store.noteSources(id)
             val original = requireNotNull(store.get(ids.first()))
             store.save(original.copy(extracted = "Newly extracted page", summary = "New source note"))
@@ -307,16 +337,14 @@ class KnowledgeNotesDeviceTest {
         runBlocking {
             val context = InstrumentationRegistry.getInstrumentation().targetContext
             val name = "knowledge-notes-${UUID.randomUUID()}.db"
-            val root = File(context.cacheDir, name)
             val store = KnowledgeStore(context, name)
-            val service = KnowledgeService(context, store = store, root = root)
+            val service = KnowledgeService(context, store = store)
             service.recovery.join()
             try {
                 block(service, store)
             } finally {
                 service.close()
-                context.deleteDatabase(name)
-                root.deleteRecursively()
+                clearKnowledgeDocuments(context, name)
             }
         }
 }

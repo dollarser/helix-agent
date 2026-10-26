@@ -8,8 +8,15 @@
     <string name="knowledge_save_before_manage">请先保存修改，再导出或删除。</string>
     <string name="knowledge_management_failed">操作未完成；可能有数据已变更。请刷新后检查，勿假定全部成功。</string>
     <string name="knowledge_deleting">正在删除；中断后继续清理</string>
-    <string name="knowledge_agent_access">允许 Agent 检索知识库（默认关闭）。返回的片段会发送给当前会话模型；按工具请求返回有界片段，不自动将全库注入提示词。</string>
+    <string name="knowledge_agent_access">Allow the Agent to search the library. Relevant excerpts are sent to the conversation model; the entire library is not sent automatically.</string>
     <string name="knowledge_references_changed">引用来源已更新或删除。当前笔记仍保留旧引用快照，不会自动改写。</string>
     <string name="knowledge_refresh_references">更新引用快照</string>
     <string name="knowledge_refresh_references_warning">使用当前来源替换固定引用；正文保留，笔记改为待审阅，未审阅的生成建议清除。缺失或正在处理的来源会阻止更新。</string>
+    <string name="knowledge_restore_library">恢复已有知识库</string>
+    <string name="knowledge_restore_description">选择旧库的 library 目录。内容将导入当前共享库，原目录不变，不自动同步。</string>
+    <string name="knowledge_restore_select">选择旧库目录</string>
+    <string name="knowledge_restore_busy">正在恢复…</string>
+    <string name="knowledge_restore_complete">知识库已恢复。</string>
+    <string name="knowledge_restore_access_failed">无法访问目录，请重新选择。</string>
+    <string name="knowledge_restore_failed">未完成恢复。请检查目录、附件或内容冲突后重试；已恢复的内容会保留。</string>
 </resources>

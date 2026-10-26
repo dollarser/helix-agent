@@ -3,7 +3,6 @@ package com.helix.app.knowledge
 import androidx.room.testing.MigrationTestHelper
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.core.storage.HelixStorage
-import com.helix.core.storage.knowledge.KnowledgeDatabase
 import com.helix.core.storage.knowledge.KnowledgeStore
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -17,12 +16,6 @@ class KnowledgeBaselineDeviceTest {
         MigrationTestHelper(
             InstrumentationRegistry.getInstrumentation(),
             com.helix.core.storage.HelixDatabase::class.java,
-        )
-
-    @get:Rule val library =
-        MigrationTestHelper(
-            InstrumentationRegistry.getInstrumentation(),
-            KnowledgeDatabase::class.java,
         )
 
     @Test fun currentMainBaselineReopensConversationRecords() =
@@ -72,30 +65,29 @@ class KnowledgeBaselineDeviceTest {
             }
         }
 
-    @Test fun currentLibraryBaselineReopensNotesWithoutChangingTheirKind() =
+    @Test fun currentLibraryDocumentsReopenWithoutRoom() =
         runBlocking {
             val context = InstrumentationRegistry.getInstrumentation().targetContext
-            val name = "knowledge-library-migration-${UUID.randomUUID()}.db"
+            val name = "knowledge-baseline-${UUID.randomUUID()}"
             try {
-                library.createDatabase(name, 1).use {
-                    it.execSQL(
-                        "INSERT INTO knowledge_notes(id,title,body,createdAt,updatedAt,state,generatedDraft," +
-                            "generationState,generationTarget) VALUES " +
-                            "('retained','Synthetic','Original Markdown',1,2,'REVIEWED','','IDLE','')",
-                    )
-                }
                 val store = KnowledgeStore(context, name)
-                try {
-                    val note = requireNotNull(store.note("retained"))
-                    assertEquals("Original Markdown", note.body)
-                    assertEquals("REVIEWED", note.state)
-                    assertEquals("NOTE", note.kind)
-                    assertEquals("[]", note.originReferencesJson)
-                } finally {
-                    store.close()
-                }
+                store.saveNote(
+                    com.helix.core.storage.knowledge.KnowledgeNote(
+                        "retained",
+                        "Synthetic",
+                        "Original Markdown",
+                        1,
+                        2,
+                        state = "REVIEWED",
+                    ),
+                )
+                val note = requireNotNull(KnowledgeStore(context, name).note("retained"))
+                assertEquals("Original Markdown", note.body)
+                assertEquals("REVIEWED", note.state)
+                assertEquals("NOTE", note.kind)
+                check(!context.getDatabasePath(name).exists())
             } finally {
-                context.deleteDatabase(name)
+                clearKnowledgeDocuments(context, name)
             }
         }
 }

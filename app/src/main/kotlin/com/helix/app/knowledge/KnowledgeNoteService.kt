@@ -17,8 +17,9 @@ import java.util.UUID
 @Suppress("TooManyFunctions") // One mutation/recovery owner for notes and explicit knowledge creation.
 class KnowledgeNoteService(
     private val store: KnowledgeStore,
+    onStorageFailure: () -> Unit = {},
 ) {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO + knowledgeStorageFailure(onStorageFailure))
     private val mutation = Mutex()
     val notes = store.notes
     val recovery =
@@ -171,14 +172,15 @@ class KnowledgeNoteService(
         }
 
     suspend fun save(
-        id: String,
+        expected: KnowledgeNote,
         title: String,
         body: String,
         reviewed: Boolean,
     ) = withContext(Dispatchers.IO) {
         require(title.isNotBlank() && title.length <= 160 && body.length <= MAX_KNOWLEDGE_TEXT)
         mutation.withLock {
-            val current = requireNotNull(store.note(id))
+            val current = requireNotNull(store.note(expected.id))
+            check(current.documentHash == expected.documentHash) { "Document changed; reload before saving" }
             check(current.generationState != "RUNNING")
             store.saveNote(
                 current.copy(

@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "ae25b9881f52263e2b525c0f583650a1",
+    "identityHash": "ad46ad77c51d768776e194a07115bc76",
     "entities": [
       {
         "tableName": "projects",
@@ -2081,7 +2081,7 @@
       },
       {
         "tableName": "plans",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `objective` TEXT NOT NULL, `assumptionsJson` TEXT NOT NULL, `acceptanceCriteriaJson` TEXT NOT NULL, `risksJson` TEXT NOT NULL, `version` INTEGER NOT NULL, `hash` TEXT NOT NULL, `state` TEXT NOT NULL, `evidenceRef` TEXT, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `objective` TEXT NOT NULL, `version` INTEGER NOT NULL, `hash` TEXT NOT NULL, `state` TEXT NOT NULL, `evidenceRef` TEXT, `approvedSnapshot` TEXT, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -2092,24 +2092,6 @@
           {
             "fieldPath": "objective",
             "columnName": "objective",
-            "affinity": "TEXT",
-            "notNull": true
-          },
-          {
-            "fieldPath": "assumptionsJson",
-            "columnName": "assumptionsJson",
-            "affinity": "TEXT",
-            "notNull": true
-          },
-          {
-            "fieldPath": "acceptanceCriteriaJson",
-            "columnName": "acceptanceCriteriaJson",
-            "affinity": "TEXT",
-            "notNull": true
-          },
-          {
-            "fieldPath": "risksJson",
-            "columnName": "risksJson",
             "affinity": "TEXT",
             "notNull": true
           },
@@ -2135,6 +2117,11 @@
             "fieldPath": "evidenceRef",
             "columnName": "evidenceRef",
             "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "approvedSnapshot",
+            "columnName": "approvedSnapshot",
+            "affinity": "TEXT"
           }
         ],
         "primaryKey": {
@@ -2143,73 +2130,6 @@
             "id"
           ]
         }
-      },
-      {
-        "tableName": "plan_steps",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`rowId` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `planId` TEXT NOT NULL, `sequence` INTEGER NOT NULL, `title` TEXT NOT NULL, `description` TEXT NOT NULL, FOREIGN KEY(`planId`) REFERENCES `plans`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
-        "fields": [
-          {
-            "fieldPath": "rowId",
-            "columnName": "rowId",
-            "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
-            "fieldPath": "planId",
-            "columnName": "planId",
-            "affinity": "TEXT",
-            "notNull": true
-          },
-          {
-            "fieldPath": "sequence",
-            "columnName": "sequence",
-            "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
-            "fieldPath": "title",
-            "columnName": "title",
-            "affinity": "TEXT",
-            "notNull": true
-          },
-          {
-            "fieldPath": "description",
-            "columnName": "description",
-            "affinity": "TEXT",
-            "notNull": true
-          }
-        ],
-        "primaryKey": {
-          "autoGenerate": true,
-          "columnNames": [
-            "rowId"
-          ]
-        },
-        "indices": [
-          {
-            "name": "index_plan_steps_planId_sequence",
-            "unique": true,
-            "columnNames": [
-              "planId",
-              "sequence"
-            ],
-            "orders": [],
-            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_plan_steps_planId_sequence` ON `${TABLE_NAME}` (`planId`, `sequence`)"
-          }
-        ],
-        "foreignKeys": [
-          {
-            "table": "plans",
-            "onDelete": "CASCADE",
-            "onUpdate": "NO ACTION",
-            "columns": [
-              "planId"
-            ],
-            "referencedColumns": [
-              "id"
-            ]
-          }
-        ]
       },
       {
         "tableName": "goals",
@@ -4357,7 +4277,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'ae25b9881f52263e2b525c0f583650a1')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'ad46ad77c51d768776e194a07115bc76')"
     ]
   }
 }

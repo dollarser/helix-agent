@@ -2132,4 +2132,6 @@
     <string name="settings_proot_not_installed">Prepared automatically on first use</string>
     <string name="settings_proot_update_required">Update required</string>
     <string name="settings_proot_damaged">Installation needs repair</string>
+    <string name="knowledge_storage_unavailable">Shared documents are temporarily unavailable. Try again later. Unsaved edits have not been saved.</string>
+    <string name="knowledge_storage_retry">Retry</string>
 </resources>

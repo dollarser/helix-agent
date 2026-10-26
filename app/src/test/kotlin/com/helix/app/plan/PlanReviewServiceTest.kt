@@ -42,9 +42,6 @@ class PlanReviewServiceTest {
         PlanEntity(
             id = planId,
             objective = artifact.objective,
-            assumptionsJson = "[]",
-            acceptanceCriteriaJson = artifact.acceptanceCriteria.map { "\"$it\"" }.joinToString(",", "[", "]"),
-            risksJson = "[]",
             version = artifact.version,
             hash = artifact.sha256().hex,
             state = state.name,

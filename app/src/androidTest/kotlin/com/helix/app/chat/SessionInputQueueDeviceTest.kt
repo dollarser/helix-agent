@@ -98,7 +98,12 @@ class SessionInputQueueDeviceTest {
                 val library = (compose.activity.application as com.helix.app.HelixApplication).knowledge
                 val id = library.noteService.createEmptyTestNote("Synthetic composer reference")
                 try {
-                    library.noteService.save(id, "Synthetic composer reference", "Selected synthetic text", false)
+                    library.noteService.save(
+                        requireNotNull(library.noteService.get(id)),
+                        "Synthetic composer reference",
+                        "Selected synthetic text",
+                        false,
+                    )
                     compose.waitUntil(10_000) {
                         compose
                             .onAllNodes(hasTestTag("chat-input") and isEnabled())
@@ -156,13 +161,23 @@ class SessionInputQueueDeviceTest {
                 val library = (compose.activity.application as com.helix.app.HelixApplication).knowledge
                 val id = library.noteService.createEmptyTestNote("Synthetic handoff")
                 try {
-                    library.noteService.save(id, "Synthetic handoff", "First selected version", false)
+                    library.noteService.save(
+                        requireNotNull(library.noteService.get(id)),
+                        "Synthetic handoff",
+                        "First selected version",
+                        false,
+                    )
                     val first = library.references.select("NOTE", id, "FULL")
                     val draft = submission(session, "Keep my unsent question")
                     assertTrue(storage.composerDrafts.save(draft.toInputSnapshot()))
                     assertFalse(chat.stageKnowledgeReferences("different-session", listOf(first)).await())
                     assertTrue(chat.stageKnowledgeReferences(session, listOf(first)).await())
-                    library.noteService.save(id, "Synthetic handoff", "Explicitly selected new version", false)
+                    library.noteService.save(
+                        requireNotNull(library.noteService.get(id)),
+                        "Synthetic handoff",
+                        "Explicitly selected new version",
+                        false,
+                    )
                     val replacement = library.references.select("NOTE", id, "FULL")
                     assertTrue(chat.stageKnowledgeReferences(session, listOf(replacement)).await())
                     val saved = requireNotNull(storage.composerDrafts.get(session)).toSubmission()
@@ -183,12 +198,22 @@ class SessionInputQueueDeviceTest {
                 val library = (compose.activity.application as com.helix.app.HelixApplication).knowledge
                 val id = library.noteService.createEmptyTestNote("Synthetic confirmation")
                 try {
-                    library.noteService.save(id, "Synthetic confirmation", "Original selected text", false)
+                    library.noteService.save(
+                        requireNotNull(library.noteService.get(id)),
+                        "Synthetic confirmation",
+                        "Original selected text",
+                        false,
+                    )
                     val reference = library.references.select("NOTE", id, "FULL")
                     val input = submission(session, "Question").copy(knowledgeReferences = listOf(reference))
                     val pending = chat.sendSubmission(input).await()
                     assertTrue(pending.outcome is ChatSubmissionOutcome.PendingConfirmation)
-                    library.noteService.save(id, "Synthetic confirmation", "Changed before confirming", false)
+                    library.noteService.save(
+                        requireNotNull(library.noteService.get(id)),
+                        "Synthetic confirmation",
+                        "Changed before confirming",
+                        false,
+                    )
                     assertTrue(chat.confirmSubmission(input).await().outcome is ChatSubmissionOutcome.Rejected)
                     assertEquals(0, requests.get())
                     assertTrue(
@@ -211,7 +236,12 @@ class SessionInputQueueDeviceTest {
                 val library = (compose.activity.application as com.helix.app.HelixApplication).knowledge
                 val noteId = library.noteService.createEmptyTestNote("Synthetic selected note")
                 try {
-                    library.noteService.save(noteId, "Synthetic selected note", "FrozenSelectedEvidence", false)
+                    library.noteService.save(
+                        requireNotNull(library.noteService.get(noteId)),
+                        "Synthetic selected note",
+                        "FrozenSelectedEvidence",
+                        false,
+                    )
                     val reference = library.references.select("NOTE", noteId, "FULL")
                     compose.awaitAdmittedTurn(chat.sendSubmission(submission(session, "first")).await())
                     assertTrue(entered.await(10, TimeUnit.SECONDS))
@@ -222,7 +252,12 @@ class SessionInputQueueDeviceTest {
                     assertTrue(held.outcome is ChatSubmissionOutcome.PendingConfirmation)
                     assertEquals(1, requests.get())
                     assertTrue(chat.confirmSubmission(input).await().outcome is ChatSubmissionOutcome.Enqueued)
-                    library.noteService.save(noteId, "Synthetic selected note", "LaterChangedEvidence", true)
+                    library.noteService.save(
+                        requireNotNull(library.noteService.get(noteId)),
+                        "Synthetic selected note",
+                        "LaterChangedEvidence",
+                        true,
+                    )
                     release.countDown()
                     compose.waitUntil(20_000) { requests.get() == 2 && !chat.screen.value.isSending }
                     val storage = compose.container().storage

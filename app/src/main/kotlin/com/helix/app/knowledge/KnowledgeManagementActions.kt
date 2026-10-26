@@ -47,6 +47,7 @@ internal fun KnowledgeImportAction(
     onKnowledge: () -> Unit,
     onSelectSources: () -> Unit,
 ) {
+    val restore = knowledgeRestoreAction(service)
     val picker =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
             if (uris.isNotEmpty()) {
@@ -92,6 +93,10 @@ internal fun KnowledgeImportAction(
                 KnowledgeMenuAction(R.string.knowledge_library_settings, "knowledge-library-settings") {
                     menu = false
                     details = true
+                }
+                KnowledgeMenuAction(R.string.knowledge_restore_library, "knowledge-restore-library") {
+                    menu = false
+                    restore()
                 }
             }
         }

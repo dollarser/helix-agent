@@ -5,7 +5,7 @@
     <string name="knowledge_save_summary">在本机保存摘要</string>
     <string name="knowledge_nav_description">收集资料、检索与引用</string>
     <string name="nav_knowledge">知识库</string>
-    <string name="knowledge_empty">通过系统分享将文字、链接、图片或文件发送到 Helix，即可在此收集。微信内部转发菜单可能没有系统分享入口，可复制文字/链接或保存文件后分享。</string>
+    <string name="knowledge_empty">添加笔记，或通过系统分享收集文字、链接、图片和文件。</string>
     <string name="knowledge_privacy">保存在本机，不自动上传模型。公开链接可能在不登录的情况下抓取；只有主动选中的引用才进入聊天。</string>
     <string name="knowledge_search">搜索知识库</string>
     <string name="knowledge_capture_failed">收集失败：分享内容无效、权限失效或存储不可用。请重新分享。</string>
@@ -14,7 +14,7 @@
     <string name="knowledge_processing">正在保存 / 提取…</string>
     <string name="knowledge_failed">提取失败 · 已保留原件</string>
     <string name="knowledge_incomplete">内容不完整 · 已保留原件</string>
-    <string name="knowledge_limits">提取可能不完整：图片及不支持的文件尚无 OCR；网页可能需要登录、仅有标题或无法访问。公开网页正文未经完整性核验，不尝试绕过登录。</string>
+    <string name="knowledge_limits">图片、扫描件和需登录的网页可能无法提取完整文字，可在会话中使用视觉模型核对。</string>
     <string name="knowledge_reshare">收集被中断或文件超限（最多 8 个文件，每个 16 MiB）。已接收的原件仍保留；请重新分享以补齐缺失文件。</string>
     <string name="knowledge_original">原始分享文字 / 文件</string>
     <string name="knowledge_extracted">提取文字（不可信参考资料）</string>
@@ -22,5 +22,11 @@
     <string name="knowledge_reference">将选中资料引用加入聊天草稿</string>
     <string name="knowledge_no_viewer">没有可打开此原件的应用。</string>
     <string name="knowledge_share_target">收集到 Helix</string>
-    <string name="knowledge_visual_reading_hint">图片和扫描件可交给当前视觉模型识别：在会话中附加原图，或使用文档查看工具逐页查看扫描 PDF。不会自动上传或把识别结果当作已审核知识；请核对后保存。</string>
+    <string name="knowledge_visual_reading_hint">在会话中添加图片，或用文档工具查看扫描 PDF，即可让视觉模型识别。核对后再保存为知识。</string>
+    <string name="knowledge_pending_title">未完成的保存</string>
+    <string name="knowledge_pending_message">原文件已保留。将未保存的文字另存为笔记？</string>
+    <string name="knowledge_pending_recover">另存文字为笔记</string>
+    <string name="knowledge_pending_close">暂不处理</string>
+    <string name="knowledge_note_save_failed">暂时无法确认保存结果，或文件已发生变化。编辑内容仍在，请重新打开资料核对后再操作。</string>
+    <string name="knowledge_original_unavailable">资料无法打开，请重新打开或导入文件。</string>
 </resources>

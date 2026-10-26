@@ -77,7 +77,6 @@ class KnowledgeQuestionUiDeviceTest {
             service.recovery.join()
             val source = CollectedSource("source", "Synthetic", 1, "fixture", "", "Harbor budget 137", state = "READY")
             store.insert(source)
-            store.save(source)
         }
         compose.setContent {
             if (visible.value) MaterialTheme { KnowledgeQuestionHistory(service, {}, { opened.set(it) }) }
@@ -88,8 +87,8 @@ class KnowledgeQuestionUiDeviceTest {
             compose.runOnIdle { visible.value = false }
             compose.waitForIdle()
             service.close()
-            store.close()
-            context.deleteDatabase(name)
+
+            clearKnowledgeDocuments(context, name)
         }
     }
 }

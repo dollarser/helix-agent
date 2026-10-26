@@ -1,23 +1,21 @@
 package com.helix.core.storage.knowledge
 
 import android.content.Context
-import androidx.room.Dao
-import androidx.room.Database
-import androidx.room.Entity
-import androidx.room.Fts4
-import androidx.room.Insert
-import androidx.room.PrimaryKey
-import androidx.room.Query
-import androidx.room.Room
-import androidx.room.RoomDatabase
-import androidx.room.Update
-import androidx.room.withTransaction
-import kotlinx.coroutines.flow.Flow
+import com.helix.core.storage.content.DocumentDraftRecovery
+import com.helix.core.storage.content.DocumentStorage
+import com.helix.core.storage.content.MediaStoreDocuments
+import com.helix.core.storage.content.PrivateDocumentStorage
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import java.nio.ByteBuffer
 
-/** Independent, additive library storage; opening it never resets or migrates conversation data. */
-@Entity(tableName = "knowledge")
 data class CollectedSource(
-    @PrimaryKey val id: String,
+    val id: String,
     val title: String,
     val receivedAt: Long,
     val source: String,
@@ -29,179 +27,249 @@ data class CollectedSource(
     val summary: String = "",
     val detail: String = "",
     val fingerprint: String = "",
+    val documentHash: String = "",
 )
 
-@Fts4
-@Entity(tableName = "knowledge_fts")
-data class KnowledgeSearch(
-    val id: String,
-    val text: String,
-)
-
-@Dao
-@Suppress("TooManyFunctions") // Cohesive persistence port for the independent collection.
-interface KnowledgeDao {
-    @Query("SELECT * FROM knowledge ORDER BY receivedAt DESC")
-    fun observe(): Flow<List<CollectedSource>>
-
-    @Query("SELECT * FROM knowledge WHERE id = :id")
-    suspend fun get(id: String): CollectedSource?
-
-    @Query("SELECT * FROM knowledge WHERE fingerprint = :fingerprint AND fingerprint != '' LIMIT 1")
-    suspend fun duplicate(fingerprint: String): CollectedSource?
-
-    @Query("SELECT * FROM knowledge WHERE state IN ('IMPORTING', 'EXTRACTING', 'QUEUED', 'DELETING')")
-    suspend fun unfinished(): List<CollectedSource>
-
-    @Insert
-    suspend fun insert(item: CollectedSource)
-
-    @Update
-    suspend fun update(item: CollectedSource)
-
-    @Query("DELETE FROM knowledge WHERE id = :id")
-    suspend fun delete(id: String)
-
-    @Query("DELETE FROM knowledge_fts WHERE id = :id")
-    suspend fun clearIndex(id: String)
-
-    @Insert
-    suspend fun index(item: KnowledgeSearch)
-
-    @Query(
-        "SELECT knowledge.* FROM knowledge JOIN knowledge_fts ON knowledge.id = knowledge_fts.id " +
-            "WHERE knowledge_fts MATCH :query ORDER BY receivedAt DESC",
-    )
-    suspend fun search(query: String): List<CollectedSource>
-
-    @Query(
-        "SELECT * FROM knowledge WHERE " +
-            "instr(lower(title || rawText || sourceUrl || extracted || summary || filesJson), lower(:query)) > 0 " +
-            "ORDER BY receivedAt DESC",
-    )
-    suspend fun substring(query: String): List<CollectedSource>
-
-    @Query(
-        "SELECT knowledge.* FROM knowledge JOIN knowledge_fts ON knowledge.id = knowledge_fts.id " +
-            "WHERE knowledge_fts MATCH :query ORDER BY receivedAt DESC LIMIT 80",
-    )
-    suspend fun candidates(query: String): List<CollectedSource>
-
-    @Query(
-        "SELECT * FROM knowledge WHERE instr(lower(title || rawText || extracted), lower(:query)) > 0 " +
-            "ORDER BY receivedAt DESC LIMIT 24",
-    )
-    suspend fun candidateSubstring(query: String): List<CollectedSource>
-}
-
-@Database(
-    entities = [
-        CollectedSource::class, KnowledgeSearch::class, KnowledgeNote::class,
-        KnowledgeNoteSource::class, KnowledgeNoteSearch::class, KnowledgeAnswer::class,
-    ],
-    version = 1,
-    exportSchema = true,
-)
-abstract class KnowledgeDatabase : RoomDatabase() {
-    abstract fun items(): KnowledgeDao
-
-    abstract fun notes(): KnowledgeNoteDao
-
-    abstract fun answers(): KnowledgeAnswerDao
-}
-
-@Suppress("TooManyFunctions") // One transactional boundary for library sources, notes and evidence links.
+/** Open documents are authoritative; observed flows/search can always be rebuilt. */
+@Suppress("TooManyFunctions")
 class KnowledgeStore(
-    context: Context,
-    name: String = "library.db",
+    val documents: DocumentStorage,
+    private val history: DocumentStorage,
 ) {
-    private val database =
-        Room
-            .databaseBuilder(
-                context.applicationContext,
-                KnowledgeDatabase::class.java,
-                name,
-            ).build()
-    private val dao = database.items()
-    private val noteDao = database.notes()
-    private val answerDao = database.answers()
-    val items = dao.observe()
-    val notes = noteDao.observe()
-    val answers = answerDao.observe()
+    constructor(context: Context, name: String = "library") : this(
+        MediaStoreDocuments(context, name),
+        PrivateDocumentStorage(java.io.File(context.filesDir, "agent-library-history/$name").toPath()),
+    )
 
-    suspend fun answer(id: String) = answerDao.get(id)
+    private val mutation = Mutex()
+    private val sourceState = MutableStateFlow(emptyList<CollectedSource>())
+    private val noteState = MutableStateFlow(emptyList<KnowledgeNote>())
+    private val answerState = MutableStateFlow(emptyList<KnowledgeAnswer>())
+    val items = sourceState.asStateFlow()
+    val notes = noteState.asStateFlow()
+    val answers = answerState.asStateFlow()
 
-    suspend fun saveAnswer(answer: KnowledgeAnswer) = answerDao.save(answer)
-
-    suspend fun recoverAnswers() = answerDao.recover()
-
-    suspend fun saveAnswerAsNote(
-        id: String,
-        sources: List<KnowledgeNoteSource>,
-    ): String =
-        database.withTransaction {
-            val answer = requireNotNull(answerDao.get(id))
-            check(answer.state == "READY")
-            if (answer.savedNoteId.isNotEmpty()) return@withTransaction answer.savedNoteId
-            val noteId =
-                java.util.UUID
-                    .randomUUID()
-                    .toString()
-            val now = System.currentTimeMillis()
-            saveNote(
-                KnowledgeNote(noteId, answer.question.take(160), answer.body, now, now),
-                sources.map {
-                    it.copy(noteId = noteId)
-                },
-            )
-            answerDao.save(answer.copy(savedNoteId = noteId))
-            noteId
+    suspend fun restoreLibrary(source: com.helix.core.storage.content.DocumentReadAccess): Int =
+        mutation.withLock {
+            val count = KnowledgeLibraryRestore(documents).restore(source)
+            sources()
+            noteRecords()
+            count
         }
 
-    suspend fun retrievalCandidates(terms: List<String>): List<CollectedSource> {
-        require(terms.isNotEmpty() && terms.size <= 24 && terms.all { it.isNotBlank() && it.length <= 200 })
-        val query = terms.joinToString(" OR ") { "\"${it.replace("\"", "") }\"*" }
-        val candidates = dao.candidates(query).associateByTo(linkedMapOf()) { it.id }
-        for (term in terms) {
-            if (candidates.size >= 128) break
-            dao.candidateSubstring(term).forEach { source ->
-                if (candidates.size < 128) candidates.putIfAbsent(source.id, source)
+    data class PendingSave(
+        val token: String,
+        val title: String,
+        val body: String,
+        val hash: String,
+    )
+
+    private val pendingState = MutableStateFlow(emptyList<PendingSave>())
+    val pendingSaves = pendingState.asStateFlow()
+
+    private data class Record(
+        val file: DocumentStorage.File,
+        val document: KnowledgeDocumentCodec.Document,
+    )
+
+    private fun storage(kind: String) = if (kind in setOf("answers", "origins")) history else documents
+
+    private fun records(kind: String): List<Record> =
+        storage(kind)
+            .list(kind)
+            .map { file ->
+                val text =
+                    Charsets.UTF_8
+                        .newDecoder()
+                        .decode(ByteBuffer.wrap(file.bytes))
+                        .toString()
+                Record(file, KnowledgeDocumentCodec.decode(text))
+            }.also { entries ->
+                val ids =
+                    entries.map {
+                        it.document.metadata
+                            .getValue("id")
+                            .jsonPrimitive.content
+                    }
+                check(ids.distinct().size == ids.size) { "DOCUMENT_DUPLICATE_IDENTITY" }
             }
+
+    private fun sources(): List<CollectedSource> =
+        records("sources")
+            .map { KnowledgeDocumentCodec.source(it.document).copy(documentHash = it.file.hash) }
+            .sortedByDescending { it.receivedAt }
+            .also { sourceState.value = it }
+
+    private fun noteRecords(): List<Pair<Record, KnowledgeNote>> =
+        records("notes")
+            .map {
+                val note = KnowledgeDocumentCodec.note(it.document).copy(documentHash = it.file.hash)
+                val origin = find("origins", note.id)?.document?.metadata
+                it to
+                    note.copy(
+                        generatedDraft =
+                            origin
+                                ?.getValue("draft")
+                                ?.jsonPrimitive
+                                ?.content
+                                .orEmpty(),
+                        generationState = origin?.getValue("generationState")?.jsonPrimitive?.content ?: "IDLE",
+                        generationTarget =
+                            origin
+                                ?.getValue("generationTarget")
+                                ?.jsonPrimitive
+                                ?.content
+                                .orEmpty(),
+                        originReferencesJson = origin?.get("references")?.jsonPrimitive?.content ?: "[]",
+                        originSessionId =
+                            origin
+                                ?.get("session")
+                                ?.jsonPrimitive
+                                ?.content
+                                .orEmpty(),
+                        originMessageId =
+                            origin
+                                ?.get("message")
+                                ?.jsonPrimitive
+                                ?.content
+                                .orEmpty(),
+                        originContentHash =
+                            origin
+                                ?.get("contentHash")
+                                ?.jsonPrimitive
+                                ?.content
+                                .orEmpty(),
+                    )
+            }.sortedByDescending { it.second.updatedAt }
+            .also { entries -> noteState.value = entries.map { it.second } }
+
+    private fun answerRecords(): List<Pair<Record, KnowledgeAnswer>> =
+        records("answers")
+            .map { it to KnowledgeDocumentCodec.answer(it.document).copy(documentHash = it.file.hash) }
+            .sortedByDescending { it.second.createdAt }
+            .also { entries ->
+                answerState.value = entries.map { it.second }
+            }
+
+    suspend fun refresh() =
+        mutation.withLock {
+            sources()
+            noteRecords()
+            answerRecords()
+            pendingDocuments()
+            Unit
         }
-        return candidates.values.toList()
+
+    private fun pendingDocuments(): List<PendingSave> {
+        val recovery = documents as? DocumentDraftRecovery ?: return emptyList()
+        return recovery
+            .drafts()
+            .map { draft ->
+                val text =
+                    Charsets.UTF_8
+                        .newDecoder()
+                        .decode(ByteBuffer.wrap(draft.file.bytes))
+                        .toString()
+                val document = KnowledgeDocumentCodec.decode(text)
+                val title =
+                    document.metadata
+                        .getValue("title")
+                        .jsonPrimitive.content
+                PendingSave(draft.token, title, document.body, draft.file.hash)
+            }.also { pendingState.value = it }
     }
 
-    fun close() {
-        database.close()
-    }
+    suspend fun recoverSaveAsNote(token: String): String =
+        mutation.withLock {
+            val pending = pendingDocuments().single { it.token == token }
+            val id =
+                java.util.UUID
+                    .nameUUIDFromBytes("recovered-document:$token".toByteArray())
+                    .toString()
+            val current = noteRecords().singleOrNull { it.second.id == id }?.second
+            if (current == null) {
+                val now = System.currentTimeMillis()
+                saveNoteDocument(KnowledgeNote(id, pending.title, pending.body, now, now))
+            } else {
+                check(current.body == pending.body) { "Recovered note changed; retained" }
+            }
+            requireNotNull(documents as? DocumentDraftRecovery).completeDraft(token, pending.hash)
+            pendingDocuments()
+            id
+        }
 
-    suspend fun get(id: String) = dao.get(id)
+    suspend fun get(id: String) = mutation.withLock { sources().singleOrNull { it.id == id } }
 
-    suspend fun duplicate(fingerprint: String) = dao.duplicate(fingerprint)
+    suspend fun duplicate(fingerprint: String) =
+        mutation.withLock {
+            sources().firstOrNull { fingerprint.isNotEmpty() && it.fingerprint == fingerprint }
+        }
 
-    suspend fun unfinished() = dao.unfinished()
+    suspend fun unfinished() =
+        mutation.withLock {
+            sources().filter { it.state in setOf("IMPORTING", "EXTRACTING", "QUEUED", "DELETING") }
+        }
 
-    suspend fun insert(item: CollectedSource) = dao.insert(item)
+    suspend fun insert(item: CollectedSource) =
+        mutation.withLock {
+            check(sources().none { it.id == item.id })
+            put("sources", item.id, KnowledgeDocumentCodec.source(item), "")
+            sources().single { it.id == item.id }
+        }
 
-    suspend fun note(id: String) = noteDao.get(id)
+    suspend fun save(item: CollectedSource) =
+        mutation.withLock {
+            put("sources", item.id, KnowledgeDocumentCodec.source(item), item.documentHash)
+            sources().single { it.id == item.id }
+        }
 
-    suspend fun noteSources(id: String) = noteDao.sources(id)
+    suspend fun remove(id: String) =
+        mutation.withLock {
+            find("sources", id)?.let { documents.delete(it.file) }
+            sources()
+            Unit
+        }
 
-    suspend fun interruptedNotes() = noteDao.interrupted()
+    suspend fun note(id: String) = mutation.withLock { noteRecords().singleOrNull { it.second.id == id }?.second }
+
+    suspend fun noteSources(id: String) =
+        mutation.withLock {
+            noteRecords()
+                .singleOrNull { it.second.id == id }
+                ?.first
+                ?.let {
+                    KnowledgeDocumentCodec.sources(
+                        it.document,
+                    )
+                }.orEmpty()
+        }
+
+    suspend fun interruptedNotes() =
+        mutation.withLock {
+            noteRecords().map { it.second }.filter { it.generationState == "RUNNING" }
+        }
 
     suspend fun saveNote(
         note: KnowledgeNote,
         sources: List<KnowledgeNoteSource>? = null,
+    ) = mutation.withLock {
+        saveNoteDocument(note, sources)
+    }
+
+    private fun saveNoteDocument(
+        note: KnowledgeNote,
+        sources: List<KnowledgeNoteSource>? = null,
     ) {
-        database.withTransaction {
-            noteDao.save(note)
-            if (sources != null) {
-                noteDao.unlink(note.id)
-                noteDao.link(sources)
-            }
-            noteDao.clearIndex(note.id)
-            noteDao.index(KnowledgeNoteSearch(note.id, note.title + "\n" + note.body))
+        val current = find("notes", note.id)
+        check(current?.file?.hash.orEmpty() == note.documentHash) { "DOCUMENT_CONFLICT_RELOAD" }
+        val links = sources ?: current?.let { KnowledgeDocumentCodec.sources(it.document) }.orEmpty()
+        check(links.all { it.noteId == note.id } && links.distinctBy { it.sourceId }.size == links.size)
+        saveOrigin(note)
+        val markdown = KnowledgeDocumentCodec.note(note, links)
+        if (current == null || !current.file.bytes.contentEquals(markdown.toByteArray())) {
+            put("notes", note.id, markdown, note.documentHash)
         }
+        noteRecords()
     }
 
     suspend fun refreshNote(
@@ -210,72 +278,189 @@ class KnowledgeStore(
         currentSources: List<CollectedSource>,
         updated: KnowledgeNote,
         replacements: List<KnowledgeNoteSource>,
-    ) = database.withTransaction {
-        check(noteDao.get(expected.id) == expected && noteDao.sources(expected.id) == frozen)
-        check(currentSources.all { dao.get(it.id) == it }) { "Source changed during reference refresh" }
-        saveNote(updated, replacements)
+    ) = mutation.withLock {
+        val current = noteRecords().single { it.second.id == expected.id }
+        check(current.second == expected && KnowledgeDocumentCodec.sources(current.first.document) == frozen)
+        val observed = sources()
+        check(currentSources.all { it in observed }) { "Source changed during reference refresh" }
+        saveNoteDocument(updated, replacements)
     }
 
     suspend fun removeNote(expected: KnowledgeNote) =
-        database.withTransaction {
-            check(
-                noteDao.get(expected.id) == expected && expected.generationState != "RUNNING",
-            ) { "Note changed or generating" }
-            noteDao.clearIndex(expected.id)
-            noteDao.unlink(expected.id)
-            answerDao.detachNote(expected.id)
-            noteDao.delete(expected.id)
+        mutation.withLock {
+            val current = noteRecords().single { it.second.id == expected.id }
+            check(current.second == expected && expected.generationState != "RUNNING") { "Note changed or generating" }
+            answerRecords().map { it.second }.filter { it.savedNoteId == expected.id }.forEach {
+                put("answers", it.id, KnowledgeDocumentCodec.answer(it.copy(savedNoteId = "")), it.documentHash)
+            }
+            documents.delete(current.first.file)
+            noteRecords()
+            answerRecords()
+            Unit
         }
 
     suspend fun boundedNoteSearch(
         query: String,
         limit: Int = 16,
     ): List<KnowledgeNote> {
-        require(query.isNotBlank() && query.length <= 200 && limit in 1..16)
-        return noteDao.boundedSearch(query, limit)
+        require(limit in 1..16)
+        return searchNotes(query).take(limit)
     }
 
-    suspend fun searchNotes(query: String): List<KnowledgeNote> {
-        val tokens = Regex("[\\p{L}\\p{N}]+").findAll(query.take(200)).map { "\"${it.value}\"*" }.toList()
-        return if (tokens.isEmpty()) {
-            emptyList()
-        } else {
-            (
-                noteDao.search(tokens.joinToString(" AND ")) + noteDao.substring(query.take(200))
-            ).distinctBy { it.id }
+    suspend fun searchNotes(query: String) =
+        mutation.withLock {
+            val terms = terms(query)
+            noteRecords().map { it.second }.filter { matches(it.title + "\n" + it.body, terms) }
         }
-    }
 
-    suspend fun save(item: CollectedSource) {
-        database.withTransaction {
-            dao.update(item)
-            dao.clearIndex(item.id)
-            dao.index(
-                KnowledgeSearch(
-                    item.id,
-                    listOf(item.title, item.rawText, item.sourceUrl, item.extracted, item.summary, item.filesJson)
-                        .joinToString("\n"),
-                ),
+    suspend fun search(query: String) =
+        mutation.withLock {
+            val terms = terms(query)
+            sources().filter {
+                val text =
+                    listOf(
+                        it.title,
+                        it.rawText,
+                        it.sourceUrl,
+                        it.extracted,
+                        it.summary,
+                        it.filesJson,
+                    ).joinToString("\n")
+                matches(text, terms)
+            }
+        }
+
+    suspend fun retrievalCandidates(terms: List<String>) =
+        mutation.withLock {
+            require(terms.isNotEmpty() && terms.size <= 24 && terms.all { it.isNotBlank() && it.length <= 200 })
+            sources()
+                .filter { source ->
+                    terms.any { (source.title + source.rawText + source.extracted).contains(it, true) }
+                }.take(128)
+        }
+
+    suspend fun answer(id: String) = mutation.withLock { answerRecords().singleOrNull { it.second.id == id }?.second }
+
+    suspend fun saveAnswer(answer: KnowledgeAnswer) =
+        mutation.withLock {
+            put("answers", answer.id, KnowledgeDocumentCodec.answer(answer), answer.documentHash)
+            answerRecords()
+            Unit
+        }
+
+    suspend fun recoverAnswers() =
+        mutation.withLock {
+            answerRecords().map { it.second }.filter { it.state == "RUNNING" }.forEach { answer ->
+                put(
+                    "answers",
+                    answer.id,
+                    KnowledgeDocumentCodec.answer(answer.copy(state = "INTERRUPTED")),
+                    answer.documentHash,
+                )
+            }
+            answerRecords()
+            Unit
+        }
+
+    suspend fun saveAnswerAsNote(
+        id: String,
+        sources: List<KnowledgeNoteSource>,
+    ): String =
+        mutation.withLock {
+            var answer = answerRecords().single { it.second.id == id }.second
+            check(answer.state == "READY")
+            if (answer.savedNoteId.isNotEmpty() && noteRecords().any { it.second.id == answer.savedNoteId }) {
+                return@withLock answer.savedNoteId
+            }
+            val noteId =
+                answer.pendingNoteId.ifEmpty {
+                    java.util.UUID
+                        .randomUUID()
+                        .toString()
+                }
+            if (answer.pendingNoteId.isEmpty()) {
+                put(
+                    "answers",
+                    id,
+                    KnowledgeDocumentCodec.answer(answer.copy(pendingNoteId = noteId)),
+                    answer.documentHash,
+                )
+                answer = answerRecords().single { it.second.id == id }.second
+            }
+            if (noteRecords().none { it.second.id == noteId }) {
+                val now = System.currentTimeMillis()
+                saveNoteDocument(
+                    KnowledgeNote(noteId, answer.question.take(160), answer.body, now, now),
+                    sources.map { it.copy(noteId = noteId) },
+                )
+            } else {
+                check(noteRecords().single { it.second.id == noteId }.second.body == answer.body) {
+                    "Pending saved note changed; content retained"
+                }
+            }
+            put(
+                "answers",
+                id,
+                KnowledgeDocumentCodec.answer(answer.copy(savedNoteId = noteId, pendingNoteId = "")),
+                answer.documentHash,
             )
+            answerRecords()
+            noteId
         }
+
+    private fun find(
+        kind: String,
+        id: String,
+    ): Record? =
+        records(kind).singleOrNull {
+            it.document.metadata
+                .getValue("id")
+                .jsonPrimitive.content == id
+        }
+
+    private fun put(
+        kind: String,
+        id: String,
+        markdown: String,
+        expectedHash: String,
+    ) {
+        require(id.matches(Regex("[A-Za-z0-9_-]{1,100}")))
+        val previous = find(kind, id)
+        check(previous?.file?.hash.orEmpty() == expectedHash) { "DOCUMENT_CONFLICT_RELOAD" }
+        storage(kind).save(kind, "$id.md", markdown.toByteArray(), previous?.file)
     }
 
-    suspend fun remove(id: String) {
-        database.withTransaction {
-            dao.clearIndex(id)
-            dao.delete(id)
-        }
+    private fun saveOrigin(note: KnowledgeNote) {
+        val previous = find("origins", note.id)
+        val hasOrigin =
+            note.originReferencesJson != "[]" || note.originSessionId.isNotEmpty() ||
+                note.originMessageId.isNotEmpty() || note.generatedDraft.isNotEmpty() ||
+                note.generationState != "IDLE" || note.generationTarget.isNotEmpty()
+        if (previous == null && !hasOrigin) return
+        val metadata =
+            buildJsonObject {
+                put("format", JsonPrimitive("1"))
+                put("id", JsonPrimitive(note.id))
+                put("references", JsonPrimitive(note.originReferencesJson))
+                put("session", JsonPrimitive(note.originSessionId))
+                put("message", JsonPrimitive(note.originMessageId))
+                put("contentHash", JsonPrimitive(note.originContentHash))
+                put("draft", JsonPrimitive(note.generatedDraft))
+                put("generationState", JsonPrimitive(note.generationState))
+                put("generationTarget", JsonPrimitive(note.generationTarget))
+            }
+        val bytes = KnowledgeDocumentCodec.encode(metadata, "").toByteArray()
+        history.save("origins", "${note.id}.md", bytes, previous?.file)
     }
 
-    suspend fun search(query: String): List<CollectedSource> {
-        val tokens = Regex("[\\p{L}\\p{N}]+").findAll(query.take(200)).map { "\"${it.value}\"*" }.toList()
-        return if (tokens.isEmpty()) {
-            emptyList()
-        } else {
-            (
-                dao.search(tokens.joinToString(" AND ")) +
-                    dao.substring(query.take(200))
-            ).distinctBy { it.id }
-        }
+    private fun terms(query: String): List<String> {
+        require(query.length in 1..200)
+        if (query.any { it == '"' || it == '*' }) return listOf(query.trim()).filter { it.isNotEmpty() }
+        return Regex("[\\p{L}\\p{N}]+").findAll(query).map { it.value }.toList()
     }
+
+    private fun matches(
+        text: String,
+        terms: List<String>,
+    ) = terms.isNotEmpty() && terms.all { text.contains(it, true) }
 }

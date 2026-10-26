@@ -9,7 +9,6 @@ import com.helix.core.storage.knowledge.KnowledgeStore
 import kotlinx.coroutines.CancellationException
 import org.json.JSONArray
 import org.json.JSONObject
-import java.io.File
 import java.security.MessageDigest
 import java.util.UUID
 
@@ -29,54 +28,61 @@ private val originalExtensions =
     )
 
 internal fun knowledgeOriginal(
-    root: File,
+    store: KnowledgeStore,
     item: CollectedSource,
     index: Int,
-): File {
-    val metadata = JSONArray(item.filesJson).getJSONObject(index)
-    val name = metadata.getString("stored")
-    require(Regex("$index\\.[a-z0-9]{1,8}").matches(name))
-    return File(File(root, item.id), name)
+): com.helix.core.storage.content.DocumentStorage.File {
+    require(item.id.matches(Regex("[A-Za-z0-9_-]{1,100}")))
+    val files = JSONArray(item.filesJson)
+    require(files.length() <= MAX_FILES && index in 0 until files.length())
+    val reference = files.getJSONObject(index).getString("reference")
+    require(reference in store.documents.references("originals/${item.id}")) { "Original is outside this source" }
+    return store.documents.read(reference, MAX_FILE_BYTES)
 }
 
 internal class KnowledgeImporter(
     private val context: Context,
-    private val root: File,
     private val store: KnowledgeStore,
 ) {
+    data class Result(
+        val item: CollectedSource,
+        val newlyCaptured: Boolean,
+    )
+
     @Suppress("TooGenericExceptionCaught") // Persist an explicit incomplete result for failed materialization.
-    suspend fun import(intent: Intent, source: String): CollectedSource {
+    suspend fun import(intent: Intent, source: String): Result {
         require(intent.action in setOf(Intent.ACTION_SEND, Intent.ACTION_SEND_MULTIPLE))
         val text = intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString().orEmpty()
         val uris = sharedUris(intent)
         require(text.length <= MAX_KNOWLEDGE_TEXT)
         require(uris.size <= MAX_FILES && (text.isNotBlank() || uris.isNotEmpty()))
         val item = newItem(intent, text, source)
-        val directory = File(root, item.id)
-        check(directory.mkdirs())
-        store.insert(item)
-        var current = item
+        var current = store.insert(item)
+        var newlyCaptured = false
         try {
-            File(directory, "original.txt").writeText(text)
             val digest = MessageDigest.getInstance("SHA-256")
             digest.update(text.toByteArray())
             val files = JSONArray()
             val useFileTitle = text.isBlank() && intent.getStringExtra(Intent.EXTRA_SUBJECT).isNullOrBlank()
             uris.forEachIndexed { index, uri ->
-                files.put(copyFile(intent, uri, directory, index, digest))
+                files.put(copyFile(intent, uri, item.id, index, digest))
                 val title = if (useFileTitle) files.getJSONObject(0).getString("name").take(100) else current.title
                 current = current.copy(filesJson = files.toString(), title = title)
-                store.save(current)
+                current = store.save(current)
             }
             val fingerprint = digest.digest().joinToString("") { "%02x".format(it) }
-            current = finalizeImport(current, fingerprint, directory)
+            current = finalizeImport(current, fingerprint)
+            if (current.id == item.id) {
+                check(current.rawText == item.rawText && current.sourceUrl == item.sourceUrl)
+                newlyCaptured = true
+            }
         } catch (cancel: CancellationException) {
             throw cancel
         } catch (_: Exception) {
             current = current.copy(state = "INCOMPLETE", detail = "import-interrupted")
-            store.save(current)
+            current = store.save(current)
         }
-        return current
+        return Result(current, newlyCaptured)
     }
 
     private fun newItem(
@@ -100,22 +106,43 @@ internal class KnowledgeImporter(
     private suspend fun finalizeImport(
         item: CollectedSource,
         fingerprint: String,
-        directory: File,
     ): CollectedSource {
         val previous = store.duplicate(fingerprint)
-        return if (previous != null) {
+        return if (previous != null && matchesIncoming(previous, item, fingerprint)) {
             store.remove(item.id)
-            directory.deleteRecursively()
+            store.documents.references("originals/${item.id}").forEach { reference ->
+                store.documents.delete(store.documents.read(reference, MAX_FILE_BYTES))
+            }
             previous
         } else {
-            item.copy(state = "QUEUED", fingerprint = fingerprint).also { store.save(it) }
+            store.save(item.copy(state = "QUEUED", fingerprint = fingerprint))
+        }
+    }
+
+    @Suppress("TooGenericExceptionCaught") // An invalid optional dedup candidate cannot discard a fresh user import.
+    private fun matchesIncoming(previous: CollectedSource, incoming: CollectedSource, fingerprint: String): Boolean {
+        if (previous.rawText != incoming.rawText || previous.sourceUrl != incoming.sourceUrl) return false
+        return try {
+            val files = JSONArray(previous.filesJson)
+            require(files.length() == JSONArray(incoming.filesJson).length())
+            val digest = MessageDigest.getInstance("SHA-256")
+            digest.update(previous.rawText.toByteArray())
+            for (index in 0 until files.length()) {
+                val bytes = knowledgeOriginal(store, previous, index).bytes
+                digest.update(MessageDigest.getInstance("SHA-256").digest(bytes))
+            }
+            digest.digest().joinToString("") { "%02x".format(it) } == fingerprint
+        } catch (cancel: CancellationException) {
+            throw cancel
+        } catch (_: Exception) {
+            false
         }
     }
 
     private fun copyFile(
         intent: Intent,
         uri: Uri,
-        directory: File,
+        id: String,
         index: Int,
         digest: MessageDigest,
     ): JSONObject {
@@ -132,17 +159,15 @@ internal class KnowledgeImporter(
                     null,
                 )?.use { if (it.moveToFirst()) it.getString(0)?.take(200) else null } ?: "Shared file ${index + 1}"
         val mime = context.contentResolver.getType(uri) ?: intent.type ?: "application/octet-stream"
-        val part = File(directory, "$index.part")
+        val part = java.io.ByteArrayOutputStream()
         val fileDigest = MessageDigest.getInstance("SHA-256")
         requireNotNull(context.contentResolver.openInputStream(uri)).use { input ->
-            part.outputStream().use { output ->
-                copyBounded(input, output, fileDigest)
-            }
+            copyBounded(input, part, fileDigest)
         }
         val stored = "$index.${originalExtensions[mime] ?: "bin"}"
-        check(part.renameTo(File(directory, stored)))
+        val published = store.documents.save("originals/$id", stored, part.toByteArray(), mimeType = mime)
         digest.update(fileDigest.digest())
-        return JSONObject().put("name", name).put("mime", mime).put("stored", stored)
+        return JSONObject().put("name", name).put("mime", mime).put("reference", published.reference)
     }
 
     private fun copyBounded(

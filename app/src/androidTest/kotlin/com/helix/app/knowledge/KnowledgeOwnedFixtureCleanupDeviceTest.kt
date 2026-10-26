@@ -26,7 +26,7 @@ class KnowledgeOwnedFixtureCleanupDeviceTest {
             val service = (context.applicationContext as HelixApplication).knowledge
             val row = service.items.first().single { it.id == id }
             assertEquals(token, row.rawText)
-            assertEquals("Synthetic material 知识引用", service.originalFile(row, 0).readText())
+            assertEquals("Synthetic material 知识引用", service.originalBytes(row, 0).toString(Charsets.UTF_8))
             service.remove(id)
             assertFalse(service.items.first().any { it.id == id })
         }

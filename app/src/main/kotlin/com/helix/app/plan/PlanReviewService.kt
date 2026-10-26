@@ -171,7 +171,7 @@ internal class StoragePlanReviewPort(
         to: PlanLifecycleState,
         evidenceRef: String?,
     ) {
-        storage.withTransaction { storage.plans.updateState(planId, to.name, evidenceRef) }
+        storage.withTransaction { storage.plans.review(planId, to.name, evidenceRef) }
     }
 
     override fun beginExecution(

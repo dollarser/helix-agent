@@ -1,6 +1,12 @@
 package com.helix.core.model
 
 import com.helix.core.model.internal.Json
+import com.helix.core.model.internal.JsonNode
+import com.helix.core.model.internal.parseJson
+import com.helix.core.model.internal.requireInt
+import com.helix.core.model.internal.requireObject
+import com.helix.core.model.internal.requireString
+import com.helix.core.model.internal.requireStringArray
 import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
 
@@ -48,8 +54,8 @@ data class PlanStep(
  * artifact's [sha256] is written into that run record - so the hash is computed over the full
  * canonical form including [version]: revising the plan ([withNextVersion]) changes the hash.
  *
- * Storage encoding follows ADR-0001 (strict canonical JSON, fixed field order); the `plans` /
- * `plan_steps` Room tables (architecture doc section 9.1, implemented in HXA-014) persist it.
+ * Storage encoding uses strict canonical JSON with fixed field order. Private plan documents
+ * retain proposed content; Room retains lifecycle and immutable approval evidence.
  */
 data class PlanArtifact(
     val id: PlanId,
@@ -99,6 +105,32 @@ data class PlanArtifact(
     fun sha256(): Sha256 = Sha256(Hex.encode(MessageDigest.getInstance("SHA-256").digest(storageBytes())))
 
     private fun storageBytes(): ByteArray = toStorageString().toByteArray(StandardCharsets.UTF_8)
+
+    companion object {
+        /** Strict current document shape; malformed or retired shapes never become executable plans. */
+        fun parse(text: String): PlanArtifact {
+            require(text.length <= 262_144) { "plan document too large" }
+            val fields =
+                parseJson(text).requireObject(
+                    "PlanArtifact",
+                    listOf("id", "objective", "assumptions", "steps", "acceptanceCriteria", "risks", "version"),
+                )
+            val steps = fields["steps"]
+            require(steps is JsonNode.Arr && steps.items.size <= MAX_STEPS)
+            return PlanArtifact(
+                PlanId(fields.requireString("id")),
+                fields.requireString("objective"),
+                fields.requireStringArray("assumptions"),
+                steps.items.map {
+                    val step = it.requireObject("PlanStep", listOf("title", "description"))
+                    PlanStep(step.requireString("title"), step.requireString("description"))
+                },
+                fields.requireStringArray("acceptanceCriteria"),
+                fields.requireStringArray("risks"),
+                fields.requireInt("version"),
+            )
+        }
+    }
 
     /** Returns this plan revised as the next version; the hash changes accordingly. */
     fun withNextVersion(): PlanArtifact = copy(version = version + 1)

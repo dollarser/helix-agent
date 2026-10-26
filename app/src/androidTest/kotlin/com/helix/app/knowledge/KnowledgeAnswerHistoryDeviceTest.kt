@@ -94,8 +94,7 @@ class KnowledgeAnswerHistoryDeviceTest {
             try {
                 block(store)
             } finally {
-                store.close()
-                context.deleteDatabase(name)
+                clearKnowledgeDocuments(context, name)
             }
         }
 }

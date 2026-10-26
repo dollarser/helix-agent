@@ -47,16 +47,27 @@ internal fun KnowledgeNoteEditor(
     val scope = rememberCoroutineScope()
     var title by rememberSaveable(note.id) { mutableStateOf(note.title) }
     var body by rememberSaveable(note.id) { mutableStateOf(note.body) }
+    var baseHash by rememberSaveable(note.id) { mutableStateOf(note.documentHash) }
     var editing by rememberSaveable(note.id) { mutableStateOf(note.body.isBlank()) }
     var management by rememberSaveable(note.id) { mutableStateOf(false) }
     var sources by remember(note.id) { mutableStateOf(emptyList<KnowledgeNoteSource>()) }
     var failed by remember(note.id) { mutableStateOf(false) }
+    var sourcesFailed by remember(note.id) { mutableStateOf(false) }
     var knowledgeDraft by remember(note.id) { mutableStateOf(false) }
     var leave by remember { mutableStateOf(false) }
     var tools by rememberSaveable(note.id) { mutableStateOf(false) }
     var showSources by rememberSaveable(note.id) { mutableStateOf(false) }
     val busy = note.generationState == "RUNNING"
-    LaunchedEffect(note.id, note.updatedAt) { sources = service.sources(note.id) }
+    LaunchedEffect(note.id, note.documentHash) {
+        try {
+            sources = service.sources(note.id)
+            sourcesFailed = false
+        } catch (cancel: CancellationException) {
+            throw cancel
+        } catch (_: Exception) {
+            sourcesFailed = true
+        }
+    }
     val dirty = title != note.title || body != note.body
 
     fun goBack() {
@@ -83,8 +94,9 @@ internal fun KnowledgeNoteEditor(
                         reviewed,
                     )
                 } else {
-                    service.save(note.id, title, body, reviewed)
+                    service.save(note.copy(documentHash = baseHash), title, body, reviewed)
                 }
+                baseHash = requireNotNull(service.get(note.id)).documentHash
                 failed = false
                 editing = false
                 if (exit && isNew) onBack()
@@ -100,7 +112,7 @@ internal fun KnowledgeNoteEditor(
                 _: IllegalStateException,
             ) {
                 failed = true
-            } catch (_: android.database.sqlite.SQLiteException) {
+            } catch (_: Exception) {
                 failed = true
             }
         }
@@ -249,7 +261,8 @@ internal fun KnowledgeNoteEditor(
             onSave = if (editing) ({ save(false) }) else null,
             saveEnabled = !busy && title.isNotBlank(),
         )
-        if (failed) Text(stringResource(R.string.knowledge_management_failed))
+        if (failed) Text(stringResource(R.string.knowledge_note_save_failed))
+        if (sourcesFailed) Text(stringResource(R.string.knowledge_reference_failed))
         LazyColumn(
             Modifier.weight(1f).testTag("knowledge-note-editor"),
             verticalArrangement = Arrangement.spacedBy(16.dp),

@@ -29,10 +29,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.R
 import com.helix.core.storage.knowledge.CollectedSource
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 
@@ -52,8 +52,9 @@ fun KnowledgeNavigation(
     }
 }
 
+// Independent UI jobs must each propagate cancellation rather than turn it into a storage error.
 @Composable
-@Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod") // Sources/notes navigation and Compose callbacks.
+@Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod", "TooGenericExceptionCaught", "ThrowsCount")
 fun KnowledgeScreen(
     service: KnowledgeService,
     onReference: suspend (List<com.helix.core.storage.repository.KnowledgeReference>) -> Boolean,
@@ -64,6 +65,16 @@ fun KnowledgeScreen(
     val request by service.openRequests.collectAsStateWithLifecycle()
     val error by service.captureError.collectAsStateWithLifecycle()
     val deletionError by service.deletionError.collectAsStateWithLifecycle()
+    val storageError by service.storageError.collectAsStateWithLifecycle()
+    val pendingSaves by service.pendingSaves.collectAsStateWithLifecycle()
+    var showPendingSaves by rememberSaveable { mutableStateOf(false) }
+    var recoveryFailed by remember { mutableStateOf(false) }
+    var recoveryBusy by remember { mutableStateOf(false) }
+    val refreshScope = rememberCoroutineScope()
+    androidx.lifecycle.compose.LifecycleResumeEffect(service) {
+        val refresh = refreshScope.launch { service.refresh() }
+        onPauseOrDispose { refresh.cancel() }
+    }
     var selected by rememberSaveable { mutableStateOf<String?>(null) }
     var query by rememberSaveable { mutableStateOf("") }
     var hits by remember { mutableStateOf<List<CollectedSource>>(emptyList()) }
@@ -79,8 +90,27 @@ fun KnowledgeScreen(
     var candidateIds by rememberSaveable { mutableStateOf(emptyList<String>()) }
     var candidateHashes by rememberSaveable { mutableStateOf(emptyList<String>()) }
     var failed by remember { mutableStateOf(false) }
+    var searchFailed by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val newNoteTitle = stringResource(R.string.knowledge_note_new)
+    if (showPendingSaves) {
+        KnowledgePendingSaves(pendingSaves, recoveryFailed, recoveryBusy, { token ->
+            scope.launch {
+                recoveryBusy = true
+                try {
+                    selectedNote = service.recoverSave(token)
+                    showPendingSaves = false
+                    recoveryFailed = false
+                } catch (cancel: CancellationException) {
+                    throw cancel
+                } catch (_: Exception) {
+                    recoveryFailed = true
+                } finally {
+                    recoveryBusy = false
+                }
+            }
+        }, { showPendingSaves = false })
+    }
 
     fun createNote(
         ids: List<String>,
@@ -134,8 +164,17 @@ fun KnowledgeScreen(
         selectedSources =
             selectedSources.intersect(all.filter { it.state != "DELETING" }.map { it.id }.toSet())
     }
-    LaunchedEffect(query, all) { hits = if (query.isBlank()) all else service.search(query) }
-    LaunchedEffect(query, notes) { noteHits = if (query.isBlank()) notes else service.noteService.search(query) }
+    LaunchedEffect(query, all, notes) {
+        try {
+            hits = if (query.isBlank()) all else service.search(query)
+            noteHits = if (query.isBlank()) notes else service.noteService.search(query)
+            searchFailed = false
+        } catch (cancel: CancellationException) {
+            throw cancel
+        } catch (_: Exception) {
+            searchFailed = true
+        }
+    }
     val item = all.firstOrNull { it.id == selected }
     val storedNote = notes.firstOrNull { it.id == selectedNote }
     val isNew = storedNote == null && selectedNote != null && selectedNote == newNoteId
@@ -154,9 +193,21 @@ fun KnowledgeScreen(
         }
     BackHandler(item != null && note == null) { selected = null }
     Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (pendingSaves.isNotEmpty()) {
+            TextButton({ showPendingSaves = true }, Modifier.testTag("knowledge-pending-open")) {
+                Text(stringResource(R.string.knowledge_pending_title))
+            }
+        }
+        if (storageError) {
+            Text(stringResource(R.string.knowledge_storage_unavailable))
+            TextButton(
+                { refreshScope.launch { service.retryStartup() } },
+            ) { Text(stringResource(R.string.knowledge_storage_retry)) }
+        }
         if (deletionError) Text(stringResource(R.string.knowledge_management_failed))
         if (error) Text(stringResource(R.string.knowledge_capture_failed))
         if (failed) Text(stringResource(R.string.knowledge_capture_failed))
+        if (searchFailed) Text(stringResource(R.string.knowledge_storage_unavailable))
         if (selectedNote != null && loadedNotes == null && !isNew) {
             androidx.compose.material3.CircularProgressIndicator(Modifier.testTag("knowledge-note-loading"))
         } else if (note != null) {
@@ -215,7 +266,7 @@ fun KnowledgeScreen(
                             throw cancel
                         } catch (_: IllegalArgumentException) {
                             failed = true
-                        } catch (_: IllegalStateException) {
+                        } catch (_: Exception) {
                             failed = true
                         }
                     }
@@ -285,7 +336,7 @@ internal fun knowledgeStatus(item: CollectedSource): String =
     )
 
 @Composable
-@Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod") // Source preview and explicit actions.
+@Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod", "TooGenericExceptionCaught")
 private fun KnowledgeDetail(
     item: CollectedSource,
     service: KnowledgeService,
@@ -300,7 +351,9 @@ private fun KnowledgeDetail(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var openFailed by remember { mutableStateOf(false) }
-    var summary by remember(item.id, item.summary) { mutableStateOf(item.summary) }
+    var noViewer by remember { mutableStateOf(false) }
+    var summary by rememberSaveable(item.id) { mutableStateOf(item.summary) }
+    var summaryHash by rememberSaveable(item.id) { mutableStateOf(item.documentHash) }
     var summaryFailed by remember { mutableStateOf(false) }
     val files = remember(item.filesJson) { JSONArray(item.filesJson) }
 
@@ -317,7 +370,7 @@ private fun KnowledgeDetail(
             _: IllegalArgumentException,
         ) {
             openFailed = true
-        } catch (_: IllegalStateException) {
+        } catch (_: Exception) {
             openFailed = true
         }
     }
@@ -413,24 +466,24 @@ private fun KnowledgeDetail(
                 items(files.length()) { index ->
                     val metadata = files.getJSONObject(index)
                     TextButton(onClick = {
+                        openFailed = false
+                        noViewer = false
                         try {
-                            val uri =
-                                FileProvider.getUriForFile(
-                                    context,
-                                    "${context.packageName}.fileprovider",
-                                    service.originalFile(item, index),
-                                )
+                            val uri = service.originalUri(item, index)
                             context.startActivity(
                                 Intent(Intent.ACTION_VIEW)
                                     .setDataAndType(uri, metadata.getString("mime"))
                                     .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION),
                             )
                         } catch (_: android.content.ActivityNotFoundException) {
+                            noViewer = true
+                        } catch (_: Exception) {
                             openFailed = true
                         }
                     }) { Text(metadata.getString("name")) }
                 }
-                if (openFailed) item { Text(stringResource(R.string.knowledge_no_viewer)) }
+                if (noViewer) item { Text(stringResource(R.string.knowledge_no_viewer)) }
+                if (openFailed) item { Text(stringResource(R.string.knowledge_original_unavailable)) }
                 item { Text(stringResource(R.string.knowledge_extracted)) }
                 item { SelectionContainer { Text(item.extracted, Modifier.testTag("knowledge-extracted")) } }
                 if (item.state !in setOf("DELETING", "IMPORTING", "QUEUED", "EXTRACTING") &&
@@ -454,9 +507,12 @@ private fun KnowledgeDetail(
                     TextButton(onClick = {
                         scope.launch {
                             try {
-                                service.saveSummary(item.id, summary)
+                                val saved = service.saveSummary(item.copy(documentHash = summaryHash), summary)
+                                summaryHash = saved.documentHash
                                 summaryFailed = false
-                            } catch (_: android.database.sqlite.SQLiteException) {
+                            } catch (cancel: CancellationException) {
+                                throw cancel
+                            } catch (_: Exception) {
                                 summaryFailed = true
                             }
                         }
@@ -464,7 +520,7 @@ private fun KnowledgeDetail(
                         Text(stringResource(R.string.knowledge_save_summary))
                     }
                 }
-                if (summaryFailed) item { Text(stringResource(R.string.knowledge_capture_failed)) }
+                if (summaryFailed) item { Text(stringResource(R.string.knowledge_note_save_failed)) }
                 item { KnowledgeDeleteSources(service, listOf(item)) }
             }
         }

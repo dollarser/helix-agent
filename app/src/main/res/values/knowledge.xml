@@ -5,7 +5,7 @@
     <string name="knowledge_save_summary">Save summary on this device</string>
     <string name="knowledge_nav_description">Collected sources, search and citations</string>
     <string name="nav_knowledge">Knowledge</string>
-    <string name="knowledge_empty">Share text, links, images or files to Helix to collect them here. WeChat internal forwarding may not offer Android system sharing; copy text/link or save a file and share it instead.</string>
+    <string name="knowledge_empty">Add a note, or collect text, links, images and files through system sharing.</string>
     <string name="knowledge_privacy">Saved on this device. No automatic model upload. Public links may be fetched without login; only selected references enter chat.</string>
     <string name="knowledge_search">Search knowledge</string>
     <string name="knowledge_capture_failed">Collection failed: invalid share, permission or storage unavailable. Please share again.</string>
@@ -14,7 +14,7 @@
     <string name="knowledge_processing">Saving / extracting…</string>
     <string name="knowledge_failed">Extraction failed · original retained</string>
     <string name="knowledge_incomplete">Incomplete · original retained</string>
-    <string name="knowledge_limits">Extraction may be incomplete: images/unsupported files have no OCR; pages may require login, contain only a title or be unavailable. Public page text is unverified. No login bypass is attempted.</string>
+    <string name="knowledge_limits">Images, scans and sign-in pages may not yield complete text. Use a vision model in chat to review them.</string>
     <string name="knowledge_reshare">Collection was interrupted or a file exceeded the limit (8 files, 16 MiB each). Received originals are retained. Share again to recover missing files.</string>
     <string name="knowledge_original">Original shared text / files</string>
     <string name="knowledge_extracted">Extracted text (untrusted reference material)</string>
@@ -22,5 +22,11 @@
     <string name="knowledge_reference">Add selected reference to chat draft</string>
     <string name="knowledge_no_viewer">No application can open this original file.</string>
     <string name="knowledge_share_target">收集到 Helix</string>
-    <string name="knowledge_visual_reading_hint">Use the selected visual model to read images or scans: attach the original image in a conversation, or view scanned PDF pages with the document tools. Originals are not uploaded automatically. Review extracted text before saving it as knowledge.</string>
+    <string name="knowledge_visual_reading_hint">Attach an image in chat, or view scanned PDF pages with document tools, to use the vision model. Review the result before saving it as knowledge.</string>
+    <string name="knowledge_pending_title">Unfinished saves</string>
+    <string name="knowledge_pending_message">The original file is kept. Save the unsaved text as a new note?</string>
+    <string name="knowledge_pending_recover">Save as note</string>
+    <string name="knowledge_pending_close">Later</string>
+    <string name="knowledge_note_save_failed">Could not confirm the save, or the file changed. Your edits are still here. Reopen the document to check before trying again.</string>
+    <string name="knowledge_original_unavailable">Could not open this document. Try reopening or importing the file.</string>
 </resources>

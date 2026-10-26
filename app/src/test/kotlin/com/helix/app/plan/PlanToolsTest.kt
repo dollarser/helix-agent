@@ -13,7 +13,6 @@ import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
 import com.helix.core.storage.dao.PlanDao
 import com.helix.core.storage.entity.PlanEntity
-import com.helix.core.storage.entity.PlanStepEntity
 import com.helix.core.storage.repository.PlanRepository
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.ToolExecutorResult
@@ -35,7 +34,9 @@ import java.time.Instant
  */
 class PlanToolsTest {
     private val fakeDao = FakePlanDao()
-    private val plans = PlanRepository(fakeDao)
+
+    @get:org.junit.Rule val folder = org.junit.rules.TemporaryFolder()
+    private val plans by lazy { PlanRepository(fakeDao, folder.root.toPath()) }
     private var nextId = 0
     private val idGenerator: () -> String = { "plan-${++nextId}" }
 
@@ -118,9 +119,8 @@ class PlanToolsTest {
         assertEquals("READY", saved.state)
         assertNull(saved.evidenceRef)
         assertEquals("plan-1", saved.id)
-        assertEquals(2, fakeDao.savedSteps.size)
-        assertEquals(0, fakeDao.savedSteps[0].sequence)
-        assertEquals("Read the spec", fakeDao.savedSteps[0].title)
+        assertEquals(2, plans.resolve(saved.id).steps.size)
+        assertEquals("Read the spec", plans.resolve(saved.id).steps[0].title)
 
         val output = completed.output as JsonObject
         assertEquals(saved.id, (output["planId"] as JsonPrimitive).content)
@@ -169,6 +169,16 @@ class PlanToolsTest {
         assertTrue(!failed.sideEffectFree)
     }
 
+    @Test fun invalidArgumentAfterPublicationIsNotMisreportedAsValidationWithoutEffects() {
+        fakeDao.invalidInsert = true
+        val result = PlanTools.executor(plans, idGenerator).execute(call(args())) as ToolExecutorResult.Failed
+        assertTrue(!result.sideEffectFree)
+        assertEquals("the plan could not be stored", result.detail)
+        assertEquals("plan-1", (result.auditDetail?.get("planId") as JsonPrimitive).content)
+        assertNull(fakeDao.saved)
+        assertTrue(folder.root.resolve("plans/plan-1.json").isFile)
+    }
+
     @Test
     fun aCancelledCallIsCancelled() {
         val executor = PlanTools.executor(plans, idGenerator)
@@ -187,33 +197,30 @@ class PlanToolsTest {
 
     private class FakePlanDao : PlanDao {
         var saved: PlanEntity? = null
-        var savedSteps: List<PlanStepEntity> = emptyList()
         var failInsert: Boolean = false
+        var invalidInsert: Boolean = false
 
         override fun insert(plan: PlanEntity) {
+            require(!invalidInsert) { "synthetic storage detail" }
             if (failInsert) {
                 check(false) { "simulated storage failure" }
             }
             saved = plan
         }
 
-        override fun insertSteps(steps: List<PlanStepEntity>) {
-            savedSteps = steps
-        }
-
         override fun byId(id: String): PlanEntity? = saved?.takeIf { it.id == id }
-
-        override fun stepsOf(planId: String): List<PlanStepEntity> =
-            saved?.takeIf { it.id == planId }?.let { savedSteps } ?: emptyList()
 
         override fun list(): List<PlanEntity> = listOfNotNull(saved)
 
-        override fun updateState(
+        override fun review(
             id: String,
             state: String,
             evidenceRef: String?,
-        ) {
-            saved = saved?.copy(state = state, evidenceRef = evidenceRef)
+            approvedSnapshot: String?,
+        ): Int {
+            if (saved?.id != id || saved?.state != "READY") return 0
+            saved = saved?.copy(state = state, evidenceRef = evidenceRef, approvedSnapshot = approvedSnapshot)
+            return 1
         }
 
         override fun transitionFromApproved(

@@ -17,7 +17,7 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 - 解析：只接受上述子集；拒绝浮点数、前导零、超出 signed 64-bit 的整数、重复键、未转义控制字符、尾随内容；所有解码失败抛 `IllegalArgumentException`（调用方映射为 `HelixError`）。
 - 边界：该编码器是 `internal` 的，不属于公开 API；本 ADR 不适用于 Provider/MCP wire DTO、导入导出格式或工具参数 canonical 哈希。工具参数 canonical 哈希（HXA-034）必须单独实现并单独评审，不得假设两者字节兼容。
 - 具有双向编码的领域类型包括 `TurnBudgets`、`HelixError`、`ExecutionTargetDescriptor`、`ExecutionLimits`、`ToolExecutionEnvelope`。新增类型只有在具备已知向量、round-trip 和 malformed-input 测试后，才能把该 JSON 当作恢复来源。
-- 仅使用 canonical writer 计算 hash 的类型不因此自动具备可恢复存储格式。例如 `PlanArtifact` 若没有领域 decoder，持久化层必须从规范化的 `plans`/`plan_steps` 列重建，或先补齐 decoder 与迁移测试，不能只保存一段无法恢复的 JSON。
+- canonical writer 本身不是可恢复格式。`PlanArtifact` 已增加同域严格 decoder，并以开放 JSON 文件保存未批准正文；DB 只保存生命周期、内容身份和审批时的不可变证据。已批准执行读取当时快照，不追随文件修改。其他新增可恢复类型仍须补齐已知向量、round-trip 与 malformed-input 测试。
 
 ## Alternatives considered
 
@@ -48,3 +48,7 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 - [实施状态](../../development/status.md)
 - [开发路线](../../development/roadmap.md)
 - [主题入口](README.md)
+
+## Decision history — 2026-10-26 文档优先
+
+Owner 授权整体文档优先改造。知识、笔记与原件固定共享；Agent 记忆、会话、计划及批准事实仍私有。计划新增严格 `PlanArtifact.parse`，删除规范化正文列及 `plan_steps`：提案正文为私有开放 JSON，Room 保留索引、状态和批准快照，批准事务不因原文件后来编辑/删除而重新绑定。正文发布而 Room 事务失败可留下无执行资格的文件；不能宣称文件写入被 DB 回滚。当前内部 schema 仍为 1，不加旧测试数据迁移/兼容读取器，也不自动清数据。验证及未完成边界见[文档优先记录](../../development/document-first-storage.md)。

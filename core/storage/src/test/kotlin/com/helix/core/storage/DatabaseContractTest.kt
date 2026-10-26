@@ -39,7 +39,6 @@ class DatabaseContractTest {
             "provider_configs",
             "runtime_installs",
             "plans",
-            "plan_steps",
             "goals",
             "goal_runs",
             "goal_turn_bindings",

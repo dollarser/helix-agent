@@ -3,14 +3,11 @@ package com.helix.core.storage.mapping
 import com.helix.core.model.GoalBudgets
 import com.helix.core.model.HelixError
 import com.helix.core.model.PlanArtifact
-import com.helix.core.model.PlanId
-import com.helix.core.model.PlanStep
 import com.helix.core.model.TurnState
 import com.helix.core.storage.criteria.CriteriaCodec
 import com.helix.core.storage.criteria.StoredCriterion
 import com.helix.core.storage.entity.GoalEntity
 import com.helix.core.storage.entity.PlanEntity
-import com.helix.core.storage.entity.PlanStepEntity
 import com.helix.core.storage.internal.Value
 import com.helix.core.storage.internal.parseStrictArray
 
@@ -45,41 +42,19 @@ data class StoredGoal(
 }
 
 object EntityMappers {
-    /**
-     * Builds the `plans` row from a [PlanArtifact]. Per ADR-0001 `PlanArtifact` carries only a
-     * canonical writer (no decoder), so the normalized columns are the recovery source: every
-     * artifact field lands in its own column (steps in `plan_steps`), and [PlanArtifact.sha256]
-     * is stored as the integrity check binding the columns to the exact artifact version.
-     */
     fun planEntityFor(
         artifact: PlanArtifact,
         state: String,
         evidenceRef: String?,
-    ): PlanEntity {
-        require(state.isNotBlank()) { "plan state must not be blank" }
-        return PlanEntity(
+    ): PlanEntity =
+        PlanEntity(
             id = artifact.id.value,
             objective = artifact.objective,
-            assumptionsJson = stringListJson(artifact.assumptions),
-            acceptanceCriteriaJson = stringListJson(artifact.acceptanceCriteria),
-            risksJson = stringListJson(artifact.risks),
             version = artifact.version,
             hash = artifact.sha256().hex,
             state = state,
             evidenceRef = evidenceRef,
         )
-    }
-
-    fun planStepsFor(artifact: PlanArtifact): List<PlanStepEntity> =
-        artifact.steps.mapIndexed { index, step ->
-            PlanStepEntity(
-                rowId = 0,
-                planId = artifact.id.value,
-                sequence = index,
-                title = step.title,
-                description = step.description,
-            )
-        }
 
     /** Canonical JSON string list: `["a","b"]` with strict escaping. */
     fun stringListJson(items: List<String>): String =
@@ -133,31 +108,6 @@ object EntityMappers {
                     }
                 }
             }.joinToString("")
-}
-
-/**
- * Rebuilds the [PlanArtifact] from the normalized `plans` columns and [steps] (ADR-0001
- * recovery path for a writer-only type) and verifies the stored hash binds them to this exact
- * artifact version. [steps] must be in `sequence` order as returned by the DAO.
- */
-fun PlanEntity.toPlanArtifact(steps: List<PlanStepEntity>): PlanArtifact {
-    steps.forEachIndexed { index, step ->
-        require(step.sequence == index) { "plan steps out of order at $index" }
-    }
-    val artifact =
-        PlanArtifact(
-            id = PlanId(id),
-            objective = objective,
-            assumptions = EntityMappers.parseStringListJson(assumptionsJson),
-            steps = steps.map { PlanStep(it.title, it.description) },
-            acceptanceCriteria = EntityMappers.parseStringListJson(acceptanceCriteriaJson),
-            risks = EntityMappers.parseStringListJson(risksJson),
-            version = version,
-        )
-    require(artifact.sha256().hex == hash) {
-        "plan column hash does not match the normalized plan"
-    }
-    return artifact
 }
 
 fun StoredGoal.toGoalEntity(): GoalEntity =

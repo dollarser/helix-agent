@@ -31,6 +31,7 @@ class PlanArtifactTest {
                 "\"acceptanceCriteria\":[\"Login succeeds without errors\"]," +
                 "\"risks\":[],\"version\":1}"
         assertEquals(expected, artifact().toStorageString())
+        assertEquals(artifact(), PlanArtifact.parse(expected))
     }
 
     @Test
@@ -98,6 +99,28 @@ class PlanArtifactTest {
         }
         assertThrows<IllegalArgumentException> {
             valid.copy(assumptions = List(33) { "assumption $it" })
+        }
+    }
+
+    @Test fun strictDocumentRoundTripIncludesEscapesAndContentRevision() {
+        val plan = artifact(objective = "Quoted \"text\"\n正文").copy(version = 3)
+        assertEquals(plan, PlanArtifact.parse(plan.toStorageString()))
+        assertEquals(plan.sha256(), PlanArtifact.parse(plan.toStorageString()).sha256())
+    }
+
+    @Test fun malformedDocumentShapesAndDuplicateKeysAreRejected() {
+        val json = artifact().toStorageString()
+        val invalid =
+            listOf(
+                json + "trailing",
+                json.replace("\"version\":1", "\"version\":1,\"version\":1"),
+                json.replace("\"steps\":[", "\"obsoleteSteps\":["),
+                json.replace("\"version\":1", "\"version\":1.5"),
+                json.replace("\"version\":1", "\"version\":0"),
+                json.replace("\"title\":", "\"unused\":0,\"title\":"),
+            )
+        invalid.forEach { value ->
+            org.junit.Assert.assertThrows(IllegalArgumentException::class.java) { PlanArtifact.parse(value) }
         }
     }
 }

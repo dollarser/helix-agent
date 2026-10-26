@@ -12,7 +12,7 @@
     <string name="knowledge_save_draft">保存未核对内容</string>
     <string name="knowledge_frozen_sources">已关联 %1$d 份来源快照。来源重新提取不会静默覆盖本笔记或这些引用。</string>
     <string name="knowledge_choose_model">选择服务商和模型</string>
-    <string name="knowledge_generation_instructions">可选模型生成仅使用这些来源片段和你的主题/草稿（草稿最多 6000 字符），不会扫描或合并全库。请核对生成内容后再保存为知识。</string>
+    <string name="knowledge_generation_instructions">仅使用所选来源和主题/草稿生成，草稿最多 6000 字。核对后保存为知识。</string>
     <string name="knowledge_generate">准备模型生成草稿</string>
     <string name="knowledge_generating">正在生成草稿…原有笔记仍保留。</string>
     <string name="knowledge_generation_failed">生成未完成或发送前检查未通过。草稿和来源仍保留，请核对模型与去向后明确重试。</string>

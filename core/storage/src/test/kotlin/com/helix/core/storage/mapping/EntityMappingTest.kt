@@ -36,32 +36,14 @@ class EntityMappingTest {
         )
 
     @Test
-    fun `plan round trips through normalized columns and step rows`() {
+    fun `plan row contains lifecycle identity not editable body`() {
         val artifact = plan()
         val entity = EntityMappers.planEntityFor(artifact, "DRAFT", null)
         assertEquals(artifact.id.value, entity.id)
         assertEquals(artifact.sha256().hex, entity.hash)
         assertEquals(1, entity.version)
-        val steps = EntityMappers.planStepsFor(artifact)
-        assertEquals(2, steps.size)
-        assertEquals(0, steps[0].sequence)
-        val recovered = entity.toPlanArtifact(steps)
-        assertEquals(artifact, recovered)
-    }
-
-    @Test
-    fun `plan hash mismatch is detected on recovery`() {
-        val entity = EntityMappers.planEntityFor(plan(), "DRAFT", null)
-        val tampered = entity.copy(objective = "Something else entirely")
-        val steps = EntityMappers.planStepsFor(plan())
-        assertThrows("hash mismatch") { tampered.toPlanArtifact(steps) }
-    }
-
-    @Test
-    fun `plan steps out of order are rejected`() {
-        val entity = EntityMappers.planEntityFor(plan(), "DRAFT", null)
-        val steps = EntityMappers.planStepsFor(plan()).map { it.copy(sequence = 9 - it.sequence) }
-        assertThrows("steps out of order") { entity.toPlanArtifact(steps) }
+        assertNull(entity.approvedSnapshot)
+        assertEquals(artifact, PlanArtifact.parse(artifact.toStorageString()))
     }
 
     @Test

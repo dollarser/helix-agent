@@ -10,16 +10,14 @@ import com.helix.tools.android.HttpFetchRequest
 import com.helix.tools.android.HttpFetchStatus
 import kotlinx.coroutines.CancellationException
 import org.json.JSONArray
-import java.io.File
 
 internal class KnowledgeExtractor(
-    private val root: File,
     private val store: KnowledgeStore,
     private val fetcher: HttpFetchBridge,
 ) {
     @Suppress("TooGenericExceptionCaught") // Failed extraction is durable, never a fabricated success.
     suspend fun extract(original: CollectedSource) {
-        store.save(original.copy(state = "EXTRACTING"))
+        val working = store.save(original.copy(state = "EXTRACTING"))
         val sections = mutableListOf<String>()
         val notes = mutableListOf<String>()
         if (original.rawText.isNotBlank()) sections += original.rawText
@@ -29,7 +27,7 @@ internal class KnowledgeExtractor(
             val combined = sections.joinToString("\n\n")
             if (combined.length > MAX_KNOWLEDGE_TEXT) notes += "truncated"
             store.save(
-                original.copy(
+                working.copy(
                     state = if (notes.isEmpty()) "READY" else "INCOMPLETE",
                     extracted = combined.take(MAX_KNOWLEDGE_TEXT),
                     detail = notes.distinct().joinToString(","),
@@ -38,7 +36,7 @@ internal class KnowledgeExtractor(
         } catch (cancel: CancellationException) {
             throw cancel
         } catch (_: Exception) {
-            store.save(original.copy(state = "FAILED", detail = "extraction-failed"))
+            store.save(working.copy(state = "FAILED", detail = "extraction-failed"))
         }
     }
 
@@ -50,7 +48,7 @@ internal class KnowledgeExtractor(
         val files = JSONArray(item.filesJson)
         for (index in 0 until files.length()) {
             val mime = files.getJSONObject(index).getString("mime")
-            val bytes = knowledgeOriginal(root, item, index).readBytes()
+            val bytes = knowledgeOriginal(store, item, index).bytes
             val kind =
                 when (mime) {
                     "text/html" -> TextAttachmentKind.HTML
@@ -119,7 +117,12 @@ internal class KnowledgeExtractor(
         if (response.status == HttpFetchStatus.FETCHED && response.httpStatus in 200..299 &&
             response.contentType.contains("html")
         ) {
-            File(File(root, item.id), "public-page.html").writeText(response.body)
+            store.documents.save(
+                "originals/${item.id}",
+                "public-page.html",
+                response.body.toByteArray(),
+                mimeType = "text/html",
+            )
             val result = DocumentTextExtractor.extract(TextAttachmentKind.HTML, response.body.toByteArray())
             appendResult(result, sections, notes)
             notes += "public-page-unverified"

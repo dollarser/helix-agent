@@ -137,8 +137,8 @@ class KnowledgeReferenceUiDeviceTest {
         } finally {
             compose.runOnIdle { visible.value = false }
             compose.waitForIdle()
-            store.close()
-            context.deleteDatabase(name)
+
+            clearKnowledgeDocuments(context, name)
         }
     }
 }

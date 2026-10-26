@@ -15,8 +15,9 @@ import org.json.JSONArray
 /** Retained answer records only. All new model requests belong to the conversation runtime. */
 class KnowledgeAnswerHistory(
     private val store: KnowledgeStore,
+    onStorageFailure: () -> Unit = {},
 ) {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO + knowledgeStorageFailure(onStorageFailure))
     private val mutation = Mutex()
     val answers = store.answers
     val recovery = scope.launch { store.recoverAnswers() }

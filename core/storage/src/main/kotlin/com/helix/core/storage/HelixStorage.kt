@@ -243,7 +243,10 @@ class HelixStorage internal constructor(
         CapabilityGrantRepository(database.capabilityGrantDao())
     }
 
-    val plans: PlanRepository by lazy { PlanRepository(database.planDao()) }
+    val plans: PlanRepository by lazy {
+        val contentRoot = requireNotNull((contentStore as? FileContentStore)?.root)
+        PlanRepository(database.planDao(), File(contentRoot.parentFile, "${contentRoot.name}-plans").toPath())
+    }
     val goals: GoalRepository by lazy { GoalRepository(database.goalDao()) }
     val goalControls: com.helix.core.storage.dao.GoalControlDao by lazy { database.goalControlDao() }
     val goalTurnBindings: GoalTurnBindingRepository by lazy { GoalTurnBindingRepository(database.goalTurnBindingDao()) }

@@ -120,7 +120,12 @@ class KnowledgeUiDeviceTest {
             val id =
                 runBlocking {
                     service.noteService.createEmptyTestNote("Synthetic Markdown").also {
-                        service.noteService.save(it, "Synthetic Markdown", "# Heading\n\n**Saved fact**", true)
+                        service.noteService.save(
+                            requireNotNull(service.noteService.get(it)),
+                            "Synthetic Markdown",
+                            "# Heading\n\n**Saved fact**",
+                            true,
+                        )
                     }
                 }
             compose.onNodeWithTag("knowledge-tab-notes").performClick()
@@ -191,7 +196,12 @@ class KnowledgeUiDeviceTest {
             val id =
                 runBlocking {
                     service.noteService.createEmptyTestNote("Synthetic observations").also {
-                        service.noteService.save(it, "Synthetic observations", "# Observation", false)
+                        service.noteService.save(
+                            requireNotNull(service.noteService.get(it)),
+                            "Synthetic observations",
+                            "# Observation",
+                            false,
+                        )
                     }
                 }
             compose.onNodeWithTag("knowledge-tab-notes").performClick()
@@ -323,8 +333,7 @@ class KnowledgeUiDeviceTest {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val name = "knowledge-ui-${UUID.randomUUID()}.db"
         val store = KnowledgeStore(context, name)
-        val root = File(context.cacheDir, name)
-        val service = KnowledgeService(context, store = store, root = root)
+        val service = KnowledgeService(context, store = store)
         val draft = AtomicReference<String?>(null)
         val visible = androidx.compose.runtime.mutableStateOf(true)
         runBlocking {
@@ -372,8 +381,7 @@ class KnowledgeUiDeviceTest {
             compose.runOnIdle { visible.value = false }
             compose.waitForIdle()
             service.close()
-            context.deleteDatabase(name)
-            root.deleteRecursively()
+            clearKnowledgeDocuments(context, name)
         }
     }
 }

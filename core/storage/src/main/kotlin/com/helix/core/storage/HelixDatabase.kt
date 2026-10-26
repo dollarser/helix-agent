@@ -62,7 +62,6 @@ import com.helix.core.storage.entity.MessageEntity
 import com.helix.core.storage.entity.MessageReferenceSnapshotEntity
 import com.helix.core.storage.entity.ModelCallEntity
 import com.helix.core.storage.entity.PlanEntity
-import com.helix.core.storage.entity.PlanStepEntity
 import com.helix.core.storage.entity.ProviderConfigEntity
 import com.helix.core.storage.entity.RuntimeInstallEntity
 import com.helix.core.storage.entity.SessionEntity
@@ -120,7 +119,6 @@ import com.helix.core.storage.entity.TurnRuntimeRecordEntity
             ProviderConfigEntity::class,
             RuntimeInstallEntity::class,
             PlanEntity::class,
-            PlanStepEntity::class,
             GoalEntity::class,
             GoalRunEntity::class,
             GoalTurnBindingEntity::class,

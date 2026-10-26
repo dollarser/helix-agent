@@ -54,7 +54,7 @@ class KnowledgeShellDeviceTest {
                         .id
                 noteId = service.noteService.createEmptyTestNote("合成 Markdown 笔记")
                 service.noteService.save(
-                    requireNotNull(noteId),
+                    requireNotNull(service.noteService.get(requireNotNull(noteId))),
                     "合成 Markdown 笔记",
                     "# 阅读记录\n\n**这是合成内容。**\n\n- 原件独立保存\n- 只有用户确认后才发送",
                     true,
@@ -98,7 +98,12 @@ class KnowledgeShellDeviceTest {
         val id =
             runBlocking {
                 service.noteService.createEmptyTestNote("Rebuild synthetic note").also {
-                    service.noteService.save(it, "Rebuild synthetic note", savedBody, true)
+                    service.noteService.save(
+                        requireNotNull(service.noteService.get(it)),
+                        "Rebuild synthetic note",
+                        savedBody,
+                        true,
+                    )
                 }
             }
         try {

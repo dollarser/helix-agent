@@ -4,45 +4,31 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
-import androidx.room.Transaction
 import com.helix.core.storage.entity.GoalEntity
 import com.helix.core.storage.entity.GoalRunEntity
 import com.helix.core.storage.entity.PlanEntity
-import com.helix.core.storage.entity.PlanStepEntity
 
 @Dao
 interface PlanDao {
     @Insert(onConflict = OnConflictStrategy.ABORT)
     fun insert(plan: PlanEntity)
 
-    @Insert(onConflict = OnConflictStrategy.ABORT)
-    fun insertSteps(steps: List<PlanStepEntity>)
-
-    /** doc 9.2: plan row and step rows land in one transaction. */
-    @Transaction
-    fun insertWithSteps(
-        plan: PlanEntity,
-        steps: List<PlanStepEntity>,
-    ) {
-        insert(plan)
-        insertSteps(steps)
-    }
-
     @Query("SELECT * FROM plans WHERE id = :id")
     fun byId(id: String): PlanEntity?
-
-    @Query("SELECT * FROM plan_steps WHERE planId = :planId ORDER BY sequence ASC")
-    fun stepsOf(planId: String): List<PlanStepEntity>
 
     @Query("SELECT * FROM plans ORDER BY rowid DESC")
     fun list(): List<PlanEntity>
 
-    @Query("UPDATE plans SET state = :state, evidenceRef = :evidenceRef WHERE id = :id")
-    fun updateState(
+    @Query(
+        "UPDATE plans SET state = :state, evidenceRef = :evidenceRef, " +
+            "approvedSnapshot = :approvedSnapshot WHERE id = :id AND state = 'READY'",
+    )
+    fun review(
         id: String,
         state: String,
         evidenceRef: String?,
-    )
+        approvedSnapshot: String?,
+    ): Int
 
     /**
      * Conditional transition: moves the plan to [state] only while it is still `APPROVED`,

@@ -106,52 +106,57 @@ object PlanTools {
         idGenerator: () -> String,
     ): ToolExecutor =
         object : ToolExecutor {
-            @Suppress("TooGenericExceptionCaught") // any Room/SQLite failure type; the safe label is the contract
-            override fun execute(call: ExecutableToolCall): ToolExecutorResult {
-                if (call.cancel.isCancelled()) {
-                    return ToolExecutorResult.Cancelled
-                }
-                val result =
-                    try {
-                        val artifact = planFromArgs(call.args, idGenerator)
-                        plans.save(artifact, PlanLifecycleState.READY.name, null)
-                        ToolExecutorResult.Completed(
-                            buildJsonObject {
-                                put("planId", JsonPrimitive(artifact.id.value))
-                                put("version", JsonPrimitive(artifact.version.toLong()))
-                                put("hash", JsonPrimitive(artifact.sha256().hex))
-                                put("state", JsonPrimitive(PlanLifecycleState.READY.name))
-                            },
-                            auditDetail =
-                                buildJsonObject {
-                                    put("planId", JsonPrimitive(artifact.id.value))
-                                    put("version", JsonPrimitive(artifact.version.toLong()))
-                                    put("hash", JsonPrimitive(artifact.sha256().hex))
-                                },
-                        )
-                    } catch (e: IllegalArgumentException) {
-                        // The artifact was never built (or the atomic persist aborted): no row
-                        // was written, so the failure is confirmed side-effect-free. (The
-                        // dispatcher already schema-validated the args; this is the
-                        // defense-in-depth second check.)
-                        ToolExecutorResult.Failed(e.message ?: "the plan is invalid", sideEffectFree = true)
-                    } catch (e: Exception) {
-                        // The stable safe label is the model-visible contract; only the redacted
-                        // failure class rides along for the audit event (HXA-053: no bodies).
-                        ToolExecutorResult.Failed(
-                            detail = "the plan could not be stored",
-                            sideEffectFree = false,
-                            auditDetail =
-                                buildJsonObject {
-                                    put(
-                                        "failureClass",
-                                        JsonPrimitive(e::class.java.simpleName),
-                                    )
-                                },
-                        )
-                    }
-                return result
+            override fun execute(call: ExecutableToolCall): ToolExecutorResult =
+                if (call.cancel.isCancelled()) ToolExecutorResult.Cancelled else submit(call, plans, idGenerator)
+        }
+
+    private fun submit(
+        call: ExecutableToolCall,
+        plans: PlanRepository,
+        idGenerator: () -> String,
+    ): ToolExecutorResult {
+        val artifact =
+            try {
+                planFromArgs(call.args, idGenerator)
+            } catch (invalid: IllegalArgumentException) {
+                return ToolExecutorResult.Failed(invalid.message ?: "the plan is invalid", sideEffectFree = true)
             }
+        return persist(artifact, plans)
+    }
+
+    // After publication starts, no exception proves absence of document/Room effects.
+    @Suppress("TooGenericExceptionCaught")
+    private fun persist(
+        artifact: PlanArtifact,
+        plans: PlanRepository,
+    ): ToolExecutorResult =
+        try {
+            plans.save(artifact, PlanLifecycleState.READY.name, null)
+            ToolExecutorResult.Completed(
+                buildJsonObject {
+                    put("planId", JsonPrimitive(artifact.id.value))
+                    put("version", JsonPrimitive(artifact.version.toLong()))
+                    put("hash", JsonPrimitive(artifact.sha256().hex))
+                    put("state", JsonPrimitive(PlanLifecycleState.READY.name))
+                },
+                auditDetail =
+                    buildJsonObject {
+                        put("planId", JsonPrimitive(artifact.id.value))
+                        put("version", JsonPrimitive(artifact.version.toLong()))
+                        put("hash", JsonPrimitive(artifact.sha256().hex))
+                    },
+            )
+        } catch (failure: Exception) {
+            ToolExecutorResult.Failed(
+                detail = "the plan could not be stored",
+                sideEffectFree = false,
+                auditDetail =
+                    buildJsonObject {
+                        put("planId", JsonPrimitive(artifact.id.value))
+                        put("hash", JsonPrimitive(artifact.sha256().hex))
+                        put("failureClass", JsonPrimitive(failure::class.java.simpleName))
+                    },
+            )
         }
 
     /** Registers both the contract and the implementation in the given registries. */
