@@ -50,18 +50,32 @@ internal fun InlineVoiceInput(
         ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
             PackageManager.PERMISSION_GRANTED
     },
+    suppliedConsent: com.helix.app.voice.SpeechConsentStore? = null,
 ) {
     val context = LocalContext.current
     val resources = LocalResources.current
     val scope = rememberCoroutineScope()
     val capture = remember { captureFactory(context.applicationContext, scope) }
+    val application = context.applicationContext as com.helix.app.HelixApplication
+    val consent = suppliedConsent ?: application.speechConsent
+    val accountIdentity by application.account.identityState.collectAsState()
+    val accountRequired =
+        remember(capture) {
+            application.speechSettings.forAccount(application.account.status.value).requiresAccount
+        }
+    val consentIdentity =
+        remember(capture) {
+            if (accountRequired) application.account.identity else "custom-service"
+        }
     val state by capture.state.collectAsState()
     val preview by rememberUpdatedState(onPreview)
     val accept by rememberUpdatedState(onAccept)
     val dismiss by rememberUpdatedState(onDismiss)
     val error by rememberUpdatedState(onError)
     var permission by remember { mutableStateOf(permissionChecker(context)) }
-    var uploadConsent by remember(capture) { mutableStateOf(!capture.uploadsAudio) }
+    var uploadConsent by remember(capture) {
+        mutableStateOf(initialVoiceConsent(capture, consent, consentIdentity))
+    }
     val launcher =
         rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             permission = granted
@@ -74,6 +88,9 @@ internal fun InlineVoiceInput(
     fun cancel() {
         capture.cancel()
         dismiss()
+    }
+    LaunchedEffect(accountIdentity) {
+        if (voiceIdentityChanged(accountRequired, consentIdentity, accountIdentity)) cancel()
     }
     BackHandler(onBack = ::cancel)
     DisposableEffect(capture) { onDispose { capture.cancel() } }
@@ -112,7 +129,14 @@ internal fun InlineVoiceInput(
         capture.destination,
         capture.supportsPartial,
         onCancel = ::cancel,
-        onConsent = { uploadConsent = true },
+        onConsent = {
+            if (approveVoiceConsent(capture, consent, consentIdentity)) {
+                uploadConsent = true
+            } else {
+                error(resources.getString(R.string.speech_consent_failed))
+                dismiss()
+            }
+        },
         onGrant = { launcher.launch(Manifest.permission.RECORD_AUDIO) },
         onFinish = capture::finish,
     )
@@ -135,12 +159,18 @@ private fun InlineVoiceControls(
 ) {
     Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp).testTag("voice-inline")) {
         Text(stringResource(voiceStatusText(state, permission)), Modifier.testTag("voice-status"))
-        if (uploadsAudio) {
+        if (uploadsAudio && !uploadConsent) {
             Text(stringResource(R.string.cloud_voice_upload))
-            destination?.let { Text(it) }
-            if (!supportsPartial) Text(stringResource(R.string.speech_http_asr_mode))
+            destination?.let {
+                Text(
+                    java.net
+                        .URI(it)
+                        .host
+                        .orEmpty(),
+                )
+            }
         }
-        Text(stringResource(R.string.voice_inline_note))
+        if (uploadsAudio && uploadConsent && !supportsPartial) Text(stringResource(R.string.speech_http_asr_mode))
         Row {
             TextButton(onCancel, Modifier.testTag("voice-cancel")) {
                 Text(stringResource(R.string.offline_voice_cancel))
@@ -207,3 +237,21 @@ internal fun voiceStatusText(
             }
         }
     }
+
+private fun initialVoiceConsent(
+    capture: VoiceCapture,
+    consent: com.helix.app.voice.SpeechConsentStore,
+    identity: String,
+): Boolean = !capture.uploadsAudio || capture.destination?.let { consent.approved("asr", it, identity) } == true
+
+private fun voiceIdentityChanged(
+    required: Boolean,
+    expected: String,
+    current: String,
+): Boolean = required && expected != current
+
+private fun approveVoiceConsent(
+    capture: VoiceCapture,
+    consent: com.helix.app.voice.SpeechConsentStore,
+    identity: String,
+): Boolean = capture.destination?.let { consent.approve("asr", it, identity) } == true

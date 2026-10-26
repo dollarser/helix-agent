@@ -9,7 +9,7 @@ import java.io.File
 internal fun installOfflineAsrFixture(context: Context) {
     check(context.packageName.endsWith(".asrvalidation"))
     val model = LocalSpeechModel.asr(context)
-    val target = File(context.filesDir, "asr/zipformer-int8").apply { mkdirs() }
+    val target = File(context.filesDir, "asr/${LocalSpeechModel.Kind.ASR.installation}").apply { mkdirs() }
     val assets = InstrumentationRegistry.getInstrumentation().context.assets
     model.parts.forEach { part ->
         assets.open("asr-model/${part.name}").use { source ->

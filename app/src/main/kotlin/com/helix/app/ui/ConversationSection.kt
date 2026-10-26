@@ -502,7 +502,7 @@ internal fun ConversationSection(
                         OfflineAsrGate(onDismiss = {
                             voicePreview = null
                             voiceOpen = false
-                        }) {
+                        }, onError = { inputNotice = it }) {
                             InlineVoiceInput(
                                 onDismiss = {
                                     voicePreview = null

@@ -62,7 +62,7 @@ class OfflineAsrDownloadDeviceTest {
             listOf(
                 LocalSpeechModel.Part(
                     "model.bin",
-                    "https://huggingface.co/synthetic/asr",
+                    "https://modelscope.cn/synthetic/asr",
                     data.size.toLong(),
                     MessageDigest.getInstance("SHA-256").digest(data).joinToString("") { "%02x".format(it) },
                 ),

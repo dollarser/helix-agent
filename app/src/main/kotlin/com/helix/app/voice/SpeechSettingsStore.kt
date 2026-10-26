@@ -1,6 +1,7 @@
 package com.helix.app.voice
 
 import android.content.Context
+import com.helix.app.account.AccountStatus
 import com.helix.app.account.speechSocket
 import com.helix.app.internal.LineStore
 import com.helix.app.internal.PrefsLineStore
@@ -12,6 +13,8 @@ data class SpeechServiceSettings(
     val useAccountLogin: Boolean = false,
     val webSocket: Boolean = false,
 ) {
+    val requiresAccount: Boolean get() = httpEnabled && useAccountLogin
+
     fun session(
         endpoint: String,
         account: com.helix.app.account.AccountSession? = null,
@@ -72,6 +75,22 @@ class SpeechSettingsStore(
 ) {
     constructor(context: Context) : this(PrefsLineStore(context, "speech-services", synchronous = true))
 
+    val automatic: Boolean get() = store.lines("settings").isEmpty()
+
+    /** No manual selection: signed-in accounts use the official streaming service. Explicit offline stays offline. */
+    fun forAccount(status: AccountStatus): SpeechServiceSettings =
+        if (store.lines("settings").isEmpty() && status != AccountStatus.SIGNED_OUT) {
+            SpeechServiceSettings(
+                httpEnabled = true,
+                asrEndpoint = "wss://asr.sunlingzhang.com/ws/asr",
+                ttsEndpoint = "wss://tts.sunlingzhang.com/ws/tts",
+                useAccountLogin = true,
+                webSocket = true,
+            )
+        } else {
+            read()
+        }
+
     fun read(): SpeechServiceSettings {
         val rows = store.lines("settings")
         return when {
@@ -112,15 +131,26 @@ class SpeechSettingsStore(
     }
 
     fun asrFactory(context: Context): StreamingAsrFactory {
-        val settings = read()
+        val application = context.applicationContext as com.helix.app.HelixApplication
+        val settings = forAccount(application.account.status.value)
+        val identity = application.account.identity
+
+        fun verifyAccount() {
+            if (settings.useAccountLogin) {
+                check(application.account.signedIn.value && application.account.identity == identity)
+            }
+        }
         return if (settings.httpEnabled && settings.webSocket) {
             CloudAsrFactory(settings.asrEndpoint) {
                 settings.validate()
+                verifyAccount()
                 val account = (context.applicationContext as com.helix.app.HelixApplication).account
                 WebSocketAsr(settings.asrEndpoint, settings.socket(account, settings.asrEndpoint))
             }
         } else if (settings.httpEnabled) {
             CloudAsrFactory(settings.asrEndpoint, supportsPartial = false) {
+                settings.validate()
+                verifyAccount()
                 HttpFileAsr(
                     settings.session(
                         settings.asrEndpoint,

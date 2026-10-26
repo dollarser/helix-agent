@@ -24,22 +24,88 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import com.helix.app.HelixApplication
 import com.helix.app.R
+import com.helix.app.account.AccountStatus
 import com.helix.app.voice.OfflineAsrModel
 
 /** Download consent precedes microphone permission; finishing a download never starts recording. */
 @Composable
-@Suppress("FunctionName")
+@Suppress("FunctionName", "LongMethod") // Resolve account routing before microphone or download UI.
 internal fun OfflineAsrGate(
     onDismiss: () -> Unit,
+    onError: (String) -> Unit,
     content: @Composable () -> Unit,
 ) {
     val app = LocalContext.current.applicationContext as HelixApplication
-    if (app.speechSettings.read().httpEnabled) {
-        content()
-        return
+    val resources = androidx.compose.ui.platform.LocalResources.current
+    val signedIn by app.account.signedIn.collectAsState()
+    val accountStatus by app.account.status.collectAsState()
+    val stored = app.speechSettings.read()
+    val needsAccount = app.speechSettings.automatic || stored.requiresAccount
+    var routingReady by remember { mutableStateOf(!needsAccount) }
+    var accountUnavailable by remember { mutableStateOf(false) }
+    var usedAccount by remember { mutableStateOf(false) }
+    LaunchedEffect(needsAccount) {
+        if (needsAccount) {
+            try {
+                app.account.restore()
+            } catch (cancel: kotlinx.coroutines.CancellationException) {
+                throw cancel
+            } catch (_: java.io.IOException) {
+                accountUnavailable = true
+            }
+        }
+        routingReady = true
     }
-    OfflineAsrGateContent(app.offlineAsr, onDismiss, content)
+    val settings = app.speechSettings.forAccount(accountStatus)
+    val error =
+        speechRoutingError(
+            settings,
+            if (needsAccount) accountStatus else null,
+            accountUnavailable,
+            usedAccount,
+            signedIn,
+        )
+    when {
+        !routingReady -> {
+            Text(stringResource(R.string.offline_voice_loading))
+        }
+
+        error != null -> {
+            LaunchedEffect(error) {
+                onError(resources.getString(error))
+                onDismiss()
+            }
+        }
+
+        settings.httpEnabled -> {
+            SideEffect { if (settings.useAccountLogin) usedAccount = true }
+            content()
+        }
+
+        else -> {
+            OfflineAsrGateContent(app.offlineAsr, onDismiss, content)
+        }
+    }
 }
+
+internal fun speechRoutingError(
+    settings: com.helix.app.voice.SpeechServiceSettings,
+    accountStatus: AccountStatus?,
+    restoreFailed: Boolean,
+    usedAccount: Boolean,
+    signedIn: Boolean,
+): Int? =
+    when {
+        runCatching { settings.validate() }.isFailure -> R.string.speech_settings_invalid
+
+        accountStatus == AccountStatus.UNAVAILABLE ||
+            (accountStatus != null && restoreFailed) -> R.string.speech_account_unavailable
+
+        (settings.requiresAccount || usedAccount || accountStatus == AccountStatus.REAUTH_REQUIRED) &&
+            !signedIn -> R.string.speech_account_required
+
+        else -> null
+    }
 
 @Composable
 @Suppress("FunctionName")
@@ -74,7 +140,6 @@ internal fun OfflineAsrModelPanel(
     val phase by model.phase.collectAsState()
     val bytes by model.downloadedBytes.collectAsState()
     val installed by model.installedBytes.collectAsState()
-    val recoveries by model.files.recoveryAttempts.collectAsState()
     LaunchedEffect(model) { model.refresh() }
     DisposableEffect(model) { onDispose { model.cancel() } }
     LifecycleEventEffect(Lifecycle.Event.ON_STOP) { model.cancel() }
@@ -89,7 +154,6 @@ internal fun OfflineAsrModelPanel(
             LinearProgressIndicator(progress = { ((bytes ?: 0).toFloat() / model.totalBytes).coerceIn(0f, 1f) })
             Text(stringResource(R.string.read_aloud_downloading, bytes ?: 0, model.totalBytes))
         }
-        SpeechDownloadRecovery(recoveries)
         Row {
             if (phase == OfflineAsrModel.Phase.MISSING || phase == OfflineAsrModel.Phase.FAILED) {
                 TextButton(model::download, Modifier.testTag("offline-asr-download")) {

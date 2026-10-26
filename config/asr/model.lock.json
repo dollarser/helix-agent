@@ -1,26 +1,28 @@
 {
-  "model": "Zipformer small bilingual INT8",
-  "revision": "e2382758de9a0219b4efe682b95af30b399db3b8",
+  "model": "Zipformer small streaming bilingual FP16 transducer",
+  "revision": "8de27eb36a6f767eea91f2ff1f5660ad499ed688",
+  "source": "https://modelscope.cn/models/pkufool/zipformer-small-streaming",
+  "license": "Apache-2.0",
   "files": {
-    "encoder.int8.onnx": {
-      "sha256": "db6f51551762e40e549166fe041ea3e45464370b595e9ad23f06478ec3794fbb",
-      "size": 42980793,
-      "url": "https://huggingface.co/csukuangfj/k2fsa-zipformer-bilingual-zh-en-t/resolve/e2382758de9a0219b4efe682b95af30b399db3b8/exp/32/encoder-epoch-99-avg-1.int8.onnx"
+    "encoder.fp16.onnx": {
+      "url": "https://modelscope.cn/api/v1/models/pkufool/zipformer-small-streaming/repo?Revision=8de27eb36a6f767eea91f2ff1f5660ad499ed688&FilePath=encoder-chunk-16-left-64.fp16.onnx",
+      "size": 46248451,
+      "sha256": "f870a9d3b5fca1aef20c77a972d74cdfbb3477e654e0f8a4f3660b52d6789fe5"
     },
     "decoder.onnx": {
-      "sha256": "89be509a83175261695bdef5fd1c7b9ab1129a663d1284e7ba9f8507b21e0906",
-      "size": 13877276,
-      "url": "https://huggingface.co/csukuangfj/k2fsa-zipformer-bilingual-zh-en-t/resolve/e2382758de9a0219b4efe682b95af30b399db3b8/exp/32/decoder-epoch-99-avg-1.onnx"
+      "url": "https://modelscope.cn/api/v1/models/pkufool/zipformer-small-streaming/repo?Revision=8de27eb36a6f767eea91f2ff1f5660ad499ed688&FilePath=decoder-chunk-16-left-64.onnx",
+      "size": 24950841,
+      "sha256": "f01d5714af722620e4e4805f596511f80b4abdb67c7a046df00d5dfa4d869a26"
     },
-    "joiner.int8.onnx": {
-      "sha256": "bdda356d6f9b8c2d7cee9ee0e26075fa537490f7fd06520be408d287073667b9",
-      "size": 3228485,
-      "url": "https://huggingface.co/csukuangfj/k2fsa-zipformer-bilingual-zh-en-t/resolve/e2382758de9a0219b4efe682b95af30b399db3b8/exp/32/joiner-epoch-99-avg-1.int8.onnx"
+    "joiner.fp16.onnx": {
+      "url": "https://modelscope.cn/api/v1/models/pkufool/zipformer-small-streaming/repo?Revision=8de27eb36a6f767eea91f2ff1f5660ad499ed688&FilePath=joiner-chunk-16-left-64.fp16.onnx",
+      "size": 11965189,
+      "sha256": "8c25dcaaa6f04c0a642e0fc1b05aa21b58e3af9bcd053e11dd7c589f25b73157"
     },
     "tokens.txt": {
-      "sha256": "a8e0e4ec53810e433789b54a5c0134a7eaa2ffca595a6334d54c00da858841d3",
-      "size": 56317,
-      "url": "https://huggingface.co/csukuangfj/k2fsa-zipformer-bilingual-zh-en-t/resolve/e2382758de9a0219b4efe682b95af30b399db3b8/data/lang_char_bpe/tokens.txt"
+      "url": "https://modelscope.cn/api/v1/models/pkufool/zipformer-small-streaming/repo?Revision=8de27eb36a6f767eea91f2ff1f5660ad499ed688&FilePath=data%2Ftokens.txt",
+      "size": 114134,
+      "sha256": "5beaddf82e078ef5644dcad130f3c4817a04016bfb0f31c0df28c6b4fa8df3af"
     }
   }
 }

@@ -1,39 +1,39 @@
 {
   "model": "MeloTTS Chinese INT8",
-  "revision": "a0d5c6a264c0ef92d70d8661d8cc502d79627cd6",
+  "revision": "1032f884ba0f69e5ca20cf7d6393d3df23a435b3",
   "files": {
     "model.int8.onnx": {
-      "url": "https://huggingface.co/csukuangfj/vits-melo-tts-zh_en/resolve/a0d5c6a264c0ef92d70d8661d8cc502d79627cd6/model.int8.onnx",
+      "url": "https://modelscope.cn/api/v1/models/AdamLee/vits-melo-tts-zh_en_copy/repo?Revision=1032f884ba0f69e5ca20cf7d6393d3df23a435b3&FilePath=model.int8.onnx",
       "size": 53517430,
       "sha256": "f085f5079e05f039b800aeb542f5253c26a303211b0c6465d0d9387977855a63"
     },
     "lexicon.txt": {
-      "url": "https://huggingface.co/csukuangfj/vits-melo-tts-zh_en/resolve/a0d5c6a264c0ef92d70d8661d8cc502d79627cd6/lexicon.txt",
+      "url": "https://modelscope.cn/api/v1/models/AdamLee/vits-melo-tts-zh_en_copy/repo?Revision=1032f884ba0f69e5ca20cf7d6393d3df23a435b3&FilePath=lexicon.txt",
       "size": 6837671,
       "sha256": "7236884b02435ac5d10cf69b4be40a61b45aa676b5300f0e412f185748fee528"
     },
     "tokens.txt": {
-      "url": "https://huggingface.co/csukuangfj/vits-melo-tts-zh_en/resolve/a0d5c6a264c0ef92d70d8661d8cc502d79627cd6/tokens.txt",
+      "url": "https://modelscope.cn/api/v1/models/AdamLee/vits-melo-tts-zh_en_copy/repo?Revision=1032f884ba0f69e5ca20cf7d6393d3df23a435b3&FilePath=tokens.txt",
       "size": 655,
       "sha256": "d18664a7e12bd7ea1022ddaf951e534e136815016c5a809d6b64156bffb4369d"
     },
     "date.fst": {
-      "url": "https://huggingface.co/csukuangfj/vits-melo-tts-zh_en/resolve/a0d5c6a264c0ef92d70d8661d8cc502d79627cd6/date.fst",
+      "url": "https://modelscope.cn/api/v1/models/AdamLee/vits-melo-tts-zh_en_copy/repo?Revision=1032f884ba0f69e5ca20cf7d6393d3df23a435b3&FilePath=date.fst",
       "size": 59154,
       "sha256": "eb8aa079ae3cb81d8f4404992f39d61a0cb990947512b5b8d1e54d1f6980e718"
     },
     "number.fst": {
-      "url": "https://huggingface.co/csukuangfj/vits-melo-tts-zh_en/resolve/a0d5c6a264c0ef92d70d8661d8cc502d79627cd6/number.fst",
+      "url": "https://modelscope.cn/api/v1/models/AdamLee/vits-melo-tts-zh_en_copy/repo?Revision=1032f884ba0f69e5ca20cf7d6393d3df23a435b3&FilePath=number.fst",
       "size": 64482,
       "sha256": "743f402181fcfebf76cc2f0546b71fa26476e626fbe4e460fb7b4c3a7a8bd5bd"
     },
     "phone.fst": {
-      "url": "https://huggingface.co/csukuangfj/vits-melo-tts-zh_en/resolve/a0d5c6a264c0ef92d70d8661d8cc502d79627cd6/phone.fst",
+      "url": "https://modelscope.cn/api/v1/models/AdamLee/vits-melo-tts-zh_en_copy/repo?Revision=1032f884ba0f69e5ca20cf7d6393d3df23a435b3&FilePath=phone.fst",
       "size": 88630,
       "sha256": "1ac2b6fa56b1442320c4de7db08353bab8963a2b57f365eebcdd3a2d3562f8d7"
     },
     "LICENSE": {
-      "url": "https://huggingface.co/csukuangfj/vits-melo-tts-zh_en/resolve/a0d5c6a264c0ef92d70d8661d8cc502d79627cd6/LICENSE",
+      "url": "https://modelscope.cn/api/v1/models/AdamLee/vits-melo-tts-zh_en_copy/repo?Revision=1032f884ba0f69e5ca20cf7d6393d3df23a435b3&FilePath=LICENSE",
       "size": 1053,
       "sha256": "88a50e5a02bbc2a5c2f084dc19da751aa97b1690f5fda76cd8005c8634d1ca70"
     }

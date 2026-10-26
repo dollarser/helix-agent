@@ -4,10 +4,8 @@
     <string name="read_aloud_title">Local read aloud</string>
     <string name="read_aloud_start">Read this response aloud</string>
     <string name="read_aloud_stop">Stop reading</string>
-    <string name="read_aloud_local">Uses local Melo Chinese/English INT8, one voice. First download from Hugging Face is about 57.8 MiB including weights, lexicon, text rules and license. Response text stays on device. Tap Read aloud again after installation.</string>
-    <string name="read_aloud_lifecycle">One completed response at a time. Stop and replay as needed. Reading stops on session change, leaving chat, backgrounding, voice input, lost audio focus or disconnected headphones; it never resumes automatically. Streaming responses are excluded.</string>
     <string name="read_aloud_failed">Reading incomplete. Check audio output or retry later; at most 20,000 characters per response. No automatic retry or cloud fallback.</string>
-    <string name="read_aloud_download">Download local voice (about 57.8 MiB)</string>
+    <string name="read_aloud_download">Download model (about 58 MiB)</string>
     <string name="read_aloud_downloading">Downloading: %1$d / %2$d bytes</string>
     <string name="read_aloud_cancel_download">Cancel download</string>
     <string name="read_aloud_ready">Voice verified and ready. Close this page and tap Read aloud again.</string>

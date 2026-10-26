@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="speech_account_setup_hint">Sign in from the drawer account entry before using official cloud speech. Account login does not enable audio uploads; each recording still asks for upload consent. Stop reading does not cancel the Agent.</string>
+    <string name="speech_account_setup_hint">Sign in to use online speech by default, or choose an offline model.</string>
+    <string name="speech_account_unavailable">Account access is temporarily unavailable. Try again shortly.</string>
+    <string name="speech_account_required">Sign in to use online speech.</string>
+    <string name="speech_consent_failed">Could not save your choice. Try again.</string>
 </resources>

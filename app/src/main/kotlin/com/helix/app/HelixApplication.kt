@@ -26,16 +26,22 @@ class HelixApplication : Application() {
         com.helix.app.voice
             .SpeechSettingsStore(this)
     }
+    val speechConsent by lazy {
+        com.helix.app.voice
+            .SpeechConsentStore(this)
+    }
     private var readAloudSettings: com.helix.app.voice.SpeechServiceSettings? = null
+    private var readAloudIdentity: String? = null
     private var readAloudService: com.helix.app.voice.ReadAloudService? = null
     private val speechSynthesis = kotlinx.coroutines.sync.Mutex()
     val readAloud: com.helix.app.voice.ReadAloudService
         @Synchronized get() {
-            val settings = speechSettings.read()
-            if (settings != readAloudSettings) {
+            val settings = speechSettings.forAccount(account.status.value)
+            if (settings != readAloudSettings || (settings.requiresAccount && readAloudIdentity != account.identity)) {
                 readAloudService?.close()
                 readAloudService = createReadAloud(settings)
                 readAloudSettings = settings
+                readAloudIdentity = account.identity
             }
             return requireNotNull(readAloudService)
         }
@@ -49,6 +55,7 @@ class HelixApplication : Application() {
     }
 
     private fun createReadAloud(settings: SpeechServiceSettings): ReadAloudService {
+        val identity = account.identity
         val audio =
             com.helix.app.voice
                 .SpeechAudio(this)
@@ -65,6 +72,7 @@ class HelixApplication : Application() {
                 if (settings.httpEnabled) {
                     {
                         settings.validate()
+                        if (settings.useAccountLogin) check(account.signedIn.value && account.identity == identity)
                         settings.tts(account)
                     }
                 } else {
@@ -72,6 +80,7 @@ class HelixApplication : Application() {
                 },
             uploadDestination = settings.ttsEndpoint.takeIf { settings.httpEnabled },
             segmentedHttp = settings.httpEnabled && !settings.webSocket,
+            accountIdentity = identity.takeIf { settings.requiresAccount },
             synthesis = speechSynthesis,
         )
     }

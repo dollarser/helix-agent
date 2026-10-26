@@ -1,8 +1,8 @@
 <resources>
     <string name="asr_model_title">Offline speech recognition</string>
-    <string name="asr_model_description">Download about %1$d MiB from Hugging Face / csukuangfj. After installation, Chinese and English recognition works without cloud services. Audio stays on this device.</string>
+    <string name="asr_model_description">Download the model (about %1$d MiB).</string>
     <string name="asr_model_checking">Checking installed model…</string>
-    <string name="asr_model_missing">Model not installed. Download before using offline voice input.</string>
+    <string name="asr_model_missing">Model download required</string>
     <string name="asr_model_downloading">Downloading and verifying model…</string>
     <string name="asr_model_ready">Installed. Offline voice input is available.</string>
     <string name="asr_model_failed">Download or verification failed. An incomplete model is not usable. Check your connection and retry.</string>
@@ -11,13 +11,12 @@
     <string name="speech_resource_storage">Downloaded model files: %1$.1f MiB</string>
     <string name="speech_resource_redownload">Download again</string>
     <string name="speech_resource_remove">Delete downloaded model</string>
-    <string name="speech_resource_remove_warning">Only this downloaded speech model will be deleted. Chats, accounts, settings and the other speech model are kept. Download again before the next offline use.</string>
+    <string name="speech_resource_remove_warning">Delete this offline model? You will need to download it again to use it.</string>
     <string name="speech_resource_ready">Model installed; available offline.</string>
     <string name="speech_resource_missing">Model not installed. Download explicitly to use it offline.</string>
     <string name="speech_resource_failed">Model operation failed. Check network and available storage, then retry.</string>
     <string name="speech_tts_resource_title">Offline speech playback</string>
-    <string name="speech_tts_resource_description">Explicitly download approximately %1$d MiB from Hugging Face / csukuangfj. After installation, synthesize speech locally without sending text to a cloud voice service.</string>
+    <string name="speech_tts_resource_description">Download the model (about %1$d MiB).</string>
     <string name="speech_local_section">Offline voice · no account required</string>
     <string name="speech_cloud_section">Cloud voice · explicitly enabled</string>
-    <string name="speech_resource_recovery">Network recoveries: %1$d (at most one retry per file)</string>
 </resources>

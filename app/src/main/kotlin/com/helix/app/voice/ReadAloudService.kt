@@ -43,6 +43,7 @@ class ReadAloudService(
     private val cloudEngine: (() -> InterruptibleSpeechEngine)? = null,
     val uploadDestination: String? = null,
     val segmentedHttp: Boolean = false,
+    val accountIdentity: String? = null,
     private val synthesis: Mutex = Mutex(),
 ) {
     val uploadsText get() = cloudEngine != null

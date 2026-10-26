@@ -5,6 +5,7 @@ from pathlib import Path
 import tempfile
 import unittest
 import zipfile
+from urllib.parse import urlparse, parse_qs
 
 ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location('asr_download', ROOT / 'scripts/prepare-asr-download-assets.py')
@@ -16,7 +17,7 @@ class AsrDownloadAssetsTest(unittest.TestCase):
     def test_generated_main_assets_reject_model_files(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
-            (root / 'encoder.int8.onnx').write_bytes(b'model')
+            (root / 'encoder.fp16.onnx').write_bytes(b'model')
             with self.assertRaises(ValueError):
                 module.assert_no_weights(root)
 
@@ -30,7 +31,7 @@ class AsrDownloadAssetsTest(unittest.TestCase):
                 archive.writestr('assets/asr-licenses/SOURCES.txt', b'sources')
             module.verify_apk(apk)
             with zipfile.ZipFile(apk, 'a') as archive:
-                archive.writestr('assets/asr/encoder.int8.onnx', b'model')
+                archive.writestr('assets/accidental/encoder.fp16.onnx', b'model')
             with self.assertRaises(ValueError):
                 module.verify_apk(apk)
 
@@ -38,6 +39,7 @@ class AsrDownloadAssetsTest(unittest.TestCase):
         lock = json.loads(module.LOCK.read_text())
         self.assertEqual(4, len(lock['files']))
         for row in lock['files'].values():
-            self.assertIn('/resolve/' + lock['revision'] + '/', row['url'])
+            self.assertEqual('modelscope.cn', urlparse(row['url']).hostname)
+            self.assertEqual([lock['revision']], parse_qs(urlparse(row['url']).query)['Revision'])
             self.assertEqual(64, len(row['sha256']))
-        self.assertEqual(60142871, sum(row['size'] for row in lock['files'].values()))
+        self.assertEqual(83278615, sum(row['size'] for row in lock['files'].values()))

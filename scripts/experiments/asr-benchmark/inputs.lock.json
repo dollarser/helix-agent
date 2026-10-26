@@ -125,6 +125,78 @@
       "url": "https://repo.maven.apache.org/maven2/net/java/dev/jna/jna/5.18.1/jna-5.18.1.aar",
       "size": 522677,
       "sha256": "7f053e3ec99e14dd71259c82c1c8a02738d64a13c31226b2acc170f3060951e0"
+    },
+    {
+      "name": "modelscope-small-transducer/encoder.fp16.onnx",
+      "url": "https://modelscope.cn/api/v1/models/pkufool/zipformer-small-streaming/repo?Revision=8de27eb36a6f767eea91f2ff1f5660ad499ed688&FilePath=encoder-chunk-16-left-64.fp16.onnx",
+      "size": 46248451,
+      "sha256": "f870a9d3b5fca1aef20c77a972d74cdfbb3477e654e0f8a4f3660b52d6789fe5"
+    },
+    {
+      "name": "modelscope-small-transducer/decoder.onnx",
+      "url": "https://modelscope.cn/api/v1/models/pkufool/zipformer-small-streaming/repo?Revision=8de27eb36a6f767eea91f2ff1f5660ad499ed688&FilePath=decoder-chunk-16-left-64.onnx",
+      "size": 24950841,
+      "sha256": "f01d5714af722620e4e4805f596511f80b4abdb67c7a046df00d5dfa4d869a26"
+    },
+    {
+      "name": "modelscope-small-transducer/joiner.fp16.onnx",
+      "url": "https://modelscope.cn/api/v1/models/pkufool/zipformer-small-streaming/repo?Revision=8de27eb36a6f767eea91f2ff1f5660ad499ed688&FilePath=joiner-chunk-16-left-64.fp16.onnx",
+      "size": 11965189,
+      "sha256": "8c25dcaaa6f04c0a642e0fc1b05aa21b58e3af9bcd053e11dd7c589f25b73157"
+    },
+    {
+      "name": "modelscope-small-transducer/tokens.txt",
+      "url": "https://modelscope.cn/api/v1/models/pkufool/zipformer-small-streaming/repo?Revision=8de27eb36a6f767eea91f2ff1f5660ad499ed688&FilePath=data%2Ftokens.txt",
+      "size": 114134,
+      "sha256": "5beaddf82e078ef5644dcad130f3c4817a04016bfb0f31c0df28c6b4fa8df3af"
+    },
+    {
+      "name": "modelscope-small-ctc/model.int8.onnx",
+      "url": "https://modelscope.cn/api/v1/models/pkufool/zipformer-small-streaming/repo?Revision=fd7197549598443354872647dc2adb7c37f25aab&FilePath=ctc-chunk-16-left-64.int8.onnx",
+      "size": 29146304,
+      "sha256": "210c84e337b2288aa09b5318f855ca9bb0e83c9ceb49d7c37bcecbaf252b42ed"
+    },
+    {
+      "name": "modelscope-small-ctc/tokens.txt",
+      "url": "https://modelscope.cn/api/v1/models/pkufool/zipformer-small-streaming/repo?Revision=8de27eb36a6f767eea91f2ff1f5660ad499ed688&FilePath=data%2Ftokens.txt",
+      "size": 114134,
+      "sha256": "5beaddf82e078ef5644dcad130f3c4817a04016bfb0f31c0df28c6b4fa8df3af"
+    },
+    {
+      "name": "modelscope-medium-ctc/model.int8.onnx",
+      "url": "https://modelscope.cn/api/v1/models/pkufool/zipformer-medium-streaming/repo?Revision=c86bf174f92e2d44bd745bce91ea2e8ad1ca8a66&FilePath=ctc-chunk-16-left-64.int8.onnx",
+      "size": 74410051,
+      "sha256": "7cb84949b8d4f40d72df137e2e3529a1aadfc897e5257460f720bb73c99f10f1"
+    },
+    {
+      "name": "modelscope-medium-ctc/tokens.txt",
+      "url": "https://modelscope.cn/api/v1/models/pkufool/zipformer-medium-streaming/repo?Revision=c86bf174f92e2d44bd745bce91ea2e8ad1ca8a66&FilePath=data%2Ftokens.txt",
+      "size": 86313,
+      "sha256": "e2f16836a4c712a9a01a1656f4610f66093fe283159883ee66b73ebb6e80364b"
+    },
+    {
+      "name": "modelscope-wenet-small/encoder.int8.onnx",
+      "url": "https://modelscope.cn/api/v1/models/k2-fsa/icefall-asr-zipformer-wenetspeech-streaming-small/repo?Revision=62b1dc5e86914c8fa959fe8822f46efa45e2fd1b&FilePath=exp%2Fencoder-epoch-12-avg-2-chunk-16-left-256.int8.onnx",
+      "size": 26246290,
+      "sha256": "da5009f42dd5af5a26cca798cd9365aafcd5fd85e377df1fcc8a75624ebc2108"
+    },
+    {
+      "name": "modelscope-wenet-small/decoder.onnx",
+      "url": "https://modelscope.cn/api/v1/models/k2-fsa/icefall-asr-zipformer-wenetspeech-streaming-small/repo?Revision=62b1dc5e86914c8fa959fe8822f46efa45e2fd1b&FilePath=exp%2Fdecoder-epoch-12-avg-2-chunk-16-left-256.onnx",
+      "size": 12408860,
+      "sha256": "53aee85802b4d57237457382aa92ceb18811b3333650ef008e3864be59abf7ff"
+    },
+    {
+      "name": "modelscope-wenet-small/joiner.int8.onnx",
+      "url": "https://modelscope.cn/api/v1/models/k2-fsa/icefall-asr-zipformer-wenetspeech-streaming-small/repo?Revision=62b1dc5e86914c8fa959fe8822f46efa45e2fd1b&FilePath=exp%2Fjoiner-epoch-12-avg-2-chunk-16-left-256.int8.onnx",
+      "size": 2858478,
+      "sha256": "478a56c0d7bc25eaee4f70af5909f836a910da1bae19d41c669a0863e5fee05a"
+    },
+    {
+      "name": "modelscope-wenet-small/tokens.txt",
+      "url": "https://modelscope.cn/api/v1/models/k2-fsa/icefall-asr-zipformer-wenetspeech-streaming-small/repo?Revision=62b1dc5e86914c8fa959fe8822f46efa45e2fd1b&FilePath=data%2Flang_char%2Ftokens.txt",
+      "size": 48697,
+      "sha256": "8b294db9045d6e5f94647f4c1eec1af4da143a75053c399611444b378ff966ac"
     }
   ],
   "models": {
@@ -330,6 +402,62 @@
       "encoder.int8.onnx": {
         "size": 165462184,
         "sha256": "81a70226a8934e6ed92aa1d4fc486b428b5398e2f2619ed4897b7294cab90e9a"
+      }
+    },
+    "modelscope-small-transducer": {
+      "encoder.fp16.onnx": {
+        "size": 46248451,
+        "sha256": "f870a9d3b5fca1aef20c77a972d74cdfbb3477e654e0f8a4f3660b52d6789fe5"
+      },
+      "decoder.onnx": {
+        "size": 24950841,
+        "sha256": "f01d5714af722620e4e4805f596511f80b4abdb67c7a046df00d5dfa4d869a26"
+      },
+      "joiner.fp16.onnx": {
+        "size": 11965189,
+        "sha256": "8c25dcaaa6f04c0a642e0fc1b05aa21b58e3af9bcd053e11dd7c589f25b73157"
+      },
+      "tokens.txt": {
+        "size": 114134,
+        "sha256": "5beaddf82e078ef5644dcad130f3c4817a04016bfb0f31c0df28c6b4fa8df3af"
+      }
+    },
+    "modelscope-small-ctc": {
+      "model.int8.onnx": {
+        "size": 29146304,
+        "sha256": "210c84e337b2288aa09b5318f855ca9bb0e83c9ceb49d7c37bcecbaf252b42ed"
+      },
+      "tokens.txt": {
+        "size": 114134,
+        "sha256": "5beaddf82e078ef5644dcad130f3c4817a04016bfb0f31c0df28c6b4fa8df3af"
+      }
+    },
+    "modelscope-medium-ctc": {
+      "model.int8.onnx": {
+        "size": 74410051,
+        "sha256": "7cb84949b8d4f40d72df137e2e3529a1aadfc897e5257460f720bb73c99f10f1"
+      },
+      "tokens.txt": {
+        "size": 86313,
+        "sha256": "e2f16836a4c712a9a01a1656f4610f66093fe283159883ee66b73ebb6e80364b"
+      }
+    },
+    "modelscope-wenet-small": {
+      "encoder.int8.onnx": {
+        "size": 26246290,
+        "sha256": "da5009f42dd5af5a26cca798cd9365aafcd5fd85e377df1fcc8a75624ebc2108"
+      },
+      "decoder.onnx": {
+        "size": 12408860,
+        "sha256": "53aee85802b4d57237457382aa92ceb18811b3333650ef008e3864be59abf7ff"
+      },
+      "joiner.int8.onnx": {
+        "size": 2858478,
+        "sha256": "478a56c0d7bc25eaee4f70af5909f836a910da1bae19d41c669a0863e5fee05a"
+      },
+      "tokens.txt": {
+        "size": 48697,
+        "sha256": "8b294db9045d6e5f94647f4c1eec1af4da143a75053c399611444b378ff966ac"
       }
     }
   },

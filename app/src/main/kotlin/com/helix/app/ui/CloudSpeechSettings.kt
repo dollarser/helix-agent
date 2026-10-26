@@ -30,7 +30,11 @@ internal fun CloudSpeechSettingsEntry() {
     var open by remember { mutableStateOf(false) }
     SettingsEntryRow(stringResource(R.string.speech_services_title), R.drawable.ic_composer_voice, { open = true })
     if (open) {
-        var draft by remember { mutableStateOf(application.speechSettings.read()) }
+        var draft by remember {
+            mutableStateOf(
+                application.speechSettings.forAccount(application.account.status.value),
+            )
+        }
         var error by remember { mutableStateOf(false) }
         ConversationSheet(stringResource(R.string.speech_services_title), "speech-services", { open = false }) {
             Column {

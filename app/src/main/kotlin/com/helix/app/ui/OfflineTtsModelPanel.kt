@@ -33,7 +33,6 @@ import kotlinx.coroutines.launch
 internal fun OfflineTtsModelPanel(service: ReadAloudService) {
     val state by service.state.collectAsState()
     val downloaded by service.model.downloadedBytes.collectAsState()
-    val recoveries by service.model.recoveryAttempts.collectAsState()
     val scope = rememberCoroutineScope()
     var installed by remember(service) { mutableLongStateOf(0L) }
     var ready by remember(service) { mutableStateOf(false) }
@@ -76,7 +75,6 @@ internal fun OfflineTtsModelPanel(service: ReadAloudService) {
                 Text(stringResource(R.string.read_aloud_download))
             }
         }
-        SpeechDownloadRecovery(recoveries)
         SpeechResourceActions(installed, busy, "offline-tts", {
             failed = false
             service.download()

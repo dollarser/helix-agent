@@ -20,6 +20,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.HelixApplication
 import com.helix.app.R
+import com.helix.app.account.AccountStatus
 import com.helix.app.voice.ReadAloudPhase
 import com.helix.app.voice.ReadAloudService
 
@@ -64,10 +65,30 @@ internal fun ReadAloudAction(
     onStart: (() -> Unit)? = null,
 ) {
     val service = supplied ?: (LocalContext.current.applicationContext as? HelixApplication)?.readAloud ?: return
+    val application = LocalContext.current.applicationContext as? HelixApplication
+    val consent = application?.speechConsent
+    val consentIdentity = service.accountIdentity ?: "custom-service"
+    val accountIdentity by (
+        application?.account?.identityState
+            ?: kotlinx.coroutines.flow.MutableStateFlow("signed-out")
+    ).collectAsStateWithLifecycle()
+    LaunchedEffect(accountIdentity, service) {
+        if (service.accountIdentity != null && accountIdentity != service.accountIdentity) service.stop()
+    }
+    val accountStatus =
+        application
+            ?.account
+            ?.status
+            ?.collectAsStateWithLifecycle()
+            ?.value
+    val accountReady =
+        service.accountIdentity == null ||
+            (accountStatus == AccountStatus.SIGNED_IN && accountIdentity == service.accountIdentity)
     val state by service.state.collectAsStateWithLifecycle()
     val bytes by service.model.downloadedBytes.collectAsStateWithLifecycle()
     var details by remember(id) { mutableStateOf(false) }
     var uploadConfirmation by remember(id, service) { mutableStateOf(false) }
+    var consentFailed by remember(id, service) { mutableStateOf(false) }
     val matches = state.messageId == id || (turnId != null && service.livePlaybackTurnId == turnId)
     val active =
         matches && state.phase in
@@ -83,7 +104,13 @@ internal fun ReadAloudAction(
         onClick = {
             when {
                 active -> service.stop()
-                service.uploadsText -> uploadConfirmation = true
+
+                !accountReady -> details = true
+
+                service.uploadsText && service.uploadDestination?.let {
+                    consent?.approved("tts", it, consentIdentity)
+                } != true -> uploadConfirmation = true
+
                 else -> if (onStart == null) service.play(id, text) else onStart()
             }
         },
@@ -102,14 +129,25 @@ internal fun ReadAloudAction(
             text = {
                 Column {
                     Text(stringResource(R.string.cloud_tts_upload))
-                    service.uploadDestination?.let { Text(it) }
-                    if (service.segmentedHttp) Text(stringResource(R.string.speech_http_tts_mode))
+                    if (consentFailed) Text(stringResource(R.string.speech_consent_failed))
+                    service.uploadDestination?.let {
+                        Text(
+                            java.net
+                                .URI(it)
+                                .host
+                                .orEmpty(),
+                        )
+                    }
                 }
             },
             confirmButton = {
                 TextButton({
-                    uploadConfirmation = false
-                    if (onStart == null) service.play(id, text) else onStart()
+                    consentFailed =
+                        service.uploadDestination?.let { consent?.approve("tts", it, consentIdentity) } != true
+                    if (!consentFailed) {
+                        uploadConfirmation = false
+                        if (onStart == null) service.play(id, text) else onStart()
+                    }
                 }) {
                     Text(stringResource(R.string.cloud_voice_confirm))
                 }
@@ -125,8 +163,17 @@ internal fun ReadAloudAction(
             details = false
         }) {
             Column {
-                Text(stringResource(if (service.uploadsText) R.string.cloud_tts_upload else R.string.read_aloud_local))
-                Text(stringResource(R.string.read_aloud_lifecycle))
+                if (!accountReady) {
+                    Text(
+                        stringResource(
+                            if (accountStatus == AccountStatus.UNAVAILABLE) {
+                                R.string.speech_account_unavailable
+                            } else {
+                                R.string.speech_account_required
+                            },
+                        ),
+                    )
+                }
                 if (state.phase == ReadAloudPhase.FAILED) {
                     val error =
                         if (state.busy) {

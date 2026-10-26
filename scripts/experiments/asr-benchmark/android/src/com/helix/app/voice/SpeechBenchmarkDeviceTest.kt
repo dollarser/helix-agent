@@ -163,7 +163,7 @@ class SpeechBenchmarkDeviceTest {
         fun path(name: String) = File(root, "models/$id/$name").absolutePath
         val config = OnlineModelConfig(numThreads = 2, tokens = path("tokens.txt"))
         when (id) {
-            "ctc" -> {
+            "ctc", "modelscope-small-ctc", "modelscope-medium-ctc" -> {
                 config.zipformer2Ctc = OnlineZipformer2CtcModelConfig(path("model.int8.onnx"))
             }
 
@@ -178,9 +178,9 @@ class SpeechBenchmarkDeviceTest {
             else -> {
                 config.transducer =
                     OnlineTransducerModelConfig(
-                        path("encoder.int8.onnx"),
+                        path(if (id == "modelscope-small-transducer") "encoder.fp16.onnx" else "encoder.int8.onnx"),
                         path("decoder.onnx"),
-                        path("joiner.int8.onnx"),
+                        path(if (id == "modelscope-small-transducer") "joiner.fp16.onnx" else "joiner.int8.onnx"),
                     )
             }
         }

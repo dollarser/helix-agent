@@ -31,7 +31,7 @@ class LocalSpeechModel(
         val installation: String,
     ) {
         TTS("tts-model-lock.json", "melo-int8"),
-        ASR("asr-model-lock.json", "zipformer-int8"),
+        ASR("asr-model-lock.json", "zipformer-small-fp16"),
     }
 
     companion object {
@@ -77,7 +77,7 @@ class LocalSpeechModel(
     private val activeCall = AtomicReference<HttpURLConnection?>(null)
     private val policy =
         com.helix.app.localmodel.LocalModelDownloadPolicy(
-            redirectHostSuffixes = setOf("huggingface.co", "hf.co"),
+            redirectHostSuffixes = setOf("modelscope.cn"),
         )
 
     suspend fun ready(): File? =

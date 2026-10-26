@@ -35,17 +35,30 @@ def prepare():
     spec.loader.exec_module(asr)
     asr.verify()
     assets = OUTPUT / 'assets'
+    if assets.exists(): shutil.rmtree(assets)
     assets.mkdir(parents=True, exist_ok=True)
     shutil.copytree(ROOT / 'build/asr/assets/asr-licenses', assets / 'asr-licenses', dirs_exist_ok=True)
     shutil.copyfile(LOCK, assets / 'asr-model-lock.json')
     fixture = OUTPUT / 'test-assets/asr-model'
+    if fixture.exists(): shutil.rmtree(fixture)
     fixture.mkdir(parents=True, exist_ok=True)
-    for name, row in json.loads(LOCK.read_text())['files'].items():
-        if name not in {'encoder.int8.onnx', 'decoder.onnx', 'joiner.int8.onnx', 'tokens.txt'}:
+    lock = json.loads(LOCK.read_text())
+    if lock['license'] != 'Apache-2.0': raise ValueError('Review the model license before preparation')
+    with (assets / 'asr-licenses/SOURCES.txt').open('a') as notices:
+        notices.write('Selected ASR model: ' + lock['model'] + '\nSource: ' + lock['source'] +
+                      '\nLicense: Apache-2.0, as declared by its model card; Xiaomi AI Lab Next-gen-Kaldi team.\n' +
+                      'The upstream zipformer Python implementation is not included.\n')
+    shutil.copyfile(assets / 'asr-licenses/sherpa-Apache-2.0.txt', assets / 'asr-licenses/model-Apache-2.0.txt')
+    downloads = OUTPUT / 'models'
+    downloads.mkdir(parents=True, exist_ok=True)
+    for name, row in lock['files'].items():
+        if name not in {'encoder.fp16.onnx', 'decoder.onnx', 'joiner.fp16.onnx', 'tokens.txt'}:
             raise ValueError('Unexpected model file')
-        source = ROOT / 'build/asr/assets/asr' / name
+        source = downloads / name
+        if not asr.matches(source, row['sha256'], row['size']):
+            asr.fetch(row['url'], source, row['sha256'], row['size'])
         if source.stat().st_size != row['size'] or sha(source) != row['sha256']:
-            raise ValueError('Download descriptor must preserve the qualified model bytes: ' + name)
+            raise ValueError('Model input differs: ' + name)
         shutil.copyfile(source, fixture / name)
     assert_no_weights(assets)
     files = [p for folder in ['assets', 'test-assets'] for p in (OUTPUT / folder).rglob('*') if p.is_file()]
@@ -73,7 +86,7 @@ def verify():
 def verify_apk(path):
     with zipfile.ZipFile(path) as archive:
         names = archive.namelist()
-        forbidden = {'encoder.int8.onnx', 'decoder.onnx', 'joiner.int8.onnx'}
+        forbidden = {'encoder.int8.onnx', 'encoder.fp16.onnx', 'decoder.onnx', 'joiner.int8.onnx', 'joiner.fp16.onnx', 'model.int8.onnx'}
         if any(name.startswith(('assets/asr/', 'assets/asr-model/')) or
                (name.startswith('assets/') and Path(name).name in forbidden) for name in names):
             raise ValueError('Production APK contains offline ASR weights')

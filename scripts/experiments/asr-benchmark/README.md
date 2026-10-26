@@ -25,3 +25,8 @@ Generated weights, PCM, APKs, raw JSONL, log files, locks and device receipts li
 5. Explicitly run `device.py --serial <authorized-id> --models <ids> --stage`; run again with `--paced --limit 3`. `device.py` requires a successful JUnit outcome and preserves failed/partial results as failures. Use `score.py` on the successful result files with `--simplify`.
 
 The completion evidence records actual commands, exact candidate APK/model/corpus receipts, hardware, outcomes, results and remaining boundaries. GB-scale generative models and TTS are outside this ASR measurement round; they were already excluded from the phone-default shortlist.
+
+
+## 2026-10-26 ModelScope comparison
+
+The frozen corpus remains unchanged. Additional pinned inputs are `modelscope-small-ctc`, `modelscope-small-transducer` (FP16 encoder/joiner), `modelscope-medium-ctc` and `modelscope-wenet-small`. These are opt-in experiment IDs, not a product selector or old-format compatibility layer. Use the same `host.py`/`device.py` and explicit owned-device authorization. Their source files are enumerated in `inputs.lock.json`; stage only the models under test. The final candidate uses the existing CPU runtime, never the author's Python package. Actual outcomes/limitations are in the [selection record](../../../docs/evidence/development/modelscope-asr-selection-2026-10-26.md). Historical `bilingual` remains the previous fixed baseline; it is not the updated production factory.

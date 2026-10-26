@@ -36,13 +36,13 @@ class OfflineAsrFactory(
                             OnlineModelConfig(
                                 transducer =
                                     OnlineTransducerModelConfig(
-                                        encoder = root + "encoder.int8.onnx",
+                                        encoder = root + "encoder.fp16.onnx",
                                         decoder = root + "decoder.onnx",
-                                        joiner = root + "joiner.int8.onnx",
+                                        joiner = root + "joiner.fp16.onnx",
                                     ),
                                 tokens = root + "tokens.txt",
                                 numThreads = 2,
-                                modelType = "zipformer",
+                                modelType = "zipformer2",
                             ),
                         enableEndpoint = false,
                     ),

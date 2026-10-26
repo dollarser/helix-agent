@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="voice_inline_note">识别文字直接显示在输入框。结束后可原处编辑，仍需主动发送；取消保留原草稿。</string>
     <string name="voice_inline_ready">可在输入框编辑</string>
     <string name="voice_inline_draft_changed">草稿已变更，已停止录音并保留新内容。</string>
 </resources>

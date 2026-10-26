@@ -1,8 +1,8 @@
 <resources>
     <string name="asr_model_title">离线语音识别</string>
-    <string name="asr_model_description">首次需从 Hugging Face / csukuangfj 下载约 %1$d MiB 模型。安装后可离线识别中文和英文，不依赖云端服务，录音不会上传。</string>
+    <string name="asr_model_description">需下载约 %1$d MiB 模型。</string>
     <string name="asr_model_checking">正在检查已安装模型…</string>
-    <string name="asr_model_missing">尚未安装模型，下载后即可使用离线语音输入。</string>
+    <string name="asr_model_missing">需要下载模型</string>
     <string name="asr_model_downloading">正在下载并校验模型…</string>
     <string name="asr_model_ready">模型已安装，可以离线识别。</string>
     <string name="asr_model_failed">下载或校验失败，不完整的模型不可使用。请检查网络后重试。</string>
@@ -11,13 +11,12 @@
     <string name="speech_resource_storage">已下载模型文件：%1$.1f MiB</string>
     <string name="speech_resource_redownload">重新下载</string>
     <string name="speech_resource_remove">删除已下载模型</string>
-    <string name="speech_resource_remove_warning">仅删除此语音模型。聊天、账号、设置及另一个语音模型均保留。下次离线使用前需要重新下载。</string>
+    <string name="speech_resource_remove_warning">删除此离线模型？下次使用需重新下载。</string>
     <string name="speech_resource_ready">模型已安装，可离线使用。</string>
     <string name="speech_resource_missing">尚未安装模型，请主动下载后离线使用。</string>
     <string name="speech_resource_failed">模型操作失败，请检查网络和可用空间后重试。</string>
     <string name="speech_tts_resource_title">离线回复朗读</string>
-    <string name="speech_tts_resource_description">主动从 Hugging Face / csukuangfj 下载约 %1$d MiB 资源。安装后在本机合成语音，不向云端语音服务发送正文。</string>
+    <string name="speech_tts_resource_description">需下载约 %1$d MiB 模型。</string>
     <string name="speech_local_section">离线语音 · 无需登录</string>
     <string name="speech_cloud_section">云端语音 · 主动启用</string>
-    <string name="speech_resource_recovery">网络恢复次数：%1$d（每个文件最多重试一次）</string>
 </resources>

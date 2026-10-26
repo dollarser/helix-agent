@@ -14,14 +14,9 @@
     "sha256": "01518867f78241138b6aa25925802e843a4fa9085af8d303d49e35bbb52aff4d",
     "size": 33765715
   },
-  "model.tar.bz2": {
-    "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-streaming-zipformer-small-bilingual-zh-en-2023-02-16.tar.bz2",
-    "sha256": "2b7c63322b32e5e0f2526043a1103366119ca58dd615cd7105a37c01db9553d7",
-    "size": 458187351
-  },
-  "ctc-model.tar.bz2": {
-    "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-streaming-zipformer-small-ctc-zh-int8-2025-04-01.tar.bz2",
-    "sha256": "b3b309f7ce4a737195fcc6963ea19b0653a7d3401580af5ae0d3e284cbb71f0b",
-    "size": 21264113
+  "test-audio.wav": {
+    "url": "https://modelscope.cn/api/v1/models/pkufool/sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20/repo?Revision=fe4123ca09cd7efaef00fe0ed88219211bc5b77e&FilePath=test_wavs%2F0.wav",
+    "size": 321744,
+    "sha256": "7d93384ca14702cc584a7a33fe2fed92e89e708549161cb12ea38c916882103b"
   }
 }

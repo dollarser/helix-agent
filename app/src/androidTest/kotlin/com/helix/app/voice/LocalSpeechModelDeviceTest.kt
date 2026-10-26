@@ -30,7 +30,7 @@ class LocalSpeechModelDeviceTest {
     private fun part(name: String = "model.bin") =
         LocalSpeechModel.Part(
             name,
-            "https://huggingface.co/synthetic/model",
+            "https://modelscope.cn/synthetic/model",
             bytes.size.toLong(),
             MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) },
         )
@@ -172,7 +172,7 @@ class LocalSpeechModelDeviceTest {
             model.download()
             val unrelated = File(root, "melo-int8/keep.txt").apply { writeText("retain") }
             val otherModel =
-                File(root, "zipformer-int8/keep.txt").apply {
+                File(root, "unrelated-model/keep.txt").apply {
                     parentFile!!.mkdirs()
                     writeText("other")
                 }
@@ -293,7 +293,7 @@ class LocalSpeechModelDeviceTest {
         fixture { root ->
             val model = LocalSpeechModel(context, root, partSource = listOf(part()), kind = LocalSpeechModel.Kind.ASR)
             val installed =
-                File(root, "zipformer-int8/model.bin").apply {
+                File(root, "${LocalSpeechModel.Kind.ASR.installation}/model.bin").apply {
                     parentFile!!.mkdirs()
                     writeBytes(bytes)
                 }

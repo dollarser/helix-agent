@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the pinned ASR-only Android JNI and bundled model; never invoke a device."""
+"""Build pinned ASR JNI/licenses and a public audio fixture; weights are prepared separately."""
 import argparse
 import hashlib
 import json
@@ -42,24 +42,6 @@ def unpack_source(archive, destination):
                     output.write_bytes(content)
 
 
-def extract_model(archive, wanted):
-    remaining = dict(wanted)
-    # Stream once: the upstream archive contains several unused precision/chunk variants.
-    with tarfile.open(archive, mode='r|bz2') as source:
-        for member in source:
-            relative = safe_relative(member.name)
-            key = '/'.join(relative.parts[1:])
-            if key in remaining:
-                if not member.isfile():
-                    raise ValueError('Expected regular model file: ' + key)
-                output = remaining.pop(key)
-                output.parent.mkdir(parents=True, exist_ok=True)
-                with source.extractfile(member) as stream, output.open('wb') as target:
-                    shutil.copyfileobj(stream, target)
-    if remaining:
-        raise ValueError('Missing model files: ' + ', '.join(remaining))
-
-
 def input_signature():
     return {'lock': digest(LOCK), 'recipe': digest(Path(__file__)),
             'notices': {p.name: digest(p) for p in sorted((ROOT / 'config/asr/notices').glob('*.txt'))}}
@@ -72,7 +54,7 @@ def verify():
     for name, value in manifest['outputs'].items():
         if not matches(BUILD / safe_relative(name), value['sha256'], value['size']):
             raise ValueError('Missing or modified ASR output: ' + name)
-    print('ASR-only JNI/model/attribution integrity verified (host-only)')
+    print('ASR JNI/audio/attribution integrity verified (host-only)')
 
 
 def package_runtime():
@@ -113,8 +95,6 @@ def attribution():
         'sherpa-onnx v1.13.8, Apache-2.0; ONNX Runtime 1.28.2, MIT.\n'
         'Native sources and transitive source URLs/hashes: https://github.com/k2-fsa/sherpa-onnx/tree/v1.13.8/cmake\n'
         'Unmodified Eigen 5.0.1 MPL-2.0 source: https://gitlab.com/libeigen/eigen/-/archive/5.0.1/eigen-5.0.1.tar.gz\n'
-        'Model: https://huggingface.co/csukuangfj/k2fsa-zipformer-bilingual-zh-en-t (Apache-2.0).\n'
-        'Converted model: sherpa-onnx-streaming-zipformer-small-bilingual-zh-en-2023-02-16.\n'
         'No Operit implementation is copied.\n', encoding='utf-8')
     for notice in (ROOT / 'config/asr/notices').glob('*.txt'):
         shutil.copyfile(notice, output / notice.name)
@@ -157,19 +137,9 @@ def build():
     for generated in ('assets', 'test-assets'):
         if (BUILD / generated).exists():
             shutil.rmtree(BUILD / generated)
-    extract_model(BUILD / 'model.tar.bz2', {
-        'encoder-epoch-99-avg-1.int8.onnx': BUILD / 'assets/asr/encoder.int8.onnx',
-        'decoder-epoch-99-avg-1.onnx': BUILD / 'assets/asr/decoder.onnx',
-        'joiner-epoch-99-avg-1.int8.onnx': BUILD / 'assets/asr/joiner.int8.onnx',
-        'tokens.txt': BUILD / 'assets/asr/tokens.txt',
-        'test_wavs/0.wav': BUILD / 'test-assets/asr-test/0.wav',
-    })
-    extract_model(BUILD / 'ctc-model.tar.bz2', {
-        'model.int8.onnx': BUILD / 'test-assets/asr-candidate/model.int8.onnx',
-        'tokens.txt': BUILD / 'test-assets/asr-candidate/tokens.txt',
-        'test_wavs/0.wav': BUILD / 'test-assets/asr-candidate/test_wavs/0.wav',
-        'test_wavs/1.wav': BUILD / 'test-assets/asr-candidate/test_wavs/1.wav',
-    })
+    sample = BUILD / 'test-assets/asr-test/0.wav'
+    sample.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(BUILD / 'test-audio.wav', sample)
     attribution()
     outputs = [BUILD / 'asr-only.aar'] + [p for folder in ('assets', 'test-assets') for p in (BUILD / folder).rglob('*') if p.is_file()]
     manifest = {'inputs': input_signature(), 'outputs': {str(p.relative_to(BUILD)): {'sha256': digest(p), 'size': p.stat().st_size} for p in outputs}}

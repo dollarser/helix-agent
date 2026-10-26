@@ -20,20 +20,17 @@ class AsrAssetsTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 asr.safe_relative(name)
 
-    def test_whitelist_never_extracts_unrequested_model_variants(self):
+    def test_source_archive_rejects_unsafe_members_without_writing_outside_root(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
-            archive = root / 'model.tar.bz2'
-            with tarfile.open(archive, 'w:bz2') as target:
-                for name, content in [('model/model.onnx', b'fp32'), ('model/model.int8.onnx', b'int8')]:
-                    info = tarfile.TarInfo(name)
-                    info.size = len(content)
-                    target.addfile(info, io.BytesIO(content))
-            asr.extract_model(archive, {'model.int8.onnx': root / 'out/model.onnx'})
-            self.assertEqual(b'int8', (root / 'out/model.onnx').read_bytes())
-            self.assertEqual(['model.onnx'], [p.name for p in (root / 'out').iterdir()])
+            archive = root / 'source.tar.gz'
+            with tarfile.open(archive, 'w:gz') as target:
+                info = tarfile.TarInfo('source/../escape')
+                info.size = 4
+                target.addfile(info, io.BytesIO(b'bad!'))
             with self.assertRaises(ValueError):
-                asr.extract_model(archive, {'missing.onnx': root / 'missing'})
+                asr.unpack_source(archive, root / 'out')
+            self.assertFalse((root / 'escape').exists())
 
     def test_source_restore_preserves_good_files_and_repairs_changed_input(self):
         with tempfile.TemporaryDirectory() as folder:

@@ -53,9 +53,3 @@ internal fun SpeechResourceActions(
         )
     }
 }
-
-@Composable
-@Suppress("FunctionName")
-internal fun SpeechDownloadRecovery(attempts: Int) {
-    if (attempts > 0) Text(stringResource(R.string.speech_resource_recovery, attempts))
-}

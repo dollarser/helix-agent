@@ -12,7 +12,7 @@ import sherpa_onnx
 
 def create(model, directory):
     def p(name): return str(directory / name)
-    if model == 'ctc':
+    if model in ('ctc','modelscope-small-ctc','modelscope-medium-ctc'):
         return sherpa_onnx.OnlineRecognizer.from_zipformer2_ctc(model=p('model.int8.onnx'), tokens=p('tokens.txt'), num_threads=2), True
     if model == 'paraformer':
         return sherpa_onnx.OnlineRecognizer.from_paraformer(encoder=p('encoder.int8.onnx'), decoder=p('decoder.int8.onnx'), tokens=p('tokens.txt'), num_threads=2), True
@@ -22,7 +22,9 @@ def create(model, directory):
         return sherpa_onnx.OfflineRecognizer.from_sense_voice(model=p('model.int8.onnx'), tokens=p('tokens.txt'), num_threads=2, use_itn=False), False
     if model == 'whisper':
         return sherpa_onnx.OfflineRecognizer.from_whisper(encoder=p('tiny-encoder.int8.onnx'), decoder=p('tiny-decoder.int8.onnx'), tokens=p('tokens.txt'), language='', num_threads=2), False
-    return sherpa_onnx.OnlineRecognizer.from_transducer(encoder=p('encoder.int8.onnx'), decoder=p('decoder.onnx'), joiner=p('joiner.int8.onnx'), tokens=p('tokens.txt'), num_threads=2, enable_endpoint_detection=False), True
+    encoder = 'encoder.fp16.onnx' if model == 'modelscope-small-transducer' else 'encoder.int8.onnx'
+    joiner = 'joiner.fp16.onnx' if model == 'modelscope-small-transducer' else 'joiner.int8.onnx'
+    return sherpa_onnx.OnlineRecognizer.from_transducer(encoder=p(encoder), decoder=p('decoder.onnx'), joiner=p(joiner), tokens=p('tokens.txt'), num_threads=2, enable_endpoint_detection=False), True
 
 
 def main():
