@@ -104,6 +104,29 @@ class SafTreeScopeServiceTest {
         assertTrue(deadService.liveSources().isEmpty())
     }
 
+    @Test
+    fun explicitRegrantAfterRevocationRestoresOnlyTheSameSelectedScope() {
+        val path = storePath("regrant")
+        val tree = "content://host/tree/selected"
+        var accessible = true
+        val check =
+            SafTreeGrantCheck { uri ->
+                if (accessible && uri == tree) aliveFacts(uri).copy(writable = true) else null
+            }
+        val service = SafTreeScopeService(SafGrantStore(path, clock), check)
+        val original = service.grant(tree, "Selected")
+        accessible = false
+        assertThrows(ScopeNotAvailable::class.java) { service.resolve(original.scopeId, SafAccessMode.READ) }
+        assertEquals(listOf(original.scopeId), service.sweepRevoked().map { it.scopeId })
+        accessible = true // The fixture models a fresh OS grant, not app-created authority.
+        val renewed = service.grant(tree, "Selected again")
+        assertEquals(original.scopeId, renewed.scopeId)
+        val reopened = SafTreeScopeService(SafGrantStore(path, clock), check)
+        assertEquals(original.scopeId, reopened.resolve(renewed.scopeId, SafAccessMode.WRITE).scopeId)
+        assertEquals(1, reopened.liveSources().size)
+        assertThrows(ScopeNotAvailable::class.java) { reopened.resolve("unselected", SafAccessMode.READ) }
+    }
+
     // ── grant 泄漏: no content:// URI in any model-visible surface ───────────────────────
 
     @Test

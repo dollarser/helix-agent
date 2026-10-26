@@ -134,17 +134,29 @@ class OkHttpA2aTaskClientTest {
             )
         }
         val binding = interfaceAt("/api", A2aBinding.HTTP_JSON)
-        val updates = CopyOnWriteArrayList<A2aTaskUpdate>()
+        val streamUpdates = CopyOnWriteArrayList<A2aTaskUpdate>()
+        val subscriptionUpdates = CopyOnWriteArrayList<A2aTaskUpdate>()
         val closed = CountDownLatch(2)
-        client.sendStreaming(binding, null, submission(), listener(updates, closed))
-        client.subscribeToTask(binding, null, "task-1", "7", listener(updates, closed))
+        client.sendStreaming(binding, null, submission(), listener(streamUpdates, closed))
+        client.subscribeToTask(binding, null, "task-1", "7", listener(subscriptionUpdates, closed))
 
         assertTrue(closed.await(5, TimeUnit.SECONDS))
-        assertEquals(listOf("/api/message:stream", "/api/tasks/task-1:subscribe"), paths)
+        // Independent asynchronous calls may reach the server in either order.
+        // Assert exactly once per route and preserve order within each stream instead.
+        assertEquals(
+            mapOf("/api/message:stream" to 1, "/api/tasks/task-1:subscribe" to 1),
+            paths.groupingBy { it }.eachCount(),
+        )
         assertEquals(listOf("7"), lastIds)
-        assertTrue(updates.any { it.eventId == "event-8" })
-        assertTrue(updates.any { it.final && it.state == A2aRemoteTaskState.COMPLETED })
+        assertEquals(listOf("event-8"), subscriptionUpdates.map { it.eventId })
+        assertEquals(listOf(A2aRemoteTaskState.WORKING), subscriptionUpdates.map { it.state })
+        assertEquals(listOf(A2aRemoteTaskState.WORKING, A2aRemoteTaskState.COMPLETED), streamUpdates.map { it.state })
+        assertTrue(streamUpdates.last().final)
 
+        assertCancelledSseIsQuiet()
+    }
+
+    private fun assertCancelledSseIsQuiet() {
         val noCallback = CountDownLatch(1)
         val slowStarted = CountDownLatch(1)
         val releaseSlow = CountDownLatch(1)
