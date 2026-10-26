@@ -44,7 +44,7 @@ Release 真机目标及实际通过的独立测试宿主 SHA-256 保存在每次
 
 ## 本轮主要改动文件
 
-- 交互：[ComposerModelMenu](../../../app/src/main/kotlin/com/helix/app/ui/ComposerModelMenu.kt)、[ProotRuntimeSection](../../../app/src/main/kotlin/com/helix/app/ui/ProotRuntimeSection.kt)、当时的 `ProotVerificationNote`（HXA-305 已替换为 [ProotEntryNote](../../../app/src/main/kotlin/com/helix/app/proot/ProotEntryNote.kt)）、Developer `ProotToolModule` 及三语言资源；相关模型、Runtime 设备测试。
+- 交互：[ComposerModelMenu](../../../app/src/main/kotlin/com/helix/app/ui/ComposerModelMenu.kt)、[ProotRuntimeSection](../../../app/src/main/kotlin/com/helix/app/ui/ProotRuntimeSection.kt)、当时的 `ProotVerificationNote`（HXA-305 已替换为 原 ProotEntryNote（后由 [安装状态事实](../../../app/src/main/kotlin/com/helix/app/application/runtime/ProotInstallationStatus.kt) 与 UI 本地化取代））、Developer `ProotToolModule` 及三语言资源；相关模型、Runtime 设备测试。
 - 帮助：[BundledHelp](../../../app/src/main/kotlin/com/helix/app/skills/BundledHelp.kt)、`DefaultAppContainer`、Skills 中的 `BuiltInSkills`、`HelixHelpIdentity`、`HelixUserGuide`、`HelixUserGuideZh`、9 个中文 Markdown 资源，以及主机/设备断言。
 - 验证：[独立测试宿主](../../../tests/release-smoke/build.gradle.kts)、[Release 运行器](../../../scripts/run-release-smoke.py)、[隔离构建入口](../../../scripts/release-smoke.init.gradle)、`settings.gradle.kts`、主机门禁与依赖锁；[设备运行器](../../../scripts/device_baseline/run.py)及对应 Python 回归。
 - 文档：[发行 ADR](../../adr/platform/001-distribution.md)、[HXA-122](../../development/tasks/HXA-122.md)、README 中英文、status、release-readiness、本轮记录及前轮记录的事实更正；不把其他所有者的既有 dirty 文件算作本轮成果。

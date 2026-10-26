@@ -331,7 +331,7 @@ HXA-223 已完成并见[交付证据](../completion-records/HXA-223.md)：R4 sta
 | HXA-284 | 有界交付；API36原生文档及Qwen摘要补验通过，其他API/峰值边界保留 | 统一PDF/DOCX文档插件 | [任务](tasks/HXA-284.md) |
 | HXA-285 | 有界交付；API36 Room及保存引用的Qwen压缩/跟进通过 | 引用历史与压缩快照一致性收尾 | [任务](tasks/HXA-285.md) |
 | HXA-286 | P1 内容贡献已交付 | 统一工具贡献与上下文接缝 | [任务](tasks/HXA-286.md) |
-| HXA-287 | A/B/C 主线已交付；可选展示候选未启动 | 应用命令与 Turn 接缝收敛 | [任务](tasks/HXA-287.md) |
+| HXA-287 | A/B/C 主线及 PRoot 展示职责收尾已交付 | 应用命令与 Turn 接缝收敛 | [任务](tasks/HXA-287.md) |
 | HXA-288 | 部分基线已交付；局部接缝按证据实施 | 执行观察与产物接缝局部收敛 | [任务](tasks/HXA-288.md) |
 | HXA-289 | 原生有界能力已交付；SAF／模型自主定位待验 | Workspace 路径匹配与文件内容搜索 | [任务](tasks/HXA-289.md) |
 | HXA-290 | 独立能力待实施；Search 服务选型待决 | 网页搜索与正文读取工作流 | [任务](tasks/HXA-290.md) |

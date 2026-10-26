@@ -1200,7 +1200,7 @@ flowchart TD
 | --- | --- | --- |
 | Presentation | MainActivity/Route/Compose、纯 Screen/局部滚动展开、页面状态投影；系统 launcher/导航由 UI 发起 | 不访问 DAO、裸 executor、OkHttp、QuickJS/PRoot；不以卡片文案决定运行/权限，不让 Compose/R/ChatScreenState 进入 Engine/共享应用契约 |
 | Application | 从 ChatService 收窄的提交/停止/审批/会话命令与查询；知识/记忆各自应用服务；用户操作与模型工具入口分别校验后复用能力 | 不拥有第二套 Turn 状态机，不让页面可见性成为执行资格，不把手动用户路径给模型借权；平台 Intent/ContentResolver/生命周期留在边界适配，不进入共享领域命令 |
-| Agent engine | 现有 AgentLoop、ContextCompiler 和 TurnEngine 的领域协调；准入、driver、模型/工具循环、park/review、终态和恢复仍只有一个 owner | **目标不依赖 App、Room Entity/HelixStorage、Android Context、R 或具体后端**。当前 Engine 的这些依赖是真实未完成差距，287 必须收敛，不需要第二产品消费者 |
+| Agent engine | 现有 AgentLoop、ContextCompiler 和 TurnEngine 的领域协调；准入、driver、模型/工具循环、park/review、终态和恢复仍只有一个 owner | **目标不依赖 App、Room Entity/HelixStorage、Android Context、R 或具体后端**。287-C 已移除这些依赖，Core 生命周期经中立端口连接 Room；继续维持单一 owner，不重开已完成迁移 |
 | Domain contracts / governance | core:model/policy/agent/workspace 的值/意图/端口，tools:framework 的精确绑定、治理顺序、限额与审计契约；AgentTurnStore/Journal 等原子命令 | 不暴露任意 DAO/事务 lambda、SDK/IPC DTO、UI 类型或凭据值；不能创建平行 Policy、Approval、Registry、历史/状态账本 |
 | Infrastructure adapters | core:storage（虽名 core 实为 Android Room）、provider/api 中 wire/SDK、runtime/* IPC、Android 文件/分享/授权适配；实现中立端口 | 不决定模型业务下一步、不把网络回包/进程活跃当用户任务成功；运行适配不能拥有模型历史。Room/Runtime/Provider 适配是必要实现，不是旧版兼容桥 |
 | Extensions | extensions/* 贡献工具、内容、设置/合法领域 UI、真实资源；在宿主装配与授权下实现对应端口 | 元数据不能授权/安装/启动或改系统约束，不直接拿 DAO/ChatService/另一个插件裸 executor；内容贡献不等于任意可执行 hooks |
@@ -1355,7 +1355,7 @@ extensions/*, runtime/*   # 插件贡献和执行适配，保持真实隔离边�
 
 退出条件除编译和行为回归外，还包括：旧路径无有效引用、依赖方向检查通过、相同命令仍落在同一事务/权限/取消边界、没有新增事实源或新旧双入口。应用 ID、签名和发布的 v0.0.7 不受目录迁移影响。
 
-**完整 Turn 领域宿主抽离纳入本提案的完成目标。**当前 TurnEngine/TurnExecutionDriver 直接依赖 HelixStorage，AppAgentRuntime 的 submit/cancel 仍回调 ChatService；消除持久细节泄漏、让统一应用入口脱离页面服务、运行完整无页面契约测试，已构成本地价值，无需等待第二个产品消费者。抽离范围覆盖准入、执行驱动、停止、park/review、终态与恢复的领域协调；Android 生命周期、Room 和通知等实际适配留在基础设施。验收依据是依赖消除和完整行为可测，不是仅把代码搬进纯 JVM 目录。
+**完整 Turn 领域宿主抽离已由 287-C 交付。**提案开始时存在 TurnEngine/TurnExecutionDriver 直接依赖 HelixStorage、AppAgentRuntime submit/cancel 回调宽 ChatService 的问题；当前生命周期与 driver 在 Core，真实 Room 原子实现位于 app/infrastructure/agent，应用提交准备及命令位于 app/application/agent。旧 App Engine、混合结算和启动／取消回调已删除，见[生命周期记录](../evidence/development/harness-stage1-lifecycle-2026-10-24.md)；后续资格查询隐含 Goal 写入也已按[实验记录](../development/memory-log-effect-experiment.md)修正。以下仍是持续约束，不是尚未实施清单。抽离范围覆盖准入、执行驱动、停止、park/review、终态与恢复的领域协调；Android 生命周期、Room 和通知等实际适配留在基础设施。验收依据是依赖消除和完整行为可测，不是仅把代码搬进纯 JVM 目录。
 
 在 AgentTurnStore/AgentTurnJournal 已有领域契约上重组或扩展，把准入、cancel、park、终态/Goal 联动定义为**原子领域命令**，由 Room 适配提交。保留已验证的原子性和归属约束，不冻结原 DAO 布局；不得暴露通用 DAO 或让外部 `withTransaction` lambda 夹带跨层状态。Steer 与最终答复、首 ModelCall 与 step、GoalRun 与 Turn 的原事务不可拆散。内存测试实现只用于契约验证，不成为生产事实源；同一套领域断言还需检验真实 Room 适配。
 
@@ -1367,12 +1367,12 @@ Workspace 后端按实际能力提供 Path、SAF、Job snapshot 或 live mount �
 
 | 当前对象/形态 | 裁决与退出 |
 | --- | --- |
-| AppAgentRuntime → 宽 ChatService 回调、ChatToolCalls/Settlement 混 UI/存储 | 287 替换为目标应用命令/领域端口与投影；若旧 facade 只透传旧接口就合并/删除，不保留旧新入口并行。真正隔离身份/错误/观察的适配器可保留，但不能以 facade 名称豁免反向依赖 |
-| 插件 helix-docs 特判/多处内容拼串 | 286 用显式内置帮助资格与内容贡献替换，迁全部消费者后删旧路径。Provider 最终文本序列化是合法边界，不以仍有字符串拼接判失败，也不让第三方取得内置帮助信任 |
+| 原 AppAgentRuntime → 宽 ChatService 回调、ChatToolCalls/Settlement 混 UI/存储 | 已由 287 应用命令、Core 生命周期和独立投影替换，旧路径删除。现 AppAgentRuntime 适配中立运行端口并补持久终态观察，具有有效职责，不是旧 API 兼容转发；不保留新旧入口并行 |
+| 原插件 helix-docs 特判/多处内容拼串 | 286 已用显式内置帮助资格与内容贡献替换并删除旧聚合。Provider 最终文本序列化是合法边界，不以仍有字符串拼接判失败，也不让第三方取得内置帮助信任 |
 | 已交付 Registry/Engine/Compiler 的现有类、模块 | 能力/安全/状态语义仍有效；布局/接口不冻结，违反目标分层就直接迁移/删除，已通过旧验收不免除依赖检查 |
 | 手动用户命令与模型工具、HTTP/WS、平台/SDK 协议适配、显式 snapshot | 当前不同能力/权限/协议路径，不是已证明的旧版兼容。不可机械合并；多实现若确属等价过渡才随切片删除 |
 | 技术恢复、默认配置、readiness/观察投影 | 网络的安全有界恢复和平台兜底保留；不得回退账号/模型/授权/执行身份，不叠加业务重发。未证明有废弃 fallback，不创建猜测删除任务 |
-| 旧 schema/接口/执行别名 | 新内部目标不承担旧版本调用兼容；逐项验证真实引用、序列化、DI/Manifest/JNI/变体后删除被替代路径。既有用户数据默认保留，必要 schema 变更单独明确数据保全/迁移与授权，不自动清库或恢复旧版本双写 |
+| 旧 schema/接口/执行别名 | 新内部目标不承担旧版本调用兼容；逐项验证真实引用、序列化、DI/Manifest/JNI/变体后删除被替代路径。上线前测试数据按 AGENTS 的外部一次性转换／针对性干净安装策略处理，不在 App 中维持历史迁移链；具体删除仍需对应动作授权，不自动清库或恢复旧版本双写 |
 
 扩展性不是接口数量：以新增代表性工具/内容/ModelProvider 适配能否局部完成，和核心不依赖具体 Android/存储证明。实施时可并行设计内容贡献、应用/存储命令和只读实验夹具；共享 ChatRequestAssembler、TurnEngine/ChatService、Dispatcher 的代码写入必须各有单一所有者，接缝明确后再接线，不用兼容壳消解冲突。
 
@@ -1500,7 +1500,7 @@ JSONL 保留按需导出与独立离线读取，Room/ContentStore 持久事实�
 
 [HXA-299](../development/tasks/HXA-299.md) 另行授权补齐 PromptSnapshot 分段成本/省略事实、原生注册/就绪/指纹的有界性能诊断及可复用外部样本入口。后续 286/293 接续这些证据，继续细分插件输入和统一预算；288 再处理真实资源生命周期。诊断计数不成为 durable 状态、授权或缓存命中依据；内部接口可直接替换。保持未选插件不触发上下文就绪探测、已选插件实时重验，以及打包提示进入实际模型 schema 的回归。实测范围与失败见任务证据，不将此次独立切片改标为整项重构启动。
 
-[HXA-298](../development/tasks/HXA-298.md) 在现有插件边界统一配置／提示与工具／详情、精确安装 ID 选用及必要指导/资源只读预览。后续统一贡献接线迁移这些用户行为和设备回归，直接替换内部接口，不保留旧 UI 双实现；Mobile Use 配置和运行能力仍由插件实现。内容事实与执行资格使用同一来源/快照，预览不触发选择、连接或授权。HXA-293 继续承接整体上下文预算，294 保留内容资格、停用后预览和未知副作用不重放的回归；本轮提示整理不替代真实模型成本/效果验收。
+[HXA-298](../development/tasks/HXA-298.md) 在现有插件边界统一配置／提示与工具／详情、精确安装 ID 选用及必要指导/资源只读预览。统一贡献接线已由 286 承接这些用户行为，当前实现及验收见其交付记录；不保留旧 UI 双实现。Mobile Use 配置和运行能力仍由插件实现。内容事实与执行资格使用同一来源/快照，预览不触发选择、连接或授权。HXA-293-A 共同预算已交付，B 效果实验保留默认策略；294 保留内容资格、停用后预览和未知副作用不重放的回归；本轮提示整理不替代真实模型成本/效果验收。
 
 模拟器确认过插件清理与 Skill 贡献读取的反向锁序死锁；当前共享关联元数据门闩并保留并发回归。后续拆分元数据服务时须保持发布/引用/删除的原子边界和一致锁序，不能恢复相反的跨 owner 持锁调用，也不能据此增加工具执行全局锁。
 
@@ -1508,7 +1508,7 @@ JSONL 保留按需导出与独立离线读取，Room/ContentStore 持久事实�
 
 | 能力与优先级 | 动机、范围及当前分类 | 依赖、完成标准与测试 | 非目标/不确定项 |
 | --- | --- | --- | --- |
-| 远程 MCP + Skill，P1 接续 | 当前可导入、配置、选用；291 补 Resources 消费，286 统一贡献，293 协调内容预算 | 复用原连接/凭据 owner；实际 schema/正文进入模型、撤权立即过滤、更新不继承错误账号；离线样本与本地协议夹具先验 | 不重开 Notion/Linear；账号缺失是配置条件，导入的 auth 字段不能变成本地密钥 |
+| 远程 MCP + Skill，P1 接续 | 当前可导入、配置、选用；291 补 Resources 消费，复用已交付 286 贡献与 293-A 预算 | 复用原连接/凭据 owner；实际 schema/正文进入模型、撤权立即过滤、更新不继承错误账号；离线样本与本地协议夹具先验 | 不重开 Notion/Linear；账号缺失是配置条件，导入的 auth 字段不能变成本地密钥 |
 | 包内 CLI/脚本，P2 候选 | 当前只识别依赖/脚本限制；需要让选定目标包真正执行，先评估既有 Advanced Runtime | 先明确目标包、版本/许可证、ARM64/Android 或 Linux ABI、解释器/动态库、依赖来源与校验、workspace/argv/env/退出/产物；获准安装和执行分别进入治理。离线缺依赖/错误 ABI/断网/取消/输出测试后，再授权目标包验收 | 不自动运行 setup/npm/pip，不引入主进程脚本或新执行域；Standard 是否需要本地脚本是另一个渠道/隔离决定 |
 | 常驻 stdio MCP，P2 候选 | 已有有限 stdin 快照 Job/JSONL 帧基础，尚无包导入后的双向会话；不是给 Job 加循环即可 | 依赖 286 来源、288 长期资源/流式通道、实际安装与凭据 owner；绑定安装 revision/command hash、实例 generation/requestId，协商能力，stdout 协议/stderr 诊断隔离，背压/取消/关闭/退出分开。用主动通知、交错请求、坏帧、满管道、进程死亡、替换/撤权/迟到夹具验收 | 不允许 HTTP token 自动变成 env，不按每请求重启或重放；首个目标 server、进程宿主与账号方式待选，不列为 291/294 前置 |
 | 包内账号服务，P2 候选 | 当前只读入声明/配置限制，不执行桌面登录服务；复用宿主连接管理解决实际账号来源 | 先确定 issuer/resource/client registration/redirect 或设备码、scope/refresh/revoke/断连及本地凭据 owner；会话仅获能力引用，日志/模型/包正文不含可复用密钥。协议夹具与专用测试账号分开验收 | 不复用另一包/会话批准，不假称同 UID 私有进程是凭据隔离；第三方政策、服务注册及账号输入未定时保持不可运行 |
@@ -1523,3 +1523,8 @@ JSONL 保留按需导出与独立离线读取，Room/ContentStore 持久事实�
 承接 A `8297a4be` 与 B `9fe88ca5`，完整 Engine/driver/停止/live 契约已实际进入 Core，不再仅抽 round facade。普通提交、Queue、inspection 的闭合准入和恢复/Goal edit/迟到 Steer 的真实 Room 提交集中 `app/infrastructure/agent`；原回调、重复 DTO、旧 Engine 包及停止桥删除，测试目录和 eval/健康探针选择器同步迁移。纯 JVM 与 Room/模拟器的证据分别维护于[生命周期记录](../evidence/development/harness-stage1-lifecycle-2026-10-24.md)，阶段最终 Debug/Release 主机与两渠道独立模拟器已通过，精确范围以该记录为准。
 
 目录与依赖方向见[总体架构](overview.md#当前目录与单一权威)。本次以职责和调用权威重组，没有增加 Gradle 模块或无需求通用框架；Room 模块身份保留不表示中立领域可依赖它。后续仅根据实际扩展/测试收益裁决新的模块边界，不保留旧 API 或预建假想版本兼容。
+
+
+### 2026-10-26 有界收尾检查点
+
+本轮校正 §23.2／23.7 中把原 Engine→Room 和宽 ChatService 回调写作现状的过时描述，保留历史动机与阶段证据。PRoot 安装事实／UI 资源分离已落地，旧翻译文本／资源接口删除；Dispatcher 内部观察类型、截图披露资格和请求-only 路径投影经核查继续保留，不另造角色框架或增加动态授权。范围、验证与未覆盖见[收尾记录](../development/architecture-closeout.md)，不外推为全项目目录均已最优或后续能力已经实现。
