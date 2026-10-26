@@ -41,7 +41,6 @@ internal fun TerminalTopBar(
     onToggleKeyboard: () -> Unit,
     onRuntimeSettings: () -> Unit,
     onClose: () -> Unit,
-    onReset: () -> Unit,
 ) {
     Row(
         Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("terminal-toolbar"),
@@ -66,7 +65,7 @@ internal fun TerminalTopBar(
         ) {
             Icon(painterResource(R.drawable.ic_close), stringResource(R.string.terminal_stop_close))
         }
-        TerminalOptions(state.busy, model, onInfo, onRuntimeSettings, onHelp, onReset)
+        TerminalOptions(state.busy, model, onInfo, onRuntimeSettings, onHelp)
     }
 }
 
@@ -78,7 +77,6 @@ private fun TerminalOptions(
     onInfo: () -> Unit,
     onRuntimeSettings: () -> Unit,
     onHelp: () -> Unit,
-    onReset: () -> Unit,
 ) {
     var menu by remember { mutableStateOf(false) }
     Box {
@@ -89,9 +87,7 @@ private fun TerminalOptions(
             val items =
                 listOf(
                     Triple(R.string.terminal_info, "terminal-info", onInfo),
-                    Triple(R.string.terminal_refresh, "terminal-refresh") { model.refresh() },
                     Triple(R.string.terminal_clear_display, "terminal-clear-display") { model.clearDisplay() },
-                    Triple(R.string.terminal_reset_sessions, "terminal-reset-sessions", onReset),
                     Triple(R.string.setup_runtime_title, "terminal-runtime-settings", onRuntimeSettings),
                     Triple(R.string.terminal_help, "terminal-help", onHelp),
                 )
@@ -155,7 +151,7 @@ private fun TerminalSelector(
                     modifier = Modifier.testTag("terminal-tab-$index").semantics { selected = active },
                 )
             }
-            if (state.sessions.count { !it.canSettle } < state.maxSessions) {
+            run {
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.terminal_new_tab)) },
                     leadingIcon = { Icon(painterResource(R.drawable.ic_composer_add), null) },

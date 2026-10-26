@@ -4,17 +4,16 @@
     <string name="terminal_licenses">组件许可证</string>
     <string name="terminal_keyboard">键盘</string>
     <string name="terminal_shared_workspace">终端默认使用独立于聊天的目录；文件管理器指定的目录仅用于新建终端。与应用共享 UID。默认租期两小时，断开连接后三十分钟空闲回收。</string>
-    <string name="terminal_failed">操作未完成。请刷新终端状态；不会自动重复启动或重发输入。如环境需要维护，可在终端选项中打开运行环境。</string>
+    <string name="terminal_failed">终端未能打开，请点“修复并打开终端”。</string>
     <string name="terminal_start">启动终端</string>
     <string name="terminal_connect">重新连接</string>
     <string name="terminal_stop">停止终端</string>
     <string name="terminal_settle">关闭终端</string>
-    <string name="terminal_refresh">刷新状态</string>
     <string name="terminal_detached">终端未连接。离开页面或切换聊天不停止命令；可重新连接查看保留输出。</string>
-    <string name="terminal_runtime_ended">应用更新或设备重启已结束旧终端，原命令结果未知。请关闭旧终端以释放名额，再新建终端；不会重发原命令，工作区文件保留。</string>
+    <string name="terminal_runtime_ended">旧终端已结束，可以直接新建终端。</string>
     <string name="terminal_state_ended">旧终端已结束 · 原命令结果未知</string>
     <string name="terminal_state_unknown">终端运行时失联 · 结果未知</string>
-    <string name="terminal_runtime_unknown">旧终端的进程状态未知，不能接管或重发命令。可以刷新，或在仍有容量时新建独立终端；占满名额时可先重启设备，再关闭旧终端以保留应用数据。清空显示不代表停止进程。</string>
+    <string name="terminal_runtime_unknown">旧终端状态未知，可以直接新建独立终端。</string>
     <string name="terminal_close_unconfirmed">未能确认该终端的进程已全部结束，关闭未完成。可刷新后重试；运行时已失联且仍无法确认时，请重启设备。不会重发命令或删除工作区文件。</string>
     <string name="terminal_input_rejected">部分输入未接收或结果未知，未自动重发。请核对终端内容后再输入。</string>
     <string name="terminal_output_failed">输出连接中断。请离开页面后重新连接原终端。</string>
@@ -24,10 +23,14 @@
     <string name="terminal_new_tab">新建终端</string>
     <string name="terminal_capacity_full">终端容量已满，请关闭不需要的终端，或等待其他任务结束、资源压力恢复后重试</string>
     <string name="terminal_observer_mode">当前连接为只读观察模式</string>
-    <string name="terminal_initial_help">无需创建或选择聊天。打开页面会连接保留的终端；首次进入且没有终端时自动新建。首次启动自动准备内置 Linux 环境。维护位于终端选项 → 运行环境。</string>
+    <string name="terminal_initial_help">打开终端即可使用内置 Linux 环境。</string>
     <string name="terminal_execution_busy_help">终端与 Agent 任务可以同时运行，不会因终端未关闭或结果未收取而阻挡其他任务。共享文件可能被同时修改，请核对最终结果。仅运行环境维护、引擎容量及同一终端的输入连接需要协调。关闭页面只断开查看，不停止命令。</string>
-    <string name="terminal_settlement_required">终端已停止，点击“关闭终端”可释放终端名额。</string>
+    <string name="terminal_settlement_required">此终端已停止，可关闭标签或新建终端。</string>
     <string name="terminal_menu">终端选项</string>
     <string name="terminal_requires_advanced">终端需要高级模式。当前为标准模式，无法启动终端。</string>
     <string name="terminal_switch_and_start">切换到高级模式并启动终端</string>
+    <string name="terminal_repair_open">修复并打开终端</string>
+    <string name="terminal_shell_failed">Shell 启动失败，请在运行环境中修复。</string>
+    <string name="terminal_shell_timeout">Shell 尚未就绪，可重新打开新终端。</string>
+    <string name="terminal_old_connection_failed">旧连接未确认断开，新终端已打开。</string>
 </resources>

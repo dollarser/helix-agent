@@ -7,7 +7,6 @@ import com.helix.tools.framework.ExecutionOwnership
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertSame
 import org.junit.Assert.assertThrows
 import org.junit.Test
 
@@ -33,23 +32,20 @@ class ManualTerminalBindingsTest {
             PtySessionOrigin("terminal", "generation", "terminal", "/workspace", "r1", 7, 10_000, 1000, 61_000),
         ).started(PtyProcessIdentity(123, 42))
 
-    @Test fun fourSlotsPreserveExistingFirstTwoAndAllRetainedHigherSlots() {
-        val stores = List(4) { Store() }
-        stores[0].value = owner
-        val bindings = ManualTerminalBindings(stores)
-        assertSame(stores[1], bindings.free(4))
-        stores[3].value = ExecutionOwnership.Owner("fourth", "g4")
-        assertEquals(2, bindings.owners().size)
-        assertEquals("fourth", bindings.find("fourth").second.executionId)
-        assertThrows(IllegalStateException::class.java) { bindings.free(1) }
-        assertEquals(owner, stores[0].value)
-        assertEquals("fourth", stores[3].value?.executionId)
+    @Test fun retainedIdentitiesNeverConsumeFreshPhysicalSlots() {
+        val stores = MutableList(8) { index -> Store(ExecutionOwnership.Owner("old$index", "g$index")) }
+        val bindings = ManualTerminalBindings({ stores }) { Store().also(stores::add) }
+        val fresh = bindings.fresh()
+        assertNull(fresh.read())
+        assertEquals(8, bindings.owners().size)
+        assertEquals("old7", bindings.find("old7").second.executionId)
+        assertEquals(owner, Store(owner).read())
     }
 
     @Test fun duplicateBindingOnlyClearsTheDuplicateWithExactCas() {
         val first = Store(owner)
         val second = Store(owner)
-        assertEquals(1, ManualTerminalBindings(listOf(first, second)).owners().size)
+        assertEquals(1, ManualTerminalBindings({ listOf(first, second) }) { Store() }.owners().size)
         assertEquals(owner, first.value)
         assertNull(second.value)
     }
@@ -82,7 +78,7 @@ class ManualTerminalBindingsTest {
         assertEquals(true, acked)
         assertNull(binding.value)
         assertFalse(ownership.isRetained(owner))
-        assertSame(binding, ManualTerminalBindings(listOf(binding)).free(1))
+        assertNull(binding.read())
     }
 
     @Test fun staleAckAndChangedBindingDoNotClearReplacement() {

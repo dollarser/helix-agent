@@ -35,14 +35,40 @@ class TerminalRecoveryActionsTest {
             assertEquals(0, terminal.writes)
         }
 
-    @Test fun unknownPhysicalOccupancyIsNotFreedToBypassCapacity() =
+    @Test fun unknownHistoryDoesNotBlockFreshStartAtSinglePhysicalSlot() =
         runBlocking {
             val terminal = FakeTerminal(limit = 1)
             val model = ManualTerminalViewModel(terminal, scope)
             model.open(".")
-            assertEquals("CAPACITY_FULL", model.state.value.errorMessage)
-            assertEquals(0, terminal.starts)
+            assertEquals(null, model.state.value.errorMessage)
+            assertEquals(1, terminal.starts)
             assertEquals(0, terminal.settlements)
+        }
+
+    @Test fun failedOldHistoryReadCannotPreventExplicitFreshStart() =
+        runBlocking {
+            val terminal = FakeTerminal().apply { historyFailure = true }
+            val model = ManualTerminalViewModel(terminal, scope)
+            assertTrue(model.state.value.failed)
+            model.open(".")
+            assertEquals("new", model.state.value.activeSessionId)
+            assertFalse(model.state.value.failed)
+            assertEquals(1, terminal.starts)
+            assertEquals(0, terminal.stops)
+        }
+
+    @Test fun oldDetachFailureCannotDiscardOrBlockTheNewShell() =
+        runBlocking {
+            val terminal = FakeTerminal()
+            val model = ManualTerminalViewModel(terminal, scope)
+            model.enter(".")
+            terminal.detachFailure = true
+            model.open(".")
+            assertEquals(2, terminal.starts)
+            assertEquals("new", model.state.value.activeSessionId)
+            assertTrue(model.state.value.connection != null)
+            assertEquals("OLD_CONNECTION_UNCONFIRMED", model.state.value.errorMessage)
+            assertEquals(0, terminal.stops)
         }
 
     @Test fun stopWithoutProofKeepsIdentityAndExposesRecoveryRatherThanPretendingSuccess() =
@@ -79,44 +105,18 @@ class TerminalRecoveryActionsTest {
             assertEquals(0, terminal.settlements)
         }
 
-    @Test fun resetWithUnknownExitRetainsIdentityAndRequestsRebootWithoutStartingAgain() =
-        runBlocking {
-            val terminal = FakeTerminal()
-            val model = ManualTerminalViewModel(terminal, scope)
-            model.resetTerminals(".")
-            assertEquals(1, terminal.stops)
-            assertEquals(0, terminal.starts)
-            assertEquals(0, terminal.settlements)
-            assertEquals("old", model.state.value.activeSessionId)
-            assertEquals("RESET_INCOMPLETE", model.state.value.errorMessage)
-        }
-
-    @Test fun resetWithProvenExitRemovesOldSessionAndStartsBlankShell() =
-        runBlocking {
-            val terminal = FakeTerminal(proveStop = true)
-            val model = ManualTerminalViewModel(terminal, scope)
-            model.resetTerminals(".")
-            assertEquals(1, terminal.stops)
-            assertEquals(1, terminal.settlements)
-            assertEquals(1, terminal.starts)
-            assertEquals("new", model.state.value.activeSessionId)
-            assertEquals(0, terminal.writes)
-        }
-
-    @Test fun partialResetClosesOnlyProvenSessionsAndReportsRemainingUnknown() =
+    @Test fun freshStartNeverResetsOrDiscardsOldUnknownAndStoppedSessions() =
         runBlocking {
             val terminal = FakeTerminal()
             terminal.records += ManualTerminal.State("exited", "STOPPED", ".", null, 0, true)
             val model = ManualTerminalViewModel(terminal, scope)
-            model.resetTerminals(".")
-            assertEquals(
-                listOf("old"),
-                model.state.value.sessions
-                    .map { it.sessionId },
-            )
-            assertEquals(1, terminal.settlements)
-            assertEquals(0, terminal.starts)
-            assertEquals("RESET_INCOMPLETE", model.state.value.errorMessage)
+            model.open(".")
+            assertEquals(1, terminal.starts)
+            assertEquals(0, terminal.stops)
+            assertEquals(0, terminal.settlements)
+            assertEquals(setOf("old", "exited", "new"), terminal.records.map { it.sessionId }.toSet())
+            assertEquals("new", model.state.value.activeSessionId)
+            assertEquals(0, terminal.writes)
         }
 
     @Test fun cancellationDuringStopDoesNotClearIdentityOrStartAnotherShell() =
@@ -143,6 +143,8 @@ class TerminalRecoveryActionsTest {
     ) : ManualTerminal {
         override val maxSessions get() = limit
         val records = mutableListOf(ManualTerminal.State("old", "UNKNOWN", ".", null, null, false))
+        var historyFailure = false
+        var detachFailure = false
         var starts = 0
         var stops = 0
         var settlements = 0
@@ -150,7 +152,10 @@ class TerminalRecoveryActionsTest {
 
         override suspend fun hasSession() = records.isNotEmpty()
 
-        override suspend fun sessions() = records.toList()
+        override suspend fun sessions(): List<ManualTerminal.State> {
+            check(!historyFailure) { "History unavailable" }
+            return records.toList()
+        }
 
         override suspend fun query(sessionId: String?) = records.first { it.sessionId == sessionId }
 
@@ -195,7 +200,9 @@ class TerminalRecoveryActionsTest {
                     columns: Int,
                 ) = Unit
 
-                override suspend fun detach() = Unit
+                override suspend fun detach() {
+                    check(!detachFailure) { "Old detach failed" }
+                }
             }
     }
 }

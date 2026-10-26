@@ -72,7 +72,7 @@ internal class ManualTerminalViewModel(
             if (active != null) {
                 if (active.canConnect) {
                     connect(active.sessionId)
-                } else if (mayStart && all.count { !it.canSettle } < terminal.maxSessions) {
+                } else if (mayStart) {
                     // Enter a fresh shell, never reinterpret or replay the unknown old execution.
                     connect(startSession(terminal, mutable, directory))
                 }
@@ -85,11 +85,6 @@ internal class ManualTerminalViewModel(
     fun open(directoryToStart: String?) =
         action {
             if (directoryToStart != null) {
-                val currentSessions = terminal.sessions()
-                if (currentSessions.count { !it.canSettle } >= terminal.maxSessions) {
-                    mutable.value = mutable.value.copy(errorMessage = "CAPACITY_FULL")
-                    return@action
-                }
                 connect(startSession(terminal, mutable, directoryToStart))
             } else {
                 val activeId = mutable.value.activeSessionId ?: terminal.sessions().firstOrNull()?.sessionId
@@ -190,23 +185,6 @@ internal class ManualTerminalViewModel(
         mutable.value = mutable.value.copy(displayRevision = mutable.value.displayRevision + 1)
     }
 
-    fun resetTerminals(directory: String) =
-        action {
-            detachConnection(mutable)
-            val remaining = resetTerminalSessions(terminal)
-            val active = remaining.firstOrNull()
-            mutable.value =
-                mutable.value.copy(
-                    sessions = remaining,
-                    hasSession = remaining.isNotEmpty(),
-                    activeSessionId = active?.sessionId,
-                    session = active,
-                    displayRevision = mutable.value.displayRevision + 1,
-                    errorMessage = if (remaining.isNotEmpty()) "RESET_INCOMPLETE" else null,
-                )
-            if (remaining.isEmpty()) connect(startSession(terminal, mutable, directory))
-        }
-
     fun disconnect() = action { detachConnection(mutable) }
 
     @Suppress("TooGenericExceptionCaught") // Only reads; one outstanding query, no input/start replay.
@@ -241,12 +219,11 @@ internal class ManualTerminalViewModel(
         if (mutable.value.connection != null) return
         val targetId = sessionId ?: mutable.value.activeSessionId
         val queryState = if (targetId != null) terminal.query(targetId) else terminal.query()
-        val all = terminal.sessions()
         mutable.value =
             mutable.value.copy(
                 session = queryState,
                 hasSession = true,
-                sessions = all,
+                sessions = listOf(queryState) + mutable.value.sessions.filter { it.sessionId != queryState.sessionId },
                 activeSessionId = queryState.sessionId,
             )
         if (!queryState.canConnect) return
@@ -263,15 +240,15 @@ internal class ManualTerminalViewModel(
     private fun action(block: suspend () -> Unit) {
         (actionScope ?: viewModelScope).launch {
             mutex.withLock {
-                mutable.value = mutable.value.copy(busy = true, failed = false)
+                mutable.value = mutable.value.copy(busy = true, failed = false, errorMessage = null)
                 try {
                     block()
                 } catch (cancelled: CancellationException) {
                     throw cancelled
                 } catch (failure: Exception) {
                     mutable.value =
-                        if (failure.message == "CAPACITY_FULL") {
-                            mutable.value.copy(errorMessage = "CAPACITY_FULL")
+                        if (failure.message in setOf("CAPACITY_FULL", "SHELL_START_FAILED", "SHELL_START_TIMEOUT")) {
+                            mutable.value.copy(errorMessage = failure.message)
                         } else {
                             mutable.value.copy(failed = true)
                         }
@@ -307,21 +284,30 @@ private suspend fun detachConnection(mutable: MutableStateFlow<TerminalPageState
     connection?.detach()
 }
 
+// Only old transport detach fails; the verified new shell retains its own identity.
+@Suppress("TooGenericExceptionCaught")
 private suspend fun startSession(
     terminal: ManualTerminal,
     mutable: MutableStateFlow<TerminalPageState>,
     directory: String,
 ): String {
     val newSession = terminal.start(directory)
-    detachConnection(mutable)
-    val all = terminal.sessions()
+    val oldConnection = mutable.value.connection
     mutable.value =
         mutable.value.copy(
+            connection = null,
             hasSession = true,
-            sessions = all,
+            sessions = listOf(newSession) + mutable.value.sessions,
             activeSessionId = newSession.sessionId,
             session = newSession,
             errorMessage = null,
         )
+    try {
+        oldConnection?.detach()
+    } catch (cancel: CancellationException) {
+        throw cancel
+    } catch (_: Exception) {
+        mutable.value = mutable.value.copy(errorMessage = "OLD_CONNECTION_UNCONFIRMED")
+    }
     return newSession.sessionId
 }

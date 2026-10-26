@@ -75,12 +75,11 @@ internal fun ManualTerminalScreen(
                 onToggleKeyboard = { keyboard = !(imeVisible || keyboard) },
                 onRuntimeSettings = onRuntimeSettings,
                 onClose = { recovery.closingId = state.activeSessionId },
-                onReset = { recovery.reset = true },
             )
-            TerminalBody(state, directory, model, keyboard, onReset = { recovery.reset = true }) { keyboard = true }
+            TerminalBody(state, directory, model, keyboard) { keyboard = true }
         }
     }
-    recovery.Dialogs(model, directory)
+    recovery.Dialogs(model)
     if (info) TerminalInfo(state.session, directory) { info = false }
     if (help) {
         TerminalHelp(
@@ -101,7 +100,6 @@ private fun ColumnScope.TerminalBody(
     directory: String,
     model: ManualTerminalViewModel,
     keyboard: Boolean,
-    onReset: () -> Unit,
     onTerminalTap: () -> Unit,
 ) {
     TerminalStatusBanners(state.errorMessage, !state.isWriter && state.connection != null)
@@ -117,7 +115,7 @@ private fun ColumnScope.TerminalBody(
             onTerminalTap = onTerminalTap,
         )
     } else {
-        TerminalEmptyState(state, directory, model, onReset)
+        TerminalEmptyState(state, directory, model)
     }
 }
 
@@ -127,7 +125,6 @@ private fun ColumnScope.TerminalEmptyState(
     state: TerminalPageState,
     directory: String,
     model: ManualTerminalViewModel,
-    onReset: () -> Unit,
 ) {
     val message =
         when {
@@ -143,14 +140,19 @@ private fun ColumnScope.TerminalEmptyState(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(stringResource(message))
-        if (state.hasSession && state.sessions.count { !it.canSettle } < state.maxSessions) {
+        if (state.hasSession) {
             TextButton(onClick = { model.open(directory) }, enabled = !state.busy) {
-                Text(stringResource(R.string.terminal_new_tab))
-            }
-        }
-        if (state.session?.phase == "UNKNOWN") {
-            TextButton(onClick = onReset, enabled = !state.busy, modifier = Modifier.testTag("terminal-recovery")) {
-                Text(stringResource(R.string.terminal_reset_sessions))
+                Text(
+                    stringResource(
+                        if (state.failed ||
+                            state.errorMessage != null
+                        ) {
+                            R.string.terminal_repair_open
+                        } else {
+                            R.string.terminal_new_tab
+                        },
+                    ),
+                )
             }
         }
         if (!state.hasSession) {
@@ -159,7 +161,17 @@ private fun ColumnScope.TerminalEmptyState(
                 enabled = !state.busy,
                 modifier = Modifier.testTag("terminal-start"),
             ) {
-                Text(stringResource(R.string.terminal_start))
+                Text(
+                    stringResource(
+                        if (state.failed ||
+                            state.errorMessage != null
+                        ) {
+                            R.string.terminal_repair_open
+                        } else {
+                            R.string.terminal_start
+                        },
+                    ),
+                )
             }
         } else if (state.session?.canConnect == true) {
             TextButton(
@@ -182,7 +194,9 @@ private fun TerminalStatusBanners(
             when (errorMessage) {
                 "CAPACITY_FULL" -> stringResource(R.string.terminal_capacity_full)
                 "CLOSE_UNCONFIRMED" -> stringResource(R.string.terminal_close_unconfirmed)
-                "RESET_INCOMPLETE" -> stringResource(R.string.terminal_reset_incomplete)
+                "OLD_CONNECTION_UNCONFIRMED" -> stringResource(R.string.terminal_old_connection_failed)
+                "SHELL_START_FAILED" -> stringResource(R.string.terminal_shell_failed)
+                "SHELL_START_TIMEOUT" -> stringResource(R.string.terminal_shell_timeout)
                 else -> errorMessage
             }
         Text(
@@ -250,15 +264,11 @@ private fun TerminalRecoveryConfirmation(
 }
 
 private class TerminalRecoveryUi {
-    var reset by mutableStateOf(false)
     var closingId by mutableStateOf<String?>(null)
 
     @Composable
     @Suppress("FunctionName")
-    fun Dialogs(
-        model: ManualTerminalViewModel,
-        directory: String,
-    ) {
+    fun Dialogs(model: ManualTerminalViewModel) {
         closingId?.let { sessionId ->
             TerminalRecoveryConfirmation(
                 R.string.terminal_stop_close,
@@ -267,17 +277,6 @@ private class TerminalRecoveryUi {
                 onConfirm = {
                     closingId = null
                     model.settle(sessionId)
-                },
-            )
-        }
-        if (reset) {
-            TerminalRecoveryConfirmation(
-                R.string.terminal_reset_sessions,
-                R.string.terminal_reset_sessions_body,
-                onDismiss = { reset = false },
-                onConfirm = {
-                    reset = false
-                    model.resetTerminals(directory)
                 },
             )
         }

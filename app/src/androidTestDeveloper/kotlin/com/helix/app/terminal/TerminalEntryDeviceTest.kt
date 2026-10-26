@@ -31,7 +31,7 @@ class TerminalEntryDeviceTest {
             model.disconnect()
         }
 
-    @Test fun provenStoppedHistoryDoesNotFillTheActiveLimitButUnknownDoes() =
+    @Test fun stoppedAndUnknownHistoryNeverGateAnExplicitNewStart() =
         onMain {
             val terminal = FakeTerminal(state("stopped", "STOPPED", true), maxSessions = 1)
             val model = ManualTerminalViewModel(terminal)
@@ -43,7 +43,7 @@ class TerminalEntryDeviceTest {
             val other = ManualTerminalViewModel(unknown)
             other.enter(".")
             other.open(".")
-            assertEquals(0, unknown.starts)
+            assertEquals(1, unknown.starts)
             assertEquals("CAPACITY_FULL", other.state.value.errorMessage)
         }
 
@@ -192,6 +192,7 @@ class TerminalEntryDeviceTest {
             relativeDirectory: String,
             leaseMs: Long,
         ): ManualTerminal.State {
+            if (retained.count { it.phase == "RUNNING" && !it.canSettle } >= maxSessions) error("CAPACITY_FULL")
             starts++
             startFailure?.let { throw it }
             return state("s$starts").also(retained::add)

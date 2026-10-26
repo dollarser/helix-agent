@@ -4,17 +4,16 @@
     <string name="terminal_licenses">Component licenses</string>
     <string name="terminal_keyboard">Keyboard</string>
     <string name="terminal_shared_workspace">Terminals use a directory independent of conversations by default. A directory selected in Files applies only to a new terminal. Shares the app UID. The default lease is two hours; detached terminals are reclaimed after 30 minutes of inactivity.</string>
-    <string name="terminal_failed">Operation did not complete. Refresh the terminal status; start and input are not retried automatically. If maintenance is needed, open Execution environments from Terminal options.</string>
+    <string name="terminal_failed">Terminal could not open. Try Repair and open.</string>
     <string name="terminal_start">Start terminal</string>
     <string name="terminal_connect">Reconnect</string>
     <string name="terminal_stop">Stop terminal</string>
     <string name="terminal_settle">Close terminal</string>
-    <string name="terminal_refresh">Refresh status</string>
     <string name="terminal_detached">Disconnected. Leaving the page or switching conversations does not stop commands. Reconnect to view retained output.</string>
-    <string name="terminal_runtime_ended">An app update or device restart ended the old terminal. Its command outcome is unknown. Close it to free a slot, then start a new terminal. Commands will not be replayed; workspace files are retained.</string>
+    <string name="terminal_runtime_ended">The old terminal has ended. You can open a new terminal.</string>
     <string name="terminal_state_ended">Old terminal ended · Command outcome unknown</string>
     <string name="terminal_state_unknown">Terminal runtime disconnected · Outcome unknown</string>
-    <string name="terminal_runtime_unknown">The old process state is unknown. It cannot be attached or replayed. Refresh, start an independent terminal when capacity remains, if all slots are occupied, reboot the device then close old terminals while retaining app data. Clearing the display does not stop processes.</string>
+    <string name="terminal_runtime_unknown">The old terminal status is unknown. You can open an independent terminal.</string>
     <string name="terminal_close_unconfirmed">Could not confirm that all processes in this terminal have ended. Closing did not complete. Refresh and retry; if the runtime was lost and remains unknown, restart the device. Commands will not be replayed and workspace files will not be deleted.</string>
     <string name="terminal_input_rejected">Some input was rejected or its outcome is unknown. It was not resent. Check the terminal before entering more.</string>
     <string name="terminal_output_failed">Output connection failed. Leave the page and reconnect to the original terminal.</string>
@@ -24,10 +23,14 @@
     <string name="terminal_new_tab">New terminal</string>
     <string name="terminal_capacity_full">Terminal capacity is full. Close an unused terminal, or retry after other tasks finish or resource pressure clears.</string>
     <string name="terminal_observer_mode">Current connection is in read-only observer mode</string>
-    <string name="terminal_initial_help">No conversation needs to be created or selected. Opening the page connects to a retained terminal; first entry creates one if none exists. The bundled Linux environment is prepared on first start. Maintenance is under Terminal options → Execution environments.</string>
+    <string name="terminal_initial_help">Open a terminal to use the bundled Linux environment.</string>
     <string name="terminal_execution_busy_help">Terminals and Agent tasks can run together. An open terminal or uncollected result does not block other tasks. Shared files can change concurrently; verify the final result. Only environment maintenance, engine capacity and input to the same terminal require coordination. Leaving detaches without stopping commands.</string>
-    <string name="terminal_settlement_required">Terminal stopped. Select Close terminal to free a terminal slot.</string>
+    <string name="terminal_settlement_required">This terminal has stopped. You can close this tab or open another.</string>
     <string name="terminal_menu">Terminal options</string>
     <string name="terminal_requires_advanced">The terminal requires Advanced mode. Standard mode cannot start a terminal.</string>
     <string name="terminal_switch_and_start">Switch to Advanced and start terminal</string>
+    <string name="terminal_repair_open">Repair and open terminal</string>
+    <string name="terminal_shell_failed">The shell could not start. Open Execution environments to repair it.</string>
+    <string name="terminal_shell_timeout">The shell did not become ready. Try opening a new terminal.</string>
+    <string name="terminal_old_connection_failed">The old connection did not confirm detachment. The new terminal is open.</string>
 </resources>

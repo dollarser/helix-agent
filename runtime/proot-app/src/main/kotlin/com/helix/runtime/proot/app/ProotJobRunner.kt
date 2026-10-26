@@ -157,12 +157,11 @@ class ProotJobRunner private constructor(
     internal fun reserveManualTerminal(sessionId: String): Boolean =
         reserveTerminal(sessionId) == TerminalAdmission.RESERVED
 
-    internal enum class TerminalAdmission { RESERVED, UNAVAILABLE, FULL }
+    internal enum class TerminalAdmission { RESERVED, FULL }
 
     @Synchronized
     internal fun reserveTerminal(sessionId: String): TerminalAdmission =
         when {
-            !ready() -> TerminalAdmission.UNAVAILABLE
             capacity.reserveTerminal(sessionId, manualTerminalAllowance(context)) -> TerminalAdmission.RESERVED
             else -> TerminalAdmission.FULL
         }

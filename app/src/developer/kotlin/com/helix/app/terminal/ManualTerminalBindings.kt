@@ -2,13 +2,14 @@ package com.helix.app.terminal
 
 import com.helix.tools.framework.ExecutionOwnership
 
-/** Bounded host identities, including older slots on a device whose current CPU allowance is lower. */
+/** Durable control identities are history, never physical execution slots. */
 internal class ManualTerminalBindings(
-    private val stores: List<ExecutionOwnership.Store>,
+    private val stores: () -> List<ExecutionOwnership.Store>,
+    private val allocate: () -> ExecutionOwnership.Store,
 ) {
     fun owners(): List<Pair<ExecutionOwnership.Store, ExecutionOwnership.Owner>> {
         val seen = mutableSetOf<ExecutionOwnership.Owner>()
-        return stores.mapNotNull { store ->
+        return stores().mapNotNull { store ->
             store.read()?.let { owner ->
                 if (seen.add(owner)) {
                     store to owner
@@ -25,8 +26,8 @@ internal class ManualTerminalBindings(
             "Terminal identity not found"
         }
 
-    fun free(limit: Int): ExecutionOwnership.Store {
-        check(owners().size < limit) { "CAPACITY_FULL" }
-        return checkNotNull(stores.take(limit).firstOrNull { it.read() == null }) { "CAPACITY_FULL" }
-    }
+    fun fresh(): ExecutionOwnership.Store =
+        allocate().also {
+            check(it.read() == null) { "New terminal identity already exists" }
+        }
 }

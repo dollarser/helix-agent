@@ -114,12 +114,12 @@ class PtySessionStoreTest {
         assertThrows(IllegalStateException::class.java) { PtySessionStore(blockedDirectory).read("terminal") }
     }
 
-    @Test fun capacityNeverEvictsUnreconciledOrUnknownEvidence() {
+    @Test fun retainedHistoryNeverBlocksFreshIntentOrEvictsUnknownEvidence() {
         val root = temporary.newFolder()
         val store = PtySessionStore(root)
         repeat(PtySessionStore.MAX_ENTRIES) { assertTrue(store.compareAndSet(null, intent("s$it"))) }
-        assertThrows(IllegalStateException::class.java) { store.compareAndSet(null, intent("overflow")) }
-        assertEquals(PtySessionStore.MAX_ENTRIES, store.records().size)
+        assertTrue(store.compareAndSet(null, intent("overflow")))
+        assertEquals(PtySessionStore.MAX_ENTRIES + 1, store.records().size)
         val original = intent("s0")
         val stopped = original.neverStarted()
         assertTrue(store.compareAndSet(original, stopped))

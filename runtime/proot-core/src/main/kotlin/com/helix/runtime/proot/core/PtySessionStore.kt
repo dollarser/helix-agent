@@ -38,7 +38,6 @@ class PtySessionStore(
             if (expected != null) validateUpdate(expected, replacement)
             if (expected == null) {
                 require(replacement == PtySessionRecord(replacement.origin)) { "PTY must start with durable intent" }
-                check(records().size < MAX_ENTRIES) { "PTY journal capacity exhausted" }
             }
             check(directory.isDirectory || directory.mkdirs()) { "PTY journal unavailable" }
             val bytes = PtySessionRecordCodec.encode(replacement)

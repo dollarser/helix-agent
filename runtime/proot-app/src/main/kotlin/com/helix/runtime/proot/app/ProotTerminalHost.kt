@@ -38,21 +38,11 @@ internal class ProotTerminalHost(
             require(key.matches(existing) && existing.origin.workspace == workspace)
             return PtySessionReply(query(key), outcome = "DUPLICATE")
         }
-        val records =
-            store.records().map {
-                query(PtySessionKey(it.origin.sessionId, it.origin.generation, it.origin.executionId))!!
-            }
-        val activeRecords = records.filter { it.stopProof == null }
-        if (activeRecords.size >= MAX_SESSIONS) {
-            return PtySessionReply(null, outcome = "CAPACITY_EXHAUSTED")
-        }
-        pruneReconciledRecords(store, records)
         sessions.values.filter { it.workerFinished && it.record.stopProof != null }.forEach {
             runner.releaseManualTerminal(it.record.origin.sessionId)
         }
         when (runner.reserveTerminal(key.sessionId)) {
             ProotJobRunner.TerminalAdmission.FULL -> return PtySessionReply(null, outcome = "CAPACITY_EXHAUSTED")
-            ProotJobRunner.TerminalAdmission.UNAVAILABLE -> return PtySessionReply(null, outcome = "START_REFUSED")
             ProotJobRunner.TerminalAdmission.RESERVED -> Unit
         }
         val launch =
@@ -190,22 +180,6 @@ internal class ProotTerminalHost(
     @Synchronized
     fun destroy() {
         sessions.values.forEach { it.stop(PtySessionRecord.StopReason.USER) }
-    }
-
-    companion object {
-        const val MAX_SESSIONS = com.helix.runtime.proot.core.RuntimeExecutionCapacity.MAX_TERMINALS
-    }
-}
-
-private fun pruneReconciledRecords(
-    store: PtySessionStore,
-    records: List<PtySessionRecord>,
-) {
-    if (records.size >= PtySessionStore.MAX_ENTRIES) {
-        val toRemove = records.filter { it.reconciled }.minByOrNull { it.origin.createdAtEpochMs }
-        if (toRemove != null) {
-            check(store.removeReconciled(toRemove))
-        }
     }
 }
 

@@ -33,12 +33,20 @@ internal class DeveloperManualTerminal(
     override val maxSessions: Int
         get() = Runtime.getRuntime().availableProcessors().coerceIn(1, RuntimeExecutionCapacity.MAX_TERMINALS)
 
+    private val identities = File(context.filesDir, "execution-admission/terminals")
     private val bindings =
         ManualTerminalBindings(
-            (1..RuntimeExecutionCapacity.MAX_TERMINALS).map { number ->
-                val suffix = if (number == 1) "" else "-$number"
-                ExecutionOwnershipStore(File(context.filesDir, "execution-admission/manual-terminal$suffix"))
+            stores = {
+                if (!identities.exists()) {
+                    emptyList()
+                } else {
+                    checkNotNull(identities.listFiles()) { "Terminal identities unavailable" }
+                        .filter { it.isFile && it.name.endsWith(".owner") }
+                        .sortedByDescending { it.lastModified() }
+                        .map(::ExecutionOwnershipStore)
+                }
             },
+            allocate = { ExecutionOwnershipStore(File(identities, "${UUID.randomUUID()}.owner")) },
         )
     private val mutex = Mutex()
     private val bootRecovery =
@@ -74,23 +82,24 @@ internal class DeveloperManualTerminal(
             mutex.withLock {
                 check(profile.profile == SafetyProfile.ADVANCED) { "Manual terminal requires Advanced" }
                 require(leaseMs in 1000..Wire.MAX_LEASE_MS)
-                retireStoppedBindings()
-                val targetBinding = bindings.free(maxSessions)
+                val targetBinding = bindings.fresh()
                 val workspace = directoryResolver(relativeDirectory)
                 require(workspace.isDirectory)
                 val owner = ExecutionOwnership.Owner(UUID.randomUUID().toString(), UUID.randomUUID().toString())
                 val key = ptyKey(owner)
 
                 val reply =
-                    TerminalStartTransaction(ownership, targetBinding).launch(
-                        "manual-${key.sessionId}",
-                        owner,
-                        submit = { submitting -> launchSession(context, key, workspace, leaseMs, submitting) },
-                        refused = { it.outcome == "START_REFUSED" || it.outcome == "CAPACITY_EXHAUSTED" },
-                        refusalDetail = {
-                            if (it.outcome == "CAPACITY_EXHAUSTED") "CAPACITY_FULL" else "Runtime not ready"
-                        },
-                    )
+                    kotlinx.coroutines.runInterruptible {
+                        TerminalStartTransaction(ownership, targetBinding).launch(
+                            "manual-${key.sessionId}",
+                            owner,
+                            submit = { submitting -> launchSession(context, key, workspace, leaseMs, submitting) },
+                            refused = { it.outcome == "START_REFUSED" || it.outcome == "CAPACITY_EXHAUSTED" },
+                            refusalDetail = {
+                                if (it.outcome == "CAPACITY_EXHAUSTED") "CAPACITY_FULL" else "Runtime not ready"
+                            },
+                        )
+                    }
                 terminalState(reply)
             }
         }
@@ -181,20 +190,6 @@ internal class DeveloperManualTerminal(
             }
         }
 
-    /** Explicit new start may retire proven exits; uncertain START/runtime loss still occupies its slot. */
-    private fun retireStoppedBindings() {
-        val owners = bindings.owners()
-        if (owners.isEmpty()) return
-        PtySessionClient(context).use { client ->
-            client.connect()
-            owners.forEach { (binding, owner) ->
-                if (recoverState(client.request(ptyKey(owner), Wire.QUERY), owner).canSettle) {
-                    settleBinding(client, binding, owner)
-                }
-            }
-        }
-    }
-
     private fun currentBoot(): Int? =
         runCatching { Settings.Global.getInt(context.contentResolver, Settings.Global.BOOT_COUNT, -1) }
             .getOrNull()
@@ -265,8 +260,17 @@ private fun launchSession(
 ) = PtySessionClient(context).use { client ->
     client.connect()
     submitting()
-    client.request(key, Wire.START) { data ->
-        data.writeString(workspace.path)
-        data.writeLong(leaseMs)
+    val reply =
+        client.request(key, Wire.START) { data ->
+            data.writeString(workspace.path)
+            data.writeLong(leaseMs)
+        }
+    if (reply.record == null) {
+        reply
+    } else {
+        awaitShellPrompt(
+            query = { client.request(key, Wire.QUERY) },
+            read = { cursor -> checkNotNull(client.request(key, Wire.READ) { it.writeString(cursor) }.page) },
+        )
     }
 }

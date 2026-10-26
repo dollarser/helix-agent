@@ -99,8 +99,13 @@ class ProotTerminalSessionDeviceTest {
                 val terminal = checkNotNull(container.manualTerminal)
                 try {
                     container.profileStore.switchTo(SafetyProfile.ADVANCED)
-                    terminal.start(leaseMs = 1500)
+                    val start = runCatching { terminal.start(leaseMs = 1500) }
+                    // A lease shorter than foreground handoff may expire before the shell is ready.
+                    // That must be an explicit failed start, never a fabricated ready terminal or replay.
+                    start.exceptionOrNull()?.let { assertEquals("SHELL_START_FAILED", it.message) }
+                    assertEquals(1, terminal.sessions().size)
                     val stopped = awaitStopped(terminal)
+                    start.getOrNull()?.let { assertEquals(it.sessionId, stopped.sessionId) }
                     assertEquals("LEASE_EXPIRED", stopped.stopReason)
                     assertTrue(terminal.hasSession())
                     terminal.settle()
