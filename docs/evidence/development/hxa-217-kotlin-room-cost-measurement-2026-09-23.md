@@ -13,7 +13,7 @@
 - **编码实现**：采用 Kotlin 原生实现的 [`CompactManifestCodec`](../../../core/model/src/main/kotlin/com/helix/core/model/RequestContextManifest.kt)（消息表示为 `[id, roleCode]` 紧凑元组，输入为 `inputIds` 列表，强制 256 KiB 单行上限守卫与 `isTruncated` 状态标记）。
 - **长任务模拟**：单会话内连续执行 **100 次模型调用**（每次调用保存当前完整请求来源上下文，包含随轮次累积的历史消息引用与 input IDs）。
 - **执行脚本与测试**：
-  - 测试套件：[`RequestContextManifestBenchmarkTest.kt`](../../../core/model/src/test/kotlin/com/helix/core/model/RequestContextManifestBenchmarkTest.kt)
+  - 当时的测试套件：[`RequestContextManifestBenchmarkTest.kt`](https://github.com/dollarser/helix-agent/blob/832020703108d6fad79fc1ccf55fc24bb1d554db/core/model/src/test/kotlin/com/helix/core/model/RequestContextManifestBenchmarkTest.kt)；重复基准在后续 CI 精简中移除，当前边界回归为 `RequestContextManifestTest`。
   - 测量脚本：[`measure-hxa217-kotlin-room-cost.py`](../../../scripts/debug/2026-09-23/measure-hxa217-kotlin-room-cost.py)
   - 原始产物：`build/hxa217-preparation/kotlin-room-cost-report.json`
 

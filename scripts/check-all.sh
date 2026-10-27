@@ -4,8 +4,7 @@ set -euo pipefail
 readonly project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$project_root"
 
-# Full gates retain experiment coverage even though ordinary builds exclude it.
-export ORG_GRADLE_PROJECT_includeSpikes=true
+# Historical experiments are opt-in with -PincludeSpikes=true, not product gates.
 gradle_profile=()
 if [[ "${HELIX_GRADLE_PROFILE:-0}" == 1 ]]; then
     gradle_profile+=(--profile)
@@ -25,6 +24,7 @@ analysis_checks() {
 
 test_build_checks() {
     ./gradlew ${gradle_profile[@]+"${gradle_profile[@]}"} test :app:assembleConsumerDebug :app:assembleDeveloperDebug :runtime:proot-app:assembleDebug :runtime:cli-app:assembleDebug \
+        compileDebugAndroidTestSources :app:compileConsumerDebugAndroidTestSources :app:compileDeveloperDebugAndroidTestSources \
         :app:assembleConsumerRelease :app:assembleDeveloperRelease :runtime:proot-app:assembleRelease :runtime:cli-app:assembleRelease
     ./gradlew ${gradle_profile[@]+"${gradle_profile[@]}"} -PincludeReleaseSmoke=true \
         :tests:release-smoke:assembleDebugAndroidTest :tests:release-smoke:lintDebug
@@ -40,9 +40,10 @@ release_analysis_checks() {
 }
 
 debug_test_build_checks() {
-    # Retain every existing test; only release lint/packaging is omitted.
+    # Test source correctness is compiled; Android Lint is reserved for production.
     ./gradlew ${gradle_profile[@]+"${gradle_profile[@]}"} test \
-        :app:assembleConsumerDebug :app:assembleDeveloperDebug
+        :app:assembleConsumerDebug :app:assembleDeveloperDebug \
+        compileDebugAndroidTestSources :app:compileConsumerDebugAndroidTestSources :app:compileDeveloperDebugAndroidTestSources
     ./scripts/check-lockfiles.sh
 }
 

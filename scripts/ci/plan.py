@@ -30,7 +30,8 @@ def classify(paths):
     scope = 'source'
     for name in paths:
         path = Path(name)
-        if name.startswith(('docs/', 'scripts/debug/')) or name in {
+        if (name.startswith(('docs/', 'scripts/debug/'))
+                or (name.startswith('scripts/tests/') and path.suffix == '.py')) or name in {
                 'README.md', 'README.en.md', 'AGENTS.md', 'LICENSE', 'CONTRIBUTING.md',
                 'SECURITY.md', 'THIRD_PARTY_NOTICES.md'}:
             continue
@@ -57,16 +58,19 @@ def android_gates(scope):
     raise ValueError('Unknown verification scope')
 
 
-def successful_android_jobs(jobs):
-    # Only a complete Debug + Release run proves a reusable Android baseline.
-    # Legacy/Debug-only runs conservatively trigger validation from a full baseline.
-    required = {'source', 'runtime-assets', 'android (analysis)',
-                'android (release-analysis)', 'android (tests-build)', 'verify'}
+def successful_android_jobs(jobs, full=True):
+    required = {'source', 'runtime-assets', 'speech-assets', 'android (analysis)',
+                'android (tests-build)', 'verify'}
     outcomes = {job['name']: job.get('conclusion') for job in jobs}
+    release = 'android (release-analysis)'
+    if full:
+        required.add(release)
+    elif release in outcomes and outcomes[release] != 'success':
+        return False
     return all(outcomes.get(name) == 'success' for name in required)
 
 
-def proven_base(get, ancestor):
+def proven_base(get, ancestor, full=True):
     # Bounded discovery. No prior qualifying run or unavailable API means full CI.
     runs = get('actions/workflows/ci.yml/runs?branch=main&status=success&per_page=30')['workflow_runs']
     for run in runs:
@@ -75,7 +79,7 @@ def proven_base(get, ancestor):
         jobs = get(f"actions/runs/{run['id']}/jobs?filter=latest&per_page=100")
         if jobs.get('total_count', 0) > 100:
             continue
-        if successful_android_jobs(jobs['jobs']):
+        if successful_android_jobs(jobs['jobs'], full=full):
             return run['head_sha']
     return None
 
@@ -106,22 +110,36 @@ def plan(event_name, event, get=api_get):
                 raise ValueError('Invalid PR base SHA')
             base = git('merge-base', sha, 'HEAD')
         elif event_name == 'push':
-            base = proven_base(get, is_ancestor)
+            responses = {}
+            def cached_get(path):
+                if path not in responses:
+                    responses[path] = get(path)
+                return responses[path]
+            base = proven_base(cached_get, is_ancestor)
         if base:
             paths = git('diff', '--name-only', '--no-renames', base, 'HEAD').splitlines()
-            return {'scope': classify(paths), 'reason': 'changes since verified base' if event_name == 'push'
-                    else 'complete pull request diff', 'base': base, 'paths': paths}
+            scope = classify(paths)
+            full_base = base if event_name == 'push' else None
+            # A Debug success may cover code before a docs push, never unverified full-gate inputs.
+            if event_name == 'push' and scope != 'full':
+                debug_base = proven_base(cached_get, is_ancestor, full=False)
+                if debug_base and debug_base != base:
+                    base = debug_base
+                    paths = git('diff', '--name-only', '--no-renames', base, 'HEAD').splitlines()
+                    scope = classify(paths)
+            return {'scope': scope, 'reason': 'changes since verified base' if event_name == 'push'
+                    else 'complete pull request diff', 'base': base, 'full_base': full_base, 'paths': paths}
     except (URLError, OSError, KeyError, ValueError, subprocess.CalledProcessError):
         # Do not log token-bearing requests or quietly skip when discovery fails.
         pass
     return {'scope': 'full', 'reason': 'no verifiable baseline; conservative full gate', 'base': None, 'paths': []}
 
 
-def verify(scope, source, assets, android):
+def verify(scope, source, assets, speech, android):
     if source != 'success' or scope not in {'source', 'debug', 'full'}:
         return False
     expected = 'skipped' if scope == 'source' else 'success'
-    return assets == expected and android == expected
+    return assets == expected and speech == expected and android == expected
 
 
 def main():
@@ -130,7 +148,7 @@ def main():
     args = parser.parse_args()
     if args.verify:
         valid = verify(*(os.environ.get(name, '') for name in
-                         ('CI_SCOPE', 'SOURCE_RESULT', 'ASSETS_RESULT', 'ANDROID_RESULT')))
+                         ('CI_SCOPE', 'SOURCE_RESULT', 'ASSETS_RESULT', 'SPEECH_RESULT', 'ANDROID_RESULT')))
         if not valid:
             raise SystemExit('Required CI gates failed, were cancelled, or were unexpectedly skipped')
         print('Required CI gates passed for the selected scope')

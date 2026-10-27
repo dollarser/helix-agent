@@ -272,6 +272,9 @@ val projectDependencies =
     )
 
 subprojects {
+    plugins.withId("com.android.library") {
+        extensions.configure<LibraryExtension> { lint { ignoreTestSources = true } }
+    }
     group = "com.helix"
     version = "1"
 

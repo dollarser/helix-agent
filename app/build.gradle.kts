@@ -70,6 +70,7 @@ android {
     }
 
     lint {
+        ignoreTestSources = true
         abortOnError = true
         warningsAsErrors = true
         checkReleaseBuilds = true

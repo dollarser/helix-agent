@@ -72,7 +72,7 @@ include(
     ":testing",
 )
 
-// Experiments are reproducible on demand; full verification explicitly enables them.
+// Research experiments are reproducible on demand, outside normal product verification.
 if (providers.gradleProperty("includeSpikes").orNull == "true") {
     include(
         ":spikes:a2a-sdk",
