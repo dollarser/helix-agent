@@ -1,0 +1,8 @@
+<resources>
+    <string name="mobile_use_session_title">Phone control</string>
+    <string name="mobile_use_session_enable">Enable for this conversation</string>
+    <string name="mobile_use_session_enabled">Phone control is enabled for this conversation</string>
+    <string name="mobile_use_session_hint">Enable Mobile Use to control the phone within its configured scope.</string>
+    <string name="mobile_use_go_authorize">Grant access</string>
+    <string name="mobile_use_advanced_configuration">Advanced configuration</string>
+</resources>

@@ -26,8 +26,9 @@ internal fun ArtifactLocateAction(
 ) {
     val open = LocalFileLocation.current ?: return
     val path = row.parsedScopePath() ?: return
+    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
     TextButton(
-        { open(path) },
+        { if (lifecycle.currentState == androidx.lifecycle.Lifecycle.State.RESUMED) open(path) },
         enabled = state is ArtifactAvailability.Ready,
         modifier = Modifier.testTag("artifact-locate-${row.id}"),
     ) { Text(stringResource(R.string.files_locate)) }

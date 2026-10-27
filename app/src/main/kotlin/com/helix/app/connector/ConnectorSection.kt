@@ -63,10 +63,14 @@ fun ConnectorSection(
     onConfigureImported: ((String) -> Unit)? = null,
     onPluginSettings: () -> Unit = {},
     onSystemPermissions: () -> Unit = onPluginSettings,
+    importFiles: com.helix.app.files.FileManagerService? = null,
+    filePicker: com.helix.app.ui.FileSelectionContent? = null,
 ) {
     val action = rememberImportActionState()
-    var jsonDraft by remember { mutableStateOf("") }
-    var showPaste by remember { mutableStateOf(false) }
+    var jsonDraft by androidx.compose.runtime.saveable
+        .rememberSaveable { mutableStateOf("") }
+    var showPaste by androidx.compose.runtime.saveable
+        .rememberSaveable { mutableStateOf(false) }
     var replaceTarget by remember { mutableStateOf<InstalledPlugin?>(null) }
     var preview by remember { mutableStateOf<PluginImportReview?>(null) }
     var importFailure by remember { mutableStateOf<PluginImportFailure?>(null) }
@@ -76,6 +80,26 @@ fun ConnectorSection(
     var searchContents by remember { mutableStateOf<Map<String, List<String>>>(emptyMap()) }
     var revision by remember { mutableStateOf(0) }
     var installed by remember { mutableStateOf<InstalledPlugin?>(null) }
+    var browsing by androidx.compose.runtime.saveable
+        .rememberSaveable { mutableStateOf(false) }
+    if (browsing && filePicker != null && importFiles != null) {
+        filePicker({ path ->
+            browsing = false
+            action.launch(onFailure = { importFailure = PluginImportFailure.from(it) }) {
+                val job = kotlinx.coroutines.currentCoroutineContext()[kotlinx.coroutines.Job]
+                preview = null
+                installed = null
+                preview =
+                    withContext(Dispatchers.IO) {
+                        PluginImportReview.capture(
+                            service.previewFile(importFiles, path) { job?.isCancelled == true },
+                            service.list(),
+                            replaceTarget,
+                        )
+                    }
+            }
+        }, { browsing = false })
+    }
     LaunchedEffect(service, revision) {
         loadFailed = false
         try {
@@ -102,11 +126,16 @@ fun ConnectorSection(
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
             if (uri != null) {
                 action.launch(onFailure = { importFailure = PluginImportFailure.from(it) }) {
+                    val job = kotlinx.coroutines.currentCoroutineContext()[kotlinx.coroutines.Job]
                     preview = null
                     installed = null
                     preview =
                         withContext(Dispatchers.IO) {
-                            PluginImportReview.capture(service.preview(uri), service.list(), replaceTarget)
+                            PluginImportReview.capture(
+                                service.preview(uri) { job?.isCancelled == true },
+                                service.list(),
+                                replaceTarget,
+                            )
                         }
                 }
             }
@@ -120,6 +149,18 @@ fun ConnectorSection(
         }
         if (showImport) {
             if (showIntroduction) Text(stringResource(R.string.connector_intro))
+            if (filePicker != null && importFiles != null) {
+                OutlinedButton(
+                    {
+                        replaceTarget = null
+                        browsing = true
+                    },
+                    enabled = !action.busy,
+                    modifier = Modifier.testTag("connector-import-local"),
+                ) {
+                    Text(stringResource(R.string.files_import_builtin))
+                }
+            }
             OutlinedButton(
                 onClick = {
                     replaceTarget = null
@@ -128,7 +169,7 @@ fun ConnectorSection(
                 enabled = !action.busy,
                 modifier = Modifier.testTag("connector-import"),
             ) {
-                Text(stringResource(R.string.connector_import))
+                Text(stringResource(R.string.files_import_system))
             }
             OutlinedButton(
                 enabled = !action.busy,
@@ -167,7 +208,12 @@ fun ConnectorSection(
                 },
             ) { Text(stringResource(R.string.skill_creator_preview)) }
         }
-        if (loadFailed) Text(stringResource(R.string.connector_failed), color = MaterialTheme.colorScheme.error)
+        if (loadFailed) {
+            Text(
+                stringResource(R.string.plugin_settings_read_failed),
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
         if (action.failed) PluginImportError(importFailure)
         if (service.cleanupPending) {
             Text(stringResource(R.string.connector_cleanup_pending))
@@ -269,9 +315,13 @@ fun ConnectorSection(
                         if (record.native == null) {
                             OutlinedButton(enabled = !action.busy, onClick = {
                                 replaceTarget = record
-                                picker.launch(
-                                    arrayOf("application/zip", "application/json", "application/octet-stream"),
-                                )
+                                if (filePicker != null && importFiles != null) {
+                                    browsing = true
+                                } else {
+                                    picker.launch(
+                                        arrayOf("application/zip", "application/json", "application/octet-stream"),
+                                    )
+                                }
                             }, modifier = Modifier.testTag("connector-update-${record.id}")) {
                                 Text(stringResource(R.string.connector_update_target, record.name))
                             }

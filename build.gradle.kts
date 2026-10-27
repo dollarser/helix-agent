@@ -615,6 +615,40 @@ subprojects {
             // :feature:files. `api` scope: both the proot-app installer and the proot-client
             // handshake consume the parsed types.
             if (path == ":runtime:proot-core") {
+                val nativeSource = rootProject.file("runtime/proot-app/src/main/cpp/proot_state_files.c")
+                val mac = System.getProperty("os.name").startsWith("Mac")
+                val hostLibrary =
+                    layout.buildDirectory.file("native-test/" + if (mac) "libpty_state.dylib" else "libpty_state.so")
+                val jdk = System.getProperty("java.home")
+                val buildStateNative =
+                    tasks.register<Exec>("buildStateNativeTest") {
+                        inputs.file(nativeSource)
+                        outputs.file(hostLibrary)
+                        doFirst {
+                            hostLibrary
+                                .get()
+                                .asFile.parentFile
+                                .mkdirs()
+                        }
+                        commandLine(
+                            "cc",
+                            if (mac) "-dynamiclib" else "-shared",
+                            "-fPIC",
+                            "-Wall",
+                            "-Wextra",
+                            "-Werror",
+                            "-I$jdk/include",
+                            "-I$jdk/include/" + if (mac) "darwin" else "linux",
+                            nativeSource.absolutePath,
+                            "-o",
+                            hostLibrary.get().asFile.absolutePath,
+                        )
+                    }
+                tasks.withType<Test>().configureEach {
+                    dependsOn(buildStateNative)
+                    inputs.file(hostLibrary)
+                    systemProperty("helix.pty.state.library", hostLibrary.get().asFile.absolutePath)
+                }
                 dependencies.add("api", kotlinxSerializationJsonDependency.get())
                 dependencies.add("implementation", xzDependency.get())
                 // HXA-081: the build-time asset gate (scripts/build-proot-assets.sh) runs the

@@ -1,5 +1,5 @@
 <resources>
     <string name="terminal_clear_display">Clear current display</string>
-    <string name="terminal_stop_close">Stop and close terminal</string>
-    <string name="terminal_stop_close_body">Stop commands in this terminal and remove its entry only after process exit is confirmed. Workspace files are retained. Commands are never replayed and execution records are not rewritten as successful. Unconfirmed identities remain retained.</string>
+    <string name="terminal_stop_close">Close terminal</string>
+    <string name="terminal_stop_close_body">Stop commands in this window. Workspace files are retained.</string>
 </resources>

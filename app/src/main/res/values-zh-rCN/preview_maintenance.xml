@@ -1,0 +1,19 @@
+<resources>
+    <string name="preview_reset_database">会话、任务、配置及授权记录</string>
+    <string name="preview_reset_terminal">终端控制记录；先前命令的结果仍可能未知</string>
+    <string name="preview_reset_mobile">Mobile Use 操作范围，使用前需重新设置</string>
+    <string name="preview_reset_preserved">共享文档、模型、Linux 环境和账号凭据保留。</string>
+    <string name="preview_reset_restart">旧运行状态尚未确认结束。请重启手机后重新打开 Helix。</string>
+    <string name="preview_reset_incomplete">重置未完成，请核对剩余项目后重试。</string>
+    <string name="preview_reset_recheck">重新检查</string>
+    <string name="old_state_reopen">旧设置需要重置，请重新打开 Helix。</string>
+    <string name="plugin_settings_read_failed">插件设置读取失败，请重试。</string>
+    <string name="terminal_environment_update">Linux 环境需要更新，请在运行环境中更新。</string>
+    <string name="terminal_environment_repair">Linux 环境需要修复，请打开运行环境。</string>
+    <string name="terminal_environment_prepare_failed">Linux 环境准备失败，请在运行环境中重试。</string>
+    <string name="files_choose_import">选择文件</string>
+    <string name="files_import_builtin">浏览 Helix 文件</string>
+    <string name="files_import_system">系统文件选择器</string>
+    <string name="files_import_unavailable">文件不可用，请重新选择。</string>
+    <string name="terminal_environment_busy">运行环境正在维护，请稍后重试。</string>
+</resources>

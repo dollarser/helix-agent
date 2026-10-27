@@ -94,6 +94,12 @@ import com.helix.app.ui.StorageUsageScreen
 import com.helix.app.ui.TASKS_TURN_ROUTE
 import com.helix.app.ui.TasksScreen
 import com.helix.app.ui.commandDetailRoute
+import com.helix.app.ui.completionFor
+import com.helix.app.ui.mobileUseSettingsDestination
+import com.helix.app.ui.navigateFrom
+import com.helix.app.ui.openSection
+import com.helix.app.ui.openSectionFrom
+import com.helix.app.ui.returnFrom
 import com.helix.app.ui.secondaryRouteTitle
 import com.helix.app.ui.tasksTurnRoute
 import com.helix.core.model.ProviderProvisioningKind
@@ -145,6 +151,7 @@ class MainActivity : ComponentActivity() {
                 if (startupFailed) AppStartupState.Failed else startup,
                 onConfirmReset = app::confirmPreviewReset,
                 onExit = ::finishAndRemoveTask,
+                onRecheck = app::recheckPreviewState,
             )
         }
         lifecycleScope.launch { initializeContent(initialIntent) }
@@ -293,21 +300,34 @@ internal fun HelixApp(container: AppContainer) {
 
     val repository = container.shellRepository
     val navController = rememberNavController()
+    val mobileUseDialog =
+        androidx.compose.runtime.saveable.rememberSaveable(
+            saver = com.helix.app.ui.MobileUseDialogState.Saver,
+        ) {
+            com.helix.app.ui
+                .MobileUseDialogState()
+        }
+    val departure =
+        remember {
+            com.helix.app.ui
+                .NavigationDeparture(mobileUseDialog::dismiss)
+        }
     com.helix.app.ui
-        .DevicePageNavigation(navController)
+        .DevicePageNavigation(navController, departure)
     com.helix.app.reminder.ReminderNavigation(
         (androidx.compose.ui.platform.LocalContext.current.applicationContext as HelixApplication).reminders,
         navController,
+        departure,
     )
     val knowledge = (androidx.compose.ui.platform.LocalContext.current.applicationContext as HelixApplication).knowledge
     com.helix.app.knowledge
-        .KnowledgeNavigation(knowledge, navController)
+        .KnowledgeNavigation(knowledge, navController, departure)
     com.helix.app.plugin.PluginTaskNavigation
-        .Observe(navController)
+        .Observe(navController, departure)
     val backDispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
     val direction = drawerDirection(androidx.compose.ui.platform.LocalLayoutDirection.current)
     com.helix.app.goal
-        .GoalReminderNavigation(container.chatService, navController)
+        .GoalReminderNavigation(container.chatService, navController, departure)
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val currentEntry by navController.currentBackStackEntryAsState()
@@ -327,10 +347,13 @@ internal fun HelixApp(container: AppContainer) {
             currentTitle = drawerScreen.second,
         )
 
+    fun leavePage(action: () -> Unit) {
+        val source = navController.currentBackStackEntry
+        departure.request({ navController.currentBackStackEntry === source }, navigate = action)
+    }
+
     fun navigateToConversationRoot() {
-        navController.navigate(ShellDestination.Sessions.route) {
-            launchSingleTop = true
-        }
+        leavePage { navController.openSection(ShellDestination.Sessions.route) }
     }
 
     HelixTheme {
@@ -358,13 +381,15 @@ internal fun HelixApp(container: AppContainer) {
                         scope.launch { drawerState.close() }
                     },
                     onNewConversation = {
-                        container.chatService.newSessionDraft()
-                        navigateToConversationRoot()
+                        leavePage {
+                            container.chatService.newSessionDraft()
+                            navController.openSection(ShellDestination.Sessions.route)
+                        }
                         scope.launch { drawerState.close() }
                     },
                     onAllConversations = {
                         container.chatService.clearSessionSearch()
-                        navController.navigate(CONVERSATION_HISTORY_ROUTE) { launchSingleTop = true }
+                        leavePage { navController.openSection(CONVERSATION_HISTORY_ROUTE) }
                         scope.launch { drawerState.close() }
                     },
                 ) { route ->
@@ -373,9 +398,7 @@ internal fun HelixApp(container: AppContainer) {
                             .open(context, ".")
                         scope.launch { drawerState.close() }
                     } else {
-                        navController.navigate(route) {
-                            launchSingleTop = true
-                        }
+                        leavePage { navController.openSection(route) }
                         scope.launch { drawerState.close() }
                     }
                 }
@@ -386,12 +409,16 @@ internal fun HelixApp(container: AppContainer) {
                     ShellTopBar(
                         currentDestination = currentDestination,
                         secondaryTitleRes = currentSecondaryTitle,
+                        nested =
+                            currentEntry?.savedStateHandle?.get<Boolean>(com.helix.app.ui.SECTION_ROOT_KEY) != true &&
+                                navController.previousBackStackEntry != null,
                         onNavigation = { scope.launch { drawerState.open() } },
                         onBack = { backDispatcher?.onBackPressed() },
                     )
                 },
             ) { padding ->
                 androidx.compose.runtime.CompositionLocalProvider(
+                    com.helix.app.ui.LocalNavigationDeparture provides departure,
                     com.helix.app.ui.LocalFileLocation provides { path ->
                         navController.navigate(
                             com.helix.app.ui
@@ -432,17 +459,27 @@ internal fun HelixApp(container: AppContainer) {
                                 destination.navigationRoute(),
                                 arguments = destination.navigationArguments(),
                             ) { entry ->
-                                DestinationScreen(
-                                    destination,
-                                    container,
-                                    navController,
-                                    onOpenDrawer = { scope.launch { drawerState.open() } },
-                                    initialModelSource =
-                                        ProviderProvisioningKind.entries.firstOrNull {
-                                            it.name ==
-                                                entry.arguments?.getString("source")
+                                androidx.compose.runtime.CompositionLocalProvider(
+                                    com.helix.app.ui.LocalPageReturn provides { navController.returnFrom(entry) },
+                                ) {
+                                    DestinationScreen(
+                                        destination,
+                                        container,
+                                        navController,
+                                        entry,
+                                        onMobileUseSession = { target ->
+                                            navController.completionFor(entry).complete {
+                                                mobileUseDialog.open(target, entry.id)
+                                            }
                                         },
-                                )
+                                        onOpenDrawer = { scope.launch { drawerState.open() } },
+                                        initialModelSource =
+                                            ProviderProvisioningKind.entries.firstOrNull {
+                                                it.name ==
+                                                    entry.arguments?.getString("source")
+                                            },
+                                    )
+                                }
                             }
                         }
                         composable(
@@ -474,9 +511,10 @@ internal fun HelixApp(container: AppContainer) {
                                     navigateToConversationRoot()
                                 },
                                 onOpenDraft = { navigateToConversationRoot() },
-                                onDeleted = { navController.popBackStack() },
+                                onDeleted = { navController.returnFrom(entry) },
                                 onOpenTask = {
-                                    navController.navigate(
+                                    navController.navigateFrom(
+                                        entry,
                                         com.helix.app.ui
                                             .tasksTurnRoute(it),
                                     )
@@ -485,7 +523,7 @@ internal fun HelixApp(container: AppContainer) {
                                     turnId,
                                     callId,
                                     ->
-                                    navController.navigate(commandDetailRoute(turnId, callId))
+                                    navController.navigateFrom(entry, commandDetailRoute(turnId, callId))
                                 },
                             )
                         }
@@ -529,7 +567,7 @@ internal fun HelixApp(container: AppContainer) {
                                 },
                             )
                         }
-                        composable(CONVERSATION_SETTINGS_ROUTE) {
+                        composable(CONVERSATION_SETTINGS_ROUTE) { entry ->
                             SessionSettingsScreen(
                                 chatService = container.chatService,
                                 providerService = container.providerService,
@@ -538,38 +576,51 @@ internal fun HelixApp(container: AppContainer) {
                                 files = container.fileManager,
                                 projects = container.projects,
                                 onProject = {
-                                    navController.navigate(
+                                    navController.navigateFrom(
+                                        entry,
                                         com.helix.app.projects.ui
                                             .projectRoute(it),
                                     )
                                 },
-                                onModels = { navController.navigate(ShellDestination.Models.route) },
+                                onModels = { navController.navigateFrom(entry, ShellDestination.Models.route) },
                                 onConfigureModelSource = { source ->
-                                    navController.navigate("${ShellDestination.Models.route}?source=${source.name}")
-                                },
-                                onExtensions = { navController.navigate(ShellDestination.Extensions.route) },
-                                onMobileUseConfiguration = {
-                                    navController.navigate(
-                                        com.helix.app.ui.MOBILE_USE_SETTINGS_ROUTE,
+                                    navController.navigateFrom(
+                                        entry,
+                                        "${ShellDestination.Models.route}?source=${source.name}",
                                     )
                                 },
-                                onSystemPermissions = { navController.navigate(SETTINGS_SYSTEM_PERMISSIONS_ROUTE) },
+                                onExtensions = { navController.navigateFrom(entry, ShellDestination.Extensions.route) },
+                                onMobileUseSession = { target ->
+                                    navController.completionFor(entry).complete {
+                                        mobileUseDialog.open(target, entry.id)
+                                    }
+                                },
                             )
                         }
-                        composable(SETUP_READINESS_ROUTE) {
+                        composable(SETUP_READINESS_ROUTE) { entry ->
                             CapabilityReadinessScreen(
                                 container,
-                                onOpenModels = { navController.navigate(ShellDestination.Models.route) },
-                                onOpenRuntime = { navController.navigate(SETUP_RUNTIME_ROUTE) },
+                                onOpenModels = { navController.navigateFrom(entry, ShellDestination.Models.route) },
+                                onOpenRuntime = { navController.navigateFrom(entry, SETUP_RUNTIME_ROUTE) },
                             )
                         }
-                        composable(SETUP_CAPABILITIES_ROUTE) {
+                        composable(SETUP_CAPABILITIES_ROUTE) { entry ->
                             CapabilitiesScreenDestination(
                                 container,
-                                onOpenSystemPermissions = { navController.navigate(SETTINGS_SYSTEM_PERMISSIONS_ROUTE) },
-                                onOpenSafety = { navController.navigate(SETTINGS_PERMISSIONS_ROUTE) },
-                                onOpenRuntime = { navController.navigate(SETUP_RUNTIME_ROUTE) },
-                                onOpenExtensions = { navController.navigate(ShellDestination.Extensions.route) },
+                                onOpenSystemPermissions = {
+                                    navController.navigateFrom(
+                                        entry,
+                                        SETTINGS_SYSTEM_PERMISSIONS_ROUTE,
+                                    )
+                                },
+                                onOpenSafety = { navController.navigateFrom(entry, SETTINGS_PERMISSIONS_ROUTE) },
+                                onOpenRuntime = { navController.navigateFrom(entry, SETUP_RUNTIME_ROUTE) },
+                                onOpenExtensions = {
+                                    navController.navigateFrom(
+                                        entry,
+                                        ShellDestination.Extensions.route,
+                                    )
+                                },
                             )
                         }
                         composable(SETUP_RUNTIME_ROUTE) {
@@ -578,28 +629,27 @@ internal fun HelixApp(container: AppContainer) {
                         composable(SETTINGS_DEFAULTS_ROUTE) {
                             AppAgentDefaultsScreen(container.runControlStore, container.chatService)
                         }
-                        composable(SETTINGS_PERMISSIONS_ROUTE) {
+                        composable(SETTINGS_PERMISSIONS_ROUTE) { entry ->
                             PermissionsSafetyScreen(
                                 profileStore = container.profileStore,
                                 egressRules = container.egressRules,
                                 lanScopeStore = container.lanScopeStore,
                                 sessionPermissionEdit = container.sessionPermissionEdit,
                                 toolPipeline = container.toolPipeline,
-                                onSystemPermissions = { navController.navigate(SETTINGS_SYSTEM_PERMISSIONS_ROUTE) },
+                                onSystemPermissions = {
+                                    navController.navigateFrom(
+                                        entry,
+                                        SETTINGS_SYSTEM_PERMISSIONS_ROUTE,
+                                    )
+                                },
                             )
                         }
-                        composable(SETTINGS_SYSTEM_PERMISSIONS_ROUTE) {
+                        composable(SETTINGS_SYSTEM_PERMISSIONS_ROUTE) { entry ->
                             PermissionsScreenDestination(
                                 container,
-                            ) { navController.navigate(ShellDestination.Files.route) }
+                            ) { navController.navigateFrom(entry, ShellDestination.Files.route) }
                         }
-                        composable(com.helix.app.ui.MOBILE_USE_SETTINGS_ROUTE) {
-                            com.helix.app.ui.MobileUseSettingsScreen(
-                                onPermissions = { navController.navigate(SETTINGS_SYSTEM_PERMISSIONS_ROUTE) },
-                                onBack = { navController.popBackStack() },
-                                onSaved = { navController.popBackStack() },
-                            )
-                        }
+                        mobileUseSettingsDestination(navController)
                         composable(SETTINGS_STORAGE_ROUTE) {
                             StorageUsageScreen(
                                 load = { checkNotNull(container.storageUsage).snapshot() },
@@ -615,8 +665,8 @@ internal fun HelixApp(container: AppContainer) {
                                     },
                             )
                         }
-                        composable(SETTINGS_AUDIT_ROUTE) {
-                            AuditScreenDestination(container, navController)
+                        composable(SETTINGS_AUDIT_ROUTE) { entry ->
+                            AuditScreenDestination(container, navController, entry)
                         }
                         // HXA-194: the command details page — its OWN route, not one of the drawer's
                         // destinations: the back button (and the system back) return to exactly
@@ -633,12 +683,10 @@ internal fun HelixApp(container: AppContainer) {
                                 container.chatService,
                                 requireNotNull(entry.arguments?.getString("turnId")),
                                 requireNotNull(entry.arguments?.getString("callId")),
-                                onBack = { navController.popBackStack() },
+                                onBack = { navController.returnFrom(entry) },
                                 onOpenSession = { sessionId ->
                                     container.chatService.openSession(sessionId)
-                                    navController.navigate(ShellDestination.Sessions.route) {
-                                        launchSingleTop = true
-                                    }
+                                    navController.openSection(ShellDestination.Sessions.route)
                                 },
                             )
                         }
@@ -657,21 +705,25 @@ internal fun HelixApp(container: AppContainer) {
                                 container.fileManager,
                                 onOpenSession = { sessionId ->
                                     container.chatService.openSession(sessionId)
-                                    navController.navigate(ShellDestination.Sessions.route) {
-                                        launchSingleTop = true
-                                    }
+                                    navController.openSection(ShellDestination.Sessions.route)
                                 },
                                 onOpenCommandDetail = { turnId, callId ->
                                     navController.navigate(commandDetailRoute(turnId, callId))
                                 },
                                 initialTurnId = requireNotNull(entry.arguments?.getString("turnId")),
-                                onBack = { navController.popBackStack() },
+                                onBack = { navController.returnFrom(entry) },
                             )
                         }
                     }
                 }
             }
         }
+        com.helix.app.ui.MobileUseDialogHost(
+            mobileUseDialog,
+            navController,
+            container.pluginService,
+            container.chatService,
+        )
     }
     // Register when the overlay opens: NavHost page handlers may be composed later than
     // the shell. A permanently registered handler cannot claim priority just by enabling it.
@@ -686,6 +738,8 @@ private fun DestinationScreen(
     destination: ShellDestination,
     container: AppContainer,
     navController: NavController,
+    sourceEntry: androidx.navigation.NavBackStackEntry,
+    onMobileUseSession: (String) -> Unit,
     onOpenDrawer: () -> Unit,
     initialModelSource: ProviderProvisioningKind? = null,
 ) {
@@ -697,7 +751,7 @@ private fun DestinationScreen(
                 scheduled = container.scheduledAgents,
                 onOpenSession = { sessionId ->
                     container.chatService.openSession(sessionId)
-                    navController.navigate(ShellDestination.Sessions.route) { launchSingleTop = true }
+                    navController.openSectionFrom(sourceEntry, ShellDestination.Sessions.route)
                 },
             )
         }
@@ -707,10 +761,15 @@ private fun DestinationScreen(
             com.helix.app.knowledge.KnowledgeScreen(
                 (context.applicationContext as HelixApplication).knowledge,
                 onReference = { references ->
+                    val completion = navController.completionFor(sourceEntry)
                     val target = container.chatService.screen.value.openSessionId
-                    val applied = container.chatService.stageKnowledgeReferences(target, references).await()
-                    if (applied) navController.navigate(ShellDestination.Sessions.route) { launchSingleTop = true }
-                    applied
+                    try {
+                        val applied = container.chatService.stageKnowledgeReferences(target, references).await()
+                        if (applied) completion.complete { navController.openSection(ShellDestination.Sessions.route) }
+                        applied
+                    } finally {
+                        completion.invalidate()
+                    }
                 },
             )
         }
@@ -726,19 +785,19 @@ private fun DestinationScreen(
                 sessionExport = container.sessionExport,
                 memory = container.memory,
                 connectors = container.pluginService,
-                onExtensions = { navController.navigate(ShellDestination.Extensions.route) },
-                onMobileUseConfiguration = { navController.navigate(com.helix.app.ui.MOBILE_USE_SETTINGS_ROUTE) },
+                onExtensions = { navController.navigateFrom(sourceEntry, ShellDestination.Extensions.route) },
+                onMobileUseSession = onMobileUseSession,
                 onNavigation = onOpenDrawer,
-                onModels = { navController.navigate(ShellDestination.Models.route) },
+                onModels = { navController.navigateFrom(sourceEntry, ShellDestination.Models.route) },
                 onConfigureModelSource = { source ->
-                    navController.navigate("${ShellDestination.Models.route}?source=${source.name}")
+                    navController.navigateFrom(sourceEntry, "${ShellDestination.Models.route}?source=${source.name}")
                 },
-                onAgentDefaults = { navController.navigate(SETTINGS_DEFAULTS_ROUTE) },
-                onPermissions = { navController.navigate(SETTINGS_SYSTEM_PERMISSIONS_ROUTE) },
-                onSessionSettings = { navController.navigate(CONVERSATION_SETTINGS_ROUTE) },
-                onGit = { navController.navigate(ShellDestination.Git.route) },
+                onAgentDefaults = { navController.navigateFrom(sourceEntry, SETTINGS_DEFAULTS_ROUTE) },
+                onPermissions = { navController.navigateFrom(sourceEntry, SETTINGS_SYSTEM_PERMISSIONS_ROUTE) },
+                onSessionSettings = { navController.navigateFrom(sourceEntry, CONVERSATION_SETTINGS_ROUTE) },
+                onGit = { navController.navigateFrom(sourceEntry, ShellDestination.Git.route) },
                 onOpenCommandDetail = { turnId, callId ->
-                    navController.navigate(commandDetailRoute(turnId, callId))
+                    navController.navigateFrom(sourceEntry, commandDetailRoute(turnId, callId))
                 },
             )
         }
@@ -751,14 +810,12 @@ private fun DestinationScreen(
                 container.fileManager,
                 onOpenSession = { sessionId ->
                     container.chatService.openSession(sessionId)
-                    navController.navigate(ShellDestination.Sessions.route) {
-                        launchSingleTop = true
-                    }
+                    navController.openSectionFrom(sourceEntry, ShellDestination.Sessions.route)
                 },
                 // HXA-194: the task page's command entry opens the details page; the system
                 // back from there returns to the tasks dashboard.
                 onOpenCommandDetail = { turnId, callId ->
-                    navController.navigate(commandDetailRoute(turnId, callId))
+                    navController.navigateFrom(sourceEntry, commandDetailRoute(turnId, callId))
                 },
             )
         }
@@ -770,14 +827,12 @@ private fun DestinationScreen(
                 container,
                 onOpenSession = { sessionId ->
                     container.chatService.openSession(sessionId)
-                    navController.navigate(ShellDestination.Sessions.route) {
-                        launchSingleTop = true
-                    }
+                    navController.openSectionFrom(sourceEntry, ShellDestination.Sessions.route)
                 },
                 // HXA-203: an artifact's "view task" action returns to the turn that wrote
                 // it, through the dedicated tasks-turn route (system back pops back here).
                 onOpenTask = { turnId ->
-                    navController.navigate(tasksTurnRoute(turnId))
+                    navController.navigateFrom(sourceEntry, tasksTurnRoute(turnId))
                 },
             )
         }
@@ -802,16 +857,35 @@ private fun DestinationScreen(
                 container.skillInstallationService,
                 container.pluginService,
                 container.marketplaceService,
-                onSessionSettings = { navController.navigate(CONVERSATION_SETTINGS_ROUTE) },
-                prepareSession = container.chatService::materializeOpenSession,
-                onPermissions = { navController.navigate(SETTINGS_SYSTEM_PERMISSIONS_ROUTE) },
+                onSessionSettings = { navController.navigateFrom(sourceEntry, CONVERSATION_SETTINGS_ROUTE) },
+                prepareSession = container.chatService::materializeDraftSession,
+                currentSession = { container.chatService.screen.value.openSessionId },
+                onMobileUseSession = onMobileUseSession,
+                onMobileUseSettings = {
+                    navController.navigateFrom(sourceEntry, com.helix.app.ui.MOBILE_USE_SETTINGS_ROUTE) {
+                        launchSingleTop =
+                            true
+                    }
+                },
+                onPermissions = { navController.navigateFrom(sourceEntry, SETTINGS_SYSTEM_PERMISSIONS_ROUTE) },
+                importFiles = container.fileManager,
+                filePicker = { selected, cancel ->
+                    com.helix.app.ui.FileSelectionDialog(
+                        container.fileManager,
+                        container.safTree,
+                        container.featureFiles,
+                        selected,
+                        cancel,
+                    )
+                },
             )
         }
 
         ShellDestination.Projects -> {
             container.projects?.let { service ->
                 com.helix.app.projects.ui.ProjectsScreen(service, container.fileManager) { id ->
-                    navController.navigate(
+                    navController.navigateFrom(
+                        sourceEntry,
                         com.helix.app.projects.ui
                             .projectRoute(id),
                     )
@@ -822,8 +896,8 @@ private fun DestinationScreen(
         ShellDestination.Setup -> {
             CapabilityReadinessScreen(
                 container,
-                onOpenModels = { navController.navigate(ShellDestination.Models.route) },
-                onOpenRuntime = { navController.navigate(SETUP_RUNTIME_ROUTE) },
+                onOpenModels = { navController.navigateFrom(sourceEntry, ShellDestination.Models.route) },
+                onOpenRuntime = { navController.navigateFrom(sourceEntry, SETUP_RUNTIME_ROUTE) },
             )
         }
 
@@ -838,7 +912,7 @@ private fun DestinationScreen(
                 container.manualTerminal != null,
                 handoff =
                     com.helix.app.ui.FileConversationHandoff(container.chatService) {
-                        navController.navigate(ShellDestination.Sessions.route) { launchSingleTop = true }
+                        navController.openSectionFrom(sourceEntry, ShellDestination.Sessions.route)
                     },
             )
         }
@@ -853,7 +927,7 @@ private fun DestinationScreen(
             androidx.compose.runtime.LaunchedEffect(Unit) {
                 com.helix.app.terminal.ManualTerminalModule
                     .open(context, ".")
-                navController.popBackStack()
+                if (navController.currentBackStackEntry === sourceEntry) navController.popBackStack()
             }
         }
     }
@@ -906,14 +980,15 @@ private fun PermissionsScreenDestination(
 private fun AuditScreenDestination(
     container: AppContainer,
     navController: NavController,
+    sourceEntry: androidx.navigation.NavBackStackEntry,
 ) {
     val sessions by container.chatService.sessions.collectAsStateWithLifecycle()
     AuditScreen(
         container.auditLogService,
         sessions,
         container.diagnosticReport,
-        onReadiness = { navController.navigate(SETUP_READINESS_ROUTE) },
-        onCapabilities = { navController.navigate(SETUP_CAPABILITIES_ROUTE) },
+        onReadiness = { navController.navigateFrom(sourceEntry, SETUP_READINESS_ROUTE) },
+        onCapabilities = { navController.navigateFrom(sourceEntry, SETUP_CAPABILITIES_ROUTE) },
     )
 }
 
@@ -923,6 +998,7 @@ private fun AuditScreenDestination(
 private fun ShellTopBar(
     currentDestination: ShellDestination?,
     secondaryTitleRes: Int?,
+    nested: Boolean,
     onNavigation: () -> Unit,
     onBack: () -> Unit,
 ) {
@@ -936,7 +1012,11 @@ private fun ShellTopBar(
             if (secondaryTitleRes != null) {
                 CompactPageHeader(stringResource(secondaryTitleRes), onBack, back = true)
             } else if (currentDestination != null) {
-                CompactPageHeader(stringResource(currentDestination.titleRes), onNavigation)
+                CompactPageHeader(
+                    stringResource(currentDestination.titleRes),
+                    if (nested) onBack else onNavigation,
+                    back = nested,
+                )
             }
         }
     }

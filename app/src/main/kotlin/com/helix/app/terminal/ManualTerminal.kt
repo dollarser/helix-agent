@@ -2,7 +2,7 @@ package com.helix.app.terminal
 
 /** Application-only manual surface. No model tool registration and no passive Runtime binding. */
 interface ManualTerminal {
-    /** Presentation ceiling; Runtime separately checks live shared capacity and current pressure. */
+    /** Nominal live capacity only; retained history never gates creation. Runtime applies current pressure. */
     val maxSessions: Int get() = 2
 
     data class State(
@@ -12,6 +12,7 @@ interface ManualTerminal {
         val stopReason: String?,
         val exitStatus: Int?,
         val canSettle: Boolean,
+        val displayNumber: Long? = null,
     )
 
     data class Output(
@@ -35,6 +36,9 @@ interface ManualTerminal {
     suspend fun stop(sessionId: String? = null): State
 
     suspend fun settle(sessionId: String? = null)
+
+    /** Reclaim only proven-ended manual state after views have detached; never stop a process. */
+    suspend fun reclaim() = Unit
 
     suspend fun attach(sessionId: String? = null): Connection
 

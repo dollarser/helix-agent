@@ -44,8 +44,7 @@ internal fun SessionSettingsScreen(
     onModels: () -> Unit,
     onExtensions: () -> Unit,
     onConfigureModelSource: ((ProviderProvisioningKind) -> Unit)? = null,
-    onMobileUseConfiguration: () -> Unit = onExtensions,
-    onSystemPermissions: () -> Unit = onExtensions,
+    onMobileUseSession: (String) -> Unit = {},
 ) {
     val screen by chatService.screen.collectAsStateWithLifecycle()
     val runControl by chatService.runControl.collectAsStateWithLifecycle()
@@ -163,8 +162,7 @@ internal fun SessionSettingsScreen(
             connectors,
             sessionId,
             onExtensions,
-            onMobileUseConfiguration = onMobileUseConfiguration,
-            onSystemPermissions = onSystemPermissions,
+            onMobileUseConfiguration = { onMobileUseSession(sessionId) },
         ) {
             connectorsOpen = false
         }

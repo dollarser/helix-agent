@@ -16,6 +16,28 @@ class ManualFileOperations internal constructor(
 
     fun canWrite(scope: String): Boolean = writable(scope)
 
+    /** Explicit selection only; reads use the same live-authorized backend as ordinary browsing. */
+    fun captureImport(
+        scope: String,
+        path: String,
+        limit: Long,
+        cancelled: () -> Boolean,
+    ): ByteArray {
+        val source = FileScopePath(scope, path)
+        require(!source.isRoot)
+        val fs = backend(scope)
+        val before = fs.stat(source.relativePath) ?: throw java.io.FileNotFoundException("Import source unavailable")
+        require(!before.directory) { "IMPORT_SOURCE_UNAVAILABLE" }
+        require(before.size < 0 || before.size <= limit) { "CONNECTOR_TOO_LARGE" }
+        val bytes = fs.read(source.relativePath).use { ImportFileCapture.read(it, limit, cancelled) }
+        val after = fs.stat(source.relativePath)
+        check(after == before && (before.size < 0 || bytes.size.toLong() == before.size)) { "IMPORT_SOURCE_CHANGED" }
+        // A size alone is not a content identity, especially with an externally edited shared document.
+        val verified = fs.read(source.relativePath).use { ImportFileCapture.read(it, limit, cancelled) }
+        check(bytes.contentEquals(verified)) { "IMPORT_SOURCE_CHANGED" }
+        return bytes
+    }
+
     fun exists(
         scope: String,
         path: String,

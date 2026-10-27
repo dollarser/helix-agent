@@ -46,7 +46,7 @@ internal fun ManualTerminalScreen(
     var keyboard by remember(state.connection) { mutableStateOf(false) }
     var licenses by remember { mutableStateOf(false) }
     var help by remember { mutableStateOf(false) }
-    var info by remember { mutableStateOf(false) }
+    var info by remember(state.activeSessionId) { mutableStateOf(false) }
     val recovery = remember { TerminalRecoveryUi() }
     val imeVisible = WindowInsets.isImeVisible
     ObserveTerminalIme(imeVisible) { keyboard = false }
@@ -80,6 +80,7 @@ internal fun ManualTerminalScreen(
         }
     }
     recovery.Dialogs(model)
+    if (state.capacityRejected) TerminalCapacityNotice(model::dismissCapacityNotice)
     if (info) TerminalInfo(state.session, directory) { info = false }
     if (help) {
         TerminalHelp(
@@ -128,9 +129,7 @@ private fun ColumnScope.TerminalEmptyState(
 ) {
     val message =
         when {
-            state.session?.phase == "UNKNOWN" && state.session.canSettle -> R.string.terminal_runtime_ended
             state.session?.phase == "UNKNOWN" -> R.string.terminal_runtime_unknown
-            state.session?.canSettle == true -> R.string.terminal_settlement_required
             state.hasSession -> R.string.terminal_detached
             else -> R.string.terminal_initial_help
         }
@@ -192,12 +191,45 @@ private fun TerminalStatusBanners(
     if (errorMessage != null) {
         val message =
             when (errorMessage) {
-                "CAPACITY_FULL" -> stringResource(R.string.terminal_capacity_full)
-                "CLOSE_UNCONFIRMED" -> stringResource(R.string.terminal_close_unconfirmed)
-                "OLD_CONNECTION_UNCONFIRMED" -> stringResource(R.string.terminal_old_connection_failed)
-                "SHELL_START_FAILED" -> stringResource(R.string.terminal_shell_failed)
-                "SHELL_START_TIMEOUT" -> stringResource(R.string.terminal_shell_timeout)
-                else -> errorMessage
+                "CAPACITY_FULL" -> {
+                    stringResource(R.string.terminal_capacity_full)
+                }
+
+                "CLOSE_UNCONFIRMED" -> {
+                    stringResource(R.string.terminal_close_unconfirmed)
+                }
+
+                "OLD_CONNECTION_UNCONFIRMED" -> {
+                    stringResource(R.string.terminal_old_connection_failed)
+                }
+
+                "SHELL_START_FAILED" -> {
+                    stringResource(R.string.terminal_shell_failed)
+                }
+
+                "SHELL_START_TIMEOUT" -> {
+                    stringResource(R.string.terminal_shell_timeout)
+                }
+
+                "OLD_STATE_INCOMPATIBLE" -> {
+                    stringResource(R.string.old_state_reopen)
+                }
+
+                "ENVIRONMENT_BUSY" -> {
+                    stringResource(R.string.terminal_environment_busy)
+                }
+
+                "ENVIRONMENT_UPDATE_REQUIRED" -> {
+                    stringResource(R.string.terminal_environment_update)
+                }
+
+                "ENVIRONMENT_DAMAGED", "ENVIRONMENT_RESET_REQUIRED" -> {
+                    stringResource(R.string.terminal_environment_repair)
+                }
+
+                else -> {
+                    stringResource(R.string.terminal_environment_prepare_failed)
+                }
             }
         Text(
             text = message,
@@ -276,7 +308,7 @@ private class TerminalRecoveryUi {
                 onDismiss = { closingId = null },
                 onConfirm = {
                     closingId = null
-                    model.settle(sessionId)
+                    model.closeSession(sessionId)
                 },
             )
         }
@@ -298,4 +330,19 @@ private fun ObserveTerminalIme(
             imeWasVisible = false
         }
     }
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun TerminalCapacityNotice(onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.terminal_capacity_full)) },
+        confirmButton = {
+            TextButton(onDismiss, Modifier.testTag("terminal-capacity-dismiss")) {
+                Text(stringResource(R.string.chat_details_close))
+            }
+        },
+        modifier = Modifier.testTag("terminal-capacity-notice"),
+    )
 }

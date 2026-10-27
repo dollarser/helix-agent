@@ -1,6 +1,8 @@
 package com.helix.app
 
-import com.helix.core.storage.PreviewDatabaseResetRequired
+import com.helix.app.maintenance.PreviewResetRequest
+import com.helix.app.maintenance.PreviewResetSection
+import com.helix.app.maintenance.PreviewResetStep
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -10,11 +12,18 @@ import org.junit.Test
 import java.util.concurrent.atomic.AtomicInteger
 
 class AppInitializationTest {
+    private fun resetRequest(reset: (() -> Unit) -> Unit) =
+        PreviewResetRequest(
+            listOf(
+                PreviewResetStep(PreviewResetSection.DATABASE, {}, { reset({}) }),
+            ),
+        )
+
     @Test fun cleanupRunsOnlyInsideTheExplicitlyConfirmedResetBeforeReopening() {
         val events = mutableListOf<String>()
         var old = true
         val request =
-            PreviewDatabaseResetRequired { beforeDelete ->
+            resetRequest { beforeDelete ->
                 beforeDelete()
                 events += "delete"
                 old = false
@@ -37,7 +46,7 @@ class AppInitializationTest {
 
     @Test fun openingAndReopeningNeverGrantsConsent() {
         val resets = AtomicInteger()
-        val request = PreviewDatabaseResetRequired { resets.incrementAndGet() }
+        val request = resetRequest { resets.incrementAndGet() }
         repeat(2) {
             val initialization = AppInitialization<Any>({ throw request })
             assertSame(request, runCatching { initialization.await() }.exceptionOrNull())
@@ -53,7 +62,7 @@ class AppInitializationTest {
             val attempts = AtomicInteger()
             val recovery = AtomicInteger()
             val value = Any()
-            val request = PreviewDatabaseResetRequired { resets.incrementAndGet() }
+            val request = resetRequest { resets.incrementAndGet() }
             val initialization =
                 AppInitialization({
                     if (attempts.incrementAndGet() == 1) throw request
@@ -70,17 +79,17 @@ class AppInitializationTest {
         }
 
     @Test fun unrelatedConfirmationCannotReplaceCurrentWarning() {
-        val request = PreviewDatabaseResetRequired { error("must not reset") }
+        val request = resetRequest { error("must not reset") }
         val initialization = AppInitialization<Any>({ throw request })
         runCatching { initialization.await() }
-        initialization.confirmReset(PreviewDatabaseResetRequired { error("foreign reset") })
+        initialization.confirmReset(resetRequest { error("foreign reset") })
         assertSame(request, runCatching { initialization.await() }.exceptionOrNull())
     }
 
     @Test fun failedDeletionNeverStartsContainerOrRecovery() {
         val attempts = AtomicInteger()
         val failure = IllegalStateException("delete failed")
-        val request = PreviewDatabaseResetRequired { throw failure }
+        val request = resetRequest { throw failure }
         val initialization =
             AppInitialization<Any>({
                 attempts.incrementAndGet()
@@ -103,7 +112,7 @@ class AppInitializationTest {
                 throw failure
             })
         repeat(2) { assertSame(failure, runCatching { initialization.await() }.exceptionOrNull()) }
-        initialization.confirmReset(PreviewDatabaseResetRequired { error("must not reset") })
+        initialization.confirmReset(resetRequest { error("must not reset") })
         assertEquals(AppStartupState.Failed, initialization.state.value)
         assertEquals(1, calls.get())
     }
@@ -111,7 +120,7 @@ class AppInitializationTest {
     @Test fun failedReinitializationDoesNotClaimReadyOrRunRecovery() {
         val attempts = AtomicInteger()
         val failure = IllegalStateException("new container failed")
-        val request = PreviewDatabaseResetRequired {}
+        val request = resetRequest {}
         val initialization =
             AppInitialization<Any>({
                 if (attempts.incrementAndGet() == 1) throw request

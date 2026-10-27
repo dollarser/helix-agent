@@ -77,7 +77,17 @@ class ProotJobRunner private constructor(
         }
     }
 
-    private val store = ProotJobStore(ProotRuntimeInstaller.runtimeRoot(context))
+    private val store =
+        ProotJobStore(
+            ProotRuntimeInstaller.runtimeRoot(context),
+            physicallyRunning = { jobId -> processOwners[jobId]?.isAlive() == true },
+            cleanupFailure = {
+                _,
+                error,
+                ->
+                android.util.Log.w("ProotJobRunner", "Job retention cleanup incomplete", error)
+            },
+        )
     internal val jobStore: ProotJobStore get() = store
     private val logs by lazy {
         runCatching {
@@ -157,12 +167,16 @@ class ProotJobRunner private constructor(
     internal fun reserveManualTerminal(sessionId: String): Boolean =
         reserveTerminal(sessionId) == TerminalAdmission.RESERVED
 
-    internal enum class TerminalAdmission { RESERVED, FULL }
+    internal enum class TerminalAdmission { RESERVED, FULL, MAINTENANCE }
 
     @Synchronized
     internal fun reserveTerminal(sessionId: String): TerminalAdmission =
         when {
+            // This runner lock also owns reserve/releaseMaintenance: reason and admission cannot race.
+            capacity.maintenanceActive -> TerminalAdmission.MAINTENANCE
+
             capacity.reserveTerminal(sessionId, manualTerminalAllowance(context)) -> TerminalAdmission.RESERVED
+
             else -> TerminalAdmission.FULL
         }
 
@@ -619,6 +633,8 @@ class ProotJobRunner private constructor(
         } finally {
             // A terminal UNKNOWN/ORPHANED record is not permission to overlap a still-live process.
             processOwner.awaitExit()
+            runCatching { store.cleanupScratch(spec.jobId) }
+                .onFailure { android.util.Log.w("ProotJobRunner", "Job scratch cleanup incomplete", it) }
             try {
                 log?.finish()
             } finally {

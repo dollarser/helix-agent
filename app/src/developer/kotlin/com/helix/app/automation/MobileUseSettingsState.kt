@@ -10,6 +10,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /** Draft UI state never grants a scope. Only a successful store write changes authority. */
+@Suppress("TooGenericExceptionCaught") // UI storage boundary reports failure; cancellation still propagates.
 internal class MobileUseSettingsState(
     private val store: MobileUseGrantStore,
 ) {
@@ -18,6 +19,7 @@ internal class MobileUseSettingsState(
     var loaded by mutableStateOf(false)
     var busy by mutableStateOf(false)
     var failed by mutableStateOf(false)
+    var requiresReset by mutableStateOf(false)
     private var configured by mutableStateOf(false)
     private var baselinePackages by mutableStateOf(emptyList<String>())
     private var baselineWholePhone by mutableStateOf(true)
@@ -29,13 +31,14 @@ internal class MobileUseSettingsState(
     fun discard() {
         packages = baselinePackages
         wholePhone = baselineWholePhone
-        failed = false
+        failed = requiresReset
     }
 
     suspend fun load() {
         if (loaded || busy) return
         busy = true
         failed = false
+        requiresReset = false
         try {
             val config = withContext(Dispatchers.IO) { store.globalConfiguration() }
             packages =
@@ -51,7 +54,14 @@ internal class MobileUseSettingsState(
             loaded = true
         } catch (cancel: CancellationException) {
             throw cancel
-        } catch (_: RuntimeException) {
+        } catch (failure: com.helix.extensions.mobileuse.config.MobileUseConfigurationUnreadable) {
+            requiresReset = true
+            recordFailure(failure, com.helix.app.diagnostics.OperationFailureLog.Stage.MOBILE_SCOPE_LOAD)
+        } catch (failure: RuntimeException) {
+            com.helix.app.diagnostics.OperationFailureLog.record(
+                com.helix.app.diagnostics.OperationFailureLog.Stage.MOBILE_SCOPE_LOAD,
+                failure,
+            )
             failed = true
         } finally {
             busy = false
@@ -74,12 +84,29 @@ internal class MobileUseSettingsState(
             // A database write may have committed. Re-read its authoritative result on return.
             loaded = false
             throw cancel
-        } catch (_: RuntimeException) {
+        } catch (failure: com.helix.extensions.mobileuse.config.MobileUseConfigurationUnreadable) {
+            requiresReset = true
+            recordFailure(failure, com.helix.app.diagnostics.OperationFailureLog.Stage.MOBILE_SCOPE_SAVE)
+            false
+        } catch (failure: RuntimeException) {
+            com.helix.app.diagnostics.OperationFailureLog.record(
+                com.helix.app.diagnostics.OperationFailureLog.Stage.MOBILE_SCOPE_SAVE,
+                failure,
+            )
             failed = true
             false
         } finally {
             busy = false
         }
+    }
+
+    private fun recordFailure(
+        failure: RuntimeException,
+        stage: com.helix.app.diagnostics.OperationFailureLog.Stage,
+    ) {
+        com.helix.app.diagnostics.OperationFailureLog
+            .record(stage, failure)
+        failed = true
     }
 
     companion object {

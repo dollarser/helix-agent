@@ -54,10 +54,12 @@ internal fun KnowledgeNoteEditor(
     var failed by remember(note.id) { mutableStateOf(false) }
     var sourcesFailed by remember(note.id) { mutableStateOf(false) }
     var knowledgeDraft by remember(note.id) { mutableStateOf(false) }
-    var leave by remember { mutableStateOf(false) }
+    var leave by remember(note.id) { mutableStateOf(false) }
+    var departure by remember(note.id) { mutableStateOf<((Boolean) -> Unit)?>(null) }
+    var saving by remember(note.id) { mutableStateOf(false) }
     var tools by rememberSaveable(note.id) { mutableStateOf(false) }
     var showSources by rememberSaveable(note.id) { mutableStateOf(false) }
-    val busy = note.generationState == "RUNNING"
+    val busy = note.generationState == "RUNNING" || saving
     LaunchedEffect(note.id, note.documentHash) {
         try {
             sources = service.sources(note.id)
@@ -70,7 +72,37 @@ internal fun KnowledgeNoteEditor(
     }
     val dirty = title != note.title || body != note.body
 
+    com.helix.app.ui.NavigationLeaveGuard { complete ->
+        if (saving) {
+            complete(false)
+        } else if (dirty) {
+            departure = complete
+            leave = true
+        } else {
+            complete(true)
+        }
+    }
+
+    fun cancelLeave() {
+        leave = false
+        departure?.invoke(false)
+        departure = null
+    }
+
+    fun completeLeave() {
+        val complete = departure
+        departure = null
+        if (complete != null) {
+            complete(true)
+        } else if (isNew) {
+            onBack()
+        } else {
+            editing = false
+        }
+    }
+
     fun goBack() {
+        if (saving) return
         if (dirty) {
             leave = true
         } else if (editing && !isNew) {
@@ -84,6 +116,8 @@ internal fun KnowledgeNoteEditor(
         reviewed: Boolean,
         exit: Boolean = false,
     ) {
+        if (saving) return
+        saving = true
         scope.launch {
             try {
                 if (isNew) {
@@ -99,7 +133,7 @@ internal fun KnowledgeNoteEditor(
                 baseHash = requireNotNull(service.get(note.id)).documentHash
                 failed = false
                 editing = false
-                if (exit && isNew) onBack()
+                if (exit) completeLeave()
             } catch (
                 cancel: CancellationException,
             ) {
@@ -114,6 +148,9 @@ internal fun KnowledgeNoteEditor(
                 failed = true
             } catch (_: Exception) {
                 failed = true
+            } finally {
+                saving = false
+                if (failed && exit) cancelLeave()
             }
         }
     }
@@ -137,7 +174,7 @@ internal fun KnowledgeNoteEditor(
     BackHandler { goBack() }
     if (leave) {
         AlertDialog(
-            onDismissRequest = { leave = false },
+            onDismissRequest = { if (!saving) cancelLeave() },
             title = { Text(stringResource(R.string.knowledge_unsaved)) },
             confirmButton = {
                 TextButton(onClick = {
@@ -153,12 +190,12 @@ internal fun KnowledgeNoteEditor(
                         leave = false
                         title = note.title
                         body = note.body
-                        if (isNew) onBack() else editing = false
+                        completeLeave()
                     }) {
                         Text(stringResource(R.string.common_discard_edit))
                     }
                     TextButton(
-                        onClick = { leave = false },
+                        onClick = { cancelLeave() },
                     ) { Text(stringResource(R.string.knowledge_keep_editing)) }
                 }
             },

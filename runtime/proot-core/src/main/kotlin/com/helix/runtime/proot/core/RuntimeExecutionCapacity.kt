@@ -66,6 +66,9 @@ class RuntimeExecutionCapacity(
         terminals.remove(id)
     }
 
+    val maintenanceActive: Boolean
+        @Synchronized get() = maintenance != null
+
     @Synchronized
     fun reserveMaintenance(id: String): Boolean {
         if (maintenance != null || jobs.isNotEmpty() || terminals.isNotEmpty()) return false

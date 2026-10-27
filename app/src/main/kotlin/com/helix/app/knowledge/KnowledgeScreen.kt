@@ -38,17 +38,22 @@ import org.json.JSONArray
 
 @Composable
 @Suppress("FunctionName")
-fun KnowledgeNavigation(
+internal fun KnowledgeNavigation(
     service: KnowledgeService,
     navigation: androidx.navigation.NavController,
+    departure: com.helix.app.ui.NavigationDeparture,
 ) {
-    val request by service.openRequests.collectAsStateWithLifecycle()
-    LaunchedEffect(request) {
-        if (request != null) {
-            navigation.navigate(com.helix.app.ShellDestination.Knowledge.route) {
-                launchSingleTop = true
-            }
-        }
+    val observedRequest by service.openRequests.collectAsStateWithLifecycle()
+    val request = observedRequest
+    val entry by navigation.currentBackStackEntryFlow.collectAsStateWithLifecycle(initialValue = null)
+    if (entry?.destination?.route != com.helix.app.ShellDestination.Knowledge.route) {
+        com.helix.app.ui.RequestedPageNavigation(
+            request,
+            com.helix.app.ShellDestination.Knowledge.route,
+            navigation,
+            departure,
+            onCancelled = { service.openRequests.compareAndSet(request, null) },
+        )
     }
 }
 
@@ -151,13 +156,25 @@ fun KnowledgeScreen(
             },
         )
     }
+    val departure = com.helix.app.ui.LocalNavigationDeparture.current
     LaunchedEffect(request) {
-        if (request != null) {
-            selected = request
+        val id = request ?: return@LaunchedEffect
+        val open = {
+            selected = id
             selectedNote = null
             showQuestions = false
             section = "SOURCE"
-            service.openRequests.value = null
+            service.openRequests.compareAndSet(id, null)
+            Unit
+        }
+        if (departure == null) {
+            open()
+        } else {
+            departure.request(
+                { service.openRequests.value == id },
+                cancelled = { service.openRequests.compareAndSet(id, null) },
+                navigate = open,
+            )
         }
     }
     LaunchedEffect(all) {

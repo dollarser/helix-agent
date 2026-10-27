@@ -33,11 +33,16 @@ internal class ManualTerminalConnection(
         try {
             client.connect()
             val reply = client.request(key, Wire.ATTACH) { it.writeStrongBinder(death) }
-            val writer = terminalAttachmentIsWriter(reply)
             token = reply.connection
+            val writer = terminalAttachmentIsWriter(reply)
             _isWriter = writer
             return this
         } catch (failure: Exception) {
+            try {
+                if (token != null) client.request(key, Wire.DETACH) { it.writeString(token) }
+            } catch (cleanup: Exception) {
+                failure.addSuppressed(cleanup)
+            }
             client.close()
             throw failure
         }
@@ -103,6 +108,6 @@ internal fun terminalAttachmentIsWriter(reply: com.helix.runtime.proot.ipc.PtySe
     val record = checkNotNull(reply.record) { reply.outcome }
     check(reply.outcome in setOf("OK", "WRITER_BUSY")) { reply.outcome }
     check(record.phase != com.helix.runtime.proot.core.PtySessionRecord.Phase.UNKNOWN && record.stopProof == null)
-    check(reply.outcome != "OK" || reply.connection != null) { "Missing terminal connection" }
+    check(reply.connection != null) { "Missing terminal connection" }
     return reply.outcome == "OK"
 }

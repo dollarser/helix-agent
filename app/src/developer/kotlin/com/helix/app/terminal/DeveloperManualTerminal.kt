@@ -33,6 +33,7 @@ internal class DeveloperManualTerminal(
     override val maxSessions: Int
         get() = Runtime.getRuntime().availableProcessors().coerceIn(1, RuntimeExecutionCapacity.MAX_TERMINALS)
 
+    private val windows = TerminalWindowSlots(PrefsLineStore(context, "manual-terminal-windows", synchronous = true))
     private val identities = File(context.filesDir, "execution-admission/terminals")
     private val bindings =
         ManualTerminalBindings(
@@ -49,6 +50,11 @@ internal class DeveloperManualTerminal(
             allocate = { ExecutionOwnershipStore(File(identities, "${UUID.randomUUID()}.owner")) },
         )
     private val mutex = Mutex()
+    private val reclamation =
+        TerminalReclamation(
+            PrefsLineStore(context, "manual-terminal-reclamation", synchronous = true),
+            identities,
+        )
     private val bootRecovery =
         TerminalBootRecovery(PrefsLineStore(context, "terminal-boot-recovery", synchronous = true))
 
@@ -62,14 +68,16 @@ internal class DeveloperManualTerminal(
     override suspend fun sessions(): List<ManualTerminal.State> =
         withContext(Dispatchers.IO) {
             mutex.withLock {
-                val owners = bindings.owners().map { it.second }
-                if (owners.isEmpty()) return@withContext emptyList()
                 PtySessionClient(context).use { client ->
                     client.connect()
-                    owners.map { owner ->
-                        val reply = client.request(ptyKey(owner), Wire.QUERY)
-                        recoverState(reply, owner)
-                    }
+                    reclaimWith(client)
+                    val owners = bindings.owners().map { it.second }
+                    windows.present(
+                        owners.map { owner ->
+                            val reply = client.request(ptyKey(owner), Wire.QUERY)
+                            recoverState(reply, owner)
+                        },
+                    )
                 }
             }
         }
@@ -87,22 +95,83 @@ internal class DeveloperManualTerminal(
                 require(workspace.isDirectory)
                 val owner = ExecutionOwnership.Owner(UUID.randomUUID().toString(), UUID.randomUUID().toString())
                 val key = ptyKey(owner)
-
                 val reply =
                     kotlinx.coroutines.runInterruptible {
                         TerminalStartTransaction(ownership, targetBinding).launch(
                             "manual-${key.sessionId}",
                             owner,
                             submit = { submitting -> launchSession(context, key, workspace, leaseMs, submitting) },
-                            refused = { it.outcome == "START_REFUSED" || it.outcome == "CAPACITY_EXHAUSTED" },
+                            refused = { it.outcome in Wire.START_REFUSALS },
                             refusalDetail = {
-                                if (it.outcome == "CAPACITY_EXHAUSTED") "CAPACITY_FULL" else "Runtime not ready"
+                                if (it.outcome == "CAPACITY_EXHAUSTED") "CAPACITY_FULL" else it.outcome
                             },
                         )
                     }
-                terminalState(reply)
+                val started = terminalState(reply)
+                PtySessionClient(context).use { client ->
+                    client.connect()
+                    val states =
+                        bindings.owners().map { (_, retained) ->
+                            if (retained ==
+                                owner
+                            ) {
+                                started
+                            } else {
+                                recoverState(client.request(ptyKey(retained), Wire.QUERY), retained)
+                            }
+                        }
+                    windows.present(states).firstOrNull { it.sessionId == started.sessionId } ?: started
+                }
             }
         }
+
+    override suspend fun reclaim() =
+        withContext(Dispatchers.IO) {
+            mutex.withLock {
+                PtySessionClient(context).use { client ->
+                    client.connect()
+                    reclaimWith(client)
+                }
+            }
+        }
+
+    @Suppress("TooGenericExceptionCaught") // Cleanup is retryable and cannot block opening a fresh window.
+    private fun reclaimWith(client: PtySessionClient) {
+        try {
+            identities
+                .listFiles()
+                .orEmpty()
+                .map { it.name.removeSuffix(".reclaim") }
+                .filter { it.endsWith(".owner") }
+                .distinct()
+                .forEach { reclamation.discardEmpty(ExecutionOwnershipStore(File(identities, it))) }
+            bindings.owners().forEach { (binding, owner) ->
+                val response = client.request(ptyKey(owner), Wire.QUERY)
+                val record = response.record
+                val proven =
+                    record?.stopProof != null ||
+                        (response.outcome == "NOT_FOUND" && bootRecovery.observe(owner, currentBoot()))
+                if (proven && binding is ExecutionOwnershipStore) reclamation.stage(binding, owner)
+            }
+            reclamation.retry(
+                settle = { binding, owner -> settleBinding(client, binding, owner, reclaiming = true) },
+                removeRuntime = { owner ->
+                    check(client.request(ptyKey(owner), Wire.RECLAIM) { it.writeInt(1) }.outcome == "OK")
+                    // Covers a lost Runtime removal reply or a reboot-proven missing journal.
+                    com.helix.runtime.proot.core.PtyStateFiles.removeTemporary(
+                        File(context.filesDir, "runtime"),
+                        owner.executionId,
+                    )
+                },
+                failed = { android.util.Log.w("HelixTerminal", "Manual state cleanup pending", it) },
+                completed = bootRecovery::forget,
+            )
+        } catch (cancel: java.util.concurrent.CancellationException) {
+            throw cancel
+        } catch (failure: Exception) {
+            android.util.Log.w("HelixTerminal", "Manual state cleanup deferred", failure)
+        }
+    }
 
     override suspend fun query(sessionId: String?): ManualTerminal.State = operation(Wire.QUERY, sessionId)
 
@@ -199,7 +268,7 @@ internal class DeveloperManualTerminal(
         reply: PtySessionReply,
         owner: ExecutionOwnership.Owner,
     ): ManualTerminal.State {
-        val state = terminalState(reply, owner)
+        val state = terminalState(reply, owner).let { it.copy(displayNumber = windows.number(it.sessionId)) }
         return if (reply.record == null && bootRecovery.observe(owner, currentBoot())) {
             state.copy(stopReason = "DEVICE_REBOOT_JOURNAL_MISSING", canSettle = true)
         } else {
@@ -211,6 +280,7 @@ internal class DeveloperManualTerminal(
         client: PtySessionClient,
         binding: ExecutionOwnership.Store,
         owner: ExecutionOwnership.Owner,
+        reclaiming: Boolean = false,
     ) {
         val reply = client.request(ptyKey(owner), Wire.QUERY)
         if (reply.record == null) {
@@ -223,7 +293,13 @@ internal class DeveloperManualTerminal(
             binding,
             owner,
             query = { client.request(ptyKey(owner), Wire.QUERY).record },
-            acknowledge = { client.request(ptyKey(owner), Wire.ACK).record },
+            acknowledge = {
+                if (reclaiming) {
+                    client.request(ptyKey(owner), Wire.RECLAIM) { it.writeInt(0) }.record
+                } else {
+                    client.request(ptyKey(owner), Wire.ACK).record
+                }
+            },
         )
     }
 }

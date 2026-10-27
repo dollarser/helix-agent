@@ -1,5 +1,9 @@
 package com.helix.runtime.proot.core
 
+class RuntimePreparationRequired(
+    val state: RuntimeInstallationState,
+) : IllegalStateException("Environment requires maintenance: $state")
+
 /** One bundled environment has one non-reentrant installer. Prepared executions do not take this lock. */
 class RuntimePreparation {
     fun ensurePrepared(
@@ -26,7 +30,7 @@ class RuntimePreparation {
                 }
 
                 else -> {
-                    error("Environment needs explicit update or repair: ${latest.state}")
+                    throw RuntimePreparationRequired(latest.state)
                 }
             }
         }

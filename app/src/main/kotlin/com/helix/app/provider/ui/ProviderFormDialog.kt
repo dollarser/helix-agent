@@ -195,7 +195,7 @@ internal fun ProviderFormDialog(
         }
     }
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { if (!saving) onDismiss() },
         properties = DialogProperties(decorFitsSystemWindows = false),
         title = {
             Text(
@@ -444,6 +444,7 @@ internal fun ProviderFormDialog(
         dismissButton = {
             TextButton(
                 onClick = onDismiss,
+                enabled = !saving,
                 modifier = Modifier.testTag("provider-form-cancel"),
             ) {
                 Text(stringResource(R.string.common_cancel))

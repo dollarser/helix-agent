@@ -327,3 +327,17 @@ val verifyTtsAssets by tasks.registering(Exec::class) {
     commandLine("python3", "scripts/build-tts-assets.py", "--verify")
 }
 tasks.named("preBuild") { dependsOn(verifyTtsAssets) }
+
+// Manual-terminal reclamation uses the same native fd-relative operations in host fixtures and Android.
+tasks.withType<Test>().configureEach {
+    if (name.contains("Developer")) {
+        dependsOn(":runtime:proot-core:buildStateNativeTest")
+        val extension = if (System.getProperty("os.name").startsWith("Mac")) "dylib" else "so"
+        systemProperty(
+            "helix.pty.state.library",
+            project(
+                ":runtime:proot-core",
+            ).layout.buildDirectory.file("native-test/libpty_state.$extension").get().asFile.absolutePath,
+        )
+    }
+}

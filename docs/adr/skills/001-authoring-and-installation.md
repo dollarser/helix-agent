@@ -134,3 +134,9 @@ Owner随后要求一并优化系统提示、内置工具描述与Skill，再完�
 ## Decision history — 2026-10-16：提示分层可审查
 
 Owner 要求审查 Mobile Use 等插件提示的提供方式和内容。[HXA-298](../../development/tasks/HXA-298.md) 保留现有渐进装载，管理页增加必要指导和原生参考资料预览，并纠正全文自动加载的误述；Documents 必要指导归入自身资源，Chat Reply 明确独立能力依赖。参考 [Codex Skills](https://developers.openai.com/codex/skills) 和 [Claude Skills](https://code.claude.com/docs/en/skills)，不将这些指导变成审批或新执行能力；成本与模型遵循率需要独立真实模型对照，不能由 UI/主机验收推导。
+
+## Decision history — 2026-10-27：内置文件选择导入
+
+Owner 授权复用现有文件管理器选择插件 ZIP/JSON 与 Skill ZIP，并保留系统 SAF 文件选择入口。只读选择模式复用既有来源、目录列举与 FileRow，不提供新增授权、Root 或修改操作；仅显示已有可访问位置，不能绕过 Android 沙箱。选择后经现有后端再次验证权限、包含性、大小、取消及读取稳定性，形成有界快照，插件按真实字节而非 MIME/后缀进入同一解析器和原有预览确认/安装流程。同名不自动覆盖，更新仍绑定已审查内容身份；取消选择不开始导入。临时解析输入无论成功失败均回收，导入和读取不连接账号、不执行 Skill、不向模型授予文件权限。
+
+PLC110 先前的测试 ZIP 存在，但系统选择器在加载阶段失败，不能归因于 Helix ZIP 解析或文件不存在。内置选择和系统选择的主机/设备验收须分别说明，旧设备结果不证明新入口可用。

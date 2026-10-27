@@ -73,13 +73,18 @@ fun ProviderManager(
     var deleteFailure by remember { mutableStateOf(false) }
     var localModelOpen by remember { mutableStateOf(false) }
     var templatePickerOpen by remember { mutableStateOf(false) }
-    var form by remember { mutableStateOf<ProviderForm?>(null) }
+    val formOwner = requireNotNull(androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner.current)
+    val editor =
+        remember(formOwner) {
+            androidx.lifecycle.ViewModelProvider(formOwner)[ProviderEditorState::class.java]
+        }
+    var form by editor::form
     var contextRow by remember { mutableStateOf<com.helix.app.provider.ProviderRowUi?>(null) }
     var modelsRow by remember { mutableStateOf<ProviderRowUi?>(null) }
     var testingId by remember { mutableStateOf<String?>(null) }
     var detectingId by remember { mutableStateOf<String?>(null) }
     var capabilityResults by remember { mutableStateOf<Map<String, ProbeOutcome>>(emptyMap()) }
-    var saving by remember { mutableStateOf(false) }
+    val saving = editor.saving
     var accountFailureId by remember { mutableStateOf<String?>(null) }
 
     if (localModelOpen) {
@@ -326,30 +331,10 @@ fun ProviderManager(
                 }
             },
             onDismiss = {
-                // An in-flight save keeps running (its result is dropped below
-                // when it no longer matches the form); only the dialog closes.
-                form = null
+                if (!saving) form = null
             },
             onSave = {
-                if (saving) return@ProviderFormDialog
-                val target = currentForm
-                saving = true
-                scope.launch {
-                    try {
-                        val result = attemptSave(target, providerService)
-                        // Stale-result guard: the form may have changed (or been
-                        // closed) while the Room/Keystore write was in flight.
-                        if (form == target) {
-                            form =
-                                when (result) {
-                                    SaveResult.Saved -> null
-                                    is SaveResult.Rejected -> target.copy(error = result)
-                                }
-                        }
-                    } finally {
-                        saving = false
-                    }
-                }
+                editor.save(currentForm) { attemptSave(it, providerService) }
             },
         )
     }

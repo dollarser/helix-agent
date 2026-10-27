@@ -32,6 +32,16 @@ data class PtySessionReply(
 
 /** Bounded, private same-APK IPC. Queries never replay a submission or acquire a foreground owner. */
 object PtySessionProtocol {
+    val START_REFUSALS =
+        setOf(
+            "START_REFUSED",
+            "CAPACITY_EXHAUSTED",
+            "ENVIRONMENT_BUSY",
+            "ENVIRONMENT_UPDATE_REQUIRED",
+            "ENVIRONMENT_DAMAGED",
+            "ENVIRONMENT_RESET_REQUIRED",
+            "ENVIRONMENT_PREPARATION_FAILED",
+        )
     const val DESCRIPTOR = "com.helix.runtime.proot.ManualPty.v1"
     const val SERVICE = "com.helix.runtime.proot.app.ProotTerminalService"
     const val START = IBinder.FIRST_CALL_TRANSACTION
@@ -43,6 +53,7 @@ object PtySessionProtocol {
     const val READ = START + 6
     const val STOP = START + 7
     const val ACK = START + 8
+    const val RECLAIM = START + 9
     const val MAX_PARCEL_BYTES = 32 * 1024
     const val DEFAULT_LEASE_MS = 2 * 60 * 60 * 1000L
     const val MAX_LEASE_MS = 8 * 60 * 60 * 1000L

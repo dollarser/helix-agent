@@ -9,6 +9,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -25,7 +26,7 @@ import kotlinx.coroutines.withContext
 
 /** Manual management calls an application service; no model Turn or direct DAO access. */
 @Composable
-@Suppress("FunctionName") // Compose UI entry point.
+@Suppress("FunctionName", "TooGenericExceptionCaught") // UI boundary reports failure; cancellation propagates.
 internal fun PluginAvailabilityControls(
     record: InstalledPlugin,
     service: PluginService,
@@ -35,6 +36,7 @@ internal fun PluginAvailabilityControls(
     val scope = rememberCoroutineScope()
     var busy by remember(record.id) { mutableStateOf(false) }
     var failure by remember(record.id) { mutableStateOf(false) }
+    var failureMessage by remember(record.id) { mutableIntStateOf(R.string.plugin_settings_read_failed) }
     var setupError by remember(record.id) { mutableStateOf<PluginSetupReason?>(null) }
     var defaultSelected by remember(record) { mutableStateOf(false) }
     var readiness by remember(record) { mutableStateOf<PluginReadinessSnapshot?>(null) }
@@ -44,7 +46,19 @@ internal fun PluginAvailabilityControls(
             readiness = withContext(Dispatchers.IO) { service.componentReadiness(record) }
         } catch (cancelled: CancellationException) {
             throw cancelled
-        } catch (_: Exception) {
+        } catch (error: Exception) {
+            failureMessage =
+                if (com.helix.app.automation.AutomationModule
+                        .isConfigurationResetRequired(error)
+                ) {
+                    R.string.old_state_reopen
+                } else {
+                    R.string.plugin_settings_read_failed
+                }
+            com.helix.app.diagnostics.OperationFailureLog.record(
+                com.helix.app.diagnostics.OperationFailureLog.Stage.PLUGIN_READINESS,
+                error,
+            )
             failure = true
         }
     }
@@ -54,6 +68,7 @@ internal fun PluginAvailabilityControls(
         scope.launch {
             busy = true
             failure = false
+            failureMessage = R.string.mobile_use_settings_failed
             try {
                 withContext(Dispatchers.IO) { action() }
                 onChanged()
@@ -87,7 +102,7 @@ internal fun PluginAvailabilityControls(
             Text(stringResource(R.string.plugin_native_repair))
         }
     }
-    if (failure) Text(stringResource(R.string.connector_failed), color = MaterialTheme.colorScheme.error)
+    if (failure) Text(stringResource(failureMessage), color = MaterialTheme.colorScheme.error)
     setupError?.let { error ->
         PluginSetupRequiredDialog(
             error,

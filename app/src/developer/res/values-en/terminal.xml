@@ -10,22 +10,20 @@
     <string name="terminal_stop">Stop terminal</string>
     <string name="terminal_settle">Close terminal</string>
     <string name="terminal_detached">Disconnected. Leaving the page or switching conversations does not stop commands. Reconnect to view retained output.</string>
-    <string name="terminal_runtime_ended">The old terminal has ended. You can open a new terminal.</string>
     <string name="terminal_state_ended">Old terminal ended · Command outcome unknown</string>
     <string name="terminal_state_unknown">Terminal runtime disconnected · Outcome unknown</string>
     <string name="terminal_runtime_unknown">The old terminal status is unknown. You can open an independent terminal.</string>
-    <string name="terminal_close_unconfirmed">Could not confirm that all processes in this terminal have ended. Closing did not complete. Refresh and retry; if the runtime was lost and remains unknown, restart the device. Commands will not be replayed and workspace files will not be deleted.</string>
+    <string name="terminal_close_unconfirmed">The terminal is still stopping. Try closing it again shortly.</string>
     <string name="terminal_input_rejected">Some input was rejected or its outcome is unknown. It was not resent. Check the terminal before entering more.</string>
     <string name="terminal_output_failed">Output connection failed. Leave the page and reconnect to the original terminal.</string>
     <string name="terminal_output_gap">Older output was discarded. The display restarted from retained content.</string>
     <string name="terminal_directory">Starting directory: Workspace / %1$s</string>
     <string name="terminal_tab_title">Terminal %1$d</string>
     <string name="terminal_new_tab">New terminal</string>
-    <string name="terminal_capacity_full">Terminal capacity is full. Close an unused terminal, or retry after other tasks finish or resource pressure clears.</string>
+    <string name="terminal_capacity_full">Terminal capacity is full</string>
     <string name="terminal_observer_mode">Current connection is in read-only observer mode</string>
     <string name="terminal_initial_help">Open a terminal to use the bundled Linux environment.</string>
     <string name="terminal_execution_busy_help">Terminals and Agent tasks can run together. An open terminal or uncollected result does not block other tasks. Shared files can change concurrently; verify the final result. Only environment maintenance, engine capacity and input to the same terminal require coordination. Leaving detaches without stopping commands.</string>
-    <string name="terminal_settlement_required">This terminal has stopped. You can close this tab or open another.</string>
     <string name="terminal_menu">Terminal options</string>
     <string name="terminal_requires_advanced">The terminal requires Advanced mode. Standard mode cannot start a terminal.</string>
     <string name="terminal_switch_and_start">Switch to Advanced and start terminal</string>
@@ -33,4 +31,9 @@
     <string name="terminal_shell_failed">The shell could not start. Open Execution environments to repair it.</string>
     <string name="terminal_shell_timeout">The shell did not become ready. Try opening a new terminal.</string>
     <string name="terminal_old_connection_failed">The old connection did not confirm detachment. The new terminal is open.</string>
+    <string name="terminal_phase_stopped">Stopped</string>
+    <string name="terminal_phase_starting">Starting</string>
+    <string name="terminal_phase_closing">Closing</string>
+    <string name="terminal_phase_unknown">State unconfirmed</string>
+    <string name="terminal_parallel_limit">Up to %1$d running</string>
 </resources>

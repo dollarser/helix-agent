@@ -27,7 +27,7 @@ internal enum class PluginImportFailure(
             val code = failure.message.orEmpty().substringBefore(':')
             codedFailure(code)?.let { return it }
             return when {
-                failure is SecurityException -> ACCESS
+                failure is SecurityException || failure is java.io.FileNotFoundException -> ACCESS
 
                 failure is ZipException || failure is InvalidSkillException -> INVALID
 
@@ -42,6 +42,10 @@ internal enum class PluginImportFailure(
 
         private fun codedFailure(code: String): PluginImportFailure? =
             when (code) {
+                "IMPORT_SOURCE_UNAVAILABLE" -> ACCESS
+
+                "IMPORT_SOURCE_CHANGED" -> CONFLICT
+
                 "PLUGIN_MARKETPLACE_NOT_PLUGIN" -> MARKETPLACE
 
                 "CONNECTOR_VERSION_CHANGED",

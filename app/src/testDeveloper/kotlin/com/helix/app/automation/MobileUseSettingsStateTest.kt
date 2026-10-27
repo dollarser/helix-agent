@@ -12,6 +12,22 @@ import org.junit.Assert.fail
 import org.junit.Test
 
 class MobileUseSettingsStateTest {
+    @Test fun incompatibleConfigurationOffersResetWithoutWritingOrEnlargingScope() =
+        runBlocking {
+            val lines = listOf("mobile-use-config-v2", "synthetic", "true")
+            var writes = 0
+            val invalid = MobileUseGrantStore({ lines }, { _, _ -> writes++ }, { null })
+            val state = MobileUseSettingsState(invalid)
+            state.load()
+            assertTrue(state.requiresReset)
+            assertTrue(state.failed)
+            assertFalse(state.canSave)
+            assertFalse(state.save())
+            state.discard()
+            assertTrue(state.failed)
+            assertEquals(0, writes)
+        }
+
     private val records = mutableMapOf<String, List<String>>()
     private val store = MobileUseGrantStore({ records[it].orEmpty() }, { key, value -> records[key] = value }, { null })
 

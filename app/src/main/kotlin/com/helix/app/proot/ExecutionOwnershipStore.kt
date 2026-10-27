@@ -3,15 +3,19 @@ package com.helix.app.proot
 import com.helix.tools.framework.ExecutionOwnership
 import java.io.DataInputStream
 import java.io.DataOutputStream
+import java.io.EOFException
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
+import java.io.UTFDataFormatException
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 
 /** Host admission identity only, not a second Runtime job journal. No cold bind on reads. */
+internal class ExecutionControlUnreadable : IllegalStateException("Execution control record requires reset")
+
 internal class ExecutionOwnershipStore(
-    private val file: File,
+    internal val file: File,
 ) : ExecutionOwnership.Store {
     override fun owners(): Set<ExecutionOwnership.Owner> = synchronized(lock) { readLocked() }
 
@@ -50,20 +54,32 @@ internal class ExecutionOwnershipStore(
             }
         }
 
+    @Suppress("ThrowsCount") // Each format invariant maps to the same typed refusal; I/O errors remain distinct.
     private fun readLocked(): Set<ExecutionOwnership.Owner> {
         if (!file.exists()) return emptySet()
-        check(file.length() in 5..MAX_RECORD_BYTES) { "execution admission record size invalid" }
-        return DataInputStream(FileInputStream(file)).use { data ->
-            check(data.readInt() == VERSION) { "execution admission version unsupported" }
-            val count = data.readInt()
-            check(count in 0..MAX_OWNERS) { "execution identity count invalid" }
-            val owners = List(count) { ExecutionOwnership.Owner(data.readUTF(), data.readUTF()) }.toSet()
-            check(owners.size == count) { "duplicate execution identity" }
-            check(data.read() == -1) { "execution admission trailing data" }
-            check(
-                owners.all { it.executionId.length <= MAX_ID_CHARS && it.generation.length <= MAX_ID_CHARS },
-            )
-            owners
+        if (file.length() !in 8..MAX_RECORD_BYTES) throw ExecutionControlUnreadable()
+        return try {
+            DataInputStream(FileInputStream(file)).use { data ->
+                if (data.readInt() != VERSION) throw ExecutionControlUnreadable()
+                val count = data.readInt()
+                if (count !in 0..MAX_OWNERS) throw ExecutionControlUnreadable()
+                val owners = List(count) { ExecutionOwnership.Owner(data.readUTF(), data.readUTF()) }.toSet()
+                if (owners.size != count || data.read() != -1) throw ExecutionControlUnreadable()
+                if (owners.any { it.executionId.length > MAX_ID_CHARS || it.generation.length > MAX_ID_CHARS }) {
+                    throw ExecutionControlUnreadable()
+                }
+                owners
+            }
+        } catch (
+            _: EOFException,
+        ) {
+            throw ExecutionControlUnreadable()
+        } catch (
+            _: UTFDataFormatException,
+        ) {
+            throw ExecutionControlUnreadable()
+        } catch (_: IllegalArgumentException) {
+            throw ExecutionControlUnreadable()
         }
     }
 

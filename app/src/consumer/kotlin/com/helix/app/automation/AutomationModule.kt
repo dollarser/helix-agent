@@ -8,6 +8,10 @@ import com.helix.core.policy.UserScope
 import com.helix.extensions.plugin.PluginRegistry
 
 internal object AutomationModule {
+    fun previewConfiguration(context: Context): com.helix.app.maintenance.PreviewConfigurationAccess? = null
+
+    fun isConfigurationResetRequired(error: Exception): Boolean = false
+
     @Suppress("LongParameterList") // composition root injects storage, selection, images and task services
     fun register(
         context: Context,

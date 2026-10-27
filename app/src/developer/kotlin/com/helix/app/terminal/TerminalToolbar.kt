@@ -115,19 +115,14 @@ private fun TerminalSelector(
     modifier: Modifier,
 ) {
     var expanded by remember { mutableStateOf(false) }
-    val activeIndex = state.sessions.indexOfFirst { it.sessionId == state.activeSessionId }
+    val active = state.sessions.find { it.sessionId == state.activeSessionId } ?: state.session
     Box(modifier) {
         TextButton(
             onClick = { expanded = true },
             modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("terminal-selector"),
         ) {
             Text(
-                text =
-                    if (activeIndex >= 0) {
-                        stringResource(R.string.terminal_tab_title, activeIndex + 1)
-                    } else {
-                        stringResource(R.string.nav_terminal)
-                    },
+                text = terminalDisplayTitle(active),
                 modifier = Modifier.weight(1f),
                 style = MaterialTheme.typography.titleMedium,
                 maxLines = 1,
@@ -139,7 +134,12 @@ private fun TerminalSelector(
             state.sessions.forEachIndexed { index, session ->
                 val active = session.sessionId == state.activeSessionId
                 DropdownMenuItem(
-                    text = { Text(stringResource(R.string.terminal_tab_title, index + 1)) },
+                    text = {
+                        androidx.compose.foundation.layout.Column {
+                            Text(terminalDisplayTitle(session))
+                            Text(terminalStatus(session), style = MaterialTheme.typography.labelSmall)
+                        }
+                    },
                     trailingIcon = {
                         if (active) Icon(painterResource(R.drawable.ic_check), null)
                     },
@@ -155,6 +155,12 @@ private fun TerminalSelector(
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.terminal_new_tab)) },
                     leadingIcon = { Icon(painterResource(R.drawable.ic_composer_add), null) },
+                    trailingIcon = {
+                        Text(
+                            stringResource(R.string.terminal_parallel_limit, state.maxSessions),
+                            style = MaterialTheme.typography.labelSmall,
+                        )
+                    },
                     onClick = {
                         expanded = false
                         model.open(directoryToStart = directory)
@@ -166,3 +172,9 @@ private fun TerminalSelector(
         }
     }
 }
+
+@Composable
+@Suppress("FunctionName")
+private fun terminalDisplayTitle(session: ManualTerminal.State?): String =
+    session?.displayNumber?.let { stringResource(R.string.terminal_tab_title, it) }
+        ?: stringResource(R.string.nav_terminal)

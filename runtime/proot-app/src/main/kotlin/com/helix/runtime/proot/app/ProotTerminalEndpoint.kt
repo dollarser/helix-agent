@@ -23,7 +23,7 @@ internal class ProotTerminalEndpoint(
         reply: Parcel?,
         flags: Int,
     ): Boolean {
-        if (code !in Wire.START..Wire.ACK || reply == null) return super.onTransact(code, data, reply, flags)
+        if (code !in Wire.START..Wire.RECLAIM || reply == null) return super.onTransact(code, data, reply, flags)
         try {
             require(ProotCallerVerifier.verify(service, getCallingUid()))
             require(data.dataSize() <= Wire.MAX_PARCEL_BYTES)
@@ -54,6 +54,18 @@ internal class ProotTerminalEndpoint(
 
             Wire.QUERY, Wire.STOP, Wire.ACK -> {
                 control(code, key, data)
+            }
+
+            Wire.RECLAIM -> {
+                val phase = data.readInt().also { require(it in 0..1) }
+                empty(data)
+                if (phase == 0) {
+                    check(connectionSessions.values.none { it == key.sessionId }) { "Terminal view is still attached" }
+                    PtySessionReply(host.acknowledge(key))
+                } else {
+                    host.reclaim(key)
+                    PtySessionReply(null)
+                }
             }
 
             Wire.ATTACH -> {
@@ -120,31 +132,43 @@ internal class ProotTerminalEndpoint(
         val owner = requireNotNull(data.readStrongBinder())
         empty(data)
         val live = host.live(key)
-        val token = live.attach()
-        if (token != null) {
-            connectionSessions[token] = key.sessionId
-            host.activity(key.sessionId, attached = true)
-            connections.watch(token, owner) {
-                synchronized(host) {
-                    connectionSessions.remove(token)
-                    if (live.detach(token)) host.activity(key.sessionId, attached = false)
+        check(live.record.stopProof == null) { "Terminal has already ended" }
+        val writer = live.attach()
+        val view =
+            writer ?: java.util.UUID
+                .randomUUID()
+                .toString()
+        connectionSessions[view] = key.sessionId
+        host.activity(key.sessionId, attached = true)
+        connections.watch(view, owner) {
+            synchronized(host) {
+                connectionSessions.remove(view)
+                if (writer != null) live.detach(writer)
+                if (connectionSessions.values.none { it == key.sessionId }) {
+                    host.activity(
+                        key.sessionId,
+                        attached = false,
+                    )
                 }
             }
         }
-        return PtySessionReply(live.record, token, outcome = if (token == null) "WRITER_BUSY" else "OK")
+        return PtySessionReply(live.record, view, outcome = if (writer == null) "WRITER_BUSY" else "OK")
     }
 
     private fun detach(
         key: PtySessionKey,
         data: Parcel,
     ): PtySessionReply {
-        val token = token(data)
+        val view = token(data)
         empty(data)
         val live = host.live(key)
-        connectionSessions.remove(token)
-        val removed = live.detach(token)
-        if (removed) host.activity(key.sessionId, attached = false)
-        connections.release(token)
+        val removed = connectionSessions[view] == key.sessionId
+        if (removed) {
+            connectionSessions.remove(view)
+            live.detach(view)
+            if (connectionSessions.values.none { it == key.sessionId }) host.activity(key.sessionId, attached = false)
+            connections.release(view)
+        }
         return PtySessionReply(live.record, outcome = if (removed) "OK" else "DETACHED")
     }
 

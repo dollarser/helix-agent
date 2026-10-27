@@ -33,7 +33,7 @@ class TerminalRecoveryStateTest {
 
     @Test fun validWriterAndBusyObserverKeepTheirDistinctMeaning() {
         assertTrue(terminalAttachmentIsWriter(PtySessionReply(record, "token")))
-        assertFalse(terminalAttachmentIsWriter(PtySessionReply(record, outcome = "WRITER_BUSY")))
+        assertFalse(terminalAttachmentIsWriter(PtySessionReply(record, "observer-token", outcome = "WRITER_BUSY")))
     }
 
     @Test fun missingJournalKeepsUncertainSubmittedIdentityVisibleWithoutStopProof() {

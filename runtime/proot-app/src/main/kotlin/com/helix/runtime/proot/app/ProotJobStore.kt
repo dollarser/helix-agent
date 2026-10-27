@@ -9,17 +9,17 @@ import java.io.FileOutputStream
 
 /**
  * The companion's job journal (HXA-084; architecture doc section 6.7). The
- * companion is the SOLE writer and it never silently deletes an active or
- * unreconciled terminal record:
+ * companion is the SOLE writer; physical completion and evidence retention
+ * are separate decisions:
  *
  * - one atomic `record.json` per job under `<runtimeRoot>/jobs/<jobId>/`
  *   (tmp + fsync + rename, the HXA-082 activation style),
- * - the bounded metadata budget (128 entries / 1 MiB of records) is enforced
+ * - the pending execution/result budget (128 entries / 1 MiB of records) is enforced
  *   at submit time AFTER the eviction sweep,
  * - eviction: reconciled tombstones older than 7 days are dropped; terminal
  *   evidence that was NEVER reconciled is kept at most 30 days, then only an
- *   evidence-expired marker survives (the payload is deleted, the record shrinks
- *   to {state, evidenceExpired, terminalCommit}).
+ *   evidence-expired identity marker survives for another 7 days; the output
+ *   payload is deleted only after the retention period or explicit collection.
  *
  * Reconciliation (main app verified the proof) deletes the payload directory
  * IMMEDIATELY and stamps `reconciledAtEpochMs`.
@@ -33,6 +33,9 @@ import java.io.FileOutputStream
 @Suppress("TooManyFunctions")
 class ProotJobStore(
     private val root: File,
+    private val physicallyRunning: (String) -> Boolean = { false },
+    private val cleanupFailure: (String, Exception) -> Unit = { _, error -> throw error },
+    private val remove: (File) -> Boolean = RuntimeTreeDeletion::remove,
 ) {
     companion object {
         const val MAX_ENTRIES = 128
@@ -61,7 +64,7 @@ class ProotJobStore(
         return checkNotNull(parseQuietly(file)) { "Job journal is corrupt; execution identity must not be reused" }
     }
 
-    /** All journal entries (id + parsed record); malformed files are skipped here and evicted below. */
+    /** All journal entries; corruption fails closed rather than freeing an execution identity. */
     @Synchronized
     fun entries(): Map<String, ProotJobRecord> {
         val dir = jobsDir
@@ -111,7 +114,8 @@ class ProotJobStore(
         now: Long,
     ): ProotJobRecord? {
         val current = load(jobId) ?: return null
-        return if (current.state.isTerminal && !current.evidenceExpired && current.terminalCommit == terminalCommit) {
+        val settled = current.state.isTerminal && current.state != ProotJobState.ORPHANED && !physicallyRunning(jobId)
+        return if (settled && !current.evidenceExpired && current.terminalCommit == terminalCommit) {
             reconcile(jobId, now)
             load(jobId)
         } else {
@@ -127,11 +131,12 @@ class ProotJobStore(
     ) {
         val current = load(jobId) ?: return
         if (current.reconciledAtEpochMs == null && !current.evidenceExpired) {
-            require(current.state.isTerminal)
+            require(current.state.isTerminal && current.state != ProotJobState.ORPHANED)
+            check(!physicallyRunning(jobId)) { "Job is still running" }
             val files = requireNotNull(jobDir(jobId).listFiles())
             files.filter { it.name != RECORD_FILE && it.name != DetachedJobStore.FILE_NAME }.forEach {
                 check(
-                    RuntimeTreeDeletion.remove(it),
+                    remove(it),
                 ) { "payload cleanup failed" }
             }
             put(current.copy(reconciledAtEpochMs = reconciledAtEpochMs))
@@ -141,48 +146,91 @@ class ProotJobStore(
     /** Deletes a payload (input-invalid / superseded); the record stays as the terminal proof. */
     @Synchronized
     fun deletePayload(jobId: String) {
-        jobDir(jobId)
-            .listFiles()
-            ?.filter { it.name != RECORD_FILE && it.name != DetachedJobStore.FILE_NAME }
-            ?.forEach { RuntimeTreeDeletion.remove(it) }
+        val directory = jobDir(jobId)
+        if (!directory.exists()) return
+        checkNotNull(directory.listFiles()) { "payload directory unreadable" }
+            .filter { it.name != RECORD_FILE && it.name != DetachedJobStore.FILE_NAME }
+            .forEach { check(remove(it)) { "payload cleanup failed" } }
+    }
+
+    /** Release launch scratch only after proven physical completion; result archives remain readable. */
+    @Synchronized
+    fun cleanupScratch(jobId: String) {
+        val record = load(jobId) ?: return
+        if (!record.state.isTerminal || record.state == ProotJobState.ORPHANED || physicallyRunning(jobId)) return
+        listOf("input.zip", "tmp", "proc.txt", "record.json.tmp").forEach { name ->
+            check(remove(File(jobDir(jobId), name))) { "job scratch cleanup failed" }
+        }
     }
 
     /**
      * The eviction sweep + budget check, run before every submit. Returns true
      * when a NEW entry fits after eviction; the eviction itself is applied.
-     * An evidence-expired marker is small (a few hundred bytes), so it always
-     * fits within the 128/1MiB caps that the caller also checks.
+     * Reconciled and expired receipts retain deduplication identity for their TTL,
+     * but do not consume the outstanding execution/result budget.
      */
     @Synchronized
     fun pruneAndBudgetAvailable(nowMs: Long): Boolean {
         prune(nowMs)
-        val entries = entries()
+        val entries =
+            entries().filterValues {
+                !it.state.isTerminal || it.state == ProotJobState.ORPHANED || physicallyRunning(it.jobId) ||
+                    (it.reconciledAtEpochMs == null && !it.evidenceExpired)
+            }
         if (entries.size >= MAX_ENTRIES) return false
         val usedBytes = entries.values.sumOf { v -> recordFile(v.jobId).length() }
         // A new PENDING record is ~300 bytes; budget against the full cap.
         return usedBytes + 1024L <= MAX_TOTAL_RECORD_BYTES
     }
 
-    /** Applies the two TTL rules; never touches non-terminal records. */
+    /** Receipts are history, not running capacity. Unknown physical outcomes are never expired. */
     @Synchronized
     fun prune(nowMs: Long) {
         entries().forEach { (jobId, record) ->
-            if (!record.state.isTerminal || record.evidenceExpired) return@forEach
-            val reconciledAt = record.reconciledAtEpochMs
-            if (reconciledAt != null) {
-                if (nowMs - reconciledAt > RECONCILED_TOMBSTONE_TTL_MS) {
-                    RuntimeTreeDeletion.remove(jobDir(jobId))
-                }
-            } else {
-                val terminalAt = record.terminalAtEpochMs
-                if (terminalAt != null && nowMs - terminalAt > UNRECONCILED_EVIDENCE_TTL_MS) {
-                    // Keep only the evidence-expired marker: payload gone, identity kept.
-                    put(record.copy(evidenceExpired = true))
-                    deletePayload(jobId)
-                }
+            try {
+                pruneRecord(jobId, record, nowMs)
+            } catch (error: java.io.IOException) {
+                cleanupFailure(jobId, error)
+            } catch (error: IllegalStateException) {
+                cleanupFailure(jobId, error)
             }
         }
     }
+
+    private fun pruneRecord(
+        jobId: String,
+        record: ProotJobRecord,
+        nowMs: Long,
+    ) {
+        if (!record.state.isTerminal || record.state == ProotJobState.ORPHANED || physicallyRunning(jobId)) {
+            return
+        }
+        cleanupScratch(jobId)
+        val reconciledAt = record.reconciledAtEpochMs
+        val terminalAt = record.terminalAtEpochMs ?: return
+        val expiredAge = UNRECONCILED_EVIDENCE_TTL_MS + RECONCILED_TOMBSTONE_TTL_MS
+        when {
+            reconciledAt != null && nowMs - reconciledAt > RECONCILED_TOMBSTONE_TTL_MS -> {
+                check(remove(jobDir(jobId))) { "receipt cleanup failed" }
+            }
+
+            reconciledAt == null && nowMs - terminalAt > expiredAge -> {
+                // Drop payload first: a failed cleanup must retain the durable identity for retry.
+                deletePayload(jobId)
+                check(remove(jobDir(jobId))) { "expired receipt cleanup failed" }
+            }
+
+            !record.evidenceExpired && reconciledAt == null &&
+                nowMs - terminalAt > UNRECONCILED_EVIDENCE_TTL_MS -> {
+                deletePayload(jobId)
+                put(record.copy(evidenceExpired = true))
+            }
+        }
+    }
+
+    /** Acquire an output descriptor under the same lock as reconciliation/expiry. Open descriptors survive unlink. */
+    @Synchronized
+    internal fun <T> readOutput(block: () -> T): T = block()
 
     /** Orphan sweep input: non-terminal records still claiming a live process. */
     fun activeJobIds(): List<String> = entries().filterValues { !it.state.isTerminal }.keys.toList()

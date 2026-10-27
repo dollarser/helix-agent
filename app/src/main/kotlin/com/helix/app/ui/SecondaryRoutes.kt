@@ -17,6 +17,7 @@ internal const val SETTINGS_AUDIT_ROUTE = "settings/audit"
 
 private val secondaryTitles =
     mapOf(
+        MOBILE_USE_SETTINGS_ROUTE to R.string.mobile_use_session_title,
         "file-location" to R.string.nav_files,
         CONVERSATION_HISTORY_ROUTE to R.string.conversation_history_title,
         CONVERSATION_SEARCH_ROUTE to R.string.conversation_search_title,

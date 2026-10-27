@@ -6,6 +6,8 @@ import android.provider.Settings
 import com.helix.runtime.proot.core.PtySessionOrigin
 import com.helix.runtime.proot.core.PtySessionRecord
 import com.helix.runtime.proot.core.PtySessionStore
+import com.helix.runtime.proot.core.RuntimeInstallationState
+import com.helix.runtime.proot.core.RuntimePreparationRequired
 import com.helix.runtime.proot.ipc.PtySessionKey
 import com.helix.runtime.proot.ipc.PtySessionProtocol
 import com.helix.runtime.proot.ipc.PtySessionReply
@@ -43,14 +45,15 @@ internal class ProotTerminalHost(
         }
         when (runner.reserveTerminal(key.sessionId)) {
             ProotJobRunner.TerminalAdmission.FULL -> return PtySessionReply(null, outcome = "CAPACITY_EXHAUSTED")
+            ProotJobRunner.TerminalAdmission.MAINTENANCE -> return PtySessionReply(null, outcome = "ENVIRONMENT_BUSY")
             ProotJobRunner.TerminalAdmission.RESERVED -> Unit
         }
+        val prepared = prepareLaunch(context, workspace, key.sessionId)
         val launch =
-            prepareLaunch(context, workspace, key.sessionId)
-                ?: run {
-                    runner.releaseManualTerminal(key.sessionId)
-                    return PtySessionReply(null, outcome = "START_REFUSED")
-                }
+            prepared.launch ?: run {
+                runner.releaseManualTerminal(key.sessionId)
+                return PtySessionReply(null, outcome = prepared.refusal)
+            }
         val now = SystemClock.elapsedRealtime()
         val initial =
             PtySessionRecord(
@@ -146,6 +149,19 @@ internal class ProotTerminalHost(
     }
 
     @Synchronized
+    fun reclaim(key: PtySessionKey) {
+        check(key.sessionId !in attachedSessions) { "Terminal view is still attached" }
+        check(sessions[key.sessionId]?.workerFinished != false) { "Terminal cleanup is still running" }
+        val record = store.read(key.sessionId) ?: return
+        require(key.matches(record) && record.reconciled && record.stopProof != null)
+        com.helix.runtime.proot.core.PtyStateFiles.removeTemporary(
+            ProotRuntimeInstaller.runtimeRoot(context),
+            key.sessionId,
+        )
+        check(store.removeReconciled(record)) { "Terminal record changed" }
+    }
+
+    @Synchronized
     fun tick(): Boolean {
         if (sessions.isEmpty()) return false
         var anyActive = false
@@ -183,17 +199,33 @@ internal class ProotTerminalHost(
     }
 }
 
-@Suppress("TooGenericExceptionCaught")
+private data class TerminalPreparation(
+    val launch: ProotTerminalLaunch? = null,
+    val refusal: String = "ENVIRONMENT_PREPARATION_FAILED",
+)
+
+@Suppress("TooGenericExceptionCaught") // Map pre-submit failures; the original exception stays in internal logs.
 private fun prepareLaunch(
     context: Context,
     workspace: String,
     sessionId: String,
-): ProotTerminalLaunch? =
+): TerminalPreparation =
     try {
-        ProotTerminalLaunch(context, workspace, sessionId)
+        TerminalPreparation(ProotTerminalLaunch(context, workspace, sessionId))
+    } catch (failure: RuntimePreparationRequired) {
+        android.util.Log.w("ManualPty", "Manual terminal preparation failed", failure)
+        TerminalPreparation(
+            refusal =
+                when (failure.state) {
+                    RuntimeInstallationState.UPDATE_REQUIRED -> "ENVIRONMENT_UPDATE_REQUIRED"
+                    RuntimeInstallationState.DAMAGED -> "ENVIRONMENT_DAMAGED"
+                    RuntimeInstallationState.RESET_REQUIRED -> "ENVIRONMENT_RESET_REQUIRED"
+                    else -> "ENVIRONMENT_PREPARATION_FAILED"
+                },
+        )
     } catch (failure: Exception) {
         android.util.Log.w("ManualPty", "Manual terminal preparation failed", failure)
-        null
+        TerminalPreparation()
     }
 
 @Suppress("TooGenericExceptionCaught")

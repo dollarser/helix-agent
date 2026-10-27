@@ -42,12 +42,28 @@ internal fun PluginSetupRequiredDialog(
         },
         confirmButton = {
             TextButton(onContinue, Modifier.testTag("plugin-setup-continue")) {
-                Text(stringResource(R.string.plugin_setup_continue))
+                Text(
+                    stringResource(
+                        if (error == PluginSetupReason.MOBILE_BACKEND) {
+                            R.string.mobile_use_go_authorize
+                        } else {
+                            R.string.plugin_setup_continue
+                        },
+                    ),
+                )
             }
         },
         dismissButton = {
             TextButton(onDismiss, Modifier.testTag("plugin-setup-dismiss")) {
-                Text(stringResource(R.string.plugin_setup_later))
+                Text(
+                    stringResource(
+                        if (error == PluginSetupReason.MOBILE_BACKEND) {
+                            R.string.common_cancel
+                        } else {
+                            R.string.plugin_setup_later
+                        },
+                    ),
+                )
             }
         },
     )

@@ -39,6 +39,43 @@ class RootFsInstallerTest {
         assertEquals(RuntimeInstallationState.UPDATE_REQUIRED, RuntimeInstallation.inspect(root, changed).state)
     }
 
+    @Test fun provenanceOnlyChangesDoNotRequireReinstallOrRewriteInstalledReceipt() {
+        val root = tmp.newFolder("runtime")
+        val req = request(root)
+        val installed = RootFsInstaller.install(req) as InstallOutcome.Success
+        val receipt = File(root, "${installed.installId}/manifest.json")
+        val original = receipt.readBytes()
+        val changed =
+            req.lock.copy(
+                components =
+                    req.lock.components.reversed().map {
+                        it.copy(
+                            url = "https://example.test/mirror/${it.id}",
+                            source = it.source.copy(repository = "https://example.test/source"),
+                        )
+                    },
+            )
+        assertEquals(RuntimeInstallationState.PREPARED, RuntimeInstallation.inspect(root, changed).state)
+        assertTrue(original.contentEquals(receipt.readBytes()))
+        File(root, "${installed.installId}/bin/loader").delete()
+        assertEquals(RuntimeInstallationState.DAMAGED, RuntimeInstallation.inspect(root, changed).state)
+    }
+
+    @Test fun changedArtifactHashOrSizeStillRequiresUpdate() {
+        val root = tmp.newFolder("runtime")
+        val req = request(root)
+        RootFsInstaller.install(req)
+        val component = req.lock.components.first()
+        val replacements = listOf(component.copy(sha256 = "a".repeat(64)), component.copy(size = component.size + 1))
+        replacements.forEach { replacement ->
+            val changed = req.lock.copy(components = listOf(replacement) + req.lock.components.drop(1))
+            assertEquals(
+                RuntimeInstallationState.UPDATE_REQUIRED,
+                RuntimeInstallation.inspect(root, changed).state,
+            )
+        }
+    }
+
     @Test fun missingOrCorruptManifestCannotClaimPrepared() {
         val root = tmp.newFolder("runtime")
         val req = request(root)

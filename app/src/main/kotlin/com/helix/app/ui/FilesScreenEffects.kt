@@ -24,7 +24,6 @@ internal fun FilesDirectoryEffects(
                 listingTruncated = false
                 entries = emptyList()
                 selected = emptySet()
-                searchQuery = ""
                 val result =
                     withContext(Dispatchers.IO) {
                         runCatching { fileManager.listing(selectedScopeId, currentPath, sortKey) }

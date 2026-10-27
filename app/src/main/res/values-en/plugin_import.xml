@@ -7,7 +7,7 @@
     <string name="plugin_import_unsafe_archive">The archive contains unsafe or duplicate file paths. Obtain a valid package.</string>
     <string name="plugin_import_access">The selected file cannot be accessed. Choose it again and allow read access.</string>
     <string name="plugin_import_storage">A file could not be read or written. Check file access and available storage, then try again.</string>
-    <string name="plugin_import_failed">Import could not be completed. Select and review the file again. If it still fails, export diagnostics.</string>
+    <string name="plugin_import_failed">Import could not be completed. Select the file again and retry.</string>
     <string name="plugin_import_connection_hint">Connections must be checked or signed in separately. Installation does not connect accounts.</string>
     <string name="plugin_import_limited">%1$d components or dependencies cannot be used automatically. See support details.</string>
     <string name="plugin_import_version_unknown">Version unspecified</string>

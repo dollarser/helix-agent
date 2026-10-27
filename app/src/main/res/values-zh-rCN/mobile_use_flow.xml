@@ -1,0 +1,8 @@
+<resources>
+    <string name="mobile_use_session_title">手机操作</string>
+    <string name="mobile_use_session_enable">在本会话启用</string>
+    <string name="mobile_use_session_enabled">本会话已启用手机操作</string>
+    <string name="mobile_use_session_hint">启用 Mobile Use，让 Helix 按已设置的范围操作手机。</string>
+    <string name="mobile_use_go_authorize">去授权</string>
+    <string name="mobile_use_advanced_configuration">高级配置</string>
+</resources>

@@ -83,6 +83,7 @@ class AutomationSettingsAuthorizationDeviceTest {
             MaterialTheme { MobileUseSettings(ApplicationProvider.getApplicationContext(), store) {} }
         }
         compose.waitForIdle()
+        compose.onNodeWithTag("mobile-use-advanced").performClick()
         compose.onNodeWithTag("automation-all-applications").performScrollTo().assertIsOff()
         assertFalse(store.globalConfiguration()!!.scope.allApplications)
         assertTrue(store.globalConfiguration()!!.scope.permitsPackage("com.example.allowed"))
@@ -98,9 +99,11 @@ class AutomationSettingsAuthorizationDeviceTest {
                 MobileUseSettings(ApplicationProvider.getApplicationContext(), store, onBack = { left = true }) {}
             }
         }
+        compose.onNodeWithTag("mobile-use-advanced").performClick()
         waitForScope()
         compose.onNodeWithTag("automation-all-applications").performScrollTo().performClick()
-        compose.onNodeWithTag("mobile-use-back").performClick()
+        androidx.test.espresso.Espresso
+            .pressBack()
         compose.onNodeWithTag("mobile-use-save-leave").assertIsDisplayed()
         assertFalse(left)
         assertFalse(store.globalConfiguration()!!.scope.allApplications)
@@ -119,6 +122,7 @@ class AutomationSettingsAuthorizationDeviceTest {
             MaterialTheme { MobileUseSettings(ApplicationProvider.getApplicationContext(), store) {} }
         }
         compose.waitUntil(5_000) { compose.onAllNodesWithTag("mobile-use-reload").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("mobile-use-advanced").performClick()
         compose.onNodeWithTag("mobile-use-save-settings").assertIsNotEnabled()
         fail.set(false)
         compose.onNodeWithTag("mobile-use-reload").performClick()

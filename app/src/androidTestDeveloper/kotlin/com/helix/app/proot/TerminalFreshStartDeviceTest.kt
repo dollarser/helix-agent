@@ -33,7 +33,16 @@ class TerminalFreshStartDeviceTest {
                 val root = File(context.filesDir, "terminal-sessions")
                 val store = PtySessionStore(root)
                 val bindings = File(context.filesDir, "execution-admission/terminals")
-                val synthetic = seedHistory(context.filesDir, store, bindings)
+                val synthetic =
+                    seedHistory(
+                        context.filesDir,
+                        store,
+                        bindings,
+                        android.provider.Settings.Global.getInt(
+                            context.contentResolver,
+                            android.provider.Settings.Global.BOOT_COUNT,
+                        ),
+                    )
                 var sessionId: String? = null
                 try {
                     container.profileStore.switchTo(SafetyProfile.ADVANCED)
@@ -56,6 +65,7 @@ class TerminalFreshStartDeviceTest {
                         check(binding.delete())
                         check(File(root, "${record.origin.sessionId}.pty").delete())
                     }
+                    terminal.reclaim()
                     container.profileStore.switchTo(previous)
                 }
             }
@@ -65,6 +75,7 @@ class TerminalFreshStartDeviceTest {
         root: File,
         store: PtySessionStore,
         bindings: File,
+        bootCount: Int,
     ): List<Triple<ExecutionOwnership.Owner, File, PtySessionRecord>> =
         (0..RuntimeExecutionCapacity.MAX_TERMINALS).map {
             val id = "fixture-${UUID.randomUUID()}"
@@ -79,10 +90,10 @@ class TerminalFreshStartDeviceTest {
                         id,
                         root.path,
                         "fixture",
-                        null,
-                        1,
-                        1,
-                        60_001,
+                        bootCount,
+                        System.currentTimeMillis(),
+                        android.os.SystemClock.elapsedRealtime(),
+                        android.os.SystemClock.elapsedRealtime() + 60_000,
                     ),
                 )
             val record = initial.runtimeLost()

@@ -1,0 +1,19 @@
+<resources>
+    <string name="preview_reset_database">Conversations, tasks, settings and authorization records</string>
+    <string name="preview_reset_terminal">Terminal control records; previous command outcomes remain unknown</string>
+    <string name="preview_reset_mobile">Mobile Use app scope; set it again before use</string>
+    <string name="preview_reset_preserved">Shared documents, models, Linux files and account credentials are kept.</string>
+    <string name="preview_reset_restart">Old executions have not been confirmed stopped. Restart your phone, then reopen Helix.</string>
+    <string name="preview_reset_incomplete">Reset did not finish. Review the remaining items and retry.</string>
+    <string name="preview_reset_recheck">Check again</string>
+    <string name="old_state_reopen">Previous settings need a reset. Reopen Helix to continue.</string>
+    <string name="plugin_settings_read_failed">Could not read plugin settings. Please try again.</string>
+    <string name="terminal_environment_update">The Linux environment needs updating. Open Environment to update it.</string>
+    <string name="terminal_environment_repair">The Linux environment needs repair. Open Environment to repair it.</string>
+    <string name="terminal_environment_prepare_failed">Could not prepare Linux. Open Environment to retry.</string>
+    <string name="files_choose_import">Choose a file</string>
+    <string name="files_import_builtin">Browse Helix files</string>
+    <string name="files_import_system">System file picker</string>
+    <string name="files_import_unavailable">This file is unavailable. Choose another file.</string>
+    <string name="terminal_environment_busy">运行环境正在维护，请稍后重试。</string>
+</resources>

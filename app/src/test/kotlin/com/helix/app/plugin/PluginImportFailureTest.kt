@@ -31,6 +31,18 @@ class PluginImportFailureTest {
         assertEquals(PluginImportFailure.INVALID, PluginImportFailure.from(ZipException("private path")))
         assertEquals(PluginImportFailure.ACCESS, PluginImportFailure.from(SecurityException("private path")))
         assertEquals(PluginImportFailure.STORAGE, PluginImportFailure.from(IOException("private path")))
+        assertEquals(
+            PluginImportFailure.ACCESS,
+            PluginImportFailure.from(java.io.FileNotFoundException("private path")),
+        )
+        assertEquals(
+            PluginImportFailure.ACCESS,
+            PluginImportFailure.from(IllegalStateException("IMPORT_SOURCE_UNAVAILABLE")),
+        )
+        assertEquals(
+            PluginImportFailure.CONFLICT,
+            PluginImportFailure.from(IllegalStateException("IMPORT_SOURCE_CHANGED")),
+        )
     }
 
     @Test(expected = CancellationException::class)

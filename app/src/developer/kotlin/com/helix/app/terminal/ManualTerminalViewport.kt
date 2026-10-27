@@ -133,7 +133,7 @@ internal fun ManualTerminalViewport(
                     modifier = Modifier.weight(1f).fillMaxWidth().testTag("terminal-viewport"),
                     typeface = terminalTypeface,
                     minFontSize = 10.sp,
-                    initialFontSize = 13.sp,
+                    initialFontSize = 15.sp,
                     keyboardEnabled = connection.isWriter,
                     showSoftKeyboard = keyboard && connection.isWriter,
                     onTerminalTap = { if (connection.isWriter) onTerminalTap() },

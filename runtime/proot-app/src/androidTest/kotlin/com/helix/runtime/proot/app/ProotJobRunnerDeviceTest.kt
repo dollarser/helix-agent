@@ -195,6 +195,57 @@ class ProotJobRunnerDeviceTest {
     // ------------------------------------------------------------------ tests
 
     @Test
+    fun expiredHistoryCannotBlockRealExecutionAndScratchReclaimsWithoutLosingUnreadResult() {
+        val store = runner.jobStore
+        val expired = (0 until 128).map { "job_ec" + it.toString(16).padStart(10, '0') }
+        expired.forEachIndexed { index, id ->
+            check(store.load(id) == null)
+            jobIds += id
+            store.put(
+                ProotJobRecord(
+                    id,
+                    "expired-fixture-$index",
+                    "a".repeat(64),
+                    ProotJobState.CANCELLED,
+                    1,
+                    2,
+                    evidenceExpired = true,
+                ),
+            )
+        }
+        aJobRunsUnderProotAndDeliversVerifiedOutput()
+        val id = jobIds.last()
+        expired.forEach { assertNull(store.load(it)) }
+        val deadline = android.os.SystemClock.elapsedRealtime() + 10_000
+        while (File(store.jobDir(id), "tmp").exists() && android.os.SystemClock.elapsedRealtime() < deadline) {
+            Thread.sleep(25)
+        }
+        assertTrue("launch scratch retained", !File(store.jobDir(id), "tmp").exists())
+        assertTrue("unread archive removed", store.outputFile(id).isFile)
+        val archive = requireNotNull(runner.fetchResult(id))
+        val record = requireNotNull(runner.query(id))
+        archive.use {
+            val receipt =
+                runner.acknowledgeResult(
+                    id,
+                    requireNotNull(record.terminalCommit),
+                    System.currentTimeMillis(),
+                )
+            assertNotNull(receipt)
+            val duplicated = ParcelFileDescriptor.dup(it.descriptor.fileDescriptor)
+            ParcelFileDescriptor.AutoCloseInputStream(duplicated).use { input ->
+                assertTrue("open reader lost after ACK", input.read() >= 0)
+            }
+        }
+        assertTrue("collected archive retained", !store.outputFile(id).exists())
+        assertNotNull("execution receipt lost", store.load(id))
+        println(
+            "AGENT_LIFECYCLE expired=128 remainingExpired=0 scratch=0 unreadPreserved=true " +
+                "openReaderAfterAck=true receiptPreserved=true",
+        )
+    }
+
+    @Test
     fun inPlaceWritesRemainInTheOriginalWorkspaceAndOnlyMetadataIsReturned() {
         val root = File(context.filesDir, "workspaces/app/jobtest-${nextJobId()}").apply { mkdirs() }.canonicalFile
         val (archive, inputSha) = buildInputArchive(emptyMap())
@@ -547,7 +598,7 @@ class ProotJobRunnerDeviceTest {
         val store = ProotJobStore(ProotRuntimeInstaller.runtimeRoot(context))
         // Fill the journal to its 128-entry cap with PENDING records (non-evictable).
         val fillerIds = mutableListOf<String>()
-        val existing = store.entries().size
+        val existing = store.entries().values.count { it.reconciledAtEpochMs == null && !it.evidenceExpired }
         val toFill = ProotJobStore.MAX_ENTRIES - existing
         repeat(toFill) { i ->
             val id = "job_" + ("f0" + i.toString(16).padStart(10, '0')).take(12)
@@ -564,7 +615,10 @@ class ProotJobRunnerDeviceTest {
                 fillerIds += id
             }
         }
-        assertEquals(ProotJobStore.MAX_ENTRIES, store.entries().size)
+        assertEquals(
+            ProotJobStore.MAX_ENTRIES,
+            store.entries().values.count { it.reconciledAtEpochMs == null && !it.evidenceExpired },
+        )
         val (archive, inputSha) = buildInputArchive(emptyMap())
         val jobId = nextJobId()
         jobIds += jobId

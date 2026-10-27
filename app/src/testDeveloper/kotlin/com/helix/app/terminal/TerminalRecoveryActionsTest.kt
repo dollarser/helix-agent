@@ -71,23 +71,27 @@ class TerminalRecoveryActionsTest {
             assertEquals(0, terminal.stops)
         }
 
-    @Test fun stopWithoutProofKeepsIdentityAndExposesRecoveryRatherThanPretendingSuccess() =
+    @Test fun closingMissingWindowDetachesPresentationWithoutKillingOrDeletingAnything() =
         runBlocking {
             val terminal = FakeTerminal()
             val model = ManualTerminalViewModel(terminal, scope)
-            model.settle("old")
-            assertEquals(1, terminal.stops)
+            model.closeSession("old")
+            assertEquals(0, terminal.stops)
             assertEquals(0, terminal.settlements)
-            assertEquals("CLOSE_UNCONFIRMED", model.state.value.errorMessage)
-            assertTrue(model.state.value.hasSession)
+            assertEquals(null, model.state.value.errorMessage)
+            assertFalse(model.state.value.hasSession)
+            assertEquals("old", terminal.records.single().sessionId)
         }
 
     @Test fun provenExitCanCloseAndStartFreshWithoutReplayingInput() =
         runBlocking {
             val terminal = FakeTerminal(proveStop = true)
+            terminal.records[0] = terminal.records[0].copy(phase = "RUNNING")
             val model = ManualTerminalViewModel(terminal, scope)
-            model.settle("old")
-            assertEquals(1, terminal.settlements)
+            model.closeSession("old")
+            assertEquals(1, terminal.stops)
+            assertEquals(0, terminal.settlements)
+            assertTrue(terminal.records.single().canSettle)
             assertFalse(model.state.value.hasSession)
             model.open(".")
             assertEquals(1, terminal.starts)
@@ -98,9 +102,11 @@ class TerminalRecoveryActionsTest {
         runBlocking {
             val terminal = FakeTerminal()
             val model = ManualTerminalViewModel(terminal, scope)
+            model.enter(".")
             model.clearDisplay()
             assertEquals(1, model.state.value.displayRevision)
-            assertEquals("old", model.state.value.activeSessionId)
+            assertEquals("new", model.state.value.activeSessionId)
+            assertEquals("old", terminal.records.first().sessionId)
             assertEquals(0, terminal.stops)
             assertEquals(0, terminal.settlements)
         }

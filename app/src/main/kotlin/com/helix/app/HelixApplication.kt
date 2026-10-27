@@ -117,6 +117,11 @@ class HelixApplication : Application() {
                 com.helix.app.goal.GoalReminderScheduler
                     .cancelForDatabaseReset(this)
             },
+            preflight = {
+                com.helix.app.maintenance
+                    .previewStateGate(this)
+                    .inspect()
+            },
         )
     }
 
@@ -128,8 +133,10 @@ class HelixApplication : Application() {
 
     internal val startupState get() = containerInitialization.state
 
-    internal fun confirmPreviewReset(request: com.helix.core.storage.PreviewDatabaseResetRequired) =
+    internal fun confirmPreviewReset(request: com.helix.app.maintenance.PreviewResetRequest) =
         containerInitialization.confirmReset(request)
+
+    internal fun recheckPreviewState() = containerInitialization.recheck()
 
     internal fun readyAppContainerOrNull(): AppContainer? = containerInitialization.readyOrNull()
 

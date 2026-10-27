@@ -52,19 +52,33 @@ fun ReminderScreen(
     val rows by service.items.collectAsStateWithLifecycle(emptyList())
     val request by service.openRequest.collectAsStateWithLifecycle()
     val failed by service.failure.collectAsStateWithLifecycle()
-    var selected by remember { mutableStateOf<LocalReminder?>(null) }
-    var editing by remember { mutableStateOf(false) }
-    var interpreting by remember { mutableStateOf(false) }
-    var scheduling by remember { mutableStateOf(false) }
-    LaunchedEffect(request, rows) {
-        request?.let { id ->
-            rows.firstOrNull { it.id == id }?.let {
-                selected = it
-                editing = true
-                interpreting = false
-                scheduling = false
-                service.openRequest.value = null
-            }
+    val owner = requireNotNull(androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner.current)
+    val page = remember(owner) { androidx.lifecycle.ViewModelProvider(owner)[ReminderPageState::class.java] }
+    var selected by page::selected
+    var editing by page::editing
+    var interpreting by page::interpreting
+    var scheduling by page::scheduling
+    val departure = com.helix.app.ui.LocalNavigationDeparture.current
+    val requestedRow = rows.firstOrNull { it.id == request }
+    LaunchedEffect(request, requestedRow?.id) {
+        val id = request ?: return@LaunchedEffect
+        val row = requestedRow ?: return@LaunchedEffect
+        val open = {
+            selected = row
+            editing = true
+            interpreting = false
+            scheduling = false
+            service.openRequest.compareAndSet(id, null)
+            Unit
+        }
+        if (departure == null) {
+            open()
+        } else {
+            departure.request(
+                { service.openRequest.value == id },
+                cancelled = { service.openRequest.compareAndSet(id, null) },
+                navigate = open,
+            )
         }
     }
     if (scheduling && scheduled != null) {
@@ -128,15 +142,21 @@ internal fun ReminderEditor(service: ReminderService, original: LocalReminder?, 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val draftId =
-        remember(original?.id) {
+        androidx.compose.runtime.saveable.rememberSaveable(original?.id) {
             original?.id?.takeIf { it.isNotBlank() } ?: java.util.UUID
                 .randomUUID()
                 .toString()
         }
-    var title by remember(original?.id) { mutableStateOf(original?.title.orEmpty()) }
-    var body by remember(original?.id) { mutableStateOf(original?.body.orEmpty()) }
-    var enabled by remember(original?.id) { mutableStateOf(original?.localTime?.isNotEmpty() == true) }
-    var local by remember(original?.id) {
+    var title by androidx.compose.runtime.saveable.rememberSaveable(original?.id) {
+        mutableStateOf(original?.title.orEmpty())
+    }
+    var body by androidx.compose.runtime.saveable.rememberSaveable(original?.id) {
+        mutableStateOf(original?.body.orEmpty())
+    }
+    var enabled by androidx.compose.runtime.saveable.rememberSaveable(original?.id) {
+        mutableStateOf(original?.localTime?.isNotEmpty() == true)
+    }
+    var local by androidx.compose.runtime.saveable.rememberSaveable(original?.id) {
         mutableStateOf(
             original?.localTime?.takeIf { it.isNotBlank() }
                 ?: LocalDateTime
@@ -147,9 +167,15 @@ internal fun ReminderEditor(service: ReminderService, original: LocalReminder?, 
                     .toString(),
         )
     }
-    var zone by remember(original?.id) { mutableStateOf(original?.zone ?: ZoneId.systemDefault().id) }
-    var repeat by remember(original?.id) { mutableStateOf(original?.repeat ?: "ONCE") }
-    var exact by remember(original?.id) { mutableStateOf(original?.exact ?: false) }
+    var zone by androidx.compose.runtime.saveable.rememberSaveable(original?.id) {
+        mutableStateOf(original?.zone ?: ZoneId.systemDefault().id)
+    }
+    var repeat by androidx.compose.runtime.saveable.rememberSaveable(original?.id) {
+        mutableStateOf(original?.repeat ?: "ONCE")
+    }
+    var exact by androidx.compose.runtime.saveable.rememberSaveable(original?.id) {
+        mutableStateOf(original?.exact ?: false)
+    }
     var error by remember { mutableStateOf(false) }
     var saveAttempted by remember(original?.id) { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
@@ -178,6 +204,21 @@ internal fun ReminderEditor(service: ReminderService, original: LocalReminder?, 
     }
     // Leaving an editor never saves or arms an unconfirmed reminder.
     BackHandler(enabled = !busy, onBack = onBack)
+    val fields = listOf(title, body, enabled.toString(), local, zone, repeat, exact.toString())
+    val initialFields =
+        androidx.compose.runtime.saveable
+            .rememberSaveable(original?.id) { fields }
+    com.helix.app.ui
+        .UnsavedNavigationGuard(fields != initialFields, busy, onBack) {
+            title = initialFields[0]
+            body = initialFields[1]
+            enabled = initialFields[2].toBooleanStrict()
+            local = initialFields[3]
+            zone = initialFields[4]
+            repeat = initialFields[5]
+            exact = initialFields[6].toBooleanStrict()
+        }
+
     LazyColumn(Modifier.padding(16.dp).testTag("reminder-editor"), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item { TextButton(onClick = onBack, enabled = !busy) { Text(stringResource(R.string.reminder_back_discard)) } }
         if (original != null && original.id.isEmpty()) {

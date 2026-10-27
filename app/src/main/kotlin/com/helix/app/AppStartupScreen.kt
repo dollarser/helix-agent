@@ -19,14 +19,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.helix.app.maintenance.PreviewResetSection
 
 /** Draw a first frame without reading any service or storage-backed preferences. */
 @Composable
 @Suppress("FunctionName")
 internal fun AppStartupScreen(
     state: AppStartupState,
-    onConfirmReset: (com.helix.core.storage.PreviewDatabaseResetRequired) -> Unit,
+    onConfirmReset: (com.helix.app.maintenance.PreviewResetRequest) -> Unit,
     onExit: () -> Unit,
+    onRecheck: () -> Unit = {},
 ) {
     HelixTheme {
         Surface(Modifier.fillMaxSize()) {
@@ -44,12 +46,28 @@ internal fun AppStartupScreen(
                     is AppStartupState.ResetRequired -> {
                         Text(stringResource(R.string.preview_reset_title), style = MaterialTheme.typography.titleLarge)
                         Text(stringResource(R.string.preview_reset_message))
+                        state.request.sections.forEach { section ->
+                            Text(
+                                stringResource(
+                                    when (section) {
+                                        PreviewResetSection.DATABASE -> R.string.preview_reset_database
+                                        PreviewResetSection.TERMINAL -> R.string.preview_reset_terminal
+                                        PreviewResetSection.MOBILE_USE -> R.string.preview_reset_mobile
+                                    },
+                                ),
+                            )
+                        }
+                        Text(stringResource(R.string.preview_reset_preserved))
+                        if (state.request.requiresRestart) Text(stringResource(R.string.preview_reset_restart))
+                        if (state.failed) Text(stringResource(R.string.preview_reset_incomplete))
                         Button(
                             onClick = { onConfirmReset(state.request) },
+                            enabled = !state.request.requiresRestart,
                             modifier = Modifier.testTag("preview-reset-confirm"),
                         ) {
                             Text(stringResource(R.string.preview_reset_confirm))
                         }
+                        TextButton(onClick = onRecheck) { Text(stringResource(R.string.preview_reset_recheck)) }
                         TextButton(onClick = onExit, modifier = Modifier.testTag("preview-reset-cancel")) {
                             Text(stringResource(R.string.preview_reset_cancel))
                         }
@@ -57,6 +75,7 @@ internal fun AppStartupScreen(
 
                     AppStartupState.Failed -> {
                         Text(stringResource(R.string.app_start_failed))
+                        TextButton(onClick = onRecheck) { Text(stringResource(R.string.chat_retry)) }
                         TextButton(onClick = onExit) { Text(stringResource(R.string.preview_start_exit)) }
                     }
 

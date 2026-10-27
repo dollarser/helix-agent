@@ -23,29 +23,52 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 @Composable
-@Suppress("FunctionName", "LongMethod") // Native user actions share one review state.
+@Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod") // Native user actions share one review state.
 fun SkillInstallationSection(
     authoring: SkillAuthoringService,
     service: SkillInstallationService,
     onUse: (() -> Unit)? = null,
     onInstalled: () -> Unit = {},
+    importFiles: com.helix.app.files.FileManagerService? = null,
+    filePicker: com.helix.app.ui.FileSelectionContent? = null,
 ) {
-    var path by remember { mutableStateOf("") }
+    var path by androidx.compose.runtime.saveable
+        .rememberSaveable { mutableStateOf("") }
     var preview by remember { mutableStateOf<SkillImportPreview?>(null) }
     var installed by remember { mutableStateOf<SkillKey?>(null) }
     var enabled by remember { mutableStateOf(false) }
     val action = rememberImportActionState()
     val context = LocalContext.current
+    var browsing by androidx.compose.runtime.saveable
+        .rememberSaveable { mutableStateOf(false) }
+    if (browsing && filePicker != null && importFiles != null) {
+        filePicker({ selected ->
+            browsing = false
+            action.launch {
+                val job = kotlinx.coroutines.currentCoroutineContext()[kotlinx.coroutines.Job]
+                preview = null
+                installed = null
+                val imported =
+                    withContext(Dispatchers.IO) {
+                        val bytes = importFiles.captureImport(selected, 16L * 1024 * 1024) { job?.isCancelled == true }
+                        authoring.importArchive(java.io.ByteArrayInputStream(bytes)) { job?.isCancelled == true }
+                    }
+                path = imported
+                preview = withContext(Dispatchers.IO) { authoring.preview(imported) }
+            }
+        }, { browsing = false })
+    }
     val picker =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
             if (uri != null) {
                 action.launch {
+                    val job = kotlinx.coroutines.currentCoroutineContext()[kotlinx.coroutines.Job]
                     preview = null
                     installed = null
                     val imported =
                         withContext(Dispatchers.IO) {
                             context.contentResolver.openInputStream(uri).use { input ->
-                                authoring.importArchive(requireNotNull(input))
+                                authoring.importArchive(requireNotNull(input)) { job?.isCancelled == true }
                             }
                         }
                     path = imported
@@ -57,9 +80,16 @@ fun SkillInstallationSection(
     Column {
         Text(stringResource(R.string.skill_installer_title))
         Text(stringResource(R.string.skill_installer_intro))
+        if (filePicker != null && importFiles != null) {
+            OutlinedButton(
+                { browsing = true },
+                enabled = !action.busy,
+                modifier = Modifier.testTag("skill-import-local"),
+            ) { Text(stringResource(R.string.files_import_builtin)) }
+        }
         OutlinedButton(enabled = !action.busy, onClick = {
             picker.launch(arrayOf("application/zip", "application/octet-stream"))
-        }) { Text(stringResource(R.string.skill_installer_archive)) }
+        }) { Text(stringResource(R.string.files_import_system)) }
         OutlinedTextField(
             path,
             {

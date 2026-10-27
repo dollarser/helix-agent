@@ -65,7 +65,13 @@ class ManualTerminalActivity : ComponentActivity() {
                     onUnavailable = { model.disconnect() },
                     onBack = { finish() },
                 ) {
-                    val settings = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+                    val settings =
+                        androidx.compose.runtime.saveable.rememberSaveable {
+                            androidx.compose.runtime
+                                .mutableStateOf(
+                                    false,
+                                )
+                        }
                     androidx.activity.compose.BackHandler(settings.value) { settings.value = false }
                     if (settings.value) {
                         androidx.compose.foundation.layout.Column(

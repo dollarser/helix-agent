@@ -55,10 +55,15 @@ internal fun TerminalInfo(
 }
 
 @Composable
-private fun terminalStatus(session: ManualTerminal.State): String =
+internal fun terminalStatus(session: ManualTerminal.State): String = stringResource(terminalStatusResource(session))
+
+internal fun terminalStatusResource(session: ManualTerminal.State): Int =
     when {
-        session.phase == "UNKNOWN" && session.canSettle -> stringResource(R.string.terminal_state_ended)
-        session.phase == "UNKNOWN" -> stringResource(R.string.terminal_state_unknown)
-        session.phase == "RUNNING" -> stringResource(R.string.terminal_state_running)
-        else -> listOfNotNull(session.phase, session.stopReason, session.exitStatus?.toString()).joinToString(" · ")
+        session.phase == "UNKNOWN" && session.canSettle -> R.string.terminal_state_ended
+        session.phase == "UNKNOWN" -> R.string.terminal_phase_unknown
+        session.canSettle || session.phase == "STOPPED" -> R.string.terminal_phase_stopped
+        session.phase == "RUNNING" -> R.string.terminal_state_running
+        session.phase == "STARTING" -> R.string.terminal_phase_starting
+        session.phase == "CLOSING" -> R.string.terminal_phase_closing
+        else -> R.string.terminal_phase_unknown
     }

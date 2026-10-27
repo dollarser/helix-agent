@@ -129,7 +129,7 @@ class ProviderFlowTest {
             composeRule.onNodeWithTag("chat-model-${row.id}-$model").assertIsNotEnabled()
         }
         assertTrue(!row.chatSelectable)
-        composeRule.onNodeWithTag("chat-model-picker-close").performClick()
+        composeRule.onNodeWithTag("chat-model-picker-cancel").performClick()
         composeRule.waitUntil(10_000) { !composeRule.onNodeWithTag("chat-model-search").isDisplayed() }
     }
 }

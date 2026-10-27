@@ -76,7 +76,7 @@ fun ChatScreen(
     onExtensions: () -> Unit = {},
     memory: com.helix.app.memory.MemoryService? = null,
     onConfigureModelSource: ((ProviderProvisioningKind) -> Unit)? = null,
-    onMobileUseConfiguration: () -> Unit = onExtensions,
+    onMobileUseSession: (String) -> Unit = {},
 ) {
     val screen by chatService.screen.collectAsStateWithLifecycle()
     val runControl by chatService.runControl.collectAsStateWithLifecycle()
@@ -120,8 +120,7 @@ fun ChatScreen(
                 connectors,
                 sessionId,
                 onExtensions,
-                onMobileUseConfiguration = onMobileUseConfiguration,
-                onSystemPermissions = onPermissions,
+                onMobileUseConfiguration = { onMobileUseSession(sessionId) },
             ) { connectorsOpen = false }
     }
     val buffer =
@@ -220,6 +219,12 @@ fun ChatScreen(
 
     val saveBuffer: suspend () -> Boolean = {
         buffer.persist { request -> chatService.saveComposerDraftAsync(request).await() }
+    }
+    NavigationLeaveGuard { complete ->
+        val target = sessionId
+        scope.launch {
+            complete(saveBuffer() && chatService.screen.value.openSessionId == target)
+        }
     }
     val flushBuffer: () -> Unit = {
         // A lifecycle callback requests a flush; it is not a synchronous durability guarantee.
@@ -394,10 +399,18 @@ fun ChatScreen(
         buffer.value.referenceSourceSessionId?.let { referenceSessionId ->
             screen.sessions.firstOrNull { it.id == referenceSessionId }?.title ?: referenceSessionId
         }
+    val navigationLifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
     val navigateAfterSave: (() -> Unit) -> Unit = { navigate ->
+        val completion =
+            navigationLifecycle.navigationCompletion {
+                chatService.screen.value.openSessionId == sessionId
+            }
         scope.launch {
-            saveBuffer()
-            if (chatService.screen.value.openSessionId == sessionId) navigate()
+            try {
+                if (saveBuffer()) completion.complete(navigate)
+            } finally {
+                completion.invalidate()
+            }
         }
     }
     Column(
@@ -551,23 +564,17 @@ fun ChatScreen(
                 },
                 taskPreparation = {
                     if (connectors != null && sessionId != null) {
-                        PhoneTaskPreparation(
-                            connectors,
-                            sessionId,
-                            onSelectTools = {
-                                scope.launch {
-                                    saveBuffer()
-                                    if (chatService.materializeDraftSession(sessionId) ==
-                                        sessionId
-                                    ) {
-                                        connectorsOpen = true
+                        PhoneTaskPreparation(connectors) {
+                            val target = sessionId
+                            scope.launch {
+                                if (saveBuffer() && chatService.screen.value.openSessionId == target) {
+                                    val materialized = chatService.materializeDraftSession(target) == target
+                                    if (materialized && chatService.screen.value.openSessionId == target) {
+                                        onMobileUseSession(target)
                                     }
                                 }
-                            },
-                            onExtensions = { navigateAfterSave(onExtensions) },
-                            onPermissions = { navigateAfterSave(onPermissions) },
-                            onPrompt = { buffer.edit(appendTaskPrompt(buffer.value.text, it)) },
-                        )
+                            }
+                        }
                     }
                 },
                 intents =
@@ -615,8 +622,9 @@ fun ChatScreen(
                             val id = sessionId
                             if (id != null && connectors != null) {
                                 scope.launch {
-                                    saveBuffer()
-                                    if (chatService.materializeDraftSession(id) == id) {
+                                    if (saveBuffer() && chatService.materializeDraftSession(id) == id &&
+                                        chatService.screen.value.openSessionId == id
+                                    ) {
                                         connectorsOpen = true
                                     }
                                 }

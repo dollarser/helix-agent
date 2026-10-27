@@ -351,6 +351,26 @@ class FileManagerService internal constructor(
 
     private val preview = FileManagerPreview(store, roots, saf, shareCacheRoot)
 
+    /** Import selection does not acquire permissions, enable Root or export a source to the model. */
+    @Synchronized
+    fun captureImport(
+        path: FileScopePath,
+        limit: Long,
+        cancelled: () -> Boolean = { false },
+    ): ByteArray {
+        if (sources().none { it.scopeId == path.scopeId && it.available && it.kind != FileSourceKind.ROOT }) {
+            throw SecurityException("Import source is not authorized")
+        }
+        val operations = manual
+        if (operations != null) return operations.captureImport(path.scopeId, path.relativePath, limit, cancelled)
+        val stat = store.stat(path)
+        require(stat.isRegularFile && !stat.isSymlink) { "IMPORT_SOURCE_UNAVAILABLE" }
+        require(stat.sizeBytes <= limit) { "CONNECTOR_TOO_LARGE" }
+        val bytes = store.openRead(path).use { ImportFileCapture.read(it, limit, cancelled) }
+        check(bytes.size.toLong() == stat.sizeBytes && store.stat(path) == stat) { "IMPORT_SOURCE_CHANGED" }
+        return bytes
+    }
+
     @Synchronized
     fun previewText(
         scopeId: String,

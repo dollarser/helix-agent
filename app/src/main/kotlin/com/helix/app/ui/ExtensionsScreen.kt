@@ -12,9 +12,11 @@ import androidx.compose.material3.PrimaryScrollableTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -32,82 +34,78 @@ import com.helix.app.skills.SkillAuthoringService
 import com.helix.app.skills.SkillInstallationSection
 import com.helix.app.skills.SkillInstallationService
 import com.helix.app.ui.indicatedVerticalScroll
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
-
-internal const val MOBILE_USE_SETTINGS_ROUTE = "extensions/mobile-use/settings"
 
 @Composable
 @Suppress("FunctionName")
 internal fun MobileUseSettingsScreen(
     onPermissions: () -> Unit,
     onBack: () -> Unit,
-    onSaved: () -> Unit = {},
+    onSaved: () -> Unit,
 ) {
-    Column(Modifier.fillMaxSize().padding(16.dp)) {
-        Text("Mobile Use", style = androidx.compose.material3.MaterialTheme.typography.headlineSmall)
-        com.helix.app.automation.AutomationModule
-            .Settings(onPermissions, onBack, onSaved)
-    }
+    com.helix.app.automation.AutomationModule
+        .Settings(onPermissions, onBack, onSaved)
 }
 
 /** Navigation to managed extensions and marketplace catalog. */
 @Composable
-@Suppress("FunctionName", "LongMethod")
+// Route-owned capabilities and navigation callbacks; cancellation propagates.
+@Suppress("FunctionName", "LongMethod", "LongParameterList", "TooGenericExceptionCaught")
 fun ExtensionsScreen(
     authoring: SkillAuthoringService?,
     installation: SkillInstallationService?,
     connectors: PluginService,
     marketplace: MarketplaceService? = null,
     onSessionSettings: () -> Unit = {},
-    prepareSession: (suspend () -> String?)? = null,
+    prepareSession: (suspend (String) -> String?)? = null,
+    currentSession: () -> String? = { null },
+    onMobileUseSession: (String) -> Unit = {},
+    onMobileUseSettings: () -> Unit = {},
     onPermissions: () -> Unit = {},
+    importFiles: com.helix.app.files.FileManagerService? = null,
+    filePicker: FileSelectionContent? = null,
 ) {
-    var mobileSettings by rememberSaveable { mutableStateOf(false) }
-    var returnSession by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     var useSession by rememberSaveable { mutableStateOf<String?>(null) }
     var usePluginId by rememberSaveable { mutableStateOf<String?>(null) }
     var configurePluginId by rememberSaveable { mutableStateOf<String?>(null) }
     var query by rememberSaveable { mutableStateOf("") }
     var catalogRevision by rememberSaveable { mutableIntStateOf(0) }
-    val scope = rememberCoroutineScope()
-    val onUse: () -> Unit = {
-        usePluginId = null
-        if (prepareSession == null) onSessionSettings() else scope.launch { useSession = prepareSession() }
-    }
-    val onUsePlugin: (String?) -> Unit = { pluginId ->
-        usePluginId = pluginId
-        if (prepareSession == null) onSessionSettings() else scope.launch { useSession = prepareSession() }
+    var useFailed by remember { mutableStateOf(false) }
+    val departure = LocalNavigationDeparture.current
+    val onUsePlugin =
+        rememberPluginUseAction(
+            prepareSession,
+            currentSession,
+            onSessionSettings,
+            onMobileUse = { target ->
+                useFailed = false
+                onMobileUseSession(target)
+            },
+            onSelected = { pluginId, target ->
+                useFailed = false
+                usePluginId = pluginId
+                useSession = target
+            },
+            onFailure = { useFailed = true },
+        )
+    val onUse: () -> Unit = { onUsePlugin(null) }
+    val currentTarget = currentSession()
+    LaunchedEffect(currentTarget) {
+        if (useSession != null && useSession != currentTarget) useSession = null
     }
     useSession?.let { id ->
-        com.helix.app.connector
-            .ConnectorSessionPanel(connectors, id, {
-                if (usePluginId == "bundled-plugin:mobile-use") {
-                    returnSession = id
-                    mobileSettings = true
-                } else {
-                    selectedTab = 0
-                    configurePluginId = usePluginId
-                }
-            }, pluginId = usePluginId, onSystemPermissions = onPermissions, onMobileUseConfiguration = {
-                returnSession = id
-                mobileSettings = true
-            }) { useSession = null }
-    }
-
-    if (mobileSettings) {
-        MobileUseSettingsScreen(onPermissions, onBack = {
-            mobileSettings = false
-            useSession = returnSession
-            returnSession = null
-        }, onSaved = {
-            if (returnSession != null) {
-                mobileSettings = false
-                useSession = returnSession
-                returnSession = null
-            }
-        })
-        return
+        com.helix.app.connector.ConnectorSessionPanel(
+            connectors,
+            id,
+            onConfigure = {
+                selectedTab = 0
+                configurePluginId = usePluginId
+            },
+            pluginId = usePluginId,
+            onMobileUseConfiguration = { if (currentSession() == id) onMobileUseSession(id) },
+        ) { useSession = null }
     }
 
     Column(
@@ -118,7 +116,17 @@ fun ExtensionsScreen(
             .testTag("screen-extensions"),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        ExtensionTabBar(selectedTab, marketplace != null) { selectedTab = it }
+        ExtensionTabBar(selectedTab, marketplace != null) { target ->
+            val source = selectedTab
+            if (departure == null) {
+                selectedTab = target
+            } else {
+                departure.request({ selectedTab == source }) {
+                    selectedTab = target
+                }
+            }
+        }
+        if (useFailed) Text(stringResource(R.string.connector_session_failed))
         Text(
             stringResource(
                 extensionTabIntroduction(selectedTab),
@@ -137,13 +145,24 @@ fun ExtensionsScreen(
                     selectedTab = 0
                     configurePluginId = id
                 },
+                importFiles = importFiles,
+                filePicker = filePicker,
             )
             if (authoring != null && installation != null) {
                 SettingsDisclosure(
                     stringResource(R.string.plugins_import_skill),
                     "plugins-skill-import",
                     stringResource(R.string.plugins_import_skill_summary),
-                ) { SkillInstallationSection(authoring, installation, onUse, onInstalled = { catalogRevision++ }) }
+                ) {
+                    SkillInstallationSection(
+                        authoring,
+                        installation,
+                        onUse,
+                        onInstalled = { catalogRevision++ },
+                        importFiles = importFiles,
+                        filePicker = filePicker,
+                    )
+                }
                 SettingsDisclosure(
                     stringResource(R.string.plugins_authoring),
                     "plugins-authoring",
@@ -178,8 +197,10 @@ fun ExtensionsScreen(
                     configurePluginId = configurePluginId,
                     onConfigurationShown = { configurePluginId = null },
                     onConfigureImported = { configurePluginId = it },
-                    onPluginSettings = { mobileSettings = true },
+                    onPluginSettings = onMobileUseSettings,
                     onSystemPermissions = onPermissions,
+                    importFiles = importFiles,
+                    filePicker = filePicker,
                 )
                 StandaloneSkillsSection(connectors, onUse, query)
             }
@@ -212,6 +233,50 @@ private fun ExtensionTabBar(
                 text = { Text(stringResource(labels[tab])) },
                 modifier = Modifier.testTag(tags[tab]),
             )
+        }
+    }
+}
+
+/** Only prepares the clicked conversation. There is no saved intent to auto-enable after navigation. */
+@Composable
+@Suppress("TooGenericExceptionCaught") // Surface preparation failure without leaking diagnostics.
+private fun rememberPluginUseAction(
+    prepare: (suspend (String) -> String?)?,
+    current: () -> String?,
+    onFallback: () -> Unit,
+    onMobileUse: (String) -> Unit,
+    onSelected: (String?, String) -> Unit,
+    onFailure: () -> Unit,
+): (String?) -> Unit {
+    var preparing by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    return { pluginId ->
+        val target = current()
+        if (!preparing) {
+            if (prepare == null || target == null) {
+                onFallback()
+            } else {
+                preparing = true
+                scope.launch {
+                    try {
+                        val prepared = prepare(target)
+                        kotlinx.coroutines.currentCoroutineContext().ensureActive()
+                        if (prepared == target && current() == target) {
+                            if (pluginId == com.helix.app.connector.MOBILE_USE_PLUGIN_ID) {
+                                onMobileUse(target)
+                            } else {
+                                onSelected(pluginId, target)
+                            }
+                        }
+                    } catch (cancel: kotlinx.coroutines.CancellationException) {
+                        throw cancel
+                    } catch (_: Exception) {
+                        onFailure()
+                    } finally {
+                        preparing = false
+                    }
+                }
+            }
         }
     }
 }

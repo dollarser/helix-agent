@@ -1,7 +1,6 @@
 package com.helix.runtime.proot.core
 
 import java.io.File
-import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
@@ -65,20 +64,32 @@ class PtySessionStore(
         synchronized(lock) {
             require(expected.reconciled)
             if (readLocked(expected.origin.sessionId) != expected) return@synchronized false
-            check(file(expected.origin.sessionId).delete()) { "PTY journal removal failed" }
+            check(
+                PtyStateFiles.removeMetadata(
+                    directory,
+                    file(expected.origin.sessionId).name,
+                    PtySessionRecordCodec.encode(expected),
+                ),
+            ) {
+                "PTY journal removal failed"
+            }
             true
         }
 
     private fun readLocked(id: String): PtySessionRecord? {
         check(!directory.exists() || directory.isDirectory) { "PTY journal unavailable" }
-        val file = file(id)
+        val primary = file(id)
+        val reclaim = File(directory, primary.name + ".reclaim")
+        val file = if (primary.exists()) primary else reclaim
         if (!file.exists()) return null
         check(
-            file.isFile && file.length() in 1..PtySessionRecordCodec.MAX_BYTES.toLong(),
+            java.nio.file.Files
+                .isRegularFile(file.toPath(), java.nio.file.LinkOption.NOFOLLOW_LINKS) &&
+                file.length() in 1..PtySessionRecordCodec.MAX_BYTES.toLong(),
         ) { "Invalid PTY journal size" }
         // Recheck the read bound, not just the earlier stat, before allocating/decoding.
         val bytes =
-            FileInputStream(file).use { input ->
+            java.nio.file.Files.newInputStream(file.toPath(), java.nio.file.LinkOption.NOFOLLOW_LINKS).use { input ->
                 val buffer = ByteArray(PtySessionRecordCodec.MAX_BYTES + 1)
                 var count = 0
                 while (count < buffer.size) {
@@ -91,7 +102,10 @@ class PtySessionStore(
         return PtySessionRecordCodec
             .decode(
                 bytes,
-            ).also { check(it.origin.sessionId == id) { "Wrong PTY journal identity" } }
+            ).also {
+                check(it.origin.sessionId == id) { "Wrong PTY journal identity" }
+                if (file == reclaim) check(it.reconciled && it.stopProof != null) { "Unproven reclamation receipt" }
+            }
     }
 
     private fun validateUpdate(

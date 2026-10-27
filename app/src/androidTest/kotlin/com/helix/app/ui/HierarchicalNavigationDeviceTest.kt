@@ -3,6 +3,7 @@ package com.helix.app.ui
 import android.view.KeyEvent
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotDisplayed
+import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.isDisplayed
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
@@ -11,6 +12,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeRight
 import androidx.test.platform.app.InstrumentationRegistry
@@ -39,24 +41,35 @@ class HierarchicalNavigationDeviceTest {
                 .onRoot()
                 .getUnclippedBoundsInRoot()
                 .let { (it.right - it.left).value }
-        org.junit.Assert.assertEquals((screen * 0.88f).coerceAtMost(360f), width, 1f)
+        org.junit.Assert.assertEquals((screen * 0.86f).coerceAtMost(330f), width, 1f)
         compose.onNodeWithTag("drawer-search-conversations").assertDoesNotExist()
     }
 
-    @Test fun providerBackReturnsDirectlyToPreviousDestination() {
+    @Test fun drawerSectionSwitchDoesNotAccumulatePreviousSections() {
         compose.navigateTo("settings")
         compose.navigateTo("models")
         compose.onNodeWithTag("provider-group-USER_CONFIGURED").performClick()
         compose.onNodeWithTag("provider-add").assertIsDisplayed()
         InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
+        compose.onNodeWithTag("chat-composer").assertIsDisplayed()
+    }
+
+    @Test fun drawerSectionSwitchPreservesComposerDraftWithoutSending() {
+        compose.onNodeWithTag("chat-input").performTextInput("navigation draft")
+        androidx.test.espresso.Espresso
+            .closeSoftKeyboard()
+        compose.navigateTo("models")
+        compose.navigateTo("settings")
         compose.onNodeWithTag("screen-settings").assertIsDisplayed()
+        InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
+        compose.onNodeWithTag("chat-input").assertTextContains("navigation draft", substring = true)
     }
 
     @Test fun headerBackHonorsInnerPermissionPageBeforePoppingRoute() {
         compose.navigateTo("settings/permissions")
         compose.onNodeWithTag("settings-system-permissions").performScrollTo().performClick()
         compose.waitUntil(10_000) { compose.onAllNodesWithTag("screen-permissions").fetchSemanticsNodes().isNotEmpty() }
-        if (compose.activity.packageName.endsWith(".developer")) {
+        if (com.helix.app.allfiles.AllFilesModule.AVAILABLE) {
             compose.onNodeWithTag("permission-files").performScrollTo().performClick()
             compose.onNodeWithTag("navigate-back").performClick()
             compose.onNodeWithTag("permission-files").performScrollTo().assertIsDisplayed()

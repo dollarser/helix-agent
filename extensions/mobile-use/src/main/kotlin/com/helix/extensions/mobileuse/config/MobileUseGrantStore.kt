@@ -13,6 +13,8 @@ data class MobileUseGrant(
     val shareScreens: Boolean,
 )
 
+class MobileUseConfigurationUnreadable : IllegalStateException("Mobile Use configuration requires reset")
+
 /** Only global plugin configuration is stored here. The host owns durable session selection. */
 class MobileUseGrantStore(
     private val read: (String) -> List<String>,
@@ -35,13 +37,22 @@ class MobileUseGrantStore(
     }
 
     @Synchronized
+    @Suppress("ThrowsCount") // Reject malformed fields without accepting a partial or broader grant.
     fun globalConfiguration(): MobileUseGrant? {
         if (failedWrite) return null
         return read(CONFIG_KEY).takeIf { it.isNotEmpty() }?.let { fields ->
-            check(fields.size == 3 && fields[0] == VERSION) { "Mobile Use configuration is unreadable" }
-            val scope = checkNotNull(UserScopeCodec.decode(fields[1]) as? AutomationSessionScope)
-            check(scope.grantId.isNotBlank() && scope.expiresAt == Instant.MAX && scope.maxActions == 0)
-            MobileUseGrant("plugin:mobile-use:global", scope, checkNotNull(fields[2].toBooleanStrictOrNull()))
+            if (fields.size != 3 || fields[0] != VERSION) throw MobileUseConfigurationUnreadable()
+            val scope =
+                UserScopeCodec.decode(fields[1]) as? AutomationSessionScope
+                    ?: throw MobileUseConfigurationUnreadable()
+            if (scope.grantId.isBlank() || scope.expiresAt != Instant.MAX || scope.maxActions != 0) {
+                throw MobileUseConfigurationUnreadable()
+            }
+            MobileUseGrant(
+                "plugin:mobile-use:global",
+                scope,
+                fields[2].toBooleanStrictOrNull() ?: throw MobileUseConfigurationUnreadable(),
+            )
         }
     }
 

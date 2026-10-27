@@ -40,5 +40,7 @@ internal class TerminalBootRecovery(
         check(binding.compareAndSet(owner, null)) { "Terminal binding changed" }
     }
 
+    fun forget(owner: ExecutionOwnership.Owner) = store.setLines(key(owner), emptyList())
+
     private fun key(owner: ExecutionOwnership.Owner) = "missing-terminal-${owner.executionId}-${owner.generation}"
 }

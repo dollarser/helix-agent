@@ -9,6 +9,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -22,16 +23,26 @@ import kotlinx.coroutines.withContext
 @Composable
 @Suppress("FunctionName", "LongMethod") // Native form and preview remain one screen; action handling is shared.
 fun SkillAuthoringSection(service: SkillAuthoringService) {
-    var opened by remember { mutableStateOf(false) }
-    var name by remember { mutableStateOf("") }
-    var description by remember { mutableStateOf("") }
-    var body by remember { mutableStateOf("") }
-    var manifest by remember { mutableStateOf<String?>(null) }
-    var expectedHash by remember { mutableStateOf<String?>(null) }
-    var path by remember { mutableStateOf("") }
+    var opened by rememberSaveable { mutableStateOf(false) }
+    var name by rememberSaveable { mutableStateOf("") }
+    var description by rememberSaveable { mutableStateOf("") }
+    var body by rememberSaveable { mutableStateOf("") }
+    var manifest by rememberSaveable { mutableStateOf<String?>(null) }
+    var expectedHash by rememberSaveable { mutableStateOf<String?>(null) }
+    var path by rememberSaveable { mutableStateOf("") }
     var result by remember { mutableStateOf("") }
     var diagnostic by remember { mutableStateOf<String?>(null) }
     val actions = rememberImportActionState()
+    var savedFields by rememberSaveable { mutableStateOf(listOf<String?>("", "", "", null, "", null)) }
+    val fields = listOf(name, description, body, manifest, path, expectedHash)
+    com.helix.app.ui.UnsavedNavigationGuard(fields != savedFields, actions.busy) {
+        name = savedFields[0].orEmpty()
+        description = savedFields[1].orEmpty()
+        body = savedFields[2].orEmpty()
+        manifest = savedFields[3]
+        path = savedFields[4].orEmpty()
+        expectedHash = savedFields[5]
+    }
 
     fun action(block: suspend () -> Unit) {
         actions.launch(onFailure = { failure ->
@@ -98,6 +109,7 @@ fun SkillAuthoringSection(service: SkillAuthoringService) {
                     val saved = withContext(Dispatchers.IO) { service.loadDraft(path) }
                     expectedHash = saved.contentHash
                     manifest = saved.manifest
+                    savedFields = listOf(name, description, body, manifest, path, expectedHash)
                     result = path
                 }
             }) { Text(stringResource(R.string.skill_creator_save)) }
@@ -119,6 +131,7 @@ fun SkillAuthoringSection(service: SkillAuthoringService) {
                     body = draft.body
                     expectedHash = draft.contentHash
                     manifest = draft.manifest
+                    savedFields = listOf(name, description, body, manifest, path, expectedHash)
                 }
             }) { Text(stringResource(R.string.skill_creator_load)) }
             OutlinedButton(

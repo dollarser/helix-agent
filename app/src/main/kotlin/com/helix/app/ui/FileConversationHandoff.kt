@@ -56,11 +56,14 @@ internal fun FileConversationActions(
     val context = LocalContext.current
     val chatScreen by handoff.chat.screen.collectAsState()
     val scope = rememberCoroutineScope()
+    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
     var busy by remember(path) { mutableStateOf(false) }
     var failed by remember(path) { mutableStateOf(false) }
 
     fun attach(newConversation: Boolean) {
+        if (busy) return
         val expected = handoff.chat.screen.value.openSessionId
+        val completion = lifecycle.navigationCompletion { handoff.chat.screen.value.openSessionId == expected }
         busy = true
         failed = false
         scope.launch {
@@ -76,12 +79,13 @@ internal fun FileConversationActions(
                                 path.name,
                             ).toString()
                     }
-                failed = !handoff.attach(uri, expected, newConversation)
+                completion.complete { failed = !handoff.attach(uri, expected, newConversation) }
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: Exception) {
                 failed = true
             } finally {
+                completion.invalidate()
                 busy = false
             }
         }
@@ -107,6 +111,7 @@ internal fun FileDirectoryTask(
     handoff: FileConversationHandoff,
 ) {
     val scope = rememberCoroutineScope()
+    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
     var busy by remember { mutableStateOf(false) }
     var failed by remember(state.selectedScopeId, state.currentPath) { mutableStateOf(false) }
     // Manual phone/root browsing is not an Agent scope. The session binder revalidates

@@ -21,12 +21,13 @@ class TerminalEntryDeviceTest {
             assertEquals(4, model.state.value.maxSessions)
             model.open(".")
             assertEquals(4, terminal.starts)
-            assertEquals("CAPACITY_FULL", model.state.value.errorMessage)
-            model.settle()
-            assertEquals(3, terminal.retained.size)
+            assertTrue(model.state.value.capacityRejected)
+            model.closeSession()
+            assertEquals(3, terminal.retained.count { !it.canSettle })
             model.open(".")
             assertEquals(5, terminal.starts)
-            assertEquals(4, terminal.retained.size)
+            assertEquals(4, terminal.retained.count { !it.canSettle })
+            assertEquals(4, model.state.value.sessions.size)
             assertNull(model.state.value.errorMessage)
             model.disconnect()
         }
@@ -119,27 +120,28 @@ class TerminalEntryDeviceTest {
                 assertTrue(terminal.attached.none { it == "old" })
                 assertEquals(1, terminal.starts)
                 assertFalse(model.state.value.failed)
-                assertNull(model.state.value.connection)
+                assertTrue(model.state.value.connection != null)
                 model.disconnect()
             }
         }
 
-    @Test fun closingReplacedTerminalsAllowsExplicitNewStartWithoutReplayingOldCommands() =
+    @Test fun stoppedIdentitiesCannotBeSelectedOrReusedForANewShell() =
         onMain {
             val terminal = FakeTerminal(state("old1", "UNKNOWN", true))
-            terminal.retained.add(state("old2", "UNKNOWN", true))
+            terminal.retained.add(state("old2", "STOPPED", true))
             val model = ManualTerminalViewModel(terminal)
             model.enter(".")
-            assertEquals("s1", model.state.value.activeSessionId)
             model.switchSession("old1")
-            model.settle()
-            assertEquals("old2", model.state.value.activeSessionId)
-            assertFalse(model.state.value.failed)
-            assertEquals(listOf("s1"), terminal.attached)
+            assertEquals("s1", model.state.value.activeSessionId)
+            assertEquals(
+                listOf("s1"),
+                model.state.value.sessions
+                    .map { it.sessionId },
+            )
             model.open(".")
             assertEquals(2, terminal.starts)
             assertEquals(listOf("s1", "s2"), terminal.attached)
-            assertTrue(terminal.retained.none { it.sessionId == "old1" })
+            assertTrue(terminal.retained.any { it.sessionId == "old1" })
             model.disconnect()
         }
 
@@ -148,9 +150,13 @@ class TerminalEntryDeviceTest {
             val terminal = FakeTerminal(state("live"))
             val model = ManualTerminalViewModel(terminal)
             model.enter(".")
-            model.settle()
+            model.closeSession()
             assertEquals(1, terminal.stops)
-            assertTrue(terminal.retained.isEmpty())
+            assertTrue(terminal.retained.single().canSettle)
+            assertTrue(
+                model.state.value.sessions
+                    .isEmpty(),
+            )
             assertFalse(model.state.value.hasSession)
             assertFalse(model.state.value.failed)
             assertNull(model.state.value.connection)

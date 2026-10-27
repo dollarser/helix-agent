@@ -24,6 +24,7 @@ internal data class TerminalPageState(
     val busy: Boolean = false,
     val failed: Boolean = false,
     val errorMessage: String? = null,
+    val capacityRejected: Boolean = false,
     val maxSessions: Int = 2,
     val displayRevision: Int = 0,
 )
@@ -42,8 +43,8 @@ internal class ManualTerminalViewModel(
 
     init {
         action {
-            val all = terminal.sessions()
-            val active = all.firstOrNull()
+            val all = visibleSessions()
+            val active = all.preferredTerminal()
             mutable.value =
                 mutable.value.copy(
                     hasSession = all.isNotEmpty(),
@@ -56,12 +57,12 @@ internal class ManualTerminalViewModel(
 
     /** Enter the user-operated page. Never repeat an ambiguous automatic start on resume. */
     fun enter(directory: String) =
-        action {
+        action(com.helix.app.diagnostics.OperationFailureLog.Stage.TERMINAL_ENTER) {
             if (mutable.value.connection != null) return@action
             val mayStart = !initialEntryAttempted
             initialEntryAttempted = true
-            val all = terminal.sessions()
-            val active = all.find { it.sessionId == mutable.value.activeSessionId } ?: all.firstOrNull()
+            val all = visibleSessions()
+            val active = all.find { it.sessionId == mutable.value.activeSessionId } ?: all.preferredTerminal()
             mutable.value =
                 mutable.value.copy(
                     hasSession = all.isNotEmpty(),
@@ -83,11 +84,11 @@ internal class ManualTerminalViewModel(
 
     /** A null directory attaches the retained session; only an explicit directory starts one. */
     fun open(directoryToStart: String?) =
-        action {
+        action(com.helix.app.diagnostics.OperationFailureLog.Stage.TERMINAL_OPEN) {
             if (directoryToStart != null) {
                 connect(startSession(terminal, mutable, directoryToStart))
             } else {
-                val activeId = mutable.value.activeSessionId ?: terminal.sessions().firstOrNull()?.sessionId
+                val activeId = mutable.value.activeSessionId ?: visibleSessions().preferredTerminal()?.sessionId
                 if (activeId != null) {
                     connect(activeId)
                 }
@@ -97,58 +98,30 @@ internal class ManualTerminalViewModel(
     fun switchSession(sessionId: String) =
         action {
             if (mutable.value.activeSessionId == sessionId && mutable.value.connection != null) return@action
+            val all = visibleSessions()
+            val target = all.find { it.sessionId == sessionId } ?: return@action
             detachConnection(mutable)
-            val all = terminal.sessions()
-            val target = all.find { it.sessionId == sessionId } ?: terminal.query(sessionId)
-            mutable.value =
-                mutable.value.copy(
-                    activeSessionId = sessionId,
-                    session = target,
-                    sessions = all,
-                )
+            mutable.value = mutable.value.copy(activeSessionId = sessionId, session = target, sessions = all)
             connect(sessionId)
         }
 
-    fun refresh() =
-        action {
-            val all = terminal.sessions()
-            val activeId = mutable.value.activeSessionId
-            val currentSession =
-                if (activeId != null) {
-                    all.find { it.sessionId == activeId } ?: if (all.isNotEmpty()) terminal.query(activeId) else null
-                } else {
-                    all.firstOrNull()
-                }
-            mutable.value =
-                mutable.value.copy(
-                    hasSession = all.isNotEmpty(),
-                    sessions = all,
-                    activeSessionId = currentSession?.sessionId,
-                    session = currentSession,
-                )
-            if (currentSession?.phase == "UNKNOWN") detachConnection(mutable)
-        }
+    fun refresh() = action { refreshVisibleSessions() }
 
     fun stop(sessionId: String? = null) =
         action {
             val targetId = sessionId ?: mutable.value.activeSessionId
             if (targetId != null) {
                 val stopped = terminal.stop(targetId)
-                val all = terminal.sessions()
-                mutable.value =
-                    mutable.value.copy(
-                        sessions = all,
-                        session = if (mutable.value.activeSessionId == targetId) stopped else mutable.value.session,
-                    )
+                refreshVisibleSessions(stopped)
             }
         }
 
-    fun settle(sessionId: String? = mutable.value.activeSessionId) =
+    fun closeSession(sessionId: String? = mutable.value.activeSessionId) =
         action {
             val targetId = sessionId
             if (targetId != null) {
                 var observed = terminal.query(targetId)
-                if (!observed.canSettle) {
+                if (!observed.canSettle && observed.phase != "UNKNOWN") {
                     observed = terminal.stop(targetId)
                     val deadline = System.nanoTime() + CLOSE_WAIT_NANOS
                     while (!observed.canSettle && observed.phase != "UNKNOWN" && System.nanoTime() < deadline) {
@@ -156,31 +129,26 @@ internal class ManualTerminalViewModel(
                         observed = terminal.query(targetId)
                     }
                 }
-                if (!observed.canSettle) {
-                    mutable.value = mutable.value.copy(session = observed, errorMessage = "CLOSE_UNCONFIRMED")
+                if (!observed.canSettle && observed.phase != "UNKNOWN") {
+                    mutable.value =
+                        mutable.value.copy(
+                            session =
+                                if (mutable.value.activeSessionId == targetId) observed else mutable.value.session,
+                            errorMessage = "CLOSE_UNCONFIRMED",
+                        )
                     return@action
                 }
-                if (mutable.value.activeSessionId == targetId) {
-                    detachConnection(mutable)
-                }
-                terminal.settle(targetId)
-                val remaining = terminal.sessions()
-                val nextActive = remaining.firstOrNull()
-                mutable.value =
-                    mutable.value.copy(
-                        hasSession = remaining.isNotEmpty(),
-                        sessions = remaining,
-                        activeSessionId = nextActive?.sessionId,
-                        session = nextActive,
-                        errorMessage = null,
-                    )
-                if (nextActive != null && mutable.value.connection == null) {
-                    connect(nextActive.sessionId)
-                }
+                // Closing the UI is not deletion of retained Runtime facts or Agent audit.
+                refreshVisibleSessions(observed)
+                mutable.value = mutable.value.copy(errorMessage = null)
             }
         }
 
     /** Local presentation only: no shell input, ownership release, or audit/history mutation. */
+    fun dismissCapacityNotice() {
+        mutable.value = mutable.value.copy(capacityRejected = false)
+    }
+
     fun clearDisplay() {
         mutable.value = mutable.value.copy(displayRevision = mutable.value.displayRevision + 1)
     }
@@ -198,13 +166,7 @@ internal class ManualTerminalViewModel(
                     if (mutable.value.connection === connection) {
                         val currentId = mutable.value.activeSessionId
                         val updated = if (currentId != null) terminal.query(currentId) else terminal.query()
-                        val all = terminal.sessions()
-                        mutable.value =
-                            mutable.value.copy(
-                                session = updated,
-                                sessions = all,
-                            )
-                        if (updated.phase == "UNKNOWN") detachConnection(mutable)
+                        refreshVisibleSessions(updated)
                     }
                 }
             }
@@ -215,10 +177,58 @@ internal class ManualTerminalViewModel(
         }
     }
 
+    private suspend fun visibleSessions(): List<ManualTerminal.State> = terminal.sessions().filter { it.canConnect }
+
+    private suspend fun refreshVisibleSessions(observed: ManualTerminal.State? = null) {
+        if (observed != null && !observed.canConnect) {
+            presentSessions(
+                mutable.value.sessions.filter { it.sessionId != observed.sessionId && it.canConnect },
+                false,
+            )
+        }
+        val all =
+            visibleSessions()
+                .map { if (observed != null && it.sessionId == observed.sessionId) observed else it }
+                .filter { it.canConnect }
+        presentSessions(all)
+    }
+
+    @Suppress("TooGenericExceptionCaught") // A closed transport cannot resurrect a proven-ended UI tab.
+    private suspend fun presentSessions(all: List<ManualTerminal.State>, attach: Boolean = true) {
+        val old = mutable.value
+        val selected = all.find { it.sessionId == old.activeSessionId } ?: all.preferredTerminal()
+        val disconnect =
+            old.connection != null &&
+                (selected?.sessionId != old.activeSessionId || selected?.canConnect != true)
+        mutable.value =
+            mutable.value.copy(
+                hasSession = all.isNotEmpty(),
+                sessions = all,
+                activeSessionId = selected?.sessionId,
+                session = selected,
+                connection = if (disconnect) null else old.connection,
+            )
+        if (disconnect) {
+            try {
+                old.connection?.detach()
+            } catch (cancel: CancellationException) {
+                throw cancel
+            } catch (_: Exception) {
+                mutable.value = mutable.value.copy(errorMessage = "OLD_CONNECTION_UNCONFIRMED")
+            }
+        }
+        if (attach && selected?.canConnect == true && mutable.value.connection == null) connect(selected.sessionId)
+        terminal.reclaim()
+    }
+
     private suspend fun connect(sessionId: String? = null) {
         if (mutable.value.connection != null) return
         val targetId = sessionId ?: mutable.value.activeSessionId
         val queryState = if (targetId != null) terminal.query(targetId) else terminal.query()
+        if (queryState.canSettle) {
+            refreshVisibleSessions(queryState)
+            return
+        }
         mutable.value =
             mutable.value.copy(
                 session = queryState,
@@ -226,28 +236,46 @@ internal class ManualTerminalViewModel(
                 sessions = listOf(queryState) + mutable.value.sessions.filter { it.sessionId != queryState.sessionId },
                 activeSessionId = queryState.sessionId,
             )
-        if (!queryState.canConnect) return
-        val connection = if (targetId != null) terminal.attach(targetId) else terminal.attach()
-        // No suspension between acquiring the connection and assigning its owner.
-        mutable.value =
-            mutable.value.copy(
-                connection = connection,
-                isWriter = connection.isWriter,
-            )
+        if (queryState.canConnect) {
+            val connection = if (targetId != null) terminal.attach(targetId) else terminal.attach()
+            // No suspension between acquiring the connection and assigning its owner.
+            mutable.value =
+                mutable.value.copy(
+                    connection = connection,
+                    isWriter = connection.isWriter,
+                )
+        }
     }
 
     @Suppress("TooGenericExceptionCaught") // Surface failure; never retry ambiguous input or start.
-    private fun action(block: suspend () -> Unit) {
+    private fun action(
+        stage: com.helix.app.diagnostics.OperationFailureLog.Stage =
+            com.helix.app.diagnostics.OperationFailureLog.Stage.TERMINAL_CONTROL,
+        block: suspend () -> Unit,
+    ) {
         (actionScope ?: viewModelScope).launch {
             mutex.withLock {
-                mutable.value = mutable.value.copy(busy = true, failed = false, errorMessage = null)
+                mutable.value =
+                    mutable.value.copy(busy = true, failed = false, errorMessage = null, capacityRejected = false)
                 try {
                     block()
                 } catch (cancelled: CancellationException) {
                     throw cancelled
+                } catch (failure: com.helix.app.proot.ExecutionControlUnreadable) {
+                    com.helix.app.diagnostics.OperationFailureLog
+                        .record(stage, failure)
+                    mutable.value = mutable.value.copy(errorMessage = "OLD_STATE_INCOMPATIBLE")
                 } catch (failure: Exception) {
+                    com.helix.app.diagnostics.OperationFailureLog
+                        .record(stage, failure)
                     mutable.value =
-                        if (failure.message in setOf("CAPACITY_FULL", "SHELL_START_FAILED", "SHELL_START_TIMEOUT")) {
+                        if (failure.message == "CAPACITY_FULL") {
+                            // START admission refused before a new session exists. Keep selection and viewport intact.
+                            mutable.value.copy(capacityRejected = true)
+                        } else if (failure.message in
+                            setOf("SHELL_START_FAILED", "SHELL_START_TIMEOUT") ||
+                            failure.message in com.helix.runtime.proot.ipc.PtySessionProtocol.START_REFUSALS
+                        ) {
                             mutable.value.copy(errorMessage = failure.message)
                         } else {
                             mutable.value.copy(failed = true)

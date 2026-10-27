@@ -17,6 +17,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -55,14 +56,15 @@ internal fun ProviderContextEditor(
     onDismiss: () -> Unit,
     initialModel: String = row.model,
 ) {
-    var model by remember(row.id, initialModel) { mutableStateOf(initialModel) }
+    var model by rememberSaveable(row.id, initialModel) { mutableStateOf(initialModel) }
     var modelMenu by remember { mutableStateOf(false) }
     var settings by remember(row.id, model) { mutableStateOf(ProviderContextSettings()) }
-    var window by remember(row.id, model) { mutableStateOf(ProviderContextSettings.DEFAULT_WINDOW.toString()) }
-    var ratio by remember(row.id, model) { mutableStateOf("80") }
-    var automaticWindow by remember(row.id, model) { mutableStateOf(true) }
+    var window by rememberSaveable(row.id, model) { mutableStateOf(ProviderContextSettings.DEFAULT_WINDOW.toString()) }
+    var ratio by rememberSaveable(row.id, model) { mutableStateOf("80") }
+    var automaticWindow by rememberSaveable(row.id, model) { mutableStateOf(true) }
     var loading by remember(row.id, model) { mutableStateOf(true) }
     var loaded by remember(row.id, model) { mutableStateOf(false) }
+    var initialized by rememberSaveable(row.id, model) { mutableStateOf(false) }
     var saving by remember { mutableStateOf(false) }
     var saveFailed by remember(row.id, model) { mutableStateOf(false) }
     var retry by remember { mutableStateOf(0) }
@@ -81,9 +83,12 @@ internal fun ProviderContextEditor(
             if (!loaded) {
                 val stored = load(model)
                 settings = stored
-                automaticWindow = stored.manualWindow == null
-                window = (stored.manualWindow ?: stored.window).toString()
-                ratio = stored.triggerPercent.toString()
+                if (!initialized) {
+                    automaticWindow = stored.manualWindow == null
+                    window = (stored.manualWindow ?: stored.window).toString()
+                    ratio = stored.triggerPercent.toString()
+                    initialized = true
+                }
                 loaded = true
             }
             settings = settings.copy(serverWindow = discover(model).serverWindow)
@@ -100,7 +105,7 @@ internal fun ProviderContextEditor(
     val parsedWindow = window.toLongOrNull()
     val parsedRatio = ratio.toIntOrNull()
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { if (!saving) onDismiss() },
         title = { Text(stringResource(R.string.chat_context_title)) },
         text = {
             Column(Modifier.indicatedVerticalScroll(rememberScrollState())) {
@@ -221,7 +226,7 @@ internal fun ProviderContextEditor(
             ) { Text(stringResource(if (saving) R.string.provider_save_saving else R.string.context_save)) }
         },
         dismissButton = {
-            TextButton(onDismiss, Modifier.testTag("provider-context-close")) {
+            TextButton(onDismiss, Modifier.testTag("provider-context-close"), enabled = !saving) {
                 Text(stringResource(R.string.chat_context_close))
             }
         },

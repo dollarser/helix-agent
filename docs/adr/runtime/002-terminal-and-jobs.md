@@ -102,6 +102,8 @@ HXA-288 不把 PTY/持久进程生命周期绑定到单次工具调用，也不�
 
 ## Decision history
 
+- 2026-10-27：PLC110 覆盖安装后实测，运行制品字节未变，仅 URL/来源元数据更新却触发 `UPDATE_REQUIRED`。安装可用性按 schema、ABI、组件集合、版本、大小、哈希及包清单判定；来源与许可仍保留在原安装凭据及当前随包说明中，不改写旧凭据，不因来源说明变化重装环境。实际文件检查和制品变化更新要求保留。旧内部格式残留用经验证的一次性外部转换处理，不添加 App 兼容读取链；后续所有者批准统一旧状态重置：启动只检测，明确确认后处理主库与不兼容插件/终端控制文件；确认前再次核实运行进程与文件身份，无法证明旧执行退出时保留记录并要求重启核查，不删除 Linux 环境或共享内容。实现与设备验收分别记录，不以检测页出现代替实际重置验证。
+
 - 2026-10-22：将产物发布说明明确限定到显式 snapshot，原位模式仍只登记原文件引用；移除正文中过时的“设备验收仍待”状态，以当前有界证据表达范围，不改变执行和授权契约。
 
 - 2026-10-21：Owner 进一步明确默认真实工作区原位执行，取消 Job 默认工作副本与文件回传。按现有私有 PRoot 进程、目录解析和身份验证接线，保留显式快照；新增原路径产物登记及日志/元数据传输。协议版本随两端同步升级，不以主机编译冒充设备验收，不新增 SAF POSIX 仿真或自动写回。
@@ -160,3 +162,27 @@ HXA-288 不把 PTY/持久进程生命周期绑定到单次工具调用，也不�
 - 2026-10-21：Owner 授权补齐失败终态日志。已有归档与原 Job 证据路径支持失败/取消的有捕获终态，只登记内部证据，不把失败输出发布为成功文件；同会话 `code.linux.job.read_log` 复用既有实时日志分页与持久归档，读取不启动/重放/ACK，预览 EOF 与业务终态分开。关键词全局搜索不在本轮。
 
 - 2026-10-26：Owner 多次报告手动终端无法打开，要求旧结果任何状态均不阻止新建。移除 UI 历史计数门禁、宿主固定槽与启动前旧状态清理依赖、Runtime 历史活跃计数及后台 Job 恢复前置。原身份和未知事实保留，物理容量仍由实际 Runtime 控制。删除无效的“刷新／停止并重置全部”恢复入口；保留所选终端关闭、重连和运行环境维护。失败后的单一新建入口使用新身份并核实实际 Shell 提示符；不强杀旧终端或自动清 Linux 数据。PLC110 当前未连接，真机根因及有效恢复仍须日志和实测，模拟器结果不外推。
+
+- 2026-10-27：Owner 明确手动终端不展示已停止历史。确认物理退出（`canSettle`）后关闭对应 UI 页／列表项；优先切回仍运行的终端，没有可用项则显示新建入口，不自动创建。STOPPING 与未确认的 UNKNOWN 保留原身份，不能靠隐藏冒充进程退出。此展示关闭不自动 ACK／删除 Runtime 记录，不删除 Agent 执行审计或工作区；必要生命周期事实留在原存储。新建使用独立 identity／PTY／shell，持久显示编号继续递增，仅工作目录可共用。所选“停止并关闭”仍需确认实际退出；返回界面不终止运行 shell。此前有关已停止历史页及 UI 关闭自动结算的描述不再作为当前交互。
+
+### 2026-10-27 — Four reusable manual windows
+
+Owner revised the earlier monotonic display numbering decision. Manual terminal names are reusable slots 1–4, independent of execution UUID/generation and PTY/process identity. Closing or confirmed exit releases the display slot; assigning the same number never attaches an earlier execution. The existing runtime atomic physical admission remains authoritative, including cancellation and process-exit accounting.
+
+The manual window list is not an execution-history viewer. A retained host identity without a recoverable runtime PTY is not presented as an unusable UNKNOWN window; the identity and original outcome remain private control facts. Known starting/running/stopping sessions retain their slot while physically active. Explicit close stops the exact known session; losing its runtime record permits detaching the unusable window, not declaring exit proof or killing a guessed PID. No database reset, compatibility reader, or identity deletion is required. Workspace deletion and reconciliation continue to use retained control facts rather than the window list.
+
+### 2026-10-27 — Reclaim proven-ended manual terminal state
+
+Manual windows are transient command surfaces, not permanent result archives. Reclaim only the exact manual owner whose Runtime proves process-tree exit, never-started, reboot, or package replacement. Missing PID, elapsed time, display number and UNKNOWN alone do not authorize deletion. Existing reboot evidence can settle a missing journal; unproven identities remain private and do not become dead windows.
+
+When views detach or manual sessions are refreshed, persist a short retry entry, acknowledge the original stopped identity with no remaining writer or observer views, release exact host ownership, remove the session's temporary tree and journal, and remove the empty owner file and retry entry. Keep acknowledgement until host settlement; a failed or interrupted step retries idempotently. A deterministic metadata quarantine resumes interrupted deletion without accepting a new generation. Read-only views have their own detach/death tokens without input rights. Existing explicit settlement remains distinct from automatic, reader-aware reclamation.
+
+Deletion uses fd-relative no-follow operations in the existing private Runtime native library; host tests compile that same source on macOS/Linux. It is limited to `terminal-sessions/<id>.pty`, its reclamation staging file, the matching empty manual owner, and `runtime/inst_*/tmp/pty-<id>` for that proven identity. Preserve workspaces, shared documents, shell home/history, runtime installations and all Agent Job results/audit. No broad temporary-directory sweep, process kill, migration or additional user controls. Reclamation failures are internal logs, not a failed new-window admission.
+
+### 2026-10-27 — Agent outstanding-result budget and transient cleanup
+
+Separate physical execution capacity, outstanding execution/results and short-lived reconciliation receipts. The existing 128-entry/1 MiB outstanding budget includes pending/running jobs, unresolved ORPHANED outcomes and unread unexpired results. Collected receipts and evidence-expired markers retain identity without consuming that budget; do not raise physical or journal limits to compensate for history. Collected receipts expire after seven days; uncollected evidence expires after thirty days, followed by a seven-day expired-identity window. Unknown outcomes and physically running executions are not age-evicted.
+
+After actual process exit, remove only launch scratch (`input.zip`, `tmp`, `proc.txt`, interrupted record staging); keep output archives and execution identity until collection/retention permits removal. Restart admission retries eligible cleanup. Complete payload removal before stamping reconciliation or expiry; failures retain retryable facts and are logged internally. Result descriptor acquisition shares the journal lock with cleanup; an already-open descriptor remains readable after unlink. This does not remove host-persisted results, Room audit, workspaces or shell history, replay commands, or treat PID absence as exit proof. ORPHANED acknowledgement cannot authorize payload deletion.
+
+- 2026-10-27 device refinement: a capacity-refused manual start can leave an empty control header without an execution identity. Entry/reclamation removes only that exact empty header, including its interrupted native quarantine; an occupied or changed identity remains untouched. This is transient allocation cleanup, not deletion of execution audit or a new compatibility path.

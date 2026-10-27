@@ -18,16 +18,23 @@ class SkillAuthoringService(
 ) {
     private val source = WorkspaceImportSource(store, temporaryRoot)
 
-    fun importArchive(input: java.io.InputStream): String {
+    fun importArchive(
+        input: java.io.InputStream,
+        cancelled: () -> Boolean = { false },
+    ): String {
         val output = java.io.ByteArrayOutputStream()
         val buffer = ByteArray(8192)
         while (true) {
+            com.helix.app.files.ImportFileCapture
+                .checkCancellation(cancelled)
             val count = input.read(buffer)
             if (count < 0) break
             require(output.size().toLong() + count <= 16L * 1024 * 1024) { "SKILL_ARCHIVE_TOO_LARGE" }
             output.write(buffer, 0, count)
         }
         val path = FileScopePath("app", "input/skill-${java.util.UUID.randomUUID()}.zip")
+        com.helix.app.files.ImportFileCapture
+            .checkCancellation(cancelled)
         store.writeArtifact(path, output.toByteArray(), "input")
         return path.toModelReference()
     }

@@ -45,10 +45,13 @@ internal fun ProjectDetailScreen(
         return
     }
     val members = memberships.filter { it.projectId == id }.map { it.sessionId }.toSet()
-    var tab by remember(id) { mutableStateOf(0) }
-    var editing by remember(id) { mutableStateOf(false) }
+    var tab by androidx.compose.runtime.saveable
+        .rememberSaveable(id) { mutableStateOf(0) }
+    var editing by androidx.compose.runtime.saveable
+        .rememberSaveable(id) { mutableStateOf(false) }
     var deleting by remember(id) { mutableStateOf(false) }
-    var memoryOpen by remember(id) { mutableStateOf(false) }
+    var memoryOpen by androidx.compose.runtime.saveable
+        .rememberSaveable(id) { mutableStateOf(false) }
     val actions = rememberProjectActions()
     val chat by container.chatService.screen.collectAsStateWithLifecycle()
     Column(Modifier.fillMaxSize().testTag("screen-project-detail")) {

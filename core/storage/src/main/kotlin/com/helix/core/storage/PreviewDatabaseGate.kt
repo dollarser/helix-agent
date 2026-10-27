@@ -13,9 +13,12 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 /** A single foreground confirmation; neither opening the database nor restarting grants consent. */
 class PreviewDatabaseResetRequired(
+    private val verify: () -> Unit = {},
     private val reset: (() -> Unit) -> Unit,
 ) : IllegalStateException("The previous preview database requires user-confirmed reset") {
     private val consumed = AtomicBoolean()
+
+    fun verifyUnchanged() = verify()
 
     fun confirm(beforeDelete: () -> Unit = {}) {
         check(consumed.compareAndSet(false, true)) { "Database reset confirmation was already consumed" }
@@ -37,7 +40,14 @@ internal object PreviewDatabaseGate {
         val schema = readSchema(file)
         if (schema == expectedSchema(context)) return@synchronized
         val observed = files(file)
-        throw PreviewDatabaseResetRequired { beforeDelete ->
+        val verify = {
+            synchronized(lock) {
+                check(readSchema(file) == schema && files(file) == observed) {
+                    "Database changed since the reset warning; reopen Helix"
+                }
+            }
+        }
+        throw PreviewDatabaseResetRequired(verify) { beforeDelete ->
             synchronized(lock) {
                 check(readSchema(file) == schema && files(file) == observed) {
                     "Database changed since the reset warning; reopen Helix"

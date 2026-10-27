@@ -1,5 +1,5 @@
 <resources>
     <string name="terminal_clear_display">清空当前显示</string>
-    <string name="terminal_stop_close">停止并关闭终端</string>
-    <string name="terminal_stop_close_body">将停止这个终端中的命令；确认进程结束后移除会话入口。不会重发命令或删除工作区文件。原执行记录不会改写为成功；无法确认停止时保留原身份。</string>
+    <string name="terminal_stop_close">关闭终端</string>
+    <string name="terminal_stop_close_body">停止此窗口中的命令，保留工作区文件。</string>
 </resources>

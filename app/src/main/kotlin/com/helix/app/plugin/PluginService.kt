@@ -54,23 +54,27 @@ class PluginService(
         skills.setEnabled(key, selected, com.helix.extensions.skills.SkillEnablementScope.SESSION, sessionId)
     }
 
-    fun preview(uri: Uri): PluginPackage {
-        val bytes = captureImport(uri)
-        if (bytes.firstOrNull() == 'P'.code.toByte() && bytes.getOrNull(1) == 'K'.code.toByte()) {
-            val temporary = Files.createTempFile(context.cacheDir.toPath(), "connector-", ".zip")
-            try {
-                Files.write(temporary, bytes)
-                return reader.readZip(temporary)
-            } finally {
-                Files.deleteIfExists(temporary)
-            }
-        }
-        return reader.readJson(bytes)
-    }
+    fun preview(
+        uri: Uri,
+        cancelled: () -> Boolean = { false },
+    ): PluginPackage = previewBytes(captureImport(uri, cancelled))
 
-    fun captureImport(uri: Uri): ByteArray =
+    fun previewFile(
+        files: com.helix.app.files.FileManagerService,
+        path: com.helix.core.workspace.FileScopePath,
+        cancelled: () -> Boolean = { false },
+    ): PluginPackage = previewBytes(files.captureImport(path, PluginPackageReader.MAX_BYTES.toLong(), cancelled))
+
+    private fun previewBytes(bytes: ByteArray): PluginPackage =
+        previewPluginInput(bytes, context.cacheDir.toPath(), reader)
+
+    fun captureImport(
+        uri: Uri,
+        cancelled: () -> Boolean = { false },
+    ): ByteArray =
         context.contentResolver.openInputStream(uri).use { input ->
-            PluginPackageReader.readBounded(requireNotNull(input), PluginPackageReader.MAX_BYTES)
+            com.helix.app.files.ImportFileCapture
+                .read(requireNotNull(input), PluginPackageReader.MAX_BYTES.toLong(), cancelled)
         }
 
     @Synchronized

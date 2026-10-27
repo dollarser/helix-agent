@@ -25,7 +25,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @Composable
-@Suppress("FunctionName")
+@Suppress("FunctionName", "LongParameterList") // Explicit route capabilities; selection never grants access.
 fun FilesScreen(
     fileManager: FileManagerService,
     safTree: SafTreeScopeService,
@@ -34,6 +34,7 @@ fun FilesScreen(
     initialDirectory: com.helix.core.workspace.FileScopePath? = null,
     handoff: FileConversationHandoff? = null,
     initialFile: com.helix.core.workspace.FileScopePath? = null,
+    onPickFile: ((com.helix.core.workspace.FileScopePath) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -42,6 +43,10 @@ fun FilesScreen(
     val openSharedStorage = rememberSharedStorageNavigation(state, fileManager)
     val actions = FilesScreenActions(state, fileManager, safTree, featureFiles, scope, context, resources)
     BackHandler(enabled = !state.homeOpen) { state.goBack() }
+    if (onPickFile != null) {
+        FilesSelectionEffects(state, actions, onPickFile)
+        return
+    }
     with(actions) {
         with(state) {
             val treePicker =
@@ -133,7 +138,12 @@ private fun rememberFilesScreenState(
     initialFile: com.helix.core.workspace.FileScopePath?,
 ): FilesScreenState {
     val state =
-        remember(fileManager, initialDirectory, initialFile) {
+        androidx.compose.runtime.saveable.rememberSaveable(
+            fileManager,
+            initialDirectory,
+            initialFile,
+            saver = filesNavigationSaver(fileManager),
+        ) {
             FilesScreenState(fileManager).apply {
                 initialDirectory?.let {
                     selectedScopeId = it.scopeId
@@ -146,4 +156,16 @@ private fun rememberFilesScreenState(
             }
         }
     return state
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun FilesSelectionEffects(
+    state: FilesScreenState,
+    actions: FilesScreenActions,
+    selected: (com.helix.core.workspace.FileScopePath) -> Unit,
+) {
+    FilesScopeEffects(state, actions)
+    FilesDirectoryEffects(state, actions)
+    FilesSelectionLayout(state, actions, selected)
 }

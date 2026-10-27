@@ -7,7 +7,7 @@
     <string name="plugin_import_unsafe_archive">压缩包包含不安全或重复的文件路径。请重新获取有效插件包。</string>
     <string name="plugin_import_access">无法访问所选文件。请重新选择文件并允许读取。</string>
     <string name="plugin_import_storage">文件读取或写入失败。请检查文件是否可读及可用存储，然后重试。</string>
-    <string name="plugin_import_failed">未能完成导入。请重新选择文件并预览；若仍失败，可导出诊断。</string>
+    <string name="plugin_import_failed">未能完成导入，请重新选择文件后重试。</string>
     <string name="plugin_import_connection_hint">连接需单独检查或登录；安装不会连接账号。</string>
     <string name="plugin_import_limited">%1$d 项组件或依赖无法自动使用，详见支持情况。</string>
     <string name="plugin_import_version_unknown">未注明版本</string>

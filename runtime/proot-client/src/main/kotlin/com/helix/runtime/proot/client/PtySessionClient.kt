@@ -85,7 +85,7 @@ class PtySessionClient(
         write: (Parcel) -> Unit = {},
     ): PtySessionReply {
         worker()
-        require(code in PtySessionProtocol.START..PtySessionProtocol.ACK)
+        require(code in PtySessionProtocol.START..PtySessionProtocol.RECLAIM)
         val binder = checkNotNull(endpoint) { "Manual terminal disconnected; query original session" }
         val data = Parcel.obtain()
         val reply = Parcel.obtain()

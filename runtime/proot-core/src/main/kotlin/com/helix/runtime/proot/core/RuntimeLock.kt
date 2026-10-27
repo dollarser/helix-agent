@@ -33,6 +33,15 @@ data class RuntimeLock(
 
     /** The locked component with [id], or null (lookup, not a parse path). */
     fun component(id: String): RuntimeComponent? = components.firstOrNull { it.id == id }
+
+    /** Execution compatibility is pinned artifacts, not their download/provenance metadata. */
+    internal fun sameInstalledArtifacts(other: RuntimeLock): Boolean =
+        lockVersion == other.lockVersion && abi == other.abi && components.size == other.components.size &&
+            components.all { component ->
+                val bundled = other.component(component.id)
+                bundled != null &&
+                    component.copy(url = bundled.url, source = bundled.source, license = bundled.license) == bundled
+            }
 }
 
 /**

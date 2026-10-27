@@ -10,6 +10,30 @@ import com.helix.extensions.plugin.PluginRegistry
 
 /** Flavor-local adapter for plugin configuration and device grants; conversation selection lives in the catalog. */
 internal object AutomationModule {
+    fun isConfigurationResetRequired(error: Exception): Boolean =
+        error is com.helix.extensions.mobileuse.config.MobileUseConfigurationUnreadable
+
+    fun previewConfiguration(context: Context): com.helix.app.maintenance.PreviewConfigurationAccess {
+        val lines =
+            com.helix.app.internal
+                .PrefsLineStore(context, "helix-mobile-use", synchronous = true)
+        val store = MobileUseGrantStore(lines::lines, { _, _ -> error("Read-only inspection") }, { null })
+        return com.helix.app.maintenance.PreviewConfigurationAccess(
+            { lines.lines(MobileUseGrantStore.CONFIG_KEY) },
+            {
+                try {
+                    store.globalConfiguration()
+                    true
+                } catch (
+                    _: com.helix.extensions.mobileuse.config.MobileUseConfigurationUnreadable,
+                ) {
+                    false
+                }
+            },
+            { lines.setLines(MobileUseGrantStore.CONFIG_KEY, emptyList()) },
+        )
+    }
+
     private var appContext: Context? = null
     private var runtime: MobileUsePlugin? = null
     private var settingsStore: MobileUseGrantStore? = null
@@ -93,8 +117,6 @@ internal object AutomationModule {
     ) {
         val context = appContext ?: return
         val store = settingsStore ?: return
-        MobileUseSettings(context, store, backendStatus = {
-            runtime?.permissionCenter?.let { MobileUseBackendStatus(it) }
-        }, onBack = onBack, onSaved = onSaved, onPermissions = onPermissions)
+        MobileUseSettings(context, store, onBack = onBack, onSaved = onSaved, onPermissions = onPermissions)
     }
 }

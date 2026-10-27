@@ -25,6 +25,29 @@ class RuntimeExecutionCapacityTest {
         assertTrue(gate.reserveTerminal("new-pty"))
     }
 
+    @Test fun concurrentRequestsForLastTerminalSlotAdmitExactlyOneAndReleaseAllowsNext() {
+        val capacity = RuntimeExecutionCapacity()
+        repeat(3) { assertTrue(capacity.reserveTerminal("existing-$it")) }
+        val start = CountDownLatch(1)
+        val pool = Executors.newFixedThreadPool(8)
+        try {
+            val attempts =
+                (0..15).map { id ->
+                    pool.submit<Boolean> {
+                        check(start.await(5, TimeUnit.SECONDS))
+                        capacity.reserveTerminal("candidate-$id")
+                    }
+                }
+            start.countDown()
+            val results = attempts.map { it.get(5, TimeUnit.SECONDS) }
+            org.junit.Assert.assertEquals(1, results.count { it })
+            capacity.releaseTerminal("candidate-${results.indexOf(true)}")
+            assertTrue(capacity.reserveTerminal("after-exit"))
+        } finally {
+            pool.shutdownNow()
+        }
+    }
+
     @Test fun pressureRestrictsNewTerminalsWithoutReleasingExistingExecutors() {
         val gate = RuntimeExecutionCapacity()
         assertTrue(gate.reserveTerminal("first", 1))
@@ -124,11 +147,13 @@ class RuntimeExecutionCapacityTest {
         assertFalse(gate.reserveMaintenance("repair"))
         gate.releaseReservation("reserved")
         assertTrue(gate.reserveMaintenance("repair"))
+        assertTrue(gate.maintenanceActive)
         assertFalse(gate.reserveTerminal("pty"))
         assertFalse(gate.beginJob("job", false))
         gate.releaseMaintenance("wrong")
         assertFalse(gate.beginJob("job", false))
         gate.releaseMaintenance("repair")
+        assertFalse(gate.maintenanceActive)
         assertTrue(gate.beginJob("job", false))
     }
 

@@ -79,7 +79,7 @@ data class RuntimeInstallation(
                 val manifest = RuntimeManifestCodec.parseManifest(readRecord(file, 2 * 1024 * 1024))
                 require(manifest.installId == active.installId) { "Installation identity mismatch" }
                 require(manifest.smoke?.status == SmokeStatus.PASSED) { "Installation checks did not pass" }
-                if (manifest.lockSha256 != RuntimeLockCodec.sha256Hex(bundledLock)) {
+                if (!manifest.lock.sameInstalledArtifacts(bundledLock)) {
                     RuntimeInstallation(RuntimeInstallationState.UPDATE_REQUIRED, manifest)
                 } else {
                     val failures = InstallSmoke(manifest.lock, InstallFacts(4096, 0)).checkRequiredFiles(directory)

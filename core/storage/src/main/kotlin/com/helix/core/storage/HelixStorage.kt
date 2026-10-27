@@ -373,6 +373,10 @@ class HelixStorage internal constructor(
 
         private const val CONTENT_DIR = "helix-content"
 
+        /** Startup maintenance can inspect the same guard without opening a persistent Room instance. */
+        fun requireCurrentPreview(context: Context) =
+            PreviewDatabaseGate.requireCompatible(context, HelixDatabase.DATABASE_NAME)
+
         /** Old previews stay untouched until the foreground startup warning is explicitly confirmed. */
         internal fun openDevelopmentDatabase(
             context: Context,

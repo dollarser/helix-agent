@@ -88,9 +88,13 @@ internal fun PluginSessionChoice(
                     Text(
                         stringResource(
                             when (row.setupReason) {
-                                PluginSetupReason.MOBILE_BACKEND -> R.string.phone_task_permissions
-                                PluginSetupReason.MOBILE_SCOPE -> R.string.phone_task_configure
-                                else -> R.string.connector_session_configure
+                                PluginSetupReason.MOBILE_BACKEND, PluginSetupReason.MOBILE_SCOPE -> {
+                                    R.string.phone_task_configure
+                                }
+
+                                else -> {
+                                    R.string.connector_session_configure
+                                }
                             },
                         ),
                     )
@@ -106,11 +110,11 @@ private fun openPluginConfiguration(
     error: PluginSetupReason?,
     onConfigure: () -> Unit,
     onMobileUseConfiguration: () -> Unit,
-    onSystemPermissions: () -> Unit,
 ) {
     when {
-        error == PluginSetupReason.MOBILE_BACKEND -> onSystemPermissions()
-        row.id == "bundled-plugin:mobile-use" -> onMobileUseConfiguration()
+        row.id == MOBILE_USE_PLUGIN_ID || error == PluginSetupReason.MOBILE_BACKEND ||
+            error == PluginSetupReason.MOBILE_SCOPE -> onMobileUseConfiguration()
+
         else -> onConfigure()
     }
 }
@@ -123,7 +127,6 @@ fun ConnectorSessionPanel(
     onConfigure: () -> Unit,
     pluginId: String? = null,
     onMobileUseConfiguration: () -> Unit = onConfigure,
-    onSystemPermissions: () -> Unit = onConfigure,
     onDismiss: () -> Unit,
 ) {
     val state = remember(service, sessionId, pluginId) { ConnectorSessionPanelState(service, sessionId, pluginId) }
@@ -131,11 +134,14 @@ fun ConnectorSessionPanel(
     var setupRequest by remember(state) { mutableStateOf<Pair<PluginSessionRow, PluginSetupReason>?>(null) }
     LaunchedEffect(state) { state.refresh() }
     val configure: (PluginSessionRow, PluginSetupReason?) -> Unit = { row, error ->
-        if (error != null) {
+        if (row.id == MOBILE_USE_PLUGIN_ID) {
+            onDismiss()
+            onMobileUseConfiguration()
+        } else if (error != null) {
             setupRequest = row to error
         } else {
             onDismiss()
-            openPluginConfiguration(row, error, onConfigure, onMobileUseConfiguration, onSystemPermissions)
+            openPluginConfiguration(row, error, onConfigure, onMobileUseConfiguration)
         }
     }
     val update: (PluginSessionRow, Boolean) -> Unit = { row, enabled ->
@@ -156,7 +162,6 @@ fun ConnectorSessionPanel(
                     request.second,
                     onConfigure,
                     onMobileUseConfiguration,
-                    onSystemPermissions,
                 )
             },
             onDismiss = { setupRequest = null },
@@ -196,7 +201,6 @@ fun ConnectorSessionPanel(
                             row.setupReason,
                             onConfigure,
                             onMobileUseConfiguration,
-                            onSystemPermissions,
                         )
                     }
                 }

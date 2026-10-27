@@ -7,11 +7,13 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToNode
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.chat.ArtifactRowUi
@@ -54,7 +56,7 @@ import java.util.UUID
  * contents, the export path publishes ONLY the pipeline's own outcome (a cancelled run reads
  * as cancelled, never "exported"), and the no-viewer external open is decided by a real
  * resolveActivity pre-check. The batch-A exit journey walks 会话 → 任务 → 命令详情 / 产物 →
- * 来源 with the 202/194 stable identities, reading the turn's files by ownership.
+ * 来源 with case-local durable identities, reading the turn's files by ownership.
  *
  * Boundary (recorded honestly): the system "create document" picker and the OS chooser are
  * not driven from an instrumented test — the export and external-open actions are exercised
@@ -66,48 +68,53 @@ import java.util.UUID
 @Suppress("TooManyFunctions") // One device-acceptance class per the HXA-203 scenario list.
 class ArtifactDeliveryDeviceTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
+    private val fixtureId = UUID.randomUUID().toString()
+    private val fixtureSessionId = "delivery-session-$fixtureId"
+    private val fixtureTurnId = "delivery-turn-$fixtureId"
+    private val fixtureCallId = "delivery-call-$fixtureId"
 
     @Before
     fun seedDeliveryFixture() {
         runBlocking {
             val storage = compose.container().storage
-            if (storage.sessions.list().none { it.id == SESSION }) {
-                storage.sessions.create(SESSION, "HXA203 delivery fixture", null, null, 1000)
+            if (storage.sessions.list().none { it.id == fixtureSessionId }) {
+                storage.sessions.create(fixtureSessionId, "HXA203 delivery fixture", null, null, 1000)
             }
-            if (storage.turns.find(TURN) == null) {
+            if (storage.turns.find(fixtureTurnId) == null) {
                 storage.withTransaction {
-                    storage.turns.start(id = TURN, sessionId = SESSION, startedAt = 1000)
-                    var turn = storage.turns.resolve(TURN)
+                    storage.turns.start(id = fixtureTurnId, sessionId = fixtureSessionId, startedAt = 1000)
+                    var turn = storage.turns.resolve(fixtureTurnId)
                     turn = storage.turns.updateState(turn, TurnState.BUILDING_CONTEXT, 0, null, null)
                     turn = storage.turns.updateState(turn, TurnState.WAITING_MODEL, 0, null, null)
                     turn = storage.turns.updateState(turn, TurnState.RECEIVING_MODEL, 0, null, null)
                     storage.turns.updateState(turn, TurnState.COMPLETED, 0, 2000, null)
                 }
             }
-            // The 194 stable call identity (idempotent with CommandExecutionDetailsDeviceTest):
-            // the journey's command-details leg reuses the exact settled call.
-            if (storage.toolCalls.listByTurn(TURN).none { it.callId == CALL_SUCCEEDED }) {
+            // Case-local verified synthetic outcome: no cross-run identity or unverified recovery state.
+            if (storage.toolCalls.listByTurn(fixtureTurnId).none { it.callId == fixtureCallId }) {
                 storage.toolCalls.append(
-                    CALL_SUCCEEDED,
-                    TURN,
-                    CALL_SUCCEEDED,
+                    fixtureCallId,
+                    fixtureTurnId,
+                    fixtureCallId,
                     "bash",
                     "1",
                     """{"command":["echo hello"]}""",
                     "COMPLETED",
                 )
-                storage.toolResults.append(
-                    "hxa194-result-$CALL_SUCCEEDED",
-                    CALL_SUCCEEDED,
-                    "SUCCEEDED",
-                    "Command succeeded",
-                    """{"state":"SUCCEEDED","exitCode":0,"stdout":"hello from fixture","stderr":""}""",
+                storage.toolResults.markVerified(
+                    storage.toolResults.append(
+                        "delivery-result-$fixtureCallId",
+                        fixtureCallId,
+                        "SUCCEEDED",
+                        "Command succeeded",
+                        """{"state":"SUCCEEDED","exitCode":0,"stdout":"hello from fixture","stderr":""}""",
+                    ),
                 )
             }
             storage.messages.append(
                 "hxa203-result-${UUID.randomUUID()}",
-                SESSION,
-                TURN,
+                fixtureSessionId,
+                fixtureTurnId,
                 "assistant",
                 "text",
                 "HXA203 fixture result: the report is complete.",
@@ -296,7 +303,7 @@ class ArtifactDeliveryDeviceTest {
         val row =
             ArtifactRowUi(
                 id = "hxa203-cancel-row",
-                sessionId = SESSION,
+                sessionId = fixtureSessionId,
                 relativePath = FileScopePath(APP_SCOPE, "output/cancel-src.txt").toModelReference(),
                 fileName = "cancel-src.txt",
                 mediaType = "text/plain",
@@ -356,8 +363,8 @@ class ArtifactDeliveryDeviceTest {
     }
 
     /**
-     * The batch-A exit path with the 202/194 stable identities: 会话 (the owning session
-     * opens) → 任务 (the dashboard's settled turn) → 命令详情 (the 194 settled call; 返回 comes
+     * The batch-A exit path with case-local durable identities: 会话 (the owning session
+     * opens) → 任务 (the dashboard's settled turn) → 命令详情 (its verified settled call; 返回 comes
      * back) and 产物 (the turn's OWN file, read by ownership) → 来源 (the global page's file
      * dialog 打开任务 lands on the turn route whose 返回 goes back to the page the row was
      * opened from). The durable facts are asserted unchanged at the end.
@@ -374,15 +381,17 @@ class ArtifactDeliveryDeviceTest {
             )
         compose.resetDeterministicUiState()
         val before = facts(storage)
-        // 会话: the owning session opens with the 194 identity (service cache reloaded first).
+        // 会话: open this case's own session, without relying on unrelated fixture order.
         container.chatService.refreshSessions()
         compose.navigateTo(com.helix.app.ui.CONVERSATION_HISTORY_ROUTE)
         compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
-            compose.onAllNodesWithTag("chat-session-$SESSION").fetchSemanticsNodes().isNotEmpty()
+            container.chatService.sessions.value
+                .any { it.id == fixtureSessionId }
         }
-        compose.onNodeWithTag("chat-session-$SESSION").performScrollTo().performClick()
+        compose.onNodeWithTag("chat-session-list").performScrollToNode(hasTestTag("chat-session-$fixtureSessionId"))
+        compose.onNodeWithTag("chat-session-$fixtureSessionId").performClick()
         compose.waitForIdle()
-        stopAwait { container.chatService.screen.value.openSessionId == SESSION }
+        stopAwait { container.chatService.screen.value.openSessionId == fixtureSessionId }
         // 任务 + 命令详情 (194): the settled call opens its details page; 返回 returns to the list.
         compose.navigateTo("tasks")
         waitTurnRowVisible()
@@ -392,7 +401,7 @@ class ArtifactDeliveryDeviceTest {
         compose.waitForIdle()
         waitTurnRowVisible()
         // 产物: the turn's OWN file by ownership (never the truncated global window).
-        compose.onNodeWithTag("tasks-turn-artifacts-$TURN").performScrollTo().performClick()
+        compose.onNodeWithTag("tasks-turn-artifacts-$fixtureTurnId").performScrollTo().performClick()
         compose.waitForIdle()
         waitDialogTag("artifact-file-row-${row.id}")
         compose.onNodeWithTag("artifact-file-row-${row.id}").performClick()
@@ -425,7 +434,7 @@ class ArtifactDeliveryDeviceTest {
         // bar then appears on the dashboard.
         compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
             compose
-                .onAllNodesWithTag("task-collect-$TURN", useUnmergedTree = true)
+                .onAllNodesWithTag("task-collect-$fixtureTurnId", useUnmergedTree = true)
                 .fetchSemanticsNodes()
                 .isNotEmpty()
         }
@@ -457,12 +466,12 @@ class ArtifactDeliveryDeviceTest {
                 entity =
                     container.storage.artifacts.registerOrRefresh(
                         "hxa203-${UUID.randomUUID()}",
-                        SESSION,
+                        fixtureSessionId,
                         storedRef,
                         "text/plain",
                         bytes.size.toLong(),
                         sha256Hex(bytes),
-                        TURN,
+                        fixtureTurnId,
                         file,
                     )
             }
@@ -490,12 +499,12 @@ class ArtifactDeliveryDeviceTest {
                 entity =
                     container.storage.artifacts.registerOrRefresh(
                         "hxa203-${UUID.randomUUID()}",
-                        SESSION,
+                        fixtureSessionId,
                         storedRef,
                         "text/plain",
                         backing.size.toLong(),
                         sha256Hex(backing),
-                        TURN,
+                        fixtureTurnId,
                         file,
                     )
             }
@@ -518,12 +527,12 @@ class ArtifactDeliveryDeviceTest {
                 entity =
                     container.storage.artifacts.registerOrRefresh(
                         "hxa203-${UUID.randomUUID()}",
-                        SESSION,
+                        fixtureSessionId,
                         storedRef,
                         "text/plain",
                         file.length(),
                         sha256Hex(file.readBytes()),
-                        TURN,
+                        fixtureTurnId,
                         file,
                     )
             }
@@ -573,26 +582,30 @@ class ArtifactDeliveryDeviceTest {
 
     private fun waitTurnRowVisible() {
         compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
-            compose.onAllNodesWithTag("tasks-turn-$TURN").fetchSemanticsNodes().isNotEmpty()
+            compose
+                .container()
+                .chatService.backgroundTasks.value
+                .any { it.id == fixtureTurnId }
         }
+        compose.onNodeWithTag("screen-tasks").performScrollToNode(hasTestTag("tasks-turn-$fixtureTurnId"))
     }
 
     private fun openCommandDetail() {
-        compose.onNodeWithTag("tasks-turn-command-$TURN").performScrollTo().performClick()
+        compose.onNodeWithTag("tasks-turn-command-$fixtureTurnId").performScrollTo().performClick()
         compose.waitForIdle()
         compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
             compose
-                .onAllNodesWithTag("turn-command-detail-$CALL_SUCCEEDED")
+                .onAllNodesWithTag("turn-command-detail-$fixtureCallId")
                 .fetchSemanticsNodes()
                 .isNotEmpty()
         }
         compose
-            .onNodeWithTag("turn-command-detail-$CALL_SUCCEEDED")
+            .onNodeWithTag("turn-command-detail-$fixtureCallId")
             .performScrollTo()
             .performClick()
         compose.waitForIdle()
         compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
-            compose.onAllNodesWithTag("screen-command-detail").fetchSemanticsNodes().isNotEmpty()
+            compose.onAllNodesWithTag("command-detail-state-succeeded").fetchSemanticsNodes().isNotEmpty()
         }
     }
 
@@ -607,9 +620,9 @@ class ArtifactDeliveryDeviceTest {
 
     private fun facts(storage: HelixStorage): Facts =
         Facts(
-            storage.turns.listBySession(SESSION).size,
-            storage.toolCalls.listByTurn(TURN).size,
-            storage.auditEvents.listByCorrelation(SESSION).size,
+            storage.turns.listBySession(fixtureSessionId).size,
+            storage.toolCalls.listByTurn(fixtureTurnId).size,
+            storage.auditEvents.listByCorrelation(fixtureSessionId).size,
         )
 
     /** Polls [condition] every 25 ms for up to 30 s. */
@@ -628,9 +641,6 @@ class ArtifactDeliveryDeviceTest {
             .joinToString("") { "%02x".format(it) }
 
     companion object {
-        private const val SESSION = "hxa194-cmd-session"
-        private const val TURN = "hxa194-cmd-turn"
-        private const val CALL_SUCCEEDED = "hxa194-cmd-succeeded"
         private const val APP_SCOPE = "app"
     }
 }
