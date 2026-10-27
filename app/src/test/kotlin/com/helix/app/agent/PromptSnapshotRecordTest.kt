@@ -122,6 +122,7 @@ class PromptSnapshotRecordTest {
                 ),
             )
         val payload = Json.parseToJsonElement(record.auditPayload).jsonObject
+        assertTrue("version" !in payload)
         assertEquals("mc-9", payload["modelCallId"]!!.jsonPrimitive.content)
         assertEquals("turn-3", payload["turnId"]!!.jsonPrimitive.content)
         assertEquals(record.fingerprint, payload["fingerprint"]!!.jsonPrimitive.content)

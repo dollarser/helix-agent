@@ -135,7 +135,8 @@ class McpOAuthAttemptStore(
                 it.name.endsWith(".json") || it.name.endsWith(".claimed")
             }.forEach { candidate ->
                 val state = candidate.name.substringBefore('.')
-                if (validState(state) && read(candidate, state)?.isExpired(nowMs) != false) {
+                // Unknown formats are not proof of expiry and cannot authorize secret deletion.
+                if (validState(state) && read(candidate, state)?.isExpired(nowMs) == true) {
                     Files.deleteIfExists(candidate.toPath())
                     secrets.delete(verifierAlias(state))
                 }

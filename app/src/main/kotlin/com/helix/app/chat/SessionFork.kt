@@ -115,7 +115,6 @@ internal class SessionFork(
         identities: Map<String, String>,
     ): String =
         buildJsonObject {
-            put("formatVersion", 1)
             put("sourceSessionId", sourceSessionId)
             put("requestedMessageId", messageId)
             put("boundaryMessageId", plan.boundaryId)

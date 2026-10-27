@@ -80,12 +80,11 @@ import com.helix.core.storage.entity.TurnReviewReceiptEntity
 import com.helix.core.storage.entity.TurnRuntimeRecordEntity
 
 /**
- * Helix local database. Version 1 is the published preview baseline. Version 2 adds bounded
- * library references to accepted inputs. Room preserves that exact baseline through additive migration;
- * incompatible earlier internal schemas still require explicit owner reset.
+ * Helix local database. The current pre-launch baseline remains version 1; incompatible
+ * earlier internal schemas require explicit owner reset, not an App migration chain.
  *
  * Foreign keys and indexes are declared by the current entities and enforced by Room. The
- * committed schema exports define the baseline and the supported additive upgrade contract. Managed credentials
+ * committed schema exports define the current baseline. Managed credentials
  * stay in SecretStore: provider/MCP rows store aliases. User content and search projections may
  * contain user-provided sensitive text; content files are not an encryption boundary.
  */

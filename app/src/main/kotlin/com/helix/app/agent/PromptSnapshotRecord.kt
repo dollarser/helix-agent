@@ -47,7 +47,6 @@ internal fun promptSnapshotRecord(
         sectionsJson = sections.toString(),
         auditPayload =
             buildJsonObject {
-                put("version", 3)
                 put("contextKind", if (compacting) "COMPACTION" else "TASK")
                 put("estimateMethod", "utf8_bytes_ceil_div_4")
                 put("promptUtf8Bytes", TokenEstimator.utf8Bytes(snapshot.content))

@@ -6,11 +6,44 @@ import org.junit.Assert.assertNull
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
+import java.io.File
 import java.util.UUID
 
 class McpOAuthAttemptStoreTest {
     @get:Rule
     val tempFolder = TemporaryFolder()
+
+    @Test
+    fun unreadableOrReplacedFormatsCannotAuthorizeDeletingTheirVerifier() {
+        val dir = tempFolder.newFolder("unknown-attempts")
+        val secrets = OAuthTestSecrets()
+        val store = McpOAuthAttemptStore(dir, secrets)
+        val attempt =
+            McpOAuthAttempt(
+                attemptId = "fixture",
+                serverId = "fixture",
+                issuer = "https://issuer.example",
+                tokenEndpoint = "https://issuer.example/token",
+                clientId = "fixture",
+                redirectUri = "helix://oauth/callback",
+                scope = "read",
+                state = "synthetic-state",
+                codeVerifier = "synthetic-verifier",
+                createdAtMs = 1_000L,
+                expiresAtMs = 5_000L,
+            )
+        store.saveAttempt(attempt)
+        val file = File(dir, "${attempt.state}.json")
+        val current = file.readText()
+        val aliases = secrets.aliases().associateWith(secrets::get)
+        listOf(current.dropLast(1) + ",\"version\":2}", "not-json").forEach { old ->
+            file.writeText(old)
+            assertNull(store.peekAttempt(attempt.state, nowMs = 2_000L))
+            store.cleanupExpired(nowMs = 6_000L)
+            assertEquals(old, file.readText())
+            assertEquals(aliases, secrets.aliases().associateWith(secrets::get))
+        }
+    }
 
     @Test
     fun attemptIsSavedAndConsumedExactlyOnce() {

@@ -123,7 +123,6 @@ internal object HelixUserGuide {
 
     fun manifest(identity: HelixHelpIdentity): String =
         buildJsonObject {
-            put("formatVersion", 1)
             put("revision", revision)
             put("appVersion", identity.versionName?.let(::JsonPrimitive) ?: JsonNull)
             put("appVersionCode", identity.versionCode?.let(::JsonPrimitive) ?: JsonNull)

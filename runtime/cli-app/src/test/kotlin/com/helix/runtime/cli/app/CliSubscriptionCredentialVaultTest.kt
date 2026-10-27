@@ -112,12 +112,28 @@ class CliSubscriptionCredentialVaultTest {
         assertEquals(winner, vault.load(provider))
     }
 
-    @Test fun revisionlessV3CredentialIsCorruptNotANewLogin() {
+    @Test fun revisionlessCredentialIsNotSilentlyRewrittenAsANewLogin() {
         store.put(
             "subscription-codex",
-            """{"version":3,"accessToken":"a","refreshToken":"r","expiresAtEpochMillis":1}""",
+            """{"accessToken":"a","refreshToken":"r","expiresAtEpochMillis":1}""",
         )
         assertEquals("CREDENTIAL_ERROR", vault.publicAccounts().getValue("codex").state)
+        assertFalse(store.get("subscription-codex").contains("version"))
+        assertFalse(store.get("subscription-codex").contains("revision"))
+    }
+
+    @Test fun replacedFormatsFailClosedWithoutDeletingOrRewritingCredentials() {
+        vault.save(CliSubscriptionProvider.CODEX, session("fixture-a", "fixture-r", 100))
+        val current = store.get("subscription-codex")
+        assertFalse(current.contains("version"))
+        listOf(1, 2, 3).forEach { version ->
+            val old = current.dropLast(1) + ",\"version\":$version}"
+            store.put("subscription-codex", old)
+            assertEquals("CREDENTIAL_ERROR", vault.publicAccounts().getValue("codex").state)
+            assertEquals(old, store.get("subscription-codex"))
+        }
+        store.put("subscription-codex", current)
+        assertEquals("LOGGED_IN", CliSubscriptionCredentialVault(store).publicAccounts().getValue("codex").state)
     }
 
     private fun session(

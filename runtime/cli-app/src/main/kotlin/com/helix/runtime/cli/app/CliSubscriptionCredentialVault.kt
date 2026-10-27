@@ -92,10 +92,10 @@ internal class CliSubscriptionCredentialVault(
             val revision =
                 Json
                     .parseToJsonElement(encoded)
-                    .jsonObject["revision"]
-                    ?.jsonPrimitive
-                    ?.content
-                    ?: UUID.randomUUID().toString().also { write(provider, session, it) }
+                    .jsonObject
+                    .getValue("revision")
+                    .jsonPrimitive
+                    .content
             com.helix.runtime.cli.client
                 .CliAccountState("LOGGED_IN", revision)
             CliCredentialSnapshot(session, revision)
@@ -166,7 +166,6 @@ private object CliCredentialCodec {
         revision: String,
     ): String =
         buildJsonObject {
-            put("version", 3)
             put("revision", revision)
             put("accessToken", session.accessToken)
             put("refreshToken", session.refreshToken)
@@ -178,13 +177,12 @@ private object CliCredentialCodec {
     fun decode(encoded: String): CliSubscriptionSession {
         require(encoded.encodeToByteArray().size <= MAX_CREDENTIAL_BYTES)
         val value = Json.parseToJsonElement(encoded).jsonObject
-        val required = setOf("version", "accessToken", "refreshToken", "expiresAtEpochMillis")
-        val optional = setOf("idToken", "accountId", "revision")
+        val required = setOf("accessToken", "refreshToken", "expiresAtEpochMillis", "revision")
+        val optional = setOf("idToken", "accountId")
         require(
             value.keys.containsAll(required) && value.keys.all { it in required || it in optional },
         ) { "subscription credential schema mismatch" }
-        require(value.getValue("version").jsonPrimitive.long in 1L..3L) { "unsupported credential version" }
-        if (value.getValue("version").jsonPrimitive.long == 3L) {
+        run {
             val revision =
                 value
                     .getValue("revision")

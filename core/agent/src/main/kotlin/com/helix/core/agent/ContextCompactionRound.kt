@@ -122,7 +122,6 @@ class ContextCompactionRound(
             "context.compaction",
             kotlinx.serialization.json
                 .buildJsonObject {
-                    put("version", kotlinx.serialization.json.JsonPrimitive(1))
                     put("code", kotlinx.serialization.json.JsonPrimitive(failure?.errorCode ?: "COMPLETED"))
                     put("attempt", kotlinx.serialization.json.JsonPrimitive(attempts))
                     put("before", kotlinx.serialization.json.JsonPrimitive(plan.originalInputTokens))

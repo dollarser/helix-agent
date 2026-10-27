@@ -84,7 +84,7 @@ class OAuthIssuerBindingTest {
     @Test fun oldOrMalformedAttemptNeverDowngradesIssuerRequirement() {
         val encoded = McpOAuthAttemptCodec.encode(sample())
         assertThrows(IllegalArgumentException::class.java) {
-            McpOAuthAttemptCodec.decode(encoded.replace("\"version\":2", "\"version\":1"))
+            McpOAuthAttemptCodec.decode(encoded.dropLast(1) + ",\"version\":2}")
         }
         assertThrows(IllegalArgumentException::class.java) {
             McpOAuthAttemptCodec.decode(
@@ -92,6 +92,9 @@ class OAuthIssuerBindingTest {
             )
         }
         assertTrue(McpOAuthAttemptCodec.decode(encoded).issuerParameterRequired)
+        assertThrows(IllegalArgumentException::class.java) {
+            McpOAuthAttemptCodec.decode(encoded.dropLast(1) + ",\"codeVerifier\":\"old-private-value\"}")
+        }
     }
 
     @Test fun rejectedCallbackDoesNotIssueTokensOrConsumeAnotherAttempt() =

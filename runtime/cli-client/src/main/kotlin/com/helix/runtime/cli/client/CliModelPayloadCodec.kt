@@ -44,18 +44,6 @@ data class CliModelEnvelope(
     val replayOwner: String? = null,
 )
 
-private fun requestVersion(
-    provider: CliModelProvider,
-    withImages: Boolean,
-    withOwner: Boolean,
-): Int =
-    when {
-        withOwner -> 5
-        withImages -> if (provider == CliModelProvider.CODEX) 3 else 4
-        provider == CliModelProvider.CODEX -> 1
-        else -> 2
-    }
-
 object CliModelRequestCodec {
     const val MAX_BYTES = 16 * 1024 * 1024
     const val MAX_TEXT_BYTES = 512 * 1024
@@ -77,15 +65,13 @@ object CliModelRequestCodec {
         require(images.isEmpty() || provider in setOf(CliModelProvider.CODEX, CliModelProvider.ANTIGRAVITY))
         val wireImages = transportImages(images)
         require(wireImages.sumOf { it.base64.length.toLong() } <= VisionLimits.MAX_TOTAL_BASE64_PER_REQUEST_BYTES)
-        val version = requestVersion(provider, images.isNotEmpty(), replayOwner != null)
         val bytes =
             buildJsonObject {
-                put("version", version)
                 replayOwner?.let { put("replayOwner", it) }
-                if (version >= 3) put("images", encodeImages(wireImages))
-                if (provider != CliModelProvider.CODEX) put("providerId", provider.wireId)
+                put("images", encodeImages(wireImages))
+                put("providerId", provider.wireId)
                 put("model", request.model)
-                put("messages", buildJsonArray { request.messages.forEach { add(encodeMessage(it, version >= 3)) } })
+                put("messages", buildJsonArray { request.messages.forEach { add(encodeMessage(it)) } })
                 put("tools", buildJsonArray { request.tools.forEach { add(encodeTool(it)) } })
                 request.temperature?.let { put("temperature", it) }
                 request.maxOutputTokens?.let { put("maxOutputTokens", it) }
@@ -101,43 +87,14 @@ object CliModelRequestCodec {
     fun decodeEnvelope(bytes: ByteArray): CliModelEnvelope {
         require(bytes.isNotEmpty())
         val root = Json.parseToJsonElement(bytes.decodeToString(throwOnInvalidSequence = true)).jsonObject
-        val version = root.getValue("version").jsonPrimitive.long
-        require(version in 1L..5L)
-        root.strictObject(
-            when (version) {
-                1L -> {
-                    REQUEST_KEYS
-                }
-
-                2L -> {
-                    REQUEST_KEYS + "providerId"
-                }
-
-                3L -> {
-                    REQUEST_KEYS + "images"
-                }
-
-                5L -> {
-                    REQUEST_KEYS + setOf("images", "providerId", "replayOwner")
-                }
-
-                else -> {
-                    REQUEST_KEYS + setOf("images", "providerId")
-                }
-            },
-        )
-        val provider =
-            if (version == 1L || version == 3L) {
-                CliModelProvider.CODEX
-            } else {
-                val id = root.getValue("providerId").jsonPrimitive
-                require(id.isString)
-                CliModelProvider.entries.single { it.wireId == id.content }
-            }
+        root.strictObject(REQUEST_KEYS + setOf("images", "providerId", "replayOwner"))
+        val id = root.getValue("providerId").jsonPrimitive
+        require(id.isString)
+        val provider = CliModelProvider.entries.single { it.wireId == id.content }
         val request =
             ModelRequest(
                 model = root.getValue("model").jsonPrimitive.content,
-                messages = root.getValue("messages").jsonArray.map { decodeMessage(it, version >= 3L) },
+                messages = root.getValue("messages").jsonArray.map(::decodeMessage),
                 tools = root.getValue("tools").jsonArray.map(::decodeTool),
                 temperature = root["temperature"]?.jsonPrimitive?.double,
                 maxOutputTokens = root["maxOutputTokens"]?.jsonPrimitive?.long,
@@ -145,13 +102,13 @@ object CliModelRequestCodec {
                 stopSequences = root.getValue("stopSequences").jsonArray.map { it.jsonPrimitive.content },
                 reasoning = ReasoningEffort.valueOf(root.getValue("reasoning").jsonPrimitive.content),
             )
-        val images = if (version >= 3L) decodeImages(root.getValue("images").jsonArray) else emptyList()
+        val images = decodeImages(root.getValue("images").jsonArray)
         val references = request.messages.flatMap { it.images }.toSet()
         require(images.map { it.reference }.toSet() == references && images.size == references.size)
         require(images.isEmpty() || provider in setOf(CliModelProvider.CODEX, CliModelProvider.ANTIGRAVITY))
         require(images.sumOf { it.base64.length.toLong() } <= VisionLimits.MAX_TOTAL_BASE64_PER_REQUEST_BYTES)
         val replayOwner =
-            if (version == 5L) {
+            if ("replayOwner" in root) {
                 require(provider == CliModelProvider.ANTIGRAVITY)
                 root.getValue("replayOwner").jsonPrimitive.also { require(it.isString) }.content.also {
                     CliReplayMaintenance.requireOwner(it)
@@ -162,27 +119,22 @@ object CliModelRequestCodec {
         return CliModelEnvelope(provider, request, images, replayOwner)
     }
 
-    private fun encodeMessage(
-        message: ModelMessage,
-        withImages: Boolean,
-    ): JsonObject =
+    private fun encodeMessage(message: ModelMessage): JsonObject =
         buildJsonObject {
             put("role", message.role.name)
-            if (withImages) {
-                put(
-                    "images",
-                    buildJsonArray {
-                        message.images.forEach { image ->
-                            add(
-                                buildJsonObject {
-                                    put("ref", image.ref.value)
-                                    put("mediaType", image.mediaType)
-                                },
-                            )
-                        }
-                    },
-                )
-            }
+            put(
+                "images",
+                buildJsonArray {
+                    message.images.forEach { image ->
+                        add(
+                            buildJsonObject {
+                                put("ref", image.ref.value)
+                                put("mediaType", image.mediaType)
+                            },
+                        )
+                    }
+                },
+            )
             put("text", message.modelText)
             message.toolCallId?.let { put("toolCallId", it.value) }
             message.toolName?.let { put("toolName", it.value) }
@@ -202,24 +154,17 @@ object CliModelRequestCodec {
             )
         }
 
-    private fun decodeMessage(
-        element: kotlinx.serialization.json.JsonElement,
-        withImages: Boolean,
-    ): ModelMessage {
-        val obj = element.strictObject(if (withImages) MESSAGE_KEYS + "images" else MESSAGE_KEYS)
+    private fun decodeMessage(element: kotlinx.serialization.json.JsonElement): ModelMessage {
+        val obj = element.strictObject(MESSAGE_KEYS + "images")
         return ModelMessage(
             role = ModelRole.valueOf(obj.getValue("role").jsonPrimitive.content),
             images =
-                if (withImages) {
-                    obj.getValue("images").jsonArray.map { value ->
-                        val image = value.strictObject(setOf("ref", "mediaType"))
-                        ImageReference(
-                            ArtifactRef(image.getValue("ref").jsonPrimitive.content),
-                            image.getValue("mediaType").jsonPrimitive.content,
-                        )
-                    }
-                } else {
-                    emptyList()
+                obj.getValue("images").jsonArray.map { value ->
+                    val image = value.strictObject(setOf("ref", "mediaType"))
+                    ImageReference(
+                        ArtifactRef(image.getValue("ref").jsonPrimitive.content),
+                        image.getValue("mediaType").jsonPrimitive.content,
+                    )
                 },
             text = obj.getValue("text").jsonPrimitive.content,
             toolCallId = obj["toolCallId"]?.jsonPrimitive?.content?.let(::ToolCallId),
@@ -292,7 +237,6 @@ object CliModelRequestCodec {
 
     private val REQUEST_KEYS =
         setOf(
-            "version",
             "model",
             "messages",
             "tools",

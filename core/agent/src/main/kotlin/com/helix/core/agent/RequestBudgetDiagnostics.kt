@@ -15,7 +15,6 @@ object RequestBudgetDiagnostics {
         compacting: Boolean,
     ): String =
         buildJsonObject {
-            put("version", 1)
             put("kind", if (compacting) "summary" else "task")
             put("source", "estimated")
             put("input", ModelInputEstimate.of(request).total)
@@ -32,7 +31,6 @@ object RequestBudgetDiagnostics {
     ): String {
         val estimate = ModelInputEstimate.of(context.messages, context.tools)
         return buildJsonObject {
-            put("version", 1)
             put("source", "estimated")
             put("kind", "context")
             put("instructions", estimate.instructions)
@@ -59,7 +57,6 @@ object RequestBudgetDiagnostics {
         tracker: TurnBudgetTracker,
     ): String =
         buildJsonObject {
-            put("version", 1)
             put("code", code ?: "COMPLETED")
             put("inputSource", if (stream?.inputTokens != null) "reported" else "estimated")
             put("outputSource", if (stream?.outputTokens != null) "reported" else "estimated")

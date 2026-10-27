@@ -3,7 +3,6 @@ package com.helix.app.mcp.oauth
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.long
@@ -12,7 +11,6 @@ import kotlinx.serialization.json.put
 object McpOAuthAttemptCodec {
     fun encode(attempt: McpOAuthAttempt): String =
         buildJsonObject {
-            put("version", 2)
             put("attemptId", attempt.attemptId)
             put("serverId", attempt.serverId)
             put("issuer", attempt.issuer)
@@ -30,7 +28,7 @@ object McpOAuthAttemptCodec {
 
     fun decode(jsonStr: String): McpOAuthAttempt {
         val root = Json.parseToJsonElement(jsonStr).jsonObject
-        require(root.getValue("version").jsonPrimitive.int == 2 && "codeVerifier" !in root)
+        require(root.keys == FIELDS)
         val issuerRequired = root.getValue("issuerParameterRequired").jsonPrimitive
         require(!issuerRequired.isString)
         return McpOAuthAttempt(
@@ -49,4 +47,21 @@ object McpOAuthAttemptCodec {
             issuerParameterRequired = requireNotNull(issuerRequired.content.toBooleanStrictOrNull()),
         )
     }
+
+    private val FIELDS =
+        setOf(
+            "attemptId",
+            "serverId",
+            "issuer",
+            "tokenEndpoint",
+            "clientId",
+            "redirectUri",
+            "scope",
+            "state",
+            "createdAtMs",
+            "expiresAtMs",
+            "resource",
+            "revocationEndpoint",
+            "issuerParameterRequired",
+        )
 }

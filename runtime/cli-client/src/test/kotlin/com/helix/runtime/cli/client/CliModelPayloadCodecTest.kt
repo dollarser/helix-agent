@@ -53,11 +53,11 @@ class CliModelPayloadCodecTest {
         org.junit.Assert.assertTrue(written > 20L * 1024 * 1024)
     }
 
-    @Test fun providerEnvelopeSeparatesIdenticalModelsAndPreservesLegacyCodex() {
+    @Test fun oneSchemaExplicitlySeparatesProvidersWithIdenticalModels() {
         val request = ModelRequest("shared-model", listOf(ModelMessage(ModelRole.USER, "hello")))
         val codex = CliModelRequestCodec.encode(request)
         assertEquals(CliModelProvider.CODEX, CliModelRequestCodec.decodeEnvelope(codex).provider)
-        org.junit.Assert.assertFalse(codex.decodeToString().contains("providerId"))
+        org.junit.Assert.assertTrue(codex.decodeToString().contains("\"providerId\":\"codex\""))
         CliModelProvider.entries.filter { it != CliModelProvider.CODEX }.forEach { provider ->
             val bytes = CliModelRequestCodec.encode(request, provider)
             assertEquals(CliModelEnvelope(provider, request), CliModelRequestCodec.decodeEnvelope(bytes))
@@ -70,13 +70,18 @@ class CliModelPayloadCodecTest {
         )
     }
 
-    @Test fun unknownPlatformVersionAndLegacyInjectedPlatformAreRejected() {
+    @Test fun unknownProviderAndReplacedSchemasAreRejected() {
         val request = ModelRequest("m", listOf(ModelMessage(ModelRole.USER, "hello")))
         val valid = CliModelRequestCodec.encode(request, CliModelProvider.CLAUDE).decodeToString()
         listOf(
             valid.replace("claude", "unknown"),
-            valid.replace("\"version\":2", "\"version\":3"),
-            valid.replace("\"version\":2", "\"version\":1"),
+            valid.dropLast(1) + ",\"version\":1}",
+            valid.dropLast(1) + ",\"version\":2}",
+            valid.dropLast(1) + ",\"version\":3}",
+            valid.dropLast(1) + ",\"version\":4}",
+            valid.dropLast(1) + ",\"version\":5}",
+            valid.replace("\"providerId\":\"claude\",", ""),
+            valid.replace("\"images\":[],", ""),
         ).forEach { forged ->
             assertThrows(
                 RuntimeException::class.java,
