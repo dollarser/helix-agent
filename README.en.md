@@ -79,6 +79,8 @@ Build editions are separate from conversation permission modes. Subscription ada
 
 The **[v0.0.8 development preview](https://github.com/dollarser/helix-agent/releases/tag/v0.0.8)** provides ARM64 Standard and Advanced, R8 optimized and non-debuggable, with **versionCode 1** and the existing development certificate. It is not a stable or production store-signed release.
 
+The next local candidate is **v0.0.9 / code 1**, not yet published; it does not replace those released assets. It reorganizes conversation entry points, global expert management and dictation, and moves official speech to the unified inference gateway. See the [v0.0.9 candidate notes](docs/product/releases/v0.0.9.en.md) for scope, upgrade effects and validation boundaries.
+
 Download: [Standard ARM64](https://github.com/dollarser/helix-agent/releases/download/v0.0.8/helix-v0.0.8-consumer-arm64-v8a.apk) · [Advanced ARM64](https://github.com/dollarser/helix-agent/releases/download/v0.0.8/helix-v0.0.8-developer-arm64-v8a.apk)
 
 Devices with v0.0.7 / code 2 may require uninstall/reinstall, which deletes that app's local data. Shared documents may require explicit restore access. Built-in models require login; custom APIs, supported subscriptions and local models remain available without a Helix account. Offline speech weights download on demand.
