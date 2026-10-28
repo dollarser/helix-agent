@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Regression checks for generated project and completion inventories."""
 import importlib.util
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -20,6 +21,36 @@ claims = module("adr-status-claims")
 
 
 class ReviewGatesTest(unittest.TestCase):
+    def test_docs_gate_checks_skill_and_script_entry_links(self):
+        source = Path(__file__).resolve().parents[2]
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            # Reuse maintained documentation read-only; only the new entry links are fixtures.
+            for path in source.iterdir():
+                if path.name not in {".git", ".agents", "scripts"}:
+                    (root / path.name).symlink_to(path, target_is_directory=path.is_dir())
+            scripts = root / "scripts"
+            scripts.mkdir()
+            for name in ("check-docs.sh", "generate-completion-index.py"):
+                shutil.copy2(source / "scripts" / name, scripts / name)
+            skill = root / ".agents/skills/fixture/SKILL.md"
+            skill.parent.mkdir(parents=True)
+            entry = scripts / "README.md"
+            subprocess.run(["git", "init", "--quiet", str(root)], check=True)
+            def run():
+                return subprocess.run(["bash", str(scripts / "check-docs.sh")],
+                                      capture_output=True, text=True, timeout=60)
+            skill.write_text("[Project](../../../README.md)\n")
+            entry.write_text("[Project](../README.md)\n")
+            valid = run()
+            self.assertEqual(0, valid.returncode, valid.stderr)
+            skill.write_text("[Broken](missing.md)\n")
+            entry.write_text("[Broken](missing.md)\n")
+            invalid = run()
+            self.assertNotEqual(0, invalid.returncode)
+            self.assertIn(".agents/skills/fixture/SKILL.md: has an unresolved relative link", invalid.stderr)
+            self.assertIn("scripts/README.md: has an unresolved relative link", invalid.stderr)
+
     def test_adr_gate_checks_topic_ids_links_and_current_inventory(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

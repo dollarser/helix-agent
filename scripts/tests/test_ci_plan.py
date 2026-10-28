@@ -43,6 +43,16 @@ class CiPlanTest(unittest.TestCase):
                 changed[index]['conclusion'] = result
                 self.assertFalse(ci.successful_android_jobs(changed))
 
+    def test_development_skill_text_is_source_but_executable_and_unknown_changes_are_not(self):
+        skill = '.agents/skills/helix-contract-change-review/'
+        self.assertEqual('source', ci.classify([skill + 'SKILL.md', 'scripts/README.md']))
+        self.assertEqual('debug', ci.classify([skill + 'SKILL.md', 'app/src/main/Main.kt']))
+        for path in [skill + 'scripts/check.py', skill + 'agents/openai.yaml',
+                     skill + 'build.gradle.kts', '.agents/config.toml', 'scripts/check-docs.sh',
+                     'app/src/main/AndroidManifest.xml']:
+            with self.subTest(path=path):
+                self.assertEqual('full', ci.classify([skill + 'SKILL.md', path]))
+
     def test_shared_code_and_resources_require_debug(self):
         self.assertEqual('debug', ci.classify(['docs/a.md', 'app/src/main/kotlin/Main.kt']))
         self.assertEqual('debug', ci.classify(['app/src/main/res/values/strings.xml']))

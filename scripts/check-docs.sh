@@ -16,7 +16,9 @@ from pathlib import Path
 root = Path(os.environ["HELIX_PROJECT_ROOT"]).resolve()
 local_docs = root / "docs" / "local"
 markdown_files = sorted(
-    path for path in [*root.glob("*.md"), *(root / "docs").rglob("*.md")]
+    path for path in [*root.glob("*.md"), *(root / "docs").rglob("*.md"),
+                      *(root / ".agents" / "skills").rglob("*.md"),
+                      *root.glob("scripts/README.md")]
     if local_docs not in path.parents
 )
 link_pattern = re.compile(r"(?<!!)\[[^]]*]\(([^)]+)\)")

@@ -4,7 +4,7 @@
 
 | 要回答的问题 | 主入口 / 必要补充 |
 | --- | --- |
-| 现在做到哪里、接下来做什么？ | [当前实施状态](development/status.md) |
+| 现在做到哪里、还有什么开放条件？ | [当前实施状态](development/status.md)；当前任务仍由用户请求确定 |
 | 某个 HXA 的范围与验收是什么？ | [任务索引](development/roadmap.md) → 具体任务或完成记录 |
 | 哪些建议还没有接受或启用？ | [候选需求与待裁决索引](development/candidate-decisions.md) |
 | 先做功能还是重构、何时停止？ | [开发原则与推进策略](development/feature-refactor-strategy.md) |
@@ -25,14 +25,14 @@
 - `product/`：需求、用户体验、定位和竞品分析，见 [product/README.md](product/README.md)；研究结论不直接成为实现要求。
 - `architecture/`：跨模块职责与当前契约，见 [architecture/README.md](architecture/README.md)；计划功能明确标注交付状态。
 - `adr/`：按功能保存**当前有效长期决策**；已接受增量直接合入所属 Decision 正文，`Decision history` 只解释变更，不依赖读者叠加补丁，不保存版本化 ADR 链。
-- `development/`：当前开发控制面，见 [development/README.md](development/README.md)；`status.md` 是唯一当前状态/下一步入口，`roadmap.md` 是 HXA 索引，`tasks/HXA-NNN.md` 只保存未完成的代码/产品开发工作规格；纯文档整理/Research 综合不单独创建 HXA。
+- `development/`：当前开发控制面，见 [development/README.md](development/README.md)；`status.md` 汇总当前实施事实与开放条件，不替会话选择任务；`roadmap.md` 是 HXA 索引，`tasks/HXA-NNN.md` 只保存未完成的代码/产品开发工作规格；纯文档整理/Research 综合不单独创建 HXA。
 - `completion-records/`：每个已完成 HXA 的交付快照、命令与证据，不作为今天的运行指令。
 - `evidence/`：验收过程、外部材料和诊断快照，不记录当前 Agent 分工。
 - `research/`：`modules/` 保存综合判断，`topics/` 保存有日期/范围的专项输入；已被承接的旧设计归历史证据。见 [research/README.md](research/README.md)，研究结论不是任务授权。`references/` 只保存外部来源与机制参考，产品使用说明归 `product/`。
 - `bug-fixes/`、`postmortems/`：只保存值得跨任务长期复用的缺陷机制/事故；普通当轮修复归 HXA 记录，不默认一 bug 一文件。
 - 根目录 `reviews/`：只保存**时间点项目审查报告**；实施计划、模型交接、Wave playbook 完成后必须把有效内容迁入 ADR/HXA/evidence 并删除。
 
-同一信息只保留一个当前入口：**当前状态/下一步在 status，工作范围在当前 HXA，长期决定在功能 ADR，执行结果在 completion record，审查证据在 reviews/evidence。** 不再维护独立 next-work-plan 或按模型命名的 handoff/playbook。旧 Agent 的工作树、模拟器占用和会话分工不约束后续接手。编码须遵守根目录 [AGENTS.md](../AGENTS.md)。
+同一信息只保留一个当前入口：**实施事实在 status，工作范围在当前请求/HXA，长期决定在功能 ADR，执行结果在 completion record，审查证据在 reviews/evidence。** 不再维护独立 next-work-plan 或按模型命名的 handoff/playbook。历史占用记录不等于当前事实；实际仍运行的任务和并行改动必须保留。编码须遵守根目录 [AGENTS.md](../AGENTS.md)。
 
 一次性交接完成后，独有证据合入完成记录或 evidence，再删除指令文件及更新入链；不保留重定向占位。历史材料不再维护‘当前状态’，过时的阻塞或分工须在页首标明历史适用时间。
 

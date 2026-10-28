@@ -1,6 +1,6 @@
 # Helix 开发环境与依赖基线
 
-基线日期：2026-09-01。本文同时承担“固定依赖基线”和“新开发机从零配置手册”两种职责。版本用于可重复启动，不代表永久最新；任何升级必须单独任务、更新锁文件并通过全量门禁。
+本文用于配置开发机与理解依赖选择。确切版本以 [version catalog](../../gradle/libs.versions.toml)、[Wrapper](../../gradle/wrapper/gradle-wrapper.properties)、模块构建配置和锁文件为准；下列表格便于阅读，不构成第二套锁。升级按影响验证并更新锁/校验元数据，涉及 Release/native 边界时执行相应完整门禁。
 
 配置原则：仓库内只保存版本、相对命令和验收规则，不保存用户名、设备序列号、真实 API Key、签名材料或某台机器的绝对 SDK 路径。历史开发会话中的环境快照只能帮助找线索；当前事实必须由本文列出的命令、Gradle 配置和实际设备输出共同证明。
 
@@ -13,11 +13,11 @@
 - 可用磁盘至少 30 GiB；加入 PRoot/多模拟器后推荐 60 GiB。
 - Git 2.40+。
 - Bash、`ripgrep`、`unzip`、`strings`，以及 `sha256sum` 或 `shasum`；仓库门禁会直接调用它们。
-- Android 真机至少一台 arm64。
+- 真实平台验收需对应设备；主机构建不要求连接真机，设备操作仍须当前明确授权。
 
 当前主机门禁及 Developer APK 的 RootFS 压缩打包需要 Python 3.11+（含标准库 `lzma`）；
-不要求为普通 Android 构建安装 Docker、Node.js 或 Rust。M11 的官方
-CLI/SDK Android 打包路线已停止；当前第三方订阅协议适配器 APK 是 Kotlin/Android 实现，不要求 Node.js
+不要求为普通 Android 构建安装 Docker、Node.js 或 Rust。官方
+CLI/SDK Android 打包路线已停止；当前第三方订阅协议适配器是 Kotlin/Android 模块，内置 developer APK，不要求 Node.js
 或官方 CLI 工具链。脚本必须显式检查，不能依赖开发机偶然已有版本。
 
 ## 2. 固定 Android 工具链
@@ -29,7 +29,7 @@ CLI/SDK Android 打包路线已停止；当前第三方订阅协议适配器 APK
 | Gradle Wrapper | 9.5.0 | AGP 9.3 最低/默认 |
 | Kotlin Android plugin | 2.3.21 | Android 官方 AGP 9.3 示例组合 |
 | compileSdk | 37 | HXA-197 termlib 0.2.1 要求；targetSdk 仍为 36 |
-| targetSdk | 36 | 与 compile 基线一致 |
+| targetSdk | 36 | 与 compileSdk 分别维护，不从编译版本推断目标行为 |
 | minSdk | 29 | 统一 scoped storage 时代行为，降低兼容分支 |
 | SDK Build Tools | 36.0.0 | AGP 9.3 默认 |
 | NDK | 28.2.13676358 | AGP 9.3 默认；native/PRoot 准备 |
@@ -63,13 +63,13 @@ M0 已按下表创建 `gradle/libs.versions.toml`。当前构建和 lockfile 是
 | WebView compat | `androidx.webkit:webkit` | `1.17.0` |
 | MCP Client | `io.modelcontextprotocol:kotlin-sdk-client` | `0.15.0` |
 | MCP HTTP engine | `io.ktor:ktor-client-okhttp`, `ktor-client-sse` | `3.5.2` |
-| Root | `com.github.topjohnwu.libsu:core`, `service` | `6.0.0`，M9 才引入 |
+| Root | `com.github.topjohnwu.libsu:core`, `service` | `6.0.0` |
 | Unit test | JUnit4 | `4.13.2` |
 | AndroidX test | core/runner `1.7.0`、ext JUnit `1.3.0`、Espresso `3.7.0` | version catalog 固定 |
 
 说明：
 
-- Activity/AndroidX test 等快速更新依赖以 `gradle/libs.versions.toml` 为当前事实源；升级必须按第 12 节单独验证并更新本文。
+- Activity/AndroidX test 等依赖以 `gradle/libs.versions.toml` 为当前事实源；升级按第 12 节验证，本文只同步仍有使用价值的解释。
 - 不引入 Hilt/Koin；采用手工 `AppContainer`。
 - 不引入 LangChain4j/Semantic Kernel；自研有限 Agent Loop。
 - Provider 流协议直接使用 OkHttp；Ktor 只封装在 MCP module，因为官方 SDK 依赖 Ktor。
@@ -145,13 +145,15 @@ sdkmanager --list_installed
 
 ## 5. 模拟器和真机矩阵
 
-### 5.1 每次 PR
+本节是配置与覆盖参考，不授予设备操作权限；所有安装、启动、ADB 与 instrumentation 示例仅在当前任务已获对应授权时执行。输入默认值见[验收参考](verification-matrix.md#模拟器输入默认值)。
+
+### 5.1 按变更选择验证
 
 - 当前无设备 CI：按变更分档执行源码检查、JVM unit tests、Spotless、Detekt、双 flavor Lint/APK、依赖/制品扫描，见 [CI 分层](ci.md)。
-- 含 Android UI、生命周期、Room migration 或平台能力改动的 PR：在合并前增加 API 36 instrumentation 证据；可先使用开发机 AVD，远端 emulator job 建立后再强制自动运行。
-- 当前 Apple Silicon 开发机使用 API 36 arm64-v8a AVD；Linux CI 可使用 x86_64。报告必须写真实 ABI，不能把一种架构的结果冒充另一种。
+- Android UI、生命周期、持久化恢复或平台能力变化时，按任务/HXA 准备适用的 instrumentation APK、用例与预期；设备执行须由 owner 对当前任务、相应模拟器/真机明确授权。未要求记 `not requested`，已要求未完成记 `pending`，不伪报设备通过。
+- 本地模拟器按主机支持的 ABI 选择，Apple Silicon 使用 arm64-v8a；报告必须写真实 API/ABI，不能把一种架构的结果冒充另一种。GitHub CI 不执行设备矩阵，也不规划 emulator job。
 
-### 5.2 每个里程碑
+### 5.2 设备覆盖参考（按任务风险与授权选用）
 
 | 设备 | 架构/API | 用途 |
 | --- | --- | --- |
@@ -519,14 +521,14 @@ Helix/
 
 GitHub Actions 不执行上述 device 命令。
 
-安装当前功能最完整的 developer 测试构建：
+仅在当前任务已有对应设备/安装授权时安装 developer 测试构建；先核对指定设备，命令显式绑定其 serial：
 
 ```bash
 adb devices
-adb install -r app/build/outputs/apk/developer/debug/app-developer-debug.apk
+adb -s OWNER_AUTHORIZED_SERIAL install -r app/build/outputs/apk/developer/debug/app-developer-debug.apk
 ```
 
-consumer 当前用于共享能力与编译边界 smoke，需要验证时单独安装 `app-consumer-debug.apk`；它不是已经确定的 Google Play/国内商店产品包，最终渠道 artifact 由 HXA-120～123 决定。
+consumer 是完整 Standard 产品渠道，需要验证时按授权单独安装 `app-consumer-debug.apk`；其商店资格和最终发行 artifact 由 HXA-120～123 决定，Debug 安装不证明商店验收。
 
 测试 PRoot/CLI 时安装 developer 主 APK，按对应用例触发验证、修复、登录或已授权 Job，私有 Runtime 再冷绑定；不另外安装 companion APK。普通启动、切换 Advanced 或被动刷新不得启动 Runtime。不要为调试绕过组件身份、协议或版本校验。
 
@@ -534,7 +536,7 @@ consumer 当前用于共享能力与编译边界 smoke，需要验证时单独�
 
 ### 9.1 日常最小反馈环
 
-纯 Kotlin/文档修改先跑最窄的任务，再按 [verification matrix](verification-matrix.md) 扩大范围：
+按 [verification matrix](verification-matrix.md)选择相关检查。纯文档改动检查文档/链接和语义；源码先用受影响模块测试定位，再完成当前任务要求的门禁，日常默认 Debug：
 
 ```bash
 ./gradlew :core:model:test # 示例；替换为当前 HXA 的最窄任务
@@ -544,11 +546,11 @@ consumer 当前用于共享能力与编译边界 smoke，需要验证时单独�
 git diff --check
 ```
 
-Android UI、Room migration、生命周期或平台能力有变化时，必须追加对应 flavor 的 `connected...AndroidTest`。不要用根 `./gradlew test` 的成功替代设备测试，也不要为了通过本地构建临时升级依赖或降低 compile/target SDK。
+Android UI、持久化恢复、生命周期或平台能力变化时，按影响准备对应 flavor 的设备用例；只在当前明确授权后执行。被要求的设备验收未完成时不能宣称该验收通过，未要求的设备矩阵不自动阻断独立主机交付。不要用 `./gradlew test` 替代设备证据，也不要为凑绿临时升级依赖或降低 compile/target SDK。旧开发测试数据不新增 App 迁移链，数据处置与当前状态恢复边界见[验收参考](verification-matrix.md#设备恢复与发布)。
 
 ## 10. PRoot 资产构建环境
 
-M8 开始前再启用：
+构建 PRoot 资产时按现行脚本准备：
 
 - Python 3.11+，仅用于确定性下载/解包/生成 manifest。
 - `curl`、`sha256sum` 或 `shasum -a 256`。
@@ -572,15 +574,11 @@ M8 开始前再启用：
 
 ## 12. 版本升级流程
 
-1. 单独创建 `dependency-upgrade` 任务。
-2. 阅读官方 release note 和 breaking changes。
-3. 更新 version catalog 与 lock file。
-4. 查看 dependency diff，确认没有新增 repository/动态代码/许可证变化。
-5. 跑全部 unit、lint、instrumentation、consumer/developer build。
-6. QuickJS/NDK 升级必须重跑隔离、16 KiB page 和真机攻击测试。
-7. PRoot/RootFS 升级必须生成新 runtime manifest、许可证和 rollback 测试。
-8. MCP SDK 或 A2A SDK/spec 升级必须重跑 Android/R8/transport Spike；Skill 规范升级必须重跑官方 fixture。
-9. WebKit/libsu 升级必须重跑对应真机权限和攻击测试。
+兼容/维护所需升级在当前授权范围内处理，不为每次升级另建固定流程。先核对官方 release note、breaking changes 与实际消费者；更新 version catalog、锁和校验元数据，复核依赖差异、repository、动态代码与许可证。
+
+按受影响边界验证：普通库完成相关测试/静态分析和构建；Release、native、JNI/反射影响执行完整相关门禁。QuickJS/NDK 的隔离与 16 KiB page、PRoot/RootFS 的 manifest/许可和安装失败恢复、MCP/A2A 的 Android/R8/transport、Skill 规范 fixture、WebKit/libsu 的权限与攻击边界不能因升级后编译通过而略去。现有任务明确要求的用例仍必过；研究 Spike 仅在其假设仍受本次变化影响时执行。
+
+真机/模拟器用例按当前 owner 授权准备与执行，未要求或尚未完成如实记录，不把主机验证当成设备通过。不增加旧 Helix 开发数据迁移链，不自动重放未知效果或清理数据。这里讨论外部依赖版本，Helix 自有版本仍按 [AGENTS.md](../../AGENTS.md)固定。
 
 ## 13. 新环境验收
 
@@ -590,7 +588,7 @@ M8 开始前再启用：
 2. 设置 shell 环境变量，并让 Android Studio Gradle JDK 指向同一 JDK 17。
 3. Clone 仓库；允许 Android Studio 生成本机 `local.properties`，但确认其被 Git 忽略。
 4. 执行工具链诊断和 Gradle Wrapper 验证。
-5. 创建/启动 API 36 AVD，或连接已授权的测试真机。
+5. 只做主机构建时无需设备；当前已获授权的设备任务再准备/启动相应 AVD 或连接指定真机。
 6. 先构建双主 App 变体，再执行当前 HXA 在验收矩阵中的命令。
 7. 不配置真实 Provider secret 也必须能完成基础构建和自动测试；网络协议测试使用 fixture/FakeProvider/MockWebServer。
 

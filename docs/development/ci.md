@@ -18,14 +18,14 @@ source 档只执行 source 与 verify。GitHub CI 始终只做主机/构建/静�
 
 | 变化 | 档位 | 保留检查 |
 | --- | --- | --- |
-| docs、指定根文档、历史 scripts/debug、scripts/tests 中的 Python | source | Wrapper、主机脚本回归、文档/ADR/i18n/密钥、差异空白；跳过资产与 Android；该目录内的构建脚本和未知类型仍 full |
+| docs、指定根文档、scripts/README、项目开发技能 SKILL.md、历史 scripts/debug、scripts/tests 中的 Python | source | Wrapper、主机脚本回归、文档/ADR/i18n/密钥、差异空白；文档检查含项目技能链接；scripts/tests 的构建脚本、技能执行脚本/元数据及其他未知类型仍 full |
 | Kotlin/Java 与 Android 资源/测试代码 | debug | source、锁定输入、Spotless/Detekt、生产 Debug Lint、JVM 测试、AndroidTest 源码编译、双渠道 Debug APK、锁与 APK 边界 |
 | Workflow、构建/依赖/Manifest、native、Release 路径、未知类型 | full | Debug 检查加生产 Release Lint、双渠道 Release/R8、Release smoke APK 编译和 Release APK 边界 |
 | 手动 workflow_dispatch | 默认 full，可选 debug | 不提供手动 source 放行 |
 
 Push 先检查最近完整 push 基线以来的累计差异：存在尚未通过完整门禁的构建/native/Release 变化，就继续 full。否则可使用更新的完整 Debug push 基线判断普通代码/文档差异，使已通过 Debug 的代码不会让后续纯文档重复构建。基线必须成功且是 main 祖先；source-only、手动运行、取消或失败结果不作 Android 基线。一次规划复用相同 API 响应，不重复查询两个基线的相同记录。PR 检查完整 merge-base 差异，包括删除及移动两端。无完整可信基线/API 失败时保守 full。新增 speech-assets 后，缺少该成功作业的历史运行不作为新基线，首次执行会 full。
 
-稳定的 verify 检查要求 source 成功；只有 source 档允许 runtime-assets、speech-assets、android 全部按计划 skipped。失败、取消、空 scope 或意外跳过均失败。没有 workflow 级路径过滤，文档提交也会产生 verify 结论。本轮只读查询时 main 未受保护、有效 required-status 规则为空；未修改分支保护、权限或远端配置。同一 ref 的新运行取消旧运行，已有并发控制保留。
+稳定的 verify 检查要求 source 成功；只有 source 档允许 runtime-assets、speech-assets、android 全部按计划 skipped。失败、取消、空 scope 或意外跳过均失败。没有 workflow 级路径过滤，文档提交也会产生 verify 结论。分支保护和 required-status 属于远端配置，不能从本文件推断当前状态；本地验证不修改它们。同一 ref 的新运行取消旧运行，已有并发控制保留。
 
 ## 省去的重复工作
 

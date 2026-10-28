@@ -9,10 +9,10 @@ Review the ongoing task's actual diff and affected consumers. Its compaction sum
 
 ## Review relevant shared assumptions
 
-- **Identity and persistence:** Which durable record is authoritative? Do retries, cancellation, process death and recovery preserve original execution identity and uncertainty?
-- **Permissions:** Where do schema validation, policy, authorization, limits and audit apply? Does new discovery, UI, extension output or recovery accidentally grant scope or bypass a boundary?
+- **Identity and persistence:** Which durable record is authoritative? Do retries, cancellation, process death and recovery preserve original execution identity and uncertainty? Do expected revisions and generation checks prevent stale writes or late callbacks from overwriting newer state?
+- **Permissions:** Where do schema validation, policy, authorization, limits and audit apply? Are current permissions and the exact execution binding rechecked at execution-start, including changes during approval waits? Does new discovery, UI, extension output or recovery accidentally grant scope or bypass a boundary?
 - **Resources and paths:** Are resource identity, content version, display label and execution mapping distinct? Does cleanup follow links or release capacity before physical execution exits?
-- **Results:** Do execution, artifact publication, persistence, context backfill and model consumption retain truthful outcomes and original call order? Is UNKNOWN being misreported as failure, success or rollback?
+- **Results:** Do execution, artifact publication, persistence, context backfill and model consumption retain truthful outcomes and original call order? Check interruption before execution, after effects but before durable commit, and after commit but before notification: transactions cannot roll back external effects, notification failure cannot undo a commit, and recovery must not replay uncertain effects. Is UNKNOWN being misreported as failure, success or rollback?
 - **Plugins and channels:** Does the plugin own its contribution while the host owns common governance? Does Standard retain its supported product behavior? Do UI and core layers preserve their accepted dependencies?
 
 Use direct source/search or existing [navigation tools](../../../docs/development/context-navigation.md) as useful. Review only relevant assumptions and tests; a mock does not establish a missing production path. Replace obsolete implementation assertions with accepted behavior coverage while retaining permission, failure and recovery boundaries.
