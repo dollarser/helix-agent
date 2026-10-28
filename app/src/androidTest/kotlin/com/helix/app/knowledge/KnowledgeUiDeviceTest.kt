@@ -2,6 +2,7 @@ package com.helix.app.knowledge
 
 import android.content.Intent
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.widthIn
@@ -16,6 +17,7 @@ import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isDisplayed
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -47,20 +49,92 @@ class KnowledgeUiDeviceTest {
     @get:Rule val compose = createComposeRule()
     private val restoration by lazy { StateRestorationTester(compose) }
 
-    @Test fun prototypeLibraryUsesOnePrimaryActionAndSecondaryManagement() =
-        fixture(extraSources = 5) { _, _, _ ->
-            compose.onNodeWithTag("knowledge-search").assertIsDisplayed()
-            compose.onNodeWithTag("knowledge-new-note").assertIsDisplayed()
-            compose.onNodeWithTag("knowledge-library-settings").assertDoesNotExist()
-            compose.onNodeWithTag("knowledge-import").assertDoesNotExist()
-            capture("sources")
-            compose.onNodeWithTag("knowledge-library-more").performClick()
+    @Test fun categoriesOwnTheirCreationActionAndSearchDoesNotChangeType() =
+        fixture(extraSources = 5) { service, _, _ ->
+            compose
+                .onNodeWithText(
+                    InstrumentationRegistry.getInstrumentation().targetContext.getString(
+                        com.helix.app.ShellDestination.Knowledge.titleRes,
+                    ),
+                ).assertIsDisplayed()
             compose.onNodeWithTag("knowledge-import").assertIsDisplayed()
+            compose.onNodeWithTag("knowledge-new-note").assertDoesNotExist()
+            capture("sources")
+            compose.onNodeWithTag("knowledge-tab-knowledge").performClick()
+            compose.onNodeWithTag("knowledge-new-knowledge").assertIsDisplayed()
+            compose.onNodeWithTag("knowledge-new-note").assertDoesNotExist()
+            capture("knowledge-empty")
+            compose.onNodeWithTag("knowledge-new-knowledge").performClick()
+            compose.onNodeWithTag("knowledge-note-body").performTextReplacement("A synthetic reusable method.")
+            compose.onNodeWithTag("knowledge-note-save").performClick()
+            compose.waitUntil(5000) {
+                compose.onAllNodes(hasTestTag("knowledge-note-preview")).fetchSemanticsNodes().isNotEmpty()
+            }
+            val savedKnowledge =
+                runBlocking {
+                    service.noteService.notes
+                        .first()
+                        .single()
+                }
+            assertEquals("KNOWLEDGE", savedKnowledge.kind)
+            assertEquals(
+                InstrumentationRegistry.getInstrumentation().targetContext.getString(
+                    R.string.knowledge_untitled_knowledge,
+                ),
+                savedKnowledge.title,
+            )
+            capture("knowledge-reading")
+            compose.onNodeWithTag("knowledge-note-back").performClick()
+            capture("knowledge")
+            compose.onNodeWithTag("knowledge-tab-notes").performClick()
+            compose.onNodeWithTag("knowledge-new-note").assertIsDisplayed()
+            compose.onNodeWithTag("knowledge-new-knowledge").assertDoesNotExist()
+            compose.onNodeWithTag("knowledge-import").assertDoesNotExist()
+            capture("notes-empty")
+            compose.onNodeWithTag("knowledge-library-more").performClick()
             compose.onNodeWithTag("knowledge-library-settings").assertIsDisplayed()
+        }
+
+    @Test fun emptyCategoriesKeepTheirActionAndNeverCreateContentOnTabOrCancel() =
+        fixture(empty = true) { service, _, _ ->
+            val context = InstrumentationRegistry.getInstrumentation().targetContext
+            for ((tab, action, message) in listOf(
+                Triple("sources", "knowledge-import", R.string.knowledge_empty_sources),
+                Triple("knowledge", "knowledge-new-knowledge", R.string.knowledge_empty_knowledge),
+                Triple("notes", "knowledge-new-note", R.string.knowledge_empty_notes),
+            )) {
+                compose.onNodeWithTag("knowledge-tab-$tab").performClick()
+                compose.onNodeWithTag(action).assertIsDisplayed()
+                compose.onNodeWithText(context.getString(message)).assertIsDisplayed()
+                capture("empty-$tab")
+            }
+            compose.onNodeWithTag("knowledge-new-note").performClick()
+            compose.onNodeWithTag("knowledge-note-back").performClick()
+            assertTrue(
+                runBlocking {
+                    service.noteService.notes
+                        .first()
+                        .isEmpty()
+                },
+            )
+            assertTrue(runBlocking { service.items.first().isEmpty() })
+            compose.onNodeWithTag("knowledge-tab-sources").performClick()
+            compose.onNodeWithTag("knowledge-search").performTextReplacement("missing")
+            compose.waitUntil(5000) {
+                compose.onAllNodes(hasTestTag("knowledge-clear-search")).fetchSemanticsNodes().isNotEmpty()
+            }
+            compose.onNodeWithTag("knowledge-new-note").assertDoesNotExist()
+            capture("empty-search")
+            compose.onNodeWithTag("knowledge-clear-search").assertIsDisplayed().performClick()
+            compose.waitUntil(5000) {
+                compose.onNodeWithText(context.getString(R.string.knowledge_empty_sources)).isDisplayed()
+            }
+            compose.onNodeWithText(context.getString(R.string.knowledge_empty_sources)).assertIsDisplayed()
         }
 
     @Test fun saveNoteIsExplicitAndDoesNotBecomeReviewedKnowledge() =
         fixture { service, _, _ ->
+            compose.onNodeWithTag("knowledge-tab-notes").performClick()
             compose.onNodeWithTag("knowledge-new-note").performClick()
             compose.onNodeWithTag("knowledge-note-title").performTextReplacement("Synthetic note")
             scroll("knowledge-note-body", "knowledge-note-editor")
@@ -101,6 +175,7 @@ class KnowledgeUiDeviceTest {
 
     @Test fun unsavedEditorRestoresAndDiscardDoesNotCreateANote() =
         fixture { service, _, _ ->
+            compose.onNodeWithTag("knowledge-tab-notes").performClick()
             compose.onNodeWithTag("knowledge-new-note").performClick()
             scroll("knowledge-note-body", "knowledge-note-editor")
             compose.onNodeWithTag("knowledge-note-body").performTextReplacement("Unsaved synthetic content")
@@ -160,6 +235,7 @@ class KnowledgeUiDeviceTest {
 
     @Test fun bodyOnlyLongNoteKeepsCursorAcrossRecreationAndSavesExplicitly() =
         fixture { service, _, _ ->
+            compose.onNodeWithTag("knowledge-tab-notes").performClick()
             compose.onNodeWithTag("knowledge-new-note").performClick()
             capture("writing-empty")
             val content = (1..80).joinToString("\n\n") { "Paragraph $it · 合成笔记内容，验证长文连续编辑。" }
@@ -333,9 +409,8 @@ class KnowledgeUiDeviceTest {
             compose.onNodeWithTag("knowledge-search").assertTextContains("no-synthetic-match")
             compose.onNodeWithTag("knowledge-notes-list").assertIsDisplayed()
             assertEquals(1, runBlocking { service.items.first().size })
-            val context = InstrumentationRegistry.getInstrumentation().targetContext
-            compose.onNodeWithText(context.getString(R.string.knowledge_clear_search)).performClick()
-            compose.onNodeWithText(context.getString(R.string.knowledge_clear_search)).assertDoesNotExist()
+            compose.onNodeWithTag("knowledge-clear-search").assertIsDisplayed().performClick()
+            compose.onNodeWithTag("knowledge-clear-search").assertDoesNotExist()
         }
 
     @Test fun sourceDeleteIsSecondaryAndCancelPreservesOriginal() =
@@ -356,7 +431,6 @@ class KnowledgeUiDeviceTest {
 
     @Test fun importCancellationDoesNotCreateContent() =
         fixture { service, _, _ ->
-            compose.onNodeWithTag("knowledge-library-more").performClick()
             compose.onNodeWithTag("knowledge-import").performClick()
             val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
             compose.waitUntil(5000) {
@@ -427,6 +501,7 @@ class KnowledgeUiDeviceTest {
 
     private fun fixture(
         extraSources: Int = 0,
+        empty: Boolean = false,
         block: (KnowledgeService, KnowledgeStore, AtomicReference<String?>) -> Unit,
     ) {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
@@ -435,14 +510,16 @@ class KnowledgeUiDeviceTest {
         val service = KnowledgeService(context, store = store)
         val draft = AtomicReference<String?>(null)
         val visible = androidx.compose.runtime.mutableStateOf(true)
-        runBlocking {
-            service
-                .capture(
-                    Intent(Intent.ACTION_SEND)
-                        .setType("text/plain")
-                        .putExtra(Intent.EXTRA_TEXT, "Synthetic 知识 collection"),
-                    "synthetic source",
-                ).join()
+        if (!empty) {
+            runBlocking {
+                service
+                    .capture(
+                        Intent(Intent.ACTION_SEND)
+                            .setType("text/plain")
+                            .putExtra(Intent.EXTRA_TEXT, "Synthetic 知识 collection"),
+                        "synthetic source",
+                    ).join()
+            }
         }
         addSources(service, extraSources)
         service.openRequests.value = null
@@ -458,9 +535,7 @@ class KnowledgeUiDeviceTest {
                                     .wrapContentWidth(Alignment.CenterHorizontally)
                                     .widthIn(max = HelixUiDesign.contentWidth),
                             ) {
-                                KnowledgeScreen(service, { refs ->
-                                    captureReferences(draft, refs)
-                                })
+                                LibraryTestPage(service, draft)
                             }
                         }
                     }
@@ -494,4 +569,20 @@ private fun captureReferences(
             .encode(references),
     )
     return true
+}
+
+@androidx.compose.runtime.Composable
+@Suppress("FunctionName")
+private fun LibraryTestPage(
+    service: KnowledgeService,
+    draft: AtomicReference<String?>,
+) {
+    val context = InstrumentationRegistry.getInstrumentation().targetContext
+    Column {
+        com.helix.app.ui.CompactPageHeader(
+            context.getString(com.helix.app.ShellDestination.Knowledge.titleRes),
+            {},
+        )
+        KnowledgeScreen(service, { refs -> captureReferences(draft, refs) })
+    }
 }

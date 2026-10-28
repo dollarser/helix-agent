@@ -1,5 +1,5 @@
 <resources>
-    <string name="knowledge_import_files">Import files</string>
+    <string name="knowledge_import_files">Import sources</string>
     <string name="knowledge_delete_sources">Delete selected sources</string>
     <string name="knowledge_delete_sources_warning">Delete collected originals, extracted text and index. Frozen references in existing notes and answers remain. This cannot be undone. Batch deletion runs individually; reload after a partial failure.</string>
     <string name="knowledge_delete_note">Delete note</string>

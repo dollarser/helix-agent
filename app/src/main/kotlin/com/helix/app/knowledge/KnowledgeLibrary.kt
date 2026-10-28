@@ -1,26 +1,31 @@
 package com.helix.app.knowledge
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.PrimaryScrollableTabRow
+import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -49,44 +54,63 @@ internal fun KnowledgeLibrary(
     selectionActions: @Composable () -> Unit,
     selectionMode: Boolean,
     onQuote: (String, String) -> Unit,
-    onCreate: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val focus = LocalFocusManager.current
+    val listState = rememberLazyListState()
+    LaunchedEffect(query, section) { listState.scrollToItem(0) }
+    val clearSearch = {
+        focus.clearFocus()
+        onQuery("")
+    }
     val notesTab = section != "SOURCE"
     val visibleNotes = notes.filter { it.kind == section }
-    val searchLabel = if (notesTab) R.string.knowledge_search_notes else R.string.knowledge_search_sources
     val empty = if (notesTab) visibleNotes.isEmpty() else sources.isEmpty()
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                stringResource(R.string.knowledge_library_title),
-                Modifier.weight(1f),
-                style = MaterialTheme.typography.headlineSmall,
-            )
-            controls()
-        }
-        Text(
-            stringResource(R.string.knowledge_library_subtitle),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+    Column(modifier) {
         OutlinedTextField(
             query,
             onQuery,
             singleLine = true,
             leadingIcon = { Icon(painterResource(R.drawable.ic_files_search), contentDescription = null) },
-            placeholder = { Text(stringResource(searchLabel)) },
-            modifier = Modifier.fillMaxWidth().testTag("knowledge-search"),
+            placeholder = { Text(stringResource(R.string.knowledge_search_all)) },
+            shape = KnowledgeActionShape,
+            trailingIcon =
+                if (query.isNotEmpty()) {
+                    {
+                        IconButton(clearSearch, Modifier.testTag("knowledge-clear-search")) {
+                            Icon(
+                                painterResource(R.drawable.ic_close),
+                                stringResource(R.string.knowledge_clear_search),
+                            )
+                        }
+                    }
+                } else {
+                    null
+                },
+            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp).testTag("knowledge-search"),
         )
-        PrimaryScrollableTabRow(
+        PrimaryTabRow(
             selectedTabIndex = listOf("KNOWLEDGE", "NOTE", "SOURCE").indexOf(section),
-            edgePadding = 0.dp,
+            containerColor = androidx.compose.ui.graphics.Color.Transparent,
+            indicator = {
+                androidx.compose.material3.TabRowDefaults.SecondaryIndicator(
+                    Modifier.tabIndicatorOffset(
+                        listOf("KNOWLEDGE", "NOTE", "SOURCE").indexOf(section),
+                        matchContentSize = false,
+                    ),
+                )
+            },
         ) {
             for (kind in listOf("KNOWLEDGE", "NOTE", "SOURCE")) {
                 Tab(
                     section == kind,
-                    { onTab(kind) },
+                    {
+                        focus.clearFocus()
+                        onTab(kind)
+                    },
                     text = { Text(stringResource(referenceKindLabel(kind)), maxLines = 1, softWrap = false) },
+                    selectedContentColor = MaterialTheme.colorScheme.primary,
+                    unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier =
                         Modifier.testTag(
                             when (kind) {
@@ -113,29 +137,45 @@ internal fun KnowledgeLibrary(
         LazyColumn(
             Modifier.weight(1f).testTag(if (notesTab) "knowledge-notes-list" else "knowledge-list"),
             verticalArrangement = Arrangement.spacedBy(8.dp),
+            state = listState,
         ) {
             if (empty) {
                 item(key = "empty") {
-                    Text(
-                        stringResource(
-                            when {
-                                query.isNotBlank() -> R.string.knowledge_no_search_results
-                                notesTab -> R.string.knowledge_notes_empty
-                                else -> R.string.knowledge_empty
-                            },
-                        ),
-                        Modifier.padding(vertical = 20.dp).testTag("knowledge-library-empty"),
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                    TextButton(if (query.isNotBlank()) ({ onQuery("") }) else onCreate) {
+                    Column(
+                        Modifier.fillMaxWidth().padding(vertical = 40.dp).testTag("knowledge-library-empty"),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        KnowledgeLibraryIcon(section)
                         Text(
                             stringResource(
                                 if (query.isNotBlank()) {
-                                    R.string.knowledge_clear_search
+                                    R.string.knowledge_no_search_results
                                 } else {
-                                    R.string.knowledge_empty_action
+                                    when (section) {
+                                        "KNOWLEDGE" -> R.string.knowledge_empty_knowledge
+                                        "SOURCE" -> R.string.knowledge_empty_sources
+                                        else -> R.string.knowledge_empty_notes
+                                    }
                                 },
                             ),
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Text(
+                            stringResource(
+                                if (query.isNotBlank()) {
+                                    R.string.knowledge_empty_search_hint
+                                } else {
+                                    when (section) {
+                                        "KNOWLEDGE" -> R.string.knowledge_empty_knowledge_hint
+                                        "SOURCE" -> R.string.knowledge_empty_sources_hint
+                                        else -> R.string.knowledge_empty_notes_hint
+                                    }
+                                },
+                            ),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                         )
                     }
                 }
@@ -156,6 +196,27 @@ internal fun KnowledgeLibrary(
                 }
             }
         }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        Box(Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 4.dp)) { controls() }
+    }
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun KnowledgeLibraryIcon(kind: String) {
+    Surface(
+        shape = KnowledgeActionShape,
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        modifier = Modifier.size(38.dp),
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Icon(
+                painterResource(if (kind == "KNOWLEDGE") R.drawable.ic_drawer_book else R.drawable.ic_files_document),
+                null,
+                Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.primary,
+            )
+        }
     }
 }
 
@@ -168,25 +229,15 @@ private fun KnowledgeNoteRow(
 ) {
     Surface(
         onClick = open,
-        color = MaterialTheme.colorScheme.surface,
+        color = androidx.compose.ui.graphics.Color.Transparent,
         modifier = Modifier.fillMaxWidth().testTag("knowledge-note-${note.id}"),
     ) {
         Row(
-            Modifier.padding(vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
+            Modifier.padding(horizontal = 8.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.Top,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Icon(
-                painterResource(
-                    if (note.kind == "KNOWLEDGE") {
-                        R.drawable.ic_drawer_book
-                    } else {
-                        R.drawable.ic_files_document
-                    },
-                ),
-                null,
-                tint = MaterialTheme.colorScheme.primary,
-            )
+            KnowledgeLibraryIcon(note.kind)
             KnowledgeNoteSummary(note, Modifier.weight(1f))
             IconButton(
                 quote,
@@ -215,12 +266,12 @@ private fun KnowledgeSourceRow(
 ) {
     Surface(
         onClick = open,
-        color = MaterialTheme.colorScheme.surface,
+        color = androidx.compose.ui.graphics.Color.Transparent,
         modifier = Modifier.fillMaxWidth().testTag("knowledge-item-${source.id}"),
     ) {
         Row(
-            Modifier.padding(vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
+            Modifier.padding(horizontal = 8.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.Top,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             if (selectionMode) {
@@ -231,7 +282,7 @@ private fun KnowledgeSourceRow(
                     modifier = Modifier.testTag("knowledge-select-${source.id}"),
                 )
             } else {
-                Icon(painterResource(R.drawable.ic_files_document), null, tint = MaterialTheme.colorScheme.primary)
+                KnowledgeLibraryIcon("SOURCE")
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(

@@ -1,7 +1,5 @@
 <resources>
     <string name="knowledge_more">More</string>
-    <string name="knowledge_library_title">Library</string>
-    <string name="knowledge_library_subtitle">Capture an idea. Make it your own over time.</string>
     <string name="knowledge_ask_content">Ask about this</string>
     <string name="knowledge_source_details">View sources</string>
     <string name="knowledge_review_toggle">Change review mark</string>
@@ -11,7 +9,6 @@
     <string name="knowledge_direct_create">Write knowledge</string>
     <string name="knowledge_select_sources">Select sources</string>
     <string name="knowledge_source_info">Source information and originals</string>
-    <string name="knowledge_empty_action">Write your first note</string>
     <string name="knowledge_clear_search">Clear search</string>
     <string name="knowledge_quote_action">Reference</string>
     <string name="knowledge_ref_updated_short">updated</string>
@@ -27,4 +24,13 @@
     <string name="knowledge_untitled_note">Untitled note</string>
     <string name="knowledge_writing_title">%1$s · Edit</string>
     <string name="knowledge_editor_limit">Up to %1$d characters. Your text is unchanged.</string>
+    <string name="knowledge_search_all">Search title or content</string>
+    <string name="knowledge_empty_knowledge">No knowledge yet</string>
+    <string name="knowledge_empty_notes">No notes yet</string>
+    <string name="knowledge_empty_sources">No sources yet</string>
+    <string name="knowledge_empty_knowledge_hint">Write a reusable idea or distill it from notes and sources.</string>
+    <string name="knowledge_empty_notes_hint">Capture an idea and come back to it later.</string>
+    <string name="knowledge_empty_sources_hint">Import documents to read and reference here.</string>
+    <string name="knowledge_empty_search_hint">Try a different keyword.</string>
+    <string name="knowledge_untitled_knowledge">Untitled knowledge</string>
 </resources>

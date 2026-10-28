@@ -1,18 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="knowledge_agent_access_title">Agent 检索</string>
-    <string name="knowledge_search_notes">搜索笔记</string>
-    <string name="knowledge_search_sources">搜索资料</string>
-    <string name="knowledge_no_search_results">没有匹配结果，试试其他关键词。已保存内容未改变。</string>
-    <string name="knowledge_notes_empty">写一篇 Markdown 笔记，从资料提炼，或将有引用的回答保存到这里。</string>
+    <string name="knowledge_no_search_results">没有匹配内容</string>
     <string name="knowledge_library_settings">隐私与访问</string>
     <string name="knowledge_clear_selection">取消选择（%1$d）</string>
     <string name="knowledge_reading_mode">阅读 Markdown</string>
-    <string name="knowledge_edit_mode">编辑 Markdown</string>
+    <string name="knowledge_edit_mode">编辑</string>
     <string name="knowledge_note_actions">笔记操作与引用</string>
     <string name="knowledge_note_blank">这篇笔记还没有正文，切换到编辑 Markdown 开始书写。</string>
     <string name="knowledge_local_only">保存在本机 · 不自动上传模型</string>
     <string name="knowledge_library_sources">资料</string>
     <string name="knowledge_library_notes">笔记</string>
-    <string name="knowledge_new_note_action">新建笔记</string>
+    <string name="knowledge_new_note_action">写笔记</string>
 </resources>

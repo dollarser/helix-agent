@@ -6,6 +6,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -30,6 +31,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.R
 import com.helix.core.storage.knowledge.CollectedSource
@@ -43,7 +45,8 @@ import kotlinx.coroutines.withContext
 @Suppress("FunctionName")
 internal fun KnowledgeImportAction(
     service: KnowledgeService,
-    onNewNote: (() -> Unit)? = null,
+    section: String,
+    onNewNote: () -> Unit,
     onKnowledge: () -> Unit,
     onSelectSources: () -> Unit,
 ) {
@@ -62,47 +65,96 @@ internal fun KnowledgeImportAction(
         }
     var details by androidx.compose.runtime.saveable
         .rememberSaveable { mutableStateOf(false) }
-    var menu by remember { mutableStateOf(false) }
-    Row {
-        if (onNewNote != null) {
-            Button(onNewNote, modifier = Modifier.testTag("knowledge-new-note"), shape = KnowledgeActionShape) {
-                Text(stringResource(R.string.knowledge_new_note_action))
-            }
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        KnowledgePrimaryAction(section, onNewNote, onKnowledge) { picker.launch(arrayOf("*/*")) }
+        androidx.compose.foundation.layout
+            .Spacer(Modifier.weight(1f))
+        KnowledgeLibraryMenu(section, onSelectSources, { details = true }, restore)
+    }
+    if (details) {
+        KnowledgeAccessDialog(service) { details = false }
+    }
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun KnowledgePrimaryAction(
+    section: String,
+    onNewNote: () -> Unit,
+    onKnowledge: () -> Unit,
+    onImport: () -> Unit,
+) {
+    val primary =
+        when (section) {
+            "KNOWLEDGE" -> onKnowledge
+            "SOURCE" -> onImport
+            else -> onNewNote
         }
-        androidx.compose.foundation.layout.Box {
-            IconButton({ menu = true }, Modifier.testTag("knowledge-library-more")) {
-                Icon(
-                    androidx.compose.ui.res
-                        .painterResource(R.drawable.ic_more_vertical),
-                    stringResource(R.string.knowledge_more),
-                )
-            }
-            DropdownMenu(menu, { menu = false }) {
-                KnowledgeMenuAction(R.string.knowledge_direct_create, "knowledge-new-knowledge") {
-                    menu = false
-                    onKnowledge()
-                }
-                KnowledgeMenuAction(R.string.knowledge_import_files, "knowledge-import") {
-                    menu = false
-                    picker.launch(arrayOf("*/*"))
-                }
+    Button(
+        primary,
+        modifier =
+            Modifier.testTag(
+                when (section) {
+                    "KNOWLEDGE" -> "knowledge-new-knowledge"
+                    "SOURCE" -> "knowledge-import"
+                    else -> "knowledge-new-note"
+                },
+            ),
+        shape = KnowledgeActionShape,
+    ) {
+        Icon(
+            androidx.compose.ui.res
+                .painterResource(R.drawable.ic_composer_add),
+            contentDescription = null,
+            modifier = Modifier.size(18.dp),
+        )
+        androidx.compose.foundation.layout
+            .Spacer(Modifier.size(8.dp))
+        Text(
+            stringResource(
+                when (section) {
+                    "KNOWLEDGE" -> R.string.knowledge_direct_create
+                    "SOURCE" -> R.string.knowledge_import_files
+                    else -> R.string.knowledge_new_note_action
+                },
+            ),
+        )
+    }
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun KnowledgeLibraryMenu(
+    section: String,
+    onSelectSources: () -> Unit,
+    onDetails: () -> Unit,
+    onRestore: () -> Unit,
+) {
+    var menu by remember { mutableStateOf(false) }
+    androidx.compose.foundation.layout.Box {
+        IconButton({ menu = true }, Modifier.testTag("knowledge-library-more")) {
+            Icon(
+                androidx.compose.ui.res
+                    .painterResource(R.drawable.ic_more_vertical),
+                stringResource(R.string.knowledge_more),
+            )
+        }
+        DropdownMenu(menu, { menu = false }) {
+            if (section == "SOURCE") {
                 KnowledgeMenuAction(R.string.knowledge_select_sources, "knowledge-select-mode") {
                     menu = false
                     onSelectSources()
                 }
-                KnowledgeMenuAction(R.string.knowledge_library_settings, "knowledge-library-settings") {
-                    menu = false
-                    details = true
-                }
-                KnowledgeMenuAction(R.string.knowledge_restore_library, "knowledge-restore-library") {
-                    menu = false
-                    restore()
-                }
+            }
+            KnowledgeMenuAction(R.string.knowledge_library_settings, "knowledge-library-settings") {
+                menu = false
+                onDetails()
+            }
+            KnowledgeMenuAction(R.string.knowledge_restore_library, "knowledge-restore-library") {
+                menu = false
+                onRestore()
             }
         }
-    }
-    if (details) {
-        KnowledgeAccessDialog(service) { details = false }
     }
 }
 

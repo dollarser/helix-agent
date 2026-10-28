@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -55,7 +56,10 @@ internal fun KnowledgeNoteEditor(
     }
     val title = titleValue.text
     val body = bodyValue.text
-    val untitled = stringResource(R.string.knowledge_untitled_note)
+    val untitled =
+        stringResource(
+            if (note.kind == "KNOWLEDGE") R.string.knowledge_untitled_knowledge else R.string.knowledge_untitled_note,
+        )
     var baseHash by rememberSaveable(note.id) { mutableStateOf(note.documentHash) }
     var editing by rememberSaveable(note.id) { mutableStateOf(note.body.isBlank()) }
     var management by rememberSaveable(note.id) { mutableStateOf(false) }
@@ -348,7 +352,10 @@ internal fun KnowledgeNoteEditor(
             )
         } else {
             LazyColumn(
-                Modifier.weight(1f).testTag("knowledge-note-editor"),
+                Modifier.weight(1f).padding(horizontal = 8.dp).testTag("knowledge-note-editor"),
+                contentPadding =
+                    androidx.compose.foundation.layout
+                        .PaddingValues(top = 24.dp, bottom = 32.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 item { Text(title, style = androidx.compose.material3.MaterialTheme.typography.headlineMedium) }
@@ -407,8 +414,11 @@ internal fun KnowledgeNoteEditor(
             }
         }
         if (!editing) {
+            androidx.compose.material3.HorizontalDivider(
+                color = androidx.compose.material3.MaterialTheme.colorScheme.outlineVariant,
+            )
             androidx.compose.foundation.layout.FlowRow(
-                Modifier.fillMaxWidth(),
+                Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 if (onReference != null && referenceService != null) {
@@ -421,7 +431,11 @@ internal fun KnowledgeNoteEditor(
                         Text(stringResource(R.string.knowledge_ask_content))
                     }
                 }
-                TextButton(onClick = { editing = true }, modifier = Modifier.testTag("knowledge-note-toggle-mode")) {
+                androidx.compose.material3.FilledTonalButton(
+                    onClick = { editing = true },
+                    shape = KnowledgeActionShape,
+                    modifier = Modifier.testTag("knowledge-note-toggle-mode"),
+                ) {
                     Text(stringResource(R.string.knowledge_edit_mode))
                 }
                 if (note.kind == "NOTE") {

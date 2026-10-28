@@ -208,7 +208,18 @@ fun KnowledgeScreen(
             null
         }
     BackHandler(item != null && note == null) { selected = null }
-    Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    BackHandler(item == null && note == null && !showQuestions && (selectingSources || query.isNotBlank())) {
+        if (selectingSources) {
+            selectingSources = false
+            selectedSources = emptySet()
+        } else {
+            query = ""
+        }
+    }
+    Column(
+        Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
         if (pendingSaves.isNotEmpty()) {
             TextButton({ showPendingSaves = true }, Modifier.testTag("knowledge-pending-open")) {
                 Text(stringResource(R.string.knowledge_pending_title))
@@ -272,7 +283,6 @@ fun KnowledgeScreen(
                 onSource = { selected = it },
                 onNote = { selectedNote = it },
                 selectionMode = selectingSources,
-                onCreate = { createNote(emptyList()) },
                 onQuote = { kind, id ->
                     scope.launch {
                         try {
@@ -290,6 +300,7 @@ fun KnowledgeScreen(
                 controls = {
                     KnowledgeImportAction(
                         service,
+                        section,
                         { createNote(emptyList()) },
                         onKnowledge = { createNote(emptyList(), "KNOWLEDGE") },
                         onSelectSources = {
@@ -400,7 +411,10 @@ private fun KnowledgeDetail(
             onMore = { details = true },
         )
         LazyColumn(
-            Modifier.weight(1f).testTag("knowledge-detail"),
+            Modifier.weight(1f).padding(horizontal = 8.dp).testTag("knowledge-detail"),
+            contentPadding =
+                androidx.compose.foundation.layout
+                    .PaddingValues(top = 24.dp, bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             item { Text(item.title, style = MaterialTheme.typography.headlineMedium) }
@@ -431,7 +445,11 @@ private fun KnowledgeDetail(
             }
         }
         if (openFailed) Text(stringResource(R.string.knowledge_reference_failed))
-        androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        androidx.compose.foundation.layout.FlowRow(
+            Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
             Button(
                 onClick = { scope.launch { referenceSource() } },
                 enabled = readable.isNotBlank(),
