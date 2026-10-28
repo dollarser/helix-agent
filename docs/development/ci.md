@@ -35,7 +35,7 @@ GitHub CI 只做主机验证，不启动模拟器、连接真机、执行 instru
 
 ## 仓库测试收敛
 
-范围盘点覆盖 Git 跟踪的 JVM、脚本与 AndroidTest 源码集（含可选实验）；按名称/依赖/重复关系筛查，再读取候选断言，不声称逐条重新证明全部测试。支持夹具不按测试文件计；数量按声明的 @Test 类注解/`test_` 方法统计，不等于参数化展开或多渠道运行次数。
+范围盘点覆盖 Git 跟踪的 JVM、脚本与 AndroidTest 源码集（含可选实验）；按名称/依赖/重复关系筛查，再读取候选断言，不声称逐条重新证明全部测试。支持夹具不按测试文件计；数量按源码 `@Test` 等声明标记/Python `test_` 方法统计，不等于参数化展开或多渠道运行次数。
 
 | 类别 | 有测试的文件，前 → 后 | 声明用例，前 → 后 |
 | --- | --- | --- |
@@ -60,7 +60,7 @@ GitHub CI 只做主机验证，不启动模拟器、连接真机、执行 instru
 
 旧图 [40734321933](https://github.com/dollarser/helix-agent/actions/runs/40734321933) 第二次尝试：源码、Runtime、语音和两项分析成功；tests-build 主 Gradle 构建成功但耗时 58 分 32 秒，独立 Release 测试驱动编译/Lint 成功耗时 18 秒，随后锁检查遇整项 60 分钟上限取消，汇总正确失败。Release 分析 19 分 43 秒，Debug 分析 26 分 58 秒，任务并行不能相加当总耗时。首次 runner 未分配以及查询 HTTP 502 是外部调度/查询故障，不是测试失败。第三次过时排队重试已请求取消。
 
-本地暖缓存完整 Debug 门禁通过，实际 108.27 秒，含 291 项脚本回归、38 个 JVM/Debug 单测任务、两渠道 APK、AndroidTest 源码编译、42 份锁及最终 Debug 边界。新入口任务图与完整 test 的 JVM/Debug 子集相同且无 Release 任务。actionlint、范围与失败聚合回归通过；首轮新 Gradle 任务格式失败已按 Spotless 修正并重跑成功。首个精简图运行 40752767522 的 source 1 分钟、Runtime 2 分 16 秒成功，macOS Android job 持续排队未取得 runner，转为 Linux 后重新实测。Linux 首次运行 40754798046 已取得 runner，语音冷构建与哈希校验通过；Android 构建在严格依赖校验处失败，原元数据只含 macOS AAPT2，缺少同一版本 Linux 分类。已从 Google 官方仓库核对 JAR 的发布 SHA-256/SHA-1 与原锁定 POM，仅补齐该平台校验值，不设置 problems=warn 或关闭验证。修复后的日常运行 40758855289 全绿：source 50 秒、Runtime 118 秒、Android 1539 秒、verify 9 秒；语音准备命中缓存。随后手动 full 40763405611 在旧空白范围逻辑失败，产品构建未开始：无 before 时错误比较空树，命中了历史 Windows wrapper CRLF 与 Markdown 换行。现保留检查并修正真实范围，新增临时 Git 仓库回归，覆盖历史格式、新尾随空白、取消后累积变更和无效基线。完整发布分支的最终结果待复验，不承诺提速倍数。冷/暖缓存与排队时间必须分开报告。此前优化、删测裁决与历史测量见 [当时记录](https://github.com/dollarser/helix-agent/blob/865456960cc6674122c1691e3a73d355336bf8ed/docs/development/ci.md)，不把历史结论当本轮结果。
+本地暖缓存完整 Debug 门禁通过，实际 108.27 秒，含 291 项脚本回归、38 个 JVM/Debug 单测任务、两渠道 APK、AndroidTest 源码编译、42 份锁及最终 Debug 边界。新入口任务图与完整 test 的 JVM/Debug 子集相同且无 Release 任务。actionlint、范围与失败聚合回归通过；首轮新 Gradle 任务格式失败已按 Spotless 修正并重跑成功。首个精简图运行 40752767522 的 source 1 分钟、Runtime 2 分 16 秒成功，macOS Android job 持续排队未取得 runner，转为 Linux 后重新实测。Linux 首次运行 40754798046 已取得 runner，语音冷构建与哈希校验通过；Android 构建在严格依赖校验处失败，原元数据只含 macOS AAPT2，缺少同一版本 Linux 分类。已从 Google 官方仓库核对 JAR 的发布 SHA-256/SHA-1 与原锁定 POM，仅补齐该平台校验值，不设置 problems=warn 或关闭验证。修复后的日常运行 40758855289 全绿：source 50 秒、Runtime 118 秒、Android 1539 秒、verify 9 秒；语音准备命中缓存。随后手动 full 40763405611 在旧空白范围逻辑失败，产品构建未开始：无 before 时错误比较空树，命中了历史 Windows wrapper CRLF 与 Markdown 换行。现保留检查并修正真实范围，新增临时 Git 仓库回归，覆盖历史格式、新尾随空白、取消后累积变更和无效基线。最终 full 40765900421 在 93e813f2 全部门禁成功：总耗时 2141 秒，source 39 秒、Runtime 109 秒、Android 1975 秒、verify 6 秒。其 Android 日志明确执行两渠道 R8、全部保留单测、独立 Release 测试驱动编译/Lint，以及 Debug/Release 边界；未用 skipped 代替完整门禁。该提交的冗余日常运行由 full 完整覆盖后取消，取消不计通过。冷/暖缓存与排队时间必须分开报告。此前优化、删测裁决与历史测量见 [当时记录](https://github.com/dollarser/helix-agent/blob/865456960cc6674122c1691e3a73d355336bf8ed/docs/development/ci.md)，不把历史结论当本轮结果。
 
 ## 依据与本地使用
 
@@ -69,3 +69,12 @@ GitHub CI 只做主机验证，不启动模拟器、连接真机、执行 instru
 GitHub 官方说明：[跳过 workflow 可能留下 Pending，依赖汇总应用 always](https://docs.github.com/en/pull-requests/how-tos/merge-and-close-pull-requests/troubleshooting-required-status-checks)、[并发组与取消](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency)、[setup-gradle 缓存约束](https://github.com/gradle/actions/blob/main/docs/setup-gradle.md)。以上支持本轮取舍，不证明任意仓库必然加速。
 
 日常 `./scripts/check-all.sh --debug`，发布前 `--all`；失败即时停止，完整门禁不因 CI 默认精简而删除。CI 保留 --profile 与步骤耗时，只有成功源码/实际制品可绑定验收。
+
+## 本轮验收结论
+
+- 日常实测 40758855289（276e0822）：总计 28 分 49 秒，Android 25 分 39 秒；语音准备缓存命中，35 个 JVM/Debug 测试任务实际执行，3 个无测试源。测试/构建 Gradle 14 分 11 秒，分析 8 分 26 秒，未运行 Release/R8。
+- 修复后 full 40765900421（93e813f2）：总计 35 分 41 秒，Android 32 分 55 秒；语音缓存命中。完整分析 10 分 59 秒，完整测试/双渠道构建 17 分 23 秒，独立 Release 测试驱动编译/Lint 24 秒，Debug/Release 制品边界通过。
+- 旧 macOS 运行 40734321933：首次 runner 等待 15 分 01 秒未执行；第二次 Release 分析 19 分 43 秒、Debug 分析 26 分 58 秒，测试构建连同收尾 61 分 15 秒因上限取消。第三次排队 14 分 34 秒未执行。40752767522 的 Android 排队 10 分 10 秒后因改用 Linux 取消，也未执行。
+- Linux 首次运行 40754798046 的 Android 16 分 43 秒失败于缺少平台校验条目；其中语音冷准备 12 分 09 秒，不能当完整测试耗时。40763405611 的 full 在范围检查失败，产品构建 skipped，未算通过。
+
+以上档位、宿主、缓存与覆盖不同，不计算虚假的同比提速倍数。当前验收证明 CI 选择、失败汇总、Debug 与 full 实际路径；不证明设备、真实模型、麦克风或商店审核。对外发行仍独立需要所有者授权，CI 不自动创建 tag 或 Release。
