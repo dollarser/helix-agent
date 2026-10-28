@@ -31,9 +31,14 @@ internal fun componentStateLabel(state: PluginComponentState): Int =
 /** Only renders service facts; opening details never repairs or reconnects a component. */
 @Composable
 @Suppress("FunctionName")
-internal fun PluginReadinessDetails(state: PluginReadinessSnapshot) {
+internal fun PluginReadinessDetails(
+    state: PluginReadinessSnapshot,
+    compact: Boolean = false,
+) {
     var expanded by remember(state.pluginId) { mutableStateOf(false) }
-    Text(stringResource(R.string.plugin_effect_next_request), style = MaterialTheme.typography.bodySmall)
+    if (!compact || expanded) {
+        Text(stringResource(R.string.plugin_effect_next_request), style = MaterialTheme.typography.bodySmall)
+    }
     TextButton({ expanded = !expanded }, Modifier.testTag("plugin-readiness-${state.pluginId}")) {
         Text(stringResource(if (expanded) R.string.tool_details_hide else R.string.tool_details_show))
     }

@@ -1,6 +1,7 @@
 package com.helix.app.ui
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
@@ -87,10 +88,11 @@ class SessionSettingsDeviceTest {
     }
 
     @Test
-    fun configuringExpertMaterializesDraftAndPersistsSessionProfile() {
+    fun expertManagementSavesLibraryBeforeExplicitSessionSelection() {
         compose.resetDeterministicUiState()
         val container = compose.container()
         val chat = container.chatService
+        val expertName = "Reviewer ${java.util.UUID.randomUUID()}"
         val id = requireNotNull(chat.screen.value.openSessionId)
         assertNull(container.storage.sessions.find(id))
 
@@ -101,19 +103,36 @@ class SessionSettingsDeviceTest {
             container.storage.sessions.find(id) != null &&
                 compose.onAllNodesWithTag("session-expert-dialog").fetchSemanticsNodes().isNotEmpty()
         }
-        compose.onNodeWithTag("session-expert-name").performScrollTo().performTextInput("Reviewer")
+        compose.onNodeWithTag("session-expert-name").assertDoesNotExist()
+        clickExpertAction("expert-manage")
+        clickExpertAction("expert-manage")
+        compose.onNodeWithTag("session-expert-name").performScrollTo().performTextInput(expertName)
         compose.onNodeWithTag("session-expert-instruction").performScrollTo().performTextInput("Focus on correctness.")
         androidx.test.espresso.Espresso
             .closeSoftKeyboard()
         compose.onNodeWithTag("session-expert-save").performClick()
+        compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
+            container.storage.experts
+                .list()
+                .any { it.displayName == expertName }
+        }
+        assertNull(container.storage.sessionExperts.forSession(id))
+        val saved =
+            container.storage.experts
+                .list()
+                .single { it.displayName == expertName }
+        androidx.test.espresso.Espresso
+            .pressBack()
+        clickExpertAction("expert-row-${saved.id}")
 
         compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
             container.storage.sessionExperts
                 .forSession(id)
-                ?.displayName == "Reviewer"
+                ?.displayName == expertName
         }
         val profile = requireNotNull(container.storage.sessionExperts.forSession(id))
         assertEquals("Focus on correctness.", profile.instruction)
+        assertLibraryEditRequiresReselection(chat, container.storage, id, saved)
     }
 
     @Test
@@ -127,8 +146,50 @@ class SessionSettingsDeviceTest {
             "composer-add-reference",
             "composer-add-expert",
             "composer-add-connectors",
-            "composer-add-session-settings",
-        ).forEach { compose.onNodeWithTag(it).assertIsDisplayed() }
-        compose.onNodeWithTag("composer-add-skills").assertDoesNotExist()
+            "composer-add-skills",
+        ).forEach { compose.onNodeWithTag(it).performScrollTo().assertIsDisplayed() }
+        compose.onNodeWithTag("composer-add-session-settings").assertDoesNotExist()
+    }
+
+    private fun assertLibraryEditRequiresReselection(
+        chat: com.helix.app.chat.ChatService,
+        storage: com.helix.core.storage.HelixStorage,
+        id: String,
+        saved: com.helix.core.storage.repository.ExpertProfile,
+    ) {
+        kotlinx.coroutines.runBlocking {
+            check(chat.saveExpert(saved.id, saved.displayName, "Updated library instruction.").await())
+        }
+        assertEquals(
+            "Focus on correctness.",
+            storage.sessionExperts
+                .forSession(id)
+                ?.instruction,
+        )
+        compose.onNodeWithTag("session-settings-expert").performScrollTo().performClick()
+        compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
+            compose.onAllNodesWithTag("expert-row-${saved.id}").fetchSemanticsNodes().any {
+                it.config.contains(androidx.compose.ui.semantics.SemanticsProperties.Selected)
+            }
+        }
+        compose
+            .onNodeWithTag("expert-row-${saved.id}")
+            .performScrollTo()
+            .assertIsNotSelected()
+            .performClick()
+        compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
+            storage.sessionExperts
+                .forSession(id)
+                ?.instruction == "Updated library instruction."
+        }
+    }
+
+    private fun clickExpertAction(tag: String) {
+        compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
+            compose.onAllNodesWithTag(tag).fetchSemanticsNodes().any {
+                !it.config.contains(androidx.compose.ui.semantics.SemanticsProperties.Disabled)
+            }
+        }
+        compose.onNodeWithTag(tag).performScrollTo().performClick()
     }
 }

@@ -9,7 +9,6 @@ internal data class ComposerActions(
     val onExpert: () -> Unit = {},
     val onSkills: () -> Unit = {},
     val onConnectors: () -> Unit = {},
-    val onSessionSettings: () -> Unit = {},
     val onVoice: () -> Unit,
     val onSend: () -> Unit,
     val onStop: () -> Unit,

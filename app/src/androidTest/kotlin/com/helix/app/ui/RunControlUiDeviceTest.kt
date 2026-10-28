@@ -32,25 +32,16 @@ class RunControlModeUiDeviceTest {
                 ModeControlSection(
                     config = config,
                     turnActive = false,
-                    intents =
-                        ConversationIntents(
-                            onSend = {},
-                            onStop = {},
-                            onDismissBlocked = {},
-                            onApproveApproval = {},
-                            onDenyApproval = {},
-                            onStageAttachment = {},
-                            onRemoveAttachment = {},
-                            onSetMode = { config = config.copy(mode = it) },
-                            onSetChatTools = { config = config.copy(chatToolsEnabled = it) },
-                        ),
+                    onChatTools = { config = config.copy(chatToolsEnabled = it) },
                 )
             }
         }
 
         composeRule.onNodeWithTag("chat-mode-explanation").assertIsDisplayed()
         composeRule.onNodeWithTag("chat-tools-toggle").assertIsDisplayed()
-        composeRule.onNodeWithTag("chat-budget-summary").assertIsDisplayed()
+        composeRule.onNodeWithTag("chat-budget-summary").assertDoesNotExist()
+        composeRule.onNodeWithTag("chat-tools-toggle").performClick()
+        check(config.chatToolsEnabled)
     }
 }
 

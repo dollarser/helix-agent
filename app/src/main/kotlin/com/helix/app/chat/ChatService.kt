@@ -488,47 +488,51 @@ class ChatService(
     fun loadSessionExpert(sessionId: String): kotlinx.coroutines.Deferred<ExpertProfile?> =
         workScope.async { storage.sessionExperts.forSession(sessionId) }
 
-    fun saveSessionExpert(
-        sessionId: String,
-        displayName: String,
+    fun savedExperts(): kotlinx.coroutines.Deferred<List<ExpertProfile>> = workScope.async { storage.experts.list() }
+
+    fun saveExpert(
+        id: String,
+        name: String,
         instruction: String,
     ): kotlinx.coroutines.Deferred<Boolean> =
         workScope.async {
-            if (storage.sessions.find(sessionId) == null) return@async false
-            val name = displayName.trim()
-            val body = instruction.trim()
-            if (!validExpertProfileInput(name, body)) return@async false
-            val current = storage.sessionExperts.forSession(sessionId)
-            val profile =
-                ExpertProfile(
-                    id = current?.id ?: idGenerator(),
-                    displayName = name,
-                    instruction = body,
-                    recommendedSkillIds = current?.recommendedSkillIds.orEmpty(),
-                    recommendedConnectorIds = current?.recommendedConnectorIds.orEmpty(),
-                    recommendedMode = current?.recommendedMode,
-                )
-            storage.sessionExperts.setForSession(sessionId, profile, clock.now().toEpochMilli())
+            val profile = ExpertProfile(id, name.trim(), instruction.trim())
+            storage.experts.save(profile)
             true
         }
 
-    private fun validExpertProfileInput(
-        name: String,
-        instruction: String,
-    ): Boolean =
-        validExpertField(name, ExpertProfile.MAX_NAME_LENGTH) &&
-            validExpertField(instruction, ExpertProfile.MAX_INSTRUCTION_LENGTH)
-
-    private fun validExpertField(
-        value: String,
-        maxLength: Int,
-    ): Boolean = value.isNotBlank() && value.length <= maxLength && '\u0000' !in value
-
-    fun clearSessionExpert(sessionId: String): kotlinx.coroutines.Deferred<Boolean> =
+    fun importExpert(
+        text: String,
+        id: String,
+    ): kotlinx.coroutines.Deferred<Boolean> =
         workScope.async {
-            if (storage.sessions.find(sessionId) == null) return@async false
-            storage.sessionExperts.clearForSession(sessionId)
+            storage.experts.save(
+                com.helix.core.storage.repository.ExpertLibraryRepository
+                    .parseImport(text, id),
+            )
             true
+        }
+
+    fun selectExpert(
+        sessionId: String,
+        expertId: String?,
+    ): kotlinx.coroutines.Deferred<Boolean> =
+        workScope.async {
+            if (screen.value.openSessionId != sessionId) return@async false
+            var selected = false
+            storage.withTransaction {
+                if (screen.value.openSessionId != sessionId || storage.sessions.find(sessionId) == null) {
+                    return@withTransaction
+                }
+                if (expertId == null) {
+                    storage.sessionExperts.clearForSession(sessionId)
+                } else {
+                    val profile = storage.experts.find(expertId) ?: return@withTransaction
+                    storage.sessionExperts.setForSession(sessionId, profile, clock.now().toEpochMilli())
+                }
+                selected = true
+            }
+            selected
         }
 
     /**
@@ -922,6 +926,9 @@ class ChatService(
      * updates when the read completes.
      */
     fun refreshSessions() = directory.refresh()
+
+    fun refreshReferenceSessions(): kotlinx.coroutines.Deferred<Unit> =
+        workScope.async { directoryService.refreshNow() }
 
     /**
      * Restores the conversation surface chosen by the user on a normal app launch.

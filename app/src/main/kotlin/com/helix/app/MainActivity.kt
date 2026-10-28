@@ -82,6 +82,7 @@ import com.helix.app.ui.PermissionsSafetyScreen
 import com.helix.app.ui.RuntimeSetupScreen
 import com.helix.app.ui.SETTINGS_AUDIT_ROUTE
 import com.helix.app.ui.SETTINGS_DEFAULTS_ROUTE
+import com.helix.app.ui.SETTINGS_EXPERTS_ROUTE
 import com.helix.app.ui.SETTINGS_PERMISSIONS_ROUTE
 import com.helix.app.ui.SETTINGS_STORAGE_ROUTE
 import com.helix.app.ui.SETTINGS_SYSTEM_PERMISSIONS_ROUTE
@@ -567,9 +568,20 @@ internal fun HelixApp(container: AppContainer) {
                                 },
                             )
                         }
+                        composable(SETTINGS_EXPERTS_ROUTE) { entry ->
+                            SettingsScreen(container.chatService, container.memory)
+                            com.helix.app.ui.SessionExpertDialog(
+                                container.chatService,
+                                null,
+                                returnToSelection = true,
+                            ) {
+                                navController.completionFor(entry).complete { navController.popBackStack() }
+                            }
+                        }
                         composable(CONVERSATION_SETTINGS_ROUTE) { entry ->
                             SessionSettingsScreen(
                                 chatService = container.chatService,
+                                skills = container.skillRepository,
                                 providerService = container.providerService,
                                 permissionEdit = container.sessionPermissionEdit,
                                 connectors = container.pluginService,
@@ -590,6 +602,7 @@ internal fun HelixApp(container: AppContainer) {
                                     )
                                 },
                                 onExtensions = { navController.navigateFrom(entry, ShellDestination.Extensions.route) },
+                                onManageExperts = { navController.navigateFrom(entry, SETTINGS_EXPERTS_ROUTE) },
                                 onMobileUseSession = { target ->
                                     navController.completionFor(entry).complete {
                                         mobileUseDialog.open(target, entry.id)
@@ -783,8 +796,8 @@ private fun DestinationScreen(
                 sessionPermissionEdit = container.sessionPermissionEdit,
                 skills = container.skillRepository,
                 sessionExport = container.sessionExport,
-                memory = container.memory,
                 connectors = container.pluginService,
+                onManageExperts = { navController.navigateFrom(sourceEntry, SETTINGS_EXPERTS_ROUTE) },
                 onExtensions = { navController.navigateFrom(sourceEntry, ShellDestination.Extensions.route) },
                 onMobileUseSession = onMobileUseSession,
                 onNavigation = onOpenDrawer,
@@ -844,7 +857,7 @@ private fun DestinationScreen(
         }
 
         ShellDestination.Settings -> {
-            SettingsScreen()
+            SettingsScreen(container.chatService, container.memory)
         }
 
         ShellDestination.Models -> {

@@ -59,6 +59,7 @@ class DatabaseContractTest {
             "session_permission_defaults",
             "session_permission_drafts",
             "session_experts",
+            "experts",
             "session_run_controls",
             "session_inputs",
             "session_input_attachments",
@@ -94,6 +95,11 @@ class DatabaseContractTest {
         (entity(table).entries.getValue("fields") as Value.Arr).items.map {
             ((it as Value.Obj).entries.getValue("columnName") as Value.Str).value
         }
+
+    @Test fun `saved expert library has independent identity without a session foreign key`() {
+        assertEquals(setOf("id", "displayName", "instruction"), columns("experts").toSet())
+        assertFalse(entity("experts").entries.containsKey("foreignKeys"))
+    }
 
     @Test
     fun `exported schema is the complete current version`() {

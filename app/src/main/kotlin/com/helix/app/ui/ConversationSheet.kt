@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -32,13 +33,22 @@ internal fun ConversationSheet(
     tag: String,
     onDismiss: () -> Unit,
     scrollContent: Boolean = true,
+    avoidIme: Boolean = false,
+    footer: @Composable () -> Unit = {},
     content: @Composable ColumnScope.() -> Unit,
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
     ) {
-        Column(Modifier.fillMaxWidth().heightIn(max = 560.dp).testTag("$tag-sheet")) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .then(if (avoidIme) Modifier.imePadding() else Modifier)
+                .heightIn(max = 560.dp)
+                .testTag("$tag-sheet"),
+        ) {
             Row(
                 Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -46,7 +56,7 @@ internal fun ConversationSheet(
                 Text(
                     title,
                     Modifier.weight(1f),
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.titleLarge,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -56,11 +66,13 @@ internal fun ConversationSheet(
             }
             Column(
                 Modifier
+                    .fillMaxWidth()
                     .weight(1f, fill = false)
                     .then(if (scrollContent) Modifier.indicatedVerticalScroll(rememberScrollState()) else Modifier)
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 content = content,
             )
+            footer()
         }
     }
 }

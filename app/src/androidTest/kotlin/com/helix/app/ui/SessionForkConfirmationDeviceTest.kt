@@ -54,7 +54,6 @@ class SessionForkConfirmationDeviceTest {
                         onStageAttachment = {},
                         onRemoveAttachment = {},
                         onSetMode = {},
-                        onSetChatTools = {},
                         onFork = onFork,
                     ),
                 )

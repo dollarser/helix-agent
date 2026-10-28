@@ -40,7 +40,17 @@ class GlobalDnsDeviceTest {
     @get:Rule val compose = createAndroidComposeRule<NetworkSettingsActivity>()
 
     @Test fun generalSettingsOpensTheSharedPage() {
-        compose.runOnUiThread { compose.activity.setContent { HelixTheme { SettingsScreen() } } }
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                HelixTheme {
+                    SettingsScreen(
+                        androidx.test.core.app.ApplicationProvider
+                            .getApplicationContext<com.helix.app.HelixApplication>()
+                            .appContainer.chatService,
+                    )
+                }
+            }
+        }
         compose.onNodeWithTag("settings-network").performScrollTo().performClick()
         compose.onNodeWithTag("screen-network").assertIsDisplayed()
         compose.onNodeWithTag("dns-hosts").assertIsDisplayed()

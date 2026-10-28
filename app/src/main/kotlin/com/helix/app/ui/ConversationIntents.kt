@@ -28,7 +28,6 @@ data class ConversationIntents(
         onSetMode(it)
         true
     },
-    val onSetChatTools: (Boolean) -> Unit,
     val onSelectPermission: suspend (com.helix.core.model.SessionPermissionMode) -> Boolean = { false },
     val onSaveModel: suspend (
         String,

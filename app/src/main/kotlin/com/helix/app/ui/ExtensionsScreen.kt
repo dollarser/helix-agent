@@ -100,10 +100,12 @@ fun ExtensionsScreen(
             connectors,
             id,
             onConfigure = {
+                useSession = null
                 selectedTab = 0
                 configurePluginId = usePluginId
             },
             pluginId = usePluginId,
+            canApply = { currentSession() == id },
             onMobileUseConfiguration = { if (currentSession() == id) onMobileUseSession(id) },
         ) { useSession = null }
     }

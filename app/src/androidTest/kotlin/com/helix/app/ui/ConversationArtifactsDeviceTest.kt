@@ -241,12 +241,12 @@ class ConversationArtifactsDeviceTest {
                 session
         }
         compose.onNodeWithTag("chat-header").assertIsDisplayed()
-        if (compose.onAllNodesWithTag("chat-composer-options-sheet").fetchSemanticsNodes().isNotEmpty()) {
-            compose.onNodeWithTag("chat-composer-options-close").performClick()
+        if (compose.onAllNodesWithTag("chat-conversation-details-sheet").fetchSemanticsNodes().isNotEmpty()) {
+            compose.onNodeWithTag("chat-conversation-details-close").performClick()
         }
         compose.onNodeWithTag("chat-artifacts-open").assertDoesNotExist()
         if (outputs) {
-            compose.onNodeWithTag("chat-composer-options").performClick()
+            compose.onNodeWithTag("chat-conversation-details").performClick()
             awaitTag("chat-artifacts-open")
         }
     }
@@ -258,9 +258,9 @@ class ConversationArtifactsDeviceTest {
 
     private fun awaitTag(tag: String) {
         if (tag == "chat-artifacts-open" &&
-            compose.onAllNodesWithTag("chat-composer-options-sheet").fetchSemanticsNodes().isEmpty()
+            compose.onAllNodesWithTag("chat-conversation-details-sheet").fetchSemanticsNodes().isEmpty()
         ) {
-            compose.onNodeWithTag("chat-composer-options").performClick()
+            compose.onNodeWithTag("chat-conversation-details").performClick()
         }
         compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
             compose.onAllNodesWithTag(tag, true).fetchSemanticsNodes().isNotEmpty()

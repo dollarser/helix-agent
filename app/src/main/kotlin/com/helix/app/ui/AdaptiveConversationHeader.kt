@@ -39,7 +39,7 @@ internal fun AdaptiveConversationHeader(
     onNavigation: (() -> Unit)? = null,
     onRename: (() -> Unit)? = null,
     onSearch: (() -> Unit)? = null,
-    content: @Composable () -> Unit,
+    content: @Composable (close: () -> Unit) -> Unit,
 ) {
     var details by remember { mutableStateOf(false) }
     Row(
@@ -81,19 +81,23 @@ internal fun AdaptiveConversationHeader(
             "chat-conversation-details",
             { details = false },
         ) {
-            TextButton({
-                details = false
-                onSettings()
-            }, modifier = Modifier.testTag("session-settings-open")) {
-                Text(stringResource(R.string.session_settings_title))
-            }
-            TextButton({
-                details = false
-                onTasks()
-            }, modifier = Modifier.testTag("background-tasks-open")) {
-                Text(stringResource(R.string.background_tasks))
-            }
-            content()
+            ConversationMenuRow(
+                stringResource(R.string.session_settings_title),
+                {
+                    details = false
+                    onSettings()
+                },
+                Modifier.testTag("session-settings-open"),
+            )
+            ConversationMenuRow(
+                stringResource(R.string.background_tasks),
+                {
+                    details = false
+                    onTasks()
+                },
+                Modifier.testTag("background-tasks-open"),
+            )
+            content { details = false }
         }
     }
 }

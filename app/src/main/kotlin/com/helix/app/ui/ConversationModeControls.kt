@@ -23,7 +23,7 @@ import com.helix.core.model.AgentMode
 internal fun ModeControlSection(
     config: RunControlConfig,
     turnActive: Boolean,
-    intents: ConversationIntents,
+    onChatTools: (Boolean) -> Unit,
 ) {
     Column(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp).testTag("chat-mode-control"),
@@ -37,7 +37,7 @@ internal fun ModeControlSection(
         )
         if (config.mode == AgentMode.CHAT) {
             TextButton(
-                onClick = { intents.onSetChatTools(!config.chatToolsEnabled) },
+                onClick = { onChatTools(!config.chatToolsEnabled) },
                 enabled = !turnActive,
                 modifier = Modifier.testTag("chat-tools-toggle"),
             ) {
@@ -48,15 +48,6 @@ internal fun ModeControlSection(
                 )
             }
         }
-        Text(
-            stringResource(
-                R.string.chat_output_summary,
-                config.budgets.maxOutputTokens,
-            ),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.testTag("chat-budget-summary"),
-        )
     }
 }
 

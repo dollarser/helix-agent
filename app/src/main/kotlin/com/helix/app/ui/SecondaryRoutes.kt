@@ -9,6 +9,7 @@ internal const val SETUP_RUNTIME_ROUTE = "setup/runtime"
 internal const val CONVERSATION_HISTORY_ROUTE = "conversation/history"
 internal const val CONVERSATION_SEARCH_ROUTE = "conversation/search"
 internal const val CONVERSATION_SETTINGS_ROUTE = "conversation/settings"
+internal const val SETTINGS_EXPERTS_ROUTE = "settings/experts"
 internal const val SETTINGS_DEFAULTS_ROUTE = "settings/defaults"
 internal const val SETTINGS_PERMISSIONS_ROUTE = "settings/permissions"
 internal const val SETTINGS_SYSTEM_PERMISSIONS_ROUTE = "settings/permissions/system"
@@ -25,6 +26,7 @@ private val secondaryTitles =
         SETUP_READINESS_ROUTE to R.string.nav_readiness,
         SETUP_CAPABILITIES_ROUTE to R.string.nav_capabilities,
         SETUP_RUNTIME_ROUTE to R.string.setup_runtime_title,
+        SETTINGS_EXPERTS_ROUTE to R.string.expert_library,
         SETTINGS_DEFAULTS_ROUTE to R.string.settings_defaults_title,
         SETTINGS_PERMISSIONS_ROUTE to R.string.settings_permissions_safety_title,
         SETTINGS_SYSTEM_PERMISSIONS_ROUTE to R.string.settings_system_permissions_title,

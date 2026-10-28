@@ -34,7 +34,6 @@ class ToolTimelineScrollStateDeviceTest {
                                 onStageAttachment = {},
                                 onRemoveAttachment = {},
                                 onSetMode = {},
-                                onSetChatTools = {},
                             ),
                         )
                     }

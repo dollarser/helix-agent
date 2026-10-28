@@ -138,6 +138,7 @@ import com.helix.core.storage.entity.TurnRuntimeRecordEntity
             SessionPermissionDefaultsEntity::class,
             SessionPermissionDraftEntity::class,
             SessionExpertEntity::class,
+            com.helix.core.storage.entity.ExpertEntity::class,
             com.helix.core.storage.entity.SessionRunControlEntity::class,
             com.helix.core.storage.entity.SessionInputEntity::class,
             com.helix.core.storage.entity.SessionInputAttachmentEntity::class,
@@ -235,6 +236,8 @@ abstract class HelixDatabase : RoomDatabase() {
     abstract fun sessionPermissionConfigDao(): SessionPermissionConfigDao
 
     abstract fun sessionPermissionDraftDao(): SessionPermissionDraftDao
+
+    abstract fun expertDao(): com.helix.core.storage.dao.ExpertDao
 
     abstract fun sessionExpertDao(): SessionExpertDao
 

@@ -108,6 +108,13 @@ class PluginService(
 
     fun sessionTitle(sessionId: String): String = storage.sessions.resolve(sessionId).title
 
+    /** Composer summary reads committed selection metadata without probing every runtime. */
+    fun selectedNames(sessionId: String): List<String> =
+        synchronized(catalog.mutationLock) {
+            val names = list().associate { it.id to it.name }
+            catalog.selected(sessionId).map { names[it] ?: it }
+        }
+
     /** Session selection is the user-facing enablement control; it never edits future defaults. */
     fun selectFromUser(
         sessionId: String,
@@ -117,6 +124,20 @@ class PluginService(
         storage.sessions.resolve(sessionId)
         if (enabled) prepareUserSelection(pluginId)
         catalog.selectFromUser(sessionId, pluginId, enabled)
+    }
+
+    /** Apply a picker draft atomically; a stale picker cannot overwrite another selection. */
+    fun applySessionSelection(
+        sessionId: String,
+        expected: Map<String, Boolean>,
+        selected: Set<String>,
+    ) = synchronized(catalog.mutationLock) {
+        storage.withTransaction {
+            storage.sessions.resolve(sessionId)
+            val changes =
+                pluginSelectionChanges(expected, selected, catalog.selected(sessionId), sessionRows(sessionId))
+            changes.forEach { (id, after) -> catalog.select(sessionId, id, after) }
+        }
     }
 
     fun setDefaultFromUser(

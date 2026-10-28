@@ -58,6 +58,8 @@ internal fun ConversationComposer(
     actions: ComposerActions,
     hasKnowledgeReferences: Boolean = false,
     referenceLabel: String? = null,
+    expertName: String? = null,
+    pluginNames: List<String> = emptyList(),
     onRemoveReference: () -> Unit = {},
     goalMode: Boolean = false,
     mode: AgentMode = if (goalMode) AgentMode.GOAL else AgentMode.ACT,
@@ -155,10 +157,9 @@ internal fun ConversationComposer(
             headerStatus = headerStatus,
             optionsContent = {
                 optionsContent()
-                if (contextUsage.usedTokens == null) ContextWindowIndicator(contextUsage, expandedLabel = true)
             },
             contextIndicator = {
-                if (contextUsage.usedTokens != null) ContextWindowIndicator(contextUsage)
+                ContextWindowIndicator(contextUsage)
             },
         )
         Column(
@@ -389,9 +390,11 @@ internal fun ConversationComposer(
     if (addOpen) {
         ComposerAddSheet(
             messageEnabled = availability.canAttach(),
-            sessionConfigEnabled = !isSending,
+            capabilityEnabled = !isSending,
             actions = actions,
             onDismiss = { addOpen = false },
+            expertName = expertName,
+            pluginNames = pluginNames,
         )
     }
 }

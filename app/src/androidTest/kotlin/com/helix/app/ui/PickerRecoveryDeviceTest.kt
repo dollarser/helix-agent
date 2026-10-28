@@ -81,7 +81,6 @@ class PickerRecoveryDeviceTest {
                             onStageAttachment = { attachments += it },
                             onRemoveAttachment = {},
                             onSetMode = {},
-                            onSetChatTools = {},
                         ),
                     )
                 }

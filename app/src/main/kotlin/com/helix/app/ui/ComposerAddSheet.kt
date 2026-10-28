@@ -1,111 +1,124 @@
 package com.helix.app.ui
 
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import com.helix.app.R
 
-/** Contextual add/configure menu. Only capabilities backed by real domain state are shown. */
+/** Existing actions, grouped by purpose; the supporting labels make their scope explicit. */
 @Composable
-@Suppress("FunctionName", "LongParameterList", "LongMethod") // Declarative menu rows are intentionally co-located.
+@Suppress("FunctionName", "LongMethod", "LongParameterList")
 internal fun ComposerAddSheet(
     messageEnabled: Boolean,
-    sessionConfigEnabled: Boolean,
+    capabilityEnabled: Boolean,
     actions: ComposerActions,
     onDismiss: () -> Unit,
+    expertName: String? = null,
+    pluginNames: List<String> = emptyList(),
 ) {
-    ConversationSheet(
-        stringResource(R.string.composer_add_title),
-        "composer-add",
-        onDismiss,
-    ) {
-        Text(stringResource(R.string.composer_add_message_group))
-        TextButton(
-            onClick = {
+    val messageScope = stringResource(R.string.composer_scope_message)
+    val sessionScope = stringResource(R.string.composer_scope_session)
+    ConversationSheet(stringResource(R.string.composer_add_title), "composer-add", onDismiss) {
+        Text(
+            stringResource(R.string.composer_add_message_group),
+            Modifier.padding(top = 16.dp, bottom = 8.dp),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        ConversationMenuRow(
+            stringResource(R.string.composer_add_camera),
+            {
                 onDismiss()
                 actions.onCamera()
             },
+            Modifier.testTag("composer-add-camera"),
             enabled = messageEnabled,
-            modifier = Modifier.testTag("composer-add-camera"),
-        ) {
-            Text(stringResource(R.string.composer_add_camera))
-        }
-        TextButton(
-            onClick = {
+        )
+        ConversationMenuRow(
+            stringResource(R.string.composer_add_photo),
+            {
                 onDismiss()
                 actions.onPhoto()
             },
+            Modifier.testTag("composer-add-photo"),
             enabled = messageEnabled,
-            modifier = Modifier.testTag("composer-add-photo"),
-        ) {
-            Text(stringResource(R.string.composer_add_photo))
-        }
-        TextButton(
-            onClick = {
+        )
+        ConversationMenuRow(
+            stringResource(R.string.composer_add_file),
+            {
                 onDismiss()
                 actions.onFile()
             },
+            Modifier.testTag("composer-add-file"),
             enabled = messageEnabled,
-            modifier = Modifier.testTag("composer-add-file"),
-        ) {
-            Text(stringResource(R.string.composer_add_file))
-        }
-        TextButton(
-            onClick = {
+        )
+        ConversationMenuRow(
+            stringResource(R.string.composer_add_reference),
+            {
                 onDismiss()
                 actions.onReference()
             },
+            Modifier.testTag("composer-add-reference"),
+            supporting = messageScope,
             enabled = messageEnabled,
-            modifier = Modifier.testTag("composer-add-reference"),
-        ) {
-            Text(stringResource(R.string.composer_add_reference))
-        }
+        )
         actions.onKnowledgeReference?.let { add ->
-            TextButton(
-                onClick = {
+            ConversationMenuRow(
+                stringResource(R.string.knowledge_reference_add),
+                {
                     onDismiss()
                     add()
                 },
+                Modifier.testTag("composer-add-knowledge-reference"),
+                supporting = messageScope,
                 enabled = messageEnabled,
-                modifier = Modifier.testTag("composer-add-knowledge-reference"),
-            ) {
-                Text(stringResource(R.string.knowledge_reference_add))
-            }
+            )
         }
-        HorizontalDivider()
-        Text(stringResource(R.string.composer_add_session_group))
-        TextButton(
-            onClick = {
+        Text(
+            stringResource(R.string.composer_add_session_group),
+            Modifier.padding(top = 16.dp, bottom = 8.dp),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        ConversationMenuRow(
+            stringResource(R.string.expert_select),
+            {
                 onDismiss()
                 actions.onExpert()
             },
-            enabled = sessionConfigEnabled,
-            modifier = Modifier.testTag("composer-add-expert"),
-        ) {
-            Text(stringResource(R.string.session_expert_title))
-        }
-        TextButton(
-            onClick = {
+            Modifier.testTag("composer-add-expert"),
+            supporting = (expertName ?: stringResource(R.string.expert_default)) + " · " + sessionScope,
+            enabled = capabilityEnabled,
+        )
+        ConversationMenuRow(
+            stringResource(R.string.connector_session_title),
+            {
                 onDismiss()
                 actions.onConnectors()
             },
-            enabled = sessionConfigEnabled,
-            modifier = Modifier.testTag("composer-add-connectors"),
-        ) {
-            Text(stringResource(R.string.connector_session_title))
-        }
-        TextButton(
-            onClick = {
+            Modifier.testTag("composer-add-connectors"),
+            supporting =
+                if (pluginNames.isEmpty()) {
+                    sessionScope
+                } else {
+                    pluginNames.joinToString() + " · " + sessionScope
+                },
+            enabled = capabilityEnabled,
+        )
+        ConversationMenuRow(
+            stringResource(R.string.skill_selection_title),
+            {
                 onDismiss()
-                actions.onSessionSettings()
+                actions.onSkills()
             },
-            modifier = Modifier.testTag("composer-add-session-settings"),
-        ) {
-            Text(stringResource(R.string.session_settings_title))
-        }
+            Modifier.testTag("composer-add-skills"),
+            supporting = stringResource(R.string.skill_pick_hint),
+            enabled = messageEnabled,
+        )
     }
 }

@@ -18,12 +18,22 @@ import org.junit.Test
 /** Pure display fixtures; never modifies the daily database or system grants. */
 class PluginSessionChoiceDeviceTest {
     @get:Rule val compose = createComposeRule()
-    private val row = PluginSessionRow("bundled-plugin:mobile-use", "Mobile Use", false, false, true, true)
+    private val row =
+        PluginSessionRow(
+            "bundled-plugin:mobile-use",
+            "Mobile Use",
+            false,
+            false,
+            true,
+            true,
+            readyComponents = 1,
+            totalComponents = 1,
+        )
     private val tag = "connector-session-${row.id}"
 
-    @Test fun missingConfigurationClickOpensSetupWithoutSelecting() = blocked(PluginSetupReason.MOBILE_SCOPE)
+    @Test fun missingConfigurationOffersExplicitSetupWithoutSelecting() = blocked(PluginSetupReason.MOBILE_SCOPE)
 
-    @Test fun missingBackendClickOpensSetupWithoutSelecting() = blocked(PluginSetupReason.MOBILE_BACKEND)
+    @Test fun missingBackendOffersExplicitSetupWithoutSelecting() = blocked(PluginSetupReason.MOBILE_BACKEND)
 
     private fun blocked(error: PluginSetupReason) {
         var configured = 0
@@ -31,7 +41,7 @@ class PluginSessionChoiceDeviceTest {
         compose.setContent {
             MaterialTheme {
                 PluginSessionChoice(
-                    row.copy(setupReason = error),
+                    row.copy(ready = false, readyComponents = 0, setupReason = error),
                     false,
                     { selections += it },
                     { configured++ },
@@ -41,19 +51,22 @@ class PluginSessionChoiceDeviceTest {
         compose
             .onNodeWithTag(tag)
             .assertIsOff()
-            .performClick()
-            .assertIsOff()
+            .assertIsNotEnabled()
+        assertEquals(0, configured)
+        compose.onNodeWithTag("plugin-session-configure-${row.id}").performClick()
         assertEquals(1, configured)
         assertEquals(emptyList<Boolean>(), selections)
     }
 
     @Test fun returningFromSetupRequiresAnotherExplicitClick() {
-        val facts = mutableStateOf(row.copy(setupReason = PluginSetupReason.MOBILE_BACKEND))
+        val facts =
+            mutableStateOf(row.copy(ready = false, readyComponents = 0, setupReason = PluginSetupReason.MOBILE_BACKEND))
         val selections = mutableListOf<Boolean>()
         compose.setContent {
             MaterialTheme { PluginSessionChoice(facts.value, false, { selections += it }, {}) }
         }
-        compose.onNodeWithTag(tag).performClick().assertIsOff()
+        compose.onNodeWithTag(tag).assertIsOff().assertIsNotEnabled()
+        compose.onNodeWithTag("plugin-session-configure-${row.id}").performClick()
         compose.runOnIdle { facts.value = row }
         compose.onNodeWithTag(tag).assertIsOff()
         assertEquals(emptyList<Boolean>(), selections)

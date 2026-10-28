@@ -34,7 +34,15 @@ class AboutHelixDeviceTest {
     }
 
     @Test fun settingsHasAnAboutEntryWithoutOpeningLinksAutomatically() {
-        compose.setContent { MaterialTheme { SettingsScreen() } }
+        compose.setContent {
+            MaterialTheme {
+                SettingsScreen(
+                    androidx.test.core.app.ApplicationProvider
+                        .getApplicationContext<com.helix.app.HelixApplication>()
+                        .appContainer.chatService,
+                )
+            }
+        }
         AboutHelixLink.entries.forEach { link ->
             compose.onNodeWithTag(link.tag).performScrollTo().assertIsDisplayed()
         }

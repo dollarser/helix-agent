@@ -10,6 +10,7 @@ internal data class DrawerEntry(
 ) {
     fun matches(currentRoute: String): Boolean =
         currentRoute == route ||
+            (route == ShellDestination.Settings.route && currentRoute == SETTINGS_EXPERTS_ROUTE) ||
             (route == "projects" && currentRoute.startsWith("project/")) ||
             (route != ShellDestination.Settings.route && currentRoute.startsWith("$route/")) ||
             (route == SETTINGS_AUDIT_ROUTE && currentRoute in diagnosticChildRoutes)

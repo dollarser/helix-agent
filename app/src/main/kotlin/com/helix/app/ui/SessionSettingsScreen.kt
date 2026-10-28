@@ -35,6 +35,7 @@ import kotlinx.coroutines.launch
 @Suppress("FunctionName", "LongParameterList", "LongMethod", "CyclomaticComplexMethod")
 internal fun SessionSettingsScreen(
     chatService: ChatService,
+    skills: com.helix.extensions.skills.SkillRepository? = null,
     projects: com.helix.app.projects.ProjectService? = null,
     onProject: (String) -> Unit = {},
     providerService: ProviderService,
@@ -43,6 +44,7 @@ internal fun SessionSettingsScreen(
     files: com.helix.app.files.FileManagerService,
     onModels: () -> Unit,
     onExtensions: () -> Unit,
+    onManageExperts: () -> Unit = {},
     onConfigureModelSource: ((ProviderProvisioningKind) -> Unit)? = null,
     onMobileUseSession: (String) -> Unit = {},
 ) {
@@ -59,12 +61,22 @@ internal fun SessionSettingsScreen(
             action()
         } else {
             scope.launch {
-                if (chatService.materializeDraftSession(id) == id) action()
+                if (chatService.materializeDraftSession(id) == id &&
+                    chatService.screen.value.openSessionId == id
+                ) {
+                    action()
+                }
             }
         }
     }
-    var connectorsOpen by remember(sessionId) { mutableStateOf(false) }
-    var expertOpen by remember(sessionId) { mutableStateOf(false) }
+    var connectorsOpen by androidx.compose.runtime.saveable
+        .rememberSaveable(sessionId) { mutableStateOf(false) }
+    var expertOpen by androidx.compose.runtime.saveable
+        .rememberSaveable(sessionId) { mutableStateOf(false) }
+    var skillsOpen by remember(sessionId) { mutableStateOf(false) }
+    if (skillsOpen && skills != null && sessionId != null) {
+        SkillSessionPanel(skills, sessionId, onExtensions, { skillsOpen = false })
+    }
     var directoryOpen by remember(sessionId) { mutableStateOf(false) }
 
     Column(
@@ -79,6 +91,9 @@ internal fun SessionSettingsScreen(
             Text(stringResource(R.string.session_settings_mode))
             Text(stringResource(modeLabel(runControl.mode)))
             Text(stringResource(R.string.chat_command_mode_hint))
+            ModeControlSection(runControl, screen.isSending) { enabled ->
+                if (chatService.screen.value.openSessionId == sessionId) chatService.setChatToolsEnabled(enabled)
+            }
             Text(stringResource(R.string.session_settings_model))
             ComposerModelMenu(
                 providers = providers,
@@ -149,6 +164,12 @@ internal fun SessionSettingsScreen(
             ) {
                 Text(stringResource(R.string.connector_session_title))
             }
+            if (skills != null) {
+                OutlinedButton(
+                    onClick = { withDurableSession { skillsOpen = true } },
+                    modifier = Modifier.fillMaxWidth().testTag("session-settings-skills"),
+                ) { Text(stringResource(R.string.session_skills_title)) }
+            }
         }
     }
 
@@ -163,11 +184,12 @@ internal fun SessionSettingsScreen(
             sessionId,
             onExtensions,
             onMobileUseConfiguration = { onMobileUseSession(sessionId) },
+            canApply = { chatService.screen.value.openSessionId == sessionId },
         ) {
             connectorsOpen = false
         }
     }
     if (expertOpen && sessionId != null) {
-        SessionExpertDialog(chatService, sessionId) { expertOpen = false }
+        SessionExpertDialog(chatService, sessionId, onManage = onManageExperts) { expertOpen = false }
     }
 }

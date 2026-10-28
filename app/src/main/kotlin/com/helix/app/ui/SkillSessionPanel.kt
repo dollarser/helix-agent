@@ -113,44 +113,47 @@ internal fun SkillSessionPanel(
         title = { Text(stringResource(R.string.session_skills_title)) },
         text = {
             Column(Modifier.indicatedVerticalScroll(rememberScrollState()).testTag("session-skills-panel")) {
-                Text(stringResource(R.string.session_skills_hint))
+                Text(stringResource(if (onInvoke == null) R.string.session_skills_hint else R.string.skill_pick_hint))
                 if (rows.isEmpty()) Text(stringResource(R.string.session_skills_empty))
                 rows.forEach { row ->
                     Row {
-                        Checkbox(
-                            checked = row.enabled,
-                            enabled = !busy,
-                            onCheckedChange = { enabled ->
-                                busy = true
-                                scope.launch {
-                                    try {
-                                        withContext(Dispatchers.IO) {
-                                            repository.setEnabled(
-                                                row.key,
-                                                enabled,
-                                                SkillEnablementScope.SESSION,
-                                                sessionId,
-                                            )
+                        if (onInvoke == null) {
+                            Checkbox(
+                                checked = row.enabled,
+                                enabled = !busy,
+                                onCheckedChange = { enabled ->
+                                    busy = true
+                                    scope.launch {
+                                        try {
+                                            withContext(Dispatchers.IO) {
+                                                repository.setEnabled(
+                                                    row.key,
+                                                    enabled,
+                                                    SkillEnablementScope.SESSION,
+                                                    sessionId,
+                                                )
+                                            }
+                                            failed = false
+                                            revision += 1
+                                        } catch (cancelled: CancellationException) {
+                                            throw cancelled
+                                        } catch (_: Exception) {
+                                            failed = true
+                                        } finally {
+                                            busy = false
                                         }
-                                        failed = false
-                                        revision += 1
-                                    } catch (cancelled: CancellationException) {
-                                        throw cancelled
-                                    } catch (_: Exception) {
-                                        failed = true
-                                    } finally {
-                                        busy = false
                                     }
-                                }
-                            },
-                            modifier =
-                                Modifier.testTag(
-                                    "session-skill-${row.key.name}-${row.key.snapshotHash.take(8)}",
-                                ),
-                        )
+                                },
+                                modifier =
+                                    Modifier.testTag(
+                                        "session-skill-${row.key.name}-${row.key.snapshotHash.take(8)}",
+                                    ),
+                            )
+                        }
                         Column(Modifier.weight(1f)) {
                             Text(row.key.name)
                             Text(row.description)
+                            if (onInvoke != null && !row.enabled) Text(stringResource(R.string.connector_inactive))
                             if (onInvoke != null && row.invocation.userInvocable &&
                                 row.invocation.unsupportedExecutionFields.isEmpty()
                             ) {

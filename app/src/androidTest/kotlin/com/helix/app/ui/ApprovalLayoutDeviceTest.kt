@@ -186,7 +186,6 @@ private fun ApprovalLayoutContent(
                 onStageAttachment = {},
                 onRemoveAttachment = {},
                 onSetMode = {},
-                onSetChatTools = {},
             ),
         )
     } else {

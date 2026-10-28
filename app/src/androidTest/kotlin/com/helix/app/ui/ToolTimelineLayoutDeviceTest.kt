@@ -287,5 +287,4 @@ private fun timelineIntents() =
         onStageAttachment = {},
         onRemoveAttachment = {},
         onSetMode = {},
-        onSetChatTools = {},
     )

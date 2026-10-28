@@ -60,14 +60,7 @@ internal fun AppStartupScreen(
                         Text(stringResource(R.string.preview_reset_preserved))
                         if (state.request.requiresRestart) Text(stringResource(R.string.preview_reset_restart))
                         if (state.failed) Text(stringResource(R.string.preview_reset_incomplete))
-                        Button(
-                            onClick = { onConfirmReset(state.request) },
-                            enabled = !state.request.requiresRestart,
-                            modifier = Modifier.testTag("preview-reset-confirm"),
-                        ) {
-                            Text(stringResource(R.string.preview_reset_confirm))
-                        }
-                        TextButton(onClick = onRecheck) { Text(stringResource(R.string.preview_reset_recheck)) }
+                        PreviewResetActions(state.request, onConfirmReset, onRecheck)
                         TextButton(onClick = onExit, modifier = Modifier.testTag("preview-reset-cancel")) {
                             Text(stringResource(R.string.preview_reset_cancel))
                         }
@@ -86,5 +79,22 @@ internal fun AppStartupScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun PreviewResetActions(
+    request: com.helix.app.maintenance.PreviewResetRequest,
+    onConfirm: (com.helix.app.maintenance.PreviewResetRequest) -> Unit,
+    onRecheck: () -> Unit,
+) {
+    if (request.requiresRestart) {
+        Button(onClick = onRecheck) { Text(stringResource(R.string.preview_reset_recheck)) }
+    } else {
+        Button(onClick = { onConfirm(request) }, modifier = Modifier.testTag("preview-reset-confirm")) {
+            Text(stringResource(R.string.preview_reset_confirm))
+        }
+        TextButton(onClick = onRecheck) { Text(stringResource(R.string.preview_reset_recheck)) }
     }
 }

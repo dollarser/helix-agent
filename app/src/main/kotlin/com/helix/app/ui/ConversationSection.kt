@@ -60,6 +60,8 @@ internal fun ConversationSection(
     intents: ConversationIntents,
     permissionMode: SessionPermissionMode? = null,
     referenceLabel: String? = null,
+    expertName: String? = null,
+    pluginNames: List<String> = emptyList(),
     knowledgeReferenceContent: @Composable () -> Unit = {},
     hasKnowledgeReferences: Boolean = false,
     composerAvailability: ComposerAvailability = ComposerAvailability(),
@@ -123,6 +125,7 @@ internal fun ConversationSection(
         }
 
     var voiceOpen by remember(screen.openSessionId) { mutableStateOf(false) }
+    val voiceKeyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
     var voiceBase by remember(screen.openSessionId) { mutableStateOf("") }
     var voicePreview by remember(screen.openSessionId) { mutableStateOf<String?>(null) }
     var pendingFork by remember(screen.openSessionId) { mutableStateOf<MessageUi?>(null) }
@@ -186,24 +189,61 @@ internal fun ConversationSection(
             onTasks = intents.onTasks,
             onSettings = intents.onSettings,
             onSearch = { searchActive = !searchActive },
-        ) {
-            FlowRow {
+        ) { closeDetails ->
+            artifacts()
+            TaskLedgerCard(screen.taskLedger, screen.openSessionId)
+            if (runControl.mode == AgentMode.GOAL || screen.hasGoals) {
+                ConversationMenuRow(
+                    stringResource(R.string.goal_manage),
+                    {
+                        closeDetails()
+                        intents.onManageGoal()
+                    },
+                    Modifier.testTag("goal-manage"),
+                )
+            }
+            if (screen.isFork) {
+                Text(
+                    stringResource(R.string.session_fork_notice),
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(horizontal = 12.dp).testTag("session-fork-notice"),
+                )
+            }
+            Column {
                 if (!screen.isDraft) {
-                    TextButton(intents.onRename) { Text(stringResource(R.string.chat_rename)) }
+                    ConversationMenuRow(stringResource(R.string.chat_rename), {
+                        closeDetails()
+                        intents.onRename()
+                    })
                     intents.onExport?.let { export ->
-                        TextButton(export, modifier = Modifier.testTag("session-export-open")) {
-                            Text(stringResource(R.string.session_export_title))
-                        }
+                        ConversationMenuRow(
+                            stringResource(R.string.session_export_title),
+                            {
+                                closeDetails()
+                                export()
+                            },
+                            Modifier.testTag("session-export-open"),
+                        )
                     }
                 }
-                TextButton(intents.onDirectory, enabled = !screen.isSending) {
-                    Text(stringResource(R.string.chat_directory))
-                }
+                ConversationMenuRow(
+                    stringResource(R.string.chat_directory),
+                    {
+                        closeDetails()
+                        intents.onDirectory()
+                    },
+                    enabled = !screen.isSending,
+                )
             }
             if (screen.directoryRef != null) {
-                TextButton(intents.onGit, modifier = Modifier.testTag("session-git-open")) {
-                    Text(stringResource(R.string.nav_git))
-                }
+                ConversationMenuRow(
+                    stringResource(R.string.nav_git),
+                    {
+                        closeDetails()
+                        intents.onGit()
+                    },
+                    Modifier.testTag("session-git-open"),
+                )
             }
             screen.directoryRef?.let { ScopedPathText(it) }
         }
@@ -541,20 +581,6 @@ internal fun ConversationSection(
             editorKey = screen.openSessionId,
             onChooseModel = { modelPickerRequest++ },
             optionsContent = {
-                artifacts()
-                TaskLedgerCard(screen.taskLedger, screen.openSessionId)
-                if (runControl.mode == AgentMode.GOAL || screen.hasGoals) {
-                    TextButton(intents.onManageGoal, modifier = Modifier.testTag("goal-manage")) {
-                        Text(stringResource(R.string.goal_manage))
-                    }
-                }
-                if (screen.isFork) {
-                    Text(
-                        stringResource(R.string.session_fork_notice),
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.padding(horizontal = 12.dp).testTag("session-fork-notice"),
-                    )
-                }
                 composerOptions()
             },
             input = voicePreview ?: input,
@@ -563,6 +589,8 @@ internal fun ConversationSection(
             hasAttachments = screen.pendingAttachments.isNotEmpty(),
             hasKnowledgeReferences = hasKnowledgeReferences,
             referenceLabel = referenceLabel,
+            expertName = expertName,
+            pluginNames = pluginNames,
             onRemoveReference = intents.onClearReference,
             goalMode = runControl.mode == AgentMode.GOAL,
             mode = runControl.mode,
@@ -648,8 +676,8 @@ internal fun ConversationSection(
                     onExpert = intents.onExpert,
                     onSkills = intents.onSkills,
                     onConnectors = intents.onConnectors,
-                    onSessionSettings = intents.onSettings,
                     onVoice = {
+                        voiceKeyboard?.hide()
                         reader?.leave()
                         inputNotice = null
                         voiceBase = input

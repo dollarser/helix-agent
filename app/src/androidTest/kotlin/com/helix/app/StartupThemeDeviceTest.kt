@@ -8,7 +8,10 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.test.platform.app.InstrumentationRegistry
+import com.helix.app.maintenance.PreviewResetRequest
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -20,6 +23,20 @@ class StartupThemeDeviceTest {
     @Test fun loadingFrameUsesDarkSurfaceInNightMode() = verify(night = true)
 
     @Test fun loadingFrameUsesLightSurfaceInDayMode() = verify(night = false)
+
+    @Test fun restartRequiredOffersRecheckWithoutExposingReset() {
+        var checks = 0
+        var resets = 0
+        val request = PreviewResetRequest(emptyList(), requiresRestart = true)
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        compose.setContent {
+            AppStartupScreen(AppStartupState.ResetRequired(request), { resets++ }, {}, { checks++ })
+        }
+        compose.onNodeWithTag("preview-reset-confirm").assertDoesNotExist()
+        compose.onNodeWithText(context.getString(R.string.preview_reset_recheck)).performClick()
+        org.junit.Assert.assertEquals(1, checks)
+        org.junit.Assert.assertEquals(0, resets)
+    }
 
     private fun verify(night: Boolean) {
         val configuration =

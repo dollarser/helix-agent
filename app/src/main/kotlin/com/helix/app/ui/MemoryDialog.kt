@@ -134,42 +134,44 @@ internal fun MemoryDialog(
         text = {
             Column(Modifier.heightIn(max = 520.dp).indicatedVerticalScroll(rememberScrollState())) {
                 Text(stringResource(R.string.memory_intro))
-                Row {
-                    Checkbox(enabled, enabled = !busy, onCheckedChange = { value ->
-                        act {
-                            withContext(Dispatchers.IO) { service.configure("enabled", value) }
-                            enabled = service.enabled
-                        }
-                    }, modifier = Modifier.testTag("memory-enabled"))
-                    Text(stringResource(R.string.memory_enabled))
-                }
-                Row {
-                    Checkbox(autoGlobal, enabled = !busy, onCheckedChange = { value ->
-                        act {
-                            withContext(Dispatchers.IO) { service.configure("auto-global", value) }
-                            autoGlobal = service.autoGlobal
-                        }
-                    }, modifier = Modifier.testTag("memory-auto-global"))
-                    Text(stringResource(R.string.memory_auto_global))
-                }
-                Row {
-                    Checkbox(autoProject, enabled = !busy, onCheckedChange = { value ->
-                        act {
-                            withContext(Dispatchers.IO) { service.configure("auto-project", value) }
-                            autoProject = service.autoProject
-                        }
-                    }, modifier = Modifier.testTag("memory-auto-project"))
-                    Text(stringResource(R.string.memory_auto_project))
-                }
-                Row {
-                    TextButton({ selectedScope = MemoryScope.Global }, enabled = !busy) {
-                        Text(stringResource(R.string.memory_global))
+                if (projectId == null) {
+                    Row {
+                        Checkbox(enabled, enabled = !busy, onCheckedChange = { value ->
+                            act {
+                                withContext(Dispatchers.IO) { service.configure("enabled", value) }
+                                enabled = service.enabled
+                            }
+                        }, modifier = Modifier.testTag("memory-enabled"))
+                        Text(stringResource(R.string.memory_enabled))
                     }
-                    TextButton(
-                        { projectScope?.let { selectedScope = it } },
-                        enabled = !busy && projectScope != null,
-                    ) {
-                        Text(stringResource(R.string.memory_project))
+                    Row {
+                        Checkbox(autoGlobal, enabled = !busy, onCheckedChange = { value ->
+                            act {
+                                withContext(Dispatchers.IO) { service.configure("auto-global", value) }
+                                autoGlobal = service.autoGlobal
+                            }
+                        }, modifier = Modifier.testTag("memory-auto-global"))
+                        Text(stringResource(R.string.memory_auto_global))
+                    }
+                    Row {
+                        Checkbox(autoProject, enabled = !busy, onCheckedChange = { value ->
+                            act {
+                                withContext(Dispatchers.IO) { service.configure("auto-project", value) }
+                                autoProject = service.autoProject
+                            }
+                        }, modifier = Modifier.testTag("memory-auto-project"))
+                        Text(stringResource(R.string.memory_auto_project))
+                    }
+                    Row {
+                        TextButton({ selectedScope = MemoryScope.Global }, enabled = !busy) {
+                            Text(stringResource(R.string.memory_global))
+                        }
+                        TextButton(
+                            { projectScope?.let { selectedScope = it } },
+                            enabled = !busy && projectScope != null,
+                        ) {
+                            Text(stringResource(R.string.memory_project))
+                        }
                     }
                 }
                 if (projectScope == null) Text(stringResource(R.string.memory_project_unavailable))

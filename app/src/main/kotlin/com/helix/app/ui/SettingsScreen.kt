@@ -43,7 +43,16 @@ import com.helix.core.model.SafetyProfile
 /** General application preferences; agent defaults and storage have their own drawer entries. */
 @Composable
 @Suppress("FunctionName")
-fun SettingsScreen() {
+fun SettingsScreen(
+    chatService: com.helix.app.chat.ChatService,
+    memory: com.helix.app.memory.MemoryService? = null,
+) {
+    var expertsOpen by androidx.compose.runtime.saveable
+        .rememberSaveable { mutableStateOf(false) }
+    var memoryOpen by androidx.compose.runtime.saveable
+        .rememberSaveable { mutableStateOf(false) }
+    if (expertsOpen) SessionExpertDialog(chatService, null) { expertsOpen = false }
+    if (memoryOpen && memory != null) MemoryDialog(memory, null) { memoryOpen = false }
     Column(
         Modifier
             .fillMaxSize()
@@ -54,6 +63,20 @@ fun SettingsScreen() {
     ) {
         SettingsGroup { AccountSettingsEntry() }
         SettingsGroup { LanguageSection() }
+        SettingsGroup {
+            TextButton(onClick = {
+                expertsOpen = true
+            }, modifier = Modifier.testTag("settings-experts")) {
+                Text(stringResource(R.string.expert_library))
+            }
+            TextButton(
+                enabled = memory != null,
+                onClick = { memoryOpen = true },
+                modifier = Modifier.testTag("settings-memory"),
+            ) {
+                Text(stringResource(R.string.memory_title))
+            }
+        }
         SettingsGroup {
             CloudSpeechSettingsEntry()
             SystemVoiceSettingsEntry()

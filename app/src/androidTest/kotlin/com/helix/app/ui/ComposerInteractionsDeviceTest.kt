@@ -44,8 +44,6 @@ class ComposerInteractionsDeviceTest {
                 )
             }
         }
-        compose.onNodeWithTag("chat-context-window").assertDoesNotExist()
-        compose.onNodeWithTag("chat-composer-options").performClick()
         compose.onNodeWithTag("chat-context-window").assertIsDisplayed().performClick()
         compose.onNodeWithTag("chat-context-usage-details").assertIsDisplayed()
     }

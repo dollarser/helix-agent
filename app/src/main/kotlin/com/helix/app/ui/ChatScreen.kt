@@ -73,8 +73,8 @@ fun ChatScreen(
     onOpenCommandDetail: (String, String) -> Unit = { _, _ -> },
     sessionExport: com.helix.app.export.SessionExportService? = null,
     connectors: com.helix.app.plugin.PluginService? = null,
+    onManageExperts: () -> Unit = {},
     onExtensions: () -> Unit = {},
-    memory: com.helix.app.memory.MemoryService? = null,
     onConfigureModelSource: ((ProviderProvisioningKind) -> Unit)? = null,
     onMobileUseSession: (String) -> Unit = {},
 ) {
@@ -100,14 +100,49 @@ fun ChatScreen(
             )
         }
     }
-    var connectorsOpen by remember(sessionId) { mutableStateOf(false) }
+    var connectorsOpen by rememberSaveable(sessionId) { mutableStateOf(false) }
     var skillsOpen by remember(sessionId) { mutableStateOf(false) }
-    var expertOpen by remember(sessionId) { mutableStateOf(false) }
+    var expertOpen by rememberSaveable(sessionId) { mutableStateOf(false) }
+    var selectedExpertName by remember(sessionId) { mutableStateOf<String?>(null) }
+    var expertLoadFailed by remember(sessionId) { mutableStateOf(false) }
+    LaunchedEffect(sessionId, expertOpen) {
+        try {
+            selectedExpertName = sessionId?.let { chatService.loadSessionExpert(it).await()?.displayName }
+            expertLoadFailed = false
+        } catch (cancel: kotlinx.coroutines.CancellationException) {
+            throw cancel
+        } catch (_: Exception) {
+            expertLoadFailed = true
+        }
+    }
+    var selectedPluginNames by remember(sessionId) { mutableStateOf(emptyList<String>()) }
+    var pluginLoadFailed by remember(sessionId) { mutableStateOf(false) }
+    val documentPluginName = stringResource(R.string.document_plugin_name)
+    LaunchedEffect(sessionId, connectorsOpen, documentPluginName) {
+        try {
+            selectedPluginNames =
+                if (sessionId == null || connectors == null) {
+                    emptyList()
+                } else {
+                    withContext(Dispatchers.IO) {
+                        connectors.selectedNames(sessionId).map {
+                            if (it == "documents") documentPluginName else it
+                        }
+                    }
+                }
+            pluginLoadFailed = false
+        } catch (
+            cancel: kotlinx.coroutines.CancellationException,
+        ) {
+            throw cancel
+        } catch (_: Exception) {
+            pluginLoadFailed = true
+        }
+    }
     var referenceOpen by remember(sessionId) { mutableStateOf(false) }
+    var referenceRequest by remember(sessionId) { mutableStateOf(0) }
     var knowledgeOpen by remember(sessionId) { mutableStateOf(false) }
     val knowledge = (context.applicationContext as? com.helix.app.HelixApplication)?.knowledge?.references
-    var memoryOpen by remember(sessionId) { mutableStateOf(false) }
-    if (memoryOpen && memory != null) MemoryDialog(memory, sessionId) { memoryOpen = false }
     var permissionRevision by remember(sessionId) { mutableStateOf(0) }
     var permissionMode by remember(sessionId) { mutableStateOf<SessionPermissionMode?>(null) }
     val referenceUnavailableReason = stringResource(R.string.chat_blocked_reference_unavailable)
@@ -121,6 +156,7 @@ fun ChatScreen(
                 sessionId,
                 onExtensions,
                 onMobileUseConfiguration = { onMobileUseSession(sessionId) },
+                canApply = { chatService.screen.value.openSessionId == sessionId },
             ) { connectorsOpen = false }
     }
     val buffer =
@@ -135,7 +171,12 @@ fun ChatScreen(
             sessionId,
             onExtensions,
             onDismiss = { skillsOpen = false },
-            onInvoke = { activation ->
+            onInvoke = invoke@{ activation ->
+                if (chatService.screen.value.openSessionId != sessionId || !buffer.editable ||
+                    buffer.sending
+                ) {
+                    return@invoke
+                }
                 val key = activation.key
                 val item =
                     InputSkillActivation(
@@ -158,16 +199,23 @@ fun ChatScreen(
         )
     }
     if (expertOpen && sessionId != null) {
-        SessionExpertDialog(chatService, sessionId) { expertOpen = false }
+        SessionExpertDialog(chatService, sessionId, onManage = onManageExperts) { expertOpen = false }
     }
     if (referenceOpen && sessionId != null) {
         ConversationReferencePicker(
-            sessions = screen.sessions,
+            chatService = chatService,
             currentSessionId = sessionId,
+            selectedSessionId = buffer.value.referenceSourceSessionId,
             onSelect = { row ->
+                val request = ++referenceRequest
+                referenceOpen = false
                 scope.launch {
                     val kind = chatService.referenceKindForSession(sessionId, row.id).await()
-                    referenceOpen = false
+                    if (chatService.screen.value.openSessionId != sessionId ||
+                        referenceRequest != request
+                    ) {
+                        return@launch
+                    }
                     if (kind != null) {
                         buffer.reference(row.id, kind)
                     } else {
@@ -175,14 +223,10 @@ fun ChatScreen(
                     }
                 }
             },
-            onDismiss = { referenceOpen = false },
-            onMemory =
-                memory?.let {
-                    {
-                        referenceOpen = false
-                        memoryOpen = true
-                    }
-                },
+            onDismiss = {
+                referenceRequest++
+                referenceOpen = false
+            },
         )
     }
     var editMessageId by rememberSaveable(sessionId) { mutableStateOf<String?>(null) }
@@ -255,6 +299,7 @@ fun ChatScreen(
     }
     DisposableEffect(buffer) { onDispose { flushBuffer() } }
     val acceptOrdinaryReceipt: suspend (ChatSubmissionReceipt) -> Unit = { receipt ->
+        referenceRequest++
         if (receipt.submission.revisedMessageId == null) {
             buffer.accepted(receipt, chatService::acknowledgeSubmission, chatService::loadComposerInput)
             inputQueueEpoch += 1
@@ -438,6 +483,8 @@ fun ChatScreen(
                 runControl = runControl,
                 permissionMode = permissionMode,
                 referenceLabel = referenceLabel,
+                expertName = selectedExpertName,
+                pluginNames = selectedPluginNames,
                 hasKnowledgeReferences = buffer.value.knowledgeReferences.isNotEmpty(),
                 knowledgeReferenceContent = {
                     com.helix.app.knowledge.KnowledgeReferenceChips(
@@ -541,6 +588,22 @@ fun ChatScreen(
                     )
                 },
                 composerFeedback = {
+                    if (selectedPluginNames.isNotEmpty()) {
+                        TextButton(
+                            onClick = { connectorsOpen = true },
+                            modifier = Modifier.testTag("composer-plugins-chip"),
+                        ) { Text(stringResource(R.string.composer_plugins, selectedPluginNames.joinToString())) }
+                    }
+                    if (pluginLoadFailed) Text(stringResource(R.string.plugin_selection_load_failed))
+                    selectedExpertName?.let { name ->
+                        TextButton(
+                            onClick = { expertOpen = true },
+                            modifier = Modifier.testTag("composer-expert-chip"),
+                        ) {
+                            Text(stringResource(R.string.expert_current, name))
+                        }
+                    }
+                    if (expertLoadFailed) Text(stringResource(R.string.session_expert_save_failed))
                     if (connectors != null && sessionId != null &&
                         screen.pendingAttachments.any {
                             it.fileName.substringAfterLast('.', "").lowercase() in
@@ -549,8 +612,11 @@ fun ChatScreen(
                     ) {
                         DocumentPluginPreparation(connectors, sessionId, connectorsOpen) {
                             scope.launch {
-                                saveBuffer()
-                                if (chatService.materializeDraftSession(sessionId) == sessionId) connectorsOpen = true
+                                if (saveBuffer() && chatService.materializeDraftSession(sessionId) == sessionId &&
+                                    chatService.screen.value.openSessionId == sessionId
+                                ) {
+                                    connectorsOpen = true
+                                }
                             }
                         }
                     }
@@ -598,9 +664,17 @@ fun ChatScreen(
                                 { source -> navigateAfterSave { configure(source) } }
                             },
                         onReference = {
-                            if (sessionId != null && buffer.editable && !buffer.sending) referenceOpen = true
+                            if (sessionId != null && buffer.editable &&
+                                !buffer.sending
+                            ) {
+                                referenceRequest++
+                                referenceOpen = true
+                            }
                         },
-                        onClearReference = { buffer.reference(null, null) },
+                        onClearReference = {
+                            referenceRequest++
+                            buffer.reference(null, null)
+                        },
                         onKnowledgeReference =
                             knowledge?.let {
                                 {
@@ -611,8 +685,11 @@ fun ChatScreen(
                             val id = sessionId
                             if (id != null) {
                                 scope.launch {
-                                    saveBuffer()
-                                    if (chatService.materializeDraftSession(id) == id) expertOpen = true
+                                    if (saveBuffer() && chatService.materializeDraftSession(id) == id &&
+                                        chatService.screen.value.openSessionId == id
+                                    ) {
+                                        expertOpen = true
+                                    }
                                 }
                             }
                         },
@@ -620,8 +697,11 @@ fun ChatScreen(
                             val id = sessionId
                             if (id != null && skills != null) {
                                 scope.launch {
-                                    saveBuffer()
-                                    if (chatService.materializeDraftSession(id) == id) skillsOpen = true
+                                    if (saveBuffer() && chatService.materializeDraftSession(id) == id &&
+                                        chatService.screen.value.openSessionId == id
+                                    ) {
+                                        skillsOpen = true
+                                    }
                                 }
                             }
                         },
@@ -747,7 +827,6 @@ fun ChatScreen(
                         onDetectReasoning = { provider, model ->
                             providerService.discoverReasoningOptions(provider, model)
                         },
-                        onSetChatTools = chatService::setChatToolsEnabled,
                         onInspectProot = chatService::inspectInterruptedProot,
                         onRecoverProot = chatService::recoverInterruptedProot,
                         onRetryProotAck = chatService::retryProotAcknowledgement,
