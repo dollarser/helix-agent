@@ -196,7 +196,7 @@ class AccountSession(
                 auth.open(
                     WireRequest(
                         "POST",
-                        "$AUTH/auth/$operation",
+                        "${OfficialServices.ACCOUNT_BASE_URL}/auth/$operation",
                         mapOf(
                             "X-Client-Id" to CLIENT_ID,
                             "Content-Type" to "application/json",
@@ -216,11 +216,10 @@ class AccountSession(
             ?: throw java.net.SocketTimeoutException("Account response timeout")
 
     companion object {
-        const val AUTH = "https://accounts.sunlingzhang.com"
         const val CLIENT_ID = "helix-android-preview-v1"
         const val AGENT = "android-ai-client/1.0"
         private val HOSTS =
-            setOf("accounts.sunlingzhang.com", "api.sunlingzhang.com", "asr.sunlingzhang.com", "tts.sunlingzhang.com")
+            setOf(URI(OfficialServices.ACCOUNT_BASE_URL).host, URI(OfficialServices.INFERENCE_BASE_URL).host)
 
         fun validateTarget(endpoint: String) {
             val uri = URI(endpoint)

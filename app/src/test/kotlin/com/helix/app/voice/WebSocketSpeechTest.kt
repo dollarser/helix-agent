@@ -261,24 +261,24 @@ class WebSocketSpeechTest {
         val settings =
             SpeechServiceSettings(
                 true,
-                "wss://asr.sunlingzhang.com/ws/asr",
-                "wss://tts.sunlingzhang.com/ws/tts",
+                "wss://api.sunlingzhang.com/ws/asr",
+                "wss://api.sunlingzhang.com/ws/tts",
                 true,
                 true,
             )
         store.save(settings)
         assertEquals(settings, store.read())
         assertThrows(IllegalArgumentException::class.java) { store.save(settings.copy(useAccountLogin = false)) }
-        assertThrows(
-            IllegalArgumentException::class.java,
-        ) { store.save(settings.copy(asrEndpoint = "wss://evil.test/ws/asr")) }
+        val custom = settings.copy(customAsrEndpoint = "wss://evil.test/ws/asr")
+        assertEquals("wss://api.sunlingzhang.com/ws/asr", custom.asrEndpoint)
+        assertEquals("wss://evil.test/ws/asr", custom.customAsrEndpoint)
         lines.setLines(
             "settings",
             listOf(
                 "account-v1",
                 "true",
-                "https://asr.sunlingzhang.com/v1/audio/transcriptions",
-                "https://tts.sunlingzhang.com/v1/audio/speech",
+                "https://api.sunlingzhang.com/v1/audio/transcriptions",
+                "https://api.sunlingzhang.com/v1/audio/speech",
                 "true",
                 "false",
             ),

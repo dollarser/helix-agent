@@ -4,13 +4,35 @@
 
 ## 当前可操作入口
 
-- 设置→语音服务：默认关闭云端语音，保留现有离线模式。用户填写 ASR/TTS 完整 HTTP/HTTPS 地址并显式保存后生效；不推断聊天 provider 的地址或 Key，HTTP 可自配地址；WS 选择器固定官方地址并强制账号认证，不内置凭据。设置明确显示 HTTP 明文、分段能力及可选使用 Helix 账号登录（仅官方 HTTPS 目标）。
+- 设置→语音服务：无显式配置且账号已登录时默认使用官方 WS；显式离线保持离线。官方账号模式只选择 HTTP/WS，不编辑独立 ASR/TTS 地址；地址由下述统一基址派生。自定义无鉴权 HTTP/HTTPS 保留独立地址，不推断聊天 provider 地址或 Key，不发送账号令牌。
 - 麦克风入口：离线模式先检查本机模型，缺失时显示来源、体积与显式下载入口；下载成功后用户主动开始才申请麦克风，不自动录音。HTTP 模式先确认目标与上传范围，录音结束后仅上传该次完整 WAV，最终文字预览后由用户加入草稿。没有用假 partial 冒充流式转写。
 - 正在生成的普通可见回答：用户点击朗读后接收该回答后续文本增量；停止仅停止声音，不取消 Agent。普通完整回答仍可点击朗读/停止。
 - HTTP TTS 按提交的文本段请求合成，每段完整 WAV 返回后分块播放。WS 模式在同一个连接内持续追加可见文本，并行接收和播放 PCM；HTTP 分句不是持续 WS。
 - `127.0.0.1` 在 Android 上指设备自身。Owner 的 Mac loopback 映射仅用于本轮主机联调，不会自动让手机可访问；客户端不创建 ADB 转发、防火墙规则或持久端口开放。
 
 ## 已核实的服务契约
+
+### 当前统一网关（Owner 契约，2026-10-28）
+
+仅配置 `ACCOUNT_BASE_URL=https://accounts.sunlingzhang.com`、`INFERENCE_BASE_URL=https://api.sunlingzhang.com/v1`、`SPEECH_WS_BASE_URL=wss://api.sunlingzhang.com`，由 `OfficialServices` 统一派生官方端点。账号登录/注册/刷新/退出仍是 accounts 的 `/auth/*`。此次直接切换，不保留旧语音域名、重定向或旧域回退；历史日期的记录不代表当前地址。
+
+| 能力 | 当前端点与实现范围 |
+| --- | --- |
+| 模型目录 | `GET https://api.sunlingzhang.com/v1/models`；目录列表不等于模型能力验证 |
+| LLM 对话 | `POST https://api.sunlingzhang.com/v1/chat/completions`，JSON/SSE |
+| 文件 ASR | `POST https://api.sunlingzhang.com/v1/audio/transcriptions`，multipart `file` |
+| 文件 TTS | `POST https://api.sunlingzhang.com/v1/audio/speech`，JSON `input`，WAV |
+| 实时 ASR | `wss://api.sunlingzhang.com/ws/asr` |
+| 双流 TTS | `wss://api.sunlingzhang.com/ws/tts` |
+| 公开健康检查 | `GET https://api.sunlingzhang.com/healthz`，无认证，根路径无 `/v1` |
+
+契约另提供 `/v1/completions`、`/v1/embeddings` 和 `/v1/audio/transcriptions/vibevoice`；本项目尚无专用文本补全、Embedding 调用或 VibeVoice 文件识别选择流程，本轮不新增这些能力，也不把目录可列出模型当作已经接通。第三方 provider 和自定义语音地址不改写。Bearer、ClientID、401 刷新与取消/迟到回调边界不变，真实账号/音频联调仍需独立授权。本轮以进程内 Wire/Socket mock 校验实际调用，不把 mock 当真实服务 E2E。
+
+### 2026-10-28 日常模拟器真实账号补验
+
+Owner 随后明确批准现有账号令牌与固定合成音频传输。API36 日常模拟器 Advanced 保数据更新后，现有账号目录请求200、HTTP TTS与ASR均200；WS TTS输出PCM、WS ASR最终文字与固定合成原文归一化后相同。真实文件ASR结果进入生产输入组件后可编辑、不自动发送；取消保留草稿、释放注入的合成音源且未上传。WS取消只证明客户端关闭，不宣称服务端计算回滚。账号保持登录，模型调用和Turn计数均为0，无麦克风、扬声器、真机或新权限操作；未发起购买，也没有额度/付费拒绝。
+
+限定夹具为 `ExistingAccountSpeechDeviceTest`：默认缺少显式profile时跳过，错误profile失败，仅接受指定Advanced模拟器。真实请求只执行一次；随后仅编译和静态检查了默认跳过分支，未重复服务请求。原始脱敏阶段、执行夹具与安装指纹在忽略的 `build/gateway-account-emulator-2026-10-28/`，生产候选完整Debug门禁在 `build/gateway-migration-2026-10-28/`。这些结果不扩展为真实麦克风、普遍识别准确率、强制账号刷新或所有发行包通过。
 
 HTTP 阶段已读取 OpenAPI 与 `/docs`；后来 Owner 提供统一客户端接入文档，明确 WS 契约，客户端按下文接入。
 

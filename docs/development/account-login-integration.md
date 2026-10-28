@@ -16,6 +16,8 @@
 
 ## UI与交互
 
+当前官方部署基址统一于 `OfficialServices`：账号为 `https://accounts.sunlingzhang.com`，推理为 `https://api.sunlingzhang.com/v1`，语音 WS 为 `wss://api.sunlingzhang.com`。只有 accounts/api 两个 HTTPS 主机可接受账号令牌；WS 精确限定 `/ws/asr`、`/ws/tts`。官方语音地址由模式派生，设置不再提供独立地址编辑框；自定义 HTTP/HTTPS 地址与其无账号认证路径保留。此次不做旧语音域回退或重定向。详见[当前网关契约](cloud-speech-integration.md#当前统一网关owner-契约2026-10-28)。
+
 实际查看[阿里云官方登录页](https://account.aliyun.com/login/login.htm)与[腾讯云官方邮箱登录](https://cloud.tencent.com/login)，参考其账密表单层级、突出主按钮、密码显隐及独立注册入口，使用Helix自有主题和图标。手机布局为欢迎标题、邮箱与密码、52dp圆角主按钮、注册切换和登录状态。提供邮箱格式反馈、Next/Done键盘行为、重复密码确认、请求中禁用重复提交/模式切换、退出确认和安全错误提示；密码状态不使用rememberSaveable，关闭表单即释放引用。未提供实际服务契约的短信、微信、QQ、找回密码不展示；没有伪造协议链接、默认勾选或无效按钮。
 
 ## 早期主机验证事实

@@ -51,18 +51,6 @@ internal fun CloudSpeechSettingsEntry() {
                             draft.copy(
                                 webSocket = enabled,
                                 useAccountLogin = if (enabled) true else draft.useAccountLogin,
-                                asrEndpoint =
-                                    if (enabled) {
-                                        "wss://asr.sunlingzhang.com/ws/asr"
-                                    } else {
-                                        "https://asr.sunlingzhang.com/v1/audio/transcriptions"
-                                    },
-                                ttsEndpoint =
-                                    if (enabled) {
-                                        "wss://tts.sunlingzhang.com/ws/tts"
-                                    } else {
-                                        "https://tts.sunlingzhang.com/v1/audio/speech"
-                                    },
                             )
                     })
                     Text(
@@ -70,19 +58,21 @@ internal fun CloudSpeechSettingsEntry() {
                             if (draft.webSocket) R.string.speech_ws_description else R.string.speech_http_description,
                         ),
                     )
-                    if (!draft.webSocket) Text(stringResource(R.string.speech_http_loopback))
-                    OutlinedTextField(
-                        draft.asrEndpoint,
-                        { draft = draft.copy(asrEndpoint = it) },
-                        label = { Text(stringResource(R.string.speech_asr_endpoint)) },
-                        singleLine = true,
-                    )
-                    OutlinedTextField(
-                        draft.ttsEndpoint,
-                        { draft = draft.copy(ttsEndpoint = it) },
-                        label = { Text(stringResource(R.string.speech_tts_endpoint)) },
-                        singleLine = true,
-                    )
+                    if (!draft.useAccountLogin) {
+                        Text(stringResource(R.string.speech_http_loopback))
+                        OutlinedTextField(
+                            draft.customAsrEndpoint,
+                            { draft = draft.copy(customAsrEndpoint = it) },
+                            label = { Text(stringResource(R.string.speech_asr_endpoint)) },
+                            singleLine = true,
+                        )
+                        OutlinedTextField(
+                            draft.customTtsEndpoint,
+                            { draft = draft.copy(customTtsEndpoint = it) },
+                            label = { Text(stringResource(R.string.speech_tts_endpoint)) },
+                            singleLine = true,
+                        )
+                    }
                     SpeechSettingToggle(
                         stringResource(R.string.speech_use_account_login),
                         draft.useAccountLogin,

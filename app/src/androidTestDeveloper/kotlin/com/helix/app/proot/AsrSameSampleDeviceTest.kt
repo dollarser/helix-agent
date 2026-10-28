@@ -41,7 +41,7 @@ class AsrSameSampleDeviceTest {
             val wav = File(directory, "input.wav").readBytes()
             assertEquals("424d11fb9fda2317df33875b2bd3251b5760cd9bdcfdd61c04cc8067c1b40080", hash(pcm))
             assertTrue(wav.copyOfRange(44, wav.size).contentEquals(pcm))
-            val httpUrl = "https://asr.sunlingzhang.com/v1/audio/transcriptions"
+            val httpUrl = "https://api.sunlingzhang.com/v1/audio/transcriptions"
             val boundary = "helix-synthetic-fixed-sample"
             val multipart =
                 (
@@ -79,7 +79,7 @@ class AsrSameSampleDeviceTest {
                     .jsonPrimitive.content
             val events = File(directory, "ws-events.txt").apply { writeText("") }
             val frames = File(directory, "frames.txt").apply { writeText("") }
-            val url = "wss://asr.sunlingzhang.com/ws/asr"
+            val url = "wss://api.sunlingzhang.com/ws/asr"
             val final =
                 app.account.speechSocket(url).connect(url, emptyMap()).use { socket ->
                     val deadline = android.os.SystemClock.elapsedRealtime() + 90_000

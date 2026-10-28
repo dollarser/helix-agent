@@ -160,7 +160,7 @@ class AccountServiceDeviceTest {
             OkHttpWireClient(followRedirects = false).open(
                 WireRequest(
                     "POST",
-                    "${AccountSession.AUTH}/auth/refresh",
+                    "${OfficialServices.ACCOUNT_BASE_URL}/auth/refresh",
                     mapOf("Content-Type" to "application/json", "X-Client-Id" to BuiltInModel.CLIENT_ID),
                     buildJsonObject { put("refresh_token", refresh) }.toString().toByteArray(),
                 ),

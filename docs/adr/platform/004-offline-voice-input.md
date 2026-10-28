@@ -15,6 +15,8 @@ Standard 和 Advanced 均提供完整离线语音输入，不依赖 OEM/Google �
 
 实时转写直接在当前输入框预览，结束后留在同一输入框编辑，用户仍需主动发送，不另弹确认编辑窗口。失败、取消、丢失前台或迟到推理结果恢复录音前草稿；没有后台常驻监听、自动发送或自动全双工轮次。进程重建不恢复录音，已接受草稿沿用现有持久化机制。
 
+录音区以“停止并识别”为主要动作，识别中立即显示进度并允许取消。空结果与可重试失败恢复原草稿预览，在同一面板保留错误、重试和取消；只有显式重试才能开启下一轮，且必须等待上一轮物理资源清理完成。退后台中断仍关闭录音区，回到前台不自动录音。布局与来源依据见[会话交互设计](../../design/helix-ui-prototype/CONVERSATION_ENTRIES.md)。
+
 离线 ASR 采用 sherpa-onnx 1.13.8 + CPU 双线程，当前选用 `pkufool/zipformer-small-streaming` 的 chunk16/left64 FP16 transducer（FP16 encoder/joiner、FP32 decoder），所需资源约 80 MiB，由用户按需下载，两渠道保留推理引擎而不预装权重。固定来源、逐文件大小与 SHA-256 见 `config/asr/model.lock.json`；ASR/TTS 模型下载均来自 ModelScope。首次只显示必要体积和操作，下载完成仍需主动开始输入才申请麦克风；下载不录音。复用有界传输、暂存、校验和安装机制，取消、退后台或失败不发布半成品，不自动改用云端。不可恢复错误、校验失败及主动取消不自动重试；固定不可变文件 GET 的合法有限技术恢复仍保留。选型样本与内存/加载代价见[对照记录](../../evidence/development/modelscope-asr-selection-2026-10-26.md)，不宣称它是全面速度升级或所有英语场景更优。
 
 sherpa-ncnn 和 sherpa-onnx 均有官方 Android CPU/真流式路径。ncnn 的依赖较少；onnx 提供更广的 ASR 模型及后续 TTS 候选，并有同一套受控 Kotlin/JNI 接口。为后续模型比较选 onnx，代价是较大的通用推理库。没有复制 Operit 代码。采用的 sherpa/模型 Apache-2.0、ORT MIT、KissFFT BSD、未修改 Eigen MPL-2.0 等归属、许可与固定源代码入口随 APK 放入 `asr-licenses/`；Eigen 启用 `EIGEN_MPL2_ONLY`。不把框架许可推导为所有模型均可商用。
@@ -103,6 +105,10 @@ Owner 进一步要求全部候选的准确率、速率与真机比较；十个�
 - [中文 CTC 官方说明](https://k2-fsa.github.io/sherpa/onnx/pretrained_models/online-ctc/zipformer-ctc-models.html)、[训练模型 Apache-2.0](https://huggingface.co/csukuangfj/icefall-streaming-zipformer-small-ctc-zh-2025-04-01)。
 
 ## Decision history
+
+- 2026-10-28：Owner 提供统一推理域名契约，官方 HTTP ASR/TTS 改由 `https://api.sunlingzhang.com/v1` 派生，WS 改由 `wss://api.sunlingzhang.com` 派生 `/ws/asr`、`/ws/tts`；账号仍走 accounts 域。官方模式目标不再从持久化地址读取或编辑，不保留旧域回退/重定向；独立持久化字段仅供用户自定义无鉴权 HTTP 地址，不扩展为新的 Embedding、文本补全或 VibeVoice 选择能力。
+
+- 2026-10-28：Owner 要求参考主流听写交互优化。采用同面板录音/识别/重试与可编辑草稿回填，取消丢弃、无自动发送；保留模型、默认路由及授权边界。设备验证仅使用合成 PCM 与模拟状态，真实麦克风及音频上传待明确授权，不把 UI/合成测试当作实际语音质量验收。
 
 - 2026-10-19：Owner 授权本地中文优先 ASR；依据官方 Android 路线和两台 ARM64 设备公开音频结果接受上述范围。后续 TTS 保留独立评估边界，不扩大本轮实现。
 

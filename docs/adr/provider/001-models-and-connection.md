@@ -11,6 +11,8 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 
 ## Decision
 
+官方部署的账号、推理和语音基址集中于 App `OfficialServices`。账号 `/auth/*` 保持 accounts 主机；内置目录与对话从包含 `/v1` 的统一推理基址追加一次方法路径；语音 WS 从无 `/v1` 的统一 WS 基址派生。当前账号令牌目标只允许 accounts/api 两个 HTTPS 主机和精确官方 WS 路径，禁用旧语音域、重定向及旧域回退；用户自配 provider 不受本次部署变更影响。
+
 - 合法成功空目录表示当前没有候选，须清除旧目录候选并保留已选目标；查询失败与成功空目录分别保存。普通 API/订阅的空目录仍不能通过连接检查或触发额外生成。
 
 - HXA-307 增加 `BUNDLED_SERVICE` provisioning：项目提供的固定 HTTPS 云端服务，连接元数据仍为 Network + None（无用户自配 Key alias），请求鉴权改由应用账号会话注入 Bearer。地址固定，登录入口位于抽屉固定顶部、设置及对话选模；不把账号令牌写进 Provider 配置。仅允许固定 `GET /models` 和 `POST /chat/completions`，拒绝重定向、路径/端口/来源变化、调用方覆盖认证头；同时发送固定公开 ClientID 作为客户端标识（不能单独鉴权），不直连推理端口、不回退其他 Provider。
@@ -85,6 +87,8 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 验证目录/认证失败、模型切换的并发拒绝、推理重置、目录变更、reasoning-only 流及请求名称映射；增加分类矩阵：同一 Ollama/SGLang/vLLM 模板的 loopback/LAN/public endpoint 必须得到不同 residence，但 transport 均为 Network；managed subscription 必须是 Network + ManagedAccount 而不是独立 transport；on-device 配置不得含 endpoint/protocol/secret。设备内 Provider 还需覆盖完整 Agent loop 的工具调用、长上下文、错误恢复、资源/热/内存、模型资产完整性和与 network Provider 的同任务 eval。真实账号或设备验证按各自显式授权执行。
 
 ## Decision history
+
+- **2026-10-28**：Owner 授权统一推理域名直接切换，采用三基址与派生端点；移除独立官方 ASR/TTS 地址配置和旧语音令牌白名单。保留 2026-10-21 等历史阶段事实，当前契约以本 Decision 与[统一网关说明](../../development/cloud-speech-integration.md#当前统一网关owner-契约2026-10-28)为准。通过本地 mock 验证，不因此授权真实账号/音频/付费模型调用。
 
 - **2026-10-18（HXA-307）**：Owner 明确授权内置 Qwen3.8-27B 和 `X-Client-Id` 项目网关，采用免配置初始入口与普通 Provider 执行链路；保留用户自配来源、已有数据/选择与渠道能力。采用 [OpenCode 官方 FAQ](https://dev.opencode.ai/) 的内置/自配并存方式，不继承其免费模型数据政策。白名单是实时联调条件，不是本地实现条件；禁止借既有私有 API Key 绕过。实现与验证见 [HXA-307](../../development/tasks/HXA-307.md)。
 

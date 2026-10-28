@@ -24,8 +24,8 @@ internal object WebSocketSpeechDeviceCheck {
         val expected = "你好，这是模拟器语音接入测试。"
         val result = File(directory, "result.txt")
         result.writeText("input=$expected\n")
-        val ttsUrl = "wss://tts.sunlingzhang.com/ws/tts"
-        val asrUrl = "wss://asr.sunlingzhang.com/ws/asr"
+        val ttsUrl = "wss://api.sunlingzhang.com/ws/tts"
+        val asrUrl = "wss://api.sunlingzhang.com/ws/asr"
         val events = File(directory, "events.jsonl")
         events.writeText("")
         val ttsBytes = ByteArrayOutputStream()
@@ -118,7 +118,7 @@ internal object WebSocketSpeechDeviceCheck {
         assertArrayEquals(expectedPcm, sent.toByteArray())
         HttpFileAsr(
             SpeechServiceSettings(useAccountLogin = true).session(
-                "https://asr.sunlingzhang.com/v1/audio/transcriptions",
+                "https://api.sunlingzhang.com/v1/audio/transcriptions",
                 account,
                 recordingHttp(directory, expectedPcm),
             ),

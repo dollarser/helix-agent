@@ -12,7 +12,7 @@ import org.junit.Test
 import java.io.IOException
 
 class AccountSpeechSocketTest {
-    private val endpoint = "wss://tts.sunlingzhang.com/ws/tts"
+    private val endpoint = "wss://api.sunlingzhang.com/ws/tts"
 
     private class Fake : SocketConnection {
         var closed = false

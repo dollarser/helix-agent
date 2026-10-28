@@ -15,7 +15,7 @@ internal fun AccountSession.speechSocket(
     endpoint: String,
     delegate: SocketConnector = OkHttpSocketConnector(),
 ): SocketConnector {
-    require(endpoint in setOf("wss://asr.sunlingzhang.com/ws/asr", "wss://tts.sunlingzhang.com/ws/tts"))
+    require(endpoint in setOf(OfficialServices.asr(true), OfficialServices.tts(true)))
     val version = revision
 
     @Suppress("SwallowedException") // Only the safe HTTP category crosses into the socket adapter.

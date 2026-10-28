@@ -2,17 +2,20 @@ package com.helix.app.voice
 
 import android.content.Context
 import com.helix.app.account.AccountStatus
+import com.helix.app.account.OfficialServices
 import com.helix.app.account.speechSocket
 import com.helix.app.internal.LineStore
 import com.helix.app.internal.PrefsLineStore
 
 data class SpeechServiceSettings(
     val httpEnabled: Boolean = false,
-    val asrEndpoint: String = "",
-    val ttsEndpoint: String = "",
+    val customAsrEndpoint: String = "",
+    val customTtsEndpoint: String = "",
     val useAccountLogin: Boolean = false,
     val webSocket: Boolean = false,
 ) {
+    val asrEndpoint get() = if (useAccountLogin) OfficialServices.asr(webSocket) else customAsrEndpoint
+    val ttsEndpoint get() = if (useAccountLogin) OfficialServices.tts(webSocket) else customTtsEndpoint
     val requiresAccount: Boolean get() = httpEnabled && useAccountLogin
 
     fun session(
@@ -20,7 +23,17 @@ data class SpeechServiceSettings(
         account: com.helix.app.account.AccountSession? = null,
         transport: com.helix.provider.api.wire.WireClient? = null,
     ): HttpSpeechSession {
-        val config = HttpSpeechSession.config(endpoint)
+        val parsed = HttpSpeechSession.config(endpoint)
+        val config =
+            if (useAccountLogin) {
+                val canonical =
+                    listOf(OfficialServices.asr(false), OfficialServices.tts(false)).firstOrNull {
+                        HttpSpeechSession.config(it).endpoint == parsed.endpoint
+                    }
+                parsed.copy(endpoint = java.net.URI(requireNotNull(canonical)))
+            } else {
+                parsed
+            }
         val target = config.endpoint.toString()
         val delegate =
             transport ?: com.helix.provider.api.wire.OkHttpWireClient(
@@ -54,8 +67,6 @@ data class SpeechServiceSettings(
     fun validate() {
         if (webSocket) {
             require(useAccountLogin)
-            require(asrEndpoint == "wss://asr.sunlingzhang.com/ws/asr")
-            require(ttsEndpoint == "wss://tts.sunlingzhang.com/ws/tts")
             return
         }
         if (httpEnabled || asrEndpoint.isNotBlank()) HttpSpeechSession.config(asrEndpoint)
@@ -82,8 +93,6 @@ class SpeechSettingsStore(
         if (store.lines("settings").isEmpty() && status != AccountStatus.SIGNED_OUT) {
             SpeechServiceSettings(
                 httpEnabled = true,
-                asrEndpoint = "wss://asr.sunlingzhang.com/ws/asr",
-                ttsEndpoint = "wss://tts.sunlingzhang.com/ws/tts",
                 useAccountLogin = true,
                 webSocket = true,
             )
@@ -122,8 +131,8 @@ class SpeechSettingsStore(
             listOf(
                 "account-v1",
                 settings.httpEnabled.toString(),
-                settings.asrEndpoint,
-                settings.ttsEndpoint,
+                settings.customAsrEndpoint,
+                settings.customTtsEndpoint,
                 settings.useAccountLogin.toString(),
                 settings.webSocket.toString(),
             ),

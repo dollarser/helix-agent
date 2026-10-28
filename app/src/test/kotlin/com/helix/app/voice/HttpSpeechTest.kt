@@ -39,7 +39,7 @@ class HttpSpeechTest {
         store.save(settings)
         assertEquals(settings, store.read())
         assertThrows(IllegalArgumentException::class.java) {
-            store.save(settings.copy(ttsEndpoint = "https://user:key@example.test/tts"))
+            store.save(settings.copy(customTtsEndpoint = "https://user:key@example.test/tts"))
         }
         assertEquals(settings, store.read())
         lines.setLines("settings", listOf("corrupt", settings.asrEndpoint, settings.ttsEndpoint))
@@ -137,17 +137,22 @@ class HttpSpeechTest {
         val settings =
             SpeechServiceSettings(
                 true,
-                "https://asr.sunlingzhang.com/v1/audio/transcriptions",
-                "https://tts.sunlingzhang.com/v1/audio/speech",
+                "https://api.sunlingzhang.com/v1/audio/transcriptions",
+                "https://api.sunlingzhang.com/v1/audio/speech",
                 true,
             )
         store.save(settings)
         assertEquals(settings, store.read())
+        assertEquals(
+            "https://api.sunlingzhang.com/v1/audio/speech",
+            settings.copy(customTtsEndpoint = "https://evil.test/speech").ttsEndpoint,
+        )
         assertThrows(IllegalArgumentException::class.java) {
-            settings.copy(ttsEndpoint = "http://127.0.0.1:18768/tts").validate()
-        }
-        assertThrows(IllegalArgumentException::class.java) {
-            settings.copy(ttsEndpoint = "https://evil.test/speech").validate()
+            settings.session(
+                "https://evil.test/speech",
+                com.helix.app.account
+                    .testAccount(),
+            )
         }
     }
 
@@ -157,16 +162,16 @@ class HttpSpeechTest {
                 .testAccount()
         val settings = SpeechServiceSettings(useAccountLogin = true)
         for (endpoint in listOf(
-            "https://tts.sunlingzhang.com/v1/audio/speech",
-            "https://tts.sunlingzhang.com:443/v1/audio/speech",
-            "https://asr.sunlingzhang.com/v1/audio/transcriptions",
+            "https://api.sunlingzhang.com/v1/audio/speech",
+            "https://api.sunlingzhang.com:443/v1/audio/speech",
+            "https://api.sunlingzhang.com/v1/audio/transcriptions",
         )) {
             var calls = 0
             val transport =
                 object : WireClient {
                     override suspend fun open(request: WireRequest): WireResponse {
                         calls++
-                        assertEquals(HttpSpeechSession.config(endpoint).endpoint.toString(), request.url)
+                        assertEquals(endpoint.replace(":443", ""), request.url)
                         assertEquals("Bearer fixture-access", request.headers["Authorization"])
                         assertEquals(com.helix.app.account.AccountSession.CLIENT_ID, request.headers["X-Client-Id"])
                         return com.helix.app.account

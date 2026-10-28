@@ -31,7 +31,10 @@ class VoiceCapture(
         val phase: Phase = Phase.IDLE,
         val text: String = "",
         val failure: Failure? = null,
-    )
+    ) {
+        val retryable get() = phase == Phase.FAILED || (phase == Phase.REVIEW && text.isBlank())
+        val processing get() = phase in setOf(Phase.LOADING, Phase.FINISHING)
+    }
 
     private val mutableState = MutableStateFlow(State())
     val state = mutableState.asStateFlow()
@@ -80,7 +83,7 @@ class VoiceCapture(
                         val read = recorder.read(samples)
                         check(read in 1..samples.size)
                         val text = asr.accept(FloatArray(read) { samples[it] / 32768f })
-                        publish(State(Phase.LISTENING, text))
+                        publish(State(if (finish.get()) Phase.FINISHING else Phase.LISTENING, text))
                         count += read
                     }
                     recorder.stop()
@@ -125,6 +128,24 @@ class VoiceCapture(
 
     fun finish() {
         finish.set(true)
+        synchronized(stateLock) {
+            if (mutableState.value.phase == Phase.LISTENING) {
+                mutableState.value = mutableState.value.copy(phase = Phase.FINISHING)
+            }
+        }
+    }
+
+    /** Retry is admitted once, and never overlaps cleanup from the preceding capture. */
+    suspend fun retry() {
+        val previous = job
+        synchronized(stateLock) {
+            val state = mutableState.value
+            if (cancelled.get()) return
+            if (!state.retryable) return
+            mutableState.value = State(Phase.LOADING)
+        }
+        previous?.join()
+        if (!cancelled.get() && currentCoroutineContext().isActive) start()
     }
 
     fun cancel(reason: Failure? = null) {

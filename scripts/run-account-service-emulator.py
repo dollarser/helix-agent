@@ -77,8 +77,8 @@ def main():
     if args.with_speech:
         command += ['--instrument-arg', 'accountSpeechAcceptance=true',
                     '--instrument-arg', 'speechUseAccountLogin=true',
-                    '--instrument-arg', 'speechTtsUrl=https://tts.sunlingzhang.com/v1/audio/speech',
-                    '--instrument-arg', 'speechAsrUrl=https://asr.sunlingzhang.com/v1/audio/transcriptions']
+                    '--instrument-arg', 'speechTtsUrl=https://api.sunlingzhang.com/v1/audio/speech',
+                    '--instrument-arg', 'speechAsrUrl=https://api.sunlingzhang.com/v1/audio/transcriptions']
     if args.with_ws:
         command += ['--instrument-arg', 'accountWsAcceptance=true']
     try:

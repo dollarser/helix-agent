@@ -182,7 +182,7 @@ class AccountSessionTest {
                 )
             service.open(request()).body.close()
             assertThrows(IllegalArgumentException::class.java) {
-                runBlocking { service.open(request("https://tts.sunlingzhang.com/v1/audio/speech")) }
+                runBlocking { service.open(request("https://api.sunlingzhang.com/v1/audio/speech")) }
             }
             assertThrows(IllegalArgumentException::class.java) {
                 runBlocking {

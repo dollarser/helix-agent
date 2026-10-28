@@ -6,9 +6,16 @@ import android.content.pm.PackageManager
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -33,6 +40,7 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import com.helix.app.R
 import com.helix.app.voice.VoiceCapture
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 
 /** Foreground capture adapter. Preview is transient composer state; only a final result commits a draft. */
 @Composable
@@ -103,17 +111,15 @@ internal fun InlineVoiceInput(
             }
 
             VoiceCapture.Phase.REVIEW -> {
-                if (state.text.isNotBlank()) {
-                    accept(state.text.trim())
-                } else {
-                    error(resources.getString(R.string.offline_voice_empty))
-                }
-                dismiss()
+                acceptVoiceReview(state.text, preview, accept, dismiss)
             }
 
             VoiceCapture.Phase.FAILED -> {
-                error(resources.getString(voiceStatusText(state, permission)))
-                dismiss()
+                preview("")
+                if (state.failure == VoiceCapture.Failure.INTERRUPTED) {
+                    error(resources.getString(voiceStatusText(state, permission)))
+                    dismiss()
+                }
             }
 
             else -> {
@@ -139,13 +145,14 @@ internal fun InlineVoiceInput(
         },
         onGrant = { launcher.launch(Manifest.permission.RECORD_AUDIO) },
         onFinish = capture::finish,
+        onRetry = { scope.launch { capture.retry() } },
     )
 }
 
 /** Stateless controls: recording/permission ownership stays in the foreground adapter above. */
 @Composable
 @Suppress("FunctionName", "LongParameterList")
-private fun InlineVoiceControls(
+internal fun InlineVoiceControls(
     state: VoiceCapture.State,
     permission: Boolean,
     uploadConsent: Boolean,
@@ -156,9 +163,24 @@ private fun InlineVoiceControls(
     onConsent: () -> Unit,
     onGrant: () -> Unit,
     onFinish: () -> Unit,
+    onRetry: () -> Unit,
 ) {
-    Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp).testTag("voice-inline")) {
-        Text(stringResource(voiceStatusText(state, permission)), Modifier.testTag("voice-status"))
+    Column(
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp).testTag("voice-inline"),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (permission && uploadConsent &&
+                state.processing
+            ) {
+                CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+            }
+            Text(
+                stringResource(voiceStatusText(state, permission)),
+                Modifier.testTag("voice-status"),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
         if (uploadsAudio && !uploadConsent) {
             Text(stringResource(R.string.cloud_voice_upload))
             destination?.let {
@@ -171,30 +193,50 @@ private fun InlineVoiceControls(
             }
         }
         if (uploadsAudio && uploadConsent && !supportsPartial) Text(stringResource(R.string.speech_http_asr_mode))
-        Row {
+        FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
             TextButton(onCancel, Modifier.testTag("voice-cancel")) {
                 Text(stringResource(R.string.offline_voice_cancel))
             }
             when {
                 !uploadConsent -> {
-                    TextButton(onConsent, Modifier.testTag("voice-upload-consent")) {
+                    Button(onConsent, Modifier.testTag("voice-upload-consent")) {
                         Text(stringResource(R.string.cloud_voice_confirm))
                     }
                 }
 
                 !permission -> {
-                    TextButton(onGrant, Modifier.testTag("voice-grant")) {
+                    Button(onGrant, Modifier.testTag("voice-grant")) {
                         Text(stringResource(R.string.offline_voice_grant))
                     }
                 }
 
                 state.phase == VoiceCapture.Phase.LISTENING -> {
-                    TextButton(onFinish, Modifier.testTag("voice-finish")) {
+                    Button(onFinish, Modifier.testTag("voice-finish")) {
                         Text(stringResource(R.string.offline_voice_finish))
+                    }
+                }
+
+                state.retryable -> {
+                    Button(onRetry, Modifier.testTag("voice-retry")) {
+                        Text(stringResource(R.string.chat_retry))
                     }
                 }
             }
         }
+    }
+}
+
+private fun acceptVoiceReview(
+    text: String,
+    preview: (String) -> Unit,
+    accept: (String) -> Unit,
+    dismiss: () -> Unit,
+) {
+    if (text.isBlank()) {
+        preview("")
+    } else {
+        accept(text.trim())
+        dismiss()
     }
 }
 
