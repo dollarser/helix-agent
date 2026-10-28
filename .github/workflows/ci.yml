@@ -51,16 +51,9 @@ jobs:
         run: ./scripts/ci-run-gate.sh --source
       - name: Check change-range whitespace
         env:
+          CI_BASE: ${{ steps.plan.outputs.base }}
           PUSH_BEFORE: ${{ github.event.before }}
-        run: |
-          if [ -n "$GITHUB_BASE_REF" ]; then
-            base="$(git merge-base "origin/$GITHUB_BASE_REF" HEAD)"
-          elif [ -n "$PUSH_BEFORE" ] && git cat-file -e "$PUSH_BEFORE^{commit}" 2>/dev/null; then
-            base="$PUSH_BEFORE"
-          else
-            base="$(git hash-object -t tree /dev/null)"
-          fi
-          git diff --check "$base" HEAD
+        run: python3 scripts/ci/plan.py --check-whitespace
       - name: Save source diagnostics
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

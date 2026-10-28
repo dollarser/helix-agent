@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import re
 import subprocess
+import sys
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
@@ -49,7 +50,7 @@ def proven_base(get, ancestor):
     # Bounded discovery. No prior qualifying run or unavailable API means Debug CI.
     runs = get('actions/workflows/ci.yml/runs?branch=main&status=success&per_page=30')['workflow_runs']
     for run in runs:
-        if run.get('event') != 'push' or not ancestor(run['head_sha']):
+        if run.get('event') not in {'push', 'workflow_dispatch'} or not ancestor(run['head_sha']):
             continue
         jobs = get(f"actions/runs/{run['id']}/jobs?filter=latest&per_page=100")
         if jobs.get('total_count', 0) > 100:
@@ -77,7 +78,11 @@ def plan(event_name, event, get=api_get):
         requested = event.get('inputs', {}).get('scope', 'full')
         if requested not in {'debug', 'full'}:
             raise ValueError('Manual scope must be debug or full')
-        return {'scope': requested, 'reason': 'explicit manual verification', 'base': None, 'paths': []}
+        try:
+            base = proven_base(get, is_ancestor)
+        except (URLError, OSError, KeyError, ValueError, subprocess.CalledProcessError):
+            base = None
+        return {'scope': requested, 'reason': 'explicit manual verification', 'base': base, 'paths': []}
     try:
         if event_name == 'pull_request':
             sha = event['pull_request']['base']['sha']
@@ -110,10 +115,37 @@ def verify(scope, source, assets, android):
     return assets == expected and android == expected
 
 
+def check_whitespace(verified_base=None, before=None, pr_base_ref=None):
+    if verified_base:
+        if not is_ancestor(verified_base):
+            raise ValueError('Whitespace baseline must be an existing ancestor commit')
+        base = verified_base
+    elif pr_base_ref:
+        base = git('merge-base', 'origin/' + pr_base_ref, 'HEAD')
+    elif before and is_ancestor(before):
+        base = before
+    else:
+        # workflow_dispatch has no push.before: inspect the current commit,
+        # not every inherited vendor file since the repository's empty tree.
+        try:
+            base = git('rev-parse', '--verify', 'HEAD^')
+        except subprocess.CalledProcessError:
+            base = git('hash-object', '-t', 'tree', '/dev/null')
+    return subprocess.run(['git', 'diff', '--check', base, 'HEAD'], cwd=ROOT,
+                          capture_output=True, text=True)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--verify', action='store_true')
+    parser.add_argument('--check-whitespace', action='store_true')
     args = parser.parse_args()
+    if args.check_whitespace:
+        result = check_whitespace(os.environ.get('CI_BASE'), os.environ.get('PUSH_BEFORE'),
+                                  os.environ.get('GITHUB_BASE_REF'))
+        sys.stdout.write(result.stdout)
+        sys.stderr.write(result.stderr)
+        raise SystemExit(result.returncode)
     if args.verify:
         valid = verify(*(os.environ.get(name, '') for name in
                          ('CI_SCOPE', 'SOURCE_RESULT', 'ASSETS_RESULT', 'ANDROID_RESULT')))
@@ -127,6 +159,7 @@ def main():
     Path('build/ci/plan.json').write_text(json.dumps(result, indent=2) + '\n')
     with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
         output.write('scope=' + result['scope'] + '\n')
+        output.write('base=' + (result['base'] or '') + '\n')
     print(json.dumps({key: value for key, value in result.items() if key != 'paths'}))
 
 
