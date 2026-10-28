@@ -130,7 +130,6 @@ class MessageRegenerateDeviceTest {
                     storage,
                     testClock,
                     ids,
-                    recoveryFailureNotice = { "Synthetic recovery unavailable" },
                 )
             val first =
                 admitRegenerate(admission, "t2", "regen-request", "regen-fingerprint", answerId)
@@ -230,7 +229,7 @@ class MessageRegenerateDeviceTest {
         val engine =
             createRoomTurnEngine(storage, testClock, idGenerator = {
                 UUID.randomUUID().toString()
-            }, recoveryFailureNotice = { "Synthetic recovery unavailable" })
+            })
         return (
             engine
                 .admit(

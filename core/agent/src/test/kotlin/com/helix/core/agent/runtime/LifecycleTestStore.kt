@@ -235,7 +235,7 @@ internal class LifecycleTestStore(
     override fun finishAutomaticRecovery(
         parentId: String,
         reason: String,
-        notice: String?,
+        inspectionFailed: Boolean,
     ) = unsupported()
 
     override fun retryEmptyModelStream(

@@ -7,6 +7,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -16,14 +17,65 @@ import java.util.UUID
 
 /** Durable state is authoritative; AlarmManager/WorkManager are replaceable wake projections. */
 @Suppress("TooManyFunctions") // One serialized persistence/publication boundary for reminder mutations.
-class ReminderService(
-    private val store: ReminderStore,
+class ReminderService internal constructor(
+    private val dao: com.helix.core.storage.reminder.ReminderDao,
     private val delivery: ReminderDelivery,
-    private val clock: () -> Long = System::currentTimeMillis,
+    private val clock: () -> Long,
+    private val transaction: suspend (suspend () -> Unit) -> Unit,
 ) {
+    constructor(
+        store: ReminderStore,
+        delivery: ReminderDelivery,
+        clock: () -> Long = System::currentTimeMillis,
+    ) : this(store.dao, delivery, clock, { block -> store.transaction(block) })
+
+    /** The row committed; only the rebuildable external projection failed. Never treat this as rollback. */
+    class ProjectionFailure(
+        val committed: LocalReminder,
+        cause: Exception,
+    ) : IllegalStateException(
+            "Reminder ${committed.id} revision ${committed.revision} saved; projection incomplete",
+            cause,
+        )
+
+    @Suppress("TooGenericExceptionCaught") // Preserve the durable commit identity across external projection failures.
+    private suspend fun project(item: LocalReminder, action: suspend () -> Unit) {
+        try {
+            action()
+        } catch (cancel: kotlinx.coroutines.CancellationException) {
+            throw cancel
+        } catch (error: Exception) {
+            failure.value = true
+            throw ProjectionFailure(item, error)
+        }
+    }
+
+    /** One editor's own commits, retained by its page owner across composition cancellation. */
+    class CommitReceipt {
+        private val value = kotlinx.coroutines.flow.MutableStateFlow<LocalReminder?>(null)
+        val committed: kotlinx.coroutines.flow.StateFlow<LocalReminder?> = value
+
+        internal fun record(item: LocalReminder) {
+            value.value = item
+        }
+    }
+
+    private suspend fun commit(
+        item: LocalReminder,
+        receipt: CommitReceipt?,
+    ) {
+        kotlinx.coroutines.currentCoroutineContext().ensureActive()
+        // Once the write starts, publish its identity even if the caller is cancelled during Room's return.
+        withContext(kotlinx.coroutines.NonCancellable) {
+            dao.save(item)
+            receipt?.record(item)
+        }
+        kotlinx.coroutines.currentCoroutineContext().ensureActive()
+    }
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val mutation = Mutex()
-    val items = store.dao.observe()
+    val items = dao.observe()
     val openRequest = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
     val failure = kotlinx.coroutines.flow.MutableStateFlow(false)
 
@@ -41,9 +93,9 @@ class ReminderService(
             }
         }
 
-    suspend fun get(id: String) = withContext(Dispatchers.IO) { store.dao.get(id) }
+    suspend fun get(id: String) = withContext(Dispatchers.IO) { dao.get(id) }
 
-    suspend fun list() = withContext(Dispatchers.IO) { store.dao.all() }
+    suspend fun list() = withContext(Dispatchers.IO) { dao.all() }
 
     suspend fun cancelRevision(
         id: String,
@@ -51,16 +103,19 @@ class ReminderService(
     ): Boolean =
         withContext(Dispatchers.IO) {
             mutation.withLock {
-                val item = store.dao.get(id)
+                val item = dao.get(id)
                 if (item == null || item.state != "ACTIVE" || item.revision != revision) return@withLock false
                 finishLocked(item, cancelled = true)
                 true
             }
         }
 
-    suspend fun events(id: String) = withContext(Dispatchers.IO) { store.dao.events(id) }
+    suspend fun events(id: String) = withContext(Dispatchers.IO) { dao.events(id) }
 
-    suspend fun save(draft: LocalReminder): String =
+    suspend fun save(
+        draft: LocalReminder,
+        receipt: CommitReceipt? = null,
+    ): String =
         withContext(Dispatchers.IO) {
             require(draft.title.isNotBlank() && draft.title.length <= 160 && draft.body.length <= 20_000)
             val time = draft.localTime.takeIf { it.isNotEmpty() }?.let { draft.time() }
@@ -68,7 +123,7 @@ class ReminderService(
             require(time != null || draft.repeat == "ONCE")
             val now = clock()
             mutation.withLock {
-                val previous = store.dao.get(draft.id)
+                val previous = dao.get(draft.id)
                 check(previous == null || previous.revision == draft.revision) { "Reminder changed; reopen it" }
                 val sameTime = sameSchedule(previous, draft)
                 require(time == null || sameTime || time.first() > now) { "Choose a future time" }
@@ -88,10 +143,12 @@ class ReminderService(
                         lastOutcome = if (sameTime) previous?.lastOutcome.orEmpty() else "",
                         updatedAt = now,
                     )
-                store.dao.save(item)
-                previous?.let(delivery::cancel)
-                delivery.dismiss(item.id)
-                schedule(item)
+                commit(item, receipt)
+                project(item) {
+                    previous?.let(delivery::cancel)
+                    delivery.dismiss(item.id)
+                    schedule(item)
+                }
                 item.id
             }
         }
@@ -106,10 +163,13 @@ class ReminderService(
     suspend fun finish(
         id: String,
         cancelled: Boolean,
+        expectedRevision: Long,
+        receipt: CommitReceipt? = null,
     ) = withContext(Dispatchers.IO) {
         mutation.withLock {
-            val item = requireNotNull(store.dao.get(id))
-            finishLocked(item, cancelled)
+            val item = requireNotNull(dao.get(id))
+            check(item.state == "ACTIVE" && item.revision == expectedRevision) { "Reminder changed; reopen it" }
+            finishLocked(item, cancelled, receipt)
         }
     }
 
@@ -117,18 +177,21 @@ class ReminderService(
     private suspend fun finishLocked(
         item: LocalReminder,
         cancelled: Boolean,
+        receipt: CommitReceipt? = null,
     ) {
-        store.dao.save(
+        val committed =
             item.copy(
                 state = if (cancelled) "CANCELLED" else "COMPLETED",
                 revision = item.revision + 1,
                 nextAt = null,
                 scheduling = "NONE",
                 updatedAt = clock(),
-            ),
-        )
-        delivery.cancel(item)
-        delivery.dismiss(item.id)
+            )
+        commit(committed, receipt)
+        project(committed) {
+            delivery.cancel(item)
+            delivery.dismiss(item.id)
+        }
     }
 
     @Suppress("ComplexCondition") // All four durable identity/state facts must match a callback.
@@ -138,7 +201,7 @@ class ReminderService(
         due: Long,
     ) = withContext(Dispatchers.IO) {
         mutation.withLock {
-            val item = store.dao.get(id)
+            val item = dao.get(id)
             if (item != null && item.state == "ACTIVE" && item.revision == revision && item.nextAt == due) {
                 if (due <= clock()) occur(item) else schedule(item)
             }
@@ -149,17 +212,17 @@ class ReminderService(
         withContext(Dispatchers.IO) {
             mutation.withLock {
                 // A notification may have been accepted just before process death. Do not blindly replay.
-                store.dao.uncertain().forEach { event ->
+                dao.uncertain().forEach { event ->
                     val outcome = if (delivery.posted(event)) "POSTED" else "UNKNOWN"
-                    store.transaction {
-                        store.dao.event(event.copy(outcome = outcome, recordedAt = clock()))
-                        val item = store.dao.get(event.reminderId)
+                    transaction {
+                        dao.event(event.copy(outcome = outcome, recordedAt = clock()))
+                        val item = dao.get(event.reminderId)
                         if (item?.revision == event.revision && item.nextAt == event.dueAt) {
                             advance(item, outcome)
                         }
                     }
                 }
-                store.dao.all().forEach { item ->
+                dao.all().forEach { item ->
                     val due = item.nextAt
                     if (item.state == "ACTIVE" && due != null) {
                         if (due <= clock()) occur(item) else schedule(item)
@@ -174,24 +237,24 @@ class ReminderService(
     private suspend fun occur(item: LocalReminder) {
         val now = clock()
         val due = requireNotNull(item.nextAt)
-        val pending = store.dao.eventAt(item.id, item.revision, due)?.takeIf { it.outcome == "POSTING" }
+        val pending = dao.eventAt(item.id, item.revision, due)?.takeIf { it.outcome == "POSTING" }
         if (pending != null) {
             recordAndAdvance(item, if (delivery.posted(pending)) "POSTED" else "UNKNOWN")
         } else if (now - due > LATE_GRACE) {
             recordAndAdvance(item, "MISSED")
         } else {
-            store.dao.event(ReminderEvent(item.id, item.revision, due, "POSTING", now))
+            dao.event(ReminderEvent(item.id, item.revision, due, "POSTING", now))
             val outcome = delivery.post(item)
             recordAndAdvance(item, outcome)
         }
-        store.dao.get(item.id)?.let { schedule(it) }
+        dao.get(item.id)?.let { schedule(it) }
     }
 
     private suspend fun recordAndAdvance(
         item: LocalReminder,
         outcome: String,
-    ) = store.transaction {
-        store.dao.event(ReminderEvent(item.id, item.revision, requireNotNull(item.nextAt), outcome, clock()))
+    ) = transaction {
+        dao.event(ReminderEvent(item.id, item.revision, requireNotNull(item.nextAt), outcome, clock()))
         advance(item, outcome)
     }
 
@@ -200,13 +263,13 @@ class ReminderService(
         outcome: String,
     ) {
         val next = item.time().next(maxOf(clock(), requireNotNull(item.nextAt)))
-        store.dao.save(item.copy(nextAt = next, lastOutcome = outcome, scheduling = "NONE", updatedAt = clock()))
+        dao.save(item.copy(nextAt = next, lastOutcome = outcome, scheduling = "NONE", updatedAt = clock()))
     }
 
     private suspend fun schedule(item: LocalReminder) {
         if (item.state == "ACTIVE" && item.nextAt != null) {
             val status = delivery.schedule(item)
-            store.dao.save(item.copy(scheduling = status))
+            dao.save(item.copy(scheduling = status))
         }
     }
 

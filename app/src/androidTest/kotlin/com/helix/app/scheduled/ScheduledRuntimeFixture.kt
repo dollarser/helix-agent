@@ -59,7 +59,7 @@ internal class ScheduledRuntimeFixture(
     private val scope = CoroutineScope(job + Dispatchers.IO)
     private val clock = SystemClock()
     val engine =
-        createRoomTurnEngine(storage, clock, ::newId, recoveryFailureNotice = { "Synthetic recovery unavailable" })
+        createRoomTurnEngine(storage, clock, ::newId)
     var afterTool: () -> Unit = {}
     val pipeline = pipeline()
     val providers: ProviderService

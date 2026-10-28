@@ -41,6 +41,52 @@ class SessionDirectoryServiceTest {
             }
         }
 
+    @Test fun refreshReadAndPublicationAreSerialized() {
+        val entered = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        val secondStarted = CountDownLatch(1)
+        val reads =
+            java.util.concurrent.atomic
+                .AtomicInteger()
+        Executors.newFixedThreadPool(2).asCoroutineDispatcher().use { dispatcher ->
+            val scope = CoroutineScope(SupervisorJob() + dispatcher)
+            val directory =
+                SessionDirectoryService(scope, {
+                    val number = reads.incrementAndGet()
+                    if (number == 1) {
+                        entered.countDown()
+                        check(release.await(5, TimeUnit.SECONDS))
+                    }
+                    listOf(SessionRowUi("session", "title-$number", 1, false, null, null))
+                }, { _, _ -> SessionSearchUiState() })
+            try {
+                val first =
+                    java.util.concurrent.CompletableFuture
+                        .runAsync { directory.refreshNow() }
+                assertTrue(entered.await(5, TimeUnit.SECONDS))
+                val second =
+                    java.util.concurrent.CompletableFuture.runAsync {
+                        secondStarted.countDown()
+                        directory.refreshNow()
+                    }
+                assertTrue(secondStarted.await(5, TimeUnit.SECONDS))
+                assertEquals(1, reads.get())
+                release.countDown()
+                first.get(5, TimeUnit.SECONDS)
+                second.get(5, TimeUnit.SECONDS)
+                assertEquals(
+                    "title-2",
+                    directory.sessions.value
+                        .single()
+                        .title,
+                )
+            } finally {
+                release.countDown()
+                scope.cancel()
+            }
+        }
+    }
+
     @Test fun typedQueryIsImmediateAndResultKeepsTheBoundedSearchScope() {
         val searched = mutableListOf<String>()
         withDirectory({ query, check ->

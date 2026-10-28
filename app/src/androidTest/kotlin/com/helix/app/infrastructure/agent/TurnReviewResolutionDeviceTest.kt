@@ -196,7 +196,7 @@ class TurnReviewResolutionDeviceTest {
                 goalBudgets,
             )
         val engine =
-            createRoomTurnEngine(storage, clock, ids, recoveryFailureNotice = { "Synthetic recovery unavailable" })
+            createRoomTurnEngine(storage, clock, ids)
         val admitted =
             engine
                 .admit(

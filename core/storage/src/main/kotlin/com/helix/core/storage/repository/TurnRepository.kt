@@ -34,6 +34,14 @@ class TurnRepository(
         return entity
     }
 
+    private companion object {
+        val NON_BLOCKING_STATES =
+            TurnState.entries
+                .filter {
+                    it.isTerminal || it == TurnState.NEEDS_REVIEW
+                }.map { it.name }
+    }
+
     /** The turn [clientRequestId] already started (submit dedup, HX2-01 §2e), or null when the id is new. */
     fun resolveByClientRequestId(clientRequestId: String): TurnEntity? = dao.byClientRequestId(clientRequestId)
 
@@ -46,6 +54,38 @@ class TurnRepository(
     fun find(id: String): TurnEntity? = dao.byId(id)
 
     fun listBySession(sessionId: String): List<TurnEntity> = dao.listBySession(sessionId)
+
+    fun byIds(ids: Collection<String>): List<TurnEntity> = ids.distinct().chunked(500).flatMap(dao::byIds)
+
+    /** Unknown persisted states remain blockers and fail closed when interpreted by admission. */
+    fun admissionBlockers(sessionId: String): List<TurnEntity> = dao.unsettled(sessionId, NON_BLOCKING_STATES)
+
+    fun latestVisible(
+        sessionId: String,
+        state: TurnState? = null,
+    ): TurnEntity? = dao.latestVisible(sessionId, state?.name)
+
+    fun recentByStates(
+        sessionId: String,
+        states: Set<TurnState>,
+        limit: Int,
+    ): List<TurnEntity> {
+        require(limit in 1..1000)
+        return dao.recentByStates(sessionId, states.map { it.name }, limit).asReversed()
+    }
+
+    fun hasLaterCompleted(turnId: String): Boolean = dao.hasLaterCompleted(turnId)
+
+    fun ledgerCandidates(
+        sessionId: String,
+        offset: Int,
+        limit: Int,
+    ): List<TurnEntity> {
+        require(offset >= 0 && limit in 1..1000)
+        return dao.ledgerCandidates(sessionId, offset, limit)
+    }
+
+    fun budgetContinuationClear(turnId: String): Boolean = dao.budgetContinuationClear(turnId)
 
     fun latestForUnarchivedSessions(): List<TurnEntity> = dao.latestForUnarchivedSessions()
 

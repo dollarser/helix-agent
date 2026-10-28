@@ -65,7 +65,7 @@ internal class AutomaticInputRecovery(
                     input.sessionId,
                     null,
                     "SYSTEM",
-                    "RECOVERY_NOTICE",
+                    NOTICE_KIND,
                     failureText(),
                 )
             }
@@ -75,6 +75,8 @@ internal class AutomaticInputRecovery(
     private fun now() = clock.now().toEpochMilli()
 
     companion object {
+        const val NOTICE_KIND = "INPUT_RECOVERY_NOTICE"
+
         fun recoverable(reason: String?): Boolean =
             reason in
                 setOf(

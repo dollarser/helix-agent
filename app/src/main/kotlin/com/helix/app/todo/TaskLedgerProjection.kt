@@ -38,14 +38,20 @@ internal object TaskLedgerProjection {
         storage: HelixStorage,
         sessionId: String,
     ): List<LedgerItemUi> {
-        // listBySession is startedAt ASC (oldest first) — scan newest first so the most
-        // recent ledger wins; an older turn's progress is only a fallback.
-        for (turn in storage.turns.listBySession(sessionId).asReversed()) {
-            val args = latestTodoWriteArgs(storage, turn.id) ?: continue
-            val items = itemsFromArgs(args)
-            if (items.isNotEmpty()) return items
+        // Only turns containing a completed ledger write are candidates. Page rather than cap
+        // them: an older verified ledger remains the fallback after malformed newer entries.
+        val pageSize = 32
+        var offset = 0
+        while (true) {
+            val candidates = storage.turns.ledgerCandidates(sessionId, offset, pageSize)
+            for (turn in candidates) {
+                val args = latestTodoWriteArgs(storage, turn.id) ?: continue
+                val items = itemsFromArgs(args)
+                if (items.isNotEmpty()) return items
+            }
+            if (candidates.size < pageSize) return emptyList()
+            offset += candidates.size
         }
-        return emptyList()
     }
 
     private fun latestTodoWriteArgs(

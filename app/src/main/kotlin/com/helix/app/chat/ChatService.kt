@@ -168,7 +168,6 @@ class ChatService(
             storage,
             clock,
             idGenerator,
-            { strings(R.string.automatic_recovery_unavailable, emptyArray()) },
         ),
     private val lanScopes: () -> Set<NetworkOriginScope> = { emptySet() },
     private val subscriptionResultRecovery: (
@@ -628,9 +627,7 @@ class ChatService(
                 projectSubmission(storage.turns.resolve(parent).sessionId, result)
             },
             turnEngine::finishAutomaticRecovery,
-        ) {
-            str(R.string.automatic_recovery_unavailable)
-        }
+        )
     }
 
     private fun requestAutomaticRecovery(turnId: String) {
@@ -2981,7 +2978,7 @@ class ChatService(
     internal suspend fun taskResult(turnId: String): List<MessageUi> =
         withContext(Dispatchers.IO) {
             val turn = storage.turns.resolve(turnId)
-            check(TurnState.valueOf(turn.state).isTerminal || turn.state == "INTERRUPTED")
+            require(TurnState.valueOf(turn.state).isTerminal || turn.state == "NEEDS_REVIEW")
             projection.messagesFor(turn.sessionId, EMPTY_SCREEN, storage.messages.byTurn(turnId))
         }
 
@@ -3419,6 +3416,12 @@ class ChatService(
         sessionId: String,
         result: TurnSubmissionResult,
     ): String? {
+        // Automatic inspection belongs to its original task; never park a session-wide banner.
+        if (result is TurnSubmissionResult.Blocked &&
+            result.reason == TurnSubmissionBlock.RECOVERY_UNAVAILABLE
+        ) {
+            return null
+        }
         if (result is TurnSubmissionResult.Blocked && openSessionId == sessionId) {
             val label =
                 when (result.reason) {
@@ -3439,7 +3442,7 @@ class ChatService(
                     }
 
                     TurnSubmissionBlock.RECOVERY_UNAVAILABLE -> {
-                        R.string.automatic_recovery_unavailable
+                        error("Automatic recovery refusals are projected on their original task")
                     }
 
                     TurnSubmissionBlock.SESSION_UNAVAILABLE, TurnSubmissionBlock.INPUT_NO_LONGER_CONSUMABLE,
@@ -4313,21 +4316,17 @@ class ChatService(
         // dependent projections in one Room snapshot, not separate check/read calls.
         storage.withTransaction {
             val sessionId = resolvableOpenSessionId()
-            val turns =
-                sessionId
-                    ?.let { id ->
-                        val superseded = storage.messages.supersededTurns(id)
-                        storage.turns.listBySession(id).filterNot { it.id in superseded }
-                    }.orEmpty()
-            val lastTurn = turns.lastOrNull()
+            val lastTurn = sessionId?.let { storage.turns.latestVisible(it) }
             val bindingIssue = bindingIssueFor(sessionId)
             // Refreshes race with targeted UI publications (for example an attachment refusal).
             // Build from the value observed by StateFlow's atomic update so a refresh can never
             // restore an older blocked/disclosure/streaming snapshot over a newer publication.
             _screen.update { current ->
                 val retryTarget = projection.retryTargetFor(sessionId)
+                val history = projection.historyFor(sessionId, current)
+                val turns = storage.turns.byIds(history.messages.mapNotNull { it.turnId } + listOfNotNull(lastTurn?.id))
                 val refreshed =
-                    projection.historyFor(sessionId, current).copy(
+                    history.copy(
                         sessions = sessions.value,
                         openSessionId = sessionId,
                         preparingDraft = preparingDraft,

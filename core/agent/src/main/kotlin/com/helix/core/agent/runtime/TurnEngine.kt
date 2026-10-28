@@ -79,8 +79,8 @@ class TurnEngine(
     fun finishAutomaticRecovery(
         parentId: String,
         reason: String,
-        notice: String? = null,
-    ) = store.finishAutomaticRecovery(parentId, reason, notice)
+        inspectionFailed: Boolean,
+    ) = store.finishAutomaticRecovery(parentId, reason, inspectionFailed)
 
     fun requestCancel(
         turnId: String,

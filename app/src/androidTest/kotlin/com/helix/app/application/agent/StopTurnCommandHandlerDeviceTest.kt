@@ -241,7 +241,7 @@ class StopTurnCommandHandlerDeviceTest {
         val engine =
             createRoomTurnEngine(storage, clock, idGenerator = {
                 UUID.randomUUID().toString()
-            }, recoveryFailureNotice = { "Synthetic recovery unavailable" })
+            })
         val control = RunControlConfig(AgentMode.CHAT, false, TurnBudgets(maxOutputTokens = 1024))
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         val release = CompletableDeferred<Unit>()

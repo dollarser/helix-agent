@@ -236,9 +236,8 @@ class RoomTurnLifecycleStoreDeviceTest {
         }
     }
 
-    @Test fun recoveryFailureNoticeResolvesAtEmissionAndDuplicatePreparationDoesNotRewriteIt() {
-        var current = "Original language"
-        fixture(notice = { current }) { storage, store ->
+    @Test fun recoveryNoticeStaysOnOriginalTaskAcrossDuplicateAndChildSettlement() {
+        fixture { storage, store ->
             val parent = storage.turns.start("parent", "session", 1000)
             storage.turns.updateState(parent, TurnState.INTERRUPTED, 0, 1500, "PROCESS_INTERRUPTED")
             val inspection =
@@ -252,15 +251,32 @@ class RoomTurnLifecycleStoreDeviceTest {
                 )
             val preparing = storage.turns.updateState(inspection, TurnState.BUILDING_CONTEXT, 0, null, null)
             storage.turns.updateState(preparing, TurnState.FAILED, 0, 1500, "SYNTHETIC_FAILURE")
-            current = "Current selected language"
             val outcome = ModelStreamTerminal(TurnState.FAILED, "SYNTHETIC_FAILURE")
             val receipt = store.prepareTerminalRelease("inspection", "session", outcome)
             assertEquals("parent", receipt.recoveryParentTurnId)
-            current = "Later language must not rewrite history"
             store.prepareTerminalRelease("inspection", "session", outcome)
-            val notices = storage.messages.listBySession("session").filter { it.kind == "RECOVERY_NOTICE" }
+            val notices =
+                storage.messages.listBySession("session").filter {
+                    it.kind ==
+                        com.helix.app.application.agent.TurnInterruptionNotice.KIND
+                }
             assertEquals(1, notices.size)
-            assertEquals("Current selected language", storage.messages.readContent(notices.single()))
+            com.helix.app.infrastructure.agent
+                .AutomaticRecoverySettlement(
+                    storage,
+                    object : com.helix.core.model.Clock {
+                        override fun now() = java.time.Instant.ofEpochMilli(2000)
+                    },
+                ).finish("inspection", "RECOVERY_INSPECTION_FINISHED", true)
+            assertEquals(
+                1,
+                storage.messages.listBySession("session").count {
+                    it.kind ==
+                        com.helix.app.application.agent.TurnInterruptionNotice.KIND
+                },
+            )
+            assertEquals("parent", notices.single().turnId)
+            assertEquals("INSPECTION_UNAVAILABLE", storage.messages.readContent(notices.single()))
             assertEquals(TurnState.INTERRUPTED.name, storage.turns.resolve("parent").state)
         }
     }
@@ -277,10 +293,7 @@ class RoomTurnLifecycleStoreDeviceTest {
         "model",
     )
 
-    private fun fixture(
-        notice: () -> String = { "Synthetic recovery unavailable" },
-        block: (HelixStorage, RoomTurnLifecycleStore) -> Unit,
-    ) {
+    private fun fixture(block: (HelixStorage, RoomTurnLifecycleStore) -> Unit) {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val name = "closed-admission-${UUID.randomUUID()}.db"
         val root = File(context.filesDir, name)
@@ -299,7 +312,6 @@ class RoomTurnLifecycleStoreDeviceTest {
                     storage,
                     clock,
                     { UUID.randomUUID().toString() },
-                    notice,
                 )
             block(storage, store)
         } finally {

@@ -36,6 +36,7 @@ internal class SessionDirectoryService(
     private val searchState = MutableStateFlow(SessionSearchUiState())
     override val search = searchState.asStateFlow()
     private var searchJob: Job? = null
+    private val refreshLock = Any()
 
     override fun refresh() {
         scope.launch { refreshNow() }
@@ -43,7 +44,10 @@ internal class SessionDirectoryService(
 
     /** Caller uses the existing application work scope; Room never runs on the UI thread. */
     fun refreshNow() {
-        rows.value = readRows()
+        // Keep read and publication together; search and unrelated writes do not take this lock.
+        synchronized(refreshLock) {
+            rows.value = readRows()
+        }
     }
 
     @Synchronized

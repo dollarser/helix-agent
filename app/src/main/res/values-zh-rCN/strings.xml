@@ -1547,7 +1547,6 @@
     <string name="user_question_send">发送回答</string>
     <string name="user_question_skip">跳过</string>
     <string name="user_question_title">需要你的选择</string>
-    <string name="automatic_recovery_unavailable">任务已中断，未能确认全部结果，不会自动重放。请查看任务详情。</string>
     <string name="git_diff_read_error">无法读取差异，请刷新仓库后重试。</string>
     <string name="tool_rejected_binding_unavailable">该工具未在本次请求开放或绑定已失效，未执行。请先用 tools.search 精确搜索工具名，再按下一轮提供的参数定义调用；不要直接重试本次调用。</string>
     <string name="quickjs_native_save_failed">无法读取或保存原生访问设置，请重试。</string>
@@ -2112,7 +2111,7 @@
     <string name="knowledge_save_knowledge">保存为知识</string>
     <string name="knowledge_knowledge_candidate">知识草案</string>
     <string name="knowledge_knowledge_candidate_scope">保存将创建独立、未核对的知识，保留原笔记和引用来源。本操作不调用模型。</string>
-    <string name="knowledge_related_questions">资料问答记录</string>
+    <string name="knowledge_related_questions">问答记录</string>
     <string name="settings_proot_verified">已准备</string>
     <string name="settings_proot_not_installed">首次使用时自动准备</string>
     <string name="settings_proot_update_required">需要更新</string>
@@ -2122,4 +2121,8 @@
     <string name="files_preview_failed">无法预览此文件，请刷新后重试。</string>
     <string name="files_access_failed">无法访问文件，请检查文件授权。</string>
     <string name="files_file_unavailable">文件不可用，请刷新后重试。</string>
+    <string name="turn_notice_interrupted">任务已中断。</string>
+    <string name="turn_notice_unknown">部分操作结果待确认。</string>
+    <string name="turn_notice_inspection_unavailable">未能完成结果核查。</string>
+    <string name="turn_notice_details">查看详情</string>
 </resources>

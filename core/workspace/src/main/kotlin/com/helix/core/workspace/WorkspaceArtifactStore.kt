@@ -37,6 +37,7 @@ class WorkspaceArtifactStore(
     private val documentBackend: (String) -> WorkspaceFileBackend? = { null },
     private val metadataRoot: (String) -> Path? = { null },
     private val externalScope: (String) -> Boolean = { false },
+    private val deleteMovedSource: (Path) -> Unit = { Files.delete(it) },
 ) {
     /**
      * A registered artifact (doc 02 §8 `artifacts` row shape: id, relativePath, mediaType, size,
@@ -568,15 +569,15 @@ class WorkspaceArtifactStore(
      * rules as [copyFile]. A same-scope move is a single (preferred-atomic) rename — no quota
      * check is needed because the scope's aggregate usage can only shrink. A cross-scope move is
      * copy-then-delete and is NOT atomic: the destination is quota-checked and fully published
-     * before the source is deleted, so a failure in between leaves the source intact (a
-     * destination temp may remain, reclaimed by [reclaimTempFiles]).
+     * before the source is deleted. Any error after publication requires review of both paths;
+     * an overwritten destination cannot safely be rolled back.
      * @throws FileNotFoundException when [src] does not exist or is not a regular file.
      * @throws FileAlreadyExistsException when [dst] exists and [overwrite] is false, or [dst]
      *   is a directory.
      * @throws WorkspaceQuota.QuotaExceeded for a cross-scope move the destination scope cannot
      *   admit (the source is left untouched).
      */
-    @Suppress("SwallowedException", "ReturnCount") // Non-atomic fallback only when ATOMIC_MOVE is unsupported.
+    @Suppress("SwallowedException", "ReturnCount", "TooGenericExceptionCaught")
     fun moveFile(
         src: FileScopePath,
         dst: FileScopePath,
@@ -621,8 +622,14 @@ class WorkspaceArtifactStore(
         // deleted, so the source can never be lost to an admission failure.
         if (!externalScope(dst.scopeId)) WorkspaceQuota.ensureRoom(dstRoot, size, quotaPolicy.maxWorkspaceBytes)
         val sha = streamCopyAndHash(source, target)
-        Files.delete(source)
-        return CopyMoveOutcome(dst.relativePath, size, sha, usageBytes(dst.scopeId), overwritten)
+        // Publication cannot be rolled back safely: an overwritten destination is already gone.
+        try {
+            deleteMovedSource(source)
+            check(!Files.exists(source)) { "Move source deletion not verified" }
+            return CopyMoveOutcome(dst.relativePath, size, sha, usageBytes(dst.scopeId), overwritten)
+        } catch (failure: Exception) {
+            throw WorkspaceMutationUncertain(failure)
+        }
     }
 
     @Suppress("TooGenericExceptionCaught") // Any provider error after rename can represent a partial effect.

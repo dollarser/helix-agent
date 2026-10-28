@@ -22,7 +22,6 @@ internal class RoomTurnLifecycleStore(
     private val storage: HelixStorage,
     private val clock: Clock,
     private val idGenerator: () -> String,
-    private val recoveryFailureNotice: () -> String,
 ) : TurnLifecycleStore {
     private val admission = TurnAdmission(storage, clock, idGenerator)
     private val settlement = TurnSettlement(storage, clock, idGenerator)
@@ -53,8 +52,8 @@ internal class RoomTurnLifecycleStore(
     override fun finishAutomaticRecovery(
         parentId: String,
         reason: String,
-        notice: String?,
-    ) = AutomaticRecoverySettlement(storage, clock).finish(parentId, reason, notice)
+        inspectionFailed: Boolean,
+    ) = AutomaticRecoverySettlement(storage, clock).finish(parentId, reason, inspectionFailed)
 
     override fun findTurn(turnId: String): TurnLifecycleSnapshot? =
         storage.turns.find(turnId)?.let {
@@ -135,7 +134,7 @@ internal class RoomTurnLifecycleStore(
                 AutomaticRecoverySettlement(storage, clock).finish(
                     parent,
                     "RECOVERY_INSPECTION_FINISHED",
-                    if (outcome.state == TurnState.COMPLETED) null else recoveryFailureNotice(),
+                    outcome.state != TurnState.COMPLETED,
                 )
             }
             receipt = TurnTerminalReleaseReceipt(discarded, parent)

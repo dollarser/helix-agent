@@ -92,7 +92,7 @@ private fun RecoveryPanelFacts(panel: TurnRecoveryPanelUi) {
                     stringResource(R.string.recovery_next, operationLabel(it, summary.budgetContinuationEligible))
             },
         )
-    reason?.let { (text, isError) ->
+    reason?.takeUnless { panel.inlineNoticeShown }?.let { (text, isError) ->
         Text(
             text,
             style = MaterialTheme.typography.bodySmall,

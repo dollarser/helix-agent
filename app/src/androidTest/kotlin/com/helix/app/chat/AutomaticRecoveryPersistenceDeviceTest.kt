@@ -46,7 +46,7 @@ class AutomaticRecoveryPersistenceDeviceTest {
                 val failed = requireNotNull(storage.sessionInputs.get("input"))
                 assertEquals(SessionInputState.FAILED, failed.state)
                 assertEquals("Original request", storage.sessionInputs.readText(failed))
-                assertEquals(1, storage.messages.listBySession("session").count { it.kind == "RECOVERY_NOTICE" })
+                assertEquals(1, storage.messages.listBySession("session").count { it.kind == "INPUT_RECOVERY_NOTICE" })
             }
         }
 
@@ -75,11 +75,16 @@ class AutomaticRecoveryPersistenceDeviceTest {
                         clock,
                         { _, _ -> error("no runtime") },
                         settlement::finish,
-                        { "Could not inspect" },
                     )
                 repeat(2) { recovery.recover("parent") }
                 assertEquals(1, storage.turns.listBySession("session").size)
-                assertEquals(1, storage.messages.listBySession("session").count { it.kind == "RECOVERY_NOTICE" })
+                assertEquals(
+                    1,
+                    storage.messages.listBySession("session").count {
+                        it.kind ==
+                            com.helix.app.application.agent.TurnInterruptionNotice.KIND
+                    },
+                )
                 assertTrue(storage.auditEvents.listByCorrelation("session").any { it.type == "recovery.ended" })
             }
         }
@@ -100,11 +105,18 @@ class AutomaticRecoveryPersistenceDeviceTest {
                 val engine =
                     createRoomTurnEngine(storage, clock, idGenerator = {
                         UUID.randomUUID().toString()
-                    }, recoveryFailureNotice = { "Synthetic recovery unavailable" })
+                    })
                 engine.requestCancel(turn.id, "session", false, false, "USER_STOP")
                 val stopped = storage.turns.resolve(turn.id)
                 assertEquals("NEEDS_REVIEW", stopped.state)
                 assertEquals("USER_STOP", stopped.errorCode)
+                AutomaticRecoverySettlement(storage, clock).finish(turn.id, "RECOVERY_INSPECTION_FINISHED", true)
+                assertEquals(
+                    0,
+                    storage.messages.byTurn(turn.id).count {
+                        it.kind == com.helix.app.application.agent.TurnInterruptionNotice.KIND
+                    },
+                )
                 assertTrue(
                     !com.helix.app.infrastructure.agent.AutomaticRecoveryPolicy
                         .eligible(stopped),

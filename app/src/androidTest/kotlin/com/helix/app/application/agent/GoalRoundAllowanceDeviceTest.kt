@@ -93,7 +93,6 @@ class GoalRoundAllowanceDeviceTest {
                     f.storage,
                     f.clock,
                     f.ids,
-                    { "Synthetic recovery unavailable" },
                 )
             store.prepareTerminalRelease(turn.coordinator.id, "session", ModelStreamTerminal(TurnState.COMPLETED, null))
             val blocked = f.storage.goals.resolve(f.goal)
@@ -138,7 +137,6 @@ class GoalRoundAllowanceDeviceTest {
                     f.storage,
                     f.clock,
                     f.ids,
-                    { "Synthetic recovery unavailable" },
                 )
             store.prepareTerminalRelease("edit", "session", ModelStreamTerminal(TurnState.COMPLETED, null))
             val goal = f.storage.goals.resolve(f.goal)

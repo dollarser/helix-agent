@@ -12,17 +12,16 @@ internal class AutomaticTurnRecovery(
     private val storage: HelixStorage,
     private val clock: Clock,
     private val start: suspend (String, TurnRuntimeSnapshot) -> String?,
-    private val finish: (String, String, String?) -> Unit,
-    private val unavailable: () -> String,
+    private val finish: (String, String, Boolean) -> Unit,
 ) {
     @Suppress("ReturnCount", "TooGenericExceptionCaught") // Admission failures are logged and ended, never replayed.
     suspend fun recover(turnId: String) {
         val turn = storage.turns.resolve(turnId)
         if (AutomaticRecoveryPolicy.isInspection(turn)) {
             if (turn.state !in setOf("COMPLETED", "FAILED", "CANCELLED", "INTERRUPTED", "NEEDS_REVIEW")) return
-            val notice = if (turn.state == "COMPLETED") null else unavailable()
-            finish(turn.id, "RECOVERY_INSPECTION_FINISHED", notice)
-            finish(requireNotNull(turn.recoveryFromTurnId), "RECOVERY_INSPECTION_FINISHED", null)
+            val inspectionFailed = turn.state != "COMPLETED"
+            finish(turn.id, "RECOVERY_INSPECTION_FINISHED", inspectionFailed)
+            finish(requireNotNull(turn.recoveryFromTurnId), "RECOVERY_INSPECTION_FINISHED", inspectionFailed)
             return
         }
         if (!AutomaticRecoveryPolicy.eligible(turn)) return
@@ -37,7 +36,7 @@ internal class AutomaticTurnRecovery(
         if (storage.turns.resolveByClientRequestId(id) != null) return
         val claimed = claim(turn.sessionId, id)
         if (!claimed) {
-            finish(turnId, "RECOVERY_INTERRUPTED", unavailable())
+            finish(turnId, "RECOVERY_INTERRUPTED", true)
             return
         }
         val started =
@@ -53,7 +52,7 @@ internal class AutomaticTurnRecovery(
                 null
             }
         if (started == null && storage.turns.resolveByClientRequestId(id) == null) {
-            finish(turnId, "RECOVERY_UNAVAILABLE", unavailable())
+            finish(turnId, "RECOVERY_UNAVAILABLE", true)
         }
     }
 

@@ -83,7 +83,7 @@ class ReminderAlarmDeviceTest {
         }
 
     private suspend fun cleanup(id: String) {
-        service.finish(id, true)
+        service.finish(id, true, requireNotNull(service.get(id)).revision)
         val store = ReminderStore(context)
         try {
             store.transaction {

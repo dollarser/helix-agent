@@ -1,5 +1,6 @@
 package com.helix.app.infrastructure.agent
 
+import com.helix.app.application.agent.TurnInterruptionNotice
 import com.helix.app.goal.toRuntimeGoal
 import com.helix.app.goal.toStoredGoal
 import com.helix.app.recovery.GoalUsageReservations
@@ -48,10 +49,36 @@ internal class AutomaticRecoverySettlement(
         storage.goals.updateGoal(ended.state.toStoredGoal())
     }
 
+    /** Called only within the lifecycle transaction; one message per original task. */
+    private fun appendNotice(
+        parent: com.helix.core.storage.entity.TurnEntity,
+        inspectionFailed: Boolean,
+    ) {
+        val original = AutomaticRecoveryPolicy.noticeOwner(parent, storage.turns::resolve)
+        val notice =
+            TurnInterruptionNotice.classify(
+                userStopped =
+                    original.errorCode == "USER_STOP" || original.pauseRequestedAt != null ||
+                        original.state == "CANCELLED",
+                unresolvedEffects = storage.toolCallReviews.hasUnresolvedEffects(original.id),
+                inspectionFailed = inspectionFailed,
+            )
+        if (notice != null && storage.messages.find(TurnInterruptionNotice.idFor(original.id)) == null) {
+            storage.messages.append(
+                TurnInterruptionNotice.idFor(original.id),
+                original.sessionId,
+                original.id,
+                "SYSTEM",
+                TurnInterruptionNotice.KIND,
+                notice.name,
+            )
+        }
+    }
+
     fun finish(
         parentId: String,
         reason: String,
-        notice: String?,
+        inspectionFailed: Boolean,
     ) {
         storage.withTransaction {
             val parent = storage.turns.resolve(parentId)
@@ -68,11 +95,7 @@ internal class AutomaticRecoverySettlement(
                 )
             }
             storage.goalTurnBindings.byTurn(parentId)?.let { finishGoal(it.runId, reason, now) }
-            if (notice !=
-                null
-            ) {
-                storage.messages.append(key, parent.sessionId, null, "SYSTEM", "RECOVERY_NOTICE", notice)
-            }
+            appendNotice(parent, inspectionFailed)
             storage.auditEvents.append(
                 key,
                 parent.sessionId,

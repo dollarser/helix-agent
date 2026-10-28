@@ -72,6 +72,73 @@ class KnowledgeDocumentsTest {
             expectFailure { store.refresh() }
         }
 
+    @Test fun noteReadsLoadEachNoteAndOriginOnceAndObserveFreshOriginsByStableIdentity() =
+        runBlocking {
+            repeat(3) { index ->
+                store.saveNote(
+                    note("body-$index").copy(
+                        id = "note-$index",
+                        updatedAt = index.toLong(),
+                        generatedDraft = if (index < 2) "draft-$index" else "",
+                    ),
+                )
+            }
+            val origin = history.list("origins").first()
+            history.save("origins", "renamed.md", origin.bytes)
+            history.delete(origin)
+            shared.reads = 0
+            history.reads = 0
+
+            val observed = store.searchNotes("body")
+
+            assertEquals(3, shared.reads)
+            assertEquals(2, history.reads)
+            assertEquals(listOf("note-2", "note-1", "note-0"), observed.map { it.id })
+            assertEquals(listOf("", "draft-1", "draft-0"), observed.map { it.generatedDraft })
+            val withoutOrigin = observed.first()
+            assertEquals("IDLE", withoutOrigin.generationState)
+            assertEquals("[]", withoutOrigin.originReferencesJson)
+            assertEquals("", withoutOrigin.originSessionId)
+            val stale = observed.last()
+            val renamed = history.list("origins").single { it.name == "renamed.md" }
+            history.save(
+                "origins",
+                renamed.name,
+                renamed.bytes
+                    .toString(Charsets.UTF_8)
+                    .replace("draft-0", "external-draft")
+                    .toByteArray(),
+                renamed,
+            )
+            shared.reads = 0
+            history.reads = 0
+            assertEquals("external-draft", store.note(stale.id)!!.generatedDraft)
+            assertEquals(3, shared.reads)
+            assertEquals(2, history.reads)
+            expectFailure { store.removeNote(stale) }
+            assertEquals("body-0", store.note(stale.id)!!.body)
+        }
+
+    @Test fun duplicateOriginIdentityFailsEvenWhenUnrelatedToTheRequestedNote() =
+        runBlocking {
+            store.saveNote(note("body"))
+            store.saveNote(note("other").copy(id = "other", generatedDraft = "draft"))
+            val origin = history.list("origins").single()
+            history.save("origins", "duplicate.md", origin.bytes)
+            val before = store.notes.value
+            expectFailure { store.note("note") }
+            assertEquals(before, store.notes.value)
+        }
+
+    @Test fun malformedOriginFailsInsteadOfPublishingMissingOriginDefaults() =
+        runBlocking {
+            store.saveNote(note("body"))
+            val before = store.notes.value
+            history.save("origins", "broken.md", "unrecognized".toByteArray())
+            expectFailure { store.note("note") }
+            assertEquals(before, store.notes.value)
+        }
+
     @Test fun failureDoesNotPublishSavedStateOrChangeBody() =
         runBlocking {
             store.saveNote(note("old"))
@@ -214,6 +281,7 @@ class KnowledgeDocumentsTest {
         private val data = linkedMapOf<String, ByteArray>()
         var failWrites = false
         var failAt: Int? = null
+        var reads = 0
         private var writes = 0
 
         override fun references(directory: String) = data.keys.filter { it.substringBeforeLast('/') == directory }
@@ -224,6 +292,7 @@ class KnowledgeDocumentsTest {
             reference: String,
             maxBytes: Int,
         ): DocumentStorage.File {
+            reads++
             val bytes = requireNotNull(data[reference]).copyOf()
             require(bytes.size <= maxBytes)
             return DocumentStorage.File(

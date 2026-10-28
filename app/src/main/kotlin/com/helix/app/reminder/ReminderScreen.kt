@@ -54,7 +54,7 @@ fun ReminderScreen(
     val failed by service.failure.collectAsStateWithLifecycle()
     val owner = requireNotNull(androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner.current)
     val page = remember(owner) { androidx.lifecycle.ViewModelProvider(owner)[ReminderPageState::class.java] }
-    var selected by page::selected
+    val selected = page.selected
     var editing by page::editing
     var interpreting by page::interpreting
     var scheduling by page::scheduling
@@ -64,8 +64,7 @@ fun ReminderScreen(
         val id = request ?: return@LaunchedEffect
         val row = requestedRow ?: return@LaunchedEffect
         val open = {
-            selected = row
-            editing = true
+            page.openEditor(row)
             interpreting = false
             scheduling = false
             service.openRequest.compareAndSet(id, null)
@@ -86,12 +85,13 @@ fun ReminderScreen(
             .ScheduledAgentScreen(scheduled, { scheduling = false }, onOpenSession)
     } else if (interpreting) {
         ReminderInterpretScreen(providers, { interpreting = false }) { proposal ->
-            selected = proposal
+            page.openEditor(proposal)
             interpreting = false
-            editing = true
         }
     } else if (editing) {
-        ReminderEditor(service, selected) { editing = false }
+        androidx.compose.runtime.key(page.receipt) {
+            ReminderEditor(service, selected, page.receipt) { editing = false }
+        }
     } else {
         LazyColumn(
             Modifier.padding(16.dp).testTag("reminder-list"),
@@ -102,8 +102,7 @@ fun ReminderScreen(
                 Text(stringResource(R.string.reminder_limits))
                 if (failed) Text(stringResource(R.string.reminder_error))
                 Button(onClick = {
-                    selected = null
-                    editing = true
+                    page.openEditor(null)
                 }, Modifier.testTag("reminder-new")) {
                     Text(stringResource(R.string.reminder_new))
                 }
@@ -120,8 +119,7 @@ fun ReminderScreen(
             }
             items(rows, key = { it.id }) { row ->
                 TextButton(onClick = {
-                    selected = row
-                    editing = true
+                    page.openEditor(row)
                 }, Modifier.testTag("reminder-${row.id}")) {
                     Column(Modifier.fillMaxWidth()) {
                         Text(row.title)
@@ -138,9 +136,16 @@ fun ReminderScreen(
 @Composable
 @Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod", "TooGenericExceptionCaught")
 // Preserve the editor draft on service failure.
-internal fun ReminderEditor(service: ReminderService, original: LocalReminder?, onBack: () -> Unit) {
+internal fun ReminderEditor(
+    service: ReminderService,
+    original: LocalReminder?,
+    receipt: ReminderService.CommitReceipt? = null,
+    onBack: () -> Unit,
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val editorReceipt = receipt ?: remember(original?.id) { ReminderService.CommitReceipt() }
+    val committed by editorReceipt.committed.collectAsStateWithLifecycle()
     val draftId =
         androidx.compose.runtime.saveable.rememberSaveable(original?.id) {
             original?.id?.takeIf { it.isNotBlank() } ?: java.util.UUID
@@ -177,6 +182,14 @@ internal fun ReminderEditor(service: ReminderService, original: LocalReminder?, 
         mutableStateOf(original?.exact ?: false)
     }
     var error by remember { mutableStateOf(false) }
+    var committedProjectionFailure by remember { mutableStateOf(false) }
+    val reviewedRevision =
+        androidx.compose.runtime.saveable.rememberSaveable(original?.id) {
+            original?.revision ?: 1L
+        }
+    val ownCommit = committed?.takeIf { it.id == draftId && it.revision >= reviewedRevision }
+    val expectedRevision = ownCommit?.revision ?: reviewedRevision
+    val finished = ownCommit != null && ownCommit.state != "ACTIVE"
     var saveAttempted by remember(original?.id) { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var history by remember { mutableStateOf(emptyList<com.helix.core.storage.reminder.ReminderEvent>()) }
@@ -357,10 +370,16 @@ internal fun ReminderEditor(service: ReminderService, original: LocalReminder?, 
         }
         item {
             if (error) Text(stringResource(R.string.reminder_error))
+            if (committedProjectionFailure) Text(stringResource(R.string.reminder_saved_projection_failed))
+            if (ownCommit != null && !busy && !committedProjectionFailure) {
+                Text(stringResource(R.string.reminder_saved_return_interrupted))
+            }
             Button(
                 onClick = {
                     if (busy) return@Button
                     saveAttempted = true
+                    error = false
+                    committedProjectionFailure = false
                     busy = true
                     scope.launch {
                         try {
@@ -374,32 +393,42 @@ internal fun ReminderEditor(service: ReminderService, original: LocalReminder?, 
                                     if (enabled) repeat else "ONCE",
                                     exact,
                                     null,
-                                    revision = original?.revision ?: 1,
+                                    revision = expectedRevision,
                                 )
-                            service.save(draft)
+                            service.save(draft, editorReceipt)
                             onBack()
+                        } catch (_: ReminderService.ProjectionFailure) {
+                            committedProjectionFailure = true
+                            error = false
                         } catch (cancel: kotlinx.coroutines.CancellationException) {
                             throw cancel
                         } catch (_: Exception) {
+                            committedProjectionFailure = false
                             error = true
                         } finally {
                             busy = false
                         }
                     }
                 },
-                enabled = !busy && title.isNotBlank() && (!enabled || preview != null),
+                enabled = !busy && !finished && title.isNotBlank() && (!enabled || preview != null),
                 modifier = Modifier.testTag("reminder-save"),
             ) { Text(stringResource(R.string.reminder_save)) }
-            if (original != null && original.id.isNotBlank() && original.state == "ACTIVE") {
+            val activeOriginal = original?.takeIf { it.id.isNotBlank() && it.state == "ACTIVE" }
+            if (activeOriginal != null && !finished) {
                 Row {
                     listOf(false, true).forEach { cancel ->
                         TextButton(
                             onClick = {
+                                error = false
+                                committedProjectionFailure = false
                                 busy = true
                                 scope.launch {
                                     try {
-                                        service.finish(original.id, cancel)
+                                        service.finish(activeOriginal.id, cancel, expectedRevision, editorReceipt)
                                         onBack()
+                                    } catch (_: ReminderService.ProjectionFailure) {
+                                        committedProjectionFailure = true
+                                        error = false
                                     } catch (cancel: kotlinx.coroutines.CancellationException) {
                                         throw cancel
                                     } catch (_: Exception) {

@@ -124,6 +124,29 @@ class FilesMutateToolsTest {
 
     private val dstRef = "scope:ws:output/b.txt"
 
+    @Test
+    fun partialMoveReportsReviewWithoutClaimingNoEffect() {
+        listOf(false, true).forEach { overwrite ->
+            val a = freshScope("partial-source-$overwrite")
+            val b = freshScope("partial-target-$overwrite")
+            write(a, "work/a.txt", "payload")
+            if (overwrite) write(b, "output/b.txt", "old")
+            val store =
+                WorkspaceArtifactStore(
+                    ScopeRootResolver { if (it == "ws") a else b },
+                    deleteMovedSource = { throw java.io.IOException("private-path-must-not-leak") },
+                )
+            val result =
+                moveExec(store, copyArgs(srcRef, "scope:other:output/b.txt", overwrite))
+                    as ToolExecutorResult.Failed
+            assertTrue(result.requiresReview)
+            assertFalse(result.detail.contains("not performed"))
+            assertFalse(result.detail.contains("private-path"))
+            assertEquals("payload", String(Files.readAllBytes(a.resolve("work/a.txt"))))
+            assertEquals("payload", String(Files.readAllBytes(b.resolve("output/b.txt"))))
+        }
+    }
+
     // ── descriptor contract ─────────────────────────────────────────────────────────────
 
     @Test

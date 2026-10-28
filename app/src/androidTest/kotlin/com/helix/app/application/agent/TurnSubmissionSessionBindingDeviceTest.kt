@@ -48,7 +48,6 @@ class TurnSubmissionSessionBindingDeviceTest {
                     storage,
                     clock,
                     { UUID.randomUUID().toString() },
-                    { "Synthetic recovery unavailable" },
                 )
             val result =
                 worker.submit<TurnAdmissionResult> {

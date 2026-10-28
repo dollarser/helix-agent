@@ -289,7 +289,7 @@ class StopTurnCommandHandlerTest {
         override fun finishAutomaticRecovery(
             parentId: String,
             reason: String,
-            notice: String?,
+            inspectionFailed: Boolean,
         ) = unexpected()
 
         override fun prepareTerminalRelease(

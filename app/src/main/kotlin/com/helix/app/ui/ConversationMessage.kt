@@ -83,6 +83,7 @@ internal fun MessageRow(
     onEdit: ((String) -> Unit)? = null,
     onRegenerate: ((String) -> Unit)? = null,
     onSaveReply: ((String) -> Unit)? = null,
+    onOpenTaskResult: ((String) -> Unit)? = null,
     searchQuery: String? = null,
     isCurrentMatch: Boolean = false,
     readAloud: Boolean = true,
@@ -164,6 +165,7 @@ internal fun MessageRow(
                     }
                 }
             }
+            MessageInterruptionNotice(message, onOpenTaskResult)
             if (actionsVisible) {
                 MessageActionRow(
                     message = message,

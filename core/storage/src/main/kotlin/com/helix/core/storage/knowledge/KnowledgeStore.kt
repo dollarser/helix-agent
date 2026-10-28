@@ -100,11 +100,23 @@ class KnowledgeStore(
             .sortedByDescending { it.receivedAt }
             .also { sourceState.value = it }
 
-    private fun noteRecords(): List<Pair<Record, KnowledgeNote>> =
-        records("notes")
+    private fun noteRecords(): List<Pair<Record, KnowledgeNote>> {
+        val notes = records("notes")
+        val origins =
+            if (notes.isEmpty()) {
+                emptyMap()
+            } else {
+                records("origins").associate {
+                    it.document.metadata
+                        .getValue("id")
+                        .jsonPrimitive.content to
+                        it.document.metadata
+                }
+            }
+        return notes
             .map {
                 val note = KnowledgeDocumentCodec.note(it.document).copy(documentHash = it.file.hash)
-                val origin = find("origins", note.id)?.document?.metadata
+                val origin = origins[note.id]
                 it to
                     note.copy(
                         generatedDraft =
@@ -142,6 +154,7 @@ class KnowledgeStore(
                     )
             }.sortedByDescending { it.second.updatedAt }
             .also { entries -> noteState.value = entries.map { it.second } }
+    }
 
     private fun answerRecords(): List<Pair<Record, KnowledgeAnswer>> =
         records("answers")

@@ -3,6 +3,7 @@ package com.helix.app.chat
 import com.helix.app.R
 import com.helix.app.agent.ChatHistoryBuilder
 import com.helix.app.agent.ContextCompaction
+import com.helix.app.application.agent.TurnInterruptionNotice
 import com.helix.app.proot.ProotToolModule
 import com.helix.app.provider.ProviderService
 import com.helix.app.provider.SelectedModelUi
@@ -68,7 +69,10 @@ internal class ChatScreenProjection(
         // is restored verbatim when the session reopens.
         if (sessionId == null) return liveRows
         val superseded = storage.messages.supersededTurns(sessionId)
-        val sessionTurns = storage.turns.listBySession(sessionId).filterNot { it.id in superseded }
+        val sessionTurns =
+            storage.turns
+                .byIds(liveRows.map { it.turnId })
+                .filter { it.sessionId == sessionId && it.id !in superseded }
         val persisted =
             persistedToolTimeline(
                 sessionId,
@@ -155,7 +159,7 @@ internal class ChatScreenProjection(
                 .filter {
                     (
                         it.role in setOf(ModelRole.USER.name, ModelRole.ASSISTANT.name) ||
-                            (it.role == "SYSTEM" && it.kind == "RECOVERY_NOTICE")
+                            (it.role == "SYSTEM" && it.kind == AutomaticInputRecovery.NOTICE_KIND)
                     ) &&
                         it.kind !in
                         setOf(
@@ -191,8 +195,8 @@ internal class ChatScreenProjection(
                 }
         return MessagePresentationPolicy.apply(
             history,
-            messages,
-            storage.turns.listBySession(sessionId).associate {
+            attachTurnNotices(messages, noticesFor(storage, messages)),
+            storage.turns.byIds(history.mapNotNull { it.turnId }).associate {
                 it.id to
                     it.state
             },
@@ -262,8 +266,7 @@ internal class ChatScreenProjection(
         sessionId
             ?.let { id ->
                 storage.turns
-                    .listBySession(id)
-                    .lastOrNull { it.state == TurnState.FAILED.name && it.id !in storage.messages.supersededTurns(id) }
+                    .latestVisible(id, TurnState.FAILED)
                     ?.takeIf { turn ->
                         val binding = storage.goalTurnBindings.byTurn(turn.id)
                         if (binding == null) {
@@ -381,3 +384,33 @@ internal fun persistedToolSummary(
     summary: String?,
     cancelledBeforeStart: () -> String,
 ): String? = if (state == ToolCallState.CANCELLED.name) cancelledBeforeStart() else summary
+
+private fun noticesFor(
+    storage: HelixStorage,
+    messages: List<MessageUi>,
+): Map<String, TurnInterruptionNotice> =
+    messages
+        .mapNotNull { it.turnId }
+        .distinct()
+        .mapNotNull { turnId ->
+            val turn = storage.turns.resolve(turnId)
+            val row =
+                storage.messages.find(TurnInterruptionNotice.idFor(turnId))?.takeIf {
+                    it.kind == TurnInterruptionNotice.KIND && it.turnId == turnId && it.sessionId == turn.sessionId &&
+                        it.role == "SYSTEM" && it.supersededBy == null
+                }
+            val saved =
+                row?.let { record ->
+                    val value = storage.messages.readContent(record)
+                    TurnInterruptionNotice.entries.firstOrNull { it.name == value }
+                }
+            TurnInterruptionNotice
+                .forDisplay(
+                    saved,
+                    turn.state,
+                    turn.errorCode == "USER_STOP" || turn.pauseRequestedAt != null,
+                    storage.toolCallReviews.hasUnresolvedEffects(turnId),
+                    com.helix.app.infrastructure.agent.AutomaticRecoveryPolicy
+                        .isInspection(turn),
+                )?.let { turnId to it }
+        }.toMap()

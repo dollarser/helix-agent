@@ -353,6 +353,7 @@ internal fun ConversationSection(
                             val message = content.value
                             MessageRow(
                                 message = message,
+                                onOpenTaskResult = intents.onOpenTaskResult,
                                 onSaveReply =
                                     intents.onSaveReply?.takeIf {
                                         message.role == "assistant" &&
@@ -409,7 +410,14 @@ internal fun ConversationSection(
                 if (pastPanel != null) {
                     item(key = "recovery-${entry.key}") {
                         TurnRecoveryPanel(
-                            panel = pastPanel,
+                            panel =
+                                pastPanel.copy(
+                                    inlineNoticeShown =
+                                        entry.messages.any {
+                                            it.interruptionNotice !=
+                                                null
+                                        },
+                                ),
                             busy = screen.recoveryBusy,
                             onReconnect = intents.onRecoveryReconnect,
                             onQueryResult = intents.onRecoveryQueryResult,
@@ -468,7 +476,13 @@ internal fun ConversationSection(
                 if (activePanel != null) {
                     item(key = "recovery-${turn.id}") {
                         TurnRecoveryPanel(
-                            panel = activePanel,
+                            panel =
+                                activePanel.copy(
+                                    inlineNoticeShown =
+                                        screen.messages.any {
+                                            it.turnId == turn.id && it.interruptionNotice != null
+                                        },
+                                ),
                             busy = screen.recoveryBusy,
                             onReconnect = intents.onRecoveryReconnect,
                             onQueryResult = intents.onRecoveryQueryResult,

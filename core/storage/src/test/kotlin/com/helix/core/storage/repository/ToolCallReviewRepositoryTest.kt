@@ -408,6 +408,43 @@ class ToolCallReviewRepositoryTest {
         override fun listBySession(sessionId: String): List<TurnEntity> =
             turns.values.filter { it.sessionId == sessionId }
 
+        override fun byIds(ids: List<String>): List<TurnEntity> = turns.values.filter { it.id in ids }
+
+        override fun unsettled(
+            sessionId: String,
+            settledStates: List<String>,
+        ): List<TurnEntity> = listBySession(sessionId).filter { it.state !in settledStates }
+
+        override fun latestVisible(
+            sessionId: String,
+            state: String?,
+        ): TurnEntity? = listBySession(sessionId).lastOrNull { state == null || it.state == state }
+
+        override fun recentByStates(
+            sessionId: String,
+            states: List<String>,
+            limit: Int,
+        ): List<TurnEntity> =
+            listBySession(sessionId)
+                .sortedBy { it.startedAt }
+                .filter { it.state in states }
+                .takeLast(limit)
+                .reversed()
+
+        override fun hasLaterCompleted(turnId: String): Boolean {
+            val original = requireNotNull(byId(turnId))
+            val ordered = listBySession(original.sessionId).sortedBy { it.startedAt }
+            return ordered.drop(ordered.indexOfFirst { it.id == turnId } + 1).any { it.state == "COMPLETED" }
+        }
+
+        override fun ledgerCandidates(
+            sessionId: String,
+            offset: Int,
+            limit: Int,
+        ): List<TurnEntity> = error("No ledger tool calls in this fixture")
+
+        override fun budgetContinuationClear(turnId: String): Boolean = error("No budget continuation in this fixture")
+
         override fun latestForUnarchivedSessions(): List<TurnEntity> =
             turns.values
                 .sortedBy { it.startedAt }

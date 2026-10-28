@@ -85,7 +85,10 @@ class ReminderInterpretUiDeviceTest {
                         .single()
                         .id
                 }
-            val error = InstrumentationRegistry.getInstrumentation().targetContext.getString(R.string.reminder_error)
+            val error =
+                InstrumentationRegistry.getInstrumentation().targetContext.getString(
+                    R.string.reminder_saved_projection_failed,
+                )
             compose.waitUntil(5000) {
                 compose.onAllNodes(hasText(error)).fetchSemanticsNodes().isNotEmpty() &&
                     compose.onAllNodes(hasTestTag("reminder-save") and isEnabled()).fetchSemanticsNodes().isNotEmpty()

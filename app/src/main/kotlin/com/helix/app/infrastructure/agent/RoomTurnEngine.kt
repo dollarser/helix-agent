@@ -11,10 +11,9 @@ internal fun createRoomTurnEngine(
     storage: HelixStorage,
     clock: Clock,
     idGenerator: () -> String,
-    recoveryFailureNotice: () -> String,
 ): TurnEngine =
     TurnEngine(
-        RoomTurnLifecycleStore(storage, clock, idGenerator, recoveryFailureNotice),
+        RoomTurnLifecycleStore(storage, clock, idGenerator),
         TurnDiagnostics { message, failure ->
             if (failure == null) Log.i("TurnEngine", message) else Log.e("TurnEngine", message, failure)
         },

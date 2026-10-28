@@ -7,8 +7,6 @@ import com.helix.core.storage.entity.TurnEntity
 
 /** Explicit user continuation of settled ordinary work. Goal activation keeps its own path. */
 internal object BudgetContinuation {
-    private val settled = setOf("COMPLETED", "FAILED", "DENIED", "CANCELLED")
-
     fun blocksRetry(
         storage: HelixStorage,
         turn: TurnEntity,
@@ -22,11 +20,5 @@ internal object BudgetContinuation {
     ): Boolean =
         turn.state == TurnState.FAILED.name && turn.errorCode in BudgetStopReasons.continuable &&
             storage.goalTurnBindings.byTurn(turn.id) == null &&
-            storage.turns
-                .listBySession(turn.sessionId)
-                .lastOrNull()
-                ?.id == turn.id &&
-            storage.turns.listBySession(turn.sessionId).all { prior ->
-                storage.toolCalls.listByTurn(prior.id).all { it.state in settled }
-            }
+            storage.turns.budgetContinuationClear(turn.id)
 }

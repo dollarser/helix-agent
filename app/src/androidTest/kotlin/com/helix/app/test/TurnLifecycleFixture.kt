@@ -62,7 +62,6 @@ internal fun startFixtureTurn(
                 storage,
                 clock,
                 idGenerator,
-                recoveryFailureNotice = { "Synthetic recovery unavailable" },
             ),
         )
 
@@ -74,7 +73,7 @@ internal class FixtureGoalRunCoordinator(
 ) {
     private val delegate = GoalRunCoordinator(storage, clock, idGenerator)
     private val engine =
-        createRoomTurnEngine(storage, clock, idGenerator, recoveryFailureNotice = { "Synthetic recovery unavailable" })
+        createRoomTurnEngine(storage, clock, idGenerator)
 
     fun create(
         objective: String,

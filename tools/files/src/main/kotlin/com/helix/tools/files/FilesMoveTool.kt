@@ -115,7 +115,8 @@ object FilesMoveTool {
                     ToolExecutorResult.Failed("scope not available: ${e.message}")
                 } catch (e: com.helix.core.workspace.WorkspaceMutationUncertain) {
                     ToolExecutorResult.Failed(
-                        "Move outcome requires review; inspect original and destination",
+                        "Move outcome requires review; inspect ${source.toModelReference()} and " +
+                            destination.toModelReference(),
                         requiresReview = true,
                     )
                 } catch (e: IOException) {

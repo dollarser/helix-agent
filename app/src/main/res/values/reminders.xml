@@ -39,4 +39,6 @@
     <string name="reminder_memo">无定时的备忘</string>
     <string name="reminder_no_pending">没有待触发通知</string>
     <string name="reminder_pending">等待核对安排</string>
+    <string name="reminder_saved_projection_failed">条目已保存，但系统提醒投影未完成。请返回列表核对；再次保存只会在此修订仍未改变时更新，不会覆盖较新的更改。</string>
+    <string name="reminder_saved_return_interrupted">本次更改已保存，但页面未收到完整操作结果。请返回列表核对提醒状态；草稿已保留，继续保存仍会检查版本冲突。</string>
 </resources>

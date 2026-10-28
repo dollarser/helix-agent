@@ -45,6 +45,7 @@ data class ConversationIntents(
     val onDetectReasoning: (suspend (String, String) -> List<com.helix.core.model.ReasoningEffort>)? = null,
     val onNew: () -> Unit = {},
     val onTasks: () -> Unit = {},
+    val onOpenTaskResult: ((String) -> Unit)? = null,
     val onNavigation: () -> Unit = {},
     val onSettings: () -> Unit = {},
     val onGit: () -> Unit = {},

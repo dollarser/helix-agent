@@ -197,6 +197,26 @@ class WorkspaceMutateOpsTest {
         assertEquals("no temp is left behind", 0, AtomicFileWriter.cleanup(target(root, "output")))
     }
 
+    @Test
+    fun publishedCrossScopeMoveRequiresReviewWhenSourceDeletionFails() {
+        listOf(false, true).forEach { overwrite ->
+            val a = freshScope("partial-source-$overwrite")
+            val b = freshScope("partial-target-$overwrite")
+            write(a, "work/a.txt", "payload")
+            if (overwrite) write(b, "output/b.txt", "old")
+            val store =
+                WorkspaceArtifactStore(
+                    twoScopeResolver(a, b),
+                    deleteMovedSource = { throw java.io.IOException("injected deletion failure") },
+                )
+            assertThrows(WorkspaceMutationUncertain::class.java) {
+                store.moveFile(ref("work/a.txt"), ref("output/b.txt", "other"), WorkspaceLayout.OUTPUT, overwrite)
+            }
+            assertEquals("payload", String(Files.readAllBytes(a.resolve("work/a.txt"))))
+            assertEquals("payload", String(Files.readAllBytes(b.resolve("output/b.txt"))))
+        }
+    }
+
     // ── move ────────────────────────────────────────────────────────────────────────────
 
     @Test

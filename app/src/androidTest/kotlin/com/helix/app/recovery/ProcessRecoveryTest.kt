@@ -555,7 +555,6 @@ class ProcessRecoveryTest {
         storage,
         clock,
         { UUID.randomUUID().toString() },
-        { "Synthetic recovery unavailable" },
     )
 
     private fun isolatedStorage(

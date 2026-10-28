@@ -702,7 +702,7 @@ class SessionInputQueueDeviceTest {
         assertEquals(
             1,
             storage.messages.listBySession(input.sessionId).count {
-                it.id == "input-ended:${input.inputId}" && it.kind == "RECOVERY_NOTICE"
+                it.id == "input-ended:${input.inputId}" && it.kind == "INPUT_RECOVERY_NOTICE"
             },
         )
     }

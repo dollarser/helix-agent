@@ -244,7 +244,7 @@ interface TurnLifecycleStore :
     fun finishAutomaticRecovery(
         parentId: String,
         reason: String,
-        notice: String?,
+        inspectionFailed: Boolean,
     )
 
     /** Post-terminal queue/Goal facts; a failure must not cause another terminal/model execution. */

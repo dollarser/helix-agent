@@ -138,7 +138,7 @@ class MessageRevisionDeviceTest {
         val engine =
             createRoomTurnEngine(storage, testClock, idGenerator = {
                 UUID.randomUUID().toString()
-            }, recoveryFailureNotice = { "Synthetic recovery unavailable" })
+            })
         return engine
             .admit(
                 fixtureAdmissionCommand(

@@ -190,6 +190,13 @@ fun ChatScreen(
     val reminderGoal by chatService.reminderGoal.collectAsStateWithLifecycle()
     var goalsOpen by remember { mutableStateOf(false) }
     var tasksOpen by remember(sessionId) { mutableStateOf(false) }
+    var interruptionResult by rememberSaveable(sessionId) { mutableStateOf<String?>(null) }
+    interruptionResult?.let { original ->
+        TaskResultDialog(chatService, original, allowCollect = false) {
+            interruptionResult =
+                null
+        }
+    }
     var exportSessionId by rememberSaveable { mutableStateOf<String?>(null) }
     exportSessionId?.let { id ->
         if (sessionExport != null) SessionExportDialog(id, sessionExport) { exportSessionId = null }
@@ -632,6 +639,9 @@ fun ChatScreen(
                         },
                         onManageGoal = { goalsOpen = true },
                         onTasks = { tasksOpen = true },
+                        onOpenTaskResult = { original ->
+                            if (chatService.screen.value.openSessionId == sessionId) interruptionResult = original
+                        },
                         onNew = { navigateAfterSave { chatService.newSessionDraft() } },
                         onRename = { renameId = screen.openSessionId },
                         onExport = sessionExport?.let { { exportSessionId = screen.openSessionId } },

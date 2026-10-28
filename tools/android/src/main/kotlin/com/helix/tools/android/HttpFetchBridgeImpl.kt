@@ -14,6 +14,7 @@ import java.net.SocketTimeoutException
 import java.net.URI
 import java.nio.charset.StandardCharsets
 import javax.net.ssl.SSLContext
+import javax.net.ssl.SSLSocket
 
 /**
  * The trusted egress decision for one fetch, supplied by the APP (never the model): the current
@@ -28,9 +29,9 @@ data class EgressPolicy(
 
 /**
  * The seam the production [HttpFetchBridgeImpl] reads the current [EgressPolicy] from. The app
- * container implements it against its [SafetyProfile] store (the LAN-scopes store lands with
- * HXA-068; until then it is empty, so under ADVANCED no LAN/loopback host is reachable — fail
- * closed). Unit/device tests inject a fake to pin Standard-vs-Advanced and scoped-vs-unscoped.
+ * must supply live trusted profile/scope state. The bridge snapshots the initial authorization as
+ * a ceiling and rechecks live policy before each connection and before sending HTTP bytes.
+ * Unit/device tests inject a fake to pin Standard-vs-Advanced and scoped-vs-unscoped.
  */
 interface EgressPolicyProvider {
     fun current(): EgressPolicy
@@ -92,7 +93,7 @@ class HttpFetchBridgeImpl(
     private val resolver: AddressResolver = RealAddressResolver(),
 ) : HttpFetchBridge {
     override fun fetch(request: HttpFetchRequest): HttpFetchOutcome {
-        val policy = policyProvider.current()
+        val policy = policyProvider.current().let { it.copy(lanScopes = it.lanScopes.toSet()) }
         return fetchHops(request, policy, request.url, 0)
     }
 
@@ -136,9 +137,11 @@ class HttpFetchBridgeImpl(
         endpoint: NormalizedEndpoint,
         connectable: List<ByteArray>,
     ): Conn {
-        val remaining = request.deadlineMillis - System.currentTimeMillis()
-        if (remaining <= 0) return Conn.Fail(timeout(0))
         for (address in connectable) {
+            val remaining = request.deadlineMillis - System.currentTimeMillis()
+            if (remaining <= 0) return Conn.Fail(timeout(0))
+            // The original decision is a ceiling, not a lease on revoked live permissions.
+            policyDenial(connectable, policy, endpoint)?.let { return Conn.Fail(it) }
             val socket =
                 try {
                     connect(address, endpoint.port, remaining)
@@ -149,16 +152,14 @@ class HttpFetchBridgeImpl(
                 }
             // Connect-time peer revalidation (security doc 7.9): the ACTUAL peer must still satisfy
             // the same decision, so an address that rebound between resolve and connect is refused.
-            val peer =
-                SsrfAddressPolicy.revalidatePeer(socket.inetAddress.address, policy.profile, policy.lanScopes, endpoint)
-            val peerAllowed = peer as? SsrfCheckResult.Allowed
-            if (peerAllowed == null) {
+            val denial = policyDenial(listOf(socket.inetAddress.address), policy, endpoint)
+            if (denial != null) {
                 closeQuietly(socket)
-                return Conn.Fail(refused(denialReason((peer as SsrfCheckResult.Denied).code), 0))
+                return Conn.Fail(denial)
             }
             val response =
                 try {
-                    doHttpRequest(socket, endpoint, request)
+                    doHttpRequest(socket, endpoint, request, policy)
                 } catch (e: SocketTimeoutException) {
                     closeQuietly(socket)
                     return Conn.Fail(timeout(0))
@@ -167,40 +168,68 @@ class HttpFetchBridgeImpl(
                     return Conn.Fail(error("protocol error"))
                 }
             closeQuietly(socket)
-            return Conn.Ok(response)
+            return response
         }
         return Conn.Fail(error("connect-failed"))
     }
 
-    /**
-     * Wraps the connected socket in TLS for an https origin: [SSLContext.getDefault].socketFactory's
-     * [createSocket] performs the handshake using [endpoint.host] as the SNI/expected-DN, so the
-     * certificate is validated against the ORIGINAL hostname, never the resolved IP. A raw (unencrypted)
-     * socket is returned for an http origin.
-     */
+    /** Both independent checks must allow: live changes can revoke, never expand this call. */
+    private fun policyDenial(
+        addresses: List<ByteArray>,
+        original: EgressPolicy,
+        endpoint: NormalizedEndpoint,
+    ): HttpFetchOutcome? {
+        val live = policyProvider.current()
+        for (policy in listOf(original, live)) {
+            val check = SsrfAddressPolicy.check(addresses, policy.profile, policy.lanScopes, endpoint)
+            if (check is SsrfCheckResult.Denied) return refused(denialReason(check.code), 0)
+        }
+        return null
+    }
+
+    /** Layer TLS over the pinned connection, retaining the URL host for SNI and HTTPS identity. */
+    @Suppress("TooGenericExceptionCaught") // close the layered socket on every failed setup, then rethrow
     private fun tlsIfNecessary(
         socket: Socket,
         endpoint: NormalizedEndpoint,
-    ): Socket =
-        if (endpoint.scheme == "https") {
-            val factory = SSLContext.getDefault().socketFactory
-            factory.createSocket(socket, endpoint.host, endpoint.port, true)
-        } else {
-            socket
+        request: HttpFetchRequest,
+    ): Socket {
+        if (endpoint.scheme != "https") return socket
+        val secure =
+            SSLContext
+                .getDefault()
+                .socketFactory
+                .createSocket(socket, endpoint.host, endpoint.port, true) as SSLSocket
+        try {
+            secure.sslParameters = secure.sslParameters.apply { endpointIdentificationAlgorithm = "HTTPS" }
+            secure.soTimeout = remainingReadTimeout(request)
+            // createSocket alone does not verify identity. Finish authentication before HTTP bytes.
+            secure.startHandshake()
+            return secure
+        } catch (error: Exception) {
+            closeQuietly(secure)
+            throw error
         }
+    }
+
+    private fun remainingReadTimeout(request: HttpFetchRequest): Int {
+        val remaining = request.deadlineMillis - System.currentTimeMillis()
+        if (remaining <= 0) throw SocketTimeoutException("fetch deadline expired")
+        return minOf(READ_TIMEOUT_MS, remaining).toInt()
+    }
 
     private fun doHttpRequest(
         socket: Socket,
         endpoint: NormalizedEndpoint,
         request: HttpFetchRequest,
-    ): HttpFetchResponseParser.ParsedResponse {
-        val secure = tlsIfNecessary(socket, endpoint)
-        val readTimeout = minOf(READ_TIMEOUT_MS, request.deadlineMillis - System.currentTimeMillis()).coerceAtLeast(1)
-        secure.soTimeout = readTimeout.toInt()
-        writeRequest(secure.getOutputStream(), endpoint, request)
-
-        return HttpFetchResponseParser.read(secure.getInputStream(), request)
-    }
+        policy: EgressPolicy,
+    ): Conn =
+        tlsIfNecessary(socket, endpoint, request).use { secure ->
+            secure.soTimeout = remainingReadTimeout(request)
+            policyDenial(listOf(socket.inetAddress.address), policy, endpoint)?.let { return Conn.Fail(it) }
+            writeRequest(secure.getOutputStream(), endpoint, request)
+            Conn.Ok(HttpFetchResponseParser.read(secure.getInputStream(), request))
+        }
 
     private fun writeRequest(
         out: OutputStream,
@@ -216,6 +245,7 @@ class HttpFetchBridgeImpl(
         out.flush()
     }
 
+    @Suppress("TooGenericExceptionCaught") // close a failed connect before rethrowing to the address retry loop
     private fun connect(
         address: ByteArray,
         port: Int,
@@ -223,8 +253,13 @@ class HttpFetchBridgeImpl(
     ): Socket {
         val inet = InetAddress.getByAddress(address)
         val socket = Socket()
-        socket.connect(InetSocketAddress(inet, port), minOf(CONNECT_TIMEOUT_MS, remainingMillis).toInt())
-        return socket
+        try {
+            socket.connect(InetSocketAddress(inet, port), minOf(CONNECT_TIMEOUT_MS, remainingMillis).toInt())
+            return socket
+        } catch (error: Exception) {
+            closeQuietly(socket)
+            throw error
+        }
     }
 
     /** Resolves a `Location` (absolute or relative) against [baseUrl]; null when it is not usable. */

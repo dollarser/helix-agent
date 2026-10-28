@@ -23,6 +23,7 @@ data class TurnRecoveryPanelUi(
     val retryAllowed: Boolean,
     val goalId: String?,
     val goalObjective: String?,
+    val inlineNoticeShown: Boolean = false,
 )
 
 /** One turn's recovery facts plus its bound Goal identity, as gathered by [loadTurnRecoverySources]. */
@@ -98,23 +99,15 @@ private fun readTurnRecoverySources(
     limit: Int,
     includeTurnId: String?,
 ): List<TurnRecoverySource> {
-    val allTurns = storage.turns.listBySession(sessionId)
-    val settled =
-        allTurns.filter { turn ->
-            turn.state in
-                setOf(
-                    TurnState.FAILED.name,
-                    TurnState.INTERRUPTED.name,
-                    TurnState.CANCELLED.name,
-                )
+    val states = setOf(TurnState.FAILED, TurnState.INTERRUPTED, TurnState.CANCELLED)
+    val settled = storage.turns.recentByStates(sessionId, states, limit)
+    val extra =
+        includeTurnId?.let(storage.turns::find)?.takeIf {
+            it.sessionId == sessionId && it.state in states.map(TurnState::name)
         }
-    val extra = includeTurnId?.let { id -> settled.firstOrNull { it.id == id } }
-    val window = (settled.takeLast(limit) + listOfNotNull(extra)).distinctBy { it.id }
-    // A later successful result moves the conversation past an earlier failure: the retry
-    // button follows the existing visibility rule and hides then; later CANCELLED /
-    // INTERRUPTED turns do NOT supersede.
-    val lastCompletedIndex = allTurns.indexOfLast { it.state == TurnState.COMPLETED.name }
-    val turnIndexById = allTurns.withIndex().associate { (i, t) -> t.id to i }
+    val window = (settled + listOfNotNull(extra)).distinctBy { it.id }
+    // Preserve startedAt/rowid ordering, including ties, without materializing session history.
+    // Later CANCELLED / INTERRUPTED turns do not supersede an earlier failure.
     // One Goal query per refresh, shared by every bound turn in the window.
     val goals =
         if (window.any { storage.goalTurnBindings.byTurn(it.id) != null }) {
@@ -127,7 +120,7 @@ private fun readTurnRecoverySources(
             storage,
             turn,
             goals,
-            (turnIndexById[turn.id] ?: -1) < lastCompletedIndex,
+            storage.turns.hasLaterCompleted(turn.id),
         )
     }
 }

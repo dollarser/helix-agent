@@ -181,13 +181,7 @@ internal class TurnSubmissionCommandHandler(
     ): Boolean {
         val current = storage.sessionInputs.get(input.inputId) ?: return false
         val headMatches = !requireHead || storage.sessionInputs.headQueue(input.sessionId)?.inputId == input.inputId
-        val unsettled =
-            storage.turns.listBySession(input.sessionId).any { turn ->
-                val phase =
-                    com.helix.core.model.TurnState
-                        .valueOf(turn.state)
-                !phase.isTerminal && phase != com.helix.core.model.TurnState.NEEDS_REVIEW
-            }
+        val unsettled = storage.turns.admissionBlockers(input.sessionId).isNotEmpty()
         val sameRevision = current.revision == input.revision
         return current.state == SessionInputState.PENDING && sameRevision && headMatches && !unsettled
     }

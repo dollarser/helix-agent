@@ -39,4 +39,6 @@
     <string name="reminder_memo">Note without an alert</string>
     <string name="reminder_no_pending">No pending alert</string>
     <string name="reminder_pending">Scheduling pending</string>
+    <string name="reminder_saved_projection_failed">The entry was saved, but system reminder projection is incomplete. Return to the list to check it. Saving again only updates this revision if unchanged; newer changes are never overwritten.</string>
+    <string name="reminder_saved_return_interrupted">This change was saved, but the page did not receive the full operation result. Return to the list to check reminder status. Your draft is retained; saving again still checks for version conflicts.</string>
 </resources>

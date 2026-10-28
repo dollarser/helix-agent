@@ -70,7 +70,7 @@ class SessionInputAdmissionFailureDeviceTest {
                 assertEquals(
                     1,
                     storage.messages.listBySession(scenario.session).count {
-                        it.id == "input-ended:${parked.inputId}" && it.kind == "RECOVERY_NOTICE"
+                        it.id == "input-ended:${parked.inputId}" && it.kind == "INPUT_RECOVERY_NOTICE"
                     },
                 )
                 assertNull(parked.consumedTurnId)

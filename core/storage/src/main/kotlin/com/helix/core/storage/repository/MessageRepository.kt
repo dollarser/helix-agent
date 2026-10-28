@@ -114,6 +114,8 @@ class MessageRepository(
         return dao.retainedByKindAfter(kind, afterId, limit)
     }
 
+    fun find(id: String): MessageEntity? = dao.byId(id)
+
     fun resolve(id: String): MessageEntity {
         val entity = dao.byId(id)
 

@@ -72,7 +72,7 @@ class MessageEditRecoveryDeviceTest {
         val engine =
             createRoomTurnEngine(storage, clock, idGenerator = {
                 UUID.randomUUID().toString()
-            }, recoveryFailureNotice = { "Synthetic recovery unavailable" })
+            })
         val admitted =
             engine
                 .admit(

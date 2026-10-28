@@ -45,6 +45,33 @@ class AutomaticRecoveryPolicyTest {
         }
     }
 
+    @Test fun parentAndFailedInspectionHaveOneNoticeOwnerAfterRecreation() {
+        val child =
+            parent.copy(
+                id = "child",
+                state = "FAILED",
+                recoveryFromTurnId = parent.id,
+                clientRequestId = AutomaticRecoveryPolicy.requestId(parent.id),
+            )
+        val rows = mapOf(parent.id to parent, child.id to child)
+        val owners =
+            listOf(parent, child, child.copy()).map {
+                AutomaticRecoveryPolicy.noticeOwner(it) { id -> rows.getValue(id) }.id
+            }
+        assertEquals(listOf("parent", "parent", "parent"), owners)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun noticeCannotBeRetargetedToAnotherSession() {
+        val child =
+            parent.copy(
+                id = "child",
+                recoveryFromTurnId = parent.id,
+                clientRequestId = AutomaticRecoveryPolicy.requestId(parent.id),
+            )
+        AutomaticRecoveryPolicy.noticeOwner(child) { parent.copy(sessionId = "other") }
+    }
+
     private fun snapshot() =
         TurnRuntimeSnapshot(
             "parent",

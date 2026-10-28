@@ -94,9 +94,10 @@ class LocalReminderDeviceTest {
             assertEquals("MEMO", saved().scheduling)
             service.save(saved().copy(body = "Edited synthetic memo"))
             assertEquals(2L, saved().revision)
-            service.finish(id, false)
+            service.finish(id, false, requireNotNull(service.get(id)).revision)
             assertEquals("COMPLETED", saved().state)
-            service.finish(id, true)
+            service.save(saved()) // Explicitly reopen before cancelling the active entry.
+            service.finish(id, true, requireNotNull(service.get(id)).revision)
             assertEquals("CANCELLED", saved().state)
         }
 
@@ -119,7 +120,7 @@ class LocalReminderDeviceTest {
         fixture {
             service.save(draft())
             val old = saved()
-            service.finish(old.id, true)
+            service.finish(old.id, true, requireNotNull(service.get(old.id)).revision)
             now += 60_000
             service.fire(old.id, old.revision, requireNotNull(old.nextAt))
             assertEquals(0, delivery.posts)

@@ -55,7 +55,17 @@ class SessionProjectionLoadDeviceTest {
             repeat(600) { i -> storage.sessions.create("projection-load-$i", "Synthetic $i", null, null, i.toLong()) }
             repeat(1000) { i ->
                 val body = if (i == 999) (0 until 5).joinToString(" ") { "load-needle-$it" } else "x".repeat(1024)
-                storage.messages.append("projection-message-$i", HEAVY, null, "USER", "TEXT", body)
+                val turn = storage.turns.start("projection-turn-$i", HEAVY, i.toLong())
+                val building =
+                    storage.turns.updateState(
+                        turn,
+                        com.helix.core.model.TurnState.BUILDING_CONTEXT,
+                        0,
+                        null,
+                        null,
+                    )
+                storage.turns.updateState(building, com.helix.core.model.TurnState.FAILED, 0, i.toLong(), "SYNTHETIC")
+                storage.messages.append("projection-message-$i", HEAVY, turn.id, "USER", "TEXT", body)
             }
         }
     }
@@ -107,6 +117,8 @@ class SessionProjectionLoadDeviceTest {
                 }
                 compose.waitForIdle()
             }
+        assertTrue(chat.screen.value.turns.size <= 100)
+        assertEquals("projection-turn-999", chat.screen.value.retryTargetTurnId)
         assertEquals(
             "projection-message-900",
             chat.screen.value.messages

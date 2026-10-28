@@ -831,12 +831,6 @@ internal class DefaultAppContainer(
             storage = storage,
             clock = appClock,
             idGenerator = { idGenerator.next() },
-            recoveryFailureNotice = {
-                appContext.resolveLocalized(
-                    R.string.automatic_recovery_unavailable,
-                    emptyArray(),
-                )
-            },
         )
     }
 

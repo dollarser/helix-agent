@@ -27,6 +27,7 @@ import com.helix.app.ui.indicatedVerticalScroll
 internal fun TaskResultDialog(
     service: ChatService,
     turnId: String,
+    allowCollect: Boolean = true,
     onDismiss: () -> Unit,
 ) {
     var result by remember(turnId) { mutableStateOf<List<MessageUi>?>(null) }
@@ -52,20 +53,25 @@ internal fun TaskResultDialog(
                             Text(stringResource(R.string.chat_retry))
                         }
                     }
-                    result?.forEach { MarkdownText(it.content) }
+                    result?.forEach { message ->
+                        MarkdownText(message.content)
+                        message.interruptionNotice?.let { InterruptionNoticeLine(it, turnId) }
+                    }
                     if (result?.isEmpty() == true) Text(stringResource(R.string.background_task_result_empty))
                 }
             }
         },
         confirmButton = {
-            TextButton(
-                enabled = result != null && !failed,
-                modifier = Modifier.testTag("task-collect-$turnId"),
-                onClick = {
-                    service.collectTaskResult(turnId)
-                    onDismiss()
-                },
-            ) { Text(stringResource(R.string.background_task_collect)) }
+            if (allowCollect) {
+                TextButton(
+                    enabled = result != null && !failed,
+                    modifier = Modifier.testTag("task-collect-$turnId"),
+                    onClick = {
+                        service.collectTaskResult(turnId)
+                        onDismiss()
+                    },
+                ) { Text(stringResource(R.string.background_task_collect)) }
+            }
         },
         dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.goal_close)) } },
     )

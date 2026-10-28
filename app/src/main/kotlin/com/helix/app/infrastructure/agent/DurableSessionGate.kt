@@ -11,12 +11,7 @@ internal class DurableSessionGate(
     fun blocker(sessionId: String): SessionTurnBlocker? {
         require(sessionId.isNotBlank()) { "sessionId must not be blank" }
         val active =
-            storage.turns
-                .listBySession(sessionId)
-                .filter {
-                    val state = TurnState.valueOf(it.state)
-                    !state.isTerminal && state != TurnState.NEEDS_REVIEW
-                }
+            storage.turns.admissionBlockers(sessionId)
         return when {
             active.isEmpty() -> {
                 null

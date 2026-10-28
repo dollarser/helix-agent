@@ -68,7 +68,7 @@ class ExpertAdmissionDeviceTest {
         val engine =
             createRoomTurnEngine(storage, clock, idGenerator = {
                 UUID.randomUUID().toString()
-            }, recoveryFailureNotice = { "Synthetic recovery unavailable" })
+            })
         return engine
             .admit(
                 fixtureAdmissionCommand(

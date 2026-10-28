@@ -61,13 +61,17 @@ internal object RecoverySummaryBuilder {
         }
         return buildString {
             appendLine("[UnresolvedEffects]")
-            appendLine("Earlier external effects still require review before side-effecting tools can run:")
+            appendLine(
+                "Earlier task-specific effects remain unconfirmed; " +
+                    "these facts do not block unrelated new user tasks:",
+            )
             lines.forEach(::appendLine)
             append(
-                "Read-only inspection is allowed; do not retry these effects until " +
-                    "review/state verification resolves them. " +
-                    "If no reliable proof is available, report the uncertainty " +
-                    "and end the attempt; do not ask the user to repair or acknowledge the unknown effect.",
+                "Do not replay the listed original calls automatically. " +
+                    "Follow ordinary permissions for the current request. " +
+                    "Mention these uncertainties only when the current request depends on them; " +
+                    "do not repeat an interruption warning in unrelated replies. " +
+                    "A task-scoped notice is already shown in the conversation.",
             )
         }.take(MAX_CHARS)
     }

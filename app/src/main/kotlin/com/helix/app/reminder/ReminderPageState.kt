@@ -12,4 +12,12 @@ internal class ReminderPageState : ViewModel() {
     var editing by mutableStateOf(false)
     var interpreting by mutableStateOf(false)
     var scheduling by mutableStateOf(false)
+    var receipt by mutableStateOf(ReminderService.CommitReceipt())
+        private set
+
+    fun openEditor(item: LocalReminder?) {
+        receipt = ReminderService.CommitReceipt()
+        selected = item
+        editing = true
+    }
 }
