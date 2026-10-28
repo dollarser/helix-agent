@@ -60,7 +60,7 @@ GitHub CI 只做主机验证，不启动模拟器、连接真机、执行 instru
 
 旧图 [40734321933](https://github.com/dollarser/helix-agent/actions/runs/40734321933) 第二次尝试：源码、Runtime、语音和两项分析成功；tests-build 主 Gradle 构建成功但耗时 58 分 32 秒，独立 Release 测试驱动编译/Lint 成功耗时 18 秒，随后锁检查遇整项 60 分钟上限取消，汇总正确失败。Release 分析约 23 分钟，Debug 分析约 27 分钟，任务并行不能相加当总耗时。首次 runner 未分配以及查询 HTTP 502 是外部调度/查询故障，不是测试失败。第三次过时排队重试已请求取消。
 
-本地暖缓存完整 Debug 门禁通过，实际 108.27 秒，含 291 项脚本回归、38 个 JVM/Debug 单测任务、两渠道 APK、AndroidTest 源码编译、42 份锁及最终 Debug 边界。新入口任务图与完整 test 的 JVM/Debug 子集相同且无 Release 任务。actionlint、范围与失败聚合回归通过；首轮新 Gradle 任务格式失败已按 Spotless 修正并重跑成功。首个精简图运行 40752767522 的 source 1 分钟、Runtime 2 分 16 秒成功，macOS Android job 持续排队未取得 runner，转为 Linux 后重新实测。远端新图结果待实际运行核对，不承诺提速倍数。冷/暖缓存与排队时间必须分开报告。此前优化、删测裁决与历史测量见 [当时记录](https://github.com/dollarser/helix-agent/blob/865456960cc6674122c1691e3a73d355336bf8ed/docs/development/ci.md)，不把历史结论当本轮结果。
+本地暖缓存完整 Debug 门禁通过，实际 108.27 秒，含 291 项脚本回归、38 个 JVM/Debug 单测任务、两渠道 APK、AndroidTest 源码编译、42 份锁及最终 Debug 边界。新入口任务图与完整 test 的 JVM/Debug 子集相同且无 Release 任务。actionlint、范围与失败聚合回归通过；首轮新 Gradle 任务格式失败已按 Spotless 修正并重跑成功。首个精简图运行 40752767522 的 source 1 分钟、Runtime 2 分 16 秒成功，macOS Android job 持续排队未取得 runner，转为 Linux 后重新实测。Linux 首次运行 40754798046 已取得 runner，语音冷构建与哈希校验通过；Android 构建在严格依赖校验处失败，原元数据只含 macOS AAPT2，缺少同一版本 Linux 分类。已从 Google 官方仓库核对 JAR 的发布 SHA-256/SHA-1 与原锁定 POM，仅补齐该平台校验值，不设置 problems=warn 或关闭验证。远端最终结果待实际运行核对，不承诺提速倍数。冷/暖缓存与排队时间必须分开报告。此前优化、删测裁决与历史测量见 [当时记录](https://github.com/dollarser/helix-agent/blob/865456960cc6674122c1691e3a73d355336bf8ed/docs/development/ci.md)，不把历史结论当本轮结果。
 
 ## 依据与本地使用
 
