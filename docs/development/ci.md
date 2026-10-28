@@ -5,7 +5,7 @@
 ## 当前任务图
 
 ```text
-source → runtime-assets（锁定下载、解包、ELF）→ android（单一 macOS 工作区）
+source → runtime-assets（锁定下载、解包、ELF）→ android（单一 Ubuntu 24.04 x64 工作区）
 所有终态 → verify（始终执行，拒绝失败、取消及意外跳过）
 ```
 
@@ -23,6 +23,7 @@ GitHub CI 只做主机验证，不启动模拟器、连接真机、执行 instru
 
 ## 精简及保留理由
 
+- Android job 使用固定 Ubuntu 24.04 x64。现有 NDK/CMake 配方无 macOS 专属工具，终端 JNI 主机夹具已有 Linux 分支；以实际 CI 验证完整行为。切换后语音缓存按新 OS/架构重新准备，不能假装已有暖缓存。
 - 移除 analysis / release-analysis / tests-build 的三个独立 Android 工作区，选定范围在一个工作区执行，共享配置、编译输出与 Gradle daemon；不用 `clean`、`rerun-tasks` 或搬运整个 build 目录。
 - 默认 PR/push 走 Debug，双渠道 Release/R8 与 Release 测试驱动仅在手动 full 发布门禁执行；不靠扩大 60 分钟超时或删失败检查解决问题。
 - 语音准备与严格校验并入实际 Android 消费者，移除独立 macOS 排队与语音产物上传/下载。准备缓存仍按 OS/ABI、工具链、locks、配方及校验器失效；命中必须验哈希。Runtime 输入保留 arm64 Linux 的真实 ELF/解包校验及最小产物中转。
@@ -59,11 +60,11 @@ GitHub CI 只做主机验证，不启动模拟器、连接真机、执行 instru
 
 旧图 [40734321933](https://github.com/dollarser/helix-agent/actions/runs/40734321933) 第二次尝试：源码、Runtime、语音和两项分析成功；tests-build 主 Gradle 构建成功但耗时 58 分 32 秒，独立 Release 测试驱动编译/Lint 成功耗时 18 秒，随后锁检查遇整项 60 分钟上限取消，汇总正确失败。Release 分析约 23 分钟，Debug 分析约 27 分钟，任务并行不能相加当总耗时。首次 runner 未分配以及查询 HTTP 502 是外部调度/查询故障，不是测试失败。第三次过时排队重试已请求取消。
 
-本地暖缓存完整 Debug 门禁通过，实际 108.27 秒，含 291 项脚本回归、38 个 JVM/Debug 单测任务、两渠道 APK、AndroidTest 源码编译、42 份锁及最终 Debug 边界。新入口任务图与完整 test 的 JVM/Debug 子集相同且无 Release 任务。actionlint、范围与失败聚合回归通过；首轮新 Gradle 任务格式失败已按 Spotless 修正并重跑成功。远端新图结果待实际运行核对，不承诺提速倍数。冷/暖缓存与排队时间必须分开报告。此前优化、删测裁决与历史测量见 [当时记录](https://github.com/dollarser/helix-agent/blob/865456960cc6674122c1691e3a73d355336bf8ed/docs/development/ci.md)，不把历史结论当本轮结果。
+本地暖缓存完整 Debug 门禁通过，实际 108.27 秒，含 291 项脚本回归、38 个 JVM/Debug 单测任务、两渠道 APK、AndroidTest 源码编译、42 份锁及最终 Debug 边界。新入口任务图与完整 test 的 JVM/Debug 子集相同且无 Release 任务。actionlint、范围与失败聚合回归通过；首轮新 Gradle 任务格式失败已按 Spotless 修正并重跑成功。首个精简图运行 40752767522 的 source 1 分钟、Runtime 2 分 16 秒成功，macOS Android job 持续排队未取得 runner，转为 Linux 后重新实测。远端新图结果待实际运行核对，不承诺提速倍数。冷/暖缓存与排队时间必须分开报告。此前优化、删测裁决与历史测量见 [当时记录](https://github.com/dollarser/helix-agent/blob/865456960cc6674122c1691e3a73d355336bf8ed/docs/development/ci.md)，不把历史结论当本轮结果。
 
 ## 依据与本地使用
 
-采用 Android 官方的[减少不必要构建工作并按实际 profile 定位](https://developer.android.com/build/optimize-your-build)，以及 Gradle 的[复用相同输入任务输出](https://docs.gradle.org/current/userguide/build_cache.html)。不顺便升级 AGP/Gradle、依赖或修改产品功能。
+采用 Android 官方的[减少不必要构建工作并按实际 profile 定位](https://developer.android.com/build/optimize-your-build)，以及 Gradle 的[复用相同输入任务输出](https://docs.gradle.org/current/userguide/build_cache.html)。不顺便升级 AGP/Gradle、依赖或修改产品功能。NDK 的 [Linux x86 宿主支持](https://developer.android.com/ndk/downloads) 与 [GitHub 公共 runner 规格](https://docs.github.com/en/actions/reference/runners/github-hosted-runners) 支持宿主选择；实际资源差异不等于已测提速。
 
 GitHub 官方说明：[跳过 workflow 可能留下 Pending，依赖汇总应用 always](https://docs.github.com/en/pull-requests/how-tos/merge-and-close-pull-requests/troubleshooting-required-status-checks)、[并发组与取消](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency)、[setup-gradle 缓存约束](https://github.com/gradle/actions/blob/main/docs/setup-gradle.md)。以上支持本轮取舍，不证明任意仓库必然加速。
 

@@ -128,7 +128,7 @@ jobs:
   android:
     needs: [source, runtime-assets]
     if: needs.source.outputs.scope != 'source'
-    runs-on: macos-15
+    runs-on: ubuntu-24.04
     # One workspace shares configuration, compiled outputs and Gradle task caches.
     timeout-minutes: 60
 
@@ -162,11 +162,10 @@ jobs:
           test -f "$ANDROID_HOME/ndk/28.2.13676358/source.properties"
 
       - name: Install repository validation tools
-        env:
-          HOMEBREW_NO_AUTO_UPDATE: "1"
         run: |
           if ! command -v rg >/dev/null 2>&1; then
-            brew install ripgrep
+            sudo apt-get update
+            sudo apt-get install --yes ripgrep
           fi
           rg --version
 
