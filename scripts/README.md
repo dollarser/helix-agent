@@ -5,7 +5,7 @@
 | 分组 | 入口 / 约束 |
 | --- | --- |
 | 源码与文档 | `check-all.sh --source`：脚本自测、文档、ADR、i18n、Secret |
-| 日常源码迭代 | 默认或 `--debug`：源码检查、Debug Spotless/Detekt/Lint、JVM 测试、AndroidTest 源码编译、双渠道 Debug APK、锁与 APK 边界 |
+| 日常源码迭代 | 默认或 `--debug`：源码检查、Debug Spotless/Detekt/Lint、JVM/Android Debug 单测（debugUnitTests）、AndroidTest 源码编译、双渠道 Debug APK、锁与 APK 边界 |
 | 主机脚本测试 | `python3 scripts/run-host-tests.py`：统一发现 `scripts/tests/test_*.py`；导入/断言失败、空套件、全跳过不算通过。测试实际设备 runner 的解析/Mock 不启动设备；真实设备验证仍显式运行 |
 | 完整编译与回归 | `check-all.sh --build`：Debug/Release 分析、测试、主 APK 与 Runtime 构建、Release smoke APK 编译、锁文件；`--all` 另含 source 和 Debug/Release 制品边界，用于发布准备或相关优化回归 |
 | APK 边界 | `--artifacts` 检查已有 Debug APK 的 variant 与 CLI Runtime 边界；`--release-artifacts` 检查已有 Release APK。均须先成功构建对应候选，不自行打包 |

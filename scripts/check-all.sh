@@ -28,7 +28,6 @@ test_build_checks() {
         :app:assembleConsumerRelease :app:assembleDeveloperRelease :runtime:proot-app:assembleRelease :runtime:cli-app:assembleRelease
     ./gradlew ${gradle_profile[@]+"${gradle_profile[@]}"} -PincludeReleaseSmoke=true \
         :tests:release-smoke:assembleDebugAndroidTest :tests:release-smoke:lintDebug
-    ./scripts/check-lockfiles.sh
 }
 
 debug_analysis_checks() {
@@ -41,13 +40,13 @@ release_analysis_checks() {
 
 debug_test_build_checks() {
     # Test source correctness is compiled; Android Lint is reserved for production.
-    ./gradlew ${gradle_profile[@]+"${gradle_profile[@]}"} test \
+    ./gradlew ${gradle_profile[@]+"${gradle_profile[@]}"} debugUnitTests \
         :app:assembleConsumerDebug :app:assembleDeveloperDebug \
         compileDebugAndroidTestSources :app:compileConsumerDebugAndroidTestSources :app:compileDeveloperDebugAndroidTestSources
-    ./scripts/check-lockfiles.sh
 }
 
 build_checks() {
+    ./scripts/check-lockfiles.sh
     analysis_checks
     test_build_checks
 }
@@ -62,13 +61,13 @@ release_artifact_checks() {
 }
 
 case "${1:---debug}" in
-    --debug) source_checks; debug_analysis_checks; debug_test_build_checks; artifact_checks ;;
+    --debug) source_checks; ./scripts/check-lockfiles.sh; debug_analysis_checks; debug_test_build_checks; artifact_checks ;;
     --source) source_checks ;;
     --analysis) analysis_checks ;;
     --release-analysis) release_analysis_checks ;;
     --debug-analysis) debug_analysis_checks ;;
-    --debug-tests-build) debug_test_build_checks ;;
-    --tests-build) test_build_checks ;;
+    --debug-tests-build) ./scripts/check-lockfiles.sh; debug_test_build_checks ;;
+    --tests-build) ./scripts/check-lockfiles.sh; test_build_checks ;;
     --build) build_checks ;;
     --artifacts) artifact_checks ;;
     --release-artifacts) release_artifact_checks ;;

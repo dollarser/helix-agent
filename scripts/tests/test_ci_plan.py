@@ -9,80 +9,28 @@ spec.loader.exec_module(ci)
 
 
 class CiPlanTest(unittest.TestCase):
-    def test_docs_and_historical_scripts_only(self):
-        self.assertEqual('source', ci.classify(['docs/a.md', 'scripts/debug/2026-09-18/example.sh']))
-        for path in ['README.md', 'README.en.md', 'CONTRIBUTING.md', 'SECURITY.md', 'THIRD_PARTY_NOTICES.md']:
-            with self.subTest(path=path):
-                self.assertEqual('source', ci.classify([path]))
-                self.assertEqual('full', ci.classify([path, 'app/build.gradle.kts']))
-        self.assertEqual('source', ci.classify(['scripts/tests/test_ci_plan.py']))
-        self.assertEqual('debug', ci.classify(['scripts/tests/test_ci_plan.py', 'core/model/src/main/Model.kt']))
-        self.assertEqual('full', ci.classify(['scripts/tests/fixture/build.gradle.kts']))
-        self.assertEqual('full', ci.classify(['scripts/tests/new-language.rs']))
+    def test_only_known_source_changes_skip_android(self):
+        for name in ['docs/a.md', 'README.md', 'README.en.md', 'scripts/README.md',
+                     'scripts/tests/test_ci_plan.py', '.agents/skills/example/SKILL.md']:
+            self.assertEqual('source', ci.classify([name]), name)
+            self.assertEqual('debug', ci.classify([name, 'app/src/main/Main.kt']))
+        for name in ['app/build.gradle.kts', 'app/src/release/Main.kt', 'new.file',
+                     'app/src/main/AndroidManifest.xml', 'runtime/native.cpp',
+                     '.github/workflows/ci.yml', 'scripts/check-all.sh',
+                     '.agents/skills/example/agents/openai.yaml', 'scripts/tests/fixture/build.gradle.kts']:
+            self.assertEqual('debug', ci.classify([name]), name)
+        self.assertEqual('debug', ci.classify([]))
 
-    def test_analysis_split_and_complete_baseline(self):
-        self.assertEqual(['analysis', 'release-analysis', 'tests-build'], ci.android_gates('full'))
-        self.assertEqual(['analysis', 'tests-build'], ci.android_gates('debug'))
-        self.assertTrue(ci.android_gates('source'))
-        with self.assertRaises(ValueError):
-            ci.android_gates('unknown')
+    def test_only_complete_current_android_run_is_baseline(self):
         jobs = [{'name': name, 'conclusion': 'success'} for name in
-                ['source', 'runtime-assets', 'speech-assets', 'android (analysis)', 'android (release-analysis)',
-                 'android (tests-build)', 'verify']]
+                ['source', 'runtime-assets', 'android', 'verify']]
         self.assertTrue(ci.successful_android_jobs(jobs))
-        debug = [job for job in jobs if job['name'] != 'android (release-analysis)']
-        self.assertFalse(ci.successful_android_jobs(debug))
-        self.assertTrue(ci.successful_android_jobs(debug, full=False))
-        self.assertFalse(ci.successful_android_jobs(
-            debug + [{'name': 'android (release-analysis)', 'conclusion': 'failure'}], full=False))
         for index in range(len(jobs)):
-            with self.subTest(missing=index):
-                self.assertFalse(ci.successful_android_jobs(jobs[:index] + jobs[index + 1:]))
-            for result in ['failure', 'cancelled', 'skipped', '']:
+            self.assertFalse(ci.successful_android_jobs(jobs[:index] + jobs[index + 1:]))
+            for result in ['failure', 'cancelled', 'skipped', '', None]:
                 changed = [dict(job) for job in jobs]
                 changed[index]['conclusion'] = result
                 self.assertFalse(ci.successful_android_jobs(changed))
-
-    def test_development_skill_text_is_source_but_executable_and_unknown_changes_are_not(self):
-        skill = '.agents/skills/helix-contract-change-review/'
-        self.assertEqual('source', ci.classify([skill + 'SKILL.md', 'scripts/README.md']))
-        self.assertEqual('debug', ci.classify([skill + 'SKILL.md', 'app/src/main/Main.kt']))
-        for path in [skill + 'scripts/check.py', skill + 'agents/openai.yaml',
-                     skill + 'build.gradle.kts', '.agents/config.toml', 'scripts/check-docs.sh',
-                     'app/src/main/AndroidManifest.xml']:
-            with self.subTest(path=path):
-                self.assertEqual('full', ci.classify([skill + 'SKILL.md', path]))
-
-    def test_shared_code_and_resources_require_debug(self):
-        self.assertEqual('debug', ci.classify(['docs/a.md', 'app/src/main/kotlin/Main.kt']))
-        self.assertEqual('debug', ci.classify(['app/src/main/res/values/strings.xml']))
-
-    def test_release_configuration_native_and_unknown_require_full(self):
-        for path in ['app/build.gradle.kts', 'app/src/main/AndroidManifest.xml', 'gradle/libs.versions.toml',
-                     'app/src/release/res/values/strings.xml', 'app/src/consumerRelease/kotlin/Main.kt', 'runtime/src/main/cpp/pty.cpp',
-                     'app/gradle.lockfile', 'scripts/check-all.sh', '.github/workflows/ci.yml',
-                     '.githooks/pre-commit', 'scripts/secret-pattern.txt', 'new.file']:
-            with self.subTest(path=path):
-                self.assertEqual('full', ci.classify([path]))
-        self.assertEqual('full', ci.classify([]))
-
-    def test_unknown_and_cancelled_gates_never_pass(self):
-        for scope in ['debug', 'full']:
-            self.assertTrue(ci.verify(scope, 'success', 'success', 'success', 'success'))
-            for result in ['skipped', 'failure', 'cancelled', '']:
-                self.assertFalse(ci.verify(scope, 'success', 'success', 'success', result))
-                self.assertFalse(ci.verify(scope, 'success', result, 'success', 'success'))
-                self.assertFalse(ci.verify(scope, 'success', 'success', result, 'success'))
-        self.assertTrue(ci.verify('source', 'success', 'skipped', 'skipped', 'skipped'))
-        self.assertFalse(ci.verify('source', 'failure', 'skipped', 'skipped', 'skipped'))
-        self.assertFalse(ci.verify('', 'success', 'skipped', 'skipped', 'skipped'))
-        self.assertFalse(ci.verify('source', 'success', 'success', 'skipped', 'skipped'))
-        self.assertFalse(ci.verify('source', 'success', 'skipped', 'success', 'skipped'))
-
-    def test_source_only_success_is_not_an_android_baseline(self):
-        jobs = [{'name': name, 'conclusion': 'success'} for name in
-                ['source', 'runtime-assets', 'speech-assets', 'android (analysis)',
-                 'android (release-analysis)', 'android (tests-build)', 'verify']]
         runs = [{'id': 3, 'event': 'workflow_dispatch', 'head_sha': 'c' * 40},
                 {'id': 2, 'event': 'push', 'head_sha': 'b' * 40},
                 {'id': 1, 'event': 'push', 'head_sha': 'a' * 40}]
@@ -93,36 +41,40 @@ class CiPlanTest(unittest.TestCase):
         self.assertEqual('a' * 40, ci.proven_base(get, lambda _: True))
         self.assertIsNone(ci.proven_base(get, lambda _: False))
 
-    def test_cancelled_code_push_then_docs_still_checks_code(self):
+    def test_cancelled_code_then_docs_does_not_hide_code(self):
         with patch.object(ci, 'proven_base', return_value='a' * 40), patch.object(
                 ci, 'git', return_value='app/src/main/Main.kt\ndocs/a.md') as git:
             result = ci.plan('push', {'before': 'b' * 40})
         self.assertEqual('debug', result['scope'])
         self.assertEqual('a' * 40, git.call_args.args[-2])
+        with patch.object(ci, 'proven_base', return_value='b' * 40), patch.object(
+                ci, 'git', return_value='docs/a.md'):
+            self.assertEqual('source', ci.plan('push', {})['scope'])
 
-    def test_debug_success_covers_later_docs_but_never_hides_pending_full_inputs(self):
-        with patch.object(ci, 'proven_base', side_effect=['a' * 40, 'b' * 40]), patch.object(
-                ci, 'git', side_effect=['core/model/src/main/Model.kt\ndocs/a.md', 'docs/a.md']):
-            result = ci.plan('push', {})
-        self.assertEqual('source', result['scope'])
-        self.assertEqual('b' * 40, result['base'])
-        self.assertEqual('a' * 40, result['full_base'])
-        with patch.object(ci, 'proven_base', return_value='a' * 40) as baseline, patch.object(
-                ci, 'git', return_value='app/build.gradle.kts\ndocs/a.md'):
-            result = ci.plan('push', {})
-        self.assertEqual('full', result['scope'])
-        self.assertEqual(1, baseline.call_count)
-
-    def test_missing_baseline_or_api_error_defaults_full(self):
+    def test_missing_or_unavailable_baseline_defaults_debug_never_source(self):
         with patch.object(ci, 'proven_base', return_value=None):
-            self.assertEqual('full', ci.plan('push', {})['scope'])
+            self.assertEqual('debug', ci.plan('push', {})['scope'])
         with patch.object(ci, 'proven_base', side_effect=OSError('unavailable')):
-            self.assertEqual('full', ci.plan('push', {})['scope'])
+            self.assertEqual('debug', ci.plan('push', {})['scope'])
 
-    def test_pr_uses_complete_diff_and_manual_scope_is_explicit(self):
+    def test_pr_complete_diff_and_full_only_by_explicit_dispatch(self):
         with patch.object(ci, 'git', side_effect=['a' * 40, 'docs/a.md']):
             self.assertEqual('source', ci.plan('pull_request', {'pull_request': {'base': {'sha': 'b' * 40}}})['scope'])
         self.assertEqual('full', ci.plan('workflow_dispatch', {})['scope'])
         self.assertEqual('debug', ci.plan('workflow_dispatch', {'inputs': {'scope': 'debug'}})['scope'])
         with self.assertRaises(ValueError):
             ci.plan('workflow_dispatch', {'inputs': {'scope': 'source'}})
+
+    def test_aggregate_rejects_failure_cancellation_unknown_and_unexpected_skip(self):
+        for scope in ['debug', 'full']:
+            self.assertTrue(ci.verify(scope, 'success', 'success', 'success'))
+            for index in range(3):
+                for outcome in ['failure', 'cancelled', 'skipped', '', None]:
+                    results = ['success'] * 3
+                    results[index] = outcome
+                    self.assertFalse(ci.verify(scope, *results))
+        self.assertTrue(ci.verify('source', 'success', 'skipped', 'skipped'))
+        self.assertFalse(ci.verify('', 'success', 'skipped', 'skipped'))
+        for results in [('failure', 'skipped', 'skipped'), ('success', 'success', 'skipped'),
+                        ('success', 'skipped', 'success'), ('success', 'cancelled', 'skipped')]:
+            self.assertFalse(ci.verify('source', *results))

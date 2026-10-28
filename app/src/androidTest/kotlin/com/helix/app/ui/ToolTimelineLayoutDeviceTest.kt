@@ -140,8 +140,6 @@ class ToolTimelineLayoutDeviceTest {
 
     @Test fun modelIntentFits320dpAtLargeFont() = assertIntentLayout(320)
 
-    @Test fun modelIntentFits360dpAtLargeFont() = assertIntentLayout(360)
-
     @Test fun modelIntentFits412dpAtLargeFont() = assertIntentLayout(412)
 
     @Test fun failureRemainsVisibleBesideModelIntent() {

@@ -3,8 +3,8 @@
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 case "${1:-}" in
-    --source|--analysis|--release-analysis|--tests-build|--debug-analysis|--debug-tests-build|--artifacts|--release-artifacts) gate="${1#--}" ;;
-    *) echo "Usage: $0 --source|--analysis|--release-analysis|--tests-build|--debug-analysis|--debug-tests-build|--artifacts|--release-artifacts" >&2; exit 2 ;;
+    --source|--build|--analysis|--release-analysis|--tests-build|--debug-analysis|--debug-tests-build|--artifacts|--release-artifacts) gate="${1#--}" ;;
+    *) echo "Usage: $0 --source|--build|--analysis|--release-analysis|--tests-build|--debug-analysis|--debug-tests-build|--artifacts|--release-artifacts" >&2; exit 2 ;;
 esac
 mkdir -p build/ci
 export HELIX_GRADLE_PROFILE=1

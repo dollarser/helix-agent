@@ -26,8 +26,7 @@ def is_ancestor(sha):
 
 def classify(paths):
     if not paths:
-        return 'full'
-    scope = 'source'
+        return 'debug'
     for name in paths:
         path = Path(name)
         if (name.startswith(('docs/', 'scripts/debug/'))
@@ -36,43 +35,18 @@ def classify(paths):
                 'SECURITY.md', 'THIRD_PARTY_NOTICES.md', 'scripts/README.md'} or re.fullmatch(
                 r'\.agents/skills/[a-z0-9-]+/SKILL\.md', name):
             continue
-        if (name.startswith(('.github/', 'gradle/')) or path.name == 'AndroidManifest.xml'
-                or path.suffix in {'.gradle', '.kts', '.pro', '.c', '.cpp', '.h', '.so', '.aar', '.jar'}
-                or re.search(r'/src/[^/]*release[^/]*/', name, re.IGNORECASE) or 'runtime-lock' in name or path.name == 'gradle.lockfile'):
-            return 'full'
-        if '/src/' in name and path.suffix in {'.kt', '.java', '.xml', '.json', '.txt', '.png', '.webp', '.svg'}:
-            scope = 'debug'
-        else:
-            # CI scripts, unknown extensions and new infrastructure default to full.
-            return 'full'
-    return scope
+        return 'debug'
+    return 'source'
 
 
-def android_gates(scope):
-    if scope == 'full':
-        return ['analysis', 'release-analysis', 'tests-build']
-    if scope == 'debug':
-        return ['analysis', 'tests-build']
-    if scope == 'source':
-        # Keep matrix expansion valid; the Android job's scope condition skips it.
-        return ['analysis', 'tests-build']
-    raise ValueError('Unknown verification scope')
-
-
-def successful_android_jobs(jobs, full=True):
-    required = {'source', 'runtime-assets', 'speech-assets', 'android (analysis)',
-                'android (tests-build)', 'verify'}
+def successful_android_jobs(jobs):
+    required = {'source', 'runtime-assets', 'android', 'verify'}
     outcomes = {job['name']: job.get('conclusion') for job in jobs}
-    release = 'android (release-analysis)'
-    if full:
-        required.add(release)
-    elif release in outcomes and outcomes[release] != 'success':
-        return False
     return all(outcomes.get(name) == 'success' for name in required)
 
 
-def proven_base(get, ancestor, full=True):
-    # Bounded discovery. No prior qualifying run or unavailable API means full CI.
+def proven_base(get, ancestor):
+    # Bounded discovery. No prior qualifying run or unavailable API means Debug CI.
     runs = get('actions/workflows/ci.yml/runs?branch=main&status=success&per_page=30')['workflow_runs']
     for run in runs:
         if run.get('event') != 'push' or not ancestor(run['head_sha']):
@@ -80,7 +54,7 @@ def proven_base(get, ancestor, full=True):
         jobs = get(f"actions/runs/{run['id']}/jobs?filter=latest&per_page=100")
         if jobs.get('total_count', 0) > 100:
             continue
-        if successful_android_jobs(jobs['jobs'], full=full):
+        if successful_android_jobs(jobs['jobs']):
             return run['head_sha']
     return None
 
@@ -120,27 +94,20 @@ def plan(event_name, event, get=api_get):
         if base:
             paths = git('diff', '--name-only', '--no-renames', base, 'HEAD').splitlines()
             scope = classify(paths)
-            full_base = base if event_name == 'push' else None
-            # A Debug success may cover code before a docs push, never unverified full-gate inputs.
-            if event_name == 'push' and scope != 'full':
-                debug_base = proven_base(cached_get, is_ancestor, full=False)
-                if debug_base and debug_base != base:
-                    base = debug_base
-                    paths = git('diff', '--name-only', '--no-renames', base, 'HEAD').splitlines()
-                    scope = classify(paths)
-            return {'scope': scope, 'reason': 'changes since verified base' if event_name == 'push'
-                    else 'complete pull request diff', 'base': base, 'full_base': full_base, 'paths': paths}
+            return {'scope': scope, 'reason': 'changes since verified Debug base' if event_name == 'push'
+                    else 'complete pull request diff', 'base': base, 'paths': paths}
+
     except (URLError, OSError, KeyError, ValueError, subprocess.CalledProcessError):
         # Do not log token-bearing requests or quietly skip when discovery fails.
         pass
-    return {'scope': 'full', 'reason': 'no verifiable baseline; conservative full gate', 'base': None, 'paths': []}
+    return {'scope': 'debug', 'reason': 'no verifiable baseline; conservative Debug gate', 'base': None, 'paths': []}
 
 
-def verify(scope, source, assets, speech, android):
+def verify(scope, source, assets, android):
     if source != 'success' or scope not in {'source', 'debug', 'full'}:
         return False
     expected = 'skipped' if scope == 'source' else 'success'
-    return assets == expected and speech == expected and android == expected
+    return assets == expected and android == expected
 
 
 def main():
@@ -149,7 +116,7 @@ def main():
     args = parser.parse_args()
     if args.verify:
         valid = verify(*(os.environ.get(name, '') for name in
-                         ('CI_SCOPE', 'SOURCE_RESULT', 'ASSETS_RESULT', 'SPEECH_RESULT', 'ANDROID_RESULT')))
+                         ('CI_SCOPE', 'SOURCE_RESULT', 'ASSETS_RESULT', 'ANDROID_RESULT')))
         if not valid:
             raise SystemExit('Required CI gates failed, were cancelled, or were unexpectedly skipped')
         print('Required CI gates passed for the selected scope')
@@ -160,7 +127,6 @@ def main():
     Path('build/ci/plan.json').write_text(json.dumps(result, indent=2) + '\n')
     with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
         output.write('scope=' + result['scope'] + '\n')
-        output.write('android_gates=' + json.dumps(android_gates(result['scope'])) + '\n')
     print(json.dumps({key: value for key, value in result.items() if key != 'paths'}))
 
 

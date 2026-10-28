@@ -713,3 +713,28 @@ subprojects {
         dependencies.add("implementation", project(dependencyPath))
     }
 }
+
+// Select host unit-test variants explicitly: Gradle's aggregate `test` includes Release too.
+val debugUnitTests =
+    tasks.register("debugUnitTests") {
+        group = "verification"
+        description = "Run JVM and Android Debug unit tests without Release variants."
+    }
+subprojects {
+    val modulePath = path
+    plugins.withId("org.jetbrains.kotlin.jvm") {
+        debugUnitTests.configure { dependsOn("$modulePath:test") }
+    }
+    plugins.withId("com.android.library") {
+        debugUnitTests.configure { dependsOn("$modulePath:testDebugUnitTest") }
+    }
+    plugins.withId("com.android.application") {
+        debugUnitTests.configure {
+            if (modulePath == ":app") {
+                dependsOn(":app:testConsumerDebugUnitTest", ":app:testDeveloperDebugUnitTest")
+            } else {
+                dependsOn("$modulePath:testDebugUnitTest")
+            }
+        }
+    }
+}

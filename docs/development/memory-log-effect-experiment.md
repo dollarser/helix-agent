@@ -44,7 +44,7 @@ Goal 语义修正已单独提交为 `a9ac31c7`。Core 仍拥有完整 Turn 的�
 
 ## 离线与模拟器检查
 
-- `python3 -m unittest scripts.tests.test_memory_log_experiment scripts.tests.test_agent_layer_boundaries`：12 项通过（固定任务/预算 4 项，依赖边界 8 项）。
+- 当时 [固定 fixture 检查](https://github.com/dollarser/helix-agent/blob/865456960cc6674122c1691e3a73d355336bf8ed/scripts/tests/test_memory_log_experiment.py) 与依赖边界共 12 项通过（4 + 8）；固定形状检查现已退役，当前权限/数据隔离行为回归仍保留。
 - `spotlessKotlinApply detekt :app:compileDeveloperDebugAndroidTestKotlin :core:workspace:test :core:agent:test`：通过；前两次静态/导入失败保留在本地日志，修正后重跑，不跳过规则。
 - 独立 Developer/API 36 ARM64 的 `MemoryLogProjectionDeviceTest`：5 项通过，无跳过；覆盖必要约束/来源/截断事实、无授权与其他 scope、重复标记、原字节保持与请求次数上限、取消不重发。其 Wire 为 fake，仅证明投影/传输边界。
 - 真实账号准备：1 项执行失败（HTTP 530），不是设备/模型效果通过。独立实例关闭；十项效果任务未运行。

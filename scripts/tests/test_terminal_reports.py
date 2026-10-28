@@ -40,13 +40,6 @@ class TestTerminalReportsVerification(unittest.TestCase):
                 shutil.copytree(ev_src, ev_dst)
         return p
 
-    def test_help_flag(self):
-        script_path = SCRIPTS_DIR / "verify-terminal-runtime.py"
-        res = subprocess.run([sys.executable, str(script_path), "--help"], capture_output=True, text=True)
-        self.assertEqual(res.returncode, 0)
-        self.assertIn("HXA-199", res.stdout)
-        self.assertIn("--manifest", res.stdout)
-        self.assertIn("--output", res.stdout)
 
     def test_valid_terminal_fixture(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -51,7 +51,8 @@ class CiGatesTest(unittest.TestCase):
                 result, args = self.run_gate(gate)
                 self.assertEqual(0, result.returncode, result.stderr)
                 self.assertTrue((self.root / 'source-check-ran').exists())
-                self.assertIn('test', args)
+                self.assertIn('debugUnitTests', args)
+                self.assertNotIn('test', args)
                 self.assertIn('detekt', args)
                 self.assertIn('lintDeveloperDebug', args)
                 self.assertIn(':app:assembleDeveloperDebug', args)
@@ -72,6 +73,7 @@ class CiGatesTest(unittest.TestCase):
         self.append_gradle_args()
         result, args = self.run_gate('--all')
         self.assertEqual(0, result.returncode, result.stderr)
+        self.assertIn('test', args)
         self.assertIn(':app:assembleConsumerRelease', args)
         self.assertIn(':app:assembleDeveloperRelease', args)
         self.assertTrue((self.root / 'release-artifacts-ran').exists())
@@ -88,7 +90,7 @@ class CiGatesTest(unittest.TestCase):
         self.assertNotIn('--profile', full_args)
 
     def test_ci_profile_and_failure_are_preserved(self):
-        for gate in ('--debug-analysis', '--release-analysis'):
+        for gate in ('--debug-analysis', '--release-analysis', '--build'):
             result, args = self.run_gate(gate, wrapper=True, exit_code=7)
             self.assertEqual(7, result.returncode)
             self.assertIn('--profile', args)

@@ -10,6 +10,7 @@ on:
         default: full
         required: true
   pull_request:
+    branches: [main]
   push:
     branches: [main]
 
@@ -18,14 +19,13 @@ permissions:
   actions: read
 
 concurrency:
-  group: android-ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: android-ci-${{ github.event_name == 'workflow_dispatch' && 'manual' || 'routine' }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
 
 jobs:
   source:
     outputs:
       scope: ${{ steps.plan.outputs.scope }}
-      android_gates: ${{ steps.plan.outputs.android_gates }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -62,7 +62,7 @@ jobs:
           fi
           git diff --check "$base" HEAD
       - name: Save source diagnostics
-        if: always()
+        if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ci-source-${{ github.sha }}
@@ -102,7 +102,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --yes libarchive-tools
-          sdkmanager "platforms;android-36" "platforms;android-37.0" "build-tools;36.0.0"
+          sdkmanager "platforms;android-37.0" "build-tools;36.0.0"
       - name: Build and verify locked runtime assets
         env:
           HELIX_RUNTIME_DOWNLOAD_CACHE: ${{ runner.temp }}/helix-runtime-downloads
@@ -119,19 +119,63 @@ jobs:
         with:
           name: locked-runtime-inputs
           retention-days: 1
+          compression-level: 0
           if-no-files-found: error
           path: |
             runtime/proot-app/src/main/assets/runtime/proot
             runtime/proot-app/src/main/assets/runtime/rootfs
 
-  speech-assets:
-    needs: source
+  android:
+    needs: [source, runtime-assets]
     if: needs.source.outputs.scope != 'source'
     runs-on: macos-15
-    timeout-minutes: 30
+    # One workspace shares configuration, compiled outputs and Gradle task caches.
+    timeout-minutes: 60
+
     steps:
       - name: Check out source
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Configure JDK 17
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Configure Gradle
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0 (node24)
+
+      - name: Configure Android SDK
+        uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4.0.1 (node24)
+        with:
+          # Keep package installation explicit in the next step; never request
+          # the action's legacy `tools` default.
+          packages: ""
+
+      - name: Install Android platform and native toolchain
+        # cmdline-tools;latest keeps `cmdline-tools/latest/bin/apkanalyzer` available for
+        # verify-variant-boundaries.sh on a cold runner.
+        run: |
+          sdkmanager "platforms;android-37.0" "build-tools;36.0.0" "platform-tools" \
+            "cmdline-tools;latest" "ndk;28.2.13676358" "cmake;3.31.6"
+          "$ANDROID_HOME/cmake/3.31.6/bin/cmake" --version
+          test -f "$ANDROID_HOME/ndk/28.2.13676358/source.properties"
+
+      - name: Install repository validation tools
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+        run: |
+          if ! command -v rg >/dev/null 2>&1; then
+            brew install ripgrep
+          fi
+          rg --version
+
+      - name: Receive locked runtime inputs from this workflow
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: locked-runtime-inputs
+          path: runtime/proot-app/src/main/assets/runtime
+
       - name: Restore prepared speech inputs
         id: speech
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -149,20 +193,6 @@ jobs:
             build/tts/speech.aar
             build/tts/assets
             build/tts/test-assets
-      - name: Configure JDK 17
-        if: steps.speech.outputs.cache-hit != 'true'
-        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
-        with:
-          distribution: temurin
-          java-version: "17"
-      - name: Configure Android SDK
-        if: steps.speech.outputs.cache-hit != 'true'
-        uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4.0.1
-        with:
-          packages: ""
-      - name: Install speech native toolchain
-        if: steps.speech.outputs.cache-hit != 'true'
-        run: sdkmanager "ndk;28.2.13676358" "cmake;3.31.6"
       - name: Prepare locked speech inputs once
         if: steps.speech.outputs.cache-hit != 'true'
         run: |
@@ -191,147 +221,28 @@ jobs:
             build/tts/speech.aar
             build/tts/assets
             build/tts/test-assets
-      - name: Transfer verified speech inputs
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: locked-speech-inputs
-          retention-days: 1
-          compression-level: 0
-          if-no-files-found: error
-          path: |
-            build/asr/manifest.json
-            build/asr/asr-only.aar
-            build/asr/assets
-            build/asr/test-assets
-            build/asr-download/manifest.json
-            build/asr-download/assets
-            build/asr-download/test-assets
-            build/tts/manifest.json
-            build/tts/speech.aar
-            build/tts/assets
-            build/tts/test-assets
-
-  android:
-    needs: [source, runtime-assets, speech-assets]
-    if: needs.source.outputs.scope != 'source'
-    runs-on: macos-15
-    # Overlap analysis and packaging within the selected verification scope.
-    strategy:
-      fail-fast: false
-      matrix:
-        gate: ${{ fromJSON(needs.source.outputs.android_gates) }}
-    timeout-minutes: 60
-
-    steps:
-      - name: Check out source
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-
-      - name: Configure JDK 17
-        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
-        with:
-          distribution: temurin
-          java-version: "17"
-
-      - name: Configure Gradle
-        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0 (node24)
-
-      - name: Configure Android SDK
-        uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4.0.1 (node24)
-        with:
-          # Keep package installation explicit in the next step; never request
-          # the action's legacy `tools` default.
-          packages: ""
-
-      - name: Install Android platform and native toolchain
-        # cmdline-tools;latest keeps `cmdline-tools/latest/bin/apkanalyzer` available for
-        # verify-variant-boundaries.sh on a cold runner.
-        run: |
-          sdkmanager "platforms;android-36" "platforms;android-37.0" "build-tools;36.0.0" "platform-tools" \
-            "cmdline-tools;latest" "ndk;28.2.13676358" "cmake;3.31.6"
-          "$ANDROID_HOME/cmake/3.31.6/bin/cmake" --version
-          test -f "$ANDROID_HOME/ndk/28.2.13676358/source.properties"
-
-      - name: Install repository validation tools
-        env:
-          HOMEBREW_NO_AUTO_UPDATE: "1"
-        run: |
-          if ! command -v rg >/dev/null 2>&1; then
-            brew install ripgrep
-          fi
-          rg --version
-
-      - name: Receive locked runtime inputs from this workflow
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
-        with:
-          name: locked-runtime-inputs
-          path: runtime/proot-app/src/main/assets/runtime
-
-      - name: Receive verified speech inputs
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
-        with:
-          name: locked-speech-inputs
-          path: build
-        # App preBuild verifies all manifests/hashes and runtime inputs again.
-
-      - name: Run ${{ matrix.gate }} gate
+      - name: Run selected Android gate
         env:
           CI_SCOPE: ${{ needs.source.outputs.scope }}
-          CI_GATE: ${{ matrix.gate }}
         run: |
-          case "$CI_SCOPE:$CI_GATE" in
-            debug:analysis|full:analysis) ./scripts/ci-run-gate.sh --debug-analysis ;;
-            full:release-analysis) ./scripts/ci-run-gate.sh --release-analysis ;;
-            debug:tests-build) ./scripts/ci-run-gate.sh --debug-tests-build ;;
-            full:tests-build) ./scripts/ci-run-gate.sh --tests-build ;;
+          case "$CI_SCOPE" in
+            debug)
+              ./scripts/ci-run-gate.sh --debug-tests-build
+              ./scripts/ci-run-gate.sh --debug-analysis
+              ;;
+            full) ./scripts/ci-run-gate.sh --build ;;
             *) exit 2 ;;
           esac
-
-      - name: Upload debug APKs
-        if: matrix.gate == 'tests-build'
-        # Debug-signed build artifacts for installation (development use, not for
-        # distribution). retention-days: 1 keeps storage in the free 2 GB tier
-        # across routine runs. Uploaded right after the
-        # build so the APKs survive even if a later gate step fails. The bundle
-        # contains Standard (consumer) and Advanced (developer) channel builds.
-        # Advanced Runtime libraries are linked in, not companion applications.
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1 (node24)
-        with:
-          name: helix-apks-${{ github.sha }}
-          retention-days: 1
-          path: |
-            app/build/outputs/apk/consumer/debug/app-consumer-debug.apk
-            app/build/outputs/apk/developer/debug/app-developer-debug.apk
-
-      - name: Describe debug APK roles
-        if: matrix.gate == 'tests-build'
-        run: |
-          printf '%s\n' \
-            '## Debug APK artifact roles' \
-            '' \
-            '| APK | Role |' \
-            '| --- | --- |' \
-            '| `app-consumer-debug.apk` | Standard channel Debug build |' \
-            '| `app-developer-debug.apk` | Advanced/developer channel Debug build |' \
-            '> Subscriptions and PRoot are built into developer; there are no companion APKs.' \
-            '' \
-            '> Debug-signed development artifacts only; not release evidence.' \
-            >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Verify APK boundaries
-        if: matrix.gate == 'tests-build'
-        env:
-          CI_SCOPE: ${{ needs.source.outputs.scope }}
-        run: |
           ./scripts/ci-run-gate.sh --artifacts
           if [ "$CI_SCOPE" = full ]; then
             ./scripts/ci-run-gate.sh --release-artifacts
           fi
 
       - name: Save gate diagnostics
-        if: always()
+        if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: ci-${{ matrix.gate }}-${{ github.sha }}
+          name: ci-android-${{ github.sha }}
           retention-days: 1
           if-no-files-found: ignore
           path: |
@@ -344,7 +255,7 @@ jobs:
   # Preserve the required check; only the planned source-only skips are accepted.
   verify:
     if: always()
-    needs: [source, runtime-assets, speech-assets, android]
+    needs: [source, runtime-assets, android]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -355,6 +266,5 @@ jobs:
           CI_SCOPE: ${{ needs.source.outputs.scope }}
           SOURCE_RESULT: ${{ needs.source.result }}
           ASSETS_RESULT: ${{ needs.runtime-assets.result }}
-          SPEECH_RESULT: ${{ needs.speech-assets.result }}
           ANDROID_RESULT: ${{ needs.android.result }}
         run: python3 scripts/ci/plan.py --verify
