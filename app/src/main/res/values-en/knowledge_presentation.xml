@@ -7,7 +7,6 @@
     <string name="knowledge_review_toggle">Change review mark</string>
     <string name="knowledge_model_tools">Saved suggestion</string>
     <string name="knowledge_markdown_body">Markdown content</string>
-    <string name="knowledge_edit_hint">Saving records your edits; it does not mark them reviewed or send them to a model.</string>
     <string name="knowledge_recent_count">Recently updated · %1$d items</string>
     <string name="knowledge_direct_create">Write knowledge</string>
     <string name="knowledge_select_sources">Select sources</string>
@@ -23,4 +22,9 @@
     <string name="knowledge_saved_reply">Saved as a note, not automatically marked as knowledge</string>
     <string name="knowledge_reply_failed">Unable to save the note. Please try again.</string>
     <string name="knowledge_reply_provenance">Explicitly saved from a conversation response. Later conversation changes do not modify this note.</string>
+    <string name="knowledge_editor_title_hint">Title</string>
+    <string name="knowledge_editor_body_hint">Start writing. Markdown supported…</string>
+    <string name="knowledge_untitled_note">Untitled note</string>
+    <string name="knowledge_writing_title">%1$s · Edit</string>
+    <string name="knowledge_editor_limit">Up to %1$d characters. Your text is unchanged.</string>
 </resources>

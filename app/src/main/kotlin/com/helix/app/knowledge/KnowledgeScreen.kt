@@ -97,7 +97,6 @@ fun KnowledgeScreen(
     var failed by remember { mutableStateOf(false) }
     var searchFailed by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    val newNoteTitle = stringResource(R.string.knowledge_note_new)
     if (showPendingSaves) {
         KnowledgePendingSaves(pendingSaves, recoveryFailed, recoveryBusy, { token ->
             scope.launch {
@@ -199,7 +198,7 @@ fun KnowledgeScreen(
         storedNote ?: if (isNew) {
             com.helix.core.storage.knowledge.KnowledgeNote(
                 requireNotNull(newNoteId),
-                newNoteTitle,
+                "",
                 "",
                 newNoteCreatedAt,
                 newNoteCreatedAt,

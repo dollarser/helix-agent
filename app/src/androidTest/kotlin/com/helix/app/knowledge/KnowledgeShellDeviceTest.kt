@@ -8,6 +8,7 @@ import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextReplacement
 import androidx.test.platform.app.InstrumentationRegistry
@@ -119,7 +120,7 @@ class KnowledgeShellDeviceTest {
             compose.onNodeWithTag("knowledge-search").assertTextContains("Rebuild")
             compose.onNodeWithTag("knowledge-note-$id").performClick()
             compose.onNodeWithTag("knowledge-note-toggle-mode").assertIsDisplayed().performClick()
-            compose.onNodeWithTag("knowledge-note-editor").performScrollToNode(hasTestTag("knowledge-note-body"))
+            compose.onNodeWithTag("knowledge-note-body").performScrollTo()
             compose.onNodeWithTag("knowledge-note-body").performTextReplacement("## Unsaved draft retained")
             val second = compose.activity
             compose.activityRule.scenario.recreate()
@@ -127,7 +128,7 @@ class KnowledgeShellDeviceTest {
             compose.waitUntil(10_000) {
                 compose.onAllNodes(hasTestTag("knowledge-note-editor")).fetchSemanticsNodes().isNotEmpty()
             }
-            compose.onNodeWithTag("knowledge-note-editor").performScrollToNode(hasTestTag("knowledge-note-body"))
+            compose.onNodeWithTag("knowledge-note-body").performScrollTo()
             compose.onNodeWithTag("knowledge-note-body").assertTextContains("## Unsaved draft retained")
             assertEquals(savedBody, runBlocking { service.noteService.get(id)?.body })
             assertEquals("REVIEWED", runBlocking { service.noteService.get(id)?.state })

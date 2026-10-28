@@ -8,6 +8,9 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.assertTextEquals
@@ -20,7 +23,9 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performTextInputSelection
 import androidx.compose.ui.test.performTextReplacement
+import androidx.compose.ui.text.TextRange
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.HelixUiDesign
 import com.helix.app.R
@@ -84,6 +89,9 @@ class KnowledgeUiDeviceTest {
                 }
             assertEquals("NOTE", note.kind)
             assertEquals("DRAFT", note.state)
+            compose.waitUntil(5000) {
+                compose.onAllNodes(hasTestTag("knowledge-note-preview")).fetchSemanticsNodes().isNotEmpty()
+            }
             compose.onNodeWithTag("knowledge-note-preview").assertIsDisplayed()
             compose.onNodeWithTag("knowledge-note-save").assertDoesNotExist()
             capture("reading")
@@ -148,6 +156,93 @@ class KnowledgeUiDeviceTest {
             compose.onNodeWithTag("knowledge-note-management").performClick()
             val context = InstrumentationRegistry.getInstrumentation().targetContext
             compose.onNodeWithText(context.getString(R.string.knowledge_export_note)).assertIsDisplayed()
+        }
+
+    @Test fun bodyOnlyLongNoteKeepsCursorAcrossRecreationAndSavesExplicitly() =
+        fixture { service, _, _ ->
+            compose.onNodeWithTag("knowledge-new-note").performClick()
+            capture("writing-empty")
+            val content = (1..80).joinToString("\n\n") { "Paragraph $it · 合成笔记内容，验证长文连续编辑。" }
+            compose.onNodeWithTag("knowledge-note-body").performTextReplacement(content)
+            compose.onNodeWithTag("knowledge-note-body").performTextReplacement("x".repeat(MAX_KNOWLEDGE_TEXT + 1))
+            compose.onNodeWithTag("knowledge-note-body").assertTextContains(content)
+            compose.onNodeWithTag("knowledge-editor-limit").assertIsDisplayed()
+            compose.onNodeWithTag("knowledge-note-body").performTextReplacement(content)
+            compose.onNodeWithTag("knowledge-note-body").performTextInputSelection(TextRange(40))
+            restoration.emulateSavedInstanceStateRestore()
+            compose.onNodeWithTag("knowledge-note-body").assertTextContains(content)
+            compose.onNodeWithTag("knowledge-note-body").assert(
+                SemanticsMatcher.expectValue(SemanticsProperties.TextSelectionRange, TextRange(40)),
+            )
+            assertTrue(
+                runBlocking {
+                    service.noteService.notes
+                        .first()
+                        .isEmpty()
+                },
+            )
+            capture("writing-long")
+            compose.onNodeWithTag("knowledge-note-save").performClick()
+            compose.waitUntil(5000) {
+                runBlocking {
+                    service.noteService.notes
+                        .first()
+                        .size == 1
+                }
+            }
+            val saved =
+                runBlocking {
+                    service.noteService.notes
+                        .first()
+                        .single()
+                }
+            val context = InstrumentationRegistry.getInstrumentation().targetContext
+            assertEquals(context.getString(R.string.knowledge_untitled_note), saved.title)
+            assertEquals(content, saved.body)
+            assertEquals("NOTE", saved.kind)
+            capture("writing-saved")
+        }
+
+    @Test fun conflictingSaveKeepsTheWritingPageAndUnsavedText() =
+        fixture { service, _, _ ->
+            val id =
+                runBlocking {
+                    service.noteService.createEmptyTestNote("Conflict fixture").also {
+                        service.noteService.save(
+                            requireNotNull(service.noteService.get(it)),
+                            "Conflict fixture",
+                            "Initial",
+                            false,
+                        )
+                    }
+                }
+            compose.onNodeWithTag("knowledge-tab-notes").performClick()
+            compose.waitUntil(
+                5000,
+            ) { compose.onAllNodes(hasTestTag("knowledge-note-$id")).fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithTag("knowledge-note-$id").performClick()
+            compose.onNodeWithTag("knowledge-note-toggle-mode").performClick()
+            compose.onNodeWithTag("knowledge-note-body").performTextReplacement("Unsaved local writing")
+            runBlocking {
+                service.noteService.save(
+                    requireNotNull(service.noteService.get(id)),
+                    "Conflict fixture",
+                    "External change",
+                    false,
+                )
+            }
+            compose.onNodeWithTag("knowledge-note-save").performClick()
+            val context = InstrumentationRegistry.getInstrumentation().targetContext
+            compose.waitUntil(5000) {
+                compose
+                    .onAllNodes(
+                        hasText(context.getString(R.string.knowledge_note_save_failed)),
+                    ).fetchSemanticsNodes()
+                    .isNotEmpty()
+            }
+            compose.onNodeWithTag("knowledge-note-body").assertTextContains("Unsaved local writing")
+            compose.onNodeWithTag("knowledge-note-save").assertIsDisplayed()
+            assertEquals("External change", runBlocking { service.noteService.get(id)?.body })
         }
 
     @Test fun sourceReaderShowsBodyAndReferencesWithoutManagementForms() =
@@ -306,7 +401,11 @@ class KnowledgeUiDeviceTest {
         tag: String,
         parent: String = "knowledge-detail",
     ) {
-        compose.onNodeWithTag(parent).performScrollToNode(hasTestTag(tag))
+        if (parent == "knowledge-note-editor" && tag == "knowledge-note-body") {
+            compose.onNodeWithTag(tag).performScrollTo()
+        } else {
+            compose.onNodeWithTag(parent).performScrollToNode(hasTestTag(tag))
+        }
     }
 
     private fun addSources(

@@ -5,17 +5,18 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -24,6 +25,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.R
@@ -45,13 +47,21 @@ internal fun KnowledgeNoteEditor(
     onBack: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
-    var title by rememberSaveable(note.id) { mutableStateOf(note.title) }
-    var body by rememberSaveable(note.id) { mutableStateOf(note.body) }
+    var titleValue by rememberSaveable(note.id, stateSaver = TextFieldValue.Saver) {
+        mutableStateOf(TextFieldValue(note.title))
+    }
+    var bodyValue by rememberSaveable(note.id, stateSaver = TextFieldValue.Saver) {
+        mutableStateOf(TextFieldValue(note.body))
+    }
+    val title = titleValue.text
+    val body = bodyValue.text
+    val untitled = stringResource(R.string.knowledge_untitled_note)
     var baseHash by rememberSaveable(note.id) { mutableStateOf(note.documentHash) }
     var editing by rememberSaveable(note.id) { mutableStateOf(note.body.isBlank()) }
     var management by rememberSaveable(note.id) { mutableStateOf(false) }
     var sources by remember(note.id) { mutableStateOf(emptyList<KnowledgeNoteSource>()) }
     var failed by remember(note.id) { mutableStateOf(false) }
+    var rejectedLimit by remember(note.id) { mutableIntStateOf(0) }
     var sourcesFailed by remember(note.id) { mutableStateOf(false) }
     var knowledgeDraft by remember(note.id) { mutableStateOf(false) }
     var leave by remember(note.id) { mutableStateOf(false) }
@@ -123,14 +133,16 @@ internal fun KnowledgeNoteEditor(
                 if (isNew) {
                     service.saveNew(
                         note,
-                        title,
+                        title.ifBlank { untitled },
                         body,
                         reviewed,
                     )
                 } else {
-                    service.save(note.copy(documentHash = baseHash), title, body, reviewed)
+                    service.save(note.copy(documentHash = baseHash), title.ifBlank { untitled }, body, reviewed)
                 }
-                baseHash = requireNotNull(service.get(note.id)).documentHash
+                val saved = requireNotNull(service.get(note.id))
+                baseHash = saved.documentHash
+                if (title.isBlank()) titleValue = TextFieldValue(saved.title)
                 failed = false
                 editing = false
                 if (exit) completeLeave()
@@ -180,7 +192,7 @@ internal fun KnowledgeNoteEditor(
                 TextButton(onClick = {
                     leave = false
                     save(false, true)
-                }) {
+                }, enabled = !busy && (title.isNotBlank() || body.isNotBlank())) {
                     Text(stringResource(R.string.knowledge_save_draft_back))
                 }
             },
@@ -188,8 +200,8 @@ internal fun KnowledgeNoteEditor(
                 androidx.compose.foundation.layout.FlowRow {
                     TextButton(onClick = {
                         leave = false
-                        title = note.title
-                        body = note.body
+                        titleValue = TextFieldValue(note.title)
+                        bodyValue = TextFieldValue(note.body)
                         completeLeave()
                     }) {
                         Text(stringResource(R.string.common_discard_edit))
@@ -259,7 +271,7 @@ internal fun KnowledgeNoteEditor(
                     .MarkdownText(note.generatedDraft)
             }
             TextButton(onClick = {
-                body = note.generatedDraft
+                bodyValue = TextFieldValue(note.generatedDraft)
                 editing = true
                 tools = false
             }, enabled = note.generatedDraft.isNotBlank(), modifier = Modifier.testTag("knowledge-load-draft")) {
@@ -289,43 +301,56 @@ internal fun KnowledgeNoteEditor(
             }
         }
     }
-    Column(modifier) {
+    Column(modifier.imePadding()) {
         KnowledgeHeader(
-            stringResource(if (editing) R.string.knowledge_edit_mode else referenceKindLabel(note.kind)),
+            if (editing) {
+                stringResource(R.string.knowledge_writing_title, stringResource(referenceKindLabel(note.kind)))
+            } else {
+                stringResource(referenceKindLabel(note.kind))
+            },
             "knowledge-note-back",
             ::goBack,
             onMore = if (!editing) ({ management = true }) else null,
             onSave = if (editing) ({ save(false) }) else null,
-            saveEnabled = !busy && title.isNotBlank(),
+            saveEnabled = !busy && (title.isNotBlank() || body.isNotBlank()),
         )
         if (failed) Text(stringResource(R.string.knowledge_note_save_failed))
+        if (rejectedLimit > 0) {
+            Text(
+                stringResource(R.string.knowledge_editor_limit, rejectedLimit),
+                color = androidx.compose.material3.MaterialTheme.colorScheme.error,
+                modifier = Modifier.testTag("knowledge-editor-limit"),
+            )
+        }
         if (sourcesFailed) Text(stringResource(R.string.knowledge_reference_failed))
-        LazyColumn(
-            Modifier.weight(1f).testTag("knowledge-note-editor"),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            if (editing) {
-                item {
-                    OutlinedTextField(
-                        title,
-                        { title = it.take(160) },
-                        enabled = !busy,
-                        label = { Text(stringResource(R.string.knowledge_note_title)) },
-                        modifier = Modifier.fillMaxWidth().testTag("knowledge-note-title"),
-                    )
-                }
-                item {
-                    OutlinedTextField(
-                        body,
-                        { body = it.take(MAX_KNOWLEDGE_TEXT) },
-                        enabled = !busy,
-                        minLines = 6,
-                        maxLines = 16,
-                        label = { Text(stringResource(R.string.knowledge_markdown_body)) },
-                        modifier = Modifier.fillMaxWidth().testTag("knowledge-note-body"),
-                    )
-                }
-            } else {
+        if (editing) {
+            KnowledgeWritingCanvas(
+                titleValue,
+                {
+                    if (it.text.length <= 160) {
+                        titleValue = it
+                        rejectedLimit = 0
+                    } else {
+                        rejectedLimit = 160
+                    }
+                },
+                bodyValue,
+                {
+                    if (it.text.length <= MAX_KNOWLEDGE_TEXT) {
+                        bodyValue = it
+                        rejectedLimit = 0
+                    } else {
+                        rejectedLimit = MAX_KNOWLEDGE_TEXT
+                    }
+                },
+                enabled = !busy,
+                modifier = Modifier.weight(1f),
+            )
+        } else {
+            LazyColumn(
+                Modifier.weight(1f).testTag("knowledge-note-editor"),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
                 item { Text(title, style = androidx.compose.material3.MaterialTheme.typography.headlineMedium) }
                 item {
                     androidx.compose.foundation.layout.Row(
@@ -409,11 +434,6 @@ internal fun KnowledgeNoteEditor(
                     }
                 }
             }
-        } else {
-            Text(
-                stringResource(R.string.knowledge_edit_hint),
-                style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
-            )
         }
     }
 }

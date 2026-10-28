@@ -7,7 +7,6 @@
     <string name="knowledge_review_toggle">更改核对标记</string>
     <string name="knowledge_model_tools">已保存的生成建议</string>
     <string name="knowledge_markdown_body">Markdown 正文</string>
-    <string name="knowledge_edit_hint">保存只记录修改，不代表已核对，也不会发送给模型。</string>
     <string name="knowledge_recent_count">最近更新 · %1$d 篇</string>
     <string name="knowledge_direct_create">直接写知识</string>
     <string name="knowledge_select_sources">选择资料</string>
@@ -23,4 +22,9 @@
     <string name="knowledge_saved_reply">已保存为笔记，未自动标记为知识</string>
     <string name="knowledge_reply_failed">未能保存笔记，请稍后重试</string>
     <string name="knowledge_reply_provenance">来自用户明确保存的会话回答。笔记独立保存，后续会话变化不会修改笔记。</string>
+    <string name="knowledge_editor_title_hint">标题</string>
+    <string name="knowledge_editor_body_hint">开始记录，支持 Markdown…</string>
+    <string name="knowledge_untitled_note">未命名笔记</string>
+    <string name="knowledge_writing_title">%1$s · 编辑</string>
+    <string name="knowledge_editor_limit">最多 %1$d 字，原内容已保留。</string>
 </resources>

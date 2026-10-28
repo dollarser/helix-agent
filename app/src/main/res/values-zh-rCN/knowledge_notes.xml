@@ -1,7 +1,6 @@
 <resources>
     <string name="knowledge_sources_tab">来源库</string>
     <string name="knowledge_notes_tab">知识笔记</string>
-    <string name="knowledge_note_new">直接写知识笔记</string>
     <string name="knowledge_synthesize">综合选中的 %1$d 份来源</string>
     <string name="knowledge_distill">从这份材料提炼知识笔记</string>
     <string name="knowledge_note_unreviewed">已保存 · 未核对</string>
