@@ -219,8 +219,7 @@ jobs:
         run: |
           case "$CI_SCOPE" in
             debug)
-              ./scripts/ci-run-gate.sh --debug-tests-build
-              ./scripts/ci-run-gate.sh --debug-analysis
+              ./scripts/ci-run-gate.sh --debug-build-analysis
               ;;
             full) ./scripts/ci-run-gate.sh --build ;;
             *) exit 2 ;;
@@ -229,6 +228,16 @@ jobs:
           if [ "$CI_SCOPE" = full ]; then
             ./scripts/ci-run-gate.sh --release-artifacts
           fi
+
+      # Small task profiles are useful on successful runs too; no APK/test-data upload.
+      - name: Save Gradle performance profiles
+        if: success()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ci-profiles-${{ github.sha }}
+          retention-days: 1
+          if-no-files-found: error
+          path: build/reports/profile/
 
       - name: Save gate diagnostics
         if: failure()

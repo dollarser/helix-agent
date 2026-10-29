@@ -30,8 +30,20 @@ test_build_checks() {
         :tests:release-smoke:assembleDebugAndroidTest :tests:release-smoke:lintDebug
 }
 
+debug_analysis_tasks=(spotlessCheck detekt lintDebug lintConsumerDebug lintDeveloperDebug)
+debug_build_tasks=(
+    debugUnitTests :app:assembleConsumerDebug :app:assembleDeveloperDebug
+    compileDebugAndroidTestSources :app:compileConsumerDebugAndroidTestSources :app:compileDeveloperDebugAndroidTestSources
+)
+
 debug_analysis_checks() {
-    ./gradlew ${gradle_profile[@]+"${gradle_profile[@]}"} spotlessCheck detekt lintDebug lintConsumerDebug lintDeveloperDebug
+    ./gradlew ${gradle_profile[@]+"${gradle_profile[@]}"} "${debug_analysis_tasks[@]}"
+}
+
+# One task graph shares configuration and input snapshots across build and analysis.
+debug_build_analysis_checks() {
+    ./scripts/check-lockfiles.sh
+    ./gradlew ${gradle_profile[@]+"${gradle_profile[@]}"} "${debug_build_tasks[@]}" "${debug_analysis_tasks[@]}"
 }
 
 release_analysis_checks() {
@@ -40,9 +52,7 @@ release_analysis_checks() {
 
 debug_test_build_checks() {
     # Test source correctness is compiled; Android Lint is reserved for production.
-    ./gradlew ${gradle_profile[@]+"${gradle_profile[@]}"} debugUnitTests \
-        :app:assembleConsumerDebug :app:assembleDeveloperDebug \
-        compileDebugAndroidTestSources :app:compileConsumerDebugAndroidTestSources :app:compileDeveloperDebugAndroidTestSources
+    ./gradlew ${gradle_profile[@]+"${gradle_profile[@]}"} "${debug_build_tasks[@]}"
 }
 
 build_checks() {
@@ -61,10 +71,11 @@ release_artifact_checks() {
 }
 
 case "${1:---debug}" in
-    --debug) source_checks; ./scripts/check-lockfiles.sh; debug_analysis_checks; debug_test_build_checks; artifact_checks ;;
+    --debug) source_checks; debug_build_analysis_checks; artifact_checks ;;
     --source) source_checks ;;
     --analysis) analysis_checks ;;
     --release-analysis) release_analysis_checks ;;
+    --debug-build-analysis) debug_build_analysis_checks ;;
     --debug-analysis) debug_analysis_checks ;;
     --debug-tests-build) ./scripts/check-lockfiles.sh; debug_test_build_checks ;;
     --tests-build) ./scripts/check-lockfiles.sh; test_build_checks ;;
@@ -72,5 +83,5 @@ case "${1:---debug}" in
     --artifacts) artifact_checks ;;
     --release-artifacts) release_artifact_checks ;;
     --all) source_checks; build_checks; artifact_checks; release_artifact_checks ;;
-    *) printf 'Usage: %s [--debug (default)|--source|--analysis|--release-analysis|--tests-build|--debug-analysis|--debug-tests-build|--build|--artifacts|--release-artifacts|--all]\n' "$0" >&2; exit 2 ;;
+    *) printf 'Usage: %s [--debug (default)|--source|--analysis|--release-analysis|--tests-build|--debug-build-analysis|--debug-analysis|--debug-tests-build|--build|--artifacts|--release-artifacts|--all]\n' "$0" >&2; exit 2 ;;
 esac

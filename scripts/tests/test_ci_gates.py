@@ -63,11 +63,28 @@ class CiGatesTest(unittest.TestCase):
                 self.assertIn('verify-variant-boundaries.sh', (self.root / 'gate-steps.txt').read_text())
                 self.assertFalse((self.root / 'release-artifacts-ran').exists())
 
-    def test_default_failure_propagates_without_running_later_builds(self):
+    def test_default_failure_stops_before_artifact_checks(self):
         result, args = self.run_gate(None, exit_code=7)
         self.assertEqual(7, result.returncode)
-        self.assertNotIn(':app:assembleDeveloperDebug', args)
+        self.assertIn(':app:assembleDeveloperDebug', args)
         self.assertNotIn('verify-variant-boundaries.sh', (self.root / 'gate-steps.txt').read_text())
+
+    def test_combined_debug_has_exact_split_task_coverage_and_one_invocation(self):
+        self.append_gradle_args()
+        _, build = self.run_gate('--debug-tests-build')
+        (self.root / 'gradle-args.txt').unlink()
+        _, analysis = self.run_gate('--debug-analysis')
+        (self.root / 'gradle-args.txt').unlink()
+        result, combined = self.run_gate('--debug-build-analysis')
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertEqual(build + analysis, combined)
+        self.assertEqual(len(combined), len(set(combined)))
+        (self.root / 'gradlew').write_text(
+            '#!/usr/bin/env bash\nprintf "%s\\n" "$@" > gradle-args.txt\n'
+            'printf "call\\n" >> gradle-calls.txt\nexit 0\n')
+        result, _ = self.run_gate('--debug-build-analysis')
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertEqual(['call'], (self.root / 'gradle-calls.txt').read_text().splitlines())
 
     def test_explicit_all_still_builds_and_checks_release(self):
         self.append_gradle_args()
@@ -90,7 +107,7 @@ class CiGatesTest(unittest.TestCase):
         self.assertNotIn('--profile', full_args)
 
     def test_ci_profile_and_failure_are_preserved(self):
-        for gate in ('--debug-analysis', '--release-analysis', '--build'):
+        for gate in ('--debug-build-analysis', '--debug-analysis', '--release-analysis', '--build'):
             result, args = self.run_gate(gate, wrapper=True, exit_code=7)
             self.assertEqual(7, result.returncode)
             self.assertIn('--profile', args)
