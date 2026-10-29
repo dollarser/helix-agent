@@ -77,15 +77,9 @@ Supported operations prefer available **Root → Shizuku → Accessibility** bac
 
 Build editions are separate from conversation permission modes. Subscription adapters require eligible accounts and service-specific testing; they do not imply official provider endorsement. Plans using an API address and key belong under API configuration.
 
-The **[v0.0.8 development preview](https://github.com/dollarser/helix-agent/releases/tag/v0.0.8)** provides ARM64 Standard and Advanced, R8 optimized and non-debuggable, with **versionCode 1** and the existing development certificate. It is not a stable or production store-signed release.
+Download Standard or Advanced ARM64 packages from [GitHub Releases](https://github.com/dollarser/helix-agent/releases), including development previews. Check each release’s system requirements, signing identity, checksums, upgrade effects and validation boundaries before installing. Preview packages are not stable or store production-signed releases.
 
-The next local candidate is **v0.0.9 / code 1**, not yet published; it does not replace those released assets. It reorganizes conversation entry points, global expert management and dictation, and moves official speech to the unified inference gateway. See the [v0.0.9 candidate notes](docs/product/releases/v0.0.9.en.md) for scope, upgrade effects and validation boundaries.
-
-Download: [Standard ARM64](https://github.com/dollarser/helix-agent/releases/download/v0.0.8/helix-v0.0.8-consumer-arm64-v8a.apk) · [Advanced ARM64](https://github.com/dollarser/helix-agent/releases/download/v0.0.8/helix-v0.0.8-developer-arm64-v8a.apk)
-
-Devices with v0.0.7 / code 2 may require uninstall/reinstall, which deletes that app's local data. Shared documents may require explicit restore access. Built-in models require login; custom APIs, supported subscriptions and local models remain available without a Helix account. Offline speech weights download on demand.
-
-See the [v0.0.8 notes](docs/product/releases/v0.0.8.en.md). The Release body records exact source/build identity, CI, APK checksums and third-party source links. Reported phone terminal/Mobile Use issues, current live cloud speech and actual post-reinstall library authorization remain unverified.
+Incompatible preview databases may require explicitly confirmed, irreversible rebuilding. Uninstalling deletes app-local data; shared documents may require renewed access. Preserve important content separately and follow the selected release’s instructions. Built-in models require login; custom APIs, supported subscriptions and local models remain available without a Helix account. Offline speech weights download on demand.
 
 ## Privacy and control
 

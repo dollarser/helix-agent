@@ -83,15 +83,9 @@ Mobile Use 是可选插件，浏览器、文件和工具各有自己的授权边
 
 安装包渠道与会话权限模式是不同概念。第三方订阅适配需要对应账号权益，兼容性逐服务验证，不代表服务提供商官方授权。使用 API 地址与 Key 的套餐仍属于 API 配置。
 
-**[v0.0.8 开发预览版](https://github.com/dollarser/helix-agent/releases/tag/v0.0.8)** 提供 ARM64 Standard 与 Advanced，R8 优化、不可调试，**versionCode 1**，沿用开发预览证书；不是稳定正式版或商店签名版本。
+从 [GitHub Releases](https://github.com/dollarser/helix-agent/releases) 选择 Standard 或 Advanced ARM64 安装包，列表包含开发预览版。安装前请阅读对应版本的系统要求、签名、校验值、升级数据影响与验证边界；预览版不是稳定正式版或商店生产签名版本。
 
-下一本地候选为 **v0.0.9 / code 1**，尚未发布，不替换上述已发布附件。本轮重整会话入口、全局专家管理和听写交互，并将官方语音迁至统一推理域名；功能、升级影响与验证边界见 [v0.0.9 候选说明](docs/product/releases/v0.0.9.md)。
-
-下载：[Standard ARM64](https://github.com/dollarser/helix-agent/releases/download/v0.0.8/helix-v0.0.8-consumer-arm64-v8a.apk) · [Advanced ARM64](https://github.com/dollarser/helix-agent/releases/download/v0.0.8/helix-v0.0.8-developer-arm64-v8a.apk)
-
-已安装 v0.0.7／code 2 的设备可能需要卸载重装，卸载会清除应用本地数据；共享文档可能需要重新授权恢复。内置模型需登录，未登录仍可使用自配 API、渠道允许的订阅和本地模型。离线语音权重按需下载。
-
-详见 [v0.0.8 版本说明](docs/product/releases/v0.0.8.md)。准确构建来源、CI、APK 校验值及第三方源码链接以 Release 正文为准。真机终端／Mobile Use 原问题、本轮真实线上语音及实际重装资料库授权仍未验证。
+不兼容的旧预览主库可能需要明确确认后不可恢复地重建；卸载会删除应用本地数据，共享文档可能需要重新授权。请另行保存重要内容，并按所选版本说明操作。内置模型需登录，未登录仍可使用自配 API、渠道允许的订阅和本地模型。离线语音权重按需下载。
 
 ## 隐私与控制
 
