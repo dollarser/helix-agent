@@ -78,10 +78,11 @@ class PluginCatalog(
             dao.ownerships().firstOrNull {
                 it.source == key.source.name && it.name == key.name && it.hash == key.snapshotHash
             }
-        val selected = sessionId?.let(dao::selected)
+        val selected = sessionId?.let(::effectiveSelected)
         return ownership == null || ownership.independent ||
             list().any {
-                it.enabled && key in it.skills && (!it.sessionScoped || selected == null || it.id in selected)
+                it.enabled && key in it.skills &&
+                    (!it.sessionScoped || selected == null || it.id in selected || expertSkillSelected(key, sessionId))
             }
     }
 
@@ -93,7 +94,7 @@ class PluginCatalog(
         val owner = list().firstOrNull { record -> record.endpoints.any { it.id == serverId } }
         // Connector ids remain reserved after removal; stale schemas cannot regain availability.
         if (owner == null) return serverId !in dao.endpointIds()
-        return owner.enabled && (sessionId == null || owner.id in dao.selected(sessionId))
+        return owner.enabled && (sessionId == null || owner.id in effectiveSelected(sessionId))
     }
 
     @Synchronized
@@ -113,13 +114,37 @@ class PluginCatalog(
             val parts = sourceRef.split(':', limit = 3)
             val owner = list().singleOrNull { it.native?.pluginId == parts.getOrNull(1) }
             owner != null && owner.enabled && owner.native?.runtimeId == parts.getOrNull(2) &&
-                (sessionId == null || owner.id in dao.selected(sessionId))
+                (sessionId == null || owner.id in effectiveSelected(sessionId))
         } else {
             true
         }
 
     @Synchronized
     fun selected(sessionId: String): Set<String> = dao.selected(sessionId).toSet()
+
+    @Synchronized
+    fun expertSelected(sessionId: String): Set<String> {
+        val references =
+            storage.sessionExperts
+                .forSession(sessionId)
+                ?.recommendedConnectorIds
+                .orEmpty()
+        val installed = list()
+        return references.mapNotNull { ref -> installed.singleOrNull { expertPluginReference(it) == ref }?.id }.toSet()
+    }
+
+    @Synchronized
+    fun effectiveSelected(sessionId: String): Set<String> = selected(sessionId) + expertSelected(sessionId)
+
+    fun expertSkillSelected(
+        key: SkillKey,
+        sessionId: String?,
+    ): Boolean =
+        sessionId != null && expertSkillReference(key) in
+            storage.sessionExperts
+                .forSession(sessionId)
+                ?.recommendedSkillIds
+                .orEmpty()
 
     /** One durable selection identity; disable/re-enable never resurrects an old execution scope. */
     @Synchronized
@@ -128,7 +153,11 @@ class PluginCatalog(
         pluginId: String,
     ): String? {
         val owner = list().singleOrNull { it.native?.pluginId == pluginId && it.enabled } ?: return null
-        return dao.selectionId(sessionId, owner.id)
+        return dao.selectionId(sessionId, owner.id) ?: if (owner.id in expertSelected(sessionId)) {
+            "expert:${storage.sessionExperts.bindingIdentity(sessionId)}:${owner.id}"
+        } else {
+            null
+        }
     }
 
     fun select(

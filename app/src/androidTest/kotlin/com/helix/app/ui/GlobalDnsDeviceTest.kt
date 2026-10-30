@@ -43,11 +43,7 @@ class GlobalDnsDeviceTest {
         compose.runOnUiThread {
             compose.activity.setContent {
                 HelixTheme {
-                    SettingsScreen(
-                        androidx.test.core.app.ApplicationProvider
-                            .getApplicationContext<com.helix.app.HelixApplication>()
-                            .appContainer.chatService,
-                    )
+                    SettingsScreen()
                 }
             }
         }

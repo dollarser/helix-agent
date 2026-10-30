@@ -72,6 +72,7 @@ import com.helix.app.ui.ChatScreen
 import com.helix.app.ui.CommandResultDetailScreen
 import com.helix.app.ui.CompactPageHeader
 import com.helix.app.ui.ConversationDrawerState
+import com.helix.app.ui.EXPERTS_ROUTE
 import com.helix.app.ui.ExtensionsScreen
 import com.helix.app.ui.FilesScreen
 import com.helix.app.ui.FirstLaunchNoticeScreen
@@ -82,7 +83,6 @@ import com.helix.app.ui.PermissionsSafetyScreen
 import com.helix.app.ui.RuntimeSetupScreen
 import com.helix.app.ui.SETTINGS_AUDIT_ROUTE
 import com.helix.app.ui.SETTINGS_DEFAULTS_ROUTE
-import com.helix.app.ui.SETTINGS_EXPERTS_ROUTE
 import com.helix.app.ui.SETTINGS_PERMISSIONS_ROUTE
 import com.helix.app.ui.SETTINGS_STORAGE_ROUTE
 import com.helix.app.ui.SETTINGS_SYSTEM_PERMISSIONS_ROUTE
@@ -568,15 +568,16 @@ internal fun HelixApp(container: AppContainer) {
                                 },
                             )
                         }
-                        composable(SETTINGS_EXPERTS_ROUTE) { entry ->
-                            SettingsScreen(container.chatService, container.memory)
-                            com.helix.app.ui.SessionExpertDialog(
-                                container.chatService,
-                                null,
-                                returnToSelection = true,
-                            ) {
-                                navController.completionFor(entry).complete { navController.popBackStack() }
-                            }
+                        composable(EXPERTS_ROUTE) { entry ->
+                            DestinationScreen(
+                                ShellDestination.Extensions,
+                                container,
+                                navController,
+                                entry,
+                                onMobileUseSession = { target -> mobileUseDialog.open(target, entry.id) },
+                                onOpenDrawer = { scope.launch { drawerState.open() } },
+                                initialCapabilitiesTab = 1,
+                            )
                         }
                         composable(CONVERSATION_SETTINGS_ROUTE) { entry ->
                             SessionSettingsScreen(
@@ -602,7 +603,7 @@ internal fun HelixApp(container: AppContainer) {
                                     )
                                 },
                                 onExtensions = { navController.navigateFrom(entry, ShellDestination.Extensions.route) },
-                                onManageExperts = { navController.navigateFrom(entry, SETTINGS_EXPERTS_ROUTE) },
+                                onManageExperts = { navController.navigateFrom(entry, EXPERTS_ROUTE) },
                                 onMobileUseSession = { target ->
                                     navController.completionFor(entry).complete {
                                         mobileUseDialog.open(target, entry.id)
@@ -746,7 +747,8 @@ internal fun HelixApp(container: AppContainer) {
 }
 
 @Composable
-@Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod") // Exhaustive shell destination dispatch.
+@Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod", "LongParameterList")
+// Exhaustive shell destination dispatch.
 private fun DestinationScreen(
     destination: ShellDestination,
     container: AppContainer,
@@ -755,6 +757,7 @@ private fun DestinationScreen(
     onMobileUseSession: (String) -> Unit,
     onOpenDrawer: () -> Unit,
     initialModelSource: ProviderProvisioningKind? = null,
+    initialCapabilitiesTab: Int = 0,
 ) {
     when (destination) {
         ShellDestination.Reminders -> {
@@ -797,7 +800,7 @@ private fun DestinationScreen(
                 skills = container.skillRepository,
                 sessionExport = container.sessionExport,
                 connectors = container.pluginService,
-                onManageExperts = { navController.navigateFrom(sourceEntry, SETTINGS_EXPERTS_ROUTE) },
+                onManageExperts = { navController.navigateFrom(sourceEntry, EXPERTS_ROUTE) },
                 onExtensions = { navController.navigateFrom(sourceEntry, ShellDestination.Extensions.route) },
                 onMobileUseSession = onMobileUseSession,
                 onNavigation = onOpenDrawer,
@@ -857,7 +860,7 @@ private fun DestinationScreen(
         }
 
         ShellDestination.Settings -> {
-            SettingsScreen(container.chatService, container.memory)
+            SettingsScreen(container.memory)
         }
 
         ShellDestination.Models -> {
@@ -865,33 +868,39 @@ private fun DestinationScreen(
         }
 
         ShellDestination.Extensions -> {
-            ExtensionsScreen(
-                container.skillAuthoringService,
-                container.skillInstallationService,
+            com.helix.app.ui.CapabilitiesScreen(
+                container.chatService,
                 container.pluginService,
-                container.marketplaceService,
-                onSessionSettings = { navController.navigateFrom(sourceEntry, CONVERSATION_SETTINGS_ROUTE) },
-                prepareSession = container.chatService::materializeDraftSession,
-                currentSession = { container.chatService.screen.value.openSessionId },
-                onMobileUseSession = onMobileUseSession,
-                onMobileUseSettings = {
-                    navController.navigateFrom(sourceEntry, com.helix.app.ui.MOBILE_USE_SETTINGS_ROUTE) {
-                        launchSingleTop =
-                            true
-                    }
-                },
-                onPermissions = { navController.navigateFrom(sourceEntry, SETTINGS_SYSTEM_PERMISSIONS_ROUTE) },
-                importFiles = container.fileManager,
-                filePicker = { selected, cancel ->
-                    com.helix.app.ui.FileSelectionDialog(
-                        container.fileManager,
-                        container.safTree,
-                        container.featureFiles,
-                        selected,
-                        cancel,
-                    )
-                },
-            )
+                initialCapabilitiesTab,
+            ) {
+                ExtensionsScreen(
+                    container.skillAuthoringService,
+                    container.skillInstallationService,
+                    container.pluginService,
+                    container.marketplaceService,
+                    onSessionSettings = { navController.navigateFrom(sourceEntry, CONVERSATION_SETTINGS_ROUTE) },
+                    prepareSession = container.chatService::materializeDraftSession,
+                    currentSession = { container.chatService.screen.value.openSessionId },
+                    onMobileUseSession = onMobileUseSession,
+                    onMobileUseSettings = {
+                        navController.navigateFrom(sourceEntry, com.helix.app.ui.MOBILE_USE_SETTINGS_ROUTE) {
+                            launchSingleTop =
+                                true
+                        }
+                    },
+                    onPermissions = { navController.navigateFrom(sourceEntry, SETTINGS_SYSTEM_PERMISSIONS_ROUTE) },
+                    importFiles = container.fileManager,
+                    filePicker = { selected, cancel ->
+                        com.helix.app.ui.FileSelectionDialog(
+                            container.fileManager,
+                            container.safTree,
+                            container.featureFiles,
+                            selected,
+                            cancel,
+                        )
+                    },
+                )
+            }
         }
 
         ShellDestination.Projects -> {

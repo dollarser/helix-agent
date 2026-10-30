@@ -91,6 +91,12 @@ internal fun PluginSessionChoice(
                 Checkbox(checked = row.selected, onCheckedChange = null, enabled = selectable)
                 Column(Modifier.weight(1f).padding(start = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     PluginSessionState(row)
+                    if (row.expertProvided) {
+                        Text(
+                            stringResource(R.string.expert_plugin_provided),
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
                 }
             }
             Column(Modifier.fillMaxWidth().padding(start = 56.dp, end = 12.dp, bottom = 8.dp)) {

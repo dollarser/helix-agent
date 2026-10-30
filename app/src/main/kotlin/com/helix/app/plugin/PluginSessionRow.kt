@@ -13,4 +13,5 @@ data class PluginSessionRow(
     val hasSkippedComponents: Boolean = false,
     val setupReason: PluginSetupReason? = null,
     val readiness: PluginReadinessSnapshot? = null,
+    val expertProvided: Boolean = false,
 )

@@ -14,6 +14,9 @@ interface ExpertDao {
     @Query("SELECT * FROM experts WHERE id = :id")
     fun find(id: String): ExpertEntity?
 
+    @Query("DELETE FROM experts WHERE id = :id")
+    fun delete(id: String): Int
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun save(entity: ExpertEntity)
 }

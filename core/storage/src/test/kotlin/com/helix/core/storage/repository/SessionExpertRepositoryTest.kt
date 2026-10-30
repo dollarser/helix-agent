@@ -40,8 +40,12 @@ class SessionExpertRepositoryTest {
         repository.setForSession("a", ExpertProfile("a", "A", "Instruction A"), 1)
         repository.setForSession("b", ExpertProfile("b", "B", "Instruction B"), 1)
 
-        assertTrue(repository.clearForSession("a"))
+        val previous = repository.bindingIdentity("a")
+        assertTrue(repository.clearForSession("a", 2))
         assertNull(repository.forSession("a"))
+        assertNull(repository.bindingIdentity("a"))
+        repository.setForSession("a", ExpertProfile("a", "A", "Instruction A"), 3)
+        org.junit.Assert.assertNotEquals(previous, repository.bindingIdentity("a"))
         assertEquals("B", repository.forSession("b")?.displayName)
     }
 

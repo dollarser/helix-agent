@@ -26,7 +26,11 @@ data class ExpertProfile(
         require(instruction.isNotBlank() && instruction.length <= MAX_INSTRUCTION_LENGTH && '\u0000' !in instruction)
         require(recommendedSkillIds.size <= MAX_RECOMMENDATIONS)
         require(recommendedConnectorIds.size <= MAX_RECOMMENDATIONS)
-        require((recommendedSkillIds + recommendedConnectorIds).all { it.isNotBlank() && it.length <= MAX_ID_LENGTH })
+        require(
+            (recommendedSkillIds + recommendedConnectorIds).all {
+                it.isNotBlank() && it.length <= 512 && '\u0000' !in it
+            },
+        )
     }
 
     companion object {
@@ -40,7 +44,14 @@ data class ExpertProfile(
 class SessionExpertRepository(
     private val dao: SessionExpertDao,
 ) {
-    fun forSession(sessionId: String): ExpertProfile? = dao.bySession(sessionId)?.toProfile()
+    fun forSession(sessionId: String): ExpertProfile? =
+        dao.bySession(sessionId)?.takeIf { it.profileId.isNotBlank() }?.toProfile()
+
+    fun bindingIdentity(sessionId: String): String? =
+        dao
+            .bySession(sessionId)
+            ?.takeIf { it.profileId.isNotBlank() }
+            ?.let { "${it.profileId}:${it.revision}" }
 
     fun setForSession(
         sessionId: String,
@@ -49,6 +60,7 @@ class SessionExpertRepository(
     ): Long {
         require(sessionId.isNotBlank())
         val existing = dao.bySession(sessionId)
+        check((existing?.revision ?: 0L) < Long.MAX_VALUE) { "EXPERT_REVISION_EXHAUSTED" }
         val revision = (existing?.revision ?: 0L) + 1L
         dao.insert(
             SessionExpertEntity(
@@ -67,7 +79,27 @@ class SessionExpertRepository(
         return revision
     }
 
-    fun clearForSession(sessionId: String): Boolean = dao.deleteBySession(sessionId) == 1
+    /** Keep the generation when returning to the default assistant; old grants must never revive. */
+    fun clearForSession(
+        sessionId: String,
+        nowEpochMillis: Long,
+    ): Boolean {
+        val existing = dao.bySession(sessionId)?.takeIf { it.profileId.isNotBlank() } ?: return false
+        check(existing.revision < Long.MAX_VALUE) { "EXPERT_REVISION_EXHAUSTED" }
+        dao.insert(
+            existing.copy(
+                profileId = "",
+                displayName = "",
+                instruction = "",
+                recommendedSkillIdsJson = "[]",
+                recommendedConnectorIdsJson = "[]",
+                recommendedMode = null,
+                revision = existing.revision + 1,
+                updatedAtEpoch = nowEpochMillis,
+            ),
+        )
+        return true
+    }
 
     private fun SessionExpertEntity.toProfile(): ExpertProfile =
         ExpertProfile(

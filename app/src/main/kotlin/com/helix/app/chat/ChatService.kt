@@ -488,16 +488,25 @@ class ChatService(
     fun loadSessionExpert(sessionId: String): kotlinx.coroutines.Deferred<ExpertProfile?> =
         workScope.async { storage.sessionExperts.forSession(sessionId) }
 
-    fun savedExperts(): kotlinx.coroutines.Deferred<List<ExpertProfile>> = workScope.async { storage.experts.list() }
+    fun savedExperts(): kotlinx.coroutines.Deferred<List<com.helix.core.storage.repository.ExpertDefinition>> =
+        workScope.async { storage.experts.list() }
+
+    fun removeExpert(id: String): kotlinx.coroutines.Deferred<Boolean> = workScope.async { storage.experts.remove(id) }
 
     fun saveExpert(
         id: String,
         name: String,
         instruction: String,
+        description: String = "",
+        plugins: List<String> = emptyList(),
+        skills: List<String> = emptyList(),
     ): kotlinx.coroutines.Deferred<Boolean> =
         workScope.async {
-            val profile = ExpertProfile(id, name.trim(), instruction.trim())
-            storage.experts.save(profile)
+            val profile = ExpertProfile(id, name.trim(), instruction.trim(), skills, plugins)
+            storage.experts.save(
+                com.helix.core.storage.repository
+                    .ExpertDefinition(profile, description.trim()),
+            )
             true
         }
 
@@ -525,9 +534,9 @@ class ChatService(
                     return@withTransaction
                 }
                 if (expertId == null) {
-                    storage.sessionExperts.clearForSession(sessionId)
+                    storage.sessionExperts.clearForSession(sessionId, clock.now().toEpochMilli())
                 } else {
-                    val profile = storage.experts.find(expertId) ?: return@withTransaction
+                    val profile = storage.experts.find(expertId)?.profile ?: return@withTransaction
                     storage.sessionExperts.setForSession(sessionId, profile, clock.now().toEpochMilli())
                 }
                 selected = true

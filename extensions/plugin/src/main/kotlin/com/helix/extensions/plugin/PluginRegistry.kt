@@ -50,6 +50,7 @@ data class PluginContents(
 class PluginRegistry(
     private val toolRegistry: ToolRegistry,
     private val catalog: NativePluginCatalog,
+    private val explicitlySelectedSkill: (com.helix.extensions.skills.SkillKey, String) -> Boolean = { _, _ -> false },
 ) {
     val performance = PluginPerformanceDiagnostics()
     private val factories = LinkedHashMap<String, HelixPlugin>()
@@ -131,8 +132,25 @@ class PluginRegistry(
     /** Immutable content facts; management sees installed content, execution sees selected owners. */
     fun skillDocuments(sessionId: String?): List<SkillDocument> =
         synchronized(catalog.mutationLock) {
-            val owners = if (sessionId == null) factories.values.toList() else selectedRuntimes(sessionId)
-            owners.flatMap { it.skills }.distinctBy { it.catalogEntry }
+            factories
+                .flatMap { (id, plugin) ->
+                    plugin.skills.filter { document ->
+                        sessionId == null || (
+                            ready(id) &&
+                                (
+                                    catalog.selectionId(sessionId, id) != null ||
+                                        explicitlySelectedSkill(
+                                            com.helix.extensions.skills.SkillKey(
+                                                document.catalogEntry.source,
+                                                document.catalogEntry.name,
+                                                document.catalogEntry.contentHash,
+                                            ),
+                                            sessionId,
+                                        )
+                                )
+                        )
+                    }
+                }.distinctBy { it.catalogEntry }
         }
 
     fun skillAvailable(
@@ -143,7 +161,11 @@ class PluginRegistry(
             val owners = factories.filterValues { plugin -> plugin.skills.any { matches(it, key) } }
             owners.isEmpty() ||
                 owners.any { (id, _) ->
-                    ready(id) && (sessionId == null || catalog.selectionId(sessionId, id) != null)
+                    ready(id) &&
+                        (
+                            sessionId == null || catalog.selectionId(sessionId, id) != null ||
+                                explicitlySelectedSkill(key, sessionId)
+                        )
                 }
         }
 

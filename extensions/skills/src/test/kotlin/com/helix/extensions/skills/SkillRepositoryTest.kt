@@ -9,6 +9,33 @@ import java.nio.file.Files
 import java.nio.file.Path
 
 class SkillRepositoryTest {
+    @Test fun expertEnablementIsSessionScopedAndCannotOverrideSourceOrExplicitSessionDisable() {
+        val roots = roots()
+        var linked = true
+        var available = true
+        val repository =
+            SkillRepository(
+                roots.snapshots,
+                roots.state,
+                roots.trash,
+                sourceAvailable = { _, _ -> available },
+                expertEnablement = { key, session -> linked && session == "a" && key.name == "repo-inspection" },
+            )
+        val key = repository.list().single { it.key.name == "repo-inspection" }.key
+        repository.setEnabled(key, false, SkillEnablementScope.GLOBAL)
+        assertFalse(repository.list().single { it.key == key }.enabled)
+        assertTrue(repository.list("a").single { it.key == key }.enabled)
+        assertFalse(repository.list("b").single { it.key == key }.enabled)
+        assertTrue(repository.read(key, "a").body.isNotBlank())
+        repository.setEnabled(key, false, SkillEnablementScope.SESSION, "a")
+        assertThrows(IllegalArgumentException::class.java) { repository.read(key, "a") }
+        repository.setEnabled(key, true, SkillEnablementScope.SESSION, "a")
+        linked = false
+        assertTrue(repository.list("a").single { it.key == key }.enabled)
+        available = false
+        assertThrows(IllegalArgumentException::class.java) { repository.read(key, "a") }
+    }
+
     @Test fun nativeReferenceReadsUseTheSameSnapshotEligibilityAndBounds() {
         val root = Files.createTempDirectory("native-references")
         val manifest = "---\nname: guide\ndescription: Guide\n---\nShort entry"

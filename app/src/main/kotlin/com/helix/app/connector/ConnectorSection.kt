@@ -391,7 +391,7 @@ private enum class EndpointAuthMode { BEARER, OAUTH }
 @Composable
 // UI boundary maps service failures to fixed, credential-free categories and preserves cancellation.
 @Suppress("FunctionName", "LongMethod", "ThrowsCount", "CyclomaticComplexMethod", "TooGenericExceptionCaught")
-private fun EndpointRow(
+internal fun EndpointRow(
     service: PluginService,
     endpoint: InstalledEndpoint,
     onChanged: () -> Unit,
@@ -413,7 +413,9 @@ private fun EndpointRow(
 
     LaunchedEffect(endpoint.id) {
         service.oauthCoordinator?.events?.collect { result ->
-            if (result is McpOAuthResult.Success && result.serverId == endpoint.id) {
+            if (result is McpOAuthResult.Success && result.serverId == endpoint.id &&
+                authMode == EndpointAuthMode.OAUTH
+            ) {
                 hasOAuth = true
                 oauthError = null
                 busy = true
@@ -444,16 +446,20 @@ private fun EndpointRow(
             OutlinedButton(
                 enabled = authMode != EndpointAuthMode.BEARER && !busy,
                 onClick = {
-                    service.cancelOAuth(endpoint)
-                    service.disable(endpoint)
                     authMode = EndpointAuthMode.BEARER
+                    failureMessage = null
+                    snapshot = null
+                    selection = emptySet()
+                    oauthError = null
                 },
+                modifier = Modifier.testTag("connector-auth-bearer-${endpoint.id}"),
             ) {
                 Text(stringResource(R.string.connector_auth_mode_bearer))
             }
             OutlinedButton(
                 enabled = authMode != EndpointAuthMode.OAUTH && !busy,
                 onClick = { authMode = EndpointAuthMode.OAUTH },
+                modifier = Modifier.testTag("connector-auth-oauth-${endpoint.id}"),
             ) {
                 Text(stringResource(R.string.connector_auth_mode_oauth))
             }
@@ -476,6 +482,7 @@ private fun EndpointRow(
                 singleLine = true,
                 visualTransformation = PasswordVisualTransformation(),
                 label = { Text(bearerLabel) },
+                modifier = Modifier.testTag("connector-bearer-input-${endpoint.id}"),
             )
             if (isGitHub) {
                 Text(
@@ -646,6 +653,19 @@ private fun OAuthAuthSection(
     var devicePolling by remember(endpoint.id) { mutableStateOf(false) }
     var pollingJob by remember(endpoint.id) { mutableStateOf<kotlinx.coroutines.Job?>(null) }
     var preparationJob by remember(endpoint.id) { mutableStateOf<kotlinx.coroutines.Job?>(null) }
+    val cancelFailure = stringResource(R.string.connector_connection_failed)
+
+    fun cancelAuthorization() {
+        scope.launch {
+            try {
+                withContext(Dispatchers.IO) { service.cancelOAuth(endpoint) }
+            } catch (cancel: CancellationException) {
+                throw cancel
+            } catch (_: Exception) {
+                onError(cancelFailure)
+            }
+        }
+    }
 
     var advanced by remember(endpoint.id, endpoint.endpoint.url) { mutableStateOf(false) }
     var connectRequest by remember(endpoint.id, endpoint.endpoint.url) { mutableStateOf(0) }
@@ -718,7 +738,7 @@ private fun OAuthAuthSection(
             resp = deviceCodeResp!!,
             devicePolling = devicePolling,
             onCancel = {
-                service.cancelOAuth(endpoint)
+                cancelAuthorization()
                 pollingJob?.cancel()
                 pollingJob = null
                 devicePolling = false
@@ -842,7 +862,7 @@ private fun OAuthAuthSection(
         }
         if (connecting || devicePolling) {
             OutlinedButton(onClick = {
-                service.cancelOAuth(endpoint)
+                cancelAuthorization()
                 preparationJob?.cancel()
                 preparationJob = null
                 devicePolling = false

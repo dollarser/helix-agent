@@ -310,6 +310,7 @@ internal class DefaultAppContainer(
             toolRegistry,
             com.helix.app.plugin
                 .RoomNativePluginCatalog(pluginCatalog, setOf(com.helix.extensions.browser.BrowserPlugin.PLUGIN_ID)),
+            explicitlySelectedSkill = { key, session -> pluginCatalog.expertSkillSelected(key, session) },
         )
 
     override val skillRepository: SkillRepository =
@@ -324,6 +325,7 @@ internal class DefaultAppContainer(
                 pluginCatalog.skillAvailable(key, session) && pluginRegistry.skillAvailable(key, session)
             },
             contributedDocuments = pluginRegistry::skillDocuments,
+            expertEnablement = pluginCatalog::expertSkillSelected,
             metadataLock = pluginCatalog.mutationLock,
             userActivations = { session, turn ->
                 storage.sessionInputs.skillActivations(session, turn).map { activation ->

@@ -190,6 +190,9 @@ internal fun SessionSettingsScreen(
         }
     }
     if (expertOpen && sessionId != null) {
-        SessionExpertDialog(chatService, sessionId, onManage = onManageExperts) { expertOpen = false }
+        SessionExpertDialog(chatService, sessionId, onManage = onManageExperts, plugins = connectors) {
+            expertOpen =
+                false
+        }
     }
 }

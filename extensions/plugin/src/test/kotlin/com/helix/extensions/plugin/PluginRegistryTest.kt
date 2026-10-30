@@ -13,6 +13,7 @@ import com.helix.tools.framework.ToolOrigin
 import com.helix.tools.framework.ToolRegistry
 import kotlinx.serialization.json.buildJsonObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -65,6 +66,37 @@ class PluginRegistryTest {
         assertTrue(registry.selectedRuntimes("session").isEmpty())
         assertEquals(before, tools.snapshot())
         assertEquals("", registry.contents("missing").requiredInstructions)
+    }
+
+    @Test fun explicitlyLinkedSkillDoesNotSelectItsOwnersTools() {
+        val catalog = MemoryNativePluginCatalog()
+        val guide = skill("linked-guide")
+        val key =
+            com.helix.extensions.skills.SkillKey(
+                guide.catalogEntry.source,
+                guide.catalogEntry.name,
+                guide.catalogEntry.contentHash,
+            )
+        var linked = true
+        val registry =
+            PluginRegistry(ToolRegistry(), catalog) { candidate, session ->
+                linked && session == "selected" && candidate == key
+            }
+        registry.register(
+            object : HelixPlugin by plugin("skill-owner") {
+                override val skills = listOf(guide)
+            },
+        )
+        assertTrue(registry.skillAvailable(key, "selected"))
+        assertEquals(listOf(guide), registry.skillDocuments("selected"))
+        assertTrue(registry.selectedRuntimes("selected").isEmpty())
+        assertFalse(registry.skillAvailable(key, "peer"))
+        assertTrue(registry.skillDocuments("peer").isEmpty())
+        registry.setEnabled("skill-owner", false)
+        assertFalse(registry.skillAvailable(key, "selected"))
+        registry.setEnabled("skill-owner", true)
+        linked = false
+        assertFalse(registry.skillAvailable(key, "selected"))
     }
 
     @Test fun bodiesLoadOnlyFromExactDurableActivationsAndRetainMandatoryRules() {

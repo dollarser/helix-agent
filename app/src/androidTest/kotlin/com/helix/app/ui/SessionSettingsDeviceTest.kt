@@ -105,7 +105,7 @@ class SessionSettingsDeviceTest {
         }
         compose.onNodeWithTag("session-expert-name").assertDoesNotExist()
         clickExpertAction("expert-manage")
-        clickExpertAction("expert-manage")
+        clickExpertAction("expert-create")
         compose.onNodeWithTag("session-expert-name").performScrollTo().performTextInput(expertName)
         compose.onNodeWithTag("session-expert-instruction").performScrollTo().performTextInput("Focus on correctness.")
         androidx.test.espresso.Espresso
@@ -114,13 +114,14 @@ class SessionSettingsDeviceTest {
         compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
             container.storage.experts
                 .list()
-                .any { it.displayName == expertName }
+                .any { it.profile.displayName == expertName }
         }
         assertNull(container.storage.sessionExperts.forSession(id))
         val saved =
             container.storage.experts
                 .list()
-                .single { it.displayName == expertName }
+                .single { it.profile.displayName == expertName }
+                .profile
         androidx.test.espresso.Espresso
             .pressBack()
         clickExpertAction("expert-row-${saved.id}")

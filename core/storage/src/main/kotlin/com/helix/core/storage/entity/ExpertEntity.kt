@@ -8,5 +8,6 @@ import androidx.room.PrimaryKey
 data class ExpertEntity(
     @PrimaryKey val id: String,
     val displayName: String,
+    /** Closed library configuration JSON; runtime instructions are decoded by the repository. */
     val instruction: String,
 )

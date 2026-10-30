@@ -106,13 +106,15 @@ class PluginService(
 
     fun list(): List<InstalledPlugin> = catalog.list()
 
+    internal fun expertSkills() = skills.list()
+
     fun sessionTitle(sessionId: String): String = storage.sessions.resolve(sessionId).title
 
     /** Composer summary reads committed selection metadata without probing every runtime. */
     fun selectedNames(sessionId: String): List<String> =
         synchronized(catalog.mutationLock) {
             val names = list().associate { it.id to it.name }
-            catalog.selected(sessionId).map { names[it] ?: it }
+            catalog.effectiveSelected(sessionId).map { names[it] ?: it }
         }
 
     /** Session selection is the user-facing enablement control; it never edits future defaults. */
@@ -204,6 +206,7 @@ class PluginService(
                 readiness?.hasSkippedComponents ?: false,
                 readiness?.setup,
                 readiness?.copy(selected = id in selected),
+                id in catalog.expertSelected(sessionId),
             )
         }
     }
@@ -339,7 +342,7 @@ class PluginService(
         turnId: String? = null,
     ): PluginReadinessContext =
         run {
-            val selected = catalog.selected(sessionId)
+            val selected = catalog.effectiveSelected(sessionId)
             val installed = list()
             val items = skills.list().associateBy { it.key }
             val readable = skills.listForModel(sessionId, turnId).map { it.key }.toSet()

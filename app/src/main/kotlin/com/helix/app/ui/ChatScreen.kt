@@ -118,7 +118,7 @@ fun ChatScreen(
     var selectedPluginNames by remember(sessionId) { mutableStateOf(emptyList<String>()) }
     var pluginLoadFailed by remember(sessionId) { mutableStateOf(false) }
     val documentPluginName = stringResource(R.string.document_plugin_name)
-    LaunchedEffect(sessionId, connectorsOpen, documentPluginName) {
+    LaunchedEffect(sessionId, connectorsOpen, expertOpen, documentPluginName) {
         try {
             selectedPluginNames =
                 if (sessionId == null || connectors == null) {
@@ -199,7 +199,10 @@ fun ChatScreen(
         )
     }
     if (expertOpen && sessionId != null) {
-        SessionExpertDialog(chatService, sessionId, onManage = onManageExperts) { expertOpen = false }
+        SessionExpertDialog(chatService, sessionId, onManage = onManageExperts, plugins = connectors) {
+            expertOpen =
+                false
+        }
     }
     if (referenceOpen && sessionId != null) {
         ConversationReferencePicker(

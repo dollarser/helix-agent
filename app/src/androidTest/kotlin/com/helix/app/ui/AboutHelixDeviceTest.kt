@@ -36,11 +36,7 @@ class AboutHelixDeviceTest {
     @Test fun settingsHasAnAboutEntryWithoutOpeningLinksAutomatically() {
         compose.setContent {
             MaterialTheme {
-                SettingsScreen(
-                    androidx.test.core.app.ApplicationProvider
-                        .getApplicationContext<com.helix.app.HelixApplication>()
-                        .appContainer.chatService,
-                )
+                SettingsScreen()
             }
         }
         AboutHelixLink.entries.forEach { link ->

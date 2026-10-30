@@ -52,6 +52,7 @@ class SkillRepository(
     private val beforeRemove: (SkillKey) -> Unit = {},
     private val contributedDocuments: (String?) -> List<SkillDocument> = { emptyList() },
     private val userActivations: (String, String) -> List<UserSkillActivation> = { _, _ -> emptyList() },
+    private val expertEnablement: (SkillKey, String?) -> Boolean = { _, _ -> false },
     metadataLock: Any = Any(),
 ) {
     // Hosts with compound plugin publication must share its metadata gate. A separate lock
@@ -329,7 +330,11 @@ class SkillRepository(
             return false
         }
         val session = sessionId?.let { sessionOverrides[it]?.get(key) }
-        return session ?: globalOverrides[key] ?: (key.source == SkillSource.BUILT_IN)
+        return session ?: if (expertEnablement(key, sessionId)) {
+            true
+        } else {
+            globalOverrides[key] ?: (key.source == SkillSource.BUILT_IN)
+        }
     }
 
     /** Replace host content facts; stale revisions cannot remain readable through an old key. */
