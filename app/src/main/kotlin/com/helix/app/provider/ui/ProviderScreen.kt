@@ -211,7 +211,7 @@ fun ProviderManager(
                             scope.launch {
                                 try {
                                     val config = providerService.storedConfig(row.id)
-                                    discovery = row.backendModels.orEmpty()
+                                    discovery = row.backendModels.orEmpty().filterNot(row::conversationProhibited)
                                     discoveryMessage = null
                                     form =
                                         editingProviderForm(row, config, modelOverride)

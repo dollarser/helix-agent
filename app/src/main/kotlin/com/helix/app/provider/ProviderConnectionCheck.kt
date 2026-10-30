@@ -26,23 +26,44 @@ internal object ProviderConnectionCheck {
         previous: ProviderCapabilities?,
     ): ProbeOutcome = inspect(config, provider, previous).outcome
 
-    private fun catalogFailure(catalog: ModelCatalogResult): ProbeOutcome.Failed? =
+    private fun catalogFailure(
+        catalog: ModelCatalogResult,
+        model: String,
+    ): ProbeOutcome.Failed? =
         when (catalog) {
             is ModelCatalogResult.Failed -> {
                 ProbeOutcome.Failed(2, catalog.code, catalog.detail, catalog.retryable)
             }
 
             is ModelCatalogResult.Listed -> {
-                if (catalog.models.isEmpty()) {
-                    ProbeOutcome.Failed(2, ModelErrorCode.PROTOCOL, "Model directory is empty", false)
-                } else {
-                    null
+                when {
+                    catalog.models.isEmpty() -> {
+                        ProbeOutcome.Failed(2, ModelErrorCode.PROTOCOL, "Model directory is empty", false)
+                    }
+
+                    catalog.purposes[model]?.let {
+                        it.isNotEmpty() && com.helix.provider.api.ModelPurpose.CHAT !in it
+                    } ==
+                        true -> {
+                        ProbeOutcome.Failed(2, ModelErrorCode.PROTOCOL, "Model is not a conversation model", false)
+                    }
+
+                    else -> {
+                        null
+                    }
                 }
             }
 
             ModelCatalogResult.Unsupported -> {
                 null
             }
+        }
+
+    private fun sourceCatalogFailure(catalog: ModelCatalogResult): Boolean =
+        when (catalog) {
+            is ModelCatalogResult.Failed -> true
+            is ModelCatalogResult.Listed -> catalog.models.isEmpty()
+            ModelCatalogResult.Unsupported -> false
         }
 
     suspend fun inspect(
@@ -54,7 +75,7 @@ internal object ProviderConnectionCheck {
         val accountCatalog = (provider as? SubscriptionConnectionProvider)?.connectionCatalog()
         val catalog = accountCatalog ?: provider.listModels()
         val shortCircuit: ProbeOutcome? =
-            catalogFailure(catalog) ?: when {
+            catalogFailure(catalog, config.model) ?: when {
                 !verifyGeneration && accountCatalog is ModelCatalogResult.Listed -> {
                     connected(previous, catalog)
                 }
@@ -63,7 +84,7 @@ internal object ProviderConnectionCheck {
                     null
                 }
             }
-        if (shortCircuit != null) return Observation(shortCircuit, false, shortCircuit is ProbeOutcome.Failed)
+        if (shortCircuit != null) return Observation(shortCircuit, false, sourceCatalogFailure(catalog))
         // Exactly one ordinary, short generation. No tools, images or explicit effort.
         val events =
             provider

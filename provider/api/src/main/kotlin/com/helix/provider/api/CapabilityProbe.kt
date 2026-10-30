@@ -107,7 +107,15 @@ public class CapabilityProbe(
     private suspend fun phase2(provider: ModelProvider): PhaseTwo =
         when (val models = provider.listModels()) {
             is ModelCatalogResult.Listed -> {
-                PhaseTwo.Listed(normalizeModelIds(models.models))
+                if (models.purposes[provider.descriptor.model]?.let { it.isNotEmpty() && ModelPurpose.CHAT !in it } ==
+                    true
+                ) {
+                    PhaseTwo.Stopped(
+                        ProbeOutcome.Failed(2, ModelErrorCode.PROTOCOL, "Model is not a conversation model", false),
+                    )
+                } else {
+                    PhaseTwo.Listed(normalizeModelIds(models.models))
+                }
             }
 
             is ModelCatalogResult.Unsupported -> {

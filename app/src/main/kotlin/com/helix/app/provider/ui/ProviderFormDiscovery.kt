@@ -6,6 +6,7 @@ import com.helix.app.provider.ProviderComposer
 import com.helix.app.provider.ProviderService
 import com.helix.core.model.ProviderProvisioningKind
 import com.helix.provider.api.ModelCatalogResult
+import com.helix.provider.api.ModelPurpose
 import kotlinx.coroutines.CancellationException
 
 internal fun providerGroupLabel(group: ProviderProvisioningKind): Int =
@@ -61,8 +62,18 @@ internal suspend fun discoverProviderForm(
                 form.providerId,
             )
         when (result) {
-            is ModelCatalogResult.Listed -> ProviderFormDiscovery(result.models, R.string.provider_discovery_hint)
-            else -> ProviderFormDiscovery(emptyList(), R.string.provider_discovery_failed)
+            is ModelCatalogResult.Listed -> {
+                ProviderFormDiscovery(
+                    result.models.filter { id ->
+                        result.purposes[id].orEmpty().let { it.isEmpty() || ModelPurpose.CHAT in it }
+                    },
+                    R.string.provider_discovery_hint,
+                )
+            }
+
+            else -> {
+                ProviderFormDiscovery(emptyList(), R.string.provider_discovery_failed)
+            }
         }
     } catch (cancel: CancellationException) {
         throw cancel

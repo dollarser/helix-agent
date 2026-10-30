@@ -15,7 +15,18 @@ internal object WireModelCatalogParser {
      */
     fun parseModelIds(body: String): ModelCatalogResult {
         val parsed = parseListObject(body)
+        val root = runCatching { Json.parseToJsonElement(body) as? JsonObject }.getOrNull()
+        if ((root?.get("has_more") as? JsonPrimitive)?.content == "true" ||
+            (root?.get("nextPageToken") as? JsonPrimitive)?.content?.isNotEmpty() == true
+        ) {
+            return ModelCatalogResult.Failed(
+                ModelErrorCode.PROTOCOL,
+                "Paginated directory requires a supported provider adapter",
+                false,
+            )
+        }
         val collected = ArrayList<String>()
+        val purposes = linkedMapOf<String, Set<ModelPurpose>>()
         var problem: String? = (parsed as? ModelListParse.Problem)?.detail
         if (parsed is ModelListParse.Ok) {
             for (entry in parsed.data) {
@@ -25,6 +36,7 @@ internal object WireModelCatalogParser {
                     break
                 }
                 collected += text
+                purposes[text] = ModelPurposes.parse(entry as JsonObject)
             }
         }
         return when {
@@ -38,7 +50,7 @@ internal object WireModelCatalogParser {
 
             else -> {
                 try {
-                    ModelCatalogResult.Listed(collected)
+                    ModelCatalogResult.Listed(collected, purposes.filterValues { it.isNotEmpty() })
                 } catch (e: IllegalArgumentException) {
                     ModelCatalogResult.Failed(
                         ModelErrorCode.PROTOCOL,

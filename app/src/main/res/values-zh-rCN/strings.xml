@@ -1361,7 +1361,7 @@
     <string name="composer_add_reference">引用其他会话</string>
     <string name="composer_reference_chip">引用：%1$s</string>
     <string name="conversation_reference_title">引用其他会话</string>
-    <string name="conversation_reference_hint">选择一个会话。发送时会冻结已有摘要；没有摘要时冻结最近的有界消息，不会保留实时会话指针。</string>
+    <string name="conversation_reference_hint">分享固定版本，模型可在本会话按需检索和读取。</string>
     <string name="conversation_reference_empty">没有其他可引用的会话。</string>
     <string name="composer_add_session_group">已有能力</string>
     <string name="connector_session_title">选择插件</string>
@@ -2090,7 +2090,7 @@
     <string name="knowledge_reference_all">全部</string>
     <string name="knowledge_reference_characters">%1$d 字符</string>
     <string name="knowledge_reference_unavailable">内容不可用或没有可读文字，请移除或重新选择。</string>
-    <string name="knowledge_reference_changed">引用内容已更新或不可用，请核对所选版本后再发送。</string>
+    <string name="knowledge_reference_changed">引用的版本已变化或不可用，请重新选择。</string>
     <string name="knowledge_reference_failed">未能准备所选内容。请检查来源是否可用、是否超过 8 项或 24,000 字符，再重试。</string>
     <string name="knowledge_reference_new_input">请在一条新消息中添加知识库引用。</string>
     <string name="knowledge_reference_preview">预览</string>
@@ -2104,8 +2104,8 @@
     <string name="knowledge_reference_version">所选版本已固定，不会随来源悄悄更新。</string>
     <string name="knowledge_reference_history">该条消息固定的内容。来源后续变化不会改写这条引用。</string>
     <string name="knowledge_reference_partial">来源可能不完整，或仅含原始文字，请核对实际引用范围。</string>
-    <string name="knowledge_reference_send_scope">只附带此处文字，不自动包含关联原件。发送后内容可能随会话历史继续使用。</string>
-    <string name="knowledge_reference_count">本条附带 · %1$d 项 · %2$d 字符</string>
+    <string name="knowledge_reference_send_scope">这是本地预览。发送时仅加入引用信息，模型按需读取所选版本，不上传原件。</string>
+    <string name="knowledge_reference_count">引用 · %1$d 项 · %2$d 字符原文，按需读取</string>
     <string name="knowledge_reference_remove">移除</string>
     <string name="knowledge_make_knowledge">整理为知识</string>
     <string name="knowledge_save_knowledge">保存为知识</string>
@@ -2150,4 +2150,23 @@
     <string name="expert_return_selection">返回选择专家</string>
     <string name="expert_manage_hint">创建、导入或编辑；不会自动改变当前会话。</string>
     <string name="expert_snapshot_retained">当前会话保留已选专家快照；选择列表项才会替换。</string>
+    <string name="reference_tools_required">按需引用需要启用会话工具，并选择支持工具调用的模型。</string>
+    <string name="reference_message_count">%1$d 条消息</string>
+    <string name="reference_no_text">暂无可读消息</string>
+    <string name="reference_untitled">未命名会话</string>
+    <string name="knowledge_reference_lazy">按需引用 · %1$d 字符原文</string>
+    <string name="knowledge_reference_refresh">更新引用</string>
+    <string name="knowledge_reference_previous">上一段</string>
+    <string name="knowledge_reference_next">下一段</string>
+    <string name="knowledge_reference_copy">复制全文</string>
+    <string name="knowledge_reference_tools_required">请启用会话和引用读取工具，选择支持工具的模型；也可预览并复制正文作为普通消息。</string>
+    <string name="knowledge_origin_frozen">保存笔记时的来源；缺失的原文不会被重建。</string>
+    <string name="provider_model_purpose_unknown">用途未声明；勾选即确认用于对话</string>
+    <string name="provider_model_purpose_chat">对话模型</string>
+    <string name="provider_model_purpose_other">非对话模型（不可选择）</string>
+    <string name="provider_model_not_chat">该模型不是对话模型，请重新选择。</string>
+    <string name="provider_model_directory_manage">管理对话模型</string>
+    <string name="builtin_model_tasks_missing">部分内置模型未声明用途，暂不可选。</string>
+    <string name="builtin_model_catalog_failed">内置模型目录刷新失败，请重试。</string>
+    <string name="builtin_model_catalog_empty">当前目录暂无内置对话模型。</string>
 </resources>

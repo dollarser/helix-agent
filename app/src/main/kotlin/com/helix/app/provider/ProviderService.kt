@@ -165,7 +165,12 @@ class ProviderService(
     ) = withContext(Dispatchers.IO) {
         probeGate.access {
             val config = storedConfig(id)
-            require(!BuiltInModel.owns(id)) { "Bundled directory is service-managed" }
+            require(!BuiltInModel.owns(id)) { "Built-in conversation models are enabled by the service directory" }
+            require(
+                selection.models.none {
+                    conversationProhibited(id, it, config.transport.cacheKey)
+                },
+            ) { "Model is not a conversation model" }
             if (config.transport is ProviderTransport.OnDeviceLocal) {
                 require((selection.models + selection.customModels).all { it == config.model })
             }
@@ -174,40 +179,21 @@ class ProviderService(
         }
     }
 
-    /** Explicit directory fetch only: no generation, no preference mutation, no synthetic connection success. */
+    /** Explicit directory fetch only; never generates or changes model choices. */
     suspend fun refreshModelCatalog(id: String): com.helix.provider.api.ModelCatalogResult =
-        withContext(workScope.coroutineContext.minusKey(kotlinx.coroutines.Job)) {
-            val account = managedAccountFor(id)
-            if (account != null && !account.ready) {
-                return@withContext com.helix.provider.api.ModelCatalogResult.Failed(
-                    com.helix.core.model.ModelErrorCode.AUTH,
-                    "ACCOUNT_NOT_READY",
-                    false,
-                )
-            }
-            val (ticket, config) = probeGate.begin(id, "catalog") { storedConfig(id) }
-            val result = factory.create(config).listModels()
-            val sameAccount = managedAccountFor(id) == account
-            var accepted = false
-            probeGate.publish(id, ticket) {
-                if (sameAccount && storedConfig(id).copy(capabilitySnapshot = config.capabilitySnapshot) == config) {
-                    accepted = true
-                    if (result is com.helix.provider.api.ModelCatalogResult.Listed) {
-                        testStatus.modelEvidence.catalog(id, config.transport.cacheKey, result.models)
-                    }
-                }
-            }
-            refreshNow()
-            if (accepted) {
-                result
-            } else {
-                com.helix.provider.api.ModelCatalogResult.Failed(
-                    com.helix.core.model.ModelErrorCode.PROTOCOL,
-                    "CATALOG_SUPERSEDED",
-                    false,
-                )
-            }
-        }
+        withContext(workScope.coroutineContext.minusKey(kotlinx.coroutines.Job)) { modelCatalog.refresh(id) }
+
+    private val modelCatalog by lazy {
+        ProviderCatalogDiscovery(
+            factory,
+            probeGate,
+            ::storedConfig,
+            ::managedAccountFor,
+            builtInModels,
+            testStatus,
+            ::refreshNow,
+        )
+    }
 
     val contextRevision: StateFlow<Long> = _contextRevision.asStateFlow()
 
@@ -618,12 +604,31 @@ class ProviderService(
         val config = stored.copy(model = modelId ?: stored.model)
         if (config.transport is ProviderTransport.Network) _networkOperations.value += 1
         val provider = factory.create(config)
-        return BoundModelProvider(provider, config.model) {
+        return BoundModelProvider(provider, config.model, conversationAllowed = {
+            !conversationProhibited(providerId, config.model, stored.transport.cacheKey)
+        }) {
             val observed = managedAccountFor(providerId)
             val current = storedConfig(providerId)
             observed == account && (observed == null || observed.ready) && chatSelectable(providerId) &&
                 current.connection == stored.connection && current.headers == stored.headers
         }
+    }
+
+    private fun conversationProhibited(
+        providerId: String,
+        model: String,
+        identity: String,
+    ): Boolean {
+        val purposes =
+            if (BuiltInModel.owns(providerId)) {
+                builtInModels.current().purposes[model].orEmpty()
+            } else {
+                testStatus.modelMetadata
+                    .read(providerId, identity)[model]
+                    ?.purposes
+                    .orEmpty()
+            }
+        return purposes.isNotEmpty() && com.helix.provider.api.ModelPurpose.CHAT !in purposes
     }
 
     /** The test status of one provider (UI rows are rebuilt from this). */

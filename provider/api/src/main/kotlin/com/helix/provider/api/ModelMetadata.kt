@@ -7,6 +7,7 @@ data class ModelMetadata(
     val reasoningEfforts: List<ReasoningEffort>? = null,
     val vision: Boolean? = null,
     val contextWindow: Long? = null,
+    val purposes: Set<ModelPurpose> = emptySet(),
 ) {
     init {
         require(reasoningEfforts == null || reasoningEfforts.size <= 16)

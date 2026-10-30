@@ -9,8 +9,10 @@ public sealed interface ModelCatalogResult {
     /** The service listed its models; an empty directory is distinct from a failed query. */
     public data class Listed(
         val models: List<String>,
+        val purposes: Map<String, Set<ModelPurpose>> = emptyMap(),
     ) : ModelCatalogResult {
         init {
+            require(purposes.keys.all { it in models })
             require(models.size <= MAX_MODELS) { "at most $MAX_MODELS models per list" }
             require(models.toSet().size == models.size) { "model ids must be unique" }
             models.forEach { id ->

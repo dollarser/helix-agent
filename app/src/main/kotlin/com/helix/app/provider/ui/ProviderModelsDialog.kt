@@ -41,6 +41,7 @@ internal fun ProviderModelsDialog(
     service: ProviderService,
     onDismiss: () -> Unit,
 ) {
+    require(!row.bundled) { "Built-in models are selected directly in the conversation" }
     val rows by service.rows.collectAsStateWithLifecycle()
     val live = rows.firstOrNull { it.id == row.id }
     val current = live ?: row
@@ -241,7 +242,8 @@ internal fun ProviderModelsDialog(
                                             error = true
                                         }
                                     },
-                                    enabled = !busy && manual.isNotBlank(),
+                                    enabled =
+                                        !busy && manual.isNotBlank() && !current.conversationProhibited(manual.trim()),
                                     modifier = Modifier.testTag("provider-models-add"),
                                 ) {
                                     Text(

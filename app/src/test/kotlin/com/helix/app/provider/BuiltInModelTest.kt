@@ -41,14 +41,20 @@ class BuiltInModelTest {
         assertTrue(row.chatSelectable)
         assertTrue(row.modelSelectable(BuiltInModel.MODEL_ID))
         assertFalse(row.modelSelectable("other"))
-        assertTrue(row.modelSelectable("future-model"))
+        assertFalse(row.modelSelectable("future-model"))
+        assertFalse(
+            row
+                .copy(
+                    modelSelection = ProviderModelSelection().toggle("future-model", true),
+                ).modelSelectable("future-model"),
+        )
         assertFalse(row.capabilitiesForModel("future-model")!!.vision)
         assertFalse(row.capabilitiesForModel("future-model")!!.toolCalls)
         assertFalse(row.capabilitiesForModel("future-model")!!.reasoning)
         assertTrue(row.capabilitiesForModel(BuiltInModel.MODEL_ID)!!.reasoning)
         assertEquals(com.helix.core.model.ReasoningEffort.FALLBACK, row.reasoningOptionsFor(BuiltInModel.MODEL_ID))
         assertEquals(emptyList<com.helix.core.model.ReasoningEffort>(), row.reasoningOptionsFor("future-model"))
-        assertEquals(listOf(BuiltInModel.MODEL_ID, "future-model"), row.conversationModels)
+        assertEquals(listOf(BuiltInModel.MODEL_ID), row.conversationModels)
         assertEquals(CapabilitySource.BUNDLED_CONTRACT, row.capabilities?.source)
         assertEquals(ProviderSetupStep.READY, ProviderSetupStep.forRow(row))
         assertFalse(ProviderProvisioningKind.BUNDLED_SERVICE in ProviderChannelPolicy.groups(false))

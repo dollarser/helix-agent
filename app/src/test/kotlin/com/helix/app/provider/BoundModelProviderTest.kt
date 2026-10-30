@@ -87,6 +87,18 @@ class BoundModelProviderTest {
             assertEquals(1, delegate.requests.size)
         }
 
+    @Test fun lateNonChatDirectoryEvidenceBlocksFurtherCallsWithoutAnAuthFailure() =
+        runBlocking {
+            val delegate = Fixture()
+            var chatAllowed = true
+            val bound = BoundModelProvider(delegate, "b", conversationAllowed = { chatAllowed }) { true }
+            val request = ModelRequest("b", listOf(ModelMessage(ModelRole.USER, "task")))
+            bound.stream(request).toList()
+            chatAllowed = false
+            assertEquals(ModelErrorCode.PROTOCOL, (bound.stream(request).toList().single() as ModelEvent.Error).code)
+            assertEquals(1, delegate.requests.size)
+        }
+
     @Test fun mismatchedModelCannotReachTransport() =
         runBlocking {
             val delegate = Fixture()

@@ -93,6 +93,9 @@ internal class ProviderConnectionProbe(
         detectCapabilities: Boolean,
         previous: ProviderCapabilities?,
     ) {
+        if (result.metadata.isNotEmpty()) {
+            testStatus.modelMetadata.merge(config.id, config.transport.cacheKey, result.metadata)
+        }
         when (val outcome = result.outcome) {
             is ProbeOutcome.Ok -> {
                 val exact =
@@ -171,7 +174,14 @@ internal class ProviderConnectionProbe(
                     provider,
                     includeVision = config.transport !is com.helix.core.model.ProviderTransport.OnDeviceLocal,
                 )
-            val metadata = if (outcome is ProbeOutcome.Ok) provider.modelMetadata() else emptyMap()
+            val metadata =
+                if (outcome is ProbeOutcome.Ok ||
+                    config.transport is com.helix.core.model.ProviderTransport.Network
+                ) {
+                    provider.modelMetadata()
+                } else {
+                    emptyMap()
+                }
             val window = if (outcome is ProbeOutcome.Ok) provider.contextWindow(config.model) else null
             Result(
                 outcome,
@@ -211,9 +221,6 @@ internal class ProviderConnectionProbe(
         val current = storage.providerConfigs.resolve(providerId)
         publishModelEvidence(config, outcome, result.generationAttempted, detectCapabilities)
         if (!detectCapabilities) outcome.models?.let { testStatus.modelEvidence.catalog(providerId, identity, it) }
-        if (result.metadata.isNotEmpty()) {
-            testStatus.modelMetadata.write(config.id, identity, result.metadata)
-        }
         if (config.model != current.model) {
             discoverContextWindow(providerId, config.model, result.window)
             if (!detectCapabilities || testStatus.statusFor(providerId) !is ConnectionTestStatus.Passed) {

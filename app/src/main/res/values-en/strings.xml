@@ -1363,7 +1363,7 @@
     <string name="composer_add_reference">Reference conversation</string>
     <string name="composer_reference_chip">Reference: %1$s</string>
     <string name="conversation_reference_title">Reference conversation</string>
-    <string name="conversation_reference_hint">Choose another conversation. At send time Helix freezes an existing summary, or bounded recent messages when no summary exists; no live conversation pointer is retained.</string>
+    <string name="conversation_reference_hint">Share a fixed revision for on-demand reading in this conversation.</string>
     <string name="conversation_reference_empty">No other conversations are available to reference.</string>
     <string name="composer_add_session_group">Existing capabilities</string>
     <string name="connector_session_title">Choose plugins</string>
@@ -2093,7 +2093,7 @@
     <string name="knowledge_reference_all">All</string>
     <string name="knowledge_reference_characters">%1$d characters</string>
     <string name="knowledge_reference_unavailable">This content is unavailable or has no readable text. Remove it or choose another source.</string>
-    <string name="knowledge_reference_changed">Referenced content changed or is unavailable. Review the selected version before sending.</string>
+    <string name="knowledge_reference_changed">The selected revision changed or is unavailable. Select it again.</string>
     <string name="knowledge_reference_failed">Unable to prepare the selection. Check availability and the 8-item, 24,000-character limit, then try again.</string>
     <string name="knowledge_reference_new_input">Add library references in a new message.</string>
     <string name="knowledge_reference_preview">Preview</string>
@@ -2107,8 +2107,8 @@
     <string name="knowledge_reference_version">Selected version is fixed until you explicitly update it.</string>
     <string name="knowledge_reference_history">Content fixed for this message. Later source changes do not rewrite this citation.</string>
     <string name="knowledge_reference_partial">This source may be incomplete or contains original text only. Review the actual selection.</string>
-    <string name="knowledge_reference_send_scope">Only this text is included, without related originals. Sent content may remain in conversation history.</string>
-    <string name="knowledge_reference_count">References · %1$d items · %2$d characters</string>
+    <string name="knowledge_reference_send_scope">This is a local preview. Sending shares reference metadata; the model reads the selected revision on demand. Originals are not uploaded.</string>
+    <string name="knowledge_reference_count">References · %1$d items · %2$d source characters, read on demand</string>
     <string name="knowledge_reference_remove">Remove</string>
     <string name="knowledge_make_knowledge">Organize as knowledge</string>
     <string name="knowledge_save_knowledge">Save as knowledge</string>
@@ -2153,4 +2153,23 @@
     <string name="expert_return_selection">Back to expert selection</string>
     <string name="expert_manage_hint">Create, import or edit without automatically changing this conversation.</string>
     <string name="expert_snapshot_retained">This conversation keeps its selected expert snapshot until you choose a replacement.</string>
+    <string name="reference_tools_required">On-demand references require enabled conversation tools and a tool-capable model.</string>
+    <string name="reference_message_count">%1$d messages</string>
+    <string name="reference_no_text">No readable messages</string>
+    <string name="reference_untitled">Untitled conversation</string>
+    <string name="knowledge_reference_lazy">On-demand reference · %1$d source characters</string>
+    <string name="knowledge_reference_refresh">Update reference</string>
+    <string name="knowledge_reference_previous">Previous</string>
+    <string name="knowledge_reference_next">Next</string>
+    <string name="knowledge_reference_copy">Copy full text</string>
+    <string name="knowledge_reference_tools_required">Enable conversation/read tools and choose a tool-capable model, or preview and copy the text into a normal message.</string>
+    <string name="knowledge_origin_frozen">Source saved with this note. Missing text is not reconstructed.</string>
+    <string name="provider_model_purpose_unknown">Task unreported; select to confirm chat use</string>
+    <string name="provider_model_purpose_chat">Chat model</string>
+    <string name="provider_model_purpose_other">Non-chat model (not selectable)</string>
+    <string name="provider_model_not_chat">This model does not support chat. Choose another model.</string>
+    <string name="provider_model_directory_manage">Manage chat models</string>
+    <string name="builtin_model_tasks_missing">Some built-in models have no declared task and are not selectable yet.</string>
+    <string name="builtin_model_catalog_failed">Could not refresh built-in models. Try again.</string>
+    <string name="builtin_model_catalog_empty">No built-in chat models are available in this catalog.</string>
 </resources>

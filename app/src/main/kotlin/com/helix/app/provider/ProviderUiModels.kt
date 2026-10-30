@@ -57,11 +57,43 @@ data class ProviderRowUi(
             !managedExternally || accountState?.ready == true
         }
 
-    /** The sole new-selection policy. Catalog/default test target never silently expand user choices. */
+    /** Built-in declared chat is directly selectable; other sources honor explicit user choices. */
     val conversationModels: List<String>
-        get() = if (bundled) builtInCatalog?.models.orEmpty() else modelSelection.models
+        get() =
+            (
+                if (bundled) {
+                    builtInCatalog?.models.orEmpty()
+                } else {
+                    modelSelection.models
+                }
+            ).filter(::conversationEligible)
+
+    fun purposesFor(modelId: String): Set<com.helix.provider.api.ModelPurpose> =
+        if (bundled) builtInCatalog?.purposes?.get(modelId).orEmpty() else modelMetadata[modelId]?.purposes.orEmpty()
+
+    fun conversationProhibited(modelId: String): Boolean =
+        purposesFor(modelId).let { it.isNotEmpty() && com.helix.provider.api.ModelPurpose.CHAT !in it }
+
+    fun conversationEligible(modelId: String): Boolean {
+        val purposes = purposesFor(modelId)
+        if (purposes.isNotEmpty()) return com.helix.provider.api.ModelPurpose.CHAT in purposes
+        return (!bundled && modelId in modelSelection.models) ||
+            (bundled && modelId == BuiltInModel.MODEL_ID) ||
+            (provisioning == ProviderProvisioningKind.ON_DEVICE_ASSET && modelId == model)
+    }
+
+    val builtInTaskDeclarationMissing: Boolean get() =
+        bundled &&
+            builtInCatalog?.models.orEmpty().any {
+                it != BuiltInModel.MODEL_ID && purposesFor(it).isEmpty()
+            }
+
     val knownModels: List<String> get() =
-        (backendModels.orEmpty() + modelSelection.customModels + modelSelection.models + model).distinct()
+        (
+            builtInCatalog?.models.orEmpty() + backendModels.orEmpty() + modelSelection.customModels +
+                modelSelection.models +
+                model
+        ).distinct()
 
     fun modelLabel(modelId: String): String =
         modelSelection.displayNames[modelId]
@@ -86,7 +118,9 @@ data class ProviderRowUi(
             }
 
     fun modelSelectable(modelId: String): Boolean =
-        if (bundled) {
+        if (!conversationEligible(modelId)) {
+            false
+        } else if (bundled) {
             modelId in builtInCatalog?.models.orEmpty()
         } else {
             chatSelectable &&

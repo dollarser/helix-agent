@@ -158,7 +158,10 @@ internal fun ComposerModelMenu(
     val selectable =
         edit.providerId != null && edit.model != null &&
             (
-                (sameModel && (pendingProvider?.bundled != true || pendingProvider.chatSelectable)) ||
+                (
+                    sameModel && pendingProvider?.conversationEligible(requireNotNull(edit.model)) == true &&
+                        (pendingProvider.bundled != true || pendingProvider.chatSelectable)
+                ) ||
                     pendingProvider?.modelSelectable(requireNotNull(edit.model)) == true
             )
     val visibleProviders = providers.filter { it.visibleInModelPicker || (it.bundled && it.id == providerId) }
@@ -248,6 +251,7 @@ internal fun ComposerModelMenu(
                                         stringResource(R.string.builtin_model_catalog_notice),
                                         style = MaterialTheme.typography.bodySmall,
                                     )
+                                    BuiltInCatalogFeedback(providers.firstOrNull { it.bundled })
                                 }
                             }
                         }
@@ -257,6 +261,18 @@ internal fun ComposerModelMenu(
                                     stringResource(R.string.provider_models_current_hidden, currentLabel.orEmpty()),
                                     modifier = Modifier.testTag("chat-model-hidden-current"),
                                 )
+                            }
+                        }
+                        if (onManageModels != null) {
+                            item {
+                                TextButton(onClick = {
+                                    if (!saving) {
+                                        dismiss()
+                                        onManageModels()
+                                    }
+                                }, enabled = !saving) {
+                                    Text(stringResource(R.string.provider_model_directory_manage))
+                                }
                             }
                         }
                         if (entries.isEmpty()) {

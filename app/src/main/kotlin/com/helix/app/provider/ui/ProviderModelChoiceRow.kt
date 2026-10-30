@@ -83,6 +83,8 @@ internal fun ProviderModelChoiceRow(
     onMove: () -> Unit,
 ) {
     val label = row.modelLabel(model)
+    val purposes = row.purposesFor(model)
+    val canChoose = !row.conversationProhibited(model)
     Column(Modifier.fillMaxWidth()) {
         Row(
             modifier =
@@ -91,7 +93,7 @@ internal fun ProviderModelChoiceRow(
                     .testTag("provider-model-choice-$model")
                     .toggleable(
                         model in selection.models,
-                        enabled = !busy,
+                        enabled = !busy && (canChoose || model in selection.models),
                         role = Role.Checkbox,
                         onValueChange = onToggle,
                     ),
@@ -100,10 +102,16 @@ internal fun ProviderModelChoiceRow(
             Checkbox(
                 model in selection.models,
                 null,
-                enabled = !busy,
+                enabled = !busy && (canChoose || model in selection.models),
             )
             Column(Modifier.weight(1f)) {
                 Text(label)
+                Text(
+                    stringResource(
+                        purposeLabel(purposes),
+                    ),
+                    style = MaterialTheme.typography.labelSmall,
+                )
                 if (label != model) Text(model, style = MaterialTheme.typography.labelSmall)
                 if (row.backendModels != null && model !in row.backendModels) {
                     Text(
@@ -121,7 +129,7 @@ internal fun ProviderModelChoiceRow(
             Column {
                 TextButton(
                     onClick = onTest,
-                    enabled = !busy,
+                    enabled = !busy && canChoose,
                 ) { Text(stringResource(R.string.provider_model_generation_test)) }
                 TextButton(onClick = onProbe, enabled = !busy && row.chatSelectable) {
                     Text(stringResource(R.string.provider_capabilities_test))
@@ -136,3 +144,10 @@ internal fun ProviderModelChoiceRow(
         }
     }
 }
+
+private fun purposeLabel(purposes: Set<com.helix.provider.api.ModelPurpose>): Int =
+    when {
+        purposes.isEmpty() -> R.string.provider_model_purpose_unknown
+        com.helix.provider.api.ModelPurpose.CHAT in purposes -> R.string.provider_model_purpose_chat
+        else -> R.string.provider_model_purpose_other
+    }

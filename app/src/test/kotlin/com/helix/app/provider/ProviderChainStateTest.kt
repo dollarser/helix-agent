@@ -91,6 +91,7 @@ class ProviderChainStateTest {
             ConnectionTestStatus.Passed(1, caps, listOf("a", "b")),
             caps,
             listOf("a", "b"),
+            modelSelection = ProviderModelSelection(listOf("a", "b"), configured = true),
         )
 
     private companion object {

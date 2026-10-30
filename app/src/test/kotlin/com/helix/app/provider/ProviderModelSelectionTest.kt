@@ -68,7 +68,18 @@ class ProviderModelSelectionTest {
         ProviderProvisioningKind.entries.forEach { type ->
             val source =
                 if (type == ProviderProvisioningKind.BUNDLED_SERVICE) {
-                    row(type).copy(builtInCatalog = BuiltInModelCatalog(1, listOf("a", "new")))
+                    row(type).copy(
+                        builtInCatalog =
+                            BuiltInModelCatalog(
+                                1,
+                                listOf("a", "new"),
+                                purposes =
+                                    mapOf(
+                                        "a" to setOf(com.helix.provider.api.ModelPurpose.CHAT),
+                                        "new" to setOf(com.helix.provider.api.ModelPurpose.CHAT),
+                                    ),
+                            ),
+                    )
                 } else {
                     row(type)
                 }

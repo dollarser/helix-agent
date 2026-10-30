@@ -25,7 +25,7 @@ class ProviderModelMetadataStore(
         endpoint: String,
         models: Map<String, ModelMetadata>,
     ) {
-        require(models.size <= 128)
+        require(models.size <= 1024)
         val document =
             buildJsonObject {
                 models.forEach { (id, metadata) ->
@@ -37,6 +37,40 @@ class ProviderModelMetadataStore(
         store.setLines(key(providerId, endpoint), listOf(document))
     }
 
+    /** A successful directory refresh cannot turn an earlier explicit task into unknown chat. */
+    fun catalog(
+        providerId: String,
+        endpoint: String,
+        catalog: com.helix.provider.api.ModelCatalogResult.Listed,
+    ) {
+        val previous = read(providerId, endpoint)
+        write(
+            providerId,
+            endpoint,
+            catalog.models.associateWith { id ->
+                val old = previous[id] ?: ModelMetadata()
+                old.copy(purposes = catalog.purposes[id].orEmpty().ifEmpty { old.purposes })
+            },
+        )
+    }
+
+    fun merge(
+        providerId: String,
+        endpoint: String,
+        models: Map<String, ModelMetadata>,
+    ) {
+        val previous = read(providerId, endpoint)
+        write(
+            providerId,
+            endpoint,
+            previous +
+                models.mapValues { (id, value) ->
+                    val old = previous[id] ?: ModelMetadata()
+                    value.copy(purposes = value.purposes.ifEmpty { old.purposes })
+                },
+        )
+    }
+
     fun read(
         providerId: String,
         endpoint: String,
@@ -45,7 +79,7 @@ class ProviderModelMetadataStore(
             val text = store.lines(key(providerId, endpoint)).singleOrNull() ?: return emptyMap()
             require(text.encodeToByteArray().size <= MAX_BYTES)
             val root = Json.parseToJsonElement(text).jsonObject
-            require(root.size <= 128)
+            require(root.size <= 1024)
             root.mapValues { (id, value) ->
                 require(id.isNotBlank() && id.length <= 256)
                 decode(value)
@@ -58,11 +92,12 @@ class ProviderModelMetadataStore(
             put("efforts", efforts?.let(::JsonArray) ?: JsonNull)
             put("vision", metadata.vision?.let(::JsonPrimitive) ?: JsonNull)
             put("context", metadata.contextWindow?.let(::JsonPrimitive) ?: JsonNull)
+            put("purposes", JsonArray(metadata.purposes.map { JsonPrimitive(it.name) }))
         }
 
     private fun decode(value: JsonElement): ModelMetadata {
         val item = value.jsonObject
-        require(item.keys == setOf("efforts", "vision", "context"))
+        require(item.keys == setOf("efforts", "vision", "context", "purposes"))
         val efforts = item.getValue("efforts").takeUnless { it == JsonNull }
         val vision = literal(item.getValue("vision"))
         val context = literal(item.getValue("context"))
@@ -73,6 +108,12 @@ class ProviderModelMetadataStore(
                 },
             vision = vision?.let { requireNotNull(it.booleanOrNull) },
             contextWindow = context?.let { requireNotNull(it.longOrNull) },
+            purposes =
+                (item.getValue("purposes") as JsonArray)
+                    .map {
+                        com.helix.provider.api.ModelPurpose
+                            .valueOf(it.jsonPrimitive.content)
+                    }.toSet(),
         )
     }
 
@@ -93,6 +134,6 @@ class ProviderModelMetadataStore(
     }
 
     private companion object {
-        const val MAX_BYTES = 128 * 1024
+        const val MAX_BYTES = 512 * 1024
     }
 }

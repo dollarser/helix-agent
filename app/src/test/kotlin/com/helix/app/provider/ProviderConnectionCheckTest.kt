@@ -19,6 +19,24 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class ProviderConnectionCheckTest {
+    @Test fun declaredEmbeddingNeverStartsGenerationEvenWhenPreviouslySelected() =
+        runBlocking {
+            val fixture = Fixture(null)
+            val provider =
+                object : ModelProvider by fixture {
+                    override suspend fun listModels() =
+                        ModelCatalogResult.Listed(
+                            listOf(config.model),
+                            mapOf(config.model to setOf(com.helix.provider.api.ModelPurpose.EMBEDDING)),
+                        )
+                }
+            val result = ProviderConnectionCheck.inspect(config, provider, null, verifyGeneration = true)
+            assertEquals(2, (result.outcome as ProbeOutcome.Failed).phase)
+            assertEquals(false, result.generationAttempted)
+            assertEquals(false, result.sourceFailure)
+            assertEquals(0, fixture.generations)
+        }
+
     @Test fun emptyCatalogNeverStartsApiOrSubscriptionGeneration() =
         runBlocking {
             for (subscription in listOf(false, true)) {

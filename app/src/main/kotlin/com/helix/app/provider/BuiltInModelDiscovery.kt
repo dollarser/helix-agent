@@ -42,39 +42,80 @@ internal class BuiltInModelDiscovery(
                 if (force && cached.checkedAt > 0 && now() - cached.checkedAt < MANUAL_COOLDOWN) return@withLock
                 val result = fetch()
                 if (store.identity() != account) return@withLock
-                publish(if (result.second == null) result.first else cached.models, result.second, observed, account)
+                publish(
+                    result.first
+                        ?: if (result.second !=
+                            null
+                        ) {
+                            com.helix.provider.api.ModelCatalogResult
+                                .Listed(cached.models, cached.purposes)
+                        } else {
+                            null
+                        },
+                    result.second,
+                    observed,
+                    account,
+                )
             }
         }
 
-    private suspend fun fetch(): Pair<List<String>, ModelErrorCode?> =
+    private suspend fun fetch(): Pair<com.helix.provider.api.ModelCatalogResult.Listed?, ModelErrorCode?> =
         try {
             withTimeout(CATALOG_TIMEOUT) {
                 when (val catalog = provider().listModels()) {
-                    is ModelCatalogResult.Listed -> catalog.models.take(MAX_MODELS).distinct() to null
-                    is ModelCatalogResult.Failed -> emptyList<String>() to catalog.code
-                    ModelCatalogResult.Unsupported -> emptyList<String>() to ModelErrorCode.PROTOCOL
+                    is ModelCatalogResult.Listed -> {
+                        catalog.copy(
+                            models = catalog.models.take(MAX_MODELS),
+                            purposes =
+                                catalog.purposes.filterKeys {
+                                    it in
+                                        catalog.models.take(MAX_MODELS)
+                                },
+                        ) to
+                            null
+                    }
+
+                    is ModelCatalogResult.Failed -> {
+                        null to catalog.code
+                    }
+
+                    ModelCatalogResult.Unsupported -> {
+                        null to ModelErrorCode.PROTOCOL
+                    }
                 }
             }
         } catch (_: TimeoutCancellationException) {
             currentCoroutineContext().ensureActive()
-            emptyList<String>() to ModelErrorCode.TIMEOUT
+            null to ModelErrorCode.TIMEOUT
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (_: IllegalArgumentException) {
-            emptyList<String>() to ModelErrorCode.PROTOCOL
+            null to ModelErrorCode.PROTOCOL
         } catch (_: java.io.IOException) {
-            emptyList<String>() to ModelErrorCode.TRANSPORT
+            null to ModelErrorCode.TRANSPORT
         }
 
     private fun publish(
-        models: List<String>,
+        catalog: com.helix.provider.api.ModelCatalogResult.Listed?,
         failure: ModelErrorCode?,
         expectedRevision: Long,
         expectedAccount: List<String>,
     ) {
         synchronized(publicationLock) {
             if (revision != expectedRevision) return
-            store.save(BuiltInModelCatalog(now(), models, failure), expectedAccount)
+            val previous = store.read()
+            val tasks =
+                catalog
+                    ?.models
+                    .orEmpty()
+                    .associateWith { id ->
+                        catalog
+                            ?.purposes
+                            ?.get(id)
+                            .orEmpty()
+                            .ifEmpty { previous.purposes[id].orEmpty() }
+                    }.filterValues { it.isNotEmpty() }
+            store.save(BuiltInModelCatalog(now(), catalog?.models.orEmpty(), failure, tasks), expectedAccount)
             revision++
         }
         onChanged()
@@ -83,7 +124,7 @@ internal class BuiltInModelDiscovery(
     private fun now() = clock.now().toEpochMilli()
 
     private companion object {
-        const val MAX_MODELS = 128
+        const val MAX_MODELS = 1024
         const val CATALOG_TIMEOUT = 10_000L
         const val MANUAL_COOLDOWN = 3_000L
     }

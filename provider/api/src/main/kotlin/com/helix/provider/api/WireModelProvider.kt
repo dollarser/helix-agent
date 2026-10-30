@@ -49,6 +49,10 @@ public abstract class WireModelProvider(
 ) : ModelProvider {
     override val allowsEmptyInferenceRetry: Boolean get() = true
 
+    @Volatile private var discoveredMetadata: Map<String, ModelMetadata> = emptyMap()
+
+    override suspend fun modelMetadata(): Map<String, ModelMetadata> = discoveredMetadata
+
     /**
      * The streaming resource path (e.g. `/chat/completions`), appended to the
      * endpoint's path. The endpoint path is the API root (e.g. `/v1`); the
@@ -165,43 +169,13 @@ public abstract class WireModelProvider(
 
     override suspend fun listModels(): ModelCatalogResult {
         val path = modelsPath() ?: return ModelCatalogResult.Unsupported
-        var response: WireResponse? = null
-        var ioFailureResult: ModelCatalogResult? = null
-        try {
-            response = wire.open(WireRequest("GET", wireUrl(path), headersFor(), null))
-        } catch (e: SocketTimeoutException) {
-            ioFailureResult = ioFailure(ModelErrorCode.TIMEOUT, e)
-        } catch (e: IOException) {
-            ioFailureResult = ioFailure(ModelErrorCode.TRANSPORT, e)
-        }
-        val open = response
-        return when {
-            open == null -> {
-                ioFailureResult
-                    ?: error("unreachable: open either succeeded or recorded a failure")
-            }
-
-            else -> {
-                val body = open.body
-                try {
-                    if (open.status in 200..299) {
-                        parseModelIds(body.bytes().decodeToString())
-                    } else {
-                        val (code, retryable) = mapHttpStatus(open.status)
-                        ModelCatalogResult.Failed(
-                            code,
-                            boundedDetail("HTTP ${open.status} on /$path"),
-                            retryable,
-                        )
-                    }
-                } catch (e: SocketTimeoutException) {
-                    ioFailure(ModelErrorCode.TIMEOUT, e)
-                } catch (e: IOException) {
-                    ioFailure(ModelErrorCode.TRANSPORT, e)
-                } finally {
-                    body.close()
+        return ModelCatalogDiscovery.fetch(wire, wireUrl(path), headersFor()).also { result ->
+            discoveredMetadata =
+                if (result is ModelCatalogResult.Listed) {
+                    result.purposes.mapValues { ModelMetadata(purposes = it.value) }
+                } else {
+                    emptyMap()
                 }
-            }
         }
     }
 
@@ -275,8 +249,6 @@ public abstract class WireModelProvider(
         }
     }
 
-    protected open fun parseModelIds(body: String): ModelCatalogResult = WireModelCatalogParser.parseModelIds(body)
-
     /**
      * Joins the endpoint's API root with the protocol resource path. The
      * default port for the scheme is omitted from the wire URL (canonical
@@ -335,16 +307,6 @@ public abstract class WireModelProvider(
 }
 
 /** File-private IO-failure results (kept out of the class to bound its function count). */
-private fun ioFailure(
-    code: ModelErrorCode,
-    cause: IOException,
-): ModelCatalogResult =
-    ModelCatalogResult.Failed(
-        code,
-        boundedDetail(cause::class.simpleName ?: "io failure"),
-        retryable = true,
-    )
-
 private fun ioFailureCheck(
     code: ModelErrorCode,
     cause: IOException,

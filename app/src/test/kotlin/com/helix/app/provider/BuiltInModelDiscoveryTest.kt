@@ -49,6 +49,33 @@ class BuiltInModelDiscoveryTest {
             {},
         )
 
+    @Test fun taskEvidenceSurvivesUnknownRefreshButAnExplicitTaskReplacesIt() =
+        runBlocking {
+            val discovery = discovery()
+            result =
+                {
+                    ModelCatalogResult.Listed(
+                        listOf("alias"),
+                        mapOf("alias" to setOf(com.helix.provider.api.ModelPurpose.EMBEDDING)),
+                    )
+                }
+            discovery.refresh(true)
+            millis += 4000
+            result = { ModelCatalogResult.Listed(listOf("alias")) }
+            discovery.refresh(true)
+            assertEquals(setOf(com.helix.provider.api.ModelPurpose.EMBEDDING), discovery.current().purposes["alias"])
+            millis += 4000
+            result =
+                {
+                    ModelCatalogResult.Listed(
+                        listOf("alias"),
+                        mapOf("alias" to setOf(com.helix.provider.api.ModelPurpose.CHAT)),
+                    )
+                }
+            discovery.refresh(true)
+            assertEquals(setOf(com.helix.provider.api.ModelPurpose.CHAT), discovery.current().purposes["alias"])
+        }
+
     @Test fun signedOutNeverFetchesOrReadsRetiredDirectory() =
         runBlocking {
             val signedOut = BuiltInModelCatalogStore(backing)

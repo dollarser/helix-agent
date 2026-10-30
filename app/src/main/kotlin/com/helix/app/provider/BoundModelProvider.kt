@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.flow
 internal class BoundModelProvider(
     private val delegate: ModelProvider,
     private val model: String,
+    private val conversationAllowed: suspend () -> Boolean = { true },
     private val accountCurrent: suspend () -> Boolean,
 ) : ModelProvider by delegate {
     init {
@@ -23,6 +24,7 @@ internal class BoundModelProvider(
             when {
                 request.model != model -> emit(ModelEvent.Error(ModelErrorCode.PROTOCOL, false))
                 !accountCurrent() -> emit(ModelEvent.Error(ModelErrorCode.AUTH, false))
+                !conversationAllowed() -> emit(ModelEvent.Error(ModelErrorCode.PROTOCOL, false))
                 else -> emitAll(delegate.stream(request))
             }
         }

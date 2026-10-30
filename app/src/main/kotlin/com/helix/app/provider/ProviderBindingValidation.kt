@@ -50,6 +50,10 @@ internal class ProviderBindingValidation(
                 ProviderBindingIssue.MODEL_MISSING
             }
 
+            prohibited(id, model, identity) -> {
+                ProviderBindingIssue.MODEL_NOT_CHAT
+            }
+
             BuiltInModel.owns(id) -> {
                 builtInBindingIssue(tests.builtInCatalog.accountAvailable(), tests.builtInCatalog.read(), model, now())
             }
@@ -76,4 +80,32 @@ internal class ProviderBindingValidation(
                 )
             }
         }
+
+    private fun prohibited(
+        id: String,
+        model: String,
+        identity: String?,
+    ): Boolean {
+        val purposes =
+            when {
+                BuiltInModel.owns(id) -> {
+                    tests.builtInCatalog
+                        .read()
+                        .purposes[model]
+                        .orEmpty()
+                }
+
+                identity != null -> {
+                    tests.modelMetadata
+                        .read(id, identity)[model]
+                        ?.purposes
+                        .orEmpty()
+                }
+
+                else -> {
+                    rows().find { it.id == id }?.purposesFor(model).orEmpty()
+                }
+            }
+        return purposes.isNotEmpty() && com.helix.provider.api.ModelPurpose.CHAT !in purposes
+    }
 }
