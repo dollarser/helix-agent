@@ -24,11 +24,12 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import java.time.Instant
 
-/** No App, Room, Android runtime, HTTP transport or credentials are on this fixture's classpath. */
-internal class HeadlessLoopFixture(
+/** No App, Room or Android runtime is used; this fixture makes no HTTP requests and holds no credentials. */
+class HeadlessLoopFixture(
+    turnId: String = "turn",
     private val modelEvents: (Int) -> List<ModelEvent>,
 ) {
-    val journal = HeadlessTurnJournal()
+    val journal = HeadlessTurnJournal(turnId)
     val requests = mutableListOf<ModelRequest>()
     val events = mutableListOf<AgentLoopEvent>()
     val dispatched = mutableListOf<ToolBatchRequest>()
@@ -41,6 +42,7 @@ internal class HeadlessLoopFixture(
     var stopProgress = false
     var failEvents = false
     var beforeTools: () -> Unit = {}
+    var dispatch: ((BufferedModelToolCall) -> ToolDispatchOutcome)? = null
     var modelCallCount = 0
     var tokenCount = 0L
     var restored: LoopUsageSnapshot? = null
@@ -48,7 +50,7 @@ internal class HeadlessLoopFixture(
     private var ids = 0
     private val settings = ProviderContextSettings()
     private val summaries = ContextSummaryFormat("Summarize.", "Preserve facts.")
-    private val tools = listOf(ModelToolSchema(ToolName("read"), "Read a fixture value", "{\"type\":\"object\"}"))
+    var tools = listOf(ModelToolSchema(ToolName("read"), "Read a fixture value", "{\"type\":\"object\"}"))
 
     private fun context() = TurnContextRequest("fixture", journal.history.toList(), tools, 512, ReasoningEffort.OFF)
 
@@ -169,7 +171,11 @@ internal class HeadlessLoopFixture(
                                     requiresReview = true,
                                 )
                             } else {
-                                ToolDispatchOutcome.Succeeded(BoundToolResult("7", Sha256("a".repeat(64)), false, 1))
+                                dispatch?.invoke(
+                                    call,
+                                ) ?: ToolDispatchOutcome.Succeeded(
+                                    BoundToolResult("7", Sha256("a".repeat(64)), false, 1),
+                                )
                             }
                         observer.settled(call.callId, unknown)
                         SettledCall(call.callId, call.name, outcome)
@@ -200,7 +206,11 @@ internal class HeadlessLoopFixture(
                     buildJsonObject {
                         put("id", settled.callId)
                         put("name", settled.toolName)
-                        put("value", "7")
+                        put(
+                            "value",
+                            (settled.outcome as? ToolDispatchOutcome.Succeeded)?.result?.payload
+                                ?: settled.outcome.toString(),
+                        )
                     }.toString(),
                 )
 

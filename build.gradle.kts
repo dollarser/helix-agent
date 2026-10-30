@@ -585,6 +585,12 @@ subprojects {
             // its classpath. Same pinned catalog artifact (1.10.2); no new version.
             if (path == ":core:agent") {
                 dependencies.add("api", coroutinesCoreDependency.get())
+                pluginManager.apply("java-test-fixtures")
+                listOf(":core:model", ":provider:api", ":core:workspace").forEach {
+                    dependencies.add("testFixturesApi", project(it))
+                }
+                dependencies.add("testFixturesApi", coroutinesCoreDependency.get())
+                dependencies.add("testFixturesImplementation", kotlinxSerializationJsonDependency.get())
             }
 
             // The provider adapters (HXA-022 Responses, HXA-023 Chat Completions,

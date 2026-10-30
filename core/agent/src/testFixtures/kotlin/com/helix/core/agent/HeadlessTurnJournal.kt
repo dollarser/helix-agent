@@ -10,9 +10,11 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
-/** In-memory contract fixture only; actual Room atomicity is tested by TurnCommitStoreDeviceTest. */
-internal class HeadlessTurnJournal : AgentTurnJournal {
-    override val id = "turn"
+/** In-memory full journal interface; actual Room atomicity is tested by TurnCommitStoreDeviceTest. */
+@Suppress("TooManyFunctions")
+class HeadlessTurnJournal(
+    override val id: String = "turn",
+) : AgentTurnJournal {
     val runtime = BatchTurnRuntime("model-1")
     val history = mutableListOf(ModelMessage(ModelRole.USER, "Read the two fixture values and report the result."))
     val log = mutableListOf<String>()

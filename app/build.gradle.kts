@@ -200,6 +200,7 @@ dependencies {
     // workspace repo. Pure JVM; works in both flavors with no PRoot runtime required.
 
     testImplementation(libs.junit4)
+    testImplementation(testFixtures(project(":core:agent")))
     // Reuse the locked transport in deterministic OAuth interceptor tests; not a production dependency.
     testImplementation(libs.okhttp.wire)
     testImplementation(libs.mockwebserver)
