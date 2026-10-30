@@ -62,7 +62,7 @@ internal object SessionTools {
                     }
 
                     "session.read" -> {
-                        SessionToolHistory.read(repository, caller, call)
+                        SessionToolHistory.read(repository, caller, call) { checkActive(call) }
                     }
 
                     "session.rename" -> {
@@ -78,17 +78,31 @@ internal object SessionTools {
             ToolExecutorResult.Completed(output)
         } catch (_: SessionReadStopped) {
             if (call.cancel.isCancelled()) ToolExecutorResult.Cancelled else ToolExecutorResult.TimedOut
-        } catch (_: IllegalArgumentException) {
-            ToolExecutorResult.Failed(
-                "SESSION_DATA_UNAVAILABLE: content is inaccessible, changed, invalid or too large. Rediscover first.",
-                sideEffectFree = true,
-            )
+        } catch (invalid: IllegalArgumentException) {
+            invalidContent(invalid)
         } catch (_: IOException) {
             ToolExecutorResult.Failed(
                 "SESSION_CONTENT_UNAVAILABLE: saved content could not be read.",
                 sideEffectFree = true,
             )
         }
+    }
+
+    private fun invalidContent(invalid: IllegalArgumentException): ToolExecutorResult.Failed {
+        val codes =
+            setOf(
+                "REFERENCE_SOURCE_CHANGED",
+                "REFERENCE_SOURCE_UNAVAILABLE",
+                "REFERENCE_CONTENT_BLOCKED",
+                "REFERENCE_IDENTITY_CHANGED",
+                "REFERENCE_NOT_USER_SHARED",
+            )
+        val code = invalid.message?.takeIf { it in codes } ?: "SESSION_DATA_UNAVAILABLE"
+        return ToolExecutorResult.Failed(
+            "$code: content is inaccessible, changed, unshared, blocked or too large. " +
+                "Reselect changed references; never substitute a different source.",
+            sideEffectFree = true,
+        )
     }
 
     private fun rename(

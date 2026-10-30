@@ -59,3 +59,19 @@ AndroidTest compilation and source-provenance checks use the explicit commands i
 new copies of dated host wrappers. Current callers must use maintained paths;
 original historical commands are recoverable through the
 [curation inventory](debug/archive/2026-10-15-script-curation.json).
+
+## Offline development reference reset
+
+`python3 scripts/maintenance/prepare-reference-reset.py --database BACKUP_DB
+--composer-input BACKUP_COMPOSER_DIR` audits a complete stopped-app backup, printing
+counts only. It neither connects to a device nor changes the backup. Sidecars,
+unknown formats and unsettled Turns must be resolved before preparing a reset.
+
+Adding `--output-database NEW_DB --output-composer-input NEW_DIR
+--acknowledge-reference-reset` creates separate review copies: old SUMMARY and
+RECENT_MESSAGES quote bindings and draft selections are removed; queued inputs
+with those references require withdrawal and reselection before resending. Authored
+text, attachments, current HISTORY references and other settings remain. Content
+files are not erased. This is an external development maintenance operation, not
+an App compatibility reader; device backup/restore and any data loss require
+explicit task authorization. Never restore a partial output from a failed run.

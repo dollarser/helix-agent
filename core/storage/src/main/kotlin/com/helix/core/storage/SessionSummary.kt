@@ -6,3 +6,9 @@ data class SessionSummary(
     val title: String,
     val archived: Boolean,
 )
+
+/** Picker metadata; message bodies remain in ContentStore. */
+data class ReferenceSessionSummary(
+    @androidx.room.Embedded val session: com.helix.core.storage.entity.SessionEntity,
+    val messageCount: Int,
+)

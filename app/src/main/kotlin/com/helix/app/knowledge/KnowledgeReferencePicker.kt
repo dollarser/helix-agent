@@ -192,7 +192,6 @@ fun KnowledgeReferencePicker(
                                             ?: service.select(
                                                 item.kind,
                                                 item.id,
-                                                if (item.characters > 1800) "EXCERPT" else "FULL",
                                             )
                                 } catch (cancel: CancellationException) {
                                     throw cancel
@@ -228,7 +227,6 @@ fun KnowledgeReferencePicker(
                                             service.select(
                                                 it.kind,
                                                 it.id,
-                                                if (it.characters > 1800) "EXCERPT" else "FULL",
                                             )
                                         }
                                 }
@@ -258,7 +256,7 @@ internal fun referenceKindLabel(kind: String): Int =
     }
 
 @Composable
-@Suppress("FunctionName", "LongMethod", "TooGenericExceptionCaught", "CyclomaticComplexMethod")
+@Suppress("FunctionName", "LongMethod", "TooGenericExceptionCaught")
 fun KnowledgeReferencePreview(
     reference: KnowledgeReference,
     service: KnowledgeReferenceService? = null,
@@ -266,98 +264,78 @@ fun KnowledgeReferencePreview(
     onDismiss: () -> Unit,
 ) {
     var state by remember(reference) { mutableStateOf(KnowledgeReferenceService.State.CURRENT) }
-    var failed by remember(reference) { mutableStateOf(false) }
+    var body by remember(reference) { mutableStateOf<String?>(null) }
+    var offset by remember(reference) { mutableStateOf(0) }
     val scope = rememberCoroutineScope()
-    LaunchedEffect(reference) {
+    val clipboard = androidx.compose.ui.platform.LocalClipboard.current
+    LaunchedEffect(reference, service) {
         if (service != null) {
             try {
                 state = service.state(reference)
+                body = service.preview(reference)
             } catch (
                 cancel: CancellationException,
             ) {
                 throw cancel
-            } catch (
-                _: Exception,
-            ) {
+            } catch (_: Exception) {
                 state = KnowledgeReferenceService.State.UNAVAILABLE
-                failed = true
             }
         }
     }
     ConversationSheet(reference.title, "knowledge-reference-preview", onDismiss) {
-        Text(
-            stringResource(
-                if (service == null) {
-                    R.string.knowledge_reference_history
-                } else {
-                    R.string.knowledge_reference_version
-                },
-            ),
-        )
-        Text(
-            stringResource(
-                if (reference.range == "FULL") {
-                    R.string.knowledge_reference_full
-                } else {
-                    R.string.knowledge_reference_excerpt
-                },
-                reference.text.length,
-            ),
-        )
-        if (reference.completeness != "USER_CONTENT" && reference.completeness != "READY") {
+        Text(stringResource(R.string.knowledge_reference_lazy, reference.characters))
+        if (reference.completeness !in setOf("USER_CONTENT", "READY")) {
             Text(stringResource(R.string.knowledge_reference_partial))
         }
-        if (state == KnowledgeReferenceService.State.UNAVAILABLE) {
-            Text(stringResource(R.string.knowledge_reference_unavailable))
-        }
-        if (failed) {
-            Text(stringResource(R.string.knowledge_reference_failed))
-        }
-        if (state == KnowledgeReferenceService.State.CHANGED && onChange != null && !reference.keepVersion) {
+        if (state != KnowledgeReferenceService.State.CURRENT) {
             Text(stringResource(R.string.knowledge_reference_changed))
-            TextButton(
-                onClick = { onChange(reference.copy(keepVersion = true)) },
-                modifier = Modifier.testTag("knowledge-reference-keep-version"),
-            ) {
-                Text(stringResource(R.string.knowledge_reference_keep))
-            }
-        }
-        if (onChange != null && service != null && state != KnowledgeReferenceService.State.UNAVAILABLE) {
-            Row {
-                for (range in listOf("FULL", "EXCERPT")) {
-                    TextButton(onClick = {
-                        scope.launch {
-                            try {
-                                onChange(service.select(reference.kind, reference.resourceId, range))
-                            } catch (
-                                cancel: CancellationException,
-                            ) {
-                                throw cancel
-                            } catch (_: Exception) {
-                                failed = true
-                            }
+            if (onChange != null && service != null) {
+                TextButton(onClick = {
+                    scope.launch {
+                        try {
+                            onChange(service.select(reference.kind, reference.resourceId))
+                        } catch (
+                            cancel: CancellationException,
+                        ) {
+                            throw cancel
+                        } catch (_: Exception) {
+                            state = KnowledgeReferenceService.State.UNAVAILABLE
                         }
-                    }) {
-                        Text(
-                            stringResource(
-                                if (range == "FULL") {
-                                    R.string.knowledge_reference_use_full
-                                } else {
-                                    R.string.knowledge_reference_use_excerpt
-                                },
-                            ),
-                        )
                     }
+                }, modifier = Modifier.testTag("knowledge-reference-refresh")) {
+                    Text(stringResource(R.string.knowledge_reference_refresh))
                 }
             }
         }
-        SelectionContainer {
-            LazyColumn(Modifier.fillMaxWidth().heightIn(max = 340.dp)) { item { Text(reference.text) } }
+        body?.let { content ->
+            val total = content.codePointCount(0, content.length)
+            val end = minOf(total, offset + 2048)
+            SelectionContainer {
+                Text(
+                    content.substring(
+                        content.offsetByCodePoints(0, offset),
+                        content.offsetByCodePoints(0, end),
+                    ),
+                )
+            }
+            Row {
+                TextButton(onClick = { offset = (offset - 2048).coerceAtLeast(0) }, enabled = offset > 0) {
+                    Text(stringResource(R.string.knowledge_reference_previous))
+                }
+                TextButton(onClick = { offset = end }, enabled = end < total) {
+                    Text(stringResource(R.string.knowledge_reference_next))
+                }
+                TextButton(onClick = {
+                    scope.launch {
+                        clipboard.setClipEntry(
+                            androidx.compose.ui.platform.ClipEntry(
+                                android.content.ClipData.newPlainText(reference.title, content),
+                            ),
+                        )
+                    }
+                }) { Text(stringResource(R.string.knowledge_reference_copy)) }
+            }
         }
-        Text(
-            stringResource(R.string.knowledge_reference_send_scope),
-            style = MaterialTheme.typography.bodySmall,
-        )
-        TextButton(onDismiss) { Text(stringResource(R.string.knowledge_close)) }
+        Text(stringResource(R.string.knowledge_reference_send_scope), style = MaterialTheme.typography.bodySmall)
     }
 }

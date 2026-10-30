@@ -100,6 +100,8 @@ class SessionBindProviderTest {
      * providerId IS NULL` row-count semantics (0 on missing or already-bound).
      */
     private class FakeSessionDao : SessionDao {
+        override fun referenceDirectory(): List<com.helix.core.storage.ReferenceSessionSummary> = error("not used")
+
         // Binding-only fixture has no active tools, so future-default admission must fail closed.
         override fun selectFutureModel(
             id: String,

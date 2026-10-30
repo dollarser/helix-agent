@@ -74,7 +74,7 @@ class KnowledgeNotesDeviceTest {
         }
 
     @Test
-    fun selectedVersionRequiresExplicitKeepAndDeletionCannotBeBypassed() =
+    fun selectedRevisionRequiresReselectionAndDeletionCannotBeBypassed() =
         fixture { library, store ->
             val id = createStoredTestNote(store, emptyList(), "Synthetic note")
             library.noteService.save(
@@ -83,7 +83,7 @@ class KnowledgeNotesDeviceTest {
                 "Original text",
                 false,
             )
-            val snapshot = library.references.select("NOTE", id, "FULL")
+            val snapshot = library.references.select("NOTE", id)
             assertTrue(library.references.valid(listOf(snapshot)))
             library.noteService.save(
                 requireNotNull(library.noteService.get(id)),
@@ -93,11 +93,12 @@ class KnowledgeNotesDeviceTest {
             )
             assertEquals(KnowledgeReferenceService.State.CHANGED, library.references.state(snapshot))
             assertFalse(library.references.valid(listOf(snapshot)))
-            assertTrue(library.references.valid(listOf(snapshot.copy(keepVersion = true))))
-            assertEquals("Original text", snapshot.text)
+            val replacement = library.references.select("NOTE", id)
+            assertTrue(library.references.valid(listOf(replacement)))
+            assertEquals(knowledgeHash("Original text"), snapshot.sourceHash)
             library.noteService.management.remove(requireNotNull(store.note(id)))
             assertEquals(KnowledgeReferenceService.State.UNAVAILABLE, library.references.state(snapshot))
-            assertFalse(library.references.valid(listOf(snapshot.copy(keepVersion = true))))
+            assertFalse(library.references.valid(listOf(replacement)))
         }
 
     @Test
@@ -119,7 +120,7 @@ class KnowledgeNotesDeviceTest {
             assertEquals("DRAFT", knowledge.state)
             assertEquals(original, store.note(id))
             val origin =
-                com.helix.core.storage.repository.KnowledgeReferences
+                com.helix.core.storage.repository.KnowledgeOrigins
                     .decode(knowledge.originReferencesJson)
                     .single()
             assertEquals(id, origin.resourceId)
@@ -134,7 +135,10 @@ class KnowledgeNotesDeviceTest {
             assertEquals(originalSources, knowledgeSources)
             library.noteService.save(requireNotNull(library.noteService.get(id)), "Changed", "Later text", false)
             assertEquals(knowledge, store.note(knowledgeId))
-            assertEquals("Edited conclusion", library.references.select("KNOWLEDGE", knowledgeId, "FULL").text)
+            assertEquals(
+                knowledgeHash("Edited conclusion"),
+                library.references.select("KNOWLEDGE", knowledgeId).sourceHash,
+            )
         }
 
     @Test

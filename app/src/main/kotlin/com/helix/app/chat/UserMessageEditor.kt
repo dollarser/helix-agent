@@ -37,6 +37,10 @@ internal class UserMessageEditor(
             com.helix.core.storage.repository.KnowledgeReferences.authoredPrefix(
                 AttachmentContext.authoredPrefix(body, count),
                 references,
+                storage.sessionInputs
+                    .forMessage(messageId)
+                    ?.inputId
+                    .orEmpty(),
             )
         return MessageEditSnapshot(sessionId, messageId, row.contentRef, prefix)
     }

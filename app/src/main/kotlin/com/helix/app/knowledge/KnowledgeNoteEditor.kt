@@ -225,7 +225,6 @@ internal fun KnowledgeNoteEditor(
                     requireNotNull(referenceService).select(
                         note.kind,
                         note.id,
-                        if (note.body.length > 1800) "EXCERPT" else "FULL",
                     )
                 if (onReference?.invoke(listOf(selected)) != true) failed = true
             } catch (cancel: CancellationException) {
@@ -294,10 +293,10 @@ internal fun KnowledgeNoteEditor(
             },
         ) {
             val origins =
-                com.helix.core.storage.repository.KnowledgeReferences
+                com.helix.core.storage.repository.KnowledgeOrigins
                     .decode(note.originReferencesJson)
             if (note.originMessageId.isNotBlank()) Text(stringResource(R.string.knowledge_reply_provenance))
-            if (origins.isNotEmpty()) KnowledgeReferenceChips(origins)
+            if (origins.isNotEmpty()) KnowledgeOriginChips(origins)
             sources.forEach { source ->
                 Text(source.title, style = androidx.compose.material3.MaterialTheme.typography.titleSmall)
                 SelectionContainer { Text(source.excerpt) }

@@ -30,9 +30,19 @@ class TurnSubmitDedupTest {
         ConversationReferenceSnapshotInput(
             sourceSessionId = "source",
             sourceSessionTitle = "Source",
-            selectionKind = ConversationReferenceKind.RECENT_MESSAGES,
+            selectionKind = ConversationReferenceKind.HISTORY,
             sourceMessageIds = listOf("m1"),
-            content = content,
+            content =
+                com.helix.core.storage.repository
+                    .ConversationReferenceManifest(
+                        1,
+                        java.security.MessageDigest
+                            .getInstance("SHA-256")
+                            .digest(content.toByteArray())
+                            .joinToString("") { "%02x".format(it) },
+                        1,
+                        content.length.toLong(),
+                    ).encode(),
         )
 
     private fun turn(

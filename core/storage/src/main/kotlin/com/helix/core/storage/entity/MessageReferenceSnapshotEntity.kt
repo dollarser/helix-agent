@@ -6,8 +6,8 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 
 /**
- * Immutable content snapshot attached to the submitted USER message. sourceSessionId is provenance
- * metadata only: deliberately no FK/live relationship exists to the source Session.
+ * Immutable read manifest attached to an explicitly shared USER input. The owned binding and hash
+ * authorize only the selected fixed revision. Source deletion leaves metadata, not a readable transcript.
  */
 @Entity(
     tableName = "message_reference_snapshots",

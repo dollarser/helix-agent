@@ -447,9 +447,12 @@ fun ChatScreen(
         )
     }
     val input = buffer.value.text
+    val referenceSessions by chatService.sessions.collectAsStateWithLifecycle()
+    val referenceUntitled = stringResource(R.string.reference_untitled)
     val referenceLabel =
         buffer.value.referenceSourceSessionId?.let { referenceSessionId ->
-            screen.sessions.firstOrNull { it.id == referenceSessionId }?.title ?: referenceSessionId
+            referenceSessions.firstOrNull { it.id == referenceSessionId }?.title?.ifBlank { referenceUntitled }
+                ?: referenceUntitled
         }
     val navigationLifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
     val navigateAfterSave: (() -> Unit) -> Unit = { navigate ->
@@ -485,6 +488,7 @@ fun ChatScreen(
                 referenceLabel = referenceLabel,
                 expertName = selectedExpertName,
                 pluginNames = selectedPluginNames,
+                onSelectedPlugins = { connectorsOpen = true },
                 hasKnowledgeReferences = buffer.value.knowledgeReferences.isNotEmpty(),
                 knowledgeReferenceContent = {
                     com.helix.app.knowledge.KnowledgeReferenceChips(
@@ -588,12 +592,6 @@ fun ChatScreen(
                     )
                 },
                 composerFeedback = {
-                    if (selectedPluginNames.isNotEmpty()) {
-                        TextButton(
-                            onClick = { connectorsOpen = true },
-                            modifier = Modifier.testTag("composer-plugins-chip"),
-                        ) { Text(stringResource(R.string.composer_plugins, selectedPluginNames.joinToString())) }
-                    }
                     if (pluginLoadFailed) Text(stringResource(R.string.plugin_selection_load_failed))
                     selectedExpertName?.let { name ->
                         TextButton(

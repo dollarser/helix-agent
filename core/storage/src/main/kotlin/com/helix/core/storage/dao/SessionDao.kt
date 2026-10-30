@@ -26,6 +26,15 @@ interface SessionDao {
     @Query("SELECT * FROM sessions ORDER BY lastActivityAt DESC, id ASC")
     fun list(): List<SessionEntity>
 
+    @Query(
+        "SELECT s.*, COUNT(m.id) AS messageCount FROM sessions s LEFT JOIN messages m " +
+            "ON m.sessionId = s.id AND m.supersededBy IS NULL AND m.kind = 'TEXT' " +
+            "AND m.role IN ('USER','ASSISTANT') AND m.contentRef IS NOT NULL " +
+            "AND m.contentRef NOT LIKE '%\"size\":0,%' " +
+            "GROUP BY s.id ORDER BY s.lastActivityAt DESC, s.id ASC",
+    )
+    fun referenceDirectory(): List<com.helix.core.storage.ReferenceSessionSummary>
+
     @Query("SELECT id, title, archivedAt IS NOT NULL AS archived FROM sessions ORDER BY lastActivityAt DESC, id ASC")
     fun observeSummaries(): Flow<List<SessionSummary>>
 

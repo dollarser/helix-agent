@@ -9,6 +9,9 @@ import com.helix.core.storage.entity.SessionEntity
 /** Queries for the caller's effective conversation, never a global transcript inventory. */
 @Dao
 interface SessionHistoryDao {
+    @Query("SELECT * FROM sessions WHERE id = :sessionId")
+    fun sourceSession(sessionId: String): SessionEntity?
+
     @Query(
         "SELECT s.* FROM sessions s JOIN turns t ON t.sessionId = s.id " +
             "JOIN tool_calls c ON c.turnId = t.id WHERE s.id = :sessionId AND t.id = :turnId " +
@@ -44,6 +47,19 @@ interface SessionHistoryDao {
 
     @Query("SELECT * FROM message_reference_snapshots WHERE messageId = :messageId ORDER BY ordinal")
     fun references(messageId: String): List<MessageReferenceSnapshotEntity>
+
+    @Query(
+        "SELECT EXISTS(SELECT 1 FROM session_inputs i JOIN messages m ON m.id = i.messageId " +
+            "WHERE i.sessionId = :sessionId AND i.state = 'APPENDED' AND m.sessionId = :sessionId " +
+            "AND m.role = 'USER' AND m.supersededBy IS NULL AND i.knowledgeReferencesJson != '[]')",
+    )
+    fun hasKnowledgeReferences(sessionId: String): Boolean
+
+    @Query(
+        "SELECT EXISTS(SELECT 1 FROM message_reference_snapshots r JOIN messages m ON m.id = r.messageId " +
+            "WHERE m.sessionId = :sessionId AND m.role = 'USER' AND m.supersededBy IS NULL)",
+    )
+    fun hasConversationReferences(sessionId: String): Boolean
 
     /** The CAS changes only the title, preserving workspace/configuration and concurrent user edits. */
     @Query(

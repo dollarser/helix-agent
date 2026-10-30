@@ -361,7 +361,15 @@ private fun visibleContent(
     val original = content.orEmpty()
     val prefix = AttachmentContext.authoredPrefix(original, storage.messageAttachments.listByMessage(messageId).size)
     return com.helix.core.storage.repository.KnowledgeReferences
-        .authoredPrefix(prefix, references) + original.substring(prefix.length)
+        .authoredPrefix(
+            prefix,
+            references,
+            storage.sessionInputs
+                .forMessage(messageId)
+                ?.inputId
+                .orEmpty(),
+        ) +
+        original.substring(prefix.length)
 }
 
 private fun persistedStateLabelRes(state: String): Int =

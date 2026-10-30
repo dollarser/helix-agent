@@ -21,7 +21,7 @@ internal fun knowledgeMarkdown(
         }
         appendLine()
         appendLine("## Frozen references")
-        com.helix.core.storage.repository.KnowledgeReferences.decode(note.originReferencesJson).forEach { origin ->
+        com.helix.core.storage.repository.KnowledgeOrigins.decode(note.originReferencesJson).forEach { origin ->
             appendLine()
             appendLine("### ${origin.title.replace('\n', ' ')}")
             appendLine("Resource: ${origin.kind}:${origin.resourceId}")

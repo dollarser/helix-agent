@@ -16,11 +16,14 @@ data class SessionRowUi(
     val model: String?,
     val directoryRef: String? = null,
     val providerId: String? = null,
+    val lastActivityAt: Long = createdAt,
+    val referenceMessageCount: Int? = null,
 ) {
     companion object {
         fun from(
             entity: SessionEntity,
             providerName: String?,
+            referenceMessageCount: Int? = null,
         ): SessionRowUi =
             SessionRowUi(
                 id = entity.id,
@@ -31,6 +34,8 @@ data class SessionRowUi(
                 model = entity.modelId,
                 directoryRef = entity.directoryRef,
                 providerId = entity.providerId,
+                lastActivityAt = entity.lastActivityAt,
+                referenceMessageCount = referenceMessageCount,
             )
     }
 }

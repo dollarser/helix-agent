@@ -60,6 +60,7 @@ internal fun ConversationComposer(
     referenceLabel: String? = null,
     expertName: String? = null,
     pluginNames: List<String> = emptyList(),
+    onSelectedPlugins: () -> Unit = actions.onConnectors,
     onRemoveReference: () -> Unit = {},
     goalMode: Boolean = false,
     mode: AgentMode = if (goalMode) AgentMode.GOAL else AgentMode.ACT,
@@ -73,7 +74,7 @@ internal fun ConversationComposer(
     contextUsage: ChatContextUsage = ChatContextUsage(),
     onCompact: () -> Unit = {},
     canCompact: Boolean = false,
-    headerStatus: @Composable () -> Unit = {},
+    headerStatus: (@Composable () -> Unit)? = null,
     optionsContent: @Composable () -> Unit = {},
     attachmentsContent: @Composable () -> Unit = {},
     voiceActive: Boolean = false,
@@ -131,8 +132,10 @@ internal fun ConversationComposer(
                 },
             )
         }
-        ComposerToolbar(
+        ComposerHeader(
             mode = mode,
+            pluginNames = pluginNames,
+            onPlugins = onSelectedPlugins,
             permissionContent = {
                 ComposerPermissionMenu(permissionMode, permissionPending, onSelect = { selected ->
                     if (!permissionPending) {

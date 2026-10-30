@@ -35,8 +35,7 @@ class ConversationDraftBufferTest {
                     "note-a",
                     "Synthetic",
                     "a".repeat(64),
-                    "FULL",
-                    "Selected text",
+                    20,
                 )
             val newer =
                 buffer.value.copy(
@@ -59,8 +58,7 @@ class ConversationDraftBufferTest {
                     "note-a",
                     "合成笔记",
                     "a".repeat(64),
-                    "FULL",
-                    "original snapshot",
+                    20,
                 )
             buffer.knowledgeReferences(listOf(item))
             val scope =
@@ -72,16 +70,16 @@ class ConversationDraftBufferTest {
             assertEquals(listOf(item), restored.value.knowledgeReferences)
             assertEquals("Unsent question", restored.value.text)
             val clicked = restored.captureSubmission()
-            restored.knowledgeReferences(listOf(item.copy(text = "next snapshot")))
+            restored.knowledgeReferences(listOf(item.copy(sourceHash = "b".repeat(64))))
             val receipt = ChatSubmissionReceipt(clicked, ChatSubmissionOutcome.Accepted("turn"))
             restored.accepted(receipt, { true }, { null })
             assertEquals(
-                "next snapshot",
+                "b".repeat(64),
                 restored.value.knowledgeReferences
                     .single()
-                    .text,
+                    .sourceHash,
             )
-            assertEquals("original snapshot", clicked.knowledgeReferences.single().text)
+            assertEquals("a".repeat(64), clicked.knowledgeReferences.single().sourceHash)
             restored.knowledgeReferences(emptyList())
             assertEquals("Unsent question", restored.value.text)
             assertTrue(restored.value.knowledgeReferences.isEmpty())

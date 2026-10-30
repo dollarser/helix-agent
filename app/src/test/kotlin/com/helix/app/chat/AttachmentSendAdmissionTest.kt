@@ -24,15 +24,14 @@ import org.junit.Test
  * attachment projection the caller binds to the turn.
  */
 class AttachmentSendAdmissionTest {
-    @Test fun knowledgeOnlySendRequiresConfirmationAndScansTheActualSelectedText() {
+    @Test fun knowledgeMetadataRequiresConfirmationAndScansTitles() {
         val reference =
             com.helix.core.storage.repository.KnowledgeReference(
                 "NOTE",
                 "synthetic",
                 "Synthetic note",
                 "a".repeat(64),
-                "FULL",
-                "Safe text",
+                20,
             )
 
         fun admission(text: String) =
@@ -41,7 +40,7 @@ class AttachmentSendAdmissionTest {
                 "",
                 target,
                 strings,
-                knowledge = listOf(reference.copy(text = text)),
+                knowledge = listOf(reference.copy(title = text)),
             ) as AttachmentSendAdmission.Outcome.Egress
         assertTrue(admission("Safe text").decision is EgressDisclosure.Decision.Confirm)
         assertTrue(admission("key is sk-abcdefghijklmnopq").decision is EgressDisclosure.Decision.Rejected)
@@ -122,9 +121,16 @@ class AttachmentSendAdmissionTest {
             ConversationReferenceSnapshotInput(
                 sourceSessionId = "source",
                 sourceSessionTitle = "Source",
-                selectionKind = ConversationReferenceKind.RECENT_MESSAGES,
+                selectionKind = ConversationReferenceKind.HISTORY,
                 sourceMessageIds = listOf("message"),
-                content = "quoted context",
+                content =
+                    com.helix.core.storage.repository
+                        .ConversationReferenceManifest(
+                            1,
+                            "a".repeat(64),
+                            1,
+                            42,
+                        ).encode(),
             )
         val outcome =
             AttachmentSendAdmission.admit(
@@ -144,14 +150,21 @@ class AttachmentSendAdmissionTest {
     }
 
     @Test
-    fun aCredentialInsideFrozenConversationReferenceIsRejected() {
+    fun aCredentialInsideReferenceMetadataIsRejected() {
         val reference =
             ConversationReferenceSnapshotInput(
                 sourceSessionId = "source",
-                sourceSessionTitle = "Source",
-                selectionKind = ConversationReferenceKind.RECENT_MESSAGES,
+                sourceSessionTitle = "key is sk-abcdefghijklmnopq",
+                selectionKind = ConversationReferenceKind.HISTORY,
                 sourceMessageIds = listOf("message"),
-                content = "key is sk-abcdefghijklmnopq",
+                content =
+                    com.helix.core.storage.repository
+                        .ConversationReferenceManifest(
+                            1,
+                            "a".repeat(64),
+                            1,
+                            42,
+                        ).encode(),
             )
         val outcome =
             AttachmentSendAdmission.admit(

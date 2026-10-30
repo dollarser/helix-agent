@@ -323,7 +323,9 @@ internal class ChatRequestAssembler(
         control: RunControlConfig,
         recoveryOnly: Boolean = false,
     ): List<ModelToolSchema> {
-        val preferred = toolPipeline.plugins?.preferredTools(sessionId).orEmpty()
+        val preferred =
+            toolPipeline.plugins?.preferredTools(sessionId).orEmpty() +
+                storage.sessionHistory.referenceToolNames(sessionId)
         val bindings = toolPipeline.registry.snapshot()
         val latest =
             bindings.map { it.descriptor }.groupBy { it.name }.values.map { versions ->

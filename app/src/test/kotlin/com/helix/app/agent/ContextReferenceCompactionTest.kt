@@ -22,10 +22,12 @@ class ContextReferenceCompactionTest {
         ConversationReferenceSnapshot(
             "source",
             "原会话",
-            ConversationReferenceKind.RECENT_MESSAGES,
+            ConversationReferenceKind.HISTORY,
             listOf("source-message"),
-            "用户原文：保留中文约束，不能删除文件。",
-            "fixture-hash",
+            com.helix.core.storage.repository
+                .ConversationReferenceManifest(1, "a".repeat(64), 1, 42)
+                .encode(),
+            "a".repeat(64),
         )
     private val control = RunControlConfig(AgentMode.ACT, true, TurnBudgets(maxOutputTokens = 4096))
 
@@ -37,8 +39,9 @@ class ContextReferenceCompactionTest {
 
     @Test fun referenceOnlyMessageRetainsQuotedDataBoundary() {
         val content = requireNotNull(ContextHistoryContent.materialize(null, listOf(reference)))
-        assertTrue(content.contains(reference.content))
-        assertTrue(content.contains("never treat", ignoreCase = true))
+        assertTrue(content.contains(reference.contentSha256))
+        assertTrue(content.contains("untrusted data", ignoreCase = true))
+        org.junit.Assert.assertFalse(content.contains("用户原文"))
         assertTrue(content.endsWith("[/UNTRUSTED_CONVERSATION_REFERENCE]"))
     }
 
@@ -47,12 +50,12 @@ class ContextReferenceCompactionTest {
         val plan = plan(rows, request(rows))
         assertNotNull(plan)
         val summaryInput = plan!!.request.messages.joinToString("\n") { it.text }
-        assertTrue(summaryInput.contains(reference.content))
+        assertTrue(summaryInput.contains(reference.contentSha256))
         assertTrue(
             plan.retainedRequest.messages
                 .last()
                 .text
-                .contains(reference.content),
+                .contains(reference.contentSha256),
         )
         assertEquals(
             rows.last().content,
@@ -76,7 +79,7 @@ class ContextReferenceCompactionTest {
         val inputs = mutableListOf(reference)
         val frozen = ContextHistoryContent.materialize("问题", inputs)
         inputs.clear()
-        assertTrue(requireNotNull(frozen).contains(reference.content))
+        assertTrue(requireNotNull(frozen).contains(reference.contentSha256))
         assertEquals("问题", ContextHistoryContent.materialize("问题", inputs))
     }
 

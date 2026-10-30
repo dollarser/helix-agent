@@ -76,7 +76,7 @@ class KnowledgeNoteService(
                 val id = UUID.randomUUID().toString()
                 val now = System.currentTimeMillis()
                 val origin =
-                    com.helix.core.storage.repository.KnowledgeReference(
+                    com.helix.core.storage.repository.KnowledgeOrigin(
                         source.kind,
                         source.id,
                         source.title,
@@ -93,7 +93,7 @@ class KnowledgeNoteService(
                         now,
                         kind = "KNOWLEDGE",
                         originReferencesJson =
-                            com.helix.core.storage.repository.KnowledgeReferences
+                            com.helix.core.storage.repository.KnowledgeOrigins
                                 .encode(listOf(origin)),
                     )
                 store.saveNote(note, store.noteSources(source.id).map { it.copy(noteId = id) })
@@ -159,8 +159,8 @@ class KnowledgeNoteService(
                             now,
                             now,
                             originReferencesJson =
-                                com.helix.core.storage.repository.KnowledgeReferences
-                                    .encode(references),
+                                com.helix.core.storage.repository.KnowledgeOrigins
+                                    .encode(references.map { KnowledgeReferenceService(store).freeze(it) }),
                             originSessionId = sessionId,
                             originMessageId = messageId,
                             originContentHash = hash,

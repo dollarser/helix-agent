@@ -337,7 +337,7 @@ class KnowledgeUiDeviceTest {
                         requireNotNull(draft.get()),
                     ).single()
             assertEquals(source.id, selected.resourceId)
-            assertEquals(source.rawText, selected.text)
+            assertEquals(knowledgeHash(source.extracted.ifBlank { source.rawText }), selected.sourceHash)
             assertTrue(runBlocking { store.notes.first().isEmpty() })
         }
 

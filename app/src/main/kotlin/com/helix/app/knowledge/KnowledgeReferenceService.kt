@@ -33,14 +33,22 @@ class KnowledgeReferenceService(
         withContext(Dispatchers.IO) {
             val notes = if (query.isBlank()) store.notes.first() else store.searchNotes(query)
             val sources = if (query.isBlank()) store.items.first() else store.search(query)
-            notes.map { Candidate(it.kind, it.id, it.title, it.body.length, it.body.isNotBlank()) } +
+            notes.map {
+                Candidate(
+                    it.kind,
+                    it.id,
+                    it.title,
+                    it.body.codePointCount(0, it.body.length),
+                    it.body.isNotBlank(),
+                )
+            } +
                 sources.map { source ->
                     val text = source.extracted.ifBlank { source.rawText }
                     Candidate(
                         "SOURCE",
                         source.id,
                         source.title,
-                        text.length,
+                        text.codePointCount(0, text.length),
                         source.state != "DELETING" && text.isNotBlank(),
                     )
                 }
@@ -49,49 +57,55 @@ class KnowledgeReferenceService(
     suspend fun select(
         kind: String,
         id: String,
-        range: String? = null,
     ): KnowledgeReference =
         withContext(Dispatchers.IO) {
             val document = document(kind, id) ?: error("KNOWLEDGE_REFERENCE_UNAVAILABLE")
-            val title = document.title
-            val text = document.text
-            val actualRange = range ?: if (text.length > 1800) "EXCERPT" else "FULL"
-            val selected =
-                when (actualRange) {
-                    "FULL" -> text
-                    "EXCERPT" -> text.take(1800)
-                    else -> error("KNOWLEDGE_REFERENCE_RANGE")
-                }
             KnowledgeReference(
                 kind,
                 id,
-                title.take(160),
-                knowledgeHash(text),
-                actualRange,
-                selected,
-                completeness = document.completeness,
+                document.title.take(160),
+                knowledgeHash(document.text),
+                document.text.codePointCount(0, document.text.length),
+                document.completeness,
             )
         }
 
     suspend fun state(reference: KnowledgeReference): State =
         withContext(Dispatchers.IO) {
-            val current =
-                document(reference.kind, reference.resourceId)
-                    ?: return@withContext State.UNAVAILABLE
-            if (knowledgeHash(current.text) != reference.sourceHash) return@withContext State.CHANGED
-            val selected = if (reference.range == "FULL") current.text else current.text.take(1800)
-            if (selected == reference.text) State.CURRENT else State.UNAVAILABLE
+            val current = document(reference.kind, reference.resourceId) ?: return@withContext State.UNAVAILABLE
+            if (knowledgeHash(current.text) == reference.sourceHash && current.completeness == reference.completeness) {
+                State.CURRENT
+            } else {
+                State.CHANGED
+            }
         }
 
     suspend fun valid(items: List<KnowledgeReference>): Boolean {
         KnowledgeReferences.encode(items)
-        return items.all { item ->
-            when (state(item)) {
-                State.CURRENT -> true
-                State.CHANGED -> item.keepVersion
-                State.UNAVAILABLE -> false
-            }
+        return items.all { state(it) == State.CURRENT }
+    }
+
+    /** Local preview/copy is distinct from model input; a changed source is never substituted. */
+    suspend fun preview(reference: KnowledgeReference): String? =
+        withContext(Dispatchers.IO) {
+            document(reference.kind, reference.resourceId)
+                ?.takeIf {
+                    knowledgeHash(it.text) == reference.sourceHash && it.completeness == reference.completeness
+                }?.text
         }
+
+    /** Explicit save-as-note keeps a bounded provenance excerpt independently of lazy chat references. */
+    suspend fun freeze(reference: KnowledgeReference): com.helix.core.storage.repository.KnowledgeOrigin {
+        val text = preview(reference)
+        return com.helix.core.storage.repository.KnowledgeOrigin(
+            reference.kind,
+            reference.resourceId,
+            reference.title,
+            reference.sourceHash,
+            if (text == null) "METADATA" else "EXCERPT",
+            text?.take(1800).orEmpty(),
+            completeness = reference.completeness,
+        )
     }
 
     private data class Document(

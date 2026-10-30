@@ -323,17 +323,9 @@ fun KnowledgeScreen(
                                 if (chosen.isNotEmpty()) {
                                     val references =
                                         chosen.map { source ->
-                                            val text = source.extracted.ifBlank { source.rawText }
                                             service.references.select(
                                                 "SOURCE",
                                                 source.id,
-                                                if (text.length >
-                                                    1800
-                                                ) {
-                                                    "EXCERPT"
-                                                } else {
-                                                    "FULL"
-                                                },
                                             )
                                         }
                                     if (!onReference(references)) failed = true
@@ -386,8 +378,7 @@ private fun KnowledgeDetail(
 
     suspend fun referenceSource() {
         try {
-            val text = item.extracted.ifBlank { item.rawText }
-            val reference = service.references.select("SOURCE", item.id, if (text.length > 1800) "EXCERPT" else "FULL")
+            val reference = service.references.select("SOURCE", item.id)
             if (!onReference(listOf(reference))) openFailed = true
         } catch (
             cancel: kotlinx.coroutines.CancellationException,

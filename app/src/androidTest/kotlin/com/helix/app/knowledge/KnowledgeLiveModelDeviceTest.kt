@@ -31,7 +31,7 @@ import java.io.File
 import java.io.IOException
 import java.util.UUID
 
-/** Opt-in, synthetic-only real account conversation; two generation requests maximum. */
+/** Opt-in synthetic-only real account acceptance with a bounded generation budget. */
 class KnowledgeLiveModelDeviceTest {
     @Test
     fun liveSyntheticConversationReferencesAndSave(): Unit =
@@ -41,7 +41,11 @@ class KnowledgeLiveModelDeviceTest {
             org.junit.Assume.assumeTrue("Explicit real-model opt-in is absent", flag != null)
             require(flag == "true")
             val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as HelixApplication
-            require(app.packageName.endsWith(".asrvalidation"))
+            val existingAccount = args.getString("helix.existingAccount") == "true"
+            require(
+                app.packageName.endsWith(".asrvalidation") ||
+                    (existingAccount && app.packageName == "com.helix.agent.developer"),
+            )
             val providers = app.awaitAppContainer().providerService
             val factory =
                 providers.javaClass
@@ -52,7 +56,12 @@ class KnowledgeLiveModelDeviceTest {
             val original = field.get(factory) as WireClient
             require(original is com.helix.app.account.BuiltInAccountWire)
             try {
-                login(app, args.getString("accountCredentialBridge"))
+                if (existingAccount) {
+                    app.account.restore()
+                    check(app.account.signedIn.value) { "Existing account is not signed in" }
+                } else {
+                    login(app, args.getString("accountCredentialBridge"))
+                }
                 // Match production: bind an invocation to the account after login.
                 val observer = KnowledgeLiveWire(original.newInvocation())
                 field.set(factory, observer)
@@ -72,12 +81,109 @@ class KnowledgeLiveModelDeviceTest {
                         rows.any { it.id == BuiltInModel.PROVIDER_ID && it.modelSelectable(BuiltInModel.MODEL_ID) }
                     }
                 }
-                verifyConversation(app, observer)
+                if (args.getString("helix.sessionReferenceOnly") == "true") {
+                    verifySessionReference(app, observer)
+                } else {
+                    verifyConversation(app, observer)
+                }
             } finally {
                 field.set(factory, original)
-                withContext(NonCancellable) { app.account.logout() }
+                if (!existingAccount) withContext(NonCancellable) { app.account.logout() }
             }
         }
+
+    @Suppress("LongMethod") // Two bounded real turns share an owned source and unconditional cleanup.
+    private suspend fun verifySessionReference(app: HelixApplication, wire: KnowledgeLiveWire) {
+        val c = app.awaitAppContainer()
+        val chat = c.chatService
+        val source = "synthetic-reference-${UUID.randomUUID()}"
+        c.storage.sessions.create(source, "Synthetic Harbor transcript", null, null, System.currentTimeMillis())
+        c.storage.messages.append(
+            "message-$source",
+            source,
+            null,
+            "USER",
+            "TEXT",
+            "Synthetic padding. ".repeat(900) + "Harbor transcript verification code is SYNTH_TAIL_7319.",
+        )
+        val target = chat.createSession("Synthetic reference answer", BuiltInModel.PROVIDER_ID, BuiltInModel.MODEL_ID)
+        try {
+            chat.openSession(target)
+            chat.setMode(AgentMode.CHAT)
+            chat.setChatToolsEnabled(true)
+            delay(300)
+            repeat(2) { index ->
+                val request =
+                    ChatSubmission(
+                        target,
+                        0,
+                        UUID.randomUUID().toString(),
+                        if (index == 0) {
+                            "Search/read the attached transcript for its verification code. Return it exactly."
+                        } else {
+                            "Read the previously attached transcript again using session tools. " +
+                                "Return its verification code."
+                        },
+                        referenceSourceSessionId = source.takeIf { index == 0 },
+                        referenceKind =
+                            com.helix.core.storage.repository.ConversationReferenceKind.HISTORY
+                                .takeIf { index == 0 },
+                    )
+                val outcome = chat.sendSubmission(request).await().outcome
+                val accepted =
+                    if (outcome is ChatSubmissionOutcome.PendingConfirmation) {
+                        chat.confirmSubmission(request).await().outcome as ChatSubmissionOutcome.Accepted
+                    } else {
+                        outcome as ChatSubmissionOutcome.Accepted
+                    }
+                withTimeout(90_000) {
+                    while (!TurnState
+                            .valueOf(
+                                c.storage.turns
+                                    .resolve(accepted.turnId)
+                                    .state,
+                            ).isTerminal
+                    ) {
+                        delay(50)
+                    }
+                }
+                assertEquals(
+                    "COMPLETED",
+                    c.storage.turns
+                        .resolve(accepted.turnId)
+                        .state,
+                )
+                assertTrue(
+                    c.storage.toolCalls.listByTurn(accepted.turnId).any {
+                        it.name == "session.search" || it.name == "session.read"
+                    },
+                )
+                val answer =
+                    c.storage.messages.byTurn(accepted.turnId).last {
+                        it.role == "ASSISTANT" &&
+                            it.kind == "TEXT"
+                    }
+                assertTrue(requireNotNull(c.storage.messages.readContent(answer)).contains("SYNTH_TAIL_7319"))
+            }
+            assertTrue(wire.conversationMetadataOnly)
+            File(app.cacheDir, "conversation-live-facts.json").writeText(
+                buildJsonObject {
+                    put("realModel", true)
+                    put("metadataOnlyFirstRequest", wire.conversationMetadataOnly)
+                    put("longTailAndFollowupToolRead", true)
+                    put("generationRequests", wire.requests)
+                    put("model", BuiltInModel.MODEL_ID)
+                }.toString(),
+            )
+        } finally {
+            c.storage.turns
+                .listBySession(target)
+                .forEach { chat.stopTurn(it.id) }
+            chat.closeSession()
+            c.storage.sessions.archive(target, System.currentTimeMillis())
+            c.storage.deleteSessionPermanently(source)
+        }
+    }
 
     private suspend fun login(
         app: HelixApplication,
@@ -105,6 +211,8 @@ class KnowledgeLiveModelDeviceTest {
         val chat = c.chatService
         val library = app.knowledge
         val marker = UUID.randomUUID().toString()
+        val previousAccess = library.agentAccess.enabled.value
+        library.agentAccess.setEnabled(false)
         val session =
             chat.createSession(
                 "Synthetic knowledge acceptance",
@@ -115,12 +223,15 @@ class KnowledgeLiveModelDeviceTest {
         var savedId: String? = null
         try {
             listOf(
-                "Synthetic Harbor budget is 137 tokens. $marker",
+                ("Synthetic padding. ".repeat(900) + "Synthetic Harbor budget is 137 tokens. $marker"),
                 "Synthetic Harbor owner is TEAM_SYNTH_42. No release date is given. $marker",
             ).forEach { text ->
                 library
                     .capture(
-                        Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text),
+                        Intent(Intent.ACTION_SEND)
+                            .setType("text/plain")
+                            .putExtra(Intent.EXTRA_SUBJECT, "Synthetic Harbor source")
+                            .putExtra(Intent.EXTRA_TEXT, text),
                         "synthetic fixture",
                     ).join()
             }
@@ -129,9 +240,10 @@ class KnowledgeLiveModelDeviceTest {
                     library.items.first { items -> items.count { marker in it.rawText } == 2 }
                 }.filter { marker in it.rawText }
             sourceIds = sources.map { it.id }
-            val references = sourceIds.map { library.references.select("SOURCE", it, "FULL") }
+            val references = sourceIds.map { library.references.select("SOURCE", it) }
             chat.openSession(session)
             chat.setMode(AgentMode.CHAT)
+            chat.setChatToolsEnabled(true)
             withTimeout(10_000) {
                 while (c.storage.sessionRunControls
                         .forSession(session)
@@ -170,11 +282,51 @@ class KnowledgeLiveModelDeviceTest {
             val messages = c.storage.messages.byTurn(accepted.turnId)
             val answer = messages.last { it.role == "ASSISTANT" && it.kind == "TEXT" }
             val body = requireNotNull(c.storage.messages.readContent(answer))
-            assertTrue("Actual request must carry both reference bodies", wire.referencesSeen)
+            assertTrue("First request must carry metadata without source bodies", wire.metadataOnlyFirstRequest)
+            assertTrue("Later requests must consume fetched tool evidence", wire.referencesSeen)
             assertTrue(body.contains("137") && body.contains("TEAM_SYNTH_42"))
             val user = messages.single { it.role == "USER" }
             val input = requireNotNull(c.storage.sessionInputs.forMessage(user.id))
             assertEquals(references, input.knowledgeReferences)
+            val followup =
+                ChatSubmission(
+                    session,
+                    0,
+                    UUID.randomUUID().toString(),
+                    "Read the attached Harbor source again with knowledge.read/search. " +
+                        "Confirm its owner exactly; do not rely only on previous answer.",
+                )
+            val followupResult = chat.sendSubmission(followup).await().outcome
+            val followupAccepted =
+                if (followupResult is ChatSubmissionOutcome.PendingConfirmation) {
+                    chat.confirmSubmission(followup).await().outcome as ChatSubmissionOutcome.Accepted
+                } else {
+                    followupResult as ChatSubmissionOutcome.Accepted
+                }
+            withTimeout(90_000) {
+                while (!TurnState
+                        .valueOf(
+                            c.storage.turns
+                                .resolve(followupAccepted.turnId)
+                                .state,
+                        ).isTerminal
+                ) {
+                    delay(50)
+                }
+            }
+            assertEquals(
+                "COMPLETED",
+                c.storage.turns
+                    .resolve(followupAccepted.turnId)
+                    .state,
+            )
+            assertTrue(
+                "Follow-up must really read the prior attached source",
+                c.storage.toolCalls.listByTurn(followupAccepted.turnId).any {
+                    it.name == "knowledge.read" ||
+                        it.name == "knowledge.search"
+                },
+            )
             for (id in sourceIds.toList()) {
                 library.remove(id)
                 sourceIds = sourceIds - id
@@ -194,31 +346,42 @@ class KnowledgeLiveModelDeviceTest {
             assertEquals("NOTE", note.kind)
             assertEquals("DRAFT", note.state)
             assertEquals(body, note.body)
-            assertEquals(references, KnowledgeReferences.decode(note.originReferencesJson))
             assertEquals(
-                1,
+                references.map { it.resourceId },
+                com.helix.core.storage.repository.KnowledgeOrigins
+                    .decode(
+                        note.originReferencesJson,
+                    ).map { it.resourceId },
+            )
+            assertEquals(
+                2,
                 c.storage.turns
                     .listBySession(session)
                     .size,
             )
-            assertEquals(
-                0,
+            assertTrue(
                 c.storage.toolCalls
                     .listByTurn(accepted.turnId)
-                    .size,
+                    .any { it.name == "knowledge.read" },
             )
             File(app.cacheDir, "knowledge-live-facts.json").writeText(
                 buildJsonObject {
                     put("realModel", true)
-                    put("referenceBodiesInActualRequest", wire.referencesSeen)
+                    put("metadataOnlyFirstRequest", wire.metadataOnlyFirstRequest)
+                    put("fetchedEvidenceInLaterRequest", wire.referencesSeen)
                     put("answerValuesCorrect", true)
-                    put("historySnapshotSurvivesSourceDeletion", true)
+                    put("longTailBeyond12000", true)
+                    put("followupReallyRetrieved", true)
+                    put("globalAccessDisabled", true)
+                    put("model", BuiltInModel.MODEL_ID)
+                    put("referenceMetadataSurvivesSourceDeletion", true)
                     put("savedBodyAndReferencesExact", true)
                     put("generationRequests", wire.requests)
                 }.toString(),
             )
             println("KNOWLEDGE_LIVE_ASSERTIONS_PASSED requests=${wire.requests}")
         } finally {
+            library.agentAccess.setEnabled(previousAccess)
             c.storage.turns
                 .listBySession(session)
                 .forEach { chat.stopTurn(it.id) }
@@ -235,13 +398,23 @@ private class KnowledgeLiveWire(
 ) : WireClient {
     var requests = 0
         private set
+    var metadataOnlyFirstRequest = false
+        private set
     var referencesSeen = false
+        private set
+    var conversationMetadataOnly = false
         private set
 
     override suspend fun open(request: WireRequest): WireResponse {
         if (request.method == "POST" && request.url == BuiltInModel.GENERATION_URL) {
-            if (++requests > 2) throw IOException("Synthetic acceptance request budget exhausted")
+            if (++requests > 10) throw IOException("Synthetic acceptance request budget exhausted")
             val body = requireNotNull(request.body).toString(Charsets.UTF_8)
+            if (requests == 1) {
+                conversationMetadataOnly = body.contains("helix://conversation-reference/") &&
+                    !body.contains("SYNTH_TAIL_7319")
+                metadataOnlyFirstRequest = body.contains("referenceInputId") &&
+                    !body.contains("137 tokens") && !body.contains("TEAM_SYNTH_42")
+            }
             referencesSeen = referencesSeen || (
                 body.contains("137 tokens") && body.contains("TEAM_SYNTH_42") &&
                     body.contains("No release date is given")

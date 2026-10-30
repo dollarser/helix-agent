@@ -11,11 +11,10 @@ import kotlinx.serialization.json.jsonPrimitive
 import java.security.MessageDigest
 
 enum class ConversationReferenceKind {
-    SUMMARY,
-    RECENT_MESSAGES,
+    HISTORY,
 }
 
-/** Prepared immutable bytes carried across Turn admission; never dereferenced after binding. */
+/** Immutable read manifest carried across admission; bodies are read only through scoped tools. */
 data class ConversationReferenceSnapshotInput(
     val sourceSessionId: String,
     val sourceSessionTitle: String,
@@ -29,6 +28,7 @@ data class ConversationReferenceSnapshotInput(
         require(sourceMessageIds.size <= MAX_SOURCE_MESSAGES)
         require(sourceMessageIds.all { it.isNotBlank() && it.length <= MAX_ID_LENGTH })
         require(content.isNotBlank() && content.toByteArray(Charsets.UTF_8).size <= MAX_CONTENT_BYTES)
+        ConversationReferenceManifest.parse(content)
     }
 
     val contentSha256: String

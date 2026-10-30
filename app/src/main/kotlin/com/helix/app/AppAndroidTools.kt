@@ -16,6 +16,7 @@ internal object AppAndroidTools {
         context: Context,
         toolRegistry: ToolRegistry,
         egressPolicy: EgressPolicyProvider,
+        storage: com.helix.core.storage.HelixStorage,
     ) {
         com.helix.app.tool.DevicePageTool
             .register(toolRegistry)
@@ -41,7 +42,11 @@ internal object AppAndroidTools {
         )
         com.helix.app.knowledge.KnowledgeReadTools.register(
             toolRegistry,
-            (context.applicationContext as HelixApplication).knowledge.agentAccess,
+            com.helix.app.knowledge.KnowledgeToolBackend(
+                storage.sessionHistory,
+                storage.sessionInputs::get,
+                (context.applicationContext as HelixApplication).knowledge.agentAccess,
+            ),
         )
         val reminders = (context.applicationContext as HelixApplication).reminders
         com.helix.app.reminder.DeviceReminderTools.register(

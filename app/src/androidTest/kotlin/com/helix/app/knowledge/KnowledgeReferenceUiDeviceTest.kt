@@ -42,8 +42,8 @@ class KnowledgeReferenceUiDeviceTest {
             compose.waitUntil(5000) { applied.get() != null }
             val item = requireNotNull(applied.get()).single()
             assertEquals("synthetic", item.resourceId)
-            assertEquals("FULL", item.range)
-            assertEquals("Synthetic selected text", item.text)
+            assertEquals("Synthetic selected text".length, item.characters)
+            assertEquals(knowledgeHash("Synthetic selected text"), item.sourceHash)
             assertEquals("NOTE", runBlocking { store.note("synthetic")?.kind })
         }
 
@@ -62,7 +62,7 @@ class KnowledgeReferenceUiDeviceTest {
             assertEquals(setOf("synthetic", "other"), requireNotNull(applied.get()).map { it.resourceId }.toSet())
         }
 
-    @Test fun changedSelectionRequiresExplicitVersionChoice() =
+    @Test fun changedSelectionRequiresExplicitReselection() =
         fixture { store, applied ->
             compose.onNodeWithTag("knowledge-reference-select-synthetic").performClick()
             selected("synthetic")
@@ -77,15 +77,15 @@ class KnowledgeReferenceUiDeviceTest {
             assertNull(applied.get())
             compose.onNodeWithTag("knowledge-reference-preview-synthetic").performScrollTo().performClick()
             compose.waitUntil(5000) {
-                compose.onAllNodes(hasTestTag("knowledge-reference-keep-version")).fetchSemanticsNodes().isNotEmpty()
+                compose.onAllNodes(hasTestTag("knowledge-reference-refresh")).fetchSemanticsNodes().isNotEmpty()
             }
-            compose.onNodeWithTag("knowledge-reference-keep-version").performScrollTo().performClick()
+            compose.onNodeWithTag("knowledge-reference-refresh").performScrollTo().performClick()
             compose.onNodeWithTag("knowledge-reference-preview-close").performClick()
             compose.onNodeWithTag("knowledge-reference-apply").performClick()
             compose.waitUntil(5000) { applied.get() != null }
             val ref = requireNotNull(applied.get()).single()
-            assertEquals("Synthetic selected text", ref.text)
-            assertEquals(true, ref.keepVersion)
+            assertEquals(knowledgeHash("Changed after checking"), ref.sourceHash)
+            assertEquals("Changed after checking".length, ref.characters)
         }
 
     private fun selected(id: String) {

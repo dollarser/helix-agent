@@ -83,7 +83,7 @@ object EgressDisclosure {
             val height: Int,
         ) : OutgoingContent
 
-        /** Frozen bytes copied from another conversation for this submission only. */
+        /** Explicit shared fixed-revision read scope; size is potential source text, hash binds its manifest. */
         data class ConversationReference(
             val sourceLabel: String,
             val sizeBytes: Long,

@@ -50,6 +50,8 @@ class SessionRepository(
 
     fun list(): List<SessionEntity> = dao.list()
 
+    fun referenceDirectory() = dao.referenceDirectory()
+
     fun observeSummaries(): Flow<List<SessionSummary>> = dao.observeSummaries()
 
     fun find(id: String): SessionEntity? = dao.byId(id)

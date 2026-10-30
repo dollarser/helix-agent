@@ -38,6 +38,19 @@ class SessionToolsTest {
     private val dao = HistoryDao()
     private val store by lazy { FileContentStore(temporary.root) }
 
+    @Test fun attachedReadToolsEnterTheDefaultModelCatalogWithoutWideningExecutionAuthority() {
+        val repository = SessionHistoryRepository(dao, store)
+        assertTrue(repository.referenceToolNames("s").isEmpty())
+        dao.hasKnowledgeReferences = true
+        val names = repository.referenceToolNames("s")
+        assertEquals(
+            setOf("knowledge.search", "knowledge.read", "session.history", "session.search", "session.read"),
+            names,
+        )
+        assertTrue(ModelToolExposureOrder.defaultNames(names).containsAll(names))
+        assertTrue(repository.referenceToolNames("other").isEmpty())
+    }
+
     @Test fun schemasNeverAcceptCallerIdentityAndRenameIsNotAPlanExemption() {
         SessionToolDescriptors.names.forEach { name ->
             val tool = SessionToolDescriptors.descriptor(name)
@@ -78,23 +91,28 @@ class SessionToolsTest {
         assertFalse(page.toString().contains("secret prompt"))
     }
 
-    @Test fun referenceIsFrozenAndNeverOpensTheSourceSession() {
+    @Test fun referenceMetadataRemainsReadableWithoutOpeningDeletedSource() {
         body("shared", "see earlier conversation", 1)
-        val frozen = store.write("Earlier decision: use green.")
+        val frozen =
+            store.write(
+                com.helix.core.storage.repository
+                    .ConversationReferenceManifest(1, "a".repeat(64), 1, 42)
+                    .encode(),
+            )
         dao.snapshots +=
             MessageReferenceSnapshotEntity(
                 messageId = "shared",
                 ordinal = 0,
                 sourceSessionId = "foreign",
                 sourceSessionTitle = "Source title",
-                selectionKind = "RECENT_MESSAGES",
+                selectionKind = "HISTORY",
                 sourceMessageIdsJson = "[\"foreign-message\"]",
                 contentRef = frozen.toStorageString(),
                 contentSha256 = frozen.sha256,
                 createdAtEpoch = 1,
             )
         body("foreign-message", "PRIVATE live update", 2, session = "foreign")
-        val found = output(execute("session.search", """{"query":"GREEN"}"""))
+        val found = output(execute("session.search", """{"query":"messageCount"}"""))
         val entry =
             found
                 .getValue("entries")
@@ -105,7 +123,7 @@ class SessionToolsTest {
         assertEquals(0, entry.getValue("referenceOrdinal").jsonPrimitive.int)
         dao.rows.removeAll { it.sessionId == "foreign" }
         val read = output(execute("session.read", readArgs("shared", frozen, 0)))
-        assertEquals("Earlier decision: use green.", read.text("content"))
+        assertEquals(store.read(frozen), read.text("content"))
         assertTrue(execute("session.read", readArgs("foreign-message", frozen)) is ToolExecutorResult.Failed)
     }
 
@@ -181,6 +199,23 @@ class SessionToolsTest {
         val search = execute("session.search", """{"query":"private"}""", signal, interrupting)
         assertEquals(ToolExecutorResult.Cancelled, search)
         assertEquals(ToolExecutorResult.TimedOut, execute("session.status", deadline = Instant.EPOCH))
+        cancelled = false
+        val sourceRef = body("scoped-source", "private scoped content", 1, session = "source")
+        val shared = share()
+        val interruptingSource =
+            object : ContentStore by store {
+                override fun readBounded(
+                    ref: ContentRef,
+                    maxBytes: Int,
+                ): String =
+                    store.readBounded(ref, maxBytes).also {
+                        if (ref == sourceRef) cancelled = true
+                    }
+            }
+        assertEquals(
+            ToolExecutorResult.Cancelled,
+            execute("session.read", scoped(shared, readArgs("scoped-source", sourceRef)), signal, interruptingSource),
+        )
     }
 
     @Test fun revisionDuringReadCannotReleaseTheOldMessage() {
@@ -220,6 +255,165 @@ class SessionToolsTest {
             )
         assertTrue(result is ToolExecutorResult.Completed)
         assertEquals("Saved", dao.session.title)
+    }
+
+    private fun share(source: String = "source"): ContentRef {
+        dao.sources[source] = dao.session.copy(id = source)
+        val manifest = SessionHistoryRepository(dao, store).captureReference(source)
+        body("binding", "Question about the selected source", 100)
+        val bindingIndex = dao.rows.indexOfFirst { it.id == "binding" }
+        dao.rows[bindingIndex] = dao.rows[bindingIndex].copy(turnId = "t")
+        val ref = store.write(manifest.encode())
+        dao.snapshots +=
+            MessageReferenceSnapshotEntity(
+                messageId = "binding",
+                ordinal = 0,
+                sourceSessionId = source,
+                sourceSessionTitle = "Selected source",
+                selectionKind = "HISTORY",
+                sourceMessageIdsJson = "[]",
+                contentRef = ref.toStorageString(),
+                contentSha256 = ref.sha256,
+                createdAtEpoch = 1,
+            )
+        return ref
+    }
+
+    private fun scoped(
+        ref: ContentRef,
+        args: String = "{}",
+    ): String =
+        JsonObject(
+            Json.parseToJsonElement(args).jsonObject +
+                mapOf(
+                    "referenceMessageId" to kotlinx.serialization.json.JsonPrimitive("binding"),
+                    "referenceHash" to kotlinx.serialization.json.JsonPrimitive(ref.sha256),
+                ),
+        ).toString()
+
+    @Test fun selectedLongSourceIsMetadataFirstAndReadableAtItsTail() {
+        val text = "a".repeat(70_000) + "TAIL_EVIDENCE"
+        val bodyRef = body("long", text, 1, session = "source")
+        val shared = share()
+        val manifest =
+            com.helix.core.storage.repository.ConversationReferenceManifest
+                .parse(store.read(shared))
+        val snapshot =
+            com.helix.core.storage.repository.ConversationReferenceSnapshot(
+                "source",
+                "Selected source",
+                com.helix.core.storage.repository.ConversationReferenceKind.HISTORY,
+                emptyList(),
+                store.read(shared),
+                shared.sha256,
+            )
+        val initial =
+            requireNotNull(
+                com.helix.app.agent.ContextHistoryContent
+                    .materialize("question", listOf(snapshot), "binding"),
+            )
+        assertFalse(initial.contains("TAIL_EVIDENCE"))
+        assertTrue(initial.contains("referenceMessageId=binding"))
+        assertEquals(text.length.toLong(), manifest.contentBytes)
+        val found = output(execute("session.search", scoped(shared, """{"query":"TAIL_EVIDENCE"}""")))
+        assertTrue(found.toString().contains("TAIL_EVIDENCE"))
+        val first = output(execute("session.read", scoped(shared, readArgs("long", bodyRef))))
+        assertEquals(2048, first.getValue("nextOffset").jsonPrimitive.int)
+        assertFalse(first.text("content").contains("TAIL_EVIDENCE"))
+        val tail = output(execute("session.read", scoped(shared, readArgs("long", bodyRef, offset = 70_000))))
+        assertEquals("TAIL_EVIDENCE", tail.text("content"))
+    }
+
+    @Test fun scopedSearchPagesBeyondRecentMessagesAndNeverIncludesLaterAppends() {
+        repeat(45) {
+            body(
+                "source-$it",
+                if (it ==
+                    0
+                ) {
+                    "OLDEST_EVIDENCE"
+                } else {
+                    "source text $it"
+                },
+                it.toLong(),
+                session = "source",
+            )
+        }
+        val shared = share()
+        body("later", "LATER_PRIVATE", 50, session = "source")
+        val first = output(execute("session.search", scoped(shared, """{"query":"OLDEST_EVIDENCE"}""")))
+        assertEquals(0, first.getValue("entries").jsonArray.size)
+        assertTrue(first.getValue("hasMore").jsonPrimitive.boolean)
+        val before = first.getValue("nextBeforeSequence").jsonPrimitive.int
+        val second =
+            output(
+                execute(
+                    "session.search",
+                    scoped(
+                        shared,
+                        """{"query":"OLDEST_EVIDENCE","beforeSequence":$before}""",
+                    ),
+                ),
+            )
+        assertTrue(second.toString().contains("OLDEST_EVIDENCE"))
+        val later = output(execute("session.search", scoped(shared, """{"query":"LATER_PRIVATE"}""")))
+        assertEquals(0, later.getValue("entries").jsonArray.size)
+    }
+
+    @Test fun sourceEditsDeletionAndForgedBindingsFailClosed() {
+        body("source-old", "fixed evidence", 1, session = "source")
+        val shared = share()
+        assertTrue(execute("session.history", scoped(shared)) is ToolExecutorResult.Completed)
+        val bindingIndex = dao.rows.indexOfFirst { it.id == "binding" }
+        val binding = dao.rows[bindingIndex]
+        dao.activeTurn = "follow-up-turn"
+        assertTrue(execute("session.history", scoped(shared)) is ToolExecutorResult.Completed)
+        assertTrue(
+            execute(
+                "session.read",
+                scoped(
+                    shared,
+                    readArgs(
+                        "source-old",
+                        ContentRef.parse(requireNotNull(dao.rows.first { it.id == "source-old" }.contentRef)),
+                    ),
+                ),
+            )
+                is ToolExecutorResult.Completed,
+        )
+        body("foreign-binding", "Other conversation", 1, session = "other-target")
+        dao.snapshots += dao.snapshots.single().copy(messageId = "foreign-binding")
+        assertTrue(
+            execute("session.history", scoped(shared).replace("binding", "foreign-binding"))
+                is ToolExecutorResult.Failed,
+        )
+        dao.rows[bindingIndex] = binding
+        val forged = scoped(shared).replace("binding", "source-old")
+        assertTrue(execute("session.history", forged) is ToolExecutorResult.Failed)
+        assertTrue(
+            execute(
+                "session.history",
+                scoped(shared).replace(shared.sha256, "0".repeat(64)),
+            ) is ToolExecutorResult.Failed,
+        )
+        val index = dao.rows.indexOfFirst { it.id == "source-old" }
+        val original = dao.rows[index]
+        dao.rows[index] = original.copy(contentRef = store.write("edited evidence").toStorageString())
+        assertTrue(execute("session.history", scoped(shared)) is ToolExecutorResult.Failed)
+        dao.rows[index] = original
+        dao.sources.remove("source")
+        assertTrue(execute("session.history", scoped(shared)) is ToolExecutorResult.Failed)
+    }
+
+    @Test fun scopedBodiesAreCredentialGuardedAndEmptySourcesCannotBeShared() {
+        org.junit.Assert.assertThrows(IllegalArgumentException::class.java) { share() }
+        val secret = body("private", "key sk-abcdefghijklmnopq", 1, session = "source")
+        val shared = share()
+        assertTrue(execute("session.read", scoped(shared, readArgs("private", secret))) is ToolExecutorResult.Failed)
+        val search = output(execute("session.search", scoped(shared, """{"query":"key"}""")))
+        assertEquals(0, search.getValue("entries").jsonArray.size)
+        assertEquals(1, search.getValue("unavailableContents").jsonPrimitive.int)
+        assertFalse(search.toString().contains("sk-abcdefghijklmnopq"))
     }
 
     private fun body(
@@ -264,7 +458,7 @@ class SessionToolsTest {
                 deadline,
                 cancel,
                 "s",
-                "t",
+                dao.activeTurn,
             ),
         )
     }
@@ -273,11 +467,27 @@ class SessionToolsTest {
 
     private fun JsonObject.text(key: String) = getValue(key).jsonPrimitive.content
 
-    private class HistoryDao : SessionHistoryDao {
+    internal class HistoryDao : SessionHistoryDao {
         var session = SessionEntity("s", "Original", "p", "model", 1, null, "scope:workspace:folder")
         var active = true
+        var activeTurn = "t"
+        var activeCall = "c"
+        var allowedTools = SessionToolDescriptors.names.toSet()
+        var hasKnowledgeReferences = false
+
+        override fun hasKnowledgeReferences(sessionId: String) = hasKnowledgeReferences && sessionId == "s"
+
+        override fun hasConversationReferences(sessionId: String) =
+            snapshots.any { snapshot ->
+                rows.any { it.id == snapshot.messageId && it.sessionId == sessionId && it.supersededBy == null }
+            }
+
         val rows = mutableListOf<MessageEntity>()
         val snapshots = mutableListOf<MessageReferenceSnapshotEntity>()
+
+        val sources = mutableMapOf<String, SessionEntity>()
+
+        override fun sourceSession(sessionId: String) = session.takeIf { it.id == sessionId } ?: sources[sessionId]
 
         override fun caller(
             sessionId: String,
@@ -286,7 +496,8 @@ class SessionToolsTest {
             toolName: String,
         ): SessionEntity? =
             session.takeIf {
-                active && sessionId == "s" && turnId == "t" && callId == "c" && toolName in SessionToolDescriptors.names
+                active && sessionId == "s" && turnId == activeTurn && callId == activeCall &&
+                    toolName in allowedTools
             }
 
         override fun page(

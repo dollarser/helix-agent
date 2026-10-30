@@ -5,24 +5,48 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.MainActivity
 import com.helix.app.agent.ContextCompaction
 import com.helix.app.agent.TurnStartSpec
+import com.helix.app.chat.ChatToolMessageEncoder
+import com.helix.app.chat.SessionTools
 import com.helix.app.provider.ProviderDraft
 import com.helix.app.sendTestMessage
 import com.helix.app.test.settleFixtureTerminal
 import com.helix.app.test.startFixtureTurn
 import com.helix.core.agent.ModelStreamTerminal
+import com.helix.core.agent.SettledCall
+import com.helix.core.agent.TurnMessageDraft
 import com.helix.core.agent.turn.TurnRoundCoordinator
 import com.helix.core.model.AgentMode
+import com.helix.core.model.BoundToolResult
 import com.helix.core.model.Clock
+import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.ModelEvent
+import com.helix.core.model.NoCancellation
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.ReasoningEffort
+import com.helix.core.model.Sha256
+import com.helix.core.model.ToolCallId
+import com.helix.core.model.ToolCallState
+import com.helix.core.model.ToolDispatchOutcome
+import com.helix.core.model.ToolName
+import com.helix.core.model.ToolVersion
 import com.helix.core.model.TurnId
 import com.helix.core.model.TurnState
+import com.helix.core.storage.content.ContentRef
+import com.helix.core.storage.content.FileContentStore
+import com.helix.core.storage.entity.MessageEntity
+import com.helix.core.storage.repository.ConversationReferenceKind
+import com.helix.core.storage.repository.ConversationReferenceSnapshotInput
+import com.helix.core.storage.repository.ToolCallOrigin
 import com.helix.provider.api.ProbeOutcome
+import com.helix.tools.framework.ExecutableToolCall
+import com.helix.tools.framework.ToolExecutorResult
+import com.helix.tools.framework.ToolRegistry
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
@@ -34,6 +58,7 @@ import java.util.UUID
 /** Explicit, keyless loopback service fixture. Never reads any user's provider or conversation. */
 class LiveContextCompactionDeviceTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
+    private val referenceSources = mutableListOf<String>()
 
     @Test
     @Suppress("LongMethod") // Live provider lifecycle, persistence and follow-up are one acceptance boundary.
@@ -177,6 +202,8 @@ class LiveContextCompactionDeviceTest {
                     }
                     storage.deleteSessionPermanently(id)
                 }
+                referenceSources.forEach { storage.deleteSessionPermanently(it) }
+                referenceSources.clear()
                 service.delete(provider)
             }
         }
@@ -191,6 +218,132 @@ class LiveContextCompactionDeviceTest {
             turns.last().state in setOf("COMPLETED", "FAILED", "CANCELLED") &&
             !container.chatService.screen.value.isSending &&
             !requireNotNull(container.turnEngine).liveExecution.hasActive(session)
+    }
+
+    /** Seed actual scoped-read evidence, not a transcript hidden in the reference metadata. */
+    private fun readSharedFixture(
+        coordinator: TurnRoundCoordinator,
+        messageId: String,
+        reference: ConversationReferenceSnapshotInput,
+        source: MessageEntity,
+        next: () -> String,
+    ) = runBlocking {
+        val storage = compose.container().storage
+        val callId = next()
+        val args = referenceReadArguments(messageId, reference, source)
+        beginReferenceRead(coordinator, callId, args)
+        val call =
+            storage.toolCalls.append(
+                callId,
+                coordinator.id,
+                callId,
+                "session.read",
+                "1",
+                args.toString(),
+                "RUNNING",
+                origin =
+                    ToolCallOrigin(coordinator.snapshot().modelCallId, 0),
+            )
+        val registry =
+            ToolRegistry()
+        SessionTools
+            .register(registry, storage.sessionHistory)
+        val result =
+            requireNotNull(
+                registry.executor(
+                    ToolName("session.read"),
+                    ToolVersion(1),
+                ),
+            ).execute(
+                ExecutableToolCall(
+                    callId,
+                    "session.read",
+                    "1",
+                    args,
+                    ExecutionTargetType.LOCAL_ANDROID,
+                    Instant.now().plusSeconds(30),
+                    NoCancellation,
+                    storage.turns.resolve(coordinator.id).sessionId,
+                    coordinator.id,
+                ),
+            ) as ToolExecutorResult.Completed
+        assertTrue(result.output.toString().contains("ORANGE-42"))
+        storage.toolCalls.updateState(call, ToolCallState.COMPLETED)
+        val draft = referenceResultDraft(callId, result)
+        coordinator.settleBatchCall(callId, false)
+        coordinator.openNextModelCall(listOf(draft), next())
+    }
+
+    private fun beginReferenceRead(
+        coordinator: TurnRoundCoordinator,
+        callId: String,
+        args: JsonObject,
+    ) = runBlocking {
+        val stream = coordinator.beginModelStream()
+        stream.apply(
+            ModelEvent.ToolCallStarted(
+                0,
+                ToolCallId(callId),
+                "session.read",
+            ),
+        )
+        stream.apply(ModelEvent.ToolArgumentsDelta(0, args.toString()))
+        stream.apply(ModelEvent.ToolCallFinished(0))
+        coordinator.beginToolBatch(listOf(callId))
+        val step =
+            kotlinx.serialization.json.buildJsonObject {
+                put("id", callId)
+                put("name", "session.read")
+                put("arguments", args.toString())
+            }
+        coordinator.commitModelToolStep("[$step]")
+    }
+
+    private fun referenceReadArguments(
+        messageId: String,
+        reference: ConversationReferenceSnapshotInput,
+        source: MessageEntity,
+    ): JsonObject {
+        val args =
+            kotlinx.serialization.json.buildJsonObject {
+                put("messageId", source.id)
+                put(
+                    "contentHash",
+                    ContentRef
+                        .parse(requireNotNull(source.contentRef))
+                        .sha256,
+                )
+                put("offset", 0)
+                put("referenceMessageId", messageId)
+                put("referenceHash", reference.contentSha256)
+            }
+        return args
+    }
+
+    private fun referenceResultDraft(
+        callId: String,
+        result: ToolExecutorResult.Completed,
+    ): TurnMessageDraft {
+        val encoded = result.output.toString()
+        val draft =
+            ChatToolMessageEncoder { _, _ -> "" }.toolResultDraft(
+                SettledCall(
+                    callId,
+                    "session.read",
+                    ToolDispatchOutcome.Succeeded(
+                        BoundToolResult(
+                            encoded,
+                            Sha256(
+                                FileContentStore
+                                    .sha256Hex(encoded.toByteArray()),
+                            ),
+                            false,
+                            1,
+                        ),
+                    ),
+                ),
+            )
+        return draft
     }
 
     private fun seed(
@@ -232,22 +385,23 @@ class LiveContextCompactionDeviceTest {
             if (referenceOnly && index == 0) {
                 val message = storage.messages.listBySession(session).last { it.role == "USER" }
                 assertTrue(storage.messages.readContent(message)?.contains("ORANGE-42") == false)
-                storage.withTransaction {
-                    storage.messageReferenceSnapshots.bind(
-                        message.id,
-                        listOf(
-                            com.helix.core.storage.repository.ConversationReferenceSnapshotInput(
-                                "synthetic-reference",
-                                "Accepted project constraints",
-                                com.helix.core.storage.repository.ConversationReferenceKind.RECENT_MESSAGES,
-                                emptyList(),
-                                constraint,
-                            ),
-                        ),
-                        System.currentTimeMillis(),
+                val source = next()
+                storage.sessions.create(source, "Accepted project constraints", null, null, 1)
+                referenceSources += source
+                val sourceMessage = storage.messages.append(next(), source, null, "USER", "TEXT", constraint)
+                val reference =
+                    ConversationReferenceSnapshotInput(
+                        source,
+                        "Accepted project constraints",
+                        ConversationReferenceKind.HISTORY,
+                        emptyList(),
+                        storage.sessionHistory.captureReference(source).encode(),
                     )
+                storage.withTransaction {
+                    storage.messageReferenceSnapshots.bind(message.id, listOf(reference), System.currentTimeMillis())
                 }
-                println("LIVE_BOUND_REFERENCE=accepted originalBodyHasCode=false")
+                readSharedFixture(coordinator, message.id, reference, sourceMessage, next)
+                println("LIVE_BOUND_REFERENCE=scoped_tool_read originalBodyHasCode=false")
             }
             val stream = kotlinx.coroutines.runBlocking { coordinator.beginModelStream() }
             stream.apply(ModelEvent.TextDelta("Understood."))

@@ -85,7 +85,9 @@ internal class SessionDirectoryService(
             scope,
             readRows = {
                 val names = providers.rows.value.associate { it.id to it.displayName }
-                storage.sessions.list().map { SessionRowUi.from(it, it.providerId?.let(names::get)) }
+                storage.sessions.referenceDirectory().map {
+                    SessionRowUi.from(it.session, it.session.providerId?.let(names::get), it.messageCount)
+                }
             },
             searchRows = { query, checkActive ->
                 val result = storage.sessionSearch.search(query, checkActive = checkActive)

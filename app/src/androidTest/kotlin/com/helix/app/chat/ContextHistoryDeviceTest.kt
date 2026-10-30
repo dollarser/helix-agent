@@ -64,9 +64,15 @@ class ContextHistoryDeviceTest {
                         com.helix.core.storage.repository.ConversationReferenceSnapshotInput(
                             "source",
                             "引用来源",
-                            com.helix.core.storage.repository.ConversationReferenceKind.RECENT_MESSAGES,
+                            com.helix.core.storage.repository.ConversationReferenceKind.HISTORY,
                             emptyList(),
-                            "保留这条原始约束",
+                            com.helix.core.storage.repository
+                                .ConversationReferenceManifest(
+                                    1,
+                                    "a".repeat(64),
+                                    1,
+                                    42,
+                                ).encode(),
                         ),
                     ),
                     1000,
@@ -79,7 +85,7 @@ class ContextHistoryDeviceTest {
                     storage,
                     snapshot.rows,
                 ) { snapshot.contents[it.id] }
-            assertTrue(mapped.single().content!!.contains("保留这条原始约束"))
+            assertTrue(mapped.single().content!!.contains("session.history/search/read"))
             assertEquals(
                 mapped.single().content,
                 mapped
@@ -107,9 +113,15 @@ class ContextHistoryDeviceTest {
                         com.helix.core.storage.repository.ConversationReferenceSnapshotInput(
                             "source",
                             "引用来源",
-                            com.helix.core.storage.repository.ConversationReferenceKind.SUMMARY,
+                            com.helix.core.storage.repository.ConversationReferenceKind.HISTORY,
                             emptyList(),
-                            "b".repeat(1024),
+                            com.helix.core.storage.repository
+                                .ConversationReferenceManifest(
+                                    1,
+                                    "a".repeat(64),
+                                    1,
+                                    42,
+                                ).encode(),
                         ),
                     ),
                     1000,

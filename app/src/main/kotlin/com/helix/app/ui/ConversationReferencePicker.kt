@@ -1,6 +1,8 @@
 package com.helix.app.ui
 
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -49,18 +51,20 @@ internal fun ConversationReferencePicker(
         }
     }
     val candidates = sessions.filter { it.id != currentSessionId }
-    val matches = candidates.filter { it.title.contains(query, ignoreCase = true) }
+    val matches = candidates.filter { it.title.contains(query.trim(), ignoreCase = true) }
     ConversationSheet(
         stringResource(R.string.conversation_reference_title),
         "conversation-reference",
         onDismiss,
         avoidIme = true,
+        scrollContent = false,
     ) {
         Text(stringResource(R.string.conversation_reference_hint))
         OutlinedTextField(
             value = query,
             onValueChange = { query = it },
             label = { Text(stringResource(R.string.reference_search)) },
+            singleLine = true,
             modifier = Modifier.fillMaxWidth().testTag("reference-search"),
         )
         when {
@@ -82,14 +86,31 @@ internal fun ConversationReferencePicker(
             }
 
             else -> {
-                matches.forEach { row ->
-                    ConversationMenuRow(
-                        title = row.title,
-                        onClick = { onSelect(row) },
-                        modifier = Modifier.testTag("conversation-reference-${row.id}"),
-                        supporting = if (row.isArchived) stringResource(R.string.reference_archived) else null,
-                        selected = selectedSessionId == row.id,
-                    )
+                LazyColumn(Modifier.fillMaxWidth().weight(1f, fill = false)) {
+                    items(matches, key = { it.id }) { row ->
+                        val count = row.referenceMessageCount
+                        val metadata =
+                            buildList {
+                                if (count != null) add(stringResource(R.string.reference_message_count, count))
+                                add(
+                                    java.text.DateFormat
+                                        .getDateTimeInstance(
+                                            java.text.DateFormat.SHORT,
+                                            java.text.DateFormat.SHORT,
+                                        ).format(java.util.Date(row.lastActivityAt)),
+                                )
+                                if (row.isArchived) add(stringResource(R.string.reference_archived))
+                                if (count == 0) add(stringResource(R.string.reference_no_text))
+                            }.joinToString(" · ")
+                        ConversationMenuRow(
+                            title = row.title.ifBlank { stringResource(R.string.reference_untitled) },
+                            onClick = { onSelect(row) },
+                            enabled = count != 0,
+                            modifier = Modifier.testTag("conversation-reference-${row.id}"),
+                            supporting = metadata,
+                            selected = selectedSessionId == row.id,
+                        )
+                    }
                 }
             }
         }

@@ -70,6 +70,64 @@ class ConversationComposerDeviceTest {
         assertFits("chat-input", "chat-add", "chat-send", "chat-permission-menu")
     }
 
+    @Suppress("LongMethod") // The same synthetic header is measured wide, empty and narrow with large text.
+    @Test
+    fun selectedPluginsShareHeaderAndKeepNarrowTouchTargets() {
+        val plugins = mutableStateOf(listOf("browser", "mobile-use"))
+        val width = mutableStateOf(400)
+        val fontScale = mutableStateOf(1f)
+        var selections = 0
+        compose.setContent {
+            val density = LocalDensity.current
+            CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale.value)) {
+                MaterialTheme {
+                    Column(Modifier.width(width.value.dp)) {
+                        ComposerHeader(
+                            mode = com.helix.core.model.AgentMode.ACT,
+                            pluginNames = plugins.value,
+                            onPlugins = { selections++ },
+                            permissionContent = {
+                                androidx.compose.material3.TextButton(
+                                    {},
+                                ) { androidx.compose.material3.Text("权限") }
+                            },
+                            headerStatus = null,
+                            optionsContent = {},
+                            contextIndicator = {},
+                        )
+                    }
+                }
+            }
+        }
+        val header = compose.onNodeWithTag("chat-composer-header").getUnclippedBoundsInRoot()
+        val chip = compose.onNodeWithTag("composer-plugins-chip").getUnclippedBoundsInRoot()
+        assertTrue(
+            "Plugin summary uses the same row, not another 48dp row",
+            chip.top >= header.top && chip.bottom <= header.bottom,
+        )
+        assertTrue(
+            "Plugin summary remains a touch target",
+            chip.right - chip.left >= 48.dp && chip.bottom - chip.top >= 48.dp,
+        )
+        compose.onNodeWithTag("composer-plugins-chip").performClick()
+        assertEquals(1, selections)
+        compose.runOnIdle { plugins.value = emptyList() }
+        compose.onNodeWithTag("composer-plugins-chip").assertDoesNotExist()
+        val emptyHeader = compose.onNodeWithTag("chat-composer-header").getUnclippedBoundsInRoot()
+        assertEquals(header.bottom - header.top, emptyHeader.bottom - emptyHeader.top)
+        compose.runOnIdle {
+            width.value = 320
+            fontScale.value = 1.8f
+            plugins.value = List(12) { "synthetic-plugin-$it" }
+        }
+        val fallback = compose.onNodeWithTag("composer-plugins-chip").getUnclippedBoundsInRoot()
+        val narrowHeader = compose.onNodeWithTag("chat-composer-header").getUnclippedBoundsInRoot()
+        assertTrue("Large text uses a separate row with no added gap", fallback.bottom == narrowHeader.top)
+        assertTrue(fallback.right - fallback.left >= 48.dp && fallback.bottom - fallback.top >= 48.dp)
+        compose.onNodeWithTag("composer-plugins-chip").assertIsDisplayed().performClick()
+        assertEquals(2, selections)
+    }
+
     private fun inputHeight() =
         compose.onNodeWithTag("chat-input").getUnclippedBoundsInRoot().let { it.bottom - it.top }
 

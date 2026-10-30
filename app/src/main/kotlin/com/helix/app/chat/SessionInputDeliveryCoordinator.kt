@@ -39,6 +39,11 @@ internal class SessionInputDeliveryCoordinator(
     private val turnGate: Any,
     private val submissionCommands: TurnSubmissionCommandHandler,
     private val onAdmissionResult: (String, TurnSubmissionResult) -> String?,
+    private val knowledgeReferencesValid: suspend (
+        List<com.helix.core.storage.repository.KnowledgeReference>,
+    ) -> Boolean = { it.isEmpty() },
+    private val referenceToolsAvailable: (String, Boolean, Boolean) -> Boolean =
+        { _, conversation, knowledge -> !conversation && !knowledge },
     private val skillActivationsValid: (
         String,
         List<com.helix.core.storage.repository.InputSkillActivation>,
@@ -130,6 +135,8 @@ internal class SessionInputDeliveryCoordinator(
                     storage.artifacts.resolve(it.artifactId).mediaType in VisionLimits.NORMALIZED_MEDIA_TYPES
                 }
             check(!hasImages || providerService.capabilitiesFor(provider, session.modelId)?.vision == true)
+            validateReferenceTools(input, control, session.modelId)
+            check(knowledgeReferencesValid(input.knowledgeReferences)) { "KNOWLEDGE_REFERENCE_CHANGED" }
             storage.sessionInputs.readReference(input)
             SessionInputAttachments(storage, attachmentStaging, credentialScan).materialize(input)
         } catch (cancel: CancellationException) {
@@ -140,7 +147,13 @@ internal class SessionInputDeliveryCoordinator(
                     storage.sessionInputs.markNeedsAttention(
                         input.inputId,
                         input.revision,
-                        "INPUT_REVALIDATION_FAILED",
+                        if (error.message == "KNOWLEDGE_REFERENCE_CHANGED") {
+                            "KNOWLEDGE_REFERENCE_CHANGED"
+                        } else if (error.message == "REFERENCE_TOOLS_REQUIRED") {
+                            "REFERENCE_TOOLS_REQUIRED"
+                        } else {
+                            "INPUT_REVALIDATION_FAILED"
+                        },
                         clock.now().toEpochMilli(),
                     )
                 }
@@ -148,6 +161,21 @@ internal class SessionInputDeliveryCoordinator(
             Log.w(TAG, "Queued input revalidation failed", error)
             null
         }
+
+    private suspend fun validateReferenceTools(
+        input: SessionInputRecord,
+        control: RunControlConfig,
+        model: String?,
+    ) {
+        val conversation = input.reference != null
+        val knowledge = input.knowledgeReferences.isNotEmpty()
+        if (!conversation && !knowledge) return
+        val allowedMode = control.mode != AgentMode.CHAT || control.chatToolsEnabled
+        val capable = providerService.capabilitiesFor(input.configuration.providerId, model)?.toolCalls == true
+        check(allowedMode && capable && referenceToolsAvailable(input.sessionId, conversation, knowledge)) {
+            "REFERENCE_TOOLS_REQUIRED"
+        }
+    }
 
     suspend fun prepareSteering(
         sessionId: String,

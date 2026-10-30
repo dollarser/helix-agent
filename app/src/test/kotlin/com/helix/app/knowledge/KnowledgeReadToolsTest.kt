@@ -22,6 +22,14 @@ class KnowledgeReadToolsTest {
         object : KnowledgeReadTools.Backend {
             override fun allowed() = allowed
 
+            override fun checkCaller(call: ExecutableToolCall) = Unit
+
+            override fun references(
+                call: ExecutableToolCall,
+                inputId: String,
+                hash: String,
+            ): List<com.helix.core.storage.repository.KnowledgeReference> = error("No references in this fixture")
+
             override suspend fun search(query: String): JsonObject {
                 reads++
                 if (revokeDuringRead) allowed = false
@@ -103,6 +111,40 @@ class KnowledgeReadToolsTest {
         assertTrue(
             ToolSchemaValidator.validate(schema, Json.parseToJsonElement("""{"query":"x","all":true}""")) !=
                 ToolSchemaValidation.Valid,
+        )
+    }
+
+    @Test fun readToolsAreAvailableInReviewModesAndChatRequiresItsToolSwitch() {
+        val descriptors = listOf(KnowledgeReadTools.descriptor(true), KnowledgeReadTools.descriptor(false))
+        for (mode in listOf(com.helix.core.model.AgentMode.PLAN, com.helix.core.model.AgentMode.ACT)) {
+            val visible =
+                com.helix.core.agent.ModePolicy.filterTools(mode, descriptors, false) {
+                    com.helix.core.agent
+                        .ToolModeProfile(it.operationClass)
+                }
+            assertEquals(descriptors, visible)
+        }
+        assertTrue(
+            com.helix.core.agent.ModePolicy
+                .filterTools(
+                    com.helix.core.model.AgentMode.CHAT,
+                    descriptors,
+                    false,
+                ) {
+                    com.helix.core.agent
+                        .ToolModeProfile(it.operationClass)
+                }.isEmpty(),
+        )
+        assertEquals(
+            descriptors,
+            com.helix.core.agent.ModePolicy.filterTools(
+                com.helix.core.model.AgentMode.CHAT,
+                descriptors,
+                true,
+            ) {
+                com.helix.core.agent
+                    .ToolModeProfile(it.operationClass)
+            },
         )
     }
 }

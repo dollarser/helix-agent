@@ -400,7 +400,7 @@ class SessionInputStorageDeviceTest {
         }
 
     @Test
-    fun acceptedConversationReferenceKeepsFrozenBytesAfterSourceChangesAndDeletion() =
+    fun acceptedConversationReferenceKeepsManifestAfterSourceChangesAndDeletion() =
         withStorage { storage ->
             storage.sessions.create("source", "Source", null, null, 0)
             storage.withTransaction {
@@ -410,9 +410,16 @@ class SessionInputStorageDeviceTest {
                 ConversationReferenceSnapshotInput(
                     sourceSessionId = "source",
                     sourceSessionTitle = "Source",
-                    selectionKind = ConversationReferenceKind.RECENT_MESSAGES,
+                    selectionKind = ConversationReferenceKind.HISTORY,
                     sourceMessageIds = listOf("source-old"),
-                    content = "frozen source snapshot",
+                    content =
+                        com.helix.core.storage.repository
+                            .ConversationReferenceManifest(
+                                1,
+                                "a".repeat(64),
+                                1,
+                                42,
+                            ).encode(),
                 )
             val accepted = accepted(storage, spec("reference", "").copy(reference = reference))
             assertEquals(reference, storage.sessionInputs.readReference(accepted))
@@ -434,9 +441,16 @@ class SessionInputStorageDeviceTest {
                 ConversationReferenceSnapshotInput(
                     sourceSessionId = "source",
                     sourceSessionTitle = "Source",
-                    selectionKind = ConversationReferenceKind.RECENT_MESSAGES,
+                    selectionKind = ConversationReferenceKind.HISTORY,
                     sourceMessageIds = listOf("source-message"),
-                    content = "independent frozen reference",
+                    content =
+                        com.helix.core.storage.repository
+                            .ConversationReferenceManifest(
+                                1,
+                                "a".repeat(64),
+                                1,
+                                42,
+                            ).encode(),
                 )
             storage.withTransaction {
                 storage.messages.append("source-message", "source", null, "USER", "TEXT", "source history")
@@ -455,7 +469,7 @@ class SessionInputStorageDeviceTest {
             storage.deleteSessionPermanently("source")
             assertTrue(storage.contentStore.exists(contentRef))
             assertEquals(
-                "independent frozen reference",
+                reference.content,
                 storage.messageReferenceSnapshots
                     .forMessage("target-message")
                     .single()

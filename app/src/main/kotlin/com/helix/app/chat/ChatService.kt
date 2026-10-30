@@ -537,24 +537,28 @@ class ChatService(
 
     /**
      * Selection stays lightweight; bytes are intentionally materialized later at submission.
-     * Prefer an existing compacted summary, otherwise use the bounded recent-message snapshot.
+     * Capture a fixed history manifest; never inject a transcript or a potentially stale summary.
      */
+    @Suppress("TooGenericExceptionCaught") // Unavailable selection; propagate cancellation.
     fun referenceKindForSession(
         targetSessionId: String,
         sourceSessionId: String,
     ): kotlinx.coroutines.Deferred<ConversationReferenceKind?> =
         workScope.async {
-            if (targetSessionId == sourceSessionId || storage.sessions.find(sourceSessionId) == null) return@async null
-            val kind =
-                if (conversationReferences.hasSummary(sourceSessionId)) {
-                    ConversationReferenceKind.SUMMARY
-                } else {
-                    ConversationReferenceKind.RECENT_MESSAGES
+            try {
+                if (targetSessionId == sourceSessionId ||
+                    storage.sessions.find(sourceSessionId) == null
+                ) {
+                    return@async null
                 }
-            runCatching {
+                val kind = ConversationReferenceKind.HISTORY
                 conversationReferences.prepare(targetSessionId, sourceSessionId, kind)
                 kind
-            }.getOrNull()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                null
+            }
         }
 
     suspend fun materializeOpenSession(): String? {
@@ -846,6 +850,8 @@ class ChatService(
             clock = clock,
             turnGate = turnGate,
             skillActivationsValid = ::validSkillActivations,
+            knowledgeReferencesValid = { items -> items.isEmpty() || knowledgeReferences?.valid(items) == true },
+            referenceToolsAvailable = ::referenceToolsAvailable,
             submissionCommands = submissionCommands,
             onAdmissionResult = ::projectSubmission,
         )
@@ -2347,6 +2353,7 @@ class ChatService(
         if (!hasSelectedConversationModel(selection.providerId, selection.modelId)) {
             return ChatSubmissionOutcome.Rejected("NO_MODEL_SELECTED")
         }
+        referenceModelProblem(request, selection)?.let { return submissionBlocked(it) }
         if (!validHumanInput(request)) return ChatSubmissionOutcome.Rejected("INVALID_INPUT")
         if (preparingDraft) return ChatSubmissionOutcome.Rejected("PREPARING_DRAFT")
         if (request.attachmentIds != stagedAttachments.map { it.artifactId }) {
@@ -2380,6 +2387,57 @@ class ChatService(
         }
         if (openSessionId != request.sessionId) return ChatSubmissionOutcome.Rejected("SESSION_CHANGED")
         return sendNow(request.text, submission = request)
+    }
+
+    private suspend fun referenceModelProblem(
+        request: ChatSubmission,
+        selection: com.helix.core.storage.entity.SessionEntity,
+    ): String? {
+        if (request.referenceSourceSessionId == null && request.knowledgeReferences.isEmpty()) return null
+        val control = _runControl.value
+        val toolsEnabled = control.mode != AgentMode.CHAT || control.chatToolsEnabled
+        val capable =
+            providerService
+                .capabilitiesFor(
+                    requireNotNull(selection.providerId),
+                    selection.modelId,
+                )?.toolCalls
+        val available =
+            referenceToolsAvailable(
+                request.sessionId,
+                request.referenceSourceSessionId != null,
+                request.knowledgeReferences.isNotEmpty(),
+            )
+        return if (!toolsEnabled || capable != true || !available) {
+            str(
+                if (request.knowledgeReferences.isNotEmpty()) {
+                    R.string.knowledge_reference_tools_required
+                } else {
+                    R.string.reference_tools_required
+                },
+            )
+        } else {
+            null
+        }
+    }
+
+    private fun referenceToolsAvailable(
+        sessionId: String,
+        conversation: Boolean,
+        knowledge: Boolean,
+    ): Boolean {
+        val names =
+            buildList {
+                if (conversation) addAll(listOf("session.history", "session.search", "session.read"))
+                if (knowledge) addAll(listOf("knowledge.search", "knowledge.read"))
+            }
+        val bindings = toolPipeline.registry.snapshot()
+        return names.all { name ->
+            bindings.any { binding ->
+                binding.descriptor.name.value == name &&
+                    toolPipeline.disabledToolFilter?.invoke(sessionId, binding.descriptor) != false
+            }
+        }
     }
 
     private fun completedSubmission(request: ChatSubmission): ChatSubmissionOutcome? {
@@ -3584,6 +3642,21 @@ class ChatService(
         attachments: List<AttachmentBindingIntent> = emptyList(),
         reference: ConversationReferenceSnapshotInput? = null,
     ): ChatSubmissionOutcome {
+        if (reference != null) {
+            try {
+                val manifest =
+                    com.helix.core.storage.repository.ConversationReferenceManifest
+                        .parse(reference.content)
+                require(
+                    storage.sessionHistory.captureReference(
+                        reference.sourceSessionId,
+                        manifest.throughSequence,
+                    ) == manifest,
+                )
+            } catch (_: IllegalArgumentException) {
+                return submissionBlocked(str(R.string.chat_blocked_reference_unavailable))
+            }
+        }
         if (submission.revisedMessageId == null && goalId == null) {
             return acceptSessionInput(submission, providerId, attachments, reference)
         }

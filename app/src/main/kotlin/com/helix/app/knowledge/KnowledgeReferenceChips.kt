@@ -38,9 +38,12 @@ fun KnowledgeReferenceChips(
     onChange: ((List<KnowledgeReference>) -> Unit)? = null,
 ) {
     if (references.isEmpty()) return
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val previewService =
+        service ?: (context.applicationContext as? com.helix.app.HelixApplication)?.knowledge?.references
     var open by remember { mutableStateOf<String?>(null) }
     val states =
-        remember(service, references) { service?.states(references) }
+        remember(previewService, references) { previewService?.states(references) }
             ?.collectAsStateWithLifecycle(emptyMap())
             ?.value
             .orEmpty()
@@ -48,7 +51,7 @@ fun KnowledgeReferenceChips(
     selected?.let { item ->
         KnowledgeReferencePreview(
             item,
-            service,
+            previewService,
             onChange =
                 onChange?.let { change ->
                     { replacement -> change(references.map { if (it == item) replacement else it }) }
@@ -58,7 +61,7 @@ fun KnowledgeReferenceChips(
     }
     Column(Modifier.padding(horizontal = 12.dp, vertical = 4.dp).testTag("knowledge-reference-chips")) {
         Text(
-            stringResource(R.string.knowledge_reference_count, references.size, references.sumOf { it.text.length }),
+            stringResource(R.string.knowledge_reference_count, references.size, references.sumOf { it.characters }),
             style = MaterialTheme.typography.labelSmall,
         )
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -66,7 +69,7 @@ fun KnowledgeReferenceChips(
                 val state = states["${item.kind}:${item.resourceId}"]
                 val warning =
                     state == KnowledgeReferenceService.State.UNAVAILABLE ||
-                        (state == KnowledgeReferenceService.State.CHANGED && !item.keepVersion)
+                        (state == KnowledgeReferenceService.State.CHANGED)
                 KnowledgeReferenceChip(
                     item,
                     state,
@@ -146,7 +149,7 @@ private fun KnowledgeReferenceLabel(
                 R.string.knowledge_ref_missing_short
             }
 
-            state == KnowledgeReferenceService.State.CHANGED && !item.keepVersion -> {
+            state == KnowledgeReferenceService.State.CHANGED -> {
                 R.string.knowledge_ref_updated_short
             }
 

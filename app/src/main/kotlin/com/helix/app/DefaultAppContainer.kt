@@ -681,6 +681,7 @@ internal class DefaultAppContainer(
             object : EgressPolicyProvider {
                 override fun current(): EgressPolicy = EgressPolicy(profileStore.profile, lanScopeStore.current())
             },
+            storage,
         )
         com.helix.app.tool.DeviceFileTools.register(
             toolRegistry,

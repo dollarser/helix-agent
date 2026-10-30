@@ -167,7 +167,7 @@ class SessionInputQueueDeviceTest {
                         "First selected version",
                         false,
                     )
-                    val first = library.references.select("NOTE", id, "FULL")
+                    val first = library.references.select("NOTE", id)
                     val draft = submission(session, "Keep my unsent question")
                     assertTrue(storage.composerDrafts.save(draft.toInputSnapshot()))
                     assertFalse(chat.stageKnowledgeReferences("different-session", listOf(first)).await())
@@ -178,7 +178,7 @@ class SessionInputQueueDeviceTest {
                         "Explicitly selected new version",
                         false,
                     )
-                    val replacement = library.references.select("NOTE", id, "FULL")
+                    val replacement = library.references.select("NOTE", id)
                     assertTrue(chat.stageKnowledgeReferences(session, listOf(replacement)).await())
                     val saved = requireNotNull(storage.composerDrafts.get(session)).toSubmission()
                     assertEquals("Keep my unsent question", saved.text)
@@ -204,7 +204,7 @@ class SessionInputQueueDeviceTest {
                         "Original selected text",
                         false,
                     )
-                    val reference = library.references.select("NOTE", id, "FULL")
+                    val reference = library.references.select("NOTE", id)
                     val input = submission(session, "Question").copy(knowledgeReferences = listOf(reference))
                     val pending = chat.sendSubmission(input).await()
                     assertTrue(pending.outcome is ChatSubmissionOutcome.PendingConfirmation)
@@ -229,10 +229,10 @@ class SessionInputQueueDeviceTest {
             }
         }
 
-    @Test fun queuedKnowledgeRemainsFrozenAndEditingDoesNotSend() =
+    @Test fun queuedKnowledgeIsMetadataOnlyAndEditingDoesNotSend() =
         runBlocking {
             val bodies = java.util.concurrent.CopyOnWriteArrayList<String>()
-            fixture(observe = { bodies += it }) { chat, session, entered, release, requests ->
+            fixture(needsReferences = true, observe = { bodies += it }) { chat, session, entered, release, requests ->
                 val library = (compose.activity.application as com.helix.app.HelixApplication).knowledge
                 val noteId = library.noteService.createEmptyTestNote("Synthetic selected note")
                 try {
@@ -242,7 +242,7 @@ class SessionInputQueueDeviceTest {
                         "FrozenSelectedEvidence",
                         false,
                     )
-                    val reference = library.references.select("NOTE", noteId, "FULL")
+                    val reference = library.references.select("NOTE", noteId)
                     compose.awaitAdmittedTurn(chat.sendSubmission(submission(session, "first")).await())
                     assertTrue(entered.await(10, TimeUnit.SECONDS))
                     val input =
@@ -252,35 +252,66 @@ class SessionInputQueueDeviceTest {
                     assertTrue(held.outcome is ChatSubmissionOutcome.PendingConfirmation)
                     assertEquals(1, requests.get())
                     assertTrue(chat.confirmSubmission(input).await().outcome is ChatSubmissionOutcome.Enqueued)
+                    release.countDown()
+                    compose.waitUntil(20_000) { requests.get() == 2 && !chat.screen.value.isSending }
+                    val storage = compose.container().storage
+                    val accepted = requireNotNull(storage.sessionInputs.get(input.clientRequestId))
+                    assertEquals(listOf(reference), accepted.knowledgeReferences)
                     library.noteService.save(
                         requireNotNull(library.noteService.get(noteId)),
                         "Synthetic selected note",
                         "LaterChangedEvidence",
                         true,
                     )
-                    release.countDown()
-                    compose.waitUntil(20_000) { requests.get() == 2 && !chat.screen.value.isSending }
-                    val storage = compose.container().storage
-                    val accepted = requireNotNull(storage.sessionInputs.get(input.clientRequestId))
-                    assertEquals(listOf(reference), accepted.knowledgeReferences)
                     val message = storage.messages.resolve(requireNotNull(accepted.messageId))
                     val storedBody = requireNotNull(storage.messages.readContent(message))
-                    assertTrue(storedBody.contains("FrozenSelectedEvidence"))
+                    assertTrue(storedBody.contains("referenceInputId"))
+                    assertFalse(storedBody.contains("FrozenSelectedEvidence"))
                     assertFalse(storedBody.contains("LaterChangedEvidence"))
-                    assertTrue(bodies.last().contains("FrozenSelectedEvidence"))
+                    assertTrue(bodies.last().contains("referenceInputId"))
+                    assertFalse(bodies.last().contains("FrozenSelectedEvidence"))
                     assertFalse(bodies.last().contains("LaterChangedEvidence"))
-                    assertEquals(1, Regex("FrozenSelectedEvidence").findAll(bodies.last()).count())
+                    assertEquals(0, Regex("FrozenSelectedEvidence").findAll(bodies.last()).count())
                     val editor = UserMessageEditor(storage)
                     assertEquals("Question with citation", editor.load(session, message.id).text)
                     val editResult = editor.save(editor.load(session, message.id), "Edited question")
                     assertEquals(MessageEditResult.SAVED, editResult)
                     assertEquals("Edited question", editor.load(session, message.id).text)
                     val editedBody = requireNotNull(storage.messages.readContent(storage.messages.resolve(message.id)))
-                    assertTrue(editedBody.contains(reference.text))
+                    assertTrue(editedBody.contains(reference.sourceHash))
                     assertEquals(2, requests.get())
                     assertEquals(2, storage.turns.listBySession(session).size)
                 } finally {
                     library.noteService.management.remove(requireNotNull(library.noteService.get(noteId)))
+                }
+            }
+        }
+
+    @Test fun queuedChangedKnowledgeParksWithoutAnotherModelRequest() =
+        runBlocking {
+            fixture(needsReferences = true) { chat, session, entered, release, requests ->
+                val library = (compose.activity.application as com.helix.app.HelixApplication).knowledge
+                val note = library.noteService.createEmptyTestNote("Changed queue reference")
+                try {
+                    library.noteService.save(requireNotNull(library.noteService.get(note)), "Source", "Original", false)
+                    val reference = library.references.select("NOTE", note)
+                    compose.awaitAdmittedTurn(chat.sendSubmission(submission(session, "first")).await())
+                    assertTrue(entered.await(10, TimeUnit.SECONDS))
+                    val queued = submission(session, "Keep my question").copy(knowledgeReferences = listOf(reference))
+                    assertTrue(chat.sendSubmission(queued).await().outcome is ChatSubmissionOutcome.PendingConfirmation)
+                    assertTrue(chat.confirmSubmission(queued).await().outcome is ChatSubmissionOutcome.Enqueued)
+                    library.noteService.save(requireNotNull(library.noteService.get(note)), "Source", "Changed", false)
+                    release.countDown()
+                    val storage = compose.container().storage
+                    compose.waitUntil(20_000) {
+                        storage.sessionInputs.get(queued.clientRequestId)?.state == SessionInputState.NEEDS_ATTENTION
+                    }
+                    val parked = requireNotNull(storage.sessionInputs.get(queued.clientRequestId))
+                    assertEquals("KNOWLEDGE_REFERENCE_CHANGED", parked.blockedReason)
+                    assertEquals("Keep my question", storage.sessionInputs.readText(parked))
+                    assertEquals(1, requests.get())
+                } finally {
+                    library.noteService.management.remove(requireNotNull(library.noteService.get(note)))
                 }
             }
         }
@@ -428,7 +459,7 @@ class SessionInputQueueDeviceTest {
                     val queued =
                         submission(session, "").copy(
                             referenceSourceSessionId = source,
-                            referenceKind = ConversationReferenceKind.RECENT_MESSAGES,
+                            referenceKind = ConversationReferenceKind.HISTORY,
                         )
                     assertTrue(
                         chat.sendSubmission(queued).await().outcome is ChatSubmissionOutcome.PendingConfirmation,
@@ -713,6 +744,7 @@ class SessionInputQueueDeviceTest {
     ): ChatSubmission = ChatSubmission(session, 0, UUID.randomUUID().toString(), text)
 
     private suspend fun fixture(
+        needsReferences: Boolean = false,
         observe: (String) -> Unit = {},
         block: suspend (ChatService, String, CountDownLatch, CountDownLatch, AtomicInteger) -> Unit,
     ) {
@@ -737,6 +769,9 @@ class SessionInputQueueDeviceTest {
                 )
             val release = CountDownLatch(1)
             check(container.providerService.runConnectionTest(provider) is ProbeOutcome.Ok)
+            if (needsReferences) {
+                check(container.providerService.runCapabilityTest(provider, "fixture-model-a") is ProbeOutcome.Ok)
+            }
             val session = chat.createSession("Queue fixture", provider, "fixture-model-a")
             try {
                 val entered = CountDownLatch(1)

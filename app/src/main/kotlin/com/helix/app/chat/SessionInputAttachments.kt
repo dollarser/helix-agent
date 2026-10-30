@@ -21,12 +21,13 @@ internal class SessionInputAttachments(
             com.helix.core.storage.repository.KnowledgeReferences.message(
                 storage.sessionInputs.readText(input),
                 input.knowledgeReferences,
+                input.inputId,
             )
         require(
             scan(
                 text +
                     input.knowledgeReferences.joinToString("\n") {
-                        it.title + "\n" + it.text
+                        it.title
                     },
             ) == null,
         ) { "INPUT_CREDENTIAL_DETECTED" }

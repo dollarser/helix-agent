@@ -21,8 +21,7 @@ class ComposerInputCacheTest {
                 "note-a",
                 "合成笔记",
                 "a".repeat(64),
-                "EXCERPT",
-                "合成正文",
+                20,
             )
         val first =
             input("a", 1, "first", "").copy(
@@ -174,7 +173,7 @@ class ComposerInputCacheTest {
                 delivery = "STEER",
                 expectedTurnId = "turn",
                 referenceSourceSessionId = "source-session",
-                referenceKind = "RECENT_MESSAGES",
+                referenceKind = "HISTORY",
             )
         assertTrue(ComposerInputCache(root).save(current))
         assertEquals(current, ComposerInputCache(root).get("session"))

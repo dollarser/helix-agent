@@ -15,7 +15,7 @@ import kotlinx.serialization.json.buildJsonObject
 internal class KnowledgeAgentAccess(
     private val prefs: SharedPreferences,
     private val store: KnowledgeStore,
-) : KnowledgeReadTools.Backend {
+) : KnowledgeReadTools.Library {
     private val mutableEnabled = MutableStateFlow(prefs.getBoolean("agent-read", false))
     val enabled = mutableEnabled.asStateFlow()
 
@@ -38,11 +38,21 @@ internal class KnowledgeAgentAccess(
                 }
             val notes = store.boundedNoteSearch(query, 8)
             val sourceItems =
-                sources.take(8).map {
-                    val excerpt = it.extracted.ifBlank { it.rawText }.take(512)
-                    entry("source", it.id, it.title, excerpt, it.state)
-                }
-            val noteItems = notes.map { entry("note", it.id, it.title, it.body.take(512), it.state) }
+                sources
+                    .filter {
+                        com.helix.app.application.security.ForbiddenContentGuard
+                            .reasonFor(it.extracted.ifBlank { it.rawText }) == null
+                    }.take(8)
+                    .map {
+                        val excerpt = it.extracted.ifBlank { it.rawText }.take(512)
+                        entry("source", it.id, it.title, excerpt, it.state)
+                    }
+            val noteItems =
+                notes
+                    .filter {
+                        com.helix.app.application.security.ForbiddenContentGuard
+                            .reasonFor(it.body) == null
+                    }.map { entry("note", it.id, it.title, it.body.take(512), it.state) }
             buildJsonObject {
                 put("untrustedReference", JsonPrimitive(true))
                 put("items", JsonArray(sourceItems + noteItems))
@@ -57,11 +67,28 @@ internal class KnowledgeAgentAccess(
             if (kind == "source") {
                 store.get(id)?.takeIf { it.state != "DELETING" }?.let {
                     val text = it.extracted.ifBlank { it.rawText }
-                    content(entry(kind, id, it.title, "", it.state), text, it.sourceUrl)
+                    content(
+                        JsonObject(
+                            entry(kind, id, it.title, "", it.state) +
+                                ("category" to JsonPrimitive("SOURCE")) +
+                                ("completeness" to JsonPrimitive(if (it.extracted.isBlank()) "RAW_TEXT" else it.state)),
+                        ),
+                        text,
+                        it.sourceUrl,
+                    )
                 }
             } else {
                 store.note(id)?.let { note ->
-                    val result = content(entry(kind, id, note.title, "", note.state), note.body, "")
+                    val result =
+                        content(
+                            JsonObject(
+                                entry(kind, id, note.title, "", note.state) +
+                                    ("category" to JsonPrimitive(note.kind)) +
+                                    ("completeness" to JsonPrimitive("USER_CONTENT")),
+                            ),
+                            note.body,
+                            "",
+                        )
                     val references =
                         store.noteSources(id).take(8).map { reference ->
                             buildJsonObject {
@@ -99,9 +126,9 @@ internal class KnowledgeAgentAccess(
     ) = buildJsonObject {
         metadata.forEach { (key, value) -> put(key, value) }
         put("untrustedReference", JsonPrimitive(true))
-        put("text", JsonPrimitive(text.take(12_000)))
+        put("text", JsonPrimitive(text))
         put("contentHash", JsonPrimitive(knowledgeHash(text)))
-        put("truncated", JsonPrimitive(text.length > 12_000))
+        put("truncated", JsonPrimitive(false))
         put("sourceUrl", JsonPrimitive(url.take(2000)))
     }
 }

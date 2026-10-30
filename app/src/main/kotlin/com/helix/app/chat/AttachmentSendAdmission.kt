@@ -4,6 +4,7 @@ import com.helix.app.R
 import com.helix.core.model.AttachmentCategory
 import com.helix.core.model.TextAttachmentKind
 import com.helix.core.storage.repository.ConversationReferenceSnapshotInput
+import com.helix.core.storage.repository.KnowledgeReferences
 import com.helix.feature.files.AttachmentMaterialization
 import com.helix.feature.files.AttachmentSendDecision
 import com.helix.feature.files.SnapshotKind
@@ -96,14 +97,12 @@ object AttachmentSendAdmission {
                             EgressDisclosure.OutgoingContent.FileText(
                                 sourceLabel = item.title,
                                 sizeBytes =
-                                    item.text
-                                        .toByteArray(Charsets.UTF_8)
+                                    KnowledgeReferences
+                                        .encode(listOf(item))
+                                        .toByteArray()
                                         .size
                                         .toLong(),
-                                sha256 =
-                                    com.helix.core.storage.content.FileContentStore.sha256Hex(
-                                        item.text.toByteArray(Charsets.UTF_8),
-                                    ),
+                                sha256 = KnowledgeReferences.hash(listOf(item)),
                                 kindRes = R.string.kind_markdown,
                             )
                         }
@@ -111,7 +110,7 @@ object AttachmentSendAdmission {
                     EgressDisclosure.decide(
                         contents,
                         guardText(text, gate.attachments, reference) +
-                            knowledge.joinToString("\n") { it.title + "\n" + it.text },
+                            knowledge.joinToString("\n") { it.title },
                         target,
                     ),
                     gate.attachments,
@@ -185,10 +184,9 @@ object AttachmentSendAdmission {
                 EgressDisclosure.OutgoingContent.ConversationReference(
                     sourceLabel = it.sourceSessionTitle,
                     sizeBytes =
-                        it.content
-                            .toByteArray(Charsets.UTF_8)
-                            .size
-                            .toLong(),
+                        com.helix.core.storage.repository.ConversationReferenceManifest
+                            .parse(it.content)
+                            .contentBytes,
                     sha256 = it.contentSha256,
                 )
         }
@@ -217,6 +215,8 @@ object AttachmentSendAdmission {
             }
             reference?.let {
                 if (isNotEmpty()) append('\n')
+                append(it.sourceSessionTitle)
+                append('\n')
                 append(it.content)
             }
         }

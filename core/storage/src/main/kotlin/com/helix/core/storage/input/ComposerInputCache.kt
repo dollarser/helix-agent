@@ -201,7 +201,7 @@ class ComposerInputCache(
         val attachments = requireNotNull(item["attachmentIds"] as? JsonArray)
         require(attachments.all { it is JsonPrimitive && it.isString && it.content.isNotBlank() })
         require(required("delivery") in setOf("QUEUE", "STEER"))
-        require(optional("referenceKind") in setOf(null, "SUMMARY", "RECENT_MESSAGES"))
+        require(optional("referenceKind") in setOf(null, "HISTORY"))
         require((optional("referenceSourceSessionId") == null) == (optional("referenceKind") == null))
         require(optional("referenceSourceSessionId") != sessionId)
         return ComposerInputSnapshot(

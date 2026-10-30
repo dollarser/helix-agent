@@ -212,7 +212,7 @@ class SessionExportSnapshotDeviceTest {
                         ordinal = 0,
                         sourceSessionId = "other",
                         sourceSessionTitle = "Other conversation",
-                        selectionKind = "RECENT_MESSAGES",
+                        selectionKind = "HISTORY",
                         sourceMessageIdsJson = """["other-source-message"]""",
                         contentRef = body.toStorageString(),
                         contentSha256 = body.sha256,

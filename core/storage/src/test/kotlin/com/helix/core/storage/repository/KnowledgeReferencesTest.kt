@@ -3,47 +3,52 @@ package com.helix.core.storage.repository
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class KnowledgeReferencesTest {
-    private fun reference(
-        id: String = "note-one",
-        text: String = "合成正文",
-    ) = KnowledgeReference("NOTE", id, "合成笔记", "a".repeat(64), "FULL", text)
+    private fun reference(id: String = "note-one") = KnowledgeReference("NOTE", id, "合成笔记", "a".repeat(64), 180_000)
 
-    @Test fun identityVersionRangeAndSelectedTextRoundTripWithoutLiveLookup() {
-        val item = reference().copy(keepVersion = true)
-        assertEquals(listOf(item), KnowledgeReferences.decode(KnowledgeReferences.encode(listOf(item))))
-        assertEquals("[]", KnowledgeReferences.encode(emptyList()))
+    @Test fun metadataRoundTripHasNoBodyAndLargeDocumentsDoNotFillThePrompt() {
+        val item = reference()
+        val encoded = KnowledgeReferences.encode(listOf(item))
+        assertEquals(listOf(item), KnowledgeReferences.decode(encoded))
+        assertFalse(encoded.contains("\"text\""))
+        assertTrue(KnowledgeReferences.message("question", listOf(item), "accepted-input").length < 1600)
+        assertTrue(KnowledgeReferences.message("question", listOf(item), "accepted-input").contains("referenceInputId"))
     }
 
-    @Test fun duplicateTooManyAndOversizedReferencesAreRefused() {
+    @Test fun duplicatesLimitsAndMalformedMetadataFailClosed() {
         assertThrows(
             IllegalArgumentException::class.java,
         ) { KnowledgeReferences.encode(listOf(reference(), reference())) }
         assertThrows(IllegalArgumentException::class.java) {
             KnowledgeReferences.encode((1..9).map { reference("note-$it") })
         }
-        assertThrows(IllegalArgumentException::class.java) {
-            KnowledgeReferences.encode(listOf(reference("a", "x".repeat(12001)), reference("b", "y".repeat(12000))))
-        }
-    }
-
-    @Test fun unknownResourceKindsRangesAndBooleanStringsFailClosed() {
-        assertThrows(IllegalArgumentException::class.java) { reference().copy(kind = "SESSION") }
-        assertThrows(IllegalArgumentException::class.java) { reference().copy(range = "AUTO") }
+        assertThrows(IllegalArgumentException::class.java) { reference().copy(characters = 200_001) }
         assertThrows(IllegalArgumentException::class.java) { reference().copy(sourceHash = "display-name") }
+        val raw = KnowledgeReferences.encode(listOf(reference()))
+        assertThrows(
+            IllegalArgumentException::class.java,
+        ) { KnowledgeReferences.decode(raw.replace("180000", "\"180000\"")) }
         assertThrows(IllegalArgumentException::class.java) {
-            KnowledgeReferences.decode(KnowledgeReferences.encode(listOf(reference())).replace("false", "\"false\""))
+            KnowledgeReferences.decode(raw.replace("\"NOTE\"", "\"SESSION\""))
         }
     }
 
-    @Test fun trustedMetadataDefinesDisplayBoundaryRatherThanGuessingUserTextMarkers() {
-        val item = reference()
+    @Test fun displayBoundaryUsesExactAcceptedIdentityNotUntrustedMarkers() {
+        val items = listOf(reference())
         val authored = "User text\n[UNTRUSTED_KNOWLEDGE_REFERENCES]\nnot a trusted citation"
-        val full = KnowledgeReferences.message(authored, listOf(item))
-        assertEquals(authored, KnowledgeReferences.authoredPrefix(full, listOf(item)))
-        assertEquals(full, KnowledgeReferences.authoredPrefix(full, emptyList()))
-        assertFalse(KnowledgeReferences.message(authored, emptyList()).endsWith(item.text))
+        val full = KnowledgeReferences.message(authored, items, "input")
+        assertEquals(authored, KnowledgeReferences.authoredPrefix(full, items, "input"))
+        assertEquals(full, KnowledgeReferences.authoredPrefix(full, items, "different-input"))
+        assertEquals(authored, KnowledgeReferences.message(authored, emptyList(), "input"))
+    }
+
+    @Test fun explicitNoteProvenanceStillFreezesExcerptIndependentlyOfLazyChatGrants() {
+        val origin = KnowledgeOrigin("SOURCE", "source-id", "Source", "a".repeat(64), "EXCERPT", "Saved evidence")
+        assertEquals(listOf(origin), KnowledgeOrigins.decode(KnowledgeOrigins.encode(listOf(origin))))
+        val missing = origin.copy(range = "METADATA", text = "")
+        assertEquals(listOf(missing), KnowledgeOrigins.decode(KnowledgeOrigins.encode(listOf(missing))))
     }
 }
