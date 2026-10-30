@@ -10,10 +10,11 @@ import kotlinx.coroutines.flow.map
 /** Reuses the protocol adapter; a catalog reply alone never proves generation authorization. */
 internal class BuiltInModelProvider(
     private val delegate: ModelProvider,
+    private val catalog: suspend () -> ModelCatalogResult,
 ) : ModelProvider by delegate {
     override val allowsEmptyInferenceRetry: Boolean get() = false
 
-    override suspend fun listModels(): ModelCatalogResult = delegate.listModels()
+    override suspend fun listModels(): ModelCatalogResult = catalog()
 
     override suspend fun contextWindow(model: String): Long? = null
 

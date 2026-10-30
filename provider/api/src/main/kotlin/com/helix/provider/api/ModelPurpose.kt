@@ -13,7 +13,25 @@ enum class ModelPurpose { CHAT, EMBEDDING, RERANK, IMAGE, AUDIO, VIDEO, OTHER }
 
 /** Explicit server fields only. Opaque model IDs and aliases never imply a task. */
 object ModelPurposes {
+    fun outputModalities(entry: JsonObject): Set<ModelPurpose> {
+        val values =
+            (entry["architecture"] as? JsonObject)?.get("output_modalities") as? JsonArray
+                ?: return emptySet()
+        val modalities = values.mapNotNull { (it as? JsonPrimitive)?.takeIf { value -> value.isString }?.content }
+        return buildSet {
+            if ("text" in modalities) add(ModelPurpose.CHAT)
+            if ("embeddings" in modalities) add(ModelPurpose.EMBEDDING)
+            if ("image" in modalities) add(ModelPurpose.IMAGE)
+            if ("audio" in modalities) add(ModelPurpose.AUDIO)
+            if ("video" in modalities) add(ModelPurpose.VIDEO)
+            if (isEmpty()) add(ModelPurpose.OTHER)
+        }
+    }
+
     fun parse(entry: JsonObject): Set<ModelPurpose> {
+        if ((entry["architecture"] as? JsonObject)?.containsKey("output_modalities") == true) {
+            return outputModalities(entry)
+        }
         val declarations =
             listOf(
                 "capabilities",

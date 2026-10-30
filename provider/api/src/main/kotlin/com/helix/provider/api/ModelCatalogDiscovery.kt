@@ -12,14 +12,15 @@ import java.net.SocketTimeoutException
 import java.net.URLEncoder
 
 /** Vendor query parameters are sent only to exact official origins. */
-internal object ModelCatalogDiscovery {
+object ModelCatalogDiscovery {
     @Suppress("ReturnCount") // Abort immediately on any incomplete or inconsistent task directory.
     suspend fun fetch(
         wire: WireClient,
         url: String,
         headers: Map<String, String>,
+        outputModalitiesOnly: Boolean = false,
     ): ModelCatalogResult {
-        val base = read(wire, url, headers)
+        val base = read(wire, url, headers, outputModalitiesOnly)
         if (base !is ModelCatalogResult.Listed || !siliconFlow(url)) return base
         val purposes = base.purposes.toMutableMap()
         for ((filter, purpose) in listOf(
@@ -56,13 +57,14 @@ internal object ModelCatalogDiscovery {
         wire: WireClient,
         url: String,
         headers: Map<String, String>,
+        outputModalitiesOnly: Boolean = false,
     ): ModelCatalogResult {
         val ids = linkedSetOf<String>()
         val purposes = linkedMapOf<String, Set<ModelPurpose>>()
         val cursors = mutableSetOf<String>()
         var pageUrl = url
         repeat(32) {
-            val page = readPage(wire, pageUrl, headers)
+            val page = readPage(wire, pageUrl, headers, outputModalitiesOnly)
             if (page.result !is ModelCatalogResult.Listed) return page.result
             ids += page.result.models
             page.result.purposes.forEach { (id, values) -> purposes[id] = purposes[id].orEmpty() + values }
@@ -84,10 +86,10 @@ internal object ModelCatalogDiscovery {
     private fun incomplete(detail: String) = ModelCatalogResult.Failed(ModelErrorCode.PROTOCOL, detail, false)
 
     @Suppress("ReturnCount") // Malformed pagination must not be mistaken for a complete first page.
-    private fun page(body: String): Page {
+    private fun page(body: String, outputModalitiesOnly: Boolean): Page {
         val root =
             runCatching { Json.parseToJsonElement(body) as? JsonObject }.getOrNull()
-                ?: return Page(WireModelCatalogParser.parseModelIds(body))
+                ?: return Page(WireModelCatalogParser.parseModelIds(body, outputModalitiesOnly))
         val more = root["has_more"] as? JsonPrimitive
         if (more != null && more.content !in setOf("true", "false")) return Page(incomplete("Invalid pagination flag"))
         val cursor = (root["last_id"] as? JsonPrimitive)?.takeIf { it.isString }?.content
@@ -97,7 +99,7 @@ internal object ModelCatalogDiscovery {
         // Other pagination protocols remain explicit failures rather than partial success.
         val normalized = JsonObject(root.filterKeys { it != "has_more" })
         return Page(
-            WireModelCatalogParser.parseModelIds(normalized.toString()),
+            WireModelCatalogParser.parseModelIds(normalized.toString(), outputModalitiesOnly),
             cursor.takeIf { more?.content == "true" },
         )
     }
@@ -106,6 +108,7 @@ internal object ModelCatalogDiscovery {
         wire: WireClient,
         url: String,
         headers: Map<String, String>,
+        outputModalitiesOnly: Boolean,
     ): Page =
         try {
             val response = wire.open(WireRequest("GET", url, headers, null))
@@ -113,7 +116,7 @@ internal object ModelCatalogDiscovery {
                 if (response.status in
                     200..299
                 ) {
-                    page(response.body.bytes().decodeToString())
+                    page(response.body.bytes().decodeToString(), outputModalitiesOnly)
                 } else {
                     val (code, retryable) = mapHttpStatus(response.status)
                     Page(ModelCatalogResult.Failed(code, "HTTP ${response.status} on /models", retryable))

@@ -78,14 +78,13 @@ data class ProviderRowUi(
         val purposes = purposesFor(modelId)
         if (purposes.isNotEmpty()) return com.helix.provider.api.ModelPurpose.CHAT in purposes
         return (!bundled && modelId in modelSelection.models) ||
-            (bundled && modelId == BuiltInModel.MODEL_ID) ||
             (provisioning == ProviderProvisioningKind.ON_DEVICE_ASSET && modelId == model)
     }
 
     val builtInTaskDeclarationMissing: Boolean get() =
         bundled &&
             builtInCatalog?.models.orEmpty().any {
-                it != BuiltInModel.MODEL_ID && purposesFor(it).isEmpty()
+                purposesFor(it).isEmpty()
             }
 
     val knownModels: List<String> get() =

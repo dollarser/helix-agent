@@ -103,7 +103,6 @@ internal class BuiltInModelDiscovery(
     ) {
         synchronized(publicationLock) {
             if (revision != expectedRevision) return
-            val previous = store.read()
             val tasks =
                 catalog
                     ?.models
@@ -113,7 +112,6 @@ internal class BuiltInModelDiscovery(
                             ?.purposes
                             ?.get(id)
                             .orEmpty()
-                            .ifEmpty { previous.purposes[id].orEmpty() }
                     }.filterValues { it.isNotEmpty() }
             store.save(BuiltInModelCatalog(now(), catalog?.models.orEmpty(), failure, tasks), expectedAccount)
             revision++

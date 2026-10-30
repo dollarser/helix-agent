@@ -21,7 +21,7 @@ object BuiltInModel {
     const val CLIENT_ID = com.helix.app.account.AccountSession.CLIENT_ID
     const val API_ROOT = com.helix.app.account.OfficialServices.INFERENCE_BASE_URL
     const val GENERATION_URL = "$API_ROOT/chat/completions"
-    const val CATALOG_URL = "$API_ROOT/models"
+    const val CATALOG_URL = "$API_ROOT/models?output_modalities=all"
 
     val capabilities =
         ProviderCapabilities(

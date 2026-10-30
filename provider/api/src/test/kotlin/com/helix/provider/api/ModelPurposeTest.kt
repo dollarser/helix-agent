@@ -18,6 +18,37 @@ import org.junit.Test
 class ModelPurposeTest {
     private fun parse(fields: String) = ModelPurposes.parse(Json.parseToJsonElement(fields).jsonObject)
 
+    @Test fun architectureModalitiesOverrideOlderDeclarationsAndStrictCatalogNeedsTheField() =
+        runBlocking {
+            val body = """{"data":[
+            {"id":"chat-alias","architecture":{"output_modalities":["text","embeddings"]}},
+            {"id":"vector","capabilities":["chat"],"architecture":{"output_modalities":["embeddings"]}},
+            {"id":"old-chat","capabilities":["chat"]},
+            {"id":"image","architecture":{"output_modalities":["image"]}}
+        ]}"""
+            val result =
+                ModelCatalogDiscovery.fetch(
+                    FixtureWire { body },
+                    "https://custom.test/v1/models?output_modalities=all",
+                    emptyMap(),
+                    outputModalitiesOnly = true,
+                ) as ModelCatalogResult.Listed
+            assertEquals(setOf(ModelPurpose.CHAT, ModelPurpose.EMBEDDING), result.purposes["chat-alias"])
+            assertEquals(setOf(ModelPurpose.EMBEDDING), result.purposes["vector"])
+            assertEquals(null, result.purposes["old-chat"])
+            assertEquals(setOf(ModelPurpose.IMAGE), result.purposes["image"])
+            val wire =
+                FixtureWire { url ->
+                    if ("after_id=" in url) {
+                        """{"data":[],"has_more":false}"""
+                    } else {
+                        """{"data":[],"has_more":true,"last_id":"next"}"""
+                    }
+                }
+            ModelCatalogDiscovery.fetch(wire, "https://custom.test/v1/models?output_modalities=all", emptyMap(), true)
+            assertEquals("https://custom.test/v1/models?output_modalities=all&after_id=next", wire.urls.last())
+        }
+
     @Test fun standardDirectoryAndOpaqueAliasesRemainUnknown() {
         assertEquals(
             emptySet<ModelPurpose>(),

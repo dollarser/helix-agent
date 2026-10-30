@@ -137,9 +137,13 @@ class OfficialGatewayContractTest {
                         ).also { requests += request }
                 }
             val provider =
-                OpenAiChatProvider(builtInConfig(), {
-                    error("No custom credential")
-                }, BuiltInAccountWire(testAccount(), wire)) { error("No image") }
+                com.helix.app.provider
+                    .ProviderFactory(
+                        { error("No custom credential") },
+                        wire,
+                        { error("No image") },
+                        builtInWire = BuiltInAccountWire(testAccount(), wire),
+                    ).create(builtInConfig())
             provider.listModels()
             val events =
                 provider
@@ -149,7 +153,7 @@ class OfficialGatewayContractTest {
             assertTrue(events.any { it is ModelEvent.Completed })
             assertEquals(
                 listOf(
-                    "https://api.sunlingzhang.com/v1/models",
+                    "https://api.sunlingzhang.com/v1/models?output_modalities=all",
                     "https://api.sunlingzhang.com/v1/chat/completions",
                 ),
                 requests.map {

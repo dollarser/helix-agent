@@ -9,6 +9,34 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class BuiltInAccountWireTest {
+    @Test fun fullCatalogAndEncodedPaginationKeepAuthenticationOnTheFixedOrigin(): Unit =
+        runBlocking {
+            val requests = mutableListOf<WireRequest>()
+            val transport =
+                object : WireClient {
+                    override suspend fun open(request: WireRequest) = accountResponse().also { requests += request }
+                }
+            val signedIn = BuiltInAccountWire(testAccount(), transport)
+            for (url in listOf(BuiltInModel.CATALOG_URL, BuiltInModel.CATALOG_URL + "&after_id=a%2Fb")) {
+                signedIn.open(WireRequest("GET", url, emptyMap(), null))
+            }
+            assertEquals(2, requests.size)
+            assertTrue(requests.all { it.headers["Authorization"] == "Bearer fixture-access" })
+            assertTrue(requests.all { it.headers["X-Client-Id"] == BuiltInModel.CLIENT_ID })
+            for (url in listOf(
+                "https://other.test/v1/models?output_modalities=all",
+                BuiltInModel.CATALOG_URL + "&after_id=a&extra=1",
+                BuiltInModel.API_ROOT + "/models",
+            )) {
+                assertTrue(
+                    runCatching {
+                        signedIn.open(WireRequest("GET", url, emptyMap(), null))
+                    }.exceptionOrNull() is IllegalArgumentException,
+                )
+            }
+            assertEquals(2, requests.size)
+        }
+
     @Test fun persistedAccountRestoresAdmissionAndLogoutLocksCachedDirectory(): Unit =
         runBlocking {
             val account = testAccount()

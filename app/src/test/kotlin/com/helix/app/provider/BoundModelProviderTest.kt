@@ -40,7 +40,7 @@ class BoundModelProviderTest {
             ),
         )
         assertTrue(!BoundModelProvider(Fixture(), "b") { true }.allowsEmptyInferenceRetry)
-        assertTrue(!BuiltInModelProvider(bound).allowsEmptyInferenceRetry)
+        assertTrue(!BuiltInModelProvider(bound) { bound.listModels() }.allowsEmptyInferenceRetry)
     }
 
     @Test fun ordinaryBackfillCompactionAndContinuationKeepTheExactTarget() =

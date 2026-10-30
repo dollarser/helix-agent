@@ -52,7 +52,14 @@ class ProviderFactory(
             BuiltInModel.validate(config)
             val accountWire = (builtInWire as? com.helix.app.account.BuiltInAccountWire)?.newInvocation() ?: builtInWire
             val adapter = OpenAiChatProvider(config, credentials, accountWire, chatImages(config))
-            return BuiltInModelProvider(adapter)
+            return BuiltInModelProvider(adapter) {
+                com.helix.provider.api.ModelCatalogDiscovery.fetch(
+                    accountWire,
+                    BuiltInModel.CATALOG_URL,
+                    emptyMap(),
+                    outputModalitiesOnly = true,
+                )
+            }
         }
         val managed = additionalFactory(config)
         require(

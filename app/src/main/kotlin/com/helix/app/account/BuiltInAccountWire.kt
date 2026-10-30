@@ -14,17 +14,33 @@ class BuiltInAccountWire(
         ),
 ) : WireClient {
     private val generation = account?.wire(BuiltInModel.GENERATION_URL, delegate)
-    private val catalog = account?.wire(BuiltInModel.CATALOG_URL, delegate)
+    private val revision = account?.revision
 
     fun newInvocation() = BuiltInAccountWire(account, delegate)
 
     override suspend fun open(request: WireRequest): WireResponse {
         require(
             (request.method == "POST" && request.url == BuiltInModel.GENERATION_URL) ||
-                (request.method == "GET" && request.url == BuiltInModel.CATALOG_URL && request.body == null),
+                (request.method == "GET" && isBuiltInCatalogUrl(request.url) && request.body == null),
         )
         if (account == null) throw java.io.IOException("Account sign-in required")
-        val wire = if (request.method == "POST") generation else catalog
+        val wire =
+            if (request.method ==
+                "POST"
+            ) {
+                generation
+            } else {
+                account.wire(request.url, delegate, requireNotNull(revision))
+            }
         return requireNotNull(wire).open(request)
     }
+}
+
+internal fun isBuiltInCatalogUrl(url: String): Boolean {
+    if (url == BuiltInModel.CATALOG_URL) return true
+    val prefix = BuiltInModel.CATALOG_URL + "&after_id="
+    return url.startsWith(prefix) &&
+        url.removePrefix(prefix).let {
+            it.isNotBlank() && it.length <= 768 && '&' !in it && '#' !in it
+        }
 }

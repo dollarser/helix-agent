@@ -98,9 +98,10 @@ class AccountSession(
     fun wire(
         endpoint: String,
         delegate: WireClient = OkHttpWireClient(followRedirects = false),
+        expectedRevision: Long = revision,
     ): WireClient {
         validateTarget(endpoint)
-        return AccountServiceWire(this, endpoint, delegate)
+        return AccountServiceWire(this, endpoint, delegate, expectedRevision)
     }
 
     internal suspend fun authorization(
@@ -224,7 +225,9 @@ class AccountSession(
         fun validateTarget(endpoint: String) {
             val uri = URI(endpoint)
             require(uri.scheme == "https" && uri.host in HOSTS && uri.port in setOf(-1, 443))
-            require(uri.userInfo == null && uri.fragment == null && uri.query == null)
+            require(
+                uri.userInfo == null && uri.fragment == null && (uri.query == null || isBuiltInCatalogUrl(endpoint)),
+            )
         }
     }
 }
@@ -234,8 +237,8 @@ private class AccountServiceWire(
     private val account: AccountSession,
     private val endpoint: String,
     private val delegate: WireClient,
+    private val revision: Long,
 ) : WireClient {
-    private val revision = account.revision
     private val boundIdentity =
         java.util.concurrent.atomic
             .AtomicReference<String?>(null)

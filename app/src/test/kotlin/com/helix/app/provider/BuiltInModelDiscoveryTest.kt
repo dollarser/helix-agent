@@ -49,7 +49,7 @@ class BuiltInModelDiscoveryTest {
             {},
         )
 
-    @Test fun taskEvidenceSurvivesUnknownRefreshButAnExplicitTaskReplacesIt() =
+    @Test fun successfulRefreshReplacesOldTaskEvidenceIncludingUnknown() =
         runBlocking {
             val discovery = discovery()
             result =
@@ -63,7 +63,7 @@ class BuiltInModelDiscoveryTest {
             millis += 4000
             result = { ModelCatalogResult.Listed(listOf("alias")) }
             discovery.refresh(true)
-            assertEquals(setOf(com.helix.provider.api.ModelPurpose.EMBEDDING), discovery.current().purposes["alias"])
+            assertEquals(null, discovery.current().purposes["alias"])
             millis += 4000
             result =
                 {

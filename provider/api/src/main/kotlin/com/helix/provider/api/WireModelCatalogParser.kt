@@ -13,7 +13,10 @@ internal object WireModelCatalogParser {
      * no data array / entry without an id string) and the bound check is a
      * distinct PROTOCOL failure — all are folded into one result here.
      */
-    fun parseModelIds(body: String): ModelCatalogResult {
+    fun parseModelIds(
+        body: String,
+        outputModalitiesOnly: Boolean = false,
+    ): ModelCatalogResult {
         val parsed = parseListObject(body)
         val root = runCatching { Json.parseToJsonElement(body) as? JsonObject }.getOrNull()
         if ((root?.get("has_more") as? JsonPrimitive)?.content == "true" ||
@@ -36,7 +39,12 @@ internal object WireModelCatalogParser {
                     break
                 }
                 collected += text
-                purposes[text] = ModelPurposes.parse(entry as JsonObject)
+                purposes[text] =
+                    if (outputModalitiesOnly) {
+                        ModelPurposes.outputModalities(entry as JsonObject)
+                    } else {
+                        ModelPurposes.parse(entry as JsonObject)
+                    }
             }
         }
         return when {

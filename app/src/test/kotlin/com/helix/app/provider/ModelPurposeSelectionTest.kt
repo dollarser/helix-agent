@@ -220,11 +220,11 @@ class ModelPurposeSelectionTest {
         )
         val known = missing.copy(builtInCatalog = BuiltInModelCatalog(1, listOf(BuiltInModel.MODEL_ID)))
         assertEquals(
-            null,
+            com.helix.app.R.string.builtin_model_tasks_missing,
             com.helix.app.ui
                 .builtInCatalogMessage(known),
         )
-        assertTrue(known.modelSelectable(BuiltInModel.MODEL_ID))
+        assertFalse(known.modelSelectable(BuiltInModel.MODEL_ID))
         assertEquals(
             null,
             com.helix.app.ui

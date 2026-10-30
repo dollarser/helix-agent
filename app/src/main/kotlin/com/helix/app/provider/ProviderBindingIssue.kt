@@ -11,6 +11,7 @@ enum class ProviderBindingIssue(
     CONFIGURATION_CHANGED(R.string.chat_model_source_changed),
     MODEL_MISSING(R.string.chat_model_missing),
     MODEL_NOT_CHAT(R.string.provider_model_not_chat),
+    MODEL_TASK_UNKNOWN(R.string.builtin_model_tasks_missing),
     AUTHENTICATION(R.string.chat_model_authentication),
     NETWORK(R.string.chat_model_network),
     TEST_FAILED(R.string.chat_model_test_failed),
@@ -70,7 +71,19 @@ internal fun builtInBindingIssue(
     now: Long,
 ): ProviderBindingIssue? =
     when {
-        !accountAvailable -> ProviderBindingIssue.AUTHENTICATION
-        catalog.failure == null && catalog.fresh(now) && model !in catalog.models -> ProviderBindingIssue.MODEL_MISSING
-        else -> null
+        !accountAvailable -> {
+            ProviderBindingIssue.AUTHENTICATION
+        }
+
+        catalog.failure == null && catalog.fresh(now) && model !in catalog.models -> {
+            ProviderBindingIssue.MODEL_MISSING
+        }
+
+        catalog.purposes[model].isNullOrEmpty() -> {
+            catalog.failure?.let(::bindingFailure) ?: ProviderBindingIssue.MODEL_TASK_UNKNOWN
+        }
+
+        else -> {
+            null
+        }
     }

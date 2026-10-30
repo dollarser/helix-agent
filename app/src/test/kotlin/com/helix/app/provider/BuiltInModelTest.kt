@@ -35,7 +35,12 @@ class BuiltInModelTest {
         assertFalse(undiscovered.chatSelectable)
         val row =
             undiscovered.copy(
-                builtInCatalog = BuiltInModelCatalog(1, listOf(BuiltInModel.MODEL_ID, "future-model")),
+                builtInCatalog =
+                    BuiltInModelCatalog(
+                        1,
+                        listOf(BuiltInModel.MODEL_ID, "future-model"),
+                        purposes = mapOf(BuiltInModel.MODEL_ID to setOf(com.helix.provider.api.ModelPurpose.CHAT)),
+                    ),
             )
         assertEquals(ConnectionTestStatus.Untested, row.status)
         assertTrue(row.chatSelectable)
