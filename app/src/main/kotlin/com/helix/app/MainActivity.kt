@@ -196,6 +196,13 @@ class MainActivity : ComponentActivity() {
         request: Intent,
         restore: Boolean,
     ) {
+        val automation =
+            if (request.action == Intent.ACTION_VIEW) {
+                request.dataString?.let(com.helix.app.scheduled.ScheduledOpenRequest::parse)
+            } else {
+                null
+            }
+        automation?.let { container.scheduledAgents?.openRequest?.value = it }
         val isShare = request.action in setOf(Intent.ACTION_SEND, Intent.ACTION_SEND_MULTIPLE)
         com.helix.app.reminder.localReminderId(request)?.let {
             (application as HelixApplication).reminders.openRequest.value = it
@@ -211,7 +218,10 @@ class MainActivity : ComponentActivity() {
             consumedReminderId = goalId
             container.chatService.openGoalReminder(goalId)
         }
-        if (restore && !isShare && goalId == null) container.chatService.restoreConversationLaunchTarget()
+        val ordinaryLaunch = !isShare && goalId == null && automation == null
+        if (restore && ordinaryLaunch) {
+            container.chatService.restoreConversationLaunchTarget()
+        }
     }
 
     // Best-effort WebView pause on background; onPause does not pause JavaScript globally.
@@ -320,6 +330,8 @@ internal fun HelixApp(container: AppContainer) {
         navController,
         departure,
     )
+    com.helix.app.scheduled
+        .ScheduledNavigation(container.scheduledAgents, navController, departure)
     val knowledge = (androidx.compose.ui.platform.LocalContext.current.applicationContext as HelixApplication).knowledge
     var citationUrl by androidx.compose.runtime.saveable
         .rememberSaveable { mutableStateOf<String?>(null) }

@@ -66,6 +66,13 @@
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- Untrusted navigation to review an existing rule; never starts an Agent task. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="helix" android:host="automation" />
+            </intent-filter>
         </activity>
         <!-- Knowledge collection materializes temporary grants locally, never sends to a model. -->
         <receiver android:name=".reminder.ReminderReceiver" android:exported="false">

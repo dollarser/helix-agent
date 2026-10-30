@@ -34,6 +34,7 @@ class ScheduledAgentService(
 ) {
     private val producers = ConcurrentHashMap<String, Job>()
     private val userActions = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    internal val openRequest = kotlinx.coroutines.flow.MutableStateFlow<ScheduledOpenRequest?>(null)
     val rules = store.dao.observeRules()
     val occurrences = store.dao.observeOccurrences()
     val attempts = store.dao.observeAttempts()

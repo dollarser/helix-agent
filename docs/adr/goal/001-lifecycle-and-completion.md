@@ -118,3 +118,7 @@ HXA-314 首版采用单独 `scheduled-agents.db` 规则/发生/attempt 账本与
 ## Decision history — 2026-10-21：Goal 工具成组命名
 
 Owner 授权统一成组工具命名，采用 `goal.create/get/update/report`，旧注册名直接移除。用户请求、原会话/Goal 身份、修订校验、预算和轮次结算契约不变；持久用户禁用选择一次性迁移，历史调用和单次批准不改写。工具参数不因外观统一而混淆身份、版本和权限。
+
+## Decision history — 2026-10-30：受限外部审阅入口
+
+`ACTION_VIEW helix://automation/<rule UUID>?requestId=<UUID>` 仅在本机打开已有定时任务的审阅/编辑页，不执行任务、不接受 prompt、shell、权限或模型目标。冷启动与 onNewIntent 共用闭合参数校验；取消不写规则，编辑仍经现有范围预览与明确保存。无效/删除规则不可执行。Intent requestId 仅是导航身份，不是授权或恰好一次执行凭据。已有 WorkManager 与规则/occurrence/attempt 账本继续拥有调度及未知结果处理，不另建执行器。

@@ -2212,4 +2212,6 @@
     <string name="run_metrics_failed">Unable to read run records.</string>
     <string name="run_metrics_unknown">—</string>
     <string name="run_metrics_seconds">%1$.2f s</string>
+    <string name="scheduled_external_title">Review scheduled task</string>
+    <string name="scheduled_external_missing">Task unavailable. This link does not execute it.</string>
 </resources>

@@ -62,6 +62,30 @@ fun ScheduledAgentScreen(
             delay(1000)
         }
     }
+    val requested by service.openRequest.collectAsStateWithLifecycle()
+    requested?.let { pending ->
+        val rule = rules.firstOrNull { it.id == pending.ruleId }
+        AlertDialog(
+            onDismissRequest = { service.openRequest.compareAndSet(pending, null) },
+            modifier = Modifier.testTag("scheduled-external-review"),
+            title = { Text(stringResource(R.string.scheduled_external_title)) },
+            text = { Text(rule?.title ?: stringResource(R.string.scheduled_external_missing)) },
+            confirmButton = {
+                TextButton(enabled = rule != null, onClick = {
+                    selected = rule
+                    editing = true
+                    service.openRequest.compareAndSet(pending, null)
+                }, modifier = Modifier.testTag("scheduled-external-open")) {
+                    Text(stringResource(R.string.scheduled_edit))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { service.openRequest.compareAndSet(pending, null) }) {
+                    Text(stringResource(R.string.common_cancel))
+                }
+            },
+        )
+    }
     if (editing) {
         ScheduledAgentEditor(service, selected) { editing = false }
         return
