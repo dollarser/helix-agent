@@ -70,6 +70,46 @@ class PromptContentContributionsTest {
         assertTrue(content(emptySet()).contains("omitted 2 rows"))
     }
 
+    @Test fun identicalCatalogsKeepAllOwnersWithoutRepeatingMetadata() {
+        val second = owner.copy(pluginId = "plugin-b", runtimeId = "runtime-b", revision = 8)
+        val items =
+            listOf(
+                PluginContentContribution.SkillCatalog(key, "shared description"),
+                PluginContentContribution.SkillCatalog(key, "shared description", owner),
+                PluginContentContribution.SkillCatalog(key, "shared description", second),
+            )
+        val section = resolve(items, setOf("skills.read")).single()
+        assertEquals(listOf("plugin-a", "plugin-b"), section.identity!!.owners.map { it.id })
+        assertEquals(listOf(7L, 8L), section.identity!!.owners.map { it.revision })
+        assertEquals(key.snapshotHash, section.identity!!.revision)
+        assertTrue(section.readReference!!.argumentsJson.contains(key.snapshotHash))
+        assertEquals(TrustLevel.UNTRUSTED, section.trust)
+        assertEquals(PromptContentRetention.OPTIONAL, section.retention)
+        assertEquals(2, resolve(items + items.first().copy(description = "different facts"), emptySet()).size)
+        assertEquals(
+            2,
+            resolve(items + items.first().copy(key = key.copy(snapshotHash = "c".repeat(64))), emptySet()).size,
+        )
+        val revoked = resolve(listOf(items.first(), items.last()), emptySet()).single()
+        assertEquals(listOf("plugin-b"), revoked.identity!!.owners.map { it.id })
+        assertNull(revoked.readReference)
+    }
+
+    @Test fun discoveryGuidanceIsNotRepeatedForEveryToolSource() {
+        for (omitted in listOf(0, 2)) {
+            val catalog =
+                ToolSourceCatalogSnapshot(
+                    (0..7).map { ToolSourceCatalogEntry("source-$it", listOf("category-$it"), "revision-$it") },
+                    omitted,
+                )
+            val sections = PromptContentContributions.sections(emptyList(), catalog, null, setOf("tools.search"))
+            val content = PromptRegistry().also { registry -> sections.forEach(registry::register) }.assemble()
+            assertEquals(1, Regex("Use tools.search for callable schemas").findAll(content).count())
+            catalog.entries.forEach { entry -> assertTrue(content.contains(entry.source)) }
+            assertTrue(sections.all { it.trust == TrustLevel.UNTRUSTED })
+        }
+    }
+
     private fun resolve(
         contributions: List<PluginContentContribution>,
         tools: Set<String>,

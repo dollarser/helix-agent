@@ -26,19 +26,22 @@ internal object PromptContentContributions {
         availableTools: Set<String>,
     ): List<PromptSection> =
         buildList {
-            contributions.forEach { item -> add(contribution(item, availableTools)) }
+            val catalogs =
+                contributions
+                    .filterIsInstance<PluginContentContribution.SkillCatalog>()
+                    .groupBy { it.key to it.description }
+            contributions.forEach { item ->
+                when (item) {
+                    is PluginContentContribution.RequiredInstructions -> add(requiredInstructions(item))
+                    is PluginContentContribution.ActivatedSkill -> add(activatedSkill(item, availableTools))
+                    is PluginContentContribution.SkillCatalog -> Unit
+                }
+            }
+            catalogs.values.forEach { equivalent ->
+                add(skillCatalog(equivalent.first(), availableTools, equivalent.mapNotNull { it.owner }.distinct()))
+            }
             catalog?.let { addAll(catalogSections(it, availableTools)) }
             readiness?.let { addAll(readinessSections(it)) }
-        }
-
-    private fun contribution(
-        item: PluginContentContribution,
-        tools: Set<String>,
-    ): PromptSection =
-        when (item) {
-            is PluginContentContribution.RequiredInstructions -> requiredInstructions(item)
-            is PluginContentContribution.SkillCatalog -> skillCatalog(item, tools)
-            is PluginContentContribution.ActivatedSkill -> activatedSkill(item, tools)
         }
 
     private fun requiredInstructions(item: PluginContentContribution.RequiredInstructions): PromptSection {
@@ -60,6 +63,7 @@ internal object PromptContentContributions {
     private fun skillCatalog(
         item: PluginContentContribution.SkillCatalog,
         availableTools: Set<String>,
+        owners: List<NativePluginState>,
     ): PromptSection {
         val key = item.key
         val payload =
@@ -72,13 +76,13 @@ internal object PromptContentContributions {
         return section(
             "skill.catalog",
             -1749,
-            key.identity() + ":" + item.owner?.pluginId,
+            key.identity() + ":" + hash(item.description),
             "[SKILL CATALOG]\n$payload\n[/SKILL CATALOG]",
             PromptContentIdentity(
                 "skills:${key.source}",
                 key.snapshotHash,
                 key.identity(),
-                listOfNotNull(item.owner?.identity()),
+                owners.map { it.identity() },
             ),
             priority = 100,
             readReference = key.readReference(availableTools),
@@ -120,9 +124,22 @@ internal object PromptContentContributions {
                         -1747,
                         entry.source,
                         "[TOOL SOURCES: metadata only, not authorization]\n${entry.facts()}\n" +
-                            catalogReadHint(availableTools) + "[/TOOL SOURCES]",
+                            (
+                                if (snapshot.omittedAtAcquisition == 0 && entry == snapshot.entries.first()) {
+                                    catalogReadHint(availableTools)
+                                } else {
+                                    ""
+                                }
+                            ) + "[/TOOL SOURCES]",
                         PromptContentIdentity(entry.source, entry.revision),
-                        priority = 100,
+                        priority =
+                            if (snapshot.omittedAtAcquisition == 0 &&
+                                entry == snapshot.entries.first()
+                            ) {
+                                101
+                            } else {
+                                100
+                            },
                     ),
                 )
             }
