@@ -491,6 +491,23 @@ class ChatService(
     fun savedExperts(): kotlinx.coroutines.Deferred<List<com.helix.core.storage.repository.ExpertDefinition>> =
         workScope.async { storage.experts.list() }
 
+    suspend fun messageRunMetrics(messageId: String): MessageRunMetrics =
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            MessageRunMetricsReader(storage).read(messageId)
+        }
+
+    suspend fun resolveCitation(citation: com.helix.app.citation.Citation): com.helix.app.citation.CitationContent? =
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            val session = storage.sessions.find(citation.id) ?: return@withContext null
+            val row = storage.messages.find(requireNotNull(citation.messageId)) ?: return@withContext null
+            if (row.sessionId != session.id) return@withContext null
+            val reference = row.contentRef?.let(com.helix.core.storage.content.ContentRef::parse)
+            if (reference?.sha256 != citation.revision) return@withContext null
+            val body = storage.messages.readContentBounded(row, 1_048_576) ?: return@withContext null
+            com.helix.app.citation
+                .CitationContent(session.title, citation.excerpt(body))
+        }
+
     fun removeExpert(id: String): kotlinx.coroutines.Deferred<Boolean> = workScope.async { storage.experts.remove(id) }
 
     fun saveExpert(

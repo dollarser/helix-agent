@@ -38,6 +38,7 @@ class AgentLoop(
     private val events: AgentLoopEvents,
     private val clock: Clock,
     private val idGenerator: () -> String,
+    private val monotonicClock: () -> Long = System::nanoTime,
     private val beforeModelStream: (
         suspend (String, String, com.helix.provider.api.ProviderDescriptor, ModelRequest) -> Unit
     )? = null,
@@ -384,12 +385,18 @@ class AgentLoop(
             com.helix.core.agent
                 .LocalModelCallContext(coordinator.id, coordinator.snapshot().modelCallId),
         ) {
-            provider.stream(request).collect {
-                execution.checkActive(coordinator.id)
-                val update = acc.apply(it)
-                if (publishText && update.textChanged) {
-                    events.emit(AgentLoopEvent.TextChanged(coordinator.id, acc.text))
+            val observation = ModelRequestObservation(monotonicClock)
+            try {
+                provider.stream(request).collect {
+                    execution.checkActive(coordinator.id)
+                    val update = acc.apply(it)
+                    observation.event(it, update.textChanged)
+                    if (publishText && update.textChanged) {
+                        events.emit(AgentLoopEvent.TextChanged(coordinator.id, acc.text))
+                    }
                 }
+            } finally {
+                acc.recordClientObservation(observation.finish(summary = !publishText))
             }
         }
         return acc

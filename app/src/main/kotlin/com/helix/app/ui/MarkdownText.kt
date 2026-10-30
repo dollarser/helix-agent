@@ -68,6 +68,7 @@ internal fun MarkdownText(
     muted: Boolean = false,
 ) {
     val blocks = remember(source) { markdownBlocks(source) }
+    val citationHandler = LocalCitationHandler.current
     val highlightStyle =
         SpanStyle(
             background = MaterialTheme.colorScheme.primaryContainer,
@@ -104,7 +105,7 @@ internal fun MarkdownText(
                                 MaterialTheme.typography.bodyLarge
                             }
                         }
-                    val inline = remember(block.text) { markdownInline(block.text) }
+                    val inline = remember(block.text, citationHandler) { markdownInline(block.text, citationHandler) }
                     val annotated =
                         if (!searchQuery.isNullOrBlank()) {
                             highlightAnnotatedString(inline, searchQuery, highlightStyle)
@@ -134,6 +135,7 @@ private fun MarkdownTable(
     text: String,
     searchQuery: String? = null,
 ) {
+    val citationHandler = LocalCitationHandler.current
     val highlightStyle =
         SpanStyle(
             background = MaterialTheme.colorScheme.primaryContainer,
@@ -141,10 +143,10 @@ private fun MarkdownTable(
             fontWeight = FontWeight.Bold,
         )
     val rows =
-        remember(text) {
+        remember(text, citationHandler) {
             text.lines().map {
                 it.trim().trim('|').split('|').map { cell ->
-                    markdownInline(cell.trim())
+                    markdownInline(cell.trim(), citationHandler)
                 }
             }
         }
@@ -171,7 +173,7 @@ private fun MarkdownTable(
 }
 
 @Suppress("CyclomaticComplexMethod") // explicit branches for presentation-only Markdown tokens
-internal fun markdownInline(text: String): AnnotatedString =
+internal fun markdownInline(text: String, onCitation: ((String) -> Unit)? = null): AnnotatedString =
     buildAnnotatedString {
         var i = 0
         while (i < text.length) {
@@ -211,6 +213,12 @@ internal fun markdownInline(text: String): AnnotatedString =
                     val url = text.substring(labelEnd + 2, urlEnd)
                     if (url.startsWith("https://") || url.startsWith("http://")) {
                         withLink(LinkAnnotation.Url(url)) { append(text.substring(i + 1, labelEnd)) }
+                    } else if (onCitation != null && com.helix.app.citation.Citation
+                            .parse(url) != null
+                    ) {
+                        withLink(LinkAnnotation.Clickable(url) { onCitation(url) }) {
+                            append(text.substring(i + 1, labelEnd))
+                        }
                     } else {
                         append(text.substring(i, urlEnd + 1))
                     }

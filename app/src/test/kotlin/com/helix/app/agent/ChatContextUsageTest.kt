@@ -105,4 +105,38 @@ class ChatContextUsageTest {
         assertNull(ChatContextProjection.inputFor("broken", usage, "https://example.test/v1", "a"))
         assertNull(ChatContextProjection.inputFor(snapshot, """{"inputTokens":-1}""", "https://example.test/v1", "a"))
     }
+
+    @Test fun timingOnlyRequestsDoNotEraseMeasuredInputFloor() {
+        val snapshot = """{"transportIdentity":"endpoint","model":"a"}"""
+
+        fun call(
+            id: String,
+            usage: String?,
+            state: String = "COMPLETED",
+        ) = com.helix.core.storage.entity
+            .ModelCallEntity(id, "turn", snapshot, state, usage, null)
+        val measured = call("measured", """{"inputTokens":7474}""")
+        val timing = call("timing", """{"clientObservation":{"durationMs":12,"summary":false}}""")
+        val summary = call("summary", """{"inputTokens":9000}""")
+        val failed = call("failed", """{"inputTokens":10000}""", "FAILED")
+        assertEquals(
+            7474L,
+            ContextPressure.lastMeasuredInput(
+                listOf(measured, timing, summary, failed),
+                "endpoint",
+                "a",
+                { it == "summary" },
+            ),
+        )
+        assertNull(ContextPressure.lastMeasuredInput(listOf(measured, timing), "other", "a", { false }))
+        assertEquals(
+            0L,
+            ContextPressure.lastMeasuredInput(
+                listOf(measured, call("zero", """{"inputTokens":0}""")),
+                "endpoint",
+                "a",
+                { false },
+            ),
+        )
+    }
 }

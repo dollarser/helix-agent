@@ -88,7 +88,7 @@ object DocumentTools {
             "REF_EXPIRED" -> "Inspect the original source again under current authorization."
             "SCOPE_DENIED" -> "Ask the user to restore access to the original source."
             "UNSUPPORTED_FORMAT" -> "Provide a PDF or DOCX; DOC and DOCM are unsupported."
-            "ENCRYPTED_DOCUMENT" -> "Provide an unlocked document copy."
+            "ENCRYPTED_OR_UNSUPPORTED_SECURITY" -> "Provide an unlocked copy with supported PDF security."
             "RESOURCE_LIMIT", "IMAGE_LIMIT" -> "Split the document or use smaller images."
             "UNSUPPORTED_OBJECT" -> "Provide a PDF export; external and embedded executable objects are not rendered."
             "RANGE_OUT_OF_BOUNDS" -> "Use a page/block/image location reported by inspect or read."
@@ -172,7 +172,8 @@ object DocumentTools {
                     )
 
                     "read" -> (
-                        "Read one PDF page (1-based page) or up to 32 DOCX body blocks (startBlock, " +
+                        "Read one PDF page (1-based page; offset/limit paginate text using nextOffset) " +
+                            "or up to 32 DOCX body blocks (startBlock, " +
                             "1-based). Follow nextCursor as startBlock. Cite sourceSha256 and page/block " +
                             "locations; truncated or unread content is not full coverage. Use " +
                             "documents.view for diagrams, scanned pages and embedded images."
@@ -218,7 +219,18 @@ object DocumentTools {
                 ).forEach { key ->
                     putJsonObject(key) { put("type", "string") }
                 }
-                listOf("pageCount", "page", "nextPage", "blockCount", "imageCount", "nextCursor").forEach { key ->
+                listOf(
+                    "pageCount",
+                    "page",
+                    "nextPage",
+                    "blockCount",
+                    "imageCount",
+                    "nextCursor",
+                    "offset",
+                    "endOffset",
+                    "nextOffset",
+                    "totalCharacters",
+                ).forEach { key ->
                     putJsonObject(key) {
                         put("type", "integer")
                         put("minimum", 0)
@@ -270,6 +282,16 @@ object DocumentTools {
                 if (operation ==
                     "read"
                 ) {
+                    putJsonObject("offset") {
+                        put("type", "integer")
+                        put("minimum", 0)
+                        put("maximum", Int.MAX_VALUE)
+                    }
+                    putJsonObject("limit") {
+                        put("type", "integer")
+                        put("minimum", 1)
+                        put("maximum", DocumentLimits.TEXT)
+                    }
                     putJsonObject("startBlock") {
                         put("type", "integer")
                         put("minimum", 1)

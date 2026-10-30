@@ -37,6 +37,50 @@ import org.junit.rules.TemporaryFolder
 class KnowledgeReferenceLoopTest {
     @get:Rule val temporary = TemporaryFolder()
 
+    @Test fun originalPdfPageResultReachesTheNextModelRequestWithoutInitialBodyInjection() =
+        runBlocking {
+            val f = KnowledgeReferenceFixture(temporary.root, "Preview only", "SOURCE", "INCOMPLETE")
+            f.pdfPages[57] = "x".repeat(25_000) + "PDF_ORIGINAL_TAIL_EVIDENCE"
+            lateinit var loop: HeadlessLoopFixture
+            loop =
+                HeadlessLoopFixture("pdf-original") { step ->
+                    val previous =
+                        loop.requests
+                            .last()
+                            .messages
+                            .last()
+                            .text
+                    if (step == 0) {
+                        assertFalse(previous.contains("PDF_ORIGINAL_TAIL_EVIDENCE"))
+                        call(
+                            "knowledge.read",
+                            f.scoped(
+                                buildJsonObject {
+                                    put("kind", "source")
+                                    put("id", "selected")
+                                    put("fileIndex", 0)
+                                    put("page", 57)
+                                    put("offset", 25_000)
+                                    put("limit", 128)
+                                    put("contentHash", f.reference.sourceHash)
+                                },
+                            ),
+                        )
+                    } else {
+                        assertTrue(previous.contains("PDF_ORIGINAL_TAIL_EVIDENCE"))
+                        assertTrue(previous.contains("helix://knowledge/source/selected"))
+                        listOf(ModelEvent.TextDelta("Verified PDF page 57"), ModelEvent.Completed("stop"))
+                    }
+                }
+            wire(loop, f)
+            assertEquals(
+                TurnLoopResult.Terminal(ModelStreamTerminal(TurnState.COMPLETED, null)),
+                loop.loop().runToolLoop("s", loop.journal, "p", null, loop.control),
+            )
+            assertEquals(listOf("selected"), f.pdfReads)
+            assertEquals(2, loop.requests.size)
+        }
+
     private fun call(
         name: String,
         args: JsonObject,

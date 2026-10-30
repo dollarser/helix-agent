@@ -2190,4 +2190,26 @@
     <string name="expert_import_description">May include description, plugins and skills. Dependencies use stable identifiers without credentials.</string>
     <string name="expert_delete">Delete expert</string>
     <string name="expert_delete_confirmation">Delete this expert? Existing conversations retain their selected configuration.</string>
+    <string name="citation_title">Source excerpt</string>
+    <string name="citation_range">Character range %1$d–%2$d</string>
+    <string name="citation_unavailable">The source changed, was deleted or the excerpt is unavailable. Reference it again.</string>
+    <string name="citation_loading">Loading source…</string>
+    <string name="knowledge_pdf_text_only">Text extraction may omit images, scanned text and complex layout. No text does not mean an empty document.</string>
+    <string name="knowledge_pdf_coverage">Processed %1$d / %2$d pages; verify against the original page numbers.</string>
+    <string name="knowledge_pdf_coverage_unknown">Page coverage is unverified. Extract again or view the original.</string>
+    <string name="citation_page">Page %1$d</string>
+    <string name="citation_no_text">No text was extracted. View the original; this does not mean the page is empty.</string>
+    <string name="run_metrics_title">Run details</string>
+    <string name="run_metrics_counts">This turn: %1$d model requests · %2$d tool-call records</string>
+    <string name="run_metrics_hint">Client timings; throughput uses reported output tokens / total request time. — means unavailable or unreported.</string>
+    <string name="run_metrics_request">Request %1$d</string>
+    <string name="run_metrics_summary">Context-summary request</string>
+    <string name="run_metrics_duration">Request time: %1$s</string>
+    <string name="run_metrics_first_text">First text: %1$s</string>
+    <string name="run_metrics_first_response">First response: %1$s</string>
+    <string name="run_metrics_tokens">Input / output tokens: %1$s / %2$s</string>
+    <string name="run_metrics_speed">Output throughput (request average): %1$s token/s</string>
+    <string name="run_metrics_failed">Unable to read run records.</string>
+    <string name="run_metrics_unknown">—</string>
+    <string name="run_metrics_seconds">%1$.2f s</string>
 </resources>

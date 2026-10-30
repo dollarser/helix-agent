@@ -3,6 +3,7 @@ package com.helix.app.ui
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -192,8 +193,17 @@ private fun MessageActionRow(
     readAloud: Boolean,
     onSaveReply: ((String) -> Unit)?,
 ) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    val metrics = LocalRunMetricsHandler.current
+    FlowRow {
         CopyTextButton(message.content, "chat-copy-${message.id}")
+        if (!isUser && message.turnId != null && metrics != null) {
+            IconButton(
+                onClick = { metrics(message.id) },
+                modifier = Modifier.size(48.dp).testTag("message-metrics-${message.id}"),
+            ) {
+                Icon(painterResource(R.drawable.ic_drawer_tasks), stringResource(R.string.run_metrics_title))
+            }
+        }
         if (!isUser && onSaveReply != null) {
             IconButton(
                 onClick = { onSaveReply(message.id) },

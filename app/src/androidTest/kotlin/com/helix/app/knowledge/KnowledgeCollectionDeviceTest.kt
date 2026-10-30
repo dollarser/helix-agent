@@ -218,7 +218,7 @@ class KnowledgeCollectionDeviceTest {
             assertTrue(item.extracted.contains("Public article"))
             assertFalse(item.extracted.contains("secret script"))
             assertTrue(store.get(item.id)?.rawText == "https://example.org/article")
-            KnowledgeExtractor(store, fakeFetch(403)).extract(item)
+            KnowledgeExtractor(store, fakeFetch(403), KnowledgePdfExtraction(context)).extract(item)
             assertEquals("link-unavailable", store.get(item.id)?.detail)
             assertEquals("https://example.org/article", store.get(item.id)?.rawText)
         }
@@ -243,7 +243,11 @@ class KnowledgeCollectionDeviceTest {
                         throw CancellationException("fixture")
                 }
             try {
-                KnowledgeExtractor(store, cancels).extract(requireNotNull(store.get(item.id)))
+                KnowledgeExtractor(
+                    store,
+                    cancels,
+                    KnowledgePdfExtraction(context),
+                ).extract(requireNotNull(store.get(item.id)))
                 throw AssertionError("Cancellation must propagate")
             } catch (_: CancellationException) {
                 // The durable active state must remain recoverable.

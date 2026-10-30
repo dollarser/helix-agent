@@ -58,7 +58,7 @@ internal class AndroidDocumentParser(
         snapshot: DocumentSnapshot,
         operation: String,
     ): DocumentResult {
-        val lease = capacity.acquire(call)
+        val lease = capacity.acquire(DocumentParseWork.from(call))
         var folder: File? = null
         try {
             DocumentLimits.checkActive(call)
@@ -67,20 +67,22 @@ internal class AndroidDocumentParser(
             if (snapshot.format == "pdf") {
                 require("startBlock" !in call.args && "imageId" !in call.args)
             } else {
-                require("page" !in call.args && "region" !in call.args)
+                require(listOf("page", "region", "offset", "limit").none { it in call.args })
             }
             val request =
                 android.os.Bundle().apply {
                     putString("format", snapshot.format)
                     putString("operation", operation)
                     putInt("page", call.args["page"]?.jsonPrimitive?.intOrNull ?: 1)
+                    putInt("textOffset", call.args["offset"]?.jsonPrimitive?.intOrNull ?: 0)
+                    putInt("textLimit", call.args["limit"]?.jsonPrimitive?.intOrNull ?: DocumentLimits.TEXT)
                     putInt("startBlock", call.args["startBlock"]?.jsonPrimitive?.intOrNull ?: 1)
                     putString("imageId", call.args["imageId"]?.jsonPrimitive?.content)
                     call.args["region"]?.jsonArray?.let { values ->
                         putFloatArray("region", values.map { it.jsonPrimitive.float }.toFloatArray())
                     }
                 }
-            val result = isolatedRead(call, sourceFile(call, snapshot), output, request, lease)
+            val result = isolatedRead(DocumentParseWork.from(call), sourceFile(call, snapshot), output, request, lease)
             DocumentLimits.checkActive(call)
             result.getString("error")?.let { throw DocumentException(it) }
             val metadata =
@@ -107,6 +109,39 @@ internal class AndroidDocumentParser(
         }
     }
 
+    /** The user-import boundary supplies its own verified private source, never a model path. */
+    internal fun importedPdfPage(
+        source: File,
+        page: Int,
+        inspect: Boolean,
+        work: DocumentParseWork,
+        offset: Int = 0,
+        limit: Int = DocumentLimits.TEXT,
+    ): JsonObject {
+        val lease = capacity.acquire(work)
+        var folder: File? = null
+        try {
+            work.checkActive()
+            require(source.length() in 1..DocumentLimits.SOURCE_BYTES)
+            folder = Files.createTempDirectory(context.cacheDir.toPath(), "import-pdf-").toFile()
+            val request =
+                android.os.Bundle().apply {
+                    putString("format", "pdf")
+                    putString("operation", if (inspect) "inspect" else "read")
+                    putInt("page", page)
+                    putInt("textOffset", offset)
+                    putInt("textLimit", limit)
+                }
+            val result = isolatedRead(work, source, File(folder, "unused.png"), request, lease)
+            work.checkActive()
+            result.getString("error")?.let { throw DocumentException(it) }
+            return Json.parseToJsonElement(requireNotNull(result.getString("metadata"))).jsonObject
+        } finally {
+            folder?.deleteRecursively()
+            lease.finishHost()
+        }
+    }
+
     private fun readImage(
         call: ExecutableToolCall,
         output: File,
@@ -127,7 +162,7 @@ internal class AndroidDocumentParser(
     }
 
     private fun isolatedRead(
-        call: ExecutableToolCall,
+        work: DocumentParseWork,
         source: File,
         output: File,
         request: android.os.Bundle,
@@ -179,23 +214,23 @@ internal class AndroidDocumentParser(
         var timer: java.util.concurrent.ScheduledFuture<*>? = null
         val result =
             try {
-                while (!connected.await(25, TimeUnit.MILLISECONDS)) DocumentLimits.checkActive(call)
-                DocumentLimits.checkActive(call)
+                while (!connected.await(25, TimeUnit.MILLISECONDS)) work.checkActive()
+                work.checkActive()
                 val api = remote.get() ?: parserUnavailable()
                 lease.beginNative()
                 timer =
                     watchdog.scheduleWithFixedDelay({
-                        if (call.cancel.isCancelled() ||
+                        if (work.cancelled() ||
                             !java.time.Instant
                                 .now()
-                                .isBefore(call.deadline)
+                                .isBefore(work.deadline)
                         ) {
                             shutdown(api)
                         }
                     }, 0, 25, TimeUnit.MILLISECONDS)
                 nativeRead(api, source, output, request)
             } catch (_: RemoteException) {
-                DocumentLimits.checkActive(call)
+                work.checkActive()
                 throw DocumentException("PARSER_CONNECTION_FAILED")
             } finally {
                 retired.set(true)

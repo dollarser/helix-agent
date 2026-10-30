@@ -29,11 +29,17 @@ internal class KnowledgeReadPages(
 
     private fun kind(reference: KnowledgeReference) = if (reference.kind == "SOURCE") "source" else "note"
 
-    suspend fun run(search: Boolean): JsonObject = if (search) search() else read()
+    suspend fun run(search: Boolean): JsonObject =
+        when {
+            search -> search()
+            "page" in call.args || "fileIndex" in call.args -> originalPdf()
+            else -> read()
+        }
 
     private suspend fun document(
         kind: String,
         id: String,
+        original: Boolean = false,
     ): JsonObject {
         active()
         val selected = references?.singleOrNull { kind(it) == kind && it.resourceId == id }
@@ -42,7 +48,7 @@ internal class KnowledgeReadPages(
         // A selected note does not recursively share its related-source excerpts.
         val document = if (references == null) fetched else JsonObject(fetched - "references")
         val body = document.getValue("text").jsonPrimitive.content
-        require(body.isNotBlank() && body.length <= 200_000) { "KNOWLEDGE_TEXT_UNAVAILABLE" }
+        require((original || body.isNotBlank()) && body.length <= 200_000) { "KNOWLEDGE_TEXT_UNAVAILABLE" }
         require(
             com.helix.app.application.security.ForbiddenContentGuard
                 .reasonFor(body + "\n" + document.toString()) == null,
@@ -51,13 +57,57 @@ internal class KnowledgeReadPages(
         }
         if (selected != null) {
             require(
-                knowledgeHash(body) == selected.sourceHash &&
+                (document["sourceRevision"]?.jsonPrimitive?.content ?: knowledgeHash(body)) == selected.sourceHash &&
                     document.getValue("category").jsonPrimitive.content == selected.kind &&
                     document.getValue("completeness").jsonPrimitive.content == selected.completeness,
             ) { "KNOWLEDGE_SOURCE_CHANGED" }
         }
         active()
         return document
+    }
+
+    private suspend fun originalPdf(): JsonObject {
+        val id = requireNotNull(text("id"))
+        require(text("kind") == "source" && id.matches(Regex("[A-Za-z0-9_-]{1,100}")))
+        require("page" in call.args && "fileIndex" in call.args)
+        val page = integer("page", 1)
+        val file = integer("fileIndex", 0)
+        val offset = integer("offset", 0)
+        val limit = integer("limit", 2048)
+        require(page > 0 && file in 0..7 && offset >= 0 && limit in 1..4096)
+        val document = document("source", id, original = true)
+        val revision = requireNotNull(document["sourceRevision"]?.jsonPrimitive?.content)
+        require(offset == 0 || text("contentHash") != null) { "KNOWLEDGE_REVISION_REQUIRED" }
+        require(text("contentHash") == null || text("contentHash") == revision) { "KNOWLEDGE_SOURCE_CHANGED" }
+        val result =
+            requireNotNull(backend.originalPdf(call, id, file, page, offset, limit)) {
+                "KNOWLEDGE_SOURCE_UNAVAILABLE"
+            }
+        active()
+        require(result["sourceRevision"]?.jsonPrimitive?.content == revision) { "KNOWLEDGE_SOURCE_CHANGED" }
+        val text = result.getValue("text").jsonPrimitive.content
+        require(
+            com.helix.app.application.security.ForbiddenContentGuard
+                .reasonFor(text) == null,
+        ) {
+            "KNOWLEDGE_CONTENT_BLOCKED"
+        }
+        val end = result.getValue("endOffset").jsonPrimitive.int
+        return JsonObject(
+            result +
+                buildJsonObject {
+                    put("kind", "source")
+                    put("id", id)
+                    put("title", document.getValue("title"))
+                    put("contentHash", revision)
+                    put("trust", "untrusted_reference_data")
+                    put(
+                        "citation",
+                        "helix://knowledge/source/$id?revision=$revision&range=$offset:$end" +
+                            "&file=$file&page=$page",
+                    )
+                },
+        )
     }
 
     private suspend fun read(): JsonObject {

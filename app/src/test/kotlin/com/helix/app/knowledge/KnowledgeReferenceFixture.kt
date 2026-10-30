@@ -38,6 +38,10 @@ internal class KnowledgeReferenceFixture(
     var enabled = false
     var completeness = initialCompleteness
     val reads = mutableListOf<String>()
+    val pdfPages = mutableMapOf<Int, String>()
+    val pdfReads = mutableListOf<String>()
+    var afterPdfRead: () -> Unit = {}
+    var pdfFailure: java.io.IOException? = null
     var afterRead: () -> Unit = {}
     val reference =
         KnowledgeReference(
@@ -74,6 +78,33 @@ internal class KnowledgeReferenceFixture(
         object : KnowledgeReadTools.Library {
             override fun allowed() = enabled
 
+            override suspend fun originalPdf(
+                call: ExecutableToolCall,
+                id: String,
+                file: Int,
+                page: Int,
+                offset: Int,
+                limit: Int,
+            ): JsonObject? {
+                pdfReads += id
+                afterPdfRead()
+                pdfFailure?.let { throw it }
+                val body = pdfPages[page] ?: return null
+                val sliced =
+                    com.helix.app.documents
+                        .pdfTextSlice(sequenceOf(body), offset, limit)
+                return buildJsonObject {
+                    put("sourceRevision", knowledgeHash(requireNotNull(documents[id])))
+                    put("text", sliced.text)
+                    put("offset", offset)
+                    put("endOffset", sliced.end)
+                    put("truncated", sliced.truncated)
+                    put("page", page)
+                    put("fileIndex", file)
+                    if (sliced.truncated) put("nextOffset", sliced.end)
+                }
+            }
+
             override suspend fun search(query: String) =
                 buildJsonObject {
                     put("items", kotlinx.serialization.json.JsonArray(emptyList()))
@@ -94,6 +125,7 @@ internal class KnowledgeReferenceFixture(
                     put("completeness", completeness)
                     put("text", body)
                     put("contentHash", knowledgeHash(body))
+                    if (category == "SOURCE") put("sourceRevision", knowledgeHash(body))
                     put("untrustedReference", true)
                     put(
                         "references",

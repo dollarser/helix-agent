@@ -31,6 +31,7 @@ internal object KnowledgeReadTools {
             "KNOWLEDGE_REVISION_REQUIRED",
             "KNOWLEDGE_CURSOR_REQUIRES_SELECTION",
             "KNOWLEDGE_CURSOR_CHANGED",
+            "KNOWLEDGE_ORIGINAL_UNVERIFIED",
         )
 
     interface Library {
@@ -42,6 +43,16 @@ internal object KnowledgeReadTools {
             kind: String,
             id: String,
         ): JsonObject?
+
+        /** Text-only libraries may have no original PDF capability. */
+        suspend fun originalPdf(
+            call: ExecutableToolCall,
+            id: String,
+            file: Int,
+            page: Int,
+            offset: Int,
+            limit: Int,
+        ): JsonObject? = null
     }
 
     interface Backend : Library {
@@ -68,7 +79,10 @@ internal object KnowledgeReadTools {
                         "Without a reference, library access must be enabled " +
                         "and results are a bounded catalog search. Search results are not the full document."
                 } else {
-                    "Read a text page by kind/id. For explicitly " +
+                    "Read a text page by kind/id. For PDF originals use fileIndex/page from originals/extraction; " +
+                        "offset/limit page through the actual page using returned contentHash (sourceRevision). " +
+                        "No text does not mean an empty page; extraction is not OCR. " +
+                        "Use returned citation links when grounding answers. For explicitly " +
                         "selected revisions pass referenceInputId/referenceHash. " +
                         "No whole-library toggle is needed for those " +
                         "selections. Otherwise library access must be enabled. " +
@@ -94,7 +108,9 @@ internal object KnowledgeReadTools {
             } else {
                 """"kind":{"type":"string","enum":["source","note"]},
                 "id":{"type":"string","minLength":1,"maxLength":100},
-                "offset":{"type":"integer","minimum":0,"maximum":200000},
+                "fileIndex":{"type":"integer","minimum":0,"maximum":7},
+                "page":{"type":"integer","minimum":1,"maximum":1000000},
+                "offset":{"type":"integer","minimum":0,"maximum":2000000},
                 "limit":{"type":"integer","minimum":1,"maximum":4096},
                 "contentHash":{"type":"string","pattern":"^[a-f0-9]{64}$"}"""
             }
@@ -121,7 +137,7 @@ internal object KnowledgeReadTools {
                         if (search) {
                             setOf("query", "cursor")
                         } else {
-                            setOf("kind", "id", "offset", "limit", "contentHash")
+                            setOf("kind", "id", "offset", "limit", "contentHash", "fileIndex", "page")
                         }
                     require(call.args.keys.all { it in common || it in fields })
                     val referenceId = text(call, "referenceInputId")
@@ -149,16 +165,40 @@ internal object KnowledgeReadTools {
                     if (call.cancel.isCancelled()) ToolExecutorResult.Cancelled else ToolExecutorResult.TimedOut
                 } catch (invalid: IllegalArgumentException) {
                     val reason = invalid.message?.takeIf { it in failures } ?: "KNOWLEDGE_INVALID_REQUEST"
-                    val detail = "$reason: selected revision unavailable; reselect if changed."
+                    val detail =
+                        if (reason == "KNOWLEDGE_ORIGINAL_UNVERIFIED") {
+                            "$reason: re-extract or reimport the original to verify its identity."
+                        } else {
+                            "$reason: selected revision unavailable; reselect if changed."
+                        }
                     ToolExecutorResult.Failed(detail, sideEffectFree = true)
-                } catch (_: IOException) {
-                    ToolExecutorResult.Failed(
-                        "KNOWLEDGE_UNAVAILABLE: source text could not be read.",
-                        sideEffectFree = true,
-                    )
+                } catch (failure: IOException) {
+                    unavailable(call, failure)
                 }
             }
     }
+
+    private fun unavailable(
+        call: ExecutableToolCall,
+        failure: IOException,
+    ): ToolExecutorResult =
+        when {
+            call.cancel.isCancelled() -> {
+                ToolExecutorResult.Cancelled
+            }
+
+            !Instant.now().isBefore(call.deadline) -> {
+                ToolExecutorResult.TimedOut
+            }
+
+            else -> {
+                ToolExecutorResult.Failed(
+                    (failure as? com.helix.extensions.documents.DocumentException)?.code
+                        ?: "KNOWLEDGE_UNAVAILABLE: source text could not be read.",
+                    sideEffectFree = true,
+                )
+            }
+        }
 
     internal fun text(
         call: ExecutableToolCall,

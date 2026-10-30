@@ -48,6 +48,7 @@ internal object KnowledgeDocumentCodec {
                 put("state", item.state)
                 put("summary", item.summary)
                 put("detail", item.detail)
+                put("extraction", item.extraction)
                 put("fingerprint", item.fingerprint)
             },
             item.extracted,
@@ -69,6 +70,7 @@ internal object KnowledgeDocumentCodec {
                 m.string("summary"),
                 m.string("detail"),
                 m.string("fingerprint"),
+                extraction = m["extraction"]?.jsonPrimitive?.content.orEmpty(),
             )
         }
 

@@ -53,6 +53,8 @@ HXA-284要求源码、JVM、静态检查、双渠道lint与Debug/Release APK、A
 
 ## Decision history
 
+- 2026-10-30：Owner 授权资料质量优化。知识导入复用同一隔离引擎与跨调用共享容量；工具调用和用户导入分别提供自己的来源授权，只共享取消/截止检查，不伪造工具调用身份。原生文本分段按 Unicode code point 保留换行和下一偏移，不能截断代理对；空文本不是空页/扫描页的确定证明。`SecurityException` 只说明加密或不受支持的安全方案，不能一概宣称仅需密码。平台能力、旧 Android 有限适配和原图查看保持区分；无新增 PDF 依赖、OCR 模型或内部版本。
+
 - 2026-10-14：沿Owner已授权读取/总结范围采用原生隔离、逐页文本/视觉方案；排除编辑、生成、Office和云端PDF上传。
 
 - 2026-10-14：Owner明确授权统一PDF/DOCX插件；采用Claude插件的组件组织和按需Skill、WordprocessingML结构读取，延续Android原生PDF与隔离边界。参考 https://code.claude.com/docs/en/plugins 、https://learn.microsoft.com/en-us/office/open-xml/word/structure-of-a-wordprocessingml-document 。无参考源码复制或新依赖。

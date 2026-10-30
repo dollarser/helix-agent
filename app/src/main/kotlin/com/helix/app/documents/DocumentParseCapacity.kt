@@ -1,8 +1,6 @@
 package com.helix.app.documents
 
 import com.helix.extensions.documents.DocumentException
-import com.helix.extensions.documents.DocumentLimits
-import com.helix.tools.framework.ExecutableToolCall
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Semaphore
 import java.util.concurrent.TimeUnit
@@ -10,12 +8,16 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 /** One native parser. A cancelled host never frees a still-running parser's slot. */
 internal class DocumentParseCapacity {
-    private val slot = Semaphore(1, true)
+    private val slot get() = sharedSlot
 
-    fun acquire(call: ExecutableToolCall): Lease {
-        DocumentLimits.checkActive(call)
-        while (!slot.tryAcquire(25, TimeUnit.MILLISECONDS)) DocumentLimits.checkActive(call)
+    fun acquire(work: DocumentParseWork): Lease {
+        work.checkActive()
+        while (!slot.tryAcquire(25, TimeUnit.MILLISECONDS)) work.checkActive()
         return Lease(slot::release)
+    }
+
+    companion object {
+        private val sharedSlot = Semaphore(1, true)
     }
 
     class Lease(

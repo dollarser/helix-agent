@@ -80,3 +80,7 @@ Memory 已有受控 list/search/read；摘要前缀不代表全文不可读取�
 Owner 授权将结果读取与发现归入 `tools.*`，公开名改为 `tools.read_result`，旧入口不保留。补全结果 schema，明确 offset/nextOffset 为 Unicode code point，持续读取到 truncated=false；读取针对同会话已验证成功结果或已保存的结算失败诊断；失败正文不标为验证成功，不执行原工具。独立 `ask_user` 等短名保留，不机械命名空间化。实现与主机验证范围见 [工具契约整理](../../development/tool-contracts.md)。
 
 - 2026-10-21 追加收尾：失败正文持久化与 `sourceStatus` / `sourceVerified` 同会话补读区分原动作和读取成功。长结果的关键状态、错误、原身份和日志引用不只存在预览或 UI 信封中；受控日志读取见[结果日志收尾](../../development/result-log-closeout.md)。
+
+## Decision history — 2026-10-30：逐消息请求观测
+
+复用 ModelCall 的 usage 记录保存客户端单调时钟观测：请求总耗时、首次有效响应和首次正文。该记录跟随原结算持久化，不增加执行账本、权限或数据库版本。消息操作中的“运行详情”按需读取本轮各请求及工具调用记录数；缺失指标显示未知。吞吐仅为服务端报告的输出 Token 除以客户端请求总耗时，不代表服务器生成速度或金额。未报告用量不得补零；计时记录不能替代上下文用量测量，失败或取消也不证明外部副作用撤销。

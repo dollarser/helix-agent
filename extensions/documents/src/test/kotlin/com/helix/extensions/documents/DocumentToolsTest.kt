@@ -44,6 +44,37 @@ import org.junit.Test
 import java.time.Instant
 
 class DocumentToolsTest {
+    @Test fun pagedNativeTextMatchesThePublicInputAndOutputSchemas() {
+        val descriptor = DocumentTools.descriptor("read")
+        val input =
+            Json.parseToJsonElement(
+                """{"documentRef":"ref","page":57,"offset":25000,"limit":1000}""",
+            )
+        assertEquals(
+            com.helix.tools.framework.ToolSchemaValidation.Valid,
+            com.helix.tools.framework.ToolSchemaValidator
+                .validate(descriptor.inputSchema, input),
+        )
+        val output =
+            buildJsonObject {
+                put("documentRef", "ref")
+                put("sourcePath", "scope:ws:paper.pdf")
+                put("sourceSha256", "a".repeat(64))
+                put("format", "pdf")
+                put("text", "Tail evidence")
+                put("offset", 25000)
+                put("endOffset", 26000)
+                put("nextOffset", 26000)
+                put("totalCharacters", 30000)
+                put("truncated", true)
+            }
+        assertEquals(
+            com.helix.tools.framework.ToolSchemaValidation.Valid,
+            com.helix.tools.framework.ToolSchemaValidator
+                .validate(descriptor.outputSchema, output),
+        )
+    }
+
     private val hash = "a".repeat(64)
     private val snapshot = DocumentSnapshot("ref", "scope:ws:paper.pdf", hash, "pdf")
 
@@ -220,7 +251,7 @@ class DocumentToolsTest {
         )
         for (reason in listOf(
             "MALFORMED_DOCUMENT",
-            "ENCRYPTED_DOCUMENT",
+            "ENCRYPTED_OR_UNSUPPORTED_SECURITY",
             "RANGE_OUT_OF_BOUNDS",
             "PARSER_DIED",
             "RESOURCE_LIMIT",

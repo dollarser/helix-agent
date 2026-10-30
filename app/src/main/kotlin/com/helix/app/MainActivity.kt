@@ -321,6 +321,10 @@ internal fun HelixApp(container: AppContainer) {
         departure,
     )
     val knowledge = (androidx.compose.ui.platform.LocalContext.current.applicationContext as HelixApplication).knowledge
+    var citationUrl by androidx.compose.runtime.saveable
+        .rememberSaveable { mutableStateOf<String?>(null) }
+    var metricsMessageId by androidx.compose.runtime.saveable
+        .rememberSaveable { mutableStateOf<String?>(null) }
     com.helix.app.knowledge
         .KnowledgeNavigation(knowledge, navController, departure)
     com.helix.app.plugin.PluginTaskNavigation
@@ -358,6 +362,15 @@ internal fun HelixApp(container: AppContainer) {
     }
 
     HelixTheme {
+        metricsMessageId?.let { id ->
+            com.helix.app.ui
+                .MessageRunMetricsDialog(id, container.chatService) { metricsMessageId = null }
+        }
+        citationUrl?.let(com.helix.app.citation.Citation::parse)?.let { citation ->
+            com.helix.app.ui.CitationPreviewDialog(citation, resolve = {
+                if (it.kind == "session") container.chatService.resolveCitation(it) else knowledge.resolveCitation(it)
+            }, onDismiss = { citationUrl = null })
+        }
         com.helix.app.ui
             .UserQuestionDialog(container)
         com.helix.app.ui.AdaptiveHelixNavigation(
@@ -420,6 +433,8 @@ internal fun HelixApp(container: AppContainer) {
             ) { padding ->
                 androidx.compose.runtime.CompositionLocalProvider(
                     com.helix.app.ui.LocalNavigationDeparture provides departure,
+                    com.helix.app.ui.LocalCitationHandler provides { url -> citationUrl = url },
+                    com.helix.app.ui.LocalRunMetricsHandler provides { id -> metricsMessageId = id },
                     com.helix.app.ui.LocalFileLocation provides { path ->
                         navController.navigate(
                             com.helix.app.ui

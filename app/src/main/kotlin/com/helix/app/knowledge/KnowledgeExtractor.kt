@@ -9,46 +9,83 @@ import com.helix.tools.android.HttpFetchBridge
 import com.helix.tools.android.HttpFetchRequest
 import com.helix.tools.android.HttpFetchStatus
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.ensureActive
 import org.json.JSONArray
 
 internal class KnowledgeExtractor(
     private val store: KnowledgeStore,
     private val fetcher: HttpFetchBridge,
+    private val pdf: KnowledgePdfExtraction,
 ) {
     @Suppress("TooGenericExceptionCaught") // Failed extraction is durable, never a fabricated success.
     suspend fun extract(original: CollectedSource) {
         val working = store.save(original.copy(state = "EXTRACTING"))
         val sections = mutableListOf<String>()
         val notes = mutableListOf<String>()
+        val reports = mutableListOf<kotlinx.serialization.json.JsonObject>()
         if (original.rawText.isNotBlank()) sections += original.rawText
         try {
-            extractFiles(original, sections, notes)
+            val files = extractFiles(original, sections, notes, reports)
             if (original.sourceUrl.isNotBlank()) extractLink(original, sections, notes)
             val combined = sections.joinToString("\n\n")
             if (combined.length > MAX_KNOWLEDGE_TEXT) notes += "truncated"
             store.save(
                 working.copy(
                     state = if (notes.isEmpty()) "READY" else "INCOMPLETE",
-                    extracted = combined.take(MAX_KNOWLEDGE_TEXT),
+                    extracted = knowledgeTextPrefix(combined, MAX_KNOWLEDGE_TEXT),
+                    filesJson = files,
                     detail = notes.distinct().joinToString(","),
+                    extraction =
+                        kotlinx.serialization.json
+                            .JsonArray(reports)
+                            .toString(),
                 ),
             )
         } catch (cancel: CancellationException) {
             throw cancel
+        } catch (failure: com.helix.extensions.documents.DocumentException) {
+            kotlinx.coroutines.currentCoroutineContext().ensureActive()
+            store.save(working.copy(state = "FAILED", detail = "pdf-${failure.code}"))
         } catch (_: Exception) {
             store.save(working.copy(state = "FAILED", detail = "extraction-failed"))
         }
     }
 
-    private fun extractFiles(
+    private suspend fun extractFiles(
         item: CollectedSource,
         sections: MutableList<String>,
         notes: MutableList<String>,
-    ) {
+        reports: MutableList<kotlinx.serialization.json.JsonObject>,
+    ): String {
         val files = JSONArray(item.filesJson)
         for (index in 0 until files.length()) {
             val mime = files.getJSONObject(index).getString("mime")
             val bytes = knowledgeOriginal(store, item, index).bytes
+            files
+                .getJSONObject(index)
+                .put(
+                    "sha256",
+                    java.security.MessageDigest
+                        .getInstance("SHA-256")
+                        .digest(bytes)
+                        .joinToString("") { "%02x".format(it) },
+                ).put("size", bytes.size)
+            if (mime == "application/pdf") {
+                val result = pdf.extract(bytes)
+                val prefix = sections.sumOf { it.length } + sections.size * 2
+                sections += result.text
+                reports +=
+                    kotlinx.serialization.json.JsonObject(
+                        result.coverage +
+                            mapOf(
+                                "fileIndex" to kotlinx.serialization.json.JsonPrimitive(index),
+                                "textStart" to kotlinx.serialization.json.JsonPrimitive(prefix),
+                            ),
+                    )
+                if (result.incomplete) notes += "pdf-text-only"
+                if (result.text.isBlank()) notes += "no-readable-text"
+                continue
+            }
             val kind =
                 when (mime) {
                     "text/html" -> TextAttachmentKind.HTML
@@ -77,6 +114,7 @@ internal class KnowledgeExtractor(
                 }
             appendResult(result, sections, notes)
         }
+        return files.toString()
     }
 
     private fun appendResult(

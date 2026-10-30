@@ -89,7 +89,7 @@ class DocumentReaderService : Service() {
             } catch (
                 _: SecurityException,
             ) {
-                error("ENCRYPTED_DOCUMENT")
+                error("ENCRYPTED_OR_UNSUPPORTED_SECURITY")
             } catch (
                 _: IllegalArgumentException,
             ) {
@@ -160,10 +160,19 @@ class DocumentReaderService : Service() {
     ): Bundle {
         val number = request.getInt("page", 1)
         if (number !in 1..renderer.pageCount) return error("RANGE_OUT_OF_BOUNDS")
-        var text = "" to false
+        var text = PdfTextSlice("", 0, 0, 0)
         if (operation != "inspect") {
             renderer.openPage(number - 1).use { page ->
-                if (operation == "read") text = extractText(page)
+                if (operation ==
+                    "read"
+                ) {
+                    text =
+                        extractText(
+                            page,
+                            request.getInt("textOffset", 0),
+                            request.getInt("textLimit", DocumentLimits.TEXT),
+                        )
+                }
                 if (operation == "view") renderPage(page, image, request.getFloatArray("region"))
             }
         }
@@ -179,19 +188,19 @@ class DocumentReaderService : Service() {
         number: Int,
         request: Bundle,
         operation: String,
-        text: Pair<String, Boolean>,
+        text: PdfTextSlice,
     ) = buildJsonObject {
         put(
             "status",
             when {
                 operation == "inspect" -> "INSPECTED"
-                operation == "read" && text.first.isBlank() -> "CONTENT_UNAVAILABLE"
+                operation == "read" && text.text.isBlank() -> "CONTENT_UNAVAILABLE"
                 else -> "CONTENT_READ"
             },
         )
         put("pageCount", pageCount)
         put("textExtractionSupported", Build.VERSION.SDK_INT >= 35)
-        put("truncated", text.second)
+        put("truncated", text.truncated)
         put("partial", operation != "inspect")
         put(
             "coverage",
@@ -214,7 +223,11 @@ class DocumentReaderService : Service() {
         }
         if (operation != "inspect") {
             put("page", number)
-            put("text", text.first)
+            put("text", text.text)
+            put("offset", text.offset)
+            put("endOffset", text.end)
+            put("totalCharacters", text.total)
+            if (text.truncated) put("nextOffset", text.end)
             request.getFloatArray("region")?.let { values ->
                 putJsonArray("region") { values.forEach { add(it) } }
             }
@@ -254,30 +267,13 @@ class DocumentReaderService : Service() {
         }
     }
 
-    private fun extractText(page: PdfRenderer.Page): Pair<String, Boolean> {
-        val text = StringBuilder()
-        var truncated = false
-        if (Build.VERSION.SDK_INT >= 35) {
-            for (content in page.textContents) {
-                val remaining = DocumentLimits.TEXT - text.length
-                if (remaining <= 0) {
-                    truncated = true
-                    break
-                }
-                val value = content.text
-                text.append(value.take(remaining))
-                if (value.length > remaining) truncated = true
-                if (text.length < DocumentLimits.TEXT) {
-                    text.append('\n')
-                }
-            }
-        }
-        // Do not return an unpaired surrogate when the native text crosses the cap.
-        if (text.isNotEmpty() && text.last().isHighSurrogate()) {
-            text.setLength(text.length - 1)
-            truncated = true
-        }
-        return text.toString() to truncated
+    private fun extractText(
+        page: PdfRenderer.Page,
+        offset: Int,
+        limit: Int,
+    ): PdfTextSlice {
+        if (Build.VERSION.SDK_INT < 35) return PdfTextSlice("", 0, 0, 0)
+        return pdfTextSlice(page.textContents.asSequence().map { it.text }, offset, limit)
     }
 
     private fun renderPage(

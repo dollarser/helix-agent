@@ -15,6 +15,15 @@ import kotlinx.serialization.json.buildJsonObject
 internal class KnowledgeAgentAccess(
     private val prefs: SharedPreferences,
     private val store: KnowledgeStore,
+    private val readPdf: suspend (
+        com.helix.tools.framework.ExecutableToolCall,
+        String,
+        Int,
+        Int,
+        Int,
+        Int,
+    ) -> JsonObject? =
+        { _, _, _, _, _, _ -> null },
 ) : KnowledgeReadTools.Library {
     private val mutableEnabled = MutableStateFlow(prefs.getBoolean("agent-read", false))
     val enabled = mutableEnabled.asStateFlow()
@@ -26,6 +35,15 @@ internal class KnowledgeAgentAccess(
     }
 
     override fun allowed() = prefs.getBoolean("agent-read", false)
+
+    override suspend fun originalPdf(
+        call: com.helix.tools.framework.ExecutableToolCall,
+        id: String,
+        file: Int,
+        page: Int,
+        offset: Int,
+        limit: Int,
+    ) = readPdf(call, id, file, page, offset, limit)
 
     override suspend fun search(query: String): JsonObject =
         withContext(Dispatchers.IO) {
@@ -71,6 +89,15 @@ internal class KnowledgeAgentAccess(
                         JsonObject(
                             entry(kind, id, it.title, "", it.state) +
                                 ("category" to JsonPrimitive("SOURCE")) +
+                                ("sourceRevision" to JsonPrimitive(knowledgeSourceRevision(it))) +
+                                ("originals" to knowledgeOriginalMetadata(it)) +
+                                (
+                                    "extraction" to (
+                                        it.extraction.takeIf(String::isNotBlank)?.let(
+                                            kotlinx.serialization.json.Json::parseToJsonElement,
+                                        ) ?: JsonArray(emptyList())
+                                    )
+                                ) +
                                 ("completeness" to JsonPrimitive(if (it.extracted.isBlank()) "RAW_TEXT" else it.state)),
                         ),
                         text,

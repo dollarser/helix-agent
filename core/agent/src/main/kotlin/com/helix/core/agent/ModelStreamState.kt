@@ -25,8 +25,27 @@ class ModelStreamState(
     var retryableError: Boolean = false
         private set
 
-    var usageJson: String? = null
-        private set
+    private var reportedUsage: String? = null
+    private var clientObservation: ModelClientObservation? = null
+    val usageJson: String?
+        get() {
+            val observation = clientObservation ?: return reportedUsage
+            val usage =
+                reportedUsage
+                    ?.let {
+                        kotlinx.serialization.json.Json
+                            .parseToJsonElement(it) as kotlinx.serialization.json.JsonObject
+                    }.orEmpty()
+            return kotlinx.serialization.json
+                .JsonObject(usage + ("clientObservation" to observation.json()))
+                .toString()
+        }
+
+    fun recordClientObservation(observation: ModelClientObservation) {
+        check(clientObservation == null) { "Model observation already settled" }
+        clientObservation = observation
+    }
+
     var inputTokens: Long? = null
         private set
     var outputTokens: Long? = null
@@ -99,7 +118,7 @@ class ModelStreamState(
             is ModelEvent.Usage -> {
                 inputTokens = event.inputTokens
                 outputTokens = event.outputTokens
-                usageJson = usageToJson(event)
+                reportedUsage = usageToJson(event)
             }
 
             is ModelEvent.Refusal -> {

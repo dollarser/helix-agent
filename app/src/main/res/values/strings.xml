@@ -2190,4 +2190,26 @@
     <string name="expert_import_description">可包含 description、plugins 和 skills；关联只使用稳定标识，不包含凭据。</string>
     <string name="expert_delete">删除专家</string>
     <string name="expert_delete_confirmation">删除此专家？已选择它的会话继续保留原配置。</string>
+    <string name="citation_title">来源片段</string>
+    <string name="citation_range">字符范围 %1$d–%2$d</string>
+    <string name="citation_unavailable">来源已变更、删除或片段不可用，请重新引用。</string>
+    <string name="citation_loading">正在读取来源…</string>
+    <string name="knowledge_pdf_text_only">仅提取文本，图像、扫描文字和复杂版式可能遗漏；无文本不代表空文档。</string>
+    <string name="knowledge_pdf_coverage">已处理 %1$d / %2$d 页；按实际页码核对原文。</string>
+    <string name="knowledge_pdf_coverage_unknown">页覆盖尚未核实；可重新提取，或查看原文。</string>
+    <string name="citation_page">第 %1$d 页</string>
+    <string name="citation_no_text">该页未提取到文字；可查看原文，不代表空页。</string>
+    <string name="run_metrics_title">运行详情</string>
+    <string name="run_metrics_counts">本轮 %1$d 次模型请求 · %2$d 条工具调用记录</string>
+    <string name="run_metrics_hint">客户端计时；速率按报告输出 Token / 请求总耗时计算。— 表示未记录或未报告。</string>
+    <string name="run_metrics_request">请求 %1$d</string>
+    <string name="run_metrics_summary">上下文摘要请求</string>
+    <string name="run_metrics_duration">请求耗时：%1$s</string>
+    <string name="run_metrics_first_text">首字：%1$s</string>
+    <string name="run_metrics_first_response">首次响应：%1$s</string>
+    <string name="run_metrics_tokens">输入 / 输出 Token：%1$s / %2$s</string>
+    <string name="run_metrics_speed">输出吞吐（请求平均）：%1$s token/s</string>
+    <string name="run_metrics_failed">无法读取运行记录。</string>
+    <string name="run_metrics_unknown">—</string>
+    <string name="run_metrics_seconds">%1$.2f 秒</string>
 </resources>

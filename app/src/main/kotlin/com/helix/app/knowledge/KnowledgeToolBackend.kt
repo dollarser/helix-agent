@@ -33,6 +33,15 @@ internal class KnowledgeToolBackend(
         id: String,
     ) = global.read(kind, id)
 
+    override suspend fun originalPdf(
+        call: ExecutableToolCall,
+        id: String,
+        file: Int,
+        page: Int,
+        offset: Int,
+        limit: Int,
+    ) = global.originalPdf(call, id, file, page, offset, limit)
+
     override fun references(
         call: ExecutableToolCall,
         inputId: String,

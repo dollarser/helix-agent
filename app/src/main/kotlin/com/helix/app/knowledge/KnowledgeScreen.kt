@@ -411,6 +411,7 @@ private fun KnowledgeDetail(
             item { Text(item.title, style = MaterialTheme.typography.headlineMedium) }
             item { Text(knowledgeDate(item.receivedAt), style = MaterialTheme.typography.labelMedium) }
             if (item.state != "READY") item { Text(knowledgeStatus(item)) }
+            item { KnowledgeExtractionSummary(item) }
             if (readable.isBlank()) {
                 item { Text(stringResource(R.string.knowledge_visual_reading_hint)) }
                 item {

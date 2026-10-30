@@ -64,7 +64,7 @@ class KnowledgeReferenceService(
                 kind,
                 id,
                 document.title.take(160),
-                knowledgeHash(document.text),
+                document.revision,
                 document.text.codePointCount(0, document.text.length),
                 document.completeness,
             )
@@ -73,7 +73,7 @@ class KnowledgeReferenceService(
     suspend fun state(reference: KnowledgeReference): State =
         withContext(Dispatchers.IO) {
             val current = document(reference.kind, reference.resourceId) ?: return@withContext State.UNAVAILABLE
-            if (knowledgeHash(current.text) == reference.sourceHash && current.completeness == reference.completeness) {
+            if (current.revision == reference.sourceHash && current.completeness == reference.completeness) {
                 State.CURRENT
             } else {
                 State.CHANGED
@@ -90,7 +90,7 @@ class KnowledgeReferenceService(
         withContext(Dispatchers.IO) {
             document(reference.kind, reference.resourceId)
                 ?.takeIf {
-                    knowledgeHash(it.text) == reference.sourceHash && it.completeness == reference.completeness
+                    it.revision == reference.sourceHash && it.completeness == reference.completeness
                 }?.text
         }
 
@@ -112,6 +112,7 @@ class KnowledgeReferenceService(
         val title: String,
         val text: String,
         val completeness: String,
+        val revision: String = knowledgeHash(text),
     )
 
     private suspend fun document(
@@ -122,8 +123,12 @@ class KnowledgeReferenceService(
             "SOURCE" -> {
                 store.get(id)?.let { source ->
                     val text = source.extracted.ifBlank { source.rawText }
-                    Document(source.title, text, if (source.extracted.isBlank()) "RAW_TEXT" else source.state)
-                        .takeIf { source.state != "DELETING" && text.isNotBlank() }
+                    Document(
+                        source.title,
+                        text,
+                        if (source.extracted.isBlank()) "RAW_TEXT" else source.state,
+                        knowledgeSourceRevision(source),
+                    ).takeIf { source.state != "DELETING" && text.isNotBlank() }
                 }
             }
 

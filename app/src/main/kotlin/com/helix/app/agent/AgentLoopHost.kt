@@ -116,6 +116,7 @@ internal class AgentLoopHost(
                 },
             clock = clock,
             idGenerator = idGenerator,
+            monotonicClock = android.os.SystemClock::elapsedRealtimeNanos,
         )
 
     suspend fun runToolLoop(

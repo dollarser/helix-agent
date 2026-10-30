@@ -28,6 +28,7 @@ data class CollectedSource(
     val detail: String = "",
     val fingerprint: String = "",
     val documentHash: String = "",
+    val extraction: String = "",
 )
 
 /** Open documents are authoritative; observed flows/search can always be rebuilt. */

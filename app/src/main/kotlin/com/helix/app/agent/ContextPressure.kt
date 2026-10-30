@@ -21,12 +21,24 @@ internal object ContextPressure {
         val checkpoint = ContextHistory.checkpoint(storage, sessionId)
         val boundary = calls.indexOfFirst { it.id == checkpoint?.sourceCallId }
         val eligible = if (boundary >= 0) calls.drop(boundary + 1) else calls
-        val call =
-            eligible.lastOrNull {
-                it.state == "COMPLETED" && it.usage != null && !ChatContextProjection.isSummary(storage, it.id)
-            } ?: return 0
         val providerId = storage.sessions.resolve(sessionId).providerId ?: return 0
         val config = storage.providerConfigs.resolve(providerId)
-        return ChatContextProjection.inputFor(call.providerSnapshot, call.usage, config.transportIdentity, model) ?: 0
+        return lastMeasuredInput(eligible, config.transportIdentity, model) {
+            ChatContextProjection.isSummary(storage, it)
+        } ?: 0
     }
+
+    internal fun lastMeasuredInput(
+        calls: List<com.helix.core.storage.entity.ModelCallEntity>,
+        endpoint: String,
+        model: String,
+        summary: (String) -> Boolean,
+    ): Long? =
+        calls.asReversed().firstNotNullOfOrNull {
+            if (it.state == "COMPLETED" && !summary(it.id)) {
+                ChatContextProjection.inputFor(it.providerSnapshot, it.usage, endpoint, model)
+            } else {
+                null
+            }
+        }
 }

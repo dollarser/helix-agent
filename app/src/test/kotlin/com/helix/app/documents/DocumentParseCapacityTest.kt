@@ -26,7 +26,7 @@ class DocumentParseCapacityTest {
 
     @Test fun hostExitDoesNotReleaseAnActiveNativeParser() {
         val capacity = DocumentParseCapacity()
-        val lease = capacity.acquire(call())
+        val lease = capacity.acquire(DocumentParseWork.from(call()))
         lease.beginNative()
         lease.finishHost()
         assertTrue(lease.awaitingExit)
@@ -34,32 +34,32 @@ class DocumentParseCapacityTest {
         assertEquals(
             "TIMED_OUT",
             assertThrows(DocumentException::class.java) {
-                capacity.acquire(call().copy(deadline = Instant.now().plusMillis(40)))
+                capacity.acquire(DocumentParseWork.from(call().copy(deadline = Instant.now().plusMillis(40))))
             }.code,
         )
         lease.nativeExited()
         assertFalse(lease.awaitingExit)
         assertTrue(lease.awaitExit(10, java.util.concurrent.TimeUnit.MILLISECONDS))
-        capacity.acquire(call()).finishHost()
+        capacity.acquire(DocumentParseWork.from(call())).finishHost()
     }
 
     @Test fun repeatedDeathAndLateHostCleanupCannotReleaseAnotherParsersSlot() {
         val capacity = DocumentParseCapacity()
-        val old = capacity.acquire(call())
+        val old = capacity.acquire(DocumentParseWork.from(call()))
         old.beginNative()
         old.nativeExited()
-        val replacement = capacity.acquire(call())
+        val replacement = capacity.acquire(DocumentParseWork.from(call()))
         replacement.beginNative()
         old.nativeExited()
         old.finishHost()
         assertEquals(
             "TIMED_OUT",
             assertThrows(DocumentException::class.java) {
-                capacity.acquire(call().copy(deadline = Instant.now().plusMillis(40)))
+                capacity.acquire(DocumentParseWork.from(call().copy(deadline = Instant.now().plusMillis(40))))
             }.code,
         )
         replacement.nativeExited()
-        capacity.acquire(call()).finishHost()
+        capacity.acquire(DocumentParseWork.from(call())).finishHost()
     }
 
     @Test fun cancelledQueueAndFailedPreparationDoNotConsumeCapacity() {
@@ -68,19 +68,21 @@ class DocumentParseCapacityTest {
             "CANCELLED",
             assertThrows(DocumentException::class.java) {
                 capacity.acquire(
-                    call().copy(
-                        cancel =
-                            object : com.helix.core.model.CancelSignal {
-                                override fun isCancelled() = true
-                            },
+                    DocumentParseWork.from(
+                        call().copy(
+                            cancel =
+                                object : com.helix.core.model.CancelSignal {
+                                    override fun isCancelled() = true
+                                },
+                        ),
                     ),
                 )
             }.code,
         )
-        val lease = capacity.acquire(call())
+        val lease = capacity.acquire(DocumentParseWork.from(call()))
         lease.finishHost()
         lease.finishHost()
-        val next = capacity.acquire(call())
+        val next = capacity.acquire(DocumentParseWork.from(call()))
         next.finishHost()
         assertEquals("PARSER_DIED", assertThrows(DocumentException::class.java) { next.beginNative() }.code)
     }

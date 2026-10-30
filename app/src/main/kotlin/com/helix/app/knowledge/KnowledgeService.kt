@@ -28,6 +28,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.jsonPrimitive
 import org.json.JSONArray
 
 /** User-directed collection only. External bytes never execute or grant agent authority. */
@@ -58,13 +59,31 @@ class KnowledgeService(
 
     @Volatile private var closed = false
     private val importer = KnowledgeImporter(context, store)
-    private val extractor = KnowledgeExtractor(store, fetcher)
+    private val pdfExtraction = KnowledgePdfExtraction(context)
+    private val extractor = KnowledgeExtractor(store, fetcher, pdfExtraction)
     val items = store.items
     val openRequests = MutableStateFlow<String?>(null)
     val captureError = MutableStateFlow(false)
     val deletionError = MutableStateFlow(false)
     internal val agentAccess =
-        KnowledgeAgentAccess(context.getSharedPreferences("knowledge-access", Context.MODE_PRIVATE), store)
+        KnowledgeAgentAccess(context.getSharedPreferences("knowledge-access", Context.MODE_PRIVATE), store) {
+            call,
+            id,
+            file,
+            page,
+            offset,
+            limit,
+            ->
+            readOriginalPdf(
+                id,
+                file,
+                page,
+                offset,
+                limit,
+                com.helix.app.documents.DocumentParseWork
+                    .from(call),
+            )
+        }
     val references = KnowledgeReferenceService(store)
     val noteService = KnowledgeNoteService(store) { storageError.value = true }
     val answerHistory = KnowledgeAnswerHistory(store) { storageError.value = true }
@@ -256,6 +275,80 @@ class KnowledgeService(
                 if (content.length > maxChars) "Excerpt: first $maxChars characters; remainder not included." else "",
                 content.take(maxChars),
             ).joinToString("\n")
+        }
+
+    suspend fun resolveCitation(citation: com.helix.app.citation.Citation): com.helix.app.citation.CitationContent? =
+        withContext(Dispatchers.IO) {
+            if (citation.page != null) {
+                val source = store.get(citation.id) ?: return@withContext null
+                if (knowledgeSourceRevision(source) != citation.revision) return@withContext null
+                val job = kotlinx.coroutines.currentCoroutineContext()[kotlinx.coroutines.Job]
+                val result =
+                    readOriginalPdf(
+                        citation.id,
+                        requireNotNull(citation.fileIndex),
+                        citation.page,
+                        citation.start,
+                        (citation.end - citation.start).coerceAtLeast(1),
+                        com.helix.app.documents.DocumentParseWork(
+                            java.time.Instant
+                                .now()
+                                .plusSeconds(20),
+                        ) {
+                            job?.isActive == false
+                        },
+                    )
+                val text = result.getValue("text").jsonPrimitive.content
+                return@withContext com.helix.app.citation.CitationContent(
+                    source.title,
+                    text,
+                    citation.page,
+                    noText = text.isBlank(),
+                )
+            }
+            val content =
+                if (citation.kind == "source") {
+                    store.get(citation.id)?.takeIf { it.state != "DELETING" }?.let {
+                        it.title to it.extracted.ifBlank { it.rawText }
+                    }
+                } else {
+                    store.note(citation.id)?.let { it.title to it.body }
+                }
+            content?.takeIf { knowledgeHash(it.second) == citation.revision }?.let {
+                com.helix.app.citation
+                    .CitationContent(it.first, citation.excerpt(it.second))
+            }
+        }
+
+    private suspend fun readOriginalPdf(
+        id: String,
+        file: Int,
+        page: Int,
+        offset: Int,
+        limit: Int,
+        work: com.helix.app.documents.DocumentParseWork,
+    ): kotlinx.serialization.json.JsonObject =
+        withContext(Dispatchers.IO) {
+            val source = requireNotNull(store.get(id)) { "KNOWLEDGE_SOURCE_UNAVAILABLE" }
+            require(source.state != "DELETING") { "KNOWLEDGE_SOURCE_UNAVAILABLE" }
+            val files = JSONArray(source.filesJson)
+            require(file in 0 until files.length())
+            val manifest = files.getJSONObject(file)
+            require(manifest.getString("mime") == "application/pdf")
+            val expected = manifest.optString("sha256")
+            require(expected.matches(Regex("[a-f0-9]{64}"))) { "KNOWLEDGE_ORIGINAL_UNVERIFIED" }
+            val original = knowledgeOriginal(store, source, file)
+            require(original.hash == expected) { "KNOWLEDGE_SOURCE_CHANGED" }
+            val revision = knowledgeSourceRevision(source)
+            val pageResult = pdfExtraction.readPage(original.bytes, page, work, offset, limit)
+            require(store.get(id)?.let(::knowledgeSourceRevision) == revision) { "KNOWLEDGE_SOURCE_CHANGED" }
+            kotlinx.serialization.json.JsonObject(
+                pageResult +
+                    mapOf(
+                        "sourceRevision" to kotlinx.serialization.json.JsonPrimitive(revision),
+                        "fileIndex" to kotlinx.serialization.json.JsonPrimitive(file),
+                    ),
+            )
         }
 
     fun originalBytes(

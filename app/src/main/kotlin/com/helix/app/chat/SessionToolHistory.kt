@@ -210,6 +210,19 @@ internal object SessionToolHistory {
                 buildJsonObject {
                     put("messageId", call.text("messageId"))
                     put("contentHash", content.sha256)
+                    if ("referenceOrdinal" !in call.args) {
+                        val start =
+                            call.args
+                                .getValue("offset")
+                                .jsonPrimitive.int
+                        val text = page.getValue("content").jsonPrimitive.content
+                        val end = start + text.codePointCount(0, text.length)
+                        put(
+                            "citation",
+                            "helix://session/${reference?.sourceSessionId ?: caller.sessionId}/" +
+                                "${call.text("messageId")}?revision=${content.sha256}&range=$start:$end",
+                        )
+                    }
                     reference?.let {
                         put("referenceMessageId", it.messageId)
                         put("referenceHash", it.contentHash)
