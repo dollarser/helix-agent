@@ -116,6 +116,10 @@ internal class DefaultAppContainer(
         com.helix.tools.framework.ExecutionOwnership(
             com.helix.app.proot
                 .ExecutionOwnershipStore(java.io.File(appContext.filesDir, "execution-admission/owner")),
+            admissionAllowed = {
+                !com.helix.app.backup.ProfileReplacement
+                    .pending(appContext)
+            },
         )
 
     private val lineStore = PrefsLineStore(context, PREFS_NAME)
@@ -834,6 +838,12 @@ internal class DefaultAppContainer(
             storage = storage,
             clock = appClock,
             idGenerator = { idGenerator.next() },
+            beforeAdmission = {
+                check(
+                    !com.helix.app.backup.ProfileReplacement
+                        .pending(appContext),
+                ) { "RESTORE_RESTART_REQUIRED" }
+            },
         )
     }
 

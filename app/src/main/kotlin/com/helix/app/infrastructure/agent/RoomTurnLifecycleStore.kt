@@ -22,13 +22,18 @@ internal class RoomTurnLifecycleStore(
     private val storage: HelixStorage,
     private val clock: Clock,
     private val idGenerator: () -> String,
+    private val beforeAdmission: () -> Unit = {},
 ) : TurnLifecycleStore {
     private val admission = TurnAdmission(storage, clock, idGenerator)
     private val settlement = TurnSettlement(storage, clock, idGenerator)
     private val reviewParking = TurnReviewParking(storage, clock, idGenerator)
     private val reviewResolution = TurnReviewResolution(storage, clock, idGenerator)
 
-    override fun admit(command: TurnAdmissionCommand) = admission.start(command)
+    override fun admit(command: TurnAdmissionCommand) =
+        synchronized(com.helix.app.backup.ProfileReplacement.lock) {
+            beforeAdmission()
+            admission.start(command)
+        }
 
     override fun submissionReceipt(
         clientRequestId: String,

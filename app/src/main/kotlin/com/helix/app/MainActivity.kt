@@ -146,16 +146,36 @@ class MainActivity : ComponentActivity() {
         pendingIntents.addAll(restoredIntents.orEmpty())
         startupIntent = initialIntent
         val app = application as HelixApplication
+        val queuedRestore =
+            synchronized(com.helix.app.backup.ProfileReplacement.lock) {
+                com.helix.app.backup.ProfileReplacement
+                    .pending(app) && app.readyAppContainerOrNull() != null
+            }
         setContent {
             val startup by app.startupState.collectAsStateWithLifecycle()
+            val visible =
+                if (queuedRestore) {
+                    AppStartupState.RestoreFailed
+                } else if (startupFailed) {
+                    AppStartupState.Failed
+                } else {
+                    startup
+                }
             AppStartupScreen(
-                if (startupFailed) AppStartupState.Failed else startup,
+                visible,
                 onConfirmReset = app::confirmPreviewReset,
-                onExit = ::finishAndRemoveTask,
+                onExit = {
+                    finishAndRemoveTask()
+                    if (visible ==
+                        AppStartupState.RestoreFailed
+                    ) {
+                        android.os.Process.killProcess(android.os.Process.myPid())
+                    }
+                },
                 onRecheck = app::recheckPreviewState,
             )
         }
-        lifecycleScope.launch { initializeContent(initialIntent) }
+        if (!queuedRestore) lifecycleScope.launch { initializeContent(initialIntent) }
     }
 
     @Suppress("TooGenericExceptionCaught") // Show startup failure; cancellation must not attach a destroyed Activity.
@@ -231,7 +251,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onStop() {
-        (application as HelixApplication).readAloud.leave()
+        (application as HelixApplication).leaveReadAloudIfInitialized()
         // A Root manager may revoke policy without killing an existing libsu shell. Never retain
         // developer Root authority after the app leaves the foreground; REQUESTING is preserved
         // so the manager's grant dialog can complete normally.
@@ -241,7 +261,12 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        (application as HelixApplication).reminders.recoverAsync()
+        if (com.helix.app.backup.ProfileReplacement
+                .pending(this)
+        ) {
+            return
+        }
+        if (readyContainer != null) (application as HelixApplication).reminders.recoverAsync()
         browserOwner?.let { readyContainer?.browser?.resume(it) }
         readyContainer?.providerService?.refresh()
     }
@@ -887,7 +912,18 @@ private fun DestinationScreen(
         }
 
         ShellDestination.Settings -> {
-            SettingsScreen(container.memory)
+            val context = androidx.compose.ui.platform.LocalContext.current.applicationContext
+            val backup =
+                remember(container, context) {
+                    com.helix.app.backup.AppBackupService(
+                        context,
+                        container.storage,
+                        container.fileManager,
+                        (context as HelixApplication).knowledge,
+                        requireNotNull(container.executionOwnership),
+                    )
+                }
+            SettingsScreen(container.memory, backup)
         }
 
         ShellDestination.Models -> {

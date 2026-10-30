@@ -36,6 +36,7 @@ internal fun knowledgeOriginal(
     val files = JSONArray(item.filesJson)
     require(files.length() <= MAX_FILES && index in 0 until files.length())
     val reference = files.getJSONObject(index).getString("reference")
+    require(!reference.startsWith("unavailable:backup:")) { "KNOWLEDGE_ORIGINAL_NOT_IN_BACKUP" }
     require(reference in store.documents.references("originals/${item.id}")) { "Original is outside this source" }
     return store.documents.read(reference, MAX_FILE_BYTES)
 }
@@ -167,7 +168,12 @@ internal class KnowledgeImporter(
         val stored = "$index.${originalExtensions[mime] ?: "bin"}"
         val published = store.documents.save("originals/$id", stored, part.toByteArray(), mimeType = mime)
         digest.update(fileDigest.digest())
-        return JSONObject().put("name", name).put("mime", mime).put("reference", published.reference)
+        return JSONObject()
+            .put("name", name)
+            .put("mime", mime)
+            .put("reference", published.reference)
+            .put("sha256", published.hash)
+            .put("size", published.bytes.size)
     }
 
     private fun copyBounded(

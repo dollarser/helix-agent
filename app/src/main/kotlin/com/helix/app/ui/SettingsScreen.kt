@@ -45,6 +45,7 @@ import com.helix.core.model.SafetyProfile
 @Suppress("FunctionName")
 fun SettingsScreen(
     memory: com.helix.app.memory.MemoryService? = null,
+    contentBackup: com.helix.app.backup.AppBackupService? = null,
 ) {
     var memoryOpen by androidx.compose.runtime.saveable
         .rememberSaveable { mutableStateOf(false) }
@@ -75,6 +76,25 @@ fun SettingsScreen(
         SettingsGroup {
             com.helix.app.network
                 .NetworkSettingsEntry()
+        }
+        contentBackup?.let { backup ->
+            val context = androidx.compose.ui.platform.LocalContext.current
+            SettingsGroup {
+                com.helix.app.backup
+                    .AppBackupEntry(backup) {
+                        var owner: android.content.Context = context
+                        while (owner is android.content.ContextWrapper &&
+                            owner !is android.app.Activity
+                        ) {
+                            owner = owner.baseContext
+                        }
+                        try {
+                            (owner as? android.app.Activity)?.finishAndRemoveTask()
+                        } finally {
+                            android.os.Process.killProcess(android.os.Process.myPid())
+                        }
+                    }
+            }
         }
         AboutHelixSection()
     }

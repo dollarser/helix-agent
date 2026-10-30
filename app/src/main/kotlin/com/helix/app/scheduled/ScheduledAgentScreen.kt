@@ -108,6 +108,7 @@ fun ScheduledAgentScreen(
             Text(rule.title, style = MaterialTheme.typography.titleMedium)
             Text("${rule.localTime} · ${rule.zone}")
             Text(scheduledStatus(rule.status))
+            if (rule.scopeHash.isBlank()) Text(stringResource(R.string.app_backup_task_reconfirm))
             TextButton(onClick = {
                 selected = rule
                 editing = true
@@ -140,7 +141,7 @@ fun ScheduledAgentScreen(
                     }
                 }) { Text(stringResource(R.string.scheduled_stop)) }
             }
-            if (occurrence.outcome in ScheduledAgentService.REPLAYABLE) {
+            if (occurrence.outcome in ScheduledAgentService.REPLAYABLE && original.scopeHash.isNotBlank()) {
                 TextButton(
                     onClick = { retry = occurrence },
                     modifier =

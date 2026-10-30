@@ -419,6 +419,30 @@ class FileManagerService internal constructor(
             preview.fileInfo(scopeId, relativePath, maxHashBytes)
         }
 
+    /** User-selected backup only. Existing live scope/OS checks remain authoritative. */
+    fun copyForBackup(
+        scopeId: String,
+        relativePath: String,
+        target: File,
+        maximum: Long,
+        checkActive: () -> Unit,
+    ) {
+        require(maximum in 1..512L * 1024 * 1024)
+        require(sources().any { it.scopeId == scopeId }) { "BACKUP_SCOPE_UNAVAILABLE" }
+        checkActive()
+        if (isRoot(scopeId)) {
+            val source = realFileFor(scopeId, relativePath)
+            source.inputStream().use { input ->
+                target.outputStream().use { output ->
+                    copyBackupStream(input, output, maximum, checkActive)
+                }
+            }
+        } else {
+            preview.copyForBackup(scopeId, relativePath, target, maximum, checkActive)
+        }
+        checkActive()
+    }
+
     @Synchronized
     fun realFileFor(
         scopeId: String,

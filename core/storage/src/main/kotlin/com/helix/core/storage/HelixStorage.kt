@@ -65,6 +65,11 @@ class HelixStorage internal constructor(
     private val composerDirectory: File =
         File(requireNotNull((contentStore as? FileContentStore)?.root), "composer-input"),
 ) {
+    val portableState by lazy {
+        com.helix.core.storage.backup
+            .PortableStateRepository(database, contentStore)
+    }
+
     val experts by lazy {
         com.helix.core.storage.repository
             .ExpertLibraryRepository(database.expertDao())

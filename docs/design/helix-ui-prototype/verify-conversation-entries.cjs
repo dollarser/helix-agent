@@ -31,7 +31,8 @@ test('Top and composer menus have separate responsibilities', () => {
   assert.doesNotMatch(sheet().textContent, /重命名|导出会话|选择专家/);
 });
 test('References list actual demo rows and selection attaches a chip', () => {
-  open('references'); assert.equal(document.querySelectorAll('#results button').length, 3);
+  open('references'); assert.equal(document.querySelectorAll('#results button:not([disabled])').length, 3);
+  assert.equal(document.querySelectorAll('#results button[disabled]').length, 1);
   click('reference:cancel'); assert.equal(state().reference.id, 'cancel');
   assert.match(document.querySelector('#chips').textContent, /取消与恢复设计/);
 });
@@ -44,7 +45,7 @@ test('Reference search distinguishes no match from empty directory', () => {
 test('Reference loading and failure are explicit; retry restores rows', () => {
   state().directory = 'loading'; open('references'); assert.match(sheet().textContent, /正在读取/);
   state().directory = 'error'; open('references'); assert.match(sheet().textContent, /读取失败/);
-  click('retry'); assert.equal(document.querySelectorAll('#results button').length, 3);
+  click('retry'); assert.equal(document.querySelectorAll('#results button:not([disabled])').length, 3);
 });
 test('Reference panel never includes memory configuration', () => {
   open('references'); assert.doesNotMatch(sheet().textContent, /记忆|自动写入/);
@@ -144,6 +145,26 @@ test('Dictation stays inline, cancellation preserves draft, and success remains 
   open('voice'); click('open:voice-finishing'); click('open:voice-result');
   assert.ok(document.querySelector('#draft').value.startsWith(original));
   assert.match(document.querySelector('#draft').value, /模拟转写/);
+});
+test('Expert configuration exports dependencies without activating them; removal preserves manual plugins', () => {
+  open('capabilities'); assert.match(sheet().textContent, /插件/);
+  open('import-expert');
+  document.querySelector('#expert-json').value = JSON.stringify({name:'Linked preset', instruction:'Use selected tools safely.', description:'Synthetic', plugins:['native:browser'], skills:[]});
+  click('import');
+  const saved = state().experts.find(x => x.name === 'Linked preset');
+  assert.ok(saved); assert.equal(state().expert, null);
+  open('expert-library'); click('expert-config:' + saved.id);
+  const decoded = document.createElement('div');
+  decoded.innerHTML = sheet().querySelector('textarea').textContent;
+  const exported = JSON.parse(decoded.textContent);
+  assert.equal(exported.plugins.join(','), 'native:browser');
+  state().plugins = ['团队文档'];
+  open('experts'); click('expert:' + saved.id);
+  assert.match(document.querySelector('#plugin-status').textContent, /浏览器/);
+  assert.equal(state().plugins.join(','), '团队文档');
+  open('experts'); click('expert:none');
+  assert.equal(state().plugins.join(','), '团队文档');
+  assert.doesNotMatch(document.querySelector('#plugin-status').textContent, /浏览器/);
 });
 assert.ok(!/\b(fetch|XMLHttpRequest|WebSocket)\s*\(/.test(html));
 console.log(`${n} offline interaction checks passed; browser/layout acceptance is separate.`);

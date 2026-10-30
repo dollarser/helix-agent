@@ -17,6 +17,7 @@ class MediaStoreDocuments(
     namespace: String,
 ) : DocumentStorage,
     DocumentDraftRecovery,
+    DocumentPendingCleanup,
     DocumentShareAccess {
     private val resolver = context.contentResolver
     private val collection = MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
@@ -176,6 +177,60 @@ class MediaStoreDocuments(
             check(read(previous.reference, MAX_FILE_BYTES).hash == previous.hash) { "DOCUMENT_CONFLICT_RELOAD" }
             check(resolver.delete(uri(previous.reference), null, null) == 1) { "DOCUMENT_DELETE_UNCONFIRMED" }
         }
+
+    private fun pendingMatches(
+        relative: String,
+        expectedName: String,
+    ): List<String> =
+        requireNotNull(
+            resolver.query(
+                collection,
+                arrayOf(MediaStore.MediaColumns._ID, MediaStore.MediaColumns.DISPLAY_NAME),
+                "${MediaStore.MediaColumns.RELATIVE_PATH} = ? AND " +
+                    "${MediaStore.MediaColumns.IS_PENDING} = 1 AND " +
+                    "${MediaStore.MediaColumns.OWNER_PACKAGE_NAME} = ?",
+                arrayOf(relative, owner),
+                null,
+            ),
+        ).use { cursor ->
+            buildList {
+                while (cursor.moveToNext()) {
+                    val name = cursor.getString(1)
+                    if (name == expectedName || name.startsWith("$expectedName.")) add(cursor.getLong(0).toString())
+                    require(size <= 1) { "RESTORE_PENDING_CONFLICT" }
+                }
+            }
+        }
+
+    @Synchronized
+    override fun discardOwnedPending(
+        directory: String,
+        expectedName: String,
+    ) = operation {
+        require(expectedName.contains(Regex("restore-[a-f0-9-]{36}")))
+        val relative = directory(directory)
+        val matches = pendingMatches(relative, expectedName)
+        matches.forEach { reference ->
+            val current = metadata(uri(reference))
+            check(current.second && (current.first == expectedName || current.first.startsWith("$expectedName.")))
+            val publication =
+                if (Files.exists(receipt)) {
+                    Properties().apply {
+                        Files.newInputStream(receipt).use { load(it) }
+                    }
+                } else {
+                    null
+                }
+            if (publication?.getProperty("new") == reference) check(publication.getProperty("old").isNullOrEmpty())
+            check(resolver.delete(uri(reference), null, null) == 1) { "DOCUMENT_DELETE_UNCONFIRMED" }
+            draftRecords()
+                .filter { (_, record) ->
+                    record.getProperty("new") == reference &&
+                        record.getProperty("old").isNullOrEmpty()
+                }.forEach { (token, _) -> Files.delete(conflicts.resolve("$token.properties")) }
+            if (publication?.getProperty("new") == reference) Files.delete(receipt)
+        }
+    }
 
     /** Reconciles this original publication only; edited old/new documents are retained, never guessed away. */
     private fun recover() {

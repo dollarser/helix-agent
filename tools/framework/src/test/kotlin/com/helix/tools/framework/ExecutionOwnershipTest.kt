@@ -34,6 +34,17 @@ class ExecutionOwnershipTest {
 
     private val owner = ExecutionOwnership.Owner("execution", "generation")
 
+    @Test fun profileReplacementRequiresPhysicalExitAndPreventsNewAdmission() {
+        var allowed = true
+        val gate = ExecutionOwnership(MemoryStore()) { allowed }
+        val permit = requireNotNull(gate.acquire("active"))
+        assertThrows(IllegalStateException::class.java) { gate.withIdleProfile { allowed = false } }
+        assertTrue(allowed)
+        permit.close()
+        gate.withIdleProfile { allowed = false }
+        assertNull(gate.acquire("after-queue"))
+    }
+
     @Test fun retainedExecutionSurvivesCallCloseAndHostReconstruction() {
         val store = MemoryStore()
         val firstHost = ExecutionOwnership(store)

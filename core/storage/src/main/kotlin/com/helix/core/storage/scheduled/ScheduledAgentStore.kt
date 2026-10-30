@@ -138,6 +138,12 @@ class ScheduledAgentStore(
                 ScheduledAgentDatabase::class.java,
                 name,
             ).build()
+    val portable by lazy {
+        com.helix.core.storage.backup.AuxiliaryBackupRepository(
+            database,
+            com.helix.core.storage.backup.AuxiliaryBackupRepository.Kind.SCHEDULES,
+        )
+    }
     val dao = database.ledger()
 
     suspend fun <T> transaction(block: suspend () -> T): T = database.withTransaction(block)

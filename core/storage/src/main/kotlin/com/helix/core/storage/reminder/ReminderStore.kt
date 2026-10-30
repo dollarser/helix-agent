@@ -91,6 +91,12 @@ class ReminderStore(
     name: String = "reminders.db",
 ) {
     private val database = Room.databaseBuilder(context.applicationContext, ReminderDatabase::class.java, name).build()
+    val portable by lazy {
+        com.helix.core.storage.backup.AuxiliaryBackupRepository(
+            database,
+            com.helix.core.storage.backup.AuxiliaryBackupRepository.Kind.REMINDERS,
+        )
+    }
     val dao = database.reminders()
 
     suspend fun <T> transaction(block: suspend () -> T): T = database.withTransaction(block)

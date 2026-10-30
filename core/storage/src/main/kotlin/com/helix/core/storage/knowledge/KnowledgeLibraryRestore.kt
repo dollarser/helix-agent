@@ -14,9 +14,10 @@ import kotlin.coroutines.coroutineContext
 /** Explicit current-format import, not a linked second authority or a legacy database reader. */
 internal class KnowledgeLibraryRestore(
     private val target: DocumentStorage,
+    private val originalsIncluded: Boolean = true,
 ) {
     @Suppress("LongMethod", "CyclomaticComplexMethod") // Bounded preflight precedes individually verified publications.
-    suspend fun restore(source: DocumentReadAccess): Int {
+    suspend fun restore(source: DocumentReadAccess, publish: Boolean = true): Int {
         var total = 0L
         val observed = mutableListOf<DocumentStorage.File>()
 
@@ -55,7 +56,12 @@ internal class KnowledgeLibraryRestore(
             unchangedOrAbsent("notes", note.id, KnowledgeDocumentCodec.note(note, links))
         }
         sources.forEach { item ->
-            attachmentFiles(item, originals.getValue(item.id))
+            if (originalsIncluded) {
+                attachmentFiles(item, originals.getValue(item.id))
+            } else {
+                require(originals.getValue(item.id).isEmpty())
+                attachmentFiles(item, emptyList(), requirePayload = false)
+            }
             val current = existing("sources", item.id)
             if (current != null) {
                 val old = KnowledgeDocumentCodec.source(decode(current))
@@ -69,11 +75,12 @@ internal class KnowledgeLibraryRestore(
             coroutineContext.ensureActive()
             check(source.read(it.reference, 16 * 1024 * 1024).hash == it.hash) { "LIBRARY_RESTORE_CHANGED" }
         }
+        if (!publish) return notes.size + sources.size
         // Publications are individually recoverable. A partial failure is not success; retry only
         // accepts identical already-published content, never overwrites a conflicting destination.
         sources.forEach { item ->
             coroutineContext.ensureActive()
-            val attachments = attachmentFiles(item, originals.getValue(item.id))
+            val attachments = if (originalsIncluded) attachmentFiles(item, originals.getValue(item.id)) else emptyList()
             val files = Json.parseToJsonElement(item.filesJson) as JsonArray
             val published =
                 originals.getValue(item.id).associate { original ->
@@ -86,7 +93,7 @@ internal class KnowledgeLibraryRestore(
                                 .jsonObject
                                 .getValue("mime")
                                 .jsonPrimitive.content
-                        } else if (original.name == "public-page.html") {
+                        } else if (original.name.substringBefore('.') == "public-page") {
                             "text/html"
                         } else {
                             "application/octet-stream"
@@ -97,7 +104,12 @@ internal class KnowledgeLibraryRestore(
             val remapped =
                 JsonArray(
                     files.mapIndexed { index, metadata ->
-                        val reference = published.getValue(attachments[index].name).reference
+                        val reference =
+                            if (originalsIncluded) {
+                                published.getValue(attachments[index].name).reference
+                            } else {
+                                "unavailable:backup:${item.id}:$index"
+                            }
                         JsonObject(metadata.jsonObject + ("reference" to JsonPrimitive(reference)))
                     },
                 )
@@ -109,7 +121,10 @@ internal class KnowledgeLibraryRestore(
                 val old = KnowledgeDocumentCodec.source(decode(current))
                 check(
                     sameSource(old, restored) &&
-                        Json.parseToJsonElement(old.filesJson) == Json.parseToJsonElement(restored.filesJson),
+                        (
+                            !originalsIncluded ||
+                                Json.parseToJsonElement(old.filesJson) == Json.parseToJsonElement(restored.filesJson)
+                        ),
                 ) {
                     "LIBRARY_RESTORE_CONFLICT"
                 }
@@ -158,7 +173,7 @@ internal class KnowledgeLibraryRestore(
                 }
             }
         val slot = original.name.substringBefore('.')
-        val indexed = slot in (0..7).map(Int::toString)
+        val indexed = slot in (0..7).map(Int::toString) || slot == "public-page"
         val matches =
             entries.filter {
                 if (indexed) {
@@ -174,10 +189,11 @@ internal class KnowledgeLibraryRestore(
     private fun attachmentFiles(
         item: CollectedSource,
         originals: List<DocumentStorage.File>,
+        requirePayload: Boolean = true,
     ): List<DocumentStorage.File> {
         val files = Json.parseToJsonElement(item.filesJson) as JsonArray
         require(files.size <= 8)
-        return files.mapIndexed { index, metadata ->
+        return files.mapIndexedNotNull { index, metadata ->
             val data = metadata.jsonObject
             require(
                 data
@@ -193,7 +209,9 @@ internal class KnowledgeLibraryRestore(
                     .jsonPrimitive.content
                     .isNotBlank(),
             )
-            requireNotNull(originals.singleOrNull { it.name.startsWith("$index.") }) {
+            val original = originals.singleOrNull { it.name.startsWith("$index.") }
+            if (!requirePayload) return@mapIndexedNotNull original
+            requireNotNull(original) {
                 "LIBRARY_RESTORE_ATTACHMENT_MISSING"
             }
         }

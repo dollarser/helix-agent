@@ -20,6 +20,12 @@ internal val ScheduledAgentRule.runtimeBudgetMillis: Long
     get() =
         if (scopeJson.isBlank()) {
             ScheduledRuntimeBudget.DEFAULT_MILLIS
+        } else if (scopeHash.isBlank()) {
+            // An imported definition has a budget but no portable execution authorization.
+            org.json
+                .JSONObject(scopeJson)
+                .getLong("maxRuntimeMillis")
+                .also { require(it > 0) }
         } else {
             ScheduledAgentScope
                 .decode(

@@ -10,8 +10,37 @@ import com.helix.app.voice.ReadAloudService
 import com.helix.app.voice.SpeechServiceSettings
 import com.helix.core.model.SystemClock
 
+@Suppress("TooManyFunctions") // Application lifecycle and lazy service ownership stay in one boundary.
 class HelixApplication : Application() {
+    private val profileRestore by lazy {
+        com.helix.app.backup
+            .ProfileRestoreCoordinator(this)
+    }
+    private val profileInitialization by lazy {
+        BackgroundInitialization("helix-profile-init") {
+            profileRestore.recoverBeforeConsumers()
+            com.helix.core.policy.network.NativeNetwork
+                .initialize(filesDir)
+        }
+    }
+
+    private fun awaitPortableProfile() {
+        check(!Process.isIsolated() && getProcessName() == packageName)
+        profileInitialization.await()
+    }
+
+    internal suspend fun awaitPortableProfileAsync() {
+        check(!Process.isIsolated() && getProcessName() == packageName)
+        profileInitialization.awaitAsync()
+    }
+
+    @Synchronized
+    internal fun leaveReadAloudIfInitialized() {
+        readAloudService?.leave()
+    }
+
     val account by lazy {
+        awaitPortableProfile()
         com.helix.app.account.AccountSession(
             com.helix.app.account
                 .AccountSecretStorage(
@@ -23,10 +52,12 @@ class HelixApplication : Application() {
 
     internal val runtimeRecoveryReady = kotlinx.coroutines.CompletableDeferred<Unit>()
     val speechSettings by lazy {
+        awaitPortableProfile()
         com.helix.app.voice
             .SpeechSettingsStore(this)
     }
     val speechConsent by lazy {
+        awaitPortableProfile()
         com.helix.app.voice
             .SpeechConsentStore(this)
     }
@@ -86,6 +117,7 @@ class HelixApplication : Application() {
     }
 
     val reminders by lazy {
+        awaitPortableProfile()
         com.helix.app.reminder.ReminderService(
             com.helix.core.storage.reminder
                 .ReminderStore(this),
@@ -94,6 +126,7 @@ class HelixApplication : Application() {
         )
     }
     val knowledge by lazy {
+        awaitPortableProfile()
         com.helix.app.knowledge
             .KnowledgeService(this)
     }
@@ -103,6 +136,7 @@ class HelixApplication : Application() {
         }
         AppInitialization<AppContainer>(
             factory = {
+                com.helix.app.backup.ProfileReplacement.consumersStarted = true
                 // Initialization runs off main. Restore local identity before model admission/UI rows.
                 try {
                     kotlinx.coroutines.runBlocking { account.restore() }
@@ -111,13 +145,43 @@ class HelixApplication : Application() {
                 }
                 DefaultAppContainer(this)
             },
-            onReady = ::recover,
-            onFailure = { Log.e("HelixStartup", "Application initialization failed", it) },
+            onReady = {
+                val restoring =
+                    com.helix.app.backup.ProfileReplacement
+                        .pending(this)
+                if (restoring) {
+                    kotlinx.coroutines.runBlocking {
+                        reminders.reconcile()
+                        it.scheduledAgents?.reconcile()
+                    }
+                    recover(it, synchronous = true)
+                }
+                profileRestore.completeAfterConsumers()
+                reminders.recoverAsync()
+                com.helix.app.reminder.ReminderRecovery
+                    .periodic(this)
+                if (!restoring) recover(it)
+            },
+            onFailure = {
+                profileRestore.markConsumerFailure()
+                Log.e("HelixStartup", "Application initialization failed", it)
+            },
+            failureState = {
+                if (com.helix.app.backup.ProfileReplacement
+                        .pending(this) ||
+                    com.helix.app.backup.ProfileReplacement.restoreAttempted
+                ) {
+                    AppStartupState.RestoreFailed
+                } else {
+                    AppStartupState.Failed
+                }
+            },
             beforeReset = {
                 com.helix.app.goal.GoalReminderScheduler
                     .cancelForDatabaseReset(this)
             },
             preflight = {
+                awaitPortableProfile()
                 com.helix.app.maintenance
                     .previewStateGate(this)
                     .inspect()
@@ -172,7 +236,11 @@ class HelixApplication : Application() {
      */
     override fun onCreate() {
         super.onCreate()
-        if (!Process.isIsolated()) {
+        if (!Process.isIsolated() && getProcessName() != packageName) {
+            check(
+                !com.helix.app.backup.ProfileReplacement
+                    .pending(this),
+            ) { "RESTORE_RESTART_REQUIRED" }
             com.helix.core.policy.network.NativeNetwork
                 .initialize(filesDir)
         }
@@ -180,17 +248,17 @@ class HelixApplication : Application() {
         // processes. Only the main process owns host diagnostics, Room and recovery.
         if (Process.isIsolated() || getProcessName() != packageName) return
         processDiagnostics = ProcessDiagnostics.install(this)
-        reminders.recoverAsync()
-        com.helix.app.reminder.ReminderRecovery
-            .periodic(this)
         // Schedule before recovery/UI access, preserving the private Runtime process guard.
         containerInitialization
     }
 
     @Suppress("TooGenericExceptionCaught")
-    private fun recover(container: AppContainer) {
-        Thread(
-            {
+    private fun recover(
+        container: AppContainer,
+        synchronous: Boolean = false,
+    ) {
+        val action =
+            Runnable {
                 try {
                     requireNotNull(container.turnEngine) {
                         "main-process AppContainer must provide TurnEngine"
@@ -213,10 +281,10 @@ class HelixApplication : Application() {
                 } catch (t: Exception) {
                     runtimeRecoveryReady.completeExceptionally(t)
                     Log.e(TAG, "process recovery failed; will retry at next start", t)
+                    if (synchronous) throw t
                 }
-            },
-            RECOVERY_THREAD_NAME,
-        ).start()
+            }
+        if (synchronous) action.run() else Thread(action, RECOVERY_THREAD_NAME).start()
     }
 
     private companion object {

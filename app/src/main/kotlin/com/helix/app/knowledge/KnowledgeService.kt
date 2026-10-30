@@ -112,6 +112,23 @@ class KnowledgeService(
             }
         }
 
+    suspend fun backupLibrary(includeOriginals: Boolean = true): Map<String, ByteArray> =
+        withContext(Dispatchers.IO) { store.backupLibrary(includeOriginals) }
+
+    suspend fun preflightBackup(source: com.helix.core.storage.content.DocumentReadAccess): Int =
+        withContext(Dispatchers.IO) { store.preflightLibrary(source) }
+
+    suspend fun restoreBackup(source: com.helix.core.storage.content.DocumentReadAccess): Int =
+        withContext(Dispatchers.IO) {
+            mutation.withLock {
+                try {
+                    store.restoreLibrary(source)
+                } finally {
+                    refresh()
+                }
+            }
+        }
+
     @Synchronized
     fun close() {
         closed = true

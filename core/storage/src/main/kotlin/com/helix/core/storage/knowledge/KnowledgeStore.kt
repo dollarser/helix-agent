@@ -58,6 +58,52 @@ class KnowledgeStore(
             count
         }
 
+    suspend fun preflightLibrary(source: com.helix.core.storage.content.DocumentReadAccess): Int =
+        mutation.withLock { KnowledgeLibraryRestore(documents).restore(source, publish = false) }
+
+    suspend fun backupLibrary(includeOriginals: Boolean = true): Map<String, ByteArray> =
+        mutation.withLock {
+            val observed = mutableListOf<DocumentStorage.File>()
+            val result = linkedMapOf<String, ByteArray>()
+            var total = 0L
+
+            fun capture(directory: String): List<DocumentStorage.File> =
+                buildList {
+                    val references = documents.references(directory)
+                    require(observed.size + references.size <= 1024) { "BACKUP_LIBRARY_LIMIT" }
+                    references.forEach { reference ->
+                        val file = documents.read(reference, 16 * 1024 * 1024)
+                        total += file.bytes.size
+                        require(file.bytes.size <= 16 * 1024 * 1024 && total <= 64 * 1024 * 1024)
+                        val name =
+                            if (directory in setOf("notes", "sources")) {
+                                val metadata =
+                                    KnowledgeDocumentCodec
+                                        .decode(
+                                            file.bytes.decodeToString(throwOnInvalidSequence = true),
+                                        ).metadata
+                                "${metadata.getValue("id").jsonPrimitive.content}.md"
+                            } else {
+                                file.name
+                            }
+                        val key = "library/$directory/$name"
+                        require(result.put(key, file.bytes) == null)
+                        observed += file
+                        add(file)
+                    }
+                }
+            capture("notes")
+            capture("sources").forEach { file ->
+                val source =
+                    KnowledgeDocumentCodec.source(
+                        KnowledgeDocumentCodec.decode(file.bytes.decodeToString(throwOnInvalidSequence = true)),
+                    )
+                if (includeOriginals) capture("originals/${source.id}")
+            }
+            observed.forEach { check(documents.read(it.reference, 16 * 1024 * 1024).hash == it.hash) }
+            result
+        }
+
     data class PendingSave(
         val token: String,
         val title: String,

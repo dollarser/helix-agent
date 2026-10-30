@@ -61,6 +61,14 @@ interface DocumentDraftRecovery {
     )
 }
 
+/** Trusted publication rollback for a durable, randomly named creation intent; never a tool grant. */
+interface DocumentPendingCleanup {
+    fun discardOwnedPending(
+        directory: String,
+        expectedName: String,
+    )
+}
+
 /** Explicit user open/share capability; private Agent history does not expose a URI. */
 interface DocumentShareAccess {
     fun shareReference(reference: String): String

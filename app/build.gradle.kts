@@ -25,6 +25,7 @@ android {
 
     defaultConfig {
         applicationId = "com.helix.agent"
+        manifestPlaceholders["helixApplicationLabel"] = "@string/app_name"
         minSdk = 29
         ndk { abiFilters += distributionAbi?.let(::listOf) ?: listOf("arm64-v8a", "x86_64") }
         externalNativeBuild.cmake { abiFilters("arm64-v8a", "x86_64") }
@@ -50,6 +51,7 @@ android {
         debug {
             if (providers.gradleProperty("helix.asrValidation").orNull == "true") {
                 applicationIdSuffix = ".asrvalidation"
+                manifestPlaceholders["helixApplicationLabel"] = "Helix 验证"
             }
         }
         release {

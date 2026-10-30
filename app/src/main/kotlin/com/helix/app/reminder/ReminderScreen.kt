@@ -59,6 +59,30 @@ fun ReminderScreen(
     var interpreting by page::interpreting
     var scheduling by page::scheduling
     val departure = com.helix.app.ui.LocalNavigationDeparture.current
+    val automation by (
+        scheduled?.openRequest ?: remember {
+            kotlinx.coroutines.flow.MutableStateFlow<com.helix.app.scheduled.ScheduledOpenRequest?>(null)
+        }
+    ).collectAsStateWithLifecycle()
+    LaunchedEffect(automation) {
+        val pending = automation ?: return@LaunchedEffect
+        val open = {
+            scheduling = true
+            Unit
+        }
+        if (departure == null) {
+            open()
+        } else {
+            departure.request(
+                { scheduled?.openRequest?.value == pending },
+                cancelled = {
+                    scheduled?.openRequest?.compareAndSet(pending, null)
+                    Unit
+                },
+                navigate = open,
+            )
+        }
+    }
     val requestedRow = rows.firstOrNull { it.id == request }
     LaunchedEffect(request, requestedRow?.id) {
         val id = request ?: return@LaunchedEffect
@@ -483,6 +507,7 @@ internal fun reminderStatusLabel(value: String): String =
     stringResource(
         when (value) {
             "ACTIVE" -> R.string.reminder_active
+            "PAUSED" -> R.string.app_backup_task_reconfirm
             "COMPLETED" -> R.string.reminder_done
             "CANCELLED" -> R.string.reminder_cancelled
             "EXACT" -> R.string.reminder_precise

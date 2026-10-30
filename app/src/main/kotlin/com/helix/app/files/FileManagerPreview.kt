@@ -232,7 +232,29 @@ internal class FileManagerPreview(
      * Containment- and symlink-checked via [resolveFileScopePath]; never meant to be displayed.
      * @throws FileNotFoundException when the target is not an existing regular file.
      */
-    @Suppress("ReturnCount") // Direct SAF, bound workspace and legacy local sharing have distinct adapters.
+    fun copyForBackup(
+        scopeId: String,
+        relativePath: String,
+        target: File,
+        maximum: Long,
+        checkActive: () -> Unit,
+    ) {
+        if (isSaf(scopeId)) {
+            val access = verifySaf(scopeId, SafAccessMode.READ)
+            access.reader.copyToAppPrivate(scopeId, relativePath, target.toPath(), maximum)
+            checkActive()
+            return
+        }
+        val path = FileScopePath(scopeId, relativePath)
+        require(store.stat(path).isRegularFile) { "BACKUP_SOURCE_NOT_REGULAR" }
+        store.openRead(path).use { input ->
+            target.outputStream().use { output ->
+                copyBackupStream(input, output, maximum, checkActive)
+            }
+        }
+    }
+
+    @Suppress("ReturnCount") // SAF, bound workspace and local sharing have distinct adapters.
     fun realFileFor(
         scopeId: String,
         relativePath: String,

@@ -170,6 +170,7 @@ class ScheduledAgentService(
         refreshAttempts()
         val occurrence = requireNotNull(store.dao.occurrence(id, revision, due))
         val rule = ScheduledRuleSnapshot.decode(occurrence.ruleJson)
+        check(rule.scopeHash.isNotBlank()) { "RESTORE_RECONFIRM_REQUIRED" }
         check(execution.scope(rule.sessionId, rule.runtimeBudgetMillis).hash == rule.scopeHash)
         if (occurrence.lastAttemptId.isNotEmpty()) {
             val previous = requireNotNull(store.dao.attempt(occurrence.lastAttemptId))

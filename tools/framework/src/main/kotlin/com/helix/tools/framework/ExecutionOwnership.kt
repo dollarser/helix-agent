@@ -9,6 +9,7 @@ package com.helix.tools.framework
 @Suppress("TooManyFunctions") // Keep ownership admission and trusted control identity in one authority.
 class ExecutionOwnership(
     private val store: Store,
+    private val admissionAllowed: () -> Boolean = { true },
 ) {
     data class Owner(
         val executionId: String,
@@ -48,6 +49,7 @@ class ExecutionOwnership(
     fun acquire(callId: String): Permit? =
         synchronized(lock) {
             require(callId.isNotBlank())
+            if (!admissionAllowed()) return@synchronized null
             check(callId !in active) { "execution admission identity already active" }
             if (active.size >= MAX_ACTIVE_CALLS) return@synchronized null
             active += callId
@@ -90,6 +92,18 @@ class ExecutionOwnership(
 
     /** Read-only projection. It never starts a Runtime, renews a lease, or clears a holder. */
     fun retainedOwners(): Set<Owner> = synchronized(lock) { store.owners().toSet() }
+
+    /** Profile replacement is a concrete storage operation; never evicts or cancels live executors. */
+    fun <T> withIdleProfile(block: () -> T): T =
+        synchronized(lock) {
+            check(
+                active.isEmpty() && launching.isEmpty() && nativeActive.isEmpty() && reconciling.isEmpty() &&
+                    store.owners().isEmpty(),
+            ) {
+                "RESTORE_EXECUTIONS_ACTIVE"
+            }
+            block()
+        }
 
     fun isRetained(owner: Owner): Boolean = synchronized(lock) { owner in store.owners() }
 

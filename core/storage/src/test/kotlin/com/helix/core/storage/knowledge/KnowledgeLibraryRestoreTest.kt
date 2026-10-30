@@ -73,6 +73,34 @@ class KnowledgeLibraryRestoreTest {
             assertTrue(target.list("answers").isEmpty())
         }
 
+    @Test fun backupPreflightDoesNotPublishAndSnapshotExcludesPrivateHistory() =
+        runBlocking {
+            fixture()
+            assertEquals(2, store.preflightLibrary(source))
+            assertTrue(target.snapshot().isEmpty())
+            store.restoreLibrary(source)
+            val archive = store.backupLibrary()
+            assertTrue(archive.keys.any { it.startsWith("library/notes/") })
+            assertTrue(archive.keys.any { it.startsWith("library/originals/") })
+            assertFalse(archive.keys.any { it.contains("answers/") || it.contains("origins/") })
+        }
+
+    @Test fun portableTextRestoreKeepsKnowledgeUsableWithoutInventingOriginalAccess() =
+        runBlocking {
+            fixture()
+            source.list("originals/stable-source").forEach(source::delete)
+            assertEquals(2, PortableKnowledgeRestore.preflight(source, target, originalsIncluded = false))
+            assertTrue(target.snapshot().isEmpty())
+            assertEquals(2, PortableKnowledgeRestore.publish(source, target, originalsIncluded = false))
+            val restored = store.get("stable-source")!!
+            assertEquals("extracted", restored.extracted)
+            assertTrue(restored.filesJson.contains("unavailable:backup:stable-source:0"))
+            assertFalse(restored.filesJson.contains("old-row-42"))
+            assertTrue(target.list("originals/stable-source").isEmpty())
+            assertEquals(2, PortableKnowledgeRestore.publish(source, target, originalsIncluded = false))
+            assertFalse(store.backupLibrary(includeOriginals = false).keys.any { it.startsWith("library/originals/") })
+        }
+
     @Test fun retryDoesNotDuplicateAlreadyRestoredRecords() =
         runBlocking {
             fixture()

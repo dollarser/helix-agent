@@ -18,6 +18,8 @@ internal sealed interface AppStartupState {
     data object Ready : AppStartupState
 
     data object Failed : AppStartupState
+
+    data object RestoreFailed : AppStartupState
 }
 
 /** Only an explicit foreground confirmation can replace a failed initialization attempt. */
@@ -27,6 +29,7 @@ internal class AppInitialization<T : Any>(
     private val onFailure: (Exception) -> Unit = {},
     private val beforeReset: () -> Unit = {},
     private val preflight: () -> PreviewResetRequest? = { null },
+    private val failureState: () -> AppStartupState = { AppStartupState.Failed },
 ) {
     private val lock = Any()
     private val mutableState = MutableStateFlow<AppStartupState>(AppStartupState.Loading)
@@ -82,7 +85,7 @@ internal class AppInitialization<T : Any>(
                 mutableState.value = AppStartupState.ResetRequired(required)
                 throw required
             } catch (failure: Exception) {
-                mutableState.value = AppStartupState.Failed
+                mutableState.value = failureState()
                 onFailure(failure)
                 if (reset != null) {
                     try {

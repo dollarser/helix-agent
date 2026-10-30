@@ -1,0 +1,29 @@
+<resources>
+    <string name="app_backup_title">App backup and restore</string>
+    <string name="app_backup_defaults">Chats, attachments, memory, experts and Skills, configuration and task history</string>
+    <string name="app_backup_originals">Include knowledge, notes and original materials</string>
+    <string name="app_backup_workspaces">Include workspace files</string>
+    <string name="app_backup_credentials">Encrypt API keys and connector credentials</string>
+    <string name="app_backup_credentials_verified">Encrypted credentials verified; they will be encrypted again on this device</string>
+    <string name="app_backup_credentials_excluded">API keys and connector credentials will not be restored</string>
+    <string name="app_backup_password">Backup password (at least 12 characters)</string>
+    <string name="app_backup_privacy">Ordinary chats and configuration are not encrypted. Keep the archive safe. Account sessions, OAuth sessions and system permissions are excluded.</string>
+    <string name="app_backup_export">Export backup</string>
+    <string name="app_backup_save">Save backup</string>
+    <string name="app_backup_missing">%1$d source files are unavailable. Their records are preserved, but their file content cannot be restored.</string>
+    <string name="app_backup_select">Choose backup to restore</string>
+    <string name="app_backup_restore_preview">Restore preview</string>
+    <string name="app_backup_counts">%1$d conversations · %2$d messages · %3$d experts · %4$d scheduled definitions</string>
+    <string name="app_backup_replace">Replace chats and private configuration on this device. Workspaces not included start empty; external directories require rebinding. Tasks stay paused, unfinished execution is never replayed, and accounts and permissions require setup again.</string>
+    <string name="app_backup_public_conflict">Public materials are added only when absent; conflicts stop restoration. Full validation precedes queuing. Close and reopen the app to restore, with rollback on failure.</string>
+    <string name="app_backup_confirm">Confirm replacement and close app</string>
+    <string name="app_backup_ready">Backup exported</string>
+    <string name="app_backup_failed">Backup or preflight failed; restoration has not started. Check the file, available space and selected content.</string>
+    <string name="app_backup_bad_password">Incorrect password or damaged encrypted credentials</string>
+    <string name="app_backup_active">Stop active tasks and terminals before restoring</string>
+    <string name="app_backup_cancel">Cancel</string>
+    <string name="app_backup_close">Close</string>
+    <string name="app_backup_working">Working…</string>
+    <string name="app_backup_task_reconfirm">Paused; edit and confirm again</string>
+    <string name="app_backup_restart_required">Restoration is incomplete. Close and reopen the app to retry; initialization failure rolls back the original data.</string>
+</resources>

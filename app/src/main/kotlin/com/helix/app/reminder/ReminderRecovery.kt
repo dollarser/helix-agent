@@ -31,7 +31,9 @@ class ReminderReceiver : BroadcastReceiver() {
             CoroutineScope(Dispatchers.IO).launch {
                 try {
                     withTimeout(8000) {
-                        (context.applicationContext as HelixApplication).reminders.fire(parts[0], revision, due)
+                        val app = context.applicationContext as HelixApplication
+                        app.awaitPortableProfileAsync()
+                        app.reminders.fire(parts[0], revision, due)
                     }
                 } catch (error: Exception) {
                     android.util.Log.e("HelixReminder", "Alarm processing interrupted; reconciliation required", error)
@@ -67,7 +69,9 @@ class ReminderRecoveryWorker(
     params: WorkerParameters,
 ) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
-        (applicationContext as HelixApplication).reminders.reconcile()
+        val app = applicationContext as HelixApplication
+        app.awaitPortableProfileAsync()
+        app.reminders.reconcile()
         return Result.success()
     }
 }
