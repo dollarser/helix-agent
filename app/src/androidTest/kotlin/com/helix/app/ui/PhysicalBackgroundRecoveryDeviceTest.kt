@@ -26,7 +26,7 @@ import org.junit.Assume.assumeTrue
 import org.junit.Test
 import java.io.FileInputStream
 
-/** Opt-in real HOME/screen-off transitions, only in a disposable consumer installation. */
+/** Opt-in HOME/screen-off transitions with synthetic loopback requests and owned cleanup. */
 class PhysicalBackgroundRecoveryDeviceTest {
     @Test fun chatCompletesAfterHomeAndReturn() = exercise(false, false)
 
@@ -40,7 +40,13 @@ class PhysicalBackgroundRecoveryDeviceTest {
             val instrumentation = InstrumentationRegistry.getInstrumentation()
             val context = instrumentation.targetContext
             assumeTrue(InstrumentationRegistry.getArguments().getString("helix.physical.recovery") == "true")
-            check(context.packageName == "com.helix.agent") { "Disposable consumer sandbox required" }
+            check(
+                context.packageName == "com.helix.agent" ||
+                    (
+                        context.packageName == "com.helix.agent.developer" &&
+                            InstrumentationRegistry.getArguments().getString("helix.dailyEmulator") == "true"
+                    ),
+            ) { "Explicit daily emulator or disposable consumer required" }
             val power = context.getSystemService(Context.POWER_SERVICE) as PowerManager
             val keyguard = context.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
             check(power.isInteractive && !keyguard.isKeyguardLocked) { "Unlock phone before starting" }
@@ -54,6 +60,12 @@ class PhysicalBackgroundRecoveryDeviceTest {
                 )
             val chat = container.chatService
             val storage = container.storage
+            val previousSession = chat.screen.value.openSessionId
+            container.providerService.rows.value
+                .filter {
+                    it.displayName == "Physical recovery fixture" && it.model == "fixture-model-a" &&
+                        it.origin.startsWith("http://127.0.0.1:")
+                }.forEach { container.providerService.delete(it.id) }
             LoopbackModelServer(LoopbackModelServer.Mode.OPENAI_LISTED).use { server ->
                 server.start()
                 val provider =
@@ -69,10 +81,13 @@ class PhysicalBackgroundRecoveryDeviceTest {
                         ),
                         null,
                     )
+                var session = ""
+                var alternate = ""
                 try {
                     check(container.providerService.runConnectionTest(provider) is ProbeOutcome.Ok)
                     server.forceTextResponses = true
-                    val session = chat.createSession("Physical recovery", provider, "fixture-model-a")
+                    session = chat.createSession("Physical recovery", provider, "fixture-model-a")
+                    alternate = chat.createSession("Physical recovery secondary", provider, "fixture-model-a")
                     chat.openSession(session)
                     waitFor { chat.screen.value.openSessionId == session }
                     chat.setMode(if (goal) AgentMode.GOAL else AgentMode.CHAT)
@@ -96,6 +111,10 @@ class PhysicalBackgroundRecoveryDeviceTest {
                     }
                     waitFor { server.heldStreams.get() == 1 && DataSyncForegroundService.runningInstance.get() != null }
                     val turn = storage.turns.listBySession(session).single()
+                    chat.openSession(alternate)
+                    waitFor { chat.screen.value.openSessionId == alternate }
+                    assertTrue(chat.backgroundTasks.value.any { it.id == turn.id && it.running })
+                    chat.openSession(session)
                     shell(if (lock) "input keyevent KEYCODE_SLEEP" else "input keyevent KEYCODE_HOME")
                     if (lock) {
                         waitFor { !power.isInteractive }
@@ -143,7 +162,7 @@ class PhysicalBackgroundRecoveryDeviceTest {
                     shell("wm dismiss-keyguard")
                     // A secure keyguard requires the owner's normal unlock; never disable or bypass it.
                     waitFor(120000) { power.isInteractive && !keyguard.isKeyguardLocked }
-                    shell("am start -W -f 0x10020000 -n com.helix.agent/com.helix.app.MainActivity")
+                    shell("am start -W -f 0x10020000 -n ${context.packageName}/com.helix.app.MainActivity")
                     waitFor { mainWindowResumed() }
                     phase("foreground_restored")
                     assertEquals(session, chat.screen.value.openSessionId)
@@ -159,12 +178,20 @@ class PhysicalBackgroundRecoveryDeviceTest {
                     }
                 } finally {
                     chat.backgroundTasks.value
-                        .filter { it.running }
+                        .filter { it.running && storage.turns.resolve(it.id).sessionId == session }
                         .forEach { chat.stopTask(it.id) }
-                    waitFor { chat.backgroundTasks.value.none { it.running } }
+                    waitFor {
+                        chat.backgroundTasks.value.none {
+                            it.running &&
+                                storage.turns.resolve(it.id).sessionId == session
+                        }
+                    }
                     phase("cleanup")
                     shell("input keyevent KEYCODE_WAKEUP")
                     chat.closeSession()
+                    if (session.isNotBlank()) storage.deleteSessionPermanently(session)
+                    if (alternate.isNotBlank()) storage.deleteSessionPermanently(alternate)
+                    previousSession?.let(chat::openSession)
                     container.providerService.delete(provider)
                 }
             }

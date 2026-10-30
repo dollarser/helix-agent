@@ -39,11 +39,21 @@ class ProotDetachedJobDeviceTest {
         jobs.forEach { client.cancel(it.binding) }
     }
 
-    @Test fun foregroundOwnerContinuesAfterHomeAndReturnsVerifiedOutput() {
+    @Test fun foregroundOwnerContinuesAfterHomeAndReturnsVerifiedOutput() = backgroundJob(false)
+
+    @Test fun foregroundOwnerContinuesAfterScreenOffAndReturnsVerifiedOutput() = backgroundJob(true)
+
+    private fun backgroundJob(screenOff: Boolean) {
         val job = fixture("sleep 2; printf DETACHED_OK")
         assertTrue(job.submit(client).accepted)
         shell("input keyevent KEYCODE_HOME")
-        val record = client.awaitTerminal(job.binding)
+        if (screenOff) shell("input keyevent KEYCODE_SLEEP")
+        val record =
+            try {
+                client.awaitTerminal(job.binding)
+            } finally {
+                if (screenOff) shell("input keyevent KEYCODE_WAKEUP")
+            }
         assertEquals(ProotJobState.SUCCEEDED, record.state)
         val extracted = File(job.directory, "verified")
         assertEquals(record.outputManifestSha256, ZipJobExtractor.extract(job.output, extracted).manifestSha256)
