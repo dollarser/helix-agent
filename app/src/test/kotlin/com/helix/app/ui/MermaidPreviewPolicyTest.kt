@@ -32,7 +32,7 @@ class MermaidPreviewPolicyTest {
         assertTrue(html.contains("securityLevel:'strict'"))
         assertTrue(html.contains("maxEdges:128"))
         assertTrue(html.contains("frame-src 'none'"))
-        assertTrue(html.contains("node.replaceWith"))
+        assertTrue(html.contains("sanitize.js"))
         assertFalse(html.contains("result.bindFunctions"))
         assertThrows(IllegalArgumentException::class.java) {
             MermaidPreviewPolicy.html("%%{init:{}}%%", 0, 0, 16f, "syntheticnonce1234")

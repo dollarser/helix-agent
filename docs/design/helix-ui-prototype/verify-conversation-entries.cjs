@@ -193,4 +193,16 @@ test('Diagram preview closes without navigating or altering the message draft', 
   click('close');
   assert.equal(document.querySelector('#draft').value, before);
 });
+test('Mermaid and SVG default inline with source toggle and non-sending copy', () => {
+  const before = document.querySelector('#draft').value;
+  for(const kind of ['diagram','svg']) {
+    const picture = document.querySelector('#'+kind+'-inline-picture');
+    const source = document.querySelector('#'+kind+'-inline-source');
+    assert.equal(picture.hidden,false); assert.equal(source.hidden,true);
+    click(kind+'-source'); assert.equal(picture.hidden,true); assert.equal(source.hidden,false);
+    click(kind+'-source'); assert.equal(picture.hidden,false);
+  }
+  click('diagram-copy'); assert.match(document.querySelector('#status').textContent,/复制/);
+  assert.equal(document.querySelector('#draft').value,before);
+});
 console.log(`${n} offline interaction checks passed; browser/layout acceptance is separate.`);

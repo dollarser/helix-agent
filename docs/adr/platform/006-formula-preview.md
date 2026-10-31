@@ -15,15 +15,21 @@ Deciders: Project owner（允许按实际收益接入成熟依赖）
 
 采用固定 KaTeX 官方 npm 分发、MIT 许可和离线字体；版本、完整性与原始许可进入锁文件和 APK。无需新增 Maven/JitPack 仓库、JNI 或服务端请求。原型示意不替代 Android 排版验收。
 
-预览对话框独占一个生命周期绑定的 WebView，关闭或来源变更销毁，不在每条历史消息中常驻 WebView。只执行固定打包脚本；LaTeX 以转义 JSON 数据进入库。关闭 trust，限制字符、宏展开和尺寸；不支持或超限时明确显示源码，完整源码仍可复制。无 JavaScript 特权桥、文件/内容访问、DOM 存储、远端资源、外部导航或下载。CSP 和请求白名单均限制到已打包公式资源，不复用用户浏览器标签/授权或更改全局 Cookie/定时器设置。
+公式与显式放大对话框使用生命周期绑定的 WebView，关闭、暂停或来源变更即释放。内嵌图使用一个短暂渲染器排队生成原生位图，完成即销毁，不在每条历史消息中常驻 WebView。只执行固定打包脚本；LaTeX 以转义 JSON 数据进入库。关闭 trust，限制字符、宏展开和尺寸；不支持或超限时明确显示源码，完整源码仍可复制。无 JavaScript 特权桥、文件/内容访问、DOM 存储、远端资源、外部导航或下载。CSP 和请求白名单均限制到已打包公式资源，不复用用户浏览器标签/授权或更改全局 Cookie/定时器设置。
 
 ## Alternatives considered
 
 JLaTeXMath Android 的官方仓库已归档且标注 GPL-2.0；不在本任务采用其许可。AndroidMath 为 MIT，使用 JNI/FreeType 和 JitPack，需另验两 ABI、原生兼容与字体许可；此次选择无 JNI 的 KaTeX。Mermaid 采用官方 `@mermaid-js/tiny` 固定分发，避免引入当前不需要的 ELK 引擎、懒加载和第二份 KaTeX。保守运行依赖许可清单进入 APK，DOMPurify 选择 Apache-2.0 许可。Tiny 不支持的图种保留源码并明确失败，不伪造图形。
 
-`mermaid` 围栏提供相同的按需离线图表预览，共享宿主而保持各自资源白名单。图定义仅为数据；固定 strict 模式、无 HTML labels、不调用绑定函数，拒绝 frontmatter 和 init 指令。库净化之后再以惰性 HTML 文档解析 SVG 并校验单根及 SVG 命名空间（与库的 HTML 序列化语义一致），限制标签和属性、去除链接/事件/图片/foreignObject，CSS 只保留受限声明和本地 fragment 引用。禁止网络、frame、外部字体及桥接，资源请求只接受包内固定脚本。安全策略不依赖图内配置或模型承诺。
+完整闭合的 `mermaid` 与 `svg`/`image/svg+xml` 围栏在消息中默认显示图，提供源码切换、复制和按需放大；公式保持原有按需交互。未闭合的流式围栏只显示源码，不启动渲染。共享宿主而保持各自资源白名单。图定义仅为数据；固定 strict 模式、无 HTML labels、不调用绑定函数，拒绝 frontmatter 和 init 指令。显式固定 DOMPurify 再净化后，以惰性 HTML 文档解析 SVG 并校验单根及 SVG 命名空间（与库的 HTML 序列化语义一致），限制标签和属性、去除链接/事件/图片/foreignObject，CSS 只保留受限声明和本地 fragment 引用。禁止网络、frame、外部字体及桥接，资源请求只接受包内固定脚本。安全策略不依赖图内配置或模型承诺。
 
 每块最多 8192 字符、255 个换行，库限制 128 条边；输出 SVG 最多 1 MiB、2048 个元素和 20000 的宽高。原生等待最多 8 秒（就绪失败可提前）后显示源码并释放该 View；这不是可硬中止所有 native/renderer 工作的实时隔离保证。失败、旧 WebView 不支持脚本、超限或关闭均不丢源码；大图在有界窗口内滚动/缩放，不创建消息列表常驻 WebView。
+
+静态 SVG 使用系统 WebView/Chromium 的成熟 SVG 渲染，不新增自制 SVG 引擎。显式 SVG 先做完整 XML 语法检查并拒绝 DTD/entity，再经 DOMPurify（Apache-2.0 选项）及共用 SVG/CSS 白名单；脚本/事件、外部资源、动画、filter、foreignObject 等不执行，不支持的内容明确退回源码。支持有界静态形状、文字、样式及本地片段引用；片段引用限制数量/深度，拒绝循环。SVG 源码最多 65536 字符，输出沿用元素/尺寸预算。不把任意 HTML 或模型附件上传能力扩为 HTML/SVG 执行面。
+
+现有文件管理预览只在 SVG MIME/扩展名明确、大小有界且读取文本字节数与文件元信息一致时接入同一渲染器；截断文件仍按原有文本预览，不把前缀当完整图。保留原读权限与路径边界，不新增文件读取旁路、远端下载或 SVG 视觉模型输入。
+
+内嵌只在可见且 RESUMED 时渲染，单个临时引擎占用物理容量直到 View 真正销毁；显式放大对话框独立且至多一个。位图最多 200 万像素/2048 宽，进程内 LRU 最多 16 MiB，键包括完整源码 hash、种类、主题、字号、显示密度和宽度。离屏释放局部位图引用与渲染任务，但保留测得占位高度以避免列表抖动；重新进入可复用有界缓存。取消、重组、换来源和旧回调不更新另一代状态。缓存不是正文存储，不写磁盘；任何失败都不覆盖原始源码。
 
 ## Consequences
 
@@ -39,6 +45,8 @@ JLaTeXMath Android 的官方仓库已归档且标注 GPL-2.0；不在本任务�
 
 验证 Mermaid 流程图与时序图实际像素、深色/大字、HTML/链接/CSS 输入、配置和规模拒绝、错误与释放。仅当前指定模拟器 WebView 有设备证据，不代表所有 API/OEM/WebView 版本通过。
 
+RikkaHub 的官方实现展示内嵌图与放大入口；Open WebUI 的 CodeBlock 直接集成 Mermaid 渲染与代码控制，作为交互证据而非代码来源。未复制其代码。AndroidSVG/Coil 是成熟原生候选，但 AndroidSVG 的静态 SVG/CSS 能力有限，与 Mermaid 浏览器 CSS 不完全一致；本次继续复用系统 WebView，额外净化采用官方 DOMPurify，避免引入第二套渲染差异和 JNI。
+
 ## References
 
 - [KaTeX 浏览器接入](https://katex.org/docs/browser)
@@ -51,8 +59,17 @@ JLaTeXMath Android 的官方仓库已归档且标注 GPL-2.0；不在本任务�
 - [Mermaid 官方 Tiny 分发](https://github.com/mermaid-js/mermaid/tree/mermaid%4012.2.0/packages/tiny)
 - [Mermaid 配置与安全](https://mermaid.js.org/config/schema-docs/config.html)
 
+- [RikkaHub Mermaid 交互源码（仅参考）](https://github.com/rikkahub/rikkahub/blob/master/app/src/main/java/me/rerere/rikkahub/ui/components/richtext/Mermaid.kt)
+- [Open WebUI 消息代码块（仅参考）](https://github.com/open-webui/open-webui/blob/main/src/lib/components/chat/Messages/CodeBlock.svelte)
+- [DOMPurify 官方安全用法](https://github.com/cure53/DOMPurify)
+- [AndroidSVG 支持范围与许可](https://bigbadaboom.github.io/androidsvg/)
+- [Coil SVG 支持](https://coil-kt.github.io/coil/svgs/)
+- [WebView 绘制就绪回调](https://developer.android.com/reference/android/webkit/WebView#postVisualStateCallback(long,android.webkit.WebView.VisualStateCallback))
+
 ## Decision history
 
 - 2026-10-31：所有者允许合理成熟依赖降低工作量；采用按需块级离线预览，保留当前 Markdown 与来源交互，排版算法由 KaTeX 提供。
 
 - 2026-10-31：所有者明确要求实现 Mermaid；复用生命周期宿主，加入独立 SVG/CSS/链接策略与预算，采用官方 Tiny 离线资源和完整许可清单。
+
+- 2026-10-31：所有者要求 Mermaid 默认内嵌与静态 SVG；采用源码/预览切换与复制，单临时引擎、有界原生位图缓存、离屏/暂停释放，增加独立 DOMPurify 与显式 SVG 完整性及资源边界。

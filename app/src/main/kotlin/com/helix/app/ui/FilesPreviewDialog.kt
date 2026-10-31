@@ -64,6 +64,10 @@ internal fun FilesScreenState.FilesPreviewDialog(
                                     )
                                 }
 
+                                loaded?.text != null && svgFilePreview(file.name, loaded.info, loaded.text) -> {
+                                    InlineDiagramBlock(loaded.text, BlockPreviewKind.SVG)
+                                }
+
                                 loaded?.text != null -> {
                                     Text(
                                         loaded.text,

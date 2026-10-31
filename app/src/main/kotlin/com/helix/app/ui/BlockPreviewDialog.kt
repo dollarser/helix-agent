@@ -38,6 +38,7 @@ internal fun BlockPreviewDialog(
     kind: BlockPreviewKind,
     onClose: () -> Unit,
 ) {
+    val resumed = rememberPreviewResumed()
     val colors = MaterialTheme.colorScheme
     val config = LocalConfiguration.current
     val clipboard = LocalClipboardManager.current
@@ -65,7 +66,8 @@ internal fun BlockPreviewDialog(
                 .value
         }
     val maximumHeight = (windowHeight * .45f).coerceIn(120f, 360f)
-    LaunchedEffect(html) {
+    LaunchedEffect(html, resumed) {
+        if (!resumed) return@LaunchedEffect
         state = if (valid) "loading" else "error"
         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
             kotlinx.coroutines.delay(kind.timeoutMillis)
@@ -80,7 +82,7 @@ internal fun BlockPreviewDialog(
                 if (state == "error") {
                     Text(stringResource(kind.error), Modifier.testTag("block-preview-error"))
                     Text(
-                        source.take(kind.maxChars),
+                        source.take(FormulaPreviewPolicy.MAX_CHARS),
                         Modifier.height(160.dp).verticalScroll(rememberScrollState()),
                     )
                 } else {
@@ -89,26 +91,28 @@ internal fun BlockPreviewDialog(
                     ) {
                         Text(stringResource(R.string.formula_loading), Modifier.testTag("block-preview-loading"))
                     }
-                    key(html) {
-                        AndroidView(
-                            factory = { context ->
-                                OfflinePreviewWebView(
-                                    context,
-                                    html,
-                                    kind,
-                                    { contentHeight = it },
-                                ) { state = it }.apply {
-                                    setBackgroundColor(colors.surface.toArgb())
-                                    loadUrl(kind.page)
-                                }
-                            },
-                            onRelease = { it.release() },
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .height(contentHeight.coerceIn(64f, maximumHeight).dp)
-                                    .testTag("block-preview-webview"),
-                        )
+                    if (resumed) {
+                        key(html) {
+                            AndroidView(
+                                factory = { context ->
+                                    OfflinePreviewWebView(
+                                        context,
+                                        html,
+                                        kind,
+                                        { contentHeight = it },
+                                    ) { state = it }.apply {
+                                        setBackgroundColor(colors.surface.toArgb())
+                                        loadUrl(kind.page)
+                                    }
+                                },
+                                onRelease = { it.release() },
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .height(contentHeight.coerceIn(64f, maximumHeight).dp)
+                                        .testTag("block-preview-webview"),
+                            )
+                        }
                     }
                 }
             }
@@ -125,16 +129,12 @@ internal fun BlockPreviewDialog(
 
 @Composable
 @Suppress("FunctionName")
-internal fun BlockPreviewEntry(
+internal fun FormulaPreviewEntry(
     source: String,
     language: String?,
 ) {
-    val kind =
-        when (language?.lowercase(java.util.Locale.ROOT)) {
-            "math" -> BlockPreviewKind.FORMULA
-            "mermaid" -> BlockPreviewKind.MERMAID
-            else -> return
-        }
+    if (!language.equals("math", ignoreCase = true)) return
+    val kind = BlockPreviewKind.FORMULA
     var open by remember(source) { mutableStateOf(false) }
     TextButton(onClick = { open = true }, modifier = Modifier.testTag("block-preview-preview-open")) {
         Text(stringResource(kind.open))

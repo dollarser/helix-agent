@@ -32,9 +32,20 @@ def verify_mermaid(root: Path) -> None:
             raise ValueError("Diagram asset/license hash mismatch: " + name)
 
 
+def verify_svg(root: Path) -> None:
+    lock = json.loads((root / "config/svg/dompurify.lock.json").read_text())
+    assets = root / "app/src/main/assets/svg"
+    if {p.name for p in assets.iterdir() if p.is_file()} != {"purify.min.js", "sanitize.js"}:
+        raise ValueError("SVG asset inventory differs from the reviewed sources")
+    for name, digest in lock["files"].items():
+        if hashlib.sha256((root / name).read_bytes()).hexdigest() != digest:
+            raise ValueError("SVG asset/license hash mismatch: " + name)
+
+
 def verify(root: Path) -> None:
     verify_math(root)
     verify_mermaid(root)
+    verify_svg(root)
 
 
 if __name__ == "__main__":

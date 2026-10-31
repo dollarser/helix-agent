@@ -26,6 +26,8 @@ internal class OfflinePreviewWebView(
     private val height: (Float) -> Unit,
     private val status: (String) -> Unit,
 ) : WebView(context) {
+    var fitDiagram = false
+    private var fitAttempts = 0
     private var closed = false
     private val handler = Handler(Looper.getMainLooper())
 
@@ -117,6 +119,23 @@ internal class OfflinePreviewWebView(
     }
 
     private fun measure() {
+        if (fitDiagram && width <= 0) {
+            if (fitAttempts++ < 30) handler.postDelayed({ if (!closed) measure() }, 16) else status("error")
+            return
+        }
+        if (fitDiagram) {
+            evaluateJavascript(
+                "(function(){const s=document.querySelector('#preview svg');if(!s)return;" +
+                    "const b=s.viewBox.baseVal,w=document.documentElement.clientWidth-24;" +
+                    "const f=Math.min(w/b.width,336/b.height);" +
+                    "s.setAttribute('width',b.width*f);s.setAttribute('height',b.height*f)})()",
+            ) { if (!closed) reportHeight() }
+        } else {
+            reportHeight()
+        }
+    }
+
+    private fun reportHeight() {
         evaluateJavascript(
             "Math.ceil(document.getElementById('preview').getBoundingClientRect().height+24)",
         ) { result ->

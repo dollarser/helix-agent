@@ -79,7 +79,7 @@ internal fun MarkdownText(
         blocks.forEach { block ->
             when (block.kind) {
                 MarkdownBlock.Kind.CODE -> {
-                    MarkdownCodeBlock(block.text, block.language, searchQuery)
+                    MarkdownCodeBlock(block.text, block.language, searchQuery, block.complete)
                 }
 
                 MarkdownBlock.Kind.TABLE -> {
@@ -232,7 +232,7 @@ internal fun markdownInline(text: String, onCitation: ((String) -> Unit)? = null
         }
     }
 
-private const val COPY_FEEDBACK_DURATION_MS = 1500L
+internal const val COPY_FEEDBACK_DURATION_MS = 1500L
 
 @Composable
 @Suppress("FunctionName")
@@ -281,7 +281,7 @@ private fun MarkdownCodeHeader(
     }
 }
 
-private const val CODE_BLOCK_COLLAPSE_THRESHOLD = 18
+internal const val CODE_BLOCK_COLLAPSE_THRESHOLD = 18
 
 @Composable
 @Suppress("FunctionName")
@@ -289,7 +289,13 @@ private fun MarkdownCodeBlock(
     code: String,
     language: String?,
     searchQuery: String? = null,
+    complete: Boolean = true,
 ) {
+    val inlineKind = inlineDiagramKind(language)
+    if (inlineKind != null && complete) {
+        InlineDiagramBlock(code, inlineKind)
+        return
+    }
     val clipboardManager = LocalClipboardManager.current
     var copied by remember { mutableStateOf(false) }
     val lines = remember(code) { code.lines() }
@@ -327,7 +333,7 @@ private fun MarkdownCodeBlock(
                 copied = true
             },
         )
-        BlockPreviewEntry(code, language)
+        FormulaPreviewEntry(code, language)
         HorizontalDivider(
             color = MaterialTheme.colorScheme.surfaceContainerHighest,
             modifier = Modifier.padding(bottom = 4.dp),
@@ -348,7 +354,7 @@ private fun MarkdownCodeBlock(
 
 @Composable
 @Suppress("FunctionName")
-private fun MarkdownCodeContent(
+internal fun MarkdownCodeContent(
     displayLines: List<String>,
     searchQuery: String?,
 ) {
@@ -393,7 +399,7 @@ private fun MarkdownCodeContent(
 
 @Composable
 @Suppress("FunctionName")
-private fun MarkdownCodeExpandToggle(
+internal fun MarkdownCodeExpandToggle(
     lineCount: Int,
     expanded: Boolean,
     onToggle: () -> Unit,

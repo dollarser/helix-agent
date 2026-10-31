@@ -107,3 +107,10 @@ replace them. Passing hash checks alone is not a distribution-license review.
 - Root license: `app/src/main/assets/licenses/Mermaid-MIT.txt`; conservative runtime dependency notices: `app/src/main/assets/licenses/Mermaid-dependencies.txt`. DOMPurify is used under its Apache-2.0 alternative, not MPL-2.0.
 - Tiny excludes ELK and KaTeX rendering; no diagram-triggered downloads, callbacks or external navigation.
 - Reviewed archive integrity, asset/notice hashes and dependency provenance: `config/mermaid/mermaid.lock.json`.
+
+## DOMPurify 3.4.12 (standalone SVG input)
+
+- Official unmodified npm `dompurify` browser distribution; used under its Apache-2.0 alternative.
+- Source/license: <https://github.com/cure53/DOMPurify/tree/3.4.12>.
+- Original license: `app/src/main/assets/licenses/DOMPurify-LICENSE.txt`; pinned distribution integrity: `config/svg/dompurify.lock.json`.
+- Used with independent SVG/CSS/resource limits and no network or native bridge; not an arbitrary HTML renderer.

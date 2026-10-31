@@ -6,6 +6,7 @@ internal data class MarkdownBlock(
     val text: String,
     val level: Int = 0,
     val language: String? = null,
+    val complete: Boolean = true,
 ) {
     enum class Kind { PARAGRAPH, HEADING, CODE, QUOTE, LIST, TABLE, RULE }
 }
@@ -30,12 +31,13 @@ internal fun markdownBlocks(source: String): List<MarkdownBlock> {
                 val lang = trimmed.drop(marker.length).trim().takeWhile { !it.isWhitespace() }
                 val code = mutableListOf<String>()
                 i++
-                while (i < lines.size && !lines[i].trimStart().startsWith(marker)) code += lines[i++]
+                while (i < lines.size && !closingFence(lines[i], marker)) code += lines[i++]
                 blocks +=
                     MarkdownBlock(
                         MarkdownBlock.Kind.CODE,
                         code.joinToString("\n"),
                         language = lang.ifBlank { null },
+                        complete = i < lines.size,
                     )
             }
 
@@ -106,4 +108,14 @@ private fun formulaBlock(
             if (end == lines.size) null else lines.subList(start + 1, end).joinToString("\n") to end
         }
     }
+}
+
+/** A stream containing only a closing-prefix plus more text is still unfinished. */
+private fun closingFence(
+    line: String,
+    marker: String,
+): Boolean {
+    val text = line.trimStart()
+    val length = text.takeWhile { it == marker.first() }.length
+    return length >= marker.length && text.drop(length).isBlank()
 }

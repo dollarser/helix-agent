@@ -10,7 +10,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
@@ -54,7 +56,22 @@ class BlockPreviewDeviceTest {
                 LocalDensity provides Density(LocalDensity.current.density, scale.value),
             ) {
                 MaterialTheme(colorScheme = if (dark.value) darkColorScheme() else lightColorScheme()) {
-                    Column { MarkdownText("```${language.value}\n${source.value}\n```") }
+                    Column {
+                        if (language.value == "math") {
+                            MarkdownText("```math\n${source.value}\n```")
+                        } else {
+                            var open by androidx.compose.runtime.remember(source.value) { mutableStateOf(false) }
+                            androidx.compose.material3.TextButton(onClick = { open = true }) {
+                                androidx.compose.material3.Text("查看图表")
+                            }
+                            if (open) {
+                                BlockPreviewDialog(
+                                    source.value,
+                                    inlineDiagramKind(language.value) ?: BlockPreviewKind.MERMAID,
+                                ) { open = false }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -197,7 +214,7 @@ class BlockPreviewDeviceTest {
             eval(
                 view,
                 "performance.getEntriesByType('resource').filter(r=>!r.name.startsWith('h" +
-                    "ttps://appassets.androidplatform.net/assets/mermaid/')).length",
+                    "ttps://appassets.androidplatform.net/assets/')).length",
             ),
         )
         eval(view, "location.href='https://example.invalid/not-loaded';true")
@@ -262,6 +279,73 @@ class BlockPreviewDeviceTest {
             }
         }
         compose.waitUntil(10_000) { failed.get() && views().isEmpty() }
+    }
+
+    @Test fun rawSvgStaticShapesInternalReferencesAndLinksStayPassive() {
+        language.value = "svg"
+        source.value =
+            """
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 100" onload="window.attacked=true">
+            <defs><symbol id="shape"><rect width="80" height="60" fill="#2277dd"/></symbol></defs>
+            <use href="#shape"/><a href="https://example.invalid/link"><text x="5" y="90">合成 SVG</text></a>
+            </svg>
+            """.trimIndent()
+        fixture()
+        compose.onNodeWithText("查看图表").performClick()
+        val view = readyView()
+        assertEquals("false", eval(view, "!!window.attacked"))
+        assertEquals(
+            "0",
+            eval(
+                view,
+                "document.querySelectorAll('#preview a,#preview script,#preview image,#pr" +
+                    "eview foreignObject').length",
+            ),
+        )
+        assertEquals(
+            "false",
+            eval(
+                view,
+                "Array.from(document.querySelectorAll('#preview *')).some(n=>Array.from(n" +
+                    ".attributes).some(a=>a.name.startsWith('on')))",
+            ),
+        )
+        savePixels(view, "svg-passive.png")
+        compose.onNodeWithText("关闭").performClick()
+        compose.waitUntil(10_000) { views().isEmpty() }
+    }
+
+    @Test fun svgUnsupportedResourcesCyclesAndOversizedTreesShowSource() {
+        language.value = "svg"
+        source.value = "<svg viewBox=\"0 0 10 10\"><foreignObject><div>unsupported</div></foreignObject></svg>"
+        fixture()
+        val cases =
+            listOf(
+                source.value,
+                "<svg viewBox=\"0 0 10 10\"><rect/>",
+                "<svg viewBox=\"0 0 10 10\"><use href=\"data:image/svg+xml;base64,PHN2Zy8+\"/></svg>",
+                "<svg viewBox=\"0 0 10 10\"><use id=\"cycle\" href=\"#cycle\"/></svg>",
+                "<svg viewBox=\"0 0 10 10\"><style>rect{fill:url(https://example.invalid/" +
+                    "image)}</style><rect width=\"10\" height=\"10\"/></svg>",
+                "<svg viewBox=\"0 0 10 10\">" + "<rect/>".repeat(2049) + "</svg>",
+                "<!DOCTYPE svg SYSTEM 'https://example.invalid/doctype'><svg/>",
+                "<div><svg viewBox=\"0 0 10 10\"><rect/></svg></div>",
+            )
+        for (text in cases) {
+            compose.runOnIdle { source.value = text }
+            compose.onNodeWithText("查看图表").performClick()
+            compose.waitUntil(12_000) {
+                compose
+                    .onAllNodes(
+                        androidx.compose.ui.test
+                            .hasTestTag("block-preview-error"),
+                    ).fetchSemanticsNodes()
+                    .isNotEmpty()
+            }
+            compose.onNodeWithText("复制源码").assertIsDisplayed()
+            compose.waitUntil(10_000) { views().isEmpty() }
+            compose.onNodeWithText("关闭").performClick()
+        }
     }
 
     @Test fun invalidOversizedAndRapidCancelledPreviewsKeepTheirSource() {

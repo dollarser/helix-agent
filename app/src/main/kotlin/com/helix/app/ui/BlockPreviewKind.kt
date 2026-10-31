@@ -11,19 +11,32 @@ internal enum class BlockPreviewKind(
 ) {
     FORMULA(R.string.formula_title, R.string.formula_open, R.string.formula_error, 5000),
     MERMAID(R.string.diagram_title, R.string.diagram_open, R.string.diagram_error, 8000),
+    SVG(R.string.svg_title, R.string.svg_open, R.string.svg_error, 8000),
     ;
 
-    val maxChars get() = FormulaPreviewPolicy.MAX_CHARS
-    val page get() = if (this == FORMULA) FormulaPreviewPolicy.PAGE else MermaidPreviewPolicy.PAGE
+    val maxChars get() = if (this == SVG) SvgPreviewPolicy.MAX_CHARS else FormulaPreviewPolicy.MAX_CHARS
+    val page get() =
+        when (this) {
+            FORMULA -> FormulaPreviewPolicy.PAGE
+            MERMAID -> MermaidPreviewPolicy.PAGE
+            SVG -> SvgPreviewPolicy.PAGE
+        }
 
     fun valid(source: String) =
         if (this == FORMULA) {
             source.isNotBlank() && source.length <= maxChars && '\u0000' !in source
-        } else {
+        } else if (this == MERMAID) {
             MermaidPreviewPolicy.valid(source)
+        } else {
+            SvgPreviewPolicy.valid(source)
         }
 
-    fun asset(url: String) = if (this == FORMULA) FormulaPreviewPolicy.asset(url) else MermaidPreviewPolicy.asset(url)
+    fun asset(url: String) =
+        when (this) {
+            FORMULA -> FormulaPreviewPolicy.asset(url)
+            MERMAID -> MermaidPreviewPolicy.asset(url)
+            SVG -> SvgPreviewPolicy.asset(url)
+        }
 
     fun html(
         source: String,
@@ -33,7 +46,11 @@ internal enum class BlockPreviewKind(
         nonce: String,
     ) = if (this == FORMULA) {
         FormulaPreviewPolicy.html(source, background, foreground, size, nonce)
-    } else {
+    } else if (this ==
+        MERMAID
+    ) {
         MermaidPreviewPolicy.html(source, background, foreground, size, nonce)
+    } else {
+        SvgPreviewPolicy.html(source, background, foreground, size, nonce)
     }
 }

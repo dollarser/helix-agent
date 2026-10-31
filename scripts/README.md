@@ -76,4 +76,4 @@ files are not erased. This is an external development maintenance operation, not
 an App compatibility reader; device backup/restore and any data loss require
 explicit task authorization. Never restore a partial output from a failed run.
 
-`verify-preview-assets.py` 离线核对公式/图表预览的 KaTeX、Mermaid Tiny 固定资源与许可清单，不下载或执行包脚本；由 `check-all.sh` 的源码检查调用。
+`verify-preview-assets.py` 离线核对公式/图表预览的 KaTeX、Mermaid Tiny、独立 DOMPurify 固定资源与许可清单，以及 SVG 资源目录，不下载或执行包脚本；由 `check-all.sh` 的源码检查调用。

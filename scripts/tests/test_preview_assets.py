@@ -37,6 +37,15 @@ class PreviewAssetsTest(unittest.TestCase):
             p.relative_to(self.root).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
             for p in [diagram, notice]}}))
 
+        svg = self.root / "app/src/main/assets/svg/purify.min.js"
+        svg.parent.mkdir(parents=True)
+        svg.write_bytes(b"synthetic sanitizer")
+        (svg.parent / "sanitize.js").write_bytes(b"owned policy")
+        svg_lock = self.root / "config/svg/dompurify.lock.json"
+        svg_lock.parent.mkdir(parents=True)
+        svg_lock.write_text(json.dumps({"files": {
+            svg.relative_to(self.root).as_posix(): hashlib.sha256(svg.read_bytes()).hexdigest()}}))
+
     def test_integrity_and_license_are_checked(self):
         module.verify(self.root)
         self.asset.write_bytes(b"damaged renderer")
@@ -72,4 +81,16 @@ class PreviewAssetsTest(unittest.TestCase):
         notice = self.root / "app/src/main/assets/licenses/Mermaid-dependencies.txt"
         notice.write_bytes(b"missing notice")
         with self.assertRaisesRegex(ValueError, "license hash mismatch"):
+            module.verify(self.root)
+
+    def test_svg_third_party_sanitizer_and_owned_inventory_are_checked(self):
+        module.verify(self.root)
+        svg = self.root / "app/src/main/assets/svg/purify.min.js"
+        original = svg.read_bytes()
+        svg.write_bytes(b"tampered")
+        with self.assertRaisesRegex(ValueError, "SVG.*hash mismatch"):
+            module.verify(self.root)
+        svg.write_bytes(original)
+        (svg.parent / "remote.js").write_bytes(b"unreviewed")
+        with self.assertRaisesRegex(ValueError, "SVG.*inventory"):
             module.verify(self.root)
