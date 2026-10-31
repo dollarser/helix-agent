@@ -34,10 +34,20 @@ import java.util.UUID
 class ScheduledWorkManagerDeviceTest {
     @Test
     @Suppress("LongMethod") // Keep the real wake, immutable identity and result/no-replay assertions together.
-    fun realDelayedWorkSettlesSyntheticTaskWithoutNotificationPermission(): Unit =
+    fun realDelayedWorkSettlesSyntheticTaskAndHonorsNotificationPermission(): Unit =
         runBlocking {
             val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as HelixApplication
             require(app.packageName == "com.helix.agent.developer.asrvalidation")
+            val review = InstrumentationRegistry.getArguments().getString("helix.notificationReview")
+            require(review == null || review == "true")
+            if (review != null) {
+                java.io.File(app.cacheDir, "notification-review-ready.json").delete()
+                java.io.File(app.cacheDir, "notification-review-observed").delete()
+                val notifications = app.getSystemService(android.app.NotificationManager::class.java)
+                notifications.activeNotifications
+                    .filter { it.tag?.startsWith("scheduled-result:") == true }
+                    .forEach { notifications.cancel(it.tag, it.id) }
+            }
             app.account.restore()
             check(!app.account.signedIn.value)
             val container = app.awaitAppContainer()
@@ -142,9 +152,47 @@ class ScheduledWorkManagerDeviceTest {
                             .joinToString()
                     }
                 org.junit.Assert.assertTrue(body.contains("SYNTHETIC_CLOCK_RESULT"))
+                if (review != null) verifyNotificationReview(app, service, fact)
+                assertEquals(1, wire.callCount)
                 println("REAL_WORKMANAGER_WAKE_VERIFIED offlineProvider=true completed=true duplicateNoReplay=true")
             } finally {
                 wireField.set(factory, original)
             }
         }
+
+    private suspend fun verifyNotificationReview(
+        app: HelixApplication,
+        service: ScheduledAgentService,
+        fact: ScheduledResultFact,
+    ) {
+        val manager = app.getSystemService(android.app.NotificationManager::class.java)
+        val tag = "scheduled-result:${fact.attemptId}"
+        val posted = manager.activeNotifications.single { it.tag == tag }
+        assertEquals(app.packageName, posted.packageName)
+        assertEquals(ScheduledResultNotification.CHANNEL, posted.notification.channelId)
+        assertEquals(
+            app.getString(com.helix.app.R.string.scheduled_result_done),
+            posted.notification.extras
+                .getCharSequence(android.app.Notification.EXTRA_TEXT)
+                .toString(),
+        )
+        org.junit.Assert.assertTrue(posted.notification.contentIntent.isImmutable)
+        java.io.File(app.cacheDir, "notification-review-ready.json").writeText(
+            org.json
+                .JSONObject()
+                .put("ruleId", fact.ruleId)
+                .put("attemptId", fact.attemptId)
+                .toString(),
+        )
+        withTimeout(60_000) {
+            while (service.openRequest.value?.requestId != fact.attemptId) delay(25)
+        }
+        assertEquals(fact.ruleId, requireNotNull(service.openRequest.value).ruleId)
+        assertFalse(manager.activeNotifications.any { it.tag == tag })
+        withTimeout(30_000) {
+            while (!java.io.File(app.cacheDir, "notification-review-observed").isFile) delay(25)
+        }
+        assertEquals(null, service.openRequest.value)
+        println("SYSTEM_NOTIFICATION_TAP_REVIEW_VERIFIED immutable=true matchingRule=true noReplay=true")
+    }
 }

@@ -42,7 +42,9 @@ class ScannedPdfLiveModelDeviceTest {
     fun rasterOnlyPageIsRenderedAndReadByExistingModel(): Unit =
         runBlocking {
             val args = InstrumentationRegistry.getArguments()
-            org.junit.Assume.assumeTrue(args.getString("helix.scannedPdfLive") == "true")
+            val optIn = args.getString("helix.scannedPdfLive")
+            org.junit.Assume.assumeTrue("Explicit scanned-PDF model opt-in absent", optIn != null)
+            require(optIn == "true")
             val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as HelixApplication
             require(app.packageName == "com.helix.agent.developer")
             app.account.restore()
