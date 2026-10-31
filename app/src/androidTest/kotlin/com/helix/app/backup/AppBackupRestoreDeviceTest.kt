@@ -246,6 +246,18 @@ class AppBackupRestoreDeviceTest {
                     enabled = true,
                 ),
             )
+            val rule = requireNotNull(store.dao.rule("orphan-rule"))
+            store.dao.save(
+                com.helix.core.storage.scheduled.ScheduledOccurrence(
+                    rule.id,
+                    rule.revision,
+                    1000,
+                    com.helix.app.scheduled.ScheduledRuleSnapshot
+                        .encode(rule),
+                    "COMPLETED",
+                    1001,
+                ),
+            )
         } finally {
             store.close()
         }
@@ -261,6 +273,16 @@ class AppBackupRestoreDeviceTest {
             assertEquals("SCOPE_CHANGED", rule.status)
             assertEquals("deleted-session", rule.sessionId)
             assertEquals("", rule.scopeHash)
+            val occurrence = requireNotNull(store.dao.occurrence(rule.id, rule.revision, 1000))
+            val snapshot = org.json.JSONObject(occurrence.ruleJson)
+            assertFalse(snapshot.has("scopeJson"))
+            assertFalse(snapshot.has("enabled"))
+            val historical =
+                com.helix.app.scheduled.ScheduledRuleSnapshot
+                    .decode(occurrence.ruleJson)
+            assertEquals("", historical.scopeHash)
+            assertEquals("{\"maxRuntimeMillis\":1000}", historical.scopeJson)
+            assertEquals("COMPLETED", occurrence.outcome)
         } finally {
             store.close()
         }

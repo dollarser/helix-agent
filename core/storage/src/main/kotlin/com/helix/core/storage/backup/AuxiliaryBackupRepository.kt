@@ -198,15 +198,14 @@ class AuxiliaryBackupRepository internal constructor(
     ) {
         val ruleText = source.getValue("ruleJson").jsonPrimitive.content
         val definition = Json.parseToJsonElement(ruleText) as JsonObject
-        val scopeText = definition.getValue("scopeJson").jsonPrimitive.content
+        val scopeText = definition.getValue("scope").jsonPrimitive.content
         row["ruleJson"] =
             JsonPrimitive(
                 JsonObject(
                     definition +
                         mapOf(
                             "scopeHash" to JsonPrimitive(""),
-                            "enabled" to JsonPrimitive(false),
-                            "scopeJson" to JsonPrimitive(scopeDefinition(scopeText)),
+                            "scope" to JsonPrimitive(scopeDefinition(scopeText)),
                         ),
                 ).toString(),
             )
