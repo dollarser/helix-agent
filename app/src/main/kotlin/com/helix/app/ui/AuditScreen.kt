@@ -2,6 +2,7 @@ package com.helix.app.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -21,6 +22,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -42,11 +44,11 @@ import com.helix.core.model.ToolOperationClass
  *
  * The page renders [com.helix.app.audit.AuditLogService] output — already parsed through
  * the payload allowlist into [com.helix.app.approval.DispatchAuditRecord] (no bodies
- * exist in the type to render). Filters narrow the newest bounded page in memory; the
- * service never loads the whole table (security doc section 10).
+ * exist in the type to render). Bounded batches can continue through all history;
+ * the service never loads the whole table at once.
  */
 @Composable
-@Suppress("FunctionName")
+@Suppress("FunctionName", "LongMethod") // One declarative filter form with a single scoped request.
 fun AuditScreen(
     service: AuditLogService,
     sessions: List<SessionRowUi>,
@@ -54,21 +56,23 @@ fun AuditScreen(
     onReadiness: (() -> Unit)? = null,
     onCapabilities: (() -> Unit)? = null,
 ) {
-    var sessionId by remember { mutableStateOf<String?>(null) }
-    var toolName by remember { mutableStateOf<String?>(null) }
-    var operationClass by remember { mutableStateOf<ToolOperationClass?>(null) }
-    var fromDay by remember { mutableStateOf("") }
-    var toDay by remember { mutableStateOf("") }
+    var sessionId by rememberSaveable { mutableStateOf<String?>(null) }
+    var toolName by rememberSaveable { mutableStateOf<String?>(null) }
+    var operationClass by rememberSaveable { mutableStateOf<ToolOperationClass?>(null) }
+    var fromDay by rememberSaveable { mutableStateOf("") }
+    var toDay by rememberSaveable { mutableStateOf("") }
+    var keyword by rememberSaveable { mutableStateOf("") }
 
     val filter =
-        remember(sessionId, toolName, operationClass, fromDay, toDay) {
-            AuditLogFilter.fromUi(sessionId, toolName, operationClass, fromDay, toDay)
+        remember(sessionId, toolName, operationClass, fromDay, toDay, keyword) {
+            AuditLogFilter.fromUi(sessionId, toolName, operationClass, fromDay, toDay, keyword)
         }
     // Pushes the filter to the service: it reloads the bounded page off the main thread
     // and republishes the StateFlows below (Room reads in composition crash).
     LaunchedEffect(filter) { service.setFilter(filter) }
     val records by service.records.collectAsStateWithLifecycle()
     val tools by service.toolNames.collectAsStateWithLifecycle()
+    val history by service.history.collectAsStateWithLifecycle()
 
     Column(
         modifier =
@@ -81,6 +85,14 @@ fun AuditScreen(
     ) {
         TroubleshootingSection(diagnostics, onReadiness, onCapabilities)
         AuditLogHeader()
+        OutlinedTextField(
+            keyword,
+            { keyword = it.take(256) },
+            label = { Text(stringResource(R.string.audit_search_label)) },
+            placeholder = { Text(stringResource(R.string.audit_search_hint)) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth().testTag("audit-history-keyword"),
+        )
         AuditSessionToolOperationFilters(
             sessions,
             tools,
@@ -104,15 +116,11 @@ fun AuditScreen(
                 operationClass = null
                 fromDay = ""
                 toDay = ""
+                keyword = ""
             },
         )
 
-        // The filters apply to the loaded newest [AuditLogService.PAGE_LIMIT] rows only
-        // (the documented bounded-page tradeoff; older records are never loaded here).
-        Text(
-            auditCountText(records.size),
-            style = MaterialTheme.typography.bodyMedium,
-        )
+        AuditHistoryControls(history, service)
 
         AuditRecords(records)
     }
@@ -126,15 +134,43 @@ private fun AuditRecords(records: List<com.helix.app.approval.DispatchAuditRecor
     }
 }
 
-/** The page count with the bounded-page caveat: "no records" must not read as "the whole
- * audit history is empty" — the filters act on the loaded newest page only. */
 @Composable
-private fun auditCountText(size: Int): String =
-    if (size == 0) {
-        stringResource(R.string.audit_count_empty, AuditLogService.PAGE_LIMIT)
-    } else {
-        stringResource(R.string.audit_count_total, size, AuditLogService.PAGE_LIMIT)
+@Suppress("FunctionName")
+private fun AuditHistoryControls(
+    status: com.helix.app.audit.AuditHistoryStatus,
+    service: AuditLogService,
+) {
+    when {
+        status.loading -> {
+            Text(stringResource(R.string.audit_search_loading))
+        }
+
+        status.failed -> {
+            Text(stringResource(R.string.audit_search_failed))
+        }
+
+        else -> {
+            Text(stringResource(R.string.audit_search_progress, status.page.records.size, status.page.scanned))
+            Text(
+                stringResource(
+                    if (status.page.exhausted) R.string.audit_search_end else R.string.audit_search_remaining,
+                ),
+            )
+        }
     }
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        TextButton(
+            service::nextPage,
+            enabled = !status.loading && !status.failed && status.page.next != null,
+            modifier = Modifier.testTag("audit-history-next"),
+        ) { Text(stringResource(R.string.audit_search_more)) }
+        TextButton(
+            service::retry,
+            enabled = !status.loading,
+            modifier = Modifier.testTag("audit-history-restart"),
+        ) { Text(stringResource(R.string.audit_search_restart)) }
+    }
+}
 
 /** The page title + the redaction note (what this page may and may not show). */
 @Composable

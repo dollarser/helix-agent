@@ -1,0 +1,11 @@
+<resources>
+    <string name="audit_search_label">历史日志关键词</string>
+    <string name="audit_search_hint">工具名、会话 ID、结果码等脱敏字段</string>
+    <string name="audit_search_loading">正在查询…</string>
+    <string name="audit_search_failed">记录读取失败，请重新查询。</string>
+    <string name="audit_search_progress">本批 %1$d 条匹配 · 已检查 %2$d 条记录</string>
+    <string name="audit_search_end">已到历史末尾。</string>
+    <string name="audit_search_remaining">仍有历史记录，可继续查找。</string>
+    <string name="audit_search_more">下一批 / 继续查找</string>
+    <string name="audit_search_restart">从头查询</string>
+</resources>

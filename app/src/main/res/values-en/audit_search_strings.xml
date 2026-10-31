@@ -1,0 +1,11 @@
+<resources>
+    <string name="audit_search_label">Search audit history</string>
+    <string name="audit_search_hint">Tool name, session ID, result code and other redacted fields</string>
+    <string name="audit_search_loading">Searching…</string>
+    <string name="audit_search_failed">Could not read records. Search again.</string>
+    <string name="audit_search_progress">%1$d matches in this batch · %2$d records checked</string>
+    <string name="audit_search_end">End of history.</string>
+    <string name="audit_search_remaining">More history remains to search.</string>
+    <string name="audit_search_more">Next batch / keep searching</string>
+    <string name="audit_search_restart">Search from start</string>
+</resources>

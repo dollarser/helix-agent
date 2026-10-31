@@ -227,8 +227,6 @@
     <string name="audit_all_sessions">All sessions</string>
     <string name="audit_all_tools">All tools</string>
     <string name="audit_clear_filters">Clear filters</string>
-    <string name="audit_count_empty">No audit records under the current filters in the most recent %1$s.</string>
-    <string name="audit_count_total">%1$s records (filters apply only to the loaded most recent %2$s)</string>
     <string name="audit_filter_session">Session</string>
     <string name="audit_filter_tool">Tool</string>
     <string name="audit_from_date">From date</string>

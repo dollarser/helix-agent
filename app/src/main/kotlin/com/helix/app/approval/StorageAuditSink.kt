@@ -266,14 +266,19 @@ data class AuditLogFilter(
     val fromDay: String? = null,
     /** Inclusive end day, ISO `yyyy-MM-dd` (system zone). */
     val toDay: String? = null,
+    val keyword: String = "",
 ) {
+    init {
+        require(keyword.length <= 256)
+    }
+
     val isEmpty: Boolean
         get() =
             sessionId == null &&
                 toolName == null &&
                 operationClass == null &&
                 fromDay == null &&
-                toDay == null
+                toDay == null && keyword.isBlank()
 
     companion object {
         /** Builds a filter from the audit page's raw UI state (blank date inputs mean "no bound"). */
@@ -283,12 +288,14 @@ data class AuditLogFilter(
             operationClass: ToolOperationClass?,
             fromDayRaw: String,
             toDayRaw: String,
+            keyword: String = "",
         ) = AuditLogFilter(
             sessionId = sessionId,
             toolName = toolName,
             operationClass = operationClass,
             fromDay = fromDayRaw.takeIf { it.isNotBlank() },
             toDay = toDayRaw.takeIf { it.isNotBlank() },
+            keyword = keyword.trim(),
         )
     }
 }

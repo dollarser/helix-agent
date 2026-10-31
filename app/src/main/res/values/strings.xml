@@ -228,8 +228,6 @@
     <string name="audit_all_sessions">全部会话</string>
     <string name="audit_all_tools">全部工具</string>
     <string name="audit_clear_filters">清除过滤</string>
-    <string name="audit_count_empty">最近 %1$s 条内、当前过滤条件下没有审计记录。</string>
-    <string name="audit_count_total">共 %1$s 条（仅作用于已加载的最近 %2$s 条）</string>
     <string name="audit_filter_session">会话</string>
     <string name="audit_filter_tool">工具</string>
     <string name="audit_from_date">起始日期</string>

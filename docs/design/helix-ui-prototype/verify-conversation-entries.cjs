@@ -166,5 +166,16 @@ test('Expert configuration exports dependencies without activating them; removal
   assert.equal(state().plugins.join(','), '团队文档');
   assert.doesNotMatch(document.querySelector('#plugin-status').textContent, /浏览器/);
 });
+test('Audit history continues after a bounded empty batch without searching raw bodies', () => {
+  open('settings'); click('open:audit');
+  const query = document.querySelector('#audit-query');
+  query.value = 'needle42'; query.dispatchEvent(new window.Event('input', {bubbles: true}));
+  assert.match(sheet().textContent, /本批 0 条匹配/);
+  assert.match(sheet().textContent, /仍有历史/);
+  click('audit-more'); assert.match(sheet().textContent, /needle42/);
+  query.value = 'not-present'; query.dispatchEvent(new window.Event('input', {bubbles: true}));
+  assert.equal(state().auditCursor, 1000);
+  click('audit-more'); click('audit-more'); assert.match(sheet().textContent, /历史末尾/);
+});
 assert.ok(!/\b(fetch|XMLHttpRequest|WebSocket)\s*\(/.test(html));
 console.log(`${n} offline interaction checks passed; browser/layout acceptance is separate.`);

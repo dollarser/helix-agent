@@ -1,11 +1,39 @@
 package com.helix.core.storage.repository
 
 import com.helix.core.storage.dao.AuditEventDao
+import com.helix.core.storage.dao.AuditEventPageRow
 import com.helix.core.storage.entity.AuditEventEntity
+
+data class AuditEventCursor(
+    val timestamp: Long,
+    val rowId: Long,
+    val ceiling: Long,
+) {
+    init {
+        require(timestamp >= 0 && rowId in 1..ceiling)
+    }
+}
+
+data class AuditEventPage(
+    val rows: List<AuditEventPageRow>,
+    val ceiling: Long,
+    val hasMore: Boolean,
+)
 
 class AuditEventRepository(
     private val dao: AuditEventDao,
 ) {
+    /** Keyset pagination avoids shifting an offset when new records arrive. Deletes remain authoritative. */
+    fun page(
+        cursor: AuditEventCursor? = null,
+        limit: Int = 200,
+    ): AuditEventPage {
+        require(limit in 1..200)
+        val ceiling = cursor?.ceiling ?: dao.lastRowId()
+        val rows = dao.page(ceiling, cursor?.timestamp, cursor?.rowId, limit + 1)
+        return AuditEventPage(rows.take(limit), ceiling, rows.size > limit)
+    }
+
     fun append(
         id: String,
         correlationId: String,

@@ -2,12 +2,15 @@ package com.helix.app.audit
 
 import com.helix.app.approval.AuditLogFilter
 import com.helix.app.approval.DispatchAuditRecord
-import com.helix.app.approval.StorageAuditSink
 import com.helix.core.storage.HelixStorage
+import com.helix.core.storage.repository.AuditEventCursor
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -18,109 +21,104 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
-/**
- * The UI bridge for the audit log page (roadmap HXA-036): the only app-level reader of
- * `audit_events` for the page. The UI never touches the DAO (AGENTS.md); it observes this
- * service.
- *
- * Guarantees:
- * - BOUNDED LOAD: [records] reads at most [PAGE_LIMIT] newest rows (security doc section
- *   10: the page never loads the whole table) and applies the filter in memory over that
- *   page; a larger history is reached by paging, not by an unbounded query.
- * - REDACTED ONLY: rows are parsed through the [StorageAuditSink.PAYLOAD_KEYS] allowlist
- *   into [DispatchAuditRecord] — a type with no slot for argument or output content.
- *   Rows that are not tool-dispatch events, or whose payload is malformed, are dropped
- *   (fail closed: hidden, never rendered raw).
- * - COMPLETE ONLY: a record must have parsed every mandatory display fact (turn, session,
- *   tool, code, decision source) or it is hidden — a half-parsed row is not an audit row.
- * - MAIN-THREAD SAFE: the page's Room read runs on an IO scope and republishes StateFlows;
- *   the UI only observes those flows (a synchronous Room read in composition would crash).
- */
+data class AuditHistoryStatus(
+    val page: AuditHistoryPage = AuditHistoryPage(),
+    val loading: Boolean = true,
+    val failed: Boolean = false,
+)
+
+/** UI bridge: bounded keyset scans of all history, with allowlisted projection before search. */
 @OptIn(ExperimentalCoroutinesApi::class)
 class AuditLogService(
     private val storage: HelixStorage,
     private val zone: ZoneId = ZoneId.systemDefault(),
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
 ) {
-    // The screen pushes its current filter on EVERY composition (page shown, filter
-    // changed). A bare StateFlow would CONFLATE equal filters — the first push after new
-    // audit rows landed would be a no-op and the page would keep showing the startup
-    // snapshot. The generation counter makes every push a fresh load request.
-    private val filterState = MutableStateFlow<Pair<AuditLogFilter, Long>>(AuditLogFilter() to 0L)
+    private data class Request(
+        val filter: AuditLogFilter,
+        val cursor: AuditEventCursor?,
+        val generation: Long,
+    )
 
-    // Atomic (M3 closeout review): the counter is bumped on the main thread while the
-    // collector thread reads the pair it published — a torn read of a plain Long field
-    // would let two different filters share one generation and one page win by chance.
+    private data class Update(
+        val request: Request,
+        val status: AuditHistoryStatus,
+    )
+
+    private val lock = Any()
+    private val requests = MutableStateFlow(Request(AuditLogFilter(), null, 0))
     private val generation =
         java.util.concurrent.atomic
-            .AtomicLong(0L)
-
-    private val _records = MutableStateFlow<List<DispatchAuditRecord>>(emptyList())
-
-    /** The newest bounded page matching the current filter — loaded OFF the main thread. */
-    val records: StateFlow<List<DispatchAuditRecord>> = _records.asStateFlow()
-
-    private val _toolNames = MutableStateFlow<List<String>>(emptyList())
-
-    /** The distinct tool names on the current page (the unfiltered pick list). */
-    val toolNames: StateFlow<List<String>> = _toolNames.asStateFlow()
+            .AtomicLong()
+    private val mutableRecords = MutableStateFlow<List<DispatchAuditRecord>>(emptyList())
+    private val mutableTools = MutableStateFlow<List<String>>(emptyList())
+    private val mutableStatus = MutableStateFlow(AuditHistoryStatus())
+    val records: StateFlow<List<DispatchAuditRecord>> = mutableRecords.asStateFlow()
+    val toolNames: StateFlow<List<String>> = mutableTools.asStateFlow()
+    val history: StateFlow<AuditHistoryStatus> = mutableStatus.asStateFlow()
 
     init {
         scope.launch {
-            // One bounded Room read per load request (on IO); the pick list stays
-            // UNFILTERED (switching the tool filter must not hide its own options).
-            filterState
-                .flatMapLatest { (filter, _) ->
-                    flow {
-                        val page = loadPage()
-                        emit(page to page.filter { AuditFilters.apply(it, filter, zone) })
+            requests
+                .flatMapLatest { request ->
+                    flow { emit(Update(request, search(request))) }
+                }.collect { update ->
+                    synchronized(lock) {
+                        if (requests.value.generation == update.request.generation) {
+                            mutableStatus.value = update.status
+                            mutableRecords.value = update.status.page.records
+                            mutableTools.value = update.status.page.toolNames
+                        }
                     }
-                }.collect { (page, filtered) ->
-                    _toolNames.value = page.mapNotNull { it.toolName }.distinct().sorted()
-                    _records.value = filtered
                 }
         }
     }
 
-    /** Changes the page filter (or re-requests the current one); the page reloads on IO
-     * and republishes [records] + [toolNames]. */
-    fun setFilter(filter: AuditLogFilter) {
-        filterState.value = filter to generation.incrementAndGet()
+    @Suppress("TooGenericExceptionCaught") // A failed read is explicit failure, never an empty successful search.
+    private suspend fun search(request: Request): AuditHistoryStatus =
+        try {
+            val context = currentCoroutineContext()
+            val page =
+                AuditHistorySearch.find(
+                    request.filter,
+                    zone,
+                    request.cursor,
+                    load = { storage.auditEvents.page(it) },
+                    checkActive = { context.ensureActive() },
+                )
+            AuditHistoryStatus(page, loading = false)
+        } catch (
+            cancel: CancellationException,
+        ) {
+            throw cancel
+        } catch (_: Exception) {
+            AuditHistoryStatus(loading = false, failed = true)
+        }
+
+    fun setFilter(filter: AuditLogFilter) =
+        synchronized(lock) {
+            start(Request(filter, null, generation.incrementAndGet()))
+        }
+
+    fun nextPage() =
+        synchronized(lock) {
+            val status = mutableStatus.value
+            val cursor = status.page.next
+            if (!status.loading && !status.failed && cursor != null) {
+                start(Request(requests.value.filter, cursor, generation.incrementAndGet()))
+            }
+        }
+
+    fun retry() = setFilter(requests.value.filter)
+
+    private fun start(request: Request) {
+        mutableRecords.value = emptyList()
+        mutableStatus.value = AuditHistoryStatus()
+        requests.value = request
     }
 
-    /** The newest [limit] COMPLETE tool-dispatch records on the page, unfiltered (the
-     * synchronous core: one bounded Room read + allowlist parse; the page applies the
-     * filter in memory over that page). */
-    fun loadPage(limit: Int = PAGE_LIMIT): List<DispatchAuditRecord> =
-        storage.auditEvents
-            .recent(limit)
-            .mapNotNull { row ->
-                StorageAuditSink.parseRow(
-                    id = row.id,
-                    correlationId = row.correlationId,
-                    type = row.type,
-                    actor = row.actor,
-                    redactedPayload = row.redactedPayload,
-                    timestamp = row.timestamp,
-                )
-            }.filter { it.complete }
-
-    /** One filtered page, synchronously (JVM tests; never the main thread in production). */
-    fun records(
-        filter: AuditLogFilter,
-        limit: Int = PAGE_LIMIT,
-    ): List<DispatchAuditRecord> = loadPage(limit).filter { AuditFilters.apply(it, filter, zone) }
-
-    /** The distinct tool names present in the current page (the filter's pick list). */
-    fun toolNames(limit: Int = PAGE_LIMIT): List<String> =
-        loadPage(limit)
-            .mapNotNull { it.toolName }
-            .distinct()
-            .sorted()
-
     companion object {
-        /** One page of the audit list (newest first). */
-        const val PAGE_LIMIT = 200
+        const val PAGE_LIMIT = AuditHistorySearch.RESULT_LIMIT
     }
 }
 
@@ -139,7 +137,30 @@ object AuditFilters {
             matchesTool(record, filter) &&
             matchesRisk(record, filter) &&
             matchesFromDay(record, filter, zone) &&
-            matchesToDay(record, filter, zone)
+            matchesToDay(record, filter, zone) &&
+            matchesKeyword(record, filter.keyword, zone)
+
+    private fun matchesKeyword(
+        record: DispatchAuditRecord,
+        keyword: String,
+        zone: ZoneId,
+    ): Boolean {
+        val wanted = keyword.trim()
+        if (wanted.isEmpty()) return true
+        return listOfNotNull(
+            record.id,
+            record.correlationId,
+            record.actor,
+            record.turnId,
+            record.sessionId,
+            record.toolName,
+            record.toolVersion,
+            record.code?.name,
+            record.decisionSource?.name,
+            record.operationClass?.name,
+            dayOf(record.startedAt, zone),
+        ).any { it.contains(wanted, ignoreCase = true) }
+    }
 
     /** Applies [filter] to a page, preserving order (newest first). */
     fun applyAll(

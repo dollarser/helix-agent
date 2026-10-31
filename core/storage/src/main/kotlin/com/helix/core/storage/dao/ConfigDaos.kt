@@ -1,6 +1,7 @@
 package com.helix.core.storage.dao
 
 import androidx.room.Dao
+import androidx.room.Embedded
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
@@ -10,8 +11,29 @@ import com.helix.core.storage.entity.ExecutionTargetEntity
 import com.helix.core.storage.entity.ProviderConfigEntity
 import com.helix.core.storage.entity.RuntimeInstallEntity
 
+/** Append-order witness for bounded audit pagination; not a resource grant. */
+data class AuditEventPageRow(
+    @Embedded val event: AuditEventEntity,
+    val cursorRowId: Long,
+)
+
 @Dao
 interface AuditEventDao {
+    @Query("SELECT COALESCE(MAX(rowid), 0) FROM audit_events")
+    fun lastRowId(): Long
+
+    @Query(
+        "SELECT *, rowid AS cursorRowId FROM audit_events WHERE rowid <= :ceiling AND " +
+            "(:beforeTime IS NULL OR timestamp < :beforeTime OR (timestamp = :beforeTime AND rowid < :beforeRow)) " +
+            "ORDER BY timestamp DESC, rowid DESC LIMIT :limit",
+    )
+    fun page(
+        ceiling: Long,
+        beforeTime: Long?,
+        beforeRow: Long?,
+        limit: Int,
+    ): List<AuditEventPageRow>
+
     @Insert(onConflict = OnConflictStrategy.ABORT)
     fun append(event: AuditEventEntity)
 

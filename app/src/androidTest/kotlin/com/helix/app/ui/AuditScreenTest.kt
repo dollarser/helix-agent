@@ -7,6 +7,9 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.text.AnnotatedString
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.AppContainer
@@ -178,6 +181,18 @@ class AuditScreenTest {
         assertTrue("the row must show the stable code", pageText.contains("用户拒绝审批"))
         assertTrue("the row must show the tool name", pageText.contains(AUDIT_TOOL_NAME))
         assertTrue("the row must show the operation", pageText.contains("本地修改"))
+
+        composeRule.onNodeWithTag("audit-history-keyword").performScrollTo().performTextInput(AUDIT_TOOL_NAME)
+        composeRule.waitForIdle()
+        assertTrue(awaitAuditRows().isNotEmpty())
+        composeRule.onNodeWithTag("audit-history-keyword").performTextReplacement(secretMarker)
+        composeRule.waitForIdle()
+        composeRule.waitUntil(10_000) {
+            !container.auditLogService.history.value.loading &&
+                container.auditLogService.records.value
+                    .isEmpty()
+        }
+        assertTrue("A raw argument must not match the keyword field", auditRows().isEmpty())
 
         // Clearing the filters restores the unfiltered page (the row is still there).
         composeRule.onNodeWithTag("audit-clear-filters").performClick()
