@@ -33,8 +33,9 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
 
 /** Actual native widget/pixels, only synthetic content in the explicitly isolated test package. */
-class FormulaPreviewDeviceTest {
+class BlockPreviewDeviceTest {
     @get:Rule val compose = createComposeRule()
+    private val language = mutableStateOf("math")
     private val source = mutableStateOf("\\frac{1}{2}+\\sqrt{9}")
     private val dark = mutableStateOf(false)
     private val scale = mutableStateOf(1f)
@@ -53,7 +54,7 @@ class FormulaPreviewDeviceTest {
                 LocalDensity provides Density(LocalDensity.current.density, scale.value),
             ) {
                 MaterialTheme(colorScheme = if (dark.value) darkColorScheme() else lightColorScheme()) {
-                    Column { MarkdownText("```math\n${source.value}\n```") }
+                    Column { MarkdownText("```${language.value}\n${source.value}\n```") }
                 }
             }
         }
@@ -71,7 +72,7 @@ class FormulaPreviewDeviceTest {
             assertFalse(first.settings.allowContentAccess)
             assertFalse(first.settings.domStorageEnabled)
         }
-        savePixels(first, "formula-light.png")
+        savePixels(first, "block-preview-light.png")
         compose.runOnIdle {
             dark.value = true
             scale.value = 1.8f
@@ -85,7 +86,7 @@ class FormulaPreviewDeviceTest {
         )}, ${android.graphics.Color.green(color)}, ${android.graphics.Color.blue(color)})"
         assertEquals(expected, eval(second, "getComputedStyle(document.body).backgroundColor").trim('"'))
         compose.onNodeWithText("关闭").assertIsDisplayed()
-        savePixels(second, "formula-dark-large.png")
+        savePixels(second, "block-preview-dark-large.png")
         compose.runOnIdle { source.value = "x^2" }
         compose.waitUntil(10_000) { views().isEmpty() }
         compose.onNodeWithText("查看公式").performClick()
@@ -107,9 +108,160 @@ class FormulaPreviewDeviceTest {
                 }
             assertTrue(view.webViewClient.onRenderProcessGone(view, detail))
         }
-        compose.onNodeWithTag("formula-error").assertIsDisplayed()
+        compose.onNodeWithTag("block-preview-error").assertIsDisplayed()
         compose.waitUntil(10_000) { views().isEmpty() }
         compose.onNodeWithText("关闭").performClick()
+    }
+
+    @Test fun offlineMermaidFlowAndSequenceRenderInLightAndDarkLargeType() {
+        language.value = "mermaid"
+        source.value = "flowchart TD\n A[合成输入] --> B[安全结果]"
+        fixture()
+        compose.onNodeWithText("查看图表").performClick()
+        val first = readyView()
+        assertTrue(eval(first, "!!document.querySelector('#preview svg')").toBoolean())
+        assertTrue(eval(first, "document.getElementById('preview').textContent.includes('安全结果')").toBoolean())
+        assertEquals(
+            "0",
+            eval(
+                first,
+                "document.querySelectorAll('foreignObject,iframe,img,image,a,script:not([src]):not([nonce])').length",
+            ),
+        )
+        savePixels(first, "mermaid-light.png")
+        compose.runOnIdle {
+            dark.value = true
+            scale.value = 1.8f
+        }
+        compose.waitForIdle()
+        val second = readyView()
+        assertTrue(first !== second)
+        savePixels(second, "mermaid-dark-large.png")
+        compose.onNodeWithText("关闭").performClick()
+        compose.runOnIdle { source.value = "sequenceDiagram\n Alice->>Bob: 合成请求\n Bob-->>Alice: 合成响应" }
+        compose.onNodeWithText("查看图表").performClick()
+        val sequence = readyView()
+        assertTrue(eval(sequence, "document.getElementById('preview').textContent.includes('合成响应')").toBoolean())
+        compose.onNodeWithText("关闭").performClick()
+        compose.waitUntil(10_000) { views().isEmpty() }
+    }
+
+    @Test fun mermaidLinksHtmlAndStyleCannotCreateActiveContent() {
+        language.value = "mermaid"
+        source.value = "flowchart TD\n A[合成] --> B[结果]"
+        fixture()
+        compose.onNodeWithText("查看图表").performClick()
+        val view = readyView()
+        verifyLinkedDiagram(view)
+        val attack =
+            """
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 60" onload="window.hacked=true">
+            <script>window.hacked=true</script><foreignObject><img src="https://example.invalid/image"/></foreignObject>
+            <a href="javascript:alert(1)"><rect width="80" height="30" onclick="window.hacked=true"/></a>
+            <image href="https://example.invalid/image"/><style>@import url(https://example.invalid/css);
+            rect{fill:url(https://example.invalid/fill);stroke:#fff}</style></svg>
+            """.trimIndent()
+        val json =
+            kotlinx.serialization.json
+                .JsonPrimitive(attack)
+                .toString()
+        eval(view, "document.getElementById('preview').replaceChildren(sanitizeDiagramSvg($json));true")
+        assertEquals(
+            "0",
+            eval(
+                view,
+                "document.querySelectorAll('#preview a,#preview image,#preview img,#previ" +
+                    "ew foreignObject,#preview iframe,#preview script').length",
+            ),
+        )
+        assertEquals("false", eval(view, "!!window.hacked"))
+        assertEquals(
+            "false",
+            eval(
+                view,
+                "Array.from(document.querySelectorAll('#preview *')).some(n=>Array.from(n" +
+                    ".attributes).some(a=>a.name.startsWith('on')||a.name==='href'&&!a.value." +
+                    "startsWith('#')))",
+            ),
+        )
+        assertEquals(
+            "false",
+            eval(
+                view,
+                "Array.from(document.querySelectorAll('#preview style')).some(n=>n.textCo" +
+                    "ntent.includes('example.invalid'))",
+            ),
+        )
+        assertEquals(
+            "0",
+            eval(
+                view,
+                "performance.getEntriesByType('resource').filter(r=>!r.name.startsWith('h" +
+                    "ttps://appassets.androidplatform.net/assets/mermaid/')).length",
+            ),
+        )
+        eval(view, "location.href='https://example.invalid/not-loaded';true")
+        Thread.sleep(150)
+        assertEquals(MermaidPreviewPolicy.PAGE, eval(view, "location.href").trim('"'))
+        compose.onNodeWithText("关闭").performClick()
+    }
+
+    @Test fun mermaidConfigurationAndOversizedGraphsFailClearlyWithoutLosingSource() {
+        language.value = "mermaid"
+        source.value = "---\nconfig:\n securityLevel: loose\n---\nflowchart TD\n A-->B"
+        fixture()
+        compose.onNodeWithText("查看图表").performClick()
+        compose.onNodeWithTag("block-preview-error").assertIsDisplayed()
+        assertTrue(views().isEmpty())
+        compose.onNodeWithText("关闭").performClick()
+        for (text in listOf(
+            "%%{init: {'securityLevel': 'loose'}}%%\nflowchart TD\n A-->B",
+            "flowchart TD\n" + (0..128).joinToString("\n") { "N$it-->N${it + 1}" },
+            "mindmap\n root((unsupported))",
+            "x".repeat(8193),
+        )) {
+            compose.runOnIdle { source.value = text }
+            compose.onNodeWithText("查看图表").performClick()
+            compose.waitUntil(12_000) {
+                compose
+                    .onAllNodes(
+                        androidx.compose.ui.test
+                            .hasTestTag("block-preview-error"),
+                    ).fetchSemanticsNodes()
+                    .isNotEmpty()
+            }
+            compose.onNodeWithText("关闭").performClick()
+            compose.waitUntil(10_000) { views().isEmpty() }
+        }
+    }
+
+    @Test fun readinessTimeoutReportsErrorAndReleasesItsOwnedView() {
+        require(context.packageName == "com.helix.agent.developer.asrvalidation")
+        val visible = mutableStateOf(true)
+        val failed =
+            java.util.concurrent.atomic
+                .AtomicBoolean(false)
+        compose.setContent {
+            if (visible.value) {
+                androidx.compose.ui.viewinterop.AndroidView(
+                    factory = { ctx ->
+                        OfflinePreviewWebView(
+                            ctx,
+                            "<html><body data-state='loading'></body></html>",
+                            BlockPreviewKind.MERMAID,
+                            {},
+                        ) { status ->
+                            if (status == "error") {
+                                failed.set(true)
+                                visible.value = false
+                            }
+                        }.apply { loadUrl(MermaidPreviewPolicy.PAGE) }
+                    },
+                    onRelease = { it.release() },
+                )
+            }
+        }
+        compose.waitUntil(10_000) { failed.get() && views().isEmpty() }
     }
 
     @Test fun invalidOversizedAndRapidCancelledPreviewsKeepTheirSource() {
@@ -120,15 +272,15 @@ class FormulaPreviewDeviceTest {
             compose
                 .onAllNodes(
                     androidx.compose.ui.test
-                        .hasTestTag("formula-error"),
+                        .hasTestTag("block-preview-error"),
                 ).fetchSemanticsNodes()
                 .isNotEmpty()
         }
-        compose.onNodeWithTag("formula-error").assertIsDisplayed()
+        compose.onNodeWithTag("block-preview-error").assertIsDisplayed()
         compose.onNodeWithText("关闭").performClick()
         compose.runOnIdle { source.value = "x".repeat(8193) }
         compose.onNodeWithText("查看公式").performClick()
-        compose.onNodeWithTag("formula-error").assertIsDisplayed()
+        compose.onNodeWithTag("block-preview-error").assertIsDisplayed()
         assertTrue(views().isEmpty())
         compose.onNodeWithText("关闭").performClick()
         compose.runOnIdle { source.value = "x=1" }
@@ -160,20 +312,20 @@ class FormulaPreviewDeviceTest {
             compose
                 .onAllNodes(
                     androidx.compose.ui.test
-                        .hasTestTag("formula-error"),
+                        .hasTestTag("block-preview-error"),
                 ).fetchSemanticsNodes()
                 .isNotEmpty()
         }
-        compose.onNodeWithTag("formula-error").assertIsDisplayed()
+        compose.onNodeWithTag("block-preview-error").assertIsDisplayed()
         compose.onNodeWithText("关闭").performClick()
         compose.waitUntil(10_000) { views().isEmpty() }
     }
 
-    private fun views(): List<FormulaPreviewWebView> {
-        val found = mutableListOf<FormulaPreviewWebView>()
+    private fun views(): List<OfflinePreviewWebView> {
+        val found = mutableListOf<OfflinePreviewWebView>()
 
         fun visit(view: View) {
-            if (view is FormulaPreviewWebView) found += view
+            if (view is OfflinePreviewWebView) found += view
             if (view is ViewGroup) repeat(view.childCount) { visit(view.getChildAt(it)) }
         }
         InstrumentationRegistry.getInstrumentation().runOnMainSync {
@@ -182,15 +334,32 @@ class FormulaPreviewDeviceTest {
         return found
     }
 
-    private fun readyView(): FormulaPreviewWebView {
-        var result: FormulaPreviewWebView? = null
+    private fun verifyLinkedDiagram(view: OfflinePreviewWebView) {
+        val linked =
+            kotlinx.serialization.json
+                .JsonPrimitive(
+                    "flowchart TD\n A[合成] --> B[结果]\nclick B \"https://example.invalid/link\"",
+                ).toString()
+        eval(
+            view,
+            "document.body.dataset.probe='pending';" +
+                "mermaid.render('linked-probe',$linked).then(r=>{try{sanitizeDiagramSvg(r.svg);" +
+                "document.body.dataset.probe='ok'}catch(e){document.body.dataset.probe='svg:'+e.message}})" +
+                ".catch(e=>document.body.dataset.probe='render:'+e.message);true",
+        )
+        compose.waitUntil(10_000) { eval(view, "document.body.dataset.probe") != "\"pending\"" }
+        assertEquals("\"ok\"", eval(view, "document.body.dataset.probe"))
+    }
+
+    private fun readyView(): OfflinePreviewWebView {
+        var result: OfflinePreviewWebView? = null
         compose.waitUntil(10_000) {
             val view = views().singleOrNull()
             if (view != null && eval(view, "document.body.dataset.state") == "\"ready\"" &&
                 compose
                     .onAllNodes(
                         androidx.compose.ui.test
-                            .hasTestTag("formula-loading"),
+                            .hasTestTag("block-preview-loading"),
                     ).fetchSemanticsNodes()
                     .isEmpty()
             ) {
@@ -203,7 +372,7 @@ class FormulaPreviewDeviceTest {
     }
 
     private fun eval(
-        view: FormulaPreviewWebView,
+        view: OfflinePreviewWebView,
         expression: String,
     ): String {
         val value = AtomicReference<String>()
@@ -219,7 +388,7 @@ class FormulaPreviewDeviceTest {
     }
 
     private fun savePixels(
-        view: FormulaPreviewWebView,
+        view: OfflinePreviewWebView,
         name: String,
     ) {
         val done = CountDownLatch(1)

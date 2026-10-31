@@ -49,11 +49,11 @@ internal object FormulaPreviewPolicy {
             style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'none'; connect-src 'none'; frame-src 'none'">
             <link rel="stylesheet" href="${BASE}katex.min.css">
             <style>html,body{margin:0;background:${color(background)};color:${color(foreground)}}
-            body{padding:12px;font-size:${size}px;overflow:auto}#formula{display:inline-block}
-            .katex-display{margin:0}</style></head><body data-state="loading"><main id="formula"></main>
+            body{padding:12px;font-size:${size}px;overflow:auto}#preview{display:inline-block}
+            .katex-display{margin:0}</style></head><body data-state="loading"><main id="preview"></main>
             <script src="${BASE}katex.min.js"></script><script nonce="$nonce">
             try {
-              katex.render($data, document.getElementById('formula'), {displayMode:true,trust:false,
+              katex.render($data, document.getElementById('preview'), {displayMode:true,trust:false,
                 strict:'error',throwOnError:true,maxSize:10,maxExpand:256,output:'htmlAndMathml'});
               document.fonts.ready.then(function(){document.body.dataset.state='ready'},
                 function(){document.body.dataset.state='error'});

@@ -15,13 +15,14 @@ import android.webkit.WebViewClient
 import java.io.ByteArrayInputStream
 
 /**
- * One dialog-owned view, fixed bundled JS, data-only LaTeX, no bridge or external navigation.
+ * One dialog-owned view, fixed bundled JS, data-only block content, no bridge or external navigation.
  * Created only by AndroidView with immutable document/callbacks, never inflated from XML.
  */
 @SuppressLint("SetJavaScriptEnabled", "ViewConstructor")
-internal class FormulaPreviewWebView(
+internal class OfflinePreviewWebView(
     context: Context,
     private val document: String,
+    private val kind: BlockPreviewKind,
     private val height: (Float) -> Unit,
     private val status: (String) -> Unit,
 ) : WebView(context) {
@@ -69,12 +70,12 @@ internal class FormulaPreviewWebView(
                     blocked()
                 }
 
-                request.isForMainFrame && request.url.toString() == FormulaPreviewPolicy.PAGE -> {
+                request.isForMainFrame && request.url.toString() == kind.page -> {
                     WebResourceResponse("text/html", "UTF-8", ByteArrayInputStream(document.toByteArray()))
                 }
 
                 else -> {
-                    FormulaPreviewPolicy.asset(request.url.toString())?.let(::local) ?: blocked()
+                    kind.asset(request.url.toString())?.let(::local) ?: blocked()
                 }
             }
 
@@ -117,7 +118,7 @@ internal class FormulaPreviewWebView(
 
     private fun measure() {
         evaluateJavascript(
-            "Math.ceil(document.getElementById('formula').getBoundingClientRect().height+24)",
+            "Math.ceil(document.getElementById('preview').getBoundingClientRect().height+24)",
         ) { result ->
             if (!closed) {
                 val value = result.toFloatOrNull()?.takeIf { it.isFinite() && it > 0 }

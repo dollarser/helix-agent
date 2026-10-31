@@ -5,4 +5,7 @@
     <string name="formula_close">Close</string>
     <string name="formula_loading">Rendering…</string>
     <string name="formula_error">Unsupported or over-limit formula. Showing the first 8192 source characters; copying retains the complete source.</string>
+    <string name="diagram_title">Diagram</string>
+    <string name="diagram_open">Preview diagram</string>
+    <string name="diagram_error">Diagram unavailable or exceeds limits. Configuration headers are unsupported. Showing the first 8192 source characters; the full source can still be copied.</string>
 </resources>

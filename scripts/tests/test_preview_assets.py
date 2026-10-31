@@ -5,12 +5,12 @@ from pathlib import Path
 import tempfile
 import unittest
 
-spec = importlib.util.spec_from_file_location("formula_assets", Path(__file__).parents[1] / "verify-formula-assets.py")
+spec = importlib.util.spec_from_file_location("preview_assets", Path(__file__).parents[1] / "verify-preview-assets.py")
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
 
 
-class FormulaAssetsTest(unittest.TestCase):
+class PreviewAssetsTest(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
@@ -25,6 +25,17 @@ class FormulaAssetsTest(unittest.TestCase):
         lock.parent.mkdir(parents=True)
         lock.write_text(json.dumps({"files": {"katex.min.js": hashlib.sha256(self.asset.read_bytes()).hexdigest()},
                                    "licenseSha256": hashlib.sha256(self.license.read_bytes()).hexdigest()}))
+
+        diagram = self.root / "app/src/main/assets/mermaid/mermaid.tiny.js"
+        diagram.parent.mkdir(parents=True)
+        diagram.write_bytes(b"synthetic diagram")
+        notice = self.root / "app/src/main/assets/licenses/Mermaid-dependencies.txt"
+        notice.write_bytes(b"synthetic notices")
+        diagram_lock = self.root / "config/mermaid/mermaid.lock.json"
+        diagram_lock.parent.mkdir(parents=True)
+        diagram_lock.write_text(json.dumps({"files": {
+            p.relative_to(self.root).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
+            for p in [diagram, notice]}}))
 
     def test_integrity_and_license_are_checked(self):
         module.verify(self.root)
@@ -43,4 +54,22 @@ class FormulaAssetsTest(unittest.TestCase):
             module.verify(self.root)
         self.asset.unlink()
         with self.assertRaisesRegex(ValueError, "inventory"):
+            module.verify(self.root)
+
+    def test_diagram_code_notices_and_inventory_are_checked(self):
+        module.verify(self.root)
+        diagram = self.root / "app/src/main/assets/mermaid/mermaid.tiny.js"
+        extra = diagram.parent / "unreviewed.js"
+        extra.write_bytes(b"unreviewed")
+        with self.assertRaisesRegex(ValueError, "Diagram.*inventory"):
+            module.verify(self.root)
+        extra.unlink()
+        original = diagram.read_bytes()
+        diagram.write_bytes(b"damaged")
+        with self.assertRaisesRegex(ValueError, "Diagram.*hash mismatch"):
+            module.verify(self.root)
+        diagram.write_bytes(original)
+        notice = self.root / "app/src/main/assets/licenses/Mermaid-dependencies.txt"
+        notice.write_bytes(b"missing notice")
+        with self.assertRaisesRegex(ValueError, "license hash mismatch"):
             module.verify(self.root)

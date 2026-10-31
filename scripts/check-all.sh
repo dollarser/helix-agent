@@ -16,7 +16,7 @@ source_checks() {
     ./scripts/verify-adr.sh
     ./scripts/check-i18n.sh
     ./scripts/check-secrets.sh
-    python3 scripts/verify-formula-assets.py
+    python3 scripts/verify-preview-assets.py
 }
 
 analysis_checks() {

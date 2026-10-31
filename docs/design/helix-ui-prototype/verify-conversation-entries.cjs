@@ -186,4 +186,11 @@ test('Formula preview preserves its message source and closes without any send',
   assert.equal(document.querySelector('#draft').value, before);
 });
 assert.ok(!/\b(fetch|XMLHttpRequest|WebSocket)\s*\(/.test(html));
+test('Diagram preview closes without navigating or altering the message draft', () => {
+  const before = document.querySelector('#draft').value;
+  open('diagram-preview');
+  assert(document.querySelector('#overlay svg'));
+  click('close');
+  assert.equal(document.querySelector('#draft').value, before);
+});
 console.log(`${n} offline interaction checks passed; browser/layout acceptance is separate.`);

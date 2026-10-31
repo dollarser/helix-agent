@@ -5,4 +5,7 @@
     <string name="formula_close">关闭</string>
     <string name="formula_loading">正在渲染…</string>
     <string name="formula_error">公式无法渲染或超过限制，显示源码前 8192 个字符；完整源码仍可复制。</string>
+    <string name="diagram_title">图表</string>
+    <string name="diagram_open">查看图表</string>
+    <string name="diagram_error">图表无法渲染或超过限制，不支持配置头；显示源码前 8192 个字符，完整源码仍可复制。</string>
 </resources>

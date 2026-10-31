@@ -33,19 +33,20 @@ import java.util.UUID
 /** On-demand keeps chat scrolling free of per-message WebViews; source and copy remain canonical. */
 @Composable
 @Suppress("FunctionName", "LongMethod")
-internal fun FormulaPreviewDialog(
+internal fun BlockPreviewDialog(
     source: String,
+    kind: BlockPreviewKind,
     onClose: () -> Unit,
 ) {
     val colors = MaterialTheme.colorScheme
     val config = LocalConfiguration.current
     val clipboard = LocalClipboardManager.current
-    val valid = source.isNotBlank() && source.length <= FormulaPreviewPolicy.MAX_CHARS && '\u0000' !in source
-    var state by remember(source) { mutableStateOf(if (valid) "loading" else "error") }
+    val valid = kind.valid(source)
+    var state by remember(source, kind) { mutableStateOf(if (valid) "loading" else "error") }
     val html =
-        remember(source, colors.surface, colors.onSurface, config.fontScale) {
+        remember(source, kind, colors.surface, colors.onSurface, config.fontScale) {
             if (valid) {
-                FormulaPreviewPolicy.html(
+                kind.html(
                     source,
                     colors.surface.toArgb(),
                     colors.onSurface.toArgb(),
@@ -67,33 +68,38 @@ internal fun FormulaPreviewDialog(
     LaunchedEffect(html) {
         state = if (valid) "loading" else "error"
         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
-            kotlinx.coroutines.delay(5000)
+            kotlinx.coroutines.delay(kind.timeoutMillis)
         }
         if (state == "loading") state = "error"
     }
     AlertDialog(
         onDismissRequest = onClose,
-        title = { Text(stringResource(R.string.formula_title)) },
+        title = { Text(stringResource(kind.title)) },
         text = {
             Column {
                 if (state == "error") {
-                    Text(stringResource(R.string.formula_error), Modifier.testTag("formula-error"))
+                    Text(stringResource(kind.error), Modifier.testTag("block-preview-error"))
                     Text(
-                        source.take(FormulaPreviewPolicy.MAX_CHARS),
+                        source.take(kind.maxChars),
                         Modifier.height(160.dp).verticalScroll(rememberScrollState()),
                     )
                 } else {
                     if (state ==
                         "loading"
                     ) {
-                        Text(stringResource(R.string.formula_loading), Modifier.testTag("formula-loading"))
+                        Text(stringResource(R.string.formula_loading), Modifier.testTag("block-preview-loading"))
                     }
                     key(html) {
                         AndroidView(
                             factory = { context ->
-                                FormulaPreviewWebView(context, html, { contentHeight = it }) { state = it }.apply {
+                                OfflinePreviewWebView(
+                                    context,
+                                    html,
+                                    kind,
+                                    { contentHeight = it },
+                                ) { state = it }.apply {
                                     setBackgroundColor(colors.surface.toArgb())
-                                    loadUrl(FormulaPreviewPolicy.PAGE)
+                                    loadUrl(kind.page)
                                 }
                             },
                             onRelease = { it.release() },
@@ -101,7 +107,7 @@ internal fun FormulaPreviewDialog(
                                 Modifier
                                     .fillMaxWidth()
                                     .height(contentHeight.coerceIn(64f, maximumHeight).dp)
-                                    .testTag("formula-webview"),
+                                    .testTag("block-preview-webview"),
                         )
                     }
                 }
@@ -113,20 +119,25 @@ internal fun FormulaPreviewDialog(
                 Text(stringResource(R.string.formula_copy))
             }
         },
-        modifier = Modifier.testTag("formula-dialog"),
+        modifier = Modifier.testTag("block-preview-dialog"),
     )
 }
 
 @Composable
 @Suppress("FunctionName")
-internal fun FormulaPreviewEntry(
+internal fun BlockPreviewEntry(
     source: String,
     language: String?,
 ) {
-    if (!language.equals("math", ignoreCase = true)) return
+    val kind =
+        when (language?.lowercase(java.util.Locale.ROOT)) {
+            "math" -> BlockPreviewKind.FORMULA
+            "mermaid" -> BlockPreviewKind.MERMAID
+            else -> return
+        }
     var open by remember(source) { mutableStateOf(false) }
-    TextButton(onClick = { open = true }, modifier = Modifier.testTag("formula-preview-open")) {
-        Text(stringResource(R.string.formula_open))
+    TextButton(onClick = { open = true }, modifier = Modifier.testTag("block-preview-preview-open")) {
+        Text(stringResource(kind.open))
     }
-    if (open) FormulaPreviewDialog(source) { open = false }
+    if (open) BlockPreviewDialog(source, kind) { open = false }
 }

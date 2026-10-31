@@ -99,3 +99,11 @@ replace them. Passing hash checks alone is not a distribution-license review.
 - Unmodified library used only for local image EXIF orientation parsing; replaces
   the platform implementation flagged by Android Lint. Metadata is still stripped
   by bitmap re-encoding, under the existing ADR-AGENT-003 bounds.
+
+## Mermaid Tiny 12.2.0
+
+- Official fixed `@mermaid-js/tiny` browser distribution, MIT; unmodified script.
+- [Source/release](https://github.com/mermaid-js/mermaid/tree/mermaid%4012.2.0/packages/tiny).
+- Root license: `app/src/main/assets/licenses/Mermaid-MIT.txt`; conservative runtime dependency notices: `app/src/main/assets/licenses/Mermaid-dependencies.txt`. DOMPurify is used under its Apache-2.0 alternative, not MPL-2.0.
+- Tiny excludes ELK and KaTeX rendering; no diagram-triggered downloads, callbacks or external navigation.
+- Reviewed archive integrity, asset/notice hashes and dependency provenance: `config/mermaid/mermaid.lock.json`.
