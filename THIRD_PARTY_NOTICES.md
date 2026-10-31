@@ -4,6 +4,16 @@ Helix source code is licensed under Apache License 2.0. Third-party libraries,
 tools, runtime assets, models, and command-line artifacts retain their own
 licenses and are not relicensed by the Helix project.
 
+## Offline formula previews
+
+KaTeX 0.19.1's unmodified browser script, stylesheet and fonts are bundled for
+user-opened, local formula previews under its MIT license. The original license
+is packaged in `assets/licenses/KaTeX-MIT.txt`. The official npm archive, registry
+integrity and per-file checksums are pinned in `config/math/katex.lock.json`;
+`scripts/verify-formula-assets.py` checks them offline. Helix does not load CDN
+scripts, fonts or formula text over the network. KaTeX is not a general browser
+or an Agent tool execution surface.
+
 ## Local speech
 
 ASR and optional Melo reply reading use the pinned sherpa-onnx/ONNX Runtime

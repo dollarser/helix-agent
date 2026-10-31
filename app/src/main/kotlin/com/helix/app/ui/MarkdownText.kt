@@ -327,6 +327,7 @@ private fun MarkdownCodeBlock(
                 copied = true
             },
         )
+        FormulaPreviewEntry(code, language)
         HorizontalDivider(
             color = MaterialTheme.colorScheme.surfaceContainerHighest,
             modifier = Modifier.padding(bottom = 4.dp),

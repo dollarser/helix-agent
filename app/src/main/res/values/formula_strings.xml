@@ -1,0 +1,8 @@
+<resources>
+    <string name="formula_title">公式</string>
+    <string name="formula_open">查看公式</string>
+    <string name="formula_copy">复制源码</string>
+    <string name="formula_close">关闭</string>
+    <string name="formula_loading">正在渲染…</string>
+    <string name="formula_error">公式无法渲染或超过限制，显示源码前 8192 个字符；完整源码仍可复制。</string>
+</resources>

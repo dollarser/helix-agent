@@ -18,7 +18,13 @@ internal fun markdownBlocks(source: String): List<MarkdownBlock> {
     while (i < lines.size) {
         val line = lines[i]
         val trimmed = line.trimStart()
+        val formula = formulaBlock(lines, i)
         when {
+            formula != null -> {
+                blocks += MarkdownBlock(MarkdownBlock.Kind.CODE, formula.first, language = "math")
+                i = formula.second
+            }
+
             trimmed.startsWith("```") || trimmed.startsWith("~~~") -> {
                 val marker = trimmed.takeWhile { it == trimmed.first() }
                 val lang = trimmed.drop(marker.length).trim().takeWhile { !it.isWhitespace() }
@@ -75,4 +81,29 @@ internal fun markdownBlocks(source: String): List<MarkdownBlock> {
 private fun tableDivider(line: String): Boolean {
     val cells = line.trim().trim('|').split('|')
     return cells.size >= 2 && cells.all { it.trim().matches(Regex(":?-{3,}:?")) }
+}
+
+/** Only complete standalone blocks. Currency, inline dollars and unfinished streaming input stay literal. */
+private fun formulaBlock(
+    lines: List<String>,
+    start: Int,
+): Pair<String, Int>? {
+    val first = lines[start].trim()
+    val delimiters = listOf("$$" to "$$", "\\[" to "\\]")
+    val (open, close) = delimiters.firstOrNull { first.startsWith(it.first) } ?: return null
+    return when {
+        first.length > open.length + close.length && first.endsWith(close) -> {
+            first.substring(open.length, first.length - close.length) to start
+        }
+
+        first != open -> {
+            null
+        }
+
+        else -> {
+            var end = start + 1
+            while (end < lines.size && lines[end].trim() != close) end++
+            if (end == lines.size) null else lines.subList(start + 1, end).joinToString("\n") to end
+        }
+    }
 }

@@ -1,0 +1,8 @@
+<resources>
+    <string name="formula_title">Formula</string>
+    <string name="formula_open">Preview formula</string>
+    <string name="formula_copy">Copy source</string>
+    <string name="formula_close">Close</string>
+    <string name="formula_loading">Rendering…</string>
+    <string name="formula_error">Unsupported or over-limit formula. Showing the first 8192 source characters; copying retains the complete source.</string>
+</resources>

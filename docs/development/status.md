@@ -18,6 +18,8 @@
 | 请求观测 | 消息操作按需显示持久请求的客户端首响应/首字、耗时、报告 Token 和全请求平均吞吐；缺失值为未知，不推算金额或服务器速度 | [结果投影](../adr/agent/006-model-data-budget-boundaries.md) |
 | 工具、扩展与内置帮助 | Plugin/Skill/MCP 等贡献复用宿主授权与执行边界；工具按来源发现和按需 schema，独立短名不机械命名空间化。内置帮助的资源读取仍是动态有效入口 | [工具契约](tool-contracts.md)、[安装归属 ADR](../adr/connectors/003-ownership-and-installation.md)、[插件计划](../architecture/plugin-platform-plan.md) |
 
+消息中完整的 `math` 围栏和独占行块公式提供 KaTeX 离线预览，保留源码复制与原 Markdown；行内公式和 Mermaid 仍显示源码。检索、连续语音与 SAF 同步的具体剩余接线见[增量条件](candidate-decisions.md#资料检索展示与输入增量)。
+
 审计页支持对已脱敏工具调用字段进行全历史关键词分批检索，保留会话/工具/日期筛选；不搜索原始参数、输出或系统日志正文。定时结果可在权限允许时发送无正文通知，点击仅审阅记录，不重放任务。
 
 ## 最新验收及未通过项
@@ -45,7 +47,7 @@
 | 服务与账号 | Notion/Linear 既定测试已结案，Claude/Grok 付费账号暂缓；新账号/付费额度/真实外部副作用需当前明确授权，配置缺失与无效分别处理 |
 | 系统与资源 | 其他 OEM/API、物理低内存/热压/Doze/16 KiB、24h 与全部 Runtime 组合未全部验收；已有资源结果不外推，见[资源复核](../evidence/development/resource-gate-review-2026-10-12.md)及[原生引用调查](../evidence/development/native-reference-release-trace.md) |
 | 附件与模型 | 导入不等于理解；图片受视觉能力/预算约束，任意文档、音视频、OCR 不因管线存在就算交付；真实 token 偏差及物理内存峰值仍需测量 |
-| 文件恢复 | 不承诺跨 Provider 原子性、透明后台同步或运行进程迁移。SAF 自动同步、日志全局关键词搜索及账号登录/系统授权镜像仍未提供；应用备份范围和公共资料冲突处理见现行 ADR |
+| 文件恢复 | 不承诺跨 Provider 原子性、透明后台同步或运行进程迁移。SAF 自动同步、原始系统/命令输出日志正文的跨文件全局搜索及账号登录/系统授权镜像仍未提供；工具审计历史的脱敏字段关键词检索已提供；应用备份范围和公共资料冲突处理见现行 ADR |
 
 ## 查阅方式
 

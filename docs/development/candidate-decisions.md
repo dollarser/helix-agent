@@ -135,3 +135,17 @@ Documents 继续一个插件承载 PDF/DOCX。新增编辑/生成、XLSX/OCR/媒
 ## 维护规则
 
 状态变化时修改原需求/ADR/HXA，再更新本页对应链接和边界；完成后引用完成记录，不复制验收流水账。不得因 `accepted`、存在代码或 Spike 成功推导生产交付；不得从历史文档恢复过时阻塞。本轮事实与代码验证见[收敛证据](../evidence/development/contract-document-convergence-2026-09-29.md)。
+
+
+## 资料检索、展示与输入增量
+
+以下为当前接线与剩余进入条件，依赖可按维护、安全、许可和实际收益采用，不把依赖数量少作为目标。
+
+| 方向 | 当前代码与已实现边界 | 剩余成本与进入条件 |
+| --- | --- | --- |
+| 知识库语义/混合检索 | `KnowledgeStore.search/retrievalCandidates` 是词项匹配；Provider 目录已分类 EMBEDDING，但 `ModelProvider` 尚无嵌入生成业务 | 中大增量：嵌入模型选择/请求、按模型与原文修订隔离的可重建索引、删除/撤权与混合排序。成熟向量库可节省索引算法，仍需明确哪些资料可发送到哪个服务、额度和失败行为；不能从目录分类推导自动上传整库 |
+| 公式与 Mermaid | 块级公式已按 [ADR-PLATFORM-006](../adr/platform/006-formula-preview.md)接入成熟 KaTeX 离线预览，保留源码与既有 Markdown；行内公式和 Mermaid 尚按源码展示 | 公式为独立小范围能力，采用单个按需对话框控制 View 生命周期。Mermaid 可复用预览宿主，但仍是中等增量：SVG/链接/配置指令、图规模与布局超时、系统 WebView 支持和实际依赖许可闭合；其官方分发依赖含 elkjs 等，不可仅按 Mermaid 根 MIT 许可假设整个 bundle 已完成审查 |
+| 连续语音/插话 | `VoiceCapture` 是用户开始、结束后回填的单次识别；`LiveReplySpeech` 增量朗读可见回复，尚无统一全双工控制器 | 大于界面按钮的增量：VAD/端点、录音与播放焦点、回声处理、跨会话与迟到结果、停止 TTS/模型与工具副作用的区分。设备 AEC 不保证存在；需真实麦克风/耳机范围和条件才能完成端到端验收。保留当前转写与朗读，不新增假“连续”开关 |
+| SAF 自动同步 | `SafManualFileBackend` 与现有 tree grants 支持显式文件操作，不是同步规则或双向镜像 | 中大增量：用户选定目录/方向、持久同步清单、缺失/冲突/撤权与中断后幂等。DocumentsProvider 的 modified 时间可以未知；普通 FileObserver 不适用于任意 SAF URI。可复用 WorkManager，但周期至少 15 分钟且非准点，不能宣称通用实时同步或把既有手动授权升级为持续同步 |
+
+依据：[KaTeX 安全与资源选项](https://katex.org/docs/security)、[Mermaid 使用与浏览器要求](https://mermaid.js.org/config/usage)、[elkjs 许可](https://github.com/kieler/elkjs/blob/master/LICENSE.md)、[Android AEC](https://developer.android.com/reference/android/media/audiofx/AcousticEchoCanceler)、[DocumentsContract 元数据](https://developer.android.com/reference/android/provider/DocumentsContract.Document)、[WorkManager 周期边界](https://developer.android.com/develop/background-work/background-tasks/persistent/getting-started/define-work)。具体实现和测试不由候选登记推定。

@@ -177,5 +177,13 @@ test('Audit history continues after a bounded empty batch without searching raw 
   assert.equal(state().auditCursor, 1000);
   click('audit-more'); click('audit-more'); assert.match(sheet().textContent, /历史末尾/);
 });
+test('Formula preview preserves its message source and closes without any send', () => {
+  const before = document.querySelector('#draft').value;
+  open('formula-preview');
+  assert.ok(sheet().querySelector('math'));
+  assert.match(sheet().textContent, /离线排版/);
+  click('close');
+  assert.equal(document.querySelector('#draft').value, before);
+});
 assert.ok(!/\b(fetch|XMLHttpRequest|WebSocket)\s*\(/.test(html));
 console.log(`${n} offline interaction checks passed; browser/layout acceptance is separate.`);
