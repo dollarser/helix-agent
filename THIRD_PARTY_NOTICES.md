@@ -114,3 +114,9 @@ replace them. Passing hash checks alone is not a distribution-license review.
 - Source/license: <https://github.com/cure53/DOMPurify/tree/3.4.12>.
 - Original license: `app/src/main/assets/licenses/DOMPurify-LICENSE.txt`; pinned distribution integrity: `config/svg/dompurify.lock.json`.
 - Used with independent SVG/CSS/resource limits and no network or native bridge; not an arbitrary HTML renderer.
+
+## core-js-bundle 3.51.0
+
+- Source: https://github.com/zloirock/core-js ; official npm `core-js-bundle` fixed archive.
+- MIT license: `app/src/main/assets/licenses/core-js-MIT.txt`. Bundled only in the isolated offline Mermaid script to supply standard APIs on the tested older WebView.
+- Mermaid syntax is transformed by build-time esbuild 0.28.2 (MIT); its verified tool inputs and exact arguments are recorded in `config/mermaid/mermaid.lock.json`. The build tool is not shipped in the APK.

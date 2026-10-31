@@ -77,3 +77,5 @@ an App compatibility reader; device backup/restore and any data loss require
 explicit task authorization. Never restore a partial output from a failed run.
 
 `verify-preview-assets.py` 离线核对公式/图表预览的 KaTeX、Mermaid Tiny、独立 DOMPurify 固定资源与许可清单，以及 SVG 资源目录，不下载或执行包脚本；由 `check-all.sh` 的源码检查调用。
+
+`build-mermaid-preview.py` 从 `config/mermaid/mermaid.lock.json` 固定的官方 Tiny、core-js 与对应主机 esbuild 归档重现图表资产：显式提供 `--source-archive`、`--tool-archive`、`--runtime-archive`、`--output`。脚本不下载、不运行安装钩子，校验归档、工具和最终字节；日常检查只验证已审阅资产，无需重新生成。

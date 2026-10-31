@@ -23,6 +23,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -89,7 +90,7 @@ class InlineDiagramDeviceTest {
         }
         repeat(3) {
             compose.onNodeWithTag("inline-diagram-toggle").performClick()
-            compose.onNodeWithText("预览").assertIsDisplayed()
+            compose.onNode(hasText("预览") or hasText("Preview")).assertIsDisplayed()
             assertEquals(0, engines())
             compose.onNodeWithTag("inline-diagram-toggle").performClick()
             ready()
@@ -173,7 +174,7 @@ class InlineDiagramDeviceTest {
         saveImage("mermaid-inline-narrow-large.png", "inline-diagram")
         compose.onNodeWithTag("inline-diagram-image").performClick()
         compose.onNodeWithTag("block-preview-dialog").assertIsDisplayed()
-        compose.onNodeWithText("关闭").performClick()
+        compose.onNode(hasText("关闭") or hasText("Close")).performClick()
         ready()
         compose.runOnIdle { owner.registry.currentState = androidx.lifecycle.Lifecycle.State.CREATED }
         compose.waitUntil(10_000) {

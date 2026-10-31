@@ -31,6 +31,8 @@ JLaTeXMath Android 的官方仓库已归档且标注 GPL-2.0；不在本任务�
 
 内嵌只在可见且 RESUMED 时渲染，单个临时引擎占用物理容量直到 View 真正销毁；显式放大对话框独立且至多一个。位图最多 200 万像素/2048 宽，进程内 LRU 最多 16 MiB，键包括完整源码 hash、种类、主题、字号、显示密度和宽度。离屏释放局部位图引用与渲染任务，但保留测得占位高度以避免列表抖动；重新进入可复用有界缓存。取消、重组、换来源和旧回调不更新另一代状态。缓存不是正文存储，不写磁盘；任何失败都不覆盖原始源码。
 
+Mermaid 官方 Tiny 分发先经固定 esbuild 转换到 Chrome 91，显式降级 class static blocks；离线 core-js 标准运行库补齐 Object.hasOwn、Array.at 等运行时 API。转换不改变图表权限策略，不回退 Mermaid 版本，也不升级设备 WebView。来源归档、构建工具、参数、运行库和生成资产均固定完整性；维护脚本只接收显式离线归档，校验后构建，不运行 npm 安装脚本。仅对实际测试的图种和引擎给出验收，不承诺全部历史 WebView 或全部标准 API 可模拟。
+
 ## Consequences
 
 离线资源增加有限包体；预览按需创建，关闭后释放。KaTeX 不支持的命令保留源码，不执行外部宏或远端内容。依赖升级须重新核对官方分发、许可、资源锁和实际设备排版。
@@ -43,11 +45,15 @@ JLaTeXMath Android 的官方仓库已归档且标注 GPL-2.0；不在本任务�
 
 验证分隔符与流式未闭合输入不吞正文；数据转义、资源 origin/path、错误和超限；实际离线分数/根式排版、失败源码、关闭/重开与 View 释放。不能把 DOM 或测试包编译单独当作视觉通过。当前设备证据不覆盖全部系统 WebView、OEM 或无障碍服务。
 
-验证 Mermaid 流程图与时序图实际像素、深色/大字、HTML/链接/CSS 输入、配置和规模拒绝、错误与释放。仅当前指定模拟器 WebView 有设备证据，不代表所有 API/OEM/WebView 版本通过。
+验证 Mermaid 流程图与时序图实际像素、深色/大字、HTML/链接/CSS 输入、配置和规模拒绝、错误与释放。本轮代表场景在 Android 10/API29 的 WebView 91.0.4472.114 和 API36 的 WebView 133.0.6943.137 通过；91 是本轮实际验证的最老引擎，不是所有图种/API/OEM 或更老引擎的兼容承诺。
 
 RikkaHub 的官方实现展示内嵌图与放大入口；Open WebUI 的 CodeBlock 直接集成 Mermaid 渲染与代码控制，作为交互证据而非代码来源。未复制其代码。AndroidSVG/Coil 是成熟原生候选，但 AndroidSVG 的静态 SVG/CSS 能力有限，与 Mermaid 浏览器 CSS 不完全一致；本次继续复用系统 WebView，额外净化采用官方 DOMPurify，避免引入第二套渲染差异和 JNI。
 
 ## References
+
+- [esbuild target 与运行时 API 边界](https://esbuild.github.io/api/#target)
+- [core-js 官方标准运行库](https://github.com/zloirock/core-js)
+- [V8 静态初始化块支持](https://v8.dev/blog/v8-release-94)
 
 - [KaTeX 浏览器接入](https://katex.org/docs/browser)
 - [KaTeX 安全选项](https://katex.org/docs/security)
@@ -73,3 +79,5 @@ RikkaHub 的官方实现展示内嵌图与放大入口；Open WebUI 的 CodeBloc
 - 2026-10-31：所有者明确要求实现 Mermaid；复用生命周期宿主，加入独立 SVG/CSS/链接策略与预算，采用官方 Tiny 离线资源和完整许可清单。
 
 - 2026-10-31：所有者要求 Mermaid 默认内嵌与静态 SVG；采用源码/预览切换与复制，单临时引擎、有界原生位图缓存、离屏/暂停释放，增加独立 DOMPurify 与显式 SVG 完整性及资源边界。
+
+- 2026-10-31：Android 10 默认 WebView 91 实测揭示官方分发的静态块语法与标准 API 缺失；采用固定 esbuild 加 core-js 离线构建，保留库版本与隔离边界，分别复验 API29 与 API36。

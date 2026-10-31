@@ -17,6 +17,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -79,7 +80,7 @@ class BlockPreviewDeviceTest {
 
     @Test fun offlineFontsPixelsThemeAndSourceChangeUseTheActualMessageEntry() {
         fixture()
-        compose.onNodeWithText("查看公式").performClick()
+        compose.onNode(hasText("查看公式") or hasText("Preview formula")).performClick()
         val first = readyView()
         assertTrue(eval(first, "!!document.querySelector('.mfrac') && !!document.querySelector('.sqrt')").toBoolean())
         assertEquals("0", eval(first, "Array.from(document.fonts).filter(f=>f.status==='error').length"))
@@ -102,19 +103,19 @@ class BlockPreviewDeviceTest {
             color,
         )}, ${android.graphics.Color.green(color)}, ${android.graphics.Color.blue(color)})"
         assertEquals(expected, eval(second, "getComputedStyle(document.body).backgroundColor").trim('"'))
-        compose.onNodeWithText("关闭").assertIsDisplayed()
+        compose.onNode(hasText("关闭") or hasText("Close")).assertIsDisplayed()
         savePixels(second, "block-preview-dark-large.png")
         compose.runOnIdle { source.value = "x^2" }
         compose.waitUntil(10_000) { views().isEmpty() }
-        compose.onNodeWithText("查看公式").performClick()
+        compose.onNode(hasText("查看公式") or hasText("Preview formula")).performClick()
         assertTrue(eval(readyView(), "document.querySelector('.katex').textContent.includes('x')").toBoolean())
-        compose.onNodeWithText("关闭").performClick()
+        compose.onNode(hasText("关闭") or hasText("Close")).performClick()
         compose.waitUntil(10_000) { views().isEmpty() }
     }
 
     @Test fun rendererFailureCallbackShowsErrorAndReleasesTheView() {
         fixture()
-        compose.onNodeWithText("查看公式").performClick()
+        compose.onNode(hasText("查看公式") or hasText("Preview formula")).performClick()
         val view = readyView()
         compose.runOnIdle {
             val detail =
@@ -127,7 +128,7 @@ class BlockPreviewDeviceTest {
         }
         compose.onNodeWithTag("block-preview-error").assertIsDisplayed()
         compose.waitUntil(10_000) { views().isEmpty() }
-        compose.onNodeWithText("关闭").performClick()
+        compose.onNode(hasText("关闭") or hasText("Close")).performClick()
     }
 
     @Test fun offlineMermaidFlowAndSequenceRenderInLightAndDarkLargeType() {
@@ -154,12 +155,12 @@ class BlockPreviewDeviceTest {
         val second = readyView()
         assertTrue(first !== second)
         savePixels(second, "mermaid-dark-large.png")
-        compose.onNodeWithText("关闭").performClick()
+        compose.onNode(hasText("关闭") or hasText("Close")).performClick()
         compose.runOnIdle { source.value = "sequenceDiagram\n Alice->>Bob: 合成请求\n Bob-->>Alice: 合成响应" }
         compose.onNodeWithText("查看图表").performClick()
         val sequence = readyView()
         assertTrue(eval(sequence, "document.getElementById('preview').textContent.includes('合成响应')").toBoolean())
-        compose.onNodeWithText("关闭").performClick()
+        compose.onNode(hasText("关闭") or hasText("Close")).performClick()
         compose.waitUntil(10_000) { views().isEmpty() }
     }
 
@@ -220,7 +221,7 @@ class BlockPreviewDeviceTest {
         eval(view, "location.href='https://example.invalid/not-loaded';true")
         Thread.sleep(150)
         assertEquals(MermaidPreviewPolicy.PAGE, eval(view, "location.href").trim('"'))
-        compose.onNodeWithText("关闭").performClick()
+        compose.onNode(hasText("关闭") or hasText("Close")).performClick()
     }
 
     @Test fun mermaidConfigurationAndOversizedGraphsFailClearlyWithoutLosingSource() {
@@ -230,7 +231,7 @@ class BlockPreviewDeviceTest {
         compose.onNodeWithText("查看图表").performClick()
         compose.onNodeWithTag("block-preview-error").assertIsDisplayed()
         assertTrue(views().isEmpty())
-        compose.onNodeWithText("关闭").performClick()
+        compose.onNode(hasText("关闭") or hasText("Close")).performClick()
         for (text in listOf(
             "%%{init: {'securityLevel': 'loose'}}%%\nflowchart TD\n A-->B",
             "flowchart TD\n" + (0..128).joinToString("\n") { "N$it-->N${it + 1}" },
@@ -247,7 +248,7 @@ class BlockPreviewDeviceTest {
                     ).fetchSemanticsNodes()
                     .isNotEmpty()
             }
-            compose.onNodeWithText("关闭").performClick()
+            compose.onNode(hasText("关闭") or hasText("Close")).performClick()
             compose.waitUntil(10_000) { views().isEmpty() }
         }
     }
@@ -311,7 +312,7 @@ class BlockPreviewDeviceTest {
             ),
         )
         savePixels(view, "svg-passive.png")
-        compose.onNodeWithText("关闭").performClick()
+        compose.onNode(hasText("关闭") or hasText("Close")).performClick()
         compose.waitUntil(10_000) { views().isEmpty() }
     }
 
@@ -342,16 +343,16 @@ class BlockPreviewDeviceTest {
                     ).fetchSemanticsNodes()
                     .isNotEmpty()
             }
-            compose.onNodeWithText("复制源码").assertIsDisplayed()
+            compose.onNode(hasText("复制源码") or hasText("Copy source")).assertIsDisplayed()
             compose.waitUntil(10_000) { views().isEmpty() }
-            compose.onNodeWithText("关闭").performClick()
+            compose.onNode(hasText("关闭") or hasText("Close")).performClick()
         }
     }
 
     @Test fun invalidOversizedAndRapidCancelledPreviewsKeepTheirSource() {
         source.value = "\\unknownCommand{"
         fixture()
-        compose.onNodeWithText("查看公式").performClick()
+        compose.onNode(hasText("查看公式") or hasText("Preview formula")).performClick()
         compose.waitUntil(10_000) {
             compose
                 .onAllNodes(
@@ -361,20 +362,20 @@ class BlockPreviewDeviceTest {
                 .isNotEmpty()
         }
         compose.onNodeWithTag("block-preview-error").assertIsDisplayed()
-        compose.onNodeWithText("关闭").performClick()
+        compose.onNode(hasText("关闭") or hasText("Close")).performClick()
         compose.runOnIdle { source.value = "x".repeat(8193) }
-        compose.onNodeWithText("查看公式").performClick()
+        compose.onNode(hasText("查看公式") or hasText("Preview formula")).performClick()
         compose.onNodeWithTag("block-preview-error").assertIsDisplayed()
         assertTrue(views().isEmpty())
-        compose.onNodeWithText("关闭").performClick()
+        compose.onNode(hasText("关闭") or hasText("Close")).performClick()
         compose.runOnIdle { source.value = "x=1" }
         repeat(3) {
-            compose.onNodeWithText("查看公式").performClick()
-            compose.onNodeWithText("关闭").performClick()
+            compose.onNode(hasText("查看公式") or hasText("Preview formula")).performClick()
+            compose.onNode(hasText("关闭") or hasText("Close")).performClick()
         }
-        compose.onNodeWithText("查看公式").performClick()
+        compose.onNode(hasText("查看公式") or hasText("Preview formula")).performClick()
         readyView()
-        compose.onNodeWithText("关闭").performClick()
+        compose.onNode(hasText("关闭") or hasText("Close")).performClick()
         compose.waitUntil(10_000) { views().isEmpty() }
         assertEquals("x=1", source.value)
     }
@@ -382,16 +383,16 @@ class BlockPreviewDeviceTest {
     @Test fun formulaDataCannotCreateHtmlNavigateOrExpandMacrosWithoutBound() {
         source.value = "\\text{</script><img src=x>}"
         fixture()
-        compose.onNodeWithText("查看公式").performClick()
+        compose.onNode(hasText("查看公式") or hasText("Preview formula")).performClick()
         val view = readyView()
         assertEquals("0", eval(view, "document.images.length"))
         assertEquals("0", eval(view, "document.querySelectorAll('iframe,a').length"))
         eval(view, "window.location.href='https://example.invalid/not-loaded'; true")
         Thread.sleep(150)
         assertEquals("\"${FormulaPreviewPolicy.PAGE}\"", eval(view, "window.location.href"))
-        compose.onNodeWithText("关闭").performClick()
+        compose.onNode(hasText("关闭") or hasText("Close")).performClick()
         compose.runOnIdle { source.value = "\\gdef\\loop{\\loop}\\loop" }
-        compose.onNodeWithText("查看公式").performClick()
+        compose.onNode(hasText("查看公式") or hasText("Preview formula")).performClick()
         compose.waitUntil(10_000) {
             compose
                 .onAllNodes(
@@ -401,7 +402,7 @@ class BlockPreviewDeviceTest {
                 .isNotEmpty()
         }
         compose.onNodeWithTag("block-preview-error").assertIsDisplayed()
-        compose.onNodeWithText("关闭").performClick()
+        compose.onNode(hasText("关闭") or hasText("Close")).performClick()
         compose.waitUntil(10_000) { views().isEmpty() }
     }
 

@@ -11,6 +11,20 @@ spec.loader.exec_module(module)
 
 
 class PreviewAssetsTest(unittest.TestCase):
+    def test_mermaid_rebuild_rejects_unverified_archive_before_execution(self):
+        builder_spec = importlib.util.spec_from_file_location(
+            "mermaid_builder", Path(__file__).parents[1] / "build-mermaid-preview.py"
+        )
+        builder = importlib.util.module_from_spec(builder_spec)
+        builder_spec.loader.exec_module(builder)
+        with tempfile.TemporaryDirectory() as temp:
+            archive = Path(temp) / "untrusted.tgz"
+            archive.write_bytes(b"not the reviewed package")
+            output = Path(temp) / "output.js"
+            with self.assertRaisesRegex(ValueError, "Archive integrity mismatch"):
+                builder.build(archive, archive, output)
+            self.assertFalse(output.exists())
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
