@@ -1,0 +1,6 @@
+<resources>
+    <string name="scheduled_result_channel">Helix 定时任务结果</string>
+    <string name="scheduled_result_done">任务已完成，点按查看记录。</string>
+    <string name="scheduled_result_attention">任务需要关注，点按查看记录与待确认事项。</string>
+    <string name="scheduled_result_hint">结果保存在任务记录中；系统通知取决于通知权限和后台运行条件。</string>
+</resources>

@@ -18,6 +18,8 @@
 | 请求观测 | 消息操作按需显示持久请求的客户端首响应/首字、耗时、报告 Token 和全请求平均吞吐；缺失值为未知，不推算金额或服务器速度 | [结果投影](../adr/agent/006-model-data-budget-boundaries.md) |
 | 工具、扩展与内置帮助 | Plugin/Skill/MCP 等贡献复用宿主授权与执行边界；工具按来源发现和按需 schema，独立短名不机械命名空间化。内置帮助的资源读取仍是动态有效入口 | [工具契约](tool-contracts.md)、[安装归属 ADR](../adr/connectors/003-ownership-and-installation.md)、[插件计划](../architecture/plugin-platform-plan.md) |
 
+审计页支持对已脱敏工具调用字段进行全历史关键词分批检索，保留会话/工具/日期筛选；不搜索原始参数、输出或系统日志正文。定时结果可在权限允许时发送无正文通知，点击仅审阅记录，不重放任务。
+
 ## 最新验收及未通过项
 
 - 架构主线有界收尾见[记录](architecture-closeout.md)：过时 Engine／ChatService 缺口描述校正；PRoot 安装事实与 UI 本地化分离，旧接口删除。Dispatcher 内部观察角色、截图披露与请求路径投影按实际职责保留，不以消除类型／名称分支为目标重造框架。

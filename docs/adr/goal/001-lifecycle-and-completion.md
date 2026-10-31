@@ -122,3 +122,7 @@ Owner 授权统一成组工具命名，采用 `goal.create/get/update/report`，
 ## Decision history — 2026-10-30：受限外部审阅入口
 
 `ACTION_VIEW helix://automation/<rule UUID>?requestId=<UUID>` 仅在本机打开已有定时任务的审阅/编辑页，不执行任务、不接受 prompt、shell、权限或模型目标。冷启动与 onNewIntent 共用闭合参数校验；取消不写规则，编辑仍经现有范围预览与明确保存。无效/删除规则不可执行。Intent requestId 仅是导航身份，不是授权或恰好一次执行凭据。已有 WorkManager 与规则/occurrence/attempt 账本继续拥有调度及未知结果处理，不另建执行器。
+
+## Decision history — 2026-10-30：定时结果通知
+
+定时 Worker 在原 occurrence/attempt 持久结算后，可投影一条无任务正文的本地结果通知；点击仅打开既有审阅页，不重放执行或扩大授权。通知权限关闭、渠道禁用或发送失败不改变任务结算、不触发自动重试。通知不提供准点或永久后台承诺；记录始终以任务账本为准，UNKNOWN 仅提示需要关注。

@@ -95,6 +95,7 @@ fun ScheduledAgentScreen(
         item {
             TextButton(onClick = onBack) { Text(stringResource(R.string.common_back)) }
             Text(stringResource(R.string.scheduled_title), style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(R.string.scheduled_result_hint), style = MaterialTheme.typography.bodySmall)
             Text(stringResource(R.string.scheduled_limits))
             if (error || failure) Text(stringResource(R.string.scheduled_error))
             Button(onClick = {

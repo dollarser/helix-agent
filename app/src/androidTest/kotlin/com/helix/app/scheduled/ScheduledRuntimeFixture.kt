@@ -48,6 +48,8 @@ import java.util.UUID
 /** All conversation/history/workspace/tool state is isolated. The sole optional network is builtin Qwen. */
 internal class ScheduledRuntimeFixture(
     wire: WireClient? = null,
+    accountIdentity: (() -> String)? = null,
+    catalog: BuiltInModelCatalog? = null,
 ) : AutoCloseable {
     private val context = ApplicationProvider.getApplicationContext<Context>()
     private val name = "scheduled-runtime-${UUID.randomUUID()}.db"
@@ -75,9 +77,18 @@ internal class ScheduledRuntimeFixture(
             if (wire == null) {
                 ProviderTestStatusStore(InMemoryLineStore())
             } else {
-                ProviderTestStatusStore(InMemoryLineStore(), accountIdentity = { "synthetic-scheduled-account" })
+                ProviderTestStatusStore(
+                    InMemoryLineStore(),
+                    accountIdentity = accountIdentity ?: { "synthetic-scheduled-account" },
+                )
             }
-        status.builtInCatalog.save(BuiltInModelCatalog(System.currentTimeMillis(), listOf(BuiltInModel.MODEL_ID)))
+        status.builtInCatalog.save(
+            catalog ?: BuiltInModelCatalog(
+                System.currentTimeMillis(),
+                listOf(BuiltInModel.MODEL_ID),
+                purposes = mapOf(BuiltInModel.MODEL_ID to setOf(com.helix.provider.api.ModelPurpose.CHAT)),
+            ),
+        )
         if (wire != null) {
             check(status.builtInCatalog.accountAvailable()) { "Mock scheduled fixture requires its synthetic identity" }
             check(BuiltInModel.MODEL_ID in status.builtInCatalog.read().models) {

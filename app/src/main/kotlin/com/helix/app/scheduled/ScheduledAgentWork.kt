@@ -65,7 +65,14 @@ class ScheduledAgentWorker(
             val container = app.awaitAppContainer()
             app.runtimeRecoveryReady.await()
             val service = requireNotNull(container.scheduledAgents)
+            val before = service.occurrenceOutcome(id, revision, due)
             service.fire(id, revision, due)
+            if (before == null || before in ScheduledAgentService.ACTIVE) {
+                service.notificationFact(id, revision, due)?.let {
+                    // The ledger is already settled. Missing notification permission never replays the task.
+                    postResult(it)
+                }
+            }
             if (service.occurrenceOutcome(id, revision, due) in setOf("FAILED", "UNKNOWN", "INTERRUPTED")) {
                 Result.failure()
             } else {
@@ -76,6 +83,17 @@ class ScheduledAgentWorker(
         } catch (error: Exception) {
             android.util.Log.e("HelixScheduled", "Scheduled wake failed; no automatic attempt replay", error)
             Result.failure()
+        }
+    }
+
+    @Suppress("TooGenericExceptionCaught") // Advisory delivery failure cannot undo a durably settled task.
+    private fun postResult(fact: ScheduledResultFact) {
+        try {
+            ScheduledResultNotification(applicationContext).post(fact)
+        } catch (
+            _: Exception,
+        ) {
+            android.util.Log.w("HelixScheduled", "Task settled; result notification unavailable")
         }
     }
 }

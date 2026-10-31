@@ -453,6 +453,22 @@ class ScheduledAgentService(
         due: Long,
     ): String? = withContext(Dispatchers.IO) { store.dao.occurrence(id, revision, due)?.outcome }
 
+    internal suspend fun notificationFact(
+        id: String,
+        revision: Long,
+        due: Long,
+    ): ScheduledResultFact? =
+        withContext(Dispatchers.IO) {
+            val occurrence = store.dao.occurrence(id, revision, due) ?: return@withContext null
+            val attempt = store.dao.attempt(occurrence.lastAttemptId) ?: return@withContext null
+            val sameOccurrence = attempt.ruleId == id && attempt.revision == revision && attempt.dueAt == due
+            val settled = (attempt.state in TERMINAL || attempt.state == "UNKNOWN") && attempt.completedAt != null
+            if (!sameOccurrence || !settled) {
+                return@withContext null
+            }
+            ScheduledResultFact(id, attempt.id, attempt.state)
+        }
+
     private suspend fun advance(
         rule: ScheduledAgentRule,
         due: Long,

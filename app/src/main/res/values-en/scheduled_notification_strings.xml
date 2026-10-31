@@ -1,0 +1,6 @@
+<resources>
+    <string name="scheduled_result_channel">Helix scheduled task results</string>
+    <string name="scheduled_result_done">Task completed. Tap to review the record.</string>
+    <string name="scheduled_result_attention">Task needs attention. Review its record and unresolved actions.</string>
+    <string name="scheduled_result_hint">Results stay in task history. System notifications depend on notification permission and background conditions.</string>
+</resources>
