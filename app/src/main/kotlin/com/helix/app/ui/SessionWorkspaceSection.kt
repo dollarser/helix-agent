@@ -98,12 +98,23 @@ private fun WorkspaceAccessDetails(
             }
         Text(stringResource(status))
     }
+    WorkspaceAccessText(access)
+}
+
+@Composable
+@Suppress("FunctionName")
+internal fun WorkspaceAccessText(
+    access: com.helix.app.files.WorkspaceAccessReport?,
+    showCopyHint: Boolean = false,
+) {
     access?.let { observed ->
         Text(
             stringResource(
                 if (observed.directPath) R.string.workspace_direct_observed else R.string.workspace_saf_observed,
             ),
+            modifier = Modifier.testTag("directory-access-capability"),
         )
+        if (showCopyHint && !observed.directPath) Text(stringResource(R.string.workspace_cli_explicit_copy))
         Text(
             stringResource(
                 if (observed.writeAdvertised) R.string.workspace_write_hint else R.string.workspace_read_only,

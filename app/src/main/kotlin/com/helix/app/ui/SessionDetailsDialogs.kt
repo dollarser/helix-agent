@@ -73,6 +73,7 @@ internal fun SessionDirectoryDialog(
     var failed by remember { mutableStateOf(false) }
     var retry by remember { mutableStateOf(0) }
     var saving by remember { mutableStateOf(false) }
+    var access by remember { mutableStateOf<com.helix.app.files.WorkspaceAccessReport?>(null) }
     val scope = rememberCoroutineScope()
     val choose: (String?) -> Unit = { reference ->
         if (!saving) {
@@ -90,12 +91,19 @@ internal fun SessionDirectoryDialog(
     LaunchedEffect(path, retry) {
         ready = false
         failed = false
+        access = null
         try {
             val target = path
             if (target == null) {
                 sources = withContext(Dispatchers.IO) { files.sources() }
             } else {
-                entries = withContext(Dispatchers.IO) { files.list(target.scopeId, target.relativePath) }
+                val result =
+                    withContext(Dispatchers.IO) {
+                        files.list(target.scopeId, target.relativePath) to
+                            files.inspectWorkspace(target.toModelReference())
+                    }
+                entries = result.first
+                access = result.second
             }
             ready = true
         } catch (cancelled: kotlinx.coroutines.CancellationException) {
@@ -115,6 +123,7 @@ internal fun SessionDirectoryDialog(
                         TextButton(
                             { path = FileScopePath(source.scopeId, "") },
                             enabled = !saving,
+                            modifier = Modifier.testTag("session-directory-source-${source.scopeId}"),
                         ) { Text(source.displayName) }
                     }
                 } else {
@@ -130,6 +139,7 @@ internal fun SessionDirectoryDialog(
                                 FileScopePath(current.scopeId, current.relativePath.substringBeforeLast('/', ""))
                             }
                     }, enabled = !saving) { Text(stringResource(R.string.chat_directory_parent)) }
+                    WorkspaceAccessText(access, showCopyHint = true)
                     if (ready) {
                         entries.filter { it.isDirectory }.forEach { entry ->
                             TextButton(
@@ -159,7 +169,11 @@ internal fun SessionDirectoryDialog(
                 Text(stringResource(R.string.chat_directory_choose))
             }
         },
-        dismissButton = { TextButton(onDismiss, enabled = !saving) { Text(stringResource(R.string.common_cancel)) } },
+        dismissButton = {
+            TextButton(onDismiss, enabled = !saving, modifier = Modifier.testTag("session-directory-cancel")) {
+                Text(stringResource(R.string.common_cancel))
+            }
+        },
     )
 }
 

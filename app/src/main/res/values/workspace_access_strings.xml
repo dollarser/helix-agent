@@ -3,4 +3,5 @@
   <string name="workspace_direct_observed">已实际打开原目录。Linux Runtime 可用并获准后映射为 /workspace，不复制工作副本。</string>
   <string name="workspace_saf_observed">已通过文档 API 原位读取目录；没有 POSIX 路径，不伪装成 Git 挂载。</string>
   <string name="workspace_write_hint">来源声明可写；具体操作仍检查 Provider 能力和当前权限，未试写用户文件。</string>
+  <string name="workspace_cli_explicit_copy">此来源若需命令行，必须显式选择工作副本；选择目录不会自动复制或同步。</string>
 </resources>
