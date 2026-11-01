@@ -69,6 +69,7 @@ internal class KnowledgeSemanticService(
             .newKeySet<Job>()
     private var indexing: Job? = null
     val status = MutableStateFlow("OFF")
+    val progress = MutableStateFlow(0 to 0)
     val enabled = MutableStateFlow(prefs.getBoolean("enabled", false))
     val changes = MutableStateFlow(0L)
 
@@ -178,12 +179,15 @@ internal class KnowledgeSemanticService(
                         status.value = "INDEXING"
                         require(config.model in models())
                         val documents = config.keys.mapNotNull { current(it) }
+                        progress.value = 0 to documents.size
                         cache.retain(namespace(config), documents.map { it.key }.toSet())
                         for (document in documents) {
                             currentCoroutineContext().ensureActive()
-                            if (cache.read(namespace(config), document) != null) continue
-                            require(authorized(config))
-                            index(config, document)
+                            if (cache.read(namespace(config), document) == null) {
+                                require(authorized(config))
+                                index(config, document)
+                            }
+                            progress.value = (progress.value.first + 1) to documents.size
                         }
                         if (authorized(config)) {
                             status.value =

@@ -167,6 +167,7 @@ private fun KnowledgeAccessDialog(
     val enabled by service.agentAccess.enabled.collectAsStateWithLifecycle()
     val semanticEnabled by service.semantic.enabled.collectAsStateWithLifecycle()
     val semanticStatus by service.semantic.status.collectAsStateWithLifecycle()
+    val progress by service.semantic.progress.collectAsStateWithLifecycle()
     var showSemantic by remember { mutableStateOf(false) }
     if (showSemantic) {
         KnowledgeSemanticDialog(service) { showSemantic = false }
@@ -203,6 +204,14 @@ private fun KnowledgeAccessDialog(
                         },
                     ),
                 )
+                if (semanticStatus ==
+                    "INDEXING"
+                ) {
+                    Text(stringResource(R.string.semantic_progress, progress.first, progress.second))
+                }
+                if (semanticEnabled && semanticStatus in setOf("ERROR", "LEXICAL_FALLBACK", "PARTIAL")) {
+                    TextButton(onClick = service.semantic::rebuild) { Text(stringResource(R.string.chat_retry)) }
+                }
                 if (semanticEnabled) {
                     TextButton(
                         onClick = service.semantic::stop,

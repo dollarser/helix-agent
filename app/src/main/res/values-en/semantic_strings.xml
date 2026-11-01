@@ -17,4 +17,5 @@
     <string name="semantic_off">Semantic search is off</string>
     <string name="semantic_stop">Turn off and stop</string>
     <string name="semantic_clear_selection">Clear selection</string>
+  <string name="semantic_progress">Indexed %1$d of %2$d documents</string>
 </resources>

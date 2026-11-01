@@ -57,10 +57,13 @@ class SemanticLiveModelDeviceTest {
                 withTimeout(120_000) { service.status.first { it == "READY" || it == "ERROR" } }
                 check(service.status.value == "READY") { "Synthetic semantic indexing failed" }
                 verifyRetrieval(service, store, observer, body)
+                verifyChineseCorpus(service, store, model, prefix)
                 File(app.cacheDir, "semantic-live-result.json").writeText(
                     buildJsonObject {
                         put("model", model)
                         put("longTailRetrieved", true)
+                        put("chineseMixedCorpusQueries", 3)
+                        put("deletedSourceRejected", true)
                         put("selectedOnly", true)
                         put("staleRevisionRejected", true)
                         put("embeddingInputs", observer.inputs.size)
@@ -75,6 +78,35 @@ class SemanticLiveModelDeviceTest {
                 root.deleteRecursively()
             }
         }
+
+    private suspend fun verifyChineseCorpus(
+        service: KnowledgeSemanticService,
+        store: KnowledgeStore,
+        model: String,
+        prefix: String,
+    ) {
+        service.stopAndWait()
+        val filler = "合成月报记录办公耗材、会议室预约及公共区域整理，不包含个人信息。".repeat(70)
+        val corpus =
+            listOf(
+                Triple("power", "设备维护手册", "断电保护：不间断电源的蓄电池为服务器持续供电，维护编号 SYN-UPS-726。"),
+                Triple("rail", "交通服务说明", "高铁退票规则：发车前办理车票退款，合成流程编号 SYN-RAIL-418。"),
+                Triple("harbor", "港口巡检笔记", "海边灯塔夜间照明引导航船，合成设施编号 SYN-PORT-953。"),
+            )
+        val now = System.currentTimeMillis()
+        corpus.forEach { (id, title, text) -> store.saveNote(KnowledgeNote(id, title, filler + text, now, now)) }
+        service.apply(SemanticConfiguration(model, prefix, keys = corpus.map { "note:${it.first}" }.toSet()))
+        withTimeout(120_000) { service.status.first { it in setOf("READY", "ERROR") } }
+        check(service.status.value == "READY")
+        assertTrue(service.progress.value == (3 to 3))
+        val questions = listOf("突然停电后如何维持服务器供电？" to "power", "火车票取消行程怎样退款？" to "rail", "SYN-PORT-953" to "harbor")
+        for ((query, expected) in questions) {
+            val hits = service.search(query)
+            assertTrue("Chinese synthetic retrieval: $expected", hits.firstOrNull()?.document?.key == "note:$expected")
+        }
+        store.removeNote(requireNotNull(store.note("power")))
+        assertTrue(service.search("SYN-UPS-726").none { it.document.key == "note:power" })
+    }
 
     private suspend fun verifyRetrieval(
         service: KnowledgeSemanticService,

@@ -17,4 +17,5 @@
     <string name="semantic_off">语义检索已关闭</string>
     <string name="semantic_stop">关闭并停止</string>
     <string name="semantic_clear_selection">清除选择</string>
+  <string name="semantic_progress">已完成 %1$d / %2$d 份资料</string>
 </resources>

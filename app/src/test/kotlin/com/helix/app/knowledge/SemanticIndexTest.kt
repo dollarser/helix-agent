@@ -52,6 +52,33 @@ class SemanticIndexTest {
         assertNull(index.read("model-a", document))
     }
 
+    @Test fun selectedCorpusCapacityReadsTailAndModelRebuildRemovesOnlyDerivedCache() {
+        val index = SemanticIndex(temporary.root)
+        val documents =
+            (0 until 64).map { n ->
+                val text = "合成技术资料包含可重建的检索片段。".repeat(650) + "唯一编号 SYN-$n"
+                val document = SemanticDocument("note:n$n", "r1", "合成资料 $n", text)
+                val chunks =
+                    SemanticIndex.ranges(text).map { (start, end) ->
+                        SemanticChunk(start, end, floatArrayOf(1f, 0f))
+                    }
+                index.write("model-a", document, chunks)
+                document
+            }
+        val rows = documents.map { it to requireNotNull(index.read("model-a", it)) }
+        val target = documents.last()
+        assertTrue(
+            SemanticIndex.rank("SYN-63", null, rows).any {
+                it.document == target &&
+                    SemanticIndex.text(it.document, it.start, it.end).contains("SYN-63")
+            },
+        )
+        assertNull(index.read("model-a", target.copy(revision = "edited")))
+        index.retain("model-b", documents.map { it.key }.toSet())
+        assertTrue(temporary.root.listFiles()!!.isEmpty())
+        assertTrue(documents.all { index.read("model-b", it) == null })
+    }
+
     @Test fun fusionFindsSemanticOnlyResultAndRetainDeletesDerivedEntriesOnly() {
         val blue = SemanticDocument("source:blue", "a", "Blue", "Harbor beacon route")
         val red = SemanticDocument("source:red", "b", "Red", "Mountain trail route")
