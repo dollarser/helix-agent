@@ -4,6 +4,7 @@ import android.content.Context
 import com.k2fsa.sherpa.onnx.OnlineModelConfig
 import com.k2fsa.sherpa.onnx.OnlineRecognizer
 import com.k2fsa.sherpa.onnx.OnlineRecognizerConfig
+import com.k2fsa.sherpa.onnx.OnlineStream
 import com.k2fsa.sherpa.onnx.OnlineTransducerModelConfig
 
 /** Installed, verified CPU model; opening never downloads or uses a system speech service. */
@@ -47,38 +48,47 @@ class OfflineAsrFactory(
                         enableEndpoint = false,
                     ),
             )
-        val stream =
+        var stream: OnlineStream? =
             try {
                 recognizer.createStream()
             } catch (failure: RuntimeException) {
                 recognizer.release()
                 throw failure
             }
-        return object : StreamingAsr {
+        return object : ReusableStreamingAsr {
             private val closed =
                 java.util.concurrent.atomic
                     .AtomicBoolean()
 
             private fun text(): String {
-                while (recognizer.isReady(stream)) recognizer.decode(stream)
-                return recognizer.getResult(stream).text.trim()
+                val current = requireNotNull(stream)
+                while (recognizer.isReady(current)) recognizer.decode(current)
+                return recognizer.getResult(current).text.trim()
             }
 
             override fun accept(samples: FloatArray): String {
-                stream.acceptWaveform(samples, 16000)
+                requireNotNull(stream).acceptWaveform(samples, 16000)
                 return text()
             }
 
             override fun finish(): String {
-                stream.acceptWaveform(FloatArray(8000), 16000)
-                stream.inputFinished()
+                requireNotNull(stream).acceptWaveform(FloatArray(8000), 16000)
+                requireNotNull(stream).inputFinished()
                 return text()
+            }
+
+            override fun nextUtterance() {
+                check(!closed.get())
+                val previous = stream
+                stream = null
+                previous?.release()
+                stream = recognizer.createStream()
             }
 
             override fun close() {
                 if (!closed.compareAndSet(false, true)) return
                 try {
-                    stream.release()
+                    stream?.release()
                 } finally {
                     try {
                         recognizer.release()

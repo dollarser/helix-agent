@@ -21,7 +21,7 @@ class VoiceCapture(
 ) {
     enum class Phase { IDLE, LOADING, LISTENING, FINISHING, REVIEW, CANCELLED, FAILED }
 
-    enum class Failure { MODEL, AUDIO, FOCUS, INTERRUPTED, CONNECTION, BUSY }
+    enum class Failure { MODEL, AUDIO, FOCUS, INTERRUPTED, CONNECTION, BUSY, BACKPRESSURE, LIMIT }
 
     val uploadsAudio get() = factory.uploadsAudio
     val destination get() = factory.destination
@@ -31,6 +31,7 @@ class VoiceCapture(
         val phase: Phase = Phase.IDLE,
         val text: String = "",
         val failure: Failure? = null,
+        val committedText: String = "",
     ) {
         val retryable get() = phase == Phase.FAILED || (phase == Phase.REVIEW && text.isBlank())
         val processing get() = phase in setOf(Phase.LOADING, Phase.FINISHING)
@@ -48,25 +49,87 @@ class VoiceCapture(
         }
 
     private var job: Job? = null
+    private var preparation: suspend () -> Unit = {}
+    private var segmentation: (() -> SpeechSegments)? = null
+    private val continuousOwner =
+        object : ContinuousCaptureOwner {
+            override fun source(value: PcmCapture?) {
+                activeSource.set(value)
+            }
+
+            override fun asr(value: StreamingAsr?) {
+                activeAsr.set(value)
+            }
+
+            override fun state(value: State) {
+                publish(value)
+            }
+
+            override fun phase(value: Phase) {
+                synchronized(stateLock) {
+                    if (!cancelled.get()) mutableState.value = mutableState.value.copy(phase = value)
+                }
+            }
+
+            override fun interrupted() {
+                cancel(Failure.INTERRUPTED)
+            }
+        }
     private val activeSource = AtomicReference<PcmCapture?>(null)
     private val activeAsr = AtomicReference<StreamingAsr?>(null)
 
     // One bounded capture with ordered native cleanup.
     @Suppress("LongMethod", "TooGenericExceptionCaught", "CyclomaticComplexMethod", "ComplexCondition")
-    fun start() {
+    fun start(
+        segmenter: (() -> SpeechSegments)? = null,
+        prepare: suspend () -> Unit = {},
+    ) {
         if (job?.isCompleted == false) return
+        preparation = prepare
+        segmentation = segmenter
         finish.set(false)
         cancelled.set(false)
         mutableState.value = State(Phase.LOADING)
         job =
             scope.launch(Dispatchers.IO) {
+                if (!captureCapacity.tryAcquire()) {
+                    publish(State(Phase.FAILED, failure = Failure.BUSY))
+                    return@launch
+                }
                 var asr: StreamingAsr? = null
                 var recorder: PcmCapture? = null
-                var failure = if (uploadsAudio) Failure.CONNECTION else Failure.MODEL
+                var failure = Failure.BUSY
                 try {
-                    asr = kotlinx.coroutines.runInterruptible { factory.open() }
-                    activeAsr.set(asr)
+                    check(
+                        kotlinx.coroutines.withTimeoutOrNull(10_000) {
+                            prepare()
+                            true
+                        } == true,
+                    )
                     if (cancelled.get() || !currentCoroutineContext().isActive) return@launch
+                    if (segmenter != null) {
+                        failure = Failure.AUDIO
+                        val text =
+                            ContinuousVoiceRun(
+                                factory,
+                                source,
+                                segmenter,
+                                continuousOwner,
+                            ).run(finish, cancelled)
+                        if (!cancelled.get() && currentCoroutineContext().isActive) {
+                            publish(State(Phase.REVIEW, text, committedText = text))
+                        }
+                        return@launch
+                    }
+                    failure = if (uploadsAudio) Failure.CONNECTION else Failure.MODEL
+                    kotlinx.coroutines.runInterruptible {
+                        factory.open().also {
+                            asr = it
+                            activeAsr.set(it)
+                        }
+                    }
+                    if (cancelled.get() || !currentCoroutineContext().isActive) return@launch
+                    val decoder = requireNotNull(asr)
                     failure = Failure.AUDIO
                     recorder = source { cancel(Failure.INTERRUPTED) }
                     activeSource.set(recorder)
@@ -82,18 +145,20 @@ class VoiceCapture(
                     ) {
                         val read = recorder.read(samples)
                         check(read in 1..samples.size)
-                        val text = asr.accept(FloatArray(read) { samples[it] / 32768f })
+                        val text = decoder.accept(FloatArray(read) { samples[it] / 32768f })
                         publish(State(if (finish.get()) Phase.FINISHING else Phase.LISTENING, text))
                         count += read
                     }
                     recorder.stop()
                     if (!cancelled.get() && currentCoroutineContext().isActive) {
                         publish(mutableState.value.copy(phase = Phase.FINISHING))
-                        val text = asr.finish()
+                        val text = decoder.finish()
                         publish(State(Phase.REVIEW, text))
                     }
                 } catch (interrupted: kotlinx.coroutines.CancellationException) {
                     throw interrupted
+                } catch (failure: ContinuousCaptureFailure) {
+                    publish(mutableState.value.copy(phase = Phase.FAILED, failure = failure.failure))
                 } catch (_: AudioFocusUnavailableException) {
                     publish(State(Phase.FAILED, failure = Failure.FOCUS))
                 } catch (rejected: SpeechSocketFailure) {
@@ -118,9 +183,13 @@ class VoiceCapture(
                     activeAsr.set(null)
                     activeSource.set(null)
                     try {
-                        recorder?.close()
+                        try {
+                            recorder?.close()
+                        } finally {
+                            asr?.close()
+                        }
                     } finally {
-                        asr?.close()
+                        captureCapacity.release()
                     }
                 }
             }
@@ -145,7 +214,7 @@ class VoiceCapture(
             mutableState.value = State(Phase.LOADING)
         }
         previous?.join()
-        if (!cancelled.get() && currentCoroutineContext().isActive) start()
+        if (!cancelled.get() && currentCoroutineContext().isActive) start(segmentation, preparation)
     }
 
     fun cancel(reason: Failure? = null) {
@@ -163,5 +232,10 @@ class VoiceCapture(
             // The worker still owns release for an already stopped or failed recorder.
         }
         (activeAsr.get() as? InterruptibleAsr)?.interrupt()
+    }
+
+    private companion object {
+        // One physical input pipeline across composers; cancellation does not release it early.
+        val captureCapacity = java.util.concurrent.Semaphore(1)
     }
 }

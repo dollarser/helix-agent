@@ -1,0 +1,6 @@
+<resources>
+    <string name="voice_continuous_title">连续转写</string>
+    <string name="voice_continuous_hint">停顿后写入可编辑草稿；取消只丢弃未完成段，不自动发送消息。</string>
+    <string name="voice_continuous_slow">识别跟不上录音，已停止；已完成的草稿保留。</string>
+    <string name="voice_continuous_limit">本次转写已达上限，已完成的草稿保留。</string>
+</resources>

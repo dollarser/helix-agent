@@ -44,7 +44,7 @@ import kotlinx.coroutines.launch
 
 /** Foreground capture adapter. Preview is transient composer state; only a final result commits a draft. */
 @Composable
-@Suppress("FunctionName", "LongMethod")
+@Suppress("FunctionName", "LongMethod", "LongParameterList", "CyclomaticComplexMethod")
 internal fun InlineVoiceInput(
     onDismiss: () -> Unit,
     onAccept: (String) -> Unit,
@@ -59,6 +59,7 @@ internal fun InlineVoiceInput(
             PackageManager.PERMISSION_GRANTED
     },
     suppliedConsent: com.helix.app.voice.SpeechConsentStore? = null,
+    dictation: ContinuousVoiceOptions = ContinuousVoiceOptions(),
 ) {
     val context = LocalContext.current
     val resources = LocalResources.current
@@ -80,6 +81,8 @@ internal fun InlineVoiceInput(
     val accept by rememberUpdatedState(onAccept)
     val dismiss by rememberUpdatedState(onDismiss)
     val error by rememberUpdatedState(onError)
+    val committed by rememberUpdatedState(dictation.onCommitted)
+    var lastCommitted by remember(capture) { mutableStateOf("") }
     var permission by remember { mutableStateOf(permissionChecker(context)) }
     var uploadConsent by remember(capture) {
         mutableStateOf(initialVoiceConsent(capture, consent, consentIdentity))
@@ -93,7 +96,16 @@ internal fun InlineVoiceInput(
             }
         }
 
+    fun commitPending() {
+        val completed = capture.state.value.committedText
+        if (completed.isNotBlank() && completed != lastCommitted) {
+            committed(completed)
+            lastCommitted = completed
+        }
+    }
+
     fun cancel() {
+        commitPending()
         capture.cancel()
         dismiss()
     }
@@ -102,9 +114,22 @@ internal fun InlineVoiceInput(
     }
     BackHandler(onBack = ::cancel)
     DisposableEffect(capture) { onDispose { capture.cancel() } }
-    LifecycleEventEffect(Lifecycle.Event.ON_STOP) { capture.cancel(VoiceCapture.Failure.INTERRUPTED) }
-    LaunchedEffect(permission, uploadConsent) { if (permission && uploadConsent) capture.start() }
+    LifecycleEventEffect(Lifecycle.Event.ON_STOP) {
+        commitPending()
+        capture.cancel(VoiceCapture.Failure.INTERRUPTED)
+    }
+    LaunchedEffect(permission, uploadConsent) {
+        if (permission && uploadConsent) {
+            capture.start(
+                segmenter = if (dictation.enabled) ({ dictation.segmenterFactory(context) }) else null,
+            ) { application.stopSpeechForInput() }
+        }
+    }
     LaunchedEffect(state) {
+        if (state.committedText.isNotBlank() && state.committedText != lastCommitted) {
+            committed(state.committedText)
+            lastCommitted = state.committedText
+        }
         when (state.phase) {
             VoiceCapture.Phase.LISTENING, VoiceCapture.Phase.FINISHING -> {
                 preview(state.text)
@@ -145,7 +170,12 @@ internal fun InlineVoiceInput(
         },
         onGrant = { launcher.launch(Manifest.permission.RECORD_AUDIO) },
         onFinish = capture::finish,
-        onRetry = { scope.launch { capture.retry() } },
+        onRetry = {
+            dictation.onRestart()
+            lastCommitted = ""
+            scope.launch { capture.retry() }
+        },
+        continuous = dictation.enabled,
     )
 }
 
@@ -164,11 +194,13 @@ internal fun InlineVoiceControls(
     onGrant: () -> Unit,
     onFinish: () -> Unit,
     onRetry: () -> Unit,
+    continuous: Boolean = false,
 ) {
     Column(
         Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp).testTag("voice-inline"),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        if (continuous) Text(stringResource(R.string.voice_continuous_hint))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             if (permission && uploadConsent &&
                 state.processing
@@ -181,18 +213,11 @@ internal fun InlineVoiceControls(
                 style = MaterialTheme.typography.bodyMedium,
             )
         }
-        if (uploadsAudio && !uploadConsent) {
-            Text(stringResource(R.string.cloud_voice_upload))
-            destination?.let {
-                Text(
-                    java.net
-                        .URI(it)
-                        .host
-                        .orEmpty(),
-                )
-            }
+        VoiceUploadNotice(uploadsAudio && !uploadConsent, destination)
+        val finalOnlyCloud = uploadsAudio && uploadConsent && !supportsPartial
+        if (finalOnlyCloud && !continuous) {
+            Text(stringResource(R.string.speech_http_asr_mode))
         }
-        if (uploadsAudio && uploadConsent && !supportsPartial) Text(stringResource(R.string.speech_http_asr_mode))
         FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
             TextButton(onCancel, Modifier.testTag("voice-cancel")) {
                 Text(stringResource(R.string.offline_voice_cancel))
@@ -222,6 +247,25 @@ internal fun InlineVoiceControls(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun VoiceUploadNotice(
+    visible: Boolean,
+    destination: String?,
+) {
+    if (visible) {
+        Text(stringResource(R.string.cloud_voice_upload))
+        destination?.let {
+            Text(
+                java.net
+                    .URI(it)
+                    .host
+                    .orEmpty(),
+            )
         }
     }
 }
@@ -265,19 +309,24 @@ internal fun voiceStatusText(
             }
 
             VoiceCapture.Phase.FAILED -> {
-                when (state.failure) {
-                    VoiceCapture.Failure.MODEL -> R.string.offline_voice_model_error
-                    VoiceCapture.Failure.FOCUS -> R.string.offline_voice_focus_error
-                    VoiceCapture.Failure.BUSY -> R.string.speech_model_busy
-                    VoiceCapture.Failure.CONNECTION -> R.string.cloud_voice_connection_error
-                    else -> R.string.offline_voice_audio_error
-                }
+                voiceFailureText(state.failure)
             }
 
             else -> {
                 R.string.offline_voice_stopped
             }
         }
+    }
+
+private fun voiceFailureText(failure: VoiceCapture.Failure?): Int =
+    when (failure) {
+        VoiceCapture.Failure.MODEL -> R.string.offline_voice_model_error
+        VoiceCapture.Failure.FOCUS -> R.string.offline_voice_focus_error
+        VoiceCapture.Failure.BUSY -> R.string.speech_model_busy
+        VoiceCapture.Failure.CONNECTION -> R.string.cloud_voice_connection_error
+        VoiceCapture.Failure.BACKPRESSURE -> R.string.voice_continuous_slow
+        VoiceCapture.Failure.LIMIT -> R.string.voice_continuous_limit
+        else -> R.string.offline_voice_audio_error
     }
 
 private fun initialVoiceConsent(

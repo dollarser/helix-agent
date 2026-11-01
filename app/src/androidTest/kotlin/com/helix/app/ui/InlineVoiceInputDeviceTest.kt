@@ -47,6 +47,7 @@ class InlineVoiceInputDeviceTest {
     @Suppress("FunctionName")
     private fun Fixture(
         permission: Boolean = true,
+        editableVoice: Boolean = false,
         lifecycle: androidx.lifecycle.LifecycleOwner? = null,
     ) {
         val content: @Composable () -> Unit = {
@@ -55,10 +56,17 @@ class InlineVoiceInputDeviceTest {
                 HelixTheme {
                     ConversationComposer(
                         input = preview ?: draft,
-                        onInput = { draft = it },
+                        onInput = {
+                            draft = it
+                            if (editableVoice) {
+                                preview = null
+                                open = false
+                            }
+                        },
                         isSending = false,
                         hasAttachments = false,
                         voiceActive = open,
+                        voiceDraftEditable = editableVoice,
                         voiceContent = {
                             if (open) {
                                 InlineVoiceInput(
@@ -113,6 +121,17 @@ class InlineVoiceInputDeviceTest {
                 content = content,
             )
         }
+    }
+
+    @Test
+    fun editingContinuousDraftStopsCaptureAndNeverSends() {
+        compose.setContent { Fixture(editableVoice = true) }
+        compose.waitUntil(5000) { preview?.contains("实时中文") == true }
+        compose.onNodeWithTag("chat-input").performTextReplacement("手动编辑的草稿")
+        compose.waitUntil(5000) { closed.get() }
+        assertEquals("手动编辑的草稿", draft)
+        assertEquals(false, open)
+        assertEquals(0, sent)
     }
 
     @Test

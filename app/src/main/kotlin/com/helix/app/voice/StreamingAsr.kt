@@ -7,6 +7,11 @@ interface StreamingAsr : AutoCloseable {
     fun finish(): String
 }
 
+/** Keeps a loaded local model while replacing only its completed utterance stream. */
+interface ReusableStreamingAsr : StreamingAsr {
+    fun nextUtterance()
+}
+
 /** Network implementations can unblock pending I/O from the cancelling thread. */
 interface InterruptibleAsr : StreamingAsr {
     fun interrupt()

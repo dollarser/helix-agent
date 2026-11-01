@@ -223,6 +223,15 @@ class ReadAloudService(
         liveReply.stop()
     }
 
+    /** User-started input waits for real synthesis/output cleanup, not merely a STOPPING label. */
+    suspend fun stopAndAwait() =
+        withContext(Dispatchers.Main.immediate) {
+            val previous = job
+            stop()
+            previous?.join()
+            synthesis.withLock { }
+        }
+
     private fun stopPlayback() {
         livePlayback = null
         val ticket = epoch.incrementAndGet()

@@ -6,7 +6,12 @@ object VoiceInputMapper {
     fun appendDraft(
         input: String,
         transcript: String,
-    ): String = if (input.isEmpty()) transcript else "$input $transcript"
+    ): String =
+        when {
+            transcript.isBlank() -> input
+            input.isEmpty() -> transcript
+            else -> "$input $transcript"
+        }
 
     const val RESULT_OK: Int = -1 // Activity.RESULT_OK
     const val RESULT_CANCELED: Int = 0 // Activity.RESULT_CANCELED
