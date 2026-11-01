@@ -1,0 +1,23 @@
+<resources>
+    <string name="human_take_over">Take over</string>
+    <string name="human_target_notice">Takeover stops the original task. Releasing its background screen does not move the app to your main screen; open it there yourself. Handing back starts a new turn and observes the current state again.</string>
+    <string name="human_wait_settlement">Waiting for the original operations to settle. Avoid repeating effects that may already have happened.</string>
+    <string name="human_note">What you handled (optional)</string>
+    <string name="human_return">Handled, hand back</string>
+    <string name="human_finished">I completed everything</string>
+    <string name="human_cancel">Cancel follow-up</string>
+    <string name="human_return_unconfirmed">Hand-back start is unconfirmed. Inspect this conversation and any pending confirmation. No automatic retry; use the composer for a new request.</string>
+    <string name="stop_facts_title">Stop facts</string>
+    <string name="stop_facts_verified">Verified tool effects: %1$s</string>
+    <string name="stop_facts_recorded">Recorded results, business outcome unverified: %1$s</string>
+    <string name="stop_facts_unknown">Dispatched or evidence incomplete, effects unknown: %1$s</string>
+    <string name="stop_facts_not_started">Not started: %1$s</string>
+    <string name="stop_facts_artifacts">Registered output artifacts: %1$d</string>
+    <string name="stop_facts_boundary">Stopping is not rollback. Tool verification is not business completion; observe unknown effects before repeating actions.</string>
+    <string name="human_state_finished">You confirmed completion. No follow-up task started.</string>
+    <string name="human_state_cancelled">Follow-up cancelled. No new task started.</string>
+    <string name="human_state_submitted">Fresh hand-back input submitted; the original task remains stopped. No automatic replay.</string>
+    <string name="human_return_pending">Complete the existing confirmation in this conversation.</string>
+    <string name="human_stop_unconfirmed">Takeover stop is unconfirmed. Inspect the original task; unknown effects are never replayed automatically.</string>
+    <string name="human_old_control">A newer turn exists. This old hand-back control cannot continue it.</string>
+</resources>

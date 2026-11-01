@@ -506,6 +506,7 @@ fun ChatScreen(
                             },
                     )
                 },
+                humanControl = { turnId -> HumanControlPanel(chatService, screen, turnId) },
                 input = input,
                 onInput = buffer::edit,
                 composerAvailability =

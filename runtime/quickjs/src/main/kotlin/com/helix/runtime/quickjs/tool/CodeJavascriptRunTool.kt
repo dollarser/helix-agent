@@ -52,9 +52,9 @@ fun interface JsExecutor {
  * Contract (doc 03 §4.1 / §5, mobile-tool-orchestration §3.1):
  * - [ToolOperationClass.CODE_EXECUTION]: current session effect rules determine approval.
  *   Required approval binds the exact call and never comes from model output.
- * - [ExecutionTargetType.LOCAL_QUICKJS]: the platform's QuickJS lane serializes executions to
- *   single concurrency, and CODE_EXECUTION is exclusive — so two JS calls never run in parallel
- *   and never overlap a file tool's effect window (the footprint is derived, not self-declared).
+ * - [ExecutionTargetType.LOCAL_QUICKJS]: the non-reentrant QuickJS engine is serialized by
+ *   the host scheduler. Physical capacity and original execution ownership govern admission;
+ *   code and file effects do not introduce a global execution lock.
  * - The model sees ONLY the business inputs [code] and [input]; the §4.1 limits are NEVER
  *   schema parameters (the model cannot raise them) — the executor applies the fixed
  *   [JsExecutionLimits.DEFAULTS] and the isolated backend enforces them again.
@@ -87,7 +87,8 @@ object CodeJavascriptRunTool {
             name = ToolName(NAME),
             version = ToolVersion(VERSION),
             description =
-                "Run JavaScript function body; return JSON. Default access=isolated is offline. " +
+                "Run a synchronous JavaScript function body; return JSON, not a Promise. No top-level await. " +
+                    "Default access=isolated is offline. " +
                     "access=native requires the user's Runtime native-access switch; discovery does not enable it. " +
                     "Prefer read/write/files.mkdir for workspace files. Native runs in a private app-UID process. " +
                     "Native APIs: native.files.readText/writeText/list/mkdirs/delete(path,...); " +
@@ -120,14 +121,7 @@ object CodeJavascriptRunTool {
                 "properties",
                 buildJsonObject {
                     put("access", accessSchema())
-                    put(
-                        "toolBridge",
-                        buildJsonObject {
-                            put("type", "boolean")
-                            put("default", false)
-                            put("description", "helix.call uses task authorization and user delegation. No retries.")
-                        },
-                    )
+                    put("toolBridge", bridgeSchema())
                     put(
                         "code",
                         buildJsonObject {
@@ -172,6 +166,18 @@ object CodeJavascriptRunTool {
             )
             put("required", JsonArray(listOf(JsonPrimitive("code"))))
             put("additionalProperties", JsonPrimitive(false))
+        }
+
+    private fun bridgeSchema(): JsonObject =
+        buildJsonObject {
+            put("type", "boolean")
+            put("default", false)
+            put(
+                "description",
+                "Synchronous helix.call(tool,args): const r=helix.call('time.now',{}); return r; " +
+                    "No top-level await; do not return a Promise. " +
+                    "Uses task authorization and user delegation. No automatic retries.",
+            )
         }
 
     private fun accessSchema(): JsonObject =

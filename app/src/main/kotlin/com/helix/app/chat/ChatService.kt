@@ -3250,6 +3250,95 @@ class ChatService(
         workScope.launch { refreshTaskDashboards() }
     }
 
+    private val humanHandoff by lazy { HumanHandoff(storage) { clock.now().toEpochMilli() } }
+
+    /** Explicit native human control. Never changes a target or revives the original driver. */
+    @Suppress("TooGenericExceptionCaught") // Surface stop failure without claiming rollback or settlement.
+    fun takeOverTask(
+        sessionId: String,
+        turnId: String,
+    ) {
+        workScope.launch {
+            try {
+                submissionGate.withLock {
+                    val turn = storage.turns.find(turnId) ?: return@withLock
+                    if (turn.sessionId != sessionId || storage.turns.latestVisible(sessionId)?.id != turnId) {
+                        return@withLock
+                    }
+                    if (TurnState.valueOf(turn.state).isTerminal || humanHandoff.state(turnId) != null) {
+                        return@withLock
+                    }
+                    humanHandoff.record(turnId, HumanHandoffState.REQUESTED)
+                    stopCommands.stopTask(
+                        turnId,
+                        pause = storage.goalTurnBindings.byTurn(turnId) != null,
+                        systemReason = null,
+                    )
+                    refreshStoppedTurn(turnId)
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                Log.e(TAG, "Human takeover stop unconfirmed: ${error.javaClass.simpleName}")
+                setBlocked(str(R.string.human_stop_unconfirmed))
+            }
+        }
+    }
+
+    internal suspend fun handoffPresentation(turnId: String): HumanHandoffUi? =
+        withContext(Dispatchers.IO) { humanHandoff.project(turnId) }
+
+    /** Hand-back is fresh human input through existing admission, not retry/resume of a stopped Turn. */
+    internal fun returnHumanControl(
+        sessionId: String,
+        turnId: String,
+        completed: Boolean,
+        note: String,
+    ) = sessionActions.submit {
+        submissionGate.withLock {
+            if (openSessionId != sessionId || !humanHandoff.canReturn(sessionId, turnId)) {
+                return@withLock ChatSubmissionOutcome.Rejected("HANDOFF_CHANGED")
+            }
+            if (completed) {
+                humanHandoff.record(turnId, HumanHandoffState.FINISHED)
+                refreshScreen()
+                return@withLock ChatSubmissionOutcome.Rejected("USER_COMPLETED_NO_EXECUTION")
+            }
+            if (stagedAttachments.isNotEmpty() || pendingSubmission != null || pendingInputResume != null) {
+                return@withLock ChatSubmissionOutcome.Rejected("CONFIRMATION_PENDING")
+            }
+            val context = loadStopFacts(storage, turnId).continuationContext()
+            val request =
+                ChatSubmission(
+                    sessionId,
+                    ComposerEditClock.next(0),
+                    "human-return:$turnId",
+                    "I have finished the manual step and explicitly return control. Start by observing the current " +
+                        "screen/files again; previous node/frame tokens are obsolete. Do not repeat unknown effects. " +
+                        "Stopping the prior task does not prove background-display release " +
+                        "or transfer to my main screen. Use fresh host observations.\n" +
+                        "User note: $note\n$context",
+                )
+            // Consume the old button before admission. Failure/confirmation cannot cause an automatic replay.
+            humanHandoff.record(turnId, HumanHandoffState.SUBMITTED)
+            val outcome = submissionAttempt { admitSubmission(request) }
+            refreshScreen()
+            outcome
+        }
+    }
+
+    internal fun dismissHumanControl(
+        sessionId: String,
+        turnId: String,
+    ) = sessionActions.submit {
+        submissionGate.withLock {
+            if (humanHandoff.canReturn(sessionId, turnId)) {
+                humanHandoff.record(turnId, HumanHandoffState.CANCELLED)
+                refreshScreen()
+            }
+        }
+    }
+
     fun stop(explicitTurnId: String? = null) {
         val turnId = explicitTurnId ?: _screen.value.activeTurn?.id ?: return
         workScope.launch { stopTurn(turnId) }

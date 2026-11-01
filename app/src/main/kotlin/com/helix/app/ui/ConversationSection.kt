@@ -71,6 +71,7 @@ internal fun ConversationSection(
     artifacts: @Composable () -> Unit = {},
     turnArtifacts: @Composable (String) -> Unit = {},
     displayExecution: @Composable (String) -> Unit = {},
+    humanControl: @Composable (String) -> Unit = {},
     taskPreparation: @Composable () -> Unit = {},
     modelSourceGroups: List<ProviderProvisioningKind> =
         listOf(
@@ -504,6 +505,7 @@ internal fun ConversationSection(
                             onContinueGoal = intents.onRecoveryContinueGoal,
                             onRetry = intents.onRecoveryRetry,
                         )
+                        humanControl(pastPanel.turnId)
                     }
                 }
             }
@@ -524,6 +526,7 @@ internal fun ConversationSection(
                                 }
                             }
                         }
+                        if (!turn.state.isTerminal) humanControl(turn.id)
                         TurnProgressLabel(
                             turn.state,
                             awaitingApproval =
@@ -569,6 +572,7 @@ internal fun ConversationSection(
                             onContinueGoal = intents.onRecoveryContinueGoal,
                             onRetry = intents.onRecoveryRetry,
                         )
+                        humanControl(turn.id)
                     }
                 }
             }

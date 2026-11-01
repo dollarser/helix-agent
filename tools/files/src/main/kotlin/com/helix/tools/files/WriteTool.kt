@@ -210,8 +210,13 @@ object WriteTool {
                     val preflight = writePreflight(store, parsed)
                     val ok =
                         when (preflight) {
-                            is WritePreflight.Reject -> return ToolExecutorResult.Failed(preflight.message)
-                            is WritePreflight.Ok -> preflight
+                            is WritePreflight.Reject -> {
+                                return ToolExecutorResult.Failed(preflight.message, sideEffectFree = true)
+                            }
+
+                            is WritePreflight.Ok -> {
+                                preflight
+                            }
                         }
                     val expected = parsed.expectedSha256
                     val outcome =

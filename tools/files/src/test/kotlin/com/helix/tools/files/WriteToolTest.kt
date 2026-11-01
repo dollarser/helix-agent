@@ -50,6 +50,7 @@ class WriteToolTest {
             }
         val result = WriteTool.executor(store(root)).execute(call(args)) as ToolExecutorResult.Failed
         assertTrue(result.detail.contains("parent directory"))
+        assertTrue(result.sideEffectFree)
         assertFalse(result.requiresReview)
         assertFalse(Files.exists(root.resolve("missing/fetch_dy.py")))
     }

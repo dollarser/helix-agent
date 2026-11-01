@@ -378,3 +378,9 @@ API31 起提供本后端；API34+ 请求独立焦点及禁止抢主焦点，以�
 显示归属原会话/Turn/授权，原 Turn 持久取消/终态、授权变化、Binder/服务死亡后回收；原动作退出前不回收仍在执行的物理资源。进程重启不恢复旧 token 或重放未知效果。参考 [Mika 固定源码](../research/topics/mobile-use-device-readiness-and-reliability-2026-09-29.md#mika-automation-review-2026-11-01)，独立实现，无参考代码/二进制复制。平台事实见 [UiAutomation](https://developer.android.com/reference/android/app/UiAutomation)、[DisplayManager](https://developer.android.com/reference/android/hardware/display/DisplayManager)、[AOSP Display flags](https://github.com/aosp-mirror/platform_frameworks_base/blob/main/core/java/android/view/Display.java)、[Home 系统策略](https://github.com/aosp-mirror/platform_frameworks_base/blob/main/services/core/java/com/android/server/policy/PhoneWindowManager.java)。本节是当前实现说明，实际验收范围由本轮收据区分，不能把编译或合成样例当所有 OEM、模型与账号成功率证明。
 
 会话实时状态来自同一显示池创建/释放点及实际 UserService Binder 死亡事件，不轮询截图。创建与释放报告通过原宿主 owner Binder 返回，检查 shell/root 调用 UID、固定消息形状和原路由代际；宿主仅向原会话/Turn 发布显示事实，最近目标另校验原授权与当前应用范围，不发布 route key、displaySession 或授权 proof。释放完成、连接丢失和释放未确认分别表达，旧路由的迟到释放不能覆盖新路由。该进程内 UI 投影不取代 Room 执行事实、不持久恢复为 live；历史 ui.device 观察继续单独标识。
+
+### 人工接管与重新交回
+
+在会话运行区或 Mobile Use 浮窗选择接管，会停止原 Turn；Goal 仍沿用暂停与管理入口。等待原操作结算后，可以填写已处理内容，再选择“处理好了，交回继续”“我已全部完成”或“取消后续”。交回通过原会话准入创建新 Turn、使用当前授权并重新观察；旧按钮不能恢复旧 driver、节点或截图凭据。完成与取消是分别记录的人工决策，不会偷偷调用模型或继续操作。
+
+后台屏释放不等于将目标应用移到主屏。需要手动处理时，在主屏自行打开目标应用；再次交回仍遵循用户当前的主屏/后台屏选择，同应用主屏占用时必须明确选择主屏执行或允许移动，不能把移动失败当成交还成功。停止事实摘要区分工具效果已验证、仅有结果记录、效果未知及明确未启动；产物登记不代表文件仍可用，打开时仍检查真实文件和哈希。未知效果应先观察，停止不是回滚。控制与持久事实契约见 [Turn 协调 ADR](../adr/agent/001-turn-coordination.md)。

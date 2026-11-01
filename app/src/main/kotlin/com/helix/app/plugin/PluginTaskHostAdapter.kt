@@ -64,7 +64,7 @@ internal class PluginTaskHostAdapter(
 
     override fun requestStop(task: PluginTaskIdentity) {
         val current = task(task)?.takeIf { it.running } ?: return
-        chat().stopTask(current.id, pause = current.goalId != null)
+        chat().takeOverTask(current.sessionId, current.id)
     }
 
     override fun openConversation(task: PluginTaskIdentity) {
