@@ -11,6 +11,7 @@
 | 09-03 历史快照 | 主流客户端、CLI、系统与 HarmonyOS 生态 | 原报告基于官方页面归纳；本轮保留来源与日期 | 不宣称 09-08 仍全量可用 |
 | 09-08 前两轮 | DSH、Operit/PalmClaw/RikkaHub/PocketCode、远程/GUI/离线替代品、OEM 和旧报告 | 浏览官网、维护者仓库与部分 Releases，校正部署/版本混淆 | 未安装竞品 APK、未实测成功率/性能、未验签 |
 | 09-08 本轮重组 | BotDrop、QSH36/DroidClaw、unitedbyai/droidclaw、DroidMind、Mobile Next；复核 AndCode、ClawMobile、AppFunctions | 检索候选并打开一手来源，对照运行路径和公开限制 | 未审计全源码、未调用收费服务、未验证用户规模 |
+| 11-01 主要移动端竞品增量 | Mika；RikkaHub、Operit AI 的既有档案 | Owner 本轮指定加入 Mika；历史 2026-10-30 用户原话“参考RikkaHub和Operit Ai这两个竞品”确认另两项身份。Mika 复用固定 commit `5f630d9765038fa5178f3d7687a3cf5c22fbcfb4` 的[源码研究](../research/topics/mobile-use-device-readiness-and-reliability-2026-09-29.md#mika-automation-review-2026-11-01)，同步主要对象定位与索引 | 不重新核验其他产品发行版，不安装竞品、不做性能/成功率横评，不把 Helix 自身合成测试当作 Mika 验收 |
 | Helix 对照 | 当前状态、相关架构与完成记录入口 | 读取当前工作区文档，标记发布/真机边界 | 未把本次文档检查视为重新验收代码 |
 
 新条目的一手链接就在对应产品卡；历史来源索引见 §4。以上 GitHub 多为可变主分支 URL，尚未全面保存 commit/permalink，故仅属于文档级证据，不能复现为特定 APK 结论。正式横评前补齐 tag、commit、资产 SHA-256 与签名身份。

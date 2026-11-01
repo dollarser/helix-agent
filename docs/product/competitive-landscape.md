@@ -10,9 +10,11 @@ Helix 面临的已不是“手机上有没有 Agent”，而是用户能否更�
 
 建议继续聚焦：**无需电脑、连接自己的模型、组合手机文件/网页/代码与受授权 Android 能力，并交付可检查结果的本机工作台。**这是细分价值主张，不是通吃办公、离线 AI、云端开发和全民系统助手。
 
+2026-11-01 Owner 明确的主要移动端竞品为 **[Mika](competitive-direct-agents.md#mika)、[RikkaHub](competitive-direct-agents.md#rikkahub聊天获客到执行工作台的转换路径) 和 [Operit AI（Operit Android）](competitive-direct-agents.md#operit-与-operit-2能力覆盖和生态是压力来源)**。优先分别对照自动化与 sandbox 接入、聊天到工作区体验、综合工具工作台与扩展生态；其他既有对象继续保留。此为研究对象优先级，不是质量排名、横评完成或新增实施授权。Mika 的固定源码依据与历史点名来源见[证据批次](competitive-evidence.md#1-核验批次与可追溯性)。
+
 三个主要判断：
 
-1. 最近的产品压力来自 Operit、PalmClaw、RikkaHub、AndCode、PocketCode 与 DSHA：分别考验能力组合、原生执行、聊天入口、开发闭环与安装交付。依据见[直接竞品档案](competitive-direct-agents.md)。
+1. 主要移动端竞品按上述 Owner 指定对象优先对照；PalmClaw、AndCode、PocketCode 与 DSHA 等继续作为直接参照：分别考验能力组合、原生执行、聊天入口、开发闭环与安装交付。依据见[直接竞品档案](competitive-direct-agents.md)。
 2. Helix 的分域执行、统一授权和持久对账有工程价值，但只有转化成低摩擦任务完成、可理解失败和不重复副作用，才可能形成用户优势；当前没有同条件胜出证据。
 3. 应优先补“任务体验、设备/发布验证、常用扩展可用性”的证据，而不是按竞品功能列表扩充 Runtime、工作流和跨设备范围。
 
@@ -34,11 +36,11 @@ Helix 面临的已不是“手机上有没有 Agent”，而是用户能否更�
 
 | 用户想完成什么 | 可选路线 / 代表对象 | 路线的合理优势 | Helix 需要证明什么 |
 | --- | --- | --- | --- |
-| 手机内完成文件、网页、代码任务 | Operit、PalmClaw、RikkaHub、Helix | 原生 UI 与工具组合，设备随身 | 同任务完成成本与结果正确性 |
+| 手机内完成文件、网页、代码任务 | Mika、Operit、PalmClaw、RikkaHub、Helix | 原生 UI 与工具组合，设备随身 | 同任务完成成本与结果正确性 |
 | 安装现成 Agent/Linux 生态 | DSHA、deepcode-lab、BotDrop、Termux | 复用引擎与依赖，配置灵活 | 按需 Runtime 的安装/兼容取舍值得接受 |
 | 手机修改代码项目 | AndCode、PocketCode | 项目、diff、终端等垂直交互 | 是否需要完整 IDE，还是小任务足够 |
 | 随时管理电脑上的开发任务 | Happy、HAPI、AndCode 远程路径 | 利用已有电脑、依赖与算力 | 没有电脑时本机价值；不承诺重型替代 |
-| 让手机界面完成操作 | ClawMobile、GUI 社区 App、DroidRun 等 | 跨 App 视觉/结构化控制 | 限定 App 上的可停止、可复核与恢复 |
+| 让手机界面完成操作 | Mika、ClawMobile、GUI 社区 App、DroidRun 等 | 跨 App 视觉/结构化控制 | 限定 App 上的可停止、可复核与恢复 |
 | 快速问答、离线或固定重复任务 | Chatbox、PocketPal、Automate/Tasker | 配置低、离线或确定性成本低 | 值得使用 Agent 的非固定任务 |
 | 系统与业务一体化服务 | 小艺、Gemini、YOYO 等 | 预装入口、系统权限、服务合作 | 以开放模型和工作区切入，避开入口正面竞争 |
 

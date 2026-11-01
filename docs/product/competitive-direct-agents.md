@@ -6,18 +6,28 @@
 
 ## 1. 重点对象与选择依据
 
+2026-11-01 Owner 指定 **Mika、RikkaHub、Operit AI（本文 Operit Android）为主要移动端竞品**。RikkaHub 与 Operit 已有产品卡，提升其优先对照定位而不重复建档；其他对象仍保留。Mika 按固定源码研究补入，本文其余产品事实不因此获得新的核验日期。
+
 | 产品 | 核心用户任务 | 本机执行路径（公开说明） | 主要对照点 | 证据边界 |
 | --- | --- | --- | --- | --- |
-| Operit | 综合手机任务 | 原生工具与 Linux 用户空间 | 能力组合、工作区与扩展 | 维护者自述，发行版组合待试 |
+| Mika | 本机任务、手机自动化与脚本 | Android shell helper、后台显示与 sandbox 工具桥 | 主要竞品：观察/动作反馈、后台屏、脚本与 Skill 接入 | 固定 commit 源码复核，未安装或横评 APK |
+| Operit AI（Operit Android） | 综合手机任务 | 原生工具与 Linux 用户空间 | 主要竞品：能力组合、工作区与扩展 | 维护者自述，发行版组合待试 |
 | PalmClaw | 原生个人 Agent | 手机 Loop + API 推理 | 配置、工具边界、恢复 | 调用级恢复未独立审计 |
-| RikkaHub | 聊天延伸至工作区 | README 列 PRoot Workspace | 获客入口、附件与历史体验 | 须绑定具体发行版 |
+| RikkaHub | 聊天延伸至工作区 | README 列 PRoot Workspace | 主要竞品：聊天入口、附件、历史与工作区体验 | 须绑定具体发行版 |
 | AndCode | 移动开发 | 本机 PRoot；另有远程 OpenCode | 项目、diff、终端、安装 | 本机/远程分别评测 |
 | PocketCode | Android IDE | 官网列终端与 BYOK Agent | 开发产物交付 | 官网声明，版本/付费待核 |
 | DSHA | 安装即用 harness | Ubuntu + PRoot/proroot | 安装、修复与依赖生态 | 维护者设备证据不可外推 |
 
-首批横评选这六个对象；ClawMobile 为 GUI 专项优先候选，BotDrop 为安装引导补充，QSH36/DroidClaw 为早期高重合观察。相关性不是质量排名，其他产品的证据缺失不等于功能缺失。
+上述六个既有对象保留首批横评计划，Mika 新列为主要源码对照对象，APK 横评尚未执行；ClawMobile 为 GUI 专项优先候选，BotDrop 为安装引导补充，QSH36/DroidClaw 为早期高重合观察。相关性不是质量排名，其他产品的证据缺失不等于功能缺失。
 
 ## 2. 综合工作台与原生 Agent
+
+<a id="mika"></a>
+### Mika
+
+[Mika 主仓库](https://github.com/wangzan101/Mika)正式列为主要移动端竞品。本轮已只读研究固定 [commit `5f630d9765038fa5178f3d7687a3cf5c22fbcfb4`](https://github.com/wangzan101/Mika/tree/5f630d9765038fa5178f3d7687a3cf5c22fbcfb4)，重点是自动化观察/定位/执行与反馈、shell helper 后台虚拟屏、sandbox 脚本工具桥及 Skill 脚本入口。
+
+其价值是对照完整任务中“看见界面 → 执行动作 → 返回证据”与“脚本 → 同任务工具调用”的衔接。Helix 已有 PRoot、QuickJS、Jobs 与统一授权，比较应识别真实接入差距，不将 Mika 当成替换整套运行环境或授权策略的依据。逐源码链接、许可边界、Helix 取舍及后续实现记录统一见[现有 Mika 自动化与 sandbox 研究](../research/topics/mobile-use-device-readiness-and-reliability-2026-09-29.md#mika-automation-review-2026-11-01)。根许可为 Apache-2.0，第三方运行时许可另计；未运行 Mika 脚本、安装其 APK 或做同条件产品横评，不能由源码推断所有设备上的可靠性。
 
 ### Operit 与 Operit 2：能力覆盖和生态是压力来源
 

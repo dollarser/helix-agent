@@ -352,3 +352,32 @@ AutomationSessionManager.kt  3669ad260e36a9a50f309a177a562eb9cd0863f0917eca17592
 | A07 | [UI Automator](https://developer.android.com/training/testing/other-components/ui-automator) | 测试侧等待、跨应用操作及状态核验；不是生产权限授权 |
 
 **结论：Mobile Use 需要优化，但重点是把现有能力做成可解释、可恢复、可核查的任务闭环。默认自动解锁、全天候保活和无人值守业务提交不是当前缺陷修复的同义词。**
+
+<a id="mika-automation-review-2026-11-01"></a>
+## Mika 自动化源码复核（2026-11-01）
+
+本轮由 Owner 授权调研并针对性优化。只读检出 [Mika 5f630d9765038fa5178f3d7687a3cf5c22fbcfb4](https://github.com/wangzan101/Mika/tree/5f630d9765038fa5178f3d7687a3cf5c22fbcfb4)，未运行其脚本、安装 APK 或授予系统能力。根 LICENSE 为 Apache-2.0，NOTICE 保留作者归属；第三方运行时有各自许可，不从参考仓库搬运代码或二进制。本轮独立调整 Helix 已有观察逻辑。
+
+| 维度与 Mika 源码证据 | Helix 当前实现与取舍 |
+| --- | --- |
+| [ChangeWait](https://github.com/wangzan101/Mika/blob/5f630d9765038fa5178f3d7687a3cf5c22fbcfb4/app/src/main/java/com/wangzan101/mika/cap/phone/a11y/ChangeWait.kt)：事件安静、树变化及帧稳定，400ms quiet、2.5s cap，避免过早判无变化 | `AutomationPostActionObservation` 已通过 `AutomationWaiter` 对 set_text/scroll 在原 deadline 内最多观察 1 秒，200ms 稳定再附状态。真实差距是持续动画/源截断时丢弃最后一次有效观察。本轮保留有界新状态并明确 UNSETTLED，模型据此选择等待、定位或继续；不加固定动作延迟、自动重试或像素采集权限。 |
+| [ActionEffect](https://github.com/wangzan101/Mika/blob/5f630d9765038fa5178f3d7687a3cf5c22fbcfb4/core/src/main/kotlin/com/wangzan101/mika/core/uistate/ActionEffect.kt)：结构差异、输入读回、切应用、treeBlind 与加载信号 | Helix `AutomationToolOutcome` 已保留 DISPATCHED/UNVERIFIED 与不确定效果，不能把 Mika 的 done 启发式当业务成功。本轮保留该事实语义。输入去掉全部空白再比较不适用于任意文本，不照搬。全面动作前后采样增加调用与 token 生命周期复杂度，未引入。 |
+| [AndroidScreen.resolve](https://github.com/wangzan101/Mika/blob/5f630d9765038fa5178f3d7687a3cf5c22fbcfb4/app/src/main/java/com/wangzan101/mika/cap/phone/a11y/AndroidScreen.kt#L1516)、同目录 NodeIds 与 core/uistate/RefStabilizer：snapshotId、节点刷新、特征唯一重定位 | Helix `AutomationNodeActionExecutor.validateObservedTarget` 已核验包、窗口、generation、fingerprint；新观察替换 token，动作失效旧 token；`AutomationClickMatchExecutor` 支持当前唯一 selector 原子定位。已有安全边界与恢复路径，不为复用旧编号引入另一套自动重定位。 |
+| [TaskRun](https://github.com/wangzan101/Mika/blob/5f630d9765038fa5178f3d7687a3cf5c22fbcfb4/app/src/main/java/com/wangzan101/mika/task/TaskRun.kt#L838)：finally 释放显示/监听资源，NonCancellable 清理；664、717 行显式 reviewFinalAnswer=false | Helix Durable Turn、UNKNOWN、原调用身份及取消后容量释放已有独立契约。本轮观察取消不得抹去派发事实或发布迟到 token，不迁移第二套任务循环，也不声称 Mika 已启用最终独立核查。 |
+| [ApprovalPolicy](https://github.com/wangzan101/Mika/blob/5f630d9765038fa5178f3d7687a3cf5c22fbcfb4/core/src/main/kotlin/com/wangzan101/mika/core/action/Approval.kt)：payment 决定 Ask/Deny，其余 Allow | 与 Helix 用户会话授权不是等价模型，不能作为授权来源。保留用户控制的能力与范围，不添加任意业务流程限制。 |
+| 同目录 AndroidScreen、shell/display 及 TaskRun 的后台显示 owner | 无线调试与虚拟屏有额外权限、设备/焦点/生命周期成本，不作为小型可靠性优化引入。本轮不新增 root、Shizuku、ADB 网络或无障碍授权。 |
+
+采用的改动限于 `AutomationPostActionObservation`、模型工具说明及回归覆盖：只有最后一次读取成功、快照存在且未暂停，调用未取消且原 deadline 未过期，才附 UNSETTLED 状态。输出仍有节点数/字节预算及 truncated 标记；缺失节点不能证明目标不存在。其 token 与普通快照一样，在执行时重新核验，连续变化仍可能使之过期，模型可使用 fresh selector 或再观察。UNSETTLED 不证明输入无效，不证明稳定或业务成功，也不触发重放。当前窄改动不解决纯视觉定位、云端模型效果或任意后台执行；验证原始收据保存在忽略的 `build/mika-automation-2026-11-01/`。
+
+### 2026-11-01：Owner 追加后台屏与 sandbox 接入实现授权
+
+上一节是先行窄改动的边界；Owner 随后明确要求实现后台虚拟屏，再补脚本统一工具桥、Skill 脚本入口和实际生命周期差距。仍以同一固定 commit 只读源码作证据，不运行 Mika、不搬二进制或源码。
+
+| Mika 实现证据 | Helix 实际差距与采用方式 |
+| --- | --- |
+| [BuiltinShellManager](https://github.com/wangzan101/Mika/blob/5f630d9765038fa5178f3d7687a3cf5c22fbcfb4/app/src/main/java/com/wangzan101/mika/cap/phone/setup/BuiltinShellManager.kt)、[AgentDisplay](https://github.com/wangzan101/Mika/blob/5f630d9765038fa5178f3d7687a3cf5c22fbcfb4/app/src/main/java/com/wangzan101/mika/cap/phone/display/AgentDisplay.kt)、[ShellService](https://github.com/wangzan101/Mika/blob/5f630d9765038fa5178f3d7687a3cf5c22fbcfb4/app/src/main/java/com/wangzan101/mika/cap/phone/shell/ShellService.kt)：shell helper、Surface/ImageReader、display launch/input | Helix 已有 Shizuku UserService 和特权语义后端，复用而非新增无线 ADB 协议。用户选主屏/后台屏；`ShellBackgroundDisplays` 绑定会话 owner 和随机 displaySession，帧/窗口/节点/坐标一致路由。旧 token 不跨 Turn/屏幕复用，后台能力失败不退到主屏。Android 14+ 读取实际焦点 flags，旧版本报告降级；同 App 数据共享，主屏占用由显式用户选择移动。无 ALWAYS_UNLOCKED 或锁屏认证绕过。 |
+| [SandboxTools](https://github.com/wangzan101/Mika/blob/5f630d9765038fa5178f3d7687a3cf5c22fbcfb4/core/src/main/kotlin/com/wangzan101/mika/core/cap/sandbox/SandboxTools.kt)、[SandboxBridge](https://github.com/wangzan101/Mika/blob/5f630d9765038fa5178f3d7687a3cf5c22fbcfb4/app/src/main/java/com/wangzan101/mika/cap/sandbox/SandboxBridge.kt)：随机 socket/token 与同任务 SubActions | Helix 原有 PRoot/QuickJS、Jobs/PTY、流日志/恢复和产物，无须重写。实际缺口是脚本回调统一工具。新增 `HostToolBridge` 与执行期 socket/Binder 接口，经原 ApplicationToolGateway/Dispatcher/批准/审计；注册表决定工具集合，不硬编码 Mobile Use。原 session/Turn、取消、deadline、display 选择仍由宿主绑定；脚本身份字段不采信。默认 isolated JS 不转 native。 |
+| [ScriptManifest](https://github.com/wangzan101/Mika/blob/5f630d9765038fa5178f3d7687a3cf5c22fbcfb4/core/src/main/kotlin/com/wangzan101/mika/core/knowledge/ScriptManifest.kt)：脚本发现和 needs | Helix 原可发现 scripts 文件但资源读取只含 references/assets，也无运行入口。补 `skills.scripts`、有界脚本读取、固定快照检查及 `skills.run` 现有运行器入口；运行前真实依赖探测，清单声明不是已满足。Skill 资源复制到该 Job 私有暂存，真实工作区不复制，不将源快照变成可写运行目录。 |
+| Mika 取消/进程处理与输出机制 | Helix 已有 process group、持久 Jobs 与 UNKNOWN 恢复。针对实际启动竞态复用 `awaitPtyProcessIdentity` 等待原 unreaped PID 身份，先启动 stdout/stderr drain；仅补桥凭证跨块/截断脱敏。取消后保留已发动作真值，断连/进程死亡不自动重放，不声称 PRoot 提供强隔离。 |
+
+设计变更分别记入 Permissions、Runtime/QuickJS、Terminal/Jobs、Skills 现有 ADR。后台屏与脚本桥/Skill 的主机及设备结果分别保留在忽略的 `build/background-display-2026-11-01/` 和 `build/script-tool-bridge-2026-11-01/`；最终收据才可证明实际通过范围，编译或中间失败不代表设备验收。

@@ -22,10 +22,15 @@ Helix 的合理定位不是“把桌面 Claude Code/Codex 原样塞进 Android�
 
 ### Android 直接竞品
 
+2026-11-01 Owner 指定 **Mika、RikkaHub、Operit AI（Operit Android）** 为主要移动端竞品；[正式产品卡与优先对照点](../../product/competitive-direct-agents.md#1-重点对象与选择依据)统一维护，其他对象仍保留。此增量不刷新下方历史能力事实或授权新实施。
+
+- **Mika**：主要对照自动化观察/动作反馈、后台虚拟屏与 sandbox/Skill 脚本接入；固定源码及许可边界见[现有专题](../topics/mobile-use-device-readiness-and-reliability-2026-09-29.md#mika-automation-review-2026-11-01)。
+- **RikkaHub**：主要对照聊天入口、附件/历史与 Workspace 的连贯体验；不由客户端定位推断执行能力缺失。
+
 - **Operit**：当前公开能力最完整的一类 Android Agent 工作台，包含 workspace/terminal/browser/device automation/MCP/Skill/ToolPkg/workflow/local inference、工具 Allow/Ask/Deny 和历史/备份恢复。
 - **PalmClaw**：原生 Android、本地优先、Memory/Skills/Tools/Channels、per-session runtime、统一权限和较轻量 UI。
 - **AndCode / ClawMobile / DSH Android 等**：代表“Linux/CLI harness 跑在 Android”或“手机作为已有 Harness 客户端”的不同路线。
-- **RikkaHub/Cherry Studio/LobeHub/Chatbox 等**：更接近增强型模型客户端/Agent 前端，是 Provider、MCP、知识库和移动 UX 的重要参照，但不应自动计入完整本机执行能力。
+- **Cherry Studio/LobeHub/Chatbox 等**：更接近增强型模型客户端/Agent 前端，是 Provider、MCP、知识库和移动 UX 的重要参照，但不应自动计入完整本机执行能力。
 
 ## 3. 最新外部信息带来的修正
 
