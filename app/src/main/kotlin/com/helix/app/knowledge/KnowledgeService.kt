@@ -8,6 +8,7 @@ import android.os.Looper
 import android.provider.MediaStore
 import android.util.Log
 import androidx.core.net.toUri
+import com.helix.app.HelixApplication
 import com.helix.core.model.SafetyProfile
 import com.helix.core.storage.knowledge.CollectedSource
 import com.helix.core.storage.knowledge.KnowledgeStore
@@ -65,8 +66,10 @@ class KnowledgeService(
     val openRequests = MutableStateFlow<String?>(null)
     val captureError = MutableStateFlow(false)
     val deletionError = MutableStateFlow(false)
+    private val serviceAccount = (context.applicationContext as? HelixApplication)?.account
+    internal val semantic = KnowledgeSemanticService(context, store, serviceAccount)
     internal val agentAccess =
-        KnowledgeAgentAccess(context.getSharedPreferences("knowledge-access", Context.MODE_PRIVATE), store) {
+        KnowledgeAgentAccess(context.getSharedPreferences("knowledge-access", Context.MODE_PRIVATE), store, semantic) {
             call,
             id,
             file,
@@ -137,6 +140,7 @@ class KnowledgeService(
         scope.cancel()
         noteService.close()
         answerHistory.close()
+        semantic.close()
     }
 
     suspend fun remove(
@@ -246,7 +250,41 @@ class KnowledgeService(
         }
     }
 
-    suspend fun search(query: String) = withContext(Dispatchers.IO) { store.search(query) }
+    suspend fun search(query: String) =
+        withContext(Dispatchers.IO) {
+            val related =
+                semantic.search(query).mapNotNull { hit ->
+                    hit.document.key
+                        .takeIf { it.startsWith("source:") }
+                        ?.substringAfter(':')
+                        ?.let { store.get(it) }
+                }
+            (related + store.search(query)).distinctBy { it.id }
+        }
+
+    suspend fun searchResults(query: String) =
+        withContext(Dispatchers.IO) {
+            val related = semantic.search(query)
+            val sources =
+                related.mapNotNull { hit ->
+                    val id =
+                        hit.document.key
+                            .takeIf { it.startsWith("source:") }
+                            ?.substringAfter(':')
+                    id?.let { store.get(it) }
+                }
+            val notes =
+                related.mapNotNull { hit ->
+                    val id =
+                        hit.document.key
+                            .takeIf { it.startsWith("note:") }
+                            ?.substringAfter(':')
+                    id?.let { store.note(it) }
+                }
+            val sourceResults = (sources + store.search(query)).distinctBy { it.id }
+            val noteResults = (notes + store.searchNotes(query)).distinctBy { it.id }
+            sourceResults to noteResults
+        }
 
     fun retry(item: CollectedSource) =
         scope.launch {

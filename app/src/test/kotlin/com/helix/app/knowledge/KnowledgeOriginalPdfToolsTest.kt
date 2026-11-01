@@ -1,9 +1,11 @@
 package com.helix.app.knowledge
 
+import com.helix.app.citation.Citation
 import com.helix.tools.framework.ToolExecutorResult
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.int
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
@@ -15,6 +17,36 @@ import org.junit.rules.TemporaryFolder
 
 class KnowledgeOriginalPdfToolsTest {
     @get:Rule val temporary = TemporaryFolder()
+
+    @Test fun sourceIdentityAndTextHashStayDistinctForSearchReadAndCitation() {
+        val body = "Synthetic derived PDF evidence"
+        val original = knowledgeHash("Synthetic original file identities and extraction coverage")
+        val f = KnowledgeReferenceFixture(temporary.root, body, "SOURCE", "INCOMPLETE", original)
+        val result = f.execute("knowledge.search", f.scoped(f.args("""{"query":"evidence"}""")))
+        val output = (result as ToolExecutorResult.Completed).output.jsonObject
+        val hit =
+            output
+                .getValue("items")
+                .jsonArray
+                .single()
+                .jsonObject
+        val hash = hit.getValue("contentHash").jsonPrimitive.content
+        assertEquals(knowledgeHash(body), hash)
+        assertEquals(original, hit.getValue("sourceRevision").jsonPrimitive.content)
+        val rawCitation = hit.getValue("citation").jsonPrimitive.content
+        val citation = requireNotNull(Citation.parse(rawCitation))
+        assertEquals(hash, citation.revision)
+        assertTrue(citation.excerpt(body).contains("evidence"))
+        val next =
+            f.scoped(
+                buildJsonObject {
+                    put("kind", "source")
+                    put("id", "selected")
+                    put("contentHash", hash)
+                },
+            )
+        assertTrue(f.execute("knowledge.read", next) is ToolExecutorResult.Completed)
+    }
 
     @Test fun nativeIoInterruptionSettlesAsCancelledAndNeverPublishesAPage() {
         val f = KnowledgeReferenceFixture(temporary.root, "Preview", "SOURCE", "INCOMPLETE")

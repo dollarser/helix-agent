@@ -165,6 +165,13 @@ private fun KnowledgeAccessDialog(
     onDismiss: () -> Unit,
 ) {
     val enabled by service.agentAccess.enabled.collectAsStateWithLifecycle()
+    val semanticEnabled by service.semantic.enabled.collectAsStateWithLifecycle()
+    val semanticStatus by service.semantic.status.collectAsStateWithLifecycle()
+    var showSemantic by remember { mutableStateOf(false) }
+    if (showSemantic) {
+        KnowledgeSemanticDialog(service) { showSemantic = false }
+        return
+    }
     val accessTitle = stringResource(R.string.knowledge_agent_access_title)
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -184,6 +191,23 @@ private fun KnowledgeAccessDialog(
                     stringResource(R.string.knowledge_agent_access),
                     style = MaterialTheme.typography.bodySmall,
                 )
+                TextButton(onClick = { showSemantic = true }) { Text(stringResource(R.string.semantic_title)) }
+                Text(
+                    stringResource(
+                        when (semanticStatus) {
+                            "INDEXING" -> R.string.semantic_indexing
+                            "READY" -> R.string.semantic_ready
+                            "PARTIAL" -> R.string.semantic_partial
+                            "ERROR", "LEXICAL_FALLBACK" -> R.string.semantic_error
+                            else -> R.string.semantic_off
+                        },
+                    ),
+                )
+                if (semanticEnabled) {
+                    TextButton(
+                        onClick = service.semantic::stop,
+                    ) { Text(stringResource(R.string.semantic_stop)) }
+                }
             }
         },
         confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.knowledge_close)) } },

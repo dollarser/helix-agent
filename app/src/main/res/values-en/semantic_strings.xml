@@ -1,0 +1,20 @@
+<resources>
+    <string name="semantic_title">Semantic search</string>
+    <string name="semantic_disclosure">Build a rebuildable local index only for selected documents. Their text, later selected-content updates and search questions are sent to the signed-in embedding service. Turning this off stops sending. Unselected documents and Agent library access remain restricted.</string>
+    <string name="semantic_loading">Loading embedding models…</string>
+    <string name="semantic_unavailable">Sign in and confirm that the service provides an embedding model.</string>
+    <string name="semantic_selection">Select documents (%1$d/64)</string>
+    <string name="semantic_parameters">Model parameters</string>
+    <string name="semantic_query_prefix">Query prefix (optional)</string>
+    <string name="semantic_document_prefix">Document prefix (optional)</string>
+    <string name="semantic_model_revision">Deployment revision (optional)</string>
+    <string name="semantic_contract_hint">Use prefixes required by your deployment. Change the revision or reapply after a model update to rebuild. Server-added instructions are not inferred.</string>
+    <string name="semantic_error">Semantic service or index unavailable. Local keyword search remains available.</string>
+    <string name="semantic_enable">Enable and build index</string>
+    <string name="semantic_indexing">Updating selected document index…</string>
+    <string name="semantic_ready">Selected readable documents indexed</string>
+    <string name="semantic_partial">Some selected documents are unreadable. Check extraction status.</string>
+    <string name="semantic_off">Semantic search is off</string>
+    <string name="semantic_stop">Turn off and stop</string>
+    <string name="semantic_clear_selection">Clear selection</string>
+</resources>

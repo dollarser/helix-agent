@@ -39,6 +39,11 @@ internal object KnowledgeReadTools {
 
         suspend fun search(query: String): JsonObject
 
+        suspend fun related(
+            query: String,
+            references: List<KnowledgeReference>?,
+        ): List<JsonObject> = emptyList()
+
         suspend fun read(
             kind: String,
             id: String,
@@ -74,7 +79,8 @@ internal object KnowledgeReadTools {
                         "from the user reference manifest. " +
                         "Recover older manifests with session.history/read in this conversation. " +
                         "This scope never expands to the whole library. " +
-                        "Returns literal case-insensitive snippets and offsets; " +
+                        "Returns literal case-insensitive snippets and offsets plus separately labelled " +
+                        "hybrid candidates only for user-enabled indexed documents; " +
                         "continue nextCursor, including empty pages. " +
                         "Without a reference, library access must be enabled " +
                         "and results are a bounded catalog search. Search results are not the full document."

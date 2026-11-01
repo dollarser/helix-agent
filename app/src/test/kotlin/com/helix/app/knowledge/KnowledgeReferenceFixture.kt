@@ -28,6 +28,7 @@ internal class KnowledgeReferenceFixture(
     initial: String,
     val category: String = "NOTE",
     val initialCompleteness: String = "USER_CONTENT",
+    private val sourceIdentity: String? = null,
 ) {
     val dao =
         SessionToolsTest.HistoryDao().apply {
@@ -43,12 +44,13 @@ internal class KnowledgeReferenceFixture(
     var afterPdfRead: () -> Unit = {}
     var pdfFailure: java.io.IOException? = null
     var afterRead: () -> Unit = {}
+    var related: suspend (List<KnowledgeReference>?) -> List<JsonObject> = { emptyList() }
     val reference =
         KnowledgeReference(
             category,
             "selected",
             "Synthetic note",
-            knowledgeHash(initial),
+            sourceIdentity ?: knowledgeHash(initial),
             initial.codePointCount(0, initial.length),
             initialCompleteness,
         )
@@ -77,6 +79,11 @@ internal class KnowledgeReferenceFixture(
     val library =
         object : KnowledgeReadTools.Library {
             override fun allowed() = enabled
+
+            override suspend fun related(
+                query: String,
+                references: List<KnowledgeReference>?,
+            ) = related(references)
 
             override suspend fun originalPdf(
                 call: ExecutableToolCall,
@@ -125,7 +132,9 @@ internal class KnowledgeReferenceFixture(
                     put("completeness", completeness)
                     put("text", body)
                     put("contentHash", knowledgeHash(body))
-                    if (category == "SOURCE") put("sourceRevision", knowledgeHash(body))
+                    if (category == "SOURCE") {
+                        put("sourceRevision", sourceIdentity?.takeIf { body == initial } ?: knowledgeHash(body))
+                    }
                     put("untrustedReference", true)
                     put(
                         "references",

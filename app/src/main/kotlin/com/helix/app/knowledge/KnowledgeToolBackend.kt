@@ -28,6 +28,11 @@ internal class KnowledgeToolBackend(
 
     override suspend fun search(query: String) = global.search(query)
 
+    override suspend fun related(
+        query: String,
+        references: List<KnowledgeReference>?,
+    ) = global.related(query, references)
+
     override suspend fun read(
         kind: String,
         id: String,

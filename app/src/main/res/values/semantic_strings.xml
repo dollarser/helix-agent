@@ -1,0 +1,20 @@
+<resources>
+    <string name="semantic_title">语义检索</string>
+    <string name="semantic_disclosure">仅为所选资料建立本机可重建索引。资料文本、所选内容的后续更新与检索问题将发送至已登录账号的嵌入服务；关闭后停止发送。不会开放未选资料或更改 Agent 的知识库权限。</string>
+    <string name="semantic_loading">正在读取嵌入模型目录…</string>
+    <string name="semantic_unavailable">请先登录，并确认服务提供嵌入模型。</string>
+    <string name="semantic_selection">选择资料（%1$d/64）</string>
+    <string name="semantic_parameters">模型参数</string>
+    <string name="semantic_query_prefix">查询前缀（可留空）</string>
+    <string name="semantic_document_prefix">资料前缀（可留空）</string>
+    <string name="semantic_model_revision">部署修订标识（可留空）</string>
+    <string name="semantic_contract_hint">按部署约定填写前缀；模型内容更新后修改修订标识或重新应用以重建。不会推断服务器已添加的指令。</string>
+    <string name="semantic_error">语义服务或索引暂不可用，仍可使用本机关键词检索。</string>
+    <string name="semantic_enable">启用并建立索引</string>
+    <string name="semantic_indexing">正在更新所选资料索引…</string>
+    <string name="semantic_ready">所选可读资料索引已就绪</string>
+    <string name="semantic_partial">部分所选资料不可读，请检查提取状态。</string>
+    <string name="semantic_off">语义检索已关闭</string>
+    <string name="semantic_stop">关闭并停止</string>
+    <string name="semantic_clear_selection">清除选择</string>
+</resources>

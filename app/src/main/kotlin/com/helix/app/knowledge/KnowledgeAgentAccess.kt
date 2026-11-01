@@ -15,6 +15,7 @@ import kotlinx.serialization.json.buildJsonObject
 internal class KnowledgeAgentAccess(
     private val prefs: SharedPreferences,
     private val store: KnowledgeStore,
+    private val semantic: KnowledgeSemanticService? = null,
     private val readPdf: suspend (
         com.helix.tools.framework.ExecutableToolCall,
         String,
@@ -35,6 +36,36 @@ internal class KnowledgeAgentAccess(
     }
 
     override fun allowed() = prefs.getBoolean("agent-read", false)
+
+    override suspend fun related(
+        query: String,
+        references: List<com.helix.core.storage.repository.KnowledgeReference>?,
+    ): List<JsonObject> =
+        semantic?.search(query, references).orEmpty().map { hit ->
+            val kind = hit.document.key.substringBefore(':')
+            val id = hit.document.key.substringAfter(':')
+            val textHash = knowledgeHash(hit.document.text)
+            buildJsonObject {
+                put("kind", JsonPrimitive(kind))
+                put("id", JsonPrimitive(id))
+                put("title", JsonPrimitive(hit.document.title.take(160)))
+                put("contentHash", JsonPrimitive(textHash))
+                put("sourceRevision", JsonPrimitive(hit.document.revision))
+                put("readOffset", JsonPrimitive(hit.start))
+                put("endOffset", JsonPrimitive(hit.end))
+                put(
+                    "excerpt",
+                    JsonPrimitive(SemanticIndex.text(hit.document, hit.start, minOf(hit.end, hit.start + 512))),
+                )
+                put("retrieval", JsonPrimitive("hybrid_candidate_not_full_document"))
+                put(
+                    "citation",
+                    JsonPrimitive(
+                        "helix://knowledge/$kind/$id?revision=$textHash&range=${hit.start}:${hit.end}",
+                    ),
+                )
+            }
+        }
 
     override suspend fun originalPdf(
         call: com.helix.tools.framework.ExecutableToolCall,

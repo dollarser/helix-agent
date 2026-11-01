@@ -182,8 +182,15 @@ fun KnowledgeScreen(
     }
     LaunchedEffect(query, all, notes) {
         try {
-            hits = if (query.isBlank()) all else service.search(query)
-            noteHits = if (query.isBlank()) notes else service.noteService.search(query)
+            if (query.isBlank()) {
+                hits = all
+                noteHits = notes
+            } else {
+                kotlinx.coroutines.delay(250)
+                val result = service.searchResults(query)
+                hits = result.first
+                noteHits = result.second
+            }
             searchFailed = false
         } catch (cancel: CancellationException) {
             throw cancel

@@ -49,8 +49,8 @@ class KnowledgePdfDeviceTest {
         runBlocking {
             assumeTrue(Build.VERSION.SDK_INT >= 35)
             val context = InstrumentationRegistry.getInstrumentation().targetContext
-            val documents = PdfFixtureDocuments()
-            val store = KnowledgeStore(documents, PdfFixtureDocuments())
+            val documents = KnowledgeFixtureDocuments()
+            val store = KnowledgeStore(documents, KnowledgeFixtureDocuments())
             val service = KnowledgeService(context, fetcher = NoPdfNetwork(), store = store)
             try {
                 val bytes = pdf()
@@ -161,7 +161,7 @@ class KnowledgePdfDeviceTest {
     }
 }
 
-private class PdfFixtureDocuments : DocumentStorage {
+internal class KnowledgeFixtureDocuments : DocumentStorage {
     private val files = linkedMapOf<String, DocumentStorage.File>()
 
     override fun references(directory: String) = files.keys.filter { it.startsWith("$directory/") }
