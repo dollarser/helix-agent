@@ -161,6 +161,9 @@ class BackgroundDisplayDeviceTest {
             val frame = device.getValue("frame").jsonPrimitive.content
             val capture = output("ui.screenshot", buildJsonObject { put("frame", frame) })
             assertEquals("SAVED", capture.getValue("status").jsonPrimitive.content)
+            if (InstrumentationRegistry.getArguments().getString("helixDisconnect") == "true") {
+                verifyRealHelperDisconnect(displayId)
+            }
             val row = container.storage.turns.resolve(turn)
             container.storage.turns.updateState(row, TurnState.CANCELLING, row.stepCount, null, null)
             val releaseDeadline = SystemClock.elapsedRealtime() + 5_000
@@ -180,13 +183,24 @@ class BackgroundDisplayDeviceTest {
                     it.sessionId == session && it.turnId == turn
                 }
             val presentationDeadline = SystemClock.elapsedRealtime() + 5000
-            while (hostPresentation()?.state != com.helix.app.chat.DisplayExecutionState.RELEASED &&
+            while (hostPresentation()?.state !in
+                setOf(
+                    com.helix.app.chat.DisplayExecutionState.RELEASED,
+                    com.helix.app.chat.DisplayExecutionState.CONNECTION_LOST,
+                ) &&
                 SystemClock.elapsedRealtime() < presentationDeadline
             ) {
                 SystemClock.sleep(50)
             }
-            assertEquals(com.helix.app.chat.DisplayExecutionState.RELEASED, requireNotNull(hostPresentation()).state)
-            println("BACKGROUND_RELEASED=$displayId;dispatches=$sequence;HOST_PRESENTATION_RELEASED")
+            val disconnected = InstrumentationRegistry.getArguments().getString("helixDisconnect") == "true"
+            val expected =
+                if (disconnected) {
+                    com.helix.app.chat.DisplayExecutionState.CONNECTION_LOST
+                } else {
+                    com.helix.app.chat.DisplayExecutionState.RELEASED
+                }
+            assertEquals(expected, requireNotNull(hostPresentation()).state)
+            println("BACKGROUND_RELEASED=$displayId;dispatches=$sequence;HOST_PRESENTATION=$expected")
         } finally {
             lines.setLines(MobileUseGrantStore.CONFIG_KEY, savedScope)
             lines.setLines(MobileUseGrantStore.EXECUTION_KEY, savedDisplay)
@@ -195,6 +209,29 @@ class BackgroundDisplayDeviceTest {
             container.pluginService.setEnabled(plugin.id, plugin.enabled)
             container.profileStore.switchTo(profile)
         }
+    }
+
+    private fun verifyRealHelperDisconnect(displayId: Int) {
+        InstrumentationRegistry.getInstrumentation().sendStatus(
+            0,
+            android.os.Bundle().apply {
+                putString("stream", "BACKGROUND_DISCONNECT_READY display=$displayId\n")
+            },
+        )
+        val deadline = SystemClock.elapsedRealtime() + 20_000
+
+        fun disconnected() =
+            container.chatService.displayExecutions.value.any {
+                it.sessionId == session && it.turnId == turn &&
+                    it.state == com.helix.app.chat.DisplayExecutionState.CONNECTION_LOST
+            }
+        while ((!disconnected() || app.getSystemService(DisplayManager::class.java).getDisplay(displayId) != null) &&
+            SystemClock.elapsedRealtime() < deadline
+        ) {
+            SystemClock.sleep(100)
+        }
+        assertTrue("Expected actual original-helper Binder death; no automatic action replay", disconnected())
+        assertEquals(null, app.getSystemService(DisplayManager::class.java).getDisplay(displayId))
     }
 
     private fun readyFixtureSnapshot(): JsonObject {

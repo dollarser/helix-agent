@@ -12,6 +12,12 @@ public final class CapabilityFixtureStateProvider extends ContentProvider {
     @Override public boolean onCreate() { return true; }
     @Override public Cursor query(Uri uri, String[] projection, String selection,
             String[] selectionArgs, String sortOrder) {
+        if ("/background".equals(uri.getPath())) {
+            SharedPreferences prefs = getContext().getSharedPreferences("background-fixture", 0);
+            MatrixCursor cursor = new MatrixCursor(new String[] {"display", "clicks", "visual"});
+            cursor.addRow(new Object[] {prefs.getInt("display", -1), prefs.getInt("clicks", 0), prefs.getInt("visual", 0)});
+            return cursor;
+        }
         if ("/touch".equals(uri.getPath())) {
             SharedPreferences prefs = getContext().getSharedPreferences("touch-review", 0);
             MatrixCursor cursor = new MatrixCursor(new String[] {"x", "y", "clicks", "event"});
