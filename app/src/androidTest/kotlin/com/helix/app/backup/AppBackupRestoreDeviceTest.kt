@@ -37,6 +37,54 @@ import java.util.UUID
 
 /** Staging only, under a private synthetic Context. Never queues replacement of the daily profile. */
 class AppBackupRestoreDeviceTest {
+    @Test
+    fun semanticConfigurationRestoresWithoutUploadConsentOrAccountBinding() {
+        val base = InstrumentationRegistry.getInstrumentation().targetContext
+        require(base.packageName.endsWith(".asrvalidation"))
+        val root = File(base.cacheDir, "semantic-backup-${UUID.randomUUID()}").apply { check(mkdirs()) }
+        val source = FixtureContext(base, File(root, "source"))
+        val target = FixtureContext(base, File(root, "target"))
+        try {
+            check(
+                source
+                    .getSharedPreferences("knowledge-semantic", Context.MODE_PRIVATE)
+                    .edit()
+                    .putString("model", "synthetic-embedding")
+                    .putString("query-prefix", "Synthetic query: ")
+                    .putBoolean("enabled", true)
+                    .putString("owner", "synthetic-account")
+                    .putString("generation", "synthetic-generation")
+                    .putStringSet("documents", setOf("private-doc"))
+                    .commit(),
+            )
+            val snapshot = PortablePreferences.capture(source)
+            val encoded = snapshot.toString()
+            assertTrue(encoded.contains("synthetic-embedding"))
+            assertFalse(encoded.contains("synthetic-account"))
+            assertFalse(encoded.contains("synthetic-generation"))
+            assertFalse(encoded.contains("private-doc"))
+            PortablePreferences.stage(snapshot, File(root, "staging"))
+            check(
+                target
+                    .getSharedPreferences("knowledge-semantic", Context.MODE_PRIVATE)
+                    .edit()
+                    .putBoolean("enabled", true)
+                    .putString("owner", "previous-account")
+                    .commit(),
+            )
+            PortablePreferences.refreshLoaded(target, snapshot)
+            val restored = target.getSharedPreferences("knowledge-semantic", Context.MODE_PRIVATE)
+            assertEquals("synthetic-embedding", restored.getString("model", null))
+            assertFalse(restored.getBoolean("enabled", false))
+            assertFalse(restored.contains("owner"))
+            assertFalse(restored.contains("documents"))
+        } finally {
+            source.cleanPreferences()
+            target.cleanPreferences()
+            safeDeleteBackupTree(root)
+        }
+    }
+
     @Suppress("LongMethod") // Isolated end-to-end fixture: source, staging, restart and durable effects.
     @Test
     fun completeLogicalProfileRebuildPreservesHistoryAndParksUncertainExecution(): Unit =

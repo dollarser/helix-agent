@@ -1,0 +1,21 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+  <string name="sync_title">Two-way folder sync</string>
+  <string name="sync_summary">An app-private folder and one authorized SAF folder (authorize it in Files first). New files and one-sided changes copy both ways; conflicting edits, deletions and type changes pause. Automatic runs are at least 15 minutes apart and may be delayed.</string>
+  <string name="sync_left">Left</string>
+  <string name="sync_right">Right</string>
+  <string name="sync_select">Select an authorized source</string>
+  <string name="sync_relative_path">Relative folder path (empty for the granted SAF root)</string>
+  <string name="sync_add">Add rule</string>
+  <string name="sync_error">Could not complete. Check folders, permissions, overlapping rules or pending transfer recovery. Incomplete content is never silently accepted.</string>
+  <string name="sync_complete">Sync verified</string>
+  <string name="sync_running">Syncing</string>
+  <string name="sync_ready">Waiting for automatic run</string>
+  <string name="sync_conflict">Conflict; paused</string>
+  <string name="sync_review">Incomplete; paused. Check files and transfer recovery in Files before retrying.</string>
+  <string name="sync_paused">Paused</string>
+  <string name="sync_resolve">Compare both folders in Files and keep the intended content. Make both sides equal or restore missing items before retrying. Deletions are not propagated automatically.</string>
+  <string name="sync_now">Sync now</string>
+  <string name="sync_pause">Pause</string>
+  <string name="sync_enable">Enable automatic sync</string>
+</resources>

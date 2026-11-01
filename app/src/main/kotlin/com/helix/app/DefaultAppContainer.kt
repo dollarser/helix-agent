@@ -143,13 +143,7 @@ internal class DefaultAppContainer(
                         FileScopePath("app", listOf("terminal", relative).filter(String::isNotEmpty).joinToString("/"))
                     }
                 resolveFileScopePath(path, scopeRoots).toFile().also { target ->
-                    val supported =
-                        listOf("app", "managed").map {
-                            java.io
-                                .File(appContext.filesDir, "workspaces/$it")
-                                .canonicalFile
-                                .toPath()
-                        }
+                    val supported = directWorkspaceRoots().map { it.toPath() }
                     require(supported.any { target.canonicalFile.toPath().startsWith(it) }) {
                         appContext.getString(com.helix.app.R.string.workspace_local_backend_unavailable)
                     }
@@ -388,6 +382,11 @@ internal class DefaultAppContainer(
                     path.scopeId,
                 ).directoryIdentity(path.relativePath)
         }
+
+    /** Dynamic OS grant and enabled-root check; scope resolution independently checks the selected resource. */
+    private fun directWorkspaceRoots(): List<java.io.File> =
+        listOf("app", "managed").map { java.io.File(appContext.filesDir.canonicalFile, "workspaces/$it") } +
+            AllFilesModule.allFilesSources().mapNotNull { AllFilesModule.resolveScopeRoot(it.scopeId)?.toFile() }
 
     private val scopeRoots = ScopeRootResolver(sessionWorkspaces::resolveRoot)
 
@@ -676,6 +675,7 @@ internal class DefaultAppContainer(
             { chatService },
             scope = appScope,
             resolveWorkspacePath = { path -> resolveFileScopePath(path, scopeRoots).toFile() },
+            allowedWorkspaceRoots = ::directWorkspaceRoots,
         )
         com.helix.app.settings.HelixSettingsTool
             .register(toolRegistry) { this }

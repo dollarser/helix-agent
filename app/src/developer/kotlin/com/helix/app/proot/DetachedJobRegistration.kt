@@ -44,6 +44,7 @@ internal object DetachedJobRegistration {
                 permissions,
                 SessionToolEffectClassifier(workspaceFor),
                 DetachedJobTools.start(),
+                { call -> samePreparedWorkspace(call, prepareWorkspace) },
             )
         val launcher = launcher(context, workspace, ownership, chat, gate, secrets, bindings, recheck)
         val output =

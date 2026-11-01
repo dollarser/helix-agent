@@ -50,7 +50,9 @@ internal fun FilesScreenLayout(
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 FilesLocationBar(state, actions)
-                val terminalSource = selectedScopeId == "app" || selectedScopeId.startsWith("ws-")
+                val terminalSource =
+                    selectedScopeId == "app" || selectedScopeId.startsWith("af-") ||
+                        sources.any { it.scopeId == selectedScopeId && it.workspaceBackend == "PATH" }
                 if (terminalSource && !trashOpen && openTerminal != null) {
                     TextButton(onClick = {
                         openTerminal("scope:$selectedScopeId:${currentPath.ifBlank { "." }}")

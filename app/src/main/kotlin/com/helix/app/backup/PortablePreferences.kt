@@ -12,13 +12,20 @@ import java.io.File
 /** Only named product preferences; account status, device grants and evidence caches are never copied. */
 internal object PortablePreferences {
     private val authorizationStores =
-        setOf("helix-mobile-use", "helix-lan-scopes", "speech-consent", "knowledge-access")
+        setOf(
+            "helix-mobile-use",
+            "helix-lan-scopes",
+            "speech-consent",
+            "knowledge-access",
+            "directory-sync-authorization",
+        )
     private val fixed =
         mapOf(
             "memory-settings" to setOf("enabled", "auto-global", "auto-project"),
             "com.helix.app.language" to setOf("choice"),
             "speech-services" to setOf("settings"),
             "file-library" to setOf("v1"),
+            "knowledge-semantic" to setOf("model", "query-prefix", "document-prefix", "model-revision"),
         )
 
     private fun allowed(

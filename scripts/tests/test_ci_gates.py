@@ -18,6 +18,7 @@ class CiGatesTest(unittest.TestCase):
         for name in ('check-all.sh', 'ci-run-gate.sh'):
             shutil.copy2(ROOT / 'scripts' / name, self.root / 'scripts' / name)
         (self.root / 'scripts' / 'verify-preview-assets.py').write_text('pass\n')
+        (self.root / 'scripts' / 'prepare-vad-assets.py').write_text('pass\n')
         gradle = self.root / 'gradlew'
         gradle.write_text('#!/usr/bin/env bash\nprintf "%s\\n" "$@" > gradle-args.txt\nexit "${FAKE_EXIT:-0}"\n')
         gradle.chmod(0o755)
@@ -126,6 +127,7 @@ class SourceGateTest(unittest.TestCase):
         for name in ('check-all.sh', 'run-host-tests.py'):
             shutil.copy2(ROOT / 'scripts' / name, scripts / name)
         (scripts / 'verify-preview-assets.py').write_text('pass\n')
+        (scripts / 'prepare-vad-assets.py').write_text('pass\n')
         for name in ('check-docs.sh', 'verify-adr.sh', 'check-i18n.sh', 'check-secrets.sh'):
             script = scripts / name
             script.write_text('#!/usr/bin/env bash\ntouch later-host-checks-ran\n')

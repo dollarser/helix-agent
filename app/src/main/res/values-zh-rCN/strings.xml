@@ -1983,7 +1983,7 @@
     <string name="offline_voice_title">离线语音输入</string>
     <string name="offline_voice_privacy">中英双语 · 在本机识别，不保存或上传音频。每次最长 2 分钟。</string>
     <string name="offline_voice_permission">需要麦克风权限，原草稿会保留。</string>
-    <string name="offline_voice_loading">正在加载离线模型…</string>
+    <string name="offline_voice_loading">正在准备语音输入…</string>
     <string name="offline_voice_listening">正在聆听…结束后可检查和编辑。</string>
     <string name="offline_voice_finishing">正在完成识别…</string>
     <string name="offline_voice_review">检查文字后加入草稿，再由你主动发送。</string>

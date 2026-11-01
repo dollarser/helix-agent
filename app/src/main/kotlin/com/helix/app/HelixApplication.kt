@@ -65,6 +65,12 @@ class HelixApplication : Application() {
     private var readAloudIdentity: String? = null
     private var readAloudService: com.helix.app.voice.ReadAloudService? = null
     private val speechSynthesis = kotlinx.coroutines.sync.Mutex()
+
+    suspend fun stopSpeechForInput() {
+        val active = synchronized(this) { readAloudService }
+        active?.stopAndAwait()
+    }
+
     val readAloud: com.helix.app.voice.ReadAloudService
         @Synchronized get() {
             val settings = speechSettings.forAccount(account.status.value)

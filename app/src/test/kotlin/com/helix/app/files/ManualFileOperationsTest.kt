@@ -96,7 +96,7 @@ class ManualFileOperationsTest {
         Files.write(root.resolve("large"), ByteArray(512 * 1024) { 7 })
         var checks = 0
         assertThrows(CancellationException::class.java) {
-            ops.transfer("manual", "large", "manual", "target", false, false) { ++checks >= 4 }
+            ops.transfer("manual", "large", "manual", "target", false, false, cancelled = { ++checks >= 4 })
         }
         assertEquals(listOf("large"), nio.children(""))
         assertEquals(512L * 1024, Files.size(root.resolve("large")))

@@ -15,10 +15,7 @@ internal object ProotLiveWorkspace {
     ): File? {
         val path = spec.workspacePath ?: return null
         val workspace = File(path)
-        val allowed = listOf("app", "managed").map { File(context.filesDir.canonicalFile, "workspaces/$it") }
-        require(allowed.any { it.path == it.canonicalPath && workspace.toPath().startsWith(it.toPath()) }) {
-            "Unsupported workspace mount"
-        }
+        ProotPathAccess.verify(context, workspace)
         LiveJobWorkspace.verify(workspace, requireNotNull(spec.workspaceWitness))
         if (spec.relativeWorkingDirectory.isNotEmpty()) {
             require(LiveJobWorkspace.resolve(workspace, spec.relativeWorkingDirectory).isDirectory)

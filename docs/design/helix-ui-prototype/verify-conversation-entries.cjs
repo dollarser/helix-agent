@@ -205,4 +205,27 @@ test('Mermaid and SVG default inline with source toggle and non-sending copy', (
   click('diagram-copy'); assert.match(document.querySelector('#status').textContent,/复制/);
   assert.equal(document.querySelector('#draft').value,before);
 });
+test('Semantic search is an explicit scoped library setting, not a reference permission grant', () => {
+  const before = document.querySelector('#draft').value;
+  open('library-settings'); click('open:semantic');
+  assert.match(sheet().textContent,/不开放未选/);
+  assert.equal(sheet().querySelectorAll('input[type="checkbox"]').length,2);
+  click('open:library-settings');
+  assert.equal(document.querySelector('#draft').value,before);
+  open('semantic'); click('semantic-enable');
+  assert.match(document.querySelector('#status').textContent,/明确选择/);
+});
+
+test('Continuous dictation appends editable segments without sending', () => {
+  const before = document.querySelector('#draft').value;
+  open('continuous-voice'); click('continuous-pause'); click('continuous-pause'); click('close');
+  assert.ok(document.querySelector('#draft').value.startsWith(before));
+  assert.ok(document.querySelector('#draft').value.length > before.length);
+});
+test('Explicit folder sync starts paused and conflicts pause instead of overwriting', () => {
+  open('directory-sync'); assert.match(document.querySelector('#sync-state').textContent, /暂停/);
+  click('sync-enable'); click('sync-conflict');
+  assert.match(document.querySelector('#sync-state').textContent, /冲突.*暂停/);
+});
+
 console.log(`${n} offline interaction checks passed; browser/layout acceptance is separate.`);

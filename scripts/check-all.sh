@@ -17,6 +17,7 @@ source_checks() {
     ./scripts/check-i18n.sh
     ./scripts/check-secrets.sh
     python3 scripts/verify-preview-assets.py
+    python3 scripts/prepare-vad-assets.py --verify-lock
 }
 
 analysis_checks() {
@@ -63,11 +64,15 @@ build_checks() {
 }
 
 artifact_checks() {
+    python3 scripts/prepare-vad-assets.py --apk app/build/outputs/apk/consumer/debug/app-consumer-debug.apk
+    python3 scripts/prepare-vad-assets.py --apk app/build/outputs/apk/developer/debug/app-developer-debug.apk
     ./scripts/verify-variant-boundaries.sh
     ./scripts/check-cli-runtime-boundary.sh --skip-integrated-apk-scan
 }
 
 release_artifact_checks() {
+    python3 scripts/prepare-vad-assets.py --apk app/build/outputs/apk/consumer/release/app-consumer-release-unsigned.apk
+    python3 scripts/prepare-vad-assets.py --apk app/build/outputs/apk/developer/release/app-developer-release-unsigned.apk
     python3 scripts/verify-integrated-runtime-apks.py --build-type release
 }
 

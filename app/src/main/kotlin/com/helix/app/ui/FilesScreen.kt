@@ -9,11 +9,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import com.helix.app.FeatureFiles
 import com.helix.app.R
@@ -24,8 +27,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+// Explicit route capabilities and picker lifecycles; selection never grants access.
 @Composable
-@Suppress("FunctionName", "LongParameterList") // Explicit route capabilities; selection never grants access.
+@Suppress("FunctionName", "LongParameterList", "LongMethod", "CyclomaticComplexMethod")
 fun FilesScreen(
     fileManager: FileManagerService,
     safTree: SafTreeScopeService,
@@ -36,6 +40,8 @@ fun FilesScreen(
     initialFile: com.helix.core.workspace.FileScopePath? = null,
     onPickFile: ((com.helix.core.workspace.FileScopePath) -> Unit)? = null,
 ) {
+    var syncOpen by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    if (syncOpen) DirectorySyncDialog(fileManager) { syncOpen = false }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val resources = LocalResources.current
@@ -75,6 +81,14 @@ fun FilesScreen(
             FilesScopeEffects(state, actions)
             if (filesSourcePending(state)) return
             Column {
+                if (state.homeOpen) {
+                    TextButton({ syncOpen = true }, modifier = Modifier.testTag("files-directory-sync")) {
+                        Text(
+                            androidx.compose.ui.res
+                                .stringResource(R.string.sync_title),
+                        )
+                    }
+                }
                 if (!state.homeOpen && handoff != null) {
                     FileDirectoryTask(state, handoff)
                 }

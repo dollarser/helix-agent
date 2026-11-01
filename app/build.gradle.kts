@@ -85,6 +85,7 @@ android {
 
     sourceSets.getByName("main").assets.srcDir(rootProject.file("build/asr-download/assets"))
     sourceSets.getByName("main").assets.srcDir(rootProject.file("build/tts/assets"))
+    sourceSets.getByName("main").assets.srcDir(rootProject.file("build/vad/assets"))
     sourceSets.getByName("androidTest").assets.srcDir(rootProject.file("build/asr/test-assets"))
     sourceSets.getByName("androidTest").assets.srcDir(rootProject.file("build/asr-download/test-assets"))
     sourceSets.getByName("androidTest").assets.srcDir(rootProject.file("build/tts/test-assets"))
@@ -331,6 +332,11 @@ val verifyTtsAssets by tasks.registering(Exec::class) {
     commandLine("python3", "scripts/build-tts-assets.py", "--verify")
 }
 tasks.named("preBuild") { dependsOn(verifyTtsAssets) }
+val verifyVadAssets by tasks.registering(Exec::class) {
+    workingDir(rootProject.projectDir)
+    commandLine("python3", "scripts/prepare-vad-assets.py", "--verify")
+}
+tasks.named("preBuild") { dependsOn(verifyVadAssets) }
 
 // Manual-terminal reclamation uses the same native fd-relative operations in host fixtures and Android.
 tasks.withType<Test>().configureEach {

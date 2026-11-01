@@ -1,0 +1,21 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+  <string name="sync_title">文件夹双向同步</string>
+  <string name="sync_summary">同步应用私有文件夹与已授权 SAF 文件夹（先在文件页添加授权）。新增和单侧修改双向复制；双方修改、删除及类型冲突暂停。自动运行最短 15 分钟，可能延后。</string>
+  <string name="sync_left">左侧</string>
+  <string name="sync_right">右侧</string>
+  <string name="sync_select">选择已授权来源</string>
+  <string name="sync_relative_path">相对文件夹路径（SAF 留空表示已授权根目录）</string>
+  <string name="sync_add">添加规则</string>
+  <string name="sync_error">无法完成。检查文件夹、权限、重复范围或待恢复的传输；原内容不会被静默忽略。</string>
+  <string name="sync_complete">已验证同步完成</string>
+  <string name="sync_running">正在同步</string>
+  <string name="sync_ready">等待自动运行</string>
+  <string name="sync_conflict">冲突，已暂停</string>
+  <string name="sync_review">未完成，已暂停。检查文件及文件页的传输恢复记录后重试。</string>
+  <string name="sync_paused">已暂停</string>
+  <string name="sync_resolve">请在文件页比较两侧并保留所需内容。使两侧一致或恢复缺失项后重试；不会自动传播删除。</string>
+  <string name="sync_now">立即同步</string>
+  <string name="sync_pause">暂停</string>
+  <string name="sync_enable">开启自动同步</string>
+</resources>

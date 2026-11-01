@@ -72,6 +72,7 @@ internal object ProotToolModule {
         chat: () -> com.helix.app.chat.ChatService,
         scope: kotlinx.coroutines.CoroutineScope? = null,
         resolveWorkspacePath: (com.helix.core.workspace.FileScopePath) -> java.io.File = { error("Unavailable") },
+        allowedWorkspaceRoots: () -> List<java.io.File> = { emptyList() },
     ) {
         // No-op: the consumer build ships no PRoot capability.
     }

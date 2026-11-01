@@ -161,15 +161,44 @@ class LinuxSessionPermissionRecheckTest {
             config = config,
         )
 
+    @Test fun deniedLaunchNeverProbesFilesystemAndAllowedLaunchStillChecksMapping() {
+        var probes = 0
+        val denied =
+            recheck(
+                SessionPermissionConfig.of(SessionPermissionMode.FULL_ACCESS),
+                ToolAvailabilityState.DISABLED,
+                {
+                    probes++
+                    true
+                },
+            )
+        assertTrue(denied.check(linuxCall()) is ToolExecutorResult.Failed)
+        assertEquals(0, probes)
+        val lost =
+            recheck(
+                SessionPermissionConfig.of(SessionPermissionMode.FULL_ACCESS),
+                workspaceValid = {
+                    probes++
+                    false
+                },
+            )
+        val result = lost.check(linuxCall())
+        assertTrue(result is ToolExecutorResult.Failed)
+        assertTrue((result as ToolExecutorResult.Failed).sideEffectFree)
+        assertEquals(1, probes)
+    }
+
     private fun recheck(
         config: SessionPermissionConfig,
         global: ToolAvailabilityState? = null,
+        workspaceValid: (LinuxRunTool.ParsedLinuxCall) -> Boolean = { true },
     ): LinuxSessionPermissionRecheck =
         LinuxSessionPermissionRecheck(
             permissions = SessionPermissionSource { config },
             availability = ToolAvailabilitySource { _, _, _, _ -> ToolAvailabilityStates(global = global) },
             classifier = SessionToolEffectClassifier { "ws-1" },
             descriptor = LinuxRunTool.descriptor(),
+            workspaceValid = workspaceValid,
         )
 
     private fun linuxCall(

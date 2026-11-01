@@ -120,3 +120,12 @@ replace them. Passing hash checks alone is not a distribution-license review.
 - Source: https://github.com/zloirock/core-js ; official npm `core-js-bundle` fixed archive.
 - MIT license: `app/src/main/assets/licenses/core-js-MIT.txt`. Bundled only in the isolated offline Mermaid script to supply standard APIs on the tested older WebView.
 - Mermaid syntax is transformed by build-time esbuild 0.28.2 (MIT); its verified tool inputs and exact arguments are recorded in `config/mermaid/mermaid.lock.json`. The build tool is not shipped in the APK.
+
+## Silero VAD (v5.0, MIT)
+
+Continuous dictation uses the official `silero_vad.onnx` v5.0 model with the
+already pinned sherpa-onnx/ONNX Runtime. Its MIT license and fixed-source lock
+are bundled in `assets/voice-vad/`; source and integrity metadata live in
+`config/vad/model.lock.json`. `scripts/prepare-vad-assets.py` prepares and verifies
+this small endpoint detector. It is not an ASR model, transcription service or
+permission to capture audio. The recognition models retain their on-demand policy.

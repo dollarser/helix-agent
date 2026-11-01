@@ -111,6 +111,44 @@ class ManualSafFileDeviceTest {
         }
     }
 
+    @Test fun bidirectionalSyncUsesActualDocumentsProviderAndStopsOnRevocation() {
+        withBackend { saf, _, id ->
+            val context = InstrumentationRegistry.getInstrumentation().targetContext
+            require(context.packageName.endsWith(".asrvalidation"))
+            val root = File(context.cacheDir, "sync-local-${UUID.randomUUID()}").apply { mkdirs() }
+            try {
+                File(root, "left").mkdirs()
+                File(root, "left/local.txt").writeText("local synthetic")
+                saf.create("remote.txt", false)
+                saf.write("remote.txt").use { it.write("provider synthetic".toByteArray()) }
+                val nio =
+                    NioManualFileBackend(
+                        "app",
+                        com.helix.core.workspace
+                            .ScopeRootResolver { root.toPath() },
+                        false,
+                    ) {}
+                val operations = ManualFileOperations({ if (it == id) saf else nio }, { live && writable })
+                var state: String? = null
+                val sync = DirectorySyncService(operations, { state }, { state = it }, { _, _ -> })
+                val rule = sync.create(SyncRoot("app", "left"), SyncRoot(id, ""))
+                sync.run(rule.id)
+                assertEquals("COMPLETE", sync.list().single().status)
+                assertEquals("provider synthetic", File(root, "left/remote.txt").readText())
+                assertEquals("local synthetic", saf.read("local.txt").bufferedReader().use { it.readText() })
+                live = false
+                File(root, "left/local.txt").writeText("new local")
+                sync.run(rule.id)
+                assertEquals("REVIEW", sync.list().single().status)
+                live = true
+                assertEquals("local synthetic", saf.read("local.txt").bufferedReader().use { it.readText() })
+            } finally {
+                live = true
+                root.deleteRecursively()
+            }
+        }
+    }
+
     private var writable = true
     private var live = true
 

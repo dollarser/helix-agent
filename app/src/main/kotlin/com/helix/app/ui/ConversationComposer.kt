@@ -78,11 +78,13 @@ internal fun ConversationComposer(
     optionsContent: @Composable () -> Unit = {},
     attachmentsContent: @Composable () -> Unit = {},
     voiceActive: Boolean = false,
+    voiceDraftEditable: Boolean = false,
     voiceContent: @Composable () -> Unit = {},
     referenceContent: @Composable () -> Unit = {},
     turnState: TurnState? = null,
     availability: ComposerAvailability = ComposerAvailability(),
 ) {
+    val voiceBlocksEditing = voiceActive && !voiceDraftEditable
     val commandScope = androidx.compose.runtime.rememberCoroutineScope()
     val density = LocalDensity.current
     val windowHeight = LocalWindowInfo.current.containerSize.height
@@ -187,7 +189,7 @@ internal fun ConversationComposer(
                         .heightIn(min = 24.dp)
                         .focusRequester(inputFocus)
                         .testTag("chat-input"),
-                enabled = availability.input && !commandPending && !voiceActive,
+                enabled = availability.input && !commandPending && !voiceBlocksEditing,
                 textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
                 cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                 decorationBox = { innerTextField ->

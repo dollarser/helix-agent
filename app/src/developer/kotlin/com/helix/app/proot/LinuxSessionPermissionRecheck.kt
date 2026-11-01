@@ -46,9 +46,20 @@ internal class LinuxSessionPermissionRecheck(
     private val availability: ToolAvailabilitySource,
     private val classifier: ToolEffectClassifier,
     private val descriptor: ToolDescriptor,
+    private val workspaceValid: (ParsedLinuxCall) -> Boolean,
 ) {
     /** Null = the held proof still covers this launch; non-null = the job must not be launched. */
-    fun check(call: ParsedLinuxCall): ToolExecutorResult? {
+    fun check(call: ParsedLinuxCall): ToolExecutorResult? =
+        checkSession(call) ?: if (workspaceValid(call)) {
+            null
+        } else {
+            LinuxRunTool.failed(
+                "The original workspace mapping or permission changed; nothing was submitted.",
+                "WORKSPACE_UNAVAILABLE",
+            )
+        }
+
+    private fun checkSession(call: ParsedLinuxCall): ToolExecutorResult? {
         val sessionId =
             call.sessionId
                 ?: return LinuxRunTool.failed(

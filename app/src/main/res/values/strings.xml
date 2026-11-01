@@ -1986,7 +1986,7 @@
     <string name="offline_voice_title">Offline voice input</string>
     <string name="offline_voice_privacy">Chinese and English · processed on this device. Audio is not saved or uploaded. Up to 2 minutes.</string>
     <string name="offline_voice_permission">Microphone permission is required. Your existing draft is preserved.</string>
-    <string name="offline_voice_loading">Loading offline model…</string>
+    <string name="offline_voice_loading">Preparing voice input…</string>
     <string name="offline_voice_listening">Listening… Finish to review and edit.</string>
     <string name="offline_voice_finishing">Finishing recognition…</string>
     <string name="offline_voice_review">Review the text, then add it to your draft. Sending is a separate action.</string>

@@ -44,13 +44,42 @@ class FileManagerService internal constructor(
     // keeping the pure-JVM seam testable without an Android runtime.
     private val strings: (Int, Array<out Any>) -> String = { id, _ -> id.toString() },
     private val sharedStorageGranted: () -> Boolean = { false },
-    private val manual: ManualFileOperations? = null,
+    internal val manual: ManualFileOperations? = null,
     private val rootOperations: RootFileOperations? = null,
     private val workspaceSources: () -> List<FileSource> = { emptyList() },
     private val workspaceCleanup: ((String) -> Unit)? = null,
     val library: FileLibrary = FileLibrary(),
     shareCacheRoot: File? = null,
 ) {
+    internal var directorySync: Lazy<DirectorySyncService>? = null
+
+    /** Resolve the selected source again. A URI is never converted to a guessed disk path or materialized. */
+    fun inspectWorkspace(reference: String): WorkspaceAccessReport {
+        val path = FileScopePath.fromModelReference(reference)
+        val operations = requireNotNull(manual)
+        operations.probeDirectory(path.scopeId, path.relativePath)
+        val real =
+            try {
+                val directory =
+                    com.helix.core.workspace
+                        .resolveFileScopePath(path, roots)
+                java.nio.file.Files
+                    .newDirectoryStream(directory)
+                    .use { it.iterator().hasNext() }
+                true
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (_: ScopeNotAvailable) {
+                false
+            }
+        return WorkspaceAccessReport(
+            if (real) "PATH" else "SAF",
+            true,
+            operations.canWrite(path.scopeId),
+            real,
+        )
+    }
+
     /** Explicit cleanup shares this monitor with every manual file operation, including transfers. */
     @Synchronized
     fun cleanupWorkspace(scopeId: String) {

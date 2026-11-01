@@ -111,6 +111,7 @@ class InPlaceLogCloseoutDeviceTest {
 
     internal class Fixture(
         private val sharedStorage: HelixStorage? = null,
+        externalWorkspace: Boolean = false,
     ) {
         val context = ApplicationProvider.getApplicationContext<Context>()
         private val id =
@@ -121,13 +122,21 @@ class InPlaceLogCloseoutDeviceTest {
                 .take(12)
         private val database = "closeout-$id"
         private val scratch = File(context.cacheDir, database).apply { mkdirs() }
-        val workspace = File(context.filesDir, "workspaces/app/closeout-$id").apply { mkdirs() }.canonicalFile
+        val workspace =
+            if (externalWorkspace) {
+                File(requireNotNull(context.getExternalFilesDir(null)), "direct-fixture-$id")
+                    .apply { check(mkdirs()) }
+                    .canonicalFile
+            } else {
+                File(context.filesDir, "workspaces/app/closeout-$id").apply { mkdirs() }.canonicalFile
+            }
         var storage = sharedStorage ?: HelixStorage.open(context, database, File(scratch, "content"))
         private val supervisor = ProotRuntimeSupervisor(context)
         val client = ProotJobClient(supervisor)
         lateinit var spec: ProotJobSpec
         private val output = File(scratch, "output.zip")
         var submissions = 0
+        private var submitted = false
 
         private val store get() =
             ProotResultStore(storage, File(context.filesDir, "workspaces/app"), File(scratch, "verify"))
@@ -185,7 +194,9 @@ class InPlaceLogCloseoutDeviceTest {
                         ParcelFileDescriptor.MODE_WRITE_ONLY or ParcelFileDescriptor.MODE_TRUNCATE,
                 )
             submissions++
-            assertTrue(client.submit(spec, source, target) is ProotJobClient.SubmitOutcome.Accepted)
+            val outcome = client.submit(spec, source, target)
+            submitted = outcome is ProotJobClient.SubmitOutcome.Accepted
+            assertTrue("Expected accepted owned fixture; got ${outcome.javaClass.simpleName}", submitted)
         }
 
         fun terminal(): ProotJobRecord =
@@ -263,11 +274,11 @@ class InPlaceLogCloseoutDeviceTest {
             return anchor
         }
 
-        fun close() {
-            if (::spec.isInitialized) {
+        fun close(discardUnstoredResult: Boolean = false) {
+            if (::spec.isInitialized && submitted) {
                 client.cancel(spec.jobId)
                 val record = terminal()
-                if (store.readLocal("turn", "call") != null) {
+                if (discardUnstoredResult || store.readLocal("turn", "call") != null) {
                     com.helix.runtime.proot.client
                         .ProotResultClient(supervisor)
                         .acknowledge(record)

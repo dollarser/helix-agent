@@ -244,7 +244,13 @@ internal class AppFileServices(
             rootOperations = rootOperations,
             workspaceSources = workspaceSources,
             workspaceCleanup = workspaceCleanup,
-        )
+        ).also { manager ->
+            manager.directorySync =
+                lazy {
+                    com.helix.app.files
+                        .directorySyncService(context, requireNotNull(manager.manual))
+                }
+        }
 }
 
 // KTX edit returns Unit; persistence must still report a failed commit to the caller.

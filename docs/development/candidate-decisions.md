@@ -143,9 +143,9 @@ Documents 继续一个插件承载 PDF/DOCX。新增编辑/生成、XLSX/OCR/媒
 
 | 方向 | 当前代码与已实现边界 | 剩余成本与进入条件 |
 | --- | --- | --- |
-| 知识库语义/混合检索 | `KnowledgeStore.search/retrievalCandidates` 是词项匹配；Provider 目录已分类 EMBEDDING，但 `ModelProvider` 尚无嵌入生成业务 | 中大增量：嵌入模型选择/请求、按模型与原文修订隔离的可重建索引、删除/撤权与混合排序。成熟向量库可节省索引算法，仍需明确哪些资料可发送到哪个服务、额度和失败行为；不能从目录分类推导自动上传整库 |
-| 公式与 Mermaid | 块级公式已按 [ADR-PLATFORM-006](../adr/platform/006-formula-preview.md)接入成熟 KaTeX 离线预览，保留源码与既有 Markdown；Mermaid 默认内嵌，SVG 围栏/完整文件支持受限静态预览；复用有界宿主与临时渲染位图缓存，保留源码和无交互安全边界；行内公式尚按源码展示 | 公式为独立小范围能力，采用单个按需对话框控制 View 生命周期。本次已补齐 SVG/链接/配置、规模与等待预算和官方 Tiny 依赖许可；未承诺全部图种、任意系统 WebView 或硬实时中止。外部图标、ELK、自定义配置与可点击链接不在当前预览能力内 |
-| 连续语音/插话 | `VoiceCapture` 是用户开始、结束后回填的单次识别；`LiveReplySpeech` 增量朗读可见回复，尚无统一全双工控制器 | 大于界面按钮的增量：VAD/端点、录音与播放焦点、回声处理、跨会话与迟到结果、停止 TTS/模型与工具副作用的区分。设备 AEC 不保证存在；需真实麦克风/耳机范围和条件才能完成端到端验收。保留当前转写与朗读，不新增假“连续”开关 |
-| SAF 自动同步 | `SafManualFileBackend` 与现有 tree grants 支持显式文件操作，不是同步规则或双向镜像 | 中大增量：用户选定目录/方向、持久同步清单、缺失/冲突/撤权与中断后幂等。DocumentsProvider 的 modified 时间可以未知；普通 FileObserver 不适用于任意 SAF URI。可复用 WorkManager，但周期至少 15 分钟且非准点，不能宣称通用实时同步或把既有手动授权升级为持续同步 |
+| 知识库语义/混合检索 | 已接内置账号嵌入目录/请求、明确所选资料索引、本机有界可重建向量缓存、RRF 与原有词法融合；复用知识引用工具并重新核验正文 | 默认关闭；需明确所选文本和查询外发。账号/模型参数/修订隔离、删除失效，离线降级关键词；不部署向量数据库，不自动上传整库，服务端同名模型更新需显式修订或重建 |
+| 公式与 Mermaid | 块级公式已按 [ADR-PLATFORM-006](../adr/platform/006-formula-preview.md)接入成熟 KaTeX 离线预览，保留源码与既有 Markdown；Mermaid 默认内嵌，SVG 围栏/完整文件支持受限静态预览；复用有界宿主与临时渲染位图缓存，保留源码和无交互安全边界；完整行内公式复用同一 KaTeX 引擎生成透明位图，与原生文本混排 | 行内公式每段最多 8 项，保留原文、链接和点击放大；临时引擎与有界缓存共享。块级公式继续按需对话框。本次已补齐 SVG/链接/配置、规模与等待预算和官方 Tiny 依赖许可；未承诺全部图种、任意系统 WebView 或硬实时中止。外部图标、ELK、自定义配置与可点击链接不在当前预览能力内 |
+| 连续语音/插话 | 加号“连续转写”复用 Silero VAD 分段，停顿后追加可编辑草稿、不自动发送；单次输入保留，开始前等待朗读物理退出 | 有界分段、队列饱和停止、迟到结果隔离与资源释放需合成回归；真实麦克风/耳机与声学回声仍须专项授权，不宣称全双工 |
+| SAF 自动同步 | 文件页提供显式双向规则、共同基线与实际 hash，立即/周期同步、暂停及冲突状态；复用传输恢复 | 删除不自动传播；双方修改/类型/撤权/中断暂停。周期至少15分钟非准点；真实目录不在当前验证范围，跨设备需重新授权绑定 |
 
 依据：[KaTeX 安全与资源选项](https://katex.org/docs/security)、[Mermaid 使用与浏览器要求](https://mermaid.js.org/config/usage)、[elkjs 许可](https://github.com/kieler/elkjs/blob/master/LICENSE.md)、[Android AEC](https://developer.android.com/reference/android/media/audiofx/AcousticEchoCanceler)、[DocumentsContract 元数据](https://developer.android.com/reference/android/provider/DocumentsContract.Document)、[WorkManager 周期边界](https://developer.android.com/develop/background-work/background-tasks/persistent/getting-started/define-work)。具体实现和测试不由候选登记推定。

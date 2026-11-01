@@ -35,7 +35,6 @@ import com.helix.app.chat.ChatScreenState
 import com.helix.app.chat.MessageUi
 import com.helix.app.provider.ProviderRowUi
 import com.helix.app.voice.VisibleReplyFrame
-import com.helix.app.voice.VoiceInputMapper
 import com.helix.core.agent.RunControlConfig
 import com.helix.core.model.AgentMode
 import com.helix.core.model.ProviderProvisioningKind
@@ -127,7 +126,10 @@ internal fun ConversationSection(
 
     var voiceOpen by remember(screen.openSessionId) { mutableStateOf(false) }
     val voiceKeyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
-    var voiceBase by remember(screen.openSessionId) { mutableStateOf("") }
+    var continuousVoice by remember(screen.openSessionId) { mutableStateOf(false) }
+    var voiceDraft by remember(screen.openSessionId) {
+        mutableStateOf<com.helix.app.voice.VoiceDraftSession?>(null)
+    }
     var voicePreview by remember(screen.openSessionId) { mutableStateOf<String?>(null) }
     var pendingFork by remember(screen.openSessionId) { mutableStateOf<MessageUi?>(null) }
     pendingFork?.let { message ->
@@ -168,7 +170,8 @@ internal fun ConversationSection(
     var modelPickerRequest by remember(screen.openSessionId) { mutableStateOf(0) }
     val voiceDraftChangedNotice = stringResource(R.string.voice_inline_draft_changed)
     LaunchedEffect(input, voiceOpen) {
-        if (voiceOpen && input != voiceBase) {
+        if (voiceOpen && voiceDraft?.accepts(input) != true) {
+            voiceDraft?.cancel()
             voicePreview = null
             voiceOpen = false
             inputNotice = voiceDraftChangedNotice
@@ -551,20 +554,36 @@ internal fun ConversationSection(
         ConversationComposer(
             referenceContent = knowledgeReferenceContent,
             voiceActive = voiceOpen,
+            voiceDraftEditable = continuousVoice,
             voiceContent = {
                 androidx.compose.runtime.key(screen.openSessionId) {
                     if (voiceOpen) {
                         OfflineAsrGate(onDismiss = {
+                            voiceDraft?.cancel()
                             voicePreview = null
                             voiceOpen = false
                         }, onError = { inputNotice = it }) {
                             InlineVoiceInput(
                                 onDismiss = {
+                                    voiceDraft?.cancel()
                                     voicePreview = null
                                     voiceOpen = false
                                 },
-                                onAccept = { text -> onInput(VoiceInputMapper.appendDraft(voiceBase, text)) },
-                                onPreview = { text -> voicePreview = VoiceInputMapper.appendDraft(voiceBase, text) },
+                                dictation =
+                                    ContinuousVoiceOptions(
+                                        enabled = continuousVoice,
+                                        onCommitted = { text -> voiceDraft?.commit(text, input)?.let(onInput) },
+                                        onRestart = {
+                                            voiceDraft =
+                                                com.helix.app.voice
+                                                    .VoiceDraftSession(input)
+                                            voicePreview = input
+                                        },
+                                    ),
+                                onAccept = { text -> voiceDraft?.commit(text, input)?.let(onInput) },
+                                onPreview = { text ->
+                                    voicePreview = if (text.isBlank()) null else voiceDraft?.preview(text)
+                                },
                                 onError = { inputNotice = it },
                             )
                         }
@@ -585,7 +604,15 @@ internal fun ConversationSection(
                 composerOptions()
             },
             input = voicePreview ?: input,
-            onInput = onInput,
+            onInput = { edited ->
+                if (voiceOpen) {
+                    voiceDraft?.cancel()
+                    voicePreview = null
+                    voiceOpen = false
+                    inputNotice = voiceDraftChangedNotice
+                }
+                onInput(edited)
+            },
             isSending = screen.isSending,
             hasAttachments = screen.pendingAttachments.isNotEmpty(),
             hasKnowledgeReferences = hasKnowledgeReferences,
@@ -682,7 +709,21 @@ internal fun ConversationSection(
                         voiceKeyboard?.hide()
                         reader?.leave()
                         inputNotice = null
-                        voiceBase = input
+                        voiceDraft =
+                            com.helix.app.voice
+                                .VoiceDraftSession(input)
+                        continuousVoice = false
+                        voicePreview = input
+                        voiceOpen = true
+                    },
+                    onContinuousVoice = {
+                        voiceKeyboard?.hide()
+                        reader?.leave()
+                        inputNotice = null
+                        voiceDraft =
+                            com.helix.app.voice
+                                .VoiceDraftSession(input)
+                        continuousVoice = true
                         voicePreview = input
                         voiceOpen = true
                     },

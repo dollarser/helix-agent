@@ -8,7 +8,7 @@ import java.io.File
 /** Resolve only the approval-bound resource, never the session's later selected directory. */
 internal class LinuxLiveWorkspace(
     private val resolve: (FileScopePath) -> File,
-    private val allowedRoots: List<File>,
+    private val allowedRoots: () -> List<File>,
 ) {
     @Suppress("TooGenericExceptionCaught") // All preparation precedes submission; failure never reports execution.
     fun prepareResult(call: LinuxRunTool.ParsedLinuxCall): LinuxRunTool.ParsedResult =
@@ -19,7 +19,8 @@ internal class LinuxLiveWorkspace(
         } catch (_: Exception) {
             LinuxRunTool.ParsedResult.ParseFailure(
                 "Workspace unavailable or unsupported for in-place execution; check the bound directory and paths. " +
-                    "Use explicit snapshot mode for non-POSIX sources. Nothing was submitted.",
+                    "Native file tools still access document sources in place. " +
+                    "Only choose explicit snapshot mode when CLI needs it. Nothing was submitted or copied.",
             )
         }
 
@@ -36,9 +37,12 @@ internal class LinuxLiveWorkspace(
                 requireNotNull(call.workspaceReference) { "Workspace required" },
             )
         val root = resolve(reference).canonicalFile
-        require(allowedRoots.any { it.path == it.canonicalPath && root.toPath().startsWith(it.toPath()) }) {
+        require(allowedRoots().any { it.path == it.canonicalPath && root.toPath().startsWith(it.toPath()) }) {
             "This workspace has no supported local POSIX mapping; explicitly select snapshot mode"
         }
+        java.nio.file.Files
+            .newDirectoryStream(root.toPath())
+            .use { it.iterator().hasNext() }
         val witness = LiveJobWorkspace.witness(root)
         if (call.cwd.isNotEmpty()) require(LiveJobWorkspace.resolve(root, call.cwd).isDirectory) { "cwd unavailable" }
         call.inputReferences.forEach { input ->
@@ -60,4 +64,14 @@ internal class LinuxLiveWorkspace(
         root: String,
         path: String,
     ): Boolean = root.isEmpty() || path == root || path.startsWith("$root/")
+}
+
+/** Re-resolve only the frozen reference, never silently adopt another path or a replacement inode. */
+internal fun samePreparedWorkspace(
+    original: LinuxRunTool.ParsedLinuxCall,
+    prepare: (LinuxRunTool.ParsedLinuxCall) -> LinuxRunTool.ParsedResult,
+): Boolean {
+    val refreshed = (prepare(original) as? LinuxRunTool.ParsedResult.Ok)?.call ?: return false
+    return refreshed.resolvedWorkspacePath == original.resolvedWorkspacePath &&
+        refreshed.workspaceWitness == original.workspaceWitness
 }

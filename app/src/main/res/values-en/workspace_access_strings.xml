@@ -1,0 +1,6 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+  <string name="workspace_direct_observed">Original directory opened. When Linux Runtime is available and authorized, it maps to /workspace without a working copy.</string>
+  <string name="workspace_saf_observed">Directory opened in place through the document API. No POSIX path; this is not a Git mount.</string>
+  <string name="workspace_write_hint">The source advertises write access. Each operation still checks provider capabilities and live permission; user files were not modified.</string>
+</resources>

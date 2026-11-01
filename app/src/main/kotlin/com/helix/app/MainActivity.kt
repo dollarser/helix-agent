@@ -1074,6 +1074,9 @@ private fun AuditScreenDestination(
         container.diagnosticReport,
         onReadiness = { navController.navigateFrom(sourceEntry, SETUP_READINESS_ROUTE) },
         onCapabilities = { navController.navigateFrom(sourceEntry, SETUP_CAPABILITIES_ROUTE) },
+        onOpenCommand = { turnId, callId ->
+            navController.navigateFrom(sourceEntry, commandDetailRoute(turnId, callId))
+        },
     )
 }
 

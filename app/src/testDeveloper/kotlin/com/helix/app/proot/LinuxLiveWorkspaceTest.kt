@@ -4,6 +4,7 @@ import com.helix.runtime.proot.ipc.ProotJobCommand
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -28,7 +29,7 @@ class LinuxLiveWorkspaceTest {
 
     @Test fun bindsTheOriginalSelectedDirectoryAndAllowsOrdinaryArtifactPaths() {
         val root = temporary.newFolder("project").canonicalFile
-        val resolver = LinuxLiveWorkspace({ root }, listOf(root))
+        val resolver = LinuxLiveWorkspace({ root }) { listOf(root) }
         val prepared = resolver.prepare(call().copy(artifactPaths = listOf("report.docx", "src/main.py")))
         assertEquals(root.path, prepared.resolvedWorkspacePath)
         assertEquals(
@@ -41,14 +42,14 @@ class LinuxLiveWorkspaceTest {
 
     @Test fun unsupportedBackendNeverSilentlyCreatesASnapshot() {
         val root = temporary.newFolder("project").canonicalFile
-        val resolver = LinuxLiveWorkspace({ error("SAF has no POSIX path") }, listOf(root))
+        val resolver = LinuxLiveWorkspace({ error("SAF has no POSIX path") }) { listOf(root) }
         assertThrows(IllegalStateException::class.java) { resolver.prepare(call()) }
         assertEquals(call().copy(snapshot = true), resolver.prepare(call().copy(snapshot = true)))
     }
 
     @Test fun rejectsExternalInputsInternalArtifactsAndMissingCwd() {
         val root = temporary.newFolder("project").canonicalFile
-        val resolver = LinuxLiveWorkspace({ root }, listOf(root))
+        val resolver = LinuxLiveWorkspace({ root }) { listOf(root) }
         assertThrows(IllegalArgumentException::class.java) {
             resolver.prepare(call().copy(inputReferences = listOf("scope:other:a.txt")))
         }
@@ -56,5 +57,18 @@ class LinuxLiveWorkspaceTest {
             resolver.prepare(call().copy(artifactPaths = listOf(".helix/private")))
         }
         assertThrows(IllegalArgumentException::class.java) { resolver.prepare(call().copy(cwd = "missing")) }
+    }
+
+    @Test fun enabledExternalRootIsReadFreshAndRevocationNeverFallsBackToCopy() {
+        val root = temporary.newFolder("external-project").canonicalFile
+        var enabled = true
+        val resolver = LinuxLiveWorkspace({ root }) { if (enabled) listOf(root.parentFile) else emptyList() }
+        assertEquals(root.path, resolver.prepare(call()).resolvedWorkspacePath)
+        val prepared = resolver.prepare(call())
+        assertTrue(samePreparedWorkspace(prepared, resolver::prepareResult))
+        enabled = false
+        assertFalse(samePreparedWorkspace(prepared, resolver::prepareResult))
+        assertTrue(resolver.prepareResult(call()) is LinuxRunTool.ParsedResult.ParseFailure)
+        assertEquals(emptyList<String>(), root.list()!!.toList())
     }
 }

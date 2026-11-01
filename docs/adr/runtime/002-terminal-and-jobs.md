@@ -64,7 +64,7 @@ HXA-288 不把 PTY/持久进程生命周期绑定到单次工具调用，也不�
 
 ### 工作目录、输入与产物（2026-10-17 目标契约）
 
-手动 PTY 挂载 App/managed 中的实际目录，抽屉默认目录独立于聊天。2026-10-21 Owner 明确要求 Job 默认在已授权的真实工作区执行：`code.linux.run`/`code.linux.job.start` 默认 `in_place`，在支持的 App/managed POSIX 目录挂载原目录；`snapshot` 为显式选择，不静默回退。调用前冻结 Workspace 引用，Runtime 复核目录身份；单次命令的嵌套 cwd 不修改会话目录。恢复原活实例、创建新实例和重发命令分别表达，进程死亡不保留 shell 内存。原位/Binder/Room 与日志恢复的后续有界验收见[结果日志收尾](../../development/result-log-closeout.md)，不外推完整迁移矩阵或其他 OEM。
+手动 PTY 挂载 App/managed 中的实际目录，抽屉默认目录独立于聊天。2026-10-21 Owner 明确要求 Job 默认在已授权的真实工作区执行：`code.linux.run`/`code.linux.job.start` 默认 `in_place`，在支持的 App/managed 及当前已授权、已启用 PATH 根挂载原目录；`snapshot` 为显式选择，不静默回退。调用前冻结 Workspace 引用，Runtime 复核目录身份；单次命令的嵌套 cwd 不修改会话目录。恢复原活实例、创建新实例和重发命令分别表达，进程死亡不保留 shell 内存。原位/Binder/Room 与日志恢复的后续有界验收见[结果日志收尾](../../development/result-log-closeout.md)，不外推完整迁移矩阵或其他 OEM。
 
 真实工作区支持时与原生文件/exec/终端共享资源。URI-native 消费者直接使用 Provider；只有不支持 URI、确需 POSIX 桥接的消费者才物化。worktree/snapshot 是明确模式，远程本身不要求复制；并发不增加全局文件/结果锁，不向任意 Shell 承诺原子 CAS。原位模式不收取文件内容，仅传日志和显式 `artifacts` 清单，核对原版本后登记原路径；无需 `output/` 约定。取消不回滚真实文件修改，结果恢复不重跑命令。287/288 的完整联合矩阵和类型化资源迁移仍独立验收。
 
@@ -186,3 +186,14 @@ Separate physical execution capacity, outstanding execution/results and short-li
 After actual process exit, remove only launch scratch (`input.zip`, `tmp`, `proc.txt`, interrupted record staging); keep output archives and execution identity until collection/retention permits removal. Restart admission retries eligible cleanup. Complete payload removal before stamping reconciliation or expiry; failures retain retryable facts and are logged internally. Result descriptor acquisition shares the journal lock with cleanup; an already-open descriptor remains readable after unlink. This does not remove host-persisted results, Room audit, workspaces or shell history, replay commands, or treat PID absence as exit proof. ORPHANED acknowledgement cannot authorize payload deletion.
 
 - 2026-10-27 device refinement: a capacity-refused manual start can leave an empty control header without an execution identity. Entry/reclamation removes only that exact empty header, including its interrupted native quarantine; an occupied or changed identity remains untouched. This is transient allocation cleanup, not deletion of execution audit or a new compatibility path.
+
+### Decision history — 2026-10-31：按能力原位访问
+
+Owner 明确选择真实路径直通、SAF 原生文件访问优先，复制/同步不是默认前置。
+复用 `/workspace` bind；主应用按当前启用根与冻结目录双重检查，前台/后台 Job 在实际提交前重验原路径、
+目录身份和权限；Runtime 另验可访问根和真实目录读取，绝不从文档 URI 猜真实路径。
+文件页仅为 PATH 来源提供终端入口，不再把所有 `ws-`（包含 SAF）都当作本地目录。
+
+URI-only 的只读命令 RPC 仅在隔离实验中验证；不注册生产工具或开放永久 Broker，不假装为目录挂载。
+DocumentsContract 不保证独占创建、原子替换 rename、锁等 Git 所需语义，透明桥接仍需独立的 native/文件系统方案，
+不采用 root/FUSE/SELinux 变更或默认全目录镜像。细节见[原位契约](../../development/proot-in-place-execution.md)。

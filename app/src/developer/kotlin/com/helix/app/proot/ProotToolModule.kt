@@ -81,6 +81,9 @@ internal object ProotToolModule {
         resolveWorkspacePath: (
             com.helix.core.workspace.FileScopePath,
         ) -> File = { error("Workspace resolver unavailable") },
+        allowedWorkspaceRoots: () -> List<File> = {
+            listOf("app", "managed").map { File(context.filesDir.canonicalFile, "workspaces/$it") }
+        },
     ) {
         wireForTest(context)
         idGenerator = RandomIdGenerator()
@@ -94,7 +97,7 @@ internal object ProotToolModule {
         val liveWorkspace =
             LinuxLiveWorkspace(
                 resolveWorkspacePath,
-                listOf("app", "managed").map { File(context.filesDir.canonicalFile, "workspaces/$it") },
+                allowedWorkspaceRoots,
             )
         // HXA-209 C5: the session authorization for background jobs — the SAME service,
         // classifier and resolver as the dispatcher's start gate. A new prohibition
@@ -110,6 +113,7 @@ internal object ProotToolModule {
                 sessionPermissions,
                 SessionToolEffectClassifier(prootWorkspace),
                 LinuxRunTool.descriptor(),
+                { call -> samePreparedWorkspace(call, liveWorkspace::prepareResult) },
             )
         val bindingStore =
             ProotJobBindingStore(storage, sessionPermissions::configFor) {

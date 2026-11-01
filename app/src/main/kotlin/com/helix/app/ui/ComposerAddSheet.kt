@@ -79,6 +79,18 @@ internal fun ComposerAddSheet(
                 enabled = messageEnabled,
             )
         }
+        actions.onContinuousVoice?.let { start ->
+            ConversationMenuRow(
+                stringResource(R.string.voice_continuous_title),
+                {
+                    onDismiss()
+                    start()
+                },
+                Modifier.testTag("composer-add-continuous-voice"),
+                supporting = stringResource(R.string.voice_continuous_hint),
+                enabled = messageEnabled,
+            )
+        }
         Text(
             stringResource(R.string.composer_add_session_group),
             Modifier.padding(top = 16.dp, bottom = 8.dp),

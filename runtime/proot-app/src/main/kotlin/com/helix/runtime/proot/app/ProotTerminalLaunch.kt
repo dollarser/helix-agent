@@ -15,10 +15,9 @@ internal class ProotTerminalLaunch(
     private val environment: Map<String, String>
 
     init {
-        val allowed = listOf("app", "managed").map { File(context.filesDir, "workspaces/$it").canonicalFile }
         workspace = File(workspacePath).canonicalFile
         require(workspace.path == workspacePath && workspace.isDirectory)
-        require(allowed.any { workspace == it || workspace.toPath().startsWith(it.toPath()) })
+        ProotPathAccess.verify(context, workspace)
         require(':' !in workspace.path && workspace.path.none(Char::isISOControl))
         val root = ProotRuntimeInstaller.runtimeRoot(context)
         val install = File(root, ProotRuntimeInstaller.prepareForUse(context))

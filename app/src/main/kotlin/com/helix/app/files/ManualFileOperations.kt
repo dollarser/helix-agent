@@ -5,8 +5,8 @@ import java.nio.file.FileAlreadyExistsException
 import java.util.UUID
 import java.util.concurrent.CancellationException
 
-/** Explicit user operations, isolated from Agent dispatch and scopes. */
-@Suppress("TooGenericExceptionCaught") // Roll back owned staging on any provider failure, then propagate.
+/** Explicit manual operations; roll back owned staging on provider failure, then propagate. */
+@Suppress("TooGenericExceptionCaught", "TooManyFunctions")
 class ManualFileOperations internal constructor(
     private val backend: (String) -> ManualFileBackend,
     private val writable: (String) -> Boolean,
@@ -15,6 +15,21 @@ class ManualFileOperations internal constructor(
     private val tree = ManualFileTree()
 
     fun canWrite(scope: String): Boolean = writable(scope)
+
+    internal fun syncBackend(scope: String): ManualFileBackend {
+        check(canWrite(scope)) { "SYNC_PERMISSION_REVOKED" }
+        return backend(scope)
+    }
+
+    /** No writes or child contents: opening/enumerating the selected directory is the actual read probe. */
+    internal fun probeDirectory(
+        scope: String,
+        path: String,
+    ) {
+        val fs = backend(scope)
+        require(fs.stat(path)?.directory == true) { "Workspace directory unavailable" }
+        fs.children(path)
+    }
 
     /** Explicit selection only; reads use the same live-authorized backend as ordinary browsing. */
     fun captureImport(
@@ -57,7 +72,14 @@ class ManualFileOperations internal constructor(
     }
 
     /** Streams into an owned sibling; replacement is held as a backup until publication succeeds. */
-    @Suppress("LongMethod", "ThrowsCount", "CyclomaticComplexMethod", "NestedBlockDepth", "SwallowedException")
+    @Suppress(
+        "LongMethod",
+        "ThrowsCount",
+        "CyclomaticComplexMethod",
+        "NestedBlockDepth",
+        "SwallowedException",
+        "LongParameterList", // Four scoped coordinates plus explicit copy and revision boundaries.
+    )
     @Synchronized
     fun transfer(
         sourceScope: String,
@@ -67,6 +89,7 @@ class ManualFileOperations internal constructor(
         move: Boolean,
         overwrite: Boolean,
         cancelled: () -> Boolean = { false },
+        expected: TransferExpectation? = null,
     ): Boolean {
         check(
             canWrite(targetScope) && (!move || canWrite(sourceScope)),
@@ -79,14 +102,24 @@ class ManualFileOperations internal constructor(
                 "A folder cannot be copied or moved into itself"
             }
         }
-        val from = backend(sourceScope)
-        val to = backend(targetScope)
+        val from = backend(sourceScope).let { if (expected == null) it else boundedSyncBackend(it) }
+        val to = backend(targetScope).let { if (expected == null) it else boundedSyncBackend(it) }
         to.validateMutation(target.relativePath)
         if (move) from.validateMutation(source.relativePath)
         requireNotNull(from.stat(source.relativePath)) { "Source is missing" }
         val existed = to.stat(target.relativePath) != null
         if (existed && !overwrite) throw FileAlreadyExistsException(target.relativePath)
         checkCancelled(cancelled)
+        if (expected != null) {
+            check(tree.fingerprint(from, sourcePath, cancelled) == expected.source) {
+                "SYNC_SOURCE_CHANGED"
+            }
+        }
+        if (expected != null) {
+            check(
+                (if (existed) tree.fingerprint(to, targetPath, cancelled) else "") == expected.target,
+            ) { "SYNC_TARGET_CHANGED" }
+        }
         val sameParent = sourceScope == targetScope && source.parent == target.parent
         val fastRename = move && !existed && sameParent
         if (journal == null && fastRename) {
@@ -112,10 +145,16 @@ class ManualFileOperations internal constructor(
                     newHash = tree.fingerprint(to, temporary, cancelled),
                     oldHash = if (existed) tree.fingerprint(to, target.relativePath, cancelled) else "",
                 )
+            if (expected != null) check(record.newHash == expected.source) { "SYNC_SOURCE_CHANGED" }
+            if (expected != null) check(record.oldHash == expected.target) { "SYNC_TARGET_CHANGED" }
             journal?.save(record)
+            check((to.stat(targetPath) != null) == existed) { "Destination changed before publication" }
             if (existed) {
                 to.rename(target.relativePath, backup)
                 backedUp = true
+                check(
+                    tree.fingerprint(to, backup, cancelled) == record.oldHash,
+                ) { "Destination changed during publication" }
             }
             record = record.copy(phase = ManualTransferPhase.PUBLISHING)
             journal?.save(record)
@@ -123,6 +162,9 @@ class ManualFileOperations internal constructor(
             published = true
             record = record.copy(phase = ManualTransferPhase.PUBLISHED)
             journal?.save(record)
+            check(tree.fingerprint(to, target.relativePath, cancelled) == record.newHash) {
+                "Published destination changed; review required"
+            }
             // Verify the source again before deleting: edits during a transfer must not be lost.
             if (move) {
                 check(tree.sameTree(from, source.relativePath, to, target.relativePath, cancelled, 0)) {
@@ -132,7 +174,10 @@ class ManualFileOperations internal constructor(
                 journal?.save(record)
                 tree.deleteTree(from, source.relativePath, cancelled, 0)
             }
-            if (backedUp) tree.deleteTree(to, backup, { false }, 0)
+            if (backedUp) {
+                check(tree.fingerprint(to, backup) == record.oldHash) { "Backup changed; review required" }
+                tree.deleteTree(to, backup, { false }, 0)
+            }
             journal?.remove(record.id)
             return existed
         } catch (failure: Exception) {
@@ -202,3 +247,8 @@ class ManualFileOperations internal constructor(
         ): String = if (parent.isEmpty()) name else "$parent/$name"
     }
 }
+
+data class TransferExpectation(
+    val source: String,
+    val target: String,
+)
