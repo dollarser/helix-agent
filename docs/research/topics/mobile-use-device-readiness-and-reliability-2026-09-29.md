@@ -381,3 +381,13 @@ AutomationSessionManager.kt  3669ad260e36a9a50f309a177a562eb9cd0863f0917eca17592
 | Mika 取消/进程处理与输出机制 | Helix 已有 process group、持久 Jobs 与 UNKNOWN 恢复。针对实际启动竞态复用 `awaitPtyProcessIdentity` 等待原 unreaped PID 身份，先启动 stdout/stderr drain；仅补桥凭证跨块/截断脱敏。取消后保留已发动作真值，断连/进程死亡不自动重放，不声称 PRoot 提供强隔离。 |
 
 设计变更分别记入 Permissions、Runtime/QuickJS、Terminal/Jobs、Skills 现有 ADR。后台屏与脚本桥/Skill 的主机及设备结果分别保留在忽略的 `build/background-display-2026-11-01/` 和 `build/script-tool-bridge-2026-11-01/`；最终收据才可证明实际通过范围，编译或中间失败不代表设备验收。
+
+### 2026-11-01：现有模型的合成闭环验收
+
+使用已配置的 `Qwen3.8-27B`，只发送自有 CSV、随机颜色/位置界面和随机文本，不读取凭据、不接触真实第三方账号。实际模型分别完成了文件汇总、两次随机后台屏视觉定位、两次 Python/Node/隔离 JS 统一工具桥与固定快照 Skill 文件交付，以及两次停止原 Turn、人工处理后新 Turn 继续。断言检查实际文件、原显示截图帧、画面目标计数、持久子调用与产物登记，不以最终文字或 Turn 完成替代效果。
+
+两次有效视觉任务各耗时约 82 / 95 秒，界面动作各只生效一次。脚本任务首次出现 QuickJS 顶层 `await` 语法试错，纠正后成功；明确同步工具契约后的新任务首个 JS 调用即成功。总耗时和请求数仍受模型规划及运行器准备影响，单次差异不足以归因为整体提速。接管验收确认原 Turn 取消且没有工具动作，后继 Turn 重新读取人工修改后的文件完成交付，旧按钮重复点击被拒绝。
+
+保留两次无效夹具尝试：独立测试进程缺少 Kotlin 可变捕获运行时、Skill 名称不符合父目录契约；修复夹具后复验，不计入有效模型能力结论，也不隐藏已经发生的模型请求成本。样本只证明上述合成场景，不推断全设备或产品成功率。
+
+由实际观察采用的改进是显式人工交回、持久停止事实摘要、同步 QuickJS 调用说明，以及写入前置拒绝的无副作用标记；发布后失败仍保留不确定性。后台屏三个新路由创建/取消/释放及实际原 helper 断连、新 Turn 重连均通过，断连不伪报正常释放或自动重放。实现入口为 [人工交接](../../../app/src/main/kotlin/com/helix/app/chat/HumanHandoff.kt)、[停止事实](../../../app/src/main/kotlin/com/helix/app/chat/TurnStopFacts.kt) 和[真实模型夹具](../../../app/src/androidTestDeveloper/kotlin/com/helix/app/eval/ClosedLoopRealModelDeviceTest.kt)。详细构建、失败、请求与设备收据位于忽略目录 `build/real-effect-closeout-2026-11-01/`。浏览器保留、经验转 Skill、真实资料备份与语音不属于本轮。
