@@ -81,7 +81,7 @@ git diff --check
 
 变更 storage 或 agent 时追加 `./gradlew :core:storage:testDebugUnitTest :core:storage:assembleDebugAndroidTest :core:agent:test`。模型准备适用的持久化/恢复测试 APK 和人工步骤；用户用自有独占设备执行并回填。实际任务形态以实现前查询结果为准；若漂移先修矩阵，不跳过。
 
-**G3：Runtime 回归与新增设备类（用户手动执行，或所有者当次明确授权后由代理执行；GitHub Actions 不运行）**
+**G3：Runtime 回归与新增设备类（用户手动执行，或所有者当前任务已明确授权后由代理执行；GitHub Actions 不运行）**
 
 ```bash
 python3 scripts/verify-integrated-runtimes.py --avd Helix_API_29 --port 5622 --output build/terminal-api29-fresh
@@ -108,6 +108,7 @@ python3 scripts/verify-integrated-runtime-apks.py --build-type release
 
 日常设备完成测试后，移除本轮使用且已确认身份的 instrumentation/test APK，保留主应用及用户数据；清理前记录包名和是否仍被其他任务使用。Helix 的测试包含语音识别 Activity 与文档 Provider 夹具，长期留在日常设备会出现在系统选择器中。遇到此类残留，应查询具体 Intent 的处理包，卸载已确认的测试包后复查，不按 `test` 字样批量删除未知应用。
 
+- 日常 `Helix_API_36` 的通过检查后 Debug 保数据覆盖安装按 [AGENTS.md](../../AGENTS.md#verification-and-device-authorization)预授权执行，不等于新增设备测试、清理或敏感授权。当前任务内有效设备授权随交接保留；仅范围变化或确实缺失时补问。
 - 默认由用户手动运行模拟器与真机验收；代理只有取得所有者对当前任务、相应设备类型与范围的明确授权后才执行。默认使用自有独占模拟器，记录 PID/serial/AVD/API/ABI，只关闭自己启动的进程；所有者明确指定日常实例时按指定范围使用并保留既有数据。未获当次设备授权时，代理仅准备 APK、测试 APK、脚本、fixture、预期与记录模板；脚本放 `scripts/local/debug/YYYY-MM-DD/`，运行输出放忽略的 `build/`。
 - API29/36 × consumer/developer 是涉及产品/授权公共能力的参考矩阵，由用户按任务适用范围手动运行并回填；变体专属功能如实限定。真机/OEM/低内存/Doze/Root/系统 Binder 等证据不能由模拟器替代。未回填不得记设备通过；推送另按当前授权和已接受的交付条件判断，未要求的设备矩阵不自动成为所有主机切片的前置条件。
 - 进程重启测试须确认 fixture 持久化及 PID 变化；Gradle connected 测试可能卸载 App，跨 run 协议采用经验证的 am instrument 入口，不能把 Activity 重建当进程恢复。
