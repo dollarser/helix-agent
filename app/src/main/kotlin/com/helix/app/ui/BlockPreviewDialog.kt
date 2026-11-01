@@ -117,7 +117,11 @@ internal fun BlockPreviewDialog(
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onClose) { Text(stringResource(R.string.formula_close)) } },
+        confirmButton = {
+            TextButton(onClick = onClose, modifier = Modifier.testTag("block-preview-close")) {
+                Text(stringResource(R.string.formula_close))
+            }
+        },
         dismissButton = {
             TextButton(onClick = { clipboard.setText(AnnotatedString(source)) }) {
                 Text(stringResource(R.string.formula_copy))

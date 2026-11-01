@@ -111,6 +111,12 @@ class AuditLogService(
 
     fun retry() = setFilter(requests.value.filter)
 
+    suspend fun searchCommandOutput(
+        query: String,
+        cursor: CommandOutputCursor? = null,
+    ): CommandOutputPage =
+        kotlinx.coroutines.withContext(Dispatchers.IO) { CommandOutputSearch.find(storage, query, cursor) }
+
     private fun start(request: Request) {
         mutableRecords.value = emptyList()
         mutableStatus.value = AuditHistoryStatus()

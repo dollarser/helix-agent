@@ -55,7 +55,10 @@ fun AuditScreen(
     diagnostics: com.helix.app.diagnostics.DiagnosticReportService? = null,
     onReadiness: (() -> Unit)? = null,
     onCapabilities: (() -> Unit)? = null,
+    onOpenCommand: (String, String) -> Unit = { _, _ -> },
 ) {
+    var outputSearch by remember { mutableStateOf(false) }
+    if (outputSearch) CommandOutputSearchDialog(service, onOpenCommand) { outputSearch = false }
     var sessionId by rememberSaveable { mutableStateOf<String?>(null) }
     var toolName by rememberSaveable { mutableStateOf<String?>(null) }
     var operationClass by rememberSaveable { mutableStateOf<ToolOperationClass?>(null) }
@@ -84,6 +87,9 @@ fun AuditScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         TroubleshootingSection(diagnostics, onReadiness, onCapabilities)
+        OutlinedButton({ outputSearch = true }, Modifier.testTag("command-output-search")) {
+            Text(stringResource(R.string.command_output_search))
+        }
         AuditLogHeader()
         OutlinedTextField(
             keyword,

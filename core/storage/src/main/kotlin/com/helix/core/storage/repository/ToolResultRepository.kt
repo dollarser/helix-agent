@@ -56,8 +56,11 @@ class ToolResultRepository(
         require(dao.markVerified(result.id) == 1) { "tool result could not be verified: ${result.id}" }
     }
 
-    fun readContent(result: ToolResultEntity): String? {
+    fun readContent(
+        result: ToolResultEntity,
+        maxBytes: Int = Int.MAX_VALUE - 1,
+    ): String? {
         val ref = result.contentRef ?: return null
-        return contentStore.read(ContentRef.parse(ref))
+        return contentStore.readBounded(ContentRef.parse(ref), maxBytes)
     }
 }

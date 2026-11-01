@@ -112,17 +112,33 @@ internal fun MarkdownText(
                         } else {
                             inline
                         }
-                    Text(
-                        annotated,
-                        style = if (muted) MaterialTheme.typography.bodySmall else style,
-                        color =
-                            if (muted) {
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            } else {
-                                androidx.compose.ui.graphics.Color.Unspecified
-                            },
-                        fontStyle = if (block.kind == MarkdownBlock.Kind.QUOTE) FontStyle.Italic else null,
-                    )
+                    val hasMath = remember(block.text) { inlineMath(block.text).isNotEmpty() }
+                    val textColor =
+                        MaterialTheme.colorScheme.let { colors ->
+                            if (muted) colors.onSurfaceVariant else colors.onSurface
+                        }
+                    if (hasMath) {
+                        InlineMathText(
+                            block.text,
+                            if (muted) MaterialTheme.typography.bodySmall else style,
+                            textColor,
+                            if (block.kind == MarkdownBlock.Kind.QUOTE) FontStyle.Italic else null,
+                            searchQuery,
+                            highlightStyle,
+                        )
+                    } else {
+                        Text(
+                            annotated,
+                            style = if (muted) MaterialTheme.typography.bodySmall else style,
+                            color =
+                                if (muted) {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                } else {
+                                    androidx.compose.ui.graphics.Color.Unspecified
+                                },
+                            fontStyle = if (block.kind == MarkdownBlock.Kind.QUOTE) FontStyle.Italic else null,
+                        )
+                    }
                 }
             }
         }

@@ -1,0 +1,13 @@
+<resources>
+    <string name="command_output_search">Search command output</string>
+    <string name="command_output_search_scope">Search saved stdout/stderr across conversations. Known credential patterns are masked before matching. This does not read device-wide system logs or start commands.</string>
+    <string name="command_output_loading">Searching…</string>
+    <string name="command_output_failed">Could not read command history. Try again.</string>
+    <string name="command_output_scanned">Checked %1$d commands; %2$d matches on this page.</string>
+    <string name="command_output_limited">Some output is truncated, unavailable or not verified; no match does not cover the original full log.</string>
+    <string name="command_output_more">Continue older history</string>
+    <string name="app_log_search">Search app logs</string>
+    <string name="app_log_scope">Recent logcat for this Helix process only, with known credential patterns masked. Other apps and older processes are excluded.</string>
+    <string name="app_log_limit">Snapshot: at most 500 lines / 256 KiB; first 100 matches shown. Android may already have evicted logs.</string>
+    <string name="app_log_refresh">Refresh snapshot</string>
+</resources>

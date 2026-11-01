@@ -89,3 +89,7 @@ Owner 授权参考 WorkBuddy 迁移且删除旧工具入口。采用 `device.*`�
 ## Decision history — 2026-10-21：成组工具与独立短名
 
 Owner 进一步授权整理其他工具，并明确离散工具可无命名空间。Goal 使用 `goal.*`，设置使用 `settings.inspect/apply`，结果读取使用 `tools.read_result`；`ask_user/read/write/edit/bash/view_image` 保留短名。旧设置提案/页面弹窗移除，`settings.inspect` 为只读，实际配置修改保持原 DEVICE_SYSTEM_MUTATION 分类、当前 live 调用/Turn 校验与未来输入生效边界。一次性迁移用户可用性选择，不转授单次批准或重写审计。见 [工具契约整理](../../development/tool-contracts.md)。
+
+## Decision history — 2026-10-31：本机输出检索
+
+Owner 授权补命令与应用日志关键词检索。审计元数据查询保持独立；新增只读 keyset 分页扫描已核验命令 stdout/stderr，每页至多 50 条、单条检索至多 200 万字符，标明截断/缺失/未核验覆盖边界，不启动或确认命令。当前 Helix PID 的近期 logcat 快照按 500 行/256 KiB 限制，4 秒读取预算，关闭/取消销毁读取进程；不申请 READ_LOGS/root，不读取其他 App 或旧进程日志，不持久化或上传。已知凭据格式先遮蔽再匹配；任意未标识私密文本不保证自动识别，不自动导出。参照 [Android Logcat](https://developer.android.com/tools/logcat) 的循环缓冲与平台限制，不承诺全设备历史。

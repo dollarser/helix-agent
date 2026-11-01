@@ -43,6 +43,10 @@ internal class InlineDiagramState(
     var attempt by mutableIntStateOf(0)
     var render by mutableStateOf<InlineDiagramLease?>(null)
     var height by mutableFloatStateOf(initialHeight)
+    var pixelWidth by mutableIntStateOf(0)
+        private set
+    var pixelHeight by mutableIntStateOf(0)
+        private set
 
     suspend fun load(
         input: InlineDiagramInput,
@@ -81,7 +85,10 @@ internal class InlineDiagramState(
         input: InlineDiagramInput,
         image: Bitmap,
     ) {
-        height = (image.height.toFloat() / image.width * input.width / input.density).coerceIn(64f, 360f)
+        val minimum = if (input.kind == BlockPreviewKind.INLINE_FORMULA) 1f else 64f
+        pixelWidth = image.width
+        pixelHeight = image.height
+        height = (image.height.toFloat() / image.width * input.width / input.density).coerceIn(minimum, 360f)
         bitmap = image
     }
 

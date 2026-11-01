@@ -28,7 +28,7 @@ internal class InlineDiagramLease(
                 if (status == "ready") capture()
             }.apply {
                 view = this
-                fitDiagram = true
+                fitDiagram = kind == BlockPreviewKind.MERMAID || kind == BlockPreviewKind.SVG
                 setBackgroundColor(this@InlineDiagramLease.canvasColor)
                 loadUrl(kind.page)
             }
@@ -41,7 +41,7 @@ internal class InlineDiagramLease(
     fun capture() {
         val owned = view ?: return
         owned.evaluateJavascript(
-            "Math.min(1,(document.getElementById('preview').getBoundingClientRect().width+24)/" +
+            "Math.min(1,(document.getElementById('preview').getBoundingClientRect().width+${padding()})/" +
                 "document.documentElement.clientWidth)",
         ) { raw ->
             if (active && !closed && !result.isCompleted) {
@@ -50,6 +50,8 @@ internal class InlineDiagramLease(
             }
         }
     }
+
+    private fun padding() = if (kind == BlockPreviewKind.INLINE_FORMULA) 0 else 24
 
     private fun awaitPixels(
         owned: OfflinePreviewWebView,

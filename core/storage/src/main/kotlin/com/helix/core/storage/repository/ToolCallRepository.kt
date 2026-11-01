@@ -19,6 +19,15 @@ class ToolCallRepository(
     private val transaction: (() -> Unit) -> Unit,
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
+    fun commandHistoryPage(
+        beforeTime: Long = Long.MAX_VALUE,
+        beforeId: String = "\uffff",
+        limit: Int = 50,
+    ): List<ToolCallEntity> {
+        require(limit in 1..100)
+        return dao.commandHistoryPage(beforeTime, beforeId, limit)
+    }
+
     /**
      * Registers a tool call. `argsJson` must already be canonical (doc 9.2); [argsHash] is
      * computed here so the hash and the stored body cannot drift.

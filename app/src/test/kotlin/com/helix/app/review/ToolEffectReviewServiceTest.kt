@@ -163,6 +163,12 @@ class ToolEffectReviewServiceTest {
     }
 
     private class FakeToolCallDao : ToolCallDao {
+        override fun commandHistoryPage(
+            beforeTime: Long,
+            beforeId: String,
+            limit: Int,
+        ): List<ToolCallEntity> = error("not used by review tests")
+
         private val rows = linkedMapOf<String, ToolCallEntity>()
 
         override fun unsettledUnderTerminalTurns(): List<ToolCallEntity> = emptyList()

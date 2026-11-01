@@ -12,6 +12,8 @@ class DiagnosticReportService(
     application: Application,
     private val pluginPerformance: () -> kotlinx.serialization.json.JsonObject = { buildJsonObject {} },
 ) {
+    suspend fun appLogs(): AppLogSnapshot = AppLogReader.read()
+
     private val store = ProcessEvidenceStore(application)
     private val version = application.packageManager.getPackageInfo(application.packageName, 0).versionName ?: "unknown"
     private val applicationId = application.packageName

@@ -1,0 +1,13 @@
+<resources>
+    <string name="command_output_search">搜索命令输出</string>
+    <string name="command_output_search_scope">检索各会话已保存的标准输出与错误输出，先遮蔽已知凭据格式再匹配。不读取全设备系统日志，也不启动命令。</string>
+    <string name="command_output_loading">正在检索…</string>
+    <string name="command_output_failed">无法读取命令历史，请重试。</string>
+    <string name="command_output_scanned">本页检查 %1$d 条命令，找到 %2$d 条匹配。</string>
+    <string name="command_output_limited">部分输出已截断、不可用或尚未核验；没有匹配不代表原始完整日志中没有。</string>
+    <string name="command_output_more">继续检索更早历史</string>
+    <string name="app_log_search">搜索应用日志</string>
+    <string name="app_log_scope">仅当前 Helix 进程的近期 logcat，先遮蔽已知凭据格式；不含其他应用、旧进程或全设备历史。</string>
+    <string name="app_log_limit">快照最多 500 行／256 KiB，每次展示前 100 条匹配；日志可能已被系统丢弃。</string>
+    <string name="app_log_refresh">刷新快照</string>
+</resources>

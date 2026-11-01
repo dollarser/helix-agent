@@ -201,6 +201,7 @@ class InlineDiagramDeviceTest {
                         modifier = Modifier.systemBarsPadding().testTag("diagram-list"),
                     ) {
                         items(24) { index ->
+                            MarkdownText("Synthetic row $index: \\(x_$index+1\\).")
                             if (index % 2 == 0) {
                                 MarkdownText("```mermaid\nflowchart TD\n A[合成 $index] --> B[结果 $index]\n```")
                             } else {

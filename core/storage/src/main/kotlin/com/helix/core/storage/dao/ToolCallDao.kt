@@ -7,6 +7,7 @@ import androidx.room.Query
 import com.helix.core.storage.entity.ToolCallEntity
 
 @Dao
+@Suppress("TooManyFunctions") // One durable tool-call table, including read-only command history.
 interface ToolCallDao {
     @Query(
         "SELECT c.* FROM tool_calls c JOIN turns t ON c.turnId = t.id " +
@@ -27,6 +28,17 @@ interface ToolCallDao {
 
     @Query("SELECT * FROM tool_calls WHERE turnId = :turnId ORDER BY ordinal ASC")
     fun listByTurn(turnId: String): List<ToolCallEntity>
+
+    @Query(
+        "SELECT * FROM tool_calls WHERE name IN ('bash','code.linux.run','code.linux.job.start') " +
+            "AND (createdAt < :beforeTime OR (createdAt = :beforeTime AND id < :beforeId)) " +
+            "ORDER BY createdAt DESC, id DESC LIMIT :limit",
+    )
+    fun commandHistoryPage(
+        beforeTime: Long,
+        beforeId: String,
+        limit: Int,
+    ): List<ToolCallEntity>
 
     @Query("SELECT COALESCE(MAX(ordinal), -1) FROM tool_calls WHERE turnId = :turnId")
     fun maxOrdinal(turnId: String): Long

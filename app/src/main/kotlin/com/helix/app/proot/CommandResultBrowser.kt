@@ -37,6 +37,7 @@ internal object CommandResultBrowser {
                 ?.let { it.directoryRef ?: APP_SCOPE_ID }
                 ?: APP_SCOPE_ID
         val result = storage.toolResults.byToolCall(call.callId)
+        val content = runCatching { result?.let { storage.toolResults.readContent(it, 4 * 1024 * 1024) } }
         val browse =
             if (call.name in COMMAND_TOOL_NAMES) {
                 ProotToolModule.browseCommandResult(storage, turnId, callId)
@@ -56,9 +57,14 @@ internal object CommandResultBrowser {
                     resultSummary = result?.summary,
                     // A missing body is not a new execution or a UI crash. Independent terminal
                     // receipts/archives remain readable; otherwise the projection says unknown.
-                    resultContent = result?.let { runCatching { storage.toolResults.readContent(it) }.getOrNull() },
+                    resultContent = content.getOrNull(),
                 ),
-            browse = browse,
+            browse =
+                browse.copy(
+                    archiveReadFailed =
+                        browse.archiveReadFailed ||
+                            (content.isFailure && browse.archive == null),
+                ),
             scopeLabel = scopeLabel,
         )
     }

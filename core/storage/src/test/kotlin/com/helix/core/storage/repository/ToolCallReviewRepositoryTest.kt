@@ -338,6 +338,12 @@ class ToolCallReviewRepositoryTest {
     }
 
     private class FakeToolCallDao : ToolCallDao {
+        override fun commandHistoryPage(
+            beforeTime: Long,
+            beforeId: String,
+            limit: Int,
+        ): List<ToolCallEntity> = error("not used by review tests")
+
         private val calls = mutableMapOf<String, ToolCallEntity>()
 
         override fun unsettledUnderTerminalTurns(): List<ToolCallEntity> = emptyList()

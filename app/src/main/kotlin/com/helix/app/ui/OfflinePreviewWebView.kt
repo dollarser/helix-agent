@@ -137,7 +137,8 @@ internal class OfflinePreviewWebView(
 
     private fun reportHeight() {
         evaluateJavascript(
-            "Math.ceil(document.getElementById('preview').getBoundingClientRect().height+24)",
+            "Math.ceil(document.getElementById('preview').getBoundingClientRect().height+" +
+                "${if (kind == BlockPreviewKind.INLINE_FORMULA) 0 else 24})",
         ) { result ->
             if (!closed) {
                 val value = result.toFloatOrNull()?.takeIf { it.isFinite() && it > 0 }
