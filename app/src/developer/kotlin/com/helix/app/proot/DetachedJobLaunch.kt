@@ -76,6 +76,7 @@ internal class DetachedJobLaunch(
         val remaining = budget.remainingMillis(SystemClock.elapsedRealtime()).coerceAtMost(DetachedLease.MAX_MS)
         if (remaining < DetachedLease.MIN_MS) return failure("BUDGET_EXHAUSTED_BEFORE_SUBMIT")
         val spec = specification(call, identity, screened.environment, remaining, hash)
+        bindBridge(call, spec)
         val binding =
             DetachedJobBinding(
                 requireNotNull(call.sessionId),
@@ -114,6 +115,19 @@ internal class DetachedJobLaunch(
         return finish(call, spec, owner, reply)
     }
 
+    private fun bindBridge(
+        call: LinuxRunTool.ParsedLinuxCall,
+        spec: ProotJobSpec,
+    ) {
+        call.toolBridge?.bindJob(
+            spec.jobId,
+            true,
+            java.time.Instant
+                .now()
+                .plusMillis(spec.deadlineMs),
+        )
+    }
+
     private fun specification(
         call: LinuxRunTool.ParsedLinuxCall,
         identity: String,
@@ -132,6 +146,11 @@ internal class DetachedJobLaunch(
         workspacePath = call.resolvedWorkspacePath,
         workspaceWitness = call.workspaceWitness,
         artifactPaths = call.artifactPaths,
+        toolBridge =
+            call.toolBridge?.endpoint?.let {
+                com.helix.runtime.proot.ipc
+                    .ProotToolBridgeEndpoint(it.socketName, it.proof)
+            },
     )
 
     private fun finish(

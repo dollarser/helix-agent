@@ -24,7 +24,7 @@ const PAGES=[
 ['knowledge','知识库','knowledge/KnowledgeScreen.kt','来源/笔记、搜索、多选、问答','工作'],
 ['source','来源详情','knowledge/KnowledgeScreen.kt','原件、提取、引用、笔记','工作'],
 ['note','知识笔记','knowledge/KnowledgeScreen.kt','编辑、引用快照、保存','工作'],
-['question','知识问答','knowledge/KnowledgeQuestionScreen.kt','范围、内容去向、生成、引用、保存笔记','工作'],
+['question','知识问答','ui/ChatScreen.kt','范围、内容去向、生成、引用、保存笔记','工作'],
 ['collect','收集到 Helix','knowledge/KnowledgeCaptureActivity.kt','材料校验、收集、不自动发送','工作'],
 ['memory','人格与记忆','MemoryDialog.kt','会话人格、记忆编辑、显式保存','工作'],
 ['reminders','提醒','reminder/ReminderScreen.kt','列表、创建、暂停、时间解释','工作'],

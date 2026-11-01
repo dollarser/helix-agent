@@ -108,9 +108,21 @@ private fun scanEntryMatches(
 ): Int {
     var currentIndex = startIndex
 
-    for (content in entry.timeline) {
+    for (content in com.helix.app.chat
+        .groupCompletedTools(entry.timeline)) {
         val itemIndex = currentIndex++
-        contentMatch(content, query, itemIndex)?.let(results::add)
+        if (content is com.helix.app.chat.ConversationContent.ToolGroup) {
+            content.values.forEach { tool ->
+                contentMatch(
+                    com.helix.app.chat.ConversationContent
+                        .Tool(tool),
+                    query,
+                    itemIndex,
+                )?.let(results::add)
+            }
+        } else {
+            contentMatch(content, query, itemIndex)?.let(results::add)
+        }
     }
     if (entry.recoveries.isNotEmpty()) currentIndex++
 
@@ -135,6 +147,17 @@ private fun contentMatch(
     itemIndex: Int,
 ): SearchMatch? =
     when (content) {
+        is com.helix.app.chat.ConversationContent.ToolGroup -> {
+            content.values.firstNotNullOfOrNull {
+                contentMatch(
+                    com.helix.app.chat.ConversationContent
+                        .Tool(it),
+                    query,
+                    itemIndex,
+                )
+            }
+        }
+
         is com.helix.app.chat.ConversationContent.Message -> {
             content.value.let { message ->
                 if (message.content.contains(query, ignoreCase = true)) {

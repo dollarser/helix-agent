@@ -24,7 +24,7 @@ import java.time.Instant
 /** Two explicitly selected phases; the host stops ONLY its temporary package between phases. */
 class ProotLogRestartDeviceTest {
     private val context get() = ApplicationProvider.getApplicationContext<Context>()
-    private val anchor get() = File(context.cacheDir, "closeout-restart-owner.json")
+    private val anchor get() = File(context.noBackupFilesDir, "closeout-restart-owner.json")
 
     @Test fun prepareOwnedFailedExecution() {
         check(!anchor.exists()) { "Existing owned evidence must be inspected before repeating preparation" }
@@ -47,7 +47,7 @@ class ProotLogRestartDeviceTest {
         require(Regex("closeout-[a-f0-9]{12}").matches(name))
         val workspaceName = identity.getValue("workspaceName").jsonPrimitive.content
         require(workspaceName == name)
-        val scratch = File(context.cacheDir, name)
+        val scratch = File(context.noBackupFilesDir, name)
         val workspace = File(context.filesDir, "workspaces/app/$workspaceName")
         val storage = HelixStorage.open(context, name, File(scratch, "content"))
         try {

@@ -3,7 +3,7 @@ package com.helix.extensions.skills
 import java.nio.ByteBuffer
 import java.security.MessageDigest
 
-/** One path contract for filesystem and host-packaged data; scripts are never readable resources. */
+/** One path contract for bounded snapshot data. Reading code never executes or authorizes it. */
 internal fun skillResourceParts(relativePath: String): List<String> {
     require(relativePath.isNotBlank() && relativePath.length <= SkillImportLimits().maxRelativePathLength) {
         "Invalid skill resource path"
@@ -15,8 +15,8 @@ internal fun skillResourceParts(relativePath: String): List<String> {
     require(parts.size > 1 && parts.none { it.isBlank() || it == "." || it == ".." }) {
         "Skill resource path contains traversal"
     }
-    require(parts.first() == "references" || parts.first() == "assets") {
-        "Only references and assets can be read as skill resources"
+    require(parts.first() in setOf("references", "assets", "scripts")) {
+        "Only references, assets and scripts can be read as skill resources"
     }
     return parts
 }

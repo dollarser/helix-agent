@@ -141,6 +141,122 @@ class ToolSchedulerTest {
 
     // ------------------------------------------------------------------ back-fill barrier
 
+    @Test fun hostContinuationRetainsParentWhileSoftGateStillBlocksUnrelatedRoots() {
+        lateinit var scheduler: ToolScheduler
+        val childFinished = CountDownLatch(1)
+        val releaseParent = CountDownLatch(1)
+        val unrelated = AtomicInteger()
+        register(
+            "r.child",
+            ToolOperationClass.READ_ONLY,
+            TimingExecutor(0, json("{}"), AtomicInteger(), AtomicInteger()),
+        )
+        register(
+            "r.other",
+            ToolOperationClass.READ_ONLY,
+            object : ToolExecutor {
+                override fun execute(call: ExecutableToolCall): ToolExecutorResult {
+                    unrelated.incrementAndGet()
+                    return ToolExecutorResult.Completed(json("{}"))
+                }
+            },
+        )
+        register(
+            "r.parent",
+            ToolOperationClass.READ_ONLY,
+            object : ToolExecutor {
+                override fun execute(call: ExecutableToolCall): ToolExecutorResult {
+                    val child =
+                        scheduler.scheduleBatch(
+                            listOf(this@ToolSchedulerTest.call("child", "r.child")),
+                            call.toolCallId,
+                        )
+                    assertTrue(child.outcomes.single() is ToolDispatchOutcome.Succeeded)
+                    childFinished.countDown()
+                    check(releaseParent.await(5, TimeUnit.SECONDS))
+                    return ToolExecutorResult.Completed(json("{}"))
+                }
+            },
+        )
+        scheduler = ToolScheduler(clock, dispatcher, registry, maxConcurrency = 4, resourceGate = { 1 })
+        val parent = CompletableFuture.supplyAsync { scheduler.scheduleBatch(listOf(call("parent", "r.parent"))) }
+        try {
+            assertTrue(childFinished.await(5, TimeUnit.SECONDS))
+            val other = CompletableFuture.supplyAsync { scheduler.scheduleBatch(listOf(call("other", "r.other"))) }
+            Thread.sleep(100)
+            assertEquals(0, unrelated.get())
+            releaseParent.countDown()
+            assertTrue(parent.get(5, TimeUnit.SECONDS).outcomes.single() is ToolDispatchOutcome.Succeeded)
+            assertTrue(other.get(5, TimeUnit.SECONDS).outcomes.single() is ToolDispatchOutcome.Succeeded)
+        } finally {
+            releaseParent.countDown()
+        }
+    }
+
+    @Test fun saturatedContinuationCancellationSettlesWithoutRunningOrReleasingAnyParent() {
+        val started = CountDownLatch(4)
+        val release = CountDownLatch(1)
+        val active = AtomicInteger()
+        val childEffects = AtomicInteger()
+        register(
+            "r.held",
+            ToolOperationClass.READ_ONLY,
+            object : ToolExecutor {
+                override fun execute(call: ExecutableToolCall): ToolExecutorResult {
+                    active.incrementAndGet()
+                    started.countDown()
+                    check(release.await(5, TimeUnit.SECONDS))
+                    active.decrementAndGet()
+                    return ToolExecutorResult.Completed(json("{}"))
+                }
+            },
+        )
+        register(
+            "r.child",
+            ToolOperationClass.READ_ONLY,
+            object : ToolExecutor {
+                override fun execute(call: ExecutableToolCall): ToolExecutorResult {
+                    childEffects.incrementAndGet()
+                    return ToolExecutorResult.Completed(json("{}"))
+                }
+            },
+        )
+        val scheduler = ToolScheduler(clock, dispatcher, registry, maxConcurrency = 4, resourceGate = { 4 })
+        val parents =
+            CompletableFuture.supplyAsync {
+                scheduler.scheduleBatch((1..4).map { call("held-$it", "r.held") })
+            }
+        val cancelled =
+            java.util.concurrent.atomic
+                .AtomicBoolean()
+        try {
+            assertTrue(started.await(5, TimeUnit.SECONDS))
+            val child =
+                CompletableFuture.supplyAsync {
+                    scheduler.scheduleBatch(
+                        listOf(
+                            call(
+                                "child",
+                                "r.child",
+                                cancel =
+                                    object : CancelSignal {
+                                        override fun isCancelled() = cancelled.get()
+                                    },
+                            ),
+                        ),
+                        "held-1",
+                    )
+                }
+            cancelled.set(true)
+            assertEquals(ToolDispatchOutcome.Cancelled, child.get(3, TimeUnit.SECONDS).outcomes.single())
+            assertEquals(4, active.get())
+            assertEquals(0, childEffects.get())
+        } finally {
+            release.countDown()
+            parents.get(5, TimeUnit.SECONDS)
+        }
+    }
+
     @Test
     fun resultsComeBackInCallOrderEvenWhenCompletionIsOutOfOrder() {
         // Hold call-1 until both later calls have recorded settlement, independent
@@ -720,6 +836,7 @@ class ToolSchedulerTest {
                     "tryClaimSlot",
                     String::class.java,
                     EffectFootprint::class.java,
+                    String::class.java,
                 ).apply { isAccessible = true }
         val footprint =
             EffectFootprint(
@@ -730,7 +847,7 @@ class ToolSchedulerTest {
                 emptySet(),
                 emptySet(),
             )
-        assertEquals(true, claim.invoke(scheduler, "held", footprint))
+        assertEquals(true, claim.invoke(scheduler, "held", footprint, null))
         armed = true
         val result = CompletableFuture<ToolScheduler.BatchResult>()
         val worker =

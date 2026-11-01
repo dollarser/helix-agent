@@ -16,6 +16,10 @@ internal class MobileUseSettingsState(
 ) {
     var packages by mutableStateOf(emptyList<String>())
     var wholePhone by mutableStateOf(true)
+    var background by mutableStateOf(false)
+    var allowMoveFromMain by mutableStateOf(false)
+    private var baselineBackground by mutableStateOf(false)
+    private var baselineAllowMove by mutableStateOf(false)
     var loaded by mutableStateOf(false)
     var busy by mutableStateOf(false)
     var failed by mutableStateOf(false)
@@ -24,13 +28,18 @@ internal class MobileUseSettingsState(
     private var baselinePackages by mutableStateOf(emptyList<String>())
     private var baselineWholePhone by mutableStateOf(true)
 
-    val dirty get() = wholePhone != baselineWholePhone || (!wholePhone && packages.toSet() != baselinePackages.toSet())
+    val dirty get() =
+        background != baselineBackground || allowMoveFromMain != baselineAllowMove ||
+            wholePhone != baselineWholePhone ||
+            (!wholePhone && packages.toSet() != baselinePackages.toSet())
     val saved get() = configured && !dirty && !failed
     val canSave get() = loaded && !busy && (wholePhone || packages.isNotEmpty())
 
     fun discard() {
         packages = baselinePackages
         wholePhone = baselineWholePhone
+        background = baselineBackground
+        allowMoveFromMain = baselineAllowMove
         failed = requiresReset
     }
 
@@ -48,6 +57,10 @@ internal class MobileUseSettingsState(
                     .orEmpty()
                     .toList()
             wholePhone = config?.scope?.allApplications != false
+            background = config?.backgroundDisplay == true
+            allowMoveFromMain = config?.allowMoveFromMain == true
+            baselineBackground = background
+            baselineAllowMove = allowMoveFromMain
             configured = config != null
             baselinePackages = packages
             baselineWholePhone = wholePhone
@@ -74,10 +87,17 @@ internal class MobileUseSettingsState(
         failed = false
         val selected = packages.toSet()
         val all = wholePhone
+        val useBackground = background
+        val move = allowMoveFromMain
         return try {
-            withContext(Dispatchers.IO) { store.configureGlobal(selected, all) }
+            withContext(Dispatchers.IO) {
+                store.configureGlobal(selected, all)
+                store.configureExecution(useBackground, move)
+            }
             baselinePackages = selected.toList()
             baselineWholePhone = all
+            baselineBackground = useBackground
+            baselineAllowMove = move
             configured = true
             true
         } catch (cancel: CancellationException) {
@@ -120,6 +140,10 @@ internal class MobileUseSettingsState(
                         it.configured,
                         it.baselinePackages.joinToString("\n"),
                         it.baselineWholePhone,
+                        it.background,
+                        it.allowMoveFromMain,
+                        it.baselineBackground,
+                        it.baselineAllowMove,
                     )
                 },
                 restore = { values ->
@@ -130,6 +154,10 @@ internal class MobileUseSettingsState(
                         configured = values[3] as Boolean
                         baselinePackages = (values[4] as String).lines().filter(String::isNotEmpty)
                         baselineWholePhone = values[5] as Boolean
+                        background = values[6] as Boolean
+                        allowMoveFromMain = values[7] as Boolean
+                        baselineBackground = values[8] as Boolean
+                        baselineAllowMove = values[9] as Boolean
                     }
                 },
             )

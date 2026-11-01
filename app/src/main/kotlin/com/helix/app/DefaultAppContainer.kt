@@ -142,7 +142,7 @@ internal class DefaultAppContainer(
                         val relative = FileScopePath("app", reference).relativePath
                         FileScopePath("app", listOf("terminal", relative).filter(String::isNotEmpty).joinToString("/"))
                     }
-                resolveFileScopePath(path, scopeRoots).toFile().also { target ->
+                resolveFileScopePath(path, ScopeRootResolver(::resolveUserSelectedRoot)).toFile().also { target ->
                     val supported = directWorkspaceRoots().map { it.toPath() }
                     require(supported.any { target.canonicalFile.toPath().startsWith(it) }) {
                         appContext.getString(com.helix.app.R.string.workspace_local_backend_unavailable)
@@ -372,8 +372,24 @@ internal class DefaultAppContainer(
             }
         }
 
+    /** Explicit UI selection; the existing Agent resolver and user permission rules stay independent. */
+    private fun resolveUserSelectedRoot(scopeId: String): Path =
+        if (com.helix.app.files.SharedStorageAccess
+                .isScope(scopeId)
+        ) {
+            com.helix.app.files
+                .SharedStorageAccess(appContext)
+                .resolveRoot(scopeId)
+        } else {
+            legacyScopeRoots.resolveRoot(scopeId)
+        }
+
     private val sessionWorkspaces =
-        com.helix.app.chat.SessionWorkspaceService(storage, legacyScopeRoots) { path ->
+        com.helix.app.chat.SessionWorkspaceService(
+            storage.workspaces,
+            legacyScopeRoots,
+            selectedRoots = ScopeRootResolver(::resolveUserSelectedRoot),
+        ) { path ->
             com.helix.app.files
                 .SafManualFileBackend(
                     context.contentResolver,
@@ -386,7 +402,10 @@ internal class DefaultAppContainer(
     /** Dynamic OS grant and enabled-root check; scope resolution independently checks the selected resource. */
     private fun directWorkspaceRoots(): List<java.io.File> =
         listOf("app", "managed").map { java.io.File(appContext.filesDir.canonicalFile, "workspaces/$it") } +
-            AllFilesModule.allFilesSources().mapNotNull { AllFilesModule.resolveScopeRoot(it.scopeId)?.toFile() }
+            AllFilesModule.allFilesSources().mapNotNull { AllFilesModule.resolveScopeRoot(it.scopeId)?.toFile() } +
+            com.helix.app.files.SharedStorageAccess(appContext).let {
+                it.directories().map { root -> root.path.toFile().canonicalFile }
+            }
 
     private val scopeRoots = ScopeRootResolver(sessionWorkspaces::resolveRoot)
 
@@ -491,6 +510,7 @@ internal class DefaultAppContainer(
             documentBackend = ::documentBackend,
             metadataRoot = ::workspaceMetadata,
             workspaceWritable = ::workspaceWritable,
+            sourceReference = sessionWorkspaces::source,
             externalScope = { storage.workspaces.find(it)?.ownership == "EXTERNAL" },
             workspaceCleanup = { scope ->
                 val cleanup = {
@@ -616,6 +636,17 @@ internal class DefaultAppContainer(
                         { session, turn -> chatService.toolVisionConsent.hasPending(session, turn) },
                     ) { chatService },
             conversationExists = { storage.sessions.find(it) != null },
+            displayPresentation = { chatService.publishDisplayExecution(it) },
+            taskActive = { session, turn ->
+                storage.turns.find(turn)?.let { row ->
+                    val state =
+                        com.helix.core.model.TurnState.entries
+                            .singleOrNull { it.name == row.state }
+                    row.sessionId == session && row.pauseRequestedAt == null &&
+                        state != com.helix.core.model.TurnState.CANCELLING &&
+                        state?.canBecomeInterruptedOnProcessDeath() == true
+                } == true
+            },
         )
         // HXA-076/097: Skill discovery/activation/resource/enablement/removal run through the same
         // Dispatcher/Policy/Approval/Audit pipeline. Built-ins are instruction-only; their text
@@ -659,7 +690,23 @@ internal class DefaultAppContainer(
         // HXA-053: the isolated QuickJS tool. Registered for BOTH consumer and developer
         // (ADR-0013: Standard is the complete product; QuickJS is APK-embedded, no native
         // download). L2 CODE_EXECUTION on the platform's single-concurrency QuickJS lane.
-        registerSessionRuntimeTools(toolRegistry, jsExecutionClient, userQuestions, executionOwnership) {
+        val scriptBridge =
+            com.helix.app.runtimebridge.ScriptBridgeProvider(
+                context,
+                storage,
+                {
+                    parent,
+                    id,
+                    tool,
+                    args,
+                    cancel,
+                    ->
+                    chatService.dispatchScriptToolCall(parent, id, tool, args, cancel)
+                },
+                { job, pid, uid -> ProotToolModule.scriptJobPeer(context, job, pid, uid) },
+                { job -> ProotToolModule.scriptJobActive(context, job) },
+            )
+        registerSessionRuntimeTools(toolRegistry, jsExecutionClient, userQuestions, executionOwnership, scriptBridge) {
             nativeRecovery.observe()
         }
         // HXA-085: the PRoot `code.linux.run` tool (developer flavor only; the consumer
@@ -676,6 +723,11 @@ internal class DefaultAppContainer(
             scope = appScope,
             resolveWorkspacePath = { path -> resolveFileScopePath(path, scopeRoots).toFile() },
             allowedWorkspaceRoots = ::directWorkspaceRoots,
+            bridgeDecorator = {
+                com.helix.app.runtimebridge
+                    .ScriptToolBridgeExecutor(it, scriptBridge)
+            },
+            skills = skillRepository,
         )
         com.helix.app.settings.HelixSettingsTool
             .register(toolRegistry) { this }

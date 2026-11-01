@@ -1,0 +1,4 @@
+<resources>
+    <string name="script_tools_title">脚本调用工具</string>
+    <string name="script_tools_description">允许明确指定 toolBridge 的脚本在原任务中调用已注册工具。每次调用仍经过当前会话权限、批准和审计。关闭后撤销正在使用的桥；已经发出的动作仍可能需要核查。隔离 JavaScript 保持进程边界，不会获得原生访问。Python：import helix；helix.call(name, args)。Node：import {call} from /tmp/helix.mjs。JavaScript：helix.call(name, args)。</string>
+</resources>

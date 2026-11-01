@@ -57,6 +57,7 @@ internal class AppFileServices(
     documentBackend: (String) -> com.helix.core.workspace.WorkspaceFileBackend? = { null },
     metadataRoot: (String) -> java.nio.file.Path? = { null },
     workspaceWritable: (String) -> Boolean = { false },
+    sourceReference: (com.helix.core.workspace.FileScopePath) -> com.helix.core.workspace.FileScopePath = { it },
     externalScope: (String) -> Boolean = { false },
     workspaceSources: () -> List<com.helix.app.files.FileSource> = { emptyList() },
     workspaceCleanup: ((String) -> Unit)? = null,
@@ -139,8 +140,10 @@ internal class AppFileServices(
     // The manual root is deliberately absent from scopeRoots used by tools and exports.
     private val manualRoots =
         ScopeRootResolver { id ->
-            if (id == com.helix.app.files.SharedStorageAccess.SCOPE_ID) {
-                sharedStorage.root()
+            if (com.helix.app.files.SharedStorageAccess
+                    .isScope(id)
+            ) {
+                sharedStorage.resolveRoot(id)
             } else {
                 scopeRoots.resolveRoot(id)
             }
@@ -170,6 +173,7 @@ internal class AppFileServices(
             strings = { id, args -> strings(id, args) },
             shareCacheRoot = java.io.File(context.cacheDir, "device-share"),
             sharedStorageGranted = sharedStorage::isGranted,
+            sharedStorageDirectories = sharedStorage::directories,
             library =
                 com.helix.app.files.FileLibrary(
                     read = {
@@ -183,6 +187,31 @@ internal class AppFileServices(
                         persistFileLibrary(context, value)
                     },
                 ),
+            localPathAlternative = { reference ->
+                val source =
+                    sourceReference(
+                        com.helix.core.workspace.FileScopePath
+                            .fromModelReference(reference),
+                    )
+                if (!source.scopeId.startsWith("saf-")) {
+                    null
+                } else {
+                    com.helix.app.files
+                        .SafManualFileBackend(
+                            context.contentResolver,
+                            safGrantStore,
+                            safTree,
+                            source.scopeId,
+                        ).verifiedLocalDirectory(source.relativePath, sharedStorage) { authority ->
+                            val info = context.packageManager.resolveContentProvider(authority, 0)
+                            val flags = info?.applicationInfo?.flags ?: 0
+                            flags and (
+                                android.content.pm.ApplicationInfo.FLAG_SYSTEM or
+                                    android.content.pm.ApplicationInfo.FLAG_UPDATED_SYSTEM_APP
+                            ) != 0
+                        }
+                }
+            },
             manual =
                 com.helix.app.files.ManualFileOperations(
                     journal =
@@ -202,7 +231,9 @@ internal class AppFileServices(
 
                             else -> {
                                 com.helix.app.files.NioManualFileBackend(id, manualRoots, id == appScopeId) {
-                                    if (id == com.helix.app.files.SharedStorageAccess.SCOPE_ID) {
+                                    if (com.helix.app.files.SharedStorageAccess
+                                            .isScope(id)
+                                    ) {
                                         check(sharedStorage.isWritable()) {
                                             "Shared storage write permission is required"
                                         }
@@ -221,7 +252,8 @@ internal class AppFileServices(
                                 true
                             }
 
-                            id == com.helix.app.files.SharedStorageAccess.SCOPE_ID -> {
+                            com.helix.app.files.SharedStorageAccess
+                                .isScope(id) -> {
                                 sharedStorage.isWritable()
                             }
 

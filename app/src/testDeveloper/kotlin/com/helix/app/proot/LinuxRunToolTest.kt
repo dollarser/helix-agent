@@ -8,9 +8,12 @@ import com.helix.app.approval.ApprovalCardUi
 import com.helix.core.model.CancelSignal
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.ToolOperationClass
+import com.helix.runtime.proot.ipc.ProotJobCommand
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolExecutorResult
+import com.helix.tools.framework.ToolSchemaValidation
+import com.helix.tools.framework.ToolSchemaValidator
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -30,6 +33,25 @@ import org.junit.Test
  * device-verified (E2E) because it crosses the APK boundary.
  */
 class LinuxRunToolTest {
+    @Test fun productionLogTruncationFlagIsAcceptedButNotCoerced() {
+        val output =
+            buildJsonObject {
+                put("state", "SUCCEEDED")
+                put("exitCode", 0)
+                put("stdout", "ok")
+                put("stderr", "")
+                put("outputImported", false)
+                put("outputSha256", "")
+                put("logTruncated", false)
+            }
+        val schema = LinuxRunTool.descriptor().outputSchema
+        assertTrue(ToolSchemaValidator.validate(schema, output) is ToolSchemaValidation.Valid)
+        assertTrue(
+            ToolSchemaValidator.validate(schema, JsonObject(output + ("logTruncated" to JsonPrimitive("no"))))
+                is ToolSchemaValidation.Invalid,
+        )
+    }
+
     @Test fun approvalShowsTheBoundInPlaceWorkspaceAndCwd() {
         val ui =
             com.helix.app.approval.ApprovalUiMapper.codeExecutionUi(
@@ -108,8 +130,17 @@ class LinuxRunToolTest {
             "non-blank",
         )
         assertParseFailure(
-            args { put("argv", jsonArrayOf("sh", "  ")) },
+            args { put("argv", jsonArrayOf("  ", "arg")) },
             "non-blank",
+        )
+        val original = listOf("python3", "", "  ", "a; echo never-interpolated")
+        assertEquals(
+            ProotJobCommand.Argv(original),
+            parsedOk(
+                args {
+                    put("argv", JsonArray(original.map(::JsonPrimitive)))
+                },
+            ).command,
         )
         assertParseFailure(
             args { put("script", "   ") },

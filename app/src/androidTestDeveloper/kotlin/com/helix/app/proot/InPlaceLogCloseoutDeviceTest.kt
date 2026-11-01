@@ -88,6 +88,9 @@ class InPlaceLogCloseoutDeviceTest {
                 if (!visible) Thread.sleep(50)
             }
             assertTrue("Expected live stdout before exit", visible)
+            // Evict only this synthetic job's cache key; a running preview must not depend on reclaimable cache.
+            File(f.context.cacheDir, "job-log-preview/${f.spec.jobId}.log").delete()
+            assertTrue(f.log("live").contains("running-preview"))
             val preview = (f.read(f.request("live")) as ToolExecutorResult.Completed).output.jsonObject
             assertFalse(preview.containsKey("exitCode"))
             f.client.cancel(f.spec.jobId)
@@ -121,7 +124,7 @@ class InPlaceLogCloseoutDeviceTest {
                 .replace("-", "")
                 .take(12)
         private val database = "closeout-$id"
-        private val scratch = File(context.cacheDir, database).apply { mkdirs() }
+        private val scratch = File(context.noBackupFilesDir, database).apply { mkdirs() }
         val workspace =
             if (externalWorkspace) {
                 File(requireNotNull(context.getExternalFilesDir(null)), "direct-fixture-$id")

@@ -94,6 +94,9 @@ enum class AutomationActionStatus {
     ACTION_FAILED,
     ACTION_OUTCOME_UNKNOWN,
     ACTION_NOT_DISPATCHED,
+    BACKGROUND_DISPLAY_UNAVAILABLE,
+    BACKGROUND_DISPLAY_STALE,
+    MAIN_DISPLAY_IN_USE,
 }
 
 data class AutomationActionResult(

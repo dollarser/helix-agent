@@ -14,6 +14,7 @@ internal class MobileUsePresentedExecutor(
     private val delegate: ToolExecutor,
     private val borrowPresentation: () -> NativeResource.Lease<AutomationRuntimePresentation>?,
     private val retainOverlay: Boolean = false,
+    private val backgroundDisplay: () -> Boolean = { false },
     private val admissionError: (ExecutableToolCall) -> String?,
 ) : ToolExecutor {
     override fun execute(call: ExecutableToolCall): ToolExecutorResult =
@@ -42,7 +43,7 @@ internal class MobileUsePresentedExecutor(
                             call.cancel.isCancelled() || !reference.accepting || !presentation.executionAllowed()
                     },
             )
-        if (retainOverlay) return executeBound(guarded, reference)
+        if (retainOverlay || backgroundDisplay()) return executeBound(guarded, reference)
         val hidden =
             presentation.hideForOperation(guarded)
                 ?: return preExecutionOutcome(guarded) ?: refused(

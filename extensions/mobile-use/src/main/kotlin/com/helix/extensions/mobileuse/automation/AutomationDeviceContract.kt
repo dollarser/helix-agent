@@ -13,6 +13,8 @@ data class AutomationDisplayTarget(
     val rotation: Int,
     val bounds: AutomationNodeBounds,
     val revision: String = "",
+    val displaySession: String = "",
+    val independentFocus: Boolean = false,
 )
 
 data class AutomationFrame(

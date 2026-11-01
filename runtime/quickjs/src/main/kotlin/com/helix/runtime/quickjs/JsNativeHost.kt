@@ -126,11 +126,17 @@ internal class JsNativeHost(
             context: Context,
             deadlineNanos: Long,
             cancelled: AtomicBoolean,
+            toolBridge: android.os.IBinder? = null,
         ) {
             val host = JsNativeHost(context, deadlineNanos, cancelled)
             js.initOutboundChannel(
                 object : CallChannel {
-                    override fun call(callJson: String): String = nativeReply { host.invoke(callJson) }
+                    override fun call(callJson: String): String =
+                        if (toolBridge != null && JsToolBridge.isRequest(callJson)) {
+                            JsToolBridge.call(toolBridge, callJson)
+                        } else {
+                            nativeReply { host.invoke(callJson) }
+                        }
 
                     override fun disconnect(instanceName: String): Boolean = false
                 },

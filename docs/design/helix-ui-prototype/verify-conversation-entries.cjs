@@ -242,4 +242,11 @@ test('Semantic maintenance shows document progress separately from access', () =
   assert.match(document.querySelector('#semantic-progress').textContent, /1 \/ 2.*重试/);
 });
 
+test('Direct access offers user-owned broad scope and preserves SAF', () => {
+  open('workspace'); assert.match(sheet().textContent, /最大范围.*共享存储根目录/s);
+  assert.match(sheet().textContent, /权限和范围由用户控制/);
+  open('workspace-path'); assert.match(sheet().textContent, /HELIX_BUILD_DIR/);
+  open('workspace-saf'); assert.match(sheet().textContent, /同一原件.*显式改用真实路径/s);
+});
+
 console.log(`${n} offline interaction checks passed; browser/layout acceptance is separate.`);

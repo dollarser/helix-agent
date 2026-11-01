@@ -15,7 +15,21 @@ internal object ProotPathAccess {
     ) {
         val privateRoots = listOf("app", "managed").map { File(context.filesDir.canonicalFile, "workspaces/$it") }
         val external = context.getExternalFilesDirs(null).filterNotNull().map { it.canonicalFile }
-        val shared = if (sharedGranted(context)) listOf(sharedRoot()) else emptyList()
+        val shared =
+            if (sharedGranted(context)) {
+                val volumes =
+                    if (Build.VERSION.SDK_INT >= 30) {
+                        context
+                            .getSystemService(android.os.storage.StorageManager::class.java)
+                            .storageVolumes
+                            .mapNotNull { it.directory?.canonicalFile }
+                    } else {
+                        emptyList()
+                    }
+                listOf(sharedRoot()) + volumes
+            } else {
+                emptyList()
+            }
         require(
             (privateRoots + external + shared).any { root ->
                 root.path == root.canonicalPath && directory.toPath().startsWith(root.toPath())

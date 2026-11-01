@@ -11,6 +11,10 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
 
+internal class ShizukuBindingFailure(
+    cause: Exception,
+) : IllegalStateException("SHIZUKU_USER_SERVICE_UNAVAILABLE", cause)
+
 data class ShizukuTapOutcome(
     val serverUid: Int,
     val userServiceUid: Int,
@@ -51,15 +55,34 @@ class ShizukuUiBridge(
             )
         }
 
+    @Suppress("TooGenericExceptionCaught") // Preserve the original failure after projection.
     fun device(
         request: com.helix.extensions.mobileuse.automation.AutomationDeviceRequest,
         allowed: () -> Boolean,
-    ) = withService { binder, _ ->
-        PrivilegedDeviceTransactions.execute(binder, request) { permissionGranted() && allowed() }
+    ): com.helix.extensions.mobileuse.automation.AutomationDeviceReply {
+        val owner = request.background?.owner as? ShizukuExecutionGuard
+        return try {
+            withService { binder, _ ->
+                owner?.bindDisplayService(binder)
+                PrivilegedDeviceTransactions.execute(binder, request) { permissionGranted() && allowed() }.also {
+                    if (it.target?.displayId?.let { id -> id > 0 } == true) {
+                        owner?.observedDisplayPackage(it.target.packageName)
+                    } else {
+                        owner?.displayRefused(it.status)
+                    }
+                }
+            }
+        } catch (failure: Exception) {
+            owner?.displayConnectionLost()
+            throw failure
+        }
     }
 
     @Synchronized
-    private fun <T> withService(block: (IBinder, Int) -> T): T {
+    private fun <T> withService(block: (IBinder, Int) -> T): T =
+        executeAfterShizukuBinding(::resolveService) { block(it.first, it.second) }
+
+    private fun resolveService(): Pair<IBinder, Int> {
         if (!permissionGranted()) {
             releaseBinding()
             error("SHIZUKU_PERMISSION_REQUIRED")
@@ -67,7 +90,7 @@ class ShizukuUiBridge(
         cachedBinder?.takeIf { it.isBinderAlive }?.let { binder ->
             val uid = PrivilegedUiTransactions.uid(binder)
             check(uid in setOf(0, 2000) && uid == serverUid()) { "SHIZUKU_IDENTITY_MISMATCH" }
-            return block(binder, uid)
+            return binder to uid
         }
         releaseBinding()
         val args =
@@ -77,7 +100,7 @@ class ShizukuUiBridge(
                 ).daemon(false)
                 .processNameSuffix("helix_ui")
                 .tag("helix-mobile-use-ui")
-                .version(17)
+                .version(1)
                 .debuggable(false)
         val connected = CountDownLatch(1)
         val remote = AtomicReference<IBinder?>()
@@ -106,7 +129,7 @@ class ShizukuUiBridge(
             cachedBinder = binder
             cachedBinding = args to connection
             retained = true
-            block(binder, remoteUid)
+            binder to remoteUid
         } finally {
             if (!retained) runCatching { Shizuku.unbindUserService(args, connection, true) }
         }
@@ -121,4 +144,19 @@ class ShizukuUiBridge(
     private companion object {
         const val BIND_TIMEOUT_SECONDS = 15L
     }
+}
+
+/** The typed refusal covers resolution only; failures after execution starts retain their original truth. */
+@Suppress("TooGenericExceptionCaught")
+internal fun <B, T> executeAfterShizukuBinding(
+    resolve: () -> B,
+    execute: (B) -> T,
+): T {
+    val binding =
+        try {
+            resolve()
+        } catch (failure: Exception) {
+            throw ShizukuBindingFailure(failure)
+        }
+    return execute(binding)
 }

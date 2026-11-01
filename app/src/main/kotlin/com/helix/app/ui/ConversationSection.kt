@@ -69,6 +69,8 @@ internal fun ConversationSection(
     composerFeedback: @Composable () -> Unit = {},
     composerOptions: @Composable () -> Unit = {},
     artifacts: @Composable () -> Unit = {},
+    turnArtifacts: @Composable (String) -> Unit = {},
+    displayExecution: @Composable (String) -> Unit = {},
     taskPreparation: @Composable () -> Unit = {},
     modelSourceGroups: List<ProviderProvisioningKind> =
         listOf(
@@ -340,6 +342,19 @@ internal fun ConversationSection(
             screen.activeTurn == null &&
                 listOf(screen.messages, screen.toolTimeline, screen.subscriptionRecoveries, screen.taskLedger)
                     .all { it.isEmpty() }
+        val timelineEntries =
+            remember(screen.messages, screen.turns, screen.toolTimeline, screen.subscriptionRecoveries) {
+                com.helix.app.chat
+                    .conversationEntries(screen)
+            }
+        val timelineContents =
+            remember(timelineEntries) {
+                timelineEntries.associate {
+                    it.key to
+                        com.helix.app.chat
+                            .groupCompletedTools(it.timeline)
+                }
+            }
         ConversationTimeline(
             sessionId = screen.openSessionId,
             followContent =
@@ -389,9 +404,18 @@ internal fun ConversationSection(
                 searchController.currentMatch?.targetId.takeIf { searchActive } ?: screen.focusedHistoryMessage
             val activeSearchQuery = searchController.query.takeIf { searchActive && it.isNotBlank() }
 
-            com.helix.app.chat.conversationEntries(screen).forEach { entry ->
+            timelineEntries.forEach { entry ->
                 val forkMessageId = entry.forkMessageId(screen)
-                items(entry.timeline, key = { it.key }) { content ->
+                val firstTool =
+                    entry.timeline
+                        .filterIsInstance<com.helix.app.chat.ConversationContent.Tool>()
+                        .firstOrNull()
+                        ?.value
+                        ?.callId
+                items(
+                    timelineContents.getValue(entry.key),
+                    key = { it.key },
+                ) { content ->
                     when (content) {
                         is com.helix.app.chat.ConversationContent.Message -> {
                             val message = content.value
@@ -420,9 +444,20 @@ internal fun ConversationSection(
                                 searchQuery = activeSearchQuery,
                                 isCurrentMatch = message.id == currentTargetId,
                             )
+                            if (message.role == "assistant" && entry.key != screen.activeTurn?.id &&
+                                message.id == entry.messages.lastOrNull { it.role == "assistant" }?.id
+                            ) {
+                                turnArtifacts(entry.key)
+                            }
+                        }
+
+                        is com.helix.app.chat.ConversationContent.ToolGroup -> {
+                            if (content.values.first().callId == firstTool) displayExecution(entry.key)
+                            ToolTimelineGroup(content.values, intents, currentTargetId)
                         }
 
                         is com.helix.app.chat.ConversationContent.Tool -> {
+                            if (content.value.callId == firstTool) displayExecution(entry.key)
                             ToolTimelineItem(
                                 content.value,
                                 intents,

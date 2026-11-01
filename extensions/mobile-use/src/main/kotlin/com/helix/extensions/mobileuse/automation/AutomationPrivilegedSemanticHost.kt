@@ -11,6 +11,7 @@ internal class AutomationPrivilegedSemanticHost(
 ) {
     private data class Observation(
         val session: String?,
+        val turn: String?,
         val scope: String?,
         val grant: MobileUseGrant,
         val backend: AutomationPrivilegedBackend,
@@ -77,6 +78,7 @@ internal class AutomationPrivilegedSemanticHost(
         observation =
             Observation(
                 call.sessionId,
+                call.turnId,
                 call.authorizationScopeRef,
                 grant,
                 backend,
@@ -109,7 +111,8 @@ internal class AutomationPrivilegedSemanticHost(
         }
         val token = observed.tokens[request.token] ?: return actionResult(AutomationActionStatus.TOKEN_UNKNOWN)
         val allowed = {
-            call.sessionId == observed.session && call.authorizationScopeRef == observed.scope &&
+            call.sessionId == observed.session && call.turnId == observed.turn &&
+                call.authorizationScopeRef == observed.scope &&
                 grantFor(call) == observed.grant && observed.backend.state() == AutomationBackendState.READY
         }
         if (!allowed()) return actionResult(AutomationActionStatus.NO_ACTIVE_SESSION)

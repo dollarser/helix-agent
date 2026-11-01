@@ -132,6 +132,9 @@ internal class DetachedJobStore(
                 }
             }
             field("environment")
+            field((spec.toolBridge != null).toString())
+            field(spec.scriptDirectory.orEmpty())
+            field(spec.scriptSnapshotHash.orEmpty())
             field(spec.environment.size.toString())
             spec.environment.toSortedMap().forEach { (key, value) ->
                 field(key)

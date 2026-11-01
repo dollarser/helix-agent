@@ -18,6 +18,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 import kotlin.time.Duration.Companion.seconds
 
 @Suppress("TooManyFunctions")
@@ -25,6 +26,7 @@ object SkillTools {
     const val LIST = "skills.list"
     const val READ = "skills.read"
     const val READ_RESOURCE = "skills.read_resource"
+    const val SCRIPTS = "skills.scripts"
     const val ENABLE = "skills.enable"
     const val DISABLE = "skills.disable"
     const val REMOVE = "skills.remove"
@@ -44,6 +46,7 @@ object SkillTools {
 
     private fun definitions(repository: SkillRepository?): List<Definition> =
         listOf(
+            scriptsDefinition(repository),
             Definition(
                 name = LIST,
                 description =
@@ -68,7 +71,7 @@ object SkillTools {
             Definition(
                 name = READ_RESOURCE,
                 description =
-                    "Read one bounded reference or asset from an enabled, hash-pinned Skill snapshot. " +
+                    "Read one bounded reference, asset or script from an enabled, hash-pinned Skill snapshot. " +
                         "The host supplies the current session; omit sessionId.",
                 inputSchema = schema(RESOURCE_INPUT),
                 outputSchema = schema(RESOURCE_OUTPUT),
@@ -88,6 +91,36 @@ object SkillTools {
                 idempotency = Idempotency.NON_IDEMPOTENT,
             ) { call -> remove(repository.required(), call) },
         )
+
+    private fun scriptsDefinition(repository: SkillRepository?): Definition =
+        Definition(
+            name = SCRIPTS,
+            description =
+                "List scripts in an enabled, hash-pinned Skill snapshot. " +
+                    "Unknown files are data; dependencies are not yet probed. " +
+                    "Reading never runs scripts or grants permission.",
+            inputSchema = schema(KEY_INPUT),
+            outputSchema = buildJsonObject { put("type", "object") },
+            operation = ToolOperationClass.READ_ONLY,
+            idempotency = Idempotency.IDEMPOTENT,
+        ) { call ->
+            val items = repository.required().scripts(call.args.skillKey(), call.sessionId, call.turnId)
+            buildJsonObject {
+                put(
+                    "scripts",
+                    JsonArray(
+                        items.map { item ->
+                            buildJsonObject {
+                                put("path", item.relativePath)
+                                put("sha256", item.sha256)
+                                put("sizeBytes", item.sizeBytes)
+                                put("dependencyStatus", "not_probed")
+                            }
+                        },
+                    ),
+                )
+            }
+        }
 
     private fun enablementDefinition(
         name: String,
@@ -231,7 +264,9 @@ object SkillTools {
     private fun JsonObject.optionalInt(key: String): Int? = get(key)?.jsonPrimitive?.content?.toInt()
 
     private fun SkillRepository?.required(): SkillRepository =
-        requireNotNull(this) { "A repository is required to execute Skill tools" }
+        requireNotNull(this) {
+            "A repository is required to execute Skill tools"
+        }
 
     private fun schema(raw: String): JsonObject = Json.parseToJsonElement(raw).jsonObject
 

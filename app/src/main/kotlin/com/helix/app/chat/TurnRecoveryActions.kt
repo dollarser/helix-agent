@@ -141,7 +141,7 @@ internal class TurnRecoveryActions(
     }
 
     private companion object {
-        val PROOT_TOOL_NAMES: Set<String> = setOf("bash", "code.linux.run")
+        val PROOT_TOOL_NAMES: Set<String> = setOf("bash", "code.linux.run", "skills.run")
     }
 }
 

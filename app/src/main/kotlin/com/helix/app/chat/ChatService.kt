@@ -437,6 +437,14 @@ class ChatService(
 
     val sessions: StateFlow<List<SessionRowUi>> get() = directory.sessions
     val screen: StateFlow<ChatScreenState> = _screen.asStateFlow()
+    private val displayExecutionState = MutableStateFlow<List<DisplayExecutionUi>>(emptyList())
+    val displayExecutions: StateFlow<List<DisplayExecutionUi>> = displayExecutionState.asStateFlow()
+
+    internal fun publishDisplayExecution(value: DisplayExecutionUi) {
+        displayExecutionState.update { previous ->
+            mergeDisplayExecution(previous, value)
+        }
+    }
 
     /** The runtime safety profile for the chat header (ADR-0005 display). */
     val profile: StateFlow<SafetyProfile> = profileStore.flow
@@ -489,7 +497,9 @@ class ChatService(
         workScope.async { storage.sessionExperts.forSession(sessionId) }
 
     fun savedExperts(): kotlinx.coroutines.Deferred<List<com.helix.core.storage.repository.ExpertDefinition>> =
-        workScope.async { storage.experts.list() }
+        workScope.async {
+            storage.experts.list()
+        }
 
     suspend fun messageRunMetrics(messageId: String): MessageRunMetrics =
         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
@@ -3079,6 +3089,15 @@ class ChatService(
      * the artifact center's truncated global window, and without starting or continuing
      * anything.
      */
+    internal suspend fun inspectToolResult(
+        turnId: String,
+        callId: String,
+    ): ToolInspectionContent? {
+        val original = screen.value.openSessionId ?: return null
+        val result = withContext(Dispatchers.IO) { ToolInspectionQuery(storage).read(original, turnId, callId) }
+        return result.takeIf { screen.value.openSessionId == original }
+    }
+
     internal suspend fun taskArtifactsForTurn(turnId: String): List<ArtifactRowUi> =
         withContext(Dispatchers.IO) { ArtifactQuery(storage).forTurn(turnId) }
 
@@ -3312,6 +3331,25 @@ class ChatService(
             rawArgsJson,
             mode,
             chatToolsEnabled,
+        )
+
+    /** Generated code supplies only business arguments; original mode, session and cancellation are host facts. */
+    internal fun dispatchScriptToolCall(
+        parent: com.helix.tools.framework.ExecutableToolCall,
+        id: String,
+        tool: String,
+        arguments: kotlinx.serialization.json.JsonObject,
+        cancel: com.helix.core.model.CancelSignal,
+    ): ToolDispatchOutcome =
+        toolCalls.dispatchToolCall(
+            id,
+            requireNotNull(parent.turnId),
+            tool,
+            arguments.toString(),
+            parent.agentMode,
+            parent.chatToolsEnabled,
+            parent,
+            cancel,
         )
 
     /**

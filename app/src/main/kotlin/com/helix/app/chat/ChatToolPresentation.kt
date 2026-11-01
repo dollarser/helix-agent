@@ -34,7 +34,7 @@ internal class ChatToolPresentation(
 
             is ToolPresentationFact.Running -> {
                 changed()
-                row(fact.call, str(R.string.tool_state_running))
+                row(fact.call, str(R.string.tool_state_running), typedState = ToolCallState.RUNNING)
             }
 
             is ToolPresentationFact.Settled -> {
@@ -141,10 +141,12 @@ internal class ChatToolPresentation(
                 str(R.string.tool_state_awaiting_approval),
                 null,
                 card,
+                state = ToolCallState.AWAITING_APPROVAL,
             )
         }
     }
 
+    @Suppress("LongMethod") // Typed terminal outcomes retain distinct approval and ledger projections.
     private fun settled(fact: ToolPresentationFact.Settled) {
         if (screen.value.openSessionId != fact.call.sessionId) return
         if (fact.preDispatch) {
@@ -156,13 +158,19 @@ internal class ChatToolPresentation(
                 } else {
                     R.string.tool_state_failed
                 }
-            row(fact.call, str(label), fact.summary, fact.durationMs)
+            row(fact.call, str(label), fact.summary, fact.durationMs, typedState = fact.state)
             return
         }
         when (fact.state) {
             ToolCallState.COMPLETED -> {
                 timeline.setCardStateForCall(fact.callId, ApprovalCardState.SUCCEEDED, null)
-                row(fact.call, str(R.string.tool_state_completed), fact.summary, fact.durationMs)
+                row(
+                    fact.call,
+                    str(R.string.tool_state_completed),
+                    fact.summary,
+                    fact.durationMs,
+                    typedState = fact.state,
+                )
                 if (fact.call.name == TodoWriteTool.NAME) {
                     val args = runCatching { Json.parseToJsonElement(fact.call.arguments).jsonObject }.getOrNull()
                     val items = args?.let(TaskLedgerProjection::itemsFromArgs).orEmpty()
@@ -173,7 +181,7 @@ internal class ChatToolPresentation(
             ToolCallState.DENIED -> {
                 val detail = str(ApprovalUiMapper.codeLabel(requireNotNull(fact.denialCode)))
                 timeline.setCardStateForCall(fact.callId, ApprovalCardState.FAILED, detail, keepDenied = true)
-                row(fact.call, detail, detail, fact.durationMs)
+                row(fact.call, detail, detail, fact.durationMs, typedState = fact.state)
             }
 
             ToolCallState.CANCELLED -> {
@@ -183,6 +191,7 @@ internal class ChatToolPresentation(
                     str(R.string.tool_state_cancelled),
                     str(R.string.tool_summary_cancelled_before_start),
                     fact.durationMs,
+                    typedState = fact.state,
                 )
             }
 
@@ -195,6 +204,7 @@ internal class ChatToolPresentation(
                     str(if (review) R.string.tool_state_side_effect_pending else R.string.tool_state_failed),
                     detail,
                     fact.durationMs,
+                    typedState = fact.state,
                 )
             }
 
@@ -210,6 +220,7 @@ internal class ChatToolPresentation(
         summary: String? = null,
         duration: Long? = null,
         position: Boolean = false,
+        typedState: ToolCallState = ToolCallState.PENDING,
     ) {
         if (screen.value.openSessionId != call.sessionId) return
         timeline.publishToolRow(
@@ -222,6 +233,7 @@ internal class ChatToolPresentation(
             null,
             duration,
             modelIntent = call.modelIntent,
+            state = typedState,
             position = if (position) positionForCall(call.sessionId, call.callId) else null,
         )
     }

@@ -29,7 +29,9 @@ internal class ProotProducedAuthorization(
     ) {
         val session = storage.turns.resolve(turnId).sessionId
         val call = requireNotNull(storage.toolCalls.byTurnAndCallId(turnId, callId))
-        check(call.name in setOf("bash", LinuxRunTool.NAME, DetachedJobTools.START)) { "Not an original Linux Job" }
+        check(call.name in setOf("bash", LinuxRunTool.NAME, SkillScriptRunTool.NAME, DetachedJobTools.START)) {
+            "Not an original Linux Job"
+        }
         val canonical = if (call.name == "bash") LinuxRunTool.NAME else call.name
         for (name in setOf(call.name, canonical)) {
             val states = permissions.statesFor(ToolOrigin.BuiltInOrigin.canonicalOf(), name, session, path.scopeId)

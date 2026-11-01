@@ -121,6 +121,14 @@ object CodeJavascriptRunTool {
                 buildJsonObject {
                     put("access", accessSchema())
                     put(
+                        "toolBridge",
+                        buildJsonObject {
+                            put("type", "boolean")
+                            put("default", false)
+                            put("description", "helix.call uses task authorization and user delegation. No retries.")
+                        },
+                    )
+                    put(
                         "code",
                         buildJsonObject {
                             put("type", JsonPrimitive("string"))
@@ -223,6 +231,7 @@ object CodeJavascriptRunTool {
      * rebind a not-yet-reclaimed instance. The id is internal (never bound into the approval
      * hash), so it is free to be random.
      */
+    @Suppress("ReturnCount") // Reject unavailable delegation before runtime admission.
     private fun executeOnce(
         runner: JsExecutor,
         call: ExecutableToolCall,
@@ -233,6 +242,14 @@ object CodeJavascriptRunTool {
         val inputBytes: ByteArray? =
             call.args["input"]?.let { CanonicalArgs.canonicalize(it).toByteArray(StandardCharsets.UTF_8) }
         val nativeAccess = (call.args["access"] as? JsonPrimitive)?.content == "native"
+        val bridgeRequested = (call.args["toolBridge"] as? JsonPrimitive)?.content == "true"
+        if (bridgeRequested && call.hostToolBridge == null) {
+            return ToolExecutorResult.Failed(
+                "HOST_TOOL_BRIDGE_UNAVAILABLE",
+                sideEffectFree = true,
+            )
+        }
+        val effectful = nativeAccess || bridgeRequested
         val limits = JsExecutionLimits.DEFAULTS
         val params =
             JsExecuteParams(
@@ -241,6 +258,7 @@ object CodeJavascriptRunTool {
                 inputJsonUtf8 = inputBytes,
                 limits = limits,
                 nativeAccess = nativeAccess,
+                toolBridge = call.hostToolBridge,
             )
         val result = runner.execute(params, JsCancellation { call.cancel.isCancelled() })
         // The isolated engine acknowledges an in-flight interrupt as INTERRUPTED. Only the
@@ -248,12 +266,12 @@ object CodeJavascriptRunTool {
         return if (result.status == JsExecutionStatus.INTERRUPTED && call.cancel.isCancelled()) {
             ToolExecutorResult.CancelledWithEffectTruth(
                 detail = "JavaScript execution was cancelled; native effects, if enabled, require review.",
-                sideEffectFree = !nativeAccess,
-                requiresReview = nativeAccess,
+                sideEffectFree = !effectful,
+                requiresReview = effectful,
                 auditDetail = executionDetail(result, code, inputBytes, limits, nativeAccess),
             )
         } else {
-            mapResult(result, code, inputBytes, limits, nativeAccess)
+            mapResult(result, code, inputBytes, limits, nativeAccess, effectful)
         }
     }
 
@@ -277,6 +295,7 @@ object CodeJavascriptRunTool {
         inputBytes: ByteArray?,
         limits: JsExecutionLimits,
         nativeAccess: Boolean,
+        effectful: Boolean,
     ): ToolExecutorResult {
         val audit = executionDetail(result, code, inputBytes, limits, nativeAccess)
         return when (result.status) {
@@ -288,8 +307,8 @@ object CodeJavascriptRunTool {
                 ToolExecutorResult.TimedOutWithEffectTruth(
                     detail =
                         "JavaScript execution exceeded its deadline; native effects, if enabled, require review.",
-                    sideEffectFree = !nativeAccess,
-                    requiresReview = nativeAccess,
+                    sideEffectFree = !effectful,
+                    requiresReview = effectful,
                     auditDetail = audit,
                 )
             }
@@ -297,14 +316,14 @@ object CodeJavascriptRunTool {
             JsExecutionStatus.CANCELLED -> {
                 ToolExecutorResult.CancelledWithEffectTruth(
                     detail = "JavaScript execution was cancelled; native effects, if enabled, require review.",
-                    sideEffectFree = !nativeAccess,
-                    requiresReview = nativeAccess,
+                    sideEffectFree = !effectful,
+                    requiresReview = effectful,
                     auditDetail = audit,
                 )
             }
 
             else -> {
-                failureResult(result, audit, nativeAccess)
+                failureResult(result, audit, effectful)
             }
         }
     }

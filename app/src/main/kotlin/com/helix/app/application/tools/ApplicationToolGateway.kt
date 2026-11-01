@@ -365,7 +365,7 @@ internal class ApplicationToolGateway(
     private fun emit(fact: ToolPresentationFact) = publishToolProjection(fact.callId) { presentation.publish(fact) }
 
     /** One prepared tool call: the persisted row + dispatch request, or a pre-settled rejection. */
-    private class PreparedToolCall(
+    private data class PreparedToolCall(
         val callId: String,
         val toolNameRaw: String,
         val row: com.helix.core.storage.entity.ToolCallEntity?,
@@ -633,6 +633,7 @@ internal class ApplicationToolGateway(
                             workspaceScopeId,
                             storage.sessions.resolve(sessionId).directoryRef,
                         ),
+                        descriptor?.name?.value,
                     )
                 }.getOrNull()
             } else {
@@ -723,10 +724,13 @@ internal class ApplicationToolGateway(
         rawArgsJson: String,
         mode: AgentMode = AgentMode.ACT,
         chatToolsEnabled: Boolean = false,
+        parent: com.helix.tools.framework.ExecutableToolCall? = null,
+        callbackCancel: com.helix.core.model.CancelSignal? = null,
     ): ToolDispatchOutcome {
         val turn = storage.turns.resolve(turnId)
+        parent?.let { recordScriptParent(it, toolCallId, turnId, turn.sessionId) }
         val extracted = ToolPresentationMetadata.extract(rawArgsJson)
-        val prepared =
+        val initial =
             prepareToolCall(
                 turn,
                 toolCallId,
@@ -736,8 +740,9 @@ internal class ApplicationToolGateway(
                 mode,
                 chatToolsEnabled,
             )
+        val prepared = bindScriptBudget(initial, parent, callbackCancel)
         prepared.preSettled?.let { return it }
-        val batch = toolPipeline.scheduler.scheduleBatch(listOf(prepared.request!!))
+        val batch = toolPipeline.scheduler.scheduleBatch(listOf(prepared.request!!), parent?.toolCallId)
         val settlement = batch.settlements.single()
         val unknown = requiresSettlementReview(settlement)
         val outcome =
@@ -762,6 +767,76 @@ internal class ApplicationToolGateway(
         }
         return outcome
     }
+
+    private fun recordScriptParent(
+        parent: com.helix.tools.framework.ExecutableToolCall,
+        toolCallId: String,
+        turnId: String,
+        sessionId: String,
+    ) {
+        require(parent.sessionId == sessionId && parent.turnId == turnId) { "SCRIPT_OWNER_MISMATCH" }
+        val original = storage.toolCalls.byTurnAndCallId(turnId, parent.toolCallId)
+        require(
+            original != null && original.name == parent.toolName &&
+                (
+                    original.state == ToolCallState.RUNNING.name ||
+                        (
+                            parent.hostToolBridge?.retainingExecution == true &&
+                                original.state == ToolCallState.COMPLETED.name
+                        )
+                ),
+        ) {
+            "SCRIPT_PARENT_NOT_RUNNING"
+        }
+        storage.auditEvents.append(
+            idGenerator(),
+            toolCallId,
+            "script.bridge.call",
+            "platform",
+            kotlinx.serialization.json
+                .buildJsonObject {
+                    put("parentToolCallId", kotlinx.serialization.json.JsonPrimitive(parent.toolCallId))
+                    put("turnId", kotlinx.serialization.json.JsonPrimitive(turnId))
+                }.toString(),
+            clock.now().toEpochMilli(),
+        )
+    }
+
+    private fun bindScriptBudget(
+        initial: PreparedToolCall,
+        parent: com.helix.tools.framework.ExecutableToolCall?,
+        callbackCancel: com.helix.core.model.CancelSignal?,
+    ): PreparedToolCall =
+        if (parent == null || initial.request == null) {
+            initial
+        } else {
+            val request = requireNotNull(initial.request)
+            initial.copy(
+                request =
+                    request.copy(
+                        cancel =
+                            object : com.helix.core.model.CancelSignal {
+                                override fun isCancelled() =
+                                    request.cancel.isCancelled() || parent.cancel.isCancelled() ||
+                                        callbackCancel?.isCancelled() == true ||
+                                        !clock.now().isBefore(
+                                            parent.hostToolBridge?.executionDeadline ?: parent.deadline,
+                                        )
+                            },
+                        remainingExecutionMillis = {
+                            minOf(
+                                request.remainingExecutionMillis(),
+                                java.time.Duration
+                                    .between(
+                                        clock.now(),
+                                        parent.hostToolBridge?.executionDeadline ?: parent.deadline,
+                                    ).toMillis()
+                                    .coerceAtLeast(0),
+                            )
+                        },
+                    ),
+            )
+        }
 
     /** A JSON object, or null for any malformed input (parse failures are swallowed — the
      * rejection path handles the malformed input itself; the raw parse text is model

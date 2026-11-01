@@ -20,6 +20,20 @@ import com.helix.tools.framework.ToolRegistry
  */
 @Suppress("TooManyFunctions") // flavor-seam parity with the developer module (HXA-085/087 surfaces)
 internal object ProotToolModule {
+    @Suppress("UnusedParameter", "FunctionOnlyReturningConstant")
+    fun scriptJobActive(
+        context: Context,
+        job: String,
+    ): Boolean = false
+
+    @Suppress("UnusedParameter", "FunctionOnlyReturningConstant")
+    fun scriptJobPeer(
+        context: Context,
+        job: String,
+        pid: Int,
+        uid: Int,
+    ): Boolean = false
+
     const val AVAILABLE: Boolean = false
 
     @Suppress("UnusedParameter")
@@ -73,6 +87,8 @@ internal object ProotToolModule {
         scope: kotlinx.coroutines.CoroutineScope? = null,
         resolveWorkspacePath: (com.helix.core.workspace.FileScopePath) -> java.io.File = { error("Unavailable") },
         allowedWorkspaceRoots: () -> List<java.io.File> = { emptyList() },
+        bridgeDecorator: (com.helix.tools.framework.ToolExecutor) -> com.helix.tools.framework.ToolExecutor = { it },
+        skills: com.helix.extensions.skills.SkillRepository? = null,
     ) {
         // No-op: the consumer build ships no PRoot capability.
     }

@@ -26,6 +26,19 @@ class ShizukuUiUserService
         private val permissionControllerPackage = systemPermissionController(context)
         private val ownerUid = context.applicationInfo.uid.also { require(it >= 10_000) }
         private var hierarchy: ShizukuHierarchy? = null
+        private val displays = ShellBackgroundDisplays(context)
+        private val cleanup =
+            java.util.concurrent.Executors
+                .newSingleThreadScheduledExecutor()
+
+        init {
+            cleanup.scheduleWithFixedDelay(
+                { synchronized(this) { displays.sweep() } },
+                1,
+                1,
+                java.util.concurrent.TimeUnit.SECONDS,
+            )
+        }
 
         // Release the partially connected platform object, then rethrow unchanged.
         @Suppress("TooGenericExceptionCaught")
@@ -43,6 +56,8 @@ class ShizukuUiUserService
 
         @Synchronized
         fun close() {
+            cleanup.shutdownNow()
+            displays.close()
             hierarchy?.close()
             hierarchy = null
         }
@@ -59,13 +74,34 @@ class ShizukuUiUserService
             val guard = requireNotNull(data.readStrongBinder())
             require(data.dataAvail() == 0) { "UNEXPECTED_ARGUMENTS" }
             synchronized(this) {
+                val screen = screen(guard)
+                val display =
+                    try {
+                        displays.select(request)
+                    } catch (failure: IllegalStateException) {
+                        writeDisplayRefusal(reply, failure.message)
+                        return
+                    }
+                screen.route(display)
                 PrivilegedDeviceService(
                     guard,
-                    screen(guard),
+                    screen,
                     permissionControllerPackage,
                     packageManager,
                 ).execute(request, reply)
             }
+        }
+
+        private fun writeDisplayRefusal(
+            reply: Parcel,
+            detail: String?,
+        ) {
+            val status = if (detail == "BACKGROUND_DISPLAY_STALE") detail else "BACKGROUND_DISPLAY_UNAVAILABLE"
+            reply.writeNoException()
+            reply.writeString(status)
+            PrivilegedDeviceParcel.writeTarget(reply, null)
+            reply.writeParcelable(null, 0)
+            PrivilegedSemanticParcel.write(reply, null)
         }
 
         override fun onTransact(
@@ -99,7 +135,10 @@ class ShizukuUiUserService
                         )
                     val guard = requireNotNull(data.readStrongBinder())
                     require(data.dataAvail() == 0) { "UNEXPECTED_ARGUMENTS" }
-                    val result = synchronized(this) { ShizukuUiCommands(guard, screen(guard)).clickMatch(selector) }
+                    val result =
+                        synchronized(
+                            this,
+                        ) { ShizukuUiCommands(guard, screen(guard).also { it.route(null) }).clickMatch(selector) }
                     reply?.writeNoException()
                     reply?.writeString(result)
                     true

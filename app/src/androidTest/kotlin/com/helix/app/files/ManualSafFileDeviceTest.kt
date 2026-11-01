@@ -115,7 +115,7 @@ class ManualSafFileDeviceTest {
         withBackend { saf, _, id ->
             val context = InstrumentationRegistry.getInstrumentation().targetContext
             require(context.packageName.endsWith(".asrvalidation"))
-            val root = File(context.cacheDir, "sync-local-${UUID.randomUUID()}").apply { mkdirs() }
+            val root = File(context.noBackupFilesDir, "sync-local-${UUID.randomUUID()}").apply { mkdirs() }
             try {
                 File(root, "left").mkdirs()
                 File(root, "left/local.txt").writeText("local synthetic")

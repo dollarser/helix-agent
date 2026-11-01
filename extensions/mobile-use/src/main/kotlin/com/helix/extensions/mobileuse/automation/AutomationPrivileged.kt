@@ -26,6 +26,10 @@ interface AutomationPrivilegedBackend {
 
     val supportsDevice: Boolean get() = AutomationDeviceOperation.OBSERVE in deviceOperations
 
+    val supportsScopedCapture: Boolean get() = false
+
+    fun supportsGlobalAction(action: AutomationGlobalAction): Boolean = true
+
     fun device(
         request: AutomationDeviceRequest,
         allowed: () -> Boolean,

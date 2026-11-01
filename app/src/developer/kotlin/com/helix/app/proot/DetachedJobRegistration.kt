@@ -28,6 +28,7 @@ internal object DetachedJobRegistration {
         gate: () -> LinuxRuntimeGate,
         secrets: () -> Set<String>,
         prepareWorkspace: (LinuxRunTool.ParsedLinuxCall) -> LinuxRunTool.ParsedResult,
+        bridgeDecorator: (ToolExecutor) -> ToolExecutor = { it },
     ): DetachedJobUserActions {
         val workspaceFor: (String) -> String? = { session ->
             storage.sessions
@@ -69,7 +70,7 @@ internal object DetachedJobRegistration {
         val executors =
             listOf(
                 DetachedJobTools.start() to
-                    startWithWait(observations, launcher, collection, ownership, prepareWorkspace),
+                    startWithWait(observations, launcher, collection, ownership, prepareWorkspace, bridgeDecorator),
                 DetachedJobTools.control(false) to observations.statusExecutor(),
                 DetachedJobTools.await() to observations.awaitExecutor(),
                 DetachedJobTools.control(true) to control.executor(),
@@ -95,6 +96,7 @@ internal object DetachedJobRegistration {
         collection: DetachedJobCollection,
         ownership: ExecutionOwnership,
         prepareWorkspace: (LinuxRunTool.ParsedLinuxCall) -> LinuxRunTool.ParsedResult,
+        bridgeDecorator: (ToolExecutor) -> ToolExecutor,
     ): ToolExecutor {
         val clock =
             object : com.helix.core.model.Clock {
@@ -106,7 +108,7 @@ internal object DetachedJobRegistration {
                     ownership.executeControlWithinDeadline(collection.executor(), call, clock)
             }
         return observations.launchWaitExecutor(
-            start(launcher, prepareWorkspace),
+            bridgeDecorator(start(launcher, prepareWorkspace)),
             DetachedJobWait::millis,
             { call, launched, observed -> DetachedJobWait.finish(controlled, call, launched, observed) },
         )

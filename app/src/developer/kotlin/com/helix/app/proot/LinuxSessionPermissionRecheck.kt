@@ -60,6 +60,12 @@ internal class LinuxSessionPermissionRecheck(
         }
 
     private fun checkSession(call: ParsedLinuxCall): ToolExecutorResult? {
+        val descriptor =
+            descriptor.copy(
+                name =
+                    com.helix.core.model
+                        .ToolName(call.originalToolName),
+            )
         val sessionId =
             call.sessionId
                 ?: return LinuxRunTool.failed(

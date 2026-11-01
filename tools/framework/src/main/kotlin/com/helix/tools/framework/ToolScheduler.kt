@@ -1,10 +1,12 @@
 package com.helix.tools.framework
 
+import com.helix.core.model.CancelSignal
 import com.helix.core.model.Clock
 import com.helix.core.model.ToolDispatchOutcome
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionException
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
 
 /**
@@ -15,8 +17,9 @@ import java.util.concurrent.atomic.AtomicReference
  * Concurrency rules (doc 11 section 3.1/3.2):
  * - total concurrency defaults to [DEFAULT_MAX_CONCURRENCY] (2) and never exceeds
  *   [HARD_MAX_CONCURRENCY] (4, pre-real-device-evidence cap);
- * - [resourceGate] may only LOWER the current allowance (low memory / background /
- *   thermal) — it can never raise it and never influences approvals or result order;
+ * - [resourceGate] lowers admission of new roots (low memory / background / thermal).
+ *   Host-bound task continuations retain the parent and count both calls under the hard
+ *   capacity; they never change approvals, engine exclusions or result order;
  * - reads and writes may run in parallel within capacity. Only concrete non-reentrant
  *   engine keys serialize; shared user files and origins do not impose result locks;
  *   dependent operations belong in successive model batches, not implicit write barriers;
@@ -125,21 +128,29 @@ class ToolScheduler(
      * [BatchSettlement.Thrown] slot; [BatchResult.firstError] is only a propagation summary.
      * The scheduler never swallows a dispatch failure or borrows another slot's cause.
      */
-    fun scheduleBatch(calls: List<ToolDispatchRequest>): BatchResult {
+    fun scheduleBatch(
+        calls: List<ToolDispatchRequest>,
+        continuationOf: String? = null,
+    ): BatchResult {
         if (calls.isEmpty()) return BatchResult(emptyList())
+        require(continuationOf == null || calls.size == 1) { "A synchronous continuation is one original call" }
         val callIds = calls.map { it.toolCallId }
         reserveBatchCallIds(callIds)
         return try {
-            scheduleReservedBatch(calls)
+            scheduleReservedBatch(calls, continuationOf)
         } finally {
             releaseBatchCallIds(callIds)
         }
     }
 
-    private fun scheduleReservedBatch(calls: List<ToolDispatchRequest>): BatchResult {
+    private fun scheduleReservedBatch(
+        calls: List<ToolDispatchRequest>,
+        continuationOf: String?,
+    ): BatchResult {
         val stamped =
             calls.map { call ->
                 call.copy(
+                    cancel = LatchedCancellation(call.cancel),
                     queuedAt = clock.now().toEpochMilli(),
                     bindingRef =
                         call.bindingRef ?: if (call.bindingPinned) {
@@ -170,7 +181,7 @@ class ToolScheduler(
             // Capture before checking admission: a release in the check/subscribe gap
             // completes this generation, even when no call in this batch has started.
             val slotSignal = slotStateSignal.get()
-            if (admitNext(stamped, footprints, futures, submitted)) continue
+            if (admitNext(stamped, footprints, futures, submitted, continuationOf)) continue
             // Nothing new may start (full or all-conflicting): wait for the next
             // completion, then re-evaluate. (A completion can free a slot or a lane.)
             // The waiter completes on the FIRST terminal state of any pending future —
@@ -184,7 +195,9 @@ class ToolScheduler(
                 future.whenComplete { _, _ -> waiter.complete(null) }
             }
             slotSignal.whenComplete { _, _ -> waiter.complete(null) }
-            waiter.join()
+            awaitAdmissionSignal(waiter) {
+                stamped.indices.any { !submitted[it] && stamped[it].cancel.isCancelled() }
+            }
             // Drop exactly the futures that reached a terminal state.
             pending.removeAll { it.isDone }
         }
@@ -245,19 +258,26 @@ class ToolScheduler(
         footprints: List<EffectFootprint>,
         futures: Array<CompletableFuture<ToolDispatchOutcome>>,
         submitted: BooleanArray,
+        continuationOf: String?,
     ): Boolean {
         var started = false
         for (idx in calls.indices) {
             // Preserve queue fairness for the same non-reentrant engine only.
             // User result dependencies are not inferred from read/write labels.
-            if ((0 until idx).any { !submitted[it] && footprints[it].conflictsWith(footprints[idx]) }) continue
-            if (!submitted[idx] && tryClaimSlot(calls[idx].toolCallId, footprints[idx])) {
+            if (submitted[idx] ||
+                (0 until idx).any { !submitted[it] && footprints[it].conflictsWith(footprints[idx]) }
+            ) {
+                continue
+            }
+            val cancelled = calls[idx].cancel.isCancelled()
+            if (cancelled || tryClaimSlot(calls[idx].toolCallId, footprints[idx], continuationOf)) {
                 submitted[idx] = true
                 started = true
                 // The footprint occupies its slot AT ADMISSION (before the pool thread
                 // even starts): the slot count must reflect every admitted-but-not-yet-
                 // complete call, including ones still waiting for a pool thread.
-                submitPoolTask(calls[idx], futures[idx])
+                val admitted = if (cancelled) calls[idx].copy(cancel = CancelledAdmission) else calls[idx]
+                submitPoolTask(admitted, futures[idx], cancelled)
             }
         }
         return started
@@ -271,9 +291,14 @@ class ToolScheduler(
     private fun tryClaimSlot(
         callId: String,
         fp: EffectFootprint,
+        continuationOf: String?,
     ): Boolean =
         synchronized(inFlightLock) {
-            inFlight.size < effectiveConcurrency() &&
+            // Host-bound continuation of an admitted parent. Keep BOTH physical reservations,
+            // including the still-resident script, but apply the soft root-admission gate to new roots.
+            // The hard pool/ownership ceiling and every non-reentrant engine still apply.
+            val limit = if (inFlight.any { it.first == continuationOf }) maxConcurrency else effectiveConcurrency()
+            inFlight.size < limit &&
                 inFlight
                     .none { (_, other) -> other.conflictsWith(fp) }
                     .also { free ->
@@ -283,6 +308,43 @@ class ToolScheduler(
                     }
         }
 
+    private fun awaitAdmissionSignal(
+        waiter: CompletableFuture<Void>,
+        cancelled: () -> Boolean,
+    ) {
+        var interrupted = false
+        var complete = false
+        try {
+            while (!complete) {
+                try {
+                    waiter.get(100, TimeUnit.MILLISECONDS)
+                    complete = true
+                } catch (_: java.util.concurrent.TimeoutException) {
+                    // Reuse this waiter: repeated polls must not accumulate future/slot callbacks.
+                    complete = cancelled()
+                } catch (_: InterruptedException) {
+                    interrupted = true // Interruption alone never releases a physical reservation.
+                }
+            }
+        } finally {
+            if (interrupted) Thread.currentThread().interrupt()
+        }
+    }
+
+    private object CancelledAdmission : CancelSignal {
+        override fun isCancelled() = true
+    }
+
+    private class LatchedCancellation(
+        private val source: CancelSignal,
+    ) : CancelSignal {
+        private val observed =
+            java.util.concurrent.atomic
+                .AtomicBoolean()
+
+        override fun isCancelled(): Boolean = observed.get() || source.isCancelled().also { if (it) observed.set(true) }
+    }
+
     // The pool task must settle its future for ANY dispatcher throw (contract violation
     // included) — the caller reads it as the batch's firstError with a null slot. A pool
     // rejection (JVM shutdown) must likewise roll the claimed slot back: one broad
@@ -291,31 +353,36 @@ class ToolScheduler(
     private fun submitPoolTask(
         call: ToolDispatchRequest,
         future: CompletableFuture<ToolDispatchOutcome>,
+        cancelledBeforeAdmission: Boolean = false,
     ) {
         val callId = call.toolCallId
         try {
-            pool.execute {
-                // The dispatcher's contract returns an outcome; ANY throw is a contract
-                // violation that must still settle the future. Release the admission slot
-                // BEFORE completing the future: completion wakes the scheduler waiter,
-                // which must observe the freed slot when it immediately re-evaluates.
-                try {
-                    val observation = dispatcher.isCompletion(call)
-                    val completion = dispatcher.dispatchCompletion(call)
-                    if (observation) releaseSlot(callId)
-                    completion.whenComplete { outcome, failure ->
-                        releaseSlot(callId)
-                        if (failure == null) {
-                            future.complete(outcome)
-                        } else {
-                            future.completeExceptionally(failure.cause ?: failure)
+            val task =
+                Runnable {
+                    // The dispatcher's contract returns an outcome; ANY throw is a contract
+                    // violation that must still settle the future. Release the admission slot
+                    // BEFORE completing the future: completion wakes the scheduler waiter,
+                    // which must observe the freed slot when it immediately re-evaluates.
+                    try {
+                        val observation = dispatcher.isCompletion(call)
+                        val completion = dispatcher.dispatchCompletion(call)
+                        if (observation) releaseSlot(callId)
+                        completion.whenComplete { outcome, failure ->
+                            releaseSlot(callId)
+                            if (failure == null) {
+                                future.complete(outcome)
+                            } else {
+                                future.completeExceptionally(failure.cause ?: failure)
+                            }
                         }
+                    } catch (t: Throwable) {
+                        releaseSlot(callId)
+                        future.completeExceptionally(t)
                     }
-                } catch (t: Throwable) {
-                    releaseSlot(callId)
-                    future.completeExceptionally(t)
                 }
-            }
+            // All workers may be retained by original parents. A frozen pre-start
+            // cancellation only runs normal validation/audit, never an executor or a new slot.
+            if (cancelledBeforeAdmission) task.run() else pool.execute(task)
         } catch (t: Throwable) {
             // The pool refused the task (shutdown): no thread will ever run it, so roll
             // the claimed slot back NOW and settle the future — otherwise the slot is

@@ -6,7 +6,7 @@ package com.helix.app.proot
 // the explicit reconciliation stays the existing session entry (`查看结果`).
 
 /** The Linux command tools whose calls carry a command result (the developer proot tools). */
-val COMMAND_TOOL_NAMES: Set<String> = setOf("bash", "code.linux.run", "code.linux.job.start")
+val COMMAND_TOOL_NAMES: Set<String> = setOf("bash", "code.linux.run", "skills.run", "code.linux.job.start")
 
 /** The display state of one command result; every value gets its own user-visible text. */
 enum class CommandDetailState {

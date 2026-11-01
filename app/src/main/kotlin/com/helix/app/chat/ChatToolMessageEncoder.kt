@@ -126,7 +126,7 @@ internal class ChatToolMessageEncoder(
     ) = with(builder) {
         settled.resultReference?.let {
             put("callRef", it)
-            if (settled.toolName in setOf("bash", "code.linux.run", "code.linux.job.start")) {
+            if (settled.toolName in setOf("bash", "code.linux.run", "skills.run", "code.linux.job.start")) {
                 put("logRef", it)
                 put("logReadTool", "code.linux.job.read_log")
             }
@@ -166,4 +166,4 @@ internal class ChatToolMessageEncoder(
 }
 
 // The exec tools whose output may carry a test/build summary (research doc section 44).
-private val EXEC_TOOLS = setOf("bash", "code.linux.run")
+private val EXEC_TOOLS = setOf("bash", "code.linux.run", "skills.run")

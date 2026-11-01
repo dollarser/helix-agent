@@ -69,6 +69,21 @@ internal class BoundedCapture(
 ) {
     private val buffer = java.io.ByteArrayOutputStream()
     private var finished = false
+    private var redactor: BridgeOutputRedactor? = null
+
+    fun hideProof(proof: String?) =
+        apply {
+            check(!finished && buffer.size() == 0)
+            redactor = proof?.let { BridgeOutputRedactor(it, ::record) }
+        }
+
+    private fun record(
+        bytes: ByteArray,
+        count: Int,
+    ) {
+        buffer.write(bytes, 0, count)
+        onChunk(bytes, count)
+    }
 
     @Volatile
     var complete: Boolean = false
@@ -92,8 +107,7 @@ internal class BoundedCapture(
                 synchronized(buffer) {
                     if (finished) return
                     if (allow > 0) {
-                        buffer.write(chunk, 0, allow)
-                        onChunk(chunk, allow)
+                        redactor?.write(chunk, allow) ?: record(chunk, allow)
                     }
                 }
                 if (allow < n) {
@@ -114,6 +128,7 @@ internal class BoundedCapture(
     fun finish() {
         synchronized(buffer) {
             if (finished) return
+            redactor?.finish(complete)
             finished = true
             bytes = buffer.toByteArray()
         }

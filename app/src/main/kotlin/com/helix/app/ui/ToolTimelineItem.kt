@@ -10,6 +10,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -17,8 +20,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -33,6 +38,7 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
+import com.helix.app.chat.toolHasUnsettledObservation
 
 /**
  * One tool-timeline row (roadmap HXA-036): the tool REQUEST + RESULT, and — while the
@@ -49,6 +55,13 @@ internal fun ToolTimelineItem(
     isCurrentMatch: Boolean = false,
 ) {
     var details by rememberSaveable(row.turnId, row.callId) { mutableStateOf(false) }
+    val matchView = remember(row.turnId, row.callId) { BringIntoViewRequester() }
+    LaunchedEffect(isCurrentMatch) {
+        if (isCurrentMatch) {
+            androidx.compose.runtime.withFrameNanos { }
+            matchView.bringIntoView()
+        }
+    }
     val displayIntent = ToolPurpose.text(row.toolName, row.requestSummary, row.modelIntent)
     val borderModifier =
         if (isCurrentMatch) {
@@ -62,11 +75,12 @@ internal fun ToolTimelineItem(
                 .fillMaxWidth()
                 .then(borderModifier)
                 .padding(horizontal = 8.dp)
-                .testTag("tool-row-${row.callId}"),
+                .testTag("tool-row-${row.callId}")
+                .bringIntoViewRequester(matchView),
     ) {
         ToolTimelineSummary(row, displayIntent, details) { details = !details }
         if (details) {
-            ToolTimelineDetails(row, displayIntent)
+            ToolTimelineDetails(row, displayIntent, intents)
             CommandDetailEntry(row, intents)
             if (row.prootRecoveryAvailable) {
                 ProotRecoveryActions(row, intents.onInspectProot, intents.onRecoverProot, intents.onRetryProotAck)
@@ -83,6 +97,7 @@ internal fun ToolTimelineItem(
 private fun ToolTimelineDetails(
     row: com.helix.app.chat.ToolTimelineRow,
     displayIntent: String,
+    intents: ConversationIntents,
 ) {
     Text(
         stringResource(R.string.tool_intent_detail, row.modelIntent ?: displayIntent),
@@ -113,6 +128,10 @@ private fun ToolTimelineDetails(
         style = MaterialTheme.typography.bodySmall,
         modifier = Modifier.testTag("tool-row-status-detail-${row.callId}"),
     )
+    if (row.state == com.helix.core.model.ToolCallState.COMPLETED) {
+        Text(stringResource(R.string.tool_execution_not_business), style = MaterialTheme.typography.bodySmall)
+    }
+    ToolPayloadInspector(row, intents.onInspectToolResult)
     Text(
         stringResource(R.string.tool_call_id_detail, row.callId),
         style = MaterialTheme.typography.labelSmall,
@@ -160,37 +179,58 @@ private fun ToolTimelineSummary(
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                 modifier = Modifier.testTag("tool-row-intent-${row.callId}"),
             )
-            ToolTimelineHeading(row, expanded)
+            ToolTimelineHeading(row)
+            com.helix.app.chat.toolObservationPresentation(row)?.let { observation ->
+                Text(
+                    stringResource(
+                        if (observation.background) R.string.tool_observed_background else R.string.tool_observed_main,
+                        observation.packageName,
+                    ),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.testTag("tool-route-${row.callId}"),
+                )
+            }
         }
     }
 }
 
 @Composable
 @Suppress("FunctionName")
-private fun ToolTimelineHeading(
-    row: com.helix.app.chat.ToolTimelineRow,
-    expanded: Boolean,
-) {
+private fun ToolTimelineHeading(row: com.helix.app.chat.ToolTimelineRow) {
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        val isDenied = row.card?.state == com.helix.app.approval.ApprovalCardState.DENIED
+        Text(
+            row.toolName,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            modifier = Modifier.widthIn(max = 180.dp).testTag("tool-operation-${row.callId}"),
+        )
+        val tone = if (toolHasUnsettledObservation(row)) ToolStateTone.REVIEW else toolStateTone(row.state)
         val badgeColor =
-            when {
-                isDenied -> MaterialTheme.colorScheme.error
-                else -> MaterialTheme.colorScheme.outline
+            when (tone) {
+                ToolStateTone.ERROR -> MaterialTheme.colorScheme.error
+                ToolStateTone.REVIEW -> MaterialTheme.colorScheme.tertiary
+                ToolStateTone.ACTIVE -> MaterialTheme.colorScheme.primary
+                ToolStateTone.COMPLETE -> MaterialTheme.colorScheme.onSurfaceVariant
+                ToolStateTone.NEUTRAL -> MaterialTheme.colorScheme.outline
             }
+        Icon(painterResource(toolStateIcon(row.state)), null, tint = badgeColor, modifier = Modifier.size(16.dp))
         Surface(
             shape = RoundedCornerShape(4.dp),
             color = badgeColor.copy(alpha = 0.12f),
             modifier = Modifier.testTag("tool-row-state-${row.callId}"),
         ) {
             Text(
-                row.stateLabel,
+                if (toolHasUnsettledObservation(row)) stringResource(R.string.tool_unsettled) else row.stateLabel,
                 style = MaterialTheme.typography.labelSmall,
                 color = badgeColor,
                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
             )
         }
-        row.durationMs?.takeIf { expanded }?.let { duration ->
+        RunningToolClock(row)
+        row.durationMs?.let { duration ->
             val formatted =
                 if (duration < 1000L) {
                     stringResource(R.string.tool_duration_ms, duration)

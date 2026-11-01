@@ -10,6 +10,17 @@ internal class QuickJsAccessService(
     context: Context,
 ) {
     private val settings = JsNativeAccessSettings(context.applicationContext)
+    private val tools =
+        com.helix.app.runtimebridge
+            .HostToolBridgeSettings(context.applicationContext)
+
+    suspend fun toolsEnabled(): Boolean = withContext(Dispatchers.IO) { tools.enabled }
+
+    suspend fun setToolsEnabled(value: Boolean): Boolean =
+        withContext(Dispatchers.IO) {
+            tools.setEnabled(value)
+            tools.enabled
+        }
 
     suspend fun enabled(): Boolean = withContext(Dispatchers.IO) { settings.enabled }
 

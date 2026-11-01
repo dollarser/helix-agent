@@ -206,7 +206,15 @@ open class JsExecutionService : Service() {
                 if ((envelope.flags and JsProtocol.FLAG_CRASH_INJECTION) != 0) {
                     startCrashSeam(envelope.crashAfterMs)
                 }
-                val executed = runOnExecutionThread(request, sourceBytes, inputBytes, outputPfd, interruptRequested)
+                val executed =
+                    runOnExecutionThread(
+                        request,
+                        sourceBytes,
+                        inputBytes,
+                        outputPfd,
+                        interruptRequested,
+                        envelope.toolBridge,
+                    )
                 replyWith(reply, executed.status, executed.detail, JsHash.sha256Hex(inputBytes), request, executed)
             } finally {
                 markUsed()
@@ -277,6 +285,7 @@ open class JsExecutionService : Service() {
             inputBytes: ByteArray,
             outputPfd: ParcelFileDescriptor?,
             interruptRequested: AtomicBoolean,
+            toolBridge: android.os.IBinder?,
         ): JsExecutionResult {
             val resultHolder = AtomicReference<JsExecutionResult?>(null)
             val errorHolder = AtomicReference<Throwable?>(null)
@@ -285,7 +294,9 @@ open class JsExecutionService : Service() {
                     null,
                     {
                         try {
-                            resultHolder.set(execute(request, sourceBytes, inputBytes, outputPfd, interruptRequested))
+                            resultHolder.set(
+                                execute(request, sourceBytes, inputBytes, outputPfd, interruptRequested, toolBridge),
+                            )
                         } catch (t: Throwable) {
                             errorHolder.set(t)
                         }
@@ -345,6 +356,7 @@ open class JsExecutionService : Service() {
             inputBytes: ByteArray,
             outputPfd: ParcelFileDescriptor?,
             interruptRequested: AtomicBoolean,
+            toolBridge: android.os.IBinder?,
         ): JsExecutionResult {
             // HXA-052 ABI: the caller's source is the helixMain body; the program that
             // actually runs is the §3.2 wrapper (input as host-encoded literal argument,
@@ -378,8 +390,9 @@ open class JsExecutionService : Service() {
                         interruptRequested.get() || System.nanoTime() >= request.deadlineNanos
                     }
                 nativeContext?.let { context ->
-                    JsNativeHost.install(js, context, request.deadlineNanos, interruptRequested)
+                    JsNativeHost.install(js, context, request.deadlineNanos, interruptRequested, toolBridge)
                 }
+                toolBridge?.let { JsToolBridge.install(js, it, ownsChannel = nativeContext == null) }
                 val value = js.evaluate(program, JS_FILE_NAME)
                 return deliverResult(request, inputBytes, outputPfd, value)
             } catch (e: QuickJsException) {

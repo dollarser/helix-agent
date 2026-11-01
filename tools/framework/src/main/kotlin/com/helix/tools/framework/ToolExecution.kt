@@ -42,6 +42,11 @@ data class ExecutableToolCall(
     val turnId: String? = null,
     /** Exact user scope resolved by the Dispatcher, never a model argument. */
     val authorizationScopeRef: String? = null,
+    /** Original trusted user mode. A generated script cannot replace Plan with Act. */
+    val agentMode: com.helix.core.model.AgentMode = com.helix.core.model.AgentMode.ACT,
+    val chatToolsEnabled: Boolean = false,
+    /** Ephemeral per-execution callback; never part of model arguments, canonical hashes or durable records. */
+    val hostToolBridge: HostToolBridge? = null,
 )
 
 /**

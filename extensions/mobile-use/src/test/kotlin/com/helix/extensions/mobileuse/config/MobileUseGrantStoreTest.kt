@@ -22,6 +22,29 @@ class MobileUseGrantStoreTest {
             { "config-${++sequence}" },
         )
 
+    @Test fun displayChoiceInvalidatesOldProofsWithoutChangingUserApplicationScope() {
+        val store = store()
+        store.configureGlobal(setOf("fixture.app"), false)
+        selections["a"] = "selection-a"
+        val main = requireNotNull(store.find("a"))
+        store.configureExecution(background = true, allowMoveFromMain = false)
+        val background = requireNotNull(store.find("a"))
+        assertTrue(background.backgroundDisplay)
+        assertFalse(background.allowMoveFromMain)
+        assertEquals(main.scope.allowedPackages, background.scope.allowedPackages)
+        assertFalse(store.matches("a", main.scope.toScopeRef()))
+        store.configureExecution(background = true, allowMoveFromMain = true)
+        assertFalse(store.matches("a", background.scope.toScopeRef()))
+        assertTrue(requireNotNull(store.find("a")).allowMoveFromMain)
+    }
+
+    @Test fun malformedExecutionSettingsCannotBecomeAMainScreenFallback() {
+        val store = store()
+        store.configureGlobal(emptySet(), true)
+        records[MobileUseGrantStore.EXECUTION_KEY] = listOf("unknown", "false")
+        assertThrows(MobileUseConfigurationUnreadable::class.java) { store.globalConfiguration() }
+    }
+
     @Test fun globalEditsInvalidateSelectedConversationProofsWithoutCopyingConfiguration() {
         val store = store()
         store.configureGlobal(emptySet(), true)

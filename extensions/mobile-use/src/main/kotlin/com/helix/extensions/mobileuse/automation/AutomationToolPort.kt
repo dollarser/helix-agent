@@ -3,6 +3,8 @@ package com.helix.extensions.mobileuse.automation
 import com.helix.tools.framework.ExecutableToolCall
 
 interface AutomationToolPort {
+    fun usesBackgroundDisplay(): Boolean = false
+
     fun accessibilityOnly(): AutomationToolPort = this
 
     fun preferredClickBackend(): AutomationClickBackend = AutomationClickBackend.ACCESSIBILITY
@@ -27,6 +29,8 @@ class PermissionCenterAutomationToolPort(
     private val originalCall: ExecutableToolCall? = null,
     private val forceAccessibility: Boolean = false,
 ) : AutomationToolPort {
+    override fun usesBackgroundDisplay(): Boolean = center.backgroundSelected()
+
     override fun accessibilityOnly(): AutomationToolPort =
         PermissionCenterAutomationToolPort(center, originalCall, true)
 
@@ -47,7 +51,7 @@ class PermissionCenterAutomationToolPort(
 
     override fun snapshot() =
         (
-            if (forceAccessibility) {
+            if (forceAccessibility && !center.backgroundSelected()) {
                 originalCall?.let { call -> bound { center.snapshotForCall(call) } }
             } else {
                 originalCall?.let(center::semanticSnapshot)

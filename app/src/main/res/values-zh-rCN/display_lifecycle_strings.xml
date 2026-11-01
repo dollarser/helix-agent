@@ -1,0 +1,10 @@
+<resources>
+    <string name="display_live_creating">宿主：服务已连接，后台屏创建中</string>
+    <string name="display_live_active">宿主：后台屏已连接并创建</string>
+    <string name="display_live_released">宿主：后台屏已释放</string>
+    <string name="display_live_disconnected">宿主：连接已断开，显示释放未确认</string>
+    <string name="display_live_release_unknown">宿主：后台屏释放未确认</string>
+    <string name="display_live_unavailable">宿主：后台屏不可用，未获得创建确认</string>
+    <string name="display_live_unknown">宿主：连接或显示状态未确认</string>
+    <string name="display_live_target">最近目标：%1$s</string>
+</resources>

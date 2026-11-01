@@ -21,6 +21,8 @@ internal object AutomationModule {
         writeConfiguration: (String, List<String>) -> Unit,
         selectionId: (String) -> String?,
         conversationExists: (String) -> Boolean,
+        taskActive: (String, String) -> Boolean = { _, _ -> false },
+        displayPresentation: (com.helix.app.chat.DisplayExecutionUi) -> Unit = {},
         taskHost: com.helix.extensions.plugin.PluginTaskHost? = null,
     ) = Unit
 

@@ -42,10 +42,10 @@ internal class AutomationPostActionObservation(
         val fields = result.output.jsonObject.toMutableMap()
         fields["observationStatus"] = JsonPrimitive(status)
         read.observation?.let { fields["observation"] = it }
-        if (status == "ATTACHED") {
+        if (read.observation?.containsKey("nodes") == true) {
             fields["nextObservation"] =
                 JsonPrimitive(
-                    "Read observation below; use its fresh tokens. Query again only if needed.",
+                    "Read observation below; it may still be changing. Use fresh tokens; query again if needed.",
                 )
             fields["actionHint"] =
                 JsonPrimitive(
@@ -87,10 +87,6 @@ internal class AutomationPostActionObservation(
                         ObservationRead("SKIPPED_CANCELLED")
                     }
 
-                    wait.status in setOf(AutomationWaitStatus.TIMED_OUT, AutomationWaitStatus.INCOMPLETE_SNAPSHOT) -> {
-                        ObservationRead("UNSETTLED")
-                    }
-
                     fresh == null -> {
                         ObservationRead("UNAVAILABLE")
                     }
@@ -103,7 +99,15 @@ internal class AutomationPostActionObservation(
                         ObservationRead("UNAVAILABLE", encode(fresh.copy(snapshot = null)))
                     }
 
-                    fresh.snapshot == null || wait.status != AutomationWaitStatus.STABLE -> {
+                    fresh.snapshot == null -> {
+                        ObservationRead("UNAVAILABLE")
+                    }
+
+                    wait.status in setOf(AutomationWaitStatus.TIMED_OUT, AutomationWaitStatus.INCOMPLETE_SNAPSHOT) -> {
+                        ObservationRead("UNSETTLED", bounded(encode(fresh)))
+                    }
+
+                    wait.status != AutomationWaitStatus.STABLE -> {
                         ObservationRead("UNAVAILABLE")
                     }
 

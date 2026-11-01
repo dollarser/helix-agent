@@ -97,7 +97,7 @@ class SkillRepositoryTest {
                 .snapshotHash,
             document.catalogEntry.contentHash,
         )
-        listOf("/references/a", "references/../a", "references/a\\b", "scripts/a", "references//a").forEach { path ->
+        listOf("/references/a", "references/../a", "references/a\\b", "scripts/../a", "references//a").forEach { path ->
             assertThrows(
                 IllegalArgumentException::class.java,
             ) { loader.loadBuiltIn(manifest, "guide", mapOf(path to "x")) }
@@ -200,7 +200,14 @@ class SkillRepositoryTest {
         val asset = repository.readResource(key, "assets/blob.bin", "session")
         assertEquals("base64", asset.encoding)
 
-        listOf("../outside", "/absolute", "scripts/run.js", "references/link/escape")
+        val script = repository.readResource(key, "scripts/run.js", "session")
+        assertTrue(script.content.contains("must not auto-run"))
+        assertEquals(listOf("scripts/run.js"), repository.scripts(key, "session", null).map { it.relativePath })
+        assertEquals(key.snapshotHash, repository.scriptSnapshot(key, "session", null).snapshotHash)
+        write(snapshot.directory, "scripts/run.js", "changed".toByteArray())
+        assertThrows(IllegalArgumentException::class.java) { repository.scripts(key, "session", null) }
+        assertThrows(IllegalArgumentException::class.java) { repository.readResource(key, "scripts/run.js", "session") }
+        listOf("../outside", "/absolute", "scripts/../run.js", "references/link/escape")
             .forEach { path ->
                 assertThrows(IllegalArgumentException::class.java) {
                     repository.readResource(key, path, "session")

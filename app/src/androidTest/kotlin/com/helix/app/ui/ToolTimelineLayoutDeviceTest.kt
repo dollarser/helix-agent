@@ -118,7 +118,7 @@ class ToolTimelineLayoutDeviceTest {
         compose.onNodeWithTag("command-detail-call").assertDoesNotExist()
         compose.onNodeWithTag("proot-query-call").assertDoesNotExist()
         compose.onNodeWithTag("tool-row-state-call", useUnmergedTree = true).assertIsDisplayed()
-        compose.onNodeWithTag("tool-row-duration-call", useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithTag("tool-row-duration-call", useUnmergedTree = true).assertIsDisplayed()
         compose.onNodeWithTag("tool-details-call").performClick()
         compose.onNodeWithTag("tool-row-name-call").assertExists()
         compose.onNodeWithTag("tool-row-intent-detail-call").assertTextContains(intent, substring = true)

@@ -4,4 +4,11 @@
   <string name="workspace_saf_observed">Directory opened in place through the document API. No POSIX path; this is not a Git mount.</string>
   <string name="workspace_write_hint">The source advertises write access. Each operation still checks provider capabilities and live permission; user files were not modified.</string>
   <string name="workspace_cli_explicit_copy">CLI requires an explicit working copy for this source; selecting it does not copy or synchronize files.</string>
+  <string name="workspace_permission_modern">The working folder is a default location, not your access boundary. You control all-files permission and access scope; SAF remains available.</string>
+  <string name="workspace_permission_legacy">The working folder does not narrow your authorization. Android 10 uses storage read/write permission; SAF remains available.</string>
+  <string name="workspace_permission_action">Manage local file access</string>
+  <string name="workspace_use_real_path">Use verified direct path</string>
+  <string name="workspace_private_build_help">Source stays in place. Executable/symlink dependencies and output may use private runtime storage. Linux provides HELIX_BUILD_DIR; choose output explicitly without changing the project automatically.</string>
+<string name="workspace_storage_ready">Local storage is available to browse; writes remain checked.</string>
+<string name="workspace_storage_permission_needed">Local storage permission is not granted; private folders and SAF remain available.</string>
 </resources>

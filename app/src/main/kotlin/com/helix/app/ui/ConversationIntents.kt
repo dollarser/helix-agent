@@ -72,5 +72,6 @@ data class ConversationIntents(
     val onRecoveryContinueGoal: (String) -> Unit = {},
     val onRecoveryRetry: (String) -> Unit = {},
     /** HXA-194: open a command call's read-only details page from its tool row. */
+    val onInspectToolResult: suspend (String, String) -> com.helix.app.chat.ToolInspectionContent? = { _, _ -> null },
     val onOpenCommandDetail: (String, String) -> Unit = { _, _ -> },
 )

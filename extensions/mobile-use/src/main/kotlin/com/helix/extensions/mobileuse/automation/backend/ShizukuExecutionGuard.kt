@@ -3,21 +3,44 @@ package com.helix.extensions.mobileuse.automation.backend
 import android.os.Binder
 import android.os.IBinder
 import android.os.Parcel
+import com.helix.extensions.mobileuse.automation.AutomationDisplayLifecycle
 
 /** Live original-call checks. The shell service cannot mint or persist a grant. */
 internal class ShizukuExecutionGuard(
     private val allowed: (Int, Int, Int) -> Boolean,
     private val mayFinish: () -> Boolean,
+    private val displayLifecycle: ShizukuDisplayLifecycle? = null,
 ) : Binder() {
+    @Suppress("ReturnCount") // Distinct protocol branches enforce peer and parcel identity before callbacks.
     override fun onTransact(
         code: Int,
         data: Parcel,
         reply: Parcel?,
         flags: Int,
     ): Boolean {
-        if (code != CHECK) return super.onTransact(code, data, reply, flags)
+        if (code !in setOf(CHECK, DISPLAY_EVENT)) return super.onTransact(code, data, reply, flags)
         check(getCallingUid() in setOf(0, 2000)) { "UNTRUSTED_GUARD_CALLER" }
         data.enforceInterface(DESCRIPTOR)
+        if (code == DISPLAY_EVENT) {
+            val state = requireNotNull(AutomationDisplayLifecycle.entries.getOrNull(data.readInt()))
+            require(
+                state in
+                    setOf(
+                        AutomationDisplayLifecycle.ACTIVE,
+                        AutomationDisplayLifecycle.RELEASED,
+                        AutomationDisplayLifecycle.RELEASE_UNKNOWN,
+                    ),
+            )
+            require(data.dataAvail() == 0)
+            val identity = clearCallingIdentity()
+            try {
+                displayLifecycle?.report(state)
+            } finally {
+                restoreCallingIdentity(identity)
+            }
+            reply?.writeNoException()
+            return true
+        }
         val x = data.readInt()
         val y = data.readInt()
         val rotation = data.readInt()
@@ -35,9 +58,51 @@ internal class ShizukuExecutionGuard(
         return true
     }
 
+    fun discardUnboundDisplayIfInactive() {
+        if (!mayFinish()) displayLifecycle?.discardIfNeverBound()
+    }
+
+    fun bindDisplayService(service: IBinder) {
+        displayLifecycle?.bind(service)
+    }
+
+    fun observedDisplayPackage(value: String?) {
+        displayLifecycle?.observedPackage(value)
+    }
+
+    fun displayRefused(status: String) {
+        displayLifecycle?.refused(status)
+    }
+
+    fun displayConnectionLost() {
+        displayLifecycle?.connectionFailed()
+    }
+
     companion object {
         private const val DESCRIPTOR = "com.helix.app.automation.ShizukuGuard"
         private const val CHECK = IBinder.FIRST_CALL_TRANSACTION
+        private const val DISPLAY_EVENT = IBinder.FIRST_CALL_TRANSACTION + 1
+
+        @Suppress("TooGenericExceptionCaught") // UI callback failure never changes the real display effect.
+        fun displayEvent(
+            binder: IBinder,
+            state: AutomationDisplayLifecycle,
+        ) {
+            val data = Parcel.obtain()
+            val reply = Parcel.obtain()
+            try {
+                data.writeInterfaceToken(DESCRIPTOR)
+                data.writeInt(state.ordinal)
+                if (binder.transact(DISPLAY_EVENT, data, reply, 0)) reply.readException()
+            } catch (_: android.os.RemoteException) {
+                // Presentation unavailable; never alter or retry the original effect.
+            } catch (failure: RuntimeException) {
+                android.util.Log.w("HelixDisplay", "Lifecycle projection unavailable", failure)
+            } finally {
+                data.recycle()
+                reply.recycle()
+            }
+        }
 
         fun check(
             binder: IBinder,

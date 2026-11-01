@@ -605,7 +605,7 @@
     <string name="tool_rejected_bad_name">工具名不合法，已拒绝</string>
     <string name="tool_state_awaiting_approval">待审批</string>
     <string name="tool_state_cancelled">已取消</string>
-    <string name="tool_state_completed">已执行成功</string>
+    <string name="tool_state_completed">调用完成</string>
     <string name="tool_state_denied">已拒绝</string>
     <string name="tool_state_failed">执行失败</string>
     <string name="session_input_recovery_ended">一条排队请求未能通过自动恢复校验，已结束且未重新执行。原请求内容仍保留；已完成的操作不受影响。</string>

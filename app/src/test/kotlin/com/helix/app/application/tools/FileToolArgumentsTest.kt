@@ -10,6 +10,17 @@ import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class FileToolArgumentsTest {
+    @Test fun skillWorkspaceIsFrozenWithoutRetargetingSnapshotIdentityOrScriptArguments() {
+        val input = """{"source":"USER_IMPORTED","name":"demo","path":"scripts/run.py","args":["../literal",""]}"""
+        val first = FileToolArguments.bindRequest(input, FileScopePath("first", "project"), "skills.run")
+        val body = Json.parseToJsonElement(first).jsonObject
+        assertEquals("scope:first:project", body.getValue("workspace").jsonPrimitive.content)
+        assertEquals("USER_IMPORTED", body.getValue("source").jsonPrimitive.content)
+        assertEquals("scripts/run.py", body.getValue("path").jsonPrimitive.content)
+        assertEquals(Json.parseToJsonElement(input).jsonObject.getValue("args"), body.getValue("args"))
+        assertEquals(first, FileToolArguments.bindRequest(first, FileScopePath("second", "other"), "skills.run"))
+    }
+
     @Test fun linuxWorkspaceIsBoundBeforeApprovalAndDoesNotFollowLaterDirectorySelection() {
         val original = FileScopePath("first", "project")
         val bound = FileToolArguments.bindRequest("""{"script":"pwd"}""", original, "code.linux.run")

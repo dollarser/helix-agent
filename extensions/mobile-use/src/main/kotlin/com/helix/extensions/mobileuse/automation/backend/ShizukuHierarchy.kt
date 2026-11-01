@@ -7,6 +7,10 @@ import android.os.HandlerThread
 import android.os.Looper
 import android.util.Xml
 import android.view.accessibility.AccessibilityNodeInfo
+import com.helix.extensions.mobileuse.automation.AutomationDisplayTarget
+import com.helix.extensions.mobileuse.automation.AutomationGlobalAction
+import com.helix.extensions.mobileuse.automation.AutomationNodeBounds
+import com.helix.extensions.mobileuse.automation.AutomationWindowRegion
 import java.io.StringWriter
 
 /** Shell-only platform bridge. No hidden API access or generated code in the main app process. */
@@ -14,6 +18,84 @@ import java.io.StringWriter
 internal class ShizukuHierarchy : AutoCloseable {
     private val thread = HandlerThread("helix-shizuku-observe").apply { start() }
     private var automation: UiAutomation? = null
+    var displayId = 0
+        private set
+    private var displaySession = ""
+    private var independentFocus = false
+    private var capture: (() -> android.graphics.Bitmap?)? = null
+    private var routeAlive: () -> Boolean = { true }
+
+    fun route(display: ShellBackgroundDisplay?) {
+        routeAlive = { display?.valid != false }
+        check(routeAlive()) { "BACKGROUND_DISPLAY_STALE" }
+        displayId = display?.id ?: 0
+        displaySession = display?.identity.orEmpty()
+        independentFocus = display?.independentFocus ?: false
+        capture = display?.let { it::screenshot }
+    }
+
+    private fun displayWindows(): List<android.view.accessibility.AccessibilityWindowInfo> {
+        check(routeAlive()) { "BACKGROUND_DISPLAY_STALE" }
+        return if (android.os.Build.VERSION.SDK_INT >= 30) {
+            checkNotNull(automation).windowsOnAllDisplays.get(displayId).orEmpty()
+        } else {
+            check(displayId == 0) { "BACKGROUND_REQUIRES_API_30" }
+            checkNotNull(automation).windows
+        }
+    }
+
+    private fun root(): AccessibilityNodeInfo? {
+        if (displayId == 0) return checkNotNull(automation).rootInActiveWindow
+        val windows = displayWindows()
+        return try {
+            windows
+                .filter { it.type != android.view.accessibility.AccessibilityWindowInfo.TYPE_INPUT_METHOD }
+                .sortedWith(
+                    compareByDescending<android.view.accessibility.AccessibilityWindowInfo> { it.isFocused }
+                        .thenByDescending { it.layer },
+                ).firstNotNullOfOrNull { it.root }
+        } finally {
+            windows.forEach { it.recycle() }
+        }
+    }
+
+    fun visibleOnMain(packageName: String): Boolean {
+        if (android.os.Build.VERSION.SDK_INT < 30) return false
+        val windows = checkNotNull(automation).windowsOnAllDisplays.get(0).orEmpty()
+        return try {
+            windows.any { window ->
+                val root = window.root
+                try {
+                    root?.packageName?.toString() == packageName
+                } finally {
+                    root?.recycle()
+                }
+            }
+        } finally {
+            windows.forEach { it.recycle() }
+        }
+    }
+
+    fun scopedCapturePermitted(target: AutomationDisplayTarget): Boolean {
+        if (displayId == 0 || target.bounds !=
+            AutomationNodeBounds(0, 0, target.width, target.height)
+        ) {
+            return false
+        }
+        val windows = displayWindows()
+        return try {
+            windows.all { window ->
+                val node = window.root
+                try {
+                    node?.packageName?.toString() == target.packageName
+                } finally {
+                    node?.recycle()
+                }
+            }
+        } finally {
+            windows.forEach { it.recycle() }
+        }
+    }
 
     // This platform bridge runs only as shell/root; hidden API compatibility failures remain visible.
     @android.annotation.SuppressLint("PrivateApi")
@@ -41,7 +123,7 @@ internal class ShizukuHierarchy : AutoCloseable {
         val instance = checkNotNull(automation)
         // setServiceInfo clears this UiAutomation connection's node cache on supported Android versions.
         instance.serviceInfo = checkNotNull(instance.serviceInfo)
-        val root = checkNotNull(instance.rootInActiveWindow) { "HIERARCHY_UNAVAILABLE" }
+        val root = checkNotNull(root()) { "HIERARCHY_UNAVAILABLE" }
         val writer = StringWriter()
         val xml = Xml.newSerializer().apply { setOutput(writer) }
         try {
@@ -67,15 +149,15 @@ internal class ShizukuHierarchy : AutoCloseable {
     ): Boolean {
         val instance = checkNotNull(automation)
         instance.serviceInfo = checkNotNull(instance.serviceInfo)
-        val root = instance.rootInActiveWindow ?: return false
+        val root = root() ?: return false
         try {
             if (root.packageName?.toString() != selector.packageName || rotation() != expectedRotation) return false
             val bounds = Rect().also(root::getBoundsInScreen)
             if (!bounds.contains(x, y)) return false
-            val windows = instance.windows
+            val windows = displayWindows()
             return try {
                 val target = windows.singleOrNull { it.id == root.windowId } ?: return false
-                if (android.os.Build.VERSION.SDK_INT >= 30 && target.displayId != 0) return false
+                if (android.os.Build.VERSION.SDK_INT >= 30 && target.displayId != displayId) return false
                 windows.none { window ->
                     window.id != target.id && window.layer >= target.layer &&
                         coversInputPoint(window, x, y)
@@ -120,32 +202,30 @@ internal class ShizukuHierarchy : AutoCloseable {
         val manager = type.getMethod("getInstance").invoke(null)
         return type
             .getMethod("getRealDisplay", Int::class.javaPrimitiveType)
-            .invoke(manager, 0) as android.view.Display
+            .invoke(manager, displayId) as android.view.Display
     }
 
-    fun deviceTarget(
-        includeRevision: Boolean = true,
-    ): com.helix.extensions.mobileuse.automation.AutomationDisplayTarget? {
+    fun deviceTarget(includeRevision: Boolean = true): AutomationDisplayTarget? {
         val instance = checkNotNull(automation)
         instance.serviceInfo = checkNotNull(instance.serviceInfo)
-        val root = instance.rootInActiveWindow ?: return null
+        val root = root() ?: return null
         return try {
             val size = android.graphics.Point().also { display().getRealSize(it) }
             val bounds = Rect().also(root::getBoundsInScreen)
-            val window = instance.windows
+            val window = displayWindows()
             try {
                 val active = window.singleOrNull { it.id == root.windowId }
-                if (active == null || (android.os.Build.VERSION.SDK_INT >= 30 && active.displayId != 0)) {
+                if (active == null || (android.os.Build.VERSION.SDK_INT >= 30 && active.displayId != displayId)) {
                     null
                 } else {
-                    com.helix.extensions.mobileuse.automation.AutomationDisplayTarget(
+                    AutomationDisplayTarget(
                         root.packageName?.toString().orEmpty(),
                         root.windowId,
-                        0,
+                        displayId,
                         size.x,
                         size.y,
                         rotation(),
-                        com.helix.extensions.mobileuse.automation.AutomationNodeBounds(
+                        AutomationNodeBounds(
                             bounds.left,
                             bounds.top,
                             bounds.right,
@@ -159,6 +239,8 @@ internal class ShizukuHierarchy : AutoCloseable {
                         } else {
                             ""
                         },
+                        displaySession,
+                        independentFocus,
                     )
                 }
             } finally {
@@ -169,18 +251,18 @@ internal class ShizukuHierarchy : AutoCloseable {
         }
     }
 
-    fun windows(): List<com.helix.extensions.mobileuse.automation.AutomationWindowRegion> {
-        val windows = checkNotNull(automation).windows
+    fun windows(): List<AutomationWindowRegion> {
+        val windows = displayWindows()
         return try {
             windows
-                .filter { android.os.Build.VERSION.SDK_INT < 30 || it.displayId == 0 }
+                .filter { android.os.Build.VERSION.SDK_INT < 30 || it.displayId == displayId }
                 .map {
                     val bounds = Rect().also(it::getBoundsInScreen)
-                    com.helix.extensions.mobileuse.automation.AutomationWindowRegion(
+                    AutomationWindowRegion(
                         it.id,
                         it.layer,
                         null,
-                        com.helix.extensions.mobileuse.automation.AutomationNodeBounds(
+                        AutomationNodeBounds(
                             bounds.left,
                             bounds.top,
                             bounds.right,
@@ -193,10 +275,47 @@ internal class ShizukuHierarchy : AutoCloseable {
         }
     }
 
-    fun globalAction(action: com.helix.extensions.mobileuse.automation.AutomationGlobalAction): Boolean =
-        checkNotNull(automation).performGlobalAction(action.platformId)
+    @android.annotation.SuppressLint("PrivateApi")
+    fun globalAction(action: AutomationGlobalAction): Boolean {
+        if (displayId == 0) return checkNotNull(automation).performGlobalAction(action.platformId)
+        val code =
+            when (action) {
+                AutomationGlobalAction.BACK -> android.view.KeyEvent.KEYCODE_BACK
+                else -> null
+            }
+        return code != null && backgroundKey(code)
+    }
 
-    fun screenshot(): android.graphics.Bitmap? = checkNotNull(automation).takeScreenshot()
+    @android.annotation.SuppressLint("PrivateApi")
+    private fun backgroundKey(code: Int): Boolean {
+        val downTime = android.os.SystemClock.uptimeMillis()
+
+        fun inject(kind: Int): Boolean {
+            check(routeAlive()) { "BACKGROUND_DISPLAY_STALE" }
+            val event = android.view.KeyEvent(downTime, android.os.SystemClock.uptimeMillis(), kind, code, 0)
+            android.view.InputEvent::class.java
+                .getMethod("setDisplayId", Int::class.javaPrimitiveType)
+                .invoke(event, displayId)
+            return checkNotNull(automation).injectInputEvent(event, true)
+        }
+        var up = false
+        val down =
+            try {
+                inject(android.view.KeyEvent.ACTION_DOWN)
+            } finally {
+                up = inject(android.view.KeyEvent.ACTION_UP)
+            }
+        return down && up
+    }
+
+    fun screenshot(): android.graphics.Bitmap? =
+        if (displayId ==
+            0
+        ) {
+            checkNotNull(automation).takeScreenshot()
+        } else {
+            capture?.invoke()
+        }
 
     @android.annotation.SuppressLint("PrivateApi")
     fun synchronizeWindowTransactions() {
@@ -208,10 +327,19 @@ internal class ShizukuHierarchy : AutoCloseable {
     fun freshRoot(): AccessibilityNodeInfo? {
         val instance = checkNotNull(automation)
         instance.serviceInfo = checkNotNull(instance.serviceInfo)
-        return instance.rootInActiveWindow
+        return root()
     }
 
-    fun inject(event: android.view.MotionEvent): Boolean = checkNotNull(automation).injectInputEvent(event, true)
+    @android.annotation.SuppressLint("PrivateApi")
+    fun inject(event: android.view.MotionEvent): Boolean {
+        check(routeAlive()) { "BACKGROUND_DISPLAY_STALE" }
+        if (displayId != 0) {
+            android.view.InputEvent::class.java
+                .getMethod("setDisplayId", Int::class.javaPrimitiveType)
+                .invoke(event, displayId)
+        }
+        return checkNotNull(automation).injectInputEvent(event, true)
+    }
 
     override fun close() {
         try {

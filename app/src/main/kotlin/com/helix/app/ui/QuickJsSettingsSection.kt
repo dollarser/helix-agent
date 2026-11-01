@@ -23,6 +23,7 @@ import kotlinx.coroutines.launch
 @Composable
 @Suppress("FunctionName")
 internal fun QuickJsSettingsSection() {
+    ScriptToolDelegationSettings()
     val context = LocalContext.current
     val settings = remember(context) { QuickJsAccessService(context) }
     val scope = rememberCoroutineScope()
@@ -86,4 +87,46 @@ internal fun QuickJsSettingsSection() {
             },
         )
     }
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun ScriptToolDelegationSettings() {
+    val context = LocalContext.current
+    val settings = remember(context) { QuickJsAccessService(context) }
+    val scope = rememberCoroutineScope()
+    var enabled by remember { mutableStateOf(false) }
+    var saving by remember { mutableStateOf(true) }
+    var failed by remember { mutableStateOf(false) }
+    LaunchedEffect(settings) {
+        try {
+            enabled = settings.toolsEnabled()
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            failed = true
+        } finally {
+            saving = false
+        }
+    }
+    Row {
+        Text(stringResource(R.string.script_tools_title), Modifier.weight(1f))
+        Switch(enabled, enabled = !saving, onCheckedChange = { value ->
+            saving = true
+            failed = false
+            scope.launch {
+                try {
+                    enabled = settings.setToolsEnabled(value)
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    failed = true
+                } finally {
+                    saving = false
+                }
+            }
+        })
+    }
+    Text(stringResource(R.string.script_tools_description))
+    if (failed) Text(stringResource(R.string.quickjs_native_save_failed))
 }

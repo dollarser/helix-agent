@@ -9,6 +9,7 @@ import java.util.concurrent.TimeUnit
 internal class PrivilegedNavigationExecution(
     private val allowed: () -> Boolean,
     private val packageManager: android.content.pm.PackageManager,
+    private val displayId: Int = 0,
 ) {
     @Suppress("ReturnCount", "TooGenericExceptionCaught") // Once started, any failure may follow an activity launch.
     fun launch(packageName: String): AutomationActionStatus {
@@ -24,6 +25,8 @@ internal class PrivilegedNavigationExecution(
                     "/system/bin/am",
                     "start",
                     "-W",
+                    "--display",
+                    displayId.toString(),
                     "--user",
                     "current",
                     "-a",
@@ -66,5 +69,8 @@ internal class PrivilegedNavigationExecution(
     }
 
     private fun launcher(packageName: String): android.content.ComponentName? =
-        packageManager.getLaunchIntentForPackage(packageName)?.component?.takeIf { it.packageName == packageName }
+        packageManager.getLaunchIntentForPackage(packageName)?.component?.takeIf {
+            it.packageName ==
+                packageName
+        }
 }

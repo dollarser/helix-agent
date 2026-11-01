@@ -91,6 +91,7 @@ internal fun MobileUseSettings(
                 Text(stringResource(R.string.mobile_use_advanced_configuration))
             }
             if (advanced) {
+                MobileUseDisplayOptions(state)
                 MobileUseScopeOptions(state, onSelectApplications = { picker = true })
                 MobileUseSaveStatus(state)
                 Button(
@@ -281,5 +282,54 @@ private fun finishMobileUseExit(
         "back" -> onBack()
         "permissions" -> onPermissions()
         "departure" -> departure?.invoke(true)
+    }
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun MobileUseDisplayOptions(state: MobileUseSettingsState) {
+    var shellStatus by remember { mutableStateOf(R.string.mobile_use_shell_unavailable) }
+    LaunchedEffect(Unit) {
+        shellStatus =
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                if (!com.helix.tools.deviceaccess.DeviceAccess
+                        .shizukuReady()
+                ) {
+                    R.string.mobile_use_shell_unavailable
+                } else if (!com.helix.tools.deviceaccess.DeviceAccess
+                        .shizukuGranted()
+                ) {
+                    R.string.mobile_use_shell_permission
+                } else {
+                    R.string.mobile_use_shell_ready
+                }
+            }
+    }
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(stringResource(R.string.mobile_use_display_heading), style = MaterialTheme.typography.titleMedium)
+            Row {
+                Checkbox(
+                    state.background,
+                    { state.background = it },
+                    enabled = state.loaded && !state.busy,
+                    modifier = Modifier.testTag("mobile-use-background-display"),
+                )
+                Text(stringResource(R.string.mobile_use_background_display))
+            }
+            Text(stringResource(R.string.mobile_use_display_help))
+            Text(stringResource(shellStatus))
+            if (state.background) {
+                Row {
+                    Checkbox(
+                        state.allowMoveFromMain,
+                        { state.allowMoveFromMain = it },
+                        enabled = state.loaded && !state.busy,
+                        modifier = Modifier.testTag("mobile-use-move-main-app"),
+                    )
+                    Text(stringResource(R.string.mobile_use_move_main_app))
+                }
+            }
+        }
     }
 }

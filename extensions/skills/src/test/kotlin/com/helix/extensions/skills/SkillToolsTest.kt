@@ -29,6 +29,7 @@ class SkillToolsTest {
 
         assertEquals(
             setOf(
+                SkillTools.SCRIPTS,
                 SkillTools.LIST,
                 SkillTools.READ,
                 SkillTools.READ_RESOURCE,
@@ -90,7 +91,7 @@ class SkillToolsTest {
         assertTrue(instructions.contains("name: $name"))
 
         // Skill content and allowed-tools never register an executor or expand the tool table.
-        assertEquals(6, registry.all().size)
+        assertEquals(7, registry.all().size)
         assertFalse(registry.all().any { it.name.value == "bash" || it.name.value == "root" })
     }
 

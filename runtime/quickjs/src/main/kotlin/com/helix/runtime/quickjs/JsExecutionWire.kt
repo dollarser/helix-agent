@@ -44,6 +44,7 @@ internal object JsExecutionWire {
         val inputTotalBytes: Long,
         val flags: Int,
         val crashAfterMs: Int,
+        val toolBridge: android.os.IBinder? = null,
     ) : java.io.Closeable {
         override fun close() {
             try {
@@ -72,6 +73,7 @@ internal object JsExecutionWire {
         data.writeLong(envelope.inputTotalBytes)
         data.writeInt(envelope.flags)
         data.writeInt(envelope.crashAfterMs)
+        data.writeStrongBinder(envelope.toolBridge)
     }
 
     @Suppress("ThrowsCount") // Each malformed wire boundary is rejected before executor admission.
@@ -89,7 +91,7 @@ internal object JsExecutionWire {
             val sourcePfd = readPfd(data)?.also(descriptors::add)
             val inputPfd = readPfd(data)?.also(descriptors::add)
             val outputPfd = readPfd(data)?.also(descriptors::add)
-            if (data.dataAvail() < 20) throw ProtocolException("truncated EXECUTE envelope")
+            if (data.dataAvail() < 24) throw ProtocolException("truncated EXECUTE envelope")
             val envelope =
                 ExecuteEnvelope(
                     sourcePfd,
@@ -99,6 +101,7 @@ internal object JsExecutionWire {
                     data.readLong(),
                     data.readInt(),
                     data.readInt(),
+                    data.readStrongBinder(),
                 )
             if (data.dataAvail() != 0) throw ProtocolException("trailing EXECUTE data")
             handedOff = true

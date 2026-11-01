@@ -45,6 +45,16 @@ class AutomationPrivilegedSemanticHostTest {
         )
     private val backend = Backend()
 
+    @Test fun aNewTurnInTheSameConversationCannotUseThePreviousTurnToken() {
+        val node = requireNotNull(host.snapshot(call, backend).snapshot).nodes.single()
+        val action = AutomationNodeActionRequest(AutomationNodeAction.CLICK, node.token)
+        assertEquals(
+            AutomationActionStatus.NO_ACTIVE_SESSION,
+            host.action(call.copy(turnId = "next-turn"), action).status,
+        )
+        assertEquals(0, backend.actions)
+    }
+
     @Test fun freshSnapshotAcceptsContentUpdatesWithinTheAuthorizedWindow() {
         backend.publishedTarget = target.copy(revision = "updated-content")
         val result = host.snapshot(call, backend)

@@ -33,14 +33,15 @@ internal class PrivilegedDeviceService(
         val status =
             when (request.operation) {
                 AutomationDeviceOperation.LAUNCH -> {
-                    PrivilegedNavigationExecution(
-                        ::allowed,
-                        packageManager,
-                    ).launch(requireNotNull(request.launchPackage)).name
+                    launch(request)
                 }
 
                 AutomationDeviceOperation.GLOBAL_ACTION -> {
-                    if (target == null || request.target?.sameWindow(target) != true) {
+                    if (request.background != null && request.globalAction !=
+                        com.helix.extensions.mobileuse.automation.AutomationGlobalAction.BACK
+                    ) {
+                        "ACTION_NOT_SUPPORTED"
+                    } else if (target == null || request.target?.sameWindow(target) != true) {
                         "TARGET_CHANGED"
                     } else {
                         com.helix.extensions.mobileuse.automation
@@ -58,7 +59,7 @@ internal class PrivilegedDeviceService(
                     if (target == null || request.target?.sameWindow(target) != true) {
                         "TARGET_CHANGED"
                     } else {
-                        check(request.wholeDisplay && allowed())
+                        check((request.wholeDisplay || screen.scopedCapturePermitted(target)) && allowed())
                         image = capture(screen, target)
                         if (image == null) "TARGET_CHANGED" else "SAVED"
                     }
@@ -87,6 +88,15 @@ internal class PrivilegedDeviceService(
             PrivilegedDeviceParcel.writeTarget(reply, if (published == status) target else null)
             reply.writeParcelable(if (published == "SAVED") it else null, 0)
             PrivilegedSemanticParcel.write(reply, if (published == status) snapshot else null)
+        }
+    }
+
+    private fun launch(request: AutomationDeviceRequest): String {
+        val name = requireNotNull(request.launchPackage)
+        return if (request.background?.allowMoveFromMain == false && screen.visibleOnMain(name)) {
+            "MAIN_DISPLAY_IN_USE"
+        } else {
+            PrivilegedNavigationExecution(::allowed, packageManager, screen.displayId).launch(name).name
         }
     }
 

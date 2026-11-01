@@ -19,7 +19,7 @@ interface DeviceResourceProbe {
     fun isThermallyConstrained(): Boolean
 }
 
-/** Sampled CPU budget, bounded by the scheduler's existing physical pool; pressure lowers it to one. */
+/** Sampled root-admission budget; pressure lowers it to one. Task continuations still count under the hard pool cap. */
 class AndroidResourceGate(
     private val probe: DeviceResourceProbe,
 ) {

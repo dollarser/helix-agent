@@ -12,6 +12,7 @@ data class AutomationDeviceRequest(
     val nodeFingerprint: String? = null,
     val launchPackage: String? = null,
     val globalAction: AutomationGlobalAction? = null,
+    val background: AutomationBackgroundRoute? = null,
 )
 
 data class AutomationDeviceReply(

@@ -28,6 +28,7 @@ internal object FileToolArguments {
             "files.extract",
             "code.linux.run",
             "code.linux.job.start",
+            "skills.run",
         )
     private val pathKeys = setOf("path", "source", "destination", "output", "workspace")
     private const val PATH_HELP =
@@ -62,20 +63,23 @@ internal object FileToolArguments {
             }.getOrNull() as? JsonObject ?: return arguments
         // Invalid paths stay invalid and are rejected by the ordinary dispatch validation path.
         return runCatching {
-            val bound =
-                if (toolName in setOf("code.linux.run", "code.linux.job.start")) {
-                    JsonObject(mapOf("workspace" to JsonPrimitive(directory.toModelReference())) + parsed)
-                } else {
-                    parsed
-                }
-            normalize(bound, directory).toString()
+            normalize(parsed, directory, toolName).toString()
         }.getOrDefault(arguments)
     }
 
     fun normalize(
         args: JsonObject,
         directory: FileScopePath,
+        toolName: String? = null,
     ): JsonObject {
+        val keys = if (toolName == "skills.run") setOf("workspace") else pathKeys
+        val bound =
+            if (toolName in setOf("code.linux.run", "code.linux.job.start", "skills.run")) {
+                JsonObject(mapOf("workspace" to JsonPrimitive(directory.toModelReference())) + args)
+            } else {
+                args
+            }
+
         fun path(value: kotlinx.serialization.json.JsonElement): kotlinx.serialization.json.JsonElement {
             val raw = (value as? JsonPrimitive)?.takeIf { it.isString }?.content ?: return value
             val resolved =
@@ -90,9 +94,9 @@ internal object FileToolArguments {
             return JsonPrimitive(resolved.toModelReference())
         }
         return JsonObject(
-            args.mapValues { (key, value) ->
+            bound.mapValues { (key, value) ->
                 when {
-                    key in pathKeys -> path(value)
+                    key in keys -> path(value)
                     key in setOf("sources", "files") && value is JsonArray -> JsonArray(value.map(::path))
                     else -> value
                 }
@@ -105,7 +109,7 @@ internal object FileToolArguments {
             return ModelToolSchema(descriptor.name, descriptor.description, descriptor.inputSchema.toString())
         }
         val schema = descriptor.inputSchema
-        val updated = withPathDescriptions(schema)
+        val updated = withPathDescriptions(schema, descriptor.name.value == "skills.run")
         return ModelToolSchema(
             descriptor.name,
             descriptor.description,
@@ -113,11 +117,15 @@ internal object FileToolArguments {
         )
     }
 
-    private fun withPathDescriptions(schema: JsonObject): JsonObject {
+    private fun withPathDescriptions(
+        schema: JsonObject,
+        skillScript: Boolean,
+    ): JsonObject {
         val properties = schema["properties"] as? JsonObject ?: JsonObject(emptyMap())
+        val keys = if (skillScript) setOf("workspace") else pathKeys + setOf("sources", "files")
         return JsonObject(
             properties.mapValues { (key, value) ->
-                if (key in pathKeys + setOf("sources", "files") && value is JsonObject) {
+                if (key in keys && value is JsonObject) {
                     val original = (value["description"] as? JsonPrimitive)?.content.orEmpty()
                     val help =
                         listOf(original, PATH_HELP, ".helix internals are not writable.")

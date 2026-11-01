@@ -194,6 +194,13 @@ internal class LinuxJobExecution(
                 workspacePath = call.resolvedWorkspacePath,
                 workspaceWitness = call.workspaceWitness,
                 artifactPaths = call.artifactPaths,
+                scriptDirectory = call.scriptDirectory,
+                scriptSnapshotHash = call.scriptSnapshotHash,
+                toolBridge =
+                    call.toolBridge?.endpoint?.let {
+                        com.helix.runtime.proot.ipc
+                            .ProotToolBridgeEndpoint(it.socketName, it.proof)
+                    },
             )
         // HXA-209 C5 (ADR section 4): the not-yet-launched recheck — the session
         // authorization may have tightened since this call was approved. Only a disable
@@ -201,6 +208,7 @@ internal class LinuxJobExecution(
         // submitted yet: the refusal is side-effect-free, with no journal entry and no
         // binding record written.
         recheckBeforeSubmit(call)?.let { return it }
+        call.toolBridge?.bindJob(spec.jobId, false, java.time.Instant.ofEpochMilli(call.deadlineEpochMs))
         // Persist identity before any submit transaction; failure here prevents submission.
         beforeSubmit(call, spec)
         // 4) Submit: PFDs handed to the client; it owns them in EVERY outcome.

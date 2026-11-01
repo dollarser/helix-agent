@@ -4,4 +4,11 @@
   <string name="workspace_saf_observed">已通过文档 API 原位读取目录；没有 POSIX 路径，不伪装成 Git 挂载。</string>
   <string name="workspace_write_hint">来源声明可写；具体操作仍检查 Provider 能力和当前权限，未试写用户文件。</string>
   <string name="workspace_cli_explicit_copy">此来源若需命令行，必须显式选择工作副本；选择目录不会自动复制或同步。</string>
+  <string name="workspace_permission_modern">工作目录仅是默认位置，不缩减已有授权。系统文件权限与访问范围由你控制，SAF 仍可用。</string>
+  <string name="workspace_permission_legacy">工作目录不缩减你的授权范围。Android 10 使用存储读写权限，SAF 仍可用。</string>
+  <string name="workspace_permission_action">管理本地文件访问权限</string>
+  <string name="workspace_use_real_path">改用已核实的真实路径</string>
+  <string name="workspace_private_build_help">源码原位访问；需要执行或符号链接的依赖与输出可放私有运行目录。Linux 提供 HELIX_BUILD_DIR，构建需显式指定输出，不自动改项目。</string>
+<string name="workspace_storage_ready">已可浏览本地存储；写入仍检查当前权限。</string>
+<string name="workspace_storage_permission_needed">尚未授予本地存储权限；私有目录和 SAF 仍可使用。</string>
 </resources>

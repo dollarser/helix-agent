@@ -3,6 +3,7 @@ package com.helix.extensions.mobileuse.automation
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import com.helix.extensions.mobileuse.automation.backend.ShizukuExecutionGuard
 import java.time.Duration
 
 enum class AutomationServiceState {
@@ -27,11 +28,11 @@ class AutomationPermissionCenter(
     internal val privilegedDevice = AutomationPrivilegedDeviceHost(this)
     private val privilegedSemantic =
         AutomationPrivilegedSemanticHost(::liveDeviceGrant) {
-            preferredClickBackend().name.lowercase()
+            if (backgroundSelected()) "shizuku_bg" else preferredClickBackend().name.lowercase()
         }
 
     internal fun semanticSnapshot(call: com.helix.tools.framework.ExecutableToolCall): AutomationSnapshotResult {
-        val backend = deviceBackend(AutomationDeviceOperation.SNAPSHOT)
+        val backend = deviceBackend(AutomationDeviceOperation.SNAPSHOT, call)
         return if (backend == null) {
             AutomationServiceController.withPhysicalOperation { privilegedSemantic.invalidate() }
             withConversation(call) { snapshotForCall(call).copy(backend = "accessibility") }
@@ -57,7 +58,9 @@ class AutomationPermissionCenter(
         call: com.helix.tools.framework.ExecutableToolCall,
         request: AutomationNodeActionRequest,
     ): AutomationActionResult =
-        if (!request.token.startsWith("p")) {
+        if (!request.token.startsWith("p") && backgroundSelected()) {
+            AutomationActionResult(AutomationActionStatus.STALE_TOKEN)
+        } else if (!request.token.startsWith("p")) {
             withConversation(call) { performNodeAction(request) }
                 ?: AutomationActionResult(AutomationActionStatus.NO_ACTIVE_SESSION)
         } else {
@@ -85,7 +88,7 @@ class AutomationPermissionCenter(
         call: com.helix.tools.framework.ExecutableToolCall,
         packageName: String,
     ): AutomationActionResult {
-        val backend = deviceBackend(AutomationDeviceOperation.LAUNCH)
+        val backend = deviceBackend(AutomationDeviceOperation.LAUNCH, call)
         return if (backend != null) {
             privilegedNavigation.execute(call, backend, launchPackage = packageName)
         } else {
@@ -98,7 +101,7 @@ class AutomationPermissionCenter(
         call: com.helix.tools.framework.ExecutableToolCall,
         action: AutomationGlobalAction,
     ): AutomationActionResult {
-        val backend = deviceBackend(AutomationDeviceOperation.GLOBAL_ACTION)
+        val backend = deviceBackend(AutomationDeviceOperation.GLOBAL_ACTION, call)
         return if (backend != null) {
             privilegedNavigation.execute(call, backend, globalAction = action)
         } else {
@@ -113,16 +116,115 @@ class AutomationPermissionCenter(
 
     fun rootState(): AutomationBackendState = root?.state() ?: AutomationBackendState.UNAVAILABLE
 
+    fun backgroundSelected(): Boolean = globalConfiguration()?.backgroundDisplay == true
+
+    var backgroundTaskActive: (String, String) -> Boolean = { _, _ -> false }
+
     fun preferredClickBackend(): AutomationClickBackend =
-        backends.preferred(AutomationDeviceOperation.SNAPSHOT) ?: AutomationClickBackend.ACCESSIBILITY
+        if (backgroundSelected()) {
+            AutomationClickBackend.SHIZUKU
+        } else {
+            backends.preferred(AutomationDeviceOperation.SNAPSHOT) ?: AutomationClickBackend.ACCESSIBILITY
+        }
 
     internal fun deviceBackend(
         operation: AutomationDeviceOperation = AutomationDeviceOperation.OBSERVE,
-    ): AutomationPrivilegedBackend? = backends.select(operation)
+        call: com.helix.tools.framework.ExecutableToolCall? = null,
+    ): AutomationPrivilegedBackend? =
+        when {
+            !backgroundSelected() -> {
+                backends.select(operation)
+            }
+
+            call == null -> {
+                shizuku?.takeIf {
+                    android.os.Build.VERSION.SDK_INT >= 31 && it.state() == AutomationBackendState.READY
+                }
+            }
+
+            else -> {
+                backgroundBackend(call)
+            }
+        }
+
+    var displayPresentation: (AutomationDisplayPresentation) -> Unit = {}
+    private val backgroundGeneration =
+        java.util.concurrent.atomic
+            .AtomicLong()
+    private val backgroundOwners =
+        java.util.concurrent.ConcurrentHashMap<
+            String,
+            ShizukuExecutionGuard,
+        >()
+
+    private fun backgroundBackend(call: com.helix.tools.framework.ExecutableToolCall): AutomationPrivilegedBackend {
+        val session = call.sessionId
+        val turn = call.turnId
+        val original = session?.let(::conversationGrant)
+        val lifetime = {
+            original != null && session != null && turn != null &&
+                conversationGrant(session) == original && original.backgroundDisplay &&
+                backgroundTaskActive(session, turn) &&
+                !appContext.getSystemService(android.app.KeyguardManager::class.java).isDeviceLocked
+        }
+        val key =
+            java.security.MessageDigest
+                .getInstance("SHA-256")
+                .digest("${call.sessionId}:${call.turnId}:${call.authorizationScopeRef}".toByteArray())
+                .joinToString("") { "%02x".format(it) }
+        if (original == null || session == null || turn == null) {
+            return AutomationBackgroundBackend(
+                shizuku,
+                AutomationBackgroundRoute(
+                    key,
+                    ShizukuExecutionGuard({ _, _, _ -> false }, { false }),
+                    false,
+                ),
+            )
+        }
+        backgroundOwners.values.forEach { it.discardUnboundDisplayIfInactive() }
+        val owner =
+            backgroundOwners.computeIfAbsent(key) {
+                lateinit var guard: ShizukuExecutionGuard
+                val lifecycle =
+                    com.helix.extensions.mobileuse.automation.backend.ShizukuDisplayLifecycle(
+                        requireNotNull(session),
+                        requireNotNull(turn),
+                        backgroundGeneration.incrementAndGet(),
+                        { event -> displayPresentation(event) },
+                        { target -> conversationGrant(session) == original && original.scope.permitsPackage(target) },
+                        { backgroundOwners.remove(key, guard) },
+                    )
+                guard =
+                    ShizukuExecutionGuard(
+                        { _, _, _ -> lifetime() },
+                        lifetime,
+                        lifecycle,
+                    )
+                guard
+            }
+        return AutomationBackgroundBackend(
+            shizuku,
+            AutomationBackgroundRoute(
+                key,
+                owner,
+                original?.allowMoveFromMain == true,
+            ),
+        )
+    }
 
     fun preferredBackend(operation: AutomationDeviceOperation): AutomationClickBackend? =
-        backends.preferred(operation)
-            ?: AutomationClickBackend.ACCESSIBILITY.takeIf { serviceState() == AutomationServiceState.CONNECTED }
+        (
+            if (backgroundSelected()) {
+                AutomationClickBackend.SHIZUKU.takeIf { deviceBackend(operation) != null }
+            } else {
+                backends.preferred(operation)
+            }
+        )
+            ?: AutomationClickBackend.ACCESSIBILITY.takeIf {
+                !backgroundSelected() &&
+                    serviceState() == AutomationServiceState.CONNECTED
+            }
 
     internal fun liveDeviceGrant(
         call: com.helix.tools.framework.ExecutableToolCall,
@@ -210,7 +312,8 @@ class AutomationPermissionCenter(
 
     /** System capability facts; plugin tool names and model schemas do not belong in this layer. */
     fun supports(capability: AutomationCapability): Boolean =
-        capability == AutomationCapability.APPS || serviceState() == AutomationServiceState.CONNECTED ||
+        capability == AutomationCapability.APPS ||
+            (!backgroundSelected() && serviceState() == AutomationServiceState.CONNECTED) ||
             (capability.operation?.let { deviceBackend(it) } != null)
 
     fun availableConversationGrant(
@@ -271,7 +374,9 @@ class AutomationPermissionCenter(
     ): T? = if (hasLiveSystemGrant()) AutomationServiceController.withConversation(call, block) else null
 
     internal fun deviceLease(call: com.helix.tools.framework.ExecutableToolCall) =
-        withConversation(call) { AutomationServiceController.deviceLease() }
+        withConversation(call) {
+            AutomationServiceController.deviceLease()
+        }
 
     fun serviceState(): AutomationServiceState =
         try {

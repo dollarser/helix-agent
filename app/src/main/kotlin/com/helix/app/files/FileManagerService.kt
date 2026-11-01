@@ -44,9 +44,11 @@ class FileManagerService internal constructor(
     // keeping the pure-JVM seam testable without an Android runtime.
     private val strings: (Int, Array<out Any>) -> String = { id, _ -> id.toString() },
     private val sharedStorageGranted: () -> Boolean = { false },
+    private val sharedStorageDirectories: () -> List<SharedStorageDirectory> = { emptyList() },
     internal val manual: ManualFileOperations? = null,
     private val rootOperations: RootFileOperations? = null,
     private val workspaceSources: () -> List<FileSource> = { emptyList() },
+    private val localPathAlternative: (String) -> String? = { null },
     private val workspaceCleanup: ((String) -> Unit)? = null,
     val library: FileLibrary = FileLibrary(),
     shareCacheRoot: File? = null,
@@ -78,6 +80,24 @@ class FileManagerService internal constructor(
             operations.canWrite(path.scopeId),
             real,
         )
+    }
+
+    /** Explicit user inquiry only; the Android adapter proves an original directory FD, never guesses a URI path. */
+    fun verifiedLocalAlternative(reference: String): String? {
+        requireNotNull(manual).probeDirectory(
+            FileScopePath.fromModelReference(reference).scopeId,
+            FileScopePath.fromModelReference(reference).relativePath,
+        )
+        return localPathAlternative(reference)
+    }
+
+    internal fun directoryChoices(path: FileScopePath?): WorkspaceDirectoryChoices {
+        val sources = sources().sortedWith(compareBy<FileSource> { !SharedStorageAccess.isScope(it.scopeId) })
+        if (path == null) return WorkspaceDirectoryChoices(sources, emptyList(), null, null)
+        val listing = listing(path.scopeId, path.relativePath)
+        val report = inspectWorkspace(path.toModelReference())
+        val alternative = if (report.directPath) null else verifiedLocalAlternative(path.toModelReference())
+        return WorkspaceDirectoryChoices(sources, listing.entries, report, alternative, listing.truncated)
     }
 
     /** Explicit cleanup shares this monitor with every manual file operation, including transfers. */
@@ -241,14 +261,28 @@ class FileManagerService internal constructor(
             )
         list.addAll(workspaceSources())
         if (sharedStorageGranted()) {
-            list.add(
-                FileSource(
-                    SharedStorageAccess.SCOPE_ID,
-                    loc(R.string.files_shared),
-                    FileSourceKind.ALL_FILES,
-                    manual?.canWrite(SharedStorageAccess.SCOPE_ID) == true,
-                ),
-            )
+            val configured = sharedStorageDirectories()
+            if (configured.isEmpty()) {
+                list.add(
+                    FileSource(
+                        SharedStorageAccess.SCOPE_ID,
+                        loc(R.string.files_shared),
+                        FileSourceKind.ALL_FILES,
+                        manual?.canWrite(SharedStorageAccess.SCOPE_ID) == true,
+                    ),
+                )
+            } else {
+                configured.forEach { root ->
+                    list.add(
+                        FileSource(
+                            root.scopeId,
+                            root.displayName,
+                            FileSourceKind.ALL_FILES,
+                            manual?.canWrite(root.scopeId) == true,
+                        ),
+                    )
+                }
+            }
         }
         if (AllFilesModule.AVAILABLE) {
             AllFilesModule.allFilesSources().forEach {
@@ -829,3 +863,11 @@ enum class ConflictPolicy {
     RENAME,
     OVERWRITE,
 }
+
+internal data class WorkspaceDirectoryChoices(
+    val sources: List<FileSource>,
+    val entries: List<FileManagerService.FileEntry>,
+    val access: WorkspaceAccessReport?,
+    val localAlternative: String?,
+    val truncated: Boolean = false,
+)

@@ -92,7 +92,7 @@ class ProotJobRunner private constructor(
     private val logs by lazy {
         runCatching {
             com.helix.runtime.proot.core
-                .JobLogSpool(File(context.cacheDir, "job-log-preview"))
+                .JobLogSpool(File(context.noBackupFilesDir, "job-log-preview"))
         }.onFailure { android.util.Log.w("ProotJobRunner", "Log preview unavailable", it) }
             .getOrNull()
     }
@@ -422,6 +422,13 @@ class ProotJobRunner private constructor(
             //    group kill below can be aimed precisely at the job).
             val installDir = File(ProotRuntimeInstaller.runtimeRoot(context), installId)
             val jobTmp = File(jobDir, "tmp").apply { mkdirs() }
+            spec.scriptDirectory?.let { source ->
+                com.helix.runtime.proot.core.ScriptBundleTree.copyVerified(
+                    File(source),
+                    File(jobTmp, "skill"),
+                    requireNotNull(spec.scriptSnapshotHash),
+                )
+            }
             val media = ProotGuestMedia.prepare(context, jobTmp)
             ProotLiveWorkspace.resolve(context, spec) // Recheck the original directory after environment preparation.
             val commandArgs =
@@ -473,6 +480,15 @@ class ProotJobRunner private constructor(
             if (stdinFile != null) builder.redirectInput(stdinFile)
             builder.environment().clear()
             builder.environment().putAll(spec.environment)
+            spec.toolBridge?.let {
+                ProotScriptTools.prepare(
+                    jobTmp,
+                    it,
+                    builder.environment(),
+                    System.currentTimeMillis() + spec.deadlineMs,
+                )
+            }
+            privateBuildEnvironment(jobTmp).forEach { (key, value) -> builder.environment().putIfAbsent(key, value) }
             // Device-verified mandatory environment (HXA-084 probe): this Termux
             // build of PRoot cannot find its own libraries (no RPATH), insists on
             // the Termux loader path unless PROOT_LOADER overrides it, and refuses
@@ -526,12 +542,12 @@ class ProotJobRunner private constructor(
                 BoundedCapture(
                     outputBudget,
                     { bytes, count -> log?.offer(1, bytes, count) },
-                ) { killProcessGroup(childPid) }
+                ) { killProcessGroup(childPid) }.hideProof(spec.toolBridge?.proof)
             val stderr =
                 BoundedCapture(
                     stderrBudget,
                     { bytes, count -> log?.offer(2, bytes, count) },
-                ) { killProcessGroup(childPid) }
+                ) { killProcessGroup(childPid) }.hideProof(spec.toolBridge?.proof)
             val stdoutReader = Thread { process.inputStream.use { stdout.drain(it) } }
             val stderrReader = Thread { process.errorStream.use { stderr.drain(it) } }
             stdoutReader.start()
@@ -539,7 +555,12 @@ class ProotJobRunner private constructor(
 
             // 4) The process identity is persisted for the orphan sweep (the
             //    starttime guard makes pid reuse harmless).
-            persistProcessMeta(store, spec.jobId, childPid)
+            persistProcessMeta(store, spec.jobId, childPid) {
+                val expired = executionWindow.remainingMs(SystemClock.elapsedRealtime()) == 0L
+                if (expired) deadlineHit.set(true)
+                if (expired || cancelRequested.get()) killProcessGroup(childPid)
+                !process.isAlive
+            }
 
             live =
                 LiveJob(
@@ -943,14 +964,11 @@ private fun persistProcessMeta(
     store: ProotJobStore,
     jobId: String,
     pid: Int,
+    exitObserved: () -> Boolean,
 ) {
     val startTicks =
         try {
-            val stat = File("/proc/$pid/stat").readText()
-            val closeParen = stat.lastIndexOf(')')
-            val fields = stat.substring(closeParen + 2).trim().split(" ")
-            // starttime is field 22 (index 19 after the state field at index 1).
-            fields.getOrNull(19).orEmpty()
+            awaitPtyProcessIdentity(pid, exitObserved).startTicks.toString()
         } catch (e: Exception) {
             // no readable stat: no starttime proof, so the sweep will not kill
             ""

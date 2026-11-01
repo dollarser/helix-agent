@@ -158,7 +158,7 @@ internal object ProotLogTool {
         require(storage.turns.resolve(requireNotNull(call.turnId)).sessionId == call.sessionId)
         require(storage.turns.resolve(parts[0]).sessionId == call.sessionId)
         val source = requireNotNull(storage.toolCalls.byTurnAndCallId(parts[0], parts[1]))
-        require(source.name in setOf("bash", "code.linux.run", DetachedJobTools.START))
+        require(source.name in setOf("bash", "code.linux.run", "skills.run", DetachedJobTools.START))
         val binding = ProotJobBindingStore(storage).resolve(parts[1])
         require(binding["sessionId"]?.jsonPrimitive?.content?.let { it == call.sessionId } != false)
         require(binding.getValue("turnId").jsonPrimitive.content == parts[0])

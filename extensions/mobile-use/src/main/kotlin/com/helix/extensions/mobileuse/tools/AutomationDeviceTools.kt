@@ -285,6 +285,8 @@ class AutomationDeviceTools(
                 put("packageName", JsonPrimitive(frame.target.packageName))
                 put("windowId", JsonPrimitive(frame.target.windowId))
                 put("displayId", JsonPrimitive(frame.target.displayId))
+                put("executionDisplay", JsonPrimitive(if (frame.target.displayId == 0) "main" else "background"))
+                put("independentFocus", JsonPrimitive(frame.target.independentFocus))
                 put("width", JsonPrimitive(frame.target.width))
                 put("height", JsonPrimitive(frame.target.height))
                 put("rotation", JsonPrimitive(frame.target.rotation))
@@ -350,6 +352,8 @@ class AutomationDeviceTools(
                 "packageName" to str(255),
                 "windowId" to integer(),
                 "displayId" to integer(),
+                "executionDisplay" to str(16),
+                "independentFocus" to bool(),
                 "width" to integer(),
                 "height" to integer(),
                 "rotation" to integer(),

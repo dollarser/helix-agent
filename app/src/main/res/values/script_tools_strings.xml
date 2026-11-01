@@ -1,0 +1,4 @@
+<resources>
+    <string name="script_tools_title">Script tool delegation</string>
+    <string name="script_tools_description">Allow scripts that explicitly request toolBridge to call registered tools in their original task. Each call follows the current conversation permissions, approval and audit. Turning this off revokes active bridges; effects already sent may still need review. Isolated JavaScript keeps its process boundary and does not gain native access. Python: import helix; helix.call(name, args). Node: import {call} from /tmp/helix.mjs. JavaScript: helix.call(name, args).</string>
+</resources>

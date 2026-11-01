@@ -74,6 +74,10 @@ internal fun SessionDirectoryDialog(
     var retry by remember { mutableStateOf(0) }
     var saving by remember { mutableStateOf(false) }
     var access by remember { mutableStateOf<com.helix.app.files.WorkspaceAccessReport?>(null) }
+    var alternative by remember { mutableStateOf<String?>(null) }
+    var truncated by remember { mutableStateOf(false) }
+    val requestStorage = rememberWorkspaceStoragePermission { retry++ }
+    WorkspaceStorageResume { retry++ }
     val scope = rememberCoroutineScope()
     val choose: (String?) -> Unit = { reference ->
         if (!saving) {
@@ -92,19 +96,15 @@ internal fun SessionDirectoryDialog(
         ready = false
         failed = false
         access = null
+        alternative = null
+        truncated = false
         try {
-            val target = path
-            if (target == null) {
-                sources = withContext(Dispatchers.IO) { files.sources() }
-            } else {
-                val result =
-                    withContext(Dispatchers.IO) {
-                        files.list(target.scopeId, target.relativePath) to
-                            files.inspectWorkspace(target.toModelReference())
-                    }
-                entries = result.first
-                access = result.second
-            }
+            val location = withContext(Dispatchers.IO) { files.directoryChoices(path) }
+            sources = location.sources
+            entries = location.entries
+            access = location.access
+            alternative = location.localAlternative
+            truncated = location.truncated
             ready = true
         } catch (cancelled: kotlinx.coroutines.CancellationException) {
             throw cancelled
@@ -113,19 +113,21 @@ internal fun SessionDirectoryDialog(
         }
     }
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { if (!saving) onDismiss() },
         title = { Text(stringResource(R.string.chat_directory)) },
         text = {
             Column(Modifier.heightIn(max = 360.dp).indicatedVerticalScroll(rememberScrollState())) {
                 val current = path
+                WorkspaceStorageEntry(
+                    !saving,
+                    sources.any {
+                        com.helix.app.files.SharedStorageAccess
+                            .isScope(it.scopeId)
+                    },
+                    requestStorage,
+                )
                 if (current == null) {
-                    sources.forEach { source ->
-                        TextButton(
-                            { path = FileScopePath(source.scopeId, "") },
-                            enabled = !saving,
-                            modifier = Modifier.testTag("session-directory-source-${source.scopeId}"),
-                        ) { Text(source.displayName) }
-                    }
+                    WorkspaceSourceChoices(sources, !saving) { path = it }
                 } else {
                     ScopedPathText(
                         current.toModelReference(),
@@ -140,6 +142,8 @@ internal fun SessionDirectoryDialog(
                             }
                     }, enabled = !saving) { Text(stringResource(R.string.chat_directory_parent)) }
                     WorkspaceAccessText(access, showCopyHint = true)
+                    if (truncated) Text(stringResource(R.string.files_listing_partial))
+                    WorkspaceLocalAlternative(alternative, !saving) { path = FileScopePath.fromModelReference(it) }
                     if (ready) {
                         entries.filter { it.isDirectory }.forEach { entry ->
                             TextButton(
@@ -188,5 +192,78 @@ private fun IndependentDirectoryOption(
         TextButton(onChoose, enabled = enabled, modifier = Modifier.testTag("session-directory-private")) {
             Text(stringResource(R.string.chat_directory_none))
         }
+    }
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun WorkspaceStorageEntry(
+    enabled: Boolean,
+    available: Boolean,
+    onRequest: () -> Unit,
+) {
+    Text(
+        stringResource(
+            if (android.os.Build.VERSION.SDK_INT >=
+                30
+            ) {
+                R.string.workspace_permission_modern
+            } else {
+                R.string.workspace_permission_legacy
+            },
+        ),
+    )
+    Text(
+        stringResource(
+            if (available) R.string.workspace_storage_ready else R.string.workspace_storage_permission_needed,
+        ),
+    )
+    TextButton(onRequest, enabled = enabled, modifier = Modifier.testTag("workspace-storage-permission")) {
+        Text(stringResource(R.string.workspace_permission_action))
+    }
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun WorkspaceLocalAlternative(
+    reference: String?,
+    enabled: Boolean,
+    onChoose: (String) -> Unit,
+) {
+    if (reference != null) {
+        TextButton({ onChoose(reference) }, enabled = enabled, modifier = Modifier.testTag("workspace-use-real-path")) {
+            Text(stringResource(R.string.workspace_use_real_path))
+        }
+    }
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun WorkspaceStorageResume(onResume: () -> Unit) {
+    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    val current by androidx.compose.runtime.rememberUpdatedState(onResume)
+    androidx.compose.runtime.DisposableEffect(lifecycle) {
+        val observer =
+            androidx.lifecycle.LifecycleEventObserver { _, event ->
+                if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) current()
+            }
+        lifecycle.lifecycle.addObserver(observer)
+        onDispose { lifecycle.lifecycle.removeObserver(observer) }
+    }
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun WorkspaceSourceChoices(
+    sources: List<FileSource>,
+    enabled: Boolean,
+    onChoose: (FileScopePath) -> Unit,
+) {
+    sources.forEach { source ->
+        TextButton(
+            { onChoose(FileScopePath(source.scopeId, "")) },
+            enabled = enabled && source.available,
+            modifier = Modifier.testTag("session-directory-source-${source.scopeId}"),
+        ) { Text(source.displayName) }
     }
 }

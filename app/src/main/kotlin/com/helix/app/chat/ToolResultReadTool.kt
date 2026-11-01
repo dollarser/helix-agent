@@ -173,7 +173,7 @@ internal object ToolResultReadTool {
         return buildJsonObject {
             put("contentKind", "tool_result")
             put("resultRef", reference)
-            if (toolName in setOf("bash", "code.linux.run", "code.linux.job.start")) {
+            if (toolName in setOf("bash", "code.linux.run", "skills.run", "code.linux.job.start")) {
                 put("logRef", reference)
                 put("logReadTool", "code.linux.job.read_log")
                 val execution = runCatching { Json.parseToJsonElement(content) as? JsonObject }.getOrNull()

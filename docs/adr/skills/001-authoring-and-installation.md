@@ -145,3 +145,9 @@ PLC110 先前的测试 ZIP 存在，但系统选择器在加载阶段失败，�
 ## Decision history — 2026-10-30：主循环渐进上下文去重
 
 Owner 根据单主循环与渐进披露调研要求减少可证实的重复开销。仅去重同一次请求中等价的 Skill 目录投影和工具来源发现说明，沿用 PromptRegistry/ContextCompiler 的保留、优先级、身份与读取引用；带发现说明的来源或获取遗漏摘要优先保留。每次装配仍从当前贡献获取 owner/内容身份，不缓存工具结果或跨修订复用正文；专家、显式激活正文/参数、必要插件指导及权限/预算/恢复检查保留。合成 fake-provider 主循环对照只证明请求字节与事实传递，不代表真实模型完成率或耗时收益。不引入生产子 Agent 或新的编排框架。
+
+## Decision history — 2026-11-01：脚本清单与现有运行器入口
+
+Owner 授权补齐 Skill 脚本使用。`skills.scripts` 列举启用、可调用且完整 tree hash 未变化的快照脚本；`skills.read_resource` 可将 `scripts/` 作为有界数据读取。读取不执行，不把来源未知文件自动视为可信。Developer 的 `skills.run` 复用现有 Linux 执行器、会话授权、真实目录、取消、输出和产物；只支持明确识别的 `.py/.js/.mjs/.sh`，参数数组不做 shell 拼接。固定快照再次核验并由 Runtime 复制后核对同一 hash；资源位于 `/tmp/skill`，工作区不因此复制，源快照无写回。Standard 仍可发现/读脚本，不能宣称未装载的 Linux 运行器可执行。
+
+可选 `scripts/manifest.json` 是声明数据，格式为 `{"scripts":{"scripts/example.py":{"commands":["git"],"python":["json"],"node":["package-name"]}}}`。清单显示 `not_probed`；运行前以实际 PATH、Python 模块与 Node resolve 探测，缺失输出 `missing` 并失败，不自动安装；该字段不是完整依赖求解、权限声明或执行许可。用户 Skill 启停与显式激活契约保留，模型仍须通过正常工具授权。工具桥需独立用户开关及调用参数，不因启用 Skill 而打开。

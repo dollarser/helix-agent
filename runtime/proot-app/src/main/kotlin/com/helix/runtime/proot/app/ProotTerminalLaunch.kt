@@ -61,7 +61,7 @@ internal class ProotTerminalLaunch(
                 "LD_LIBRARY_PATH" to File(install, "bin/lib").path,
                 "PROOT_LOADER" to loader.path,
                 "PROOT_TMP_DIR" to temporary.path,
-            )
+            ) + privateBuildEnvironment(temporary)
     }
 
     fun spawn(): ProotPtyProcess = ProotPtyProcess.spawn(argv, environment)

@@ -29,6 +29,8 @@ data class ToolTimelineRow(
     val prootResultUnavailable: Boolean = false,
     val prootRecoveryReport: com.helix.app.proot.ProotRecoveryReport? = null,
     val position: ToolTimelinePosition? = null,
+    val state: com.helix.core.model.ToolCallState = com.helix.core.model.ToolCallState.PENDING,
+    val startedAtElapsedMs: Long? = null,
 )
 
 /** Original request location, independent of completion/approval arrival order. */

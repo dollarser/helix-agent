@@ -31,6 +31,8 @@ internal object PrivilegedDeviceParcel {
             )
         values.forEach(parcel::writeInt)
         parcel.writeString(target.revision)
+        parcel.writeString(target.displaySession)
+        parcel.writeInt(if (target.independentFocus) 1 else 0)
     }
 
     fun readTarget(parcel: Parcel): AutomationDisplayTarget? {
@@ -38,8 +40,11 @@ internal object PrivilegedDeviceParcel {
         val name = requireNotNull(parcel.readString())
         require(name.length in 1..255)
         val values = List(9) { parcel.readInt() }
-        require(values[1] == 0 && values[2] in 1..32768 && values[3] in 1..32768 && values[4] in 0..3)
+        require(values[1] >= 0 && values[2] in 1..32768 && values[3] in 1..32768 && values[4] in 0..3)
         val revision = requireNotNull(parcel.readString()).also { require(it.length <= 64) }
+        val session = requireNotNull(parcel.readString()).also { require(it.length <= 64) }
+        val independentFocus = parcel.readInt() == 1
+        require(values[1] == 0 || session.isNotEmpty())
         val bounds = AutomationNodeBounds(values[5], values[6], values[7], values[8])
         return AutomationDisplayTarget(
             name,
@@ -50,6 +55,8 @@ internal object PrivilegedDeviceParcel {
             values[4],
             bounds,
             revision,
+            session,
+            independentFocus,
         )
     }
 
@@ -57,6 +64,11 @@ internal object PrivilegedDeviceParcel {
         parcel: Parcel,
         request: AutomationDeviceRequest,
     ) {
+        parcel.writeString(request.background?.key)
+        request.background?.let {
+            parcel.writeStrongBinder(it.owner)
+            parcel.writeInt(if (it.allowMoveFromMain) 1 else 0)
+        }
         parcel.writeInt(request.operation.ordinal)
         writeTarget(parcel, request.target)
         parcel.writeInt(if (request.wholeDisplay) 1 else 0)
@@ -99,7 +111,18 @@ internal object PrivilegedDeviceParcel {
             )
         }
 
+    private fun readBackground(parcel: Parcel): com.helix.extensions.mobileuse.automation.AutomationBackgroundRoute? =
+        parcel.readString()?.let { key ->
+            require(key.matches(Regex("[a-f0-9]{64}")))
+            com.helix.extensions.mobileuse.automation.AutomationBackgroundRoute(
+                key,
+                requireNotNull(parcel.readStrongBinder()),
+                parcel.readInt() == 1,
+            )
+        }
+
     fun readRequest(parcel: Parcel): AutomationDeviceRequest {
+        val background = readBackground(parcel)
         val operation =
             AutomationDeviceOperation.entries[
                 parcel.readInt().also {
@@ -149,6 +172,7 @@ internal object PrivilegedDeviceParcel {
             fingerprint,
             launchPackage,
             globalAction,
+            background,
         )
     }
 }

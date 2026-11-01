@@ -45,6 +45,7 @@ internal class AutomationPrivilegedDeviceHost(
     private data class BoundFrame(
         val frame: AutomationFrame,
         val sessionId: String?,
+        val turnId: String?,
         val scopeRef: String?,
         val backend: AutomationPrivilegedBackend,
     )
@@ -94,7 +95,7 @@ internal class AutomationPrivilegedDeviceHost(
                 grant.scope.grantId,
                 target,
             )
-        bound = BoundFrame(frame, call.sessionId, call.authorizationScopeRef, backend)
+        bound = BoundFrame(frame, call.sessionId, call.turnId, call.authorizationScopeRef, backend)
         return AutomationDeviceObservation(
             "READY",
             frame,
@@ -102,7 +103,7 @@ internal class AutomationPrivilegedDeviceHost(
                 if (AutomationDeviceOperation.GLOBAL_ACTION in backend.deviceOperations) {
                     AutomationGlobalAction.entries
                         .filter {
-                            it.platformId <= 8 && (
+                            backend.supportsGlobalAction(it) && it.platformId <= 8 && (
                                 wholeDisplay(grant.scope) ||
                                     it in setOf(AutomationGlobalAction.BACK, AutomationGlobalAction.HOME)
                             )
@@ -114,11 +115,12 @@ internal class AutomationPrivilegedDeviceHost(
             screenshotSupported =
                 grant.shareScreens &&
                     (
-                        (
-                            wholeDisplay(
-                                grant.scope,
-                            ) && AutomationDeviceOperation.SCREENSHOT in backend.deviceOperations
-                        ) ||
+                        backend.supportsScopedCapture ||
+                            (
+                                wholeDisplay(
+                                    grant.scope,
+                                ) && AutomationDeviceOperation.SCREENSHOT in backend.deviceOperations
+                            ) ||
                             center.windowCaptureAvailable()
                     ),
             gestureSupported = AutomationDeviceOperation.GESTURE in backend.deviceOperations,
@@ -142,13 +144,14 @@ internal class AutomationPrivilegedDeviceHost(
             val saved =
                 AutomationServiceController.withPhysicalOperation {
                     bound?.takeIf {
-                        it.frame.token == token && it.sessionId == call.sessionId &&
+                        it.frame.token == token && it.sessionId == call.sessionId && it.turnId == call.turnId &&
                             it.scopeRef == call.authorizationScopeRef
                     }
                 }
             val grant = center.liveDeviceGrant(call)
             if (grant?.shareScreens == false) return AutomationDeviceReply("SCREEN_SHARING_NOT_AUTHORIZED")
-            if (saved != null && grant != null && !wholeDisplay(grant.scope)) {
+            val scopedCapture = grant != null && !wholeDisplay(grant.scope)
+            if (saved != null && scopedCapture && !saved.backend.supportsScopedCapture) {
                 val capture = center.captureAuthorizedWindow(call, saved.frame.target)
                 return if (owns(token) && center.liveDeviceGrant(call) == grant) {
                     AutomationDeviceReply(capture.status, screenshot = capture)
@@ -169,7 +172,7 @@ internal class AutomationPrivilegedDeviceHost(
         AutomationServiceController.withPhysicalOperation {
             val saved =
                 bound?.takeIf {
-                    it.frame.token == token && it.sessionId == call.sessionId &&
+                    it.frame.token == token && it.sessionId == call.sessionId && it.turnId == call.turnId &&
                         it.scopeRef == call.authorizationScopeRef
                 } ?: return@withPhysicalOperation AutomationDeviceReply("FRAME_STALE")
             val grant =

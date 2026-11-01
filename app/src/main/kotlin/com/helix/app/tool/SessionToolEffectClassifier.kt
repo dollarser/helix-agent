@@ -68,7 +68,7 @@ class SessionToolEffectClassifier(
         }
         val name = descriptor.name.value
         return when (name) {
-            LINUX_RUN, LINUX_JOB_START -> {
+            LINUX_RUN, LINUX_JOB_START, "skills.run" -> {
                 linuxClassification(request.args)
             }
 

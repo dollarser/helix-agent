@@ -222,3 +222,17 @@ Owner 要求按实际能力选择消费方式：PATH 直通、SAF 文档工具�
 ### Decision history — 2026-11-01：绑定前展示能力
 
 目录选择器在确认前通过相同应用服务探针显示 PATH/SAF 能力及显式工作副本边界；取消不绑定、不复制。保存后详情复用同一展示，执行开始仍重新核验权限和原目录身份，UI 探针不授予执行权限。
+
+### Decision history — 2026-11-01：用户控制最大可用范围与直接路径优先
+
+Owner 明确能力与范围由用户控制，已获授权的最大可用范围优先，不增加项目子目录上限或替用户改权限规则。
+目录选择器优先展示已获系统授权的真实存储卷，可明确选择卷根；工作目录是执行基准，不能替代权限配置。
+用户选择后注册稳定工作区身份，未选择的浏览定位符不冒充已冻结资源；既有规则、审批与执行开始复核保留。
+Android 10 使用存储读写授权，Android 11+ 提供系统所有文件访问入口，进入页面不自动请求/授予权限。
+系统保护目录与共享存储缺失的 POSIX 能力如实失败，不用私有镜像掩盖。
+
+SAF 继续原位访问；只对平台本地文档 Provider，以打开的目录 FD、内核报告路径、设备号/inode 和当前实际存储权限
+核对同一原件，才显示显式改用真实路径选项。不解析 documentId、URI 字符串或 `_data` 猜路径；云/虚拟/无法核对者保留 SAF。
+切换是新选择，不重定向在途旧身份、不移动原件、不撤销旧 SAF 授权。只读核对不试写原件。
+参考 [Android 所有文件访问](https://developer.android.com/training/data-storage/manage-all-files)与
+[平台存储卷目录](https://developer.android.com/reference/android/os/storage/StorageVolume#getDirectory())。

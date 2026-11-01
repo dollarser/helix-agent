@@ -23,6 +23,7 @@ class MobileUsePlugin(
     val permissionCenter: AutomationPermissionCenter,
     private val taskHost: com.helix.extensions.plugin.PluginTaskHost? = null,
     private val overlayContext: (() -> Context?)? = null,
+    private val taskActive: (String, String) -> Boolean = { _, _ -> false },
     private val enabled: () -> Boolean = { true },
 ) : HelixPlugin,
     com.helix.extensions.plugin.PluginApprovalPresentation {
@@ -78,6 +79,7 @@ class MobileUsePlugin(
         >? = null
 
     init {
+        permissionCenter.backgroundTaskActive = taskActive
         require(manifest.name == PLUGIN_ID) { "unexpected Mobile Use plugin id: ${manifest.name}" }
         require(manifest.helixRuntimeId == RUNTIME_ID) { "unexpected Mobile Use runtime binding" }
     }
@@ -162,7 +164,11 @@ class MobileUsePlugin(
     ): UserScope? = dispatchScopeFor(descriptor, sessionId)
 
     override fun imageScope(sessionId: String): UserScope? =
-        permissionCenter.conversationGrant(sessionId)?.takeIf { it.shareScreens }?.scope
+        permissionCenter
+            .conversationGrant(sessionId)
+            ?.takeIf {
+                it.shareScreens
+            }?.scope
 
     override fun tools(): List<ToolBinding> =
         automation.descriptors().map { descriptor ->
@@ -183,6 +189,7 @@ class MobileUsePlugin(
                 executor,
                 { presentationResource?.borrow() },
                 retainsMobileUseOverlay(toolName),
+                backgroundDisplay = permissionCenter::backgroundSelected,
             ) { call ->
                 permissionCenter.admissionError(call)
             }

@@ -990,6 +990,8 @@ class ToolDispatcher(
             sessionId = request.sessionId,
             turnId = request.turnId,
             authorizationScopeRef = request.scope?.toScopeRef(),
+            agentMode = request.mode,
+            chatToolsEnabled = request.chatToolsEnabled,
         )
 
     /** Stage 7: output schema verification + canonical hash + byte-cap truncation. */
@@ -1167,7 +1169,13 @@ class ToolDispatcher(
         }
 
     private fun sourceOf(proof: ApprovalProof?): DecisionSource =
-        if (proof != null) DecisionSource.USER else DecisionSource.POLICY
+        if (proof !=
+            null
+        ) {
+            DecisionSource.USER
+        } else {
+            DecisionSource.POLICY
+        }
 
     private fun sha256Hex(text: String): String =
         Hex.encode(MessageDigest.getInstance("SHA-256").digest(text.toByteArray(Charsets.UTF_8)))

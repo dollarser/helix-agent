@@ -84,6 +84,9 @@ internal class AutomationPrivilegedNavigation(
         if (!launchAllowed || !globalAllowed) {
             return AutomationActionStatus.TARGET_NOT_ALLOWLISTED
         }
+        if (globalAction != null && !backend.supportsGlobalAction(globalAction)) {
+            return AutomationActionStatus.ACTION_NOT_SUPPORTED
+        }
         if (operation !in backend.deviceOperations || backend.state() != AutomationBackendState.READY) {
             return AutomationActionStatus.ACTION_NOT_SUPPORTED
         }

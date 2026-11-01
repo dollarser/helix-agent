@@ -4,6 +4,7 @@ import com.helix.app.R
 import com.helix.app.agent.ChatHistoryBuilder
 import com.helix.app.agent.ContextCompaction
 import com.helix.app.application.agent.TurnInterruptionNotice
+import com.helix.app.application.diagnostics.DiagnosticRedaction
 import com.helix.app.proot.ProotToolModule
 import com.helix.app.provider.ProviderService
 import com.helix.app.provider.SelectedModelUi
@@ -99,6 +100,8 @@ internal class ChatScreenProjection(
                         modelIntent = live.modelIntent ?: row.modelIntent,
                         durationMs = live.durationMs ?: row.durationMs,
                         stateLabel = live.stateLabel,
+                        state = live.state,
+                        startedAtElapsedMs = live.startedAtElapsedMs,
                         resultSummary = live.resultSummary ?: row.resultSummary,
                     )
                 }.plus(scoped.filter { live -> persisted.none { it.callId == live.callId } })
@@ -119,16 +122,20 @@ internal class ChatScreenProjection(
                 val interruptedProot =
                     com.helix.app.proot
                         .prootRecoveryEligible(turn.state, call.state) &&
-                        call.name in setOf("bash", "code.linux.run")
+                        call.name in setOf("bash", "code.linux.run", "skills.run")
                 ToolTimelineRow(
                     turnId = turn.id,
                     callId = call.callId,
                     toolName = call.name,
                     modelIntent = call.modelIntent,
-                    requestSummary = call.argsJson,
+                    requestSummary = DiagnosticRedaction.redact(call.argsJson),
                     stateLabel = str(persistedStateLabelRes(persistedCallState(turn, call.state))),
+                    state = ToolCallState.valueOf(persistedCallState(turn, call.state)),
                     resultSummary =
-                        persistedToolSummary(persistedCallState(turn, call.state), result?.summary) {
+                        persistedToolSummary(
+                            persistedCallState(turn, call.state),
+                            result?.summary?.let(DiagnosticRedaction::redact),
+                        ) {
                             str(R.string.tool_summary_cancelled_before_start)
                         },
                     card = null,

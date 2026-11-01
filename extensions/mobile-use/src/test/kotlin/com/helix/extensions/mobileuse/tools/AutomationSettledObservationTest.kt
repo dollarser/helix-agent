@@ -145,12 +145,19 @@ class AutomationSettledObservationTest {
         assertEquals(9, reads)
     }
 
-    @Test fun continuousMotionHasOneSecondBoundAndNeverPublishesTransientTokens() {
+    @Test fun continuousMotionHasOneSecondBoundAndPublishesLatestUnsettledState() {
         capture = { snapshot(top = reads) }
         val start = instant
         val output = attach()
         assertEquals("UNSETTLED", output.getValue("observationStatus").jsonPrimitive.content)
-        assertFalse(output.containsKey("observation"))
+        assertEquals(
+            "token-20",
+            output
+                .getValue("observation")
+                .jsonObject
+                .getValue("token")
+                .jsonPrimitive.content,
+        )
         assertEquals(Duration.ofSeconds(1), Duration.between(start, instant))
         assertEquals(20, reads)
     }
@@ -202,7 +209,14 @@ class AutomationSettledObservationTest {
         capture = { snapshot(truncated = true) }
         val output = attach()
         assertEquals("UNSETTLED", output.getValue("observationStatus").jsonPrimitive.content)
-        assertFalse(output.containsKey("observation"))
+        assertEquals(
+            "token-1",
+            output
+                .getValue("observation")
+                .jsonObject
+                .getValue("token")
+                .jsonPrimitive.content,
+        )
         assertEquals(1, reads)
     }
 

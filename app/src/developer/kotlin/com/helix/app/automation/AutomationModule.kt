@@ -30,7 +30,10 @@ internal object AutomationModule {
                     false
                 }
             },
-            { lines.setLines(MobileUseGrantStore.CONFIG_KEY, emptyList()) },
+            {
+                lines.setLines(MobileUseGrantStore.CONFIG_KEY, emptyList())
+                lines.setLines(MobileUseGrantStore.EXECUTION_KEY, emptyList())
+            },
         )
     }
 
@@ -48,6 +51,8 @@ internal object AutomationModule {
         writeConfiguration: (String, List<String>) -> Unit,
         selectionId: (String) -> String?,
         conversationExists: (String) -> Boolean,
+        taskActive: (String, String) -> Boolean = { _, _ -> false },
+        displayPresentation: (com.helix.app.chat.DisplayExecutionUi) -> Unit = {},
         taskHost: com.helix.extensions.plugin.PluginTaskHost? = null,
     ) {
         com.helix.tools.deviceaccess.DeviceAccess
@@ -74,6 +79,7 @@ internal object AutomationModule {
                         ),
                     ),
                     taskHost,
+                    taskActive = taskActive,
                     overlayContext = {
                         if (android.provider.Settings.canDrawOverlays(context)) {
                             context.applicationContext
@@ -85,6 +91,18 @@ internal object AutomationModule {
                     plugins.hasPublishedTools(MobileUsePlugin.PLUGIN_ID)
                 }.also { runtime = it }
         if (plugins.find(MobileUsePlugin.PLUGIN_ID) == null) plugins.register(plugin)
+        plugin.permissionCenter.displayPresentation = { event ->
+            displayPresentation(
+                com.helix.app.chat.DisplayExecutionUi(
+                    event.sessionId,
+                    event.turnId,
+                    com.helix.app.chat.DisplayExecutionState
+                        .valueOf(event.lifecycle.name),
+                    event.lastObservedPackage,
+                    event.generation,
+                ),
+            )
+        }
         plugin.permissionCenter.configureConversations(grants, conversationExists, plugin::isAvailable)
         if (plugins.find(com.helix.extensions.chatreply.ChatReplyPlugin.PLUGIN_ID) == null) {
             plugins.register(

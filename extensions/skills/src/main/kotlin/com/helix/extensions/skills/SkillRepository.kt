@@ -127,6 +127,11 @@ class SkillRepository(
             require(isEnabled(key, sessionId)) { "Skill is disabled: ${key.name}" }
             requireModelEligibility(record.document, key, activations)
             skillResourceParts(relativePath)
+            if (relativePath.startsWith("scripts/") && record.directory != null) {
+                require(inspector.inspect(record.directory, key.source).snapshotHash == key.snapshotHash) {
+                    "SKILL_SNAPSHOT_CHANGED"
+                }
+            }
             val bytes =
                 if (record.directory == null) {
                     val text = requireNotNull(record.document.resources[relativePath]) { "Unknown skill resource" }
@@ -159,6 +164,37 @@ class SkillRepository(
         }
     }
 
+    /** Host locator with current enablement/activation and whole-tree content identity rechecked. */
+    fun scriptSnapshot(
+        key: SkillKey,
+        sessionId: String?,
+        turnId: String?,
+    ): SkillSnapshotRef {
+        read(key, sessionId, turnId)
+        return synchronized(lock) {
+            require(isEnabled(key, sessionId)) { "Skill is disabled" }
+            val directory = requireNotNull(records.getValue(key).directory) { "SKILL_HAS_NO_FILESYSTEM_SCRIPTS" }
+            val preview = inspector.inspect(directory, key.source)
+            require(preview.snapshotHash == key.snapshotHash) { "SKILL_SNAPSHOT_CHANGED" }
+            SkillSnapshotRef(key.name, key.snapshotHash, directory, key.source)
+        }
+    }
+
+    fun scripts(
+        key: SkillKey,
+        sessionId: String?,
+        turnId: String?,
+    ): List<SkillFileInfo> {
+        read(key, sessionId, turnId)
+        return synchronized(lock) {
+            require(isEnabled(key, sessionId)) { "Skill is disabled" }
+            val directory = records.getValue(key).directory ?: return@synchronized emptyList()
+            val preview = inspector.inspect(directory, key.source)
+            require(preview.snapshotHash == key.snapshotHash) { "SKILL_SNAPSHOT_CHANGED" }
+            preview.scripts
+        }
+    }
+
     /** Validate a real UI choice before acceptance; a selected plugin alone is not invocation. */
     fun prepareUserActivation(
         key: SkillKey,
@@ -188,7 +224,13 @@ class SkillRepository(
         sessionId: String?,
         turnId: String?,
     ): List<UserSkillActivation> =
-        if (sessionId == null || turnId == null) emptyList() else userActivations(sessionId, turnId)
+        if (sessionId == null ||
+            turnId == null
+        ) {
+            emptyList()
+        } else {
+            userActivations(sessionId, turnId)
+        }
 
     private fun requireModelEligibility(
         document: SkillDocument,
@@ -492,7 +534,9 @@ class SkillRepository(
         }
 
     private fun sha256(bytes: ByteArray): String =
-        MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
+        MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") {
+            "%02x".format(it)
+        }
 
     private fun String.toEnabledOrNull(): Boolean? =
         when (this) {

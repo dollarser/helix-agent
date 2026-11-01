@@ -384,6 +384,9 @@ GC 引用查询具有索引；目录按需遍历，仅每个候选的引用复�
 - **2026-09-26**：项目尚未正式上线，R1-F 采用 clean-slate cutover：当前 `turn_runtime_records` 删除 same-Turn review receipt/old ModelCall identity；Turn 级 review 命令幂等独立到 immutable `turn_review_receipts`，逐 ToolCall effect truth 仍在 `tool_call_reviews`，不保留 `RESUMED/ABANDONED` production compatibility。
 - **2026-09-26**：E1-B4/B5/E2/E3 收敛完成：Engine-owned driver/observation 接管 AgentLoop 与 live Turn ownership；删除 `AgentTurnHost`、Chat-owned `TurnLiveFrames`、legacy serial Turn reducer；Turn-level `WAITING_APPROVAL` 删除，审批等待仅是 ToolCall durable fact。
 
+- 2026-11-01：Owner 授权参考 Mika 自动化优化。set_text/scroll 的可选观察在持续变化或源快照截断时保留最后一次成功、未暂停的有界快照，标记 UNSETTLED，允许模型读取其新 token；不再丢弃已取得的观察。调用取消、原 deadline 到期、拒绝或缺少快照仍不发布节点。短窗、派发事实 UNVERIFIED、授权路径、token 执行时核验及模型决策职责不变，不自动重试或推断业务成功。来源与差距见 [Mobile Use 调研](../../research/topics/mobile-use-device-readiness-and-reliability-2026-09-29.md#mika-automation-review-2026-11-01)。内部版本不变。
+
+
 ## Alternatives considered
 
 - 用 generic FAILED/INTERNAL 表示 UNKNOWN：会允许错误 retry，并丢失 effect uncertainty，拒绝。
@@ -460,3 +463,9 @@ HXA-306 修复草稿缓存提前持久化占位标题造成的命名缺口。采
 所有者授权不兼容旧内部接口和按职责重组目录。TurnEngine/driver/live owner、停止命令与 deadline/观察契约进入 `core:agent/runtime`；`turn` 定义闭合 lifecycle/round 命令。App infrastructure 以同一 Room 事务实现准入、停止、review、恢复和终态准备，插件或 UI 事实不能授予 scope。普通/Queue/inspection 使用同一 typed admission；删除 freshGuard/resolveGoal transaction callbacks 和旧 App engine/停止转发，不留双轨。
 
 模型执行异常与持久结算异常分离，提交失败不能再次把同 checkpoint 改写为 FAILED 或重跑模型。已提交终态的收尾失败保留原终态，队列单独以 TURN_RELEASE_FAILED 停泊；UNKNOWN 不被补成成功或自动重放。Goal edit/Steer/inspection 的持久收尾留在 Room，typed receipt 仅通知本地交接与显示；取消仍先写事实再 signal，真实 executor 退出/物理容量规则不变。实施与验证边界见[生命周期证据](../../evidence/development/harness-stage1-lifecycle-2026-10-24.md)。
+
+## Decision history — 2026-11-01：原任务脚本的工具 continuation
+
+Owner 授权脚本调用统一工具后，API36 合成验收发现后台软额度为 1 时，脚本等待子工具而子工具等待父调用槽，导致超时。沿用同一 ToolScheduler：只有宿主已核验原 session/Turn/toolCall 和执行期桥的单项 continuation，才能在原父调用仍被调度器保留时使用同一硬容量内的子调用准入。后台/低内存/温控软额度控制新的根调用；父、子分别计入现有硬上限与 ExecutionOwnership，原父进程仍驻留，不能声称它已退出或释放槽位。不可重入引擎冲突仍阻塞，未找到原在途父调用时按普通额度处理，后台 Job 已结束提交调用不保留虚构父槽。模型参数不能指定 continuation 身份，不新增 Agent 循环或直接 Dispatcher 旁路。
+
+排队取消用有界唤醒检查，以正常 Dispatcher/audit 结算已取消且未执行的调用，不等待所有占用槽退出；该取消事实在准入时固定，避免可变 signal 回退后无槽执行。没有 executor 开始的取消不消耗新的执行槽；已经执行的原槽和原引擎仍只在真实退出后释放。饱和嵌套不可无限悬挂，deadline/取消后不得迟到执行或自动重放；相关测试同时核验无关根调用未因子调用结算而提前获得父槽。

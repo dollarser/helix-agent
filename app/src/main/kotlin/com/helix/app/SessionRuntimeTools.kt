@@ -15,28 +15,32 @@ internal fun registerSessionRuntimeTools(
     javascript: JsExecutionClient,
     questions: UserQuestionService,
     ownership: ExecutionOwnership,
+    bridgeProvider: com.helix.tools.framework.HostToolBridgeProvider,
     afterNative: () -> Unit = {},
 ) {
     val nativeOwner = NativeJavascriptOwnership(ownership)
     registry.register(
         CodeJavascriptRunTool.descriptor(),
         ownership.nativeExecutor(
-            object : ToolExecutor {
-                override fun execute(call: ExecutableToolCall) =
-                    CodeJavascriptRunTool
-                        .executor { params, cancel ->
-                            val invokeRuntime = { javascript.execute(params, cancel) }
-                            if (params.nativeAccess) {
-                                try {
-                                    nativeOwner.execute(call.toolCallId, params.executionId, invokeRuntime)
-                                } finally {
-                                    afterNative()
+            com.helix.app.runtimebridge.ScriptToolBridgeExecutor(
+                object : ToolExecutor {
+                    override fun execute(call: ExecutableToolCall) =
+                        CodeJavascriptRunTool
+                            .executor { params, cancel ->
+                                val invokeRuntime = { javascript.execute(params, cancel) }
+                                if (params.nativeAccess) {
+                                    try {
+                                        nativeOwner.execute(call.toolCallId, params.executionId, invokeRuntime)
+                                    } finally {
+                                        afterNative()
+                                    }
+                                } else {
+                                    javascript.execute(params, cancel)
                                 }
-                            } else {
-                                javascript.execute(params, cancel)
-                            }
-                        }.execute(call)
-            },
+                            }.execute(call)
+                },
+                bridgeProvider,
+            ),
         ),
     )
     UserQuestionTool.register(registry, questions, ownership::metadataExecutor)

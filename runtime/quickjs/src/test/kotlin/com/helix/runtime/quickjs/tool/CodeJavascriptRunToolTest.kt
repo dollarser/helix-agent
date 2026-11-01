@@ -115,7 +115,7 @@ class CodeJavascriptRunToolTest {
         val props = CodeJavascriptRunTool.descriptor().inputSchema["properties"]?.jsonObject
         assertNotNull("input schema must declare properties", props)
         // ONLY the model-visible business inputs — NO limit/timeout/memory/source/output param.
-        assertEquals(setOf("access", "code", "input"), props!!.keys)
+        assertEquals(setOf("access", "code", "input", "toolBridge"), props!!.keys)
         val codeSchema = props["code"]?.jsonObject
         assertEquals("string", codeSchema?.get("type")?.jsonPrimitive?.content)
         // The code is bounded; `input` is the optional JSON value (a type union, no size param).

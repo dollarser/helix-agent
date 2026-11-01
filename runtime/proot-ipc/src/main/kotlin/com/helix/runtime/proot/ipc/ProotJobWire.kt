@@ -47,6 +47,10 @@ data class ProotJobSpec(
     val workspaceWitness: String? = null,
     /** Explicit output files relative to the mounted workspace, never destinations to copy into. */
     val artifactPaths: List<String> = emptyList(),
+    /** Ephemeral host capability; never journaled or exposed in argument rendering. */
+    val toolBridge: ProotToolBridgeEndpoint? = null,
+    val scriptDirectory: String? = null,
+    val scriptSnapshotHash: String? = null,
 ) {
     companion object {
         const val MAX_OUTPUT_BYTES = 64L * 1024L * 1024L
@@ -56,6 +60,9 @@ data class ProotJobSpec(
         ProotJobRecordCodec.checkExecutionId(executionId)
         ProotJobRecordCodec.checkJobId(jobId)
         require((workspacePath == null) == (workspaceWitness == null)) { "workspace identity incomplete" }
+        require((scriptDirectory == null) == (scriptSnapshotHash == null))
+        scriptDirectory?.let { require(it.startsWith('/') && it.length <= 4096 && it.none(Char::isISOControl)) }
+        scriptSnapshotHash?.let { require(it.matches(Regex("[a-f0-9]{64}"))) }
         workspacePath?.let { path ->
             require(path.startsWith('/') && path.length <= 4096 && ':' !in path && path.none(Char::isISOControl))
             require(!workspaceWitness.isNullOrBlank() && workspaceWitness.length <= 1024)
@@ -98,7 +105,7 @@ data class ProotJobSpec(
         require(
             command.let {
                 if (it is ProotJobCommand.Argv) {
-                    it.arguments.all { a -> a.length in 1..8192 }
+                    it.arguments.first().isNotBlank() && it.arguments.all { a -> a.length <= 8192 && '\u0000' !in a }
                 } else {
                     true
                 }
@@ -162,6 +169,10 @@ object ProotJobWire {
         parcel.writeString(spec.workspacePath)
         parcel.writeString(spec.workspaceWitness)
         parcel.writeStringList(spec.artifactPaths)
+        parcel.writeString(spec.toolBridge?.socketName)
+        parcel.writeString(spec.toolBridge?.proof)
+        parcel.writeString(spec.scriptDirectory)
+        parcel.writeString(spec.scriptSnapshotHash)
         parcel.writeInt(spec.environment.size)
         spec.environment.toSortedMap().forEach { (name, value) ->
             parcel.writeString(name)
@@ -209,15 +220,9 @@ object ProotJobWire {
         val workspacePath = parcel.readString()
         val workspaceWitness = parcel.readString()
         val artifactPaths = parcel.createStringArrayList() ?: throw ProotIpcException("artifact paths missing")
-        val envCount = parcel.readInt()
-        if (envCount !in 0..64) throw ProotIpcException("job spec env count out of bounds")
-        val environment = LinkedHashMap<String, String>()
-        repeat(envCount) {
-            val name = string()
-            val value = string()
-            if (name in environment) throw ProotIpcException("job spec env name duplicated")
-            environment[name] = value
-        }
+        val toolBridge = readToolBridge(parcel)
+        val (scriptDirectory, scriptSnapshotHash) = parcel.readString() to parcel.readString()
+        val environment = readEnvironment(parcel)
         val command =
             when (val mode = parcel.readInt()) {
                 MODE_ARGV -> {
@@ -251,9 +256,33 @@ object ProotJobWire {
                 workspacePath,
                 workspaceWitness,
                 artifactPaths,
+                toolBridge,
+                scriptDirectory,
+                scriptSnapshotHash,
             )
         // The constructor re-validates every bound; a violation is INVALID_SPEC.
         return spec
+    }
+
+    private fun readToolBridge(parcel: Parcel): ProotToolBridgeEndpoint? {
+        val socketName = parcel.readString()
+        val proof = parcel.readString()
+        if ((socketName == null) != (proof == null)) throw ProotIpcException("incomplete tool bridge")
+        return socketName?.let { ProotToolBridgeEndpoint(it, requireNotNull(proof)) }
+    }
+
+    @Suppress("ThrowsCount") // Each malformed wire field is refused before executor admission.
+    private fun readEnvironment(parcel: Parcel): Map<String, String> {
+        val count = parcel.readInt()
+        if (count !in 0..64) throw ProotIpcException("job spec env count out of bounds")
+        val environment = LinkedHashMap<String, String>()
+        repeat(count) {
+            val name = parcel.readString() ?: throw ProotIpcException("job spec env name missing")
+            val value = parcel.readString() ?: throw ProotIpcException("job spec env value missing")
+            if (name in environment) throw ProotIpcException("job spec env name duplicated")
+            environment[name] = value
+        }
+        return environment
     }
 
     /** Reads the two PFDs (input read, output write); the caller owns them from here. */

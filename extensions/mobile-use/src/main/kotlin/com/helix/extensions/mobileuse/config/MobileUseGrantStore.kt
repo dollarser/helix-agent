@@ -11,6 +11,8 @@ data class MobileUseGrant(
     val conversationId: String,
     val scope: AutomationSessionScope,
     val shareScreens: Boolean,
+    val backgroundDisplay: Boolean = false,
+    val allowMoveFromMain: Boolean = false,
 )
 
 class MobileUseConfigurationUnreadable : IllegalStateException("Mobile Use configuration requires reset")
@@ -30,8 +32,12 @@ class MobileUseGrantStore(
             val identity =
                 MessageDigest
                     .getInstance("SHA-256")
-                    .digest("$conversationId:$selection:${global.scope.grantId}".toByteArray())
-                    .joinToString("") { "%02x".format(it) }
+                    .digest(
+                        (
+                            "$conversationId:$selection:${global.scope.grantId}:" +
+                                "${global.backgroundDisplay}:${global.allowMoveFromMain}"
+                        ).toByteArray(),
+                    ).joinToString("") { "%02x".format(it) }
             global.copy(conversationId = conversationId, scope = global.scope.copy(grantId = identity))
         }
     }
@@ -48,10 +54,13 @@ class MobileUseGrantStore(
             if (scope.grantId.isBlank() || scope.expiresAt != Instant.MAX || scope.maxActions != 0) {
                 throw MobileUseConfigurationUnreadable()
             }
+            val execution = executionSettings()
             MobileUseGrant(
                 "plugin:mobile-use:global",
                 scope,
                 fields[2].toBooleanStrictOrNull() ?: throw MobileUseConfigurationUnreadable(),
+                execution.first,
+                execution.second,
             )
         }
     }
@@ -75,12 +84,34 @@ class MobileUseGrantStore(
         return checkNotNull(globalConfiguration())
     }
 
+    @Synchronized
+    fun executionSettings(): Pair<Boolean, Boolean> {
+        val fields = read(EXECUTION_KEY)
+        if (fields.isEmpty()) return false to false
+        if (fields.size != 2 || fields.any { it.toBooleanStrictOrNull() == null }) {
+            throw MobileUseConfigurationUnreadable()
+        }
+        return fields[0].toBooleanStrict() to fields[1].toBooleanStrict()
+    }
+
+    @Synchronized
+    fun configureExecution(
+        background: Boolean,
+        allowMoveFromMain: Boolean,
+    ) {
+        failedWrite = true
+        write(EXECUTION_KEY, listOf(background.toString(), allowMoveFromMain.toString()))
+        failedWrite = false
+        check(executionSettings() == (background to allowMoveFromMain))
+    }
+
     fun matches(
         conversationId: String?,
         scopeRef: String?,
     ): Boolean = conversationId != null && scopeRef != null && find(conversationId)?.scope?.toScopeRef() == scopeRef
 
     companion object {
+        const val EXECUTION_KEY = "mobile-use-execution-display"
         const val CONFIG_KEY = "mobile-use-global-configuration"
         private const val VERSION = "mobile-use-config-v1"
     }

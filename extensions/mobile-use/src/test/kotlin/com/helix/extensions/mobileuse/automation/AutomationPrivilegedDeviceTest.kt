@@ -27,6 +27,22 @@ class AutomationPrivilegedDeviceTest {
         )
     private val stroke = AutomationStroke(listOf(AutomationPoint(10f, 10f), AutomationPoint(80f, 80f)), 0, 200)
 
+    @Test fun aNewTurnCannotReuseTheOriginalTurnDisplayFrame() {
+        val authority = Authority()
+        val backend = Backend(target)
+        val host = AutomationPrivilegedDeviceHost(authority)
+        val frame = requireNotNull(host.observe(authority.call, backend).frame)
+        val result =
+            host.execute(
+                authority.call.copy(turnId = "next-turn"),
+                frame.token,
+                AutomationDeviceOperation.GESTURE,
+                listOf(stroke),
+            )
+        assertEquals("FRAME_STALE", result.status)
+        assertEquals(listOf(AutomationDeviceOperation.OBSERVE), backend.calls)
+    }
+
     @Test fun freshPixelsDoNotRefreshAnOlderCoordinateCredential() {
         val authority = Authority()
         val backend = Backend(target)

@@ -197,3 +197,20 @@ Owner 明确选择真实路径直通、SAF 原生文件访问优先，复制/同
 URI-only 的只读命令 RPC 仅在隔离实验中验证；不注册生产工具或开放永久 Broker，不假装为目录挂载。
 DocumentsContract 不保证独占创建、原子替换 rename、锁等 Git 所需语义，透明桥接仍需独立的 native/文件系统方案，
 不采用 root/FUSE/SELinux 变更或默认全目录镜像。细节见[原位契约](../../development/proot-in-place-execution.md)。
+
+### Decision history — 2026-11-01：源码原位与可选私有构建输出
+
+真实路径按用户已有系统权限和明确选择解析，包含平台报告且实际可访问的存储卷；不凭 URI 或路径名字扩大 OS 权限。
+共享存储不承诺执行位/符号链接/锁等完整 POSIX。沿现有 PRoot 工具链和私有临时目录提供
+`HELIX_BUILD_DIR=/tmp/helix-build`、`XDG_CACHE_HOME=/tmp/helix-cache`、`TMPDIR=/tmp` 默认值，
+调用者可显式选择 out-of-tree 构建输出；不改项目配置、不自动迁移依赖、不默认同步或复制源码。
+任务输出目录属于本次私有临时目录，终端属于当前私有终端目录；不保证永久保留，产物需走显式保留/发布流程。
+例如支持该模式的 CMake 可用 `cmake -S /workspace -B "$HELIX_BUILD_DIR"`；不据此宣称所有构建系统兼容。
+
+运行中的有界日志缓冲放在私有非备份目录，避免系统清理 cache 时丢失正在消费的预览；仍遵循原有四任务/总计16 MiB限制，Runtime 重启使预览代际失效，持久输出仍以结果存储为准。测试必需的归档/恢复状态同样不放可随时回收的 cache。
+
+## Decision history — 2026-11-01：Python/Node 任务工具桥与脚本资源
+
+Owner 明确授权在现有运行器上补脚本统一工具调用，不替换 PRoot、Jobs 或真实工作区。显式 `toolBridge=true` 且用户开启脚本委托时，按次随机 abstract Unix socket/proof 只通过瞬时 IPC/环境传入；不进 Job 记录、fingerprint、日志或模型参数。接受同 UID 且属于原 Job PID/startTicks/进程树的 socket peer，原进程身份不可读时仅有界等待，不重新启动。Python `import helix; helix.call(name,args)` 与 Node `import {call} from '/tmp/helix.mjs'` 进入同一网关；SDK 不重试，传输中断按结果未知处理。Node abstract socket 的官方适配依据见 [net IPC](https://nodejs.org/api/net.html#ipc-support)。stdout/stderr 在实时与归档之前跨块过滤完整 proof 和截断前缀，原始输出预算与持续 drain/进程组停止不变。
+
+前台桥随原调用结束关闭；后台 Job 只能在原 Turn 活跃、原持久 Job 未终结及批准 deadline 内保留，不能借短提交调用结束扩大权限或跨任务恢复。主进程/Runtime 重启不恢复临时能力，也不重放未确认请求。PRoot 与应用共享 UID，不声称强凭据隔离。Skill 仅将经固定 tree hash 校验的脚本资源暂存到 Job `/tmp/skill`，仍在用户选定的真实工作区执行，源资源无写回。stdin/日志/产物沿原运行器交付，不新增第二套任务循环。

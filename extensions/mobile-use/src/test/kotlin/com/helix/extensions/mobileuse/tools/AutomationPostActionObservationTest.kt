@@ -235,6 +235,21 @@ class AutomationPostActionObservationTest {
         assertFalse(observation.toString().contains("original"))
     }
 
+    @Test fun sourceTruncationRetainsBoundedFreshStateWithoutClaimingStability() {
+        val snapshot = requireNotNull(port.result.snapshot)
+        port.result = port.result.copy(snapshot = snapshot.copy(truncated = true))
+        val output = completed()
+        assertEquals("UNSETTLED", output.getValue("observationStatus").jsonPrimitive.content)
+        assertEquals("UNVERIFIED", output.getValue("effectStatus").jsonPrimitive.content)
+        val observation = output.getValue("observation").jsonObject
+        assertEquals("true", observation.getValue("truncated").jsonPrimitive.content)
+        assertEquals(1, observation.getValue("nodes").jsonArray.size)
+        assertEquals(1, port.actions)
+        assertEquals(1, port.observations)
+        val schema = tools.descriptors().single { it.name.value == AutomationTools.SCROLL }.outputSchema
+        assertEquals(ToolSchemaValidation.Valid, ToolSchemaValidator.validate(schema, output))
+    }
+
     @Test fun findAndWaitCanReturnOnlyFreshScrollableContainers() {
         val node = requireNotNull(port.result.snapshot).nodes.single()
         port.result =

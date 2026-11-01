@@ -39,6 +39,17 @@ internal fun AutomationActionResult.toToolOutcome(): ToolExecutorResult =
             if (status == AutomationActionStatus.SENSITIVE_UI) {
                 "${status.name}: Helix refused this sensitive target before dispatch. No action was executed. " +
                     "Screenshots do not grant permission or remove system restrictions."
+            } else if (status == AutomationActionStatus.MAIN_DISPLAY_IN_USE) {
+                "MAIN_DISPLAY_IN_USE: No launch dispatched. This app is visible on the main screen. " +
+                    "The user can allow moving it in Mobile Use display settings, or keep using it there. " +
+                    "Both displays share the same app data; never switch displays silently."
+            } else if (status == AutomationActionStatus.BACKGROUND_DISPLAY_STALE) {
+                "BACKGROUND_DISPLAY_STALE: No input dispatched. The owned display was replaced or released. " +
+                    "Observe the selected display again; never reuse its old tokens or replay an earlier effect."
+            } else if (status == AutomationActionStatus.BACKGROUND_DISPLAY_UNAVAILABLE) {
+                "BACKGROUND_DISPLAY_UNAVAILABLE: No input dispatched. Background mode needs Android 12+, " +
+                    "an authorized Shizuku shell and the original active task. Check that connection and task; " +
+                    "do not silently use the main screen."
             } else if (status == AutomationActionStatus.TOKEN_UNKNOWN) {
                 "${status.name}: This token is not in the active observation; no action was dispatched. " +
                     "Earlier actions and new observations invalidate old tokens. Read the attached post-action " +

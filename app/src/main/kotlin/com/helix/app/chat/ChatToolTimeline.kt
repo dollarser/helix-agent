@@ -1,8 +1,10 @@
 package com.helix.app.chat
 
 import com.helix.app.R
+import com.helix.app.application.diagnostics.DiagnosticRedaction
 import com.helix.app.approval.ApprovalCardState
 import com.helix.app.todo.LedgerItemUi
+import com.helix.core.model.ToolCallState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 
@@ -52,6 +54,7 @@ internal class ChatToolTimeline(
         durationMs: Long? = null,
         modelIntent: String? = null,
         position: ToolTimelinePosition? = null,
+        state: ToolCallState? = null,
     ) {
         // Atomic update: this row mutation races other timeline writers (the card sink
         // runs on a scheduler pool thread; settle/cancel run on the IO scope). A
@@ -73,12 +76,19 @@ internal class ChatToolTimeline(
                                 callId = callId,
                                 toolName = toolName,
                                 modelIntent = effectiveIntent,
-                                requestSummary = requestSummary,
+                                requestSummary = DiagnosticRedaction.redact(requestSummary),
                                 stateLabel = stateLabel,
-                                resultSummary = resultSummary,
+                                resultSummary = resultSummary?.let(DiagnosticRedaction::redact),
                                 card = preserved,
                                 durationMs = effectiveDuration,
                                 position = position ?: existing?.position,
+                                state = state ?: existing?.state ?: ToolCallState.PENDING,
+                                startedAtElapsedMs =
+                                    existing?.startedAtElapsedMs ?: if (state == ToolCallState.RUNNING) {
+                                        System.nanoTime() / 1_000_000
+                                    } else {
+                                        null
+                                    },
                             ),
                         ),
             )
@@ -94,7 +104,11 @@ internal class ChatToolTimeline(
                 toolTimeline =
                     screen.toolTimeline.map { row ->
                         if (row.callId == callId) {
-                            row.copy(card = card, stateLabel = str(R.string.tool_state_awaiting_approval))
+                            row.copy(
+                                card = card,
+                                stateLabel = str(R.string.tool_state_awaiting_approval),
+                                state = ToolCallState.AWAITING_APPROVAL,
+                            )
                         } else {
                             row
                         }

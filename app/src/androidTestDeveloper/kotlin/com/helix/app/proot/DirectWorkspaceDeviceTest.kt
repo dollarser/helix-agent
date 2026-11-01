@@ -36,7 +36,26 @@ class DirectWorkspaceDeviceTest {
                     put("durableDirectoryIdentity", kotlinx.serialization.json.JsonPrimitive(durableIdentity))
                     put("newSystemPermission", kotlinx.serialization.json.JsonPrimitive(false))
                 }
-            File(fixture.context.cacheDir, "workspace-direct-probe.json").writeText(facts.toString())
+            File(fixture.context.noBackupFilesDir, "workspace-direct-probe.json").writeText(facts.toString())
+        } finally {
+            fixture.close(discardUnstoredResult = true)
+        }
+    }
+
+    @Test fun optionalPrivateBuildDirectoryKeepsOriginalSourceInPlace() {
+        val fixture = InPlaceLogCloseoutDeviceTest.Fixture(externalWorkspace = true)
+        require(fixture.context.packageName.endsWith(".asrvalidation"))
+        try {
+            File(fixture.workspace, "source.py").writeText("print('synthetic private output')\n")
+            val result =
+                fixture.run(
+                    "set -eu; test \"${'$'}HELIX_BUILD_DIR\" = /tmp/helix-build; " +
+                        "PYTHONPYCACHEPREFIX=\"${'$'}HELIX_BUILD_DIR\" python3 -m py_compile /workspace/source.py; " +
+                        "test -n \"${'$'}(find \"${'$'}HELIX_BUILD_DIR\" -name '*.pyc' -print -quit)\"",
+                )
+            assertEquals(ProotJobState.SUCCEEDED, result.state)
+            assertEquals(listOf("source.py"), fixture.workspace.list()!!.toList())
+            assertTrue(File(fixture.workspace, "source.py").readText().contains("synthetic private output"))
         } finally {
             fixture.close(discardUnstoredResult = true)
         }

@@ -64,6 +64,14 @@ internal sealed interface ConversationContent {
         override val key: String get() = value.id
     }
 
+    data class ToolGroup(
+        val values: List<ToolTimelineRow>,
+    ) : ConversationContent {
+        override val sequence: Long get() = requireNotNull(values.first().position).sequence
+        override val index: Int get() = requireNotNull(values.first().position).index
+        override val key: String get() = "tool-group-${values.first().turnId}-${values.first().callId}"
+    }
+
     data class Tool(
         val value: ToolTimelineRow,
     ) : ConversationContent {

@@ -68,7 +68,8 @@ internal class ChatRecoveryActions(
         storage.toolCalls
             .listByTurn(turnId)
             .filter {
-                it.name in setOf("bash", "code.linux.run") && it.state in setOf("INTERRUPTED", "NEEDS_REVIEW")
+                it.name in setOf("bash", "code.linux.run", "skills.run") &&
+                    it.state in setOf("INTERRUPTED", "NEEDS_REVIEW")
             }.forEach {
                 try {
                     val status =

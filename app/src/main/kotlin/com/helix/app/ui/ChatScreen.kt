@@ -79,6 +79,7 @@ fun ChatScreen(
     onMobileUseSession: (String) -> Unit = {},
 ) {
     val screen by chatService.screen.collectAsStateWithLifecycle()
+    val displayExecutions by chatService.displayExecutions.collectAsStateWithLifecycle()
     val runControl by chatService.runControl.collectAsStateWithLifecycle()
     val providerRows by providerService.rows.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
@@ -636,6 +637,18 @@ fun ChatScreen(
                 artifacts = {
                     ConversationArtifacts(chatService, fileManager, screen)
                 },
+                displayExecution = { turnId ->
+                    DisplayExecutionStatus(
+                        displayExecutions.firstOrNull {
+                            it.sessionId == screen.openSessionId && it.turnId == turnId
+                        },
+                    )
+                },
+                turnArtifacts = { turnId ->
+                    TurnArtifactEntry(chatService, turnId) { original ->
+                        if (chatService.screen.value.openSessionId == sessionId) interruptionResult = original
+                    }
+                },
                 taskPreparation = {
                     if (connectors != null && sessionId != null) {
                         PhoneTaskPreparation(connectors) {
@@ -653,6 +666,7 @@ fun ChatScreen(
                 },
                 intents =
                     ConversationIntents(
+                        onInspectToolResult = chatService::inspectToolResult,
                         onLoadOlderMessages = chatService::loadOlderMessages,
                         onShowLatestMessages = chatService::showLatestMessages,
                         onFindHistoryMessage = chatService::findHistoryMessage,

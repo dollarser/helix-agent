@@ -99,6 +99,7 @@ private fun WorkspaceAccessDetails(
         Text(stringResource(status))
     }
     WorkspaceAccessText(access)
+    if (access?.directPath == true) Text(stringResource(R.string.workspace_private_build_help))
 }
 
 @Composable

@@ -36,6 +36,18 @@ import java.io.File
  */
 @Suppress("TooManyFunctions") // Tool wiring, execution observation and environment management.
 internal object ProotToolModule {
+    fun scriptJobActive(
+        context: Context,
+        job: String,
+    ): Boolean = ScriptJobPeer.active(context, job)
+
+    fun scriptJobPeer(
+        context: Context,
+        job: String,
+        pid: Int,
+        uid: Int,
+    ): Boolean = ScriptJobPeer.accepts(context, job, pid, uid)
+
     const val AVAILABLE: Boolean = true
 
     // The supervisor normalizes its Context to applicationContext in its constructor;
@@ -84,6 +96,8 @@ internal object ProotToolModule {
         allowedWorkspaceRoots: () -> List<File> = {
             listOf("app", "managed").map { File(context.filesDir.canonicalFile, "workspaces/$it") }
         },
+        bridgeDecorator: (com.helix.tools.framework.ToolExecutor) -> com.helix.tools.framework.ToolExecutor = { it },
+        skills: com.helix.extensions.skills.SkillRepository? = null,
     ) {
         wireForTest(context)
         idGenerator = RandomIdGenerator()
@@ -135,7 +149,7 @@ internal object ProotToolModule {
                     persistForegroundResult(storage, call, record, archive)
                 },
             )
-        registerForeground(registry, executor, liveWorkspace, storage)
+        registerForeground(registry, executor, liveWorkspace, storage, bridgeDecorator, skills)
         ProotLogTool.register(context, storage, registry, secretValues)
         userJobActions =
             DetachedJobRegistration.register(
@@ -148,6 +162,7 @@ internal object ProotToolModule {
                 { availabilityGate() },
                 secretValues,
                 liveWorkspace::prepareResult,
+                bridgeDecorator,
             )
     }
 
@@ -165,22 +180,27 @@ internal object ProotToolModule {
         executor: LinuxRunTool.LinuxExecutor,
         workspace: LinuxLiveWorkspace,
         storage: HelixStorage,
+        bridgeDecorator: (com.helix.tools.framework.ToolExecutor) -> com.helix.tools.framework.ToolExecutor,
+        skills: com.helix.extensions.skills.SkillRepository?,
     ) {
-        LinuxRunTool.register(registry) { call, cancel ->
-            when (val prepared = workspace.prepareResult(call)) {
-                is LinuxRunTool.ParsedResult.ParseFailure -> {
-                    LinuxRunTool.failed(prepared.detail, "WORKSPACE_UNAVAILABLE")
-                }
+        val runner =
+            LinuxRunTool.LinuxExecutor { call, cancel ->
+                when (val prepared = workspace.prepareResult(call)) {
+                    is LinuxRunTool.ParsedResult.ParseFailure -> {
+                        LinuxRunTool.failed(prepared.detail, "WORKSPACE_UNAVAILABLE")
+                    }
 
-                is LinuxRunTool.ParsedResult.Ok -> {
-                    try {
-                        executor.execute(prepared.call, cancel)
-                    } finally {
-                        observeForegroundExecution(storage)
+                    is LinuxRunTool.ParsedResult.Ok -> {
+                        try {
+                            executor.execute(prepared.call, cancel)
+                        } finally {
+                            observeForegroundExecution(storage)
+                        }
                     }
                 }
             }
-        }
+        registry.register(LinuxRunTool.descriptor(), bridgeDecorator(LinuxRunTool.executor(runner)))
+        skills?.let { SkillScriptRunTool.register(registry, it, runner, bridgeDecorator) }
     }
 
     private fun prepareForegroundRecovery(
@@ -382,7 +402,9 @@ internal object ProotToolModule {
     fun observeCommandLog(binding: CommandJobBindingFacts) = CommandLogReader.observe(binding)
 
     fun backgroundJobs(storage: HelixStorage): List<BackgroundJobUi> =
-        DetachedJobDashboard.read(storage).map { it.copy(canReleaseLaunchWait = userJobActions.isLaunchWaiting(it)) }
+        DetachedJobDashboard.read(storage).map {
+            it.copy(canReleaseLaunchWait = userJobActions.isLaunchWaiting(it))
+        }
 
     fun performBackgroundJobAction(
         job: BackgroundJobUi,

@@ -1,6 +1,6 @@
 package com.helix.app.chat
 
-import com.helix.core.storage.HelixStorage
+import com.helix.core.storage.repository.WorkspaceRepository
 import com.helix.core.workspace.FileScopePath
 import com.helix.core.workspace.ScopeNotAvailable
 import com.helix.core.workspace.ScopeRootResolver
@@ -9,17 +9,18 @@ import java.nio.file.Path
 
 /** Application boundary for user-selected resources. Registration does not grant tool permission. */
 internal class SessionWorkspaceService(
-    private val storage: HelixStorage,
+    private val workspaces: WorkspaceRepository,
     private val roots: ScopeRootResolver,
+    private val selectedRoots: ScopeRootResolver = roots,
     private val safIdentity: (FileScopePath) -> String,
 ) {
     fun bind(reference: String): String {
         val path = FileScopePath.fromModelReference(reference)
-        if (storage.workspaces.find(path.scopeId) != null) {
-            val resource = requireNotNull(storage.workspaces.find(path.scopeId))
+        if (workspaces.find(path.scopeId) != null) {
+            val resource = requireNotNull(workspaces.find(path.scopeId))
             if (resource.backend == "PATH") {
                 val root = resolveRoot(path.scopeId)
-                storage.workspaces.directoryWitness(resolveFileScopePath(path, ScopeRootResolver { root }))
+                workspaces.directoryWitness(resolveFileScopePath(path, ScopeRootResolver { root }))
             } else {
                 safIdentity(source(path))
             }
@@ -32,32 +33,40 @@ internal class SessionWorkspaceService(
                     path,
                 )
             } else {
-                storage.workspaces.directoryWitness(resolveFileScopePath(path, roots))
+                workspaces.directoryWitness(resolveFileScopePath(path, selectedRoots))
             }
         val resource =
-            storage.workspaces.register(
+            workspaces.register(
                 if (saf) "SAF" else "PATH",
                 path.toModelReference(),
                 witness,
                 System.currentTimeMillis(),
-                identityLocator = if (saf) witness else resolveFileScopePath(path, roots).toRealPath().toString(),
+                identityLocator =
+                    if (saf) {
+                        witness
+                    } else {
+                        resolveFileScopePath(
+                            path,
+                            selectedRoots,
+                        ).toRealPath().toString()
+                    },
             )
         return FileScopePath(resource.id, "").toModelReference()
     }
 
     @Suppress("ReturnCount") // Legacy, managed and external backends resolve independently.
     fun resolveRoot(scopeId: String): Path {
-        val resource = storage.workspaces.find(scopeId) ?: return roots.resolveRoot(scopeId)
+        val resource = workspaces.find(scopeId) ?: return roots.resolveRoot(scopeId)
         require(resource.availability == "READY") { "Workspace unavailable; explicit rebind required" }
         if (resource.backend !=
             "PATH"
         ) {
             throw ScopeNotAvailable("This workspace backend does not provide a local filesystem directory")
         }
-        if (resource.ownership == "MANAGED") return storage.workspaces.managedDirectory(scopeId)
+        if (resource.ownership == "MANAGED") return workspaces.managedDirectory(scopeId)
         return verify(resource.id) {
-            val root = resolveFileScopePath(FileScopePath.fromModelReference(resource.locator), roots)
-            require(storage.workspaces.directoryWitness(root) == resource.witness) { "Workspace identity changed" }
+            val root = resolveFileScopePath(FileScopePath.fromModelReference(resource.locator), selectedRoots)
+            require(workspaces.directoryWitness(root) == resource.witness) { "Workspace identity changed" }
             root
         }
     }
@@ -65,7 +74,7 @@ internal class SessionWorkspaceService(
     /** SAF keeps the same document-tree adapter and live grants; never manufacture a POSIX path. */
     @Suppress("ReturnCount") // Managed and legacy sources do not require external translation.
     fun source(path: FileScopePath): FileScopePath {
-        val resource = storage.workspaces.find(path.scopeId) ?: return path
+        val resource = workspaces.find(path.scopeId) ?: return path
         require(resource.availability == "READY") { "Workspace unavailable" }
         if (resource.ownership == "MANAGED") return path
         val root = FileScopePath.fromModelReference(resource.locator)
@@ -87,7 +96,7 @@ internal class SessionWorkspaceService(
         } catch (cancelled: kotlinx.coroutines.CancellationException) {
             throw cancelled
         } catch (failure: Exception) {
-            storage.workspaces.markUnavailable(id)
+            workspaces.markUnavailable(id)
             throw ScopeNotAvailable("Workspace unavailable; select the source again to bind a new resource")
         }
 }

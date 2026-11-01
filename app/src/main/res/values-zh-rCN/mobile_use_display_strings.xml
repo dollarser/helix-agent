@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="mobile_use_display_heading">执行屏幕</string>
+    <string name="mobile_use_background_display">使用后台屏幕（不勾选时使用主屏）</string>
+    <string name="mobile_use_display_help">后台屏需要 Android 12+ 和已授权的 Shizuku shell。连接与配对由 Shizuku 管理，Helix 不自动开启或配对。Android 14+ 优先独立焦点；旧系统或部分设备可能影响主屏焦点。后台屏与主屏共享 App 账号和数据，不是应用分身；无法绕过锁屏认证。不可用时不会自动改用主屏。</string>
+    <string name="mobile_use_move_main_app">允许把主屏正在使用的同一 App 移到后台屏（可能打断当前界面）</string>
+    <string name="mobile_use_shell_unavailable">Shizuku shell 未连接；请在系统权限中检查已选择的连接方式。</string>
+    <string name="mobile_use_shell_permission">Shizuku 已连接，Helix 尚未获授权。请在系统权限中由用户授权。</string>
+    <string name="mobile_use_shell_ready">Shizuku shell 已连接且 Helix 已授权。实际后台屏能力将在创建时检测。</string>
+</resources>

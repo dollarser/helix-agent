@@ -53,6 +53,7 @@ data class JsExecuteParams(
     val debugInjectCrash: Boolean = false,
     val debugCrashAfterMs: Long = CRASH_SEAM_DEFAULT_DELAY_MS,
     val nativeAccess: Boolean = false,
+    val toolBridge: com.helix.tools.framework.HostToolBridge? = null,
 ) {
     companion object {
         const val CRASH_SEAM_DEFAULT_DELAY_MS: Long = 250L
@@ -156,15 +157,7 @@ class JsExecutionClient(
                     deadlineNanos = deadlineNanos,
                 )
             val envelope =
-                JsExecutionWire.ExecuteEnvelope(
-                    sourcePfd = transport.sourcePfd,
-                    inputPfd = transport.inputPfd,
-                    outputPfd = transport.outputPfd,
-                    sourceTotalBytes = sourceBytes.size,
-                    inputTotalBytes = (inputBytes?.size ?: 0).toLong(),
-                    flags = if (crashSeam) JsProtocol.FLAG_CRASH_INJECTION else 0,
-                    crashAfterMs = params.debugCrashAfterMs.toInt(),
-                )
+                prepareEnvelope(params, transport, sourceBytes.size, inputBytes?.size ?: 0, crashSeam)
 
             val boundInstance =
                 bindInstance(params.executionId, cancellation, inputSha, params.nativeAccess)
@@ -175,6 +168,7 @@ class JsExecutionClient(
                         inputSha,
                     )
             bound = boundInstance
+            params.toolBridge?.let { bindToolPeer(boundInstance, it) }
 
             val outcome = awaitResult(boundInstance, request, envelope, deadlineNanos, cancellation, inputSha)
             return finalizeResult(outcome, params, inputSha)
@@ -377,6 +371,39 @@ class JsExecutionClient(
             bound.dead.awaitObserved(GIVE_UP_GRACE_MS)
         }
         return classifyOutcome(outcome, bound, request.executionId, inputSha, cancelledAtNanos)
+    }
+
+    private fun prepareEnvelope(
+        params: JsExecuteParams,
+        transport: JsTransportPreparation.Transport,
+        sourceSize: Int,
+        inputSize: Int,
+        crashSeam: Boolean,
+    ) = JsExecutionWire.ExecuteEnvelope(
+        sourcePfd = transport.sourcePfd,
+        inputPfd = transport.inputPfd,
+        outputPfd = transport.outputPfd,
+        sourceTotalBytes = sourceSize,
+        inputTotalBytes = inputSize.toLong(),
+        flags = if (crashSeam) JsProtocol.FLAG_CRASH_INJECTION else 0,
+        crashAfterMs = params.debugCrashAfterMs.toInt(),
+        toolBridge = params.toolBridge?.let(JsToolBridge::hostBinder),
+    )
+
+    private fun bindToolPeer(
+        bound: BoundInstance,
+        bridge: com.helix.tools.framework.HostToolBridge,
+    ) {
+        val data = Parcel.obtain()
+        val reply = Parcel.obtain()
+        try {
+            check(bound.binder.transact(JsProtocol.CODE_INFO, data, reply, 0))
+            val (pid, uid) = JsExecutionWire.readInfo(reply)
+            bridge.bindPeer(pid, uid)
+        } finally {
+            data.recycle()
+            reply.recycle()
+        }
     }
 
     /** Blocks the EXECUTE transact off the calling thread so the wait loop stays responsive. */

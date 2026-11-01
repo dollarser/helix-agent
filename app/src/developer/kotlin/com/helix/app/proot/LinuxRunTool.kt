@@ -142,6 +142,14 @@ object LinuxRunTool {
                         },
                     )
                     put(
+                        "toolBridge",
+                        buildJsonObject {
+                            put("type", "boolean")
+                            put("default", false)
+                            put("description", "Python/Node tools require user delegation. No retries.")
+                        },
+                    )
+                    put(
                         "argv",
                         buildJsonObject {
                             put("type", JsonPrimitive("array"))
@@ -299,6 +307,7 @@ object LinuxRunTool {
                         },
                     )
                     put("artifactsTruncated", buildJsonObject { put("type", "boolean") })
+                    put("logTruncated", buildJsonObject { put("type", "boolean") })
                     put("execution", buildJsonObject { put("type", "object") })
                     put(
                         "artifacts",
@@ -364,6 +373,10 @@ object LinuxRunTool {
         val artifactPaths: List<String> = emptyList(),
         val resolvedWorkspacePath: String? = null,
         val workspaceWitness: String? = null,
+        val toolBridge: com.helix.tools.framework.HostToolBridge? = null,
+        val scriptDirectory: String? = null,
+        val scriptSnapshotHash: String? = null,
+        val originalToolName: String = NAME,
     )
 
     /**
@@ -426,8 +439,10 @@ object LinuxRunTool {
                 }
 
                 argv != null -> {
-                    if (argv.isEmpty() || argv.any { it.isBlank() }) {
-                        return ParsedResult.ParseFailure("invalid arguments: `argv` entries must be non-blank")
+                    if (argv.isEmpty() || argv.first().isBlank() || argv.any { '\u0000' in it }) {
+                        return ParsedResult.ParseFailure(
+                            "invalid arguments: `argv` executable must be non-blank; no NUL",
+                        )
                     }
                     ProotJobCommand.Argv(argv)
                 }
@@ -500,6 +515,8 @@ object LinuxRunTool {
                 workspaceReference = (args["workspace"] as? JsonPrimitive)?.content,
                 snapshot = (args["workspaceMode"] as? JsonPrimitive)?.content == "snapshot",
                 artifactPaths = (args["artifacts"] as? JsonArray)?.map { (it as JsonPrimitive).content }.orEmpty(),
+                toolBridge = call.hostToolBridge,
+                originalToolName = call.toolName,
             ),
         )
     }

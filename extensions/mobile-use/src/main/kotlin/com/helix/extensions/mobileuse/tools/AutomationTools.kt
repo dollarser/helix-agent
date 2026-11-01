@@ -156,7 +156,7 @@ class AutomationTools(
             call.args.keys.all { it in setOf("packageName", "viewId", "text") } &&
                 listOf("packageName", "viewId", "text").all { it in call.args }
         val backend = boundPort.preferredClickBackend().name.lowercase()
-        if (backend in setOf("root", "shizuku") && exact) {
+        if (backend in setOf("root", "shizuku") && exact && !boundPort.usesBackgroundDisplay()) {
             require(exact) {
                 "PRIVILEGED_REQUIRES_EXACT_PACKAGE_VIEW_ID_TEXT"
             }

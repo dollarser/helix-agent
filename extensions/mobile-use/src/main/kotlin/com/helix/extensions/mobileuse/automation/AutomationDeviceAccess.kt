@@ -241,7 +241,7 @@ class PermissionCenterDevicePort(
 
     override fun observe(): AutomationDeviceObservation {
         val call = originalCall
-        val backend = center.deviceBackend()
+        val backend = center.deviceBackend(call = call)
         if (call != null && backend != null) return center.privilegedDevice.observe(call, backend)
         center.privilegedDevice.invalidate()
         return lease()?.let { (service, session) ->
@@ -272,8 +272,12 @@ class PermissionCenterDevicePort(
             val reply = center.privilegedDevice.execute(call, frame, AutomationDeviceOperation.GESTURE, strokes)
             return reply.action ?: AutomationActionResult(AutomationActionStatus.ACTION_NOT_DISPATCHED)
         }
-        return lease()?.let { (service, session) -> service.deviceAccess.gesture(session, frame, strokes, call) }
-            ?: AutomationActionResult(AutomationActionStatus.NO_ACTIVE_SESSION)
+        return if (center.backgroundSelected()) {
+            AutomationActionResult(AutomationActionStatus.STALE_TOKEN)
+        } else {
+            lease()?.let { (service, session) -> service.deviceAccess.gesture(session, frame, strokes, call) }
+                ?: AutomationActionResult(AutomationActionStatus.NO_ACTIVE_SESSION)
+        }
     }
 
     override fun screenshot(
@@ -284,7 +288,11 @@ class PermissionCenterDevicePort(
             val reply = center.privilegedDevice.execute(call, frame, AutomationDeviceOperation.SCREENSHOT)
             return reply.screenshot ?: AutomationScreenshot(reply.status)
         }
-        return lease()?.let { (service, session) -> service.deviceAccess.screenshot(session, frame, call) }
-            ?: AutomationScreenshot("NO_ACTIVE_SESSION")
+        return if (center.backgroundSelected()) {
+            AutomationScreenshot("FRAME_STALE")
+        } else {
+            lease()?.let { (service, session) -> service.deviceAccess.screenshot(session, frame, call) }
+                ?: AutomationScreenshot("NO_ACTIVE_SESSION")
+        }
     }
 }

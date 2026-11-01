@@ -52,6 +52,8 @@ internal fun FilesScreenLayout(
                 FilesLocationBar(state, actions)
                 val terminalSource =
                     selectedScopeId == "app" || selectedScopeId.startsWith("af-") ||
+                        com.helix.app.files.SharedStorageAccess
+                            .isScope(selectedScopeId) ||
                         sources.any { it.scopeId == selectedScopeId && it.workspaceBackend == "PATH" }
                 if (terminalSource && !trashOpen && openTerminal != null) {
                     TextButton(onClick = {

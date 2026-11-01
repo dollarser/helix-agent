@@ -33,6 +33,16 @@ class ShizukuAutomationBackend(
     ): com.helix.extensions.mobileuse.automation.AutomationDeviceReply =
         try {
             bridge.device(request, allowed)
+        } catch (_: ShizukuBindingFailure) {
+            com.helix.extensions.mobileuse.automation.AutomationDeviceReply(
+                "SHIZUKU_USER_SERVICE_UNAVAILABLE",
+                action =
+                    if (request.operation.hasEffect()) {
+                        AutomationActionResult(AutomationActionStatus.ACTION_NOT_DISPATCHED)
+                    } else {
+                        null
+                    },
+            )
         } catch (_: Exception) {
             com.helix.extensions.mobileuse.automation.AutomationDeviceReply(
                 "SHIZUKU_DEVICE_UNAVAILABLE",
@@ -69,6 +79,8 @@ class ShizukuAutomationBackend(
                     mayFinish,
                 )
             AutomationActionResult(shizukuActionStatus(result.result["status"]?.jsonPrimitive?.content))
+        } catch (_: ShizukuBindingFailure) {
+            AutomationActionResult(AutomationActionStatus.ACTION_NOT_DISPATCHED)
         } catch (error: Exception) {
             android.util.Log.w("HelixShizuku", "Backend failure: ${error.javaClass.simpleName}")
             // Binder loss/timeout may follow an injection; no retry and no rollback claim.
@@ -83,6 +95,9 @@ class ShizukuAutomationBackend(
 
 internal fun shizukuActionStatus(status: String?): AutomationActionStatus =
     when (status) {
+        "BACKGROUND_DISPLAY_STALE" -> AutomationActionStatus.BACKGROUND_DISPLAY_STALE
+        "BACKGROUND_DISPLAY_UNAVAILABLE" -> AutomationActionStatus.BACKGROUND_DISPLAY_UNAVAILABLE
+        "MAIN_DISPLAY_IN_USE" -> AutomationActionStatus.MAIN_DISPLAY_IN_USE
         "DISPATCHED" -> AutomationActionStatus.SUCCEEDED
         "TARGET_NOT_FOUND" -> AutomationActionStatus.TARGET_NOT_FOUND
         "TARGET_AMBIGUOUS" -> AutomationActionStatus.TARGET_AMBIGUOUS

@@ -4,6 +4,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.HelixTheme
 import com.helix.app.files.FileManagerService
@@ -24,17 +25,24 @@ class WorkspaceCapabilityDeviceTest {
     @Test fun directoryCapabilityIsVisibleBeforeConfirmAndCancelDoesNotBindOrCopy() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         require(context.packageName.endsWith(".asrvalidation"))
-        val root = File(context.cacheDir, "capability-${UUID.randomUUID()}").apply { mkdirs() }
+        val root = File(context.noBackupFilesDir, "capability-${UUID.randomUUID()}").apply { mkdirs() }
         try {
             File(root, "original.txt").writeText("Synthetic unchanged original")
             val roots = ScopeRootResolver { root.toPath() }
             val backend = NioManualFileBackend("app", roots, false) {}
+            val loads =
+                java.util.concurrent.atomic
+                    .AtomicInteger()
             val files =
                 FileManagerService(
                     WorkspaceArtifactStore(roots),
                     roots,
                     "app",
                     manual = ManualFileOperations({ backend }, { true }),
+                    workspaceSources = {
+                        loads.incrementAndGet()
+                        emptyList()
+                    },
                 )
             var selected: String? = null
             var closed = false
@@ -46,24 +54,11 @@ class WorkspaceCapabilityDeviceTest {
                     }
                 }
             }
-            compose.waitUntil(5000) {
-                compose
-                    .onAllNodes(
-                        androidx.compose.ui.test
-                            .hasTestTag("session-directory-source-app"),
-                    ).fetchSemanticsNodes()
-                    .isNotEmpty()
-            }
-            compose.onNodeWithTag("session-directory-source-app").performClick()
-            compose.waitUntil(5000) {
-                compose
-                    .onAllNodes(
-                        androidx.compose.ui.test
-                            .hasTestTag("directory-access-capability"),
-                    ).fetchSemanticsNodes()
-                    .isNotEmpty()
-            }
-            compose.onNodeWithTag("directory-access-capability").assertIsDisplayed()
+            awaitNode("session-directory-source-app")
+            settingsRoundTrip(context, loads)
+            compose.onNodeWithTag("session-directory-source-app").performScrollTo().performClick()
+            awaitNode("directory-access-capability")
+            compose.onNodeWithTag("directory-access-capability").performScrollTo().assertIsDisplayed()
             assertNull(selected)
             compose.onNodeWithTag("session-directory-cancel").performClick()
             assertEquals(true, closed)
@@ -72,5 +67,45 @@ class WorkspaceCapabilityDeviceTest {
         } finally {
             root.deleteRecursively()
         }
+    }
+
+    private fun awaitNode(tag: String) {
+        compose.waitUntil(5000) {
+            compose
+                .onAllNodes(
+                    androidx.compose.ui.test
+                        .hasTestTag(tag),
+                ).fetchSemanticsNodes()
+                .isNotEmpty()
+        }
+    }
+
+    private fun settingsRoundTrip(
+        context: android.content.Context,
+        loads: java.util.concurrent.atomic.AtomicInteger,
+    ) {
+        compose.onNodeWithTag("workspace-storage-permission").assertIsDisplayed()
+        val beforeGrant =
+            com.helix.app.files
+                .SharedStorageAccess(context)
+                .isGranted()
+        val beforeLoads = loads.get()
+        compose.onNodeWithTag("workspace-storage-permission").performClick()
+        val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
+        val deadline = System.nanoTime() + 5_000_000_000L
+        while (automation.rootInActiveWindow?.packageName != "com.android.settings" && System.nanoTime() < deadline) {
+            Thread.sleep(50)
+        }
+        assertEquals("com.android.settings", automation.rootInActiveWindow?.packageName?.toString())
+        org.junit.Assert.assertTrue(
+            automation.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK),
+        )
+        compose.waitUntil(5000) { loads.get() > beforeLoads }
+        assertEquals(
+            beforeGrant,
+            com.helix.app.files
+                .SharedStorageAccess(context)
+                .isGranted(),
+        )
     }
 }

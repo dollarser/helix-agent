@@ -103,6 +103,27 @@ internal class SafManualFileBackend(
         return "${node.uri.authority}:${DocumentsContract.getDocumentId(node.uri)}:${grant.grantedAtMillis}"
     }
 
+    /** Best effort only for the platform's local provider. Unsupported directory FDs remain SAF. */
+    fun verifiedLocalDirectory(
+        path: String,
+        access: SharedStorageAccess,
+        trustedProvider: (String) -> Boolean,
+    ): String? {
+        if (!access.isGranted()) return null
+        val node = requireNotNull(lookup(path))
+        val authority = node.uri.authority
+        return if (authority != "com.android.externalstorage.documents" || !node.directory ||
+            !trustedProvider(authority)
+        ) {
+            null
+        } else {
+            resolver.directoryPathFromDescriptor(node.uri, { access.directories().map { it.scopeId to it.path } }) {
+                tree()
+                check(access.isGranted())
+            }
+        }
+    }
+
     override fun validateMutation(path: String) {
         require(!FileScopePath(scopeId, path).isRoot)
         tree(true)

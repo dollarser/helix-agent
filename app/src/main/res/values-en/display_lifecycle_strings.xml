@@ -1,0 +1,10 @@
+<resources>
+    <string name="display_live_creating">Host: service connected, creating background display</string>
+    <string name="display_live_active">Host: background display connected and created</string>
+    <string name="display_live_released">Host: background display released</string>
+    <string name="display_live_disconnected">Host: disconnected; display release unconfirmed</string>
+    <string name="display_live_release_unknown">Host: background display release unconfirmed</string>
+    <string name="display_live_unavailable">Host: background display unavailable; creation unconfirmed</string>
+    <string name="display_live_unknown">Host: connection or display state unconfirmed</string>
+    <string name="display_live_target">Last observed target: %1$s</string>
+</resources>

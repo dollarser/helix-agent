@@ -20,7 +20,7 @@ internal class ProotJobRecovery(
         val turn = storage.turns.resolve(turnId)
         val call = requireNotNull(storage.toolCalls.byTurnAndCallId(turnId, callId))
         check(prootRecoveryEligible(turn.state, call.state))
-        check(call.name in setOf("bash", "code.linux.run"))
+        check(call.name in setOf("bash", "code.linux.run", "skills.run"))
         val binding = ProotJobBindingStore(storage).resolve(callId)
         check(binding.getValue("turnId").jsonPrimitive.content == turnId)
         val jobId = binding.getValue("jobId").jsonPrimitive.content
