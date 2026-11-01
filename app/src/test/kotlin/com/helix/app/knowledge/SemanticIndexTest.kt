@@ -60,7 +60,7 @@ class SemanticIndexTest {
                 val document = SemanticDocument("note:n$n", "r1", "合成资料 $n", text)
                 val chunks =
                     SemanticIndex.ranges(text).map { (start, end) ->
-                        SemanticChunk(start, end, floatArrayOf(1f, 0f))
+                        SemanticChunk(start, end, FloatArray(1024).also { it[0] = 1f })
                     }
                 index.write("model-a", document, chunks)
                 document

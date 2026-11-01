@@ -228,4 +228,18 @@ test('Explicit folder sync starts paused and conflicts pause instead of overwrit
   assert.match(document.querySelector('#sync-state').textContent, /冲突.*暂停/);
 });
 
+test('Directory chooser explains actual access before binding without changing draft', () => {
+  const before = document.querySelector('#draft').value;
+  open('session'); click('open:workspace'); click('open:workspace-path');
+  assert.match(sheet().textContent, /实际打开.*不复制/s);
+  click('open:workspace'); click('open:workspace-saf');
+  assert.match(sheet().textContent, /没有 POSIX.*不会自动复制/s);
+  click('open:workspace'); click('open:session');
+  assert.equal(document.querySelector('#draft').value, before);
+});
+test('Semantic maintenance shows document progress separately from access', () => {
+  open('semantic'); click('semantic-enable'); open('library-settings');
+  assert.match(document.querySelector('#semantic-progress').textContent, /1 \/ 2.*重试/);
+});
+
 console.log(`${n} offline interaction checks passed; browser/layout acceptance is separate.`);
