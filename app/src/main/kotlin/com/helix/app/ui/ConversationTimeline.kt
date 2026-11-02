@@ -19,6 +19,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -34,18 +35,21 @@ import com.helix.app.R
 
 /** Following is presentation state: user scrolling never changes the running task. */
 @Composable
-@Suppress("FunctionName")
+// Pausing following and replacing a history window have distinct behavior.
+@Suppress("FunctionName", "LongParameterList")
 internal fun ConversationTimeline(
     sessionId: String?,
     contentVersion: Any?,
     modifier: Modifier = Modifier,
     followContent: Boolean = true,
+    followingResetKey: Any? = Unit,
     state: androidx.compose.foundation.lazy.LazyListState =
         androidx.compose.foundation.lazy
             .rememberLazyListState(),
     content: LazyListScope.() -> Unit,
 ) {
-    key(sessionId, followContent) { FollowingTimeline(state, contentVersion, modifier, followContent, content) }
+    // Searching pauses following; only changing the session/history window resets the user's reading choice.
+    key(sessionId, followingResetKey) { FollowingTimeline(state, contentVersion, modifier, followContent, content) }
 }
 
 @Composable
@@ -57,7 +61,7 @@ private fun FollowingTimeline(
     followContent: Boolean,
     content: LazyListScope.() -> Unit,
 ) {
-    var following by remember { mutableStateOf(true) }
+    var following by rememberSaveable { mutableStateOf(true) }
     var automaticScroll by remember { mutableStateOf(false) }
     val count by remember { derivedStateOf { state.layoutInfo.totalItemsCount } }
     val viewport by remember { derivedStateOf { state.layoutInfo.viewportEndOffset } }
@@ -74,12 +78,21 @@ private fun FollowingTimeline(
             }
         }
     LaunchedEffect(state) {
-        snapshotFlow { state.isScrollInProgress to state.canScrollForward }.collect { (scrolling, hasLater) ->
+        snapshotFlow {
+            val layout = state.layoutInfo
+            val endVisible =
+                layout.visibleItemsInfo.any {
+                    it.key == "timeline-end" && it.offset >= layout.viewportStartOffset &&
+                        it.offset + it.size <= layout.viewportEndOffset
+                }
+            Triple(state.isScrollInProgress, state.canScrollForward, endVisible)
+        }.collect { (scrolling, hasLater, endVisible) ->
             if (scrolling && !automaticScroll) following = false
-            if (!scrolling && !hasLater) following = true
+            // Restoration can temporarily report no later items before layout. Require the real end anchor.
+            if (endVisible && !scrolling && !hasLater) following = true
         }
     }
-    LaunchedEffect(contentVersion, following, count, viewport) {
+    LaunchedEffect(contentVersion, followContent, following, count, viewport) {
         if (followContent && following && count > 0) {
             automaticScroll = true
             try {

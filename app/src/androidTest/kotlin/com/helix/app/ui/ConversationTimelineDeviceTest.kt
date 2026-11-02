@@ -29,6 +29,23 @@ class ConversationTimelineDeviceTest {
     private val session = mutableStateOf("first")
     private val height = mutableStateOf(360)
     private val completed = mutableStateOf(false)
+    private val follow = mutableStateOf(true)
+    private val historyWindow = mutableStateOf(0)
+
+    @Test fun pausingForSearchKeepsHistoryUntilAnExplicitWindowChange() {
+        render()
+        compose.onNodeWithTag("chat-timeline").performSemanticsAction(SemanticsActions.ScrollBy) { it(0f, -900f) }
+        compose.waitForIdle()
+        val before = visibleRows()
+        assertTrue(before.isNotEmpty())
+        compose.runOnIdle { follow.value = false }
+        compose.onNodeWithTag("chat-scroll-latest").assertDoesNotExist()
+        compose.runOnIdle { follow.value = true }
+        compose.onNodeWithTag("chat-scroll-latest").assertIsDisplayed()
+        assertEquals(before, visibleRows())
+        compose.runOnIdle { historyWindow.value++ }
+        assertEndVisible()
+    }
 
     @Test fun growingAndCompletedRepliesStayAtTheirEndAcrossResizeAndSessionChange() {
         render()
@@ -98,6 +115,8 @@ class ConversationTimelineDeviceTest {
                 session.value,
                 listOf(count.value, stream.value, completed.value),
                 Modifier.height(height.value.dp),
+                followContent = follow.value,
+                followingResetKey = historyWindow.value,
             ) {
                 items((0 until count.value).toList(), key = { "row-$it" }) {
                     Text("History $it", Modifier.height(64.dp).testTag("history-row"))

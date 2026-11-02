@@ -646,9 +646,7 @@ fun ChatScreen(
                     )
                 },
                 turnArtifacts = { turnId ->
-                    TurnArtifactEntry(chatService, turnId) { original ->
-                        if (chatService.screen.value.openSessionId == sessionId) interruptionResult = original
-                    }
+                    TurnArtifactEntry(chatService, fileManager, turnId)
                 },
                 taskPreparation = {
                     if (connectors != null && sessionId != null) {

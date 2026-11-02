@@ -9,7 +9,6 @@ import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
 import com.helix.app.HelixApplication
 import com.helix.core.storage.content.FileContentStore
-import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import java.io.File
@@ -24,7 +23,6 @@ class TurnArtifactEntryDeviceTest {
         val session = "artifact-entry-${UUID.randomUUID()}"
         val turn = "turn-$session"
         val root = File(app.filesDir, "workspaces/app/output/$session").also { it.mkdirs() }
-        var opened: String? = null
         c.storage.sessions.create(session, "Synthetic artifact entry", null, null, 1)
         c.storage.turns.start(turn, session, 2)
         try {
@@ -41,7 +39,7 @@ class TurnArtifactEntryDeviceTest {
                     file,
                 )
             }
-            compose.setContent { MaterialTheme { TurnArtifactEntry(c.chatService, turn) { opened = it } } }
+            compose.setContent { MaterialTheme { TurnArtifactEntry(c.chatService, c.fileManager, turn) } }
             compose.waitUntil(10_000) {
                 compose.onAllNodesWithTag("turn-artifacts-$turn").fetchSemanticsNodes().isNotEmpty()
             }
@@ -49,7 +47,15 @@ class TurnArtifactEntryDeviceTest {
                 .onNodeWithTag("turn-artifacts-$turn")
                 .assertTextContains("mine.txt", substring = true)
                 .performClick()
-            compose.runOnIdle { assertEquals(turn, opened) }
+            compose.waitUntil(10_000) {
+                compose.onAllNodesWithTag("artifact-file-row-$session-mine").fetchSemanticsNodes().isNotEmpty()
+            }
+            compose.onNodeWithTag("artifact-file-row-$session-other").assertDoesNotExist()
+            compose.onNodeWithTag("artifact-file-row-$session-mine").performClick()
+            compose.waitUntil(10_000) {
+                compose.onAllNodesWithTag("artifact-file-preview", true).fetchSemanticsNodes().isNotEmpty()
+            }
+            compose.onNodeWithTag("artifact-file-preview", true).assertTextContains("Synthetic mine", substring = true)
         } finally {
             c.storage.deleteSessionPermanently(session)
             root.deleteRecursively()

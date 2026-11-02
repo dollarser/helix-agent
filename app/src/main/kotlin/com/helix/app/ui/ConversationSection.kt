@@ -358,6 +358,7 @@ internal fun ConversationSection(
             }
         ConversationTimeline(
             sessionId = screen.openSessionId,
+            followingResetKey = screen.hasNewerMessages,
             followContent =
                 !emptyConversation && !searchActive && screen.focusedHistoryMessage == null && !screen.hasNewerMessages,
             contentVersion =
@@ -445,7 +446,8 @@ internal fun ConversationSection(
                                 searchQuery = activeSearchQuery,
                                 isCurrentMatch = message.id == currentTargetId,
                             )
-                            if (message.role == "assistant" && entry.key != screen.activeTurn?.id &&
+                            if (message.role == "assistant" &&
+                                entry.key != screen.activeTurn?.takeUnless { it.state.isTerminal }?.id &&
                                 message.id == entry.messages.lastOrNull { it.role == "assistant" }?.id
                             ) {
                                 turnArtifacts(entry.key)
