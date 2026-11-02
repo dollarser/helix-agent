@@ -154,6 +154,26 @@ class SkillRepositoryTest {
     }
 
     @Test
+    fun `session disable blocks reading but does not isolate discovery metadata`() {
+        val roots = roots()
+        val source = importedSource(roots.root)
+        val sentinel = "SYNTHETIC_PRIVATE_CATALOG_SENTINEL"
+        val manifest = source.resolve("SKILL.md")
+        Files.writeString(manifest, Files.readString(manifest).replace("Imported test skill.", sentinel))
+        val importer = SkillImportService(roots.staging)
+        val snapshot = importer.commit(importer.stageDirectory(source), roots.snapshots)
+        val repository = repository(roots)
+        val key = repository.registerSnapshot(snapshot)
+        repository.setEnabled(key, false, SkillEnablementScope.SESSION, "synthetic-session")
+
+        // Enablement is execution control, not a private-context isolation boundary.
+        val discovered = repository.listForModel("synthetic-session", null).single { it.key == key }
+        assertFalse(discovered.enabled)
+        assertEquals(sentinel, discovered.description)
+        assertThrows(IllegalArgumentException::class.java) { repository.read(key, "synthetic-session") }
+    }
+
+    @Test
     fun `global enablement persists across repository recreation`() {
         val roots = roots()
         val repository = repository(roots)
