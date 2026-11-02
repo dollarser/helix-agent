@@ -64,14 +64,6 @@ internal class ReleaseUiTestSupport {
             tap(field)
             field = nodes().single { it.isEditable && it.isFocused }
             check(field.packageName.toString() == context.packageName)
-            require(value.matches(Regex("[A-Za-z0-9=_ .-]+"))) { "Keyboard fixture accepts bounded ASCII only" }
-            ParcelFileDescriptor
-                .AutoCloseInputStream(
-                    automation.executeShellCommand("input text ${value.replace(" ", "%s")}"),
-                ).use { it.readBytes() }
-            SystemClock.sleep(400)
-            if (Build.VERSION.SDK_INT >= 33) check(automation.clearCache())
-            return
         }
         check(
             field.performAction(
@@ -82,6 +74,8 @@ internal class ReleaseUiTestSupport {
             ),
         )
         SystemClock.sleep(400)
+        if (Build.VERSION.SDK_INT >= 33) check(automation.clearCache())
+        check(nodes().any { it.isEditable && it.text?.toString() == value }) { "Text input readback differs" }
     }
 
     fun editField(

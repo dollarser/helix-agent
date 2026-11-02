@@ -1,6 +1,5 @@
 package com.helix.app.eval
 
-import android.app.Activity
 import android.os.Bundle
 import android.widget.Button
 import android.widget.EditText
@@ -8,12 +7,13 @@ import android.widget.LinearLayout
 import android.widget.TextView
 
 /** Synthetic launcher in the test APK only. No accounts, network, or user files. */
-class BackgroundDisplayFixtureActivity : Activity() {
+class BackgroundDisplayFixtureActivity : BackgroundTouchActivity() {
     private var count = 0
     private var visualCount = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        java.io.File(filesDir, "background-touch.txt").delete()
         val facts = getSharedPreferences("background-fixture", 0)
         facts
             .edit()

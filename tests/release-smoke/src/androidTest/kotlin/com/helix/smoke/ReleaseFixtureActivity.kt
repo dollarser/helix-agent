@@ -13,7 +13,10 @@ import java.util.concurrent.atomic.AtomicInteger
 class ReleaseFixtureActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val facts = getSharedPreferences("release-fixture-facts", 0)
+        ReleaseFixtureState.clicks.set(facts.getInt("clicks", 0))
         val layout = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        val effect = TextView(this).apply { text = "R8 clicks ${ReleaseFixtureState.clicks.get()}" }
         layout.addView(
             TextView(this).apply {
                 text = "R8 fixture header"
@@ -24,9 +27,14 @@ class ReleaseFixtureActivity : Activity() {
         layout.addView(
             Button(this).apply {
                 text = "R8 target button"
-                setOnClickListener { ReleaseFixtureState.clicks.incrementAndGet() }
+                setOnClickListener {
+                    val count = ReleaseFixtureState.clicks.incrementAndGet()
+                    check(facts.edit().putInt("clicks", count).commit())
+                    effect.text = "R8 clicks $count"
+                }
             },
         )
+        layout.addView(effect)
         layout.addView(
             View(this).apply {
                 contentDescription = "R8 gesture surface"

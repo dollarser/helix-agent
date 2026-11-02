@@ -391,3 +391,17 @@ AutomationSessionManager.kt  3669ad260e36a9a50f309a177a562eb9cd0863f0917eca17592
 保留两次无效夹具尝试：独立测试进程缺少 Kotlin 可变捕获运行时、Skill 名称不符合父目录契约；修复夹具后复验，不计入有效模型能力结论，也不隐藏已经发生的模型请求成本。样本只证明上述合成场景，不推断全设备或产品成功率。
 
 由实际观察采用的改进是显式人工交回、持久停止事实摘要、同步 QuickJS 调用说明，以及写入前置拒绝的无副作用标记；发布后失败仍保留不确定性。后台屏三个新路由创建/取消/释放及实际原 helper 断连、新 Turn 重连均通过，断连不伪报正常释放或自动重放。实现入口为 [人工交接](../../../app/src/main/kotlin/com/helix/app/chat/HumanHandoff.kt)、[停止事实](../../../app/src/main/kotlin/com/helix/app/chat/TurnStopFacts.kt) 和[真实模型夹具](../../../app/src/androidTestDeveloper/kotlin/com/helix/app/eval/ClosedLoopRealModelDeviceTest.kt)。详细构建、失败、请求与设备收据位于忽略目录 `build/real-effect-closeout-2026-11-01/`。浏览器保留、经验转 Skill、真实资料备份与语音不属于本轮。
+
+### 2026-11-02：有界长会话与后台生命周期复验
+
+API 36 合成渲染验收使用 200 轮、400 条消息、1000 次工具调用、25 张不同图像和 200 个产物元数据卡片，覆盖搜索定位、分组折叠、30 次确实移动的历史滚动、返回最新及保存状态恢复。真实 Activity 旋转替换后仍停留原阅读位置。测试发现关闭搜索会重置跟随状态并跳到最新；现将临时暂停跟随与会话／历史窗口替换分开，保存阅读选择，并以真实末尾锚点判断恢复完成。入口为 [ConversationTimeline](../../../app/src/main/kotlin/com/helix/app/ui/ConversationTimeline.kt)、[容量夹具](../../../app/src/androidTest/kotlin/com/helix/app/ui/ConversationVolumeDeviceTest.kt) 和[旋转夹具](../../../app/src/androidTest/kotlin/com/helix/app/ui/ConversationVolumeRotationDeviceTest.kt)。指标属于固定模拟器上的有界渲染样本，不代表大数据库冷启动、长期电量或全 OEM 表现。
+
+后台屏十次创建／操作／取消／释放通过；在独立夹具确认原显示上的实际 DOWN 后终止原 helper，结果保留为动作效果未知、连接断开，原显示消失且没有自动重放，随后新身份重连操作通过。主进程终止后的原 Job 两阶段恢复保留 ORPHANED 与未确认状态，不以拒绝 ACK 误判生产故障或清除未知执行载荷。API 29 隔离包验证后台后端明确不可用、没有退到主屏。并发输出、子进程取消与 MCP 协议回归还发现命令证明文件被输出白名单排除；[MCP 桥](../../../app/src/developer/kotlin/com/helix/app/mcp/McpStdioJobBridge.kt) 现将该证明放入明确输出目录，保留校验且不扩大任意输入导出。
+
+逐项日志、实际触控与 kill 记录、构建候选、性能原始值和截图保留在忽略目录 `build/stability-release-2026-11-02/`，以最终收据区分当前通过项、失败夹具与尚未覆盖的边界。产物卡片压力样本只有元数据，不等同实际文件交付。
+
+同轮隔离 Developer Release 使用实际 R8 产物，保持非 debuggable，只替换包名和测试签名，不增加反射保留规则。通过公共原生界面配置后，本地确定性服务驱动真实 Dispatcher：后台屏启动、同显示截图与节点、按钮只生效一次、隔离 JS／Python／Node 调用统一工具，以及已审阅脚本的 Skill 快照预览／安装／启用／执行、文件内容和哈希读回。独立公共框架断言先确认原显示已释放，再清理空闲测试 helper；这不是由 helper 被杀间接证明正常释放。该轮是收缩后执行链验收，不是新增真实模型效果样本，也不等同正式发布签名或 Standard 全部设备矩阵。保留输入法改写标记、SSE 分隔符及跨 Turn 结果解析等失败夹具记录，未把它们记为生产通过。
+
+实际文件预览检查还发现，最近 Turn 在终态后仍被服务保留，回答旁入口却按“它是 activeTurn”无条件隐藏产物。现仅在该 Turn 确实未终止时隐藏，容量夹具也保留最新已完成 Turn，避免只用 `activeTurn = null` 的样本漏掉此问题。入口随后实测暴露错误接线：点击打开了回答文字，而非文件；现由 `TurnArtifactEntry` 直接复用已有 `TaskArtifactsDialog`，文字结果入口保持独立。文件所有权、哈希与可用性仍走既有产物查询和预览，不从模型文字生成假附件。
+
+最终收缩包的原生文件列表、实际内容预览、保留会话的进程重启和按钮仍仅生效一次均通过；最终日常 Debug 上增强后的组件测试也直接检查原 Turn 文件、排除其他所有者文件并打开内容。三次保数据进程冷启动的 `am start -W` TotalTime 为 546／503／520 毫秒，样本是小型合成会话，不是上述大历史数据库或首帧完全绘制基准。空间不足的安装没有算作成功：经 Owner 对具体包批准，仅临时移除测试包和隔离包的代码并保留数据，更新后两包均已恢复；日常包未卸载或清数据。原始失败、最终门禁、不同候选的证据继承和安装字节读回统一记入本轮最终收据。

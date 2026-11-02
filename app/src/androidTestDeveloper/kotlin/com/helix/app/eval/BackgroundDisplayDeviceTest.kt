@@ -21,7 +21,10 @@ import com.helix.tools.deviceaccess.DeviceAccess
 import com.helix.tools.framework.ToolDispatchRequest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.add
+import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -130,7 +133,7 @@ class BackgroundDisplayDeviceTest {
                     .toInt()
             assertTrue(displayId > 0)
             assertEquals(fixturePackage, device.getValue("packageName").jsonPrimitive.content)
-            println("BACKGROUND_DISPLAY=$displayId;focus=${device["independentFocus"]}")
+            report("BACKGROUND_DISPLAY=$displayId;focus=${device["independentFocus"]}")
             val activePresentation =
                 container.chatService.displayExecutions.value.single {
                     it.sessionId == session &&
@@ -162,7 +165,11 @@ class BackgroundDisplayDeviceTest {
             val capture = output("ui.screenshot", buildJsonObject { put("frame", frame) })
             assertEquals("SAVED", capture.getValue("status").jsonPrimitive.content)
             if (InstrumentationRegistry.getArguments().getString("helixDisconnect") == "true") {
-                verifyRealHelperDisconnect(displayId)
+                if (InstrumentationRegistry.getArguments().getString("helixInFlight") == "true") {
+                    verifyInFlightDisconnect(displayId)
+                } else {
+                    verifyRealHelperDisconnect(displayId)
+                }
             }
             val row = container.storage.turns.resolve(turn)
             container.storage.turns.updateState(row, TurnState.CANCELLING, row.stepCount, null, null)
@@ -200,7 +207,7 @@ class BackgroundDisplayDeviceTest {
                     com.helix.app.chat.DisplayExecutionState.RELEASED
                 }
             assertEquals(expected, requireNotNull(hostPresentation()).state)
-            println("BACKGROUND_RELEASED=$displayId;dispatches=$sequence;HOST_PRESENTATION=$expected")
+            report("BACKGROUND_RELEASED=$displayId;dispatches=$sequence;HOST_PRESENTATION=$expected")
         } finally {
             lines.setLines(MobileUseGrantStore.CONFIG_KEY, savedScope)
             lines.setLines(MobileUseGrantStore.EXECUTION_KEY, savedDisplay)
@@ -209,6 +216,100 @@ class BackgroundDisplayDeviceTest {
             container.pluginService.setEnabled(plugin.id, plugin.enabled)
             container.profileStore.switchTo(profile)
         }
+    }
+
+    private fun report(value: String) {
+        InstrumentationRegistry.getInstrumentation().sendStatus(
+            0,
+            android.os.Bundle().apply {
+                putString("stream", "$value\n")
+            },
+        )
+    }
+
+    private fun verifyInFlightDisconnect(displayId: Int) {
+        val fresh = output("ui.device")
+        val frame = fresh.getValue("frame").jsonPrimitive.content
+        val bounds = fresh.getValue("windowBounds").jsonObject
+        val x = (bounds.getValue("left").jsonPrimitive.int + bounds.getValue("right").jsonPrimitive.int) / 2
+        val y = (bounds.getValue("top").jsonPrimitive.int + bounds.getValue("bottom").jsonPrimitive.int) / 2
+        val executor =
+            java.util.concurrent.Executors
+                .newSingleThreadExecutor()
+        try {
+            InstrumentationRegistry.getInstrumentation().sendStatus(
+                0,
+                android.os.Bundle().apply {
+                    putString("stream", "BACKGROUND_INFLIGHT_START uptime=${SystemClock.uptimeMillis()}\n")
+                },
+            )
+            val future =
+                executor.submit<ToolDispatchOutcome> {
+                    dispatch("ui.gesture", longGesture(frame, x, y))
+                }
+            SystemClock.sleep(500)
+            if (future.isDone) {
+                val early = future.get()
+                val code =
+                    when (early) {
+                        is ToolDispatchOutcome.ExecutionFailed -> {
+                            "${early.code.name}:${Regex("[A-Z][A-Z0-9_]*").find(early.detail)?.value}"
+                        }
+
+                        is ToolDispatchOutcome.Denied -> {
+                            early.code.name
+                        }
+
+                        else -> {
+                            early.javaClass.simpleName
+                        }
+                    }
+                error("Gesture ended before host DOWN checkpoint: $code")
+            }
+            // The host waits for the fixture's actual DOWN on this display before killing the helper.
+            verifyRealHelperDisconnect(displayId)
+            val outcome = future.get(15, java.util.concurrent.TimeUnit.SECONDS)
+            assertTrue(
+                "In-flight disconnect must not report success: $outcome",
+                outcome is ToolDispatchOutcome.ExecutionFailed,
+            )
+            assertTrue(
+                "Dispatched effect must remain unknown: $outcome",
+                outcome.toString().contains("OUTCOME_UNKNOWN"),
+            )
+        } finally {
+            executor.shutdownNow()
+            assertTrue(executor.awaitTermination(15, java.util.concurrent.TimeUnit.SECONDS))
+        }
+    }
+
+    private fun longGesture(
+        frame: String,
+        x: Int,
+        y: Int,
+    ) = buildJsonObject {
+        put("frame", frame)
+        put(
+            "strokes",
+            buildJsonArray {
+                add(
+                    buildJsonObject {
+                        put("durationMillis", 8000)
+                        put(
+                            "points",
+                            buildJsonArray {
+                                add(
+                                    buildJsonObject {
+                                        put("x", x)
+                                        put("y", y)
+                                    },
+                                )
+                            },
+                        )
+                    },
+                )
+            },
+        )
     }
 
     private fun verifyRealHelperDisconnect(displayId: Int) {
