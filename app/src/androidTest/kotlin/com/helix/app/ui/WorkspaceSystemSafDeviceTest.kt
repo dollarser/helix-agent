@@ -17,6 +17,8 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.HelixApplication
 import com.helix.app.files.SafManualFileBackend
+import com.helix.app.files.SharedStorageAccess
+import com.helix.core.workspace.FileScopePath
 import com.helix.feature.files.SafAccessMode
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -37,7 +39,9 @@ class WorkspaceSystemSafDeviceTest {
     fun systemPickerPersistsOnlyGrantedAccessAndReauthorizationRestoresWrite() {
         val app = ApplicationProvider.getApplicationContext<HelixApplication>()
         val container = app.appContainer
-        val folder = "HXA210-${UUID.randomUUID()}"
+        val approvedFolder = InstrumentationRegistry.getArguments().getString("approvedSafFolder")
+        require(approvedFolder == null || approvedFolder.matches(Regex("Helix-validation-[0-9a-f]{8}")))
+        val folder = approvedFolder ?: "HXA210-${UUID.randomUUID()}"
         val path = "/sdcard/Documents/$folder"
         shell("mkdir -p $path")
         val initial =
@@ -58,7 +62,7 @@ class WorkspaceSystemSafDeviceTest {
         var scope: String? = null
         var granted: Uri? = null
         try {
-            val result = pick(chosen)
+            val result = pick(chosen, approvedFolder)
             val uri = requireNotNull(result.data)
             granted = uri
             assertTrue(DocumentsContract.getTreeDocumentId(uri) in setOf("primary:Documents/$folder", "home:$folder"))
@@ -76,12 +80,13 @@ class WorkspaceSystemSafDeviceTest {
             backend.create("proof.txt", false)
             backend.write("proof.txt").use { it.write("system-provider-proof".toByteArray()) }
             assertEquals("system-provider-proof", backend.read("proof.txt").bufferedReader().use { it.readText() })
+            if (approvedFolder != null) verifyLocalDirectory(app, backend, folder)
             val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
             app.contentResolver.releasePersistableUriPermission(uri, flags)
             assertFalse(app.contentResolver.persistedUriPermissions.any { it.uri == uri })
             assertThrows(Exception::class.java) { container.safTree.resolve(source.scopeId, SafAccessMode.WRITE) }
             chosen.set(null)
-            val renewed = pick(chosen)
+            val renewed = pick(chosen, approvedFolder)
             assertEquals(uri, renewed.data)
             container.featureFiles.persistTreePermission(uri.toString(), renewed.flags)
             assertEquals(source.scopeId, container.safTree.grant(uri.toString(), folder).scopeId)
@@ -92,7 +97,7 @@ class WorkspaceSystemSafDeviceTest {
         } finally {
             scope?.let(container.safTree::revoke)
             granted?.let { release(app, it) }
-            shell("rm -rf $path")
+            if (approvedFolder == null) shell("rm -rf $path")
         }
     }
 
@@ -131,13 +136,32 @@ class WorkspaceSystemSafDeviceTest {
         )
     }
 
-    private fun pick(chosen: AtomicReference<Intent?>): Intent {
+    private fun pick(
+        chosen: AtomicReference<Intent?>,
+        approvedFolder: String? = null,
+    ): Intent {
         val automation = instrumentation.uiAutomation
         automation.serviceInfo =
             automation.serviceInfo.apply {
                 flags = flags or android.accessibilityservice.AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
             }
         compose.onNodeWithTag("system-tree-open").performClick()
+        if (approvedFolder != null) {
+            val deadline = android.os.SystemClock.elapsedRealtime() + 15_000
+            while (android.os.SystemClock.elapsedRealtime() < deadline &&
+                automation.rootInActiveWindow?.let { root ->
+                    find(root) { it.text?.toString() == approvedFolder }
+                } == null
+            ) {
+                Thread.sleep(100)
+            }
+            assertTrue(
+                "System picker must show the specifically approved directory before granting",
+                automation.rootInActiveWindow?.let { root ->
+                    find(root) { it.text?.toString() == approvedFolder }
+                } != null,
+            )
+        }
         clickSystemNode {
             it.viewIdResourceName?.endsWith(":id/action_menu_select") == true ||
                 it.viewIdResourceName == "android:id/button1"
@@ -148,13 +172,62 @@ class WorkspaceSystemSafDeviceTest {
                 automation.rootInActiveWindow?.let { root ->
                     find(
                         root,
-                    ) { it.viewIdResourceName == "android:id/button1" && it.text?.toString().equals("Allow", true) }
+                    ) {
+                        it.viewIdResourceName == "android:id/button1" &&
+                            it.text?.toString() in setOf("Allow", "ALLOW", "允许")
+                    }
                 }
             button?.performAction(AccessibilityNodeInfo.ACTION_CLICK)
             Thread.sleep(100)
         }
         compose.waitUntil(15_000) { chosen.get() != null }
         return requireNotNull(chosen.get())
+    }
+
+    private fun verifyLocalDirectory(
+        app: HelixApplication,
+        backend: SafManualFileBackend,
+        folder: String,
+    ) {
+        assertTrue("Explicitly approved all-files permission must be present", SharedStorageAccess(app).isGranted())
+        val local =
+            backend.verifiedLocalDirectory("", SharedStorageAccess(app)) { authority ->
+                val provider = app.packageManager.resolveContentProvider(authority, 0)
+                provider != null &&
+                    provider.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM != 0
+            }
+        if (local != null) {
+            val reference = FileScopePath.fromModelReference(local)
+            val directory =
+                SharedStorageAccess(app)
+                    .resolveRoot(reference.scopeId)
+                    .resolve(reference.relativePath)
+                    .toFile()
+                    .canonicalFile
+            assertEquals(java.io.File("/sdcard/Documents/$folder").canonicalFile, directory)
+        }
+        // The owner separately approved this exact native directory; it is not inferred from the URI.
+        val directory =
+            SharedStorageAccess(app)
+                .root()
+                .resolve("Documents/$folder")
+                .toFile()
+                .canonicalFile
+        val proof = java.io.File(directory, "proof.txt")
+        assertEquals("system-provider-proof", proof.readText())
+        proof.writeText("native-in-place-proof")
+        assertEquals("native-in-place-proof", backend.read("proof.txt").bufferedReader().use { it.readText() })
+        backend.write("proof.txt").use { it.write("system-provider-proof".toByteArray()) }
+        java.io.File(app.filesDir, "physical-saf-proof.json").writeText(
+            org.json
+                .JSONObject()
+                .put("folder", folder)
+                .put("allFilesGranted", true)
+                .put("safRoundTrip", true)
+                .put("nativeInPlace", true)
+                .put("safLocalAlternative", local != null)
+                .toString(),
+        )
     }
 
     private fun clickSystemNode(predicate: (AccessibilityNodeInfo) -> Boolean) {
