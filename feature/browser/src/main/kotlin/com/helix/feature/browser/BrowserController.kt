@@ -129,8 +129,9 @@ class BrowserController(
         isIncognito: Boolean = false,
         originSessionId: String? = null,
     ): String? {
+        val previous = tabs.state().selectedId
         val id = tabs.tryNewTab(isIncognito, originSessionId) ?: return null
-        hosts.values.forEach { it.cancelDialogs() }
+        if (tabs.state().selectedId != previous) hosts.values.forEach { it.cancelDialogs() }
         publish()
         return id
     }

@@ -110,4 +110,8 @@
     <string name="browser_clear_cookies_effect">清除 Helix 浏览器中所有网站的 Cookie，可能使网站账号退出登录。</string>
     <string name="browser_clear_cache_effect">清除 Helix 内网页共用的资源缓存。不会清除 Cookie、网站存储或已保存文件；下次访问可能需要重新下载页面资源。</string>
     <string name="browser_clear_history_effect">清除浏览记录并关闭全部浏览器标签页。未提交的网页输入将丢失；书签和已保存文件保留。</string>
+    <string name="browser_task_page">任务页面</string>
+    <string name="browser_return_session">返回原会话</string>
+    <string name="browser_page_retired">页面已释放。重新打开只加载地址，不恢复表单输入或页面状态。</string>
+    <string name="browser_reopen_page">重新打开页面</string>
 </resources>

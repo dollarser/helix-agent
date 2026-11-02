@@ -19,6 +19,41 @@ import java.util.concurrent.TimeUnit
 
 @RunWith(AndroidJUnit4::class)
 class BrowserActivityLifecycleDeviceTest {
+    @Test fun taskPageKeepsManualSelectionAndRendersItsOwnPixelsWithoutActionReplay() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        lateinit var controller: BrowserController
+        lateinit var task: String
+        lateinit var manual: String
+        val created = mutableListOf<String>()
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity { activity ->
+                controller = (activity.application as HelixApplication).appContainer.browser
+            }
+            try {
+                scenario.onActivity {
+                    manual = controller.openTab("data:text/html,<body>USER_PAGE_UNCHANGED</body>").tabId
+                    created += manual
+                    task = controller.openTab(TASK_PAGE, "synthetic-browser-origin").tabId
+                    created += task
+                    assertEquals(manual, controller.state.value.selectedId)
+                }
+                awaitTaskPixels(controller, task)
+                scenario.recreate()
+                scenario.onActivity {
+                    assertEquals(manual, controller.state.value.selectedId)
+                    assertNull(controller.hostView(task))
+                    assertEquals("synthetic-browser-origin", controller.tab(task)!!.originSessionId)
+                    assertTrue(controller.navigateOutcome(task, TASK_PAGE) is BrowserNavResult.Started)
+                    assertEquals(manual, controller.state.value.selectedId)
+                }
+            } finally {
+                instrumentation.runOnMainSync {
+                    closeFixtureTabs(controller, created)
+                }
+            }
+        }
+    }
+
     @Test fun pageCallbacksRemainBoundAcrossHomeAndScreenOff() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         var id: String? = null
@@ -110,7 +145,42 @@ class BrowserActivityLifecycleDeviceTest {
         }
     }
 
+    private fun closeFixtureTabs(
+        controller: BrowserController,
+        created: List<String>,
+    ) {
+        created.reversed().forEach { id -> if (controller.tab(id) != null) controller.closeTab(id) }
+    }
+
+    private fun awaitTaskPixels(
+        controller: BrowserController,
+        task: String,
+    ) {
+        val deadline = android.os.SystemClock.elapsedRealtime() + 15_000
+        var painted = false
+        while (!painted && android.os.SystemClock.elapsedRealtime() < deadline) {
+            InstrumentationRegistry.getInstrumentation().runOnMainSync {
+                painted = hasTaskPixels(controller.capturePagePng(task))
+            }
+            if (!painted) Thread.sleep(100)
+        }
+        assertTrue("Unselected task must render its own actual page, not a blank or manual page", painted)
+    }
+
+    private fun hasTaskPixels(bytes: ByteArray?): Boolean {
+        if (bytes == null) return false
+        val image = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+        return try {
+            image.getPixel(image.width / 2, image.height / 2) == android.graphics.Color.rgb(19, 168, 156)
+        } finally {
+            image.recycle()
+        }
+    }
+
     companion object {
+        private const val TASK_PAGE =
+            "data:text/html,<html><body style='margin:0;background:rgb(19,168,156);height:100vh'>" +
+                "TASK_PAGE</body></html>"
         private const val PAGE = "data:text/html,<html><body>Activity recreation fixture</body></html>"
     }
 }

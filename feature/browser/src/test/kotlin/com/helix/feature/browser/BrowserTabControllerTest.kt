@@ -8,6 +8,49 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class BrowserTabControllerTest {
+    @Test fun taskTabsPreserveUserSelectionAndOriginalSessionAcrossPageRetirement() {
+        val controller = BrowserTabController()
+        val user = controller.newTab()
+        val task = controller.newTab(originSessionId = "original-session")
+        assertEquals(user, controller.state().selectedId)
+        assertEquals(
+            "original-session",
+            controller
+                .state()
+                .tabs
+                .last()
+                .originSessionId,
+        )
+        controller.releasePages()
+        assertEquals(user, controller.state().selectedId)
+        assertEquals(
+            "original-session",
+            controller
+                .state()
+                .tabs
+                .last()
+                .originSessionId,
+        )
+        controller.select(task)
+        controller.closeTab(task)
+        assertEquals(user, controller.state().selectedId)
+        assertNull(
+            controller
+                .state()
+                .tabs
+                .single()
+                .originSessionId,
+        )
+    }
+
+    @Test fun firstTaskCanSelectButLaterManualTabStillSelectsItself() {
+        val controller = BrowserTabController()
+        val task = controller.newTab(originSessionId = "session")
+        assertEquals(task, controller.state().selectedId)
+        val manual = controller.newTab()
+        assertEquals(manual, controller.state().selectedId)
+    }
+
     @Test fun platformUnknownErrorAfterExplicitStopPreservesTheStoppedPage() {
         val controller = BrowserTabController()
         val id = controller.newTab()

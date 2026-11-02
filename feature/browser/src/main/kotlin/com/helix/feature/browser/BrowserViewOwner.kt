@@ -18,7 +18,22 @@ class BrowserViewOwner(
     internal fun create(
         listener: BrowserTabListener,
         canShowDialogs: () -> Boolean,
-    ): WebViewTabHost = WebViewTabHost(checkNotNull(activity), listener, canShowDialogs)
+    ): WebViewTabHost {
+        val current = checkNotNull(activity)
+        return WebViewTabHost(current, listener, canShowDialogs).also { host ->
+            // Tool-owned pages need a real viewport without selecting the user's browser tab.
+            val window = current.window.decorView
+            if (window.width > 0 && window.height > 0) {
+                host.webView.measure(
+                    android.view.View.MeasureSpec
+                        .makeMeasureSpec(window.width, android.view.View.MeasureSpec.EXACTLY),
+                    android.view.View.MeasureSpec
+                        .makeMeasureSpec(window.height, android.view.View.MeasureSpec.EXACTLY),
+                )
+                host.webView.layout(0, 0, window.width, window.height)
+            }
+        }
+    }
 
     internal fun pause() {
         resumed = false

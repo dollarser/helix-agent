@@ -58,7 +58,10 @@ import com.helix.feature.browser.engine.SearchEngines
 /** Browser navigation and page surface; data maintenance stays in the menu settings. */
 @Composable
 @Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod")
-fun BrowserScreen(controller: BrowserController) {
+fun BrowserScreen(
+    controller: BrowserController,
+    onOpenSession: ((String) -> Unit)? = null,
+) {
     val context = LocalContext.current
     val urlCopiedMessage = stringResource(R.string.browser_url_copied)
     val state by controller.state.collectAsStateWithLifecycle()
@@ -172,6 +175,21 @@ fun BrowserScreen(controller: BrowserController) {
                 },
             )
 
+            selected?.originSessionId?.let { origin ->
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(stringResource(R.string.browser_task_page), Modifier.weight(1f))
+                    if (onOpenSession != null) {
+                        TextButton(
+                            onClick = { onOpenSession(origin) },
+                            modifier = Modifier.testTag("browser-origin-session"),
+                        ) { Text(stringResource(R.string.browser_return_session)) }
+                    }
+                }
+            }
+
             if (suggestions.isNotEmpty()) {
                 OmniboxSuggestions(
                     suggestions = suggestions,
@@ -222,10 +240,13 @@ fun BrowserScreen(controller: BrowserController) {
                     }
 
                     else -> {
-                        Text(
-                            stringResource(R.string.browser_enter_address),
-                            Modifier.padding(16.dp),
-                        )
+                        Column(Modifier.padding(16.dp)) {
+                            Text(stringResource(R.string.browser_page_retired))
+                            TextButton(
+                                onClick = { controller.navigate(selected.id, selected.url) },
+                                modifier = Modifier.testTag("browser-reopen-page"),
+                            ) { Text(stringResource(R.string.browser_reopen_page)) }
+                        }
                     }
                 }
             }

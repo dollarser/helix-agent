@@ -81,7 +81,7 @@ class BrowserTabController(
         originSessionId: String? = null,
     ): String? = if (state.tabs.size < maxTabs) newTab(isIncognito, originSessionId) else null
 
-    /** Creates a blank tab, selects it, and returns its id. Fails at [maxTabs]. */
+    /** Manual tabs select themselves; task tabs preserve an existing user selection. */
     fun newTab(
         isIncognito: Boolean = false,
         originSessionId: String? = null,
@@ -91,7 +91,7 @@ class BrowserTabController(
         state =
             state.copy(
                 tabs = state.tabs + BrowserTab(id, isIncognito = isIncognito, originSessionId = originSessionId),
-                selectedId = id,
+                selectedId = if (originSessionId == null || state.selectedId == null) id else state.selectedId,
             )
         return id
     }

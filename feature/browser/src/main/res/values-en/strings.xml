@@ -110,4 +110,8 @@
     <string name="browser_clear_cookies_effect">Remove cookies for all sites in the Helix browser. This may sign you out of websites.</string>
     <string name="browser_clear_cache_effect">Remove the web resource cache shared within Helix. Cookies, site storage, and saved files stay intact; pages may download resources again.</string>
     <string name="browser_clear_history_effect">Remove browsing history and close all browser tabs. Unsubmitted page input will be lost; bookmarks and saved files stay intact.</string>
+    <string name="browser_task_page">Task page</string>
+    <string name="browser_return_session">Return to conversation</string>
+    <string name="browser_page_retired">The page was released. Reopening loads its address; form input and page state are not restored.</string>
+    <string name="browser_reopen_page">Reopen page</string>
 </resources>

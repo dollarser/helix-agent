@@ -1004,7 +1004,12 @@ private fun DestinationScreen(
 
         // HXA-060: the minimal hardened WebView browser.
         ShellDestination.Browser -> {
-            BrowserScreen(container.browser)
+            BrowserScreen(container.browser) { sessionId ->
+                if (navController.currentBackStackEntry === sourceEntry) {
+                    container.chatService.openSession(sessionId)
+                    navController.openSectionFrom(sourceEntry, ShellDestination.Sessions.route)
+                }
+            }
         }
 
         ShellDestination.Terminal -> {
