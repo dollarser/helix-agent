@@ -54,7 +54,11 @@ internal fun verifyProotDurableRecovery(
         assertNull(results.fetch(confirmed))
         assertEquals(confirmed, results.acknowledge(record))
         assertEquals(recovered.file, requireNotNull(recovery.recover("turn", "call", true)).file)
-        assertEquals(1, storage.artifacts.listBySession("session").size)
+        val artifacts = storage.artifacts.listBySession("session")
+        // One verified recovery archive and the explicit output file, without duplicate publication.
+        assertEquals(2, artifacts.size)
+        assertEquals(2, artifacts.map { it.relativePath }.distinct().size)
+        assertEquals("artifact\n", File(extracted, "output/out.txt").readText())
     } finally {
         storage.close()
         context.deleteDatabase(name)

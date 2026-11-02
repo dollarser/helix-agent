@@ -100,7 +100,8 @@ class ProotJobE2eDeviceTest {
                             listOf(
                                 "/bin/sh",
                                 "-c",
-                                "cat /workspace/in.txt > in.txt && echo artifact > out.txt && " +
+                                "cat /workspace/in.txt > in.txt && mkdir -p output && " +
+                                    "echo artifact > output/out.txt && " +
                                     "echo MAIN_APP_OUT && echo MAIN_APP_ERR >&2",
                             ),
                         ),
@@ -145,8 +146,9 @@ class ProotJobE2eDeviceTest {
                 extraction.manifest.entries
                     .map { it.path }
                     .toSet()
-            assertTrue("out.txt must be in the output", "out.txt" in paths)
-            assertEquals("artifact\n", File(extractedDir, "out.txt").readText())
+            assertTrue("explicit output/out.txt must be delivered", "output/out.txt" in paths)
+            assertFalse("input/intermediate must not be published", "in.txt" in paths)
+            assertEquals("artifact\n", File(extractedDir, "output/out.txt").readText())
             assertEquals("MAIN_APP_OUT\n", File(extractedDir, "stdout.txt").readText())
 
             verifyProotDurableRecovery(context, record)

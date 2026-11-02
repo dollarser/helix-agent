@@ -16,6 +16,7 @@ import com.helix.runtime.proot.ipc.ProotJobSpec
 import com.helix.runtime.proot.ipc.ProotJobState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Test
@@ -116,6 +117,15 @@ class ProotOwnerProcessKillDeviceTest {
             ).record
         assertTrue(terminal.state in setOf(ProotJobState.CANCELLED, ProotJobState.ORPHANED))
         assertNotNull(terminal.terminalCommit)
+        if (terminal.state == ProotJobState.ORPHANED) {
+            // Unknown physical exit is not an acknowledgement or permission to delete the original payload.
+            assertTrue(client.reconcile(original.jobId) is ProotJobClient.JobStateOutcome.Refused)
+            val retained = (client.query(original.jobId) as ProotJobClient.JobStateOutcome.Ok).record
+            assertEquals(terminal, retained)
+            assertNull(retained.reconciledAtEpochMs)
+            verifyStableRecovery(retained, final)
+            return
+        }
         val reconciled = (client.reconcile(original.jobId) as ProotJobClient.JobStateOutcome.Ok).record
         assertEquals(terminal.terminalCommit, reconciled.terminalCommit)
         assertEquals(original.inputManifestSha256, reconciled.inputManifestSha256)
@@ -123,10 +133,27 @@ class ProotOwnerProcessKillDeviceTest {
         assertEquals(original.createdAtEpochMs, reconciled.createdAtEpochMs)
         assertNotNull(reconciled.reconciledAtEpochMs)
         assertEquals(reconciled, (client.query(original.jobId) as ProotJobClient.JobStateOutcome.Ok).record)
+        verifyStableRecovery(reconciled, final)
+    }
+
+    private fun verifyStableRecovery(
+        record: com.helix.runtime.proot.ipc.ProotJobRecord,
+        final: Boolean,
+    ) {
+        val recovered = File(directory, "recovered.json")
+        if (final) {
+            assertEquals(ProotJobRecordCodec.parse(recovered.readText()), record)
+        } else {
+            recovered.writeText(ProotJobRecordCodec.encode(record))
+        }
         InstrumentationRegistry.getInstrumentation().sendStatus(
             2,
             Bundle().apply {
-                putString("stream", "PROOT_OWNER_RECOVERED state=${reconciled.state} job=${original.jobId}\n")
+                putString(
+                    "stream",
+                    "PROOT_OWNER_RECOVERED state=${record.state} job=${record.jobId};" +
+                        "acknowledged=${record.reconciledAtEpochMs != null}\n",
+                )
             },
         )
         if (final) assertTrue(directory.deleteRecursively())

@@ -219,6 +219,8 @@ class McpStdioJobBridge(
 
     private companion object {
         const val STDIN_PATH = "mcp/stdin.jsonl"
-        const val COMMAND_PROOF_PATH = "mcp/command.sha256"
+
+        // The snapshot archive exports explicit deliverables only, never arbitrary input files.
+        const val COMMAND_PROOF_PATH = "output/mcp/command.sha256"
     }
 }
