@@ -87,6 +87,7 @@ fun ChatScreen(
     var renameId by remember { mutableStateOf<String?>(null) }
     var directoryOpen by remember { mutableStateOf(false) }
     val sessionId = screen.openSessionId
+    var timelineDecorationVersion by remember(sessionId) { mutableStateOf(0) }
     androidx.lifecycle.compose.LifecycleResumeEffect(chatService) {
         val view = chatService.showConversation()
         onPauseOrDispose { view.close() }
@@ -646,8 +647,9 @@ fun ChatScreen(
                     )
                 },
                 turnArtifacts = { turnId ->
-                    TurnArtifactEntry(chatService, fileManager, turnId)
+                    TurnArtifactEntry(chatService, fileManager, turnId) { timelineDecorationVersion++ }
                 },
+                timelineDecorationVersion = timelineDecorationVersion,
                 taskPreparation = {
                     if (connectors != null && sessionId != null) {
                         PhoneTaskPreparation(connectors) {

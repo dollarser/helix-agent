@@ -24,11 +24,18 @@ internal fun TurnArtifactEntry(
     service: ChatService,
     fileManager: FileManagerService?,
     turnId: String,
+    onContentChanged: () -> Unit = {},
 ) {
     if (fileManager == null) return
     var rows by remember(turnId) { mutableStateOf(emptyList<ArtifactRowUi>()) }
     var open by rememberSaveable(turnId) { mutableStateOf(false) }
-    LaunchedEffect(turnId) { rows = service.taskArtifactsForTurn(turnId) }
+    LaunchedEffect(turnId) {
+        val current = service.taskArtifactsForTurn(turnId)
+        if (current != rows) {
+            rows = current
+            onContentChanged()
+        }
+    }
     if (rows.isEmpty()) return
     TextButton(onClick = { open = true }, modifier = Modifier.testTag("turn-artifacts-$turnId")) {
         Text(stringResource(R.string.tool_turn_artifacts, rows.size, rows.first().fileName))
