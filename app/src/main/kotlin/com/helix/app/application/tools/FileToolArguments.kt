@@ -29,6 +29,8 @@ internal object FileToolArguments {
             "code.linux.run",
             "code.linux.job.start",
             "skills.run",
+            "skills.preview",
+            "skills.install",
         )
     private val pathKeys = setOf("path", "source", "destination", "output", "workspace")
     private const val PATH_HELP =

@@ -13,6 +13,41 @@ import java.nio.file.Files
 
 class SkillInstallationServiceTest {
     @Test
+    fun ordinaryWorkspaceCreationNeedsNoAuthoringWizardAndIsImmediatelyDiscoverable() {
+        val root = Files.createTempDirectory("agent-skill-test-")
+        try {
+            val store = WorkspaceArtifactStore(ScopeRootResolver { root.resolve(it) })
+            store.ensureLayout("project")
+            val directory = root.resolve("project/.agents/skills/direct-created")
+            Files.createDirectories(directory.resolve("references"))
+            Files.createDirectories(directory.resolve("scripts"))
+            Files.writeString(
+                directory.resolve("SKILL.md"),
+                "---\nname: direct-created\ndescription: Fixture\n---\nInstructions",
+            )
+            Files.writeString(directory.resolve("references/guide.md"), "reference")
+            Files.writeString(directory.resolve("scripts/run.sh"), "touch must-not-run")
+            val importer = SkillImportService(root.resolve("staging"))
+            val author = SkillAuthoringService(store, importer, root.resolve("temporary"))
+            val repo = SkillRepository(root.resolve("snapshots"), root.resolve("state"), root.resolve("trash"))
+            val installer = SkillInstallationService(author, importer, repo, root.resolve("snapshots"))
+            val path = "scope:project:.agents/skills/direct-created"
+            val key = installer.install(path, author.preview(path).snapshotHash)
+            assertTrue(repo.list().any { it.key == key })
+            assertFalse(installer.isEnabled(key))
+            installer.enable(key)
+            assertTrue(repo.read(key).body.contains("Instructions"))
+            assertEquals("reference", repo.readResource(key, "references/guide.md").content)
+            assertFalse(Files.exists(directory.resolve("must-not-run")))
+            assertThrows(IllegalArgumentException::class.java) { author.preview("scope:project:.helix/internal") }
+        } finally {
+            Files.walk(root).use { paths ->
+                paths.sorted(Comparator.reverseOrder()).forEach { Files.deleteIfExists(it) }
+            }
+        }
+    }
+
+    @Test
     fun pickedZipInstallsTheReviewedManifest() {
         val root = Files.createTempDirectory("install-zip-test-")
         try {

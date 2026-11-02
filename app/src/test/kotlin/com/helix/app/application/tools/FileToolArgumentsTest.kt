@@ -10,6 +10,17 @@ import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class FileToolArgumentsTest {
+    @Test fun skillImportSourceIsFrozenBeforeApprovalWithoutChangingExpectedHash() {
+        for (tool in listOf("skills.preview", "skills.install")) {
+            val input = """{"path":".agents/skills/demo","expectedHash":"pinned"}"""
+            val bound = FileToolArguments.bindRequest(input, FileScopePath("first", "project"), tool)
+            val body = Json.parseToJsonElement(bound).jsonObject
+            assertEquals("scope:first:project/.agents/skills/demo", body.getValue("path").jsonPrimitive.content)
+            assertEquals("pinned", body.getValue("expectedHash").jsonPrimitive.content)
+            assertEquals(bound, FileToolArguments.bindRequest(bound, FileScopePath("other", "later"), tool))
+        }
+    }
+
     @Test fun skillWorkspaceIsFrozenWithoutRetargetingSnapshotIdentityOrScriptArguments() {
         val input = """{"source":"USER_IMPORTED","name":"demo","path":"scripts/run.py","args":["../literal",""]}"""
         val first = FileToolArguments.bindRequest(input, FileScopePath("first", "project"), "skills.run")

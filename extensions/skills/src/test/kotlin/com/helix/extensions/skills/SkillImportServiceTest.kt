@@ -18,6 +18,43 @@ import java.util.zip.ZipOutputStream
 
 class SkillImportServiceTest {
     @Test
+    fun `valid incoming skill name works for directory flat and revision archive sources`() {
+        val roots = roots()
+        val source = roots.source.resolve("incoming")
+        Files.createDirectories(source)
+        Files.writeString(source.resolve("SKILL.md"), manifest("incoming"))
+        val files = mapOf("SKILL.md" to manifest("incoming"))
+        val service = SkillImportService(roots.staging)
+        val staged =
+            listOf(
+                service.stageDirectory(source),
+                service.stageZip(zip(roots.source.resolve("flat.zip"), files)),
+                service.stageZip(zip(roots.source.resolve("revision.zip"), files.mapKeys { "repo-abc123/${it.key}" })),
+            )
+        assertTrue(staged.all { it.preview.name == "incoming" })
+        assertEquals(1, staged.map { it.preview.snapshotHash }.distinct().size)
+        staged.forEach { service.commit(it, roots.installed) }
+        assertTrue(Files.exists(source.resolve("SKILL.md")))
+    }
+
+    @Test
+    fun `public source revision wrapper retains the same pinned content as a flat archive`() {
+        val roots = roots()
+        val files = mapOf("SKILL.md" to manifest("source-skill"), "references/guide.md" to "synthetic guide")
+        val service = SkillImportService(roots.staging)
+        val flat = service.stageZip(zip(roots.source.resolve("flat.zip"), files))
+        val wrapped =
+            service.stageZip(
+                zip(roots.source.resolve("revision.zip"), files.mapKeys { "repository-abc123/${it.key}" }),
+            )
+        assertEquals("source-skill", wrapped.preview.name)
+        assertEquals(flat.preview.snapshotHash, wrapped.preview.snapshotHash)
+        assertEquals(flat.preview.files, wrapped.preview.files)
+        service.discard(flat)
+        service.discard(wrapped)
+    }
+
+    @Test
     fun `optional ZIP codecs are rejected before decoder linkage`() {
         for (method in listOf(20, 93, 95)) {
             val roots = roots()

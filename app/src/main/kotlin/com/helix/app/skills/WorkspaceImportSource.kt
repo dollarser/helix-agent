@@ -19,9 +19,7 @@ internal class WorkspaceImportSource(
         use: (Path) -> T,
     ): T {
         val source = FileScopePath.fromModelReference(reference)
-        require(
-            source.scopeId == "app" && source.relativePath.substringBefore('/') in setOf("input", "work", "output"),
-        ) {
+        require(source.relativePath.split('/').none { it == ".helix" }) {
             "IMPORT_WORKSPACE_SOURCE_REQUIRED"
         }
         Files.createDirectories(temporaryRoot)

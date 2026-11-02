@@ -68,6 +68,13 @@ class SessionToolEffectClassifier(
         }
         val name = descriptor.name.value
         return when (name) {
+            "skills.preview", "skills.install" -> {
+                val reads = fileFootprint(name, request.args, request.sessionId, readTool = true).footprint
+                val installation =
+                    if (name == "skills.install") setOf(OperationEffect.DEVICE_SYSTEM_MUTATION) else emptySet()
+                CallEffectClassification(reads.copy(undeterminedEffects = reads.undeterminedEffects + installation))
+            }
+
             LINUX_RUN, LINUX_JOB_START, "skills.run" -> {
                 linuxClassification(request.args)
             }

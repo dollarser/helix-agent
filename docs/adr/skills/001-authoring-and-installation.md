@@ -58,15 +58,15 @@ Mobile Use 的指南仍随所属插件交付，内容和资源接入上述统一
 
 ### Skill Creator（HXA-148）
 
-模型通过已有 scoped write/edit 在当前 Workspace 生成草稿目录，包含 SKILL.md 和实际需要的 references/assets/scripts；支持基于已固定旧快照创建新版本，不修改已安装快照。步骤为需求和触发场景、草稿生成、真实校验、用户预览、安装入口。用户可直接编辑草稿或在聊天中要求修改，失败显示可定位到文件/字段的错误。不得用尚未运行的脚本测试作为成功证据。
+模型通过已有 scoped write/edit 在当前 Workspace 生成草稿目录，包含 SKILL.md 和实际需要的 references/assets/scripts；支持基于已固定旧快照创建新版本，不修改已安装快照。按用户意图直接生成内容，随后通过真实校验和固定 hash 安装；普通文本创建不额外要求人工草稿确认。用户可直接编辑草稿或在聊天中要求修改，失败显示可定位到文件/字段的错误。不得用尚未运行的脚本测试作为成功证据。
 
-增加 `skills.preview`：只读取当前会话可访问的 Workspace 目录或 ZIP，复用 SkillImportService 校验，返回源 scope/相对路径、确定性内容 hash、文件清单/大小、依赖及诊断，不安装或启用。预览中维护的内部缓存不成为模型可指定的任意本机路径，也不构成授权。UI 提供“创建 Skill”和草稿预览入口；模型生成复用当前 Provider 与会话工具链，无隐藏网络调用。
+增加 `skills.preview`：只读取当前会话可访问的 Workspace 目录或 ZIP，复用 SkillImportService 校验，返回源 scope/相对路径、确定性内容 hash、文件清单/大小、依赖及诊断，不安装或启用。预览中维护的内部缓存不成为模型可指定的任意本机路径，也不构成授权。模型生成复用当前 Provider 与会话文件工具链；既有管理编辑器为可选入口，不是创建或使用的前置流程。
 
 ### Skill Installer（HXA-149）
 
 补齐架构已规划的 `skills.install`，LOCAL_MUTATION，经统一 Dispatcher/Policy 判定；需要确认时精确绑定 source scope、相对路径和预期内容 hash。执行时重新读取及校验，内容变化拒绝安装并要求刷新预览；不能把已批准旧内容替换成新内容。安装复用固定快照和 USER_IMPORTED 来源，默认禁用；已有相同快照保留用户既有状态。返回实际 SkillKey/hash 与安装结果，后续启用复用既有 skills.enable 或 UI，不把安装当作能力授权。
 
-第一版支持用户选取的目录/ZIP及当前 Workspace 草稿。公开远程来源先通过已有用户操作下载至本地再预览；不假设 http.fetch 的文本响应就是可安装 ZIP，不在本任务加入 Git credential、静默网络安装、自动市场更新或 Codex 专用路径。产品提示应明确可选来源和实际限制。
+支持现有目录/ZIP 导入、Agent 在已授权 Workspace 创建内容，以及按用户意图从 GitHub 等公开地址下载后安装。下载复用现有 browser.download，保留实际 URL、文件 SHA 与安装快照 hash；优先固定 commit/release，不能以仓库名或声明来源代替实际内容身份。单 Skill ZIP 可带仓库修订外层目录，按有效 manifest 名归一化；多 Skill 仓库先用现有文件解压工具选定目标目录，不猜测批量安装。http.fetch 的文本响应不是 ZIP。此流程不增加 Git credential、自动市场更新或安装脚本执行。
 
 ### MCP Installer（HXA-150）
 
@@ -77,7 +77,7 @@ Mobile Use 的指南仍随所属插件交付，内容和资源接入上述统一
 ### 共同执行与恢复契约
 
 - Scope/路径解析复用 Workspace 服务，拒绝越界、链接逃逸和导入期间内容替换；校验和执行使用同一份有界快照。所有新工具必须注册真实 descriptor/schema/风险/效果，不由 Skill 自声明放宽。
-- Preview 的 READ_ONLY 与 install 的 LOCAL_MUTATION 均走正常 Dispatcher；Plan 只能预览。安装有用户逐调用或已有有限精确批次批准，取消在产生持久副作用前检查。
+- Preview 的 READ_ONLY 与 install 的 LOCAL_MUTATION 均走正常 Dispatcher；Plan 只能预览。安装按现有会话授权和具体效果判定；无需另加人工向导。取消在产生持久副作用前检查。
 - 写入后取消或中断必须查询已确认安装结果；使用内容 hash/现有快照机制避免重复安装，不盲目重放。安装失败可保留未启用快照，按 [ADR-CONNECTORS-001](../connectors/001-portable-bundles.md) 明确提示，不宣称跨文件与数据库的原子事务。
 - 复用批准、审计、快照与安装后默认禁用语义；新增持久结构、依赖或执行能力须在对应任务明确设计和验收，不由安装动作隐式引入。
 - UI 用用户语言展示来源、内容变更、依赖和下一步，保留中英文、小屏大字体与无障碍。不能只增加三个提示词文件就标记功能完成。
@@ -151,3 +151,7 @@ Owner 根据单主循环与渐进披露调研要求减少可证实的重复开�
 Owner 授权补齐 Skill 脚本使用。`skills.scripts` 列举启用、可调用且完整 tree hash 未变化的快照脚本；`skills.read_resource` 可将 `scripts/` 作为有界数据读取。读取不执行，不把来源未知文件自动视为可信。Developer 的 `skills.run` 复用现有 Linux 执行器、会话授权、真实目录、取消、输出和产物；只支持明确识别的 `.py/.js/.mjs/.sh`，参数数组不做 shell 拼接。固定快照再次核验并由 Runtime 复制后核对同一 hash；资源位于 `/tmp/skill`，工作区不因此复制，源快照无写回。Standard 仍可发现/读脚本，不能宣称未装载的 Linux 运行器可执行。
 
 可选 `scripts/manifest.json` 是声明数据，格式为 `{"scripts":{"scripts/example.py":{"commands":["git"],"python":["json"],"node":["package-name"]}}}`。清单显示 `not_probed`；运行前以实际 PATH、Python 模块与 Node resolve 探测，缺失输出 `missing` 并失败，不自动安装；该字段不是完整依赖求解、权限声明或执行许可。用户 Skill 启停与显式激活契约保留，模型仍须通过正常工具授权。工具桥需独立用户开关及调用参数，不因启用 Skill 而打开。
+
+## Decision history — 2026-11-02：Agent 创建与公开来源安装
+
+Owner 将本轮任务 Skill 草稿按钮方案替换为 Agent 直接创建、已有 Skill 导入和公开来源下载安装。删除本轮新增的任务专用编辑确认链路；复用 scoped 文件工具、preview/install、统一 Repository 和 enable/read/run，不新增注册表、执行器或权限策略。preview/install 的相对源路径在原请求中固定，源读取保留 Workspace/External 效果分类；当前工作目录不等于全部授权边界。安装校验后立即注册准确快照，按用户请求通过既有启用工具进入发现与调用；安装本身不运行脚本、不授予能力。普通文本创建不新增确认，未知软件的安装或执行仍由现有授权与具体风险处理。路径包含性、符号链接、ZIP 多根/越界/大小限制与 hash-pinned 内容检查继续生效。合成入口验收不等同任意 GitHub 仓库兼容或真实模型效果。

@@ -58,18 +58,24 @@ object BuiltInSkills {
             "skill-installer" to
                 skill(
                     "skill-installer",
-                    "Install a local Skill directory or ZIP, or update a Skill from a reviewed Workspace draft.",
+                    "Install a Skill from an authorized workspace, imported ZIP or user-requested public source.",
                     """
                 # Skill Installer
-                Use an existing app Workspace source. External archives must first be imported using the file picker.
+                Use the authorized source directory or ZIP in the current workspace; a file picker is optional, not a prerequisite.
+                For a requested GitHub/public source, resolve its actual revision and use available http.fetch/browser.download tools.
+                Prefer an immutable commit/release URL; retain the actual download URL and SHA-256 from the tool result.
+                A single-Skill ZIP may have a repository/commit wrapper. For multi-Skill repositories use files.extract
+                and select the requested Skill directory; never choose an arbitrary first Skill or execute install scripts.
                 Call skills.preview, inspect all files, compatibility and declared tools, and explain the source and hash.
                 Call skills.install with the exact path and expectedHash. Normal host approval decides the effect.
                 If content changed, preview again; do not substitute a new hash into an old approval.
                 Record source, name and snapshotHash from the actual installed result. New snapshots are disabled.
-                Offer explicit enablement using skills.enable and its actual SkillKey, then skills.read to verify use.
+                When the user requests it to be usable, call skills.enable with the actual SkillKey and requested scope,
+                then skills.read to verify discovery and loading. Use the normal authorization path, not a separate manual wizard.
                 The host binds the calling session; omit sessionId on list/read/read_resource.
                 For an interrupted result, query skills.list for the exact hash before proposing any retry.
-                Do not download silently, run bundled scripts, import credentials, or change installed snapshot files.
+                Do not fetch unrelated sources, execute bundled scripts during installation, import credentials or mutate snapshots.
+                Unknown software/source installation or execution needs its concrete risk review; plain text creation does not.
                 """,
                 ),
             "skill-creator" to
@@ -87,7 +93,9 @@ object BuiltInSkills {
                 Tool names are discovery hints; use only current exposed schemas. Never invent scope or session IDs.
                 Source scripts are data until executed through an available tool and its normal approval.
                 Use skills.preview with the exact scope path. Resolve validation errors and inspect the file manifest.
-                Preserve the returned hash for the installation review. Preview success does not mean installed.
+                Complete a requested usable Skill by skills.install with the returned hash, then verify skills.list.
+                Enable/read it in the requested scope through normal tools when use is requested.
+                Ordinary text creation has no extra manual drafting approval. Preview alone is not installation or discovery.
                 Existing snapshots are immutable: create a new draft and compare before proposing an update.
                 Test representative inputs and failure cases; report any scripts or external services not tested.
                 Never copy credentials, source-host enablement or grants into the draft.

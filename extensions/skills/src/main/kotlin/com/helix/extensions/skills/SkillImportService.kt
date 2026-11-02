@@ -46,7 +46,7 @@ class SkillImportService(
     fun stageZip(zipPath: Path): StagedSkillImport {
         if (!Files.isRegularFile(zipPath) || Files.isSymbolicLink(zipPath)) invalid("ZIP must be a regular file")
         if (Files.size(zipPath) > limits.maxArchiveBytes) invalid("ZIP exceeds the archive size limit")
-        return stage { destination -> extractZip(zipPath, destination) }
+        return stage(archiveWrapper = true) { destination -> extractZip(zipPath, destination) }
     }
 
     fun commit(
@@ -100,7 +100,10 @@ class SkillImportService(
         deleteTree(staged.stagingDirectory)
     }
 
-    private fun stage(populate: (Path) -> Unit): StagedSkillImport {
+    private fun stage(
+        archiveWrapper: Boolean = false,
+        populate: (Path) -> Unit,
+    ): StagedSkillImport {
         val stagingDirectory = Files.createTempDirectory(stagingRoot, STAGING_PREFIX)
         val provisional = stagingDirectory.resolve(PROVISIONAL_DIRECTORY)
         Files.createDirectory(provisional)
@@ -108,7 +111,7 @@ class SkillImportService(
             populate(provisional)
             val manifest = locateManifestRoot(provisional)
             val document =
-                if (manifest == provisional) {
+                if (manifest == provisional || archiveWrapper) {
                     SkillLoader().loadUnmatchedDirectory(manifest, SkillSource.USER_IMPORTED)
                 } else {
                     SkillLoader().load(manifest, SkillSource.USER_IMPORTED)
@@ -367,7 +370,9 @@ class SkillImportService(
 
     companion object {
         private const val STAGING_PREFIX = ".skill-stage-"
-        private const val PROVISIONAL_DIRECTORY = "incoming"
+
+        // A dot-prefixed staging name cannot collide with a valid Skill name.
+        private const val PROVISIONAL_DIRECTORY = ".incoming"
         private const val COPY_BUFFER_SIZE = 16 * 1024
         private const val UNIX_FILE_TYPE_MASK = 0xF000
         private const val UNIX_REGULAR_FILE = 0x8000

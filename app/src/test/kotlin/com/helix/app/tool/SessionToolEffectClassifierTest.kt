@@ -28,6 +28,26 @@ import kotlin.time.Duration.Companion.seconds
  * the absence of a remote write.
  */
 class SessionToolEffectClassifierTest {
+    @Test fun skillImportKeepsExternalReadAndInstallationEffectsSeparate() {
+        val classifier = SessionToolEffectClassifier { "scope:ws:project" }
+        for (name in listOf("skills.preview", "skills.install")) {
+            val tool = descriptor(name)
+            val local =
+                classifier
+                    .classify(
+                        request("""{"path":"scope:ws:project/.agents/skills/demo"}"""),
+                        tool,
+                    ).footprint
+            val external = classifier.classify(request("""{"path":"scope:other:demo"}"""), tool).footprint
+            assertEquals(setOf(OperationEffect.FILE_READ_WORKSPACE), local.effects)
+            assertEquals(setOf(OperationEffect.FILE_READ_EXTERNAL), external.effects)
+            assertEquals(
+                if (name == "skills.install") setOf(OperationEffect.DEVICE_SYSTEM_MUTATION) else emptySet(),
+                external.undeterminedEffects,
+            )
+        }
+    }
+
     @Test fun nativeSearchDoesNotGrantExternalScope() {
         val classifier = SessionToolEffectClassifier { "scope:ws:project" }
         for (tool in listOf(
