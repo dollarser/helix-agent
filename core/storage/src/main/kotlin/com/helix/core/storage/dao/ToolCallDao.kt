@@ -47,7 +47,10 @@ interface ToolCallDao {
         "SELECT c.* FROM tool_calls c JOIN turns t ON t.id = c.turnId WHERE t.sessionId = :sessionId " +
             "AND NOT EXISTS (SELECT 1 FROM messages m WHERE m.turnId = t.id AND m.supersededBy IS NOT NULL) " +
             "AND ((:throughSequence = 9223372036854775807 AND " +
-            "(t.state NOT IN ('COMPLETED','FAILED','CANCELLED','INTERRUPTED') OR c.modelCallId IS NULL)) OR EXISTS " +
+            "(t.state NOT IN ('COMPLETED','FAILED','CANCELLED','INTERRUPTED') OR " +
+            "(c.modelCallId IS NULL AND (c.state IN " +
+            "('PENDING','RUNNING','AWAITING_APPROVAL','NEEDS_REVIEW','INTERRUPTED') OR " +
+            "NOT EXISTS (SELECT 1 FROM messages m WHERE m.turnId = t.id))))) OR EXISTS " +
             "(SELECT 1 FROM model_calls mc JOIN messages m ON m.id = mc.toolMessageId " +
             "WHERE mc.id = c.modelCallId AND m.sequence BETWEEN :fromSequence AND :throughSequence) OR " +
             "(c.modelCallId IS NULL AND EXISTS (SELECT 1 FROM messages m WHERE m.turnId = t.id " +

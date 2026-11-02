@@ -185,5 +185,22 @@ class SessionStorageQueriesTest(unittest.TestCase):
         self.assertEqual(["direct", "tool300"], [r["id"] for r in self.db.execute(sql, args)])
 
 
+    def test_settled_callback_turns_obey_window_but_review_and_direct_calls_remain(self):
+        for number, state in enumerate(("COMPLETED", "NEEDS_REVIEW", "RUNNING", "COMPLETED")):
+            identity = f"callback{number}"
+            parent_state = "RUNNING_TOOL" if state == "RUNNING" else "COMPLETED"
+            self.insert("turns", id=identity, sessionId="old", state=parent_state, startedAt=number)
+            self.message(f"anchor{number}", "old", number, turnId=identity)
+            self.insert("tool_calls", id=identity, turnId=identity, callId=identity, ordinal=0, state=state)
+        self.insert("turns", id="direct-parent", sessionId="old", state="COMPLETED", startedAt=4)
+        self.insert("tool_calls", id="direct", turnId="direct-parent", callId="direct", ordinal=0, state="COMPLETED")
+        sql = query("ToolCallDao", "recentBySession")
+        args = dict(sessionId="old", fromSequence=3, throughSequence=9223372036854775807, limit=200)
+        self.assertEqual({"callback1", "callback2", "callback3", "direct"},
+                         {row["id"] for row in self.db.execute(sql, args)})
+        args.update(throughSequence=3)
+        self.assertEqual(["callback3"], [row["id"] for row in self.db.execute(sql, args)])
+
+
 if __name__ == "__main__":
     unittest.main()
