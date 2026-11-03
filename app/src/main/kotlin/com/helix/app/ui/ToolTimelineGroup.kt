@@ -26,7 +26,7 @@ internal fun ToolTimelineGroup(
     val first = rows.first()
     var expanded by rememberSaveable(first.turnId, first.callId) { mutableStateOf(false) }
     val containsTarget = rows.any { it.callId == currentTarget }
-    LaunchedEffect(currentTarget) { if (containsTarget) expanded = true }
+    LaunchedEffect(currentTarget, containsTarget) { if (containsTarget) expanded = true }
     Column(Modifier.fillMaxWidth().testTag("tool-group-${first.callId}")) {
         TextButton(
             onClick = { expanded = !expanded },
@@ -34,9 +34,7 @@ internal fun ToolTimelineGroup(
         ) {
             Text(
                 stringResource(
-                    if (expanded ||
-                        containsTarget
-                    ) {
+                    if (expanded) {
                         R.string.tool_group_hide
                     } else {
                         R.string.tool_group_show

@@ -3,7 +3,7 @@
     <string name="subscription_setup_account">请先登录账号。</string>
     <string name="subscription_setup_connection">请测试连接。</string>
     <string name="subscription_setup_models">请选择会话中要使用的模型。</string>
-    <string name="subscription_setup_ready">所选模型已可在会话中选择；连接通过不代表所有模型能力均已验证。</string>
+    <string name="subscription_setup_ready">可在会话中选择这些模型。</string>
     <string name="subscription_setup_test_action">测试连接</string>
     <string name="model_picker_setup_action">前往模型管理</string>
     <string name="model_picker_needs_setup">%1$s · 尚未就绪</string>

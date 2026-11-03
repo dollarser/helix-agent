@@ -3,7 +3,7 @@ package com.helix.app.chat
 import com.helix.app.approval.ApprovalCardState
 import com.helix.core.model.ToolCallState
 
-/** Adjacent completed requests from one original model phase, preserving original call order. */
+/** Collapse adjacent settled calls within a Turn; visible messages and attention states remain boundaries. */
 internal fun groupCompletedTools(contents: List<ConversationContent>): List<ConversationContent> {
     val result = mutableListOf<ConversationContent>()
     val pending = mutableListOf<ConversationContent.Tool>()
@@ -24,9 +24,7 @@ internal fun groupCompletedTools(contents: List<ConversationContent>): List<Conv
                 row.card?.state != ApprovalCardState.PENDING && !toolHasUnsettledObservation(row)
         if (eligible) {
             val previous = pending.lastOrNull()?.value
-            if (previous != null &&
-                (previous.turnId != row.turnId || previous.position?.sequence != row.position.sequence)
-            ) {
+            if (previous != null && previous.turnId != row.turnId) {
                 flush()
             }
             pending += requireNotNull(tool)

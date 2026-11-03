@@ -9,11 +9,11 @@
     <string name="human_return_unconfirmed">Hand-back start is unconfirmed. Inspect this conversation and any pending confirmation. No automatic retry; use the composer for a new request.</string>
     <string name="stop_facts_title">Stop facts</string>
     <string name="stop_facts_verified">Verified tool effects: %1$s</string>
-    <string name="stop_facts_recorded">Recorded results, business outcome unverified: %1$s</string>
-    <string name="stop_facts_unknown">Dispatched or evidence incomplete, effects unknown: %1$s</string>
+    <string name="stop_facts_recorded">Recorded results: %1$s</string>
+    <string name="stop_facts_unknown">Unknown effects: %1$s</string>
     <string name="stop_facts_not_started">Not started: %1$s</string>
     <string name="stop_facts_artifacts">Registered output artifacts: %1$d</string>
-    <string name="stop_facts_boundary">Stopping is not rollback. Tool verification is not business completion; observe unknown effects before repeating actions.</string>
+    <string name="stop_facts_boundary">Stopping does not undo executed actions. Check unknown effects before continuing.</string>
     <string name="human_state_finished">You confirmed completion. No follow-up task started.</string>
     <string name="human_state_cancelled">Follow-up cancelled. No new task started.</string>
     <string name="human_state_submitted">Fresh hand-back input submitted; the original task remains stopped. No automatic replay.</string>

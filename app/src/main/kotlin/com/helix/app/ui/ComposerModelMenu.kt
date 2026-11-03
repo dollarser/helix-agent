@@ -247,10 +247,6 @@ internal fun ComposerModelMenu(
                                             ),
                                         )
                                     }
-                                    Text(
-                                        stringResource(R.string.builtin_model_catalog_notice),
-                                        style = MaterialTheme.typography.bodySmall,
-                                    )
                                     BuiltInCatalogFeedback(providers.firstOrNull { it.bundled })
                                 }
                             }

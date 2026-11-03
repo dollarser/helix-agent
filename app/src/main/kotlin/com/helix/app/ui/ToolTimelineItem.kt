@@ -128,9 +128,6 @@ private fun ToolTimelineDetails(
         style = MaterialTheme.typography.bodySmall,
         modifier = Modifier.testTag("tool-row-status-detail-${row.callId}"),
     )
-    if (row.state == com.helix.core.model.ToolCallState.COMPLETED) {
-        Text(stringResource(R.string.tool_execution_not_business), style = MaterialTheme.typography.bodySmall)
-    }
     ToolPayloadInspector(row, intents.onInspectToolResult)
     Text(
         stringResource(R.string.tool_call_id_detail, row.callId),
@@ -149,13 +146,15 @@ private fun ToolTimelineSummary(
 ) {
     val toggleLabel = stringResource(if (expanded) R.string.tool_details_hide else R.string.tool_details_show)
     val expandedState = stringResource(if (expanded) R.string.nav_expanded else R.string.nav_collapsed)
+    val routineComplete = row.state == com.helix.core.model.ToolCallState.COMPLETED && !toolHasUnsettledObservation(row)
     Row(
         Modifier
             .fillMaxWidth()
             .heightIn(min = 48.dp)
             .clickable(onClickLabel = toggleLabel, role = Role.Button, onClick = onToggle)
-            .semantics { stateDescription = expandedState }
-            .testTag("tool-details-${row.callId}"),
+            .semantics {
+                stateDescription = if (routineComplete) "$expandedState · ${row.stateLabel}" else expandedState
+            }.testTag("tool-details-${row.callId}"),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
@@ -217,17 +216,19 @@ private fun ToolTimelineHeading(row: com.helix.app.chat.ToolTimelineRow) {
                 ToolStateTone.NEUTRAL -> MaterialTheme.colorScheme.outline
             }
         Icon(painterResource(toolStateIcon(row.state)), null, tint = badgeColor, modifier = Modifier.size(16.dp))
-        Surface(
-            shape = RoundedCornerShape(4.dp),
-            color = badgeColor.copy(alpha = 0.12f),
-            modifier = Modifier.testTag("tool-row-state-${row.callId}"),
-        ) {
-            Text(
-                if (toolHasUnsettledObservation(row)) stringResource(R.string.tool_unsettled) else row.stateLabel,
-                style = MaterialTheme.typography.labelSmall,
-                color = badgeColor,
-                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-            )
+        if (row.state != com.helix.core.model.ToolCallState.COMPLETED || toolHasUnsettledObservation(row)) {
+            Surface(
+                shape = RoundedCornerShape(4.dp),
+                color = badgeColor.copy(alpha = 0.12f),
+                modifier = Modifier.testTag("tool-row-state-${row.callId}"),
+            ) {
+                Text(
+                    if (toolHasUnsettledObservation(row)) stringResource(R.string.tool_unsettled) else row.stateLabel,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = badgeColor,
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                )
+            }
         }
         RunningToolClock(row)
         row.durationMs?.let { duration ->

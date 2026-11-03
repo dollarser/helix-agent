@@ -1,15 +1,13 @@
 <resources>
-    <string name="tool_group_show">Show %1$d completed calls</string>
-    <string name="tool_group_hide">Hide %1$d completed calls</string>
-    <string name="tool_execution_not_business">Call completed; business outcome still needs verification</string>
+    <string name="tool_group_show">Show %1$d tool calls</string>
+    <string name="tool_group_hide">Hide %1$d tool calls</string>
     <string name="tool_inspector_open">Inspect arguments and result</string>
-    <string name="tool_inspector_scope">Arguments are redacted; result bodies and execution logs are separate. The current content scope is stated below.</string>
-    <string name="tool_observed_background">Last observed: background display · %1$s (not live connection status)</string>
-    <string name="tool_observed_main">Last observed: main display · %1$s (not live connection status)</string>
+    <string name="tool_observed_background">Observed: background display · %1$s</string>
+    <string name="tool_observed_main">Observed: main display · %1$s</string>
     <string name="tool_unsettled">UI still changing · effect unverified</string>
     <string name="tool_running_elapsed">Running for %1$d s</string>
     <string name="tool_turn_artifacts">%1$d artifacts · %2$s</string>
-    <string name="tool_inspector_full">Complete redacted result body loaded (execution logs are separate)</string>
-    <string name="tool_inspector_unavailable">Full body absent, over 1 MiB, or unreadable; summary shown below</string>
+    <string name="tool_inspector_full">Full result (redacted)</string>
+    <string name="tool_inspector_unavailable">Full result unavailable; showing summary</string>
     <string name="tool_inspector_loading">Reading original saved result…</string>
 </resources>

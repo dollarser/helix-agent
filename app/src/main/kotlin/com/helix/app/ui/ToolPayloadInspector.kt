@@ -89,7 +89,6 @@ internal fun ToolPayloadInspector(
             open = false
         }, scrollContent = false) {
             Column(Modifier.verticalScroll(rememberScrollState())) {
-                Text(stringResource(R.string.tool_inspector_scope))
                 Text(
                     stringResource(
                         if (complete?.result !=

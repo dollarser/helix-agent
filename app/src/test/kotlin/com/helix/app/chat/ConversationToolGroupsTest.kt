@@ -24,7 +24,7 @@ class ConversationToolGroupsTest {
         ),
     )
 
-    @Test fun preservesOrderAndBreaksAtMessagesPhasesAndUncertainCalls() {
+    @Test fun preservesOrderAcrossModelPhasesButBreaksAtVisibleMessagesAndUncertainCalls() {
         val message = ConversationContent.Message(MessageUi("answer", "assistant", "hello"), 2)
         val input =
             listOf(
@@ -38,13 +38,29 @@ class ConversationToolGroupsTest {
             )
         val grouped = groupCompletedTools(input)
         assertEquals(listOf("c0", "c1"), (grouped.first() as ConversationContent.ToolGroup).values.map { it.callId })
-        assertEquals(6, grouped.size)
+        assertEquals(5, grouped.size)
         assertTrue(grouped[1] is ConversationContent.Tool)
+        assertEquals(listOf("c3", "c4"), (grouped[2] as ConversationContent.ToolGroup).values.map { it.callId })
         val flattened =
             grouped.flatMap {
                 if (it is ConversationContent.ToolGroup) it.values.map(ConversationContent::Tool) else listOf(it)
             }
         assertEquals(input, flattened)
+    }
+
+    @Test fun normalOneCallPerResponseBecomesOneGroupWithoutCrossingTurnsOrActiveCalls() {
+        val first = tool("c0", phase = 2)
+        val second = tool("c1", phase = 5)
+        val running = tool("c2", phase = 8, state = ToolCallState.RUNNING)
+        val otherTurn = tool("c3", phase = 11).let { it.copy(value = it.value.copy(turnId = "another")) }
+        val grouped = groupCompletedTools(listOf(first, second, running, otherTurn))
+        assertEquals(listOf("c0", "c1"), (grouped.first() as ConversationContent.ToolGroup).values.map { it.callId })
+        assertEquals(listOf(running, otherTurn), grouped.drop(1))
+        val settled = running.copy(value = running.value.copy(state = ToolCallState.COMPLETED))
+        assertEquals(
+            3,
+            (groupCompletedTools(listOf(first, second, settled)).single() as ConversationContent.ToolGroup).values.size,
+        )
     }
 
     @Test fun unsettleDoesNotDisappearInsideCompletedGroupAndUnknownPositionsDoNotGroup() {

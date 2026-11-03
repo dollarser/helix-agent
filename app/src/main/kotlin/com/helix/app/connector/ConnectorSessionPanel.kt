@@ -184,11 +184,6 @@ fun ConnectorSessionPanel(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             if (state.title.isNotBlank()) Text(stringResource(R.string.plugin_session_name, state.title))
-            Text(
-                stringResource(R.string.connector_session_hint),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
             if (state.loading) {
                 Text(stringResource(R.string.tasks_commands_loading), Modifier.testTag("plugin-session-loading"))
             }
