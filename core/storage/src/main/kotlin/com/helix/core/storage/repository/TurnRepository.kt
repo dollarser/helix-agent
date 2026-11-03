@@ -57,6 +57,9 @@ class TurnRepository(
 
     fun byIds(ids: Collection<String>): List<TurnEntity> = ids.distinct().chunked(500).flatMap(dao::byIds)
 
+    fun backgroundMetadata(ids: Collection<String>): List<com.helix.core.storage.entity.BackgroundTurnMetadata> =
+        ids.distinct().chunked(500).flatMap(dao::backgroundMetadata)
+
     /** Unknown persisted states remain blockers and fail closed when interpreted by admission. */
     fun admissionBlockers(sessionId: String): List<TurnEntity> = dao.unsettled(sessionId, NON_BLOCKING_STATES)
 

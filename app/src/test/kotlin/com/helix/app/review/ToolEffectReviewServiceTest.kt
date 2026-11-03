@@ -260,6 +260,10 @@ class ToolEffectReviewServiceTest {
 
         override fun byIds(ids: List<String>): List<TurnEntity> = rows.values.filter { it.id in ids }
 
+        override fun backgroundMetadata(
+            ids: List<String>,
+        ): List<com.helix.core.storage.entity.BackgroundTurnMetadata> = error("Not used by this repository fixture")
+
         override fun unsettled(
             sessionId: String,
             settledStates: List<String>,

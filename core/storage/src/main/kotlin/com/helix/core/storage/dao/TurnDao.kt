@@ -54,6 +54,15 @@ interface TurnDao {
     fun byIds(ids: List<String>): List<TurnEntity>
 
     @Query(
+        "SELECT t.id AS turnId, s.title, b.runId, r.goalId, r.outcome AS goalOutcome, " +
+            "EXISTS(SELECT 1 FROM tool_calls c WHERE c.turnId = t.id AND c.state = 'AWAITING_APPROVAL') " +
+            "AS awaitingApproval FROM turns t JOIN sessions s ON s.id = t.sessionId " +
+            "LEFT JOIN goal_turn_bindings b ON b.turnId = t.id LEFT JOIN goal_runs r ON r.id = b.runId " +
+            "WHERE t.id IN (:ids)",
+    )
+    fun backgroundMetadata(ids: List<String>): List<com.helix.core.storage.entity.BackgroundTurnMetadata>
+
+    @Query(
         "SELECT * FROM turns WHERE sessionId = :sessionId AND state NOT IN (:settledStates) " +
             "ORDER BY startedAt ASC, rowid ASC",
     )

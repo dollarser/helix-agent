@@ -158,6 +158,50 @@ class BackgroundTaskStorageDeviceTest : ForegroundDeviceTestHost() {
             assertTrue(BackgroundTaskQuery(storage).read().any { it.id == "t-0" && it.canCollect })
         }
 
+    @Test fun taskMetadataBatchesPreserveApprovalGoalAndCollectionAcrossSessions() =
+        fixture { storage, coordinator, goal ->
+            storage.sessions.create("other", "Other", null, null, 1001)
+            repeat(505) { index ->
+                val turn = storage.turns.start("metadata-$index", if (index % 2 == 0) "s" else "other", index.toLong())
+                storage.turns.updateState(turn, TurnState.INTERRUPTED, 0, 2000, null)
+                if (index % 3 == 0) storage.turns.collectResult(turn.id, 2001)
+                storage.toolCalls.append(
+                    "call-$index",
+                    turn.id,
+                    "call-$index",
+                    "fixture.read",
+                    "1",
+                    """{"payload":"${"x".repeat(2048)}"}""",
+                    if (index % 5 == 0) "AWAITING_APPROVAL" else "COMPLETED",
+                )
+            }
+            val goalTurn = requireNotNull(coordinator.start(request(goal, "goal-metadata")))
+            goalTurn.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.CANCELLED, null))
+            val scoped = BackgroundTaskQuery(storage).read(setOf("s", "other"))
+            assertEquals(506, scoped.size)
+            scoped.filter { it.id.startsWith("metadata-") }.forEach { row ->
+                val index = row.id.removePrefix("metadata-").toInt()
+                assertEquals(index % 5 == 0, row.awaitingApproval)
+                assertEquals(index % 3 == 0, row.collected)
+                assertEquals(if (index % 2 == 0) "Fixture" else "Other", row.title)
+                assertNull(row.goalId)
+            }
+            assertEquals(goal, scoped.single { it.id == "goal-metadata" }.goalId)
+            val binding = requireNotNull(storage.goalTurnBindings.byTurn("goal-metadata"))
+            assertEquals(
+                storage.goalRuns.resolve(binding.runId).outcome,
+                scoped.single { it.id == "goal-metadata" }.outcome,
+            )
+            assertEquals(
+                listOf("other"),
+                BackgroundTaskQuery(storage)
+                    .read(setOf("other"))
+                    .map { it.sessionId }
+                    .distinct(),
+            )
+            assertTrue(BackgroundTaskQuery(storage).read(emptySet()).isEmpty())
+        }
+
     @Test fun taskAndGoalSnapshotsStayConsistentDuringGoalDeletion() =
         fixture { storage, coordinator, _ ->
             val errors = java.util.concurrent.ConcurrentLinkedQueue<Throwable>()

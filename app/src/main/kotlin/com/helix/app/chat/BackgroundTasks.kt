@@ -1,6 +1,5 @@
 package com.helix.app.chat
 
-import com.helix.core.model.ToolCallState
 import com.helix.core.model.TurnState
 import com.helix.core.storage.HelixStorage
 
@@ -31,24 +30,28 @@ internal class BackgroundTaskQuery(
         return snapshot
     }
 
-    private fun readSnapshot(sessionIds: Set<String>?): List<BackgroundTaskUi> =
-        (sessionIds?.flatMap(storage.turns::listBySession) ?: (storage.turns.pendingTasks() + storage.turns.recent()))
-            .distinctBy { it.id }
-            .sortedByDescending { it.startedAt }
-            .map { turn ->
-                val binding = storage.goalTurnBindings.byTurn(turn.id)
-                val awaitingApproval =
-                    storage.toolCalls.listByTurn(turn.id).any { it.state == ToolCallState.AWAITING_APPROVAL.name }
-                BackgroundTaskUi(
-                    turn.id,
-                    turn.sessionId,
-                    storage.sessions.resolve(turn.sessionId).title,
-                    TurnState.valueOf(turn.state),
-                    binding?.let { storage.goalRuns.resolve(it.runId).goalId },
-                    turn.resultCollectedAt != null,
-                    turn.pauseRequestedAt != null,
-                    awaitingApproval,
-                    binding?.let { storage.goalRuns.resolve(it.runId).outcome },
-                )
-            }
+    private fun readSnapshot(sessionIds: Set<String>?): List<BackgroundTaskUi> {
+        val turns =
+            (
+                sessionIds?.flatMap(storage.turns::listBySession)
+                    ?: (storage.turns.pendingTasks() + storage.turns.recent())
+            ).distinctBy { it.id }
+                .sortedByDescending { it.startedAt }
+        val metadata = storage.turns.backgroundMetadata(turns.map { it.id }).associateBy { it.turnId }
+        return turns.map { turn ->
+            val facts = metadata.getValue(turn.id)
+            check(facts.runId == null || facts.goalId != null) { "Missing task Goal run" }
+            BackgroundTaskUi(
+                turn.id,
+                turn.sessionId,
+                facts.title,
+                TurnState.valueOf(turn.state),
+                facts.goalId,
+                turn.resultCollectedAt != null,
+                turn.pauseRequestedAt != null,
+                facts.awaitingApproval,
+                facts.goalOutcome,
+            )
+        }
+    }
 }

@@ -696,10 +696,7 @@ class ChatService(
             goalContinuation = goalContinuation,
             consumeQueueInput = { input -> consumeQueueInput(input) },
             submitContinuation = { command -> agentRuntime.submit(command) },
-            refreshProjection = {
-                refreshScreen()
-                refreshBackgroundTasks()
-            },
+            refreshProjection = ::refreshScreen,
             recoverInputs = { session ->
                 AutomaticInputRecovery(storage, clock, { validatedInput(it) != null }) {
                     str(R.string.session_input_recovery_ended)
