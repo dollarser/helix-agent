@@ -16,6 +16,8 @@ class SessionInputRepository internal constructor(
 ) {
     private val dao get() = database.sessionInputDao()
 
+    fun sessionsWithPending(): List<String> = transaction { dao.sessionsWithPending() }
+
     fun forMessage(messageId: String): SessionInputRecord? = transaction { dao.byMessage(messageId)?.record() }
 
     fun get(inputId: String): SessionInputRecord? = transaction { dao.byId(inputId)?.record() }

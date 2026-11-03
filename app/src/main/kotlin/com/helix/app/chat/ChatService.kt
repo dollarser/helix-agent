@@ -952,10 +952,7 @@ class ChatService(
             }
             refreshSessionsNow()
             refreshScreen()
-            storage.sessions
-                .list()
-                .filter { it.archivedAt == null }
-                .forEach { requestSessionDrain(it.id) }
+            storage.sessionInputs.sessionsWithPending().forEach(::requestSessionDrain)
         }
     }
 

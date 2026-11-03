@@ -71,6 +71,13 @@ interface SessionInputDao {
     )
     fun pendingCount(sessionId: String): Int
 
+    /** Startup wakes only durable pending work; settled history needs no empty drain. */
+    @Query(
+        "SELECT DISTINCT i.sessionId FROM session_inputs i JOIN sessions s ON s.id = i.sessionId " +
+            "WHERE s.archivedAt IS NULL AND i.state IN ('PENDING','NEEDS_ATTENTION') ORDER BY i.sessionId",
+    )
+    fun sessionsWithPending(): List<String>
+
     @Query(
         "SELECT COALESCE(SUM(textBytes + referenceContentBytes + " +
             "CASE WHEN skillActivationsJson = '[]' THEN 0 ELSE LENGTH(CAST(skillActivationsJson AS BLOB)) END + " +

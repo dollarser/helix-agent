@@ -50,6 +50,31 @@ class AutomaticRecoveryPersistenceDeviceTest {
             }
         }
 
+    @Test fun startupWakeCandidatesKeepPendingAndParkedInputsWithoutWakingSettledOrArchivedHistory() =
+        runBlocking {
+            withStorage { storage ->
+                assertTrue(storage.sessionInputs.sessionsWithPending().isEmpty())
+                for (id in listOf("parked", "withdrawn", "failed", "archived", "empty")) {
+                    storage.sessions.create(id, "Synthetic $id", null, null, 0)
+                }
+                for (id in listOf("session", "parked", "withdrawn", "failed", "archived")) {
+                    storage.sessionInputs.accept(input().copy(inputId = "$id-input", sessionId = id))
+                }
+                storage.sessionInputs.accept(input().copy(inputId = "second-input"))
+                storage.sessionInputs.parkSessionInputs("parked", "PROCESS_INTERRUPTED", 2)
+                assertTrue(storage.sessionInputs.withdrawPending("withdrawn-input", 0, 2))
+                assertTrue(storage.sessionInputs.failPending("failed-input", 0, "SYNTHETIC_FAILURE", 2))
+                storage.sessions.archive("archived", 2)
+                assertEquals(listOf("parked", "session"), storage.sessionInputs.sessionsWithPending())
+                storage.sessions.restore("archived")
+                assertEquals(listOf("archived", "parked", "session"), storage.sessionInputs.sessionsWithPending())
+                storage.sessionInputs.parkSessionInputs("session", "USER_STOP", 3)
+                // Candidate selection does not grant execution: stopped and attention states stay parked.
+                assertEquals(listOf("archived", "parked", "session"), storage.sessionInputs.sessionsWithPending())
+                assertEquals(SessionInputState.NEEDS_ATTENTION, storage.sessionInputs.get("second-input")?.state)
+            }
+        }
+
     @Test fun userStopDoesNotReleaseParkedInputs() =
         runBlocking {
             withStorage { storage ->

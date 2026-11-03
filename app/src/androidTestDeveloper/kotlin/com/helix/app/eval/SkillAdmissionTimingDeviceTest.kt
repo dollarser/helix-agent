@@ -66,6 +66,26 @@ class SkillAdmissionTimingDeviceTest {
             val storeField = field(engine, "store")
             val originalStore = engine.store
             val times = ConcurrentHashMap<String, Long>()
+            val projectionEvents = java.util.concurrent.ConcurrentLinkedQueue<JSONObject>()
+            val scheduler =
+                (
+                    field(
+                        c.chatService,
+                        "sessionWorkScheduler\$delegate",
+                    ).get(c.chatService) as Lazy<*>
+                ).value!!
+            val projectionField = field(scheduler, "refreshProjection")
+
+            @Suppress("UNCHECKED_CAST")
+            val originalProjection = projectionField.get(scheduler) as () -> Unit
+            projectionField.set(scheduler, {
+                val start = now()
+                try {
+                    originalProjection()
+                } finally {
+                    projectionEvents.add(JSONObject().put("startAt", start).put("elapsedMs", now() - start))
+                }
+            })
             val rows = JSONArray()
             val samples = ConcurrentHashMap<String, Int>()
             val sampleEnabled = InstrumentationRegistry.getArguments().getString("helix.timing.sample") == "true"
@@ -123,6 +143,7 @@ class SkillAdmissionTimingDeviceTest {
                 ActivityScenario.launch(MainActivity::class.java).use {
                     repeat(iterations) { iteration ->
                         times.clear()
+                        projectionEvents.clear()
                         marker = "SYNTHETIC_ADMISSION_TIMING_${UUID.randomUUID()}"
                         val created = now()
                         val id =
@@ -171,6 +192,7 @@ class SkillAdmissionTimingDeviceTest {
                                     .put("case_ms", now() - started)
                                     .put("wire", "in-memory")
                             times.forEach { (key, value) -> row.put(key, value) }
+                            row.put("schedulerProjectionEvents", JSONArray(projectionEvents.toList()))
                             row.put(
                                 "submit_to_store_admit_ms",
                                 times.getValue("store_admit_at") -
@@ -202,6 +224,7 @@ class SkillAdmissionTimingDeviceTest {
                 sampler.shutdownNow()
                 contextField.set(core, originalContext)
                 storeField.set(engine, originalStore)
+                projectionField.set(scheduler, originalProjection)
                 if (safe) wireField.set(factory, originalWire)
                 c.profileStore.switchTo(profile)
                 if (previous == null) c.chatService.closeSession() else c.chatService.openSession(previous)
@@ -225,6 +248,7 @@ class SkillAdmissionTimingDeviceTest {
                         .put("candidateTurns", candidates)
                         .put("postTaskDiscovery", JSONArray(discovered))
                         .put("bootstrap", bootstrap)
+                        .put("postTaskReadCosts", readCosts(c))
                         .put("sampling", sampleEnabled)
                         .put(
                             "topStacks",
@@ -260,6 +284,33 @@ class SkillAdmissionTimingDeviceTest {
     }
 
     private fun now() = SystemClock.elapsedRealtime()
+
+    /** Run after the measured cases, never prewarm admission or interpret independent reads as additive. */
+    private fun readCosts(c: com.helix.app.AppContainer): JSONObject {
+        val costs = JSONObject()
+
+        fun <T> measure(
+            key: String,
+            block: () -> T,
+        ): T {
+            val started = now()
+            return block().also { costs.put(key, now() - started) }
+        }
+        val pending = measure("pendingTasksMs") { c.storage.turns.pendingTasks() }
+        val recent = measure("recentMs") { c.storage.turns.recent() }
+        val turns = (pending + recent).distinctBy { it.id }
+        measure("metadataMs") { c.storage.turns.backgroundMetadata(turns.map { it.id }) }
+        measure("wholeTaskQueryMs") {
+            com.helix.app.chat
+                .BackgroundTaskQuery(c.storage)
+                .read()
+        }
+        measure("backgroundJobsMs") {
+            com.helix.app.proot.ProotToolModule
+                .backgroundJobs(c.storage)
+        }
+        return costs.put("candidateTurns", turns.size)
+    }
 
     private fun field(
         owner: Any,
