@@ -8,13 +8,14 @@ import java.io.File
 import java.io.IOException
 import java.io.RandomAccessFile
 
-/** Test-only, persisted before-send quota shared by original and inspection requests. Never logs payloads. */
+/** Test-only persisted lifecycle guard; optional bounded mode exercises timeout regressions. Never logs payloads. */
 internal class OwnedModelRequestGate(
     private val file: File,
     private val marker: String,
     private val elapsed: () -> Long = SystemClock::elapsedRealtime,
     private val wall: () -> Long = System::currentTimeMillis,
     createNew: Boolean = false,
+    bounded: Boolean = true,
 ) {
     init {
         file.parentFile!!.mkdirs()
@@ -31,6 +32,7 @@ internal class OwnedModelRequestGate(
                     .put("wall", wall())
                     .put("count", 0)
                     .put("closed", false)
+                    .put("bounded", bounded)
             }
         }
     }
@@ -52,8 +54,11 @@ internal class OwnedModelRequestGate(
         mutate { state ->
             val age = elapsed() - state.getLong("started")
             val wallAge = wall() - state.getLong("wall")
-            if (state.getBoolean("closed") || state.getInt("count") >= 24) reject()
-            if (age !in 0 until 240_000 || wallAge !in 0 until 240_000) reject()
+            if (state.getBoolean("closed")) reject()
+            if (state.getBoolean("bounded")) {
+                if (state.getInt("count") >= 24) reject()
+                if (age !in 0 until 240_000 || wallAge !in 0 until 240_000) reject()
+            }
             state.put("count", state.getInt("count") + 1)
         }
     }

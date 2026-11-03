@@ -334,6 +334,20 @@ class SkillTimeoutOfflineDeviceTest {
         gate("deadline").admit(request)
         now += 240_000
         org.junit.Assert.assertThrows(java.io.IOException::class.java) { gate("deadline").admit(request) }
+        val unboundedFile = File(root, "unbounded")
+        OwnedModelRequestGate(
+            unboundedFile,
+            "SYNTHETIC_TIMEOUT_CASE",
+            { now },
+            { now },
+            createNew = true,
+            bounded = false,
+        )
+        now += 240_000
+        val unbounded = OwnedModelRequestGate(unboundedFile, "SYNTHETIC_TIMEOUT_CASE", { now }, { now })
+        repeat(25) { unbounded.admit(request) }
+        unbounded.close()
+        org.junit.Assert.assertThrows(java.io.IOException::class.java) { unbounded.admit(request) }
         gate("closed").close()
         org.junit.Assert.assertThrows(java.io.IOException::class.java) { gate("closed").admit(request) }
         org.junit.Assert.assertThrows(java.io.IOException::class.java) {
