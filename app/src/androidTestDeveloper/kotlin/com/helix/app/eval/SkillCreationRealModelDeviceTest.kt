@@ -18,6 +18,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -50,7 +51,8 @@ class SkillCreationRealModelDeviceTest {
                 .isEmpty(),
         )
         val provider = selectProvider(c, args.getString("helixProvider"))
-        val model = provider.conversationModels.first()
+        val model = com.helix.app.provider.BuiltInModel.MODEL_ID
+        check(model in provider.conversationModels)
         val trial = "skill-create-${UUID.randomUUID()}"
         val name = "created-${UUID.randomUUID()}"
         val previous = c.chatService.screen.value.openSessionId
@@ -77,16 +79,18 @@ class SkillCreationRealModelDeviceTest {
                 SessionPermissionConfig.of(SessionPermissionMode.FULL_ACCESS),
                 System.currentTimeMillis(),
             )
-            configureOwnedSession(c, session)
+            withTimeout(30_000) { configureOwnedSession(c, session) }
             val prompt =
                 """
                 Owner-authorized synthetic task, only this session workspace. Create a usable Skill named $name
                 directly using existing file tools in .agents/skills/$name (SKILL.md plus references/guide.md).
                 Description: copy a local challenge into a result. Its instructions must tell the caller to read
                 input/challenge.txt and write its exact content to output/skill-result.txt. Put a short explanation
-                in references/guide.md. Do not execute scripts or use a manual authoring UI.
+                in references/guide.md. Also create scripts/copy.py using only Python's pathlib to perform
+                that copy. Do not use a manual authoring UI.
                 Validate and install the exact content with existing Skill tools, enable for this session, verify
-                discovery, then actually read the installed Skill instructions and its reference and use it now.
+                discovery, then actually read the installed Skill instructions and its reference and use
+                skills.run to execute the installed scripts/copy.py now.
                 Verify output/skill-result.txt by reading it. No external downloads or accounts.
                 Finish with a concise result.
                 """.trimIndent()
@@ -129,6 +133,7 @@ class SkillCreationRealModelDeviceTest {
                     "skills.list",
                     "skills.read",
                     "skills.read_resource",
+                    "skills.run",
                 )
             for (tool in requiredTools) {
                 check(calls.any { it.name == tool && it.state == "COMPLETED" }) { "Missing actual completed $tool" }
@@ -140,10 +145,6 @@ class SkillCreationRealModelDeviceTest {
         } catch (error: Exception) {
             failure = "${error.javaClass.simpleName}: ${error.message}"
         } finally {
-            c.storage.turns
-                .listBySession(session)
-                .lastOrNull()
-                ?.let { c.chatService.stopTurn(it.id) }
             val evidence =
                 ClosedLoopCaseEvidence(
                     session,
@@ -155,6 +156,11 @@ class SkillCreationRealModelDeviceTest {
                     failure,
                 )
             saveClosedLoopEvidence(app, c, evidence)
+            c.storage.turns
+                .listBySession(session)
+                .lastOrNull()
+                ?.takeUnless { TurnState.valueOf(it.state).isTerminal }
+                ?.let { c.chatService.stopTurn(it.id) }
             c.profileStore.switchTo(profile)
             if (previous == null) c.chatService.closeSession() else c.chatService.openSession(previous)
         }
@@ -167,11 +173,23 @@ class SkillCreationRealModelDeviceTest {
     ) {
         val budgets = TurnBudgets(4096)
         c.chatService.openSession(session)
-        withTimeout(10_000) { c.chatService.screen.first { it.openSessionId == session } }
+        check(
+            withTimeoutOrNull(10_000) {
+                c.chatService.screen.first { it.openSessionId == session && !it.preparingDraft }
+            } != null,
+        ) { "Owned session did not open" }
         check(c.chatService.setModeFromComposer(session, AgentMode.ACT))
+        check(c.chatService.setImmediateMessages(session, false))
         c.chatService.setTurnBudgets(budgets)
-        withTimeout(10_000) {
-            c.chatService.runControl.first { it.mode == AgentMode.ACT && it.budgets == budgets }
+        check(
+            withTimeoutOrNull(10_000) {
+                c.chatService.runControl.first { it.mode == AgentMode.ACT && it.budgets == budgets }
+            } != null,
+        ) {
+            val stored = c.storage.sessionRunControls.forSession(session)
+            "Owned control timeout: live=${c.chatService.runControl.value.mode}/" +
+                "${c.chatService.runControl.value.budgets.maxOutputTokens}, " +
+                "stored=${stored?.mode}/${stored?.budgets?.maxOutputTokens}"
         }
         check(
             c.storage.sessionRunControls
@@ -186,7 +204,8 @@ class SkillCreationRealModelDeviceTest {
     ) = c.providerService.rows.value.firstOrNull { row ->
         val config = c.storage.providerConfigs.find(row.id)
         val endpoint = config?.endpoint.orEmpty()
-        (requested == null || row.id == requested) && row.chatSelectable &&
+        require(requested == com.helix.app.provider.BuiltInModel.PROVIDER_ID)
+        row.id == requested && row.chatSelectable &&
             row.conversationModels.isNotEmpty() && !endpoint.contains("127.0.0.1") &&
             !endpoint.contains("10.0.2.2") && !endpoint.contains("example.invalid")
     } ?: error("No existing selectable real model provider available")
