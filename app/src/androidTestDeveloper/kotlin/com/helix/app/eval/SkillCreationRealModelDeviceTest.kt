@@ -11,14 +11,12 @@ import com.helix.app.chat.ChatSubmissionOutcome
 import com.helix.core.model.AgentMode
 import com.helix.core.model.SafetyProfile
 import com.helix.core.model.SessionPermissionMode
-import com.helix.core.model.TurnBudgets
 import com.helix.core.model.TurnState
 import com.helix.core.policy.SessionPermissionConfig
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
-import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -205,31 +203,7 @@ class SkillCreationRealModelDeviceTest {
         c: com.helix.app.AppContainer,
         session: String,
     ) {
-        val budgets = TurnBudgets(4096)
-        c.chatService.openSession(session)
-        check(
-            withTimeoutOrNull(10_000) {
-                c.chatService.screen.first { it.openSessionId == session && !it.preparingDraft }
-            } != null,
-        ) { "Owned session did not open" }
-        check(c.chatService.setModeFromComposer(session, AgentMode.ACT))
-        check(c.chatService.setImmediateMessages(session, false))
-        c.chatService.setTurnBudgets(budgets)
-        check(
-            withTimeoutOrNull(10_000) {
-                c.chatService.runControl.first { it.mode == AgentMode.ACT && it.budgets == budgets }
-            } != null,
-        ) {
-            val stored = c.storage.sessionRunControls.forSession(session)
-            "Owned control timeout: live=${c.chatService.runControl.value.mode}/" +
-                "${c.chatService.runControl.value.budgets.maxOutputTokens}, " +
-                "stored=${stored?.mode}/${stored?.budgets?.maxOutputTokens}"
-        }
-        check(
-            c.storage.sessionRunControls
-                .forSession(session)
-                ?.budgets == budgets,
-        )
+        configureOwnedModelSession(c.storage, c.chatService, session, AgentMode.ACT)
     }
 
     private fun selectProvider(

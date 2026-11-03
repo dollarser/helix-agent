@@ -11,7 +11,6 @@ import com.helix.app.infrastructure.agent.RoomTurnLifecycleStore
 import com.helix.app.infrastructure.agent.TurnRecovery
 import com.helix.app.provider.BuiltInModel
 import com.helix.app.scheduled.ScheduledRuntimeFixture
-import com.helix.core.agent.GoalBudgetDefaults
 import com.helix.core.agent.turn.CancelTurnCommand
 import com.helix.core.model.AgentMode
 import com.helix.core.model.Capability
@@ -23,7 +22,6 @@ import com.helix.core.policy.CapabilityCenter
 import com.helix.core.policy.CapabilityGrant
 import com.helix.core.policy.CapabilityResolver
 import com.helix.core.storage.HelixStorage
-import com.helix.core.storage.repository.SessionRunControlRecord
 import com.helix.provider.api.wire.WireBody
 import com.helix.provider.api.wire.WireClient
 import com.helix.provider.api.wire.WireRequest
@@ -61,6 +59,8 @@ class SkillTimeoutOfflineDeviceTest {
             val session = storage.sessions.resolve(id)
             require(session.title == "Synthetic Agent Skill creation")
             require(session.providerId == "builtin-helix-qwen")
+            val control = storage.sessionRunControls.forSession(id)
+            facts.put("mode", control?.mode?.name).put("budget", control?.budgets?.maxOutputTokens)
             val lifecycle = RoomTurnLifecycleStore(storage, SystemClock(), { UUID.randomUUID().toString() })
             storage.turns.listBySession(id).forEach { turn ->
                 val models = storage.modelCalls.listByTurn(turn.id)
@@ -158,25 +158,7 @@ class SkillTimeoutOfflineDeviceTest {
                 retainStorage = true,
             ).use { fixture ->
                 fixture.ready()
-                fixture.storage.sessionRunControls.setForSession(
-                    "bound",
-                    SessionRunControlRecord(
-                        AgentMode.PLAN,
-                        true,
-                        TurnBudgets(4096),
-                        ReasoningEffort.OFF,
-                        GoalBudgetDefaults.VALUE,
-                    ),
-                    System.currentTimeMillis(),
-                )
-                fixture.chat.openSession("bound")
-                kotlinx.coroutines.withTimeout(10_000) {
-                    while (fixture.chat.screen.value.openSessionId != "bound" ||
-                        fixture.chat.runControl.value.budgets.maxOutputTokens != 4096L
-                    ) {
-                        kotlinx.coroutines.delay(20)
-                    }
-                }
+                configureOwnedModelSession(fixture.storage, fixture.chat, "bound", AgentMode.PLAN)
                 fixture.chat
                     .sendSubmission(
                         ChatSubmission(
