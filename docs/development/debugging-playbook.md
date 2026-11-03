@@ -121,3 +121,26 @@ Root/Shizuku依赖的UiAutomation与测试自己持有的UiAutomation可能竞�
 - 模型叙述、可见 UI、原 HTTP/SSE 输出、输出 schema、持久回填和下一请求各是不同证据；保留全部失败与未测条件，不由小样本推断 EOS 根因或普遍收益。
 
 具体夹具同步、返回帧、服务重连、输出契约及清理竞态案例在 [HXA-281 补验](../evidence/development/plugin-marketplace-device-model-2026-10-13.md)和 [HXA-282 证据](../evidence/development/external-mcp-market-and-model-2026-10-13.md)中，不将单次故障步骤升级成全仓强制流程。
+
+## Agent 日志分层与失败诊断
+
+排障按原 session/Turn/ModelCall/ToolCall 身份关联，不能把界面卡片或 logcat 尾部当成完整执行账本。
+
+| 层 | 保存内容与入口 | 留存/边界 |
+| --- | --- | --- |
+| 执行事实 | Room 的 Turn、模型调用、工具调用/结果、审批与恢复身份 | 持久事实；终态不证明业务成功，不因进程重启自动重放 |
+| 模型上下文 | prompt 指纹/分段来源、request manifest、usage/client observation、budget 事件 | 可定位实际模型消费与耗时；不额外复制整份 prompt 到诊断日志 |
+| 模型失败 | 同 ModelCall 的 `model.failure` 与 `model.automatic_retry` | 持久记录阶段、HTTP/流/网络分类、计数、重试决定；会话导出包含这些事件 |
+| 工具输出 | 原工具结果、命令日志/Job 的分页内容与原执行引用 | 输出、收取与 ACK 分开；截断/缺失不是空成功，不为读日志重新执行命令 |
+| 进程故障 | 设置中的诊断预览：最后任务、heartbeat、系统退出原因、异常类型/指纹及有界 cause/代码位置 | 崩溃同步保存后可跨重启查看；不含异常消息/源码路径；仅最近一次，不是全量系统日志 |
+| 当前系统输出 | 应用日志搜索读取当前 PID 的 logcat 快照 | 临时有界，可能被系统覆盖，不能代替持久任务诊断 |
+
+新模型失败至少判断：发生在连接、HTTP 还是流读取；HTTP 状态/响应类型；DNS/TLS/连接/超时；SSE/JSON/工具格式/缺失终止；是否已有内容或工具片段；原适配器可重试判断与最终策略；次数和等待时间。服务请求标识仅留 hash；未知服务错误保留 UNKNOWN，不把任意正文伪装成可信错误类别。HTTP 错误前缀最多读取 8 KiB，Retry-After 最长采用五分钟；等待可取消，不形成额外动作重放。错误输出与协议内容不进入普通系统日志。
+
+参考 [OpenAI Agents SDK tracing](https://openai.github.io/openai-agents-python/tracing/)、[LangSmith runs/traces/threads](https://docs.langchain.com/langsmith/observability-concepts)、[LangSmith 内容保护](https://docs.langchain.com/langsmith/mask-inputs-outputs) 和 [OpenTelemetry HTTP 语义](https://opentelemetry.io/docs/specs/semconv/http/http-spans/)，采用关联身份、阶段/错误和内容分离；不引入这些平台的远程导出、采样或新 SDK。现有 Room 不新增自动淘汰策略；会话删除/导出遵循原生命周期。历史仅含 PROTOCOL 的记录无法反推当时丢失的 HTTP/SSE 原因。
+
+模型请求准备阶段的配置校验继续 fail closed，不能用五次网络重试掩盖无效请求配置；托管运行时整体执行不在空推理重试范围。纯解码器的非法结构异常会转换为不可重试的结构错误，并立即停止读取；收集器、持久化、授权和副作用提交异常不在该捕获边界，不得伪装成可重试网络故障。
+
+`model.automatic_retry` 的 `phase=BACKOFF` 表示已安排等待，不证明下次 HTTP 请求已发出；取消可能在等待期间结束它。实际尝试次数需与模型调用的请求/结算和 client observation 一起核对，不能仅数安排重试事件。TLS/协议配置与账号身份错误不会按普通 IOException 重复请求；内置 401 的既有认证刷新与模型层重试分别计数。
+
+阶段名 `CONNECT` 指 `Wire.open`（含连接、提交请求和等待响应头），不是“请求尚未送出”的证明。`receivedBytes=0` 仅表示尚未收到响应正文；服务端可能已经收到请求。`elapsedMillis` 与 client observation 都是客户端观测，不等于服务端推理耗时。
