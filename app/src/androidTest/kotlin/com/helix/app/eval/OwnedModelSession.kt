@@ -16,9 +16,13 @@ internal suspend fun configureOwnedModelSession(
     chat: ChatService,
     session: String,
     mode: AgentMode,
+    timing: (String, Long) -> Unit = { _, _ -> },
 ) {
+    val seedStarted = android.os.SystemClock.elapsedRealtime()
     val record = SessionRunControlRecord(mode, true, TurnBudgets(4096), ReasoningEffort.OFF, GoalBudgetDefaults.VALUE)
     storage.sessionRunControls.setForSession(session, record, System.currentTimeMillis())
+    timing("run_control_persist_ms", android.os.SystemClock.elapsedRealtime() - seedStarted)
+    val switchStarted = android.os.SystemClock.elapsedRealtime()
     chat.openSession(session)
     withTimeout(10_000) {
         while (true) {
@@ -29,4 +33,5 @@ internal suspend fun configureOwnedModelSession(
         }
     }
     check(storage.sessionRunControls.forSession(session) == record)
+    timing("session_switch_ready_ms", android.os.SystemClock.elapsedRealtime() - switchStarted)
 }
