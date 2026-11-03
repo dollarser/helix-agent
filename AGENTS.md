@@ -54,6 +54,7 @@ Keep responsibilities distinct: this file holds global constraints; [documentati
 - Device status vocabulary: `not requested` = owner did not request device validation for this task; `pending` = owner requested it but the required run/condition is incomplete; `passed`/`failed` = checks actually executed in the current validation. `not requested` or `pending` is never a device pass.
 - Known owner-reported device failures are real defects and must be fixed/retested when relevant. If the owner explicitly makes device validation part of current acceptance, do not claim that acceptance until the requested checks pass or the remaining failure is reported.
 - Real external services/accounts/paid quotas remain opt-in and require explicit current authorization/profile inputs. Missing optional inputs may be reported as skipped; malformed supplied inputs must fail, not silently skip.
+- The owner authorizes on-demand use of this project's configured model services for development, debugging and testing, without artificial request-count or duration caps or per-request approval. Use existing service configuration; never expose credentials as model content. Preserve higher-priority security/authorization requirements and lifecycle cleanup, and report service failures truthfully.
 
 ## Repository and security hygiene
 
