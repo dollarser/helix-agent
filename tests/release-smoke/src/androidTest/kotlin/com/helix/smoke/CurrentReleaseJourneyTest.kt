@@ -59,6 +59,11 @@ class CurrentReleaseJourneyTest {
         } finally {
             automation.setRotation(UiAutomation.ROTATION_UNFREEZE)
         }
+        verifyPersistedResult()
+    }
+
+    internal fun verifyPersistedResult() {
+        assertEquals(0, ui.context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE)
         ui.restartTarget()
         ui.await(marker, timeoutMillis = 15_000)
         previewArtifact()
@@ -82,7 +87,11 @@ class CurrentReleaseJourneyTest {
 
     private fun openBrowser() {
         ui.activate("应用导航", "App navigation")
-        if (ui.node("浏览器", "Browser") == null) ui.activate("工具", "Tools")
+        if (ui.node("浏览器", "Browser") == null) {
+            ui.scrollTo("工具", "Tools")
+            ui.activate("工具", "Tools")
+        }
+        ui.scrollTo("浏览器", "Browser")
         ui.activate("浏览器", "Browser")
     }
 
@@ -95,10 +104,18 @@ class CurrentReleaseJourneyTest {
             if (label == null) SystemClock.sleep(100)
         }
         ui.activate(requireNotNull(label) { "No actual Turn artifact entry" })
+        ui.scrollTo("r8-current.txt")
         ui.activate("r8-current.txt")
         ui.await(expectedContent)
         ui.back()
         ui.back()
         ui.await(marker)
+    }
+}
+
+/** Host cover-installs the same-signature candidate before this check; never submits another task. */
+class CurrentReleaseUpgradeTest {
+    @Test fun verifiedConversationAndArtifactRemainAfterCoverInstall() {
+        CurrentReleaseJourneyTest().verifyPersistedResult()
     }
 }

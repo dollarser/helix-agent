@@ -137,10 +137,8 @@ internal class ReleaseUiTestSupport {
                     nodes().mapNotNull { it.text ?: it.contentDescription }.joinToString(" | ")
             }
             if (!scroll.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD)) {
-                check(node(*labels)?.isVisibleToUser == true) {
-                    "Scroll did not reveal ${labels.joinToString()}; " +
-                        nodes().mapNotNull { it.text ?: it.contentDescription }.joinToString(" | ")
-                }
+                // An IME/insets transition can change this viewport after the accepted action.
+                SystemClock.sleep(300)
             }
             SystemClock.sleep(300)
         }

@@ -2,6 +2,7 @@ package com.helix.app.ui
 
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.DrawerState
+import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
@@ -13,6 +14,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
@@ -40,6 +43,14 @@ internal fun AdaptiveHelixNavigation(
     val height = with(density) { window.height.toDp() }
     val permanent =
         permanentNavigation(width.value.toInt(), height.value.toInt(), density.fontScale)
+    val focus = LocalFocusManager.current
+    val keyboard = LocalSoftwareKeyboardController.current
+    LaunchedEffect(drawerState.targetValue, permanent) {
+        if (!permanent && drawerState.targetValue == DrawerValue.Open) {
+            focus.clearFocus(force = true)
+            keyboard?.hide()
+        }
+    }
     LaunchedEffect(permanent) { if (permanent) drawerState.close() }
     CompositionLocalProvider(LocalNavigationIsPermanent provides permanent) {
         if (permanent) {
