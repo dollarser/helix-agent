@@ -51,7 +51,8 @@ object SkillTools {
                 name = LIST,
                 description =
                     "List bounded Skill discovery metadata and enablement state; never loads " +
-                        "instructions or resources. The host supplies the current session; omit sessionId.",
+                        "instructions or resources. Uninstalled Workspace drafts are not listed. " +
+                        "The host supplies the current session; omit sessionId.",
                 inputSchema = schema(LIST_INPUT),
                 outputSchema = schema(LIST_OUTPUT),
                 operation = ToolOperationClass.READ_ONLY,
@@ -72,6 +73,7 @@ object SkillTools {
                 name = READ_RESOURCE,
                 description =
                     "Read one bounded reference, asset or script from an enabled, hash-pinned Skill snapshot. " +
+                        "Use the exact Skill-root path, including references/, assets/ or scripts/. " +
                         "The host supplies the current session; omit sessionId.",
                 inputSchema = schema(RESOURCE_INPUT),
                 outputSchema = schema(RESOURCE_OUTPUT),

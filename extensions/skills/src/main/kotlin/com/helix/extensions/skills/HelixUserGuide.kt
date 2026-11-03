@@ -42,14 +42,14 @@ internal object HelixUserGuide {
 
                 | Section | Topic and aliases | Resource |
                 |---|---|---|
-                | getting-started | install, first task, model setup, API key, sessions, history, rename, archive | sections/getting-started.md |
-                | channels | Standard, Advanced, consumer, developer, terminal, PRoot | sections/channels.md |
-                | permissions | approval, permissions, plan, stop, privacy | sections/permissions.md |
-                | mobile-use | phone control, accessibility, Shizuku, Root | sections/mobile-use.md |
-                | skills-connectors | Skill, plugin, MCP, connect account | sections/skills-connectors.md |
-                | files-memory | workspace, files, projects, memory | sections/files-memory.md |
-                | documents | PDF, Word, DOCX, document summary | sections/documents.md |
-                | troubleshooting | model connection, tool failure, runtime repair | sections/troubleshooting.md |
+                | getting-started | install, first task, model setup, API key, sessions, history, rename, archive | references/sections/getting-started.md |
+                | channels | Standard, Advanced, consumer, developer, terminal, PRoot | references/sections/channels.md |
+                | permissions | approval, permissions, plan, stop, privacy | references/sections/permissions.md |
+                | mobile-use | phone control, accessibility, Shizuku, Root | references/sections/mobile-use.md |
+                | skills-connectors | Skill, plugin, MCP, connect account | references/sections/skills-connectors.md |
+                | files-memory | workspace, files, projects, memory | references/sections/files-memory.md |
+                | documents | PDF, Word, DOCX, document summary | references/sections/documents.md |
+                | troubleshooting | model connection, tool failure, runtime repair | references/sections/troubleshooting.md |
                 """.trimIndent(),
             "references/sections/getting-started.md" to
                 """
@@ -92,6 +92,8 @@ internal object HelixUserGuide {
                 # Skills, plugins and MCP
 
                 Skills provide task-specific instructions and optional resources. Selecting or reading a Skill grants no tool permission. Plugins may contribute tools and UI; select only what the session needs. MCP connection setup is separate from installing a connector and selecting its tools.
+
+                A requested new Skill can be authored directly with scoped file tools: SKILL.md starts with YAML name and description, with optional references/assets/scripts. A Workspace draft is not yet registered: skills.preview returns its hash, and skills.install registers that exact source. skills.list lists registered snapshots, not draft directories; use the returned key to enable/read when requested. Installation does not execute scripts. Existing directories/ZIPs or user-requested public revisions use the same import and authorization path, without a mandatory manual authoring wizard.
 
                 Enter credentials only in the native connection form, never in chat, Skill files or tool arguments. Check the actual connection and enabled tools before relying on them. A help page cannot confirm current account authorization or remote service availability. Disconnecting may stop future calls but does not undo remote effects already completed.
                 """.trimIndent(),
@@ -147,9 +149,9 @@ internal object HelixUserGuide {
                             buildJsonObject {
                                 put("id", id)
                                 put("title", body.lineSequence().first().removePrefix("# "))
-                                put("path", path.removePrefix("references/"))
+                                put("path", path)
                                 put("status", "implemented")
-                                put("translations", buildJsonObject { put("zh-CN", "zh-CN/$id.md") })
+                                put("translations", buildJsonObject { put("zh-CN", "references/zh-CN/$id.md") })
                             },
                         )
                     }

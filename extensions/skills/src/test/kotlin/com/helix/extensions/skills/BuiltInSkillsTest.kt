@@ -15,6 +15,49 @@ import java.nio.file.Files
 
 class BuiltInSkillsTest {
     @Test
+    fun `help advertises exact resource arguments without caller prefix repair`() {
+        val root = Files.createTempDirectory("help-paths")
+        val repository = SkillRepository(root.resolve("snapshots"), root.resolve("state"), root.resolve("trash"))
+        val key = repository.list().single { it.key.name == "helix-docs" }.key
+        val manifest =
+            Json
+                .parseToJsonElement(
+                    repository.readResource(key, "references/manifest.json", "owned-session").content,
+                ).jsonObject
+        val advertised =
+            manifest
+                .getValue("sections")
+                .jsonArray
+                .flatMap { entry ->
+                    val section = entry.jsonObject
+                    listOf(
+                        section.getValue("path").jsonPrimitive.content,
+                        section
+                            .getValue("translations")
+                            .jsonObject
+                            .getValue("zh-CN")
+                            .jsonPrimitive.content,
+                    )
+                }.toSet()
+        val indexed =
+            listOf("references/index.md", "references/index.zh-CN.md")
+                .flatMap { index ->
+                    Regex("""\|\s*(references/[^|]+\.md)\s*\|""")
+                        .findAll(repository.readResource(key, index, "owned-session").content)
+                        .map { it.groupValues[1].trim() }
+                        .toList()
+                }.toSet()
+        assertEquals(advertised, indexed)
+        assertTrue(advertised.isNotEmpty())
+        advertised.forEach { path ->
+            assertTrue(path.startsWith("references/"))
+            val resource = repository.readResource(key, path, "owned-session")
+            assertEquals(path, resource.relativePath)
+            assertTrue(resource.content.isNotBlank())
+        }
+    }
+
+    @Test
     fun `help carries only supplied host facts and both language resources resolve`() {
         val identity = HelixHelpIdentity("preview-quote\"", 42, "developer", "com.helix.validation.help", false)
         val help = BuiltInSkills.documents(helpIdentity = identity).single { it.catalogEntry.name == "helix-docs" }
@@ -26,14 +69,14 @@ class BuiltInSkillsTest {
         assertEquals("false", manifest.getValue("debuggable").jsonPrimitive.content)
         manifest.getValue("sections").jsonArray.forEach { item ->
             val section = item.jsonObject
-            assertTrue(help.resources.containsKey("references/" + section.getValue("path").jsonPrimitive.content))
+            assertTrue(help.resources.containsKey(section.getValue("path").jsonPrimitive.content))
             val path =
                 section
                     .getValue("translations")
                     .jsonObject
                     .getValue("zh-CN")
                     .jsonPrimitive.content
-            val body = help.resources.getValue("references/$path")
+            val body = help.resources.getValue(path)
             assertTrue(body.startsWith("# "))
             assertTrue(help.resources.getValue("references/index.zh-CN.md").contains(path))
         }

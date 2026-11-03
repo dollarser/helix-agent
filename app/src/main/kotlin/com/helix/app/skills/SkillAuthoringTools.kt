@@ -29,7 +29,9 @@ internal object SkillAuthoringTools {
             ToolDescriptor(
                 name = ToolName("skills.preview"),
                 version = ToolVersion(1),
-                description = "Validate a Workspace Skill directory or ZIP and return its hash and file manifest.",
+                description =
+                    "Validate an authored or imported Workspace Skill directory/ZIP. " +
+                        "Return its hash and file manifest for skills.install; does not install or enable.",
                 inputSchema = Json.parseToJsonElement(INPUT).jsonObject,
                 outputSchema = Json.parseToJsonElement(OUTPUT).jsonObject,
                 operationClass = ToolOperationClass.READ_ONLY,

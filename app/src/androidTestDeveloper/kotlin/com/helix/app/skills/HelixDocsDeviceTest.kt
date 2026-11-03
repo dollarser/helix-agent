@@ -81,7 +81,7 @@ class HelixDocsDeviceTest {
         val sectionPath = channels.getValue("path").jsonPrimitive.content
         val index = readResource(source, name, snapshotHash, "references/index.md")
         assertTrue(index.contains("| channels |"))
-        val chapter = readResource(source, name, snapshotHash, "references/$sectionPath")
+        val chapter = readResource(source, name, snapshotHash, sectionPath)
         assertTrue(chapter.startsWith("# Channels and preview status"))
         assertTrue(chapter.contains("development preview"))
         val chinese = readResource(source, name, snapshotHash, "references/zh-CN/mobile-use.md")
