@@ -23,7 +23,11 @@ class BuiltInAccountWire(
             (request.method == "POST" && request.url == BuiltInModel.GENERATION_URL) ||
                 (request.method == "GET" && isBuiltInCatalogUrl(request.url) && request.body == null),
         )
-        if (account == null) throw java.io.IOException("Account sign-in required")
+        if (account == null) {
+            throw com.helix.provider.api.wire.WireRequestStateException(
+                com.helix.provider.api.wire.WireRequestStateException.Reason.SIGN_IN_REQUIRED,
+            )
+        }
         val wire =
             if (request.method ==
                 "POST"

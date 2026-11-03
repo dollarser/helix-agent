@@ -77,7 +77,7 @@ private fun RecoveryPanelFacts(panel: TurnRecoveryPanelUi) {
     val rows =
         listOfNotNull(
             summary.completedActions.takeIf { it.isNotEmpty() }?.let {
-                "recovery-completed-$turnId" to stringResource(R.string.recovery_completed, toolNames(it))
+                "recovery-completed-$turnId" to stringResource(R.string.recovery_completed, it.size)
             },
             summary.deniedActions.takeIf { it.isNotEmpty() }?.let {
                 "recovery-denied-$turnId" to stringResource(R.string.recovery_denied, toolNames(it))
@@ -87,10 +87,6 @@ private fun RecoveryPanelFacts(panel: TurnRecoveryPanelUi) {
             },
             summary.artifactIds.takeIf { it.isNotEmpty() }?.let {
                 "recovery-artifacts-$turnId" to stringResource(R.string.recovery_artifacts, it.size)
-            },
-            summary.nextOperation?.let {
-                "recovery-next-$turnId" to
-                    stringResource(R.string.recovery_next, operationLabel(it, summary.budgetContinuationEligible))
             },
         )
     reason?.takeUnless { panel.inlineNoticeShown }?.let { (text, isError) ->
@@ -211,38 +207,5 @@ private fun RecoveryButton(
         Text(stringResource(labelRes))
     }
 }
-
-@Composable
-private fun operationLabel(
-    operation: RecoveryOperation,
-    budgetContinuationEligible: Boolean,
-): String =
-    when (operation) {
-        RecoveryOperation.RECONNECT -> {
-            stringResource(R.string.recovery_btn_reconnect)
-        }
-
-        RecoveryOperation.QUERY_RESULT -> {
-            stringResource(R.string.recovery_btn_query)
-        }
-
-        RecoveryOperation.GRANT_PERMISSION -> {
-            stringResource(R.string.recovery_btn_grant)
-        }
-
-        RecoveryOperation.CONTINUE_GOAL -> {
-            stringResource(R.string.recovery_btn_continue)
-        }
-
-        RecoveryOperation.RETRY_NEW_CALL -> {
-            stringResource(
-                if (budgetContinuationEligible) {
-                    R.string.budget_continue
-                } else {
-                    R.string.chat_retry
-                },
-            )
-        }
-    }
 
 private fun toolNames(calls: List<ToolCallFact>): String = calls.joinToString(", ") { it.toolName }

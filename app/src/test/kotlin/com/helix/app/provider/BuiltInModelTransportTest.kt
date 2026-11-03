@@ -148,7 +148,7 @@ class BuiltInModelTransportTest {
             assertTrue(body.contains("\"tools\""))
         }
 
-    @Test fun errorsAreClassifiedWithoutRetryFallbackOrServerBodyExposure() =
+    @Test fun errorsKeepClassificationAndRetryEligibilityWithoutAdapterReplay() =
         runBlocking {
             val cases =
                 listOf(
@@ -172,7 +172,9 @@ class BuiltInModelTransportTest {
                     }, builtInWire = BuiltInAccountWire(testAccount(), local)).create(builtInConfig())
                 val event = fresh.stream(request).toList().single() as ModelEvent.Error
                 assertEquals(expected, event.code)
-                assertFalse(event.retryable)
+                assertEquals(status != 401, event.retryable)
+                assertEquals(status, event.diagnostic?.httpStatus)
+                assertFalse(event.diagnostic.toString().contains("private server diagnostic"))
                 assertEquals(before + (if (status == 401) 2 else 1), requests.size)
             }
         }
@@ -251,7 +253,17 @@ class BuiltInModelTransportTest {
             assertTrue(events.any { it is ModelEvent.ToolCallStarted })
             assertFalse(events.any { it is ModelEvent.Completed })
             assertFalse(events.any { it is ModelEvent.ToolCallFinished })
-            assertFalse(events.filterIsInstance<ModelEvent.Error>().single().retryable)
+            val stream =
+                com.helix.core.agent
+                    .ModelStreamState()
+            events.forEach { stream.apply(it) }
+            org.junit.Assert.assertNull(
+                com.helix.core.agent.ModelRecoveryPolicy.retryDelayMillis(
+                    provider.allowsEmptyInferenceRetry,
+                    0,
+                    stream,
+                ),
+            )
             assertEquals(1, requests.size)
         }
 

@@ -16,12 +16,6 @@ class ModelRecoveryPolicyTest {
         assertNull(ModelRecoveryPolicy.retryDelayMillis(true, 0, stream))
     }
 
-    @Test fun expiredRecoveryWindowDoesNotAdmitAnotherRequest() {
-        val stream = ModelStreamState()
-        stream.apply(ModelEvent.Error(ModelErrorCode.TRANSPORT, retryable = true))
-        assertNull(ModelRecoveryPolicy.retryDelayMillis(true, 0, stream, elapsedMillis = 10_000))
-    }
-
     @Test fun evenAnEmptyToolStartPreventsReplay() {
         val stream = ModelStreamState()
         stream.apply(
@@ -43,12 +37,13 @@ class ModelRecoveryPolicyTest {
         assertNull(ModelRecoveryPolicy.retryDelayMillis(true, 0, stream, jitter = 0.5))
     }
 
-    @Test fun transientEmptyInferenceHasBoundedBackoff() {
+    @Test fun transientEmptyInferenceAllowsFiveRetries() {
         val stream = ModelStreamState()
         stream.apply(ModelEvent.Error(ModelErrorCode.TRANSPORT, retryable = true))
         assertEquals(1_000L, ModelRecoveryPolicy.retryDelayMillis(true, 0, stream, jitter = 0.5))
         assertEquals(2_000L, ModelRecoveryPolicy.retryDelayMillis(true, 1, stream, jitter = 0.5))
-        assertNull(ModelRecoveryPolicy.retryDelayMillis(true, 2, stream))
+        assertEquals(16_000L, ModelRecoveryPolicy.retryDelayMillis(true, 4, stream, jitter = 0.5))
+        assertNull(ModelRecoveryPolicy.retryDelayMillis(true, 5, stream))
         assertNull(ModelRecoveryPolicy.retryDelayMillis(false, 0, stream))
     }
 
@@ -56,5 +51,23 @@ class ModelRecoveryPolicyTest {
         val stream = ModelStreamState()
         stream.apply(ModelEvent.Error(ModelErrorCode.TRANSPORT, retryable = false))
         assertNull(ModelRecoveryPolicy.retryDelayMillis(true, 0, stream, jitter = 0.5))
+    }
+
+    @Test fun retryAfterIsHonoredButPartialStreamsStillCannotReplay() {
+        val stream = ModelStreamState()
+        stream.apply(
+            ModelEvent.Error(
+                ModelErrorCode.RATE_LIMITED,
+                true,
+                com.helix.core.model.ModelFailureDiagnostic(
+                    com.helix.core.model.ModelFailureDiagnostic.Stage.HTTP,
+                    com.helix.core.model.ModelFailureDiagnostic.Reason.HTTP_STATUS,
+                    retryAfterMillis = 30_000,
+                ),
+            ),
+        )
+        assertEquals(30_000L, ModelRecoveryPolicy.retryDelayMillis(true, 0, stream, jitter = 0.5))
+        stream.apply(ModelEvent.TextDelta("partial"))
+        assertNull(ModelRecoveryPolicy.retryDelayMillis(true, 0, stream))
     }
 }

@@ -29,6 +29,8 @@ data class DiagnosticBundlePreview(
                     put("lastTurnState", process.lastTurnState?.let(::JsonPrimitive) ?: JsonNull)
                     put("crashType", process.crashType?.let(::JsonPrimitive) ?: JsonNull)
                     put("crashFingerprint", process.crashFingerprint?.let(::JsonPrimitive) ?: JsonNull)
+                    put("crashFrames", JsonArray(process.crashFrames.map(::JsonPrimitive)))
+                    put("crashAtMillis", process.crashAtMillis?.let(::JsonPrimitive) ?: JsonNull)
                 },
             )
             put(
@@ -69,6 +71,8 @@ data class DiagnosticBundlePreview(
                         lastTurnState = process.lastTurnState,
                         crashType = process.crashType,
                         crashFingerprint = process.crashFingerprint,
+                        crashFrames = process.crashFrames,
+                        crashAtMillis = process.crashAtMillis,
                     ),
                 exits =
                     store.recentExits().map {
@@ -87,6 +91,8 @@ data class DiagnosticProcessPreview(
     val lastTurnState: String?,
     val crashType: String?,
     val crashFingerprint: String?,
+    val crashFrames: List<String> = emptyList(),
+    val crashAtMillis: Long? = null,
 )
 
 data class DiagnosticExitPreview(

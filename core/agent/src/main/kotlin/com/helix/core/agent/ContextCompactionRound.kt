@@ -197,10 +197,8 @@ class ContextCompactionRound(
         journal: com.helix.core.agent.AgentTurnJournal,
         nextId: String,
     ): ModelStreamTerminal? {
-        val transientProviderFailure =
-            stream.retryableError && failure.errorCode in setOf("TRANSPORT", "TIMEOUT", "SERVER_ERROR")
         val recoverable =
-            (failure.errorCode in setOf("CONTEXT_NO_GAIN", "CONTEXT_SUMMARY_INVALID") || transientProviderFailure) &&
+            failure.errorCode in setOf("CONTEXT_NO_GAIN", "CONTEXT_SUMMARY_INVALID") &&
                 stream.finishedToolCalls.isEmpty() && failure.state != TurnState.CANCELLED
         if (manual || !recoverable) return failure
         currentCoroutineContext().ensureActive()

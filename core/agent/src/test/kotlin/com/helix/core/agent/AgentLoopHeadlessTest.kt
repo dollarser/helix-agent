@@ -31,7 +31,7 @@ class AgentLoopHeadlessTest {
             assertTrue(fixture.dispatched.isEmpty())
         }
 
-    @Test fun repeatedEmptyFailuresStopAtTheSharedHardRetryCap() =
+    @Test fun repeatedEmptyFailuresStopAfterFiveRetries() =
         runBlocking {
             val fixture =
                 HeadlessLoopFixture {
@@ -39,8 +39,8 @@ class AgentLoopHeadlessTest {
                 }.also { it.inferenceRecovery = true }
             val result = fixture.loop().runToolLoop("s", fixture.journal, "p", null, fixture.control)
             assertEquals(TurnLoopResult.Terminal(ModelStreamTerminal(TurnState.FAILED, "TRANSPORT")), result)
-            assertEquals(3, fixture.requests.size)
-            assertEquals(2, fixture.journal.log.count { it == "diagnostic:model.automatic_retry" })
+            assertEquals(6, fixture.requests.size)
+            assertEquals(5, fixture.journal.log.count { it == "diagnostic:model.automatic_retry" })
             assertTrue(fixture.dispatched.isEmpty())
         }
 

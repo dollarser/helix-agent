@@ -294,7 +294,6 @@
     <string name="chat_tool_result">Result: %1$s</string>
     <string name="chat_tool_row">Tool: %1$s</string>
     <string name="chat_tool_command_detail">Details</string>
-    <string name="chat_turn_failed">This request failed: %1$s</string>
     <string name="chat_unbound_provider">This session is not bound to a Provider.</string>
     <string name="chat_voice_button">Voice</string>
     <string name="chat_voice_unavailable">No system speech app was found. Helix offline recognition does not depend on this service.</string>
@@ -606,7 +605,7 @@
     <string name="tool_state_cancelled">Cancelled</string>
     <string name="tool_state_completed">Call completed</string>
     <string name="tool_state_denied">Denied</string>
-    <string name="tool_state_failed">Failed</string>
+    <string name="tool_state_failed">Tool execution failed</string>
     <string name="tool_failure_generic">Tool execution failed</string>
     <string name="tool_failure_mcp">MCP tool execution failed</string>
     <string name="tool_failure_a2a">A2A task execution failed</string>
@@ -1166,11 +1165,10 @@
     <string name="command_log_unavailable">Live output is unavailable. The preview is retained; command status and final results update separately.</string>
     <string name="recovery_reason_unknown">Execution was interrupted; the result is unknown. Reconcile only — it is never replayed.</string>
     <string name="recovery_reason_cancelled">Cancelled: it will not continue automatically.</string>
-    <string name="recovery_completed">Completed actions: %1$s</string>
+    <string name="recovery_completed">Retained %1$d tool results</string>
     <string name="recovery_denied">Refused actions: %1$s</string>
     <string name="recovery_pending">Side effects to verify: %1$s</string>
     <string name="recovery_artifacts">Available artifacts: %1$d</string>
-    <string name="recovery_next">Optional action: %1$s</string>
     <string name="recovery_btn_reconnect">Reconnect</string>
     <string name="recovery_btn_query">Query result</string>
     <string name="recovery_btn_grant">Grant permission</string>
@@ -1975,9 +1973,9 @@
     <string name="builtin_model_shared_limits">All users share service limits. Retry later when busy or quota is exhausted. Data retention and training policies have not been published.</string>
     <string name="builtin_model_unverified">The built-in model directory has not been fetched.</string>
     <string name="builtin_model_verified">Last connection test passed</string>
-    <string name="builtin_model_auth_error">Sign in to your Helix account, or sign in again if access has expired. Your account may not have access to this model.</string>
-    <string name="builtin_model_rate_limit">The built-in model hit a shared service limit, which may concern request rate, quota or concurrency. Retry manually later or select another model yourself.</string>
-    <string name="builtin_model_service_error">The built-in model is unreachable or its gateway is unavailable. Try again later.</string>
+    <string name="builtin_model_auth_error">Check your Helix sign-in and model access.</string>
+    <string name="builtin_model_rate_limit">Built-in service rate or quota limit. Try again later.</string>
+    <string name="builtin_model_service_error">Built-in model service unavailable. Try again later.</string>
     <string name="builtin_model_timeout">The built-in model response timed out. Try again later.</string>
     <string name="model_selection_settings_changed">Model or reasoning settings changed. Select again and save.</string>
     <string name="builtin_reasoning_contract_notice">Default uses the server’s reasoning setting; it does not turn reasoning off. This service’s actual behavior remains unverified.</string>

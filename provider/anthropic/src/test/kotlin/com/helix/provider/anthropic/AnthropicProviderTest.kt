@@ -168,7 +168,10 @@ class AnthropicProviderTest {
         runBlocking {
             val wire = FakeWire(WireResponse(401, emptyMap(), FakeBody("denied".toByteArray())))
             val events = provider(wire).stream(userRequest()).toList()
-            assertEquals(listOf<ModelEvent>(ModelEvent.Error(ModelErrorCode.AUTH, false)), events)
+            val failure = events.single() as ModelEvent.Error
+            assertEquals(ModelErrorCode.AUTH, failure.code)
+            assertEquals(false, failure.retryable)
+            org.junit.Assert.assertNotNull(failure.diagnostic)
         }
 
     @Test

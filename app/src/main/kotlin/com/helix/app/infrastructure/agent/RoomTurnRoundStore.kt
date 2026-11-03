@@ -68,7 +68,9 @@ internal class RoomTurnRoundStore(
         type: String,
         payload: String,
     ) {
-        if (type == "context.job_observations") {
+        if (type == com.helix.core.agent.ModelFailureDiagnostics.TYPE) {
+            require(payload.toByteArray().size <= com.helix.core.agent.ModelFailureDiagnostics.MAX_BYTES)
+        } else if (type == "context.job_observations") {
             require(payload.length <= 1024)
             val refs =
                 kotlinx.serialization.json.Json

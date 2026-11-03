@@ -25,6 +25,9 @@ class ModelStreamState(
     var retryableError: Boolean = false
         private set
 
+    var failureDiagnostic: com.helix.core.model.ModelFailureDiagnostic? = null
+        private set
+
     private var reportedUsage: String? = null
     private var clientObservation: ModelClientObservation? = null
     val usageJson: String?
@@ -128,6 +131,7 @@ class ModelStreamState(
             is ModelEvent.Error -> {
                 errorCode = event.code.name
                 retryableError = event.retryable
+                failureDiagnostic = event.diagnostic
             }
 
             is ModelEvent.ToolCallStarted -> {

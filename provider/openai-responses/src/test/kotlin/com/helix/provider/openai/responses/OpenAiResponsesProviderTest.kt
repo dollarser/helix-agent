@@ -208,16 +208,21 @@ class OpenAiResponsesProviderTest {
         runBlocking {
             val wire = FakeWire(WireResponse(401, emptyMap(), FakeBody("denied".toByteArray())))
             val events = provider(wire).stream(userRequest()).toList()
-            assertEquals(listOf<ModelEvent>(ModelEvent.Error(ModelErrorCode.AUTH, false)), events)
+            val failure = events.single() as ModelEvent.Error
+            assertEquals(ModelErrorCode.AUTH, failure.code)
+            assertEquals(false, failure.retryable)
+            org.junit.Assert.assertNotNull(failure.diagnostic)
         }
 
     @Test
     fun missingCredentialFailsClosed() {
         val wire = FakeWire(WireResponse(200, emptyMap(), FakeBody(ByteArray(0))))
         val p = provider(wire) { throw IllegalArgumentException("alias not found") }
-        assertThrows(IllegalArgumentException::class.java) {
-            runBlocking { p.stream(userRequest()).toList() }
-        }
+        val failure = runBlocking { p.stream(userRequest()).toList().single() as ModelEvent.Error }
+        assertEquals(ModelErrorCode.PROTOCOL, failure.code)
+        org.junit.Assert.assertFalse(failure.retryable)
+        assertEquals(com.helix.core.model.ModelFailureDiagnostic.Stage.CONFIGURATION, failure.diagnostic?.stage)
+        org.junit.Assert.assertTrue(wire.requests.isEmpty())
     }
 
     @Test

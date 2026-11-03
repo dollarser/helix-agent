@@ -359,10 +359,16 @@ class ChatService(
         turnId: String,
     ): String? =
         if (state == TurnState.FAILED && errorCode != null) {
-            str(
-                com.helix.app.provider.BuiltInModel
-                    .errorLabelForTurn(storage, turnId, errorCode)
-                    ?: labels.modelTerminalCodeRes(errorCode),
+            ModelFailureLabels.forTurn(
+                storage,
+                turnId,
+                errorCode,
+                str(
+                    com.helix.app.provider.BuiltInModel
+                        .errorLabelForTurn(storage, turnId, errorCode)
+                        ?: labels.modelTerminalCodeRes(errorCode),
+                ),
+                strings,
             )
         } else {
             labels.terminalLabel(state, errorCode)

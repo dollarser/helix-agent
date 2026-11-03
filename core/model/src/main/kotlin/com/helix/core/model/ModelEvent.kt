@@ -172,6 +172,7 @@ sealed interface ModelEvent {
     data class Error(
         val code: ModelErrorCode,
         val retryable: Boolean,
+        val diagnostic: ModelFailureDiagnostic? = null,
     ) : ModelEvent
 
     /**

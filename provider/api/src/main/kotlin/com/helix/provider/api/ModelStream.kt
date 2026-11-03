@@ -21,6 +21,9 @@ public fun interface RequestEncoder {
  * protocol violations and no-termination.
  */
 public interface StreamDecoder {
+    /** Bounded decoder rule; implementations never expose payload text through this property. */
+    public val failure: String? get() = null
+
     /** Protocol terminator consumed; distinct from a completion event followed by usage. */
     public val protocolEnded: Boolean get() = false
 

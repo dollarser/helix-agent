@@ -10,4 +10,15 @@
     <string name="tool_inspector_full">Full result (redacted)</string>
     <string name="tool_inspector_unavailable">Full result unavailable; showing summary</string>
     <string name="tool_inspector_loading">Reading original saved result…</string>
+    <string name="model_request_failed">Model request failed: %1$s</string>
+    <string name="model_response_interrupted">Model response interrupted: %1$s; inspect existing results before continuing</string>
+    <string name="model_failure_retry_count">%1$s (retried %2$d times)</string>
+    <string name="model_failure_http">HTTP %1$d, %2$s</string>
+    <string name="model_failure_dns">DNS lookup failed</string>
+    <string name="model_failure_tls">TLS connection failed</string>
+    <string name="model_failure_missing_terminal">Response stream ended early</string>
+    <string name="model_failure_invalid_response">The service returned an invalid response format</string>
+    <string name="model_failure_account_changed">Account changed; the original task stopped</string>
+    <string name="model_failure_account">Account unavailable; check sign-in status</string>
+    <string name="model_failure_configuration">Connection configuration or protocol is incompatible</string>
 </resources>

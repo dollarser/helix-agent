@@ -10,4 +10,15 @@
     <string name="tool_inspector_full">完整结果（已脱敏）</string>
     <string name="tool_inspector_unavailable">无法读取完整结果，显示摘要</string>
     <string name="tool_inspector_loading">正在读取原调用结果…</string>
+    <string name="model_request_failed">模型请求失败：%1$s</string>
+    <string name="model_response_interrupted">模型响应中断：%1$s；请核对现有结果后继续</string>
+    <string name="model_failure_retry_count">%1$s（已重试 %2$d 次）</string>
+    <string name="model_failure_http">HTTP %1$d，%2$s</string>
+    <string name="model_failure_dns">DNS 解析失败</string>
+    <string name="model_failure_tls">TLS 连接失败</string>
+    <string name="model_failure_missing_terminal">响应流提前结束</string>
+    <string name="model_failure_invalid_response">服务返回的响应格式无效</string>
+    <string name="model_failure_account_changed">账号已切换，原任务已停止</string>
+    <string name="model_failure_account">账号状态不可用，请检查登录状态</string>
+    <string name="model_failure_configuration">连接配置或协议不兼容</string>
 </resources>

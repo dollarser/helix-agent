@@ -295,7 +295,6 @@
     <string name="chat_tool_result">结果：%1$s</string>
     <string name="chat_tool_row">工具：%1$s</string>
     <string name="chat_tool_command_detail">详情</string>
-    <string name="chat_turn_failed">本次请求未成功：%1$s</string>
     <string name="chat_unbound_provider">该会话未绑定 Provider</string>
     <string name="chat_voice_button">语音</string>
     <string name="chat_voice_unavailable">No system speech app was found. Helix offline recognition does not depend on this service.</string>
@@ -607,7 +606,7 @@
     <string name="tool_state_cancelled">已取消</string>
     <string name="tool_state_completed">调用完成</string>
     <string name="tool_state_denied">已拒绝</string>
-    <string name="tool_state_failed">执行失败</string>
+    <string name="tool_state_failed">工具执行失败</string>
     <string name="session_input_recovery_ended">一条排队请求未能通过自动恢复校验，已结束且未重新执行。原请求内容仍保留；已完成的操作不受影响。</string>
     <string name="tool_failure_generic">工具执行失败</string>
     <string name="tool_failure_mcp">MCP 工具执行失败</string>
@@ -1167,11 +1166,10 @@
     <string name="command_log_unavailable">实时输出暂不可用；已有预览保留，命令状态与最终结果单独更新。</string>
     <string name="recovery_reason_unknown">执行已中断，结果未知：只对账，不重放</string>
     <string name="recovery_reason_cancelled">已取消：不会自动继续</string>
-    <string name="recovery_completed">已完成动作：%1$s</string>
+    <string name="recovery_completed">已保留 %1$d 项工具结果</string>
     <string name="recovery_denied">已拒绝动作：%1$s</string>
     <string name="recovery_pending">待核查副作用：%1$s</string>
     <string name="recovery_artifacts">可用产物：%1$d</string>
-    <string name="recovery_next">可选操作：%1$s</string>
     <string name="recovery_btn_reconnect">重新连接</string>
     <string name="recovery_btn_query">查询结果</string>
     <string name="recovery_btn_grant">补充权限</string>
@@ -1975,9 +1973,9 @@
     <string name="builtin_model_shared_limits">所有用户共用服务额度；繁忙或额度用尽时需要稍后重试。数据留存与训练政策尚未公布。</string>
     <string name="builtin_model_unverified">尚未获取内置模型目录。</string>
     <string name="builtin_model_verified">最近一次连接测试通过</string>
-    <string name="builtin_model_auth_error">请登录 Helix 账号，登录已失效时请重新登录；当前账号也可能无权访问此模型。</string>
-    <string name="builtin_model_rate_limit">内置模型触发共享服务限制，可能涉及请求频率、额度或并发。请稍后手动重试，或自行选择其他模型。</string>
-    <string name="builtin_model_service_error">内置模型服务暂时无法连接或网关异常，请稍后重试。</string>
+    <string name="builtin_model_auth_error">请检查 Helix 登录状态和模型访问权限。</string>
+    <string name="builtin_model_rate_limit">内置模型服务限流或额度不可用，请稍后重试。</string>
+    <string name="builtin_model_service_error">内置模型服务暂不可用，请稍后重试。</string>
     <string name="builtin_model_timeout">内置模型响应超时，请稍后重试。</string>
     <string name="model_selection_settings_changed">模型或思考设置已变化，请重新选择并保存。</string>
     <string name="builtin_reasoning_contract_notice">默认沿用服务端的思考设置，不代表关闭思考。当前服务的实际效果尚待验证。</string>

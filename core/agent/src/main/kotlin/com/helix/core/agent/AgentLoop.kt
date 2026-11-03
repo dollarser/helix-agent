@@ -197,19 +197,33 @@ class AgentLoop(
                     provider.allowsEmptyInferenceRetry,
                     modelRetries,
                     acc,
-                    recoveryElapsed,
                 )
+            if (decision.state == TurnState.FAILED) {
+                coordinator.recordDiagnostic(
+                    ModelFailureDiagnostics.TYPE,
+                    ModelFailureDiagnostics.record(
+                        decision.errorCode,
+                        acc,
+                        provider.allowsEmptyInferenceRetry,
+                        retryDelay,
+                        modelRetries,
+                    ),
+                )
+            }
             if (retryDelay != null && decision.state == TurnState.FAILED) {
                 if (recoveryStartedNanos == null) recoveryStartedNanos = System.nanoTime()
                 coordinator.recordDiagnostic(
                     ModelRecoveryPolicy.DIAGNOSTIC_TYPE,
-                    "{\"attempt\":${modelRetries + 1},\"delayMillis\":$retryDelay,\"elapsedMillis\":$recoveryElapsed}",
+                    "{\"attempt\":${modelRetries + 1},\"delayMillis\":$retryDelay," +
+                        "\"elapsedMillis\":$recoveryElapsed,\"phase\":\"BACKOFF\"}",
                 )
                 coordinator.retryEmptyModelStream(idGenerator())
                 modelRetries += 1
                 kotlinx.coroutines.delay(retryDelay)
                 continue
             }
+            modelRetries = 0
+            recoveryStartedNanos = null
             if (finalResponsePending && compaction == null) {
                 // Never dispatch even if a provider ignores the empty schema and emits a call.
                 val terminal =

@@ -2,6 +2,7 @@ package com.helix.provider.api
 
 import com.helix.core.model.ModelErrorCode
 import com.helix.core.model.ModelEvent
+import com.helix.core.model.ModelFailureDiagnostic.Stage
 import com.helix.core.model.ModelMessage
 import com.helix.core.model.ModelRequest
 import com.helix.core.model.ModelRole
@@ -75,10 +76,8 @@ public abstract class WireModelProvider(
      * The connection-level exceptions caught below are INTENTIONALLY converted
      * into the terminal [ModelEvent.Error] event (the HXA-021 stream contract
      * is total: a stream ends in a terminal, it never throws transport
-     * failures at the collector). [ModelEvent.Error] carries no detail field —
-     * the cause class is already encoded in the error code — so the exception
-     * object has no further use; suppressing SwallowedException documents that
-     * conversion rather than hiding a bug.
+     * failures at the collector). Structural diagnostics retain the failure stage
+     * and category without exception messages or response content.
      *
      * The flow is collected with [flowOn] on [Dispatchers.IO]: the wire reads
      * are blocking and the emission must therefore happen on the IO dispatcher;
@@ -90,68 +89,113 @@ public abstract class WireModelProvider(
     @Suppress("SwallowedException") // connection exception converted to the terminal Error event
     override fun stream(request: ModelRequest): Flow<ModelEvent> =
         flow {
-            val url = wireUrl(streamPath())
-            val bodyBytes = encoder.encode(request).toByteArray(Charsets.UTF_8)
-            // Credential/header resolution is OUTSIDE the transport try: a
-            // missing credential or a header collision is a configuration
-            // error that propagates as-is (never a transport error event).
-            val headers = headersFor()
-            val response =
+            val evidence = WireFailureEvidence()
+            val prepared =
                 try {
-                    wire.open(
-                        WireRequest(
-                            "POST",
-                            url,
-                            headers,
-                            bodyBytes,
+                    WireRequest(
+                        "POST",
+                        wireUrl(streamPath()),
+                        headersFor(),
+                        encoder.encode(request).toByteArray(Charsets.UTF_8),
+                    )
+                } catch (_: IllegalArgumentException) {
+                    emit(
+                        ModelEvent.Error(
+                            ModelErrorCode.PROTOCOL,
+                            false,
+                            evidence.failure(
+                                Stage.CONFIGURATION,
+                                com.helix.core.model.ModelFailureDiagnostic.Reason.INVALID_CONFIGURATION,
+                                false,
+                            ),
                         ),
                     )
-                } catch (_: SocketTimeoutException) {
-                    emit(ModelEvent.Error(ModelErrorCode.TIMEOUT, retryable = true))
-                    return@flow
-                } catch (_: IOException) {
-                    // DNS/TLS/peer reset: the connection-level failure class.
-                    emit(ModelEvent.Error(ModelErrorCode.TRANSPORT, retryable = true))
                     return@flow
                 }
-            var terminalEmitted = false
-            val feedEvents: suspend (List<ModelEvent>) -> Unit = { events ->
-                for (event in events) {
-                    emit(event)
-                    if (event is ModelEvent.Completed ||
-                        event is ModelEvent.Refusal ||
-                        event is ModelEvent.Error
-                    ) {
-                        terminalEmitted = true
-                    }
-                }
-            }
-            try {
-                if (response.status !in 200..299) {
-                    val (code, retryable) = mapHttpStatus(response.status)
-                    emit(ModelEvent.Error(code, retryable))
-                    return@flow
-                }
-                val decoder = newDecoder()
+            val response =
                 try {
-                    response.body.forEachChunk { chunk ->
-                        feedEvents(decoder.feed(chunk))
-                        !decoder.protocolEnded
-                    }
-                    feedEvents(decoder.finish())
-                } catch (_: SocketTimeoutException) {
-                    if (!terminalEmitted) {
-                        emit(ModelEvent.Error(ModelErrorCode.TIMEOUT, retryable = true))
-                    }
-                } catch (_: IOException) {
-                    if (!terminalEmitted) {
-                        emit(ModelEvent.Error(ModelErrorCode.TRANSPORT, retryable = true))
-                    }
+                    wire.open(prepared)
+                } catch (error: SocketTimeoutException) {
+                    emit(evidence.transport(error, Stage.CONNECT))
+                    return@flow
+                } catch (error: IOException) {
+                    emit(evidence.transport(error, Stage.CONNECT))
+                    return@flow
                 }
+            evidence.response = response
+            try {
+                readResponse(response, evidence) { emit(it) }
             } finally {
                 response.body.close()
             }
         }.flowOn(Dispatchers.IO)
+
+    private suspend fun readResponse(
+        response: WireResponse,
+        evidence: WireFailureEvidence,
+        emit: suspend (ModelEvent) -> Unit,
+    ) {
+        if (response.status !in 200..299) {
+            emit(evidence.httpError())
+            return
+        }
+        val decoder = newDecoder()
+        var terminalEmitted = false
+        var failed = false
+
+        suspend fun feedEvents(events: List<ModelEvent>) {
+            for (event in events) {
+                emit(
+                    if (event is ModelEvent.Error && event.diagnostic == null) {
+                        evidence.annotate(event, decoder.failure)
+                    } else {
+                        event
+                    },
+                )
+                if (event is ModelEvent.Error) failed = true
+                if (isTerminalEvent(event)) {
+                    terminalEmitted = true
+                }
+            }
+        }
+        try {
+            response.body.forEachChunk { chunk ->
+                evidence.bytes += chunk.size
+                evidence.chunks++
+                feedEvents(decodeEvents(evidence) { decoder.feed(chunk) })
+                !decoder.protocolEnded && !failed
+            }
+            if (!failed) feedEvents(decodeEvents(evidence) { decoder.finish() })
+        } catch (error: SocketTimeoutException) {
+            if (!terminalEmitted) emit(evidence.transport(error, Stage.STREAM))
+        } catch (error: IOException) {
+            if (!terminalEmitted) emit(evidence.transport(error, Stage.STREAM))
+        }
+    }
+
+    private fun isTerminalEvent(event: ModelEvent) =
+        event is ModelEvent.Completed || event is ModelEvent.Refusal || event is ModelEvent.Error
+
+    private fun decodeEvents(
+        evidence: WireFailureEvidence,
+        decode: () -> List<ModelEvent>,
+    ): List<ModelEvent> =
+        try {
+            decode()
+        } catch (_: IllegalArgumentException) {
+            // Only the pure decoder is inside this boundary, never collector/persistence failures.
+            listOf(
+                ModelEvent.Error(
+                    ModelErrorCode.PROTOCOL,
+                    false,
+                    evidence.failure(
+                        Stage.STREAM,
+                        com.helix.core.model.ModelFailureDiagnostic.Reason.INVALID_SCHEMA,
+                        false,
+                    ),
+                ),
+            )
+        }
 
     override suspend fun contextWindow(model: String): Long? {
         val path = modelsPath() ?: return null

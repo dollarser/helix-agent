@@ -15,6 +15,7 @@ import com.helix.provider.api.wire.WireResponse
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -209,7 +210,10 @@ class WireModelProviderTest {
             val wire = FakeWire { WireResponse(401, emptyMap(), FakeBody("denied".toByteArray())) }
             val provider = TestProvider(config(), { "x" }, wire)
             val events = provider.stream(request()).toList()
-            assertEquals(listOf<ModelEvent>(ModelEvent.Error(ModelErrorCode.AUTH, false)), events)
+            val failure = events.single() as ModelEvent.Error
+            assertEquals(ModelErrorCode.AUTH, failure.code)
+            assertEquals(false, failure.retryable)
+            org.junit.Assert.assertNotNull(failure.diagnostic)
         }
 
     @Test
@@ -218,7 +222,10 @@ class WireModelProviderTest {
             val wire = FakeWire { WireResponse(429, emptyMap(), FakeBody(ByteArray(0))) }
             val provider = TestProvider(config(), { "x" }, wire)
             val events = provider.stream(request()).toList()
-            assertEquals(listOf<ModelEvent>(ModelEvent.Error(ModelErrorCode.RATE_LIMITED, true)), events)
+            val failure = events.single() as ModelEvent.Error
+            assertEquals(ModelErrorCode.RATE_LIMITED, failure.code)
+            assertEquals(true, failure.retryable)
+            org.junit.Assert.assertNotNull(failure.diagnostic)
         }
 
     @Test
@@ -228,7 +235,10 @@ class WireModelProviderTest {
             wire.ioFailure = IOException("dns")
             val provider = TestProvider(config(), { "x" }, wire)
             val events = provider.stream(request()).toList()
-            assertEquals(listOf<ModelEvent>(ModelEvent.Error(ModelErrorCode.TRANSPORT, true)), events)
+            val failure = events.single() as ModelEvent.Error
+            assertEquals(ModelErrorCode.TRANSPORT, failure.code)
+            assertEquals(true, failure.retryable)
+            org.junit.Assert.assertNotNull(failure.diagnostic)
         }
 
     @Test
@@ -238,7 +248,10 @@ class WireModelProviderTest {
             wire.ioFailure = SocketTimeoutException("stalled")
             val provider = TestProvider(config(), { "x" }, wire)
             val events = provider.stream(request()).toList()
-            assertEquals(listOf<ModelEvent>(ModelEvent.Error(ModelErrorCode.TIMEOUT, true)), events)
+            val failure = events.single() as ModelEvent.Error
+            assertEquals(ModelErrorCode.TIMEOUT, failure.code)
+            assertEquals(true, failure.retryable)
+            org.junit.Assert.assertNotNull(failure.diagnostic)
         }
 
     @Test
@@ -255,7 +268,10 @@ class WireModelProviderTest {
                 }
             val provider = TestProvider(config(), { "x" }, wire)
             val events = provider.stream(request()).toList()
-            assertEquals(listOf<ModelEvent>(ModelEvent.Error(ModelErrorCode.TIMEOUT, true)), events)
+            val failure = events.single() as ModelEvent.Error
+            assertEquals(ModelErrorCode.TIMEOUT, failure.code)
+            assertEquals(true, failure.retryable)
+            org.junit.Assert.assertNotNull(failure.diagnostic)
             assertTrue(closed[0])
         }
 
@@ -279,6 +295,29 @@ class WireModelProviderTest {
         }
 
     @Test
+    fun malformedDecoderStructureHasEvidenceAndStopsReading() =
+        runBlocking {
+            val body = FakeBody("x".repeat(1000).toByteArray())
+            val wire = FakeWire { WireResponse(200, emptyMap(), body) }
+            val provider =
+                TestProvider(config(), { "x" }, wire, newTestDecoder = {
+                    object : StreamDecoder {
+                        override fun feed(chunk: ByteArray): List<ModelEvent> =
+                            throw IllegalArgumentException("PRIVATE_PAYLOAD")
+
+                        override fun finish(): List<ModelEvent> = error("Failed decoder must not finish twice")
+                    }
+                })
+            val failure = provider.stream(request()).toList().single() as ModelEvent.Error
+            assertEquals(ModelErrorCode.PROTOCOL, failure.code)
+            assertFalse(failure.retryable)
+            assertEquals(com.helix.core.model.ModelFailureDiagnostic.Reason.INVALID_SCHEMA, failure.diagnostic?.reason)
+            assertEquals(1L, failure.diagnostic?.receivedChunks)
+            assertTrue(body.closed[0])
+            assertFalse(failure.toString().contains("PRIVATE_PAYLOAD"))
+        }
+
+    @Test
     fun headerCollisionIsAConfigurationError() {
         runBlocking {
             val wire = FakeWire { okJson("") }
@@ -298,11 +337,14 @@ class WireModelProviderTest {
                             )
                         },
                 )
-            assertThrows(
-                IllegalArgumentException::class.java,
-            ) {
-                runBlocking { provider.stream(request()).toList() }
-            }
+            val failure = provider.stream(request()).toList().single() as ModelEvent.Error
+            assertFalse(failure.retryable)
+            assertEquals(com.helix.core.model.ModelFailureDiagnostic.Stage.CONFIGURATION, failure.diagnostic?.stage)
+            assertEquals(
+                com.helix.core.model.ModelFailureDiagnostic.Reason.INVALID_CONFIGURATION,
+                failure.diagnostic?.reason,
+            )
+            assertTrue(wire.requests.isEmpty())
         }
     }
 

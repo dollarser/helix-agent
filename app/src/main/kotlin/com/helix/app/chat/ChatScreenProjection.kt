@@ -235,7 +235,13 @@ internal class ChatScreenProjection(
                     val label =
                         com.helix.app.provider.BuiltInModel
                             .errorLabelForTurn(storage, entity.id, code)
-                    str(label ?: modelTerminalCodeRes(code))
+                    ModelFailureLabels.forTurn(
+                        storage,
+                        entity.id,
+                        code,
+                        str(label ?: modelTerminalCodeRes(code)),
+                        strings,
+                    )
                 },
             retryable = state == TurnState.FAILED,
             continueFromResults = BudgetContinuation.eligible(storage, entity),

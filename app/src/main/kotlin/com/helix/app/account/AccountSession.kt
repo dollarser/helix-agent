@@ -112,7 +112,9 @@ class AccountSession(
             gate.withLock {
                 if (expectedRevision != revision) {
                     if (tokens == null && !blocked) return@withLock null
-                    throw IOException("Account changed")
+                    throw com.helix.provider.api.wire.WireRequestStateException(
+                        com.helix.provider.api.wire.WireRequestStateException.Reason.ACCOUNT_CHANGED,
+                    )
                 }
                 load()
                 if (blocked) throw AccountDataFailure()
@@ -260,7 +262,11 @@ private class AccountServiceWire(
                 return errorResponse(failure.status)
             } ?: return errorResponse(401)
         boundIdentity.compareAndSet(null, current.identity)
-        if (boundIdentity.get() != current.identity) throw IOException("Account changed")
+        if (boundIdentity.get() != current.identity) {
+            throw com.helix.provider.api.wire.WireRequestStateException(
+                com.helix.provider.api.wire.WireRequestStateException.Reason.ACCOUNT_CHANGED,
+            )
+        }
         var response = send(request, current)
         if (response.status == 401) {
             response.body.close()
@@ -270,7 +276,11 @@ private class AccountServiceWire(
                 } catch (failure: AccountRequestFailure) {
                     return errorResponse(failure.status)
                 } ?: return errorResponse(401)
-            if (next.identity != current.identity) throw IOException("Account changed")
+            if (next.identity != current.identity) {
+                throw com.helix.provider.api.wire.WireRequestStateException(
+                    com.helix.provider.api.wire.WireRequestStateException.Reason.ACCOUNT_CHANGED,
+                )
+            }
             response = send(request, next)
         }
         val body = response.body
@@ -278,7 +288,9 @@ private class AccountServiceWire(
         fun checkIdentity() {
             if (account.revision != revision || account.identity != current.identity) {
                 body.close()
-                throw IOException("Account changed")
+                throw com.helix.provider.api.wire.WireRequestStateException(
+                    com.helix.provider.api.wire.WireRequestStateException.Reason.ACCOUNT_CHANGED,
+                )
             }
         }
         checkIdentity()
@@ -336,4 +348,7 @@ internal class AccountRequestFailure(
 ) : IOException("Account request failed: HTTP $status")
 
 /** Sanitized local response/storage failure; never mislabeled as a network outage. */
-internal class AccountDataFailure : IOException("Account response or local storage unavailable")
+internal class AccountDataFailure :
+    com.helix.provider.api.wire.WireRequestStateException(
+        com.helix.provider.api.wire.WireRequestStateException.Reason.ACCOUNT_UNAVAILABLE,
+    )

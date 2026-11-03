@@ -87,7 +87,7 @@ public class AnthropicStreamDecoder : StreamDecoder {
     private var failureDetail: String? = null
 
     /** Diagnostic detail of the protocol failure (exception class / vendor field, no payload). */
-    public val failure: String?
+    public override val failure: String?
         get() = failureDetail
 
     /** Feed one raw HTTP body chunk; returns the internal events it produced. */
@@ -116,6 +116,7 @@ public class AnthropicStreamDecoder : StreamDecoder {
             // No termination: the stream ended (or the connection dropped) before
             // message_delta or an error event — possibly after a bare message_stop.
             protocolFailed = true
+            failureDetail = "missing terminal"
             out += ModelEvent.Error(ModelErrorCode.PROTOCOL, retryable = true)
         }
         return out

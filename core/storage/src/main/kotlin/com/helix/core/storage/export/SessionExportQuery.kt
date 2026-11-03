@@ -209,7 +209,8 @@ internal data class SessionExportQuery(
                     SessionExportType.USAGE,
                     "audit_events x",
                     "x.correlationId IN ($MODEL_SCOPE) AND x.type IN " +
-                        "('budget.request','budget.admitted','budget.result','context.compaction')",
+                        "('budget.request','budget.admitted','budget.result','context.compaction'," +
+                        "'model.failure','model.automatic_retry')",
                     listOf("id", "correlationId", "type", "redactedPayload", "timestamp"),
                     "x.timestamp, x.id",
                     "usage:audit",

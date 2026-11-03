@@ -79,7 +79,7 @@ public class ResponsesStreamDecoder : StreamDecoder {
     private var failureDetail: String? = null
 
     /** Diagnostic detail of the protocol failure (exception class / vendor field, no payload). */
-    public val failure: String?
+    public override val failure: String?
         get() = failureDetail
 
     /** Feed one raw HTTP body chunk; returns the internal events it produced. */
@@ -114,6 +114,7 @@ public class ResponsesStreamDecoder : StreamDecoder {
                 // No termination: the stream ended (or the connection dropped) before
                 // response.completed/failed/incomplete or an error event.
                 protocolFailed = true
+                failureDetail = "missing terminal"
                 out += ModelEvent.Error(ModelErrorCode.PROTOCOL, retryable = true)
             }
         }

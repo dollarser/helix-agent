@@ -1,19 +1,14 @@
 package com.helix.app.provider
 
-import com.helix.core.model.ModelEvent
-import com.helix.core.model.ModelRequest
 import com.helix.provider.api.ModelCatalogResult
 import com.helix.provider.api.ModelProvider
 import com.helix.provider.api.ProviderCheckResult
-import kotlinx.coroutines.flow.map
 
 /** Reuses the protocol adapter; a catalog reply alone never proves generation authorization. */
 internal class BuiltInModelProvider(
     private val delegate: ModelProvider,
     private val catalog: suspend () -> ModelCatalogResult,
 ) : ModelProvider by delegate {
-    override val allowsEmptyInferenceRetry: Boolean get() = false
-
     override suspend fun listModels(): ModelCatalogResult = catalog()
 
     override suspend fun contextWindow(model: String): Long? = null
@@ -35,11 +30,5 @@ internal class BuiltInModelProvider(
                     false,
                 )
             }
-        }
-
-    override fun stream(request: ModelRequest): kotlinx.coroutines.flow.Flow<ModelEvent> =
-        delegate.stream(request).map { event ->
-            // Manual retry remains available; inference/compaction must not retry quota or replay a stream.
-            if (event is ModelEvent.Error) event.copy(retryable = false) else event
         }
 }

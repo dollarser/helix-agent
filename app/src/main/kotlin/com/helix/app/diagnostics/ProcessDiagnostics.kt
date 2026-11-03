@@ -17,6 +17,8 @@ data class ProcessEvidence(
     val lastTurnState: String?,
     val crashType: String?,
     val crashFingerprint: String?,
+    val crashFrames: List<String>,
+    val crashAtMillis: Long?,
 )
 
 data class ExitEvidence(
@@ -27,7 +29,7 @@ data class ExitEvidence(
 )
 
 /**
- * Persists only an allowlisted lifecycle state, timestamp, exception class and one-way stack
+ * Persists only an allowlisted lifecycle state, timestamp, exception class, bounded code locations and one-way stack
  * fingerprint. Prompt, Tool arguments/results, notification/file content and exception messages
  * never enter this store.
  */
@@ -52,6 +54,8 @@ class ProcessEvidenceStore internal constructor(
         preferences.edit(commit = true) {
             putString(KEY_CRASH_TYPE, type)
             putString(KEY_CRASH_FINGERPRINT, sha256(canonical))
+            putString(KEY_CRASH_FRAMES, CrashFrameEvidence.frames(throwable).joinToString("\n"))
+            putLong(KEY_CRASH_AT, nowMillis())
         }
     }
 
@@ -83,6 +87,8 @@ class ProcessEvidenceStore internal constructor(
             lastTurnState = preferences.getString(KEY_LAST_TURN_STATE, null),
             crashType = preferences.getString(KEY_CRASH_TYPE, null),
             crashFingerprint = preferences.getString(KEY_CRASH_FINGERPRINT, null),
+            crashFrames = preferences.getString(KEY_CRASH_FRAMES, null)?.lines().orEmpty(),
+            crashAtMillis = preferences.getLong(KEY_CRASH_AT, 0).takeIf { it > 0 },
         )
 
     fun recentExits(limit: Int = MAX_EXIT_RECORDS): List<ExitEvidence> {
@@ -126,6 +132,8 @@ class ProcessEvidenceStore internal constructor(
         private const val KEY_HEARTBEAT = "heartbeat"
         private const val KEY_CRASH_TYPE = "crash-type"
         private const val KEY_CRASH_FINGERPRINT = "crash-fingerprint"
+        private const val KEY_CRASH_FRAMES = "crash-frames"
+        private const val KEY_CRASH_AT = "crash-at"
         private const val KEY_LAST_TURN_ID = "last-turn-id"
         private const val KEY_LAST_CORRELATION_ID = "last-correlation-id"
         private const val KEY_LAST_TURN_STATE = "last-turn-state"

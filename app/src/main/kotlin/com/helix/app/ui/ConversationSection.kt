@@ -481,7 +481,7 @@ internal fun ConversationSection(
                 if (past?.state == TurnState.FAILED && past.errorLabel != null) {
                     item(key = "error-${entry.key}") {
                         Text(
-                            stringResource(R.string.chat_turn_failed, past.errorLabel),
+                            past.errorLabel,
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.error,
                             modifier = Modifier.testTag("chat-turn-error-${entry.key}"),
@@ -546,7 +546,7 @@ internal fun ConversationSection(
                 item(key = "turn-error") {
                     Column {
                         Text(
-                            stringResource(R.string.chat_turn_failed, turn.errorLabel),
+                            turn.errorLabel,
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.error,
                             modifier = Modifier.testTag("chat-turn-error"),

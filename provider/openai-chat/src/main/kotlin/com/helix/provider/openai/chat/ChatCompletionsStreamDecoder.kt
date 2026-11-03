@@ -83,7 +83,7 @@ public class ChatCompletionsStreamDecoder : StreamDecoder {
     private var failureDetail: String? = null
 
     /** Diagnostic detail of the protocol failure (exception class / vendor field, no payload). */
-    public val failure: String?
+    public override val failure: String?
         get() = failureDetail
 
     /** Feed one raw HTTP body chunk; returns the internal events it produced. */
@@ -113,6 +113,7 @@ public class ChatCompletionsStreamDecoder : StreamDecoder {
             // any finish chunk — possibly after a bare [DONE]. Connection-level
             // failure: a retry may succeed.
             protocolFailed = true
+            failureDetail = "missing terminal"
             out += ModelEvent.Error(ModelErrorCode.PROTOCOL, retryable = true)
         }
         return out
