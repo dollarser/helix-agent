@@ -39,6 +39,52 @@ class SkillAuthoringServiceTest {
         }
 
     @Test
+    fun previewToolReturnsActionableManifestValidationWithoutExposingIoDetails() =
+        fixture { root, service ->
+            val path = service.saveDraft("example", "Example", "Body")
+            val registry =
+                com.helix.tools.framework
+                    .ToolRegistry()
+            SkillAuthoringTools.register(registry, service)
+
+            fun preview(
+                source: String,
+                cancelled: Boolean = false,
+            ): com.helix.tools.framework.ToolExecutorResult =
+                registry
+                    .executor(
+                        com.helix.core.model
+                            .ToolName("skills.preview"),
+                        com.helix.core.model
+                            .ToolVersion(1),
+                    ).execute(
+                        com.helix.tools.framework.ExecutableToolCall(
+                            "preview",
+                            "skills.preview",
+                            "1",
+                            kotlinx.serialization.json.buildJsonObject {
+                                put("path", kotlinx.serialization.json.JsonPrimitive(source))
+                            },
+                            com.helix.core.model.ExecutionTargetType.LOCAL_ANDROID,
+                            java.time.Instant
+                                .now()
+                                .plusSeconds(30),
+                            object : com.helix.core.model.CancelSignal {
+                                override fun isCancelled() = cancelled
+                            },
+                        ),
+                    )
+            Files.writeString(root.resolve("workspace/work/skills/example/SKILL.md"), "# Missing frontmatter")
+            val invalid = preview(path) as com.helix.tools.framework.ToolExecutorResult.Failed
+            assertEquals("SKILL_PREVIEW_FAILED: SKILL.md must start with YAML frontmatter", invalid.detail)
+            assertFalse(invalid.detail.contains(root.toString()))
+            val missing = preview("scope:app:missing") as com.helix.tools.framework.ToolExecutorResult.Failed
+            assertFalse(missing.detail.contains(root.toString()))
+            assertFalse(missing.detail.contains("NoSuchFileException"))
+            assertEquals(com.helix.tools.framework.ToolExecutorResult.Cancelled, preview(path, cancelled = true))
+        }
+
+    @Test
     fun cancellationAndInvalidManifestLeaveNoValidationCopies() =
         fixture { root, service ->
             val path = service.saveDraft("example", "Example", "Body")

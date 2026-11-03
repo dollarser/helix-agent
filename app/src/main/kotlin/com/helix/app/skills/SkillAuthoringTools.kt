@@ -76,6 +76,19 @@ internal object SkillAuthoringTools {
                         )
                     } catch (failure: com.helix.extensions.skills.InvalidSkillException) {
                         ToolExecutorResult.Failed("SKILL_PREVIEW_FAILED: ${failure.message.orEmpty().take(512)}")
+                    } catch (failure: com.helix.extensions.skills.InvalidSkillImportException) {
+                        if (call.cancel.isCancelled()) {
+                            ToolExecutorResult.Cancelled
+                        } else {
+                            val validation = failure.cause as? com.helix.extensions.skills.InvalidSkillException
+                            ToolExecutorResult.Failed(
+                                "SKILL_PREVIEW_FAILED: " +
+                                    (
+                                        validation?.message?.take(512)
+                                            ?: "check source path, archive layout and byte limits"
+                                    ),
+                            )
+                        }
                     } catch (_: Exception) {
                         if (call.cancel.isCancelled()) {
                             ToolExecutorResult.Cancelled
