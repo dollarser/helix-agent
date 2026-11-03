@@ -50,9 +50,12 @@ internal class ScheduledRuntimeFixture(
     wire: WireClient? = null,
     accountIdentity: (() -> String)? = null,
     catalog: BuiltInModelCatalog? = null,
+    private val capabilityCenter: com.helix.core.policy.CapabilityCenter? = null,
+    val databaseName: String = "scheduled-runtime-${UUID.randomUUID()}.db",
+    private val retainStorage: Boolean = false,
 ) : AutoCloseable {
     private val context = ApplicationProvider.getApplicationContext<Context>()
-    private val name = "scheduled-runtime-${UUID.randomUUID()}.db"
+    private val name = databaseName
     private val ledgerName = "scheduled-ledger-$name"
     private val root = File(context.cacheDir, name).apply { mkdirs() }
     val storage = HelixStorage.open(context, name, File(root, "content"))
@@ -207,7 +210,7 @@ internal class ScheduledRuntimeFixture(
             ToolDispatcher(
                 clock,
                 registry,
-                (context.applicationContext as HelixApplication).appContainer.capabilityCenter,
+                capabilityCenter ?: (context.applicationContext as HelixApplication).appContainer.capabilityCenter,
                 com.helix.core.policy
                     .PolicyEngine(clock),
                 broker,
@@ -244,9 +247,11 @@ internal class ScheduledRuntimeFixture(
         runBlocking { job.cancelAndJoin() }
         ledger.close()
         storage.close()
-        context.deleteDatabase(name)
-        context.deleteDatabase(ledgerName)
-        root.deleteRecursively()
+        if (!retainStorage) {
+            context.deleteDatabase(name)
+            context.deleteDatabase(ledgerName)
+            root.deleteRecursively()
+        }
     }
 
     private fun newId() = UUID.randomUUID().toString()

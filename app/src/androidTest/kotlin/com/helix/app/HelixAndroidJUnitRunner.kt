@@ -29,10 +29,13 @@ import com.helix.app.language.AppLanguageStore
  */
 class HelixAndroidJUnitRunner : AndroidJUnitRunner() {
     private var heldProotBoundary = false
+    private var heldSkillOffline = false
 
     override fun onCreate(arguments: Bundle?) {
         heldProotBoundary = arguments?.getString("proot.goal.kill.phase") == "result-boundary" &&
             arguments.getString("class") == "com.helix.app.eval.ProotGoalProcessKillDeviceTest"
+        heldSkillOffline = arguments?.getString("helix.skill.offline") == "true" &&
+            arguments.getString("class") == "com.helix.app.eval.SkillTimeoutOfflineDeviceTest"
         super.onCreate(arguments)
         // Bounded ordinary-package checks can keep the owner's existing language choice intact.
         if (arguments?.getString("helix.preserveUserSettings") == "true") return
@@ -45,7 +48,7 @@ class HelixAndroidJUnitRunner : AndroidJUnitRunner() {
     }
 
     override fun callApplicationOnCreate(app: android.app.Application) {
-        if (heldProotBoundary) {
+        if (heldProotBoundary || heldSkillOffline) {
             check(app.packageName == "com.helix.agent.developer")
             // Only this explicit fixture opens Room and runs the held collector itself.
             // Normal startup must not ACK its result before the selected persistence cutpoint.
