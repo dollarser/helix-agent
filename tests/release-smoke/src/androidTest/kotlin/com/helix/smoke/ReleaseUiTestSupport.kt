@@ -33,10 +33,13 @@ internal class ReleaseUiTestSupport {
         check("Status: ok" in output) { "Owned Activity launch did not complete: $output" }
     }
 
-    fun node(vararg labels: String): AccessibilityNodeInfo? =
-        nodes().firstOrNull {
-            !it.isEditable && (it.text?.toString() in labels || it.contentDescription?.toString() in labels)
-        } ?: automation.rootInActiveWindow?.let { find(it, labels.toSet()) }
+    fun node(vararg labels: String): AccessibilityNodeInfo? {
+        val visible = nodes().filterNot { it.isEditable }
+        // Prefer an explicitly labelled action over identical display text (e.g. a draft title).
+        return visible.firstOrNull { it.contentDescription?.toString() in labels }
+            ?: visible.firstOrNull { it.text?.toString() in labels }
+            ?: automation.rootInActiveWindow?.let { find(it, labels.toSet()) }
+    }
 
     fun nodes(): List<AccessibilityNodeInfo> {
         if (Build.VERSION.SDK_INT >= 33) automation.clearCache()

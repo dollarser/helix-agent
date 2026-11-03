@@ -36,7 +36,7 @@ class BackgroundReleaseSetupTest {
         assertEquals(0, ui.context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE)
         ui.ready()
         ui.activate("应用导航", "App navigation")
-        if (ui.node("Standard") != null) {
+        if (ui.context.packageName.endsWith(".developer") && ui.node("Standard") != null) {
             ui.activate("Standard")
             ui.activate("我已了解，确认切换", "I understand, switch")
         }
@@ -58,12 +58,14 @@ class BackgroundReleaseSetupTest {
         ui.activate("能力检测", "Detect capabilities")
         ui.await("已通过 · 能力已探测", "Passed · capabilities detected", timeoutMillis = 30_000)
         ui.back()
-        configureScope()
-        ui.activate("应用导航", "App navigation")
-        ui.activate("设置", "Settings")
-        ui.activate("运行环境", "Execution environments")
-        setChoice(true, "脚本调用工具", "Script tool delegation")
-        ui.back()
+        if (ui.context.packageName.endsWith(".developer")) {
+            configureScope()
+            ui.activate("应用导航", "App navigation")
+            ui.activate("设置", "Settings")
+            ui.activate("运行环境", "Execution environments")
+            setChoice(true, "脚本调用工具", "Script tool delegation")
+            ui.back()
+        }
         ui.activate("应用导航", "App navigation")
         ui.activate("当前会话", "Current conversation")
         if (ui.node("需要批准 ▾", "Approval required ▾") != null) {

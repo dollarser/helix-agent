@@ -95,10 +95,35 @@ class WorkspaceSystemSafDeviceTest {
             backend.delete("proof.txt")
             if (android.os.Build.VERSION.SDK_INT >= 30) verifyRestrictedRoot(initial, chosen)
         } finally {
-            scope?.let(container.safTree::revoke)
-            granted?.let { release(app, it) }
-            if (approvedFolder == null) shell("rm -rf $path")
+            try {
+                closeOwnedPicker()
+            } finally {
+                scope?.let(container.safTree::revoke)
+                granted?.let { release(app, it) }
+                if (approvedFolder == null) shell("rm -rf $path")
+            }
         }
+    }
+
+    private fun closeOwnedPicker() {
+        val automation = instrumentation.uiAutomation
+        repeat(5) {
+            val owner = automation.rootInActiveWindow?.packageName?.toString()
+            if (owner != null && !owner.endsWith(".documentsui")) return
+            if (owner != null) {
+                assertTrue(
+                    automation.performGlobalAction(
+                        android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK,
+                    ),
+                )
+            }
+            Thread.sleep(200)
+        }
+        val owner = automation.rootInActiveWindow?.packageName?.toString()
+        assertTrue(
+            "Owned system picker must be closed before its host Activity is destroyed",
+            owner != null && !owner.endsWith(".documentsui"),
+        )
     }
 
     private fun release(

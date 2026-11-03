@@ -242,7 +242,20 @@ class ChatSessionLifecycleDeviceTest {
                 )
             assertEquals(providerId, inherited.providerId)
             assertEquals("different-model", inherited.modelId)
-            container.chatService.closeSession()
+            // No open conversation inherits the saved draft preference. An explicitly unbound
+            // source is a different contract: it must remain unbound even on a configured device.
+            val unboundId = "lifecycle-unbound-$run"
+            container.storage.sessions.create(unboundId, "unbound", null, null, System.currentTimeMillis())
+            container.chatService.refreshSessions()
+            val indexed = System.currentTimeMillis() + 10_000
+            while (container.chatService.sessions.value
+                    .none { it.id == unboundId } &&
+                System.currentTimeMillis() < indexed
+            ) {
+                Thread.sleep(50)
+            }
+            container.chatService.openSession(unboundId)
+            awaitOpenSession(unboundId)
             container.chatService.newSessionDraft()
             assertTrue(runBlocking { container.chatService.saveDraftForGoal("empty fixture") })
             val empty =
