@@ -48,7 +48,8 @@ internal fun statusLabel(row: PluginSessionRow): Int =
 @Suppress("FunctionName")
 private fun PluginSessionState(row: PluginSessionRow) {
     Text(
-        if (row.name == "documents") stringResource(R.string.document_plugin_name) else row.name,
+        com.helix.app.plugin
+            .pluginLabel(row.name),
         style = MaterialTheme.typography.bodyLarge,
     )
     if (row.hasSkippedComponents) {

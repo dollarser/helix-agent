@@ -88,7 +88,7 @@
     <string name="empty_sessions">会话列表与模型对话（M2）。</string>
     <string name="empty_tasks">跨会话任务视图：后台任务与目标的运行、待处理、完成与失败状态。</string>
     <string name="empty_files">Workspace、SAF 与文件管理器将在 M4 实现。</string>
-    <string name="empty_browser">受控 WebView 浏览器与 Browser Tools 将在 M6 实现。</string>
+    <string name="empty_browser">受控 WebView 浏览器与 浏览器工具 将在 M6 实现。</string>
     <string name="empty_extensions">管理已安装的 Skill 和 Connector 端点。</string>
     <string name="empty_models">管理模型 Provider、连接与模型能力。</string>
     <string name="empty_setup">查看任务准备状态、能力状态与 Runtime。</string>
@@ -1620,7 +1620,7 @@
     <string name="automation_until_stopped">直到停止或锁屏</string>
     <string name="automation_actions_unlimited">已尝试 %1$d 次，不限次数</string>
     <string name="automation_lease_summary">剩余时间：%1$s；动作：%2$s</string>
-    <string name="disclosure_mobile_use_session">本次 Mobile Use 的后续截图可继续交给以上模型，无需逐张确认。仅限当前聊天会话和已选应用范围；停止、锁屏、服务断开或更换接收方后失效，不包含普通附件。</string>
+    <string name="disclosure_mobile_use_session">本次 手机操作 的后续截图可继续交给以上模型，无需逐张确认。仅限当前聊天会话和已选应用范围；停止、锁屏、服务断开或更换接收方后失效，不包含普通附件。</string>
     <string name="automation_shizuku_description">Shizuku（可选）：授权 Helix 点击无障碍未提供的控件。仍受本会话应用范围限制，需保持无障碍服务开启。</string>
     <string name="automation_shizuku_unavailable">Shizuku 未连接，请安装并启动 Shizuku 后返回。</string>
     <string name="automation_shizuku_permission">Shizuku 已运行，尚未授权 Helix。</string>
@@ -1631,12 +1631,12 @@
     <string name="automation_shizuku_manage">打开 Shizuku</string>
     <string name="automation_backend_priority">支持的操作按 Root → Shizuku → 无障碍选择后端；系统权限不替代会话启用与应用范围。执行结果不明时不会换后端重放。</string>
     <string name="automation_root_state">Root：%1$s</string>
-    <string name="automation_root_unavailable">Mobile Use 执行服务：未连接</string>
+    <string name="automation_root_unavailable">手机操作 执行服务：未连接</string>
     <string name="automation_root_permission">等待授权</string>
-    <string name="automation_root_ready">Mobile Use 执行服务：已连接</string>
-    <string name="automation_root_lost">Mobile Use 执行服务：连接已丢失，请重新连接</string>
+    <string name="automation_root_ready">手机操作 执行服务：已连接</string>
+    <string name="automation_root_lost">手机操作 执行服务：连接已丢失，请重新连接</string>
     <string name="automation_root_request">授权 Helix 并连接 Root 服务</string>
-    <string name="automation_root_disconnect">断开 Mobile Use Root</string>
+    <string name="automation_root_disconnect">断开 手机操作 Root</string>
     <string name="model_source_configure">配置模型来源</string>
     <string name="model_source_download">下载本地模型</string>
     <string name="model_source_api_description">连接云端 API 或自部署服务，管理可用于会话的模型。</string>
@@ -1746,7 +1746,7 @@
     <string name="plugin_contents_tools">工具（%1$d）</string>
     <string name="plugin_contents_skills">技能（%1$d）</string>
     <string name="plugin_contents_skill_hint">选用插件后提供技能目录，正文按需读取或由明确的用户调用加载。无需单独开启内置技能。</string>
-    <string name="mobile_use_configuration_required">请先在插件 → Mobile Use → 插件设置中保存可操作的应用范围。</string>
+    <string name="mobile_use_configuration_required">请先在插件 → 手机操作 → 插件设置中保存可操作的应用范围。</string>
     <string name="permissions_file_locations">文件与已授权目录</string>
     <string name="plugin_contents_expand">查看工具与技能 ▾</string>
     <string name="plugin_contents_collapse">收起工具与技能 ▴</string>
@@ -1755,9 +1755,9 @@
     <string name="mobile_root_grant_denied">Root 授权：未获准或已撤销</string>
     <string name="mobile_root_grant_cached">Root 授权：Helix 上次已获准（缓存状态）</string>
     <string name="mobile_root_grant_unknown">Root 授权：尚未确认</string>
-    <string name="mobile_root_connecting">Mobile Use 执行服务：正在连接</string>
-    <string name="mobile_root_connect">连接 Mobile Use Root 服务</string>
-    <string name="mobile_root_connection_help">Connect using existing Root authorization, or open authorization management first. Disconnecting stops only the Mobile Use connection.</string>
+    <string name="mobile_root_connecting">手机操作 执行服务：正在连接</string>
+    <string name="mobile_root_connect">连接 手机操作 Root 服务</string>
+    <string name="mobile_root_connection_help">Connect using existing Root authorization, or open authorization management first. Disconnecting stops only the 手机操作 connection.</string>
     <string name="mobile_backend_root">默认优先：Root。各工具仍按支持能力、应用范围和实时状态检查。</string>
     <string name="mobile_backend_shizuku">默认优先：Shizuku。执行时建立服务连接，各工具仍需校验范围与可用性。</string>
     <string name="mobile_backend_accessibility">默认优先：无障碍。Root 与 Shizuku 当前不可用。</string>
@@ -1769,9 +1769,9 @@
     <string name="device_access_root_title">Root 授权</string>
     <string name="device_access_root_help">适用于已 Root 的设备。授权后连接已启用功能需要的 Root 服务；撤销授权请前往 Root 管理器。</string>
     <string name="device_access_root_authorize">授权并连接</string>
-    <string name="mobile_root_connection_title">Mobile Use Root 连接</string>
-    <string name="mobile_accessibility_connected">Mobile Use 无障碍引擎已连接</string>
-    <string name="mobile_accessibility_disabled">Mobile Use 无障碍引擎不可用；已授权的 Root 或 Shizuku 仍可提供相应功能</string>
+    <string name="mobile_root_connection_title">手机操作 Root 连接</string>
+    <string name="mobile_accessibility_connected">手机操作 无障碍引擎已连接</string>
+    <string name="mobile_accessibility_disabled">手机操作 无障碍引擎不可用；已授权的 Root 或 Shizuku 仍可提供相应功能</string>
     <string name="device_root_granted">Helix 已获 Root 授权（缓存状态）</string>
     <string name="device_root_denied">Helix Root 授权被拒绝</string>
     <string name="device_root_unknown">Helix Root 授权尚未核验</string>
@@ -1842,7 +1842,7 @@
     <string name="permissions_status_unknown">当前系统无法识别此权限</string>
     <string name="permissions_install_granted">系统已授予</string>
     <string name="permissions_system_restricted">未授予，受系统或签名限制</string>
-    <string name="permissions_root_diagnostics_help">用于只读检查软件包、进程、日志及授权目录，排查设备问题。它不是 Root 总开关，也不会启用 Mobile Use。</string>
+    <string name="permissions_root_diagnostics_help">用于只读检查软件包、进程、日志及授权目录，排查设备问题。它不是 Root 总开关，也不会启用 手机操作。</string>
     <string name="chat_reasoning_detecting">Detecting capabilities…</string>
     <string name="chat_reasoning_detection_failed">Detection failed. Close and tap to retry.</string>
     <string name="chat_reasoning_not_confirmed">No supported effort confirmed. Tap again to detect.</string>
@@ -1896,7 +1896,7 @@
     <string name="device_access_status_failed">暂时无法确认状态</string>
     <string name="device_access_root_failed">无法授权或连接，请检查 Root 管理器中的 Helix 授权后重试。</string>
     <string name="plugin_setup_title">插件尚未配置完成</string>
-    <string name="plugin_setup_mobile_scope">尚未保存手机操作范围。请在 Mobile Use 设置中选择全手机或指定应用并保存，再返回开启插件。</string>
+    <string name="plugin_setup_mobile_scope">尚未保存手机操作范围。请在 手机操作 设置中选择全手机或指定应用并保存，再返回开启插件。</string>
     <string name="plugin_setup_mobile_backend">请至少开启一种手机操作权限。</string>
     <string name="plugin_setup_generic">此插件还有未完成的配置。请到插件设置补全所需配置，再返回开启插件。</string>
     <string name="plugin_setup_continue">去设置</string>

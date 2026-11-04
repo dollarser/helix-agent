@@ -264,6 +264,19 @@ class AutomationToolsTest {
         val descriptor = tools.descriptors().single { it.name.value == AutomationTools.FIND }
         assertEquals(ToolSchemaValidation.Valid, ToolSchemaValidator.validate(descriptor.outputSchema, found))
         assertFalse(found.containsKey("suggestedClickToken"))
+        assertFalse(
+            found
+                .getValue("actionHint")
+                .jsonPrimitive.content
+                .contains("not a ui.find"),
+        )
+        assertEquals(
+            ToolSchemaValidation.Valid,
+            ToolSchemaValidator.validate(
+                descriptor.inputSchema,
+                buildJsonObject { put("scrollable", JsonPrimitive(true)) },
+            ),
+        )
         assertTrue(
             found
                 .getValue("actionHint")
@@ -616,7 +629,7 @@ class AutomationToolsTest {
         val descriptor = tools.descriptors().single { it.name.value == AutomationTools.SCROLL }
         assertEquals(1, descriptor.version.value)
         val schema = descriptor.inputSchema
-        listOf("forward", "backward").forEach {
+        listOf("forward", "backward", "up", "down", "left", "right").forEach {
             assertEquals(
                 ToolSchemaValidation.Valid,
                 ToolSchemaValidator.validate(
@@ -628,7 +641,7 @@ class AutomationToolsTest {
                 ),
             )
         }
-        listOf("up", "down", "UP", "left", "right", "next").forEach {
+        listOf("UP", "next", "diagonal").forEach {
             assertTrue(
                 ToolSchemaValidator.validate(
                     schema,
@@ -643,11 +656,18 @@ class AutomationToolsTest {
                 .getValue("direction")
                 .jsonObject
         assertEquals(
-            kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive("forward"), JsonPrimitive("backward"))),
+            kotlinx.serialization.json.JsonArray(
+                listOf("forward", "backward", "up", "down", "left", "right")
+                    .map(::JsonPrimitive),
+            ),
             direction["enum"],
         )
         execute(AutomationTools.SCROLL, args("token" to TOKEN, "direction" to "backward"))
         assertEquals(AutomationNodeAction.SCROLL_BACKWARD, port.nodeRequests.last().action)
+        execute(AutomationTools.SCROLL, args("token" to TOKEN, "direction" to "down"))
+        assertEquals(AutomationNodeAction.SCROLL_DOWN, port.nodeRequests.last().action)
+        execute(AutomationTools.SCROLL, args("token" to TOKEN, "direction" to "left"))
+        assertEquals(AutomationNodeAction.SCROLL_LEFT, port.nodeRequests.last().action)
     }
 
     private fun execute(

@@ -12,6 +12,7 @@ internal object ShizukuUiProtocol {
     const val GET_UID = IBinder.FIRST_CALL_TRANSACTION + 100
     const val CLICK_MATCH = IBinder.FIRST_CALL_TRANSACTION + 101
     const val DEVICE = IBinder.FIRST_CALL_TRANSACTION + 102
+    const val PREVIEW = IBinder.FIRST_CALL_TRANSACTION + 103
     const val DESTROY_AIDL = 16_777_114
     const val DESTROY_REMOTE = 16_777_115
 }
@@ -104,6 +105,21 @@ class ShizukuUiUserService
             PrivilegedSemanticParcel.write(reply, null)
         }
 
+        private fun executePreview(
+            data: Parcel,
+            reply: Parcel,
+        ): Boolean {
+            require(getCallingUid() == ownerUid) { "UNTRUSTED_CALLER" }
+            data.enforceInterface(ShizukuUiProtocol.DESCRIPTOR)
+            val key = requireNotNull(data.readString()).also { require(it.length == 64) }
+            val owner = requireNotNull(data.readStrongBinder())
+            require(data.dataAvail() == 0)
+            val bytes = synchronized(this) { hierarchy?.let { displays.preview(key, owner, it) } }
+            reply.writeNoException()
+            reply.writeByteArray(bytes)
+            return true
+        }
+
         override fun onTransact(
             code: Int,
             data: Parcel,
@@ -149,6 +165,10 @@ class ShizukuUiUserService
                     data.enforceInterface(ShizukuUiProtocol.DESCRIPTOR)
                     executeDevice(data, requireNotNull(reply))
                     true
+                }
+
+                ShizukuUiProtocol.PREVIEW -> {
+                    executePreview(data, requireNotNull(reply))
                 }
 
                 ShizukuUiProtocol.DESTROY_AIDL,

@@ -22,32 +22,13 @@ internal class PrivilegedNavigationExecution(
             if (!allowed()) return AutomationActionStatus.ACTION_NOT_DISPATCHED
             process =
                 ProcessBuilder(
-                    "/system/bin/am",
-                    "start",
-                    "-W",
-                    "--display",
-                    displayId.toString(),
-                    "--user",
-                    "current",
-                    "-a",
-                    "android.intent.action.MAIN",
-                    "-c",
-                    "android.intent.category.LAUNCHER",
-                    "-n",
-                    component.flattenToString(),
+                    launchArguments(displayId, component.flattenToString()),
                 ).redirectErrorStream(true).redirectOutput(output).start()
-            val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10)
-            while (!process.waitFor(100, TimeUnit.MILLISECONDS)) {
-                if (!allowed() || System.nanoTime() >= deadline) return AutomationActionStatus.ACTION_OUTCOME_UNKNOWN
-            }
-            val text =
-                output.inputStream().use {
-                    val buffer = ByteArray(8192)
-                    String(buffer, 0, it.read(buffer).coerceAtLeast(0), Charsets.UTF_8)
-                }
+            if (!awaitLaunchAcknowledgement(process, allowed)) return AutomationActionStatus.ACTION_OUTCOME_UNKNOWN
+            if (output.length() > 8192) return AutomationActionStatus.ACTION_OUTCOME_UNKNOWN
+            val text = output.readText(Charsets.UTF_8)
             android.util.Log.i("HelixPrivileged", "Launch command exit=${process.exitValue()}")
-            val launched = "Status: ok" in text || "Activity not started" in text
-            if (process.exitValue() == 0 && launched && allowed()) {
+            if (launchAcknowledged(process.exitValue(), text) && allowed()) {
                 AutomationActionStatus.SUCCEEDED
             } else {
                 AutomationActionStatus.ACTION_OUTCOME_UNKNOWN

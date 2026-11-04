@@ -51,6 +51,7 @@ data class AutomationSnapshotNode(
     val canImeEnter: Boolean = false,
     val checkable: Boolean = false,
     val checked: Boolean = false,
+    val scrollDirections: Set<AutomationScrollDirection> = emptySet(),
 )
 
 data class AutomationSnapshot(

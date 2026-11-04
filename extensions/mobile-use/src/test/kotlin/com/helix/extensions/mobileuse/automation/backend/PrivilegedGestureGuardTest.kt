@@ -46,8 +46,24 @@ class PrivilegedGestureGuardTest {
         for (current in listOf(null, shade, target.copy(revision = "v2"))) {
             val guard = PrivilegedGestureGuard(request, { current }, { target.gestureDisplay() }, { listOf(own) })
             val runner =
-                PrivilegedGestureRunner({ 0 }, {}, { true }, guard::ready, { _, _ -> error("Unexpected input") })
-            assertEquals("NOT_DISPATCHED", runner.execute(privilegedGesturePlan(request.strokes)))
+                PrivilegedGestureRunner(
+                    { 0 },
+                    {},
+                    { true },
+                    guard::ready,
+                    { _, _ -> error("Unexpected input") },
+                    { guard.refusal },
+                )
+            assertEquals(
+                if (current?.copy(revision = "") ==
+                    target.copy(revision = "")
+                ) {
+                    "FRAME_CHANGED"
+                } else {
+                    "TARGET_CHANGED"
+                },
+                runner.execute(privilegedGesturePlan(request.strokes)),
+            )
         }
     }
 

@@ -76,6 +76,7 @@ fun AutomationSnapshotNode.privilegedFingerprint(): String =
             canImeEnter.toString(),
             checkable.toString(),
             checked.toString(),
+            scrollDirections.sortedBy { it.ordinal }.toString(),
         ),
     )
 
@@ -98,7 +99,7 @@ fun privilegedSemanticAnchorPermitted(
     target: AutomationDisplayTarget,
     permits: (Int, Int) -> Boolean,
 ): Boolean {
-    if (action != AutomationNodeAction.SCROLL_FORWARD && action != AutomationNodeAction.SCROLL_BACKWARD) {
+    if (action.scrollDirection == null) {
         return permits((bounds.left + bounds.right) / 2, (bounds.top + bounds.bottom) / 2)
     }
     val left = maxOf(0, bounds.left, target.bounds.left)

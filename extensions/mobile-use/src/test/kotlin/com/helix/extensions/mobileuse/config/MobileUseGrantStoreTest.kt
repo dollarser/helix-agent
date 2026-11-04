@@ -10,6 +10,32 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class MobileUseGrantStoreTest {
+    @Test fun initialModeUsesAvailableBackendOnceAndNeverSilentlyFallsBackAfterConnectionLoss() {
+        val lines = mutableMapOf<String, List<String>>()
+        var shell = true
+        val store =
+            MobileUseGrantStore(
+                { lines[it].orEmpty() },
+                { k, v -> lines[k] = v },
+                { "selected" },
+                defaultBackground = { shell },
+            )
+        assertEquals(true to false, store.executionSettings())
+        store.configureGlobal(setOf("fixture.app"), false)
+        shell = false
+        assertTrue(requireNotNull(store.find("a")).backgroundDisplay)
+        store.configureExecution(false, false)
+        assertFalse(requireNotNull(store.find("a")).backgroundDisplay)
+        val accessibilityOnly =
+            MobileUseGrantStore(
+                { emptyList() },
+                { _, _ -> },
+                { null },
+                defaultBackground = { false },
+            )
+        assertEquals(false to false, accessibilityOnly.executionSettings())
+    }
+
     private val records = mutableMapOf<String, List<String>>()
     private val selections = mutableMapOf<String, String>()
     private var sequence = 0
@@ -57,7 +83,7 @@ class MobileUseGrantStoreTest {
         assertFalse(store.matches("a", first.scope.toScopeRef()))
         assertEquals(setOf("com.allowed"), store.find("a")!!.scope.allowedPackages)
         assertNull(store.find("c"))
-        assertEquals(setOf(MobileUseGrantStore.CONFIG_KEY), records.keys)
+        assertEquals(setOf(MobileUseGrantStore.CONFIG_KEY, MobileUseGrantStore.EXECUTION_KEY), records.keys)
     }
 
     @Test fun failedGlobalEditFailsClosedAndCanBeRetried() {

@@ -20,6 +20,21 @@ internal class ShizukuDisplayLifecycle(
     private val death = IBinder.DeathRecipient { report(AutomationDisplayLifecycle.CONNECTION_LOST) }
 
     @Synchronized
+    fun previewService(
+        sessionId: String,
+        turnId: String,
+        expectedGeneration: Long,
+    ): IBinder? =
+        service?.takeIf {
+            !terminal && state == AutomationDisplayLifecycle.ACTIVE &&
+                session == sessionId && turn == turnId && generation == expectedGeneration && it.isBinderAlive
+        }
+
+    @Synchronized
+    fun permitsPreviewPackage(packageName: String): Boolean =
+        !terminal && state == AutomationDisplayLifecycle.ACTIVE && permittedPackage(packageName)
+
+    @Synchronized
     fun discardIfNeverBound() {
         if (!terminal && service == null && state == AutomationDisplayLifecycle.CREATING) {
             report(AutomationDisplayLifecycle.UNAVAILABLE)

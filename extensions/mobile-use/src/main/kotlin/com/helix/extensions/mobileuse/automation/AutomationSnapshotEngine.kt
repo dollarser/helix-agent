@@ -26,6 +26,7 @@ internal interface SnapshotNode {
     val canImeEnter: Boolean get() = false
     val checkable: Boolean get() = false
     val checked: Boolean get() = false
+    val scrollDirections: Set<AutomationScrollDirection> get() = emptySet()
 
     fun childAt(index: Int): SnapshotNode?
 
@@ -65,6 +66,7 @@ internal data class ObservedSnapshotNode(
     val checkable: Boolean = false,
     val checked: Boolean = false,
     val fieldTruncated: Boolean = false,
+    val scrollDirections: Set<AutomationScrollDirection> = emptySet(),
 )
 
 internal fun SnapshotNode.observe(): ObservedSnapshotNode {
@@ -97,6 +99,7 @@ internal fun SnapshotNode.observe(): ObservedSnapshotNode {
         checkable = checkable,
         checked = checked,
         fieldTruncated = fieldTruncated,
+        scrollDirections = scrollDirections,
     )
 }
 
@@ -122,6 +125,7 @@ internal fun ObservedSnapshotNode.fingerprint(
             enabled.toString(),
             checkable.toString(),
             checked.toString(),
+            scrollDirections.sortedBy { it.ordinal }.toString(),
         ) + if (range != null || canSetProgress) listOf(range.toString(), canSetProgress.toString()) else emptyList(),
     )
 
@@ -283,6 +287,7 @@ internal class AutomationSnapshotEngine(
                     canImeEnter = observed.canImeEnter,
                     checkable = observed.checkable,
                     checked = observed.checked,
+                    scrollDirections = observed.scrollDirections,
                 )
             state.hasUsefulSemantics =
                 state.hasUsefulSemantics ||

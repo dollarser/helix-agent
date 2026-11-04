@@ -119,17 +119,14 @@ fun ChatScreen(
     }
     var selectedPluginNames by remember(sessionId) { mutableStateOf(emptyList<String>()) }
     var pluginLoadFailed by remember(sessionId) { mutableStateOf(false) }
-    val documentPluginName = stringResource(R.string.document_plugin_name)
-    LaunchedEffect(sessionId, connectorsOpen, expertOpen, documentPluginName) {
+    LaunchedEffect(sessionId, connectorsOpen, expertOpen) {
         try {
             selectedPluginNames =
                 if (sessionId == null || connectors == null) {
                     emptyList()
                 } else {
                     withContext(Dispatchers.IO) {
-                        connectors.selectedNames(sessionId).map {
-                            if (it == "documents") documentPluginName else it
-                        }
+                        connectors.selectedNames(sessionId)
                     }
                 }
             pluginLoadFailed = false
@@ -473,390 +470,405 @@ fun ChatScreen(
             }
         }
     }
-    Column(
-        Modifier
-            .fillMaxSize()
-            .imePadding()
-            .testTag("screen-sessions"),
-    ) {
-        if (screen.openSessionId == null) {
-            LaunchedEffect(screen.preparingDraft) {
-                // Activity restoration may still be loading the user's selected conversation.
-                // Share its entry point instead of overwriting that target with a new draft.
-                if (!screen.preparingDraft) chatService.restoreConversationLaunchTarget()
-            }
-        } else {
-            ConversationSection(
-                screen = screen,
-                runControl = runControl,
-                permissionMode = permissionMode,
-                referenceLabel = referenceLabel,
-                expertName = selectedExpertName,
-                pluginNames = selectedPluginNames,
-                onSelectedPlugins = { connectorsOpen = true },
-                hasKnowledgeReferences = buffer.value.knowledgeReferences.isNotEmpty(),
-                knowledgeReferenceContent = {
-                    com.helix.app.knowledge.KnowledgeReferenceChips(
-                        buffer.value.knowledgeReferences,
-                        knowledge,
-                        onChange =
-                            if (buffer.editable && !buffer.sending && screen.pendingDisclosure == null) {
-                                { buffer.knowledgeReferences(it) }
-                            } else {
-                                null
-                            },
-                    )
-                },
-                humanControl = { turnId -> HumanControlPanel(chatService, screen, turnId) },
-                input = input,
-                onInput = buffer::edit,
-                composerAvailability =
-                    ComposerAvailability(
-                        input = buffer.editable && editMessageId == null,
-                        attachments = !buffer.sending && screen.pendingDisclosure == null,
-                        delivery =
-                            buffer.editable && buffer.canSubmit && editMessageId == null &&
-                                screen.pendingDisclosure == null,
-                        deliveryReason =
-                            when {
-                                !buffer.ready -> {
-                                    R.string.composer_restoring
-                                }
-
-                                !buffer.attachmentsReady -> {
-                                    R.string.composer_restoring_attachments
-                                }
-
-                                buffer.missingAttachments.isNotEmpty() -> {
-                                    R.string.chat_draft_attachment_missing
-                                }
-
-                                editMessageId != null -> {
-                                    R.string.composer_editing_message
-                                }
-
-                                buffer.sending -> {
-                                    R.string.composer_submitting
-                                }
-
-                                screen.pendingDisclosure != null -> {
-                                    R.string.composer_disclosure_pending
-                                }
-
-                                else -> {
+    androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) {
+        Column(
+            Modifier
+                .fillMaxSize()
+                .imePadding()
+                .testTag("screen-sessions"),
+        ) {
+            if (screen.openSessionId == null) {
+                LaunchedEffect(screen.preparingDraft) {
+                    // Activity restoration may still be loading the user's selected conversation.
+                    // Share its entry point instead of overwriting that target with a new draft.
+                    if (!screen.preparingDraft) chatService.restoreConversationLaunchTarget()
+                }
+            } else {
+                ConversationSection(
+                    screen = screen,
+                    runControl = runControl,
+                    permissionMode = permissionMode,
+                    referenceLabel = referenceLabel,
+                    expertName = selectedExpertName,
+                    pluginNames =
+                        selectedPluginNames.map {
+                            com.helix.app.plugin
+                                .pluginLabel(it)
+                        },
+                    onSelectedPlugins = { connectorsOpen = true },
+                    hasKnowledgeReferences = buffer.value.knowledgeReferences.isNotEmpty(),
+                    knowledgeReferenceContent = {
+                        com.helix.app.knowledge.KnowledgeReferenceChips(
+                            buffer.value.knowledgeReferences,
+                            knowledge,
+                            onChange =
+                                if (buffer.editable && !buffer.sending && screen.pendingDisclosure == null) {
+                                    { buffer.knowledgeReferences(it) }
+                                } else {
                                     null
-                                }
-                            },
-                        modelSelected =
-                            com.helix.app.chat.hasSelectedConversationModel(
-                                screen.selectedModel?.providerId,
-                                screen.selectedModel?.model,
-                            ),
-                        localCommands = buffer.editable && !buffer.sending && editMessageId == null,
-                    ),
-                composerStatus = {
-                    buffer.value.skillActivations.forEach { activation ->
-                        androidx.compose.material3.TextButton(
-                            onClick = {
-                                buffer.skills(buffer.value.skillActivations - activation)
-                            },
-                            enabled = buffer.editable && !buffer.sending,
-                            modifier = Modifier.testTag("skill-activation-${activation.name}"),
-                        ) {
-                            Text(stringResource(R.string.skill_invocation_selected, activation.name))
-                        }
-                    }
-                    sessionId?.let { id ->
-                        SessionInputQueuePanel(
-                            chatService,
-                            id,
-                            listOf(
-                                inputQueueEpoch,
-                                screen.activeTurn?.id,
-                                screen.activeTurn?.state,
-                                screen.messages.size,
-                            ),
-                            activeTurnId =
-                                screen.activeTurn
-                                    ?.takeIf {
-                                        !it.state.isTerminal && it.state !in
-                                            setOf(
-                                                com.helix.core.model.TurnState.CANCELLING,
-                                                com.helix.core.model.TurnState.NEEDS_REVIEW,
-                                            )
-                                    }?.id,
+                                },
                         )
-                    }
-                },
-                composerOptions = {
-                    SessionInputDeliverySelector(
-                        immediate = runControl.immediateMessages,
-                        enabled = buffer.editable && !buffer.sending && screen.pendingDisclosure == null,
-                        onSelect = { immediate ->
-                            sessionId?.let { chatService.setImmediateMessages(it, immediate) } == true
-                        },
-                    )
-                },
-                composerFeedback = {
-                    if (pluginLoadFailed) Text(stringResource(R.string.plugin_selection_load_failed))
-                    selectedExpertName?.let { name ->
-                        TextButton(
-                            onClick = { expertOpen = true },
-                            modifier = Modifier.testTag("composer-expert-chip"),
-                        ) {
-                            Text(stringResource(R.string.expert_current, name))
-                        }
-                    }
-                    if (expertLoadFailed) Text(stringResource(R.string.session_expert_save_failed))
-                    if (connectors != null && sessionId != null &&
-                        screen.pendingAttachments.any {
-                            it.fileName.substringAfterLast('.', "").lowercase() in
-                                setOf("pdf", "docx")
-                        }
-                    ) {
-                        DocumentPluginPreparation(connectors, sessionId, connectorsOpen) {
-                            scope.launch {
-                                if (saveBuffer() && chatService.materializeDraftSession(sessionId) == sessionId &&
-                                    chatService.screen.value.openSessionId == sessionId
-                                ) {
-                                    connectorsOpen = true
-                                }
-                            }
-                        }
-                    }
-                    if (buffer.failed) {
-                        Text(stringResource(R.string.composer_cache_notice), Modifier.testTag("chat-cache-notice"))
-                    }
-                    if (buffer.missingAttachments.isNotEmpty()) {
-                        Text(stringResource(R.string.chat_draft_attachment_missing))
-                        TextButton(onClick = buffer::discardMissingAttachments) {
-                            Text(stringResource(R.string.chat_draft_remove_missing))
-                        }
-                    }
-                },
-                bindableProviders = providerRows,
-                modelSourceGroups = providerService.sourceGroups,
-                artifacts = {
-                    ConversationArtifacts(chatService, fileManager, screen)
-                },
-                displayExecution = { turnId ->
-                    DisplayExecutionStatus(
-                        displayExecutions.firstOrNull {
-                            it.sessionId == screen.openSessionId && it.turnId == turnId
-                        },
-                    )
-                },
-                turnArtifacts = { turnId ->
-                    TurnArtifactEntry(chatService, fileManager, turnId) { timelineDecorationVersion++ }
-                },
-                timelineDecorationVersion = timelineDecorationVersion,
-                taskPreparation = {
-                    if (connectors != null && sessionId != null) {
-                        PhoneTaskPreparation(connectors) {
-                            val target = sessionId
-                            scope.launch {
-                                if (saveBuffer() && chatService.screen.value.openSessionId == target) {
-                                    val materialized = chatService.materializeDraftSession(target) == target
-                                    if (materialized && chatService.screen.value.openSessionId == target) {
-                                        onMobileUseSession(target)
+                    },
+                    humanControl = { turnId -> HumanControlPanel(chatService, screen, turnId) },
+                    input = input,
+                    onInput = buffer::edit,
+                    composerAvailability =
+                        ComposerAvailability(
+                            input = buffer.editable && editMessageId == null,
+                            attachments = !buffer.sending && screen.pendingDisclosure == null,
+                            delivery =
+                                buffer.editable && buffer.canSubmit && editMessageId == null &&
+                                    screen.pendingDisclosure == null,
+                            deliveryReason =
+                                when {
+                                    !buffer.ready -> {
+                                        R.string.composer_restoring
                                     }
-                                }
-                            }
-                        }
-                    }
-                },
-                intents =
-                    ConversationIntents(
-                        onInspectToolResult = chatService::inspectToolResult,
-                        onLoadOlderMessages = chatService::loadOlderMessages,
-                        onShowLatestMessages = chatService::showLatestMessages,
-                        onFindHistoryMessage = chatService::findHistoryMessage,
-                        onNavigation = { navigateAfterSave(onNavigation) },
-                        onSettings = { navigateAfterSave(onSessionSettings) },
-                        onGit = { navigateAfterSave(onGit) },
-                        onManageModels = { navigateAfterSave(onModels) },
-                        onConfigureModelSource =
-                            onConfigureModelSource?.let { configure ->
-                                { source -> navigateAfterSave { configure(source) } }
-                            },
-                        onReference = {
-                            if (sessionId != null && buffer.editable &&
-                                !buffer.sending
+
+                                    !buffer.attachmentsReady -> {
+                                        R.string.composer_restoring_attachments
+                                    }
+
+                                    buffer.missingAttachments.isNotEmpty() -> {
+                                        R.string.chat_draft_attachment_missing
+                                    }
+
+                                    editMessageId != null -> {
+                                        R.string.composer_editing_message
+                                    }
+
+                                    buffer.sending -> {
+                                        R.string.composer_submitting
+                                    }
+
+                                    screen.pendingDisclosure != null -> {
+                                        R.string.composer_disclosure_pending
+                                    }
+
+                                    else -> {
+                                        null
+                                    }
+                                },
+                            modelSelected =
+                                com.helix.app.chat.hasSelectedConversationModel(
+                                    screen.selectedModel?.providerId,
+                                    screen.selectedModel?.model,
+                                ),
+                            localCommands = buffer.editable && !buffer.sending && editMessageId == null,
+                        ),
+                    composerStatus = {
+                        buffer.value.skillActivations.forEach { activation ->
+                            androidx.compose.material3.TextButton(
+                                onClick = {
+                                    buffer.skills(buffer.value.skillActivations - activation)
+                                },
+                                enabled = buffer.editable && !buffer.sending,
+                                modifier = Modifier.testTag("skill-activation-${activation.name}"),
                             ) {
-                                referenceRequest++
-                                referenceOpen = true
+                                Text(stringResource(R.string.skill_invocation_selected, activation.name))
                             }
-                        },
-                        onClearReference = {
-                            referenceRequest++
-                            buffer.reference(null, null)
-                        },
-                        onKnowledgeReference =
-                            knowledge?.let {
-                                {
-                                    if (sessionId != null && buffer.editable && !buffer.sending) knowledgeOpen = true
-                                }
+                        }
+                        sessionId?.let { id ->
+                            SessionInputQueuePanel(
+                                chatService,
+                                id,
+                                listOf(
+                                    inputQueueEpoch,
+                                    screen.activeTurn?.id,
+                                    screen.activeTurn?.state,
+                                    screen.messages.size,
+                                ),
+                                activeTurnId =
+                                    screen.activeTurn
+                                        ?.takeIf {
+                                            !it.state.isTerminal && it.state !in
+                                                setOf(
+                                                    com.helix.core.model.TurnState.CANCELLING,
+                                                    com.helix.core.model.TurnState.NEEDS_REVIEW,
+                                                )
+                                        }?.id,
+                            )
+                        }
+                    },
+                    composerOptions = {
+                        SessionInputDeliverySelector(
+                            immediate = runControl.immediateMessages,
+                            enabled = buffer.editable && !buffer.sending && screen.pendingDisclosure == null,
+                            onSelect = { immediate ->
+                                sessionId?.let { chatService.setImmediateMessages(it, immediate) } == true
                             },
-                        onExpert = {
-                            val id = sessionId
-                            if (id != null) {
-                                scope.launch {
-                                    if (saveBuffer() && chatService.materializeDraftSession(id) == id &&
-                                        chatService.screen.value.openSessionId == id
-                                    ) {
-                                        expertOpen = true
-                                    }
-                                }
+                        )
+                    },
+                    composerFeedback = {
+                        if (pluginLoadFailed) Text(stringResource(R.string.plugin_selection_load_failed))
+                        selectedExpertName?.let { name ->
+                            TextButton(
+                                onClick = { expertOpen = true },
+                                modifier = Modifier.testTag("composer-expert-chip"),
+                            ) {
+                                Text(stringResource(R.string.expert_current, name))
                             }
-                        },
-                        onSkills = {
-                            val id = sessionId
-                            if (id != null && skills != null) {
-                                scope.launch {
-                                    if (saveBuffer() && chatService.materializeDraftSession(id) == id &&
-                                        chatService.screen.value.openSessionId == id
-                                    ) {
-                                        skillsOpen = true
-                                    }
-                                }
+                        }
+                        if (expertLoadFailed) Text(stringResource(R.string.session_expert_save_failed))
+                        if (connectors != null && sessionId != null &&
+                            screen.pendingAttachments.any {
+                                it.fileName.substringAfterLast('.', "").lowercase() in
+                                    setOf("pdf", "docx")
                             }
-                        },
-                        onConnectors = {
-                            val id = sessionId
-                            if (id != null && connectors != null) {
+                        ) {
+                            DocumentPluginPreparation(connectors, sessionId, connectorsOpen) {
                                 scope.launch {
-                                    if (saveBuffer() && chatService.materializeDraftSession(id) == id &&
-                                        chatService.screen.value.openSessionId == id
+                                    if (saveBuffer() && chatService.materializeDraftSession(sessionId) == sessionId &&
+                                        chatService.screen.value.openSessionId == sessionId
                                     ) {
                                         connectorsOpen = true
                                     }
                                 }
                             }
-                        },
-                        onManageGoal = { goalsOpen = true },
-                        onTasks = { tasksOpen = true },
-                        onOpenTaskResult = { original ->
-                            if (chatService.screen.value.openSessionId == sessionId) interruptionResult = original
-                        },
-                        onNew = { navigateAfterSave { chatService.newSessionDraft() } },
-                        onRename = { renameId = screen.openSessionId },
-                        onExport = sessionExport?.let { { exportSessionId = screen.openSessionId } },
-                        onDirectory = { directoryOpen = true },
-                        onSend = onSendAction,
-                        onStop = { chatService.stop() },
-                        onStopTurn = { turnId -> chatService.stop(turnId) },
-                        onCompact = chatService::compactContext,
-                        onFork = { messageId -> navigateAfterSave { chatService.forkFromMessage(messageId) } },
-                        onRegenerateLatest = { messageId -> chatService.regenerateLatestTurn(messageId) },
-                        onSaveReply = { messageId ->
-                            val target = sessionId
-                            if (target != null) {
+                        }
+                        if (buffer.failed) {
+                            Text(stringResource(R.string.composer_cache_notice), Modifier.testTag("chat-cache-notice"))
+                        }
+                        if (buffer.missingAttachments.isNotEmpty()) {
+                            Text(stringResource(R.string.chat_draft_attachment_missing))
+                            TextButton(onClick = buffer::discardMissingAttachments) {
+                                Text(stringResource(R.string.chat_draft_remove_missing))
+                            }
+                        }
+                    },
+                    bindableProviders = providerRows,
+                    modelSourceGroups = providerService.sourceGroups,
+                    artifacts = {
+                        ConversationArtifacts(chatService, fileManager, screen)
+                    },
+                    displayExecution = { turnId ->
+                        DisplayExecutionStatus(
+                            displayExecutions.firstOrNull {
+                                it.sessionId == screen.openSessionId && it.turnId == turnId
+                            },
+                        )
+                    },
+                    turnArtifacts = { turnId ->
+                        TurnArtifactEntry(chatService, fileManager, turnId) { timelineDecorationVersion++ }
+                    },
+                    timelineDecorationVersion = timelineDecorationVersion,
+                    taskPreparation = {
+                        if (connectors != null && sessionId != null) {
+                            PhoneTaskPreparation(connectors) {
+                                val target = sessionId
                                 scope.launch {
-                                    val saved = chatService.saveReplyAsNote(target, messageId).await()
-                                    val notice =
-                                        if (saved) {
-                                            savedReplyNotice
-                                        } else {
-                                            failedReplyNotice
+                                    if (saveBuffer() && chatService.screen.value.openSessionId == target) {
+                                        val materialized = chatService.materializeDraftSession(target) == target
+                                        if (materialized && chatService.screen.value.openSessionId == target) {
+                                            onMobileUseSession(target)
                                         }
-                                    android.widget.Toast
-                                        .makeText(
-                                            context,
-                                            notice,
-                                            android.widget.Toast.LENGTH_SHORT,
-                                        ).show()
-                                }
-                            }
-                        },
-                        onEditMessage = { messageId ->
-                            scope.launch {
-                                saveBuffer()
-                                editMessageId = messageId
-                            }
-                        },
-                        onDismissBlocked = { chatService.dismissBlocked() },
-                        onApproveApproval = { chatService.approveApproval(it) },
-                        onDenyApproval = { chatService.denyApproval(it) },
-                        onStageAttachment = { uri ->
-                            scope.launch {
-                                buffer.restore {
-                                    val materialized =
-                                        sessionId != null &&
-                                            chatService.materializeDraftSession(sessionId) == sessionId
-                                    if (materialized &&
-                                        chatService.screen.value.openSessionId == sessionId
-                                    ) {
-                                        chatService.stageAttachment(uri, sessionId)
                                     }
                                 }
                             }
-                        },
-                        onRemoveAttachment = { chatService.removePendingAttachment(it) },
-                        onPreviewImage = chatService::previewImage,
-                        onSelectPermission = { selected ->
-                            val id = sessionId
-                            val edit = sessionPermissionEdit
-                            val matches = id != null && chatService.screen.value.openSessionId == id
-                            val materialized =
-                                matches &&
-                                    chatService.materializeDraftSession(requireNotNull(id)) == id
-                            val stillCurrent = materialized && chatService.screen.value.openSessionId == id
-                            if (id == null || edit == null || !stillCurrent) {
-                                false
-                            } else {
-                                val actual =
-                                    withContext(Dispatchers.IO) {
-                                        edit.saveSessionConfig(
-                                            id,
-                                            com.helix.core.policy.SessionPermissionConfig
-                                                .of(selected),
-                                            System.currentTimeMillis(),
-                                        )
-                                        checkNotNull(edit.activeConfigFor(id)).mode
-                                    }
-                                if (chatService.screen.value.openSessionId == id) {
-                                    permissionMode = actual
-                                    permissionRevision++
+                        }
+                    },
+                    intents =
+                        ConversationIntents(
+                            onInspectToolResult = chatService::inspectToolResult,
+                            onLoadOlderMessages = chatService::loadOlderMessages,
+                            onShowLatestMessages = chatService::showLatestMessages,
+                            onFindHistoryMessage = chatService::findHistoryMessage,
+                            onNavigation = { navigateAfterSave(onNavigation) },
+                            onSettings = { navigateAfterSave(onSessionSettings) },
+                            onGit = { navigateAfterSave(onGit) },
+                            onManageModels = { navigateAfterSave(onModels) },
+                            onConfigureModelSource =
+                                onConfigureModelSource?.let { configure ->
+                                    { source -> navigateAfterSave { configure(source) } }
+                                },
+                            onReference = {
+                                if (sessionId != null && buffer.editable &&
+                                    !buffer.sending
+                                ) {
+                                    referenceRequest++
+                                    referenceOpen = true
                                 }
-                                actual == selected
-                            }
-                        },
-                        onSaveModel = { provider, model, reasoning ->
-                            chatService
-                                .requestSessionModelSelection(
-                                    screen.openSessionId,
-                                    provider,
-                                    model,
-                                    reasoning,
-                                    com.helix.app.chat.SessionModelSelectionSnapshot(
-                                        screen.selectedModel?.providerId,
-                                        screen.selectedModel?.model,
-                                        runControl.reasoning,
-                                    ),
-                                ).await()
-                        },
-                        onRefreshModels = providerService.builtInModels::refresh,
-                        onSetMode = chatService::setMode,
-                        onCommandMode = { mode ->
-                            sessionId?.let { chatService.setModeFromComposer(it, mode) } ?: false
-                        },
-                        onDetectReasoning = { provider, model ->
-                            providerService.discoverReasoningOptions(provider, model)
-                        },
-                        onInspectProot = chatService::inspectInterruptedProot,
-                        onRecoverProot = chatService::recoverInterruptedProot,
-                        onRetryProotAck = chatService::retryProotAcknowledgement,
-                        onInspectSubscription = chatService::inspectInterruptedSubscription,
-                        onRecoverSubscriptionResult = chatService::recoverInterruptedSubscriptionResult,
-                        onRecoveryReconnect = { repairRecovery(it, false) },
-                        onRecoveryQueryResult = chatService::recoveryQueryResult,
-                        onRecoveryGrantPermission = { repairRecovery(it, true) },
-                        onRecoveryContinueGoal = chatService::recoveryContinueGoal,
-                        onRecoveryRetry = chatService::recoveryRetryNewCall,
-                        onOpenCommandDetail = onOpenCommandDetail,
-                    ),
-            )
+                            },
+                            onClearReference = {
+                                referenceRequest++
+                                buffer.reference(null, null)
+                            },
+                            onKnowledgeReference =
+                                knowledge?.let {
+                                    {
+                                        if (sessionId != null && buffer.editable && !buffer.sending) {
+                                            knowledgeOpen = true
+                                        }
+                                    }
+                                },
+                            onExpert = {
+                                val id = sessionId
+                                if (id != null) {
+                                    scope.launch {
+                                        if (saveBuffer() &&
+                                            chatService.materializeDraftSession(id) == id &&
+                                            chatService.screen.value.openSessionId == id
+                                        ) {
+                                            expertOpen = true
+                                        }
+                                    }
+                                }
+                            },
+                            onSkills = {
+                                val id = sessionId
+                                if (id != null && skills != null) {
+                                    scope.launch {
+                                        val ready = saveBuffer() && chatService.materializeDraftSession(id) == id
+                                        if (ready && chatService.screen.value.openSessionId == id) {
+                                            skillsOpen = true
+                                        }
+                                    }
+                                }
+                            },
+                            onConnectors = {
+                                val id = sessionId
+                                if (id != null && connectors != null) {
+                                    scope.launch {
+                                        if (saveBuffer() && chatService.materializeDraftSession(id) == id &&
+                                            chatService.screen.value.openSessionId == id
+                                        ) {
+                                            connectorsOpen = true
+                                        }
+                                    }
+                                }
+                            },
+                            onManageGoal = { goalsOpen = true },
+                            onTasks = { tasksOpen = true },
+                            onOpenTaskResult = { original ->
+                                if (chatService.screen.value.openSessionId == sessionId) interruptionResult = original
+                            },
+                            onNew = { navigateAfterSave { chatService.newSessionDraft() } },
+                            onRename = { renameId = screen.openSessionId },
+                            onExport = sessionExport?.let { { exportSessionId = screen.openSessionId } },
+                            onDirectory = { directoryOpen = true },
+                            onSend = onSendAction,
+                            onStop = { chatService.stop() },
+                            onStopTurn = { turnId -> chatService.stop(turnId) },
+                            onCompact = chatService::compactContext,
+                            onFork = { messageId -> navigateAfterSave { chatService.forkFromMessage(messageId) } },
+                            onRegenerateLatest = { messageId -> chatService.regenerateLatestTurn(messageId) },
+                            onSaveReply = { messageId ->
+                                val target = sessionId
+                                if (target != null) {
+                                    scope.launch {
+                                        val saved = chatService.saveReplyAsNote(target, messageId).await()
+                                        val notice =
+                                            if (saved) {
+                                                savedReplyNotice
+                                            } else {
+                                                failedReplyNotice
+                                            }
+                                        android.widget.Toast
+                                            .makeText(
+                                                context,
+                                                notice,
+                                                android.widget.Toast.LENGTH_SHORT,
+                                            ).show()
+                                    }
+                                }
+                            },
+                            onEditMessage = { messageId ->
+                                scope.launch {
+                                    saveBuffer()
+                                    editMessageId = messageId
+                                }
+                            },
+                            onDismissBlocked = { chatService.dismissBlocked() },
+                            onApproveApproval = { chatService.approveApproval(it) },
+                            onDenyApproval = { chatService.denyApproval(it) },
+                            onStageAttachment = { uri ->
+                                scope.launch {
+                                    buffer.restore {
+                                        val materialized =
+                                            sessionId != null &&
+                                                chatService.materializeDraftSession(sessionId) == sessionId
+                                        if (materialized &&
+                                            chatService.screen.value.openSessionId == sessionId
+                                        ) {
+                                            chatService.stageAttachment(uri, sessionId)
+                                        }
+                                    }
+                                }
+                            },
+                            onRemoveAttachment = { chatService.removePendingAttachment(it) },
+                            onPreviewImage = chatService::previewImage,
+                            onSelectPermission = { selected ->
+                                val id = sessionId
+                                val edit = sessionPermissionEdit
+                                val matches = id != null && chatService.screen.value.openSessionId == id
+                                val materialized =
+                                    matches &&
+                                        chatService.materializeDraftSession(requireNotNull(id)) == id
+                                val stillCurrent = materialized && chatService.screen.value.openSessionId == id
+                                if (id == null || edit == null || !stillCurrent) {
+                                    false
+                                } else {
+                                    val actual =
+                                        withContext(Dispatchers.IO) {
+                                            edit.saveSessionConfig(
+                                                id,
+                                                com.helix.core.policy.SessionPermissionConfig
+                                                    .of(selected),
+                                                System.currentTimeMillis(),
+                                            )
+                                            checkNotNull(edit.activeConfigFor(id)).mode
+                                        }
+                                    if (chatService.screen.value.openSessionId == id) {
+                                        permissionMode = actual
+                                        permissionRevision++
+                                    }
+                                    actual == selected
+                                }
+                            },
+                            onSaveModel = { provider, model, reasoning ->
+                                chatService
+                                    .requestSessionModelSelection(
+                                        screen.openSessionId,
+                                        provider,
+                                        model,
+                                        reasoning,
+                                        com.helix.app.chat.SessionModelSelectionSnapshot(
+                                            screen.selectedModel?.providerId,
+                                            screen.selectedModel?.model,
+                                            runControl.reasoning,
+                                        ),
+                                    ).await()
+                            },
+                            onRefreshModels = providerService.builtInModels::refresh,
+                            onSetMode = chatService::setMode,
+                            onCommandMode = { mode ->
+                                sessionId?.let { chatService.setModeFromComposer(it, mode) } ?: false
+                            },
+                            onDetectReasoning = { provider, model ->
+                                providerService.discoverReasoningOptions(provider, model)
+                            },
+                            onInspectProot = chatService::inspectInterruptedProot,
+                            onRecoverProot = chatService::recoverInterruptedProot,
+                            onRetryProotAck = chatService::retryProotAcknowledgement,
+                            onInspectSubscription = chatService::inspectInterruptedSubscription,
+                            onRecoverSubscriptionResult = chatService::recoverInterruptedSubscriptionResult,
+                            onRecoveryReconnect = { repairRecovery(it, false) },
+                            onRecoveryQueryResult = chatService::recoveryQueryResult,
+                            onRecoveryGrantPermission = { repairRecovery(it, true) },
+                            onRecoveryContinueGoal = chatService::recoveryContinueGoal,
+                            onRecoveryRetry = chatService::recoveryRetryNewCall,
+                            onOpenCommandDetail = onOpenCommandDetail,
+                        ),
+                )
+            }
         }
+
+        BackgroundDisplayPreview(
+            displayExecutions
+                .filter {
+                    it.sessionId == sessionId && it.state == com.helix.app.chat.DisplayExecutionState.ACTIVE
+                }.maxByOrNull { it.generation },
+        )
     }
 
     if (goalsOpen && screen.openSessionId != null) {

@@ -4,6 +4,7 @@ import com.helix.extensions.mobileuse.automation.AutomationDeviceRequest
 import com.helix.extensions.mobileuse.automation.AutomationDisplayTarget
 import com.helix.extensions.mobileuse.automation.AutomationWindowRegion
 import com.helix.extensions.mobileuse.automation.privilegedGesturePermitted
+import com.helix.extensions.mobileuse.automation.sameWindow
 
 /** Physical coordinates survive a window transition, but never a changed display mapping. */
 internal data class GestureDisplay(
@@ -23,15 +24,36 @@ internal class PrivilegedGestureGuard(
     private val display: () -> GestureDisplay,
     private val windows: () -> List<AutomationWindowRegion>,
 ) {
+    var refusal: String = "NOT_DISPATCHED"
+        private set
+
     fun ready(entered: Boolean): Boolean =
         when {
-            !entered -> privilegedGesturePermitted(request, target(true), windows())
+            !entered -> beforeDown()
 
             // A shade/panel may replace the active root while this same authorized touch is held.
             request.wholeDisplay -> requireNotNull(request.target).gestureDisplay() == display()
 
             else -> withinApp()
         }
+
+    @Suppress("ReturnCount") // Distinguish content, mapping and occlusion before any DOWN is sent.
+    private fun beforeDown(): Boolean {
+        val original = requireNotNull(request.target)
+        val current = target(true)
+        if (original != current) {
+            refusal = if (original.sameWindow(current)) "FRAME_CHANGED" else "TARGET_CHANGED"
+            return false
+        }
+        val covering = windows()
+        if (covering.none { it.windowId == original.windowId }) {
+            refusal = "TARGET_CHANGED"
+            return false
+        }
+        val permitted = privilegedGesturePermitted(request, current, covering)
+        if (!permitted) refusal = "GESTURE_OCCLUDED"
+        return permitted
+    }
 
     private fun withinApp(): Boolean {
         val original = requireNotNull(request.target)

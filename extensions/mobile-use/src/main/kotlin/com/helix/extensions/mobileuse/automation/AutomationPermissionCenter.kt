@@ -157,6 +157,34 @@ class AutomationPermissionCenter(
             ShizukuExecutionGuard,
         >()
 
+    /** Local user preview, not a tool observation or a grant to send images to a model. */
+    @Suppress("ReturnCount") // Fail closed at each original-owner boundary, including after the IPC read.
+    fun backgroundPreview(
+        session: String,
+        turn: String,
+        generation: Long,
+    ): android.graphics.Bitmap? {
+        val entry =
+            backgroundOwners.entries.firstOrNull {
+                it.value.previewService(session, turn, generation) != null
+            } ?: return null
+        val service = entry.value.previewService(session, turn, generation) ?: return null
+        return try {
+            val bytes =
+                com.helix.extensions.mobileuse.automation.backend.BackgroundPreviewTransport
+                    .read(service, entry.key, entry.value) ?: return null
+            if (entry.value.previewService(session, turn, generation) !== service) return null
+            android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+        } catch (_: android.os.RemoteException) {
+            entry.value.displayConnectionLost()
+            null
+        } catch (_: RuntimeException) {
+            // The local viewer cannot turn a failed read into a successful observation or action.
+            android.util.Log.w("HelixDisplay", "Background preview unavailable")
+            null
+        }
+    }
+
     private fun backgroundBackend(call: com.helix.tools.framework.ExecutableToolCall): AutomationPrivilegedBackend {
         val session = call.sessionId
         val turn = call.turnId

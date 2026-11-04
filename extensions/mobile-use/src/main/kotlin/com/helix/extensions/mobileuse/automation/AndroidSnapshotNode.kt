@@ -59,6 +59,12 @@ internal class AndroidSnapshotNode(
         get() = node.rangeInfo?.let { AutomationNodeRange(it.min, it.max, it.current) }
     override val canSetProgress: Boolean
         get() = node.actionList.any { it.id == android.R.id.accessibilityActionSetProgress }
+    override val scrollDirections: Set<AutomationScrollDirection>
+        get() =
+            AutomationScrollDirection.entries
+                .filter { direction ->
+                    node.actionList.any { it.id == direction.platformAction }
+                }.toSet()
     override val canImeEnter: Boolean
         get() =
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {

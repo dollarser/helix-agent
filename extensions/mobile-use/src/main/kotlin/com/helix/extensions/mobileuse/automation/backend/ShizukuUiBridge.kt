@@ -99,7 +99,7 @@ class ShizukuUiBridge(
                     ComponentName(context.packageName, ShizukuUiUserService::class.java.name),
                 ).daemon(false)
                 .processNameSuffix("helix_ui")
-                .tag("helix-mobile-use-ui")
+                .tag(installedServiceTag(context))
                 .version(1)
                 .debuggable(false)
         val connected = CountDownLatch(1)
@@ -144,6 +144,17 @@ class ShizukuUiBridge(
     private companion object {
         const val BIND_TIMEOUT_SECONDS = 15L
     }
+}
+
+/** PackageManager replaces the APK location on installation. Never bind a prior install's bytecode. */
+private fun installedServiceTag(context: Context): String {
+    val installation =
+        java.security.MessageDigest
+            .getInstance("SHA-256")
+            .digest(context.applicationInfo.sourceDir.toByteArray())
+            .take(12)
+            .joinToString("") { "%02x".format(it) }
+    return "helix-mobile-use-ui-$installation"
 }
 
 /** The typed refusal covers resolution only; failures after execution starts retain their original truth. */

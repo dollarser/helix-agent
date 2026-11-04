@@ -33,6 +33,7 @@ import java.util.UUID
 class HumanHandoffUiDeviceTest {
     private val c get() = ApplicationProvider.getApplicationContext<HelixApplication>().appContainer
     private var turn by mutableStateOf("")
+    private var streamingFixture by mutableStateOf(false)
     private var session: String? = null
     private var original: String? = null
 
@@ -42,6 +43,7 @@ class HumanHandoffUiDeviceTest {
                 MaterialTheme {
                     val screen by c.chatService.screen.collectAsState()
                     Box(Modifier.fillMaxSize().safeDrawingPadding().padding(16.dp)) {
+                        if (streamingFixture) androidx.compose.material3.Text("Synthetic streaming stage")
                         if (turn.isNotBlank()) HumanControlPanel(c.chatService, screen, turn)
                     }
                 }
@@ -52,6 +54,43 @@ class HumanHandoffUiDeviceTest {
         LocalizedComposeActivity.content = {}
         session?.let(c.storage::deleteSessionPermanently)
         original?.let(c.chatService::openSession) ?: c.chatService.closeSession()
+    }
+
+    @Test fun streamingAfterMobileToolHasNoTakeoverButtonBeforeOrAfterRecreation() {
+        original = c.chatService.screen.value.openSessionId
+        val id = "no-takeover-${UUID.randomUUID()}"
+        session = id
+        val now = System.currentTimeMillis()
+        c.storage.sessions.create(id, "Synthetic streaming after mobile tool", null, null, now)
+        var row = c.storage.turns.start(id, id, now)
+        for (state in listOf(TurnState.BUILDING_CONTEXT, TurnState.WAITING_MODEL, TurnState.RECEIVING_MODEL)) {
+            row = c.storage.turns.updateState(row, state, row.stepCount, null, null)
+        }
+        c.storage.toolCalls.append(
+            id,
+            id,
+            id,
+            "ui.snapshot",
+            "1",
+            "{}",
+            com.helix.core.model.ToolCallState.COMPLETED.name,
+        )
+        c.chatService.openSession(id)
+        compose.waitUntil(10_000) {
+            val screen = c.chatService.screen.value
+            screen.openSessionId == id && screen.activeTurn?.state == TurnState.RECEIVING_MODEL &&
+                screen.toolTimeline.any { it.turnId == id && it.toolName == "ui.snapshot" }
+        }
+        compose.runOnIdle {
+            turn = id
+            streamingFixture = true
+        }
+        compose.onNodeWithText("Synthetic streaming stage").assertIsDisplayed()
+        compose.onNodeWithText("我来接管").assertDoesNotExist()
+        compose.activityRule.scenario.recreate()
+        compose.onNodeWithText("Synthetic streaming stage").assertIsDisplayed()
+        compose.onNodeWithText("我来接管").assertDoesNotExist()
+        saveSyntheticScreenshot("no-takeover-stream")
     }
 
     @Test fun manualNoteSurvivesRecreationAndUserFinishedNeverCallsModel() {
@@ -109,7 +148,7 @@ class HumanHandoffUiDeviceTest {
         )
     }
 
-    private fun saveSyntheticScreenshot() {
+    private fun saveSyntheticScreenshot(name: String = "human-control") {
         val app = ApplicationProvider.getApplicationContext<HelixApplication>()
         val image =
             requireNotNull(
@@ -119,7 +158,7 @@ class HumanHandoffUiDeviceTest {
                     .takeScreenshot(),
             )
         java.io
-            .File(app.filesDir, "closed-loop-eval/human-control.png")
+            .File(app.filesDir, "closed-loop-eval/$name.png")
             .apply { parentFile!!.mkdirs() }
             .outputStream()
             .use {

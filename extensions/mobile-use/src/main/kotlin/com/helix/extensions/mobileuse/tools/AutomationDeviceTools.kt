@@ -50,6 +50,9 @@ class AutomationDeviceTools(
                 obj(),
                 deviceOutput(),
                 "Observe phone display/window and get a frame for screenshot or gesture. " +
+                    "TARGET_UNAVAILABLE means no observable target, not proof of a backend connection failure. " +
+                    "In selected background mode, ui.launch can open an authorized app on the task display. " +
+                    "Do not switch to the main display as a fallback. " +
                     "screenBounds is the full display; windowBounds is the active window, " +
                     "not a coordinate origin. A new observation replaces the old frame; " +
                     "semantic node tokens are separate. " +

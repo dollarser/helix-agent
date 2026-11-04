@@ -15,6 +15,17 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AutomationToolOutcomeTest {
+    @Test fun frameChangeExplainsThePreDispatchStageWithoutSuggestingAConnectionFailure() {
+        val result =
+            AutomationActionResult(AutomationActionStatus.FRAME_CHANGED).toToolOutcome()
+                as ToolExecutorResult.Failed
+        assertTrue(result.detail.contains("before DOWN"))
+        assertTrue(result.detail.contains("ui.click_match"))
+        assertTrue(result.detail.contains("not a Shizuku"))
+        assertTrue(result.sideEffectFree)
+        assertFalse(result.requiresReview)
+    }
+
     @Test fun unsupportedActionExplainsRecoveryWithoutClaimingAFocusCause() {
         val result =
             AutomationActionResult(AutomationActionStatus.ACTION_NOT_SUPPORTED).toToolOutcome()

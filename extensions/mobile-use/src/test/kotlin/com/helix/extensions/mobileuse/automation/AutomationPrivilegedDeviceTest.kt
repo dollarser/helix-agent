@@ -27,6 +27,37 @@ class AutomationPrivilegedDeviceTest {
         )
     private val stroke = AutomationStroke(listOf(AutomationPoint(10f, 10f), AutomationPoint(80f, 80f)), 0, 200)
 
+    @Test fun missingTargetPreservesBackendReadinessAndInvalidatesTheOldFrame() {
+        val authority = Authority().apply { shellState = AutomationBackendState.READY }
+        val backend = Backend(target)
+        val host = AutomationPrivilegedDeviceHost(authority)
+        val old = requireNotNull(host.observe(authority.call, backend).frame)
+        backend.targetAvailable = false
+        val absent = host.observe(authority.call, backend)
+        assertEquals("TARGET_UNAVAILABLE", absent.status)
+        assertEquals(AutomationBackendState.READY, absent.shizukuState)
+        assertEquals(AutomationClickBackend.SHIZUKU, absent.clickMatchBackend)
+        assertNull(absent.frame)
+        assertFalse(absent.gestureSupported)
+        assertFalse(absent.screenshotSupported)
+        val outcome = host.execute(authority.call, old.token, AutomationDeviceOperation.GESTURE, listOf(stroke))
+        assertEquals("FRAME_STALE", outcome.status)
+        assertEquals(listOf(AutomationDeviceOperation.OBSERVE, AutomationDeviceOperation.OBSERVE), backend.calls)
+    }
+
+    @Test fun outOfScopeForegroundPreservesBackendReadinessWithoutIssuingAFrame() {
+        val authority = Authority(whole = false).apply { shellState = AutomationBackendState.READY }
+        val backend = Backend(target.copy(packageName = "android"))
+        val observed = AutomationPrivilegedDeviceHost(authority).observe(authority.call, backend)
+        assertEquals("TARGET_NOT_ALLOWLISTED", observed.status)
+        assertEquals(AutomationBackendState.READY, observed.shizukuState)
+        assertEquals(AutomationClickBackend.SHIZUKU, observed.clickMatchBackend)
+        assertNull(observed.frame)
+        assertFalse(observed.gestureSupported)
+        assertFalse(observed.screenshotSupported)
+        assertEquals(listOf(AutomationDeviceOperation.OBSERVE), backend.calls)
+    }
+
     @Test fun aNewTurnCannotReuseTheOriginalTurnDisplayFrame() {
         val authority = Authority()
         val backend = Backend(target)
@@ -198,6 +229,7 @@ class AutomationPrivilegedDeviceTest {
         private val store = MobileUseTestConfiguration({ records[it].orEmpty() }, { k, v -> records[k] = v })
         private val grant = store.authorize("chat", setOf("com.example.app"), whole)
         var revoked = false
+        var shellState = AutomationBackendState.UNAVAILABLE
         val call =
             ExecutableToolCall(
                 "call",
@@ -226,9 +258,16 @@ class AutomationPrivilegedDeviceTest {
 
         override fun rootState() = AutomationBackendState.READY
 
-        override fun shizukuState() = AutomationBackendState.UNAVAILABLE
+        override fun shizukuState() = shellState
 
-        override fun preferredClickBackend() = AutomationClickBackend.ROOT
+        override fun preferredClickBackend() =
+            if (shellState ==
+                AutomationBackendState.READY
+            ) {
+                AutomationClickBackend.SHIZUKU
+            } else {
+                AutomationClickBackend.ROOT
+            }
     }
 
     private class Backend(
@@ -237,6 +276,7 @@ class AutomationPrivilegedDeviceTest {
         override val deviceOperations = AutomationDeviceOperation.entries.toSet()
         val calls = mutableListOf<AutomationDeviceOperation>()
         var captureTarget = target
+        var targetAvailable = true
         var lastRequest: AutomationDeviceRequest? = null
         var after: () -> Unit = {}
 
@@ -258,7 +298,14 @@ class AutomationPrivilegedDeviceTest {
             after()
             return when (request.operation) {
                 AutomationDeviceOperation.OBSERVE -> {
-                    AutomationDeviceReply("READY", target)
+                    if (targetAvailable) {
+                        AutomationDeviceReply(
+                            "READY",
+                            target,
+                        )
+                    } else {
+                        AutomationDeviceReply("TARGET_UNAVAILABLE")
+                    }
                 }
 
                 AutomationDeviceOperation.SCREENSHOT -> {

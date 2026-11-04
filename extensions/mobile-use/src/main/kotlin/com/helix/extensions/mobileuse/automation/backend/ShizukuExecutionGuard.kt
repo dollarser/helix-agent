@@ -18,9 +18,23 @@ internal class ShizukuExecutionGuard(
         reply: Parcel?,
         flags: Int,
     ): Boolean {
-        if (code !in setOf(CHECK, DISPLAY_EVENT)) return super.onTransact(code, data, reply, flags)
+        if (code !in setOf(CHECK, DISPLAY_EVENT, PREVIEW_PACKAGE)) return super.onTransact(code, data, reply, flags)
         check(getCallingUid() in setOf(0, 2000)) { "UNTRUSTED_GUARD_CALLER" }
         data.enforceInterface(DESCRIPTOR)
+        if (code == PREVIEW_PACKAGE) {
+            val packageName = requireNotNull(data.readString()).also { require(it.length <= 256) }
+            require(data.dataAvail() == 0)
+            val identity = clearCallingIdentity()
+            val accepted =
+                try {
+                    mayFinish() && displayLifecycle?.permitsPreviewPackage(packageName) == true
+                } finally {
+                    restoreCallingIdentity(identity)
+                }
+            reply?.writeNoException()
+            reply?.writeInt(if (accepted) 1 else 0)
+            return true
+        }
         if (code == DISPLAY_EVENT) {
             val state = requireNotNull(AutomationDisplayLifecycle.entries.getOrNull(data.readInt()))
             require(
@@ -78,10 +92,37 @@ internal class ShizukuExecutionGuard(
         displayLifecycle?.connectionFailed()
     }
 
+    fun previewService(
+        session: String,
+        turn: String,
+        generation: Long,
+    ): IBinder? = if (mayFinish()) displayLifecycle?.previewService(session, turn, generation) else null
+
     companion object {
         private const val DESCRIPTOR = "com.helix.app.automation.ShizukuGuard"
         private const val CHECK = IBinder.FIRST_CALL_TRANSACTION
         private const val DISPLAY_EVENT = IBinder.FIRST_CALL_TRANSACTION + 1
+        private const val PREVIEW_PACKAGE = IBinder.FIRST_CALL_TRANSACTION + 2
+
+        fun permitsPreviewPackage(
+            binder: IBinder,
+            packageName: String,
+        ): Boolean {
+            val data = Parcel.obtain()
+            val reply = Parcel.obtain()
+            return try {
+                data.writeInterfaceToken(DESCRIPTOR)
+                data.writeString(packageName)
+                if (!binder.transact(PREVIEW_PACKAGE, data, reply, 0)) return false
+                reply.readException()
+                reply.readInt() == 1
+            } catch (_: android.os.RemoteException) {
+                false
+            } finally {
+                data.recycle()
+                reply.recycle()
+            }
+        }
 
         @Suppress("TooGenericExceptionCaught") // UI callback failure never changes the real display effect.
         fun displayEvent(

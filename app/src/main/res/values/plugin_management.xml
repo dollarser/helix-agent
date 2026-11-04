@@ -9,7 +9,7 @@
     <string name="plugin_configuration">配置</string>
     <string name="plugin_browser_description">读取和操作网页。浏览会话中的标签，按当前授权访问网站。</string>
     <string name="plugin_documents_description">读取 PDF 和 Word 文档，保留页码、段落与图像来源。</string>
-    <string name="plugin_chat_reply_description">理解聊天内容并起草回复。读取手机聊天时还需选用 Mobile Use；不会自动发送。</string>
+    <string name="plugin_chat_reply_description">理解聊天内容并起草回复。读取手机聊天时还需选用 手机操作；不会自动发送。</string>
     <string name="plugin_guidance_tools">提示与工具</string>
     <string name="plugin_details">详情</string>
     <string name="plugin_no_configuration">无需额外配置。在会话中选用后即可使用，操作仍遵循该会话的权限。</string>

@@ -1,7 +1,7 @@
 <resources>
     <string name="preview_reset_database">Conversations, tasks, settings and authorization records</string>
     <string name="preview_reset_terminal">Terminal control records; previous command outcomes remain unknown</string>
-    <string name="preview_reset_mobile">Mobile Use app scope; set it again before use</string>
+    <string name="preview_reset_mobile">手机操作 app scope; set it again before use</string>
     <string name="preview_reset_preserved">Shared documents, models, Linux files and account credentials are kept.</string>
     <string name="preview_reset_restart">Old executions have not been confirmed stopped. Restart your phone, then reopen Helix.</string>
     <string name="preview_reset_incomplete">Reset did not finish. Review the remaining items and retry.</string>

@@ -16,6 +16,7 @@ data class AutomationFindQuery(
     val match: AutomationTextMatch = AutomationTextMatch.EXACT,
     val maxResults: Int = 20,
     val scrollable: Boolean? = null,
+    val editable: Boolean? = null,
 )
 
 enum class AutomationFindStatus {
@@ -39,7 +40,34 @@ enum class AutomationNodeAction {
     SET_PROGRESS,
     SCROLL_FORWARD,
     SCROLL_BACKWARD,
+    SCROLL_UP,
+    SCROLL_DOWN,
+    SCROLL_LEFT,
+    SCROLL_RIGHT,
 }
+
+enum class AutomationScrollDirection(
+    val platformAction: Int,
+) {
+    FORWARD(android.view.accessibility.AccessibilityNodeInfo.ACTION_SCROLL_FORWARD),
+    BACKWARD(android.view.accessibility.AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD),
+    UP(android.R.id.accessibilityActionScrollUp),
+    DOWN(android.R.id.accessibilityActionScrollDown),
+    LEFT(android.R.id.accessibilityActionScrollLeft),
+    RIGHT(android.R.id.accessibilityActionScrollRight),
+}
+
+internal val AutomationNodeAction.scrollDirection: AutomationScrollDirection?
+    get() =
+        when (this) {
+            AutomationNodeAction.SCROLL_FORWARD -> AutomationScrollDirection.FORWARD
+            AutomationNodeAction.SCROLL_BACKWARD -> AutomationScrollDirection.BACKWARD
+            AutomationNodeAction.SCROLL_UP -> AutomationScrollDirection.UP
+            AutomationNodeAction.SCROLL_DOWN -> AutomationScrollDirection.DOWN
+            AutomationNodeAction.SCROLL_LEFT -> AutomationScrollDirection.LEFT
+            AutomationNodeAction.SCROLL_RIGHT -> AutomationScrollDirection.RIGHT
+            else -> null
+        }
 
 enum class AutomationGlobalAction(
     val platformId: Int,
@@ -94,6 +122,8 @@ enum class AutomationActionStatus {
     ACTION_FAILED,
     ACTION_OUTCOME_UNKNOWN,
     ACTION_NOT_DISPATCHED,
+    FRAME_CHANGED,
+    GESTURE_OCCLUDED,
     BACKGROUND_DISPLAY_UNAVAILABLE,
     BACKGROUND_DISPLAY_STALE,
     MAIN_DISPLAY_IN_USE,

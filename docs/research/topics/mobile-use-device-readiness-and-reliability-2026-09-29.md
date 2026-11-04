@@ -495,3 +495,38 @@ Owner 指出问题不限会话工具：新功能反复附带自明说明、泛�
 工具分组此前以 ModelCall 消息序号为边界，常见每次回复只调用一个工具的轨迹无法合并。现允许同一 Turn 的相邻已完成调用跨模型回复折叠，仍保留可见消息与需关注状态，展开顺序和原调用身份不变；常规完成不再逐条附加业务核验标语。真实 Qwen 自有合成历史的只读复核与本地确定性 Engine/Dispatcher 事件验收分开记录，后者不算新真实模型样本。原始日志、截图和候选身份在忽略目录 `build/conversation-noise-2026-11-03/`。
 
 同一段 18 次工具调用的真实 Qwen 历史，在旧候选为 4 个折叠组（2/2/3/4 次）加 7 条单列，在新候选为 3 个折叠组（4/5/5 次）加 4 条单列；保留模型可见进度消息，因此不是整轮强行合成一个组。另一个不联网的实际 Engine/Dispatcher 合成流程验证 4 次与 2 次连续完成调用折叠，运行、审批、失败和 NEEDS_REVIEW 保持可见，搜索展开定位和历史重开通过；9 次内存模型响应不能算外部模型样本。既有 19 项布局/审批回归、完整双渠道 Debug/Release R8 主机门禁、本地化与 Skill 校验通过，日常 API36 覆盖安装后读回一致；本轮未新增真机验收。初次滚动夹具错误及截图跟随异步观察后继的无效取景保留，最终截图在后继结束后重新定位工具区域。
+
+### 2026-11-04：后台屏可见预览补齐
+
+重新核查 Mika commit `0091d2d67b541a417df913a23fefbb8e3a04e4a7` 的 [AgentPip](https://github.com/wangzan101/Mika/blob/0091d2d67b541a417df913a23fefbb8e3a04e4a7/app/src/main/java/com/wangzan101/mika/ui/AgentPip.kt) 与 [AgentDisplay](https://github.com/wangzan101/Mika/blob/0091d2d67b541a417df913a23fefbb8e3a04e4a7/app/src/main/java/com/wangzan101/mika/cap/phone/display/AgentDisplay.kt)：聊天页可拖动、点开查看的只读预览与后台 VirtualDisplay 是两层实现。Helix 此前仅有后台执行、生命周期文字与工具截图，不能据此声称已有实时小窗。本次独立实现聊天页预览，复用 Shell 帧缓存、原 owner 和授权校验；未复制参考项目代码或引入其运行时。权限及生命周期见 [ADR](../../adr/permissions/001-session-authorization.md#decision-history--2026-11-04聊天页后台屏实时预览)。设备效果以本轮候选实测为准，不继承此前无预览的酷安样本作为该 UI 验收。
+
+
+### 2026-11-04：手机操作工具契约与后台屏生命周期复核
+
+对照 Mika `0091d2d67b541a417df913a23fefbb8e3a04e4a7`，本轮采用其观察、执行、效果分层思路，复用 Helix 既有工具发现、脚本桥和 `skills.run`，不复制另一套 Agent 循环或短序列执行器。此前真实酷安轨迹未出现 `tools.search`，不足以认定发现缓存丢失；多屏收集与新的批操作工具暂未引入，未声称性能收益。
+
+实际差距是工具可见契约不一致：`ui.find(scrollable=true)` 已有实现，离屏提示却否认该参数；现与 schema/解析/帮助统一，并补可编辑过滤。节点公布实际支持的滚动方向，工具支持明确上下左右，避免将泛化 forward 当作垂直滚动而切换横向分页。点击前的同窗口内容变化与遮挡分别反馈，不再统称目标切换；DOWN 后失去确认仍为 UNKNOWN，不自动重放。成功派发保留未验证效果的结构化事实，但移除重复说明。
+
+Android 公开 VirtualDisplay 不设置 DESTROY_CONTENT_ON_REMOVAL 时，正常释放可将标准任务迁回主屏；迁移也可能改变焦点。实现检查迁移与恢复原焦点，边界见 [授权 ADR](../../adr/permissions/001-session-authorization.md#decision-history--2026-11-04后台屏初始模式与任务保留)。首次设备夹具发现独立测试 Activity 引用宿主 Kotlin 运行库导致迁移时崩溃，改用 Java 独立 Activity；第二次滚动失败中系统独立记录 DOWN 接受、scrollY=220，说明仅比较首行裁剪后 top 的断言不能判定滚动效果。原失败保留，最终使用可见行变化、截图及原任务重新打开验证，不将派发成功等同业务效果。最终实测与候选记录于忽略目录 `build/mobile-use-followup-2026-11-04/`。
+
+
+本轮最终 API36 日常 Debug 的三个设备测试通过，含实际可见行从 0 变为 3、同屏输入/截图、取消后释放、预览紧凑标题和中英文插件名。首个真实 Qwen 样本在酷安启动时遇 Android 的 FocusEvent ANR；测试夹具仅授权酷安，系统弹窗被正确拒绝，但设备观察错误采用了默认“Shizuku 不可用”。现无帧的范围拒绝也保留真实后端就绪状态，仍不签发操作凭据。保留该失败，不以模型完成 Turn 代替任务成功。
+
+修正后的真实样本沿用 Owner 日常已保存的范围，不由夹具另行缩小：约 457 秒、32 次模型请求、37 次工具调用，在同一后台显示完成首页截图、实际纵向内容变化、搜索“文件管理器”并读取前三项、返回首页及截图复核。包含一次过时 token 拒绝，模型重新查找后恢复；没有 UNKNOWN 副作用。正常释放后同一酷安任务迁回主屏并保持同一 PID，从最近任务卡重新打开成功；迁移后首次卡片缩略图为空白，不承诺缩略图即时刷新。模型最终额外列出的热度/讨论数与搜索截图不一致，未计入已验证结果，也不能把整段生成文案都视为准确。前一 ANR 样本的进程后来被系统按 `user request after error` 结束并重建，不能称原进程持续存活；旧虚拟屏遗留的损坏任务卡也不冒充已修复。标准任务迁移依据 [AOSP DisplayManager 的公开显示移除语义](https://android.googlesource.com/platform/frameworks/base/+/refs/heads/main/core/java/android/hardware/display/DisplayManager.java)，不是 force-stop 后重新 launch。
+
+完整双渠道 Debug/Release R8 主机门禁与最终候选设备复验通过；本轮未新增真机、其他 API/OEM 或异常 helper 死亡后的保留验收，没有将当前单例与旧样本不同流程比较为性能提升。截图、原始失败、实际模型轨迹、最终 APK 身份及分项边界见本轮忽略收据目录。
+
+
+### 2026-11-04：酷安 FocusEvent ANR 的进一步归因
+
+系统 DropBox 实际仍保存原 ANR 线程栈，纠正前次“没有保存主线程堆栈”的取证结论：酷安主线程在 `HardwareRenderer.setStopped → RenderProxy::setStopped → future<void>::get` 等待；RenderThread 在 `libEGL_emulation → QemuPipeStream::commitBufferAndReadFully → glGetProgramiv_enc` 的着色器程序链接查询路径。该时段 guest CPU 总使用约 94%，内存 PSI some/full 的 avg10 约 33.97/10.40，酷安 VmSwap 约 482 MiB。由此确认当时等待链进入模拟器图形通道并伴随资源压力，不能再笼统称 Mobile Use 连接故障；仍不能仅据单份栈证明宿主 GPU 永久挂死、Gradle 是原因，或排除应用渲染工作量的影响。[Android ANR 诊断指南](https://developer.android.com/topic/performance/anrs/diagnose-and-fix-anrs)同样要求区分应用阻塞、系统负载和 GPU hang。
+
+本轮以独立 opt-in 设备夹具走原 Dispatcher/授权/后台屏启动、观察、截图与持久取消释放，不调用模型、不操作账号，不修改生产焦点或超时策略。原失败时序中 ANR 在启动后、正常显示释放前，线程栈没有呈现等待 Helix Binder 的主线程链；这不构成对全部 Helix/图形驱动路径的排除证明。冷/热态与主屏对照、压力/窗口/调度记录及精确候选归属保存在忽略目录 `build/mobile-use-anr-2026-11-04/`。采样器因冷启动瞬间找不到 PID 的一次中断单独保留，不作为产品 ANR 或完整轨迹；完整复验与未确认边界以最终收据为准。
+
+
+进一步的完整冷启动调度样本未复现系统 ANR，却实际命中 Helix `PrivilegedNavigationExecution` 的独立 10 秒等待，返回 `ACTION_OUTCOME_UNKNOWN`，测试如实失败并停止，没有重放。此前约 11.5 秒的冷态工具调用和该次失败不能与主屏直接 ADB 启动耗时当作同口径性能比较。按 [Android am 文档](https://developer.android.com/tools/adb#am)，`-W` 等待启动完成；它与现有工具只确认派发、后续另行观察的语义不一致。此次最小产品修复分离系统启动确认与首帧等待，保留明确错误否定、原 deadline/取消、原显示/组件绑定及 UNKNOWN 边界；不将其当作历史 GPU 通道 ANR 的修复。具体复验结果与剩余风险见本轮收据。
+
+
+修复后的 API36 Debug 通过三轮原 Dispatcher 后台启动、观察截图与正常释放。冷态系统 START 到命令退出约 91 毫秒，首帧约 10.2 秒后出现；整个工具调用还包含调度/连接等开销，不能把该 91 毫秒称为完整启动耗时。另一次冷启动真实 Qwen 样本中，该间隔约 103 毫秒、首帧约 13.3 秒；模型经历暂无可用界面、等待、节点恢复后，完成浏览/滚动/搜索/返回首页，共 45 次模型请求、47 次工具调用，只有一次启动，UNKNOWN 为 0。该约 699 秒样本包含模型及工具生命周期，不是服务端推理耗时或成功率结论。
+
+本轮系统 DropBox 没有新增酷安 ANR；历史图形通道阻塞仍未复现，不能宣称根治。主屏直接 ADB 对照、较早冷/热态样本与新候选分别记账；长轨迹的环形缓冲缺失起点、一次 PID 采样中断和 Shell 无权读取实时 PSI 的缺项均保留，不以空值当零压力。补齐新的有界起点轨迹后确认了独立等待窗口问题。最终双渠道 Debug 主机门禁与设备候选读回通过；本轮没有真机、其他 OEM/API 或新的 Release/R8 验收，未更改模拟器 GPU/内存设置、系统 ANR 超时或系统授权。

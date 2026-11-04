@@ -8,6 +8,10 @@ import com.helix.core.policy.UserScope
 import com.helix.extensions.plugin.PluginRegistry
 
 internal object AutomationModule {
+    fun backgroundApplicationName(value: com.helix.app.chat.DisplayExecutionUi): String? = null
+
+    fun backgroundPreview(value: com.helix.app.chat.DisplayExecutionUi): android.graphics.Bitmap? = null
+
     fun previewConfiguration(context: Context): com.helix.app.maintenance.PreviewConfigurationAccess? = null
 
     fun isConfigurationResetRequired(error: Exception): Boolean = false

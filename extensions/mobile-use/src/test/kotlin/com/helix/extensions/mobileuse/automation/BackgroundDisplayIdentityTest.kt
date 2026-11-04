@@ -11,6 +11,7 @@ class BackgroundDisplayIdentityTest {
         for (sdk in listOf(29, 30, 31, 33, 34, 36)) {
             for (trusted in listOf(false, true)) {
                 val flags = backgroundDisplayFlags(sdk, trusted)
+                assertEquals(0, flags and (1 shl 8))
                 assertEquals(0, flags and (1 shl 12))
                 assertEquals(0, flags and (1 shl 4))
                 val independent = trusted && sdk >= 34

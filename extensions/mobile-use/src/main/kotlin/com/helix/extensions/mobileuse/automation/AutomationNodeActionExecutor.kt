@@ -208,6 +208,16 @@ internal class AutomationNodeActionExecutor(
                     null,
                 )
             }
+
+            AutomationNodeAction.SCROLL_UP, AutomationNodeAction.SCROLL_DOWN,
+            AutomationNodeAction.SCROLL_LEFT, AutomationNodeAction.SCROLL_RIGHT,
+            -> {
+                request.action.scrollDirection
+                    ?.takeIf {
+                        observed.enabled && observed.scrollable && it in observed.scrollDirections
+                    }?.platformAction
+                    ?.to(null)
+            }
         }
 
     @Suppress("ReturnCount")

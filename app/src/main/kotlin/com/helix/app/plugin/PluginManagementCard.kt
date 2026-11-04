@@ -47,7 +47,7 @@ internal fun pluginDisplayName(record: InstalledPlugin): String =
         "mobile-use" -> "Mobile Use"
         "browser" -> "Browser"
         "documents" -> "Documents"
-        else -> record.name
+        else -> pluginTitleCase(record.name)
     }
 
 internal data class PluginManagementActions(
@@ -165,13 +165,7 @@ private fun PluginManagementHeader(
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(
-                if (record.native?.pluginId ==
-                    "documents"
-                ) {
-                    stringResource(R.string.document_plugin_name)
-                } else {
-                    pluginDisplayName(record)
-                },
+                pluginLabel(record.native?.pluginId ?: record.name),
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.weight(1f),
             )

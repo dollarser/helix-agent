@@ -41,6 +41,40 @@ internal object AutomationModule {
     private var runtime: MobileUsePlugin? = null
     private var settingsStore: MobileUseGrantStore? = null
 
+    fun backgroundApplicationName(value: com.helix.app.chat.DisplayExecutionUi): String? {
+        val context = appContext
+        val name = value.lastObservedPackage
+        return if (context == null || name == null) {
+            null
+        } else {
+            try {
+                val info = context.packageManager.getApplicationInfo(name, 0)
+                context.packageManager
+                    .getApplicationLabel(info)
+                    .toString()
+                    .take(120)
+            } catch (_: android.content.pm.PackageManager.NameNotFoundException) {
+                null
+            }
+        }
+    }
+
+    fun backgroundPreview(value: com.helix.app.chat.DisplayExecutionUi): android.graphics.Bitmap? =
+        runtime?.permissionCenter?.backgroundPreview(value.sessionId, value.turnId, value.generation)
+
+    private fun backgroundDefault(): Boolean =
+        android.os.Build.VERSION.SDK_INT >= 31 &&
+            com.helix.tools.deviceaccess.DeviceAccess
+                .shizukuReady() &&
+            com.helix.tools.deviceaccess.DeviceAccess
+                .shizukuGranted()
+
+    private fun createGrants(
+        read: (String) -> List<String>,
+        write: (String, List<String>) -> Unit,
+        selection: (String) -> String?,
+    ) = MobileUseGrantStore(read, write, selection, defaultBackground = ::backgroundDefault)
+
     @Synchronized
     @Suppress("LongParameterList") // composition root injects storage, selection, images and task services
     fun register(
@@ -62,7 +96,7 @@ internal object AutomationModule {
                 com.helix.extensions.mobileuse.automation.backend.RootAutomationService::class.java,
                 enabled = { plugins.hasPublishedTools(MobileUsePlugin.PLUGIN_ID) },
             )
-        val grants = MobileUseGrantStore(readConfiguration, writeConfiguration, selectionId)
+        val grants = createGrants(readConfiguration, writeConfiguration, selectionId)
         val plugin =
             runtime
                 ?: MobileUsePlugin(

@@ -12,6 +12,18 @@ import java.time.Duration
 import java.time.Instant
 
 class AutomationFinderTest {
+    @Test fun editableFilterDoesNotReturnNonEditableLabels() {
+        val values = snapshot.copy(nodes = snapshot.nodes.mapIndexed { i, node -> node.copy(editable = i == 0) })
+        assertEquals(
+            listOf("a"),
+            AutomationFinder.find(values, AutomationFindQuery(editable = true)).nodes.map { it.token },
+        )
+        assertEquals(
+            listOf("b"),
+            AutomationFinder.find(values, AutomationFindQuery(editable = false)).nodes.map { it.token },
+        )
+    }
+
     private val snapshot =
         AutomationSnapshot(
             packageName = PACKAGE,
@@ -374,6 +386,49 @@ class AutomationNodeActionExecutorTest {
         }
     }
 
+    @Test fun verticalScrollNeverTurnsIntoAHorizontalPagerAction() {
+        val horizontal =
+            ActionFakeNode(
+                scrollable = true,
+                scrollDirections = setOf(AutomationScrollDirection.LEFT, AutomationScrollDirection.RIGHT),
+            )
+        var token = issue(horizontal, emptyList(), 7)
+        val rejected =
+            executor.execute(
+                horizontal,
+                session,
+                7,
+                AutomationNodeActionRequest(AutomationNodeAction.SCROLL_DOWN, token),
+            )
+        assertEquals(AutomationActionStatus.ACTION_NOT_SUPPORTED, rejected.status)
+        assertTrue(horizontal.performedActions.isEmpty())
+        token = issue(horizontal, emptyList(), 7)
+        assertEquals(
+            AutomationActionStatus.SUCCEEDED,
+            executor
+                .execute(
+                    horizontal,
+                    session,
+                    7,
+                    AutomationNodeActionRequest(AutomationNodeAction.SCROLL_RIGHT, token),
+                ).status,
+        )
+        assertEquals(android.R.id.accessibilityActionScrollRight, horizontal.performedAction)
+        val vertical = ActionFakeNode(scrollable = true, scrollDirections = setOf(AutomationScrollDirection.DOWN))
+        token = issue(vertical, emptyList(), 7)
+        assertEquals(
+            AutomationActionStatus.SUCCEEDED,
+            executor
+                .execute(
+                    vertical,
+                    session,
+                    7,
+                    AutomationNodeActionRequest(AutomationNodeAction.SCROLL_DOWN, token),
+                ).status,
+        )
+        assertEquals(android.R.id.accessibilityActionScrollDown, vertical.performedAction)
+    }
+
     @Test
     fun progressIsTokenBoundAndRangeCheckedBeforeThePlatformCall() {
         val range = AutomationNodeRange(0f, 100f, 50f)
@@ -655,6 +710,7 @@ private class ActionFakeNode(
     override val range: AutomationNodeRange? = null,
     override val canSetProgress: Boolean = false,
     override val canImeEnter: Boolean = false,
+    override val scrollDirections: Set<AutomationScrollDirection> = emptySet(),
 ) : SnapshotNode {
     var recycleCount = 0
         private set

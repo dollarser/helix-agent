@@ -128,6 +128,7 @@ class AutomationSnapshotEngineTest {
                             "true",
                             "true",
                             "true",
+                            "[]",
                         ),
                     ),
                 path = listOf(0),

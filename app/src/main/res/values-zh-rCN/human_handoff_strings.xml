@@ -1,5 +1,4 @@
 <resources>
-    <string name="human_take_over">我来接管</string>
     <string name="human_target_notice">接管会停止原任务。后台屏释放不代表已把应用移到主屏；请在主屏自行打开目标应用处理。交回后将开启新一轮，重新观察当前状态。</string>
     <string name="human_wait_settlement">正在等待原操作结算，请勿重复可能已执行的操作。</string>
     <string name="human_note">已处理内容（可选）</string>

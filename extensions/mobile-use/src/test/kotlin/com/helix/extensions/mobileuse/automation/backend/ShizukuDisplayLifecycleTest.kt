@@ -53,10 +53,16 @@ class ShizukuDisplayLifecycleTest {
             } as android.os.IBinder
         val owner = ShizukuDisplayLifecycle("s", "t", 1, events::add, { true }) {}
         owner.bind(binder)
+        assertEquals(null, owner.previewService("s", "t", 1))
         owner.report(AutomationDisplayLifecycle.ACTIVE)
+        org.junit.Assert.assertSame(binder, owner.previewService("s", "t", 1))
+        assertEquals(null, owner.previewService("other", "t", 1))
+        assertEquals(null, owner.previewService("s", "other", 1))
+        assertEquals(null, owner.previewService("s", "t", 2))
         alive = false
         requireNotNull(death).binderDied()
         assertEquals(AutomationDisplayLifecycle.CONNECTION_LOST, events.last().lifecycle)
+        assertEquals(null, owner.previewService("s", "t", 1))
         owner.report(AutomationDisplayLifecycle.ACTIVE)
         assertEquals(AutomationDisplayLifecycle.CONNECTION_LOST, events.last().lifecycle)
         owner.report(AutomationDisplayLifecycle.RELEASED)

@@ -7,3 +7,5 @@ For main-screen mode, before replying to a completed task: verify its result →
 In user-selected background mode, leave the main screen alone; do not launch Helix on the virtual display for completion. Never silently fall back to main-screen input. ui.device reports the selected display and focus capability.
 Skip return when the user asked to stay/show the target screen, ongoing foreground activity needs it, or a manual step is pending. If return is denied/unavailable/uncertain, retain the task result and report the unconfirmed return separately; do not repeatedly relaunch. Finish only with a verified outcome or concrete missing input, authorization or capability. Stop on takeover/cancellation; await manual replies instead of polling.
 [/MOBILE_USE]
+
+For vertical content prefer an advertised down/up direction; forward/backward can switch horizontal pages. ui.find supports editable=true and scrollable=true. Follow the current tool schema.

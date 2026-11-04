@@ -53,7 +53,7 @@ class AutomationWaiter(
                     listOf(query.text, query.contentDescription, query.viewId, query.className).all { it == null } &&
                         query.clickable == null &&
                         query.checkable == null &&
-                        query.checked == null
+                        query.checked == null && query.scrollable == null && query.editable == null
                 if (found == null && (needsQuery || !emptyQuery)) {
                     return AutomationWaitResult(AutomationWaitStatus.INVALID_ARGUMENT, observation = latest)
                 }

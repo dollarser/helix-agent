@@ -11,23 +11,7 @@ import kotlinx.serialization.json.buildJsonObject
 /** Shared effect truth for semantic and physical operations; never infer rollback or replay. */
 internal fun AutomationActionResult.toToolOutcome(): ToolExecutorResult =
     if (status == AutomationActionStatus.SUCCEEDED) {
-        ToolExecutorResult.Completed(
-            buildJsonObject {
-                put("status", JsonPrimitive("DISPATCHED"))
-                put("effectStatus", JsonPrimitive("UNVERIFIED"))
-                put("observationRequired", JsonPrimitive(true))
-                put("nextObservation", JsonPrimitive("ui.snapshot or ui.find; ui.device for coordinate actions"))
-                put(
-                    "actionHint",
-                    JsonPrimitive(
-                        "Input dispatch completed; effect is UNVERIFIED. Previous tokens/frames are invalid. " +
-                            "Before another action or reporting completion, observe using nextObservation. " +
-                            "An unchanged screen proves neither failure nor touch filtering. " +
-                            "Never blindly retry or replay an uncertain effect on another backend.",
-                    ),
-                )
-            },
-        )
+        ToolExecutorResult.Completed(dispatchedActionPayload())
     } else {
         val uncertain =
             status in
@@ -35,6 +19,7 @@ internal fun AutomationActionResult.toToolOutcome(): ToolExecutorResult =
                     AutomationActionStatus.ACTION_FAILED,
                     AutomationActionStatus.ACTION_OUTCOME_UNKNOWN,
                 )
+        val gestureHint = gestureFailureHint(status)
         val message =
             if (status == AutomationActionStatus.SENSITIVE_UI) {
                 "${status.name}: Helix refused this sensitive target before dispatch. No action was executed. " +
@@ -59,6 +44,8 @@ internal fun AutomationActionResult.toToolOutcome(): ToolExecutorResult =
                 "${status.name}: This action was rejected as unsupported. Observe again with ui.snapshot or ui.find; " +
                     "choose a target supporting the requested action (a scrollable container for ui.scroll). " +
                     "Do not repeat the same call or guess coordinates."
+            } else if (gestureHint != null) {
+                gestureHint
             } else if (status in setOf(AutomationActionStatus.STALE_TOKEN, AutomationActionStatus.TARGET_CHANGED)) {
                 "${status.name}: The observed target changed before dispatch. Obtain a fresh observation. " +
                     "If tokens repeatedly expire on a changing page, use ui.click_match with an exact, " +
@@ -111,4 +98,37 @@ private fun actionText(maximum: Int) =
     buildJsonObject {
         put("type", JsonPrimitive("string"))
         put("maxLength", JsonPrimitive(maximum))
+    }
+
+private fun gestureFailureHint(status: AutomationActionStatus): String? =
+    when (status) {
+        AutomationActionStatus.FRAME_CHANGED -> {
+            "FRAME_CHANGED: Screen content changed before DOWN; no input dispatched. " +
+                "This is not a Shizuku connection failure. Observe again. For a changing label, " +
+                "prefer ui.click_match using a fresh, unique resource ID instead of its rotating placeholder text."
+        }
+
+        AutomationActionStatus.GESTURE_OCCLUDED -> {
+            "GESTURE_OCCLUDED: Another window covers the intended path; no input dispatched. " +
+                "Observe the owned display's windows and choose a visible authorized path."
+        }
+
+        else -> {
+            null
+        }
+    }
+
+private fun dispatchedActionPayload() =
+    buildJsonObject {
+        put("status", JsonPrimitive("DISPATCHED"))
+        put("effectStatus", JsonPrimitive("UNVERIFIED"))
+        put("observationRequired", JsonPrimitive(true))
+        put("nextObservation", JsonPrimitive("ui.snapshot or ui.find; ui.device for coordinate actions"))
+        put(
+            "actionHint",
+            JsonPrimitive(
+                "Use nextObservation to observe the result. " +
+                    "Never blindly replay a completed or uncertain effect.",
+            ),
+        )
     }

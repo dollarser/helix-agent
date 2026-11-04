@@ -135,12 +135,27 @@ internal class ShellBackgroundDisplay(
             pixels?.takeUnless { closed }?.copy(Bitmap.Config.ARGB_8888, false)
         }
 
+    /** Local viewing only. Copies the cached frame without observing or changing the input target. */
+    fun preview(): ByteArray? =
+        synchronized(lock) {
+            val source = pixels?.takeUnless { closed } ?: return@synchronized null
+            val thumbnail = Bitmap.createScaledBitmap(source, WIDTH / 3, HEIGHT / 3, true)
+            try {
+                java.io.ByteArrayOutputStream().use { bytes ->
+                    check(thumbnail.compress(Bitmap.CompressFormat.JPEG, 75, bytes))
+                    bytes.toByteArray().takeIf { it.size <= BackgroundPreviewTransport.MAX_BYTES }
+                }
+            } finally {
+                thumbnail.recycle()
+            }
+        }
+
     override fun close() {
         synchronized(lock) {
             if (closed) return
             closed = true
             try {
-                display.release()
+                ShellTaskRetention.release(id, display::release)
             } finally {
                 handler.removeCallbacksAndMessages(null)
                 reader.setOnImageAvailableListener(null, null)

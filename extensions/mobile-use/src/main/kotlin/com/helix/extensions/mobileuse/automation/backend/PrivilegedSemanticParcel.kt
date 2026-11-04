@@ -44,6 +44,7 @@ internal object PrivilegedSemanticParcel {
             ).forEach { parcel.writeInt(if (it) 1 else 0) }
             parcel.writeInt(if (node.range == null) 0 else 1)
             node.range?.let { listOf(it.min, it.max, it.current).forEach(parcel::writeFloat) }
+            parcel.writeStringList(node.scrollDirections.map { it.name })
         }
     }
 
@@ -76,6 +77,7 @@ internal object PrivilegedSemanticParcel {
                     } else {
                         null
                     }
+                val directions = readScrollDirections(parcel)
                 AutomationSnapshotNode(
                     requireNotNull(strings[0]),
                     strings[1],
@@ -96,6 +98,7 @@ internal object PrivilegedSemanticParcel {
                     flags[7],
                     flags[8],
                     flags[9],
+                    directions,
                 )
             }
         return AutomationSnapshotResult(
@@ -103,6 +106,12 @@ internal object PrivilegedSemanticParcel {
             AutomationSnapshot(name, window, 0, Instant.now(), nodes, truncated, reasons),
         )
     }
+
+    private fun readScrollDirections(parcel: Parcel) =
+        requireNotNull(parcel.createStringArrayList())
+            .also { require(it.size <= 6) }
+            .map(com.helix.extensions.mobileuse.automation.AutomationScrollDirection::valueOf)
+            .toSet()
 
     private fun text(
         parcel: Parcel,

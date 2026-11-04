@@ -43,6 +43,14 @@ internal object AutomationNodeJson {
         put("longClickable", JsonPrimitive(node.longClickable))
         put("editable", JsonPrimitive(node.editable))
         put("scrollable", JsonPrimitive(node.scrollable))
+        put(
+            "scrollDirections",
+            kotlinx.serialization.json.JsonArray(
+                node.scrollDirections.map {
+                    JsonPrimitive(it.name.lowercase(java.util.Locale.ROOT))
+                },
+            ),
+        )
         put("enabled", JsonPrimitive(node.enabled))
         put("redacted", JsonPrimitive(node.redacted))
         put("canImeEnter", JsonPrimitive(node.canImeEnter))

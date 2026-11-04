@@ -1,0 +1,5 @@
+<resources>
+    <string name="plugin_name_mobile_use">手机操作</string>
+    <string name="plugin_name_browser">浏览器</string>
+    <string name="plugin_name_chat_reply">消息回复</string>
+</resources>

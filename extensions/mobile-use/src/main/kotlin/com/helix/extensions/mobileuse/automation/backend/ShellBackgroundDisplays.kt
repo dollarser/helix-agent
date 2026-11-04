@@ -16,6 +16,29 @@ internal class ShellBackgroundDisplays(
 
     private val entries = mutableMapOf<String, Owned>()
 
+    @Suppress("ReturnCount") // No pixels without an existing owner, matching display and current scoped target.
+    fun preview(
+        key: String,
+        owner: android.os.IBinder,
+        screen: ShizukuHierarchy,
+    ): ByteArray? {
+        val owned = entries[key] ?: return null
+        if (owned.owner != owner || !owned.display.valid || !ShizukuExecutionGuard.check(owner)) return null
+        screen.route(owned.display)
+        val target = screen.deviceTarget(includeRevision = false) ?: return null
+        if (target.displayId != owned.display.id || target.displaySession != owned.display.identity ||
+            !ShizukuExecutionGuard.permitsPreviewPackage(owner, target.packageName)
+        ) {
+            return null
+        }
+        val bytes = owned.display.preview()
+        return bytes?.takeIf {
+            ShizukuExecutionGuard.check(owner) &&
+                ShizukuExecutionGuard.permitsPreviewPackage(owner, target.packageName) &&
+                screen.deviceTarget(includeRevision = false) == target
+        }
+    }
+
     fun select(request: AutomationDeviceRequest): ShellBackgroundDisplay? {
         sweep()
         val route = request.background ?: return null

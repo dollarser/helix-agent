@@ -24,7 +24,6 @@ import com.helix.app.chat.ChatService
 import com.helix.app.chat.ChatSubmissionOutcome
 import com.helix.app.chat.HumanHandoffState
 import com.helix.app.chat.HumanHandoffUi
-import com.helix.core.model.TurnState
 import kotlinx.coroutines.launch
 
 @Composable
@@ -47,12 +46,9 @@ internal fun HumanControlPanel(
         handoff = service.handoffPresentation(turnId)
     }
     val current = handoff
+    if (current?.state != HumanHandoffState.REQUESTED) return
     Column(Modifier.testTag("human-control-$turnId")) {
-        if (current == null && canTakeOver(state)) {
-            TextButton(onClick = { service.takeOverTask(session, turnId) }, enabled = !busy) {
-                Text(stringResource(R.string.human_take_over))
-            }
-        } else if (current?.state == HumanHandoffState.REQUESTED) {
+        if (current.state == HumanHandoffState.REQUESTED) {
             Text(stringResource(R.string.human_target_notice), style = MaterialTheme.typography.bodySmall)
             if (!current.canReturn) {
                 Text(stringResource(handoffBlockedLabel(screen.activeTurn?.id == turnId)))
@@ -102,21 +98,10 @@ internal fun HumanControlPanel(
                 }
             }
         }
-        val decisionLabel =
-            when (current?.state) {
-                HumanHandoffState.FINISHED -> R.string.human_state_finished
-                HumanHandoffState.CANCELLED -> R.string.human_state_cancelled
-                HumanHandoffState.SUBMITTED -> R.string.human_state_submitted
-                else -> null
-            }
-        decisionLabel?.let { Text(stringResource(it), style = MaterialTheme.typography.bodySmall) }
         if (pending) Text(stringResource(R.string.human_return_pending))
         if (failed) Text(stringResource(R.string.human_return_unconfirmed), color = MaterialTheme.colorScheme.error)
     }
 }
-
-private fun canTakeOver(state: TurnState?): Boolean =
-    state != null && !state.isTerminal && state != TurnState.CANCELLING
 
 private fun handBackAccepted(outcome: ChatSubmissionOutcome): Boolean =
     outcome is ChatSubmissionOutcome.Accepted || outcome is ChatSubmissionOutcome.Enqueued ||

@@ -7,6 +7,7 @@ internal class PrivilegedGestureRunner(
     private val allowed: () -> Boolean,
     private val ready: (Boolean) -> Boolean,
     private val inject: (PrivilegedTouchEvent, Long) -> Boolean,
+    private val refusal: () -> String = { "NOT_DISPATCHED" },
 ) {
     @Suppress("TooGenericExceptionCaught") // An injected prefix is uncertain even when cancellation succeeds.
     fun execute(plan: List<PrivilegedTouchEvent>): String {
@@ -28,7 +29,7 @@ internal class PrivilegedGestureRunner(
             }
             status = if (allowed()) "DISPATCHED" else "OUTCOME_UNKNOWN"
         } catch (_: Exception) {
-            status = if (entered) "OUTCOME_UNKNOWN" else "NOT_DISPATCHED"
+            status = if (entered) "OUTCOME_UNKNOWN" else refusal()
         } finally {
             if (!cancel(touches, downTime)) status = "OUTCOME_UNKNOWN"
         }

@@ -23,8 +23,10 @@ class MobileUseGrantStore(
     private val write: (String, List<String>) -> Unit,
     private val selectionId: (String) -> String?,
     private val newId: () -> String = { UUID.randomUUID().toString() },
+    private val defaultBackground: () -> Boolean = { false },
 ) {
     private var failedWrite = false
+    private val initialExecution by lazy { defaultBackground() to false }
 
     fun find(conversationId: String): MobileUseGrant? {
         val selection = selectionId(conversationId) ?: return null
@@ -71,6 +73,7 @@ class MobileUseGrantStore(
         wholePhone: Boolean,
         shareScreens: Boolean = true,
     ): MobileUseGrant {
+        if (read(EXECUTION_KEY).isEmpty()) configureExecution(initialExecution.first, initialExecution.second)
         val selected = if (wholePhone) emptySet() else applications.toSortedSet()
         globalConfiguration()
             ?.takeIf {
@@ -87,7 +90,7 @@ class MobileUseGrantStore(
     @Synchronized
     fun executionSettings(): Pair<Boolean, Boolean> {
         val fields = read(EXECUTION_KEY)
-        if (fields.isEmpty()) return false to false
+        if (fields.isEmpty()) return initialExecution
         if (fields.size != 2 || fields.any { it.toBooleanStrictOrNull() == null }) {
             throw MobileUseConfigurationUnreadable()
         }

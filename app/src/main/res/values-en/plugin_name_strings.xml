@@ -1,0 +1,5 @@
+<resources>
+    <string name="plugin_name_mobile_use">Mobile Use</string>
+    <string name="plugin_name_browser">Browser</string>
+    <string name="plugin_name_chat_reply">Chat Reply</string>
+</resources>

@@ -83,9 +83,9 @@ internal class AutomationPrivilegedDeviceHost(
             backend.device(AutomationDeviceRequest(AutomationDeviceOperation.OBSERVE)) {
                 center.liveDeviceGrant(call) == grant
             }
-        val target = reply.target ?: return AutomationDeviceObservation(reply.status)
+        val target = reply.target ?: return unframedObservation(reply.status, grant.scope.allApplications)
         if (center.liveDeviceGrant(call) != grant || !grant.scope.permitsPackage(target.packageName)) {
-            return AutomationDeviceObservation("TARGET_NOT_ALLOWLISTED")
+            return unframedObservation("TARGET_NOT_ALLOWLISTED", grant.scope.allApplications)
         }
         val frame =
             AutomationFrame(
@@ -129,6 +129,17 @@ internal class AutomationPrivilegedDeviceHost(
             clickMatchBackend = center.preferredClickBackend(),
         )
     }
+
+    private fun unframedObservation(
+        status: String,
+        allApplications: Boolean,
+    ) = AutomationDeviceObservation(
+        status = status,
+        allApplications = allApplications,
+        rootState = center.rootState(),
+        shizukuState = center.shizukuState(),
+        clickMatchBackend = center.preferredClickBackend(),
+    )
 
     fun owns(token: String): Boolean =
         AutomationServiceController.withPhysicalOperation { bound?.frame?.token == token }

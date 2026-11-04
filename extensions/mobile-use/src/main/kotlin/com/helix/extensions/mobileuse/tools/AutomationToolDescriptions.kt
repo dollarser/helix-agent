@@ -92,7 +92,9 @@ private const val FIND_DESCRIPTION =
         "Does not click or wait."
 
 private const val SCROLL_DESCRIPTION =
-    "Scroll a fresh scrollable node token forward or backward; " +
+    "Scroll a fresh scrollable node token using its advertised scrollDirections. " +
+        "Prefer down/up for vertical content and left/right for horizontal pages. " +
+        "Forward/backward follow the widget's axis: a ViewPager may switch tabs. " +
         "read the returned observation for new controls/tokens. " +
         "Use a token from the latest observation or ui.find(scrollable=true), not the offscreen button's " +
         "token or clickTargetToken. A later observation invalidates the earlier container token. " +

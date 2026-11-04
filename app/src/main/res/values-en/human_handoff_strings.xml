@@ -1,5 +1,4 @@
 <resources>
-    <string name="human_take_over">Take over</string>
     <string name="human_target_notice">Takeover stops the original task. Releasing its background screen does not move the app to your main screen; open it there yourself. Handing back starts a new turn and observes the current state again.</string>
     <string name="human_wait_settlement">Waiting for the original operations to settle. Avoid repeating effects that may already have happened.</string>
     <string name="human_note">What you handled (optional)</string>

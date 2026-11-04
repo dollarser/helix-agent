@@ -24,6 +24,13 @@ import com.helix.extensions.mobileuse.automation.AutomationToolPort
 import com.helix.extensions.mobileuse.automation.AutomationWaitCondition
 import com.helix.extensions.mobileuse.automation.AutomationWaitStatus
 import com.helix.extensions.mobileuse.automation.AutomationWaiter
+import com.helix.extensions.mobileuse.tools.AutomationToolSchemas.array
+import com.helix.extensions.mobileuse.tools.AutomationToolSchemas.bool
+import com.helix.extensions.mobileuse.tools.AutomationToolSchemas.integer
+import com.helix.extensions.mobileuse.tools.AutomationToolSchemas.nodeSchema
+import com.helix.extensions.mobileuse.tools.AutomationToolSchemas.number
+import com.helix.extensions.mobileuse.tools.AutomationToolSchemas.obj
+import com.helix.extensions.mobileuse.tools.AutomationToolSchemas.str
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
@@ -388,9 +395,9 @@ class AutomationTools(
                 put(
                     "actionHint",
                     JsonPrimitive(
-                        "Offscreen matches. Call ui.snapshot; select a fresh scrollable=true node and pass its " +
-                            "token to ui.scroll, then observe again. scrollable is a returned flag, not a ui.find " +
-                            "argument. Do not click offscreen tokens or guess coordinates.",
+                        "Offscreen matches. Call ui.snapshot or ui.find(scrollable=true); scroll a fresh container " +
+                            "token with ui.scroll, then observe. Check scrollDirections: forward/backward may switch " +
+                            "tabs. Do not click offscreen tokens or guess coordinates.",
                     ),
                 )
             }
@@ -433,6 +440,10 @@ class AutomationTools(
         when (requiredString(args, "direction")) {
             "forward" -> AutomationNodeAction.SCROLL_FORWARD
             "backward" -> AutomationNodeAction.SCROLL_BACKWARD
+            "up" -> AutomationNodeAction.SCROLL_UP
+            "down" -> AutomationNodeAction.SCROLL_DOWN
+            "left" -> AutomationNodeAction.SCROLL_LEFT
+            "right" -> AutomationNodeAction.SCROLL_RIGHT
             else -> throw IllegalArgumentException("AUTOMATION_DIRECTION_INVALID")
         }
 
@@ -446,6 +457,7 @@ class AutomationTools(
             checkable = args["checkable"]?.jsonPrimitive?.booleanOrNull,
             checked = args["checked"]?.jsonPrimitive?.booleanOrNull,
             scrollable = args["scrollable"]?.jsonPrimitive?.booleanOrNull,
+            editable = args["editable"]?.jsonPrimitive?.booleanOrNull,
             match =
                 if (args["match"]?.jsonPrimitive?.contentOrNull ==
                     "contains"
@@ -502,8 +514,6 @@ class AutomationTools(
             listOf("token", "text"),
         )
 
-    private fun number() = buildJsonObject { put("type", JsonPrimitive("number")) }
-
     private fun progressInput() = obj(mapOf("token" to str(32), "value" to number()), listOf("token", "value"))
 
     private fun scrollInput() =
@@ -513,8 +523,20 @@ class AutomationTools(
                 "direction" to
                     buildJsonObject {
                         put("type", JsonPrimitive("string"))
-                        put("enum", JsonArray(listOf(JsonPrimitive("forward"), JsonPrimitive("backward"))))
-                        put("description", JsonPrimitive("Scroll the token container using forward or backward."))
+                        put(
+                            "enum",
+                            JsonArray(
+                                listOf("forward", "backward", "up", "down", "left", "right")
+                                    .map(::JsonPrimitive),
+                            ),
+                        )
+                        put(
+                            "description",
+                            JsonPrimitive(
+                                "Use an advertised scrollDirections direction. " +
+                                    "Forward/backward follow the widget's axis and can change horizontal tabs.",
+                            ),
+                        )
                     },
             ),
             listOf("token", "direction"),
@@ -557,6 +579,7 @@ class AutomationTools(
                 "maxResults" to integer(1, 50),
             )
         fields["scrollable"] = bool()
+        fields["editable"] = bool()
         if (includeWait) {
             fields["timeoutMillis"] = integer(1, 60_000)
             fields["stableMillis"] = integer(50, 60_000)
@@ -636,108 +659,6 @@ class AutomationTools(
             ),
             listOf("status"),
         )
-
-    private fun nodeSchema(compact: Boolean = false) =
-        obj(
-            mapOf(
-                "token" to str(32),
-                "parentToken" to str(32),
-                "clickTargetToken" to str(32),
-                "depth" to integer(0),
-                "className" to str(512),
-                "text" to str(2_000),
-                "contentDescription" to str(2_000),
-                "viewId" to str(512),
-                "clickable" to bool(),
-                "offscreen" to bool(),
-                "longClickable" to bool(),
-                "checkable" to bool(),
-                "checked" to bool(),
-                "editable" to bool(),
-                "scrollable" to bool(),
-                "enabled" to bool(),
-                "redacted" to bool(),
-                "canImeEnter" to bool(),
-                "bounds" to
-                    obj(
-                        mapOf("left" to number(), "top" to number(), "right" to number(), "bottom" to number()),
-                        emptyList(),
-                    ),
-                "canSetProgress" to bool(),
-                "range" to
-                    obj(
-                        mapOf("min" to number(), "max" to number(), "current" to number()),
-                        listOf("min", "max", "current"),
-                    ),
-            ),
-            if (compact) {
-                listOf("token", "clickable", "enabled")
-            } else {
-                listOf(
-                    "token",
-                    "parentToken",
-                    "clickTargetToken",
-                    "depth",
-                    "className",
-                    "text",
-                    "contentDescription",
-                    "viewId",
-                    "clickable",
-                    "longClickable",
-                    "checkable",
-                    "checked",
-                    "editable",
-                    "scrollable",
-                    "enabled",
-                    "canImeEnter",
-                )
-            },
-        )
-
-    private fun obj(
-        properties: Map<String, JsonObject>,
-        required: List<String>,
-    ) = buildJsonObject {
-        put("type", JsonPrimitive("object"))
-        if (properties.isNotEmpty()) {
-            put(
-                "properties",
-                buildJsonObject {
-                    properties.forEach { (k, v) ->
-                        put(k, v)
-                    }
-                },
-            )
-        }
-        if (required.isNotEmpty()) put("required", JsonArray(required.map(::JsonPrimitive)))
-        put("additionalProperties", JsonPrimitive(false))
-    }
-
-    private fun str(max: Int) =
-        buildJsonObject {
-            put("type", JsonPrimitive("string"))
-            put("maxLength", JsonPrimitive(max))
-        }
-
-    private fun integer(
-        min: Int,
-        max: Int? = null,
-    ) = buildJsonObject {
-        put("type", JsonPrimitive("integer"))
-        put("minimum", JsonPrimitive(min))
-        max?.let { put("maximum", JsonPrimitive(it)) }
-    }
-
-    private fun bool() = buildJsonObject { put("type", JsonPrimitive("boolean")) }
-
-    private fun array(
-        items: JsonObject,
-        max: Int,
-    ) = buildJsonObject {
-        put("type", JsonPrimitive("array"))
-        put("items", items)
-        put("maxItems", JsonPrimitive(max))
-    }
 
     companion object {
         private const val PROTECTED_HINT =

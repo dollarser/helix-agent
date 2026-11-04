@@ -276,11 +276,21 @@ fun ConnectorSection(
             ) { Text(stringResource(R.string.common_cancel)) }
         }
         installed?.let { PluginImportResult(it, onUse, onConfigureImported) }
+        val localizedNames =
+            records.associate {
+                it.id to
+                    com.helix.app.plugin
+                        .pluginLabel(it.native?.pluginId ?: it.name)
+            }
         val visible =
             records.filter {
                 showInstalled &&
                     com.helix.app.plugin
-                        .matchesPluginQuery(it, query, searchContents[it.id].orEmpty())
+                        .matchesPluginQuery(
+                            it,
+                            query,
+                            searchContents[it.id].orEmpty() + localizedNames[it.id].orEmpty(),
+                        )
             }
         if (showInstalled && loaded) {
             if (visible.isEmpty() && !loadFailed) {

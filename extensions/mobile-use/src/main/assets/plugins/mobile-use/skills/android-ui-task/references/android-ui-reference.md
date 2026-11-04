@@ -63,3 +63,5 @@ replacement. Authentication, secure surfaces and lock-screen protections remain 
 Background work does not need the task-completion launch back to Helix: leave the user's main screen
 alone and report the verified result. Do not launch the originating Helix package on the virtual
 screen just to return. The ordinary main-screen completion handoff above still applies in main mode.
+
+For ui.scroll, inspect the node’s scrollDirections and request down/up for vertical content or left/right for horizontal pages. forward/backward follow the widget’s own axis: a ViewPager can switch tabs. Do not repeat a dispatched scroll when the screenshot is unchanged; inspect the content extent/container first. ui.find supports scrollable=true and editable=true. On a changing search placeholder prefer a unique observed viewId with ui.click_match; FRAME_CHANGED means the screen changed before DOWN, not a lost Shizuku connection.

@@ -49,7 +49,10 @@ internal class MobileUseSettingsState(
         failed = false
         requiresReset = false
         try {
-            val config = withContext(Dispatchers.IO) { store.globalConfiguration() }
+            val (config, display) =
+                withContext(Dispatchers.IO) {
+                    store.globalConfiguration() to store.executionSettings()
+                }
             packages =
                 config
                     ?.scope
@@ -57,7 +60,7 @@ internal class MobileUseSettingsState(
                     .orEmpty()
                     .toList()
             wholePhone = config?.scope?.allApplications != false
-            background = config?.backgroundDisplay == true
+            background = config?.backgroundDisplay ?: display.first
             allowMoveFromMain = config?.allowMoveFromMain == true
             baselineBackground = background
             baselineAllowMove = allowMoveFromMain

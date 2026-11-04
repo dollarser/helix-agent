@@ -10,19 +10,17 @@ internal class PrivilegedGestureExecution(
     private val screen: ShizukuHierarchy,
     private val allowed: () -> Boolean,
 ) {
-    fun execute(request: AutomationDeviceRequest): String =
-        PrivilegedGestureRunner(
+    fun execute(request: AutomationDeviceRequest): String {
+        val guard = PrivilegedGestureGuard(request, screen::deviceTarget, screen::gestureDisplay, screen::windows)
+        return PrivilegedGestureRunner(
             now = SystemClock::uptimeMillis,
             sleep = SystemClock::sleep,
             allowed = allowed,
-            ready = PrivilegedGestureGuard(
-                request,
-                screen::deviceTarget,
-                screen::gestureDisplay,
-                screen::windows,
-            )::ready,
+            ready = guard::ready,
             inject = { step, downTime -> inject(step.action, step.touches, downTime) },
+            refusal = { guard.refusal },
         ).execute(privilegedGesturePlan(request.strokes))
+    }
 
     private fun inject(
         action: Int,
