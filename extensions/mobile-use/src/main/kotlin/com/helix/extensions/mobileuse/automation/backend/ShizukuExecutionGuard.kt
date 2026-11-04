@@ -11,6 +11,8 @@ internal class ShizukuExecutionGuard(
     private val mayFinish: () -> Boolean,
     private val displayLifecycle: ShizukuDisplayLifecycle? = null,
 ) : Binder() {
+    private val focusRecovery = displayLifecycle?.let { ShizukuFocusRecovery() }
+
     @Suppress("ReturnCount") // Distinct protocol branches enforce peer and parcel identity before callbacks.
     override fun onTransact(
         code: Int,
@@ -18,9 +20,12 @@ internal class ShizukuExecutionGuard(
         reply: Parcel?,
         flags: Int,
     ): Boolean {
-        if (code !in setOf(CHECK, DISPLAY_EVENT, PREVIEW_PACKAGE)) return super.onTransact(code, data, reply, flags)
+        if (code !in setOf(CHECK, DISPLAY_EVENT, PREVIEW_PACKAGE, FOCUS_CHECKPOINT)) {
+            return super.onTransact(code, data, reply, flags)
+        }
         check(getCallingUid() in setOf(0, 2000)) { "UNTRUSTED_GUARD_CALLER" }
         data.enforceInterface(DESCRIPTOR)
+        if (code == FOCUS_CHECKPOINT) return recordFocusCheckpoint(data, reply)
         if (code == PREVIEW_PACKAGE) {
             val packageName = requireNotNull(data.readString()).also { require(it.length <= 256) }
             require(data.dataAvail() == 0)
@@ -48,6 +53,7 @@ internal class ShizukuExecutionGuard(
             require(data.dataAvail() == 0)
             val identity = clearCallingIdentity()
             try {
+                if (state == AutomationDisplayLifecycle.RELEASED) focusRecovery?.released()
                 displayLifecycle?.report(state)
             } finally {
                 restoreCallingIdentity(identity)
@@ -72,12 +78,27 @@ internal class ShizukuExecutionGuard(
         return true
     }
 
+    private fun recordFocusCheckpoint(
+        data: Parcel,
+        reply: Parcel?,
+    ): Boolean {
+        val checkpoint = FocusRecoveryCheckpoint.read(data)
+        require(data.dataAvail() == 0)
+        focusRecovery?.record(checkpoint)
+        reply?.writeNoException()
+        return true
+    }
+
     fun discardUnboundDisplayIfInactive() {
         if (!mayFinish()) displayLifecycle?.discardIfNeverBound()
     }
 
-    fun bindDisplayService(service: IBinder) {
+    fun bindDisplayService(
+        service: IBinder,
+        recover: (FocusRecoveryCheckpoint, Long) -> Unit,
+    ) {
         displayLifecycle?.bind(service)
+        focusRecovery?.bind(service, recover)
     }
 
     fun observedDisplayPackage(value: String?) {
@@ -103,6 +124,26 @@ internal class ShizukuExecutionGuard(
         private const val CHECK = IBinder.FIRST_CALL_TRANSACTION
         private const val DISPLAY_EVENT = IBinder.FIRST_CALL_TRANSACTION + 1
         private const val PREVIEW_PACKAGE = IBinder.FIRST_CALL_TRANSACTION + 2
+        private const val FOCUS_CHECKPOINT = IBinder.FIRST_CALL_TRANSACTION + 3
+
+        @Suppress("TooGenericExceptionCaught") // Missing cleanup evidence cannot change the original tool outcome.
+        fun focusCheckpoint(
+            binder: IBinder,
+            value: FocusRecoveryCheckpoint,
+        ) {
+            val data = Parcel.obtain()
+            val reply = Parcel.obtain()
+            try {
+                data.writeInterfaceToken(DESCRIPTOR)
+                value.write(data)
+                if (binder.transact(FOCUS_CHECKPOINT, data, reply, 0)) reply.readException()
+            } catch (failure: Exception) {
+                android.util.Log.w("HelixDisplay", "Focus cleanup checkpoint unavailable", failure)
+            } finally {
+                data.recycle()
+                reply.recycle()
+            }
+        }
 
         fun permitsPreviewPackage(
             binder: IBinder,

@@ -5,6 +5,8 @@ import android.content.Context
 import android.content.ServiceConnection
 import android.content.pm.PackageManager
 import android.os.IBinder
+import android.os.Parcel
+import android.os.SystemClock
 import kotlinx.serialization.json.JsonObject
 import rikka.shizuku.Shizuku
 import java.util.concurrent.CountDownLatch
@@ -63,7 +65,7 @@ class ShizukuUiBridge(
         val owner = request.background?.owner as? ShizukuExecutionGuard
         return try {
             withService { binder, _ ->
-                owner?.bindDisplayService(binder)
+                owner?.bindDisplayService(binder, ::restoreFocus)
                 PrivilegedDeviceTransactions.execute(binder, request) { permissionGranted() && allowed() }.also {
                     if (it.target?.displayId?.let { id -> id > 0 } == true) {
                         owner?.observedDisplayPackage(it.target.packageName)
@@ -75,6 +77,42 @@ class ShizukuUiBridge(
         } catch (failure: Exception) {
             owner?.displayConnectionLost()
             throw failure
+        }
+    }
+
+    // Cleanup cannot replay or settle the old call.
+    @Suppress("TooGenericExceptionCaught")
+    private fun restoreFocus(
+        checkpoint: FocusRecoveryCheckpoint,
+        deadline: Long,
+    ) {
+        if (!permissionGranted() || SystemClock.elapsedRealtime() > deadline) return
+        try {
+            val result =
+                withService { binder, _ ->
+                    val data = Parcel.obtain()
+                    val reply = Parcel.obtain()
+                    try {
+                        data.writeInterfaceToken(ShizukuUiProtocol.DESCRIPTOR)
+                        checkpoint.write(data)
+                        data.writeLong(deadline)
+                        data.writeStrongBinder(
+                            ShizukuExecutionGuard(
+                                { _, _, _ -> permissionGranted() && SystemClock.elapsedRealtime() <= deadline },
+                                { permissionGranted() && SystemClock.elapsedRealtime() <= deadline },
+                            ),
+                        )
+                        check(binder.transact(ShizukuUiProtocol.RESTORE_FOCUS, data, reply, 0))
+                        reply.readException()
+                        requireNotNull(reply.readString())
+                    } finally {
+                        data.recycle()
+                        reply.recycle()
+                    }
+                }
+            android.util.Log.i("HelixDisplay", "Original helper focus cleanup display=${checkpoint.display}: $result")
+        } catch (failure: Exception) {
+            android.util.Log.w("HelixDisplay", "Original helper focus cleanup unconfirmed", failure)
         }
     }
 

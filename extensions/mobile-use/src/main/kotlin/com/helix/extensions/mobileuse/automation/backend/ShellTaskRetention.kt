@@ -23,6 +23,41 @@ internal class ShellTaskRetention {
         }
     }
 
+    fun checkpoint(displayId: Int): FocusRecoveryCheckpoint? {
+        val primary = tasks(0).firstOrNull { it.visible } ?: return null
+        val owned = tasks(displayId).map { it.id }
+        return if (owned.size in 1..32 && primary.id !in owned) {
+            FocusRecoveryCheckpoint(displayId, primary.id, owned)
+        } else {
+            null
+        }
+    }
+
+    fun restore(
+        checkpoint: FocusRecoveryCheckpoint,
+        allowed: () -> Boolean,
+    ): String {
+        val current = tasks(0)
+        return when {
+            !checkpoint.canRestore(current.map { it.id }, current.firstOrNull { it.visible }?.id) -> {
+                "MAIN_FOCUS_CHANGED"
+            }
+
+            !allowed() -> {
+                "AUTHORIZATION_LOST"
+            }
+
+            else -> {
+                type.getMethod("setFocusedRootTask", Int::class.javaPrimitiveType).invoke(service, checkpoint.primary)
+                if (tasks(0).firstOrNull { it.visible }?.id == checkpoint.primary) {
+                    "FOCUS_RESTORED"
+                } else {
+                    "FOCUS_RESTORE_UNCONFIRMED"
+                }
+            }
+        }
+    }
+
     /** The platform moves public-display tasks to primary. Restore focus only if that move took it. */
     @Suppress("ReturnCount") // Report each unconfirmed phase without relaunching or discarding the existing task.
     fun release(
@@ -54,6 +89,20 @@ internal class ShellTaskRetention {
     }
 
     companion object {
+        @Suppress("TooGenericExceptionCaught") // Keep the original tool result even on unsupported task introspection.
+        fun checkpoint(displayId: Int): FocusRecoveryCheckpoint? =
+            try {
+                ShellTaskRetention().checkpoint(displayId)
+            } catch (failure: Exception) {
+                android.util.Log.w("HelixDisplay", "Focus checkpoint unavailable", failure)
+                null
+            }
+
+        fun restore(
+            checkpoint: FocusRecoveryCheckpoint,
+            allowed: () -> Boolean,
+        ): String = ShellTaskRetention().restore(checkpoint, allowed)
+
         // Release pixels even when task introspection is unsupported; never claim confirmed task retention.
         @Suppress("TooGenericExceptionCaught")
         fun release(

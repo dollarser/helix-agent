@@ -13,6 +13,7 @@ internal object ShizukuUiProtocol {
     const val CLICK_MATCH = IBinder.FIRST_CALL_TRANSACTION + 101
     const val DEVICE = IBinder.FIRST_CALL_TRANSACTION + 102
     const val PREVIEW = IBinder.FIRST_CALL_TRANSACTION + 103
+    const val RESTORE_FOCUS = IBinder.FIRST_CALL_TRANSACTION + 104
     const val DESTROY_AIDL = 16_777_114
     const val DESTROY_REMOTE = 16_777_115
 }
@@ -23,7 +24,9 @@ class ShizukuUiUserService
     constructor(
         context: Context,
     ) : Binder() {
+        private val keyguard = context.getSystemService(android.app.KeyguardManager::class.java)
         private val packageManager = context.packageManager
+        private val displayManager = context.getSystemService(android.hardware.display.DisplayManager::class.java)
         private val permissionControllerPackage = systemPermissionController(context)
         private val ownerUid = context.applicationInfo.uid.also { require(it >= 10_000) }
         private var hierarchy: ShizukuHierarchy? = null
@@ -84,13 +87,57 @@ class ShizukuUiUserService
                         return
                     }
                 screen.route(display)
-                PrivilegedDeviceService(
-                    guard,
-                    screen,
-                    permissionControllerPackage,
-                    packageManager,
-                ).execute(request, reply)
+                try {
+                    PrivilegedDeviceService(
+                        guard,
+                        screen,
+                        permissionControllerPackage,
+                        packageManager,
+                    ).execute(request, reply)
+                } finally {
+                    displays.checkpoint(request)
+                }
             }
+        }
+
+        private fun restoreFocus(
+            data: Parcel,
+            reply: Parcel,
+        ) {
+            require(getCallingUid() == ownerUid) { "UNTRUSTED_CALLER" }
+            data.enforceInterface(ShizukuUiProtocol.DESCRIPTOR)
+            val checkpoint = FocusRecoveryCheckpoint.read(data)
+            val deadline = data.readLong()
+            val guard = requireNotNull(data.readStrongBinder())
+            require(data.dataAvail() == 0)
+            val now = android.os.SystemClock.elapsedRealtime()
+            val refusal =
+                focusCleanupRefusal(
+                    deadline - now,
+                    ShizukuExecutionGuard.check(guard),
+                    keyguard.isKeyguardLocked,
+                    displayManager.getDisplay(checkpoint.display) != null,
+                )
+            val result =
+                refusal ?: synchronized(this) {
+                    ShellTaskRetention.restore(checkpoint) {
+                        !keyguard.isKeyguardLocked && displayManager.getDisplay(checkpoint.display) == null &&
+                            ShizukuExecutionGuard.check(guard)
+                    }
+                }
+            reply.writeNoException()
+            reply.writeString(result)
+        }
+
+        private fun identity(
+            data: Parcel,
+            reply: Parcel?,
+        ) {
+            require(getCallingUid() == ownerUid) { "UNTRUSTED_CALLER" }
+            data.enforceInterface(ShizukuUiProtocol.DESCRIPTOR)
+            require(data.dataAvail() == 0) { "UNEXPECTED_ARGUMENTS" }
+            reply?.writeNoException()
+            reply?.writeInt(Process.myUid())
         }
 
         private fun writeDisplayRefusal(
@@ -133,10 +180,7 @@ class ShizukuUiUserService
                 }
 
                 ShizukuUiProtocol.GET_UID -> {
-                    require(getCallingUid() == ownerUid) { "UNTRUSTED_CALLER" }
-                    data.enforceInterface(ShizukuUiProtocol.DESCRIPTOR)
-                    reply?.writeNoException()
-                    reply?.writeInt(Process.myUid())
+                    identity(data, reply)
                     true
                 }
 
@@ -169,6 +213,11 @@ class ShizukuUiUserService
 
                 ShizukuUiProtocol.PREVIEW -> {
                     executePreview(data, requireNotNull(reply))
+                }
+
+                ShizukuUiProtocol.RESTORE_FOCUS -> {
+                    restoreFocus(data, requireNotNull(reply))
+                    true
                 }
 
                 ShizukuUiProtocol.DESTROY_AIDL,

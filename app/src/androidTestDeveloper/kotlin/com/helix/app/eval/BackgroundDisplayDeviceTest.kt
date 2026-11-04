@@ -79,7 +79,7 @@ class BackgroundDisplayDeviceTest {
     }
 
     private fun verifyVerticalScroll() {
-        val snapshot = output("ui.snapshot").getValue("nodes").jsonArray.map { it.jsonObject }
+        val snapshot = readyFixtureSnapshot().getValue("nodes").jsonArray.map { it.jsonObject }
         val container = snapshot.single { it["viewId"]?.jsonPrimitive?.content == "android:id/list" }
         assertTrue(container.getValue("scrollDirections").jsonArray.any { it.jsonPrimitive.content == "down" })
 
@@ -432,6 +432,22 @@ class BackgroundDisplayDeviceTest {
         }
         assertTrue("Expected actual original-helper Binder death; no automatic action replay", disconnected())
         assertEquals(null, app.getSystemService(DisplayManager::class.java).getDisplay(displayId))
+        if (InstrumentationRegistry.getArguments().getString("helixFocusRecovery") == "true") {
+            awaitHostFocusVerification()
+        }
+    }
+
+    /** Keep the real host alive until external focus verification; instrumentation otherwise force-stops it. */
+    private fun awaitHostFocusVerification() {
+        val marker = app.cacheDir.resolve("focus-recovery-${UUID.randomUUID()}")
+        try {
+            report("BACKGROUND_FOCUS_WAIT marker=${marker.name}")
+            val deadline = SystemClock.elapsedRealtime() + 12_000
+            while (!marker.exists() && SystemClock.elapsedRealtime() < deadline) SystemClock.sleep(50)
+            assertTrue("Host did not confirm original task/focus recovery", marker.exists())
+        } finally {
+            marker.delete()
+        }
     }
 
     private fun readyFixtureSnapshot(): JsonObject {

@@ -70,6 +70,20 @@ internal class ShellBackgroundDisplays(
         expired.forEach { key -> entries.remove(key)?.let(::release) }
     }
 
+    @Suppress("TooGenericExceptionCaught") // Cleanup metadata never masks execution or its original exception.
+    fun checkpoint(request: AutomationDeviceRequest) {
+        try {
+            val route = request.background ?: return
+            val owned = entries[route.key]?.takeIf { it.owner == route.owner && it.display.valid } ?: return
+            ShellTaskRetention
+                .checkpoint(
+                    owned.display.id,
+                )?.let { ShizukuExecutionGuard.focusCheckpoint(owned.owner, it) }
+        } catch (failure: Exception) {
+            android.util.Log.w("HelixDisplay", "Display cleanup checkpoint unavailable", failure)
+        }
+    }
+
     @Suppress("TooGenericExceptionCaught") // Report failed cleanup, then rethrow the original platform failure.
     private fun release(owned: Owned) {
         try {
