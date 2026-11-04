@@ -241,7 +241,6 @@ class FilesBrowserUiDeviceTest {
             waitTag("files-preview-text")
             val viewport = compose.onNodeWithTag("files-viewer-content")
             viewport.performScrollToNode(hasTestTag("files-text-1"))
-            viewport.performSemanticsAction(SemanticsActions.ScrollBy) { it(0f, -120f) }
 
             fun point(
                 tag: String,
