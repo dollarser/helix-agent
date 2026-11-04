@@ -1008,13 +1008,23 @@ class ChatService(
     fun newSessionDraft(): String? = openSessionDraft(null)
 
     /** Capture admission against the service owner, not an asynchronously refreshed UI snapshot. */
-    fun attachFileToConversation(
+    suspend fun attachFileToConversation(
         uri: String,
         expectedSessionId: String?,
         newConversation: Boolean,
+        projectId: String? = null,
+        directory: String? = null,
+        admit: () -> Boolean = { true },
     ): String? {
         if (openSessionId != expectedSessionId) return null
-        val target = if (newConversation) openSessionDraft(null) else expectedSessionId
+        val target =
+            if (newConversation) {
+                newContextDraft(projectId, directory, expectedSessionId, admit)
+            } else {
+                withContext(Dispatchers.Main.immediate) {
+                    expectedSessionId.takeIf { admit() && openSessionId == it }
+                }
+            }
         target?.let { stageAttachment(uri, it) }
         return target
     }
@@ -1023,16 +1033,35 @@ class ChatService(
     suspend fun newDirectoryDraft(
         reference: String,
         expectedSessionId: String?,
+        projectId: String? = null,
+        admit: () -> Boolean = { true },
+    ): String? = newContextDraft(projectId, reference, expectedSessionId, admit)
+
+    suspend fun newProjectDraft(
+        projectId: String,
+        expectedSessionId: String?,
+        admit: () -> Boolean = { true },
+    ): String? = newContextDraft(projectId, null, expectedSessionId, admit)
+
+    private suspend fun newContextDraft(
+        projectId: String?,
+        reference: String?,
+        expectedSessionId: String?,
+        admit: () -> Boolean = { true },
     ): String? {
         val changed = withContext(kotlinx.coroutines.Dispatchers.Main.immediate) { openSessionId != expectedSessionId }
         if (changed) return null
-        val bound = withContext(kotlinx.coroutines.Dispatchers.IO) { bindSessionDirectory(reference) }
+        val selection = withContext(Dispatchers.IO) { catalog.projectSelection(projectId) }
+        val bound = withContext(Dispatchers.IO) { reference?.let(bindSessionDirectory) ?: selection?.directory }
         return withContext(kotlinx.coroutines.Dispatchers.Main.immediate) {
-            if (openSessionId == expectedSessionId) openSessionDraft(bound) else null
+            if (openSessionId == expectedSessionId && admit()) openSessionDraft(bound, selection) else null
         }
     }
 
-    private fun openSessionDraft(directory: String?): String? {
+    private fun openSessionDraft(
+        directory: String?,
+        project: DraftProject? = null,
+    ): String? {
         val current = sessions.value.firstOrNull { it.id == openSessionId }
         val draft = sessionDraft?.session
         val (providerId, modelId) =
@@ -1050,7 +1079,7 @@ class ChatService(
                 directoryRef = directory,
             )
         val control = sessionRunControls.defaultSnapshot().copy(mode = AgentMode.ACT)
-        if (!drafts.open(entity, control)) return null
+        if (!drafts.open(entity, control, project)) return null
         openSessionId = entity.id
         _runControl.value = control
         conversationLaunchStore.selectNewDraft()
@@ -1060,6 +1089,35 @@ class ChatService(
         workScope.launch { refreshScreen() }
         return entity.id
     }
+
+    /** Selection edits the same identity; it never clears composer text or staged attachments. */
+    suspend fun selectConversationProject(
+        expectedSessionId: String,
+        projectId: String?,
+    ): Boolean =
+        withContext(workScope.coroutineContext) {
+            submissionGate.withLock {
+                if (openSessionId != expectedSessionId) return@withLock false
+                val draft = sessionDraft?.takeIf { it.session.id == expectedSessionId }
+                val currentProject = draft?.project?.id ?: storage.projects.forSession(expectedSessionId)?.id
+                if (currentProject == projectId && draft == null) return@withLock true
+                val selection =
+                    catalog.projectSelection(
+                        projectId,
+                        draft != null || catalog.isNewConversation(expectedSessionId),
+                    )
+                if (currentProject == projectId && draft?.project == selection) return@withLock true
+                if (openSessionId != expectedSessionId) return@withLock false
+                if (sessionDraft?.session?.id == expectedSessionId) {
+                    if (!drafts.project(expectedSessionId, selection)) return@withLock false
+                } else {
+                    catalog.selectProject(expectedSessionId, selection)
+                }
+                dismissBlocked()
+                refreshScreen()
+                true
+            }
+        }
 
     suspend fun saveDraftForGoal(text: String): Boolean =
         withContext(workScope.coroutineContext) {
@@ -1143,7 +1201,11 @@ class ChatService(
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun ensureSessionWorkspace(sessionId: String): Boolean =
         try {
-            workspaceRecovery.recover(sessionId, clock.now().toEpochMilli())
+            if (catalog.isNewConversation(sessionId) && storage.projects.forSession(sessionId) != null) {
+                bindSessionDirectory(requireNotNull(storage.sessions.resolve(sessionId).directoryRef))
+            } else {
+                workspaceRecovery.recover(sessionId, clock.now().toEpochMilli())
+            }
             true
         } catch (cancelled: CancellationException) {
             throw cancelled
@@ -2194,6 +2256,7 @@ class ChatService(
         }
 
     /** Creates session metadata when settings or attachments need it; input caching does not require it. */
+    @Suppress("TooGenericExceptionCaught") // Failed metadata validation preserves the draft and reports failure.
     suspend fun materializeDraftSession(expectedSessionId: String): String? =
         withContext(workScope.coroutineContext) {
             if (storage.sessions.find(expectedSessionId) != null) return@withContext expectedSessionId
@@ -2208,6 +2271,11 @@ class ChatService(
                     if (openSessionId != id) return@withContext null
                     stageAttachmentNow(attachment.uri, id)
                 }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                if (openSessionId == id) setBlocked(str(R.string.project_failed))
+                return@withContext null
             } finally {
                 drafts.finishPreparation()
                 refreshScreen()
@@ -4475,6 +4543,10 @@ class ChatService(
                     isDraft = true,
                     preparingDraft = preparingDraft,
                     directoryRef = draft.session.directoryRef,
+                    projectId = draft.project?.id,
+                    blockedReason = _screen.value.takeIf { it.openSessionId == draft.session.id }?.blockedReason,
+                    blockedReasonEpoch = _screen.value.blockedReasonEpoch,
+                    isNewConversation = true,
                     pendingAttachments =
                         draft.attachments.map {
                             PendingAttachmentUi(it.id, it.name, it.size, !it.isImage, it.isImage)
@@ -4548,6 +4620,7 @@ class ChatService(
         }
     }
 
+    @Suppress("LongMethod", "CyclomaticComplexMethod") // One authoritative Room snapshot.
     private fun refreshPersistedScreen() {
         // Session deletion can race terminal publication. Keep existence and all
         // dependent projections in one Room snapshot, not separate check/read calls.
@@ -4569,6 +4642,13 @@ class ChatService(
                         preparingDraft = preparingDraft,
                         sessionTitle = sessionId?.let { storage.sessions.resolve(it).title }.orEmpty(),
                         directoryRef = sessionId?.let { storage.sessions.resolve(it).directoryRef },
+                        projectId = sessionId?.let { storage.projects.forSession(it)?.id },
+                        isNewConversation =
+                            sessionId != null && lastTurn == null &&
+                                storage.messages
+                                    .listBySession(
+                                        sessionId,
+                                    ).isEmpty(),
                         workspaceRecovered = sessionId?.let(workspaceRecovery::hasNotice) == true,
                         // A null selection is authoritative for an unbound session, not a missing refresh.
                         selectedModel = sessionId?.let { projection.selectedModelFor(it) },

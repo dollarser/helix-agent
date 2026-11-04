@@ -6,6 +6,7 @@ import com.helix.app.AppContainer
 import com.helix.app.HelixApplication
 import com.helix.app.application.diagnostics.DiagnosticRedaction
 import com.helix.app.application.tools.ToolFailureContent
+import com.helix.app.projects.createProjectSessionFixture
 import com.helix.app.proot.InPlaceLogCloseoutDeviceTest
 import com.helix.app.proot.LOG_COMPARISON_PROMPT
 import com.helix.app.proot.ProotLogTool
@@ -227,7 +228,13 @@ class MemoryLogEffectDeviceTest {
         try {
             val order = if (ordinal % 2 == 0) listOf(false, true) else listOf(true, false)
             for (indexed in order) {
-                val session = projects.newSession(project, BuiltInModel.PROVIDER_ID, BuiltInModel.MODEL_ID)
+                val session =
+                    createProjectSessionFixture(
+                        c.storage,
+                        project,
+                        BuiltInModel.PROVIDER_ID,
+                        BuiltInModel.MODEL_ID,
+                    )
                 val denied = spec["denyMemory"]?.jsonPrimitive?.content == "true"
                 permissions(session, denied)
                 val indexes = if (denied) emptyMap() else mapOf("project" to index(scope))

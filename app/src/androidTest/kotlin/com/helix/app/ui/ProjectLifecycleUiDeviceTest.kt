@@ -6,6 +6,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextReplacement
@@ -16,6 +17,8 @@ import com.helix.app.projects.ui.ProjectsScreen
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import java.util.UUID
@@ -28,10 +31,12 @@ class ProjectLifecycleUiDeviceTest {
     @Suppress("LongMethod") // Keep the complete UI journey and its original-session checks in one cleanup scope.
     fun createRenameAndDeletePreserveMemberSessionAndDirectory(): Unit =
         runBlocking {
-            val c = ApplicationProvider.getApplicationContext<HelixApplication>().appContainer
+            val app = ApplicationProvider.getApplicationContext<HelixApplication>()
+            val c = app.appContainer
             val service = requireNotNull(c.projects)
             val route = mutableStateOf<String?>(null)
             val name = "UI-${UUID.randomUUID()}"
+            val openedDraft = mutableStateOf<String?>(null)
             var session: String? = null
             var project: String? = null
             try {
@@ -41,7 +46,15 @@ class ProjectLifecycleUiDeviceTest {
                         if (id == null) {
                             ProjectsScreen(service, c.fileManager, { route.value = it })
                         } else {
-                            ProjectDetailScreen(c, id, {}, { route.value = null }, {}, { _, _ -> })
+                            ProjectDetailScreen(
+                                c,
+                                id,
+                                {},
+                                { route.value = null },
+                                {},
+                                { _, _ -> },
+                                onOpenDraft = { openedDraft.value = c.chatService.screen.value.openSessionId },
+                            )
                         }
                     }
                 }
@@ -55,7 +68,25 @@ class ProjectLifecycleUiDeviceTest {
                 val id = requireNotNull(route.value)
                 project = id
                 compose.onNodeWithTag("screen-project-detail").assertIsDisplayed()
-                val member = service.newSession(id, null, null)
+                val count =
+                    c.storage.sessions
+                        .list()
+                        .size
+                compose.onNodeWithText(app.getString(com.helix.app.R.string.project_new_session)).performClick()
+                compose.waitUntil(10_000) { openedDraft.value != null && c.chatService.screen.value.projectId == id }
+                val draftId = requireNotNull(openedDraft.value)
+                assertTrue(c.chatService.screen.value.isDraft)
+                assertNull(c.storage.sessions.find(draftId))
+                assertEquals(
+                    count,
+                    c.storage.sessions
+                        .list()
+                        .size,
+                )
+                c.chatService.closeSession()
+                val member =
+                    com.helix.app.projects
+                        .createProjectSessionFixture(c.storage, id, null, null)
                 session = member
                 val directory =
                     c.storage.sessions

@@ -64,6 +64,8 @@ fun ChatScreen(
     fileManager: com.helix.app.files.FileManagerService? = null,
     sessionPermissionEdit: SessionPermissionEditService? = null,
     skills: SkillRepository? = null,
+    projects: com.helix.app.projects.ProjectService? = null,
+    onProject: (String) -> Unit = {},
     onNavigation: () -> Unit = {},
     onModels: () -> Unit = {},
     onAgentDefaults: () -> Unit = {},
@@ -600,6 +602,16 @@ fun ChatScreen(
                         )
                     },
                     composerFeedback = {
+                        if (projects != null && fileManager != null) {
+                            com.helix.app.projects.ui.ConversationProjectContext(
+                                projects,
+                                fileManager,
+                                chatService,
+                                screen,
+                            ) { id ->
+                                navigateAfterSave { onProject(id) }
+                            }
+                        }
                         if (pluginLoadFailed) Text(stringResource(R.string.plugin_selection_load_failed))
                         selectedExpertName?.let { name ->
                             TextButton(

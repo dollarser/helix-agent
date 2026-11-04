@@ -79,22 +79,4 @@ class ProjectService(
         withContext(Dispatchers.IO) {
             readProjectRecords(storage, members)
         }
-
-    suspend fun newSession(
-        projectId: String,
-        providerId: String?,
-        modelId: String?,
-    ): String =
-        withContext(Dispatchers.IO) {
-            val project = requireNotNull(storage.projects.find(projectId))
-            check(project.archivedAt == null) { "PROJECT_ARCHIVED" }
-            val directory = bindDirectory(FileScopePath(project.workspaceId, project.relativePath).toModelReference())
-            val id = UUID.randomUUID().toString()
-            storage.withTransaction {
-                check(storage.projects.find(projectId)?.revision == project.revision) { "PROJECT_CHANGED" }
-                storage.sessions.create(id, project.name, providerId, modelId, System.currentTimeMillis(), directory)
-                storage.projects.assign(id, projectId)
-            }
-            id
-        }
 }

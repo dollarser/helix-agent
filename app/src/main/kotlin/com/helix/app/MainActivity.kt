@@ -854,6 +854,8 @@ private fun DestinationScreen(
                 container.fileManager,
                 sessionPermissionEdit = container.sessionPermissionEdit,
                 skills = container.skillRepository,
+                projects = container.projects,
+                onProject = { id -> navController.navigateFrom(sourceEntry, "project/$id") },
                 sessionExport = container.sessionExport,
                 connectors = container.pluginService,
                 onManageExperts = { navController.navigateFrom(sourceEntry, EXPERTS_ROUTE) },

@@ -7,6 +7,7 @@ internal data class SessionDraft(
     val session: SessionEntity,
     val control: RunControlConfig,
     val attachments: List<DraftAttachment> = emptyList(),
+    val project: DraftProject? = null,
 )
 
 internal data class DraftAttachment(

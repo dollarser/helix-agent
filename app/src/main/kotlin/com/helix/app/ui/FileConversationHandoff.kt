@@ -31,14 +31,17 @@ import kotlinx.coroutines.withContext
 /** User-selected destination only. Staging never sends a message or grants tool access. */
 class FileConversationHandoff(
     val chat: ChatService,
+    val projectId: String? = null,
+    val directory: String? = null,
     val onOpen: (String) -> Unit,
 ) {
-    fun attach(
+    suspend fun attach(
         uri: String,
         expectedSessionId: String?,
         newConversation: Boolean,
+        admit: () -> Boolean = { true },
     ): Boolean {
-        val target = chat.attachFileToConversation(uri, expectedSessionId, newConversation)
+        val target = chat.attachFileToConversation(uri, expectedSessionId, newConversation, projectId, directory, admit)
         return target?.let {
             onOpen(it)
             true
@@ -79,7 +82,7 @@ internal fun FileConversationActions(
                                 path.name,
                             ).toString()
                     }
-                completion.complete { failed = !handoff.attach(uri, expected, newConversation) }
+                failed = !handoff.attach(uri, expected, newConversation) { completion.complete {} }
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: Exception) {
@@ -126,17 +129,28 @@ internal fun FileDirectoryTask(
             {
                 val path = FileScopePath(state.selectedScopeId, state.currentPath)
                 val expected = handoff.chat.screen.value.openSessionId
+                val completion = lifecycle.navigationCompletion { handoff.chat.screen.value.openSessionId == expected }
                 busy = true
                 failed = false
                 scope.launch {
                     try {
-                        val id = handoff.chat.newDirectoryDraft(path.toModelReference(), expected)
-                        if (id != null) handoff.onOpen(id) else failed = true
+                        val id =
+                            handoff.chat.newDirectoryDraft(path.toModelReference(), expected, handoff.projectId) {
+                                completion.complete {}
+                            }
+                        if (id != null) {
+                            lifecycle
+                                .navigationCompletion { handoff.chat.screen.value.openSessionId == id }
+                                .complete { handoff.onOpen(id) }
+                        } else {
+                            failed = true
+                        }
                     } catch (cancelled: CancellationException) {
                         throw cancelled
                     } catch (_: Exception) {
                         failed = true
                     } finally {
+                        completion.invalidate()
                         busy = false
                     }
                 }

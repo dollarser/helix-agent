@@ -7,6 +7,7 @@ import com.helix.app.application.context.SystemPromptContext
 import com.helix.app.infrastructure.prompt.packagedPromptTemplates
 import com.helix.app.memory.MemoryService
 import com.helix.app.projects.ProjectService
+import com.helix.app.projects.createProjectSessionFixture
 import com.helix.core.model.AgentMode
 import com.helix.core.model.ModelEvent
 import com.helix.core.model.ModelMessage
@@ -80,7 +81,13 @@ class LiveMemoryRecallDeviceTest {
                 }
                 val builder = SystemPromptContext(storage, { "" }, packagedPromptTemplates, memory = memory)
                 for ((index, allowed) in listOf(0 to true, 1 to true, 0 to false, 1 to false)) {
-                    val session = projects.newSession(listOf(first, second)[index], null, null)
+                    val session =
+                        createProjectSessionFixture(
+                            storage,
+                            listOf(first, second)[index],
+                            null,
+                            null,
+                        )
                     if (allowed) {
                         storage.sessionPermissionConfigs.setForSession(
                             session,

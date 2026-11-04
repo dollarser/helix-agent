@@ -38,8 +38,12 @@ class MemoryPromptDeviceTest {
                 val record = requireNotNull(storage.projects.find(first))
                 val shared = FileScopePath(record.workspaceId, record.relativePath).toModelReference()
                 val second = projects.save(null, "Second", "", "SECOND_INSTRUCTIONS", shared)
-                val a = projects.newSession(first, null, null)
-                val b = projects.newSession(second, null, null)
+                val a =
+                    com.helix.app.projects
+                        .createProjectSessionFixture(storage, first, null, null)
+                val b =
+                    com.helix.app.projects
+                        .createProjectSessionFixture(storage, second, null, null)
                 val memory =
                     MemoryService(
                         MarkdownMemoryStore(File(root, "memory").toPath()),

@@ -64,7 +64,9 @@ class ProjectServiceDeviceTest {
                 val service = ProjectService(storage) { it }
                 val first = service.save(null, "First", "", "", null)
                 val second = service.save(null, "Second", "", "", null)
-                val session = service.newSession(first, null, null)
+                val session =
+                    com.helix.app.projects
+                        .createProjectSessionFixture(storage, first, null, null)
                 val directory = storage.sessions.resolve(session).directoryRef
                 val turn = storage.turns.start("busy", session, System.currentTimeMillis())
                 val failure = runCatching { service.assign(session, second) }.exceptionOrNull()
@@ -84,8 +86,12 @@ class ProjectServiceDeviceTest {
             runBlocking {
                 val service = ProjectService(storage) { it }
                 val id = service.save(null, "Project", "", "Shared instructions", null)
-                val first = service.newSession(id, null, null)
-                val second = service.newSession(id, null, null)
+                val first =
+                    com.helix.app.projects
+                        .createProjectSessionFixture(storage, id, null, null)
+                val second =
+                    com.helix.app.projects
+                        .createProjectSessionFixture(storage, id, null, null)
                 val original = storage.sessions.resolve(first)
                 assertEquals(original.directoryRef, storage.sessions.resolve(second).directoryRef)
                 service.assign(first, null)

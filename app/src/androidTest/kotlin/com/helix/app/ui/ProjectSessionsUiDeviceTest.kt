@@ -8,6 +8,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ApplicationProvider
 import com.helix.app.HelixApplication
 import com.helix.app.R
@@ -28,7 +29,9 @@ class ProjectSessionsUiDeviceTest {
             val service = requireNotNull(c.projects)
             val name = "Rows-${UUID.randomUUID()}"
             val project = service.save(null, name, "", "", null)
-            val member = service.newSession(project, null, null)
+            val member =
+                com.helix.app.projects
+                    .createProjectSessionFixture(c.storage, project, null, null)
             try {
                 compose.setContent {
                     MaterialTheme { ProjectSessions(service, project, setOf(member), false, {}, {}) }
@@ -115,6 +118,6 @@ class ProjectSessionsUiDeviceTest {
 
     private fun awaitText(text: String) {
         compose.waitUntil(10_000) { compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText(text).assertIsDisplayed()
+        compose.onNodeWithText(text).performScrollTo().assertIsDisplayed()
     }
 }

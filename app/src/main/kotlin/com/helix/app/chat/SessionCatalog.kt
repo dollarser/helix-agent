@@ -15,7 +15,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
 /** Session metadata persistence. No execution lease, pending input or approval owner. */
-@Suppress("LongParameterList") // Exact existing persistence/workspace identities; no new execution context.
+@Suppress("LongParameterList", "TooManyFunctions") // One session metadata aggregate; no execution ownership.
 internal class SessionCatalog(
     private val storage: HelixStorage,
     private val providers: ProviderService,
@@ -28,11 +28,57 @@ internal class SessionCatalog(
     fun persistDraft(draft: SessionDraft) =
         storage.withTransaction {
             val row = draft.session
-            val directory = workspaceRecovery.availableDirectory(row.directoryRef)
+            validateProject(draft.project)
+            val directory =
+                if (draft.project == null) {
+                    workspaceRecovery.availableDirectory(row.directoryRef)
+                } else {
+                    row.directoryRef?.let(bindDirectory)
+                }
             storage.sessions.create(row.id, row.title, row.providerId, row.modelId, row.createdAt, directory)
             if (row.directoryRef != null && directory == null) workspaceRecovery.record(row.id, row.createdAt)
+            draft.project?.let { storage.projects.assign(row.id, it.id) }
             controls.set(row.id, draft.control, row.createdAt)
         }
+
+    fun projectSelection(
+        id: String?,
+        validateDirectory: Boolean = true,
+    ): DraftProject? =
+        id?.let {
+            val project = requireNotNull(storage.projects.find(it)) { "PROJECT_MISSING" }
+            check(project.archivedAt == null) { "PROJECT_ARCHIVED" }
+            val reference =
+                com.helix.core.workspace
+                    .FileScopePath(
+                        project.workspaceId,
+                        project.relativePath,
+                    ).toModelReference()
+            val directory = if (validateDirectory) bindDirectory(reference) else reference
+            DraftProject(project.id, project.revision, directory)
+        }
+
+    private fun validateProject(selection: DraftProject?) {
+        if (selection == null) return
+        val current = requireNotNull(storage.projects.find(selection.id)) { "PROJECT_MISSING" }
+        check(current.archivedAt == null) { "PROJECT_ARCHIVED" }
+        check(current.revision == selection.revision) { "PROJECT_CHANGED" }
+    }
+
+    fun isNewConversation(id: String): Boolean =
+        storage.messages.recentBySession(id, 1).isEmpty() && storage.turns.listBySession(id).isEmpty()
+
+    /** Unsent cached metadata is still a new conversation; accepted input freezes that distinction. */
+    fun selectProject(
+        id: String,
+        selection: DraftProject?,
+    ) = storage.withTransaction {
+        validateProject(selection)
+        val row = storage.sessions.resolve(id)
+        val isNew = isNewConversation(id)
+        storage.projects.assign(id, selection?.id)
+        if (isNew) storage.sessions.updateDetails(id, row.title, selection?.directory)
+    }
 
     fun rename(
         id: String,

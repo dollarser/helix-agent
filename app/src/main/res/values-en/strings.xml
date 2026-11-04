@@ -2211,4 +2211,5 @@
     <string name="scheduled_external_title">Review scheduled task</string>
     <string name="scheduled_external_missing">Task unavailable. This link does not execute it.</string>
     <string name="plugin_setup_disabled">This plugin is disabled. Enable it in its configuration, then return to select it.</string>
+    <string name="project_working_directory">Working folder: %1$s</string>
 </resources>

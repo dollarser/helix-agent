@@ -81,6 +81,28 @@ class ChatDraftStoreTest {
         store.persist("draft") { assertEquals("新建会话", it.session.title) }
     }
 
+    @Test fun projectSelectionKeepsIdentityAttachmentsAndControlsAndRejectsStaleOrPreparingEdits() {
+        val store = ChatDraftStore()
+        store.open(draft(), control())
+        val attachment = DraftAttachment("a", "local", "a.txt", 1)
+        store.addAttachment("draft", attachment)
+        val selection = DraftProject("project", 2, "scope:project:work")
+        assertFalse(store.project("other", selection))
+        assertTrue(store.project("draft", selection))
+        assertEquals("draft", store.current?.session?.id)
+        assertEquals(listOf(attachment), store.current?.attachments)
+        assertEquals(control(), store.current?.control)
+        assertEquals(selection.directory, store.current?.session?.directoryRef)
+        assertTrue(store.beginPreparation("draft"))
+        assertFalse(store.project("draft", null))
+        assertEquals(selection, store.current?.project)
+        store.finishPreparation()
+        assertTrue(store.project("draft", null))
+        assertNull(store.current?.project)
+        assertNull(store.current?.session?.directoryRef)
+        assertEquals(listOf(attachment), store.current?.attachments)
+    }
+
     private fun draft(id: String = "draft") = SessionEntity(id, "", "provider", "model", 1L, null)
 
     private fun control() =

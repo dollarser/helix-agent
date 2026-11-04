@@ -103,6 +103,91 @@ class SessionCatalogDeviceTest {
             // No claim that a filesystem side effect was rolled back with the Room transaction.
         }
 
+    @Test fun projectDraftCommitsMembershipWithControlsAndRejectsStaleOrUnavailableContext() =
+        Fixture().use { f ->
+            val project =
+                runBlocking {
+                    com.helix.app.projects
+                        .ProjectService(
+                            f.storage,
+                        ) { it }
+                        .save(null, "Project", "", "", null)
+                }
+            val selected = requireNotNull(f.catalog.projectSelection(project))
+            val row = SessionEntity("project-draft", "", null, null, 3000, null, directoryRef = selected.directory)
+            val draft = SessionDraft(row, f.controls.defaultSnapshot(), project = selected)
+            f.catalog.persistDraft(draft)
+            assertEquals(
+                project,
+                f.storage.projects
+                    .forSession(row.id)
+                    ?.id,
+            )
+            assertEquals(
+                selected.directory,
+                f.storage.sessions
+                    .resolve(row.id)
+                    .directoryRef,
+            )
+            val record = requireNotNull(f.storage.projects.find(project))
+            f.storage.projects.archive(project, record.revision, true, 4000)
+            assertThrows(IllegalStateException::class.java) {
+                f.catalog.persistDraft(draft.copy(session = row.copy(id = "stale-project")))
+            }
+            assertNull(f.storage.sessions.find("stale-project"))
+            val archived = requireNotNull(f.storage.projects.find(project))
+            f.storage.projects.archive(project, archived.revision, false, 5000)
+            val fresh = requireNotNull(f.catalog.projectSelection(project))
+            f.storage.workspaces.markUnavailable(record.workspaceId)
+            assertThrows(IllegalArgumentException::class.java) {
+                f.catalog.persistDraft(draft.copy(session = row.copy(id = "lost-directory"), project = fresh))
+            }
+            assertNull(f.storage.sessions.find("lost-directory"))
+            assertNull(f.storage.projects.forSession("lost-directory"))
+        }
+
+    @Test fun cachedUnsentProjectSelectionChangesDirectoryButExistingConversationKeepsIt() =
+        Fixture().use { f ->
+            val service =
+                com.helix.app.projects
+                    .ProjectService(f.storage) { it }
+            val first = runBlocking { service.save(null, "First", "", "", null) }
+            val second = runBlocking { service.save(null, "Second", "", "", null) }
+            val id = f.catalog.create("unsent", null, null)
+            f.catalog.selectProject(id, f.catalog.projectSelection(first))
+            val directory =
+                f.storage.sessions
+                    .resolve(id)
+                    .directoryRef
+            assertEquals(f.catalog.projectSelection(first)?.directory, directory)
+            val turn = f.storage.turns.start("project-busy", id, 4000)
+            assertThrows(
+                IllegalStateException::class.java,
+            ) { f.catalog.selectProject(id, f.catalog.projectSelection(second)) }
+            assertEquals(
+                first,
+                f.storage.projects
+                    .forSession(id)
+                    ?.id,
+            )
+            val cancelling = f.storage.turns.updateState(turn, com.helix.core.model.TurnState.CANCELLING, 0, null, null)
+            f.storage.turns.updateState(cancelling, com.helix.core.model.TurnState.CANCELLED, 0, 5000, null)
+            f.storage.turns.collectResult(turn.id, 5001)
+            f.catalog.selectProject(id, f.catalog.projectSelection(second))
+            assertEquals(
+                second,
+                f.storage.projects
+                    .forSession(id)
+                    ?.id,
+            )
+            assertEquals(
+                directory,
+                f.storage.sessions
+                    .resolve(id)
+                    .directoryRef,
+            )
+        }
+
     @Test fun modelDefaultsAndControlsCommitOrRollBackTogether() =
         Fixture().use { f ->
             f.storage.providerConfigs.save(

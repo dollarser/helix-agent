@@ -53,7 +53,6 @@ internal fun ProjectDetailScreen(
     var memoryOpen by androidx.compose.runtime.saveable
         .rememberSaveable(id) { mutableStateOf(false) }
     val actions = rememberProjectActions()
-    val chat by container.chatService.screen.collectAsStateWithLifecycle()
     Column(Modifier.fillMaxSize().testTag("screen-project-detail")) {
         Column(Modifier.padding(12.dp)) {
             Text(project.name, style = MaterialTheme.typography.titleLarge, maxLines = 2)
@@ -105,9 +104,8 @@ internal fun ProjectDetailScreen(
             0 -> {
                 ProjectSessions(service, id, members, project.archivedAt != null, onNew = {
                     actions.run {
-                        val session = service.newSession(id, chat.selectedModel?.providerId, chat.selectedModel?.model)
-                        container.chatService.refreshSessions()
-                        onOpenSession(session)
+                        val expected = container.chatService.screen.value.openSessionId
+                        if (container.chatService.newProjectDraft(id, expected) != null) onOpenDraft()
                     }
                 }, onOpenSession)
             }
@@ -118,7 +116,14 @@ internal fun ProjectDetailScreen(
                     container.safTree,
                     container.featureFiles,
                     initialDirectory = FileScopePath(project.workspaceId, project.relativePath),
-                    handoff = FileConversationHandoff(container.chatService) { onOpenDraft() },
+                    handoff =
+                        FileConversationHandoff(
+                            container.chatService,
+                            id,
+                            FileScopePath(project.workspaceId, project.relativePath).toModelReference(),
+                        ) {
+                            onOpenDraft()
+                        },
                 )
             }
 

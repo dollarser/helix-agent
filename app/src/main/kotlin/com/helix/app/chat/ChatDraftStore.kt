@@ -19,10 +19,11 @@ internal class ChatDraftStore {
     fun open(
         session: SessionEntity,
         control: RunControlConfig,
+        project: DraftProject? = null,
     ): Boolean =
         synchronized(lock) {
             if (preparing) return@synchronized false
-            current = SessionDraft(session, control)
+            current = SessionDraft(session, control, project = project)
             true
         }
 
@@ -65,6 +66,17 @@ internal class ChatDraftStore {
     ) = update(id) {
         it.copy(session = it.session.copy(directoryRef = reference))
     }
+
+    fun project(
+        id: String,
+        project: DraftProject?,
+    ): Boolean =
+        synchronized(lock) {
+            val draft = current ?: return@synchronized false
+            if (preparing || draft.session.id != id) return@synchronized false
+            current = draft.copy(project = project, session = draft.session.copy(directoryRef = project?.directory))
+            true
+        }
 
     fun model(
         id: String,

@@ -153,6 +153,8 @@ data class ChatScreenState(
     val preparingDraft: Boolean = false,
     val sessionTitle: String = "",
     val directoryRef: String? = null,
+    val projectId: String? = null,
+    val isNewConversation: Boolean = false,
     val workspaceRecovered: Boolean = false,
     val contextUsage: ChatContextUsage = ChatContextUsage(),
     /**

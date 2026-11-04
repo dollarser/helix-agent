@@ -2208,4 +2208,5 @@
     <string name="scheduled_external_title">审阅定时任务</string>
     <string name="scheduled_external_missing">未找到该任务。此入口不会自动执行。</string>
     <string name="plugin_setup_disabled">此插件已停用。请先在插件配置中启用，再返回选择。</string>
+    <string name="project_working_directory">工作目录：%1$s</string>
 </resources>
