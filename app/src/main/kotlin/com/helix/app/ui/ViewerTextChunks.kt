@@ -11,3 +11,16 @@ internal fun viewerTextChunks(text: String): List<String> =
             start = end
         }
     }
+
+/** A single registrar allows selection to cross the visible lazy text blocks on this page. */
+@androidx.compose.runtime.Composable
+@Suppress("FunctionName")
+internal fun SelectableViewerPage(
+    page: Long,
+    content: @androidx.compose.runtime.Composable () -> Unit,
+) {
+    androidx.compose.runtime.key(page) {
+        androidx.compose.foundation.text.selection
+            .SelectionContainer(content = content)
+    }
+}

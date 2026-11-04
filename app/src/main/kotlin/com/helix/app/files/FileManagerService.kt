@@ -456,7 +456,18 @@ class FileManagerService internal constructor(
         maxBytes: Long = DEFAULT_PREVIEW_BYTES,
     ): String? =
         if (isRoot(scopeId)) {
-            rootOperations?.previewText(relativePath, maxBytes)
+            rootOperations?.viewerTextBytes(relativePath, 0, minOf(maxBytes, VIEWER_TEXT_BYTES).toInt())?.let {
+                if (com.helix.core.workspace.ContentProbe
+                        .probeBytes(
+                            it,
+                            it.size.toLong(),
+                        ).isText
+                ) {
+                    String(it, Charsets.UTF_8)
+                } else {
+                    null
+                }
+            }
         } else {
             preview.previewText(scopeId, relativePath, maxBytes)
         }
@@ -478,12 +489,31 @@ class FileManagerService internal constructor(
     internal fun viewerContent(
         scopeId: String,
         relativePath: String,
+        page: Long = 0,
+        expected: FileMeta? = null,
+        checkpoint: () -> Unit = {},
     ): FileViewerContent {
+        checkpoint()
         val info = fileInfo(scopeId, relativePath)
         check(info.sizeBytes >= 0) { "File is unavailable" }
+        if (expected != null && expected != info) throw ViewerSourceChanged()
         if (info.isText) {
-            val text = requireNotNull(previewText(scopeId, relativePath, VIEWER_TEXT_BYTES)) { "Text is unavailable" }
-            return FileViewerContent(info, text = text, textTruncated = info.sizeBytes > VIEWER_TEXT_BYTES)
+            val pages = viewerPageCount(info.sizeBytes, VIEWER_TEXT_BYTES)
+            require(page in 0 until pages)
+            val offset = page * VIEWER_TEXT_BYTES
+            val maximum = minOf(VIEWER_TEXT_BYTES + 3, info.sizeBytes - offset).toInt()
+            val bytes =
+                if (maximum == 0) {
+                    ByteArray(0)
+                } else if (isRoot(scopeId)) {
+                    requireNotNull(rootOperations).viewerTextBytes(relativePath, offset, maximum)
+                } else {
+                    preview.viewerTextBytes(scopeId, relativePath, offset, maximum, checkpoint)
+                }
+            checkpoint()
+            if (bytes.size != maximum || fileInfo(scopeId, relativePath) != info) throw ViewerSourceChanged()
+            val text = decodeViewerTextPage(bytes, VIEWER_TEXT_BYTES.toInt())
+            return FileViewerContent(info, text = text, textPageCount = pages)
         }
         if (info.mimeType.startsWith("image/")) {
             if (info.sizeBytes > VIEWER_IMAGE_BYTES) return FileViewerContent(info, imageTooLarge = true)
@@ -928,6 +958,6 @@ internal data class FileViewerContent(
     val info: FileManagerService.FileMeta,
     val text: String? = null,
     val imageBytes: ByteArray? = null,
-    val textTruncated: Boolean = false,
+    val textPageCount: Long = 1,
     val imageTooLarge: Boolean = false,
 )

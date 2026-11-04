@@ -5,7 +5,11 @@
     <string name="files_new_file">新建文件</string>
     <string name="files_file_created">文件已创建</string>
     <string name="files_file_exists">同名文件或文件夹已存在</string>
-    <string name="files_text_partial">仅显示文件开头的 1 MiB 内容。可通过分享在其他应用中打开完整文件。</string>
     <string name="files_image_too_large">图片超过 8 MiB 查看上限。可通过分享在其他应用中打开。</string>
     <string name="files_image_unreadable">图片格式不受支持或文件已损坏。</string>
+    <string name="files_text_previous">上一页</string>
+    <string name="files_text_next">下一页</string>
+    <string name="files_text_page">%1$d / %2$d</string>
+    <string name="files_text_jump">跳转页码</string>
+    <string name="files_viewer_changed">文件已变化，请关闭后重新打开。</string>
 </resources>

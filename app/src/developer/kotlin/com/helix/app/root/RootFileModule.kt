@@ -50,16 +50,13 @@ internal object RootFileModule {
             return ManualFileInfo(stat.isDirectory, stat.sizeBytes)
         }
 
-        @Suppress("ReturnCount")
-        override fun previewText(
+        override fun viewerTextBytes(
             relativePath: String,
-            maxBytes: Long,
-        ): String? {
-            val targetPath = RootFileAccessor.toAbsolutePath(relativePath)
-            val cap = minOf(maxBytes, FileManagerService.VIEWER_TEXT_BYTES)
-            val bytes = RootFileAccessor.readBytes(targetPath, cap) ?: return null
-            if (!ContentProbe.probeBytes(bytes, bytes.size.toLong()).isText) return null
-            return String(bytes, Charsets.UTF_8)
+            offset: Long,
+            maximum: Int,
+        ): ByteArray {
+            check(isRootGranted()) { "Root permission required" }
+            return RootFileAccessor.readWindowBytes(RootFileAccessor.toAbsolutePath(relativePath), offset, maximum)
         }
 
         @Suppress("ReturnCount")

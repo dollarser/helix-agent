@@ -5,7 +5,11 @@
     <string name="files_new_file">New file</string>
     <string name="files_file_created">File created</string>
     <string name="files_file_exists">An item with this name already exists</string>
-    <string name="files_text_partial">Showing only the first 1 MiB of this file. Share it to open the complete file in another app.</string>
     <string name="files_image_too_large">Image exceeds the 8 MiB viewing limit. Share it to open it in another app.</string>
     <string name="files_image_unreadable">This image format is unsupported or the file is damaged.</string>
+    <string name="files_text_previous">Previous</string>
+    <string name="files_text_next">Next</string>
+    <string name="files_text_page">%1$d / %2$d</string>
+    <string name="files_text_jump">Go to page</string>
+    <string name="files_viewer_changed">This file changed. Close and reopen it to continue.</string>
 </resources>

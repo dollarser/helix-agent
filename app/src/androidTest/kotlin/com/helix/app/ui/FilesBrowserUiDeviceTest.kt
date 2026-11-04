@@ -1,19 +1,27 @@
 package com.helix.app.ui
 
+import android.accessibilityservice.AccessibilityServiceInfo
 import android.graphics.Bitmap
+import android.view.accessibility.AccessibilityNodeInfo
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.hasScrollToIndexAction
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextReplacement
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipe
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.HelixApplication
 import com.helix.core.workspace.FileScopePath
@@ -136,13 +144,13 @@ class FilesBrowserUiDeviceTest {
 
     @Suppress("LongMethod") // Real file creation, reader boundaries and decode bounds share one disposable fixture.
     @Test
-    fun largeFilesShowCompleteTextOrExplicitLimitsAndSampleImages() {
+    fun largeFilesPageThroughCompleteTextAndSampleImages() {
         val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as HelixApplication
         val container = app.appContainer
         val folder = app.filesDir.resolve("workspaces/app/work/browser-large-${System.nanoTime()}")
         check(folder.mkdirs())
         folder.resolve("full.txt").writeText("a".repeat(90_000) + "END")
-        folder.resolve("partial.txt").writeText("a".repeat(1024 * 1024 + 1))
+        folder.resolve("partial.txt").writeText("a".repeat(1024 * 1024) + "LAST_PAGE")
         val bitmap = Bitmap.createBitmap(4096, 2048, Bitmap.Config.ARGB_8888)
         val encoded =
             java.io.ByteArrayOutputStream().use {
@@ -170,13 +178,24 @@ class FilesBrowserUiDeviceTest {
             waitTag("files-entry-full.txt")
             compose.onNodeWithTag("files-entry-full.txt").performClick()
             waitTag("files-preview-text")
-            compose.onNodeWithTag("files-text-partial").assertDoesNotExist()
+            compose.onNodeWithTag("files-text-page").assertDoesNotExist()
             compose.onNodeWithTag("files-viewer-content").performScrollToNode(hasTestTag("files-text-10"))
             compose.onNodeWithTag("files-text-10").assertTextContains("END", substring = true)
             compose.onNodeWithTag("files-preview-close").performClick()
             compose.onNodeWithTag("files-entry-partial.txt").performScrollTo().performClick()
-            waitTag("files-text-partial")
-            compose.onNodeWithTag("files-text-partial").assertIsDisplayed()
+            waitTag("files-text-next")
+            compose.onNodeWithTag("files-text-next").performClick()
+            compose.waitUntil(10_000) {
+                runCatching { compose.onNodeWithTag("files-preview-text").assertTextContains("LAST_PAGE") }.isSuccess
+            }
+            compose.onNodeWithTag("files-text-previous").performClick()
+            waitTag("files-preview-text")
+            compose.onNodeWithTag("files-text-page").performClick()
+            compose.onNodeWithTag("files-text-page-input").performTextReplacement("2")
+            compose.onNodeWithTag("files-text-page-confirm").performClick()
+            compose.waitUntil(10_000) {
+                runCatching { compose.onNodeWithTag("files-preview-text").assertTextContains("LAST_PAGE") }.isSuccess
+            }
             compose.onNodeWithTag("files-preview-close").performClick()
             compose.onNodeWithTag("files-entry-large.png").performScrollTo().performClick()
             waitTag("files-preview-image")
@@ -191,6 +210,127 @@ class FilesBrowserUiDeviceTest {
             waitTag("files-image-unreadable")
             compose.onNodeWithTag("files-preview-image").assertDoesNotExist()
         } finally {
+            folder.deleteRecursively()
+        }
+    }
+
+    @Suppress("LongMethod") // Verify real reader selection across lazy blocks and restore the clipboard.
+    @Test
+    fun copiesAcrossVisibleTextBlocksInTheActualReader() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val app = instrumentation.targetContext.applicationContext as HelixApplication
+        val folder = app.filesDir.resolve("workspaces/app/work/selection-${System.nanoTime()}")
+        check(folder.mkdirs())
+        folder.resolve("selection.txt").writeText("a\n".repeat(4090) + "\n\nFIRST_END\nSECOND_START")
+        val clipboard = app.getSystemService(android.content.ClipboardManager::class.java)
+        val previous = clipboard.primaryClip
+        try {
+            val container = app.appContainer
+            compose.setContent {
+                MaterialTheme {
+                    FilesScreen(
+                        container.fileManager,
+                        container.safTree,
+                        container.featureFiles,
+                        initialDirectory = FileScopePath("app", "work/${folder.name}"),
+                    )
+                }
+            }
+            waitTag("files-entry-selection.txt")
+            compose.onNodeWithTag("files-entry-selection.txt").performClick()
+            waitTag("files-preview-text")
+            val viewport = compose.onNodeWithTag("files-viewer-content")
+            viewport.performScrollToNode(hasTestTag("files-text-1"))
+            viewport.performSemanticsAction(SemanticsActions.ScrollBy) { it(0f, -120f) }
+
+            fun point(
+                tag: String,
+                offset: Int,
+                endAnchor: Boolean = false,
+            ): androidx.compose.ui.geometry.Offset {
+                val node = compose.onNodeWithTag(tag)
+                val layouts = mutableListOf<TextLayoutResult>()
+                node.performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+                val box = layouts.single().getBoundingBox(offset)
+                val local =
+                    if (endAnchor) {
+                        box.bottomRight
+                    } else {
+                        box.center
+                    }
+                return local + node.fetchSemanticsNode().positionInRoot -
+                    viewport.fetchSemanticsNode().positionInRoot
+            }
+            val from = point("files-preview-text", 8184)
+            val to = point("files-text-1", "SECOND_START".lastIndex)
+            viewport.performTouchInput { longClick(from) }
+            compose.waitForIdle()
+            instrumentation.uiAutomation.takeScreenshot()?.let { bitmap ->
+                app.cacheDir.resolve("selection-before-drag.png").outputStream().use {
+                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
+                }
+            }
+            val anchor = point("files-preview-text", 8190, endAnchor = true)
+            val endHandle =
+                compose.onNode(
+                    androidx.compose.ui.test.SemanticsMatcher("selection end handle") { node ->
+                        node.config.any {
+                            it.key.name == "SelectionHandleInfo" && it.value.toString().contains("SelectionEnd")
+                        }
+                    },
+                )
+            endHandle.performTouchInput {
+                swipe(
+                    center,
+                    center + to - anchor +
+                        androidx.compose.ui.geometry
+                            .Offset(20f, 0f),
+                    durationMillis = 500,
+                )
+            }
+            compose.waitForIdle()
+            instrumentation.uiAutomation.takeScreenshot()?.let { bitmap ->
+                app.cacheDir.resolve("selection-after-drag.png").outputStream().use {
+                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
+                }
+            }
+            val automation = instrumentation.uiAutomation
+            val originalFlags = automation.serviceInfo.flags
+            try {
+                automation.serviceInfo =
+                    automation.serviceInfo.apply {
+                        flags = flags or AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS or
+                            AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
+                    }
+                var copy: AccessibilityNodeInfo? = null
+                compose.waitUntil(5000) {
+                    copy =
+                        automation.windows
+                            .asSequence()
+                            .mapNotNull { it.root }
+                            .flatMap { root ->
+                                val localized = root.findAccessibilityNodeInfosByText("复制")
+                                (localized + root.findAccessibilityNodeInfosByText("Copy")).asSequence()
+                            }.firstOrNull { it.viewIdResourceName == "android:id/floating_toolbar_menu_item_text" }
+                    copy != null
+                }
+                var target = requireNotNull(copy)
+                while (!target.isClickable && target.parent != null) target = target.parent
+                assertTrue(target.performAction(AccessibilityNodeInfo.ACTION_CLICK))
+            } finally {
+                automation.serviceInfo = automation.serviceInfo.apply { flags = originalFlags }
+            }
+            compose.waitUntil(5000) {
+                val copied =
+                    clipboard.primaryClip
+                        ?.getItemAt(0)
+                        ?.coerceToText(app)
+                        ?.toString()
+                        .orEmpty()
+                copied.contains("FIRST_END") && copied.contains("SECOND_START")
+            }
+        } finally {
+            if (previous == null) clipboard.clearPrimaryClip() else clipboard.setPrimaryClip(previous)
             folder.deleteRecursively()
         }
     }

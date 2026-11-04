@@ -30,13 +30,12 @@ internal interface RootFileOperations {
      */
     fun stat(relativePath: String): ManualFileInfo?
 
-    /**
-     * Reads up to [maxBytes] bytes from [relativePath] as text.
-     */
-    fun previewText(
+    /** Direct bounded text bytes, including a UTF-8 boundary lookahead when requested. */
+    fun viewerTextBytes(
         relativePath: String,
-        maxBytes: Long,
-    ): String?
+        offset: Long,
+        maximum: Int,
+    ): ByteArray
 
     /**
      * Reads image bytes up to [maxBytes] from [relativePath].

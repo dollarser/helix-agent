@@ -59,7 +59,19 @@ internal class FilesScreenState(
     var trashFromHome by mutableStateOf(false)
     var trashOpen by mutableStateOf(false)
     var trashEntries by mutableStateOf<List<TrashEntryView>>(emptyList())
-    var openFile by mutableStateOf<FileEntry?>(null)
+    private var openedFile by mutableStateOf<FileEntry?>(null)
+    var viewerPage by androidx.compose.runtime.mutableLongStateOf(0L)
+    var viewerIdentity by mutableStateOf<com.helix.app.files.FileManagerService.FileMeta?>(null)
+    var openFile: FileEntry?
+        get() = openedFile
+        set(value) {
+            if (value != openedFile) {
+                viewerPage = 0
+                viewerIdentity = null
+                preview = FilePreviewState.Loading
+            }
+            openedFile = value
+        }
     var preview by mutableStateOf<FilePreviewState>(FilePreviewState.Loading)
     val fileInfo get() = (preview as? FilePreviewState.Ready)?.info
     var renameTarget by mutableStateOf<FileEntry?>(null)
@@ -90,6 +102,19 @@ internal class FilesScreenState(
     val exportCancel = AtomicBoolean(false)
     var exportSources by mutableStateOf<List<SafTreeSource>>(emptyList())
     var exportFile by mutableStateOf<FileEntry?>(null)
+
+    fun showViewerPage(page: Long) {
+        val info = viewerIdentity ?: return
+        val count =
+            com.helix.app.files.viewerPageCount(
+                info.sizeBytes,
+                com.helix.app.files.FileManagerService.VIEWER_TEXT_BYTES,
+            )
+        if (page in 0 until count && page != viewerPage && preview !is FilePreviewState.Loading) {
+            preview = FilePreviewState.Loading
+            viewerPage = page
+        }
+    }
 
     fun replaceSources(updated: List<FileSource>) {
         require(updated.isNotEmpty())

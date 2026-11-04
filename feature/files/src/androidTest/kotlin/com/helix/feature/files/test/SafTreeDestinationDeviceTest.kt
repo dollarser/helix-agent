@@ -19,8 +19,7 @@ import java.nio.file.Path
 /**
  * HXA-058 (device gate): the REAL [ContentResolverSafTreeDestination] (the 导出-into-authorized-
  * tree seam) driven through the REAL `ContentResolver` against the in-APK MUTABLE
- * [ExportSinkTreeProvider] — the create-document insert (`buildDocumentUriUsingTree`, the
- * operation `DocumentsContract.createDocument` performs internally), the conflict detection,
+ * [ExportSinkTreeProvider] — the standard `DocumentsContract.createDocument` call, the conflict detection,
  * the ambiguous-parent refusal, and the post-write size/re-read visibility (a write made through
  * `openFile("w")` is visible to the next size query and re-read — the export verification path).
  *
@@ -53,7 +52,7 @@ class SafTreeDestinationDeviceTest {
         val scopeId = store.deriveScopeId(treeUri)
 
         val uri = dest.destinationUri(scopeId, "", "report.txt", "text/plain", overwrite = false)
-        assertTrue(uri.startsWith("content://${ExportSinkTreeProvider.AUTHORITY}/document/"))
+        assertTrue(uri.startsWith("content://${ExportSinkTreeProvider.AUTHORITY}/tree/root/document/"))
 
         // The write-through path: open the created document, write, and the size query + re-read
         // must see exactly what was written (the post-export verification contract).
@@ -82,7 +81,7 @@ class SafTreeDestinationDeviceTest {
         val scopeId = store.deriveScopeId(treeUri)
 
         val uri = dest.destinationUri(scopeId, "", "note.txt", "text/plain", overwrite = true)
-        assertEquals("content://${ExportSinkTreeProvider.AUTHORITY}/document/note", uri)
+        assertEquals("content://${ExportSinkTreeProvider.AUTHORITY}/tree/root/document/note", uri)
 
         // And it is writable: the overwrite path truncates the existing document.
         val docUri = android.net.Uri.parse(uri)

@@ -494,7 +494,7 @@
     <string name="files_saf_empty">暂无已授权 SAF 来源。</string>
     <string name="files_saf_granted">已授权 SAF 来源：%1$s（只读）</string>
     <string name="files_saf_panel_desc">Choose a folder to grant access. Revoking it stops access immediately. Android 11+ excludes storage roots, the Download root, Android/data and Android/obb.</string>
-    <string name="files_saf_panel_title">SAF 来源（只读）</string>
+    <string name="files_saf_panel_title">已授权文件夹</string>
     <string name="files_saf_read_only">SAF 来源为只读</string>
     <string name="files_saf_removed">已移除 SAF 来源：%1$s</string>
     <string name="files_select">选择</string>

@@ -7,6 +7,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import com.helix.app.R
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 
 @Composable
@@ -52,41 +53,26 @@ internal fun FilesDirectoryEffects(
 }
 
 @Composable
-@Suppress("FunctionName", "TooGenericExceptionCaught") // Read failure is shown; cancellation still propagates.
+@Suppress("FunctionName")
 internal fun FilesPreviewEffects(
     state: FilesScreenState,
     actions: FilesScreenActions,
 ) {
     val file = state.openFile
     val scopeId = state.selectedScopeId
-    LaunchedEffect(file?.relativePath, scopeId) {
+    val page = state.viewerPage
+    LaunchedEffect(file?.relativePath, scopeId, page) {
         if (file == null || file.isDirectory) return@LaunchedEffect
         state.preview = FilePreviewState.Loading
-        val loaded =
-            withContext(Dispatchers.IO) {
-                try {
-                    val document = actions.fileManager.viewerContent(scopeId, file.relativePath)
-                    val image = document.imageBytes?.let { decodeViewerImage(it) }
-                    FilePreviewState.Ready(
-                        document.text,
-                        image,
-                        document.info,
-                        document.textTruncated,
-                        document.imageTooLarge,
-                        document.imageBytes != null && image == null,
-                    )
-                } catch (cancelled: kotlinx.coroutines.CancellationException) {
-                    throw cancelled
-                } catch (failure: Exception) {
-                    android.util.Log.w("HelixFiles", "Preview failed: ${failure.javaClass.simpleName}")
-                    FilePreviewState.Failed(actions.str(fileFailureMessage(failure, R.string.files_preview_failed)))
-                }
-            }
+        val loaded = loadFilePreview(actions, scopeId, file.relativePath, page, state.viewerIdentity)
         // IO completion may resume on a test/effect dispatcher. Publish on Android's UI dispatcher.
         withContext(Dispatchers.Main.immediate) {
-            if (state.openFile?.relativePath == file.relativePath && state.selectedScopeId == scopeId) {
+            if (state.openFile?.relativePath == file.relativePath && state.selectedScopeId == scopeId &&
+                state.viewerPage == page
+            ) {
                 state.preview = loaded
                 if (loaded is FilePreviewState.Ready) {
+                    state.viewerIdentity = loaded.info
                     actions.updateLibrary {
                         visited(
                             com.helix.core.workspace
@@ -154,6 +140,42 @@ internal fun FilesScopeEffects(
         }
     }
 }
+
+@Suppress("TooGenericExceptionCaught") // Typed source changes and cancellation are handled before other I/O failures.
+private suspend fun loadFilePreview(
+    actions: FilesScreenActions,
+    scopeId: String,
+    relativePath: String,
+    page: Long,
+    expected: com.helix.app.files.FileManagerService.FileMeta?,
+): FilePreviewState =
+    withContext(Dispatchers.IO) {
+        try {
+            val job = coroutineContext[kotlinx.coroutines.Job]
+            val document =
+                kotlinx.coroutines.runInterruptible {
+                    actions.fileManager.viewerContent(scopeId, relativePath, page, expected) {
+                        job?.ensureActive()
+                    }
+                }
+            val image = document.imageBytes?.let { decodeViewerImage(it) }
+            FilePreviewState.Ready(
+                document.text,
+                image,
+                document.info,
+                document.textPageCount,
+                document.imageTooLarge,
+                document.imageBytes != null && image == null,
+            )
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (_: com.helix.app.files.ViewerSourceChanged) {
+            FilePreviewState.Failed(actions.str(R.string.files_viewer_changed))
+        } catch (failure: Exception) {
+            android.util.Log.w("HelixFiles", "Preview failed: ${failure.javaClass.simpleName}")
+            FilePreviewState.Failed(actions.str(fileFailureMessage(failure, R.string.files_preview_failed)))
+        }
+    }
 
 /** Decode bounds first, then limit the retained bitmap to at most 2048 × 2048 pixels. */
 internal fun decodeViewerImage(bytes: ByteArray): androidx.compose.ui.graphics.ImageBitmap? {

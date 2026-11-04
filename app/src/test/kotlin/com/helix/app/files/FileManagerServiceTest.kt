@@ -187,13 +187,14 @@ class FileManagerServiceTest {
         )
 
     @Test
-    fun viewerReadsBeyondOldTextLimitAndMarksOnlyActualTruncation() {
+    fun viewerPagesBeyondTheTextWindowWithoutTruncatingTheFile() {
         val text = "x".repeat((FileManagerService.VIEWER_TEXT_BYTES + 1).toInt())
         seedText("work/large.txt", text)
         val content = service.viewerContent(scopeId, "work/large.txt")
         assertEquals(FileManagerService.VIEWER_TEXT_BYTES.toInt(), content.text?.length)
-        assertTrue(content.textTruncated)
+        assertEquals(2L, content.textPageCount)
         assertEquals(text.length.toLong(), content.info.sizeBytes)
+        assertEquals("x", service.viewerContent(scopeId, "work/large.txt", 1, content.info).text)
     }
 
     @Test
@@ -202,9 +203,29 @@ class FileManagerServiceTest {
         seedText("work/full.txt", text)
         val content = service.viewerContent(scopeId, "work/full.txt")
         assertEquals(text, content.text)
-        assertFalse(content.textTruncated)
+        assertEquals(1L, content.textPageCount)
         seedText("work/full.txt", "x".repeat(FileManagerService.VIEWER_TEXT_BYTES.toInt()))
-        assertFalse(service.viewerContent(scopeId, "work/full.txt").textTruncated)
+        assertEquals(1L, service.viewerContent(scopeId, "work/full.txt").textPageCount)
+    }
+
+    @Test
+    fun pagedReaderRejectsChangedSourcesInvalidPagesAndCancellation() {
+        seedText("work/pages.txt", "a".repeat((FileManagerService.VIEWER_TEXT_BYTES + 1).toInt()))
+        val first = service.viewerContent(scopeId, "work/pages.txt")
+        assertThrows(IllegalArgumentException::class.java) {
+            service.viewerContent(scopeId, "work/pages.txt", 2, first.info)
+        }
+        var checkpoints = 0
+        assertThrows(java.util.concurrent.CancellationException::class.java) {
+            service.viewerContent(scopeId, "work/pages.txt", checkpoint = {
+                if (++checkpoints == 5) throw java.util.concurrent.CancellationException()
+            })
+        }
+        assertEquals(5, checkpoints)
+        seedText("work/pages.txt", "b".repeat((FileManagerService.VIEWER_TEXT_BYTES + 1).toInt()))
+        assertThrows(ViewerSourceChanged::class.java) {
+            service.viewerContent(scopeId, "work/pages.txt", 1, first.info)
+        }
     }
 
     @Test

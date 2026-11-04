@@ -76,6 +76,46 @@ internal class FileManagerPreview(
         }
     }
 
+    /** One direct-source window; never stages or retains a full large document. */
+    internal fun viewerTextBytes(
+        scopeId: String,
+        relativePath: String,
+        offset: Long,
+        maximum: Int,
+        checkpoint: () -> Unit,
+    ): ByteArray {
+        require(offset >= 0 && maximum in 1..(FileManagerService.VIEWER_TEXT_BYTES + 3).toInt())
+        checkpoint()
+        if (isSaf(scopeId)) {
+            return verifySaf(scopeId, SafAccessMode.READ)
+                .reader
+                .read(scopeId, relativePath, offset, maximum.toLong())
+                .also { checkpoint() }
+        }
+        return store.openRead(FileScopePath(scopeId, relativePath)).use { input ->
+            var remaining = offset
+            while (remaining > 0) {
+                checkpoint()
+                val skipped = input.skip(remaining)
+                if (skipped > 0) {
+                    remaining -= skipped
+                } else {
+                    check(input.read() >= 0) { "File ended before the requested page" }
+                    remaining--
+                }
+            }
+            val output = java.io.ByteArrayOutputStream()
+            val buffer = ByteArray(8192)
+            while (output.size() < maximum) {
+                checkpoint()
+                val count = input.read(buffer, 0, minOf(buffer.size, maximum - output.size()))
+                if (count < 0) break
+                output.write(buffer, 0, count)
+            }
+            output.toByteArray()
+        }
+    }
+
     /**
      * The raw bytes of an image for the preview, or an empty array when the file is not an image,
      * is missing, or exceeds [maxBytes] (a too-large image is not previewed — it is still

@@ -80,7 +80,7 @@ class FileManagerServiceSafTest {
     }
 
     @Test
-    fun viewerReadsBeyondOldTextLimitAndMarksOnlyActualTruncation() {
+    fun viewerPagesBeyondTheTextWindowWithoutTruncatingTheFile() {
         val text = "x".repeat((FileManagerService.VIEWER_TEXT_BYTES + 1).toInt())
         safGrantStore.grant(tree, "Docs")
         val service =
@@ -88,8 +88,9 @@ class FileManagerServiceSafTest {
 
         val content = service.viewerContent(safScope, "work/large.txt")
         assertEquals(FileManagerService.VIEWER_TEXT_BYTES.toInt(), content.text?.length)
-        assertTrue(content.textTruncated)
+        assertEquals(2L, content.textPageCount)
         assertEquals(text.length.toLong(), content.info.sizeBytes)
+        assertEquals("x", service.viewerContent(safScope, "work/large.txt", 1, content.info).text)
     }
 
     @Test
@@ -114,11 +115,11 @@ class FileManagerServiceSafTest {
                 ),
             )
         assertEquals(text, service.viewerContent(safScope, "full.txt").text)
-        assertFalse(service.viewerContent(safScope, "full.txt").textTruncated)
+        assertEquals(1L, service.viewerContent(safScope, "full.txt").textPageCount)
         assertTrue(service.viewerContent(safScope, "large.png").imageTooLarge)
         assertTrue(service.previewImageBytes(safScope, "large.png").isEmpty())
         assertEquals(5 * 1024 * 1024, service.viewerContent(safScope, "image.png").imageBytes?.size)
-        assertFalse(service.viewerContent(safScope, "boundary.txt").textTruncated)
+        assertEquals(1L, service.viewerContent(safScope, "boundary.txt").textPageCount)
         assertEquals(
             FileManagerService.VIEWER_IMAGE_BYTES.toInt(),
             service.viewerContent(safScope, "boundary.png").imageBytes?.size,

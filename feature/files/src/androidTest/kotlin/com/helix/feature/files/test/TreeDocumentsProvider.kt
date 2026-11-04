@@ -12,9 +12,9 @@ import java.io.FileNotFoundException
 
 /**
  * HXA-057 (device gate): a small, FIXED document tree served through the same URI shapes a real
- * SAF provider answers — `content://<auth>/document/<id>/children` (the child listing, the exact
+ * SAF provider answers — `content://<auth>/tree/root/document/<id>/children` (the child listing, the exact
  * shape `DocumentsContract.buildChildDocumentsUri` builds) and
- * `content://<auth>/document/<id>` (a single document / its bytes) — so the REAL
+ * `content://<auth>/tree/root/document/<id>` (a single document / its bytes) — so the REAL
  * [com.helix.feature.files.ContentResolverSafTreeReader] can be driven through the REAL
  * `ContentResolver` (the same code path a host provider takes).
  *
@@ -45,7 +45,7 @@ class TreeDocumentsProvider : ContentProvider() {
         selectionArgs: Array<out String>?,
         sortOrder: String?,
     ): Cursor? {
-        val segments = uri.pathSegments
+        val segments = documentSegments(uri)
         val cursor = MatrixCursor(COLUMNS)
         when {
             // `content://<auth>/document/<parentId>/children` — the child listing (the exact
@@ -71,7 +71,7 @@ class TreeDocumentsProvider : ContentProvider() {
         uri: Uri,
         mode: String,
     ): ParcelFileDescriptor {
-        val segments = uri.pathSegments
+        val segments = documentSegments(uri)
         require(segments.size == 2 && segments[0] == "document") { "not a document URI" }
         val bytes =
             document(segments[1])?.bytes
@@ -79,6 +79,15 @@ class TreeDocumentsProvider : ContentProvider() {
         val file = File(context!!.cacheDir, "tree-${segments[1]}.bin")
         file.writeBytes(bytes)
         return ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
+    }
+
+    /** Refuse loss of tree identity, even though the fixture shares its provider UID. */
+    private fun documentSegments(uri: Uri): List<String> {
+        val segments = uri.pathSegments
+        require(segments.size >= 4 && segments[0] == "tree" && segments[1] == "root") {
+            "Expected a tree-scoped document URI"
+        }
+        return segments.drop(2)
     }
 
     override fun insert(

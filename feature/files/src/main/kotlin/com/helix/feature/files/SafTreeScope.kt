@@ -172,8 +172,9 @@ internal fun treeUriAuthority(treeUri: String): String? {
 /**
  * The tree root document id of a tree URI (the last non-empty path segment). For
  * `content://host/tree/xyz` this is `xyz`; for the platform provider
- * `content://com.android.externalstorage.documents/tree/primary%3ADocuments` it is the URL-encoded
- * `primary%3ADocuments`. Parsed from the string (JVM-testable). @return null when the URI has no
+ * `content://com.android.externalstorage.documents/tree/primary%3ADocuments` it is the decoded
+ * `primary:Documents`. Percent decoding happens exactly once and preserves literal `+`.
+ * Parsed from the string (JVM-testable). @return null when the URI has no
  * path segment to serve as a document id.
  */
 internal fun treeUriRootDocumentId(treeUri: String): String? {
@@ -181,5 +182,18 @@ internal fun treeUriRootDocumentId(treeUri: String): String? {
     val after = treeUri.substring("content://".length)
     val slash = after.indexOf('/')
     val path = if (slash >= 0) after.substring(slash + 1) else ""
-    return path.split('/').filter { it.isNotEmpty() }.lastOrNull()
+    val encoded =
+        path
+            .substringBefore('?')
+            .substringBefore('#')
+            .split('/')
+            .filter { it.isNotEmpty() }
+            .lastOrNull()
+    return encoded?.let {
+        try {
+            java.net.URLDecoder.decode(it.replace("+", "%2B"), Charsets.UTF_8.name())
+        } catch (_: IllegalArgumentException) {
+            null
+        }
+    }
 }

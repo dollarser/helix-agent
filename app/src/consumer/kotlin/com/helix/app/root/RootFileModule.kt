@@ -26,10 +26,11 @@ internal object RootFileModule {
 
         override fun stat(relativePath: String): ManualFileInfo? = null
 
-        override fun previewText(
+        override fun viewerTextBytes(
             relativePath: String,
-            maxBytes: Long,
-        ): String? = null
+            offset: Long,
+            maximum: Int,
+        ): ByteArray = throw FileNotFoundException("Root is not available in consumer build")
 
         override fun previewImageBytes(
             relativePath: String,

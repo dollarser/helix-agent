@@ -13,8 +13,8 @@ import java.nio.file.Path
  * The file manager treats every SAF operation as governed: it re-verifies the grant through
  * [SafTreeScopeService.resolve] before each browse/read, and the browse goes through [reader]
  * (the platform adapter), never a direct external-file access (AGENTS: 禁止 UI/DAO 直接操作外部
- * 文件). SAF scopes are read-only in this milestone (the all-files precedent): write mutations are
- * hidden, and a read-only grant's write re-verification fails closed regardless.
+ * 文件). This access object provides the read path. Manual mutations use the separate governed backend;
+ * a read-only grant still fails write re-verification.
  */
 class SafTreeScopeAccess(
     val service: SafTreeScopeService,

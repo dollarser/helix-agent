@@ -1,7 +1,6 @@
 package com.helix.feature.files
 
 import android.content.ContentResolver
-import android.content.ContentValues
 import android.database.Cursor
 import android.net.Uri
 import android.provider.DocumentsContract
@@ -23,9 +22,8 @@ import java.nio.file.FileAlreadyExistsException
  * - a same-name FILE already in the parent is a conflict ([FileAlreadyExistsException]) unless
  *   [overwrite] is true, in which case that document's URI is returned (the export's truncate
  *   write is the overwrite — a directory name is never overwritten);
- * - a new name goes through the create-document insert (the operation
- *   `DocumentsContract.createDocument` performs internally; it requires the tree's WRITE
- *   permission — a read-only grant surfaces as a creation failure and fails closed).
+ * - a new name goes through `DocumentsContract.createDocument`; it requires the tree's WRITE
+ *   permission — a read-only grant surfaces as a creation failure and fails closed.
  *
  * No exception message ever carries the tree URI, a document id or a `content://` string
  * (doc 10: the raw URI stays in the platform layer).
@@ -43,16 +41,16 @@ class ContentResolverSafTreeDestination(
         overwrite: Boolean,
     ): String {
         val grant = grants.find(scopeId) ?: throw notAvailable(scopeId)
-        val treeUri = grant.treeUri
-        val authority = treeUriAuthority(treeUri) ?: throw notAvailable(scopeId)
-        val rootDocId = treeUriRootDocumentId(treeUri) ?: throw notAvailable(scopeId)
-        val parentDocId = walkToDirectory(authority, rootDocId, parentPath)
-        val sameName = children(authority, parentDocId).filter { it.displayName == displayName && !it.isDirectory }
+        val treeUri = Uri.parse(grant.treeUri)
+        if (treeUri.authority == null) throw notAvailable(scopeId)
+        val rootDocId = treeUriRootDocumentId(grant.treeUri) ?: throw notAvailable(scopeId)
+        val parentDocId = walkToDirectory(treeUri, rootDocId, parentPath)
+        val sameName = children(treeUri, parentDocId).filter { it.displayName == displayName && !it.isDirectory }
         return when (sameName.size) {
             1 -> {
                 val existing = sameName.single()
                 if (overwrite) {
-                    DocumentsContract.buildDocumentUri(authority, existing.documentId).toString()
+                    DocumentsContract.buildDocumentUriUsingTree(treeUri, existing.documentId).toString()
                 } else {
                     throw FileAlreadyExistsException(
                         displayName,
@@ -64,24 +62,13 @@ class ContentResolverSafTreeDestination(
 
             0 -> {
                 try {
-                    // The exact operation DocumentsContract.createDocument performs internally:
-                    // an insert on buildDocumentUriUsingTree(treeUri, parentDocId) —
-                    // `content://<auth>/tree/<rootDocId>/document/<parentDocId>` (the tree-scoped
-                    // document URI; logcat-verified shape) — with MIME + display name. (The 5-arg
-                    // createDocument overload is not present in this compile SDK's stubs, so the
-                    // equivalent insert is issued directly.)
-                    val values =
-                        ContentValues().apply {
-                            put(DocumentsContract.Document.COLUMN_MIME_TYPE, mimeType)
-                            put(DocumentsContract.Document.COLUMN_DISPLAY_NAME, displayName)
-                        }
                     val created =
-                        resolver
-                            .insert(
-                                DocumentsContract.buildDocumentUriUsingTree(Uri.parse(treeUri), parentDocId),
-                                values,
-                            )
-                            ?: throw IOException("the destination provider created no document")
+                        DocumentsContract.createDocument(
+                            resolver,
+                            DocumentsContract.buildDocumentUriUsingTree(treeUri, parentDocId),
+                            mimeType,
+                            displayName,
+                        ) ?: throw IOException("the destination provider created no document")
                     created.toString()
                 } catch (e: IOException) {
                     throw e
@@ -100,13 +87,13 @@ class ContentResolverSafTreeDestination(
 
     /** Walks to the DIRECTORY at [relativePath] ("" = tree root); ambiguous/missing fails closed. */
     private fun walkToDirectory(
-        authority: String,
+        treeUri: Uri,
         rootDocId: String,
         relativePath: String,
     ): String {
         var docId = rootDocId
         for (segment in relativePath.split('/').filter { it.isNotEmpty() }) {
-            val matches = children(authority, docId).filter { it.displayName == segment && it.isDirectory }
+            val matches = children(treeUri, docId).filter { it.displayName == segment && it.isDirectory }
             if (matches.size != 1) throw FileNotFoundException("the destination directory path was not found")
             docId = matches.single().documentId
         }
@@ -121,10 +108,10 @@ class ContentResolverSafTreeDestination(
      */
     @Suppress("TooGenericExceptionCaught", "SwallowedException") // a failing query = missing/ambiguous parent
     private fun children(
-        authority: String,
+        treeUri: Uri,
         parentDocId: String,
     ): List<Child> {
-        val uri = DocumentsContract.buildChildDocumentsUri(authority, parentDocId)
+        val uri = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, parentDocId)
         val cursor: Cursor? =
             try {
                 resolver.query(uri, DOC_COLUMNS, null, null, null)

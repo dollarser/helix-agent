@@ -262,7 +262,12 @@ class SafTreeScopeResolverTest {
         assertEquals("b", treeUriRootDocumentId("content://host/tree/a/b"))
         val safDocUri = "content://com.android.externalstorage.documents/tree/primary%3ADocuments"
         assertEquals("com.android.externalstorage.documents", treeUriAuthority(safDocUri))
-        assertEquals("primary%3ADocuments", treeUriRootDocumentId(safDocUri))
+        assertEquals("primary:Documents", treeUriRootDocumentId(safDocUri))
+        assertEquals(
+            "primary:Documents/a+b%2F中",
+            treeUriRootDocumentId("content://host/tree/primary%3ADocuments%2Fa+b%252F%E4%B8%AD"),
+        )
+        assertEquals(null, treeUriRootDocumentId("content://host/tree/bad%zz"))
         assertEquals(null, treeUriAuthority("file:///etc/passwd"))
         assertEquals(null, treeUriRootDocumentId("file:///etc/passwd"))
     }

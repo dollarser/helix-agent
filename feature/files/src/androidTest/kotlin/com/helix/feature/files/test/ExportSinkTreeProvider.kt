@@ -1,21 +1,18 @@
 package com.helix.feature.files.test
 
-import android.content.ContentProvider
-import android.content.ContentValues
 import android.database.Cursor
 import android.database.MatrixCursor
-import android.net.Uri
+import android.os.CancellationSignal
 import android.os.ParcelFileDescriptor
 import android.provider.DocumentsContract
+import android.provider.DocumentsProvider
 import java.io.File
 import java.io.FileNotFoundException
 
 /**
  * HXA-058 (device gate): a MUTABLE SAF document tree — the destination side. It answers the same
- * `DocumentsContract` query URIs as [TreeDocumentsProvider] PLUS the create-document insert
- * (`content://<auth>/tree/<rootDocId>/document/<parentDocId>`, the exact URI shape
- * `DocumentsContract.buildDocumentUriUsingTree` builds — the operation
- * `DocumentsContract.createDocument` performs internally) and a READ/WRITE [openFile], so the
+ * `DocumentsContract` query URIs as [TreeDocumentsProvider] and the standard create-document call
+ * with tree-scoped document identities and a READ/WRITE [openDocument], so the
  * REAL [com.helix.feature.files.ContentResolverSafTreeDestination] and the real export
  * re-read/size re-check can be driven through the REAL `ContentResolver`.
  *
@@ -31,7 +28,7 @@ import java.io.FileNotFoundException
  * `openFile("w")` is visible to the subsequent size query and re-read `openFile("r")` — exactly
  * the post-export verification path.
  */
-class ExportSinkTreeProvider : ContentProvider() {
+class ExportSinkTreeProvider : DocumentsProvider() {
     override fun onCreate(): Boolean {
         // A fresh install keeps app data (`pm install -r`): clear any previous run's backing
         // files so the in-memory seed and the on-disk bytes can never disagree.
@@ -40,93 +37,59 @@ class ExportSinkTreeProvider : ContentProvider() {
         return true
     }
 
-    override fun getType(uri: Uri): String? = null
+    override fun queryRoots(projection: Array<out String>?): Cursor =
+        MatrixCursor(arrayOf(DocumentsContract.Root.COLUMN_ROOT_ID, DocumentsContract.Root.COLUMN_DOCUMENT_ID)).apply {
+            addRow(arrayOf("root", "root"))
+        }
 
-    override fun query(
-        uri: Uri,
+    override fun queryDocument(
+        documentId: String,
         projection: Array<out String>?,
-        selection: String?,
-        selectionArgs: Array<out String>?,
+    ): Cursor =
+        MatrixCursor(COLUMNS).apply {
+            document(documentId)?.let { addRow(rowFor(it)) }
+        }
+
+    override fun queryChildDocuments(
+        parentDocumentId: String,
+        projection: Array<out String>?,
         sortOrder: String?,
-    ): Cursor? {
-        val segments = uri.pathSegments
-        val cursor = MatrixCursor(COLUMNS)
-        when {
-            // `content://<auth>/document/<parentId>/children` — the child listing.
-            segments.size == 3 && segments[0] == "document" && segments[2] == "children" -> {
-                childrenOf(segments[1]).forEach { cursor.addRow(rowFor(it)) }
-            }
-
-            // `content://<auth>/document/<docId>` — a single document's metadata.
-            segments.size == 2 && segments[0] == "document" -> {
-                document(segments[1])?.let { cursor.addRow(rowFor(it)) }
-            }
-
-            // Any other shape (e.g. the tree-root liveness query) answers an empty-but-live cursor.
-            else -> {
-                Unit
-            }
+    ): Cursor =
+        MatrixCursor(COLUMNS).apply {
+            childrenOf(parentDocumentId).forEach { addRow(rowFor(it)) }
         }
-        return cursor
-    }
 
-    /**
-     * The create-document insert: `content://<auth>/tree/<rootDocId>/document/<parentDocId>` —
-     * the EXACT shape `DocumentsContract.buildDocumentUriUsingTree` builds (`treeUri
-     * .buildUpon().appendPath("document").appendPath(documentId)`, logcat-verified on API 29/36)
-     * — the operation `DocumentsContract.createDocument` performs internally. The framework's
-     * `DocumentsProvider` UriMatcher matches this as `tree/#/document/#`
-     * (CREATE_DOCUMENT_IN_TREE); a plain fixture provider must match the same 4-segment shape.
-     */
-    override fun insert(
-        uri: Uri,
-        values: ContentValues?,
-    ): Uri? {
-        val segments = uri.pathSegments
-        if (segments.size != 4 || segments[0] != "tree" || segments[2] != "document") return null
-        val parent = document(segments[3]) ?: throw FileNotFoundException("no such parent: ${segments[3]}")
-        if (!parent.isDir) throw FileNotFoundException("parent is not a directory: ${segments[3]}")
+    override fun isChildDocument(
+        parentDocumentId: String,
+        documentId: String,
+    ): Boolean =
+        document(parentDocumentId)?.isDir == true && (
+            parentDocumentId == "root" ||
+                childrenOf(parentDocumentId).any { it.id == documentId }
+        )
+
+    override fun createDocument(
+        parentDocumentId: String,
+        mimeType: String,
+        displayName: String,
+    ): String {
+        val parent = document(parentDocumentId) ?: throw FileNotFoundException("no such parent")
+        require(parent.isDir) { "parent is not a directory" }
         val id = "d" + nextId++
-        val name = values?.getAsString(DocumentsContract.Document.COLUMN_DISPLAY_NAME) ?: "new-document"
-        val mime =
-            values?.getAsString(DocumentsContract.Document.COLUMN_MIME_TYPE)
-                ?: "application/octet-stream"
-        docs[id] = Doc(id, name, isDir = false, mime = mime, file = backingFile(id))
-        backingFile(id).let { if (!it.exists()) it.createNewFile() }
-        children.getOrPut(segments[3]) { mutableListOf() } += id
-        return Uri.parse("content://$AUTHORITY/document/$id")
+        docs[id] = Doc(id, displayName, isDir = false, mime = mimeType, file = backingFile(id))
+        check(backingFile(id).createNewFile())
+        children.getOrPut(parentDocumentId) { mutableListOf() } += id
+        return id
     }
 
-    override fun openFile(
-        uri: Uri,
+    override fun openDocument(
+        documentId: String,
         mode: String,
+        signal: CancellationSignal?,
     ): ParcelFileDescriptor {
-        val segments = uri.pathSegments
-        require(segments.size == 2 && segments[0] == "document") { "not a document URI" }
-        val file = document(segments[1])?.file ?: throw FileNotFoundException("no such file document: ${segments[1]}")
-        return if (mode == "r") {
-            ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
-        } else {
-            ParcelFileDescriptor.open(
-                file,
-                ParcelFileDescriptor.MODE_READ_WRITE or ParcelFileDescriptor.MODE_CREATE or
-                    ParcelFileDescriptor.MODE_TRUNCATE,
-            )
-        }
+        val file = document(documentId)?.file ?: throw FileNotFoundException("no such file document")
+        return ParcelFileDescriptor.open(file, ParcelFileDescriptor.parseMode(mode))
     }
-
-    override fun delete(
-        uri: Uri,
-        selection: String?,
-        selectionArgs: Array<out String>?,
-    ): Int = 0
-
-    override fun update(
-        uri: Uri,
-        values: ContentValues?,
-        selection: String?,
-        selectionArgs: Array<out String>?,
-    ): Int = 0
 
     // ── The mutable tree ──────────────────────────────────────────────────────────────────
 

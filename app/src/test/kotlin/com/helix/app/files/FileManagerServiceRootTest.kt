@@ -63,12 +63,16 @@ class FileManagerServiceRootTest {
         var requestedImageLimit: Long? = null
         var viewerInfo = FileManagerService.FileMeta(100L, 1000L, "text/plain", true, "fake-sha", false)
 
-        override fun previewText(
+        var viewerBytes: ByteArray? = null
+
+        override fun viewerTextBytes(
             relativePath: String,
-            maxBytes: Long,
-        ): String? {
-            requestedTextLimit = maxBytes
-            return "root-text-$relativePath"
+            offset: Long,
+            maximum: Int,
+        ): ByteArray {
+            requestedTextLimit = maximum.toLong()
+            val bytes = viewerBytes ?: "root-text-$relativePath".toByteArray()
+            return bytes.copyOfRange(offset.toInt(), minOf(bytes.size, offset.toInt() + maximum))
         }
 
         override fun previewImageBytes(
@@ -225,8 +229,9 @@ class FileManagerServiceRootTest {
     fun rootViewerUsesSharedLimitsAndRejectsOversizedImageBeforeRead() {
         val ops = FakeRootFileOperations(granted = true)
         val service = FileManagerService(store, resolver, workspaceScopeId, rootOperations = ops)
+        ops.viewerBytes = ByteArray(100) { 'a'.code.toByte() }
         service.viewerContent(FileManagerService.ROOT_SCOPE_ID, "data/text.txt")
-        assertEquals(FileManagerService.VIEWER_TEXT_BYTES, ops.requestedTextLimit)
+        assertEquals(100L, ops.requestedTextLimit)
         ops.viewerInfo = FileManagerService.FileMeta(3L, 0L, "image/png", false, null, true)
         assertEquals(3, service.viewerContent(FileManagerService.ROOT_SCOPE_ID, "data/image.png").imageBytes?.size)
         assertEquals(FileManagerService.VIEWER_IMAGE_BYTES, ops.requestedImageLimit)

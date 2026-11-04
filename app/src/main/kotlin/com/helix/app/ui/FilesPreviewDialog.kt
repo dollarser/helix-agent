@@ -36,78 +36,86 @@ internal fun FilesScreenState.FilesPreviewDialog(
                 val loaded = currentPreview as? FilePreviewState.Ready
                 FilesViewer(
                     onDismissRequest = { openFile = null },
-                    title = { Text(file.name) },
+                    title = {
+                        Column {
+                            Text(file.name)
+                            FileTextPageControls(this@FilesPreviewDialog)
+                        }
+                    },
                     text = {
-                        IndicatedLazyColumn(
-                            modifier = Modifier.fillMaxSize().testTag("files-viewer-content"),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            val text = loaded?.text
-                            val diagram =
-                                text != null && text.length <= 65536 &&
-                                    svgFilePreview(file.name, loaded.info, text)
-                            item {
-                                if (loaded?.textTruncated == true) {
-                                    Text(str(R.string.files_text_partial), Modifier.testTag("files-text-partial"))
-                                }
-                                if (loaded?.imageTooLarge == true) {
-                                    Text(str(R.string.files_image_too_large), Modifier.testTag("files-image-too-large"))
-                                }
-                                if (loaded?.imageDecodeFailed == true) {
-                                    Text(
-                                        str(R.string.files_image_unreadable),
-                                        Modifier.testTag("files-image-unreadable"),
-                                    )
-                                }
-                                when {
-                                    currentPreview is FilePreviewState.Loading -> {
+                        SelectableViewerPage(viewerPage) {
+                            IndicatedLazyColumn(
+                                modifier = Modifier.fillMaxSize().testTag("files-viewer-content"),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                val text = loaded?.text
+                                val diagram =
+                                    text != null && text.length <= 65536 &&
+                                        svgFilePreview(file.name, loaded.info, text)
+                                item {
+                                    if (loaded?.imageTooLarge == true) {
                                         Text(
-                                            str(R.string.egress_loading),
-                                            modifier = Modifier.testTag("files-preview-loading"),
+                                            str(R.string.files_image_too_large),
+                                            Modifier.testTag("files-image-too-large"),
                                         )
                                     }
-
-                                    currentPreview is FilePreviewState.Failed -> {
-                                        Text(currentPreview.message, modifier = Modifier.testTag("files-preview-error"))
-                                    }
-
-                                    loaded?.image != null -> {
-                                        Image(
-                                            bitmap = loaded.image,
-                                            contentDescription = file.name,
-                                            modifier =
-                                                Modifier
-                                                    .fillMaxWidth()
-                                                    .heightIn(min = 320.dp)
-                                                    .testTag("files-preview-image"),
-                                        )
-                                    }
-
-                                    diagram -> {
-                                        InlineDiagramBlock(requireNotNull(text), BlockPreviewKind.SVG)
-                                    }
-
-                                    text != null -> {
-                                        Unit
-                                    }
-
-                                    loaded?.imageTooLarge == true || loaded?.imageDecodeFailed == true -> {
-                                        Unit
-                                    }
-
-                                    else -> {
+                                    if (loaded?.imageDecodeFailed == true) {
                                         Text(
-                                            str(R.string.files_no_preview),
-                                            style = MaterialTheme.typography.bodySmall,
-                                            modifier = Modifier.testTag("files-preview-none"),
+                                            str(R.string.files_image_unreadable),
+                                            Modifier.testTag("files-image-unreadable"),
                                         )
+                                    }
+                                    when {
+                                        currentPreview is FilePreviewState.Loading -> {
+                                            Text(
+                                                str(R.string.egress_loading),
+                                                modifier = Modifier.testTag("files-preview-loading"),
+                                            )
+                                        }
+
+                                        currentPreview is FilePreviewState.Failed -> {
+                                            Text(
+                                                currentPreview.message,
+                                                modifier = Modifier.testTag("files-preview-error"),
+                                            )
+                                        }
+
+                                        loaded?.image != null -> {
+                                            Image(
+                                                bitmap = loaded.image,
+                                                contentDescription = file.name,
+                                                modifier =
+                                                    Modifier
+                                                        .fillMaxWidth()
+                                                        .heightIn(min = 320.dp)
+                                                        .testTag("files-preview-image"),
+                                            )
+                                        }
+
+                                        diagram -> {
+                                            InlineDiagramBlock(requireNotNull(text), BlockPreviewKind.SVG)
+                                        }
+
+                                        text != null -> {
+                                            Unit
+                                        }
+
+                                        loaded?.imageTooLarge == true || loaded?.imageDecodeFailed == true -> {
+                                            Unit
+                                        }
+
+                                        else -> {
+                                            Text(
+                                                str(R.string.files_no_preview),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                modifier = Modifier.testTag("files-preview-none"),
+                                            )
+                                        }
                                     }
                                 }
-                            }
-                            if (text != null && !diagram) {
-                                val chunks = viewerTextChunks(text)
-                                items(chunks.size) { index ->
-                                    androidx.compose.foundation.text.selection.SelectionContainer {
+                                if (text != null && !diagram) {
+                                    val chunks = viewerTextChunks(text)
+                                    items(chunks.size) { index ->
                                         Text(
                                             chunks[index],
                                             style = MaterialTheme.typography.bodySmall,
@@ -125,44 +133,44 @@ internal fun FilesScreenState.FilesPreviewDialog(
                                         )
                                     }
                                 }
-                            }
-                            item {
-                                FileFavoriteAction(
-                                    com.helix.core.workspace
-                                        .FileScopePath(selectedScopeId, file.relativePath),
-                                    false,
-                                    actions,
-                                )
-                                if (handoff != null && loaded != null) {
-                                    FileConversationActions(
+                                item {
+                                    FileFavoriteAction(
                                         com.helix.core.workspace
                                             .FileScopePath(selectedScopeId, file.relativePath),
-                                        actions.fileManager,
-                                        handoff,
+                                        false,
+                                        actions,
                                     )
-                                }
-                                loaded?.info?.let { meta ->
-                                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                        Text(
-                                            str(R.string.files_info_size, formatSize(meta.sizeBytes)),
-                                            style = MaterialTheme.typography.bodySmall,
+                                    if (handoff != null && loaded != null) {
+                                        FileConversationActions(
+                                            com.helix.core.workspace
+                                                .FileScopePath(selectedScopeId, file.relativePath),
+                                            actions.fileManager,
+                                            handoff,
                                         )
-                                        Text(
-                                            str(R.string.files_info_modified, formatTime(meta.mtimeEpochMillis)),
-                                            style = MaterialTheme.typography.bodySmall,
-                                        )
-                                        Text(
-                                            str(R.string.files_info_type, meta.mimeType),
-                                            style = MaterialTheme.typography.bodySmall,
-                                        )
-                                        Text(
-                                            str(
-                                                R.string.files_info_sha256,
-                                                meta.sha256 ?: str(R.string.files_sha_omitted),
-                                            ),
-                                            style = MaterialTheme.typography.bodySmall,
-                                            modifier = Modifier.testTag("files-info-sha"),
-                                        )
+                                    }
+                                    loaded?.info?.let { meta ->
+                                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                            Text(
+                                                str(R.string.files_info_size, formatSize(meta.sizeBytes)),
+                                                style = MaterialTheme.typography.bodySmall,
+                                            )
+                                            Text(
+                                                str(R.string.files_info_modified, formatTime(meta.mtimeEpochMillis)),
+                                                style = MaterialTheme.typography.bodySmall,
+                                            )
+                                            Text(
+                                                str(R.string.files_info_type, meta.mimeType),
+                                                style = MaterialTheme.typography.bodySmall,
+                                            )
+                                            Text(
+                                                str(
+                                                    R.string.files_info_sha256,
+                                                    meta.sha256 ?: str(R.string.files_sha_omitted),
+                                                ),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                modifier = Modifier.testTag("files-info-sha"),
+                                            )
+                                        }
                                     }
                                 }
                             }

@@ -17,11 +17,12 @@
             android:authorities="com.helix.feature.files.tree"
             android:exported="false" />
 
-        <!-- HXA-058: the in-APK MUTABLE SAF document tree (the export destination side: the
-             create-document insert + read/write openFile). Same APK as the tests. -->
+        <!-- HXA-058: standard DocumentsProvider creation and tree-scoped read/write fixture. -->
         <provider
             android:name="com.helix.feature.files.test.ExportSinkTreeProvider"
             android:authorities="com.helix.feature.files.exportsink"
-            android:exported="false" />
+            android:exported="true"
+            android:grantUriPermissions="true"
+            android:permission="android.permission.MANAGE_DOCUMENTS" />
     </application>
 </manifest>

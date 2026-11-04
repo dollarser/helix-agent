@@ -33,7 +33,7 @@ class SafTreeListerDeviceTest {
         val byPath = entries.associate { it.rawSegments.joinToString("/") to it }
         val a = byPath["a.txt"]!!
         assertEquals(5L, a.sizeBytes)
-        assertEquals("content://${TreeDocumentsProvider.AUTHORITY}/document/a", a.documentUri)
+        assertEquals("content://${TreeDocumentsProvider.AUTHORITY}/tree/root/document/a", a.documentUri)
 
         val b = byPath["sub/b.txt"]!!
         assertEquals(1L, b.sizeBytes)

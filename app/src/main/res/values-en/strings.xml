@@ -493,7 +493,7 @@
     <string name="files_saf_empty">No authorized SAF sources yet.</string>
     <string name="files_saf_granted">Authorized SAF source: %1$s (read-only)</string>
     <string name="files_saf_panel_desc">Choose a folder to grant access. Revoking it stops access immediately. Android 11+ excludes storage roots, the Download root, Android/data and Android/obb.</string>
-    <string name="files_saf_panel_title">SAF sources (read-only)</string>
+    <string name="files_saf_panel_title">Authorized folders</string>
     <string name="files_saf_read_only">SAF sources are read-only</string>
     <string name="files_saf_removed">Removed SAF source: %1$s</string>
     <string name="files_select">Select</string>

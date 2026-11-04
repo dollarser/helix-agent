@@ -170,6 +170,22 @@ object RootFileAccessor {
         }
     }
 
+    fun readWindowBytes(
+        targetPath: String,
+        offset: Long,
+        maximum: Int,
+    ): ByteArray {
+        require(offset in 0 until Long.MAX_VALUE && maximum in 1..(1024 * 1024 + 3))
+        val resolved = resolvePath(targetPath)
+        val result =
+            Shell
+                .cmd(
+                    "tail -c +${offset + 1} " + escapeShell(resolved) + " | head -c $maximum | base64",
+                ).exec()
+        check(result.isSuccess) { "Root text page unavailable" }
+        return Base64.decode(result.out.joinToString(""), Base64.DEFAULT)
+    }
+
     fun readAllBytes(targetPath: String): ByteArray {
         val resolved = resolvePath(targetPath)
         val res = Shell.cmd("base64 " + escapeShell(resolved)).exec()

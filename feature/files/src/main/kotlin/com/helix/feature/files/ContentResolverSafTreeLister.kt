@@ -26,7 +26,7 @@ class ContentResolverSafTreeLister(
 ) : SafTreeLister {
     override fun listTree(treeUri: String): List<SafTreeImportEntry> {
         val parsed = Uri.parse(treeUri)
-        val authority = parsed.authority ?: throw ScopeNotAvailable("SAF tree scope not available")
+        if (parsed.authority == null) throw ScopeNotAvailable("SAF tree scope not available")
         val rootDocId = treeUriRootDocumentId(treeUri) ?: throw ScopeNotAvailable("SAF tree scope not available")
         val entries = mutableListOf<SafTreeImportEntry>()
         val queue = ArrayDeque<QueueItem>()
@@ -34,7 +34,7 @@ class ContentResolverSafTreeLister(
         var scanned = 0
         while (queue.isNotEmpty()) {
             val item = queue.removeFirst()
-            for (child in children(authority, item.docId)) {
+            for (child in children(parsed, item.docId)) {
                 scanned++
                 if (scanned > MAX_ENTRIES_SCANNED) throw SafTreeEnumerationLimit()
                 val segments = item.segments + child.displayName
@@ -45,7 +45,12 @@ class ContentResolverSafTreeLister(
                         SafTreeImportEntry(
                             rawSegments = segments,
                             sizeBytes = child.sizeBytes,
-                            documentUri = DocumentsContract.buildDocumentUri(authority, child.documentId).toString(),
+                            documentUri =
+                                DocumentsContract
+                                    .buildDocumentUriUsingTree(
+                                        parsed,
+                                        child.documentId,
+                                    ).toString(),
                         ),
                     )
                 }
@@ -62,10 +67,10 @@ class ContentResolverSafTreeLister(
      */
     @Suppress("TooGenericExceptionCaught", "SwallowedException") // any query failure aborts the walk
     private fun children(
-        authority: String,
+        treeUri: Uri,
         parentDocId: String,
     ): List<Child> {
-        val uri = DocumentsContract.buildChildDocumentsUri(authority, parentDocId)
+        val uri = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, parentDocId)
         val cursor: Cursor? =
             try {
                 resolver.query(uri, DOC_COLUMNS, null, null, null)

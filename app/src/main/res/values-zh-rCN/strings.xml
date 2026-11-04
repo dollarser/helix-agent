@@ -491,7 +491,7 @@
     <string name="files_saf_empty">暂无已授权 SAF 来源。</string>
     <string name="files_saf_granted">已授权 SAF 来源：%1$s（只读）</string>
     <string name="files_saf_panel_desc">选择要授权的文件夹；撤销后立即停止访问。Android 11 及以上不支持授权存储根目录、Download 根目录或 Android/data、Android/obb。</string>
-    <string name="files_saf_panel_title">SAF 来源（只读）</string>
+    <string name="files_saf_panel_title">已授权文件夹</string>
     <string name="files_saf_read_only">SAF 来源为只读</string>
     <string name="files_saf_removed">已移除 SAF 来源：%1$s</string>
     <string name="files_select">选择</string>

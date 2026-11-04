@@ -33,9 +33,9 @@ class ContentResolverSafTreeReader(
         scopeId: String,
         relativePath: String,
     ): List<SafTreeFileEntry> {
-        val (authority, rootDocId) = treeIdentity(scopeId)
-        val dirDocId = walkToDirectory(authority, rootDocId, relativePath)
-        return children(authority, dirDocId).map { c ->
+        val (treeUri, rootDocId) = treeIdentity(scopeId)
+        val dirDocId = walkToDirectory(treeUri, rootDocId, relativePath)
+        return children(treeUri, dirDocId).map { c ->
             SafTreeFileEntry(c.displayName, c.isDirectory, c.sizeBytes, c.lastModifiedEpochMillis)
         }
     }
@@ -48,14 +48,15 @@ class ContentResolverSafTreeReader(
     ): ByteArray {
         require(offset >= 0) { "offset must be >= 0 (got $offset)" }
         require(maxBytes in 1..MAX_READ_BYTES) { "maxBytes must be 1..$MAX_READ_BYTES (got $maxBytes)" }
-        val (authority, rootDocId) = treeIdentity(scopeId)
-        val docId = walkToDocument(authority, rootDocId, relativePath)
-        resolver.openInputStream(DocumentsContract.buildDocumentUri(authority, docId))?.use { input ->
+        val (treeUri, rootDocId) = treeIdentity(scopeId)
+        val docId = walkToDocument(treeUri, rootDocId, relativePath)
+        resolver.openInputStream(DocumentsContract.buildDocumentUriUsingTree(treeUri, docId))?.use { input ->
             skipExact(input, offset)
             val out = ByteArrayOutputStream()
             val buffer = ByteArray(CHUNK)
             var total = 0L
             while (total < maxBytes) {
+                checkReadInterrupted()
                 val n = input.read(buffer, 0, minOf(buffer.size, (maxBytes - total).toInt()))
                 if (n < 0) break
                 out.write(buffer, 0, n)
@@ -69,9 +70,9 @@ class ContentResolverSafTreeReader(
         scopeId: String,
         relativePath: String,
     ): SafTreeStat {
-        val (authority, rootDocId) = treeIdentity(scopeId)
+        val (treeUri, rootDocId) = treeIdentity(scopeId)
         return runCatching {
-            val (docId, isDirectory) = walkToDocumentMetadata(authority, rootDocId, relativePath)
+            val (docId, isDirectory) = walkToDocumentMetadata(treeUri, rootDocId, relativePath)
             SafTreeStat(true, isDirectory, docId.sizeBytes, docId.lastModifiedEpochMillis)
         }.recoverCatching { e ->
             if (e is FileNotFoundException) SafTreeStat(false, false, -1L, -1L) else throw e
@@ -85,12 +86,12 @@ class ContentResolverSafTreeReader(
         maxBytes: Long,
     ): Long {
         require(maxBytes > 0) { "maxBytes must be > 0 (got $maxBytes)" }
-        val (authority, rootDocId) = treeIdentity(scopeId)
-        val docId = walkToDocument(authority, rootDocId, relativePath)
+        val (treeUri, rootDocId) = treeIdentity(scopeId)
+        val docId = walkToDocument(treeUri, rootDocId, relativePath)
         target.parent?.let { Files.createDirectories(it) }
         return try {
             Files.newOutputStream(target).use { out ->
-                val uri = DocumentsContract.buildDocumentUri(authority, docId)
+                val uri = DocumentsContract.buildDocumentUriUsingTree(treeUri, docId)
                 resolver.openInputStream(uri)?.use { input -> boundedCopy(input, out, maxBytes) }
                     ?: throw FileNotFoundException("SAF document not readable")
             }
@@ -125,40 +126,40 @@ class ContentResolverSafTreeReader(
     // ── path-like relativePath → opaque SAF document id (the walk) ──────────────────────
 
     /**
-     * The (authority, tree-root document id) of [scopeId]'s grant. @throws ScopeNotAvailable when
+     * The (treeUri, tree-root document id) of [scopeId]'s grant. @throws ScopeNotAvailable when
      * the grant is unknown or its URI is malformed (fail closed).
      */
-    private fun treeIdentity(scopeId: String): Pair<String, String> {
+    private fun treeIdentity(scopeId: String): Pair<Uri, String> {
         val grant = grants.find(scopeId) ?: throw notAvailable(scopeId)
         val authority = treeUriAuthority(grant.treeUri)
         val rootDocId = treeUriRootDocumentId(grant.treeUri)
         if (authority == null || rootDocId == null) throw notAvailable(scopeId)
-        return authority to rootDocId
+        return Uri.parse(grant.treeUri) to rootDocId
     }
 
     /** Walks to the DIRECTORY at [relativePath] ("" = tree root). */
     private fun walkToDirectory(
-        authority: String,
+        treeUri: Uri,
         rootDocId: String,
         relativePath: String,
     ): String {
         var docId = rootDocId
         for (segment in segments(relativePath)) {
-            docId = findChildMetadata(authority, docId, segment)?.documentId ?: throw notFound(relativePath)
+            docId = findChildMetadata(treeUri, docId, segment)?.documentId ?: throw notFound(relativePath)
         }
         return docId
     }
 
     /** Walks to the exact DOCUMENT (file) at [relativePath]; refuses a directory. */
     private fun walkToDocument(
-        authority: String,
+        treeUri: Uri,
         rootDocId: String,
         relativePath: String,
     ): String {
         require(relativePath.isNotEmpty()) { "relativePath must name a file" }
         val (dir, name) = splitLastSegment(relativePath)
-        val parent = if (dir.isEmpty()) rootDocId else walkToDirectory(authority, rootDocId, dir)
-        val child = findChildMetadata(authority, parent, name) ?: throw notFound(relativePath)
+        val parent = if (dir.isEmpty()) rootDocId else walkToDirectory(treeUri, rootDocId, dir)
+        val child = findChildMetadata(treeUri, parent, name) ?: throw notFound(relativePath)
         // A directory is not readable as a file (fail closed).
         if (child.isDirectory) throw notFound(relativePath)
         return child.documentId
@@ -166,27 +167,27 @@ class ContentResolverSafTreeReader(
 
     /** Walks to the DOCUMENT at [relativePath] (file or directory) with its metadata. */
     private fun walkToDocumentMetadata(
-        authority: String,
+        treeUri: Uri,
         rootDocId: String,
         relativePath: String,
     ): Pair<SafTreeChild, Boolean> {
         val target =
             if (relativePath.isEmpty()) {
-                documentMetadata(authority, rootDocId) ?: throw notFound(relativePath)
+                documentMetadata(treeUri, rootDocId) ?: throw notFound(relativePath)
             } else {
                 val (dir, name) = splitLastSegment(relativePath)
-                val parent = if (dir.isEmpty()) rootDocId else walkToDirectory(authority, rootDocId, dir)
-                findChildMetadata(authority, parent, name) ?: throw notFound(relativePath)
+                val parent = if (dir.isEmpty()) rootDocId else walkToDirectory(treeUri, rootDocId, dir)
+                findChildMetadata(treeUri, parent, name) ?: throw notFound(relativePath)
             }
         return target to target.isDirectory
     }
 
     private fun findChildMetadata(
-        authority: String,
+        treeUri: Uri,
         parentDocId: String,
         name: String,
     ): SafTreeChild? {
-        val matches = children(authority, parentDocId).filter { it.displayName == name }
+        val matches = children(treeUri, parentDocId).filter { it.displayName == name }
         return when (matches.size) {
             1 -> matches.single()
             else -> throw notFound(name)
@@ -195,19 +196,19 @@ class ContentResolverSafTreeReader(
 
     /** Lists the immediate children of [parentDocId]. */
     private fun children(
-        authority: String,
+        treeUri: Uri,
         parentDocId: String,
     ): List<SafTreeChild> {
-        val cursor = queryChildDocuments(authority, parentDocId)
+        val cursor = queryChildDocuments(treeUri, parentDocId)
         return cursor?.use { collectChildren(it) } ?: emptyList()
     }
 
     @Suppress("TooGenericExceptionCaught", "SwallowedException") // a failing provider read fails closed per call
     private fun queryChildDocuments(
-        authority: String,
+        treeUri: Uri,
         parentDocId: String,
     ): Cursor? {
-        val uri = DocumentsContract.buildChildDocumentsUri(authority, parentDocId)
+        val uri = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, parentDocId)
         return try {
             resolver.query(uri, DOC_COLUMNS, null, null, null)
         } catch (failure: Exception) {
@@ -248,10 +249,10 @@ class ContentResolverSafTreeReader(
     /** Null means absent metadata, not an authorization or provider failure. */
     @Suppress("TooGenericExceptionCaught") // Provider errors retain cancellation and access truth.
     private fun documentMetadata(
-        authority: String,
+        treeUri: Uri,
         docId: String,
     ): SafTreeChild? {
-        val uri = DocumentsContract.buildDocumentUri(authority, docId)
+        val uri = DocumentsContract.buildDocumentUriUsingTree(treeUri, docId)
         return try {
             resolver.query(uri, DOC_COLUMNS, null, null, null)?.use { cursor ->
                 if (!cursor.moveToFirst()) return@use null
@@ -315,10 +316,15 @@ class ContentResolverSafTreeReader(
         val buffer = ByteArray(CHUNK)
         var remaining = n
         while (remaining > 0) {
+            checkReadInterrupted()
             val read = input.read(buffer, 0, minOf(buffer.size.toLong(), remaining).toInt())
             if (read < 0) throw FileNotFoundException("SAF document truncated below offset")
             remaining -= read
         }
+    }
+
+    private fun checkReadInterrupted() {
+        if (Thread.currentThread().isInterrupted) throw java.io.InterruptedIOException("Document read interrupted")
     }
 
     private companion object {
