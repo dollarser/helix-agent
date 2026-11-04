@@ -88,6 +88,8 @@ class ReleaseSmokeBoundaryTest(unittest.TestCase):
 
                 def read_only_command(command, **_):
                     if "application-id" in command:
+                        if command[-1] == str(test_apk):
+                            return "com.helix.validation.orderedchecks.test"
                         return "com.helix.agent" if wrong_apk else "com.helix.validation.smoke"
                     if "list" in command:
                         return "package:com.helix.validation.smoke"
@@ -96,6 +98,18 @@ class ReleaseSmokeBoundaryTest(unittest.TestCase):
                 with patch("sys.argv", arguments), patch.object(runner, "command", side_effect=read_only_command):
                     with self.assertRaises(ValueError):
                         runner.main()
+
+    def test_nonisolated_test_apk_is_rejected_before_device_access(self):
+        with tempfile.TemporaryDirectory() as directory:
+            arguments = ["run-release-smoke.py", "--serial", "emulator-5554", "--application-id",
+                         "com.helix.validation.smoke", "--apk", "unused.apk", "--test-apk", "test.apk",
+                         "--out-dir", str(Path(directory) / "out"),
+                         "--adb", "fixture-adb", "--apkanalyzer", "fixture-analyzer"]
+            with patch("sys.argv", arguments), patch.object(runner, "command", return_value="daily.app.test") as command:
+                with self.assertRaisesRegex(ValueError, "Test APK must use an isolated"):
+                    runner.main()
+            self.assertEqual(1, command.call_count)
+            self.assertNotIn("fixture-adb", command.call_args.args[0])
 
     def test_release_suite_never_links_debug_or_production_classes(self):
         sources = list((ROOT / "tests/release-smoke/src/androidTest/kotlin").rglob("*.kt"))
@@ -119,19 +133,24 @@ class ReleaseSmokeBoundaryTest(unittest.TestCase):
 
             def command(args, **_):
                 if "application-id" in args:
-                    return package if args[-1] == str(apk) else "com.helix.validation.releasechecks.test"
+                    return package if args[-1] == str(apk) else "com.helix.validation.orderedchecks.test"
                 if "debuggable" in args:
                     return "false"
                 return "Success"
 
             result = SimpleNamespace(stdout="fixture", stderr="", check_returncode=lambda: None)
-            with patch("sys.argv", arguments), patch.object(runner, "command", side_effect=command), \
+            with patch("sys.argv", arguments), patch.object(runner, "command", side_effect=command) as commands, \
                     patch.object(runner, "installed_package", side_effect=[False, False, True, False, True, True]), \
-                    patch.object(runner.subprocess, "run", return_value=result), \
+                    patch.object(runner.subprocess, "run", return_value=result) as instrument, \
                     patch.object(runner, "require_passed", return_value=["fixture"]), \
                     patch.object(runner, "to_xml", return_value="<testsuite/>"):
                 with self.assertRaisesRegex(RuntimeError, "cleanup incomplete"):
                     runner.main()
+            self.assertIn("com.helix.validation.orderedchecks.test/androidx.test.runner.AndroidJUnitRunner",
+                          instrument.call_args.args[0])
+            called = [call.args[0] for call in commands.call_args_list]
+            self.assertIn(["fixture-adb", "-s", "fixture", "uninstall", "com.helix.validation.orderedchecks.test"], called)
+            self.assertFalse(any("com.helix.validation.releasechecks.test" in arg for call in called for arg in call))
             metadata = json.loads((root / "out/result.json").read_text())
             self.assertEqual("failed", metadata["status"])
             self.assertEqual("CleanupIncomplete", metadata["failure"])

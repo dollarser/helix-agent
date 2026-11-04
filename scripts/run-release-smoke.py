@@ -76,7 +76,9 @@ def main():
             parser.error("Execution boundaries require --boundary and an explicitly authorized emulator serial")
     elif args.boundary is not None:
         parser.error("--boundary only applies to mobile-use-execution")
-    test_package = "com.helix.validation.releasechecks.test"
+    test_package = command([args.apkanalyzer, "manifest", "application-id", str(args.test_apk)])
+    if not re.fullmatch(r"com\.helix\.validation\.[a-z][a-z0-9]*\.test", test_package):
+        raise ValueError("Test APK must use an isolated com.helix.validation.<name>.test applicationId")
     expected = [app, test_package]
     artifacts = []
     for path, package in zip((args.apk, args.test_apk), expected):

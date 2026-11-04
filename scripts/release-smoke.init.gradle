@@ -12,4 +12,17 @@ allprojects { p ->
             }
         }
     }
+    if (p.path == ':tests:release-smoke') {
+        p.plugins.withId('com.android.library') {
+            p.extensions.getByName('androidComponents').finalizeDsl { dsl ->
+                def id = p.providers.gradleProperty('helix.smokeTestApplicationId').orNull
+                if (id != null) {
+                    if (!(id ==~ /com\.helix\.validation\.[a-z][a-z0-9]*\.test/)) {
+                        throw new GradleException('Use an isolated com.helix.validation.<name>.test applicationId')
+                    }
+                    dsl.defaultConfig.testApplicationId = id
+                }
+            }
+        }
+    }
 }
