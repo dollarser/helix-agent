@@ -57,6 +57,7 @@ fun ConnectorSection(
     showIntroduction: Boolean = true,
     onUse: ((String?) -> Unit)? = null,
     query: String = "",
+    onlyPluginId: String? = null,
     configurePluginId: String? = null,
     onConfigurationShown: () -> Unit = {},
     onInstalled: () -> Unit = {},
@@ -284,7 +285,7 @@ fun ConnectorSection(
             }
         val visible =
             records.filter {
-                showInstalled &&
+                showInstalled && (onlyPluginId == null || it.id == onlyPluginId) &&
                     com.helix.app.plugin
                         .matchesPluginQuery(
                             it,
@@ -376,12 +377,17 @@ fun ConnectorSection(
                             enabled = withContext(Dispatchers.IO) { service.skillEnabled(key) }
                         }
                         Row {
-                            Checkbox(checked = enabled, enabled = !action.busy, onCheckedChange = { value ->
-                                action.launch(onFailure = { importFailure = PluginImportFailure.from(it) }) {
-                                    withContext(Dispatchers.IO) { service.setSkillEnabled(key, value) }
-                                    enabled = value
-                                }
-                            })
+                            Checkbox(
+                                checked = enabled,
+                                enabled = !action.busy,
+                                modifier = Modifier.testTag("plugin-skill-enabled-${key.name}"),
+                                onCheckedChange = { value ->
+                                    action.launch(onFailure = { importFailure = PluginImportFailure.from(it) }) {
+                                        withContext(Dispatchers.IO) { service.setSkillEnabled(key, value) }
+                                        enabled = value
+                                    }
+                                },
+                            )
                             var expanded by remember(key) { mutableStateOf(false) }
                             Column {
                                 TextButton({ expanded = !expanded }) { Text("Skill: ${key.name}") }

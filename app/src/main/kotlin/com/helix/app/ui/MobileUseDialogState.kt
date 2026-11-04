@@ -12,9 +12,10 @@ internal data class MobileUseDialogRequest(
     val originEntryId: String,
     val repairRoute: String = "",
     val repairEntryId: String = "",
+    val selectOnReturn: Boolean = false,
 )
 
-/** UI navigation identity only: never stores an enable intent or any grant. */
+/** Original user selection and repair navigation identity; never a tool or system grant. */
 internal class MobileUseDialogState(
     initial: MobileUseDialogRequest? = null,
 ) {
@@ -37,7 +38,11 @@ internal class MobileUseDialogState(
         route: String,
         entryId: String,
     ) {
-        request = request?.copy(repairRoute = route, repairEntryId = entryId)
+        request = request?.copy(repairRoute = route, repairEntryId = entryId, selectOnReturn = true)
+    }
+
+    fun consumeReturn(id: String) {
+        if (request?.id == id) request = request?.copy(selectOnReturn = false)
     }
 
     fun reconcile(
@@ -67,6 +72,7 @@ internal class MobileUseDialogState(
                                 it.originEntryId,
                                 it.repairRoute,
                                 it.repairEntryId,
+                                it.selectOnReturn.toString(),
                             )
                         }.orEmpty()
                 },
@@ -76,9 +82,16 @@ internal class MobileUseDialogState(
                             MobileUseDialogState()
                         }
 
-                        fields.size == 5 && fields.take(3).all { it.isNotBlank() } -> {
+                        fields.size == 6 && fields.take(3).all { it.isNotBlank() } -> {
                             MobileUseDialogState(
-                                MobileUseDialogRequest(fields[0], fields[1], fields[2], fields[3], fields[4]),
+                                MobileUseDialogRequest(
+                                    fields[0],
+                                    fields[1],
+                                    fields[2],
+                                    fields[3],
+                                    fields[4],
+                                    fields[5].toBooleanStrict(),
+                                ),
                             )
                         }
 

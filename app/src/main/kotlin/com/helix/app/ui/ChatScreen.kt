@@ -77,6 +77,7 @@ fun ChatScreen(
     onExtensions: () -> Unit = {},
     onConfigureModelSource: ((ProviderProvisioningKind) -> Unit)? = null,
     onMobileUseSession: (String) -> Unit = {},
+    onPluginConfigure: (String, com.helix.app.plugin.PluginSetupReason?) -> Unit = { _, _ -> onExtensions() },
 ) {
     val screen by chatService.screen.collectAsStateWithLifecycle()
     val displayExecutions by chatService.displayExecutions.collectAsStateWithLifecycle()
@@ -153,8 +154,7 @@ fun ChatScreen(
             .ConnectorSessionPanel(
                 connectors,
                 sessionId,
-                onExtensions,
-                onMobileUseConfiguration = { onMobileUseSession(sessionId) },
+                onPluginConfigure,
                 canApply = { chatService.screen.value.openSessionId == sessionId },
             ) { connectorsOpen = false }
     }

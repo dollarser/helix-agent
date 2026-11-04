@@ -19,7 +19,7 @@ class MobileUseDialogStateTest {
         assertThrows(IllegalArgumentException::class.java) { state.open(" ", "source") }
     }
 
-    @Test fun authorizationReturnRestoresSameDialogWithoutAnEnableIntent() {
+    @Test fun authorizationReturnRestoresOriginalScopedSelectionIntent() {
         val state = MobileUseDialogState()
         state.open("session", "source")
         val id = requireNotNull(state.request).id
@@ -35,7 +35,10 @@ class MobileUseDialogStateTest {
         val restored = requireNotNull(MobileUseDialogState.Saver.restore(saved))
         restored.reconcile("source", "session", false)
         assertTrue(restored.matches(id, "source", "session"))
-        assertEquals(5, (saved as List<*>).size)
+        assertEquals(6, (saved as List<*>).size)
+        assertTrue(restored.request!!.selectOnReturn)
+        restored.consumeReturn(id)
+        assertFalse(restored.request!!.selectOnReturn)
     }
 
     @Test fun changingSessionWhileAuthorizingExpiresTheOriginalDialog() {

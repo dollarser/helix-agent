@@ -153,9 +153,10 @@ class PluginService(
     private fun prepareUserSelection(pluginId: String) {
         val record = requireNotNull(list().singleOrNull { it.id == pluginId }) { "PLUGIN_NOT_INSTALLED" }
         record.native?.let {
-            val registry = nativeRegistry ?: throw PluginSelectionUnavailable(PluginSetupReason.HOST_UNAVAILABLE)
+            val registry =
+                nativeRegistry ?: throw PluginSelectionUnavailable(PluginSetupReason.HOST_UNAVAILABLE, pluginId)
             val error = registry.selectionError(it.pluginId)
-            pluginSetupReason(error)?.let { reason -> throw PluginSelectionUnavailable(reason) }
+            pluginSetupReason(error)?.let { reason -> throw PluginSelectionUnavailable(reason, pluginId) }
         }
         if (!record.enabled) {
             // Legacy global disables must not revive dormant choices in other conversations.

@@ -39,14 +39,11 @@ class ConnectorSessionPanelDeviceTest {
         val record = service.install(selectionPackage(session), identity = session)
         c.storage.sessions.create(session, "UI", null, null, 0)
         val initiallySelected = service.catalog.selected(session)
+        val revision = androidx.compose.runtime.mutableIntStateOf(0)
         try {
             service.setSkillEnabled(record.skills.single(), true)
             assertEquals(1, service.sessionRows(session).single { it.id == record.id }.readyComponents)
-            compose.setContent {
-                MaterialTheme {
-                    ConnectorSessionPanel(service, session, {}, pluginId = record.id.takeIf { scoped }, onDismiss = {})
-                }
-            }
+            compose.setContent { SelectionPanel(service, session, record.id.takeIf { scoped }, revision) }
             val selected = "connector-session-${record.id}"
             val default = "connector-default-${record.id}"
             compose.waitUntil(10_000) { compose.onAllNodesWithTag(selected).fetchSemanticsNodes().isNotEmpty() }
@@ -60,9 +57,16 @@ class ConnectorSessionPanelDeviceTest {
                 .performScrollTo()
                 .assertIsOff()
                 .performClick()
+            compose.onNodeWithTag("plugin-session-apply").performClick()
             compose.waitUntil(10_000) { record.id in service.catalog.selected(session) }
             compose.waitUntil(10_000) {
-                compose.onAllNodesWithTag("plugin-session-updated").fetchSemanticsNodes().isNotEmpty()
+                runCatching {
+                    compose
+                        .onNodeWithTag(selected)
+                        .performScrollTo()
+                        .assertIsEnabled()
+                        .assertIsOn()
+                }.isSuccess
             }
             compose.onNodeWithTag(selected).assertIsEnabled()
             compose.onNodeWithTag(selected).assertIsOn()
@@ -70,6 +74,7 @@ class ConnectorSessionPanelDeviceTest {
             service.catalog.setDefault(record.id, true)
             c.storage.sessions.create(next, "New", null, null, 0)
             compose.onNodeWithTag(selected).performScrollTo().performClick()
+            compose.onNodeWithTag("plugin-session-apply").performClick()
             compose.waitUntil(10_000) { service.catalog.selected(session) == initiallySelected }
             assertEquals(initiallySelected + record.id, service.catalog.selected(next))
             assertTrue(service.catalog.defaultSelected(record.id))
@@ -81,6 +86,27 @@ class ConnectorSessionPanelDeviceTest {
                     .any { it.id == next }
             ) {
                 c.storage.deleteSessionPermanently(next)
+            }
+        }
+    }
+
+    @androidx.compose.runtime.Composable
+    @Suppress("FunctionName")
+    private fun SelectionPanel(
+        service: com.helix.app.plugin.PluginService,
+        session: String,
+        pluginId: String?,
+        revision: androidx.compose.runtime.MutableIntState,
+    ) {
+        MaterialTheme {
+            androidx.compose.runtime.key(revision.intValue) {
+                ConnectorSessionPanel(
+                    service,
+                    session,
+                    { _, _ -> },
+                    pluginId = pluginId,
+                    onDismiss = { revision.intValue++ },
+                )
             }
         }
     }

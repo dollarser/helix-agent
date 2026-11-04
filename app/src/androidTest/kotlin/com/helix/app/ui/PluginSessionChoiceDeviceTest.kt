@@ -2,6 +2,7 @@ package com.helix.app.ui
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
@@ -51,21 +52,23 @@ class PluginSessionChoiceDeviceTest {
         compose
             .onNodeWithTag(tag)
             .assertIsOff()
-            .assertIsNotEnabled()
+            .assertIsEnabled()
+            .performClick()
+        assertEquals(listOf(true), selections)
         assertEquals(0, configured)
         compose.onNodeWithTag("plugin-session-configure-${row.id}").performClick()
         assertEquals(1, configured)
-        assertEquals(emptyList<Boolean>(), selections)
+        assertEquals(listOf(true), selections)
     }
 
-    @Test fun returningFromSetupRequiresAnotherExplicitClick() {
+    @Test fun readinessChangeWithoutPendingSelectionDoesNotSelect() {
         val facts =
             mutableStateOf(row.copy(ready = false, readyComponents = 0, setupReason = PluginSetupReason.MOBILE_BACKEND))
         val selections = mutableListOf<Boolean>()
         compose.setContent {
             MaterialTheme { PluginSessionChoice(facts.value, false, { selections += it }, {}) }
         }
-        compose.onNodeWithTag(tag).assertIsOff().assertIsNotEnabled()
+        compose.onNodeWithTag(tag).assertIsOff().assertIsEnabled()
         compose.onNodeWithTag("plugin-session-configure-${row.id}").performClick()
         compose.runOnIdle { facts.value = row }
         compose.onNodeWithTag(tag).assertIsOff()

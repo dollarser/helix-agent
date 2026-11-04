@@ -6,6 +6,7 @@ import androidx.compose.runtime.setValue
 import com.helix.app.plugin.PluginSelectionUnavailable
 import com.helix.app.plugin.PluginSessionRow
 import com.helix.app.plugin.PluginSetupReason
+import com.helix.app.plugin.canSelectForSession
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
@@ -14,7 +15,7 @@ import kotlinx.coroutines.withContext
 
 internal const val MOBILE_USE_PLUGIN_ID = "bundled-plugin:mobile-use"
 
-/** One immutable conversation target; returning from settings only refreshes facts, never selects. */
+/** One immutable target; only an explicit repair-return intent may complete its original selection. */
 internal class MobileUseSessionState(
     private val read: () -> PluginSessionRow?,
     private val select: (Boolean) -> Unit,
@@ -82,6 +83,12 @@ internal class MobileUseSessionState(
             busy = false
             operation.unlock()
         }
+    }
+
+    suspend fun returnedFromConfiguration() {
+        refresh()
+        val actual = row?.takeIf { !failed && !expired } ?: return
+        if (actual.canSelectForSession && !actual.selected) choose(true)
     }
 
     private fun selectCurrent(enabled: Boolean) {

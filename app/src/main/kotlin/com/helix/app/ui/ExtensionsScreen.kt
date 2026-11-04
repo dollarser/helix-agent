@@ -61,6 +61,7 @@ fun ExtensionsScreen(
     prepareSession: (suspend (String) -> String?)? = null,
     currentSession: () -> String? = { null },
     onMobileUseSession: (String) -> Unit = {},
+    onPluginConfigure: (String, com.helix.app.plugin.PluginSetupReason?) -> Unit = { _, _ -> },
     onMobileUseSettings: () -> Unit = {},
     onPermissions: () -> Unit = {},
     importFiles: com.helix.app.files.FileManagerService? = null,
@@ -99,14 +100,9 @@ fun ExtensionsScreen(
         com.helix.app.connector.ConnectorSessionPanel(
             connectors,
             id,
-            onConfigure = {
-                useSession = null
-                selectedTab = 0
-                configurePluginId = usePluginId
-            },
+            onConfigure = onPluginConfigure,
             pluginId = usePluginId,
             canApply = { currentSession() == id },
-            onMobileUseConfiguration = { if (currentSession() == id) onMobileUseSession(id) },
         ) { useSession = null }
     }
 

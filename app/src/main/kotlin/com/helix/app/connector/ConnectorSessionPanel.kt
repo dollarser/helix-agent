@@ -72,7 +72,7 @@ internal fun PluginSessionChoice(
     onSelect: (Boolean) -> Unit,
     onConfigure: () -> Unit,
 ) {
-    val selectable = !busy && (row.selected || (row.available && row.enabled && row.readyComponents > 0))
+    val selectable = !busy
     val background =
         if (row.selected) {
             MaterialTheme.colorScheme.secondaryContainer
@@ -131,36 +131,33 @@ internal fun PluginSessionChoice(
     }
 }
 
-/** UI sees only application-service projections; component repair remains in Extensions. */
-private fun openPluginConfiguration(
-    row: PluginSessionRow,
-    error: PluginSetupReason?,
-    onConfigure: () -> Unit,
-    onMobileUseConfiguration: () -> Unit,
-) {
-    when {
-        row.id == MOBILE_USE_PLUGIN_ID || error == PluginSetupReason.MOBILE_BACKEND ||
-            error == PluginSetupReason.MOBILE_CONFIGURATION -> onMobileUseConfiguration()
-
-        else -> onConfigure()
-    }
-}
-
 @Composable
 @Suppress("FunctionName", "LongMethod", "TooGenericExceptionCaught") // failures are visible; cancellation propagates
 fun ConnectorSessionPanel(
     service: PluginService,
     sessionId: String,
-    onConfigure: () -> Unit,
+    onConfigure: (String, PluginSetupReason?) -> Unit,
     pluginId: String? = null,
-    onMobileUseConfiguration: () -> Unit = onConfigure,
     canApply: () -> Boolean = { true },
     onDismiss: () -> Unit,
 ) {
+    val createState = { ConnectorSessionPanelState(service, sessionId, pluginId, canApply) }
     val state =
-        remember(service, sessionId, pluginId) { ConnectorSessionPanelState(service, sessionId, pluginId, canApply) }
+        androidx.compose.runtime.saveable.rememberSaveable(
+            sessionId,
+            pluginId,
+            saver = ConnectorSessionPanelState.saver(createState),
+        ) { createState() }
     val scope = rememberCoroutineScope()
-    LaunchedEffect(state) { state.refresh() }
+    val dismiss = {
+        state.cancelRepair()
+        onDismiss()
+    }
+    LaunchedEffect(state) { state.refresh(afterConfiguration = state.pendingRepair != null) }
+    androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+        if (state.loaded) scope.launch { state.refresh(afterConfiguration = state.pendingRepair != null) }
+    }
+    PluginSessionRepairPrompt(state, onConfigure)
     ConversationSheet(
         title = stringResource(R.string.connector_session_title),
         tag = "connector-session",
@@ -171,10 +168,10 @@ fun ConnectorSessionPanel(
                 Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.End,
             ) {
-                TextButton(enabled = !state.busy, onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) }
+                TextButton(enabled = !state.busy, onClick = dismiss) { Text(stringResource(R.string.common_cancel)) }
                 Button(
                     enabled = state.editable,
-                    onClick = { scope.launch { if (state.apply()) onDismiss() } },
+                    onClick = { scope.launch { if (state.apply()) dismiss() } },
                     modifier = Modifier.testTag("plugin-session-apply"),
                 ) { Text(stringResource(R.string.plugin_selection_apply)) }
             }
@@ -191,13 +188,7 @@ fun ConnectorSessionPanel(
             if (state.empty) Text(stringResource(R.string.connector_session_empty))
             state.rows.forEach { row ->
                 PluginSessionChoice(row, state.busy || state.loading || state.failed, { state.select(row, it) }) {
-                    if (row.id == MOBILE_USE_PLUGIN_ID ||
-                        row.setupReason in
-                        setOf(PluginSetupReason.MOBILE_CONFIGURATION, PluginSetupReason.MOBILE_BACKEND)
-                    ) {
-                        onDismiss()
-                    }
-                    openPluginConfiguration(row, row.setupReason, onConfigure, onMobileUseConfiguration)
+                    onConfigure(row.id, row.setupReason)
                 }
             }
             SessionSelectionFailure(state) { scope.launch { state.refresh() } }
@@ -223,6 +214,24 @@ private fun SessionSelectionFailure(
                     R.string.connector_session_failed
                 },
             ),
+        )
+    }
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun PluginSessionRepairPrompt(
+    state: ConnectorSessionPanelState,
+    onConfigure: (String, PluginSetupReason?) -> Unit,
+) {
+    state.setupRow?.let { row ->
+        com.helix.app.plugin.PluginSetupRequiredDialog(
+            state.setupReason ?: row.setupReason
+                ?: if (!row.enabled) PluginSetupReason.DISABLED else PluginSetupReason.CONTENT,
+            onContinue = {
+                state.beginRepair()?.let { onConfigure(it.id, it.setupReason) }
+            },
+            onDismiss = state::dismissSetup,
         )
     }
 }

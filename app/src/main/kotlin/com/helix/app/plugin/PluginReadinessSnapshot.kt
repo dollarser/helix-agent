@@ -9,6 +9,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
 enum class PluginSetupReason {
+    DISABLED,
     MOBILE_CONFIGURATION,
     MOBILE_BACKEND,
     HOST_UNAVAILABLE,
@@ -20,6 +21,7 @@ enum class PluginSetupReason {
 
 class PluginSelectionUnavailable(
     val reason: PluginSetupReason,
+    val pluginId: String? = null,
 ) : IllegalStateException(reason.name)
 
 /** Only application/adapter code interprets engine failure codes. UI consumes the typed result. */

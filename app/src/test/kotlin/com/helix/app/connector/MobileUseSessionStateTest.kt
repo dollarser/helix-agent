@@ -21,7 +21,28 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 
 class MobileUseSessionStateTest {
-    @Test fun unavailableBackendRequiresExplanationAndReturningDoesNotAutoEnable() =
+    @Test fun explicitConfigurationReturnSelectsOnceOnlyWhenReadyAndCurrent() =
+        runBlocking {
+            val fixture =
+                Fixture(
+                    readyRow.copy(ready = false, readyComponents = 0, setupReason = PluginSetupReason.MOBILE_BACKEND),
+                )
+            val state = fixture.state()
+            state.returnedFromConfiguration()
+            assertEquals(0, fixture.writes.get())
+            fixture.facts.set(readyRow)
+            state.returnedFromConfiguration()
+            assertTrue(state.active)
+            assertEquals(1, fixture.writes.get())
+            state.returnedFromConfiguration()
+            assertEquals(1, fixture.writes.get())
+            fixture.facts.set(readyRow)
+            fixture.current.set(false)
+            state.returnedFromConfiguration()
+            assertEquals(1, fixture.writes.get())
+        }
+
+    @Test fun cancelledSetupAndPassiveRefreshDoNotAutoEnable() =
         runBlocking {
             val fixture = Fixture(readyRow.copy(setupReason = PluginSetupReason.MOBILE_BACKEND, ready = false))
             val state = fixture.state()
@@ -42,7 +63,7 @@ class MobileUseSessionStateTest {
             assertEquals(1, fixture.writes.get())
         }
 
-    @Test fun scopeSaveAndSettingsReturnDoNotSelectAnyPlugin() =
+    @Test fun scopeSaveWithoutAnExplicitRepairReturnDoesNotSelectAnyPlugin() =
         runBlocking {
             val fixture = Fixture(readyRow.copy(setupReason = PluginSetupReason.MOBILE_CONFIGURATION))
             val state = fixture.state()
@@ -248,6 +269,7 @@ class MobileUseSessionStateTest {
     }
 
     companion object {
-        private val readyRow = PluginSessionRow(MOBILE_USE_PLUGIN_ID, "Mobile Use", false, false, true, true)
+        private val readyRow =
+            PluginSessionRow(MOBILE_USE_PLUGIN_ID, "Mobile Use", false, false, true, true, readyComponents = 1)
     }
 }

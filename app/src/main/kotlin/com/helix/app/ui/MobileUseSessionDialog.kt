@@ -35,6 +35,8 @@ internal fun MobileUseSessionDialog(
     onPermissions: () -> Unit,
     onConfigure: () -> Unit,
     onDismiss: () -> Unit,
+    selectOnReturn: Boolean = false,
+    onReturnConsumed: () -> Unit = {},
 ) {
     val state =
         remember(requestId) {
@@ -46,7 +48,15 @@ internal fun MobileUseSessionDialog(
         }
     var revision by remember { mutableIntStateOf(0) }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { revision++ }
-    LaunchedEffect(state, revision) { state.refresh() }
+    LaunchedEffect(state, revision) {
+        if (selectOnReturn) {
+            onReturnConsumed()
+            state.returnedFromConfiguration()
+            if (state.active && isCurrent()) onDismiss()
+        } else {
+            state.refresh()
+        }
+    }
     val reason = state.setupReason ?: state.row?.setupReason
     val unavailable = !state.loading && !state.failed && state.row?.available != true
     val scope = rememberCoroutineScope()

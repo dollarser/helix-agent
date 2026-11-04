@@ -12,8 +12,11 @@ internal fun pluginSelectionChanges(
     val available = rows.associateBy { it.id }
     selected.filter { expected[it] != true }.forEach { id ->
         val row = available[id] ?: error("PLUGIN_NOT_INSTALLED")
-        if (!row.enabled || !row.available || row.readyComponents == 0) {
-            throw PluginSelectionUnavailable(row.setupReason ?: PluginSetupReason.HOST_UNAVAILABLE)
+        if (!row.canSelectForSession) {
+            throw PluginSelectionUnavailable(
+                if (!row.enabled) PluginSetupReason.DISABLED else row.setupReason ?: PluginSetupReason.HOST_UNAVAILABLE,
+                id,
+            )
         }
     }
     return expected.filter { (id, before) -> before != (id in selected) }.mapValues { (id, _) -> id in selected }

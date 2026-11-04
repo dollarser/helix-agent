@@ -15,3 +15,7 @@ data class PluginSessionRow(
     val readiness: PluginReadinessSnapshot? = null,
     val expertProvided: Boolean = false,
 )
+
+/** Readiness projection only; selection writes must still revalidate through PluginService. */
+internal val PluginSessionRow.canSelectForSession: Boolean
+    get() = available && enabled && readyComponents > 0

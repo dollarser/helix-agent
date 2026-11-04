@@ -96,10 +96,12 @@ import com.helix.app.ui.TASKS_TURN_ROUTE
 import com.helix.app.ui.TasksScreen
 import com.helix.app.ui.commandDetailRoute
 import com.helix.app.ui.completionFor
+import com.helix.app.ui.configurePluginFrom
 import com.helix.app.ui.mobileUseSettingsDestination
 import com.helix.app.ui.navigateFrom
 import com.helix.app.ui.openSection
 import com.helix.app.ui.openSectionFrom
+import com.helix.app.ui.pluginConfigurationDestination
 import com.helix.app.ui.returnFrom
 import com.helix.app.ui.secondaryRouteTitle
 import com.helix.app.ui.tasksTurnRoute
@@ -655,12 +657,13 @@ internal fun HelixApp(container: AppContainer) {
                                     )
                                 },
                                 onExtensions = { navController.navigateFrom(entry, ShellDestination.Extensions.route) },
-                                onManageExperts = { navController.navigateFrom(entry, EXPERTS_ROUTE) },
-                                onMobileUseSession = { target ->
-                                    navController.completionFor(entry).complete {
-                                        mobileUseDialog.open(target, entry.id)
-                                    }
+                                onPluginConfigure = {
+                                    id,
+                                    reason,
+                                    ->
+                                    navController.configurePluginFrom(entry, id, reason)
                                 },
+                                onManageExperts = { navController.navigateFrom(entry, EXPERTS_ROUTE) },
                             )
                         }
                         composable(SETUP_READINESS_ROUTE) { entry ->
@@ -716,6 +719,7 @@ internal fun HelixApp(container: AppContainer) {
                             ) { navController.navigateFrom(entry, ShellDestination.Files.route) }
                         }
                         mobileUseSettingsDestination(navController)
+                        pluginConfigurationDestination(navController, container.pluginService)
                         composable(SETTINGS_STORAGE_ROUTE) {
                             StorageUsageScreen(
                                 load = { checkNotNull(container.storageUsage).snapshot() },
@@ -854,6 +858,7 @@ private fun DestinationScreen(
                 connectors = container.pluginService,
                 onManageExperts = { navController.navigateFrom(sourceEntry, EXPERTS_ROUTE) },
                 onExtensions = { navController.navigateFrom(sourceEntry, ShellDestination.Extensions.route) },
+                onPluginConfigure = { id, reason -> navController.configurePluginFrom(sourceEntry, id, reason) },
                 onMobileUseSession = onMobileUseSession,
                 onNavigation = onOpenDrawer,
                 onModels = { navController.navigateFrom(sourceEntry, ShellDestination.Models.route) },
@@ -944,6 +949,7 @@ private fun DestinationScreen(
                     onSessionSettings = { navController.navigateFrom(sourceEntry, CONVERSATION_SETTINGS_ROUTE) },
                     prepareSession = container.chatService::materializeDraftSession,
                     currentSession = { container.chatService.screen.value.openSessionId },
+                    onPluginConfigure = { id, reason -> navController.configurePluginFrom(sourceEntry, id, reason) },
                     onMobileUseSession = onMobileUseSession,
                     onMobileUseSettings = {
                         navController.navigateFrom(sourceEntry, com.helix.app.ui.MOBILE_USE_SETTINGS_ROUTE) {

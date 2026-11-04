@@ -59,6 +59,8 @@ internal fun MobileUseDialogHost(
             onPermissions = { repair(SETTINGS_SYSTEM_PERMISSIONS_ROUTE) },
             onConfigure = { repair(MOBILE_USE_SETTINGS_ROUTE) },
             onDismiss = state::dismiss,
+            selectOnReturn = request.selectOnReturn,
+            onReturnConsumed = { state.consumeReturn(request.id) },
         )
     }
 }
