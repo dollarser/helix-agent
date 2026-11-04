@@ -23,6 +23,21 @@ public final class BackgroundDisplayFixtureActivity extends BackgroundTouchActiv
         if (saved == null) new File(getFilesDir(), "background-touch.txt").delete();
         facts = getSharedPreferences("background-fixture", 0);
         facts.edit().putInt("display", displayId()).putInt("task", getTaskId()).commit();
+        if (getIntent().hasExtra("numericReadback")) {
+            facts.edit().putBoolean("numericReadback", getIntent().getBooleanExtra("numericReadback", false)).commit();
+        }
+        if (facts.getBoolean("numericReadback", false)) {
+            LinearLayout numbers = new LinearLayout(this);
+            numbers.setOrientation(LinearLayout.VERTICAL);
+            numbers.setPadding(24, 120, 24, 24);
+            for (String line : new String[] {"公开数据校验", "下载：12.3万次", "评论：47条", "评分：4.8分", "更新时间：2026-11-04"}) {
+                TextView value = label(line);
+                value.setTextSize(24f);
+                numbers.addView(value);
+            }
+            setContentView(numbers);
+            return;
+        }
         LinearLayout content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
         content.setPadding(20, 80, 20, 20);
