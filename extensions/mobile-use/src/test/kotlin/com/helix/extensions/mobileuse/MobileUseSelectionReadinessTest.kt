@@ -5,11 +5,11 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class MobileUseSelectionReadinessTest {
-    @Test fun missingConfigurationIsResolvedBeforeBackendSetup() {
+    @Test fun unavailableConfigurationFailsBeforeBackendSetup() {
         assertEquals(
-            "MOBILE_USE_NOT_CONFIGURED",
+            "MOBILE_USE_CONFIGURATION_UNREADABLE",
             MobileUseSelectionReadiness.error(false) {
-                error("Backend must not be queried before scope configuration")
+                error("Unreadable configuration must not become a whole-phone fallback")
             },
         )
     }

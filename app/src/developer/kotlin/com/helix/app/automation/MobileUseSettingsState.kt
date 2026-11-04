@@ -9,7 +9,9 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-/** Draft UI state never grants a scope. Only a successful store write changes authority. */
+/**
+ * Draft UI state never grants a scope. Stored settings override the product default after a successful write.
+ */
 @Suppress("TooGenericExceptionCaught") // UI storage boundary reports failure; cancellation still propagates.
 internal class MobileUseSettingsState(
     private val store: MobileUseGrantStore,
@@ -24,7 +26,7 @@ internal class MobileUseSettingsState(
     var busy by mutableStateOf(false)
     var failed by mutableStateOf(false)
     var requiresReset by mutableStateOf(false)
-    private var configured by mutableStateOf(false)
+    private var scopeAvailable by mutableStateOf(false)
     private var baselinePackages by mutableStateOf(emptyList<String>())
     private var baselineWholePhone by mutableStateOf(true)
 
@@ -32,7 +34,7 @@ internal class MobileUseSettingsState(
         background != baselineBackground || allowMoveFromMain != baselineAllowMove ||
             wholePhone != baselineWholePhone ||
             (!wholePhone && packages.toSet() != baselinePackages.toSet())
-    val saved get() = configured && !dirty && !failed
+    val applied get() = scopeAvailable && !dirty && !failed
     val canSave get() = loaded && !busy && (wholePhone || packages.isNotEmpty())
 
     fun discard() {
@@ -64,7 +66,7 @@ internal class MobileUseSettingsState(
             allowMoveFromMain = config?.allowMoveFromMain == true
             baselineBackground = background
             baselineAllowMove = allowMoveFromMain
-            configured = config != null
+            scopeAvailable = config != null
             baselinePackages = packages
             baselineWholePhone = wholePhone
             loaded = true
@@ -101,7 +103,7 @@ internal class MobileUseSettingsState(
             baselineWholePhone = all
             baselineBackground = useBackground
             baselineAllowMove = move
-            configured = true
+            scopeAvailable = true
             true
         } catch (cancel: CancellationException) {
             // A database write may have committed. Re-read its authoritative result on return.
@@ -140,7 +142,7 @@ internal class MobileUseSettingsState(
                         it.packages.joinToString("\n"),
                         it.wholePhone,
                         it.loaded && !it.busy,
-                        it.configured,
+                        it.scopeAvailable,
                         it.baselinePackages.joinToString("\n"),
                         it.baselineWholePhone,
                         it.background,
@@ -154,7 +156,7 @@ internal class MobileUseSettingsState(
                         packages = (values[0] as String).lines().filter(String::isNotEmpty)
                         wholePhone = values[1] as Boolean
                         loaded = values[2] as Boolean
-                        configured = values[3] as Boolean
+                        scopeAvailable = values[3] as Boolean
                         baselinePackages = (values[4] as String).lines().filter(String::isNotEmpty)
                         baselineWholePhone = values[5] as Boolean
                         background = values[6] as Boolean

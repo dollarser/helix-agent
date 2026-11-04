@@ -44,11 +44,11 @@ class MobileUseSessionStateTest {
 
     @Test fun scopeSaveAndSettingsReturnDoNotSelectAnyPlugin() =
         runBlocking {
-            val fixture = Fixture(readyRow.copy(setupReason = PluginSetupReason.MOBILE_SCOPE))
+            val fixture = Fixture(readyRow.copy(setupReason = PluginSetupReason.MOBILE_CONFIGURATION))
             val state = fixture.state()
             state.refresh()
             state.choose(true)
-            assertEquals(PluginSetupReason.MOBILE_SCOPE, state.setupReason)
+            assertEquals(PluginSetupReason.MOBILE_CONFIGURATION, state.setupReason)
             state.dismissSetup()
             fixture.facts.set(readyRow)
             state.refresh()

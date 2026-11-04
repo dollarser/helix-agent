@@ -31,7 +31,7 @@ class PluginSessionChoiceDeviceTest {
         )
     private val tag = "connector-session-${row.id}"
 
-    @Test fun missingConfigurationOffersExplicitSetupWithoutSelecting() = blocked(PluginSetupReason.MOBILE_SCOPE)
+    @Test fun unreadableConfigurationOffersRepairWithoutSelecting() = blocked(PluginSetupReason.MOBILE_CONFIGURATION)
 
     @Test fun missingBackendOffersExplicitSetupWithoutSelecting() = blocked(PluginSetupReason.MOBILE_BACKEND)
 

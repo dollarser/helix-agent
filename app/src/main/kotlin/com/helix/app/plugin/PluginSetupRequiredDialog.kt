@@ -14,7 +14,7 @@ import com.helix.app.ui.indicatedVerticalScroll
 
 internal fun pluginSetupExplanation(error: PluginSetupReason): Int =
     when (error) {
-        PluginSetupReason.MOBILE_SCOPE -> R.string.plugin_setup_mobile_scope
+        PluginSetupReason.MOBILE_CONFIGURATION -> R.string.plugin_setup_mobile_configuration
         PluginSetupReason.MOBILE_BACKEND -> R.string.plugin_setup_mobile_backend
         PluginSetupReason.CONNECTION -> R.string.plugin_setup_connection
         PluginSetupReason.HOST_UNAVAILABLE -> R.string.plugin_setup_host

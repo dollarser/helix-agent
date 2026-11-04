@@ -100,7 +100,7 @@ private fun mobileUseDialogMessage(
         unavailable -> R.string.plugin_setup_unsupported
         state.active -> R.string.mobile_use_session_enabled
         reason == PluginSetupReason.MOBILE_BACKEND -> R.string.plugin_setup_mobile_backend
-        reason == PluginSetupReason.MOBILE_SCOPE -> R.string.mobile_use_configuration_required
+        reason == PluginSetupReason.MOBILE_CONFIGURATION -> R.string.mobile_use_configuration_error
         else -> R.string.mobile_use_session_hint
     }
 
@@ -113,7 +113,7 @@ private fun mobileUseDialogConfirmLabel(
         state.active || unavailable -> R.string.chat_details_close
         state.failed -> R.string.chat_retry
         reason == PluginSetupReason.MOBILE_BACKEND -> R.string.mobile_use_go_authorize
-        reason == PluginSetupReason.MOBILE_SCOPE -> R.string.plugin_setup_continue
+        reason == PluginSetupReason.MOBILE_CONFIGURATION -> R.string.plugin_setup_continue
         else -> R.string.mobile_use_session_enable
     }
 
@@ -144,7 +144,7 @@ private fun confirmMobileUseDialog(
             callbacks.permissions()
         }
 
-        reason == PluginSetupReason.MOBILE_SCOPE -> {
+        reason == PluginSetupReason.MOBILE_CONFIGURATION -> {
             callbacks.configure()
         }
 

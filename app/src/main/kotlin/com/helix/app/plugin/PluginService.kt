@@ -305,7 +305,7 @@ class PluginService(
             }
         val state =
             when (setup) {
-                PluginSetupReason.MOBILE_SCOPE -> {
+                PluginSetupReason.MOBILE_CONFIGURATION -> {
                     PluginComponentState.NEEDS_CONFIGURATION
                 }
 

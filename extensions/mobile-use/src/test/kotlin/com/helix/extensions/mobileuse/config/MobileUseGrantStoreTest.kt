@@ -10,6 +10,31 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class MobileUseGrantStoreTest {
+    @Test fun defaultWholePhoneIsStableWithoutWritingOrSelectingConversations() {
+        val first = store().globalConfiguration()!!
+        assertTrue(first.scope.allApplications)
+        assertTrue(first.scope.allowedPackages.isEmpty())
+        assertTrue(records.isEmpty())
+        assertNull(store().find("a"))
+        selections["a"] = "selection"
+        val grant = store().find("a")!!
+        assertTrue(grant.scope.permitsPackage("com.example.any"))
+        repeat(3) { assertEquals(grant, store().find("a")) }
+        assertTrue(records.isEmpty())
+        store().configureGlobal(setOf("com.example.allowed"), false)
+        assertFalse(store().matches("a", grant.scope.toScopeRef()))
+        assertFalse(store().find("a")!!.scope.permitsPackage("com.example.any"))
+    }
+
+    @Test fun emptySpecificApplicationSelectionCannotBeSavedOrReplaceExistingScope() {
+        val store = store()
+        store.configureGlobal(setOf("com.example.allowed"), false)
+        val before = records.toMap()
+        assertThrows(IllegalArgumentException::class.java) { store.configureGlobal(emptySet(), false) }
+        assertEquals(before, records)
+        assertFalse(store.globalConfiguration()!!.scope.allApplications)
+    }
+
     @Test fun initialModeUsesAvailableBackendOnceAndNeverSilentlyFallsBackAfterConnectionLoss() {
         val lines = mutableMapOf<String, List<String>>()
         var shell = true

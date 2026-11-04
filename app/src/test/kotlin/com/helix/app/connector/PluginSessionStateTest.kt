@@ -9,10 +9,10 @@ import org.junit.Test
 class PluginSessionStateTest {
     private val ready = PluginSessionRow("plugin", "Mobile Use", false, false, true, true)
 
-    @Test fun registeredToolsDoNotHideMissingConfiguration() {
+    @Test fun registeredToolsDoNotHideUnreadableConfiguration() {
         assertEquals(
-            R.string.mobile_use_configuration_required,
-            statusLabel(ready.copy(setupReason = PluginSetupReason.MOBILE_SCOPE)),
+            R.string.mobile_use_configuration_error,
+            statusLabel(ready.copy(setupReason = PluginSetupReason.MOBILE_CONFIGURATION)),
         )
         assertEquals(R.string.connector_session_setup, statusLabel(ready.copy(setupReason = PluginSetupReason.RELOAD)))
         assertEquals(

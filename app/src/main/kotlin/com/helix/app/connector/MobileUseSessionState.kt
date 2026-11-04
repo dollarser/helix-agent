@@ -89,7 +89,9 @@ internal class MobileUseSessionState(
         val actual = checkNotNull(read())
         check(actual.id == MOBILE_USE_PLUGIN_ID && (!enabled || actual.available))
         val prerequisite = actual.setupReason
-        if (enabled && prerequisite in setOf(PluginSetupReason.MOBILE_BACKEND, PluginSetupReason.MOBILE_SCOPE)) {
+        if (enabled &&
+            prerequisite in setOf(PluginSetupReason.MOBILE_BACKEND, PluginSetupReason.MOBILE_CONFIGURATION)
+        ) {
             throw PluginSelectionUnavailable(checkNotNull(prerequisite))
         }
         // The target stays immutable; a stale settings return cannot write into a new conversation.

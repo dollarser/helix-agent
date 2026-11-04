@@ -31,16 +31,17 @@ class MobileUseSettingsStateTest {
     private val records = mutableMapOf<String, List<String>>()
     private val store = MobileUseGrantStore({ records[it].orEmpty() }, { key, value -> records[key] = value }, { null })
 
-    @Test fun defaultIsDraftUntilSaved() =
+    @Test fun defaultWholePhoneIsAppliedWithoutWritingOrSelecting() =
         runBlocking {
             val state = MobileUseSettingsState(store)
             state.load()
             assertTrue(state.wholePhone)
             assertFalse(state.dirty)
-            assertFalse(state.saved)
-            assertNull(store.globalConfiguration())
+            assertTrue(state.applied)
+            assertTrue(store.globalConfiguration()!!.scope.allApplications)
+            assertTrue(records.isEmpty())
             assertTrue(state.save())
-            assertTrue(state.saved)
+            assertTrue(state.applied)
             assertTrue(store.globalConfiguration()!!.scope.allApplications)
             assertNull(store.find("conversation"))
         }
@@ -58,7 +59,7 @@ class MobileUseSettingsStateTest {
             assertTrue(state.dirty)
             state.discard()
             assertEquals(listOf("com.example.allowed"), state.packages)
-            assertTrue(state.saved)
+            assertTrue(state.applied)
         }
 
     @Test fun failedLoadCanRetryWithoutWriting() =
@@ -92,12 +93,12 @@ class MobileUseSettingsStateTest {
             state.wholePhone = false
             state.packages = listOf("com.example.allowed")
             assertFalse(state.save())
-            assertFalse(state.saved)
+            assertFalse(state.applied)
             assertTrue(state.dirty)
             assertEquals(listOf("com.example.allowed"), state.packages)
             fail = false
             assertTrue(state.save())
-            assertTrue(state.saved)
+            assertTrue(state.applied)
         }
 
     @Test fun cancelledSaveRequiresAuthoritativeReload() =
@@ -127,6 +128,6 @@ class MobileUseSettingsStateTest {
             assertTrue(restored.dirty)
             assertEquals(state.packages, restored.packages)
             assertFalse(restored.wholePhone)
-            assertNull(store.globalConfiguration())
+            assertTrue(store.globalConfiguration()!!.scope.allApplications)
         }
 }

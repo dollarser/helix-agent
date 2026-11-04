@@ -4,8 +4,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
-import androidx.compose.ui.test.assertIsOff
-import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
@@ -38,14 +38,24 @@ class AutomationSettingsAuthorizationDeviceTest {
         compose.onNodeWithTag("permission-root-authorize").assertDoesNotExist()
         compose.onNodeWithTag("permission-shizuku-manage").assertDoesNotExist()
         compose.onNodeWithTag("permission-accessibility").assertDoesNotExist()
-        compose.onNodeWithTag("automation-all-applications").performScrollTo().assertIsOn()
-        assertNull(store.globalConfiguration())
+        compose.onNodeWithTag("mobile-use-advanced").performClick()
+        compose.onNodeWithTag("automation-all-applications").performScrollTo().assertIsSelected()
+        assertTrue(store.globalConfiguration()!!.scope.allApplications)
+        assertTrue(records.isEmpty())
+        compose.onNodeWithTag("automation-specific-applications").performScrollTo().performClick()
+        compose
+            .onNodeWithTag("mobile-use-save-settings")
+            .performScrollTo()
+            .assertIsDisplayed()
+            .assertIsNotEnabled()
         compose.onNodeWithTag("automation-all-applications").performScrollTo().performClick()
-        compose.onNodeWithTag("mobile-use-save-settings").assertIsDisplayed().assertIsNotEnabled()
-        compose.onNodeWithTag("automation-all-applications").performClick()
-        compose.onNodeWithTag("mobile-use-save-settings").assertIsDisplayed().assertIsEnabled()
-        compose.onNodeWithTag("mobile-use-save-settings").performClick()
-        compose.waitUntil(5_000) { store.globalConfiguration() != null }
+        compose
+            .onNodeWithTag("mobile-use-save-settings")
+            .performScrollTo()
+            .assertIsDisplayed()
+            .assertIsEnabled()
+        compose.onNodeWithTag("mobile-use-save-settings").performScrollTo().performClick()
+        compose.waitUntil(5_000) { records.containsKey(MobileUseGrantStore.CONFIG_KEY) }
         assertTrue(store.globalConfiguration()!!.scope.allApplications)
         assertNull(store.find("session"))
         assertFalse(permissionsOpened)
@@ -66,12 +76,17 @@ class AutomationSettingsAuthorizationDeviceTest {
             }
         }
         compose.waitForIdle()
-        compose.onNodeWithTag("automation-all-applications").performScrollTo().assertIsOn()
-        compose.onNodeWithTag("mobile-use-save-settings").performClick()
+        compose.onNodeWithTag("mobile-use-advanced").performClick()
+        compose.onNodeWithTag("automation-all-applications").performScrollTo().assertIsSelected()
+        compose.onNodeWithTag("mobile-use-save-settings").performScrollTo().performClick()
         compose.waitUntil(
             5_000,
         ) { compose.onAllNodesWithTag("mobile-use-save-error").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithTag("mobile-use-save-settings").assertIsDisplayed().assertIsEnabled()
+        compose
+            .onNodeWithTag("mobile-use-save-settings")
+            .performScrollTo()
+            .assertIsDisplayed()
+            .assertIsEnabled()
         assertNull(store.find("session"))
     }
 
@@ -84,7 +99,7 @@ class AutomationSettingsAuthorizationDeviceTest {
         }
         compose.waitForIdle()
         compose.onNodeWithTag("mobile-use-advanced").performClick()
-        compose.onNodeWithTag("automation-all-applications").performScrollTo().assertIsOff()
+        compose.onNodeWithTag("automation-all-applications").performScrollTo().assertIsNotSelected()
         assertFalse(store.globalConfiguration()!!.scope.allApplications)
         assertTrue(store.globalConfiguration()!!.scope.permitsPackage("com.example.allowed"))
     }
@@ -125,21 +140,16 @@ class AutomationSettingsAuthorizationDeviceTest {
         compose.onNodeWithTag("mobile-use-advanced").performClick()
         compose.onNodeWithTag("mobile-use-save-settings").assertIsNotEnabled()
         fail.set(false)
-        compose.onNodeWithTag("mobile-use-reload").performClick()
+        compose.onNodeWithTag("mobile-use-reload").performScrollTo().performClick()
         waitForScope()
         compose.onNodeWithTag("mobile-use-save-settings").assertIsEnabled()
     }
 
     private fun waitForScope() {
         compose.waitUntil(5_000) {
-            compose
-                .onAllNodes(
-                    androidx.compose.ui.test
-                        .hasTestTag("automation-all-applications") and
-                        androidx.compose.ui.test
-                            .isEnabled(),
-                ).fetchSemanticsNodes()
-                .isNotEmpty()
+            runCatching {
+                compose.onNodeWithTag("automation-all-applications").performScrollTo().assertIsEnabled()
+            }.isSuccess
         }
     }
 }

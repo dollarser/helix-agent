@@ -36,7 +36,7 @@ internal fun statusLabel(row: PluginSessionRow): Int =
     when {
         !row.available -> R.string.connector_session_unavailable
         !row.enabled -> R.string.connector_inactive
-        row.setupReason == PluginSetupReason.MOBILE_SCOPE -> R.string.mobile_use_configuration_required
+        row.setupReason == PluginSetupReason.MOBILE_CONFIGURATION -> R.string.mobile_use_configuration_error
         row.setupReason == PluginSetupReason.MOBILE_BACKEND -> R.string.mobile_use_needs_access
         row.setupReason != null -> R.string.connector_session_setup
         !row.ready -> R.string.connector_session_setup
@@ -114,7 +114,7 @@ internal fun PluginSessionChoice(
                         Text(
                             stringResource(
                                 when (row.setupReason) {
-                                    PluginSetupReason.MOBILE_BACKEND, PluginSetupReason.MOBILE_SCOPE -> {
+                                    PluginSetupReason.MOBILE_BACKEND, PluginSetupReason.MOBILE_CONFIGURATION -> {
                                         R.string.phone_task_configure
                                     }
 
@@ -140,7 +140,7 @@ private fun openPluginConfiguration(
 ) {
     when {
         row.id == MOBILE_USE_PLUGIN_ID || error == PluginSetupReason.MOBILE_BACKEND ||
-            error == PluginSetupReason.MOBILE_SCOPE -> onMobileUseConfiguration()
+            error == PluginSetupReason.MOBILE_CONFIGURATION -> onMobileUseConfiguration()
 
         else -> onConfigure()
     }
@@ -192,7 +192,8 @@ fun ConnectorSessionPanel(
             state.rows.forEach { row ->
                 PluginSessionChoice(row, state.busy || state.loading || state.failed, { state.select(row, it) }) {
                     if (row.id == MOBILE_USE_PLUGIN_ID ||
-                        row.setupReason in setOf(PluginSetupReason.MOBILE_SCOPE, PluginSetupReason.MOBILE_BACKEND)
+                        row.setupReason in
+                        setOf(PluginSetupReason.MOBILE_CONFIGURATION, PluginSetupReason.MOBILE_BACKEND)
                     ) {
                         onDismiss()
                     }
@@ -217,7 +218,7 @@ private fun SessionSelectionFailure(
                 if (!state.loaded) {
                     R.string.plugin_selection_load_failed
                 } else if (state.needsConfiguration) {
-                    R.string.mobile_use_configuration_required
+                    R.string.mobile_use_configuration_error
                 } else {
                     R.string.connector_session_failed
                 },

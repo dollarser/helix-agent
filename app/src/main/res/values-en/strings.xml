@@ -1740,13 +1740,15 @@
     <string name="mobile_use_scope_help">Select only the apps needed for your task. Whole-phone access allows all apps, subject to system permissions and execution approvals.</string>
     <string name="mobile_use_save_hint">Settings are not saved. Select at least one app or allow the whole phone, then save.</string>
     <string name="mobile_use_settings_failed">Could not load or save settings. Please try again.</string>
-    <string name="mobile_use_saved">Saved for conversations using this plugin</string>
+    <string name="mobile_use_scope_applied">Applies to conversations using this plugin</string>
+    <string name="mobile_use_whole_phone">Whole phone</string>
+    <string name="mobile_use_specific_apps">Specific apps</string>
     <string name="mobile_use_accessibility">Accessibility service</string>
     <string name="permissions_root_diagnostics">Root read-only diagnostics</string>
     <string name="plugin_contents_tools">Tools (%1$d)</string>
     <string name="plugin_contents_skills">Skills (%1$d)</string>
     <string name="plugin_contents_skill_hint">Selecting the plugin exposes the skill catalog. Bodies load on demand or after an explicit user invocation. Built-in skills need no separate switch.</string>
-    <string name="mobile_use_configuration_required">Save the allowed application scope in Plugins → Mobile Use → Plugin settings first.</string>
+    <string name="mobile_use_configuration_error">Phone access configuration could not be read. Open Mobile Use settings to repair it.</string>
     <string name="permissions_file_locations">Files and granted folders</string>
     <string name="plugin_contents_expand">View tools and skills ▾</string>
     <string name="plugin_contents_collapse">Collapse tools and skills ▴</string>
@@ -1896,7 +1898,7 @@
     <string name="device_access_status_failed">Unable to check status</string>
     <string name="device_access_root_failed">Authorization or connection failed. Check Helix authorization in your Root manager and retry.</string>
     <string name="plugin_setup_title">Plugin setup required</string>
-    <string name="plugin_setup_mobile_scope">Mobile Use has no saved phone access scope. Choose the whole phone or specific apps in Mobile Use settings, save, then return and enable it.</string>
+    <string name="plugin_setup_mobile_configuration">Phone access configuration could not be read. Open Mobile Use settings and save the intended scope again.</string>
     <string name="plugin_setup_mobile_backend">Enable at least one phone-control permission.</string>
     <string name="plugin_setup_generic">This plugin needs more setup. Complete the required settings in Plugins, then return and enable it.</string>
     <string name="plugin_setup_continue">Go to settings</string>

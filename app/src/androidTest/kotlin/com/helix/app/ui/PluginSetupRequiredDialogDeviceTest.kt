@@ -57,7 +57,7 @@ class PluginSetupRequiredDialogDeviceTest {
     }
 
     @Test fun decliningScopeSetupDoesNotNavigate() {
-        show(PluginSetupReason.MOBILE_SCOPE, R.string.plugin_setup_mobile_scope)
+        show(PluginSetupReason.MOBILE_CONFIGURATION, R.string.plugin_setup_mobile_configuration)
         compose.onNodeWithTag("plugin-setup-dismiss").performClick()
         compose.waitForIdle()
         assertEquals(0, navigations)

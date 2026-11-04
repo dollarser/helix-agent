@@ -1737,13 +1737,15 @@
     <string name="mobile_use_scope_help">建议只选择任务需要的应用。选择整个手机会允许操作所有应用，但仍受系统权限和执行审批约束。</string>
     <string name="mobile_use_save_hint">设置尚未保存。至少选择一个应用或允许整个手机，然后点击保存。</string>
     <string name="mobile_use_settings_failed">设置读取或保存失败，请重试。</string>
-    <string name="mobile_use_saved">已保存，对启用此插件的会话生效</string>
+    <string name="mobile_use_scope_applied">对启用此插件的会话生效</string>
+    <string name="mobile_use_whole_phone">全手机</string>
+    <string name="mobile_use_specific_apps">指定应用</string>
     <string name="mobile_use_accessibility">无障碍服务</string>
     <string name="permissions_root_diagnostics">Root 只读诊断</string>
     <string name="plugin_contents_tools">工具（%1$d）</string>
     <string name="plugin_contents_skills">技能（%1$d）</string>
     <string name="plugin_contents_skill_hint">选用插件后提供技能目录，正文按需读取或由明确的用户调用加载。无需单独开启内置技能。</string>
-    <string name="mobile_use_configuration_required">请先在插件 → 手机操作 → 插件设置中保存可操作的应用范围。</string>
+    <string name="mobile_use_configuration_error">手机操作范围配置无法读取，请到插件设置中修复。</string>
     <string name="permissions_file_locations">文件与已授权目录</string>
     <string name="plugin_contents_expand">查看工具与技能 ▾</string>
     <string name="plugin_contents_collapse">收起工具与技能 ▴</string>
@@ -1893,7 +1895,7 @@
     <string name="device_access_status_failed">暂时无法确认状态</string>
     <string name="device_access_root_failed">无法授权或连接，请检查 Root 管理器中的 Helix 授权后重试。</string>
     <string name="plugin_setup_title">插件尚未配置完成</string>
-    <string name="plugin_setup_mobile_scope">尚未保存手机操作范围。请在 手机操作 设置中选择全手机或指定应用并保存，再返回开启插件。</string>
+    <string name="plugin_setup_mobile_configuration">手机操作范围配置无法读取。请打开手机操作设置，重新保存所需范围。</string>
     <string name="plugin_setup_mobile_backend">请至少开启一种手机操作权限。</string>
     <string name="plugin_setup_generic">此插件还有未完成的配置。请到插件设置补全所需配置，再返回开启插件。</string>
     <string name="plugin_setup_continue">去设置</string>

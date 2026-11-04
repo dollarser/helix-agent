@@ -13,6 +13,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -47,7 +48,7 @@ internal fun MobileUseSettings(
     var picker by remember { mutableStateOf(false) }
     var advanced by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(state.loaded) {
-        if (state.loaded && !state.saved && !state.failed) advanced = true
+        if (state.loaded && !state.applied && !state.failed) advanced = true
     }
     val scope = rememberCoroutineScope()
     val applications = remember(context) { AutomationApplicationCatalog(context) }
@@ -121,13 +122,20 @@ private fun MobileUseScopeOptions(
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(stringResource(R.string.mobile_use_scope_heading), style = MaterialTheme.typography.titleMedium)
             Row {
-                Checkbox(
+                RadioButton(
                     state.wholePhone,
-                    { state.wholePhone = it },
+                    { state.wholePhone = true },
                     enabled = state.loaded && !state.busy,
                     modifier = Modifier.testTag("automation-all-applications"),
                 )
-                Text(stringResource(R.string.automation_whole_phone_label))
+                Text(stringResource(R.string.mobile_use_whole_phone))
+                RadioButton(
+                    !state.wholePhone,
+                    { state.wholePhone = false },
+                    enabled = state.loaded && !state.busy,
+                    modifier = Modifier.testTag("automation-specific-applications"),
+                )
+                Text(stringResource(R.string.mobile_use_specific_apps))
             }
             if (!state.wholePhone) {
                 OutlinedButton(
@@ -144,7 +152,7 @@ private fun MobileUseScopeOptions(
 @Suppress("FunctionName")
 private fun MobileUseSaveStatus(state: MobileUseSettingsState) {
     Text(
-        stringResource(if (state.saved) R.string.mobile_use_saved else R.string.mobile_use_save_hint),
+        stringResource(if (state.applied) R.string.mobile_use_scope_applied else R.string.mobile_use_save_hint),
         Modifier.testTag("mobile-use-save-status"),
     )
     if (state.failed) {

@@ -9,7 +9,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
 enum class PluginSetupReason {
-    MOBILE_SCOPE,
+    MOBILE_CONFIGURATION,
     MOBILE_BACKEND,
     HOST_UNAVAILABLE,
     CONNECTION,
@@ -26,7 +26,7 @@ class PluginSelectionUnavailable(
 internal fun pluginSetupReason(code: String?): PluginSetupReason? =
     when (code) {
         null -> null
-        "MOBILE_USE_NOT_CONFIGURED" -> PluginSetupReason.MOBILE_SCOPE
+        "MOBILE_USE_CONFIGURATION_UNREADABLE" -> PluginSetupReason.MOBILE_CONFIGURATION
         "MOBILE_USE_BACKEND_UNAVAILABLE" -> PluginSetupReason.MOBILE_BACKEND
         "PLUGIN_HOST_COMPONENT_UNAVAILABLE" -> PluginSetupReason.HOST_UNAVAILABLE
         else -> PluginSetupReason.RELOAD

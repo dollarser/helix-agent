@@ -48,7 +48,17 @@ class MobileUseGrantStore(
     @Suppress("ThrowsCount") // Reject malformed fields without accepting a partial or broader grant.
     fun globalConfiguration(): MobileUseGrant? {
         if (failedWrite) return null
-        return read(CONFIG_KEY).takeIf { it.isNotEmpty() }?.let { fields ->
+        val fields = read(CONFIG_KEY)
+        return if (fields.isEmpty()) {
+            val execution = executionSettings()
+            MobileUseGrant(
+                "plugin:mobile-use:global",
+                AutomationSessionScope(emptySet(), emptySet(), 0, Instant.MAX, true, "mobile-use-default-whole-phone"),
+                true,
+                execution.first,
+                execution.second,
+            )
+        } else {
             if (fields.size != 3 || fields[0] != VERSION) throw MobileUseConfigurationUnreadable()
             val scope =
                 UserScopeCodec.decode(fields[1]) as? AutomationSessionScope
@@ -73,11 +83,13 @@ class MobileUseGrantStore(
         wholePhone: Boolean,
         shareScreens: Boolean = true,
     ): MobileUseGrant {
+        require(wholePhone || applications.isNotEmpty()) { "Select at least one application" }
         if (read(EXECUTION_KEY).isEmpty()) configureExecution(initialExecution.first, initialExecution.second)
         val selected = if (wholePhone) emptySet() else applications.toSortedSet()
         globalConfiguration()
             ?.takeIf {
-                it.scope.allowedPackages == selected && it.scope.allApplications == wholePhone &&
+                read(CONFIG_KEY).isNotEmpty() &&
+                    it.scope.allowedPackages == selected && it.scope.allApplications == wholePhone &&
                     it.shareScreens == shareScreens
             }?.let { return it }
         val scope = AutomationSessionScope(selected, emptySet(), 0, Instant.MAX, wholePhone, newId())
