@@ -47,7 +47,6 @@ internal fun FilesHome(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        FileLibraryHome(state, actions)
         Text(stringResource(R.string.files_quick_access), style = MaterialTheme.typography.titleMedium)
         listOf(
             "Download" to R.string.files_downloads_folder,
@@ -95,6 +94,18 @@ internal fun FilesHome(
         TextButton({ state.safPanelOpen = true }, modifier = Modifier.testTag("files-saf-open")) {
             Text(stringResource(R.string.files_add_location))
         }
+        FileLibraryHome(state, actions)
+        HelixCard(onClick = {
+            state.openLocation(state.localScopeId)
+            state.trashFromHome = true
+            state.trashOpen = true
+        }, modifier = Modifier.fillMaxWidth().testTag("files-home-trash")) {
+            Text(
+                stringResource(R.string.files_trash_button),
+                modifier = Modifier.padding(16.dp),
+                style = MaterialTheme.typography.titleMedium,
+            )
+        }
         Text(stringResource(R.string.files_helix_tools), style = MaterialTheme.typography.titleMedium)
         FileLocationCard(
             stringResource(R.string.files_session_workspaces),
@@ -116,6 +127,9 @@ internal fun FilesHome(
                     ) {
                         Text(stringResource(R.string.files_request_root))
                     }
+                }
+                TextButton({ state.syncOpen = true }, modifier = Modifier.testTag("files-directory-sync")) {
+                    Text(stringResource(R.string.sync_title))
                 }
                 FilesRecoveryPanel(actions)
             }

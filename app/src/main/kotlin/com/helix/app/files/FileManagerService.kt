@@ -399,9 +399,24 @@ class FileManagerService internal constructor(
     private fun comparatorFor(sort: SortKey): Comparator<FileEntry> {
         val secondary =
             when (sort) {
-                SortKey.NAME -> compareBy<FileEntry>({ it.name.lowercase() }, FileEntry::name)
-                SortKey.TIME -> compareByDescending<FileEntry> { it.mtimeEpochMillis }
-                SortKey.SIZE -> compareByDescending<FileEntry> { it.sizeBytes }
+                SortKey.NAME -> {
+                    compareBy<FileEntry>({ it.name.lowercase() }, FileEntry::name)
+                }
+
+                SortKey.TIME -> {
+                    compareByDescending<FileEntry> { it.mtimeEpochMillis }
+                }
+
+                SortKey.TYPE -> {
+                    compareBy<FileEntry>(
+                        { it.name.substringAfterLast('.', "").lowercase() },
+                        { it.name.lowercase() },
+                    )
+                }
+
+                SortKey.SIZE -> {
+                    compareByDescending<FileEntry> { it.sizeBytes }
+                }
             }
         return compareByDescending<FileEntry> { it.isDirectory }.thenComparing(secondary)
     }
@@ -457,6 +472,29 @@ class FileManagerService internal constructor(
         } else {
             preview.previewImageBytes(scopeId, relativePath, maxBytes)
         }
+
+    /** Viewer-specific bounds are identical for local, shared, Root and SAF sources. */
+    @Synchronized
+    internal fun viewerContent(
+        scopeId: String,
+        relativePath: String,
+    ): FileViewerContent {
+        val info = fileInfo(scopeId, relativePath)
+        check(info.sizeBytes >= 0) { "File is unavailable" }
+        if (info.isText) {
+            val text = requireNotNull(previewText(scopeId, relativePath, VIEWER_TEXT_BYTES)) { "Text is unavailable" }
+            return FileViewerContent(info, text = text, textTruncated = info.sizeBytes > VIEWER_TEXT_BYTES)
+        }
+        if (info.mimeType.startsWith("image/")) {
+            if (info.sizeBytes > VIEWER_IMAGE_BYTES) return FileViewerContent(info, imageTooLarge = true)
+            val bytes = previewImageBytes(scopeId, relativePath, VIEWER_IMAGE_BYTES)
+            check(bytes.size.toLong() == info.sizeBytes && bytes.size.toLong() <= VIEWER_IMAGE_BYTES) {
+                "Image changed or is unavailable"
+            }
+            return FileViewerContent(info, imageBytes = bytes)
+        }
+        return FileViewerContent(info)
+    }
 
     @Synchronized
     fun mimeTypeFor(
@@ -632,6 +670,17 @@ class FileManagerService internal constructor(
             FileOpResult.Error(loc(R.string.files_error_operation_failed))
         }
 
+    @Synchronized
+    fun createFile(
+        scopeId: String,
+        parentRel: String,
+        name: String,
+    ): FileOpResult =
+        manualResult(joinPath(parentRel, name)) {
+            requireNotNull(manual).createFile(scopeId, parentRel, name)
+            false
+        }
+
     /** Creates a directory [name] under [parentRel] (inside a user region). Refuses an existing path. */
     @Suppress("TooGenericExceptionCaught", "SwallowedException") // I/O failure maps to a fail-closed FileOpResult
     @Synchronized
@@ -805,6 +854,8 @@ class FileManagerService internal constructor(
     ): String = if (dir.isEmpty()) name else "$dir/$name"
 
     companion object {
+        const val VIEWER_TEXT_BYTES = 1024L * 1024
+        const val VIEWER_IMAGE_BYTES = 8L * 1024 * 1024
         const val ROOT_SCOPE_ID = "root"
         const val MAX_LIST_ENTRIES = 500
         const val DEFAULT_PREVIEW_BYTES = 64L * 1024
@@ -851,6 +902,7 @@ enum class SortKey {
     NAME,
     TIME,
     SIZE,
+    TYPE,
 }
 
 /**
@@ -870,4 +922,12 @@ internal data class WorkspaceDirectoryChoices(
     val access: WorkspaceAccessReport?,
     val localAlternative: String?,
     val truncated: Boolean = false,
+)
+
+internal data class FileViewerContent(
+    val info: FileManagerService.FileMeta,
+    val text: String? = null,
+    val imageBytes: ByteArray? = null,
+    val textTruncated: Boolean = false,
+    val imageTooLarge: Boolean = false,
 )

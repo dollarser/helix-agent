@@ -56,7 +56,7 @@ internal object RootFileModule {
             maxBytes: Long,
         ): String? {
             val targetPath = RootFileAccessor.toAbsolutePath(relativePath)
-            val cap = minOf(maxBytes, 64L * 1024)
+            val cap = minOf(maxBytes, FileManagerService.VIEWER_TEXT_BYTES)
             val bytes = RootFileAccessor.readBytes(targetPath, cap) ?: return null
             if (!ContentProbe.probeBytes(bytes, bytes.size.toLong()).isText) return null
             return String(bytes, Charsets.UTF_8)
@@ -68,9 +68,13 @@ internal object RootFileModule {
             maxBytes: Long,
         ): ByteArray {
             val targetPath = RootFileAccessor.toAbsolutePath(relativePath)
-            val cap = minOf(maxBytes, 4L * 1024 * 1024)
+            val cap = minOf(maxBytes, FileManagerService.VIEWER_IMAGE_BYTES)
+            val before = RootFileAccessor.stat(targetPath) ?: return ByteArray(0)
+            if (before.isDirectory || before.sizeBytes !in 0..cap) return ByteArray(0)
             val bytes = RootFileAccessor.readBytes(targetPath, cap) ?: return ByteArray(0)
-            if (!ContentProbe.probeBytes(bytes, bytes.size.toLong()).mimeType.startsWith("image/")) {
+            if (bytes.size.toLong() != before.sizeBytes || RootFileAccessor.stat(targetPath) != before ||
+                !ContentProbe.probeBytes(bytes, bytes.size.toLong()).mimeType.startsWith("image/")
+            ) {
                 return ByteArray(0)
             }
             return bytes

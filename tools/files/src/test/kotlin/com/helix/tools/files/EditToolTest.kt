@@ -164,6 +164,7 @@ class EditToolTest {
         assertEquals(1L, num(out, "replacements"))
         assertEquals("alpha BETA gamma", Files.readString(root.resolve(path.relativePath)))
         assertEquals(sha256("alpha BETA gamma".toByteArray()), out.getValue("sha256").jsonPrimitive.content)
+        assertEquals(sha256("alpha beta gamma".toByteArray()), out.getValue("previousSha256").jsonPrimitive.content)
         assertEquals("alpha BETA gamma".toByteArray().size.toLong(), num(out, "sizeBytes"))
     }
 

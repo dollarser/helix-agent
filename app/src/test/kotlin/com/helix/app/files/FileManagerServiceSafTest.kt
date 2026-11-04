@@ -79,6 +79,52 @@ class FileManagerServiceSafTest {
         return FileManagerService(store, ScopeRootResolver { _ -> scopeRoot }, workspaceId, access)
     }
 
+    @Test
+    fun viewerReadsBeyondOldTextLimitAndMarksOnlyActualTruncation() {
+        val text = "x".repeat((FileManagerService.VIEWER_TEXT_BYTES + 1).toInt())
+        safGrantStore.grant(tree, "Docs")
+        val service =
+            makeService(liveCheck(tree), FakeReader(mapOf("work/large.txt" to text.toByteArray()), emptySet()))
+
+        val content = service.viewerContent(safScope, "work/large.txt")
+        assertEquals(FileManagerService.VIEWER_TEXT_BYTES.toInt(), content.text?.length)
+        assertTrue(content.textTruncated)
+        assertEquals(text.length.toLong(), content.info.sizeBytes)
+    }
+
+    @Test
+    fun viewerUsesTheSameCompleteTextAndImageBoundariesForSaf() {
+        safGrantStore.grant(tree, "Docs")
+        val text = "a".repeat(90_000) + "END"
+        val magic = byteArrayOf(0x89.toByte(), 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)
+        val bytes = ByteArray((FileManagerService.VIEWER_IMAGE_BYTES + 1).toInt())
+        magic.copyInto(bytes)
+        val service =
+            makeService(
+                liveCheck(tree),
+                FakeReader(
+                    mapOf(
+                        "full.txt" to text.toByteArray(),
+                        "large.png" to bytes,
+                        "image.png" to bytes.copyOf(5 * 1024 * 1024),
+                        "boundary.png" to bytes.copyOf(FileManagerService.VIEWER_IMAGE_BYTES.toInt()),
+                        "boundary.txt" to "x".repeat(FileManagerService.VIEWER_TEXT_BYTES.toInt()).toByteArray(),
+                    ),
+                    emptySet(),
+                ),
+            )
+        assertEquals(text, service.viewerContent(safScope, "full.txt").text)
+        assertFalse(service.viewerContent(safScope, "full.txt").textTruncated)
+        assertTrue(service.viewerContent(safScope, "large.png").imageTooLarge)
+        assertTrue(service.previewImageBytes(safScope, "large.png").isEmpty())
+        assertEquals(5 * 1024 * 1024, service.viewerContent(safScope, "image.png").imageBytes?.size)
+        assertFalse(service.viewerContent(safScope, "boundary.txt").textTruncated)
+        assertEquals(
+            FileManagerService.VIEWER_IMAGE_BYTES.toInt(),
+            service.viewerContent(safScope, "boundary.png").imageBytes?.size,
+        )
+    }
+
     // ── 来源列表: SAF scopes appear only while live ──────────────────────────────────────
 
     @Test

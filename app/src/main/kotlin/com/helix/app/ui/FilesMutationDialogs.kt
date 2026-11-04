@@ -205,6 +205,50 @@ internal fun FilesMutationDialogs(
                 )
             }
 
+            if (newFileOpen) {
+                var fileName by remember { mutableStateOf("") }
+                val newFileFocus = remember { FocusRequester() }
+                LaunchedEffect(Unit) { newFileFocus.requestFocus() }
+                AlertDialog(
+                    onDismissRequest = { newFileOpen = false },
+                    title = { Text(str(R.string.files_new_file)) },
+                    text = {
+                        OutlinedTextField(
+                            value = fileName,
+                            onValueChange = { fileName = it },
+                            label = { Text(str(R.string.files_new_name)) },
+                            singleLine = true,
+                            modifier = Modifier.focusRequester(newFileFocus).testTag("files-newfile-field"),
+                        )
+                    },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                val name = fileName.trim()
+                                newFileOpen = false
+                                if (name.isEmpty()) {
+                                    status = str(R.string.files_name_required)
+                                    return@TextButton
+                                }
+                                createFile(name)
+                            },
+                            modifier = Modifier.testTag("files-newfile-confirm"),
+                        ) {
+                            Text(str(R.string.files_create))
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(
+                            onClick = { newFileOpen = false },
+                            modifier = Modifier.testTag("files-newfile-cancel"),
+                        ) {
+                            Text(str(R.string.common_cancel))
+                        }
+                    },
+                    modifier = Modifier.testTag("files-newfile-dialog"),
+                )
+            }
+
             conflictTarget?.let { (srcRel, dstRel) ->
                 AlertDialog(
                     onDismissRequest = { conflictTarget = null },

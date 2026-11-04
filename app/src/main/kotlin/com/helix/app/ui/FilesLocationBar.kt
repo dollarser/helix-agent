@@ -1,14 +1,11 @@
 package com.helix.app.ui
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -26,9 +23,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
-import com.helix.app.files.SortKey
 import com.helix.app.ui.indicatedHorizontalScroll
-import com.helix.app.ui.indicatedVerticalScroll
 
 @Composable
 @Suppress("FunctionName")
@@ -37,12 +32,6 @@ internal fun FilesLocationBar(
     actions: FilesScreenActions,
 ) {
     Column {
-        FileFavoriteAction(
-            com.helix.core.workspace
-                .FileScopePath(state.selectedScopeId, state.currentPath),
-            true,
-            actions,
-        )
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             FileIconButton(R.drawable.ic_files_home, R.string.files_home, "files-home-open") { state.goHome() }
             Box(Modifier.weight(1f)) {
@@ -121,108 +110,4 @@ internal fun FileIconButton(
     IconButton(action, modifier = Modifier.size(48.dp).testTag(tag)) {
         Icon(painterResource(icon), stringResource(label))
     }
-}
-
-@Composable
-@Suppress("FunctionName", "LongMethod")
-private fun FilesOptionsDialog(
-    state: FilesScreenState,
-    actions: FilesScreenActions,
-) {
-    fun choose(action: () -> Unit) {
-        state.controlsOpen = false
-        action()
-    }
-    AlertDialog(
-        onDismissRequest = { state.controlsOpen = false },
-        title = { Text(stringResource(R.string.files_controls)) },
-        text = {
-            Column(
-                Modifier.heightIn(max = 400.dp).indicatedVerticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                listOf(
-                    SortKey.NAME to R.string.files_sort_name,
-                    SortKey.TIME to R.string.files_sort_time,
-                    SortKey.SIZE to R.string.files_sort_size,
-                ).forEach { (key, label) ->
-                    TextButton(
-                        { choose { state.sortKey = key } },
-                        modifier = Modifier.testTag("files-sort-${key.name}"),
-                    ) {
-                        Text(stringResource(label) + if (state.sortKey == key) " ✓" else "")
-                    }
-                }
-                TextButton({
-                    choose {
-                        state.viewMode = ViewMode.LIST
-                    }
-                }, modifier = Modifier.testTag("files-view-list")) { Text(stringResource(R.string.files_view_list)) }
-                TextButton({
-                    choose {
-                        state.viewMode = ViewMode.GRID
-                    }
-                }, modifier = Modifier.testTag("files-view-grid")) { Text(stringResource(R.string.files_view_grid)) }
-                if (state.currentSource.cleanupEligible) {
-                    TextButton(
-                        { choose { state.cleanupTarget = state.currentSource } },
-                        modifier = Modifier.testTag("files-workspace-cleanup"),
-                    ) { Text(stringResource(R.string.files_workspace_cleanup)) }
-                }
-                if (state.canMutate) {
-                    TextButton(
-                        {
-                            choose {
-                                state.newFolderOpen = true
-                            }
-                        },
-                        modifier =
-                            Modifier.testTag(
-                                "files-newfolder",
-                            ),
-                    ) { Text(stringResource(R.string.files_new_folder_button)) }
-                    if (state.currentSource.kind == com.helix.app.files.FileSourceKind.WORKSPACE) {
-                        TextButton(
-                            {
-                                choose {
-                                    state.trashOpen = true
-                                }
-                            },
-                            modifier =
-                                Modifier.testTag(
-                                    "files-trash-open",
-                                ),
-                        ) { Text(stringResource(R.string.files_trash_button)) }
-                    }
-                }
-                TextButton({
-                    choose {
-                        state.safPanelOpen = true
-                    }
-                }, modifier = Modifier.testTag("files-saf-open")) { Text(stringResource(R.string.files_saf_button)) }
-                TextButton(
-                    {
-                        choose {
-                            state.importResult = null
-                            state.importOpen = true
-                        }
-                    },
-                    modifier =
-                        Modifier.testTag(
-                            "files-import-open",
-                        ),
-                ) { Text(stringResource(R.string.files_import_button)) }
-                TextButton({
-                    choose {
-                        state.reloadTick++
-                    }
-                }, modifier = Modifier.testTag("files-refresh")) { Text(stringResource(R.string.files_refresh)) }
-            }
-        },
-        confirmButton = {
-            TextButton({
-                state.controlsOpen = false
-            }, modifier = Modifier.testTag("files-controls-close")) { Text(actions.str(R.string.files_close)) }
-        },
-    )
 }

@@ -83,7 +83,10 @@ object EditTool {
             version = ToolVersion(VERSION),
             description =
                 "Replace an exact text span in a workspace file; requires the file's current SHA-256 and an " +
-                    "unambiguous match. Read with includeSha256=true to obtain the content and hash together.",
+                    "unambiguous match. Read with includeSha256=true to obtain the content and hash together. " +
+                    "Edits persist after task failure/cancellation; results are not backups. If undo is requested, " +
+                    "copy the original with files.copy and verify its sha256 matches expectedSha256 before editing. " +
+                    "Explicit restoration must check the current hash, preserving newer changes.",
             inputSchema = inputSchema(),
             outputSchema = outputSchema(),
             operationClass = ToolOperationClass.LOCAL_MUTATION,
@@ -163,6 +166,7 @@ object EditTool {
                     put("replacements", integerSchema())
                     put("sizeBytes", integerSchema())
                     put("sha256", stringSchema(maxLength = 64, null))
+                    put("previousSha256", stringSchema(maxLength = 64, "Previous content verified at publish."))
                     put("usageBytesAfter", integerSchema())
                 },
             )
@@ -174,6 +178,7 @@ object EditTool {
                         JsonPrimitive("replacements"),
                         JsonPrimitive("sizeBytes"),
                         JsonPrimitive("sha256"),
+                        JsonPrimitive("previousSha256"),
                         JsonPrimitive("usageBytesAfter"),
                     ),
                 ),
@@ -233,7 +238,7 @@ object EditTool {
                     stoppedBeforePublish(call)?.let { return it }
                     publishStarted = true
                     val outcome = publish(store, parsed, region, updated, call)
-                    ToolExecutorResult.Completed(output(parsed.path, count, outcome))
+                    ToolExecutorResult.Completed(output(parsed.path, count, outcome, parsed.expectedSha256))
                 } catch (e: PreconditionHashMismatch) {
                     ToolExecutorResult.Failed(fileVersionConflict(ref, e))
                 } catch (e: FileNotFoundException) {
@@ -473,12 +478,14 @@ object EditTool {
         path: FileScopePath,
         replacements: Int,
         outcome: WriteOutcome,
+        previousSha256: String,
     ): JsonObject =
         buildJsonObject {
             put("path", JsonPrimitive(path.toModelReference()))
             put("replacements", JsonPrimitive(replacements.toLong()))
             put("sizeBytes", JsonPrimitive(outcome.record.sizeBytes))
             put("sha256", JsonPrimitive(outcome.record.sha256))
+            put("previousSha256", JsonPrimitive(previousSha256))
             put("usageBytesAfter", JsonPrimitive(outcome.usageBytesAfter))
         }
 

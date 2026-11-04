@@ -1,0 +1,11 @@
+<resources>
+    <string name="files_sort_order">Sort order</string>
+    <string name="files_sort_type">Type</string>
+    <string name="files_view">View</string>
+    <string name="files_new_file">New file</string>
+    <string name="files_file_created">File created</string>
+    <string name="files_file_exists">An item with this name already exists</string>
+    <string name="files_text_partial">Showing only the first 1 MiB of this file. Share it to open the complete file in another app.</string>
+    <string name="files_image_too_large">Image exceeds the 8 MiB viewing limit. Share it to open it in another app.</string>
+    <string name="files_image_unreadable">This image format is unsupported or the file is damaged.</string>
+</resources>

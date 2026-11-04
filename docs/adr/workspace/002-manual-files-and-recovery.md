@@ -39,6 +39,28 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 
 参考 [ChatGPT projects and chats](https://learn.chatgpt.com/docs/projects?surface=app) 的可选项目和资料交给具体会话、[Claude Cowork projects](https://support.claude.com/en/articles/14116274-organize-your-tasks-with-projects-in-claude-cowork) 的本地目录组织（2026-10-04 查阅官方文档，未逐家实机验收）。Helix 按 Android 实际存储授权落地，不照搬桌面权限模型。
 
+## Decision history — 2026-11-03：执行回执与文件恢复分离
+
+所有者要求复核主流 Agent 实践并优化文件结果保留。采用“持久执行事实、真实文件、可选备份分别管理”：`write` / `edit` 的成功回执记录目标、写后 `sha256` 和字节数，带哈希前置条件的写入额外返回经发布检查的 `previousSha256`；未检查旧版本的写入不虚构旧哈希。回执不是文件内容副本，哈希也不保证文件之后未再变化。模型重试、任务失败或取消不回滚已经发生的修改。
+
+按任务需要保留可恢复版本时复用 `files.copy`：复制到明确的用户文件路径，确认返回哈希与接下来修改的 `expectedSha256` 一致，再执行修改；冲突则重新观察，不能把不一致的备份当作修改前版本。备份是普通持久文件，按实际目录授权、空间与清理规则管理，不随当前 Turn 结束自动删除。不新增默认全盘快照或另一套执行器。
+
+恢复须由用户意图触发并重新走正常工具授权。文本可读取备份后用带当前 `expectedSha256` 的 `write` 恢复；若当前内容已不同于修改回执的写后哈希，先报告冲突，不擅自覆盖。现有 `files.copy(overwrite=true)` 没有调用方指定的目标版本条件，不能冒充冲突安全恢复。二进制版本回滚、跨文件事务及自动检查点 UI 本轮未实现。新建文件的删除同样是独立工具动作，不是取消的隐含后果。
+
+直接修改源文件、执行副本和成果引用继续遵循 [Workspace 绑定](004-workspace-binding.md)：发布成果不代表源文件写回，临时执行材料也不代表持久备份。终端/脚本或外部工具的任意写入不在文件工具备份保证内。
+
+依据：[Claude Agent SDK file checkpointing](https://code.claude.com/docs/en/agent-sdk/file-checkpointing) 将可选写前备份与会话回退区分，且有工具覆盖边界；[LangGraph persistence](https://docs.langchain.com/oss/python/langgraph/persistence) 将会话状态检查点与其他持久存储区分。这里只采用分层与显式恢复原则，不宣称这些产品提供统一的外部副作用事务。实现证据为文件工具主机回归；不代表所有存储 Provider 或设备均已验收。
+
+## Decision history — 2026-11-04：文件浏览与首页入口
+
+所有者要求调整文件管理器布局：收藏和最近打开置于存储位置之后，双向同步归入导入与传输；首页提供明显的 Helix 文件回收站入口，其他工作空间仍使用原有位置内回收站。回收站仅适用于现有可恢复存储边界，不扩展为手机共享存储或 SAF 的全局回收站。
+
+目录三点选项收纳收藏位置、顺序与视图。顺序支持名称、时间、大小、类型；类型按扩展名分组、同类型按名称，目录始终在前。新建文件创建空文件，拒绝同名覆盖，沿用手动后端的实时权限、路径与区域约束；不授予模型权限。
+
+点击文本或图片进入全屏只读查看器，关闭后保留目录及滚动位置；文本可选择复制。查看器统一对本地、共享存储、Root 与 SAF 使用 1 MiB 文本和 8 MiB 编码图片边界；超过文本上限明确提示只显示开头，图片超限不解码并提示通过分享打开。SAF 图片须读取完整字节，不能把前缀当完整图片。文本按有界块惰性布局，图片先读尺寸再采样到不超过 2048 × 2048 像素；损坏或不支持的图片明确显示解码原因。不宣称文本编辑器或无限制大文件支持。此调整不改变公共目录和 SAF 原件访问、分享副本及会话附件语义。
+
+交互参考 [Files by Google 的查看与排序说明](https://support.google.com/files/answer/9765314?hl=en) 和 [GNOME Files 的类型排序说明](https://help.gnome.org/gnome-help/files-sort.html)，仅采用交互原则，不复制实现。实际验证以本轮主机与指定模拟器回归记录为准。
+
 ## Alternatives considered
 
 让手动文件操作经过模型会增加不必要依赖；启动时自动重放移动可能重复删除；把 SAF 当 POSIX 会夸大原子性。均不采用。

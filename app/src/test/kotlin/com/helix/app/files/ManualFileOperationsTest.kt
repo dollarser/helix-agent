@@ -48,6 +48,26 @@ class ManualFileOperationsTest {
         overwrite: Boolean = false,
     ) = ops.transfer("manual", source, "manual", target, move, overwrite)
 
+    @Test fun createsEmptyFileAndRejectsExistingPathsWithoutOverwrite() {
+        ops.createFile("manual", "", "new.txt")
+        assertEquals("", content("new.txt"))
+        put("new.txt", "retained")
+        assertThrows(FileAlreadyExistsException::class.java) { ops.createFile("manual", "", "new.txt") }
+        assertEquals("retained", content("new.txt"))
+        ops.mkdir("manual", "", "folder")
+        assertThrows(FileAlreadyExistsException::class.java) { ops.createFile("manual", "", "folder") }
+    }
+
+    @Test fun newFileRechecksPermissionAndRejectsInvalidNamesAndEscapes() {
+        for (name in listOf("", ".", "..", "a/b", "a\\b")) {
+            assertThrows(IllegalArgumentException::class.java) { ops.createFile("manual", "", name) }
+        }
+        assertThrows(IllegalArgumentException::class.java) { ops.createFile("manual", "../", "escape") }
+        writable = false
+        assertThrows(IllegalStateException::class.java) { ops.createFile("manual", "", "denied.txt") }
+        assertEquals(emptyList<String>(), nio.children(""))
+    }
+
     @Test fun copiesAndMovesNestedDirectoriesAndEmptyFolders() {
         put("source/sub/file.txt", "nested")
         Files.createDirectory(root.resolve("source/empty"))

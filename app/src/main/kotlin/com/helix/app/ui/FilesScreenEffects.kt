@@ -65,17 +65,16 @@ internal fun FilesPreviewEffects(
         val loaded =
             withContext(Dispatchers.IO) {
                 try {
-                    val text = actions.fileManager.previewText(scopeId, file.relativePath)
-                    val image =
-                        if (text == null) {
-                            val bytes = actions.fileManager.previewImageBytes(scopeId, file.relativePath)
-                            BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
-                        } else {
-                            null
-                        }
-                    val info = actions.fileManager.fileInfo(scopeId, file.relativePath)
-                    check(info.sizeBytes >= 0) { actions.str(R.string.files_library_unavailable) }
-                    FilePreviewState.Ready(text, image, info)
+                    val document = actions.fileManager.viewerContent(scopeId, file.relativePath)
+                    val image = document.imageBytes?.let { decodeViewerImage(it) }
+                    FilePreviewState.Ready(
+                        document.text,
+                        image,
+                        document.info,
+                        document.textTruncated,
+                        document.imageTooLarge,
+                        document.imageBytes != null && image == null,
+                    )
                 } catch (cancelled: kotlinx.coroutines.CancellationException) {
                     throw cancelled
                 } catch (failure: Exception) {
@@ -154,4 +153,19 @@ internal fun FilesScopeEffects(
             }
         }
     }
+}
+
+/** Decode bounds first, then limit the retained bitmap to at most 2048 × 2048 pixels. */
+internal fun decodeViewerImage(bytes: ByteArray): androidx.compose.ui.graphics.ImageBitmap? {
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+    if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+    var sample = 1
+    while ((bounds.outWidth.toLong() + sample - 1) / sample > 2048 ||
+        (bounds.outHeight.toLong() + sample - 1) / sample > 2048
+    ) {
+        sample *= 2
+    }
+    val options = BitmapFactory.Options().apply { inSampleSize = sample }
+    return BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)?.asImageBitmap()
 }

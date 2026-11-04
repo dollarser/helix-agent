@@ -59,22 +59,32 @@ class FileManagerServiceRootTest {
                 ManualFileInfo(it.isDirectory, it.sizeBytes)
             }
 
+        var requestedTextLimit: Long? = null
+        var requestedImageLimit: Long? = null
+        var viewerInfo = FileManagerService.FileMeta(100L, 1000L, "text/plain", true, "fake-sha", false)
+
         override fun previewText(
             relativePath: String,
             maxBytes: Long,
-        ): String? = "root-text-$relativePath"
+        ): String? {
+            requestedTextLimit = maxBytes
+            return "root-text-$relativePath"
+        }
 
         override fun previewImageBytes(
             relativePath: String,
             maxBytes: Long,
-        ): ByteArray = byteArrayOf(1, 2, 3)
+        ): ByteArray {
+            requestedImageLimit = maxBytes
+            return byteArrayOf(1, 2, 3)
+        }
 
         override fun mimeTypeFor(relativePath: String): String = "text/plain"
 
         override fun fileInfo(
             relativePath: String,
             maxHashBytes: Long,
-        ): FileManagerService.FileMeta = FileManagerService.FileMeta(100L, 1000L, "text/plain", true, "fake-sha", false)
+        ): FileManagerService.FileMeta = viewerInfo
 
         override fun realFileFor(
             relativePath: String,
@@ -209,6 +219,21 @@ class FileManagerServiceRootTest {
         assertThrows(ScopeNotAvailable::class.java) {
             service.listing(FileManagerService.ROOT_SCOPE_ID, "")
         }
+    }
+
+    @Test
+    fun rootViewerUsesSharedLimitsAndRejectsOversizedImageBeforeRead() {
+        val ops = FakeRootFileOperations(granted = true)
+        val service = FileManagerService(store, resolver, workspaceScopeId, rootOperations = ops)
+        service.viewerContent(FileManagerService.ROOT_SCOPE_ID, "data/text.txt")
+        assertEquals(FileManagerService.VIEWER_TEXT_BYTES, ops.requestedTextLimit)
+        ops.viewerInfo = FileManagerService.FileMeta(3L, 0L, "image/png", false, null, true)
+        assertEquals(3, service.viewerContent(FileManagerService.ROOT_SCOPE_ID, "data/image.png").imageBytes?.size)
+        assertEquals(FileManagerService.VIEWER_IMAGE_BYTES, ops.requestedImageLimit)
+        ops.requestedImageLimit = null
+        ops.viewerInfo = ops.viewerInfo.copy(sizeBytes = FileManagerService.VIEWER_IMAGE_BYTES + 1)
+        assertTrue(service.viewerContent(FileManagerService.ROOT_SCOPE_ID, "data/image.png").imageTooLarge)
+        assertEquals(null, ops.requestedImageLimit)
     }
 
     @Test

@@ -95,7 +95,8 @@ internal class FileManagerPreview(
             if (!probe.mimeType.startsWith("image/") || probe.sizeBytes < 0 || probe.sizeBytes > maxBytes) {
                 ByteArray(0)
             } else {
-                runCatching { store.readAll(fsp) }.getOrDefault(ByteArray(0))
+                runCatching { store.openRead(fsp).use { ImportFileCapture.read(it, maxBytes) { false } } }
+                    .getOrDefault(ByteArray(0))
             }
         }
 
@@ -109,11 +110,16 @@ internal class FileManagerPreview(
         val access = verifySaf(scopeId, SafAccessMode.READ)
         return try {
             val cap = minOf(maxBytes, SAF_READ_CAP)
+            val before = access.reader.stat(scopeId, relativePath)
+            if (!before.exists || before.isDirectory || before.sizeBytes !in 0..cap) return ByteArray(0)
             val bytes = access.reader.read(scopeId, relativePath, 0, cap)
-            if (!shareMime(ContentProbe.probeBytes(bytes, bytes.size.toLong())).startsWith("image/")) {
-                return ByteArray(0)
+            if (bytes.size.toLong() == before.sizeBytes && access.reader.stat(scopeId, relativePath) == before &&
+                shareMime(ContentProbe.probeBytes(bytes, bytes.size.toLong())).startsWith("image/")
+            ) {
+                bytes
+            } else {
+                ByteArray(0)
             }
-            bytes
         } catch (e: Exception) {
             ByteArray(0)
         }

@@ -11,6 +11,9 @@ internal sealed interface FilePreviewState {
         val text: String?,
         val image: ImageBitmap?,
         val info: FileMeta,
+        val textTruncated: Boolean = false,
+        val imageTooLarge: Boolean = false,
+        val imageDecodeFailed: Boolean = false,
     ) : FilePreviewState
 
     data class Failed(

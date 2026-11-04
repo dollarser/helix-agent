@@ -186,6 +186,46 @@ class FileManagerServiceTest {
             0x00,
         )
 
+    @Test
+    fun viewerReadsBeyondOldTextLimitAndMarksOnlyActualTruncation() {
+        val text = "x".repeat((FileManagerService.VIEWER_TEXT_BYTES + 1).toInt())
+        seedText("work/large.txt", text)
+        val content = service.viewerContent(scopeId, "work/large.txt")
+        assertEquals(FileManagerService.VIEWER_TEXT_BYTES.toInt(), content.text?.length)
+        assertTrue(content.textTruncated)
+        assertEquals(text.length.toLong(), content.info.sizeBytes)
+    }
+
+    @Test
+    fun viewerShowsCompleteTextLargerThanOldPreviewLimit() {
+        val text = "a".repeat(90_000) + "END"
+        seedText("work/full.txt", text)
+        val content = service.viewerContent(scopeId, "work/full.txt")
+        assertEquals(text, content.text)
+        assertFalse(content.textTruncated)
+        seedText("work/full.txt", "x".repeat(FileManagerService.VIEWER_TEXT_BYTES.toInt()))
+        assertFalse(service.viewerContent(scopeId, "work/full.txt").textTruncated)
+    }
+
+    @Test
+    fun viewerRejectsOversizedImageAndAcceptsLargerThanOldImageLimit() {
+        val magic = byteArrayOf(0x89.toByte(), 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)
+        val bytes = ByteArray((FileManagerService.VIEWER_IMAGE_BYTES + 1).toInt())
+        magic.copyInto(bytes)
+        Files.write(real("work/image.png"), bytes)
+        assertTrue(service.viewerContent(scopeId, "work/image.png").imageTooLarge)
+        assertTrue(service.previewImageBytes(scopeId, "work/image.png").isEmpty())
+        Files.write(real("work/image.png"), bytes.copyOf(5 * 1024 * 1024))
+        val content = service.viewerContent(scopeId, "work/image.png")
+        assertFalse(content.imageTooLarge)
+        assertEquals(5 * 1024 * 1024, content.imageBytes?.size)
+        Files.write(real("work/image.png"), bytes.copyOf(FileManagerService.VIEWER_IMAGE_BYTES.toInt()))
+        assertEquals(
+            FileManagerService.VIEWER_IMAGE_BYTES.toInt(),
+            service.viewerContent(scopeId, "work/image.png").imageBytes?.size,
+        )
+    }
+
     // ── Sources (来源标识) ────────────────────────────────────────────────────────────
 
     @Test
@@ -222,6 +262,19 @@ class FileManagerServiceTest {
         val rootEntries = service.list(scopeId, "")
         assertEquals(listOf("input", "output", "work"), rootEntries.map { it.name })
         assertFalse(rootEntries.any { it.name == WorkspaceLayout.HELIX })
+    }
+
+    @Test
+    fun listSortsByTypeWithDirectoriesFirstAndNameTieBreak() {
+        seedText("work/z.txt", "z")
+        seedText("work/a.TXT", "a")
+        seedText("work/b.json", "{}")
+        seedText("work/README", "read")
+        Files.createDirectories(real("work/folder"))
+        assertEquals(
+            listOf("folder", "README", "b.json", "a.TXT", "z.txt"),
+            service.list(scopeId, "work", SortKey.TYPE).map { it.name },
+        )
     }
 
     @Test

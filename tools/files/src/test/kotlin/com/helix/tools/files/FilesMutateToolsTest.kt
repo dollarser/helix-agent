@@ -18,6 +18,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -37,6 +38,87 @@ import java.time.Instant
  * conformance.
  */
 class FilesMutateToolsTest {
+    @Test
+    fun explicitBackupSurvivesReopenAndRestoreRefusesNewerChanges() {
+        val root = freshScope("checkpoint")
+        val path = "scope:ws:work/source.txt"
+        val backup = "scope:ws:work/source.before.txt"
+        val original = "original\r\n正文\n"
+        Files.writeString(root.resolve("work/source.txt"), original)
+        val copied =
+            copyExec(
+                store(root),
+                buildJsonObject {
+                    put("source", path)
+                    put("destination", backup)
+                },
+            ) as ToolExecutorResult.Completed
+        val previous =
+            copied.output.jsonObject
+                .getValue("sha256")
+                .jsonPrimitive.content
+        val edited =
+            EditTool.executor(store(root)).execute(
+                call(
+                    "edit",
+                    buildJsonObject {
+                        put("path", path)
+                        put("oldText", "original")
+                        put("newText", "edited")
+                        put("expectedSha256", previous)
+                    },
+                ),
+            ) as ToolExecutorResult.Completed
+        val receipt = edited.output.jsonObject
+        assertEquals(previous, receipt.getValue("previousSha256").jsonPrimitive.content)
+        val published = receipt.getValue("sha256").jsonPrimitive.content
+        // Reopening/cancelling an unrelated call does not undo an already published edit.
+        val reopened = store(root)
+        assertTrue(cancelledOverwrite(reopened, path) is ToolExecutorResult.Cancelled)
+        assertEquals("edited\r\n正文\n", Files.readString(root.resolve("work/source.txt")))
+        Files.writeString(root.resolve("work/source.txt"), "newer user change")
+
+        fun restore(expected: String) =
+            WriteTool.executor(reopened).execute(
+                call(
+                    "write",
+                    buildJsonObject {
+                        put("path", path)
+                        put("content", Files.readString(root.resolve("work/source.before.txt")))
+                        put("overwrite", true)
+                        put("expectedSha256", expected)
+                    },
+                ),
+            )
+        assertTrue(restore(published) is ToolExecutorResult.Failed)
+        assertEquals("newer user change", Files.readString(root.resolve("work/source.txt")))
+        assertEquals(original, Files.readString(root.resolve("work/source.before.txt")))
+        // After explicit review of the newer version, a guarded restore is a normal write.
+        val current =
+            com.helix.core.workspace.AtomicFileWriter
+                .sha256Hex(root.resolve("work/source.txt"))
+        assertTrue(restore(current) is ToolExecutorResult.Completed)
+        assertEquals(original, Files.readString(root.resolve("work/source.txt")))
+    }
+
+    private fun cancelledOverwrite(
+        store: WorkspaceArtifactStore,
+        path: String,
+    ): ToolExecutorResult =
+        WriteTool.executor(store).execute(
+            call(
+                "write",
+                buildJsonObject {
+                    put("path", path)
+                    put("content", "must not run")
+                    put("overwrite", true)
+                },
+                object : CancelSignal {
+                    override fun isCancelled(): Boolean = true
+                },
+            ),
+        )
+
     @get:Rule
     val tmp = TemporaryFolder()
 

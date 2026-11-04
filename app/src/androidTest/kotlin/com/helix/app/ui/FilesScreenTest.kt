@@ -6,6 +6,7 @@ import androidx.compose.ui.test.ComposeTimeoutException
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.longClick
@@ -15,6 +16,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.printToString
@@ -121,12 +123,14 @@ class FilesScreenTest {
         // Default NAME sort: a.txt before b.txt. SIZE sort (desc): b.txt (3) before a.txt (1).
         assertEquals("files-entry-a.txt", entryTags().first())
         composeRule.onNodeWithTag("files-controls-open").performClick()
+        composeRule.onNodeWithTag("files-sort-open").performScrollTo().performClick()
         composeRule.onNodeWithTag("files-sort-SIZE").performScrollTo().performClick()
         composeRule.waitUntil(5_000) { entryTags().firstOrNull() == "files-entry-b.txt" }
         assertEquals("files-entry-b.txt", entryTags().first())
 
         // 网格视图: the same entries re-render in the grid.
         composeRule.onNodeWithTag("files-controls-open").performClick()
+        composeRule.onNodeWithTag("files-view-open").performScrollTo().performClick()
         composeRule.onNodeWithTag("files-view-grid").performScrollTo().performClick()
         composeRule.waitUntil(5_000) { entryTags().size >= 2 }
         assertTrue(
@@ -219,6 +223,7 @@ class FilesScreenTest {
         waitTag("files-entry-long.txt")
         composeRule.onNodeWithTag("files-entry-long.txt").performClick()
         waitTag("files-preview-text")
+        composeRule.onNodeWithTag("files-viewer-content").performScrollToNode(hasTestTag("files-info-sha"))
         waitTag("files-info-sha")
         composeRule.onNodeWithTag("files-info-sha").performScrollTo().assertIsDisplayed()
         assertTrue(nodeText("files-info-sha").startsWith("SHA-256："))

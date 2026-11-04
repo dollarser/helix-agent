@@ -58,6 +58,19 @@ class ManualFileOperations internal constructor(
         path: String,
     ): Boolean = backend(scope).stat(path) != null
 
+    fun createFile(
+        scope: String,
+        parent: String,
+        name: String,
+    ) {
+        check(canWrite(scope)) { "Storage is read-only or permission was revoked" }
+        require(name.isNotBlank() && !name.contains('/') && !name.contains('\\') && name != "." && name != "..")
+        val path = join(parent, name)
+        val fs = backend(scope)
+        if (fs.stat(path) != null) throw FileAlreadyExistsException(path)
+        fs.create(path, false)
+    }
+
     fun mkdir(
         scope: String,
         parent: String,

@@ -61,7 +61,7 @@ internal fun FilesSelectionLayout(
 ) {
     Column(Modifier.fillMaxSize()) {
         if (state.homeOpen) {
-            LazyColumn {
+            IndicatedLazyColumn(Modifier.fillMaxWidth().weight(1f)) {
                 items(
                     state.sources.filter { it.available && it.kind != FileSourceKind.ROOT },
                     key = { it.scopeId },
@@ -91,7 +91,7 @@ internal fun FilesSelectionLayout(
                 TextButton({ state.reloadTick++ }) { Text(stringResource(R.string.chat_retry)) }
             }
             if (state.listingTruncated) Text(stringResource(R.string.files_listing_partial))
-            LazyColumn {
+            IndicatedLazyColumn(Modifier.fillMaxWidth().weight(1f)) {
                 items(state.visibleEntries, key = { it.relativePath }) { entry ->
                     FileRow(entry, false, selectionMode = false, onToggle = {}, onClick = {
                         if (entry.isDirectory) {

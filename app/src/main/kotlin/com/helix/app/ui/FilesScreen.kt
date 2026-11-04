@@ -40,12 +40,11 @@ fun FilesScreen(
     initialFile: com.helix.core.workspace.FileScopePath? = null,
     onPickFile: ((com.helix.core.workspace.FileScopePath) -> Unit)? = null,
 ) {
-    var syncOpen by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
-    if (syncOpen) DirectorySyncDialog(fileManager) { syncOpen = false }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val resources = LocalResources.current
     val state = rememberFilesScreenState(fileManager, initialDirectory, initialFile)
+    if (state.syncOpen) DirectorySyncDialog(fileManager) { state.syncOpen = false }
     val openSharedStorage = rememberSharedStorageNavigation(state, fileManager)
     val actions = FilesScreenActions(state, fileManager, safTree, featureFiles, scope, context, resources)
     BackHandler(enabled = !state.homeOpen) { state.goBack() }
@@ -81,14 +80,6 @@ fun FilesScreen(
             FilesScopeEffects(state, actions)
             if (filesSourcePending(state)) return
             Column {
-                if (state.homeOpen) {
-                    TextButton({ syncOpen = true }, modifier = Modifier.testTag("files-directory-sync")) {
-                        Text(
-                            androidx.compose.ui.res
-                                .stringResource(R.string.sync_title),
-                        )
-                    }
-                }
                 if (!state.homeOpen && handoff != null) {
                     FileDirectoryTask(state, handoff)
                 }

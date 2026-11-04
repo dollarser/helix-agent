@@ -74,7 +74,10 @@ object WriteTool {
                 "Atomically write UTF-8 content to a workspace file by model reference; " +
                     "existing files require overwrite=true. The parent directory must already exist: " +
                     "use files.mkdir first when creating a new output directory " +
-                    "(discover it with tools.search if needed).",
+                    "(discover it with tools.search if needed). Writes persist after task failure/cancellation; " +
+                    "the result is a receipt, not a backup. If undo is requested, first copy the original " +
+                    "with files.copy, verify its sha256, then overwrite using that expectedSha256. " +
+                    "Restore only explicitly, checking the current file hash to avoid replacing newer changes.",
             inputSchema = inputSchema(),
             outputSchema = outputSchema(),
             operationClass = ToolOperationClass.LOCAL_MUTATION,
@@ -139,6 +142,13 @@ object WriteTool {
                     put("path", stringSchema(maxLength = 512, description = null))
                     put("sizeBytes", integerSchema())
                     put("sha256", stringSchema(maxLength = 64, description = null))
+                    put(
+                        "previousSha256",
+                        stringSchema(
+                            maxLength = 64,
+                            description = "Previous content verified at publish; absent for unguarded writes.",
+                        ),
+                    )
                     put("encoding", stringSchema(maxLength = 16, description = null))
                     put("mimeType", stringSchema(maxLength = 64, description = null))
                     put("overwritten", booleanSchema())
@@ -227,7 +237,7 @@ object WriteTool {
                             expected,
                             call,
                         )
-                    ToolExecutorResult.Completed(output(parsed.path, outcome, ok.exists))
+                    ToolExecutorResult.Completed(output(parsed.path, outcome, ok.exists, expected))
                 } catch (e: PreconditionHashMismatch) {
                     ToolExecutorResult.Failed(fileVersionConflict(parsed.path.toModelReference(), e))
                 } catch (e: WorkspaceQuota.QuotaExceeded) {
@@ -359,11 +369,13 @@ object WriteTool {
         path: FileScopePath,
         outcome: WriteOutcome,
         overwritten: Boolean,
+        previousSha256: String?,
     ): JsonObject =
         buildJsonObject {
             put("path", JsonPrimitive(path.toModelReference()))
             put("sizeBytes", JsonPrimitive(outcome.record.sizeBytes))
             put("sha256", JsonPrimitive(outcome.record.sha256))
+            previousSha256?.let { put("previousSha256", JsonPrimitive(it)) }
             put("encoding", JsonPrimitive(outcome.probe.encoding.name))
             put("mimeType", JsonPrimitive(outcome.record.mediaType))
             put("overwritten", JsonPrimitive(overwritten))

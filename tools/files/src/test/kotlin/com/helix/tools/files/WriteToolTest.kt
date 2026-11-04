@@ -234,6 +234,7 @@ class WriteToolTest {
                 .toLong(),
         )
         assertEquals(sha("hello".toByteArray()), out.getValue("sha256").jsonPrimitive.content)
+        assertFalse(out.containsKey("previousSha256"))
         assertEquals("UTF8", out.getValue("encoding").jsonPrimitive.content)
         assertEquals(
             false,
@@ -278,6 +279,7 @@ class WriteToolTest {
                 write(root, "scope:ws:work/a.txt", "v2", overwrite = true, expectedSha256 = sha("v1".toByteArray())),
             )
         assertEquals(sha("v2".toByteArray()), out.getValue("sha256").jsonPrimitive.content)
+        assertEquals(sha("v1".toByteArray()), out.getValue("previousSha256").jsonPrimitive.content)
     }
 
     @Test

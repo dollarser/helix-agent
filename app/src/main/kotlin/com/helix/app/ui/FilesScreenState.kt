@@ -56,6 +56,7 @@ internal class FilesScreenState(
     var safLoadFailed by mutableStateOf(false)
     var safSources by mutableStateOf<List<SafTreeSource>>(emptyList())
     var permanentDelete: List<String>? by mutableStateOf(null)
+    var trashFromHome by mutableStateOf(false)
     var trashOpen by mutableStateOf(false)
     var trashEntries by mutableStateOf<List<TrashEntryView>>(emptyList())
     var openFile by mutableStateOf<FileEntry?>(null)
@@ -63,6 +64,8 @@ internal class FilesScreenState(
     val fileInfo get() = (preview as? FilePreviewState.Ready)?.info
     var renameTarget by mutableStateOf<FileEntry?>(null)
     var copyMove by mutableStateOf<CopyMoveTarget?>(null)
+    var syncOpen by mutableStateOf(false)
+    var newFileOpen by mutableStateOf(false)
     var newFolderOpen by mutableStateOf(false)
     var conflictTarget by mutableStateOf<Pair<String, String>?>(null)
     var suggestedName by mutableStateOf<String?>(null)
@@ -99,6 +102,7 @@ internal class FilesScreenState(
             permanentDelete = null
             conflictTarget = null
             newFolderOpen = false
+            newFileOpen = false
             exportFile = null
             exportOpen = false
             importOpen = false
@@ -117,6 +121,7 @@ internal class FilesScreenState(
         searchQuery = ""
         searchOpen = false
         trashOpen = false
+        trashFromHome = false
         homeOpen = false
         workspacesOpen = false
         sourcesOpen = false
@@ -152,6 +157,10 @@ internal class FilesScreenState(
 
             trashOpen -> {
                 trashOpen = false
+                if (trashFromHome) {
+                    trashFromHome = false
+                    goHome()
+                }
             }
 
             currentPath.isNotEmpty() -> {

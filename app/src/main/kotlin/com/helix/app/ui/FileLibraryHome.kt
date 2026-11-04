@@ -50,20 +50,25 @@ internal fun FileFavoriteAction(
     path: FileScopePath,
     directory: Boolean,
     actions: FilesScreenActions,
+    menuItem: Boolean = false,
+    onSelected: () -> Unit = {},
 ) {
     val library by actions.fileManager.library.state
         .collectAsStateWithLifecycle()
     LaunchedEffect(actions.fileManager) { actions.updateLibrary { load() } }
     var failed by remember(path) { mutableStateOf(false) }
     val favorite = library.favorites.any { it.reference == path.toModelReference() }
-    TextButton(
-        {
-            failed = false
-            actions.updateLibrary(onFailure = { failed = true }) { toggleFavorite(path, directory) }
-        },
-        modifier = Modifier.testTag(if (directory) "files-favorite-directory" else "files-favorite-file"),
-    ) {
-        Text(stringResource(if (favorite) R.string.files_unfavorite else R.string.files_favorite))
+    val label = stringResource(if (favorite) R.string.files_unfavorite else R.string.files_favorite)
+    val tag = if (directory) "files-favorite-directory" else "files-favorite-file"
+    val toggle = {
+        failed = false
+        actions.updateLibrary(onFailure = { failed = true }) { toggleFavorite(path, directory) }
+        onSelected()
+    }
+    if (menuItem) {
+        FilesMenuRow(label, tag, onClick = toggle)
+    } else {
+        TextButton(toggle, modifier = Modifier.testTag(tag)) { Text(label) }
     }
     if (failed) Text(stringResource(R.string.files_library_failed))
 }

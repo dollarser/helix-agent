@@ -347,6 +347,22 @@ internal class FilesScreenActions(
         }
     }
 
+    fun createFile(name: String) {
+        val targetScope = state.selectedScopeId
+        val targetPath = state.currentPath
+        scope.launch {
+            val result = withContext(Dispatchers.IO) { fileManager.createFile(targetScope, targetPath, name) }
+            state.status =
+                when (result) {
+                    is FileOpResult.Ok -> str(R.string.files_file_created)
+                    FileOpResult.Conflict -> str(R.string.files_file_exists)
+                    is FileOpResult.NotFound -> result.message
+                    is FileOpResult.Error -> result.message
+                }
+            state.reloadTick++
+        }
+    }
+
     fun createDirectory(name: String) {
         with(state) {
             scope.launch {

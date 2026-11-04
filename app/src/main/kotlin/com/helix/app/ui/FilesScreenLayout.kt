@@ -124,7 +124,7 @@ internal fun FilesScreenLayout(
                             ) {
                                 Text(str(R.string.files_trash_title), style = MaterialTheme.typography.titleMedium)
                                 TextButton(
-                                    onClick = { trashOpen = false },
+                                    onClick = { state.goBack() },
                                     modifier = Modifier.testTag("files-trash-back"),
                                 ) {
                                     Text(str(R.string.files_back))
