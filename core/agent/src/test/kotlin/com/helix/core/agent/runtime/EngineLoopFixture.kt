@@ -146,6 +146,7 @@ internal class EngineLoopFixture(
             override suspend fun buildBackfill(
                 sessionId: String,
                 turnId: String,
+                retryTurnId: String?,
                 control: RunControlConfig,
             ) = context()
         }

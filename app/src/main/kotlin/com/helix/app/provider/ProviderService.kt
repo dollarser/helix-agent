@@ -196,6 +196,7 @@ class ProviderService(
     }
 
     val contextRevision: StateFlow<Long> = _contextRevision.asStateFlow()
+    private val contextWindowProbes = java.util.concurrent.ConcurrentHashMap<List<String>, Long>()
 
     suspend fun contextSettings(
         providerId: String,
@@ -205,6 +206,17 @@ class ProviderService(
         val selectedModel = model ?: config.model
         val stored = contextSettingsStore.read(providerId, config.transport.cacheKey, selectedModel)
         val detected = metadataFor(providerId, selectedModel)?.contextWindow
+        val missingWindow = stored.serverWindow == null && detected == null
+        val mayDiscover = BuiltInModel.owns(providerId) && testStatus.builtInCatalog.accountAvailable()
+        if (missingWindow && mayDiscover) {
+            val key = testStatus.builtInCatalog.identity() + listOf(config.transport.cacheKey, selectedModel)
+            val time = clock.now().toEpochMilli()
+            val previous = contextWindowProbes.putIfAbsent(key, time)
+            val due =
+                previous == null ||
+                    (time - previous >= 60_000 && contextWindowProbes.replace(key, previous, time))
+            if (due) return discoverContextWindow(providerId, selectedModel)
+        }
         return stored.withDetectedWindow(detected)
     }
 
@@ -264,7 +276,11 @@ class ProviderService(
                     _contextRevision.value++
                 }
             }
-            contextSettings(providerId, model)
+            // Do not re-enter discovery if an optional metadata request took longer than the miss-cache interval.
+            val current = storedConfig(providerId)
+            contextSettingsStore
+                .read(providerId, current.transport.cacheKey, model)
+                .withDetectedWindow(metadataFor(providerId, model)?.contextWindow)
         }
 
     private val workScope = scope

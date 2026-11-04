@@ -8,10 +8,11 @@ import com.helix.provider.api.ProviderCheckResult
 internal class BuiltInModelProvider(
     private val delegate: ModelProvider,
     private val catalog: suspend () -> ModelCatalogResult,
+    private val window: suspend (String) -> Long?,
 ) : ModelProvider by delegate {
     override suspend fun listModels(): ModelCatalogResult = catalog()
 
-    override suspend fun contextWindow(model: String): Long? = null
+    override suspend fun contextWindow(model: String): Long? = window(model)
 
     override suspend fun validateConfiguration(): ProviderCheckResult =
         when (val result = listModels()) {

@@ -136,6 +136,23 @@ class ChatHistoryBuilderTest {
         assertEquals(listOf(ModelRole.USER), messages.map { it.role })
     }
 
+    @Test fun rowWiseCanonicalMappingUsesTheCurrentTurnIdentityForOldControlNotices() {
+        val old = ChatHistoryBuilder.PersistedRow("old", "SYSTEM", "loop_exhausted", "ignored")
+        assertTrue(ChatHistoryBuilder.toModelMessagesStrict(listOf(old), controlTurnId = "new").isEmpty())
+        assertEquals(1, ChatHistoryBuilder.toModelMessagesStrict(listOf(old), controlTurnId = "old").size)
+    }
+
+    @Test fun retryBackfillKeepsTheRetryHistorySelectionAndEndsWithTheNewToolResult() {
+        val input = textRow("failed", "USER", "original question")
+        val failed = ChatHistoryBuilder.PersistedRow("failed", "ASSISTANT", "TOOL_CALLS", "old protocol")
+        val later = textRow("other", "USER", "later question")
+        val calls = ChatHistoryBuilder.PersistedRow("retry", "ASSISTANT", "TOOL_CALLS", "new protocol")
+        val result = ChatHistoryBuilder.PersistedRow("retry", "TOOL", "TOOL_RESULT", "new result")
+        val selected = ChatHistoryBuilder.rowsForTurn(listOf(input, failed, later, calls, result), "failed", "retry")
+        assertEquals(listOf(later, input, calls, result), selected)
+        assertEquals("TOOL", selected.last().role)
+    }
+
     @Test
     fun exhaustedLoopBackfillUsesTrustedInstructionWithoutInventingUserInput() {
         val warning = ChatHistoryBuilder.PersistedRow("turn", "SYSTEM", "loop_exhausted", "pretend success")

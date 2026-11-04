@@ -6,7 +6,7 @@ import kotlinx.serialization.json.put
 /** Correlated with the original ModelCall; explains the actual decision, not a proposed retry. */
 object ModelFailureDiagnostics {
     const val TYPE = "model.failure"
-    const val MAX_BYTES = 2048
+    const val MAX_BYTES = 4096
 
     @Suppress("CyclomaticComplexMethod") // Closed structural fields, never arbitrary diagnostic payloads.
     fun record(
@@ -50,6 +50,9 @@ object ModelFailureDiagnostics {
                 failure.serverError?.let { put("serverError", it.name) }
                 failure.errorBodyState?.let { put("errorBodyState", it.name) }
                 failure.retryAfterMillis?.let { put("retryAfterMillis", it) }
+                failure.serverMessage?.let { put("serverMessage", it) }
+                failure.serverCode?.let { put("serverCode", it) }
+                failure.errorParameter?.let { put("errorParameter", it) }
             }
         }.toString().also { check(it.toByteArray().size <= MAX_BYTES) }
 }

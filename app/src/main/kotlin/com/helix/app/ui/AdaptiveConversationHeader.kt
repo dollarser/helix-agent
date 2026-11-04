@@ -39,6 +39,7 @@ internal fun AdaptiveConversationHeader(
     onNavigation: (() -> Unit)? = null,
     onRename: (() -> Unit)? = null,
     onSearch: (() -> Unit)? = null,
+    playback: @Composable () -> Unit = {},
     content: @Composable (close: () -> Unit) -> Unit,
 ) {
     var details by remember { mutableStateOf(false) }
@@ -68,6 +69,7 @@ internal fun AdaptiveConversationHeader(
                 Icon(painterResource(R.drawable.ic_files_search), stringResource(R.string.chat_search))
             }
         }
+        playback()
         IconButton(onNew, modifier = Modifier.size(48.dp).testTag("chat-new-session")) {
             Icon(painterResource(R.drawable.ic_chat_new), stringResource(R.string.chat_new_session))
         }

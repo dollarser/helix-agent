@@ -8,10 +8,11 @@ data class VisibleReplyFrame(
     val turnId: String,
     val text: String,
     val phase: Phase,
+    val modelStep: Int = 0,
 ) {
     enum class Phase { STREAMING, FINALIZING, COMPLETED, WAITING, CANCELLED }
 
-    val speechId get() = "live:$sessionId:$turnId"
+    val speechId get() = "live:$sessionId:$turnId:$modelStep"
 }
 
 interface ReplySpeechOutput {
@@ -31,14 +32,14 @@ interface ReplySpeechOutput {
 class LiveReplySpeech(
     private val output: ReplySpeechOutput,
 ) {
-    private var key: Pair<String, String>? = null
+    private var key: String? = null
     private var committed = ""
-    val activeId get() = key?.let { "live:${it.first}:${it.second}" }
+    val activeId get() = key
 
     fun start(frame: VisibleReplyFrame) {
         stop()
         if (frame.phase != VisibleReplyFrame.Phase.STREAMING) return
-        key = frame.sessionId to frame.turnId
+        key = frame.speechId
         committed = ""
         output.begin(frame.speechId)
         update(frame)
@@ -47,7 +48,7 @@ class LiveReplySpeech(
     @Suppress("ReturnCount") // Each guard rejects a distinct identity, lifecycle or rewritten-text boundary.
     fun update(frame: VisibleReplyFrame) {
         if (key == null) return
-        if (key != (frame.sessionId to frame.turnId) || frame.phase in
+        if (key != frame.speechId || frame.phase in
             setOf(
                 VisibleReplyFrame.Phase.WAITING,
                 VisibleReplyFrame.Phase.CANCELLED,

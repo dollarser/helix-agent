@@ -16,6 +16,18 @@ interface TurnDao {
     )
     fun pendingTasks(): List<TurnEntity>
 
+    /** Diagnostic retention also protects parked tool effects under an already collected terminal turn. */
+    @Query(
+        "SELECT t.id FROM turns t WHERE t.resultCollectedAt IS NULL " +
+            "OR t.state NOT IN ('COMPLETED','FAILED','CANCELLED','INTERRUPTED') " +
+            "OR EXISTS (SELECT 1 FROM tool_calls c WHERE c.turnId = t.id AND (" +
+            "c.state IN ('PENDING','RUNNING','AWAITING_APPROVAL','NEEDS_REVIEW','INTERRUPTED') " +
+            "OR NOT EXISTS (SELECT 1 FROM tool_results r WHERE r.toolCallId = c.id) " +
+            "OR (c.state = 'COMPLETED' AND EXISTS " +
+            "(SELECT 1 FROM tool_results r WHERE r.toolCallId = c.id AND r.verified = 0))))",
+    )
+    fun diagnosticProtectedOwners(): List<String>
+
     @Query("SELECT * FROM turns ORDER BY startedAt DESC, rowid DESC LIMIT :limit")
     fun recent(limit: Int): List<TurnEntity>
 

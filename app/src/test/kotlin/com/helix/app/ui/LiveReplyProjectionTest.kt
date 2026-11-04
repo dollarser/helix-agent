@@ -59,4 +59,12 @@ class LiveReplyProjectionTest {
         assertEquals(VisibleReplyFrame.Phase.FINALIZING, finalizing?.phase)
         assertEquals(VisibleReplyFrame.Phase.CANCELLED, cancelling?.phase)
     }
+
+    @Test fun speechIdentityFollowsPersistedModelStep() {
+        val base = screen(TurnState.RECEIVING_MODEL)
+        val first = requireNotNull(visibleReplyFrame(base))
+        val next = requireNotNull(visibleReplyFrame(base.copy(activeTurn = base.activeTurn?.copy(modelStep = 2))))
+        assertEquals("live:session:turn:0", first.speechId)
+        assertEquals("live:session:turn:2", next.speechId)
+    }
 }

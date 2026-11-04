@@ -66,6 +66,8 @@ class TurnRepositoryTest {
 
         override fun pendingTasks(): List<TurnEntity> = emptyList()
 
+        override fun diagnosticProtectedOwners(): List<String> = emptyList()
+
         override fun recent(limit: Int): List<TurnEntity> = rows.values.toList().takeLast(limit)
 
         override fun collectResult(

@@ -12,8 +12,9 @@ internal object ContextHistoryMapping {
         rows: List<MessageEntity>,
         directory: com.helix.core.workspace.FileScopePath? = null,
         contentFor: (MessageEntity) -> String? = { ContextHistoryContent.read(storage, it) },
-    ): List<ContextSourceRow> =
-        rows.map { row ->
+    ): List<ContextSourceRow> {
+        val controlTurnId = rows.lastOrNull { it.turnId != null }?.turnId
+        return rows.map { row ->
             val content = contentFor(row)
             // Decode failure is a fact, not an empty successful history. Raise it only if the
             // same selection/recovery algorithm actually consumes this row; storage errors propagate.
@@ -23,6 +24,7 @@ internal object ContextHistoryMapping {
                     ChatHistoryBuilder.toModelMessagesStrict(
                         listOf(ChatHistoryBuilder.PersistedRow(row.turnId, row.role, row.kind, content, row.id)),
                         directory,
+                        controlTurnId = controlTurnId,
                     )
                 } catch (invalid: IllegalArgumentException) {
                     failure = invalid.message ?: "CONTEXT_HISTORY_INVALID"
@@ -41,6 +43,7 @@ internal object ContextHistoryMapping {
                 failure,
             )
         }
+    }
 
     fun mapped(
         storage: HelixStorage,

@@ -197,6 +197,7 @@ internal fun ConversationSection(
             onTasks = intents.onTasks,
             onSettings = intents.onSettings,
             onSearch = { searchActive = !searchActive },
+            playback = { AutomaticReplyAudioControl(reader, speechFrame) },
         ) { closeDetails ->
             artifacts()
             TaskLedgerCard(screen.taskLedger, screen.openSessionId)
@@ -525,11 +526,6 @@ internal fun ConversationSection(
                                 searchQuery = activeSearchQuery,
                                 isCurrentMatch = "streaming" == currentTargetId,
                             )
-                            if (speechFrame?.phase == VisibleReplyFrame.Phase.STREAMING && reader != null) {
-                                ReadAloudAction(speechFrame.speechId, speechFrame.text, reader) {
-                                    reader.startLiveReply(speechFrame)
-                                }
-                            }
                         }
                         if (!turn.state.isTerminal) humanControl(turn.id)
                         TurnProgressLabel(

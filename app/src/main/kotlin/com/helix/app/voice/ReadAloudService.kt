@@ -46,6 +46,7 @@ class ReadAloudService(
     val accountIdentity: String? = null,
     private val synthesis: Mutex = Mutex(),
 ) {
+    internal val automaticStarts = AutomaticReplyAudio()
     val uploadsText get() = cloudEngine != null
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val epoch = AtomicLong()

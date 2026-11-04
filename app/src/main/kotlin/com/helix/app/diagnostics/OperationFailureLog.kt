@@ -18,6 +18,7 @@ internal object OperationFailureLog {
         failure: Throwable,
     ) {
         Logger.getLogger("HelixOperations").warning(format(stage, failure))
+        DiagnosticArchives.operation(stage.name, failure.javaClass.name)
     }
 
     internal fun format(

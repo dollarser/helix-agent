@@ -390,6 +390,8 @@ class ToolCallReviewRepositoryTest {
 
         override fun pendingTasks(): List<TurnEntity> = emptyList()
 
+        override fun diagnosticProtectedOwners(): List<String> = emptyList()
+
         override fun recent(limit: Int): List<TurnEntity> = emptyList()
 
         override fun collectResult(

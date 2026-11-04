@@ -39,6 +39,7 @@ internal fun TroubleshootingSection(
         }
     }
     diagnostics?.let { DiagnosticReportSection(it::preview) }
+    diagnostics?.let { DiagnosticStorageSection(it) }
     if (diagnostics != null) {
         OutlinedButton({ appLogs = true }, Modifier.testTag("app-log-search")) {
             Text(stringResource(R.string.app_log_search))

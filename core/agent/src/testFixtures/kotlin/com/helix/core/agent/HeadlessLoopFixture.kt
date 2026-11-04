@@ -31,6 +31,7 @@ class HeadlessLoopFixture(
 ) {
     val journal = HeadlessTurnJournal(turnId)
     val requests = mutableListOf<ModelRequest>()
+    val backfillRetryIds = mutableListOf<String?>()
     val events = mutableListOf<AgentLoopEvent>()
     val dispatched = mutableListOf<ToolBatchRequest>()
     val control = RunControlConfig(AgentMode.ACT, true, TurnBudgets(maxOutputTokens = 4096))
@@ -135,8 +136,12 @@ class HeadlessLoopFixture(
             override suspend fun buildBackfill(
                 sessionId: String,
                 turnId: String,
+                retryTurnId: String?,
                 control: RunControlConfig,
-            ) = context()
+            ): TurnContextRequest {
+                backfillRetryIds += retryTurnId
+                return context()
+            }
         }
     private val gateway =
         object : AgentToolGateway {

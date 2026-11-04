@@ -1,0 +1,27 @@
+<resources>
+    <string name="diagnostic_storage_title">诊断存储</string>
+    <string name="diagnostic_storage_usage">%1$d KiB / %2$d MiB</string>
+    <string name="diagnostic_storage_protected">保留排查或任务未结束：%1$d KiB</string>
+    <string name="diagnostic_storage_limited">未保存 %1$d 项诊断；请检查容量或解除保留</string>
+    <string name="diagnostic_storage_unreadable">发现 %1$d 个未识别的诊断文件，已保留</string>
+    <string name="diagnostic_storage_full">诊断预算已满；可解除保留或提高容量</string>
+    <string name="diagnostic_storage_preview_limit">预览前 65536 字符；复制可获取完整详情</string>
+    <string name="diagnostic_storage_normal">普通详情保留天数</string>
+    <string name="diagnostic_storage_failure">故障详情保留天数</string>
+    <string name="diagnostic_storage_budget">诊断容量预算（MiB）</string>
+    <string name="diagnostic_storage_invalid">天数须为 1–365，故障不少于普通；容量为 64–2048 MiB</string>
+    <string name="diagnostic_storage_save">保存</string>
+    <string name="diagnostic_storage_clean">清理过期诊断</string>
+    <string name="diagnostic_storage_recent">最近诊断（最多 100 项）</string>
+    <string name="diagnostic_storage_cleared">诊断详情已清理</string>
+    <string name="diagnostic_storage_pin">保留排查</string>
+    <string name="diagnostic_storage_unpin">解除保留</string>
+    <string name="diagnostic_storage_detail">详情</string>
+    <string name="diagnostic_storage_error">无法访问诊断存储，请重试</string>
+    <string name="diagnostic_kind_normal">普通诊断</string>
+    <string name="diagnostic_kind_failure">故障诊断</string>
+    <string name="diagnostic_kind_log">运行日志</string>
+    <string name="diagnostic_kind_attachment">诊断附件</string>
+    <string name="diagnostic_kind_failure_attachment">故障附件</string>
+    <string name="diagnostic_kind_temporary">临时数据</string>
+</resources>

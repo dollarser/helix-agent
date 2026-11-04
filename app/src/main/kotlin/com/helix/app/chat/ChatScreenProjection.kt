@@ -41,7 +41,8 @@ internal class ChatScreenProjection(
             selectedModel = null,
             activeTurn = null,
             pendingDisclosure = current.pendingDisclosure,
-            blockedReason = current.blockedReason,
+            blockedReason = current.blockedReason.takeIf { sameSession },
+            blockedReasonEpoch = current.blockedReasonEpoch + if (sameSession) 0 else 1,
             retryTargetTurnId = null,
             messages = messagesFor(sessionId, current, history),
             historyLimit = limit,
@@ -246,6 +247,7 @@ internal class ChatScreenProjection(
             retryable = state == TurnState.FAILED,
             continueFromResults = BudgetContinuation.eligible(storage, entity),
             budgetDetail = budgetDetail(entity),
+            modelStep = entity.stepCount,
         )
     }
 
@@ -279,7 +281,8 @@ internal class ChatScreenProjection(
         sessionId
             ?.let { id ->
                 storage.turns
-                    .latestVisible(id, TurnState.FAILED)
+                    .latestVisible(id)
+                    ?.takeIf { it.state == TurnState.FAILED.name }
                     ?.takeIf { turn ->
                         val binding = storage.goalTurnBindings.byTurn(turn.id)
                         if (binding == null) {

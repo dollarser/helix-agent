@@ -87,8 +87,9 @@ internal class ChatRequestAssembler(
     override suspend fun buildBackfill(
         sessionId: String,
         turnId: String,
+        retryTurnId: String?,
         control: RunControlConfig,
-    ): TurnContextRequest = buildBackfillRequest(sessionId, turnId, control)
+    ): TurnContextRequest = buildBackfillRequest(sessionId, turnId, control, retryTurnId)
 
     /** Read-only repair preflight; the ordinary send path still performs its full admission. */
     suspend fun contextFits(
@@ -236,6 +237,7 @@ internal class ChatRequestAssembler(
         sessionId: String,
         turnId: String,
         control: RunControlConfig,
+        retryTurnId: String? = null,
     ): TurnContextRequest {
         val binding = storage.workspaces.binding(sessionId)
         val directory =
@@ -268,7 +270,7 @@ internal class ChatRequestAssembler(
                 directory,
                 contents = contentSections(sessionId, turnId, tools),
             )
-        val history = persistedHistory(sessionId, turnId, null, system, directory)
+        val history = persistedHistory(sessionId, turnId, retryTurnId, system, directory, continuation = true)
         require(history.messages.lastOrNull()?.role in setOf(ModelRole.TOOL, ModelRole.USER)) {
             "a continuation must end with settled tool results or a user input"
         }
@@ -301,7 +303,7 @@ internal class ChatRequestAssembler(
         previous: TurnContextRequest,
     ): TurnContextRequest =
         if (previous.messages.lastOrNull()?.role == ModelRole.TOOL) {
-            buildBackfillRequest(sessionId, turnId, control)
+            buildBackfillRequest(sessionId, turnId, control, retryTurnId)
         } else {
             buildRequest(sessionId, turnId, retryTurnId, control)
         }
@@ -404,6 +406,7 @@ internal class ChatRequestAssembler(
         retryTurnId: String?,
         system: PromptSnapshot,
         directory: com.helix.core.workspace.FileScopePath,
+        continuation: Boolean = false,
     ): History {
         val snapshot =
             com.helix.app.agent.ContextHistory
@@ -422,7 +425,7 @@ internal class ChatRequestAssembler(
         val predecessorId = currentTurnId?.let { storage.turns.resolve(it).recoveryFromTurnId }
         val historyRows =
             RecoveryContextPolicy.modelHistoryRows(
-                ChatHistoryBuilder.rowsForTurn(rows, retryTurnId),
+                ChatHistoryBuilder.rowsForTurn(rows, retryTurnId, currentTurnId.takeIf { continuation }),
                 predecessorId,
             )
         val messages = ChatHistoryBuilder.toModelMessagesStrict(historyRows, directory)

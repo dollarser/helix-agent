@@ -1,0 +1,5 @@
+<resources>
+    <string name="reply_audio_automatic_on">Automatic read aloud on</string>
+    <string name="reply_audio_automatic_off">Automatic read aloud off</string>
+    <string name="reply_audio_save_failed">Could not save automatic playback. Try again.</string>
+</resources>

@@ -7,6 +7,7 @@ import com.helix.app.agent.TurnStartSpec
 import com.helix.app.agent.promptSnapshotRecord
 import com.helix.app.infrastructure.agent.TurnSettlement
 import com.helix.core.agent.ContextCompactionPlan
+import com.helix.core.agent.ModelFailureDiagnostics
 import com.helix.core.agent.ModelStreamTerminal
 import com.helix.core.agent.PromptSnapshot
 import com.helix.core.agent.ResponseInputBoundary
@@ -24,6 +25,8 @@ import com.helix.core.storage.HelixStorage
 import com.helix.core.storage.repository.ConversationReferenceSnapshotInput
 import com.helix.core.storage.repository.MessageAttachmentRepository
 import kotlinx.coroutines.CancellationException
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 /** Direct Room transaction adapter; owns no process-local round state. */
 @Suppress("TooManyFunctions") // One local atomic round journal, without another runtime owner.
@@ -68,8 +71,8 @@ internal class RoomTurnRoundStore(
         type: String,
         payload: String,
     ) {
-        if (type == com.helix.core.agent.ModelFailureDiagnostics.TYPE) {
-            require(payload.toByteArray().size <= com.helix.core.agent.ModelFailureDiagnostics.MAX_BYTES)
+        if (type == ModelFailureDiagnostics.TYPE) {
+            require(payload.toByteArray().size <= ModelFailureDiagnostics.MAX_BYTES)
         } else if (type == "context.job_observations") {
             require(payload.length <= 1024)
             val refs =
@@ -95,14 +98,37 @@ internal class RoomTurnRoundStore(
             )
             require(payload.length <= 512)
         }
+        // Free-form server text belongs to the expiring diagnostic archive, not the durable execution ledger.
+        val auditPayload =
+            if (type == ModelFailureDiagnostics.TYPE) {
+                durableModelFailurePayload(payload)
+            } else {
+                payload
+            }
         storage.auditEvents.append(
             idGenerator(),
             modelCallId,
             type,
             "agent",
-            payload,
+            auditPayload,
             clock.now().toEpochMilli(),
         )
+        if (type == ModelFailureDiagnostics.TYPE) {
+            com.helix.app.diagnostics.DiagnosticArchives.record(
+                com.helix.app.diagnostics.DiagnosticKind.FAILURE,
+                type,
+                buildJsonObject {
+                    put("modelCallId", modelCallId)
+                    put("turnId", turnId)
+                    put(
+                        "diagnostic",
+                        kotlinx.serialization.json.Json
+                            .parseToJsonElement(payload),
+                    )
+                }.toString(),
+                turnId,
+            )
+        }
     }
 
     override fun recordPromptSnapshot(

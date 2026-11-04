@@ -49,17 +49,7 @@ class ProviderFactory(
         if (BuiltInModel.owns(config.id) ||
             config.provisioning == com.helix.core.model.ProviderProvisioningKind.BUNDLED_SERVICE
         ) {
-            BuiltInModel.validate(config)
-            val accountWire = (builtInWire as? com.helix.app.account.BuiltInAccountWire)?.newInvocation() ?: builtInWire
-            val adapter = OpenAiChatProvider(config, credentials, accountWire, chatImages(config))
-            return BuiltInModelProvider(adapter) {
-                com.helix.provider.api.ModelCatalogDiscovery.fetch(
-                    accountWire,
-                    BuiltInModel.CATALOG_URL,
-                    emptyMap(),
-                    outputModalitiesOnly = true,
-                )
-            }
+            return createBuiltIn(config)
         }
         val managed = additionalFactory(config)
         require(
@@ -103,6 +93,32 @@ class ProviderFactory(
     // code by design); they all delegate to the single app-side [imageSource], which resolves
     // only session-message-bound, hash-verified artifacts and fails closed with a stable,
     // path-free IAE — the encoders propagate it and the turn fails with an actionable error.
+    private fun createBuiltIn(config: ProviderConfig): ModelProvider {
+        BuiltInModel.validate(config)
+        val accountWire = (builtInWire as? com.helix.app.account.BuiltInAccountWire)?.newInvocation() ?: builtInWire
+        val adapter = OpenAiChatProvider(config, credentials, accountWire, chatImages(config))
+        return BuiltInModelProvider(
+            adapter,
+            catalog = {
+                com.helix.provider.api.ModelCatalogDiscovery.fetch(
+                    accountWire,
+                    BuiltInModel.CATALOG_URL,
+                    emptyMap(),
+                    outputModalitiesOnly = true,
+                )
+            },
+            window = { model ->
+                com.helix.provider.api.ContextWindowDiscovery.read(
+                    accountWire,
+                    emptyMap(),
+                    BuiltInModel.CATALOG_URL,
+                    null,
+                    model,
+                )
+            },
+        )
+    }
+
     private fun chatImages(config: ProviderConfig) =
         ChatImageResolver { image ->
             val loaded = imageSource().load(image, config)

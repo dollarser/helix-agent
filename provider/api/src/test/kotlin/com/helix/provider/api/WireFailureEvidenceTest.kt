@@ -8,11 +8,34 @@ import com.helix.provider.api.wire.WireResponse
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.net.UnknownHostException
 import javax.net.ssl.SSLHandshakeException
 
 class WireFailureEvidenceTest {
+    @Test fun selectedErrorFieldsAreSanitizedWithoutRetainingTheOtherBodyFields() =
+        runBlocking {
+            val evidence = WireFailureEvidence()
+            evidence.requestHeaders(mapOf("x-api-key" to "custom-secret"))
+            evidence.response =
+                response(
+                    """{"error":{"type":"BadRequestError","param":"max_tokens",
+                        "message":"Maximum context length is 32768; custom-secret",
+                        "debug":"UNSELECTED_BODY_SENTINEL"}}""",
+                )
+            val failure = evidence.httpError()
+            assertEquals("max_tokens", failure.diagnostic?.errorParameter)
+            assertTrue(
+                failure.diagnostic
+                    ?.serverMessage
+                    .orEmpty()
+                    .contains("32768"),
+            )
+            assertFalse(failure.toString().contains("custom-secret"))
+            assertFalse(failure.toString().contains("UNSELECTED_BODY_SENTINEL"))
+        }
+
     private fun response(text: String) =
         WireResponse(
             400,

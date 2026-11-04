@@ -71,7 +71,7 @@ class AgentLoop(
         var context =
             when (entry) {
                 Entry.INITIAL -> contextAssembler.build(sessionId, turnId, retryTurnId, control)
-                Entry.BACKFILL -> contextAssembler.buildBackfill(sessionId, turnId, control)
+                Entry.BACKFILL -> contextAssembler.buildBackfill(sessionId, turnId, retryTurnId, control)
             }
         runtimeRecord?.let { require(context.model == it.modelId) { "Turn runtime model drift" } }
         val provider = models.modelProviderFor(providerId, context.model)
@@ -98,7 +98,7 @@ class AgentLoop(
             }
             if (!manualCommandPending && (inputDelivery?.appendBeforeRequest(sessionId, turnId) == true)) {
                 toolExecutor.resetLoopProgress(turnId)
-                context = contextAssembler.buildBackfill(sessionId, turnId, control)
+                context = contextAssembler.buildBackfill(sessionId, turnId, retryTurnId, control)
             }
             if (finalResponsePending) context = context.copy(tools = emptyList())
             val prepared = compactionRound.prepare(context)
@@ -251,7 +251,7 @@ class AgentLoop(
                     finishResponseOrReturn(sessionId, coordinator, finished, inputDelivery)?.let {
                         return TurnLoopResult.Terminal(it)
                     }
-                    context = contextAssembler.buildBackfill(sessionId, turnId, control)
+                    context = contextAssembler.buildBackfill(sessionId, turnId, retryTurnId, control)
                     manualCommandPending = context.messages.lastOrNull()?.text == ContextCommands.COMPACT
                     // The explicit compaction command has finished; the accepted user input is
                     // an ordinary request in this same Turn, retaining its budget tracker.
@@ -276,7 +276,7 @@ class AgentLoop(
                 ) {
                     is ToolRoundContinued -> {
                         toolRounds = round.toolRounds
-                        context = contextAssembler.buildBackfill(sessionId, turnId, control)
+                        context = contextAssembler.buildBackfill(sessionId, turnId, retryTurnId, control)
                     }
 
                     is ToolRoundReviewRequired -> {
@@ -285,14 +285,14 @@ class AgentLoop(
 
                     is ToolRoundNoProgress -> {
                         finalResponsePending = true
-                        context = contextAssembler.buildBackfill(sessionId, turnId, control)
+                        context = contextAssembler.buildBackfill(sessionId, turnId, retryTurnId, control)
                     }
 
                     else -> {
                         finishResponseOrReturn(sessionId, coordinator, decision, inputDelivery)?.let {
                             return TurnLoopResult.Terminal(it)
                         }
-                        context = contextAssembler.buildBackfill(sessionId, turnId, control)
+                        context = contextAssembler.buildBackfill(sessionId, turnId, retryTurnId, control)
                     }
                 }
             }

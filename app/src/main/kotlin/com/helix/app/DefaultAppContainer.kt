@@ -101,6 +101,12 @@ internal class DefaultAppContainer(
 
     override val storage: HelixStorage = HelixStorage.create(context)
 
+    init {
+        com.helix.app.diagnostics.DiagnosticArchives.bindProtectedOwners {
+            storage.turns.diagnosticProtectedOwners()
+        }
+    }
+
     override val egressRules by lazy {
         com.helix.app.egress
             .EgressRuleService(storage.highSensitivityRules)
@@ -270,6 +276,12 @@ internal class DefaultAppContainer(
 
     /** App-lifetime scope that observes the chat screen to drive the dataSync foreground service. */
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    init {
+        com.helix.app.diagnostics.DiagnosticArchives.bindMaintenance {
+            sessionExport.cleanupExpiredLocalStaging()
+        }
+    }
 
     private val dataSyncLauncher = AndroidForegroundServiceLauncher(context.applicationContext)
 

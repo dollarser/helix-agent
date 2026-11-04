@@ -30,6 +30,18 @@ class SessionExportService(
     private val preferences = context.applicationContext.getSharedPreferences("session-export", Context.MODE_PRIVATE)
     private val mutex = Mutex()
 
+    /** No target cleanup, grant changes or export replay; unresolved delivery keeps its local evidence. */
+    suspend fun cleanupExpiredLocalStaging(): Int =
+        mutex.withLock {
+            withContext(Dispatchers.IO) {
+                ExportStagingCleanup.collect(
+                    root.toPath(),
+                    preferences.getString("operation", null),
+                    System.currentTimeMillis(),
+                )
+            }
+        }
+
     /** Call only with the new document returned by the user-initiated create-document picker. */
     suspend fun export(
         sessionId: String,

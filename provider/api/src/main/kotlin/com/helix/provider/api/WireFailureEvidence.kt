@@ -21,7 +21,7 @@ import java.net.UnknownHostException
 import java.security.MessageDigest
 import javax.net.ssl.SSLException
 
-/** Per-exchange counters and allowlisted metadata. No raw request/response is retained. */
+/** Per-exchange counters and selected sanitized error fields; never the raw request or response body. */
 internal class WireFailureEvidence {
     private val started = System.nanoTime()
     var response: WireResponse? = null
@@ -30,6 +30,19 @@ internal class WireFailureEvidence {
 
     private var serverError: ServerError? = null
     private var bodyState: ErrorBodyState? = null
+    private var serverMessage: String? = null
+    private var serverCode: String? = null
+    private var errorParameter: String? = null
+    private var secrets: List<String> = emptyList()
+
+    fun requestHeaders(headers: Map<String, String>) {
+        val sensitive = Regex("(?i)(authorization|key|token|cookie)")
+        secrets =
+            headers
+                .filterKeys { sensitive.containsMatchIn(it) }
+                .values
+                .flatMap { listOf(it, it.removePrefix("Bearer ").removePrefix("bearer ")) }
+    }
 
     fun transport(
         error: IOException,
@@ -124,6 +137,19 @@ internal class WireFailureEvidence {
                 null
             } ?: return ErrorBodyState.NON_JSON
         val error = parsed["error"] as? JsonObject ?: parsed
+        val message = (error["message"] ?: error["detail"] ?: parsed["detail"]) as? JsonPrimitive
+        serverMessage = message?.takeIf { it.isString }?.content?.let { ServerErrorSummary.redact(it, secrets) }
+        serverCode =
+            ((error["code"] ?: error["type"]) as? JsonPrimitive)
+                ?.content
+                ?.takeIf { it.matches(Regex("[A-Za-z][A-Za-z_.-]{0,95}")) }
+                ?.let { ServerErrorSummary.redact(it, secrets).take(96) }
+        errorParameter =
+            (error["param"] as? JsonPrimitive)
+                ?.takeIf { it.isString }
+                ?.content
+                ?.takeIf { it.matches(Regex("[A-Za-z0-9_.\\[\\]-]{1,128}")) }
+                ?.let { ServerErrorSummary.redact(it, secrets).take(128) }
         val labels = listOf("code", "type").mapNotNull { (error[it] as? JsonPrimitive)?.content }
         serverError = labels.firstNotNullOfOrNull { label ->
             ServerError.entries.firstOrNull { it != ServerError.UNKNOWN && it.name.equals(label, true) }
@@ -170,6 +196,9 @@ internal class WireFailureEvidence {
             serverError,
             bodyState,
             retryAfter(headers),
+            serverMessage,
+            serverCode,
+            errorParameter,
         )
     }
 

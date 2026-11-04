@@ -8,6 +8,8 @@ import com.helix.core.storage.entity.TurnEntity
 class TurnRepository(
     private val dao: TurnDao,
 ) {
+    fun diagnosticProtectedOwners(): Set<String> = dao.diagnosticProtectedOwners().toSet()
+
     fun start(
         id: String,
         sessionId: String,

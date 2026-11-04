@@ -112,6 +112,7 @@ public abstract class WireModelProvider(
                     )
                     return@flow
                 }
+            evidence.requestHeaders(prepared.headers)
             val response =
                 try {
                     wire.open(prepared)

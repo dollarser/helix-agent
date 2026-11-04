@@ -2348,9 +2348,11 @@ class ChatService(
         return sessionActions.submit {
             submissionGate.withLock {
                 if (openSessionId == snapshot.sessionId) showLatestMessages()
+                val blockedEpoch = _screen.value.blockedReasonEpoch
                 val outcome = submissionAttempt { admitSubmission(snapshot) }
                 val receipt = ChatSubmissionReceipt(snapshot, outcome)
                 if (outcome is ChatSubmissionOutcome.Accepted || outcome is ChatSubmissionOutcome.Enqueued) {
+                    clearAcceptedSubmissionBlock(snapshot.sessionId, blockedEpoch)
                     storage.composerDrafts.clear(snapshot.sessionId, snapshot.revision, snapshot.clientRequestId)
                 }
                 receipt
@@ -3731,6 +3733,7 @@ class ChatService(
     ): Boolean {
         val session = currentSession() ?: return false
         if (expectedSessionId != null && session.id != expectedSessionId) return false
+        val blockedEpoch = _screen.value.blockedReasonEpoch
         val currentControl = sessionRunControls.ensure(session.id, clock.now().toEpochMilli())
         val control =
             if (revisedMessageId != null && currentControl.mode == AgentMode.GOAL) {
@@ -3774,6 +3777,7 @@ class ChatService(
                 ),
             )
             // A turn row was committed and its loop launched: the start truly happened.
+            clearAcceptedSubmissionBlock(session.id, blockedEpoch)
             true
         } catch (e: TurnStartBlocked) {
             projectSubmission(e.sessionId, TurnSubmissionResult.Blocked(e.reason))
@@ -4579,7 +4583,11 @@ class ChatService(
                         activeTurn = lastTurn?.let { projection.turnUiFor(it, current.activeTurn?.streamingText) },
                         turns = turns.map { projection.turnUiFor(it, null) },
                         pendingDisclosure = current.pendingDisclosure,
-                        blockedReason = bindingBlockedReason(current, bindingIssue),
+                        blockedReason =
+                            bindingBlockedReason(
+                                if (current.openSessionId == sessionId) current else history,
+                                bindingIssue,
+                            ),
                         retryTargetTurnId = retryTarget,
                         recoveryPanels =
                             sessionId
@@ -4639,8 +4647,16 @@ class ChatService(
             refreshBackgroundTasks()
             refreshTaskDashboardsNow()
         }
-        val session = storage.turns.resolve(turn.id).sessionId
-        _screen.update { if (it.openSessionId == session) it.copy(activeTurn = turn) else it }
+        val persisted = storage.turns.resolve(turn.id)
+        _screen.update {
+            if (it.openSessionId ==
+                persisted.sessionId
+            ) {
+                it.copy(activeTurn = turn.copy(modelStep = persisted.stepCount))
+            } else {
+                it
+            }
+        }
     }
 
     private fun bindingBlockedReason(
@@ -4665,7 +4681,14 @@ class ChatService(
         }
 
     private fun setBlocked(reason: String) {
-        _screen.update { it.copy(blockedReason = reason) }
+        _screen.update { it.copy(blockedReason = reason, blockedReasonEpoch = it.blockedReasonEpoch + 1) }
+    }
+
+    private fun clearAcceptedSubmissionBlock(
+        sessionId: String,
+        epoch: Long,
+    ) {
+        _screen.update { clearAcceptedSubmissionBlock(it, sessionId, epoch) }
     }
 
     private fun currentSession() = openSessionId?.let { storage.sessions.resolve(it) }

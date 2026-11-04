@@ -47,6 +47,7 @@ internal fun visibleReplyFrame(screen: ChatScreenState): VisibleReplyFrame? {
             turn.streamingText.orEmpty()
         },
         phase,
+        turn.modelStep,
     )
 }
 

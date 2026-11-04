@@ -95,6 +95,7 @@ data class TurnUi(
     val retryable: Boolean,
     val continueFromResults: Boolean = false,
     val budgetDetail: String? = null,
+    val modelStep: Int = 0,
 )
 
 /**
@@ -167,6 +168,7 @@ data class ChatScreenState(
     val hasNewerMessages: Boolean = false,
     val focusedHistoryMessage: String? = null,
     val historyFocusRevision: Long = 0,
+    val blockedReasonEpoch: Long = 0,
 ) {
     val isSending: Boolean
         get() =

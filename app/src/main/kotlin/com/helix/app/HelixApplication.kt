@@ -91,6 +91,11 @@ class HelixApplication : Application() {
             )
     }
 
+    val replyAudioSettings by lazy {
+        com.helix.app.voice
+            .ReplyAudioSettings(this)
+    }
+
     private fun createReadAloud(settings: SpeechServiceSettings): ReadAloudService {
         val identity = account.identity
         val audio =
@@ -253,6 +258,8 @@ class HelixApplication : Application() {
         // Android also creates this Application in isolated QuickJS and private Runtime
         // processes. Only the main process owns host diagnostics, Room and recovery.
         if (Process.isIsolated() || getProcessName() != packageName) return
+        com.helix.app.diagnostics.DiagnosticArchives
+            .install(this)
         processDiagnostics = ProcessDiagnostics.install(this)
         // Schedule before recovery/UI access, preserving the private Runtime process guard.
         containerInitialization

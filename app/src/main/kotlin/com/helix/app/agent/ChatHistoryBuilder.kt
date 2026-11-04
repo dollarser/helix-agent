@@ -80,12 +80,15 @@ object ChatHistoryBuilder {
     fun toModelMessagesStrict(
         rows: List<PersistedRow>,
         directory: FileScopePath? = null,
-    ): List<ModelMessage> = toModelMessagesInternal(rows, strict = true, directory = directory)
+        controlTurnId: String? = rows.lastOrNull { it.turnId != null }?.turnId,
+    ): List<ModelMessage> =
+        toModelMessagesInternal(rows, strict = true, directory = directory, controlTurnId = controlTurnId)
 
     private fun toModelMessagesInternal(
         rows: List<PersistedRow>,
         strict: Boolean,
         directory: FileScopePath? = null,
+        controlTurnId: String? = rows.lastOrNull { it.turnId != null }?.turnId,
     ): List<ModelMessage> =
         rows.mapNotNull { row ->
             when (row.kind) {
@@ -111,7 +114,7 @@ object ChatHistoryBuilder {
                 }
 
                 "loop_exhausted" -> {
-                    if (currentControlNotice(row, rows)) {
+                    if (currentControlNotice(row, controlTurnId)) {
                         ModelMessage(ModelRole.SYSTEM, ToolLoopPrompts.EXHAUSTED)
                     } else {
                         null
@@ -119,7 +122,7 @@ object ChatHistoryBuilder {
                 }
 
                 "loop_warning" -> {
-                    if (currentControlNotice(row, rows)) {
+                    if (currentControlNotice(row, controlTurnId)) {
                         ModelMessage(ModelRole.SYSTEM, ToolLoopPrompts.WARNING)
                     } else {
                         null
@@ -134,8 +137,8 @@ object ChatHistoryBuilder {
 
     private fun currentControlNotice(
         row: PersistedRow,
-        rows: List<PersistedRow>,
-    ): Boolean = row.role == ModelRole.SYSTEM.name && row.turnId == rows.lastOrNull { it.turnId != null }?.turnId
+        controlTurnId: String?,
+    ): Boolean = row.role == ModelRole.SYSTEM.name && row.turnId == controlTurnId
 
     private fun textMessage(row: PersistedRow): ModelMessage? {
         val text = row.content?.takeIf { it.isNotBlank() } ?: return null
@@ -209,11 +212,17 @@ object ChatHistoryBuilder {
     fun rowsForTurn(
         rows: List<PersistedRow>,
         retryTurnId: String?,
+        continuationTurnId: String? = null,
     ): List<PersistedRow> {
         if (retryTurnId == null) return rows
         val rest = rows.filter { it.turnId != retryTurnId }
         val retried = rows.firstOrNull { it.turnId == retryTurnId && it.role == ModelRole.USER.name }
-        return if (retried == null) rest else rest + retried
+        return if (retried == null) {
+            rest
+        } else {
+            val continuation = continuationTurnId?.let { id -> rest.indexOfFirst { it.turnId == id } } ?: -1
+            if (continuation >= 0) rest.take(continuation) + retried + rest.drop(continuation) else rest + retried
+        }
     }
 
     /** Parses the persisted `{"id","tool","status","summary"}` object into a TOOL message. */

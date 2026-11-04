@@ -43,11 +43,15 @@ class BuiltInModelTransportTest {
     private val requests = CopyOnWriteArrayList<Pair<Map<String, List<String>>, String>>()
     private val release = CountDownLatch(1)
     private var reply: (HttpExchange) -> Unit = { respond(it, 200, TEXT_STREAM) }
+    private var allowCatalog = false
     private val http = OkHttpWireClient(followRedirects = false, readTimeoutMillis = 2_000)
     private val local =
         object : WireClient {
             override suspend fun open(request: WireRequest): WireResponse {
-                require(request.url == BuiltInModel.GENERATION_URL)
+                require(
+                    request.url == BuiltInModel.GENERATION_URL ||
+                        (allowCatalog && request.url == BuiltInModel.CATALOG_URL),
+                )
                 // Test-only route substitution after production origin/header checks, never shipped to the app.
                 val url = "http://127.0.0.1:${server.address.port}/v1/chat/completions"
                 return http.open(WireRequest(request.method, url, request.headers, request.body))
@@ -213,6 +217,23 @@ class BuiltInModelTransportTest {
             val events = provider.stream(request).toList()
             val answer = events.filterIsInstance<ModelEvent.TextDelta>().joinToString("") { it.text }
             assertEquals("OK", answer)
+        }
+
+    @Test fun contextWindowUsesOnlyTheAuthenticatedFilteredDirectory() =
+        runBlocking {
+            allowCatalog = true
+            reply =
+                {
+                    respond(
+                        it,
+                        200,
+                        """{"data":[
+                            {"id":"Qwen3.8-27B","context_length":32768},
+                            {"id":"other","context_length":262144}]}""",
+                    )
+                }
+            assertEquals(32768L, provider.contextWindow(BuiltInModel.MODEL_ID))
+            assertEquals(1, requests.size)
         }
 
     @Test fun newlyListedModelUsesTheSamePinnedGatewayWithoutFallback() =

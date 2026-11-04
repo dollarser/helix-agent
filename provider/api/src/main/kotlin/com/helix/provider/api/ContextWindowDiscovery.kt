@@ -10,7 +10,7 @@ import kotlinx.serialization.json.longOrNull
 import java.io.IOException
 
 /** Optional metadata failure is unknown, not a model capability or connection-test failure. */
-internal object ContextWindowDiscovery {
+object ContextWindowDiscovery {
     suspend fun read(
         wire: WireClient,
         headers: Map<String, String>,

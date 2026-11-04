@@ -1,0 +1,27 @@
+<resources>
+    <string name="diagnostic_storage_title">Diagnostic storage</string>
+    <string name="diagnostic_storage_usage">%1$d KiB / %2$d MiB</string>
+    <string name="diagnostic_storage_protected">Kept for investigation or unfinished tasks: %1$d KiB</string>
+    <string name="diagnostic_storage_limited">%1$d diagnostics were not saved; check capacity or release holds</string>
+    <string name="diagnostic_storage_unreadable">%1$d unrecognized diagnostic files retained</string>
+    <string name="diagnostic_storage_full">Diagnostic budget full; release holds or increase capacity</string>
+    <string name="diagnostic_storage_preview_limit">First 65536 characters shown; copy for full details</string>
+    <string name="diagnostic_storage_normal">Normal detail retention (days)</string>
+    <string name="diagnostic_storage_failure">Failure detail retention (days)</string>
+    <string name="diagnostic_storage_budget">Diagnostic budget (MiB)</string>
+    <string name="diagnostic_storage_invalid">Days: 1–365, failure ≥ normal; budget: 64–2048 MiB</string>
+    <string name="diagnostic_storage_save">Save</string>
+    <string name="diagnostic_storage_clean">Clean expired diagnostics</string>
+    <string name="diagnostic_storage_recent">Recent diagnostics (up to 100)</string>
+    <string name="diagnostic_storage_cleared">Diagnostic details expired</string>
+    <string name="diagnostic_storage_pin">Keep for investigation</string>
+    <string name="diagnostic_storage_unpin">Release hold</string>
+    <string name="diagnostic_storage_detail">Details</string>
+    <string name="diagnostic_storage_error">Cannot access diagnostic storage. Try again.</string>
+    <string name="diagnostic_kind_normal">Normal diagnostics</string>
+    <string name="diagnostic_kind_failure">Failure diagnostics</string>
+    <string name="diagnostic_kind_log">Runtime logs</string>
+    <string name="diagnostic_kind_attachment">Diagnostic attachments</string>
+    <string name="diagnostic_kind_failure_attachment">Failure attachments</string>
+    <string name="diagnostic_kind_temporary">Temporary data</string>
+</resources>

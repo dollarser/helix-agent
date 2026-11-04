@@ -1,6 +1,6 @@
 package com.helix.core.model
 
-/** Structural failure evidence only: no URL, headers, exception message, prompt or response body. */
+/** Failure metadata plus bounded sanitized server fields; never a raw URL, header, prompt or response body. */
 data class ModelFailureDiagnostic(
     val stage: Stage,
     val reason: Reason,
@@ -14,6 +14,9 @@ data class ModelFailureDiagnostic(
     val serverError: ServerError? = null,
     val errorBodyState: ErrorBodyState? = null,
     val retryAfterMillis: Long? = null,
+    val serverMessage: String? = null,
+    val serverCode: String? = null,
+    val errorParameter: String? = null,
 ) {
     enum class Stage { CONFIGURATION, CONNECT, HTTP, STREAM }
 
@@ -61,6 +64,9 @@ data class ModelFailureDiagnostic(
     }
 
     init {
+        require(serverMessage == null || serverMessage.toByteArray().size <= 768)
+        require(serverCode == null || serverCode.length <= 96)
+        require(errorParameter == null || errorParameter.length <= 128)
         require(retryAfterMillis == null || retryAfterMillis in 0..MAX_RETRY_AFTER_MILLIS)
         require(httpStatus == null || httpStatus in 100..599)
         require(receivedBytes >= 0 && receivedChunks >= 0 && elapsedMillis >= 0)

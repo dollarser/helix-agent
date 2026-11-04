@@ -16,6 +16,26 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AgentLoopHeadlessTest {
+    @Test fun retrySelectionSurvivesToolBackfillAndBackfillEntry() =
+        runBlocking {
+            val fixture =
+                HeadlessLoopFixture { index ->
+                    if (index == 0) calls(false) else listOf(ModelEvent.TextDelta("done"), ModelEvent.Completed("stop"))
+                }
+            fixture.loop().runToolLoop("s", fixture.journal, "p", "failed-turn", fixture.control)
+            assertEquals(listOf("failed-turn"), fixture.backfillRetryIds)
+            val resumed = HeadlessLoopFixture { listOf(ModelEvent.TextDelta("done"), ModelEvent.Completed("stop")) }
+            resumed.loop().runToolLoop(
+                "s",
+                resumed.journal,
+                "p",
+                "failed-turn",
+                resumed.control,
+                AgentLoop.Entry.BACKFILL,
+            )
+            assertEquals(listOf("failed-turn"), resumed.backfillRetryIds)
+        }
+
     @Test fun cancellationDuringBackoffDoesNotStartAnotherModelRequest() =
         runBlocking {
             val fixture =

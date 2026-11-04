@@ -23,6 +23,7 @@ interface TurnContextAssembler {
     suspend fun buildBackfill(
         sessionId: String,
         turnId: String,
+        retryTurnId: String?,
         control: RunControlConfig,
     ): TurnContextRequest
 }
