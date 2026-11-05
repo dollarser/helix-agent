@@ -99,6 +99,30 @@ class SkillRepository(
             requireNotNull(records[key]) { "Unknown skill snapshot: ${key.name}" }.document
         }
 
+    /** Management inventory; disabled content remains inspectable, without execution or activation. */
+    fun inspectFiles(key: SkillKey): List<SkillFileInfo> =
+        synchronized(lock) {
+            refreshContributions()
+            val record = requireNotNull(records[key]) { "Unknown skill snapshot" }
+            val directory =
+                record.directory ?: return@synchronized record.document.resources.map { (path, text) ->
+                    SkillFileInfo(
+                        path,
+                        text.toByteArray(Charsets.UTF_8).size.toLong(),
+                        sha256(text.toByteArray(Charsets.UTF_8)),
+                        when (path.substringBefore('/')) {
+                            "scripts" -> SkillFileKind.SCRIPT
+                            "references" -> SkillFileKind.REFERENCE
+                            "assets" -> SkillFileKind.ASSET
+                            else -> SkillFileKind.OTHER
+                        },
+                    )
+                }
+            val preview = inspector.inspect(directory, key.source)
+            require(preview.snapshotHash == key.snapshotHash) { "SKILL_SNAPSHOT_CHANGED" }
+            preview.files
+        }
+
     fun read(
         key: SkillKey,
         sessionId: String? = null,

@@ -29,7 +29,7 @@ class TerminalFreshStartDeviceTest {
             ActivityScenario.launch(MainActivity::class.java).use {
                 val container = (context.applicationContext as HelixApplication).appContainer
                 val terminal = checkNotNull(container.manualTerminal)
-                val previous = container.profileStore.profile
+
                 val root = File(context.filesDir, "terminal-sessions")
                 val store = PtySessionStore(root)
                 val bindings = File(context.filesDir, "execution-admission/terminals")
@@ -45,7 +45,7 @@ class TerminalFreshStartDeviceTest {
                     )
                 var sessionId: String? = null
                 try {
-                    container.profileStore.switchTo(SafetyProfile.ADVANCED)
+                    check(container.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
                     val started = terminal.start(".", 30_000)
                     sessionId = started.sessionId
                     assertEquals("RUNNING", started.phase)
@@ -66,7 +66,6 @@ class TerminalFreshStartDeviceTest {
                         check(File(root, "${record.origin.sessionId}.pty").delete())
                     }
                     terminal.reclaim()
-                    container.profileStore.switchTo(previous)
                 }
             }
         }

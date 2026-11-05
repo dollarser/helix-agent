@@ -25,7 +25,7 @@ import java.io.File
 /**
  * The PRoot capability module (HXA-085): the DEVELOPER flavor's side of the per-variant
  * [ProotToolModule] seam (same FQN as the consumer no-op, exactly like
- * [com.helix.app.profile.AdvancedProfileAvailability]).
+ * [com.helix.app.profile.ChannelCapabilities]).
  *
  * Owns the cold-bind [ProotRuntimeSupervisor] + [ProotJobClient] and registers the
  * `code.linux.run` tool (L2 CODE_EXECUTION, per-call approval, shared host UID and network permissions under ADR-0049).

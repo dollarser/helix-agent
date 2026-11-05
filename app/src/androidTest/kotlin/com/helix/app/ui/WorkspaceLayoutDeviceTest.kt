@@ -146,5 +146,6 @@ class WorkspaceLayoutDeviceTest {
         assertTrue(bounds.left >= viewport.left && bounds.right <= viewport.right)
         assertTrue(bounds.top >= viewport.top && bounds.bottom <= viewport.bottom)
         button.performClick()
+        compose.onNodeWithTag("session-directory-change").performClick()
     }
 }

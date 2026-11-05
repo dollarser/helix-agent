@@ -11,6 +11,39 @@ import java.util.concurrent.atomic.AtomicReference
 import kotlin.concurrent.thread
 
 class LiveReplySpeechTest {
+    @Test fun completedAnswerStartsWithTheFullBodyAndDoesNotReplayLateUpdates() {
+        val chunks = mutableListOf<String>()
+        var begins = 0
+        var finishes = 0
+        val speech =
+            LiveReplySpeech(
+                object : ReplySpeechOutput {
+                    override fun begin(id: String) {
+                        begins++
+                    }
+
+                    override fun append(text: String): Boolean {
+                        chunks += text
+                        return true
+                    }
+
+                    override fun finish() {
+                        finishes++
+                    }
+
+                    override fun cancel() = Unit
+                },
+            )
+        speech.start(frame("最终回答。完整正文", VisibleReplyFrame.Phase.COMPLETED))
+        assertEquals("最终回答。完整正文", chunks.joinToString(""))
+        assertEquals(1, begins)
+        assertEquals(1, finishes)
+        speech.update(frame("最终回答。完整正文", VisibleReplyFrame.Phase.COMPLETED))
+        assertEquals(1, finishes)
+        speech.start(frame("", VisibleReplyFrame.Phase.COMPLETED))
+        assertEquals(1, begins)
+    }
+
     @Test fun incrementalCursorFeedsFakeTtsBeforeFinalAndStopPreventsMoreRequests() {
         val requests = mutableListOf<String>()
         val audio = mutableListOf<Float>()

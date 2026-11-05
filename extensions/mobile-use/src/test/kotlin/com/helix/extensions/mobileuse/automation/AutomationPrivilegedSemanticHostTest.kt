@@ -45,6 +45,29 @@ class AutomationPrivilegedSemanticHostTest {
         )
     private val backend = Backend()
 
+    @Test fun absentApplicationIsAMissingTargetAndCannotReusePreviousNodeTokens() {
+        val token = requireNotNull(host.snapshot(call, backend).snapshot).nodes.single().token
+        backend.observed = null
+        assertEquals(AutomationSnapshotStatus.TARGET_UNAVAILABLE, host.snapshot(call, backend).status)
+        assertEquals(
+            AutomationActionStatus.STALE_TOKEN,
+            host.action(call, AutomationNodeActionRequest(AutomationNodeAction.CLICK, token)).status,
+        )
+        assertEquals(0, backend.actions)
+    }
+
+    @Test fun treeBlindTargetDoesNotInventSemanticNodesOrRetainOldTokens() {
+        val token = requireNotNull(host.snapshot(call, backend).snapshot).nodes.single().token
+        backend.observed = target.copy(displayId = 7, displaySession = "owned", semanticAvailable = false, taskId = 42)
+        val snapshot = host.snapshot(call, backend)
+        assertEquals(AutomationSnapshotStatus.UNSUPPORTED_UI, snapshot.status)
+        assertNull(snapshot.snapshot)
+        assertEquals(
+            AutomationActionStatus.STALE_TOKEN,
+            host.action(call, AutomationNodeActionRequest(AutomationNodeAction.CLICK, token)).status,
+        )
+    }
+
     @Test fun aNewTurnInTheSameConversationCannotUseThePreviousTurnToken() {
         val node = requireNotNull(host.snapshot(call, backend).snapshot).nodes.single()
         val action = AutomationNodeActionRequest(AutomationNodeAction.CLICK, node.token)
@@ -153,7 +176,7 @@ class AutomationPrivilegedSemanticHostTest {
                 .token
         assertNotEquals(first, second)
         assertEquals(
-            AutomationActionStatus.TOKEN_UNKNOWN,
+            AutomationActionStatus.STALE_TOKEN,
             host.action(call, AutomationNodeActionRequest(AutomationNodeAction.CLICK, first)).status,
         )
         val fresh =
@@ -201,7 +224,7 @@ class AutomationPrivilegedSemanticHostTest {
 
     private inner class Backend : AutomationPrivilegedBackend {
         override val deviceOperations = AutomationDeviceOperation.entries.toSet()
-        var observed = target
+        var observed: AutomationDisplayTarget? = target
         var publishedTarget = target
         var ready = true
         var actions = 0
@@ -223,7 +246,7 @@ class AutomationPrivilegedSemanticHostTest {
             assertTrue(allowed())
             return when (request.operation) {
                 AutomationDeviceOperation.OBSERVE -> {
-                    AutomationDeviceReply("READY", observed)
+                    AutomationDeviceReply(if (observed == null) "TARGET_UNAVAILABLE" else "READY", observed)
                 }
 
                 AutomationDeviceOperation.SNAPSHOT -> {

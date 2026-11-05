@@ -6,6 +6,7 @@ import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasTestTag
@@ -204,8 +205,9 @@ class ChatSubmissionReceiptDeviceTest {
                 compose.waitUntil(10_000) { chat.screen.value.openSessionId == sessionId }
 
                 compose.onNodeWithTag("chat-input").performTextInput("Draft text to preserve")
-                compose.onNodeWithTag("chat-send").assertIsNotEnabled()
-                compose.onNodeWithTag("chat-select-model-reminder").assertIsDisplayed()
+                compose.onNodeWithTag("chat-send").assertIsEnabled().performClick()
+                compose.onNodeWithTag("chat-send-status").assertDoesNotExist()
+                compose.onNodeWithTag("chat-select-model-reminder").assertDoesNotExist()
                 compose.onNodeWithTag("chat-input").assertTextEquals("Draft text to preserve")
                 assertNull(chat.screen.value.blockedReason)
                 assertTrue(storage.turns.listBySession(sessionId).isEmpty())
@@ -219,7 +221,7 @@ class ChatSubmissionReceiptDeviceTest {
                     ChatSubmissionErrorMapper.stringResFor("NO_MODEL_SELECTED"),
                 )
                 assertTrue(storage.turns.listBySession(sessionId).isEmpty())
-                compose.onNodeWithTag("chat-select-model-reminder").performClick()
+                compose.onNodeWithTag("chat-model-menu").performClick()
                 compose.onNodeWithTag("chat-model-search").assertIsDisplayed()
             } finally {
                 chat.closeSession()

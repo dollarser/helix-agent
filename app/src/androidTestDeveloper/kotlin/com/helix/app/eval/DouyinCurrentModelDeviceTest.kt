@@ -34,12 +34,12 @@ class DouyinCurrentModelDeviceTest {
             val provider = requireNotNull(original.providerId)
             val model = requireNotNull(original.modelId)
             val center = AutomationPermissionCenter(app)
-            val oldProfile = c.profileStore.profile
+
             val session =
                 args.getString("helixResumeSession") ?: c.chatService.createSession("${appName}自主安装验证", provider, model)
             try {
                 waitUntil(15_000) { center.serviceState() == AutomationServiceState.CONNECTED }
-                c.profileStore.switchTo(SafetyProfile.ADVANCED)
+                check(c.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
                 val plugin = c.pluginService.list().single { it.native?.pluginId == "mobile-use" }
                 c.pluginService.catalog.select(session, plugin.id, true)
                 c.sessionPermissionEdit.saveSessionConfig(
@@ -97,7 +97,6 @@ class DouyinCurrentModelDeviceTest {
                 c.chatService.stop()
                 com.helix.app.eval
                     .deselectMobileUseForTest(session)
-                c.profileStore.switchTo(oldProfile)
                 c.chatService.openSession(original.id)
             }
         }

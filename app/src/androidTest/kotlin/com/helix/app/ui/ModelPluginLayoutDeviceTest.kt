@@ -31,7 +31,7 @@ class ModelPluginLayoutDeviceTest {
             .assertIsSelected()
         compose.onNodeWithTag("provider-add").performScrollTo().assertIsDisplayed()
         captureChatLayout(compose.activity, "hxa307-models-api")
-        if (com.helix.app.profile.AdvancedProfileAvailability.ADVANCED_AVAILABLE) {
+        if (com.helix.app.profile.ChannelCapabilities.ADVANCED_AVAILABLE) {
             compose
                 .onNodeWithTag("provider-group-MANAGED_ACCOUNT")
                 .assertIsDisplayed()
@@ -47,7 +47,10 @@ class ModelPluginLayoutDeviceTest {
         captureChatLayout(compose.activity, "hxa307-models-local")
         compose.navigateTo("extensions")
         compose.onNodeWithTag("extensions-tab-manage").assertIsDisplayed().performClick()
-        compose.onNodeWithTag("plugin-manage-bundled-plugin:browser").performScrollTo().performClick()
+        compose.onNodeWithTag("bundled-plugin-browser").performScrollTo().performClick()
+        compose.onNodeWithTag("plugin-readiness-bundled-plugin:browser").assertDoesNotExist()
+        compose.onNodeWithTag("plugin-technical-bundled-plugin:browser").assertDoesNotExist()
+        captureChatLayout(compose.activity, "plugin-configuration-clean")
         // Bring the horizontal tab row into the outer vertical viewport before scrolling its tabs.
         compose.onNodeWithTag("plugin-tab-2-bundled-plugin:browser").onParent().performScrollTo()
         compose
@@ -59,10 +62,19 @@ class ModelPluginLayoutDeviceTest {
             .onNodeWithText(compose.activity.getString(R.string.plugin_version, "1"))
             .performScrollTo()
             .assertIsDisplayed()
+        compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
+            compose.onAllNodesWithTag("plugin-technical-bundled-plugin:browser").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithTag("plugin-readiness-bundled-plugin:browser").assertDoesNotExist()
+        compose.onNodeWithTag("plugin-compatibility-toggle").assertDoesNotExist()
         captureChatLayout(compose.activity, "hxa307-plugin-details")
+        compose.onNodeWithTag("plugin-technical-bundled-plugin:browser").performScrollTo().performClick()
+        compose.onNodeWithText("bundled-plugin:browser", substring = true).performScrollTo().assertIsDisplayed()
+        captureChatLayout(compose.activity, "plugin-diagnostics-on-demand")
         compose.onNodeWithTag("plugin-tab-0-bundled-plugin:browser").onParent().performScrollTo()
         compose.onNodeWithTag("plugin-tab-0-bundled-plugin:browser").performScrollTo().performClick()
-        compose.onNodeWithTag("plugin-readiness-bundled-plugin:browser").performScrollTo().performClick()
+        compose.onNodeWithTag("plugin-readiness-bundled-plugin:browser").assertDoesNotExist()
+        compose.onNodeWithTag("plugin-technical-bundled-plugin:browser").assertDoesNotExist()
         val revisionLabel = compose.activity.getString(R.string.plugin_revision, 999).substringBefore("999")
         compose.onNodeWithText(revisionLabel, substring = true).assertDoesNotExist()
     }

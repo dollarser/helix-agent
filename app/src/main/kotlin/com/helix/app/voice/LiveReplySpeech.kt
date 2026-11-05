@@ -38,7 +38,8 @@ class LiveReplySpeech(
 
     fun start(frame: VisibleReplyFrame) {
         stop()
-        if (frame.phase != VisibleReplyFrame.Phase.STREAMING) return
+        if (frame.phase !in setOf(VisibleReplyFrame.Phase.STREAMING, VisibleReplyFrame.Phase.COMPLETED)) return
+        if (frame.phase == VisibleReplyFrame.Phase.COMPLETED && frame.text.isBlank()) return
         key = frame.speechId
         committed = ""
         output.begin(frame.speechId)

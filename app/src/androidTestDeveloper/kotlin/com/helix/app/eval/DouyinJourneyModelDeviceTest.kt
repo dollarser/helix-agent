@@ -63,7 +63,7 @@ class DouyinJourneyModelDeviceTest {
                     ),
                     null,
                 )
-            val profile = c.profileStore.profile
+
             val controls = c.runControlStore.current
             var createdSession: String? = null
             val selection = MobileUseEvaluationSelection(app)
@@ -75,7 +75,7 @@ class DouyinJourneyModelDeviceTest {
                 check(c.providerService.runConnectionTest(provider) is ProbeOutcome.Ok)
                 val session = c.chatService.createSession("抖音自主完整旅程", provider, model)
                 createdSession = session
-                c.profileStore.switchTo(SafetyProfile.ADVANCED)
+                check(c.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
                 c.firstLaunch.markSeen()
                 app.startActivity(Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                 if (requestedBackend == "accessibility") backend.connect()
@@ -206,7 +206,6 @@ class DouyinJourneyModelDeviceTest {
                 selection.close()
                 backend.close()
                 c.chatService.closeSession()
-                c.profileStore.switchTo(profile)
                 c.runControlStore.setMode(controls.mode)
                 c.runControlStore.setReasoning(controls.reasoning)
                 c.runControlStore.setBudgets(controls.budgets)

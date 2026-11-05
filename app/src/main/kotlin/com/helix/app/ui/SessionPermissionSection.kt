@@ -16,6 +16,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -89,8 +90,8 @@ internal fun SessionPermissionSessionSection(
     chatService: ChatService,
 ) {
     val controller = rememberPermissionController(edit, emptyList(), chatService)
+    val screen by chatService.screen.collectAsStateWithLifecycle()
     SettingsGroup {
-        Text(stringResource(R.string.settings_perm_session_label), style = MaterialTheme.typography.titleMedium)
         if (controller.failed.value) {
             Text(stringResource(R.string.common_operation_failed), color = MaterialTheme.colorScheme.error)
         }
@@ -104,7 +105,15 @@ internal fun SessionPermissionSessionSection(
             PermissionTighteningNotice(controller, chatService)
         } else {
             Text(
-                stringResource(R.string.settings_perm_session_absent),
+                stringResource(
+                    if (screen.openSessionId ==
+                        null
+                    ) {
+                        R.string.settings_perm_session_absent
+                    } else {
+                        R.string.composer_permission_loading
+                    },
+                ),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -181,7 +190,6 @@ private fun PermissionDefaultPicker(controller: SessionPermissionController) {
 @Composable
 @Suppress("FunctionName")
 private fun PermissionSessionPicker(controller: SessionPermissionController) {
-    Text(stringResource(R.string.settings_perm_session_label))
     val provenance =
         if (controller.sessionHasStored.value) RES_SESSION_CUSTOMIZED else RES_SESSION_USING_DEFAULT
     Text(

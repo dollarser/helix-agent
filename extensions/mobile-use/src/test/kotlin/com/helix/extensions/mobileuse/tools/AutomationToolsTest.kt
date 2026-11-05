@@ -35,6 +35,52 @@ import org.junit.Test
 import java.time.Instant
 
 class AutomationToolsTest {
+    @Test fun pollingIsOptionalDocumentedAndStrictlyBounded() {
+        for (name in listOf(AutomationTools.WAIT, AutomationTools.CLICK_MATCH)) {
+            val descriptor = tools.descriptors().single { it.name.value == name }
+            val properties = descriptor.inputSchema.getValue("properties").jsonObject
+            val poll = properties.getValue("pollMillis").jsonObject
+            assertEquals("100", poll.getValue("default").jsonPrimitive.content)
+            assertTrue(
+                poll
+                    .getValue("description")
+                    .jsonPrimitive.content
+                    .contains("Normally omit"),
+            )
+            for (value in listOf(50, 1000)) {
+                assertEquals(
+                    ToolSchemaValidation.Valid,
+                    ToolSchemaValidator.validate(
+                        descriptor.inputSchema,
+                        buildJsonObject {
+                            put("text", JsonPrimitive("Continue"))
+                            put("pollMillis", JsonPrimitive(value))
+                        },
+                    ),
+                )
+            }
+            for (value in listOf(49, 1001, 2000)) {
+                assertTrue(
+                    ToolSchemaValidator.validate(
+                        descriptor.inputSchema,
+                        buildJsonObject {
+                            put("text", JsonPrimitive("Continue"))
+                            put("pollMillis", JsonPrimitive(value))
+                        },
+                    )
+                        is ToolSchemaValidation.Invalid,
+                )
+            }
+            assertEquals(
+                ToolSchemaValidation.Valid,
+                ToolSchemaValidator.validate(
+                    descriptor.inputSchema,
+                    args("text" to "Continue"),
+                ),
+            )
+        }
+    }
+
     @Test
     fun cancellationAfterObservationConfirmsWaitHasNoSideEffects() {
         port.snapshotResult = successfulSnapshot()
@@ -489,6 +535,31 @@ class AutomationToolsTest {
         assertEquals(0, port.snapshots)
     }
 
+    @Test fun clickMatchCancellationAfterObservationNeverDispatchesOrReplays() {
+        port.snapshotResult = successfulSnapshot()
+        val result =
+            execute(
+                AutomationTools.CLICK_MATCH,
+                args("text" to "Continue"),
+                object : CancelSignal {
+                    override fun isCancelled() = port.snapshots > 0
+                },
+            )
+        assertTrue(result is ToolExecutorResult.CancelledWithEffectTruth)
+        assertEquals(1, port.snapshots)
+        assertTrue(port.nodeRequests.isEmpty())
+    }
+
+    @Test fun changingTargetIsNotAutomaticallyClickedAgain() {
+        port.snapshotResult = successfulSnapshot()
+        port.actionResult = AutomationActionResult(AutomationActionStatus.TARGET_CHANGED)
+        val result = execute(AutomationTools.CLICK_MATCH, args("text" to "Continue")) as ToolExecutorResult.Failed
+        assertTrue(result.detail.startsWith("TARGET_CHANGED:"))
+        assertTrue(result.sideEffectFree)
+        assertEquals(1, port.snapshots)
+        assertEquals(1, port.nodeRequests.size)
+    }
+
     @Test
     fun clickMatchCanWaitForAControlAndClickTheFreshMatch() {
         port.snapshotResults += notFoundSnapshot()
@@ -516,7 +587,8 @@ class AutomationToolsTest {
         port.nodeRequests.clear()
         port.snapshotResult = ambiguousClickableSnapshot()
         val ambiguous = execute(AutomationTools.CLICK_MATCH, args("className" to "Button")) as ToolExecutorResult.Failed
-        assertEquals("TARGET_AMBIGUOUS", ambiguous.detail)
+        assertTrue(ambiguous.detail.startsWith("TARGET_AMBIGUOUS:"))
+        assertTrue(ambiguous.detail.contains("ui.find"))
         assertTrue(ambiguous.sideEffectFree)
         assertTrue(port.nodeRequests.isEmpty())
     }
@@ -525,12 +597,14 @@ class AutomationToolsTest {
     fun clickMatchRefusesMissingAndNonClickableTargetsWithoutSideEffects() {
         port.snapshotResult = successfulSnapshot()
         val missing = execute(AutomationTools.CLICK_MATCH, args("text" to "Missing")) as ToolExecutorResult.Failed
-        assertEquals("TARGET_NOT_FOUND", missing.detail)
+        assertTrue(missing.detail.startsWith("TARGET_NOT_FOUND:"))
+        assertTrue(missing.detail.contains("timeoutMillis"))
         assertTrue(missing.sideEffectFree)
 
         port.snapshotResult = nonClickableSnapshot()
         val inert = execute(AutomationTools.CLICK_MATCH, args("text" to "Label")) as ToolExecutorResult.Failed
-        assertEquals("TARGET_NOT_CLICKABLE", inert.detail)
+        assertTrue(inert.detail.startsWith("TARGET_NOT_CLICKABLE:"))
+        assertTrue(inert.detail.contains("clickTargetToken"))
         assertTrue(inert.sideEffectFree)
         assertTrue(port.nodeRequests.isEmpty())
     }
@@ -574,7 +648,9 @@ class AutomationToolsTest {
         val failed = execute(AutomationTools.CLICK, args("token" to TOKEN)) as ToolExecutorResult.Failed
         assertTrue(failed.detail.startsWith("STALE_TOKEN:"))
         assertTrue(failed.detail.contains("ui.click_match"))
-        assertTrue(failed.detail.contains("Never reuse"))
+        assertTrue(failed.detail.contains("ui.find") || failed.detail.contains("ui.snapshot"))
+        assertEquals("Refusal must not trigger an automatic action replay", 2, port.nodeRequests.size)
+        assertEquals("Refusal must leave the recovery decision to the caller", 0, port.snapshots)
         assertTrue(failed.sideEffectFree)
         assertFalse(failed.requiresReview)
     }

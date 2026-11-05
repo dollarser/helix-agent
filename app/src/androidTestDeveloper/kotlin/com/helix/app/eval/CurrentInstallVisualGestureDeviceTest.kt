@@ -51,7 +51,7 @@ class CurrentInstallVisualGestureDeviceTest {
             assumeTrue(enabled != null)
             require(enabled == "true") { "$ARG_ENABLED must be true when supplied" }
             assertFalse("fixture requires WeChat to be uninstalled", isInstalled())
-            val previousProfile = container.profileStore.profile
+
             val previousServices =
                 android.provider.Settings.Secure.getString(
                     app.contentResolver,
@@ -67,7 +67,7 @@ class CurrentInstallVisualGestureDeviceTest {
             var session: String? = null
             try {
                 ensureAccessibility(previousServices)
-                container.profileStore.switchTo(SafetyProfile.ADVANCED)
+                check(container.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
                 provider =
                     container.providerService.create(
                         ProviderDraft(
@@ -149,7 +149,6 @@ class CurrentInstallVisualGestureDeviceTest {
                 session?.let(::deselectMobileUseForTest)
                 provider?.let { container.providerService.delete(it) }
                 restoreAccessibility(previousServices, previousEnabled)
-                container.profileStore.switchTo(previousProfile)
             }
         }
 

@@ -17,8 +17,8 @@
 
 目标设计与重构：
 
-- [本机 Harness 详细重构方案 §23](harness-refactor-plan.md#23-2026-10-14-执行边界重构提案)：执行边界与完整 Turn 宿主设计；已有交付基线和剩余目标按 §23 当前矩阵及相关 HXA 区分，不概括为全未实施或全完成。旧 R/J 方案按相关 ADR/HXA 的实际承接读取，不重新执行已交付卡片。
-- [Plugin Platform 专项设计](plugin-platform-plan.md)：保留包格式与 Mobile Use MVP 的详细设计输入；通用生命周期目标以 Harness 方案 §17 为唯一正文，旧问题列表不是当前未实现清单。
+- [本机 Harness 总体蓝图与渐进路线](harness-refactor-plan.md#24-总体架构蓝图与渐进重构路线)：2026-11-06 一手实践与当前源码复核、目标目录/模块、[命名与归属优化](harness-refactor-plan.md#2441-命名与归属优化随职责迁移不做全仓美容式改名)、分阶段路线及修订机制；设计不等于实施授权。第 23 节 保留执行边界与已交付完整 Turn 宿主的设计衔接，旧 R/J 与 286～287 顺序不作为新待办，不重新执行已交付卡片。
+- [Plugin Platform 专项设计](plugin-platform-plan.md)：保留包格式与 Mobile Use MVP 的详细设计输入；通用生命周期目标以 Harness 方案 第 17 节 为唯一正文，旧问题列表不是当前未实现清单。
 - [功能与重构的推进原则](../development/feature-refactor-strategy.md)：选择顺序与停止条件，不重复上述技术契约。
 
 追溯设计变化时查[架构与能力演进索引](../evidence/research-history/architecture-evolution-2026-10-14.md)：保留各轮动机、承接任务和验证边界；历史材料不冻结下一轮的目录、模块或接口。

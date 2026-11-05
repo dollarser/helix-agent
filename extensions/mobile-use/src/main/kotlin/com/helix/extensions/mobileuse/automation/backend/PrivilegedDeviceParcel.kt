@@ -33,6 +33,8 @@ internal object PrivilegedDeviceParcel {
         parcel.writeString(target.revision)
         parcel.writeString(target.displaySession)
         parcel.writeInt(if (target.independentFocus) 1 else 0)
+        parcel.writeInt(if (target.semanticAvailable) 1 else 0)
+        parcel.writeInt(target.taskId)
     }
 
     fun readTarget(parcel: Parcel): AutomationDisplayTarget? {
@@ -44,6 +46,9 @@ internal object PrivilegedDeviceParcel {
         val revision = requireNotNull(parcel.readString()).also { require(it.length <= 64) }
         val session = requireNotNull(parcel.readString()).also { require(it.length <= 64) }
         val independentFocus = parcel.readInt() == 1
+        val semanticAvailable = parcel.readInt().also { require(it in 0..1) } == 1
+        val taskId = parcel.readInt().also { require(it >= -1) }
+        require(semanticAvailable || (values[1] > 0 && taskId >= 0))
         require(values[1] == 0 || session.isNotEmpty())
         val bounds = AutomationNodeBounds(values[5], values[6], values[7], values[8])
         return AutomationDisplayTarget(
@@ -57,6 +62,8 @@ internal object PrivilegedDeviceParcel {
             revision,
             session,
             independentFocus,
+            semanticAvailable,
+            taskId,
         )
     }
 

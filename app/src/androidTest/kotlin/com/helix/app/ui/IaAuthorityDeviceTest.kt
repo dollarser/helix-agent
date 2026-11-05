@@ -49,7 +49,7 @@ class IaAuthorityDeviceTest {
         compose.navigateTo("models")
         compose.onNodeWithTag("screen-models").assertIsDisplayed()
         compose.onNodeWithTag("provider-group-ON_DEVICE_ASSET").assertIsDisplayed()
-        if (com.helix.app.profile.AdvancedProfileAvailability.ADVANCED_AVAILABLE) {
+        if (com.helix.app.profile.ChannelCapabilities.ADVANCED_AVAILABLE) {
             compose.onNodeWithTag("provider-group-MANAGED_ACCOUNT").assertIsDisplayed()
         } else {
             compose.onNodeWithTag("provider-group-MANAGED_ACCOUNT").assertDoesNotExist()

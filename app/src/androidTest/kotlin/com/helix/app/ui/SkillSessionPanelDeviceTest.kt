@@ -6,6 +6,7 @@ import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
@@ -39,12 +40,18 @@ class SkillSessionPanelDeviceTest {
         var invoked: com.helix.extensions.skills.UserSkillActivation? = null
         compose.setContent {
             MaterialTheme {
-                SkillSessionPanel(repository, "ui-session", {}, {}, onInvoke = { invoked = it })
+                SkillSessionPanel(repository, "ui-session", {}, {}, onInvoke = {
+                    invoked = it
+                    true
+                })
             }
         }
         compose.waitUntil(
             10_000,
         ) { compose.onAllNodesWithTag("skill-invoke-workflow").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText(context.getString(com.helix.app.R.string.skill_selection_title)).assertExists()
+        val key = repository.list().single().key
+        compose.onNodeWithTag("session-skill-workflow-${key.snapshotHash.take(8)}").assertDoesNotExist()
         compose.onNodeWithTag("skill-invoke-workflow").performScrollTo().performClick()
         compose.onNodeWithTag("skill-invocation-arguments").performTextInput("中文参数")
         compose.onNodeWithTag("skill-invocation-confirm").performClick()
@@ -71,6 +78,13 @@ class SkillSessionPanelDeviceTest {
             }
             val tag = "session-skill-${first.key.name}-${first.key.snapshotHash.take(8)}"
             compose.waitUntil(10_000) { compose.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty() }
+            compose
+                .onNodeWithText(
+                    ApplicationProvider.getApplicationContext<android.content.Context>().getString(
+                        com.helix.app.R.string.session_skills_title,
+                    ),
+                ).assertExists()
+            compose.onNodeWithTag("skill-invoke-${first.key.name}").assertDoesNotExist()
             val node = compose.onNodeWithTag(tag).performScrollTo()
             if (globalEnabled) {
                 node.assertIsOn().performClick()

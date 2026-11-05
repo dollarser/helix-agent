@@ -154,7 +154,8 @@ class ConversationTopBarDeviceTest {
             val storage = container.storage
             compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) { chat.screen.value.isDraft }
             val id = requireNotNull(chat.screen.value.openSessionId)
-            compose.onNodeWithTag("chat-title").performClick()
+            compose.onNodeWithTag("chat-conversation-details").performClick()
+            compose.onNodeWithTag("session-rename-open").performClick()
             compose.onNodeWithTag("session-title").performTextReplacement("My chosen title")
             compose.onNodeWithTag("session-rename-save").performClick()
             compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) { chat.screen.value.sessionTitle == "My chosen title" }

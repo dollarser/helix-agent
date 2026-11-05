@@ -33,24 +33,35 @@ internal fun AutomationActionResult.toToolOutcome(): ToolExecutorResult =
                     "Observe the selected display again; never reuse its old tokens or replay an earlier effect."
             } else if (status == AutomationActionStatus.BACKGROUND_DISPLAY_UNAVAILABLE) {
                 "BACKGROUND_DISPLAY_UNAVAILABLE: No input dispatched. Background mode needs Android 12+, " +
-                    "an authorized Shizuku shell and the original active task. Check that connection and task; " +
+                    "an authorized Root or Shizuku connection and the original active task. Check " +
+                    "that connection and task; " +
                     "do not silently use the main screen."
             } else if (status == AutomationActionStatus.TOKEN_UNKNOWN) {
-                "${status.name}: This token is not in the active observation; no action was dispatched. " +
-                    "Earlier actions and new observations invalidate old tokens. Read the attached post-action " +
-                    "observation if available, or obtain ui.snapshot/ui.find again. For a scroll container use " +
-                    "ui.find with scrollable=true. Copy the exact fresh token; never reconstruct or reuse the old one."
+                "TOKEN_UNKNOWN: This token is not recognized in the active observation; no action was dispatched. " +
+                    "It may belong to an older observation or have been copied incorrectly; this code alone " +
+                    "does not prove time-based expiry. Obtain ui.find/ui.snapshot and copy the exact fresh token, " +
+                    "then act without another observation. For a known unique click selector use ui.click_match. " +
+                    "For scrolling find scrollable=true. Never reconstruct a token."
             } else if (status == AutomationActionStatus.ACTION_NOT_SUPPORTED) {
                 "${status.name}: This action was rejected as unsupported. Observe again with ui.snapshot or ui.find; " +
                     "choose a target supporting the requested action (a scrollable container for ui.scroll). " +
+                    "For scrolling, copy one of its advertised scrollDirections exactly: these " +
+                    "are viewport directions, " +
+                    "not finger motion, and a horizontal edge may expose only right/forward or left/backward. " +
                     "Do not repeat the same call or guess coordinates."
             } else if (gestureHint != null) {
                 gestureHint
-            } else if (status in setOf(AutomationActionStatus.STALE_TOKEN, AutomationActionStatus.TARGET_CHANGED)) {
-                "${status.name}: The observed target changed before dispatch. Obtain a fresh observation. " +
-                    "If tokens repeatedly expire on a changing page, use ui.click_match with an exact, " +
-                    "unique observed selector to find and click atomically. Never reuse the stale token " +
-                    "or guess coordinates."
+            } else if (status == AutomationActionStatus.STALE_TOKEN) {
+                "STALE_TOKEN: This observation is no longer actionable; no action was dispatched. " +
+                    "A later observation, attempted action or changed target can invalidate it. " +
+                    "Re-observe with ui.find/ui.snapshot and decide whether the action is still needed. " +
+                    "Use only the new token without an intervening observation, or ui.click_match " +
+                    "for a unique selector. Never reuse the stale token."
+            } else if (status == AutomationActionStatus.TARGET_CHANGED) {
+                "TARGET_CHANGED: The target changed before dispatch; no input was dispatched. " +
+                    "An ad or page transition may already have completed. Observe with ui.snapshot or ui.device and " +
+                    "decide whether the original action is still needed. Never replay old tokens or coordinates, " +
+                    "and do not treat this refusal as proof that an earlier action failed."
             } else {
                 status.name
             }
@@ -104,7 +115,8 @@ private fun gestureFailureHint(status: AutomationActionStatus): String? =
     when (status) {
         AutomationActionStatus.FRAME_CHANGED -> {
             "FRAME_CHANGED: Screen content changed before DOWN; no input dispatched. " +
-                "This is not a Shizuku connection failure. Observe again. For a changing label, " +
+                "This is not a Shizuku connection failure. An ad, animation or page transition may have completed. " +
+                "Observe the current page instead of repeatedly tapping an earlier screen. For a changing label, " +
                 "prefer ui.click_match using a fresh, unique resource ID instead of its rotating placeholder text."
         }
 

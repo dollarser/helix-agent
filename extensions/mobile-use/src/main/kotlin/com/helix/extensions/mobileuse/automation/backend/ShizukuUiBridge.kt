@@ -7,6 +7,9 @@ import android.content.pm.PackageManager
 import android.os.IBinder
 import android.os.Parcel
 import android.os.SystemClock
+import com.helix.extensions.mobileuse.automation.AutomationActionResult
+import com.helix.extensions.mobileuse.automation.AutomationActionStatus
+import com.helix.extensions.mobileuse.automation.AutomationDeviceReply
 import kotlinx.serialization.json.JsonObject
 import rikka.shizuku.Shizuku
 import java.util.concurrent.CountDownLatch
@@ -65,7 +68,15 @@ class ShizukuUiBridge(
         val owner = request.background?.owner as? ShizukuExecutionGuard
         return try {
             withService { binder, _ ->
-                owner?.bindDisplayService(binder, ::restoreFocus)
+                if (owner?.bindDisplayService(binder, ::restoreFocus) == false) {
+                    return@withService AutomationDeviceReply(
+                        "BACKGROUND_DISPLAY_STALE",
+                        action =
+                            AutomationActionResult(
+                                AutomationActionStatus.BACKGROUND_DISPLAY_STALE,
+                            ),
+                    )
+                }
                 PrivilegedDeviceTransactions.execute(binder, request) { permissionGranted() && allowed() }.also {
                     if (it.target?.displayId?.let { id -> id > 0 } == true) {
                         owner?.observedDisplayPackage(it.target.packageName)

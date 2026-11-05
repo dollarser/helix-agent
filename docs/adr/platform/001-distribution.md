@@ -11,7 +11,11 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 
 ## Decision
 
-Standard 是完整产品默认体验，不是只读或聊天试用版。consumer/developer 是构建能力集合，不能与审批模式混为一谈；会话授权预设两变体均可提供，实际能力仍以制品和系统授权为准。
+Standard 是完整产品体验，不是只读或聊天试用版。consumer/developer 是构建能力集合，不能与审批模式混为一谈；会话授权预设两变体均可提供，实际能力仍以制品和系统授权为准。
+
+能力只由构建渠道决定，不再提供应用内 Standard/Advanced 运行档位或“权限模式”选择。Developer 固定为 Advanced，包含该渠道的全部能力；Consumer 固定为 Standard，保留渠道允许的完整产品能力。渠道身份不从偏好、备份、模型或扩展元数据读取，不存在切换确认、退出 Advanced 或先切换再使用的前置步骤。
+
+“全部能力”指可用的能力集合，不是授权全放行：会话审批预设、目录/文件范围、LAN origin、Android 权限、Root/Shizuku 授权、执行域准备及物理容量仍分别检查；不自动创建授权、安装运行环境、连接服务或消费账号。运行环境继续按已接受的首次使用准备流程执行。
 
 developer 单 APK 包含私有进程 Runtime，consumer 排除对应组件。其他能力原则上保留在渠道允许范围，不因笼统“风险较高”删除。渠道差异落在 manifest、依赖、Capability 和 listing，不分叉 Agent Core、用户数据或主要 UI。
 
@@ -37,6 +41,8 @@ Developer 的 RootFS 随 APK 离线交付，以单流 XZ 存储；锁定身份�
 
 本次为现行决策整理，不新增功能通过结论。实现范围与实际命令结果以[实施状态](../../development/status.md)、对应 HXA 及完成记录为准；修改本契约后须覆盖成功、失败、取消、边界和恢复，不能用文档门禁代替设备/功能验收。
 
+本次渠道固定能力改动已通过双渠道 Debug 门禁及 Helix_API_36（API 36、Developer）8 项本地检查：固定 Advanced、设置/侧栏移除档位入口、运行环境按渠道显示、权限页不申请系统授权，以及真实待审批调用在活动重建后仍可拒绝。仅 Developer 进行了本轮设备检查；Consumer 的证据为主机测试、测试源码编译和 APK 渠道边界检查。没有运行 Release、真机、真实 Root/LAN/账号授权或全套执行域设备回归。详细源码/制品绑定与原始输出保留于 ignored 本地收据。
+
 ## Reconsider when
 
 产品所需能力超出本决定边界，或平台、依赖、资源和设备证据证明当前方案不可行时重新评审；普通实现修复不另造一套决策。
@@ -52,3 +58,5 @@ Developer 的 RootFS 随 APK 离线交付，以单流 XZ 存储；锁定身份�
 - 2026-10-15：Owner 明确“预览版不需要数据保留”。取消预览发布的旧数据迁移前置，保留真实数据重建说明、签名/版本校验、当前版本恢复正确性及独立测试安装边界；正式发行的升级承诺仍由 HXA-122 决定。
 
 - 2026-10-15：Owner 要求落实 APK 体积优化及测试。采用同进程架构不变的 Release R8、独立 ABI 制品与 RootFS 存储压缩；没有改变能力目录、权限、执行域或发布身份。参考 [Android R8 配置](https://developer.android.com/topic/performance/app-optimization/enable-app-optimization)、[ABI 分发](https://developer.android.com/build/configure-apk-splits)与 [XZ for Java](https://tukaani.org/xz/java.html)。同源码基线、失败修复及实际验证边界见[实施记录](../../evidence/development/apk-size-optimization-2026-10-15.md)，不视为 HXA-122 正式发行验收。
+
+- 2026-11-05：Owner 要求 Developer 不再区分权限模式，只保留 Advanced 全部渠道能力，并取消用户选择。将运行时可切换档位改为只读渠道身份，移除侧栏、权限设置、运行环境与手动终端的档位开关和风险确认；不更改会话审批、具体范围授权、系统授权或首次使用准备边界。Consumer 继续固定 Standard；已有偏好不参与能力决策，不增加迁移/兼容层。验证以本轮实际 Debug 结果为准，不据此宣称 Release/真机通过。

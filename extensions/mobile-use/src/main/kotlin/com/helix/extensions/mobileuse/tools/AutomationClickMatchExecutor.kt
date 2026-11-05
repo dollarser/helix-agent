@@ -1,6 +1,8 @@
 package com.helix.extensions.mobileuse.tools
 
 import com.helix.extensions.mobileuse.AutomationTermination
+import com.helix.extensions.mobileuse.automation.AutomationActionResult
+import com.helix.extensions.mobileuse.automation.AutomationActionStatus
 import com.helix.extensions.mobileuse.automation.AutomationFindQuery
 import com.helix.extensions.mobileuse.automation.AutomationFinder
 import com.helix.extensions.mobileuse.automation.AutomationNodeAction
@@ -27,24 +29,26 @@ internal class AutomationClickMatchExecutor(
         pollMillis: Int,
         packageName: String? = null,
     ): ToolExecutorResult {
+        val initial = interruption(call)
+        if (initial != null) return initial
         val preparation = prepareObservation(call, query, timeoutMillis, pollMillis)
         val observation = preparation.observation
         val snapshot = observation?.snapshot
-        return when {
+        return interruption(call) ?: when {
             preparation.terminal != null -> {
                 preparation.terminal
             }
 
             observation == null -> {
-                ToolExecutorResult.Failed("TARGET_NOT_FOUND", sideEffectFree = true)
+                clickMatchRefusal("TARGET_NOT_FOUND")
             }
 
             snapshot == null -> {
-                ToolExecutorResult.Failed(observation.status.name, sideEffectFree = true)
+                clickMatchRefusal(observation.status.name)
             }
 
             packageName != null && snapshot.packageName != packageName -> {
-                ToolExecutorResult.Failed("TARGET_CHANGED", sideEffectFree = true)
+                AutomationActionResult(AutomationActionStatus.TARGET_CHANGED).toToolOutcome()
             }
 
             else -> {
@@ -52,6 +56,13 @@ internal class AutomationClickMatchExecutor(
             }
         }
     }
+
+    private fun interruption(call: ExecutableToolCall): ToolExecutorResult? =
+        when {
+            call.cancel.isCancelled() -> AutomationTermination.observationCancelled
+            !Instant.now().isBefore(call.deadline) -> AutomationTermination.observationTimedOut
+            else -> null
+        }
 
     private fun prepareObservation(
         call: ExecutableToolCall,
@@ -101,14 +112,11 @@ internal class AutomationClickMatchExecutor(
             }
 
             AutomationWaitStatus.SNAPSHOT_REFUSED -> {
-                ToolExecutorResult.Failed(
-                    waited.observation?.status?.name ?: waited.status.name,
-                    sideEffectFree = true,
-                )
+                clickMatchRefusal(waited.observation?.status?.name ?: waited.status.name)
             }
 
             AutomationWaitStatus.TIMED_OUT -> {
-                ToolExecutorResult.Failed("TARGET_NOT_FOUND", sideEffectFree = true)
+                clickMatchRefusal("TARGET_NOT_FOUND")
             }
 
             else -> {
@@ -140,7 +148,7 @@ internal class AutomationClickMatchExecutor(
                     null
                 }
             }
-        if (failure != null) return ToolExecutorResult.Failed(failure, sideEffectFree = true)
+        if (failure != null) return clickMatchRefusal(failure)
 
         val nodeIndex = snapshot.nodes.associateBy { it.token }
         val targets =
@@ -155,7 +163,7 @@ internal class AutomationClickMatchExecutor(
                 else -> null
             }
         return if (targetFailure != null) {
-            ToolExecutorResult.Failed(targetFailure, sideEffectFree = true)
+            clickMatchRefusal(targetFailure)
         } else {
             port
                 .nodeAction(

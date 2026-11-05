@@ -27,7 +27,7 @@ internal class PrivilegedDeviceService(
         reply: Parcel,
     ) {
         check(allowed())
-        val target = targetFor(request.operation)
+        val target = targetFor(request)
         var image: SharedMemory? = null
         var snapshot: com.helix.extensions.mobileuse.automation.AutomationSnapshotResult? = null
         val status =
@@ -56,13 +56,9 @@ internal class PrivilegedDeviceService(
                 }
 
                 AutomationDeviceOperation.SCREENSHOT -> {
-                    if (target == null || request.target?.sameWindow(target) != true) {
-                        "TARGET_CHANGED"
-                    } else {
-                        check((request.wholeDisplay || screen.scopedCapturePermitted(target)) && allowed())
-                        image = capture(screen, target)
-                        if (image == null) "TARGET_CHANGED" else "SAVED"
-                    }
+                    val captured = screenshot(request, target)
+                    image = captured.second
+                    captured.first
                 }
 
                 AutomationDeviceOperation.GESTURE -> {
@@ -91,6 +87,26 @@ internal class PrivilegedDeviceService(
         }
     }
 
+    private fun screenshot(
+        request: AutomationDeviceRequest,
+        target: AutomationDisplayTarget?,
+    ): Pair<String, SharedMemory?> =
+        when {
+            target == null -> {
+                "TARGET_UNAVAILABLE" to null
+            }
+
+            request.target?.sameWindow(target) != true -> {
+                "TARGET_CHANGED" to null
+            }
+
+            else -> {
+                check((request.wholeDisplay || screen.scopedCapturePermitted(target)) && allowed())
+                val image = capture(screen, target, request.wholeDisplay)
+                (if (image == null) "TARGET_CHANGED" else "SAVED") to image
+            }
+        }
+
     private fun launch(request: AutomationDeviceRequest): String {
         val name = requireNotNull(request.launchPackage)
         return if (request.background?.allowMoveFromMain == false && screen.visibleOnMain(name)) {
@@ -118,7 +134,7 @@ internal class PrivilegedDeviceService(
                     systemPackageInstaller(packageManager),
                 )
         val snapshot = engine.capture(screen.freshRoot())
-        val after = screen.deviceTarget(includeRevision = false)
+        val after = screen.deviceTarget(includeRevision = false, allowVisualFallback = request.wholeDisplay)
         if (!allowed() || !target.sameWindow(after)) {
             return "TARGET_CHANGED" to null
         }
@@ -149,7 +165,8 @@ internal class PrivilegedDeviceService(
 
     private fun allowed(): Boolean = ShizukuExecutionGuard.check(guard)
 
-    private fun targetFor(operation: AutomationDeviceOperation): AutomationDisplayTarget? {
+    private fun targetFor(request: AutomationDeviceRequest): AutomationDisplayTarget? {
+        val operation = request.operation
         if (operation == AutomationDeviceOperation.SCREENSHOT) {
             screen.synchronizeWindowTransactions()
             check(allowed())
@@ -160,6 +177,7 @@ internal class PrivilegedDeviceService(
             screen.deviceTarget(
                 includeRevision =
                     operation in setOf(AutomationDeviceOperation.OBSERVE, AutomationDeviceOperation.GESTURE),
+                allowVisualFallback = request.wholeDisplay,
             )
         }
     }
@@ -168,20 +186,23 @@ internal class PrivilegedDeviceService(
     private fun capture(
         screen: ShizukuHierarchy,
         target: AutomationDisplayTarget,
+        wholeDisplay: Boolean,
     ): SharedMemory? {
         check(target.width.toLong() * target.height <= VisionLimits.MAX_TOTAL_PIXELS)
         val windows = screen.windows()
         val bitmap = checkNotNull(screen.screenshot()) { "SCREENSHOT_UNAVAILABLE" }
         return try {
             if (bitmap.width != target.width || bitmap.height != target.height) return null
-            if (!target.sameWindow(screen.deviceTarget(includeRevision = false)) || screen.windows() != windows ||
+            if (!target.sameWindow(screen.deviceTarget(includeRevision = false, allowVisualFallback = wholeDisplay)) ||
+                screen.windows() != windows ||
                 !allowed()
             ) {
                 return null
             }
             val output = java.io.ByteArrayOutputStream()
             check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, BoundedCaptureOutput(output)))
-            if (!allowed() || !target.sameWindow(screen.deviceTarget(includeRevision = false)) ||
+            if (!allowed() ||
+                !target.sameWindow(screen.deviceTarget(includeRevision = false, allowVisualFallback = wholeDisplay)) ||
                 screen.windows() != windows
             ) {
                 return null

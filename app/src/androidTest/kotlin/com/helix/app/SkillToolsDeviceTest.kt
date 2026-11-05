@@ -7,6 +7,7 @@ import com.helix.core.model.NoCancellation
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolVersion
 import com.helix.extensions.skills.SkillCatalogLoader
+import com.helix.extensions.skills.SkillKey
 import com.helix.extensions.skills.SkillSource
 import com.helix.extensions.skills.SkillTools
 import com.helix.tools.framework.ExecutableToolCall
@@ -25,7 +26,9 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.nio.file.Files
+import java.nio.file.Path
 import java.time.Instant
+import java.util.UUID
 
 @RunWith(AndroidJUnit4::class)
 class SkillToolsDeviceTest {
@@ -38,24 +41,69 @@ class SkillToolsDeviceTest {
         }
 
         val root = Files.createTempDirectory(app.cacheDir.toPath(), "skill-device-")
-        val name = "device-skill-${System.currentTimeMillis()}"
-        val source = createSource(root, name)
-
-        val catalog = SkillCatalogLoader().scan(root, SkillSource.USER_IMPORTED)
-        assertEquals(listOf(name), catalog.entries.map { it.name })
-        assertTrue(catalog.diagnostics.isEmpty())
-
-        val staged = container.skillImportService.stageDirectory(source)
+        val name = "device-skill-${UUID.randomUUID()}"
         val installedRoot = app.filesDir.toPath().resolve("skills/snapshots")
-        val snapshot = container.skillImportService.commit(staged, installedRoot)
-        val key = container.skillRepository.registerSnapshot(snapshot)
+        var key: SkillKey? = null
         try {
-            verifyToolLifecycle(container, key.source.name, key.name, key.snapshotHash)
+            val source = createSource(root, name)
+            val catalog = SkillCatalogLoader().scan(root, SkillSource.USER_IMPORTED)
+            assertEquals(listOf(name), catalog.entries.map { it.name })
+            assertTrue(catalog.diagnostics.isEmpty())
+            val staged = container.skillImportService.stageDirectory(source)
+            val snapshot = container.skillImportService.commit(staged, installedRoot)
+            val installed = container.skillRepository.registerSnapshot(snapshot)
+            key = installed
+            verifyToolLifecycle(container, installed.source.name, installed.name, installed.snapshotHash)
             assertFalse(Files.exists(snapshot.directory))
+            assertRecoverableCopy(app.filesDir.toPath().resolve("skills/trash"), "$name-${installed.snapshotHash}-")
         } finally {
-            if (container.skillRepository.list().any { it.key == key }) {
-                container.skillRepository.remove(key)
+            try {
+                cleanupInstalledFixture(
+                    container,
+                    key,
+                    installedRoot,
+                    name,
+                    app.filesDir.toPath().resolve("skills/trash"),
+                )
+            } finally {
+                deleteFixtureTree(root)
             }
+        }
+    }
+
+    private fun assertRecoverableCopy(
+        trash: Path,
+        prefix: String,
+    ) {
+        Files.list(trash).use { paths ->
+            assertTrue(
+                "Removal must really retain a recoverable copy",
+                paths.anyMatch {
+                    it.fileName.toString().startsWith(prefix) && Files.isRegularFile(it.resolve("SKILL.md"))
+                },
+            )
+        }
+    }
+
+    private fun cleanupInstalledFixture(
+        container: AppContainer,
+        key: SkillKey?,
+        installedRoot: Path,
+        name: String,
+        trash: Path,
+    ) {
+        if (key != null && container.skillRepository.hasSnapshot(key)) {
+            container.skillRepository.removePermanentlyForPrivacy(key)
+        }
+        deleteFixtureTree(installedRoot.resolve(name))
+        Files.list(trash).use { paths ->
+            paths.filter { it.fileName.toString().startsWith("$name-") }.forEach(::deleteFixtureTree)
+        }
+    }
+
+    private fun deleteFixtureTree(root: Path) {
+        if (Files.exists(root, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+            Files.walk(root).use { paths -> paths.sorted(Comparator.reverseOrder()).forEach(Files::delete) }
         }
     }
 
@@ -121,7 +169,9 @@ class SkillToolsDeviceTest {
         assertEquals("device guide", resource.getValue("content").jsonPrimitive.content)
         assertEquals("utf-8", resource.getValue("encoding").jsonPrimitive.content)
 
-        execute(container, SkillTools.REMOVE, "{$keyArgs}")
+        val removed = execute(container, SkillTools.REMOVE, "{$keyArgs}")
+        assertEquals("true", removed.getValue("removed").jsonPrimitive.content)
+        assertEquals("true", removed.getValue("recoverable").jsonPrimitive.content)
     }
 
     private fun execute(
@@ -140,7 +190,7 @@ class SkillToolsDeviceTest {
                     toolVersion = "1",
                     args = arguments,
                     executionTarget = ExecutionTargetType.LOCAL_ANDROID,
-                    deadline = Instant.parse("2030-01-01T00:00:00Z"),
+                    deadline = Instant.now().plusSeconds(20),
                     cancel = NoCancellation,
                     sessionId = "device-session",
                 ),

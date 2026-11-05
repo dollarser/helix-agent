@@ -34,7 +34,7 @@ HXA-289/293 分别保留资源身份、内容版本/已验证指纹、定位范�
 
 资源引用表达 provider、稳定身份及可确认版本；执行路径表达 environment/实例 generation 中的路径与规则；展示文本只供阅读。相同 basename、URI 或 `/workspace` 不能证明同一资源。来源到 guest 相对目标的映射保留层级、版本和物化模式，拒绝目标冲突/越界；不可确认版本明确未知，输入复制不冒充全目录原子快照。
 
-同一绑定的文件、exec、终端访问同一工作副本，显式 snapshot 例外可见；cwd 是起点，不是授权根。当前支持的 POSIX Job 默认原位，显式 snapshot 保留其声明的来源/输出约定；后续只改真实映射/契约缺口，不为显示简化加入第二解析器或路径别名表。产物引用与回写源文件分别留事实；版本检查不承诺 Provider 未提供的原子 CAS。责任、流程和边界见 [Harness §23.3.1](../../architecture/harness-refactor-plan.md#2331-目录资源与执行环境)。
+同一绑定的文件、exec、终端访问同一工作副本，显式 snapshot 例外可见；cwd 是起点，不是授权根。当前支持的 POSIX Job 默认原位，显式 snapshot 保留其声明的来源/输出约定；后续只改真实映射/契约缺口，不为显示简化加入第二解析器或路径别名表。产物引用与回写源文件分别留事实；版本检查不承诺 Provider 未提供的原子 CAS。责任、流程和边界见 [Harness 第 23.3.1 节](../../architecture/harness-refactor-plan.md#2331-目录资源与执行环境)。
 
 ## Alternatives considered
 

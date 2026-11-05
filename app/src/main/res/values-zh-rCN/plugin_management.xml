@@ -1,6 +1,6 @@
 <resources>
-    <string name="plugin_origin_bundled">内置</string>
-    <string name="plugin_origin_installed">已安装</string>
+    <string name="plugin_origin_bundled">内置插件</string>
+    <string name="plugin_origin_installed">已安装插件</string>
     <string name="plugin_status_enabled">已启用</string>
     <string name="plugin_status_disabled">已停用</string>
     <string name="plugins_empty">尚未安装插件，可在市场查找或导入自己的插件。</string>
@@ -12,9 +12,18 @@
     <string name="plugin_chat_reply_description">理解聊天内容并起草回复。读取手机聊天时还需选用 手机操作；不会自动发送。</string>
     <string name="plugin_guidance_tools">提示与工具</string>
     <string name="plugin_details">详情</string>
-    <string name="plugin_no_configuration">无需额外配置。在会话中选用后即可使用，操作仍遵循该会话的权限。</string>
-    <string name="plugin_guidance_loading">必要指导随所选插件提供；技能正文与参考资料按需读取。工具参数随发现提供。查看这里的内容不会启用插件。</string>
+    <string name="plugin_no_configuration">无需额外配置</string>
     <string name="plugin_required_guidance">必要指导</string>
     <string name="plugin_version">版本：%1$s</string>
     <string name="plugin_remove_title">移除“%1$s”？</string>
+    <string name="plugin_component_status">组件状态</string>
+    <string name="plugin_technical_details">诊断信息</string>
+    <string name="plugin_package_hash">安装指纹：%1$s</string>
+    <string name="plugin_component_identifier">组件标识：%1$s</string>
+    <string name="plugin_component_skill">技能</string>
+    <string name="plugin_component_connection">连接</string>
+    <string name="plugin_component_native">内置能力</string>
+    <string name="plugin_component_browser">浏览器</string>
+    <string name="plugin_component_other">组件</string>
+    <string name="plugin_component_ready">可用</string>
 </resources>

@@ -50,7 +50,7 @@ class CoolapkBackgroundRealModelDeviceTest {
             )
             val trial = requireNotNull(args.getString("helixTrial"))
             require(trial.matches(Regex("[a-z0-9-]+")))
-            val profile = c.profileStore.profile
+
             val lines = PrefsLineStore(app, "helix-mobile-use", synchronous = true)
             val oldScope = lines.lines(MobileUseGrantStore.CONFIG_KEY)
             val oldExecution = lines.lines(MobileUseGrantStore.EXECUTION_KEY)
@@ -61,7 +61,7 @@ class CoolapkBackgroundRealModelDeviceTest {
             var passed = false
             var failure: String? = null
             try {
-                c.profileStore.switchTo(SafetyProfile.ADVANCED)
+                check(c.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
                 val store = MobileUseGrantStore(lines::lines, lines::setLines, { null })
                 if (args.getString("helixCoolapkUseExistingScope") == "true") {
                     val configured = requireNotNull(store.globalConfiguration())
@@ -123,7 +123,6 @@ class CoolapkBackgroundRealModelDeviceTest {
                         lines.setLines(MobileUseGrantStore.EXECUTION_KEY, oldExecution)
                         c.pluginService.catalog.select(session, plugin.id, false)
                         c.pluginService.setEnabled(plugin.id, plugin.enabled)
-                        c.profileStore.switchTo(profile)
                     }
                 }
             }

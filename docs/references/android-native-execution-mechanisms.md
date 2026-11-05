@@ -46,7 +46,7 @@ Android 用 SELinux 做强制访问控制。对「执行一个文件」，它区
 
 - 拒 `app_data_file` 的 `execute_no_trans`，是为了**禁止 app 把「自己写到磁盘上的东西」当代码直接 exec**（挡 RCE / 数据当代码执行 / 从可写存储跑代码）。
 - 但 `execute`（mmap）必须授，否则 app 连自己的 `.so` 原生库都无法映射成可执行内存、加载不了。
-- 于是「跑自己的原生代码」的**官方认可路径**就是：让系统动态链接器去**映射**它，而不是直接 exec 它（见 §3）。
+- 于是「跑自己的原生代码」的**官方认可路径**就是：让系统动态链接器去**映射**它，而不是直接 exec 它（见 第 3 节）。
 - 附带：**app 改不了自己文件的 SELinux 类型**。app 能写的地方（filesDir、app 专属外部目录）都是受限标签，所以「换个存放路径绕开限制」走不通。
 
 ---
@@ -92,7 +92,7 @@ execve("<app私有目录>/mybin")   →  查 app_data_file:execute_no_trans  →
 
 - **Android 自带的是 toybox，不是 busybox**（AOSP 用 toybox 替代了 busybox）。toybox 是单文件多 applet，提供大量标准 Unix 命令（`ls`/`cp`/`mv`/`cat`/`sort`/…），但 applet 集合与 flag 跟 busybox 有差异，且随 Android 版本 / OEM 变化。
 - **调系统 toybox 不用跳板**（它是 /system 文件）：`ProcessBuilder("/system/bin/toybox", <applet>, ...)`、或 `/system/bin/sh -c`、或单 applet 包装 `/system/bin/<cmd>`。
-- **内置自己的 busybox 仍然要跳板**：因为 SELinux 那个拒绝是**按文件标签（`app_data_file`）判**的，跟二进制「是不是静态链接」「需不需要 libc」**无关**。静态链接只省「运行时找 libc」，省不掉「app 私有目录文件不许直接 execve」（见 §2 / §3）。
+- **内置自己的 busybox 仍然要跳板**：因为 SELinux 那个拒绝是**按文件标签（`app_data_file`）判**的，跟二进制「是不是静态链接」「需不需要 libc」**无关**。静态链接只省「运行时找 libc」，省不掉「app 私有目录文件不许直接 execve」（见 第 2 节、第 3 节）。
 - **无 root**，所以 `iptables`/`mount`/`route` 这类特权命令 toybox / busybox 都跑不了——那是内核权限问题，不是工具问题。
 - 查某台设备到底有哪些 applet：`/system/bin/toybox --list` 或 `ls /system/bin`。
 

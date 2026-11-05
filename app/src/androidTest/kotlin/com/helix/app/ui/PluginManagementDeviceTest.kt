@@ -2,11 +2,13 @@ package com.helix.app.ui
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onParent
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ApplicationProvider
@@ -48,10 +50,22 @@ class PluginManagementDeviceTest {
     @Test fun installedSetupIsVisibleAndUseTargetsOnlyThatPlugin() {
         val record = install()
         val session = UUID.randomUUID().toString()
+        val configured = mutableListOf<String>()
         container.storage.sessions.create(session, "Plugin selection fixture", null, null, 0)
         try {
+            // Exercise explicit configuration with no ready component.
+            service.setSkillEnabled(record.skills.single(), false)
             compose.setContent {
-                MaterialTheme { ExtensionsScreen(null, null, service, prepareSession = { session }) }
+                MaterialTheme {
+                    ExtensionsScreen(
+                        null,
+                        null,
+                        service,
+                        prepareSession = { session },
+                        currentSession = { session },
+                        onPluginConfigure = { id, _ -> configured += id },
+                    )
+                }
             }
             open(record)
             compose
@@ -64,13 +78,13 @@ class PluginManagementDeviceTest {
             compose.onNodeWithTag("connector-session-bundled-plugin:browser").assertDoesNotExist()
             assertFalse(record.id in service.catalog.selected(session))
             assertFalse(service.enabled(record.endpoints.single()))
-            compose.onNodeWithTag("plugin-session-configure-${record.id}").performScrollTo().performClick()
-            compose.onNodeWithTag("connector-session-${record.id}").assertDoesNotExist()
-            compose
-                .onNodeWithTag("plugin-connection-${record.endpoints.single().id}")
-                .performScrollTo()
-                .assertIsDisplayed()
+            compose.onNodeWithTag("plugin-session-configure-${record.id}").assertDoesNotExist()
+            compose.onNodeWithTag("connector-session-${record.id}").performScrollTo().performClick()
+            waitFor("plugin-setup-continue")
+            compose.onNodeWithTag("plugin-setup-continue").performClick()
+            compose.runOnIdle { assertEquals(listOf(record.id), configured) }
             assertFalse(record.id in service.catalog.selected(session))
+            assertFalse(service.enabled(record.endpoints.single()))
         } finally {
             container.storage.deleteSessionPermanently(session)
             service.remove(record)
@@ -138,7 +152,12 @@ class PluginManagementDeviceTest {
         record: InstalledPlugin,
         index: Int,
     ) {
-        compose.onNodeWithTag("plugin-tab-$index-${record.id}").performScrollTo().performClick()
+        compose.onNodeWithTag("plugin-tab-$index-${record.id}").onParent().performScrollTo()
+        compose
+            .onNodeWithTag("plugin-tab-$index-${record.id}")
+            .performScrollTo()
+            .performClick()
+            .assertIsSelected()
     }
 
     private fun waitFor(tag: String) {

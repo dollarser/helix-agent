@@ -10,7 +10,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
 
-/** Existing actions, grouped by purpose; the supporting labels make their scope explicit. */
+/** Message materials, one-shot skills and the owner-requested expert/plugin shortcuts. */
 @Composable
 @Suppress("FunctionName", "LongMethod", "LongParameterList")
 internal fun ComposerAddSheet(
@@ -21,15 +21,7 @@ internal fun ComposerAddSheet(
     expertName: String? = null,
     pluginNames: List<String> = emptyList(),
 ) {
-    val messageScope = stringResource(R.string.composer_scope_message)
-    val sessionScope = stringResource(R.string.composer_scope_session)
     ConversationSheet(stringResource(R.string.composer_add_title), "composer-add", onDismiss) {
-        Text(
-            stringResource(R.string.composer_add_message_group),
-            Modifier.padding(top = 16.dp, bottom = 8.dp),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
         ConversationMenuRow(
             stringResource(R.string.composer_add_camera),
             {
@@ -37,15 +29,6 @@ internal fun ComposerAddSheet(
                 actions.onCamera()
             },
             Modifier.testTag("composer-add-camera"),
-            enabled = messageEnabled,
-        )
-        ConversationMenuRow(
-            stringResource(R.string.composer_add_photo),
-            {
-                onDismiss()
-                actions.onPhoto()
-            },
-            Modifier.testTag("composer-add-photo"),
             enabled = messageEnabled,
         )
         ConversationMenuRow(
@@ -64,7 +47,6 @@ internal fun ComposerAddSheet(
                 actions.onReference()
             },
             Modifier.testTag("composer-add-reference"),
-            supporting = messageScope,
             enabled = messageEnabled,
         )
         actions.onKnowledgeReference?.let { add ->
@@ -75,52 +57,13 @@ internal fun ComposerAddSheet(
                     add()
                 },
                 Modifier.testTag("composer-add-knowledge-reference"),
-                supporting = messageScope,
-                enabled = messageEnabled,
-            )
-        }
-        actions.onContinuousVoice?.let { start ->
-            ConversationMenuRow(
-                stringResource(R.string.voice_continuous_title),
-                {
-                    onDismiss()
-                    start()
-                },
-                Modifier.testTag("composer-add-continuous-voice"),
-                supporting = stringResource(R.string.voice_continuous_hint),
                 enabled = messageEnabled,
             )
         }
         Text(
             stringResource(R.string.composer_add_session_group),
-            Modifier.padding(top = 16.dp, bottom = 8.dp),
+            Modifier.padding(top = 12.dp, bottom = 4.dp).testTag("composer-add-session-group"),
             style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        ConversationMenuRow(
-            stringResource(R.string.expert_select),
-            {
-                onDismiss()
-                actions.onExpert()
-            },
-            Modifier.testTag("composer-add-expert"),
-            supporting = (expertName ?: stringResource(R.string.expert_default)) + " · " + sessionScope,
-            enabled = capabilityEnabled,
-        )
-        ConversationMenuRow(
-            stringResource(R.string.connector_session_title),
-            {
-                onDismiss()
-                actions.onConnectors()
-            },
-            Modifier.testTag("composer-add-connectors"),
-            supporting =
-                if (pluginNames.isEmpty()) {
-                    sessionScope
-                } else {
-                    pluginNames.joinToString() + " · " + sessionScope
-                },
-            enabled = capabilityEnabled,
         )
         ConversationMenuRow(
             stringResource(R.string.skill_selection_title),
@@ -129,8 +72,27 @@ internal fun ComposerAddSheet(
                 actions.onSkills()
             },
             Modifier.testTag("composer-add-skills"),
-            supporting = stringResource(R.string.skill_pick_hint),
             enabled = messageEnabled,
+        )
+        ConversationMenuRow(
+            stringResource(R.string.connector_session_title),
+            {
+                onDismiss()
+                actions.onConnectors()
+            },
+            Modifier.testTag("composer-add-connectors"),
+            supporting = pluginNames.takeIf { it.isNotEmpty() }?.joinToString(),
+            enabled = capabilityEnabled,
+        )
+        ConversationMenuRow(
+            stringResource(R.string.expert_select),
+            {
+                onDismiss()
+                actions.onExpert()
+            },
+            Modifier.testTag("composer-add-expert"),
+            supporting = expertName,
+            enabled = capabilityEnabled,
         )
     }
 }

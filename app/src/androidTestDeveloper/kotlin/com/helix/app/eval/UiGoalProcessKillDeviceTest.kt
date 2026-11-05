@@ -124,7 +124,7 @@ class UiGoalProcessKillDeviceTest {
     ) {
         val host = InstrumentationRegistry.getArguments().getString("ui.goal.kill.host") ?: "10.0.2.2"
         require(host in setOf("10.0.2.2", "127.0.0.1"))
-        container.profileStore.switchTo(SafetyProfile.ADVANCED)
+        check(container.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
         val provider =
             container.providerService.create(
                 ProviderDraft(
@@ -320,7 +320,6 @@ class UiGoalProcessKillDeviceTest {
                 container.providerService.delete(id)
             }
         }
-        container.profileStore.switchTo(SafetyProfile.valueOf(facts.getProperty("profile")))
         facts.getProperty("session")?.let(::deselectMobileUseForTest)
         check(marker.delete())
     }

@@ -66,6 +66,8 @@ fun ExtensionsScreen(
     onPermissions: () -> Unit = {},
     importFiles: com.helix.app.files.FileManagerService? = null,
     filePicker: FileSelectionContent? = null,
+    skillRepository: com.helix.extensions.skills.SkillRepository? = null,
+    onSkillInvoke: (suspend (String, com.helix.extensions.skills.UserSkillActivation) -> Boolean)? = null,
 ) {
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     var useSession by rememberSaveable { mutableStateOf<String?>(null) }
@@ -92,6 +94,14 @@ fun ExtensionsScreen(
             onFailure = { useFailed = true },
         )
     val onUse: () -> Unit = { onUsePlugin(null) }
+    val onUseSkill =
+        rememberStandaloneSkillUseAction(
+            StandaloneSkillUseHost(skillRepository, connectors, onSkillInvoke, onPluginConfigure),
+            prepareSession,
+            currentSession,
+            onSessionSettings,
+        ) { success -> useFailed = !success }
+
     val currentTarget = currentSession()
     LaunchedEffect(currentTarget) {
         if (useSession != null && useSession != currentTarget) useSession = null
@@ -125,13 +135,10 @@ fun ExtensionsScreen(
             }
         }
         if (useFailed) Text(stringResource(R.string.connector_session_failed))
-        Text(
-            stringResource(
-                extensionTabIntroduction(selectedTab),
-            ),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        extensionTabIntroduction(selectedTab)?.let { introduction ->
+            Text(stringResource(introduction), style = MaterialTheme.typography.bodyMedium)
+        }
+
         if (selectedTab == 2) {
             ConnectorSection(
                 connectors,
@@ -185,10 +192,14 @@ fun ExtensionsScreen(
                 label = { Text(stringResource(R.string.extensions_search)) },
                 modifier = Modifier.fillMaxWidth().testTag("extensions-search"),
             )
+            var packageMatches by remember(query, catalogRevision) { mutableStateOf<Boolean?>(null) }
+            var skillMatches by remember(query, catalogRevision) { mutableStateOf<Boolean?>(null) }
             androidx.compose.runtime.key(catalogRevision) {
                 ConnectorSection(
                     connectors,
                     showImport = false,
+                    showEmptyState = false,
+                    onSearchResult = { packageMatches = it },
                     showIntroduction = false,
                     onUse = onUsePlugin,
                     query = query,
@@ -200,17 +211,18 @@ fun ExtensionsScreen(
                     importFiles = importFiles,
                     filePicker = filePicker,
                 )
-                StandaloneSkillsSection(connectors, onUse, query)
+                StandaloneSkillsSection(connectors, onUseSkill, query) { skillMatches = it }
+                PluginCatalogEmptyState(packageMatches, skillMatches, query)
             }
         }
     }
 }
 
-private fun extensionTabIntroduction(selectedTab: Int): Int =
+private fun extensionTabIntroduction(selectedTab: Int): Int? =
     when (selectedTab) {
         1 -> R.string.plugins_discover_intro
         2 -> R.string.plugins_add_intro
-        else -> R.string.plugins_manage_intro
+        else -> null
     }
 
 @Composable
@@ -276,5 +288,86 @@ private fun rememberPluginUseAction(
                 }
             }
         }
+    }
+}
+
+/** Opens the existing session-scoped skill chooser; merely inspecting it changes no choice. */
+@Composable
+private fun rememberStandaloneSkillUseAction(
+    host: StandaloneSkillUseHost,
+    prepare: (suspend (String) -> String?)?,
+    current: () -> String?,
+    onFallback: () -> Unit,
+    onResult: (Boolean) -> Unit,
+): (com.helix.extensions.skills.SkillKey) -> Unit {
+    var session by rememberSaveable { mutableStateOf<String?>(null) }
+    var focus by rememberSaveable(stateSaver = skillKeySaver) {
+        mutableStateOf<com.helix.extensions.skills.SkillKey?>(null)
+    }
+    var preparing by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val currentTarget = current()
+    LaunchedEffect(currentTarget) {
+        if (session != null && session != currentTarget) {
+            session = null
+            focus = null
+        }
+    }
+    host.repository?.let { repository ->
+        session?.let { id ->
+            SkillSessionPanel(
+                repository,
+                id,
+                {},
+                {
+                    session = null
+                    focus = null
+                },
+                onInvoke = host.invoke?.let { invoke -> { activation -> invoke(id, activation) } },
+                context = SkillUseContext(focus, host.plugins, host.configure, canApply = { current() == id }),
+            )
+        }
+    }
+    return { key ->
+        val target = current()
+        if (host.repository == null || prepare == null || target == null) {
+            onFallback()
+        } else if (!preparing) {
+            preparing = true
+            scope.launch {
+                try {
+                    val prepared = prepare(target)
+                    kotlinx.coroutines.currentCoroutineContext().ensureActive()
+                    if (prepared == target && current() == target) {
+                        focus = key
+                        session = target
+                        onResult(true)
+                    }
+                } catch (
+                    cancel: kotlinx.coroutines.CancellationException,
+                ) {
+                    throw cancel
+                } catch (_: Exception) {
+                    onResult(false)
+                } finally {
+                    preparing = false
+                }
+            }
+        }
+    }
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun PluginCatalogEmptyState(
+    packageMatches: Boolean?,
+    skillMatches: Boolean?,
+    query: String,
+) {
+    if (packageMatches == false && skillMatches == false) {
+        Text(
+            stringResource(if (query.isBlank()) R.string.plugin_catalog_empty else R.string.plugin_catalog_no_matches),
+            Modifier.testTag("plugin-catalog-empty"),
+        )
     }
 }

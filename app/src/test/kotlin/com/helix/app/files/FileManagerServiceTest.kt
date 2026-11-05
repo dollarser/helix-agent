@@ -53,6 +53,26 @@ class FileManagerServiceTest {
     private fun sha256Hex(b: ByteArray): String =
         MessageDigest.getInstance("SHA-256").digest(b).joinToString("") { "%02x".format(it) }
 
+    @Test fun directoryPickerExcludesInternalStorageAndSessionOwnedRootsWithoutHidingFiles() {
+        val picker =
+            FileManagerService(
+                store,
+                ScopeRootResolver { scopeRoot },
+                scopeId,
+                workspaceSources = {
+                    listOf(
+                        FileSource("owned", "Session", FileSourceKind.WORKSPACE, true, ownerSessionId = "session"),
+                        FileSource("external", "External", FileSourceKind.WORKSPACE, true),
+                    )
+                },
+            )
+        assertEquals(listOf("external"), picker.directoryChoices(null).sources.map { it.scopeId })
+        assertTrue(picker.sources().any { it.scopeId == scopeId })
+        assertTrue(picker.sources().any { it.scopeId == "owned" })
+        assertThrows(IllegalArgumentException::class.java) { picker.directoryChoices(FileScopePath(scopeId, "")) }
+        assertThrows(IllegalArgumentException::class.java) { picker.directoryChoices(FileScopePath(scopeId, "work")) }
+    }
+
     @Test
     fun largeDirectoryReportsThatSortingAndSearchArePartial() {
         repeat(501) { index -> Files.write(real("work/item-$index"), byteArrayOf(1)) }

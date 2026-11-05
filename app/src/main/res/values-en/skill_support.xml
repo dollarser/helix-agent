@@ -1,0 +1,25 @@
+<resources>
+    <string name="skill_support_unsupported">Unsupported execution fields: %1$s</string>
+    <string name="skill_support_unapplied">These extension fields are retained without applying their behavior: %1$s</string>
+    <string name="skill_support_compatibility">Environment requirements (declared): %1$s</string>
+    <string name="skill_support_tools">Tool declarations (unverified): %1$s</string>
+    <string name="skill_support_scripts">Bundled scripts: %1$s</string>
+    <string name="skill_support_script_environment">Script runtime and dependencies have not been verified.</string>
+    <string name="skill_support_web_provided">Web reading capability is provided.</string>
+    <string name="skill_support_web_missing">Web reading is required: select Browser or configure a host capability providing http.fetch.</string>
+    <string name="skill_support_configure">Set up required capability</string>
+    <string name="skill_support_retry">Check again</string>
+    <string name="skill_support_failed">Could not inspect this skill. Check again or return to its details.</string>
+    <string name="skill_support_disabled">This skill is disabled. Enable it for this conversation before invoking it.</string>
+    <string name="skill_support_session_enable">Enable for this conversation</string>
+    <string name="skill_support_discovery">When enabled, the model may use it in later tasks in this conversation.</string>
+    <string name="skill_support_manual_only">This skill requires explicit invocation.</string>
+    <string name="skill_support_no_user">This skill does not allow manual invocation.</string>
+    <string name="skill_support_once_hint">Add it to this message; execution starts after you send.</string>
+    <string name="skill_support_loading">Checking skill…</string>
+    <string name="skill_support_parameters_literal">Other-client placeholders or command syntax were detected; Helix does not substitute or execute them automatically.</string>
+    <string name="skill_support_apply_failed">Could not complete the action. Check the current skill state before retrying.</string>
+    <string name="skill_support_script_runner">A skill-script runner is provided (Python / JavaScript / Shell).</string>
+    <string name="skill_support_script_no_runner">No dedicated skill-script runner is currently provided.</string>
+    <string name="skill_support_preview_only">This skill is preview-only; invocation is not available.</string>
+</resources>

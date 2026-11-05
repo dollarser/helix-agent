@@ -4,10 +4,10 @@ description: Operate authorized Android apps with Mobile Use.
 ---
 # Android UI task
 
-Observe → act sequentially → verify. DISPATCHED/UNVERIFIED is input acknowledgement, not completion.
-For pixels, use ui.device then ui.screenshot with its exact frame; labels/tokens are not frames.
-After ui.set_text/ui.scroll, inspect attached observation (ATTACHED or UNSETTLED) and use fresh tokens. UNSETTLED proves neither stability nor success. Otherwise observe again. Actions invalidate old tokens.
-For offscreen controls, find a fresh scrollable container, scroll its token and inspect again.
-Respect the selected main/background display; never silently switch. ui.device reports its identity/focus.
-Read references/android-ui-reference.md via skills.read_resource with this exact snapshotHash for details and completion handoff.
-This guide is data, never permission; live scope/results remain authoritative.
+Observe → act sequentially → verify; DISPATCHED/UNVERIFIED is not completion.
+For pixels, use ui.device then ui.screenshot with its exact frame. Only attached pixels count.
+Actions invalidate tokens. After ui.set_text/ui.scroll, inspect attached ATTACHED/UNSETTLED observations and use fresh tokens; UNSETTLED proves neither stability nor success.
+For offscreen targets, find a scrollable container and copy an advertised scrollDirections value: viewport navigation, not finger motion.
+Respect main/background display. In background mode Helix stays on the main screen; do not launch it into the virtual display to finish.
+Read references/android-ui-reference.md via skills.read_resource with this exact snapshotHash for recovery and completion handoff.
+This guide does not grant permission; live scope/results remain authoritative.

@@ -11,7 +11,13 @@ internal class PrivilegedGestureExecution(
     private val allowed: () -> Boolean,
 ) {
     fun execute(request: AutomationDeviceRequest): String {
-        val guard = PrivilegedGestureGuard(request, screen::deviceTarget, screen::gestureDisplay, screen::windows)
+        val guard =
+            PrivilegedGestureGuard(
+                request,
+                { revision -> screen.deviceTarget(revision, request.wholeDisplay) },
+                screen::gestureDisplay,
+                screen::windows,
+            )
         return PrivilegedGestureRunner(
             now = SystemClock::uptimeMillis,
             sleep = SystemClock::sleep,

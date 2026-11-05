@@ -48,11 +48,11 @@ class BackgroundAppLaunchDeviceTest {
         val lines = PrefsLineStore(app, "helix-mobile-use", synchronous = true)
         val savedScope = lines.lines(MobileUseGrantStore.CONFIG_KEY)
         val savedExecution = lines.lines(MobileUseGrantStore.EXECUTION_KEY)
-        val profile = c.profileStore.profile
+
         val plugin = c.pluginService.list().single { it.native?.pluginId == "mobile-use" }
         val store = MobileUseGrantStore(lines::lines, lines::setLines, { null })
         try {
-            c.profileStore.switchTo(SafetyProfile.ADVANCED)
+            check(c.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
             store.configureGlobal(setOf("com.coolapk.market"), false)
             store.configureExecution(background = true, allowMoveFromMain = true)
             c.pluginService.setEnabled(plugin.id, true)
@@ -145,7 +145,6 @@ class BackgroundAppLaunchDeviceTest {
             lines.setLines(MobileUseGrantStore.CONFIG_KEY, savedScope)
             lines.setLines(MobileUseGrantStore.EXECUTION_KEY, savedExecution)
             c.pluginService.setEnabled(plugin.id, plugin.enabled)
-            c.profileStore.switchTo(profile)
         }
     }
 

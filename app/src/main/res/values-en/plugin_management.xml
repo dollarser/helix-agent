@@ -1,6 +1,6 @@
 <resources>
-    <string name="plugin_origin_bundled">Built-in</string>
-    <string name="plugin_origin_installed">Installed</string>
+    <string name="plugin_origin_bundled">Built-in plugin</string>
+    <string name="plugin_origin_installed">Installed plugin</string>
     <string name="plugin_status_enabled">Enabled</string>
     <string name="plugin_status_disabled">Disabled</string>
     <string name="plugins_empty">No installed plugins. Browse the marketplace or import your own.</string>
@@ -12,9 +12,18 @@
     <string name="plugin_chat_reply_description">Understand chats and draft replies. Reading a phone chat also needs Mobile Use. Does not send automatically.</string>
     <string name="plugin_guidance_tools">Guidance and tools</string>
     <string name="plugin_details">Details</string>
-    <string name="plugin_no_configuration">No additional setup. Select this plugin in a conversation to use it under that conversation’s permissions.</string>
-    <string name="plugin_guidance_loading">Required guidance accompanies selected plugins. Skill bodies and references load on demand; tool schemas load through discovery. Previewing here does not enable the plugin.</string>
+    <string name="plugin_no_configuration">No additional settings</string>
     <string name="plugin_required_guidance">Required guidance</string>
     <string name="plugin_version">Version: %1$s</string>
     <string name="plugin_remove_title">Remove “%1$s”?</string>
+    <string name="plugin_component_status">Component status</string>
+    <string name="plugin_technical_details">Diagnostics</string>
+    <string name="plugin_package_hash">Installation fingerprint: %1$s</string>
+    <string name="plugin_component_identifier">Component ID: %1$s</string>
+    <string name="plugin_component_skill">Skill</string>
+    <string name="plugin_component_connection">Connection</string>
+    <string name="plugin_component_native">Built-in capability</string>
+    <string name="plugin_component_browser">Browser</string>
+    <string name="plugin_component_other">Component</string>
+    <string name="plugin_component_ready">Ready</string>
 </resources>

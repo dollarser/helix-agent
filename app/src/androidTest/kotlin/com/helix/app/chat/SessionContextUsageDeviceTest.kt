@@ -14,11 +14,21 @@ import com.helix.core.storage.entity.transportIdentity
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 import java.time.Instant
 import java.util.UUID
 
 class SessionContextUsageDeviceTest {
+    @Test fun anEmptyUnboundSessionIsZeroButImportedHistoryWithoutTelemetryIsUnknown() {
+        ProviderModelsIntegrationDeviceTest.Fixture().use { f ->
+            f.storage.sessions.create("empty-unbound", "Empty", null, null, 1)
+            assertEquals(0L, ChatContextProjection.read(f.storage, "empty-unbound", f.service).usedTokens)
+            f.storage.messages.append("imported-message", "empty-unbound", null, "USER", "TEXT", "Imported history")
+            assertNull(ChatContextProjection.read(f.storage, "empty-unbound", f.service).usedTokens)
+        }
+    }
+
     @Test fun usageBelongsToTheSessionAndSurvivesPendingAndDiscardedSummaryCalls() {
         ProviderModelsIntegrationDeviceTest.Fixture().use { f ->
             var time = 1000L
@@ -55,6 +65,10 @@ class SessionContextUsageDeviceTest {
                 stream.apply(ModelEvent.Completed("stop"))
                 turn.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
             }
+            assertEquals(0L, ChatContextProjection.read(f.storage, "a", f.service).usedTokens)
+            val initial = start("a")
+            assertNull(ChatContextProjection.read(f.storage, "a", f.service).usedTokens)
+            initial.settleFixtureTerminal(ModelStreamTerminal(TurnState.FAILED, "FIXTURE_NO_REQUEST"))
             completed("a", 7474)
             completed("b", 12345)
 

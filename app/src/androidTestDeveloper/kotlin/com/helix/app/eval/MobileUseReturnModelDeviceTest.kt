@@ -52,12 +52,12 @@ class MobileUseReturnModelDeviceTest {
                     .model == model,
             )
             val original = c.chatService.screen.value.openSessionId
-            val profile = c.profileStore.profile
+
             val selection = MobileUseEvaluationSelection(app)
             val title = "Return-${UUID.randomUUID().toString().take(8)}"
             val session = c.chatService.createSession(title, provider, model)
             try {
-                c.profileStore.switchTo(SafetyProfile.ADVANCED)
+                check(c.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
                 selection.select(session, setOf(app.packageName, "${app.packageName}.test"), false)
                 c.sessionPermissionEdit.saveSessionConfig(
                     session,
@@ -140,7 +140,6 @@ class MobileUseReturnModelDeviceTest {
                         ?.let { c.chatService.stopTask(it.id) }
                 } finally {
                     selection.close()
-                    c.profileStore.switchTo(profile)
                     c.storage.sessions.archive(session, System.currentTimeMillis())
                     if (original != null) c.chatService.openSession(original) else c.chatService.closeSession()
                 }

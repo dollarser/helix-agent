@@ -115,7 +115,6 @@ class DetachedGoalRecoveryDeviceTest {
             .providerId
             ?.let { container.providerService.delete(it) }
         storage.sessions.archive(session, System.currentTimeMillis())
-        container.profileStore.switchTo(SafetyProfile.STANDARD)
         output.delete()
         marker.delete()
     }

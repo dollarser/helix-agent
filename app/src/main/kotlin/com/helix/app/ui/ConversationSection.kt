@@ -59,8 +59,8 @@ internal fun ConversationSection(
     intents: ConversationIntents,
     permissionMode: SessionPermissionMode? = null,
     referenceLabel: String? = null,
-    expertName: String? = null,
     pluginNames: List<String> = emptyList(),
+    expertName: String? = null,
     onSelectedPlugins: () -> Unit = intents.onConnectors,
     knowledgeReferenceContent: @Composable () -> Unit = {},
     hasKnowledgeReferences: Boolean = false,
@@ -68,9 +68,7 @@ internal fun ConversationSection(
     composerStatus: @Composable () -> Unit = {},
     composerFeedback: @Composable () -> Unit = {},
     composerOptions: @Composable () -> Unit = {},
-    artifacts: @Composable () -> Unit = {},
-    turnArtifacts: @Composable (String) -> Unit = {},
-    timelineDecorationVersion: Int = 0,
+    artifacts: @Composable (() -> Unit) -> Unit = {},
     displayExecution: @Composable (String) -> Unit = {},
     humanControl: @Composable (String) -> Unit = {},
     taskPreparation: @Composable () -> Unit = {},
@@ -91,8 +89,6 @@ internal fun ConversationSection(
     val pickerSession by androidx.compose.runtime.rememberUpdatedState(screen.openSessionId)
     var fileTarget by androidx.compose.runtime.saveable
         .rememberSaveable { mutableStateOf<String?>(null) }
-    var photoTarget by androidx.compose.runtime.saveable
-        .rememberSaveable { mutableStateOf<String?>(null) }
     var cameraTarget by androidx.compose.runtime.saveable
         .rememberSaveable { mutableStateOf<String?>(null) }
     var cameraPath by androidx.compose.runtime.saveable
@@ -105,15 +101,6 @@ internal fun ConversationSection(
                 intents.onStageAttachment(uri.toString())
             }
             fileTarget = null
-        }
-    val photoPicker =
-        rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-            if (uri != null && photoTarget != null &&
-                photoTarget == pickerSession
-            ) {
-                intents.onStageAttachment(uri.toString())
-            }
-            photoTarget = null
         }
     val cameraLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { captured ->
@@ -128,6 +115,7 @@ internal fun ConversationSection(
             cameraTarget = null
         }
 
+    var voiceModeOpen by remember(screen.openSessionId) { mutableStateOf(false) }
     var voiceOpen by remember(screen.openSessionId) { mutableStateOf(false) }
     val voiceKeyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
     var continuousVoice by remember(screen.openSessionId) { mutableStateOf(false) }
@@ -152,6 +140,24 @@ internal fun ConversationSection(
     var inputNotice by remember { mutableStateOf<String?>(null) }
     val captureUnavailable = stringResource(R.string.chat_capture_unavailable)
     val pickerUnavailable = stringResource(R.string.chat_picker_unavailable)
+
+    if (voiceModeOpen) {
+        VoiceInputModeSheet(
+            onDismiss = { voiceModeOpen = false },
+            onChoose = { continuous ->
+                voiceModeOpen = false
+                voiceKeyboard?.hide()
+                reader?.leave()
+                inputNotice = null
+                voiceDraft =
+                    com.helix.app.voice
+                        .VoiceDraftSession(input)
+                continuousVoice = continuous
+                voicePreview = input
+                voiceOpen = true
+            },
+        )
+    }
 
     val timelineListState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
@@ -193,14 +199,12 @@ internal fun ConversationSection(
             summary = screen.sessionTitle.ifBlank { stringResource(R.string.chat_new_session) },
             onNew = intents.onNew,
             onNavigation = intents.onNavigation,
-            onRename = intents.onRename,
             onTasks = intents.onTasks,
             onSettings = intents.onSettings,
             onSearch = { searchActive = !searchActive },
             playback = { AutomaticReplyAudioControl(reader, speechFrame) },
         ) { closeDetails ->
-            artifacts()
-            TaskLedgerCard(screen.taskLedger, screen.openSessionId)
+            artifacts(closeDetails)
             if (runControl.mode == AgentMode.GOAL || screen.hasGoals) {
                 ConversationMenuRow(
                     stringResource(R.string.goal_manage),
@@ -219,11 +223,11 @@ internal fun ConversationSection(
                 )
             }
             Column {
+                ConversationMenuRow(stringResource(R.string.chat_rename), {
+                    closeDetails()
+                    intents.onRename()
+                }, Modifier.testTag("session-rename-open"))
                 if (!screen.isDraft) {
-                    ConversationMenuRow(stringResource(R.string.chat_rename), {
-                        closeDetails()
-                        intents.onRename()
-                    })
                     intents.onExport?.let { export ->
                         ConversationMenuRow(
                             stringResource(R.string.session_export_title),
@@ -235,14 +239,6 @@ internal fun ConversationSection(
                         )
                     }
                 }
-                ConversationMenuRow(
-                    stringResource(R.string.chat_directory),
-                    {
-                        closeDetails()
-                        intents.onDirectory()
-                    },
-                    enabled = !screen.isSending,
-                )
             }
             if (screen.directoryRef != null) {
                 ConversationMenuRow(
@@ -254,7 +250,6 @@ internal fun ConversationSection(
                     Modifier.testTag("session-git-open"),
                 )
             }
-            screen.directoryRef?.let { ScopedPathText(it) }
         }
         if (searchActive) {
             ConversationSearchBar(
@@ -307,14 +302,6 @@ internal fun ConversationSection(
         screen.modelBindingIssue?.let { issue ->
             Column(Modifier.fillMaxWidth().padding(8.dp).testTag("model-binding-issue")) {
                 Text(stringResource(issue.messageResource), color = MaterialTheme.colorScheme.error)
-                Row {
-                    TextButton(onClick = { modelPickerRequest++ }) {
-                        Text(stringResource(R.string.chat_model_reselect))
-                    }
-                    TextButton(onClick = intents.onManageModels) {
-                        Text(stringResource(R.string.chat_model_manage_source))
-                    }
-                }
             }
         }
         screen.blockedReason?.let { reason ->
@@ -338,7 +325,7 @@ internal fun ConversationSection(
         if (screen.workspaceRecovered) {
             Column(Modifier.padding(horizontal = 12.dp).testTag("workspace-recovery-notice")) {
                 Text(stringResource(R.string.workspace_recovered_notice), style = MaterialTheme.typography.bodySmall)
-                TextButton(onClick = intents.onDirectory) { Text(stringResource(R.string.chat_directory_choose)) }
+                TextButton(onClick = intents.onSettings) { Text(stringResource(R.string.session_settings_title)) }
             }
         }
         val emptyConversation =
@@ -370,7 +357,6 @@ internal fun ConversationSection(
                     screen.toolTimeline,
                     screen.activeTurn,
                     screen.turns,
-                    timelineDecorationVersion,
                 ),
             state = timelineListState,
             modifier = Modifier.weight(1f).fillMaxWidth(),
@@ -450,12 +436,6 @@ internal fun ConversationSection(
                                 searchQuery = activeSearchQuery,
                                 isCurrentMatch = message.id == currentTargetId,
                             )
-                            if (message.role == "assistant" &&
-                                entry.key != screen.activeTurn?.takeUnless { it.state.isTerminal }?.id &&
-                                message.id == entry.messages.lastOrNull { it.role == "assistant" }?.id
-                            ) {
-                                turnArtifacts(entry.key)
-                            }
                         }
 
                         is com.helix.app.chat.ConversationContent.ToolGroup -> {
@@ -639,7 +619,6 @@ internal fun ConversationSection(
                 )
             },
             editorKey = screen.openSessionId,
-            onChooseModel = { modelPickerRequest++ },
             optionsContent = {
                 composerOptions()
             },
@@ -657,8 +636,8 @@ internal fun ConversationSection(
             hasAttachments = screen.pendingAttachments.isNotEmpty(),
             hasKnowledgeReferences = hasKnowledgeReferences,
             referenceLabel = referenceLabel,
-            expertName = expertName,
             pluginNames = pluginNames,
+            expertName = expertName,
             onSelectedPlugins = onSelectedPlugins,
             onRemoveReference = intents.onClearReference,
             goalMode = runControl.mode == AgentMode.GOAL,
@@ -671,7 +650,6 @@ internal fun ConversationSection(
                     screen.selectedModel?.model,
                     !screen.isSending && screen.pendingDisclosure == null,
                     intents.onSaveModel,
-                    onManageModels = intents.onManageModels,
                     sourceGroups = modelSourceGroups,
                     onConfigureSource = intents.onConfigureModelSource,
                     onRefreshModels = intents.onRefreshModels,
@@ -699,14 +677,6 @@ internal fun ConversationSection(
                         inputNotice = null
                         if (!launchExternalUi { attachmentPicker.launch(arrayOf("*/*")) }) {
                             fileTarget = null
-                            inputNotice = pickerUnavailable
-                        }
-                    },
-                    onPhoto = {
-                        photoTarget = screen.openSessionId
-                        inputNotice = null
-                        if (!launchExternalUi { photoPicker.launch(arrayOf("image/*")) }) {
-                            photoTarget = null
                             inputNotice = pickerUnavailable
                         }
                     },
@@ -745,28 +715,7 @@ internal fun ConversationSection(
                     onExpert = intents.onExpert,
                     onSkills = intents.onSkills,
                     onConnectors = intents.onConnectors,
-                    onVoice = {
-                        voiceKeyboard?.hide()
-                        reader?.leave()
-                        inputNotice = null
-                        voiceDraft =
-                            com.helix.app.voice
-                                .VoiceDraftSession(input)
-                        continuousVoice = false
-                        voicePreview = input
-                        voiceOpen = true
-                    },
-                    onContinuousVoice = {
-                        voiceKeyboard?.hide()
-                        reader?.leave()
-                        inputNotice = null
-                        voiceDraft =
-                            com.helix.app.voice
-                                .VoiceDraftSession(input)
-                        continuousVoice = true
-                        voicePreview = input
-                        voiceOpen = true
-                    },
+                    onVoice = { voiceModeOpen = true },
                     onSend = intents.onSend,
                     onStop = {
                         val turnId = screen.activeTurn?.id

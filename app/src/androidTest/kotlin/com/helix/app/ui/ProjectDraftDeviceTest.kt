@@ -1,11 +1,13 @@
 package com.helix.app.ui
 
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextReplacement
 import androidx.core.content.FileProvider
 import androidx.test.espresso.Espresso
@@ -50,8 +52,9 @@ class ProjectDraftDeviceTest {
                     chat.screen.value.pendingAttachments
                         .isNotEmpty()
                 }
-                compose.onNodeWithTag("conversation-project").performClick()
+                openProjectSettings()
                 compose.onNodeWithTag("conversation-project-create").performClick()
+                compose.onNodeWithTag("conversation-project-none").assertDoesNotExist()
                 compose.onNodeWithTag("project-name").performTextReplacement("Cancelled project")
                 Espresso.closeSoftKeyboard()
                 androidx.test.platform.app.InstrumentationRegistry
@@ -60,13 +63,47 @@ class ProjectDraftDeviceTest {
                 compose.waitUntil(10_000) {
                     compose.onAllNodesWithTag("project-name").fetchSemanticsNodes().isEmpty()
                 }
+                compose.onNodeWithTag("conversation-project-none").assertIsSelected()
                 compose.onNodeWithText(compose.activity.getString(com.helix.app.R.string.common_cancel)).performClick()
+                returnToConversation()
                 compose.onNodeWithTag("chat-input").assertTextContains("Keep this unsent question")
                 assertEquals(session, chat.screen.value.openSessionId)
                 assertNull(c.storage.projects.forSession(session))
-                compose.onNodeWithTag("conversation-project").performClick()
+                openProjectSettings()
                 compose.onNodeWithTag("conversation-project-$project").performClick()
                 compose.waitUntil(10_000) { chat.screen.value.projectId == project }
+                returnToConversation()
+                val projectDirectory = chat.screen.value.directoryRef
+                compose.onNodeWithTag("chat-conversation-details").performClick()
+                compose.onNodeWithTag("session-settings-open").performClick()
+                compose.onNodeWithTag("session-settings-directory").performScrollTo().performClick()
+                compose.onNodeWithTag("session-directory-change").performClick()
+                compose.onNodeWithTag("session-directory-cancel").performClick()
+                assertEquals(projectDirectory, chat.screen.value.directoryRef)
+                compose.onNodeWithTag("session-settings-directory").performScrollTo().performClick()
+                compose.onNodeWithTag("session-directory-change").performClick()
+                compose.onNodeWithTag("session-directory-private").performClick()
+                compose.waitUntil(10_000) {
+                    compose.onAllNodesWithTag("session-directory-private").fetchSemanticsNodes().isEmpty()
+                }
+                assertEquals(project, chat.screen.value.projectId)
+                val privateDirectory = chat.screen.value.directoryRef
+                compose.onNodeWithTag("session-settings-directory").performScrollTo().performClick()
+                compose.onNodeWithTag("session-directory-change").performClick()
+                compose.onNodeWithTag("session-directory-project").performScrollTo().performClick()
+                compose.waitUntil(10_000) {
+                    chat.screen.value.directoryRef == projectDirectory &&
+                        compose.onAllNodesWithTag("session-directory-project").fetchSemanticsNodes().isEmpty()
+                }
+                assertEquals(project, chat.screen.value.projectId)
+                compose.onNodeWithTag("session-settings-directory").performScrollTo().performClick()
+                compose.onNodeWithTag("session-directory-change").performClick()
+                compose.onNodeWithTag("session-directory-private").performScrollTo().performClick()
+                compose.waitUntil(10_000) {
+                    chat.screen.value.directoryRef == privateDirectory &&
+                        compose.onAllNodesWithTag("session-directory-private").fetchSemanticsNodes().isEmpty()
+                }
+                returnToConversation()
                 val directory = chat.screen.value.directoryRef
                 val attachment =
                     chat.screen.value.pendingAttachments
@@ -82,7 +119,7 @@ class ProjectDraftDeviceTest {
                         .id,
                 )
                 compose.onNodeWithTag("chat-input").assertTextContains("Keep this unsent question")
-                compose.onNodeWithTag("conversation-project").performClick()
+                openProjectSettings()
                 compose.onNodeWithTag("conversation-project-create").performClick()
                 val name = "Inline-${UUID.randomUUID()}"
                 compose.onNodeWithTag("project-name").performTextReplacement(name)
@@ -93,6 +130,7 @@ class ProjectDraftDeviceTest {
                 }
                 val created = requireNotNull(chat.screen.value.projectId)
                 owned += created
+                returnToConversation()
                 assertEquals(
                     name,
                     c.storage.projects
@@ -198,4 +236,23 @@ class ProjectDraftDeviceTest {
                     ?.let { projects.delete(it) }
             }
         }
+
+    private fun openProjectSettings() {
+        compose.onNodeWithTag("conversation-project").assertDoesNotExist()
+        compose.onNodeWithTag("chat-conversation-details").performClick()
+        compose.onNodeWithTag("session-settings-open").performClick()
+        compose.waitUntil(10_000) {
+            compose.onAllNodesWithTag("conversation-project").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithTag("conversation-project").performScrollTo().performClick()
+    }
+
+    private fun returnToConversation() {
+        compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
+        compose.waitUntil(
+            10_000,
+        ) { compose.onAllNodesWithTag("screen-session-settings").fetchSemanticsNodes().isEmpty() }
+        compose.onNodeWithTag("conversation-project").assertDoesNotExist()
+        compose.onNodeWithTag("conversation-directory").assertDoesNotExist()
+    }
 }

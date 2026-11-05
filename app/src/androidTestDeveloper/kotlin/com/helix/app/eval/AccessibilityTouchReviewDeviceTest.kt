@@ -47,13 +47,13 @@ class AccessibilityTouchReviewDeviceTest {
             assumeTrue(option != null)
             require(option == "true")
             require(android.os.Build.VERSION.SDK_INT >= 36)
-            val profile = c.profileStore.profile
+
             val plugin = c.pluginService.list().single { it.native?.pluginId == "mobile-use" }
             val selection = MobileUseEvaluationSelection(app)
             c.storage.sessions.create(session, "Accessibility touch review", null, null, System.currentTimeMillis())
             c.storage.turns.start(turn, session, System.currentTimeMillis())
             try {
-                c.profileStore.switchTo(SafetyProfile.ADVANCED)
+                check(c.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
                 c.pluginService.setEnabled(plugin.id, true)
                 selection.select(session, emptySet(), true)
                 c.sessionPermissionEdit.saveSessionConfig(
@@ -74,7 +74,6 @@ class AccessibilityTouchReviewDeviceTest {
             } finally {
                 selection.close()
                 c.pluginService.setEnabled(plugin.id, plugin.enabled)
-                c.profileStore.switchTo(profile)
                 c.storage.deleteSessionPermanently(session)
             }
         }

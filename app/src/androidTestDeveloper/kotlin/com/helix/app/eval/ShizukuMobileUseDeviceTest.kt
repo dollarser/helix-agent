@@ -50,7 +50,7 @@ class ShizukuMobileUseDeviceTest {
             SystemClock.sleep(100)
         }
         assertEquals(AutomationServiceState.CONNECTED, center.serviceState())
-        val originalProfile = container.profileStore.profile
+
         val session = "shizuku-fixture-${System.nanoTime()}"
         val turn = "$session-turn"
         val now = System.currentTimeMillis()
@@ -61,7 +61,7 @@ class ShizukuMobileUseDeviceTest {
         require(plugin.enabled) { "Mobile Use must already be enabled" }
         container.pluginService.catalog.select(session, plugin.id, true)
         try {
-            container.profileStore.switchTo(SafetyProfile.ADVANCED)
+            check(container.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
             if (rootMode) prepareRoot()
             com.helix.app.eval
                 .selectMobileUseForTest(session, emptySet(), wholePhone = true)
@@ -138,7 +138,6 @@ class ShizukuMobileUseDeviceTest {
             com.helix.app.eval
                 .deselectMobileUseForTest(session)
             container.storage.deleteSessionPermanently(session)
-            container.profileStore.switchTo(originalProfile)
         }
     }
 

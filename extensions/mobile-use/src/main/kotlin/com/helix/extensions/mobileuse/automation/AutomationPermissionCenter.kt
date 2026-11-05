@@ -25,10 +25,11 @@ class AutomationPermissionCenter(
 ) {
     private val appContext = context.applicationContext
     private val backends = AutomationBackendSelection(root, shizuku)
+    private val backgroundBindings = BackgroundBackendBindings(root, shizuku)
     internal val privilegedDevice = AutomationPrivilegedDeviceHost(this)
     private val privilegedSemantic =
         AutomationPrivilegedSemanticHost(::liveDeviceGrant) {
-            if (backgroundSelected()) "shizuku_bg" else preferredClickBackend().name.lowercase()
+            if (backgroundSelected()) "task_display" else preferredClickBackend().name.lowercase()
         }
 
     internal fun semanticSnapshot(call: com.helix.tools.framework.ExecutableToolCall): AutomationSnapshotResult {
@@ -118,11 +119,17 @@ class AutomationPermissionCenter(
 
     fun backgroundSelected(): Boolean = globalConfiguration()?.backgroundDisplay == true
 
-    var backgroundTaskActive: (String, String) -> Boolean = { _, _ -> false }
+    var backgroundCallActive: (String, String) -> Boolean = { _, _ -> false }
 
     fun preferredClickBackend(): AutomationClickBackend =
         if (backgroundSelected()) {
-            AutomationClickBackend.SHIZUKU
+            if (backgroundBindings.available() === root &&
+                root != null
+            ) {
+                AutomationClickBackend.ROOT
+            } else {
+                AutomationClickBackend.SHIZUKU
+            }
         } else {
             backends.preferred(AutomationDeviceOperation.SNAPSHOT) ?: AutomationClickBackend.ACCESSIBILITY
         }
@@ -137,9 +144,7 @@ class AutomationPermissionCenter(
             }
 
             call == null -> {
-                shizuku?.takeIf {
-                    android.os.Build.VERSION.SDK_INT >= 31 && it.state() == AutomationBackendState.READY
-                }
+                backgroundBindings.available()?.takeIf { android.os.Build.VERSION.SDK_INT >= 31 }
             }
 
             else -> {
@@ -163,18 +168,22 @@ class AutomationPermissionCenter(
         session: String,
         turn: String,
         generation: Long,
+        width: Int,
     ): android.graphics.Bitmap? {
         val entry =
             backgroundOwners.entries.firstOrNull {
                 it.value.previewService(session, turn, generation) != null
             } ?: return null
         val service = entry.value.previewService(session, turn, generation) ?: return null
+        val scope = conversationGrant(session)?.scope ?: return null
+        val wholeDisplay = scope.allApplications && scope.deniedPackages.isEmpty()
         return try {
             val bytes =
                 com.helix.extensions.mobileuse.automation.backend.BackgroundPreviewTransport
-                    .read(service, entry.key, entry.value) ?: return null
+                    .read(service, entry.key, entry.value, width, wholeDisplay) ?: return null
             if (entry.value.previewService(session, turn, generation) !== service) return null
-            android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+            com.helix.extensions.mobileuse.automation.backend
+                .decodeBackgroundPreview(bytes, width)
         } catch (_: android.os.RemoteException) {
             entry.value.displayConnectionLost()
             null
@@ -189,20 +198,21 @@ class AutomationPermissionCenter(
         val session = call.sessionId
         val turn = call.turnId
         val original = session?.let(::conversationGrant)
+        // Resource ownership survives individual Turns. The per-request backend guard still
+        // checks the current call's authorization, cancellation and deadline before input.
         val lifetime = {
             original != null && session != null && turn != null &&
                 conversationGrant(session) == original && original.backgroundDisplay &&
-                backgroundTaskActive(session, turn) &&
                 !appContext.getSystemService(android.app.KeyguardManager::class.java).isDeviceLocked
         }
         val key =
             java.security.MessageDigest
                 .getInstance("SHA-256")
-                .digest("${call.sessionId}:${call.turnId}:${call.authorizationScopeRef}".toByteArray())
+                .digest("${call.sessionId}:${call.authorizationScopeRef}".toByteArray())
                 .joinToString("") { "%02x".format(it) }
         if (original == null || session == null || turn == null) {
             return AutomationBackgroundBackend(
-                shizuku,
+                backgroundBindings.available(),
                 AutomationBackgroundRoute(
                     key,
                     ShizukuExecutionGuard({ _, _, _ -> false }, { false }),
@@ -221,7 +231,10 @@ class AutomationPermissionCenter(
                         backgroundGeneration.incrementAndGet(),
                         { event -> displayPresentation(event) },
                         { target -> conversationGrant(session) == original && original.scope.permitsPackage(target) },
-                        { backgroundOwners.remove(key, guard) },
+                        {
+                            backgroundOwners.remove(key, guard)
+                            backgroundBindings.forget(key)
+                        },
                     )
                 guard =
                     ShizukuExecutionGuard(
@@ -232,7 +245,7 @@ class AutomationPermissionCenter(
                 guard
             }
         return AutomationBackgroundBackend(
-            shizuku,
+            backgroundBindings.forKey(key),
             AutomationBackgroundRoute(
                 key,
                 owner,
@@ -260,6 +273,7 @@ class AutomationPermissionCenter(
         val id = call.sessionId ?: return null
         return conversationGrant(id)?.takeIf {
             it.scope.toScopeRef() == call.authorizationScopeRef && !call.cancel.isCancelled() &&
+                (!it.backgroundDisplay || call.turnId?.let { turn -> backgroundCallActive(id, turn) } == true) &&
                 java.time.Instant
                     .now()
                     .isBefore(call.deadline) &&

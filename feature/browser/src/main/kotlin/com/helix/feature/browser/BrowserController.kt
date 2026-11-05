@@ -1,12 +1,9 @@
 package com.helix.feature.browser
 
 import android.content.Context
-import android.graphics.Bitmap
-import android.graphics.Canvas
 import android.net.Uri
 import android.webkit.CookieManager
 import android.webkit.WebView
-import androidx.core.graphics.createBitmap
 import com.helix.feature.browser.engine.AdBlockEngine
 import com.helix.feature.browser.engine.SearchEngines
 import com.helix.feature.browser.engine.UserScriptEngine
@@ -21,25 +18,20 @@ import com.helix.feature.browser.snapshot.SnapshotResult
 import com.helix.feature.browser.snapshot.SnapshotToken
 import com.helix.feature.browser.snapshot.TokenVerdict
 import com.helix.feature.browser.storage.Bookmark
+import com.helix.feature.browser.storage.BrowserDataPersistence
 import com.helix.feature.browser.storage.BrowserPreferences
+import com.helix.feature.browser.storage.BrowserSessionPersistence
 import com.helix.feature.browser.storage.BrowserStorage
 import com.helix.feature.browser.storage.HistoryItem
 import com.helix.feature.browser.storage.SpeedDial
 import com.helix.feature.browser.storage.UserScript
 import com.helix.feature.browser.webview.WebViewTabHost
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import java.io.ByteArrayOutputStream
-import java.io.IOException
-import java.lang.ref.WeakReference
+import java.io.File
 import java.net.URL
 
 /**
@@ -60,9 +52,9 @@ data class FindInPageState(
  * (AGENTS.md).
  *
  * Threading: every public method must be called on the main thread (Compose composition
- * and WebView callbacks already are). The ONLY background work is streaming a
- * user-approved download onto the user-picked SAF document, on a single-thread executor;
- * it reports back through the thread-safe [downloads] [StateFlow].
+ * and WebView callbacks already are). Browser metadata uses ordered background I/O;
+ * user-approved downloads stream onto user-picked SAF documents on their executor and
+ * report back through the thread-safe [downloads] [StateFlow].
  *
  * The feature facade: one command per user action + one callback per WebView event, so the
  * function count is intrinsic to the surface, not a design smell.
@@ -75,23 +67,36 @@ class BrowserController(
     private val appContext = context.applicationContext
 
     val storage = BrowserStorage(appContext)
+    val engineState = BrowserEngineStartup.state
     val adBlock = AdBlockEngine()
     val userScripts = UserScriptEngine(emptyList())
 
     private val tabs = BrowserTabController()
-    private var ownerBinding = WeakReference<BrowserViewOwner>(null)
-    private val hosts: Map<String, WebViewTabHost> get() = ownerBinding.get()?.hosts.orEmpty()
+    private val viewBinding = BrowserViewBinding { invalidatePages() }
+    private val hosts: Map<String, WebViewTabHost> get() = viewBinding.current?.hosts.orEmpty()
 
     /** The last successful snapshot per tab (HXA-061); the node tokens the HXA-062 tools may use. */
     private val snapshots = HashMap<String, BrowserSnapshot>()
     private val _state = MutableStateFlow(tabs.state())
+    private val _storageFailure = MutableStateFlow(false)
+    val storageFailure: StateFlow<Boolean> = _storageFailure.asStateFlow()
+    private val sessions =
+        BrowserSessionPersistence(
+            File(appContext.filesDir, "browser/session.json"),
+            restored = { saved ->
+                tabs.restoreSession(saved)
+                _state.value = tabs.state()
+            },
+            failed = { _storageFailure.value = true },
+        )
+    val sessionReady = sessions.ready
     private val downloadQueue = BrowserDownloadQueue(appContext)
 
     /** Live tab state; the UI composes from this. */
     val state: StateFlow<BrowserTabController.State> = _state.asStateFlow()
 
     /** Read-only host fact; observing it never creates a WebView or attaches an owner. */
-    fun hostAvailable(): Boolean = ownerBinding.get()?.available == true
+    fun hostAvailable(): Boolean = viewBinding.current?.available == true
 
     /** The download queue; newly requested items are appended at the end. */
     val downloads: StateFlow<List<DownloadItem>> = downloadQueue.downloads
@@ -130,13 +135,22 @@ class BrowserController(
         originSessionId: String? = null,
     ): String? {
         val previous = tabs.state().selectedId
-        val id = tabs.tryNewTab(isIncognito, originSessionId) ?: return null
+        val id =
+            if (sessionReady.isCompleted &&
+                !state.value.isClosed
+            ) {
+                tabs.tryNewTab(isIncognito, originSessionId)
+            } else {
+                null
+            }
+        if (id == null) return null
         if (tabs.state().selectedId != previous) hosts.values.forEach { it.cancelDialogs() }
         publish()
         return id
     }
 
     fun newTab(isIncognito: Boolean = false): String {
+        check(sessionReady.isCompleted && !state.value.isClosed) { "browser is not open" }
         val id = tabs.newTab(isIncognito)
         hosts.values.forEach { it.cancelDialogs() }
         publish()
@@ -145,7 +159,7 @@ class BrowserController(
 
     fun closeAllTabs() {
         tabs.closeAllTabs()
-        ownerBinding.get()?.clear()
+        viewBinding.current?.clear()
         snapshots.clear()
         publish()
     }
@@ -155,7 +169,7 @@ class BrowserController(
         enabled: Boolean,
     ) {
         tabs.setDesktopMode(id, enabled)
-        if (ownerBinding.get()?.hosts?.containsKey(id) == true) {
+        if (viewBinding.current?.hosts?.containsKey(id) == true) {
             host(id).setDesktopMode(enabled)
             host(id).reload()
         }
@@ -164,8 +178,7 @@ class BrowserController(
 
     fun closeTab(id: String) {
         tabs.closeTab(id)
-        ownerBinding
-            .get()
+        viewBinding.current
             ?.hosts
             ?.remove(id)
             ?.destroy()
@@ -177,6 +190,44 @@ class BrowserController(
         hosts.values.forEach { it.cancelDialogs() }
         tabs.select(id)
         publish()
+    }
+
+    fun enterBrowser() {
+        check(sessionReady.isCompleted)
+        tabs.openBrowser()
+        publish()
+        warmUpEngine()
+    }
+
+    fun warmUpEngine(retry: Boolean = false) = BrowserEngineStartup.start(appContext, retry)
+
+    fun showHome() {
+        hosts.values.forEach { it.cancelDialogs() }
+        tabs.showHome()
+        publish()
+        warmUpEngine()
+    }
+
+    fun showSelectedPage() {
+        tabs.showSelectedPage()
+        publish()
+    }
+
+    /** Stop page work immediately; wait for the ordered address checkpoint before reporting saved. */
+    suspend fun closeBrowser(): Boolean {
+        sessionReady.await()
+        viewBinding.current?.clear()
+        snapshots.clear()
+        _contextMenu.value = null
+        _findState.value = FindInPageState()
+        tabs.closeBrowser()
+        publish()
+        return flushSession()
+    }
+
+    suspend fun flushSession(): Boolean {
+        sessionReady.await()
+        return sessions.flush(tabs.state())
     }
 
     /**
@@ -216,7 +267,9 @@ class BrowserController(
         rawUrl: String,
     ): BrowserNavResult {
         if (!isLive(id)) return BrowserNavResult.NoTab
-        if (ownerBinding.get()?.available != true) return BrowserNavResult.Denied("browser-host-unavailable")
+        if (state.value.isClosed) return BrowserNavResult.Denied("browser-closed")
+        if (engineState.value == BrowserEngineState.FAILED) return BrowserNavResult.Denied("browser-engine-unavailable")
+        if (viewBinding.current?.available != true) return BrowserNavResult.Denied("browser-host-unavailable")
         val command = tabs.navigate(id, BrowserTabController.normalizeInput(rawUrl))
         if (command !is BrowserTabController.TabCommand.Load) {
             publish()
@@ -245,9 +298,15 @@ class BrowserController(
         url: String,
         originSessionId: String? = null,
     ): BrowserOpenResult {
-        if (url.isNotBlank() && ownerBinding.get()?.available != true) {
-            return BrowserOpenResult("", "", "", "browser-host-unavailable")
-        }
+        val unavailable =
+            when {
+                !sessionReady.isCompleted -> "browser-restoring"
+                state.value.isClosed -> "browser-closed"
+                engineState.value == BrowserEngineState.FAILED -> "browser-engine-unavailable"
+                url.isNotBlank() && viewBinding.current?.available != true -> "browser-host-unavailable"
+                else -> null
+            }
+        if (unavailable != null) return BrowserOpenResult("", "", "", unavailable)
         val id = tryNewTab(originSessionId = originSessionId)
         return if (id ==
             null
@@ -334,7 +393,8 @@ class BrowserController(
     /**
      * The tab's WebView, or null while the tab has never navigated (its host is created
      * lazily on the first Load). The UI composes the view via AndroidView; releasing the
-     * view in the UI never destroys the host — only [closeTab] / [clearHistory] do.
+     * view in the UI keeps the host. Explicit close, owner retirement and memory reclaim
+     * release it; metadata alone never recreates a page.
      */
     fun hostView(id: String): WebView? = hosts[id]?.webView
 
@@ -362,10 +422,10 @@ class BrowserController(
             onResult(SnapshotResult.Failed(unavailable ?: SnapshotFailure.NO_PAGE))
             return
         }
-        val owner = ownerBinding.get()
+        val owner = viewBinding.current
         host.evaluateFixed(BrowserSnapshotScript.EXTRACT) { raw ->
             val liveTab = tab(id)
-            if (!stillRequested() || ownerBinding.get() !== owner || hosts[id] !== host ||
+            if (!stillRequested() || viewBinding.current !== owner || hosts[id] !== host ||
                 liveTab == null || liveTab.navigationGeneration != tab.navigationGeneration || liveTab.isLoading ||
                 liveTab.error != null
             ) {
@@ -382,10 +442,10 @@ class BrowserController(
     fun latestSnapshot(id: String): BrowserSnapshot? = snapshots[id]
 
     internal fun observationBinding(id: String): BrowserObservationBinding? =
-        BrowserObservationBinding.capture(tab(id), ownerBinding.get(), hosts[id])
+        BrowserObservationBinding.capture(tab(id), viewBinding.current, hosts[id])
 
     internal fun observationState(binding: BrowserObservationBinding): com.helix.tools.browser.BrowserWaitStatus? =
-        binding.state(ownerBinding.get(), hosts[binding.tabId], tab(binding.tabId))
+        binding.state(viewBinding.current, hosts[binding.tabId], tab(binding.tabId))
 
     /**
      * The tab's live state, or null when unknown (HXA-062). Thread-safe: reads the published
@@ -413,11 +473,11 @@ class BrowserController(
             onResult(EvalFixedOutcome.NoPage)
             return
         }
-        val owner = ownerBinding.get()
+        val owner = viewBinding.current
         host.evaluateFixed(script) { raw ->
             val liveTab = tab(id)
             val current =
-                ownerBinding.get() === owner && hosts[id] === host &&
+                viewBinding.current === owner && hosts[id] === host &&
                     liveTab?.navigationGeneration == tab.navigationGeneration && !liveTab.isLoading
             // Dispatch already occurred. A lost page cannot prove the action had no effect.
             onResult(EvalFixedOutcome.Result(if (current) raw else null))
@@ -436,19 +496,7 @@ class BrowserController(
         if (tab == null || host == null || tab.isLoading || tab.error != null || tab.navigationGeneration < 1) {
             return null
         }
-        val view = host.webView
-        val width = view.width
-        val height = view.height
-        if (width <= 0 || height <= 0) return null
-        val bitmap = createBitmap(width, height)
-        try {
-            view.draw(Canvas(bitmap))
-            val buffer = ByteArrayOutputStream()
-            bitmap.compress(Bitmap.CompressFormat.PNG, 100, buffer)
-            return buffer.toByteArray()
-        } finally {
-            bitmap.recycle()
-        }
+        return WebPageTools.capturePng(host.webView)
     }
 
     /**
@@ -495,12 +543,14 @@ class BrowserController(
     }
 
     fun clearCache() {
-        ownerBinding.get()?.takeIf { it.available }?.clearCache()
+        viewBinding.current?.takeIf { it.available }?.clearCache()
     }
 
     /** Per-tab history lives inside each WebView: drop every host and start from one blank tab. */
     fun clearHistory() {
-        ownerBinding.get()?.clear()
+        check(sessionReady.isCompleted)
+        sessions.allowExplicitReset()
+        viewBinding.current?.clear()
         snapshots.clear()
         while (tabs.state().tabs.isNotEmpty()) {
             tabs.closeTab(
@@ -524,13 +574,13 @@ class BrowserController(
     ) {
         _findState.value = _findState.value.copy(query = query, isSearching = true)
         if (query.isBlank()) {
-            if (ownerBinding.get()?.hosts?.containsKey(id) == true) {
+            if (viewBinding.current?.hosts?.containsKey(id) == true) {
                 host(id).clearFindMatches()
             }
             _findState.value = _findState.value.copy(activeMatch = 0, totalMatches = 0)
             return
         }
-        if (ownerBinding.get()?.hosts?.containsKey(id) == true) {
+        if (viewBinding.current?.hosts?.containsKey(id) == true) {
             host(id).findAllAsync(query) { active, total ->
                 _findState.value = _findState.value.copy(activeMatch = active, totalMatches = total)
             }
@@ -541,13 +591,13 @@ class BrowserController(
         id: String,
         forward: Boolean,
     ) {
-        if (ownerBinding.get()?.hosts?.containsKey(id) == true) {
+        if (viewBinding.current?.hosts?.containsKey(id) == true) {
             host(id).findNext(forward)
         }
     }
 
     fun closeFindInPage(id: String) {
-        if (ownerBinding.get()?.hosts?.containsKey(id) == true) {
+        if (viewBinding.current?.hosts?.containsKey(id) == true) {
             host(id).clearFindMatches()
         }
         _findState.value = FindInPageState()
@@ -555,33 +605,17 @@ class BrowserController(
 
     // ---------------------------------------------------------------- Bookmarks & History & Speed Dials
 
-    private val persistenceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-    private val persistenceMutex = Mutex()
-    private val _storageFailure = MutableStateFlow(false)
-    val storageFailure: StateFlow<Boolean> = _storageFailure.asStateFlow()
-    private var storageReady = false
-
-    init {
-        persistenceScope.launch {
-            persistenceMutex.withLock {
-                try {
-                    _preferences.value = withContext(Dispatchers.IO) { storage.loadPreferences() }
-                    _bookmarks.value = withContext(Dispatchers.IO) { storage.loadBookmarks() }
-                    _history.value = withContext(Dispatchers.IO) { storage.loadHistory() }
-                    _speedDials.value = withContext(Dispatchers.IO) { storage.loadSpeedDials() }
-                    _scripts.value = withContext(Dispatchers.IO) { storage.loadUserScripts() }
-                    adBlock.enabled = _preferences.value.adBlockEnabled
-                    userScripts.updateScripts(_scripts.value)
-                    hosts.values.forEach { it.setNoImageMode(_preferences.value.noImageMode) }
-                    storageReady = true
-                } catch (_: IOException) {
-                    _storageFailure.value = true
-                } catch (_: IllegalArgumentException) {
-                    _storageFailure.value = true
-                }
-            }
+    private val persistence =
+        BrowserDataPersistence(failed = { _storageFailure.value = true }) {
+            _preferences.value = withContext(Dispatchers.IO) { storage.loadPreferences() }
+            _bookmarks.value = withContext(Dispatchers.IO) { storage.loadBookmarks() }
+            _history.value = withContext(Dispatchers.IO) { storage.loadHistory() }
+            _speedDials.value = withContext(Dispatchers.IO) { storage.loadSpeedDials() }
+            _scripts.value = withContext(Dispatchers.IO) { storage.loadUserScripts() }
+            adBlock.enabled = _preferences.value.adBlockEnabled
+            userScripts.updateScripts(_scripts.value)
+            hosts.values.forEach { it.setNoImageMode(_preferences.value.noImageMode) }
         }
-    }
 
     fun dismissStorageFailure() {
         _storageFailure.value = false
@@ -592,26 +626,7 @@ class BrowserController(
         save: (T) -> Unit,
         update: (T) -> T,
         after: (T) -> Unit = {},
-    ) {
-        persistenceScope.launch {
-            persistenceMutex.withLock {
-                if (!storageReady) {
-                    _storageFailure.value = true
-                    return@withLock
-                }
-                try {
-                    val updated = update(state.value)
-                    withContext(Dispatchers.IO) { save(updated) }
-                    state.value = updated
-                    after(updated)
-                } catch (_: IOException) {
-                    _storageFailure.value = true
-                } catch (_: IllegalArgumentException) {
-                    _storageFailure.value = true
-                }
-            }
-        }
-    }
+    ) = persistence.edit(state, save, update, after)
 
     fun addBookmark(
         title: String,
@@ -713,7 +728,7 @@ class BrowserController(
         )
 
     fun injectEruda(id: String) {
-        if (ownerBinding.get()?.hosts?.containsKey(id) == true) {
+        if (viewBinding.current?.hosts?.containsKey(id) == true) {
             WebPageTools.injectEruda(host(id).webView)
         }
     }
@@ -722,7 +737,7 @@ class BrowserController(
         id: String,
         onResult: (String) -> Unit,
     ) {
-        if (ownerBinding.get()?.hosts?.containsKey(id) == true) {
+        if (viewBinding.current?.hosts?.containsKey(id) == true) {
             WebPageTools.extractSource(host(id).webView, onResult)
         } else {
             onResult("")
@@ -733,7 +748,7 @@ class BrowserController(
         id: String,
         onResult: (title: String, content: String) -> Unit,
     ) {
-        if (ownerBinding.get()?.hosts?.containsKey(id) == true) {
+        if (viewBinding.current?.hosts?.containsKey(id) == true) {
             WebPageTools.extractReaderContent(host(id).webView, onResult)
         } else {
             onResult("", "")
@@ -742,41 +757,19 @@ class BrowserController(
 
     // ---------------------------------------------------------------- lifecycle
 
-    /** Bind before UI/tool use; replacement invalidates old callbacks before releasing Views. */
-    fun attach(owner: BrowserViewOwner) {
-        check(owner.available) { "browser owner is destroyed" }
-        val previous = ownerBinding.get()
-        if (previous === owner) return
-        ownerBinding = WeakReference(owner)
-        previous?.destroy()
-        invalidatePages()
-    }
+    /** Bind before UI/tool use; replacement invalidates callbacks before releasing Views. */
+    fun attach(owner: BrowserViewOwner) = viewBinding.attach(owner)
 
-    /** A late callback from an old Activity cannot detach the new Activity's owner. */
-    fun detach(owner: BrowserViewOwner) {
-        if (ownerBinding.get() !== owner) {
-            owner.destroy()
-            return
-        }
-        ownerBinding.clear()
-        owner.destroy()
-        invalidatePages()
-    }
+    fun detach(owner: BrowserViewOwner) = viewBinding.detach(owner)
 
-    /** Best-effort per-view pause; it does not globally suspend JavaScript timers. */
-    fun pause(owner: BrowserViewOwner? = ownerBinding.get()) {
-        if (owner === ownerBinding.get()) owner?.pause()
-    }
+    fun pause(owner: BrowserViewOwner? = viewBinding.current) = viewBinding.pause(owner)
 
-    fun resume(owner: BrowserViewOwner? = ownerBinding.get()) {
-        if (owner === ownerBinding.get()) owner?.resume()
-    }
+    fun resume(owner: BrowserViewOwner? = viewBinding.current) = viewBinding.resume(owner)
 
-    /** Clear page resources while keeping the current live Activity binding usable. */
-    fun destroy() {
-        ownerBinding.get()?.clear()
-        invalidatePages()
-    }
+    fun destroy() = viewBinding.clear()
+
+    /** Ordinary UI_HIDDEN keeps pages; actual memory reclaim retires the current Views. */
+    fun trimMemory(level: Int) = viewBinding.trimMemory(level)
 
     private fun invalidatePages() {
         snapshots.clear()
@@ -786,96 +779,29 @@ class BrowserController(
 
     // ---------------------------------------------------------------- internals
 
+    private val pageCallbacks =
+        BrowserPageCallbacks(
+            tabs,
+            changed = ::publish,
+            recordHistory = ::addHistory,
+            invalidateSnapshot = { snapshots.remove(it) },
+            download = ::requestDownload,
+            contextMenu = { _contextMenu.value = it },
+        )
+
     private fun host(id: String): WebViewTabHost {
-        val owner = checkNotNull(ownerBinding.get()) { "browser-host-unavailable" }
+        val owner = checkNotNull(viewBinding.current) { "browser-host-unavailable" }
         return owner.hosts.getOrPut(id) {
             lateinit var created: WebViewTabHost
 
-            fun live(): Boolean = ownerBinding.get() === owner && owner.hosts[id] === created && isLive(id)
+            fun live(): Boolean = viewBinding.current === owner && owner.hosts[id] === created && isLive(id)
             created =
                 owner.create(
-                    object : BrowserTabListener {
-                        override fun onPageStarted(url: String) {
-                            if (!live()) return
-                            tabs.onPageStarted(id, url)
-                            publish()
-                        }
-
-                        override fun onProgressChanged(progress: Int) {
-                            if (!live()) return
-                            tabs.onProgressChanged(id, progress)
-                            publish()
-                        }
-
-                        override fun onPageFinished(
-                            url: String,
-                            title: String?,
-                            canGoBack: Boolean,
-                            canGoForward: Boolean,
-                        ) {
-                            if (!live()) return
-                            tabs.onPageFinished(id, url, title, canGoBack, canGoForward)
-                            val tab = tabs.state().tabs.firstOrNull { it.id == id }
-                            val shouldRecord =
-                                tab?.isIncognito == false &&
-                                    url.isNotBlank() &&
-                                    url != BrowserTabController.ABOUT_BLANK
-                            if (shouldRecord) {
-                                addHistory(title ?: url, url)
-                            }
-                            publish()
-                        }
-
-                        override fun onMainFrameError(
-                            netError: Int,
-                            clientError: Int,
-                            failingUrl: String?,
-                        ) {
-                            if (!live()) return
-                            tabs.onMainFrameError(id, netError, clientError, failingUrl)
-                            publish()
-                        }
-
-                        override fun onMainFrameUnknownError(failingUrl: String?) {
-                            if (!live()) return
-                            tabs.onMainFrameUnknownError(id, failingUrl)
-                            publish()
-                        }
-
-                        override fun onRendererGone(failingUrl: String?) {
-                            if (!live()) return
-                            owner.hosts.remove(id)
-                            snapshots.remove(id)
-                            tabs.onMainFrameError(id, 0, android.webkit.WebViewClient.ERROR_UNKNOWN, failingUrl)
-                            publish()
-                        }
-
-                        override fun onSslError(failingUrl: String) {
-                            if (!live()) return
-                            tabs.onSslError(id, failingUrl)
-                            publish()
-                        }
-
-                        override fun onBlockedNavigationCommitted(url: String) {
-                            if (!live()) return
-                            // This is a committed forbidden document, not a cancelled request.
-                            if (BrowserUrlPolicy.evaluate(url) !is BrowserUrlDecision.Denied) return
-                            tabs.navigate(id, url)
-                            snapshots.remove(id)
-                            publish()
-                        }
-
-                        override fun onDownloadRequest(request: DownloadRequest) {
-                            if (!live()) return
-                            requestDownload(request)
-                        }
-
-                        override fun onContextMenu(contextMenu: ContextMenuData) {
-                            if (!live()) return
-                            _contextMenu.value = contextMenu
-                        }
+                    pageCallbacks.listener(id, owner, ::live),
+                    canShowDialogs = {
+                        live() && owner.resumed && owner.available && state.value.selectedId == id &&
+                            !state.value.isHomeVisible && !state.value.isClosed && tab(id)?.error == null
                     },
-                    canShowDialogs = { live() && owner.resumed && owner.available && state.value.selectedId == id },
                 )
             created.adBlockEngine = adBlock
             created.userScriptEngine = userScripts
@@ -897,5 +823,6 @@ class BrowserController(
 
     private fun publish() {
         _state.value = tabs.state()
+        sessions.update(tabs.state())
     }
 }

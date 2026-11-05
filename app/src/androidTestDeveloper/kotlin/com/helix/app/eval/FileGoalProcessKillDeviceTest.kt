@@ -151,7 +151,7 @@ class FileGoalProcessKillDeviceTest {
         port: Int,
         facts: Properties,
     ) {
-        container.profileStore.switchTo(SafetyProfile.ADVANCED)
+        check(container.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
         val provider =
             container.providerService.create(
                 ProviderDraft(
@@ -262,7 +262,6 @@ class FileGoalProcessKillDeviceTest {
         }
         facts.getProperty("session")?.let { container.storage.sessions.archive(it, System.currentTimeMillis()) }
         facts.getProperty("provider")?.let { container.providerService.delete(it) }
-        container.profileStore.switchTo(SafetyProfile.valueOf(facts.getProperty("profile")))
         if (target.exists()) check(target.delete())
         check(marker.delete())
     }

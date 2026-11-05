@@ -47,12 +47,12 @@ class HelixDocsLiveModelDeviceTest {
                     ),
                     null,
                 )
-            val profile = c.profileStore.profile
+
             var session: String? = null
             try {
                 check(c.providerService.runConnectionTest(provider) is ProbeOutcome.Ok)
                 session = c.chatService.createSession("Helix docs acceptance", provider, model)
-                c.profileStore.switchTo(SafetyProfile.ADVANCED)
+                check(c.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
                 c.chatService.openTestSessionControl(session, AgentMode.ACT, TurnBudgets(maxOutputTokens = 4096))
                 c.chatService.sendTestMessage(
                     session,
@@ -187,7 +187,6 @@ class HelixDocsLiveModelDeviceTest {
             } finally {
                 c.chatService.stop()
                 c.chatService.closeSession()
-                c.profileStore.switchTo(profile)
                 session?.let { c.privacyDeletionService.deleteSession(it) }
                 c.providerService.delete(provider)
             }

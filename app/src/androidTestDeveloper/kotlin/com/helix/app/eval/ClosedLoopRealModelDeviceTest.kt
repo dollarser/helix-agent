@@ -55,7 +55,7 @@ class ClosedLoopRealModelDeviceTest {
                     .model == model,
             )
             val previous = c.chatService.screen.value.openSessionId
-            val profile = c.profileStore.profile
+
             val bridge = HostToolBridgeSettings(app)
             val originalBridge = bridge.enabled
             val lines = PrefsLineStore(app, "helix-mobile-use", synchronous = true)
@@ -76,7 +76,7 @@ class ClosedLoopRealModelDeviceTest {
             var passed = false
             val started = SystemClock.elapsedRealtime()
             try {
-                c.profileStore.switchTo(SafetyProfile.ADVANCED)
+                check(c.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
                 c.sessionPermissionEdit.saveSessionConfig(
                     session,
                     SessionPermissionConfig.of(SessionPermissionMode.FULL_ACCESS),
@@ -139,7 +139,6 @@ class ClosedLoopRealModelDeviceTest {
                 lines.setLines(MobileUseGrantStore.EXECUTION_KEY, execution)
                 bridge.setEnabled(originalBridge)
                 c.pluginService.setEnabled(plugin.id, plugin.enabled)
-                c.profileStore.switchTo(profile)
                 skill?.let(c.skillRepository::removePermanentlyForPrivacy)
                 source.deleteRecursively()
                 if (previous != null) c.chatService.openSession(previous) else c.chatService.closeSession()

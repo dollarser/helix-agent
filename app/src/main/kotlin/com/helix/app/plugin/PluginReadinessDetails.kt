@@ -16,7 +16,7 @@ import com.helix.extensions.plugin.PluginComponentState
 
 internal fun componentStateLabel(state: PluginComponentState): Int =
     when (state) {
-        PluginComponentState.AVAILABLE -> R.string.connector_session_ready
+        PluginComponentState.AVAILABLE -> R.string.plugin_component_ready
         PluginComponentState.NEEDS_CONFIGURATION -> R.string.connector_session_setup
         PluginComponentState.NOT_CONNECTED -> R.string.plugin_state_disconnected
         PluginComponentState.HOST_UNAVAILABLE -> R.string.plugin_state_host_missing
@@ -28,36 +28,77 @@ internal fun componentStateLabel(state: PluginComponentState): Int =
         PluginComponentState.RELOAD_REQUIRED -> R.string.plugin_state_reload
     }
 
-/** Only renders service facts; opening details never repairs or reconnects a component. */
+/** Read-only component facts belong to the plugin Details tab. */
 @Composable
 @Suppress("FunctionName")
 internal fun PluginReadinessDetails(
     state: PluginReadinessSnapshot,
-    compact: Boolean = false,
+    packageHash: String? = null,
 ) {
-    var expanded by remember(state.pluginId) { mutableStateOf(false) }
-    if (!compact || expanded) {
-        Text(stringResource(R.string.plugin_effect_next_request), style = MaterialTheme.typography.bodySmall)
+    state.components.forEach { PluginComponentStatus(it, state) }
+    PluginTechnicalDetails(state, packageHash)
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun PluginTechnicalDetails(
+    state: PluginReadinessSnapshot,
+    packageHash: String?,
+) {
+    var expanded by remember(state.pluginId, state.revision) { mutableStateOf(false) }
+    TextButton({ expanded = !expanded }, Modifier.testTag("plugin-technical-${state.pluginId}")) {
+        Text(stringResource(R.string.plugin_technical_details))
     }
-    TextButton({ expanded = !expanded }, Modifier.testTag("plugin-readiness-${state.pluginId}")) {
-        Text(stringResource(if (expanded) R.string.tool_details_hide else R.string.tool_details_show))
+    if (!expanded) return
+    packageHash?.let {
+        Text(stringResource(R.string.plugin_package_hash, it), style = MaterialTheme.typography.bodySmall)
     }
-    if (expanded) {
-        state.components.forEach { component ->
-            Text("${component.kind.name}: ${stringResource(componentStateLabel(component.state))}")
-            if (component.requestState(state.selected, state.enabled) == PluginComponentState.REQUEST_UNAVAILABLE) {
-                Text(stringResource(R.string.plugin_state_request_unavailable))
-            }
-            Text(
-                stringResource(
-                    R.string.plugin_saved_loaded,
-                    stringResource(if (component.saved) R.string.plugin_fact_yes else R.string.plugin_fact_no),
-                    stringResource(if (component.loaded) R.string.plugin_fact_yes else R.string.plugin_fact_no),
-                ),
-            )
-            Text(component.ownerId, style = MaterialTheme.typography.bodySmall)
-            component.target?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
-            component.accountReference?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
-        }
+    state.components.forEach { PluginComponentDiagnostic(it) }
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun PluginComponentStatus(
+    component: PluginComponentFact,
+    state: PluginReadinessSnapshot,
+) {
+    val name =
+        component.displayName?.takeIf(String::isNotBlank)
+            ?: stringResource(componentKindLabel(component.kind))
+    val status = if (state.enabled) component.state else PluginComponentState.DISABLED
+    Text("$name · ${stringResource(componentStateLabel(status))}")
+    if (component.requestState(state.selected, state.enabled) == PluginComponentState.REQUEST_UNAVAILABLE) {
+        Text(stringResource(R.string.plugin_state_request_unavailable))
+    }
+    if (component.kind == com.helix.extensions.plugin.PluginComponentKind.MCP) {
+        component.target?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
     }
 }
+
+@Composable
+@Suppress("FunctionName")
+private fun PluginComponentDiagnostic(component: PluginComponentFact) {
+    Text(
+        stringResource(R.string.plugin_component_identifier, component.ownerId),
+        style = MaterialTheme.typography.bodySmall,
+    )
+    Text(
+        stringResource(
+            R.string.plugin_saved_loaded,
+            stringResource(if (component.saved) R.string.plugin_fact_yes else R.string.plugin_fact_no),
+            stringResource(if (component.loaded) R.string.plugin_fact_yes else R.string.plugin_fact_no),
+        ),
+    )
+    if (component.kind != com.helix.extensions.plugin.PluginComponentKind.MCP) {
+        component.target?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+    }
+}
+
+private fun componentKindLabel(kind: com.helix.extensions.plugin.PluginComponentKind): Int =
+    when (kind) {
+        com.helix.extensions.plugin.PluginComponentKind.SKILL -> R.string.plugin_component_skill
+        com.helix.extensions.plugin.PluginComponentKind.MCP -> R.string.plugin_component_connection
+        com.helix.extensions.plugin.PluginComponentKind.NATIVE -> R.string.plugin_component_native
+        com.helix.extensions.plugin.PluginComponentKind.BROWSER -> R.string.plugin_component_browser
+        else -> R.string.plugin_component_other
+    }

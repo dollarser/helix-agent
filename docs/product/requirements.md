@@ -98,22 +98,22 @@ Helix 是运行在 Android 手机上的个人执行型 Agent。用户用文字�
 
 希望整理文件、摘要通知、生成日历草稿和转换数据，不愿接触终端。该群体只有在能力安装、错误恢复和首次任务路径足够成熟后才作为主要增长对象。
 
-### 3.1 两级安全配置
+### 3.1 渠道能力与独立授权
 
-目标用户不直接等于安全配置。Helix 采用 [ADR-PERMISSIONS-003](../adr/permissions/003-dispatch-and-audit.md)定义的两级运行时边界：
+目标用户不直接等于会话授权。能力集合按 [ADR-PLATFORM-001](../adr/platform/001-distribution.md) 固定于构建渠道，授权仍遵循 [ADR-PERMISSIONS-003](../adr/permissions/003-dispatch-and-audit.md)：
 
 | 配置 | 默认与可用范围 | 产品要求 |
 | --- | --- | --- |
-| `STANDARD` | 所有安装默认；Google Play、国内 Android 应用商店和官网的完整产品形态 | 完整核心任务能力、低配置默认；可按目标渠道保留 All-files、Accessibility、解释脚本等允许能力；高敏数据和系统能力按需启用，不因抽象安全偏好预先裁剪 |
-| `ADVANCED` | 在渠道政策和 artifact 能力允许时显式开启；当前 developer 变体承载最完整实现 | 分能力启用；可开放 Root、PRoot/CLI、Agent UI 自动化、精确 LAN origin 和开发者控制台；每项有 scope、状态、停止和撤销 |
+| `STANDARD` | Consumer 固定；渠道允许的完整产品形态 | 完整核心任务能力、低配置默认；可按目标渠道保留 All-files、Accessibility、解释脚本等允许能力；高敏数据和系统能力按需启用，不因抽象安全偏好预先裁剪 |
+| `ADVANCED` | Developer 固定；渠道允许的全部能力，无需选择档位 | 分能力启用；可开放 Root、PRoot/CLI、Agent UI 自动化、精确 LAN origin 和开发者控制台；每项有 scope、状态、停止和撤销 |
 
-`consumer/developer` 是当前编译期机制，`STANDARD/ADVANCED` 是运行时 Policy/体验边界，Google Play/国内商店/官网是分发渠道，三者不能合并为一个开关。所有主应用首次启动为 `STANDARD`；切换 `ADVANCED` 不自动申请系统权限、不安装 Runtime、不请求 Root、不连接新端点。
+`consumer/developer` 是编译期能力集合，`STANDARD/ADVANCED` 仅是对应渠道的内部 Policy 身份，不再是可选运行时配置。Developer 首次启动和重启均为 `ADVANCED`，Consumer 为 `STANDARD`；不显示档位开关。不自动申请系统权限、安装 Runtime、请求 Root 或连接新端点；会话审批预设与具体授权独立。
 
 Advanced 扩大的是可选能力和可配置范围，不是绕过安全内核。schema/Policy/Approval、Secret 隔离、进程/UID 隔离、敏感界面拒绝、审计、取消和变更后验证在两级中完全一致。Advanced 可以持久保存 Capability 状态、Trusted Workspace scope、风险不高于 L1 的有界工具规则和精确高敏出网规则；一次界面操作也可以批准已完整披露的有限 ToolCall 列表，但列表中每个调用仍使用独立的一次性 proof。
 
 产品优先级以能力和任务完成率为主，而不是以审批数量或安全功能数量为主。Advanced 用户负责选择 Provider、开启能力、限定 scope、备份重要数据并承担自己确认的操作后果；Helix 负责不伪造结果、不隐瞒执行目标与数据去向、不在用户关闭能力后继续执行，也不允许模型替用户开启权限或产生批准。
 
-分发遵循 [ADR-PLATFORM-001](../adr/platform/001-distribution.md)：用户获取的是同一个 Helix 产品，普通用户直接使用完整 Standard，高级用户在同一安装内进入 Advanced，不因运行配置更换 applicationId。当前 consumer/developer 只是工程打包机制；最终 channel/flavor/applicationId 由 HXA-122 结合签名和升级证据决定。
+分发遵循 [ADR-PLATFORM-001](../adr/platform/001-distribution.md)：用户获取的是同一个 Helix 产品，Consumer 直接使用完整 Standard，Developer 直接使用 Advanced，不再在同一安装内切换能力档位。当前 consumer/developer 只是工程打包机制；最终 channel/flavor/applicationId 由 HXA-122 结合签名和升级证据决定。
 
 ## 4. 核心用户旅程
 
@@ -238,7 +238,7 @@ Advanced 扩大的是可选能力和可配置范围，不是绕过安全内核�
 
 同一模型响应包含多个 ToolCall 时，由平台根据规范化参数生成 effect footprint。只读且资源不冲突的调用可在手机有界并行；写入、代码、Root、Accessibility、同一页面/A2A Task/Runtime lane 或未知效应默认串行。实际完成顺序不改变模型历史：结果按原始 call sequence 回填，真实 timing 单独审计。模型、MCP、A2A 和 Skill 不能声明自己“并发安全”。
 
-下表是产品级首批核心工具；完整名称、风险和实施顺序以 [Android 平台能力 §7](../architecture/android-platform-capabilities.md#7-android-基础工具最小集合) 及 backlog 为准。短工具名采用 Pi Agent 已验证的模型交互习惯，但执行实现必须符合 Android scope：
+下表是产品级首批核心工具；完整名称、风险和实施顺序以 [Android 平台能力 第 7 节](../architecture/android-platform-capabilities.md#7-android-基础工具最小集合) 及 backlog 为准。短工具名采用 Pi Agent 已验证的模型交互习惯，但执行实现必须符合 Android scope：
 
 | 工具 | 优先级 | 默认风险 | 说明 |
 | --- | --- | --- | --- |
@@ -342,7 +342,7 @@ Advanced 扩大的是可选能力和可配置范围，不是绕过安全内核�
 
 ### 5.11 商店、官网分发与能力降级
 
-- Google Play、选定国内 Android 应用商店和官网都是正式目标渠道；所有渠道的默认用户体验称为 Helix Standard，不向用户暴露 consumer/developer 工程名。
+- Google Play、选定国内 Android 应用商店和官网都是正式目标渠道；产品界面不向用户提供能力档位开关；Consumer 为 Standard，Developer 为 Advanced，能力由渠道固定。
 - Standard 必须保留 Provider/BYOK、Goal、Workspace/SAF、文件工作台、Browser、QuickJS、MCP/A2A/Skills、Android 基础工具、模板、恢复和审计，不得退化为聊天壳。
 - All-files、Accessibility、解释脚本、Tasker 等能力优先通过核心用途声明、显著披露、用户同意和渠道审核保留；只有明确政策条款或真实审核结果要求时，才对受影响渠道做最小替换或移除。
 - Google Play 当前不允许使用 Accessibility 自主发起、规划并执行 UI 动作；Play artifact 只提供审核允许的确定性、用户可理解自动化。该限制不扩展为官网或其他合法渠道的永久 Standard 限制。
@@ -366,15 +366,15 @@ Advanced 扩大的是可选能力和可配置范围，不是绕过安全内核�
 | NFR-008 | 可观察性 | 每个 Turn、ToolCall、Approval、Execution 有 correlation ID |
 | NFR-009 | 可测试性 | core 模块 JVM 单元测试；Android 边界用 instrumentation 测试 |
 | NFR-010 | 可维护性 | 无循环模块依赖；UI 不直接访问 DAO、HTTP 或执行器 |
-| NFR-011 | Standard 默认 | 所有渠道首次启动为完整 Standard；未主动启用的系统能力不产生权限、Root、Runtime 安装或网络副作用，但已允许的核心能力不因 Profile 名称被裁剪 |
-| NFR-012 | 单一产品 | 渠道 artifact 共享产品身份、数据模型与核心任务矩阵；同一 applicationId 内切换 Standard/Advanced 不丢失会话、Workspace 或 Provider 配置 |
+| NFR-011 | 渠道固定能力 | Consumer 固定 Standard，Developer 固定 Advanced，不提供运行档位选择；能力可用不自动授予系统/Root/范围权限，不在启动或被动查看时安装 Runtime 或连接新端点 |
+| NFR-012 | 单一产品 | 渠道 artifact 共享产品定位、数据模型与核心任务矩阵；能力固定于渠道，不保留应用内 Standard/Advanced 切换或相关偏好兼容链 |
 | NFR-013 | Runtime 生命周期 | companion 无需预先打开/常驻即可冷绑定；进程回收后可重连，未知执行结果不自动重放 |
 
 NFR-001 与 NFR-002 的结果必须可重算：[M10 固定集](../../evals/m10/README.md) 已有 45 条冻结场景，不是“没有固定评测”。该集合包含能力、拒绝和恢复验证，不自动等于 NFR-001 的 40 条支持任务。验收报告需明确具名任务映射、输入/oracle、渠道/插件/Provider 适用性、执行次数、正确产物、失败分类与原始证据；尚未冻结这份映射或缺少当前实际运行时，标记指标未验收，不改分母或用 Turn 完成/构建通过凑足成功率。安全拒绝与零绕过单独作为硬闸，不当作完成用户任务的分子。本轮未运行设备或真实模型评测。
 
 ## 7. 页面需求
 
-1. 首次启动：隐私说明、Provider 配置、连接测试；所有渠道主应用默认 Standard，不向用户展示工程 flavor 选择。
+1. 首次启动：隐私说明、Provider 配置、连接测试；能力按渠道固定，不向用户提供运行档位或工程 flavor 选择。
 2. 会话列表：创建、重命名、归档、模型标识。
 3. 会话页面：时间线、输入、停止、工具展开、审批卡片。
 4. Workspace：文件树、文本预览、Diff、导入、导出。

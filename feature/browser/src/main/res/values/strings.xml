@@ -114,4 +114,11 @@
     <string name="browser_return_session">返回原会话</string>
     <string name="browser_page_retired">页面已释放。重新打开只加载地址，不恢复表单输入或页面状态。</string>
     <string name="browser_reopen_page">重新打开页面</string>
+    <string name="browser_close">关闭浏览器</string>
+    <string name="browser_close_details">网页和未提交的输入将关闭，进行中的网页操作将结束。保留普通标签的地址、历史、书签和站点数据；不记录历史的标签不会恢复。</string>
+    <string name="browser_dismiss_menu">收起菜单</string>
+    <string name="browser_preparing">正在准备浏览器…</string>
+    <string name="browser_return_page">返回网页</string>
+    <string name="browser_engine_failed">浏览器引擎启动失败</string>
+    <string name="browser_session_save_failed">页面已关闭，但标签地址保存失败。</string>
 </resources>

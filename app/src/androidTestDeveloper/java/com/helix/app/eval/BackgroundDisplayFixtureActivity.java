@@ -65,6 +65,12 @@ public final class BackgroundDisplayFixtureActivity extends BackgroundTouchActiv
             facts.edit().putInt("clicks", count).commit();
         });
         content.addView(increment);
+        Button page = new Button(this);
+        page.setId(android.R.id.button2);
+        page.setText("Open page");
+        page.setAllCaps(false);
+        page.setOnClickListener(view -> startActivity(new android.content.Intent(this, BackgroundPreviewPageActivity.class)));
+        content.addView(page);
         content.addView(scroller(), new LinearLayout.LayoutParams(-1, 220));
         setContentView(content);
     }

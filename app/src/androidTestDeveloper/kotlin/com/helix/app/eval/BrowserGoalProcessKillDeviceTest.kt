@@ -119,7 +119,7 @@ class BrowserGoalProcessKillDeviceTest {
         port: Int,
         facts: Properties,
     ) {
-        container.profileStore.switchTo(SafetyProfile.ADVANCED)
+        check(container.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
         val provider =
             container.providerService.create(
                 ProviderDraft(
@@ -280,7 +280,6 @@ class BrowserGoalProcessKillDeviceTest {
                 container.providerService.delete(id)
             }
         }
-        container.profileStore.switchTo(SafetyProfile.valueOf(facts.getProperty("profile")))
         facts.getProperty("tab")?.let { id ->
             main {
                 if (container.browser.state.value.tabs

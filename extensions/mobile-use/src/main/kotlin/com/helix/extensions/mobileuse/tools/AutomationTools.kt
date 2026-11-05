@@ -8,6 +8,7 @@ import com.helix.core.model.ToolVersion
 import com.helix.extensions.mobileuse.AutomationTermination
 import com.helix.extensions.mobileuse.automation.AUTOMATION_MAX_SET_TEXT
 import com.helix.extensions.mobileuse.automation.AutomationActionResult
+import com.helix.extensions.mobileuse.automation.AutomationActionStatus
 import com.helix.extensions.mobileuse.automation.AutomationFindQuery
 import com.helix.extensions.mobileuse.automation.AutomationFindResult
 import com.helix.extensions.mobileuse.automation.AutomationFindStatus
@@ -173,10 +174,19 @@ class AutomationTools(
                     requireNotNull(call.args["viewId"]?.jsonPrimitive?.contentOrNull),
                     requireNotNull(call.args["text"]?.jsonPrimitive?.contentOrNull),
                 )
-            return withClickBackend(
-                action(if (backend == "root") boundPort.rootClick(selector) else boundPort.shizukuClick(selector)),
-                backend,
-            )
+            val result = if (backend == "root") boundPort.rootClick(selector) else boundPort.shizukuClick(selector)
+            val outcome =
+                if (result.status in
+                    setOf(
+                        AutomationActionStatus.TARGET_NOT_FOUND,
+                        AutomationActionStatus.TARGET_AMBIGUOUS,
+                    )
+                ) {
+                    clickMatchRefusal(result.status.name)
+                } else {
+                    action(result)
+                }
+            return withClickBackend(outcome, backend)
         }
         return withClickBackend(
             AutomationClickMatchExecutor(boundPort).execute(
@@ -342,6 +352,7 @@ class AutomationTools(
 
     private fun recoveryJson(result: AutomationSnapshotResult): JsonObject =
         buildJsonObject {
+            missingTargetHint(result.status.name)?.let { put("recoveryHint", JsonPrimitive(it)) }
             result.snapshot?.let { snapshot ->
                 put("truncated", JsonPrimitive(snapshot.truncated))
                 put("truncationReasons", JsonArray(snapshot.truncationReasons.map(::JsonPrimitive)))
@@ -416,7 +427,9 @@ class AutomationTools(
                     "actionHint",
                     JsonPrimitive(
                         "If this match is the next intended control, call ui.click with suggestedClickToken next. " +
-                            "Do not search screenshots or coordinates first.",
+                            "Do not insert ui.find/ui.snapshot/ui.wait before that click: another semantic " +
+                            "observation replaces this token. " +
+                            "If you need another query, use its fresh result instead. Never reuse the earlier token.",
                     ),
                 )
             }
@@ -533,7 +546,9 @@ class AutomationTools(
                         put(
                             "description",
                             JsonPrimitive(
-                                "Use an advertised scrollDirections direction. " +
+                                "Copy an exact value from the node's scrollDirections; never infer it from " +
+                                    "finger motion. " +
+                                    "For example, [forward,right] permits right/forward, not left. " +
                                     "Forward/backward follow the widget's axis and can change horizontal tabs.",
                             ),
                         )
@@ -545,6 +560,20 @@ class AutomationTools(
     private fun findInput() = querySchema(includeWait = false)
 
     private fun waitInput() = querySchema(includeWait = true)
+
+    private fun pollIntervalSchema() =
+        JsonObject(
+            integer(50, 1_000) +
+                mapOf(
+                    "default" to JsonPrimitive(100),
+                    "description" to
+                        JsonPrimitive(
+                            "Normally omit; the host polls every 100 ms. If supplied, use 50..1000 ms. " +
+                                "For a longer wait change timeoutMillis, not pollMillis. " +
+                                "Out-of-range values are rejected.",
+                        ),
+                ),
+        )
 
     private fun clickMatchInput(): JsonObject {
         val fields =
@@ -560,7 +589,7 @@ class AutomationTools(
                 "checked" to bool(),
                 "maxResults" to integer(1, 50),
                 "timeoutMillis" to integer(0, 60_000),
-                "pollMillis" to integer(50, 1_000),
+                "pollMillis" to pollIntervalSchema(),
             )
         return obj(fields, emptyList())
     }
@@ -588,7 +617,7 @@ class AutomationTools(
                     put("type", JsonPrimitive("string"))
                     put("enum", JsonArray(listOf("present", "absent", "changed", "stable").map(::JsonPrimitive)))
                 }
-            fields["pollMillis"] = integer(50, 1_000)
+            fields["pollMillis"] = pollIntervalSchema()
         }
         return obj(fields, emptyList())
     }

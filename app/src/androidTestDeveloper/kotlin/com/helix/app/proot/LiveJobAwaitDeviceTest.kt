@@ -28,53 +28,49 @@ class LiveJobAwaitDeviceTest {
             assumeTrue(InstrumentationRegistry.getArguments().getString("liveJob") == "true")
             val app = ApplicationProvider.getApplicationContext<HelixApplication>()
             val c = app.appContainer
-            val previous = c.profileStore.profile
-            try {
-                c.profileStore.switchTo(SafetyProfile.ADVANCED)
-                ensureInstalledRuntime(app)
-                val jobs =
-                    DetachedJobDashboard.read(c.storage).filter {
-                        it.settlementPending && c.storage.sessions
-                            .resolve(it.sessionId)
-                            .title == "Live original Job fixture"
-                    }
-                jobs.forEach { job ->
-                    val call = requireNotNull(c.storage.toolCalls.byTurnAndCallId(job.turnId, job.callId))
-                    val args =
-                        kotlinx.serialization.json.Json
-                            .parseToJsonElement(call.argsJson)
-                            as kotlinx.serialization.json.JsonObject
-                    val script = (args["script"] as? kotlinx.serialization.json.JsonPrimitive)?.content
-                    check(script?.matches(Regex("sleep 2; printf J1_LIVE_[a-f0-9]{32} > result.txt")) == true)
-                    ProotToolModule.performBackgroundJobAction(job, BackgroundJobAction.CANCEL) { false }
-                    val binding = ProotJobBindingStore(c.storage).resolveDetached(job.sessionId, job.callId)
-                    val client =
-                        com.helix.runtime.proot.client
-                            .DetachedJobClient(app)
-                    withTimeout(30_000) {
-                        while (client
-                                .query(binding)
-                                .record
-                                ?.state
-                                ?.isTerminal != true
-                        ) {
-                            delay(100)
-                        }
-                    }
-                    check(
-                        ProotToolModule.performBackgroundJobAction(job, BackgroundJobAction.COLLECT) { false } ==
-                            BackgroundJobActionOutcome.SETTLED,
-                    )
+
+            check(c.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
+            ensureInstalledRuntime(app)
+            val jobs =
+                DetachedJobDashboard.read(c.storage).filter {
+                    it.settlementPending && c.storage.sessions
+                        .resolve(it.sessionId)
+                        .title == "Live original Job fixture"
                 }
-                InstrumentationRegistry.getInstrumentation().sendStatus(
-                    0,
-                    android.os.Bundle().apply {
-                        putString("stream", "SYNTHETIC_ORIGINAL_SETTLED=${jobs.size}\n")
-                    },
+            jobs.forEach { job ->
+                val call = requireNotNull(c.storage.toolCalls.byTurnAndCallId(job.turnId, job.callId))
+                val args =
+                    kotlinx.serialization.json.Json
+                        .parseToJsonElement(call.argsJson)
+                        as kotlinx.serialization.json.JsonObject
+                val script = (args["script"] as? kotlinx.serialization.json.JsonPrimitive)?.content
+                check(script?.matches(Regex("sleep 2; printf J1_LIVE_[a-f0-9]{32} > result.txt")) == true)
+                ProotToolModule.performBackgroundJobAction(job, BackgroundJobAction.CANCEL) { false }
+                val binding = ProotJobBindingStore(c.storage).resolveDetached(job.sessionId, job.callId)
+                val client =
+                    com.helix.runtime.proot.client
+                        .DetachedJobClient(app)
+                withTimeout(30_000) {
+                    while (client
+                            .query(binding)
+                            .record
+                            ?.state
+                            ?.isTerminal != true
+                    ) {
+                        delay(100)
+                    }
+                }
+                check(
+                    ProotToolModule.performBackgroundJobAction(job, BackgroundJobAction.COLLECT) { false } ==
+                        BackgroundJobActionOutcome.SETTLED,
                 )
-            } finally {
-                c.profileStore.switchTo(previous)
             }
+            InstrumentationRegistry.getInstrumentation().sendStatus(
+                0,
+                android.os.Bundle().apply {
+                    putString("stream", "SYNTHETIC_ORIGINAL_SETTLED=${jobs.size}\n")
+                },
+            )
         }
 
     // Preserve every primary test failure; cleanup is suppressed on it, or independently fails the test.
@@ -96,7 +92,7 @@ class LiveJobAwaitDeviceTest {
                     .resolve(provider)
                     .model == model,
             )
-            val previous = c.profileStore.profile
+
             val marker = "J1_LIVE_${UUID.randomUUID().toString().replace("-", "") }"
             val output = File(app.filesDir, "workspaces/app/output/$marker.txt")
             val session = c.chatService.createSession("Live original Job fixture", provider, model)
@@ -104,7 +100,7 @@ class LiveJobAwaitDeviceTest {
             var failure: Throwable? = null
             try {
                 ensureInstalledRuntime(app)
-                c.profileStore.switchTo(SafetyProfile.ADVANCED)
+                check(c.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
                 check(ProotToolModule.verifyNow() is com.helix.runtime.proot.ipc.ProotRuntimeAvailability.Verified)
                 c.storage.sessionPermissionConfigs.setForSession(
                     session,
@@ -235,7 +231,6 @@ class LiveJobAwaitDeviceTest {
                 } catch (cleanup: Throwable) {
                     if (failure == null) throw cleanup else failure.addSuppressed(cleanup)
                 } finally {
-                    c.profileStore.switchTo(previous)
                     c.storage.sessions.archive(session, System.currentTimeMillis())
                     output.delete()
                 }

@@ -36,67 +36,61 @@ internal fun ConversationArtifacts(
     service: ChatService,
     fileManager: FileManagerService?,
     screen: ChatScreenState,
+    onDismiss: () -> Unit,
 ) {
-    if (fileManager == null || screen.isDraft) return
-    val sessionId = screen.openSessionId ?: return
+    val sessionId = screen.openSessionId
+    if (fileManager == null || sessionId == null) return
     var rows by remember(sessionId) { mutableStateOf(emptyList<ArtifactRowUi>()) }
     var sources by remember(sessionId) { mutableStateOf(emptyList<ArtifactRowUi>()) }
     var showingSources by remember(sessionId) { mutableStateOf(false) }
-    var open by remember(sessionId) { mutableStateOf(false) }
     var selectedId by remember(sessionId) { mutableStateOf<String?>(null) }
     var revision by remember(sessionId) { mutableIntStateOf(0) }
+    var loaded by remember(sessionId) { mutableStateOf(false) }
+    var failed by remember(sessionId) { mutableStateOf(false) }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { revision++ }
     // Refresh when a tool result settles, a turn finishes, the app resumes or the user opens
     // the panel. Streamed assistant tokens do not cause reads. Session changes cancel old reads.
-    LaunchedEffect(sessionId, screen.toolTimeline, screen.isSending, open, revision) {
-        rows = service.conversationArtifacts(sessionId)
-        sources = service.conversationDocumentSources(sessionId)
+    LaunchedEffect(sessionId, screen.toolTimeline, screen.isSending, revision) {
+        try {
+            rows = service.conversationArtifacts(sessionId)
+            sources = service.conversationDocumentSources(sessionId)
+            loaded = true
+            failed = false
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            failed = true
+        }
     }
+    if (!loaded && !failed) return
     run {
-        TextButton(
-            onClick = {
-                showingSources = false
-                open = true
-            },
-            modifier = Modifier.fillMaxWidth().testTag("chat-artifacts-open"),
-        ) {
-            Text(stringResource(R.string.chat_artifacts_count, rows.size))
-        }
-    }
-    if (sources.isNotEmpty()) {
-        TextButton(onClick = {
-            showingSources = true
-            open = true
-        }, modifier = Modifier.fillMaxWidth().testTag("chat-document-sources")) {
-            Text(stringResource(R.string.document_sources_count, sources.size))
-        }
-    }
-    if (open) {
         val displayedRows = if (showingSources) sources else rows
         val listState = rememberLazyListState()
         val selected = displayedRows.firstOrNull { it.id == selectedId }
         ConversationSheet(
-            title =
-                selected?.fileName
-                    ?: stringResource(
-                        if (showingSources) R.string.document_sources_title else R.string.chat_artifacts_title,
-                    ),
+            title = conversationArtifactTitle(selected, showingSources),
             tag = "chat-artifacts",
-            onDismiss = {
-                open = false
-                selectedId = null
-            },
+            onDismiss = onDismiss,
             scrollContent = false,
         ) {
-            if (selected == null) {
-                if (displayedRows.isEmpty()) Text(stringResource(R.string.tasks_artifacts_empty))
-                IndicatedLazyColumn(
-                    Modifier.fillMaxWidth().heightIn(max = 440.dp).testTag("chat-artifacts-list"),
-                    state = listState,
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    items(displayedRows, key = { it.id }) { row ->
-                        ArtifactFileRowView(row, onOpen = { selectedId = row.id })
+            if (failed) {
+                Text(stringResource(R.string.common_operation_failed), Modifier.testTag("chat-artifacts-error"))
+                TextButton({
+                    revision++
+                }, Modifier.testTag("chat-artifacts-retry")) { Text(stringResource(R.string.session_settings_retry)) }
+            } else if (selected == null) {
+                ArtifactSourceSwitch(sources.size) { showingSources = it }
+                if (displayedRows.isEmpty()) {
+                    Text(stringResource(R.string.chat_artifacts_empty), Modifier.testTag("chat-artifacts-empty"))
+                } else {
+                    IndicatedLazyColumn(
+                        Modifier.fillMaxWidth().heightIn(max = 440.dp).testTag("chat-artifacts-list"),
+                        state = listState,
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        items(displayedRows, key = { it.id }) { row ->
+                            ArtifactFileRowView(row, onOpen = { selectedId = row.id })
+                        }
                     }
                 }
             } else {
@@ -148,3 +142,30 @@ private fun ConversationArtifactPreview(
         )
     }
 }
+
+@Composable
+@Suppress("FunctionName")
+private fun ArtifactSourceSwitch(
+    sourceCount: Int,
+    onSource: (Boolean) -> Unit,
+) {
+    if (sourceCount > 0) {
+        androidx.compose.foundation.layout.Row {
+            TextButton({ onSource(false) }, Modifier.testTag("chat-artifacts-outputs")) {
+                Text(stringResource(R.string.chat_artifacts_entry))
+            }
+            TextButton({ onSource(true) }, Modifier.testTag("chat-document-sources")) {
+                Text(stringResource(R.string.document_sources_count, sourceCount))
+            }
+        }
+    }
+}
+
+@Composable
+private fun conversationArtifactTitle(
+    selected: ArtifactRowUi?,
+    showingSources: Boolean,
+): String =
+    selected?.fileName ?: stringResource(
+        if (showingSources) R.string.document_sources_title else R.string.chat_artifacts_entry,
+    )

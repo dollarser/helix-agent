@@ -17,7 +17,7 @@ class ComposerFeedbackTest {
     @Test fun readyComposerHasNoWarningAndLocalCommandsNeedNoModel() {
         assertNull(ComposerAvailability().unavailableReason(false, false, false))
         val state = ComposerAvailability(modelSelected = false)
-        assertEquals(R.string.chat_model_required_before_send, state.unavailableReason(false, false, false))
+        assertNull(state.unavailableReason(false, false, false))
         assertTrue(state.canDeliver(true))
         assertNull(state.unavailableReason(true, false, false))
     }

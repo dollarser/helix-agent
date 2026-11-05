@@ -39,13 +39,13 @@ class PrivilegedDynamicObservationDeviceTest {
         org.junit.Assume.assumeTrue("Requires explicitly prepared Shizuku", optIn != null)
         require(optIn == "true")
         require(android.provider.Settings.canDrawOverlays(app)) { "Requires an explicitly prepared overlay grant" }
-        val profile = c.profileStore.profile
+
         val selection = MobileUseEvaluationSelection(app)
         c.storage.sessions.create(session, "Dynamic observation fixture", null, null, System.currentTimeMillis())
         c.storage.turns.start(turn, session, System.currentTimeMillis())
         c.chatService.refreshBackgroundTasksNow()
         try {
-            c.profileStore.switchTo(SafetyProfile.ADVANCED)
+            check(c.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
             selection.select(session, emptySet(), true)
             c.sessionPermissionEdit.saveSessionConfig(
                 session,
@@ -116,7 +116,6 @@ class PrivilegedDynamicObservationDeviceTest {
             selection.close()
             c.storage.deleteSessionPermanently(session)
             c.chatService.refreshBackgroundTasksNow()
-            c.profileStore.switchTo(profile)
         }
     }
 

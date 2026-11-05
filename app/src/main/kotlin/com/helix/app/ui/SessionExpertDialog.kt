@@ -9,6 +9,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -39,15 +40,16 @@ internal fun SessionExpertDialog(
     plugins: PluginService? = null,
     onDismiss: () -> Unit,
 ) {
-    var profiles by remember { mutableStateOf(emptyList<ExpertDefinition>()) }
-    var selected by remember { mutableStateOf<ExpertProfile?>(null) }
-    var unavailable by remember { mutableStateOf(emptySet<String>()) }
-    var dependencyNames by remember { mutableStateOf(emptyMap<String, String>()) }
-    var loaded by remember { mutableStateOf(false) }
-    var busy by remember { mutableStateOf(false) }
-    var failed by remember { mutableStateOf(false) }
+    var profiles by remember(chatService, sessionId) { mutableStateOf(emptyList<ExpertDefinition>()) }
+    var selected by remember(chatService, sessionId) { mutableStateOf<ExpertProfile?>(null) }
+    var unavailable by remember(chatService, sessionId) { mutableStateOf(emptySet<String>()) }
+    var dependencyNames by remember(chatService, sessionId) { mutableStateOf(emptyMap<String, String>()) }
+    var loaded by remember(chatService, sessionId) { mutableStateOf(false) }
+    var busy by remember(chatService, sessionId) { mutableStateOf(false) }
+    var failed by remember(chatService, sessionId) { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    LaunchedEffect(chatService, sessionId) {
+    var retry by remember(chatService, sessionId) { mutableIntStateOf(0) }
+    LaunchedEffect(chatService, sessionId, retry) {
         try {
             profiles = chatService.savedExperts().await()
             selected = chatService.loadSessionExpert(sessionId).await()
@@ -64,6 +66,7 @@ internal fun SessionExpertDialog(
                 }
             }
             loaded = true
+            failed = false
         } catch (cancel: CancellationException) {
             throw cancel
         } catch (_: Exception) {
@@ -88,6 +91,7 @@ internal fun SessionExpertDialog(
             }
         }
     }
+    if (!loaded && !failed) return
     ConversationSheet(
         stringResource(R.string.expert_select),
         "session-expert",
@@ -110,39 +114,55 @@ internal fun SessionExpertDialog(
                 { choose(null) },
                 Modifier.testTag("session-expert-clear"),
                 enabled = loaded && !busy,
-                selected = selected == null,
+                selected = loaded && selected == null,
             )
             ExpertSelectionStatus(selected, profiles, loaded)
-            profiles.forEach { definition ->
-                val profile = definition.profile
-                val names =
-                    (profile.recommendedConnectorIds + profile.recommendedSkillIds)
-                        .take(4)
-                        .joinToString(" · ") { dependencyNames[it] ?: it.take(48) }
-                ConversationMenuRow(
-                    profile.displayName,
-                    { choose(profile.id) },
-                    Modifier.testTag("expert-row-${profile.id}"),
-                    supporting =
-                        listOf(definition.description.ifBlank { profile.instruction.take(120) }, names)
-                            .filter(String::isNotBlank)
-                            .joinToString("\n"),
-                    enabled = loaded && !busy,
-                    selected = selected == profile,
-                )
-                if (profile.id in unavailable) {
-                    Text(
-                        stringResource(R.string.expert_missing_dependencies),
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                }
+            ExpertChoices(profiles, selected, unavailable, dependencyNames, loaded && !busy) { choose(it) }
+            if (failed) {
+                Text(stringResource(R.string.expert_load_failed), color = MaterialTheme.colorScheme.error)
+                TextButton({ retry++ }, enabled = !busy) { Text(stringResource(R.string.chat_retry)) }
             }
-            if (failed) Text(stringResource(R.string.expert_load_failed), color = MaterialTheme.colorScheme.error)
             ConversationMenuRow(
                 stringResource(R.string.expert_manage),
                 onManage,
                 Modifier.testTag("expert-manage"),
                 enabled = !busy,
+            )
+        }
+    }
+}
+
+@Composable
+@Suppress("FunctionName", "LongParameterList")
+private fun ExpertChoices(
+    profiles: List<ExpertDefinition>,
+    selected: ExpertProfile?,
+    unavailable: Set<String>,
+    dependencyNames: Map<String, String>,
+    enabled: Boolean,
+    onChoose: (String) -> Unit,
+) {
+    profiles.forEach { definition ->
+        val profile = definition.profile
+        val names =
+            (profile.recommendedConnectorIds + profile.recommendedSkillIds)
+                .take(4)
+                .joinToString(" · ") { dependencyNames[it] ?: it.take(48) }
+        ConversationMenuRow(
+            profile.displayName,
+            { onChoose(profile.id) },
+            Modifier.testTag("expert-row-${profile.id}"),
+            supporting =
+                listOf(definition.description.ifBlank { profile.instruction.take(120) }, names)
+                    .filter(String::isNotBlank)
+                    .joinToString("\n"),
+            enabled = enabled,
+            selected = selected == profile,
+        )
+        if (profile.id in unavailable) {
+            Text(
+                stringResource(R.string.expert_missing_dependencies),
+                style = MaterialTheme.typography.bodySmall,
             )
         }
     }

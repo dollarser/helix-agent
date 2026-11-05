@@ -21,29 +21,65 @@ internal class ShellBackgroundDisplays(
         key: String,
         owner: android.os.IBinder,
         screen: ShizukuHierarchy,
+        width: Int,
+        wholeDisplay: Boolean,
     ): ByteArray? {
         val owned = entries[key] ?: return null
-        if (owned.owner != owner || !owned.display.valid || !ShizukuExecutionGuard.check(owner)) return null
+        if (owned.owner != owner) return null
+        return readBackgroundPreview(
+            read = { previewAttempt(owned, owner, screen, width, wholeDisplay) },
+            pause = { android.os.SystemClock.sleep(16) },
+        )
+    }
+
+    @Suppress("ReturnCount") // Refusals never retry; only an authorized transition can be sampled again.
+    private fun previewAttempt(
+        owned: Owned,
+        owner: android.os.IBinder,
+        screen: ShizukuHierarchy,
+        width: Int,
+        wholeDisplay: Boolean,
+    ): BackgroundPreviewRead {
+        if (!owned.display.valid || !ShizukuExecutionGuard.check(owner)) return BackgroundPreviewRead.Refused
         screen.route(owned.display)
-        val target = screen.deviceTarget(includeRevision = false) ?: return null
-        if (target.displayId != owned.display.id || target.displaySession != owned.display.identity ||
+        val target =
+            screen.deviceTarget(includeRevision = false, allowVisualFallback = wholeDisplay)
+                ?: return BackgroundPreviewRead.Transition
+        if (!permittedTarget(owned, owner, target)) {
+            return BackgroundPreviewRead.Refused
+        }
+        val bytes = owned.display.preview(width)
+        if (!owned.display.valid || !ShizukuExecutionGuard.check(owner) ||
             !ShizukuExecutionGuard.permitsPreviewPackage(owner, target.packageName)
         ) {
-            return null
+            return BackgroundPreviewRead.Refused
         }
-        val bytes = owned.display.preview()
-        return bytes?.takeIf {
-            ShizukuExecutionGuard.check(owner) &&
-                ShizukuExecutionGuard.permitsPreviewPackage(owner, target.packageName) &&
-                screen.deviceTarget(includeRevision = false) == target
+        val current =
+            screen.deviceTarget(includeRevision = false, allowVisualFallback = wholeDisplay)
+                ?: return BackgroundPreviewRead.Transition
+        if (!permittedTarget(owned, owner, current)) {
+            return BackgroundPreviewRead.Refused
+        }
+        return if (bytes != null && current == target) {
+            BackgroundPreviewRead.Frame(bytes)
+        } else {
+            BackgroundPreviewRead.Transition
         }
     }
+
+    private fun permittedTarget(
+        owned: Owned,
+        owner: android.os.IBinder,
+        target: com.helix.extensions.mobileuse.automation.AutomationDisplayTarget,
+    ): Boolean =
+        target.displayId == owned.display.id && target.displaySession == owned.display.identity &&
+            ShizukuExecutionGuard.permitsPreviewPackage(owner, target.packageName)
 
     fun select(request: AutomationDeviceRequest): ShellBackgroundDisplay? {
         sweep()
         val route = request.background ?: return null
         check(
-            android.os.Build.VERSION.SDK_INT >= 31 && android.os.Process.myUid() == 2000 &&
+            android.os.Build.VERSION.SDK_INT >= 31 && android.os.Process.myUid() in setOf(0, 2000) &&
                 ShizukuExecutionGuard.check(route.owner),
         ) {
             "BACKGROUND_DISPLAY_UNAVAILABLE"

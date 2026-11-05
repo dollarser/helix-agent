@@ -5,6 +5,7 @@ import android.content.Context
 import android.net.http.SslError
 import android.os.Handler
 import android.os.Looper
+import android.view.View
 import android.view.ViewGroup
 import android.webkit.GeolocationPermissions
 import android.webkit.JsPromptResult
@@ -58,7 +59,19 @@ internal class WebViewTabHost(
     // on affected providers. Lifecycle-only hosts must never allocate that WebView.
     private var creationContext: Context? = context
     private var viewHolder: WebView? = null
-    private val dialogs = BrowserJsDialogs(canShowDialogs)
+    private val dialogs =
+        BrowserJsDialogs {
+            canShowDialogs() &&
+                viewHolder?.let { it.isAttachedToWindow && it.isShown && it.windowVisibility == View.VISIBLE } == true
+        }
+    private val attachmentListener =
+        object : View.OnAttachStateChangeListener {
+            override fun onViewAttachedToWindow(view: View) = Unit
+
+            override fun onViewDetachedFromWindow(view: View) {
+                dialogs.cancel()
+            }
+        }
 
     var adBlockEngine: AdBlockEngine? = null
     var userScriptEngine: UserScriptEngine? = null
@@ -265,6 +278,7 @@ internal class WebViewTabHost(
 
     private fun createView(context: Context): WebView =
         WebView(context).also { view ->
+            view.addOnAttachStateChangeListener(attachmentListener)
             // AndroidView otherwise supplies WRAP_CONTENT. Blink then gives percentage-height
             // content an indefinite containing block despite the nonzero native view size.
             view.layoutParams =
@@ -459,6 +473,7 @@ internal class WebViewTabHost(
         creationContext = null
         if (retired != null) {
             val view = retired
+            view.removeOnAttachStateChangeListener(attachmentListener)
             (view.parent as? ViewGroup)?.removeView(view)
             view.webChromeClient = null
             view.setDownloadListener(null)

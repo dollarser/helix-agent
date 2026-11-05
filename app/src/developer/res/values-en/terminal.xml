@@ -25,8 +25,6 @@
     <string name="terminal_initial_help">Open a terminal to use the bundled Linux environment.</string>
     <string name="terminal_execution_busy_help">Terminals and Agent tasks can run together. An open terminal or uncollected result does not block other tasks. Shared files can change concurrently; verify the final result. Only environment maintenance, engine capacity and input to the same terminal require coordination. Leaving detaches without stopping commands.</string>
     <string name="terminal_menu">Terminal options</string>
-    <string name="terminal_requires_advanced">The terminal requires Advanced mode. Standard mode cannot start a terminal.</string>
-    <string name="terminal_switch_and_start">Switch to Advanced and start terminal</string>
     <string name="terminal_repair_open">Repair and open terminal</string>
     <string name="terminal_shell_failed">The shell could not start. Open Execution environments to repair it.</string>
     <string name="terminal_shell_timeout">The shell did not become ready. Try opening a new terminal.</string>

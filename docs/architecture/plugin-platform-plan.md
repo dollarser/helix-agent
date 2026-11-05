@@ -1,6 +1,6 @@
 # Plugin Platform 专项设计：包格式与 Mobile Use
 
-初稿：2026-09-28；内容收敛：2026-09-30；实现状态校正：2026-10-14。本页只维护包格式、宿主已知原生贡献、Mobile Use 专项和领域迁移理由。通用绑定以[工具 ADR](../adr/tools/001-descriptor-contract.md)为准；安装、组件局部失败、更新/卸载、会话选择与原生资源的设计决定归 [Plugin 归属 ADR](../adr/connectors/003-ownership-and-installation.md)，[Harness §17](harness-refactor-plan.md#17-pluginconnection-与能力产品化)维护接线说明。
+初稿：2026-09-28；内容收敛：2026-09-30；实现状态校正：2026-10-14。本页只维护包格式、宿主已知原生贡献、Mobile Use 专项和领域迁移理由。通用绑定以[工具 ADR](../adr/tools/001-descriptor-contract.md)为准；安装、组件局部失败、更新/卸载、会话选择与原生资源的设计决定归 [Plugin 归属 ADR](../adr/connectors/003-ownership-and-installation.md)，[Harness 第 17 节](harness-refactor-plan.md#17-pluginconnection-与能力产品化)维护接线说明。
 
 **当前实现：**PluginOrigin、App 级 PluginRegistry、Mobile Use 已有实现，R1 原子绑定由 [HXA-231](../completion-records/HXA-231.md)交付，R3 安装、组件归属、选择、停用/更新/修复由 [HXA-235](../development/tasks/HXA-235.md)接入生产；[HXA-251](../development/tasks/HXA-251.md)补充有限 Room/设备旅程。完整在途引用/撤销/进程死亡交叉矩阵仍独立。本页保留的 MVP 示例是历史范围，不是现行能力上限，也不维护第二条 P0/P1/P2 排期。
 
@@ -62,7 +62,7 @@ interface HelixPlugin {
 
 ### 3.4 PluginRegistry
 
-App 级唯一实例维护插件身份和 native contribution，校验重复项及发布顺序；所有工具最终进入同一 ToolRegistry。安装/停用、组件诊断、来源、更新/卸载与会话选择由 HXA-235 接入主方案 §17 的统一生命周期，不是另外一套 Registry 真相。
+App 级唯一实例维护插件身份和 native contribution，校验重复项及发布顺序；所有工具最终进入同一 ToolRegistry。安装/停用、组件诊断、来源、更新/卸载与会话选择由 HXA-235 接入主方案 第 17 节 的统一生命周期，不是另外一套 Registry 真相。
 
 ## 4. Tool provenance 重构
 
@@ -76,7 +76,7 @@ Plugin package 组织 manifest、Skill、MCP server 与 host extension；Connect
 
 包解析/安装应复用已有 archive hardening、content hash 和 ownership，并从 Skill/Connector 特定顶层移往相应包职责。安装身份、连接身份与内容 snapshot 分开；独立用户 Skill 和手动 MCP 连接仍可存在，不能强制构造假的 Marketplace Plugin。
 
-迁移卡、依赖、失败原子性和删除清单统一见 Harness §17–18 的 R3-1、R3-2/R5-min。内部不保留长期双轨，不以迁移删除用户内容；发行后的数据承诺另按有效决定。
+迁移卡、依赖、失败原子性和删除清单统一见 Harness 第 17 至 18 节 的 R3-1、R3-2/R5-min。内部不保留长期双轨，不以迁移删除用户内容；发行后的数据承诺另按有效决定。
 
 ## 6. Mobile Use MVP
 
@@ -144,13 +144,13 @@ App 装配 → 唯一 PluginRegistry 校验 plugin/runtime 身份
          → 会话可用性与正常执行准入
 ```
 
-`extensions.com.helix.agent.runtime` 只匹配已注册工厂；未知 native extension 诊断并按支持矩阵处理，不猜测执行。是否允许包内其他组件继续可用按主方案 §17.2，不把未知原生扩展与恶意归档等同。
+`extensions.com.helix.agent.runtime` 只匹配已注册工厂；未知 native extension 诊断并按支持矩阵处理，不猜测执行。是否允许包内其他组件继续可用按主方案 第 17.2 节，不把未知原生扩展与恶意归档等同。
 
-通用安装/激活、组件局部失败、账号绑定、revision CAS、更新/卸载、活跃 Job 资源保留和会话选择统一引用 [Harness §17](harness-refactor-plan.md#17-pluginconnection-与能力产品化)，不保留平行 P1/P2 流程。
+通用安装/激活、组件局部失败、账号绑定、revision CAS、更新/卸载、活跃 Job 资源保留和会话选择统一引用 [Harness 第 17 节](harness-refactor-plan.md#17-pluginconnection-与能力产品化)，不保留平行 P1/P2 流程。
 
 ## 9. 动态工具暴露
 
-`registered != admitted != model-visible`。Plugin 贡献进入已有发现/曝光路径；按会话与真实能力选择 ui.*，不将所有安装工具常驻每轮请求。核心工具与按需 MCP/Plugin 窗口的策略归 Harness §16.3 和[发现专题](../research/topics/tool-exposure-and-discovery-2026-09-29.md)。
+`registered != admitted != model-visible`。Plugin 贡献进入已有发现/曝光路径；按会话与真实能力选择 ui.*，不将所有安装工具常驻每轮请求。核心工具与按需 MCP/Plugin 窗口的策略归 Harness 第 16.3 节 和[发现专题](../research/topics/tool-exposure-and-discovery-2026-09-29.md)。
 
 早期 64-tool 挤出 write 的失败只作历史回归来源；已有优先级/发现与 R1 精确命中、零命中保留不得被重新记为未开发。迁移归属不自动扩大窗口或权限。
 
@@ -158,7 +158,7 @@ App 装配 → 唯一 PluginRegistry 校验 plugin/runtime 身份
 
 Mobile Use 初版 MVP 主要使用 Accessibility 语义树。HXA-243 等后续工作已经接入手机截图、原生手势及按实际就绪能力选择的观察/动作后端；当前实现与设备证据看[状态](../development/status.md)和[平台能力](android-platform-capabilities.md#5-accessibility-自动化)。视觉结果复用 HXA-225 的类型化图片通路，不把 Base64 普通字符串当图片输入。
 
-截图授权、API30/34 差异、受保护窗口、树/图身份、新鲜度、隐私与预算的研究输入见[可靠性专题 §4.8](../research/topics/mobile-use-device-readiness-and-reliability-2026-09-29.md)。[已有视觉契约](../adr/agent/011-tool-multimodal-vision-feedback.md)与有限设备通过，不证明设备内模型推理、绕过锁屏或所有 OEM/受保护窗口均可截图。
+截图授权、API30/34 差异、受保护窗口、树/图身份、新鲜度、隐私与预算的研究输入见[可靠性专题 第 4.8 节](../research/topics/mobile-use-device-readiness-and-reliability-2026-09-29.md)。[已有视觉契约](../adr/agent/011-tool-multimodal-vision-feedback.md)与有限设备通过，不证明设备内模型推理、绕过锁屏或所有 OEM/受保护窗口均可截图。
 
 ## 11. 与 MCP Mobile Use 的关系
 

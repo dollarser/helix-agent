@@ -9,6 +9,7 @@ enum class AutomationSnapshotStatus {
     SERVICE_NOT_CONNECTED,
     NO_ACTIVE_SESSION,
     TARGET_NOT_ALLOWLISTED,
+    TARGET_UNAVAILABLE,
     TARGET_CHANGED,
     SENSITIVE_UI,
     UNSUPPORTED_UI,
@@ -96,6 +97,7 @@ internal data class NodeTokenResolution(
 
 internal enum class NodeTokenLookupStatus {
     VALID,
+    RETIRED,
     UNKNOWN,
 }
 
@@ -112,10 +114,11 @@ internal class NodeTokenRegistry(
     private val tokenBytes: () -> ByteArray = { ByteArray(TOKEN_BYTES).also(SecureRandom()::nextBytes) },
 ) {
     private val entries = LinkedHashMap<String, NodeTokenBinding>()
+    private val retired = RetiredNodeTokens()
 
     @Synchronized
     fun beginSnapshot() {
-        entries.clear()
+        invalidate()
     }
 
     @Synchronized
@@ -130,7 +133,7 @@ internal class NodeTokenRegistry(
     @Synchronized
     fun lookup(token: String): NodeTokenLookup =
         entries[token]?.let { NodeTokenLookup(NodeTokenLookupStatus.VALID, it) }
-            ?: NodeTokenLookup(NodeTokenLookupStatus.UNKNOWN)
+            ?: NodeTokenLookup(if (token in retired) NodeTokenLookupStatus.RETIRED else NodeTokenLookupStatus.UNKNOWN)
 
     @Synchronized
     fun resolve(
@@ -154,6 +157,7 @@ internal class NodeTokenRegistry(
 
     @Synchronized
     fun invalidate() {
+        retired.remember(entries.keys)
         entries.clear()
     }
 

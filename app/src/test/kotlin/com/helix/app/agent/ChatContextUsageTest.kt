@@ -5,6 +5,14 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class ChatContextUsageTest {
+    @Test fun newConversationStartsAtZeroWithoutTreatingMissingTelemetryAsZero() {
+        assertEquals(0L, ChatContextUsage.emptyConversation().usedTokens)
+        assertEquals("0%", ChatContextUsage.emptyConversation().percentageLabel)
+        assertNull(ChatContextUsage().usedTokens)
+        val failed = ChatContextProjection.InputSample("{}", null, false, false)
+        assertNull(ChatContextProjection.select(sequenceOf(failed), "endpoint", "model").usedTokens)
+    }
+
     @Test fun projectedSurfaceIncludesRetainedAnswerAndToolGrowthWithoutAddingBillingOutput() {
         val snapshot = """{"transportIdentity":"endpoint","model":"a"}"""
         val sample =

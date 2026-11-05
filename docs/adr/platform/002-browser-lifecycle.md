@@ -1,7 +1,7 @@
 # ADR-PLATFORM-002: 浏览器 View 与逻辑标签生命周期
 
 Status: accepted
-Date: 2026-09-16; revised 2026-10-17
+Date: 2026-09-16; revised 2026-11-04
 HXA: HXA-160, HXA-276, HXA-277, HXA-279
 Deciders: Project owner（2026-10-11 要求同步 Browser 插件贡献、资源与交互优化 ADR；不兼容旧版）
 
@@ -17,7 +17,17 @@ HXA-276/277/279 将 Browser 接入插件贡献，并增加标签发现、有界�
 
 Activity 持有 BrowserViewOwner，使用真实 Activity Context 惰性创建宿主；BrowserController 保留逻辑标签和当前 owner 的弱绑定。替换 owner 使旧绑定失效，迟到解绑不能销毁新 owner。所有旧页回调校验 owner/宿主身份。
 
-后台切换不销毁 View；pause/resume 作用于匹配 owner，不把 onPause 当作 JS 全局暂停。仅当前活动标签、可用前台窗口显示 JS 对话框；切后台、导航、关闭、解绑或取消时终结结果一次。保留平台 Autofill 能力并以真实服务 fixture 验证。
+后台切换不销毁 View；pause/resume 作用于匹配 owner，不把 onPause 当作 JS 全局暂停。JS 对话框还要求当前标签正在显示网页、页面无错误，且 WebView 已挂载到可见窗口、自身与祖先可见；仅 Activity 在前台或标签仍被选中不构成页面可见。返回原生首页、离开网页界面、切后台、导航、关闭、解绑或取消时终结已有结果一次；隐藏页后续 alert/confirm/prompt 立即取消并结束回调，不把保留网页等同于保留弹窗资格。保留平台 Autofill 能力并以真实服务 fixture 验证。
+
+原生首页通过当前 AndroidX WebKit 的 `startUpWebView` 异步准备进程级引擎，不为预热创建空 WebView、页面或标签；只持有 Application Context，不引入实例池。初始化完成/失败分别记录，失败由用户明确重试，不循环重试或假报可用。用户在预热完成前立即导航时仍走原有导航入口，平台可能同步等待剩余初始化；预热不承诺消除全部主线程工作或固定提速。
+
+普通离开浏览器保留同一 Activity 内的页面及标签；“浏览器首页”只显示原生导航面板，不向当前页面加载 `about:blank`，可返回原网页。“关闭标签”移除该逻辑标签与页面；菜单“关闭浏览器”说明未提交输入和进行中网页操作会结束，确认后释放全部页面，丢弃不记录历史标签及任务页，保存普通手动标签元数据并退出浏览器。关闭状态也保存，重新进入浏览器才重新打开资源入口；关闭不清历史、书签、Cookie、缓存或站点存储，也不等同于停止独立下载队列。
+
+普通标签以私有、有界、原子替换的 version 1 会话文件保存完整地址、有限标题、桌面模式和选择；无 DOM、表单、页面历史栈、快照 token、旧 tab ID 或任务来源/权限。变更按顺序异步保存，明确关闭等待保存结果，失败仍释放页面并报告地址未保存。突然终止可能丢失尚未落盘的最新变更，不承诺原子回滚外部网页效果。初始化先读取已保存元数据再接受新标签；读取失败不静默覆盖原文件，可由明确清理历史操作重置。
+
+进程重启以新 tab ID 恢复普通标签，先显示原生首页及可返回的标签信息；资源释放后的页面沿用明确“重新打开地址”入口，不自动重放 URL、POST、表单、工具或未知动作。Activity 替换与真实内存回收仍退休旧页面/观察身份，普通 `UI_HIDDEN` 不触发清理；处理当前系统实际提供的回收信号，不承诺内存压力通知一定到达。WebView 销毁释放页面、监听和 Activity 引用，不承诺引擎共享库、缓存或进程 RSS 立即归零。
+
+“不记录历史（共享站点数据）”继续是现有准确语义：不记录该标签的浏览历史、不写恢复文件，明确关闭浏览器/进程终止后不恢复；与普通标签共享站点数据，不升级宣称独立 Cookie 配置或完整隐私隔离。
 
 无宿主时非空 open 返回明确失败且不新建标签，navigate 返回稳定宿主不可用原因；历史/重载缺少真实页面时不假报执行成功。空标签仍可独立存在。页面销毁清理 loading/history 可用性与 DOM token，保留 URL/标题供显式导航；不自动加载 URL、重放 POST、表单或工具。恢复后由原任务正常继续路径决定下一步，不自动拉起 Activity、不改变 Goal 预算或批准契约。
 
@@ -57,7 +67,7 @@ Activity 持有 BrowserViewOwner，使用真实 Activity Context 惰性创建宿
 - Application Context 继续使用：保留现状但缺少完整窗口功能。
 - MutableContextWrapper：不足以保证旧 View 内部服务/窗口全部重新绑定。
 - 独立进程/内核：扩大运行时与 IPC 成本，尚无证据可消除系统 Binder 缺陷。
-- WebView 池/预热/configChanges 绕过：增加生命周期复杂度，暂不采用。
+- WebView 池、预创建空实例或 `configChanges` 绕过：增加页面与 Activity 生命周期复杂度，不采用；只采用官方进程级异步引擎启动接口。
 - 由 Browser 插件接管 WebView 或关闭全部共享标签：混淆 Activity、手动浏览与 Agent 来源归属，采用资源句柄和准确实例引用。
 - 一次引入完整 Playwright 式 API：超出当前六类验收旅程，先交付标签发现、有界等待和必要观察事实。
 
@@ -71,13 +81,18 @@ Browser 进入统一插件选择与工具治理，手动浏览继续按 Activity
 
 HXA-276 已完成单一贡献、选择与手动浏览的主机/API36 有界验收，见[276证据](../../evidence/development/hxa276-browser-contribution-2026-10-12.md)。HXA-277 资源接线与授权 API36 有界验收见[277证据](../../evidence/development/hxa277-native-resource-lifetime-2026-10-12.md)；HXA-279已接入14工具，实际验收见[279证据](../../evidence/development/hxa279-browser-observation-2026-10-12.md)；覆盖工具唯一来源、选择撤销、无 host、空列表与 scope 过滤、等待 deadline/取消、导航失效、owner 替换、迟到回调、共享引用及清理失败。设备/模型对照固定已有标签、延迟条件、旧 token、同名控件歧义、截图未披露、动作结果未知六类旅程，并记录手动浏览及图像回流是否保持；具体授权和入口由对应 HXA 管理。
 
-本次为现行决策整理，不新增功能通过结论。实现范围与实际命令结果以[实施状态](../../development/status.md)、对应 HXA 及完成记录为准；修改本契约后须覆盖成功、失败、取消、边界和恢复，不能用文档门禁代替设备/功能验收。
+2026-11-04 的首页预热、明确关闭和普通标签恢复通过 `scripts/check-all.sh --debug` 与本地 `Helix_API_36` / API 36 / arm64 Developer Debug 有界验收。[界面用例](../../../app/src/androidTest/kotlin/com/helix/app/ui/BrowserLifecycleUiDeviceTest.kt)覆盖原生首页、保留实际页面及未提交输入、关闭/取消、历史与 Cookie 保留、只保存普通标签、内存回收和保存失败；[进程用例](../../../app/src/androidTest/kotlin/com/helix/app/ui/BrowserSessionRestartDeviceTest.kt)分三次进程验证普通恢复、关闭后恢复、新身份及不自动重放。真实 MainActivity 后台/锁屏返回、重建、任务页面像素与旧 owner 回调回归通过。设备测试等待异步会话读取及 owner 绑定，并以系统返回键验证新弹窗取消，不把发出输入事件当作界面已处理。
+
+此结论不包含真机、其他 API/OEM、Release/R8、外部账号或固定性能增益；没有把页面销毁解释为进程 RSS 归零。其他实现范围仍以[实施状态](../../development/status.md)、对应 HXA 及完成记录为准；修改本契约后须覆盖成功、失败、取消、边界和恢复，不能用文档门禁代替设备/功能验收。
 
 ## Reconsider when
 
 产品所需能力超出本决定边界，或平台、依赖、资源和设备证据证明当前方案不可行时重新评审；普通实现修复不另造一套决策。
 
 ## References
+
+- [Android：Optimize WebView startup](https://developer.android.com/develop/ui/views/layout/webapps/optimize-webview-startup)
+- [Android：Manage and diagnose WebView memory](https://developer.android.com/develop/ui/views/layout/webapps/manage-webview-memory)
 
 - [HXA-276：Browser 贡献](../../development/tasks/HXA-276.md)
 - [HXA-277：原生资源](../../development/tasks/HXA-277.md)
@@ -118,3 +133,9 @@ HXA-306 按 Owner 实际抖音空白反馈补充可见渲染验收，修正 Comp
 Owner 要求完成浏览器任务页面归属、恢复与返回原会话闭环。Agent 通过宿主已知 `originSessionId` 新建页面时保留当前标签选择；手动新建仍选择新标签，没有既有选择时首个任务页可成为当前页。新建未切换选择也不取消用户原页面的对话框。任务页面使用当前 Activity 窗口的真实尺寸建立独立视口，不通过选择用户标签获得截图，像素与动作仍绑定原 tab／owner／generation 和原调用授权。
 
 任务页显示来源标签及返回原会话入口；返回事件先核对当前来源页面，过期回调不修改当前会话。这是宿主已有来源事实的导航，不授予网站权限，不把网页文本当会话身份，也不把工具结果写入当前其他会话。原调用结果继续使用既有持久执行身份回填。Activity 重建释放页面后明确提示页面状态已丢失，由用户点击重新打开地址；无自动 URL 加载、表单／POST 或未知动作重放。进程终止不新增逻辑标签持久恢复或授权继承；来源元数据仍不替代实际会话／精确目标范围检查。真实像素、保持选择、原会话回调和显式恢复分别验收，不能用状态机单测替代渲染证据。
+
+## Decision history — 2026-11-04：首页预热、明确关闭与普通标签恢复
+
+Owner 授权浏览器优化与模拟器验证，暂不使用真机或发布。采用项目已锁定的 WebKit 官方异步启动接口，不升级依赖、不创建预热空页。将原生首页与网页导航分开，普通退出保留实例，明确关闭才释放页面；普通手动标签地址/标题可持久恢复，但使用新身份且由用户重新打开。任务来源与不记录历史标签不持久化，继续保留活动调用的原身份、取消/未知结果和 URL 策略。此决定扩展 11-02 阶段未实现的普通标签恢复，不恢复旧页面执行、授权或未提交状态。验收按实际成功候选、合成页面/进程重启与资源释放证据结算，不外推到所有设备或网站。
+
+同日设备复核实际复现：隐藏网页的延迟 alert 仍覆盖原生首页及其他界面，离开时已显示的确认框也未结束回调。修正为页面状态和实际 View 可见性共同限制弹窗，网页脱离窗口时取消已有结果，销毁时移除新增监听；不销毁为普通返回保留的页面。[延迟弹窗用例](../../../app/src/androidTest/kotlin/com/helix/app/ui/BrowserDialogVisibilityDeviceTest.kt)验证隐藏页三种弹窗均完成取消、可见页三种弹窗正常交互，以及隐藏时已有结果只完成一次。

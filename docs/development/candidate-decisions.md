@@ -30,13 +30,13 @@ ADR 状态计数不能代表产品剩余工作数量；Spike、host、device、�
 | --- | --- | --- |
 | R2 Core 解耦 / ContextCompiler | [HXA-234](tasks/HXA-234.md)：实际 Core Loop、中立执行/提交端口与纯上下文编译已有生产接线 | 当前主机/真实存储及设备边界见任务；R2-B 的策略优化不混入等价迁移 |
 | R3＋最小 R5 插件统一生命周期 | [HXA-235](tasks/HXA-235.md)：统一包身份/目录、会话选择、局部失败、更新/停用/修复已接生产并完成本地主机验证 | 保留真实 Room/设备旅程，不重做已交付主体；安装仍不是审批 |
-| 插件优化 A/C/E1/B/E2/D | HXA-272～279 已按各自范围有界交付；设计与任务映射见[优化方案 §7](../research/topics/helix-plugin-architecture-optimization-2026-10-11.md#7-任务承接与验收) | 剩余验证与后续优先级见 [status](status.md)，不重做已交付主体；F 与新增执行域仍是条件项，G 的文档读取已由 HXA-284 承接，其余文件流程需单独范围 |
+| 插件优化 A/C/E1/B/E2/D | HXA-272～279 已按各自范围有界交付；设计与任务映射见[优化方案 第 7 节](../research/topics/helix-plugin-architecture-optimization-2026-10-11.md#7-任务承接与验收) | 剩余验证与后续优先级见 [status](status.md)，不重做已交付主体；F 与新增执行域仍是条件项，G 的文档读取已由 HXA-284 承接，其余文件流程需单独范围 |
 | J1 通用 Job 观察与等待 | [HXA-236](tasks/HXA-236.md)：原身份观察/等待、统一上下文及可信类型进展判断已接生产 | HXA-249 真实 Qwen J1、HXA-251 双API Job 六项通过；不扩大到全部生命周期/OEM |
 | J2 同次执行前后台切换 | [HXA-248](tasks/HXA-248.md)：AUTO/USER 释放等待，保留同一原执行与 lease，本地已交付 | API36 Runtime/UI 八项及 HXA-249 真实 AUTO 通过；完整取消/恢复组合仍独立 |
 
 ## 产品已登记的候选与后续实施边界
 
-需求正文与兼容性边界均在[产品需求 §2.4](../product/requirements.md#24-未排期未来能力候选)。本表保留登记身份；Shizuku 的后续有限实施不把其余候选变成当前交付承诺。
+需求正文与兼容性边界均在[产品需求 第 2.4 节](../product/requirements.md#24-未排期未来能力候选)。本表保留登记身份；Shizuku 的后续有限实施不把其余候选变成当前交付承诺。
 
 | ID | 方向 | 现有基础与主要进入条件 |
 | --- | --- | --- |
@@ -66,7 +66,7 @@ ADR 状态计数不能代表产品剩余工作数量；Spike、host、device、�
 
 ### 插件研究的条件性增量
 
-以下承接[优化方案 §5.6–5.9、§6.5](../research/topics/helix-plugin-architecture-optimization-2026-10-11.md)，给出准备工作与进入实现的条件，不维护第二份排期。
+以下承接[优化方案 第 5.6 至 5.9 节、第 6.5 节](../research/topics/helix-plugin-architecture-optimization-2026-10-11.md)，给出准备工作与进入实现的条件，不维护第二份排期。
 
 | 建议 | 当前承接与准备步骤 | 进入实现的条件 / 边界 |
 | --- | --- | --- |
@@ -76,12 +76,12 @@ ADR 状态计数不能代表产品剩余工作数量；Spike、host、device、�
 | Code Mode / 可执行 hooks / LSP / Agent 定义 | HXA-275 只做组件诊断；HXA-277 只做最小类型化生命周期通知。若需要执行，先确定具体任务、运行边界、取消/预算、嵌套调用及安全责任 | 按对应既有 ADR/候选单独确定范围；Skill 或 manifest 不创建运行时或执行权限 |
 | Browser close / 完整 role-label 定位器 / 通用能力归组 | HXA-279 首版限定标签发现、有界等待和观察事实；HXA-274 保留真实提供方身份；先用冻结旅程记录剩余定位/选择困难 | 实际缺口与可测收益明确后单独拆任务；不按同名工具或 schema 自动合并，不扩建通用语义路由器 |
 | 三种作者样例与 Chat Reply 复用 | 纯 Skill/native/MCP 样例已归 HXA-272/275/276；合成聊天草稿用于 HXA-272/273。独立 Chat Reply WIP 按原归属核对 | 样例随生产通路交付，不另建文档 HXA。长期监听、OCR 专用解析、自动发送、第二个 AgentLoop 不由样例自动进入范围 |
-| 包内 CLI/脚本及账号服务 | 已有组件诊断、远程 MCP/Skill 管理和 Advanced 执行底座；导入未执行 setup 或登录服务。P2 条件与验收集中于 [Harness §23.12](../architecture/harness-refactor-plan.md#2312-插件管理与提示审查接续) | 明确目标包/许可证、ABI/解释器/依赖、实际 Runtime、凭据 owner 和用户范围后定切片；需要更强隔离时先改原 Runtime/Provider ADR，不能声称同 UID 已隔离秘密 |
+| 包内 CLI/脚本及账号服务 | 已有组件诊断、远程 MCP/Skill 管理和 Advanced 执行底座；导入未执行 setup 或登录服务。P2 条件与验收集中于 [Harness 第 23.12 节](../architecture/harness-refactor-plan.md#2312-插件管理与提示审查接续) | 明确目标包/许可证、ABI/解释器/依赖、实际 Runtime、凭据 owner 和用户范围后定切片；需要更强隔离时先改原 Runtime/Provider ADR，不能声称同 UID 已隔离秘密 |
 | 常驻 stdio MCP | 有有界 JSONL/Job 基础，尚未接入导入后的双向常驻会话；不扩容 HXA-291 Resources | 286/288 相应资源接缝、明确 server/依赖/认证、协商/背压/取消/真实退出夹具齐备后另定任务；不重复启动 Job 模拟持久连接 |
 
 ### 系统分层的条件性增量
 
-原 2026-10-11 条件项已在 2026-10-15 评审中调整：当前 App/Room 耦合与完整无页面 Turn 测试就是明确需求，应用命令和完整 Turn 合并归 [HXA-287](tasks/HXA-287.md)，不再等待第二个产品消费者。目标决定见 [ADR-AGENT-001](../adr/agent/001-turn-coordination.md)，设计见 [Harness §23](../architecture/harness-refactor-plan.md#23-2026-10-14-执行边界重构提案)。
+原 2026-10-11 条件项已在 2026-10-15 评审中调整：当前 App/Room 耦合与完整无页面 Turn 测试就是明确需求，应用命令和完整 Turn 合并归 [HXA-287](tasks/HXA-287.md)，不再等待第二个产品消费者。目标决定见 [ADR-AGENT-001](../adr/agent/001-turn-coordination.md)，设计见 [Harness 第 23 节](../architecture/harness-refactor-plan.md#23-2026-10-14-执行边界重构提案)。
 
 工具/插件贡献与前置依赖归 [HXA-286](tasks/HXA-286.md)，执行结果/Job/产物归 [HXA-288](tasks/HXA-288.md)，Memory/上下文归 [HXA-293](tasks/HXA-293.md)。这些是已排期、未实施的当前范围，复用 HXA-274/277 等已交付基础；不复制第二份执行状态或旧接口兼容层。
 
@@ -113,7 +113,7 @@ HXA-278/279 已有有界对照结果，见各任务；本段要求适用于后�
 
 | 事项 | 需要选择什么 | 建议与决策时机 | 原归属 |
 | --- | --- | --- | --- |
-| 独立聊天辅助产品 | 手动生成草稿、确认后发送、规则触发自动回复分别交付哪些；目标 App/会话、触发条件与后台范围是什么 | 当前插件样例保持合成内容与草稿。正式承接自动回复目标时，先确定一个目标 App 和有界触发/发送规则；独立 Chat Reply WIP 按原归属核对 | [优化方案 §8](../research/topics/helix-plugin-architecture-optimization-2026-10-11.md#8-对独立聊天辅助插件的应用)、既有 Schedule/Channel 候选 |
+| 独立聊天辅助产品 | 手动生成草稿、确认后发送、规则触发自动回复分别交付哪些；目标 App/会话、触发条件与后台范围是什么 | 当前插件样例保持合成内容与草稿。正式承接自动回复目标时，先确定一个目标 App 和有界触发/发送规则；独立 Chat Reply WIP 按原归属核对 | [优化方案 第 8 节](../research/topics/helix-plugin-architecture-optimization-2026-10-11.md#8-对独立聊天辅助插件的应用)、既有 Schedule/Channel 候选 |
 | 新部署宿主/远端平台 | CLI、独立进程或远端客户端是否有具体任务；部署、调用者身份、授权与恢复责任 | 完整 Turn 领域分离已归 HXA-287，不再等待新消费者；额外部署有真实需求后单独决定 | [系统分层范围](#系统分层的条件性增量)、ADR-AGENT-001 |
 | 向外提供手机能力 | 是否让 Codex/Claude 等外部客户端控制 Helix；调用者身份、部署、目标绑定与撤销怎样处理 | 首次有跨宿主任务再决定导出入口；MCP client 的现有能力不能代替服务端设计 | [插件条件项](#插件研究的条件性增量)、现有权限/平台主题；与 Turn 宿主提取分别裁决 |
 | 外部异步服务 F | 首个具体服务、账号/费用、start/status/wait/collect/cancel 协议与结果责任 | 选定一个有实际任务的 provider 和可用验证环境后立项；继续复用现有 Job | [插件条件项](#插件研究的条件性增量) F |
@@ -130,7 +130,7 @@ Documents 继续一个插件承载 PDF/DOCX。新增编辑/生成、XLSX/OCR/媒
 
 ### 后续扩展的准备与立项边界
 
-持久终端、子 Agent、hooks、LSP 的结构前提已写入 HXA-286/287/288/289/293/294，见 [§23.9](../architecture/harness-refactor-plan.md#239-后续扩展约束)。本次接受可扩展边界和当前反例验证，不开启模型写入 PTY、子任务调度、脚本执行或语言服务器。后续有明确任务时分别选择输入/接管与租期、父子权限/恢复、hook 事件/决策语义、语言服务器/平台依赖；不重新立项已有基础，也不把首版渠道/数量写成通用架构上限。
+持久终端、子 Agent、hooks、LSP 的结构前提已写入 HXA-286/287/288/289/293/294，见 [第 23.9 节](../architecture/harness-refactor-plan.md#239-后续扩展约束)。本次接受可扩展边界和当前反例验证，不开启模型写入 PTY、子任务调度、脚本执行或语言服务器。后续有明确任务时分别选择输入/接管与租期、父子权限/恢复、hook 事件/决策语义、语言服务器/平台依赖；不重新立项已有基础，也不把首版渠道/数量写成通用架构上限。
 
 ## 维护规则
 

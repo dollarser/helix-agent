@@ -4,6 +4,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -22,7 +25,14 @@ class ContextWindowDeviceTest {
     @Test fun unknownUsageAndPressureAreDistinctAndInspectable() {
         val usage = mutableStateOf(ChatContextUsage())
         compose.setContent { MaterialTheme { ContextWindowIndicator(usage.value) } }
+        compose
+            .onNodeWithTag("chat-context-window")
+            .assertIsDisplayed()
+            .assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.ProgressBarRangeInfo))
         compose.onNodeWithText("?").assertIsDisplayed()
+        compose.onNodeWithTag("chat-context-window").performClick()
+        compose.onNodeWithTag("chat-context-usage-details").assertIsDisplayed()
+        compose.onNodeWithTag("chat-context-details-close").performClick()
         compose.runOnIdle { usage.value = ChatContextUsage(500, 262144) }
         compose.onNodeWithText("0%").assertIsDisplayed()
         compose.runOnIdle { usage.value = ChatContextUsage(8500, 10000) }

@@ -25,6 +25,21 @@ import org.junit.Test
 class ConversationMenuRowDeviceTest {
     @get:Rule val compose = createComposeRule()
 
+    @Test fun singleLineMenuRowsKeepCompactAccessibleTargets() {
+        compose.setContent {
+            val density = LocalDensity.current.density
+            CompositionLocalProvider(LocalDensity provides Density(density, 1f)) {
+                MaterialTheme {
+                    Box(Modifier.width(280.dp)) {
+                        ConversationMenuRow("Action", {}, Modifier.testTag("compact-choice"))
+                    }
+                }
+            }
+        }
+        val bounds = compose.onNodeWithTag("compact-choice").getUnclippedBoundsInRoot()
+        assertEquals(48.dp, bounds.bottom - bounds.top)
+    }
+
     @Test fun longSelectionWrapsWithinNarrowParentAndWholeRowIsTheTarget() {
         var clicks = 0
         compose.setContent {

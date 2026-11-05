@@ -62,6 +62,23 @@ internal fun MobileUseSessionDialog(
     val scope = rememberCoroutineScope()
     val callbacks = MobileUseDialogCallbacks(onPermissions, onConfigure, onDismiss)
     val confirm = { confirmMobileUseDialog(state, reason, unavailable, scope, callbacks, isCurrent) }
+    MobileUseSessionPrompt(state, isCurrent, confirm, onDismiss)
+}
+
+@Composable
+@Suppress("FunctionName")
+internal fun MobileUseSessionPrompt(
+    state: MobileUseSessionState,
+    isCurrent: () -> Boolean,
+    confirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    // Resolve local readiness before opening the modal; a placeholder dialog only
+    // flashes and resizes before there is an actual decision the user can make.
+    if (state.loading || !isCurrent()) return
+    if (!state.failed && state.row == null) return
+    val reason = state.setupReason ?: state.row?.setupReason
+    val unavailable = !state.failed && state.row?.available != true
     AlertDialog(
         onDismissRequest = { if (!state.busy) onDismiss() },
         title = { Text(stringResource(R.string.mobile_use_session_title)) },
@@ -105,7 +122,6 @@ private fun mobileUseDialogMessage(
     unavailable: Boolean,
 ): Int =
     when {
-        state.loading -> R.string.tasks_commands_loading
         state.failed -> R.string.connector_session_failed
         unavailable -> R.string.plugin_setup_unsupported
         state.active -> R.string.mobile_use_session_enabled

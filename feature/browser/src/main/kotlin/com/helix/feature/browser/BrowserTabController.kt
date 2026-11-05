@@ -1,5 +1,6 @@
 package com.helix.feature.browser
 
+import com.helix.feature.browser.storage.BrowserSession
 import java.util.UUID
 
 /**
@@ -30,6 +31,8 @@ class BrowserTabController(
     data class State(
         val tabs: List<BrowserTab> = emptyList(),
         val selectedId: String? = null,
+        val isHomeVisible: Boolean = true,
+        val isClosed: Boolean = false,
     ) {
         val selectedTab: BrowserTab?
             get() = tabs.firstOrNull { it.id == selectedId }
@@ -92,6 +95,7 @@ class BrowserTabController(
             state.copy(
                 tabs = state.tabs + BrowserTab(id, isIncognito = isIncognito, originSessionId = originSessionId),
                 selectedId = if (originSessionId == null || state.selectedId == null) id else state.selectedId,
+                isHomeVisible = if (originSessionId == null) true else state.isHomeVisible,
             )
         return id
     }
@@ -99,7 +103,7 @@ class BrowserTabController(
     /** Closes all open tabs. */
     fun closeAllTabs(): List<TabCommand.Destroy> {
         val destroys = state.tabs.map { TabCommand.Destroy(it.id) }
-        state = State()
+        state = State(isClosed = state.isClosed)
         return destroys
     }
 
@@ -122,13 +126,65 @@ class BrowserTabController(
                 index < tabs.size -> tabs[index].id
                 else -> tabs[index - 1].id
             }
-        state = state.copy(tabs = tabs, selectedId = selected)
+        val selectedTab = tabs.firstOrNull { it.id == selected }
+        state =
+            state.copy(
+                tabs = tabs,
+                selectedId = selected,
+                isHomeVisible =
+                    if (state.selectedId == id) {
+                        selectedTab == null || (selectedTab.url == ABOUT_BLANK && selectedTab.error == null)
+                    } else {
+                        state.isHomeVisible
+                    },
+            )
         return TabCommand.Destroy(id)
     }
 
     fun select(id: String) {
         check(id in state.tabs.map { it.id }) { "unknown tab: $id" }
-        state = state.copy(selectedId = id)
+        val tab = requireTab(id)
+        state = state.copy(selectedId = id, isHomeVisible = tab.url == ABOUT_BLANK && tab.error == null)
+    }
+
+    fun showHome() {
+        state = state.copy(isHomeVisible = true)
+    }
+
+    fun showSelectedPage() {
+        state = state.copy(isHomeVisible = false)
+    }
+
+    fun openBrowser() {
+        state = state.copy(isClosed = false)
+    }
+
+    fun closeBrowser() {
+        state = state.copy(tabs = state.tabs.filter { !it.isIncognito && it.originSessionId == null })
+        state =
+            state.copy(
+                selectedId =
+                    state.selectedId?.takeIf { id -> state.tabs.any { it.id == id } } ?: state.tabs.firstOrNull()?.id,
+                isHomeVisible = true,
+                isClosed = true,
+            )
+        releasePages()
+    }
+
+    fun restoreSession(session: BrowserSession) {
+        check(state.tabs.isEmpty()) { "Browser session must load before accepting new tabs" }
+        require(session.tabs.size <= maxTabs)
+        val restored =
+            session.tabs.map { saved ->
+                BrowserTab(
+                    newTabId(),
+                    url = saved.url,
+                    title = saved.title,
+                    isDesktopMode = saved.desktopMode,
+                    stopped = true,
+                )
+            }
+        state = State(restored, restored.getOrNull(session.selectedIndex)?.id, isClosed = session.isClosed)
     }
 
     /**
@@ -144,6 +200,7 @@ class BrowserTabController(
             is BrowserUrlDecision.Allowed -> {
                 val url = decision.url
                 replaceTab(id) { it.copy(url = url, title = null, error = null, isLoading = true, stopped = false) }
+                if (state.selectedId == id) state = state.copy(isHomeVisible = url == ABOUT_BLANK)
                 TabCommand.Load(id, url)
             }
 
@@ -151,6 +208,7 @@ class BrowserTabController(
                 replaceTab(id) {
                     it.copy(error = PolicyBlockedError(rawUrl, decision.reason), isLoading = false, title = null)
                 }
+                if (state.selectedId == id) state = state.copy(isHomeVisible = false)
                 null
             }
         }
@@ -193,6 +251,8 @@ class BrowserTabController(
                     state.tabs.map {
                         it.copy(
                             isLoading = false,
+                            error = null,
+                            progress = 0,
                             canGoBack = false,
                             canGoForward = false,
                             navigationGeneration = it.navigationGeneration + 1,

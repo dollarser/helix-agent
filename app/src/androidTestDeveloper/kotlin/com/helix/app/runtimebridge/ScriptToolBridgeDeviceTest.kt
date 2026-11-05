@@ -28,7 +28,7 @@ class ScriptToolBridgeDeviceTest {
         check(storage.turns.listActive().isEmpty())
         val settings = HostToolBridgeSettings(app)
         val oldEnabled = settings.enabled
-        val oldProfile = container.profileStore.profile
+
         val id = "script-fixture-${UUID.randomUUID()}"
         val now = System.currentTimeMillis()
         storage.sessions.create(id, "Script bridge synthetic fixture", null, null, now)
@@ -40,7 +40,7 @@ class ScriptToolBridgeDeviceTest {
             now,
         )
         try {
-            container.profileStore.switchTo(SafetyProfile.ADVANCED)
+            check(container.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
             settings.setEnabled(true)
             val result =
                 container.chatService.dispatchToolCall(
@@ -71,7 +71,6 @@ class ScriptToolBridgeDeviceTest {
             verifyDisabled(app, id)
         } finally {
             settings.setEnabled(oldEnabled)
-            container.profileStore.switchTo(oldProfile)
             storage.deleteSessionPermanently(id)
         }
     }

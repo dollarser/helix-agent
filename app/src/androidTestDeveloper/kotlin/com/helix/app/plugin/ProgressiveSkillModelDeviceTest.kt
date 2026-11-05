@@ -128,12 +128,12 @@ class ProgressiveSkillModelDeviceTest {
                         null,
                     )
                 }
-            val profile = c.profileStore.profile
+
             val controls = c.runControlStore.current
             val outcomes = mutableListOf<Boolean>()
             try {
                 check(c.providerService.runConnectionTest(provider) is ProbeOutcome.Ok)
-                c.profileStore.switchTo(SafetyProfile.ADVANCED)
+                check(c.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
                 c.firstLaunch.markSeen()
                 try {
                     returnToHelix()
@@ -465,7 +465,6 @@ class ProgressiveSkillModelDeviceTest {
             } finally {
                 if (backend == "root") DeviceAccess.disconnectRoot("mobile-use")
                 ownedBackend.close()
-                c.profileStore.switchTo(profile)
                 if (providerProfile == "qwen") c.providerService.delete(provider)
                 c.runControlStore.setMode(controls.mode)
                 c.runControlStore.setReasoning(controls.reasoning)

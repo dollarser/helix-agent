@@ -80,6 +80,10 @@ class ControllerReferenceControlActivity : Activity() {
     }
 
     private fun next() {
+        if (!controller.sessionReady.isCompleted) {
+            handler.postDelayed(::next, 10L)
+            return
+        }
         if (completed == 0) Log.i("HelixReferenceTrace", "BEGIN reference control")
         val id = controller.newTab()
         when (scenario) {

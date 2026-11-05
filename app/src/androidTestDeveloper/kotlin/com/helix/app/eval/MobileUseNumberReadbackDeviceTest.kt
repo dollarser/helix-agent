@@ -48,6 +48,13 @@ class MobileUseNumberReadbackDeviceTest {
             val trial = requireNotNull(args.getString("helixTrial"))
             require(trial.matches(Regex("[a-z0-9-]+")))
             app.runtimeRecoveryReady.await()
+            c.providerService.builtInModels.refresh(force = true)
+            val catalog = c.providerService.builtInModels.current()
+            report(
+                "NUMBER_MODEL_DIRECTORY failure=${catalog.failure};" +
+                    "listed=${BuiltInModel.MODEL_ID in catalog.models};" +
+                    "purposes=${catalog.purposes[BuiltInModel.MODEL_ID].orEmpty()}",
+            )
             check(
                 c.storage.turns
                     .listActive()
@@ -56,7 +63,7 @@ class MobileUseNumberReadbackDeviceTest {
             val lines = PrefsLineStore(app, "helix-mobile-use", synchronous = true)
             val oldScope = lines.lines(MobileUseGrantStore.CONFIG_KEY)
             val oldDisplay = lines.lines(MobileUseGrantStore.EXECUTION_KEY)
-            val profile = c.profileStore.profile
+
             val original = c.chatService.screen.value.openSessionId
             val plugin = c.pluginService.list().single { it.native?.pluginId == "mobile-use" }
             val session =
@@ -69,7 +76,7 @@ class MobileUseNumberReadbackDeviceTest {
             var passed = false
             var failure: String? = null
             try {
-                c.profileStore.switchTo(SafetyProfile.ADVANCED)
+                check(c.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
                 val store = MobileUseGrantStore(lines::lines, lines::setLines, { null })
                 store.configureGlobal(setOf("${app.packageName}.test"), false)
                 store.configureExecution(true, true)
@@ -97,7 +104,11 @@ class MobileUseNumberReadbackDeviceTest {
                         "只操作此测试应用，不操作主屏或其他应用，不使用终端、文件或OCR，完成后停留在测试页面。"
                 val submission = ChatSubmission(session, 0, "number-$trial", prompt)
                 val admission = c.chatService.sendSubmission(submission).await()
-                check(admission.outcome is ChatSubmissionOutcome.Accepted)
+                check(admission.outcome is ChatSubmissionOutcome.Accepted) {
+                    "Number input was not admitted: ${admission.outcome}; " +
+                        "blocked=${c.chatService.screen.value.blockedReason}; " +
+                        "sessionMatches=${c.chatService.screen.value.openSessionId == session}"
+                }
                 awaitTerminal(session)
                 verifyReadback(session)
                 passed = true
@@ -136,7 +147,6 @@ class MobileUseNumberReadbackDeviceTest {
                     lines.setLines(MobileUseGrantStore.EXECUTION_KEY, oldDisplay)
                     c.pluginService.catalog.select(session, plugin.id, false)
                     c.pluginService.setEnabled(plugin.id, plugin.enabled)
-                    c.profileStore.switchTo(profile)
                     app.startActivity(
                         Intent()
                             .setComponent(

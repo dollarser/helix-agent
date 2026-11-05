@@ -50,16 +50,23 @@ fun KnowledgeReferencePicker(
     var preparedJson by rememberSaveable { mutableStateOf(KnowledgeReferences.encode(current)) }
     var busy by remember { mutableStateOf(false) }
     var failed by remember { mutableStateOf(false) }
+    var loaded by remember(service) { mutableStateOf(false) }
+    var retry by remember(service) { mutableStateOf(0) }
     val scope = rememberCoroutineScope()
-    LaunchedEffect(service, query) {
+    LaunchedEffect(service, query, retry) {
         try {
-            service.catalogChanges.collect { candidates = service.candidates(query) }
+            service.catalogChanges.collect {
+                candidates = service.candidates(query)
+                loaded = true
+                failed = false
+            }
         } catch (cancel: CancellationException) {
             throw cancel
         } catch (_: Exception) {
             failed = true
         }
     }
+    if (!loaded && !failed) return
     preview?.let { item ->
         KnowledgeReferencePreview(item, service, onChange = { changed ->
             val key = "${changed.kind}:${changed.resourceId}"
@@ -110,6 +117,7 @@ fun KnowledgeReferencePicker(
                 stringResource(R.string.knowledge_reference_failed),
                 Modifier.testTag("knowledge-reference-error"),
             )
+            TextButton({ retry++ }, enabled = !busy) { Text(stringResource(R.string.chat_retry)) }
         }
         LazyColumn(
             Modifier

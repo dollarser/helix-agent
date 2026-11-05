@@ -63,7 +63,7 @@ class ReadAloudService(
 
     fun startLiveReply(frame: VisibleReplyFrame) {
         liveReply.start(frame)
-        if (liveReply.activeId != null) livePlayback = frame.speechId to frame.turnId
+        if (state.value.messageId == frame.speechId) livePlayback = frame.speechId to frame.turnId
     }
 
     val liveReply =
@@ -279,6 +279,7 @@ class ReadAloudService(
     }
 
     fun leave() {
+        automaticStarts.leave()
         stop()
         downloadJob?.cancel()
         model.cancelDownload()

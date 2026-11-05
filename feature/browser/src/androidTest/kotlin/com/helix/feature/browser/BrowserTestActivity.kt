@@ -1,11 +1,16 @@
 package com.helix.feature.browser
 
+import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.test.core.app.ActivityScenario
 import androidx.test.platform.app.InstrumentationRegistry
+import kotlinx.coroutines.runBlocking
+import java.io.File
+import java.util.UUID
 
 /** Real Activity Context for browser tests; no Application Context fallback. */
 class BrowserTestActivity : ComponentActivity() {
@@ -46,6 +51,8 @@ internal class BrowserActivityFixture : AutoCloseable {
 
     init {
         scenario.onActivity { controller = it.controller }
+        runBlocking { controller.sessionReady.await() }
+        scenario.onActivity { controller.closeAllTabs() }
     }
 
     override fun close() = scenario.close()

@@ -8,6 +8,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -57,7 +58,6 @@ class ConversationHeaderDeviceTest {
     @Test fun narrowHeaderRetainsNavigationAndDetailsAtLargeFont() {
         var created = 0
         var navigations = 0
-        var renames = 0
         var tasks = 0
         compose.setContent {
             val density = LocalDensity.current
@@ -68,7 +68,6 @@ class ConversationHeaderDeviceTest {
                             "A long conversation title that must not displace actions",
                             { created++ },
                             onNavigation = { navigations++ },
-                            onRename = { renames++ },
                             onTasks = { tasks++ },
                         ) { Text("Session settings fixture") }
                     }
@@ -85,15 +84,14 @@ class ConversationHeaderDeviceTest {
             )
         }
         val title = compose.onNodeWithTag("chat-title").getUnclippedBoundsInRoot()
-        assertTrue("Secondary actions must leave a usable title", title.right - title.left >= 80.dp)
+        assertTrue("Secondary actions must leave a usable title: $title", title.right - title.left >= 80.dp)
         compose.onNodeWithTag("background-tasks-open").assertDoesNotExist()
         compose.onNodeWithText("Session settings fixture").assertDoesNotExist()
         compose.onNodeWithTag("open-navigation").performClick()
-        compose.onNodeWithTag("chat-title").performClick()
+        compose.onNodeWithTag("chat-title").assertHasNoClickAction()
         compose.onNodeWithTag("chat-new-session").performClick()
         compose.runOnIdle {
             assertEquals(1, navigations)
-            assertEquals(1, renames)
             assertEquals(1, created)
         }
         compose.onNodeWithTag("chat-conversation-details").performClick()

@@ -66,6 +66,7 @@ fun BrowserTopBar(
     onStop: () -> Unit,
     onHome: () -> Unit,
     modifier: Modifier = Modifier,
+    addressFieldModifier: Modifier = Modifier,
 ) {
     val focus = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
@@ -153,24 +154,13 @@ fun BrowserTopBar(
 
                     // Input Field (testTag: browser-url-field for test suite compatibility)
                     Box(modifier = Modifier.weight(1f)) {
-                        if (urlText.isEmpty()) {
-                            Text(
-                                text = stringResource(R.string.browser_search_or_type_url),
-                                style =
-                                    TextStyle(
-                                        fontSize = 14.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                    ),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
                         BasicTextField(
                             value = urlText,
                             onValueChange = onUrlChange,
                             modifier =
-                                Modifier
+                                addressFieldModifier
                                     .fillMaxWidth()
+                                    .height(48.dp)
                                     .testTag("browser-url-field"),
                             singleLine = true,
                             textStyle =
@@ -189,6 +179,20 @@ fun BrowserTopBar(
                                     onGo = { submit() },
                                     onDone = { submit() },
                                 ),
+                            decorationBox = { innerTextField ->
+                                Box(contentAlignment = Alignment.CenterStart) {
+                                    if (urlText.isEmpty()) {
+                                        Text(
+                                            text = stringResource(R.string.browser_search_or_type_url),
+                                            fontSize = 14.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                    }
+                                    innerTextField()
+                                }
+                            },
                         )
                     }
 

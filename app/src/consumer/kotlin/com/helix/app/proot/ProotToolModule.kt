@@ -11,7 +11,7 @@ import com.helix.tools.framework.ToolRegistry
 /**
  * The PRoot capability module (HXA-085): the CONSUMER flavor's side of the per-variant
  * [ProotToolModule] seam (same FQN as the developer implementation, exactly like
- * [com.helix.app.profile.AdvancedProfileAvailability]).
+ * [com.helix.app.profile.ChannelCapabilities]).
  *
  * The consumer channel ships NO PRoot capability (ADR-0013/ADR-0005: the PRoot/CLI
  * companion is a developer/Advanced capability; the consumer Play build has no PRoot

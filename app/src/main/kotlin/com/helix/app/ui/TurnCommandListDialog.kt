@@ -11,6 +11,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -24,6 +25,7 @@ import com.helix.app.chat.ChatService
 import com.helix.app.proot.CommandEntry
 import com.helix.app.ui.indicatedVerticalScroll
 import com.helix.core.model.ToolCallState
+import kotlinx.coroutines.CancellationException
 
 /**
  * HXA-194: the task page's command entry (任务页入口). Lists the turn's Linux command
@@ -32,17 +34,27 @@ import com.helix.core.model.ToolCallState
  * list or the page from it starts or continues nothing.
  */
 @Composable
-@Suppress("FunctionName")
+@Suppress("FunctionName", "TooGenericExceptionCaught") // A failed local read remains retryable; never an empty list.
 internal fun TurnCommandListDialog(
     service: ChatService,
     turnId: String,
     onOpenCommandDetail: (String, String) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var entries by remember(turnId) { mutableStateOf<List<CommandEntry>?>(null) }
-    LaunchedEffect(turnId) {
-        entries = service.turnCommands(turnId)
+    var entries by remember(service, turnId) { mutableStateOf<List<CommandEntry>?>(null) }
+    var failed by remember(service, turnId) { mutableStateOf(false) }
+    var retry by remember(service, turnId) { mutableIntStateOf(0) }
+    LaunchedEffect(service, turnId, retry) {
+        try {
+            entries = service.turnCommands(turnId)
+            failed = false
+        } catch (cancel: CancellationException) {
+            throw cancel
+        } catch (_: Exception) {
+            failed = true
+        }
     }
+    if (entries == null && !failed) return
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.tasks_turn_command)) },
@@ -52,12 +64,12 @@ internal fun TurnCommandListDialog(
                     .heightIn(max = 440.dp)
                     .indicatedVerticalScroll(rememberScrollState()),
             ) {
-                if (entries == null) {
-                    Text(stringResource(R.string.tasks_commands_loading))
-                } else if (entries!!.isEmpty()) {
+                if (failed) {
+                    LocalListReadError { retry++ }
+                } else if (entries.orEmpty().isEmpty()) {
                     Text(stringResource(R.string.tasks_commands_empty))
                 } else {
-                    entries!!.forEach { entry ->
+                    entries.orEmpty().forEach { entry ->
                         Column(Modifier.testTag("turn-command-${entry.callId}")) {
                             Text(
                                 entry.commandText,

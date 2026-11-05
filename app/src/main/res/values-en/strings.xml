@@ -122,16 +122,6 @@
     <string name="readiness_next_action">Next step</string>
     <string name="readiness_action_add_model">Configure a model</string>
     <string name="settings_title">Settings</string>
-    <string name="settings_safety_section">Safety profile</string>
-    <string name="settings_current_advanced">Current: Advanced</string>
-    <string name="settings_current_standard">Current: Standard (default)</string>
-    <string name="settings_switch_to_advanced">Switch to Advanced</string>
-    <string name="settings_switch_back_standard">Switch back to Standard</string>
-    <string name="settings_advanced_m2_note">Configure and authorize advanced capabilities as needed. Switching modes does not enable or authorize them.</string>
-    <string name="settings_consumer_standard_only">This build uses Standard and has no Advanced switch. Available capabilities are listed in its settings.</string>
-    <string name="settings_advanced_confirm_title">Switch to Advanced — risk notice</string>
-    <string name="settings_advanced_confirm_ok">I understand, confirm switch</string>
-    <string name="profile_advanced_risk_summary">Advanced provides additional capabilities and prepares Linux on first use. System permissions, Root, network and file access still require their own authorization.</string>
 
     <!-- HXA-069: domain string resources (zh/en parity checked by scripts/check-i18n.sh) -->
     <string name="admission_empty_message">Empty message: type something or select at least one sendable attachment.</string>
@@ -198,7 +188,7 @@
     <string name="approval_no_permanent_allow">Applies to this action only.</string>
     <string name="approval_online">Online</string>
     <string name="approval_profile_advanced">Advanced (enhanced, not full access)</string>
-    <string name="approval_profile_standard">Standard (default)</string>
+    <string name="approval_profile_standard">Standard</string>
     <string name="approval_scope">Scope</string>
     <string name="approval_scope_unscoped">No scope (unscoped)</string>
     <string name="approval_source">Source</string>
@@ -1346,27 +1336,25 @@
     <string name="session_expert_authority_note">Instructions and linked capabilities never bypass permissions or approvals.</string>
     <string name="session_expert_save_failed">Could not complete the expert operation. Check the input or try again.</string>
     <string name="session_expert_clear">Clear Expert</string>
-    <string name="session_skills_title">Session skills</string>
-    <string name="session_skills_hint">Applies only to future use in this session; global Skill enablement is unchanged.</string>
+    <string name="session_skills_title">Session skill switches</string>
+    <string name="session_skills_hint">Controls which skills are available in this session; enabling does not run them.</string>
     <string name="session_skills_empty">No Skills available.</string>
     <string name="session_skills_failed">Could not read or save Skill state.</string>
     <string name="session_skills_manage">Manage Skills</string>
-    <string name="composer_add_title">Add to message</string>
+    <string name="composer_add_title">Add</string>
     <string name="composer_add_message_group">Add to this message</string>
     <string name="composer_add_camera">Camera</string>
-    <string name="composer_add_photo">Photos</string>
-    <string name="composer_add_file">File</string>
+    <string name="composer_add_file">Images or files</string>
     <string name="composer_add_reference">Reference conversation</string>
     <string name="composer_reference_chip">Reference: %1$s</string>
     <string name="conversation_reference_title">Reference conversation</string>
     <string name="conversation_reference_hint">Share a fixed revision for on-demand reading in this conversation.</string>
     <string name="conversation_reference_empty">No other conversations are available to reference.</string>
-    <string name="composer_add_session_group">Existing capabilities</string>
+    <string name="plugin_session_scope_hint">Selected plugins are available on demand in this conversation; selection does not run them.</string>
     <string name="connector_session_title">Choose plugins</string>
     <string name="connector_session_empty">No plugins available. Install from the marketplace or import a plugin.</string>
     <string name="connector_session_unavailable">Not installed or removed</string>
     <string name="connector_session_setup">Configure or enable components</string>
-    <string name="connector_session_ready">Available for this conversation; actions remain subject to authorization</string>
     <string name="connector_session_default">Default for new sessions</string>
     <string name="connector_session_failed">Could not save. Try again.</string>
     <string name="connector_session_configure">Manage and configure plugins</string>
@@ -1423,7 +1411,7 @@
     <string name="chat_prompt_suggestion_goal_fix">Investigate and fix failing test cases</string>
     <string name="chat_prompt_suggestion_goal_refactor">Refactor a specific module and optimize performance</string>
     <string name="workspace_local_backend_unavailable">This workspace cannot provide a local directory for Git or terminal. Select an available local workspace.</string>
-    <string name="workspace_binding_help">Switching affects future requests and does not grant file permission. Existing calls, approvals and artifacts keep their original directory. Document directories do not support a local terminal or Git.</string>
+    <string name="workspace_binding_help">Changes apply to future requests without moving existing files, changing project membership or granting access. Existing calls, approvals and artifacts keep their original directory. Document-provider folders cannot directly run terminal or Git operations.</string>
     <string name="workspace_document_backend">System document directory</string>
     <string name="workspace_path_backend">Local file directory</string>
     <string name="workspace_unavailable">Directory unavailable. Select the source again; existing calls keep their original target.</string>
@@ -1526,9 +1514,7 @@
     <string name="chat_command_compact_unavailable">Compaction is unavailable. Finish the current request or handle attachments first.</string>
     <string name="chat_command_help">/chat read-only chat · /plan planning · /act execution · /goal ongoing goal · /compact: shorten context · /clear: reset input. Select, then send to execute.</string>
     <string name="chat_command_mode_hint">In the conversation, enter /chat, /plan, /act or /goal and send to switch modes.</string>
-    <string name="runtime_advanced_required">The Linux environment requires Advanced mode. It is prepared on first use; execution still requires authorization.</string>
     <string name="runtime_developer_required">This build does not include the Linux environment. Use the Advanced build.</string>
-    <string name="runtime_switch_advanced">Switch to Advanced</string>
     <string name="chat_command_chat_desc">Switch to read-only Chat mode</string>
     <string name="chat_current_mode">Mode: %1$s</string>
     <string name="runtime_entry_failed">Unable to open the runtime page. Check that the runtime is enabled, then try again.</string>
@@ -1733,7 +1719,7 @@
     <string name="extensions_select_tools">Select all tools for this connection</string>
     <string name="extensions_tool_details">Review or customize tools</string>
     <string name="extensions_component_status">Available components: %1$d / %2$d</string>
-    <string name="extensions_search">Search installed plugins</string>
+    <string name="extensions_search">Search installed plugins and skills</string>
     <string name="mobile_use_save_settings">Save plugin settings</string>
     <string name="mobile_use_permissions_heading">System access</string>
     <string name="mobile_use_scope_heading">Application scope</string>
@@ -1810,7 +1796,6 @@
     <string name="provider_model_input_hint">Type a model name or choose from the dropdown.</string>
     <string name="settings_permissions_intro">System permissions control what Helix can access; action rules control when the Agent needs confirmation.</string>
     <string name="settings_system_permissions_hint">Manage notifications, file access, accessibility, Shizuku and Root permissions.</string>
-    <string name="settings_execution_mode">Operating mode</string>
     <string name="settings_default_permissions_hint">Applies to new conversations. Change the current conversation in its settings.</string>
     <string name="settings_lan_summary">Manage allowed local network service addresses.</string>
     <string name="settings_egress_summary">Manage time-limited approvals for sending sensitive content to external services.</string>
@@ -1914,7 +1899,6 @@
     <string name="plugin_state_unsupported">Execution unsupported</string>
     <string name="plugin_state_metadata">Metadata only</string>
     <string name="plugin_state_reload">Configuration changed; reconnect</string>
-    <string name="plugin_effect_next_request">Changes apply to the next request</string>
     <string name="plugin_revision">Internal install revision: %1$d</string>
     <string name="plugin_saved_loaded">Configuration saved: %1$s; loaded: %2$s</string>
     <string name="plugin_fact_yes">Yes</string>
@@ -2061,7 +2045,6 @@
     <string name="account_manage">Manage account</string>
     <string name="account_reauth">Sign in again</string>
     <string name="account_unavailable">Account unavailable</string>
-    <string name="drawer_permission_mode">Permission mode</string>
     <string name="tool_purpose_clipboard_read">Read clipboard</string>
     <string name="tool_purpose_clipboard_write">Write clipboard</string>
     <string name="tool_purpose_share_text">Share text</string>
@@ -2143,8 +2126,6 @@
     <string name="skill_pick_hint">Choose an enabled skill for this message without changing its enablement.</string>
     <string name="composer_plugins">Plugins: %1$s</string>
     <string name="plugin_selection_load_failed">Could not read the plugin selection. Reopen the picker to retry.</string>
-    <string name="composer_scope_message">This message</string>
-    <string name="composer_scope_session">Future inputs in this conversation</string>
     <string name="composer_add_hint">Add material to this message or choose existing capabilities for future inputs.</string>
     <string name="expert_return_selection">Back to expert selection</string>
     <string name="expert_manage_hint">Create, import or edit without automatically changing this conversation.</string>
@@ -2164,7 +2145,6 @@
     <string name="provider_model_purpose_chat">Chat model</string>
     <string name="provider_model_purpose_other">Non-chat model (not selectable)</string>
     <string name="provider_model_not_chat">This model does not support chat. Choose another model.</string>
-    <string name="provider_model_directory_manage">Manage chat models</string>
     <string name="builtin_model_tasks_missing">Some built-in models have no declared task and are not selectable yet.</string>
     <string name="builtin_model_catalog_failed">Could not refresh built-in models. Try again.</string>
     <string name="builtin_model_catalog_empty">No built-in chat models are available in this catalog.</string>
@@ -2211,5 +2191,20 @@
     <string name="scheduled_external_title">Review scheduled task</string>
     <string name="scheduled_external_missing">Task unavailable. This link does not execute it.</string>
     <string name="plugin_setup_disabled">This plugin is disabled. Enable it in its configuration, then return to select it.</string>
-    <string name="project_working_directory">Working folder: %1$s</string>
+    <string name="chat_artifacts_entry">Outputs</string>
+    <string name="session_settings_workspace">Workspace</string>
+    <string name="session_settings_extensions">Permissions and extensions</string>
+    <string name="session_settings_selected_count">%1$d selected</string>
+    <string name="session_settings_not_selected">None</string>
+    <string name="session_settings_retry">Retry</string>
+    <string name="chat_artifacts_empty">No outputs in this conversation yet.</string>
+    <string name="voice_input_modes_title">Voice input</string>
+    <string name="voice_input_single">Single recording</string>
+    <string name="composer_add_session_group">Conversation capabilities</string>
+    <string name="workspace_use_project_directory">Use project directory</string>
+    <string name="workspace_session_directory">Private conversation directory</string>
+    <string name="workspace_project_directory_label">Project directory · %1$s</string>
+    <string name="workspace_directory_purpose">The working directory is the default base for files and relative paths. Without a selection, a private directory is created. A project is optional; the whole directory is not sent to the model.</string>
+    <string name="workspace_change_directory">Change directory</string>
+    <string name="workspace_internal_storage_help">Helix manages internal storage; its location cannot be changed manually. Changing the working directory keeps existing files in their original locations. View or export them in Files.</string>
 </resources>

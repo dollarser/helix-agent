@@ -69,7 +69,6 @@ include(
     ":tools:browser",
     ":tools:files",
     ":tools:root",
-    ":testing",
 )
 
 // Research experiments are reproducible on demand, outside normal product verification.

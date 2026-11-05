@@ -5,6 +5,4 @@
     <string name="chat_model_authentication">Model authentication is unavailable or expired. Sign in again, check the key, or select another model.</string>
     <string name="chat_model_network">The model source connection failed. Check the network and test again, or select another model.</string>
     <string name="chat_model_test_failed">Model verification failed. Check model settings for details or select another model.</string>
-    <string name="chat_model_reselect">Select model</string>
-    <string name="chat_model_manage_source">Model settings</string>
 </resources>

@@ -35,7 +35,7 @@ internal class ShellBackgroundDisplay(
     val independentFocus: Boolean
 
     init {
-        check(android.os.Process.myUid() == 2000) { "SHELL_UID_REQUIRED" }
+        check(android.os.Process.myUid() in setOf(0, 2000)) { "PRIVILEGED_UID_REQUIRED" }
         val shell =
             object : ContextWrapper(context) {
                 override fun getPackageName() = "com.android.shell"
@@ -47,7 +47,7 @@ internal class ShellBackgroundDisplay(
                 @androidx.annotation.RequiresApi(31)
                 override fun getAttributionSource(): android.content.AttributionSource =
                     android.content.AttributionSource
-                        .Builder(2000)
+                        .Builder(android.os.Process.myUid())
                         .setPackageName("com.android.shell")
                         .build()
             }
@@ -136,17 +136,25 @@ internal class ShellBackgroundDisplay(
         }
 
     /** Local viewing only. Copies the cached frame without observing or changing the input target. */
-    fun preview(): ByteArray? =
+    fun preview(width: Int): ByteArray? =
         synchronized(lock) {
             val source = pixels?.takeUnless { closed } ?: return@synchronized null
-            val thumbnail = Bitmap.createScaledBitmap(source, WIDTH / 3, HEIGHT / 3, true)
+            var thumbnail: Bitmap? = null
+            var thumbnailWidth = 0
             try {
-                java.io.ByteArrayOutputStream().use { bytes ->
-                    check(thumbnail.compress(Bitmap.CompressFormat.JPEG, 75, bytes))
-                    bytes.toByteArray().takeIf { it.size <= BackgroundPreviewTransport.MAX_BYTES }
+                encodeBackgroundPreview(width) { targetWidth, quality ->
+                    if (thumbnailWidth != targetWidth) {
+                        thumbnail?.takeUnless { it === source }?.recycle()
+                        thumbnail = Bitmap.createScaledBitmap(source, targetWidth, HEIGHT * targetWidth / WIDTH, true)
+                        thumbnailWidth = targetWidth
+                    }
+                    java.io.ByteArrayOutputStream().use { bytes ->
+                        check(requireNotNull(thumbnail).compress(Bitmap.CompressFormat.JPEG, quality, bytes))
+                        bytes.toByteArray()
+                    }
                 }
             } finally {
-                thumbnail.recycle()
+                thumbnail?.takeUnless { it === source }?.recycle()
             }
         }
 

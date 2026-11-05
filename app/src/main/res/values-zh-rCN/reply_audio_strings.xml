@@ -1,5 +1,5 @@
 <resources>
-    <string name="reply_audio_automatic_on">自动朗读已开启</string>
-    <string name="reply_audio_automatic_off">自动朗读已关闭</string>
+    <string name="reply_audio_automatic_on">自动朗读最终回答已开启</string>
+    <string name="reply_audio_automatic_off">自动朗读最终回答已关闭</string>
     <string name="reply_audio_save_failed">无法保存自动朗读设置，请重试</string>
 </resources>

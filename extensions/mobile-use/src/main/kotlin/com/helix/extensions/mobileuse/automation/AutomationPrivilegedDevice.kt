@@ -42,6 +42,7 @@ fun privilegedGesturePermitted(
     val target = requireNotNull(request.target)
     validateAutomationGesture(request.strokes, target, request.wholeDisplay, 10, 10_000)
     if (current != target) return false
+    if (target.isWholeTaskTarget(request.wholeDisplay)) return true
     val active = windows.singleOrNull { it.windowId == target.windowId } ?: return false
     if (request.wholeDisplay) return true
     val points = request.strokes.flatMap { it.points }
@@ -113,3 +114,7 @@ fun privilegedSemanticAnchorPermitted(
             }
         }
 }
+
+/** Windowless coordinates are allowed only for a verified owned task and the full-display grant. */
+internal fun AutomationDisplayTarget.isWholeTaskTarget(wholeDisplay: Boolean): Boolean =
+    wholeDisplay && !semanticAvailable && windowId == -1 && taskId >= 0 && displayId > 0 && displaySession.isNotBlank()

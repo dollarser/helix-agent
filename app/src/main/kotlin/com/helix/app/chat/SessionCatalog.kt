@@ -35,7 +35,10 @@ internal class SessionCatalog(
                 } else {
                     row.directoryRef?.let(bindDirectory)
                 }
-            storage.sessions.create(row.id, row.title, row.providerId, row.modelId, row.createdAt, directory)
+            // Match the existing session FK deletion contract: metadata remains editable, while
+            // the retained model identifies a deleted source and still blocks generation.
+            val providerId = row.providerId?.takeIf { storage.providerConfigs.find(it) != null }
+            storage.sessions.create(row.id, row.title, providerId, row.modelId, row.createdAt, directory)
             if (row.directoryRef != null && directory == null) workspaceRecovery.record(row.id, row.createdAt)
             draft.project?.let { storage.projects.assign(row.id, it.id) }
             controls.set(row.id, draft.control, row.createdAt)

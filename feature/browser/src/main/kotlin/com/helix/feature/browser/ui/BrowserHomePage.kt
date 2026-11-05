@@ -39,6 +39,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -108,6 +109,7 @@ fun BrowserHomePage(
                     .fillMaxWidth()
                     .height(48.dp)
                     .clip(RoundedCornerShape(24.dp))
+                    .testTag("browser-home-search")
                     .clickable { onSearchClick() },
             shape = RoundedCornerShape(24.dp),
             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
@@ -125,6 +127,7 @@ fun BrowserHomePage(
                         modifier =
                             Modifier
                                 .clip(RoundedCornerShape(12.dp))
+                                .testTag("browser-search-engine")
                                 .clickable { engineMenuExpanded = true },
                         color = MaterialTheme.colorScheme.primaryContainer,
                     ) {
@@ -143,6 +146,7 @@ fun BrowserHomePage(
                     ) {
                         SearchEngines.ALL.forEach { engine ->
                             DropdownMenuItem(
+                                modifier = Modifier.testTag("browser-search-engine-${engine.id}"),
                                 text = { Text(engine.name) },
                                 onClick = {
                                     onSearchEngineSelect(engine.id)

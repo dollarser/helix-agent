@@ -300,7 +300,12 @@ private fun MobileUseDisplayOptions(state: MobileUseSettingsState) {
     LaunchedEffect(Unit) {
         shellStatus =
             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                if (!com.helix.tools.deviceaccess.DeviceAccess
+                if (com.helix.tools.deviceaccess.DeviceAccess
+                        .root("mobile-use")
+                        ?.connectedBinder() != null
+                ) {
+                    R.string.mobile_use_shell_ready
+                } else if (!com.helix.tools.deviceaccess.DeviceAccess
                         .shizukuReady()
                 ) {
                     R.string.mobile_use_shell_unavailable

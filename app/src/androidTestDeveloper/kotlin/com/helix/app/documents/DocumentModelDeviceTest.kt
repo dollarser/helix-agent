@@ -56,7 +56,7 @@ class DocumentModelDeviceTest {
             val model = requireNotNull(args.getString("documentModel"))
             require(model.isNotBlank())
             val previous = c.runControlStore.current
-            val previousProfile = c.profileStore.profile
+
             val originalSession = c.chatService.screen.value.openSessionId
             val provider =
                 c.providerService.create(
@@ -76,7 +76,7 @@ class DocumentModelDeviceTest {
                 check(c.providerService.runConnectionTest(provider) is ProbeOutcome.Ok)
                 val session = c.chatService.createSession("Document $format fixture", provider, model)
                 cleanupSession = session
-                c.profileStore.switchTo(SafetyProfile.ADVANCED)
+                check(c.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
                 c.chatService.setReasoning(ReasoningEffort.OFF)
                 val binding = requireNotNull(c.storage.workspaces.binding(session))
                 val root =
@@ -156,7 +156,6 @@ class DocumentModelDeviceTest {
                     c.storage.deleteSessionPermanently(session)
                 }
                 c.providerService.delete(provider)
-                c.profileStore.switchTo(previousProfile)
                 c.runControlStore.setMode(previous.mode)
                 c.runControlStore.setReasoning(previous.reasoning)
                 c.runControlStore.setBudgets(previous.budgets)

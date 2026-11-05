@@ -40,9 +40,27 @@ class RootAutomationBackend(
             return com.helix.extensions.mobileuse.automation
                 .AutomationDeviceReply("ROOT_IDENTITY_UNAVAILABLE")
         }
-        return PrivilegedDeviceTransactions.execute(binder, request) {
-            connection.connectedBinder() === binder && allowed()
+        val owner = request.background?.owner as? ShizukuExecutionGuard
+        val bound =
+            owner?.bindDisplayService(binder) { checkpoint, deadline ->
+                restorePrivilegedFocus(binder, checkpoint, deadline) { connection.connectedBinder() === binder }
+            }
+        if (bound == false) {
+            return com.helix.extensions.mobileuse.automation.AutomationDeviceReply(
+                "BACKGROUND_DISPLAY_STALE",
+                action = AutomationActionResult(AutomationActionStatus.BACKGROUND_DISPLAY_STALE),
+            )
         }
+        return PrivilegedDeviceTransactions
+            .execute(binder, request) {
+                connection.connectedBinder() === binder && allowed()
+            }.also { reply ->
+                if (reply.target?.displayId?.let { it > 0 } == true) {
+                    owner?.observedDisplayPackage(reply.target.packageName)
+                } else {
+                    owner?.displayRefused(reply.status)
+                }
+            }
     }
 
     @Suppress("TooGenericExceptionCaught") // A transport failure after dispatch has an unknown effect.

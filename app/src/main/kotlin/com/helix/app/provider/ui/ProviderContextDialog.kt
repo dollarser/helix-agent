@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.OutlinedTextField
@@ -25,6 +24,7 @@ import androidx.compose.ui.res.stringResource
 import com.helix.app.R
 import com.helix.app.provider.ProviderRowUi
 import com.helix.app.provider.ProviderService
+import com.helix.app.ui.SettingsCheckbox
 import com.helix.app.ui.indicatedVerticalScroll
 import com.helix.provider.api.ProviderContextSettings
 import kotlinx.coroutines.launch
@@ -136,8 +136,8 @@ internal fun ProviderContextEditor(
                     Text(stringResource(R.string.context_window_fallback, settings.window))
                 }
                 Row {
-                    Checkbox(
-                        automaticWindow,
+                    SettingsCheckbox(
+                        automaticWindow.takeIf { initialized },
                         { automaticWindow = it },
                         enabled = !loading && loaded && !saving,
                         modifier = Modifier.testTag("provider-auto-window"),
@@ -153,8 +153,8 @@ internal fun ProviderContextEditor(
                     singleLine = true,
                 )
                 Row {
-                    Checkbox(
-                        settings.autoCompact,
+                    SettingsCheckbox(
+                        settings.autoCompact.takeIf { loaded },
                         { settings = settings.copy(autoCompact = it) },
                         enabled = !loading && loaded && !saving,
                         modifier = Modifier.testTag("provider-auto-compact"),

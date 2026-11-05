@@ -60,7 +60,9 @@ internal class AutomationPrivilegedDeviceHost(
             bound = null
             val ticket =
                 AutomationServiceController.physicalInput.acquire()
-                    ?: return@withPhysicalOperation AutomationDeviceObservation("PHYSICAL_OPERATION_BUSY")
+                    ?: return@withPhysicalOperation center.liveDeviceGrant(call)?.let {
+                        observation("PHYSICAL_OPERATION_BUSY", it, backend)
+                    } ?: AutomationDeviceObservation("NO_ACTIVE_SESSION")
             try {
                 AutomationServiceController.invalidateObservations()
                 observeGranted(call, backend)
@@ -80,12 +82,18 @@ internal class AutomationPrivilegedDeviceHost(
             center.liveDeviceGrant(call)
                 ?: return AutomationDeviceObservation("NO_ACTIVE_SESSION")
         val reply =
-            backend.device(AutomationDeviceRequest(AutomationDeviceOperation.OBSERVE)) {
+            backend.device(
+                AutomationDeviceRequest(AutomationDeviceOperation.OBSERVE, wholeDisplay = wholeDisplay(grant.scope)),
+            ) {
                 center.liveDeviceGrant(call) == grant
             }
-        val target = reply.target ?: return unframedObservation(reply.status, grant.scope.allApplications)
-        if (center.liveDeviceGrant(call) != grant || !grant.scope.permitsPackage(target.packageName)) {
-            return unframedObservation("TARGET_NOT_ALLOWLISTED", grant.scope.allApplications)
+        if (center.liveDeviceGrant(call) != grant) return AutomationDeviceObservation("NO_ACTIVE_SESSION")
+        val target = reply.target ?: return observation(reply.status, grant, backend)
+        if (!grant.scope.permitsPackage(target.packageName)) {
+            return observation("TARGET_NOT_ALLOWLISTED", grant, backend)
+        }
+        if (!target.semanticAvailable && !wholeDisplay(grant.scope)) {
+            return observation("TARGET_UNAVAILABLE", grant, backend)
         }
         val frame =
             AutomationFrame(
@@ -96,46 +104,43 @@ internal class AutomationPrivilegedDeviceHost(
                 target,
             )
         bound = BoundFrame(frame, call.sessionId, call.turnId, call.authorizationScopeRef, backend)
-        return AutomationDeviceObservation(
-            "READY",
-            frame,
-            systemActions =
-                if (AutomationDeviceOperation.GLOBAL_ACTION in backend.deviceOperations) {
-                    AutomationGlobalAction.entries
-                        .filter {
-                            backend.supportsGlobalAction(it) && it.platformId <= 8 && (
-                                wholeDisplay(grant.scope) ||
-                                    it in setOf(AutomationGlobalAction.BACK, AutomationGlobalAction.HOME)
-                            )
-                        }.toSet()
-                } else {
-                    emptySet()
-                },
-            allApplications = grant.scope.allApplications,
-            screenshotSupported =
-                grant.shareScreens &&
-                    (
-                        backend.supportsScopedCapture ||
-                            (
-                                wholeDisplay(
-                                    grant.scope,
-                                ) && AutomationDeviceOperation.SCREENSHOT in backend.deviceOperations
-                            ) ||
-                            center.windowCaptureAvailable()
-                    ),
-            gestureSupported = AutomationDeviceOperation.GESTURE in backend.deviceOperations,
-            rootState = center.rootState(),
-            shizukuState = center.shizukuState(),
-            clickMatchBackend = center.preferredClickBackend(),
-        )
+        return observation("READY", grant, backend, frame)
     }
 
-    private fun unframedObservation(
+    private fun observation(
         status: String,
-        allApplications: Boolean,
+        grant: com.helix.extensions.mobileuse.config.MobileUseGrant,
+        backend: AutomationPrivilegedBackend,
+        frame: AutomationFrame? = null,
     ) = AutomationDeviceObservation(
-        status = status,
-        allApplications = allApplications,
+        status,
+        frame,
+        systemActions =
+            if (AutomationDeviceOperation.GLOBAL_ACTION in backend.deviceOperations) {
+                AutomationGlobalAction.entries
+                    .filter {
+                        backend.supportsGlobalAction(it) && it.platformId <= 8 &&
+                            (
+                                wholeDisplay(grant.scope) || it in
+                                    setOf(
+                                        AutomationGlobalAction.BACK,
+                                        AutomationGlobalAction.HOME,
+                                    )
+                            )
+                    }.toSet()
+            } else {
+                emptySet()
+            },
+        allApplications = grant.scope.allApplications,
+        screenshotSupported =
+            grant.shareScreens && (
+                backend.supportsScopedCapture ||
+                    (wholeDisplay(grant.scope) && AutomationDeviceOperation.SCREENSHOT in backend.deviceOperations) ||
+                    center.windowCaptureAvailable()
+            ),
+        gestureSupported = AutomationDeviceOperation.GESTURE in backend.deviceOperations,
+        backendReady = backend.state() == AutomationBackendState.READY,
+        semanticSupported = AutomationDeviceOperation.SNAPSHOT in backend.deviceOperations,
         rootState = center.rootState(),
         shizukuState = center.shizukuState(),
         clickMatchBackend = center.preferredClickBackend(),

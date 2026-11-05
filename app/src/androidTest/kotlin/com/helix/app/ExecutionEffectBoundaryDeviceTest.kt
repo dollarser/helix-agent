@@ -2,7 +2,7 @@ package com.helix.app
 
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.helix.app.profile.AdvancedProfileAvailability
+import com.helix.app.profile.ChannelCapabilities
 import com.helix.app.tool.SessionToolEffectClassifier
 import com.helix.core.model.DispatchOutcomeCode
 import com.helix.core.model.ExecutionTargetType
@@ -26,7 +26,6 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
-import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -77,15 +76,6 @@ class ExecutionEffectBoundaryDeviceTest {
         container.chatService.openSession(sessionId)
     }
 
-    @After
-    fun restoreDefaultProfile() {
-        // switchTo(ADVANCED) persists to the store: restore STANDARD so later classes in the same
-        // process start from the same state (the consumer build never holds ADVANCED).
-        if (AdvancedProfileAvailability.ADVANCED_AVAILABLE) {
-            container.profileStore.switchTo(SafetyProfile.STANDARD)
-        }
-    }
-
     @Test
     fun theShellToolIsPresentOnlyOnTheDeveloperFlavor() {
         // The VARIANT BOUNDARY as a hard assertion (not a branch): the developer-only PRoot
@@ -94,7 +84,7 @@ class ExecutionEffectBoundaryDeviceTest {
         val linux = container.toolPipeline.registry.resolveLatest(ToolName(shellName))
         assertEquals(
             "the developer-only $shellName tool must be registered IFF the developer flavor",
-            AdvancedProfileAvailability.ADVANCED_AVAILABLE,
+            ChannelCapabilities.ADVANCED_AVAILABLE,
             linux != null,
         )
     }
@@ -126,7 +116,7 @@ class ExecutionEffectBoundaryDeviceTest {
         val sentinel = appContext.noBackupFilesDir.resolve("be-write-sentinel-$run")
         sentinel.delete()
         val writeScript = "echo boundary > ${sentinel.absolutePath}"
-        if (!AdvancedProfileAvailability.ADVANCED_AVAILABLE) {
+        if (!ChannelCapabilities.ADVANCED_AVAILABLE) {
             // CONSUMER: the developer PRoot Runtime (and the shell) is absent — a request for the
             // shell is refused at the registry (not executed, not a skip). The variant boundary.
             val outcome = dispatch("be-shell-consumer-$run", "be-turn-consumer-$run", shellName, shellArgs(writeScript))
@@ -139,7 +129,7 @@ class ExecutionEffectBoundaryDeviceTest {
         }
         // DEVELOPER: the real shell lane is present. ADVANCED lets the profile gate pass so the ONE
         // resolver is what decides; a COMMAND_EXECUTION DENY refuses the write before the backend.
-        container.profileStore.switchTo(SafetyProfile.ADVANCED)
+        check(container.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
         val rules =
             SessionPermissionConfig.copyPreset(SessionPermissionMode.FULL_ACCESS).toMutableMap().apply {
                 put(OperationEffect.COMMAND_EXECUTION, OperationRule.DENY)

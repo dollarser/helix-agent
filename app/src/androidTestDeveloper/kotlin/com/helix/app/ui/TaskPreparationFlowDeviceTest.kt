@@ -115,7 +115,7 @@ class TaskPreparationFlowDeviceTest {
 
     private fun savePhoneSettingsViaUi() {
         compose.navigateTo("extensions")
-        compose.onNodeWithTag("plugin-manage-bundled-plugin:mobile-use").performScrollTo().performClick()
+        compose.onNodeWithTag("bundled-plugin-mobile-use").performScrollTo().performClick()
         compose.onNodeWithTag("mobile-use-plugin-settings").performScrollTo().performClick()
         compose.waitUntil(10_000) {
             compose

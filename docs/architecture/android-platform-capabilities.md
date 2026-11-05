@@ -369,13 +369,13 @@ P2 高权限：ui.*, root.*
 
 ## 可选后台显示（2026-11-01）
 
-Mobile Use 的显示设置允许选择主屏或后台屏，及是否允许迁移主屏正在使用的同一 App；保存设置不授予 Shizuku 或 Android 权限。后台模式复用现有 Shizuku UserService（UID2000），配对与连接由 Shizuku 管理，Helix 不自行开启无线调试或创建信任。不依赖 Root，也不新增第二套工具/Agent 循环。选中后台模式而连接不可用时明确失败，主屏能力保持原实现。
+Mobile Use 的显示设置允许选择主屏或后台屏，及是否允许迁移主屏正在使用的同一 App；保存设置不授予 Root、Shizuku 或 Android 权限。后台模式复用已连接 Root 服务（UID0）或已授权 Shizuku UserService（UID2000），并固定原显示后端。配对与连接由 Shizuku 管理，Helix 不自行开启无线调试或创建信任，不新增第二套工具/Agent 循环。选中后台模式而连接不可用时明确失败，主屏能力保持原实现。
 
 `ShellBackgroundDisplay` 创建 own-content VirtualDisplay，输出到 ImageReader，最多约10fps消费最新帧；`ShizukuHierarchy` 按 windowsOnAllDisplays 精确取对应显示的 root，节点动作仍走现有 PrivilegedSemanticEngine。应用启动固定 `am start --display`，触摸/返回事件明确设置 displayId；不向后台屏派发无法绑定显示的系统动作。Home 的系统策略会关闭全局系统窗口，因此后台模式不发布 Home 能力，主屏仍支持。ui.device 反馈 displayId、executionDisplay、独立焦点事实；帧内部绑定随机 displaySession，防止 displayId 回收误用。截图仍经过原分享授权、大小预算及视觉产物发布，指定 App 范围不允许无条件曝光其他覆盖窗口。
 
 API31 起提供本后端；API34+ 请求独立焦点及禁止抢主焦点，以实际 Display flags 核验，非 trusted/OEM/旧系统可能共享焦点。无 ALWAYS_UNLOCKED 标志，锁屏时不继续 GUI。后台屏是原 App 的显示位置，不是账号/数据隔离；移入主屏正在使用的 App 需用户选项，移除显示结束其活动但不回滚已发外部效果。应用若自行跳主屏，后台观察不追随，用户可选择主屏继续。
 
-显示归属原会话/Turn/授权，原 Turn 持久取消/终态、授权变化、Binder/服务死亡后回收；原动作退出前不回收仍在执行的物理资源。进程重启不恢复旧 token 或重放未知效果。参考 [Mika 固定源码](../research/topics/mobile-use-device-readiness-and-reliability-2026-09-29.md#mika-automation-review-2026-11-01)，独立实现，无参考代码/二进制复制。平台事实见 [UiAutomation](https://developer.android.com/reference/android/app/UiAutomation)、[DisplayManager](https://developer.android.com/reference/android/hardware/display/DisplayManager)、[AOSP Display flags](https://github.com/aosp-mirror/platform_frameworks_base/blob/main/core/java/android/view/Display.java)、[Home 系统策略](https://github.com/aosp-mirror/platform_frameworks_base/blob/main/services/core/java/com/android/server/policy/PhoneWindowManager.java)。本节是当前实现说明，实际验收范围由本轮收据区分，不能把编译或合成样例当所有 OEM、模型与账号成功率证明。
+显示资源归属原会话/授权，同一有效授权下跨 Turn 复用，单轮完成或取消不回收；授权变化、会话删除、锁屏、Binder/服务死亡后回收；每次执行仍绑定自己的原 Turn、取消与 deadline，原动作退出前不回收仍在执行的物理资源。进程重启不恢复旧 token 或重放未知效果。参考 [Mika 固定源码](../research/topics/mobile-use-device-readiness-and-reliability-2026-09-29.md#mika-automation-review-2026-11-01)，独立实现，无参考代码/二进制复制。平台事实见 [UiAutomation](https://developer.android.com/reference/android/app/UiAutomation)、[DisplayManager](https://developer.android.com/reference/android/hardware/display/DisplayManager)、[AOSP Display flags](https://github.com/aosp-mirror/platform_frameworks_base/blob/main/core/java/android/view/Display.java)、[Home 系统策略](https://github.com/aosp-mirror/platform_frameworks_base/blob/main/services/core/java/com/android/server/policy/PhoneWindowManager.java)。本节是当前实现说明，实际验收范围由本轮收据区分，不能把编译或合成样例当所有 OEM、模型与账号成功率证明。
 
 会话实时状态来自同一显示池创建/释放点及实际 UserService Binder 死亡事件，不轮询截图。创建与释放报告通过原宿主 owner Binder 返回，检查 shell/root 调用 UID、固定消息形状和原路由代际；宿主仅向原会话/Turn 发布显示事实，最近目标另校验原授权与当前应用范围，不发布 route key、displaySession 或授权 proof。释放完成、连接丢失和释放未确认分别表达，旧路由的迟到释放不能覆盖新路由。该进程内 UI 投影不取代 Room 执行事实、不持久恢复为 live；历史 ui.device 观察继续单独标识。
 
@@ -384,3 +384,5 @@ API31 起提供本后端；API34+ 请求独立焦点及禁止抢主焦点，以�
 在会话运行区或 Mobile Use 浮窗选择接管，会停止原 Turn；Goal 仍沿用暂停与管理入口。等待原操作结算后，可以填写已处理内容，再选择“处理好了，交回继续”“我已全部完成”或“取消后续”。交回通过原会话准入创建新 Turn、使用当前授权并重新观察；旧按钮不能恢复旧 driver、节点或截图凭据。完成与取消是分别记录的人工决策，不会偷偷调用模型或继续操作。
 
 后台屏释放不等于将目标应用移到主屏。需要手动处理时，在主屏自行打开目标应用；再次交回仍遵循用户当前的主屏/后台屏选择，同应用主屏占用时必须明确选择主屏执行或允许移动，不能把移动失败当成交还成功。停止事实摘要区分工具效果已验证、仅有结果记录、效果未知及明确未启动；产物登记不代表文件仍可用，打开时仍检查真实文件和哈希。未知效果应先观察，停止不是回滚。控制与持久事实契约见 [Turn 协调 ADR](../adr/agent/001-turn-coordination.md)。
+
+2026-11-06 更新：任务屏能力支持与当前目标可用性分开；无应用为 `TARGET_UNAVAILABLE`，不清零已配置支持能力。全手机且无排除项时，可通过原显示的唯一可见任务建立无语义视觉目标，未知窗口边界不伪造；限定应用范围继续拒绝无法证明的归属。Root 与 Shizuku 资源固定原后端，预览与清理走原服务；纯无障碍仍用于主屏，不提供受限应用嵌入冒充的通用任务屏。详细决定与验证边界见 [权限 ADR](../adr/permissions/001-session-authorization.md#decision-history--2026-11-06任务屏能力范围和目标状态解耦)。

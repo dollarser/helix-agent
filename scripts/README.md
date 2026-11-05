@@ -40,7 +40,7 @@ Use `--help` for runner arguments. Retired dated shims are recovered through Git
 
 Ordinary Gradle builds exclude the `spikes` modules. To reproduce experiments use `./gradlew -PincludeSpikes=true ...`, including for historical commands that name a Spike project. Product tests in `check-all.sh` do not opt in; `check-lockfiles.sh` still includes experimental projects for lock verification. The A2A Spike checks explicitly select their experiments. `gradle-projects.py` inventories all declared projects, including optional experiments.
 
-Spike sources and historical evidence remain tracked. This changes default project participation, not product capability or experimental acceptance. The `:testing` module retains its fixed-evaluation coverage; module or test counts are not an acceptance target.
+Spike sources and historical evidence remain tracked. This changes default project participation, not product capability or experimental acceptance. Fixed-evaluation catalog checks live in `scripts/tests/test_fixed_eval_catalog.py` and run through `run-host-tests.py` (also `check-all.sh --source` / `--debug`); they validate catalog coverage, reproduction metadata and integrity, not model task success. Module or test counts are not an acceptance target.
 
 ## 测试与调试维护
 

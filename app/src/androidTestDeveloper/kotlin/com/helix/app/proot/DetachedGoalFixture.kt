@@ -30,7 +30,6 @@ internal class DetachedGoalFixture(
 ) {
     val container = app.appContainer
     val storage = container.storage
-    private val previousProfile = container.profileStore.profile
     private var provider: String? = null
     lateinit var session: String
     lateinit var goal: String
@@ -41,7 +40,7 @@ internal class DetachedGoalFixture(
 
     suspend fun prepare() {
         ensureInstalledRuntime(app)
-        container.profileStore.switchTo(SafetyProfile.ADVANCED)
+        check(container.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
         check(ProotToolModule.verifyNow() is ProotRuntimeAvailability.Verified)
         val id =
             container.providerService.create(
@@ -233,7 +232,6 @@ internal class DetachedGoalFixture(
         }
         if (turn.isNotEmpty()) container.chatService.stopTask(turn)
         container.chatService.closeSession()
-        container.profileStore.switchTo(previousProfile)
         provider?.let { container.providerService.delete(it) }
         output.delete()
     }

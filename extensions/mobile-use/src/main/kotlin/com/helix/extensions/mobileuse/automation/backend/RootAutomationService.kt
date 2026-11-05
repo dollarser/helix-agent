@@ -30,9 +30,7 @@ class RootAutomationService : HelixRootService() {
                 flags: Int,
             ): Boolean {
                 require(getCallingUid() == ownerUid) { "UNTRUSTED_CALLER" }
-                return if (code in
-                    setOf(ShizukuUiProtocol.GET_UID, ShizukuUiProtocol.CLICK_MATCH, ShizukuUiProtocol.DEVICE)
-                ) {
+                return if (isRootUiTransaction(code)) {
                     clicks.transact(code, data, reply, flags)
                 } else {
                     reads.transact(code, data, reply, flags)
@@ -41,3 +39,13 @@ class RootAutomationService : HelixRootService() {
         }
     }
 }
+
+internal fun isRootUiTransaction(code: Int): Boolean =
+    code in
+        setOf(
+            ShizukuUiProtocol.GET_UID,
+            ShizukuUiProtocol.CLICK_MATCH,
+            ShizukuUiProtocol.DEVICE,
+            ShizukuUiProtocol.PREVIEW,
+            ShizukuUiProtocol.RESTORE_FOCUS,
+        )

@@ -81,7 +81,7 @@ class CliGoalProcessKillDeviceTest {
                 setProperty("budgets", previous.budgets.toStorageString())
             }
         save(facts)
-        container.profileStore.switchTo(SafetyProfile.ADVANCED)
+        check(container.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
         setModel(provider, "helix-fixture")
         fixture = SubscriptionBoundaryFixture(app, listOf(provider))
         fixture.providers.refreshManagedAccounts()
@@ -276,7 +276,6 @@ class CliGoalProcessKillDeviceTest {
             com.helix.app.internal
                 .PrefsLineStore(app, "helix-ui"),
         ).clear(facts.getProperty("provider"))
-        container.profileStore.switchTo(SafetyProfile.valueOf(facts.getProperty("profile")))
         check(marker.delete())
     }
 

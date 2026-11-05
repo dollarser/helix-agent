@@ -4,7 +4,7 @@ import android.os.Process
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.helix.app.profile.AdvancedProfileAvailability
+import com.helix.app.profile.ChannelCapabilities
 import com.helix.app.provider.InAppMcpServer
 import com.helix.core.model.DispatchOutcomeCode
 import com.helix.core.model.SafetyProfile
@@ -79,7 +79,7 @@ import java.util.concurrent.TimeUnit
  * Real external services are HXA-125; the in-APK [InAppMcpServer] is a deterministic local
  * fixture (clearly synthetic) and does NOT stand in for account acceptance.
  *
- * @see AdvancedProfileAvailability for the per-build lane availability.
+ * @see ChannelCapabilities for the per-build lane availability.
  */
 @RunWith(AndroidJUnit4::class)
 @Suppress("TooManyFunctions") // Twelve closed-loop scenarios plus the shared fixture/settle harness.
@@ -233,17 +233,16 @@ class ExtensionJourneyDeviceTest {
     ): T {
         assumeTrue(
             "the loopback MCP lane requires the developer build's ADVANCED profile",
-            AdvancedProfileAvailability.ADVANCED_AVAILABLE,
+            ChannelCapabilities.ADVANCED_AVAILABLE,
         )
-        val previous = container.profileStore.profile
+
         val scope = "http://127.0.0.1:$port"
-        container.profileStore.switchTo(SafetyProfile.ADVANCED)
+        check(container.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
         container.lanScopeStore.add(scope)
         try {
             return block()
         } finally {
             container.lanScopeStore.remove(scope)
-            container.profileStore.switchTo(previous)
         }
     }
 
@@ -418,7 +417,7 @@ class ExtensionJourneyDeviceTest {
         mcp.start()
         try {
             container.mcpService.registerDisabled(serverId, "http://127.0.0.1:${mcp.port}/mcp", null)
-            if (AdvancedProfileAvailability.ADVANCED_AVAILABLE) {
+            if (ChannelCapabilities.ADVANCED_AVAILABLE) {
                 // DEVELOPER: a REAL successful handshake (the server is reachable) but the user
                 // never enables it.
                 advancedLoopbackLane(mcp.port) {
@@ -480,7 +479,7 @@ class ExtensionJourneyDeviceTest {
     fun enabledAndCallSucceedsWithReadableResult() {
         assumeTrue(
             "an enabled loopback MCP call needs the developer lane",
-            AdvancedProfileAvailability.ADVANCED_AVAILABLE,
+            ChannelCapabilities.ADVANCED_AVAILABLE,
         )
         val serverId = "ext-mcp-ok-$run"
         val sessionId = newSession("mcpok")
@@ -545,7 +544,7 @@ class ExtensionJourneyDeviceTest {
     fun enabledButCallFails() {
         assumeTrue(
             "an enabled loopback MCP call needs the developer lane",
-            AdvancedProfileAvailability.ADVANCED_AVAILABLE,
+            ChannelCapabilities.ADVANCED_AVAILABLE,
         )
         val serverId = "ext-mcp-fail-$run"
         val sessionId = newSession("mcpfail")
@@ -588,7 +587,7 @@ class ExtensionJourneyDeviceTest {
     fun aFailedMcpIsRepairedInPlace() {
         assumeTrue(
             "an enabled loopback MCP call needs the developer lane",
-            AdvancedProfileAvailability.ADVANCED_AVAILABLE,
+            ChannelCapabilities.ADVANCED_AVAILABLE,
         )
         val serverId = "ext-mcp-fix-$run"
         val sessionId = newSession("mcpfix")
@@ -670,7 +669,7 @@ class ExtensionJourneyDeviceTest {
     fun aDisabledMcpToolIsRefusedAtEverySurface() {
         assumeTrue(
             "an enabled loopback MCP tool needs the developer lane",
-            AdvancedProfileAvailability.ADVANCED_AVAILABLE,
+            ChannelCapabilities.ADVANCED_AVAILABLE,
         )
         val serverId = "ext-mcp-dis-$run"
         val sessionId = newSession("mcpdis")
@@ -737,7 +736,7 @@ class ExtensionJourneyDeviceTest {
     fun anMcpOperationAsksForApprovalUnderApprovalRequired() {
         assumeTrue(
             "an enabled loopback MCP tool needs the developer lane",
-            AdvancedProfileAvailability.ADVANCED_AVAILABLE,
+            ChannelCapabilities.ADVANCED_AVAILABLE,
         )
         val serverId = "ext-mcp-ro-$run"
         val sessionId = newSession("mcp-ro")

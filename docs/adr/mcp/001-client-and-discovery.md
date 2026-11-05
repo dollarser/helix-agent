@@ -37,7 +37,7 @@ Client 不声明未实现的 sampling、elicitation 或 roots。initialize resul
 
 当前存在有界 JSONL 帧和 Developer `McpStdioJobBridge` 基础，不是导入插件可用的常驻 MCP 会话；包内 command/stdio 仍明确诊断为需要 Runtime。HXA-291 只补 Resources，不由此启用本地进程。
 
-未来常驻接入需先确定真实目标 server、安装依赖、隔离/凭据 owner 和资源期限；复用原 Registry/Dispatcher 与 Runtime，不按每请求重启 Job 代替双向流。原安装 revision/command identity、实例 generation、连接/requestId 及取消/超时/真实退出分别绑定；stdout 协议、stderr 诊断、背压和有界关闭须按实际协议验证。只协商已实现能力；HTTP OAuth 凭据不会自动导入进程 env，外部服务请求和消息不能获得本地权限。具体进入条件归 [Harness §23.12](../../architecture/harness-refactor-plan.md#2312-插件管理与提示审查接续)，本节不授权新增 Runtime 产品。
+未来常驻接入需先确定真实目标 server、安装依赖、隔离/凭据 owner 和资源期限；复用原 Registry/Dispatcher 与 Runtime，不按每请求重启 Job 代替双向流。原安装 revision/command identity、实例 generation、连接/requestId 及取消/超时/真实退出分别绑定；stdout 协议、stderr 诊断、背压和有界关闭须按实际协议验证。只协商已实现能力；HTTP OAuth 凭据不会自动导入进程 env，外部服务请求和消息不能获得本地权限。具体进入条件归 [Harness 第 23.12 节](../../architecture/harness-refactor-plan.md#2312-插件管理与提示审查接续)，本节不授权新增 Runtime 产品。
 
 ## Alternatives considered
 
@@ -75,7 +75,7 @@ Client 不声明未实现的 sampling、elicitation 或 roots。initialize resul
 
 - 2026-10-12：HXA-280切片2采用注册事实的只读来源/类别/字段投影与宿主中文别名，tools.search新增可选过滤及来源输出，版本随契约更新；目录仅来自当前会话准入快照，撤销即时过滤。没有复制竞品代码或将远端hints用于权限/常驻优先级。
 
-- 2026-10-12：Owner要求结合Codex、Claude Code和DSH重新设计并实施工具优化，明确取消没有充分依据的全局64上限。采用原子注册/模型投影分离、实际上下文与Provider约束、完整绑定和字节存储边界；不全量常驻或引入新的脚本执行域。研究与候选切片见[工具专题§12](../../research/topics/tool-exposure-and-discovery-2026-09-29.md#12-2026-10-12-工具架构重新评估与优化设计)，实施与实际验证由HXA-280承接；后续窗口/目录策略在同一ADR更新，不由历史计数倒推当前默认集合。
+- 2026-10-12：Owner要求结合Codex、Claude Code和DSH重新设计并实施工具优化，明确取消没有充分依据的全局64上限。采用原子注册/模型投影分离、实际上下文与Provider约束、完整绑定和字节存储边界；不全量常驻或引入新的脚本执行域。研究与候选切片见[工具专题第 12 节](../../research/topics/tool-exposure-and-discovery-2026-09-29.md#12-2026-10-12-工具架构重新评估与优化设计)，实施与实际验证由HXA-280承接；后续窗口/目录策略在同一ADR更新，不由历史计数倒推当前默认集合。
 
 - 2026-09-28：所有者明确授权优化工具数量与曝光。AndroidWorld 小样本发现64截断留下 `ui.click` 却丢掉 `ui.snapshot`，且旧搜索仅支持MCP。收敛为基础集合、已开启自动化组和统一按需发现；不增加上限，不改变 Dispatcher/approval/effect owner。证据见[公开评测试跑](../../evidence/development/public-agent-pilot-2026-09-28.md)。
 

@@ -25,8 +25,6 @@
     <string name="terminal_initial_help">打开终端即可使用内置 Linux 环境。</string>
     <string name="terminal_execution_busy_help">终端与 Agent 任务可以同时运行，不会因终端未关闭或结果未收取而阻挡其他任务。共享文件可能被同时修改，请核对最终结果。仅运行环境维护、引擎容量及同一终端的输入连接需要协调。关闭页面只断开查看，不停止命令。</string>
     <string name="terminal_menu">终端选项</string>
-    <string name="terminal_requires_advanced">终端需要高级模式。当前为标准模式，无法启动终端。</string>
-    <string name="terminal_switch_and_start">切换到高级模式并启动终端</string>
     <string name="terminal_repair_open">修复并打开终端</string>
     <string name="terminal_shell_failed">Shell 启动失败，请在运行环境中修复。</string>
     <string name="terminal_shell_timeout">Shell 尚未就绪，可重新打开新终端。</string>

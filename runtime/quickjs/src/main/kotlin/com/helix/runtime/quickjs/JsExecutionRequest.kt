@@ -57,8 +57,6 @@ class JsExecutionRequest(
                 }
 
                 override fun newArray(size: Int): Array<JsExecutionRequest?> = arrayOfNulls(size)
-
-                fun newInstance(size: IntArray): Array<JsExecutionRequest?> = arrayOfNulls(size.size)
             }
     }
 }

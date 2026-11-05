@@ -14,6 +14,27 @@ import org.junit.Test
 import java.time.Instant
 
 class AutomationPrivilegedDeviceTest {
+    @Test fun missingSemanticTreeDoesNotDisableAnAuthorizedVisualFrame() {
+        val authority = Authority()
+        val visual = target.copy(displayId = 7, displaySession = "owned", semanticAvailable = false, taskId = 42)
+        val backend = Backend(visual)
+        val host = AutomationPrivilegedDeviceHost(authority)
+        val observed = host.observe(authority.call, backend)
+        assertTrue(observed.screenshotSupported)
+        assertTrue(observed.gestureSupported)
+        assertTrue(observed.semanticSupported)
+        assertFalse(observed.semanticAvailable)
+        assertTrue(observed.targetAvailable)
+        assertTrue(requireNotNull(backend.lastRequest).wholeDisplay)
+        val screenshot =
+            host.execute(
+                authority.call,
+                requireNotNull(observed.frame).token,
+                AutomationDeviceOperation.SCREENSHOT,
+            )
+        assertEquals("SAVED", screenshot.status)
+    }
+
     private val target =
         AutomationDisplayTarget(
             "com.example.app",
@@ -38,11 +59,35 @@ class AutomationPrivilegedDeviceTest {
         assertEquals(AutomationBackendState.READY, absent.shizukuState)
         assertEquals(AutomationClickBackend.SHIZUKU, absent.clickMatchBackend)
         assertNull(absent.frame)
-        assertFalse(absent.gestureSupported)
-        assertFalse(absent.screenshotSupported)
+        assertTrue(absent.gestureSupported)
+        assertTrue(absent.screenshotSupported)
+        assertTrue(absent.semanticSupported)
+        assertTrue(absent.backendReady)
+        assertFalse(absent.targetAvailable)
+        assertFalse(absent.semanticAvailable)
+        assertTrue(absent.allApplications)
         val outcome = host.execute(authority.call, old.token, AutomationDeviceOperation.GESTURE, listOf(stroke))
         assertEquals("FRAME_STALE", outcome.status)
         assertEquals(listOf(AutomationDeviceOperation.OBSERVE, AutomationDeviceOperation.OBSERVE), backend.calls)
+    }
+
+    @Test fun restrictedScopeDoesNotTurnTreeBlindTaskMetadataIntoAnAuthorizedFrame() {
+        val authority = Authority(whole = false)
+        val visual = target.copy(displayId = 7, displaySession = "owned", semanticAvailable = false, taskId = 42)
+        val observed = AutomationPrivilegedDeviceHost(authority).observe(authority.call, Backend(visual))
+        assertEquals("TARGET_UNAVAILABLE", observed.status)
+        assertFalse(observed.allApplications)
+        assertTrue(observed.semanticSupported)
+        assertTrue(observed.gestureSupported)
+        assertFalse(observed.targetAvailable)
+    }
+
+    @Test fun removingAFrameCannotRetainStaleAvailabilityFlags() {
+        val observation = AutomationDeviceObservation("READY", AutomationFrame("frame", "grant", target))
+        assertTrue(observation.targetAvailable)
+        assertTrue(observation.semanticAvailable)
+        assertFalse(observation.copy(frame = null).targetAvailable)
+        assertFalse(observation.copy(frame = null).semanticAvailable)
     }
 
     @Test fun outOfScopeForegroundPreservesBackendReadinessWithoutIssuingAFrame() {
@@ -53,7 +98,8 @@ class AutomationPrivilegedDeviceTest {
         assertEquals(AutomationBackendState.READY, observed.shizukuState)
         assertEquals(AutomationClickBackend.SHIZUKU, observed.clickMatchBackend)
         assertNull(observed.frame)
-        assertFalse(observed.gestureSupported)
+        assertTrue(observed.gestureSupported)
+        assertFalse(observed.targetAvailable)
         assertFalse(observed.screenshotSupported)
         assertEquals(listOf(AutomationDeviceOperation.OBSERVE), backend.calls)
     }

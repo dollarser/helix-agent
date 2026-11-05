@@ -21,8 +21,10 @@ import java.util.concurrent.TimeUnit
 class BrowserOwnerDeviceTest {
     @Test
     fun noOwnerDoesNotPretendToOpenOrNavigate() {
+        val controller = onMain { BrowserController(instrumentation.targetContext) }
+        kotlinx.coroutines.runBlocking { controller.sessionReady.await() }
         onMain {
-            val controller = BrowserController(instrumentation.targetContext)
+            controller.closeAllTabs()
             assertEquals("browser-host-unavailable", controller.openTab("https://example.com").failureReason)
             assertTrue(
                 controller.state.value.tabs

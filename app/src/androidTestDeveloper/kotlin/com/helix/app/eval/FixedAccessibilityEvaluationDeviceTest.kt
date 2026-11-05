@@ -64,7 +64,7 @@ class FixedAccessibilityEvaluationDeviceTest {
             val rows = corpus.toString(Charsets.UTF_8).lines().filter { it.startsWith("accessibility-") }
             val providers = mutableMapOf<ProviderProtocol, String>()
             val previous = container.chatService.runControl.value
-            val originalProfile = container.profileStore.profile
+
             val originalServices =
                 android.provider.Settings.Secure.getString(
                     app.contentResolver,
@@ -111,7 +111,6 @@ class FixedAccessibilityEvaluationDeviceTest {
                     shell("settings put secure enabled_accessibility_services $originalServices")
                 }
                 shell("settings put secure accessibility_enabled $originalEnabled")
-                container.profileStore.switchTo(originalProfile)
             }
         }
 
@@ -140,8 +139,7 @@ class FixedAccessibilityEvaluationDeviceTest {
         provider: String,
         model: String,
     ) {
-        val previousProfile = container.profileStore.profile
-        container.profileStore.switchTo(com.helix.core.model.SafetyProfile.ADVANCED)
+        check(container.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
         val session = container.chatService.createSession("fixed-${cells[0]}", provider, model)
         prepareFixture(cells[0], session)
         val context =
@@ -186,7 +184,6 @@ class FixedAccessibilityEvaluationDeviceTest {
             com.helix.app.eval
                 .deselectMobileUseForTest(session)
             activity.scenario.onActivity { it.startActivity(android.content.Intent(it, MainActivity::class.java)) }
-            container.profileStore.switchTo(previousProfile)
         }
     }
 

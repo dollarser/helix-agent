@@ -17,6 +17,21 @@ import java.lang.reflect.Proxy
 class SelectedPathWorkspaceTest {
     @get:Rule val temp = TemporaryFolder()
 
+    @Test fun internalStorageAndRegisteredAliasesCannotBecomeWorkingDirectories() {
+        val records = mutableMapOf<String, WorkspaceEntity>()
+        val repository = WorkspaceRepository(dao(records), temp.newFolder().toPath())
+        val roots = ScopeRootResolver { error("Internal storage must be rejected before resolution") }
+        val service = SessionWorkspaceService(repository, roots) { error("No SAF") }
+        listOf("scope:app:", "scope:app:work").forEach { reference ->
+            assertThrows(IllegalArgumentException::class.java) { service.bind(reference) }
+        }
+        assertEquals(0, records.size)
+        records["alias"] =
+            WorkspaceEntity("alias", "PATH", "scope:app:work", "fixture", "EXTERNAL", "READY", "witness", null, 1)
+        assertThrows(IllegalArgumentException::class.java) { service.bind("scope:alias:") }
+        assertEquals("READY", records.getValue("alias").availability)
+    }
+
     @Test fun chosenRootRetainsItsScopeAndRevocationCannotOpenUnselectedGlobalAlias() {
         val root = temp.newFolder().toPath().toRealPath()
         var granted = true

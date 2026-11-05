@@ -14,12 +14,12 @@ import com.helix.app.R
 import com.helix.app.provider.ProviderRowUi
 import com.helix.app.provider.ui.SubscriptionSetupHint
 
-/** A setup route, never a model-selection or test bypass. Sources with no selected models stay discoverable. */
+/** First-use shortcut for an unconfigured source; it never selects or bypasses provider testing. */
 @Composable
 @Suppress("FunctionName")
 internal fun ModelSetupRow(
     row: ProviderRowUi,
-    onManageModels: (() -> Unit)?,
+    onConfigure: (() -> Unit)?,
 ) {
     Column(Modifier.padding(vertical = 8.dp).testTag("chat-model-setup-${row.id}")) {
         Text(
@@ -27,8 +27,8 @@ internal fun ModelSetupRow(
             style = MaterialTheme.typography.titleSmall,
         )
         SubscriptionSetupHint(row)
-        if (onManageModels != null) {
-            TextButton(onClick = onManageModels, modifier = Modifier.testTag("chat-model-setup-open-${row.id}")) {
+        if (onConfigure != null) {
+            TextButton(onConfigure, Modifier.testTag("chat-model-setup-open-${row.id}")) {
                 Text(stringResource(R.string.model_picker_setup_action))
             }
         }

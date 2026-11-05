@@ -12,8 +12,11 @@ internal class AutomationBackgroundBackend(
             AutomationBackendState.UNAVAILABLE
         }
 
-    override val deviceOperations = AutomationDeviceOperation.entries.toSet()
-    override val supportsScopedCapture = true
+    override val deviceOperations get() =
+        if (android.os.Build.VERSION.SDK_INT >= 31) AutomationDeviceOperation.entries.toSet() else emptySet()
+
+    @get:androidx.annotation.ChecksSdkIntAtLeast(api = 31)
+    override val supportsScopedCapture get() = android.os.Build.VERSION.SDK_INT >= 31
 
     override fun supportsGlobalAction(action: AutomationGlobalAction) = action == AutomationGlobalAction.BACK
 

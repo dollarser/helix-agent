@@ -1,0 +1,25 @@
+<resources>
+    <string name="skill_support_unsupported">无法执行的扩展字段：%1$s</string>
+    <string name="skill_support_unapplied">以下扩展字段仅保留，未应用其行为：%1$s</string>
+    <string name="skill_support_compatibility">环境要求（技能声明）：%1$s</string>
+    <string name="skill_support_tools">工具声明（未验证）：%1$s</string>
+    <string name="skill_support_scripts">附带脚本：%1$s</string>
+    <string name="skill_support_script_environment">脚本运行环境和依赖尚未验证。</string>
+    <string name="skill_support_web_provided">网页读取能力已提供。</string>
+    <string name="skill_support_web_missing">需要网页读取能力：选用浏览器，或配置提供 http.fetch 的宿主能力。</string>
+    <string name="skill_support_configure">配置所需能力</string>
+    <string name="skill_support_retry">重新检查</string>
+    <string name="skill_support_failed">无法读取此技能，请重新检查或返回插件详情。</string>
+    <string name="skill_support_disabled">此技能已停用。开启本会话使用后再调用。</string>
+    <string name="skill_support_session_enable">在本会话启用</string>
+    <string name="skill_support_discovery">开启后，模型可在本会话的后续任务中按需使用。</string>
+    <string name="skill_support_manual_only">此技能仅支持明确的本次调用。</string>
+    <string name="skill_support_no_user">此技能未开放手动调用。</string>
+    <string name="skill_support_once_hint">仅加入本次消息，发送后执行。</string>
+    <string name="skill_support_loading">正在检查技能…</string>
+    <string name="skill_support_parameters_literal">检测到其他客户端的占位符或命令语法；Helix 不会自动替换或执行它们。</string>
+    <string name="skill_support_apply_failed">未能完成操作。请重新检查技能状态后再试。</string>
+    <string name="skill_support_script_runner">已提供技能脚本执行入口（Python／JavaScript／Shell）。</string>
+    <string name="skill_support_script_no_runner">当前未提供专用技能脚本执行入口。</string>
+    <string name="skill_support_preview_only">此技能仅供预览，不开放调用。</string>
+</resources>

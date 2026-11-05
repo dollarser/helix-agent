@@ -171,7 +171,7 @@ SAF 可能由远端文档服务提供，不能将 content URI 一律当作本地
 
 - 2026-10-17，原则澄清：Owner 明确所有重构均以当前最合理及未来扩展性为基准，旧设计/实现没有保留优先权。上文保留的是原始身份和持久正确性语义，现有 Entity/接口/默认模式可替换；近期补丁不切模式不构成终态约束。
 
-- 2026-10-17：Owner 要求参考云端/远端 Agent 补目录方案；接受原资源、执行副本、绑定/映射及环境实例分离，保留既有有效身份模型。新增 [Harness §23.3.1](../../architecture/harness-refactor-plan.md#2331-目录资源与执行环境) 目标和最小 Room 联合旅程；澄清共享文件竞争不引入全局锁。设计已记录，生产实现仍归原 HXA，不把文档接受当能力通过。
+- 2026-10-17：Owner 要求参考云端/远端 Agent 补目录方案；接受原资源、执行副本、绑定/映射及环境实例分离，保留既有有效身份模型。新增 [Harness 第 23.3.1 节](../../architecture/harness-refactor-plan.md#2331-目录资源与执行环境) 目标和最小 Room 联合旅程；澄清共享文件竞争不引入全局锁。设计已记录，生产实现仍归原 HXA，不把文档接受当能力通过。
 
 - 2026-10-04：本机项目使用独立 registry 和成员表，主目录引用 Workspace；移除资源行上的可选 projectId，按所有者要求不兼容旧开发数据。
 
@@ -236,3 +236,17 @@ SAF 继续原位访问；只对平台本地文档 Provider，以打开的目录 
 切换是新选择，不重定向在途旧身份、不移动原件、不撤销旧 SAF 授权。只读核对不试写原件。
 参考 [Android 所有文件访问](https://developer.android.com/training/data-storage/manage-all-files)与
 [平台存储卷目录](https://developer.android.com/reference/android/os/storage/StorageVolume#getDirectory())。
+
+### Decision history — 2026-11-05：工作目录的用途与显式切换
+
+Owner 要求对照主流 Agent 优化会话／项目／目录的关系和修改体验。[Codex 项目与会话](https://learn.chatgpt.com/docs/projects)区分组织上下文与实际目录，CLI 使用启动目录或 `--cd`；[Claude Code 会话](https://code.claude.com/docs/en/sessions)保留项目目录身份，[Bash 行为](https://code.claude.com/docs/en/tools-reference#what-persists-between-commands)另区分命令 cwd；[WorkBuddy 工作目录](https://www.workbuddy.ai/docs/zh/workbuddy/From-Beginner-to-Expert-Guide/Function-Description/Task-Bar)支持显式目录和未指定时创建独立目录。采用目录作为文件操作默认起点、独立任务可直接开始、项目复用目录的做法，不引入桌面专属 worktree、多根自动发现或新的执行域，也不照搬竞品权限含义。
+
+统一称“工作目录”。没有项目仍可使用会话独立目录或已登记外部目录；项目内新会话默认使用项目目录，随后可单独更改。使用“项目目录”是一次明确赋值，不是持续跟随项目目录更新；加入／退出已有项目仍不搬文件或静默换目录。目录提供文件读写、相对路径及支持该资源的 Runtime／Git 操作的起点；具体项目指导按现有读取器按需加载，不将整棵目录自动注入模型，也不凭目录赋予能力或文件授权。
+
+目录选择器沿用会话设置入口，从当前目录开始并恢复浏览位置；快捷选择“使用项目目录”和“使用独立会话目录”，取消不保存。会话自有目录显示“会话独立目录”，项目主目录显示项目名，完整资源身份、能力、用途与切换影响在现有详情中按需查看，不新增聊天常驻行。只在目录来源层提供本地权限管理，浏览具体目录时保留真实访问／写入事实，不重复通用权限说明。UI 在任务执行时保持禁用更改；空闲时可以更改后续请求目录。原请求、审批、产物和已发送内容仍绑定原身份，不重定位在途调用、不移动原文件、不改变项目或权限。准备持久化的草稿拒绝未真正保存的目录修改，不返回假成功。原位置失效时仍遵循本 ADR 的既有恢复与通知契约，SAF 不伪装为 POSIX cwd。
+
+### Decision history — 2026-11-05：工作目录与内部存储分离
+
+Owner 要求参考主流 Agent 优化目录与内部位置。参考 [Claude Code 的会话目录切换](https://code.claude.com/docs/en/permissions#move-the-session-to-another-directory)及 [Codex 项目与会话](https://learn.chatgpt.com/docs/projects)，采用显式工作目录与应用管理数据分离的交互；不照搬桌面路径、权限或 worktree 执行域。工作目录继续可在空闲时显式修改；内部存储由 Helix 管理，不提供手动改址或隐式迁移功能。应用文件区 app scope 及其登记别名不可绑定为工作目录，后端与选择器同时检查；文件管理器仍可查看、分享或作为附件使用其中的用户文件。
+
+目录首层只提供外部来源与可复用位置，不列应用内部位置或每个会话的托管目录；会话独立目录与当前项目目录使用既有快捷动作，当前已选托管目录仍能浏览及选择子目录。切换不重定向历史附件、成果、已受理调用或审批，也不删除原目录；内部位置说明集中在现有位置详情，不增加会话常驻信息。项目归属、目录与权限仍独立，运行中修改的持久检查保持原契约。

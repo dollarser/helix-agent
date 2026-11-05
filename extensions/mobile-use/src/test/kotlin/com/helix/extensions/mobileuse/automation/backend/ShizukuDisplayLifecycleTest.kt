@@ -3,6 +3,7 @@ package com.helix.extensions.mobileuse.automation.backend
 import com.helix.extensions.mobileuse.automation.AutomationDisplayLifecycle
 import com.helix.extensions.mobileuse.automation.AutomationDisplayPresentation
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Test
 
 class ShizukuDisplayLifecycleTest {
@@ -21,6 +22,7 @@ class ShizukuDisplayLifecycleTest {
         assertEquals(7L, events.last().generation)
         assertEquals(1, finished)
         assertEquals(3, events.size)
+        assertFalse(owner.acceptsRequests())
     }
 
     @Test fun registeredBinderDeathNeedsSeparateReleaseConfirmation() {
@@ -63,6 +65,8 @@ class ShizukuDisplayLifecycleTest {
         requireNotNull(death).binderDied()
         assertEquals(AutomationDisplayLifecycle.CONNECTION_LOST, events.last().lifecycle)
         assertEquals(null, owner.previewService("s", "t", 1))
+        assertFalse(owner.acceptsRequests())
+        assertFalse(owner.bind(binder))
         owner.report(AutomationDisplayLifecycle.ACTIVE)
         assertEquals(AutomationDisplayLifecycle.CONNECTION_LOST, events.last().lifecycle)
         owner.report(AutomationDisplayLifecycle.RELEASED)

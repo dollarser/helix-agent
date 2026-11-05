@@ -30,6 +30,8 @@ import com.helix.tools.framework.ToolSchemaValidation
 import com.helix.tools.framework.ToolSchemaValidator
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.boolean
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
@@ -148,6 +150,78 @@ class AutomationDeviceToolsTest {
         assertEquals("940", image.getValue("width").toString())
         assertEquals("1", image.getValue("imageWidth").toString())
         assertFalse(image.containsKey("windowBounds"))
+    }
+
+    @Test fun appNameQueryFindsVisiblePackagesWithoutGuessingOrChangingPresenceEvidence() {
+        port.catalog =
+            AutomationAppListing(
+                "LISTED",
+                listOf(
+                    AutomationApp("com.mmbox.xbrowser", "X浏览器"),
+                    AutomationApp("com.example.other", "Other"),
+                ),
+            )
+        listOf("x浏览器", "MMBOX").forEach { query ->
+            val output =
+                (
+                    execute(
+                        "ui.apps",
+                        """{"query":"$query"}""",
+                    ) as ToolExecutorResult.Completed
+                ).output.jsonObject
+            assertEquals("LISTED", output.getValue("status").jsonPrimitive.content)
+            assertEquals(query, output.getValue("query").jsonPrimitive.content)
+            assertEquals(
+                "com.mmbox.xbrowser",
+                output
+                    .getValue("apps")
+                    .jsonArray
+                    .single()
+                    .jsonObject
+                    .getValue("packageName")
+                    .jsonPrimitive.content,
+            )
+            assertEquals(null, port.queriedPackage)
+            assertFalse(output.containsKey("packageName"))
+            assertEquals(
+                ToolSchemaValidation.Valid,
+                ToolSchemaValidator.validate(descriptor("ui.apps").outputSchema, output),
+            )
+        }
+    }
+
+    @Test fun appQueryKeepsAmbiguityAndTruncationInsteadOfInventingAbsence() {
+        port.catalog =
+            AutomationAppListing(
+                "LISTED",
+                listOf(
+                    AutomationApp("com.example.first", "Browser"),
+                    AutomationApp("com.example.second", "Browser"),
+                ),
+                truncated = true,
+            )
+        val found = (execute("ui.apps", """{"query":"browser"}""") as ToolExecutorResult.Completed).output.jsonObject
+        assertEquals(2, found.getValue("apps").jsonArray.size)
+        val missing = (execute("ui.apps", """{"query":"unlisted"}""") as ToolExecutorResult.Completed).output.jsonObject
+        assertTrue(missing.getValue("apps").jsonArray.isEmpty())
+        assertEquals("LISTED", missing.getValue("status").jsonPrimitive.content)
+        assertEquals(true, missing.getValue("truncated").jsonPrimitive.boolean)
+    }
+
+    @Test fun invalidAppQueryStopsBeforeCallingThePackageCatalog() {
+        listOf("""{"query":"   "}""", """{"query":"Browser","packageName":"com.example.app"}""").forEach {
+            val result = execute("ui.apps", it) as ToolExecutorResult.Failed
+            assertTrue(result.sideEffectFree)
+        }
+        assertEquals(0, port.catalogCalls)
+        listOf("""{"query":12}""", """{"query":"${"x".repeat(257)}"}""").forEach {
+            assertTrue(
+                ToolSchemaValidator.validate(
+                    descriptor("ui.apps").inputSchema,
+                    json(it),
+                ) is ToolSchemaValidation.Invalid,
+            )
+        }
     }
 
     @Test fun packageQueryRetainsExactTargetAndAbsenceFact() {
@@ -440,15 +514,19 @@ private class FakeDevicePort : AutomationDevicePort {
         )
     }
 
+    var catalog =
+        AutomationAppListing(
+            "LISTED",
+            listOf(AutomationApp("com.helix.agent", "Helix"), AutomationApp("com.helix.agent.developer", "Helix")),
+        )
+    var catalogCalls = 0
     var queriedPackage: String? = null
 
     override fun apps(packageName: String?): AutomationAppListing {
         queriedPackage = packageName
+        catalogCalls++
         return if (packageName == null) {
-            AutomationAppListing(
-                "LISTED",
-                listOf(AutomationApp("com.helix.agent", "Helix"), AutomationApp("com.helix.agent.developer", "Helix")),
-            )
+            catalog
         } else {
             AutomationAppListing("NOT_INSTALLED", queriedPackage = packageName)
         }

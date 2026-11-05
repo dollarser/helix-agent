@@ -1,0 +1,27 @@
+<resources>
+    <string name="standalone_skills_builtin">内置技能</string>
+    <string name="standalone_skill_builtin">内置技能</string>
+    <string name="standalone_skills_installed">已安装技能</string>
+    <string name="standalone_skill_identifier">标识：%1$s</string>
+    <string name="skill_catalog_helix_docs">Helix 帮助</string>
+    <string name="skill_catalog_helix_docs_summary">查阅 Helix 的功能、配置与故障处理说明。</string>
+    <string name="skill_catalog_mcp_installer">安装 MCP 服务</string>
+    <string name="skill_catalog_mcp_installer_summary">导入 MCP 服务，并引导完成连接配置。</string>
+    <string name="skill_catalog_skill_installer">安装技能</string>
+    <string name="skill_catalog_skill_installer_summary">从工作目录、ZIP 或指定的公开来源安装技能。</string>
+    <string name="skill_catalog_skill_creator">创建技能</string>
+    <string name="skill_catalog_skill_creator_summary">创建或修改可重复使用的任务流程。</string>
+    <string name="skill_catalog_organize_files_preview">文件整理预览</string>
+    <string name="skill_catalog_organize_files_preview_summary">查看文件移动和重命名方案，预览阶段不修改文件。</string>
+    <string name="skill_catalog_web_research">网页研究</string>
+    <string name="skill_catalog_web_research_summary">查阅网页、交叉核对信息并标注来源。</string>
+    <string name="skill_catalog_data_transform">数据转换</string>
+    <string name="skill_catalog_data_transform_summary">转换结构化数据并核对输入与输出。</string>
+    <string name="skill_catalog_repo_inspection">仓库检查</string>
+    <string name="skill_catalog_repo_inspection_summary">只读检查代码仓库并追踪相关实现。</string>
+    <string name="skill_catalog_notification_digest">通知摘要</string>
+    <string name="skill_catalog_notification_digest_summary">汇总指定应用和时间范围内的通知。</string>
+    <string name="standalone_skill_project">项目技能</string>
+    <string name="plugin_catalog_empty">尚未安装插件或技能</string>
+    <string name="plugin_catalog_no_matches">没有匹配的插件或技能</string>
+</resources>

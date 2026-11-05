@@ -42,12 +42,12 @@ class PrivilegedNavigationDeviceTest {
         )
         val session = "privileged-navigation-${System.nanoTime()}"
         val turn = "$session-turn"
-        val profile = c.profileStore.profile
+
         val selection = MobileUseEvaluationSelection(app)
         c.storage.sessions.create(session, "Privileged navigation fixture", null, null, System.currentTimeMillis())
         c.storage.turns.start(turn, session, System.currentTimeMillis())
         try {
-            c.profileStore.switchTo(SafetyProfile.ADVANCED)
+            check(c.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
             selection.select(session, emptySet(), true)
             c.sessionPermissionEdit.saveSessionConfig(
                 session,
@@ -125,7 +125,6 @@ class PrivilegedNavigationDeviceTest {
         } finally {
             selection.close()
             c.storage.deleteSessionPermanently(session)
-            c.profileStore.switchTo(profile)
         }
     }
 }

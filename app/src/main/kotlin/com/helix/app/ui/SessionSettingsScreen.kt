@@ -3,10 +3,9 @@ package com.helix.app.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -22,7 +21,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.R
 import com.helix.app.approval.SessionPermissionEditService
 import com.helix.app.chat.ChatService
-import com.helix.app.plugin.PluginService
 import com.helix.app.provider.ProviderService
 import com.helix.app.provider.discoverReasoningOptions
 import com.helix.app.ui.indicatedVerticalScroll
@@ -39,44 +37,77 @@ internal fun SessionSettingsScreen(
     onProject: (String) -> Unit = {},
     providerService: ProviderService,
     permissionEdit: SessionPermissionEditService,
-    connectors: PluginService,
     files: com.helix.app.files.FileManagerService,
-    onModels: () -> Unit,
     onExtensions: () -> Unit,
-    onManageExperts: () -> Unit = {},
     onConfigureModelSource: ((ProviderProvisioningKind) -> Unit)? = null,
-    onPluginConfigure: (String, com.helix.app.plugin.PluginSetupReason?) -> Unit = { _, _ -> onExtensions() },
 ) {
     val screen by chatService.screen.collectAsStateWithLifecycle()
     val runControl by chatService.runControl.collectAsStateWithLifecycle()
     val providers by providerService.rows.collectAsStateWithLifecycle()
     val sessionId = screen.openSessionId
     val scope = rememberCoroutineScope()
+    var preparing by remember(sessionId) { mutableStateOf(false) }
+    var prepareFailure by remember(sessionId) { mutableStateOf<String?>(null) }
+    val operationFailed = stringResource(R.string.common_operation_failed)
     val withDurableSession: (() -> Unit) -> Unit = { action ->
         val id = sessionId
-        if (id == null) {
-            Unit
-        } else if (!screen.isDraft) {
-            action()
-        } else {
-            scope.launch {
-                if (chatService.materializeDraftSession(id) == id &&
-                    chatService.screen.value.openSessionId == id
-                ) {
-                    action()
+        if (id != null && !preparing && chatService.screen.value.openSessionId == id) {
+            if (!screen.isDraft) {
+                prepareFailure = null
+                action()
+            } else {
+                preparing = true
+                prepareFailure = null
+                scope.launch {
+                    try {
+                        if (chatService.materializeDraftSession(id) == id &&
+                            chatService.screen.value.openSessionId == id
+                        ) {
+                            action()
+                        } else {
+                            prepareFailure = chatService.screen.value.blockedReason ?: operationFailed
+                        }
+                    } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                        throw cancelled
+                    } catch (_: Exception) {
+                        prepareFailure = operationFailed
+                    } finally {
+                        preparing = false
+                    }
                 }
             }
         }
     }
-    var connectorsOpen by androidx.compose.runtime.saveable
-        .rememberSaveable(sessionId) { mutableStateOf(false) }
-    var expertOpen by androidx.compose.runtime.saveable
-        .rememberSaveable(sessionId) { mutableStateOf(false) }
     var skillsOpen by remember(sessionId) { mutableStateOf(false) }
     if (skillsOpen && skills != null && sessionId != null) {
         SkillSessionPanel(skills, sessionId, onExtensions, { skillsOpen = false })
     }
+    val projectRows =
+        projects
+            ?.projects
+            ?.collectAsStateWithLifecycle(emptyList())
+            ?.value
+            .orEmpty()
+    val currentProject = projectRows.firstOrNull { it.id == screen.projectId }
+    val projectDirectory =
+        currentProject?.let {
+            com.helix.core.workspace
+                .FileScopePath(it.workspaceId, it.relativePath)
+                .toModelReference()
+        }
     var directoryOpen by remember(sessionId) { mutableStateOf(false) }
+    var permissionOpen by remember(sessionId) { mutableStateOf(false) }
+    var modeOpen by remember(sessionId) { mutableStateOf(false) }
+    val (summary, summaryFailed) =
+        rememberSessionSettingsSummary(
+            sessionId,
+            screen.isDraft,
+            skillsOpen || permissionOpen,
+            permissionEdit,
+            skills,
+        )
+    val unavailable =
+        stringResource(if (summaryFailed) R.string.common_operation_failed else R.string.composer_permission_loading)
 
     Column(
         Modifier
@@ -87,13 +118,13 @@ internal fun SessionSettingsScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         SettingsGroup {
-            Text(stringResource(R.string.session_settings_mode))
-            Text(stringResource(modeLabel(runControl.mode)))
-            Text(stringResource(R.string.chat_command_mode_hint))
-            ModeControlSection(runControl, screen.isSending) { enabled ->
-                if (chatService.screen.value.openSessionId == sessionId) chatService.setChatToolsEnabled(enabled)
-            }
-            Text(stringResource(R.string.session_settings_model))
+            SettingsEntryRow(
+                stringResource(R.string.session_settings_mode),
+                R.drawable.ic_drawer_message,
+                { modeOpen = true },
+                Modifier.testTag("session-settings-mode"),
+                stringResource(modeLabel(runControl.mode)),
+            )
             ComposerModelMenu(
                 providers = providers,
                 providerId = screen.selectedModel?.providerId,
@@ -106,14 +137,20 @@ internal fun SessionSettingsScreen(
                             provider,
                             model,
                             reasoning,
-                            com.helix.app.chat.SessionModelSelectionSnapshot(
-                                screen.selectedModel?.providerId,
-                                screen.selectedModel?.model,
-                                runControl.reasoning,
-                            ),
+                            screen.modelSelectionSnapshot,
                         ).await()
                 },
-                onManageModels = onModels,
+                entry = { open ->
+                    SettingsEntryRow(
+                        stringResource(R.string.session_settings_model),
+                        R.drawable.ic_drawer_models,
+                        open,
+                        Modifier.testTag("chat-model-menu"),
+                        screen.modelBindingIssue?.let { stringResource(it.messageResource) }
+                            ?: screen.selectedModel?.model ?: stringResource(R.string.chat_select_model),
+                        enabled = !screen.isSending && screen.pendingDisclosure == null,
+                    )
+                },
                 sourceGroups = providerService.sourceGroups,
                 onConfigureSource = onConfigureModelSource,
                 onRefreshModels = providerService.builtInModels::refresh,
@@ -121,84 +158,78 @@ internal fun SessionSettingsScreen(
                 sessionKey = sessionId,
                 onDetectReasoning = providerService::discoverReasoningOptions,
             )
-            OutlinedButton(
-                onClick = onModels,
-                modifier = Modifier.fillMaxWidth().testTag("session-settings-manage-models"),
-            ) {
-                Text(stringResource(R.string.session_settings_manage_models))
-            }
-        }
-
-        projects?.let {
-            com.helix.app.projects.ui.ConversationProjectContext(
-                it,
-                files,
-                chatService,
-                screen,
-                onProject,
-            )
-        }
-
-        SessionWorkspaceSection(files, screen.directoryRef, sessionId != null) { directoryOpen = true }
-
-        if (screen.isDraft) {
-            SettingsGroup {
-                Text(stringResource(R.string.settings_perm_session_label))
-                OutlinedButton(
-                    onClick = { withDurableSession {} },
-                    enabled = sessionId != null,
-                    modifier = Modifier.fillMaxWidth().testTag("session-settings-materialize-permissions"),
-                ) {
-                    Text(stringResource(R.string.session_settings_configure_permissions))
-                }
-            }
-        } else {
-            SessionPermissionSessionSection(permissionEdit, chatService)
         }
 
         SettingsGroup {
-            OutlinedButton(
-                onClick = { withDurableSession { expertOpen = true } },
-                enabled = sessionId != null,
-                modifier = Modifier.fillMaxWidth().testTag("session-settings-expert"),
-            ) {
-                Text(stringResource(R.string.session_expert_title))
+            Text(stringResource(R.string.session_settings_workspace), style = MaterialTheme.typography.titleMedium)
+            projects?.let {
+                com.helix.app.projects.ui.ConversationProjectContext(
+                    it,
+                    files,
+                    chatService,
+                    screen,
+                    onProject,
+                )
             }
-            OutlinedButton(
-                onClick = { withDurableSession { connectorsOpen = true } },
-                enabled = sessionId != null,
-                modifier = Modifier.fillMaxWidth().testTag("session-settings-connectors"),
+
+            SessionWorkspaceSection(
+                files,
+                screen.directoryRef,
+                sessionId != null && !screen.isSending,
+                sessionId = sessionId,
+                projectDirectory = projectDirectory,
+                projectName = currentProject?.name,
             ) {
-                Text(stringResource(R.string.connector_session_title))
+                directoryOpen =
+                    true
             }
+        }
+
+        SettingsGroup {
+            Text(stringResource(R.string.session_settings_extensions), style = MaterialTheme.typography.titleMedium)
+            SettingsEntryRow(
+                stringResource(R.string.composer_permission_title),
+                R.drawable.ic_permission_shield,
+                { withDurableSession { permissionOpen = true } },
+                Modifier.testTag("session-settings-permissions"),
+                summary?.permission?.let { stringResource(it.labelRes()) } ?: unavailable,
+                enabled = sessionId != null && !preparing,
+            )
             if (skills != null) {
-                OutlinedButton(
-                    onClick = { withDurableSession { skillsOpen = true } },
-                    modifier = Modifier.fillMaxWidth().testTag("session-settings-skills"),
-                ) { Text(stringResource(R.string.session_skills_title)) }
+                SettingsEntryRow(
+                    stringResource(R.string.session_skills_title),
+                    R.drawable.ic_drawer_book,
+                    { withDurableSession { skillsOpen = true } },
+                    Modifier.testTag("session-settings-skills"),
+                    summary?.let { stringResource(R.string.session_settings_selected_count, it.skills) } ?: unavailable,
+                    enabled = sessionId != null && !preparing,
+                )
             }
+            prepareFailure?.let {
+                Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("session-settings-error"))
+            }
+        }
+    }
+    if (modeOpen) {
+        SessionModeDialog(chatService, sessionId, runControl, screen.isSending) { modeOpen = false }
+    }
+    if (permissionOpen && sessionId != null && !screen.isDraft) {
+        ConversationSheet(stringResource(R.string.composer_permission_title), "session-permissions", {
+            permissionOpen =
+                false
+        }) {
+            SessionPermissionSessionSection(permissionEdit, chatService)
         }
     }
 
     if (directoryOpen && sessionId != null) {
-        SessionDirectoryDialog(files, { directoryOpen = false }) { reference ->
+        SessionDirectoryDialog(
+            files,
+            { directoryOpen = false },
+            initialReference = screen.directoryRef,
+            projectDirectory = projectDirectory,
+        ) { reference ->
             chatService.setSessionDirectory(reference, sessionId).await()
-        }
-    }
-    if (connectorsOpen && sessionId != null) {
-        com.helix.app.connector.ConnectorSessionPanel(
-            connectors,
-            sessionId,
-            onPluginConfigure,
-            canApply = { chatService.screen.value.openSessionId == sessionId },
-        ) {
-            connectorsOpen = false
-        }
-    }
-    if (expertOpen && sessionId != null) {
-        SessionExpertDialog(chatService, sessionId, onManage = onManageExperts, plugins = connectors) {
-            expertOpen =
-                false
         }
     }
 }

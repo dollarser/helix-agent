@@ -41,6 +41,9 @@ data class ChatContextUsage(
             }
 
     companion object {
+        /** No conversation history has been submitted yet; missing telemetry remains unknown. */
+        fun emptyConversation(): ChatContextUsage = ChatContextUsage(inputTokens = 0)
+
         private const val PERCENT = 100
     }
 }
@@ -53,7 +56,10 @@ internal object ChatContextProjection {
         providerService: com.helix.app.provider.ProviderService,
     ): ChatContextUsage {
         val session = sessionId?.let { storage.sessions.resolve(it) }
-        val providerId = session?.providerId ?: return ChatContextUsage()
+        val turns = session?.let { storage.turns.listBySession(it.id) }.orEmpty()
+        val empty = turns.isEmpty() && (session == null || storage.messages.recentBySession(session.id, 1).isEmpty())
+        val initial = if (empty) ChatContextUsage.emptyConversation() else ChatContextUsage()
+        val providerId = session?.providerId ?: return initial
         val config = storage.providerConfigs.resolve(providerId)
         val model = session.modelId ?: config.model
         val stored =
@@ -66,8 +72,7 @@ internal object ChatContextProjection {
         val settings = stored.withDetectedWindow(providerService.metadataFor(providerId, model)?.contextWindow)
         val checkpoint = ContextHistory.checkpoint(storage, session.id)
         val samples =
-            storage.turns
-                .listBySession(session.id)
+            turns
                 .asReversed()
                 .asSequence()
                 // A completed model request is authoritative even while its Turn is running tools.
@@ -90,7 +95,7 @@ internal object ChatContextProjection {
                         },
                     )
                 }
-        return select(samples, config.transportIdentity, model).copy(
+        return (if (empty) initial else select(samples, config.transportIdentity, model)).copy(
             windowTokens = settings.window,
             estimatedWindow = settings.windowSource == "fallback",
         )

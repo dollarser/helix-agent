@@ -45,7 +45,7 @@ import java.nio.file.Path
 /**
  * The all-files capability module (HXA-045, ADR-0005): the DEVELOPER flavor's side of the
  * per-variant [AllFilesModule] seam (same FQN as the consumer no-op, exactly like
- * [com.helix.app.profile.AdvancedProfileAvailability]).
+ * [com.helix.app.profile.ChannelCapabilities]).
  *
  * Holds the live system probe, the persisted Helix-roots registry, and the consent screen.
  * `:feature:files-allfiles` is a `developerImplementation`, so every reference to its types lives
@@ -227,14 +227,6 @@ internal object AllFilesModule {
                 ) {
                     Text(stringResource(R.string.allfiles_open_settings))
                 }
-            }
-            if (profile != SafetyProfile.ADVANCED) {
-                Text(
-                    stringResource(R.string.allfiles_advanced_required),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.testTag("allfiles-advanced-required"),
-                )
             }
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(stringResource(R.string.allfiles_roots_title), style = MaterialTheme.typography.titleMedium)

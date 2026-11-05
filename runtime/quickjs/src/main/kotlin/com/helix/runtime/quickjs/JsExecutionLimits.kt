@@ -92,12 +92,6 @@ data class JsExecutionLimits(
                     )
 
                 override fun newArray(size: Int): Array<JsExecutionLimits?> = arrayOfNulls(size)
-
-                // Present for minSdk 29 runtimes: the pre-API-30 `Parcelable.Creator`
-                // declares `newInstance(int[])`. It is only invoked for parcelled arrays,
-                // which this protocol never writes, so the plain method form is a safe
-                // compatibility no-op.
-                fun newInstance(size: IntArray): Array<JsExecutionLimits?> = arrayOfNulls(size.size)
             }
     }
 }

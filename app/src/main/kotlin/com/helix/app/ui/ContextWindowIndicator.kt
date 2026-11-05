@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -32,6 +33,7 @@ internal fun ContextWindowIndicator(usage: ChatContextUsage) {
     var detailsOpen by remember { mutableStateOf(false) }
     val title = stringResource(R.string.chat_context_title)
     val label = usage.percentageLabel
+    val accessibleLabel = if (usage.fraction == null) stringResource(R.string.chat_context_unknown) else label
     val labelStyle = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp)
     val labelWidth = rememberTextMeasurer().measure(label, labelStyle, maxLines = 1).size.width
     val ringSize = with(LocalDensity.current) { (labelWidth.toDp() + 8.dp).coerceAtLeast(28.dp) }
@@ -39,13 +41,13 @@ internal fun ContextWindowIndicator(usage: ChatContextUsage) {
         IconButton(
             { detailsOpen = true },
             Modifier.size(maxOf(48.dp, ringSize)).testTag("chat-context-window").semantics {
-                contentDescription = "$title: $label"
+                contentDescription = "$title: $accessibleLabel"
             },
         ) {
             Box(Modifier.size(ringSize).testTag("chat-context-ring"), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(
                     progress = { usage.fraction ?: 0f },
-                    modifier = Modifier.size(ringSize),
+                    modifier = Modifier.size(ringSize).clearAndSetSemantics {},
                     strokeWidth = 2.dp,
                     color =
                         if ((usage.fraction ?: 0f) >=
@@ -99,7 +101,11 @@ private fun ContextWindowDetails(
                 modifier = Modifier.testTag("chat-context-usage-details"),
             )
         },
-        confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.chat_context_close)) } },
+        confirmButton = {
+            TextButton(onDismiss, modifier = Modifier.testTag("chat-context-details-close")) {
+                Text(stringResource(R.string.chat_context_close))
+            }
+        },
     )
 }
 

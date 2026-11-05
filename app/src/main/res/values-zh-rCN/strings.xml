@@ -120,16 +120,6 @@
     <string name="readiness_next_action">下一步</string>
     <string name="readiness_action_add_model">配置模型</string>
     <string name="settings_title">设置</string>
-    <string name="settings_safety_section">安全配置</string>
-    <string name="settings_current_advanced">当前：Advanced</string>
-    <string name="settings_current_standard">当前：Standard（默认）</string>
-    <string name="settings_switch_to_advanced">切换到 Advanced</string>
-    <string name="settings_switch_back_standard">切换回 Standard</string>
-    <string name="settings_advanced_m2_note">进阶功能需按需配置和授权，切换模式不会自动启用或授权。</string>
-    <string name="settings_consumer_standard_only">此安装包使用 Standard，不提供 Advanced 切换入口。可用能力以当前设置中列出的选项为准。</string>
-    <string name="settings_advanced_confirm_title">切换到 Advanced — 风险说明</string>
-    <string name="settings_advanced_confirm_ok">我已了解，确认切换</string>
-    <string name="profile_advanced_risk_summary">Advanced 提供进阶能力，首次使用时准备 Linux 环境。系统权限、Root、网络和文件访问仍需单独授权。</string>
 
     <!-- HXA-069: domain string resources (zh/en parity checked by scripts/check-i18n.sh) -->
     <string name="admission_empty_message">消息为空：请输入内容或至少选择一个可发送的附件</string>
@@ -196,7 +186,7 @@
     <string name="approval_no_permanent_allow">仅对本次操作生效。</string>
     <string name="approval_online">联网</string>
     <string name="approval_profile_advanced">Advanced（增强，非完全访问）</string>
-    <string name="approval_profile_standard">Standard（默认）</string>
+    <string name="approval_profile_standard">Standard</string>
     <string name="approval_scope">作用域</string>
     <string name="approval_scope_unscoped">无作用域（unscoped）</string>
     <string name="approval_source">来源</string>
@@ -1344,27 +1334,25 @@
     <string name="session_expert_authority_note">专家行为与关联能力不提升权限，也不绕过审批。</string>
     <string name="session_expert_save_failed">未能完成专家操作，请核对输入或重试。</string>
     <string name="session_expert_clear">清除专家</string>
-    <string name="session_skills_title">会话 Skills</string>
-    <string name="session_skills_hint">只影响此会话后续使用；不会修改全局 Skill 开关。</string>
+    <string name="session_skills_title">会话技能开关</string>
+    <string name="session_skills_hint">控制本会话可用的技能；开启不会立即执行。</string>
     <string name="session_skills_empty">没有可用 Skill。</string>
     <string name="session_skills_failed">读取或保存 Skill 状态失败。</string>
     <string name="session_skills_manage">管理 Skills</string>
-    <string name="composer_add_title">添加到消息</string>
+    <string name="composer_add_title">添加</string>
     <string name="composer_add_message_group">添加到本次消息</string>
     <string name="composer_add_camera">拍照</string>
-    <string name="composer_add_photo">图片</string>
-    <string name="composer_add_file">文件</string>
+    <string name="composer_add_file">图片或文件</string>
     <string name="composer_add_reference">引用其他会话</string>
     <string name="composer_reference_chip">引用：%1$s</string>
     <string name="conversation_reference_title">引用其他会话</string>
     <string name="conversation_reference_hint">分享固定版本，模型可在本会话按需检索和读取。</string>
     <string name="conversation_reference_empty">没有其他可引用的会话。</string>
-    <string name="composer_add_session_group">已有能力</string>
+    <string name="plugin_session_scope_hint">选中的插件供本会话按需使用；选择不会立即执行。</string>
     <string name="connector_session_title">选择插件</string>
     <string name="connector_session_empty">尚无可用插件，请前往插件市场安装或导入。</string>
     <string name="connector_session_unavailable">未安装或已移除</string>
     <string name="connector_session_setup">需配置或启用组件</string>
-    <string name="connector_session_ready">可用于本会话，具体操作按授权范围执行</string>
     <string name="connector_session_default">默认用于新会话</string>
     <string name="connector_session_failed">保存失败，请重试</string>
     <string name="connector_session_configure">管理与配置插件</string>
@@ -1421,7 +1409,7 @@
     <string name="chat_prompt_suggestion_goal_fix">排查并修复未通过的测试用例</string>
     <string name="chat_prompt_suggestion_goal_refactor">重构指定模块并进行性能优化</string>
     <string name="workspace_local_backend_unavailable">此工作区无法提供 Git 或终端所需的本地目录。请选择可用的本地工作区。</string>
-    <string name="workspace_binding_help">切换仅影响后续请求，不授予文件权限。已有调用、审批和产物仍使用原目录。文档目录不支持本地终端或 Git。</string>
+    <string name="workspace_binding_help">切换只影响后续请求，不移动已有文件、不改变项目归属，也不授予额外权限。已有调用、审批和产物仍使用原目录。文档目录不支持直接运行本地终端或 Git。</string>
     <string name="workspace_document_backend">系统文档目录</string>
     <string name="workspace_path_backend">本地文件目录</string>
     <string name="workspace_unavailable">目录不可用，请重新选择来源；旧调用不会自动重定向。</string>
@@ -1524,9 +1512,7 @@
     <string name="chat_command_compact_unavailable">当前无法压缩：请先完成发送或处理附件。</string>
     <string name="chat_command_help">/chat 只读对话 · /plan 规划 · /act 执行 · /goal 持续目标 · /compact 压缩 · /clear 清空输入。选择后点击发送执行。</string>
     <string name="chat_command_mode_hint">在会话中输入 /chat、/plan、/act 或 /goal，点击发送切换模式。</string>
-    <string name="runtime_advanced_required">Linux 环境需要 Advanced 模式。首次使用时自动准备，执行仍需相应授权。</string>
     <string name="runtime_developer_required">此版本不包含 Linux 环境。请使用 Advanced 版本。</string>
-    <string name="runtime_switch_advanced">切换到 Advanced</string>
     <string name="chat_command_chat_desc">切换至只读对话模式</string>
     <string name="chat_current_mode">当前模式：%1$s</string>
     <string name="runtime_entry_failed">无法打开运行时页面，请检查运行时是否已启用后重试。</string>
@@ -1671,7 +1657,7 @@
     <string name="project_instructions">项目指令</string>
     <string name="project_instructions_hint">用于本项目会话的共同要求，不会授予权限或自动启用工具。</string>
     <string name="project_managed_directory">创建独立的项目文件夹</string>
-    <string name="project_directory_hint">项目内新会话使用此目录。更改主目录不会移动文件，也不会改绑已有会话。</string>
+    <string name="project_directory_hint">项目内新会话默认使用此目录。更改项目目录不移动文件，也不改绑已有会话。</string>
     <string name="project_search">搜索项目</string>
     <string name="project_active">查看进行中的项目</string>
     <string name="project_archived">已归档</string>
@@ -1730,7 +1716,7 @@
     <string name="extensions_select_tools">选择此连接的全部工具</string>
     <string name="extensions_tool_details">查看或调整工具</string>
     <string name="extensions_component_status">可用组件：%1$d / %2$d</string>
-    <string name="extensions_search">搜索已安装插件</string>
+    <string name="extensions_search">搜索已安装插件与技能</string>
     <string name="mobile_use_save_settings">保存插件设置</string>
     <string name="mobile_use_permissions_heading">系统授权</string>
     <string name="mobile_use_scope_heading">应用范围</string>
@@ -1807,7 +1793,6 @@
     <string name="provider_model_input_hint">输入模型名称，或从下拉列表选择。</string>
     <string name="settings_permissions_intro">系统授权决定 Helix 能访问什么；操作规则决定 Agent 何时需要你确认。</string>
     <string name="settings_system_permissions_hint">管理通知、文件访问、无障碍、Shizuku 和 Root 等系统授权。</string>
-    <string name="settings_execution_mode">运行模式</string>
     <string name="settings_default_permissions_hint">仅影响新会话；当前会话请在会话设置中调整。</string>
     <string name="settings_lan_summary">管理允许连接的局域网服务地址。</string>
     <string name="settings_egress_summary">管理向外部服务发送敏感内容的限时授权。</string>
@@ -1911,7 +1896,6 @@
     <string name="plugin_state_unsupported">不支持执行</string>
     <string name="plugin_state_metadata">仅保留说明</string>
     <string name="plugin_state_reload">配置已变化，请重新连接</string>
-    <string name="plugin_effect_next_request">修改在下一次请求生效</string>
     <string name="plugin_revision">内部安装修订：%1$d</string>
     <string name="plugin_saved_loaded">配置已保存：%1$s；已加载：%2$s</string>
     <string name="plugin_fact_yes">是</string>
@@ -2058,7 +2042,6 @@
     <string name="account_manage">管理账号</string>
     <string name="account_reauth">需要重新登录</string>
     <string name="account_unavailable">账号暂不可用</string>
-    <string name="drawer_permission_mode">权限模式</string>
     <string name="tool_purpose_clipboard_read">读取剪贴板</string>
     <string name="tool_purpose_clipboard_write">写入剪贴板</string>
     <string name="tool_purpose_share_text">分享文本</string>
@@ -2140,8 +2123,6 @@
     <string name="skill_pick_hint">选择已启用的技能，加入当前消息；不更改技能开关。</string>
     <string name="composer_plugins">插件：%1$s</string>
     <string name="plugin_selection_load_failed">未能读取插件选择，请重新打开选择面板重试。</string>
-    <string name="composer_scope_message">当前消息</string>
-    <string name="composer_scope_session">当前会话后续输入</string>
     <string name="composer_add_hint">添加当前消息的材料，或选择后续输入使用的已有能力。</string>
     <string name="expert_return_selection">返回选择专家</string>
     <string name="expert_manage_hint">创建、导入或编辑；不会自动改变当前会话。</string>
@@ -2161,7 +2142,6 @@
     <string name="provider_model_purpose_chat">对话模型</string>
     <string name="provider_model_purpose_other">非对话模型（不可选择）</string>
     <string name="provider_model_not_chat">该模型不是对话模型，请重新选择。</string>
-    <string name="provider_model_directory_manage">管理对话模型</string>
     <string name="builtin_model_tasks_missing">部分内置模型未声明用途，暂不可选。</string>
     <string name="builtin_model_catalog_failed">内置模型目录刷新失败，请重试。</string>
     <string name="builtin_model_catalog_empty">当前目录暂无内置对话模型。</string>
@@ -2208,5 +2188,20 @@
     <string name="scheduled_external_title">审阅定时任务</string>
     <string name="scheduled_external_missing">未找到该任务。此入口不会自动执行。</string>
     <string name="plugin_setup_disabled">此插件已停用。请先在插件配置中启用，再返回选择。</string>
-    <string name="project_working_directory">工作目录：%1$s</string>
+    <string name="chat_artifacts_entry">成果</string>
+    <string name="session_settings_workspace">工作上下文</string>
+    <string name="session_settings_extensions">权限与扩展</string>
+    <string name="session_settings_selected_count">已选 %1$d 项</string>
+    <string name="session_settings_not_selected">未选择</string>
+    <string name="session_settings_retry">重试</string>
+    <string name="chat_artifacts_empty">本会话还没有成果。</string>
+    <string name="voice_input_modes_title">语音输入</string>
+    <string name="voice_input_single">单次语音</string>
+    <string name="composer_add_session_group">本会话能力</string>
+    <string name="workspace_use_project_directory">使用项目目录</string>
+    <string name="workspace_session_directory">会话独立目录</string>
+    <string name="workspace_project_directory_label">项目目录 · %1$s</string>
+    <string name="workspace_directory_purpose">工作目录是文件读写与相对路径的默认起点。未指定时自动创建独立目录；加入项目不是必需条件，也不会把整个目录自动发送给模型。</string>
+    <string name="workspace_change_directory">更改目录</string>
+    <string name="workspace_internal_storage_help">内部存储由 Helix 管理，不支持手动更改位置。切换工作目录后，已有文件仍保留在原处，可在文件管理器中查看或导出。</string>
 </resources>

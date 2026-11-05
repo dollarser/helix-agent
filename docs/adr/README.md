@@ -37,14 +37,14 @@
 | 272、273、278 | [ADR-SKILLS-001](skills/001-authoring-and-installation.md)：统一内容、调用资格、渐进装载 | 包/组件归属沿用 CONNECTORS-003；上下文复用 ContextCompiler |
 | 274、275 | [ADR-CONNECTORS-003](connectors/003-ownership-and-installation.md)：状态、生效时点、支持矩阵、作者样例 | 复用 HXA-271 授权恢复；274 的恢复目标与页面导航边界由 [AGENT-001](agent/001-turn-coordination.md)约束；内容资格由 SKILLS-001 定义 |
 | 276 | [ADR-CONNECTORS-003](connectors/003-ownership-and-installation.md)：Browser 贡献与默认集合 | [PLATFORM-002](platform/002-browser-lifecycle.md)负责 View；[TOOLS-001](tools/001-descriptor-contract.md)负责唯一绑定 |
-| 277 | [ADR-CONNECTORS-003 §11](connectors/003-ownership-and-installation.md#11-原生实例共享资源与释放hxa-277)：原生 owner、引用与释放 | AGENT-001 区分 Turn/调度/执行/插件引用；PLATFORM-002 负责 Browser 具体引用，TOOLS-001 保持原准入边界 |
+| 277 | [ADR-CONNECTORS-003 第 11 节](connectors/003-ownership-and-installation.md#11-原生实例共享资源与释放hxa-277)：原生 owner、引用与释放 | AGENT-001 区分 Turn/调度/执行/插件引用；PLATFORM-002 负责 Browser 具体引用，TOOLS-001 保持原准入边界 |
 | 279 | [ADR-PLATFORM-002](platform/002-browser-lifecycle.md)：标签发现、条件等待 | TOOLS-001 定义可核实观察结果；CONNECTORS-003 定义资源释放 |
 
 ## 系统分层优化的决策承接（2026-10-11）
 
 [本轮源码分析](../research/modules/01-architecture-and-execution-engine.md#9-2026-10-11-分层复核与优化承接)沿用现有主题，无新 ADR 编号。ADR-AGENT-001 补应用命令/表现与执行资源边界；CONNECTORS-003 补 HXA-274 的恢复目标数据及 HXA-277 对原执行事实的复用，均追加 Decision history。原权限、工具和 Runtime 决策继续生效。
 
-Core/Engine 和 HXA-257/258 的既有交付不重复实施。2026-10-15 Owner 要求按评审优化文档与任务，完整 Turn 已纳入 HXA-287，不再等待第二消费者；B+E 合并目标，C+D 产物共同接线，Memory 归内容域。具体目标见 [Harness §23](../architecture/harness-refactor-plan.md#23-2026-10-14-执行边界重构提案)，当前事实见 [status](../development/status.md)，范围/依赖见各任务和 §23 当前矩阵，不由索引启动实施。设计已接受与代码已交付分开，HXA-286～294 按当前矩阵区分已交付基线、剩余分层/贡献目标、独立新能力及实验。
+Core/Engine 和 HXA-257/258 的既有交付不重复实施。2026-10-15 Owner 要求按评审优化文档与任务，完整 Turn 已纳入 HXA-287，不再等待第二消费者；B+E 合并目标，C+D 产物共同接线，Memory 归内容域。具体目标见 [Harness 第 23 节](../architecture/harness-refactor-plan.md#23-2026-10-14-执行边界重构提案)，当前事实见 [status](../development/status.md)，范围/依赖见各任务和 第 23 节 当前矩阵，不由索引启动实施。设计已接受与代码已交付分开，HXA-286～294 按当前矩阵区分已交付基线、剩余分层/贡献目标、独立新能力及实验。
 
 | 新任务 | 原主题决定的承接 |
 | --- | --- |
@@ -54,7 +54,7 @@ Core/Engine 和 HXA-257/258 的既有交付不重复实施。2026-10-15 Owner �
 | HXA-289～292 | TOOLS-001 规范语义；MCP-001 Resources；具体文件/网络/Browser/Mobile Use 仍沿所属领域与权限，改变长期边界时同步原 ADR |
 | HXA-293 | [AGENT-002](agent/002-context-compaction.md) 内容快照/成本与策略分期；[AGENT-013](agent/013-markdown-memory.md) 最小 Memory Store |
 | HXA-294 | 验证以上已交付契约及旧路径删除，不新增架构或自动启动长稳/发行 |
-| HXA-295 | [AGENT-001 §17](agent/001-turn-coordination.md#17-会话查询与管理) 会话查询/创建/投递；[PERMISSIONS-001](permissions/001-session-authorization.md) 目标/操作范围；A 首版与 B/C 后续扩展分开，不复制 Mobile Use 授权 |
+| HXA-295 | [AGENT-001 第 17 节](agent/001-turn-coordination.md#17-会话查询与管理) 会话查询/创建/投递；[PERMISSIONS-001](permissions/001-session-authorization.md) 目标/操作范围；A 首版与 B/C 后续扩展分开，不复制 Mobile Use 授权 |
 | HXA-296 | [AGENT-001](agent/001-turn-coordination.md) 提示/历史与执行事实；[WORKSPACE-001](workspace/001-session-paths.md) 同流读取身份与编辑版本边界 |
 
 单一开发基线允许删除旧内部兼容接口与历史开发库迁移链；当前版本恢复、原执行身份、审批和未知效果保障仍须验证。当前外部协议/插件格式适配不是旧 Helix 兼容。

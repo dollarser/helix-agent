@@ -59,7 +59,19 @@ class SessionDraftDeviceTest {
                     compose.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
                     compose.waitUntil(10_000) { chat.screen.value.isDraft }
                     chat.bindProviderToSession(provider, "fixture-model-a")
-                    chat.setSessionDirectory("scope:app:work")
+                    val owned =
+                        storage.workspaces.defaultDirectory(
+                            requireNotNull(chat.screen.value.openSessionId),
+                            1,
+                        )
+                    val ownedScope =
+                        com.helix.core.workspace.FileScopePath
+                            .fromModelReference(owned)
+                            .scopeId
+                    java.nio.file.Files.createDirectories(
+                        storage.workspaces.managedDirectory(ownedScope).resolve("work"),
+                    )
+                    chat.setSessionDirectory("scope:$ownedScope:work").await()
                     compose.waitUntil(10_000) {
                         chat.screen.value.directoryRef
                             ?.startsWith("scope:ws-") == true
@@ -69,7 +81,8 @@ class SessionDraftDeviceTest {
                         com.helix.core.workspace.FileScopePath
                             .fromModelReference(directory)
                             .scopeId
-                    assertEquals("scope:app:work", storage.workspaces.find(workspace)?.locator)
+                    assertEquals(ownedScope, workspace)
+                    assertEquals("scope:$ownedScope:work", directory)
                     val id = requireNotNull(chat.screen.value.openSessionId)
                     val submission =
                         com.helix.app.chat.ChatSubmission(
@@ -92,7 +105,8 @@ class SessionDraftDeviceTest {
                             ?.state
                             ?.isTerminal == true
                     }
-                    compose.onNodeWithTag("chat-title").performClick()
+                    compose.onNodeWithTag("chat-conversation-details").performClick()
+                    compose.onNodeWithTag("session-rename-open").performClick()
                     compose.onNodeWithTag("session-title").performTextReplacement("Renamed")
                     compose.onNodeWithTag("session-rename-save").performClick()
                     compose.waitUntil(10_000) { storage.sessions.resolve(id).title == "Renamed" }

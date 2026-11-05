@@ -46,7 +46,7 @@ private val drawerGroupOrder =
         R.string.nav_group_settings,
     )
 
-/** Conversation-first drawer with a fixed account header and fixed settings/profile footer. */
+/** Conversation-first drawer with a fixed account header and grouped secondary destinations. */
 @Composable
 @Suppress("FunctionName", "LongMethod", "LongParameterList")
 internal fun GroupedNavigation(
@@ -57,7 +57,6 @@ internal fun GroupedNavigation(
     onNewConversation: () -> Unit,
     onAllConversations: () -> Unit,
     header: @Composable () -> Unit = {},
-    footer: @Composable () -> Unit = {},
     onNavigate: (String) -> Unit,
 ) {
     val navigationDestinations =
@@ -223,7 +222,6 @@ internal fun GroupedNavigation(
         }
         HorizontalDivider()
         DrawerSettingsNavigation(currentRoute, R.string.nav_group_settings in groups, onNavigate)
-        footer()
     }
 }
 

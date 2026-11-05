@@ -38,11 +38,11 @@ class CurrentScreenGestureDeviceTest {
         val center = AutomationPermissionCenter(app)
         val session = "observed-tap-${System.nanoTime()}"
         val turn = "$session-turn"
-        val old = c.profileStore.profile
+
         c.storage.sessions.create(session, "Observed gesture fixture", null, null, System.currentTimeMillis())
         c.storage.turns.start(turn, session, System.currentTimeMillis())
         try {
-            c.profileStore.switchTo(SafetyProfile.ADVANCED)
+            check(c.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
             c.pluginService.catalog.select(
                 session,
                 c.pluginService
@@ -137,7 +137,6 @@ class CurrentScreenGestureDeviceTest {
             com.helix.app.eval
                 .deselectMobileUseForTest(session)
             c.storage.deleteSessionPermanently(session)
-            c.profileStore.switchTo(old)
         }
     }
 

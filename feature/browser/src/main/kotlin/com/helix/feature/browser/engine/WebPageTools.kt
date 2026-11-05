@@ -1,14 +1,34 @@
 package com.helix.feature.browser.engine
 
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.webkit.WebView
+import androidx.core.graphics.createBitmap
 import org.json.JSONException
 import org.json.JSONObject
+import java.io.ByteArrayOutputStream
 
 /**
  * Page utilities: Eruda mobile console, page source extraction, dark mode filter,
  * and reader mode content extraction.
  */
 object WebPageTools {
+    /** Draw only the supplied page, releasing its temporary bitmap even if encoding fails. */
+    fun capturePng(view: WebView): ByteArray? {
+        val width = view.width
+        val height = view.height
+        if (width <= 0 || height <= 0) return null
+        val bitmap = createBitmap(width, height)
+        try {
+            view.draw(Canvas(bitmap))
+            val buffer = ByteArrayOutputStream()
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, buffer)
+            return buffer.toByteArray()
+        } finally {
+            bitmap.recycle()
+        }
+    }
+
     /**
      * Applies or removes a clean dark theme CSS filter on the current page.
      */

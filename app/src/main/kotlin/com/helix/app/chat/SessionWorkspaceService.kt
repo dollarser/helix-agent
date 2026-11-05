@@ -16,8 +16,14 @@ internal class SessionWorkspaceService(
 ) {
     fun bind(reference: String): String {
         val path = FileScopePath.fromModelReference(reference)
+        require(path.scopeId != com.helix.app.APP_SCOPE_ID) { "Internal storage is not a working directory" }
         if (workspaces.find(path.scopeId) != null) {
             val resource = requireNotNull(workspaces.find(path.scopeId))
+            if (resource.ownership != "MANAGED") {
+                require(FileScopePath.fromModelReference(resource.locator).scopeId != com.helix.app.APP_SCOPE_ID) {
+                    "Internal storage is not a working directory"
+                }
+            }
             if (resource.backend == "PATH") {
                 val root = resolveRoot(path.scopeId)
                 workspaces.directoryWitness(resolveFileScopePath(path, ScopeRootResolver { root }))

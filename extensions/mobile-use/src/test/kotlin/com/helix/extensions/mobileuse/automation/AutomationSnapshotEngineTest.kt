@@ -384,6 +384,8 @@ class NodeTokenRegistryTest {
         val token = registry.issue(binding)
         registry.beginSnapshot()
 
+        assertEquals(NodeTokenLookupStatus.RETIRED, registry.lookup(token).status)
+        assertEquals(null, registry.lookup(token).binding)
         assertEquals(NodeTokenResolutionStatus.UNKNOWN, resolve(token).status)
     }
 

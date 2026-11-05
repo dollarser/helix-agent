@@ -59,15 +59,28 @@ internal fun SessionRenameDialog(
 }
 
 @Composable
-@Suppress("FunctionName", "LongMethod", "TooGenericExceptionCaught", "SwallowedException")
+// One bounded picker owns navigation, loading and awaited saving; cancellation never reports success.
+@Suppress(
+    "FunctionName",
+    "LongMethod",
+    "LongParameterList",
+    "CyclomaticComplexMethod",
+    "TooGenericExceptionCaught",
+    "SwallowedException",
+)
 internal fun SessionDirectoryDialog(
     files: FileManagerService,
     onDismiss: () -> Unit,
     allowIndependent: Boolean = true,
+    initialReference: String? = null,
+    projectDirectory: String? = null,
     onChoose: suspend (String?) -> Boolean,
 ) {
     var sources by remember { mutableStateOf(emptyList<FileSource>()) }
-    var path by remember { mutableStateOf<FileScopePath?>(null) }
+    var selectedReference by androidx.compose.runtime.saveable.rememberSaveable(initialReference) {
+        mutableStateOf(initialReference)
+    }
+    val path = selectedReference?.let { runCatching { FileScopePath.fromModelReference(it) }.getOrNull() }
     var entries by remember { mutableStateOf(emptyList<FileManagerService.FileEntry>()) }
     var ready by remember { mutableStateOf(false) }
     var failed by remember { mutableStateOf(false) }
@@ -116,38 +129,40 @@ internal fun SessionDirectoryDialog(
         onDismissRequest = { if (!saving) onDismiss() },
         title = { Text(stringResource(R.string.chat_directory)) },
         text = {
-            Column(Modifier.heightIn(max = 360.dp).indicatedVerticalScroll(rememberScrollState())) {
+            Column(Modifier.heightIn(min = 360.dp, max = 360.dp).indicatedVerticalScroll(rememberScrollState())) {
                 val current = path
-                WorkspaceStorageEntry(
-                    !saving,
-                    sources.any {
-                        com.helix.app.files.SharedStorageAccess
-                            .isScope(it.scopeId)
-                    },
-                    requestStorage,
-                )
+                ProjectDirectoryOption(projectDirectory, !saving) { choose(it) }
+                IndependentDirectoryOption(allowIndependent, !saving) { choose(null) }
                 if (current == null) {
-                    WorkspaceSourceChoices(sources, !saving) { path = it }
+                    WorkspaceRootChoices(sources, ready, !saving, requestStorage) {
+                        selectedReference = it.toModelReference()
+                    }
                 } else {
                     ScopedPathText(
                         current.toModelReference(),
                         sources.firstOrNull { it.scopeId == current.scopeId }?.displayName,
                     )
                     TextButton({
-                        path =
+                        selectedReference =
                             if (current.relativePath.isEmpty()) {
                                 null
                             } else {
-                                FileScopePath(current.scopeId, current.relativePath.substringBeforeLast('/', ""))
+                                FileScopePath(
+                                    current.scopeId,
+                                    current.relativePath.substringBeforeLast('/', ""),
+                                ).toModelReference()
                             }
                     }, enabled = !saving) { Text(stringResource(R.string.chat_directory_parent)) }
                     WorkspaceAccessText(access, showCopyHint = true)
                     if (truncated) Text(stringResource(R.string.files_listing_partial))
-                    WorkspaceLocalAlternative(alternative, !saving) { path = FileScopePath.fromModelReference(it) }
+                    WorkspaceLocalAlternative(alternative, !saving) { selectedReference = it }
                     if (ready) {
                         entries.filter { it.isDirectory }.forEach { entry ->
                             TextButton(
-                                { path = FileScopePath(current.scopeId, entry.relativePath) },
+                                {
+                                    selectedReference =
+                                        FileScopePath(current.scopeId, entry.relativePath).toModelReference()
+                                },
                                 enabled = !saving,
                             ) {
                                 Text(entry.name)
@@ -161,7 +176,6 @@ internal fun SessionDirectoryDialog(
                         Text(stringResource(R.string.chat_retry))
                     }
                 }
-                IndependentDirectoryOption(allowIndependent, !saving) { choose(null) }
             }
         },
         confirmButton = {
@@ -199,25 +213,10 @@ private fun IndependentDirectoryOption(
 @Suppress("FunctionName")
 private fun WorkspaceStorageEntry(
     enabled: Boolean,
-    available: Boolean,
+    available: Boolean?,
     onRequest: () -> Unit,
 ) {
-    Text(
-        stringResource(
-            if (android.os.Build.VERSION.SDK_INT >=
-                30
-            ) {
-                R.string.workspace_permission_modern
-            } else {
-                R.string.workspace_permission_legacy
-            },
-        ),
-    )
-    Text(
-        stringResource(
-            if (available) R.string.workspace_storage_ready else R.string.workspace_storage_permission_needed,
-        ),
-    )
+    if (available == false) Text(stringResource(R.string.workspace_storage_permission_needed))
     TextButton(onRequest, enabled = enabled, modifier = Modifier.testTag("workspace-storage-permission")) {
         Text(stringResource(R.string.workspace_permission_action))
     }
@@ -266,4 +265,40 @@ private fun WorkspaceSourceChoices(
             modifier = Modifier.testTag("session-directory-source-${source.scopeId}"),
         ) { Text(source.displayName) }
     }
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun ProjectDirectoryOption(
+    reference: String?,
+    enabled: Boolean,
+    onChoose: (String) -> Unit,
+) {
+    reference?.let {
+        TextButton({ onChoose(it) }, enabled = enabled, modifier = Modifier.testTag("session-directory-project")) {
+            Text(stringResource(R.string.workspace_use_project_directory))
+        }
+    }
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun WorkspaceRootChoices(
+    sources: List<FileSource>,
+    ready: Boolean,
+    enabled: Boolean,
+    onRequest: () -> Unit,
+    onChoose: (FileScopePath) -> Unit,
+) {
+    val available =
+        if (ready) {
+            sources.any {
+                com.helix.app.files.SharedStorageAccess
+                    .isScope(it.scopeId)
+            }
+        } else {
+            null
+        }
+    WorkspaceStorageEntry(enabled, available, onRequest)
+    WorkspaceSourceChoices(sources, enabled, onChoose)
 }

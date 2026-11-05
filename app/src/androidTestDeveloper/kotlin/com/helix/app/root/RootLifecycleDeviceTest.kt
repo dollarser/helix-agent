@@ -172,13 +172,7 @@ class RootLifecycleDeviceTest {
 
     private fun requestRootThroughTheUi() {
         composeRule.resetDeterministicUiState()
-        composeRule.navigateTo("settings/permissions")
-        composeRule.onNodeWithText("当前：Standard（默认）").assertIsDisplayed()
-        composeRule.onNodeWithTag("settings-advanced-switch").performClick()
-        composeRule.waitForIdle()
-        composeRule.onNodeWithTag("settings-risk-dialog").assertIsDisplayed()
-        composeRule.onNodeWithTag("settings-risk-confirm").performClick()
-        composeRule.waitForIdle()
+        composeRule.navigateTo("settings/permissions/system")
         composeRule.onNodeWithTag("settings-root-section").assertIsDisplayed()
         // The owner can pre-approve the package or approve a manager prompt. Retry within
         // a bounded deadline; a pending su process alone is not evidence of a visible prompt.

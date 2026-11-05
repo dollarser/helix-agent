@@ -119,8 +119,11 @@ internal fun FileDirectoryTask(
     var failed by remember(state.selectedScopeId, state.currentPath) { mutableStateOf(false) }
     // Manual phone/root browsing is not an Agent scope. The session binder revalidates
     // workspace and SAF availability; displaying a directory never widens permissions.
-    if (state.currentSource.kind != com.helix.app.files.FileSourceKind.WORKSPACE &&
-        state.currentSource.kind != com.helix.app.files.FileSourceKind.SAF
+    if (state.selectedScopeId == com.helix.app.APP_SCOPE_ID ||
+        (
+            state.currentSource.kind != com.helix.app.files.FileSourceKind.WORKSPACE &&
+                state.currentSource.kind != com.helix.app.files.FileSourceKind.SAF
+        )
     ) {
         return
     }

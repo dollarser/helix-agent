@@ -4,6 +4,7 @@ import android.Manifest
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import com.helix.app.MainActivity
@@ -57,7 +58,9 @@ class SystemPermissionsNavigationDeviceTest {
         compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) { chat.screen.value.isDraft }
         compose.onNodeWithTag("chat-conversation-details").performClick()
         compose.onNodeWithTag("session-settings-open").performClick()
-        compose.onNodeWithTag("session-settings-manage-models").performScrollTo().performClick()
+        compose.onNodeWithTag("session-settings-manage-models").assertDoesNotExist()
+        compose.onNodeWithTag("chat-model-menu").performScrollTo().performClick()
+        compose.onNodeWithTag("chat-model-configure-USER_CONFIGURED").performScrollTo().performClick()
         compose.onNodeWithTag("screen-models").assertIsDisplayed()
     }
 }

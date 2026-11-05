@@ -48,12 +48,21 @@ internal class ShizukuHierarchy : AutoCloseable {
         if (displayId == 0) return checkNotNull(automation).rootInActiveWindow
         val windows = displayWindows()
         return try {
-            windows
-                .filter { it.type != android.view.accessibility.AccessibilityWindowInfo.TYPE_INPUT_METHOD }
-                .sortedWith(
-                    compareByDescending<android.view.accessibility.AccessibilityWindowInfo> { it.isFocused }
-                        .thenByDescending { it.layer },
-                ).firstNotNullOfOrNull { it.root }
+            val candidates =
+                windows
+                    .filter { it.type != android.view.accessibility.AccessibilityWindowInfo.TYPE_INPUT_METHOD }
+                    .sortedWith(
+                        compareByDescending<android.view.accessibility.AccessibilityWindowInfo> { it.isFocused }
+                            .thenByDescending { it.layer },
+                    )
+            // A blind focused window must not be replaced by an unrelated readable background tree.
+            val active =
+                candidates.firstOrNull { it.isFocused }
+                    ?: candidates.firstOrNull {
+                        it.type ==
+                            android.view.accessibility.AccessibilityWindowInfo.TYPE_APPLICATION
+                    }
+            active?.root
         } finally {
             windows.forEach { it.recycle() }
         }
@@ -205,10 +214,13 @@ internal class ShizukuHierarchy : AutoCloseable {
             .invoke(manager, displayId) as android.view.Display
     }
 
-    fun deviceTarget(includeRevision: Boolean = true): AutomationDisplayTarget? {
+    fun deviceTarget(
+        includeRevision: Boolean = true,
+        allowVisualFallback: Boolean = false,
+    ): AutomationDisplayTarget? {
         val instance = checkNotNull(automation)
         instance.serviceInfo = checkNotNull(instance.serviceInfo)
-        val root = root() ?: return null
+        val root = root() ?: return visualDeviceTarget(allowVisualFallback)
         return try {
             val size = android.graphics.Point().also { display().getRealSize(it) }
             val bounds = Rect().also(root::getBoundsInScreen)
@@ -248,6 +260,41 @@ internal class ShizukuHierarchy : AutoCloseable {
             }
         } finally {
             root.recycle()
+        }
+    }
+
+    private fun visualDeviceTarget(wholeDisplay: Boolean): AutomationDisplayTarget? {
+        if (android.os.Build.VERSION.SDK_INT < 31 || !wholeDisplay || displayId == 0) return null
+        val windows = displayWindows()
+        return try {
+            val applicationWindows =
+                windows
+                    .filter {
+                        it.type == android.view.accessibility.AccessibilityWindowInfo.TYPE_APPLICATION &&
+                            it.displayId == displayId
+                    }.map {
+                        val bounds = Rect().also(it::getBoundsInScreen)
+                        VisualWindow(
+                            it.id,
+                            it.isFocused,
+                            AutomationNodeBounds(bounds.left, bounds.top, bounds.right, bounds.bottom),
+                        )
+                    }
+            val size = android.graphics.Point().also { display().getRealSize(it) }
+            visualTarget(
+                VisualDisplay(displayId, displaySession, size.x, size.y, rotation(), independentFocus),
+                wholeDisplay,
+                applicationWindows,
+                visibleDisplayTasks(displayId),
+            )
+        } catch (failure: ReflectiveOperationException) {
+            android.util.Log.w("HelixDisplay", "Visual task identity unavailable", failure)
+            null
+        } catch (failure: SecurityException) {
+            android.util.Log.w("HelixDisplay", "Visual task identity denied", failure)
+            null
+        } finally {
+            windows.forEach { it.recycle() }
         }
     }
 

@@ -50,7 +50,7 @@ class AndroidWorldPilotDeviceTest {
             val launcher = requireNotNull(arguments.getString("launcher"))
             require(launcher.matches(Regex("[a-zA-Z0-9_.]+")))
             val previous = container.chatService.runControl.value
-            val profile = container.profileStore.profile
+
             val services =
                 android.provider.Settings.Secure
                     .getString(app.contentResolver, "enabled_accessibility_services")
@@ -72,7 +72,7 @@ class AndroidWorldPilotDeviceTest {
                     check(SystemClock.elapsedRealtime() < deadline) { "Accessibility did not connect" }
                     Thread.sleep(100)
                 }
-                container.profileStore.switchTo(SafetyProfile.ADVANCED)
+                check(container.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
                 val packages = setOf(app.packageName, launcher) + center.systemSettingsPackages()
                 provider =
                     container.providerService.create(
@@ -178,7 +178,6 @@ class AndroidWorldPilotDeviceTest {
                     shell("settings put secure enabled_accessibility_services $services")
                 }
                 shell("settings put secure accessibility_enabled $enabled")
-                container.profileStore.switchTo(profile)
             }
             check(failure == null) { requireNotNull(failure) }
         }

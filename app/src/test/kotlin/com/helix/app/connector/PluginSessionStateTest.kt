@@ -4,26 +4,64 @@ import com.helix.app.R
 import com.helix.app.plugin.PluginSessionRow
 import com.helix.app.plugin.PluginSetupReason
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class PluginSessionStateTest {
-    private val ready = PluginSessionRow("plugin", "Mobile Use", false, false, true, true)
+    private val ready = PluginSessionRow("plugin", "Mobile Use", false, false, true, true, readyComponents = 1)
+
+    @Test fun primaryPluginsSortFirstWithoutPromotingNamesOrReorderingOtherEntries() {
+        val rows =
+            listOf("z", "bundled-plugin:mobile-use", "a", "bundled-plugin:browser", "browser").map {
+                ready.copy(id = it)
+            }
+        assertEquals(
+            listOf("bundled-plugin:browser", "bundled-plugin:mobile-use", "z", "a", "browser"),
+            rows.sortedBy(::pluginSelectionPriority).map { it.id },
+        )
+    }
 
     @Test fun registeredToolsDoNotHideUnreadableConfiguration() {
         assertEquals(
             R.string.mobile_use_configuration_error,
-            statusLabel(ready.copy(setupReason = PluginSetupReason.MOBILE_CONFIGURATION)),
+            selectionIssueLabel(ready.copy(selected = true, setupReason = PluginSetupReason.MOBILE_CONFIGURATION)),
         )
-        assertEquals(R.string.connector_session_setup, statusLabel(ready.copy(setupReason = PluginSetupReason.RELOAD)))
+        assertNull(selectionIssueLabel(ready.copy(setupReason = PluginSetupReason.RELOAD)))
         assertEquals(
             R.string.mobile_use_needs_access,
-            statusLabel(ready.copy(setupReason = PluginSetupReason.MOBILE_BACKEND)),
+            selectionIssueLabel(ready.copy(selected = true, setupReason = PluginSetupReason.MOBILE_BACKEND)),
         )
-        assertEquals(R.string.connector_session_ready, statusLabel(ready))
+        assertNull(selectionIssueLabel(ready.copy(selected = true)))
+        assertNull(selectionIssueLabel(ready.copy(selected = true, ready = false, totalComponents = 2)))
+        assertNull(
+            selectionIssueLabel(
+                ready.copy(
+                    selected = true,
+                    ready = false,
+                    readyComponents = 0,
+                    setupReason = PluginSetupReason.HOST_UNAVAILABLE,
+                ),
+            ),
+        )
+        assertNull(
+            selectionIssueLabel(
+                ready.copy(
+                    selected = true,
+                    ready = false,
+                    readyComponents = 0,
+                    setupReason = PluginSetupReason.CONNECTION,
+                ),
+            ),
+        )
     }
 
     @Test fun unavailableAndDisabledRemainExplicit() {
-        assertEquals(R.string.connector_session_unavailable, statusLabel(ready.copy(available = false)))
-        assertEquals(R.string.connector_inactive, statusLabel(ready.copy(enabled = false)))
+        assertNull(selectionIssueLabel(ready.copy(available = false)))
+        assertNull(selectionIssueLabel(ready.copy(enabled = false)))
+        assertEquals(
+            R.string.connector_session_unavailable,
+            selectionIssueLabel(ready.copy(selected = true, available = false)),
+        )
+        assertEquals(R.string.connector_inactive, selectionIssueLabel(ready.copy(selected = true, enabled = false)))
     }
 }

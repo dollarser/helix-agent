@@ -36,12 +36,14 @@ internal fun ConversationReferencePicker(
     var query by rememberSaveable(currentSessionId) { mutableStateOf("") }
     var refresh by remember { mutableStateOf(0) }
     var loading by remember { mutableStateOf(true) }
+    var loaded by remember(chatService, currentSessionId) { mutableStateOf(false) }
     var failed by remember { mutableStateOf(false) }
     LaunchedEffect(chatService, currentSessionId, refresh) {
         loading = true
-        failed = false
         try {
             chatService.refreshReferenceSessions().await()
+            loaded = true
+            failed = false
         } catch (cancel: CancellationException) {
             throw cancel
         } catch (_: Exception) {
@@ -52,6 +54,7 @@ internal fun ConversationReferencePicker(
     }
     val candidates = sessions.filter { it.id != currentSessionId }
     val matches = candidates.filter { it.title.contains(query.trim(), ignoreCase = true) }
+    if (!loaded && !failed) return
     ConversationSheet(
         stringResource(R.string.conversation_reference_title),
         "conversation-reference",
@@ -68,10 +71,6 @@ internal fun ConversationReferencePicker(
             modifier = Modifier.fillMaxWidth().testTag("reference-search"),
         )
         when {
-            loading -> {
-                Text(stringResource(R.string.tasks_commands_loading))
-            }
-
             failed -> {
                 Text(stringResource(R.string.reference_load_failed))
                 TextButton(onClick = { refresh++ }) { Text(stringResource(R.string.chat_retry)) }
@@ -105,7 +104,7 @@ internal fun ConversationReferencePicker(
                         ConversationMenuRow(
                             title = row.title.ifBlank { stringResource(R.string.reference_untitled) },
                             onClick = { onSelect(row) },
-                            enabled = count != 0,
+                            enabled = !loading && count != 0,
                             modifier = Modifier.testTag("conversation-reference-${row.id}"),
                             supporting = metadata,
                             selected = selectedSessionId == row.id,

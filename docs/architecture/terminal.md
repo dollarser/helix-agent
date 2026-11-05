@@ -1,6 +1,6 @@
 # 终端、日志与后台命令
 
-本页说明已交付 Linux Job、手动终端与多会话的当前结构和控制边界，交付证据见下方 HXA-194～199。决策见[执行域](../adr/runtime/001-execution-domains.md)、[终端与 Job](../adr/runtime/002-terminal-and-jobs.md)，最新未闭合条件看[实施状态](../development/status.md)。[HXA-236](../development/tasks/HXA-236.md) 已接入 Linux 原身份 status/`jobs.await` 与独立停止等待并完成基础主机验证；完整 J1 的观察上下文/可信类型进展判断与设备边界仍开放。AUTO/手动后台化仍属 [Harness §8](harness-refactor-plan.md) 的 J2，不由后台启动或 await 推导为已交付。
+本页说明已交付 Linux Job、手动终端与多会话的当前结构和控制边界，交付证据见下方 HXA-194～199。决策见[执行域](../adr/runtime/001-execution-domains.md)、[终端与 Job](../adr/runtime/002-terminal-and-jobs.md)，最新未闭合条件看[实施状态](../development/status.md)。[HXA-236](../development/tasks/HXA-236.md) 已接入 Linux 原身份 status/`jobs.await` 与独立停止等待并完成基础主机验证；完整 J1 的观察上下文/可信类型进展判断与设备边界仍开放。AUTO/手动后台化仍属 [Harness 第 8 节](harness-refactor-plan.md) 的 J2，不由后台启动或 await 推导为已交付。
 
 ## 三种对象
 

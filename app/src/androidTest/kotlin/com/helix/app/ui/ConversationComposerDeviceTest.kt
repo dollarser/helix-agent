@@ -2,8 +2,9 @@ package com.helix.app.ui
 
 import android.content.res.Configuration
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
@@ -407,13 +408,15 @@ class ConversationComposerDeviceTest {
         compose.runOnIdle { assertEquals(ReasoningEffort.LOW, selected) }
     }
 
-    @Test fun commonPhoneWidthsKeepHeaderAndEditingOnTheirOwnRows() {
+    @OptIn(ExperimentalLayoutApi::class)
+    @Test
+    fun commonPhoneWidthsKeepHeaderAndEditingOnTheirOwnRows() {
         val width = mutableStateOf(320)
-        var imeBottom = 0
+        var imeVisible = false
         compose.setContent {
             val density = LocalDensity.current
-            val keyboard = WindowInsets.ime.getBottom(density)
-            SideEffect { imeBottom = keyboard }
+            val keyboardVisible = WindowInsets.isImeVisible
+            SideEffect { imeVisible = keyboardVisible }
             CompositionLocalProvider(LocalDensity provides Density(density.density, 1.8f)) {
                 MaterialTheme {
                     Column(Modifier.width(width.value.dp)) {
@@ -459,7 +462,9 @@ class ConversationComposerDeviceTest {
         }
         compose.runOnIdle { width.value = 320 }
         compose.onNodeWithTag("chat-input").performClick()
-        compose.waitUntil(10_000) { imeBottom > 0 }
+        // Floating/minimized IMEs are visible while reporting zero bottom inset. Require the
+        // actual visibility signal, then retain every viewport/interaction assertion below.
+        compose.waitUntil(10_000) { imeVisible }
         assertFits("chat-input", "chat-permission-menu", "chat-send", "chat-composer-options")
         captureComposer("keyboard-multiline")
     }

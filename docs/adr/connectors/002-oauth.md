@@ -56,10 +56,10 @@ Deciders: project owner (2026-09-21 merge and bug-fix authorization)
 - 2026-10-15：Owner要求优化MCP连接并完成重构前收尾。参考[Codex MCP](https://developers.openai.com/codex/mcp)的独立登录、配置身份优先与客户端复用、[Claude Code MCP](https://code.claude.com/docs/en/mcp)的自动发现/特殊服务预注册入口和[OpenCode MCP](https://opencode.ai/docs/mcp-servers/)的常规低配置连接，采用连接账号为主、高级参数折叠、手动身份持久复用。Helix继续使用Android精确私有scheme及显式注册确认，不复制桌面loopback监听、ChatGPT托管身份或自动POST策略；参考只用于行为比较，未复制代码。
 - 2026-10-15：Owner要求继续收尾。真实Notion/Linear均支持CIMD及DCR，但无自有HTTPS文档，旧UI/服务层没有可达的显式后备；本轮补齐双次用户动作的兼容入口及默认拒绝/持久化/取消回归。参考[当前MCP注册规范](https://modelcontextprotocol.io/specification/draft/basic/authorization/client-registration)及[Notion官方接入指南](https://developers.notion.com/guides/mcp/build-mcp-client)；DCR已弃用，保留为无文档时用户选择的兼容方式，不作为新接入首选。自有HTTPS文档、签名与App Link不随此虚构交付。
 - 2026-10-15：Owner继续Notion真实账号连接修复。原生OAuth已授权，实际tools/list后的80,556字节Schema被旧64 KiB本地上限拒绝；默认单Schema调整为128 KiB，保留总量、网络响应及授权边界。参考[MCP工具定义规范](https://modelcontextprotocol.io/specification/2025-11-25/server/tools)，未复制实现，也不把本地大小预算描述为协议限制。
-- 2026-10-15：随后选择notion-search/fetch暴露2020-12日期format注解被工具子集拒绝。按[JSON Schema 2020-12 §7.2](https://json-schema.org/draft/2020-12/json-schema-validation#section-7.2)仅处理默认方言注解，不移除强制约束或扩大校验引擎；超限与格式不兼容以固定类别提示。真实账号激活与读取仍按实际结果记录。
+- 2026-10-15：随后选择notion-search/fetch暴露2020-12日期format注解被工具子集拒绝。按[JSON Schema 2020-12 第 7.2 节](https://json-schema.org/draft/2020-12/json-schema-validation#section-7.2)仅处理默认方言注解，不移除强制约束或扩大校验引擎；超限与格式不兼容以固定类别提示。真实账号激活与读取仍按实际结果记录。
 - 2026-09-21：所有者接受预注册 public-client OAuth 合并与缺陷修复，真实服务验收保持独立。
 - 2026-10-01：所有者授权依次完成剩余任务；接受 HXA-126 的 CIMD 优先/显式 DCR 后备与严格 issuer/resource 增量。设计接受不表示新增实现、设备或账号已通过。
-- 2026-10-14：Owner要求修复日常API36真实Linear授权后的连接失败。实际异常位于Bearer字符白名单，当前凭据含冒号；采用上述不透明、请求头安全的传输契约并补握手/实际工具调用及危险输入回归。参考[MCP Python SDK原样设置Authorization](https://github.com/modelcontextprotocol/python-sdk/blob/main/src/mcp/client/auth/oauth2.py)和[RFC6750 §2.1](https://www.rfc-editor.org/rfc/rfc6750.html#section-2.1)，未复制源码；真实服务修复后验收另记，不因主机通过推断账号流程全部通过。
+- 2026-10-14：Owner要求修复日常API36真实Linear授权后的连接失败。实际异常位于Bearer字符白名单，当前凭据含冒号；采用上述不透明、请求头安全的传输契约并补握手/实际工具调用及危险输入回归。参考[MCP Python SDK原样设置Authorization](https://github.com/modelcontextprotocol/python-sdk/blob/main/src/mcp/client/auth/oauth2.py)和[RFC6750 第 2.1 节](https://www.rfc-editor.org/rfc/rfc6750.html#section-2.1)，未复制源码；真实服务修复后验收另记，不因主机通过推断账号流程全部通过。
 
 ## References
 

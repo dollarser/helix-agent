@@ -516,15 +516,27 @@ class AutomationNodeActionExecutorTest {
     }
 
     @Test
+    fun replacementObservationNeverDispatchesAnOldToken() {
+        val observed = ActionFakeNode(text = "Continue", clickable = true)
+        val token = issue(observed, emptyList(), 7)
+        registry.beginSnapshot()
+        val current = ActionFakeNode(text = "Continue", clickable = true)
+        assertEquals(AutomationActionStatus.STALE_TOKEN, execute(current, token, 7).status)
+        assertEquals(null, current.performedAction)
+        assertEquals(1, current.recycleCount)
+        assertEquals(null, registry.lookup(token).binding)
+    }
+
+    @Test
     fun aLostPlatformAcknowledgementIsUnknownAndCannotReuseItsToken() {
         val node = ActionFakeNode(text = "Continue", clickable = true, throwAfterAction = true)
         val token = issue(node, emptyList(), 7)
         assertEquals(AutomationActionStatus.ACTION_OUTCOME_UNKNOWN, execute(node, token, 7).status)
         assertEquals(AccessibilityNodeInfo.ACTION_CLICK, node.performedAction)
         assertEquals(1, node.recycleCount)
-        assertEquals(NodeTokenLookupStatus.UNKNOWN, registry.lookup(token).status)
+        assertEquals(NodeTokenLookupStatus.RETIRED, registry.lookup(token).status)
         val another = ActionFakeNode(text = "Continue", clickable = true)
-        assertEquals(AutomationActionStatus.TOKEN_UNKNOWN, execute(another, token, 7).status)
+        assertEquals(AutomationActionStatus.STALE_TOKEN, execute(another, token, 7).status)
         assertEquals(null, another.performedAction)
     }
 
@@ -534,7 +546,7 @@ class AutomationNodeActionExecutorTest {
         val token = issue(node, emptyList(), 7)
         assertEquals(AutomationActionStatus.ACTION_FAILED, execute(node, token, 7).status)
         assertEquals(AccessibilityNodeInfo.ACTION_CLICK, node.performedAction)
-        assertEquals(NodeTokenLookupStatus.UNKNOWN, registry.lookup(token).status)
+        assertEquals(NodeTokenLookupStatus.RETIRED, registry.lookup(token).status)
     }
 
     @Test
@@ -555,7 +567,7 @@ class AutomationNodeActionExecutorTest {
             )
         assertEquals(AutomationActionStatus.ACTION_OUTCOME_UNKNOWN, result.status)
         assertEquals(android.R.id.accessibilityActionSetProgress, node.performedAction)
-        assertEquals(NodeTokenLookupStatus.UNKNOWN, registry.lookup(token).status)
+        assertEquals(NodeTokenLookupStatus.RETIRED, registry.lookup(token).status)
     }
 
     private fun execute(

@@ -40,6 +40,8 @@ internal class AutomationDeviceAccess(
                         )
                     }.toSet(),
             allApplications = session.scope.allApplications,
+            semanticSupported = true,
+            backendReady = true,
             screenshotSupported =
                 Build.VERSION.SDK_INT >= 34 ||
                     (

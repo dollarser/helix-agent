@@ -35,7 +35,6 @@ class ProotMultiSessionDeviceTest {
         ensureInstalledRuntime(context)
         ActivityScenario.launch(MainActivity::class.java).use {
             runBlocking {
-                val previous = container.profileStore.profile
                 val terminal = checkNotNull(container.manualTerminal)
                 val storage = container.storage
                 val owner = storage.sessions.create("workspace-pty-${UUID.randomUUID()}", "PTY owner", null, null, 1)
@@ -45,7 +44,7 @@ class ProotMultiSessionDeviceTest {
                 val nextId = requireNotNull(storage.workspaces.binding(next.id)).workspaceId
                 val nextRoot = storage.workspaces.managedDirectory(nextId)
                 try {
-                    container.profileStore.switchTo(SafetyProfile.ADVANCED)
+                    check(container.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
                     val session = terminal.start("scope:$id:", 30_000)
                     val connection = terminal.attach(session.sessionId)
                     try {
@@ -74,7 +73,6 @@ class ProotMultiSessionDeviceTest {
                     )
                 } finally {
                     cleanRemainingSessions(terminal)
-                    container.profileStore.switchTo(previous)
                     storage.sessions.archive(next.id, System.currentTimeMillis())
                 }
             }
@@ -86,14 +84,13 @@ class ProotMultiSessionDeviceTest {
         ensureInstalledRuntime(context)
         ActivityScenario.launch(MainActivity::class.java).use {
             runBlocking {
-                val previous = container.profileStore.profile
                 val terminal = checkNotNull(container.manualTerminal)
                 val rel1 = "multi-test-ws1-${UUID.randomUUID()}"
                 val rel2 = "multi-test-ws2-${UUID.randomUUID()}"
                 val dir1 = File(context.filesDir, "workspaces/app/terminal/$rel1").apply { check(mkdirs()) }
                 val dir2 = File(context.filesDir, "workspaces/app/terminal/$rel2").apply { check(mkdirs()) }
                 try {
-                    container.profileStore.switchTo(SafetyProfile.ADVANCED)
+                    check(container.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
                     val s1 = terminal.start(rel1, 30_000)
                     val s2 = terminal.start(rel2, 30_000)
 
@@ -133,7 +130,6 @@ class ProotMultiSessionDeviceTest {
                     assertFalse(terminal.hasSession())
                 } finally {
                     cleanRemainingSessions(terminal)
-                    container.profileStore.switchTo(previous)
                     dir1.deleteRecursively()
                     dir2.deleteRecursively()
                 }
@@ -146,7 +142,6 @@ class ProotMultiSessionDeviceTest {
         ensureInstalledRuntime(context)
         ActivityScenario.launch(MainActivity::class.java).use {
             runBlocking {
-                val previous = container.profileStore.profile
                 val terminal = checkNotNull(container.manualTerminal)
                 val rel1 = "multi-cap-1-${UUID.randomUUID()}"
                 val rel2 = "multi-cap-2-${UUID.randomUUID()}"
@@ -155,7 +150,7 @@ class ProotMultiSessionDeviceTest {
                 val dir2 = File(context.filesDir, "workspaces/app/terminal/$rel2").apply { check(mkdirs()) }
                 val dir3 = File(context.filesDir, "workspaces/app/terminal/$rel3").apply { check(mkdirs()) }
                 try {
-                    container.profileStore.switchTo(SafetyProfile.ADVANCED)
+                    check(container.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
                     val s1 = terminal.start(rel1, 30_000)
                     val s2 = terminal.start(rel1, 30_000)
                     assertEquals(2, terminal.sessions().size)
@@ -177,7 +172,6 @@ class ProotMultiSessionDeviceTest {
                     assertFalse(terminal.hasSession())
                 } finally {
                     cleanRemainingSessions(terminal)
-                    container.profileStore.switchTo(previous)
                     dir1.deleteRecursively()
                     dir2.deleteRecursively()
                     dir3.deleteRecursively()
@@ -191,12 +185,11 @@ class ProotMultiSessionDeviceTest {
         ensureInstalledRuntime(context)
         ActivityScenario.launch(MainActivity::class.java).use {
             runBlocking {
-                val previous = container.profileStore.profile
                 val terminal = checkNotNull(container.manualTerminal)
                 val rel = "multi-obs-${UUID.randomUUID()}"
                 val dir = File(context.filesDir, "workspaces/app/terminal/$rel").apply { check(mkdirs()) }
                 try {
-                    container.profileStore.switchTo(SafetyProfile.ADVANCED)
+                    check(container.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
                     val session = terminal.start(rel, 30_000)
 
                     val writerConn = terminal.attach(session.sessionId)
@@ -230,7 +223,6 @@ class ProotMultiSessionDeviceTest {
                     assertFalse(terminal.hasSession())
                 } finally {
                     cleanRemainingSessions(terminal)
-                    container.profileStore.switchTo(previous)
                     dir.deleteRecursively()
                 }
             }
@@ -242,14 +234,13 @@ class ProotMultiSessionDeviceTest {
         ensureInstalledRuntime(context)
         ActivityScenario.launch(MainActivity::class.java).use {
             runBlocking {
-                val previous = container.profileStore.profile
                 val terminal = checkNotNull(container.manualTerminal)
                 val rel1 = "multi-settle-1-${UUID.randomUUID()}"
                 val rel2 = "multi-settle-2-${UUID.randomUUID()}"
                 val dir1 = File(context.filesDir, "workspaces/app/terminal/$rel1").apply { check(mkdirs()) }
                 val dir2 = File(context.filesDir, "workspaces/app/terminal/$rel2").apply { check(mkdirs()) }
                 try {
-                    container.profileStore.switchTo(SafetyProfile.ADVANCED)
+                    check(container.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
                     val s1 = terminal.start(rel1, 30_000)
                     val s2 = terminal.start(rel2, 30_000)
                     verifyRetainedAdmission(context)
@@ -286,7 +277,6 @@ class ProotMultiSessionDeviceTest {
                     assertFalse(terminal.hasSession())
                 } finally {
                     cleanRemainingSessions(terminal)
-                    container.profileStore.switchTo(previous)
                     dir1.deleteRecursively()
                     dir2.deleteRecursively()
                 }
@@ -299,13 +289,12 @@ class ProotMultiSessionDeviceTest {
         ensureInstalledRuntime(context)
         ActivityScenario.launch(MainActivity::class.java).use {
             runBlocking {
-                val previous = container.profileStore.profile
                 val terminal = checkNotNull(container.manualTerminal)
                 val rel = "multi-agent-${UUID.randomUUID()}"
                 val dir = File(context.filesDir, "workspaces/app/terminal/$rel").apply { check(mkdirs()) }
                 val ownership = checkNotNull(container.executionOwnership)
                 try {
-                    container.profileStore.switchTo(SafetyProfile.ADVANCED)
+                    check(container.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
                     val session = terminal.start(rel, 30_000)
 
                     // A live terminal retains its own identity without blocking independent work.
@@ -337,7 +326,6 @@ class ProotMultiSessionDeviceTest {
                     assertFalse(terminal.hasSession())
                 } finally {
                     cleanRemainingSessions(terminal)
-                    container.profileStore.switchTo(previous)
                     dir.deleteRecursively()
                 }
             }
@@ -349,7 +337,6 @@ class ProotMultiSessionDeviceTest {
         ensureInstalledRuntime(context)
         ActivityScenario.launch(MainActivity::class.java).use {
             runBlocking {
-                val previous = container.profileStore.profile
                 val terminal = checkNotNull(container.manualTerminal)
                 val rel = "multi-soak-${UUID.randomUUID()}"
                 val dir = File(context.filesDir, "workspaces/app/terminal/$rel").apply { check(mkdirs()) }
@@ -357,14 +344,13 @@ class ProotMultiSessionDeviceTest {
                 val initialFds = File("/proc/self/fd").listFiles()?.size ?: -1
                 val initialThreads = File("/proc/self/task").listFiles()?.size ?: Thread.activeCount()
                 try {
-                    container.profileStore.switchTo(SafetyProfile.ADVANCED)
+                    check(container.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
                     repeat(20) { iteration ->
                         MultiSessionTestSupport.runSoakCycle(terminal, rel, dir, iteration, observedPids)
                     }
                     MultiSessionTestSupport.assertSoakResources(observedPids, initialFds, initialThreads)
                 } finally {
                     cleanRemainingSessions(terminal)
-                    container.profileStore.switchTo(previous)
                     dir.deleteRecursively()
                 }
             }
@@ -376,14 +362,13 @@ class ProotMultiSessionDeviceTest {
         ensureInstalledRuntime(context)
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             runBlocking {
-                val previous = container.profileStore.profile
                 val terminal = checkNotNull(container.manualTerminal)
                 val rel1 = "multi-crash-1-${UUID.randomUUID()}"
                 val rel2 = "multi-crash-2-${UUID.randomUUID()}"
                 val dir1 = File(context.filesDir, "workspaces/app/terminal/$rel1").apply { check(mkdirs()) }
                 val dir2 = File(context.filesDir, "workspaces/app/terminal/$rel2").apply { check(mkdirs()) }
                 try {
-                    container.profileStore.switchTo(SafetyProfile.ADVANCED)
+                    check(container.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
                     val s1 = terminal.start(rel1, 30_000)
                     val s2 = terminal.start(rel2, 30_000)
                     assertEquals(2, terminal.sessions().size)
@@ -405,7 +390,6 @@ class ProotMultiSessionDeviceTest {
                     MultiSessionTestSupport.verifyCleanSessionStart(recovered, context)
                 } finally {
                     cleanRemainingSessions(terminal)
-                    container.profileStore.switchTo(previous)
                     dir1.deleteRecursively()
                     dir2.deleteRecursively()
                 }

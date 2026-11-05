@@ -15,6 +15,28 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AutomationToolOutcomeTest {
+    @Test fun staleAndUnknownTokensOfferRecoveryWithoutInventingExpiryOrReplay() {
+        for (status in listOf(AutomationActionStatus.STALE_TOKEN, AutomationActionStatus.TOKEN_UNKNOWN)) {
+            val result = AutomationActionResult(status).toToolOutcome() as ToolExecutorResult.Failed
+            assertTrue(result.sideEffectFree)
+            assertFalse(result.requiresReview)
+            assertTrue(result.detail.contains("ui.click_match"))
+        }
+        val unknown =
+            AutomationActionResult(
+                AutomationActionStatus.TOKEN_UNKNOWN,
+            ).toToolOutcome() as ToolExecutorResult.Failed
+        assertTrue(unknown.detail.contains("does not prove time-based expiry"))
+        val changed =
+            AutomationActionResult(
+                AutomationActionStatus.TARGET_CHANGED,
+            ).toToolOutcome() as ToolExecutorResult.Failed
+        assertTrue(changed.detail.contains("still needed"))
+        assertTrue(changed.detail.contains("ui.device"))
+        assertTrue(changed.sideEffectFree)
+        assertFalse(changed.requiresReview)
+    }
+
     @Test fun frameChangeExplainsThePreDispatchStageWithoutSuggestingAConnectionFailure() {
         val result =
             AutomationActionResult(AutomationActionStatus.FRAME_CHANGED).toToolOutcome()
@@ -33,6 +55,8 @@ class AutomationToolOutcomeTest {
         assertTrue(result.detail.startsWith("ACTION_NOT_SUPPORTED:"))
         assertTrue(result.detail.contains("ui.snapshot"))
         assertTrue(result.detail.contains("scrollable container"))
+        assertTrue(result.detail.contains("scrollDirections"))
+        assertTrue(result.detail.contains("not finger motion"))
         assertFalse(result.detail.contains("focus"))
         assertTrue(result.sideEffectFree)
         assertFalse(result.requiresReview)

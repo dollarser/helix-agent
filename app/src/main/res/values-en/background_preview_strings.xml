@@ -1,7 +1,7 @@
 <resources>
     <string name="background_preview_title">Background</string>
     <string name="background_preview_hide">Hide</string>
+    <string name="background_preview_waiting">Waiting for frame</string>
     <string name="background_preview_expand">Expand background display</string>
     <string name="background_preview_collapse">Collapse background display</string>
-    <string name="background_preview_waiting">Waiting for frame</string>
 </resources>

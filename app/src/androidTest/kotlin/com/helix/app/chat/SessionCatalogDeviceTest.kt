@@ -86,6 +86,58 @@ class SessionCatalogDeviceTest {
             assertEquals(emptyList<SessionEntity>(), f.storage.sessions.list())
         }
 
+    @Test fun deletedSourceDoesNotPreventDraftSettingsAndRetainsTheBindingProblem() =
+        Fixture().use { f ->
+            f.storage.providerConfigs.save(
+                ProviderConfigSpec(
+                    id = "draft-provider",
+                    displayName = "synthetic",
+                    protocol = ProviderProtocol.OPENAI_CHAT_COMPLETIONS,
+                    endpoint = "https://synthetic.invalid/v1",
+                    model = "model-a",
+                    headersJson = "{}",
+                    secretAlias = ProviderFactory.NO_KEY_ALIAS,
+                    capabilitySnapshot =
+                        ProviderCapabilities.toJsonString(
+                            ProviderCapabilities(
+                                streaming = true,
+                                toolCalls = true,
+                                parallelToolCalls = false,
+                                vision = false,
+                                reasoning = false,
+                                jsonSchemaOutput = false,
+                                maxContextTokens = 32000,
+                                source = CapabilitySource.CONNECTION_ONLY,
+                            ),
+                        ),
+                ),
+            )
+            val draft =
+                SessionDraft(
+                    SessionEntity("source-present", "", "draft-provider", "model-a", 3000, null),
+                    f.controls.defaultSnapshot(),
+                )
+            // An untested but existing source is retained, never silently replaced.
+            f.catalog.persistDraft(draft)
+            assertEquals(
+                "draft-provider",
+                f.storage.sessions
+                    .resolve("source-present")
+                    .providerId,
+            )
+            f.storage.providerConfigs.delete("draft-provider")
+            f.catalog.persistDraft(draft.copy(session = draft.session.copy(id = "source-deleted")))
+            val saved = f.storage.sessions.resolve("source-deleted")
+            assertNull(saved.providerId)
+            assertEquals("model-a", saved.modelId)
+            assertEquals(
+                com.helix.app.provider.ProviderBindingIssue.SOURCE_DELETED,
+                f.providers.bindings.project(saved.providerId, saved.modelId),
+            )
+            assertEquals(draft.control, f.controls.forSession(saved.id))
+            assertEquals(0, f.providers.networkOperations.value)
+        }
+
     @Test fun invalidControlRollsBackDraftMetadataAndTheRoomWorkspaceFact() =
         Fixture().use { f ->
             val invalid =

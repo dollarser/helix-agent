@@ -6,7 +6,6 @@
     <string name="tool_observed_main">Observed: main display · %1$s</string>
     <string name="tool_unsettled">UI still changing · effect unverified</string>
     <string name="tool_running_elapsed">Running for %1$d s</string>
-    <string name="tool_turn_artifacts">%1$d artifacts · %2$s</string>
     <string name="tool_inspector_full">Full result (redacted)</string>
     <string name="tool_inspector_unavailable">Full result unavailable; showing summary</string>
     <string name="tool_inspector_loading">Reading original saved result…</string>

@@ -1,11 +1,9 @@
 <resources>
     <string name="plugins_tab_add">Import</string>
-    <string name="plugins_manage_intro">Manage installed plugins and choose which to use in each conversation.</string>
     <string name="plugins_discover_intro">Find plugins for your tasks and review their contents before installing.</string>
     <string name="plugins_add_intro">Import a plugin package or paste MCP configuration, then review and install.</string>
     <string name="plugins_authoring">Create a skill</string>
     <string name="plugins_authoring_summary">Write and validate your own task instructions</string>
-    <string name="plugins_manage_action">Manage</string>
     <string name="nav_tasks_description">Track progress and resolve waiting or interrupted work</string>
     <string name="nav_artifacts_description">Review results, preview and share files</string>
     <string name="nav_storage_description">Review storage usage and cleanup options</string>

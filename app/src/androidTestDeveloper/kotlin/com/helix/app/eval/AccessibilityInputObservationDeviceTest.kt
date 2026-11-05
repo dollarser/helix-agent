@@ -70,7 +70,7 @@ class AccessibilityInputObservationDeviceTest {
             val automation = inst.getUiAutomation(UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES)
             val original = Settings.Secure.getString(app.contentResolver, "enabled_accessibility_services")
             val enabled = Settings.Secure.getInt(app.contentResolver, "accessibility_enabled", 0)
-            val profile = c.profileStore.profile
+
             val session = "input-observation-${System.nanoTime()}"
             val server = LoopbackModelServer(LoopbackModelServer.Mode.OPENAI_LISTED).apply { start() }
             var provider: String? = null
@@ -98,7 +98,7 @@ class AccessibilityInputObservationDeviceTest {
                 shell(automation, "settings put secure accessibility_enabled 1")
                 val center = AutomationPermissionCenter(app)
                 waitFor { center.serviceState() == AutomationServiceState.CONNECTED }
-                c.profileStore.switchTo(SafetyProfile.ADVANCED)
+                check(c.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
                 provider =
                     runBlocking {
                         c.providerService.create(
@@ -271,7 +271,6 @@ class AccessibilityInputObservationDeviceTest {
                     ?.let { c.storage.deleteSessionPermanently(session) }
                 provider?.let { c.providerService.delete(it) }
                 server.close()
-                c.profileStore.switchTo(profile)
                 shell(
                     automation,
                     if (original.isNullOrBlank()) {

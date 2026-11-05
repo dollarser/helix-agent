@@ -11,6 +11,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -23,6 +24,7 @@ import com.helix.app.chat.ArtifactRowUi
 import com.helix.app.chat.ChatService
 import com.helix.app.files.FileManagerService
 import com.helix.app.ui.indicatedVerticalScroll
+import kotlinx.coroutines.CancellationException
 
 /**
  * The task-artifact view of the Tasks dashboard (HXA-202 slice 2): the REAL files the task's
@@ -35,7 +37,8 @@ import com.helix.app.ui.indicatedVerticalScroll
  * mutates nothing — the 203 delivery operations stay out of this task.
  */
 @Composable
-@Suppress("FunctionName", "LongParameterList")
+// Local read failure is not an empty result.
+@Suppress("FunctionName", "LongParameterList", "TooGenericExceptionCaught")
 internal fun TaskArtifactsDialog(
     service: ChatService,
     fileManager: FileManagerService,
@@ -44,16 +47,26 @@ internal fun TaskArtifactsDialog(
     onOpenSession: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var rows by remember(turnId, goalId) { mutableStateOf<List<ArtifactRowUi>?>(null) }
-    var selected by remember { mutableStateOf<ArtifactRowUi?>(null) }
-    LaunchedEffect(turnId, goalId) {
-        rows =
-            if (turnId != null) {
-                service.taskArtifactsForTurn(turnId)
-            } else {
-                service.taskArtifactsForGoal(requireNotNull(goalId))
-            }
+    var rows by remember(service, turnId, goalId) { mutableStateOf<List<ArtifactRowUi>?>(null) }
+    var selected by remember(service, turnId, goalId) { mutableStateOf<ArtifactRowUi?>(null) }
+    var failed by remember(service, turnId, goalId) { mutableStateOf(false) }
+    var retry by remember(service, turnId, goalId) { mutableIntStateOf(0) }
+    LaunchedEffect(service, turnId, goalId, retry) {
+        try {
+            rows =
+                if (turnId != null) {
+                    service.taskArtifactsForTurn(turnId)
+                } else {
+                    service.taskArtifactsForGoal(requireNotNull(goalId))
+                }
+            failed = false
+        } catch (cancel: CancellationException) {
+            throw cancel
+        } catch (_: Exception) {
+            failed = true
+        }
     }
+    if (rows == null && !failed) return
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.tasks_artifacts)) },
@@ -67,9 +80,9 @@ internal fun TaskArtifactsDialog(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 val list = rows
-                if (list == null) {
-                    Text(stringResource(R.string.egress_loading))
-                } else if (list.isEmpty()) {
+                if (failed) {
+                    LocalListReadError { retry++ }
+                } else if (list.isNullOrEmpty()) {
                     Text(
                         stringResource(R.string.tasks_artifacts_empty),
                         modifier = Modifier.testTag("tasks-artifacts-empty"),
@@ -87,12 +100,23 @@ internal fun TaskArtifactsDialog(
             }
         },
     )
+    SelectedTaskArtifact(fileManager, selected, onOpenSession) { selected = null }
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun SelectedTaskArtifact(
+    fileManager: FileManagerService,
+    selected: ArtifactRowUi?,
+    onOpenSession: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
     selected?.let { row ->
         ArtifactFileDialog(
             fileManager,
             row,
             onOpenSession = { onOpenSession(row.sessionId) },
-            onDismiss = { selected = null },
+            onDismiss = onDismiss,
         )
     }
 }

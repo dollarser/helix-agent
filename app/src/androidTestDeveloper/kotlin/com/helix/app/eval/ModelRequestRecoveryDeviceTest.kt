@@ -158,7 +158,7 @@ class ModelRequestRecoveryDeviceTest {
                 },
             )
             val previous = c.chatService.screen.value.openSessionId
-            val profile = c.profileStore.profile
+
             val session =
                 c.chatService.createSession(
                     "Synthetic model recovery $outcome $suffix",
@@ -221,7 +221,7 @@ class ModelRequestRecoveryDeviceTest {
                 },
             )
             try {
-                c.profileStore.switchTo(SafetyProfile.ADVANCED)
+                check(c.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
                 configureOwnedModelSession(c.storage, c.chatService, session, AgentMode.ACT)
                 val input =
                     ChatSubmission(
@@ -378,7 +378,6 @@ class ModelRequestRecoveryDeviceTest {
             } finally {
                 finishOwnedCase(c.storage, c.chatService, session, { closed = true }, {}, { stopped ->
                     if (stopped) wireField.set(factory, original)
-                    c.profileStore.switchTo(profile)
                     val retained =
                         c.toolPipeline.registry
                             .snapshot()

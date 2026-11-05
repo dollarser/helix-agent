@@ -10,7 +10,7 @@ import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
 import com.helix.app.HelixApplication
 import com.helix.app.internal.InMemoryLineStore
-import com.helix.app.profile.PersistedSafetyProfileStore
+import com.helix.app.profile.ChannelSafetyProfileStore
 import com.helix.app.provider.BuiltInModel
 import com.helix.app.provider.BuiltInModelCatalog
 import com.helix.app.provider.BuiltInModelRegistration
@@ -27,6 +27,9 @@ import com.helix.core.workspace.ScopeRootResolver
 import com.helix.feature.files.AttachmentImporter
 import com.helix.feature.files.SafImportPipeline
 import com.helix.feature.files.SafSourceOpener
+import com.helix.provider.api.wire.WireClient
+import com.helix.provider.api.wire.WireRequest
+import com.helix.provider.api.wire.WireResponse
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -71,8 +74,15 @@ class ModelPickerPersistenceDeviceTest {
                 f.chat.sendTestMessage("Isolated stalled fixture")
                 val running =
                     withTimeout(15_000) {
-                        f.chat.screen.first { it.activeTurn?.state?.isTerminal == false && f.wire.callCount == 1 }
+                        f.chat.screen.first {
+                            it.activeTurn?.state?.isTerminal == true ||
+                                (it.activeTurn?.state?.isTerminal == false && f.wire.callCount == 1)
+                        }
                     }
+                assertFalse(
+                    "Unexpected terminal: ${running.activeTurn?.errorLabel}; wire=${f.wire.callCount}",
+                    running.activeTurn?.state?.isTerminal == true,
+                )
                 assertEquals(
                     SessionModelSelectionResult.BUSY,
                     f.chat
@@ -141,7 +151,11 @@ class ModelPickerPersistenceDeviceTest {
                 f.wire.script(sseResponse(textAnswerStream("Fixture response")))
                 f.chat.sendTestMessage("Fixture request, no external inference")
                 val terminal = withTimeout(15_000) { f.chat.screen.first { it.activeTurn?.state?.isTerminal == true } }
-                assertEquals(TurnState.COMPLETED, terminal.activeTurn?.state)
+                assertEquals(
+                    "Model failure: ${terminal.activeTurn?.errorLabel}; wire=${f.wire.callCount}",
+                    TurnState.COMPLETED,
+                    terminal.activeTurn?.state,
+                )
                 val body = Json.parseToJsonElement(f.wire.lastRequestBody).jsonObject
                 assertEquals(BuiltInModel.MODEL_ID, body["model"]?.jsonPrimitive?.content)
                 assertEquals("xhigh", body["reasoning_effort"]?.jsonPrimitive?.content)
@@ -280,6 +294,89 @@ class ModelPickerPersistenceDeviceTest {
             }
         }
 
+    @Test fun deletedSourceCanBeReplacedUsingTheDisplayedPicker() =
+        runBlocking<Unit> {
+            Fixture().use { f ->
+                f.ready()
+                f.storage.sessions.create("orphan", "Deleted source", null, "retained-model", 1)
+                f.chat.openSession("orphan")
+                withTimeout(10_000) {
+                    f.chat.screen.first {
+                        it.openSessionId == "orphan" &&
+                            it.modelBindingIssue == com.helix.app.provider.ProviderBindingIssue.SOURCE_DELETED
+                    }
+                }
+                val staleDisplay = f.chat.screen.value
+                assertEquals(
+                    SessionModelSelectionResult.SETTINGS_CHANGED,
+                    f.chat
+                        .requestSessionModelSelection(
+                            "orphan",
+                            BuiltInModel.PROVIDER_ID,
+                            BuiltInModel.MODEL_ID,
+                            expected =
+                                SessionModelSelectionSnapshot(
+                                    staleDisplay.selectedModel?.providerId,
+                                    staleDisplay.selectedModel?.model,
+                                    f.chat.runControl.value.reasoning,
+                                ),
+                        ).await(),
+                )
+                val receipt = AtomicReference<SessionModelSelectionResult?>()
+                showPicker(f) { receipt.set(it) }
+                compose.onNodeWithTag("chat-model-menu").performClick()
+                compose.onNodeWithTag("chat-model-${BuiltInModel.PROVIDER_ID}-${BuiltInModel.MODEL_ID}").performClick()
+                compose.onNodeWithTag("chat-model-picker-save").performClick()
+                compose.waitUntil(10_000) { receipt.get() != null }
+                assertEquals(SessionModelSelectionResult.APPLIED, receipt.get())
+                assertEquals(
+                    BuiltInModel.PROVIDER_ID,
+                    f.storage.sessions
+                        .resolve("orphan")
+                        .providerId,
+                )
+                assertEquals(
+                    BuiltInModel.MODEL_ID,
+                    f.storage.sessions
+                        .resolve("orphan")
+                        .modelId,
+                )
+                assertEquals(0, f.wire.callCount)
+            }
+        }
+
+    @Test fun restoredDraftWithMissingSourceCanSaveANewModelWithoutMaterializing() =
+        runBlocking<Unit> {
+            Fixture().use { f ->
+                f.ready()
+                f.chat.closeSession()
+                ConversationLaunchStore(f.preferences).selectDraftModel("missing-fixture-source", "retained-model")
+                f.chat.newSessionDraft()
+                val draft =
+                    withTimeout(10_000) {
+                        f.chat.screen.first {
+                            it.isDraft &&
+                                it.modelBindingIssue == com.helix.app.provider.ProviderBindingIssue.SOURCE_DELETED
+                        }
+                    }
+                val id = requireNotNull(draft.openSessionId)
+                assertEquals("missing-fixture-source", draft.modelSelectionSnapshot?.providerId)
+                assertEquals("retained-model", draft.modelSelectionSnapshot?.modelId)
+                assertEquals(
+                    SessionModelSelectionResult.APPLIED,
+                    f.chat
+                        .requestSessionModelSelection(
+                            id,
+                            BuiltInModel.PROVIDER_ID,
+                            BuiltInModel.MODEL_ID,
+                            expected = draft.modelSelectionSnapshot,
+                        ).await(),
+                )
+                assertNull(f.storage.sessions.find(id))
+                assertEquals(0, f.wire.callCount)
+            }
+        }
+
     private fun showPicker(
         f: Fixture,
         onSaved: (SessionModelSelectionResult) -> Unit,
@@ -301,11 +398,7 @@ class ModelPickerPersistenceDeviceTest {
                                 provider,
                                 model,
                                 reasoning,
-                                SessionModelSelectionSnapshot(
-                                    screen.selectedModel?.providerId,
-                                    screen.selectedModel?.model,
-                                    control.reasoning,
-                                ),
+                                screen.modelSelectionSnapshot,
                             ).await()
                             .also(onSaved)
                     },
@@ -325,14 +418,21 @@ class ModelPickerPersistenceDeviceTest {
         val wire = ScriptedSseWire()
         private val job = SupervisorJob()
         private val scope = CoroutineScope(job + Dispatchers.IO)
-        private val status = ProviderTestStatusStore(preferences)
+        private val status = ProviderTestStatusStore(preferences) { "model-picker-fixture" }
         val providers: ProviderService
         val chat: ChatService
 
         init {
             BuiltInModelRegistration.ensureRegistered(storage)
             status.builtInCatalog.save(
-                BuiltInModelCatalog(System.currentTimeMillis(), listOf(BuiltInModel.MODEL_ID, "future")),
+                BuiltInModelCatalog(
+                    System.currentTimeMillis(),
+                    listOf(BuiltInModel.MODEL_ID, "future"),
+                    purposes =
+                        listOf(BuiltInModel.MODEL_ID, "future").associateWith {
+                            setOf(com.helix.provider.api.ModelPurpose.CHAT)
+                        },
+                ),
             )
             providers =
                 ProviderService(
@@ -341,7 +441,7 @@ class ModelPickerPersistenceDeviceTest {
                         { error("No credentials") },
                         wire.wireClient,
                         { error("No images") },
-                        builtInWire = wire.wireClient,
+                        builtInWire = catalogAndGenerationWire(),
                     ),
                     status,
                     idGenerator = { UUID.randomUUID().toString() },
@@ -370,7 +470,7 @@ class ModelPickerPersistenceDeviceTest {
                 ChatService(
                     storage,
                     providers,
-                    PersistedSafetyProfileStore(InMemoryLineStore(), false),
+                    ChannelSafetyProfileStore(com.helix.core.model.SafetyProfile.STANDARD),
                     conversationLaunchStore = ConversationLaunchStore(preferences),
                     toolPipeline = (context.applicationContext as HelixApplication).appContainer.toolPipeline,
                     idGenerator = { UUID.randomUUID().toString() },
@@ -379,6 +479,25 @@ class ModelPickerPersistenceDeviceTest {
                 )
             providers.refresh()
         }
+
+        /** Catalog discovery has its own response; it must never consume a generation SSE script. */
+        private fun catalogAndGenerationWire() =
+            object : WireClient {
+                override suspend fun open(request: WireRequest): WireResponse =
+                    if (request.url == BuiltInModel.CATALOG_URL) {
+                        val entries =
+                            listOf(BuiltInModel.MODEL_ID, "future").joinToString(",") {
+                                """{"id":"$it","architecture":{"output_modalities":["text"]}}"""
+                            }
+                        WireResponse(
+                            200,
+                            mapOf("content-type" to listOf("application/json")),
+                            SseBody("""{"data":[$entries]}""".toByteArray()),
+                        )
+                    } else {
+                        wire.wireClient.open(request)
+                    }
+            }
 
         suspend fun ready() {
             withTimeout(10_000) {

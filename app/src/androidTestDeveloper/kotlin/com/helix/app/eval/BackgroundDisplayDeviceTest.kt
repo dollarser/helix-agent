@@ -42,7 +42,7 @@ class BackgroundDisplayDeviceTest {
     private val container get() = app.appContainer
     private val center = AutomationPermissionCenter(app)
     private val session = "background-fixture-${UUID.randomUUID()}"
-    private val turn = "$session-turn"
+    private var turn = "$session-turn"
     private val typedText = "Hello background ${UUID.randomUUID().toString().take(8)}"
     private var sequence = 0
 
@@ -79,6 +79,7 @@ class BackgroundDisplayDeviceTest {
     }
 
     private fun verifyVerticalScroll() {
+        awaitStablePreviewWindow()
         val snapshot = readyFixtureSnapshot().getValue("nodes").jsonArray.map { it.jsonObject }
         val container = snapshot.single { it["viewId"]?.jsonPrimitive?.content == "android:id/list" }
         assertTrue(container.getValue("scrollDirections").jsonArray.any { it.jsonPrimitive.content == "down" })
@@ -131,23 +132,95 @@ class BackgroundDisplayDeviceTest {
         report("BACKGROUND_VERTICAL_SCROLL=$before->$after")
     }
 
-    private fun awaitPreview(value: com.helix.app.chat.DisplayExecutionUi): android.graphics.Bitmap {
+    private fun verifyHighResolutionPreview(value: com.helix.app.chat.DisplayExecutionUi) {
+        val frame = awaitPreview(value, 720)
+        assertEquals(720, frame.width)
+        assertEquals(1280, frame.height)
+        frame.recycle()
+    }
+
+    private fun awaitPreview(
+        value: com.helix.app.chat.DisplayExecutionUi,
+        width: Int,
+    ): android.graphics.Bitmap {
         var frame =
             com.helix.app.automation.AutomationModule
-                .backgroundPreview(value)
+                .backgroundPreview(value, width)
         val deadline = SystemClock.elapsedRealtime() + 5_000
         while (frame == null && SystemClock.elapsedRealtime() < deadline) {
             SystemClock.sleep(100)
             frame =
                 com.helix.app.automation.AutomationModule
-                    .backgroundPreview(value)
+                    .backgroundPreview(value, width)
         }
         return requireNotNull(frame)
     }
 
+    private fun verifyPreviewPageChanges(value: com.helix.app.chat.DisplayExecutionUi) {
+        repeat(3) { cycle ->
+            awaitStablePreviewWindow()
+            output(
+                "ui.click_match",
+                buildJsonObject {
+                    put("viewId", "android:id/button2")
+                    put("text", "Open page")
+                },
+            )
+            output(
+                "ui.wait",
+                buildJsonObject {
+                    put("text", "BACKGROUND_PREVIEW_PAGE")
+                    put("condition", "present")
+                },
+            )
+            val deadline = SystemClock.elapsedRealtime() + 5_000
+            var visible = false
+            while (!visible && SystemClock.elapsedRealtime() < deadline) {
+                val frame =
+                    com.helix.app.automation.AutomationModule
+                        .backgroundPreview(value, 240)
+                val pixel = frame?.getPixel(frame.width / 2, frame.height / 2)
+                visible = pixel != null && android.graphics.Color.red(pixel) > 220 &&
+                    android.graphics.Color.blue(pixel) > 220 && android.graphics.Color.green(pixel) < 40
+                if (!visible) SystemClock.sleep(50)
+            }
+            assertTrue("New page pixels must actually reach the local preview", visible)
+            awaitStablePreviewWindow()
+            output("ui.click_match", buildJsonObject { put("text", "Back to fixture") })
+            val snapshot = readyFixtureSnapshot()
+            assertTrue(snapshot.toString(), snapshot.toString().contains("BACKGROUND_COUNT:"))
+            awaitPreview(value, 240)
+            report("BACKGROUND_PREVIEW_PAGE_CYCLE=$cycle;verified=true")
+        }
+    }
+
+    private fun awaitStablePreviewWindow() {
+        fun observe() =
+            output(
+                "ui.wait",
+                buildJsonObject {
+                    put("condition", "stable")
+                    put("stableMillis", 500)
+                    put("timeoutMillis", 3_000)
+                },
+            )
+        val deadline = SystemClock.elapsedRealtime() + 8_000
+        var result = observe()
+        // A page transition invalidates the observation target. Only refresh this read;
+        // never repeat the click or accept an unstable/refused snapshot as success.
+        while (result["status"]?.jsonPrimitive?.content == "TARGET_CHANGED" &&
+            result["waitStatus"]?.jsonPrimitive?.content == "SNAPSHOT_REFUSED" &&
+            SystemClock.elapsedRealtime() < deadline
+        ) {
+            SystemClock.sleep(100)
+            result = observe()
+        }
+        assertEquals(result.toString(), "STABLE", result.getValue("waitStatus").jsonPrimitive.content)
+    }
+
     @Suppress("LongMethod") // One production-boundary journey retains all restoration in finally.
     @Test
-    fun productionToolsRouteToOwnedDisplayAndReleaseItAfterDurableCancellation() {
+    fun productionToolsReuseDisplayAcrossTurnsAndReleaseItAfterGrantRevocation() {
         check(DeviceAccess.shizukuReady() && DeviceAccess.shizukuGranted()) {
             "Existing Shizuku authorization required; this fixture never requests it"
         }
@@ -161,7 +234,7 @@ class BackgroundDisplayDeviceTest {
         val lines = PrefsLineStore(app, "helix-mobile-use", synchronous = true)
         val savedScope = lines.lines(MobileUseGrantStore.CONFIG_KEY)
         val savedDisplay = lines.lines(MobileUseGrantStore.EXECUTION_KEY)
-        val profile = container.profileStore.profile
+
         val plugin = container.pluginService.list().single { it.native?.pluginId == "mobile-use" }
         val store = MobileUseGrantStore(lines::lines, lines::setLines, { null })
         val fixturePackage = InstrumentationRegistry.getInstrumentation().context.packageName
@@ -170,7 +243,7 @@ class BackgroundDisplayDeviceTest {
         container.storage.turns.start(turn, session, now)
         var displayId: Int? = null
         try {
-            container.profileStore.switchTo(SafetyProfile.ADVANCED)
+            check(container.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
             container.pluginService.setEnabled(plugin.id, true)
             store.configureGlobal(setOf(fixturePackage), false)
             store.configureExecution(background = true, allowMoveFromMain = false)
@@ -210,20 +283,23 @@ class BackgroundDisplayDeviceTest {
                 }
             assertEquals(com.helix.app.chat.DisplayExecutionState.ACTIVE, activePresentation.state)
             assertEquals("com.helix.agent.developer.test", activePresentation.lastObservedPackage)
-            val preview = awaitPreview(activePresentation)
+            val preview = awaitPreview(activePresentation, 240)
             assertEquals(240, preview.width)
             assertEquals(426, preview.height)
+            verifyHighResolutionPreview(activePresentation)
             assertEquals(
                 null,
                 com.helix.app.automation.AutomationModule
-                    .backgroundPreview(activePresentation.copy(generation = -1)),
+                    .backgroundPreview(activePresentation.copy(generation = -1), 240),
             )
             assertEquals(
                 null,
                 com.helix.app.automation.AutomationModule.backgroundPreview(
                     activePresentation.copy(sessionId = "wrong"),
+                    240,
                 ),
             )
+            verifyPreviewPageChanges(activePresentation)
             verifyVerticalScroll()
             val observed = readyFixtureSnapshot()
             val initialCount =
@@ -265,8 +341,8 @@ class BackgroundDisplayDeviceTest {
                     verifyRealHelperDisconnect(displayId)
                 }
             }
-            val row = container.storage.turns.resolve(turn)
-            container.storage.turns.updateState(row, TurnState.CANCELLING, row.stepCount, null, null)
+            verifyCrossTurnRetention(displayId, activePresentation, fixturePackage)
+            container.pluginService.catalog.select(session, plugin.id, false)
             val releaseDeadline = SystemClock.elapsedRealtime() + 5_000
             val manager = app.getSystemService(DisplayManager::class.java)
             while (manager.getDisplay(displayId) != null && SystemClock.elapsedRealtime() < releaseDeadline) {
@@ -276,7 +352,7 @@ class BackgroundDisplayDeviceTest {
             assertEquals(
                 null,
                 com.helix.app.automation.AutomationModule
-                    .backgroundPreview(activePresentation),
+                    .backgroundPreview(activePresentation, 240),
             )
             assertFalse(
                 container.storage.auditEvents
@@ -286,7 +362,7 @@ class BackgroundDisplayDeviceTest {
 
             fun hostPresentation() =
                 container.chatService.displayExecutions.value.singleOrNull {
-                    it.sessionId == session && it.turnId == turn
+                    it.sessionId == session && it.turnId == activePresentation.turnId
                 }
             val presentationDeadline = SystemClock.elapsedRealtime() + 5000
             while (hostPresentation()?.state !in
@@ -313,8 +389,71 @@ class BackgroundDisplayDeviceTest {
             container.pluginService.catalog.select(session, plugin.id, false)
             container.storage.deleteSessionPermanently(session)
             container.pluginService.setEnabled(plugin.id, plugin.enabled)
-            container.profileStore.switchTo(profile)
         }
+    }
+
+    private fun verifyCrossTurnRetention(
+        displayId: Int,
+        activePresentation: com.helix.app.chat.DisplayExecutionUi,
+        fixturePackage: String,
+    ) {
+        if (InstrumentationRegistry.getArguments().getString("helixDisconnect") == "true") return
+        var completed = container.storage.turns.resolve(turn)
+        for (state in listOf(
+            TurnState.BUILDING_CONTEXT,
+            TurnState.WAITING_MODEL,
+            TurnState.RECEIVING_MODEL,
+            TurnState.COMPLETED,
+        )) {
+            completed =
+                container.storage.turns.updateState(
+                    completed,
+                    state,
+                    completed.stepCount,
+                    System.currentTimeMillis().takeIf { state.isTerminal },
+                    null,
+                )
+        }
+        SystemClock.sleep(1_500) // Exceed the helper's resource sweep interval.
+        assertTrue(app.getSystemService(DisplayManager::class.java).getDisplay(displayId) != null)
+        awaitPreview(activePresentation, 240)
+        turn = "$session-next-turn"
+        container.storage.turns.start(turn, session, System.currentTimeMillis())
+        val continued = output("ui.device")
+        assertEquals(displayId, continued.getValue("displayId").jsonPrimitive.int)
+        assertEquals(fixturePackage, continued.getValue("packageName").jsonPrimitive.content)
+        assertTrue(readyFixtureSnapshot().toString().contains(typedText))
+        val cancelled = container.storage.turns.resolve(turn)
+        val cancelling =
+            container.storage.turns.updateState(
+                cancelled,
+                TurnState.CANCELLING,
+                cancelled.stepCount,
+                null,
+                null,
+            )
+        container.storage.turns.updateState(
+            cancelling,
+            TurnState.CANCELLED,
+            cancelling.stepCount,
+            System.currentTimeMillis(),
+            null,
+        )
+        SystemClock.sleep(1_500)
+        assertTrue(app.getSystemService(DisplayManager::class.java).getDisplay(displayId) != null)
+        awaitPreview(activePresentation, 240)
+        val refused = dispatch("ui.device")
+        if (refused is ToolDispatchOutcome.Succeeded) {
+            val status =
+                Json
+                    .parseToJsonElement(
+                        refused.result.payload,
+                    ).jsonObject
+                    .getValue("status")
+                    .jsonPrimitive.content
+            assertFalse("A cancelled Turn cannot observe through a retained display", status == "READY")
+        }
+        report("BACKGROUND_REUSED_ACROSS_TURNS=$displayId;completionAndCancellationRetainPreview=true")
     }
 
     private fun report(value: String) {

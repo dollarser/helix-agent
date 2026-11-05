@@ -17,8 +17,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
@@ -32,18 +34,26 @@ import com.helix.app.plugin.PluginSetupReason
 import com.helix.app.ui.ConversationSheet
 import kotlinx.coroutines.launch
 
-internal fun statusLabel(row: PluginSessionRow): Int =
-    when {
+/** Keep primary device/browser capabilities first; stable sorting retains the other catalog order. */
+internal fun pluginSelectionPriority(row: PluginSessionRow): Int =
+    when (row.id) {
+        "bundled-plugin:browser" -> 0
+        "bundled-plugin:mobile-use" -> 1
+        else -> 2
+    }
+
+internal fun selectionIssueLabel(row: PluginSessionRow): Int? {
+    if (!row.selected) return null
+    return when {
         !row.available -> R.string.connector_session_unavailable
         !row.enabled -> R.string.connector_inactive
         row.setupReason == PluginSetupReason.MOBILE_CONFIGURATION -> R.string.mobile_use_configuration_error
         row.setupReason == PluginSetupReason.MOBILE_BACKEND -> R.string.mobile_use_needs_access
-        row.setupReason != null -> R.string.connector_session_setup
-        !row.ready -> R.string.connector_session_setup
-        else -> R.string.connector_session_ready
+        else -> null
     }
+}
 
-/** Display facts only: partial readiness never changes session selection or authorization. */
+/** Routine readiness belongs in Details; only selected capabilities needing repair stay visible. */
 @Composable
 @Suppress("FunctionName")
 private fun PluginSessionState(row: PluginSessionRow) {
@@ -52,16 +62,14 @@ private fun PluginSessionState(row: PluginSessionRow) {
             .pluginLabel(row.name),
         style = MaterialTheme.typography.bodyLarge,
     )
-    if (row.hasSkippedComponents) {
-        Text(stringResource(R.string.plugin_skipped_components))
-    } else if (row.readyComponents > 0 && !row.ready) {
-        Text(stringResource(R.string.plugin_partial_ready, row.readyComponents, row.totalComponents))
+    selectionIssueLabel(row)?.let {
+        Text(
+            stringResource(it),
+            Modifier.testTag("plugin-session-issue-${row.id}"),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error,
+        )
     }
-    Text(
-        stringResource(statusLabel(row)),
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
 }
 
 @Composable
@@ -87,7 +95,8 @@ internal fun PluginSessionChoice(
                     .heightIn(min = 56.dp)
                     .toggleable(row.selected, enabled = selectable, role = Role.Checkbox, onValueChange = onSelect)
                     .testTag("connector-session-${row.id}")
-                    .padding(horizontal = 8.dp, vertical = 8.dp),
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 Checkbox(checked = row.selected, onCheckedChange = null, enabled = selectable)
                 Column(Modifier.weight(1f).padding(start = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -100,12 +109,8 @@ internal fun PluginSessionChoice(
                     }
                 }
             }
-            Column(Modifier.fillMaxWidth().padding(start = 56.dp, end = 12.dp, bottom = 8.dp)) {
-                row.readiness?.let {
-                    com.helix.app.plugin
-                        .PluginReadinessDetails(it, compact = true)
-                }
-                if (row.setupReason != null || !row.enabled) {
+            if (selectionIssueLabel(row) != null) {
+                Column(Modifier.fillMaxWidth().padding(start = 56.dp, end = 12.dp)) {
                     TextButton(
                         onClick = onConfigure,
                         enabled = !busy,
@@ -114,7 +119,11 @@ internal fun PluginSessionChoice(
                         Text(
                             stringResource(
                                 when (row.setupReason) {
-                                    PluginSetupReason.MOBILE_BACKEND, PluginSetupReason.MOBILE_CONFIGURATION -> {
+                                    PluginSetupReason.MOBILE_BACKEND -> {
+                                        R.string.mobile_use_go_authorize
+                                    }
+
+                                    PluginSetupReason.MOBILE_CONFIGURATION -> {
                                         R.string.phone_task_configure
                                     }
 
@@ -149,14 +158,26 @@ fun ConnectorSessionPanel(
             saver = ConnectorSessionPanelState.saver(createState),
         ) { createState() }
     val scope = rememberCoroutineScope()
-    val dismiss = {
-        state.cancelRepair()
-        onDismiss()
-    }
     LaunchedEffect(state) { state.refresh(afterConfiguration = state.pendingRepair != null) }
     androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
         if (state.loaded) scope.launch { state.refresh(afterConfiguration = state.pendingRepair != null) }
     }
+    PluginSessionPicker(state, onConfigure, onDismiss)
+}
+
+@Composable
+@Suppress("FunctionName", "LongMethod")
+internal fun PluginSessionPicker(
+    state: ConnectorSessionPanelState,
+    onConfigure: (String, PluginSetupReason?) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    val dismiss = {
+        state.cancelRepair()
+        onDismiss()
+    }
+    if (!state.canPresent) return
     PluginSessionRepairPrompt(state, onConfigure)
     ConversationSheet(
         title = stringResource(R.string.connector_session_title),
@@ -182,13 +203,17 @@ fun ConnectorSessionPanel(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             if (state.title.isNotBlank()) Text(stringResource(R.string.plugin_session_name, state.title))
-            if (state.loading) {
-                Text(stringResource(R.string.tasks_commands_loading), Modifier.testTag("plugin-session-loading"))
-            }
+            Text(stringResource(R.string.plugin_session_scope_hint), style = MaterialTheme.typography.bodySmall)
             if (state.empty) Text(stringResource(R.string.connector_session_empty))
-            state.rows.forEach { row ->
-                PluginSessionChoice(row, state.busy || state.loading || state.failed, { state.select(row, it) }) {
-                    onConfigure(row.id, row.setupReason)
+            state.rows.sortedBy(::pluginSelectionPriority).forEach { row ->
+                key(row.id) {
+                    PluginSessionChoice(
+                        row,
+                        state.busy || state.loading || state.failed,
+                        { scope.launch { state.select(row, it) } },
+                    ) {
+                        onConfigure(row.id, row.setupReason)
+                    }
                 }
             }
             SessionSelectionFailure(state) { scope.launch { state.refresh() } }

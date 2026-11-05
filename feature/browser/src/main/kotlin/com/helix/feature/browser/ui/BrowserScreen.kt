@@ -33,10 +33,14 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -45,6 +49,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.feature.browser.BrowserController
+import com.helix.feature.browser.BrowserEngineState
 import com.helix.feature.browser.BrowserTab
 import com.helix.feature.browser.BrowserTabController
 import com.helix.feature.browser.ContextMenuData
@@ -54,12 +59,14 @@ import com.helix.feature.browser.DownloadStatus
 import com.helix.feature.browser.LoadError
 import com.helix.feature.browser.R
 import com.helix.feature.browser.engine.SearchEngines
+import kotlinx.coroutines.launch
 
 /** Browser navigation and page surface; data maintenance stays in the menu settings. */
 @Composable
 @Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod")
 fun BrowserScreen(
     controller: BrowserController,
+    onExitBrowser: () -> Unit = {},
     onOpenSession: ((String) -> Unit)? = null,
 ) {
     val context = LocalContext.current
@@ -75,14 +82,28 @@ fun BrowserScreen(
     val blockedAdsCount by controller.adBlockedCount.collectAsStateWithLifecycle()
 
     val selected = state.selectedTab
+    val isHomeVisible =
+        state.isHomeVisible || selected == null ||
+            (selected.url == BrowserTabController.ABOUT_BLANK && selected.error == null)
+    val engineState by controller.engineState.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
+    var ready by remember(controller) { mutableStateOf(controller.sessionReady.isCompleted) }
+    LaunchedEffect(controller) {
+        controller.sessionReady.await()
+        controller.enterBrowser()
+        ready = true
+    }
+    val addressFocusRequester = remember { FocusRequester() }
+    val keyboard = LocalSoftwareKeyboardController.current
 
-    var urlText by remember(selected?.id, selected?.url) {
-        mutableStateOf(selected?.url?.takeIf { it != BrowserTabController.ABOUT_BLANK } ?: "")
+    var urlText by remember(selected?.id, selected?.url, isHomeVisible) {
+        mutableStateOf(if (isHomeVisible) "" else selected?.url.orEmpty())
     }
 
     // Modal Sheet & Dialog States
     var showTabSwitcher by remember { mutableStateOf(false) }
     var showMenuSheet by remember { mutableStateOf(false) }
+    var showCloseConfirmation by remember { mutableStateOf(false) }
     var clearAction by remember { mutableStateOf<BrowserDataClear?>(null) }
     var showBookmarksHistory by remember { mutableStateOf(false) }
     var bookmarksHistoryInitialTab by remember { mutableIntStateOf(0) }
@@ -103,28 +124,26 @@ fun BrowserScreen(
     val onChooseSaveLocation = rememberDownloadSaveLauncher(controller)
 
     // BackHandler: priority back stack
-    val isAnyModalOpen =
-        showTabSwitcher || showMenuSheet || showBookmarksHistory ||
-            showDownloads || showUserScripts || sourceDialogContent != null || readerDialogContent != null ||
-            contextMenu != null
-    val canGoBackInTab = selected != null && selected.canGoBack
-    val isNotOnHome = selected != null && selected.url != BrowserTabController.ABOUT_BLANK
+    val canGoBackInTab = !isHomeVisible && selected != null && selected.canGoBack
+    val hasSelectedPage = selected != null && selected.url != BrowserTabController.ABOUT_BLANK
 
     BackHandler(
-        enabled = isAnyModalOpen || findState.isSearching || canGoBackInTab || isNotOnHome,
+        enabled = ready && !state.isClosed,
     ) {
         when {
             contextMenu != null -> controller.clearContextMenu()
             showTabSwitcher -> showTabSwitcher = false
             showMenuSheet -> showMenuSheet = false
+            showCloseConfirmation -> showCloseConfirmation = false
             showBookmarksHistory -> showBookmarksHistory = false
             showDownloads -> showDownloads = false
             showUserScripts -> showUserScripts = false
             sourceDialogContent != null -> sourceDialogContent = null
             readerDialogContent != null -> readerDialogContent = null
             findState.isSearching -> selected?.let { controller.closeFindInPage(it.id) }
+            isHomeVisible && hasSelectedPage -> controller.showSelectedPage()
             canGoBackInTab -> controller.goBack(checkNotNull(selected).id)
-            isNotOnHome -> controller.navigate(checkNotNull(selected).id, BrowserTabController.ABOUT_BLANK)
+            else -> onExitBrowser()
         }
     }
 
@@ -157,10 +176,15 @@ fun BrowserScreen(
                 .fillMaxSize()
                 .testTag("screen-browser"),
     ) {
+        if (!ready || state.isClosed) {
+            Text(stringResource(R.string.browser_preparing), Modifier.padding(16.dp))
+            return@Box
+        }
         Column(modifier = Modifier.fillMaxSize()) {
             // 1. Omnibox / TopBar
             BrowserTopBar(
-                selectedTab = selected,
+                selectedTab = selected.takeUnless { isHomeVisible },
+                addressFieldModifier = Modifier.focusRequester(addressFocusRequester),
                 urlText = urlText,
                 onUrlChange = { urlText = it },
                 onSubmitUrl = {
@@ -169,13 +193,10 @@ fun BrowserScreen(
                 },
                 onReload = { selected?.let { controller.reload(it.id) } },
                 onStop = { selected?.let { controller.stop(it.id) } },
-                onHome = {
-                    val tabId = selected?.id ?: controller.tryNewTab()
-                    tabId?.let { controller.navigate(it, BrowserTabController.ABOUT_BLANK) }
-                },
+                onHome = { controller.showHome() },
             )
 
-            selected?.originSessionId?.let { origin ->
+            selected?.originSessionId?.takeUnless { isHomeVisible }?.let { origin ->
                 Row(
                     Modifier.fillMaxWidth().padding(horizontal = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -188,6 +209,22 @@ fun BrowserScreen(
                         ) { Text(stringResource(R.string.browser_return_session)) }
                     }
                 }
+            }
+
+            if (engineState == BrowserEngineState.FAILED) {
+                Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(stringResource(R.string.browser_engine_failed), Modifier.weight(1f))
+                    TextButton(onClick = { controller.warmUpEngine(retry = true) }) {
+                        Text(stringResource(R.string.browser_retry))
+                    }
+                }
+            }
+
+            if (isHomeVisible && hasSelectedPage) {
+                TextButton(
+                    onClick = { controller.showSelectedPage() },
+                    modifier = Modifier.testTag("browser-return-page"),
+                ) { Text(stringResource(R.string.browser_return_page)) }
             }
 
             if (suggestions.isNotEmpty()) {
@@ -209,7 +246,7 @@ fun BrowserScreen(
                         .fillMaxWidth(),
             ) {
                 when {
-                    selected == null || selected.url == BrowserTabController.ABOUT_BLANK -> {
+                    isHomeVisible -> {
                         BrowserHomePage(
                             speedDials = speedDials,
                             currentSearchEngine = SearchEngines.getById(preferences.searchEngineId),
@@ -221,15 +258,18 @@ fun BrowserScreen(
                             },
                             onAddSpeedDial = { title, url -> controller.addSpeedDial(title, url) },
                             onRemoveSpeedDial = { controller.removeSpeedDial(it) },
-                            onSearchClick = { /* Focus Omnibox handled via urlText */ },
+                            onSearchClick = {
+                                addressFocusRequester.requestFocus()
+                                keyboard?.show()
+                            },
                         )
                     }
 
-                    selected.error != null -> {
+                    selected != null && selected.error != null -> {
                         ErrorPage(selected, controller)
                     }
 
-                    controller.hostView(selected.id) != null -> {
+                    selected != null && controller.hostView(selected.id) != null -> {
                         key(selected.id, controller.hostView(selected.id)) {
                             AndroidView(
                                 modifier = Modifier.fillMaxSize(),
@@ -239,7 +279,7 @@ fun BrowserScreen(
                         }
                     }
 
-                    else -> {
+                    selected != null -> {
                         Column(Modifier.padding(16.dp)) {
                             Text(stringResource(R.string.browser_page_retired))
                             TextButton(
@@ -269,14 +309,27 @@ fun BrowserScreen(
 
             // 6. Classic 5-Button Bottom Bar
             BrowserBottomBar(
-                selectedTab = selected,
+                selectedTab =
+                    if (isHomeVisible) {
+                        selected?.copy(
+                            canGoBack = hasSelectedPage,
+                            canGoForward = false,
+                        )
+                    } else {
+                        selected
+                    },
                 tabCount = state.tabs.size,
-                onBack = { selected?.let { controller.goBack(it.id) } },
-                onForward = { selected?.let { controller.goForward(it.id) } },
-                onHome = {
-                    val tabId = selected?.id ?: controller.tryNewTab()
-                    tabId?.let { controller.navigate(it, BrowserTabController.ABOUT_BLANK) }
+                onBack = {
+                    if (isHomeVisible &&
+                        hasSelectedPage
+                    ) {
+                        controller.showSelectedPage()
+                    } else {
+                        selected?.let { controller.goBack(it.id) }
+                    }
                 },
+                onForward = { selected?.let { controller.goForward(it.id) } },
+                onHome = { controller.showHome() },
                 onTabsClick = { showTabSwitcher = true },
                 onMenuClick = { showMenuSheet = true },
             )
@@ -419,6 +472,42 @@ fun BrowserScreen(
                     showMenuSheet = false
                 },
                 onDismiss = { showMenuSheet = false },
+                onCloseBrowser = {
+                    showMenuSheet = false
+                    showCloseConfirmation = true
+                },
+            )
+        }
+
+        if (showCloseConfirmation) {
+            AlertDialog(
+                onDismissRequest = { showCloseConfirmation = false },
+                title = { Text(stringResource(R.string.browser_close)) },
+                text = { Text(stringResource(R.string.browser_close_details)) },
+                confirmButton = {
+                    TextButton(
+                        modifier = Modifier.testTag("browser-close-confirm"),
+                        onClick = {
+                            showCloseConfirmation = false
+                            scope.launch {
+                                if (!controller.closeBrowser()) {
+                                    Toast
+                                        .makeText(
+                                            context,
+                                            R.string.browser_session_save_failed,
+                                            Toast.LENGTH_LONG,
+                                        ).show()
+                                }
+                                onExitBrowser()
+                            }
+                        },
+                    ) { Text(stringResource(R.string.browser_close)) }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = { showCloseConfirmation = false },
+                    ) { Text(stringResource(android.R.string.cancel)) }
+                },
             )
         }
 

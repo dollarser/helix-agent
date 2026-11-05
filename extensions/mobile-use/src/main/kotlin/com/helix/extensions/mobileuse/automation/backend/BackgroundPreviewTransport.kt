@@ -12,13 +12,18 @@ internal object BackgroundPreviewTransport {
         service: IBinder,
         key: String,
         owner: IBinder,
+        width: Int,
+        wholeDisplay: Boolean,
     ): ByteArray? {
+        require(width in BACKGROUND_PREVIEW_WIDTHS)
         val data = Parcel.obtain()
         val reply = Parcel.obtain()
         return try {
             data.writeInterfaceToken(ShizukuUiProtocol.DESCRIPTOR)
             data.writeString(key)
             data.writeStrongBinder(owner)
+            data.writeInt(width)
+            data.writeInt(if (wholeDisplay) 1 else 0)
             if (!service.transact(ShizukuUiProtocol.PREVIEW, data, reply, 0)) return null
             reply.readException()
             val length = reply.readInt()

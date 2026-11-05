@@ -70,9 +70,11 @@ internal class ConnectorSessionPanelState(
         private set
     val empty get() = if (loading || failed) false else rows.isEmpty()
     val editable get() = !loading && !busy && !failed
+    val canPresent get() = canApply() && (loaded || failed)
 
     @Suppress("TooGenericExceptionCaught") // Application-service errors remain visible; cancellation propagates.
     suspend fun refresh(afterConfiguration: Boolean = false) {
+        if (busy) return
         loading = true
         try {
             val facts =
@@ -101,17 +103,52 @@ internal class ConnectorSessionPanelState(
         }
     }
 
-    fun select(
+    @Suppress("TooGenericExceptionCaught") // Local readiness failures stay retryable; cancellation never selects.
+    suspend fun select(
         row: PluginSessionRow,
         enabled: Boolean,
     ) {
-        if (!editable) return
-        if (enabled && !row.canSelectForSession) {
-            setupPluginId = row.id
-            setupReason = if (!row.enabled) PluginSetupReason.DISABLED else row.setupReason
+        if (!editable || !canApply() || rows.none { it.id == row.id }) return
+        if (!enabled) {
+            rows = rows.map { if (it.id == row.id) it.copy(selected = false) else it }
             return
         }
-        rows = rows.map { if (it.id == row.id) it.copy(selected = enabled) else it }
+        busy = true
+        try {
+            val fresh = withContext(Dispatchers.IO) { readFacts().second.singleOrNull { it.id == row.id } }
+            if (canApply()) {
+                val actual =
+                    fresh
+                        ?: row.copy(
+                            available = false,
+                            ready = false,
+                            readyComponents = 0,
+                            setupReason = PluginSetupReason.UNSUPPORTED,
+                        )
+                resolveSelection(actual)
+            }
+        } catch (cancel: CancellationException) {
+            throw cancel
+        } catch (_: Exception) {
+            failed = true
+        } finally {
+            busy = false
+        }
+    }
+
+    private fun resolveSelection(actual: PluginSessionRow) {
+        rows = rows.map { if (it.id == actual.id) actual.copy(selected = it.selected) else it }
+        if (!actual.canSelectForSession) {
+            setupPluginId = actual.id
+            setupReason =
+                when {
+                    !actual.available -> PluginSetupReason.UNSUPPORTED
+                    !actual.enabled -> PluginSetupReason.DISABLED
+                    else -> actual.setupReason
+                }
+        } else {
+            rows = rows.map { if (it.id == actual.id) it.copy(selected = true) else it }
+        }
     }
 
     @Suppress("TooGenericExceptionCaught")

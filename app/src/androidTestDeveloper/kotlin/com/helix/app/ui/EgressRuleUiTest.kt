@@ -26,16 +26,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/**
- * HXA-068 developer-variant bounded egress-rule management (ADR-0005/0012).
- *
- * The section is ADVANCED-only: absent in Standard, present (and usable) after the risk-gated
- * switch. A created rule is bound to an exact provider/MCP id + canonical origin + the app's
- * scope + a fixed TTL, round-trips through Room, revokes, and REHYDRATES after activity
- * recreation (process-restart path). Switching back to Standard HIDES the section without
- * deleting the rule (ADR-0012: profile switch fails closed, it does not erase the store).
- * Expiry + clock-rollback are the Policy Engine's `isLiveFor` job (JVM: PolicyEngineTest).
- */
+/** Developer egress rules remain scoped, revocable and durable; channel identity is fixed. */
 @RunWith(AndroidJUnit4::class)
 class EgressRuleUiTest {
     @get:Rule
@@ -43,28 +34,14 @@ class EgressRuleUiTest {
 
     @Test
     @Suppress("LongMethod") // one end-to-end scenario (create, revoke, rehydrate, hide-in-Standard)
-    fun advancedEgressRulesCreateListRevokePersistAndHideInStandard() {
+    fun developerEgressRulesCreateListRevokeAndPersist() {
         composeRule.resetDeterministicUiState()
         val container = composeRule.container()
         val repo = container.storage.highSensitivityRules
         clearRules(repo)
 
-        // --- Standard (after reset): the egress section is ABSENT ---
         composeRule.navigateTo("settings/permissions")
-        composeRule.onNodeWithTag("settings-profile-options").performScrollTo().performClick()
-        composeRule.onNodeWithTag("settings-profile-current").assertIsDisplayed()
-        assertTrue(
-            "egress section must be absent in Standard",
-            composeRule.onAllNodesWithTag("egress-section").fetchSemanticsNodes().isEmpty(),
-        )
-
-        // --- switch to Advanced (risk-gated) ---
-        composeRule.onNodeWithTag("settings-advanced-switch").performClick()
-        composeRule.waitForIdle()
-        composeRule.onNodeWithTag("settings-risk-dialog").assertIsDisplayed()
-        composeRule.onNodeWithTag("settings-risk-confirm").performClick()
-        composeRule.waitForIdle()
-
+        composeRule.onNodeWithTag("settings-profile-options").assertDoesNotExist()
         // --- Advanced: the section is present and initially empty ---
         composeRule.onNodeWithTag("settings-egress-options").performScrollTo().performClick()
         composeRule.onNodeWithTag("egress-rule-help").performScrollTo()
@@ -139,24 +116,6 @@ class EgressRuleUiTest {
                 .rule.target,
         )
 
-        // --- back to Standard: the section hides, but the rule is NOT deleted ---
-        // The exit button lives in the profile section at the TOP of the scrollable settings list,
-        // but the test just scrolled down to the egress section (below); scroll it back into view
-        // first (as every other click in this test does). An off-screen performClick delivers no
-        // hit, so without this the switch silently no-ops and the section never leaves.
-        if (composeRule.onAllNodesWithTag("settings-advanced-exit").fetchSemanticsNodes().isEmpty()) {
-            composeRule.onNodeWithTag("settings-profile-options").performScrollTo().performClick()
-        }
-        composeRule.onNodeWithTag("settings-advanced-exit").performScrollTo()
-        composeRule.onNodeWithTag("settings-advanced-exit").performClick()
-        // switchTo(STANDARD) is synchronous, but the section-removal recomposition is driven by the
-        // profile StateFlow collector, which a single waitForIdle can return before it lands - poll
-        // the node's removal (a real switch regression would time out loudly here).
-        waitForNodeAbsent("egress-section")
-        assertTrue(
-            "egress section must be absent after switching back to Standard",
-            composeRule.onAllNodesWithTag("egress-section").fetchSemanticsNodes().isEmpty(),
-        )
         assertEquals(1, repo.all().size)
     }
 
@@ -174,22 +133,6 @@ class EgressRuleUiTest {
         val deadline = System.currentTimeMillis() + 10_000
         while (composeRule.onAllNodesWithTag(testTag).fetchSemanticsNodes().isEmpty()) {
             check(System.currentTimeMillis() < deadline) { "timed out waiting for node '$testTag'" }
-            Thread.sleep(100)
-        }
-    }
-
-    /**
-     * Polls until NO semantics node with [testTag] remains (up to ~10s) — the inverse of
-     * [waitForNode]. Used for the negative case (the section hiding after switching back to
-     * Standard): the profile change flips the section gate, but the removal recomposition is driven
-     * by the profile StateFlow collector, which a single [waitForIdle] can return before it lands —
-     * so polling the node's absence is the race-free gate. A real profile-switch regression would
-     * time out loudly here rather than pass.
-     */
-    private fun waitForNodeAbsent(testTag: String) {
-        val deadline = System.currentTimeMillis() + 10_000
-        while (composeRule.onAllNodesWithTag(testTag).fetchSemanticsNodes().isNotEmpty()) {
-            check(System.currentTimeMillis() < deadline) { "timed out waiting for node '$testTag' to be removed" }
             Thread.sleep(100)
         }
     }

@@ -45,7 +45,7 @@ Termux 路线的优势是能力上限高、现有 CLI 生态可直接利用；�
 
 Helix 状态校正（2026-09-29）：原比较中的独立 UID 描述已不代表当前订阅部署；现行 developer 私有进程共享主 UID，不能宣称凭据隔离。具体协议、凭据与真实服务范围见 [ADR-PROVIDER-002](../adr/provider/002-subscription-adapters.md)和[当前执行域](../architecture/local-code-execution.md)。订阅登录、实际模型调用、服务商支持与商店分发是不同证据，不能互相替代；本次未刷新上表各 CLI 的外部支持状态。
 
-Termux 与 PRoot 也不能作为同类产品直接二选一：Termux 是原生 Android 命令行环境、终端和包生态，不能与底层兼容工具直接比较用户量；PRoot 是可嵌入独立 Runtime 的 Linux RootFS 兼容层，系统调用拦截可能增加文件密集任务开销，具体性能需同机测量，且自身不提供安全隔离。原研究把外部 Termux 定位为研发 Spike/专家自带环境；当前 Helix 的 PRoot 则按同 APK 私有进程契约运行，不沿用旧“无网、独立 UID companion”假设。常用能力优先已有原生 Tool，运行时差异按[当前本地执行方案](../architecture/local-code-execution.md)解释；旧集成比较保留于[历史 Linux 参考](../evidence/research-history/helix-linux-command-integration.md)，不再链接已不存在的 §6.2。
+Termux 与 PRoot 也不能作为同类产品直接二选一：Termux 是原生 Android 命令行环境、终端和包生态，不能与底层兼容工具直接比较用户量；PRoot 是可嵌入独立 Runtime 的 Linux RootFS 兼容层，系统调用拦截可能增加文件密集任务开销，具体性能需同机测量，且自身不提供安全隔离。原研究把外部 Termux 定位为研发 Spike/专家自带环境；当前 Helix 的 PRoot 则按同 APK 私有进程契约运行，不沿用旧“无网、独立 UID companion”假设。常用能力优先已有原生 Tool，运行时差异按[当前本地执行方案](../architecture/local-code-execution.md)解释；旧集成比较保留于[历史 Linux 参考](../evidence/research-history/helix-linux-command-integration.md)，不再链接已不存在的 第 6.2 节。
 
 ## 3. 远程与云端成果产品
 

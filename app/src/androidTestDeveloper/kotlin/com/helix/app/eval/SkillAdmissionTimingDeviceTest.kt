@@ -50,7 +50,7 @@ class SkillAdmissionTimingDeviceTest {
                     .listActive()
                     .isEmpty(),
             )
-            val profile = c.profileStore.profile
+
             val previous = c.chatService.screen.value.openSessionId
             val factory = requireNotNull(field(c.providerService, "factory").get(c.providerService))
             val wireField = field(factory, "builtInWire")
@@ -157,7 +157,7 @@ class SkillAdmissionTimingDeviceTest {
                         try {
                             withTimeout(240_000) {
                                 var at = now()
-                                c.profileStore.switchTo(SafetyProfile.ADVANCED)
+                                check(c.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
                                 times["profile_switch_ms"] = now() - at
                                 at = now()
                                 val permissions = SessionPermissionConfig.of(SessionPermissionMode.FULL_ACCESS)
@@ -217,7 +217,6 @@ class SkillAdmissionTimingDeviceTest {
                         } finally {
                             finishOwnedCase(c.storage, c.chatService, id, {}, {}, { stopped -> safe = safe && stopped })
                         }
-                        c.profileStore.switchTo(profile)
                     }
                 }
             } finally {
@@ -226,7 +225,6 @@ class SkillAdmissionTimingDeviceTest {
                 storeField.set(engine, originalStore)
                 projectionField.set(scheduler, originalProjection)
                 if (safe) wireField.set(factory, originalWire)
-                c.profileStore.switchTo(profile)
                 if (previous == null) c.chatService.closeSession() else c.chatService.openSession(previous)
                 val candidates = (c.storage.turns.pendingTasks() + c.storage.turns.recent()).distinctBy { it.id }.size
                 val discovered =
@@ -244,7 +242,7 @@ class SkillAdmissionTimingDeviceTest {
                     JSONObject()
                         .put("pid", android.os.Process.myPid())
                         .put("wire", "in-memory")
-                        .put("originalProfile", profile.name)
+                        .put("channelProfile", c.profileStore.profile.name)
                         .put("candidateTurns", candidates)
                         .put("postTaskDiscovery", JSONArray(discovered))
                         .put("bootstrap", bootstrap)

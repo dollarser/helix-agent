@@ -13,8 +13,10 @@ import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.IOException
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 
 class SocketWireTest {
     @Test fun transportPreservesBusyAndServiceFailureCloseCodes() {
@@ -45,6 +47,9 @@ class SocketWireTest {
     @Test fun oversizedFirstMessageFailsClosedWithoutEscapingListener() {
         MockWebServer().use { server ->
             server.start()
+            val connected = CountDownLatch(1)
+            val sent = CountDownLatch(1)
+            val queued = AtomicBoolean(false)
             server.enqueue(
                 MockResponse
                     .Builder()
@@ -54,12 +59,18 @@ class SocketWireTest {
                                 webSocket: WebSocket,
                                 response: Response,
                             ) {
-                                webSocket.send("x".repeat(65537))
+                                if (connected.await(3, TimeUnit.SECONDS)) {
+                                    queued.set(webSocket.send("x".repeat(65537)))
+                                }
+                                sent.countDown()
                             }
                         },
                     ).build(),
             )
             OkHttpSocketConnector().connect(server.url("/socket").toString(), emptyMap()).use { stream ->
+                connected.countDown()
+                assertTrue(sent.await(3, TimeUnit.SECONDS))
+                assertTrue(queued.get())
                 assertThrows(IOException::class.java) { stream.receive(3000) }
             }
         }

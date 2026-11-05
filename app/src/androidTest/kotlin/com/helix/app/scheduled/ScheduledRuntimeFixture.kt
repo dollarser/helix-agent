@@ -10,7 +10,7 @@ import com.helix.app.chat.AttachmentStagingSupport
 import com.helix.app.chat.ChatService
 import com.helix.app.infrastructure.agent.createRoomTurnEngine
 import com.helix.app.internal.InMemoryLineStore
-import com.helix.app.profile.PersistedSafetyProfileStore
+import com.helix.app.profile.ChannelSafetyProfileStore
 import com.helix.app.provider.BuiltInModel
 import com.helix.app.provider.BuiltInModelCatalog
 import com.helix.app.provider.BuiltInModelRegistration
@@ -127,7 +127,7 @@ internal class ScheduledRuntimeFixture(
             ChatService(
                 storage,
                 providers,
-                PersistedSafetyProfileStore(InMemoryLineStore(), false),
+                ChannelSafetyProfileStore(com.helix.core.model.SafetyProfile.STANDARD),
                 toolPipeline = pipeline,
                 idGenerator = ::newId,
                 turnEngine = engine,

@@ -14,12 +14,18 @@ internal fun workspaceFileSources(
                 .forWorkspace(resource.id)
                 .firstOrNull()
                 ?.name
-                ?: resource.ownerSessionId?.let { storage.sessions.find(it)?.title }
+                ?: resource.ownerSessionId?.let {
+                    storage.sessions
+                        .find(it)
+                        ?.title
+                        ?.takeIf(String::isNotBlank)
+                }
                 ?: resource.id,
             FileSourceKind.WORKSPACE,
             supportsMutation = resource.availability == "READY" && writable(resource.id),
             workspaceBackend = resource.backend,
             available = resource.availability == "READY",
+            ownerSessionId = resource.ownerSessionId.takeIf { resource.ownership == "MANAGED" },
             cleanupEligible =
                 resource.ownership == "MANAGED" &&
                     resource.availability in

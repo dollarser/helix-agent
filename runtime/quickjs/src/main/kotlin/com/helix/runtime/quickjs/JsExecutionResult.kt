@@ -104,8 +104,6 @@ class JsExecutionResult(
                     )
 
                 override fun newArray(size: Int): Array<JsExecutionResult?> = arrayOfNulls(size)
-
-                fun newInstance(size: IntArray): Array<JsExecutionResult?> = arrayOfNulls(size.size)
             }
     }
 }

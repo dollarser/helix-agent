@@ -2,13 +2,10 @@ package com.helix.app.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -16,9 +13,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -28,12 +23,11 @@ import com.helix.app.R
 import com.helix.app.approval.SessionPermissionEditService
 import com.helix.app.egress.EgressRuleService
 import com.helix.app.permissions.ui.EgressRuleSection
-import com.helix.app.profile.AdvancedProfileAvailability
+import com.helix.app.profile.ChannelCapabilities
 import com.helix.app.profile.SafetyProfileStore
 import com.helix.app.proot.ProotToolModule
 import com.helix.app.provider.ProviderService
 import com.helix.app.provider.ui.ProviderManager
-import com.helix.app.root.RootModule
 import com.helix.app.runcontrol.RunControlStore
 import com.helix.app.tool.ToolPipeline
 import com.helix.app.ui.indicatedVerticalScroll
@@ -136,7 +130,6 @@ internal fun PermissionsSafetyScreen(
     onSystemPermissions: () -> Unit,
 ) {
     val profile by profileStore.flow.collectAsStateWithLifecycle()
-    var riskDialogOpen by remember { mutableStateOf(false) }
 
     Column(
         Modifier
@@ -165,18 +158,7 @@ internal fun PermissionsSafetyScreen(
             SessionPermissionSection(sessionPermissionEdit, toolPipeline)
         }
 
-        SettingsDisclosure(
-            stringResource(R.string.settings_execution_mode),
-            "settings-profile-options",
-            stringResource(
-                if (profile == SafetyProfile.ADVANCED) {
-                    R.string.settings_current_advanced
-                } else {
-                    R.string.settings_current_standard
-                },
-            ),
-        ) { SafetyProfileSection(profile, profileStore) { riskDialogOpen = true } }
-        if (AdvancedProfileAvailability.ADVANCED_AVAILABLE && profile == SafetyProfile.ADVANCED) {
+        if (ChannelCapabilities.ADVANCED_AVAILABLE && profile == SafetyProfile.ADVANCED) {
             lanScopeStore?.let {
                 SettingsDisclosure(
                     stringResource(R.string.settings_lan_title),
@@ -191,15 +173,6 @@ internal fun PermissionsSafetyScreen(
             ) { EgressRuleSection(egressRules) }
         }
     }
-
-    AdvancedRiskDialog(
-        open = riskDialogOpen,
-        onConfirm = {
-            profileStore.switchTo(SafetyProfile.ADVANCED)
-            riskDialogOpen = false
-        },
-        onDismiss = { riskDialogOpen = false },
-    )
 }
 
 /** Execution environment status and maintenance have a dedicated Settings entry. */
@@ -207,7 +180,6 @@ internal fun PermissionsSafetyScreen(
 @Suppress("FunctionName")
 internal fun RuntimeSetupScreen(profileStore: SafetyProfileStore) {
     val profile by profileStore.flow.collectAsStateWithLifecycle()
-    var runtimeRiskOpen by remember { mutableStateOf(false) }
     Column(
         Modifier
             .fillMaxSize()
@@ -223,31 +195,12 @@ internal fun RuntimeSetupScreen(profileStore: SafetyProfileStore) {
             SettingsGroup {
                 Text(stringResource(R.string.settings_proot_title), style = MaterialTheme.typography.titleMedium)
                 Text(
-                    stringResource(
-                        if (AdvancedProfileAvailability.ADVANCED_AVAILABLE) {
-                            R.string.runtime_advanced_required
-                        } else {
-                            R.string.runtime_developer_required
-                        },
-                    ),
+                    stringResource(R.string.runtime_developer_required),
                     Modifier.testTag("runtime-availability-notice"),
                 )
-                if (AdvancedProfileAvailability.ADVANCED_AVAILABLE) {
-                    OutlinedButton({ runtimeRiskOpen = true }, Modifier.testTag("runtime-enable-advanced")) {
-                        Text(stringResource(R.string.runtime_switch_advanced))
-                    }
-                }
             }
         }
     }
-    AdvancedRiskDialog(
-        open = runtimeRiskOpen,
-        onConfirm = {
-            profileStore.switchTo(SafetyProfile.ADVANCED)
-            runtimeRiskOpen = false
-        },
-        onDismiss = { runtimeRiskOpen = false },
-    )
 }
 
 /** Provider/model connection management is a top-level destination. */
@@ -265,82 +218,5 @@ internal fun ModelsConnectionsScreen(
             .testTag("screen-models"),
     ) {
         ProviderManager(providerService, initialSource)
-    }
-}
-
-@Composable
-@Suppress("FunctionName")
-private fun SafetyProfileSection(
-    profile: SafetyProfile,
-    profileStore: SafetyProfileStore,
-    onEnterAdvanced: () -> Unit,
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(stringResource(R.string.settings_safety_section), style = MaterialTheme.typography.titleMedium)
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                if (profile == SafetyProfile.ADVANCED) {
-                    stringResource(R.string.settings_current_advanced)
-                } else {
-                    stringResource(R.string.settings_current_standard)
-                },
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.testTag("settings-profile-current"),
-            )
-        }
-        if (AdvancedProfileAvailability.ADVANCED_AVAILABLE) {
-            if (profile == SafetyProfile.STANDARD) {
-                OutlinedButton(onEnterAdvanced, Modifier.testTag("settings-advanced-switch")) {
-                    Text(stringResource(R.string.settings_switch_to_advanced))
-                }
-            } else {
-                OutlinedButton(
-                    onClick = { profileStore.switchTo(SafetyProfile.STANDARD) },
-                    modifier = Modifier.testTag("settings-advanced-exit"),
-                ) {
-                    Text(stringResource(R.string.settings_switch_back_standard))
-                }
-            }
-            Text(
-                stringResource(R.string.settings_advanced_m2_note),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.testTag("settings-advanced-note"),
-            )
-        } else {
-            Text(
-                stringResource(R.string.settings_consumer_standard_only),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.testTag("settings-advanced-absent"),
-            )
-        }
-    }
-}
-
-@Composable
-@Suppress("FunctionName")
-internal fun AdvancedRiskDialog(
-    open: Boolean,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    if (open) {
-        AlertDialog(
-            onDismissRequest = onDismiss,
-            title = { Text(stringResource(R.string.settings_advanced_confirm_title)) },
-            text = { Text(stringResource(R.string.profile_advanced_risk_summary)) },
-            confirmButton = {
-                TextButton(onClick = onConfirm, modifier = Modifier.testTag("settings-risk-confirm")) {
-                    Text(stringResource(R.string.settings_advanced_confirm_ok))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = onDismiss, modifier = Modifier.testTag("settings-risk-cancel")) {
-                    Text(stringResource(R.string.common_cancel))
-                }
-            },
-            modifier = Modifier.testTag("settings-risk-dialog"),
-        )
     }
 }

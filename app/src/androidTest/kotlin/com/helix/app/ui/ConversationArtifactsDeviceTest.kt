@@ -7,6 +7,7 @@ import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextReplacement
@@ -124,7 +125,7 @@ class ConversationArtifactsDeviceTest {
             assertEquals(listOf(outputId), query.forSession(session).map { it.id })
             assertEquals(4, query.forSession(other).size)
             openSession(session)
-            compose.onNodeWithTag("chat-artifacts-open").assertTextContains("(1)", substring = true)
+            compose.onNodeWithTag("chat-artifacts-open").assertIsDisplayed()
             openPreview(outputId)
             awaitTag("artifact-file-preview")
             // Switching a session while a read-only sheet is open cannot retain its selection.
@@ -136,10 +137,10 @@ class ConversationArtifactsDeviceTest {
             }
             compose.onNodeWithTag("chat-artifacts-sheet").assertDoesNotExist()
             awaitTag("chat-artifacts-open")
-            compose.onNodeWithTag("chat-artifacts-open").assertTextContains("(4)", substring = true)
+            compose.onNodeWithTag("chat-artifacts-open").assertIsDisplayed()
         }
 
-    @Test fun inputOnlySessionShowsAnExplicitEmptyOutputsEntry() =
+    @Test fun inputOnlySessionRetainsTheOutputsEntryAndHonestEmptyState() =
         runBlocking<Unit> {
             compose.resetDeterministicUiState()
             val session = newSession()
@@ -152,8 +153,14 @@ class ConversationArtifactsDeviceTest {
                     .conversationArtifacts(session)
                     .isEmpty(),
             )
-            awaitTag("chat-artifacts-open")
-            compose.onNodeWithTag("chat-artifacts-open").assertTextContains("(0)", substring = true)
+            compose.onNodeWithTag("chat-conversation-details").performClick()
+            compose.onNodeWithTag("chat-artifacts-open").assertIsDisplayed().performClick()
+            compose
+                .onNodeWithText(
+                    compose.activity.getString(com.helix.app.R.string.chat_artifacts_empty),
+                ).assertIsDisplayed()
+            compose.onNodeWithTag("chat-artifacts-close").performClick()
+            compose.onNodeWithTag("chat-document-sources").assertDoesNotExist()
         }
 
     private fun newSession(): String {
@@ -252,7 +259,9 @@ class ConversationArtifactsDeviceTest {
     }
 
     private fun openPreview(id: String) {
+        awaitTag("chat-artifacts-open")
         compose.onNodeWithTag("chat-artifacts-open").performClick()
+        awaitTag("artifact-file-row-$id")
         compose.onNodeWithTag("artifact-file-row-$id").performClick()
     }
 

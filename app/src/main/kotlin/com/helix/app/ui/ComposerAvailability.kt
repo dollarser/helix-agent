@@ -20,11 +20,12 @@ internal data class ComposerAvailability(
         when {
             commandPending -> R.string.composer_mode_switching
             permissionPending -> R.string.composer_permission_saving
-            !localOnly && !modelSelected -> R.string.chat_model_required_before_send
-            !canDeliver(localOnly) -> deliveryReason ?: R.string.composer_temporarily_unavailable
+            !canAttempt(localOnly) -> deliveryReason ?: R.string.composer_temporarily_unavailable
             else -> null
         }
 
-    /** Local controls do not create a model request; all actual sends require a selection. */
-    fun canDeliver(localOnly: Boolean): Boolean = if (localOnly) localCommands else delivery && modelSelected
+    /** Clicking can explain a missing model; all actual deliveries still require a selection. */
+    fun canAttempt(localOnly: Boolean): Boolean = if (localOnly) localCommands else delivery
+
+    fun canDeliver(localOnly: Boolean): Boolean = canAttempt(localOnly) && (localOnly || modelSelected)
 }

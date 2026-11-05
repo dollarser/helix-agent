@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="allfiles_advanced_required">此访问方式仅在 Advanced 提供，也可使用系统目录选择器。</string>
     <string name="allfiles_description">允许访问共享存储，不含其他应用私有目录和 Android/data。Agent 只能访问你启用的目录，操作仍受会话权限控制。</string>
     <string name="allfiles_open_settings">去系统设置授权</string>
     <string name="allfiles_roots_title">Helix 根目录</string>

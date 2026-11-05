@@ -12,6 +12,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.helix.feature.browser.BrowserController
 import com.helix.feature.browser.BrowserViewOwner
 import com.helix.feature.browser.ui.BrowserScreen
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -23,12 +24,13 @@ class BrowserRedesignUiDeviceTest {
     @get:Rule val compose = createComposeRule()
 
     @Test fun taskPageReturnsOriginalSessionAndRequiresExplicitReopenAfterOwnerReplacement() {
-        val context = ApplicationProvider.getApplicationContext<Context>()
+        val context = browserTestContext()
         lateinit var controller: BrowserController
         lateinit var owner: BrowserViewOwner
         lateinit var activity: android.app.Activity
         var returned: String? = null
         compose.runOnUiThread { controller = BrowserController(context) }
+        runBlocking { controller.sessionReady.await() }
         compose.setContent {
             activity = androidx.compose.ui.platform.LocalContext.current as android.app.Activity
             androidx.compose.runtime.DisposableEffect(Unit) {
@@ -73,9 +75,10 @@ class BrowserRedesignUiDeviceTest {
 
     @Test
     fun downloadsMenuOpensTheActualEmptyList() {
-        val context = ApplicationProvider.getApplicationContext<Context>()
+        val context = browserTestContext()
         lateinit var controller: BrowserController
         compose.runOnUiThread { controller = BrowserController(context) }
+        runBlocking { controller.sessionReady.await() }
         compose.setContent { MaterialTheme { BrowserScreen(controller) } }
         compose.onNodeWithTag("browser-menu").performClick()
         compose
@@ -89,10 +92,13 @@ class BrowserRedesignUiDeviceTest {
 
     @Test
     fun fullTabSwitcherDisablesNormalAndNoHistoryCreation() {
-        val context = ApplicationProvider.getApplicationContext<Context>()
+        val context = browserTestContext()
         lateinit var controller: BrowserController
         compose.runOnUiThread {
             controller = BrowserController(context)
+        }
+        runBlocking { controller.sessionReady.await() }
+        compose.runOnUiThread {
             repeat(8) { controller.newTab() }
         }
         compose.setContent { MaterialTheme { BrowserScreen(controller) } }

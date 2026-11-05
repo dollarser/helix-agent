@@ -80,7 +80,7 @@ internal fun ProjectEditor(
                 TextButton(
                     { selecting = true },
                     enabled = !actions.busy,
-                ) { Text(stringResource(R.string.chat_directory_choose)) }
+                ) { Text(stringResource(R.string.workspace_change_directory)) }
                 Text(stringResource(R.string.project_directory_hint))
                 actions.error?.let { Text(stringResource(it)) }
             }
@@ -102,7 +102,9 @@ internal fun ProjectEditor(
         },
     )
     if (selecting) {
-        SessionDirectoryDialog(files, { selecting = false }, allowIndependent = false) { reference ->
+        SessionDirectoryDialog(files, {
+            selecting = false
+        }, allowIndependent = false, initialReference = directory) { reference ->
             directory = reference
             true
         }

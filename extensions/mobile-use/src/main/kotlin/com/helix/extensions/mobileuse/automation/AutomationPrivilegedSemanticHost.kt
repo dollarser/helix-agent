@@ -20,8 +20,10 @@ internal class AutomationPrivilegedSemanticHost(
     )
 
     private var observation: Observation? = null
+    private val retired = RetiredNodeTokens()
 
     fun invalidate() {
+        observation?.let { retired.remember(it.tokens.keys) }
         observation = null
     }
 
@@ -31,21 +33,26 @@ internal class AutomationPrivilegedSemanticHost(
         call: ExecutableToolCall,
         backend: AutomationPrivilegedBackend,
     ): AutomationSnapshotResult {
-        observation = null
+        invalidate()
         val grant = grantFor(call) ?: return refused(AutomationSnapshotStatus.NO_ACTIVE_SESSION)
         val allowed = { grantFor(call) == grant }
-        val target =
-            backend.device(AutomationDeviceRequest(AutomationDeviceOperation.OBSERVE), allowed).target
-                ?: return refused(AutomationSnapshotStatus.UNSUPPORTED_UI)
+        val observed =
+            backend.device(
+                AutomationDeviceRequest(AutomationDeviceOperation.OBSERVE, wholeDisplay = fullDisplayScope(grant)),
+                allowed,
+            )
+        if (!allowed()) return refused(AutomationSnapshotStatus.NO_ACTIVE_SESSION)
+        val target = observed.target ?: return refused(missingSemanticTargetStatus(observed.status))
         if (!allowed() || !grant.scope.permitsPackage(target.packageName)) {
             return refused(AutomationSnapshotStatus.TARGET_NOT_ALLOWLISTED)
         }
+        if (!target.semanticAvailable) return refused(AutomationSnapshotStatus.UNSUPPORTED_UI)
         val reply =
             backend.device(
                 AutomationDeviceRequest(
                     AutomationDeviceOperation.SNAPSHOT,
                     target,
-                    wholeDisplay = grant.scope.allApplications && grant.scope.deniedPackages.isEmpty(),
+                    wholeDisplay = fullDisplayScope(grant),
                 ),
                 allowed,
             )
@@ -105,11 +112,18 @@ internal class AutomationPrivilegedSemanticHost(
         request: AutomationNodeActionRequest,
     ): AutomationActionResult {
         val observed = observation ?: return actionResult(AutomationActionStatus.STALE_TOKEN)
-        observation = null
+        invalidate()
         if (AutomationDeviceOperation.NODE_ACTION !in observed.backend.deviceOperations) {
             return actionResult(AutomationActionStatus.ACTION_NOT_DISPATCHED)
         }
-        val token = observed.tokens[request.token] ?: return actionResult(AutomationActionStatus.TOKEN_UNKNOWN)
+        val token =
+            observed.tokens[request.token] ?: return actionResult(
+                if (request.token in retired) {
+                    AutomationActionStatus.STALE_TOKEN
+                } else {
+                    AutomationActionStatus.TOKEN_UNKNOWN
+                },
+            )
         val allowed = {
             call.sessionId == observed.session && call.turnId == observed.turn &&
                 call.authorizationScopeRef == observed.scope &&
@@ -138,3 +152,15 @@ internal class AutomationPrivilegedSemanticHost(
 
     private fun actionResult(status: AutomationActionStatus) = AutomationActionResult(status)
 }
+
+private fun fullDisplayScope(grant: MobileUseGrant) =
+    grant.scope.allApplications && grant.scope.deniedPackages.isEmpty()
+
+private fun missingSemanticTargetStatus(status: String) =
+    if (status ==
+        "TARGET_UNAVAILABLE"
+    ) {
+        AutomationSnapshotStatus.TARGET_UNAVAILABLE
+    } else {
+        AutomationSnapshotStatus.UNSUPPORTED_UI
+    }

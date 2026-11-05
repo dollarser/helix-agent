@@ -30,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
@@ -58,8 +59,8 @@ internal fun ConversationComposer(
     actions: ComposerActions,
     hasKnowledgeReferences: Boolean = false,
     referenceLabel: String? = null,
-    expertName: String? = null,
     pluginNames: List<String> = emptyList(),
+    expertName: String? = null,
     onSelectedPlugins: () -> Unit = actions.onConnectors,
     onRemoveReference: () -> Unit = {},
     goalMode: Boolean = false,
@@ -69,7 +70,6 @@ internal fun ConversationComposer(
     permissionMode: SessionPermissionMode? = null,
     onPermission: () -> Unit = {},
     onPermissionMode: suspend (SessionPermissionMode) -> Boolean = { false },
-    onChooseModel: () -> Unit = {},
     editorKey: String? = null,
     contextUsage: ChatContextUsage = ChatContextUsage(),
     onCompact: () -> Unit = {},
@@ -106,7 +106,8 @@ internal fun ConversationComposer(
         com.helix.app.ui.composer.ComposerCommandParser
             .leadingCommand(input)
     val localOnly = command != null && input.trim() == "/${command.command}"
-    val canDeliver = availability.canDeliver(localOnly)
+    val canAttempt = availability.canAttempt(localOnly)
+    val context = LocalContext.current
     val commandColor = MaterialTheme.colorScheme.primary
     val commandBackground = MaterialTheme.colorScheme.primaryContainer
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).testTag("chat-composer")) {
@@ -160,9 +161,7 @@ internal fun ConversationComposer(
                 }, onSettings = onPermission)
             },
             headerStatus = headerStatus,
-            optionsContent = {
-                optionsContent()
-            },
+            optionsContent = optionsContent,
             contextIndicator = {
                 ContextWindowIndicator(contextUsage)
             },
@@ -197,6 +196,7 @@ internal fun ConversationComposer(
                         if (fieldValue.text.isEmpty()) {
                             Text(
                                 stringResource(R.string.chat_input_placeholder),
+                                modifier = Modifier.testTag("chat-input-placeholder"),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 style = MaterialTheme.typography.bodyLarge,
                             )
@@ -265,7 +265,16 @@ internal fun ConversationComposer(
                         )
                 IconButton(
                     onClick = {
-                        if (!canDeliver || commandPending || permissionPending) return@IconButton
+                        if (!canAttempt || commandPending || permissionPending) return@IconButton
+                        if (!localOnly && !availability.modelSelected) {
+                            android.widget.Toast
+                                .makeText(
+                                    context,
+                                    R.string.chat_model_required_before_send,
+                                    android.widget.Toast.LENGTH_SHORT,
+                                ).show()
+                            return@IconButton
+                        }
                         when {
                             command == null -> {
                                 actions.onSend()
@@ -334,7 +343,7 @@ internal fun ConversationComposer(
                             }
                         }
                     },
-                    enabled = sendEnabled && canDeliver && !commandPending && !permissionPending && !voiceActive,
+                    enabled = sendEnabled && canAttempt && !commandPending && !permissionPending && !voiceActive,
                     modifier = Modifier.testTag("chat-send"),
                 ) {
                     Icon(
@@ -345,13 +354,8 @@ internal fun ConversationComposer(
             }
             val hasUnsentContent =
                 input.isNotBlank() || hasAttachments || hasKnowledgeReferences || referenceLabel != null
-            if (!availability.modelSelected && !localOnly && hasUnsentContent) {
-                TextButton(onClick = onChooseModel, modifier = Modifier.testTag("chat-select-model-reminder")) {
-                    Text(stringResource(R.string.chat_model_required_before_send))
-                }
-            }
             val unavailable = availability.unavailableReason(localOnly, commandPending, permissionPending)
-            if (hasUnsentContent && unavailable != null && unavailable != R.string.chat_model_required_before_send) {
+            if (hasUnsentContent && unavailable != null) {
                 Text(
                     stringResource(unavailable),
                     Modifier.padding(horizontal = 16.dp).testTag("chat-send-status"),

@@ -75,12 +75,12 @@ class BundledLinuxFirstUseDeviceTest : com.helix.app.test.ForegroundDeviceTestHo
         ActivityScenario.launch(ManualTerminalActivity::class.java).use {
             runBlocking {
                 val container = (context.applicationContext as HelixApplication).appContainer
-                val profile = container.profileStore.profile
+
                 val terminal = requireNotNull(container.manualTerminal)
                 val relative = "first-use-${UUID.randomUUID()}"
                 val directory = File(context.filesDir, "workspaces/app/terminal/$relative").apply { check(mkdirs()) }
                 try {
-                    container.profileStore.switchTo(SafetyProfile.ADVANCED)
+                    check(container.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
                     terminal.start(relative, 120_000)
                     val connection = terminal.attach()
                     try {
@@ -108,7 +108,6 @@ class BundledLinuxFirstUseDeviceTest : com.helix.app.test.ForegroundDeviceTestHo
                         }
                         terminal.settle()
                     }
-                    container.profileStore.switchTo(profile)
                     directory.deleteRecursively()
                 }
             }

@@ -81,7 +81,7 @@ Mobile Use 是可选插件，浏览器、文件和工具各有自己的授权边
 | **Standard / consumer** | 完整基础产品：会话、API/本地模型及渠道允许的工具；不包含第三方订阅 Runtime 和 PRoot 终端 |
 | **Advanced / developer** | 在基础产品上增加平台或渠道允许的进阶能力，包括订阅适配、终端和内置 Linux 运行环境；适合开发与进阶体验 |
 
-安装包渠道与会话权限模式是不同概念。第三方订阅适配需要对应账号权益，兼容性逐服务验证，不代表服务提供商官方授权。使用 API 地址与 Key 的套餐仍属于 API 配置。
+能力由安装包渠道固定，应用内不再选择 Standard/Advanced 档位。Developer 默认具备 Advanced 全部渠道能力；系统权限、范围授权与会话审批仍分别生效。第三方订阅适配需要对应账号权益，兼容性逐服务验证，不代表服务提供商官方授权。使用 API 地址与 Key 的套餐仍属于 API 配置。
 
 从 [GitHub Releases](https://github.com/dollarser/helix-agent/releases) 选择 Standard 或 Advanced ARM64 安装包，列表包含开发预览版。安装前请阅读对应版本的系统要求、签名、校验值、升级数据影响与验证边界；预览版不是稳定正式版或商店生产签名版本。
 

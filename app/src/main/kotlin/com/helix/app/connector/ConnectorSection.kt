@@ -38,6 +38,7 @@ import com.helix.app.plugin.PluginImportReview
 import com.helix.app.plugin.PluginImportTargetPicker
 import com.helix.app.plugin.PluginPackagePreview
 import com.helix.app.plugin.PluginService
+import com.helix.app.ui.SettingsCheckbox
 import com.helix.app.ui.rememberImportActionState
 import com.helix.extensions.mcp.McpHandshakeSnapshot
 import com.helix.extensions.mcp.oauth.McpOAuthVendor
@@ -66,6 +67,8 @@ fun ConnectorSection(
     onSystemPermissions: () -> Unit = onPluginSettings,
     importFiles: com.helix.app.files.FileManagerService? = null,
     filePicker: com.helix.app.ui.FileSelectionContent? = null,
+    showEmptyState: Boolean = true,
+    onSearchResult: ((Boolean?) -> Unit)? = null,
 ) {
     val action = rememberImportActionState()
     var jsonDraft by androidx.compose.runtime.saveable
@@ -293,7 +296,10 @@ fun ConnectorSection(
                             searchContents[it.id].orEmpty() + localizedNames[it.id].orEmpty(),
                         )
             }
-        if (showInstalled && loaded) {
+        LaunchedEffect(query, visible, loaded, loadFailed) {
+            onSearchResult?.invoke(visible.isNotEmpty().takeIf { loaded && !loadFailed })
+        }
+        if (showEmptyState && showInstalled && loaded) {
             if (visible.isEmpty() && !loadFailed) {
                 Text(stringResource(if (query.isBlank()) R.string.plugins_empty else R.string.plugins_no_matches))
             }
@@ -313,6 +319,7 @@ fun ConnectorSection(
                         { revision++ },
                         onSystemPermissions,
                         onConfigurationShown,
+                        revision,
                     ),
                     configurationRequested = configurePluginId == record.id,
                     configuration = {
@@ -372,14 +379,25 @@ fun ConnectorSection(
                 ) {
                     Text(stringResource(R.string.plugin_contents_skills, record.skills.size))
                     record.skills.forEach { key ->
-                        var enabled by remember(key, revision) { mutableStateOf(false) }
-                        LaunchedEffect(key, revision) {
-                            enabled = withContext(Dispatchers.IO) { service.skillEnabled(key) }
+                        var enabled by remember(service, key) { mutableStateOf<Boolean?>(null) }
+                        var reading by remember(service, key) { mutableStateOf(true) }
+                        @Suppress("TooGenericExceptionCaught") // Read errors stay visible; cancellation propagates.
+                        LaunchedEffect(service, key, revision) {
+                            reading = true
+                            try {
+                                enabled = withContext(Dispatchers.IO) { service.skillEnabled(key) }
+                            } catch (cancelled: CancellationException) {
+                                throw cancelled
+                            } catch (error: Exception) {
+                                importFailure = PluginImportFailure.from(error)
+                            } finally {
+                                reading = false
+                            }
                         }
                         Row {
-                            Checkbox(
+                            SettingsCheckbox(
                                 checked = enabled,
-                                enabled = !action.busy,
+                                enabled = !action.busy && !reading,
                                 modifier = Modifier.testTag("plugin-skill-enabled-${key.name}"),
                                 onCheckedChange = { value ->
                                     action.launch(onFailure = { importFailure = PluginImportFailure.from(it) }) {

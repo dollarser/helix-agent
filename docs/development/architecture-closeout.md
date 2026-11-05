@@ -4,7 +4,7 @@
 
 ## 裁决与收益
 
-- 总计划 §23.2、23.7 仍将 Engine→Room、AppAgentRuntime→宽 ChatService 回调写成“当前缺口”，已更正为历史动机及现行 Core／Application／Infrastructure 落点。保留原决策原因和当时验收，不以文案修正重新声称所有平台验收通过。HXA-286／287／293／294 与 status 的主线已完成结论保持；295 B/C 是未实现新能力，289 已交付有界 glob／字面量 grep。旧测试数据兼容描述也按当前 AGENTS 收敛。
+- 总计划 第 23.2 节、23.7 仍将 Engine→Room、AppAgentRuntime→宽 ChatService 回调写成“当前缺口”，已更正为历史动机及现行 Core／Application／Infrastructure 落点。保留原决策原因和当时验收，不以文案修正重新声称所有平台验收通过。HXA-286／287／293／294 与 status 的主线已完成结论保持；295 B/C 是未实现新能力，289 已交付有界 glob／字面量 grep。旧测试数据兼容描述也按当前 AGENTS 收敛。
 - 实际局部耦合：PRoot 模块直接返回 `R.string` 与已翻译错误文本。现在返回 `ProotInstallationStatus` 安装事实和明确的管理页打开成功／失败；Settings 与 Capability Center 共用 UI 本地化映射。安装事实不等于进程可用或执行许可；被动查询仍只调用原 supervisor.installation，不 cold-bind／安装／执行。维护仅由明确点击触发。
 - 删除 `ProotEntryNote`、`openEnvironmentNote` 和 `installationStatusResource`，迁移全部当前消费者与两变体入口，不保留兼容壳。共享的状态文案由 UI 主资源持有，三套本地化原文未改；Standard 仍不暴露 Linux 入口，明确返回 NOT_AVAILABLE，不假装支持执行。未改包名、签名、数据库或内部版本。
 - Dispatcher 的两种 internal 具体执行器是可信观察／等待资格、原 call ID 校验和容量生命周期的闭合实现，当前未发现真实故障或新消费者收益，不为“消灭类型判断”增加可自报角色接口。截图名分支还承担本地模型屏幕披露，不能无等价受信来源信息改成外部 JSON 自报用途。FileHistoryPaths 是 request-only 投影，不是资源身份写入者，glob／grep 已同源接入；这些路径保留。

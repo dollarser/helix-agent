@@ -8,12 +8,15 @@ import com.helix.core.storage.content.DocumentStorage
 import com.helix.core.workspace.AtomicFileWriter
 import java.util.Properties
 
-/** Deletes only a UUID-named synthetic collection in the independent validation package. */
+/** Deletes only a UUID-named synthetic collection in authorized development validation. */
 internal fun clearKnowledgeDocuments(
     context: Context,
     name: String,
 ) {
-    check(context.packageName.endsWith(".asrvalidation"))
+    check(
+        context.packageName.endsWith(".asrvalidation") ||
+            (context.packageName == "com.helix.agent.developer" && name.startsWith("knowledge-picker-")),
+    )
     require(name.matches(Regex("[A-Za-z0-9_.-]{1,160}")))
     require(Regex("[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}").containsMatchIn(name))
     val collection = MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)

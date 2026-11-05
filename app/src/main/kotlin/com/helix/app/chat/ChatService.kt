@@ -4,6 +4,7 @@ import android.util.Log
 import com.helix.app.R
 import com.helix.app.agent.AgentLoopHost
 import com.helix.app.agent.ChatContextProjection
+import com.helix.app.agent.ChatContextUsage
 import com.helix.app.agent.ChatHistoryBuilder
 import com.helix.app.agent.ContextCompaction
 import com.helix.app.agent.GoalRunSettlement
@@ -1177,7 +1178,7 @@ class ChatService(
                 val bound = reference?.let(bindSessionDirectory)
                 val draft = sessionDraft
                 if (draft != null && draft.session.id == targetSessionId) {
-                    drafts.directory(draft.session.id, bound)
+                    if (!drafts.directory(draft.session.id, bound)) return@async false
                 } else {
                     if (!catalog.setDirectory(targetSessionId, bound)) return@async false
                     refreshSessionsNow()
@@ -1503,6 +1504,42 @@ class ChatService(
                 false
             } catch (_: android.database.sqlite.SQLiteException) {
                 false
+            }
+        }
+
+    /** A trusted skill choice edits only the matching durable composer; it never sends a message. */
+    fun stageSkillActivation(
+        expectedSessionId: String,
+        activation: com.helix.extensions.skills.UserSkillActivation,
+        prompt: String,
+    ): kotlinx.coroutines.Deferred<Boolean> =
+        workScope.async {
+            submissionGate.withLock {
+                if (openSessionId != expectedSessionId || pendingSend != null) return@withLock false
+                val item =
+                    com.helix.core.storage.repository.InputSkillActivation(
+                        activation.key.source.name,
+                        activation.key.name,
+                        activation.key.snapshotHash,
+                        activation.arguments,
+                    )
+                if (!validSkillActivations(expectedSessionId, listOf(item))) return@withLock false
+                val old =
+                    storage.composerDrafts.get(expectedSessionId)?.toSubmission()
+                        ?: ChatSubmission(expectedSessionId, 0, idGenerator(), "")
+                if (old.revisedMessageId != null) return@withLock false
+                val retained = old.skillActivations.filterNot { it.source == item.source && it.name == item.name }
+                if (retained.size >= 4) return@withLock false
+                val next =
+                    old.copy(
+                        text = old.text.ifBlank { prompt },
+                        skillActivations = retained + item,
+                        revision = ComposerEditClock.next(old.revision),
+                        clientRequestId = idGenerator(),
+                    )
+                if (!storage.composerDrafts.save(next.toInputSnapshot())) return@withLock false
+                refreshScreen()
+                true
             }
         }
 
@@ -4535,12 +4572,19 @@ class ChatService(
                             draft.session.providerId,
                             draft.session.modelId,
                         ),
+                    modelSelectionSnapshot =
+                        SessionModelSelectionSnapshot(
+                            draft.session.providerId,
+                            draft.session.modelId,
+                            draft.control.reasoning,
+                        ),
                     modelBindingIssue =
                         providerService.bindings.project(
                             draft.session.providerId,
                             draft.session.modelId,
                         ),
                     isDraft = true,
+                    contextUsage = ChatContextUsage.emptyConversation(),
                     preparingDraft = preparingDraft,
                     directoryRef = draft.session.directoryRef,
                     projectId = draft.project?.id,
@@ -4653,6 +4697,12 @@ class ChatService(
                         // A null selection is authoritative for an unbound session, not a missing refresh.
                         selectedModel = sessionId?.let { projection.selectedModelFor(it) },
                         modelBindingIssue = bindingIssue,
+                        modelSelectionSnapshot =
+                            sessionId?.let { id ->
+                                val bound = storage.sessions.resolve(id)
+                                val control = sessionRunControls.forSession(id) ?: sessionRunControls.defaultSnapshot()
+                                SessionModelSelectionSnapshot(bound.providerId, bound.modelId, control.reasoning)
+                            },
                         contextUsage = ChatContextProjection.read(storage, sessionId, providerService),
                         subscriptionRecoveries =
                             subscriptionRecoveriesFor(

@@ -12,11 +12,13 @@ class ComposerAvailabilityTest {
         assertTrue(availability.canAttach())
         assertTrue(availability.canDeliver(localOnly = true))
         assertFalse(availability.canDeliver(localOnly = false))
+        assertTrue(availability.canAttempt(localOnly = false))
     }
 
     @Test fun selectionDoesNotOverrideAnotherDeliveryConstraint() {
         assertTrue(ComposerAvailability(modelSelected = true).canDeliver(false))
         assertFalse(ComposerAvailability(delivery = false).canDeliver(false))
+        assertFalse(ComposerAvailability(delivery = false, modelSelected = false).canAttempt(false))
         assertFalse(ComposerAvailability(localCommands = false).canDeliver(true))
     }
 

@@ -13,6 +13,31 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class PrivilegedGestureGuardTest {
+    @Test fun wholeTaskCoordinatesNeedTheSameTaskAndNeverBecomeRestrictedWindowCoordinates() {
+        val visual =
+            target.copy(
+                windowId = -1,
+                displayId = 7,
+                displaySession = "owned",
+                semanticAvailable = false,
+                taskId = 42,
+            )
+        val original = request.copy(target = visual)
+        val guard = PrivilegedGestureGuard(original, { visual }, { visual.gestureDisplay() }, { emptyList() })
+        assertTrue(guard.ready(false))
+        val moved =
+            PrivilegedGestureGuard(original, { visual.copy(taskId = 43) }, { visual.gestureDisplay() }, { emptyList() })
+        assertFalse(moved.ready(false))
+        val restricted =
+            PrivilegedGestureGuard(
+                original.copy(wholeDisplay = false),
+                { visual },
+                { visual.gestureDisplay() },
+                { emptyList() },
+            )
+        assertFalse(restricted.ready(false))
+    }
+
     private val target = AutomationDisplayTarget("app", 7, 0, 100, 200, 0, AutomationNodeBounds(0, 0, 100, 200), "v1")
     private val own = AutomationWindowRegion(7, 1, "app", target.bounds)
     private val shade = target.copy(packageName = "system", windowId = 8, bounds = AutomationNodeBounds(0, 0, 100, 140))

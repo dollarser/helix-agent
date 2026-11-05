@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="allfiles_advanced_required">This access method requires Advanced. You can also use the system folder picker.</string>
     <string name="allfiles_description">Access shared storage, excluding other apps\' private folders and Android/data. The agent is limited to your enabled folders and session permissions.</string>
     <string name="allfiles_open_settings">Grant in system settings</string>
     <string name="allfiles_roots_title">Helix roots</string>

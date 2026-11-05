@@ -3,8 +3,11 @@ package com.helix.app.ui
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
@@ -26,7 +29,7 @@ import org.junit.Test
 class ComposerInteractionsDeviceTest {
     @get:Rule val compose = createComposeRule()
 
-    @Test fun unknownContextRemainsInspectableInOptionsWithoutAnIdleWarning() {
+    @Test fun unknownContextRemainsVisibleAndInspectableWithoutADuplicateOption() {
         val usage =
             mutableStateOf(
                 com.helix.app.agent
@@ -44,7 +47,11 @@ class ComposerInteractionsDeviceTest {
                 )
             }
         }
-        compose.onNodeWithTag("chat-context-window").assertIsDisplayed().performClick()
+        compose.onNodeWithTag("chat-context-window").assertIsDisplayed()
+        compose.onNodeWithTag("chat-composer-options").performClick()
+        compose.onNodeWithTag("chat-context-details-open").assertDoesNotExist()
+        compose.onNodeWithTag("chat-composer-options-close").performClick()
+        compose.onNodeWithTag("chat-context-window").performClick()
         compose.onNodeWithTag("chat-context-usage-details").assertIsDisplayed()
     }
 
@@ -90,14 +97,17 @@ class ComposerInteractionsDeviceTest {
                     false,
                     true,
                     ComposerActions(onFile = {}, onVoice = {}, onSend = { sends++ }, onStop = {}),
-                    onChooseModel = { pickerRequests++ },
+                    modelSelector = {
+                        TextButton({ pickerRequests++ }, Modifier.testTag("chat-model-menu")) { Text("Model") }
+                    },
                     availability = ComposerAvailability(modelSelected = selected.value),
                 )
             }
         }
-        compose.onNodeWithTag("chat-send").assertIsNotEnabled()
+        compose.onNodeWithTag("chat-send").assertIsEnabled().performClick()
         compose.onNodeWithTag("chat-input").assertIsEnabled().assertTextEquals("kept draft")
-        compose.onNodeWithTag("chat-select-model-reminder").performClick()
+        compose.onNodeWithTag("chat-select-model-reminder").assertDoesNotExist()
+        compose.onNodeWithTag("chat-model-menu").performClick()
         assertEquals(1, pickerRequests)
         assertEquals(0, sends)
         compose.runOnIdle { selected.value = true }
@@ -128,7 +138,7 @@ class ComposerInteractionsDeviceTest {
                 )
             }
         }
-        compose.onNodeWithTag("chat-send").assertIsNotEnabled()
+        compose.onNodeWithTag("chat-send").assertIsEnabled().performClick()
         compose.runOnIdle { input.value = "/clear" }
         compose.onNodeWithTag("chat-send").assertIsEnabled().performClick()
         assertEquals(

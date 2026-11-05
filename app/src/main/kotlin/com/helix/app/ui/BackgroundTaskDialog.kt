@@ -44,7 +44,7 @@ internal fun BackgroundTaskDialog(
         title = { Text(stringResource(R.string.background_tasks)) },
         text = {
             Column {
-                Text(stringResource(R.string.background_tasks_hint))
+                SessionTaskProgress(service, sessionId)
                 Row {
                     listOf(
                         R.string.background_tasks_active,
@@ -124,4 +124,14 @@ internal fun BackgroundTaskDialog(
         },
         confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.goal_close)) } },
     )
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun SessionTaskProgress(
+    service: ChatService,
+    sessionId: String?,
+) {
+    val screen by service.screen.collectAsStateWithLifecycle()
+    if (sessionId != null && screen.openSessionId == sessionId) TaskLedgerCard(screen.taskLedger, sessionId)
 }

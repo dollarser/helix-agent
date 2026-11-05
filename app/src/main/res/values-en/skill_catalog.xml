@@ -1,0 +1,27 @@
+<resources>
+    <string name="standalone_skills_builtin">Built-in skills</string>
+    <string name="standalone_skill_builtin">Built-in skill</string>
+    <string name="standalone_skills_installed">Installed skill</string>
+    <string name="standalone_skill_identifier">Identifier: %1$s</string>
+    <string name="skill_catalog_helix_docs">Helix help</string>
+    <string name="skill_catalog_helix_docs_summary">Find help with Helix features, setup and troubleshooting.</string>
+    <string name="skill_catalog_mcp_installer">MCP installer</string>
+    <string name="skill_catalog_mcp_installer_summary">Import an MCP service and guide connection setup.</string>
+    <string name="skill_catalog_skill_installer">Skill installer</string>
+    <string name="skill_catalog_skill_installer_summary">Install skills from a workspace, ZIP or requested public source.</string>
+    <string name="skill_catalog_skill_creator">Skill creator</string>
+    <string name="skill_catalog_skill_creator_summary">Create or revise reusable task workflows.</string>
+    <string name="skill_catalog_organize_files_preview">File organization preview</string>
+    <string name="skill_catalog_organize_files_preview_summary">Preview file moves and renames without changing files.</string>
+    <string name="skill_catalog_web_research">Web research</string>
+    <string name="skill_catalog_web_research_summary">Research web sources, cross-check claims and cite evidence.</string>
+    <string name="skill_catalog_data_transform">Data transformation</string>
+    <string name="skill_catalog_data_transform_summary">Transform structured data and verify inputs and outputs.</string>
+    <string name="skill_catalog_repo_inspection">Repository inspection</string>
+    <string name="skill_catalog_repo_inspection_summary">Inspect a code repository and trace implementations read-only.</string>
+    <string name="skill_catalog_notification_digest">Notification digest</string>
+    <string name="skill_catalog_notification_digest_summary">Summarize notifications for selected apps and a time window.</string>
+    <string name="standalone_skill_project">Project skill</string>
+    <string name="plugin_catalog_empty">No plugins or skills installed</string>
+    <string name="plugin_catalog_no_matches">No matching plugins or skills</string>
+</resources>

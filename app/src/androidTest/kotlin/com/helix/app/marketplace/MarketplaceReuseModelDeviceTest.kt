@@ -8,7 +8,7 @@ import com.helix.app.HelixApplication
 import com.helix.app.MainActivity
 import com.helix.app.openTestSessionControl
 import com.helix.app.plugin.PluginService
-import com.helix.app.profile.AdvancedProfileAvailability
+import com.helix.app.profile.ChannelCapabilities
 import com.helix.app.provider.InAppMcpServer
 import com.helix.app.provider.ProviderDraft
 import com.helix.app.sendTestMessage
@@ -42,7 +42,7 @@ class MarketplaceReuseModelDeviceTest {
     fun modelUsesImportedGuideAndCurrentMcpName() =
         runBlocking {
             val args = InstrumentationRegistry.getArguments()
-            require(AdvancedProfileAvailability.ADVANCED_AVAILABLE) { "Loopback MCP fixture requires Developer" }
+            require(ChannelCapabilities.ADVANCED_AVAILABLE) { "Loopback MCP fixture requires Developer" }
             val port = requireNotNull(args.getString("pluginSkillPort")).toInt()
             val model = requireNotNull(args.getString("pluginSkillModel"))
             val c = ApplicationProvider.getApplicationContext<HelixApplication>().appContainer
@@ -67,7 +67,7 @@ class MarketplaceReuseModelDeviceTest {
                 )
             val market = MarketplaceService(c.pluginService, c.skillRepository, MarketplaceSourceStore(root))
             val name = "market-guide-${UUID.randomUUID().toString().take(8)}"
-            val previousProfile = c.profileStore.profile
+
             var installedId: String? = null
             var session: String? = null
             InAppMcpServer().use { server ->
@@ -107,7 +107,7 @@ class MarketplaceReuseModelDeviceTest {
                     val installed = market.imports.installCandidate(item, market.imports.previewItem(item), null)
                     installedId = installed.id
                     c.pluginService.setSkillEnabled(installed.skills.single(), true)
-                    c.profileStore.switchTo(SafetyProfile.ADVANCED)
+                    check(c.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
                     c.lanScopeStore.add(origin)
                     val endpoint = installed.endpoints.single()
                     c.pluginService.enable(endpoint, c.pluginService.test(endpoint, ""), setOf("fixture_read"))
@@ -156,7 +156,6 @@ class MarketplaceReuseModelDeviceTest {
                     stopOwnedSession(c, session)
                     removeOwnedPlugin(c.pluginService, installedId)
                     c.lanScopeStore.remove(origin)
-                    c.profileStore.switchTo(previousProfile)
                     c.providerService.delete(provider)
                     Files.walk(root).use { paths -> paths.sorted(Comparator.reverseOrder()).forEach(Files::delete) }
                 }

@@ -3,6 +3,7 @@ package com.helix.extensions.mobileuse.automation.backend
 import com.helix.extensions.mobileuse.automation.AutomationDeviceRequest
 import com.helix.extensions.mobileuse.automation.AutomationDisplayTarget
 import com.helix.extensions.mobileuse.automation.AutomationWindowRegion
+import com.helix.extensions.mobileuse.automation.isWholeTaskTarget
 import com.helix.extensions.mobileuse.automation.privilegedGesturePermitted
 import com.helix.extensions.mobileuse.automation.sameWindow
 
@@ -46,7 +47,7 @@ internal class PrivilegedGestureGuard(
             return false
         }
         val covering = windows()
-        if (covering.none { it.windowId == original.windowId }) {
+        if (!original.isWholeTaskTarget(request.wholeDisplay) && covering.none { it.windowId == original.windowId }) {
             refusal = "TARGET_CHANGED"
             return false
         }

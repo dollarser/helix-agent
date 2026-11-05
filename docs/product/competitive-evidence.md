@@ -14,7 +14,7 @@
 | 11-01 主要移动端竞品增量 | Mika；RikkaHub、Operit AI 的既有档案 | Owner 本轮指定加入 Mika；历史 2026-10-30 用户原话“参考RikkaHub和Operit Ai这两个竞品”确认另两项身份。Mika 复用固定 commit `5f630d9765038fa5178f3d7687a3cf5c22fbcfb4` 的[源码研究](../research/topics/mobile-use-device-readiness-and-reliability-2026-09-29.md#mika-automation-review-2026-11-01)，同步主要对象定位与索引 | 不重新核验其他产品发行版，不安装竞品、不做性能/成功率横评，不把 Helix 自身合成测试当作 Mika 验收 |
 | Helix 对照 | 当前状态、相关架构与完成记录入口 | 读取当前工作区文档，标记发布/真机边界 | 未把本次文档检查视为重新验收代码 |
 
-新条目的一手链接就在对应产品卡；历史来源索引见 §4。以上 GitHub 多为可变主分支 URL，尚未全面保存 commit/permalink，故仅属于文档级证据，不能复现为特定 APK 结论。正式横评前补齐 tag、commit、资产 SHA-256 与签名身份。
+新条目的一手链接就在对应产品卡；历史来源索引见 第 4 节。以上 GitHub 多为可变主分支 URL，尚未全面保存 commit/permalink，故仅属于文档级证据，不能复现为特定 APK 结论。正式横评前补齐 tag、commit、资产 SHA-256 与签名身份。
 
 本轮补充检索围绕“Android on-device AI agent / BotDrop / DroidClaw / DroidMind”和移动 MCP 设备桥；不是全球穷尽搜索。保留执行路线不同或明显影响 Helix 用户任务的对象，排除无精确身份和重复包装的简单堆数。
 

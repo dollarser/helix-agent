@@ -3,7 +3,7 @@ package com.helix.app.provider
 import com.helix.core.storage.HelixStorage
 import com.helix.core.storage.entity.transportIdentity
 
-/** Rendering uses observed rows; admission checks durable existence and exact transport evidence. */
+/** Source existence is durable; observed rows only supply display/model evidence. */
 internal class ProviderBindingValidation(
     private val storage: HelixStorage,
     private val tests: ProviderTestStatusStore,
@@ -29,7 +29,7 @@ internal class ProviderBindingValidation(
         if (providerId == null) {
             missingSource(model)
         } else {
-            issue(providerId, model, rows().any { it.id == providerId }, null)
+            issue(providerId, model, storage.providerConfigs.find(providerId) != null, null)
         }
 
     private fun missingSource(model: String?): ProviderBindingIssue? =

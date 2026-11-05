@@ -112,7 +112,7 @@ class ConversationToolFlowDeviceTest {
             val executions = AtomicInteger()
             register(read, ToolOperationClass.READ_ONLY, release, executions)
             register(write, ToolOperationClass.LOCAL_MUTATION, release, executions)
-            val profile = c.profileStore.profile
+
             val previous = c.chatService.screen.value.openSessionId
             val session =
                 c.chatService.createSession(
@@ -163,7 +163,7 @@ class ConversationToolFlowDeviceTest {
                 },
             )
             try {
-                c.profileStore.switchTo(SafetyProfile.ADVANCED)
+                check(c.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
                 c.sessionPermissionEdit.saveSessionConfig(
                     session,
                     SessionPermissionConfig.of(SessionPermissionMode.APPROVAL_REQUIRED),
@@ -264,7 +264,6 @@ class ConversationToolFlowDeviceTest {
                 release.countDown()
                 finishOwnedCase(c.storage, c.chatService, session, { closed = true }, {}, { stopped ->
                     if (stopped) wireField.set(factory, original)
-                    c.profileStore.switchTo(profile)
                     val retained =
                         c.toolPipeline.registry
                             .snapshot()

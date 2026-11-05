@@ -24,7 +24,13 @@ internal class AutomationNodeActionExecutor(
         val lookup = tokenRegistry.lookup(request.token)
         if (lookup.status != NodeTokenLookupStatus.VALID) {
             root?.recycleSafely()
-            return result(AutomationActionStatus.TOKEN_UNKNOWN)
+            return result(
+                if (lookup.status == NodeTokenLookupStatus.RETIRED) {
+                    AutomationActionStatus.STALE_TOKEN
+                } else {
+                    AutomationActionStatus.TOKEN_UNKNOWN
+                },
+            )
         }
         val binding = checkNotNull(lookup.binding)
         if (root == null) return result(AutomationActionStatus.UNSUPPORTED_UI)

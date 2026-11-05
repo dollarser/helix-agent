@@ -74,8 +74,8 @@ class ExpertManagementUiDeviceTest {
                 assertEquals(listOf(reference), definition.profile.recommendedConnectorIds)
                 val exported = ExpertLibraryRepository.export(definition)
                 assertEquals(definition, ExpertLibraryRepository.parseImport(exported, definition.profile.id))
-                compose.waitUntil { compose.onAllNodesWithTag("expert-editor").fetchSemanticsNodes().isEmpty() }
-                compose.waitUntil {
+                compose.waitUntil(10_000) { compose.onAllNodesWithTag("expert-editor").fetchSemanticsNodes().isEmpty() }
+                compose.waitUntil(10_000) {
                     !compose
                         .onNodeWithTag("expert-create")
                         .fetchSemanticsNode()
@@ -83,7 +83,10 @@ class ExpertManagementUiDeviceTest {
                         .contains(androidx.compose.ui.semantics.SemanticsProperties.Disabled)
                 }
                 capture("library")
-                click("expert-edit-${definition.profile.id}")
+                compose.onNodeWithTag("expert-edit-${definition.profile.id}").performScrollTo().performClick()
+                compose.waitUntil(10_000) {
+                    compose.onAllNodesWithTag("session-expert-instruction").fetchSemanticsNodes().isNotEmpty()
+                }
                 compose
                     .onNodeWithTag("session-expert-instruction")
                     .performScrollTo()
@@ -196,6 +199,7 @@ class ExpertManagementUiDeviceTest {
                 !it.config.contains(androidx.compose.ui.semantics.SemanticsProperties.Disabled)
             }
         }
+        if (tag.startsWith("expert-row-")) compose.onNodeWithTag(tag).performScrollTo()
         compose.onNodeWithTag(tag).performClick()
     }
 

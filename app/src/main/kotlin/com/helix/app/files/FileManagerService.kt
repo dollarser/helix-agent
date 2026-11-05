@@ -92,7 +92,12 @@ class FileManagerService internal constructor(
     }
 
     internal fun directoryChoices(path: FileScopePath?): WorkspaceDirectoryChoices {
-        val sources = sources().sortedWith(compareBy<FileSource> { !SharedStorageAccess.isScope(it.scopeId) })
+        require(path?.scopeId != workspaceScopeId) { "Internal storage is not a working directory" }
+        val sources =
+            sources()
+                .filter {
+                    it.scopeId != workspaceScopeId && (path != null || it.ownerSessionId == null)
+                }.sortedWith(compareBy<FileSource> { !SharedStorageAccess.isScope(it.scopeId) })
         if (path == null) return WorkspaceDirectoryChoices(sources, emptyList(), null, null)
         val listing = listing(path.scopeId, path.relativePath)
         val report = inspectWorkspace(path.toModelReference())
@@ -925,6 +930,7 @@ data class FileSource(
     val workspaceBackend: String? = null,
     val available: Boolean = true,
     val cleanupEligible: Boolean = false,
+    val ownerSessionId: String? = null,
 )
 
 /** File-list sort keys (HXA-046: 名称/时间/大小排序). */

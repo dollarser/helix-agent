@@ -49,7 +49,7 @@ class ProotTerminalUiDeviceTest {
     @Suppress("LongMethod")
     fun chineseInputReplAndRotationPreserveTheOriginalShell() {
         ensureInstalledRuntime(context)
-        val previous = container.profileStore.profile
+
         val previousLanguage = AppLanguageStore.stored(context)
         val locale = InstrumentationRegistry.getArguments().getString("terminalLocale", "en")
         require(locale in setOf("en", "zh"))
@@ -59,7 +59,7 @@ class ProotTerminalUiDeviceTest {
         runBlocking { check(!terminal.hasSession()) { "Retained user terminal must not be replaced by this fixture" } }
         val relative = "terminal-ui-${UUID.randomUUID()}"
         val workspace = File(context.filesDir, "workspaces/app/terminal/$relative").apply { check(mkdirs()) }
-        container.profileStore.switchTo(SafetyProfile.ADVANCED)
+        check(container.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
         val intent =
             Intent(
                 context,
@@ -139,7 +139,6 @@ class ProotTerminalUiDeviceTest {
                 }
             }
             AppLanguageStore.applyChoice(context, previousLanguage)
-            container.profileStore.switchTo(previous)
             workspace.deleteRecursively()
         }
     }
@@ -148,12 +147,12 @@ class ProotTerminalUiDeviceTest {
     @Suppress("LongMethod")
     fun closedPageReconnectsAfterOutputOverflowAndRejectsOversizedInput() {
         ensureInstalledRuntime(context)
-        val previous = container.profileStore.profile
+
         val terminal = checkNotNull(container.manualTerminal)
         runBlocking { check(!terminal.hasSession()) { "Retained user terminal must not be replaced by this fixture" } }
         val relative = "terminal-pressure-${UUID.randomUUID()}"
         val workspace = File(context.filesDir, "workspaces/app/terminal/$relative").apply { check(mkdirs()) }
-        container.profileStore.switchTo(SafetyProfile.ADVANCED)
+        check(container.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
         val intent =
             Intent(context, ManualTerminalActivity::class.java)
                 .putExtra(ManualTerminalActivity.DIRECTORY, relative)
@@ -212,7 +211,6 @@ class ProotTerminalUiDeviceTest {
                     terminal.settle()
                 }
             }
-            container.profileStore.switchTo(previous)
             workspace.deleteRecursively()
         }
     }

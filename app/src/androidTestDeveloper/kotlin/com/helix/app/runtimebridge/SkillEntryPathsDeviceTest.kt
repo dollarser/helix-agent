@@ -37,7 +37,7 @@ class SkillEntryPathsDeviceTest {
         val root = "work/$id"
         val owned = File(app.filesDir, "workspaces/app/$root")
         val keys = mutableListOf<SkillKey>()
-        val profile = c.profileStore.profile
+
         val now = System.currentTimeMillis()
         c.storage.sessions.create(id, "Synthetic Skill entry paths", null, null, now)
         c.storage.turns.start(id, id, now)
@@ -109,7 +109,7 @@ class SkillEntryPathsDeviceTest {
             return identity
         }
         try {
-            c.profileStore.switchTo(SafetyProfile.ADVANCED)
+            check(c.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
             call("files.mkdir", path(root))
             val name = "created-${UUID.randomUUID()}"
             val directory = "$root/.agents/skills/$name"
@@ -155,7 +155,6 @@ class SkillEntryPathsDeviceTest {
             assertTrue(run.toString(), run.toString().contains("SKILL_ENTRY_OK"))
             assertEquals("explicit invocation", File(owned, "executed.txt").readText())
         } finally {
-            c.profileStore.switchTo(profile)
             c.toolPipeline.endTurn(id)
             c.storage.deleteSessionPermanently(id)
             keys.forEach(c.skillRepository::removePermanentlyForPrivacy)

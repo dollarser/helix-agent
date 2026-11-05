@@ -2,12 +2,12 @@ package com.helix.app.runtimebridge
 
 import android.content.Context
 
-/** User-owned delegation switch; enabling a runtime or Skill alone never enables tool callbacks. */
+/** Default-on user setting; runtime or Skill metadata cannot override an explicit revocation. */
 internal class HostToolBridgeSettings(
     context: Context,
 ) {
     private val preferences = context.getSharedPreferences("host-tool-bridge", Context.MODE_PRIVATE)
-    val enabled: Boolean get() = preferences.getBoolean("enabled", false)
+    val enabled: Boolean get() = preferences.getBoolean("enabled", true)
     val revision: Long get() = preferences.getLong("revision", 0)
 
     @android.annotation.SuppressLint("UseKtx") // The checked commit result is required for truthful grant persistence.

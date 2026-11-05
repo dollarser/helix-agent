@@ -80,7 +80,7 @@ HXA-287 的应用命令收窄与完整 Turn 领域宿主中立化仍是明确未
 
 HXA-287 同时保留参数准备、execution-start、持久结算和通知的阶段边界。持久提交是结果权威，后置通知失败不能撤销或重复提交终态；慢回调和外部代码不得在 Room 事务、准入锁内执行。未来 hooks 按 [工具契约](../tools/001-descriptor-contract.md)接入，不能直接拥有 Turn 状态或恢复调度权。
 
-本次接缝重组必须在最小纵切即区分开始屏障前中断、外部效果后落盘前中断和提交后通知失败。当前版本重启沿 §12 按原身份 reconcile，未知效果不盲重放，旧 Turn 不复活；cancel confirmed 不取代真实退出或改变 effect truth，迟到旧 generation 不覆盖新运行。来源/内容版本、授权投影、不可变模型输入和调用结果配对随首片验证，检索/摘要策略后置到 293。
+本次接缝重组必须在最小纵切即区分开始屏障前中断、外部效果后落盘前中断和提交后通知失败。当前版本重启沿 第 12 节 按原身份 reconcile，未知效果不盲重放，旧 Turn 不复活；cancel confirmed 不取代真实退出或改变 effect truth，迟到旧 generation 不覆盖新运行。来源/内容版本、授权投影、不可变模型输入和调用结果配对随首片验证，检索/摘要策略后置到 293。
 
 ### 2. 每个 Turn 保存 immutable execution snapshot
 
@@ -205,7 +205,7 @@ Goal 可以跨多个 Turn/Run 持久存在，但 crash/review 后不恢复 same 
 - exact clientRequestId dedup 在 blocker 前处理；原 accepted request 重驱返回原 Turn；
 - 真正 live 的 nonterminal Turn 继续阻止第二 live Turn；
 - INTERRUPTED 是旧 attempt 的终局，不阻止 successor admission；
-- NEEDS_REVIEW 不阻止 successor Turn/模型检查，但 effect gate 按 §6 阻止危险 side effect；
+- NEEDS_REVIEW 不阻止 successor Turn/模型检查，但 effect gate 按 第 6 节 阻止危险 side effect；
 - 新会话普通发送默认 Queue；用户可将本会话发送方式持久设置为立即发送。该设置仅作用于后续新输入：发送时有可接收的 live Turn 则冻结其身份为 Steer，否则正常 Queue 准入。Steer 仍只在目标 Turn 的合法协调点进入；
 - 未消费 Queue 在输入框上方直接展示，正常完成后按原顺序消费。用户可对单项点击“立即发送”，重验证原配置、附件和当前 live Turn 后以 revision CAS 转为 Steer；保留原输入身份和内容，不能复制重提、默默绑定新 Turn 或释放 Stop 停泊项。失败保留原队列，消费后不再可编辑/转向。界面观察 Room 投递变化，不依赖最终回复或轮询。
 - process recovery 不自动消费 Queue，也不自动启动 successor Turn。恢复必须来自用户“继续”/新消息，或未来另行接受的明确自动激活契约。
@@ -262,7 +262,7 @@ startup recovery 只从 TurnEngine 进入并只读取 Room fact，不 replay 外
 
 Deadline Expired、Executor Exited、Effect Settled/Isolated 是不同事件。coroutine timeout/cancel 不能释放仍执行中的 effect ownership。
 
-ordinary executor 的 permit 在实际 executor return 后才释放；retained PRoot/PTY owner 只有在明确 no-start proof 或 terminal reconciliation 后释放。超时后 executor 若仍运行，所占物理容量及该具体不可重入引擎/控制通道继续保留；同文件、同 origin、写/代码类别不自动阻断无关工作。插件引用释放继续遵循 §1.2 与各 Runtime 的真实退出事实。
+ordinary executor 的 permit 在实际 executor return 后才释放；retained PRoot/PTY owner 只有在明确 no-start proof 或 terminal reconciliation 后释放。超时后 executor 若仍运行，所占物理容量及该具体不可重入引擎/控制通道继续保留；同文件、同 origin、写/代码类别不自动阻断无关工作。插件引用释放继续遵循 第 1.2 节 与各 Runtime 的真实退出事实。
 
 ### 14. Observation
 

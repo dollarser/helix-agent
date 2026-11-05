@@ -3,6 +3,7 @@ package com.helix.app
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.rules.ActivityScenarioRule
 import androidx.test.platform.app.InstrumentationRegistry
+import com.helix.app.eval.finishOwnedSkillModelRun
 import com.helix.app.provider.ProviderDraft
 import com.helix.core.model.AgentMode
 import com.helix.core.model.NormalizedEndpoint
@@ -32,7 +33,7 @@ class SkillInstallerModelDeviceTest {
             val model = requireNotNull(arguments.getString("model"))
             val app = ApplicationProvider.getApplicationContext<HelixApplication>()
             val container = app.appContainer
-            val name = "install-model-${System.currentTimeMillis()}"
+            val name = "install-model-${java.util.UUID.randomUUID()}"
             val directory = app.filesDir.toPath().resolve("workspaces/app/work/skills/$name")
             Files.createDirectories(directory)
             val path = "scope:app:work/skills/$name"
@@ -46,36 +47,34 @@ class SkillInstallerModelDeviceTest {
                     "{}",
                     false,
                 )
-            val provider = container.providerService.create(draft, null)
             val chat = container.chatService
-            val previous = chat.runControl.value
+            val previousSession = chat.screen.value.openSessionId
+            var provider: String? = null
+            var session: String? = null
             try {
-                check(container.providerService.runConnectionTest(provider) is com.helix.provider.api.ProbeOutcome.Ok)
-                val session = chat.createSession("Skill Creator evaluation", provider, model)
+                val ownedProvider = container.providerService.create(draft, null)
+                provider = ownedProvider
+                check(
+                    container.providerService.runConnectionTest(
+                        ownedProvider,
+                    ) is com.helix.provider.api.ProbeOutcome.Ok,
+                )
+                val ownedSession = chat.createSession("Skill Creator evaluation", ownedProvider, model)
+                session = ownedSession
                 val budgets = TurnBudgets(maxOutputTokens = 32768)
-                chat.openTestSessionControl(session, AgentMode.ACT, budgets)
+                chat.openTestSessionControl(ownedSession, AgentMode.ACT, budgets)
                 chat.sendTestMessage(
-                    session,
+                    ownedSession,
                     "Create a useful Skill for summarizing a local text file. Use write to create $path/SKILL.md. " +
                         "Its YAML name must be $name, with description and Markdown instructions. The parent exists. " +
                         "Then call skills.preview on $path and fix any errors. " +
                         "Then call skills.install with the exact preview hash. " +
                         "After approval enable this snapshot and read it with skills.read.",
                 )
-                awaitCreatedDraft(container, session, path)
+                awaitCreatedDraft(container, ownedSession, path)
                 assertEquals(name, requireNotNull(container.skillAuthoringService).preview(path).name)
             } finally {
-                chat.stop()
-                chat.closeSession()
-                chat.setMode(previous.mode)
-                chat.setTurnBudgets(previous.budgets)
-                container.providerService.delete(provider)
-                container.skillRepository.list().filter { it.key.name == name }.forEach {
-                    container.skillRepository.removePermanentlyForPrivacy(it.key)
-                }
-                Files.walk(directory).use { paths ->
-                    paths.sorted(Comparator.reverseOrder()).forEach { Files.deleteIfExists(it) }
-                }
+                finishOwnedSkillModelRun(container, session, provider, directory, name, previousSession)
             }
         }
 

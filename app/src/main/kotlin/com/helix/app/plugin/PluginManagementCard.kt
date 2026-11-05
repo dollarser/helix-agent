@@ -17,12 +17,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
 import com.helix.app.ui.HelixCard
@@ -56,6 +53,7 @@ internal data class PluginManagementActions(
     val changed: () -> Unit,
     val permissions: () -> Unit,
     val configurationShown: () -> Unit,
+    val refreshKey: Int,
 )
 
 /** One presentation for all installations; source only controls applicable management actions. */
@@ -87,38 +85,34 @@ internal fun PluginManagementCard(
     HelixCard(Modifier.fillMaxWidth().testTag("plugin-card-${record.id}")) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             PluginManagementHeader(record, nativeDescription, expanded) { expanded = !expanded }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                TextButton(
-                    { expanded = !expanded },
-                    Modifier.testTag("plugin-manage-${record.id}"),
-                ) { Text(stringResource(R.string.plugins_manage_action)) }
-                actions.use?.let {
-                    TextButton(
-                        it,
-                        Modifier.testTag("plugin-use-${record.id}"),
-                    ) { Text(stringResource(R.string.extensions_use)) }
+            actions.use?.let { use ->
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(use, Modifier.testTag("plugin-use-${record.id}")) {
+                        Text(stringResource(R.string.extensions_use))
+                    }
                 }
             }
             if (expanded) {
                 PluginManagementTabs(record.id, section) { section = it }
                 when (section) {
                     0 -> {
-                        PluginConfiguration(record, service, actions)
+                        PluginConfiguration(record, service, actions, actions.refreshKey)
                         configuration()
                     }
 
                     1 -> {
-                        Text(
-                            stringResource(R.string.plugin_guidance_loading),
-                            style = MaterialTheme.typography.bodySmall,
-                        )
                         record.native?.let { PluginBundledContents(service, it.pluginId) } ?: installedContents()
                     }
 
                     else -> {
                         record.versionLabel?.let { Text(stringResource(R.string.plugin_version, it)) }
-                        Text("${record.source} · ${record.hash.take(12)}", style = MaterialTheme.typography.bodySmall)
-                        PluginCompatibilityDetails(record.componentDiagnostics)
+                        PluginReadinessSection(record, service, actions.refreshKey)
+                        PluginCompatibilityDetails(
+                            record.componentDiagnostics.filter {
+                                it.state != com.helix.extensions.plugin.PluginComponentState.AVAILABLE ||
+                                    it.requirement != com.helix.extensions.plugin.PluginDependencyRequirement.NONE
+                            },
+                        )
                         details()
                     }
                 }
@@ -155,23 +149,12 @@ private fun PluginManagementHeader(
     expanded: Boolean,
     onClick: () -> Unit,
 ) {
-    val expansion = stringResource(if (expanded) R.string.nav_expanded else R.string.nav_collapsed)
-    TextButton(
+    PluginCatalogHeader(
+        pluginLabel(record.native?.pluginId ?: record.name),
+        expanded,
+        Modifier.testTag(record.native?.let { "bundled-plugin-${it.pluginId}" } ?: "extension-manage-${record.id}"),
         onClick,
-        Modifier
-            .fillMaxWidth()
-            .semantics { stateDescription = expansion }
-            .testTag(record.native?.let { "bundled-plugin-${it.pluginId}" } ?: "extension-manage-${record.id}"),
-    ) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                pluginLabel(record.native?.pluginId ?: record.name),
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.weight(1f),
-            )
-            Text(if (expanded) "▴" else "▾")
-        }
-    }
+    )
     Text(
         stringResource(
             if (record.native !=
@@ -204,8 +187,9 @@ private fun PluginConfiguration(
     record: InstalledPlugin,
     service: PluginService,
     actions: PluginManagementActions,
+    refreshKey: Int,
 ) {
-    PluginAvailabilityControls(record, service, actions.changed) { error ->
+    PluginAvailabilityControls(record, service, actions.changed, refreshKey) { error ->
         if (error == PluginSetupReason.MOBILE_BACKEND) actions.permissions() else actions.settings()
     }
     if (record.native?.pluginId == "mobile-use") {

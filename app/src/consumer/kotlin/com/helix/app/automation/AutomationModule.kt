@@ -10,7 +10,10 @@ import com.helix.extensions.plugin.PluginRegistry
 internal object AutomationModule {
     fun backgroundApplicationName(value: com.helix.app.chat.DisplayExecutionUi): String? = null
 
-    fun backgroundPreview(value: com.helix.app.chat.DisplayExecutionUi): android.graphics.Bitmap? = null
+    fun backgroundPreview(
+        value: com.helix.app.chat.DisplayExecutionUi,
+        width: Int,
+    ): android.graphics.Bitmap? = null
 
     fun previewConfiguration(context: Context): com.helix.app.maintenance.PreviewConfigurationAccess? = null
 
@@ -25,7 +28,7 @@ internal object AutomationModule {
         writeConfiguration: (String, List<String>) -> Unit,
         selectionId: (String) -> String?,
         conversationExists: (String) -> Boolean,
-        taskActive: (String, String) -> Boolean = { _, _ -> false },
+        callActive: (String, String) -> Boolean = { _, _ -> false },
         displayPresentation: (com.helix.app.chat.DisplayExecutionUi) -> Unit = {},
         taskHost: com.helix.extensions.plugin.PluginTaskHost? = null,
     ) = Unit

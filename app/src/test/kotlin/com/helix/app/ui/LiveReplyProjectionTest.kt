@@ -51,6 +51,12 @@ class LiveReplyProjectionTest {
         assertEquals(VisibleReplyFrame.Phase.COMPLETED, result.phase)
     }
 
+    @Test fun finalReadsTheDisplayedBodyWithoutEmbeddedThinking() {
+        val message = MessageUi("final", "assistant", "<think>Hidden analysis</think>Final answer", "turn")
+        val result = requireNotNull(visibleReplyFrame(screen(TurnState.COMPLETED, listOf(message))))
+        assertEquals("Final answer", result.text)
+    }
+
     @Test fun toolWaitCancelsAndMissingFinalIsNotGuessed() {
         val waiting = visibleReplyFrame(screen(TurnState.RUNNING_TOOL))
         val finalizing = visibleReplyFrame(screen(TurnState.COMPLETED))

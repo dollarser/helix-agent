@@ -22,14 +22,14 @@ class ProotMediaTerminalDeviceTest {
         ensureInstalledRuntime(context)
         val container = (context.applicationContext as HelixApplication).appContainer
         val terminal = checkNotNull(container.manualTerminal)
-        val previous = container.profileStore.profile
+
         val relative = "media-regression-${UUID.randomUUID()}"
         val workspace = File(context.filesDir, "workspaces/app/terminal/$relative").apply { check(mkdirs()) }
         ActivityScenario.launch(ManualTerminalActivity::class.java).use {
             runBlocking {
                 var session: String? = null
                 try {
-                    container.profileStore.switchTo(SafetyProfile.ADVANCED)
+                    check(container.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
                     session = terminal.start(relative, 60_000).sessionId
                     val connection = terminal.attach(session)
                     try {
@@ -68,7 +68,6 @@ class ProotMediaTerminalDeviceTest {
                         withTimeout(15_000) { while (!terminal.query(owned).canSettle) delay(50) }
                         terminal.settle(owned)
                     }
-                    container.profileStore.switchTo(previous)
                     workspace.deleteRecursively()
                 }
             }

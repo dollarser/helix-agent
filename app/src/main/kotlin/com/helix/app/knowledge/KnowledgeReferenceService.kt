@@ -5,7 +5,6 @@ import com.helix.core.storage.repository.KnowledgeReference
 import com.helix.core.storage.repository.KnowledgeReferences
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 
 /** User-directed snapshots only; never enables Agent library access or exposes private paths. */
@@ -31,8 +30,11 @@ class KnowledgeReferenceService(
 
     suspend fun candidates(query: String): List<Candidate> =
         withContext(Dispatchers.IO) {
-            val notes = if (query.isBlank()) store.notes.first() else store.searchNotes(query)
-            val sources = if (query.isBlank()) store.items.first() else store.search(query)
+            // Read authoritative documents even for an empty query: initial cache flows
+            // may still be empty before the first library refresh.
+            if (query.isBlank()) store.refresh()
+            val notes = if (query.isBlank()) store.notes.value else store.searchNotes(query)
+            val sources = if (query.isBlank()) store.items.value else store.search(query)
             notes.map {
                 Candidate(
                     it.kind,

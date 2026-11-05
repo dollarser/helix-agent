@@ -32,15 +32,19 @@ class SessionSettingsDeviceTest {
         compose.onNodeWithTag("screen-session-settings").assertIsDisplayed()
         assertNull(container.storage.sessions.find(id))
 
-        compose.onNodeWithTag("session-settings-materialize-permissions").performScrollTo().performClick()
+        compose.onNodeWithTag("session-settings-permissions").performScrollTo().performClick()
         compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
             container.storage.sessions.find(id) != null &&
                 container.storage.sessionRunControls.forSession(id) != null &&
                 !chat.screen.value.isDraft
         }
         assertNotNull(container.storage.sessions.find(id))
+        compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
+            compose.onAllNodesWithTag("settings-perm-mode-APPROVAL_REQUIRED").fetchSemanticsNodes().isNotEmpty()
+        }
         compose.onNodeWithTag("settings-perm-mode-APPROVAL_REQUIRED").performScrollTo().assertIsDisplayed()
 
+        compose.onNodeWithTag("session-permissions-close").performClick()
         compose.onNodeWithTag("navigate-back").performClick()
         compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
             compose.onAllNodesWithTag("chat-permission-menu").fetchSemanticsNodes().isNotEmpty()
@@ -48,11 +52,10 @@ class SessionSettingsDeviceTest {
         compose.onNodeWithTag("chat-permission-menu").assertIsDisplayed()
         val reference = requireNotNull(chat.screen.value.directoryRef)
         compose.onNodeWithTag("chat-conversation-details").performClick()
+        compose.onNodeWithTag("session-settings-open").performClick()
         compose.onNodeWithText(reference).assertDoesNotExist()
-        compose
-            .onNodeWithText(
-                compose.activity.getString(com.helix.app.R.string.workspace_location_details),
-            ).performClick()
+        compose.onNodeWithTag("session-settings-directory").performScrollTo().performClick()
+        compose.onNodeWithTag("session-directory-details").performClick()
         compose.onNodeWithText(reference).assertIsDisplayed()
         compose
             .onNodeWithText(
@@ -96,9 +99,8 @@ class SessionSettingsDeviceTest {
         val id = requireNotNull(chat.screen.value.openSessionId)
         assertNull(container.storage.sessions.find(id))
 
-        compose.onNodeWithTag("chat-conversation-details").performClick()
-        compose.onNodeWithTag("session-settings-open").performClick()
-        compose.onNodeWithTag("session-settings-expert").performScrollTo().performClick()
+        compose.onNodeWithTag("chat-add").performClick()
+        compose.onNodeWithTag("composer-add-expert").performScrollTo().performClick()
         compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
             container.storage.sessions.find(id) != null &&
                 compose.onAllNodesWithTag("session-expert-dialog").fetchSemanticsNodes().isNotEmpty()
@@ -142,14 +144,17 @@ class SessionSettingsDeviceTest {
         compose.onNodeWithTag("chat-add").performClick()
         listOf(
             "composer-add-camera",
-            "composer-add-photo",
             "composer-add-file",
             "composer-add-reference",
+            "composer-add-skills",
             "composer-add-expert",
             "composer-add-connectors",
-            "composer-add-skills",
         ).forEach { compose.onNodeWithTag(it).performScrollTo().assertIsDisplayed() }
-        compose.onNodeWithTag("composer-add-session-settings").assertDoesNotExist()
+        listOf(
+            "composer-add-photo",
+            "composer-add-continuous-voice",
+            "composer-add-session-settings",
+        ).forEach { compose.onNodeWithTag(it).assertDoesNotExist() }
     }
 
     private fun assertLibraryEditRequiresReselection(
@@ -167,7 +172,13 @@ class SessionSettingsDeviceTest {
                 .forSession(id)
                 ?.instruction,
         )
-        compose.onNodeWithTag("session-settings-expert").performScrollTo().performClick()
+        compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
+            var focused = false
+            compose.runOnUiThread { focused = compose.activity.hasWindowFocus() }
+            focused
+        }
+        compose.onNodeWithTag("chat-add").performClick()
+        compose.onNodeWithTag("composer-add-expert").performScrollTo().performClick()
         compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
             compose.onAllNodesWithTag("expert-row-${saved.id}").fetchSemanticsNodes().any {
                 it.config.contains(androidx.compose.ui.semantics.SemanticsProperties.Selected)

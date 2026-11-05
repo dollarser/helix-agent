@@ -37,7 +37,7 @@ class TerminalReclamationDeviceTest {
             ensureInstalledRuntime(context)
             val terminal = checkNotNull(container.manualTerminal)
             check(terminal.sessions().isEmpty()) { "Fixture must not interrupt retained sessions" }
-            container.profileStore.switchTo(SafetyProfile.ADVANCED)
+            check(container.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
             val relative = "reclaim-${UUID.randomUUID()}"
             val workspace = File(context.filesDir, "workspaces/app/terminal/$relative").apply { check(mkdirs()) }
             val created = mutableSetOf<String>()
@@ -86,7 +86,7 @@ class TerminalReclamationDeviceTest {
         runBlocking {
             check(context.packageName.endsWith(".asrvalidation"))
             ensureInstalledRuntime(context)
-            container.profileStore.switchTo(SafetyProfile.ADVANCED)
+            check(container.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
             val terminal = checkNotNull(container.manualTerminal)
             val state = File(context.cacheDir, "terminal-replacement-fixture")
             when (InstrumentationRegistry.getArguments().getString("reclaim.phase")) {

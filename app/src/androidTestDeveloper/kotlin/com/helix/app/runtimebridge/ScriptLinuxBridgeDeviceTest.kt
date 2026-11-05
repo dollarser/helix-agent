@@ -38,7 +38,7 @@ class ScriptLinuxBridgeDeviceTest {
         ensureInstalledRuntime(app)
         val settings = HostToolBridgeSettings(app)
         val enabled = settings.enabled
-        val profile = container.profileStore.profile
+
         val identity = UUID.randomUUID().toString()
         val session = "script-linux-$identity"
         val name = "script-$identity"
@@ -75,7 +75,7 @@ class ScriptLinuxBridgeDeviceTest {
                 ),
             )
         try {
-            container.profileStore.switchTo(SafetyProfile.ADVANCED)
+            check(container.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
             settings.setEnabled(true)
             val python = linux("python3", "-c", pythonSource)
             assertTrue(
@@ -135,7 +135,6 @@ class ScriptLinuxBridgeDeviceTest {
             assertFalse(File(snapshot.directory.toFile(), "skill.txt").exists())
         } finally {
             settings.setEnabled(enabled)
-            container.profileStore.switchTo(profile)
             storage.deleteSessionPermanently(session)
             keys.forEach(container.skillRepository::removePermanentlyForPrivacy)
             source.deleteRecursively()

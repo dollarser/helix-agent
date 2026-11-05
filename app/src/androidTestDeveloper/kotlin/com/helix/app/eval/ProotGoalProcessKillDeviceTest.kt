@@ -154,7 +154,7 @@ class ProotGoalProcessKillDeviceTest {
     ) {
         com.helix.app.proot
             .ensureInstalledRuntime(app)
-        container.profileStore.switchTo(SafetyProfile.ADVANCED)
+        check(container.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
         assertTrue(ProotToolModule.verifyNow() is ProotRuntimeAvailability.Verified)
         val provider =
             container.providerService.create(
@@ -411,7 +411,6 @@ class ProotGoalProcessKillDeviceTest {
         facts.getProperty("goal")?.let { container.privacyDeletionService.deleteGoal(it) }
         facts.getProperty("session")?.let { container.storage.sessions.archive(it, System.currentTimeMillis()) }
         facts.getProperty("provider")?.let { container.providerService.delete(it) }
-        container.profileStore.switchTo(SafetyProfile.valueOf(facts.getProperty("profile")))
         check(marker.delete())
     }
 

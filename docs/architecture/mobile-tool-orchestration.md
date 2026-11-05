@@ -114,4 +114,4 @@ ADR-AGENT-004 已接受架构约束；这部分生产实现须先明确独立 HX
 
 ## 8. 参考映射原则
 
-外部项目名称、源码位置和行为会变化，进入 HXA 时按 [开源参考 §5.11](../references/open-source-projects.md#511-主流-coding-agent--agent-harness-设计参考)重新核实。Helix 采纳的是可验证 invariant——确定性顺序、有界并发、单一安全管线、持久回放、预算与取消——不是复制其桌面权限、云端基础设施或插件模型。
+外部项目名称、源码位置和行为会变化，进入 HXA 时按 [开源参考 第 5.11 节](../references/open-source-projects.md#511-主流-coding-agent--agent-harness-设计参考)重新核实。Helix 采纳的是可验证 invariant——确定性顺序、有界并发、单一安全管线、持久回放、预算与取消——不是复制其桌面权限、云端基础设施或插件模型。

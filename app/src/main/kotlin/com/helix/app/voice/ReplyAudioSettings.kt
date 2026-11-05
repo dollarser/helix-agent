@@ -23,16 +23,45 @@ class ReplyAudioSettings(
         }
 }
 
-/** Service-owned starts survive view recreation; each model step may speak once. */
+/** Observe an opted-in active Turn, then speak its final once. Historical navigation never starts audio. */
 internal class AutomaticReplyAudio {
-    private val started = mutableSetOf<String>()
+    private val started = mutableSetOf<Pair<String, String>>()
+    private var pending: Pair<String, String>? = null
+
+    fun leave() {
+        pending = null
+    }
 
     fun start(
         frame: VisibleReplyFrame?,
         enabled: Boolean,
     ): Boolean {
-        if (!enabled || frame == null) return false
-        val visible = frame.phase == VisibleReplyFrame.Phase.STREAMING && frame.text.isNotBlank()
-        return visible && started.add(frame.speechId)
+        if (!enabled || frame == null) {
+            pending = null
+            return false
+        }
+        val turn = frame.sessionId to frame.turnId
+        return when (frame.phase) {
+            VisibleReplyFrame.Phase.STREAMING, VisibleReplyFrame.Phase.WAITING -> {
+                pending = turn
+                false
+            }
+
+            VisibleReplyFrame.Phase.FINALIZING -> {
+                if (pending != turn) pending = null
+                false
+            }
+
+            VisibleReplyFrame.Phase.CANCELLED -> {
+                pending = null
+                false
+            }
+
+            VisibleReplyFrame.Phase.COMPLETED -> {
+                val eligible = pending == turn && frame.text.isNotBlank()
+                if (frame.text.isNotBlank() || pending != turn) pending = null
+                eligible && started.add(turn)
+            }
+        }
     }
 }

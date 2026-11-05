@@ -188,7 +188,6 @@ val jvmLibraries =
         ":tools:framework",
         ":tools:files",
         ":runtime:proot-core",
-        ":testing",
     )
 
 val projectDependencies =
@@ -268,7 +267,6 @@ val projectDependencies =
         ":tools:browser" to listOf(":core:model", ":core:policy", ":tools:framework"),
         ":tools:files" to listOf(":core:model", ":core:policy", ":core:workspace", ":tools:framework"),
         ":tools:root" to listOf(":core:model", ":core:policy", ":tools:framework"),
-        ":testing" to listOf(":core:model"),
     )
 
 subprojects {
@@ -567,17 +565,6 @@ subprojects {
             }
 
             dependencies.add("testImplementation", jvmTestDependency)
-
-            if (path == ":testing") {
-                tasks.withType<Test>().configureEach {
-                    systemProperty(
-                        "helix.eval.dir",
-                        rootProject.layout.projectDirectory
-                            .dir("evals/m10")
-                            .asFile.absolutePath,
-                    )
-                }
-            }
 
             // HX2-01: core:agent owns the AgentRuntime contract (suspend / Flow), so — like
             // :provider:api (HXA-025) — coroutines are exposed as `api`: the interface

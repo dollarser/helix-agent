@@ -59,8 +59,11 @@ internal object AutomationModule {
         }
     }
 
-    fun backgroundPreview(value: com.helix.app.chat.DisplayExecutionUi): android.graphics.Bitmap? =
-        runtime?.permissionCenter?.backgroundPreview(value.sessionId, value.turnId, value.generation)
+    fun backgroundPreview(
+        value: com.helix.app.chat.DisplayExecutionUi,
+        width: Int,
+    ): android.graphics.Bitmap? =
+        runtime?.permissionCenter?.backgroundPreview(value.sessionId, value.turnId, value.generation, width)
 
     private fun backgroundDefault(): Boolean =
         android.os.Build.VERSION.SDK_INT >= 31 &&
@@ -85,7 +88,7 @@ internal object AutomationModule {
         writeConfiguration: (String, List<String>) -> Unit,
         selectionId: (String) -> String?,
         conversationExists: (String) -> Boolean,
-        taskActive: (String, String) -> Boolean = { _, _ -> false },
+        callActive: (String, String) -> Boolean = { _, _ -> false },
         displayPresentation: (com.helix.app.chat.DisplayExecutionUi) -> Unit = {},
         taskHost: com.helix.extensions.plugin.PluginTaskHost? = null,
     ) {
@@ -113,7 +116,7 @@ internal object AutomationModule {
                         ),
                     ),
                     taskHost,
-                    taskActive = taskActive,
+                    callActive = callActive,
                     overlayContext = {
                         if (android.provider.Settings.canDrawOverlays(context)) {
                             context.applicationContext

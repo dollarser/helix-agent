@@ -2036,8 +2036,6 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
     private object FixedStandardProfileStore : SafetyProfileStore {
         override val profile: SafetyProfile = SafetyProfile.STANDARD
         override val flow: StateFlow<SafetyProfile> = MutableStateFlow(SafetyProfile.STANDARD)
-
-        override fun switchTo(profile: SafetyProfile) = error("profile switching is not under test")
     }
 
     private fun stageTextAttachment(

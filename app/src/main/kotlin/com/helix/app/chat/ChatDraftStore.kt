@@ -63,9 +63,13 @@ internal class ChatDraftStore {
     fun directory(
         id: String,
         reference: String?,
-    ) = update(id) {
-        it.copy(session = it.session.copy(directoryRef = reference))
-    }
+    ): Boolean =
+        synchronized(lock) {
+            val draft = current ?: return@synchronized false
+            if (preparing || draft.session.id != id) return@synchronized false
+            current = draft.copy(session = draft.session.copy(directoryRef = reference))
+            true
+        }
 
     fun project(
         id: String,

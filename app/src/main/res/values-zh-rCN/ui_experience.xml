@@ -1,11 +1,9 @@
 <resources>
     <string name="plugins_tab_add">导入</string>
-    <string name="plugins_manage_intro">管理已安装插件，在需要的会话中选用。</string>
     <string name="plugins_discover_intro">查找适合任务的插件，查看内容后安装。</string>
     <string name="plugins_add_intro">导入插件包或粘贴 MCP 配置，预览后确认安装。</string>
     <string name="plugins_authoring">创建技能</string>
     <string name="plugins_authoring_summary">编写并校验自己的任务指导</string>
-    <string name="plugins_manage_action">管理</string>
     <string name="nav_tasks_description">查看进度、处理等待与中断</string>
     <string name="nav_artifacts_description">查看结果、预览和分享文件</string>
     <string name="nav_storage_description">查看占用与清理入口</string>

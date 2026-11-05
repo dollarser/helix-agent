@@ -1,6 +1,6 @@
 # Helix 总体架构
 
-本文说明当前职责与已接受的演进边界；2026-10-14 定向复核执行接口、Memory、插件资源与恢复导航。实际交付以[实施状态](../development/status.md)和[完成记录](../completion-records/index.md)为准。接受设计不代表对应功能已上线；当前源码证据与重新调研见[执行引擎研究 §10](../research/modules/01-architecture-and-execution-engine.md#10-2026-10-14-执行边界与新目标设计复核)，2026-10-15 评审后的单一目标设计见[Harness 方案 §23](harness-refactor-plan.md#23-2026-10-14-执行边界重构提案)，已登记 HXA-286～294；286/293-A 内容接缝及 287-A/B 已交付；287-C 中立生命周期代码已接入，当前验收边界见[生命周期记录](../evidence/development/harness-stage1-lifecycle-2026-10-24.md)。
+本文说明当前职责与已接受的演进边界；2026-10-14 定向复核执行接口、Memory、插件资源与恢复导航。实际交付以[实施状态](../development/status.md)和[完成记录](../completion-records/index.md)为准。接受设计不代表对应功能已上线；当前源码证据与重新调研见[执行引擎研究 第 10 节](../research/modules/01-architecture-and-execution-engine.md#10-2026-10-14-执行边界与新目标设计复核)，2026-10-15 评审后的单一目标设计见[Harness 方案 第 23 节](harness-refactor-plan.md#23-2026-10-14-执行边界重构提案)，已登记 HXA-286～294；286/293-A 内容接缝及 287-A/B 已交付；287-C 中立生命周期代码已接入，当前验收边界见[生命周期记录](../evidence/development/harness-stage1-lifecycle-2026-10-24.md)。
 
 ## 职责与调用路径
 

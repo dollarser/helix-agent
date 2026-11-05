@@ -2,9 +2,9 @@
 <resources>
     <string name="mobile_use_display_heading">Execution display</string>
     <string name="mobile_use_background_display">Use a background display (otherwise use the main screen)</string>
-    <string name="mobile_use_display_help">Background display requires Android 12+ and an authorized Shizuku shell. Shizuku manages connection and pairing; Helix never enables or pairs automatically. Android 14+ prefers independent focus; older systems or some devices may affect main-screen focus. Both displays share app accounts and data. Lock-screen authentication is not bypassed. Unavailability never silently switches input to the main screen.</string>
+    <string name="mobile_use_display_help">Background display requires Android 12+ and a connected, authorized Root or Shizuku backend. Shizuku manages connection and pairing; Helix never enables or pairs automatically. Android 14+ prefers independent focus; older systems or some devices may affect main-screen focus. Both displays share app accounts and data. Lock-screen authentication is not bypassed. Unavailability never silently switches input to the main screen.</string>
     <string name="mobile_use_move_main_app">Allow moving an app currently visible on the main screen to the background display (may interrupt that app)</string>
-    <string name="mobile_use_shell_unavailable">Shizuku shell is disconnected. Check the selected connection method in System permissions.</string>
+    <string name="mobile_use_shell_unavailable">No authorized Root or Shizuku backend is connected. Check System permissions.</string>
     <string name="mobile_use_shell_permission">Shizuku is connected; Helix has not been authorized. Authorize it through System permissions.</string>
-    <string name="mobile_use_shell_ready">Shizuku shell is connected and Helix is authorized. Display support is checked when creating the display.</string>
+    <string name="mobile_use_shell_ready">A Root or Shizuku backend is connected and authorized. Display support is checked when creating the display.</string>
 </resources>

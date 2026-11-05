@@ -13,7 +13,6 @@ import com.helix.app.provider.ProviderDraft
 import com.helix.core.model.AgentMode
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
-import com.helix.core.model.SafetyProfile
 import com.helix.core.model.SessionPermissionMode
 import com.helix.core.model.TurnState
 import com.helix.core.policy.SessionPermissionConfig
@@ -49,12 +48,10 @@ class VisualInstallEvalService : Service() {
                 val app = application as HelixApplication
                 val container = app.appContainer
                 val selection = MobileUseEvaluationSelection(app)
-                val previousProfile = container.profileStore.profile
                 var provider: String? = null
                 var session: String? = null
                 try {
                     check(!isInstalled()) { "fixture requires WeChat to be uninstalled" }
-                    container.profileStore.switchTo(SafetyProfile.ADVANCED)
                     provider = container.providerService.create(providerDraft(), null)
                     check(container.providerService.runConnectionTest(provider, MODEL) is ProbeOutcome.Ok)
                     val capability = container.providerService.runCapabilityTest(provider, MODEL)
@@ -82,7 +79,6 @@ class VisualInstallEvalService : Service() {
                     container.chatService.closeSession()
                     selection.close()
                     provider?.let { container.providerService.delete(it) }
-                    container.profileStore.switchTo(previousProfile)
                 }
             }
         }.onFailure { failure ->

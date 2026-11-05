@@ -52,7 +52,7 @@ class MobileUseWechatPilotDeviceTest {
             val providerPort = requireNotNull(arguments.getString(ARG_PROVIDER_PORT)).toInt()
             require(providerPort in 1..65535)
             val previous = container.chatService.runControl.value
-            val previousProfile = container.profileStore.profile
+
             val services =
                 android.provider.Settings.Secure.getString(
                     app.contentResolver,
@@ -77,7 +77,7 @@ class MobileUseWechatPilotDeviceTest {
 
             try {
                 ensureAccessibility(services)
-                container.profileStore.switchTo(SafetyProfile.ADVANCED)
+                check(container.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
                 prepareDevice(preserveDownloads, preserveChrome)
 
                 provider =
@@ -214,7 +214,6 @@ class MobileUseWechatPilotDeviceTest {
                 provider?.let { container.providerService.delete(it) }
                 session?.let(::deselectMobileUseForTest)
                 restoreAccessibility(services, accessibilityEnabled)
-                container.profileStore.switchTo(previousProfile)
 
                 check(failure == null) { requireNotNull(failure) }
                 assertTrue("WeChat package was not installed; evidence=$evidenceFile", installed)

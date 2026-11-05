@@ -55,7 +55,7 @@ class FixedMcpEvaluationDeviceTest {
             val rows = corpus.toString(Charsets.UTF_8).lines().filter { it.startsWith("mcp-") }
             val providers = mutableMapOf<ProviderProtocol, String>()
             val previous = container.chatService.runControl.value
-            val originalProfile = container.profileStore.profile
+
             try {
                 rows.forEach { line ->
                     val cells = line.split('\t')
@@ -74,7 +74,6 @@ class FixedMcpEvaluationDeviceTest {
                 providers.values.forEach { container.providerService.delete(it) }
                 servers.toList().forEach { container.mcpService.delete(it) }
                 scopeOrigins.toList().forEach { container.lanScopeStore.remove(it) }
-                container.profileStore.switchTo(originalProfile)
             }
         }
 
@@ -103,8 +102,7 @@ class FixedMcpEvaluationDeviceTest {
         provider: String,
         model: String,
     ) {
-        val previousProfile = container.profileStore.profile
-        container.profileStore.switchTo(com.helix.core.model.SafetyProfile.ADVANCED)
+        check(container.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
         val serverId = "mcp-eval-${System.nanoTime()}"
         val config = Json.parseToJsonElement(File(directory, "config.json").readText()).jsonObject
         container.mcpService.registerDisabled(
@@ -157,7 +155,6 @@ class FixedMcpEvaluationDeviceTest {
             container.mcpService.delete(serverId)
             servers.remove(serverId)
             if (scopeOrigins.remove(fixtureOrigin)) container.lanScopeStore.remove(fixtureOrigin)
-            container.profileStore.switchTo(previousProfile)
         }
     }
 

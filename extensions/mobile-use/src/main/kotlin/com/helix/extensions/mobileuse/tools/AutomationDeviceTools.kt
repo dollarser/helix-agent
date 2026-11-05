@@ -49,22 +49,31 @@ class AutomationDeviceTools(
                 ToolOperationClass.READ_ONLY,
                 obj(),
                 deviceOutput(),
-                "Observe phone display/window and get a frame for screenshot or gesture. " +
-                    "TARGET_UNAVAILABLE means no observable target, not proof of a backend connection failure. " +
-                    "In selected background mode, ui.launch can open an authorized app on the task display. " +
-                    "Do not switch to the main display as a fallback. " +
-                    "screenBounds is the full display; windowBounds is the active window, " +
-                    "not a coordinate origin. A new observation replaces the old frame; " +
-                    "semantic node tokens are separate. " +
-                    "originatingHelixPackage identifies the host of this conversation, " +
-                    "independently of the foreground packageName; it does not grant launch permission.",
+                "Observe display/task and obtain a frame for screenshot or gesture. " +
+                    "Supported flags describe configured backend capabilities, not whether an app is open. " +
+                    "backendReady reports connection; targetAvailable reports an actionable object; " +
+                    "semanticAvailable reports a readable tree. TARGET_UNAVAILABLE is a missing target, " +
+                    "not a permanent capability failure. Open an authorized app with ui.launch, then refresh. " +
+                    "Never silently switch a background task to the main screen. " +
+                    "screenBounds uses physical display pixels; " +
+                    "windowBounds, when present, is not a coordinate origin. " +
+                    "targetBasis=task_metadata means window bounds are unknown. " +
+                    "If semanticAvailable=false, use vision only when backendReady, targetAvailable " +
+                    "and screenshotSupported are true. " +
+                    "A new observation replaces the old frame; semantic node tokens are separate. " +
+                    "originatingHelixPackage identifies this conversation host; " +
+                    "it is not the foreground app or a launch grant.",
             ),
             descriptor(
                 APPS,
                 ToolOperationClass.READ_ONLY,
-                obj(mapOf("packageName" to str(255))),
+                obj(mapOf("packageName" to str(255), "query" to appQueryInput())),
                 appsOutput(),
-                "Verify installation/uninstallation with packageName: returns INSTALLED, NOT_INSTALLED, or UNKNOWN " +
+                "Find visible launchable apps by label or package substring with query; do " +
+                    "not guess package IDs from app names. " +
+                    "Use query or packageName, not both. A filtered list is discovery, never proof of absence. " +
+                    "Verify installation/uninstallation with the discovered exact packageName: " +
+                    "returns INSTALLED, NOT_INSTALLED, or UNKNOWN " +
                     "for the current Android user. Use the target app package, " +
                     "not the installer or download source package. " +
                     "UNKNOWN is not proof of absence. " +
@@ -78,7 +87,10 @@ class AutomationDeviceTools(
                 obj(mapOf("packageName" to str(255)), "packageName"),
                 actionOutput(),
                 "Open an authorized app by package name from ui.apps; never grants new targets. " +
-                    "After a verified phone task, use the observed originating Helix package to return before " +
+                    "Check ui.device.executionDisplay for completion handoff. In background " +
+                    "mode, Helix stays on the main screen: " +
+                    "do not launch the originating Helix package onto the task display. " +
+                    "In main-screen mode, use the observed originating Helix package to return before " +
                     "the final reply, unless the user requested staying in the target app " +
                     "or it needs manual takeover. " +
                     "Observe afterward: successful launch alone does not prove " +
@@ -107,6 +119,8 @@ class AutomationDeviceTools(
                     "Root/Shizuku gestures support up to 10 strokes and 10 seconds without Accessibility. " +
                     "Map image pixels via that screenshot's screenBounds; never subtract windowBounds. " +
                     "Refresh frame after window/rotation changes. " +
+                    "Splash screens, animations and rotating content can also invalidate a frame before DOWN; " +
+                    "re-observe after a transition instead of repeatedly capturing and tapping a changing page. " +
                     "DISPATCHED acknowledges input only; verify its effect with a fresh observation. " +
                     "Never blindly replay.",
             ),
@@ -177,9 +191,26 @@ class AutomationDeviceTools(
         }
 
     private fun apps(call: ExecutableToolCall): ToolExecutorResult {
-        val listing = port.forCall(call).apps(call.args["packageName"]?.jsonPrimitive?.content)
+        val packageName = call.args["packageName"]?.jsonPrimitive?.content
+        val query =
+            call.args["query"]
+                ?.jsonPrimitive
+                ?.content
+                ?.trim()
+        if (query != null && (query.isEmpty() || packageName != null)) {
+            return ToolExecutorResult.Failed(
+                "AUTOMATION_ARGUMENT_INVALID: Use packageName or a nonblank query, not both.",
+                sideEffectFree = true,
+            )
+        }
+        val listing = port.forCall(call).apps(packageName)
+        val matches =
+            listing.apps.filter { app ->
+                query == null || app.label.contains(query, ignoreCase = true) ||
+                    app.packageName.contains(query, ignoreCase = true)
+            }
         val items =
-            listing.apps.map { app ->
+            matches.map { app ->
                 buildJsonObject {
                     put("packageName", JsonPrimitive(app.packageName))
                     put("label", JsonPrimitive(app.label))
@@ -191,6 +222,7 @@ class AutomationDeviceTools(
                 put("originatingHelixPackage", JsonPrimitive(originatingHelixPackage))
                 put("truncated", JsonPrimitive(listing.truncated))
                 listing.queriedPackage?.let { put("packageName", JsonPrimitive(it)) }
+                query?.let { put("query", JsonPrimitive(it)) }
                 put("apps", JsonArray(items))
             },
         )
@@ -247,7 +279,8 @@ class AutomationDeviceTools(
                 put(
                     "actionHint",
                     JsonPrimitive(
-                        "No image was captured. Discover ui.device if needed, call it and copy its exact frame " +
+                        missingTargetHint(status) ?: "No image was captured. Discover ui.device if needed, " +
+                            "call it and copy its exact frame " +
                             "before a new screenshot. A node token, page label or invented frame is invalid. " +
                             "Inspect readiness/scope; fresh observation does not grant permission. " +
                             "TARGET_CHANGED does not establish FLAG_SECURE or a login requirement. " +
@@ -282,6 +315,11 @@ class AutomationDeviceTools(
             put("allApplications", JsonPrimitive(observation.allApplications))
             put("screenshotSupported", JsonPrimitive(observation.screenshotSupported))
             put("gestureSupported", JsonPrimitive(observation.gestureSupported))
+            put("semanticSupported", JsonPrimitive(observation.semanticSupported))
+            put("backendReady", JsonPrimitive(observation.backendReady))
+            put("targetAvailable", JsonPrimitive(observation.targetAvailable))
+            put("semanticAvailable", JsonPrimitive(observation.semanticAvailable))
+            missingTargetHint(observation.status)?.let { put("recoveryHint", JsonPrimitive(it)) }
             put("systemActions", JsonArray(observation.systemActions.map { JsonPrimitive(actionName(it)) }))
             observation.frame?.let { frame ->
                 put("frame", JsonPrimitive(frame.token))
@@ -294,8 +332,16 @@ class AutomationDeviceTools(
                 put("height", JsonPrimitive(frame.target.height))
                 put("rotation", JsonPrimitive(frame.target.rotation))
                 put("screenBounds", boundsJson(AutomationNodeBounds(0, 0, frame.target.width, frame.target.height)))
-                put("windowBounds", boundsJson(frame.target.bounds))
+                put("targetBasis", JsonPrimitive(targetBasis(frame.target)))
+                if (frame.target.windowId >= 0) put("windowBounds", boundsJson(frame.target.bounds))
             }
+        }
+
+    private fun targetBasis(target: com.helix.extensions.mobileuse.automation.AutomationDisplayTarget) =
+        when {
+            target.windowId < 0 -> "task_metadata"
+            target.semanticAvailable -> "semantic_window"
+            else -> "window_metadata"
         }
 
     private fun actionName(action: AutomationGlobalAction): String = action.name.lowercase(Locale.ROOT)
@@ -350,10 +396,16 @@ class AutomationDeviceTools(
                 "frame" to str(64),
                 "allApplications" to bool(),
                 "screenshotSupported" to bool(),
+                "semanticSupported" to bool(),
+                "targetAvailable" to bool(),
+                "backendReady" to bool(),
+                "semanticAvailable" to bool(),
+                "recoveryHint" to str(512),
                 "gestureSupported" to bool(),
                 "systemActions" to array(str(64), 32),
                 "packageName" to str(255),
                 "windowId" to integer(),
+                "targetBasis" to str(32),
                 "displayId" to integer(),
                 "executionDisplay" to str(16),
                 "independentFocus" to bool(),
@@ -367,6 +419,20 @@ class AutomationDeviceTools(
             "originatingHelixPackage",
         )
 
+    private fun appQueryInput() =
+        buildJsonObject {
+            put("type", JsonPrimitive("string"))
+            put("minLength", JsonPrimitive(1))
+            put("maxLength", JsonPrimitive(256))
+            put(
+                "description",
+                JsonPrimitive(
+                    "Filter visible authorized launcher apps by label or package substring, ignoring case. " +
+                        "Use this when only the app name is known. Omit packageName.",
+                ),
+            )
+        }
+
     private fun appsOutput(): JsonObject {
         val entry = obj(mapOf("packageName" to str(255), "label" to str(256)), "packageName", "label")
         return obj(
@@ -375,6 +441,7 @@ class AutomationDeviceTools(
                 "status" to str(128),
                 "originatingHelixPackage" to str(255),
                 "packageName" to str(255),
+                "query" to str(256),
                 "apps" to array(entry, 1_000),
             ),
             "status",

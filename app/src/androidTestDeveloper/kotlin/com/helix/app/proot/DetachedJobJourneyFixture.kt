@@ -38,7 +38,7 @@ internal class DetachedJobJourneyFixture(
         prepareArguments: (JsonObject) -> JsonObject = { it },
     ) {
         ensureInstalledRuntime(app)
-        container.profileStore.switchTo(SafetyProfile.ADVANCED)
+        check(container.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
         check(ProotToolModule.verifyNow() is ProotRuntimeAvailability.Verified)
         storage.sessions.create(id, job.title, null, null, System.currentTimeMillis())
         permission(SessionPermissionMode.FULL_ACCESS)
@@ -109,7 +109,6 @@ internal class DetachedJobJourneyFixture(
                     BackgroundJobActionOutcome.SETTLED,
             )
         } finally {
-            container.profileStore.switchTo(profile)
             storage.sessions.archive(id, System.currentTimeMillis())
             output.deleteRecursively()
         }

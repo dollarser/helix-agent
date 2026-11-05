@@ -103,6 +103,19 @@ class ChatDraftStoreTest {
         assertEquals(listOf(attachment), store.current?.attachments)
     }
 
+    @Test fun directoryChangeRejectsPreparingOrAnotherDraftAndPreservesOtherFields() {
+        val store = ChatDraftStore()
+        store.open(draft(), control())
+        assertTrue(store.beginPreparation("draft"))
+        assertFalse(store.directory("draft", "scope:next:"))
+        assertNull(store.current?.session?.directoryRef)
+        store.finishPreparation()
+        assertFalse(store.directory("another", "scope:next:"))
+        assertTrue(store.directory("draft", "scope:next:"))
+        assertEquals("scope:next:", store.current?.session?.directoryRef)
+        assertEquals(control(), store.current?.control)
+    }
+
     private fun draft(id: String = "draft") = SessionEntity(id, "", "provider", "model", 1L, null)
 
     private fun control() =

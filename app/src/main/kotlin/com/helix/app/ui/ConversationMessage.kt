@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.Icon
@@ -92,6 +94,7 @@ internal fun MessageRow(
 ) {
     val isUser = message.role == "user"
     var actionsVisible by remember(message.id) { mutableStateOf(false) }
+    val actionsView = remember(message.id) { BringIntoViewRequester() }
     Row(
         Modifier
             .fillMaxWidth()
@@ -168,6 +171,10 @@ internal fun MessageRow(
             }
             MessageInterruptionNotice(message, onOpenTaskResult)
             if (actionsVisible) {
+                LaunchedEffect(message.id) {
+                    androidx.compose.runtime.withFrameNanos { }
+                    actionsView.bringIntoView()
+                }
                 MessageActionRow(
                     message = message,
                     isUser = isUser,
@@ -176,6 +183,11 @@ internal fun MessageRow(
                     onRegenerate = onRegenerate,
                     readAloud = readAloud,
                     onSaveReply = onSaveReply,
+                    modifier =
+                        Modifier
+                            .bringIntoViewRequester(
+                                actionsView,
+                            ).testTag("chat-message-actions-${message.id}"),
                 )
             }
         }
@@ -192,9 +204,10 @@ private fun MessageActionRow(
     onRegenerate: ((String) -> Unit)?,
     readAloud: Boolean,
     onSaveReply: ((String) -> Unit)?,
+    modifier: Modifier,
 ) {
     val metrics = LocalRunMetricsHandler.current
-    FlowRow {
+    FlowRow(modifier) {
         CopyTextButton(message.content, "chat-copy-${message.id}")
         if (!isUser && message.turnId != null && metrics != null) {
             IconButton(

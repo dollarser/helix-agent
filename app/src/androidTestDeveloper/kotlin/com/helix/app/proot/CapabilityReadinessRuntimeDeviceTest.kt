@@ -60,7 +60,7 @@ class CapabilityReadinessRuntimeDeviceTest {
         try {
             manifest.writeText("damaged")
             compose.resetDeterministicUiState()
-            store.switchTo(SafetyProfile.ADVANCED)
+            check(store.profile == com.helix.core.model.SafetyProfile.ADVANCED)
             compose.navigateTo("setup/readiness")
             compose.onNodeWithTag("capability-readiness-goal-linux").performClick()
             waitRuntimeItem()
@@ -70,7 +70,6 @@ class CapabilityReadinessRuntimeDeviceTest {
             org.junit.Assert.assertEquals("damaged", manifest.readText())
         } finally {
             manifest.writeText(original)
-            store.switchTo(SafetyProfile.STANDARD)
         }
     }
 
@@ -83,7 +82,7 @@ class CapabilityReadinessRuntimeDeviceTest {
         val original = manifest.readText()
         compose.resetDeterministicUiState()
         val store = compose.container().profileStore
-        store.switchTo(SafetyProfile.ADVANCED)
+        check(store.profile == com.helix.core.model.SafetyProfile.ADVANCED)
         try {
             compose.navigateTo("setup/runtime")
             val ready = compose.activity.getString(R.string.settings_proot_verified)
@@ -98,7 +97,6 @@ class CapabilityReadinessRuntimeDeviceTest {
             org.junit.Assert.assertEquals("damaged", manifest.readText())
         } finally {
             manifest.writeText(original)
-            store.switchTo(SafetyProfile.STANDARD)
         }
     }
 
@@ -107,13 +105,12 @@ class CapabilityReadinessRuntimeDeviceTest {
     private fun assertReadinessRuntimeReady() {
         val container = compose.container()
         compose.resetDeterministicUiState()
-        container.profileStore.switchTo(SafetyProfile.ADVANCED)
+        check(container.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
         compose.navigateTo("setup/readiness")
         compose.onNodeWithTag("capability-readiness-goal-linux").performClick()
         waitRuntimeItem()
         compose.onNodeWithTag("capability-readiness-item-runtime").assertIsDisplayed()
         compose.onNodeWithTag("capability-readiness-action-manage-runtime").assertDoesNotExist()
-        container.profileStore.switchTo(SafetyProfile.STANDARD)
     }
 
     private fun installRuntime(context: Context) {

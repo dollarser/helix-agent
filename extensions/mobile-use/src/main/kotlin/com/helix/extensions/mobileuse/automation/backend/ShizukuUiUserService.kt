@@ -160,8 +160,11 @@ class ShizukuUiUserService
             data.enforceInterface(ShizukuUiProtocol.DESCRIPTOR)
             val key = requireNotNull(data.readString()).also { require(it.length == 64) }
             val owner = requireNotNull(data.readStrongBinder())
+            val width = data.readInt()
+            require(width in BACKGROUND_PREVIEW_WIDTHS)
+            val wholeDisplay = data.readInt().also { require(it in 0..1) } == 1
             require(data.dataAvail() == 0)
-            val bytes = synchronized(this) { hierarchy?.let { displays.preview(key, owner, it) } }
+            val bytes = synchronized(this) { hierarchy?.let { displays.preview(key, owner, it, width, wholeDisplay) } }
             reply.writeNoException()
             reply.writeByteArray(bytes)
             return true

@@ -66,11 +66,11 @@ internal fun DrawerRow(
 @DrawableRes
 internal fun drawerIcon(route: String): Int =
     when (route.substringBefore('/')) {
-        "projects", "project" -> R.drawable.ic_files_folder
+        "projects", "project" -> R.drawable.ic_drawer_work
         "models" -> R.drawable.ic_drawer_models
         "extensions" -> R.drawable.ic_drawer_plugins
         "settings", "setup" -> R.drawable.ic_drawer_settings
-        "files" -> R.drawable.ic_files_document
+        "files" -> R.drawable.ic_files_folder
         "knowledge" -> R.drawable.ic_drawer_book
         "reminders" -> R.drawable.ic_drawer_bell
         "tasks" -> R.drawable.ic_drawer_tasks

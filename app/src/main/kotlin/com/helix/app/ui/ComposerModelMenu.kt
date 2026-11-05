@@ -112,7 +112,6 @@ internal fun ComposerModelMenu(
     model: String?,
     enabled: Boolean,
     onSave: suspend (String, String, ReasoningEffort) -> SessionModelSelectionResult,
-    onManageModels: (() -> Unit)? = null,
     openRequest: Int = 0,
     sourceGroups: List<ProviderProvisioningKind> =
         listOf(
@@ -123,6 +122,7 @@ internal fun ComposerModelMenu(
     onRefreshModels: (suspend (Boolean) -> Unit)? = null,
     reasoning: ReasoningEffort = ReasoningEffort.OFF,
     sessionKey: String? = null,
+    entry: (@Composable (() -> Unit) -> Unit)? = null,
     accountEntry: @Composable (() -> Unit) -> Unit = { changed ->
         AccountSettingsEntry(AccountEntryPresentation.MODEL_PICKER, onChanged = changed)
     },
@@ -198,20 +198,29 @@ internal fun ComposerModelMenu(
         }
     }
     Box {
-        TextButton(
-            {
-                query = ""
-                open()
-            },
-            enabled = enabled,
-            modifier = Modifier.defaultMinSize(minWidth = 1.dp).testTag("chat-model-menu"),
-            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
-        ) {
-            Text(
-                "${currentLabel ?: stringResource(R.string.chat_select_model)} ▾",
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+        if (entry != null) {
+            entry {
+                if (enabled) {
+                    query = ""
+                    open()
+                }
+            }
+        } else {
+            TextButton(
+                {
+                    query = ""
+                    open()
+                },
+                enabled = enabled,
+                modifier = Modifier.defaultMinSize(minWidth = 1.dp).testTag("chat-model-menu"),
+                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
+            ) {
+                Text(
+                    "${currentLabel ?: stringResource(R.string.chat_select_model)} ▾",
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
         if (expanded) {
             AlertDialog(
@@ -259,18 +268,6 @@ internal fun ComposerModelMenu(
                                 )
                             }
                         }
-                        if (onManageModels != null) {
-                            item {
-                                TextButton(onClick = {
-                                    if (!saving) {
-                                        dismiss()
-                                        onManageModels()
-                                    }
-                                }, enabled = !saving) {
-                                    Text(stringResource(R.string.provider_model_directory_manage))
-                                }
-                            }
-                        }
                         if (entries.isEmpty()) {
                             item {
                                 Text(
@@ -316,32 +313,24 @@ internal fun ComposerModelMenu(
                             }
                         }
                         items(pendingProviders, key = { "setup:${it.id}" }) { row ->
-                            val navigateToSource =
-                                onConfigureSource?.let { configure ->
-                                    { configure(row.provisioning) }
-                                } ?: onManageModels
                             ModelSetupRow(
                                 row,
-                                navigateToSource?.let { navigate ->
+                                onConfigureSource?.let { configure ->
                                     {
                                         if (!saving) {
                                             dismiss()
-                                            navigate()
+                                            configure(row.provisioning)
                                         }
                                     }
                                 },
                             )
                         }
                         item {
-                            if (onConfigureSource != null || onManageModels != null) {
+                            if (onConfigureSource != null) {
                                 ModelSourceActions(sourceGroups) { source ->
                                     if (!saving) {
                                         dismiss()
-                                        if (onConfigureSource != null) {
-                                            onConfigureSource(source)
-                                        } else {
-                                            onManageModels?.invoke()
-                                        }
+                                        onConfigureSource(source)
                                     }
                                 }
                             }

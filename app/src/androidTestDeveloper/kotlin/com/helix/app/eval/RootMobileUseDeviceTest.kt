@@ -47,7 +47,7 @@ class RootMobileUseDeviceTest {
         app.startActivity(Intent(app, com.helix.app.MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         println("ROOT_WAITING_ACCESSIBILITY_REBIND")
         await { center.serviceState() == AutomationServiceState.CONNECTED }
-        val oldProfile = container.profileStore.profile
+
         val now = System.currentTimeMillis()
         container.storage.sessions.create(session, "Root Mobile Use fixture", null, null, now)
         container.storage.turns.start(turn, session, now)
@@ -56,7 +56,7 @@ class RootMobileUseDeviceTest {
         require(plugin.enabled)
         container.pluginService.catalog.select(session, plugin.id, true)
         try {
-            container.profileStore.switchTo(SafetyProfile.ADVANCED)
+            check(container.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
             com.helix.app.eval
                 .selectMobileUseForTest(session, emptySet(), wholePhone = true)
             app.startActivity(
@@ -109,7 +109,6 @@ class RootMobileUseDeviceTest {
             com.helix.app.eval
                 .deselectMobileUseForTest(session)
             container.storage.deleteSessionPermanently(session)
-            container.profileStore.switchTo(oldProfile)
         }
     }
 

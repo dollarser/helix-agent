@@ -45,7 +45,7 @@ class MobileUseUnknownSourcesPilotDeviceTest {
     fun recoverChromeUnknownAppSourceWithRealModel() =
         runBlocking {
             val previousControl = container.chatService.runControl.value
-            val previousProfile = container.profileStore.profile
+
             val previousServices =
                 android.provider.Settings.Secure.getString(
                     app.contentResolver,
@@ -65,7 +65,7 @@ class MobileUseUnknownSourcesPilotDeviceTest {
 
             try {
                 ensureAccessibility(previousServices)
-                container.profileStore.switchTo(SafetyProfile.ADVANCED)
+                check(container.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
                 shell("appops set $CHROME_PACKAGE REQUEST_INSTALL_PACKAGES deny")
                 shell("input keyevent KEYCODE_HOME")
 
@@ -177,7 +177,6 @@ class MobileUseUnknownSourcesPilotDeviceTest {
                 session?.let(::deselectMobileUseForTest)
                 restoreInstallOp(previousInstallOp)
                 restoreAccessibility(previousServices, previousAccessibility)
-                container.profileStore.switchTo(previousProfile)
 
                 check(failure == null) { requireNotNull(failure) }
                 assertTrue("Chrome unknown-app-source permission was not enabled; evidence=$evidenceFile", allowed)

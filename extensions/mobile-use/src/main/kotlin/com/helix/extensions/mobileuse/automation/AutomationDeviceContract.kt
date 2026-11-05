@@ -15,6 +15,8 @@ data class AutomationDisplayTarget(
     val revision: String = "",
     val displaySession: String = "",
     val independentFocus: Boolean = false,
+    val semanticAvailable: Boolean = true,
+    val taskId: Int = -1,
 )
 
 data class AutomationFrame(
@@ -63,7 +65,12 @@ data class AutomationDeviceObservation(
     val shizukuState: AutomationBackendState = AutomationBackendState.UNAVAILABLE,
     val rootState: AutomationBackendState = AutomationBackendState.UNAVAILABLE,
     val clickMatchBackend: AutomationClickBackend = AutomationClickBackend.ACCESSIBILITY,
-)
+    val semanticSupported: Boolean = false,
+    val backendReady: Boolean = false,
+) {
+    val targetAvailable: Boolean get() = frame != null
+    val semanticAvailable: Boolean get() = frame?.target?.semanticAvailable == true
+}
 
 data class AutomationScreenshot(
     val status: String,

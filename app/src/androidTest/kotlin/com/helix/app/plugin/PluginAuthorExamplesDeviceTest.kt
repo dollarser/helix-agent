@@ -117,10 +117,10 @@ class PluginAuthorExamplesDeviceTest {
                     SessionPermissionConfig.of(SessionPermissionMode.FULL_ACCESS),
                     0,
                 )
-                val previousProfile = c.profileStore.profile
+
                 val origin = "http://127.0.0.1:${server.port}"
                 try {
-                    c.profileStore.switchTo(SafetyProfile.ADVANCED)
+                    check(c.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
                     c.lanScopeStore.add(origin)
                     assertEquals(preview.componentDiagnostics, record.componentDiagnostics)
                     repeat(3) { c.pluginService.requestReadiness(session, turn) }
@@ -181,7 +181,6 @@ class PluginAuthorExamplesDeviceTest {
                     c.pluginService.remove(record)
                     c.storage.deleteSessionPermanently(session)
                     c.lanScopeStore.remove(origin)
-                    c.profileStore.switchTo(previousProfile)
                 }
             }
         }

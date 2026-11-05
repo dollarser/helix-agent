@@ -39,11 +39,11 @@ class MobileUseCurrentModelJourneyDeviceTest {
                     requireNotNull(original.modelId),
                 )
             val center = AutomationPermissionCenter(app)
-            val profile = c.profileStore.profile
+
             val globals = MobileUseGlobalScopeFixture(app)
             try {
                 await(15_000) { center.serviceState() == AutomationServiceState.CONNECTED }
-                c.profileStore.switchTo(SafetyProfile.ADVANCED)
+                check(c.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
                 val plugin = c.pluginService.list().single { it.native?.pluginId == "mobile-use" }
                 c.pluginService.catalog.select(session, plugin.id, true)
                 c.sessionPermissionEdit.saveSessionConfig(
@@ -89,7 +89,6 @@ class MobileUseCurrentModelJourneyDeviceTest {
                 com.helix.app.eval
                     .deselectMobileUseForTest(session)
                 globals.close()
-                c.profileStore.switchTo(profile)
                 c.chatService.openSession(original.id)
             }
         }

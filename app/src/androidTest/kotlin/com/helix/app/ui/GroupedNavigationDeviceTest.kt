@@ -121,9 +121,6 @@ class GroupedNavigationDeviceTest {
                     Column(Modifier.width(240.dp).height(320.dp)) {
                         GroupedNavigation(
                             destinations = ShellDestination.entries,
-                            footer = {
-                                androidx.compose.material3.Text("Profile", Modifier.testTag("fixed-profile"))
-                            },
                             currentRoute = selected.value,
                             conversation =
                                 ConversationDrawerState(
@@ -175,7 +172,7 @@ class GroupedNavigationDeviceTest {
                 it != ShellDestination.Sessions && it != ShellDestination.Git && it != ShellDestination.Setup
             }
         drawerDestinations.forEach { destination ->
-            compose.onNodeWithTag("fixed-profile").assertIsDisplayed()
+            compose.onNodeWithTag("drawer-profile").assertDoesNotExist()
             val groupTag =
                 when (destination) {
                     ShellDestination.Tasks, ShellDestination.Artifacts, ShellDestination.Git,

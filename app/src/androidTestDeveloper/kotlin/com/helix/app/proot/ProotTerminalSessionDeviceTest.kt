@@ -48,15 +48,12 @@ class ProotTerminalSessionDeviceTest {
                 withTimeout(5_000) {
                     while (container.chatService.screen.value.openSessionId != null) delay(25)
                 }
-                val previous = container.profileStore.profile
+
                 val terminal = checkNotNull(container.manualTerminal)
                 val relative = "terminal-test-${UUID.randomUUID()}"
                 val directory = File(context.filesDir, "workspaces/app/terminal/$relative").apply { check(mkdirs()) }
                 try {
-                    container.profileStore.switchTo(SafetyProfile.STANDARD)
-                    assertTrue(runCatching { terminal.start(relative) }.isFailure)
-                    assertFalse(terminal.hasSession())
-                    container.profileStore.switchTo(SafetyProfile.ADVANCED)
+                    check(container.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
                     terminal.start(relative, 30_000)
                     assertTrue(terminal.hasSession())
                     verifyRetainedAdmission()
@@ -83,7 +80,6 @@ class ProotTerminalSessionDeviceTest {
                             .resetTerminalSessions(terminal)
                             .isEmpty(),
                     )
-                    container.profileStore.switchTo(previous)
                     directory.deleteRecursively()
                 }
             }
@@ -95,10 +91,9 @@ class ProotTerminalSessionDeviceTest {
         ensureInstalledRuntime(context)
         ActivityScenario.launch(MainActivity::class.java).use {
             runBlocking {
-                val previous = container.profileStore.profile
                 val terminal = checkNotNull(container.manualTerminal)
                 try {
-                    container.profileStore.switchTo(SafetyProfile.ADVANCED)
+                    check(container.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
                     val start = runCatching { terminal.start(leaseMs = 1500) }
                     // A lease shorter than foreground handoff may expire before the shell is ready.
                     // That must be an explicit failed start, never a fabricated ready terminal or replay.
@@ -116,7 +111,6 @@ class ProotTerminalSessionDeviceTest {
                             .resetTerminalSessions(terminal)
                             .isEmpty(),
                     )
-                    container.profileStore.switchTo(previous)
                 }
             }
         }
@@ -127,12 +121,11 @@ class ProotTerminalSessionDeviceTest {
         ensureInstalledRuntime(context)
         ActivityScenario.launch(MainActivity::class.java).use {
             runBlocking {
-                val previous = container.profileStore.profile
                 val terminal = checkNotNull(container.manualTerminal)
                 val relative = "terminal-lease-${UUID.randomUUID()}"
                 val directory = File(context.filesDir, "workspaces/app/terminal/$relative").apply { check(mkdirs()) }
                 try {
-                    container.profileStore.switchTo(SafetyProfile.ADVANCED)
+                    check(container.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
                     terminal.start(relative, leaseMs = 7000)
                     val connection = terminal.attach()
                     try {
@@ -170,7 +163,6 @@ class ProotTerminalSessionDeviceTest {
                             .resetTerminalSessions(terminal)
                             .isEmpty(),
                     )
-                    container.profileStore.switchTo(previous)
                     directory.deleteRecursively()
                 }
             }

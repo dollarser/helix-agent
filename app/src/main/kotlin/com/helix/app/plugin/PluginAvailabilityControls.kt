@@ -3,7 +3,6 @@ package com.helix.app.plugin
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -19,6 +18,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import com.helix.app.R
 import com.helix.app.plugin.PluginSetupReason
+import com.helix.app.ui.SettingsSwitch
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -31,6 +31,7 @@ internal fun PluginAvailabilityControls(
     record: InstalledPlugin,
     service: PluginService,
     onChanged: () -> Unit,
+    refreshKey: Int,
     onConfigurationRequired: (PluginSetupReason) -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
@@ -38,9 +39,11 @@ internal fun PluginAvailabilityControls(
     var failure by remember(record.id) { mutableStateOf(false) }
     var failureMessage by remember(record.id) { mutableIntStateOf(R.string.plugin_settings_read_failed) }
     var setupError by remember(record.id) { mutableStateOf<PluginSetupReason?>(null) }
-    var defaultSelected by remember(record) { mutableStateOf(false) }
-    var readiness by remember(record) { mutableStateOf<PluginReadinessSnapshot?>(null) }
-    LaunchedEffect(record) {
+    var defaultSelected by remember(service, record.id) { mutableStateOf<Boolean?>(null) }
+    var refreshing by remember(service, record.id) { mutableStateOf(true) }
+    var readiness by remember(record, refreshKey) { mutableStateOf<PluginReadinessSnapshot?>(null) }
+    LaunchedEffect(record, refreshKey) {
+        refreshing = true
         try {
             defaultSelected = withContext(Dispatchers.IO) { service.catalog.defaultSelected(record.id) }
             readiness = withContext(Dispatchers.IO) { service.componentReadiness(record) }
@@ -60,6 +63,8 @@ internal fun PluginAvailabilityControls(
                 error,
             )
             failure = true
+        } finally {
+            refreshing = false
         }
     }
     PluginReadinessSummary(record, readiness)
@@ -86,15 +91,10 @@ internal fun PluginAvailabilityControls(
             }
         }
     }
-    if (record.sessionScoped) {
-        Row(Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.connector_session_default), Modifier.weight(1f))
-            Switch(defaultSelected, { value ->
-                perform {
-                    service.setDefaultFromUser(record.id, value)
-                    defaultSelected = value
-                }
-            }, enabled = !busy, modifier = Modifier.testTag("connector-default-${record.id}"))
+    PluginDefaultSelection(record, defaultSelected, busy, refreshing) { value ->
+        perform {
+            service.setDefaultFromUser(record.id, value)
+            defaultSelected = value
         }
     }
     if (record.native != null && record.enabled && readiness?.fullyReady == false) {
@@ -117,13 +117,40 @@ internal fun PluginAvailabilityControls(
 
 @Composable
 @Suppress("FunctionName")
+private fun PluginDefaultSelection(
+    record: InstalledPlugin,
+    selected: Boolean?,
+    busy: Boolean,
+    refreshing: Boolean,
+    onChange: (Boolean) -> Unit,
+) {
+    if (!record.sessionScoped) return
+    Row(Modifier.fillMaxWidth()) {
+        Text(stringResource(R.string.connector_session_default), Modifier.weight(1f))
+        SettingsSwitch(
+            selected,
+            onChange,
+            enabled = !busy && !refreshing,
+            modifier = Modifier.testTag("connector-default-${record.id}"),
+        )
+    }
+}
+
+@Composable
+@Suppress("FunctionName")
 private fun PluginReadinessSummary(
     record: InstalledPlugin,
     readiness: PluginReadinessSnapshot?,
 ) {
-    readiness?.takeIf { record.native == null }?.let { state ->
-        Text(stringResource(R.string.extensions_component_status, state.ready, state.components.size))
-        if (state.hasSkippedComponents) Text(stringResource(R.string.plugin_skipped_components))
+    readiness?.let { state ->
+        if (record.enabled && !state.fullyReady) {
+            state.components.firstOrNull { !it.ready }?.let {
+                Text(stringResource(componentStateLabel(it.state)), color = MaterialTheme.colorScheme.error)
+            }
+            if (record.native == null && state.components.isNotEmpty()) {
+                Text(stringResource(R.string.extensions_component_status, state.ready, state.components.size))
+            }
+            if (state.hasSkippedComponents) Text(stringResource(R.string.plugin_skipped_components))
+        }
     }
-    readiness?.let { PluginReadinessDetails(it) }
 }

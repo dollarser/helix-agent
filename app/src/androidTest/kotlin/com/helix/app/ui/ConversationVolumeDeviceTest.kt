@@ -95,7 +95,6 @@ class ConversationVolumeDeviceTest {
                 .put("images", 25)
                 .put("distinctImageContents", 25)
                 .put("completedHistoryScrolls", 30)
-                .put("artifactMetadataRows", 200)
                 .toString(2),
         )
     }

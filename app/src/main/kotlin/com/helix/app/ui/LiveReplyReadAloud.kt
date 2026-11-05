@@ -42,7 +42,7 @@ internal fun visibleReplyFrame(screen: ChatScreenState): VisibleReplyFrame? {
         session,
         turn.id,
         if (turn.state == TurnState.COMPLETED) {
-            final?.content.orEmpty()
+            ThinkingParser.parse(final?.content.orEmpty()).text
         } else {
             turn.streamingText.orEmpty()
         },
@@ -58,6 +58,11 @@ internal fun ObserveLiveReplyReadAloud(
     frame: VisibleReplyFrame?,
 ) {
     LaunchedEffect(service, frame) {
+        val playing = service?.livePlaybackTurnId
+        val invalid =
+            frame == null || frame.speechId != service?.state?.value?.messageId ||
+                frame.phase in setOf(VisibleReplyFrame.Phase.WAITING, VisibleReplyFrame.Phase.CANCELLED)
+        if (playing != null && invalid) service.stop()
         if (frame == null) {
             if (service?.liveReply?.activeId != null) service.stop()
         } else {

@@ -51,7 +51,7 @@ class BrowserObservationModelDeviceTest {
                     require(it in setOf("ambiguous", "pixels")) { "Unsupported focused diagnostic journey" }
                     listOf(it)
                 } ?: listOf("existing", "delayed", "stale", "ambiguous", "pixels", "unknown")
-            val profile = c.profileStore.profile
+
             val provider =
                 c.providerService.create(
                     ProviderDraft(
@@ -70,7 +70,7 @@ class BrowserObservationModelDeviceTest {
                 check(c.providerService.runConnectionTest(provider) is ProbeOutcome.Ok)
                 // Deliberately test missing pixels rather than optional vision probing and consent.
                 c.providerService.declareVisionCapability(provider, false)
-                c.profileStore.switchTo(SafetyProfile.ADVANCED)
+                check(c.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
                 ActivityScenario.launch(MainActivity::class.java).use { scenario ->
                     for (kind in journeys) {
                         val session = c.chatService.createSession("Observation $kind", provider, model)
@@ -351,7 +351,6 @@ class BrowserObservationModelDeviceTest {
                 assertEquals(journeys.size, outcomes.size)
                 if (!baseline) assertTrue("Frozen journeys: $outcomes", outcomes.all { it })
             } finally {
-                c.profileStore.switchTo(profile)
                 c.providerService.delete(provider)
             }
         }

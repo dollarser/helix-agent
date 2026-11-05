@@ -63,7 +63,7 @@ internal class ConversationVolumeData {
             }
         }
 
-    // The service retains the latest Turn even after completion; its answer must still expose outputs.
+    // A completed latest Turn keeps its answer; artifact management stays outside the timeline.
     val screen =
         ChatScreenState(emptyList(), "volume", null, messages, tools, null, null, null, null).copy(
             activeTurn =
@@ -99,23 +99,6 @@ internal class ConversationVolumeData {
                 {},
                 emptyList(),
                 intents,
-                turnArtifacts = { turn ->
-                    ArtifactFileRowView(
-                        com.helix.app.chat.ArtifactRowUi(
-                            "artifact-$turn",
-                            "volume",
-                            "scope:app:output/$turn.txt",
-                            "$turn.txt",
-                            "text/plain",
-                            0,
-                            null,
-                            turn,
-                            "Synthetic metadata",
-                            false,
-                        ),
-                        {},
-                    )
-                },
             )
         }
     }

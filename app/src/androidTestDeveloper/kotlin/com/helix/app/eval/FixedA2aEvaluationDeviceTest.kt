@@ -54,7 +54,7 @@ class FixedA2aEvaluationDeviceTest {
             val rows = corpus.toString(Charsets.UTF_8).lines().filter { it.startsWith("a2a-") }
             val providers = mutableMapOf<ProviderProtocol, String>()
             val previous = container.chatService.runControl.value
-            val originalProfile = container.profileStore.profile
+
             try {
                 rows.forEach { line ->
                     val cells = line.split('\t')
@@ -73,7 +73,6 @@ class FixedA2aEvaluationDeviceTest {
                 providers.values.forEach { container.providerService.delete(it) }
                 servers.toList().forEach { container.a2aService.delete(it) }
                 scopeOrigins.toList().forEach { container.lanScopeStore.remove(it) }
-                container.profileStore.switchTo(originalProfile)
             }
         }
 
@@ -102,8 +101,7 @@ class FixedA2aEvaluationDeviceTest {
         provider: String,
         model: String,
     ) {
-        val previousProfile = container.profileStore.profile
-        container.profileStore.switchTo(com.helix.core.model.SafetyProfile.ADVANCED)
+        check(container.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
         val serverId = "a2a-eval-${System.nanoTime()}"
         val config = Json.parseToJsonElement(File(directory, "config.json").readText()).jsonObject
         val endpoint = config.getValue("a2aFixtureEndpoint").jsonPrimitive.content + "/${cells[0]}/card"
@@ -152,7 +150,6 @@ class FixedA2aEvaluationDeviceTest {
             container.a2aService.delete(serverId)
             servers.remove(serverId)
             if (scopeOrigins.remove(fixtureOrigin)) container.lanScopeStore.remove(fixtureOrigin)
-            container.profileStore.switchTo(previousProfile)
         }
     }
 

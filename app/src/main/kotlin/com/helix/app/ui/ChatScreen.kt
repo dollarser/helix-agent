@@ -64,8 +64,6 @@ fun ChatScreen(
     fileManager: com.helix.app.files.FileManagerService? = null,
     sessionPermissionEdit: SessionPermissionEditService? = null,
     skills: SkillRepository? = null,
-    projects: com.helix.app.projects.ProjectService? = null,
-    onProject: (String) -> Unit = {},
     onNavigation: () -> Unit = {},
     onModels: () -> Unit = {},
     onAgentDefaults: () -> Unit = {},
@@ -88,9 +86,7 @@ fun ChatScreen(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var renameId by remember { mutableStateOf<String?>(null) }
-    var directoryOpen by remember { mutableStateOf(false) }
     val sessionId = screen.openSessionId
-    var timelineDecorationVersion by remember(sessionId) { mutableStateOf(0) }
     androidx.lifecycle.compose.LifecycleResumeEffect(chatService) {
         val view = chatService.showConversation()
         onPauseOrDispose { view.close() }
@@ -104,6 +100,10 @@ fun ChatScreen(
                 onDismiss = { chatService.toolVisionConsent.respond(disclosure.id, false) },
             )
         }
+    }
+    var artifactsOpen by rememberSaveable(sessionId) { mutableStateOf(false) }
+    if (artifactsOpen) {
+        ConversationArtifacts(chatService, fileManager, screen) { artifactsOpen = false }
     }
     var connectorsOpen by rememberSaveable(sessionId) { mutableStateOf(false) }
     var skillsOpen by remember(sessionId) { mutableStateOf(false) }
@@ -176,7 +176,7 @@ fun ChatScreen(
                 if (chatService.screen.value.openSessionId != sessionId || !buffer.editable ||
                     buffer.sending
                 ) {
-                    return@invoke
+                    return@invoke false
                 }
                 val key = activation.key
                 val item =
@@ -193,10 +193,20 @@ fun ChatScreen(
                 if (retained.size < 4) {
                     buffer.skills(retained + item)
                     if (buffer.value.text.isBlank()) buffer.edit(skillPrompt.format(key.name))
+                    true
                 } else {
                     chatService.showBlockedReason(skillLimit)
+                    false
                 }
             },
+            context =
+                SkillUseContext(
+                    plugins = connectors,
+                    configure = onPluginConfigure,
+                    canApply = {
+                        chatService.screen.value.openSessionId == sessionId && buffer.editable && !buffer.sending
+                    },
+                ),
         )
     }
     if (expertOpen && sessionId != null) {
@@ -398,7 +408,20 @@ fun ChatScreen(
 
             is ChatSubmissionOutcome.Rejected -> {
                 if (chatService.screen.value.openSessionId == receipt.submission.sessionId) {
-                    ChatSubmissionErrorMapper.mapReason(outcome.reason, context)?.let(chatService::showBlockedReason)
+                    if (outcome.reason == "NO_MODEL_SELECTED") {
+                        android.widget.Toast
+                            .makeText(
+                                context,
+                                modelRequiredReason,
+                                android.widget.Toast.LENGTH_SHORT,
+                            ).show()
+                    } else {
+                        ChatSubmissionErrorMapper
+                            .mapReason(
+                                outcome.reason,
+                                context,
+                            )?.let(chatService::showBlockedReason)
+                    }
                 }
             }
         }
@@ -411,7 +434,9 @@ fun ChatScreen(
         val available = buffer.editable && buffer.canSubmit && live.pendingDisclosure == null
         val currentSession = sessionId?.takeIf { it == live.openSessionId }
         if (currentSession != null && available && !selected) {
-            chatService.showBlockedReason(modelRequiredReason)
+            android.widget.Toast
+                .makeText(context, modelRequiredReason, android.widget.Toast.LENGTH_SHORT)
+                .show()
         } else if (currentSession != null && available) {
             // Capture the editor's identity before the first suspension, including attachment selection.
             buffer.attachments(chatService.currentStagedAttachmentIds(currentSession))
@@ -567,7 +592,12 @@ fun ChatScreen(
                                 enabled = buffer.editable && !buffer.sending,
                                 modifier = Modifier.testTag("skill-activation-${activation.name}"),
                             ) {
-                                Text(stringResource(R.string.skill_invocation_selected, activation.name))
+                                Text(
+                                    stringResource(
+                                        R.string.skill_invocation_selected,
+                                        skillCatalogName(activation.source, activation.name),
+                                    ),
+                                )
                             }
                         }
                         sessionId?.let { id ->
@@ -602,16 +632,6 @@ fun ChatScreen(
                         )
                     },
                     composerFeedback = {
-                        if (projects != null && fileManager != null) {
-                            com.helix.app.projects.ui.ConversationProjectContext(
-                                projects,
-                                fileManager,
-                                chatService,
-                                screen,
-                            ) { id ->
-                                navigateAfterSave { onProject(id) }
-                            }
-                        }
                         if (pluginLoadFailed) Text(stringResource(R.string.plugin_selection_load_failed))
                         selectedExpertName?.let { name ->
                             TextButton(
@@ -650,8 +670,17 @@ fun ChatScreen(
                     },
                     bindableProviders = providerRows,
                     modelSourceGroups = providerService.sourceGroups,
-                    artifacts = {
-                        ConversationArtifacts(chatService, fileManager, screen)
+                    artifacts = { closeDetails ->
+                        if (fileManager != null) {
+                            ConversationMenuRow(
+                                stringResource(R.string.chat_artifacts_entry),
+                                {
+                                    closeDetails()
+                                    artifactsOpen = true
+                                },
+                                Modifier.testTag("chat-artifacts-open"),
+                            )
+                        }
                     },
                     displayExecution = { turnId ->
                         DisplayExecutionStatus(
@@ -660,10 +689,6 @@ fun ChatScreen(
                             },
                         )
                     },
-                    turnArtifacts = { turnId ->
-                        TurnArtifactEntry(chatService, fileManager, turnId) { timelineDecorationVersion++ }
-                    },
-                    timelineDecorationVersion = timelineDecorationVersion,
                     taskPreparation = {
                         if (connectors != null && sessionId != null) {
                             PhoneTaskPreparation(connectors) {
@@ -688,7 +713,6 @@ fun ChatScreen(
                             onNavigation = { navigateAfterSave(onNavigation) },
                             onSettings = { navigateAfterSave(onSessionSettings) },
                             onGit = { navigateAfterSave(onGit) },
-                            onManageModels = { navigateAfterSave(onModels) },
                             onConfigureModelSource =
                                 onConfigureModelSource?.let { configure ->
                                     { source -> navigateAfterSave { configure(source) } }
@@ -717,8 +741,7 @@ fun ChatScreen(
                                 val id = sessionId
                                 if (id != null) {
                                     scope.launch {
-                                        if (saveBuffer() &&
-                                            chatService.materializeDraftSession(id) == id &&
+                                        if (saveBuffer() && chatService.materializeDraftSession(id) == id &&
                                             chatService.screen.value.openSessionId == id
                                         ) {
                                             expertOpen = true
@@ -757,7 +780,6 @@ fun ChatScreen(
                             onNew = { navigateAfterSave { chatService.newSessionDraft() } },
                             onRename = { renameId = screen.openSessionId },
                             onExport = sessionExport?.let { { exportSessionId = screen.openSessionId } },
-                            onDirectory = { directoryOpen = true },
                             onSend = onSendAction,
                             onStop = { chatService.stop() },
                             onStopTurn = { turnId -> chatService.stop(turnId) },
@@ -844,11 +866,7 @@ fun ChatScreen(
                                         provider,
                                         model,
                                         reasoning,
-                                        com.helix.app.chat.SessionModelSelectionSnapshot(
-                                            screen.selectedModel?.providerId,
-                                            screen.selectedModel?.model,
-                                            runControl.reasoning,
-                                        ),
+                                        screen.modelSelectionSnapshot,
                                     ).await()
                             },
                             onRefreshModels = providerService.builtInModels::refresh,
@@ -913,11 +931,6 @@ fun ChatScreen(
                 renameId = null
             },
         )
-    }
-    if (directoryOpen && fileManager != null) {
-        SessionDirectoryDialog(fileManager, onDismiss = { directoryOpen = false }) {
-            chatService.setSessionDirectory(it, screen.openSessionId).await()
-        }
     }
 
     screen.pendingDisclosure?.let { summary ->

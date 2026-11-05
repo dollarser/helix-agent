@@ -114,6 +114,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
+@Suppress("TooManyFunctions") // Android lifecycle callbacks plus this Activity's startup/intent handling.
 class MainActivity : ComponentActivity() {
     private var consumedReminderId: String? = null
     private var shareIntentConsumed = false
@@ -186,6 +187,7 @@ class MainActivity : ComponentActivity() {
             val app = application as HelixApplication
             app.startupState.first { it == AppStartupState.Ready }
             val container = app.awaitAppContainer()
+            container.browser.sessionReady.await()
             val owner = BrowserViewOwner(this)
             browserOwner = owner
             readyContainer = container
@@ -259,6 +261,11 @@ class MainActivity : ComponentActivity() {
         // so the manager's grant dialog can complete normally.
         RootModule.onAppBackgrounded()
         super.onStop()
+    }
+
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        readyContainer?.browser?.trimMemory(level)
     }
 
     override fun onResume() {
@@ -422,10 +429,6 @@ internal fun HelixApp(container: AppContainer) {
                         com.helix.app.ui.AccountSettingsEntry(
                             com.helix.app.ui.AccountEntryPresentation.DRAWER,
                         )
-                    },
-                    footer = {
-                        com.helix.app.ui
-                            .DrawerProfileSwitch(container.profileStore)
                     },
                     currentRoute = currentRoute,
                     conversation = conversationDrawerState,
@@ -639,7 +642,6 @@ internal fun HelixApp(container: AppContainer) {
                                 skills = container.skillRepository,
                                 providerService = container.providerService,
                                 permissionEdit = container.sessionPermissionEdit,
-                                connectors = container.pluginService,
                                 files = container.fileManager,
                                 projects = container.projects,
                                 onProject = {
@@ -649,7 +651,6 @@ internal fun HelixApp(container: AppContainer) {
                                             .projectRoute(it),
                                     )
                                 },
-                                onModels = { navController.navigateFrom(entry, ShellDestination.Models.route) },
                                 onConfigureModelSource = { source ->
                                     navController.navigateFrom(
                                         entry,
@@ -657,13 +658,6 @@ internal fun HelixApp(container: AppContainer) {
                                     )
                                 },
                                 onExtensions = { navController.navigateFrom(entry, ShellDestination.Extensions.route) },
-                                onPluginConfigure = {
-                                    id,
-                                    reason,
-                                    ->
-                                    navController.configurePluginFrom(entry, id, reason)
-                                },
-                                onManageExperts = { navController.navigateFrom(entry, EXPERTS_ROUTE) },
                             )
                         }
                         composable(SETUP_READINESS_ROUTE) { entry ->
@@ -724,7 +718,7 @@ internal fun HelixApp(container: AppContainer) {
                             StorageUsageScreen(
                                 load = { checkNotNull(container.storageUsage).snapshot() },
                                 cleanProviderEvidence =
-                                    if (com.helix.app.profile.AdvancedProfileAvailability.ADVANCED_AVAILABLE) {
+                                    if (com.helix.app.profile.ChannelCapabilities.ADVANCED_AVAILABLE) {
                                         { after ->
                                             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                                                 container.privacyDeletionService.cleanReplayEvidence(after)
@@ -854,8 +848,6 @@ private fun DestinationScreen(
                 container.fileManager,
                 sessionPermissionEdit = container.sessionPermissionEdit,
                 skills = container.skillRepository,
-                projects = container.projects,
-                onProject = { id -> navController.navigateFrom(sourceEntry, "project/$id") },
                 sessionExport = container.sessionExport,
                 connectors = container.pluginService,
                 onManageExperts = { navController.navigateFrom(sourceEntry, EXPERTS_ROUTE) },
@@ -938,6 +930,9 @@ private fun DestinationScreen(
         }
 
         ShellDestination.Extensions -> {
+            val skillPrompt =
+                androidx.compose.ui.res
+                    .stringResource(R.string.skill_invocation_prompt)
             com.helix.app.ui.CapabilitiesScreen(
                 container.chatService,
                 container.pluginService,
@@ -948,6 +943,29 @@ private fun DestinationScreen(
                     container.skillInstallationService,
                     container.pluginService,
                     container.marketplaceService,
+                    skillRepository = container.skillRepository,
+                    onSkillInvoke = { target, activation ->
+                        val completion = navController.completionFor(sourceEntry)
+                        try {
+                            val applied =
+                                container.chatService
+                                    .stageSkillActivation(
+                                        target,
+                                        activation,
+                                        skillPrompt.format(activation.key.name),
+                                    ).await()
+                            if (applied && container.chatService.screen.value.openSessionId == target) {
+                                completion.complete {
+                                    navController.openSection(
+                                        ShellDestination.Sessions.route,
+                                    )
+                                }
+                            }
+                            applied
+                        } finally {
+                            completion.invalidate()
+                        }
+                    },
                     onSessionSettings = { navController.navigateFrom(sourceEntry, CONVERSATION_SETTINGS_ROUTE) },
                     prepareSession = container.chatService::materializeDraftSession,
                     currentSession = { container.chatService.screen.value.openSessionId },
@@ -1012,7 +1030,14 @@ private fun DestinationScreen(
 
         // HXA-060: the minimal hardened WebView browser.
         ShellDestination.Browser -> {
-            BrowserScreen(container.browser) { sessionId ->
+            BrowserScreen(
+                container.browser,
+                onExitBrowser = {
+                    if (navController.currentBackStackEntry === sourceEntry) {
+                        navController.openSectionFrom(sourceEntry, ShellDestination.Sessions.route)
+                    }
+                },
+            ) { sessionId ->
                 if (navController.currentBackStackEntry === sourceEntry) {
                     container.chatService.openSession(sessionId)
                     navController.openSectionFrom(sourceEntry, ShellDestination.Sessions.route)
@@ -1050,7 +1075,7 @@ private fun PermissionsScreenDestination(
                 null
             },
         advancedPermissions =
-            if (com.helix.app.profile.AdvancedProfileAvailability.ADVANCED_AVAILABLE &&
+            if (com.helix.app.profile.ChannelCapabilities.ADVANCED_AVAILABLE &&
                 profile == com.helix.core.model.SafetyProfile.ADVANCED
             ) {
                 {

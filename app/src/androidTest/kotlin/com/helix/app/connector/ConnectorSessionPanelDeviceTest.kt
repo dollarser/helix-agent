@@ -10,12 +10,14 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ApplicationProvider
+import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.HelixApplication
 import com.helix.extensions.plugin.PluginPackageReader
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
+import java.io.File
 import java.util.UUID
 
 class ConnectorSessionPanelDeviceTest {
@@ -47,6 +49,7 @@ class ConnectorSessionPanelDeviceTest {
             val selected = "connector-session-${record.id}"
             val default = "connector-default-${record.id}"
             compose.waitUntil(10_000) { compose.onAllNodesWithTag(selected).fetchSemanticsNodes().isNotEmpty() }
+            if (!scoped) savePickerScreenshot()
             if (scoped) {
                 service.sessionRows(session).filter { it.id != record.id }.forEach {
                     compose.onNodeWithTag("connector-session-${it.id}").assertDoesNotExist()
@@ -57,23 +60,20 @@ class ConnectorSessionPanelDeviceTest {
                 .performScrollTo()
                 .assertIsOff()
                 .performClick()
+            waitSelection(selected, true)
             compose.onNodeWithTag("plugin-session-apply").performClick()
             compose.waitUntil(10_000) { record.id in service.catalog.selected(session) }
-            compose.waitUntil(10_000) {
-                runCatching {
-                    compose
-                        .onNodeWithTag(selected)
-                        .performScrollTo()
-                        .assertIsEnabled()
-                        .assertIsOn()
-                }.isSuccess
-            }
-            compose.onNodeWithTag(selected).assertIsEnabled()
-            compose.onNodeWithTag(selected).assertIsOn()
+            waitSelection(selected, true)
+            compose
+                .onNodeWithTag(selected)
+                .performScrollTo()
+                .assertIsEnabled()
+                .assertIsOn()
             compose.onNodeWithTag(default).assertDoesNotExist()
             service.catalog.setDefault(record.id, true)
             c.storage.sessions.create(next, "New", null, null, 0)
             compose.onNodeWithTag(selected).performScrollTo().performClick()
+            waitSelection(selected, false)
             compose.onNodeWithTag("plugin-session-apply").performClick()
             compose.waitUntil(10_000) { service.catalog.selected(session) == initiallySelected }
             assertEquals(initiallySelected + record.id, service.catalog.selected(next))
@@ -87,6 +87,32 @@ class ConnectorSessionPanelDeviceTest {
             ) {
                 c.storage.deleteSessionPermanently(next)
             }
+        }
+    }
+
+    private fun savePickerScreenshot() {
+        compose.mainClock.advanceTimeBy(300)
+        compose.waitForIdle()
+        // The Compose clock does not advance the platform window's enter animation.
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync()
+        android.os.SystemClock.sleep(500)
+        val image = requireNotNull(InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot())
+        val context = ApplicationProvider.getApplicationContext<HelixApplication>()
+        File(context.cacheDir, "plugin-selection-compact.png").outputStream().use {
+            check(image.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it))
+        }
+        image.recycle()
+    }
+
+    private fun waitSelection(
+        tag: String,
+        selected: Boolean,
+    ) {
+        compose.waitUntil(10_000) {
+            runCatching {
+                val node = compose.onNodeWithTag(tag).assertIsEnabled()
+                if (selected) node.assertIsOn() else node.assertIsOff()
+            }.isSuccess
         }
     }
 

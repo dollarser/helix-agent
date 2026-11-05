@@ -74,6 +74,7 @@ fun BrowserMenuSheet(
     onClearCache: () -> Unit,
     onClearHistory: () -> Unit,
     onDismiss: () -> Unit,
+    onCloseBrowser: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Surface(
@@ -146,12 +147,16 @@ fun BrowserMenuSheet(
                 )
                 QuickTopAction(
                     icon = "✕",
-                    label = stringResource(R.string.browser_dismiss),
+                    label = stringResource(R.string.browser_dismiss_menu),
                     onClick = onDismiss,
                 )
             }
 
             Spacer(modifier = Modifier.height(20.dp))
+
+            TextButton(onClick = onCloseBrowser, modifier = Modifier.testTag("browser-close")) {
+                Text(stringResource(R.string.browser_close))
+            }
 
             // Features Grid
             FlowRow(

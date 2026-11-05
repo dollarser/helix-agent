@@ -32,14 +32,14 @@ class BackgroundDisplayCompatibilityDeviceTest {
         val lines = PrefsLineStore(app, "helix-mobile-use", synchronous = true)
         val oldScope = lines.lines(MobileUseGrantStore.CONFIG_KEY)
         val oldRoute = lines.lines(MobileUseGrantStore.EXECUTION_KEY)
-        val profile = c.profileStore.profile
+
         val plugin = c.pluginService.list().single { it.native?.pluginId == "mobile-use" }
         val store = MobileUseGrantStore(lines::lines, lines::setLines, { null })
         val now = System.currentTimeMillis()
         c.storage.sessions.create(session, "Old platform synthetic display", null, null, now)
         c.storage.turns.start(session, session, now)
         try {
-            c.profileStore.switchTo(SafetyProfile.ADVANCED)
+            check(c.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
             c.pluginService.setEnabled(plugin.id, true)
             store.configureGlobal(setOf("com.helix.agent.developer.test"), false)
             store.configureExecution(background = true, allowMoveFromMain = false)
@@ -55,7 +55,6 @@ class BackgroundDisplayCompatibilityDeviceTest {
             lines.setLines(MobileUseGrantStore.EXECUTION_KEY, oldRoute)
             c.storage.deleteSessionPermanently(session)
             c.pluginService.setEnabled(plugin.id, plugin.enabled)
-            c.profileStore.switchTo(profile)
         }
     }
 }

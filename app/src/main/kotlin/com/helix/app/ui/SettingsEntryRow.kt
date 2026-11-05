@@ -17,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
 /** A labelled native touch target shared by actual preference entry points, with wrapping text. */
@@ -28,8 +29,10 @@ internal fun SettingsEntryRow(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     subtitle: String? = null,
+    enabled: Boolean = true,
+    subtitleMaxLines: Int = Int.MAX_VALUE,
 ) {
-    Surface(onClick = onClick, modifier = modifier.fillMaxWidth(), color = Color.Transparent) {
+    Surface(onClick = onClick, enabled = enabled, modifier = modifier.fillMaxWidth(), color = Color.Transparent) {
         Row(
             Modifier.heightIn(min = 56.dp).padding(horizontal = 8.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -41,6 +44,8 @@ internal fun SettingsEntryRow(
                 subtitle?.let {
                     Text(
                         it,
+                        maxLines = subtitleMaxLines,
+                        overflow = TextOverflow.Ellipsis,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

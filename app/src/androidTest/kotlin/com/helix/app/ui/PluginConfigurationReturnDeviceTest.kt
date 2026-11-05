@@ -7,6 +7,7 @@ import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onParent
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.navigation.compose.NavHost
@@ -59,6 +60,7 @@ class PluginConfigurationReturnDeviceTest {
                 .assertIsOff()
                 .assertIsEnabled()
                 .performClick()
+            waitTag("plugin-setup-continue")
             compose.onNodeWithTag("plugin-setup-continue").performClick()
             waitTag("plugin-configuration-back")
             assertFalse(record.id in service.catalog.selected(name))
@@ -88,6 +90,7 @@ class PluginConfigurationReturnDeviceTest {
         name: String,
     ) {
         waitTag("plugin-tab-1-${record.id}")
+        compose.onNodeWithTag("plugin-tab-1-${record.id}").onParent().performScrollTo()
         compose.onNodeWithTag("plugin-tab-1-${record.id}").performScrollTo().performClick()
         val skillTag = "plugin-skill-enabled-$name"
         waitTag(skillTag)

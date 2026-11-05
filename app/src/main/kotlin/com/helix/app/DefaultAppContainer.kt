@@ -26,8 +26,8 @@ import com.helix.app.language.AppLanguageStore
 import com.helix.app.mcp.McpAppService
 import com.helix.app.mcp.McpStorageBridge
 import com.helix.app.privacy.PrivacyDeletionService
-import com.helix.app.profile.AdvancedProfileAvailability
-import com.helix.app.profile.PersistedSafetyProfileStore
+import com.helix.app.profile.ChannelCapabilities
+import com.helix.app.profile.ChannelSafetyProfileStore
 import com.helix.app.profile.SafetyProfileStore
 import com.helix.app.proot.ProotToolModule
 import com.helix.app.provider.ArtifactVisionImageSource
@@ -132,7 +132,7 @@ internal class DefaultAppContainer(
     private val mobileUseLines = PrefsLineStore(context, "helix-mobile-use", synchronous = true)
 
     override val profileStore: SafetyProfileStore =
-        PersistedSafetyProfileStore(lineStore, AdvancedProfileAvailability.ADVANCED_AVAILABLE)
+        ChannelSafetyProfileStore(ChannelCapabilities.PROFILE)
 
     override val manualTerminal =
         com.helix.app.terminal.ManualTerminalModule.create(
@@ -648,8 +648,7 @@ internal class DefaultAppContainer(
                         { session, turn -> chatService.toolVisionConsent.hasPending(session, turn) },
                     ) { chatService },
             conversationExists = { storage.sessions.find(it) != null },
-            displayPresentation = { chatService.publishDisplayExecution(it) },
-            taskActive = { session, turn ->
+            callActive = { session, turn ->
                 storage.turns.find(turn)?.let { row ->
                     val state =
                         com.helix.core.model.TurnState.entries
@@ -659,6 +658,7 @@ internal class DefaultAppContainer(
                         state?.canBecomeInterruptedOnProcessDeath() == true
                 } == true
             },
+            displayPresentation = { chatService.publishDisplayExecution(it) },
         )
         // HXA-076/097: Skill discovery/activation/resource/enablement/removal run through the same
         // Dispatcher/Policy/Approval/Audit pipeline. Built-ins are instruction-only; their text
@@ -962,6 +962,15 @@ internal class DefaultAppContainer(
             pluginCatalog,
             nativeRegistry = pluginRegistry,
             browserHostAvailable = browser::hostAvailable,
+            toolNames = {
+                toolRegistry
+                    .snapshot()
+                    .filter {
+                        it.descriptor.origin ==
+                            com.helix.tools.framework.ToolOrigin.BuiltInOrigin
+                    }.map { it.descriptor.name.value }
+                    .toSet()
+            },
         )
     }
 

@@ -10,6 +10,32 @@ import org.junit.Test
 
 /** Room/service regression fixtures; compilation is not device acceptance. No real service/account. */
 class HistoricalProviderBindingDeviceTest {
+    @Test fun unloadedRowsDoNotTurnAnExistingSourceIntoADeletedSource() =
+        runBlocking {
+            ProviderModelsIntegrationDeviceTest.Fixture().use { f ->
+                val bindings = ProviderBindingValidation(f.storage, f.status, { emptyList() }, { false }, { 1L })
+                assertEquals(ProviderBindingIssue.UNTESTED, bindings.project("p", "a"))
+            }
+        }
+
+    @Test fun signedOutBuiltInSourceRequiresAuthenticationBeforeRowsLoad() =
+        runBlocking {
+            ProviderModelsIntegrationDeviceTest.Fixture().use { f ->
+                BuiltInModelRegistration.ensureRegistered(f.storage)
+                val status =
+                    ProviderTestStatusStore(
+                        com.helix.app.internal
+                            .InMemoryLineStore(),
+                        { "signed-out" },
+                    )
+                val bindings = ProviderBindingValidation(f.storage, status, { emptyList() }, { false }, { 1L })
+                assertEquals(
+                    ProviderBindingIssue.AUTHENTICATION,
+                    bindings.project(BuiltInModel.PROVIDER_ID, BuiltInModel.MODEL_ID),
+                )
+            }
+        }
+
     @Test fun deletedSourceIsDiagnosedAfterRoomRestoresHistoricalSession() =
         runBlocking {
             ProviderModelsIntegrationDeviceTest.Fixture().use { f ->

@@ -26,9 +26,7 @@ class BrowserActivityLifecycleDeviceTest {
         lateinit var manual: String
         val created = mutableListOf<String>()
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
-            scenario.onActivity { activity ->
-                controller = (activity.application as HelixApplication).appContainer.browser
-            }
+            controller = readyController(scenario)
             try {
                 scenario.onActivity {
                     manual = controller.openTab("data:text/html,<body>USER_PAGE_UNCHANGED</body>").tabId
@@ -39,6 +37,7 @@ class BrowserActivityLifecycleDeviceTest {
                 }
                 awaitTaskPixels(controller, task)
                 scenario.recreate()
+                readyController(scenario)
                 scenario.onActivity {
                     assertEquals(manual, controller.state.value.selectedId)
                     assertNull(controller.hostView(task))
@@ -59,10 +58,12 @@ class BrowserActivityLifecycleDeviceTest {
         var id: String? = null
         lateinit var controller: BrowserController
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            controller = readyController(scenario)
             try {
-                scenario.onActivity { activity ->
-                    controller = (activity.application as HelixApplication).appContainer.browser
-                    id = controller.openTab(PAGE).tabId
+                scenario.onActivity {
+                    val opened = controller.openTab(PAGE)
+                    assertTrue(opened.failureReason, opened.tabId.isNotBlank())
+                    id = opened.tabId
                 }
                 for (key in listOf("KEYCODE_HOME", "KEYCODE_SLEEP")) {
                     instrumentation.uiAutomation.executeShellCommand("input keyevent $key").close()
@@ -85,7 +86,7 @@ class BrowserActivityLifecycleDeviceTest {
                     .executeShellCommand(
                         "am start -W -n ${instrumentation.targetContext.packageName}/com.helix.app.MainActivity",
                     ).close()
-                instrumentation.runOnMainSync { id?.let(controller::closeTab) }
+                instrumentation.runOnMainSync { id?.let { closeFixtureTabs(controller, listOf(it)) } }
             }
         }
     }
@@ -93,8 +94,8 @@ class BrowserActivityLifecycleDeviceTest {
     @Test
     fun repeatedNewTabAtCapacityDoesNotCrashAndCanRecoverAfterClose() {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
-            scenario.onActivity { activity ->
-                val controller = (activity.application as HelixApplication).appContainer.browser
+            val controller = readyController(scenario)
+            scenario.onActivity {
                 controller.state.value.tabs
                     .toList()
                     .forEach { controller.closeTab(it.id) }
@@ -120,8 +121,8 @@ class BrowserActivityLifecycleDeviceTest {
         lateinit var firstView: WebView
         lateinit var id: String
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            controller = readyController(scenario)
             scenario.onActivity { activity ->
-                controller = (activity.application as HelixApplication).appContainer.browser
                 id = controller.openTab(PAGE).tabId
                 firstView = controller.hostView(id)!!
                 assertSame(activity, firstView.context)
@@ -131,6 +132,7 @@ class BrowserActivityLifecycleDeviceTest {
             scenario.onActivity { assertSame(firstView, controller.hostView(id)) }
             repeat(3) {
                 scenario.recreate()
+                readyController(scenario)
                 scenario.onActivity { activity ->
                     assertSame(controller, (activity.application as HelixApplication).appContainer.browser)
                     assertEquals(PAGE, controller.tab(id)!!.url)
@@ -143,6 +145,20 @@ class BrowserActivityLifecycleDeviceTest {
             }
             scenario.onActivity { controller.closeTab(id) }
         }
+    }
+
+    private fun readyController(scenario: ActivityScenario<MainActivity>): BrowserController {
+        lateinit var controller: BrowserController
+        scenario.onActivity { controller = (it.application as HelixApplication).appContainer.browser }
+        kotlinx.coroutines.runBlocking { kotlinx.coroutines.withTimeout(10_000) { controller.sessionReady.await() } }
+        val deadline = android.os.SystemClock.elapsedRealtime() + 10_000
+        var available = false
+        while (!available && android.os.SystemClock.elapsedRealtime() < deadline) {
+            InstrumentationRegistry.getInstrumentation().runOnMainSync { available = controller.hostAvailable() }
+            if (!available) Thread.sleep(10)
+        }
+        assertTrue("MainActivity must attach its browser owner before page commands", available)
+        return controller
     }
 
     private fun closeFixtureTabs(

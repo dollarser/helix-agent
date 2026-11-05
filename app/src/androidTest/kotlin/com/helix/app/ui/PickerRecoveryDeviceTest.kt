@@ -3,7 +3,6 @@ package com.helix.app.ui
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
-import android.speech.RecognizerIntent
 import androidx.activity.compose.LocalActivityResultRegistryOwner
 import androidx.activity.result.ActivityResultRegistry
 import androidx.activity.result.ActivityResultRegistryOwner
@@ -11,6 +10,7 @@ import androidx.activity.result.contract.ActivityResultContract
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -27,6 +27,7 @@ import org.junit.Test
 class PickerRecoveryDeviceTest {
     @get:Rule val compose = createComposeRule()
     private var request = 0
+    private var selectedTypes = emptyList<String>()
     private var launchFailure: RuntimeException? = null
     private val registry =
         object : ActivityResultRegistry() {
@@ -37,6 +38,7 @@ class PickerRecoveryDeviceTest {
                 options: ActivityOptionsCompat?,
             ) {
                 request = code
+                if (input is Array<*>) selectedTypes = input.filterIsInstance<String>()
                 launchFailure?.let { throw it }
             }
         }
@@ -47,7 +49,7 @@ class PickerRecoveryDeviceTest {
 
     @Suppress("LongMethod") // One result-registry restoration and cross-session rejection journey.
     @Test
-    fun voiceAndFileResultsSurviveRecreationButNeverCrossSessions() {
+    fun mergedImageAndFilePickerSurvivesRecreationButNeverCrossesSessions() {
         val session = mutableStateOf("first")
         val text = mutableStateOf("draft")
         val attachments = mutableListOf<String>()
@@ -87,27 +89,23 @@ class PickerRecoveryDeviceTest {
             }
         }
         compose.onNodeWithTag("chat-voice").performClick()
-        restore.emulateSavedInstanceStateRestore()
-        compose.runOnIdle { registry.dispatchResult(request, Activity.RESULT_OK, speech("recognized")) }
-        compose.runOnIdle { assertEquals("draft recognized", text.value) }
-        compose.onNodeWithTag("chat-voice").performClick()
-        compose.runOnIdle { session.value = "second" }
-        compose.runOnIdle { registry.dispatchResult(request, Activity.RESULT_OK, speech("wrong-session")) }
-        compose.runOnIdle {
-            assertEquals("draft recognized", text.value)
-            assertEquals(0, sends)
-        }
+        compose.onNodeWithTag("voice-input-modes-sheet").assertIsDisplayed()
+        assertEquals(0, request)
+        compose.onNodeWithTag("voice-input-modes-close").performClick()
+        compose.runOnIdle { assertEquals("draft", text.value) }
+        pickFile()
+        compose.runOnIdle { registry.dispatchResult(request, Activity.RESULT_CANCELED, null) }
+        compose.runOnIdle { assertEquals(0, attachments.size) }
         launchFailure = android.content.ActivityNotFoundException()
         pickFile()
         compose.onNodeWithTag("chat-voice-notice").assertExists()
         compose.runOnIdle {
             registry.dispatchResult(request, Activity.RESULT_OK, Intent().setData(Uri.parse("content://fixture/stale")))
             assertEquals(0, attachments.size)
-            assertEquals("draft recognized", text.value)
+            assertEquals("draft", text.value)
         }
         launchFailure = SecurityException()
-        compose.onNodeWithTag("chat-add").performClick()
-        compose.onNodeWithTag("composer-add-photo").performClick()
+        pickFile()
         compose.onNodeWithTag("chat-voice-notice").assertExists()
         launchFailure = null
         pickFile()
@@ -115,18 +113,24 @@ class PickerRecoveryDeviceTest {
         compose.runOnIdle {
             registry.dispatchResult(request, Activity.RESULT_OK, Intent().setData(Uri.parse("content://fixture/first")))
         }
-        compose.runOnIdle { assertEquals(listOf("content://fixture/first"), attachments) }
+        compose.runOnIdle {
+            assertEquals(listOf("content://fixture/first"), attachments)
+            assertEquals(listOf("*/*"), selectedTypes)
+        }
         pickFile()
         compose.runOnIdle { session.value = "third" }
         compose.runOnIdle {
             registry.dispatchResult(request, Activity.RESULT_OK, Intent().setData(Uri.parse("content://fixture/other")))
         }
         compose.runOnIdle { assertEquals(1, attachments.size) }
-        compose.onNodeWithTag("chat-add").performClick()
-        compose.onNodeWithTag("composer-add-photo").performClick()
+        pickFile()
         restore.emulateSavedInstanceStateRestore()
         compose.runOnIdle {
-            registry.dispatchResult(request, Activity.RESULT_OK, Intent().setData(Uri.parse("content://fixture/photo")))
+            registry.dispatchResult(
+                request,
+                Activity.RESULT_OK,
+                Intent().setData(Uri.parse("content://fixture/image.png")),
+            )
         }
         compose.runOnIdle { assertEquals(2, attachments.size) }
         val previousRequest = request
@@ -145,10 +149,4 @@ class PickerRecoveryDeviceTest {
         compose.onNodeWithTag("chat-add").performClick()
         compose.onNodeWithTag("composer-add-file").performClick()
     }
-
-    private fun speech(text: String) =
-        Intent().putStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS, arrayListOf(text))
 }
-
-/** Provides package-manager discovery only; the test registry supplies results without recording audio. */
-class FixtureSpeechActivity : Activity()

@@ -53,16 +53,16 @@ internal fun ConversationMenuRow(
             },
         shape = RoundedCornerShape(12.dp),
         modifier =
-            modifier.fillMaxWidth().padding(vertical = 2.dp).then(
+            modifier.fillMaxWidth().then(
                 if (selected == null) Modifier else Modifier.semantics { this.selected = selected },
             ),
     ) {
         Row(
-            Modifier.heightIn(min = 56.dp).padding(horizontal = 12.dp, vertical = 10.dp),
+            Modifier.heightIn(min = 48.dp).padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(title, style = MaterialTheme.typography.bodyLarge)
                 supporting?.let {
                     Text(

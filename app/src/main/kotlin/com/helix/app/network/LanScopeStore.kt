@@ -25,7 +25,7 @@ class LanScopeStore(
 
     @Synchronized
     fun add(origin: String) {
-        check(advancedEnabled()) { "Advanced must be explicitly enabled" }
+        check(advancedEnabled()) { "LAN scopes require an Advanced-capable build channel" }
         val next = (state.value + normalize(origin)).distinct().sorted()
         require(next.size <= MAX_ORIGINS) { "Too many LAN origins" }
         storage.setLines(KEY, next)

@@ -61,6 +61,25 @@ class AutomationBackendSelectionTest {
         assertEquals(0, port.snapshots)
     }
 
+    @Test fun selectorRecoveryKeepsTheOriginalPrivilegedBackendWithoutRetry() {
+        for (backend in listOf(AutomationClickBackend.ROOT, AutomationClickBackend.SHIZUKU)) {
+            for (refusal in listOf(AutomationActionStatus.TARGET_NOT_FOUND, AutomationActionStatus.TARGET_AMBIGUOUS)) {
+                val port =
+                    SelectionPort().apply {
+                        selected = backend
+                        status = refusal
+                    }
+                val failed = execute(port) as ToolExecutorResult.Failed
+                assertTrue(failed.detail.startsWith(refusal.name + ":"))
+                assertTrue(failed.detail.contains("ui.snapshot") || failed.detail.contains("ui.find"))
+                assertTrue(failed.sideEffectFree)
+                assertFalse(failed.requiresReview)
+                assertEquals(listOf(backend.name.lowercase()), port.actions)
+                assertEquals(0, port.snapshots)
+            }
+        }
+    }
+
     @Test fun rootDisappearingAfterSelectionFailsWithoutDowngrade() {
         val port = SelectionPort().apply { status = AutomationActionStatus.ROOT_UNAVAILABLE }
         val result = execute(port) as ToolExecutorResult.Failed
@@ -78,7 +97,8 @@ class AutomationBackendSelectionTest {
     @Test fun accessibilityFallbackStillChecksTheRequestedPackage() {
         val port = SelectionPort().apply { selected = AutomationClickBackend.ACCESSIBILITY }
         val result = execute(port, mapOf("packageName" to "com.other.app")) as ToolExecutorResult.Failed
-        assertEquals("TARGET_CHANGED", result.detail)
+        assertTrue(result.detail.startsWith("TARGET_CHANGED:"))
+        assertTrue(result.sideEffectFree)
         assertTrue(port.actions.isEmpty())
     }
 

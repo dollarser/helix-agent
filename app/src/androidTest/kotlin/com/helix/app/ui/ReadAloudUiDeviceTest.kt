@@ -15,14 +15,21 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LifecycleRegistry
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.test.platform.app.InstrumentationRegistry
+import com.helix.app.HelixApplication
+import com.helix.app.chat.ChatScreenState
+import com.helix.app.chat.MessagePresentation
 import com.helix.app.chat.MessageUi
+import com.helix.app.chat.TurnUi
 import com.helix.app.voice.LocalSpeechModel
 import com.helix.app.voice.ReadAloudPhase
 import com.helix.app.voice.ReadAloudService
 import com.helix.app.voice.SpeechAudio
 import com.helix.app.voice.SpeechEngine
 import com.helix.app.voice.SpeechSink
+import com.helix.core.model.TurnState
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -38,6 +45,7 @@ class ReadAloudUiDeviceTest {
     private fun fixture(
         ready: Boolean = true,
         realFocus: Boolean = false,
+        spoken: MutableList<String>? = null,
         block: (ReadAloudService, AtomicInteger) -> Unit,
     ) {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
@@ -67,6 +75,7 @@ class ReadAloudUiDeviceTest {
                         keepGoing: () -> Boolean,
                         consume: (FloatArray, Int) -> Unit,
                     ) {
+                        spoken?.add(text)
                         consume(floatArrayOf(0.1f), 16_000)
                         while (keepGoing()) Thread.sleep(5)
                     }
@@ -94,6 +103,174 @@ class ReadAloudUiDeviceTest {
         } finally {
             compose.runOnUiThread(service::close)
             root.deleteRecursively()
+        }
+    }
+
+    @Test
+    @Suppress("LongMethod") // One final-answer journey restores the owner's global setting in finally.
+    fun automaticSpeechWaitsForPersistedFinalAndStopsWithoutReplaying() {
+        val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as HelixApplication
+        val original = app.replyAudioSettings.automatic.value
+        val spoken = java.util.Collections.synchronizedList(mutableListOf<String>())
+        val screen =
+            mutableStateOf(
+                ChatScreenState(
+                    emptyList(),
+                    "auto-session",
+                    null,
+                    emptyList(),
+                    emptyList(),
+                    TurnUi("auto-turn", TurnState.RECEIVING_MODEL, "中间过程。", null, false),
+                    null,
+                    null,
+                    null,
+                ),
+            )
+        try {
+            runBlocking { app.replyAudioSettings.setAutomatic(true) }
+            fixture(spoken = spoken) { reader, closed ->
+                compose.setContent {
+                    MaterialTheme {
+                        ReadAloudLifecycle(reader, screen.value.openSessionId)
+                        val frame = visibleReplyFrame(screen.value)
+                        ObserveLiveReplyReadAloud(reader, frame)
+                        AutomaticReplyAudioControl(reader, frame)
+                    }
+                }
+                compose.waitForIdle()
+                assertEquals(ReadAloudPhase.IDLE, reader.state.value.phase)
+                for (phase in listOf(TurnState.RUNNING_TOOL, TurnState.RECEIVING_MODEL, TurnState.COMPLETED)) {
+                    compose.runOnIdle {
+                        screen.value = screen.value.copy(activeTurn = screen.value.activeTurn?.copy(state = phase))
+                    }
+                    compose.waitForIdle()
+                    assertEquals(
+                        "No progress or missing final may start speech",
+                        ReadAloudPhase.IDLE,
+                        reader.state.value.phase,
+                    )
+                }
+                compose.runOnIdle {
+                    screen.value =
+                        screen.value.copy(
+                            messages =
+                                listOf(
+                                    MessageUi(
+                                        "progress",
+                                        "assistant",
+                                        "工具前的过程",
+                                        "auto-turn",
+                                        presentation = MessagePresentation.PROGRESS,
+                                    ),
+                                    MessageUi("final", "assistant", "<think>隐藏思考</think>最终结论。", "auto-turn"),
+                                ),
+                        )
+                }
+                compose.waitUntil(10_000) { reader.state.value.phase == ReadAloudPhase.SPEAKING }
+                assertEquals(listOf("最终结论。"), spoken.toList())
+                assertEquals("auto-turn", reader.livePlaybackTurnId)
+                compose.onNodeWithTag("chat-auto-read").performClick()
+                compose.waitUntil(10_000) { !app.replyAudioSettings.automatic.value && closed.get() > 0 }
+                compose.waitUntil(10_000) { reader.state.value.phase == ReadAloudPhase.IDLE }
+                compose.onNodeWithTag("chat-auto-read").performClick()
+                compose.waitUntil(10_000) { app.replyAudioSettings.automatic.value }
+                compose.waitForIdle()
+                assertEquals(ReadAloudPhase.IDLE, reader.state.value.phase)
+                assertEquals(listOf("最终结论。"), spoken.toList())
+            }
+        } finally {
+            runBlocking { app.replyAudioSettings.setAutomatic(original) }
+        }
+    }
+
+    @Test
+    @Suppress("LongMethod") // One navigation boundary proves historical finals never start or revive audio.
+    fun historicalFinalIsSilentAndChangingTurnStopsFinalAudio() {
+        val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as HelixApplication
+        val original = app.replyAudioSettings.automatic.value
+        val spoken = java.util.Collections.synchronizedList(mutableListOf<String>())
+        val screen =
+            mutableStateOf(
+                ChatScreenState(
+                    emptyList(),
+                    "auto-session",
+                    null,
+                    emptyList(),
+                    emptyList(),
+                    TurnUi("old-turn", TurnState.COMPLETED, null, null, false),
+                    null,
+                    null,
+                    null,
+                ),
+            )
+        try {
+            runBlocking { app.replyAudioSettings.setAutomatic(true) }
+            fixture(spoken = spoken) { reader, closed ->
+                compose.setContent {
+                    MaterialTheme {
+                        ReadAloudLifecycle(reader, screen.value.openSessionId)
+                        val frame = visibleReplyFrame(screen.value)
+                        ObserveLiveReplyReadAloud(reader, frame)
+                        AutomaticReplyAudioControl(reader, frame)
+                    }
+                }
+                compose.waitForIdle()
+                assertEquals(ReadAloudPhase.IDLE, reader.state.value.phase)
+                assertTrue(spoken.isEmpty())
+                compose.runOnIdle {
+                    screen.value =
+                        screen.value.copy(
+                            messages =
+                                listOf(
+                                    MessageUi("old", "assistant", "旧回答。", "old-turn"),
+                                ),
+                        )
+                }
+                compose.waitForIdle()
+                assertEquals(ReadAloudPhase.IDLE, reader.state.value.phase)
+                assertTrue(spoken.isEmpty())
+                compose.runOnIdle {
+                    screen.value =
+                        screen.value.copy(
+                            activeTurn = TurnUi("new-turn", TurnState.RECEIVING_MODEL, "过程。", null, false),
+                        )
+                }
+                compose.waitForIdle()
+                compose.runOnIdle {
+                    screen.value =
+                        screen.value.copy(
+                            activeTurn = screen.value.activeTurn?.copy(state = TurnState.COMPLETED),
+                            messages = screen.value.messages + MessageUi("new", "assistant", "新结论。", "new-turn"),
+                        )
+                }
+                compose.waitUntil(10_000) { reader.state.value.phase == ReadAloudPhase.SPEAKING }
+                assertEquals(listOf("新结论。"), spoken.toList())
+                compose.runOnIdle {
+                    screen.value =
+                        screen.value.copy(
+                            activeTurn = TurnUi("next-turn", TurnState.RECEIVING_MODEL, null, null, false),
+                        )
+                }
+                compose.waitUntil(10_000) { closed.get() > 0 && reader.state.value.phase == ReadAloudPhase.IDLE }
+                assertFalse(reader.livePlaybackTurnId != null)
+                compose.runOnIdle { screen.value = screen.value.copy(openSessionId = "history", activeTurn = null) }
+                compose.waitForIdle()
+                assertEquals(listOf("新结论。"), spoken.toList())
+                compose.runOnIdle {
+                    reader.leave()
+                    screen.value =
+                        screen.value.copy(
+                            openSessionId = "auto-session",
+                            activeTurn = TurnUi("next-turn", TurnState.COMPLETED, null, null, false),
+                            messages = listOf(MessageUi("late", "assistant", "离页后完成。", "next-turn")),
+                        )
+                }
+                compose.waitForIdle()
+                assertEquals(ReadAloudPhase.IDLE, reader.state.value.phase)
+                assertEquals(listOf("新结论。"), spoken.toList())
+            }
+        } finally {
+            runBlocking { app.replyAudioSettings.setAutomatic(original) }
         }
     }
 

@@ -19,15 +19,8 @@ import com.helix.app.language.AppLanguageStore
 import com.helix.core.model.SafetyProfile
 import kotlinx.coroutines.runBlocking
 
-/*
- * Shared HXA-028 instrumented-test helpers.
- *
- * App data survives across instrumented runs on the emulator (Room database +
- * SharedPreferences), so every UI test first re-arms deterministic state
- * through the service seams — FirstLaunchStore.reset and
- * SafetyProfileStore.switchTo(STANDARD) — then recreates the activity so the
- * fresh gate state is recomposed.
- */
+/* Shared instrumented UI helpers: reset only fixture navigation and first-launch state.
+ * Capability identity is fixed by the build channel and is never reset by a test. */
 
 /** IO-backed UI projections wait up to ten seconds, returning as soon as state arrives; not a latency SLA. */
 internal const val ASYNC_UI_TIMEOUT_MILLIS = 10_000L
@@ -36,7 +29,7 @@ internal const val ASYNC_UI_TIMEOUT_MILLIS = 10_000L
 fun AndroidComposeTestRule<*, *>.container(): AppContainer = (activity.application as HelixApplication).appContainer
 
 /**
- * Re-arms the first-launch gate + the STANDARD profile, recreates the
+ * Re-arms the first-launch gate, recreates the
  * activity, and waits for the new composition. Because the gate is re-armed,
  * the fresh composition shows the notice over the shell — the helper
  * dismisses it so tests land on a deterministic, gate-free shell (the
@@ -46,7 +39,6 @@ fun AndroidComposeTestRule<*, *>.resetDeterministicUiState() {
     waitForIdle()
     val container = container()
     container.firstLaunch.reset()
-    container.profileStore.switchTo(SafetyProfile.STANDARD)
     // Conversation-first fixture: every UI test starts from a fresh ephemeral conversation.
     // History/search tests must explicitly navigate to their secondary routes.
     // Keep the reset in one UI turn so Conversation's null-session effect cannot interleave.

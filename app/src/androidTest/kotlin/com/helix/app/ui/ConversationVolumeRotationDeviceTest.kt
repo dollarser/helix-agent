@@ -64,7 +64,9 @@ class ConversationVolumeRotationDeviceTest {
             screenshot("volume-landscape")
             compose.onNodeWithTag("chat-scroll-latest").performClick()
             compose.onNodeWithTag("chat-timeline-end").assertIsDisplayed()
-            compose.onNodeWithTag("artifact-file-row-artifact-t-199").assertIsDisplayed()
+            compose.onNodeWithTag("chat-message-toggle-a-199").assertIsDisplayed()
+            compose.onNodeWithTag("chat-message-body-a-199", useUnmergedTree = true).assertIsDisplayed()
+            compose.onNodeWithTag("artifact-file-row-artifact-t-199").assertDoesNotExist()
             val context = InstrumentationRegistry.getInstrumentation().targetContext
             val directory = File(context.getExternalFilesDir(null), "stability-volume").also { it.mkdirs() }
             File(directory, "rotation.json").writeText("{\"actualActivityReplacement\":true,\"rotationMs\":$elapsed}")

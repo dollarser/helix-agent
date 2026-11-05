@@ -121,7 +121,7 @@ class A2aProcessKillDeviceTest {
         port: Int,
         facts: Properties,
     ) {
-        container.profileStore.switchTo(SafetyProfile.ADVANCED)
+        check(container.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
         val provider =
             container.providerService.create(
                 ProviderDraft(
@@ -252,7 +252,6 @@ class A2aProcessKillDeviceTest {
         }
         facts.getProperty("provider")?.let { container.providerService.delete(it) }
         facts.getProperty("addedOrigin")?.let { container.lanScopeStore.remove(it) }
-        container.profileStore.switchTo(SafetyProfile.valueOf(facts.getProperty("profile")))
         check(marker.delete())
     }
 

@@ -44,6 +44,7 @@ data class PluginComponentFact(
     val accountReference: String? = null,
     val setup: PluginSetupReason? = null,
     val requestAvailable: Boolean = true,
+    val displayName: String? = null,
 ) {
     val ready: Boolean get() = state == PluginComponentState.AVAILABLE
 

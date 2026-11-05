@@ -105,6 +105,135 @@ class WorkspaceSystemSafDeviceTest {
         }
     }
 
+    @Test
+    @Suppress("LongMethod") // One explicitly approved grant crosses read-only, write, revocation and process restart.
+    fun realGrantModesAndRevocationAcrossProcessRestart() {
+        val args = InstrumentationRegistry.getArguments()
+        val folder = args.getString("helixSafBoundaryFolder")
+        org.junit.Assume.assumeTrue("Requires approval for the exact synthetic SAF directory", folder != null)
+        require(requireNotNull(folder).matches(Regex("Helix-validation-[0-9a-f]{8}")))
+        val phase = args.getString("helixSafBoundaryPhase")
+        require(phase in setOf("seed", "recover"))
+        val app = ApplicationProvider.getApplicationContext<HelixApplication>()
+        val c = app.appContainer
+        val marker = java.io.File(app.filesDir, "$folder-saf-boundary.json")
+        val documentId = "primary:Documents/$folder"
+        val document = DocumentsContract.buildDocumentUri("com.android.externalstorage.documents", documentId)
+        val initial = AtomicReference(document)
+        val chosen = AtomicReference<Intent?>()
+        compose.setContent {
+            val picker = rememberLauncherForActivityResult(WorkspaceTreePicker()) { chosen.set(it) }
+            Button(
+                onClick = { picker.launch(initial.get()) },
+                modifier = Modifier.testTag("system-tree-open"),
+            ) { Text("Open") }
+        }
+        val read = Intent.FLAG_GRANT_READ_URI_PERMISSION
+        val write = Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+        try {
+            if (phase == "seed") {
+                check(!marker.exists()) { "Inspect the previous owned SAF fixture before repeating seed" }
+                val before = grantSignature(app)
+                val scopes = c.safTree.knownScopeIds().toSet()
+                val result = pick(chosen, folder)
+                val uri = requireNotNull(result.data)
+                assertTrue(
+                    DocumentsContract.getTreeDocumentId(uri) in setOf("primary:Documents/$folder", "home:$folder"),
+                )
+                check(app.contentResolver.persistedUriPermissions.none { it.uri == uri })
+                c.featureFiles.persistTreePermission(
+                    uri.toString(),
+                    read or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION,
+                )
+                val source = c.safTree.grant(uri.toString(), folder)
+                val backend =
+                    SafManualFileBackend(
+                        app.contentResolver,
+                        c.featureFiles.grantStore,
+                        c.safTree,
+                        source.scopeId,
+                    )
+                // Retain a recoverable marker before assertions or permission changes.
+                marker.writeText(
+                    org.json
+                        .JSONObject()
+                        .put("scope", source.scopeId)
+                        .put("before", before)
+                        .put("scopes", org.json.JSONArray(scopes.toList()))
+                        .toString(),
+                )
+                assertEquals("original-saf-proof", backend.read("proof.txt").bufferedReader().use { it.readText() })
+                assertThrows(Exception::class.java) { backend.write("proof.txt") }
+                assertThrows(Exception::class.java) { backend.create("denied.txt", false) }
+                assertThrows(IllegalArgumentException::class.java) { backend.read("../outside.txt") }
+                assertEquals("original-saf-proof", backend.read("proof.txt").bufferedReader().use { it.readText() })
+                c.featureFiles.persistTreePermission(uri.toString(), result.flags)
+                backend.write("proof.txt").use { it.write("writable-saf-proof".toByteArray()) }
+                app.contentResolver.releasePersistableUriPermission(uri, write)
+                assertEquals("writable-saf-proof", backend.read("proof.txt").bufferedReader().use { it.readText() })
+                assertThrows(Exception::class.java) { backend.write("proof.txt") }
+                app.contentResolver.releasePersistableUriPermission(uri, read)
+                assertTrue(app.contentResolver.persistedUriPermissions.none { it.uri == uri })
+                assertEquals(before, grantSignature(app))
+            } else {
+                val saved = org.json.JSONObject(marker.readText())
+                val scope = saved.getString("scope")
+                val grant = requireNotNull(c.featureFiles.grantStore.find(scope))
+                val uri = Uri.parse(grant.treeUri)
+                assertTrue(
+                    DocumentsContract.getTreeDocumentId(uri) in setOf("primary:Documents/$folder", "home:$folder"),
+                )
+                assertTrue(app.contentResolver.persistedUriPermissions.none { it.uri == uri })
+                val backend = SafManualFileBackend(app.contentResolver, c.featureFiles.grantStore, c.safTree, scope)
+                // This is a fresh process: no picker Activity's temporary grant may carry the read.
+                assertThrows(Exception::class.java) { backend.read("proof.txt") }
+                assertThrows(Exception::class.java) { backend.write("proof.txt") }
+                val result = pick(chosen, folder)
+                assertEquals(uri, result.data)
+                c.featureFiles.persistTreePermission(uri.toString(), result.flags)
+                assertEquals(scope, c.safTree.grant(uri.toString(), folder).scopeId)
+                assertEquals("writable-saf-proof", backend.read("proof.txt").bufferedReader().use { it.readText() })
+                backend.write("proof.txt").use { it.write("renewed-saf-proof".toByteArray()) }
+                assertEquals("renewed-saf-proof", backend.read("proof.txt").bufferedReader().use { it.readText() })
+                c.safTree.revoke(scope)
+                release(app, uri)
+                closeOwnedPicker()
+                assertEquals(saved.getString("before"), grantSignature(app))
+                val expected =
+                    saved.getJSONArray("scopes").let { list ->
+                        (0 until list.length()).map(list::getString).toSet()
+                    }
+                assertEquals(expected, c.safTree.knownScopeIds().toSet())
+                java.io.File(app.filesDir, "$folder-saf-boundary-result.json").writeText(
+                    org.json
+                        .JSONObject()
+                        .put("readOnlyRefusedWrite", true)
+                        .put("persistedWriteDowngrade", true)
+                        .put("revokedReadAndWriteRefusedAfterRestart", true)
+                        .put("reauthorization", true)
+                        .put("unrelatedGrantsPreserved", true)
+                        .toString(),
+                )
+                marker.delete()
+            }
+        } finally {
+            closeOwnedPicker()
+        }
+    }
+
+    private fun grantSignature(app: HelixApplication): String {
+        val grants =
+            app.contentResolver.persistedUriPermissions
+                .map {
+                    "${it.uri}|${it.isReadPermission}|${it.isWritePermission}"
+                }.sorted()
+                .joinToString("\n")
+        return java.security.MessageDigest
+            .getInstance("SHA-256")
+            .digest(grants.toByteArray())
+            .joinToString("") { "%02x".format(it) }
+    }
+
     private fun closeOwnedPicker() {
         val automation = instrumentation.uiAutomation
         repeat(5) {
@@ -202,11 +331,27 @@ class WorkspaceSystemSafDeviceTest {
                             it.text?.toString() in setOf("Allow", "ALLOW", "允许")
                     }
                 }
-            button?.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+            if (button != null) {
+                if (approvedFolder != null) {
+                    verifyApprovedConfirmation(approvedFolder)
+                }
+                button.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+            }
             Thread.sleep(100)
         }
         compose.waitUntil(15_000) { chosen.get() != null }
         return requireNotNull(chosen.get())
+    }
+
+    private fun verifyApprovedConfirmation(folder: String) {
+        assertTrue(
+            "Permission confirmation must name only the approved directory",
+            instrumentation.uiAutomation.rootInActiveWindow?.let { root ->
+                find(root) {
+                    it.viewIdResourceName == "android:id/message" && it.text?.toString()?.contains(folder) == true
+                }
+            } != null,
+        )
     }
 
     private fun verifyLocalDirectory(

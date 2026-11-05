@@ -61,7 +61,7 @@ class BackendInstallModelDeviceTest {
                 check(c.providerService.chatSelectable(provider)) { "Connection probe failed" }
             }
             val original = c.chatService.screen.value.openSessionId
-            val profile = c.profileStore.profile
+
             val plugin = c.pluginService.list().single { it.native?.pluginId == "mobile-use" }
             val selection = MobileUseEvaluationSelection(app)
             val session = c.chatService.createSession("后端评测 $trial/$operation", provider, model)
@@ -69,7 +69,7 @@ class BackendInstallModelDeviceTest {
             var failure: String? = null
             var passed = false
             try {
-                c.profileStore.switchTo(SafetyProfile.ADVANCED)
+                check(c.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
                 c.pluginService.setEnabled(plugin.id, true)
                 selection.select(session, emptySet(), true)
                 c.sessionPermissionEdit.saveSessionConfig(
@@ -138,7 +138,6 @@ class BackendInstallModelDeviceTest {
                 println("BACKEND_RESULT=$evidence")
                 selection.close()
                 c.pluginService.setEnabled(plugin.id, plugin.enabled)
-                c.profileStore.switchTo(profile)
                 if (backend == "root") DeviceAccess.disconnectRoot("mobile-use")
                 if (original != null) c.chatService.openSession(original) else c.chatService.closeSession()
             }

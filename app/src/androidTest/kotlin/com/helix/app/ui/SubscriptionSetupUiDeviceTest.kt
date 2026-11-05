@@ -6,6 +6,7 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import com.helix.app.provider.ConnectionTestStatus
 import com.helix.app.provider.ManagedAccountSnapshot
 import com.helix.app.provider.ProviderModelSelection
@@ -55,14 +56,14 @@ class SubscriptionSetupUiDeviceTest {
                     null,
                     true,
                     { _, _, _ -> error("must not select") },
-                    onManageModels = {
-                        navigations++
-                    },
+                    sourceGroups = listOf(com.helix.core.model.ProviderProvisioningKind.MANAGED_ACCOUNT),
+                    onConfigureSource = { navigations++ },
                 )
             }
         }
         compose.onNodeWithTag("chat-model-menu").performClick()
         compose.onNodeWithTag("chat-model-setup-subscription-fixture").assertIsDisplayed()
+        compose.onNodeWithTag("chat-model-configure-MANAGED_ACCOUNT").assertExists()
         compose.onNodeWithTag("chat-model-setup-open-subscription-fixture").performClick()
         compose.runOnIdle { assertEquals(1, navigations) }
         compose.onNodeWithTag("chat-model-setup-subscription-fixture").assertDoesNotExist()

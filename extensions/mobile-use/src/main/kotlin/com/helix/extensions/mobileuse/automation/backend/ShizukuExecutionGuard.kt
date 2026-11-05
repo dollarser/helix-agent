@@ -69,7 +69,8 @@ internal class ShizukuExecutionGuard(
         val identity = clearCallingIdentity()
         val accepted =
             try {
-                if (finishing) mayFinish() else allowed(x, y, rotation)
+                displayLifecycle?.acceptsRequests() != false &&
+                    (if (finishing) mayFinish() else allowed(x, y, rotation))
             } finally {
                 restoreCallingIdentity(identity)
             }
@@ -96,9 +97,10 @@ internal class ShizukuExecutionGuard(
     fun bindDisplayService(
         service: IBinder,
         recover: (FocusRecoveryCheckpoint, Long) -> Unit,
-    ) {
-        displayLifecycle?.bind(service)
+    ): Boolean {
+        if (displayLifecycle?.bind(service) == false) return false
         focusRecovery?.bind(service, recover)
+        return true
     }
 
     fun observedDisplayPackage(value: String?) {

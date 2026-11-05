@@ -42,17 +42,35 @@ internal class ShizukuDisplayLifecycle(
     }
 
     @Synchronized
-    fun bind(binder: IBinder) {
-        if (terminal || service === binder) return
-        check(service == null) { "DISPLAY_SERVICE_IDENTITY_CHANGED" }
-        service = binder
-        try {
-            binder.linkToDeath(death, 0)
-            publish(snapshot())
-        } catch (_: android.os.RemoteException) {
-            report(AutomationDisplayLifecycle.CONNECTION_LOST)
+    fun acceptsRequests(): Boolean = !terminal
+
+    @Synchronized
+    fun bind(binder: IBinder): Boolean =
+        when {
+            terminal -> {
+                false
+            }
+
+            service === binder -> {
+                true
+            }
+
+            service != null -> {
+                report(AutomationDisplayLifecycle.CONNECTION_LOST)
+                false
+            }
+
+            else -> {
+                service = binder
+                try {
+                    binder.linkToDeath(death, 0)
+                    publish(snapshot())
+                } catch (_: android.os.RemoteException) {
+                    report(AutomationDisplayLifecycle.CONNECTION_LOST)
+                }
+                !terminal
+            }
         }
-    }
 
     @Synchronized
     fun report(next: AutomationDisplayLifecycle) {

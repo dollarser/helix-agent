@@ -114,4 +114,11 @@
     <string name="browser_return_session">Return to conversation</string>
     <string name="browser_page_retired">The page was released. Reopening loads its address; form input and page state are not restored.</string>
     <string name="browser_reopen_page">Reopen page</string>
+    <string name="browser_close">Close browser</string>
+    <string name="browser_close_details">Pages and unsent input will close, ending active page operations. Regular tab addresses, history, bookmarks and site data are kept. No-history tabs will not be restored.</string>
+    <string name="browser_dismiss_menu">Dismiss menu</string>
+    <string name="browser_preparing">Preparing browser…</string>
+    <string name="browser_return_page">Return to page</string>
+    <string name="browser_engine_failed">Browser engine could not start</string>
+    <string name="browser_session_save_failed">Pages closed, but tab addresses could not be saved.</string>
 </resources>

@@ -8,7 +8,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.chat.ChatService
 import com.helix.app.chat.ToolTimelineRow
-import com.helix.app.profile.AdvancedProfileAvailability
+import com.helix.app.profile.ChannelCapabilities
 import com.helix.app.provider.LoopbackModelServer
 import com.helix.app.provider.ProviderDraft
 import com.helix.core.model.AgentMode
@@ -77,12 +77,14 @@ class ApprovalFlowDeviceTest {
 
     /** Per-run suffix: the device Room persists across test runs — ids must be unique. */
     private val run = System.nanoTime()
-    private val sessionId = "flow-session"
+    private val sessionId = "flow-session-$run"
+    private var previousSessionId: String? = null
 
     @Before
     fun setUp() {
         val app = ApplicationProvider.getApplicationContext<android.app.Application>()
         container = (app as HelixApplication).appContainer
+        previousSessionId = container.chatService.screen.value.openSessionId
         // Seed the session row BEFORE opening it (the test seeds turns per-test, but the
         // session itself must exist when it is opened), and open it: since HXA-048 the
         // chat timeline is scoped to the OPEN session, and a different session can be
@@ -149,13 +151,12 @@ class ApprovalFlowDeviceTest {
         while (System.currentTimeMillis() < deadline && pendingApprovalIdsOn(sessionId).isNotEmpty()) {
             Thread.sleep(50)
         }
-        // A failed assertion after the developer-only switch must not leak ADVANCED into
-        // the next test instance and change its policy path.
-        if (AdvancedProfileAvailability.ADVANCED_AVAILABLE &&
-            container.profileStore.profile != SafetyProfile.STANDARD
-        ) {
-            container.profileStore.switchTo(SafetyProfile.STANDARD)
+        if (previousSessionId == null) {
+            container.chatService.closeSession()
+        } else {
+            container.chatService.openSession(requireNotNull(previousSessionId))
         }
+        container.storage.deleteSessionPermanently(sessionId)
     }
 
     /** The approval ids still pending (AWAITING_APPROVAL calls) on this class's seeded session. */
@@ -285,7 +286,7 @@ class ApprovalFlowDeviceTest {
     }
 
     @Test
-    fun profileSwitchDoesNotChangePendingDecisionOnDevice() {
+    fun channelCapabilityDoesNotApprovePendingDecisionOnDevice() {
         // Dispatch under the build's start profile; the real broker publishes the card +
         // the PENDING record.
         val handle = dispatchOnThread("flow-call-1-$run", "flow-turn-1-$run")
@@ -294,23 +295,9 @@ class ApprovalFlowDeviceTest {
         assertNull("the record must still be pending", pendingRecord.decision)
         val hashBefore = pendingRecord.bindingHash
 
-        if (AdvancedProfileAvailability.ADVANCED_AVAILABLE) {
-            // Developer build: the switch SUCCEEDS — and must STILL not change the pending
-            // decision: the binding has no profile field and the card keeps the facts
-            // captured at request time (a later switch never rewrites a pending card).
-            container.profileStore.switchTo(SafetyProfile.ADVANCED)
-            assertEquals(SafetyProfile.ADVANCED, container.profileStore.profile)
-        } else {
-            // Consumer store refuses ADVANCED outright (HXA-028 / ADR-0005): the profile
-            // source cannot even move.
-            assertThrows(IllegalArgumentException::class.java) {
-                container.profileStore.switchTo(SafetyProfile.ADVANCED)
-            }
-            assertEquals(SafetyProfile.STANDARD, container.profileStore.profile)
-        }
+        // Full Developer capability availability must never resolve a pending approval.
+        assertEquals(ChannelCapabilities.PROFILE, container.profileStore.profile)
 
-        // The pending record is untouched after the (refused or performed) switch:
-        // same hash, still pending.
         val recordAfter = container.storage.approvals.resolve(approvalId)
         assertEquals(hashBefore, recordAfter.bindingHash)
         assertNull(recordAfter.decision)
@@ -329,12 +316,6 @@ class ApprovalFlowDeviceTest {
         assertEquals(hashBefore, decided.bindingHash)
         val callRow = container.storage.toolCalls.resolve("flow-call-1-$run")
         assertEquals(ToolCallState.DENIED.name, callRow.state)
-
-        // A developer build now sits on ADVANCED: restore the default so later test
-        // classes in the same process see the same start state.
-        if (AdvancedProfileAvailability.ADVANCED_AVAILABLE) {
-            container.profileStore.switchTo(SafetyProfile.STANDARD)
-        }
     }
 
     private fun denyAfterActivityRebuild(approvalId: String) {

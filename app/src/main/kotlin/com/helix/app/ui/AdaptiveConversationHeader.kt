@@ -1,6 +1,5 @@
 package com.helix.app.ui
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -37,7 +36,6 @@ internal fun AdaptiveConversationHeader(
     onTasks: () -> Unit = {},
     onSettings: () -> Unit = {},
     onNavigation: (() -> Unit)? = null,
-    onRename: (() -> Unit)? = null,
     onSearch: (() -> Unit)? = null,
     playback: @Composable () -> Unit = {},
     content: @Composable (close: () -> Unit) -> Unit,
@@ -56,9 +54,7 @@ internal fun AdaptiveConversationHeader(
             Modifier
                 .weight(1f)
                 .heightIn(min = 48.dp)
-                .clickable(enabled = onRename != null, onClickLabel = stringResource(R.string.chat_rename)) {
-                    onRename?.invoke()
-                }.padding(horizontal = 4.dp)
+                .padding(start = 4.dp)
                 .testTag("chat-title"),
             contentAlignment = Alignment.CenterStart,
         ) {

@@ -6,7 +6,6 @@
     <string name="tool_observed_main">观察记录：主屏 · %1$s</string>
     <string name="tool_unsettled">界面仍在变化 · 效果待核验</string>
     <string name="tool_running_elapsed">已运行 %1$d 秒</string>
-    <string name="tool_turn_artifacts">成果 %1$d 项 · %2$s</string>
     <string name="tool_inspector_full">完整结果（已脱敏）</string>
     <string name="tool_inspector_unavailable">无法读取完整结果，显示摘要</string>
     <string name="tool_inspector_loading">正在读取原调用结果…</string>

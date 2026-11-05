@@ -54,7 +54,7 @@ class SkillCreationRealModelDeviceTest {
         val trial = "skill-create-${UUID.randomUUID()}"
         val name = "created-${UUID.randomUUID()}"
         val previous = c.chatService.screen.value.openSessionId
-        val profile = c.profileStore.profile
+
         val session = c.chatService.createSession("Synthetic Agent Skill creation", provider.id, model)
         val binding = requireNotNull(c.storage.workspaces.binding(session))
         val root =
@@ -97,7 +97,7 @@ class SkillCreationRealModelDeviceTest {
             },
         )
         try {
-            c.profileStore.switchTo(SafetyProfile.ADVANCED)
+            check(c.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
             c.sessionPermissionEdit.saveSessionConfig(
                 session,
                 SessionPermissionConfig.of(SessionPermissionMode.FULL_ACCESS),
@@ -173,7 +173,6 @@ class SkillCreationRealModelDeviceTest {
             }, { stopped ->
                 // Keep the closed guard installed if durable Stop could not be confirmed.
                 restoreStoppedWire(wireField, factory, originalWire, stopped)
-                c.profileStore.switchTo(profile)
                 if (previous == null) c.chatService.closeSession() else c.chatService.openSession(previous)
             })
         }

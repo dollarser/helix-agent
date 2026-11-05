@@ -23,6 +23,7 @@ internal fun PluginCompatibilityDetails(
     diagnostics: List<PluginDiagnostic>,
     initiallyExpanded: Boolean = false,
 ) {
+    if (diagnostics.isEmpty()) return
     var expanded by remember(diagnostics) { mutableStateOf(initiallyExpanded) }
     TextButton({ expanded = !expanded }, Modifier.testTag("plugin-compatibility-toggle")) {
         Text(stringResource(R.string.plugin_compatibility))

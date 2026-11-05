@@ -8,7 +8,11 @@ import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.test.core.app.ApplicationProvider
+import com.helix.app.HelixApplication
+import com.helix.app.R
 import com.helix.app.connector.PluginSessionChoice
 import com.helix.app.plugin.PluginSessionRow
 import com.helix.app.plugin.PluginSetupReason
@@ -56,8 +60,9 @@ class PluginSessionChoiceDeviceTest {
             .performClick()
         assertEquals(listOf(true), selections)
         assertEquals(0, configured)
-        compose.onNodeWithTag("plugin-session-configure-${row.id}").performClick()
-        assertEquals(1, configured)
+        compose.onNodeWithTag("plugin-session-configure-${row.id}").assertDoesNotExist()
+        compose.onNodeWithTag("plugin-session-issue-${row.id}", useUnmergedTree = true).assertDoesNotExist()
+        assertEquals(0, configured)
         assertEquals(listOf(true), selections)
     }
 
@@ -69,7 +74,7 @@ class PluginSessionChoiceDeviceTest {
             MaterialTheme { PluginSessionChoice(facts.value, false, { selections += it }, {}) }
         }
         compose.onNodeWithTag(tag).assertIsOff().assertIsEnabled()
-        compose.onNodeWithTag("plugin-session-configure-${row.id}").performClick()
+        compose.onNodeWithTag("plugin-session-configure-${row.id}").assertDoesNotExist()
         compose.runOnIdle { facts.value = row }
         compose.onNodeWithTag(tag).assertIsOff()
         assertEquals(emptyList<Boolean>(), selections)
@@ -108,7 +113,58 @@ class PluginSessionChoiceDeviceTest {
             }
         }
         compose.onNodeWithTag(tag).assertIsNotEnabled()
-        compose.onNodeWithTag("plugin-session-configure-${row.id}").assertIsNotEnabled()
+        compose.onNodeWithTag("plugin-session-configure-${row.id}").assertDoesNotExist()
         assertEquals(0, actions)
+    }
+
+    @Test fun routineAndPartialReadinessDoNotAddStatusRowsOrChangeHeight() {
+        val facts = mutableStateOf(row)
+        val context = ApplicationProvider.getApplicationContext<HelixApplication>()
+        compose.setContent { MaterialTheme { PluginSessionChoice(facts.value, false, {}, {}) } }
+        val before = compose.onNodeWithTag(tag).fetchSemanticsNode().boundsInRoot
+        compose.onNodeWithText(context.getString(R.string.plugin_component_ready)).assertDoesNotExist()
+        compose.runOnIdle { facts.value = row.copy(ready = false, totalComponents = 3, hasSkippedComponents = true) }
+        compose.onNodeWithText(context.getString(R.string.plugin_skipped_components)).assertDoesNotExist()
+        compose.onNodeWithTag("plugin-session-issue-${row.id}", useUnmergedTree = true).assertDoesNotExist()
+        assertEquals(before, compose.onNodeWithTag(tag).fetchSemanticsNode().boundsInRoot)
+        compose.runOnIdle {
+            facts.value =
+                row.copy(
+                    selected = true,
+                    ready = false,
+                    readyComponents = 0,
+                    setupReason = PluginSetupReason.HOST_UNAVAILABLE,
+                )
+        }
+        compose.onNodeWithTag(tag).assertIsOn()
+        compose.onNodeWithTag("plugin-session-configure-${row.id}").assertDoesNotExist()
+        compose.onNodeWithText(context.getString(R.string.connector_session_setup)).assertDoesNotExist()
+        compose.onNodeWithTag("plugin-session-issue-${row.id}", useUnmergedTree = true).assertDoesNotExist()
+        assertEquals(before, compose.onNodeWithTag(tag).fetchSemanticsNode().boundsInRoot)
+    }
+
+    @Test fun selectedCapabilityLosingPermissionKeepsAnExplicitRepairAction() {
+        var repairs = 0
+        val choices = mutableListOf<Boolean>()
+        compose.setContent {
+            MaterialTheme {
+                PluginSessionChoice(
+                    row.copy(
+                        selected = true,
+                        ready = false,
+                        readyComponents = 0,
+                        setupReason = PluginSetupReason.MOBILE_BACKEND,
+                    ),
+                    false,
+                    { choices += it },
+                    { repairs++ },
+                )
+            }
+        }
+        compose.onNodeWithTag("plugin-session-issue-${row.id}", useUnmergedTree = true).assertExists()
+        compose.onNodeWithTag("plugin-session-configure-${row.id}").performClick()
+        compose.onNodeWithTag(tag).assertIsOn()
+        assertEquals(1, repairs)
+        assertEquals(emptyList<Boolean>(), choices)
     }
 }

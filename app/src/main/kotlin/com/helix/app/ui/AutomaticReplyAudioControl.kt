@@ -18,7 +18,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.currentStateAsState
 import com.helix.app.HelixApplication
 import com.helix.app.R
 import com.helix.app.voice.ReadAloudService
@@ -33,6 +36,8 @@ internal fun AutomaticReplyAudioControl(reader: ReadAloudService?, frame: Visibl
     val app = LocalContext.current.applicationContext as? HelixApplication ?: return
     if (reader == null) return
     val automatic by app.replyAudioSettings.automatic.collectAsStateWithLifecycle()
+    val lifecycle by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
+    val visible = lifecycle.isAtLeast(Lifecycle.State.STARTED)
     val identity by app.account.identityState.collectAsStateWithLifecycle()
     val signedIn by app.account.signedIn.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
@@ -63,9 +68,10 @@ internal fun AutomaticReplyAudioControl(reader: ReadAloudService?, frame: Visibl
             }
         }
     }
-    LaunchedEffect(automatic, frame, accountReady, approved, revision) {
+    LaunchedEffect(automatic, frame, accountReady, approved, revision, visible) {
         if ((!accountReady || !approved) && reader.livePlaybackTurnId != null) reader.stop()
-        if (starts.start(frame, automatic && accountReady && approved)) {
+        val enabled = automatic && accountReady && approved
+        if (starts.start(frame, enabled && visible)) {
             reader.startLiveReply(requireNotNull(frame))
         }
     }

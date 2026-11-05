@@ -29,7 +29,7 @@ class TerminalHostJourneyDeviceTest {
             ensureInstalledRuntime(context)
             assertFalse(checkNotNull(container.manualTerminal).hasSession())
             container.firstLaunch.markSeen()
-            container.profileStore.switchTo(SafetyProfile.ADVANCED)
+            check(container.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
             AppLanguageStore.applyChoice(context, AppLanguage.EN)
             val directory = File(context.filesDir, "workspaces/app/terminal-recovery")
             check(directory.mkdirs())

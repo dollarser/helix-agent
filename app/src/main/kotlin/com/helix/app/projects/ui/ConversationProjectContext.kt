@@ -1,10 +1,13 @@
 package com.helix.app.projects.ui
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -12,9 +15,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.R
@@ -23,9 +28,8 @@ import com.helix.app.chat.ChatService
 import com.helix.app.files.FileManagerService
 import com.helix.app.projects.ProjectService
 import com.helix.app.ui.indicatedVerticalScroll
-import com.helix.core.workspace.FileScopePath
 
-/** Project and cwd are visible together, while existing membership keeps its independent cwd. */
+/** Project selection belongs to session settings; directory controls have their own section. */
 @Composable
 @Suppress("FunctionName", "LongMethod", "LongParameterList", "CyclomaticComplexMethod")
 internal fun ConversationProjectContext(
@@ -57,31 +61,15 @@ internal fun ConversationProjectContext(
             selecting = false
         }
     }
-    Column {
-        TextButton(
-            { selecting = true },
-            enabled = !screen.isSending,
-            modifier = Modifier.testTag("conversation-project"),
-        ) {
-            Text(project?.name ?: stringResource(R.string.project_none))
-        }
-        val path = screen.directoryRef?.let { runCatching { FileScopePath.fromModelReference(it) }.getOrNull() }
-        Text(
-            if (path == null) {
-                stringResource(R.string.chat_directory_none)
-            } else {
-                stringResource(
-                    R.string.project_working_directory,
-                    path.relativePath.ifEmpty {
-                        project?.takeIf { it.workspaceId == path.scopeId }?.name
-                            ?: path.scopeId
-                    },
-                )
-            },
-            style = MaterialTheme.typography.bodySmall,
-            modifier = Modifier.testTag("conversation-directory"),
-        )
-    }
+    com.helix.app.ui.SettingsEntryRow(
+        stringResource(R.string.nav_projects),
+        R.drawable.ic_drawer_work,
+        { selecting = true },
+        Modifier.testTag("conversation-project"),
+        project?.name ?: stringResource(R.string.project_none),
+        enabled = !screen.isSending,
+    )
+
     if (selecting) {
         AlertDialog(
             onDismissRequest = { if (!actions.busy) selecting = false },
@@ -93,20 +81,17 @@ internal fun ConversationProjectContext(
                         TextButton({
                             selecting = false
                             onOpen(id)
-                        }) { Text(stringResource(R.string.project_open)) }
+                        }, enabled = !actions.busy) { Text(stringResource(R.string.project_open)) }
                     }
-                    TextButton(
-                        { choose(null) },
-                        enabled = !actions.busy,
-                        modifier = Modifier.testTag("conversation-project-none"),
-                    ) {
-                        Text(stringResource(R.string.project_none))
-                    }
+                    ProjectChoice(
+                        stringResource(R.string.project_none),
+                        current == null,
+                        !actions.busy,
+                        "conversation-project-none",
+                    ) { choose(null) }
                     projects.filter { it.archivedAt == null }.forEach { item ->
-                        TextButton({
+                        ProjectChoice(item.name, item.id == current, !actions.busy, "conversation-project-${item.id}") {
                             choose(item.id)
-                        }, enabled = !actions.busy, modifier = Modifier.testTag("conversation-project-${item.id}")) {
-                            Text(item.name)
                         }
                     }
                     actions.error?.let { Text(stringResource(it)) }
@@ -114,7 +99,10 @@ internal fun ConversationProjectContext(
             },
             confirmButton = {
                 TextButton(
-                    { creating = true },
+                    {
+                        selecting = false
+                        creating = true
+                    },
                     enabled = !actions.busy,
                     modifier = Modifier.testTag("conversation-project-create"),
                 ) {
@@ -130,9 +118,35 @@ internal fun ConversationProjectContext(
         )
     }
     if (creating) {
-        ProjectEditor(service, files, null, { creating = false }) { id ->
+        ProjectEditor(service, files, null, {
             creating = false
+            selecting = true
+        }) { id ->
+            creating = false
+            selecting = true
             choose(id)
         }
+    }
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun ProjectChoice(
+    title: String,
+    selected: Boolean,
+    enabled: Boolean,
+    tag: String,
+    onSelect: () -> Unit,
+) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .testTag(tag)
+            .selectable(selected, enabled = enabled, role = Role.RadioButton, onClick = onSelect),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        RadioButton(selected, onClick = null, enabled = enabled)
+        Text(title, Modifier.weight(1f))
     }
 }

@@ -66,7 +66,7 @@ class LiveToolExposureDeviceTest {
                     null,
                 )
             var session: String? = null
-            val oldProfile = c.profileStore.profile
+
             val server = "exposurefixture"
             val called = AtomicInteger()
             val prototype = requireNotNull(c.toolPipeline.resolveLatest("tools.search"))
@@ -87,7 +87,7 @@ class LiveToolExposureDeviceTest {
                 check(c.providerService.runConnectionTest(provider) is ProbeOutcome.Ok)
                 val ownedSession = c.chatService.createSession("Tool exposure fixture", provider, model)
                 session = ownedSession
-                c.profileStore.switchTo(SafetyProfile.ADVANCED)
+                check(c.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
                 originalTools.forEach { tool ->
                     c.storage.toolAvailability.set(
                         tool.origin.canonicalOf(),
@@ -185,7 +185,6 @@ class LiveToolExposureDeviceTest {
                     c.chatService.closeSession()
                     c.storage.deleteSessionPermanently(owned)
                 }
-                c.profileStore.switchTo(oldProfile)
                 c.providerService.delete(provider)
             }
         }

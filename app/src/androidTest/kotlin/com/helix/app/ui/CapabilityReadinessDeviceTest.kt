@@ -121,22 +121,11 @@ class CapabilityReadinessDeviceTest {
         compose.resetDeterministicUiState()
         compose.navigateTo("setup/readiness")
         waitItems("capability-readiness-item-model")
-        // Under STANDARD the LINUX goal is hidden in every flavor.
-        compose.onNodeWithTag("capability-readiness-goal-linux").assertDoesNotExist()
         if (ProotToolModule.AVAILABLE) {
-            // Developer: the gate is flavor AND profile — ADVANCED exposes the LINUX goal.
-            container.profileStore.switchTo(SafetyProfile.ADVANCED)
-            compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
-                compose
-                    .onAllNodesWithTag("capability-readiness-goal-linux")
-                    .fetchSemanticsNodes()
-                    .isNotEmpty()
-            }
             compose.onNodeWithTag("capability-readiness-goal-linux").assertIsDisplayed()
-            container.profileStore.switchTo(SafetyProfile.STANDARD)
+        } else {
+            compose.onNodeWithTag("capability-readiness-goal-linux").assertDoesNotExist()
         }
-        // Consumer (ADR-0005): the build runs STANDARD only, so switchTo(ADVANCED) is a hard
-        // refusal and the LINUX goal can never be exposed — it stays absent here.
     }
 
     /** The readiness repair action routes to the Runtime authority instead of duplicating repair
@@ -146,7 +135,6 @@ class CapabilityReadinessDeviceTest {
         assumeTrue(ProotToolModule.AVAILABLE)
         assumeTrue(recoveryPhase() != "setup")
         compose.resetDeterministicUiState()
-        compose.container().profileStore.switchTo(SafetyProfile.ADVANCED)
         compose.navigateTo("setup/readiness")
         compose.onNodeWithTag("capability-readiness-goal-linux").performClick()
         waitItems("capability-readiness-item-runtime")
@@ -163,7 +151,6 @@ class CapabilityReadinessDeviceTest {
         }
         waitItems("capability-readiness-item-runtime")
         compose.onNodeWithTag("capability-readiness-item-runtime").assertIsDisplayed()
-        compose.container().profileStore.switchTo(SafetyProfile.STANDARD)
     }
 
     /** The real two-phase recovery: a process death, then a NEW PID renders the readiness view
