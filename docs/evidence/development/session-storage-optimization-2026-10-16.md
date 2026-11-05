@@ -49,10 +49,10 @@ JSONL 当前用于诊断、检索、评测和后续迁移设计；reference_only
 | 展示与导航 | App `ChatScreenProjection.kt`、`ChatService.kt`、`ChatTimelineOrder.kt`、`ConversationSection/Search/Intents`、会话列表及三组语言资源 |
 | JSONL | Storage `export/SessionExport*`；`scripts/validate-session-export.py`、v2 合成夹具及校验测试 |
 | 回归 | `scripts/tests/test_session_storage_queries.py`、Storage Repository/Export/schema JVM、App `ChatHistoryWindowTest`/搜索测试、Room/UI/TurnCoordinator 编译夹具 |
-| 决策与接续 | ADR-AGENT-001/005、`architecture/session-export.md`、Harness §23.11、HXA-287/288/294/297、status/roadmap 与原审查文档 |
+| 决策与接续 | ADR-AGENT-001/005、`architecture/session-export.md`、Harness 第 23.11 节、HXA-287/288/294/297、status/roadmap 与原审查文档 |
 
 以上 `...` 表示对应模块既有 Kotlin 包路径；旧 HXA-295/296 的其他工作区改动不算本轮交付。
 
 ## 重构接续
 
-更新原 ADR-AGENT-001/005、[目标方案 §23.11](../../architecture/harness-refactor-plan.md#2311-会话存储优化接续) 和 HXA-287/288/294。当前查询与来源实现是接续基线，不是完整 Turn 宿主、类型化产物或跨会话调度已经完成；后续替换入口时保留本轮事务/身份/分页契约并删除旧路径。
+更新原 ADR-AGENT-001/005、[目标方案 第 23.11 节](../../architecture/harness-refactor-plan.md#2311-会话存储优化接续) 和 HXA-287/288/294。当前查询与来源实现是接续基线，不是完整 Turn 宿主、类型化产物或跨会话调度已经完成；后续替换入口时保留本轮事务/身份/分页契约并删除旧路径。

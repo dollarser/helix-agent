@@ -36,14 +36,14 @@
 | 20 | AGENTS.md"Child agents 与声明式 workflows 未实现"；ADR-AGENT-004 accepted 但不代表已接线 | app/src/main grep `childagent` 0 命中（仅 spikes）；`adr/agent/004:38` Verification 明言"不声明生产子 Agent/Workflow 已接线" | 一致（缺口被文档显式声明） |
 | 21 | ADR-CONNECTORS-002 accepted；HXA-126 核心切片已整合、外部验收未完成（status.md:25） | `app/.../mcp/oauth/` 7 个生产类 + manifest 回调 Activity `AndroidManifest.xml:101-110`；`adr/connectors/README.md:8` 与 `tasks/HXA-126.md:3` 同口径声明"外部验收未完成" | 一致 |
 | 22 | ADR-WORKSPACE-004 仍 proposed、不自动启动 HXA-210（AGENTS.md:11、status.md:48） | `adr/workspace/004-workspace-binding.md:3 Status: proposed`；`Deciders: pending` | 一致 |
-| 23 | requirements.md §2.1 二十项必须实现 vs 代码 | 20 项全部有实现（MCP stdio 为 developer-only，`developer/McpStdioJobBridge.kt`，与渠道声明一致）；唯一缺口见问题 P2-8（手动终端未入需求清单） | 基本一致 |
+| 23 | requirements.md 第 2.1 节 二十项必须实现 vs 代码 | 20 项全部有实现（MCP stdio 为 developer-only，`developer/McpStdioJobBridge.kt`，与渠道声明一致）；唯一缺口见问题 P2-8（手动终端未入需求清单） | 基本一致 |
 | 24 | security doc 信任边界（模型/Skill/MCP 不能自授权） | `SessionPermissionResolver`、`ApprovalProof.kt`、`EffectFootprint` 平台归一（历史审查已证 MCP annotation 无路径进入，本次复核 `ToolDispatcher.kt:173` 注释与结构未变） | 一致 |
 | 25 | 全部 docs/README/AGENTS 相对 markdown 链接 | 脚本（/tmp/helix_linkcheck.py）：CHECKED=2365 BROKEN=0 | 一致 |
 | 26 | 完成记录索引 vs 实际文件 | index.md 193 条目 = 192 个 HXA 文件 + M0 区间行；无"索引有文件无"或"文件有索引无" | 一致 |
 | 27 | 三语资源键集合一致（HXA-069 设计） | values/values-en/values-zh-rCN 各 1362 键，差集为空 | 一致（但 base 136 键为英文值，见 P2-9） |
 | 28 | terminal.md 工具表（code.linux.job.* 参数/租期 300/1800s） | `SessionToolEffectClassifier.kt:237-239`；`code.linux.job.start` 投影 `CommandResultProjection.kt:86` | 一致 |
 | 29 | session-export.md 独立校验器与合成样例 | `scripts/validate-session-export.py`、`scripts/fixtures/session-export-v1.jsonl`、`scripts/tests/test_session_export_validator.py` 均存在 | 一致 |
-| 30 | requirements §5.4 工具清单（time.now/read/write/edit/files.*/http.fetch/code.javascript.run/bash/browser.*/skills.*/a2a.*/ui.*/root.*/android.*/clipboard.*/calendar.*/notifications.query） | 各工具名在 tools/framework、tools/files、tools/browser、tools/android、tools/automation（`AutomationTools.kt:364-372`）、extensions/a2a、app/proot 均有注册或实现 | 一致 |
+| 30 | requirements 第 5.4 节 工具清单（time.now/read/write/edit/files.*/http.fetch/code.javascript.run/bash/browser.*/skills.*/a2a.*/ui.*/root.*/android.*/clipboard.*/calendar.*/notifications.query） | 各工具名在 tools/framework、tools/files、tools/browser、tools/android、tools/automation（`AutomationTools.kt:364-372`）、extensions/a2a、app/proot 均有注册或实现 | 一致 |
 
 ## 问题清单
 
@@ -97,9 +97,9 @@
 **严重度+理由**：P1——明确的状态失实且方向是"低估已获授权"，与 ADR 体系唯一规范入口相矛盾。
 **改进建议**：改为"安装所有权（ADR-CONNECTORS-003）与签名索引（ADR-CONNECTORS-004）均已接受并交付离线范围；HXA-126 OAuth 真实服务验收仍开放（见 status.md）"。
 
-#### P1-4 `task-experience.md §2` 承诺的"工作区详情四入口"页与"文件→当前任务"交接入口在代码中不存在
+#### P1-4 `task-experience.md 第 2 节` 承诺的"工作区详情四入口"页与"文件→当前任务"交接入口在代码中不存在
 
-**问题描述（偏差机制）**：§2 把"工作区详情提供'文件、任务、终端、变更'四个直接入口"写为产品契约，落位任务（HXA-194/197/198/202/203）全部标记已交付，但 UI 中没有统一的工作区详情页；文件管理侧也没有"在当前任务使用/附加到会话"动作。
+**问题描述（偏差机制）**：第 2 节 把"工作区详情提供'文件、任务、终端、变更'四个直接入口"写为产品契约，落位任务（HXA-194/197/198/202/203）全部标记已交付，但 UI 中没有统一的工作区详情页；文件管理侧也没有"在当前任务使用/附加到会话"动作。
 
 **证据**：
 - `docs/product/task-experience.md:7`「工作区详情提供"文件、任务、终端、变更"四个直接入口」
@@ -109,7 +109,7 @@
 
 **影响范围**：按文档验收"输出→产物→来源任务"导航链的测试/产品人员；文件管理→Agent 工作流的核心用户路径。
 **严重度+理由**：P1——文档把已交付 HXA 落位的用户入口描述为已存在，实际不存在；历史审查"文件管理器→Agent 工作区断链"（当时归维度三）从文档一致性角度同样成立。
-**改进建议**：二选一：(a) 实施统一工作区详情页 + files 行/预览弹窗"在当前任务使用"（调 `ChatService.stageAttachment`）；(b) 修订 task-experience.md §2 为"四个入口当前分散于 Files/Tasks/Git 目的地，统一详情页待 HXA 立项"，并把落位行改为未完成。
+**改进建议**：二选一：(a) 实施统一工作区详情页 + files 行/预览弹窗"在当前任务使用"（调 `ChatService.stageAttachment`）；(b) 修订 task-experience.md 第 2 节 为"四个入口当前分散于 Files/Tasks/Git 目的地，统一详情页待 HXA 立项"，并把落位行改为未完成。
 
 ### P2
 
@@ -155,13 +155,13 @@
 
 **问题描述**：提交 `8aa8ff97`（2026-09-23，HEAD 内）为聊天增加"重新生成"动作（UI 入口 + `MessageRegenerateTest` + `StorageGarbageCollector` 孤儿文件回收），但 status.md/roadmap/完成记录/requirements.md 均无提及——违反仓库自身"结果保存在完成记录、status 是唯一当前状态源"的纪律。
 **证据**：`git show 8aa8ff97 --stat`（ChatService.kt +102、`ui/ConversationMessage.kt` +65、`core/storage/.../StorageGarbageCollector.kt` 新 143 行、`MessageRegenerateTest.kt` 新 52 行）；`app/src/main/res/values/strings.xml:1265 chat_regenerate_action`；grep docs 无"重新生成"相关记录（仅 HXA-080 的无关"重新生成 lock"）。
-**严重度**：P2（增量功能、无矛盾，但状态源失忆）。**建议**：补完成记录（或并入相关 HXA 记录）并在 status.md Completed 加一行；同步说明孤儿回收属于 §8 数据保留的哪条规则。
+**严重度**：P2（增量功能、无矛盾，但状态源失忆）。**建议**：补完成记录（或并入相关 HXA 记录）并在 status.md Completed 加一行；同步说明孤儿回收属于 第 8 节 数据保留的哪条规则。
 
 #### P2-8 requirements.md 功能清单缺"手动终端（developer）"（代码有、文档无）
 
-**问题描述**：HXA-197/198/199 交付了完整的 developer 手动终端（双会话、PTY、租期/回收、UI 页面），架构文档 terminal.md、ADR-RUNTIME-002、roadmap 均有记载，但产品需求 §2.1"必须实现"20 项与 §7 页面需求 15 项均未包含手动终端（§7.8 只覆盖 Runtime 安装/状态页）。
+**问题描述**：HXA-197/198/199 交付了完整的 developer 手动终端（双会话、PTY、租期/回收、UI 页面），架构文档 terminal.md、ADR-RUNTIME-002、roadmap 均有记载，但产品需求 第 2.1 节"必须实现"20 项与 第 7 节 页面需求 15 项均未包含手动终端（第 7.8 节 只覆盖 Runtime 安装/状态页）。
 **证据**：`docs/product/requirements.md:21-40`（无终端项）、`:370-386`（页面清单无终端页）vs `app/src/developer/.../terminal/` 13 个文件、`ManualTerminalActivity`（`app/src/developer/AndroidManifest.xml:4-5` 非导出）、`docs/architecture/terminal.md` 全文。
-**严重度**：P2（需求文档漏项，非矛盾；§2.1 第 17 项"可选 PRoot + Alpine Linux 开发者模式"可被宽泛解读为涵盖）。**建议**：§2.1 增补"developer 手动 PTY 终端（双会话，见 ADR-RUNTIME-002）"，§7 增终端页一行。
+**严重度**：P2（需求文档漏项，非矛盾；第 2.1 节 第 17 项"可选 PRoot + Alpine Linux 开发者模式"可被宽泛解读为涵盖）。**建议**：第 2.1 节 增补"developer 手动 PTY 终端（双会话，见 ADR-RUNTIME-002）"，第 7 节 增终端页一行。
 
 #### P2-9 三语资源：base（声明为简体中文）中 136 个键为纯英文值
 
@@ -169,13 +169,13 @@
 **证据**：`app/src/main/res/values/strings.xml:11-12`（HXA-069 注释）、`:1193-1205`（marketplace 英文值）vs `values-zh-rCN/strings.xml:1190-1202`（中文值）；全量统计 1362 键/1209 含中文/136 纯英文。
 **严重度**：P2（默认 zh 设备上多数情况命中 zh-rCN 正确显示；属设计声明与实现的偏离 + 门禁盲区）。**建议**：将 136 个 base 英文值改中文（或把 HXA-069 的 base-locale 声明改为"英文 fallback"并同步 zh-rCN 定位）；check-i18n.sh 增加"base 值含 CJK"抽样检查。
 
-#### P2-10 `task-experience.md §4` 操作链入口命名与实际 UI 不符
+#### P2-10 `task-experience.md 第 4 节` 操作链入口命名与实际 UI 不符
 
 **问题描述**：文档承诺首版入口为"添加能力"、分"已添加"和"添加来源"；实际交付的 UI 是"扩展"页 + "发现市场 / 已安装与自定义"双 Tab（HXA-212）。文档中的六个状态阶段（已添加/待配置/待连接验证/未启用/可使用/需处理）与实现（NOT_INSTALLED/INSTALLED_INACTIVE/ACTIVE 三态，历史审查 UI-7）也不一致。
 **证据**：`docs/product/task-experience.md:36-52`；`app/src/main/res/values/strings.xml:1195-1196`（`marketplace_tab_market`=Marketplace/发现市场、`marketplace_tab_manage`=Installed & Custom/已安装与自定义）、`:1201-1203` 三状态；strings 中"添加能力/已添加/添加来源"0 命中。
-**严重度**：P2（流程骨架存在，命名与状态机粒度滞后）。**建议**：§4 按 HXA-212 实际命名重写，状态表与实现三态对齐或注明六阶段为验收目标。
+**严重度**：P2（流程骨架存在，命名与状态机粒度滞后）。**建议**：第 4 节 按 HXA-212 实际命名重写，状态表与实现三态对齐或注明六阶段为验收目标。
 
-#### P2-11 `android-platform-capabilities.md §3.2` 浏览器模块树与实际包结构不符
+#### P2-11 `android-platform-capabilities.md 第 3.2 节` 浏览器模块树与实际包结构不符
 
 **问题描述**：文档给出 `feature/browser/{api, engine-webview, automation, downloads, ui}` 规划树，实际为扁平包 + `engine/webview/snapshot/storage/ui` 子包，无 `api`/`automation`/独立 `downloads` 目录（下载逻辑为 BrowserDownload*.kt 顶层文件）。
 **证据**：`docs/architecture/android-platform-capabilities.md:55-61` vs `ls feature/browser/src/main/kotlin/com/helix/feature/browser/`（BrowserController.kt、engine/、webview/、snapshot/、storage/、ui/ 等 21 条目）。
@@ -201,9 +201,9 @@
 ## 改进建议汇总（按优先级）
 
 1. **【P1，立即】一次性文档对账**（2026-09-22 分支收敛的收尾）：同步 `roadmap.md:5/19/24/26/39` 与 `next-work-plan.md`、`extensions.md:24` 到 status.md 当前状态；预计 <1 小时纯文档改动，消除 4 处 P1。
-2. **【P1】task-experience.md §2 定夺**：实施"工作区详情四入口"页 + files→会话交接（`stageAttachment`），或改写 §2 为未交付并立项——当前状态是"文档承诺 + 落位 HXA 全绿"但入口不存在，最需要产品决策。
+2. **【P1】task-experience.md 第 2 节 定夺**：实施"工作区详情四入口"页 + files→会话交接（`stageAttachment`），或改写 第 2 节 为未交付并立项——当前状态是"文档承诺 + 落位 HXA 全绿"但入口不存在，最需要产品决策。
 3. **【P2，本迭代】过期状态头清理**：terminal.md:3、mobile-tool-orchestration.md:31、overview.md:48 三处"未交付"口径改为已交付；HXA-218/219 记录补"已整合 main"注记。
-4. **【P2】补文档足迹**：turn regeneration（8aa8ff97）补完成记录 + status 行；requirements.md §2.1/§7 补手动终端项。
+4. **【P2】补文档足迹**：turn regeneration（8aa8ff97）补完成记录 + status 行；requirements.md 第 2.1 节、第 7 节 补手动终端项。
 5. **【P2】i18n 收尾**：base strings 136 个英文值转中文或修正 HXA-069 声明；check-i18n.sh 增加值语言检查。
 6. **【P2，结构性】文档状态单一入口自动化**：在 `scripts/check-all.sh --source` 增加两条轻量一致性断言：(a) roadmap 表格状态列 vs status.md Completed 列表的 HXA 集合差告警；(b) 所有 `docs/architecture/*.md`、`docs/development/next-work-plan.md` 中的 "proposed/未实现/尚未合并" 关键词必须能在 ADR Status 行或 status.md 中找到对应（防 extensions.md:24 类漂移）。
 7. **【P2】结构性决定**：TurnReducer 去留（合并进 BatchTurnRuntime 或标注参考实现并清测试）；UI repository 边界（文档表态或下沉）——两项与维度二结论同源，建议随架构整改一并处理。

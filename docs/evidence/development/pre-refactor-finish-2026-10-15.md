@@ -9,7 +9,7 @@
 - GitLab 精选条目原先引导使用旧式 `api` scope PAT，与[官方认证契约](https://docs.gitlab.com/user/model_context_protocol/mcp_server/#authentication)不符。改成 OAuth 类型，三语言提示说明 OAuth 或具有 MCP Execute 权限的细粒度 PAT，并加入现有目录测试。没有真实 GitLab 登录或业务调用，也没有迁移用户凭据。
 - 独立 Release 测试宿主增加 Mobile Use 配置、会话选择与进程重启检查；目标保持 non-debuggable R8，宿主不引用生产内部类，不加宽 keep 规则。运行器增加显式 `--suite mobile-use`，仅允许 Developer 隔离包，启用自有无障碍服务前保存设置，结束移除自有服务、保留其他服务并清理测试安装。
 - 最终审查补齐清理失败的结果语义：即使方法已通过，自有安装清理不完整也必须将 `result.json` 标为 failed，保留原始失败原因和逐包状态；新增 Python 反例验证，不让调用方误读成完整通过。
-- 插件分层与逐项理由已合入原[工具/插件评审 §6.2](../../research/topics/tool-and-plugin-competitive-review-2026-10-15.md#62-直接内置与内置市场的重新划分)，同步原 ADR 与导航。没有新增第二份重构方案，也没有迁移插件或删除既有能力。
+- 插件分层与逐项理由已合入原[工具/插件评审 第 6.2 节](../../research/topics/tool-and-plugin-competitive-review-2026-10-15.md#62-直接内置与内置市场的重新划分)，同步原 ADR 与导航。没有新增第二份重构方案，也没有迁移插件或删除既有能力。
 - 完整门禁复现继承的 Detekt/lint 并发故障：Detekt 从仓库根遍历，在排除 `build` 前已遇到 lint 正在替换的 SARIF 文件。将扫描入口限定为 Kotlin 源码目录及既有脚本夹具目录，保留原受检文件、规则和报告，不通过关闭并发或跳过检查掩盖问题。
 
 ## 验证记录
@@ -65,7 +65,7 @@ Owner 随后要求在同一日常 API36 模拟器、隔离安装中补验执行�
 
 Owner 在上述验收后要求“结合竞品继续收尾优化”。初始主机修复阶段的设备、真实模型及账号均为 not requested；随后 Owner 明确追加模拟器真实模型验收，见下方实际记录。不复用前轮 R8 设备结果宣称新候选已验。原工作区差异与失败/成功命令单独保存在忽略目录 `build/mobile-use-closeout-2026-10-15/`，未提交或发布。
 
-设计核对及一手链接见[插件评审 §5.4](../../research/topics/tool-and-plugin-competitive-review-2026-10-15.md#54-追加竞品核对与取消事实)：采纳按需装载完整可用能力及执行器终态事实，继续使用单一 Dispatcher。没有引入兼容层、第二个执行引擎或远程部署。
+设计核对及一手链接见[插件评审 第 5.4 节](../../research/topics/tool-and-plugin-competitive-review-2026-10-15.md#54-追加竞品核对与取消事实)：采纳按需装载完整可用能力及执行器终态事实，继续使用单一 Dispatcher。没有引入兼容层、第二个执行引擎或远程部署。
 
 - 将语义工具入口、浮窗准备、等待及点击匹配观察阶段的确定性取消/超时改成带 `sideEffectFree` 的既有效果结果；统一插件内的派发前检查并复用设备工具已有的错误码。未派发时不误报待核查，实际动作回执与 watchdog 的未知状态保持。既有动作后观察断言继续核查“已派发不被取消抹除”。
 - 默认曝光加入 `ui.device`；单独发现截图时补齐同来源 frame 工具。新增回归覆盖请求会话隔离、禁用/撤销、当前请求准入范围及插件/版本/runtime 来源不匹配；依赖不会授权或执行工具。HXA-286 的声明式贡献重组仍未实施。

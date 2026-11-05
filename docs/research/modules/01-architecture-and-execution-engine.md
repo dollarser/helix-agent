@@ -1,6 +1,6 @@
 # 架构与执行引擎
 
-> 更新：2026-10-14。§2、§5 保留原外部资料核验窗口，§9 是 2026-10-11 分析；§10 重新核验当前源码与主流 Agent 一手资料。研究不覆盖 accepted ADR。
+> 更新：2026-10-14。第 2 节、第 5 节 保留原外部资料核验窗口，第 9 节 是 2026-10-11 分析；第 10 节 重新核验当前源码与主流 Agent 一手资料。研究不覆盖 accepted ADR。
 > 当前执行契约/实现证据：[ADR-AGENT-001](../../adr/agent/001-turn-coordination.md)、[HXA-220](../../completion-records/HXA-220.md)、[HXA-221](../../completion-records/HXA-221.md)、[HXA-223](../../completion-records/HXA-223.md)；当前任务见[实施状态](../../development/status.md)。
 > 进程死亡专题：[process-death-recovery-and-harness-depth.md](process-death-recovery-and-harness-depth.md)。
 
@@ -187,11 +187,11 @@ Helix 已有单一 AgentLoop、单一 Turn 生命周期权威及统一工具执�
 
 ## 10. 2026-10-14 执行边界与新目标设计复核
 
-**2026-10-15 后续承接：**Owner 已要求按本次评审优化文档与任务，原主题 ADR 和 HXA-286～294 已同步；B+E 合并目标、C+D 产物共同接线，Memory/上下文独立归属，完整 Turn 不再等待第二消费者。开发期不新增历史库迁移链，当前版本原子性/恢复继续验证；具体范围见 [§23.7](../../architecture/harness-refactor-plan.md#237-合并设计边界按完整路径替换)。以下10月14日记录保留当时“仅提案、未改ADR/排期”的事实，不再代表最新设计状态。本次未改代码，按 Owner 要求未运行文档门禁。
+**2026-10-15 后续承接：**Owner 已要求按本次评审优化文档与任务，原主题 ADR 和 HXA-286～294 已同步；B+E 合并目标、C+D 产物共同接线，Memory/上下文独立归属，完整 Turn 不再等待第二消费者。开发期不新增历史库迁移链，当前版本原子性/恢复继续验证；具体范围见 [第 23.7 节](../../architecture/harness-refactor-plan.md#237-合并设计边界按完整路径替换)。以下10月14日记录保留当时“仅提案、未改ADR/排期”的事实，不再代表最新设计状态。本次未改代码，按 Owner 要求未运行文档门禁。
 
 ### 10.1 范围和证据身份
 
-Owner 要求评估“接口明确、默认同进程、Memory/插件各守职责”的方案，并明确新设计不兼容旧方案或旧接口，以当前合理性及扩展成本为目标。本轮交付研究与设计，不实施生产代码迁移、不建立新的执行域，也不把设计标成 accepted。新方案统一写入[Harness 方案 §23](../../architecture/harness-refactor-plan.md#23-2026-10-14-执行边界重构提案)。
+Owner 要求评估“接口明确、默认同进程、Memory/插件各守职责”的方案，并明确新设计不兼容旧方案或旧接口，以当前合理性及扩展成本为目标。本轮交付研究与设计，不实施生产代码迁移、不建立新的执行域，也不把设计标成 accepted。新方案统一写入[Harness 方案 第 23 节](../../architecture/harness-refactor-plan.md#23-2026-10-14-执行边界重构提案)。
 
 核验起点为 `main/dd36b673588aa7ee5e78030da7b3674c0c239168` 加当时未提交工作区。开始时 HXA-284 正在改造 documents 插件及请求、图片、存储链路；结束前并行所有者将其提交为 `14824251bc8578162ff4c7ed5ba61bb66c9014c3`，status 已记录其主机切片交付。本轮复核所记录的九个关键源码 SHA-256 全部仍一致；该并行提交及测试不归本次交付。先记录 `git status` 和完整已有 diff，再使用 CodeGraph 的 query/callers/callees，并核对当前原文；索引显示 up to date 仍不替代源码。根 AGENTS 适用，未发现嵌套 AGENTS，`.agents/skills` 不存在。基线和选定源码 SHA-256 留在忽略目录 `build/execution-boundary-review-2026-10-14/`；没有改动本机历史记忆或并行源码。
 
@@ -226,13 +226,13 @@ Owner 要求评估“接口明确、默认同进程、Memory/插件各守职责�
 
 ### 10.4 交付与审查记录
 
-本轮只修改本综合研究、既有 Harness 方案和架构导航，没有修改 status 的实施顺序或 HXA-284 范围。新接口、迁移顺序及验收矩阵见方案 §23；后续实施时在原 Agent/Tools/Permissions/Runtime/Memory/Plugin ADR 更新有效正文与 Decision history，不把本研究直接升级为生效协议。
+本轮只修改本综合研究、既有 Harness 方案和架构导航，没有修改 status 的实施顺序或 HXA-284 范围。新接口、迁移顺序及验收矩阵见方案 第 23 节；后续实施时在原 Agent/Tools/Permissions/Runtime/Memory/Plugin ADR 更新有效正文与 Decision history，不把本研究直接升级为生效协议。
 
 验证只包含文档/ADR 门禁与差异检查：`check-docs.sh` 通过（859 份 Markdown、267 项 HXA），`verify-adr.sh` 通过（37 份当前 ADR），`git diff --check` 通过；日志保存在 `build/execution-boundary-review-2026-10-14/`。本轮未运行 JVM/编译、模拟器、真机、真实 Provider 或 FFmpeg/PRoot 媒体端到端；没有生产行为变化或性能改善的验收结论。历史验收不转记到本设计。剩余事项是新增契约的 ADR 接受和分阶段实现/回归，不是已经确认的新运行缺陷；HXA-284 共享文件实施前须重新核对。未提交或推送。
 
 ### 10.5 同日审核：目标架构与完整 Turn 范围
 
-Owner 提供另一份审核，要求评估“大幅重构可以接受、目标先于迁移规模、完整 Turn 宿主不必等待第二个消费者”。核对结果：删除兼容入口、单一治理、分阶段完整路径替换已在 §23；需修正的是“首轮不新增模块”和“首版默认只到 A～D”的预设。这些约束不能替代对合理终态的判断，现已修改原方案正文，未新增并行方案。
+Owner 提供另一份审核，要求评估“大幅重构可以接受、目标先于迁移规模、完整 Turn 宿主不必等待第二个消费者”。核对结果：删除兼容入口、单一治理、分阶段完整路径替换已在 第 23 节；需修正的是“首轮不新增模块”和“首版默认只到 A～D”的预设。这些约束不能替代对合理终态的判断，现已修改原方案正文，未新增并行方案。
 
 在 `main/14824251` 再次通过 CodeGraph 定位并读取当前 TurnEngine、TurnExecutionDriver、AgentTurnStore、AppAgentRuntime 和 ChatService：Engine/Driver 仍依赖 HelixStorage，AgentTurnStore 当前仅封装终态提交，既有统一 AgentRuntime 的提交/取消实现仍由 ChatService 回调提供。现有无页面测试、页面/通知/插件浮窗接入和持久边界本身构成重构价值，不需假设第二个产品或远程宿主。这里确认的是耦合及验证边界，不把它描述成已发生的执行故障。
 

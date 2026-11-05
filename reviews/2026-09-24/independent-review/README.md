@@ -43,7 +43,7 @@
 | D1-1 | `roadmap.md`"新增对话交互需求"整节为 09-22 过期快照，**5 处**与 status.md/自身表格/ADR 矛盾（历史 3 处复验仍成立，新增 2 处） | `docs/development/roadmap.md:19`（"129 尚未合并 main" ↔ `status.md:18` 已整合）、`:5`（"217 仅完成格式成本准备" ↔ 同文件 `:249`"已交付"，**同文件自相矛盾**）、`:24`（"proposed ADR-AGENT-010" ↔ `adr/agent/010:3` accepted）、`:26`、`:39` | 所有按 AGENTS.md 必读 roadmap 的实施者 | 明确状态失实+自相矛盾，直接诱导重做 129/217 已完成工作 | 整节改写为"已交付"口径并链接完成记录；或节首标注"历史快照，以 status.md 为准" |
 | D1-2 | `next-work-plan.md` 整页为 09-23 旧快照，4 项与 status.md/HEAD 矛盾，且被 roadmap 作为活文档引用 | `docs/development/next-work-plan.md:3`（"当前 main 仍为此前整合基线"）等 | roadmap 下游读者、接手执行的 Agent | 4 项具体当前状态失实 | 更新为当前状态或标注截止时点并从 roadmap 移除活链接 |
 | D1-3 | `extensions.md` 称"安装所有权与签名索引 ADR 仍为 proposed，实现必须等待显式接受"——**方向性失实**（实际已 accepted 且 HXA-129/130 已交付），与 ADR 权威入口直接冲突 | `docs/architecture/extensions.md:24` ↔ `adr/connectors/003:3`、`004:3`（均 accepted）、`adr/README.md:25` | Connector 方向实施者 | "文档说未批准、实际已批准并交付"，可能让实施者拒绝合法工作 | 改为"两 ADR 均已接受并交付离线范围" |
-| D1-4 | `task-experience.md §2` 承诺"工作区详情页提供文件/任务/终端/变更四入口"，落位 HXA 全标已交付，**但代码中不存在该页**；文件→会话交接入口也不存在 | `docs/product/task-experience.md:7`；`app/src/main/.../ui/` 无 WorkspaceDetail（grep 0 命中）；`files` 包 `stageAttachment` 调用 0 | 按文档验收导航链的产品/测试人员；"从文件出发"的核心用户路径 | 文档把不存在的产品路径描述为已交付 | 二选一：实施统一工作区详情页+文件行"在当前任务使用"；或修订 §2 为未交付并立项 |
+| D1-4 | `task-experience.md 第 2 节` 承诺"工作区详情页提供文件/任务/终端/变更四入口"，落位 HXA 全标已交付，**但代码中不存在该页**；文件→会话交接入口也不存在 | `docs/product/task-experience.md:7`；`app/src/main/.../ui/` 无 WorkspaceDetail（grep 0 命中）；`files` 包 `stageAttachment` 调用 0 | 按文档验收导航链的产品/测试人员；"从文件出发"的核心用户路径 | 文档把不存在的产品路径描述为已交付 | 二选一：实施统一工作区详情页+文件行"在当前任务使用"；或修订 第 2 节 为未交付并立项 |
 
 ### P2 问题（11 条，摘要）
 
@@ -54,11 +54,11 @@
 - **D1-11** "turn regeneration"已进 main（`8aa8ff97`：ChatService +102 行、StorageGarbageCollector 新 143 行）但 status/roadmap/完成记录**全无足迹**——违反仓库自身"完成记录保存结果"纪律。
 - **D1-12** requirements.md 功能清单缺"developer 手动终端"（代码 13 文件完整交付）。
 - **D1-13** base strings 中 136 个键为纯英文值（HXA-069 声明 base=简体中文），`check-i18n.sh` 只校验键不校验值。
-- **D1-14** task-experience §4 入口命名（"添加能力"）与实际 UI（"发现市场/已安装与自定义"双 Tab）及 3 态状态机不符。
-- **D1-15** `android-platform-capabilities.md §3.2` 浏览器模块规划树与实际包结构不符。
+- **D1-14** task-experience 第 4 节 入口命名（"添加能力"）与实际 UI（"发现市场/已安装与自定义"双 Tab）及 3 态状态机不符。
+- **D1-15** `android-platform-capabilities.md 第 3.2 节` 浏览器模块规划树与实际包结构不符。
 - **D1-16**（主代理独立核验补充）`evals/m10/README.md:13` 相对链接 `../../docs/development/m10-closure-followup.md` **目标不存在**——全仓 2,371 条链接中唯一断链（审查线脚本未覆盖 evals/ 目录，漏检）。
 
-**改进方向汇总**：① 立即一次性文档对账（<1 小时纯文档改动消 4 处 P1）；② task-experience §2 需产品决策（做页或改文档）；③ 在 `scripts/check-all.sh` 增加两条自动化一致性断言（roadmap 状态列 vs status.md 差集告警；"proposed/未实现"关键词必须能在 ADR Status/status.md 找到对应），防止状态再次漂移。
+**改进方向汇总**：① 立即一次性文档对账（<1 小时纯文档改动消 4 处 P1）；② task-experience 第 2 节 需产品决策（做页或改文档）；③ 在 `scripts/check-all.sh` 增加两条自动化一致性断言（roadmap 状态列 vs status.md 差集告警；"proposed/未实现"关键词必须能在 ADR Status/status.md 找到对应），防止状态再次漂移。
 
 ---
 
@@ -120,13 +120,13 @@ A11 Dispatcher 内部阶段状态聚集（对外仅 2 函数、领域内聚高�
 | --- | --- | --- | --- | --- | --- |
 | U1 | 回收站"清空"与"单条彻底删除"**无确认直接永久删除**；未提交 Root scope 进入该面板后风险面扩大到系统文件 | `ui/FilesScreenLayout.kt:124-129`；`ui/FilesScreenActions.kt:297-320` | 全部用户的文件管理核心流；误触=不可逆数据丢失 | 破坏性批量操作零确认 | 两处加确认对话框（含数量/不可逆提示）；Root scope 下显式提示系统文件 |
 | U2 | 浏览器底部**常驻三个 11sp 小字清除按钮**（清 Cookie/缓存/历史）无确认，`clearHistory` 还关闭全部标签重置为空白 | `feature/browser/.../ui/BrowserScreen.kt:263-265,579-597`；`BrowserController.kt:465-488` | 全部浏览器用户；误触=丢登录态/历史/全部标签 | 低门槛高频误触 + 多类数据丢失 | 加确认（至少"清历史"）或收进菜单二级 |
-| U3 | 文件管理器→Agent **无"附加到会话/在当前任务使用"入口**；工作区四入口详情页不存在（文档 §2 承诺） | `stageAttachment` 全 app 仅 `ui/ChatScreen.kt:401`；`files/` 0 命中 | "从文件出发"的核心产品路径 | 文档级产品路径缺失，文件流与 Agent 流互不相通 | 文件行/预览加"附加到会话"（调 `chatService.stageAttachment`）单向桥先行 |
+| U3 | 文件管理器→Agent **无"附加到会话/在当前任务使用"入口**；工作区四入口详情页不存在（文档 第 2 节 承诺） | `stageAttachment` 全 app 仅 `ui/ChatScreen.kt:401`；`files/` 0 命中 | "从文件出发"的核心产品路径 | 文档级产品路径缺失，文件流与 Agent 流互不相通 | 文件行/预览加"附加到会话"（调 `chatService.stageAttachment`）单向桥先行 |
 | U4 | 流式重组热路径整体未动：每 token 全量 StateFlow emit + `conversationEntries` O(K×N) 重算（LazyListScope 内每次重组直接调）+ contentVersion 每帧重启 LaunchedEffect + Markdown 行内 4 处 Regex 重编译 + **新发现每 token 一次 Room 读** + 搜索态每 token 主线程全文扫描 | `chat/ConversationEntry.kt:11-31`；`ui/ConversationSection.kt:104-108,272-278,294`；`ui/MarkdownBlock.kt:40,44,53,77`；`ChatService.kt:3722-3726,3975` | 长会话（数十轮以上）全部用户；100 轮/400 消息会话 ≈ 4–12 万次 filter/token | 核心聊天流用户可见性能退化，修复成本低 | conversationEntries 单次遍历分桶；contentVersion 去 effect-key 化；Regex 提常量；publishTurn 去掉每 token Room 读；搜索移 IO+debounce（<100 行改动消最大两项成本） |
 | U5 | 市场卡片文案错配（展开键显示"命令详情"、卸载弹窗取消键复用"关闭"）+ 状态机仅 3 态（文档要求 6 阶段）+ 安装后无"在当前任务使用"落点 + 启停/卸载主线程直调 | `marketplace/MarketplaceSection.kt:349-354,540,548-574,151-157,103` | 全部扩展安装/管理用户 | 用户可见的键位语义错乱 + 文档路径断裂 | 语义化文案；状态机扩 6 阶段；启用后加落点；动作移 IO |
 | U6 | 斜杠命令 `/plan`、`/act` 选中后都切到 CHAT——Plan/Act 从斜杠入口不可达 | `ui/ConversationComposer.kt:83-91` | 100% 斜杠命令用户；Plan 模式可达性受损 | 核心模式入口断链，**修复仅两行** | 改 `AgentMode.PLAN` / `AgentMode.ACT` |
 | U7 | 模式菜单/终端页**英文枚举名直出**（中文界面显示 Chat/Plan/Act/Goal、phase/stopReason 原始枚举） | `ui/ComposerMenus.kt:34,36`；`developer/.../ManualTerminalScreen.kt:130,200`；`DeveloperManualTerminal.kt:235-237` | 中文界面全部用户；developer 终端用户 | i18n 整体优秀，此处是显眼的术语断裂 | 模式名走 stringResource（4 键）；枚举→stringRes 映射表 |
 | U8 | 加载态系统性缺失（12 个进度指示 vs 100+ IO 点）：文件列表加载中误报"此目录为空"、能力页空白、MCP 连接测试/市场安装/浏览器下载 SAVING/Root 请求/准备页均无进度 | `ui/FilesScreenEffects.kt:28-44`；`ui/CapabilitiesScreen.kt:74-82`；`connector/ConnectorSection.kt:333-352`；`BrowserScreen.kt:548-553` 等 | 全部长操作用户，多流共性 | 用户无法判断"在干什么/卡没卡" | 统一 ProgressCard；文件列表区分 空/加载/错误；连接测试加超时提示 |
-| U9 | 错误展示不规范：`OAUTH_DEVICE_EXPIRED` 原始码直出、连接器失败直出 `e.message`（全仓 14 处原始异常直传用户可见状态）、不满足"问题+已完成+下一动作"规范 | `connector/ConnectorSection.kt:380-383,570-572`；`ui/FilesScreenEffects.kt:40` 等 14 处 | 扩展/连接器/文件页用户在错误场景下的理解与恢复 | 与 §5 验收目标直接冲突 | 建 `ErrorMapper`（安全码→stringRes 三元组），UI 只渲染映射结果，全工程禁 `Text(e.message)` |
+| U9 | 错误展示不规范：`OAUTH_DEVICE_EXPIRED` 原始码直出、连接器失败直出 `e.message`（全仓 14 处原始异常直传用户可见状态）、不满足"问题+已完成+下一动作"规范 | `connector/ConnectorSection.kt:380-383,570-572`；`ui/FilesScreenEffects.kt:40` 等 14 处 | 扩展/连接器/文件页用户在错误场景下的理解与恢复 | 与 第 5 节 验收目标直接冲突 | 建 `ErrorMapper`（安全码→stringRes 三元组），UI 只渲染映射结果，全工程禁 `Text(e.message)` |
 | U10 | 浏览器旋转即丢页面内容：MainActivity 无 configChanges，onDestroy detach 销毁 WebView，重建后仅占位文案，**无"重新加载"入口**，用户须手动重输 URL | `AndroidManifest.xml:44-46`；`MainActivity.kt:152-160`；`BrowserScreen.kt:255-260` | 浏览器全部用户（旋转/字体缩放都触发） | 核心浏览流在常见手势下内容丢失且恢复路径不显式 | 占位页改"该页面已停止，点击重新加载"；中期 WebView saveState/restoreState |
 
 ### P2 要点（32 条，摘要）
@@ -264,7 +264,7 @@ P01（P1）PRoot 运行期异常可能留下无人管理的进程组（`ProotJob
 | 6 | U4 前三项：conversationEntries 单次分桶 + contentVersion 去 key + Regex 提常量（<100 行消流式最大两项成本） | 三 P1 | 低 |
 | 7 | C07：Root 文件后端改真实流式（合并前门槛） | 四 P1 | 中 |
 | 8 | C05/C06：Responses 参数累计上限；JS 工具 outputFile 或契约降为 64KiB | 四 P1 | 中 |
-| 9 | 文档一次性对账（roadmap 5 处 + next-work-plan + extensions.md + task-experience §2 决策）+ check-all.sh 加一致性断言 | 一 P1 | 低 |
+| 9 | 文档一次性对账（roadmap 5 处 + next-work-plan + extensions.md + task-experience 第 2 节 决策）+ check-all.sh 加一致性断言 | 一 P1 | 低 |
 | 10 | 死代码 ~550 行一次性清理 + core/agent 死族处置决策（省 ~3,400 行）+ SSE 共享解析器 | 五 P1 | 低–中 |
 
 ---

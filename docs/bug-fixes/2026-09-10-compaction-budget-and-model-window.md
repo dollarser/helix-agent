@@ -32,6 +32,8 @@ SummaryOutputBudget 分离目标摘要长度与最多 4096 的调用额度，后
 
 脚本 scripts/debug/2026-09-10/inspect-compaction-usage.py 只读调用计量及非凭据模型元数据，不输出消息正文。主机脚本 scripts/debug/2026-09-10/verify-tool-context-fixes.py 覆盖摘要实际计量回归、小预算/小窗口、Turn 原有限制、模型窗口切换和工具结果投影，并构建 developer APK。执行结果见 status.md；没有借用 Claude 的模拟器或发送新的真实模型任务。
 
+2026-11-05 入口退役：上述 `verify-tool-context-fixes.py` 是当时的验证包装器，已因源码与测试跨模块迁移而移除；原文可从 Git 对象 `3d6a2b5777663a53de71871b5ba053a04beb55dc:scripts/debug/2026-09-10/verify-tool-context-fixes.py` 恢复，仅用于历史追溯，不应在当前源码重跑。现行宿主验证使用 [共享 Debug 门禁](../../scripts/README.md)，按当前模块执行原有测试与编译检查；未删除测试或断言。本节原验收结果仍仅代表 2026-09-10 的验证范围。
+
 ## Residual risk
 
 模型仍可能超过用户真正设置的输出/累计预算，这时拒绝有效；更大摘要仍需满足收益和结构校验。端到端压缩质量由所有者在原会话人工确认。

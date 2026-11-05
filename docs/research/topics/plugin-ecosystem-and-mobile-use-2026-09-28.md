@@ -1,8 +1,8 @@
 # Agent 插件生态与 Mobile Use 调研（2026-09-28）
 
-> **专项研究输入，目录整理：2026-09-29。**下文比较限于原核验日期；本次未刷新竞品状态。旧起点中的 PluginOrigin、Mobile Use 接线和优先级不能覆盖[当前状态](../../development/status.md)。通用绑定/安装生命周期的目标规范统一见[Harness §15/§17](../../architecture/harness-refactor-plan.md)，包格式与 native MVP 细节见[Plugin 专项](../../architecture/plugin-platform-plan.md)。
+> **专项研究输入，目录整理：2026-09-29。**下文比较限于原核验日期；本次未刷新竞品状态。旧起点中的 PluginOrigin、Mobile Use 接线和优先级不能覆盖[当前状态](../../development/status.md)。通用绑定/安装生命周期的目标规范统一见[Harness 第 15 节、第 17 节](../../architecture/harness-refactor-plan.md)，包格式与 native MVP 细节见[Plugin 专项](../../architecture/plugin-platform-plan.md)。
 >
-> 文中“规范 1.0.0 已发布”不单独证明已稳定定型，后续核验的 Working Draft 边界见 Harness 方案 §12。保留原研究原话，不以此承诺完整格式兼容；本专题不继续复制当前实现任务。
+> 文中“规范 1.0.0 已发布”不单独证明已稳定定型，后续核验的 Working Draft 边界见 Harness 方案 第 12 节。保留原研究原话，不以此承诺完整格式兼容；本专题不继续复制当前实现任务。
 
 ---
 

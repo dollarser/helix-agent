@@ -247,7 +247,7 @@ REVIEW 已诚实标注了部分覆盖不足，我在此汇总并补充它未意�
 
 4. **两份报告都是纯静态审查，均未运行 gradle / 模拟器 / 真机**。所有"高"级结论（含我的 P0）都是代码路径推演，**没有一条有运行时复现证据**。我的 P0 置信度高（五环证据链完整），但"进程在 2 个 RUNNING 窗口被杀"这一步仍是推演。**建议**：为 P0 写一条 androidTest——注入两次并发只读调用 + 在 `onExecutionStarting` 第二次触发后强杀进程，重启断言恢复成功。这条测试同时能验证 REVIEW 簇C 的对账逻辑。
 
-5. **性能结论全部无实测基线**。REVIEW §4.2 列了 `ContentStore` 读时全量 SHA-256、`toolTimelineFor` N+1、`BudgetContinuation` O(T²) 三处，我补充了"2 个进度指示 vs 80+ IO 点"。但**没有任何一方提供 profiler 数据、帧时间、DB 往返计数**。建议以 `ChatScreenProjection` 与 `BudgetContinuation` 为目标跑一次 Macrobenchmark，再决定优化优先级——否则这些条目会像 §4.1/§4.2 一样跨两个审查周期持续"仍存在"。
+5. **性能结论全部无实测基线**。REVIEW 第 4.2 节 列了 `ContentStore` 读时全量 SHA-256、`toolTimelineFor` N+1、`BudgetContinuation` O(T²) 三处，我补充了"2 个进度指示 vs 80+ IO 点"。但**没有任何一方提供 profiler 数据、帧时间、DB 往返计数**。建议以 `ChatScreenProjection` 与 `BudgetContinuation` 为目标跑一次 Macrobenchmark，再决定优化优先级——否则这些条目会像 第 4.1 节、第 4.2 节 一样跨两个审查周期持续"仍存在"。
 
 6. **`scripts/` 904 个文件只做了卫生统计，未做正确性审查**。其中有 106 个 `.sh` 验收脚本（`accept-hxa-*.sh`）是项目自己的门禁与验收证据来源。若这些脚本本身有缺陷（例如断言不覆盖关键路径），会系统性地放大"测试通过但功能不存在"的问题——而两份报告都识别出这是本项目最突出的失效模式（孤儿 GC、工具耗时投影、quickjs 输出上限三条同源）。**建议**：抽查 5–10 个最近使用的 `accept-hxa-*.sh`，确认它们真的触达生产路径而非仅调用单元函数。
 
@@ -353,9 +353,9 @@ REVIEW 已诚实标注了部分覆盖不足，我在此汇总并补充它未意�
 
 ### 盲区 6 已由补充审查回答
 
-`2026-09-24-supplement-verification-and-release.md` §1 给出了机制性答案：**CI 从不执行任何设备测试**（`check-all.sh:22` 只跑 `./gradlew test`；`grep connectedAndroidTest|managedDevices` 在 `scripts/` 与 `.github/` 零命中），而 `:app` 的 androidTest 文件数（194）是 unit test（114）的 1.7 倍。设备测试是**一次性证据生成器，不是回归门禁**——这正是"测试通过但端到端不成立"的成因。
+`2026-09-24-supplement-verification-and-release.md` 第 1 节 给出了机制性答案：**CI 从不执行任何设备测试**（`check-all.sh:22` 只跑 `./gradlew test`；`grep connectedAndroidTest|managedDevices` 在 `scripts/` 与 `.github/` 零命中），而 `:app` 的 androidTest 文件数（194）是 unit test（114）的 1.7 倍。设备测试是**一次性证据生成器，不是回归门禁**——这正是"测试通过但端到端不成立"的成因。
 
-**另需修正本报告 §六的一处数量陈述**：我写的「`scripts/` 里 106 个 `accept-hxa-*.sh`」是错的——106 是 `scripts/` 下 `.sh` 文件总数，`accept-hxa-*.sh` 实际为 **10 个**（`check-*.sh` 为 12 个）。问题性质不变，量级差一个数量级。详见补充审查 §1.3。
+**另需修正本报告 第 六 节的一处数量陈述**：我写的「`scripts/` 里 106 个 `accept-hxa-*.sh`」是错的——106 是 `scripts/` 下 `.sh` 文件总数，`accept-hxa-*.sh` 实际为 **10 个**（`check-*.sh` 为 12 个）。问题性质不变，量级差一个数量级。详见补充审查 第 1.3 节。
 
 ---
 

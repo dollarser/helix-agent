@@ -8,7 +8,7 @@
 
 > **本文档定位**：Helix 侧——现在能跑什么代码、为什么这么隔离、如何在「**不开放给 agent 工具面**」的前提下集成一个跑 Linux 命令的能力，以及 PRoot 在代码里的实现细节。
 >
-> **前置阅读**：Android 机制本身（SELinux 双权限 `execute` / `execute_no_trans`、linker64 跳板、toybox/busybox、PRoot、Termux、爆炸半径）见 [android-native-execution-mechanisms.md](../../references/android-native-execution-mechanisms.md)。权威架构见 [local-code-execution.md](../../architecture/local-code-execution.md)（尤其 §6 PRoot 方案、§6.2 Termux 对比、§6.3 运行时组成）。
+> **前置阅读**：Android 机制本身（SELinux 双权限 `execute` / `execute_no_trans`、linker64 跳板、toybox/busybox、PRoot、Termux、爆炸半径）见 [android-native-execution-mechanisms.md](../../references/android-native-execution-mechanisms.md)。权威架构见 [local-code-execution.md](../../architecture/local-code-execution.md)（尤其 第 6 节 PRoot 方案、第 6.2 节 Termux 对比、第 6.3 节 运行时组成）。
 >
 > **性质**：参考性说明，**不是** ADR；与权威文档 / 代码冲突时以后者为准。
 
@@ -36,7 +36,7 @@
 - **有界 IPC**：每个 job 通过 Binder/PFD 接收**经审批的输入快照**，输出也以快照返回。
 - **仍过 Policy**：Linux 命令每次都经 Policy Engine，属 L2。
 - **rootfs**：固定 Alpine **3.22.5** minirootfs（aarch64），**53 个 pinned 包**（musl、busybox 1.37、bash、git、python3 3.12、nodejs 22、ripgrep、libcurl、openssl、sqlite 等）；SHA-256 锁定，唯一版本真相是 `runtime-lock.json`。基线必装包见 `RuntimeBaseline.kt:18`。`apk` 数据库仅离线审计，**不是安装通道**。
-- 详细定位、Termux 对比与集成结论、运行时布局见 [local-code-execution.md §6](../../architecture/local-code-execution.md)；许可证与包清单见 [ALPINE-README.md](../../../runtime/proot-app/src/main/assets/runtime/licenses/ALPINE-README.md)。
+- 详细定位、Termux 对比与集成结论、运行时布局见 [local-code-execution.md 第 6 节](../../architecture/local-code-execution.md)；许可证与包清单见 [ALPINE-README.md](../../../runtime/proot-app/src/main/assets/runtime/licenses/ALPINE-README.md)。
 
 ---
 
@@ -87,7 +87,7 @@
 
 ---
 
-## 6. ProotJobRunner 实现细节（对应 Android 机制那份的 §2 / §3）
+## 6. ProotJobRunner 实现细节（对应 Android 机制那份的 第 2 节、第 3 节）
 
 - **启动链**（`ProotJobRunner.kt:297`，device-verified，注释 `284–295` 明确点名 termux-exec 的 `system_linker_exec`）：
 
@@ -98,7 +98,7 @@
   ```
 
   - `setsid`：让 job 拿到自己的 session（pgid == pid），后面能精确地按进程组 kill。
-  - `linker64`：SELinux 跳板（proot 二进制在 `app_data_file`，直接 exec 会被拒，见机制文档 §3）。
+  - `linker64`：SELinux 跳板（proot 二进制在 `app_data_file`，直接 exec 会被拒，见机制文档 第 3 节）。
   - `commandArgs`：`Argv` 直接用；`Script` 是**单个 argv 元素** `["/bin/sh","-c",script]`，不拼进未转义的命令串。
 
 - **第二层（比通用讲解更精确）——`PROOT_LOADER` 走 `apk_data_file`**：PRoot 会改写 tracee 的 in-flight execve 指向 `$PROOT_LOADER`（LD_PRELOAD 钩子对这种改写无效，tracee 不会再调一次 `execve()`）。这个 loader **必须放在 app domain 能直接 exec 的标签** = `apk_data_file`（该标签**同时**授 `execute` + `execute_no_trans`）；以 jniLib 形式随 APK 安装时解压，且**每次 job 都对锁定的 runtime loader 做 hash 校验**（`ProotJobRunner.kt:302–324`）。
@@ -124,7 +124,7 @@
 ## 参考
 
 - [android-native-execution-mechanisms.md](../../references/android-native-execution-mechanisms.md)（Android 机制：SELinux 双权限、linker64 跳板、toybox/busybox、PRoot、Termux、爆炸半径）
-- [docs/architecture/local-code-execution.md](../../architecture/local-code-execution.md)（权威；§6 PRoot 方案、§6.2 Termux 对比、§6.3 运行时组成）
+- [docs/architecture/local-code-execution.md](../../architecture/local-code-execution.md)（权威；第 6 节 PRoot 方案、第 6.2 节 Termux 对比、第 6.3 节 运行时组成）
 - [docs/adr/permissions/003-dispatch-and-audit.md](../../adr/permissions/003-dispatch-and-audit.md)（能力优先的授权边界与不可变安全内核）
 - `runtime/proot-app/src/main/kotlin/com/helix/runtime/proot/app/ProotJobRunner.kt`（启动链 + SELinux 注释）
 - `app/src/developer/kotlin/com/helix/app/proot/LinuxRunTool.kt`、`runtime/quickjs/src/main/kotlin/com/helix/runtime/quickjs/tool/CodeJavascriptRunTool.kt`、`app/src/developer/kotlin/com/helix/app/root/RootModule.kt`

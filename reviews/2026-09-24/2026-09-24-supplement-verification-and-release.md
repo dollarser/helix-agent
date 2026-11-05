@@ -13,9 +13,9 @@
 
 | 实例 | 来源 |
 |---|---|
-| 孤儿 GC（`PrivacyDeletionService.cleanOrphanFiles`）生产零调用方 | 再评估 §四 |
-| 工具耗时投影断链（`ChatScreenProjection` 不带 `durationMs`） | 再评估 §四 |
-| JS 输出 64 KiB vs 契约 256 KiB（`PARCEL_INLINE_MAX_BYTES`） | 再评估 §四 |
+| 孤儿 GC（`PrivacyDeletionService.cleanOrphanFiles`）生产零调用方 | 再评估 第 四 节 |
+| 工具耗时投影断链（`ChatScreenProjection` 不带 `durationMs`） | 再评估 第 四 节 |
+| JS 输出 64 KiB vs 契约 256 KiB（`PARCEL_INLINE_MAX_BYTES`） | 再评估 第 四 节 |
 | 进程死亡恢复 P0（`PersistedTurn.init` 断言 vs `ToolScheduler` 并行） | 主报告 P0 |
 
 **本文给出的机制性解释：项目的验证体系与生产路径之间存在系统性断层。** 这不是四个孤立疏漏，而是同一原因的四次显形。
@@ -83,7 +83,7 @@
 
 > **测试与被测契约共享了同一个错误前提**（"工具调用是串行的"），因此这个测试**永远不可能**发现该契约已经被并行化推翻。它不是"覆盖不足"，而是"以错误假设写成的测试会伪装成覆盖"。
 
-这也解释了 `structure-review.md` §0 冲突项 2 的处方为何关键：现有决定「先补齐生产不变量测试再考虑移动」**尚未执行**，而这条 P0 正是"生产不变量未被测到"的产物。
+这也解释了 `structure-review.md` 第 0 节 冲突项 2 的处方为何关键：现有决定「先补齐生产不变量测试再考虑移动」**尚未执行**，而这条 P0 正是"生产不变量未被测到"的产物。
 
 **改进建议**：给 `ProcessRecoveryTest` 增加一条显式用例——**seed 2 个并发 RUNNING 调用**（`tc-1` + `tc-2`），断言恢复后两者都得到持久终态且不抛异常。这是 P0 的最小复现，也是修复后的验收断言。
 
@@ -237,8 +237,8 @@ versionName = "0.1.0"
 | # | 盲区 | 为什么重要 | 建议动作 |
 |---|---|---|---|
 | 1 | **运行时复现** | 四份报告全部是静态审查。含本文 P0 与上一轮 P0，**零运行时证据** | 一条 `androidTest`：并发只读 ×2 + 执行中 `SIGKILL` + 重启断言；先在真机跑通它，再改代码 |
-| 2 | **性能基线** | 主报告 §4.1/§4.2 的启动与重组项跨两个审查周期"仍存在"，因为没有基线就无法证明改善或回归 | 先跑 Macrobenchmark（启动 + 滚动）与 Compose recomposition count，再谈优化排序 |
-| 3 | **门禁脚本的断言有效性** | §1.3：10 accept + 12 check 脚本**无一为端到端行为门禁** | 逐个读，确认每个脚本的断言是否真能失败（"能在缺陷存在时变红"是门禁的最低标准） |
+| 2 | **性能基线** | 主报告 第 4.1 节、第 4.2 节 的启动与重组项跨两个审查周期"仍存在"，因为没有基线就无法证明改善或回归 | 先跑 Macrobenchmark（启动 + 滚动）与 Compose recomposition count，再谈优化排序 |
+| 3 | **门禁脚本的断言有效性** | 第 1.3 节：10 accept + 12 check 脚本**无一为端到端行为门禁** | 逐个读，确认每个脚本的断言是否真能失败（"能在缺陷存在时变红"是门禁的最低标准） |
 | 4 | **可观测性/故障现场** | `app/src/main` 下仅 **4 个文件**使用 `android.util.Log`（`HelixApplication.kt`、`ChatService.kt`、`ChatToolCalls.kt`、`ProviderScreen.kt`），`app/diagnostics/` 无统一日志/脱敏门面 | 低风险（日志少 = 泄漏面小），但设备上故障时现场信息可能不足。评估 `DiagnosticBundle` 是否够用 |
 | 5 | **无障碍 / i18n 运行时 / 横屏字体缩放的真机验证** | UI 报告已给出 `contentDescription` 覆盖率等静态度量，但无真机 TalkBack / 字体缩放 200% / 横屏证据 | 一轮真机走查 |
 | 6 | **供应链许可证合规** | `THIRD_PARTY_NOTICES.md` 与 `gradle/libs.versions.toml` 的实际依赖集是否一致（引入 JGit、4 个 Provider SDK、MCP SDK、PRoot 资产后未复核） | 生成依赖清单比对；`packaging.resources.excludes` 已剥离 `META-INF/LICENSE*`/`NOTICE*`（`app/build.gradle.kts:62`），需确认剥离后合规声明仍在 `THIRD_PARTY_NOTICES.md` 中完整 |
@@ -265,7 +265,7 @@ versionName = "0.1.0"
 
 | 项 | 原陈述 | 修正 |
 |---|---|---|
-| `accept-hxa-*.sh` 数量 | 「106 个」（再评估报告 §六） | **10 个**。106 是 `scripts/` 下 `.sh` 总数，口径混用所致 |
+| `accept-hxa-*.sh` 数量 | 「106 个」（再评估报告 第 六 节） | **10 个**。106 是 `scripts/` 下 `.sh` 总数，口径混用所致 |
 
 ### 5.3 本轮核对一致（无问题）
 
@@ -278,11 +278,11 @@ versionName = "0.1.0"
 
 | 优先级 | 动作 | 理由 |
 |---|---|---|
-| **P0** | 给 `ProcessRecoveryTest` 加"2 个并发 RUNNING 调用"用例 | §1.2：上一轮 P0 的最小复现，同时是修复后的验收断言。**在改代码之前先让测试红** |
-| **P0** | 建立可重复的设备测试入口（`--device` 分档或 Gradle Managed Devices） | §1.1：194 个文件目前零回归保护，是"端到端不成立"类缺陷的机制性成因 |
-| **P1** | 开启 R8 + `shrinkResources`，先保守加 keep 规则 | §2.1：单一最高杠杆体积动作（40 MiB DEX） |
-| **P1** | 实跑一次 `./gradlew detekt` 并记录结果 | §3.2：排除"门禁实际是红的"这一最坏情况 |
-| **P2** | `UnusedResources` 改为 warning + baseline；配置 ABI 切分；确立版本号来源 | §3.1 / §2.2 / §2.3 |
+| **P0** | 给 `ProcessRecoveryTest` 加"2 个并发 RUNNING 调用"用例 | 第 1.2 节：上一轮 P0 的最小复现，同时是修复后的验收断言。**在改代码之前先让测试红** |
+| **P0** | 建立可重复的设备测试入口（`--device` 分档或 Gradle Managed Devices） | 第 1.1 节：194 个文件目前零回归保护，是"端到端不成立"类缺陷的机制性成因 |
+| **P1** | 开启 R8 + `shrinkResources`，先保守加 keep 规则 | 第 2.1 节：单一最高杠杆体积动作（40 MiB DEX） |
+| **P1** | 实跑一次 `./gradlew detekt` 并记录结果 | 第 3.2 节：排除"门禁实际是红的"这一最坏情况 |
+| **P2** | `UnusedResources` 改为 warning + baseline；配置 ABI 切分；确立版本号来源 | 第 3.1 节、第 2.2 节、第 2.3 节 |
 
 ---
 

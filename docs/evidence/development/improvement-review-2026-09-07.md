@@ -20,8 +20,8 @@
 这轮"大优化"是**高质量的新功能工作**：M11 凭据隔离边界经机械验证非常扎实（7 个 ADR 全部 PASS）；Goal 的 reservation 恰好一次语义、恢复顺序、删除级联、提醒持久事实驱动都有真实设备测试钉住；测试改动经核查**零弱化**（16 个代表 diff 全是新增回归/flake 修复/等价门禁加强）；四道静态门禁全绿。
 
 但两个结构性问题：
-1. **上轮 P0/P1 清单几乎未被消费**——S1 重定向、S2 symlink 逃逸、U1~U6 用户缺陷、S5 raw 文案、C1~C11 并发项基本全部原样（详见 §2.3）；
-2. **新代码自身带有 1 个产品级语义缺陷**（Goal maxRetries 死控，§3.1 H1）与若干 ADR-GOAL-001 可审计性缺口；治理层面 **status.md 与真实工作脱节**（HXA-102 收口不在 In progress，新会话会接错任务，§4 H1）。
+1. **上轮 P0/P1 清单几乎未被消费**——S1 重定向、S2 symlink 逃逸、U1~U6 用户缺陷、S5 raw 文案、C1~C11 并发项基本全部原样（详见 第 2.3 节）；
+2. **新代码自身带有 1 个产品级语义缺陷**（Goal maxRetries 死控，第 3.1 节 H1）与若干 ADR-GOAL-001 可审计性缺口；治理层面 **status.md 与真实工作脱节**（HXA-102 收口不在 In progress，新会话会接错任务，第 4 节 H1）。
 
 ---
 
@@ -49,7 +49,7 @@
 | P1 每 token SP 写 | `AppContainer.kt:732-737` 仍 collect 整个 `screen`，每 emission 调 `checkpointTurn`（参数收窄为 id+state，但无去重）；无 `distinctUntilChanged` |
 | L6 SecretStore renameTo 回退 | 回退仍非原子 copy；已加注释但未记录"并发 get 读半写 → GCM 误报 corrupt"真实风险 |
 | L4 JsExecutionService join 超时 | 仅补注释（"abandoned to unbind/reclamation"），无 interrupt |
-| status SAF scope 三处矛盾（上轮 HIGH） | 措辞现可区分（工具 scope vs 浏览后端），残留歧义见 §4 L6 |
+| status SAF scope 三处矛盾（上轮 HIGH） | 措辞现可区分（工具 scope vs 浏览后端），残留歧义见 第 4 节 L6 |
 | core 测试缺口 | 部分补齐：A2aTaskRepository/McpConfig/HighSensitivityRule/MessageAttachment 已有 Fake-DAO 单测；**ConversationRepositories 其余 10 类与 PlanGoalRepositories 全部 3 类仍无直接单测** |
 
 ### 2.3 仍未修复（上轮 P0/P1 主力，本轮未消费）
@@ -88,14 +88,14 @@
 
 **G-H1. `maxRetries` 重试机制在生产路径完全失效：任何非限额 turn 失败都终态杀死整个 Goal；若将来接入 retryable 错误会造出永久卡死 Goal**
 - **位置**：`app/.../chat/GoalRunSettlement.kt:88-101`（decision()）；`core/agent/.../GoalReducer.kt:141-156`（onWakeFailed）；`app/.../ui/GoalDialog.kt:167,183`（retry 字段 UI）
-- **证据**：① 生产唯一 `GoalEvent.WakeFailed` 调用点在 `GoalRunSettlement.decision()`，HelixError 硬编码 `retryable=false`——用户可编辑、可持久化、UI 展示的 `goal_retry_limit` 字段（默认 0，编辑器允许改大）在真实运行中**没有任何效果**：一次网络抖动/INTERNAL 错误 → 直接终态 `FAILED`，用户必须重建目标。与 ADR-GOAL-001 §1 "WakeFailed 在 maxRetries 内重试时不离开 RUNNING" 不符。② 设计地雷：即使接上 retryable，`decision()` 对 WakeFailed 一律返回 outcome "FAILED"（关闭 run），而 reducer 重试路径保持 Goal=RUNNING 并发 `RetryWake`——**全仓无 RetryWake 消费者**（grep 0 命中），结果 = Goal 停在 RUNNING + run 已关 + 无 open run + `onContinued` 只接受 READY/PAUSED/INPUT_REQUIRED → **永久卡死无出口**。现有测试 `cancelledAndFailedTurnsCloseGoalsAndCannotContinue` 固化了当前行为，但无人注意到 maxRetries 死了。
+- **证据**：① 生产唯一 `GoalEvent.WakeFailed` 调用点在 `GoalRunSettlement.decision()`，HelixError 硬编码 `retryable=false`——用户可编辑、可持久化、UI 展示的 `goal_retry_limit` 字段（默认 0，编辑器允许改大）在真实运行中**没有任何效果**：一次网络抖动/INTERNAL 错误 → 直接终态 `FAILED`，用户必须重建目标。与 ADR-GOAL-001 第 1 节 "WakeFailed 在 maxRetries 内重试时不离开 RUNNING" 不符。② 设计地雷：即使接上 retryable，`decision()` 对 WakeFailed 一律返回 outcome "FAILED"（关闭 run），而 reducer 重试路径保持 Goal=RUNNING 并发 `RetryWake`——**全仓无 RetryWake 消费者**（grep 0 命中），结果 = Goal 停在 RUNNING + run 已关 + 无 open run + `onContinued` 只接受 READY/PAUSED/INPUT_REQUIRED → **永久卡死无出口**。现有测试 `cancelledAndFailedTurnsCloseGoalsAndCannotContinue` 固化了当前行为，但无人注意到 maxRetries 死了。
 - **建议**：二选一——(a) 完整接线：按 turn errorCode 分类可重试性、重试路径不关闭 run、协调器消费 RetryWake；(b) **首版收窄（推荐，ROI 最高）**：从 UI 移除/禁用 retry 字段，把"可重试型"失败（网络/INTERNAL）映射为 `RunFinished→PAUSED`（可恢复）而非终态 FAILED；同时给 decision() retry 分支加测试封锁。
 
 **MEDIUM（6 项）**
 
 - **G-M1 时间分块结算跨预算边界**：`app/.../recovery/GoalUsageReservations.kt:92-104`（trailingMillis 5s 分块 while 循环）× `GoalDurableUsageLedger.kt:73`（`require(goal.state == RUNNING)`）。finish() 可结算 >5s 的 elapsed；若某中间分块恰好耗尽预算（persist 翻 PAUSED + 关 run），下一分块 require 抛异常 → settle 事务回滚 → turn 被终态化为 `FAILED(INTERNAL)` 覆盖原 COMPLETED → settlement 映射 INTERNAL→WakeFailed→**Goal 终态 FAILED**（本应 PAUSED(BUDGET_EXHAUSTED) 可恢复）。触发条件：监控协程停顿 >5s 且预算边界落在 overrun 区间（设备重载/ANR 级 IO 延迟可达）。现有测试只覆盖未耗尽的 6.5s 场景。**建议**：分块循环遇预算耗尽即停（或 ledger 对已耗尽 Goal 后续分块带审计 no-op）+ 跨边界设备测试。改动 <30 行。
 - **G-M2 UI 状态竞态 → AssertionError 崩溃**：`GoalDialog.kt:63`（`check(service.updateGoalBudgets(...))`）、`GoalReminderControls.kt:33`（`check(service.setGoalReminder(...))`）把"reducer 因状态已变而忽略"当 check 失败；点击与保存之间并发 wake（WorkManager 提醒触发的 run）可致返回 false → `AssertionError` 是 Error，现有 catch（IAE/ISE）不接 → 崩溃。**建议**：false 当普通业务失败走 `goal_save_failed`/`goal_reminder_sync_failed` 本地化路径 + "保存期间 Goal 翻 RUNNING 显示错误文案"设备测试。
-- **G-M3 PAUSED 原因编码混淆**：ADR-GOAL-001 §2 要求三种稳定持久化原因（RUN_FINISHED/BUDGET_EXHAUSTED/PROCESS_INTERRUPTED），全仓 "PROCESS_INTERRUPTED" 零命中——进程死亡 park 与时间窗停滞（GOAL_TIME_WINDOW_EXPIRED）**都**写 run outcome "INTERRUPTED"，UI 给同一标签，审计/恢复无法区分。**建议**：进程死亡用独立 outcome，时间窗停滞用独立语义，同步 goalPauseLabel 与测试。
+- **G-M3 PAUSED 原因编码混淆**：ADR-GOAL-001 第 2 节 要求三种稳定持久化原因（RUN_FINISHED/BUDGET_EXHAUSTED/PROCESS_INTERRUPTED），全仓 "PROCESS_INTERRUPTED" 零命中——进程死亡 park 与时间窗停滞（GOAL_TIME_WINDOW_EXPIRED）**都**写 run outcome "INTERRUPTED"，UI 给同一标签，审计/恢复无法区分。**建议**：进程死亡用独立 outcome，时间窗停滞用独立语义，同步 goalPauseLabel 与测试。
 - **G-M4 删除在 Room 事务内阻塞 WorkManager**：`GoalDeletionCoordinator.delete` 在 `storage.withTransaction` 内调 `cancelReminder`（生产 enqueuer `await(cancelUniqueWork)` 最坏 10s）→ 删除事务持 DB 写锁 10s，其他会话 turn 结算/提醒 reconcile 全排队。**建议**：cancel 移出事务，靠既有 `GoalReminderReconciler`（goal 不存在即 cancel，本批已实现有测试）兜底 + 补"删除后 reminder 迟到发布"断言。
 - **G-M5 无 run 的 READY Goal 在所有会话重复出现**：`GoalSummaryUi.kt:48-50` 过滤条件对 runs 为空的 Goal 直接放行（goals 表无会话归属列，首个 run 的 bind 才绑定会话）→ A 会话创建、B 会话可见并可"继续"（Goal 归属 B）。**建议**：加创建会话归属或 UI 过滤 + `forSession` 设备测试。
 - **G-M6 时间窗过期对监控停顿零容忍**：`GoalTimeBudget.kt:61-76` 监控协程两次 pulse 间被挂起 ~4s+（GC/IO 争用）即判 GOAL_TIME_WINDOW_EXPIRED 取消整个 turn——即使剩余预算充足。**建议**：过期分支先尝试一次 settle+renew，仅 renew 因预算不足失败才停。
@@ -104,7 +104,7 @@
 
 **Goal 测试覆盖缺口（未被钉住的不变量）**：① 时间结算跨预算边界（G-M1）；② maxRetries 生产行为（reducer 层测了、接线层没测——死控正因如此）；③ 进程死亡 vs 时间窗停滞的原因区分（都断言 "INTERRUPTED"）；④ **带工具调用的 Goal turn E2E**（现有 `GoalModelCancellationDeviceTest` 显式断言 toolCalls isEmpty；TOOL 预算只有 reservation 层测试）；⑤ **模型流正常完成的 Goal turn E2E**（现有 E2E 全是中断/取消/kill 路径，没有一条"Goal 模式真的能跑完一个任务"的设备证据）；⑥ UI 保存/提醒竞态；⑦ READY Goal 跨会话展示。
 
-**Goal 做得好（不应改动）**：`goal_usage_reservations` PENDING→SETTLED/INTERRUPTED 条件 UPDATE 从 SQL 层保证恰好一次（`GoalUsageReservationDao.settle` `WHERE state='PENDING'`）；`recoverRun` 只对 PENDING 记账一次绝不重放；`MAX_UNACCOUNTED_MILLIS=5s` 把 crash 未记账窗口真正有界化（ADR-GOAL-001 §5 落地）；`applyGoalPark` 先 recoverRun 再 park、双跑幂等多测试重复断言；结算与 turn 终态同事务（重复 settle 幂等）；提醒子系统"持久事实驱动"（reconciler 只读 goals 行重建 WorkManager 队列，通知点击只导航不 Continued，重复/丢失/乱序三态有真实 WorkManager 设备测试）；删除 fail-closed 且级联完整（kill-in-transaction 与 kill-after-commit 两相测试）；ADR-GOAL-001 检查顺序被钉住（wake 先于 lifetime）；迁移保守（"existing Turns are never guessed into Goals"）；ChatService 接线克制（预算/结算/协调/reconcile 全在独立小类，UI 不触 DAO）；host-fixture SIGKILL 测试方法论强（恢复断言精确到 modelCalls=1、tokens=预留额、二跑 recover 零写入）。
+**Goal 做得好（不应改动）**：`goal_usage_reservations` PENDING→SETTLED/INTERRUPTED 条件 UPDATE 从 SQL 层保证恰好一次（`GoalUsageReservationDao.settle` `WHERE state='PENDING'`）；`recoverRun` 只对 PENDING 记账一次绝不重放；`MAX_UNACCOUNTED_MILLIS=5s` 把 crash 未记账窗口真正有界化（ADR-GOAL-001 第 5 节 落地）；`applyGoalPark` 先 recoverRun 再 park、双跑幂等多测试重复断言；结算与 turn 终态同事务（重复 settle 幂等）；提醒子系统"持久事实驱动"（reconciler 只读 goals 行重建 WorkManager 队列，通知点击只导航不 Continued，重复/丢失/乱序三态有真实 WorkManager 设备测试）；删除 fail-closed 且级联完整（kill-in-transaction 与 kill-after-commit 两相测试）；ADR-GOAL-001 检查顺序被钉住（wake 先于 lifetime）；迁移保守（"existing Turns are never guessed into Goals"）；ChatService 接线克制（预算/结算/协调/reconcile 全在独立小类，UI 不触 DAO）；host-fixture SIGKILL 测试方法论强（恢复断言精确到 modelCalls=1、tokens=预留额、二跑 recover 零写入）。
 
 ### 3.2 core/ 新改动（同批）
 
@@ -112,7 +112,7 @@
 
 **MEDIUM（4 项）**
 
-- **B-M1 `GoalTurnBindingDao.bind` 是新 check-then-act（TOCTOU）**：`dao/GoalTurnBindingDao.kt:50-58`（`@Transaction` 内 `require(activeRun)==1` + `require(otherSessionBindings)==0` + insert）。SQLite deferred 事务下两个并发 bind（不同 session 绑同一 run）可在对方 insert 可见前都通过检查 → 两行都落库，goal run 跨 session——直接破坏 ADR-GOAL-001 §3（proposed）"候选证据必须归属同一 Goal 的持久 run/Turn，不接受跨会话"归属不变量，也破坏 `GoalTurnBindingRepository.sessionForGoal` 的 `singleOrNull()` 单 session 假设（跨 session 时静默返回 null）。**建议**：合成单条原子语句 `INSERT ... SELECT ... WHERE NOT EXISTS(...)` + `check(rowsAffected == 1)`，与 GoalRunDao 的 WHERE 守卫同范式。
+- **B-M1 `GoalTurnBindingDao.bind` 是新 check-then-act（TOCTOU）**：`dao/GoalTurnBindingDao.kt:50-58`（`@Transaction` 内 `require(activeRun)==1` + `require(otherSessionBindings)==0` + insert）。SQLite deferred 事务下两个并发 bind（不同 session 绑同一 run）可在对方 insert 可见前都通过检查 → 两行都落库，goal run 跨 session——直接破坏 ADR-GOAL-001 第 3 节（proposed）"候选证据必须归属同一 Goal 的持久 run/Turn，不接受跨会话"归属不变量，也破坏 `GoalTurnBindingRepository.sessionForGoal` 的 `singleOrNull()` 单 session 假设（跨 session 时静默返回 null）。**建议**：合成单条原子语句 `INSERT ... SELECT ... WHERE NOT EXISTS(...)` + `check(rowsAffected == 1)`，与 GoalRunDao 的 WHERE 守卫同范式。
 - **B-M2 `updateGoal` 整行回写、无 CAS，且本次扩大了写面**：`PlanGoalRepositories.kt:113-136` + PlanGoalDaos（`WHERE id = :id` 仅此）。本次把 budgets/criteria/planId/planHash 加入 SET 子句（修复了真实缺口：此前整行更新不写这 4 列，BudgetsUpdated 后进程死亡会丢预算扩展与 verifier 证据），但代价是陈旧 in-memory `StoredGoal` 现在也能把这 4 列**回退**（lost update），而 goal 主行无任何 state/version CAS（对比同文件 GoalRunDao 已有单调性守卫）。**建议**：UPDATE 加 `AND state = :expectedState`（或单调 runCount/版本列）+ `require(affected == 1)`。
 - **B-M3 时长预算 `==` 边界：park 原因与可恢复性矛盾（ADR-GOAL-001 第 2 条）**：`GoalReducer.kt:258-260`（canStartRun：`runTimeMillis < max`）vs `:263-271`（firstExhaustedLimit：`runTimeMillis > max` 严格大于）。`runTimeMillis == max` 时：不发射 BudgetExhausted → RunFinished 以 RUN_FINISHED 原因 park；但下次 Continued 被 canStartRun 静默忽略（`<` 不成立）→ 用户看到"运行结束、点继续"，继续却无反应直到扩预算。RUN_FINISHED 语义上可恢复，此处不可。该 off-by-one 在 calls/tokens 维度本就存在（`remaining >= 1` vs `>`），本次扩到时长维度；新测试钉住了 == 边界"Continued 被忽略"但没钉 park 侧 BudgetExhausted 缺失。**建议**：统一边界 + 补"usage 恰好到 max → park 且发 BudgetExhausted"测试。
 - **B-M4 新 core 仓库无直接 JVM 单测**：GoalTurnBindingRepository/GoalUsageReservationRepository（新增 6 文件）均无 core/storage/src/test 测试（模块内 Fake-DAO 模式现成，6 个先例）；settle 的 "charged once, never replayed"、insert 封闭 kind 校验、bind 两条 require、sessionForGoal 0/≥2 session 语义均无 core 层钉住——延续上轮"core 最大测试缺口"模式。**建议**：补两个 Fake-DAO 测试类。
@@ -125,7 +125,7 @@
 
 **HIGH**
 
-- **M-H1 = 上轮 S1**：`OkHttpWireClient.kt:41-46` 仍未设 `followRedirects(false)`（本波只改了取消语义）。详见 §2.3。
+- **M-H1 = 上轮 S1**：`OkHttpWireClient.kt:41-46` 仍未设 `followRedirects(false)`（本波只改了取消语义）。详见 第 2.3 节。
 
 **MEDIUM（3 项）**
 
@@ -139,7 +139,7 @@
 
 ### 3.4 runtime/ + tools/ + spikes/（新改动）
 
-上轮 19 条核对：15 not fixed、3 partially fixed（S3 connect 段/C8 中断路径/L4 注释）、1 恶化（L5 KDoc 假主张，见 §2.4）。PRoot 三模块本波零改动。
+上轮 19 条核对：15 not fixed、3 partially fixed（S3 connect 段/C8 中断路径/L4 注释）、1 恶化（L5 KDoc 假主张，见 第 2.4 节）。PRoot 三模块本波零改动。
 
 **新 MEDIUM（2 项）**
 
@@ -150,14 +150,14 @@
 
 ### 3.5 app/ + feature/（新改动，Goal 文件除外）
 
-上轮 15 条核对：12 not fixed、2 not fixed 但形态变化、1 regressed（A1，见 §2.4）。逐条 文件:行 证据见 app 域报告。
+上轮 15 条核对：12 not fixed、2 not fixed 但形态变化、1 regressed（A1，见 第 2.4 节）。逐条 文件:行 证据见 app 域报告。
 
 **测试弱化核查（专项结论）**：**未发现任何弱化断言/放宽门禁性质的修改**。154 文件树变更中测试改动全部是四类：新增回归测试（全部对应 bug-fixes/ 记录）、flake 修复（waitForIdle→waitUntil、观测真实事务替代 sleep 线程）、等价门禁+更好诊断（断言 service row status is Passed 比原 UI 断言更强）、唯一一处时限放宽（QuickJS watchdog 1.5s→10s，注释明确为冷绑定 flake 治理，核心断言未动——备案）；`ConnectorProcessRecoveryDeviceTest` 的 assumeTrue 相位门是 driver 设计而非弱化（反而堵住旧版假绿/假红路径）。
 
 **新 MEDIUM（3 项）**
 - **F-M1 `BrowserController.onRendererGone` 与关闭路径不对称**：`:506-513` renderer 死亡时 `hosts.remove(id)` 不带 `?.destroy()`（关闭路径 :85 带）。当前不出错（onRenderProcessGone 已先 disposeView），但正确性依赖"两个回调严格先后"的隐含约定；未来调整 dispose 时序即泄漏/复用死 WebView。**建议**：统一 `hosts.remove(id)?.destroy()`（destroy 已幂等）。
 - **F-M2 `ImageNormalizer` 引入 `androidx.exifinterface:1.4.2`**：版本 pin + THIRD_PARTY_NOTICES 补条目 + lockfile 更新，合规；属 AGENTS.md "任务未要求不升级依赖" 的边界情形（替换被 Lint 标记的框架 ExifInterface，修复性引入），建议对应 HXA 记录留一句依据。
-- **F-M3 TOKEN_BUDGET_LIMIT 行为变化**（见 §2.1）：对故意在 maxOutput 截断但前缀合法的合法流（token 预算压很小的自托管 provider）现在一律 FAILED——语义正确（输出确实不完整），属行为变化，建议 HXA 记录有决定。
+- **F-M3 TOKEN_BUDGET_LIMIT 行为变化**（见 第 2.1 节）：对故意在 maxOutput 截断但前缀合法的合法流（token 预算压很小的自托管 provider）现在一律 FAILED——语义正确（输出确实不完整），属行为变化，建议 HXA 记录有决定。
 
 **新 LOW（4 项）**：① `app/src/androidTestDeveloper` 的 `AutomationEvaluationActivity` `exported="true"` 且无 permission（对照 debug 的 DiagnosticFailureActivity 用了 DUMP）——developer 测试 APK 内、无状态 fixture，风险低，建议加 DUMP 或 exported=false；② `ProviderEditTemplate.kt`（从 ProviderScreen 抽出的纯函数，含非显然 credentialRequired 覆盖规则）无对应 JVM 测试——抽取目的即可测性，建议补 3-4 条用例；③ `BrowserController.kt:511` 内联全限定 `ERROR_UNKNOWN`；④ i18n 上轮点名的 4 处英文字面量（ProviderScreen "API Key"、ChatScreen `mode.name`、EgressRuleSection "Provider"/"MCP"、ConnectorSection "Skill:"）**一个没修**，且 check-i18n 的 CJK 扫描器对英文字面量天然失明。
 
@@ -178,13 +178,13 @@
 **MEDIUM（6 项）**
 
 - **D-M1 完成记录不可变约定被侵蚀**：HXA-102.md 追加 551 行（全 append-only 合规、原快照保留；首节"集成复核边界"是正当结论更正——做得好）。但其后 ~500 行是持续 Goal 完整工作日志（~30 节），其中大量与 Goal 无关（CLI PFD/Binder、Codex smoke stream、Detekt 53→0 等 M11 收口工作）——与 completion-records/README 明文规则"**不把大段后续修复史追加到旧交付快照**"直接冲突；同一事实三处维护（HXA-102.md / m10-closure-followup / main-optimization-todo），收口时还需再写第四版。**建议**：HXA-102.md 保留更正节 + 收口一次性终版追加；进行中进度单一来源归进展文档。附带：HXA-068 与 HXA-100 的 LAN 补充是同一事实两份拷贝，建议其一改链接。
-- **D-M2 roadmap §2 里程碑退出表缺 M11A 行**（13 个已完成 HXA + 9 个 ADR 的最新里程碑无退出条件）；M13 行仍是独立单行表（上轮 L5 未修）。
-- **D-M3 安全文档 M11 订阅威胁面只覆盖边界层**：本轮 +7 行已覆盖信任表"订阅实验 Runtime"行、"订阅 token 泄露"行、§9 lock 对账；**未覆盖**（M12 发布门禁依据本文档，HXA-121 验收时暴露）：① 第三方 adapter 供应链（dsh-plugin-subscriptions MIT 审计/0.7.0 重基线）；② Device Flow identity 复用（ADR-PROVIDER-002）；③ 个人订阅 ToS/风控边界；④ vault 篡改/Keystore/refresh 401。建议 §3 补 3~4 行威胁/控制 + §9 补边界脚本引用。
+- **D-M2 roadmap 第 2 节 里程碑退出表缺 M11A 行**（13 个已完成 HXA + 9 个 ADR 的最新里程碑无退出条件）；M13 行仍是独立单行表（上轮 L5 未修）。
+- **D-M3 安全文档 M11 订阅威胁面只覆盖边界层**：本轮 +7 行已覆盖信任表"订阅实验 Runtime"行、"订阅 token 泄露"行、第 9 节 lock 对账；**未覆盖**（M12 发布门禁依据本文档，HXA-121 验收时暴露）：① 第三方 adapter 供应链（dsh-plugin-subscriptions MIT 审计/0.7.0 重基线）；② Device Flow identity 复用（ADR-PROVIDER-002）；③ 个人订阅 ToS/风控边界；④ vault 篡改/Keystore/refresh 401。建议 第 3 节 补 3~4 行威胁/控制 + 第 9 节 补边界脚本引用。
 - **D-M4 status.md 检查点行数字不一致**：检查点行写 M11A "HXA-114～119、137～143、131～136"（止于 143），同页头行写 "131～146 已合入 main"，Completed 段列出 144/145/146，且检查点行正文本身描述了 144~146 的验收事实。
 - **D-M5 进展文档治理基本未落地（上轮延续）**：`hxa-146-progress.md` **0 入链**（完全孤儿，而 HXA-144 记录链了 hxa-144-progress——同批次惯例不一致）；`verification-gaps-progress.md`、`m9-rooted-emulator-experiment.md` 实质孤儿（内容冻结 09-05，无"已被取代"标注）；docs/README 本轮只登记 improvement-review 一份，**15+ 份进展/交接文档未登记**（m10-closure-followup、m11-handoff、m11-main-numbering、main-merged-verification、main-optimization-todo、hxa-125/144/146-progress、connector-handoff、m7/m9-non-device、verification-gaps、webview-native-reference-investigation）。**建议**：docs/README 建"进展/交接文档"登记小节（性质+有效性）；hxa-146-progress 入链；verification-gaps 标注取代或归档。
 - **D-M6 ADR-PROVIDER-002 superseded 后状态引用未同步**：roadmap L650 "依 **accepted** ADR-PROVIDER-002"（现已被 0025 取代）；HXA-142 记录 L12 "（accepted）"；HXA-088 记录 L11 仍 "ADR-WORKSPACE-003 保持 proposed（待所有者决定）"无指引；ADR-WORKSPACE-003 文件 L59 小节标题 "Status 仍为 proposed" 与文件头自相矛盾。（status.md L76 处理正确，可作范本。）
 
-**LOW（9 项）**：① implementation-guide.md 只改了 ADR-AGENT-004 行，ADR-WORKSPACE-003 旧措辞（L200）仍在；② security §7.5 "在 accepted 前"病句未改（上轮遗留）；③ **ADR 状态引用无跨文档机械检查**（verify-adr.sh 只查 ADR 文件自身；本轮人工又发现 4 处过期引用，证明纯人盯不收敛）；④ 编号治理仍缺失（HXA-089 幽灵前置无说明、无编号分配小节、ADR 跨分支占号无登记规则——而 m11-main-numbering.md 证明占号冲突已实际发生且被正确处理，规则有现实价值）；⑤ m10-closure-followup.md 头部日期未随 09-07 更新，"emulator-5590 正在长稳期间不得安装/强停"是**过期操作性指令**（长稳已被所有者延后），可能被并行会话误当当前约束；⑥ status SAF 表述（L130 vs L158）建议明写"文件管理器浏览后端已接线（HXA-057），模型工具 scope resolver 未接线"防误读；⑦ hxa-146-progress 定位清楚（自述"不是当前状态源"），问题仅在无入链；⑧ **Connector 交接材料（150 文件含 QwenWork 原包）仍在 `app/build/outputs/connector-handoff-672dc5a/`，`gradlew clean` 即丢失**（上轮遗留，仍未入 Git/备份）；⑨ 正向确认：roadmap HXA-137 显式记录占号理由、HXA-141 尾部"不能再按此句启动实现"注记——活文档内自引用失效标注是好做法，建议推广。
+**LOW（9 项）**：① implementation-guide.md 只改了 ADR-AGENT-004 行，ADR-WORKSPACE-003 旧措辞（L200）仍在；② security 第 7.5 节 "在 accepted 前"病句未改（上轮遗留）；③ **ADR 状态引用无跨文档机械检查**（verify-adr.sh 只查 ADR 文件自身；本轮人工又发现 4 处过期引用，证明纯人盯不收敛）；④ 编号治理仍缺失（HXA-089 幽灵前置无说明、无编号分配小节、ADR 跨分支占号无登记规则——而 m11-main-numbering.md 证明占号冲突已实际发生且被正确处理，规则有现实价值）；⑤ m10-closure-followup.md 头部日期未随 09-07 更新，"emulator-5590 正在长稳期间不得安装/强停"是**过期操作性指令**（长稳已被所有者延后），可能被并行会话误当当前约束；⑥ status SAF 表述（L130 vs L158）建议明写"文件管理器浏览后端已接线（HXA-057），模型工具 scope resolver 未接线"防误读；⑦ hxa-146-progress 定位清楚（自述"不是当前状态源"），问题仅在无入链；⑧ **Connector 交接材料（150 文件含 QwenWork 原包）仍在 `app/build/outputs/connector-handoff-672dc5a/`，`gradlew clean` 即丢失**（上轮遗留，仍未入 Git/备份）；⑨ 正向确认：roadmap HXA-137 显式记录占号理由、HXA-141 尾部"不能再按此句启动实现"注记——活文档内自引用失效标注是好做法，建议推广。
 
 **上轮文档问题核对表（22 条）**：fixed ×3（#10 验证报告占位行重写、#19 ADR-AGENT-004 收口、#21 SGLang smoke 闭合）；partially ×3（#6 基线散落、#11 检查点行——新增漏 144~146、#12 SAF 矛盾实质化解）；not-fixed ×16（#1 病句、#2 旧 doc 编号、#3/#4/#13 孤儿文档、#5 M13 单行表+新增 M11A 缺行、#7 HXA-088 指引、#8 AGENTS 0008、#9 ADR-TOOLS-001、#14 进展文档游离增至 15+、#15 HXA-089+编号治理、#16 ADR-WORKSPACE-003 无实现 HXA+L59 标题、#17 status 大表重复维护（单元格更长 >9000 字符）、#18 implementation-guide 半修、#20 Connector 材料、#22 ADR-TOOLS-001 决定）。
 
@@ -194,7 +194,7 @@
 
 ## 5. 当前未决事项清单（2026-09-07 快照）
 
-对照上轮 §5 清单的增量版；实施时以 status.md 为准。
+对照上轮 第 5 节 清单的增量版；实施时以 status.md 为准。
 
 **A. 进行中 / 持续 Goal**
 1. **HXA-102 生产接线（持续 Goal 当前检查点，status.md 未列——见 D-H1）**：各后端执行中断/取消/对账矩阵、完成证据入口（CriterionSatisfied/CompleteRequested 尚无生产调用者，**依赖 ADR-GOAL-001 决定**）、真实模型完整 UI 流程；45 项固定评测当前 APK 统一复验（现 36/45 + Goal 3 项当前 APK）；API 29/36 设备回归；M11 Provider 集成回归；非长稳生命周期/资源回归；汇总收口。清单在 main-optimization-todo.md 第一阶段（~30 项 [x]、8 项 [ ]）。
@@ -247,7 +247,7 @@
 1. **U1+U2+U3 三连修**（合计 ~10 行 + 设备测试：SAF 移除崩溃、拦截丢文本、share 重放）。
 2. **Goal G-M2/G-M4**：UI 竞态本地化（2 处 check(false) 改 ISE/失败文案）+ 删除事务去阻塞（cancelReminder 移出事务靠 reconciler 兜底）——合计半天内换掉 2 个崩溃/长锁路径。
 3. **M-M1 loopback 绑 127.0.0.1 + 全局墙钟 deadline + readTarget 单测**；**M-M3 ProviderFactory managed-id fail-closed**。
-4. **G-M3 PAUSED 原因去混淆**（"PROCESS_INTERRUPTED" 独立 outcome；ADR-GOAL-001 §2 可审计要求，成本低）。
+4. **G-M3 PAUSED 原因去混淆**（"PROCESS_INTERRUPTED" 独立 outcome；ADR-GOAL-001 第 2 节 可审计要求，成本低）。
 5. **G-M5/M6**：READY Goal 会话归属 + 时间窗过期先 settle 再判死。
 
 ### P3（语义与并发遗留）
@@ -270,18 +270,18 @@
 1. **ADR 决定催办**：ADR-TOOLS-001（生产已在执行）+ ADR-GOAL-001（HXA-102 收口硬前置）——都是所有者一句话。
 2. **ADR 状态引用一次性清账 + 机械检查**：AGENTS.md 0008、implementation-guide 0008、ADR-WORKSPACE-003 L59 标题、roadmap 0024 superseded 注记、HXA-088 指引；check-docs.sh 增"文档中 ADR 状态词与文件头一致"检查（本类问题两轮共 6+ 处，人盯不收敛）。
 3. **完成记录约定恢复**（D-M1）：HXA-102.md 留更正节、日志归单一来源、收口一次性终版追加。
-4. **里程碑与进展文档治理**：roadmap §2 补 M11A 行、M13 并回；docs/README 建进展文档登记小节（15+ 份）；hxa-146-progress 入链、verification-gaps 标注取代或归档；编号治理小节（HXA-089 + 占号规则）；status 检查点行扩到 131~146。
+4. **里程碑与进展文档治理**：roadmap 第 2 节 补 M11A 行、M13 并回；docs/README 建进展文档登记小节（15+ 份）；hxa-146-progress 入链、verification-gaps 标注取代或归档；编号治理小节（HXA-089 + 占号规则）；status 检查点行扩到 131~146。
 5. **安全文档 M11 威胁面补行**（D-M3）+ **M11 仿冒头/固定身份残余风险挂账 status.md**（M-L3）。
 6. **工程**：CI 加 check-i18n gate、spotless/detekt 排除 `.claude`/`.codegraph`、check-lockfiles 去硬编码 35、CI 拆并行 job + spike gate 接入、shellcheck、quickjs AAR 配置期解析移任务执行期、detekt 升级评估。
 7. **ChatService 拆分启动**（已 3244 行）：⑧ 错误码映射（立即可 JVM 测）→ ⑦ 屏幕状态构建 → ⑥ 工具调用结算，配合存储 seam 接口化。
-8. **上轮 P4/P5 未动项**：SSE 读取器收敛、边界常量收敛 tools/framework、spikes 归档（a2a 两个 + bounded-orchestration 生命周期注释）、ConversationRepositories 补 Fake-DAO 单测、JsAbiAssembly 行续符守卫 + KDoc 修正（§2.4 恶化项，建议提前至 P2）。
+8. **上轮 P4/P5 未动项**：SSE 读取器收敛、边界常量收敛 tools/framework、spikes 归档（a2a 两个 + bounded-orchestration 生命周期注释）、ConversationRepositories 补 Fake-DAO 单测、JsAbiAssembly 行续符守卫 + KDoc 修正（第 2.4 节 恶化项，建议提前至 P2）。
 
 ---
 
 ## 7. 附录：做得好、不应改动的部分（本轮新增确认）
 
 - **M11 凭据隔离**：vault 独立 UID + Keystore-GCM + 0600 + 原子 rename + schema 严格校验；wire 只有 jobId/hash/枚举事件；逐 onTransact 签名校验；错误面封闭分类；runtime 零日志；边界脚本 DEX 级机械断言；完成记录如实记录失败与修复。
-- **Goal reservation 基石**：PENDING→SETTLED 条件 UPDATE 恰好一次；recoverRun 绝不重放；5s 未记账窗口有界化（ADR-GOAL-001 §5）；结算与 turn 终态同事务幂等；提醒持久事实驱动（重复/丢失/乱序三态真实 WorkManager 测试）；删除级联完整 + kill 两相测试；host-fixture SIGKILL 恢复断言精确到字段级。
+- **Goal reservation 基石**：PENDING→SETTLED 条件 UPDATE 恰好一次；recoverRun 绝不重放；5s 未记账窗口有界化（ADR-GOAL-001 第 5 节）；结算与 turn 终态同事务幂等；提醒持久事实驱动（重复/丢失/乱序三态真实 WorkManager 测试）；删除级联完整 + kill 两相测试；host-fixture SIGKILL 恢复断言精确到字段级。
 - **core 新范式**：v7→v9 迁移保守（不臆造数据、全链路测试、schema parity）；GoalRunDao 单调性 CAS 守卫（全仓缺失的 C1 类守卫先例，应推广到 A2A/goal 主行）。
 - **CLI IPC 新实现**：CliRequestPipe（修 fire-and-forget 竞态、EOF 语义正确、fail-closed）；CliModelJobAwaiter（中断先 cancel 再超时、恰好取消一次）；Wire 无跨边界异常、hash 校验保留。
 - **取消/中断纪律**：OkHttpWireClient 异步化后取消真实关流；ToolDispatcher 中断路径 + 等待期取消响应；QuickJS INTERRUPTED→Cancelled（防取消后重执行）；MCP 取消关流不重放——四个执行面本轮一致改善。

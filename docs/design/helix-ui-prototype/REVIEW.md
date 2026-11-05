@@ -10,7 +10,7 @@
 | SettingsScreen / AdvancedProfileAvailability | 安装构建与安全 profile 不是同一个概念 | 构建选择移到画布外；Standard 不显示终端入口，不允许设置变成 Advanced；Advanced 构建仍须明确确认 profile |
 | ProjectDetailScreen / ProjectEditor / ProjectSessions / SessionProjectSection；ADR-WORKSPACE-005 | 项目并非只有名称和目录：会话、文件、任务、成果、指令、显式记忆、归档与迁移边界都存在 | 项目工作台分区；归档不停止任务；成员迁移与删除重验忙碌，目录/权限不随组织变更移动；删除仅元数据 |
 | SessionPermissionSection / ADR-PERMISSIONS-002 | 新会话默认与当前会话预设分开；Act 默认、模式命令显式提交 | 新会话清除旧专家/扩展选择，读取新会话权限默认；项目新会话用主目录，但不继承原权限 |
-| 当前 ExtensionsScreen / ConnectorSection；ADR-CONNECTORS-003 §7 | “已添加 / 发现”统一 Plugin 领域；MCP 属高级接入；不存在插件用户全局启停开关 | 删除原型的全局插件开关；添加入口汇总导入/创作/MCP；卡片按配置/提示与工具/详情组织 |
+| 当前 ExtensionsScreen / ConnectorSection；ADR-CONNECTORS-003 第 7 节 | “已添加 / 发现”统一 Plugin 领域；MCP 属高级接入；不存在插件用户全局启停开关 | 删除原型的全局插件开关；添加入口汇总导入/创作/MCP；卡片按配置/提示与工具/详情组织 |
 | 同一 Connector ADR 的所有权与更新条款 | 内置代码随 APK 更新，独立技能归属需保留；更新不应额外重复批准工具 | 内置不显示独立卸载；外部卸载保留独立技能；作者更新说明后直接更新，不把更新当工具许可 |
 | ADR-GOAL-001 / 当前 GoalDialog | Goal 与 Run 分开，已有运行不能制造重复继续 | 运行中“继续”解释已有运行，不创建新 attempt；未知效果保留核对路径 |
 | KnowledgeScreen / KnowledgeQuestionScreen / ADR-WORKSPACE-007 | 有界来源选择与冻结引用是可信度入口，来源不是已经核对的知识 | 问答先展示确切来源与处理模型；无来源禁止生成；返回选源保留问题；只显示实际冻结的引用，避免虚构第二条 |

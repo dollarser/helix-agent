@@ -26,7 +26,7 @@
   1. **cwd 不是包含边界**：PRoot 以 App 共享 UID 运行，job 的 cwd 不阻止同 UID 进程读写 App 可见文件；Shell lane 无法保证工作目录限制。
   2. **联网**：同 APK isolated UID 无法承载现有 PRoot 的 RootFS/工作目录（[可行性验证](isolated-proot-feasibility-2026-09-16.md)），所有者已按回退条件撤回统一禁网要求；PRoot 保留 App 的联网能力。不声明离线或隔离。
   3. **seccomp 探针残余缺口**：process_vm_writev 与同 UID /proc 委托缺口、继承 FD；[复核记录](../../../scripts/debug/2026-09-16/hxa209-seccomp-poc/REVIEW.md) 已更正早期错误结论，该线已放弃、不接入生产。
-  4. **脚本内容**：rm 命令规则是有限提醒规则（[ADR-PERMISSIONS-001 §3](../../adr/permissions/001-session-authorization.md)），不是沙箱；等价删除不承诺拦截。
+  4. **脚本内容**：rm 命令规则是有限提醒规则（[ADR-PERMISSIONS-001 第 3 节](../../adr/permissions/001-session-authorization.md)），不是沙箱；等价删除不承诺拦截。
 - **rm 命令规则切片（本轮实现）**：`core/policy` 新增 `RmCommandRule`（argv/script 两形态），`RmCommandRuleTest` 45/45——含 ADR 要求的路径引号、空白、多个目标、复合命令子命令，以及 echo/注释/heredoc 字符串不误报；括号子 shell 与命令替换被检查（其命令确实执行）。命中结果为至少精确一次性审批，任何模式不得豁免。
 - **对 Phase B 的含义**：Shell lane 的 CUSTOM 文件修改 DENY 在当前执行域不能技术保证写隔离，按 ADR fail-closed 契约：效果无法完整判定为不触犯 DENY 的调用直接拒绝并给出“当前执行环境无法保证所选限制”的具体原因，不转 ASK 放行；仅效果可完整判定的调用（可明确判定的只读命令类）放行。rm 规则是独立提醒层，不替代该判定。
 - **设备证据（本地产物，2026-09-16 生成，gitignored）**：`build/hxa209-poc/`（proot-verification.log、owned-verification.log、proot-hardened-api29/36.log、app-and-proot-api29/36.log、netprobe/filterprobe/guard/diag/delegation-probe/fdprobe）、`build/hxa209-network-verification/app-observations-*.txt`。复现入口：[isolated-proot-spike](../../../scripts/debug/2026-09-16/isolated-proot-spike/README.md)。
@@ -48,7 +48,7 @@
 ## 5. 跨域共同判定座与证据标准
 
 - **单一判定座**：`ToolDispatcher.commitExecutionStart` + `resolveToolApproval`（与 Registry 曝光路径共用同一 resolver），`ApprovalBinding` 绑定 toolCallId/contractHash/argsHash，deniedByTurn 缓存。Phase B 的新模式规则与工具二态在此接线，不建立四条执行链。
-- **证据标准**：cwd、命令名、MCP readOnlyHint、提示词文本都不构成执行隔离证据（HXA-209 Phase A 与 ADR §3）。可作证据的只有：逐操作重解析的代码 seam + 断言实际副作用的测试，以及真实执行的设备转录。
+- **证据标准**：cwd、命令名、MCP readOnlyHint、提示词文本都不构成执行隔离证据（HXA-209 Phase A 与 ADR 第 3 节）。可作证据的只有：逐操作重解析的代码 seam + 断言实际副作用的测试，以及真实执行的设备转录。
 - **历史测试只作线索**：本文所有主机套件均为 2026-09-16 当日新执行；设备转录为当日本地产物，历史设备测试结果不作为当前通过证据。
 
 ## 6. 本轮证据执行清单（2026-09-16，全部新跑）

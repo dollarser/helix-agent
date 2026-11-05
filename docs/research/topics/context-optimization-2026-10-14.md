@@ -10,7 +10,7 @@
 
 | 原建议 | 当前核验 | 补充后的判断 |
 | --- | --- | --- |
-| 引用会话与压缩源不一致 | 源码确认两条物化路径不同；本轮纯 JVM 探针进一步复现编译器拒绝计划，详见 §2 | 最高优先级正确性修复。必须同步规范消息、摘要源正文及资源计量，不能仅修消息比较 |
+| 引用会话与压缩源不一致 | 源码确认两条物化路径不同；本轮纯 JVM 探针进一步复现编译器拒绝计划，详见 第 2 节 | 最高优先级正确性修复。必须同步规范消息、摘要源正文及资源计量，不能仅修消息比较 |
 | 可选上下文缺少统一预算 | 工具近期工作集为固定字节策略，Skill 目录与激活正文另行装配；已有统一总输入估算和准入 | 缺口是**预算分配协调**，不是没有总预算。必要指导与当前协议组不能作为普通可选内容静默删减 |
 | Memory 选择较粗糙 | 自动注入摘要取前 1,000 个 Kotlin 字符；已有 Markdown 索引、`memory.list/search/read` 和两级 scope | 不重建索引／读取机制。先优化摘要截取、入口信息和按需检索，再用任务证据决定是否自动选择条目 |
 | 压缩连续性依赖摘要 | 一般对话的语义连续性仍依赖摘要；已有 Goal、恢复事实和 Job 观察投影 | 扩展现有持久事实投影及来源锚点；不另建模型维护的“事实真相库”，不重复实现 Job 状态注入 |
@@ -41,7 +41,7 @@
 | 将源 `messages` 对齐请求，但源 `content` 仍是原正文 | 生成计划，但旧引用既不在摘要输入也不在保留请求中 | 只补消息映射会造成第二处信息丢失 |
 | 源 `content` 与 `messages` 均包含同一引用 | 生成计划；旧引用进入摘要输入，尾部引用保留在请求中 | 证明必要的输入契约；不证明摘要模型一定忠实保留 |
 
-新增四项探针与既有十三项 `ContextCompilerTest` 共 **17 项实际运行通过，0 失败、0 跳过**。探针是在纯 JVM 上重建两条路径的输入差异，没有调用 Android 存储／真实 Provider，也没有把这个缺陷修入生产。命令及证据见 §8。
+新增四项探针与既有十三项 `ContextCompilerTest` 共 **17 项实际运行通过，0 失败、0 跳过**。探针是在纯 JVM 上重建两条路径的输入差异，没有调用 Android 存储／真实 Provider，也没有把这个缺陷修入生产。命令及证据见 第 8 节。
 
 ### 2.3 修复目标
 
@@ -133,7 +133,7 @@ Mobile Use 的长期会话授权与短期 node／gesture 凭据是不同事实�
 
 ## 6. 实施顺序与现有重构的衔接
 
-以下是本专题内部建议顺序，**不自动调整当前 HXA 或全局排期**。架构承接 [Harness 方案 §23](../../architecture/harness-refactor-plan.md#23-2026-10-14-执行边界重构提案)，本轮不修改其目标和阶段，也不因研究新增第二个 Context 服务／AgentLoop。
+以下是本专题内部建议顺序，**不自动调整当前 HXA 或全局排期**。架构承接 [Harness 方案 第 23 节](../../architecture/harness-refactor-plan.md#23-2026-10-14-执行边界重构提案)，本轮不修改其目标和阶段，也不因研究新增第二个 Context 服务／AgentLoop。
 
 | 建议切片 | 可审查交付 | 与目标架构关系 |
 | --- | --- | --- |
@@ -175,7 +175,7 @@ python3 scripts/with-host-slot.py -- ./gradlew --offline --no-daemon \
   --tests com.helix.core.agent.ContextReferenceConsistencyProbeTest
 ```
 
-本地证据根为 `build/context-optimization-review-2026-10-14/`：`baseline-head.txt`、`baseline-status.txt`、`baseline.diff`、`source-sha256.txt`、`context-tests.log`、`junit/`。探针位于 `scripts/debug/2026-10-14/local/context-reference-probe/`；这些是忽略的本机产物，不作为受版本控制文档的必需依赖，最小复现输入／断言已保留在 §2.2。
+本地证据根为 `build/context-optimization-review-2026-10-14/`：`baseline-head.txt`、`baseline-status.txt`、`baseline.diff`、`source-sha256.txt`、`context-tests.log`、`junit/`。探针位于 `scripts/debug/2026-10-14/local/context-reference-probe/`；这些是忽略的本机产物，不作为受版本控制文档的必需依赖，最小复现输入／断言已保留在 第 2.2 节。
 
 `./scripts/check-all.sh --source` 实际执行 exit 0：228 项 Python 主机脚本测试、861 份 Markdown／267 项 HXA 导航、37 份当前 ADR、1105 份生产源码国际化扫描／2292 个资源键及 Secret scan 均通过；日志为同目录 `source-gate.log`。其中报告器测试打印的 FAIL／INCONCLUSIVE 是受控失败夹具的预期输出，没有运行设备。`git diff --check` 通过；12 份关键源码 SHA-256 结束复核一致。
 

@@ -1,6 +1,6 @@
 # Harness 人工介入审查（历史快照）
 
-> **2026-09-30 归档说明：**下文是原基线的发现与当时建议，保留原话，不是当前待办。周期确认、已授权目标恢复、只读核查、队列和授权交互已由 [HXA-232](../../development/tasks/HXA-232.md)承接；有限设备验证与尚未完成矩阵分别看该任务。当前分工以 [Harness §13.6](../../architecture/harness-refactor-plan.md#136-模型与-harness-的职责优化及减法准则) 为准，必要业务澄清、系统认证不因旧文“仅审批”概括而被禁止。本次归档不关闭剩余验收，也不恢复旧人工流程。
+> **2026-09-30 归档说明：**下文是原基线的发现与当时建议，保留原话，不是当前待办。周期确认、已授权目标恢复、只读核查、队列和授权交互已由 [HXA-232](../../development/tasks/HXA-232.md)承接；有限设备验证与尚未完成矩阵分别看该任务。当前分工以 [Harness 第 13.6 节](../../architecture/harness-refactor-plan.md#136-模型与-harness-的职责优化及减法准则) 为准，必要业务澄清、系统认证不因旧文“仅审批”概括而被禁止。本次归档不关闭剩余验收，也不恢复旧人工流程。
 
 日期：2026-09-29。基线：本地 main `7480141b` 加当前未提交工作树。结论：**不满足“人工只处理工具审批，其余由模型处理或明确放弃”的新要求**。
 
@@ -22,7 +22,7 @@
 | --- | --- | --- | --- |
 | P1 | 自动化会话每 10 次尝试强制 checkpoint 暂停；模型收到要求用户到权限页确认恢复的指示。30 次动作或 5 分钟上限也会终止该自动化会话。不是 Dispatcher 的逐工具审批 | `AutomationSessionManager.kt:206-249`；`AutomationTools.kt:191-204,289-290`；developer `AutomationModule.kt:119-141` | checkpoint 改为模型自检；确需授权的目标／范围变化进入统一工具审批，已有授权内恢复不再去设置页确认；保留用户 Stop 与权限撤销 |
 | P1 | 非 COMPLETED Turn 一律解除 Goal 自动续跑，review 也解除激活。失败后的模型恢复没有统一接续入口 | `SessionWorkScheduler.kt:43-80`；`GoalRunSettlement.kt:119-155` | 将用户停止、不可恢复终止与可恢复失败区分；为后者建立持久去重的自动恢复准入，沿用 Engine，不能简单对全部终态自动重试 |
-| P1 | UNKNOWN 核查契约仍以人工 decision 为准，缺少 review 行会报 `INCOMPLETE_REVIEWS`。源码未找到注册给模型的核查结算工具 | `ReviewResolutionSupport.kt:158-167`；`ToolEffectReviewService.kt:67-82`；`ToolCallReviewRepository.kt:12-23`；ADR-AGENT-001 §5 | 模型可检查并提交带来源／依据的恢复判断，或明确放弃；原 UNKNOWN 与 executor 结果保留，不将模型推测伪造成回执。服务方法存在不等于生产 UI 已有三种核查按钮，本审查不作该推断 |
+| P1 | UNKNOWN 核查契约仍以人工 decision 为准，缺少 review 行会报 `INCOMPLETE_REVIEWS`。源码未找到注册给模型的核查结算工具 | `ReviewResolutionSupport.kt:158-167`；`ToolEffectReviewService.kt:67-82`；`ToolCallReviewRepository.kt:12-23`；ADR-AGENT-001 第 5 节 | 模型可检查并提交带来源／依据的恢复判断，或明确放弃；原 UNKNOWN 与 executor 结果保留，不将模型推测伪造成回执。服务方法存在不等于生产 UI 已有三种核查按钮，本审查不作该推断 |
 | P1 | 最终网络／认证失败后，恢复路径是用户去模型设置修复再重试；能力缺失是用户去权限页操作；普通错误是手动重试 | `RecoveryFactsProjection.kt:188-247`；`TurnRecoveryActions.kt:38-82`；`TurnRecoveryPanel.kt:120-195` | 模型／平台先做现有授权内恢复与替代；所需授权走工具审批；不能修复时结束并报告，不能只删按钮留下死等状态 |
 | P1 | 工具重复无进展被映射为 `INPUT_REQUIRED(TOOL_LOOP_NO_PROGRESS)`；预算恢复依赖“从已有结果继续”或编辑预算，不能保证模型自主收尾 | `GoalRunSettlement.kt:140-148`；`BudgetContinuation.kt:12-31`；`TurnRecoveryPanel.kt:181-194`；`GoalSettingsSection.kt:60,91-104` | 先把循环证据反馈模型，允许改变方案或放弃；在既有总额度内自动接续局部窗口。总额度不能静默扩大，无额度时明确结算，不要求用户维修额度 |
 | P1 | 投递失败、未被消费的 Steer、配置／来源变化会将输入置为 NEEDS_ATTENTION；调度仅消费 PENDING，界面提供手动恢复 | `SessionWorkScheduler.kt:54-66,102-110,118-130`；`ChatService.kt:3349-3397,3465-3486`；`SessionInputQueuePanel.kt:426-428` | 按原因自动重验证／迁移到合法后继或明确结束。不得把因用户 Stop 停泊的输入擅自重新发送；来源／目标改变需要的授权纳入唯一审批入口 |

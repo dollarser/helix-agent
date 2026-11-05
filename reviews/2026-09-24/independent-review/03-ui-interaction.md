@@ -156,7 +156,7 @@ MainActivity (HelixTheme, ModalNavigationDrawer)
 | **旋转后页面丢失** | MainActivity.onDestroy `browser.detach()` 销毁 WebView → 重建后 `hostView==null` → 显示占位文案 `browser_enter_address`,**用户必须手动重输 URL**;标签列表(controller 内存)幸存但内容全部丢失 | `MainActivity.kt:152-160`;`BrowserScreen.kt:255-260`;`BrowserController.kt:327-330` | **P1-10** |
 | 进程死亡 | 标签全部丢失(无磁盘持久),回首页空白标签 | `BrowserController` 无 tabs 持久化 | P2-26 |
 | 下载队列 | 下载对话框(空态/选择位置/已保存/失败/拒绝)+**常驻内联面板**(有下载时顶起网页);**SAVING 状态无任何进度条/取消按钮**;下载前 SAF CreateDocument 选位置(不写未确认字节) | `BrowserScreen.kt:254-257,287-301,512-568`;`WebViewTabHost.kt`(setDownloadListener) | P2-27 |
-| 权限 | **一律拒绝**:地理定位 callback(origin,false,false)、PermissionRequest.deny()(doc 09 §3.4 设计);**无任何用户可见的"已拒绝"提示** | `WebViewTabHost.kt:258-266` | 页面内可能静默失败,用户无解释(P2-28) |
+| 权限 | **一律拒绝**:地理定位 callback(origin,false,false)、PermissionRequest.deny()(doc 09 第 3.4 节 设计);**无任何用户可见的"已拒绝"提示** | `WebViewTabHost.kt:258-266` | 页面内可能静默失败,用户无解释(P2-28) |
 | **常驻清除按钮(无确认)** | 浏览器底部**常驻** ClearRow:清 Cookie/清缓存/清历史,`fontSize=11.sp` 小字,点击立即执行;`clearHistory` 还会**关闭全部标签**重置为空白 | `BrowserScreen.kt:263-265`(ClearRow 无条件渲染)、`579-597`;`BrowserController.kt:465-488` | **P1-2:三处破坏性操作无确认,误触即丢浏览器登录态/历史/全部打开的标签** |
 | 安全 UX | 无特权 JS 桥(仅固定版本化脚本 snapshot/action,模型不能提交脚本)✅;页面 title 直出 tab 卡(未消毒但仅本地显示) | `BrowserController.kt:344-377`(evaluateFixed) | 无 |
 
@@ -170,7 +170,7 @@ MainActivity (HelixTheme, ModalNavigationDrawer)
 | 状态机 | **3 态**:NOT_INSTALLED(安装/配置并安装)/INSTALLED_INACTIVE(启用)/ACTIVE(禁用);文档要求 6 阶段(已添加/待配置/待连接验证/未启用/可使用/需处理) | `MarketplaceSection.kt:548-574` | **P1-5(历史 UI-7 部分仍在)** |
 | 卡片文案错配 | 展开键折叠态显示 `command_detail_title`("命令详情")、展开态显示 `session_export_close`("关闭");卸载弹窗取消键复用 `session_export_close` | `MarketplaceSection.kt:349-354,540` | **P1-5:用户可见的键位语义错乱** |
 | 启停/卸载 | **主线程直调** `service.disable/enableSkill/uninstall`(仅 install 走 IO);卸载有确认对话框 ✅ | `MarketplaceSection.kt:151-157,173-175`;`:522-524` | 主线程 IO(P2-29) |
-| 安装后 | **无"在当前任务使用/新建任务"动作**(文档 task-experience.md §4 要求) | `MarketplaceSection.kt`(无对应 UI) | P1-5 |
+| 安装后 | **无"在当前任务使用/新建任务"动作**(文档 task-experience.md 第 4 节 要求) | `MarketplaceSection.kt`(无对应 UI) | P1-5 |
 | MCP 添加 | JSON 粘贴/文档导入+预览(变更摘要:skills/endpoints 数)+替换旧连接器 | `ConnectorSection.kt:108-190` | 无 |
 | 连接测试 | 按钮禁用(!busy)+`connector_connection_failed` 红字;**挂起时无 spinner、无超时提示**(测试多久算挂起取决于 MCP 客户端,UI 无独立超时反馈) | `ConnectorSection.kt:333-352,434-436` | P1-8(进度缺失);P1-9(原始 message 直出,见下) |
 | OAuth | Bearer(填 token)/OAuth 两种;GitHub 设备码流程:展示 userCode(大字)+打开验证页+复制+等待文案+取消;**无过期倒计时、无轮询进度指示**,过期后 `onError("OAUTH_DEVICE_EXPIRED")` **原始码直出用户可见红字** | `ConnectorSection.kt:469-497,570-572,657-701,380-383`;`GitHubDeviceCodeCard :657+` | **P1-9(历史 UI-5 仍在)**;P2-30(无倒计时) |
@@ -180,7 +180,7 @@ MainActivity (HelixTheme, ModalNavigationDrawer)
 
 - **会话权限(Permissions 页,嵌 SettingsScreen)**:四预设(FULL_ACCESS/WORKSPACE/READ_ONLY/CUSTOM)+新会话默认(仅预设,写服务拒绝 CUSTOM 默认)+app 级工具启停列表+CUSTOM 规则编辑器(从预设复制)+每变更独立审计。**只读经 `SessionPermissionEditService`,IO 全在 Dispatchers.IO**(9 处),失败显示通用 `common_operation_failed`。符合 HXA-209 设计;无逐工具 ASK(设计上已取消)✅。`SessionPermissionSection.kt:61-251`。
 - **能力页**:每能力一行(状态 chip+what/why/scope+测试/修复/禁用);`buildCapabilityRows` 走 IO ✅;但 **rows 初始 null 期间整页空白(无加载指示)**,且 `copyFor` 对未知 key `error()` **会崩**(`CapabilitiesScreen.kt:74-82,118-125,373-382`)——未来加能力行忘加文案=用户崩溃(P2-31,潜在 P1)。
-- **准备页(Readiness)**:按目标(聊天/任务/终端)投影 item 状态(READY/MISSING/NOT_AVAILABLE)+下一动作(ADD_MODEL/VERIFY_RUNTIME/REPAIR_RUNTIME)+验证结果 note;**加载中显示 "…"**(无 spinner);verify 期间按钮仅禁用,无进度(P2-32,对照 task-experience.md §3"正在准备→查看进度/取消"仅部分满足)。
+- **准备页(Readiness)**:按目标(聊天/任务/终端)投影 item 状态(READY/MISSING/NOT_AVAILABLE)+下一动作(ADD_MODEL/VERIFY_RUNTIME/REPAIR_RUNTIME)+验证结果 note;**加载中显示 "…"**(无 spinner);verify 期间按钮仅禁用,无进度(P2-32,对照 task-experience.md 第 3 节"正在准备→查看进度/取消"仅部分满足)。
 - **终端页(developer,ManualTerminalActivity)**:会话 tab 栏+状态横幅(errorMessage/isObserver)+会话详情+控制(start/stop/settle)+libvterm 视口+软件键盘开关+许可证对话框。缺口:tab 标签与状态行**直出原始 phase/stopReason 英文枚举**(`ManualTerminalScreen.kt:130,154-160,200`);busy 期间按钮仅禁用无进度;许可证文本在 composition 内读 assets(IO on main,`:258-268`);硬编码展示 `/workspaces/app`(`:186-190`)。
 - **审计页**:分页(最新一页)+空态+过滤器仅作用于当前页(有注释说明)✅。
 
@@ -247,7 +247,7 @@ MainActivity (HelixTheme, ModalNavigationDrawer)
 
 ## 性能与体验
 
-**流式热路径复核(历史 §4.1 三项 + 新发现)**:
+**流式热路径复核(历史 第 4.1 节 三项 + 新发现)**:
 
 | # | 热点 | 现状 | 证据 | 用户可见影响 |
 | --- | --- | --- | --- | --- |
@@ -269,18 +269,18 @@ MainActivity (HelixTheme, ModalNavigationDrawer)
 
 | 文档承诺 | 实现状态 | 证据 |
 | --- | --- | --- |
-| §2 工作区详情页"文件/任务/终端/变更"四入口 | **未实现**:无统一工作区详情页,四者是四个抽屉页+Files 内终端按钮 | 全仓无 workspace detail 路由;`FilesScreenLayout.kt:49-55` 仅单按钮 |
-| §2 工作区文件→"在终端中打开所在目录→进入关联会话选择;没有会话时由用户明确新建" | **部分**:Files 直接拉起终端 Activity(无会话选择);终端页内部自行建/连会话 | `FilesScreenLayout.kt:49-55`;`ManualTerminalActivity.kt:26-31` |
-| §2 产物→查看来源任务/所在位置 | ✅ Artifacts 行 onOpenTask + 就地预览 | `ArtifactsScreen.kt`(onOpenTask);`ConversationArtifacts.kt`(HXA-219) |
-| §2 任务/聊天→打开所属工作区 | ✅ 会话目录对话框/文件页回跳 | `ChatScreen.kt` directory 入口 |
-| §2 返回不丢位置/草稿 | **部分**:草稿持久 ✅(ConversationDraftBuffer);列表位置/搜索态旋转丢失 | `ChatScreen.kt:210-217`;P2-11 |
-| §2 文件→Agent 交接("工作区作为操作起点") | **未实现**(无 stageAttachment 入口) | 见 P1-3 |
-| §3 开发环境准备页(尚未准备→准备环境→下载/校验步骤;正在准备→查看进度/取消;需要修复→修复) | **部分**:验证/修复入口+结果 note ✅;"准备中"进度与"取消" ❌(仅 busy 禁用) | `CapabilityReadinessScreen.kt:228-252,136-145` |
-| §4 扩展六状态(已添加/待配置/待连接验证/未启用/可使用/需处理) | **未实现**:市场 3 态、连接器各自布尔 | `MarketplaceSection.kt:548-574` |
-| §4 可使用后"在当前任务使用/新建任务" | **未实现** | `MarketplaceSection.kt`(无该动作) |
-| §4 MCP 连接测试不自动启用全部工具 | ✅(enable 需用户选择 tools,`ConnectorSection.kt:402-414` selection) | ✅ |
-| §5 错误文案"问题+已完成结果+下一动作" | **未统一**:多数为单句红字/原始 message | `ConnectorSection.kt:570-572` 等 |
-| §5 屏幕阅读标签/大字体/软键盘遮挡纳入验收 | **部分**:liveRegion 样板有;contentDescription 缺口 10 处(见上) | 见 UX 缺口 |
+| 第 2 节 工作区详情页"文件/任务/终端/变更"四入口 | **未实现**:无统一工作区详情页,四者是四个抽屉页+Files 内终端按钮 | 全仓无 workspace detail 路由;`FilesScreenLayout.kt:49-55` 仅单按钮 |
+| 第 2 节 工作区文件→"在终端中打开所在目录→进入关联会话选择;没有会话时由用户明确新建" | **部分**:Files 直接拉起终端 Activity(无会话选择);终端页内部自行建/连会话 | `FilesScreenLayout.kt:49-55`;`ManualTerminalActivity.kt:26-31` |
+| 第 2 节 产物→查看来源任务/所在位置 | ✅ Artifacts 行 onOpenTask + 就地预览 | `ArtifactsScreen.kt`(onOpenTask);`ConversationArtifacts.kt`(HXA-219) |
+| 第 2 节 任务/聊天→打开所属工作区 | ✅ 会话目录对话框/文件页回跳 | `ChatScreen.kt` directory 入口 |
+| 第 2 节 返回不丢位置/草稿 | **部分**:草稿持久 ✅(ConversationDraftBuffer);列表位置/搜索态旋转丢失 | `ChatScreen.kt:210-217`;P2-11 |
+| 第 2 节 文件→Agent 交接("工作区作为操作起点") | **未实现**(无 stageAttachment 入口) | 见 P1-3 |
+| 第 3 节 开发环境准备页(尚未准备→准备环境→下载/校验步骤;正在准备→查看进度/取消;需要修复→修复) | **部分**:验证/修复入口+结果 note ✅;"准备中"进度与"取消" ❌(仅 busy 禁用) | `CapabilityReadinessScreen.kt:228-252,136-145` |
+| 第 4 节 扩展六状态(已添加/待配置/待连接验证/未启用/可使用/需处理) | **未实现**:市场 3 态、连接器各自布尔 | `MarketplaceSection.kt:548-574` |
+| 第 4 节 可使用后"在当前任务使用/新建任务" | **未实现** | `MarketplaceSection.kt`(无该动作) |
+| 第 4 节 MCP 连接测试不自动启用全部工具 | ✅(enable 需用户选择 tools,`ConnectorSection.kt:402-414` selection) | ✅ |
+| 第 5 节 错误文案"问题+已完成结果+下一动作" | **未统一**:多数为单句红字/原始 message | `ConnectorSection.kt:570-572` 等 |
+| 第 5 节 屏幕阅读标签/大字体/软键盘遮挡纳入验收 | **部分**:liveRegion 样板有;contentDescription 缺口 10 处(见上) | 见 UX 缺口 |
 | session-export.md(JSONL v1 导出) | ✅ 完整:导出对话框(进度/取消/中断恢复提示)+格式校验器脚本 | `SessionExportDialog.kt:32-118`;`scripts/validate-session-export.py` |
 
 ---
@@ -334,13 +334,13 @@ MainActivity (HelixTheme, ModalNavigationDrawer)
 - 建议:三个操作加确认(至少"清历史"需确认并提示将关闭标签);或收进 Menu sheet 的二级"清除浏览数据",与浏览器惯例一致。
 
 **P1-3 文件管理器→Agent 工作区断链(历史 UI-6,未修)**
-- 问题:文件页无任何"在当前任务使用/附加到会话"动作;`stageAttachment` 全 app 仅 composer 附件选择器调用。文档 `task-experience.md §2`"工作区作为操作起点"+"文件→在任务中使用"不可达;统一工作区详情页(文件/任务/终端/变更四入口)不存在。
-- 证据:`grep stageAttachment app/src/main` → 仅 `ui/ChatScreen.kt:401`;`app/src/main/kotlin/com/helix/app/files/` 0 命中;`docs/product/task-experience.md`(§2 表格)
+- 问题:文件页无任何"在当前任务使用/附加到会话"动作;`stageAttachment` 全 app 仅 composer 附件选择器调用。文档 `task-experience.md 第 2 节`"工作区作为操作起点"+"文件→在任务中使用"不可达;统一工作区详情页(文件/任务/终端/变更四入口)不存在。
+- 证据:`grep stageAttachment app/src/main` → 仅 `ui/ChatScreen.kt:401`;`app/src/main/kotlin/com/helix/app/files/` 0 命中;`docs/product/task-experience.md`(第 2 节 表格)
 - 影响:所有"从文件出发"的用户;核心产品承诺(工作区起点)不可用。
 - 严重度+理由:P1(文档级产品路径缺失,文件流与 Agent 流互不相通)。
 - 建议:文件行/预览对话框加"附加到会话"(调 `chatService.stageAttachment`);规划统一工作区详情页(四入口),至少先交付"文件→会话"单向桥。
 
-**P1-4 流式期间重组热路径未动(历史 §4.1b/c/d + 新发现),长会话流式掉帧/弱机 ANR 风险**
+**P1-4 流式期间重组热路径未动(历史 第 4.1b、4.1c、4.1d 节 + 新发现),长会话流式掉帧/弱机 ANR 风险**
 - 问题:每 token:①`_screen.update(copy(activeTurn))` 全量 emit;②`conversationEntries` O(K×N) 重算;③`contentVersion` 新实例→LaunchedEffect 每帧重启;④流式 Markdown 全量重解析+4 处行内 Regex 重编译;⑤`storage.turns.resolve` 每 token Room 读;⑥搜索激活时主线程全文扫描。
 - 证据:`app/src/main/kotlin/com/helix/app/chat/ChatService.kt:3722-3726,3966-3981`;`chat/ConversationEntry.kt:11-31`;`ui/ConversationSection.kt:104-108,272-278,294`;`ui/MarkdownBlock.kt:40,44,53,77`;`ui/ConversationSearch.kt:46-55`
 - 影响:长会话(数十轮以上)所有用户;流式输出体验;弱机掉帧/ANR 边缘。
@@ -349,7 +349,7 @@ MainActivity (HelixTheme, ModalNavigationDrawer)
 
 **P1-5 市场卡片文案错配 + 状态机不完整 + 安装后无落点(历史 UI-7,部分未修)**
 - 问题:展开/折叠键显示"命令详情/关闭"(语义错乱);卸载弹窗取消键复用"关闭";状态仅 3 态(文档要求 6 阶段);安装成功无"在当前任务使用";启停/卸载主线程直调。
-- 证据:`app/src/main/kotlin/com/helix/app/marketplace/MarketplaceSection.kt:349-354,540,548-574,151-157,173-175,103`;`docs/product/task-experience.md`(§4 状态与路径)
+- 证据:`app/src/main/kotlin/com/helix/app/marketplace/MarketplaceSection.kt:349-354,540,548-574,151-157,173-175,103`;`docs/product/task-experience.md`(第 4 节 状态与路径)
 - 影响:所有安装/管理扩展的用户;扩展是 Standard 完整产品组成部分。
 - 严重度+理由:P1(用户可见的键位语义错误 + 文档路径断裂)。
 - 建议:展开键改用语义化字符串("展开详情/收起");状态机扩到 6 阶段(数据源已有:status+connected+enabled 组合);启用后加"在当前任务使用"(带入能力选择/草稿,不自动发送);启停/卸载移 IO。
@@ -377,9 +377,9 @@ MainActivity (HelixTheme, ModalNavigationDrawer)
 
 **P1-9 错误展示不规范:原始错误码/异常 message 直出用户(历史 UI-5,未修)**
 - 问题:OAuth 过期直出 `OAUTH_DEVICE_EXPIRED`;连接器操作失败直出 `e.message`(任意内容);文件列表错误直出异常 message;均不满足文档"问题+已完成结果+下一动作"规范;错误条均为临时内联红字,无统一边界。
-- 证据:`app/src/main/kotlin/com/helix/app/connector/ConnectorSection.kt:380-383,570-572,434-436`;`ui/FilesScreenEffects.kt:40`;`docs/product/task-experience.md`(§5 错误文案)
+- 证据:`app/src/main/kotlin/com/helix/app/connector/ConnectorSection.kt:380-383,570-572,434-436`;`ui/FilesScreenEffects.kt:40`;`docs/product/task-experience.md`(第 5 节 错误文案)
 - 影响:扩展/连接器用户、文件页用户;错误场景下的理解与恢复。
-- 严重度+理由:P1(一致性破坏+可恢复性受损;与 §5 验收目标直接冲突)。
+- 严重度+理由:P1(一致性破坏+可恢复性受损;与 第 5 节 验收目标直接冲突)。
 - 建议:建 ErrorMapper(安全码→stringRes 三元组:问题/已完成/下一动作),UI 只渲染映射结果;全工程禁 `Text(e.message)`。
 
 **P1-10 浏览器旋转即丢页面内容(无 WebViewState 保存/恢复,无重导航提示)**
@@ -427,7 +427,7 @@ MainActivity (HelixTheme, ModalNavigationDrawer)
 
 **扩展/能力/终端**
 - P2-25 能力页空白+未知 key 崩溃路径(`ui/CapabilitiesScreen.kt:74-82,118-125,373-382` `error()`):未来加能力行忘加文案=崩溃。建议:copyFor 兜底默认文案+加载/错误态。
-- P2-26 准备页无下载进度/取消(`ui/CapabilityReadinessScreen.kt:136-145,269-271`;"…"文本加载)。建议:进度事件流+取消;对齐 task-experience §3。
+- P2-26 准备页无下载进度/取消(`ui/CapabilityReadinessScreen.kt:136-145,269-271`;"…"文本加载)。建议:进度事件流+取消;对齐 task-experience 第 3 节。
 - P2-27 MCP OAuth 设备码无倒计时/轮询进度(`connector/ConnectorSection.kt:657-701`)。建议:显示 expiresInSeconds 倒计时+轮询次数/间隔。
 - P2-28 终端页:phase/stopReason 英文直出(并入 P1-7)、busy 无进度、许可证 composition 内读 assets IO(`app/src/developer/.../ManualTerminalScreen.kt:258-268`)。建议:assets 移 IO;busy 加指示。
 - P2-29 市场 composition 内 IO+主线程启停(并入 P1-5 证据;`marketplace/MarketplaceSection.kt:103,151-157,173-175`;`connector/ConnectorSection.kt:249`)。建议:列表读移 LaunchedEffect+IO;动作全走 scope+IO。
@@ -459,7 +459,7 @@ MainActivity (HelixTheme, ModalNavigationDrawer)
 | UI-12 超大 Composable | P2 | **仍存在**:ChatScreen 524 行单函数(:53-524)、ConversationSection 515 行(:49-515) → 归入 P2-13 组件化建议 |
 | UI-13 图标/交互细节 | P2 | **部分仍存在**:☰ 已补语义(✅);5 处 Icon 无 cd;"▾/✓" 原样;新增 "▴/▾"(未提交)、"🕶️";发送/停止布局跳变原样 → P2-3/P2-4/P2-30 |
 | (撤回项)默认中文 locale | — | 维持撤回:base=zh 是 HXA-069 设计,脚本守护(本次 1363/1363/1363 再次验证)✅ |
-| REVIEW-2026-09-24 §4.1a 每 token 全量 emit | 部分修复 | **维持"部分修复"**:publishTurn 单字段 copy ✅;但每 token 仍全量 StateFlow emit+新增每 token Room 读 → 并入 P1-4 |
+| REVIEW-2026-09-24 第 4.1a 节 每 token 全量 emit | 部分修复 | **维持"部分修复"**:publishTurn 单字段 copy ✅;但每 token 仍全量 StateFlow emit+新增每 token Room 读 → 并入 P1-4 |
 
 > 注:UI-3 由 P1 降 P2 的理由:颜色 token 全量合规(0 硬编码颜色)、i18n 工程纪律优秀、组件虽重复但各自功能正确;风险是维护成本而非用户流受阻。若团队接受"无设计系统"为现状,本项可作长期技术债;但 AlertDialog×33 + 五类复制粘贴组件建议仍按 P1 节奏推进收敛。
 
@@ -486,4 +486,4 @@ MainActivity (HelixTheme, ModalNavigationDrawer)
 12. 生命周期:关键 UI 态 rememberSaveable/ViewModel;last-open 会话 deep link;浏览器标签持久(P2-8/9/22)。
 13. 审批卡:预期影响入折叠态 + 剩余时间 + 会话权限入口(P2-1/2);停止键固定占位(P2-3)。
 14. 无障碍:Icon contentDescription 批量补 + 卡片语义(P2-30);字符图标换 M3 图标(P2-4)。
-15. 能力页加载/错误态 + copyFor 兜底(防崩溃)(P2-25);准备页进度/取消对齐 §3(P2-26);文件列表 LazyColumn(P2-18)。
+15. 能力页加载/错误态 + copyFor 兜底(防崩溃)(P2-25);准备页进度/取消对齐 第 3 节(P2-26);文件列表 LazyColumn(P2-18)。

@@ -2,21 +2,21 @@
 
 # Helix 本机 Harness 详细重构方案：Agent Core、工具治理与 Execution Host
 
-初稿：2026-09-28；契约扩写：2026-09-29；职责准则与内容收敛：2026-09-30；执行边界提案：2026-10-14；目标与任务承接：2026-10-15。本页保留 R/J 方案的设计依据与验收方法，并以 §23 维护新一轮目标设计。各轮增加和改变的原因见[架构与能力演进索引](../evidence/research-history/architecture-evolution-2026-10-14.md)；旧章节中的“当前/本轮/前置”须按其基线理解。
+初稿：2026-09-28；契约扩写：2026-09-29；职责准则与内容收敛：2026-09-30；执行边界提案：2026-10-14；目标与任务承接：2026-10-15。本页保留 R/J 方案的设计依据与验收方法，并以 第 23 节 维护新一轮目标设计。各轮增加和改变的原因见[架构与能力演进索引](../evidence/research-history/architecture-evolution-2026-10-14.md)；旧章节中的“当前/本轮/前置”须按其基线理解。
 
 **授权与现状：**R1 见 [HXA-231](../completion-records/HXA-231.md)，自主恢复余项见 [HXA-232](../development/tasks/HXA-232.md)。2026-10-10 核对：R2-A/Core、R3、J1 已接生产；[HXA-248](../development/tasks/HXA-248.md) J2 和 [HXA-246](../development/tasks/HXA-246.md) Project/Memory 本地交付，API36 有界设备及 [HXA-249](../development/tasks/HXA-249.md) 真实 J1/AUTO 已通过。[HXA-251](../development/tasks/HXA-251.md) 已交付双API有限补验、指定拼音输入与发现提示对照；完整R2-B策略收益、其他IME/OEM、交叉生命周期和长稳仍须证据。实时后续设计依赖见 [status](../development/status.md)，不因目标卡片详细或文档整理而扩大实现、设备、账号或发布授权。
 
-**2026-10-11 分层复核的后续承接：**HXA-274 的恢复目标/页面导航与 HXA-277 的原生资源引用已按各自范围交付，见[当前架构](overview.md)与 [status](../development/status.md)。原判断保留在[研究 §9](../research/modules/01-architecture-and-execution-engine.md#9-2026-10-11-分层复核与优化承接)；完整 Turn 宿主和模块重组的新建议见 §23，不再把早期“先不建模块”的迁移选择当作新设计限制。
+**2026-10-11 分层复核的后续承接：**HXA-274 的恢复目标/页面导航与 HXA-277 的原生资源引用已按各自范围交付，见[当前架构](overview.md)与 [status](../development/status.md)。原判断保留在[研究 第 9 节](../research/modules/01-architecture-and-execution-engine.md#9-2026-10-11-分层复核与优化承接)；完整 Turn 宿主和模块重组的新建议见 第 23 节，不再把早期“先不建模块”的迁移选择当作新设计限制。
 
-**阅读路径：**新一轮重构先读 §23；§1–22 按需查设计理由和回归场景，不顺序重做旧卡片。§1–3 是原目标与起点；§4–9 是 R/J 分工与依赖；§10–12 是当时授权及证据；§13–17 是契约设计；§18 是原迁移卡片；§19–22 是测试与完成判据。章节内容已被接受的部分以对应主题 ADR 为有效正文，未接受部分仍是候选，类名和目录不冻结目标设计。
+**阅读路径：**2026-11-06 总体蓝图与后续结构路线先读 [总体架构蓝图与渐进重构路线](#24-总体架构蓝图与渐进重构路线)；第 23 节 保留已交付设计与领域契约衔接，其中历史顺序不作为新待办；第 1 至 22 节 按需查设计理由和回归场景，不顺序重做旧卡片。第 1 至 3 节 是原目标与起点；第 4 至 9 节 是 R/J 分工与依赖；第 10 至 12 节 是当时授权及证据；第 13 至 17 节 是契约设计；第 18 节 是原迁移卡片；第 19 至 22 节 是测试与完成判据。章节内容已被接受的部分以对应主题 ADR 为有效正文，未接受部分仍是候选，类名和目录不冻结目标设计。
 
-**按任务读取：**职责与减法看 §13.6，结果反馈看 §15.6，Core/端口看 §13–14，上下文看 §16，插件生命周期看 §17，等待/后台化看 §8；卡片/测试看 §18–19，不要求每次全文加载。R1 的有效规范以[工具 ADR](../adr/tools/001-descriptor-contract.md)为准，§15 只作衔接概要；其他提案与有效 ADR 不同时先裁决。
+**按任务读取：**[职责与减法准则](#136-模型与-harness-的职责优化及减法准则)、[面向模型的结果反馈](#156-面向模型的结果反馈事实充分接口精简)、[Core 与 Host 职责](#13-core治理与-host-的详细职责契约)、[模块迁移映射](#14-当前实现到目标模块的迁移映射)、[上下文编译](#16-contextcompiler-与可独立运行的-agent-core)、[插件生命周期](#17-pluginconnection-与能力产品化)、[异步观察与后台化](#8-j1--j2异步观察等待与安全后台化)、[重构卡片](#18-逐卡重构步骤与退出条件)、[验证矩阵](#19-验证矩阵与质量门槛)，按任务选择，不要求每次全文加载。R1 的有效规范以[工具 ADR](../adr/tools/001-descriptor-contract.md)为准，第 15 节 只作衔接概要；其他提案与有效 ADR 不同时先裁决。
 
 **核心结论：模型主导任务策略，用户决定授权范围，Harness 忠实执行获准调用并回传真实结果。保留完整 Android 本机 Harness，默认本机模块化部署；不强制拆成多个服务，也不把业务路线和技术恢复写成第二个工作流大脑。**
 
-**2026-10-15 新设计入口：**Owner 要求根据本次评审优化文档与任务。见 [§23](#23-2026-10-14-执行边界重构提案) 及 HXA-286～294；原 B+E 合并、C+D 产物共同接线，完整 Turn 纳入目标，工具/插件与上下文契约前置。目标边界已同步原主题 ADR；2026-10-24 按 §23.1 更新部分交付和剩余接缝，不能再概括为整队列代码未实施。§4–22 的旧阶段清单只作设计与历史依据，不是当前待办。源码及一手研究见[综合研究 §10](../research/modules/01-architecture-and-execution-engine.md#10-2026-10-14-执行边界与新目标设计复核)，工具语义参考见[竞品专题](../research/topics/tool-and-plugin-competitive-review-2026-10-15.md)。
+**2026-10-15 新设计入口：**Owner 要求根据本次评审优化文档与任务。见 [执行边界重构提案](#23-2026-10-14-执行边界重构提案) 及 HXA-286～294；原 B+E 合并、C+D 产物共同接线，完整 Turn 纳入目标，工具/插件与上下文契约前置。目标边界已同步原主题 ADR；2026-10-24 按 第 23.1 节 更新部分交付和剩余接缝，不能再概括为整队列代码未实施。第 4 至 22 节 的旧阶段清单只作设计与历史依据，不是当前待办。源码及一手研究见[综合研究 第 10 节](../research/modules/01-architecture-and-execution-engine.md#10-2026-10-14-执行边界与新目标设计复核)，工具语义参考见[竞品专题](../research/topics/tool-and-plugin-competitive-review-2026-10-15.md)。
 
-**2026-10-16 接续入口：**§23.1 维护已交付去重基线，§23.7 明确联合接线/存储检查点及近期能力优先级，§23.10～23.12 承接会话、存储和插件运行条件。仍只更新文档，不重开已完成 UI/诊断/终端工作，不自动开始生产重构。
+**2026-10-16 接续入口：**第 23.1 节 维护已交付去重基线，第 23.7 节 明确联合接线/存储检查点及近期能力优先级，第 23.10 至 23.12 节 承接会话、存储和插件运行条件。仍只更新文档，不重开已完成 UI/诊断/终端工作，不自动开始生产重构。
 
 ## 1. 目标与取舍
 
@@ -56,11 +56,11 @@ Helix 保持面向开发者与效率用户的 Android 本机执行工作台：Co
 
 “保证模型意图能执行”指**在用户授权、工具契约和真实平台能力内忠实执行**，不是保证任何模型请求都成功或无条件放行。Harness 要解释不可执行的原因，并提供当前范围内可用的观察/控制能力；下一步业务方案仍由模型选择。
 
-执行状态机管理调用是否受理、发出、结算和取消；业务工作流决定先做什么、失败后换什么路线。前者是基础设施，后者默认归模型。默认值、熔断阈值、授权模式与可选工作流属于策略，不因写进代码就成为永久不变量。具体职责、迁移判据及反例只在 §13.6 维护；结果契约见 §15.6，测试见 T22–T26。
+执行状态机管理调用是否受理、发出、结算和取消；业务工作流决定先做什么、失败后换什么路线。前者是基础设施，后者默认归模型。默认值、熔断阈值、授权模式与可选工作流属于策略，不因写进代码就成为永久不变量。具体职责、迁移判据及反例只在 第 13.6 节 维护；结果契约见 第 15.6 节，测试见 T22–T26。
 
 ## 2. 当前起点
 
-本节是 2026-09-28～30 的源码起点，保留当时问题如何促成 R/J 方案；不是今天的缺陷或待开发清单。当前结构看 [overview](overview.md)，2026-10-14 接缝与新增目标看 §23。
+本节是 2026-09-28～30 的源码起点，保留当时问题如何促成 R/J 方案；不是今天的缺陷或待开发清单。当前结构看 [overview](overview.md)，2026-10-14 接缝与新增目标看 第 23 节。
 
 **2026-09-30 职责修订的时效校准：**本次读取 `main/7480141b` 加并行工作树。HXA-232 已在源码中取消 Mobile Use 每十次动作确认，并让已授权目标经新快照验证后自动恢复；仍保留 5 分钟/30 动作上限。相应执行分支见 [AutomationSessionManager](../../extensions/mobile-use/src/main/kotlin/com/helix/extensions/mobileuse/automation/AutomationSessionManager.kt) 的 `resumeOnVerifiedTarget/completeAction`，不能仅因旧 CHECKPOINT 常量还在就断言周期确认仍生效。[自主恢复审查](../evidence/research-history/harness-human-intervention-audit-2026-09-29.md)与 [Mobile Use 专题](../research/topics/mobile-use-device-readiness-and-reliability-2026-09-29.md)保留历史发现；当前交付和验证以 HXA-232 的记录为准。本次只核对与职责有关的入口，不把先前 C02–C17 的全部行号、hash 或缺口重新声明为今日事实。
 
@@ -79,7 +79,7 @@ Helix 保持面向开发者与效率用户的 Android 本机执行工作台：Co
 
 原详细扩写的源码锚点为 `refactor/clean-slate-engine` / `49d3bd40d3f77319bfaf3429d9b6e90501fb63a7` 加工作树；本轮收敛修订读取的是本地 `main` / `70456eb576aa9a1fa92d25b44142800fc8294b5c` 加工作树。文档起始 SHA-256 为 `0d7321ab911e421eb124df84547a0612ea0a6506669899541d14777e16f0bfbc`。该历史核对时 R1 尚未实现；2026-09-30 后续迁移与 SAF 等其他工作以最新 status 为准，不因保留历史基线重新列为未修复。以下是源码阅读证据，不是本轮运行验证。
 
-当时确认的结构缺口：`AgentLoop` 接收字符串资源与 `refreshScreen` 回调；`TurnToolExecutor` 混合消息格式、Room 实体和执行；Scheduler 与 Dispatcher 分别解析 descriptor；短 Job 控制动作占用 reconciliation permit。后续 R1/R2-A/J1 分别承接，不能将原描述重新当作未实现事实；具体历史文件/行范围与 SHA 见 §12 和 §14。
+当时确认的结构缺口：`AgentLoop` 接收字符串资源与 `refreshScreen` 回调；`TurnToolExecutor` 混合消息格式、Room 实体和执行；Scheduler 与 Dispatcher 分别解析 descriptor；短 Job 控制动作占用 reconciliation permit。后续 R1/R2-A/J1 分别承接，不能将原描述重新当作未实现事实；具体历史文件/行范围与 SHA 见 第 12 节 和 第 14 节。
 
 ## 3. 目标架构与依赖
 
@@ -114,23 +114,23 @@ flowchart TB
 
 **两个接口不能混淆：Agent API 让其他入口使用 Helix 自己的大脑；Execution API 让决策层使用受控能力。**现在都可以是内部 Kotlin 接口，不启动端口。未来外部 Agent 接入只能进入有认证和本机授权的治理适配器，不得直达裸 Runtime。
 
-目标依赖方向为 Presentation/Android adapters → 中立接口与领域逻辑；Agent Core 不依赖 UI、具体 Android executor、Room Entity 或 ProviderService 的 App 实现。先在现有 `core/agent`、`core/model`、`tools/framework`、`provider/api`、`extensions/plugin` 中收敛，只有实际消费者/依赖边界需要时才抽新 Gradle 模块；不换框架或语言。详细模块落点见 §14。
+目标依赖方向为 Presentation/Android adapters → 中立接口与领域逻辑；Agent Core 不依赖 UI、具体 Android executor、Room Entity 或 ProviderService 的 App 实现。先在现有 `core/agent`、`core/model`、`tools/framework`、`provider/api`、`extensions/plugin` 中收敛，只有实际消费者/依赖边界需要时才抽新 Gradle 模块；不换框架或语言。详细模块落点见 第 14 节。
 
 ## 4. R1：统一工具绑定与执行准入
 
-**已完成，不再执行迁移清单。**全部 built-in/Plugin/MCP/A2A 已切入原子绑定，曝光/调度/审批/执行同源，独立可写实现表已删除；有效契约见[工具 ADR](../adr/tools/001-descriptor-contract.md)，生产迁移和验证见 [HXA-231](../completion-records/HXA-231.md)。后续沿用 §19 的 T01–T04、T18 适用回归，不将 R1 完成推广为 Core、异步或完整插件生命周期已交付。
+**已完成，不再执行迁移清单。**全部 built-in/Plugin/MCP/A2A 已切入原子绑定，曝光/调度/审批/执行同源，独立可写实现表已删除；有效契约见[工具 ADR](../adr/tools/001-descriptor-contract.md)，生产迁移和验证见 [HXA-231](../completion-records/HXA-231.md)。后续沿用 第 19 节 的 T01–T04、T18 适用回归，不将 R1 完成推广为 Core、异步或完整插件生命周期已交付。
 
 ## 5. R2：Core 解耦与统一上下文编译
 
-R2 不再仅是“统一 Assembler”。它包含两个不混做的目标：**R2-A 先准备存储/执行/模型端口，完成 Core 接线和行为等价的上下文编译；R2-B 再做策略收益实验。**规范正文见 §13–14、§16；卡片依赖见 §9 和 §18。
+R2 不再仅是“统一 Assembler”。它包含两个不混做的目标：**R2-A 先准备存储/执行/模型端口，完成 Core 接线和行为等价的上下文编译；R2-B 再做策略收益实验。**规范正文见 第 13 至 14 节、第 16 节；卡片依赖见 第 9 节 和 第 18 节。
 
 “不启动 Activity”只是 UI 解耦证明；只有纯 JVM Core 结合 in-memory 领域存储、fake Provider/执行适配器可跑完整回合，且运行时 classpath 不依赖 App/Room/Android，才算 Core 可独立测试。Android 存储真实事务还须通过独立集成验证，fake store 不能替代。
 
-交付保留一个生产 Loop/编译入口，不新增上下文数据库。测试对比新旧行为，不在生产双跑模型；算法/Prompt 变化放在后续独立实验，度量规则见 §20。
+交付保留一个生产 Loop/编译入口，不新增上下文数据库。测试对比新旧行为，不在生产双跑模型；算法/Prompt 变化放在后续独立实验，度量规则见 第 20 节。
 
 ## 6. R3：插件安装与会话选择闭环
 
-统一交付包身份，不合并 Skill 内容、MCP 连接或 Runtime 的运行机制。**设计决定见 [Plugin 归属 ADR](../adr/connectors/003-ownership-and-installation.md)，接线说明见 §17；卡片见 §18 的 R3-1、R3-2 / R5-min；测试见 T10/T11/T14/T17。**
+统一交付包身份，不合并 Skill 内容、MCP 连接或 Runtime 的运行机制。**设计决定见 [Plugin 归属 ADR](../adr/connectors/003-ownership-and-installation.md)，接线说明见 第 17 节；卡片见 第 18 节 的 R3-1、R3-2 / R5-min；测试见 T10/T11/T14/T17。**
 
 R3 和最小安装/选择/配置/修复 UI 同步交付，R5 仅保留后续展示优化。保留独立 Skill/connection；不同组件就绪状态与包安全校验分开，不要求所有远端服务同时在线。外部规范是带版本/状态的输入，不作为 Helix 所有协议与模块的公共数据模型。
 
@@ -144,7 +144,7 @@ R5 将 Marketplace 和能力设置改为面向包的管理，保留组件详情�
 
 ## 8. J1 / J2：异步观察、等待与安全后台化
 
-本节为异步目标契约的唯一正文；§18 描述迁移步骤，§19 定义测试 oracle。沿用[异步 Job 调研](../research/topics/async-jobs-and-background-execution-2026-09-28.md)的 launch/join 思路，选择 completion-based 观察而非占用同步 executor。HXA-236 已实现 Dispatcher/Scheduler completion 与有界 Linux 查询/等待的基础主机交付；尚无 Runtime 变化推送，不宣称本节全部接口和 §8.6 统一观察上下文已交付，具体余项见[原任务](../development/tasks/HXA-236.md)。
+本节为异步目标契约的唯一正文；第 18 节 描述迁移步骤，第 19 节 定义测试 oracle。沿用[异步 Job 调研](../research/topics/async-jobs-and-background-execution-2026-09-28.md)的 launch/join 思路，选择 completion-based 观察而非占用同步 executor。HXA-236 已实现 Dispatcher/Scheduler completion 与有界 Linux 查询/等待的基础主机交付；尚无 Runtime 变化推送，不宣称本节全部接口和 第 8.6 节 统一观察上下文已交付，具体余项见[原任务](../development/tasks/HXA-236.md)。
 
 ### 8.1 执行身份与结果事实
 
@@ -240,11 +240,11 @@ completion、取消、W 到期和外层 deadline 通过一个本地 CAS 选出�
 
 ### 8.6 Core、上下文与用户体验
 
-await 仍占当前 batch 的未结算调用位置。正常 await 返回后按原顺序进入下一 ModelCall。单独的 Job completion 不自行授予新推理资格；没有获准的等待者、Goal 激活或恢复任务时只更新事实/UI。已有 Goal/HXA-232 的自动续跑与原 Runtime 结果回收按其独立准入执行，本节不撤销，也不扩展成任意任务完成后自动唤醒。这是当前策略（§1.4），不是事件驱动 Agent 的永久禁令。
+await 仍占当前 batch 的未结算调用位置。正常 await 返回后按原顺序进入下一 ModelCall。单独的 Job completion 不自行授予新推理资格；没有获准的等待者、Goal 激活或恢复任务时只更新事实/UI。已有 Goal/HXA-232 的自动续跑与原 Runtime 结果回收按其独立准入执行，本节不撤销，也不扩展成任意任务完成后自动唤醒。这是当前策略（第 1.4 节），不是事件驱动 Agent 的永久禁令。
 
-JOB_OBSERVATION 按 §16 纳入当前会话有权查看的相关变化、显式依赖与有界摘要；携带原 revision、时间和 resultRef，完整日志按需读取。执行状态来源与日志中的自然语言指令分开，不把外部输出提升权限。保留既有无进展保护，但由受信任操作类型处理 RUNNING，不按名字普遍豁免。
+JOB_OBSERVATION 按 第 16 节 纳入当前会话有权查看的相关变化、显式依赖与有界摘要；携带原 revision、时间和 resultRef，完整日志按需读取。执行状态来源与日志中的自然语言指令分开，不把外部输出提升权限。保留既有无进展保护，但由受信任操作类型处理 RUNNING，不按名字普遍豁免。
 
-Tasks/命令卡明确区分“停止等待”“请求停止执行”“确认停止”“执行已结束但待收取”。UI 退订只停观察；关闭来源不丢失旧 Job 管理身份；卸载保护见 §15.5。consumer 不暴露不存在的 Linux 工具，developer 仍受 Advanced 与原授权约束。
+Tasks/命令卡明确区分“停止等待”“请求停止执行”“确认停止”“执行已结束但待收取”。UI 退订只停观察；关闭来源不丢失旧 Job 管理身份；卸载保护见 第 15.5 节。consumer 不暴露不存在的 Linux 工具，developer 仍受 Advanced 与原授权约束。
 
 ### 8.7 J2：AUTO 与手动 promotion 分步交付
 
@@ -258,7 +258,7 @@ Tasks/命令卡明确区分“停止等待”“请求停止执行”“确认�
 
 ### 8.8 验收与停止条件
 
-J1/J2 使用 §19 的 T12–T15、T19–T21，并覆盖 launch batch 结算、ANY/ALL、控制响应、迟到回包、Workspace/fork、插件撤销、重复 collect、后台任务共存、实际引擎/容量竞争和进程死亡。普通同步工具与 observer 共用治理的断言必须同时存在，不能靠两套 Policy 分别通过。
+J1/J2 使用 第 19 节 的 T12–T15、T19–T21，并覆盖 launch batch 结算、ANY/ALL、控制响应、迟到回包、Workspace/fork、插件撤销、重复 collect、后台任务共存、实际引擎/容量竞争和进程死亡。普通同步工具与 observer 共用治理的断言必须同时存在，不能靠两套 Policy 分别通过。
 
 若无法在不阻断取消、没有无界线程/队列、且保留原权限与结算的前提下完成接线，则 J1 不算完成；不能只暴露一个看似可用的等待 schema。主机用虚拟时钟和可控 completion；Binder/实际 detach/系统回收/UI 必须在当次获得授权后单独验证，不拿 mock 代替。
 
@@ -288,14 +288,14 @@ J1/J2 使用 §19 的 T12–T15、T19–T21，并覆盖 launch batch 结算、AN
 | R2-A2 | R2-A1 的可用存储适配；R1 准确绑定 | 远程部署、独立 Agent 进程 |
 | R2-A3 | R2-A2 接线；既有 history/compaction fixture | 新 Prompt、reranker |
 | R2-B | R2-A3 等价迁移与冻结评测 | J1/R3 全部完成 |
-| J1 基础 join | R1；§8.3 的 completion、控制资源和 watchdog 接线 | 完整 R2；JobObservation 自动注入可单独等 R2 |
+| J1 基础 join | R1；第 8.3 节 的 completion、控制资源和 watchdog 接线 | 完整 R2；JobObservation 自动注入可单独等 R2 |
 | R3＋最小 R5 | R1；原安装/选择事实与运行中 Job 引用 | 新 J1、J2 |
 | J2-1 | J1 观察/控制契约；Runtime 同执行与存活策略证据 | 手动 promotion UI、远程 Node |
 | J2-2 | J2-1 机制＋当前用户交互授权 | 自动 continuation |
 
 R2/J1/R3 按内测瓶颈和当前任务选择；R2 存储端口不能反向成为重开 R1 的理由。已有基线失效时修复具体回归，不恢复旧双注册表。
 
-每次只推进一个已授权切片，或在明确不重叠的文件/契约上并行；共享接口由一个实现 owner 收口。每个阶段保持可构建、可验证，不保留长期运行时双轨开关；阶段回退以源码为单位，不自动回滚用户文件、凭据或外部副作用。逐卡任务及退出条件见 §18。
+每次只推进一个已授权切片，或在明确不重叠的文件/契约上并行；共享接口由一个实现 owner 收口。每个阶段保持可构建、可验证，不保留长期运行时双轨开关；阶段回退以源码为单位，不自动回滚用户文件、凭据或外部副作用。逐卡任务及退出条件见 第 18 节。
 
 验证/提交流程统一见[实施指南](../development/implementation-guide.md#验证与提交)和当前 HXA；代码阶段先定向再跑完整适用主机 gate，重任务使用 host-slot。文档改动不因本方案列有代码任务而重复构建 APK。
 
@@ -319,7 +319,7 @@ R2/J1/R3 按内测瓶颈和当前任务选择；R2 存储端口不能反向成�
 
 每阶段有独立范围、删除清单、验收与完成记录；status 只维护当前阶段，roadmap 只维护任务索引。本文件保持目标设计，不维护第二份实时进度。
 
-新增 Core/Host 模块边界、等待与存活策略分离、组件局部失败规则均为本次设计建议。实现前在现有 Agent/Tools/Runtime/Connector 主题分别裁决，不用一次“同意文档”推导所有未来能力已接受。R1 已有任务不承担整个 headless Core 迁移；不重开已完成的生命周期 HXA。详细待裁决表见 §21。
+新增 Core/Host 模块边界、等待与存活策略分离、组件局部失败规则均为本次设计建议。实现前在现有 Agent/Tools/Runtime/Connector 主题分别裁决，不用一次“同意文档”推导所有未来能力已接受。R1 已有任务不承担整个 headless Core 迁移；不重开已完成的生命周期 HXA。详细待裁决表见 第 21 节。
 
 ## 11. 暂缓范围与主要风险
 
@@ -395,7 +395,7 @@ DetachedJobClient.kt    b2e696e55505aa26bf1c4c48f84eb3ed4cfbf83a95b893a4fd616ae4
 | E11 | [OpenAI Prompt caching](https://developers.openai.com/api/docs/guides/prompt-caching) | 缓存受匹配前缀与工具等请求内容影响 | 采用稳定顺序与有依据的失效；不能为缓存保留被撤销的上下文 |
 | E12 | [Android 进程与线程](https://developer.android.com/guide/components/processes-and-threads)、[前台服务时限](https://developer.android.com/develop/background-work/services/fgs/timeout) | 组件/线程/进程和系统运行窗口有实际约束 | 分清接口、进程、UID、后台存活；不声称拆进程即可常驻 |
 | E13 | [WebCodex 架构](https://github.com/dollarser/webcodex/blob/main/docs/ARCHITECTURE.md) | Client→Server→Runner；服务端负责认证策略路由，Runner 持有本机项目/执行边界；Job 不依附一次调用 | 借鉴可替换决策客户端与受控执行边界；不复制其网络注册、账号、多节点系统 |
-| E14 | [Kotlin 协程基础](https://kotlinlang.org/docs/coroutines-basics.html) | `delay` 等挂起等待不阻塞线程，阻塞调用不因此自动变成可挂起操作 | 只用于解释挂起与阻塞的差别；§8 的 completion/线程预算和锁规则是 Helix 设计，不是官方推荐的唯一实现 |
+| E14 | [Kotlin 协程基础](https://kotlinlang.org/docs/coroutines-basics.html) | `delay` 等挂起等待不阻塞线程，阻塞调用不因此自动变成可挂起操作 | 只用于解释挂起与阻塞的差别；第 8 节 的 completion/线程预算和锁规则是 Helix 设计，不是官方推荐的唯一实现 |
 
 E13 通过已连接 GitHub 读取用户仓库 `main`，文件 blob SHA 为 `eaed17fb7627283b9ff0d827c4568c08ad8e5fe5`；它是该仓库快照，不等于正在运行的 WebCodex 版本全部实现已核验。其他网页多数为可变官方文档，未固定发布 tag；实施时重查相关契约。
 
@@ -419,7 +419,7 @@ DeepSeek Harness 等在历史讨论中出现，但本次没有补充足以支持
 
 ### 12.5 模型与 Harness 分工的竞品依据（2026-09-30）
 
-下列资料本次重新读取；动态文档/仓库未锁定发布 tag，不据此推断内部完整拓扑、可靠性排名或 Android 运行资格。来源支持的机制与 Helix 的设计取舍分列；§13.6 是本项目的归纳准则，不是某家厂商原文或所有 Agent 必须遵守的标准。
+下列资料本次重新读取；动态文档/仓库未锁定发布 tag，不据此推断内部完整拓扑、可靠性排名或 Android 运行资格。来源支持的机制与 Helix 的设计取舍分列；第 13.6 节 是本项目的归纳准则，不是某家厂商原文或所有 Agent 必须遵守的标准。
 
 | 编号 | 一手来源 | 可确认内容 | 对本方案的指导与限制 |
 | --- | --- | --- | --- |
@@ -513,7 +513,7 @@ Agent Core 可依赖 Clock、ID、模型接口、领域存储端口、ContextCom
 | 现有 `ModelProvider.stream(request): Flow<ModelEvent>`；有限配置/容量读取 port | provider:api；各 provider 模块实现 | 保留原流式终态/错误协议；取消网络观察不触发工具重放，不再造一套 ModelProvider |
 | `TurnContextPort.build(snapshot): CompiledContextResult`（suspend）；`ContextSelector.select(snapshot): SelectionDecision`（普通纯函数） | Loop-facing port 与纯逻辑在 core:agent；内容读取/物化适配在 App/Provider 层 | build 可编排已声明 I/O；纯 select 不执行 I/O/模型/预算扣费；压缩单独返回 NeedsCompaction 交既有编排 |
 | `AgentToolGateway.executeBatch(batch): SettledBatch`（suspend） | Loop 需要的 port 在 core:agent；App adapter 连接 tools:framework | 返回按 call sequence 的 durable outcomes；进程内等待取消由 Engine 发明确停止并确保逐项结算，不丢弃 batch |
-| `Dispatcher.dispatchCompletion(request): CompletionStage<ToolDispatchOutcome>` | tools:framework 内部 | 即时拒绝是已完成 stage；观察异步回调最终走同一结算器，具体资源规则见 §8.3–8.5 |
+| `Dispatcher.dispatchCompletion(request): CompletionStage<ToolDispatchOutcome>` | tools:framework 内部 | 即时拒绝是已完成 stage；观察异步回调最终走同一结算器，具体资源规则见 第 8.3 至 8.5 节 |
 | `JobObservationPort.query(binding): CompletionStage<JobObservation>`、`requestCancel(binding): CompletionStage<ControlReceipt>` | 中立控制契约在 tools:framework；Linux adapter 在当前 developer/Runtime client 接线处 | query 只读；requestCancel 是独立受控动作。阶段失败不自动重试写入，控制回执与退出证据分开 |
 
 跨 Core/执行边界的 BindingRef/不可变 invocation value 放入现有 core:model 的对应子包，executor、Policy 实现和 stage 不进入持久 model DTO。Core 可以显式依赖中立的 provider:api 及项目已锁定协程库；更新根依赖配置，不通过引入 App 或 core:storage 偷渡实现。JobObservationPort 的 provider 实现只在可信治理后调用，不开放给外部模型直接操作。
@@ -570,7 +570,7 @@ Plan/Goal/Todo/用户问答使用窄领域命令接口，不接收整个 AgentLo
 #### 13.6.3 评审准则
 
 - **G1 忠实而非包办：**只执行当前获准调用；不因失败静默改目标、参数、模型端点、scope 或用户任务。无可行能力如实反馈，不假装执行。
-- **G2 反馈优先于流程补丁：**先检查模型是否拿到了准确结果、可用工具和必要上下文，再考虑新控制分支。错误反馈造成的失败不能靠更多固定流程掩盖；反馈正文见 §15.6。
+- **G2 反馈优先于流程补丁：**先检查模型是否拿到了准确结果、可用工具和必要上下文，再考虑新控制分支。错误反馈造成的失败不能靠更多固定流程掩盖；反馈正文见 第 15.6 节。
 - **G3 执行事实不让位于策略：**模型可分析 UNKNOWN，但不能用推测把原效果改成未执行/成功。已发出且不明的调用不盲重放；已证实无副作用的技术重试按同绑定/同权限/有界策略执行。
 - **G4 技术恢复不转嫁人工：**有依据的重连、对账和结果收取由既有运行机制完成；需要业务推理时回到正常模型循环。避免一个错误类型一个 recovery mode/driver。无法恢复时保留成果并明确结束，不伪装挂起待用户维修。
 - **G5 保留真正必要的交互：**授权、未提供且不可推导的业务选项、登录/安全认证和用户主动接管仍可请求用户；结构化回答不是权限证明。不要将“减少技术确认”写成“永不询问用户”。
@@ -643,7 +643,7 @@ headless 验收分两层：纯 JVM Core 测试使用 in-memory AgentStore 和 fa
 
 ## 15. 工具绑定、授权与结果契约
 
-§15.1–15.5 保留后续阶段依赖的逻辑概要；R1 已接受的具体编码、字段与准入规范只在[工具 ADR](../adr/tools/001-descriptor-contract.md)维护，不以旧建议签名覆盖生产契约。§15.6 继续作为跨阶段反馈准则；Mobile Use 新策略不混入已完成 R1。
+第 15.1 至 15.5 节 保留后续阶段依赖的逻辑概要；R1 已接受的具体编码、字段与准入规范只在[工具 ADR](../adr/tools/001-descriptor-contract.md)维护，不以旧建议签名覆盖生产契约。第 15.6 节 继续作为跨阶段反馈准则；Mobile Use 新策略不混入已完成 R1。
 
 ### 15.1 最小 binding 与原子发布
 
@@ -685,7 +685,7 @@ headless 验收分两层：纯 JVM Core 测试使用 in-memory AgentStore 和 fa
 
 ### 15.5 生命周期与引用释放
 
-HXA-277 的原生插件 owner、注册句柄与共享服务释放决定归 [ADR-CONNECTORS-003 §11](../adr/connectors/003-ownership-and-installation.md#11-原生实例共享资源与释放hxa-277)；Browser 的具体 View/等待引用归[平台 ADR](../adr/platform/002-browser-lifecycle.md)。本节保留执行与引用接线说明，不建立平行资源契约。
+HXA-277 的原生插件 owner、注册句柄与共享服务释放决定归 [ADR-CONNECTORS-003 第 11 节](../adr/connectors/003-ownership-and-installation.md#11-原生实例共享资源与释放hxa-277)；Browser 的具体 View/等待引用归[平台 ADR](../adr/platform/002-browser-lifecycle.md)。本节保留执行与引用接线说明，不建立平行资源契约。
 
 请求保留 BindingRef 和必要投影；真正执行持有的旧 executor 只保留到该次工作结算。卸载/更新不得回收活跃 Job 需要的 Runtime、原目标/认证绑定及唯一结果证据；已不可新调用的来源仍可由 host 管理入口执行授权范围内的查询/停止/对账。
 
@@ -817,7 +817,7 @@ E09 于 2026-10-01 HXA-235 复核为 1.0.0 / Published，早期 Working Draft �
 
 完整暂存与安全验证 → 以预期旧 revision CAS 发布 Room 已提交安装 → 按该 revision 激活 Registry 投影 → 幂等清理无引用旧内容。稳定安装 ID、内容 revision、准确 component owner 分开。Room 与内存 Registry 不是一笔分布式事务：投影未就绪时对应调用明确不可用/可重试，重启按已提交事实重建；准备失败/取消/低空间保留旧安装，清理失败不伪造回滚。共享 Skill 仅撤销本安装的引用，不误删独立用户或其他包仍引用的内容。
 
-已启动执行保留原身份至结算，相关资源按 §15.5 保护。更新保持稳定身份与会话选择，凭据仅在认证/端点绑定完全未变时保留；已发送远端调用不切换 token/endpoint，未知副作用不借安装回滚再发一次。
+已启动执行保留原身份至结算，相关资源按 第 15.5 节 保护。更新保持稳定身份与会话选择，凭据仅在认证/端点绑定完全未变时保留；已发送远端调用不切换 token/endpoint，未知副作用不借安装回滚再发一次。
 
 会话选择从默认集合复制后独立保存；安装不自动授权或加入全部会话。列表、Skill list/read、schema 与实际调用共同检查已提交 revision 和当前选择，单工具禁用仍优先。fork 复制选择值但不复制活跃 Job 控制或 Approval Proof。关闭来源不擦除历史/摘要或已发送内容，不承诺模型忘记它；未发送/审批中的调用在准入时检查撤销，已发送调用保留原结算。
 
@@ -829,14 +829,14 @@ R3 交付时用户应能：导入/安装 → 看组件能力 → 配置必要连
 
 ## 18. 逐卡重构步骤与退出条件
 
-以下是 **2026-09-28～30 R/J 方案的迁移卡片**，用于追溯设计和选择回归，不是当前待办或新 HXA 授权。R1/R2-A/R3/J1/J2 的实现与余项分别查 231/234/235/236/248 及 status；下一轮采用 §23 的目标和切片。未实施候选也不因卡片完整而自动启动。原契约来源为 §8、§13–17，职责与反馈准则见 §13.6/§15.6；历史步骤、删除项和退出条件保留，适用时按当前源码与 ADR 重新核对，不要求重做已交付迁移。
+以下是 **2026-09-28～30 R/J 方案的迁移卡片**，用于追溯设计和选择回归，不是当前待办或新 HXA 授权。R1/R2-A/R3/J1/J2 的实现与余项分别查 231/234/235/236/248 及 status；下一轮采用 第 23 节 的目标和切片。未实施候选也不因卡片完整而自动启动。原契约来源为 第 8 节、第 13 至 17 节，职责与反馈准则见 第 13.6 节、第 15.6 节；历史步骤、删除项和退出条件保留，适用时按当前源码与 ADR 重新核对，不要求重做已交付迁移。
 
 ### R0-1：建立可复核起点与行为清单
 
 **输入：**当前 HEAD＋工作树、现行 ADR、已完成与当前任务。
 
 1. 记录本次修改归属和关键文件 SHA，不清理别人 WIP；区分源码、文档、fixture 和生成物。
-2. 为送入模型、工具执行、审批、终态、恢复、Job 收取各列唯一生产入口；对本卡触及的规则按 §13.6 分类，记录依据、实现位置、是否可配置及可删除/替换条件，不建立第二份运行时规则库。
+2. 为送入模型、工具执行、审批、终态、恢复、Job 收取各列唯一生产入口；对本卡触及的规则按 第 13.6 节 分类，记录依据、实现位置、是否可配置及可删除/替换条件，不建立第二份运行时规则库。
 3. 记录三个可证明基线：当前确定性测试；代表性用户任务；已知失败/未复现项。
 4. 先解决当前任务的强制门禁阻塞；历史绿色不能代替新基线，设备/模型需当次明确授权。
 
@@ -844,7 +844,7 @@ R3 交付时用户应能：导入/安装 → 看组件能力 → 配置必要连
 
 ### R0-2：固定最小接口和依赖方向
 
-**输入：**C02/C03/C05–C09 与 §13–14。
+**输入：**C02/C03/C05–C09 与 第 13 至 14 节。
 
 1. 用当前一次文件操作和一个现有 detached Job 画实际对象调用链。
 2. 定义中立 Invocation/BindingRef/Outcome，以及 Agent API/事件与存储端口所需的最少字段。
@@ -867,7 +867,7 @@ R3 交付时用户应能：导入/安装 → 看组件能力 → 配置必要连
 
 ### R2-A1：先准备领域端口与存储事务适配
 
-**前置：**R0-2；规范 §13.4、§14.2。**主要位置：**core:agent 的领域端口、App 存储/模型/执行 adapter、根依赖配置及存储测试。
+**前置：**R0-2；规范 第 13.4 节、第 14.2 节。**主要位置：**core:agent 的领域端口、App 存储/模型/执行 adapter、根依赖配置及存储测试。
 
 1. 依照现行 Turn/ModelCall/Goal/input delivery 事务边界定义 AgentStore command/result；不逐 DAO 机械包装。
 2. 实现 App→core:storage 的生产 adapter 和 in-memory 测试 adapter，使用同一领域契约测试，明确 Applied/AlreadyApplied/Conflict/Unavailable。
@@ -879,7 +879,7 @@ R3 交付时用户应能：导入/安装 → 看组件能力 → 配置必要连
 
 ### R2-A2：迁移 Core 接线、消息物化和 UI 事件
 
-**前置：**R2-A1 的真实可用端口＋R1。**规范：**§13–14。**主要位置：**AgentLoop、TurnEngine、AgentLoopPorts、ChatToolCalls、UI 观察与 composition root。
+**前置：**R2-A1 的真实可用端口＋R1。**规范：**第 13 至 14 节。**主要位置：**AgentLoop、TurnEngine、AgentLoopPorts、ChatToolCalls、UI 观察与 composition root。
 
 1. 把 Loop/Engine 对 HelixStorage、App ProviderService 的直接依赖替换成准备好的端口，保持唯一 admission/terminal/recovery owner。
 2. 把 assistantToolStepJson/toolResultDraft 留在 Agent 历史/Provider 物化侧，用中立 Invocation/Outcome 连接治理，不跨执行接口传 TurnEntity/Coordinator。
@@ -891,11 +891,11 @@ R3 交付时用户应能：导入/安装 → 看组件能力 → 配置必要连
 
 ### R2-A3：把现有上下文流程编译化
 
-**前置：**R2-A2；规范 §16。**主要位置：**ChatRequestAssembler、SystemPromptContext、history/compaction、RequestContextManifest。
+**前置：**R2-A2；规范 第 16 节。**主要位置：**ChatRequestAssembler、SystemPromptContext、history/compaction、RequestContextManifest。
 
 1. 固定历史和配置 fixture，记录当前实际消息、工具顺序、绑定和容量结论。
 2. 分离读取 snapshot、纯选择/容量、压缩编排、Provider 物化和发送准入。
-3. 接入 Expert、Memory、Workspace、Skill、Reference、附件现有适配；未交付来源保持明确未支持。按 §15.6 保留失败、可恢复事实和截断引用，T25 检查下一模型请求实际收到什么，而非只验 UI。
+3. 接入 Expert、Memory、Workspace、Skill、Reference、附件现有适配；未交付来源保持明确未支持。按 第 15.6 节 保留失败、可恢复事实和截断引用，T25 检查下一模型请求实际收到什么，而非只验 UI。
 4. 以测试对照新旧输出，先不改 Prompt/排序策略；迁入同一生产入口后删除旧重复逻辑。
 5. 检查模型侧 reserved presentation 字段只剥离一次，规范参数、审批哈希和历史一致。
 
@@ -908,13 +908,13 @@ R3 交付时用户应能：导入/安装 → 看组件能力 → 配置必要连
 1. 按失败类别选一个变量，例如长尾工具曝光或超大输出摘要，不同时改变模型、fixture、预算和 Prompt。
 2. 记录 baseline/candidate 的完成率、有效动作、构造时间、输入量及资源峰值。
 3. 检查稳定前缀、必要工具组合和 discovery 往返；token 更少但任务更慢时不直接判优。
-4. 只保留有证据的规则；无改善则回退策略提交，不回退已经验证的依赖边界。按 §13.6 优先移除无收益的硬编码业务路由，将可调选择留在原策略配置；只做本任务授权的上下文变化，不顺带放宽其他权限。
+4. 只保留有证据的规则；无改善则回退策略提交，不回退已经验证的依赖边界。按 第 13.6 节 优先移除无收益的硬编码业务路由，将可调选择留在原策略配置；只做本任务授权的上下文变化，不顺带放宽其他权限。
 
 **退出：**收益口径、样本数、失败和限制明确；无“统一编译器所以模型更聪明”的结论。
 
 ### J1-1：中立 Handle 与 completion/控制通道接线
 
-**前置：**R1；规范 §8.1、§8.3–8.5。**主要位置：**Dispatcher/Scheduler/deadline adapter、DetachedJob control/client 与任务投影。
+**前置：**R1；规范 第 8.1 节、第 8.3 至 8.5 节。**主要位置：**Dispatcher/Scheduler/deadline adapter、DetachedJob control/client 与任务投影。
 
 1. 复用原 binding/journal 构造 Handle/Observation，不新增可写 Job 状态表。
 2. 在同一 Dispatcher 拆开启动与结算，普通工具适配原同步 runner，observer 接 completion；Scheduler 通过 callback 接收结果，等待期间释放业务 worker。
@@ -926,7 +926,7 @@ R3 交付时用户应能：导入/安装 → 看组件能力 → 配置必要连
 
 ### J1-2：实现有界 await 与结果映射
 
-**前置：**J1-1；规范 §8.2、§8.4–8.5。**主要位置：**jobs.await、观察 timer/watchdog、无进展保护适配。
+**前置：**J1-1；规范 第 8.2 节、第 8.4 至 8.5 节。**主要位置：**jobs.await、观察 timer/watchdog、无进展保护适配。
 
 1. 按契约做 handle 全体验证/去重、ANY/ALL、已终态即时返回和 revision 复核。
 2. 按 B/T/R 计算等待预算，接有界 query/变化唤醒，由平台承担一次 await 内的机械轮询；模型仍可选择查询、等待或处理其他获准工作，不强制所有长任务走同一业务流程。
@@ -938,7 +938,7 @@ R3 交付时用户应能：导入/安装 → 看组件能力 → 配置必要连
 
 ### J1-3：接入结果闭环与最小产品体验
 
-**前置：**J1-2；规范 §8.6。JobObservation 的统一候选接线需要 R2-A3，基础 join 不必等待它。
+**前置：**J1-2；规范 第 8.6 节。JobObservation 的统一候选接线需要 R2-A3，基础 join 不必等待它。
 
 1. 切换原 status/cancel 与新模型工具曝光，同义入口只保留一套；collect 仍走原写效果与授权路径。
 2. 在现有 Loop 证明 launch 结算后可继续获准工作、await 返回后按原 batch 回填，不能仅写工具单测。
@@ -972,7 +972,7 @@ R3 交付时用户应能：导入/安装 → 看组件能力 → 配置必要连
 
 ### J2-1：同执行身份与 AUTO，独立于按钮交付
 
-**前置：**J1 观察/控制契约；规范 §8.7。**主要位置：**Linux one-shot/detached、Runtime owner、日志、调用等待适配。
+**前置：**J1 观察/控制契约；规范 第 8.7 节。**主要位置：**Linux one-shot/detached、Runtime owner、日志、调用等待适配。
 
 1. 在真实 Runtime 路径建立从启动起稳定的身份/日志和明确 lifetime；不把短工具全部转成 Job。
 2. 实现同步有界等待与 AUTO 超时返回同一 handle，处理无后台资格的明确分支。
@@ -984,12 +984,12 @@ R3 交付时用户应能：导入/安装 → 看组件能力 → 配置必要连
 
 ### J2-2 / R5：手动“继续在后台”与集成
 
-**前置：**J2-1；规范 §8.7。
+**前置：**J2-1；规范 第 8.7 节。
 
 1. 给符合能力及原调用授权的命令卡接入用户事件，复用 AUTO 的等待释放机制，不新增启动命令。
 2. 与原终态、取消和 deadline 并发时展示真实回执，保留日志、返回会话与收取入口。
 3. 测按钮可见性、重复点击、页面重建及系统拒绝后台运行窗口；不保证进程永久存活。
-4. 完成 R4 的残留入口和 UI 依赖检查，记录 §20 对应用户摩擦与资源指标。
+4. 完成 R4 的残留入口和 UI 依赖检查，记录 第 20 节 对应用户摩擦与资源指标。
 
 **退出：**T15 手动子集/T16/T21 与已授权 UI 证据通过；J2-1 和 J2-2 状态分开报告，远程和自动唤醒不进入范围。
 
@@ -1021,7 +1021,7 @@ T22–T26 是跨阶段的职责/反馈回归分类，不要求 R1 实现所有�
 | T16 Observation | 慢 UI、断连、重订阅、日志截断 | 快照补齐、缺口可见、无观察触发执行 |
 | T17 Channels | consumer/developer、Standard/Advanced | 不暴露不存在的 Runtime；配置不自动授权 |
 | T18 Dependency/GC | 禁止包依赖、旧 binding 回收 | Core 无 UI/Room 实体泄漏；旧对象不无限保留 |
-| T19 ObserverRuntime | §8.3–8.5：W/外层 deadline 同刻、迟到回包、异常、配额和 IPC 饱和 | 单次持久结算；通用 effectful timeout 不被豁免；线程/队列/引用有界 |
+| T19 ObserverRuntime | 第 8.3 至 8.5 节：W/外层 deadline 同刻、迟到回包、异常、配额和 IPC 饱和 | 单次持久结算；通用 effectful timeout 不被豁免；线程/队列/引用有界 |
 | T20 CoreStoreBoundary | 根 Gradle 依赖检查、Store Applied/Duplicate/Conflict/Unavailable；真实 adapter 事务失败 | 纯 Core 和存储集成证据分开；事务没被拆成多次保存；无双写 |
 | T21 ManualEntrypoints | 无会话/模型配置下手动 Files/Tasks/Settings；共享资源冲突 | 不发 ModelCall、不伪造 ToolCall；用户权限不泄漏给模型，冲突时合理拒绝 |
 | T22 ModelAgency | 两个 fake 模型在同授权下选不同有效工具顺序；其中一路失败后改用合法替代 | 无额外 plan/verifier/recovery 固定路线；实际决定与下一请求收到的事实可追踪 |
@@ -1112,12 +1112,12 @@ Automation 未来负责触发新 Run/Turn，不成为 AgentLoop 的工作流大�
 | --- | --- | --- |
 | Core 接口与模块移动范围 | 逻辑分层、当前同进程；实际移出 UI/Room Entity 泄漏 | 现有 Agent 主题；不扩大当前 R1 HXA |
 | Binding 的后续变更 | 复用已接受的契约/实现身份/进程 incarnation 分离，无关更新不误失效 | 当前规范已由 Tools/Permissions ADR 与 R1 承接；仅新增语义差异再裁决 |
-| J1 completion/控制/期限接线 | §8.3–8.5 已给出具体建议；单次结算、观察 effect-free 与原 Job unknown 分开 | Runtime/Tools ADR 接受后实现；不能在旧同步 execute 中嵌阻塞循环 |
+| J1 completion/控制/期限接线 | 第 8.3 至 8.5 节 已给出具体建议；单次结算、观察 effect-free 与原 Job unknown 分开 | Runtime/Tools ADR 接受后实现；不能在旧同步 execute 中嵌阻塞循环 |
 | 取消等待、停止 Turn、取消 Job 的关联 | 三个意图独立；Job 按原 lifetime/lease 合同处理 | Runtime/Agent ADR，不偷偷改变 Stop 体验 |
 | wait mode、lifetime 与分步交付 | AUTO 先验同执行机制，手动按钮可后续；不自动延长存活/额度 | J2-1/J2-2 分开记录 Runtime/产品接受和证据 |
 | 插件组件局部失败 | 按格式支持矩阵隔离；不放松包安全 | Connector/Plugin 主题，认证失败不是整包失败 |
 | 外部接口和独立进程 | 当前不开放；依据真实消费者再立项 | 用户明确产品/安全裁决，不能从本次文档推导 |
-| 预算/无进展/业务敏感词等硬策略 | 按 §13.6 归类为机制、用户策略或指导，优先测量和收缩任意门槛 | 现有 Permissions/Goal/Agent/平台主题；分别接受，既不让模型扩权也不永久冻结历史常量 |
+| 预算/无进展/业务敏感词等硬策略 | 按 第 13.6 节 归类为机制、用户策略或指导，优先测量和收缩任意门槛 | 现有 Permissions/Goal/Agent/平台主题；分别接受，既不让模型扩权也不永久冻结历史常量 |
 | 恢复核查与正常继续的边界 | 确定性对账与模型策略分开，复用同一准入/账本 | 当前 HXA-232 的有界核查终态继续有效；改变后的继续条件与 UNKNOWN 事实来源需另行明确 |
 
 ### 21.4 风险与停止条件
@@ -1132,7 +1132,7 @@ Automation 未来负责触发新 Run/Turn，不成为 AgentLoop 的工作流大�
 
 ### 22.1 每卡的固定执行顺序
 
-通用流程、现场核验、Git/设备/账号授权及验证命令只在[实施指南](../development/implementation-guide.md)和当前 HXA 维护。本方案特有要求：先按 §13.6 分类规则，再明确本卡契约/删除项/失败 oracle，完成单入口纵向迁移，运行 §19 适用回归；不能新增固定流程后只用该流程自证。
+通用流程、现场核验、Git/设备/账号授权及验证命令只在[实施指南](../development/implementation-guide.md)和当前 HXA 维护。本方案特有要求：先按 第 13.6 节 分类规则，再明确本卡契约/删除项/失败 oracle，完成单入口纵向迁移，运行 第 19 节 适用回归；不能新增固定流程后只用该流程自证。
 
 ### 22.2 接手信息模板
 
@@ -1140,15 +1140,15 @@ Automation 未来负责触发新 Run/Turn，不成为 AgentLoop 的工作流大�
 
 ### 22.3 整体完成判据
 
-本节旧整体验收清单已由 §23.1 的现状矩阵和 §23.7 的小切片退出条件接续，不再以一组全部未勾选框暗示旧实现均未完成。历史 T01～T26 仍是按影响选取的反例索引，不是每次全做的步骤。
+本节旧整体验收清单已由 第 23.1 节 的现状矩阵和 第 23.7 节 的小切片退出条件接续，不再以一组全部未勾选框暗示旧实现均未完成。历史 T01～T26 仍是按影响选取的反例索引，不是每次全做的步骤。
 
 当前正确性必须守住单一 Engine/Registry/持久 owner、授权、原调用顺序、UNKNOWN、实际退出和用户数据。结构收益由真实消费者、实际发送上下文、无重复权威及可维护性证明；主机、设备、真实模型、Release 各自报告。达到获准小片的退出条件即结束，不把所有未来功能/平台绑为全局前置。
 
 ## 23. 2026-10-14 执行边界重构提案
 
-2026-10-24 现状校核：2026-10-15/16 的方案是历史版本上的设计输入，其中“代码未实施”“先发布再启动”“当前默认快照”不能继续作现状结论。v0.0.6 已有发布记录，后续 Engine/UI/原位/日志和清理切片也已交付；当前剩余以 §23.1 与对应 HXA 为准，accepted ADR 的权限/身份/恢复语义仍有效。本轮只改文档，不启动代码或设备验收。
+2026-10-24 现状校核：2026-10-15/16 的方案是历史版本上的设计输入，其中“代码未实施”“先发布再启动”“当前默认快照”不能继续作现状结论。v0.0.6 已有发布记录，后续 Engine/UI/原位/日志和清理切片也已交付；当前剩余以 第 23.1 节 与对应 HXA 为准，accepted ADR 的权限/身份/恢复语义仍有效。本轮只改文档，不启动代码或设备验收。
 
-沿现有权威入口优化，源代码和验收记录高于计划中的完成猜测。竞品一手依据和采用/不采用项见[复核 §12](../research/topics/tool-and-plugin-competitive-review-2026-10-15.md#12-2026-10-24-当前实现与后续计划校核)。不以可扩展性预建独立服务器、通用 hooks、运行平台或全量存储接口。
+沿现有权威入口优化，源代码和验收记录高于计划中的完成猜测。竞品一手依据和采用/不采用项见[复核 第 12 节](../research/topics/tool-and-plugin-competitive-review-2026-10-15.md#12-2026-10-24-当前实现与后续计划校核)。不以可扩展性预建独立服务器、通用 hooks、运行平台或全量存储接口。
 
 ### 23.1 设计判断、范围和现有工作去重
 
@@ -1399,7 +1399,7 @@ Workspace 后端按实际能力提供 Path、SAF、Job snapshot 或 live mount �
 
 #### 23.7.3 目录优化与工作副本迁移检查点
 
-原“保留默认 Job 快照、完整原位待切换”的阶段前提已被实际交付替代。当前默认原位、显式 snapshot 和手动终端按各自原身份工作；只对新映射/新后端/目录定位真实缺口加验，不重建已完成模式。具体事实与边界见 §23.3.1 和 Workspace ADR，不另设目录迁移总计划。
+原“保留默认 Job 快照、完整原位待切换”的阶段前提已被实际交付替代。当前默认原位、显式 snapshot 和手动终端按各自原身份工作；只对新映射/新后端/目录定位真实缺口加验，不重建已完成模式。具体事实与边界见 第 23.3.1 节 和 Workspace ADR，不另设目录迁移总计划。
 
 #### 23.7.4 当前清理基线与替换验收
 
@@ -1442,7 +1442,7 @@ Workspace 后端按实际能力提供 Path、SAF、Job snapshot 或 live mount �
 
 接受指标：没有重复执行/跨会话授权/原始身份错配；取消后真实容量保留；一次调用一条明确的结算与审计路径；Core、Turn 领域宿主与工具应用服务无页面/具体存储反向依赖；基础设施实现中立端口、配置/状态无重复权威；完整 Turn 和 Room 适配分别通过契约；新增同类工具/内容在目标端口局部接入，无需修改 Engine/宿主业务分支；选定重构路径使用准确类型事实，不把“删除所有 is/toolName/JSON 条件”作为盲目指标，原可信观察资格/屏幕披露/显示身份反例必须通过；完整路径只剩一套生产实现。性能与质量另用同设备、同模型、同授权及固定任务比较成功率、工具失败/重试、端到端延迟、线程/FD/PSS和上下文成本；无数据时不宣称改善，也不因接口更少就宣称更可靠。
 
-2026-10-15 已将本次目标边界写回原主题 ADR：Agent 负责应用/Turn 原子持久命令及 Memory/上下文，Tools 负责规范契约/可信 Binding/结果，Runtime 负责完成与实际退出/原 Job，Plugin 负责贡献与资源，MCP 负责资源消费。原 Permissions/Workspace 决定继续约束授权、路径和引用；实现若改变这些有效规则，须在原主题同步，不能用任务文件绕过。不另建总引擎 ADR。原研究日期、源码身份及未执行项见[综合研究 §10](../research/modules/01-architecture-and-execution-engine.md#10-2026-10-14-执行边界与新目标设计复核)，不能当作本次代码验收。
+2026-10-15 已将本次目标边界写回原主题 ADR：Agent 负责应用/Turn 原子持久命令及 Memory/上下文，Tools 负责规范契约/可信 Binding/结果，Runtime 负责完成与实际退出/原 Job，Plugin 负责贡献与资源，MCP 负责资源消费。原 Permissions/Workspace 决定继续约束授权、路径和引用；实现若改变这些有效规则，须在原主题同步，不能用任务文件绕过。不另建总引擎 ADR。原研究日期、源码身份及未执行项见[综合研究 第 10 节](../research/modules/01-architecture-and-execution-engine.md#10-2026-10-14-执行边界与新目标设计复核)，不能当作本次代码验收。
 
 ### 23.9 后续扩展约束
 
@@ -1471,7 +1471,7 @@ Workspace 后端按实际能力提供 Path、SAF、Job snapshot 或 live mount �
 
 ### 23.10 会话管理与受控任务投递
 
-根据[竞品与源码复核](../research/topics/session-management-2026-10-16.md)，采用“宿主会话应用命令/查询 + 原 TurnEngine + 原持久输入”的单一路径。会话、Turn、执行资源分开；UI 已有的新建/分支/搜索/归档/恢复保留。当前首版查询本会话和已保存引用、条件修改标题，扩展按 [HXA-295](../development/tasks/HXA-295.md) B/C 接续，长期决定归 [ADR-AGENT-001 §17](../adr/agent/001-turn-coordination.md#17-会话查询与管理)。
+根据[竞品与源码复核](../research/topics/session-management-2026-10-16.md)，采用“宿主会话应用命令/查询 + 原 TurnEngine + 原持久输入”的单一路径。会话、Turn、执行资源分开；UI 已有的新建/分支/搜索/归档/恢复保留。当前首版查询本会话和已保存引用、条件修改标题，扩展按 [HXA-295](../development/tasks/HXA-295.md) B/C 接续，长期决定归 [ADR-AGENT-001 第 17 节](../adr/agent/001-turn-coordination.md#17-会话查询与管理)。
 
 - **286 共同契约**：补目标会话与操作范围、可信用户/委托输入来源、授权版本、历史游标/快照及投递 receipt。范围不是模型自填 `approved=true`，引用快照不变成源会话授权。
 - **287 应用宿主**：UI/通知/浮窗/会话工具共用最小命令与查询，清除 ChatService 的宽入口耦合。读取不恢复执行；create 只建身份，submit/Queue/Steer 走原持久准入；原 Engine/Room 是唯一 owner。首版的名字和 DTO 可直接替换，不留桥接兼容负担。
@@ -1479,13 +1479,13 @@ Workspace 后端按实际能力提供 Path、SAF、Job snapshot 或 live mount �
 - **295 C**：实现幂等创建和来源明确的消息投递；Queue 开新 Turn，Steer CAS 到指定活动 Turn。收件方不能把模型转发当直接用户授权，实际动作受目标授权与委托范围共同约束。受理/进入上下文/执行/终态分别报告；进程死亡从持久输入恢复，未知外部效果不重放。
 - **293/294**：293 复用来源事实做按需上下文选择，294 汇总已交付会话切片的隔离、恢复和零重复执行证据，不替代首阶段测试。
 
-归档不是停止、删除或撤权；继续已结束会话不复活旧 Turn。Mobile Use 仍是插件，会话管理不移入插件或通用执行器；新会话和跨会话消息不复制手机操作授权及旧 node/frame。远程电脑连接、云会话服务、子 Agent 拓扑/递归互唤和永久删除不在本次目标内，§23.9 的扩展边界保持。
+归档不是停止、删除或撤权；继续已结束会话不复活旧 Turn。Mobile Use 仍是插件，会话管理不移入插件或通用执行器；新会话和跨会话消息不复制手机操作授权及旧 node/frame。远程电脑连接、云会话服务、子 Agent 拓扑/递归互唤和永久删除不在本次目标内，第 23.9 节 的扩展边界保持。
 
 具体执行顺序只归 status：295 A 已交付，301 又补了 Standard R8/真实模型证据；B/C 等 286 契约、287 对应应用/真实 Room 和相应执行接缝就绪后推进，不等待 287/288 整任务结束。B 的读取/授权可先验收，C 的创建与投递后验收；不把整个 295 设为 287 的反向前置。两渠道基于相同宿主能力，不无故增加 Advanced 限制。
 
 ### 23.11 会话存储优化接续
 
-[HXA-297](../development/tasks/HXA-297.md) 在原架构上落地查询与持久来源，具体契约归 [ADR-AGENT-001 §18](../adr/agent/001-turn-coordination.md#18-会话查询投影与执行来源) 和 [ADR-AGENT-005](../adr/agent/005-session-jsonl-export.md)，不是完整宿主重组。竞品差异和采用理由见[存储审查](../research/topics/session-storage-review-2026-10-16.md)。
+[HXA-297](../development/tasks/HXA-297.md) 在原架构上落地查询与持久来源，具体契约归 [ADR-AGENT-001 第 18 节](../adr/agent/001-turn-coordination.md#18-会话查询投影与执行来源) 和 [ADR-AGENT-005](../adr/agent/005-session-jsonl-export.md)，不是完整宿主重组。竞品差异和采用理由见[存储审查](../research/topics/session-storage-review-2026-10-16.md)。
 
 - 287 将当前 `SessionSearchRepository`、页面历史窗口和任务结果读取收敛到应用查询端口；查询 DTO 与 UI 状态不进入 TurnEngine。保留事务活动/搜索投影、原序分页和跨窗口定位，模型上下文继续读有效原始历史。
 - 287/288 共同保留 modelCallId/callIndex、模型与工具各自的 Turn ordinal、批次消息关联和结算时间。按原调用身份回填，不恢复 rowid/相邻行推断；直接调用不伪造模型来源，拒绝/取消路径也保留来源。
@@ -1512,7 +1512,7 @@ JSONL 保留按需导出与独立离线读取，Room/ContentStore 持久事实�
 | 包内 CLI/脚本，P2 候选 | 当前只识别依赖/脚本限制；需要让选定目标包真正执行，先评估既有 Advanced Runtime | 先明确目标包、版本/许可证、ARM64/Android 或 Linux ABI、解释器/动态库、依赖来源与校验、workspace/argv/env/退出/产物；获准安装和执行分别进入治理。离线缺依赖/错误 ABI/断网/取消/输出测试后，再授权目标包验收 | 不自动运行 setup/npm/pip，不引入主进程脚本或新执行域；Standard 是否需要本地脚本是另一个渠道/隔离决定 |
 | 常驻 stdio MCP，P2 候选 | 已有有限 stdin 快照 Job/JSONL 帧基础，尚无包导入后的双向会话；不是给 Job 加循环即可 | 依赖 286 来源、288 长期资源/流式通道、实际安装与凭据 owner；绑定安装 revision/command hash、实例 generation/requestId，协商能力，stdout 协议/stderr 诊断隔离，背压/取消/关闭/退出分开。用主动通知、交错请求、坏帧、满管道、进程死亡、替换/撤权/迟到夹具验收 | 不允许 HTTP token 自动变成 env，不按每请求重启或重放；首个目标 server、进程宿主与账号方式待选，不列为 291/294 前置 |
 | 包内账号服务，P2 候选 | 当前只读入声明/配置限制，不执行桌面登录服务；复用宿主连接管理解决实际账号来源 | 先确定 issuer/resource/client registration/redirect 或设备码、scope/refresh/revoke/断连及本地凭据 owner；会话仅获能力引用，日志/模型/包正文不含可复用密钥。协议夹具与专用测试账号分开验收 | 不复用另一包/会话批准，不假称同 UID 私有进程是凭据隔离；第三方政策、服务注册及账号输入未定时保持不可运行 |
-| 模型 PTY、hooks/LSP、子 Agent，P2 候选 | 具体边界见 §23.9，均不由本轮导入/重构自动上线 | 模型 PTY 需输入资格/人工接管/输出游标；hooks 需治理重入/结算后通知；LSP 需内容版本；child 需委托范围/上下文/持久父子关系。各自选择真实场景和失败夹具后再定任务 | 不照搬竞品工具名称，不能用空接口声称支持；手动 PTY、静态 Agent/Skill 声明和通用资源引用不等于这些功能已完成 |
+| 模型 PTY、hooks/LSP、子 Agent，P2 候选 | 具体边界见 第 23.9 节，均不由本轮导入/重构自动上线 | 模型 PTY 需输入资格/人工接管/输出游标；hooks 需治理重入/结算后通知；LSP 需内容版本；child 需委托范围/上下文/持久父子关系。各自选择真实场景和失败夹具后再定任务 | 不照搬竞品工具名称，不能用空接口声称支持；手动 PTY、静态 Agent/Skill 声明和通用资源引用不等于这些功能已完成 |
 
 常驻不等于永不退出。Android 背景限制、系统回收、连接中断与模型失败都必须返回可核查状态；授权是否继续有效由原授权规则决定，执行句柄则按原实例重新取得。恢复不能复用旧 node/gesture、伪造 shell 内存或重放未决副作用。账号服务若要求比现有同 UID Runtime 更强的秘密隔离，先修改原 Runtime/Provider ADR 并证明机制，再允许接入；不能用产品文案代替隔离。
 
@@ -1527,4 +1527,243 @@ JSONL 保留按需导出与独立离线读取，Room/ContentStore 持久事实�
 
 ### 2026-10-26 有界收尾检查点
 
-本轮校正 §23.2／23.7 中把原 Engine→Room 和宽 ChatService 回调写作现状的过时描述，保留历史动机与阶段证据。PRoot 安装事实／UI 资源分离已落地，旧翻译文本／资源接口删除；Dispatcher 内部观察类型、截图披露资格和请求-only 路径投影经核查继续保留，不另造角色框架或增加动态授权。范围、验证与未覆盖见[收尾记录](../development/architecture-closeout.md)，不外推为全项目目录均已最优或后续能力已经实现。
+本轮校正 第 23.2 节、第 23.7 节 中把原 Engine→Room 和宽 ChatService 回调写作现状的过时描述，保留历史动机与阶段证据。PRoot 安装事实／UI 资源分离已落地，旧翻译文本／资源接口删除；Dispatcher 内部观察类型、截图披露资格和请求-only 路径投影经核查继续保留，不另造角色框架或增加动态授权。范围、验证与未覆盖见[收尾记录](../development/architecture-closeout.md)，不外推为全项目目录均已最优或后续能力已经实现。
+
+## 24. 总体架构蓝图与渐进重构路线
+
+更新：2026-11-06。Owner 要求结合主流 Agent 实战与当前源码，提供可在实施中修订的总体蓝图和分阶段方案。本节是本文件的**后续结构设计入口**，不新增平行计划、开发 Goal 或 HXA；不是生产重构启动授权，也不修改已接受的产品、安全或协议契约。实际实施状态仍归 [status](../development/status.md)，获准切片再落入对应任务。
+
+### 24.1 结论、基线与范围
+
+**推荐延续 Android 本机模块化单体：保留唯一执行核心，收窄应用入口，显式装配依赖，按领域组织表现与应用代码，将持久实现留在基础设施，并用实际编译依赖约束边界。**这是中等到较大范围的职责/模块调整，不是换框架、微服务化或重新实现整个 Agent。总体规模不能以当前大文件行数折算工期；先完成一个纵切，用实际迁移面校准后续批次。
+
+本次源码基线是 `03104229` 所在 main 加当前未提交工作树，不是发布版本或干净提交快照。以下是核查时点，不替代未来开工前的短范围复核：
+
+| 当前事实与源码入口 | 对蓝图的影响 |
+| --- | --- |
+| [TurnEngine](../../core/agent/src/main/kotlin/com/helix/core/agent/runtime/TurnEngine.kt) 和 driver 已在 Core；[RoomTurnLifecycleStore](../../app/src/main/kotlin/com/helix/app/infrastructure/agent/RoomTurnLifecycleStore.kt) 实现持久命令 | HXA-287 A/B/C 已交付，不重新排“抽离完整 Engine” |
+| [ChatService](../../app/src/main/kotlin/com/helix/app/chat/ChatService.kt) 仍构造 runtime、gateway、AgentLoopHost，并协调 draft/screen | 剩余问题是装配寄居表现门面，不是第二 Engine 或文件长本身 |
+| [DefaultAppContainer](../../app/src/main/kotlin/com/helix/app/DefaultAppContainer.kt) 从 Application 反向取 knowledge/account，并在构造期启动观察与恢复 | 组合根合法；需要显式输入及一次启动/关闭的生命周期边界 |
+| [TurnSubmissionCommandHandler](../../app/src/main/kotlin/com/helix/app/application/agent/TurnSubmissionCommandHandler.kt) 仍依赖具体 ProviderService、HelixStorage 与 infrastructure snapshot | application 目前是职责目录，不是完整中立的编译边界 |
+| [ChatScreen](../../app/src/main/kotlin/com/helix/app/ui/ChatScreen.kt) / [ConversationSection](../../app/src/main/kotlin/com/helix/app/ui/ConversationSection.kt) 隐式取 knowledge/readAloud | 显式传入状态/动作或窄服务；不引入新的全局服务容器 |
+| [SessionInputModels](../../core/storage/src/main/kotlin/com/helix/core/storage/repository/SessionInputModels.kt) 混合输入命令与持久记录，UI 使用 storage 的 InputSkillActivation | 按真实语义迁移类型，不能把所有存储 DTO 一股脑搬进 core:model |
+| [SystemPromptContext](../../app/src/main/kotlin/com/helix/app/application/context/SystemPromptContext.kt) 已有统一来源/授权处理，但依赖具体存储与 MemoryService | 分离事实取得与纯内容映射；不重建 Compiler 或改变检索策略 |
+| [根构建配置](../../build.gradle.kts) 已有集中式模块依赖表，项目依赖使用 implementation；[架构护栏](../../scripts/tests/test_agent_layer_boundaries.py) 已限制 Core/App/UI 方向 | 并非完全没有依赖治理；仍需防止同 App 模块内绕行及未覆盖的 application→infrastructure 依赖 |
+
+历史措辞须结合当前源码理解：ADR-AGENT-001 第 1.2 节 仍有“完整 Turn 领域宿主中立化明确未完成”的旧进度句，与 HXA-287 和当前 Core 实现不一致。本轮记录此差异，不据此重开实现或静默改变 ADR 的有效规则；实施基线校准时更正进度措辞。第 23.7 节 的 286→293-A→287 是已有交付的历史顺序，不是本轮待执行路线。网页、备份、知识等能力也以当前 status/源码为准，不沿用旧章节的“尚未提供”。
+
+### 24.2 一手实践：采用什么，不照搬什么
+
+下表为本次实际读取的官方文档；它们是机制与设计指导，不是 Helix 的性能、安全或功能验收。仅参考思想，未复制第三方实现或引入依赖。
+
+| 官方实践与来源 | 对 Helix 的采用 | 不采用或适用限制 |
+| --- | --- | --- |
+| Anthropic [Building effective agents](https://www.anthropic.com/engineering/building-effective-agents)：从简单组合开始，区分 workflow 与动态 agent，重视工具接口与反馈 | 保留小而清晰的 Loop；确定性准入/提交用代码；以真实任务评价策略 | 不因“主流”引入框架或多 Agent；简单不等于删除授权/恢复机制 |
+| [Claude Code 工作原理](https://code.claude.com/docs/en/how-claude-code-works)：模型推理、工具行动、Harness 管理上下文；checkpoint 不覆盖远端效果 | 分开模型策略、执行治理和结果验证；持久记录不冒充外部回滚 | 桌面文件 checkpoint 不是 Android/Room/Runtime 事务方案 |
+| Anthropic [Context engineering](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents)：按需检索、压缩、持久笔记、独立上下文 | 保留内容来源/版本/授权，按需选入现有 Compiler；策略与结构分别实验 | 不把长期记忆、检索缓存和 Turn 权威合并；不因文章支持 subagent 就上线该能力 |
+| OpenAI Agents SDK [Running agents](https://openai.github.io/openai-agents-python/running_agents/) / [Multi-agent](https://openai.github.io/openai-agents-python/multi_agent/)：Loop、as-tool 与 handoff 语义不同 | 引擎、能力调用和业务组合分层 | 不把普通模块做成 Agent，不移植 Python Runner 替换现有 Engine |
+| OpenAI [Human in the loop](https://openai.github.io/openai-agents-python/human_in_the_loop/)：恢复快照必须可信，批准不保证 exactly-once | 审批绑定原调用，恢复经持久事实/幂等与权威核对；UNKNOWN 不自动重放 | 不把恢复 DTO 或 UI 审批返回值当授权凭据；不推导跨外部系统恰好一次 |
+| Codex [App Server](https://learn.chatgpt.com/docs/app-server)：interrupt 确认、请求解除、item/turn 终态不同 | 控制请求、真实执行退出、持久终态与 UI 事件分开 | 不需要引入 App Server/RPC；取消请求响应不是所有进程已退出 |
+| LangGraph [Interrupts](https://docs.langchain.com/oss/python/langgraph/interrupts)：恢复会重跑节点，副作用要隔离/幂等；生产 checkpoint 必须持久 | 用明确提交与恢复边界，不假设协程栈可跨进程恢复 | 不引入图执行器、event sourcing 或第二账本；checkpoint 不等于世界事务 |
+| LangChain [Multi-agent](https://docs.langchain.com/oss/python/langchain/multi-agent)：复杂任务不一定需要多 Agent | 先判断工具选择、上下文隔离或独立并行是否有收益 | 不用多 Agent 解决模块耦合，不预设数量/费用阈值 |
+| Google ADK [Workflow agents](https://adk.dev/agents/workflow-agents/) / [Event loop](https://adk.dev/runtime/event-loop/) / [Resume](https://adk.dev/runtime/resume/)：固定编排无需模型，事件提交不同于内存变化，恢复仍可能至少一次调用工具 | 普通 Kotlin 组合；持久成功、UI 流和下一轮模型消费分开；原身份结果复用 | 不照搬内存 SessionService；并行原语不替代 Android 物理容量；不依赖各语言 SDK 完全相同的内存可见性 |
+| OpenAI [Tracing](https://openai.github.io/openai-agents-python/tracing/)：内置追踪可包含敏感输入输出并默认导出 | 按调用身份关联脱敏诊断，复用本地审计/快照 | 不继承云导出默认，不让遥测成为权限或状态权威 |
+| Android [Architecture recommendations](https://developer.android.com/topic/architecture/recommendations) / [Modularization patterns](https://developer.android.com/topic/modularization/patterns)：单向数据流、显式依赖、高内聚低耦合、最小可见性 | UI 消费状态/命令；装配根注入实现；按真实职责形成可验证边界 | 官方也强调按项目取舍；不强制 Hilt、每个用例一个类、每层一套 DTO 或每屏一个模块 |
+
+证据限制：LangGraph durable-execution 请求未取得预期正文，本方案不引用其 sync/async/exit 模式保证；OpenAI practical guide 抓取受限，未作为依据。跨框架共同点支持上述方向，但不证明 Helix 必须采用其中任何库，也不构成比较排名。
+
+### 24.3 目标职责、依赖与生命周期
+
+目标调用路径（方框是职责，不是必须新建的 Gradle 模块）：
+
+```text
+Android 入口 / Compose / ViewModel / 导航
+              |
+      应用命令与只读查询
+       |                 |
+  AgentRuntime       手动领域用例
+       |                 |
+唯一 TurnEngine / Loop   领域契约
+       |
+ModelProvider / ContextCompiler / AgentToolGateway / 原子持久端口
+       |
+ToolRegistry → Scheduler / Dispatcher → 具体工具与 Runtime
+
+Room / Provider wire / Android / Binder / 文件后端实现上层所需端口
+Composition root 显式组装全部实现，不被业务或 UI 反向查询
+```
+
+上图表示运行调用；**编译依赖由适配器指向契约**，不是 Core 导入 Room/Android/具体 Runtime。工具执行仍严格经过现行 schema、policy、授权、限额、验证/审计顺序；多处实际强制检查不是多份授权来源。
+
+- **Presentation**：页面状态、导航、局部展开/滚动、资源本地化。共享运行状态从 query/Flow 投影；页面退出只取消观察，除非用户明确发出停止命令。
+- **Application**：submit/queue/steer/stop、会话目录、配置/安装/手动文件等真实用例；读取所需事实、校验预期身份、调用领域命令。不持有第二套 live Turn，不暴露 HelixStorage、Entity 或 Runtime 实现给 UI。
+- **Domain/Engine**：领域值、准入/状态规则、现有 Loop/Compiler/TurnEngine 与精确 ports。契约归实际消费者或领域 owner，不建立万能 core/common。
+- **Infrastructure**：Room 原子实现、ContentStore、系统服务、协议/凭据/路径/IPC 适配。`ToolSettlementWriter` 这类实际持久事务应归适配实现，不因文件在 application 就拆掉其事务。
+- **Extensions/Tools/Runtime**：Plugin 组织贡献；工具进入统一治理；Runtime 管原执行实例与物理资源。三者不是同一种业务，不为顶层目录少而合并。
+- **Composition/lifecycle**：构造与启动分开。显式创建唯一 Engine/runtime/gateway，再接表现消费者；应用存活的观察/恢复有明确一次启动、失败反馈和停止规则。不要借重组新建调度框架。
+
+生命周期只保留必要的 owner：应用级配置/恢复、会话与持久输入、Turn、ToolCall、长期 Runtime 资源、页面观察各不等同。取消 observer 不取消 executor；持久 Stop 后再发运行信号；实际退出前容量仍占用。详细状态规则继续引用现行 ADR，不在蓝图再定义一套。
+
+### 24.4 目录与模块的目标落点
+
+推荐终态如下；路径为设计目标，不表示已创建，也不要求一次性移动所有文件：
+
+```text
+app/                         Android 入口、composition、应用生命周期与导航接线
+feature/                     按用户能力聚合 presentation + application
+  conversation/              draft、输入、会话查询、表现状态与用户动作
+  files/                     现有手动文件能力
+  browser/                   现有浏览器宿主
+  ...                        仅将确有边界的现有能力迁入，不预建空功能
+core/
+  agent/                     当前 Engine/Loop/Compiler、运行契约
+  model/                     真正跨领域的稳定值类型
+  policy/                    已有授权/策略语义
+  workspace/                 资源身份、内容/目录契约
+infrastructure/
+  storage/                   现 core:storage 的 Room/ContentStore 持久实现
+provider/                    当前 api 与协议适配
+extensions/                  当前 Plugin/MCP/Skill/原生贡献
+runtime/                     按实际进程/执行隔离保留
+tools/                       当前具名工具和治理框架
+```
+
+feature 内优先按能力组织，再区分 presentation/application；不把全 App 再平移成另一层大服务。当前 `feature:browser` 兼有 Android 宿主适配，迁移时按真实资源 owner 归类，不强迫所有 feature 都纯 UI。
+
+**建议采用的模块裁决：**
+
+1. `core:agent`、policy、workspace、provider:api 等有效边界保留。输入/快照类型归实际领域；仅真正跨领域者进 model，避免 model 变成新大仓库。
+2. `core:storage` 最终改为 `infrastructure:storage`，但在业务契约先剥离后做物理重命名。Room、内容存储及跨表原子实现可以同模块；不按表拆模块。
+3. 优先以 conversation 做真实 feature 编译边界试点。其 application 只能使用契约，presentation 只能使用状态/命令；Android 获取事实留在适配器。初期可先整理包，最终若仍处在 App 的全依赖 classpath，不能宣称编译隔离完成。
+4. 需要 feature 与 storage 双向引用时，提取最小、真实使用的中立契约到所属 Core 领域；先判断是否本应一个 owner，不能靠 api/impl 模块成对膨胀消除所有依赖。
+5. 手动 DI 继续使用。组合根可按稳定能力构造协作者，但不得变成服务定位器网络；仅为少几百行不引入 Hilt/Koin。
+6. 现有集中 Gradle 配置先保留；只有明确重复/配置成本证据才考虑 convention plugins。生产依赖用 implementation，确实出现在公共签名的依赖才用 api；禁止跨层全限定名绕过 import 护栏。
+7. `tests/release-smoke`、可复现实验 `spikes`、模块内测试与 `scripts/tests` 各守其目的；不重建已退役的 testing 模块，不为目录一致迁走独立黑盒宿主。
+
+这套布局追求“相同变化集中修改、不同权威不相互侵入”，不是顶层目录最少。网络/本地 Provider、SAF/POSIX、不同 Runtime、Standard/Advanced 的真实支持差异留在适配边界；内部旧包名/别名/DTO 不要求兼容。产品版本、内部 schema/协议版本仍依 AGENTS 固定规则，不因移动路径升级。
+
+#### 24.4.1 命名与归属优化：随职责迁移，不做全仓美容式改名
+
+2026-11-06 补充：Owner 要求将命名评估纳入后续重构指导。**先确定职责、事实 owner、生命周期和依赖方向，再确定目录、文件与类名。**下表是当前源码对应的候选调整，不是已完成清单或独立实施授权；候选名称可随 [计划修订机制](#247-如何根据实施事实修订计划) 的实际证据修订，不要求为满足清单而保留无职责的类。
+
+| 当前名称/位置 | 问题与目标 | 候选调整及实施阶段 |
+| --- | --- | --- |
+| `core/storage` / `:core:storage` | Room/ContentStore 基础设施与上层输入契约混在一起；Core 路径掩盖真实依赖 | C 先归位业务契约，E 再将持久实现迁到 `infrastructure/storage` / `:infrastructure:storage`；不是整个目录直接平移 |
+| [ChatService](../../app/src/main/kotlin/com/helix/app/chat/ChatService.kt) | 同时承担表现协调、输入动作和运行装配，名称无法说明剩余职责 | B/C 先复用现有协作者并迁出装配、应用命令；若仅剩表现协调可用 `ConversationPresenter`，仅在确属 ViewModel 生命周期时用 `ConversationViewModel`，没有独立职责则删除原总入口；不换成同样宽泛的 `ConversationManager` / `AgentService` |
+| [chat/ChatImagePreview](../../app/src/main/kotlin/com/helix/app/chat/ChatImagePreview.kt) 与 [ui/ChatImagePreview](../../app/src/main/kotlin/com/helix/app/ui/ChatImagePreview.kt) | 同名文件分别负责受约束图片读取与 Compose 展示，搜索时难以辨认层次 | B 的相关 UI/读取边界切片中，读取实现可改为 `ConversationImageReader`，UI 文件保留 Preview 或用 `ConversationImagePreview`；不合并两层，不丢会话绑定、哈希和大小验证 |
+| [SessionInputModels](../../core/storage/src/main/kotlin/com/helix/core/storage/repository/SessionInputModels.kt) | 输入规格、配置、接受结果与持久记录同处 repository 包 | C 按用户意图、已验证快照、持久记录分清归属；文件可用 `SessionInput.kt`、`SessionInputRecord.kt` 等主要概念命名，不强制每类型一文件，不把所有 Spec 机械改成 Command |
+| [AgentLoopHost](../../app/src/main/kotlin/com/helix/app/agent/AgentLoopHost.kt) | 实现 TurnLoopRunner，负责 Core Loop 的应用接线与 Goal 时间控制；Host 表意偏宽 | B 明确剩余职责后可用 `AppTurnLoopRunner`；继续调用唯一 Core AgentLoop，不因改名创建第二 Engine/Loop |
+| [SystemPromptContext](../../app/src/main/kotlin/com/helix/app/application/context/SystemPromptContext.kt) | 名称像数据对象，实际涉及事实取得、来源注册和内容组装 | D 分离事实读取与映射后，组装部分可用 `SystemPromptAssembler`；复用 PromptRegistry/Compiler，不只改名或顺带改检索策略 |
+| [ToolSettlementWriter](../../app/src/main/kotlin/com/helix/app/application/tools/ToolSettlementWriter.kt) | 实际持久事务实现位于 application 包，位置比 Writer 后缀更误导 | C 将持久实现归 infrastructure；若保留具体 Room 实现，可用 `RoomToolSettlementWriter`，不为前缀另造无消费者接口；保持 ToolResult/ToolCall/budget 原子结算 |
+| [TurnRuntimeSnapshot](../../app/src/main/kotlin/com/helix/app/infrastructure/agent/TurnRuntimeRecordCodec.kt) | 应用消费的配置/用量快照藏在基础设施 Codec 文件中，容易混同实时观察状态 | C 将类型独立到实际契约归属；只有需要明确区分实时快照时才考虑 `PersistedTurnRuntimeSnapshot`，不能把它改成 UiState 或丢掉持久配置/用量语义 |
+
+**名字准确时，优先调整归属，不强制改名：**
+
+- [AppAgentRuntime](../../app/src/main/kotlin/com/helix/app/chat/AppAgentRuntime.kt) 是真实 AgentRuntime 应用适配，不是旧兼容壳。B 将其从 chat 归到适当的应用运行时适配位置即可；保留提交、取消和晚订阅持久终态补发。
+- [DefaultAppContainer](../../app/src/main/kotlin/com/helix/app/DefaultAppContainer.kt) 是合法组合根。B 分离构造与启动/观察/恢复生命周期，不为消除 Default 创建一组互相查询的 Container。
+- [GoalRunSettlement](../../app/src/main/kotlin/com/helix/app/agent/GoalRunSettlement.kt)、[GoalTimeBudget](../../app/src/main/kotlin/com/helix/app/agent/GoalTimeBudget.kt)、[GoalDetachedBudget](../../app/src/main/kotlin/com/helix/app/agent/GoalDetachedBudget.kt) 的词汇对应真实结算、预算和执行生命周期。C 按规则与持久实现归位，不仅因旧 agent 包或 Detached 字样改名。
+- `TurnEngine`、`AgentLoop`、`TurnSubmissionCommandHandler`、职责明确的 Registry/Dispatcher/Codec 与 Room 适配器可保留。`ChatScreen`、`ChatUiModels` 在纯展示层仍合理；不全仓替换 Chat/App/Default/Host/Service 后缀。
+
+**历史字样必须按行为核实：**`ChatService.completedLegacySubmission()` 仍由提交回执恢复调用，依据已持久化 Turn/输入核对请求身份。C 可考虑改为 `submissionOutcomeFromPersistedTurn()`，但先核对当前生产者、缺失输入记录时的恢复路径与测试：仍服务当前正确性则保留行为并准确命名；只有证明仅服务已废弃内部格式才删除。`legacyScopeRoots` 等字段也不能按名称判死；平台/外部协议/插件的 Compatibility 可能是当前支持能力，而非旧内部兼容。不得用重命名掩盖实际应删除的废弃路径，也不得用删除旧名绕过身份、授权或恢复保证。
+
+**统一概念，不机械统一词汇：**
+
+| 词汇 | 应表达的语义 |
+| --- | --- |
+| Conversation / Chat | 会话功能组织或聊天表现；conversation 目录不要求所有类型改前缀 |
+| Session | 稳定会话身份、配置和历史归属，不与页面或单次执行混同 |
+| Turn | 一次执行生命周期，不与后台 Job、工具调用或页面观察等同 |
+| Command / Spec | 前者是动作请求，不代表成功；后者需说明是输入规格还是已验证约束，不互相批量替换 |
+| Snapshot | 某一时点固定的事实；按需限定请求绑定、持久或观察来源 |
+| Record / Entity | 持久记录或数据库映射，不冒充授权输入 |
+| UiState / Projection | 展示状态或派生结果，不成为执行权威 |
+| Reader / Writer / Codec | 读取、写入、编解码；名字不能隐藏额外的执行/授权/生命周期责任 |
+
+不新增 `New*`、`V2*`、`Unified*`、`Next*` 作为重构版本标签，不以通用 Manager/Helper/Utils 替代准确领域职责。相同职责在文件名、主要类型、测试名与文档中一致表达；正常、取消、恢复、未知效果等测试按行为命名，不因细分或名称较长削减覆盖。
+
+**融入阶段与完成条件：**A 核对选定切片的名字、当前消费者和动态入口；B/C/D 随上述职责切片改名和移动，E 完成 Gradle/包/可见性边界，F 汇总验证。每片同步 import、全限定名、DI、构建配置、测试发现/选择器及当前文档链接；Manifest、JNI、反射、序列化名称、外部协议标识与 applicationId 单独判断，不随源码符号机械替换。内部当前消费者一次迁完，不留旧名转发器、兼容别名或双实现；有效平台/协议适配不属于待删兼容层。历史完成记录保持当时事实与 Git 可追溯性，不把历史名称伪装成当时已使用新名。
+
+名称迁移按 [验证与收益标准](#246-验证与收益标准) 执行对应编译与行为回归，涉及缩减/反射/JNI 时增加适用门禁；运行设备仍需当前任务授权。**退出依据是职责可辨认、归属正确、消费者完整迁移和原有正确性边界保留，不是改名数量、文件数量或目录对称。**本补充只指导后续获准重构，不启动生产代码改名。
+
+### 24.5 分阶段实施路线
+
+以下是依赖驱动的建议顺序，**每阶段内部按可运行的完整路径交付**，不是等全部阶段完工才测试。阶段标签只是本节导航，不是新的任务编号。已交付 HXA 不重新标成未完成；新增范围实施前再落到合适任务。
+
+#### 阶段 A：校准基线与边界清单（小）
+
+- 确认当时工作树与并行修改所有权；对照当前消费者、accepted ADR 和已交付记录，修正过时进度句。
+- 为选定路径列出入口、输出、事实 owner、生命周期、当前禁止依赖和必须保留的测试；记录现有失败，不能借历史通过免除新检查。
+- 选首个 UI 依赖切片和 conversation 输入路径；不做全仓移动/全框架清洗。
+- **退出**：后续各片有明确改动范围与验收，没有重做 Engine/Registry/Compiler 的重复项目。
+
+#### 阶段 B：UI 依赖显式化与装配归位（中，两个小片）
+
+- B1：从现有页面入口显式提供 knowledge/readAloud 等依赖；移除页面对 HelixApplication 的隐式服务查询。保留现有 ViewModel/状态流模式，不加入全局 CompositionLocal 容器。
+- B2：将 ChatService 内 runtime/host/gateway 构造上提到组合边界；容器显式接收 knowledge/account，不反向强转 Application。将构造与应用级 observers/recovery 启动分开。
+- 所有提交入口共用原 runtime/Engine；ChatService 可以暂保留为有明确职责的表现协调者，不保留纯转发兼容壳。执行反馈用窄事件/投影端口，不依赖页面订阅才能结算。
+- **退出**：无页面也可装配/运行；启动不会重复注册/恢复；晚订阅、切会话、重建不会执行新任务；新依赖可从构造签名看清。回归 receipt、模型绑定、前台状态、音频控制与恢复，不以只改命名验收。
+
+#### 阶段 C：输入契约与原子应用命令收敛（较大，分纵切）
+
+- 先以“草稿提交→持久受理→Turn 启动→结果观察”跑通一个纵切，再接 Queue/Steer/retry/recovery 的实际共用契约。
+- 将 `InputSkillActivation`、输入 delivery/config/spec 等按语义区分为用户意图、已验证快照和持久记录；迁移全部当前消费者。持久 sequence/contentRef/消费标识不误当用户授权。
+- 将 Provider/config/附件/目录读取接成精确事实端口；应用层不再接收整个 ProviderService/HelixStorage。沿用 ModelProvider，不再建立同义模型门面。
+- 将 admission/settlement/Goal allowance 的归属一次设计清楚：领域规则可中立，Room 执行原子命令。首 ModelCall/step、Steer/最终答复、GoalRun/Turn、ToolResult/ToolCall/budget 的原事务保持完整；外部正文效果不能假装随事务回滚。
+- **退出**：应用用例可用替身验证，生产真实适配同样接线；页面与命令签名无存储实现泄漏；取消/重复提交/冲突/落盘失败/提交后通知失败有回归。旧 DTO 与旧入口随各纵切删除，无双写或通用 transaction lambda。
+
+#### 阶段 D：上下文事实与映射边界（中）
+
+- 在 C 的输入身份/快照契约稳定后，拆开授权/项目/记忆/知识事实采集与纯内容映射，复用 PromptRegistry、既有贡献模型和唯一 ContextCompiler。
+- 明确请求绑定快照，必要的执行时撤权检查仍在原路径；UI 切目录/模型不能重定向在途请求。
+- Knowledge、Memory、PromptSnapshot 与模型实际请求各守原职责；不同时更改检索、摘要、预算默认或引入向量库。
+- **退出**：同输入同策略下来源、权限、内容版本、必要约束和模型 call/result 配对等价；省略与真实发送事实可追溯，撤权/切项目/附件失败回归通过。任务效果优化另作固定条件实验。
+
+#### 阶段 E：落实编译边界与目录收敛（中到较大，按能力迁移）
+
+- B/C 后将 conversation 的已清理 presentation/application 形成真实 feature 边界；C 后迁 `core:storage` 至基础设施，消费方只依赖所需契约。
+- 不把目录搬迁留成最后的大爆炸：前述阶段已经形成的职责包随片移动，此阶段完成实际模块/可见性约束。D 可与不共享文件的持久目录迁移并行，但共同输入契约先冻结。
+- 同步 settings、根依赖表、namespace/package、DI、Manifest/JNI/反射/序列化、两变体、测试选择器与文档链接。移动单元有唯一写入者。
+- **退出**：目标依赖无法通过普通编译绕过，旧路径无有效动态/构建消费者，零新旧平行生产实现。模块数允许增减，构建耗时记录实测，不承诺重命名天然提速。
+
+#### 阶段 F：代表性扩展复核与总收口（中，验证贯穿前序）
+
+- 用已有同步文件工具、视觉内容、后台 Job、动态插件/MCP、Provider 编码、手动操作检查各边界，不为验架构上线新功能。
+- 用测试贡献或既有适配的有界变更验证：同类能力主要修改所属 feature/adapter 和组合接线，不需要编辑 Turn 状态机、复制授权或新增恢复 owner。
+- 汇总每片宿主、真实 Room、UI/Runtime、模型消费和资源证据；未授权设备/服务范围明确保留。不得用最终全绿掩盖无实际运行的类别。
+- **退出**：获准范围的禁止依赖清零、原子性和身份不退化、无永久过渡层、真实消费者都迁移；没有收益证据的进一步拆分停止。
+
+**依赖与并行：**A 先完成；B1 可先于 B2 独立验收。B2/C 共用 ChatService/容器时串行或明确写入所有权；C 稳定后推进 D，E 按已清理领域渐进开展；F 的测试从首片开始，最后汇总。不得为并行写代码引入临时双入口。非共享文件的新功能可以继续开发，不把整项目冻结到 F。
+
+### 24.6 验证与收益标准
+
+复用 第 23.8 节 及现有测试，不创建第二套测试框架。至少保持以下层次：
+
+- **静态/编译**：扩展 `test_agent_layer_boundaries.py` 到已经迁好的包；Gradle 真实依赖/可见性承担主约束，字符串扫描作补充。不预先禁掉尚未迁移的全域依赖再靠豁免过门禁。
+- **纯 JVM 契约**：保留 TurnEngineLifecycleTest、StopTurnCommandHandlerTest、TurnRoundCoordinatorTest 等；新增窄命令/状态映射测试。不是把旧私有类断言原样锁死，而是保留正常、边界、取消和恢复语义。
+- **真实 Room**：保留 RoomTurnLifecycleStoreDeviceTest、TurnCommitStoreDeviceTest、TurnReviewResolutionDeviceTest、TurnSubmissionSessionBindingDeviceTest 等原子性/归属覆盖；内存替身和编译不能替代实际事务结果。
+- **表现与 Runtime**：重点覆盖提交后取消/页面恢复、旋转/晚订阅、原实例/generation、进程死亡、撤权和实际容量。设备运行需要对应当前授权，不继承历史记录；CI 永远 host-only。
+- **主机门禁**：代码切片按现行 `scripts/check-all.sh --debug` 和受影响测试执行，保持两渠道 AndroidTest 编译；发行、JNI/反射/缩减敏感变更再执行适用 Release/R8 门禁。文档-only 阶段只做文档/ADR/秘密扫描和差异检查。
+
+每片记录与基线比较的：禁止依赖是否消失、同类变更触及哪些无关领域、测试替身是否需要整个 App、启动观察/资源 owner 是否重复、构建/测试耗时是否异常。性能/任务质量另用固定模型、输入、策略、预算与判分比较；没有数据就不宣称更快、更省 Token 或更高成功率。
+
+首片不设凭空的百分比 KPI。安全与正确性是硬条件；结构收益是能指出被消除的具体依赖及局部化的实际修改；文件更短、接口更多或目录更少不是通过依据。
+
+### 24.7 如何根据实施事实修订计划
+
+**稳定的是边界和验收，允许调整的是切片顺序、类型位置、模块粒度与实现办法。**每片结束只复核该片及它改变的接缝，不重新审查整个项目。
+
+在原任务记录四项：新证据/反例、对当前设计的影响、采用的最小调整、更新后的退出条件。更新本节仅当总体路线改变；若有效长期契约改变，先在所属 ADR 正文和 Decision history 裁决，不能用蓝图覆盖权限或产品约束。已完成片继续保留事实身份，不能因为更好命名把它重新设为未开始。
+
+下列情形需要改计划，而不是硬撑原拆分：
+
+- 两模块持续互相了解内部状态或一次变更必须双向修改：先合并 owner 或把真实共享契约归位，不加中转事件总线。
+- 小片需要第二账本、通用恢复引擎、大量未使用接口或新部署域：缩回真实用例，新增产品/安全域由 Owner 决定。
+- 纯接口看似整洁却拆坏事务/真实退出/授权来源：按原子用例扩大该片或取消拆分，不靠最终补偿假装回滚。
+- 证据显示已交付：从待办删除；证据不足：补对应小范围调查，不自动重写。
+- 结构迁移掺入模型策略改变：拆开验收与实验；不能把任务效果波动都归因于架构。
+
+实现可以重排，但获准目标不能静默缩成“第一片通过”。每轮以明确闭合的纵切结束，后续范围仍由原任务决定；没有授权的能力不因蓝图存在自动开工。达到本节已获准范围的退出条件后停止，不以“未来可能扩展”无限增加模块。
+
+### 24.8 本次研究交付边界
+
+本次只更新蓝图与导航，未修改生产实现、依赖、数据库/协议版本、产品范围或有效 ADR 决定；未使用设备、真实模型服务或外部账号，未提交/推送。上述源码核查不等于逐文件穷尽审计，外部官方建议不等于实测收益。设备验证状态为 **not requested**；未来阶段是否通过由对应实际证据决定。

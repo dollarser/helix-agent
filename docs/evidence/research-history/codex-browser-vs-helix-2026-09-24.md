@@ -70,7 +70,7 @@ Codex 线程
 | `browser.click` | 按 node token 点击 | ✅ |
 | `browser.type` | 按 node token 输入（敏感字段默认拒绝） | ✅ |
 | `browser.scroll` | 滚动 | ✅ |
-| `browser.screenshot` | 截图存 Workspace | ⚠️ **见 §三** |
+| `browser.screenshot` | 截图存 Workspace | ⚠️ **见 第 三 节** |
 | `browser.download` | 下载页面资源到工作区 | ✅ |
 
 **生产装配证据**：`app/src/main/kotlin/com/helix/app/DefaultAppContainer.kt:425-428`
@@ -87,7 +87,7 @@ BrowserTools.registerAll(
 
 ### 2.2 在五个点上 Helix 比 Codex 更严格
 
-**1. 模型不能向 WebView 提交任意脚本**（doc 09 §3.4 明文禁止）
+**1. 模型不能向 WebView 提交任意脚本**（doc 09 第 3.4 节 明文禁止）
 
 页面上只跑**固定、版本化、编译期常量**的 JS 片段：
 
@@ -213,9 +213,9 @@ Helix 的 QuickJS **不能**当 `node_repl` 用：不能联网、不能碰宿主
 
 | 优先级 | 动作 | 说明 |
 |---|---|---|
-| **P1** | 给工具结果开图像通道，让 Agent 能看见自己的截图 | §3.1。唯一真正的能力差距。**但需 ADR 裁决**（打破"图像只绑定用户消息"的不变量），并同步 `VisionLimits` / `ContextSegments` / 审计 |
-| **P2** | 在 `docs/architecture/` 补一段浏览器能力边界说明 | §3.2。说清"Helix 的浏览器是自有 WebView、复用其自身会话；不存在也不打算提供对外部浏览器的接管"，避免把设计取舍读成能力缺失 |
-| **P2** | 量化多步浏览器任务的成本 | §3.3。当前无人测过"完成一个 N 步浏览器任务需要多少次工具调用、token 失效导致多少次重试"。这是 QuickJS 取舍的真实代价，建议用一条 androidTest 或 evals 度量 |
+| **P1** | 给工具结果开图像通道，让 Agent 能看见自己的截图 | 第 3.1 节。唯一真正的能力差距。**但需 ADR 裁决**（打破"图像只绑定用户消息"的不变量），并同步 `VisionLimits` / `ContextSegments` / 审计 |
+| **P2** | 在 `docs/architecture/` 补一段浏览器能力边界说明 | 第 3.2 节。说清"Helix 的浏览器是自有 WebView、复用其自身会话；不存在也不打算提供对外部浏览器的接管"，避免把设计取舍读成能力缺失 |
+| **P2** | 量化多步浏览器任务的成本 | 第 3.3 节。当前无人测过"完成一个 N 步浏览器任务需要多少次工具调用、token 失效导致多少次重试"。这是 QuickJS 取舍的真实代价，建议用一条 androidTest 或 evals 度量 |
 | **不做** | 补 Control Chrome 等价物 | 与 AGENTS.md 禁止项冲突，且 Android 无技术路径 |
 | **不做** | 把 QuickJS 改成通用宿主脚本底座 | 与 ADR-RUNTIME-003（isolated UID、无特权主机桥接）直接冲突 |
 
@@ -226,7 +226,7 @@ Helix 的 QuickJS **不能**当 `node_repl` 用：不能联网、不能碰宿主
 | 结论 | 证据 | 置信度 |
 |---|---|---|
 | Helix 有 12 个 browser 工具且生产已注册 | `tools/browser/BrowserTools.kt:17-28`；`DefaultAppContainer.kt:425-428`、`:339` | **高** |
-| 模型不能向 WebView 提交任意脚本 | `BrowserSnapshotScript.kt:6-9`、`BrowserActionScript.kt:6-16` 注释引 doc 09 §3.4 | **高** |
+| 模型不能向 WebView 提交任意脚本 | `BrowserSnapshotScript.kt:6-9`、`BrowserActionScript.kt:6-16` 注释引 doc 09 第 3.4 节 | **高** |
 | node token 6 种失效判定 + 60s TTL | `SnapshotToken.kt`（全文 139 行） | **高** |
 | URL 策略 fail-closed 且单一咽喉点 | `BrowserUrlPolicy.kt:8-19` | **高** |
 | 截图不回传图像 | `BrowserOutputTools.kt:26-35`（描述 + `maxOutputBytes = 4096`） | **高** |

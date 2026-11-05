@@ -39,7 +39,7 @@
 
 ## 尚未完成：不得关闭完整 J1
 
-1. **J1-3 统一观察候选。** 当前等待结果通过普通 ToolResult 持久回填；`ContextCompiler` 仍是有界历史压缩选择，没有独立 JobObservation 候选、变化摘要和 revision/resultRef 的自动纳入。按 Harness §8.6/§16/§18 接同一上下文端口，不新建第二历史；自动纳入不能自行激活新 ModelCall。
+1. **J1-3 统一观察候选。** 当前等待结果通过普通 ToolResult 持久回填；`ContextCompiler` 仍是有界历史压缩选择，没有独立 JobObservation 候选、变化摘要和 revision/resultRef 的自动纳入。按 Harness 第 8.6 节、第 16 节、第 18 节 接同一上下文端口，不新建第二历史；自动纳入不能自行激活新 ModelCall。
 2. **可信类型的无进展判定。** `DurableToolLoopProgress` 仍有 `LIVE_OBSERVATIONS` 名称白名单，尚未完成按受信任观察类型处理 RUNNING 的契约。后续覆盖稳定 RUNNING、WAIT_EXPIRED、真正停滞和普通同名工具，不能仅添加 `jobs.await` 名称豁免，也不能把变化的时间戳当实际任务进展。这是实现契约缺口，本次未复现或宣称已修复用户任务误停止。
 3. **联合反例与设备旅程。** `JobAwaitLoopDeviceTest.loopAwaitsOriginalExecutionThenCollectsVerifiedOutput` 使用本地脚本模型，覆盖真实 Provider 流、Core Loop、Dispatcher、Runtime 和输出哈希，但本次只编译。fork/换目录/插件停用/重开/取消/迟到回包的联合路径须逐项映射现有测试、补缺并在明确授权的指定设备上执行；分模块通过不替代整个路径。
 

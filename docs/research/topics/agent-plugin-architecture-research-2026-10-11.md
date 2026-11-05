@@ -6,7 +6,7 @@
 
 ## 1 核验基线与判断修正
 
-原始源码基线为 `main@542c1ca26d5a170ebb5b6549185ed83af04bf1cc` 加当时工作区。工作区含未提交的 `extensions/chat-reply` 和 Mobile Use 相关改动；这些只作为组合场景线索，不计为已交付能力。文档拆分保留原始快照；同日补充 MCP 接入方式调研时，在 `0be2f2d888668abfbf2e28e61f0a67585fee57fd` 加工作区重新核对了 §4.5 的 Mobile Use 注册路径，未据此重验全文或执行产品、设备验证。
+原始源码基线为 `main@542c1ca26d5a170ebb5b6549185ed83af04bf1cc` 加当时工作区。工作区含未提交的 `extensions/chat-reply` 和 Mobile Use 相关改动；这些只作为组合场景线索，不计为已交付能力。文档拆分保留原始快照；同日补充 MCP 接入方式调研时，在 `0be2f2d888668abfbf2e28e61f0a67585fee57fd` 加工作区重新核对了 第 4.5 节 的 Mobile Use 注册路径，未据此重验全文或执行产品、设备验证。
 
 | 前期判断 | 2026-10-11 核对结果 |
 | --- | --- |
@@ -14,7 +14,7 @@
 | R3 插件生命周期尚未开发 | 已过时。HXA-235 已实现统一安装目录、选择、停用、更新、卸载和修复；HXA-251 有有限 Room/设备补验 |
 | Helix 没有动态工具发现 | 不成立。`tools.search` 已搜索多种来源；有精确名称优先、零命中保留与禁用过滤 |
 | 每个 Codex 插件都有自己的独立 server | 不成立。PDF/Documents 可主要提供 Skill；GitHub/Outlook 引用连接器；本机 CUA 配置同时启用 browser/computer 两个 surface |
-| 主流 Agent 的内置插件都应优先通过 MCP 接入 | 样本不支持这条统一规则。核心原生工具、官方组件包和宿主框架插件分属不同层级；MCP 是其中一种接入方式，详见 §2.7 |
+| 主流 Agent 的内置插件都应优先通过 MCP 接入 | 样本不支持这条统一规则。核心原生工具、官方组件包和宿主框架插件分属不同层级；MCP 是其中一种接入方式，详见 第 2.7 节 |
 | 内置 Computer Use 自动继承 ChatGPT 全部系统权限 | 不准确。本机 MCP 配置指向独立应用身份 `Codex Computer Use`；官方文档要求为其检查录屏和辅助功能授权 |
 | Browser Use 与本机 Browser 是同一能力 | 不成立。前者提供任务启动、等待、续接；后者提供浏览器和标签页操作 |
 | Codex 没有相应校验，因此 Helix 更安全 | 缺少证据。Browser client 已包含安全错误、凭据恢复和能力限制；服务端内部并未完整核验 |
@@ -96,7 +96,7 @@ Skill 的 model-facing consumer 会将目录更新记录为替换消息，空目
 
 2026-10-12 本机包结构、`cua_repl`/Sky API/桌面服务的详细调用链，以及 direct MCP disabled 的边界见[Computer Use 调用链参考](computer-use-call-path-2026-10-12.md)。以下仍保留本专题的架构判断与设计收益分析。
 
-**可以确认的实现。** 本机 `unified-computer-use/26.1007.21159` 的 `.mcp.json` 将 `cua_repl` 配置为由宿主捆绑 Node 运行的服务，启用 `js`、`js_reset`、`turn_ended` 三个入口。环境配置同时启用 `browser,computer`，登记 `@oai/browser-desktop/service` 和 `@oai/sky/service`；manifest 的 Stop、Interrupt、SubagentStop 调用 `turn_ended`。文件身份见 §6.2 和 §6.4。
+**可以确认的实现。** 本机 `unified-computer-use/26.1007.21159` 的 `.mcp.json` 将 `cua_repl` 配置为由宿主捆绑 Node 运行的服务，启用 `js`、`js_reset`、`turn_ended` 三个入口。环境配置同时启用 `browser,computer`，登记 `@oai/browser-desktop/service` 和 `@oai/sky/service`；manifest 的 Stop、Interrupt、SubagentStop 调用 `turn_ended`。文件身份见 第 6.2 节 和 第 6.4 节。
 
 逻辑调用关系如下。箭头表达职责和调用关系，不表示每一层都是独立 OS 进程：
 
@@ -143,7 +143,7 @@ MCP 包装不会自动取得截图/辅助功能授权，也不会自动隔离所
 
 **综合判断：本次样本支持“统一工具接入与管理，允许多种执行适配”，不支持“内置插件普遍优先 MCP”。** MCP 适合跨宿主共享工具契约、对接外部服务或让执行环境与宿主分开；本机可信实现可以直接注册，跨进程能力也可以先使用平台 IPC。Skill、hooks、LSP 又解决不同问题。是否使用 MCP，应说明需要跨越的运行和互操作边界。
 
-此判断不意味着 MCP 只用于第三方或远程服务：本机 CUA 正是内置能力采用本地 MCP 的实例。Helix 的具体选择另见[优化方案 §6.5](helix-plugin-architecture-optimization-2026-10-11.md#65-按执行边界选择原生ipccli-或-mcp)。
+此判断不意味着 MCP 只用于第三方或远程服务：本机 CUA 正是内置能力采用本地 MCP 的实例。Helix 的具体选择另见[优化方案 第 6.5 节](helix-plugin-architecture-optimization-2026-10-11.md#65-按执行边界选择原生ipccli-或-mcp)。
 
 ### 2.8 插件与执行分层的总体合理性复核
 
@@ -159,7 +159,7 @@ MCP 包装不会自动取得截图/辅助功能授权，也不会自动隔离所
 
 **综合判断。** 当前方案与样本中的内容/工具分离、客户端/宿主分工、明确状态和资源归属等原则一致。AgentLoop、TurnEngine、调度、执行准入和插件资源分别解决不同问题；同进程类型化接口可承载这些边界。公开样本未提供必须合并这些职责、替换 Room 或增加通用插件容器的依据。
 
-架构合理性、功能完成度和真实任务效果分别评价。当前优先补齐的是插件作者路径、可解释状态、共享资源释放和观察/装载质量；不能以模块数量、减少正文 token 或其他产品使用某协议推导任务收益。Helix 的采用范围与验收映射见[优化方案 §2.1](helix-plugin-architecture-optimization-2026-10-11.md#21-总体合理性与收敛尺度)，尚需产品选择的事项见[待决策索引](../../development/candidate-decisions.md#本轮插件与分层评审的决策结论)。
+架构合理性、功能完成度和真实任务效果分别评价。当前优先补齐的是插件作者路径、可解释状态、共享资源释放和观察/装载质量；不能以模块数量、减少正文 token 或其他产品使用某协议推导任务收益。Helix 的采用范围与验收映射见[优化方案 第 2.1 节](helix-plugin-architecture-optimization-2026-10-11.md#21-总体合理性与收敛尺度)，尚需产品选择的事项见[待决策索引](../../development/candidate-decisions.md#本轮插件与分层评审的决策结论)。
 
 ## 3 系统权限归于执行后端，内置与 MCP 是不同维度
 
@@ -325,21 +325,21 @@ DSH 使用官方仓库 `deepseek-ai/deepseek-harness`。本地 checkout 为 `c69
 
 ### 6.4 本轮 MCP 接入方式补充证据
 
-补充核验日期为 2026-10-11。Codex 公开仓库使用读取当时的 `8c0f7011674145da7e10627769fb221c74fbf7a0` 固定链接；此 SHA 不用于代表本机 Codex/ChatGPT 私有运行时。DSH 的两处工具接入文件与 §6.3 所列上游 SHA 无差异。Claude Code、Gemini CLI、OpenCode 使用同日官方文档；没有在本机运行这三个产品验证调用。
+补充核验日期为 2026-10-11。Codex 公开仓库使用读取当时的 `8c0f7011674145da7e10627769fb221c74fbf7a0` 固定链接；此 SHA 不用于代表本机 Codex/ChatGPT 私有运行时。DSH 的两处工具接入文件与 第 6.3 节 所列上游 SHA 无差异。Claude Code、Gemini CLI、OpenCode 使用同日官方文档；没有在本机运行这三个产品验证调用。
 
 | 证据 | 定位与支持范围 |
 | --- | --- |
 | [Codex spec_plan.rs](https://github.com/openai/codex/blob/8c0f7011674145da7e10627769fb221c74fbf7a0/codex-rs/core/src/tools/spec_plan.rs#L1295) | `UnifiedExec` feature 分支直接注册 ExecCommandHandler 与 WriteStdinHandler，证明存在原生工具接点 |
 | [Codex apply_patch.rs](https://github.com/openai/codex/blob/8c0f7011674145da7e10627769fb221c74fbf7a0/codex-rs/core/src/tools/handlers/apply_patch.rs#L284) / [mcp.rs](https://github.com/openai/codex/blob/8c0f7011674145da7e10627769fb221c74fbf7a0/codex-rs/core/src/tools/handlers/mcp.rs#L133) | 两类 ToolExecutor/CoreToolRuntime 实现，McpHandler 另走 MCP 调用；不推定本机版本启用了哪些 feature |
-| Unified Computer Use `.mcp.json` 与 manifest | 三个入口、两个 surface、可信服务映射及结束 hooks；文件哈希见 §6.2，不包含私有服务实现或系统授权实测 |
+| Unified Computer Use `.mcp.json` 与 manifest | 三个入口、两个 surface、可信服务映射及结束 hooks；文件哈希见 第 6.2 节，不包含私有服务实现或系统授权实测 |
 | [Claude 工具](https://code.claude.com/docs/en/tools-reference) / [插件组件](https://code.claude.com/docs/en/plugins/components) | 内置工具、MCP 扩展及官方 LSP 插件组件的区分 |
 | [Gemini 工具](https://geminicli.com/docs/reference/tools/) / [MCP](https://geminicli.com/docs/tools/mcp-server/) / [extensions](https://geminicli.com/docs/extensions/) | ToolRegistry、MCP discovery/wrapper 与多组件扩展 |
 | [OpenCode 工具](https://opencode.ai/docs/tools/) / [plugins](https://opencode.ai/docs/plugins/#custom-tools) | 内置工具、自定义 execute 和 MCP 并存；文档允许插件同名覆盖，Helix 不据此采用覆盖策略 |
 | [DSH tool-bash](https://github.com/deepseek-ai/deepseek-harness/blob/d743267388641bc76f17c45ce8b4c231aed1d32c/packages/shell/tool-bash/src/index.ts#L542) / [mcp-client](https://github.com/deepseek-ai/deepseek-harness/blob/d743267388641bc76f17c45ce8b4c231aed1d32c/packages/mcp/mcp-client/src/index.ts) | 前者通过 ctx 注册工具并注入服务，后者单独桥接 MCP；未启动连接或执行 Bash 工具 |
-| Helix Developer AutomationModule 与 MobileUsePlugin | §4.5 所列 HEAD 加工作区的原生注册关系；原始调研快照与本轮核验范围分开记录 |
+| Helix Developer AutomationModule 与 MobileUsePlugin | 第 4.5 节 所列 HEAD 加工作区的原生注册关系；原始调研快照与本轮核验范围分开记录 |
 
 后续若要判断某产品“优先”哪种接入方式，应再统计该版本随产品提供的插件清单，逐项区分组件类型，并寻找官方选型准则；当前样本只用于核实可行路径及反例。
 
 ### 6.5 总体合理性复核的补充来源
 
-§2.8 的 Codex App Server、OpenAI 插件架构、Claude Skills 和 OpenCode Server 均使用 2026-10-11 读取的官方在线文档；DSH 沿用 §6.3 的固定版本架构证据。新增的是公开宿主接口与 Helix 分层的比较，没有据此确认私有 Computer Use 后端实现，也没有在这些产品上运行对照任务。在线文档后续可能变化，实施时应重新核对涉及的协议与字段。
+第 2.8 节 的 Codex App Server、OpenAI 插件架构、Claude Skills 和 OpenCode Server 均使用 2026-10-11 读取的官方在线文档；DSH 沿用 第 6.3 节 的固定版本架构证据。新增的是公开宿主接口与 Helix 分层的比较，没有据此确认私有 Computer Use 后端实现，也没有在这些产品上运行对照任务。在线文档后续可能变化，实施时应重新核对涉及的协议与字段。

@@ -86,7 +86,7 @@
 | 过期声明 | 按 ADR-TOOLS-001 与 HXA-231 完成记录修正主方案的 proposed/待批、candidate/roadmap 的仅主机范围和重复 R1 待办；不授予新实现范围 |
 | Goal ADR | 只合并已接受的 HXA-232 增量：局部额度与总额度分别处理，无进展收尾回到状态正文，自动只读核查不等于解除 UNKNOWN；预算数值、四次模型/八轮核查、FAILED 收尾及原用户/平台边界不变 |
 | 主重构方案 | 保留 22 章、职责准则、结果反馈、Core/Job/Context/Plugin 契约与 26 组测试；R1-1～R1-3 退出待执行清单，保留完成入口；通用交接/验证改引用实施指南 |
-| Plugin 专项 | 保留 manifest 示例、host-known native、Mobile Use、工具接口演进理由与专项回归；通用安装/更新/选择规则只引用 Harness §17；删除平行 P0/P1/P2 排期和第二种 canonical 哈希描述 |
+| Plugin 专项 | 保留 manifest 示例、host-known native、Mobile Use、工具接口演进理由与专项回归；通用安装/更新/选择规则只引用 Harness 第 17 节；删除平行 P0/P1/P2 排期和第二种 canonical 哈希描述 |
 | 开发策略/实施 | 保留十项原则、六类样本、五项停止条件、候选接入取舍；去掉重复依赖表/交接模板与旧“R1 下一步”。明确 CodeGraph/按需读取及文档任务不默认构建 APK |
 | 归档 | 两份已承接研究移动到 evidence/research-history，修复入链/出链并添加时效说明；HXA-232 不因此关闭，原发现和备选方案正文保留 |
 | 索引 | docs/README、research/README、research-history/README 对齐单一正文和新位置；不新增平行计划、Markdown 文件或文档管理系统 |
@@ -106,7 +106,7 @@
 | harness-refactor-plan.md | 1,205 | 1,151 | 135,063 / 131,547 |
 | plugin-platform-plan.md | 661 | 202 | 20,182 / 14,889 |
 
-这五页合计减少 709 行、33,922 字节；不是全仓 token、计费或开发效率的实测收益。没有通过删掉完整技术条款来强求主方案变短：对比快照确认 §8、§13、§14、§15.6、§16、§17、§19 七个契约/验证范围逐字不变，未完成的 R2/R3/J1/J2 卡片亦保留。
+这五页合计减少 709 行、33,922 字节；不是全仓 token、计费或开发效率的实测收益。没有通过删掉完整技术条款来强求主方案变短：对比快照确认 第 8 节、第 13 节、第 14 节、第 15.6 节、第 16 节、第 17 节、第 19 节 七个契约/验证范围逐字不变，未完成的 R2/R3/J1/J2 卡片亦保留。
 
 一次性只读核验：`scripts/debug/2026-09-30/verify-document-convergence-509ac5c9.py`。它依赖本轮 ignored 快照 `build/documentation-convergence-20260930-509ac5c9/before.tar.gz`，仅输出同目录 `verification.json`，不接入常驻门禁，不是替代 CodeGraph 的工具。
 
@@ -145,11 +145,11 @@ Owner明确要求必要内容汇总为文档，不需要的旧报告删除。本
 Owner 要求梳理多轮架构重构与能力增加的脉络，同时避免旧方案干扰下一轮。基线 `main/14824251` 加既有未提交文档/脚本；先保存完整 diff 和状态到忽略目录 `build/architecture-evolution-review-2026-10-14/`，只增量编辑本次文档范围。
 
 - 新增[架构与能力演进索引](../research-history/architecture-evolution-2026-10-14.md)：按原记录串联 14 个阶段，说明变更动机、HXA/ADR 来源及验证边界；不建立第二份状态或待办，不复制旧 ADR 全文。
-- 文档中心、架构入口、ADR 入口和历史研究入口接入该索引。Harness 页首与 §2/§18 明确历史基线和原迁移卡用途，新提案继续在原 §23，不迁移文件或重编任务身份。
+- 文档中心、架构入口、ADR 入口和历史研究入口接入该索引。Harness 页首与 第 2 节、第 18 节 明确历史基线和原迁移卡用途，新提案继续在原 第 23 节，不迁移文件或重编任务身份。
 - 校正 Plugin 专项与 ADR 索引的“尚未实施”，候选页的锁屏撤权、PDF-only/未选格式和插件进度，以及 roadmap 中的旧 schema/冻结表述与已完成批次命令。依据当前 status、权限/Runtime/Workspace ADR 及原任务，未改变其验收结论。
 - Mobile Use 09-29 专题只追加后续承接导航，原研究正文与原时效说明保留，避免历史许可/截图判断被用来恢复旧行为。
 - 现行 status、主题 ADR 正文、HXA 范围和实施顺序不变；旧完成记录、失败证据、历史研究正文与所有既有工作保留。此次没有生产代码、数据操作或功能验收。
 
-对 Harness §23 做了整理前后逐字比较，内容完全一致，SHA-256 均为 `8fe5a0273572be630a2051f9870560cc3d47b608cea1d54e830bf2fcf4668e1a`。验证入口为 `./scripts/check-all.sh --source`、`git diff --check` 及新增章节链接核对；日志存入上述忽略目录。设备、真实模型与媒体端到端均未运行，本页不将历史测试转记为本轮通过。
+对 Harness 第 23 节 做了整理前后逐字比较，内容完全一致，SHA-256 均为 `8fe5a0273572be630a2051f9870560cc3d47b608cea1d54e830bf2fcf4668e1a`。验证入口为 `./scripts/check-all.sh --source`、`git diff --check` 及新增章节链接核对；日志存入上述忽略目录。设备、真实模型与媒体端到端均未运行，本页不将历史测试转记为本轮通过。
 
 本轮 source 门禁退出 0：228 项主机测试通过，860 份 Markdown/267 项 HXA 文档校验、37 份 ADR 及状态声明、国际化与秘密扫描均通过。测试输出中的模拟 FAIL/INCONCLUSIVE 是报告器故障 fixture，整套主机结果为 OK，未实际执行设备 instrumentation。最终日期/导航与本记录收口后另跑文档/ADR/差异检查，日志分别为 `docs-final.log`、`adr-final.log`；不重跑无关 JVM 或设备矩阵。

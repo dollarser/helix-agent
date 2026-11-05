@@ -38,7 +38,7 @@ Scope: [HXA-295 A](../../development/tasks/HXA-295.md)；B/C 为后续重构计�
 - 存储：`core/storage/.../dao/SessionHistoryDao.kt`、`repository/SessionHistoryRepository.kt`，由 `HelixDatabase.kt` / `HelixStorage.kt` 暴露；未新增表、迁移或第二历史副本。
 - 回归：`app/.../SessionToolsTest.kt`、`SessionToolEffectClassifierTest.kt`、`McpToolDiscoveryTest.kt` 和 `core/storage/.../SessionHistoryStorageDeviceTest.kt`。
 - 用户与模型指导：`app/src/main/resources/prompts/base.md`、`tool-discovery-aliases.json`、`extensions/skills/.../HelixUserGuide.kt` 及中文 `helix-docs` 导航/入门。
-- 设计与排期：本次研究、HXA-295、既有 Agent/Permissions ADR、Harness §23.10、HXA-286/287/294 与 status/roadmap/索引；不新增兼容设计文档。
+- 设计与排期：本次研究、HXA-295、既有 Agent/Permissions ADR、Harness 第 23.10 节、HXA-286/287/294 与 status/roadmap/索引；不新增兼容设计文档。
 
 ## 审查与剩余边界
 

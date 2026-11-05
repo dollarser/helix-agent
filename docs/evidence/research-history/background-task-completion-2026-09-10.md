@@ -2,7 +2,7 @@
 
 > **2026-09-10 历史核对，2026-09-29 归档。**下文混合开发用 Claude 宿主与当时的 Helix 产品状态，不能按“当前”二字理解为今天的实现。后续 [HXA-196](../../completion-records/HXA-196.md) 已交付 Linux 后台 Job，[Goal ADR](../../adr/goal/001-lifecycle-and-completion.md)也已有显式激活的连续执行；后台执行、完成通知和自动创建新 Turn 仍是不同能力。
 >
-> 当前行为看[终端](../../architecture/terminal.md)，后续等待/promotion 设计看[Harness §8](../../architecture/harness-refactor-plan.md)。原进程树、测试和推断保留为历史证据，不授予新的自动唤醒或设备执行权限。
+> 当前行为看[终端](../../architecture/terminal.md)，后续等待/promotion 设计看[Harness 第 8 节](../../architecture/harness-refactor-plan.md)。原进程树、测试和推断保留为历史证据，不授予新的自动唤醒或设备执行权限。
 
 ---
 

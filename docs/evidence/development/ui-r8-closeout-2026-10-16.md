@@ -61,7 +61,7 @@ x86_64 已有资产和原四包构建档案原样保留，**不属于本版分�
 
 ### 预览后文档复核
 
-ARM64 范围阶段提交为 `4b09357c`。随后按 Owner 要求，基于当前源码和 [Codex/Claude Code/OpenHands/MCP/移动端/终端一手研究](../../research/topics/tool-and-plugin-competitive-review-2026-10-15.md#10-2026-10-16-预览后重构与能力复核)优化原 [Harness §23](../../architecture/harness-refactor-plan.md#23-2026-10-14-执行边界重构提案)、HXA-286～295、Agent/Context/Plugin/MCP/Runtime 原 ADR 以及 status/roadmap/候选索引，没有新增重复总计划或生产实现。
+ARM64 范围阶段提交为 `4b09357c`。随后按 Owner 要求，基于当前源码和 [Codex/Claude Code/OpenHands/MCP/移动端/终端一手研究](../../research/topics/tool-and-plugin-competitive-review-2026-10-15.md#10-2026-10-16-预览后重构与能力复核)优化原 [Harness 第 23 节](../../architecture/harness-refactor-plan.md#23-2026-10-14-执行边界重构提案)、HXA-286～295、Agent/Context/Plugin/MCP/Runtime 原 ADR 以及 status/roadmap/候选索引，没有新增重复总计划或生产实现。
 
 主要裁决：286 前置身份/完成/取消/恢复与原子存储事实；287-A/288-A 分别验收后共同接真实 Room 和受控副作用，不能只读成功便宣布恢复正确；近期 Mobile Use、检索、Resources、预算按稳定接缝交付；常驻 stdio、CLI/账号服务和模型 PTY 仍按目标包/生命周期/凭据条件单独选择。285、295 A、296～302 的已实现能力列为迁移基线，纠正 295 首版后续运行证据未同步的过时状态，保留各历史批次范围。
 

@@ -7,7 +7,7 @@
 - 原生插件必要指导、Skill 目录/按需正文/参考资料、MCP 工具描述沿用既有生产链路。管理预览增加真实必要指导与原生参考资料，停用后也能检查，不改变注册、默认选择、会话选择或授权。纠正“选用后自动加载全部 Skill”及原生记录显示零技能的误述。
 - 所有插件统一“配置／提示与工具／详情”。MCP 认证与连接直接放在配置区；Mobile Use 保留插件自身的专属配置。使用按钮传准确安装 ID，配置返回准确卡片及配置页；卸载展示目标与后果并确认，取消保留安装和凭据。
 - Mobile Use 必要指导去重，保留观察/凭据有效期、提交语义、未知结果不重放、真实结果核验及有条件返回原会话。Documents 指导移入自身资源；Chat Reply 明确独立 Mobile Use 依赖、草稿核验、禁止发送及宿主历史/审计边界。Browser/Mobile Use 参考资料移除重复 Skill frontmatter。
-- 竞品一手资料、实际源码入口与取舍见[研究](../../research/topics/plugin-guidance-and-management-2026-10-16.md)。未复制竞品代码；不把提示整理等同模型收益。原 ADR-CONNECTORS-003、ADR-SKILLS-001 与 Harness §23.12 记录接续行为，不增加兼容层或启动完整架构重组。
+- 竞品一手资料、实际源码入口与取舍见[研究](../../research/topics/plugin-guidance-and-management-2026-10-16.md)。未复制竞品代码；不把提示整理等同模型收益。原 ADR-CONNECTORS-003、ADR-SKILLS-001 与 Harness 第 23.12 节 记录接续行为，不增加兼容层或启动完整架构重组。
 
 ## 失败、修复与范围澄清
 

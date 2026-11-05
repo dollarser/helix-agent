@@ -68,15 +68,15 @@ A 是"续聊天"——Codex、Claude Code、opencode 都做，且 Codex 做得�
 
 ### 2.3 然后交给人，但只是一次"事实声明"
 
-§4 明确 review **不是权限审批**："review 不能授权新能力、扩大 scope、消费 approval proof 或修改 session permission。" 首期只有三个 decision：
+第 4 节 明确 review **不是权限审批**："review 不能授权新能力、扩大 scope、消费 approval proof 或修改 session permission。" 首期只有三个 decision：
 
 - `CONFIRMED_APPLIED` —— 效果确实发生了
 - `CONFIRMED_NOT_APPLIED` —— 效果确实没发生
 - `ACKNOWLEDGED_UNKNOWN` —— 无法确定，**明确放弃当前 Turn**
 
-**第三个就是你说的那个开关。** 它已经在设计里了（§5：`ACKNOWLEDGED_UNKNOWN` → Turn 转 `CANCELLED`，保留稳定 finish/audit reason，session slot 释放，但 Queue 输入不自动执行）。
+**第三个就是你说的那个开关。** 它已经在设计里了（第 5 节：`ACKNOWLEDGED_UNKNOWN` → Turn 转 `CANCELLED`，保留稳定 finish/audit reason，session slot 释放，但 Queue 输入不自动执行）。
 
-而 §5 的另一半是：前两个 decision 齐了，**继续原 Turn**（不新建），但**绝不重放原 ToolCall**；模型看到的是一条"用户核查事实"的 resolution，而不是伪造的 tool_result。这解决了你说的"让用户发消息开新 turn"——Helix 的做法是**继续原 turn 但注入事实**，比开新 turn 保留了 budget、steering 和因果边界（§Alternatives 明确拒绝了"所有 UNKNOWN 都创建新 Turn"）。
+而 第 5 节 的另一半是：前两个 decision 齐了，**继续原 Turn**（不新建），但**绝不重放原 ToolCall**；模型看到的是一条"用户核查事实"的 resolution，而不是伪造的 tool_result。这解决了你说的"让用户发消息开新 turn"——Helix 的做法是**继续原 turn 但注入事实**，比开新 turn 保留了 budget、steering 和因果边界（Alternatives 章节 明确拒绝了"所有 UNKNOWN 都创建新 Turn"）。
 
 ---
 
@@ -92,7 +92,7 @@ A 是"续聊天"——Codex、Claude Code、opencode 都做，且 Codex 做得�
 
 > 这一步修复的是**消息协议形状**，不会恢复被中断进程的执行栈，也不会在反序列化时重新执行工具。**比如 Bash 已经修改文件但 tool_result 尚未落盘，清理孤立 tool_use 并不撤销磁盘上的修改；后续继续任务前仍需重新检查实际文件和任务状态。**
 
-**所以你的方案是真实存在的成熟设计，Claude Code 在用。** 它成立的前提见 §五——桌面能省，手机省不掉。
+**所以你的方案是真实存在的成熟设计，Claude Code 在用。** 它成立的前提见 第 五 节——桌面能省，手机省不掉。
 
 ### 3.2 "大模型会主动回顾之前的工作有没有结束" —— 这里有个硬约束
 
@@ -124,7 +124,7 @@ tool_result / function_call_output ← 无（从未产生）
 
 你的描述（提供足够多的工具 + 合理的权限控制，工作流交给模型）**准确地描述了主流 harness 在"工作流编排"轴上的姿态**。ADR-AGENT-001 的当前方向与之一致：它不是在规定模型怎么干活，而是在收敛**状态解释**——唯一 durable owner 可以由多个协作者组成，后续 HXA-220 负责删除旧的第二状态解释和无用 adapters。
 
-但"浅 harness"这个词容易掩盖一件事：**harness 可以在 A 轴上极重、在 B 轴上为零**。Codex 就是典型（见 §四）。所以"浅/重"不是一个标量，至少要分两轴看。
+但"浅 harness"这个词容易掩盖一件事：**harness 可以在 A 轴上极重、在 B 轴上为零**。Codex 就是典型（见 第 四 节）。所以"浅/重"不是一个标量，至少要分两轴看。
 
 ---
 
@@ -225,7 +225,7 @@ UI 自动化三条通道（无障碍 / Shizuku / Root）、PRoot Ubuntu 24.04、
 
 ### 6.2 "放弃当前 turn"的入口要做显眼
 
-`ACKNOWLEDGED_UNKNOWN` 已存在，但它在 §5 的语义是"无法确定 + 明确放弃"，容易埋在核查流程里。**你说的那个开关应该做成一眼可见的动作**："我不知道 → 放弃这个 turn 重新开始"，而不是要求用户先走完核查。
+`ACKNOWLEDGED_UNKNOWN` 已存在，但它在 第 5 节 的语义是"无法确定 + 明确放弃"，容易埋在核查流程里。**你说的那个开关应该做成一眼可见的动作**："我不知道 → 放弃这个 turn 重新开始"，而不是要求用户先走完核查。
 
 理由：核查是给"能确定"的场景用的；用户**确实不知道**时，逼他做三选一里的第三项会让人以为前两项是必填。让"放弃"成为一等公民，比让用户猜要诚实。
 
@@ -233,7 +233,7 @@ UI 自动化三条通道（无障碍 / Shizuku / Root）、PRoot Ubuntu 24.04、
 
 现在**没人测过**"手机被杀时正处在工具执行中的实际频率"。如果实测发现绝大多数进程死亡发生在"等模型响应"或"等用户输入"时（而非工具执行中），那 B 类机制的触发面本来就很小，可以进一步简化。
 
-**但顺序是先测再简化，不要凭直觉砍。** 依据：本文 §五 的推论是定性的，缺数据。建议用一条 androidTest 或 evals 度量：`SIGKILL 时机分布 × 工具时长分布 × UNKNOWN 实际发生率`。
+**但顺序是先测再简化，不要凭直觉砍。** 依据：本文 第 五 节 的推论是定性的，缺数据。建议用一条 androidTest 或 evals 度量：`SIGKILL 时机分布 × 工具时长分布 × UNKNOWN 实际发生率`。
 
 ### 6.4 不建议做的事
 
@@ -258,10 +258,10 @@ UI 自动化三条通道（无障碍 / Shizuku / Root）、PRoot Ubuntu 24.04、
 | Claude Code 存在中断工具调用导致会话损坏的已知 bug | anthropics/claude-code issue #3003 | **中**——未核对当前是否已修 |
 
 **未核实项（建议后续）**：
-1. ~~Helix 恢复路径是否已消费 `ToolDescriptor.Idempotency`~~ → **已核实（2026-09-25）：零消费，见 §6.1 与上表**
+1. ~~Helix 恢复路径是否已消费 `ToolDescriptor.Idempotency`~~ → **已核实（2026-09-25）：零消费，见 第 6.1 节 与上表**
 2. Codex 对"`function_call` 无对应 output"在 resume 时的实际处理（本文引用的源码分析未覆盖该分支）
 3. Operit 源码中是否存在会话/任务恢复实现
-4. Helix 的 `PENDING → RUNNING` 写入是否依赖超出平台实际提供的持久性保证（对照 §4.1③ 的 Codex 教训）
+4. Helix 的 `PENDING → RUNNING` 写入是否依赖超出平台实际提供的持久性保证（对照 第 4.1 节③ 的 Codex 教训）
 
 ---
 
@@ -274,7 +274,7 @@ UI 自动化三条通道（无障碍 / Shizuku / Root）、PRoot Ubuntu 24.04、
 
 原临时实现/交接文档已删除，逐字历史可从 Git 获取；不要再从历史 Wave 卡片恢复已被当前 ADR/HXA 改写的顺序或结论。
 
-本文 §6 的幂等分级、放弃入口可见性和“先量化再简化”仍作为研究建议。是否进入产品实现由当前 ADR/HXA 另行收敛；研究建议本身不自动扩 HXA-220 范围。
+本文 第 6 节 的幂等分级、放弃入口可见性和“先量化再简化”仍作为研究建议。是否进入产品实现由当前 ADR/HXA 另行收敛；研究建议本身不自动扩 HXA-220 范围。
 
 ---
 

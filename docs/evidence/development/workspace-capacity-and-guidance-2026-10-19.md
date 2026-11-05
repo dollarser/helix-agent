@@ -6,7 +6,7 @@
 
 Owner 在终端布局验收后追加本轮范围：改写工作区重构目标、交付重构前小优化、报告并调整固定并发，以及精简开发约束。终端布局已由 `ef8fd10c` 交付，原结果见[终端记录](../../bug-fixes/2026-10-19-terminal-package-replacement.md#regression-verification)，不替代本轮候选验收。
 
-- **目标契约**：默认操作选定真实工作区，独立终端无需聊天；URI-native 消费者直接使用 Provider，具体消费者需要 POSIX 才物化。worktree/snapshot 显式选择，远程不固有复制。Harness §23.3.1/23.7.3、HXA-286/287/288 和原 WORKSPACE-004/RUNTIME-002 同步；联合验收包含原位与显式快照。当前 `code.linux.run` 仍复制输入到独立 Job，完整契约落地前不切默认模式，不增加全局文件/结果锁或任意 Shell CAS 承诺。
+- **目标契约**：默认操作选定真实工作区，独立终端无需聊天；URI-native 消费者直接使用 Provider，具体消费者需要 POSIX 才物化。worktree/snapshot 显式选择，远程不固有复制。Harness 第 23.3.1 节、第 23.7.3 节、HXA-286/287/288 和原 WORKSPACE-004/RUNTIME-002 同步；联合验收包含原位与显式快照。当前 `code.linux.run` 仍复制输入到独立 Job，完整契约落地前不切默认模式，不增加全局文件/结果锁或任意 Shell CAS 承诺。
 - **小优化**：目录列表显示本地/系统文档来源；Linux 同步结果及后台 accepted 回执报告真实 snapshot 模式、环境、guest cwd、既有输入命名映射、输出目录/原批准导入目标及不自动回写。映射有字节上限并明确截断，不新建 manifest 或变更输入命名。文件 edit/write 复用原 hash 失败，给出 expected/observed 或 missing/unknown，要求重新读取，不新增读写或绕过。现有会话 Git 入口与 staged/unstaged diff 继续复用，没有复制 Git 页面或实现逐调用 diff/变更账本。
 - **容量**：源码确认固定两个手动绑定与 Scheduler 默认两个调用是不同限制；PRoot Job 原本最多四个，没有另设每会话两个 Job。方案先向 Owner 报告再实现：应用工具健康前台按 CPU 最多四个普通调用，后台/低内存/热压降一；手动终端按 CPU 最多四个，Job 最多四个，共享原 4+2 合计六槽。预留计入容量，取消不提前释放，资源压力只影响新准入。旧文件名和所有高位绑定保留；新建仅按原退出证明、ACK、ownership/CAS 退休已停记录，UNKNOWN 无证明继续占位。PTY 退出证明移至输出、reap、清理完成后公布，原单次关闭边界保持。
 

@@ -1,6 +1,6 @@
 # Helix 异步 Job、等待与前后台执行竞品调研（2026-09-28）
 
-> **专项研究输入，目录整理：2026-09-29。**launch/join 和竞品比较保留原核验窗口；当前 Linux Job 行为见[终端](../../architecture/terminal.md)。具体观察执行接口、控制资源、watchdog、AUTO/按钮拆分统一以[Harness §8](../../architecture/harness-refactor-plan.md)为目标方案，不继续在本专题维护第二套契约和阶段排期。
+> **专项研究输入，目录整理：2026-09-29。**launch/join 和竞品比较保留原核验窗口；当前 Linux Job 行为见[终端](../../architecture/terminal.md)。具体观察执行接口、控制资源、watchdog、AUTO/按钮拆分统一以[Harness 第 8 节](../../architecture/harness-refactor-plan.md)为目标方案，不继续在本专题维护第二套契约和阶段排期。
 >
 > 下文 Job/AsyncHandle 示例是研究提议，不证明通用 `jobs.await` 已实现，也不授权默认自动创建后继 Turn。实施范围见[候选索引](../../development/candidate-decisions.md)。
 

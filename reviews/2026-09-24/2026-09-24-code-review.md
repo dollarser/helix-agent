@@ -637,7 +637,7 @@ synchronized(turnGate) {
 | `2026-09-24-supplement-verification-and-release.md` | **验证体系（CI 不跑设备测试）、发布就绪度（45 MiB APK / R8 关闭）、静态分析门禁盲区** |
 | [`docs/research/codex-browser-vs-helix-2026-09-24.md`](../../docs/research/codex-browser-vs-helix-2026-09-24.md) | 与 Codex `control-in-app-browser` / `mcp__node_repl__js` 的浏览器能力差距分析（已归 research） |
 
-补充审查 §1 为本报告 P0（进程死亡恢复）给出了**机制性成因**：CI 从不执行设备测试，且 `ProcessRecoveryTest` 的 9 个用例全部只 seed 单个工具调用——与 `PersistedTurn.init` 的错误断言共享同一前提，因此永远无法发现该缺陷。
+补充审查 第 1 节 为本报告 P0（进程死亡恢复）给出了**机制性成因**：CI 从不执行设备测试，且 `ProcessRecoveryTest` 的 9 个用例全部只 seed 单个工具调用——与 `PersistedTurn.init` 的错误断言共享同一前提，因此永远无法发现该缺陷。
 
 ---
 

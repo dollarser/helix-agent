@@ -11,12 +11,12 @@
 
 | 判断 | 裁定 |
 |---|---|
-| 端侧模型该不该做 | **该做，但要重新定位**。不要指望它驱动 Agent 循环；最高价值落点是**上下文压缩摘要**（见 §六） |
-| 走 loopback HTTP 服务（最常见的想法） | **❌ 在 consumer 构建走不通**。传输层明文被禁，且还有两道附加门（见 §三） |
-| 那走什么 | **进程内 `ModelProvider` 实现**（llama.cpp + GGUF via JNI），不经过 HTTP（见 §四） |
-| 要改多少契约 | **很少**。`ModelProvider` 接口、能力探测、会话级快照全可复用；只缺一个 `residence` 取值（见 §五） |
-| 推理引擎 | **llama.cpp + GGUF**。第一理由是 Helix 特有的：**GBNF 语法约束解码**能把"小模型吐坏工具 JSON"变成结构上不可能（见 §六） |
-| 立刻能做的验证 | **零代码**：developer 包 + 手机内跑 llama.cpp server + 已有 Ollama 模板（见 §九） |
+| 端侧模型该不该做 | **该做，但要重新定位**。不要指望它驱动 Agent 循环；最高价值落点是**上下文压缩摘要**（见 第 六 节） |
+| 走 loopback HTTP 服务（最常见的想法） | **❌ 在 consumer 构建走不通**。传输层明文被禁，且还有两道附加门（见 第 三 节） |
+| 那走什么 | **进程内 `ModelProvider` 实现**（llama.cpp + GGUF via JNI），不经过 HTTP（见 第 四 节） |
+| 要改多少契约 | **很少**。`ModelProvider` 接口、能力探测、会话级快照全可复用；只缺一个 `residence` 取值（见 第 五 节） |
+| 推理引擎 | **llama.cpp + GGUF**。第一理由是 Helix 特有的：**GBNF 语法约束解码**能把"小模型吐坏工具 JSON"变成结构上不可能（见 第 六 节） |
+| 立刻能做的验证 | **零代码**：developer 包 + 手机内跑 llama.cpp server + 已有 Ollama 模板（见 第 九 节） |
 
 **一句话**：Helix 的 Provider 抽象是**为"网络服务"设计的**——`endpoint` 必填、`residence` 从 endpoint 派生、三个协议全是 HTTP。本机模型不是网络服务，所以正确做法是**补一个本机档位**，而不是硬把它塞进 loopback 这条 consumer 已被封死的路。
 
@@ -91,9 +91,9 @@ Agent 循环 → ChatService → ModelProvider（现有契约）
                               └─ 本机：llama.cpp JNI → GGUF（app 私有目录）
 ```
 
-这样同时消掉 §3 的全部四个问题：无明文、无端口授权、无 loopback 暴露、无 HTTP 开销。
+这样同时消掉 第 3 节 的全部四个问题：无明文、无端口授权、无 loopback 暴露、无 HTTP 开销。
 
-**与"生成代码不在主进程运行"的关系**：AGENTS.md 的该约束针对的是**生成代码**（QuickJS 沙箱），模型推理不是生成代码，因此**不违反**该规则。但内存与崩溃风险是真实的——见 §八 的分阶段路径。
+**与"生成代码不在主进程运行"的关系**：AGENTS.md 的该约束针对的是**生成代码**（QuickJS 沙箱），模型推理不是生成代码，因此**不违反**该规则。但内存与崩溃风险是真实的——见 第 八 节 的分阶段路径。
 
 ---
 
@@ -108,7 +108,7 @@ Agent 循环 → ChatService → ModelProvider（现有契约）
 **建议**（需 ADR 裁决，主题落在 [Provider ADR 入口](../../adr/provider/README.md)）：
 
 - 新增 `ProviderResidence.ON_DEVICE_LOCAL`（与 `ON_DEVICE_LOOPBACK` 并列，语义为"数据从不离开进程"）；
-- 让本机 provider 的 `endpoint` 可空，或引入一个显式的"无 endpoint"表示（**不要**伪造 `http://127.0.0.1` 占位——那正好会踩回 §3）；
+- 让本机 provider 的 `endpoint` 可空，或引入一个显式的"无 endpoint"表示（**不要**伪造 `http://127.0.0.1` 占位——那正好会踩回 第 3 节）；
 - `residence` 派生规则相应扩展：**仍只从可验证事实派生**，不得由模板名或用户标签决定（保持 `FR-LLM-009` 的 fail-closed 语义）。
 
 这是**唯一**需要动的契约。能力探测、`ProviderCapabilities` 持久化、会话级 provider/model 快照、以及 [模型选择、元数据与连接验证](../../adr/provider/001-models-and-connection.md) 的其余决定全部沿用。
@@ -136,7 +136,7 @@ MediaPipe LLM Inference API、ONNX Runtime GenAI 等的约束解码能力明显�
 | 线程 | **绑大核**。默认铺满全部核心反而更慢（14 → 16 tok·s⁻¹） |
 | ABI | **只出 `arm64-v8a`**。`armeabi-v7a` 下 NEON 路径回退，性能断崖 |
 | GPU / NPU | **不要先做**。GPU（OpenCL/Vulkan）只在 **< 1B** 有优势；7B 级受显存带宽限制，CPU 更稳定。NPU 需按 SoC 用 QNN/Genie 逐个适配 |
-| 模型分发 | 模型 0.4–2.5 GB，**不能进 APK**，必须下载（见 §七） |
+| 模型分发 | 模型 0.4–2.5 GB，**不能进 APK**，必须下载（见 第 七 节） |
 
 ### 6.3 其他候选与不选的理由
 
@@ -204,9 +204,9 @@ Helix 目前**没有大资产下载能力**（浏览器侧只有 `browser.downlo
 
 当前真机 PLC110（OnePlus 6T）是 **骁龙 845**：4×Cortex-A75 + 4×Cortex-A55，支持 ARMv8.2-A dot-product 指令，**不支持 i8mm**（ARMv8.6 才有）；LPDDR4X 带宽约 30 GB/s。
 
-按 §6.2 的 8 Gen 2 数据打折，**1.5B 级 Q4_K_M 大致落在个位数 tok·s⁻¹**。这个量级：短摘要与聊天可用；多步 Agent 循环会非常慢。
+按 第 6.2 节 的 8 Gen 2 数据打折，**1.5B 级 Q4_K_M 大致落在个位数 tok·s⁻¹**。这个量级：短摘要与聊天可用；多步 Agent 循环会非常慢。
 
-**该数字是推算，不是实测**（见 §十二）。做 S0 时应实测目标机型的首 token 延迟与生成速度，而不是依赖推算。
+**该数字是推算，不是实测**（见 第 十二 节）。做 S0 时应实测目标机型的首 token 延迟与生成速度，而不是依赖推算。
 
 ---
 

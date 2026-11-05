@@ -57,6 +57,8 @@ Related HXA: HXA-190
 
 文档检查仍被两份已有根目录方案文档的分类阻塞：`docs/helix-agent-complete-research-and-product-plan.md`、`docs/helix-mermaid-architecture-diagrams.md`；本轮保留其路径，避免改变重构工作的引用。
 
+2026-11-05 入口退役：上述 `verify-main-review.py` 是当时的验证包装器，已因固定旧源码路径与测试选择而移除；原文可从 Git 对象 `3d6a2b5777663a53de71871b5ba053a04beb55dc:scripts/debug/2026-09-13/verify-main-review.py` 恢复，仅用于历史追溯，不应在当前源码重跑。现行宿主验证使用 [共享 Debug 门禁](../../scripts/README.md)，按当前模块执行原有测试与编译检查；未删除测试或断言。其余诊断工具不在本次清理范围，上述 367 项结果仍仅代表历史验收。
+
 ## Residual risk
 
 以下不在本轮做结构搬迁：app 编排/存储门面、PFD/SSE/JSON 去重、files.copy/move 共用逻辑、quota 扫描优化、根 Gradle convention 化、spike/testing 模块取舍和 lint variant 调度。原报告没有附完整逐项重现材料，不能把代码重复或模块数量当作确定故障。

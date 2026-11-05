@@ -148,4 +148,4 @@ Computer Use 插件文件含有专有组件。本文件只记录可观察架构�
 | 桌面服务身份 | `Codex Computer Use.app/Contents/Info.plist`：`com.openai.sky.CUAService`，版本 `26.1005.1001425` |
 | Helix Mobile Use 注册 | [`MobileUsePlugin.kt`](../../../extensions/mobile-use/src/main/kotlin/com/helix/extensions/mobileuse/MobileUsePlugin.kt) |
 
-详细背景见[Agent 插件架构调研 §2.6](agent-plugin-architecture-research-2026-10-11.md#26-computer-use-使用-mcp-的机制与设计收益)和[Helix 插件优化方案 §6.5](helix-plugin-architecture-optimization-2026-10-11.md#65-按执行边界选择原生ipccli-或-mcp)。
+详细背景见[Agent 插件架构调研 第 2.6 节](agent-plugin-architecture-research-2026-10-11.md#26-computer-use-使用-mcp-的机制与设计收益)和[Helix 插件优化方案 第 6.5 节](helix-plugin-architecture-optimization-2026-10-11.md#65-按执行边界选择原生ipccli-或-mcp)。

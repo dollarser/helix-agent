@@ -18,7 +18,7 @@
 
 **当时的理由**：`scripts/check-docs.sh` 会校验 `docs/**/*.md` **与根目录 `*.md`** 的本地链接、必需条目清单（`required_doc_entries`）以及完成记录索引一致性。在未确认归属前写入，可能让文档门禁变红。
 
-**但这个理由现在站不住了**——项目已有明确的落位惯例：`docs/README.md:12` 的"项目结构与执行引擎审查"一行，指向 `docs/research/project-structure-and-engine-review.md` 与 `docs/research/execution-engine-deep-review-2026-09-22.md`。本报告正属于该行的范围。**建议落位见 §五。**
+**但这个理由现在站不住了**——项目已有明确的落位惯例：`docs/README.md:12` 的"项目结构与执行引擎审查"一行，指向 `docs/research/project-structure-and-engine-review.md` 与 `docs/research/execution-engine-deep-review-2026-09-22.md`。本报告正属于该行的范围。**建议落位见 第 五 节。**
 
 ### ⚠️ 更重要的发现：我的架构建议与现有已接受决定有 3 处冲突
 
@@ -26,13 +26,13 @@
 
 | # | 现有决定（原文） | 我的建议 | 裁决 |
 | --- | --- | --- | --- |
-| 1 | `:7`「**文件行数不是新建Gradle模块的充分理由**」 | 「把 `chat`/`agent`/`provider` 等按职责下沉为 `:feature:*` 或 `:app-*` 子模块」 | **我的表述有错，需修正**。该文档同一段已明确认可「在app内逐步分离运行资源/终局协调与页面、草稿适配」——即**模块内分解**是被接受的，**新增 Gradle 模块**才是被拒绝的。本报告 §四 已全部改写为模块内文件/类分解，不含新增 Gradle 模块 |
+| 1 | `:7`「**文件行数不是新建Gradle模块的充分理由**」 | 「把 `chat`/`agent`/`provider` 等按职责下沉为 `:feature:*` 或 `:app-*` 子模块」 | **我的表述有错，需修正**。该文档同一段已明确认可「在app内逐步分离运行资源/终局协调与页面、草稿适配」——即**模块内分解**是被接受的，**新增 Gradle 模块**才是被拒绝的。本报告 第 四 节 已全部改写为模块内文件/类分解，不含新增 Gradle 模块 |
 | 2 | `:14`「TurnReducer及测试：把参考串行模型与生产BatchTurnRuntime**覆盖清楚区分**；先映射并补齐生产不变量测试，再考虑移动参考代码；**不删测试换绿**」 | 「删除 `TurnReducer` 及约 2000 行测试」 | **我的建议与已接受决定冲突，撤回**。且更值得注意的是：该文档的处方（"先映射并补齐生产不变量测试"）**尚未执行**——而 P0 恢复缺陷恰恰是"生产不变量未被测到"的直接产物。**这条 P0 是该处方应当尽快执行的新证据，而不是绕开它的理由** |
 | 3 | `:17`「组合根集中装配依赖是合理职责，**不因DefaultAppContainer较大就引入Service Locator**」 | 「`DefaultAppContainer` 是 ServiceLocator，建议拆成多个小工厂」 | **部分冲突，需收窄**。文档反对的是"因为大就改造"，我认同——**大小本身不是问题**。我真正要指出的是 `:437` 的**可变持有者** `ApprovalCardSinkHolder`：它被用来打破构造环，是环依赖的症状而非规模的症状。建议收窄为"消除可变持有者"，不提"拆分容器" |
 
 **另有一条我自己的建议需保留但降级**：`:19` 明确 QuickJS isolated UID 与 PRoot 私有同 UID 是**已接受的不同执行域**，不得合并为"统一沙箱"。我此前提到的 `:runtime:proot-*` 四模块合并建议因此应维持"暂缓"（我原报告已如此标注）。
 
-**行动建议**：`docs/research/project-structure-and-engine-review.md` 的基线是 `9a9b25dd`，当前 HEAD 是 `3cf89027`。建议在并入本报告结论时，**同步刷新该文档的基线并明确标注"§四 的模块内分解建议不与 §7 的'不新增模块'立场冲突"**。
+**行动建议**：`docs/research/project-structure-and-engine-review.md` 的基线是 `9a9b25dd`，当前 HEAD 是 `3cf89027`。建议在并入本报告结论时，**同步刷新该文档的基线并明确标注"第 四 节 的模块内分解建议不与 第 7 节 的'不新增模块'立场冲突"**。
 
 ---
 
@@ -60,7 +60,7 @@ feature:browser ──→ tools:browser       ⚠️ feature → tools
 ```
 
 **为何是问题**：它使"core 可独立于 Android 基础设施"与"tools 是最底层执行层"两个声明无法被机械验证。
-**修法（低风险、收益最高）**：把被跨层引用的契约（`ToolDescriptor`、`SessionPermissionConfig` 相关类型）上提到 `core:model`，一次切断三条边。**这不需要新增模块，与 §0 的冲突项 1 无关。**
+**修法（低风险、收益最高）**：把被跨层引用的契约（`ToolDescriptor`、`SessionPermissionConfig` 相关类型）上提到 `core:model`，一次切断三条边。**这不需要新增模块，与 第 0 节 的冲突项 1 无关。**
 
 ### 1.3 扩展成本实测（可扩展性硬指标）
 
@@ -148,7 +148,7 @@ app/ui/
 
 `ChatUiModels.kt` 定义 `SessionRowUi`/`MessageUi`/`TurnUi`/`ChatScreenState` —— 这些是**给 Compose 消费的 UI 模型，却在 `chat/` 而非 `ui/`**。
 
-**建议**：把 `*Ui.kt`/`*UiModels.kt`/`*Projection.kt`（投影层）归入 `app/ui/conversation/` 或新建 `app/ui/projection/`。这与 §0 冲突项 1 无关——**是包内归类，不是模块拆分**。
+**建议**：把 `*Ui.kt`/`*UiModels.kt`/`*Projection.kt`（投影层）归入 `app/ui/conversation/` 或新建 `app/ui/projection/`。这与 第 0 节 冲突项 1 无关——**是包内归类，不是模块拆分**。
 
 ### 2.4 问题 3（P2）：flavor 平行层次重复 9 组
 
@@ -162,7 +162,7 @@ app/ui/
 | --- | --- | --- | --- |
 | **`TurnState`** | `core/model/.../TurnState.kt:37` → `enum class TurnState`（阶段枚举） | `core/agent/.../TurnState.kt:103` → `data class TurnState`（运行时状态容器） | **真冲突**。`core/agent/TurnState.kt:13` 已被迫写 `import com.helix.core.model.TurnState as TurnPhase` —— **团队自己已经感到痛了** |
 | **`SkillRepository`** | `core/storage/.../repository/SkillRepository.kt:6`（Room/DAO 后端，被 `HelixStorage.kt:161` 使用） | `extensions/skills/.../SkillRepository.kt:43`（文件系统后端，被 app 全面使用） | **真冲突，两份都在用** |
-| `ProtocolViolation` | `provider/anthropic/.../AnthropicStreamDecoder.kt` | `provider/openai-chat/...`、`provider/openai-responses/...` | 三份平行 SSE 解码器的产物（见 §四.3） |
+| `ProtocolViolation` | `provider/anthropic/.../AnthropicStreamDecoder.kt` | `provider/openai-chat/...`、`provider/openai-responses/...` | 三份平行 SSE 解码器的产物（见 第 四.3 节） |
 | `SnapshotNode` | `feature/browser/.../snapshot/BrowserSnapshot.kt` | `tools/automation/.../AutomationSnapshotEngine.kt` | 两个领域各自的节点模型，可接受 |
 
 **建议**：
@@ -198,19 +198,19 @@ app/ui/
 
 - **`ChatService`：严重低内聚。** 113 个公开方法、40 个构造依赖、7 个关注域，且关注点分布**极不均衡**（session 类 65 个 vs network 类 3 个）——说明它本质是"会话域的超大聚合根"，其他关注点是被历史堆进来的。这是**全项目唯一的单点，也是最高优先级**。
 - **`BrowserController`：中度低内聚，且有一处明确错位。** 一个 **Controller** 里 `persist:11` —— 控制器在做持久化。`BrowserStorage.kt` 已存在，说明持久化逻辑被部分外提但**没提干净**。这是"低内聚"里最容易修的一条。
-- `ApprovalUiMapper` / `ConnectorService` / `FilesScreenActions`：跨度 4–5 但方法数少（10–21），属"薄但杂"，可接受；`FilesScreenActions` 的问题不是内聚而是**位置错**（见 §四.4）。
+- `ApprovalUiMapper` / `ConnectorService` / `FilesScreenActions`：跨度 4–5 但方法数少（10–21），属"薄但杂"，可接受；`FilesScreenActions` 的问题不是内聚而是**位置错**（见 第 四.4 节）。
 
 ### 3.2 高耦合候选（构造依赖数）
 
 | 类 | 构造依赖 | 公开方法 | fan-in | 判读 |
 | --- | --- | --- | --- | --- |
 | **`ChatService`** | **40** | 113 | 37 | 同上，严重 |
-| `DefaultAppContainer` | 38 | 0 | 2 | **组合根，集中装配是合理职责**（见 §0 冲突项 3）。真正的问题是 `:437` 的**可变持有者**破环，非依赖数 |
+| `DefaultAppContainer` | 38 | 0 | 2 | **组合根，集中装配是合理职责**（见 第 0 节 冲突项 3）。真正的问题是 `:437` 的**可变持有者**破环，非依赖数 |
 | `HelixStorage` | 38 | 4 | **96** | 数据层门面，依赖多但职责单一（持有各 Repository）。**可接受**，但 96 的 fan-in 意味着它是全项目最脆弱的数据契约点 |
 | `ConversationIntents` | **36** | **0** | 5 | **⚠️ 36 个字段、0 个方法的数据包** —— 高耦合且零内聚，典型"参数对象膨胀"。建议按 UI 区域拆为 `ConversationIntents` / `ComposerIntents` / `SessionIntents` |
 | `EgressDisclosure` | 35 | 2 | 6 | 同上，35 字段 2 方法 |
 | `FileManagerService` | 35 | 25 | 20 | 服务类，依赖偏多 |
-| `AppContainer` | 31 | 0 | 8 | 接口，字段多是设计（见 §0 冲突项 3） |
+| `AppContainer` | 31 | 0 | 8 | 接口，字段多是设计（见 第 0 节 冲突项 3） |
 
 ### 3.3 高 fan-in（改动风险最高）
 
@@ -281,7 +281,7 @@ app/ui/
 
 | 对象 | 证据 | 收益 |
 | --- | --- | --- |
-| **三份 SSE 解析器** | `ResponsesSse.kt`(258) 与 `AnthropicSseReader.kt`(262) 的 UTF-8 增量解码（`decodeStep`/`assembleCodePoint`/`sequenceLength`/`minCodePoint`）、`processLineBreaks`、`feed`/`finish`、`SseEvent` **逐行相同**；`ChatSseReader.kt`(242) 为 data-only 变体。三者各自定义了自己的 `ProtocolViolation`（§2.5） | 762 行 → 公共约 250 行 + 3 个薄映射，**净减约 400 行**；且三处协议 bug 只需修一次。**风险中（协议关键路径），需现有 `*SseReaderTest`/`*SseParserTest` 全绿护航** |
+| **三份 SSE 解析器** | `ResponsesSse.kt`(258) 与 `AnthropicSseReader.kt`(262) 的 UTF-8 增量解码（`decodeStep`/`assembleCodePoint`/`sequenceLength`/`minCodePoint`）、`processLineBreaks`、`feed`/`finish`、`SseEvent` **逐行相同**；`ChatSseReader.kt`(242) 为 data-only 变体。三者各自定义了自己的 `ProtocolViolation`（第 2.5 节） | 762 行 → 公共约 250 行 + 3 个薄映射，**净减约 400 行**；且三处协议 bug 只需修一次。**风险中（协议关键路径），需现有 `*SseReaderTest`/`*SseParserTest` 全绿护航** |
 | 三份 `ProtocolViolation` | 上述产物 | 随 SSE 抽取自然消除 |
 
 ### 4.4 应移动（位置错，非内聚问题）
@@ -292,7 +292,7 @@ app/ui/
 | `app/ui/FilesScreenState.kt`、`FilePreviewState.kt` | `ui/` | `app/files/` | 同上（文件域状态） |
 | `app/chat/ChatUiModels.kt`、`ArtifactRowUi.kt`、`ChatStatusLabels.kt` | `chat/` | `ui/conversation/` | 定义 `MessageUi`/`TurnUi`/`ChatScreenState` —— **给 Compose 消费的模型却在 chat/** |
 | `app/chat/ChatScreenProjection.kt` | `chat/` | `ui/projection/`（或保留） | 投影层，是 UI 与持久化的边界，位置可辩 |
-| `app/chat/ConversationIntents.kt` 的 36 字段 | `ui/`（已在此） | 按区域拆 3 份 | 见 §3.2 |
+| `app/chat/ConversationIntents.kt` 的 36 字段 | `ui/`（已在此） | 按区域拆 3 份 | 见 第 3.2 节 |
 | `scripts/debug/2026-09-16/.../fixtures/*.kt`（2 文件） | 包声明 `com.helix.app.proot` 与目录不符 | 修正包声明或移入 `spikes/` | 全项目仅此 2 处包/目录不一致 |
 
 ### 4.5 应重命名
@@ -335,7 +335,7 @@ app/ui/
 | # | 动作 | 文件 | 说明 |
 | --- | --- | --- | --- |
 | 1 | 新建 | `docs/research/project-structure-and-engine-review.md` 的**同主题续篇**，例如 `docs/research/code-review-2026-09-24.md` | 汇总五维度审查 + 再评估 + 本结构审查的**当前有效结论**。按该目录既有命名惯例（`execution-engine-deep-review-2026-09-22.md`） |
-| 2 | 更新 | `docs/research/project-structure-and-engine-review.md` | ①刷新基线 `9a9b25dd` → `3cf89027` ②在 `:7` 后补一句明确"模块内分解 ≠ 新增 Gradle 模块"③`§四` 的 `ChatService` 拆分行补上具体组件清单（现仅一句方向性描述） |
+| 2 | 更新 | `docs/research/project-structure-and-engine-review.md` | ①刷新基线 `9a9b25dd` → `3cf89027` ②在 `:7` 后补一句明确"模块内分解 ≠ 新增 Gradle 模块"③`第 四 节` 的 `ChatService` 拆分行补上具体组件清单（现仅一句方向性描述） |
 | 3 | 更新 | `docs/README.md:12` | 在"项目结构与执行引擎审查"行追加新文档链接 |
 | 4 | 更新 | `docs/development/status.md:27` | 该行已引用结构审查；补一句本轮结论指向 |
 | 5 | **需先决策** | `docs/development/roadmap.md:5,19,24` | 三处状态过期（见上一轮报告 P1）。**建议先修这三处**，再谈并入新报告 |
@@ -353,15 +353,15 @@ app/ui/
 | --- | --- | --- |
 | **P0** | 修 P0 恢复缺陷（并行假设） | 上一轮已裁决，五环证据链完整 |
 | **P1** | 消除 `core:storage→core:policy`、`runtime:quickjs→tools:framework`、`feature:browser→tools:browser` 三条反向边 | 上提契约到 `core:model`，**不新增模块** |
-| **P1** | `ChatService` 拆 9 组件（4048 → <800 行） | §3.1/§4.1：全项目唯一严重低内聚单点 |
-| **P1** | `app/ui` 106 文件划 6 子包 | §2.2：纯移动，零行为风险，收益立竿见影 |
-| **P1** | `BrowserController` 的持久化移入 `BrowserStorage` | §3.1：唯一一处"控制器做持久化"的明确错位 |
-| **P2** | 抽公共 SSE 解析器（净减 ~400 行） | §4.3：三份逐行相同的实现 |
-| **P2** | `ConversationIntents`/`EgressDisclosure` 按区域拆（36/35 字段 → 0 方法） | §3.2：参数对象膨胀 |
-| **P2** | 消除 2 处同名类（`TurnState`、`SkillRepository`）+ 1 处 `Fake` 前缀 | §2.5/§4.5 |
-| **P2** | 修正 `scripts/debug/.../fixtures/` 2 处包/目录不一致 | §2.1：全项目仅此 2 处 |
-| **待裁决** | 抽公共 DeviceCode OAuth 引擎（净减 ~850 行） | §4.2：需确认是否与 ADR-PROVIDER-002 的"独立适配器"意图冲突 |
-| **已撤回** | ~~删除 `TurnReducer` 及测试~~ | §0 冲突项 2：与已接受决定冲突。**改为止损：执行该文档的处方（补齐生产不变量测试），P0 即其证据** |
+| **P1** | `ChatService` 拆 9 组件（4048 → <800 行） | 第 3.1 节、第 4.1 节：全项目唯一严重低内聚单点 |
+| **P1** | `app/ui` 106 文件划 6 子包 | 第 2.2 节：纯移动，零行为风险，收益立竿见影 |
+| **P1** | `BrowserController` 的持久化移入 `BrowserStorage` | 第 3.1 节：唯一一处"控制器做持久化"的明确错位 |
+| **P2** | 抽公共 SSE 解析器（净减 ~400 行） | 第 4.3 节：三份逐行相同的实现 |
+| **P2** | `ConversationIntents`/`EgressDisclosure` 按区域拆（36/35 字段 → 0 方法） | 第 3.2 节：参数对象膨胀 |
+| **P2** | 消除 2 处同名类（`TurnState`、`SkillRepository`）+ 1 处 `Fake` 前缀 | 第 2.5 节、第 4.5 节 |
+| **P2** | 修正 `scripts/debug/.../fixtures/` 2 处包/目录不一致 | 第 2.1 节：全项目仅此 2 处 |
+| **待裁决** | 抽公共 DeviceCode OAuth 引擎（净减 ~850 行） | 第 4.2 节：需确认是否与 ADR-PROVIDER-002 的"独立适配器"意图冲突 |
+| **已撤回** | ~~删除 `TurnReducer` 及测试~~ | 第 0 节 冲突项 2：与已接受决定冲突。**改为止损：执行该文档的处方（补齐生产不变量测试），P0 即其证据** |
 
 ---
 
@@ -371,8 +371,8 @@ app/ui/
 
 其中与本报告直接相关的两条：
 
-1. **§0 冲突项 2（`TurnReducer` 处方）得到了机制性支持**：补充审查 §1.2 发现 `app/src/androidTest/.../ProcessRecoveryTest.kt` 的 9 个 `@Test` **全部只 seed 单个工具调用**（`tc-1`），与 `PersistedTurn.init` 的「至多 1 个 RUNNING」断言共享同一错误前提。这证明现有决定「先补齐生产不变量测试再考虑移动」**尚未执行**，而 P0 恢复缺陷正是其产物——不是绕开该处方的理由，而是执行它的证据。
-2. **§0 冲突项 1（不新增 Gradle 模块）在发布维度上得到印证**：`consumer release` 45 MiB 中约 90% 是未裁剪 DEX，且 R8 全程关闭。模块数量的讨论应让位于这一更直接的分发成本问题。
+1. **第 0 节 冲突项 2（`TurnReducer` 处方）得到了机制性支持**：补充审查 第 1.2 节 发现 `app/src/androidTest/.../ProcessRecoveryTest.kt` 的 9 个 `@Test` **全部只 seed 单个工具调用**（`tc-1`），与 `PersistedTurn.init` 的「至多 1 个 RUNNING」断言共享同一错误前提。这证明现有决定「先补齐生产不变量测试再考虑移动」**尚未执行**，而 P0 恢复缺陷正是其产物——不是绕开该处方的理由，而是执行它的证据。
+2. **第 0 节 冲突项 1（不新增 Gradle 模块）在发布维度上得到印证**：`consumer release` 45 MiB 中约 90% 是未裁剪 DEX，且 R8 全程关闭。模块数量的讨论应让位于这一更直接的分发成本问题。
 
 ---
 

@@ -47,7 +47,7 @@
 
 - ADR-PLATFORM-003 的 Context 仓库事实更正：version catalog 与 [05 第 4 节](../../development/environment.md) 基线其实已固定 `kotlinx-serialization-json` 1.9.0，只是无模块消费且未应用 serialization 编译器插件；Alternatives 第 1 条的比较措辞随之调整。决定不变，仍为 `proposed`。
 - 新增 [ADR-AGENT-001](../../adr/agent/001-turn-coordination.md)（proposed）：把 HXA-011 的 3 条严格增量 Turn 状态边（预调用预算失败、同一响应内串行、`INTERRUPTED` 恢复/丢弃）从“契约解释”升级为正式决定；[02 第 5.2 节](../../architecture/overview.md) 状态图同步补全（原图另漏 `RUNNING_TOOL→RECORDING_TOOL_RESULT`）。
-- Plan 双重门措辞规范化（[02 §5.1](../../architecture/overview.md)、[10 §6.1](../../architecture/providers.md)）：operation class 为主判断，动态风险 ≤ L1 为上限，与 HXA-012 `ModePolicy` 实现一致。
+- Plan 双重门措辞规范化（[02 第 5.1 节](../../architecture/overview.md)、[10 第 6.1 节](../../architecture/providers.md)）：operation class 为主判断，动态风险 ≤ L1 为上限，与 HXA-012 `ModePolicy` 实现一致。
 - [05 第 8 节](../../development/environment.md) 目录树补 `docs/completion-records/`、`config/` 与根 `LICENSE`/`THIRD_PARTY_NOTICES.md`。
 - 历史 `small-model-handoff.md` 的当前事实曾更新到 HXA-013 入口；第 4/5 节标注为交接时快照。该快照已在 2026-09-01 完成信息迁移后删除。
 - HXA-011/012 完成记录的决策记录行补 ADR-AGENT-001 引用与文档同步事实。
@@ -66,7 +66,7 @@
 - 历史 `small-model-handoff.md` 删除硬编码的“当前 HXA”和旧启动代码，改为始终读取当前唯一状态源（现为 `docs/development/status.md`）；其长期规则后来迁入 `AGENTS.md` 和小模型实施指南，文件本身已删除。
 - 持续开发实况可能快于状态文档。本轮观察到 HXA-013 源码已开始写入但尚无完成记录，因此只记为 in progress，不把源码存在当完成证据。
 
-本轮没有调整 Kotlin/Compose、自研 reducer、Provider 分层、QuickJS isolated process、独立 PRoot/CLI Runtime、MCP/Skill 或 Android 权限方案；这些主路线仍然合理。仓库尚无首个 Git commit 仍是最高的过程风险，待持续开发到安全 checkpoint 且获得提交授权后应优先建立可回滚基线。（补记：2026-08-31 用户授权后基线已建立，见 §4 补记；本文其余结论在 M1 完成后仍然有效。）
+本轮没有调整 Kotlin/Compose、自研 reducer、Provider 分层、QuickJS isolated process、独立 PRoot/CLI Runtime、MCP/Skill 或 Android 权限方案；这些主路线仍然合理。仓库尚无首个 Git commit 仍是最高的过程风险，待持续开发到安全 checkpoint 且获得提交授权后应优先建立可回滚基线。（补记：2026-08-31 用户授权后基线已建立，见 第 4 节 补记；本文其余结论在 M1 完成后仍然有效。）
 
 ## 8. 本地执行、审批与 Git 收口（2026-08-31）
 
@@ -125,7 +125,7 @@
 - 删除已完成使命的 `small-model-handoff.md`；动态任务续接、禁止重复 HXA、显式 Goal 授权和暂停条件分别迁入 `AGENTS.md`、小模型实施指南、开发环境与文档门禁。历史复核记录保留文件名和删除原因，不保留失效链接。
 - 对 `llm-oriented-design-patterns` 的三组原则进行适用性审查：采纳上下文管理、结构化反馈和确定性边界；拒绝固定 LOC 硬门、动态 import/弱类型字典分发、无界自愈和“所有 Tool 无副作用”等不适合 Android 安全 Agent 的绝对规则。
 - Helix 的目标运行时架构高度面向 LLM：统一 ModelEvent、受限 Tool Schema、显式状态机、确定性 Dispatcher、可恢复回填和精确审批都在收窄概率输出。当前生产接线仅部分达标：`TurnReducer` 尚未驱动 `ChatService` 的生产状态推进，导致领域状态机与应用层直接 Room 写入并存；其次才是 `ChatService` 多职责大文件和 Provider SSE framing 重复。
-- 总体方案新增 §17，给出项目级 LLM-oriented 约束和结构热点顺序。该节是现有边界内的可维护性解释，没有改变模块依赖、权限、安全管线或外部契约，因此不新增 ADR。
+- 总体方案新增 第 17 节，给出项目级 LLM-oriented 约束和结构热点顺序。该节是现有边界内的可维护性解释，没有改变模块依赖、权限、安全管线或外部契约，因此不新增 ADR。
 
 ## 12. HXA-038 架构切片与全局复扫（2026-09-01）
 
@@ -205,7 +205,7 @@
 - Android 可行性核验结论：Tasker 可走官方插件 action/event/state；Auto.js/AutoJs6 需要独立兼容 Runtime 和版本/API/权限/模块矩阵，当前证据不能支持“任意脚本零差异执行”；Shizuku 由用户通过 Root/ADB 启动服务；Android 11+ 提供无线调试配对。这些能力均未获得 HXA 或实现证据。
 - 按 ADR 约定没有改写 accepted ADR-PERMISSIONS-001 的历史正文，而是新增 accepted [ADR-PERMISSIONS-003](../../adr/permissions/003-dispatch-and-audit.md)完整取代，并把 ADR-PERMISSIONS-001 标为 superseded。新决定接受 Trusted Workspace、动态风险不高于 L1 的有界长期规则、精确批量批准和作为文件 scope 的 `Full Workspace Access`。
 - 所有者请求中的模型自授权、全局自动批准、全局 Full Access 和 L2/L3 长期 wildcard 放行没有进入 accepted 决定：它们违反项目不可变安全内核，也无法把真实手机上的高影响动作绑定到用户的精确授权。ADR-PERMISSIONS-003 将其作为被拒绝替代方案显式留档，而不是静默遗漏。
-- 产品需求新增 FUT-AUTO-001～003、FUT-SYS-001～002 和 §11 需求变更记录；Android 能力文档、路线、状态、市场与竞品分析同步“未排期候选/非实现证据”口径。
+- 产品需求新增 FUT-AUTO-001～003、FUT-SYS-001～002 和 第 11 节 需求变更记录；Android 能力文档、路线、状态、市场与竞品分析同步“未排期候选/非实现证据”口径。
 
 ## 21. Standard 商店产品边界调整（2026-09-02）
 

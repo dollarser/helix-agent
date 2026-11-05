@@ -15,7 +15,7 @@
 | 历史材料 | 归档原因 | 当前入口 |
 | --- | --- | --- |
 | [Linux 命令集成](helix-linux-command-integration.md) | 旧 APK/UID、QuickJS 进程和风险等级已不适用；原记录没有统一日期 | [执行域](../../architecture/local-code-execution.md)、[终端](../../architecture/terminal.md) |
-| [后台完成机制（09-10）](background-task-completion-2026-09-10.md) | 旧开发宿主与当时产品阶段混合 | [终端](../../architecture/terminal.md)、[Harness §8](../../architecture/harness-refactor-plan.md) |
+| [后台完成机制（09-10）](background-task-completion-2026-09-10.md) | 旧开发宿主与当时产品阶段混合 | [终端](../../architecture/terminal.md)、[Harness 第 8 节](../../architecture/harness-refactor-plan.md) |
 | [Memory 与 Activity（09-26）](agent-memory-and-activity-presentation-2026-09-26.md) | HXA-229/230 已承接，完整 Project 仍单列 | [Memory](../../product/memory.md)、[HXA-229](../../completion-records/HXA-229.md) |
 | [Conversation-first（09-26）](conversation-first-session-workbench-2026-09-26.md) | HXA-228 已交付，不重开原 UI 计划 | [HXA-228](../../completion-records/HXA-228.md)、[操作体验](../../product/task-experience.md) |
 | [Workspace 对比（09-27）](workspace-competitive-contracts-2026-09-27.md) | HXA-210/Workspace ADR 已承接 | [Workspace ADR](../../adr/workspace/004-workspace-binding.md) |

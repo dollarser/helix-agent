@@ -15,7 +15,7 @@
 
 - 共用校验接受有界、无空白的可见ASCII；握手与实际工具执行均原样发送不透明凭据。保留4096字节上限、危险字符拒绝、网络准入、资源/来源绑定与跨源重定向拦截，不增加授权或重放操作。
 - 固定类型的格式异常不包含凭据值。连接UI仅显示本地分类；已授权的连接失败不再误导为账号登录失败，也不显示服务异常正文。
-- 参考[官方MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk/blob/main/src/mcp/client/auth/oauth2.py)将access token原样放入Authorization的行为，未复制参考代码。[RFC6750 §2.1](https://www.rfc-editor.org/rfc/rfc6750.html#section-2.1)的b64token不含冒号，本次明确记录为实际部署兼容，不能将放宽字母表说成该规范要求。
+- 参考[官方MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk/blob/main/src/mcp/client/auth/oauth2.py)将access token原样放入Authorization的行为，未复制参考代码。[RFC6750 第 2.1 节](https://www.rfc-editor.org/rfc/rfc6750.html#section-2.1)的b64token不含冒号，本次明确记录为实际部署兼容，不能将放宽字母表说成该规范要求。
 - 本次不修改CIMD/DCR选择、账号scope、Room或登录生命周期。上述注册入口限制独立保留。
 
 ## 验证状态
@@ -54,7 +54,7 @@ Owner在备份、一次性补齐缺表/列并保留数据更新的问询后回�
 - Owner停止操作后无调试暂停复测仍失败。仅在最终UI错误边界检查异常类别/栈，定位到`McpMetadataHash.toBoundedJson`；定向异常位置确认单个Schema为80,556字节，超过旧65,536上限。不是授权或tools/list网络失败。
 - 默认单Schema上限调整为131,072字节，整体元数据524,288字节、网络JSON/SSE响应16 MiB边界保持；不截断Schema。新增真实HTTP握手fixture覆盖超过旧上限的完整Schema，以及超过新上限仍拒绝、不执行tools/call。总量拒绝、取消、凭据和跨源保护保留。
 - 修后实际Notion连接和工具列表返回成功。选择notion-search/fetch又在`McpToolSchemaAdapter`拒绝，定向检查仅输出违例路径/关键字，发现搜索日期字段的`format`注解不在内置工具子集。
-- 对照[JSON Schema 2020-12 §7.2](https://json-schema.org/draft/2020-12/json-schema-validation#section-7.2)，仅对精确默认方言的Schema在适配层归一化字符串format注解；不改内置工具校验器。只遍历properties/items/additionalProperties中的Schema位置，保留属性名和enum字面量、源哈希、required/type/minLength等约束。未知方言、嵌套声明、显式vocabulary/format-assertion及不支持约束继续拒绝，回归覆盖这些边界。未复制参考实现。
+- 对照[JSON Schema 2020-12 第 7.2 节](https://json-schema.org/draft/2020-12/json-schema-validation#section-7.2)，仅对精确默认方言的Schema在适配层归一化字符串format注解；不改内置工具校验器。只遍历properties/items/additionalProperties中的Schema位置，保留属性名和enum字面量、源哈希、required/type/minLength等约束。未知方言、嵌套声明、显式vocabulary/format-assertion及不支持约束继续拒绝，回归覆盖这些边界。未复制参考实现。
 - 元数据大小和Schema不兼容使用固定错误类别，工具启用失败也通过同一安全分类；不显示远端异常正文、不再误导重新登录。
 - 最终Developer APK SHA-256为`6375a203a922fed2ab1dd5ec5b07ad96d76b593b37a15fb44e7ed0edb6e89679`。两次相同schema更新均先停机备份，六张核心用户表逐行一致、完整性通过，通知监听组件恢复DEFAULT；本阶段没有改库、清数据、卸载、重复注册或重做OAuth。
 - 同一日常API36最终原生页面实际显示“工具已启用”，仅选择notion-search与notion-fetch；其余工具未启用。此项证明真实OAuth保留、MCP连接、metadata及指定只读工具激活passed，不证明业务tools/call、刷新、权限拒绝或厂商撤销通过。无模型用量、真机或长稳结果。

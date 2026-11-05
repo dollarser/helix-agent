@@ -2,7 +2,7 @@
 
 > 综合初稿：2026-09-25；工具曝光与专题承接更新：2026-10-15。综合 tool exposure、browser、MCP/Skill/Connector/A2A 研究，其他比较仍按各自来源日期和证据边界理解。
 
-2026-10-11 的[插件架构调研](../topics/agent-plugin-architecture-research-2026-10-11.md)保存八类 Codex 插件及 Codex 公开核心、Claude Code、Gemini CLI、OpenCode、DSH 与 Helix 的机制和证据对照；补充 Computer Use 采用 MCP 的实现及推断收益，并区分核心工具、官方插件包与宿主框架插件。样本支持原生与 MCP 等方式混合接入，未证明内置插件普遍优先 MCP。独立的[Helix 优化方案](../topics/helix-plugin-architecture-optimization-2026-10-11.md)承接 Skill 激活/调用规则、配置生效、兼容诊断、Browser 归属和共享资源释放；§6.5 补充原生/IPC/CLI/MCP 的选择、客户端导入与服务端导出的边界，保留建议顺序与验收条件。
+2026-10-11 的[插件架构调研](../topics/agent-plugin-architecture-research-2026-10-11.md)保存八类 Codex 插件及 Codex 公开核心、Claude Code、Gemini CLI、OpenCode、DSH 与 Helix 的机制和证据对照；补充 Computer Use 采用 MCP 的实现及推断收益，并区分核心工具、官方插件包与宿主框架插件。样本支持原生与 MCP 等方式混合接入，未证明内置插件普遍优先 MCP。独立的[Helix 优化方案](../topics/helix-plugin-architecture-optimization-2026-10-11.md)承接 Skill 激活/调用规则、配置生效、兼容诊断、Browser 归属和共享资源释放；第 6.5 节 补充原生/IPC/CLI/MCP 的选择、客户端导入与服务端导出的边界，保留建议顺序与验收条件。
 
 ## 1. 工具架构原则
 
@@ -62,7 +62,7 @@ Android Chrome 没有同等扩展控制模型；Helix 也明确不应抽取其�
 
 插件/Mobile Use 与异步执行的原比较分别见[专题目录](../topics/README.md)；通用 binding、安装生命周期、ContextCompiler 和等待的目标规范汇总于[Harness 方案](../../architecture/harness-refactor-plan.md)，不在多个研究模块复制完整实施步骤。
 
-[helix-docs 专题](../topics/helix-docs-design-2026-10-14.md)承接 Helix 官方功能／配置／排障查询：当前已有内置 Skill、版本化随包帮助预览及资源发现／读取路径；完整实现边界见专题 §11。静态帮助 UI、官方在线服务、双语正文和正式发行不能据此视为完成。PDF／Word 处理仍归 documents 插件，后续建议不改变当前排期。
+[helix-docs 专题](../topics/helix-docs-design-2026-10-14.md)承接 Helix 官方功能／配置／排障查询：当前已有内置 Skill、版本化随包帮助预览及资源发现／读取路径；完整实现边界见专题 第 11 节。静态帮助 UI、官方在线服务、双语正文和正式发行不能据此视为完成。PDF／Word 处理仍归 documents 插件，后续建议不改变当前排期。
 
 ## 5. Marketplace / Workflow
 

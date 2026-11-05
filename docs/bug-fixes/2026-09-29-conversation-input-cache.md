@@ -106,4 +106,4 @@ python3 scripts/with-host-slot.py -- ./gradlew -PincludeSpikes=true \
 
 ## Related records
 
-[Turn 与输入契约 §16](../adr/agent/001-turn-coordination.md)、[HXA-214 历史交付](../completion-records/HXA-214.md)、[HXA-215 历史交付](../completion-records/HXA-215.md)。本次为所有者新增反馈的独立修复，不重新打开历史任务，也不启动 R1 架构重构。
+[Turn 与输入契约 第 16 节](../adr/agent/001-turn-coordination.md)、[HXA-214 历史交付](../completion-records/HXA-214.md)、[HXA-215 历史交付](../completion-records/HXA-215.md)。本次为所有者新增反馈的独立修复，不重新打开历史任务，也不启动 R1 架构重构。

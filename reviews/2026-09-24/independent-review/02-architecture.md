@@ -597,7 +597,7 @@ runtime 八模块的理由：QuickJS 的 isolated 执行域；terminal-renderer 
 | --- | --- | --- |
 | ChatService 4047 行/81 公开方法，P0 | **结构问题成立**，A02 | 81 是非 override public 函数；含 5 override 为 86，另有 7 公开属性。使用明确口径，不把 113/40 的另一份统计混用。 |
 | app 单体 46%，P0 | **包/用例集中成立，统计及定级收窄** | main 356/55,193，占同口径 38.3%；主问题为 A04 的依赖环/组织，P1，不重复给“规模”一个 P0。 |
-| 三条反向模块依赖 | **撤回** | 根脚本 `:169、182、188` 均是正常领域/port 依赖；没有 core→UI 或 provider/tools→app。结构报告 §1.2 与其 §1.1 存在结论冲突，本次以实际边裁定。 |
+| 三条反向模块依赖 | **撤回** | 根脚本 `:169、182、188` 均是正常领域/port 依赖；没有 core→UI 或 provider/tools→app。结构报告 第 1.2 节 与其 第 1.1 节 存在结论冲突，本次以实际边裁定。 |
 | “UI/feature 存储访问 0 命中” | **范围不足** | ui 目录以外的 EgressRuleSection 是 Compose，直接操作仓储（A05）；不是 DAO import 扫描就能证明所有 UI 分层合规。 |
 | TurnReducer 生产未用，应直接删 | **前半成立，删除建议撤回** | `TurnCoordinator.kt:60–63` 不复用 reducer；RecoveryCoordinator `:34` 却保留串行假设（A01）。遵守结构治理文档 `:14`，先补生产契约映射，不删测试。 |
 | 手动 DI 巨型容器 / Service Locator | **“大即错”撤回，时序环成立** | DefaultAppContainer 是合法 composition root；真正证据是 holder `:445、701` 和 lazy 前向引用 `:155–175`（A06）。不引入被禁止的 Hilt。 |

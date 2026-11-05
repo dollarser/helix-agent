@@ -29,7 +29,7 @@
 
 工程质量显著高于平均水平：零 TODO、fail-closed 纪律贯彻彻底、错误文案稳定不泄漏、静态门禁完整且全绿、git 卫生干净、测试面广且失败如实记录（HXA-103 archive 失败、HXA-099 SGLang 超时均未掩盖）、版本全 pinned + lockfile 全覆盖 + 无 mutable 版本/无 DI 框架。
 
-问题集中在四个象限：**少数可造成数据外泄/越界的真实安全缺口**、**可稳定复现的用户可见缺陷**、**check-then-act 并发正确性**、**文档状态漂移**。跨域共性模式见 §3.5。
+问题集中在四个象限：**少数可造成数据外泄/越界的真实安全缺口**、**可稳定复现的用户可见缺陷**、**check-then-act 并发正确性**、**文档状态漂移**。跨域共性模式见 第 3.5 节。
 
 ---
 
@@ -66,7 +66,7 @@
   - `FilesScreen.kt:573` `str(R.string.files_share_failed, e.message.orEmpty())`——`FileProvider.getUriForFile` 的 IAE 形如 "No file found for file:///data/user/0/..."，**直接违反"真实路径永不渲染"**；
   - `app/.../files/FileManagerService.kt:587/589/609/650/692-696/711-713` 多处 `FileOpResult.Error(e.message ?: loc(...))`，由 FilesScreen 455/459/529/530/541/542/1177/1181 原样显示（rename/mkdir/trash/restore/purge 全链路）；
   - `app/.../egress/EgressRuleSection.kt:80/114/118/127` `loadError/formError = it.message`，188-194、207-213 行渲染。
-- **违反**："真实路径永不渲染"契约与 ADR-AGENT-003 §7（用户可见错误不含内部信息），且均为未本地化英文文案（i18n 缺口）。
+- **违反**："真实路径永不渲染"契约与 ADR-AGENT-003 第 7 节（用户可见错误不含内部信息），且均为未本地化英文文案（i18n 缺口）。
 - **建议**：统一"封闭错误码 → string-res id"映射（项目已有 `ApprovalUiMapper`/`ConnectionTestMapping` 先例）：`FileManagerService` catch 分支只保留错误码，message 由 strings resolver 在 UI 解析；share 路径固定用资源键不带 `e.message`。
 
 ### S6. SSRF：scoped 主机名的跨类 rebinding 仍被放行
@@ -371,7 +371,7 @@
 - **L4** `check-lockfiles.sh` 每次 CI 全量解析 35 个项目的所有 configuration（`gradlew :x:dependencies --write-locks`），是 CI 里除 lint 外的第二大时间源；模块数增长后考虑只对变更模块 + root 跑。
 - **L5** 三个 application 模块（app/proot-app/cli-app）各自重复 android 公共块（compileSdk/minSdk/targetSdk/Java17/lint/junit 基线），与根文件对 16 个 library 的集中式 convention 是"同一约定的两种写法"——A5 的 convention plugin 一并解决。
 
-**构建系统 MEDIUM 备忘**（详见 §2 关联项之外的独立项）：
+**构建系统 MEDIUM 备忘**（详见 第 2 节 关联项之外的独立项）：
 - **M1** Configuration-cache：`:runtime:quickjs` 在配置期解析 debugRuntimeClasspath 的 AAR 文件（`build.gradle.kts:392-412` `afterEvaluate { ...artifactView{...}.files... }` → `helix.zipline.aar` systemProperty）——AAR 路径固化进 CC 条目，升级 zipline pin 或跨 checkout 命中 CC 时可能读到过期路径（测试静默拿错 AAR）。旁证：三个 spike 脚本已有 `--no-configuration-cache` 逃生舱。建议把解析挪到任务执行期（Test 任务 input 的延迟 file collection），去掉 afterEvaluate；顺带评估 3 个逃生舱的必要性。
 - **M2** CI 单 job 串行 + 缺失门禁：唯一 job `verify`（timeout 60，macos-15）把 spotless+detekt+test+6 个 lint+4 个 assemble 全串行；无 release assemble（`isMinifyEnabled=false` 是文档化 M0 决策，但 `proguard-rules.pro` 是空文件，开 minify 前 CI 没有 R8 回归通道）；`check-mcp-android-spike.sh`/两个 a2a spike gate（CI 已装 SDK 36，本可跑）、`check-cli-runtime-lock.sh`（依赖 CI 刚构建的 APK）均未接入。建议拆 2-3 个并行 job；spike gate 接入或 `workflow_dispatch` 化；minify 开启前预置 unsigned release assemble。
 - **M3** 脚本质量：无 shellcheck（全仓零命中）；`check-cli-runtime-lock.sh:21` 用 `shasum`（macOS-only；CI 是 macos-15 所以 CI 安全，Linux dev 机挂）——对比 `check-lockfiles.sh:29-33` 正确处理了 sha256sum/shasum 双栈，属遗漏；`check-mcp-android-spike.sh:41-43,60` 硬编码 pin（`kotlin-sdk-client:0.15.0`、`ktor-client-okhttp:3.5.2`、`okhttp:5.5.0`、`mcp-0.1.0-SNAPSHOT.jar`）与 libs.versions.toml 双写，升级 catalog 时脚本静默失配。建议 CI 加 5 分钟 shellcheck job；复用双栈模式；spike 脚本 pin 改从 libs.versions.toml 读取。
@@ -382,17 +382,17 @@
 
 ### 4.6 文档体系（7 项）
 
-- **L1** `security/testing-and-release.md` §7.5 病句："在 accepted 前、RUNNING、terminal commit 前后分别 kill 主 App/Runtime"——"accepted 前"语义不明（疑为 ADR-RUNTIME-001 验收前后之误）。建议按 ADR-RUNTIME-001 生命周期状态改写。
+- **L1** `security/testing-and-release.md` 第 7.5 节 病句："在 accepted 前、RUNNING、terminal commit 前后分别 kill 主 App/Runtime"——"accepted 前"语义不明（疑为 ADR-RUNTIME-001 验收前后之误）。建议按 ADR-RUNTIME-001 生命周期状态改写。
 - **L2** 38 份完成记录引用旧编号 "doc 02/doc 09/doc 10/doc 11"，而架构文档已去编号化（docs/README："文件名不再使用 01～12 的人工顺序编号"），无映射表。记录按约定是不可变快照可不改，建议在 completion-records/README 加一行 doc 编号→现文件名映射。
 - **L3** `docs/evidence/development/m9-rooted-emulator-experiment.md` 全仓无入链（HXA-094/095 的 rooted 模拟器工程证据无人可发现）；建议从 status.md "Known limitations" Root 行链出。
 - **L4** `verification-gaps-progress.md` "status.md 只读过期项" 一节自身已过期（4 项中 2 项已被 main 修订），且该文档未标注"结论已被 main-merged-verification 取代"。
-- **L5** roadmap §2 里程碑表 M13 行被拆成独立单行表格（L45-46，排版断裂）；各里程碑完成度标注口径不一（仅 M1 有 "M1 已完成（2026-08-31）" 行内注）。建议 M13 行并入主表，统一"完成度以 status.md 为准"脚注。
+- **L5** roadmap 第 2 节 里程碑表 M13 行被拆成独立单行表格（L45-46，排版断裂）；各里程碑完成度标注口径不一（仅 M1 有 "M1 已完成（2026-08-31）" 行内注）。建议 M13 行并入主表，统一"完成度以 status.md 为准"脚注。
 - **L6** 同日多个 commit 基线散落：hxa-125-progress（main b480b25 + Connector 7710918）、connector-handoff（672dc5a）、main-merged-verification（基线 61bad35），均 2026-09-05，读者需自行推断先后；status.md 无"当前 main 基线 commit"字段。
 - **L7** `HXA-088` 完成记录 L11 "ADR-WORKSPACE-003 保持 proposed（待所有者决定）" 与文档 HIGH 组同源：记录是其日期（09-04）快照，合规，但无任何"后续已被接受"指引，易被当现状。
 
-**文档体系 HIGH/MEDIUM 备忘**（完整条目见 §6 未决事项与改进建议）：AGENTS.md 仍把 ADR-WORKSPACE-003 标为 proposed（ADR 文件已 accepted 2026-09-05）；ADR-TOOLS-001 已实现进生产（HXA-042 contractHash 门禁）但状态仍 proposed/Deciders pending；`main-merged-verification.md` 残留"最终矩阵仍在执行"占位行；status.md "当前检查点"漏 M10/M13 且 M10 收口条件无里程碑级表述；status.md 内部 SAF scope 三处表述互相矛盾（L95/L122 vs L123）；`verification-gaps-progress.md` 为孤儿文档（全仓无入链），8 份 worktree 进展文档游离于文档中心；HXA-089 幽灵前置 + HXA/ADR 编号缺口无治理说明；ADR-WORKSPACE-003 已 accepted 但 roadmap 无实现 HXA 且文件内 L59 小节标题仍写 "Status 仍为 proposed"；status.md "Current summary" 大表（单行 8,858 字符）与 Completed bullet 重复维护同一事实；`implementation-guide.md` 残留 ADR-WORKSPACE-003 接受前措辞。
+**文档体系 HIGH/MEDIUM 备忘**（完整条目见 第 6 节 未决事项与改进建议）：AGENTS.md 仍把 ADR-WORKSPACE-003 标为 proposed（ADR 文件已 accepted 2026-09-05）；ADR-TOOLS-001 已实现进生产（HXA-042 contractHash 门禁）但状态仍 proposed/Deciders pending；`main-merged-verification.md` 残留"最终矩阵仍在执行"占位行；status.md "当前检查点"漏 M10/M13 且 M10 收口条件无里程碑级表述；status.md 内部 SAF scope 三处表述互相矛盾（L95/L122 vs L123）；`verification-gaps-progress.md` 为孤儿文档（全仓无入链），8 份 worktree 进展文档游离于文档中心；HXA-089 幽灵前置 + HXA/ADR 编号缺口无治理说明；ADR-WORKSPACE-003 已 accepted 但 roadmap 无实现 HXA 且文件内 L59 小节标题仍写 "Status 仍为 proposed"；status.md "Current summary" 大表（单行 8,858 字符）与 Completed bullet 重复维护同一事实；`implementation-guide.md` 残留 ADR-WORKSPACE-003 接受前措辞。
 
-**文档体系正面发现**：507 条相对链接全部可解析；20 个 ADR 标题/编号/6 字段/7 章节全合规、superseded 链双向一致（0002→0010、0005→0012、0006→0013）；91/91 完成记录含"决策记录"字段且 check-docs 强制记录↔status 一致性；抽查 9 份完成记录（M3~M13）的验证命令中所有 gradle 模块、脚本、门禁均真实存在，失败也如实记录；CI 门禁与安全文档 §8/§9 描述一致。
+**文档体系正面发现**：507 条相对链接全部可解析；20 个 ADR 标题/编号/6 字段/7 章节全合规、superseded 链双向一致（0002→0010、0005→0012、0006→0013）；91/91 完成记录含"决策记录"字段且 check-docs 强制记录↔status 一致性；抽查 9 份完成记录（M3~M13）的验证命令中所有 gradle 模块、脚本、门禁均真实存在，失败也如实记录；CI 门禁与安全文档 第 8 节、第 9 节 描述一致。
 
 ---
 
@@ -472,7 +472,7 @@
 
 1. ADR 状态单一事实化：修正 AGENTS.md（ADR-WORKSPACE-003）与 implementation-guide.md 两处滞后引用；推动 ADR-TOOLS-001 所有者决定；在 verify-adr.sh/check-docs.sh 增加"文档中 ADR 状态引用与文件头一致"的机械检查。
 2. 消灭权威报告占位行：回填 main-merged-verification.md 的"最终矩阵仍在执行"行；check-docs 对 development/ 进展文档禁"仍在执行/待更新"残留词（白名单 in-progress 任务）。
-3. 进展文档治理：8 份 worktree 进展文档在 docs/README.md 统一登记并标注性质；已合入且结论已入 status 的移入 history/；"尚未执行"清单与本文 §5 合并为 status.md 单一"开放门禁"小节。
+3. 进展文档治理：8 份 worktree 进展文档在 docs/README.md 统一登记并标注性质；已合入且结论已入 status 的移入 history/；"尚未执行"清单与本文 第 5 节 合并为 status.md 单一"开放门禁"小节。
 4. status.md 结构瘦身：Current summary 表与 Completed bullet 去重（>8000 字符单元格改链接）；检查点行与 Completed 段机械一致性校验。
 5. 编号治理：补"编号分配"小节（HXA 空号 017~019、029、089、098、106~109、114~119；ADR 空号 0020~0022 含跨分支占用 0022；HXA-089 来历）；adr/README 增加"跨分支占号需登记"。
 
@@ -482,7 +482,7 @@
 2. **A7** 边界常量/bounded/arg helper/wait 逻辑收敛（tools/framework + core:model）——多 bug 修复 + 消灭 6+ 份拷贝。
 3. **A8** spikes 归档（a2a 两个）+ bounded-orchestration 按 ADR-AGENT-004 状态处置。
 4. **ConversationRepositories/PlanGoalRepositories 补 Fake-DAO 单测**（core 最大测试缺口，复用 storage 测试现成 helper 与 Fake DAO 模式）。
-5. 其余 LOW 项按序排入后续 HXA（§4 各条已附改法）。
+5. 其余 LOW 项按序排入后续 HXA（第 4 节 各条已附改法）。
 
 ---
 

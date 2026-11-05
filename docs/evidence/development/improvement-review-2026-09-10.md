@@ -6,7 +6,7 @@
 
 **本机产物清理（2026-10-12）：** 本轮提及的 `build/emulator-verification/run-index.json` 随旧模拟器验证输出一并退役删除；本审查记录仍保留当时发现的问题及结论。
 性质：在 [2026-09-06](improvement-review-2026-09-06.md) 与 [2026-09-07](improvement-review-2026-09-07.md) 两轮全仓审查之后，仓库经历 HXA-147～187 大波开发（会话/文件 UX、Goal ADR-GOAL-001、职责拆分 HXA-179/183/184、长稳取证 HXA-185、真机回归 HXA-186/187）后的第三轮全仓审查。本轮按四个维度并行扫描：**文档与流程 / 系统架构 / 产品设计与 UX / 工程最佳实践**，另对前两轮点名的文档治理项做了抽核。
-**范围声明**：本轮不是对 09-07 P0/P1 清单（S1～S8、U1～U8、C1～C11、G-H1 等）的逐条回归核对；这些代码级项本轮未重新验证，状态以各自文档为准。§5 只列本轮证据直接覆盖到的前轮项。**不是当前状态源**，当前状态以 [status.md](../../development/status.md) 为准。
+**范围声明**：本轮不是对 09-07 P0/P1 清单（S1～S8、U1～U8、C1～C11、G-H1 等）的逐条回归核对；这些代码级项本轮未重新验证，状态以各自文档为准。第 5 节 只列本轮证据直接覆盖到的前轮项。**不是当前状态源**，当前状态以 [status.md](../../development/status.md) 为准。
 
 ## 0. 审查元信息
 
@@ -21,8 +21,8 @@
 
 但两个结构性问题贯穿本轮：
 
-1. **审查闭环的"消费修复"失速**——两轮审查点名的文档治理项（status 瘦身、ADR 状态机械检查、进展文档登记、check-lockfiles 魔法数、CI 缺 check-i18n）至今大多原样保留，且 HXA-185 状态失同步证明"多源未同步"同类问题仍在新增（§3 H1/H2/H3）。
-2. **短板集中在"分发侧与最后一公里"**——release 无 R8、第三方许可证清单不完整（§6 H1/H2）；新用户从安装到第一个成功任务无一条被引导的路径，三个核心系统权限无 in-app 获取入口（§4 必须修 1/2）。
+1. **审查闭环的"消费修复"失速**——两轮审查点名的文档治理项（status 瘦身、ADR 状态机械检查、进展文档登记、check-lockfiles 魔法数、CI 缺 check-i18n）至今大多原样保留，且 HXA-185 状态失同步证明"多源未同步"同类问题仍在新增（第 3 节 H1/H2/H3）。
+2. **短板集中在"分发侧与最后一公里"**——release 无 R8、第三方许可证清单不完整（第 6 节 H1/H2）；新用户从安装到第一个成功任务无一条被引导的路径，三个核心系统权限无 in-app 获取入口（第 4 节 必须修 1/2）。
 
 ---
 
@@ -70,7 +70,7 @@
 
 ### 中
 
-- **D-M1 里程碑缺口**：roadmap §1 总览与 §2 退出条件表无 M11A 与 M14；status.md 却以"M14"名义列 HXA-148～151；verification-matrix 无 M14 痕迹。
+- **D-M1 里程碑缺口**：roadmap 第 1 节 总览与 第 2 节 退出条件表无 M11A 与 M14；status.md 却以"M14"名义列 HXA-148～151；verification-matrix 无 M14 痕迹。
 - **D-M2 completion-records 无索引 + 膨胀**：`completion-records/README.md` 仅 12 行规则、无索引，但 status.md M1～M4 四处将其标为"[逐 HXA 索引]"权威证据——被指向的文件里根本没有索引。160 份记录/1.9 MB 只能靠 ls/grep；HXA-102.md 已 1642 行，违背同目录 README"不把大段后续修复史追加到旧交付快照"。
 - **D-M3 提交文档链接 gitignored 制品**：`verification-matrix.md` 第 329 行链 `../../build/emulator-verification/run-index.json`，`git check-ignore` 确认 IGNORED——本工作树可解析，fresh clone 即断链；check-docs.sh 只做本地解析发现不了。
 - **D-M3b 未跟踪 bug-fix 文档链不存在的完成记录（落盘时新增，实测）**：`bug-fixes/2026-09-10-root-service-death-callback-reentrancy.md:49` 链 `completion-records/HXA-094.md`，该文件不存在（HXA-093 后直接是 HXA-096，HXA-094 未验证、无完成记录，见 status.md Blocked 表）。当前 `check-docs.sh` 因这条断链整体 FAIL——在 HXA-094 记录补齐或改链前，文档门禁无法通过。
@@ -93,8 +93,8 @@
 
 ### 必须修（阻碍发布 / 目标用户核心场景）
 
-- **P-H1 首次启动无 onboarding**：首启只有一屏静态通知（`ui/FirstLaunchNoticeScreen.kt`），点"继续"即进聊天；Provider 配置埋在设置→Provider 区，空态文案是纯文本无跳转按钮。市场文档 §7.1 定义的"模板→连接测试→示例 Workspace→首个任务"首次价值路径未实现。**激活指标最大单点**。
-- **P-H2 权限中心缺失**：需求 §7.7 要求权限中心；实现上抽屉"权限"入口在 consumer 是诚实空页（`MainActivity.kt:298-304`）。Notification Listener/Calendar 服务在 `tools/android` manifest 声明但 UI 无深链引导；`POST_NOTIFICATIONS` 只读状态（`SystemCapabilityResolver.kt:142`）从不发起请求 → **API 33+ 上 Goal 提醒通知（`GoalReminderWorker.kt`）静默失效**。UJ-02/UJ-03 两条 P1 旅程对新用户实际走不通。
+- **P-H1 首次启动无 onboarding**：首启只有一屏静态通知（`ui/FirstLaunchNoticeScreen.kt`），点"继续"即进聊天；Provider 配置埋在设置→Provider 区，空态文案是纯文本无跳转按钮。市场文档 第 7.1 节 定义的"模板→连接测试→示例 Workspace→首个任务"首次价值路径未实现。**激活指标最大单点**。
+- **P-H2 权限中心缺失**：需求 第 7.7 节 要求权限中心；实现上抽屉"权限"入口在 consumer 是诚实空页（`MainActivity.kt:298-304`）。Notification Listener/Calendar 服务在 `tools/android` manifest 声明但 UI 无深链引导；`POST_NOTIFICATIONS` 只读状态（`SystemCapabilityResolver.kt:142`）从不发起请求 → **API 33+ 上 Goal 提醒通知（`GoalReminderWorker.kt`）静默失效**。UJ-02/UJ-03 两条 P1 旅程对新用户实际走不通。
 - **P-H3 Advanced 说明文案过期且错误**：`strings.xml` 的 `settings_advanced_m2_note` 仍是"M2 说明：切换 Advanced 不启用任何新能力——零系统权限申请……"，但当前构建切换后实际显示 PRoot/Root/Automation/Egress 区块（`SettingsScreen.kt:128-164`）。用户可见、事实错误、含内部里程碑黑话。**改动成本极低，当天可完**。
 - **P-H4 无深色模式**：主题固定亮色（`themes.xml` 硬编码状态栏/导航栏色），全仓无 DynamicColor/darkTheme。建议排进发布批次。
 
@@ -118,12 +118,12 @@
 
 | 项 | 前轮提出 | 本轮状态 |
 | --- | --- | --- |
-| status.md 瘦身 / 大表重复维护 | 09-06 P4#4、09-07 #17 | **仍未修**（§3 D-H1），且新增合并标记未回写 |
-| ADR 状态词机械检查 | 09-07 P5#2 | **仍未落地**，check-docs.sh 对 ADR 零检查；3 处过期引用新增（§3 D-H3） |
-| 进展/交接文档登记 | 09-06 L3/L4、09-07 D-M5 | **仍未落地**，孤儿文档 3 份 + 游离约 20 份（§3 D-M4） |
-| check-lockfiles 硬编码 35 | 09-07 工程项 | **仍未修**（§6 E-L2） |
-| CI 缺 check-i18n 门禁 | 09-07 工程项 | **仍未修**，CI 只跑 lockfiles/secrets/adr/docs/variant-boundaries 五脚本（§6 E-M1） |
-| ChatService 拆分（3244 行，09-07 恶化项） | 09-07 §2.4 | **已显著收敛**：1736 行，拆分无状态双源残留（§2 A-M1） |
+| status.md 瘦身 / 大表重复维护 | 09-06 P4#4、09-07 #17 | **仍未修**（第 3 节 D-H1），且新增合并标记未回写 |
+| ADR 状态词机械检查 | 09-07 P5#2 | **仍未落地**，check-docs.sh 对 ADR 零检查；3 处过期引用新增（第 3 节 D-H3） |
+| 进展/交接文档登记 | 09-06 L3/L4、09-07 D-M5 | **仍未落地**，孤儿文档 3 份 + 游离约 20 份（第 3 节 D-M4） |
+| check-lockfiles 硬编码 35 | 09-07 工程项 | **仍未修**（第 6 节 E-L2） |
+| CI 缺 check-i18n 门禁 | 09-07 工程项 | **仍未修**，CI 只跑 lockfiles/secrets/adr/docs/variant-boundaries 五脚本（第 6 节 E-M1） |
+| ChatService 拆分（3244 行，09-07 恶化项） | 09-07 第 2.4 节 | **已显著收敛**：1736 行，拆分无状态双源残留（第 2 节 A-M1） |
 | 大类职责审查 | 09-10 audit | HXA-183/184 已收口，审计文档在位；剩余类较长不自动新增拆分任务 |
 | S1～S8 / U1～U8 / C1～C11 / G-H1 等 09-07 P0/P1 代码项 | 09-07 | **本轮未重新验证**，状态以 09-07 清单及后续 HXA 记录为准 |
 
@@ -141,7 +141,7 @@
 - **E-M1 门禁无一键入口，本地与 CI 集合不一致**：scripts/ 约 70 个脚本无 Makefile/justfile/check-all；`check-i18n.sh`（236 行）、`check-cli-runtime-boundary.sh`、`check-cli-runtime-lock.sh`、assetGate 均不在 CI。**低成本高收益**：建 `scripts/check-all.sh` 让 CI 与本地共用同一列表。
 - **E-M2 测试 flake 无系统性隔离/重试**：所有 .kts 无 `maxRetries`；docs 多处"环境 flake 如实记录"靠散文。2788 项主机 + 394×2 设备规模下不可持续。**建议**：`Test.retries`（JVM）+ 设备侧失败自动隔离复跑一次的包装层，把 flake 证据结构化。
 - **E-M3 无依赖漏洞扫描**：CI 有完整性校验（强）但无漏洞面（osv-scanner 等均无）；snakeyaml-engine 3.1.1、commons-compress 1.28.0 这类组件历史上出过 CVE，纯锁版本不等于安全。**低成本高收益**：CI 加 osv-scanner 步骤（对 lockfile 扫，无需凭据）。
-- **E-M4 spikes/ 仍是一等构建模块**：占 CI lint/assemble 面与 lockfile 维护成本（与 §2 A-M2 同一项，建议一并处理）。
+- **E-M4 spikes/ 仍是一等构建模块**：占 CI lint/assemble 面与 lockfile 维护成本（与 第 2 节 A-M2 同一项，建议一并处理）。
 
 ### 低
 

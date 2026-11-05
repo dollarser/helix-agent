@@ -231,7 +231,7 @@ R1-R3 建议打包做"core/agent 死族处置"决策(删除 或 ADR 归档为 M1
 1. **单实现接口**:对 core:{model,agent,policy,storage,workspace}、provider:api、tools:framework、extensions:* 的 public interface 抽样计数实现(生产+测试 fake):`ModelProvider`(4 生产实现 + 3 fake)、`Clock`(1 + **42** fake)、`CapabilityResolver`(1 + 6)、`WireClient`(1 + 10)、`ApprovalBroker`(1 + 7)、`AuditSink`(1 + 6)、`AgentRuntime`(1 + 2)、`ToolExecutor`(53 + 39)——**全部抽象都有测试 fake 消费,属合理可测性设计,非投机抽象**。
 2. **真正的"投机层"只有一个**:`ToolSource`/`BuiltInToolSource`/`ToolSourceKind`(见 R9)——生产唯一构造 `ToolRegistry()` 传空列表。
 3. **Canonical 层无重复**:`CanonicalArgs.kt`(50)+ `ToolSchemaCanonicalizer.kt`(53)仅 tools:framework 单点;其余文件(ToolDescriptor/ApprovalUiMapper/ChatToolCalls 等)是**消费方**,无第二份实现。
-4. **wire limit 层健康**:cli-client/proot-ipc 的 MAX_* 常量全部被强制点引用(复核历史 §3.3d 结论"全量强制");唯一死 limit 常量仍是 R8 的 `CodexPayloadJob.MAX_PAYLOAD_BYTES`。
+4. **wire limit 层健康**:cli-client/proot-ipc 的 MAX_* 常量全部被强制点引用(复核历史 第 3.3d 节 结论"全量强制");唯一死 limit 常量仍是 R8 的 `CodexPayloadJob.MAX_PAYLOAD_BYTES`。
 5. **功能开关:生产 0 个**(`buildConfigField` 0 处;唯一 `BuildConfig.DEBUG` 用于 :runtime:quickjs 的调试裂缝,AGP `buildConfig=true` 自动生成,合理)。
 6. **更深的"过度设计"是投机性功能**(非接口):DeveloperRuntime/GoalSchedule/GoalForeground/ExecutionState/ToolExecutionEnvelope 都是"按设计文档实现、无调用方"。建议流程性改进:**新能力合入的验收项加一条"生产调用方存在 + 至少一条设备测试触达"**(呼应历史审查"四个静默失效"的共同模式)。
 7. 生产 0 TODO/FIXME/HACK(AGENTS.md 合规);宽 catch 无系统性问题(未单列)。
@@ -282,7 +282,7 @@ R1-R3 建议打包做"core/agent 死族处置"决策(删除 或 ADR 归档为 M1
 
 ## 历史审查"维度五"发现的状态复核
 
-| 历史发现(reviews/2026-09-24/2026-09-24-code-review.md §维度五 / REVIEW-2026-09-24.md §3.3d) | 现状(基线 3cf89027 + 工作树) |
+| 历史发现(reviews/2026-09-24/2026-09-24-code-review.md “维度五”章节 / REVIEW-2026-09-24.md 第 3.3d 节) | 现状(基线 3cf89027 + 工作树) |
 |---|---|
 | 仓库卫生优秀(3435 文件/36M/build 0 入库) | **成立**。复核:36 lockfile、0 多版本坐标、0 TODO、i18n 1,363×3 一致、res 全引用 |
 | 3 个死 Adapter 类,建议第一批删除 | **仍未删,结论成立**(各 1 引用=自身;`OpenAiChatProvider` 绕过) |
@@ -295,7 +295,7 @@ R1-R3 建议打包做"core/agent 死族处置"决策(删除 或 ADR 归档为 M1
 | CodexPayloadJob.MAX_PAYLOAD_BYTES 死常量(proot 侧零引用) | **复核成立**:全仓 .kt/.kts/.xml 0 引用(仅审查文档提及),仍在 :111 |
 | TurnReducer 生产未用(维度二 P1,"双 Turn 状态机") | **复核成立并扩大**:Turn* 5 文件整族 + GoalSchedule/GoalScheduleCodec/GoalForeground + DeveloperRuntime 均生产 0 import;绑定测试 ~1,618 行(历史估计"~2000 行"偏保守于整族口径,基本吻合) |
 | .claude/ 未入 .gitignore | .claude 已有本地 exclude;**同类问题再现于 `.workbuddy-ai/`**(git status 可见,无任何 ignore) |
-| desktopMode 死偏好(REVIEW §2.3) | **仍未修**:`preferences.desktopMode` 仍无写点 |
+| desktopMode 死偏好(REVIEW 第 2.3 节) | **仍未修**:`preferences.desktopMode` 仍无写点 |
 
 ## 精简路线图(按 收益/成本 排序)
 
