@@ -32,7 +32,7 @@ class ReminderReceiver : BroadcastReceiver() {
                 try {
                     withTimeout(8000) {
                         val app = context.applicationContext as HelixApplication
-                        app.awaitPortableProfileAsync()
+                        app.awaitAppContainer()
                         app.reminders.fire(parts[0], revision, due)
                     }
                 } catch (error: Exception) {
@@ -70,7 +70,7 @@ class ReminderRecoveryWorker(
 ) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
         val app = applicationContext as HelixApplication
-        app.awaitPortableProfileAsync()
+        app.awaitAppContainer()
         app.reminders.reconcile()
         return Result.success()
     }

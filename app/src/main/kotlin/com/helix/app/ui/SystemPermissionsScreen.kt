@@ -46,6 +46,7 @@ private fun allFilesAccessGranted(supported: Boolean): Boolean? =
 @Composable
 @Suppress("FunctionName", "LongMethod")
 fun SystemPermissionsScreen(
+    essentialsOnly: Boolean = false,
     filePermissions: (@Composable () -> Unit)? = null,
     onFileLocations: (() -> Unit)? = null,
     devicePermissions: (@Composable () -> Unit)? = null,
@@ -67,10 +68,7 @@ fun SystemPermissionsScreen(
     var unavailable by remember { mutableStateOf(false) }
     var files by rememberSaveable { mutableStateOf(false) }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { revision++ }
-    val notificationRequest =
-        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { revision++ }
     val calendarRequest = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { revision++ }
-    val notifications = remember(revision) { NotificationManagerCompat.from(context).areNotificationsEnabled() }
     val calendar =
         remember(revision) {
             ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_CALENDAR) ==
@@ -82,14 +80,7 @@ fun SystemPermissionsScreen(
             context.packageName in
                 NotificationManagerCompat.getEnabledListenerPackages(context)
         }
-    val open: (Intent) -> Unit = { intent ->
-        try {
-            context.startActivity(intent)
-            unavailable = false
-        } catch (_: ActivityNotFoundException) {
-            unavailable = true
-        }
-    }
+    val open: (Intent) -> Unit = { intent -> unavailable = !openSystemPermissionSettings(context, intent) }
     val appSettings = {
         open(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, "package:${context.packageName}".toUri()))
     }
@@ -111,32 +102,27 @@ fun SystemPermissionsScreen(
             .testTag("screen-permissions"),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text(stringResource(R.string.permissions_help))
+        if (!essentialsOnly) {
+            Text(stringResource(R.string.permissions_help))
+            PermissionGroupTitle(R.string.permissions_group_background)
+        }
+        BackgroundSystemPermissions(revision, declaredPermissions, { revision++ }, open)
+        if (essentialsOnly) {
+            OverlaySystemPermission(revision, open)
+            if (unavailable) {
+                Text(
+                    stringResource(R.string.permissions_settings_unavailable),
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+            return@Column
+        }
         if (devicePermissions != null || Manifest.permission.SYSTEM_ALERT_WINDOW in declaredPermissions) {
             PermissionGroupTitle(R.string.permissions_group_device)
             devicePermissions?.invoke()
             OverlaySystemPermission(revision, open)
         }
         PermissionGroupTitle(R.string.permissions_group_daily)
-        PermissionEntry(
-            R.string.permissions_notifications,
-            R.string.permissions_notifications_help,
-            notifications,
-            "permission-notifications",
-        ) {
-            if (Build.VERSION.SDK_INT >= 33 &&
-                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
-                PackageManager.PERMISSION_GRANTED
-            ) {
-                notificationRequest.launch(Manifest.permission.POST_NOTIFICATIONS)
-            } else {
-                open(
-                    Intent(
-                        Settings.ACTION_APP_NOTIFICATION_SETTINGS,
-                    ).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName),
-                )
-            }
-        }
         PermissionEntry(
             R.string.permissions_calendar,
             R.string.permissions_calendar_help,
@@ -271,3 +257,16 @@ private fun FilePermissionEntries(
         )
     }
 }
+
+private fun openSystemPermissionSettings(
+    context: android.content.Context,
+    intent: Intent,
+): Boolean =
+    try {
+        context.startActivity(intent)
+        true
+    } catch (_: ActivityNotFoundException) {
+        false
+    } catch (_: SecurityException) {
+        false
+    }

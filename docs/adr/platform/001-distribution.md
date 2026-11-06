@@ -11,6 +11,10 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 
 ## Decision
 
+首次启动的必要说明不依赖 AppContainer、Room 或浏览器就绪。恢复事务先完成文件替换／回滚协调，再读取已读状态和进行数据兼容性预检；所有旧数据库消费者及任务恢复在预检通过之后启动。说明可与预检并行展示；不兼容数据的具体范围、保留内容及独立确认／退出界面和初始化／恢复失败优先展示，确认说明不等于确认删除或授予能力。
+
+确认说明且预检通过后，首次用户进入可跳过的精简系统权限列表，初始化完成不会打断阅读。通知、关闭电池优化和 Developer 悬浮预览入口以当前安装制品实际声明及系统版本为准；返回应用刷新真实状态，不自动启动服务或申请权限。通知和电池优化不能保证后台永驻，继续使用已有任务服务生命周期。电池优化使用系统列表入口，不新增直接豁免声明。已有已读用户兼容升级不重复首启引导；新用户的权限待办与说明已读一起持久化，进程重建继续待办。
+
 Standard 是完整产品体验，不是只读或聊天试用版。consumer/developer 是构建能力集合，不能与审批模式混为一谈；会话授权预设两变体均可提供，实际能力仍以制品和系统授权为准。
 
 能力只由构建渠道决定，不再提供应用内 Standard/Advanced 运行档位或“权限模式”选择。Developer 固定为 Advanced，包含该渠道的全部能力；Consumer 固定为 Standard，保留渠道允许的完整产品能力。渠道身份不从偏好、备份、模型或扩展元数据读取，不存在切换确认、退出 Advanced 或先切换再使用的前置步骤。
@@ -60,3 +64,5 @@ Developer 的 RootFS 随 APK 离线交付，以单流 XZ 存储；锁定身份�
 - 2026-10-15：Owner 要求落实 APK 体积优化及测试。采用同进程架构不变的 Release R8、独立 ABI 制品与 RootFS 存储压缩；没有改变能力目录、权限、执行域或发布身份。参考 [Android R8 配置](https://developer.android.com/topic/performance/app-optimization/enable-app-optimization)、[ABI 分发](https://developer.android.com/build/configure-apk-splits)与 [XZ for Java](https://tukaani.org/xz/java.html)。同源码基线、失败修复及实际验证边界见[实施记录](../../evidence/development/apk-size-optimization-2026-10-15.md)，不视为 HXA-122 正式发行验收。
 
 - 2026-11-05：Owner 要求 Developer 不再区分权限模式，只保留 Advanced 全部渠道能力，并取消用户选择。将运行时可切换档位改为只读渠道身份，移除侧栏、权限设置、运行环境与手动终端的档位开关和风险确认；不更改会话审批、具体范围授权、系统授权或首次使用准备边界。Consumer 继续固定 Standard；已有偏好不参与能力决策，不增加迁移/兼容层。验证以本轮实际 Debug 结果为准，不据此宣称 Release/真机通过。
+
+- 2026-11-06：Owner 要求首次打开期间先阅读必要说明，再自主配置可选权限，以利用初始化等待时间；数据不兼容与恢复失败始终优先，重置确认独立。保留旧已读状态，不新增保活服务。参考 [Tasker 后台运行说明](https://tasker.joaoapps.com/userguide/en/faqs/faq-problem.html)及 [Android Doze / App Standby](https://developer.android.com/training/monitoring-device-state/doze-standby)、[前台服务启动限制](https://developer.android.com/develop/background-work/services/fgs/restrictions-bg-start)，仅借鉴按用途引导和真实状态，不承诺绕过系统限制。

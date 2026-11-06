@@ -9,16 +9,35 @@ import com.helix.app.language.AppLanguageStore
 import com.helix.app.voice.ReadAloudService
 import com.helix.app.voice.SpeechServiceSettings
 import com.helix.core.model.SystemClock
+import kotlinx.coroutines.flow.asStateFlow
 
 @Suppress("TooManyFunctions") // Application lifecycle and lazy service ownership stay in one boundary.
 class HelixApplication : Application() {
+    @Volatile private var startupNoticeStore: FirstLaunchStore? = null
+    private val mutableOnboarding = kotlinx.coroutines.flow.MutableStateFlow<StartupOnboarding?>(null)
+    internal val startupOnboarding = mutableOnboarding.asStateFlow()
+
+    internal fun refreshStartupOnboarding() {
+        startupNoticeStore?.let { mutableOnboarding.value = it.onboarding }
+    }
+
+    internal fun acceptStartupNotice() {
+        requireNotNull(startupNoticeStore).acceptNotice()
+        refreshStartupOnboarding()
+    }
+
+    internal fun finishStartupPermissions() {
+        requireNotNull(startupNoticeStore).markSeen()
+        refreshStartupOnboarding()
+    }
+
     private val profileRestore by lazy {
         com.helix.app.backup
             .ProfileRestoreCoordinator(this)
     }
     private val profileInitialization by lazy {
         BackgroundInitialization("helix-profile-init") {
-            profileRestore.recoverBeforeConsumers()
+            startupPhase("profile-restore") { profileRestore.recoverBeforeConsumers() }
             com.helix.core.policy.network.NativeNetwork
                 .initialize(filesDir)
         }
@@ -27,11 +46,6 @@ class HelixApplication : Application() {
     private fun awaitPortableProfile() {
         check(!Process.isIsolated() && getProcessName() == packageName)
         profileInitialization.await()
-    }
-
-    internal suspend fun awaitPortableProfileAsync() {
-        check(!Process.isIsolated() && getProcessName() == packageName)
-        profileInitialization.awaitAsync()
     }
 
     @Synchronized
@@ -154,7 +168,7 @@ class HelixApplication : Application() {
                 } catch (_: java.io.IOException) {
                     Log.w("HelixAccount", "Account restoration unavailable; built-in models remain locked")
                 }
-                DefaultAppContainer(this)
+                startupPhase("container") { DefaultAppContainer(this) }
             },
             onReady = {
                 val restoring =
@@ -192,10 +206,18 @@ class HelixApplication : Application() {
                     .cancelForDatabaseReset(this)
             },
             preflight = {
-                awaitPortableProfile()
-                com.helix.app.maintenance
-                    .previewStateGate(this)
-                    .inspect()
+                startupPhase("preflight") {
+                    awaitPortableProfile()
+                    startupNoticeStore =
+                        FirstLaunchStore(
+                            com.helix.app.internal
+                                .PrefsLineStore(this, "helix-ui", synchronous = true),
+                        )
+                    refreshStartupOnboarding()
+                    com.helix.app.maintenance
+                        .previewStateGate(this)
+                        .inspect()
+                }
             },
         )
     }

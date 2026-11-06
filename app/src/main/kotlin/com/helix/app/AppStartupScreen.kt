@@ -77,7 +77,7 @@ internal fun AppStartupScreen(
                         TextButton(onClick = onExit) { Text(stringResource(R.string.preview_start_exit)) }
                     }
 
-                    AppStartupState.Loading, AppStartupState.Ready -> {
+                    AppStartupState.Loading, AppStartupState.Initializing, AppStartupState.Ready -> {
                         CircularProgressIndicator()
                         Text(stringResource(R.string.app_starting))
                     }

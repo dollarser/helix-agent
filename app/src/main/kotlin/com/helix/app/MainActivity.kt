@@ -132,7 +132,9 @@ class MainActivity : ComponentActivity() {
     }
 
     private var browserOwner: BrowserViewOwner? = null
-    private var readyContainer: AppContainer? = null
+    private var readyContainer by mutableStateOf<AppContainer?>(null)
+    private var contentReady by mutableStateOf(false)
+    private var contentInitialization: kotlinx.coroutines.Job? = null
     private var startupFailed by mutableStateOf(false)
     private val pendingIntents = mutableListOf<Intent>()
     private var startupIntent: Intent? = null
@@ -154,7 +156,9 @@ class MainActivity : ComponentActivity() {
                 com.helix.app.backup.ProfileReplacement
                     .pending(app) && app.readyAppContainerOrNull() != null
             }
+        app.refreshStartupOnboarding()
         setContent {
+            val onboarding by app.startupOnboarding.collectAsStateWithLifecycle()
             val startup by app.startupState.collectAsStateWithLifecycle()
             val visible =
                 if (queuedRestore) {
@@ -164,8 +168,13 @@ class MainActivity : ComponentActivity() {
                 } else {
                     startup
                 }
-            AppStartupScreen(
+            StartupExperience(
                 visible,
+                onboarding,
+                contentReady,
+                onNotice = app::acceptStartupNotice,
+                onPermissionsDone = app::finishStartupPermissions,
+                content = { readyContainer?.let { HelixApp(it) } },
                 onConfirmReset = app::confirmPreviewReset,
                 onExit = {
                     finishAndRemoveTask()
@@ -175,10 +184,18 @@ class MainActivity : ComponentActivity() {
                         android.os.Process.killProcess(android.os.Process.myPid())
                     }
                 },
-                onRecheck = app::recheckPreviewState,
+                onRecheck = {
+                    if (startupFailed) {
+                        startupFailed = false
+                        contentInitialization?.cancel()
+                        contentInitialization = lifecycleScope.launch { initializeContent(initialIntent) }
+                    } else {
+                        app.recheckPreviewState()
+                    }
+                },
             )
         }
-        if (!queuedRestore) lifecycleScope.launch { initializeContent(initialIntent) }
+        if (!queuedRestore) contentInitialization = lifecycleScope.launch { initializeContent(initialIntent) }
     }
 
     @Suppress("TooGenericExceptionCaught") // Show startup failure; cancellation must not attach a destroyed Activity.
@@ -187,11 +204,12 @@ class MainActivity : ComponentActivity() {
             val app = application as HelixApplication
             app.startupState.first { it == AppStartupState.Ready }
             val container = app.awaitAppContainer()
-            container.browser.sessionReady.await()
+            startupPhase("browser-ready") { container.browser.sessionReady.await() }
             val owner = BrowserViewOwner(this)
             browserOwner = owner
             readyContainer = container
             container.browser.attach(owner)
+            app.startupOnboarding.first { it == StartupOnboarding.COMPLETE }
             acceptLaunchIntent(container, initialIntent, restore = true)
             pendingIntents.forEach {
                 consumedReminderId = null
@@ -203,7 +221,7 @@ class MainActivity : ComponentActivity() {
                 container.browser.resume(owner)
                 container.providerService.refresh()
             }
-            setContent { HelixApp(container) }
+            contentReady = true
         } catch (cancel: CancellationException) {
             throw cancel
         } catch (failure: Exception) {
@@ -284,7 +302,7 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         val container = readyContainer
-        if (container == null) {
+        if (container == null || !contentReady) {
             pendingIntents += intent
         } else {
             consumedReminderId = null
@@ -330,19 +348,6 @@ private fun drawerDirection(direction: androidx.compose.ui.unit.LayoutDirection)
 @Suppress("FunctionName", "LongMethod")
 @Composable
 internal fun HelixApp(container: AppContainer) {
-    var noticeDismissed by remember { mutableStateOf(container.firstLaunch.noticeSeen) }
-    if (!noticeDismissed) {
-        HelixTheme {
-            FirstLaunchNoticeScreen(
-                onContinue = {
-                    container.firstLaunch.markSeen()
-                    noticeDismissed = true
-                },
-            )
-        }
-        return
-    }
-
     val repository = container.shellRepository
     val navController = rememberNavController()
     val mobileUseDialog =

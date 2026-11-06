@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="startup_permissions_title">后台运行与预览</string>
+    <string name="startup_permissions_help">均可跳过，稍后可在设置 → 系统权限中修改。Android 仍可能停止后台任务。</string>
+    <string name="startup_permissions_continue">继续</string>
+    <string name="permissions_battery">电池优化</string>
+    <string name="permissions_battery_help">在系统设置中为 Helix 关闭电池优化，减少任务和提醒延迟。</string>
+    <string name="permissions_battery_exempt">未优化</string>
+    <string name="permissions_battery_optimized">正在优化</string>
+    <string name="permissions_group_background">后台运行</string>
+</resources>

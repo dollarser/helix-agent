@@ -10,6 +10,9 @@ import kotlinx.coroutines.flow.asStateFlow
 internal sealed interface AppStartupState {
     data object Loading : AppStartupState
 
+    /** Compatibility checks passed; consumers may now initialize. */
+    data object Initializing : AppStartupState
+
     data class ResetRequired(
         val request: PreviewResetRequest,
         val failed: Boolean = false,
@@ -54,7 +57,11 @@ internal class AppInitialization<T : Any>(
 
     fun recheck() =
         synchronized(lock) {
-            if (mutableState.value in setOf(AppStartupState.Ready, AppStartupState.Loading)) return@synchronized
+            if (mutableState.value in
+                setOf(AppStartupState.Ready, AppStartupState.Loading, AppStartupState.Initializing)
+            ) {
+                return@synchronized
+            }
             mutableState.value = AppStartupState.Loading
             attempt = start()
         }
@@ -65,6 +72,7 @@ internal class AppInitialization<T : Any>(
             try {
                 reset?.confirm(beforeReset)
                 preflight()?.let { throw it }
+                mutableState.value = AppStartupState.Initializing
                 factory().also {
                     onReady(it)
                     ready = it

@@ -62,6 +62,10 @@ fun AndroidComposeTestRule<*, *>.dismissFirstLaunchIfNeeded() {
         onNodeWithTag("first-launch-continue").performScrollTo().performClick()
         waitForIdle()
     }
+    if (onAllNodesWithTag("startup-permissions-continue").fetchSemanticsNodes().isNotEmpty()) {
+        onNodeWithTag("startup-permissions-continue").performClick()
+        waitForIdle()
+    }
 }
 
 /**

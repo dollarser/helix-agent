@@ -66,11 +66,11 @@
     <string name="disclosure_attachment">Attachment: %1$s (%2$s · %3$s)</string>
     <string name="common_list_separator">, </string>
     <string name="notice_title">First-launch notice</string>
-    <string name="notice_continue">I understand, start using</string>
+    <string name="notice_continue">I understand, continue</string>
     <string name="notice_section_1">Helix runs tasks on this device and stores sessions and settings locally, without cloud sync. Models may process requests through services you configure.</string>
     <string name="notice_section_2">The conversation shows the selected model service, destination and data residence. Tools may also contact external services you enable.</string>
     <string name="notice_section_3">Configure credentials in dedicated settings or Runtime sign-in screens. Avoid putting keys, passwords or tokens in conversations. Recognizable credential content is checked before sending.</string>
-    <string name="notice_section_4">Standard is the default. You choose capabilities and file scopes; actions requiring approval show their details for your review. Switching modes does not grant permission.</string>
+    <string name="notice_section_4">Capabilities depend on the installed build. You choose file scopes and grant access; actions requiring approval show their details for your review. Reading this notice grants no access.</string>
     <string name="nav_sessions">Sessions</string>
     <string name="nav_tasks">All tasks</string>
     <string name="nav_files">File manager</string>

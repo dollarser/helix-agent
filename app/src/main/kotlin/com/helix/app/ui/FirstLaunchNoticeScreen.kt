@@ -19,12 +19,14 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
+import com.helix.app.startupPhase
 import com.helix.app.ui.indicatedVerticalScroll
 
 /** First-launch information. Acknowledgement is persisted without granting any capability. */
 @Composable
 @Suppress("FunctionName")
 fun FirstLaunchNoticeScreen(onContinue: () -> Unit) {
+    androidx.compose.runtime.LaunchedEffect(Unit) { startupPhase("notice-visible") {} }
     Column(
         modifier =
             Modifier

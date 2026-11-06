@@ -6,6 +6,7 @@ import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.helix.app.ui.dismissFirstLaunchIfNeeded
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -26,6 +27,7 @@ class MainActivityTest {
             composeRule.onNodeWithTag("first-launch-continue").performClick()
             composeRule.waitForIdle()
         }
+        composeRule.dismissFirstLaunchIfNeeded()
         composeRule.onNodeWithTag("screen-sessions").assertIsDisplayed()
         composeRule.onNodeWithTag("open-navigation").performClick()
 

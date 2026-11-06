@@ -64,11 +64,11 @@
     <string name="common_list_separator">、</string>
     <string name="common_back">返回</string>
     <string name="notice_title">首次使用须知</string>
-    <string name="notice_continue">我已知晓，开始使用</string>
+    <string name="notice_continue">我已知晓，继续</string>
     <string name="notice_section_1">Helix 在本机执行任务，会话与设置保存在本机，不提供云同步。模型可通过你配置的服务处理请求。</string>
     <string name="notice_section_2">会话中会显示所选模型服务、发送目的地和数据驻留位置。工具调用也可能访问你启用的外部服务。</string>
     <string name="notice_section_3">请在专用设置或 Runtime 登录页面配置凭据，避免将密钥、密码或令牌写入对话。发送前会检查可识别的凭据内容。</string>
-    <string name="notice_section_4">默认使用 Standard。你决定开放哪些能力和文件范围；需要审批的操作会显示具体内容供你确认。切换模式不会自动授权。</string>
+    <string name="notice_section_4">可用能力由安装的构建决定。你选择文件范围并授予权限；需要审批的操作会显示具体内容供你确认。确认本说明不会授予任何权限。</string>
     <string name="nav_sessions">会话</string>
     <string name="nav_tasks">全部任务</string>
     <string name="nav_files">文件管理器</string>

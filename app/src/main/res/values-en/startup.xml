@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="startup_permissions_title">Background and preview</string>
+    <string name="startup_permissions_help">Optional. You can change these later in Settings → System permissions. Android may still stop background work.</string>
+    <string name="startup_permissions_continue">Continue</string>
+    <string name="permissions_battery">Battery optimization</string>
+    <string name="permissions_battery_help">Allow Helix to run without battery optimization to reduce delayed tasks and reminders. Select Helix in system settings.</string>
+    <string name="permissions_battery_exempt">Not optimized</string>
+    <string name="permissions_battery_optimized">Optimized</string>
+    <string name="permissions_group_background">Background work</string>
+</resources>

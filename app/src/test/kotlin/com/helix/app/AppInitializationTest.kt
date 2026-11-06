@@ -12,6 +12,42 @@ import org.junit.Test
 import java.util.concurrent.atomic.AtomicInteger
 
 class AppInitializationTest {
+    @Test fun compatibilityCheckBlocksFactoryAndRecoveryUntilItPasses() {
+        val entered = java.util.concurrent.CountDownLatch(1)
+        val release = java.util.concurrent.CountDownLatch(1)
+        val calls = AtomicInteger()
+        val initialization =
+            AppInitialization(
+                factory = { calls.incrementAndGet() },
+                preflight = {
+                    entered.countDown()
+                    check(release.await(5, java.util.concurrent.TimeUnit.SECONDS))
+                    null
+                },
+            )
+        try {
+            assertTrue(entered.await(5, java.util.concurrent.TimeUnit.SECONDS))
+            assertEquals(AppStartupState.Loading, initialization.state.value)
+            assertEquals(0, calls.get())
+        } finally {
+            release.countDown()
+        }
+        initialization.await()
+        assertEquals(1, calls.get())
+    }
+
+    @Test fun incompatiblePreflightNeverOpensOldDataOrRunsRecovery() {
+        val request = resetRequest { error("No consent") }
+        val initialization =
+            AppInitialization<Any>(
+                factory = { error("Old database must not open") },
+                onReady = { error("Recovery must not start") },
+                preflight = { request },
+            )
+        assertSame(request, runCatching { initialization.await() }.exceptionOrNull())
+        assertTrue(initialization.state.value is AppStartupState.ResetRequired)
+    }
+
     private fun resetRequest(reset: (() -> Unit) -> Unit) =
         PreviewResetRequest(
             listOf(
