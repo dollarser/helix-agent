@@ -33,7 +33,9 @@ def classify(paths):
         if (name.startswith(('docs/', 'scripts/debug/'))
                 or (name.startswith('scripts/tests/') and path.suffix == '.py')) or name in {
                 'README.md', 'README.en.md', 'AGENTS.md', 'LICENSE', 'CONTRIBUTING.md',
-                'SECURITY.md', 'THIRD_PARTY_NOTICES.md', 'scripts/README.md'} or re.fullmatch(
+                'SECURITY.md', 'THIRD_PARTY_NOTICES.md', 'scripts/README.md',
+                '.githooks/pre-commit', '.githooks/pre-push', 'scripts/check-staged.py',
+                'scripts/check-push.py', 'scripts/install-hooks.py'} or re.fullmatch(
                 r'\.agents/skills/[a-z0-9-]+/SKILL\.md', name):
             continue
         return 'debug'

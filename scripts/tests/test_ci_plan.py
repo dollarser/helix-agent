@@ -13,12 +13,14 @@ spec.loader.exec_module(ci)
 class CiPlanTest(unittest.TestCase):
     def test_only_known_source_changes_skip_android(self):
         for name in ['docs/a.md', 'README.md', 'README.en.md', 'scripts/README.md',
-                     'scripts/tests/test_ci_plan.py', '.agents/skills/example/SKILL.md']:
+                     'scripts/tests/test_ci_plan.py', '.agents/skills/example/SKILL.md',
+                     '.githooks/pre-commit', '.githooks/pre-push', 'scripts/check-staged.py',
+                     'scripts/check-push.py', 'scripts/install-hooks.py']:
             self.assertEqual('source', ci.classify([name]), name)
             self.assertEqual('debug', ci.classify([name, 'app/src/main/Main.kt']))
         for name in ['app/build.gradle.kts', 'app/src/release/Main.kt', 'new.file',
                      'app/src/main/AndroidManifest.xml', 'runtime/native.cpp',
-                     '.github/workflows/ci.yml', 'scripts/check-all.sh',
+                     '.github/workflows/ci.yml', 'scripts/check-all.sh', 'scripts/ci/plan.py',
                      '.agents/skills/example/agents/openai.yaml', 'scripts/tests/fixture/build.gradle.kts']:
             self.assertEqual('debug', ci.classify([name]), name)
         self.assertEqual('debug', ci.classify([]))

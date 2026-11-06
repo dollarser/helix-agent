@@ -48,6 +48,17 @@ class StagedGateTest(unittest.TestCase):
         (self.repo / "config.txt").write_text(TOKEN)
         self.assertEqual(0, self.run_gate().returncode)
 
+    def test_unstaged_attributes_cannot_hide_staged_whitespace(self):
+        self.stage('code.txt', b'bad staged whitespace  \n')
+        (self.repo / '.gitattributes').write_text('* -whitespace\n')
+        self.assert_blocked_without_secret(self.run_gate())
+
+    def test_staged_attributes_are_used_even_with_different_worktree_rules(self):
+        self.stage('.gitattributes', b'vendor.txt whitespace=-blank-at-eol,-blank-at-eof\n')
+        self.stage('vendor.txt', b'upstream  \n\n')
+        (self.repo / '.gitattributes').write_text('* whitespace=blank-at-eol\n')
+        self.assertEqual(0, self.run_gate().returncode)
+
     def test_binary_and_unusual_filename(self):
         self.stage("binary name\nwith newline.bin", b"\x00data\x00" + TOKEN.encode() + b"\x00")
         self.assert_blocked_without_secret(self.run_gate())

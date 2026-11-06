@@ -57,7 +57,9 @@ def main():
         if scan_code != 1:
             raise RuntimeError("blob reader or secret scanner failed; refusing to pass")
         count += 1
-    whitespace = subprocess.run(["git", "diff", "--cached", "--check", "--no-ext-diff", "--no-textconv"],
+    # Attribute rules must come from the index too, not an unstaged .gitattributes.
+    tree = git("write-tree").decode().strip()
+    whitespace = subprocess.run(["git", "--attr-source=" + tree, "diff", "--cached", "--check", "--no-ext-diff", "--no-textconv"],
                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     if whitespace.returncode:
         raise RuntimeError("staged whitespace/conflict-marker check failed; inspect the staged diff locally")

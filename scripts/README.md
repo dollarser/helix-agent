@@ -18,6 +18,20 @@
 
 Release 构建验证不等于签名发行、R8 行为验证、完整 SBOM/许可证验收或商店审核。CI 保留独立的提交区间 whitespace 检查。
 
+## 本地提交与推送钩子
+
+运行 `python3 scripts/install-hooks.py` 只查看状态；确认使用项目钩子后运行 `python3 scripts/install-hooks.py --install`。安装只设置本仓库的 `core.hooksPath`，不修改全局配置；已有其他钩子或其他 hooksPath 会拒绝覆盖。多个 worktree 共用仓库配置时默认拒绝修改；若维护者已启用 `extensions.worktreeConfig`，可用 `--install --worktree` 仅安装到当前工作区，不会自动修改共享扩展配置。未安装时钩子文件不会自行生效。一次操作可用 `git -c core.hooksPath=.githooks commit ...` / `push ...`，无需保存配置。
+
+| 阶段 | 检查与依赖 |
+| --- | --- |
+| pre-commit | 保留 `check-staged.py`：暂存 blob 的秘密扫描、冲突和空白检查；不联网、不运行 Gradle。属性也取自暂存树，未暂存的 `.gitattributes` 不影响结论；Git 须支持 [`--attr-source`](https://git-scm.com/docs/git)。耗时由钩子输出，通常目标 3 秒内 |
+| pre-push | `check-push.py` 读取 Git 提供的全部 ref/OID，删除不声称源码通过，标签解析到提交；在独立临时 Git clone 中检查真正推送的提交，不 stash/reset 用户文件，不依赖工作区是否干净。运行范围空白检查及现有 `check-all.sh --source`，不执行 Gradle、锁重写、设备或真实账号测试 |
+| CI / 显式完整门禁 | 保留源码、锁、构建、Lint、JVM 测试、Debug/Release/R8、制品及运行时资源的相应兜底；设备验证仍需另行授权。仅已知本地 hook 文件变化可走 source，CI planner、工作流和构建门禁修改仍要求 Debug CI |
+
+pre-push 使用现有 CI planner 查找 main 上最近完整通过 `source/runtime-assets/android/verify` 的祖先；不是简单使用远端 tip 或 `HEAD^`。自动查询需要已授权的 `gh`。离线、权限不足、历史不足或没有已验证祖先会阻断，可在人工核实后用 `CI_BASE=<祖先 SHA> git ... push` 显式指定；不静默缩短范围。新分支与非快进更新也按每个实际推送提交验证。
+
+每次推送都重新检查范围，并验证秘密扫描器可用；成功的 source 结果只按精确提交与 Git/Python/rg/检查器指纹缓存于忽略目录 `build/hooks/`，失败和取消不缓存，修改提交或工具后重新运行。日志和耗时也在该目录，重复同一提交无需重复全套 source。未暂存/部分暂存内容、未跟踪文件和用户原有索引不会被隔离检查修改。缓存不是远端 CI 证据。钩子可被 `--no-verify` 绕过，所以不删除远端必要检查，也不把本地钩子成功等同于可发布。
+
 代码导航复用已安装的 CodeGraph、限定范围的 `rg`、Git diff 和宿主读取工具，见[开发上下文导航](../docs/development/context-navigation.md)；不维护第二套导航脚本，也不把 CodeGraph 设为源码门禁的必装依赖。
 
 ## Stable validation runners
