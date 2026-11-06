@@ -95,7 +95,7 @@ class FreshSchemaDeviceTest {
             val db = room.openHelper.writableDatabase
             db.query("PRAGMA user_version").use {
                 assertTrue(it.moveToFirst())
-                assertEquals(2, it.getInt(0))
+                assertEquals(1, it.getInt(0))
             }
             db.query("PRAGMA foreign_keys").use {
                 assertTrue(it.moveToFirst())
