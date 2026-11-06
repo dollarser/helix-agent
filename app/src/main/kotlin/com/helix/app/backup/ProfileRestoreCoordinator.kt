@@ -183,7 +183,11 @@ internal class ProfileRestoreCoordinator(
         }
 
     private fun cleanupCompleted() {
+        // Completion marker and pending deletion are separate durable writes. A crash between
+        // them must not delete the stage still needed by recovery or rollback.
+        val active = if (pointer.exists()) directory(readPointer()).name else null
         home.listFiles().orEmpty().filter { it.name.matches(Regex("cleanup-stage-[a-f0-9-]{36}")) }.forEach { marker ->
+            if (marker.name.removePrefix("cleanup-") == active) return@forEach
             try {
                 safeDeleteBackupTree(File(home, marker.name.removePrefix("cleanup-")))
                 if (!marker.delete()) throw java.io.IOException("RESTORE_CLEANUP_DEFERRED")

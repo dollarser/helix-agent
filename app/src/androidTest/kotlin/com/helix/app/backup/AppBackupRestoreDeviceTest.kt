@@ -92,6 +92,7 @@ class AppBackupRestoreDeviceTest {
             withContext(Dispatchers.IO) {
                 val base = InstrumentationRegistry.getInstrumentation().targetContext
                 require(base.packageName.endsWith(".asrvalidation")) { "Isolated validation package required" }
+                (base.applicationContext as com.helix.app.HelixApplication).appContainer
                 val root = File(base.cacheDir, "profile-fixture-${UUID.randomUUID()}").apply { check(mkdirs()) }
                 val sourceContext = FixtureContext(base, File(root, "source"))
                 val targetContext = FixtureContext(base, File(root, "target"))
@@ -275,6 +276,155 @@ class AppBackupRestoreDeviceTest {
             }
         }
 
+    @Test fun interruptedReplacementRollsBackBeforeAnyConsumerOpens() =
+        recoveryFixture { fixture ->
+            val transaction =
+                fixture.transaction { phase, _ ->
+                    if (phase == "after-original") throw SimulatedProcessDeath()
+                }
+            transaction.queue(mapOf("files/native-hosts.txt" to fixture.replacement))
+            fixture.pointer("APPLYING")
+            org.junit.Assert.assertThrows(SimulatedProcessDeath::class.java) { transaction.recover() }
+            var consumers = 0
+            val initialization =
+                com.helix.app.AppInitialization(
+                    factory = {
+                        consumers++
+                        Any()
+                    },
+                    preflight = {
+                        fixture.coordinator.recoverBeforeConsumers()
+                        null
+                    },
+                    failureState = { com.helix.app.AppStartupState.RestoreFailed },
+                )
+            val failure = runCatching { initialization.await() }.exceptionOrNull()
+            assertEquals("RESTORE_INTERRUPTED_ROLLED_BACK", failure?.message)
+            assertEquals(0, consumers)
+            assertEquals(com.helix.app.AppStartupState.RestoreFailed, initialization.state.value)
+            fixture.assertOriginalRestored()
+        }
+
+    @Test fun failedConsumerRetainsRollbackRootsUntilTheNextRecovery() =
+        recoveryFixture { fixture ->
+            fixture.transaction().queue(mapOf("files/native-hosts.txt" to fixture.replacement))
+            fixture.pointer("QUEUED")
+            fixture.coordinator.recoverBeforeConsumers()
+            assertEquals("replacement", fixture.original.readText())
+            val initialization =
+                com.helix.app.AppInitialization<Any>(
+                    factory = { throw java.io.IOException("Synthetic consumer failure") },
+                    preflight = {
+                        fixture.coordinator.recoverBeforeConsumers()
+                        null
+                    },
+                    onReady = { fixture.coordinator.completeAfterConsumers() },
+                    onFailure = { fixture.coordinator.markConsumerFailure() },
+                    failureState = { com.helix.app.AppStartupState.RestoreFailed },
+                )
+            assertTrue(runCatching { initialization.await() }.isFailure)
+            assertEquals(com.helix.app.AppStartupState.RestoreFailed, initialization.state.value)
+            assertTrue(ProfileReplacement.pending(fixture.context))
+            assertTrue(File(fixture.stage, "old-0").exists())
+            val restarted = ProfileRestoreCoordinator(fixture.context) { FixtureDocuments() }
+            val failure =
+                org.junit.Assert.assertThrows(
+                    IllegalStateException::class.java,
+                ) { restarted.recoverBeforeConsumers() }
+            assertEquals("RESTORE_FAILED_ROLLED_BACK", failure.message)
+            fixture.assertOriginalRestored()
+        }
+
+    @Test fun incompatibleRestoredDatabaseKeepsRecoveryMaterialAndBlocksConsumers() =
+        recoveryFixture { fixture ->
+            fixture.replacement.delete()
+            val database = File(fixture.stage, "database.db")
+            android.database.sqlite.SQLiteDatabase.openOrCreateDatabase(database, null).use {
+                it.execSQL("CREATE TABLE synthetic_old_data (value TEXT)")
+                it.version = 9
+            }
+            fixture.transaction().queue(mapOf("databases/helix.db" to database))
+            fixture.pointer("QUEUED")
+            var consumers = 0
+            val gate =
+                com.helix.app.maintenance.PreviewPrivateStateGate(
+                    fixture.context.filesDir,
+                    databaseReset = {
+                        try {
+                            HelixStorage.requireCurrentPreview(fixture.context)
+                            null
+                        } catch (required: com.helix.core.storage.PreviewDatabaseResetRequired) {
+                            required
+                        }
+                    },
+                    readMobile = { emptyList() },
+                    validateMobile = { true },
+                    clearMobile = { error("No mobile reset") },
+                    rebootProvesStopped = { true },
+                )
+            val initialization =
+                com.helix.app.AppInitialization(
+                    factory = {
+                        consumers++
+                        Any()
+                    },
+                    preflight = {
+                        fixture.coordinator.recoverBeforeConsumers()
+                        gate.inspect()
+                    },
+                    onReady = { fixture.coordinator.completeAfterConsumers() },
+                )
+            assertTrue(runCatching { initialization.await() }.isFailure)
+            assertTrue(initialization.state.value is com.helix.app.AppStartupState.ResetRequired)
+            assertEquals(0, consumers)
+            assertTrue(ProfileReplacement.pending(fixture.context))
+            assertEquals("COMMITTED", fixture.transaction().phase())
+            assertTrue(fixture.stage.exists())
+            // Exiting without confirming leaves both the restored database and recovery pointer intact.
+            assertTrue(fixture.context.getDatabasePath("helix.db").exists())
+        }
+
+    @Test fun completionMarkerNeverDeletesAnActiveRecoveryStage() =
+        recoveryFixture { fixture ->
+            fixture.transaction().queue(mapOf("files/native-hosts.txt" to fixture.replacement))
+            fixture.pointer("QUEUED")
+            fixture.coordinator.recoverBeforeConsumers()
+            // Exact durable state if the process exits between completion marker and pointer deletion.
+            val marker = File(fixture.context.noBackupFilesDir, "profile-restore/cleanup-${fixture.stage.name}")
+            marker.writeBytes(byteArrayOf())
+            val restarted = ProfileRestoreCoordinator(fixture.context) { FixtureDocuments() }
+            restarted.recoverBeforeConsumers()
+            assertTrue(fixture.stage.isDirectory)
+            assertTrue(File(fixture.stage, "old-0").isFile)
+            assertTrue(ProfileReplacement.pending(fixture.context))
+            assertEquals("replacement", fixture.original.readText())
+            restarted.completeAfterConsumers()
+            assertFalse(ProfileReplacement.pending(fixture.context))
+            assertFalse(fixture.stage.exists())
+            assertFalse(marker.exists())
+            assertEquals("replacement", fixture.original.readText())
+        }
+
+    private fun recoveryFixture(block: (RecoveryFixture) -> Unit) {
+        val base = InstrumentationRegistry.getInstrumentation().targetContext
+        require(base.packageName.endsWith(".asrvalidation"))
+        (base.applicationContext as com.helix.app.HelixApplication).appContainer
+        val root = File(base.cacheDir, "recovery-boundary-${UUID.randomUUID()}").apply { check(mkdirs()) }
+        val context = FixtureContext(base, root)
+        val oldConsumer = ProfileReplacement.consumersStarted
+        val oldAttempt = ProfileReplacement.restoreAttempted
+        try {
+            ProfileReplacement.consumersStarted = false
+            ProfileReplacement.restoreAttempted = false
+            block(RecoveryFixture(context))
+        } finally {
+            ProfileReplacement.consumersStarted = oldConsumer
+            ProfileReplacement.restoreAttempted = oldAttempt
+            context.cleanPreferences()
+            safeDeleteBackupTree(root)
+        }
+    }
+
     private suspend fun addUnavailableRule(context: Context) {
         val store =
             com.helix.core.storage.scheduled
@@ -391,6 +541,59 @@ class AppBackupRestoreDeviceTest {
         val file = File(context.filesDir, "workspaces/app/${artifact.relativePath.removePrefix("scope:app:")}")
         assertEquals("SYNTHETIC_ATTACHMENT", file.readText())
         assertEquals(artifact.sha256, DocumentStorage.hash(file.readBytes()))
+    }
+}
+
+private class SimulatedProcessDeath : Error()
+
+/** Sealed synthetic journal, not an archive parser substitute or the daily profile. */
+private class RecoveryFixture(
+    val context: FixtureContext,
+) {
+    val coordinator = ProfileRestoreCoordinator(context) { FixtureDocuments() }
+    val stage = coordinator.stageDirectory()
+    val original = File(context.filesDir, "native-hosts.txt").apply { writeText("original") }
+    val replacement = File(stage, "new.txt").apply { writeText("replacement") }
+
+    init {
+        context
+            .getSharedPreferences(
+                "com.helix.app.language",
+                Context.MODE_PRIVATE,
+            ).edit()
+            .putString("choice", "en")
+            .commit()
+        File(stage, "previous-preferences.json").writeText(PortablePreferences.capture(context).toString())
+        File(stage, "restore-state.json").writeText(
+            """
+            {"files":[],"libraryIncluded":false,"preferences":{
+              "com.helix.app.language":{"choice":{"type":"string","value":"zh-CN"}}}}
+            """.trimIndent(),
+        )
+        File(stage, "archive-index.json").writeText("{}")
+    }
+
+    fun pointer(phase: String) {
+        File(context.noBackupFilesDir, "profile-restore/pending.json").writeText(
+            """{"directory":"${stage.name}","phase":"$phase"}""",
+        )
+    }
+
+    fun transaction(checkpoint: (String, Int) -> Unit = { _, _ -> }) =
+        com.helix.core.storage.backup.RestoreFileTransaction(
+            requireNotNull(context.filesDir.parentFile),
+            stage,
+            { it in setOf("files/native-hosts.txt", "databases/helix.db") },
+            checkpoint,
+        )
+
+    fun assertOriginalRestored() {
+        assertEquals("original", original.readText())
+        assertFalse(ProfileReplacement.pending(context))
+        assertEquals(
+            "en",
+            context.getSharedPreferences("com.helix.app.language", Context.MODE_PRIVATE).getString("choice", null),
+        )
     }
 }
 
