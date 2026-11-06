@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -74,6 +75,7 @@ class UnifiedSessionSettingsDeviceTest {
             assertEquals(default, c.sessionPermissionEdit.appDefault())
             compose.onNodeWithTag("settings-perm-mode-APPROVAL_REQUIRED").assertDoesNotExist()
             compose.onNodeWithTag("session-settings-mode").performScrollTo()
+            assertOwnedDirectoryLabel(id)
             screenshot("settings-summary")
         } catch (failure: Throwable) {
             throw failureWithState(id, failure)
@@ -114,6 +116,24 @@ class UnifiedSessionSettingsDeviceTest {
                     ?.let { projects.delete(it) }
             }
         }
+
+    private fun assertOwnedDirectoryLabel(id: String) {
+        val c = compose.container()
+        val directory = requireNotNull(c.chatService.screen.value.directoryRef)
+        val scope =
+            com.helix.core.workspace.FileScopePath
+                .fromModelReference(directory)
+                .scopeId
+        val workspace = c.storage.workspaces.find(scope)
+        val source = c.fileManager.sources().singleOrNull { it.scopeId == scope }
+        assertEquals(id, workspace?.ownerSessionId)
+        assertEquals(id, source?.ownerSessionId)
+        val label = compose.activity.getString(com.helix.app.R.string.workspace_session_directory)
+        compose.waitUntil(10_000) {
+            compose.onAllNodesWithText(label).fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText(scope).assertDoesNotExist()
+    }
 
     private fun assertSecondaryDetailsCollapsed() {
         listOf(
@@ -158,6 +178,9 @@ class UnifiedSessionSettingsDeviceTest {
 
     private fun screenshot(name: String) {
         compose.waitForIdle()
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        instrumentation.waitForIdleSync()
+        instrumentation.uiAutomation.waitForIdle(350, 5_000)
         val file = File(compose.activity.filesDir, "unified-settings/$name.png")
         file.parentFile?.mkdirs()
         val image = requireNotNull(InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot())

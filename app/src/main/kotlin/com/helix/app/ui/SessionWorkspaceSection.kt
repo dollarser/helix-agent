@@ -62,15 +62,18 @@ internal fun SessionWorkspaceSection(
     var menu by remember(reference) { mutableStateOf(false) }
     var details by remember(reference) { mutableStateOf(false) }
     val path = reference?.let { runCatching { FileScopePath.fromModelReference(it) }.getOrNull() }
-    val label = workingDirectoryLabel(reference, source, path, sessionId, projectDirectory, projectName)
-    val location = path?.relativePath?.takeIf { it.isNotEmpty() }?.let { "$label / $it" } ?: label
+    val label = workingDirectoryLabel(reference, source, sessionId, projectDirectory, projectName)
+    val location =
+        path?.relativePath?.takeIf { it.isNotEmpty() }?.let {
+            if (label == null) it else "$label / $it"
+        } ?: label.orEmpty()
     Column {
         SettingsEntryRow(
             stringResource(R.string.chat_directory),
             R.drawable.ic_files_folder,
             { menu = true },
             Modifier.testTag("session-settings-directory"),
-            location,
+            location.takeIf { it.isNotBlank() },
             true,
             subtitleMaxLines = 2,
         )
@@ -211,11 +214,10 @@ internal fun WorkspaceAccessText(
 private fun workingDirectoryLabel(
     reference: String?,
     source: FileSource?,
-    path: FileScopePath?,
     sessionId: String?,
     projectDirectory: String?,
     projectName: String?,
-): String =
+): String? =
     when {
         reference == projectDirectory && projectName != null -> {
             stringResource(R.string.workspace_project_directory_label, projectName)
@@ -226,7 +228,6 @@ private fun workingDirectoryLabel(
         }
 
         else -> {
-            source?.displayName?.takeIf { it.isNotBlank() } ?: path?.scopeId
-                ?: stringResource(R.string.workspace_session_directory)
+            source?.displayName?.takeIf { it.isNotBlank() && it != source.scopeId }
         }
     }

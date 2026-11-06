@@ -95,6 +95,24 @@ class SessionDirectorySelectionDeviceTest {
             compose.waitUntil(10_000) { chosen }
         }
 
+    @Test fun unresolvedDirectoryNeverUsesItsInternalScopeIdAsTheLabel() =
+        fixture { files ->
+            val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+            compose.setContent {
+                MaterialTheme {
+                    SessionWorkspaceSection(files, "scope:unlisted:", true, sessionId = "owner") {}
+                }
+            }
+            compose.waitUntil(10_000) {
+                compose
+                    .onAllNodesWithText(context.getString(com.helix.app.R.string.workspace_unavailable))
+                    .fetchSemanticsNodes()
+                    .isNotEmpty()
+            }
+            compose.onNodeWithText("unlisted").assertDoesNotExist()
+            compose.onNodeWithTag("session-settings-directory").assertIsDisplayed()
+        }
+
     @Test fun projectDirectoryLabelWinsWhenTheProjectReusesASessionOwnedFolder() =
         fixture { files ->
             val context = ApplicationProvider.getApplicationContext<android.content.Context>()
@@ -116,8 +134,7 @@ class SessionDirectorySelectionDeviceTest {
             compose.waitUntil(10_000) {
                 compose.onAllNodesWithTag("directory-access-capability").fetchSemanticsNodes().isNotEmpty()
             }
-            androidx.test.espresso.Espresso
-                .pressBack()
+            compose.onNodeWithText(context.getString(com.helix.app.R.string.chat_details_close)).performClick()
             compose
                 .onNodeWithText(
                     context.getString(
