@@ -70,26 +70,8 @@ internal class AppInitialization<T : Any>(
     private fun start(reset: PreviewResetRequest? = null): BackgroundInitialization<T> =
         BackgroundInitialization("helix-container-init") {
             try {
-                reset?.confirm(beforeReset)
-                preflight()?.let { throw it }
-                mutableState.value = AppStartupState.Initializing
-                factory().also {
-                    onReady(it)
-                    ready = it
-                    mutableState.value = AppStartupState.Ready
-                }
+                initialize(reset)
             } catch (required: PreviewResetRequest) {
-                mutableState.value = AppStartupState.ResetRequired(required)
-                throw required
-            } catch (database: PreviewDatabaseResetRequired) {
-                // A database can change after the preflight; preserve the foreground review boundary.
-                val databaseStep =
-                    PreviewResetStep(
-                        PreviewResetSection.DATABASE,
-                        database::verifyUnchanged,
-                        { database.confirm() },
-                    )
-                val required = preflight() ?: PreviewResetRequest(listOf(databaseStep))
                 mutableState.value = AppStartupState.ResetRequired(required)
                 throw required
             } catch (failure: Exception) {
@@ -104,5 +86,26 @@ internal class AppInitialization<T : Any>(
                 }
                 throw failure
             }
+        }
+
+    private fun initialize(reset: PreviewResetRequest?): T =
+        try {
+            reset?.confirm(beforeReset)
+            preflight()?.let { throw it }
+            mutableState.value = AppStartupState.Initializing
+            factory().also {
+                onReady(it)
+                ready = it
+                mutableState.value = AppStartupState.Ready
+            }
+        } catch (database: PreviewDatabaseResetRequired) {
+            // Reinspection may fail too; the enclosing startup handler must publish that failure.
+            val databaseStep =
+                PreviewResetStep(
+                    PreviewResetSection.DATABASE,
+                    database::verifyUnchanged,
+                    { database.confirm() },
+                )
+            throw (preflight() ?: PreviewResetRequest(listOf(databaseStep)))
         }
 }

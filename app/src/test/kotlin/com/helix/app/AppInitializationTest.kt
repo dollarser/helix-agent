@@ -3,6 +3,7 @@ package com.helix.app
 import com.helix.app.maintenance.PreviewResetRequest
 import com.helix.app.maintenance.PreviewResetSection
 import com.helix.app.maintenance.PreviewResetStep
+import com.helix.core.storage.PreviewDatabaseResetRequired
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -46,6 +47,23 @@ class AppInitializationTest {
             )
         assertSame(request, runCatching { initialization.await() }.exceptionOrNull())
         assertTrue(initialization.state.value is AppStartupState.ResetRequired)
+    }
+
+    @Test fun failedReinspectionAfterDatabaseResetRequestPublishesRestoreFailure() {
+        val calls = AtomicInteger()
+        val failure = java.io.IOException("Synthetic reinspection failure")
+        val failures = mutableListOf<Exception>()
+        val initialization =
+            AppInitialization<Any>(
+                factory = { throw PreviewDatabaseResetRequired(reset = {}) },
+                preflight = { if (calls.incrementAndGet() == 1) null else throw failure },
+                onFailure = { failures += it },
+                failureState = { AppStartupState.RestoreFailed },
+            )
+        assertSame(failure, runCatching { initialization.await() }.exceptionOrNull())
+        assertEquals(AppStartupState.RestoreFailed, initialization.state.value)
+        assertEquals(listOf(failure), failures)
+        assertNull(initialization.readyOrNull())
     }
 
     private fun resetRequest(reset: (() -> Unit) -> Unit) =
