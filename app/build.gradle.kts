@@ -31,7 +31,7 @@ android {
         externalNativeBuild.cmake { abiFilters("arm64-v8a", "x86_64") }
         targetSdk = 36
         versionCode = 1
-        versionName = "0.0.9"
+        versionName = "0.0.10"
         testInstrumentationRunner = "com.helix.app.HelixAndroidJUnitRunner"
     }
 

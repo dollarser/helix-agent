@@ -7,6 +7,20 @@ import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class ExpertLibraryRepositoryTest {
+    @Test fun oldPlainTextPayloadIsRejectedWithoutMutationAndExplicitRemovalUnblocksLibrary() {
+        val dao = MemoryDao()
+        val old = ExpertEntity("old", "Reviewer", "Check facts.")
+        dao.save(old)
+        val repository = ExpertLibraryRepository(dao)
+        assertThrows(Exception::class.java) { repository.list() }
+        assertThrows(Exception::class.java) { repository.find("old") }
+        assertEquals(old, dao.find("old"))
+        repository.save(ExpertDefinition(ExpertProfile("current", "Current", "Keep sources.")))
+        assertThrows(Exception::class.java) { repository.list() }
+        assertEquals(true, repository.remove("old"))
+        assertEquals(listOf("current"), repository.list().map { it.profile.id })
+    }
+
     @Test fun configurationRoundTripRetainsDependenciesWithoutResolvingOrActivatingThem() {
         val definition =
             ExpertDefinition(
