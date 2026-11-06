@@ -4,11 +4,12 @@ package com.helix.extensions.mobileuse.automation
 internal class BackgroundBackendBindings(
     private val root: AutomationPrivilegedBackend?,
     private val shizuku: AutomationPrivilegedBackend?,
+    private val adb: () -> AutomationPrivilegedBackend? = { null },
 ) {
     private val bindings = mutableMapOf<String, AutomationPrivilegedBackend>()
 
     fun available(): AutomationPrivilegedBackend? =
-        listOfNotNull(root, shizuku).firstOrNull { it.state() == AutomationBackendState.READY }
+        listOfNotNull(root, adb(), shizuku).firstOrNull { it.state() == AutomationBackendState.READY }
 
     @Synchronized
     fun forKey(key: String): AutomationPrivilegedBackend? = bindings[key] ?: available()?.also { bindings[key] = it }

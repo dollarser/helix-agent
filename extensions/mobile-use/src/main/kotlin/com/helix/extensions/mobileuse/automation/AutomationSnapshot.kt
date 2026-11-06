@@ -7,6 +7,7 @@ import java.time.Instant
 enum class AutomationSnapshotStatus {
     SUCCESS,
     SERVICE_NOT_CONNECTED,
+    PRIVILEGED_SERVICE_UNAVAILABLE,
     NO_ACTIVE_SESSION,
     TARGET_NOT_ALLOWLISTED,
     TARGET_UNAVAILABLE,

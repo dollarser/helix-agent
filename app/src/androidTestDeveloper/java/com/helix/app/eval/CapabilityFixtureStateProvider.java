@@ -12,10 +12,16 @@ public final class CapabilityFixtureStateProvider extends ContentProvider {
     @Override public boolean onCreate() { return true; }
     @Override public Cursor query(Uri uri, String[] projection, String selection,
             String[] selectionArgs, String sortOrder) {
+        if ("/click".equals(uri.getPath())) {
+            SharedPreferences prefs = getContext().getSharedPreferences("ui-goal-kill-counter", 0);
+            MatrixCursor cursor = new MatrixCursor(new String[] {"clicks"});
+            cursor.addRow(new Object[] {prefs.getInt("clicks", -1)});
+            return cursor;
+        }
         if ("/background".equals(uri.getPath())) {
             SharedPreferences prefs = getContext().getSharedPreferences("background-fixture", 0);
-            MatrixCursor cursor = new MatrixCursor(new String[] {"display", "clicks", "visual"});
-            cursor.addRow(new Object[] {prefs.getInt("display", -1), prefs.getInt("clicks", 0), prefs.getInt("visual", 0)});
+            MatrixCursor cursor = new MatrixCursor(new String[] {"display", "clicks", "visual", "scrollY"});
+            cursor.addRow(new Object[] {prefs.getInt("display", -1), prefs.getInt("clicks", 0), prefs.getInt("visual", 0), prefs.getInt("scrollY", 0)});
             return cursor;
         }
         if ("/touch".equals(uri.getPath())) {
@@ -32,8 +38,8 @@ public final class CapabilityFixtureStateProvider extends ContentProvider {
         }
         if (!"/result".equals(uri.getPath())) throw new IllegalArgumentException("Unknown fixture");
         SharedPreferences prefs = getContext().getSharedPreferences("capability-fixture", 0);
-        MatrixCursor cursor = new MatrixCursor(new String[] {"result", "clicks", "notification"});
-        cursor.addRow(new Object[] {prefs.getString("result", ""), prefs.getInt("clicks", 0), prefs.getInt("notification", -1)});
+        MatrixCursor cursor = new MatrixCursor(new String[] {"result", "clicks", "notification", "scrollY"});
+        cursor.addRow(new Object[] {prefs.getString("result", ""), prefs.getInt("clicks", 0), prefs.getInt("notification", -1), prefs.getInt("scrollY", 0)});
         return cursor;
     }
     @Override public String getType(Uri uri) { return "vnd.android.cursor.item/helix-eval"; }

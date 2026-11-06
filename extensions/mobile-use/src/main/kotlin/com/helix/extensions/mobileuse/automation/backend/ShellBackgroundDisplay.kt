@@ -10,16 +10,17 @@ import android.media.ImageReader
 import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
-import com.helix.extensions.mobileuse.automation.backgroundDisplayFlags
-import java.util.UUID
 
-/** Shell-owned display and pixels. Never mirrors, unlocks, or injects into the main display. */
+/** Shell-owned pixels on a host-owned display. Never mirrors, unlocks, or injects into the main display. */
 @Suppress("TooGenericExceptionCaught") // Cleanup rethrows the original initialization failure.
 @android.annotation.SuppressLint("PrivateApi")
 internal class ShellBackgroundDisplay(
     context: Context,
+    private val owner: android.os.IBinder,
 ) : AutoCloseable {
-    val identity: String = UUID.randomUUID().toString()
+    val identity: String
+    val recovery: RetainedTaskRecovery
+    val retainedTasks: List<RetainedDisplayTask>
     private val thread = HandlerThread("helix-background-frames").apply { start() }
     private val reader = ImageReader.newInstance(WIDTH, HEIGHT, PixelFormat.RGBA_8888, 3)
     private val lock = Any()
@@ -58,15 +59,20 @@ internal class ShellBackgroundDisplay(
                     .getDeclaredConstructor(Context::class.java)
                     .apply { isAccessible = true }
                     .newInstance(shell)
+            val retained = RetainedVirtualDisplay(manager, owner)
+            identity = retained.lease.identity
+            retainedTasks = retained.lease.tasks
+            recovery = RetainedTaskRecovery(retainedTasks, retained.lease.displayId < 0)
             var trusted = true
             display =
                 try {
-                    create(manager, true)
+                    retained.open(reader.surface, true)
                 } catch (_: SecurityException) {
                     trusted = false
-                    create(manager, false)
+                    retained.open(reader.surface, false)
                 }
             created = display
+            ShizukuExecutionGuard.displayBound(owner, id, identity)
             check(id > 0) { "BACKGROUND_DISPLAY_INVALID" }
             val focusMask = (1 shl 11) or (1 shl 12)
             independentFocus = trusted && Build.VERSION.SDK_INT >= 34 &&
@@ -84,21 +90,6 @@ internal class ShellBackgroundDisplay(
             throw failure
         }
     }
-
-    private fun create(
-        manager: DisplayManager,
-        trusted: Boolean,
-    ): VirtualDisplay =
-        checkNotNull(
-            manager.createVirtualDisplay(
-                "Helix background $identity",
-                WIDTH,
-                HEIGHT,
-                320,
-                reader.surface,
-                backgroundDisplayFlags(Build.VERSION.SDK_INT, trusted),
-            ),
-        ) { "BACKGROUND_DISPLAY_UNAVAILABLE" }
 
     private fun schedule() {
         if (pending || closed) return
@@ -158,12 +149,20 @@ internal class ShellBackgroundDisplay(
             }
         }
 
-    override fun close() {
+    override fun close() = dispose(release = true)
+
+    fun detach() = dispose(release = false)
+
+    private fun dispose(release: Boolean) {
         synchronized(lock) {
             if (closed) return
             closed = true
             try {
-                ShellTaskRetention.release(id, display::release)
+                if (release) {
+                    ShellTaskRetention.release(id, display::release)
+                } else {
+                    display.surface = null
+                }
             } finally {
                 handler.removeCallbacksAndMessages(null)
                 reader.setOnImageAvailableListener(null, null)

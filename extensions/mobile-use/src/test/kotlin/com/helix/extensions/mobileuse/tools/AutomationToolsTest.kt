@@ -355,6 +355,25 @@ class AutomationToolsTest {
     }
 
     @Test
+    fun actionableFindAndWaitResultsFitTheirDeclaredOutputSchema() {
+        port.snapshotResult = successfulSnapshot()
+        for (name in listOf(AutomationTools.FIND, AutomationTools.WAIT)) {
+            val output = completed(execute(name, args("text" to "Continue")))
+            assertEquals(TOKEN, output.getValue("suggestedClickToken").jsonPrimitive.content)
+            assertEquals(
+                ToolSchemaValidation.Valid,
+                ToolSchemaValidator.validate(tools.descriptors().single { it.name.value == name }.outputSchema, output),
+            )
+            assertTrue(
+                output
+                    .getValue("actionHint")
+                    .jsonPrimitive.content
+                    .contains("Never reuse the earlier token"),
+            )
+        }
+    }
+
+    @Test
     fun snapshotAndFindExposeOnlyIssuedNodeTokens() {
         port.snapshotResult = successfulSnapshot()
         val snapshot = completed(execute(AutomationTools.SNAPSHOT, buildJsonObject {}))

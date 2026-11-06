@@ -120,6 +120,7 @@ class AutomationEvaluationActivity : NotificationFixtureActivity() {
                 },
             )
         }
+        val scroller = android.widget.ScrollView(this).apply { addView(layout) }
         val result = TextView(this)
         layout.addView(
             Button(this).apply {
@@ -134,12 +135,13 @@ class AutomationEvaluationActivity : NotificationFixtureActivity() {
                                 "result",
                                 "TEST_DONE:${input.text}",
                             ).putInt("clicks", completions[0])
+                            .putInt("scrollY", scroller.scrollY)
                             .commit(),
                     )
                 }
             },
         )
         layout.addView(result)
-        setContentView(android.widget.ScrollView(this).apply { addView(layout) })
+        setContentView(scroller)
     }
 }

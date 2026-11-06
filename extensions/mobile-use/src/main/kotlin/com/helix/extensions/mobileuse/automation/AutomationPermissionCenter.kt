@@ -22,10 +22,14 @@ class AutomationPermissionCenter(
     context: Context,
     private val shizuku: AutomationPrivilegedBackend? = null,
     private val root: AutomationPrivilegedBackend? = null,
+    private val adb: () -> AutomationPrivilegedBackend? = { null },
 ) {
     private val appContext = context.applicationContext
-    private val backends = AutomationBackendSelection(root, shizuku)
-    private val backgroundBindings = BackgroundBackendBindings(root, shizuku)
+    private val displayLeases =
+        java.util.concurrent
+            .ConcurrentHashMap<String, com.helix.extensions.mobileuse.automation.backend.HostDisplayLease>()
+    private val backends = AutomationBackendSelection(root, shizuku, adb)
+    private val backgroundBindings = BackgroundBackendBindings(root, shizuku, adb)
     internal val privilegedDevice = AutomationPrivilegedDeviceHost(this)
     private val privilegedSemantic =
         AutomationPrivilegedSemanticHost(::liveDeviceGrant) {
@@ -123,13 +127,7 @@ class AutomationPermissionCenter(
 
     fun preferredClickBackend(): AutomationClickBackend =
         if (backgroundSelected()) {
-            if (backgroundBindings.available() === root &&
-                root != null
-            ) {
-                AutomationClickBackend.ROOT
-            } else {
-                AutomationClickBackend.SHIZUKU
-            }
+            backgroundBindings.available()?.let(backends::kind) ?: AutomationClickBackend.SHIZUKU
         } else {
             backends.preferred(AutomationDeviceOperation.SNAPSHOT) ?: AutomationClickBackend.ACCESSIBILITY
         }
@@ -241,6 +239,7 @@ class AutomationPermissionCenter(
                         { _, _, _ -> lifetime() },
                         lifetime,
                         lifecycle,
+                        displayLease(key, lifetime),
                     )
                 guard
             }
@@ -254,10 +253,23 @@ class AutomationPermissionCenter(
         )
     }
 
+    private fun displayLease(
+        key: String,
+        lifetime: () -> Boolean,
+    ) = displayLeases.compute(key) { _, existing ->
+        existing?.takeUnless { it.isClosed }
+            ?: com.helix.extensions.mobileuse.automation.backend
+                .HostDisplayLease(appContext, lifetime) {
+                    displayLeases.computeIfPresent(key) { _, value -> value.takeUnless { it.isClosed } }
+                }
+    }
+
     fun preferredBackend(operation: AutomationDeviceOperation): AutomationClickBackend? =
         (
             if (backgroundSelected()) {
-                AutomationClickBackend.SHIZUKU.takeIf { deviceBackend(operation) != null }
+                deviceBackend(operation)?.let {
+                    backends.kind(it)
+                }
             } else {
                 backends.preferred(operation)
             }
@@ -341,6 +353,13 @@ class AutomationPermissionCenter(
     ): AutomationActionResult =
         shizuku?.let { AutomationPrivilegedExecution(this).execute(call, selector, it) }
             ?: AutomationActionResult(AutomationActionStatus.SHIZUKU_UNAVAILABLE)
+
+    internal fun adbClick(
+        call: com.helix.tools.framework.ExecutableToolCall,
+        selector: AutomationPrivilegedSelector,
+    ): AutomationActionResult =
+        adb()?.let { AutomationPrivilegedExecution(this).execute(call, selector, it) }
+            ?: AutomationActionResult(AutomationActionStatus.ACTION_NOT_DISPATCHED)
 
     fun configureConversations(
         store: com.helix.extensions.mobileuse.config.MobileUseGrantStore,

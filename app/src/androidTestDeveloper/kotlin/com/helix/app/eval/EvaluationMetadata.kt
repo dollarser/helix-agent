@@ -21,7 +21,7 @@ internal fun evaluationAutomationPort(
         com.helix.tools.framework.ExecutableToolCall(
             "fixture-observe",
             "ui.snapshot",
-            "4",
+            "1",
             JsonObject(emptyMap()),
             com.helix.core.model.ExecutionTargetType.LOCAL_ANDROID,
             java.time.Instant

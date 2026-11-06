@@ -36,7 +36,7 @@ import org.junit.Test
 import java.util.UUID
 
 /** Reuses existing shell authorization. Never requests grants or operates a third-party app. */
-@Suppress("TooManyFunctions") // One ownership journey shares setup/restoration across device boundary checks.
+@Suppress("TooManyFunctions", "LargeClass") // One owned journey retains setup/restoration and scoped evidence together.
 class BackgroundDisplayDeviceTest {
     private val app = ApplicationProvider.getApplicationContext<HelixApplication>()
     private val container get() = app.appContainer
@@ -50,10 +50,15 @@ class BackgroundDisplayDeviceTest {
         name: String,
         args: JsonObject = buildJsonObject {},
     ): ToolDispatchOutcome {
+        val callId = "$session-${++sequence}"
+        if (name == "ui.gesture" && InstrumentationRegistry.getArguments().getString("helixInFlight") == "true") {
+            // The crash case must include the production call journal, not only Dispatcher audit events.
+            return container.chatService.dispatchToolCall(callId, turn, name, args.toString())
+        }
         val descriptor = requireNotNull(container.toolPipeline.resolveLatest(name))
         return container.toolPipeline.dispatcher.dispatch(
             ToolDispatchRequest(
-                toolCallId = "$session-${++sequence}",
+                toolCallId = callId,
                 turnId = turn,
                 sessionId = session,
                 toolName = ToolName(name),
@@ -221,9 +226,7 @@ class BackgroundDisplayDeviceTest {
     @Suppress("LongMethod") // One production-boundary journey retains all restoration in finally.
     @Test
     fun productionToolsReuseDisplayAcrossTurnsAndReleaseItAfterGrantRevocation() {
-        check(DeviceAccess.shizukuReady() && DeviceAccess.shizukuGranted()) {
-            "Existing Shizuku authorization required; this fixture never requests it"
-        }
+        awaitExistingBackend()
         check(
             container.storage.turns
                 .listActive()
@@ -239,12 +242,14 @@ class BackgroundDisplayDeviceTest {
         val store = MobileUseGrantStore(lines::lines, lines::setLines, { null })
         val fixturePackage = InstrumentationRegistry.getInstrumentation().context.packageName
         val now = System.currentTimeMillis()
-        container.storage.sessions.create(session, "Background synthetic fixture", null, null, now)
+        val primaryHost = primaryHostForTest()
+        container.storage.sessions.create(session, fixtureTitle(), null, null, now)
         container.storage.turns.start(turn, session, now)
         var displayId: Int? = null
         try {
             check(container.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
             container.pluginService.setEnabled(plugin.id, true)
+            awaitOwnerGrantedRootBackend()
             store.configureGlobal(setOf(fixturePackage), false)
             store.configureExecution(background = true, allowMoveFromMain = false)
             container.pluginService.catalog.select(session, plugin.id, true)
@@ -253,6 +258,7 @@ class BackgroundDisplayDeviceTest {
                 SessionPermissionConfig.of(SessionPermissionMode.READ_ONLY),
                 now,
             )
+            verifyEmptyTarget()
             val launch = buildJsonObject { put("packageName", fixturePackage) }
             assertTrue(dispatch("ui.launch", launch) is ToolDispatchOutcome.Denied)
             container.sessionPermissionEdit.saveSessionConfig(
@@ -334,13 +340,7 @@ class BackgroundDisplayDeviceTest {
                     "sha256=${capture.getValue("sha256").jsonPrimitive.content};" +
                     "width=${capture.getValue("width")};height=${capture.getValue("height")}",
             )
-            if (InstrumentationRegistry.getArguments().getString("helixDisconnect") == "true") {
-                if (InstrumentationRegistry.getArguments().getString("helixInFlight") == "true") {
-                    verifyInFlightDisconnect(displayId)
-                } else {
-                    verifyRealHelperDisconnect(displayId)
-                }
-            }
+            displayId = verifyRequestedDisconnect(displayId, fixturePackage)
             verifyCrossTurnRetention(displayId, activePresentation, fixturePackage)
             container.pluginService.catalog.select(session, plugin.id, false)
             val releaseDeadline = SystemClock.elapsedRealtime() + 5_000
@@ -374,7 +374,12 @@ class BackgroundDisplayDeviceTest {
             ) {
                 SystemClock.sleep(50)
             }
-            val disconnected = InstrumentationRegistry.getArguments().getString("helixDisconnect") == "true"
+            val disconnected =
+                InstrumentationRegistry.getArguments().getString("helixDisconnect") == "true" &&
+                    (
+                        InstrumentationRegistry.getArguments().getString("helixRecovery") != "true" ||
+                            InstrumentationRegistry.getArguments().getString("helixHostCleanup") == "true"
+                    )
             val expected =
                 if (disconnected) {
                     com.helix.app.chat.DisplayExecutionState.CONNECTION_LOST
@@ -383,13 +388,113 @@ class BackgroundDisplayDeviceTest {
                 }
             assertEquals(expected, requireNotNull(hostPresentation()).state)
             report("BACKGROUND_RELEASED=$displayId;dispatches=$sequence;HOST_PRESENTATION=$expected")
+            if (InstrumentationRegistry.getArguments().getString("helixRecovery") ==
+                "true"
+            ) {
+                awaitRecoveryObservation("revoked")
+            }
         } finally {
-            lines.setLines(MobileUseGrantStore.CONFIG_KEY, savedScope)
-            lines.setLines(MobileUseGrantStore.EXECUTION_KEY, savedDisplay)
-            container.pluginService.catalog.select(session, plugin.id, false)
-            container.storage.deleteSessionPermanently(session)
-            container.pluginService.setEnabled(plugin.id, plugin.enabled)
+            try {
+                lines.setLines(MobileUseGrantStore.CONFIG_KEY, savedScope)
+                lines.setLines(MobileUseGrantStore.EXECUTION_KEY, savedDisplay)
+                container.pluginService.catalog.select(session, plugin.id, false)
+                deleteResolvedFixture()
+            } finally {
+                try {
+                    container.pluginService.setEnabled(plugin.id, plugin.enabled)
+                } finally {
+                    disconnectOwnerRootBackend()
+                    primaryHost?.close()
+                }
+            }
         }
+    }
+
+    private fun fixtureTitle() =
+        if (InstrumentationRegistry.getArguments().getString("helixInFlight") == "true") {
+            val backend =
+                if (InstrumentationRegistry.getArguments().getString("helixRootHelper") ==
+                    "true"
+                ) {
+                    "Root"
+                } else {
+                    "ADB"
+                }
+            "$backend 手势中途断连（专项测试）"
+        } else {
+            "Background synthetic fixture"
+        }
+
+    private fun primaryHostForTest(): androidx.test.core.app.ActivityScenario<com.helix.app.MainActivity>? {
+        if (InstrumentationRegistry.getArguments().getString("helixKeepScreenAwake") != "true") return null
+        return androidx.test.core.app.ActivityScenario.launch(com.helix.app.MainActivity::class.java).onActivity {
+            it.window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+    }
+
+    private fun awaitExistingBackend() {
+        val computerAdb = InstrumentationRegistry.getArguments().getString("helixAdbHelper") == "true"
+        if (computerAdb) {
+            awaitComputerAdbHelper()
+        } else if (InstrumentationRegistry.getArguments().getString("helixRootHelper") == "true") {
+            check(android.os.Build.VERSION.SDK_INT >= 31)
+        } else {
+            check(DeviceAccess.shizukuReady() && DeviceAccess.shizukuGranted()) {
+                "Existing Shizuku authorization required; this fixture never requests it"
+            }
+        }
+    }
+
+    private fun deleteResolvedFixture() {
+        val resolved =
+            container.storage.turns
+                .listBySession(session)
+                .flatMap {
+                    container.storage.toolCalls.listByTurn(it.id)
+                }.all {
+                    com.helix.core.model.ToolCallState
+                        .valueOf(it.state)
+                        .isTerminal
+                }
+        if (resolved) {
+            container.storage.deleteSessionPermanently(session)
+        } else {
+            preserveInterruptedFixture()
+            report("BACKGROUND_RETAINED_UNRESOLVED_SESSION=$session")
+        }
+    }
+
+    private fun preserveInterruptedFixture() {
+        if (InstrumentationRegistry.getArguments().getString("helixInFlight") != "true") return
+        check(container.turnEngine?.liveExecution?.hasActive(session) != true)
+        // This direct Dispatcher fixture has no AgentLoop owner. End only its dummy Turn;
+        // preserve NEEDS_REVIEW calls/results without acknowledging or replaying their effects.
+        val current = container.storage.turns.resolve(turn)
+        if (!TurnState.valueOf(current.state).isTerminal) {
+            container.storage.turns.updateState(
+                current,
+                TurnState.INTERRUPTED,
+                current.stepCount,
+                System.currentTimeMillis(),
+                "CONTROLLED_HELPER_PROCESS_DEATH",
+            )
+        }
+    }
+
+    private fun verifyEmptyTarget() {
+        val emptyTarget = output("ui.device")
+        report("BACKGROUND_EMPTY_TARGET=$emptyTarget")
+        if (InstrumentationRegistry.getArguments().getString("helixAdbHelper") == "true") {
+            assertEquals("adb", emptyTarget.getValue("clickMatchBackend").jsonPrimitive.content)
+        }
+        if (InstrumentationRegistry.getArguments().getString("helixRootHelper") == "true") {
+            assertEquals("root", emptyTarget.getValue("clickMatchBackend").jsonPrimitive.content)
+        }
+        assertEquals("TARGET_UNAVAILABLE", emptyTarget.getValue("status").jsonPrimitive.content)
+        for (capability in listOf("backendReady", "semanticSupported", "screenshotSupported", "gestureSupported")) {
+            assertEquals(capability, "true", emptyTarget.getValue(capability).jsonPrimitive.content)
+        }
+        assertFalse(emptyTarget.containsKey("frame"))
     }
 
     private fun verifyCrossTurnRetention(
@@ -515,10 +620,32 @@ class BackgroundDisplayDeviceTest {
                 "Dispatched effect must remain unknown: $outcome",
                 outcome.toString().contains("OUTCOME_UNKNOWN"),
             )
+            assertPersistedUnknown(outcome)
         } finally {
             executor.shutdownNow()
             assertTrue(executor.awaitTermination(15, java.util.concurrent.TimeUnit.SECONDS))
         }
+    }
+
+    private fun assertPersistedUnknown(outcome: ToolDispatchOutcome) {
+        assertTrue(outcome is ToolDispatchOutcome.ExecutionFailed && outcome.requiresReview && !outcome.sideEffectFree)
+        val call =
+            container.storage.toolCalls.listByTurn(turn).single {
+                it.name == "ui.gesture" && Json
+                    .parseToJsonElement(it.argsJson)
+                    .jsonObject["strokes"]
+                    ?.jsonArray
+                    ?.any { stroke -> stroke.jsonObject["durationMillis"]?.jsonPrimitive?.int == 8000 } ==
+                    true
+            }
+        assertEquals("NEEDS_REVIEW", call.state)
+        assertEquals(
+            "NEEDS_REVIEW",
+            container.storage.toolResults
+                .byToolCall(call.callId)
+                ?.status,
+        )
+        report("BACKGROUND_INFLIGHT_UNKNOWN call=${call.callId};state=${call.state};autoReplay=false")
     }
 
     private fun longGesture(
@@ -550,6 +677,239 @@ class BackgroundDisplayDeviceTest {
         )
     }
 
+    private fun verifyRequestedDisconnect(
+        displayId: Int,
+        fixturePackage: String,
+    ): Int {
+        val arguments = InstrumentationRegistry.getArguments()
+        if (arguments.getString("helixDisconnect") != "true") return displayId
+        return when {
+            arguments.getString("helixInFlight") == "true" -> {
+                verifyInFlightDisconnect(displayId)
+                displayId
+            }
+
+            arguments.getString("helixRecovery") == "true" -> {
+                verifyRetainedHelperRecovery(displayId, fixturePackage)
+            }
+
+            else -> {
+                verifyRealHelperDisconnect(displayId)
+                displayId
+            }
+        }
+    }
+
+    private fun verifyRetainedHelperRecovery(
+        displayId: Int,
+        fixturePackage: String,
+    ): Int {
+        val oldSnapshot = readyFixtureSnapshot()
+        val oldToken =
+            oldSnapshot
+                .getValue("nodes")
+                .jsonArray
+                .map { it.jsonObject }
+                .single { it["editable"]?.jsonPrimitive?.content == "true" }
+                .getValue("token")
+        report("BACKGROUND_DISCONNECT_READY display=$displayId")
+        val deadline = SystemClock.elapsedRealtime() + 15_000
+        while (requestedHelperConnected() && SystemClock.elapsedRealtime() < deadline) {
+            SystemClock.sleep(50)
+        }
+        assertTrue(app.getSystemService(DisplayManager::class.java).getDisplay(displayId) != null)
+        reconnectRequestedHelper()
+        assertEquals(displayId, output("ui.device").getValue("displayId").jsonPrimitive.int)
+        readyFixtureSnapshot()
+        val stale =
+            dispatch(
+                "ui.set_text",
+                buildJsonObject {
+                    put("token", oldToken)
+                    put("text", "MUST_NOT_WRITE")
+                },
+            )
+        assertTrue(stale is ToolDispatchOutcome.ExecutionFailed && stale.sideEffectFree)
+        val presentation =
+            container.chatService.displayExecutions.value.single {
+                it.sessionId == session &&
+                    it.turnId == turn
+            }
+        awaitPreview(presentation, 240)
+        report("BACKGROUND_ADOPTED_ORIGINAL=$displayId")
+        awaitRecoveryObservation("adopted")
+        verifyPrimaryMigrationRefusal(displayId, fixturePackage)
+        return verifyLostScreenMigration(displayId, fixturePackage)
+    }
+
+    private fun verifyPrimaryMigrationRefusal(
+        displayId: Int,
+        fixturePackage: String,
+        stage: String = "primaryRefused",
+    ) {
+        assertTrue(app.getSystemService(DisplayManager::class.java).getDisplay(displayId) != null)
+        val refused = dispatch("ui.launch", buildJsonObject { put("packageName", fixturePackage) })
+        assertTrue(
+            "Must preserve the main-display migration setting: $refused",
+            refused is ToolDispatchOutcome.ExecutionFailed && refused.sideEffectFree &&
+                refused.detail.startsWith("MAIN_DISPLAY_IN_USE"),
+        )
+        awaitRecoveryObservation(stage)
+        assertEquals(displayId, awaitReadyRecoveryDevice().getValue("displayId").jsonPrimitive.int)
+    }
+
+    private fun verifyLostScreenMigration(
+        displayId: Int,
+        fixturePackage: String,
+    ): Int {
+        // Remove only this synthetic display through the app-owned system token, simulating platform loss.
+        val lease = releaseSyntheticHostDisplay(displayId)
+        val removed = SystemClock.elapsedRealtime() + 5000
+        while (app.getSystemService(DisplayManager::class.java).getDisplay(displayId) != null &&
+            SystemClock.elapsedRealtime() < removed
+        ) {
+            SystemClock.sleep(50)
+        }
+        assertEquals(null, app.getSystemService(DisplayManager::class.java).getDisplay(displayId))
+        InstrumentationRegistry.getInstrumentation().sendStatus(
+            0,
+            android.os.Bundle().apply {
+                putString("stream", "BACKGROUND_ORIGINAL_REMOVED display=$displayId\n")
+            },
+        )
+        awaitRecoveryObservation("removed")
+        val empty = output("ui.device")
+        assertEquals("TARGET_UNAVAILABLE", empty.getValue("status").jsonPrimitive.content)
+        val replacement =
+            lease.javaClass
+                .getDeclaredField("displayId")
+                .apply { isAccessible = true }
+                .getInt(lease)
+        assertTrue(replacement > 0 && replacement != displayId)
+        report("BACKGROUND_EMPTY_REPLACEMENT=$replacement")
+        awaitRecoveryObservation("empty")
+        assertEquals(
+            "DISPATCHED",
+            output("ui.launch", buildJsonObject { put("packageName", fixturePackage) })
+                .getValue("status")
+                .jsonPrimitive.content,
+        )
+        awaitRecoveryObservation("migrationDispatched")
+        assertEquals(replacement, awaitReadyRecoveryDevice().getValue("displayId").jsonPrimitive.int)
+        readyFixtureSnapshot()
+        InstrumentationRegistry.getInstrumentation().sendStatus(
+            0,
+            android.os.Bundle().apply {
+                putString("stream", "BACKGROUND_TASK_MIGRATED display=$replacement\n")
+            },
+        )
+        awaitRecoveryObservation("migrated")
+        verifyPrimaryMigrationRefusal(replacement, fixturePackage, "recoveredPrimaryRefused")
+        stopHelperBeforeHostCleanup(replacement)
+        return replacement
+    }
+
+    private fun stopHelperBeforeHostCleanup(displayId: Int) {
+        if (InstrumentationRegistry.getArguments().getString("helixHostCleanup") == "true") {
+            report("BACKGROUND_FINAL_HELPER_STOP")
+            val deadline = SystemClock.elapsedRealtime() + 10_000
+            while (requestedHelperConnected() && SystemClock.elapsedRealtime() < deadline) {
+                SystemClock.sleep(50)
+            }
+            assertFalse(requestedHelperConnected())
+            assertTrue(app.getSystemService(DisplayManager::class.java).getDisplay(displayId) != null)
+            awaitRecoveryObservation("helperGone")
+        }
+    }
+
+    private fun requestedHelperConnected() =
+        if (InstrumentationRegistry.getArguments().getString("helixRootHelper") == "true") {
+            DeviceAccess.root("mobile-use")?.connectedBinder() != null
+        } else {
+            com.helix.app.automation.AutomationModule.computerAdbBackend
+                ?.state() ==
+                com.helix.extensions.mobileuse.automation.AutomationBackendState.READY
+        }
+
+    private fun reconnectRequestedHelper() {
+        if (InstrumentationRegistry.getArguments().getString("helixRootHelper") == "true") {
+            awaitOwnerGrantedRootBackend()
+        } else {
+            awaitComputerAdbHelper()
+        }
+    }
+
+    private fun awaitReadyRecoveryDevice(): JsonObject {
+        val deadline = SystemClock.elapsedRealtime() + 8_000
+        var observed = output("ui.device")
+        while (observed["status"]?.jsonPrimitive?.content != "READY" && SystemClock.elapsedRealtime() < deadline) {
+            SystemClock.sleep(100)
+            observed = output("ui.device")
+        }
+        assertEquals(
+            "Recovery target did not become ready: $observed",
+            "READY",
+            observed["status"]?.jsonPrimitive?.content,
+        )
+        return observed
+    }
+
+    private fun awaitRecoveryObservation(stage: String) {
+        val marker = app.cacheDir.resolve("recovery-observe-${UUID.randomUUID()}")
+        marker.writeText(stage)
+        try {
+            report("RECOVERY_OBSERVE stage=$stage marker=${marker.name}")
+            val deadline = SystemClock.elapsedRealtime() + 12_000
+            while (marker.exists() && SystemClock.elapsedRealtime() < deadline) SystemClock.sleep(50)
+            check(!marker.exists()) { "Host did not record recovery evidence: $stage" }
+        } finally {
+            marker.delete()
+        }
+    }
+
+    /** Test-only reflection targets the exact fixture display; no production recovery endpoint is exposed. */
+    private fun releaseSyntheticHostDisplay(displayId: Int): Any {
+        val module = com.helix.app.automation.AutomationModule
+        val runtime =
+            module.javaClass
+                .getDeclaredField("runtime")
+                .apply { isAccessible = true }
+                .get(module)
+                as com.helix.extensions.mobileuse.MobileUsePlugin
+        val center = runtime.permissionCenter
+        val leases =
+            center.javaClass
+                .getDeclaredField(
+                    "displayLeases",
+                ).apply { isAccessible = true }
+                .get(center) as Map<*, *>
+        val lease =
+            leases.values.filterNotNull().single {
+                it.javaClass
+                    .getDeclaredField("displayId")
+                    .apply { isAccessible = true }
+                    .getInt(it) == displayId
+            }
+
+        fun field(name: String) =
+            lease.javaClass
+                .getDeclaredField(name)
+                .apply { isAccessible = true }
+                .get(lease)
+        val data = android.os.Parcel.obtain()
+        val reply = android.os.Parcel.obtain()
+        try {
+            data.writeInterfaceToken("android.hardware.display.IDisplayManager")
+            data.writeStrongBinder(field("token") as android.os.IBinder)
+            assertTrue((field("control") as android.os.IBinder).transact(field("releaseCode") as Int, data, reply, 0))
+            reply.readException()
+        } finally {
+            data.recycle()
+            reply.recycle()
+        }
+        return lease
+    }
+
     private fun verifyRealHelperDisconnect(displayId: Int) {
         InstrumentationRegistry.getInstrumentation().sendStatus(
             0,
@@ -564,13 +924,16 @@ class BackgroundDisplayDeviceTest {
                 it.sessionId == session && it.turnId == turn &&
                     it.state == com.helix.app.chat.DisplayExecutionState.CONNECTION_LOST
             }
-        while ((!disconnected() || app.getSystemService(DisplayManager::class.java).getDisplay(displayId) != null) &&
+        while (!disconnected() &&
             SystemClock.elapsedRealtime() < deadline
         ) {
             SystemClock.sleep(100)
         }
         assertTrue("Expected actual original-helper Binder death; no automatic action replay", disconnected())
-        assertEquals(null, app.getSystemService(DisplayManager::class.java).getDisplay(displayId))
+        assertTrue(
+            "Host-owned display must survive helper death",
+            app.getSystemService(DisplayManager::class.java).getDisplay(displayId) != null,
+        )
         if (InstrumentationRegistry.getArguments().getString("helixFocusRecovery") == "true") {
             awaitHostFocusVerification()
         }

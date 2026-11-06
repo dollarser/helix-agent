@@ -15,6 +15,17 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AutomationToolOutcomeTest {
+    @Test fun inaccessiblePlatformServicesExplainRootIdentityWithoutInventingAnInputEffect() {
+        val result =
+            AutomationActionResult(AutomationActionStatus.PRIVILEGED_SERVICE_UNAVAILABLE).toToolOutcome()
+                as ToolExecutorResult.Failed
+        assertTrue(result.sideEffectFree)
+        assertFalse(result.requiresReview)
+        assertTrue(result.detail.contains("Root UID alone"))
+        assertTrue(result.detail.contains("SELinux/service configuration"))
+        assertTrue(result.detail.contains("reconnect and observe"))
+    }
+
     @Test fun staleAndUnknownTokensOfferRecoveryWithoutInventingExpiryOrReplay() {
         for (status in listOf(AutomationActionStatus.STALE_TOKEN, AutomationActionStatus.TOKEN_UNKNOWN)) {
             val result = AutomationActionResult(status).toToolOutcome() as ToolExecutorResult.Failed

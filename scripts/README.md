@@ -85,3 +85,36 @@ model for continuous dictation using the existing speech runtime. `--verify-lock
 checks reviewed source/license metadata without downloading; `--verify` checks
 prepared assets and `--apk <path>` checks packaged model/license bytes. Recognition
 models remain on demand; this does not record audio or contact a speech service.
+
+## 电脑 ADB helper 原型
+
+仅支持 Android 12+ 上当前安装的 **Developer Debug 单 APK**（`com.helix.agent.developer`），电脑需要 Python 3 和已授权的 ADB。Release 和 Consumer 没有此原型的交接入口；启动不会替用户选择手机操作插件、改变会话范围或申请系统权限。
+
+```sh
+python3 scripts/start-adb-helper.py --serial emulator-5554
+python3 scripts/start-adb-helper.py --serial emulator-5554 --stop
+```
+
+启动命令返回后 helper 继续在手机端运行；关闭电脑终端或断开 USB 不要求重新启动。默认进程收据在 ignored `build/adb-helper/<serial>.json`，可用 `--ready-file` 指定另一路径，停止时须提供同一路径。收据不含启动凭据；停止命令核对设备本次启动身份、原 PID 和进程启动时间，不误停重启后的进程或复用该 PID 的进程。启动失败仍逐项尝试停止本次进程、清理本次临时文件；清理失败与原始启动错误分别报告。
+
+helper 复用手机操作插件的主屏／任务屏、观察、截图、输入与授权链。已连接的 Root 优先，否则手动启动的 ADB helper 优先于 Shizuku；只在新调用选择，既有帧不跨连接迁移，显示按下述机制恢复。宿主进程退出时 helper 释放并退出，断连不会自动重放输入；需要用户再次执行启动命令，再重新观察目标。原型不含应用内无线配对、自动重启看门狗或任意 shell 接口。设计依据及参考许可见 [ADR-PERMISSIONS-001](../docs/adr/permissions/001-session-authorization.md#decision-history--2026-11-06电脑-adb-启动-helper-原型)。
+
+此原型的独立进程初始化和 Provider 交接使用 Android 非公开平台接口。既有 Debug 设备证据来自 API 36 模拟器和 API 34 真机；Android 12+ 是本轮明确保留的范围，不代表所有版本和 OEM 已验证。接口不匹配会报告启动失败，不自动改用其他操作后端重放任务。
+
+ADB helper 的任务屏由 Helix 持有系统显示 token：helper 重启优先接上原屏并重新观察；原屏消失后只在显式 `ui.launch` 时迁移记录的原 task，不重新启动应用。恢复线索限同一 Helix 进程与当前授权，Helix 本身退出后不保证接回旧 task。显示配置变化仍可能导致 Android 重建 Activity。
+
+任务恢复例外按原 task 消耗，不会永久开启“允许从主屏迁移”；恢复成功后用户再把任务移回主屏，仍须遵守该设置。跨 Helix 进程恢复、手机内无线 ADB 和纯无障碍独立任务屏不在本轮实现范围。
+
+提交的核心验证入口：
+
+| 核心契约 | 入口 |
+| --- | --- |
+| 原进程停止、跨启动身份与失败清理 | `python3 -m unittest discover -s scripts/tests -p test_start_adb_helper.py` |
+| Debug 入口不进入发行产物 | 成功构建后运行 `scripts/verify-variant-boundaries.sh` 和 `scripts/verify-variant-boundaries.sh --helper-release-boundary`；`check-all.sh --all` 已包含两者 |
+| 后端选择、固定绑定、任务恢复权限、拒绝与未知结果 | `:extensions:mobile-use:testDebugUnitTest` |
+| Binder 断连不重放 | `AdbHelperTransportDeviceTest`（注入测试，不等于真实进程死亡） |
+| 任务屏正常流程、跨轮保留与撤权清理 | `BackgroundDisplayDeviceTest#productionToolsReuseDisplayAcrossTurnsAndReleaseItAfterGrantRevocation` |
+| 真实模型闭环 | `MobileUseCurrentModelJourneyDeviceTest`，显式 `helixRealModel=true`，仅使用已有授权模型配置与专用测试应用 |
+| Root 身份与点击／派发前拒绝 | `RootMobileUseProbeDeviceTest#applicationGrantedRootObservesAndClicksFixture`，显式 `helixRootProbe=true`；已知服务拒绝环境使用独立方法 `authorizedRootWithBlockedServicesRefusesWithoutClicking` 并另传 `helixRootServiceRefusal=true` |
+
+设备测试只在 owner 当前授权时运行，并传 `helix.preserveUserSettings=true`。任务屏测试以 `helixAdbHelper=true` 或 `helixRootHelper=true` 明确后端；ADB 用例报告 `ADB_HELPER_START_NOW` 后再运行上面的启动命令。异常专项由外部控制器响应 `BACKGROUND_DISCONNECT_READY`（核对原进程后终止），`helixRecovery=true` 验证接管与迁移，`helixInFlight=true` 验证实际 DOWN 后中断与持久未决记录；二者不是普通冒烟，不能无人响应就当设备失败或通过。`RECOVERY_OBSERVE` 标记给出暂停阶段和 app cache 文件：外部核对／操作专用测试 task 后删除该标记才继续，`migrated` 阶段将已恢复 task 移回主屏，`recoveredPrimaryRefused` 阶段确认未被工具移走后移回新屏。`BACKGROUND_FOCUS_WAIT` 则在核对 UNKNOWN 后创建标记。阶段编排、持续采样、环境快照和历史原始证据留在 ignored 本地目录，不作为通用 CI 或重复提交的测试框架。

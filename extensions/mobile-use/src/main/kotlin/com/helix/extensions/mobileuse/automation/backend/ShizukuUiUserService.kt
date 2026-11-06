@@ -78,7 +78,13 @@ class ShizukuUiUserService
             val guard = requireNotNull(data.readStrongBinder())
             require(data.dataAvail() == 0) { "UNEXPECTED_ARGUMENTS" }
             synchronized(this) {
-                val screen = screen(guard)
+                val screen =
+                    try {
+                        screen(guard)
+                    } catch (_: PrivilegedUiServiceUnavailable) {
+                        writeDeviceRefusal(reply, "PRIVILEGED_SERVICE_UNAVAILABLE")
+                        return
+                    }
                 val display =
                     try {
                         displays.select(request)
@@ -145,6 +151,13 @@ class ShizukuUiUserService
             detail: String?,
         ) {
             val status = if (detail == "BACKGROUND_DISPLAY_STALE") detail else "BACKGROUND_DISPLAY_UNAVAILABLE"
+            writeDeviceRefusal(reply, status)
+        }
+
+        private fun writeDeviceRefusal(
+            reply: Parcel,
+            status: String,
+        ) {
             reply.writeNoException()
             reply.writeString(status)
             PrivilegedDeviceParcel.writeTarget(reply, null)
@@ -198,10 +211,7 @@ class ShizukuUiUserService
                         )
                     val guard = requireNotNull(data.readStrongBinder())
                     require(data.dataAvail() == 0) { "UNEXPECTED_ARGUMENTS" }
-                    val result =
-                        synchronized(
-                            this,
-                        ) { ShizukuUiCommands(guard, screen(guard).also { it.route(null) }).clickMatch(selector) }
+                    val result = clickMatch(guard, selector)
                     reply?.writeNoException()
                     reply?.writeString(result)
                     true
@@ -241,5 +251,19 @@ class ShizukuUiUserService
                 else -> {
                     super.onTransact(code, data, reply, flags)
                 }
+            }
+
+        private fun clickMatch(
+            guard: IBinder,
+            selector: ShizukuUiSelector,
+        ): String =
+            synchronized(this) {
+                val connected =
+                    try {
+                        screen(guard)
+                    } catch (_: PrivilegedUiServiceUnavailable) {
+                        return@synchronized "{\"status\":\"PRIVILEGED_SERVICE_UNAVAILABLE\"}"
+                    }
+                ShizukuUiCommands(guard, connected.also { it.route(null) }).clickMatch(selector)
             }
     }

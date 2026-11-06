@@ -74,7 +74,8 @@ private const val SNAPSHOT_DESCRIPTION =
         "observations. For scrolling choose a node with scrollable=true. " +
         "Offscreen nodes require scrolling before clicking. " +
         "Check truncated/recoveryHint before " +
-        "concluding a control is absent. Observation chooses ready Root, then Shizuku, then Accessibility."
+        "concluding a control is absent. Observation chooses ready Root, then a computer ADB helper, " +
+        "then Shizuku, then Accessibility."
 
 private const val FIND_DESCRIPTION =
     "Find controls in a fresh screen observation using observed labels or attributes. " +

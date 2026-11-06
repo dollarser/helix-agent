@@ -25,6 +25,22 @@ class BackgroundBackendBindingsTest {
         assertSame(root, bindings.forKey("session"))
     }
 
+    @Test fun replacingAdbDoesNotRetargetAnExistingDisplay() {
+        val old = Backend()
+        var adb: AutomationPrivilegedBackend? = old
+        val shell = Backend()
+        val bindings = BackgroundBackendBindings(null, shell) { adb }
+        assertSame(old, bindings.forKey("session"))
+        old.ready = false
+        val replacement = Backend()
+        adb = replacement
+        assertSame(old, bindings.forKey("session"))
+        assertSame(replacement, bindings.forKey("new-session"))
+        adb = null
+        assertSame(old, bindings.forKey("session"))
+        assertSame(shell, bindings.forKey("other-session"))
+    }
+
     private class Backend : AutomationPrivilegedBackend {
         var ready = true
 

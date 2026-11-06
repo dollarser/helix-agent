@@ -62,7 +62,7 @@ internal class AutomationPrivilegedSemanticHost(
                 if (reply.status == "TARGET_CHANGED") {
                     AutomationSnapshotStatus.TARGET_CHANGED
                 } else {
-                    AutomationSnapshotStatus.UNSUPPORTED_UI
+                    missingSemanticTargetStatus(reply.status)
                 },
             )
         val snapshot = result.snapshot ?: return result.copy(backend = backendName())
@@ -157,10 +157,8 @@ private fun fullDisplayScope(grant: MobileUseGrant) =
     grant.scope.allApplications && grant.scope.deniedPackages.isEmpty()
 
 private fun missingSemanticTargetStatus(status: String) =
-    if (status ==
-        "TARGET_UNAVAILABLE"
-    ) {
-        AutomationSnapshotStatus.TARGET_UNAVAILABLE
-    } else {
-        AutomationSnapshotStatus.UNSUPPORTED_UI
+    when (status) {
+        "TARGET_UNAVAILABLE" -> AutomationSnapshotStatus.TARGET_UNAVAILABLE
+        "PRIVILEGED_SERVICE_UNAVAILABLE" -> AutomationSnapshotStatus.PRIVILEGED_SERVICE_UNAVAILABLE
+        else -> AutomationSnapshotStatus.UNSUPPORTED_UI
     }

@@ -109,11 +109,12 @@ internal class PrivilegedDeviceService(
 
     private fun launch(request: AutomationDeviceRequest): String {
         val name = requireNotNull(request.launchPackage)
-        return if (request.background?.allowMoveFromMain == false && screen.visibleOnMain(name)) {
-            "MAIN_DISPLAY_IN_USE"
-        } else {
-            PrivilegedNavigationExecution(::allowed, packageManager, screen.displayId).launch(name).name
-        }
+        return screen.retainedLaunch(name, request.background?.allowMoveFromMain == true, ::allowed)
+            ?: if (request.background?.allowMoveFromMain == false && screen.visibleOnMain(name)) {
+                "MAIN_DISPLAY_IN_USE"
+            } else {
+                PrivilegedNavigationExecution(::allowed, packageManager, screen.displayId).launch(name).name
+            }
     }
 
     @Suppress("ReturnCount") // Fresh reads bind the window; node effects additionally bind the observed fingerprint.

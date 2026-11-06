@@ -4,18 +4,20 @@ import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.NoCancellation
 import com.helix.extensions.mobileuse.automation.AutomationActionResult
 import com.helix.extensions.mobileuse.automation.AutomationActionStatus
+import com.helix.extensions.mobileuse.automation.AutomationBackendSelection
 import com.helix.extensions.mobileuse.automation.AutomationBackendState
 import com.helix.extensions.mobileuse.automation.AutomationClickBackend
+import com.helix.extensions.mobileuse.automation.AutomationDeviceOperation
 import com.helix.extensions.mobileuse.automation.AutomationGlobalAction
 import com.helix.extensions.mobileuse.automation.AutomationNodeActionRequest
 import com.helix.extensions.mobileuse.automation.AutomationNodeBounds
+import com.helix.extensions.mobileuse.automation.AutomationPrivilegedBackend
 import com.helix.extensions.mobileuse.automation.AutomationPrivilegedSelector
 import com.helix.extensions.mobileuse.automation.AutomationSnapshot
 import com.helix.extensions.mobileuse.automation.AutomationSnapshotNode
 import com.helix.extensions.mobileuse.automation.AutomationSnapshotResult
 import com.helix.extensions.mobileuse.automation.AutomationSnapshotStatus
 import com.helix.extensions.mobileuse.automation.AutomationToolPort
-import com.helix.extensions.mobileuse.automation.preferredAutomationClickBackend
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.ToolExecutorResult
 import kotlinx.serialization.json.JsonObject
@@ -29,27 +31,38 @@ import java.time.Instant
 
 class AutomationBackendSelectionTest {
     @Test fun onlyReadyGrantsQualifyAndRootWinsEveryCombination() {
-        for (root in AutomationBackendState.entries) {
-            for (shizuku in AutomationBackendState.entries) {
-                val expected =
-                    when {
-                        root == AutomationBackendState.READY -> AutomationClickBackend.ROOT
-                        shizuku == AutomationBackendState.READY -> AutomationClickBackend.SHIZUKU
-                        else -> AutomationClickBackend.ACCESSIBILITY
-                    }
-                assertEquals(expected, preferredAutomationClickBackend(root, shizuku))
-            }
+        for ((root, adb, shizuku) in availabilityCombinations()) {
+            val expected =
+                when {
+                    root == AutomationBackendState.READY -> AutomationClickBackend.ROOT
+                    adb == AutomationBackendState.READY -> AutomationClickBackend.ADB
+                    shizuku == AutomationBackendState.READY -> AutomationClickBackend.SHIZUKU
+                    else -> AutomationClickBackend.ACCESSIBILITY
+                }
+            val computer = GrantBackend(adb)
+            val selected = AutomationBackendSelection(GrantBackend(root), GrantBackend(shizuku)) { computer }
+            assertEquals(
+                expected,
+                selected.preferred(AutomationDeviceOperation.OBSERVE) ?: AutomationClickBackend.ACCESSIBILITY,
+            )
         }
     }
 
-    @Test fun autoChoosesRootThenShizukuThenAccessibilityBeforeAnyAction() {
+    private fun availabilityCombinations() =
+        AutomationBackendState.entries.flatMap { root ->
+            AutomationBackendState.entries.flatMap { adb ->
+                AutomationBackendState.entries.map { shell -> Triple(root, adb, shell) }
+            }
+        }
+
+    @Test fun autoChoosesTheHostSelectedBackendBeforeAnyAction() {
         val port = SelectionPort()
         for (choice in AutomationClickBackend.entries) {
             port.selected = choice
             val result = execute(port) as ToolExecutorResult.Completed
             assertEquals(choice.name.lowercase(), (result.output as JsonObject)["backend"]?.jsonPrimitive?.content)
         }
-        assertEquals(listOf("root", "shizuku", "accessibility"), port.actions)
+        assertEquals(listOf("root", "adb", "shizuku", "accessibility"), port.actions)
     }
 
     @Test fun unknownRootEffectNeverReplaysOnAnotherBackend() {
@@ -62,7 +75,11 @@ class AutomationBackendSelectionTest {
     }
 
     @Test fun selectorRecoveryKeepsTheOriginalPrivilegedBackendWithoutRetry() {
-        for (backend in listOf(AutomationClickBackend.ROOT, AutomationClickBackend.SHIZUKU)) {
+        for (backend in listOf(
+            AutomationClickBackend.ROOT,
+            AutomationClickBackend.ADB,
+            AutomationClickBackend.SHIZUKU,
+        )) {
             for (refusal in listOf(AutomationActionStatus.TARGET_NOT_FOUND, AutomationActionStatus.TARGET_AMBIGUOUS)) {
                 val port =
                     SelectionPort().apply {
@@ -112,7 +129,7 @@ class AutomationBackendSelectionTest {
             ExecutableToolCall(
                 "call",
                 AutomationTools.CLICK_MATCH,
-                "5",
+                "1",
                 JsonObject(fields.mapValues { JsonPrimitive(it.value) }),
                 ExecutionTargetType.LOCAL_ANDROID,
                 Instant.now().plusSeconds(30),
@@ -133,6 +150,8 @@ private class SelectionPort : AutomationToolPort {
     override fun rootClick(selector: AutomationPrivilegedSelector) = record("root")
 
     override fun shizukuClick(selector: AutomationPrivilegedSelector) = record("shizuku")
+
+    override fun adbClick(selector: AutomationPrivilegedSelector) = record("adb")
 
     override fun nodeAction(request: AutomationNodeActionRequest) = record("accessibility")
 
@@ -174,4 +193,18 @@ private class SelectionPort : AutomationToolPort {
         actions += backend
         return AutomationActionResult(status)
     }
+}
+
+private class GrantBackend(
+    private val availability: AutomationBackendState,
+) : AutomationPrivilegedBackend {
+    override val deviceOperations = AutomationDeviceOperation.entries.toSet()
+
+    override fun state() = availability
+
+    override fun click(
+        selector: AutomationPrivilegedSelector,
+        allowed: (Int, Int, Int) -> Boolean,
+        mayFinish: () -> Boolean,
+    ): AutomationActionResult = error("Selection cannot execute input")
 }

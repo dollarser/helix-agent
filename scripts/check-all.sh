@@ -71,6 +71,7 @@ artifact_checks() {
 }
 
 release_artifact_checks() {
+    ./scripts/verify-variant-boundaries.sh --helper-release-boundary
     python3 scripts/prepare-vad-assets.py --apk app/build/outputs/apk/consumer/release/app-consumer-release-unsigned.apk
     python3 scripts/prepare-vad-assets.py --apk app/build/outputs/apk/developer/release/app-developer-release-unsigned.apk
     python3 scripts/verify-integrated-runtime-apks.py --build-type release

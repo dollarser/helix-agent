@@ -10,6 +10,7 @@ internal class ShizukuExecutionGuard(
     private val allowed: (Int, Int, Int) -> Boolean,
     private val mayFinish: () -> Boolean,
     private val displayLifecycle: ShizukuDisplayLifecycle? = null,
+    private val displayLease: HostDisplayLease? = null,
 ) : Binder() {
     private val focusRecovery = displayLifecycle?.let { ShizukuFocusRecovery() }
 
@@ -20,26 +21,16 @@ internal class ShizukuExecutionGuard(
         reply: Parcel?,
         flags: Int,
     ): Boolean {
-        if (code !in setOf(CHECK, DISPLAY_EVENT, PREVIEW_PACKAGE, FOCUS_CHECKPOINT)) {
+        if (code !in
+            setOf(CHECK, DISPLAY_EVENT, PREVIEW_PACKAGE, FOCUS_CHECKPOINT, DISPLAY_LEASE, DISPLAY_BOUND, DISPLAY_TASKS)
+        ) {
             return super.onTransact(code, data, reply, flags)
         }
         check(getCallingUid() in setOf(0, 2000)) { "UNTRUSTED_GUARD_CALLER" }
         data.enforceInterface(DESCRIPTOR)
+        if (code in setOf(DISPLAY_LEASE, DISPLAY_BOUND, DISPLAY_TASKS)) return leaseTransaction(code, data, reply)
         if (code == FOCUS_CHECKPOINT) return recordFocusCheckpoint(data, reply)
-        if (code == PREVIEW_PACKAGE) {
-            val packageName = requireNotNull(data.readString()).also { require(it.length <= 256) }
-            require(data.dataAvail() == 0)
-            val identity = clearCallingIdentity()
-            val accepted =
-                try {
-                    mayFinish() && displayLifecycle?.permitsPreviewPackage(packageName) == true
-                } finally {
-                    restoreCallingIdentity(identity)
-                }
-            reply?.writeNoException()
-            reply?.writeInt(if (accepted) 1 else 0)
-            return true
-        }
+        if (code == PREVIEW_PACKAGE) return previewPackage(data, reply)
         if (code == DISPLAY_EVENT) {
             val state = requireNotNull(AutomationDisplayLifecycle.entries.getOrNull(data.readInt()))
             require(
@@ -76,6 +67,67 @@ internal class ShizukuExecutionGuard(
             }
         reply?.writeNoException()
         reply?.writeInt(if (accepted) 1 else 0)
+        return true
+    }
+
+    private fun previewPackage(
+        data: Parcel,
+        reply: Parcel?,
+    ): Boolean {
+        val packageName = requireNotNull(data.readString()).also { require(it.length <= 256) }
+        require(data.dataAvail() == 0)
+        val identity = clearCallingIdentity()
+        val accepted =
+            try {
+                mayFinish() && displayLifecycle?.permitsPreviewPackage(packageName) == true
+            } finally {
+                restoreCallingIdentity(identity)
+            }
+        reply?.writeNoException()
+        reply?.writeInt(if (accepted) 1 else 0)
+        return true
+    }
+
+    private fun leaseTransaction(
+        code: Int,
+        data: Parcel,
+        reply: Parcel?,
+    ): Boolean {
+        val identity = clearCallingIdentity()
+        try {
+            val lease = requireNotNull(displayLease)
+            check(mayFinish()) { "GRANT_LOST" }
+            when (code) {
+                DISPLAY_LEASE -> {
+                    val system = requireNotNull(data.readStrongBinder())
+                    val release = data.readInt()
+                    require(data.dataAvail() == 0)
+                    val value = lease.acquire(system, release)
+                    reply?.writeNoException()
+                    reply?.writeStrongBinder(value.token)
+                    reply?.writeString(value.identity)
+                    reply?.writeInt(value.displayId)
+                    writeTasks(requireNotNull(reply), value.tasks)
+                }
+
+                DISPLAY_BOUND -> {
+                    val id = data.readInt()
+                    val resource = requireNotNull(data.readString())
+                    require(data.dataAvail() == 0)
+                    lease.bound(id, resource)
+                    reply?.writeNoException()
+                }
+
+                DISPLAY_TASKS -> {
+                    val tasks = readTasks(data)
+                    require(data.dataAvail() == 0)
+                    lease.checkpoint(tasks)
+                    reply?.writeNoException()
+                }
+            }
+        } finally {
+            restoreCallingIdentity(identity)
+        }
         return true
     }
 
@@ -127,6 +179,84 @@ internal class ShizukuExecutionGuard(
         private const val DISPLAY_EVENT = IBinder.FIRST_CALL_TRANSACTION + 1
         private const val PREVIEW_PACKAGE = IBinder.FIRST_CALL_TRANSACTION + 2
         private const val FOCUS_CHECKPOINT = IBinder.FIRST_CALL_TRANSACTION + 3
+        private const val DISPLAY_LEASE = IBinder.FIRST_CALL_TRANSACTION + 4
+        private const val DISPLAY_BOUND = IBinder.FIRST_CALL_TRANSACTION + 5
+        private const val DISPLAY_TASKS = IBinder.FIRST_CALL_TRANSACTION + 6
+
+        fun readTasks(data: Parcel): List<RetainedDisplayTask> {
+            val count = data.readInt().also { require(it in 0..32) }
+            return List(count) {
+                val id = data.readInt().also { require(it > 0) }
+                val name = requireNotNull(data.readString()).also { require(it.length in 1..256) }
+                RetainedDisplayTask(id, name)
+            }.also { require(it.map { task -> task.id }.distinct().size == it.size) }
+        }
+
+        private fun writeTasks(
+            data: Parcel,
+            tasks: List<RetainedDisplayTask>,
+        ) {
+            data.writeInt(tasks.size)
+            tasks.forEach {
+                data.writeInt(it.id)
+                data.writeString(it.packageName)
+            }
+        }
+
+        fun lease(
+            owner: IBinder,
+            system: IBinder,
+            release: Int,
+        ): RetainedDisplayLease =
+            exchange(owner, DISPLAY_LEASE, {
+                writeStrongBinder(system)
+                writeInt(release)
+            }) {
+                RetainedDisplayLease(
+                    requireNotNull(readStrongBinder()),
+                    requireNotNull(readString()),
+                    readInt(),
+                    readTasks(this),
+                )
+            }
+
+        fun displayBound(
+            owner: IBinder,
+            id: Int,
+            resource: String,
+        ) {
+            exchange(owner, DISPLAY_BOUND, {
+                writeInt(id)
+                writeString(resource)
+            }) { Unit }
+        }
+
+        fun retainedTasks(
+            owner: IBinder,
+            tasks: List<RetainedDisplayTask>,
+        ) {
+            exchange(owner, DISPLAY_TASKS, { writeTasks(this, tasks) }) { Unit }
+        }
+
+        private fun <T> exchange(
+            owner: IBinder,
+            code: Int,
+            write: Parcel.() -> Unit,
+            read: Parcel.() -> T,
+        ): T {
+            val data = Parcel.obtain()
+            val reply = Parcel.obtain()
+            return try {
+                data.writeInterfaceToken(DESCRIPTOR)
+                data.write()
+                check(owner.transact(code, data, reply, 0))
+                reply.readException()
+                reply.read()
+            } finally {
+                data.recycle()
+                reply.recycle()
+            }
+        }
 
         @Suppress("TooGenericExceptionCaught") // Missing cleanup evidence cannot change the original tool outcome.
         fun focusCheckpoint(

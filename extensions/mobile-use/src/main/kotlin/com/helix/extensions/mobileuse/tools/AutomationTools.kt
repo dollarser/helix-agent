@@ -164,7 +164,7 @@ class AutomationTools(
             call.args.keys.all { it in setOf("packageName", "viewId", "text") } &&
                 listOf("packageName", "viewId", "text").all { it in call.args }
         val backend = boundPort.preferredClickBackend().name.lowercase()
-        if (backend in setOf("root", "shizuku") && exact && !boundPort.usesBackgroundDisplay()) {
+        if (backend in setOf("root", "adb", "shizuku") && exact && !boundPort.usesBackgroundDisplay()) {
             require(exact) {
                 "PRIVILEGED_REQUIRES_EXACT_PACKAGE_VIEW_ID_TEXT"
             }
@@ -174,7 +174,12 @@ class AutomationTools(
                     requireNotNull(call.args["viewId"]?.jsonPrimitive?.contentOrNull),
                     requireNotNull(call.args["text"]?.jsonPrimitive?.contentOrNull),
                 )
-            val result = if (backend == "root") boundPort.rootClick(selector) else boundPort.shizukuClick(selector)
+            val result =
+                when (backend) {
+                    "root" -> boundPort.rootClick(selector)
+                    "adb" -> boundPort.adbClick(selector)
+                    else -> boundPort.shizukuClick(selector)
+                }
             val outcome =
                 if (result.status in
                     setOf(
@@ -426,10 +431,9 @@ class AutomationTools(
                 put(
                     "actionHint",
                     JsonPrimitive(
-                        "If this match is the next intended control, call ui.click with suggestedClickToken next. " +
-                            "Do not insert ui.find/ui.snapshot/ui.wait before that click: another semantic " +
-                            "observation replaces this token. " +
-                            "If you need another query, use its fresh result instead. Never reuse the earlier token.",
+                        "If this is the intended control, call ui.click(suggestedClickToken) next. " +
+                            "ui.find/ui.snapshot/ui.wait replace tokens: after another query use its fresh result. " +
+                            "Never reuse the earlier token.",
                     ),
                 )
             }

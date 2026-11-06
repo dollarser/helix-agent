@@ -84,10 +84,15 @@ internal class ShellBackgroundDisplays(
         ) {
             "BACKGROUND_DISPLAY_UNAVAILABLE"
         }
+        entries[route.key]?.takeUnless { it.display.valid }?.let {
+            check(request.target == null) { "BACKGROUND_DISPLAY_STALE" }
+            it.display.detach()
+            entries.remove(route.key)
+        }
         val owned =
             entries[route.key] ?: run {
                 check(request.target == null) { "BACKGROUND_DISPLAY_STALE" }
-                Owned(route.owner, ShellBackgroundDisplay(context)).also {
+                Owned(route.owner, ShellBackgroundDisplay(context, route.owner)).also {
                     entries[route.key] = it
                     ShizukuExecutionGuard.displayEvent(it.owner, AutomationDisplayLifecycle.ACTIVE)
                 }
@@ -111,6 +116,7 @@ internal class ShellBackgroundDisplays(
         try {
             val route = request.background ?: return
             val owned = entries[route.key]?.takeIf { it.owner == route.owner && it.display.valid } ?: return
+            ShizukuExecutionGuard.retainedTasks(owned.owner, ShellRetainedTasks.read(owned.display.id))
             ShellTaskRetention
                 .checkpoint(
                     owned.display.id,
@@ -134,6 +140,8 @@ internal class ShellBackgroundDisplays(
     override fun close() {
         val resources = entries.values.toList()
         entries.clear()
-        resources.forEach(::release)
+        resources.forEach { owned ->
+            if (ShizukuExecutionGuard.check(owned.owner)) owned.display.detach() else release(owned)
+        }
     }
 }

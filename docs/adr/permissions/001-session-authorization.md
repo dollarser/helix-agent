@@ -569,3 +569,51 @@ Owner 随后明确保留缩放手柄但缩小：触摸区域从 32dp 收至 24dp
 `ui.click_match` 的无目标、歧义及不可点击结果给出具体的观察／收窄选择器／有限等待步骤，普通观察路径和 Root／Shizuku 精确点击路径保持一致；歧义不选择第一个目标，无目标不自动重试或换后端。合并观察与点击仍须在观察后再次检查取消与原调用期限，不因完成了只读观察就继续输入。动画可按现有 `ui.wait` 条件／稳定性接口等待，但稳定观察不承诺后续页面不变，原目标／帧校验及 UNKNOWN 保持。
 
 易用性对照使用冻结旧说明与当前说明、相同运行时代码／模型／合成观察；记录首步计划、schema 合法性、令牌引用和响应耗时。此类规划对照不执行模型产出的手机操作，不作为真实手机任务完成率或端到端耗时验收。
+
+## Decision history — 2026-11-06：电脑 ADB 启动 helper 原型
+
+Owner 明确授权先实现电脑 ADB 启动的原型，后续强调以运行稳定性和目标达成为重点。本决定将此前“不自建 ADB 后端”的范围扩大为 **Developer Debug 本地原型**，保留原 Shizuku、Root 和无障碍路径；不引入应用内无线配对、恢复看门狗或新的 Agent 执行域，也不据此开放 Consumer/Release 的新入口。
+
+电脑启动器通过 `app_process` 加载当前安装 APK 中的 helper，在手机端独立运行，电脑命令完成或 USB 断开不等于 helper 重启。启动交接使用有时限、一次性文件记录和 Binder 身份核对，启动材料在交接后清理；既不修改系统设置，也不借连接创建会话范围。停止命令绑定启动收据中的设备启动身份、PID 和进程启动时间，防止旧收据误停重启后的进程或复用该 PID 的进程。失败清理分别尝试进程停止与每组临时文件清理，不以次要清理错误替换原始启动错误。宿主进程死亡时 helper 清理退出；本阶段不自动唤醒宿主或重新派发动作。
+
+复用既有有界特权 UI 协议、显示与图像实现、物理输入资源、原 session/Turn/call、审批与审计。新调用在具备对应能力时按 Root → 已连接电脑 ADB helper → Shizuku → Accessibility 选择；手动启动 ADB helper 后可优先使用它，不需要停掉 Shizuku。输入和观察固定原后端实例；每次 helper 连接产生不同实例，断连后旧实例失效，不能将旧 token/frame 转给新进程。任务屏按下述恢复决定由 Helix 持有并核对后接管；重新连接后需重新观察，不复用旧控制引用。输入派发后的传输异常继续保留 UNKNOWN，不跨后端自动重放。helper 未退出时，原有跨轮保留任务屏的约定不变。
+
+对照 [Mika 的电脑启动交接](https://github.com/wangzan101/Mika/blob/0091d2d67b541a417df913a23fefbb8e3a04e4a7/app/src/main/java/com/wangzan101/mika/cap/phone/setup/UsbStartScript.kt)和 [HelperHub](https://github.com/wangzan101/Mika/blob/0091d2d67b541a417df913a23fefbb8e3a04e4a7/app/src/main/java/com/wangzan101/mika/cap/phone/shell/HelperHub.kt)的思路独立实现，未复制源码或二进制。该固定源码的 [LICENSE](https://github.com/wangzan101/Mika/blob/0091d2d67b541a417df913a23fefbb8e3a04e4a7/LICENSE) 为 Apache-2.0，另有作者 [NOTICE](https://github.com/wangzan101/Mika/blob/0091d2d67b541a417df913a23fefbb8e3a04e4a7/NOTICE)；未采用其无线配对、自动恢复或任意命令 API。具体启动命令和原型限制见[脚本入口](../../../scripts/README.md#电脑-adb-helper-原型)。实现接受与设备验收分开，实际通过范围以本轮成功候选的收据为准。
+
+### 2026-11-06 — helper 重连保留任务屏和已有 Android task
+
+按 owner 明确要求，电脑 ADB 传输断开与手机端 helper/Helix 进程死亡分开处理。虚拟屏的系统 callback token 由 Helix 持有，helper 只持有截图 Surface、缓存和观察连接；helper 退出后屏仍存在则保留，重新连接通过同一个 token 更换 Surface 并重新观察。帧、节点、输入执行实例仍绑定原连接，不能转交或自动重放。Helix 在原授权撤销或锁屏后负责释放持有的屏，不依赖旧 helper 存活；Helix 进程死亡则由系统 token 死亡释放屏。
+
+原屏已不存在时，公开虚拟屏沿用 Android 将已有 task 迁回主屏的机制。存活 Helix 保存当前授权资源的 task ID 与包名恢复线索；新屏状态查询只创建空屏，不迁移应用。只有经原 Dispatcher 和当前授权执行的显式 `ui.launch` 才可把匹配的原 task 移到新屏，禁止通过关闭、强停或重新发送启动 Intent 代替恢复。原屏仍存在而 task 被用户移到主屏时，仍遵守允许迁移主屏应用的设置。找不到原 task 或迁移结果不确定时明确拒绝或保留 UNKNOWN，不自动重新启动。线索只是同一 Helix 进程内的资源状态，不授予权限；不恢复跨 Helix 进程死亡的 task 关联。Android 可能因显示配置变化重建 Activity，不承诺应用自身界面状态不变。
+
+本地验收需分别记录 helper 死亡前后 display/task ID、同屏接管、原屏失效后的主屏退回和原 task 迁移，以及无 helper 时撤权清理。平台非 SDK 接口适配不代表全部 Android/OEM 已通过。
+
+本轮 API 36 Developer Debug 模拟器实测通过：ADB 传输重连保留宿主与 helper；helper 异常死亡后原屏保留，新 helper 接管原屏并重新获得语义与截图；原屏移除后原 task 迁回主屏，只读查询不迁移，显式启动操作将同一个 task 移到新屏，宿主与目标应用进程未重启。原屏仍在时拒绝未经允许的主屏迁移；无 helper 存活时，Helix 撤权清屏并保留原 task。原 Shizuku 路径回归通过。Root 通道、其他 API/OEM、真机 USB 拔线与 Release 未在本轮设备验收；传输异常 UNKNOWN 有注入测试，未将其表述为真实长手势中途死亡验收。
+
+同日 ONEPLUS A6013（Android 14／API 34）Developer Debug 真机补验通过：签名和数据库结构匹配后保留数据覆盖安装，安装前后原数据库与设置文件逐一校验不变；专用测试应用完成语义操作、输入、滚动、截图、预览、原屏接管、原 task 迁移、主屏迁移限制和无 helper 时撤权清屏。目标应用与宿主进程在恢复过程中保持不变。原会话、消息及模型来源记录与安装前快照逐行摘要一致，UI 和手机操作配置恢复原值。ADB 软件传输重连保留原 helper 和 Binder 就绪状态；owner 确认完成实际 USB 拔插后，原 helper 与宿主进程均保持不变，原 Binder 连接仍就绪；该结果与软件重连用例分别记录。验收结束后仅停止本次 helper，Helix 保持运行。真机未新增 Root、Shizuku 或无障碍授权，Root 当前不可用，未宣称 Root 或 Release 验收通过。
+
+后续同机真实模型与持续性专项：Qwen3.8-27B 经电脑 ADB helper 完成专用页面的中文输入、滚动、单次完成按钮点击及结果观察，5 次工具调用均完成，独立应用回执通过。亮屏、解锁且测试宿主窗口可见条件下，持续 601 秒完成 107 轮观察与预览及周期截图，helper 文件描述符保持 81，线程数为 21–22，三次重复连接均拒绝替换原连接；随后原屏接管和原 task 迁移通过。上述窗口不代表灭屏、Doze、低内存或长期后台保活验收。
+
+后台模型已完成打开应用和页面操作，但末尾复查错误使用了无活跃 Turn 的人工观察连接，正常授权守卫拒绝该复查。夹具改为同时核对独立应用回执和模型最后一次输入之后的真实工具观察。8 秒长手势中途死亡用例已记录真实 DOWN/MOVE 和 helper 被终止，但原夹具直接调用 Dispatcher、未经过生成调用账本的应用入口，导致持久 UNKNOWN 断言无法成立；夹具改用应用调用入口并保留不确定调用记录。两项修正尚待设备复跑，不计为最终验收通过。owner 优先收回手机自行刷 Root，已停止全部本次 helper 和测试进程、恢复 UI 与手机操作配置、确认临时任务屏为零；未清空或回滚数据库，未启动 Root 测试。后续 Root 结果不能替代尚未完成的 ADB 专项。
+
+同日 owner 完成 Root 并授权继续后，上述两项 ADB 专项在同一 ONEPLUS A6013／API 34 复跑通过：后台真实模型自行启动测试应用、输入、滚动、点击并再次观察，独立回执确认点击一次和实际滚动；8 秒手势确认实际 DOWN/MOVE 后终止 helper，原调用与结果均持久保留 `NEEDS_REVIEW`，没有自动重放。最新共享观察实现另经 ADB 接管、原 task 迁移及无 helper 撤权清理回归通过。真实模型通过与实际长手势中断分别取证，不能合并为 Root 模型或 Root 手势通过。
+
+### Decision history — 2026-11-06：Root 系统服务拒绝与派发前结果
+
+Root 管理器授权、服务的 UID 0 身份和 Android 窗口／无障碍系统服务的可访问性分别核验。连接 UI 引擎前检查必需系统服务；明确缺失时，在创建观察连接、任务屏和输入之前返回 `PRIVILEGED_SERVICE_UNAVAILABLE`，语义观察保留该原因，操作结果明确没有派发输入并提示检查 Root 管理器的 SELinux／服务配置或原 shell 后端，纠正后重新连接和观察。不得将其一律描述为未授权、无目标窗口或永久不支持；不得自动换后端、修改系统策略或重放输入。只有这条已知的派发前拒绝可标记无副作用，其他异常与传输断连仍保留原 UNKNOWN 约束。
+
+本机 Root 授权及 UID 0 已确认；APatch 显示授予 `magisk` 域，但 Helix 的实际 Root shell／服务仍为 `untrusted_app`，系统日志明确拒绝查找 `window` 服务。修正后真实 Root 拒绝回执与独立零点击断言通过，Debug 主机检查及测试 APK 编译通过；该结果仅证明身份与拒绝边界，Root 任务屏、语义／截图／输入、恢复和 Root 模型任务仍未通过设备验收。用户已经授权，不能要求其重复授权来替代启动环境排查，也不能把新的错误检查描述为已经恢复 Root 操作能力。
+
+随后 owner 修复设备环境并要求继续，在同一主 APK 上重新确认 Root UID 0、实际窗口／无障碍服务访问和独立一次点击均通过。不能仅凭域名、UID 或接受 `su -Z` 参数判断可用；本轮未增加切域命令，也未修改系统安全设置。该 ONEPLUS A6013／API 34 当前环境的 Root 实际任务屏通过启动、语义读取、输入、滚动、截图、预览、60 秒持续读取、完成／取消后的跨轮保留及撤权清屏。配置与入口显式区分 Root 和电脑 ADB，Root 样本同时核对服务进程身份、生产选择结果及实际回执；`task_display` 是语义结果的显示路由标签，不能拿它代替具体特权后端的身份断言。
+
+Root 真实模型后台任务完成，并由独立应用回执及最后一次操作后的模型观察复核。Root 辅助进程异常退出后，同一原屏被新进程接管；原屏被移除后只读观察不迁移 task，显式启动将同一 task 移到新屏，宿主及测试应用进程不变；无 Root helper 时宿主撤权清屏通过。另一次真实 8 秒 Root 手势在确认 DOWN 后终止原进程，原调用与结果均保留 `NEEDS_REVIEW`，没有自动重放。测试夹具补充了显式 Root 连接、Root／ADB 后端断言和恢复分支，并保留未决测试记录。以上为本机 Developer Debug 的限定实测，不代表其他 ROM/API、Release、锁屏休眠或长期压力验收。
+
+### Decision history — 2026-11-06：helper 范围与收尾
+
+Owner 明确保留 Android 12／API 31 及以上；本轮交接使用 `AttributionSource` 等平台接口，不实施 API 29／30 适配。暂不实施手机内无线 ADB、跨 Helix 进程重启的任务关联恢复及纯无障碍独立任务屏。已有普通无障碍主屏能力保持；不为这些延期项建立新的执行域或占位实现。
+
+收尾审查发现恢复例外被 `originalDisplayLost` 长期保留，任务恢复后用户再次移回主屏仍可能被工具迁回，违背 `allowMoveFromMain=false`。恢复资格现按原 task 记录：观察到已在新屏或实际发起恢复迁移即消耗，不因未知结果重新补回；其他尚未恢复的原任务不受影响。后续迁移仍遵守用户设置，不以曾经恢复过扩大会话权限。该问题已在旧候选 API 36 模拟器复现；新候选按同一核心断言回归，原真机证据只复用其未变路径，不冒充此次修复的真机复测。
+
+提交测试聚焦身份、后端绑定、恢复授权、真实派发后的 UNKNOWN／不重放、撤权清理和实际模型闭环；持续采样、环境快照与重复诊断仅本地留档。具体核心入口见 [脚本说明](../../../scripts/README.md#电脑-adb-helper-原型)，主机与设备验收分别记录，不在 GitHub CI 启动设备。
+
+最终收尾源码的 `check-all.sh --all` 及 Developer Debug 测试 APK 构建通过，覆盖两渠道 Debug／Release R8 与主机产物检查；实际 Manifest 确认 helper Provider 仅在 Developer Debug，两渠道 Release 均无此入口，该断言纳入既有产物门禁。日常 Helix_API_36 保留数据覆盖 Debug，安装前后数据库和设置文件校验不变；同一新增恢复权限断言在旧候选失败、修复后通过，另有正常任务屏跨轮保留／撤权和 Binder 断连映射两项核心配置通过。临时设置及本轮 helper 已清理，未操作真机。此次新增修复未做真机或 Release 设备复验；既有 API 34 Root／ADB 证据保留其原构建边界，不据主机 R8 或历史真机通过推断这些未执行项。

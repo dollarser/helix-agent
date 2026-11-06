@@ -21,7 +21,9 @@ internal fun AutomationActionResult.toToolOutcome(): ToolExecutorResult =
                 )
         val gestureHint = gestureFailureHint(status)
         val message =
-            if (status == AutomationActionStatus.SENSITIVE_UI) {
+            if (status == AutomationActionStatus.PRIVILEGED_SERVICE_UNAVAILABLE) {
+                "${status.name}: ${missingTargetHint(status.name)}"
+            } else if (status == AutomationActionStatus.SENSITIVE_UI) {
                 "${status.name}: Helix refused this sensitive target before dispatch. No action was executed. " +
                     "Screenshots do not grant permission or remove system restrictions."
             } else if (status == AutomationActionStatus.MAIN_DISPLAY_IN_USE) {
@@ -33,7 +35,7 @@ internal fun AutomationActionResult.toToolOutcome(): ToolExecutorResult =
                     "Observe the selected display again; never reuse its old tokens or replay an earlier effect."
             } else if (status == AutomationActionStatus.BACKGROUND_DISPLAY_UNAVAILABLE) {
                 "BACKGROUND_DISPLAY_UNAVAILABLE: No input dispatched. Background mode needs Android 12+, " +
-                    "an authorized Root or Shizuku connection and the original active task. Check " +
+                    "an authorized Root, computer ADB or Shizuku connection and the original active task. Check " +
                     "that connection and task; " +
                     "do not silently use the main screen."
             } else if (status == AutomationActionStatus.TOKEN_UNKNOWN) {

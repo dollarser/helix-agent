@@ -15,6 +15,22 @@ readonly developer_apk="$project_root/app/build/outputs/apk/developer/debug/app-
 readonly sdk_root="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/Library/Android/sdk}}"
 readonly apkanalyzer_bin="$sdk_root/cmdline-tools/latest/bin/apkanalyzer"
 
+readonly helper_provider="com.helix.app.automation.adb.AdbHelperProvider"
+if [[ "${1:-}" == "--helper-release-boundary" ]]; then
+    for channel in consumer developer; do
+        apk="$project_root/app/build/outputs/apk/$channel/release/app-$channel-release-unsigned.apk"
+        [[ -f "$apk" ]] || { printf 'Missing Release artifact: %s\n' "$apk" >&2; exit 1; }
+        manifest="$("$apkanalyzer_bin" manifest print "$apk")"
+        if grep -Fq "$helper_provider" <<<"$manifest"; then
+            printf 'Release APK exposes the Debug-only helper provider: %s\n' "$apk" >&2
+            exit 1
+        fi
+    done
+    printf 'Debug-only helper provider absent from both Release manifests.\n'
+    exit 0
+fi
+[[ "$#" == 0 ]] || { printf 'Usage: %s [--helper-release-boundary]\n' "$0" >&2; exit 2; }
+
 for required_file in "$consumer_apk" "$developer_apk" "$apkanalyzer_bin"; do
     if [[ ! -e "$required_file" ]]; then
         printf 'Missing required artifact: %s\n' "$required_file" >&2
@@ -62,6 +78,11 @@ developer_strings="$(
         "$apkanalyzer_bin" manifest print "$developer_apk"
     } | strings
 )"
+
+if grep -Fq "$helper_provider" <<<"$consumer_strings" || ! grep -Fq "$helper_provider" <<<"$developer_strings"; then
+    printf 'Computer helper provider must exist only in Developer Debug.\n' >&2
+    exit 1
+fi
 
 for marker in "${developer_markers[@]}"; do
     if grep -Fq "$marker" <<<"$consumer_strings"; then

@@ -102,6 +102,7 @@ data class AutomationNodeActionRequest(
 
 enum class AutomationActionStatus {
     ROOT_UNAVAILABLE,
+    PRIVILEGED_SERVICE_UNAVAILABLE,
     SHIZUKU_UNAVAILABLE,
     SHIZUKU_PERMISSION_REQUIRED,
     TARGET_NOT_FOUND,

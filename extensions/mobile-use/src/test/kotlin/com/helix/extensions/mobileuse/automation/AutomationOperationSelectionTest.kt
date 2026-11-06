@@ -44,6 +44,30 @@ class AutomationOperationSelectionTest {
         assertNull(AutomationBackendSelection(root, null).select(AutomationDeviceOperation.GESTURE))
     }
 
+    @Test fun computerAdbIsSelectedWithoutBorrowingTheShizukuConnection() {
+        val root =
+            Backend(
+                AutomationDeviceOperation.entries.toSet(),
+            ).apply { availability = AutomationBackendState.LOST }
+        val shizuku = Backend(AutomationDeviceOperation.entries.toSet())
+        val first = Backend(AutomationDeviceOperation.entries.toSet())
+        var adb: AutomationPrivilegedBackend? = first
+        val selection = AutomationBackendSelection(root, shizuku) { adb }
+        assertSame(first, selection.select(AutomationDeviceOperation.SNAPSHOT))
+        assertEquals(AutomationClickBackend.ADB, selection.preferred(AutomationDeviceOperation.SNAPSHOT))
+        val pinned = selection.select(AutomationDeviceOperation.SNAPSHOT)
+        first.availability = AutomationBackendState.LOST
+        adb = Backend(AutomationDeviceOperation.entries.toSet())
+        assertSame(first, pinned)
+        assertSame(adb, selection.select(AutomationDeviceOperation.SNAPSHOT))
+        root.availability = AutomationBackendState.READY
+        assertSame(root, selection.select(AutomationDeviceOperation.SNAPSHOT))
+        root.availability = AutomationBackendState.LOST
+        adb = null
+        assertSame(shizuku, selection.select(AutomationDeviceOperation.SNAPSHOT))
+        assertEquals(0, root.calls + shizuku.calls + first.calls)
+    }
+
     private class Backend(
         override val deviceOperations: Set<AutomationDeviceOperation>,
     ) : AutomationPrivilegedBackend {

@@ -116,7 +116,7 @@ class AutomationDeviceTools(
                     "One point taps/holds: use 80-120 ms for a normal tap; 500+ ms is a deliberate long press. " +
                     "Several points form a path. " +
                     "Parallel strokes use multiple fingers. " +
-                    "Root/Shizuku gestures support up to 10 strokes and 10 seconds without Accessibility. " +
+                    "Root/ADB/Shizuku gestures support up to 10 strokes and 10 seconds without Accessibility. " +
                     "Map image pixels via that screenshot's screenBounds; never subtract windowBounds. " +
                     "Refresh frame after window/rotation changes. " +
                     "Splash screens, animations and rotating content can also invalidate a frame before DOWN; " +
@@ -132,7 +132,8 @@ class AutomationDeviceTools(
                 "Call ui.device first and copy its exact opaque frame value into frame; " +
                     "if ui.device is not loaded, discover it with tools.search. " +
                     "Capture that frame into a PNG artifact and the shared vision pipeline. " +
-                    "Root/Shizuku capture needs whole-phone scope; scoped window capture needs Accessibility API34+. " +
+                    "Root/ADB/Shizuku main-display capture needs whole-phone scope; " +
+                    "scoped main-window capture needs Accessibility API34+. " +
                     "Protected surfaces can fail. " +
                     "Pixels require a vision-capable model and existing disclosure. " +
                     "width/height describe the PNG; imageWidth/imageHeight describe attached pixels. " +

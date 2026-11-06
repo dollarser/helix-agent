@@ -16,9 +16,18 @@ import org.junit.Assert.assertEquals
 import org.junit.Assume.assumeTrue
 import org.junit.Test
 
-/** Explicit owner opt-in. Magisk prompt must be granted through its ordinary UI. */
+/** Explicit owner opt-in. Root-manager prompts must be granted through their ordinary UI. */
 class RootMobileUseProbeDeviceTest {
-    @Test fun applicationGrantedRootObservesAndClicksFixture(): Unit =
+    @Test fun applicationGrantedRootObservesAndClicksFixture() = probe("DISPATCHED")
+
+    @Test fun authorizedRootWithBlockedServicesRefusesWithoutClicking() {
+        val option = InstrumentationRegistry.getArguments().getString("helixRootServiceRefusal")
+        assumeTrue(option != null)
+        require(option == "true")
+        probe("PRIVILEGED_SERVICE_UNAVAILABLE")
+    }
+
+    private fun probe(expectedStatus: String): Unit =
         runBlocking {
             val option = InstrumentationRegistry.getArguments().getString("helixRootProbe")
             assumeTrue(option != null)
@@ -49,27 +58,57 @@ class RootMobileUseProbeDeviceTest {
                 }
                 val binder = requireNotNull(access.connectedBinder()) { "${access.status()}" }
                 assertEquals(0, PrivilegedUiTransactions.uid(binder))
-                val target = "${app.packageName}.test"
-                app.startActivity(
-                    Intent()
-                        .setComponent(ComponentName(target, AutomationEvaluationActivity::class.java.name))
-                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-                        .putExtra("recordClicks", true),
-                )
-                SystemClock.sleep(1500)
-                val reply =
-                    PrivilegedUiTransactions.click(
-                        binder,
-                        ShizukuUiSelector(target, "android:id/button1", "Fixture click"),
-                        { _, _, _ -> access.connectedBinder() === binder },
-                        { access.connectedBinder() === binder },
-                    )
-                println("ROOT_PROBE_UID=0;result=$reply")
-                assertEquals("DISPATCHED", reply["status"]?.jsonPrimitive?.content)
+                verifyFixture(app, access, binder, expectedStatus)
             } finally {
                 pluginService.setEnabled(plugin.id, plugin.enabled)
                 access.disconnect()
                 DeviceAccess.disconnectRoot(host)
             }
         }
+
+    private fun verifyFixture(
+        app: HelixApplication,
+        access: com.helix.tools.root.LibsuRootAccess,
+        binder: android.os.IBinder,
+        expectedStatus: String,
+    ) {
+        val target = "${app.packageName}.test"
+        app.startActivity(
+            Intent()
+                .setComponent(ComponentName(target, AutomationEvaluationActivity::class.java.name))
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                .putExtra("recordClicks", true),
+        )
+        SystemClock.sleep(1500)
+        val reply =
+            PrivilegedUiTransactions.click(
+                binder,
+                ShizukuUiSelector(target, "android:id/button1", "Fixture click"),
+                { _, _, _ -> access.connectedBinder() === binder },
+                { access.connectedBinder() === binder },
+            )
+        println("ROOT_PROBE_UID=0;result=$reply")
+        assertEquals(expectedStatus, reply["status"]?.jsonPrimitive?.content)
+        app.contentResolver
+            .query(
+                android.net.Uri.parse("content://$target.capability-state/click"),
+                null,
+                null,
+                null,
+                null,
+            )!!
+            .use { cursor ->
+                check(cursor.moveToFirst())
+                assertEquals(
+                    if (expectedStatus ==
+                        "DISPATCHED"
+                    ) {
+                        1
+                    } else {
+                        0
+                    },
+                    cursor.getInt(cursor.getColumnIndexOrThrow("clicks")),
+                )
+            }
+    }
 }

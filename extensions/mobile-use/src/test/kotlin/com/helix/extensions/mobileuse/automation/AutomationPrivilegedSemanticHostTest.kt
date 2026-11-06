@@ -45,6 +45,19 @@ class AutomationPrivilegedSemanticHostTest {
         )
     private val backend = Backend()
 
+    @Test fun platformServiceRefusalIsNotMisreportedAsAnUnsupportedTree() {
+        val token = requireNotNull(host.snapshot(call, backend).snapshot).nodes.single().token
+        backend.observedFailure = "PRIVILEGED_SERVICE_UNAVAILABLE"
+        val refused = host.snapshot(call, backend)
+        assertEquals(AutomationSnapshotStatus.PRIVILEGED_SERVICE_UNAVAILABLE, refused.status)
+        assertNull(refused.snapshot)
+        assertEquals(
+            AutomationActionStatus.STALE_TOKEN,
+            host.action(call, AutomationNodeActionRequest(AutomationNodeAction.CLICK, token)).status,
+        )
+        assertEquals(0, backend.actions)
+    }
+
     @Test fun absentApplicationIsAMissingTargetAndCannotReusePreviousNodeTokens() {
         val token = requireNotNull(host.snapshot(call, backend).snapshot).nodes.single().token
         backend.observed = null
@@ -225,6 +238,7 @@ class AutomationPrivilegedSemanticHostTest {
     private inner class Backend : AutomationPrivilegedBackend {
         override val deviceOperations = AutomationDeviceOperation.entries.toSet()
         var observed: AutomationDisplayTarget? = target
+        var observedFailure: String? = null
         var publishedTarget = target
         var ready = true
         var actions = 0
@@ -246,6 +260,7 @@ class AutomationPrivilegedSemanticHostTest {
             assertTrue(allowed())
             return when (request.operation) {
                 AutomationDeviceOperation.OBSERVE -> {
+                    observedFailure?.let { return AutomationDeviceReply(it) }
                     AutomationDeviceReply(if (observed == null) "TARGET_UNAVAILABLE" else "READY", observed)
                 }
 

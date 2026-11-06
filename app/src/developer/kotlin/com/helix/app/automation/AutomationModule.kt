@@ -4,12 +4,16 @@ import android.content.Context
 import androidx.compose.runtime.Composable
 import com.helix.core.policy.UserScope
 import com.helix.extensions.mobileuse.MobileUsePlugin
+import com.helix.extensions.mobileuse.automation.AutomationPrivilegedBackend
 import com.helix.extensions.mobileuse.automation.backend.ShizukuAutomationBackend
 import com.helix.extensions.mobileuse.config.MobileUseGrantStore
 import com.helix.extensions.plugin.PluginRegistry
 
 /** Flavor-local adapter for plugin configuration and device grants; conversation selection lives in the catalog. */
+@Suppress("TooManyFunctions") // One flavor-local Mobile Use composition/configuration adapter.
 internal object AutomationModule {
+    @Volatile internal var computerAdbBackend: AutomationPrivilegedBackend? = null
+
     fun isConfigurationResetRequired(error: Exception): Boolean =
         error is com.helix.extensions.mobileuse.config.MobileUseConfigurationUnreadable
 
@@ -40,6 +44,17 @@ internal object AutomationModule {
     private var appContext: Context? = null
     private var runtime: MobileUsePlugin? = null
     private var settingsStore: MobileUseGrantStore? = null
+
+    private fun permissionCenter(context: Context) =
+        com.helix.extensions.mobileuse.automation.AutomationPermissionCenter(
+            context.applicationContext,
+            ShizukuAutomationBackend(context.applicationContext),
+            com.helix.extensions.mobileuse.automation.backend.RootAutomationBackend {
+                com.helix.tools.deviceaccess.DeviceAccess
+                    .root("mobile-use")
+            },
+            adb = { computerAdbBackend },
+        )
 
     fun backgroundApplicationName(value: com.helix.app.chat.DisplayExecutionUi): String? {
         val context = appContext
@@ -105,16 +120,7 @@ internal object AutomationModule {
                 ?: MobileUsePlugin(
                     context.applicationContext,
                     images,
-                    com.helix.extensions.mobileuse.automation.AutomationPermissionCenter(
-                        context.applicationContext,
-                        ShizukuAutomationBackend(context.applicationContext),
-                        com.helix.extensions.mobileuse.automation.backend.RootAutomationBackend(
-                            {
-                                com.helix.tools.deviceaccess.DeviceAccess
-                                    .root("mobile-use")
-                            },
-                        ),
-                    ),
+                    permissionCenter(context),
                     taskHost,
                     callActive = callActive,
                     overlayContext = {

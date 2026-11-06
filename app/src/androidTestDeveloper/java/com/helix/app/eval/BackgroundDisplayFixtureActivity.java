@@ -20,9 +20,13 @@ public final class BackgroundDisplayFixtureActivity extends BackgroundTouchActiv
         super.onCreate(saved);
         count = saved == null ? 0 : saved.getInt("count");
         visualCount = saved == null ? 0 : saved.getInt("visualCount");
-        if (saved == null) new File(getFilesDir(), "background-touch.txt").delete();
+        if (saved == null) {
+            new File(getFilesDir(), "background-touch.txt").delete();
+            new File(getFilesDir(), "background-events.txt").delete();
+        }
         facts = getSharedPreferences("background-fixture", 0);
         facts.edit().putInt("display", displayId()).putInt("task", getTaskId()).commit();
+        if (saved == null) facts.edit().putInt("clicks", 0).putInt("visual", 0).putInt("scrollY", 0).commit();
         if (getIntent().hasExtra("numericReadback")) {
             facts.edit().putBoolean("numericReadback", getIntent().getBooleanExtra("numericReadback", false)).commit();
         }

@@ -15,6 +15,9 @@ interface AutomationToolPort {
     fun shizukuClick(selector: AutomationPrivilegedSelector): AutomationActionResult =
         AutomationActionResult(AutomationActionStatus.SHIZUKU_UNAVAILABLE)
 
+    fun adbClick(selector: AutomationPrivilegedSelector): AutomationActionResult =
+        AutomationActionResult(AutomationActionStatus.ACTION_NOT_DISPATCHED)
+
     fun forCall(call: ExecutableToolCall): AutomationToolPort = this
 
     fun snapshot(): AutomationSnapshotResult
@@ -24,6 +27,7 @@ interface AutomationToolPort {
     fun globalAction(action: AutomationGlobalAction): AutomationActionResult
 }
 
+@Suppress("TooManyFunctions") // One original-call adapter implements the closed automation port.
 class PermissionCenterAutomationToolPort(
     private val center: AutomationPermissionCenter,
     private val originalCall: ExecutableToolCall? = null,
@@ -42,6 +46,10 @@ class PermissionCenterAutomationToolPort(
 
     override fun shizukuClick(selector: AutomationPrivilegedSelector): AutomationActionResult =
         originalCall?.let { center.shizukuClick(it, selector) }
+            ?: AutomationActionResult(AutomationActionStatus.NO_ACTIVE_SESSION)
+
+    override fun adbClick(selector: AutomationPrivilegedSelector): AutomationActionResult =
+        originalCall?.let { center.adbClick(it, selector) }
             ?: AutomationActionResult(AutomationActionStatus.NO_ACTIVE_SESSION)
 
     override fun forCall(call: ExecutableToolCall): AutomationToolPort =

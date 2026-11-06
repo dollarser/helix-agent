@@ -23,9 +23,11 @@ internal class ShizukuHierarchy : AutoCloseable {
     private var displaySession = ""
     private var independentFocus = false
     private var capture: (() -> android.graphics.Bitmap?)? = null
+    private var background: ShellBackgroundDisplay? = null
     private var routeAlive: () -> Boolean = { true }
 
     fun route(display: ShellBackgroundDisplay?) {
+        background = display
         routeAlive = { display?.valid != false }
         check(routeAlive()) { "BACKGROUND_DISPLAY_STALE" }
         displayId = display?.id ?: 0
@@ -33,6 +35,12 @@ internal class ShizukuHierarchy : AutoCloseable {
         independentFocus = display?.independentFocus ?: false
         capture = display?.let { it::screenshot }
     }
+
+    fun retainedLaunch(
+        packageName: String,
+        allowMoveFromMain: Boolean,
+        allowed: () -> Boolean,
+    ): String? = background?.let { ShellRetainedTasks.launch(it, packageName, allowMoveFromMain, allowed) }
 
     private fun displayWindows(): List<android.view.accessibility.AccessibilityWindowInfo> {
         check(routeAlive()) { "BACKGROUND_DISPLAY_STALE" }
@@ -110,6 +118,8 @@ internal class ShizukuHierarchy : AutoCloseable {
     @android.annotation.SuppressLint("PrivateApi")
     fun connect() {
         check(android.os.Process.myUid() in setOf(0, 2000)) { "PRIVILEGED_PROCESS_REQUIRED" }
+        val services = Class.forName("android.os.ServiceManager").getMethod("getService", String::class.java)
+        requirePrivilegedUiServices { services.invoke(null, it) != null }
         val connectionType = Class.forName("android.app.IUiAutomationConnection")
         val connection = Class.forName("android.app.UiAutomationConnection").getDeclaredConstructor().newInstance()
         val instance =

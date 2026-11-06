@@ -95,6 +95,7 @@ class ShizukuAutomationBackend(
 
 internal fun shizukuActionStatus(status: String?): AutomationActionStatus =
     when (status) {
+        "PRIVILEGED_SERVICE_UNAVAILABLE" -> AutomationActionStatus.PRIVILEGED_SERVICE_UNAVAILABLE
         "BACKGROUND_DISPLAY_STALE" -> AutomationActionStatus.BACKGROUND_DISPLAY_STALE
         "BACKGROUND_DISPLAY_UNAVAILABLE" -> AutomationActionStatus.BACKGROUND_DISPLAY_UNAVAILABLE
         "MAIN_DISPLAY_IN_USE" -> AutomationActionStatus.MAIN_DISPLAY_IN_USE
