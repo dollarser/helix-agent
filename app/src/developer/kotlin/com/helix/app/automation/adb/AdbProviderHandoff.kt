@@ -7,13 +7,14 @@ import android.os.IBinder
 
 /** app_process is not an AM-registered ApplicationThread; use the platform's external-provider entry. */
 internal object AdbProviderHandoff {
-    // Platform external-provider API is required for non-ApplicationThread shell clients; Debug prototype only.
+    // Required for non-ApplicationThread shell clients on Android 12+.
     @android.annotation.SuppressLint("PrivateApi")
-    fun attach(
+    fun call(
         shell: Context,
         ownerUid: Int,
         authority: String,
         launch: String,
+        method: String,
         extras: Bundle,
     ): Bundle {
         val managerType = Class.forName("android.app.IActivityManager")
@@ -43,7 +44,7 @@ internal object AdbProviderHandoff {
                     String::class.java,
                     Bundle::class.java,
                 )
-            return requireNotNull(call.invoke(provider, source, authority, "attach", launch, extras) as? Bundle)
+            return requireNotNull(call.invoke(provider, source, authority, method, launch, extras) as? Bundle)
         } finally {
             managerType
                 .getMethod(
@@ -54,4 +55,33 @@ internal object AdbProviderHandoff {
                 ).invoke(manager, authority, token, user)
         }
     }
+}
+
+/** Closed packet builder shared by both handshake stages; lifetime is held until attach completes. */
+internal class AdbProcessHandoff(
+    private val shell: Context,
+    private val owner: android.content.pm.ApplicationInfo,
+    private val launch: String,
+) {
+    val lifetime: IBinder = Binder()
+
+    fun call(
+        method: String,
+        service: IBinder? = null,
+        nonce: String? = null,
+    ): Bundle =
+        AdbProviderHandoff.call(
+            shell,
+            owner.uid,
+            "${owner.packageName}.adb-helper",
+            launch,
+            method,
+            Bundle().apply {
+                putString("apk", owner.sourceDir)
+                putInt("ownerUid", owner.uid)
+                if (method == "begin") putBinder("lifetime", lifetime)
+                if (nonce != null) putString("nonce", nonce)
+                if (service != null) putBinder("service", service)
+            },
+        )
 }

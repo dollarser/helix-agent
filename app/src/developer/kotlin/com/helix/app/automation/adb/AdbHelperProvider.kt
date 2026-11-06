@@ -8,15 +8,26 @@ import android.os.Binder
 import android.os.Bundle
 import android.os.IBinder
 import android.os.Parcel
-import android.os.SystemClock
 import com.helix.app.automation.AutomationModule
 import com.helix.extensions.mobileuse.automation.backend.AdbAutomationBackend
-import org.json.JSONObject
-import java.io.File
 
-/** Debug-only computer bootstrap. Connection does not select a plugin or grant a conversation scope. */
+/** Computer bootstrap, bound to one authorized ADB process. Never grants a conversation scope. */
 class AdbHelperProvider : ContentProvider() {
     private val hostLifetime = Binder()
+    private val tickets =
+        AdbLaunchTickets<IBinder>(android.os.SystemClock::elapsedRealtime) {
+            ByteArray(32)
+                .also(java.security.SecureRandom()::nextBytes)
+                .joinToString("") { (it.toInt() and 255).toString(16).padStart(2, '0') }
+        }
+
+    private data class PendingDeath(
+        val identity: AdbLaunchTickets.Identity,
+        val token: IBinder,
+        val death: IBinder.DeathRecipient,
+    )
+
+    private var pendingDeath: PendingDeath? = null
 
     override fun onCreate() = true
 
@@ -26,7 +37,8 @@ class AdbHelperProvider : ContentProvider() {
         arg: String?,
         extras: Bundle?,
     ): Bundle {
-        require(method == "attach")
+        require(method in setOf("begin", "attach"))
+        check(android.os.Build.VERSION.SDK_INT >= 31) { "Computer helper requires Android 12 or newer" }
         val app = requireNotNull(context)
         require(Binder.getCallingUid() == 2000 && Binder.getCallingPid() > 0)
         require(
@@ -35,24 +47,18 @@ class AdbHelperProvider : ContentProvider() {
         ) { "ADB_HELPER_ALREADY_CONNECTED" }
         val fields = requireNotNull(extras)
         val launch = requireNotNull(arg).also { require(it.matches(Regex("[a-f0-9]{32}"))) }
-        val file = File(app.filesDir, "adb-helper/$launch.json")
+        val apk = requireNotNull(fields.getString("apk"))
+        val ownerUid = fields.getInt("ownerUid")
         require(
-            file.isFile && file.length() in 1..4096 &&
-                !java.nio.file.Files
-                    .isSymbolicLink(file.toPath()),
-        )
-        val grant = JSONObject(file.readText())
-        require(grant.getInt("pid") == Binder.getCallingPid()) { "ADB_HELPER_PID_CHANGED" }
-        require(grant.getString("apk") == app.applicationInfo.sourceDir) { "ADB_HELPER_APK_CHANGED" }
-        require(
-            SystemClock.elapsedRealtime() - grant.getLong("issuedAtMillis") in 0..60_000,
-        ) { "ADB_HELPER_LAUNCH_EXPIRED" }
+            apk == app.applicationInfo.sourceDir && ownerUid == app.applicationInfo.uid,
+        ) { "ADB_HELPER_APK_CHANGED" }
+        val identity = AdbLaunchTickets.Identity(launch, Binder.getCallingPid(), ownerUid, apk)
+        if (method == "begin") return begin(identity, fields)
+        require(fields.keySet() == setOf("apk", "ownerUid", "nonce", "service"))
         val nonce = requireNotNull(fields.getString("nonce"))
-        require(
-            nonce.length == 64 &&
-                java.security.MessageDigest.isEqual(nonce.toByteArray(), grant.getString("nonce").toByteArray()),
-        )
+        require(nonce.matches(Regex("[a-f0-9]{64}")))
         val remote = requireNotNull(fields.getBinder("service"))
+        tickets.verify(identity, nonce)
         check(AdbHelperProtocol.identity(remote, nonce) == Binder.getCallingPid()) { "ADB_HELPER_BINDER_CHANGED" }
         lateinit var backend: AdbAutomationBackend
         backend = AdbAutomationBackend(remote) { AutomationModule.computerAdbBackend === backend }
@@ -62,9 +68,47 @@ class AdbHelperProvider : ContentProvider() {
             }
         }, 0)
         check(remote.isBinderAlive)
-        check(file.delete())
+        tickets.consume(identity, nonce)
+        pendingDeath?.let { it.token.unlinkToDeath(it.death, 0) }
+        pendingDeath = null
         AutomationModule.computerAdbBackend = backend
-        return Bundle().apply { putBinder("owner", hostLifetime) }
+        return Bundle().apply {
+            putString("state", "connected")
+            putBinder("owner", hostLifetime)
+        }
+    }
+
+    private fun begin(
+        identity: AdbLaunchTickets.Identity,
+        fields: Bundle,
+    ): Bundle {
+        require(fields.keySet() == setOf("apk", "ownerUid", "lifetime"))
+        val token = requireNotNull(fields.getBinder("lifetime"))
+        check(token.isBinderAlive) { "ADB_HELPER_EXITED" }
+        val nonce = tickets.begin(identity, token)
+        if (pendingDeath?.let { it.identity == identity && it.token == token } != true) {
+            pendingDeath?.let { it.token.unlinkToDeath(it.death, 0) }
+            val death =
+                IBinder.DeathRecipient {
+                    synchronized(this) {
+                        tickets.cancel(identity, token)
+                        if (pendingDeath?.token == token) pendingDeath = null
+                    }
+                }
+            pendingDeath = PendingDeath(identity, token, death)
+            try {
+                token.linkToDeath(death, 0)
+                check(token.isBinderAlive) { "ADB_HELPER_EXITED" }
+            } catch (failure: android.os.RemoteException) {
+                tickets.cancel(identity, token)
+                pendingDeath = null
+                throw failure
+            }
+        }
+        return Bundle().apply {
+            putString("nonce", nonce)
+            putBinder("owner", hostLifetime)
+        }
     }
 
     override fun query(

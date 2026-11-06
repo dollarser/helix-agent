@@ -43,7 +43,7 @@ Helix 将手机操作、浏览器、文件和工具放进同一会话。你选�
 
 从输入框加号选择“选择插件”，选用手机操作（Mobile Use）。缺少配置时进入相关设置，返回后重新检查；不要求一次获得所有后端权限。默认范围为全手机，也可指定应用，具体调用仍经过范围与审批检查。
 
-Root、Shizuku 和无障碍能力并不相同；任务屏依赖实际可用的后端，不能保证操作所有应用。电脑 ADB helper 目前仅为 **Developer Debug、Android 12+ 的开发原型**，不包含在本页下载的 Release APK 中，也没有应用内无线配对入口。见[开发说明](docs/adr/permissions/001-session-authorization.md)。
+Root、Shizuku 和无障碍能力并不相同；任务屏依赖实际可用的后端，不能保证操作所有应用。当前源码的电脑 ADB helper 支持 **Advanced Debug / Release、Android 12+**，不需要 Root 或 Shizuku，由已授权的电脑 ADB 启动；没有应用内无线配对。**已公开的 v0.0.10 APK 不包含该入口，新路径尚未发布。** 见[启动与使用说明](docs/development/computer-adb-helper.md)。
 
 ## 选择安装包
 

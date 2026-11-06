@@ -12,10 +12,11 @@ import com.helix.extensions.mobileuse.automation.backend.ShizukuUiUserService
 import org.json.JSONObject
 import java.util.concurrent.atomic.AtomicBoolean
 
-/** Computer ADB starts this exact installed Debug APK. No pairing, arbitrary shell API or restart loop. */
+/** Computer ADB starts the installed Advanced APK. No pairing, arbitrary shell API or restart loop. */
 @Keep
 object AdbHelperMain {
     private var ownerConnection: IBinder? = null
+    private var startupLifetime: IBinder? = null
 
     @JvmStatic
     @Keep
@@ -28,11 +29,11 @@ object AdbHelperMain {
             var detail: Throwable = failure
             while (detail is java.lang.reflect.InvocationTargetException) detail = detail.targetException
             System.err.println("HELIX_ADB_FAILED ${detail.javaClass.simpleName}: ${detail.message}")
-            throw failure
+            kotlin.system.exitProcess(1)
         }
     }
 
-    // Standalone shell startup has no public ActivityThread bootstrap. Debug-only and device-validated.
+    // Standalone shell startup has no public ActivityThread bootstrap.
     @android.annotation.SuppressLint("PrivateApi")
     @Suppress("DEPRECATION")
     private fun run(args: Array<String>) {
@@ -60,8 +61,14 @@ object AdbHelperMain {
                     .put("issuedAtMillis", android.os.SystemClock.elapsedRealtime()),
         )
         val bootstrap = readBootstrap(args[1])
-        val nonce = bootstrap.getString("nonce").also { require(it.matches(Regex("[a-f0-9]{64}"))) }
         val launch = bootstrap.getString("launch").also { require(it.matches(Regex("[a-f0-9]{32}"))) }
+        val handoff = AdbProcessHandoff(shell, ownerInfo, launch)
+        startupLifetime = handoff.lifetime
+        val challenge = handoff.call("begin")
+        val nonce =
+            requireNotNull(challenge.getString("nonce"))
+                .also { require(it.matches(Regex("[a-f0-9]{64}"))) }
+        val owner = requireNotNull(challenge.getBinder("owner"))
         val engine = ShizukuUiUserService(app)
         val stopped = AtomicBoolean()
 
@@ -75,23 +82,12 @@ object AdbHelperMain {
         }
         val service = HostProcessBinder(ownerUid, nonce, engine)
         try {
-            val reply =
-                requireNotNull(
-                    AdbProviderHandoff.attach(
-                        shell,
-                        ownerUid,
-                        "$packageName.adb-helper",
-                        launch,
-                        Bundle().apply {
-                            putString("nonce", nonce)
-                            putBinder("service", service)
-                        },
-                    ),
-                )
-            val owner = requireNotNull(reply.getBinder("owner"))
             ownerConnection = owner
             owner.linkToDeath({ stop() }, 0)
             check(owner.isBinderAlive)
+            val reply = handoff.call("attach", service, nonce)
+            check(reply.getBinder("owner") == owner) { "ADB_HOST_PROCESS_CHANGED" }
+            check(reply.getString("state") == "connected") { "ADB_HANDOFF_INCOMPLETE" }
             println("HELIX_ADB_CONNECTED pid=${Process.myPid()}")
             Looper.loop()
             stop()
@@ -111,6 +107,7 @@ object AdbHelperMain {
         while (!startup.isFile && android.os.SystemClock.elapsedRealtime() < deadline) android.os.SystemClock.sleep(50)
         check(startup.isFile && startup.length() in 1..4096) { "ADB_BOOTSTRAP_TIMEOUT" }
         val bootstrap = JSONObject(startup.readText())
+        require(bootstrap.keys().asSequence().toSet() == setOf("launch")) { "ADB_BOOTSTRAP_FIELDS" }
         check(startup.delete())
         return bootstrap
     }

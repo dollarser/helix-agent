@@ -10,6 +10,7 @@
         </activity>
     </application>
     <queries>
+        <provider android:authorities="com.helix.agent.developer.adb-helper" />
         <package android:name="${smokeTarget}" />
         <package android:name="${smokeTarget}.developer" />
     </queries>

@@ -17,16 +17,31 @@ readonly apkanalyzer_bin="$sdk_root/cmdline-tools/latest/bin/apkanalyzer"
 
 readonly helper_provider="com.helix.app.automation.adb.AdbHelperProvider"
 if [[ "${1:-}" == "--helper-release-boundary" ]]; then
-    for channel in consumer developer; do
-        apk="$project_root/app/build/outputs/apk/$channel/release/app-$channel-release-unsigned.apk"
-        [[ -f "$apk" ]] || { printf 'Missing Release artifact: %s\n' "$apk" >&2; exit 1; }
-        manifest="$("$apkanalyzer_bin" manifest print "$apk")"
-        if grep -Fq "$helper_provider" <<<"$manifest"; then
-            printf 'Release APK exposes the Debug-only helper provider: %s\n' "$apk" >&2
-            exit 1
-        fi
-    done
-    printf 'Debug-only helper provider absent from both Release manifests.\n'
+    python3 - "$apkanalyzer_bin" "$project_root" <<'PYTHON'
+import subprocess, sys, xml.etree.ElementTree as ET
+from pathlib import Path
+analyzer, root = sys.argv[1:]
+android = "{http://schemas.android.com/apk/res/android}"
+provider = "com.helix.app.automation.adb.AdbHelperProvider"
+main = "com.helix.app.automation.adb.AdbHelperMain"
+for channel in ("consumer", "developer"):
+    apk = Path(root) / f"app/build/outputs/apk/{channel}/release/app-{channel}-release-unsigned.apk"
+    manifest = ET.fromstring(subprocess.check_output([analyzer, "manifest", "print", str(apk)], text=True))
+    app = manifest.find("application")
+    assert app is not None and app.get(android + "debuggable", "false") == "false"
+    entries = [p for p in app.findall("provider") if p.get(android + "name") == provider]
+    if channel == "consumer":
+        assert not entries, "Standard must not expose an unavailable Advanced backend"
+    else:
+        assert len(entries) == 1
+        entry = entries[0]
+        assert entry.get(android + "authorities") == "com.helix.agent.developer.adb-helper"
+        assert entry.get(android + "exported") == "true"
+        assert entry.get(android + "permission") == "android.permission.INTERACT_ACROSS_USERS_FULL"
+        subprocess.run([analyzer, "dex", "code", "--class", main, "--method", "main([Ljava/lang/String;)V", str(apk)],
+                       check=True, stdout=subprocess.DEVNULL)
+print("Advanced non-debuggable helper entry and protected Provider verified; Standard excluded.")
+PYTHON
     exit 0
 fi
 [[ "$#" == 0 ]] || { printf 'Usage: %s [--helper-release-boundary]\n' "$0" >&2; exit 2; }
@@ -80,7 +95,7 @@ developer_strings="$(
 )"
 
 if grep -Fq "$helper_provider" <<<"$consumer_strings" || ! grep -Fq "$helper_provider" <<<"$developer_strings"; then
-    printf 'Computer helper provider must exist only in Developer Debug.\n' >&2
+    printf 'Computer helper provider must exist only in Advanced.\n' >&2
     exit 1
 fi
 

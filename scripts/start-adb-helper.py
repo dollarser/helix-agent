@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Start/stop the installed Helix Developer Debug helper over computer ADB. No wireless pairing."""
+"""Start/stop the installed Helix Advanced helper (Android 12+) over computer ADB. No wireless pairing."""
 import argparse
 import json
 from pathlib import Path
@@ -87,22 +87,22 @@ def cleanup_startup(actions, primary):
 
 def start_helper(adb, serial, receipt_file):
     boot = boot_identity(adb)
-    uid = int(shell(adb, "run-as", PACKAGE, "id", "-u", text=True).strip())
-    if uid < 10000:
-        raise RuntimeError("Expected an installed debuggable Helix app UID")
+    if int(shell(adb, "getprop", "ro.build.version.sdk", text=True).strip()) < 31:
+        raise RuntimeError("Computer helper requires Android 12 / API 31 or newer")
     paths = shell(adb, "pm", "path", PACKAGE, text=True).splitlines()
     if len(paths) != 1 or not paths[0].startswith("package:"):
-        raise RuntimeError("Prototype requires the installed monolithic Developer Debug APK")
+        raise RuntimeError("Prototype requires the installed monolithic Advanced APK")
     apk = paths[0].removeprefix("package:")
     launch = secrets.token_hex(16)
     directory = "/data/local/tmp/helix-adb-" + launch
     startup = directory + "/input"
     log = directory + "/startup.log"
-    grant_path = "files/adb-helper/" + launch + ".json"
     ready = None
     connected = False
+    directory_created = False
     try:
         shell(adb, "mkdir", "-m", "700", directory)
+        directory_created = True
         # Detached with no computer input FD. The app's Binder lifetime, not USB/terminal lifetime, owns it.
         command = "(CLASSPATH=" + shlex.quote(apk) + \
             " /system/bin/nohup app_process /system/bin --nice-name=helix_adb_helper " + MAIN + " " + PACKAGE + \
@@ -115,13 +115,7 @@ def start_helper(adb, serial, receipt_file):
         ready["startTicks"] = process_start(adb, ready["pid"])
         if ready["startTicks"] is None:
             raise RuntimeError("Helper exited before handoff")
-        nonce = secrets.token_hex(32)
-        record = json.dumps({"pid": ready["pid"], "nonce": nonce, "apk": apk,
-                             "issuedAtMillis": ready["issuedAtMillis"]})
-        shell(adb, "run-as", PACKAGE, "mkdir", "-p", "files/adb-helper")
-        remote = shlex.join(["run-as", PACKAGE, "sh", "-c", "umask 077; cat > " + grant_path])
-        subprocess.run(adb + ["shell", remote], input=record, text=True, check=True, stdout=subprocess.DEVNULL)
-        payload = json.dumps({"nonce": nonce, "launch": launch}) + "\n"
+        payload = json.dumps({"launch": launch}) + "\n"
         write = "umask 077; cat > " + shlex.quote(startup + ".tmp") + "; mv " + shlex.quote(startup + ".tmp") + " " + shlex.quote(startup)
         subprocess.run(adb + ["shell", write], input=payload, text=True, check=True, timeout=10)
         wait_log(adb, log, "HELIX_ADB_CONNECTED ", 30)
@@ -138,11 +132,11 @@ def start_helper(adb, serial, receipt_file):
         if not connected and ready is not None and ready.get("startTicks") is not None:
             actions.append(lambda: stop_helper(adb, ready))
         # Exact owned temporary paths. No credentials or startup files are retained after handoff.
-        actions.extend([
-            lambda: shell(adb, "run-as", PACKAGE, "rm", "-f", grant_path),
-            lambda: shell(adb, "rm", "-f", startup, startup + ".tmp", log),
-            lambda: shell(adb, "rmdir", directory),
-        ])
+        if directory_created:
+            actions.extend([
+                lambda: shell(adb, "rm", "-f", startup, startup + ".tmp", log),
+                lambda: shell(adb, "rmdir", directory),
+            ])
         cleanup_startup(actions, primary)
 
 

@@ -43,7 +43,7 @@ Do not invent additional times. Read the file back and verify the content.
 
 Use the composer's plus menu to select the Mobile Use plugin. Missing setup leads to the relevant settings and is checked again on return. You do not need every backend permission. The default scope is the whole phone; you can select specific applications. Individual calls still follow scope and approval checks.
 
-Root, Shizuku and accessibility provide different capabilities. The task screen depends on an available backend and cannot operate every application. The computer-started ADB helper is currently a **Developer Debug prototype requiring Android 12+**; it is absent from the downloadable Release APKs and has no in-app wireless pairing. See the [authorization/backend contract](docs/adr/permissions/001-session-authorization.md).
+Root, Shizuku and accessibility provide different capabilities. The task screen depends on an available backend and cannot operate every application. The computer-started ADB helper in current source supports **Advanced Debug / Release on Android 12+**, using authorized computer ADB without Root or Shizuku. There is no in-app wireless pairing. **Published v0.0.10 APKs lack this entry; the new path has not been released.** See the [startup and usage guide](docs/development/computer-adb-helper.md).
 
 ## Choose a package
 

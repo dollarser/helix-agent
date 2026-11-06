@@ -617,3 +617,14 @@ Owner 明确保留 Android 12／API 31 及以上；本轮交接使用 `Attributi
 提交测试聚焦身份、后端绑定、恢复授权、真实派发后的 UNKNOWN／不重放、撤权清理和实际模型闭环；持续采样、环境快照与重复诊断仅本地留档。具体核心入口见 [脚本说明](../../../scripts/README.md#电脑-adb-helper-原型)，主机与设备验收分别记录，不在 GitHub CI 启动设备。
 
 最终收尾源码的 `check-all.sh --all` 及 Developer Debug 测试 APK 构建通过，覆盖两渠道 Debug／Release R8 与主机产物检查；实际 Manifest 确认 helper Provider 仅在 Developer Debug，两渠道 Release 均无此入口，该断言纳入既有产物门禁。日常 Helix_API_36 保留数据覆盖 Debug，安装前后数据库和设置文件校验不变；同一新增恢复权限断言在旧候选失败、修复后通过，另有正常任务屏跨轮保留／撤权和 Binder 断连映射两项核心配置通过。临时设置及本轮 helper 已清理，未操作真机。此次新增修复未做真机或 Release 设备复验；既有 API 34 Root／ADB 证据保留其原构建边界，不据主机 R8 或历史真机通过推断这些未执行项。
+
+
+### Decision history — 2026-11-06：电脑 ADB helper 纳入 Advanced 发布构建
+
+Owner 要求已可通过电脑启动的 helper 不再限于 Debug；范围仍为 Android 12／API31+，不做手机内无线配对、纯无障碍独立屏或跨 Helix 进程重启恢复 task 关联。Advanced 的 Debug/Release 共用启动入口；当前 Standard 没有手机操作宿主适配和相关依赖，保持不暴露不可用 Provider。旧 developerDebug 的 `run-as` 私有启动文件方案移除，不保留兼容交接。
+
+信任来源是用户已授权的电脑 ADB 操作。nonce、PID、Binder 与 APK 路径绑定用于防错接、过期及重放，不是 shell 代码真实性证明。受系统权限保护的 Provider 在每个 `begin`、`attach` 请求验证真实调用 UID2000/PID，绑定应用 UID（含 Android user）、当前 installed sourceDir 与本次 launch。应用签发 30 秒一次性挑战，attach 复核同一进程、身份与回调 Binder 后原子消费；不允许替换已有就绪连接。启动进程死亡释放待连接状态，旧死亡回调不能移除新请求；过期不自动续期或重放。
+
+helper 从已安装 APK 加载保留的公开 main，反向限定宿主 UID/PID，持有宿主 Binder death 并在宿主死亡时退出。连接失败明确报告并由电脑脚本清理其专用文件/进程；不改系统安全策略。连接不选择插件、不授予会话或应用范围。原有任务屏归属、断连 UNKNOWN、重新观察及同一宿主进程内原 task 恢复约束保持。内部协议与 schema 仍为 1。
+
+v0.0.10 已公开 tag/Release/APK 不移动或覆盖。下一补丁预发建议 v0.0.11，须按 owner 确认的发行路径另行发布。实现、编译、实际非 debuggable APK 与设备证据分别验收，不以旧 Debug 真机记录替代新 Release 通过。

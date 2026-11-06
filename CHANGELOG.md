@@ -2,6 +2,10 @@
 
 Notable changes are curated for users; development previews do not promise stable data or API compatibility. Exact build identity, downloadable APKs, checksums and verification results are recorded in each GitHub Release.
 
+## Unreleased
+
+- Computer ADB helper now supports non-debuggable Advanced builds on Android 12+, using app-issued one-time process-bound handoff tickets instead of `run-as`. Standard has no entry because its current host does not compose Mobile Use. No wireless pairing or cross-Helix-process task recovery is added. Published v0.0.10 artifacts remain unchanged; the next preview version is pending owner confirmation.
+
 ## [0.0.10](https://github.com/dollarser/helix-agent/releases/tag/v0.0.10) — Development preview
 
 ### Added

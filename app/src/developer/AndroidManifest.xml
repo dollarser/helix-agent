@@ -5,6 +5,9 @@
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" tools:ignore="QueryAllPackagesPermission" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <application>
+        <provider android:name="com.helix.app.automation.adb.AdbHelperProvider"
+            android:authorities="${applicationId}.adb-helper"
+            android:exported="true" android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
         <activity
             android:name="com.helix.app.eval.ShizukuGrantActivity"
             android:exported="true"

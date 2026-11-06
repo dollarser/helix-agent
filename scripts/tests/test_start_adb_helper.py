@@ -51,6 +51,22 @@ class ComputerHelperProcessTest(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "cannot connect"):
                 helper.wait_log(["adb"], "/owned/startup.log", "HELIX_ADB_CONNECTED ", 1)
 
+    def test_unsupported_android_never_spawns_or_writes_startup_files(self):
+        with patch.object(helper, "shell", return_value="30\n") as shell, \
+                patch.object(helper.subprocess, "run") as run:
+            with self.assertRaisesRegex(RuntimeError, "Android 12"):
+                helper.start_helper(["adb"], "emulator-5554", Path("unused.json"))
+            shell.assert_called_once_with(["adb"], "getprop", "ro.build.version.sdk", text=True)
+            run.assert_not_called()
+
+    def test_split_or_missing_package_never_spawns_a_helper(self):
+        for result in ("", "package:/first.apk\npackage:/split.apk\n"):
+            with patch.object(helper, "shell", side_effect=["36\n", result]), \
+                    patch.object(helper.subprocess, "run") as run:
+                with self.assertRaisesRegex(RuntimeError, "monolithic Advanced"):
+                    helper.start_helper(["adb"], "emulator-5554", Path("unused.json"))
+                run.assert_not_called()
+
     def test_failed_stop_still_cleans_all_owned_files_without_masking_startup_failure(self):
         original = RuntimeError("original startup failure")
         cleaned = []

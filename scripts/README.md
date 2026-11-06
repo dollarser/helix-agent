@@ -102,7 +102,7 @@ models remain on demand; this does not record audio or contact a speech service.
 
 ## 电脑 ADB helper 原型
 
-仅支持 Android 12+ 上当前安装的 **Developer Debug 单 APK**（`com.helix.agent.developer`），电脑需要 Python 3 和已授权的 ADB。Release 和 Consumer 没有此原型的交接入口；启动不会替用户选择手机操作插件、改变会话范围或申请系统权限。
+支持 Android 12+ 上当前安装的 **Advanced Debug / Release 单 APK**（`com.helix.agent.developer`），电脑需要 Python 3 和已授权的 ADB。启动不依赖 `run-as`，不替用户选择手机操作插件、改变会话范围或申请系统权限。Standard 当前不装配手机操作宿主，故不提供此入口。已公开 v0.0.10 APK 不含该路径，详见[使用说明](../docs/development/computer-adb-helper.md)。
 
 ```sh
 python3 scripts/start-adb-helper.py --serial emulator-5554
