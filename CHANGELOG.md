@@ -23,7 +23,7 @@ Notable changes are curated for users; development previews do not promise stabl
 
 ### Upgrade notes
 
-VersionCode stays 1 and the development signing certificate is unchanged. Room schema compatibility does not cover old expert payloads: save and remove v0.0.9 expert-library entries before upgrading, then recreate them. There is no automatic migration or clearing. Computer ADB helper remains Developer Debug-only, not a feature of the published Release APKs.
+VersionCode stays 1 and the development signing certificate is unchanged. Room schema compatibility does not cover old expert payloads: save expert instructions and important content before upgrading. Existing plain-text entries require an external one-time conversion of an offline database copy; v0.0.9 has no deletion UI. Alternatively, defer upgrading or explicitly accept loss of private app data through a clean install. There is no automatic migration or clearing. Computer ADB helper remains Developer Debug-only, not a feature of the published Release APKs.
 
 [中文版本说明](docs/product/releases/v0.0.10.md) · [English release notes](docs/product/releases/v0.0.10.en.md) · [Full source comparison](https://github.com/dollarser/helix-agent/compare/v0.0.9...v0.0.10)
 
