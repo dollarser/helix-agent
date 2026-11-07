@@ -26,6 +26,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.trySendBlocking
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.runInterruptible
@@ -148,6 +149,12 @@ internal class CodexSubscriptionProvider(
             val events = eventsFor(outcome)
             val remaining = if (events.take(delivered.size) == delivered) events.drop(delivered.size) else events
             remaining.forEach { send(it) }
+        }.catch { failure ->
+            if (failure is com.helix.core.model.ImageReselectionRequiredException) {
+                emit(ModelEvent.Error(ModelErrorCode.IMAGE_RESELECT_REQUIRED, false))
+            } else {
+                throw failure
+            }
         }
 
     private fun eventsFor(outcome: CliModelJobClient.AwaitOutcome): List<ModelEvent> =

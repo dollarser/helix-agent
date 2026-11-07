@@ -1,6 +1,6 @@
 # 上下文优化建议复核与设计补充
 
-后续实施：Owner追加“先做收尾”，[HXA-285](../../development/tasks/HXA-285.md)已完成下述引用/压缩差异的生产修复及主机切片，完整全仓与双渠道测试APK编译通过；10月15日后续API36 Room6项及保存引用的Qwen真实压缩/跟进也已通过，见[后续验收](../../evidence/development/pre-refactor-closeout-2026-10-15.md)。下文“未修改生产代码/尚未修复”描述本次研究的原基线，不覆盖后续交付；其余策略仍是候选，结果与边界见[收尾证据](../../evidence/development/context-reference-closeout-2026-10-14.md)。
+后续实施：Owner追加“先做收尾”，[HXA-285](../../completion-records/HXA-285.md)已完成下述引用/压缩差异的生产修复及主机切片，完整全仓与双渠道测试APK编译通过；10月15日后续API36 Room6项及保存引用的Qwen真实压缩/跟进也已通过，见[后续验收](../../evidence/development/pre-refactor-closeout-2026-10-15.md)。下文“未修改生产代码/尚未修复”描述本次研究的原基线，不覆盖后续交付；其余策略仍是候选，结果与边界见[收尾证据](../../evidence/development/context-reference-closeout-2026-10-14.md)。
 
 > 核验日期：2026-10-14；源码基线：`main` / `14824251bc8578162ff4c7ed5ba61bb66c9014c3`。工作区存在并行文档改动；本轮只新增研究、导航和本地诊断探针，未修改生产代码。本页是设计输入，不是 accepted ADR、实施完成记录或下一任务队列；当前范围仍由 [status](../../development/status.md)、owner 请求和对应 ADR 决定。
 
@@ -23,7 +23,7 @@
 
 ### 2.1 当前路径
 
-1. [ConversationReferenceResolver.prepare](../../../app/src/main/kotlin/com/helix/app/chat/ConversationReferenceResolver.kt) 在输入接受时生成有界引用快照。后续引用的是已保存内容，不是源会话的实时链接。
+1. [ConversationReferenceResolver.prepare](../../../app/src/main/kotlin/com/helix/app/infrastructure/chat/ConversationReferenceResolver.kt) 在输入接受时生成有界引用快照。后续引用的是已保存内容，不是源会话的实时链接。
 2. [ChatRequestAssembler.persistedRow / referenceContext](../../../app/src/main/kotlin/com/helix/app/chat/ChatRequestAssembler.kt) 将消息正文与保存的引用合并，并附上 `UNTRUSTED_CONVERSATION_REFERENCE` 标记，随后构建模型消息。
 3. [ContextCompaction.plan](../../../app/src/main/kotlin/com/helix/app/agent/ContextCompaction.kt) 另读历史；[ContextHistoryMapping.rows](../../../app/src/main/kotlin/com/helix/app/agent/ContextHistoryMapping.kt) 只读 `ContextHistory.read` 的消息正文，未追加引用。
 4. [ContextSegments.remainingRequest](../../../core/agent/src/main/kotlin/com/helix/core/agent/ContextSegments.kt) 验证实际历史与物化历史的数量、顺序及规范消息一致性；这里只排除类型化视觉投影的差异。正文不同会返回 `null`，上层因此得不到压缩计划。

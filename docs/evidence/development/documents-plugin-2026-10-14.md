@@ -1,6 +1,6 @@
 # 统一文档插件：主机交付（2026-10-14）
 
-范围：[HXA-284](../../development/tasks/HXA-284.md)、[ADR-WORKSPACE-006](../../adr/workspace/006-pdf-reading.md)。Owner授权按统一PDF/DOCX方案实施，可继续调研；本轮设备/真实模型not requested。起点dd36b673；本记录只证明下列主机范围。
+范围：[HXA-284](../../completion-records/HXA-284.md)、[ADR-WORKSPACE-006](../../adr/workspace/006-pdf-reading.md)。Owner授权按统一PDF/DOCX方案实施，可继续调研；本轮设备/真实模型not requested。起点dd36b673；本记录只证明下列主机范围。
 
 ## 实现
 

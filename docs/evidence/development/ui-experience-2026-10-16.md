@@ -1,6 +1,6 @@
 # HXA-302：插件、工作导航、终端与图片体验
 
-日期：2026-10-16。范围由 Owner 追加的界面优化与后续“已安装／市场／导入”命名决定；基线为 `193a1f87`，起始工作区干净。允许日常模拟器、真实模型及分阶段本地提交，不推送或发布，不改变上一轮冻结候选。任务与参考来源见 [HXA-302](../../development/tasks/HXA-302.md)。
+日期：2026-10-16。范围由 Owner 追加的界面优化与后续“已安装／市场／导入”命名决定；基线为 `193a1f87`，起始工作区干净。允许日常模拟器、真实模型及分阶段本地提交，不推送或发布，不改变上一轮冻结候选。任务与参考来源见 [HXA-302](../../completion-records/HXA-302.md)。
 
 ## 实现与审查
 
@@ -17,8 +17,8 @@
 | --- | --- |
 | 插件与工作导航 | [ExtensionsScreen](../../../app/src/main/kotlin/com/helix/app/ui/ExtensionsScreen.kt)、[PluginManagementCard](../../../app/src/main/kotlin/com/helix/app/plugin/PluginManagementCard.kt)、[GroupedNavigation](../../../app/src/main/kotlin/com/helix/app/ui/GroupedNavigation.kt) |
 | 终端进入及控制 | [ManualTerminalViewModel](../../../app/src/developer/kotlin/com/helix/app/terminal/ManualTerminalViewModel.kt)、[ManualTerminalScreen](../../../app/src/developer/kotlin/com/helix/app/terminal/ManualTerminalScreen.kt)、[TerminalToolbar](../../../app/src/developer/kotlin/com/helix/app/terminal/TerminalToolbar.kt) |
-| 图片读取与事实描述 | [ChatImagePreview 应用服务](../../../app/src/main/kotlin/com/helix/app/chat/ChatImagePreview.kt)、[ChatService](../../../app/src/main/kotlin/com/helix/app/chat/ChatService.kt)、[AttachmentContext](../../../app/src/main/kotlin/com/helix/app/chat/AttachmentContext.kt) |
-| 图片界面 | [ChatImagePreview 界面](../../../app/src/main/kotlin/com/helix/app/ui/ChatImagePreview.kt)、[PendingAttachmentStrip](../../../app/src/main/kotlin/com/helix/app/ui/PendingAttachmentStrip.kt) |
+| 图片读取与事实描述 | [ChatImagePreview 应用服务](../../../app/src/main/kotlin/com/helix/app/infrastructure/chat/ChatImagePreview.kt)、[ChatService](../../../feature/conversation/src/main/kotlin/com/helix/feature/conversation/application/ChatService.kt)、[AttachmentContext](../../../feature/conversation/src/main/kotlin/com/helix/feature/conversation/application/attachment/AttachmentContext.kt) |
+| 图片界面 | [ChatImagePreview 界面](../../../feature/conversation/src/main/kotlin/com/helix/feature/conversation/presentation/ChatImagePreview.kt)、[PendingAttachmentStrip](../../../feature/conversation/src/main/kotlin/com/helix/feature/conversation/presentation/PendingAttachmentStrip.kt) |
 
 ## 实际验证
 

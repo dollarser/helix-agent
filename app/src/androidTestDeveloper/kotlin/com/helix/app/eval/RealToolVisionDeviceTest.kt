@@ -117,8 +117,8 @@ class RealToolVisionDeviceTest {
         )
         val deadline = android.os.SystemClock.elapsedRealtime() + 180_000
         while (android.os.SystemClock.elapsedRealtime() < deadline) {
-            container.chatService.toolVisionConsent.pending.value.filter { it.sessionId == session }.forEach {
-                container.chatService.toolVisionConsent.respond(it.id, true)
+            container.toolVisionConsent.pending.value.filter { it.sessionId == session }.forEach {
+                container.toolVisionConsent.respond(it.id, true)
             }
             val turn =
                 container.storage.turns
@@ -193,8 +193,8 @@ class RealToolVisionDeviceTest {
         val c = app.appContainer
         val deadline = android.os.SystemClock.elapsedRealtime() + 180_000
         while (android.os.SystemClock.elapsedRealtime() < deadline) {
-            c.chatService.toolVisionConsent.pending.value.filter { it.sessionId == session }.forEach {
-                c.chatService.toolVisionConsent.respond(it.id, true)
+            c.toolVisionConsent.pending.value.filter { it.sessionId == session }.forEach {
+                c.toolVisionConsent.respond(it.id, true)
             }
             val turns =
                 c.storage.turns

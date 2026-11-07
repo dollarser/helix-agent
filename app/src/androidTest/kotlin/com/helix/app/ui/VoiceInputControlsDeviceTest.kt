@@ -8,8 +8,8 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.test.platform.app.InstrumentationRegistry
-import com.helix.app.HelixTheme
 import com.helix.app.voice.VoiceCapture
+import com.helix.ui.shared.HelixTheme
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test

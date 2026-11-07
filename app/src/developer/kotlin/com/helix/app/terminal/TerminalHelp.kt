@@ -13,7 +13,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
-import com.helix.app.ui.indicatedVerticalScroll
+import com.helix.ui.shared.indicatedVerticalScroll
+import com.helix.ui.shared.R as SharedR
 
 /** Persistent explanatory text is available on demand; live errors remain on the terminal page. */
 @Composable
@@ -46,7 +47,7 @@ internal fun TerminalHelp(
         },
         confirmButton = {
             TextButton(onClick = onDismiss, modifier = Modifier.testTag("terminal-help-close")) {
-                Text(stringResource(R.string.chat_details_close))
+                Text(stringResource(SharedR.string.chat_details_close))
             }
         },
         dismissButton = { TextButton(onClick = onLicenses) { Text(stringResource(R.string.terminal_licenses)) } },

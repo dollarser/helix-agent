@@ -21,42 +21,13 @@ import androidx.compose.ui.unit.dp
 import com.helix.app.R
 import com.helix.app.files.FileManagerService
 import com.helix.app.files.FileSource
-import com.helix.app.ui.indicatedVerticalScroll
 import com.helix.core.workspace.FileScopePath
+import com.helix.ui.shared.indicatedVerticalScroll
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-
-@Composable
-@Suppress("FunctionName")
-internal fun SessionRenameDialog(
-    title: String,
-    onDismiss: () -> Unit,
-    onSave: (String) -> Unit,
-) {
-    var value by remember { mutableStateOf(title) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.chat_rename)) },
-        text = {
-            OutlinedTextField(
-                value,
-                { value = it },
-                singleLine = true,
-                label = { Text(stringResource(R.string.chat_session_title_label)) },
-                modifier = Modifier.testTag("session-title"),
-            )
-        },
-        confirmButton = {
-            TextButton(
-                { onSave(value.trim()) },
-                enabled = value.isNotBlank() && value.length <= 200 && '\u0000' !in value,
-                modifier = Modifier.testTag("session-rename-save"),
-            ) { Text(stringResource(R.string.chat_save_details)) }
-        },
-        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.common_cancel)) } },
-    )
-}
+import com.helix.feature.conversation.R as ConversationR
+import com.helix.ui.shared.R as SharedR
 
 @Composable
 // One bounded picker owns navigation, loading and awaited saving; cancellation never reports success.
@@ -171,9 +142,9 @@ internal fun SessionDirectoryDialog(
                     }
                 }
                 if (failed) {
-                    Text(stringResource(R.string.chat_directory_failed))
+                    Text(stringResource(ConversationR.string.chat_directory_failed))
                     TextButton({ retry++ }, enabled = !saving, modifier = Modifier.testTag("session-directory-retry")) {
-                        Text(stringResource(R.string.chat_retry))
+                        Text(stringResource(SharedR.string.chat_retry))
                     }
                 }
             }
@@ -189,7 +160,7 @@ internal fun SessionDirectoryDialog(
         },
         dismissButton = {
             TextButton(onDismiss, enabled = !saving, modifier = Modifier.testTag("session-directory-cancel")) {
-                Text(stringResource(R.string.common_cancel))
+                Text(stringResource(SharedR.string.common_cancel))
             }
         },
     )

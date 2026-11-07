@@ -20,9 +20,13 @@ import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.test.core.app.ApplicationProvider
 import com.helix.app.R
+import com.helix.feature.conversation.presentation.ComposerActions
+import com.helix.feature.conversation.presentation.ComposerAvailability
+import com.helix.feature.conversation.presentation.ConversationComposer
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
+import com.helix.feature.conversation.R as ConversationR
 
 class ComposerModelPlaceholderDeviceTest {
     @get:Rule val compose = createComposeRule()
@@ -53,7 +57,7 @@ class ComposerModelPlaceholderDeviceTest {
         compose
             .onNodeWithTag("chat-input-placeholder", useUnmergedTree = true)
             .assertIsDisplayed()
-            .assertTextEquals(context.getString(R.string.chat_input_placeholder))
+            .assertTextEquals(context.getString(ConversationR.string.chat_input_placeholder))
             .assert(hasAnyAncestor(hasTestTag("chat-input")))
         compose.onNodeWithTag("chat-select-model-reminder").assertDoesNotExist()
         compose.onNodeWithTag("chat-send").assertIsEnabled().performClick()
@@ -71,7 +75,7 @@ class ComposerModelPlaceholderDeviceTest {
         compose.onNodeWithTag("chat-input").performTextClearance()
         compose
             .onNodeWithTag("chat-input-placeholder", useUnmergedTree = true)
-            .assertTextEquals(context.getString(R.string.chat_input_placeholder))
+            .assertTextEquals(context.getString(ConversationR.string.chat_input_placeholder))
         assertEquals(0, sends)
     }
 
@@ -87,7 +91,7 @@ class ComposerModelPlaceholderDeviceTest {
                     availability =
                         ComposerAvailability(
                             delivery = false,
-                            deliveryReason = R.string.composer_temporarily_unavailable,
+                            deliveryReason = ConversationR.string.composer_temporarily_unavailable,
                         ),
                 )
             }

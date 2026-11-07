@@ -1,11 +1,13 @@
 package com.helix.app.ui
 
 import com.helix.app.R
+import com.helix.feature.conversation.presentation.ComposerAvailability
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import com.helix.feature.conversation.R as ConversationR
 
 class ComposerFeedbackTest {
     @Test fun blockedDeliveryExplainsTheActualReason() {
@@ -24,13 +26,13 @@ class ComposerFeedbackTest {
 
     @Test fun modeAndPermissionProgressAreVisible() {
         val state = ComposerAvailability()
-        assertEquals(R.string.composer_mode_switching, state.unavailableReason(false, true, false))
-        assertEquals(R.string.composer_permission_saving, state.unavailableReason(false, false, true))
+        assertEquals(ConversationR.string.composer_mode_switching, state.unavailableReason(false, true, false))
+        assertEquals(ConversationR.string.composer_permission_saving, state.unavailableReason(false, false, true))
     }
 
     @Test fun missingReasonFallsBackToExplicitStatus() {
         assertEquals(
-            R.string.composer_temporarily_unavailable,
+            ConversationR.string.composer_temporarily_unavailable,
             ComposerAvailability(delivery = false).unavailableReason(false, false, false),
         )
     }

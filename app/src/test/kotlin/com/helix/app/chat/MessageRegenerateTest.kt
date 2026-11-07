@@ -9,6 +9,7 @@ import com.helix.core.model.ProviderId
 import com.helix.core.model.SessionId
 import com.helix.core.model.TurnBudgets
 import com.helix.core.model.TurnId
+import com.helix.feature.conversation.presentation.MessageUi
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull

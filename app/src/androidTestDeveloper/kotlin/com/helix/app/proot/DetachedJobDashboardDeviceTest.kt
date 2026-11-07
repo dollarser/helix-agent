@@ -96,7 +96,7 @@ class DetachedJobDashboardDeviceTest {
         compose.resetDeterministicUiState()
         compose.navigateTo("tasks")
         compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
-            context.appContainer.chatService.backgroundJobs.value
+            context.appContainer.taskDashboard.jobs.value
                 .any { it.callId == id }
         }
         compose.onNodeWithTag("screen-tasks").performScrollToNode(hasTestTag("tasks-job-detail-$id"))

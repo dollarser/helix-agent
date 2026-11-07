@@ -113,7 +113,10 @@ class PhysicalBackgroundRecoveryDeviceTest {
                     val turn = storage.turns.listBySession(session).single()
                     chat.openSession(alternate)
                     waitFor { chat.screen.value.openSessionId == alternate }
-                    assertTrue(chat.backgroundTasks.value.any { it.id == turn.id && it.running })
+                    assertTrue(
+                        container.taskDashboard.tasks.value
+                            .any { it.id == turn.id && it.running },
+                    )
                     chat.openSession(session)
                     shell(if (lock) "input keyevent KEYCODE_SLEEP" else "input keyevent KEYCODE_HOME")
                     if (lock) {
@@ -130,7 +133,10 @@ class PhysicalBackgroundRecoveryDeviceTest {
                         DataSyncForegroundService.runningInstance.get() != null,
                     )
                     assertEquals("No duplicate provider request", 1, server.heldStreams.get())
-                    assertTrue(chat.backgroundTasks.value.any { it.id == turn.id && it.running })
+                    assertTrue(
+                        container.taskDashboard.tasks.value
+                            .any { it.id == turn.id && it.running },
+                    )
                     if (goalId == null) {
                         server.heldSocket.get().getOutputStream().apply {
                             write(
@@ -177,11 +183,11 @@ class PhysicalBackgroundRecoveryDeviceTest {
                         assertEquals(2, storage.goalRuns.listByGoal(goalId).size)
                     }
                 } finally {
-                    chat.backgroundTasks.value
+                    container.taskDashboard.tasks.value
                         .filter { it.running && storage.turns.resolve(it.id).sessionId == session }
                         .forEach { chat.stopTask(it.id) }
                     waitFor {
-                        chat.backgroundTasks.value.none {
+                        container.taskDashboard.tasks.value.none {
                             it.running &&
                                 storage.turns.resolve(it.id).sessionId == session
                         }

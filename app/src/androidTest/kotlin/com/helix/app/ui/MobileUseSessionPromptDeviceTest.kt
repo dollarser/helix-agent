@@ -23,6 +23,7 @@ import org.junit.Rule
 import org.junit.Test
 import java.io.File
 import java.util.UUID
+import com.helix.ui.shared.R as SharedR
 
 /** The production prompt waits for local facts, without selecting or granting anything. */
 class MobileUseSessionPromptDeviceTest {
@@ -106,7 +107,7 @@ class MobileUseSessionPromptDeviceTest {
         compose.setContent { MaterialTheme { MobileUseSessionPrompt(state, { current }, { retries++ }, {}) } }
         runBlocking { state.refresh() }
         compose.onNodeWithText(app.getString(R.string.connector_session_failed)).assertIsDisplayed()
-        compose.onNodeWithText(app.getString(R.string.chat_retry)).performClick()
+        compose.onNodeWithText(app.getString(SharedR.string.chat_retry)).performClick()
         assertEquals(1, retries)
         fail = false
         runBlocking { state.refresh() }

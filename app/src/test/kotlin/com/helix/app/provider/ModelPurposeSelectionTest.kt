@@ -203,7 +203,7 @@ class ModelPurposeSelectionTest {
     @Test fun builtInFeedbackDistinguishesUnclassifiedEmptyAndFailedDirectories() {
         val missing = row(true).copy(builtInCatalog = BuiltInModelCatalog(1, listOf("unclassified")))
         assertEquals(
-            com.helix.app.R.string.builtin_model_tasks_missing,
+            com.helix.feature.conversation.R.string.builtin_model_tasks_missing,
             com.helix.app.ui
                 .builtInCatalogMessage(missing),
         )
@@ -220,7 +220,7 @@ class ModelPurposeSelectionTest {
         )
         val known = missing.copy(builtInCatalog = BuiltInModelCatalog(1, listOf(BuiltInModel.MODEL_ID)))
         assertEquals(
-            com.helix.app.R.string.builtin_model_tasks_missing,
+            com.helix.feature.conversation.R.string.builtin_model_tasks_missing,
             com.helix.app.ui
                 .builtInCatalogMessage(known),
         )

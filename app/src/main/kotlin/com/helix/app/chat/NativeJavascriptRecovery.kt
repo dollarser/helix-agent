@@ -1,5 +1,6 @@
 package com.helix.app.chat
 
+import com.helix.feature.conversation.application.recovery.AutomaticRuntimeCollection
 import com.helix.runtime.quickjs.JsExecutionClient
 import com.helix.tools.framework.ExecutionOwnership
 import kotlinx.coroutines.CoroutineScope

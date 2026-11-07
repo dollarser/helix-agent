@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import com.helix.app.R
 import com.helix.app.diagnostics.AppLogSnapshot
 import com.helix.app.diagnostics.DiagnosticReportService
+import com.helix.ui.shared.indicatedVerticalScroll
 import kotlinx.coroutines.CancellationException
 
 @Composable

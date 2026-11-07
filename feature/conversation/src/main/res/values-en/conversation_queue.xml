@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tool_state_awaiting_approval">Awaiting approval</string>
+    <string name="tool_state_cancelled">Cancelled</string>
+    <string name="tool_state_completed">Call completed</string>
+    <string name="tool_state_denied">Denied</string>
+    <string name="tool_state_failed">Tool execution failed</string>
+    <string name="tool_state_interrupted">Interrupted (to resume)</string>
+    <string name="tool_state_needs_review">Needs review</string>
+    <string name="tool_state_processing">Processing</string>
+    <string name="tool_state_running">Running</string>
+    <string name="tool_state_unknown">Unknown state</string>
+    <string name="tool_summary_cancelled_before_start">Cancelled before start (no side effects)</string>
+    <string name="session_input_load_failed">Could not load queued input. Your edits are retained.</string>
+    <string name="session_input_revision_stale">This item changed elsewhere. Refresh and review it again.</string>
+    <string name="session_input_action_failed">Action failed. The saved input is retained.</string>
+    <string name="session_input_edit">Edit</string>
+    <string name="session_input_save">Save</string>
+    <string name="session_input_delete">Delete</string>
+    <string name="session_input_send_now">Send now</string>
+    <string name="session_input_attachment_message">Attachment or referenced message</string>
+</resources>

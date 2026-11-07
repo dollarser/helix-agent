@@ -3,7 +3,6 @@ package com.helix.app
 import com.helix.app.a2a.A2aAppService
 import com.helix.app.approval.SessionPermissionEditService
 import com.helix.app.audit.AuditLogService
-import com.helix.app.chat.ChatService
 import com.helix.app.files.FileManagerService
 import com.helix.app.mcp.McpAppService
 import com.helix.app.privacy.PrivacyDeletionService
@@ -19,6 +18,7 @@ import com.helix.extensions.plugin.PluginRegistry
 import com.helix.extensions.skills.SkillImportService
 import com.helix.extensions.skills.SkillRepository
 import com.helix.feature.browser.BrowserController
+import com.helix.feature.conversation.application.ChatService
 import com.helix.feature.files.SafGrantStore
 import com.helix.feature.files.SafTreeScopeService
 
@@ -72,7 +72,15 @@ interface AppContainer {
 
     val providerService: ProviderService
 
+    val toolExecution: com.helix.app.application.tools.ToolExecution
+
     val chatService: ChatService
+
+    val conversationDetails: com.helix.app.infrastructure.conversation.ConversationWorkspaceDetails
+    val conversationExperts: com.helix.app.infrastructure.conversation.ConversationExperts
+    val taskDashboard: com.helix.app.chat.TaskDashboardProjection
+
+    val toolVisionConsent: com.helix.app.vision.ToolVisionConsent
 
     val sessionExport: com.helix.app.export.SessionExportService?
         get() = null
@@ -93,7 +101,7 @@ interface AppContainer {
     /**
      * The tool pipeline (roadmap HXA-036): registered tool contracts + registry,
      * the dispatcher (doc 11 single entry point) and the storage-backed approval broker.
-     * The UI reaches it ONLY through the chat service — never the dispatcher or broker
+     * UI actions use conversation/application services, never the dispatcher or broker
      * directly (AGENTS: UI never touches the execution layer).
      */
     val toolPipeline: ToolPipeline

@@ -7,9 +7,10 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.R
-import com.helix.app.chat.EgressDisclosure
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.ProviderResidence
+import com.helix.feature.conversation.application.EgressDisclosure
+import com.helix.feature.conversation.presentation.DisclosureDialog
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test

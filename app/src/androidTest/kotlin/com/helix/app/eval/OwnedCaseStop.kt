@@ -1,7 +1,7 @@
 package com.helix.app.eval
 
-import com.helix.app.chat.ChatService
 import com.helix.core.storage.HelixStorage
+import com.helix.feature.conversation.application.ChatService
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 

@@ -27,6 +27,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
+import com.helix.ui.shared.R as SharedR
 
 @Composable
 @Suppress("FunctionName", "LongParameterList")
@@ -63,7 +64,7 @@ internal fun TerminalTopBar(
             enabled = state.activeSessionId != null && !state.busy,
             modifier = Modifier.testTag("terminal-settle"),
         ) {
-            Icon(painterResource(R.drawable.ic_close), stringResource(R.string.terminal_stop_close))
+            Icon(painterResource(SharedR.drawable.ic_close), stringResource(R.string.terminal_stop_close))
         }
         TerminalOptions(state.busy, model, onInfo, onRuntimeSettings, onHelp)
     }
@@ -81,7 +82,7 @@ private fun TerminalOptions(
     var menu by remember { mutableStateOf(false) }
     Box {
         IconButton({ menu = true }, Modifier.testTag("terminal-menu")) {
-            Icon(painterResource(R.drawable.ic_chat_more), stringResource(R.string.terminal_menu))
+            Icon(painterResource(SharedR.drawable.ic_chat_more), stringResource(R.string.terminal_menu))
         }
         DropdownMenu(menu, onDismissRequest = { menu = false }) {
             val items =
@@ -128,7 +129,7 @@ private fun TerminalSelector(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            Icon(painterResource(R.drawable.ic_expand_summary), null, Modifier.size(16.dp))
+            Icon(painterResource(SharedR.drawable.ic_expand_summary), null, Modifier.size(16.dp))
         }
         DropdownMenu(expanded, onDismissRequest = { expanded = false }) {
             state.sessions.forEachIndexed { index, session ->
@@ -141,7 +142,7 @@ private fun TerminalSelector(
                         }
                     },
                     trailingIcon = {
-                        if (active) Icon(painterResource(R.drawable.ic_check), null)
+                        if (active) Icon(painterResource(SharedR.drawable.ic_check), null)
                     },
                     onClick = {
                         expanded = false
@@ -154,7 +155,7 @@ private fun TerminalSelector(
             run {
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.terminal_new_tab)) },
-                    leadingIcon = { Icon(painterResource(R.drawable.ic_composer_add), null) },
+                    leadingIcon = { Icon(painterResource(SharedR.drawable.ic_composer_add), null) },
                     trailingIcon = {
                         Text(
                             stringResource(R.string.terminal_parallel_limit, state.maxSessions),

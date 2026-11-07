@@ -9,7 +9,6 @@ import com.helix.app.provider.ui.validateProviderForm
 import com.helix.provider.catalog.ProviderTemplateCatalog
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ProviderFormValidationTest {
@@ -78,16 +77,5 @@ class ProviderFormValidationTest {
             assertEquals(R.string.provider_model_selection_invalid, error?.res)
             assertEquals(ProviderFormField.MODEL, providerErrorField(error))
         }
-    }
-
-    @Test fun scrollbarShowsExtentAndRemainsInsideViewportAfterResize() {
-        val top = formScrollThumb(100f, 300f, 0f, 20f)
-        val bottom = formScrollThumb(100f, 300f, 300f, 20f)
-        assertEquals(0f, top.first)
-        assertEquals(25f, top.second)
-        assertEquals(100f, bottom.first + bottom.second)
-        val resized = formScrollThumb(10f, 100f, 1000f, 20f)
-        assertTrue(resized.first >= 0f && resized.first + resized.second <= 10f)
-        assertEquals(0f to 100f, formScrollThumb(100f, 0f, 0f, 20f))
     }
 }

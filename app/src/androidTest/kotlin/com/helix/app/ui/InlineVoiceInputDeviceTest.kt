@@ -11,12 +11,15 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextReplacement
-import com.helix.app.HelixTheme
 import com.helix.app.voice.PcmCapture
 import com.helix.app.voice.StreamingAsr
 import com.helix.app.voice.StreamingAsrFactory
 import com.helix.app.voice.VoiceCapture
 import com.helix.app.voice.VoiceInputMapper
+import com.helix.feature.conversation.input.appendVoiceDraft
+import com.helix.feature.conversation.presentation.ComposerActions
+import com.helix.feature.conversation.presentation.ConversationComposer
+import com.helix.ui.shared.HelixTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -79,8 +82,8 @@ class InlineVoiceInputDeviceTest {
                                         preview = null
                                         open = false
                                     },
-                                    onAccept = { draft = VoiceInputMapper.appendDraft(base, it) },
-                                    onPreview = { preview = VoiceInputMapper.appendDraft(base, it) },
+                                    onAccept = { draft = appendVoiceDraft(base, it) },
+                                    onPreview = { preview = appendVoiceDraft(base, it) },
                                     permissionChecker = { permission },
                                     captureFactory = { context, scope ->
                                         VoiceCapture(

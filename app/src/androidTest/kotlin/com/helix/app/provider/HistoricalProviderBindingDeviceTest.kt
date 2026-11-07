@@ -1,6 +1,7 @@
 package com.helix.app.provider
 
 import com.helix.core.model.NormalizedEndpoint
+import com.helix.feature.conversation.presentation.ProviderBindingIssue
 import com.helix.provider.api.CapabilitySource
 import com.helix.provider.api.ProviderCapabilities
 import kotlinx.coroutines.runBlocking

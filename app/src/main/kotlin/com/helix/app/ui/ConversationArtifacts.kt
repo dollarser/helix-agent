@@ -22,18 +22,20 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import com.helix.app.R
 import com.helix.app.chat.ArtifactRowUi
-import com.helix.app.chat.ChatScreenState
-import com.helix.app.chat.ChatService
 import com.helix.app.files.FileManagerService
-import com.helix.app.ui.IndicatedLazyColumn
+import com.helix.app.infrastructure.conversation.ConversationWorkspaceDetails
+import com.helix.feature.conversation.presentation.ChatScreenState
+import com.helix.ui.shared.IndicatedLazyColumn
+import com.helix.ui.shared.SharedSheet
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import com.helix.ui.shared.R as SharedR
 
 /** Read-only session outputs. Closing or switching sessions discards only presentation state. */
 @Composable
 @Suppress("FunctionName", "LongMethod")
 internal fun ConversationArtifacts(
-    service: ChatService,
+    service: ConversationWorkspaceDetails,
     fileManager: FileManagerService?,
     screen: ChatScreenState,
     onDismiss: () -> Unit,
@@ -67,14 +69,14 @@ internal fun ConversationArtifacts(
         val displayedRows = if (showingSources) sources else rows
         val listState = rememberLazyListState()
         val selected = displayedRows.firstOrNull { it.id == selectedId }
-        ConversationSheet(
+        SharedSheet(
             title = conversationArtifactTitle(selected, showingSources),
             tag = "chat-artifacts",
             onDismiss = onDismiss,
             scrollContent = false,
         ) {
             if (failed) {
-                Text(stringResource(R.string.common_operation_failed), Modifier.testTag("chat-artifacts-error"))
+                Text(stringResource(SharedR.string.common_operation_failed), Modifier.testTag("chat-artifacts-error"))
                 TextButton({
                     revision++
                 }, Modifier.testTag("chat-artifacts-retry")) { Text(stringResource(R.string.session_settings_retry)) }

@@ -1,6 +1,7 @@
 package com.helix.app.ui
 
-import com.helix.app.chat.hasSelectedConversationModel
+import com.helix.feature.conversation.presentation.ComposerAvailability
+import com.helix.feature.conversation.presentation.hasSelectedConversationModel
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test

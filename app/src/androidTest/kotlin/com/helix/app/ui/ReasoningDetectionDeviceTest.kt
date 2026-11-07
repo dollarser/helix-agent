@@ -7,6 +7,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import com.helix.core.model.ReasoningEffort
+import com.helix.feature.conversation.presentation.ComposerReasoningMenu
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test

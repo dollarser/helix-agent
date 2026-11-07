@@ -28,9 +28,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.R
-import com.helix.app.chat.ChatService
+import com.helix.app.chat.TaskDashboardProjection
 import com.helix.app.files.FileManagerService
-import com.helix.app.ui.IndicatedLazyColumn
+import com.helix.app.infrastructure.conversation.ConversationWorkspaceDetails
+import com.helix.feature.conversation.application.ChatService
+import com.helix.ui.shared.IndicatedLazyColumn
+import com.helix.feature.conversation.R as ConversationR
 
 /**
  * HXA-203: the dedicated "return to the producing task" route (the same pattern as the
@@ -67,6 +70,8 @@ internal fun tasksTurnRoute(turnId: String): String = "tasks-turn/$turnId"
 @Suppress("FunctionName", "LongParameterList")
 internal fun TasksScreen(
     service: ChatService,
+    dashboard: TaskDashboardProjection,
+    details: ConversationWorkspaceDetails,
     fileManager: FileManagerService,
     onOpenSession: (String) -> Unit,
     onOpenCommandDetail: (String, String) -> Unit = { _, _ -> },
@@ -84,16 +89,16 @@ internal fun TasksScreen(
     var commandTurn by commandTurnState
     var artifactsQuery by artifactsQueryState
 
-    val tasks by service.backgroundTasks.collectAsStateWithLifecycle()
-    val jobs by service.backgroundJobs.collectAsStateWithLifecycle()
-    val goals by service.goalDashboard.collectAsStateWithLifecycle()
-    val plans by service.planDashboard.collectAsStateWithLifecycle()
+    val tasks by dashboard.tasks.collectAsStateWithLifecycle()
+    val jobs by dashboard.jobs.collectAsStateWithLifecycle()
+    val goals by dashboard.goals.collectAsStateWithLifecycle()
+    val plans by dashboard.plans.collectAsStateWithLifecycle()
 
     // Entry refresh: facts written while the app was closed (or by another process) become
     // visible on open; afterwards the shared flows stay live.
     LaunchedEffect(Unit) {
-        service.refreshBackgroundTasksNow()
-        service.refreshTaskDashboardsNow()
+        dashboard.refreshBackgroundNow()
+        dashboard.refreshTasksNow()
     }
 
     // HXA-203: arriving from an artifact's "view task" action lands on that turn's result
@@ -110,6 +115,8 @@ internal fun TasksScreen(
     if (openDialog) {
         TaskModals(
             service,
+            dashboard,
+            details,
             fileManager,
             onOpenSession,
             onOpenCommandDetail,
@@ -132,6 +139,7 @@ internal fun TasksScreen(
                     jobs.filter { sessionFilter == null || it.sessionId in sessionFilter },
                 ),
                 service,
+                dashboard,
                 onOpenSession,
                 { resultTurn = it },
                 { selectedPlan = it },
@@ -152,6 +160,8 @@ internal fun TasksScreen(
 @Suppress("FunctionName", "LongParameterList")
 private fun TaskModals(
     service: ChatService,
+    dashboard: TaskDashboardProjection,
+    details: ConversationWorkspaceDetails,
     fileManager: FileManagerService,
     onOpenSession: (String) -> Unit,
     onOpenCommandDetail: (String, String) -> Unit,
@@ -162,7 +172,7 @@ private fun TaskModals(
 ) {
     when {
         resultTurn.value != null -> {
-            TaskResultDialog(service, requireNotNull(resultTurn.value)) { resultTurn.value = null }
+            TaskResultDialog(details, dashboard, requireNotNull(resultTurn.value)) { resultTurn.value = null }
         }
 
         selectedPlan.value != null -> {
@@ -175,7 +185,7 @@ private fun TaskModals(
             // HXA-194: the turn's commands list; opening a call navigates to the
             // details page (the dialog dismisses, the list is re-read per open).
             TurnCommandListDialog(
-                service,
+                details,
                 requireNotNull(commandTurn.value),
                 onOpenCommandDetail = { turnId, callId ->
                     commandTurn.value = null
@@ -187,7 +197,7 @@ private fun TaskModals(
         else -> {
             val query = requireNotNull(artifactsQuery.value)
             TaskArtifactsDialog(
-                service,
+                details,
                 fileManager,
                 query.turnId,
                 query.goalId,
@@ -216,6 +226,7 @@ private fun TasksTurnBackBar(onBack: () -> Unit) {
 private fun TasksRowList(
     rows: List<TasksRow>,
     service: ChatService,
+    dashboard: TaskDashboardProjection,
     onOpenSession: (String) -> Unit,
     onShowResult: (String) -> Unit,
     onReviewPlan: (String) -> Unit,
@@ -252,6 +263,7 @@ private fun TasksRowList(
                     TasksRowView(
                         row,
                         service,
+                        dashboard,
                         onOpenSession,
                         onShowResult,
                         onReviewPlan,
@@ -270,6 +282,7 @@ private fun TasksRowList(
 private fun TasksRowView(
     row: TasksRow,
     service: ChatService,
+    dashboard: TaskDashboardProjection,
     onOpenSession: (String) -> Unit,
     onShowResult: (String) -> Unit,
     onReviewPlan: (String) -> Unit,
@@ -285,7 +298,7 @@ private fun TasksRowView(
             TaskRowHeading(row)
             Text(stringResource(row.statusRes), style = MaterialTheme.typography.bodySmall)
             if (row is BackgroundJobRow) {
-                JobRowControls(row, service)
+                JobRowControls(row, dashboard)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 when (row) {
@@ -297,7 +310,7 @@ private fun TasksRowView(
                         TextButton(
                             { onOpenCommandDetail(row.job.turnId, row.job.callId) },
                             Modifier.testTag("tasks-job-detail-${row.job.callId}"),
-                        ) { Text(stringResource(R.string.chat_tool_command_detail)) }
+                        ) { Text(stringResource(ConversationR.string.chat_tool_command_detail)) }
                     }
 
                     is TasksRow.Turn -> {
@@ -362,13 +375,13 @@ private data class TaskArtifactsQuery(
 @Suppress("FunctionName")
 private fun JobRowControls(
     row: BackgroundJobRow,
-    service: ChatService,
+    dashboard: TaskDashboardProjection,
 ) {
     if (row.job.settlementPending) {
         Text(stringResource(R.string.tasks_job_pending), Modifier.testTag("tasks-job-pending-${row.job.callId}"))
     }
-    val action by service.backgroundJobAction.collectAsStateWithLifecycle()
-    BackgroundJobControls(row.job, action, service::performBackgroundJobAction)
+    val action by dashboard.jobActionState.collectAsStateWithLifecycle()
+    BackgroundJobControls(row.job, action, dashboard::performBackgroundJobAction)
 }
 
 /**

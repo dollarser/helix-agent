@@ -49,5 +49,5 @@ git diff --check
 ## Related records
 
 - [会话授权决定](../adr/permissions/001-session-authorization.md)
-- [HXA-244](../development/tasks/HXA-244.md)
+- [HXA-244](../completion-records/HXA-244.md)
 - [当前实施状态](../development/status.md)

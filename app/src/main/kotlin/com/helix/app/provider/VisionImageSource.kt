@@ -1,9 +1,11 @@
 package com.helix.app.provider
 
+import com.helix.app.vision.ImageReadPolicy
 import com.helix.core.model.ArtifactRef
-import com.helix.core.model.VisionLimits
+import com.helix.core.model.ImageReselectionRequiredException
 import com.helix.core.storage.repository.ArtifactRepository
 import com.helix.core.workspace.FileScopePath
+import com.helix.core.workspace.NormalizedImageExif
 import com.helix.core.workspace.WorkspaceArtifactStore
 import com.helix.provider.api.CapabilityProbe
 import java.util.Base64
@@ -31,12 +33,10 @@ data class LoadedImage(
  * fallback and no placeholder substitution (the encoder contract of HXA-022/023).
  */
 fun interface VisionImageSource {
-    fun load(ref: ArtifactRef): LoadedImage
-
     fun load(
         image: com.helix.core.model.ImageReference,
         config: com.helix.provider.api.ProviderConfig,
-    ): LoadedImage = load(image.ref)
+    ): LoadedImage
 }
 
 /**
@@ -48,52 +48,29 @@ fun interface VisionImageSource {
 class ArtifactVisionImageSource(
     private val artifacts: ArtifactRepository,
     private val workspace: WorkspaceArtifactStore,
-    private val verifyBinding: (com.helix.core.model.ImageReference, com.helix.provider.api.ProviderConfig) -> Unit =
+    private val verifyBinding: (
+        com.helix.core.model.ImageReference,
+        com.helix.provider.api.ProviderConfig,
+    ) -> ImageReadPolicy =
         { _, _ -> throw IllegalArgumentException("No image binding verifier installed") },
 ) : VisionImageSource {
-    @Suppress("TooGenericExceptionCaught") // ANY read failure (path/scope/I-O) maps to one closed, path-free error
-    override fun load(ref: ArtifactRef): LoadedImage {
-        val fixture =
-            when (ref) {
-                COLOR_PROBE_REF -> COLOR_PROBE_IMAGE
-                PROBE_IMAGE_REF -> PROBE_IMAGE
-                else -> null
-            }
-        if (fixture != null) return fixture
-        val artifact =
-            artifacts
-                .listBySession(currentSession())
-                .firstOrNull { it.id == ref.value }
-                ?: throw IllegalArgumentException("image artifact is not bound to this session")
-        require(artifact.mediaType in VisionLimits.NORMALIZED_MEDIA_TYPES) {
-            "image artifact has a non-closed media type"
-        }
-        require(artifact.size <= VisionLimits.MAX_NORMALIZED_RAW_BYTES) {
-            "image exceeds the per-image wire budget"
-        }
-        val bytes =
-            try {
-                com.helix.app.vision.VerifiedImageBytes.read(artifact.size, artifact.sha256, artifact.mediaType) {
-                    workspace.openRead(FileScopePath.fromModelReference(artifact.relativePath))
-                }
-            } catch (e: Exception) {
-                throw IllegalArgumentException("image artifact is unreadable", e)
-            }
-        require(bytes.isNotEmpty() && bytes.size.toLong() == artifact.size) {
-            "image artifact bytes do not verify against their snapshot"
-        }
-        return LoadedImage(artifact.mediaType, Base64.getEncoder().encodeToString(bytes))
-    }
-
     @Suppress("TooGenericExceptionCaught") // Decode/scope failures must not leak private paths into model errors.
     override fun load(
         image: com.helix.core.model.ImageReference,
         config: com.helix.provider.api.ProviderConfig,
     ): LoadedImage {
-        if (image.ref == PROBE_IMAGE_REF || image.ref == COLOR_PROBE_REF) return load(image.ref)
+        val probe =
+            when (image.ref) {
+                PROBE_IMAGE_REF -> PROBE_IMAGE
+                COLOR_PROBE_REF -> COLOR_PROBE_IMAGE
+                else -> null
+            }
+        if (probe != null) return probe
         return try {
             loadBound(image, config)
         } catch (failure: java.util.concurrent.CancellationException) {
+            throw failure
+        } catch (failure: ImageReselectionRequiredException) {
             throw failure
         } catch (failure: Exception) {
             throw IllegalArgumentException("Image source or disclosure could not be verified", failure)
@@ -105,8 +82,8 @@ class ArtifactVisionImageSource(
         config: com.helix.provider.api.ProviderConfig,
     ): LoadedImage {
         val binding = requireNotNull(image.binding) { "Image has no request binding" }
-        if (Thread.currentThread().isInterrupted) throw java.util.concurrent.CancellationException()
-        verifyBinding(image, config)
+        checkInterrupted()
+        val policy = verifyBinding(image, config)
         val artifact = artifacts.resolve(image.ref.value)
         require(
             artifact.sessionId == binding.sessionId && artifact.sha256 == binding.sha256 &&
@@ -116,26 +93,19 @@ class ArtifactVisionImageSource(
             com.helix.app.vision.VerifiedImageBytes.read(artifact.size, binding.sha256, image.mediaType) {
                 workspace.openRead(FileScopePath.fromModelReference(artifact.relativePath))
             }
-        if (Thread.currentThread().isInterrupted) throw java.util.concurrent.CancellationException()
-        verifyBinding(image, config)
+        checkInterrupted()
+        require(verifyBinding(image, config) == policy) { "Image source purpose changed" }
+        if (policy == ImageReadPolicy.NORMALIZED_USER_REFERENCE &&
+            !NormalizedImageExif.isExifFree(exact, image.mediaType)
+        ) {
+            throw ImageReselectionRequiredException()
+        }
         return LoadedImage(image.mediaType, Base64.getEncoder().encodeToString(exact))
     }
 
-    /**
-     * The artifact registry is session-indexed but the ref carries no session, so the chat
-     * service binds the session under [bindSession] before each turn build. A source with no
-     * bound session fails closed — it never guesses a session.
-     */
-    @Volatile
-    private var boundSession: String? = null
-
-    /** Binds the session for the in-flight turn build (the resolver runs inside the stream). */
-    fun bindSession(sessionId: String) {
-        boundSession = sessionId
+    private fun checkInterrupted() {
+        if (Thread.currentThread().isInterrupted) throw java.util.concurrent.CancellationException()
     }
-
-    private fun currentSession(): String =
-        boundSession ?: throw IllegalArgumentException("image artifact resolution has no session context")
 
     companion object {
         /**

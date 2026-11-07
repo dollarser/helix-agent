@@ -109,8 +109,8 @@ class DocumentModelDeviceTest {
                     ) {
                         // Owner opted into this model and these generated documents. A PDF on
                         // API < 35 sends pixels, so acknowledge only this fixture's disclosure.
-                        c.chatService.toolVisionConsent.pending.value.filter { it.sessionId == session }.forEach {
-                            c.chatService.toolVisionConsent.respond(it.id, true)
+                        c.toolVisionConsent.pending.value.filter { it.sessionId == session }.forEach {
+                            c.toolVisionConsent.respond(it.id, true)
                         }
                         delay(100)
                     }

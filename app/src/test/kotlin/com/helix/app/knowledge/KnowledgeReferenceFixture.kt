@@ -6,10 +6,10 @@ import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.NoCancellation
 import com.helix.core.model.input.InputConfiguration
 import com.helix.core.model.input.KnowledgeReference
+import com.helix.core.model.input.KnowledgeReferences
 import com.helix.core.model.input.SessionInputDelivery
 import com.helix.core.storage.content.FileContentStore
 import com.helix.core.storage.entity.MessageEntity
-import com.helix.core.storage.repository.KnowledgeReferences
 import com.helix.core.storage.repository.SessionHistoryRepository
 import com.helix.core.storage.repository.SessionInputRecord
 import com.helix.core.storage.repository.SessionInputState

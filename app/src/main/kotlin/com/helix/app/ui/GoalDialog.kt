@@ -25,12 +25,14 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.R
-import com.helix.app.chat.ChatService
-import com.helix.app.chat.GoalSummaryUi
-import com.helix.app.ui.indicatedVerticalScroll
 import com.helix.core.model.GoalBudgets
+import com.helix.feature.conversation.application.ChatService
+import com.helix.feature.conversation.presentation.GoalSummaryUi
+import com.helix.ui.shared.ExpandableSummary
+import com.helix.ui.shared.indicatedVerticalScroll
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
+import com.helix.feature.conversation.R as ConversationR
 
 @Composable
 @Suppress("FunctionName", "LongMethod") // Goal management is a single scrollable dialog surface.
@@ -56,14 +58,14 @@ internal fun GoalDialog(
     }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.goal_manage)) },
+        title = { Text(stringResource(ConversationR.string.goal_manage)) },
         text = {
             Column(
                 Modifier.heightIn(max = 440.dp).indicatedVerticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Text(stringResource(R.string.goal_explicit_continue))
-                if (continueError) Text(stringResource(R.string.goal_continue_unavailable))
+                if (continueError) Text(stringResource(ConversationR.string.goal_continue_unavailable))
                 rows.forEach { row ->
                     val heading = remember(row.id) { BringIntoViewRequester() }
                     ExpandableSummary(
@@ -257,7 +259,7 @@ private fun goalPauseLabel(outcome: String?): Int? =
         outcome?.startsWith("SYSTEM_PAUSED(") == true -> R.string.goal_system_paused
         outcome == "RUN_FINISHED" -> R.string.goal_pause_run_finished
         outcome == "INTERRUPTED" -> R.string.goal_pause_interrupted
-        outcome?.startsWith("BUDGET_EXHAUSTED(") == true -> R.string.model_error_goal_budget_limit
+        outcome?.startsWith("BUDGET_EXHAUSTED(") == true -> ConversationR.string.model_error_goal_budget_limit
         else -> null
     }
 

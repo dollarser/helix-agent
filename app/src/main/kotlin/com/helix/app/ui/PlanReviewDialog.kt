@@ -21,9 +21,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.R
-import com.helix.app.chat.ChatService
-import com.helix.app.plan.PlanReview
-import com.helix.core.storage.repository.PlanLifecycleState
+import com.helix.feature.conversation.application.ChatService
+import com.helix.feature.conversation.application.goals.PlanReview
+import com.helix.feature.conversation.application.goals.PlanReviewState
 import kotlinx.coroutines.launch
 
 /**
@@ -109,11 +109,11 @@ private fun PlanReviewSections(plan: PlanReview) {
 private fun PlanReviewActions(
     service: ChatService,
     planId: String,
-    state: PlanLifecycleState,
+    state: PlanReviewState,
     onDone: () -> Unit,
 ) {
     var busy by remember { mutableStateOf(false) }
-    if (state != PlanLifecycleState.READY) return
+    if (state != PlanReviewState.READY) return
     val scope = rememberCoroutineScope()
     Row {
         TextButton(

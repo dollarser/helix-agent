@@ -13,6 +13,9 @@ import com.helix.core.model.RandomIdGenerator
 import com.helix.core.model.SafetyProfile
 import com.helix.core.storage.HelixStorage
 import com.helix.core.workspace.WorkspaceArtifactStore
+import com.helix.feature.conversation.application.recovery.AutomaticRuntimeCollection
+import com.helix.feature.conversation.presentation.ProotRecoveredOutput
+import com.helix.feature.conversation.presentation.ProotRecoveryReport
 import com.helix.runtime.proot.client.ProotJobClient
 import com.helix.runtime.proot.client.ProotRuntimeSupervisor
 import com.helix.runtime.proot.client.RepairEntryResult
@@ -58,7 +61,7 @@ internal object ProotToolModule {
     private lateinit var idGenerator: IdGenerator
     private lateinit var userJobActions: DetachedJobUserActions
     private var executionOwnership: com.helix.tools.framework.ExecutionOwnership? = null
-    private var foregroundObserver: com.helix.app.chat.AutomaticRuntimeCollection? = null
+    private var foregroundObserver: AutomaticRuntimeCollection? = null
     private var store: WorkspaceArtifactStore? = null
     private var secretValues: () -> Set<String> = { emptySet() }
     private val jobSeq =
@@ -88,7 +91,7 @@ internal object ProotToolModule {
         workspaceStore: WorkspaceArtifactStore,
         storage: HelixStorage,
         ownership: com.helix.tools.framework.ExecutionOwnership,
-        chat: () -> com.helix.app.chat.ChatService,
+        chat: () -> com.helix.feature.conversation.application.ChatService,
         scope: kotlinx.coroutines.CoroutineScope? = null,
         resolveWorkspacePath: (
             com.helix.core.workspace.FileScopePath,
@@ -210,7 +213,7 @@ internal object ProotToolModule {
         executionOwnership = ownership
         foregroundObserver =
             scope?.let {
-                com.helix.app.chat.AutomaticRuntimeCollection(
+                AutomaticRuntimeCollection(
                     kotlinx.coroutines.CoroutineScope(it.coroutineContext + kotlinx.coroutines.Dispatchers.IO),
                 )
             }
@@ -287,9 +290,9 @@ internal object ProotToolModule {
             foregroundObserver?.request("${owner.executionId}:${owner.generation}") {
                 if (host.isRetained(owner)) recoverForegroundOwner(storage, host, owner)
                 if (!host.isRetained(owner)) {
-                    com.helix.app.chat.AutomaticRuntimeCollection.Observation.COMPLETE
+                    AutomaticRuntimeCollection.Observation.COMPLETE
                 } else {
-                    com.helix.app.chat.AutomaticRuntimeCollection.Observation.RUNNING
+                    AutomaticRuntimeCollection.Observation.RUNNING
                 }
             }
         }

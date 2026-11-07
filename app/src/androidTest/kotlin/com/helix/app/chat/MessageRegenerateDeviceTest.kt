@@ -3,6 +3,7 @@ package com.helix.app.chat
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.helix.app.agent.TurnStartSpec
+import com.helix.app.application.agent.GoalRoundAllowance
 import com.helix.app.infrastructure.agent.TurnAdmission
 import com.helix.app.infrastructure.agent.createRoomTurnEngine
 import com.helix.app.test.bindFixtureLifecycle
@@ -168,6 +169,112 @@ class MessageRegenerateDeviceTest {
             assertNoProposedTurn(storage, "t4")
         }
 
+    @Test
+    fun completedAndBlockedGoalsRefuseRegenerationWithoutHidingHistory() {
+        for (state in listOf("COMPLETED", "BLOCKED")) {
+            fixture { storage ->
+                val answer = completedOriginalAnswer(storage)
+                val goal = regenerationGoal(storage, state)
+                val history = storage.messages.allRevisions("s")
+                assertEquals(TurnAdmissionResult.GoalRefused, regenerateGoal(storage, goal, answer))
+                assertEquals(history, storage.messages.allRevisions("s"))
+                assertEquals(state, storage.goals.resolve(goal).state)
+                assertTrue(storage.goalRuns.listByGoal(goal).isEmpty())
+                assertNoProposedTurn(storage, "replacement")
+            }
+        }
+    }
+
+    @Test
+    fun exhaustedGoalKeepsBudgetBlockButDoesNotSupersedeAnswer() =
+        fixture { storage ->
+            val answer = completedOriginalAnswer(storage)
+            val goal = regenerationGoal(storage, "RUNNING")
+            val run = storage.goalRuns.open("used-round", goal, "FOREGROUND_CONTINUATION", 1)
+            storage.goalTurnBindings.bind("t1", run.id)
+            storage.goalRuns.finish(run, "COMPLETED", 2, 0, 0, 0, 0)
+            storage.goals.updateGoal(storage.goals.resolve(goal).copy(state = "PAUSED"))
+            assertEquals(1, GoalRoundAllowance(storage).used(goal))
+            assertTrue(storage.goalRuns.listOpenByGoal(goal).isEmpty())
+            val history = storage.messages.allRevisions("s")
+            assertEquals(TurnAdmissionResult.GoalRefused, regenerateGoal(storage, goal, answer))
+            assertEquals("BLOCKED", storage.goals.resolve(goal).state)
+            assertEquals("BLOCKED(round-limit)", storage.goals.resolve(goal).finishReason)
+            assertEquals(history, storage.messages.allRevisions("s"))
+            assertEquals(1, storage.goalRuns.listByGoal(goal).size)
+            assertNoProposedTurn(storage, "replacement")
+        }
+
+    @Test
+    fun admittedGoalRegenerationCommitsHistoryRunAndRuntimeTogether() =
+        fixture { storage ->
+            val answer = completedOriginalAnswer(storage)
+            val goal = regenerationGoal(storage, "READY")
+            assertTrue(regenerateGoal(storage, goal, answer) is TurnAdmissionResult.Started)
+            assertEquals("goal-regenerate", storage.messages.resolve(answer).supersededBy)
+            assertEquals(1, storage.goalRuns.listByGoal(goal).size)
+            assertNotNull(storage.turnRuntimeRecords.find("replacement"))
+            assertNotNull(storage.goalTurnBindings.byTurn("replacement"))
+        }
+
+    @Test
+    fun invalidHistoryAfterGoalAdmissionRollsBackTheNewRunAndTurn() =
+        fixture { storage ->
+            completedOriginalAnswer(storage)
+            val goal = regenerationGoal(storage, "READY")
+            val before = storage.goals.resolve(goal)
+            val history = storage.messages.allRevisions("s")
+            val audit = storage.auditEvents.listByCorrelation(before.correlationId)
+            assertThrows(IllegalArgumentException::class.java) {
+                regenerateGoal(storage, goal, "missing-answer")
+            }
+            assertEquals(before, storage.goals.resolve(goal))
+            assertEquals(history, storage.messages.allRevisions("s"))
+            assertEquals(audit, storage.auditEvents.listByCorrelation(before.correlationId))
+            assertTrue(storage.goalRuns.listByGoal(goal).isEmpty())
+            assertNoProposedTurn(storage, "replacement")
+        }
+
+    private fun regenerationGoal(
+        storage: HelixStorage,
+        state: String,
+    ): String {
+        val id =
+            com.helix.app.application.agent
+                .GoalRunCoordinator(storage, testClock) {
+                    UUID.randomUUID().toString()
+                }.create("Synthetic objective", listOf("Verified result"), GoalBudgets(maxGoalRounds = 1))
+        storage.goals.updateGoal(storage.goals.resolve(id).copy(state = state))
+        return id
+    }
+
+    private fun regenerateGoal(
+        storage: HelixStorage,
+        goal: String,
+        answer: String,
+    ): TurnAdmissionResult =
+        TurnAdmission(storage, testClock) { UUID.randomUUID().toString() }.start(
+            fixtureAdmissionCommand(
+                TurnStartSpec(
+                    sessionId = "s",
+                    turnId = "replacement",
+                    firstModelCallId = "replacement-model",
+                    providerSnapshot = "snapshot",
+                    userText = null,
+                    clientRequestId = "goal-regenerate",
+                    inputFingerprint = "goal-regenerate-fingerprint",
+                    regenerateMessageId = answer,
+                ),
+                control = control,
+                wakeReason = GoalWakeReason.USER_OPEN,
+                providerId = "provider",
+                modelId = "model",
+                goal =
+                    com.helix.core.agent.turn.TurnGoalIntent
+                        .Explicit(goal),
+            ),
+        )
+
     private fun completedOriginalAnswer(storage: HelixStorage): String {
         val original = start(storage, "t1", null)
         storage.messages.append("u1", "s", "t1", "USER", "TEXT", "Question")
@@ -271,7 +378,7 @@ class MessageRegenerateDeviceTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val name = "regenerate-${UUID.randomUUID()}.db"
         val root = File(context.filesDir, name)
-        val storage = HelixStorage.open(context, name, root)
+        val storage = HelixStorage.open(context, name, File(root, "content"))
         try {
             // `sessions.providerId` is a real FK to `provider_configs`; seed the parent row first.
             storage.providerConfigs.save(

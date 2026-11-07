@@ -5,6 +5,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.helix.app.agent.ChatHistoryBuilder
 import com.helix.app.agent.ContextCompaction
 import com.helix.app.agent.ContextHistory
+import com.helix.app.infrastructure.conversation.RoomConversationWorkspace
 import com.helix.core.agent.ContextSegments
 import com.helix.core.model.SessionPermissionMode
 import com.helix.core.policy.SessionPermissionConfig
@@ -115,7 +116,7 @@ class SessionForkDeviceTest {
                 SessionPermissionMode.APPROVAL_REQUIRED,
                 storage.sessionPermissionConfigs.forSession("fork")?.mode,
             )
-            assertTrue(SessionWorkspaceRecovery(storage) { it }.hasNotice("fork"))
+            assertTrue(RoomConversationWorkspace(storage) { it }.hasNotice("fork"))
             assertEquals(2, storage.workspaces.list().size)
         }
 
@@ -130,7 +131,7 @@ class SessionForkDeviceTest {
             storage.modelCalls.append("old-request", "old-turn", "fixture", "RUNNING")
             storage.workspaces.recordRequest("old-request", requireNotNull(storage.workspaces.binding("s")))
             File(root, "gone").delete()
-            val recovery = SessionWorkspaceRecovery(storage) { it }
+            val recovery = RoomConversationWorkspace(storage) { it }
             recovery.recover("s", 2)
             val fresh = requireNotNull(storage.workspaces.binding("s"))
             assertTrue(original != fresh.workspaceId)
@@ -153,7 +154,7 @@ class SessionForkDeviceTest {
             SessionFork(storage) { throw SecurityException("grant revoked") }
                 .create("s", "branch", "fork", "Branch", 3)
             assertTrue(storage.sessions.resolve("s").directoryRef != storage.sessions.resolve("fork").directoryRef)
-            assertTrue(SessionWorkspaceRecovery(storage) { it }.hasNotice("fork"))
+            assertTrue(RoomConversationWorkspace(storage) { it }.hasNotice("fork"))
         }
 
     @Test fun failedEmptyDirectoryAllocationRollsBackTheSessionBinding() =
@@ -166,10 +167,10 @@ class SessionForkDeviceTest {
             java.nio.file.Files
                 .write(managed, byteArrayOf(1))
             try {
-                assertThrows(Exception::class.java) { SessionWorkspaceRecovery(storage) { it }.recover("s", 2) }
+                assertThrows(Exception::class.java) { RoomConversationWorkspace(storage) { it }.recover("s", 2) }
                 assertEquals(before, storage.workspaces.binding("s"))
                 assertEquals("s", storage.workspaces.find(before.workspaceId)?.ownerSessionId)
-                assertFalse(SessionWorkspaceRecovery(storage) { it }.hasNotice("s"))
+                assertFalse(RoomConversationWorkspace(storage) { it }.hasNotice("s"))
             } finally {
                 java.nio.file.Files
                     .delete(managed)
@@ -180,7 +181,7 @@ class SessionForkDeviceTest {
 
     @Test fun explicitDirectoryChoiceClearsRecoveryNoticeEvenForSameBinding() =
         withStorage { storage, _ ->
-            val recovery = SessionWorkspaceRecovery(storage) { it }
+            val recovery = RoomConversationWorkspace(storage) { it }
             recovery.record("s", 2)
             assertTrue(recovery.hasNotice("s"))
             val binding = requireNotNull(storage.workspaces.binding("s"))
@@ -421,7 +422,7 @@ class SessionForkDeviceTest {
             block(storage, directory)
             val sessions = storage.sessions.list()
             val bindings = sessions.associate { it.id to storage.workspaces.binding(it.id) }
-            val notices = sessions.associate { it.id to SessionWorkspaceRecovery(storage) { it }.hasNotice(it.id) }
+            val notices = sessions.associate { it.id to RoomConversationWorkspace(storage) { it }.hasNotice(it.id) }
             storage.close()
             val reopened = HelixStorage.open(context, name, directory)
             try {
@@ -430,7 +431,7 @@ class SessionForkDeviceTest {
                     notices,
                     sessions.associate {
                         it.id to
-                            SessionWorkspaceRecovery(reopened) { it }.hasNotice(it.id)
+                            RoomConversationWorkspace(reopened) { it }.hasNotice(it.id)
                     },
                 )
                 assertEquals(bindings, sessions.associate { it.id to reopened.workspaces.binding(it.id) })

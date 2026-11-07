@@ -62,7 +62,7 @@ class PluginAuthorExamplesDeviceTest {
                 }.toString()
 
             fun read() =
-                c.chatService.dispatchToolCall(
+                c.toolExecution.dispatchToolCall(
                     UUID.randomUUID().toString(),
                     turn,
                     "skills.read",
@@ -142,7 +142,7 @@ class PluginAuthorExamplesDeviceTest {
                     val args = """{"case":"author-example"}"""
                     val pending =
                         CompletableFuture.supplyAsync {
-                            c.chatService.dispatchToolCall(
+                            c.toolExecution.dispatchToolCall(
                                 call,
                                 turn,
                                 descriptor.name.value,
@@ -163,7 +163,7 @@ class PluginAuthorExamplesDeviceTest {
                     val count = methods.get()
                     c.pluginService.selectFromUser(session, record.id, false)
                     val denied =
-                        c.chatService.dispatchToolCall(
+                        c.toolExecution.dispatchToolCall(
                             UUID.randomUUID().toString(),
                             turn,
                             descriptor.name.value,
@@ -224,7 +224,7 @@ class PluginAuthorExamplesDeviceTest {
                     put("snapshotHash", key.snapshotHash)
                 }.toString()
             val result =
-                c.chatService.dispatchToolCall(
+                c.toolExecution.dispatchToolCall(
                     UUID.randomUUID().toString(),
                     turn,
                     "skills.read",
@@ -235,7 +235,7 @@ class PluginAuthorExamplesDeviceTest {
             assertTrue(result.toString().contains("Chat reply assistant"))
             c.pluginService.selectFromUser(session, native.id, false)
             val stopped =
-                c.chatService.dispatchToolCall(
+                c.toolExecution.dispatchToolCall(
                     UUID.randomUUID().toString(),
                     turn,
                     "skills.read",

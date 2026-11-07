@@ -37,7 +37,7 @@ import androidx.core.net.toUri
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import com.helix.app.R
-import com.helix.app.ui.indicatedVerticalScroll
+import com.helix.ui.shared.indicatedVerticalScroll
 
 /** System grants only: never creates an Agent scope or an approval rule. */
 private fun allFilesAccessGranted(supported: Boolean): Boolean? =

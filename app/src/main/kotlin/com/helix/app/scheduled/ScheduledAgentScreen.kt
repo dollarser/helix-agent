@@ -39,6 +39,7 @@ import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.util.UUID
+import com.helix.ui.shared.R as SharedR
 
 @Composable
 @Suppress("FunctionName", "LongMethod") // Local list/editor navigation, all effects go through the service.
@@ -81,7 +82,7 @@ fun ScheduledAgentScreen(
             },
             dismissButton = {
                 TextButton(onClick = { service.openRequest.compareAndSet(pending, null) }) {
-                    Text(stringResource(R.string.common_cancel))
+                    Text(stringResource(SharedR.string.common_cancel))
                 }
             },
         )
@@ -93,7 +94,7 @@ fun ScheduledAgentScreen(
     BackHandler(onBack = onBack)
     LazyColumn(Modifier.padding(16.dp).testTag("scheduled-list"), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item {
-            TextButton(onClick = onBack) { Text(stringResource(R.string.common_back)) }
+            TextButton(onClick = onBack) { Text(stringResource(SharedR.string.common_back)) }
             Text(stringResource(R.string.scheduled_title), style = MaterialTheme.typography.titleLarge)
             Text(stringResource(R.string.scheduled_result_hint), style = MaterialTheme.typography.bodySmall)
             Text(stringResource(R.string.scheduled_limits))
@@ -179,7 +180,7 @@ fun ScheduledAgentScreen(
             },
             dismissButton = {
                 TextButton(onClick = { retry = null }, modifier = Modifier.testTag("scheduled-retry-cancel")) {
-                    Text(stringResource(R.string.common_cancel))
+                    Text(stringResource(SharedR.string.common_cancel))
                 }
             },
         )
@@ -340,7 +341,7 @@ internal fun ScheduledAgentEditor(
                 TextButton(
                     enabled = !busy,
                     onClick = { prepared = null },
-                ) { Text(stringResource(R.string.common_cancel)) }
+                ) { Text(stringResource(SharedR.string.common_cancel)) }
             },
         )
     }

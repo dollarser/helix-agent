@@ -37,8 +37,8 @@ import com.helix.app.git.GitChangeKind
 import com.helix.app.git.GitStatus
 import com.helix.app.git.GitWorkspaceReader
 import com.helix.app.git.GitWorkspaceResult
-import com.helix.app.ui.IndicatedLazyColumn
-import com.helix.app.ui.indicatedVerticalScroll
+import com.helix.ui.shared.IndicatedLazyColumn
+import com.helix.ui.shared.indicatedVerticalScroll
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -54,7 +54,10 @@ import kotlinx.coroutines.withContext
  */
 @Composable
 @Suppress("FunctionName")
-internal fun GitStatusScreenDestination(chat: com.helix.app.chat.ChatService) {
+internal fun GitStatusScreenDestination(
+    chat: com.helix.feature.conversation.application.ChatService,
+    files: com.helix.app.files.FileManagerService,
+) {
     val screen by chat.screen.collectAsStateWithLifecycle()
     val directory = remember { screen.directoryRef }
     val sessionTitle = remember { screen.sessionTitle }
@@ -68,7 +71,7 @@ internal fun GitStatusScreenDestination(chat: com.helix.app.chat.ChatService) {
         // JGit reads disk, so keep the read off the main thread (same as Capabilities/Artifacts).
         result =
             withContext(Dispatchers.IO) {
-                reader = directory?.let { runCatching { chat.gitWorkspaceReader(it) }.getOrNull() }
+                reader = directory?.let { runCatching { files.gitWorkspaceReader(it) }.getOrNull() }
                 reader?.readStatus() ?: GitWorkspaceResult.Error
             }
     }

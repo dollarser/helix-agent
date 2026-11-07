@@ -1,5 +1,6 @@
 package com.helix.app.chat
 
+import com.helix.app.infrastructure.chat.boundedImageBytes
 import com.helix.core.model.VisionLimits
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertNull

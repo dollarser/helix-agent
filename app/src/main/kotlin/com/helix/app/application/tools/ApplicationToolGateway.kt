@@ -53,7 +53,8 @@ internal class ApplicationToolGateway(
     private val liveHandles: TurnExecutionHandles,
     private val lanScopes: () -> Set<com.helix.core.policy.NetworkOriginScope>,
     private val workspaceScopeId: String,
-) : AgentToolGateway {
+) : AgentToolGateway,
+    ToolExecution {
     private val requests = ToolDispatchRequests(toolPipeline, liveHandles, lanScopes)
     private val outcomeStore =
         ToolSettlement(
@@ -140,7 +141,7 @@ internal class ApplicationToolGateway(
      * (error) when the facts are missing: a card that cannot be rendered truthfully cannot
      * be approved.
      */
-    fun onApprovalCard(
+    override fun onApprovalCard(
         approvalId: String,
         request: ApprovalRequest,
     ): Pair<ToolDescriptor, com.helix.extensions.plugin.PluginTaskIdentity> {
@@ -717,15 +718,15 @@ internal class ApplicationToolGateway(
      * queued call gets a durable outcome) and rethrows [ApprovalWaitCancelledException] for
      * the turn-level handler.
      */
-    fun dispatchToolCall(
+    override fun dispatchToolCall(
         toolCallId: String,
         turnId: String,
         toolNameRaw: String,
         rawArgsJson: String,
-        mode: AgentMode = AgentMode.ACT,
-        chatToolsEnabled: Boolean = false,
-        parent: com.helix.tools.framework.ExecutableToolCall? = null,
-        callbackCancel: com.helix.core.model.CancelSignal? = null,
+        mode: AgentMode,
+        chatToolsEnabled: Boolean,
+        parent: com.helix.tools.framework.ExecutableToolCall?,
+        callbackCancel: com.helix.core.model.CancelSignal?,
     ): ToolDispatchOutcome {
         val turn = storage.turns.resolve(turnId)
         parent?.let { recordScriptParent(it, toolCallId, turnId, turn.sessionId) }
@@ -767,6 +768,25 @@ internal class ApplicationToolGateway(
         }
         return outcome
     }
+
+    /** Generated code supplies only business arguments; original mode, session and cancellation are host facts. */
+    override fun dispatchScriptToolCall(
+        parent: com.helix.tools.framework.ExecutableToolCall,
+        id: String,
+        tool: String,
+        arguments: kotlinx.serialization.json.JsonObject,
+        cancel: com.helix.core.model.CancelSignal,
+    ): ToolDispatchOutcome =
+        dispatchToolCall(
+            id,
+            requireNotNull(parent.turnId),
+            tool,
+            arguments.toString(),
+            parent.agentMode,
+            parent.chatToolsEnabled,
+            parent,
+            cancel,
+        )
 
     private fun recordScriptParent(
         parent: com.helix.tools.framework.ExecutableToolCall,

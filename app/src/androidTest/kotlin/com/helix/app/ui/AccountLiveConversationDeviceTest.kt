@@ -9,12 +9,12 @@ import androidx.compose.ui.test.performTextReplacement
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.HelixApplication
 import com.helix.app.MainActivity
-import com.helix.app.chat.ChatService
 import com.helix.app.provider.BuiltInModel
 import com.helix.core.model.AgentMode
 import com.helix.core.model.ReasoningEffort
 import com.helix.core.model.TurnState
 import com.helix.core.storage.HelixStorage
+import com.helix.feature.conversation.application.ChatService
 import com.helix.provider.api.wire.OkHttpWireClient
 import com.helix.provider.api.wire.WireRequest
 import kotlinx.coroutines.NonCancellable

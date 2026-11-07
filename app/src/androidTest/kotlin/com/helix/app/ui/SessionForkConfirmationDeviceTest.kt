@@ -8,11 +8,13 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performSemanticsAction
-import com.helix.app.chat.ChatScreenState
-import com.helix.app.chat.MessageUi
 import com.helix.core.agent.RunControlConfig
 import com.helix.core.agent.TurnBudgetBounds
 import com.helix.core.model.AgentMode
+import com.helix.feature.conversation.presentation.ChatScreen
+import com.helix.feature.conversation.presentation.ChatScreenState
+import com.helix.feature.conversation.presentation.ConversationIntents
+import com.helix.feature.conversation.presentation.MessageUi
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
 import org.junit.Assert.assertEquals
@@ -29,7 +31,7 @@ class SessionForkConfirmationDeviceTest {
     private fun render(onFork: (String) -> Unit = { calls += it }) {
         compose.setContent {
             MaterialTheme {
-                ConversationSection(
+                ChatScreen(
                     ChatScreenState(
                         emptyList(),
                         session.value,

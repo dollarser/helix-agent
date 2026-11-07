@@ -2,11 +2,12 @@ package com.helix.app.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import com.helix.app.chat.ChatScreenState
-import com.helix.app.chat.MessagePresentation
 import com.helix.app.voice.ReadAloudService
 import com.helix.app.voice.VisibleReplyFrame
 import com.helix.core.model.TurnState
+import com.helix.feature.conversation.presentation.ChatScreenState
+import com.helix.feature.conversation.presentation.MessagePresentation
+import com.helix.feature.conversation.presentation.ThinkingParser
 import kotlinx.coroutines.delay
 
 /** Uses exactly the visible text projection; tool timeline and reasoning are never inputs. */

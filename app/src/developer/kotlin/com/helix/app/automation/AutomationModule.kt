@@ -56,7 +56,7 @@ internal object AutomationModule {
             adb = { computerAdbBackend },
         )
 
-    fun backgroundApplicationName(value: com.helix.app.chat.DisplayExecutionUi): String? {
+    fun backgroundApplicationName(value: com.helix.feature.conversation.presentation.DisplayExecutionUi): String? {
         val context = appContext
         val name = value.lastObservedPackage
         return if (context == null || name == null) {
@@ -75,7 +75,7 @@ internal object AutomationModule {
     }
 
     fun backgroundPreview(
-        value: com.helix.app.chat.DisplayExecutionUi,
+        value: com.helix.feature.conversation.presentation.DisplayExecutionUi,
         width: Int,
     ): android.graphics.Bitmap? =
         runtime?.permissionCenter?.backgroundPreview(value.sessionId, value.turnId, value.generation, width)
@@ -104,7 +104,7 @@ internal object AutomationModule {
         selectionId: (String) -> String?,
         conversationExists: (String) -> Boolean,
         callActive: (String, String) -> Boolean = { _, _ -> false },
-        displayPresentation: (com.helix.app.chat.DisplayExecutionUi) -> Unit = {},
+        displayPresentation: (com.helix.feature.conversation.presentation.DisplayExecutionUi) -> Unit = {},
         taskHost: com.helix.extensions.plugin.PluginTaskHost? = null,
     ) {
         com.helix.tools.deviceaccess.DeviceAccess
@@ -136,10 +136,10 @@ internal object AutomationModule {
         if (plugins.find(MobileUsePlugin.PLUGIN_ID) == null) plugins.register(plugin)
         plugin.permissionCenter.displayPresentation = { event ->
             displayPresentation(
-                com.helix.app.chat.DisplayExecutionUi(
+                com.helix.feature.conversation.presentation.DisplayExecutionUi(
                     event.sessionId,
                     event.turnId,
-                    com.helix.app.chat.DisplayExecutionState
+                    com.helix.feature.conversation.presentation.DisplayExecutionState
                         .valueOf(event.lifecycle.name),
                     event.lastObservedPackage,
                     event.generation,

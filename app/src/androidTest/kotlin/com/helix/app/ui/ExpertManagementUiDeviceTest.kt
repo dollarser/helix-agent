@@ -49,7 +49,12 @@ class ExpertManagementUiDeviceTest {
                 click("expert-create")
                 fill(name)
                 click("expert-editor-cancel")
-                assertFalse(chat.savedExperts().await().any { it.profile.displayName == name })
+                assertFalse(
+                    c.conversationExperts
+                        .savedExperts()
+                        .await()
+                        .any { it.profile.displayName == name },
+                )
                 click("expert-create")
                 fill(name)
                 compose
@@ -69,7 +74,11 @@ class ExpertManagementUiDeviceTest {
                         .list()
                         .any { it.profile.displayName == name }
                 }
-                val definition = chat.savedExperts().await().single { it.profile.displayName == name }
+                val definition =
+                    c.conversationExperts
+                        .savedExperts()
+                        .await()
+                        .single { it.profile.displayName == name }
                 ids += definition.profile.id
                 assertEquals(listOf(reference), definition.profile.recommendedConnectorIds)
                 val exported = ExpertLibraryRepository.export(definition)
@@ -92,7 +101,13 @@ class ExpertManagementUiDeviceTest {
                     .performScrollTo()
                     .performTextReplacement("Discard this edit")
                 click("expert-editor-cancel")
-                assertEquals(definition, chat.savedExperts().await().single { it.profile.id == definition.profile.id })
+                assertEquals(
+                    definition,
+                    c.conversationExperts.savedExperts().await().single {
+                        it.profile.id ==
+                            definition.profile.id
+                    },
+                )
 
                 chat.openSession(target)
                 compose.waitUntil(10_000) { chat.screen.value.openSessionId == target }
@@ -118,8 +133,22 @@ class ExpertManagementUiDeviceTest {
                             .isNotEmpty(),
                     )
                 }
-                assertTrue(chat.saveExpert(definition.profile.id, name, "Changed global only", "Edited card").await())
-                assertEquals("Synthetic behavior only.", chat.loadSessionExpert(target).await()?.instruction)
+                assertTrue(
+                    c.conversationExperts
+                        .saveExpert(
+                            definition.profile.id,
+                            name,
+                            "Changed global only",
+                            "Edited card",
+                        ).await(),
+                )
+                assertEquals(
+                    "Synthetic behavior only.",
+                    c.conversationExperts
+                        .loadSessionExpert(target)
+                        .await()
+                        ?.instruction,
+                )
                 click("chat-add")
                 click("composer-add-expert")
                 click("session-expert-clear")
@@ -136,13 +165,13 @@ class ExpertManagementUiDeviceTest {
                 // Only IDs recorded from this unique test fixture are removed.
                 (
                     ids +
-                        chat
+                        c.conversationExperts
                             .savedExperts()
                             .await()
                             .filter { it.profile.displayName == name }
                             .map { it.profile.id }
                 ).distinct()
-                    .forEach { chat.removeExpert(it).await() }
+                    .forEach { c.conversationExperts.removeExpert(it).await() }
                 withContext(Dispatchers.IO) { c.storage.deleteSessionPermanently(target) }
             }
         }

@@ -7,6 +7,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import com.helix.app.infrastructure.conversation.conversationModelSources
 import com.helix.app.provider.ConnectionTestStatus
 import com.helix.app.provider.ManagedAccountSnapshot
 import com.helix.app.provider.ProviderModelSelection
@@ -15,6 +16,7 @@ import com.helix.app.provider.ui.ProviderConnectionTestAction
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.ProviderProvisioningKind
 import com.helix.core.model.ProviderResidence
+import com.helix.feature.conversation.presentation.ComposerModelMenu
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -51,7 +53,7 @@ class SubscriptionSetupUiDeviceTest {
                 ComposerModelMenu(
                     listOf(
                         row(),
-                    ),
+                    ).conversationModelSources(null, null),
                     null,
                     null,
                     true,
@@ -73,7 +75,9 @@ class SubscriptionSetupUiDeviceTest {
         compose.setContent {
             MaterialTheme {
                 ComposerModelMenu(
-                    listOf(row().copy(modelSelection = ProviderModelSelection(listOf("m"), true))),
+                    listOf(
+                        row().copy(modelSelection = ProviderModelSelection(listOf("m"), true)),
+                    ).conversationModelSources(null, null),
                     null,
                     null,
                     true,

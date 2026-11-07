@@ -75,7 +75,7 @@ class ConnectorDispatchDeviceTest {
             assertTrue(descriptor in pipeline.mcpDiscovery.visible(session, listOf(descriptor)))
             Thread {
                 try {
-                    result.complete(c.chatService.dispatchToolCall(call, turn, descriptor.name.value, "{}"))
+                    result.complete(c.toolExecution.dispatchToolCall(call, turn, descriptor.name.value, "{}"))
                 } catch (failure: Throwable) {
                     result.completeExceptionally(failure)
                 }

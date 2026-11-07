@@ -4,6 +4,7 @@ import android.content.Context
 import com.helix.core.agent.LocalModelCallContext
 import com.helix.core.model.ModelEvent
 import com.helix.core.storage.HelixStorage
+import com.helix.provider.api.SubscriptionRecoveredOutput
 import com.helix.runtime.cli.client.CliModelJobClient
 import com.helix.runtime.cli.client.CliModelJobState
 import com.helix.runtime.cli.client.CliRuntimeSupervisor

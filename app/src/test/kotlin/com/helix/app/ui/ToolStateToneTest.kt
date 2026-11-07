@@ -1,6 +1,9 @@
 package com.helix.app.ui
 
 import com.helix.core.model.ToolCallState
+import com.helix.feature.conversation.presentation.ToolStateTone
+import com.helix.feature.conversation.presentation.toolStateIcon
+import com.helix.feature.conversation.presentation.toolStateTone
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Test

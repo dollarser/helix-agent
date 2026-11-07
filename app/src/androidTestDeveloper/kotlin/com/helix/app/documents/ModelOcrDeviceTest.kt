@@ -85,8 +85,8 @@ class ModelOcrDeviceTest {
                                 .listByTurn(turnId)
                                 .size <= 6,
                         ) { "Bounded OCR model-call budget exceeded" }
-                        c.chatService.toolVisionConsent.pending.value.filter { it.sessionId == session }.forEach {
-                            c.chatService.toolVisionConsent.respond(it.id, true)
+                        c.toolVisionConsent.pending.value.filter { it.sessionId == session }.forEach {
+                            c.toolVisionConsent.respond(it.id, true)
                         }
                         delay(100)
                     }

@@ -5,7 +5,8 @@
 | 要回答的问题 | 主入口 / 必要补充 |
 | --- | --- |
 | 现在做到哪里、还有什么开放条件？ | [当前实施状态](development/status.md)；当前任务仍由用户请求确定 |
-| 某个 HXA 的范围与验收是什么？ | [任务索引](development/roadmap.md) → 具体任务或完成记录 |
+| 接下来有哪些功能和重构工作？ | [分类任务索引](development/roadmap.md)：功能新增与架构重构分开，验证/缺陷和发行条件另列；不是当前执行授权 |
+| 哪些任务已经完成？ | [完成记录索引](completion-records/index.md)；只证明记录内的交付范围，不代表全产品验收 |
 | 哪些建议还没有接受或启用？ | [候选需求与待裁决索引](development/candidate-decisions.md) |
 | 先做功能还是重构、何时停止？ | [开发原则与推进策略](development/feature-refactor-strategy.md) |
 | 所有者有哪些开发偏好、哪些经验可跨项目复用？ | [个人工程手册](development/engineering-playbook.md)；解释取舍与案例，不替代项目规则或当前任务 |

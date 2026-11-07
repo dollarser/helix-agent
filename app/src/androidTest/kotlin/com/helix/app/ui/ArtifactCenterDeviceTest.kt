@@ -71,7 +71,7 @@ class ArtifactCenterDeviceTest {
             compose.onNodeWithTag("screen-artifacts").assertExists()
 
             compose.waitUntil(10_000) {
-                container.chatService.backgroundTasks.value
+                container.taskDashboard.tasks.value
                     .any { it.id == turnId }
             }
             compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasTestTag("artifact-row-$turnId"))

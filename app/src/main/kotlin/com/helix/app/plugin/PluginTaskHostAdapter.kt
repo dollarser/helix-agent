@@ -5,10 +5,10 @@ import android.content.Intent
 import android.os.Handler
 import android.os.Looper
 import com.helix.app.MainActivity
-import com.helix.app.approval.ApprovalCardUi
 import com.helix.extensions.plugin.PluginTaskHost
 import com.helix.extensions.plugin.PluginTaskIdentity
 import com.helix.extensions.plugin.PluginTaskSnapshot
+import com.helix.feature.conversation.presentation.ApprovalCardUi
 
 /** Shared native-plugin task controls; no knowledge of Mobile Use, windows, or device actions. */
 internal class PluginTaskHostAdapter(
@@ -16,13 +16,13 @@ internal class PluginTaskHostAdapter(
     private val awaitingDataDisclosure: (String, String) -> Boolean = { _, _ -> false },
     private val access: PluginTaskAccess,
 ) : PluginTaskHost {
-    private var displayedCards = emptyList<com.helix.app.approval.ApprovalCardUi>()
+    private var displayedCards = emptyList<com.helix.feature.conversation.presentation.ApprovalCardUi>()
     private var displayedLocale = ""
     private var displayedApprovals = emptyList<com.helix.extensions.plugin.PluginTaskApproval>()
 
     @Synchronized
     private fun display(
-        cards: List<com.helix.app.approval.ApprovalCardUi>,
+        cards: List<com.helix.feature.conversation.presentation.ApprovalCardUi>,
     ): List<com.helix.extensions.plugin.PluginTaskApproval> {
         val locale =
             context.resources.configuration.locales

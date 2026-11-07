@@ -2,7 +2,7 @@ package com.helix.app.diagnostics
 
 import android.annotation.SuppressLint
 import android.app.Application
-import com.helix.app.application.diagnostics.DiagnosticRedaction
+import com.helix.core.policy.DiagnosticRedaction
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import java.util.concurrent.ArrayBlockingQueue

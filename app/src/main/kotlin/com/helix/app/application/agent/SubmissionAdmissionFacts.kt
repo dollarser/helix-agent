@@ -57,19 +57,6 @@ internal data class SubmissionProviderSnapshot(
     val modelId: String,
 )
 
-/** Only the original binding and control are needed by bounded recovery admission. */
-internal data class RecoveryInspectionSnapshot(
-    val providerId: String,
-    val modelId: String,
-    val providerSnapshot: String,
-    val control: RunControlConfig,
-)
-
-/** Stable receipt identity shared by inspection admission and recovery classification. */
-internal object RecoveryInspectionIdentity {
-    fun requestId(parentTurnId: String): String = "auto-recovery:$parentTurnId"
-}
-
 /** Only admission facts; storage sequence, content references and consumption state stay in Room. */
 internal data class PendingSubmissionInput(
     val inputId: String,

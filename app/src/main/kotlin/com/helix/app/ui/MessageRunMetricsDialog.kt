@@ -22,11 +22,13 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
-import com.helix.app.chat.ChatService
 import com.helix.app.chat.MessageRunMetrics
 import com.helix.app.chat.ModelRequestMetric
+import com.helix.app.infrastructure.conversation.ConversationWorkspaceDetails
 import kotlinx.coroutines.CancellationException
 import java.util.Locale
+import com.helix.feature.conversation.R as ConversationR
+import com.helix.ui.shared.R as SharedR
 
 internal val LocalRunMetricsHandler = staticCompositionLocalOf<((String) -> Unit)?> { null }
 
@@ -34,7 +36,7 @@ internal val LocalRunMetricsHandler = staticCompositionLocalOf<((String) -> Unit
 @Suppress("FunctionName", "TooGenericExceptionCaught")
 internal fun MessageRunMetricsDialog(
     messageId: String,
-    chat: ChatService,
+    chat: ConversationWorkspaceDetails,
     onDismiss: () -> Unit,
 ) {
     var metrics by remember(messageId) { mutableStateOf<MessageRunMetrics?>(null) }
@@ -50,7 +52,7 @@ internal fun MessageRunMetricsDialog(
     }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.run_metrics_title)) },
+        title = { Text(stringResource(ConversationR.string.run_metrics_title)) },
         text = {
             val snapshot = metrics
             if (snapshot == null) {
@@ -73,7 +75,7 @@ internal fun MessageRunMetricsDialog(
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) } },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(SharedR.string.common_cancel)) } },
     )
 }
 
@@ -94,11 +96,11 @@ private fun ModelRequestMetricRow(
         Text(
             stringResource(
                 when (request.state) {
-                    "COMPLETED" -> R.string.tool_state_completed
-                    "RUNNING" -> R.string.tool_state_running
-                    "CANCELLED", "INTERRUPTED" -> R.string.tool_state_cancelled
-                    "FAILED" -> R.string.tool_state_failed
-                    else -> R.string.tool_state_unknown
+                    "COMPLETED" -> ConversationR.string.tool_state_completed
+                    "RUNNING" -> ConversationR.string.tool_state_running
+                    "CANCELLED", "INTERRUPTED" -> ConversationR.string.tool_state_cancelled
+                    "FAILED" -> ConversationR.string.tool_state_failed
+                    else -> ConversationR.string.tool_state_unknown
                 },
             ),
         )

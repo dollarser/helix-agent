@@ -17,10 +17,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.R
-import com.helix.app.chat.ChatService
-import com.helix.app.chat.GoalSummaryUi
 import com.helix.app.runcontrol.RunControlStore
 import com.helix.core.agent.GoalBudgetDefaults
+import com.helix.feature.conversation.application.ChatService
+import com.helix.feature.conversation.presentation.GoalSummaryUi
+import com.helix.ui.shared.ExpandableSummary
 
 /** Default policy and explicit parked-Goal extensions live in settings, never the composer. */
 @Composable

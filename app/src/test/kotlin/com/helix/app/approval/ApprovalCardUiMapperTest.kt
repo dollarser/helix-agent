@@ -15,6 +15,11 @@ import com.helix.core.policy.DataSensitivity
 import com.helix.core.policy.EgressTarget
 import com.helix.core.policy.HighSensitivityRule
 import com.helix.core.policy.WorkspaceScope
+import com.helix.feature.conversation.presentation.ApprovalCardState
+import com.helix.feature.conversation.presentation.ApprovalCardUi
+import com.helix.feature.conversation.presentation.BoundedRuleUi
+import com.helix.feature.conversation.presentation.approvalProfileLabel
+import com.helix.feature.conversation.presentation.approvalStateLabel
 import com.helix.runtime.quickjs.tool.CodeJavascriptRunTool
 import com.helix.tools.framework.CanonicalArgs
 import com.helix.tools.framework.DecisionSource
@@ -35,6 +40,7 @@ import java.security.MessageDigest
 import java.time.Duration
 import java.time.Instant
 import kotlin.time.Duration.Companion.seconds
+import com.helix.feature.conversation.R as ConversationR
 
 /**
  * HXA-036 (app): the approval card's label/mapping layer — every mandated display field
@@ -48,10 +54,10 @@ class ApprovalCardUiMapperTest {
     @Test
     fun actionsAreExactlyThisCallApproveAndDeny() {
         assertEquals(
-            listOf(R.string.approval_action_approve_once, R.string.approval_action_deny),
+            listOf(ConversationR.string.approval_action_approve_once, ConversationR.string.approval_action_deny),
             ApprovalCardUi.ACTIONS,
         )
-        assertEquals(R.string.approval_no_egress, ApprovalCardUi.NO_EGRESS)
+        assertEquals(ConversationR.string.approval_no_egress, ApprovalCardUi.NO_EGRESS)
     }
 
     // ------------------------------------------------------------------ risk / profile / state
@@ -76,20 +82,20 @@ class ApprovalCardUiMapperTest {
 
     @Test
     fun profileLabelNeverClaimsFullAccess() {
-        assertEquals(R.string.approval_profile_standard, ApprovalUiMapper.profileLabel(SafetyProfile.STANDARD))
+        assertEquals(ConversationR.string.approval_profile_standard, approvalProfileLabel(SafetyProfile.STANDARD))
         assertEquals(
-            R.string.approval_profile_advanced,
-            ApprovalUiMapper.profileLabel(SafetyProfile.ADVANCED),
+            ConversationR.string.approval_profile_advanced,
+            approvalProfileLabel(SafetyProfile.ADVANCED),
         )
     }
 
     @Test
     fun stateLabelsAreStableChinese() {
-        assertEquals(R.string.approval_state_pending, ApprovalUiMapper.stateLabel(ApprovalCardState.PENDING))
-        assertEquals(R.string.approval_state_approved, ApprovalUiMapper.stateLabel(ApprovalCardState.APPROVED))
-        assertEquals(R.string.approval_state_denied, ApprovalUiMapper.stateLabel(ApprovalCardState.DENIED))
-        assertEquals(R.string.approval_state_succeeded, ApprovalUiMapper.stateLabel(ApprovalCardState.SUCCEEDED))
-        assertEquals(R.string.approval_state_failed, ApprovalUiMapper.stateLabel(ApprovalCardState.FAILED))
+        assertEquals(ConversationR.string.approval_state_pending, approvalStateLabel(ApprovalCardState.PENDING))
+        assertEquals(ConversationR.string.approval_state_approved, approvalStateLabel(ApprovalCardState.APPROVED))
+        assertEquals(ConversationR.string.approval_state_denied, approvalStateLabel(ApprovalCardState.DENIED))
+        assertEquals(ConversationR.string.approval_state_succeeded, approvalStateLabel(ApprovalCardState.SUCCEEDED))
+        assertEquals(ConversationR.string.approval_state_failed, approvalStateLabel(ApprovalCardState.FAILED))
     }
 
     // ------------------------------------------------------------------ outcome codes + source
@@ -177,7 +183,7 @@ class ApprovalCardUiMapperTest {
             ApprovalUiMapper.executionFailureLabel(a2aOrigin("agent-1"), requiresReview = false),
         )
         assertEquals(
-            R.string.tool_failure_requires_review,
+            ConversationR.string.tool_failure_requires_review,
             ApprovalUiMapper.executionFailureLabel(a2aOrigin("agent-1"), requiresReview = true),
         )
     }
@@ -357,7 +363,7 @@ class ApprovalCardUiMapperTest {
                 CodeJavascriptRunTool.descriptor(),
                 buildJsonObject { put("code", "return 1") },
             )
-        assertEquals(R.string.approval_no_input, noInput!!.inputSourceRes)
+        assertEquals(ConversationR.string.approval_no_input, noInput!!.inputSourceRes)
         assertTrue(noInput.inputSourceArgs.isEmpty())
     }
 

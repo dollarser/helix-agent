@@ -17,6 +17,7 @@ import com.helix.app.R
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import com.helix.feature.conversation.R as ConversationR
 
 /** Opening the tab reads current facts only; retries never repair, authorize or reconnect. */
 @Composable
@@ -54,7 +55,7 @@ internal fun PluginReadinessSection(
         }
 
         state == null -> {
-            Text(stringResource(R.string.composer_permission_loading))
+            Text(stringResource(ConversationR.string.composer_permission_loading))
         }
 
         else -> {

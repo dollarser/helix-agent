@@ -9,7 +9,9 @@ import androidx.compose.ui.test.performTextReplacement
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.HelixApplication
-import com.helix.app.chat.SessionModelSelectionResult
+import com.helix.app.infrastructure.conversation.conversationModelSources
+import com.helix.feature.conversation.presentation.ComposerModelMenu
+import com.helix.feature.conversation.presentation.SessionModelSelectionResult
 import com.helix.provider.api.ModelPurpose
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -51,7 +53,7 @@ class BuiltInLiveCatalogDeviceTest {
             compose.setContent {
                 MaterialTheme {
                     ComposerModelMenu(
-                        listOf(row),
+                        listOf(row).conversationModelSources(null, null),
                         null,
                         null,
                         true,

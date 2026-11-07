@@ -1,5 +1,6 @@
 package com.helix.app.provider
 
+import com.helix.provider.api.SubscriptionRecoveredOutput
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test

@@ -51,7 +51,7 @@ for api in (29, 36):
         port += 2
         if result.returncode:
             raise SystemExit(result.returncode)
-    apk = 'core/storage/build/outputs/apk/androidTest/debug/storage-debug-androidTest.apk'
+    apk = 'infrastructure/storage/build/outputs/apk/androidTest/debug/storage-debug-androidTest.apk'
     batch = f'api{api}-storage'
     with (output / f'{batch}.log').open('w') as log:
         result = subprocess.run([sys.executable, 'scripts/run-owned-emulator.py',

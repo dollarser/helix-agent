@@ -49,7 +49,7 @@ class TasksDashboardDeviceTest {
             compose.navigateTo("tasks")
             compose.onNodeWithTag("screen-tasks").assertExists()
             compose.waitUntil(10_000) {
-                container.chatService.planDashboard.value
+                container.taskDashboard.plans.value
                     .any { it.id == planId }
             }
             compose.onNodeWithTag("screen-tasks").performScrollToNode(hasTestTag("tasks-bucket-needs_you"))
@@ -107,7 +107,7 @@ class TasksDashboardDeviceTest {
             compose.navigateTo("tasks")
             compose.onNodeWithTag("screen-tasks").assertExists()
             compose.waitUntil(10_000) {
-                container.chatService.planDashboard.value
+                container.taskDashboard.plans.value
                     .any { it.id == planId }
             }
             compose.onNodeWithTag("screen-tasks").performScrollToNode(hasTestTag("tasks-plan-$planId"))

@@ -20,13 +20,14 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import com.helix.app.R
-import com.helix.app.chat.ChatService
 import com.helix.app.files.FileManagerService
 import com.helix.core.workspace.FileScopePath
+import com.helix.feature.conversation.application.ChatService
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.helix.feature.conversation.R as ConversationR
 
 /** User-selected destination only. Staging never sends a message or grants tool access. */
 class FileConversationHandoff(
@@ -163,6 +164,6 @@ internal fun FileDirectoryTask(
         ) {
             Text(stringResource(R.string.files_directory_task))
         }
-        if (failed) Text(stringResource(R.string.chat_directory_failed))
+        if (failed) Text(stringResource(ConversationR.string.chat_directory_failed))
     }
 }

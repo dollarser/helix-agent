@@ -41,7 +41,7 @@ import java.util.concurrent.TimeUnit
  * add -> preview -> configure -> explicit enable -> one real call loop through the UNIFIED
  * registry / discovery / authorization / execution pipeline, and connect/install success never
  * means enabled. Every test drives the production stack (`HelixApplication.appContainer`, the
- * storage-backed broker, the real dispatcher through [com.helix.app.chat.ChatService.dispatchToolCall])
+ * storage-backed broker and the real [com.helix.app.application.tools.ToolExecution] dispatcher)
  * and asserts the SIDE-EFFECT facts (what ran, what is exposed, what is the durable state) plus
  * the authorization decision, never the outcome code alone.
  *
@@ -173,7 +173,7 @@ class ExtensionJourneyDeviceTest {
             Thread {
                 try {
                     outcome[0] =
-                        container.chatService.dispatchToolCall(toolCallId, turnId, toolName, argsJson)
+                        container.toolExecution.dispatchToolCall(toolCallId, turnId, toolName, argsJson)
                 } catch (e: Throwable) {
                     error[0] = e
                 } finally {

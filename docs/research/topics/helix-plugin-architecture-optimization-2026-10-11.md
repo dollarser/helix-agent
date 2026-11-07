@@ -2,7 +2,7 @@
 
 日期：2026-10-11。本文保存 Helix 的差距、建议、设计取舍、实施顺序及验收条件。参考产品机制、样本身份、权限事实和来源集中在[Agent 插件架构调研](agent-plugin-architecture-research-2026-10-11.md)；本方案引用该证据，不另行维护外部产品说明。
 
-HXA-272～279 已有界交付，事实入口见 [status](../../development/status.md#已交付与历史证据)；安装生命周期和异步执行沿用 [Harness 方案](../../architecture/harness-refactor-plan.md)。本文保留 2026-10-11 设计取舍与任务映射，F/G 和其他有进入条件的能力留在候选索引，不据历史实施顺序选择当前任务。
+HXA-272～279 已有界交付，事实入口见 [status](../../development/status.md#查阅方式)；安装生命周期和异步执行沿用 [Harness 方案](../../architecture/harness-refactor-plan.md)。本文保留 2026-10-11 设计取舍与任务映射，F/G 和其他有进入条件的能力留在候选索引，不据历史实施顺序选择当前任务。
 
 2026-10-11 所有者进一步要求同步 ADR：新增任务的目标决定已写入四份现有主题 ADR，见 [HXA→ADR 归属表](../../adr/README.md#插件优化任务的-adr-归属2026-10-11)。本文保留研究依据，当前有效契约以对应 ADR 为准；设计接受不等于实现或验收完成。
 
@@ -22,7 +22,7 @@ HXA-272～279 已有界交付，事实入口见 [status](../../development/statu
 | 多来源 tools.search 与 HXA-252 发现提示 | 在已有发现投影上降低选择与上下文成本 |
 | 本地异步 Job 与取消结算 | 外部长任务按真实 provider 接入，不新增平行任务框架 |
 
-依据：[HXA-225](../../completion-records/HXA-225.md)、[HXA-235](../../development/tasks/HXA-235.md)、[HXA-251](../../development/tasks/HXA-251.md)、[视觉 ADR](../../adr/agent/011-tool-multimodal-vision-feedback.md)。当前状态以实时任务和 ADR 为准；历史调研快照不恢复已关闭缺口。
+依据：[HXA-225](../../completion-records/HXA-225.md)、[HXA-235](../../development/tasks/HXA-235.md)、[HXA-251](../../completion-records/HXA-251.md)、[视觉 ADR](../../adr/agent/011-tool-multimodal-vision-feedback.md)。当前状态以实时任务和 ADR 为准；历史调研快照不恢复已关闭缺口。
 
 ## 2 调研结论的采用与取舍
 
@@ -324,7 +324,7 @@ CUA 的 JS REPL / Code Mode 是另一项设计选择。若 Helix 以后提供脚
 
 ## 7 任务承接与验收
 
-本节将研究切片映射到开发控制面。任务范围和验收在 HXA 中维护，历史交付由 [status](../../development/status.md#已交付与历史证据)维护；[roadmap](../../development/roadmap.md)登记任务清单。
+本节将研究切片映射到开发控制面。任务范围和验收在 HXA 中维护，历史交付由 [status](../../development/status.md#查阅方式)维护；[roadmap](../../development/roadmap.md)登记任务清单。
 
 ### 7.1 代码复核与任务承接
 
@@ -343,20 +343,20 @@ CUA 的 JS REPL / Code Mode 是另一项设计选择。若 Helix 以后提供脚
 
 | 研究切片 | 实施承接 | 排除的重复与条件 |
 | --- | --- | --- |
-| A：内容与独立激活 | [HXA-272](../../development/tasks/HXA-272.md) | 删除原生正文专用通道，不用占位工具；portable Skill 的现有主体不重做 |
-| A：调用资格 | [HXA-273](../../development/tasks/HXA-273.md) | 区分本次用户激活、模型读取和管理预览，不导入 Skill 自声明权限 |
-| C：状态和生效 | [HXA-274](../../development/tasks/HXA-274.md) | 复用 HXA-271 阶段6/7/9，补恢复投影/页面导航接口；真实后端恢复仍归原验收 |
-| E1：组件矩阵/作者入口 | [HXA-275](../../development/tasks/HXA-275.md) | 诊断不支持的 hooks/LSP/Agent 语义，不因识别字段就执行 |
-| B：Browser 贡献归属 | [HXA-276](../../development/tasks/HXA-276.md) | 新目标直接采用 native；不做旧会话/批准迁移或 MCP 包装 |
-| E2：共享资源与生命周期 | [HXA-277](../../development/tasks/HXA-277.md)；[HXA-235](../../development/tasks/HXA-235.md)保留原安装矩阵 | 原生实例释放与持久安装验收各有归属，不重建 R3 |
-| A / R2-B：正文装载与效果 | [HXA-278](../../development/tasks/HXA-278.md) | 正确性先于收益结论，基线制品用于对照，生产不保留旧策略分支 |
-| D：UI 交互增量 | [HXA-279](../../development/tasks/HXA-279.md) | 首版标签发现、有界等待和观察事实；完整定位器/关闭等由剩余旅程再判断 |
+| A：内容与独立激活 | [HXA-272](../../completion-records/HXA-272.md) | 删除原生正文专用通道，不用占位工具；portable Skill 的现有主体不重做 |
+| A：调用资格 | [HXA-273](../../completion-records/HXA-273.md) | 区分本次用户激活、模型读取和管理预览，不导入 Skill 自声明权限 |
+| C：状态和生效 | [HXA-274](../../completion-records/HXA-274.md) | 复用 HXA-271 阶段6/7/9，补恢复投影/页面导航接口；真实后端恢复仍归原验收 |
+| E1：组件矩阵/作者入口 | [HXA-275](../../completion-records/HXA-275.md) | 诊断不支持的 hooks/LSP/Agent 语义，不因识别字段就执行 |
+| B：Browser 贡献归属 | [HXA-276](../../completion-records/HXA-276.md) | 新目标直接采用 native；不做旧会话/批准迁移或 MCP 包装 |
+| E2：共享资源与生命周期 | [HXA-277](../../completion-records/HXA-277.md)；[HXA-235](../../development/tasks/HXA-235.md)保留原安装矩阵 | 原生实例释放与持久安装验收各有归属，不重建 R3 |
+| A / R2-B：正文装载与效果 | [HXA-278](../../completion-records/HXA-278.md) | 正确性先于收益结论，基线制品用于对照，生产不保留旧策略分支 |
+| D：UI 交互增量 | [HXA-279](../../completion-records/HXA-279.md) | 首版标签发现、有界等待和观察事实；完整定位器/关闭等由剩余旅程再判断 |
 | 5.9 作者样例 / 第 8 节 Chat Reply | HXA-272/273/275/276 配套交付 | 纯 Skill/native/MCP 样例使用生产路径；Chat Reply 独立 WIP 不被覆盖，长期监听和自动发送不进入本轮 |
 | F / G 及 第 6.5 节 外部能力 | [条件性增量](../../development/candidate-decisions.md#插件研究的条件性增量) | 先选明确服务/格式/执行环境，再登记具体实现任务；已有 J1/J2、Workspace/Artifact 继续复用 |
 
 ### 7.3 验收边界
 
-同日[系统分层分析](../modules/01-architecture-and-execution-engine.md#9-2026-10-11-分层复核与优化承接)的新增范围并入原 HXA-274/277，应用/表现边界联动 ADR-AGENT-001；不增加任务或 ADR 编号。历史交付见 [status](../../development/status.md#已交付与历史证据)。274 增加无 UI 订阅、恢复目标失效与页面重建；277 分别核对 Turn live owner、调度槽位、实际执行容量和插件引用，复用已有 fixture。完整 Turn 宿主提取保留真实消费者进入条件，不成为八项插件工作的前置。
+同日[系统分层分析](../modules/01-architecture-and-execution-engine.md#9-2026-10-11-分层复核与优化承接)的新增范围并入原 HXA-274/277，应用/表现边界联动 ADR-AGENT-001；不增加任务或 ADR 编号。历史交付见 [status](../../development/status.md#查阅方式)。274 增加无 UI 订阅、恢复目标失效与页面重建；277 分别核对 Turn live owner、调度槽位、实际执行容量和插件引用，复用已有 fixture。完整 Turn 宿主提取保留真实消费者进入条件，不成为八项插件工作的前置。
 
 先冻结任务、模型、页面/App 版本和权限条件，再做基线/候选对照。按具体 HXA 验证同名来源、调用资格、部分可用、保存但未加载、更新/停用、旧回调、tab/host 失效、等待超时和像素未披露。使用合成账号/本地 fixture 检查确定性契约；设备和真实模型按当轮明确授权，编译与 fixture 不代替实际旅程。
 
@@ -404,7 +404,7 @@ HXA-276 开始时结合 HXA-277 列出资源 owner 和 port，贡献接线与资
 | [ToolBindingStore](../../../tools/framework/src/main/kotlin/com/helix/tools/framework/ToolBindingStore.kt) / [McpToolSource](../../../tools/framework/src/main/kotlin/com/helix/tools/framework/ToolSource.kt) | 精确绑定冲突拒绝和 MCP 来源命名空间；不等于语义去重 |
 | [McpDynamicToolBridge](../../../extensions/mcp/src/main/kotlin/com/helix/extensions/mcp/McpDynamicToolBridge.kt) | MCP 执行进入 Dispatcher 后调用；endpoint/schema 变化、取消和期限保留原事实 |
 | [HXA-252](../../completion-records/HXA-252.md) | 通用发现提示已交付；有限模型对照不代表其他任务或模型的普遍收益 |
-| [HXA-235](../../development/tasks/HXA-235.md) / [HXA-251](../../development/tasks/HXA-251.md) / [status](../../development/status.md) | 插件生命周期已交付与尚未关闭的验证范围 |
+| [HXA-235](../../development/tasks/HXA-235.md) / [HXA-251](../../completion-records/HXA-251.md) / [status](../../development/status.md) | 插件生命周期已交付与尚未关闭的验证范围 |
 | [Harness 方案](../../architecture/harness-refactor-plan.md) / [候选索引](../../development/candidate-decisions.md) | Job、Code Mode、远程与文档等能力的既有承接边界 |
 
 

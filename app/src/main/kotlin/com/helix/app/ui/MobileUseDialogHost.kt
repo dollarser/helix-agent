@@ -8,8 +8,8 @@ import androidx.compose.runtime.remember
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
-import com.helix.app.chat.ChatService
 import com.helix.app.plugin.PluginService
+import com.helix.feature.conversation.application.ChatService
 
 @Composable
 @Suppress("FunctionName")

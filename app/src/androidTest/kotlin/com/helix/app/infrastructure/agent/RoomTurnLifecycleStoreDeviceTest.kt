@@ -258,7 +258,7 @@ class RoomTurnLifecycleStoreDeviceTest {
             val notices =
                 storage.messages.listBySession("session").filter {
                     it.kind ==
-                        com.helix.app.application.agent.TurnInterruptionNotice.KIND
+                        com.helix.core.agent.TurnInterruptionNotice.KIND
                 }
             assertEquals(1, notices.size)
             com.helix.app.infrastructure.agent
@@ -272,7 +272,7 @@ class RoomTurnLifecycleStoreDeviceTest {
                 1,
                 storage.messages.listBySession("session").count {
                     it.kind ==
-                        com.helix.app.application.agent.TurnInterruptionNotice.KIND
+                        com.helix.core.agent.TurnInterruptionNotice.KIND
                 },
             )
             assertEquals("parent", notices.single().turnId)

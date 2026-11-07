@@ -3,6 +3,7 @@ package com.helix.app.ui
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.ui.graphics.luminance
+import com.helix.feature.conversation.presentation.permissionWarningColor
 import org.junit.Assert.assertTrue
 import org.junit.Test
 

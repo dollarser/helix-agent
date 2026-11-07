@@ -34,9 +34,10 @@ import com.helix.app.R
 import com.helix.app.approval.ApprovalUiMapper
 import com.helix.app.approval.AuditLogFilter
 import com.helix.app.audit.AuditLogService
-import com.helix.app.chat.SessionRowUi
-import com.helix.app.ui.indicatedVerticalScroll
 import com.helix.core.model.ToolOperationClass
+import com.helix.feature.conversation.presentation.SessionRowUi
+import com.helix.ui.shared.indicatedVerticalScroll
+import com.helix.feature.conversation.R as ConversationR
 
 /**
  * The audit log page (roadmap HXA-036; doc 01 section 7): tool-dispatch audit records
@@ -231,7 +232,7 @@ private fun AuditSessionToolOperationFilters(
         )
         FilterSelect(
             tag = "audit-filter-operationClass",
-            label = stringResource(R.string.approval_operation),
+            label = stringResource(ConversationR.string.approval_operation),
             placeholder = stringResource(R.string.audit_all_operations),
             options =
                 ToolOperationClass.entries.map {

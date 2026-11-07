@@ -6,7 +6,7 @@ gradle.projectsEvaluated {
         p.extensions.getByName('kotlin').sourceSets.getByName('test').kotlin.srcDir(
             rootProject.file("${reviewOutput}/sources/${folder}"))
     }
-    rootProject.project(':core:storage').tasks.named('compileDebugUnitTestKotlin').configure {
+    rootProject.project(':infrastructure:storage').tasks.named('compileDebugUnitTestKotlin').configure {
         source(rootProject.file("${reviewOutput}/sources/storage"))
     }
 }

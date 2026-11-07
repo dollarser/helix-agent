@@ -8,11 +8,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import com.helix.app.R
-import com.helix.app.ui.indicatedVerticalScroll
+import com.helix.ui.shared.indicatedVerticalScroll
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.helix.feature.conversation.R as ConversationR
 
 @Composable
 @Suppress("FunctionName")
@@ -35,7 +36,7 @@ internal fun WorkspaceCleanupDialog(
             )
         },
         dismissButton = {
-            TextButton(::dismiss, enabled = !state.cleanupBusy) { Text(actions.str(R.string.files_close)) }
+            TextButton(::dismiss, enabled = !state.cleanupBusy) { Text(actions.str(ConversationR.string.files_close)) }
         },
         confirmButton = {
             TextButton(

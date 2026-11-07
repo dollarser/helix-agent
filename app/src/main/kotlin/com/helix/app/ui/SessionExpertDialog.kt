@@ -19,22 +19,26 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
-import com.helix.app.chat.ChatService
+import com.helix.app.infrastructure.conversation.ConversationExperts
 import com.helix.app.plugin.PluginService
 import com.helix.app.plugin.expertPluginChoices
 import com.helix.app.plugin.expertSkillChoices
 import com.helix.core.storage.repository.ExpertDefinition
 import com.helix.core.storage.repository.ExpertProfile
+import com.helix.feature.conversation.presentation.ConversationMenuRow
+import com.helix.ui.shared.SharedSheet
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.helix.feature.conversation.R as ConversationR
+import com.helix.ui.shared.R as SharedR
 
 /** Session selection only. Global authoring lives in the shared capabilities page. */
 @Composable
 @Suppress("FunctionName", "LongMethod", "TooGenericExceptionCaught")
 internal fun SessionExpertDialog(
-    chatService: ChatService,
+    chatService: ConversationExperts,
     sessionId: String,
     onManage: () -> Unit = {},
     plugins: PluginService? = null,
@@ -92,8 +96,8 @@ internal fun SessionExpertDialog(
         }
     }
     if (!loaded && !failed) return
-    ConversationSheet(
-        stringResource(R.string.expert_select),
+    SharedSheet(
+        stringResource(ConversationR.string.expert_select),
         "session-expert",
         { if (!busy) onDismiss() },
         footer = {
@@ -101,7 +105,7 @@ internal fun SessionExpertDialog(
                 enabled = !busy,
                 onClick = onDismiss,
                 modifier = Modifier.testTag("expert-cancel"),
-            ) { Text(stringResource(R.string.common_cancel)) }
+            ) { Text(stringResource(SharedR.string.common_cancel)) }
         },
     ) {
         Column(
@@ -120,7 +124,7 @@ internal fun SessionExpertDialog(
             ExpertChoices(profiles, selected, unavailable, dependencyNames, loaded && !busy) { choose(it) }
             if (failed) {
                 Text(stringResource(R.string.expert_load_failed), color = MaterialTheme.colorScheme.error)
-                TextButton({ retry++ }, enabled = !busy) { Text(stringResource(R.string.chat_retry)) }
+                TextButton({ retry++ }, enabled = !busy) { Text(stringResource(SharedR.string.chat_retry)) }
             }
             ConversationMenuRow(
                 stringResource(R.string.expert_manage),

@@ -71,13 +71,13 @@ class DetachedJobHostJourneyDeviceTest {
         assertEquals(2, storage.toolCalls.listByTurn(turn.id).size)
         val job = DetachedJobDashboard.read(storage).single { it.sessionId == session }
         repeat(2) {
-            val chat = app.appContainer.chatService
-            chat.performBackgroundJobAction(job, BackgroundJobAction.COLLECT)
+            val dashboard = app.appContainer.taskDashboard
+            dashboard.performBackgroundJobAction(job, BackgroundJobAction.COLLECT)
             compose.waitUntil(30_000) {
-                val action = chat.backgroundJobAction.value
+                val action = dashboard.jobActionState.value
                 action?.callId == job.callId && !action.busy
             }
-            assertEquals(BackgroundJobActionOutcome.SETTLED, chat.backgroundJobAction.value?.outcome)
+            assertEquals(BackgroundJobActionOutcome.SETTLED, dashboard.jobActionState.value?.outcome)
         }
         assertNull(ExecutionOwnershipStore(File(app.filesDir, "execution-admission/owner")).read())
         assertFalse(DetachedJobDashboard.read(storage).single { it.callId == job.callId }.settlementPending)

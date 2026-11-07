@@ -22,7 +22,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.AppContainer
 import com.helix.app.R
 import com.helix.app.chat.UserQuestionService
-import com.helix.app.ui.indicatedVerticalScroll
+import com.helix.ui.shared.indicatedVerticalScroll
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 

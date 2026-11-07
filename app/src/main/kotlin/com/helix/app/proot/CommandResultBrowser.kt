@@ -2,6 +2,7 @@ package com.helix.app.proot
 
 import com.helix.app.APP_SCOPE_ID
 import com.helix.core.storage.HelixStorage
+import com.helix.feature.conversation.presentation.COMMAND_TOOL_NAMES
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 

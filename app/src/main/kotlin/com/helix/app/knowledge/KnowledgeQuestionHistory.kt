@@ -84,7 +84,7 @@ internal fun KnowledgeQuestionHistory(
                     )
                 }
                 item {
-                    com.helix.app.ui
+                    com.helix.ui.shared
                         .MarkdownText(answer.body)
                 }
                 item {

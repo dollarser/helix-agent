@@ -1,5 +1,9 @@
 package com.helix.app.ui
 
+import android.view.View
+import android.view.ViewGroup
+import android.view.inspector.WindowInspector
+import android.webkit.WebView
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -45,9 +49,25 @@ class SvgFilePreviewDeviceTest {
             }
             compose.onNodeWithTag("inline-diagram-toggle").performClick()
             assertEquals(text, file.readText())
-            assertEquals(1, InlineDiagramCache.renderer.availablePermits)
+            compose.waitUntil(10_000) { previewEngines() == 0 }
+            compose.onNodeWithTag("inline-diagram-image").assertDoesNotExist()
+            assertEquals(0, previewEngines())
         } finally {
             assertTrue("Only the owned synthetic fixture is removed", file.delete())
         }
+    }
+
+    private fun previewEngines(): Int {
+        var count = 0
+        compose.runOnIdle {
+            fun visit(view: View) {
+                if (view is WebView && view.url?.startsWith("https://appassets.androidplatform.net/assets/") == true) {
+                    count++
+                }
+                if (view is ViewGroup) repeat(view.childCount) { visit(view.getChildAt(it)) }
+            }
+            WindowInspector.getGlobalWindowViews().forEach(::visit)
+        }
+        return count
     }
 }

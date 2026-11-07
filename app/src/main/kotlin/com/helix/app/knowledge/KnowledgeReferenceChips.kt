@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.R
 import com.helix.core.model.input.KnowledgeReference
+import com.helix.ui.shared.R as SharedR
 
 /** Same preview for editable drafts and immutable historical message citations. */
 @Composable
@@ -126,7 +127,7 @@ private fun KnowledgeReferenceChip(
                                     .testTag("knowledge-citation-remove-${item.resourceId}"),
                         ) {
                             Icon(
-                                painterResource(R.drawable.ic_close),
+                                painterResource(SharedR.drawable.ic_close),
                                 stringResource(R.string.knowledge_reference_remove),
                                 Modifier.size(16.dp),
                             )

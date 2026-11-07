@@ -4,7 +4,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.HelixApplication
 import com.helix.app.account.speechSocket
-import com.helix.app.application.diagnostics.DiagnosticRedaction
+import com.helix.core.policy.DiagnosticRedaction
 import com.helix.provider.api.wire.SocketConnection
 import com.helix.provider.api.wire.SocketMessage
 import com.helix.provider.api.wire.WireRequest
@@ -66,7 +66,7 @@ class AsrSameSampleDeviceTest {
                     response.body.close()
                 }
             File(directory, "http-response.json").writeText(
-                com.helix.app.application.diagnostics.DiagnosticRedaction
+                com.helix.core.policy.DiagnosticRedaction
                     .redact(body.toString(Charsets.UTF_8), emptySet()),
             )
             assertEquals(200, response.status)
@@ -122,7 +122,7 @@ class AsrSameSampleDeviceTest {
             when (val message = socket.receive(1000)) {
                 is SocketMessage.Text -> {
                     events.appendText(
-                        com.helix.app.application.diagnostics.DiagnosticRedaction
+                        com.helix.core.policy.DiagnosticRedaction
                             .redact(message.value, emptySet()) + "\n",
                     )
                     val value = Json.parseToJsonElement(message.value).jsonObject

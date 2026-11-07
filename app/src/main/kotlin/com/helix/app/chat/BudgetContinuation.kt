@@ -1,6 +1,6 @@
 package com.helix.app.chat
 
-import com.helix.app.runcontrol.BudgetStopReasons
+import com.helix.core.agent.BudgetStopReasons
 import com.helix.core.model.TurnState
 import com.helix.core.storage.HelixStorage
 import com.helix.core.storage.entity.TurnEntity

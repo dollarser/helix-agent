@@ -1,7 +1,7 @@
 package com.helix.app.diagnostics
 
 import android.os.Process
-import com.helix.app.application.diagnostics.DiagnosticRedaction
+import com.helix.core.policy.DiagnosticRedaction
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.async

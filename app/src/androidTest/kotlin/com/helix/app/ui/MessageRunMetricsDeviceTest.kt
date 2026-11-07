@@ -41,7 +41,7 @@ class MessageRunMetricsDeviceTest {
                 c.storage.messages.append(message, id, id, "ASSISTANT", "TEXT", "Synthetic metrics answer")
             }
             try {
-                val metrics = c.chatService.messageRunMetrics(message)
+                val metrics = c.conversationDetails.messageRunMetrics(message)
                 assertEquals(2, metrics.requests.size)
                 assertNull(metrics.requests.first().inputTokens)
                 assertEquals(10.0, requireNotNull(metrics.requests.first().requestTokensPerSecond), 0.0)

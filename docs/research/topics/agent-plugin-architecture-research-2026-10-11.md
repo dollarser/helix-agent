@@ -19,7 +19,7 @@
 | Browser Use 与本机 Browser 是同一能力 | 不成立。前者提供任务启动、等待、续接；后者提供浏览器和标签页操作 |
 | Codex 没有相应校验，因此 Helix 更安全 | 缺少证据。Browser client 已包含安全错误、凭据恢复和能力限制；服务端内部并未完整核验 |
 
-依据：[HXA-225](../../completion-records/HXA-225.md)、[HXA-235](../../development/tasks/HXA-235.md)、[HXA-251](../../development/tasks/HXA-251.md)、[视觉 ADR](../../adr/agent/011-tool-multimodal-vision-feedback.md)、[当前状态](../../development/status.md)。源码入口见第 6 节。
+依据：[HXA-225](../../completion-records/HXA-225.md)、[HXA-235](../../development/tasks/HXA-235.md)、[HXA-251](../../completion-records/HXA-251.md)、[视觉 ADR](../../adr/agent/011-tool-multimodal-vision-feedback.md)、[当前状态](../../development/status.md)。源码入口见第 6 节。
 
 ## 2 参考产品的插件设计
 
@@ -277,7 +277,7 @@ MCP 规范将工具名称唯一性的范围限定在单个 server，聚合客户
 | [ToolBindingStore](../../../tools/framework/src/main/kotlin/com/helix/tools/framework/ToolBindingStore.kt) / [McpToolSource](../../../tools/framework/src/main/kotlin/com/helix/tools/framework/ToolSource.kt) | 精确绑定冲突拒绝和 MCP 来源命名空间；不等于语义去重 |
 | [McpDynamicToolBridge](../../../extensions/mcp/src/main/kotlin/com/helix/extensions/mcp/McpDynamicToolBridge.kt) | MCP 执行进入 Dispatcher 后调用；endpoint/schema 变化、取消和期限保留原事实 |
 | [HXA-252](../../completion-records/HXA-252.md) | 通用发现提示已交付；有限模型对照不代表其他任务或模型的普遍收益 |
-| [HXA-235](../../development/tasks/HXA-235.md) / [HXA-251](../../development/tasks/HXA-251.md) / [status](../../development/status.md) | 插件生命周期已交付与尚未关闭的验证范围 |
+| [HXA-235](../../development/tasks/HXA-235.md) / [HXA-251](../../completion-records/HXA-251.md) / [status](../../development/status.md) | 插件生命周期已交付与尚未关闭的验证范围 |
 | [Harness 方案](../../architecture/harness-refactor-plan.md) / [候选索引](../../development/candidate-decisions.md) | Job、Code Mode、远程与文档等能力的既有承接边界 |
 
 ### 6.2 Codex 样本身份

@@ -15,15 +15,17 @@ from pathlib import Path
 
 root = Path(os.environ["HELIX_PROJECT_ROOT"]).resolve()
 # The Git inventory covers maintained docs wherever they live, including reviews,
-# evals, module READMEs and script guides. Ignore untracked/local archives without
-# maintaining a second directory allowlist. Deleted tracked files are absent from
-# the current worktree and are checked by their remaining inbound links instead.
-tracked_paths = subprocess.run(
-    ["git", "ls-files", "-z", "--", "*.md"], cwd=root,
+# evals, module READMEs and script guides, plus new maintained documents before
+# staging. --cached includes staged additions; --others --exclude-standard omits
+# ignored local archives/build outputs. Read the worktree, not staged blobs, so
+# edits after staging cannot hide broken links. Deleted tracked files are checked
+# by their remaining inbound links instead; staged files are not counted twice.
+document_paths = subprocess.run(
+    ["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z", "--", "*.md"], cwd=root,
     check=True, capture_output=True,
 ).stdout.decode("utf-8").split("\0")
 markdown_files = sorted(
-    root / relative for relative in tracked_paths
+    root / relative for relative in set(document_paths)
     if relative and (root / relative).is_file()
 )
 link_pattern = re.compile(r"(?<!!)\[[^]]*]\(([^)]+)\)")
@@ -87,7 +89,7 @@ for path in markdown_files:
         relative_links.append((path, raw_target, (path.parent / target).resolve()))
 
 # Check ignore state once, with NUL-delimited paths (including spaces), rather than
-# spawning Git for every link in the expanded tracked documentation inventory.
+# spawning Git for every link in the maintained documentation inventory.
 repository_targets = sorted({str(resolved) for _, _, resolved in relative_links
                              if resolved.is_relative_to(root)})
 ignored_paths = set()

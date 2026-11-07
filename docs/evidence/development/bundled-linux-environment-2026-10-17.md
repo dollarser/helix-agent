@@ -1,7 +1,7 @@
 # 内置 Linux 环境默认使用与维护收敛
 
 Date: 2026-10-17
-Task: [HXA-305](../../development/tasks/HXA-305.md)
+Task: [HXA-305](../../completion-records/HXA-305.md)
 Status: 原主机阶段已完成；该阶段设备与真实模型 not requested
 
 Owner 随后追加独立 ARM64 模拟器、真实 Qwen、最终 R8 和本地候选收尾，当前结果见[追加验收](linux-environment-closeout-2026-10-17.md)。下文保留原阶段证据及当时未提交、未进行设备验证的事实，不作为后续验收状态。
@@ -10,7 +10,7 @@ Owner 随后追加独立 ARM64 模拟器、真实 Qwen、最终 R8 和本地候�
 
 从干净 `main` / `8431718f` 开始。Owner 要求优化 PRoot 设置，并追加 Advanced 默认开启的设计；本轮采用内置能力默认可用、首次获准执行时准备资源。启动应用、打开设置、切换权限模式、发现工具和恢复原任务均不安装、不发起命令。权限模式不会自动提升，也不增加常驻保活或新的启用开关。无本地技能目录；使用已有 CodeGraph 定位并核对当前源码，未引入新框架或依赖。
 
-研究采用点及原始来源见 [HXA-305](../../development/tasks/HXA-305.md#一手资料与采用点)：借鉴 Claude Code 使用与诊断分离、PRoot-Distro 区分维护动作和数据影响、Android 设置的状态与次级操作分组。Helix 保留单 APK、私有执行进程、会话/工具授权和 Android 资源限制，不照搬独立运行时下载、发行版管理或命令行直接删除。
+研究采用点及原始来源见 [HXA-305](../../completion-records/HXA-305.md#一手资料与采用点)：借鉴 Claude Code 使用与诊断分离、PRoot-Distro 区分维护动作和数据影响、Android 设置的状态与次级操作分组。Helix 保留单 APK、私有执行进程、会话/工具授权和 Android 资源限制，不照搬独立运行时下载、发行版管理或命令行直接删除。
 
 ## 实现和审查记录
 

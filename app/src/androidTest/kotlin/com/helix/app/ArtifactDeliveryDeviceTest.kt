@@ -584,7 +584,7 @@ class ArtifactDeliveryDeviceTest {
         compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
             compose
                 .container()
-                .chatService.backgroundTasks.value
+                .taskDashboard.tasks.value
                 .any { it.id == fixtureTurnId }
         }
         compose.onNodeWithTag("screen-tasks").performScrollToNode(hasTestTag("tasks-turn-$fixtureTurnId"))

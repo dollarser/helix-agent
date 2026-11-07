@@ -19,7 +19,6 @@ import androidx.compose.ui.test.swipeDown
 import androidx.core.content.FileProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.MainActivity
-import com.helix.app.chat.ChatImageRef
 import com.helix.app.provider.ProviderDraft
 import com.helix.core.model.AgentMode
 import com.helix.core.model.NormalizedEndpoint
@@ -28,6 +27,7 @@ import com.helix.core.model.ReasoningEffort
 import com.helix.core.model.TurnId
 import com.helix.core.model.TurnState
 import com.helix.core.workspace.FileScopePath
+import com.helix.feature.conversation.presentation.ChatImageRef
 import com.helix.provider.api.ProbeOutcome
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.runBlocking

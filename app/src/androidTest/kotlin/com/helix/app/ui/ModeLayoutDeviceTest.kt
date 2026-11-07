@@ -15,6 +15,9 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import com.helix.core.model.AgentMode
+import com.helix.feature.conversation.presentation.ComposerActions
+import com.helix.feature.conversation.presentation.ComposerAvailability
+import com.helix.feature.conversation.presentation.ConversationComposer
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test

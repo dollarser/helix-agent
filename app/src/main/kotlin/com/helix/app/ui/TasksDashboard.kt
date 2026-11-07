@@ -3,9 +3,10 @@ package com.helix.app.ui
 import androidx.annotation.StringRes
 import com.helix.app.R
 import com.helix.app.chat.BackgroundTaskUi
-import com.helix.app.chat.GoalSummaryUi
 import com.helix.app.chat.PlanRowUi
 import com.helix.core.model.TurnState
+import com.helix.feature.conversation.presentation.GoalSummaryUi
+import com.helix.feature.conversation.R as ConversationR
 
 /**
  * Display-state projection for the cross-session Tasks dashboard (HXA-202).
@@ -109,7 +110,7 @@ internal sealed interface TasksRow {
                     }
 
                     task.state in setOf(TurnState.NEEDS_REVIEW, TurnState.INTERRUPTED) -> {
-                        R.string.tasks_state_needs_review
+                        ConversationR.string.tasks_state_needs_review
                     }
 
                     task.awaitingApproval -> {
@@ -190,7 +191,7 @@ internal sealed interface TasksRow {
                     }
 
                     goal.status.state !in TERMINAL_GOAL_STATES && goal.hasUnresolvedCalls -> {
-                        R.string.tasks_state_needs_review
+                        ConversationR.string.tasks_state_needs_review
                     }
 
                     else -> {
@@ -243,7 +244,7 @@ internal fun taskStateLabel(state: TurnState): Int =
         TurnState.COMPLETED -> R.string.goal_state_completed
         TurnState.FAILED -> R.string.goal_state_failed
         TurnState.CANCELLED -> R.string.goal_state_cancelled
-        TurnState.NEEDS_REVIEW -> R.string.tasks_state_needs_review
+        TurnState.NEEDS_REVIEW -> ConversationR.string.tasks_state_needs_review
         TurnState.INTERRUPTED -> R.string.goal_pause_interrupted
         TurnState.CANCELLING -> R.string.tasks_state_cancelling
         else -> R.string.goal_state_running

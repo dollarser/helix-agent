@@ -25,10 +25,10 @@ import androidx.compose.ui.test.pinch
 import androidx.compose.ui.test.swipe
 import androidx.compose.ui.unit.Density
 import androidx.test.core.app.ApplicationProvider
-import com.helix.app.chat.DisplayExecutionState
-import com.helix.app.chat.DisplayExecutionUi
 import com.helix.app.ui.BackgroundDisplayPreview
 import com.helix.app.ui.LocalizedComposeActivity
+import com.helix.feature.conversation.presentation.DisplayExecutionState
+import com.helix.feature.conversation.presentation.DisplayExecutionUi
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue

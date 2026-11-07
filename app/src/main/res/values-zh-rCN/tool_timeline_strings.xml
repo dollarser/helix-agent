@@ -1,14 +1,4 @@
 <resources>
-    <string name="tool_group_show">查看 %1$d 次工具调用</string>
-    <string name="tool_group_hide">收起 %1$d 次工具调用</string>
-    <string name="tool_inspector_open">检查参数与结果</string>
-    <string name="tool_observed_background">观察记录：后台屏 · %1$s</string>
-    <string name="tool_observed_main">观察记录：主屏 · %1$s</string>
-    <string name="tool_unsettled">界面仍在变化 · 效果待核验</string>
-    <string name="tool_running_elapsed">已运行 %1$d 秒</string>
-    <string name="tool_inspector_full">完整结果（已脱敏）</string>
-    <string name="tool_inspector_unavailable">无法读取完整结果，显示摘要</string>
-    <string name="tool_inspector_loading">正在读取原调用结果…</string>
     <string name="model_request_failed">模型请求失败：%1$s</string>
     <string name="model_response_interrupted">模型响应中断：%1$s；请核对现有结果后继续</string>
     <string name="model_failure_retry_count">%1$s（已重试 %2$d 次）</string>

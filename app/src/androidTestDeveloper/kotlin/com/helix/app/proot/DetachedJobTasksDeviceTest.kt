@@ -35,7 +35,7 @@ class DetachedJobTasksDeviceTest {
             assertEquals(BackgroundJobActionOutcome.SETTLED, click(f, BackgroundJobAction.COLLECT))
             assertEquals("tasks-result", f.output.readText())
             assertFalse(
-                f.container.chatService.backgroundJobs.value
+                f.container.taskDashboard.jobs.value
                     .single { it.callId == f.id }
                     .settlementPending,
             )
@@ -71,7 +71,7 @@ class DetachedJobTasksDeviceTest {
             assertEquals(ProotJobState.CANCELLED, f.awaitTerminal().state)
             assertEquals(BackgroundJobActionOutcome.TERMINAL_PENDING, click(f, BackgroundJobAction.QUERY))
             assertTrue(
-                f.container.chatService.backgroundJobs.value
+                f.container.taskDashboard.jobs.value
                     .single { it.callId == f.id }
                     .settlementPending,
             )
@@ -105,7 +105,7 @@ class DetachedJobTasksDeviceTest {
     private fun openTasks(f: DetachedJobJourneyFixture) {
         compose.navigateTo("tasks")
         compose.waitUntil(20_000) {
-            f.container.chatService.backgroundJobs.value
+            f.container.taskDashboard.jobs.value
                 .any { it.callId == f.id }
         }
     }
@@ -118,11 +118,11 @@ class DetachedJobTasksDeviceTest {
         compose.onNodeWithTag("screen-tasks").performScrollToNode(hasTestTag(tag))
         compose.onNodeWithTag(tag).assertIsDisplayed().performClick()
         compose.waitUntil(30_000) {
-            val state = f.container.chatService.backgroundJobAction.value
+            val state = f.container.taskDashboard.jobActionState.value
             state?.callId == f.id && state.action == action && !state.busy && state.outcome != null
         }
         return requireNotNull(
-            f.container.chatService.backgroundJobAction.value
+            f.container.taskDashboard.jobActionState.value
                 ?.outcome,
         )
     }

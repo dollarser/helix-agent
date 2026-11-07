@@ -19,11 +19,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import com.helix.app.R
-import com.helix.app.chat.ChatScreenState
-import com.helix.app.chat.ChatService
-import com.helix.app.chat.HumanHandoffState
-import com.helix.app.chat.HumanHandoffUi
+import com.helix.feature.conversation.application.ChatService
 import com.helix.feature.conversation.input.ChatSubmissionOutcome
+import com.helix.feature.conversation.presentation.ChatScreenState
+import com.helix.feature.conversation.presentation.HumanHandoffState
+import com.helix.feature.conversation.presentation.HumanHandoffUi
 import kotlinx.coroutines.launch
 
 @Composable

@@ -13,6 +13,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
+import com.helix.ui.shared.SharedSheet
 
 /** A fixed entry opens the same settings authorities without displacing conversation navigation. */
 @Composable
@@ -33,7 +34,7 @@ internal fun DrawerSettingsNavigation(
         modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp).testTag("navigation-group-settings"),
     )
     if (open) {
-        ConversationSheet(stringResource(R.string.nav_group_settings), "drawer-settings", { open = false }) {
+        SharedSheet(stringResource(R.string.nav_group_settings), "drawer-settings", { open = false }) {
             Column {
                 settingsDrawerEntries.forEach { entry ->
                     DrawerRow(

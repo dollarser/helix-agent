@@ -24,6 +24,7 @@ import com.helix.app.ui.FilesScreen
 import com.helix.app.ui.MemoryDialog
 import com.helix.app.ui.SettingsActions
 import com.helix.core.workspace.FileScopePath
+import com.helix.ui.shared.R as SharedR
 
 @Composable
 @Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod")
@@ -164,7 +165,7 @@ internal fun ProjectDetailScreen(
             },
             dismissButton = {
                 TextButton({ deleting = false }, enabled = !actions.busy) {
-                    Text(stringResource(R.string.common_cancel))
+                    Text(stringResource(SharedR.string.common_cancel))
                 }
             },
         )

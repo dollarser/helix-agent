@@ -21,6 +21,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import java.util.UUID
+import com.helix.ui.shared.R as SharedR
 
 /** Real installed records and native content; no external connection or provider request. */
 class PluginManagementDeviceTest {
@@ -98,7 +99,7 @@ class PluginManagementDeviceTest {
             open(record)
             tab(record, 2)
             compose.onNodeWithTag("plugin-remove-${record.id}").performScrollTo().performClick()
-            compose.onNodeWithText(containerContext().getString(com.helix.app.R.string.common_cancel)).performClick()
+            compose.onNodeWithText(containerContext().getString(SharedR.string.common_cancel)).performClick()
             assertTrue(service.list().any { it.id == record.id })
             compose.onNodeWithTag("plugin-remove-${record.id}").performScrollTo().performClick()
             compose.onNodeWithTag("plugin-remove-confirm-${record.id}").performClick()

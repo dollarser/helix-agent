@@ -1,6 +1,6 @@
 # HXA-275：组件诊断与作者样例验证
 
-日期：2026-10-11。范围：[任务](../../development/tasks/HXA-275.md)、[作者指南](../../development/plugin-authoring.md)、[ADR-CONNECTORS-003](../../adr/connectors/003-ownership-and-installation.md)。Owner明确要求完成272～275，允许自有模拟器、现有Qwen和分阶段本地提交；未授权本任务更新日常APK、操作真机或真实第三方账号。
+日期：2026-10-11。范围：[任务](../../completion-records/HXA-275.md)、[作者指南](../../development/plugin-authoring.md)、[ADR-CONNECTORS-003](../../adr/connectors/003-ownership-and-installation.md)。Owner明确要求完成272～275，允许自有模拟器、现有Qwen和分阶段本地提交；未授权本任务更新日常APK、操作真机或真实第三方账号。
 
 ## 实现与采用的设计
 

@@ -9,8 +9,8 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.HelixApplication
 import com.helix.app.provider.discoverReasoningOptions
-import com.helix.app.ui.ComposerReasoningMenu
 import com.helix.core.model.ReasoningEffort
+import com.helix.feature.conversation.presentation.ComposerReasoningMenu
 import kotlinx.coroutines.flow.toList
 import org.junit.Assert.assertEquals
 import org.junit.Rule

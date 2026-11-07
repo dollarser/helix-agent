@@ -1,6 +1,6 @@
 # 插件作者指南与组件支持范围
 
-更新：2026-10-13。对应 [HXA-275](tasks/HXA-275.md)、[HXA-281](../completion-records/HXA-281.md) 和 [ADR-CONNECTORS-003](../adr/connectors/003-ownership-and-installation.md)。以下描述当前源码能力，不代表旧发布 APK 已支持。
+更新：2026-10-13。对应 [HXA-275](../completion-records/HXA-275.md)、[HXA-281](../completion-records/HXA-281.md) 和 [ADR-CONNECTORS-003](../adr/connectors/003-ownership-and-installation.md)。以下描述当前源码能力，不代表旧发布 APK 已支持。
 
 ## 格式与执行边界
 

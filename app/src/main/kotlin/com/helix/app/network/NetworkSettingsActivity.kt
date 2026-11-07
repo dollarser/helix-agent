@@ -32,10 +32,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.helix.app.HelixTheme
 import com.helix.app.R
 import com.helix.core.policy.network.NativeNetwork
+import com.helix.ui.shared.HelixTheme
 import java.io.IOException
+import com.helix.ui.shared.R as SharedR
 
 class NetworkSettingsActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -49,7 +50,7 @@ internal fun NetworkSettingsEntry() {
     val context = LocalContext.current
     com.helix.app.ui.SettingsEntryRow(
         title = stringResource(R.string.network_dns_title),
-        icon = R.drawable.ic_drawer_browser,
+        icon = SharedR.drawable.ic_drawer_browser,
         onClick = { context.startActivity(Intent(context, NetworkSettingsActivity::class.java)) },
         modifier = Modifier.testTag("settings-network"),
     )
@@ -77,7 +78,7 @@ private fun NetworkSettingsPage(onBack: () -> Unit) {
             .testTag("screen-network"),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        TextButton(onBack) { Text(stringResource(R.string.common_back)) }
+        TextButton(onBack) { Text(stringResource(SharedR.string.common_back)) }
         Text(stringResource(R.string.network_dns_title), style = MaterialTheme.typography.titleLarge)
         Text(stringResource(R.string.network_dns_help), style = MaterialTheme.typography.bodySmall)
         Text(stringResource(R.string.network_hosts_help), style = MaterialTheme.typography.bodySmall)

@@ -33,7 +33,9 @@ import com.helix.app.diagnostics.DiagnosticArchiveStatus
 import com.helix.app.diagnostics.DiagnosticKind
 import com.helix.app.diagnostics.DiagnosticReportService
 import com.helix.app.diagnostics.DiagnosticRetention
+import com.helix.feature.conversation.presentation.formatToolPayload
 import kotlinx.coroutines.CancellationException
+import com.helix.feature.conversation.R as ConversationR
 
 @Composable
 internal fun DiagnosticStorageSection(service: DiagnosticReportService) {
@@ -201,7 +203,12 @@ private fun DiagnosticStorageDialog(service: DiagnosticReportService, dismiss: (
                 }
             }
         },
-        confirmButton = { TextButton(dismiss, enabled = !busy) { Text(stringResource(R.string.files_close)) } },
+        confirmButton = {
+            TextButton(
+                dismiss,
+                enabled = !busy,
+            ) { Text(stringResource(ConversationR.string.files_close)) }
+        },
     )
     detail?.let { body ->
         val formatted = remember(body) { formatToolPayload(body) }
@@ -219,7 +226,11 @@ private fun DiagnosticStorageDialog(service: DiagnosticReportService, dismiss: (
                     Text(stringResource(R.string.diagnostics_preview_copy))
                 }
             },
-            confirmButton = { TextButton({ detail = null }) { Text(stringResource(R.string.files_close)) } },
+            confirmButton = {
+                TextButton(
+                    { detail = null },
+                ) { Text(stringResource(ConversationR.string.files_close)) }
+            },
         )
     }
 }

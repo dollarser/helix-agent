@@ -10,7 +10,7 @@ import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeDown
 import com.helix.app.HelixApplication
-import com.helix.app.ui.ChatScreen
+import com.helix.app.ui.AppConversationRoute
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import java.util.Properties
@@ -26,7 +26,17 @@ internal fun openProotConversation(
     chat.openSession(session)
     compose.waitUntil(15000) { chat.screen.value.openSessionId == session }
     compose.setContent {
-        MaterialTheme { ChatScreen(chat, container.providerService, container.privacyDeletionService) }
+        MaterialTheme {
+            AppConversationRoute(
+                chatService = chat,
+                toolVisionConsent = container.toolVisionConsent,
+                dashboard = container.taskDashboard,
+                details = container.conversationDetails,
+                experts = container.conversationExperts,
+                providerService = container.providerService,
+                privacyDeletionService = container.privacyDeletionService,
+            )
+        }
     }
     compose.waitUntil(15000) {
         val screen = chat.screen.value

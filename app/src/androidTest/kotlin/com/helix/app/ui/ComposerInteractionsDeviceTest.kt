@@ -21,6 +21,12 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.unit.dp
 import com.helix.core.model.SessionPermissionMode
+import com.helix.feature.conversation.presentation.ChatContextUsage
+import com.helix.feature.conversation.presentation.ComposerActions
+import com.helix.feature.conversation.presentation.ComposerAvailability
+import com.helix.feature.conversation.presentation.ComposerModelMenu
+import com.helix.feature.conversation.presentation.ConversationComposer
+import com.helix.feature.conversation.presentation.SessionModelSelectionResult
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -32,8 +38,7 @@ class ComposerInteractionsDeviceTest {
     @Test fun unknownContextRemainsVisibleAndInspectableWithoutADuplicateOption() {
         val usage =
             mutableStateOf(
-                com.helix.app.agent
-                    .ChatContextUsage(),
+                ChatContextUsage(),
             )
         compose.setContent {
             MaterialTheme {
@@ -178,7 +183,7 @@ class ComposerInteractionsDeviceTest {
                                 "provider",
                                 "long-model-name",
                                 false,
-                                { _, _, _ -> com.helix.app.chat.SessionModelSelectionResult.APPLIED },
+                                { _, _, _ -> SessionModelSelectionResult.APPLIED },
                             )
                         },
                     )

@@ -9,6 +9,10 @@ apply(from = rootProject.file("config/jgit/reject-insecure-tls.gradle.kts"))
 
 // A device-specific distribution keeps the ordinary multi-ABI debug/test workflow intact.
 val distributionAbi = providers.gradleProperty("helix.abi").orNull
+val isolatedRoomValidation = providers.gradleProperty("helix.isolatedRoomValidation").orNull == "true"
+require(!isolatedRoomValidation || providers.gradleProperty("helix.asrValidation").orNull == "true") {
+    "Isolated Room tests require the separate validation application ID"
+}
 require(distributionAbi == null || distributionAbi in setOf("arm64-v8a", "x86_64")) {
     "helix.abi must be arm64-v8a or x86_64"
 }
@@ -32,7 +36,12 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "0.0.10"
-        testInstrumentationRunner = "com.helix.app.HelixAndroidJUnitRunner"
+        testInstrumentationRunner =
+            if (isolatedRoomValidation) {
+                "com.helix.app.HelixIsolatedRoomTestRunner"
+            } else {
+                "com.helix.app.HelixAndroidJUnitRunner"
+            }
     }
 
     flavorDimensions += "distribution"
@@ -89,7 +98,7 @@ android {
     sourceSets.getByName("androidTest").assets.srcDir(rootProject.file("build/asr/test-assets"))
     sourceSets.getByName("androidTest").assets.srcDir(rootProject.file("build/asr-download/test-assets"))
     sourceSets.getByName("androidTest").assets.srcDir(rootProject.file("build/tts/test-assets"))
-    sourceSets.getByName("androidTest").assets.srcDir(rootProject.file("core/storage/src/androidTest/assets"))
+    sourceSets.getByName("androidTest").assets.srcDir(rootProject.file("infrastructure/storage/src/androidTest/assets"))
     if (providers.gradleProperty("helix.asrBenchmark").orNull == "true") {
         require(providers.gradleProperty("helix.asrValidation").orNull == "true")
         sourceSets
@@ -120,9 +129,10 @@ dependencies {
     implementation(project(":core:agent"))
     implementation(project(":core:policy"))
     // HXA-015: the recovery coordinator pairs core:agent decisions with storage writes.
-    implementation(project(":core:storage"))
+    implementation(project(":infrastructure:storage"))
     implementation(project(":feature:files"))
-    implementation(project(":feature:conversation-input"))
+    implementation(project(":feature:conversation"))
+    implementation(project(":ui:shared"))
     // HXA-060: the minimal hardened WebView browser (tabs / URL policy / downloads UI).
     implementation(project(":feature:browser"))
     // HXA-276: Browser native contribution reuses descriptors / executors in :tools:browser.

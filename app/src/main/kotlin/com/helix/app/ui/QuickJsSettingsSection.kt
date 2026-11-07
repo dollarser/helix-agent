@@ -20,6 +20,7 @@ import com.helix.app.R
 import com.helix.app.settings.QuickJsAccessService
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
+import com.helix.ui.shared.R as SharedR
 
 @Composable
 @Suppress("FunctionName")
@@ -153,5 +154,5 @@ private fun QuickJsSettingsReadFailure(
     onRetry: () -> Unit,
 ) {
     Text(stringResource(R.string.quickjs_native_save_failed))
-    TextButton(onClick = onRetry, enabled = enabled) { Text(stringResource(R.string.chat_retry)) }
+    TextButton(onClick = onRetry, enabled = enabled) { Text(stringResource(SharedR.string.chat_retry)) }
 }

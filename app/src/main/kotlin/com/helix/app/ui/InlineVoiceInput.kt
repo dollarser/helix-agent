@@ -39,8 +39,11 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import com.helix.app.R
 import com.helix.app.voice.VoiceCapture
+import com.helix.feature.conversation.presentation.ContinuousVoiceOptions
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import com.helix.feature.conversation.R as ConversationR
+import com.helix.ui.shared.R as SharedR
 
 /** Foreground capture adapter. Preview is transient composer state; only a final result commits a draft. */
 @Composable
@@ -119,7 +122,17 @@ internal fun InlineVoiceInput(
     LaunchedEffect(permission, uploadConsent) {
         if (permission && uploadConsent) {
             capture.start(
-                segmenter = if (dictation.enabled) ({ dictation.segmenterFactory(context) }) else null,
+                segmenter =
+                    if (dictation.enabled) {
+                        (
+                            {
+                                com.helix.app.voice
+                                    .SileroSpeechSegments(context)
+                            }
+                        )
+                    } else {
+                        null
+                    },
             ) { onStopSpeech() }
         }
     }
@@ -198,7 +211,7 @@ internal fun InlineVoiceControls(
         Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp).testTag("voice-inline"),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        if (continuous) Text(stringResource(R.string.voice_continuous_hint))
+        if (continuous) Text(stringResource(ConversationR.string.voice_continuous_hint))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             if (permission && uploadConsent &&
                 state.processing
@@ -241,7 +254,7 @@ internal fun InlineVoiceControls(
 
                 state.retryable -> {
                     Button(onRetry, Modifier.testTag("voice-retry")) {
-                        Text(stringResource(R.string.chat_retry))
+                        Text(stringResource(SharedR.string.chat_retry))
                     }
                 }
             }

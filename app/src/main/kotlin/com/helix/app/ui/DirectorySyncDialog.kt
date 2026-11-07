@@ -43,6 +43,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.helix.feature.conversation.R as ConversationR
+import com.helix.ui.shared.R as SharedR
 
 // Failures remain visible; cancellation propagates.
 @Composable
@@ -90,7 +92,7 @@ internal fun DirectorySyncDialog(
                 item {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text(stringResource(R.string.sync_title), style = MaterialTheme.typography.titleLarge)
-                        TextButton(onDismiss) { Text(stringResource(R.string.files_close)) }
+                        TextButton(onDismiss) { Text(stringResource(ConversationR.string.files_close)) }
                     }
                     Text(stringResource(R.string.sync_summary), style = MaterialTheme.typography.bodySmall)
                 }
@@ -115,7 +117,7 @@ internal fun DirectorySyncDialog(
                     ) { Text(stringResource(R.string.sync_add)) }
                     if (failed) {
                         Text(stringResource(R.string.sync_error), color = MaterialTheme.colorScheme.error)
-                        TextButton({ retry++ }) { Text(stringResource(R.string.chat_retry)) }
+                        TextButton({ retry++ }) { Text(stringResource(SharedR.string.chat_retry)) }
                     }
                     HorizontalDivider()
                 }

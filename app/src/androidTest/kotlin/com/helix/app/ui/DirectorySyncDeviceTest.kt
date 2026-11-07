@@ -10,7 +10,6 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.Density
 import androidx.test.platform.app.InstrumentationRegistry
-import com.helix.app.HelixTheme
 import com.helix.app.R
 import com.helix.app.files.DirectorySyncService
 import com.helix.app.files.FileManagerService
@@ -19,6 +18,7 @@ import com.helix.app.files.NioManualFileBackend
 import com.helix.app.files.SyncRoot
 import com.helix.core.workspace.ScopeRootResolver
 import com.helix.core.workspace.WorkspaceArtifactStore
+import com.helix.ui.shared.HelixTheme
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test

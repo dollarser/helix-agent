@@ -31,11 +31,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.helix.app.R
-import com.helix.app.chat.ChatService
+import com.helix.app.infrastructure.conversation.ConversationExperts
 import com.helix.app.plugin.ExpertAbilityChoice
 import com.helix.core.storage.repository.ExpertDefinition
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
+import com.helix.ui.shared.R as SharedR
 
 /** Full-height draft editor; only Save publishes a reusable definition. */
 @Composable
@@ -44,7 +45,7 @@ internal fun ExpertEditor(
     id: String,
     initial: ExpertDefinition?,
     importing: Boolean,
-    chat: ChatService,
+    chat: ConversationExperts,
     pluginChoices: List<ExpertAbilityChoice>,
     skillChoices: List<ExpertAbilityChoice>,
     onDismiss: () -> Unit,
@@ -79,7 +80,7 @@ internal fun ExpertEditor(
                         onClick = onDismiss,
                         modifier = Modifier.testTag("expert-editor-cancel"),
                     ) {
-                        Text(stringResource(R.string.common_cancel))
+                        Text(stringResource(SharedR.string.common_cancel))
                     }
                     Button(enabled = !busy, onClick = {
                         busy = true
@@ -103,7 +104,7 @@ internal fun ExpertEditor(
                             }
                         }
                     }, modifier = Modifier.testTag("session-expert-save")) {
-                        Text(stringResource(R.string.common_save))
+                        Text(stringResource(SharedR.string.common_save))
                     }
                 }
             },

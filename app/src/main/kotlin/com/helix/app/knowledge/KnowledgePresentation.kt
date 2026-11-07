@@ -16,6 +16,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
+import com.helix.ui.shared.R as SharedR
 
 internal val KnowledgeActionShape =
     androidx.compose.foundation.shape
@@ -43,11 +44,11 @@ internal fun KnowledgeHeader(
         Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
         if (onSave != null) {
             TextButton(onSave, enabled = saveEnabled, modifier = Modifier.testTag("knowledge-note-save")) {
-                Text(stringResource(R.string.common_save))
+                Text(stringResource(SharedR.string.common_save))
             }
         } else if (onMore != null) {
             IconButton(onMore, Modifier.testTag("knowledge-note-management")) {
-                Icon(painterResource(R.drawable.ic_more_vertical), stringResource(R.string.knowledge_more))
+                Icon(painterResource(SharedR.drawable.ic_more_vertical), stringResource(R.string.knowledge_more))
             }
         }
     }

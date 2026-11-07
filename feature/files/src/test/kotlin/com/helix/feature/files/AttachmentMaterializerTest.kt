@@ -2,6 +2,7 @@ package com.helix.feature.files
 
 import com.helix.core.model.AttachmentCategory
 import com.helix.core.model.TextAttachmentKind
+import com.helix.core.model.attachment.AttachmentMaterialization
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -144,7 +145,7 @@ class AttachmentMaterializerTest {
         assertTrue("over-cap extracted text is truncated", text.truncated)
         assertEquals(
             "the extracted view is exactly the inline bound",
-            AttachmentMaterializer.MAX_INLINE_TEXT_BYTES,
+            com.helix.core.model.input.InputAttachmentLimits.MAX_INLINE_TEXT_BYTES,
             text.content.length,
         )
         assertEquals(sha(bytes), text.sha256)
@@ -162,7 +163,7 @@ class AttachmentMaterializerTest {
         assertTrue("over-cap is truncated", text.truncated)
         assertEquals(
             "the inline view is exactly the probed prefix",
-            "a".repeat(AttachmentMaterializer.MAX_INLINE_TEXT_BYTES),
+            "a".repeat(com.helix.core.model.input.InputAttachmentLimits.MAX_INLINE_TEXT_BYTES),
             text.content,
         )
         assertEquals(

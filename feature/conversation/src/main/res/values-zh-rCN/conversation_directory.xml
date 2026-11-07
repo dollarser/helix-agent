@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="background_tasks">本会话任务</string>
+    <string name="chat_active_list">返回会话列表</string>
+    <string name="chat_archive">归档</string>
+    <string name="chat_archived_list">已归档会话</string>
+    <string name="chat_archived_suffix"> · 已归档</string>
+    <string name="chat_empty_archive">暂无已归档会话</string>
+    <string name="chat_empty_sessions_hint">暂无会话。新建会话前，请先在 设置 → Provider 中添加 Provider 并通过连接测试。</string>
+    <string name="chat_new_session">新建会话</string>
+    <string name="chat_no_provider">无 Provider</string>
+    <string name="chat_rename">重命名</string>
+    <string name="chat_restore">恢复</string>
+    <string name="chat_save_details">保存</string>
+    <string name="chat_session_header">会话</string>
+    <string name="chat_session_search_clear">清除</string>
+    <string name="chat_session_search_empty">没有匹配的会话</string>
+    <string name="chat_session_search_group_active">进行中</string>
+    <string name="chat_session_search_group_archived">已归档</string>
+    <string name="chat_session_search_hint">搜索会话与消息</string>
+    <string name="chat_session_search_truncated">还有更多匹配会话，可输入更具体的内容查找。</string>
+    <string name="chat_session_title_label">会话标题</string>
+    <string name="chat_setup_provider">配置模型服务</string>
+</resources>

@@ -2,6 +2,9 @@ package com.helix.app.ui.composer
 
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
+import com.helix.feature.conversation.presentation.composer.ComposerCommandParser
+import com.helix.feature.conversation.presentation.composer.completeComposerText
+import com.helix.feature.conversation.presentation.composer.synchronizeComposerText
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame

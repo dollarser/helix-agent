@@ -33,7 +33,7 @@ import com.helix.app.skills.SkillAuthoringSection
 import com.helix.app.skills.SkillAuthoringService
 import com.helix.app.skills.SkillInstallationSection
 import com.helix.app.skills.SkillInstallationService
-import com.helix.app.ui.indicatedVerticalScroll
+import com.helix.ui.shared.indicatedVerticalScroll
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 

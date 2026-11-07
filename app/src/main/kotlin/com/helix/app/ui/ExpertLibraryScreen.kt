@@ -32,22 +32,24 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
-import com.helix.app.chat.ChatService
+import com.helix.app.infrastructure.conversation.ConversationExperts
 import com.helix.app.plugin.ExpertAbilityChoice
 import com.helix.app.plugin.PluginService
 import com.helix.app.plugin.expertPluginChoices
 import com.helix.app.plugin.expertSkillChoices
 import com.helix.core.storage.repository.ExpertDefinition
 import com.helix.core.storage.repository.ExpertLibraryRepository
+import com.helix.feature.conversation.presentation.ConversationMenuRow
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.helix.ui.shared.R as SharedR
 
 @Composable
 @Suppress("FunctionName")
 internal fun CapabilitiesScreen(
-    chat: ChatService,
+    chat: ConversationExperts,
     plugins: PluginService,
     initialTab: Int = 0,
     pluginContent: @Composable () -> Unit,
@@ -73,7 +75,7 @@ internal fun CapabilitiesScreen(
 @Composable
 @Suppress("FunctionName", "LongMethod", "TooGenericExceptionCaught")
 internal fun ExpertLibraryScreen(
-    chat: ChatService,
+    chat: ConversationExperts,
     plugins: PluginService,
 ) {
     var definitions by remember { mutableStateOf(emptyList<ExpertDefinition>()) }
@@ -132,7 +134,7 @@ internal fun ExpertLibraryScreen(
         }
         if (failed) {
             Text(stringResource(R.string.expert_load_failed), color = MaterialTheme.colorScheme.error)
-            TextButton({ revision++ }) { Text(stringResource(R.string.chat_retry)) }
+            TextButton({ revision++ }) { Text(stringResource(SharedR.string.chat_retry)) }
         }
         ExpertLibraryEmpty(loaded, definitions)
         if (copied) Text(stringResource(R.string.expert_configuration_copied))
@@ -221,7 +223,7 @@ internal fun ExpertLibraryScreen(
             },
             dismissButton = {
                 TextButton(enabled = !deleting, onClick = { deletingId = null }) {
-                    Text(stringResource(R.string.common_cancel))
+                    Text(stringResource(SharedR.string.common_cancel))
                 }
             },
         )

@@ -1,6 +1,6 @@
 # Chat system 消息兼容：2026-10-09
 
-范围：[HXA-249](../../development/tasks/HXA-249.md)。当前实际 Qwen3.8-27B / OPENAI_CHAT_COMPLETIONS，沿用应用正常 Provider/Keystore 路径。只使用合成文字和本轮新建 fixture 会话，没有导出配置、密钥、数据库或真实用户会话，没有执行模型生成的新脚本来诊断协议。
+范围：[HXA-249](../../completion-records/HXA-249.md)。当前实际 Qwen3.8-27B / OPENAI_CHAT_COMPLETIONS，沿用应用正常 Provider/Keystore 路径。只使用合成文字和本轮新建 fixture 会话，没有导出配置、密钥、数据库或真实用户会话，没有执行模型生成的新脚本来诊断协议。
 
 ## 现场问题与等价对照
 

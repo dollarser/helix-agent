@@ -10,6 +10,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import com.helix.app.MainActivity
+import com.helix.app.infrastructure.conversation.ConversationExperts
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -135,7 +136,7 @@ class SessionSettingsDeviceTest {
         }
         val profile = requireNotNull(container.storage.sessionExperts.forSession(id))
         assertEquals("Focus on correctness.", profile.instruction)
-        assertLibraryEditRequiresReselection(chat, container.storage, id, saved)
+        assertLibraryEditRequiresReselection(container.conversationExperts, container.storage, id, saved)
     }
 
     @Test
@@ -158,13 +159,13 @@ class SessionSettingsDeviceTest {
     }
 
     private fun assertLibraryEditRequiresReselection(
-        chat: com.helix.app.chat.ChatService,
+        experts: ConversationExperts,
         storage: com.helix.core.storage.HelixStorage,
         id: String,
         saved: com.helix.core.storage.repository.ExpertProfile,
     ) {
         kotlinx.coroutines.runBlocking {
-            check(chat.saveExpert(saved.id, saved.displayName, "Updated library instruction.").await())
+            check(experts.saveExpert(saved.id, saved.displayName, "Updated library instruction.").await())
         }
         assertEquals(
             "Focus on correctness.",

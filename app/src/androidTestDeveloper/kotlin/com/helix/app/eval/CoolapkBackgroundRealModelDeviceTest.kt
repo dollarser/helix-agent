@@ -132,8 +132,8 @@ class CoolapkBackgroundRealModelDeviceTest {
     private suspend fun awaitActualTerminal(session: String) {
         var last = ""
         while (true) {
-            c.chatService.toolVisionConsent.pending.value.filter { it.sessionId == session }.forEach {
-                c.chatService.toolVisionConsent.respond(it.id, true)
+            c.toolVisionConsent.pending.value.filter { it.sessionId == session }.forEach {
+                c.toolVisionConsent.respond(it.id, true)
             }
             val turn =
                 c.storage.turns

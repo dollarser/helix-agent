@@ -20,6 +20,7 @@ import org.junit.Rule
 import org.junit.Test
 import java.io.File
 import java.util.UUID
+import com.helix.ui.shared.R as SharedR
 
 /** Production navigation and owned Room state, without external services or permission grants. */
 class UnifiedSessionSettingsDeviceTest {
@@ -70,7 +71,7 @@ class UnifiedSessionSettingsDeviceTest {
                 .onNodeWithText(
                     compose.activity.getString(com.helix.app.R.string.workspace_copy_location),
                 ).assertIsDisplayed()
-            compose.onNodeWithText(compose.activity.getString(com.helix.app.R.string.chat_details_close)).performClick()
+            compose.onNodeWithText(compose.activity.getString(SharedR.string.chat_details_close)).performClick()
             awaitSettingsFocus()
             assertEquals(default, c.sessionPermissionEdit.appDefault())
             compose.onNodeWithTag("settings-perm-mode-APPROVAL_REQUIRED").assertDoesNotExist()

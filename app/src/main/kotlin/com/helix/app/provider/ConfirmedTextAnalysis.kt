@@ -1,11 +1,11 @@
 package com.helix.app.provider
 
-import com.helix.app.chat.EgressDisclosure
 import com.helix.core.model.ModelEvent
 import com.helix.core.model.ModelMessage
 import com.helix.core.model.ModelRequest
 import com.helix.core.model.ModelRole
 import com.helix.core.model.ProviderProvisioningKind
+import com.helix.feature.conversation.application.EgressDisclosure
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect

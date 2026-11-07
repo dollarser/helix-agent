@@ -47,6 +47,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.helix.ui.shared.R as SharedR
 
 @Composable
 // Shared import action state preserves cancellation; settings/permission destinations remain explicit UI callbacks.
@@ -277,7 +278,7 @@ fun ConnectorSection(
                     replaceTarget = null
                 },
                 enabled = !action.busy,
-            ) { Text(stringResource(R.string.common_cancel)) }
+            ) { Text(stringResource(SharedR.string.common_cancel)) }
         }
         installed?.let { PluginImportResult(it, onUse, onConfigureImported) }
         val localizedNames =
@@ -369,7 +370,7 @@ fun ConnectorSection(
                                     },
                                     dismissButton = {
                                         TextButton(onClick = { confirmRemoval = false }) {
-                                            Text(stringResource(R.string.common_cancel))
+                                            Text(stringResource(SharedR.string.common_cancel))
                                         }
                                     },
                                 )
@@ -902,7 +903,7 @@ private fun OAuthAuthSection(
                 devicePolling = false
                 connecting = false
                 connectRequest = 0
-            }) { Text(stringResource(R.string.common_cancel)) }
+            }) { Text(stringResource(SharedR.string.common_cancel)) }
             Text(
                 stringResource(R.string.connector_oauth_connecting),
                 style = MaterialTheme.typography.bodySmall,
@@ -944,7 +945,7 @@ private fun GitHubDeviceCodeCard(
                 Text(stringResource(R.string.connector_device_open))
             }
             OutlinedButton(onClick = onCancel) {
-                Text(stringResource(R.string.common_cancel))
+                Text(stringResource(SharedR.string.common_cancel))
             }
         }
         if (devicePolling) {

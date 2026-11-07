@@ -14,6 +14,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
+import com.helix.feature.conversation.R as ConversationR
+import com.helix.ui.shared.R as SharedR
 
 @Composable
 @Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod")
@@ -42,7 +44,7 @@ internal fun FilesSafDialog(
                                 TextButton(
                                     { reloadTick++ },
                                     modifier = Modifier.testTag("files-saf-retry"),
-                                ) { Text(str(R.string.chat_retry)) }
+                                ) { Text(str(SharedR.string.chat_retry)) }
                             }
                             if (safSources.isEmpty() && !safLoadFailed) {
                                 Text(
@@ -90,7 +92,7 @@ internal fun FilesSafDialog(
                             onClick = { safPanelOpen = false },
                             modifier = Modifier.testTag("files-saf-close"),
                         ) {
-                            Text(str(R.string.files_close))
+                            Text(str(ConversationR.string.files_close))
                         }
                     },
                     modifier = Modifier.testTag("files-saf-dialog"),

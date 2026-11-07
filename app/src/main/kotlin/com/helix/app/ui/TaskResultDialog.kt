@@ -18,14 +18,19 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
-import com.helix.app.chat.ChatService
-import com.helix.app.chat.MessageUi
-import com.helix.app.ui.indicatedVerticalScroll
+import com.helix.app.chat.TaskDashboardProjection
+import com.helix.app.infrastructure.conversation.ConversationWorkspaceDetails
+import com.helix.feature.conversation.presentation.InterruptionNoticeLine
+import com.helix.feature.conversation.presentation.MessageUi
+import com.helix.ui.shared.MarkdownText
+import com.helix.ui.shared.indicatedVerticalScroll
+import com.helix.ui.shared.R as SharedR
 
 @Composable
 @Suppress("FunctionName", "SwallowedException")
 internal fun TaskResultDialog(
-    service: ChatService,
+    service: ConversationWorkspaceDetails,
+    dashboard: TaskDashboardProjection,
     turnId: String,
     allowCollect: Boolean = true,
     onDismiss: () -> Unit,
@@ -50,7 +55,7 @@ internal fun TaskResultDialog(
                     if (failed) {
                         Text(stringResource(R.string.background_task_result_missing))
                         TextButton({ retry++ }, modifier = Modifier.testTag("task-result-retry")) {
-                            Text(stringResource(R.string.chat_retry))
+                            Text(stringResource(SharedR.string.chat_retry))
                         }
                     }
                     result?.forEach { message ->
@@ -67,7 +72,7 @@ internal fun TaskResultDialog(
                     enabled = result != null && !failed,
                     modifier = Modifier.testTag("task-collect-$turnId"),
                     onClick = {
-                        service.collectTaskResult(turnId)
+                        dashboard.collectResult(turnId)
                         onDismiss()
                     },
                 ) { Text(stringResource(R.string.background_task_collect)) }

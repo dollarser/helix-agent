@@ -4,13 +4,13 @@
 
 **结论：保留 Room/SQLite 管理持久事实、文件保存正文与产物的方向。优先改进查询和读取边界，再在既有重构中补齐执行关联和类型化历史；表数量本身不是问题。**
 
-后续实施：Owner 已授权 [HXA-297](../../development/tasks/HXA-297.md)。下文 53 表、搜索候选限制及来源缺口保留为审查起点；当前实现与验证见[存储优化记录](../../evidence/development/session-storage-optimization-2026-10-16.md)，不得继续把这些基线缺口当作当前现状。
+后续实施：Owner 已授权 [HXA-297](../../completion-records/HXA-297.md)。下文 53 表、搜索候选限制及来源缺口保留为审查起点；当前实现与验证见[存储优化记录](../../evidence/development/session-storage-optimization-2026-10-16.md)，不得继续把这些基线缺口当作当前现状。
 
 ## 1. 审查起点保存了什么
 
 ### 1.1 表的职责
 
-当前 [HelixDatabase](../../../core/storage/src/main/kotlin/com/helix/core/storage/HelixDatabase.kt) 与[当前导出 schema](../../../core/storage/src/androidTest/assets/com.helix.core.storage.HelixDatabase/1.json)一致：schema version 1，53 张业务表。以下按审查职责分组，不是建议改成六个数据库；AndroidTest 的其他历史 schema 不计入当前结构。
+当前 [HelixDatabase](../../../infrastructure/storage/src/main/kotlin/com/helix/core/storage/HelixDatabase.kt) 与[当前导出 schema](../../../infrastructure/storage/src/androidTest/assets/com.helix.core.storage.HelixDatabase/1.json)一致：schema version 1，53 张业务表。以下按审查职责分组，不是建议改成六个数据库；AndroidTest 的其他历史 schema 不计入当前结构。
 
 | 职责 | 数量 | 当前表 |
 | --- | ---: | --- |
@@ -25,7 +25,7 @@
 
 ### 1.2 会话与执行的实际结构
 
-依据 [ConversationEntities](../../../core/storage/src/main/kotlin/com/helix/core/storage/entity/ConversationEntities.kt)：
+依据 [ConversationEntities](../../../infrastructure/storage/src/main/kotlin/com/helix/core/storage/entity/ConversationEntities.kt)：
 
 | 对象 | 当前关键内容 | 当前边界 |
 | --- | --- | --- |
@@ -41,7 +41,7 @@
 
 ### 1.3 正文、文件与上下文
 
-- [ContentStore](../../../core/storage/src/main/kotlin/com/helix/core/storage/content/ContentStore.kt)在应用私有 `filesDir/helix-content/content/` 下按 SHA-256 分片保存正文。非空消息正文也走文件，并非只有“大结果”才外置。引用带路径、长度和哈希，读取校验身份；相同正文可复用同一文件。优点是去重及保持 Room 行小，代价是更多文件读取和跨数据库/文件的一致性工作。
+- [ContentStore](../../../infrastructure/storage/src/main/kotlin/com/helix/core/storage/content/ContentStore.kt)在应用私有 `filesDir/helix-content/content/` 下按 SHA-256 分片保存正文。非空消息正文也走文件，并非只有“大结果”才外置。引用带路径、长度和哈希，读取校验身份；相同正文可复用同一文件。优点是去重及保持 Room 行小，代价是更多文件读取和跨数据库/文件的一致性工作。
 - 图片、附件和用户产物通过 Artifact/工作区引用管理；普通会话文字、工具结果、图像来源不能合并成一个无来源的文本字段。用户最终成果与内部截图的用途边界需要保留。
 - [ContextHistory](../../../app/src/main/kotlin/com/helix/app/agent/ContextHistory.kt)已有元数据分页和上下文有界物化；[ContextCompaction](../../../app/src/main/kotlin/com/helix/app/agent/ContextCompaction.kt)保存覆盖范围、摘要和保留消息身份，压缩不会直接删除原始消息。**持久历史、当前模型上下文与 UI 展示是三种读取视图。**
 - 请求 manifest/提示指纹用于记录输入来源和身份，不是完整请求录制。不能据此承诺精确重放模型回复，也不应为“记录完整”默认保存全部敏感提示或内部推理。
@@ -52,7 +52,7 @@
 
 [SessionFork](../../../app/src/main/kotlin/com/helix/app/chat/SessionFork.kt)在事务中复制选定历史前缀并重映射消息身份，复用内容引用，保存 `SESSION_FORK` 来源。它不复制旧工具执行、审批和 Goal，不回滚共享工作区或外部应用。对应 [ADR-AGENT-007](../../adr/agent/007-session-fork.md)。
 
-[PrivacyDeletionService](../../../app/src/main/kotlin/com/helix/app/privacy/PrivacyDeletionService.kt)、[HelixStorage](../../../core/storage/src/main/kotlin/com/helix/core/storage/HelixStorage.kt)与 [StorageGarbageCollector](../../../core/storage/src/main/kotlin/com/helix/core/storage/content/StorageGarbageCollector.kt)已有显式隐私删除、共享正文引用检查和孤儿文件清理；归档只是日常隐藏，不等于隐私删除。用户文件/共享工作区不会随会话删除自动清空。
+[PrivacyDeletionService](../../../app/src/main/kotlin/com/helix/app/privacy/PrivacyDeletionService.kt)、[HelixStorage](../../../infrastructure/storage/src/main/kotlin/com/helix/core/storage/HelixStorage.kt)与 [StorageGarbageCollector](../../../infrastructure/storage/src/main/kotlin/com/helix/core/storage/content/StorageGarbageCollector.kt)已有显式隐私删除、共享正文引用检查和孤儿文件清理；归档只是日常隐藏，不等于隐私删除。用户文件/共享工作区不会随会话删除自动清空。
 
 [JSONL 导出 ADR](../../adr/agent/005-session-jsonl-export.md)定义的是按用户操作生成的诊断/关系快照，不是第二套实时历史权威，也不是可恢复的全量备份。预览阶段不保留旧数据库是 Owner 已接受的产品约束；本轮不把迁移兼容重新设为发布阻塞。
 
@@ -75,7 +75,7 @@
 
 ### 3.1 优先：搜索会漏掉旧会话里的新消息
 
-[SessionDao](../../../core/storage/src/main/kotlin/com/helix/core/storage/dao/SessionDao.kt)按 `createdAt DESC` 列出会话；[SessionDirectory](../../../app/src/main/kotlin/com/helix/app/chat/SessionDirectory.kt)及列表 UI 沿用该顺序。[MessageDao](../../../core/storage/src/main/kotlin/com/helix/core/storage/dao/MessageDao.kt)的正文候选先按会话创建时间、再按会话内 sequence 排序。[SessionSearchRepository](../../../core/storage/src/main/kotlin/com/helix/core/storage/repository/SessionSearchRepository.kt)默认只读 500 个候选，每正文最多 256 KiB，再做字符串匹配；会返回截断/跳过事实，不能说它假装完成了全库搜索。
+[SessionDao](../../../infrastructure/storage/src/main/kotlin/com/helix/core/storage/dao/SessionDao.kt)按 `createdAt DESC` 列出会话；[SessionDirectory](../../../feature/conversation/src/main/kotlin/com/helix/feature/conversation/application/SessionDirectory.kt)及列表 UI 沿用该顺序。[MessageDao](../../../infrastructure/storage/src/main/kotlin/com/helix/core/storage/dao/MessageDao.kt)的正文候选先按会话创建时间、再按会话内 sequence 排序。[SessionSearchRepository](../../../infrastructure/storage/src/main/kotlin/com/helix/core/storage/repository/SessionSearchRepository.kt)默认只读 500 个候选，每正文最多 256 KiB，再做字符串匹配；会返回截断/跳过事实，不能说它假装完成了全库搜索。
 
 **已在合成 SQL 中复现：新会话有 500 条记录，随后往旧会话添加一条记录，这条刚写入的记录不进入默认正文搜索候选。** 调高扫描上限只推迟同一问题。会话标题搜索不受这 500 条正文候选限制，应与正文搜索区分。
 
@@ -83,7 +83,7 @@
 
 ### 3.2 优先：UI 有展示上限，但底层读取仍随全部历史增长
 
-[ChatScreenProjection.messagesFor](../../../app/src/main/kotlin/com/helix/app/chat/ChatScreenProjection.kt)读取当前会话全部有效消息，再逐条读取可见正文。工具时间线也是先读取全部 Turn、工具调用及结果，最后才 `takeLast(TOOL_TIMELINE_CAP)`。LazyColumn 和最后截断都不能减少此前的数据读取。
+[ChatScreenProjection.messagesFor](https://github.com/dollarser/helix-agent/blob/6bbff42d9ba768feef0877770d52756343ce65a2/app/src/main/kotlin/com/helix/app/chat/ChatScreenProjection.kt)读取当前会话全部有效消息，再逐条读取可见正文。工具时间线也是先读取全部 Turn、工具调用及结果，最后才 `takeLast(TOOL_TIMELINE_CAP)`。LazyColumn 和最后截断都不能减少此前的数据读取。
 
 这是静态确认的增长路径，**未做设备耗时、PSS 或 OOM 测量**。建议 UI 使用真正的历史窗口和向前翻页；工具时间线的限制下推至查询，并维护原调用顺序及审批/待核查项的可见性。模型上下文和 HXA-295 会话历史工具已有分页/限额，不应误判为所有历史入口都无界。
 
@@ -130,9 +130,9 @@ Message 的 kind 与文件中的 JSON 已表达多种内容，但数据库对 ch
 | --- | --- | --- |
 | GC 引用索引与有界清理 | 可独立小改；保留现有 ContentStore 所有权 | 查询计划、共享引用/并发发布不误删、取消和失败事实 |
 | 最近活动、UI 分页、搜索覆盖 | 会话查询层；与 [HXA-295](../../development/tasks/HXA-295.md) 当前/引用会话授权对齐 | 旧会话新消息、同时间游标、长会话、中文、归档/隐私删除、引用隔离 |
-| ModelCall→ToolCall、类型化历史与统一持久入口 | [HXA-287](../../development/tasks/HXA-287.md) Turn 宿主、[HXA-288](../../development/tasks/HXA-288.md) 执行结果协同设计 | 多次模型调用、并发工具顺序、迟到结果、取消/UNKNOWN、恢复不重放 |
+| ModelCall→ToolCall、类型化历史与统一持久入口 | [HXA-287](../../completion-records/HXA-287.md) Turn 宿主、[HXA-288](../../development/tasks/HXA-288.md) 执行结果协同设计 | 多次模型调用、并发工具顺序、迟到结果、取消/UNKNOWN、恢复不重放 |
 | 分支/投递的直接关系与审计 | HXA-295 后续切片，接续现有 [Harness 第 23.10 节](../../architecture/harness-refactor-plan.md#2310-会话管理与受控任务投递) | 分支不复制授权，重试不重复投递，消息/执行会话分清 |
-| 综合恢复与规模验证 | [HXA-294](../../development/tasks/HXA-294.md) | 主机契约与授权设备实测分别验收；数据库恢复不冒充外部效果恢复 |
+| 综合恢复与规模验证 | [HXA-294](../../completion-records/HXA-294.md) | 主机契约与授权设备实测分别验收；数据库恢复不冒充外部效果恢复 |
 
 不必保留旧内部接口或双实现。但改结构仍需保留现有能力和权限事实；预览数据库可重建不等于可以不设计同版本运行中的一致性与恢复。
 

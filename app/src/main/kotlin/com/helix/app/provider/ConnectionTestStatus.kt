@@ -3,6 +3,7 @@ package com.helix.app.provider
 import com.helix.app.R
 import com.helix.core.model.ModelErrorCode
 import com.helix.provider.api.ProviderCapabilities
+import com.helix.feature.conversation.R as ConversationR
 
 /**
  * The persisted, user-visible connection-test state of one provider (HXA-028).
@@ -62,23 +63,25 @@ object ConnectionTestMapping {
      */
     fun codeLabel(code: ModelErrorCode): Int =
         when (code) {
-            ModelErrorCode.TRANSPORT -> R.string.conn_error_transport
+            ModelErrorCode.TRANSPORT -> ConversationR.string.conn_error_transport
 
-            ModelErrorCode.TIMEOUT -> R.string.conn_error_timeout
+            ModelErrorCode.TIMEOUT -> ConversationR.string.conn_error_timeout
 
-            ModelErrorCode.AUTH -> R.string.conn_error_auth
+            ModelErrorCode.AUTH -> ConversationR.string.conn_error_auth
 
-            ModelErrorCode.RATE_LIMITED -> R.string.conn_error_rate_limited
+            ModelErrorCode.RATE_LIMITED -> ConversationR.string.conn_error_rate_limited
 
-            ModelErrorCode.SERVER_ERROR -> R.string.conn_error_server
+            ModelErrorCode.SERVER_ERROR -> ConversationR.string.conn_error_server
 
-            ModelErrorCode.HTTP_ERROR -> R.string.conn_error_http
+            ModelErrorCode.HTTP_ERROR -> ConversationR.string.conn_error_http
 
-            ModelErrorCode.PROTOCOL -> R.string.conn_error_protocol
+            ModelErrorCode.PROTOCOL -> ConversationR.string.conn_error_protocol
 
-            ModelErrorCode.CONTENT_FILTER -> R.string.conn_error_content_filter
+            ModelErrorCode.IMAGE_RESELECT_REQUIRED -> ConversationR.string.image_reselect_required
 
-            ModelErrorCode.OUTPUT_TOKEN_LIMIT -> R.string.conn_error_output_token_limit
+            ModelErrorCode.CONTENT_FILTER -> ConversationR.string.conn_error_content_filter
+
+            ModelErrorCode.OUTPUT_TOKEN_LIMIT -> ConversationR.string.conn_error_output_token_limit
 
             ModelErrorCode.MODEL_LOAD_FAILED,
             ModelErrorCode.MODEL_ASSET_INVALID,
@@ -86,9 +89,9 @@ object ConnectionTestMapping {
             ModelErrorCode.LOCAL_RUNTIME_OOM,
             ModelErrorCode.LOCAL_GENERATION_FAILED,
             ModelErrorCode.LOCAL_CANCEL_TIMEOUT,
-            -> R.string.conn_error_local_runtime
+            -> ConversationR.string.conn_error_local_runtime
 
-            ModelErrorCode.LOCAL_OUTPUT_LIMIT -> R.string.conn_error_local_output_limit
+            ModelErrorCode.LOCAL_OUTPUT_LIMIT -> ConversationR.string.conn_error_local_output_limit
         }
 
     /**

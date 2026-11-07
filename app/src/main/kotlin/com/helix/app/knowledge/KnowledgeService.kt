@@ -332,9 +332,12 @@ class KnowledgeService(
             ).joinToString("\n")
         }
 
-    suspend fun resolveCitation(citation: com.helix.app.citation.Citation): com.helix.app.citation.CitationContent? =
+    suspend fun resolveCitation(
+        citation: com.helix.core.model.citation.Citation,
+    ): com.helix.core.model.citation.CitationContent? =
         withContext(Dispatchers.IO) {
-            if (citation.page != null) {
+            val page = citation.page
+            if (page != null) {
                 val source = store.get(citation.id) ?: return@withContext null
                 if (knowledgeSourceRevision(source) != citation.revision) return@withContext null
                 val job = kotlinx.coroutines.currentCoroutineContext()[kotlinx.coroutines.Job]
@@ -342,7 +345,7 @@ class KnowledgeService(
                     readOriginalPdf(
                         citation.id,
                         requireNotNull(citation.fileIndex),
-                        citation.page,
+                        page,
                         citation.start,
                         (citation.end - citation.start).coerceAtLeast(1),
                         com.helix.app.documents.DocumentParseWork(
@@ -354,10 +357,10 @@ class KnowledgeService(
                         },
                     )
                 val text = result.getValue("text").jsonPrimitive.content
-                return@withContext com.helix.app.citation.CitationContent(
+                return@withContext com.helix.core.model.citation.CitationContent(
                     source.title,
                     text,
-                    citation.page,
+                    page,
                     noText = text.isBlank(),
                 )
             }
@@ -370,7 +373,7 @@ class KnowledgeService(
                     store.note(citation.id)?.let { it.title to it.body }
                 }
             content?.takeIf { knowledgeHash(it.second) == citation.revision }?.let {
-                com.helix.app.citation
+                com.helix.core.model.citation
                     .CitationContent(it.first, citation.excerpt(it.second))
             }
         }

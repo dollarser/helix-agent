@@ -1,6 +1,7 @@
 package com.helix.app.provider
 
 import com.helix.core.storage.HelixStorage
+import com.helix.provider.api.SubscriptionRecoveryStatus
 import com.helix.runtime.cli.client.CliModelJobClient
 import com.helix.runtime.cli.client.CliModelJobRecord
 import com.helix.runtime.cli.client.CliModelJobState

@@ -2,11 +2,11 @@ package com.helix.app.knowledge
 
 import android.content.Intent
 import androidx.test.platform.app.InstrumentationRegistry
-import com.helix.app.chat.EgressDisclosure
 import com.helix.core.model.ModelErrorCode
 import com.helix.core.model.ModelEvent
 import com.helix.core.model.ProviderResidence
 import com.helix.core.storage.knowledge.KnowledgeStore
+import com.helix.feature.conversation.application.EgressDisclosure
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancelAndJoin

@@ -10,7 +10,7 @@ Reproduce hashes with `shasum -a 256 evals/m10/fixed-evals.tsv` and `printf %s "
 
 ## Current Goal verifier
 
-[HXA-303](../../docs/development/tasks/HXA-303.md) updates the Goal fixture to `goal-usage-continuation-v2`, recorded in each result alongside the unchanged dataset digest and the current fixture-context digest. The historical `goal-002` prompt remains exact; its one-response instruction no longer denotes an engine call-count quota. The current verifier requires a real prelude, one further model response, accurate cumulative usage, a completed Turn and a paused Goal with `RUN_FINISHED`, without extra tool calls or a false completion report. Automatic-round limits remain covered by separate deterministic tests. This verifier differs from historical budget-exhaustion acceptance: scores across the two versions are not an optimization A/B, and APK compilation does not constitute a real-provider run.
+[HXA-303](../../docs/completion-records/HXA-303.md) updates the Goal fixture to `goal-usage-continuation-v2`, recorded in each result alongside the unchanged dataset digest and the current fixture-context digest. The historical `goal-002` prompt remains exact; its one-response instruction no longer denotes an engine call-count quota. The current verifier requires a real prelude, one further model response, accurate cumulative usage, a completed Turn and a paused Goal with `RUN_FINISHED`, without extra tool calls or a false completion report. Automatic-round limits remain covered by separate deterministic tests. This verifier differs from historical budget-exhaustion acceptance: scores across the two versions are not an optimization A/B, and APK compilation does not constitute a real-provider run.
 
 ## Current real-provider runner
 

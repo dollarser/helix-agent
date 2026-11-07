@@ -26,6 +26,8 @@ import com.helix.app.files.FileManagerService
 import com.helix.app.files.FileSourceKind
 import com.helix.core.workspace.FileScopePath
 import com.helix.feature.files.SafTreeScopeService
+import com.helix.ui.shared.IndicatedLazyColumn
+import com.helix.ui.shared.R as SharedR
 
 typealias FileSelectionContent = @Composable ((FileScopePath) -> Unit, () -> Unit) -> Unit
 
@@ -44,7 +46,7 @@ fun FileSelectionDialog(
             Column(Modifier.systemBarsPadding().padding(12.dp)) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text(stringResource(R.string.files_choose_import), style = MaterialTheme.typography.titleLarge)
-                    TextButton(cancel) { Text(stringResource(R.string.common_cancel)) }
+                    TextButton(cancel) { Text(stringResource(SharedR.string.common_cancel)) }
                 }
                 FilesScreen(files, trees, feature, onPickFile = selected)
             }
@@ -88,7 +90,7 @@ internal fun FilesSelectionLayout(
             )
             if (state.loadError != null) {
                 Text(stringResource(R.string.files_read_directory_error))
-                TextButton({ state.reloadTick++ }) { Text(stringResource(R.string.chat_retry)) }
+                TextButton({ state.reloadTick++ }) { Text(stringResource(SharedR.string.chat_retry)) }
             }
             if (state.listingTruncated) Text(stringResource(R.string.files_listing_partial))
             IndicatedLazyColumn(Modifier.fillMaxWidth().weight(1f)) {

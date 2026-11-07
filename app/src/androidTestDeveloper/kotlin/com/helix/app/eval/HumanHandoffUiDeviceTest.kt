@@ -20,10 +20,10 @@ import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
 import com.helix.app.HelixApplication
 import com.helix.app.chat.HumanHandoff
-import com.helix.app.chat.HumanHandoffState
 import com.helix.app.ui.HumanControlPanel
 import com.helix.app.ui.LocalizedComposeActivity
 import com.helix.core.model.TurnState
+import com.helix.feature.conversation.presentation.HumanHandoffState
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Rule

@@ -1,22 +1,13 @@
 package com.helix.app.todo
 
 import com.helix.core.storage.HelixStorage
+import com.helix.feature.conversation.presentation.LedgerItemUi
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
-
-/**
- * One row of the conversation's Progress section (HX2-07, research doc section 16).
- * Public: it is projected into the public [com.helix.app.chat.ChatScreenState.taskLedger].
- */
-data class LedgerItemUi(
-    val id: String,
-    val title: String,
-    val state: String,
-)
 
 /**
  * Projects the model's working-memory ledger (HX2-07) from the persisted `todo.write`

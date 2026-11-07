@@ -1,12 +1,12 @@
 package com.helix.app.reminder
 
 import androidx.test.platform.app.InstrumentationRegistry
-import com.helix.app.chat.EgressDisclosure
 import com.helix.app.provider.PreparedTextAnalysis
 import com.helix.core.model.ProviderResidence
 import com.helix.core.storage.reminder.LocalReminder
 import com.helix.core.storage.reminder.ReminderEvent
 import com.helix.core.storage.reminder.ReminderStore
+import com.helix.feature.conversation.application.EgressDisclosure
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancelAndJoin

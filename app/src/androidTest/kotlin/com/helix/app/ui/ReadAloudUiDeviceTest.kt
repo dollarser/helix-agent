@@ -16,10 +16,6 @@ import androidx.lifecycle.LifecycleRegistry
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.HelixApplication
-import com.helix.app.chat.ChatScreenState
-import com.helix.app.chat.MessagePresentation
-import com.helix.app.chat.MessageUi
-import com.helix.app.chat.TurnUi
 import com.helix.app.voice.LocalSpeechModel
 import com.helix.app.voice.ReadAloudPhase
 import com.helix.app.voice.ReadAloudService
@@ -27,6 +23,11 @@ import com.helix.app.voice.SpeechAudio
 import com.helix.app.voice.SpeechEngine
 import com.helix.app.voice.SpeechSink
 import com.helix.core.model.TurnState
+import com.helix.feature.conversation.presentation.ChatScreenState
+import com.helix.feature.conversation.presentation.MessagePresentation
+import com.helix.feature.conversation.presentation.MessageRow
+import com.helix.feature.conversation.presentation.MessageUi
+import com.helix.feature.conversation.presentation.TurnUi
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

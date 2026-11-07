@@ -1,5 +1,6 @@
 package com.helix.app.voice
 
+import com.helix.feature.conversation.input.appendVoiceDraft
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -134,14 +135,14 @@ internal class ContinuousVoiceRun(
             val end = minOf(samples.size, offset + 1600)
             val partial = asr.accept(samples.copyOfRange(offset, end))
             currentCoroutineContext().ensureActive()
-            if (!cancelled.get()) publish(VoiceInputMapper.appendDraft(committed.get(), partial))
+            if (!cancelled.get()) publish(appendVoiceDraft(committed.get(), partial))
             offset = end
         }
         if (!cancelled.get()) {
             val text = asr.finish().trim()
             currentCoroutineContext().ensureActive()
             if (!cancelled.get()) {
-                val next = VoiceInputMapper.appendDraft(committed.get(), text)
+                val next = appendVoiceDraft(committed.get(), text)
                 if (next.length > 20000) throw ContinuousCaptureFailure(VoiceCapture.Failure.LIMIT)
                 committed.set(next)
                 publish(next)

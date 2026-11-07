@@ -140,13 +140,13 @@ class WhitespaceRangeTest(unittest.TestCase):
     def test_locked_mermaid_bytes_allow_only_upstream_end_whitespace(self):
         attributes = Path(__file__).resolve().parents[2] / '.gitattributes'
         self.commit('.gitattributes', attributes.read_text())
-        vendor = 'app/src/main/assets/mermaid/mermaid.tiny.js'
-        notice = 'app/src/main/assets/licenses/Mermaid-dependencies.txt'
+        vendor = 'ui/shared/src/main/assets/mermaid/mermaid.tiny.js'
+        notice = 'ui/shared/src/main/assets/licenses/Mermaid-dependencies.txt'
         self.commit(vendor, 'const upstream = `text  \n`;\n\n')
         self.commit(notice, 'Upstream notice  \n\n')
         self.assertEqual(0, ci.check_whitespace(self.clean).returncode)
         # A neighboring first-party file must still fail: no directory-wide exclusion.
-        self.commit('app/src/main/assets/mermaid/owned.js', 'new trailing space  \n')
+        self.commit('ui/shared/src/main/assets/mermaid/owned.js', 'new trailing space  \n')
         self.assertNotEqual(0, ci.check_whitespace(self.clean).returncode)
         boundary = self.git('rev-parse', 'HEAD')
         self.commit(vendor, ' \tconst upstream = 1;\n')

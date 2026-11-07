@@ -1,0 +1,76 @@
+package com.helix.feature.conversation.presentation
+
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import com.helix.core.model.AgentMode
+import com.helix.core.model.ProviderProvisioningKind
+
+data class ConversationIntents(
+    val onSend: () -> Unit,
+    val onStop: () -> Unit,
+    val onStopTurn: ((String) -> Unit)? = null,
+    val onCompact: () -> Unit = {},
+    val onLoadOlderMessages: () -> Unit = {},
+    val onRefreshConversation: () -> Unit = {},
+    val onShowLatestMessages: () -> Unit = {},
+    val onFindHistoryMessage: (String, Long?, Long?) -> Unit = { _, _, _ -> },
+    val onEditMessage: ((String) -> Unit)? = null,
+    val onSaveReply: ((String) -> Unit)? = null,
+    val onRegenerateLatest: ((String) -> Unit)? = null,
+    val onFork: ((String) -> Unit)? = null,
+    val onDismissBlocked: () -> Unit,
+    val onApproveApproval: (String) -> Unit,
+    val onDenyApproval: (String) -> Unit,
+    val onStageAttachment: (String) -> Unit,
+    val onRemoveAttachment: (String) -> Unit,
+    val onPreviewImage: suspend (ChatImageRef) -> ByteArray? = { null },
+    val onSetMode: (AgentMode) -> Unit,
+    val onCommandMode: suspend (AgentMode) -> Boolean = {
+        onSetMode(it)
+        true
+    },
+    val onSelectPermission: suspend (com.helix.core.model.SessionPermissionMode) -> Boolean = { false },
+    val onSaveModel: suspend (
+        String,
+        String,
+        com.helix.core.model.ReasoningEffort,
+    ) -> SessionModelSelectionResult = {
+        _,
+        _,
+        _,
+        ->
+        SessionModelSelectionResult.FAILED
+    },
+    val onRefreshModels: (suspend (Boolean) -> Unit)? = null,
+    val onDetectReasoning: (suspend (String, String) -> List<com.helix.core.model.ReasoningEffort>)? = null,
+    val onNew: () -> Unit = {},
+    val onTasks: () -> Unit = {},
+    val onOpenTaskResult: ((String) -> Unit)? = null,
+    val onNavigation: () -> Unit = {},
+    val onSettings: () -> Unit = {},
+    val onGit: () -> Unit = {},
+    val onConfigureModelSource: ((ProviderProvisioningKind) -> Unit)? = null,
+    val onReference: () -> Unit = {},
+    val onKnowledgeReference: (() -> Unit)? = null,
+    val onClearReference: () -> Unit = {},
+    val onExpert: () -> Unit = {},
+    val onSkills: () -> Unit = {},
+    val onConnectors: () -> Unit = {},
+    val onManageGoal: () -> Unit = {},
+    val onRename: () -> Unit = {},
+    val onExport: (() -> Unit)? = null,
+    val onRecoverSubscriptionResult: (String, String) -> Unit = { _, _ -> },
+    val onInspectSubscription: (String, String, Boolean) -> Unit = { _, _, _ -> },
+    val onRecoverProot: (String, String) -> Unit = { _, _ -> },
+    val onRetryProotAck: (String, String) -> Unit = { _, _ -> },
+    val onInspectProot: (String, String, Boolean) -> Unit = { _, _, _ -> },
+    /** HXA-204 slice 2: the turn recovery panel operations (turn-scoped, own admissions). */
+    val onRecoveryReconnect: (String) -> Unit = {},
+    val onRecoveryQueryResult: (String) -> Unit = {},
+    val onRecoveryGrantPermission: (String) -> Unit = {},
+    val onRecoveryContinueGoal: (String) -> Unit = {},
+    val onRecoveryRetry: (String) -> Unit = {},
+    /** HXA-194: open a command call's read-only details page from its tool row. */
+    val onInspectToolResult: suspend (String, String) -> ToolInspectionContent? = { _, _ -> null },
+    val onOpenCommandDetail: (String, String) -> Unit = { _, _ -> },
+)

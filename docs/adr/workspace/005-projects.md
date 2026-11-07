@@ -72,7 +72,7 @@ Deciders: project owner（本轮要求完整项目设计与重构）
 
 ## References
 
-- [HXA-246](../../development/tasks/HXA-246.md)
+- [HXA-246](../../completion-records/HXA-246.md)
 - [实施状态](../../development/status.md)
 - [项目产品说明](../../product/projects.md)
 

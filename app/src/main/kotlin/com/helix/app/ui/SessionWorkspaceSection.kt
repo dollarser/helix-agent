@@ -22,9 +22,11 @@ import com.helix.app.R
 import com.helix.app.files.FileManagerService
 import com.helix.app.files.FileSource
 import com.helix.core.workspace.FileScopePath
+import com.helix.ui.shared.indicatedVerticalScroll
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import com.helix.ui.shared.R as SharedR
 
 /** Bounded, wrapping directory details; storage access stays behind the Files application facade. */
 @Composable
@@ -111,7 +113,7 @@ internal fun SessionWorkspaceSection(
                 }
             },
             confirmButton = {
-                TextButton({ menu = false }) { Text(stringResource(R.string.chat_details_close)) }
+                TextButton({ menu = false }) { Text(stringResource(SharedR.string.chat_details_close)) }
             },
         )
     }
@@ -148,7 +150,7 @@ private fun SessionLocationDetails(
             }
         },
         confirmButton = {
-            TextButton(onDismiss) { Text(stringResource(R.string.chat_details_close)) }
+            TextButton(onDismiss) { Text(stringResource(SharedR.string.chat_details_close)) }
         },
     )
 }

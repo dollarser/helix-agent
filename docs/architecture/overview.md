@@ -42,11 +42,11 @@ flowchart TD
 
 图表示职责与调用方向，不表示每层一个进程或 Server。当前由 [ConversationComposition](../../app/src/main/kotlin/com/helix/app/composition/ConversationComposition.kt) 统一装配唯一 Engine、runtime、AgentLoopHost、gateway 及提交/停止命令，再注入 `ChatService`；[AppAgentRuntime](../../app/src/main/kotlin/com/helix/app/application/agent/AppAgentRuntime.kt) 位于 application/agent，submit 调提交准备，cancel 调 Core 停止命令。`DefaultAppContainer` 显式接收 account/knowledge，构造不启动观察；一次性 `start()` 才启动会话、screen/foreground collectors 与恢复。这里调整的是装配与启动边界，不是独立部署的 Harness。Engine 持久结算后才释放 live owner 并发布相应观察；UI 投影不反向提交终态。
 
-输入 delivery/config/spec/reference 值归 `core:model/input`，持久 Record、状态与正文引用继续由 storage 持有；提交准备通过 `PendingSubmissionInput` 消费所需事实，队列 UI 通过 `PendingInputView` 消费展示值，均不接收整条持久输入行。`feature:conversation-input` 已建立独立的草稿、提交及回执状态机编译边界，原 30 项草稿/回执测试已迁入，另增 3 项 PendingInputView 测试；范围不是整个 conversation 表现/应用层，Room 模块迁移也未完成。设置、语音等 UI 的 `HelixApplication` 查询已替换为显式依赖。2026-11-07 第二阶段最终 Debug 主机门禁已通过；真实 Room、恢复及设备行为测试仅编译、未执行，不以主机结果代替设备验收，详见[实施范围与验证状态](harness-refactor-plan.md#241-结论基线与范围)。
+输入 delivery/config/spec/reference 值归 `core:model/input`，持久 Record、状态与正文引用继续由 storage 持有；提交准备通过 `PendingSubmissionInput` 消费所需事实，队列 UI 通过 `PendingInputView` 消费展示值，均不接收整条持久输入行。原 `feature:conversation-input` 已并入 `feature:conversation`：会话 presentation/application、草稿、提交与回执状态机共用真实编译边界，通过窄端口取得宿主事实，不依赖 App、Room 或 storage 模块。共享呈现与离线预览资源由 `ui:shared` 持有；Room/ContentStore 已迁至 `infrastructure:storage`。设置、语音等 UI 的 `HelixApplication` 查询已替换为显式依赖。迁移的 Debug 主机、API36 有界设备验收按对应候选记录，不能推导新 Release 或整个产品通过，详见[实施范围与验证状态](harness-refactor-plan.md#241-结论基线与范围)。
 
 手动文件管理、组件安装和浏览器拥有独立服务路径，不必先建立 Agent Turn。feature 通过应用接口提交动作。[ADR-AGENT-001](../adr/agent/001-turn-coordination.md)已将 live driver/observation 与 durable lifecycle 同归 TurnEngine；HXA-220/223 的交付不能继续画成 ChatService 持有 live worker 的迁移期结构。
 
-会话应用层内部由`SessionDirectory`持有目录/检索投影、Job与取消发布边界，`ComposerInputState`持有原草稿与附件原子快照/锁，`TaskDashboardProjection`持有任务面板六类读投影。`SessionCatalog`集中元数据及模型默认/运行配置的Room事务；ChatService负责用户动作与展示，`TurnSubmissionCommandHandler` 汇合普通、队列和恢复提交的准备/准入，`StopTurnCommandHandler` 汇合停止命令；权限仍在原治理链重验，运行配置仍由原`SessionRunControlStore`保存。这些协作者共用原Room、clock、ID及工作区恢复对象，不新增执行循环、状态副本或动作队列；历史页消费目录接口与动作回调。具体交付及验证边界见[status](../development/status.md)。
+会话应用层通过 `SessionDirectory` 消费目录/检索投影，`ComposerInputState` 持有原草稿与附件原子快照/锁，`TaskDashboardProjection` 持有任务面板六类读投影。`SessionCatalog` 定义会话元数据及模型配置的闭合命令，App 的 `RoomSessionCatalog` 保留对应原子事务；ChatService 负责用户动作与展示，`TurnSubmissionCommandHandler` 汇合普通、队列和恢复提交的准备/准入，`StopTurnCommandHandler` 汇合停止命令；权限仍在原治理链重验。App 的 conversation/chat 适配器连接同一 Room、clock、ID 及工作区恢复对象，不新增执行循环、状态副本或动作队列；历史页消费目录接口与动作回调。具体交付及验证边界见[status](../development/status.md)。
 
 [HXA-234](../development/tasks/HXA-234.md) 已将实际 Loop、状态/预算值、执行端口与上下文选择迁入 Core，Android 侧保留适配与同一 Room 事务。应用协调、原历史编解码和权限/附件 I/O 仍在宿主；这不是把所有 App 逻辑搬入 Core，也没有创建远程 Execution Host。实现、主机与真实设备验收分别记账。
 
@@ -61,13 +61,13 @@ Chat、Plan、Act、Goal 共用执行循环，差异由工具曝光与 Policy �
 
 ## 模块、权限与资源边界
 
-`core:model`、`core:agent`、`core:policy`、`core:workspace` 是 JVM 模块；`core:storage` 是承载 Room 的 Android Library。因此 `core/` 目录名不等于所有内容都可脱离 Android。`core:agent` 通过中立端口复用，完整 TurnEngine/driver/live owner 在 Core，经闭合生命周期/round 端口工作，Room 持久适配在 App infrastructure；当前没有另一个独立 Turn Server。真实模块依赖见[Gradle 声明](../../build.gradle.kts)。
+`core:model`、`core:agent`、`core:policy`、`core:workspace` 是 JVM 模块；`infrastructure:storage` 是承载 Room/ContentStore 的 Android Library，不再作为 Core 模块。其 `com.helix.core.storage` 包名、JNI 符号与数据库 schema 身份保留，不代表保留旧 Gradle 模块或兼容门面。`core:agent` 通过中立端口复用，完整 TurnEngine/driver/live owner 在 Core，经闭合生命周期/round 端口工作，Room 持久适配在 App infrastructure；当前没有另一个独立 Turn Server。`feature:conversation` 只依赖所需 Core、provider:api 与 ui:shared；`ui:shared` 不依赖 App、feature 或 storage。真实模块依赖见[Gradle 声明](../../build.gradle.kts)和[模块列表](../../settings.gradle.kts)。
 
 一次工具调用按原 Registry 绑定和 schema 校验，进入 live capability / Policy 硬约束、工具可用性与会话授权，再按需要取得精确审批；等待后开始执行前复检取消、权限和绑定。安装、会话选择、系统权限、配置就绪和某次调用的批准分别记录：系统权限满足能力条件，readiness 只说明可观察准备事实，均不能替代 Dispatcher 准入。具体规则归[权限 ADR](../adr/permissions/001-session-authorization.md)和[工具 ADR](../adr/tools/001-descriptor-contract.md)。
 
 区分四类所有权：Engine 的 Turn live owner、Scheduler 的调用槽位、Executor/Runtime 的实际容量及原执行身份、插件/宿主的共享资源引用。完成等待可以释放观察 worker，取消或超时不能释放仍运行的 executor 容量；插件撤销也不能关闭其他消费者还在使用的后端。原执行结果/退出事实继续由原 Runtime 提供，HXA-277 只补原生贡献资源引用与释放。
 
-UI 目前通过应用服务及 StateFlow 工作；ChatScreen 仍依赖较宽的 ChatService，但 HXA-274 所涉恢复导航已经改成消费 RecoveryRepairDestination，由当前页面在用户操作后执行导航，不再把页面导航回调存入服务。2026-10-14 发现的工具业务与卡片/字符串耦合已在 287-B 接入独立展示 sink；Core TurnRoundCoordinator 直接实现 AgentTurnJournal，原 App coordinator 和转调 journal 已删除，本片主机及两渠道独立模拟器验收通过；工具执行请求、取消、原 Job 身份与物理容量已存在，不应再建平行框架。其他命令/读模型继续复用 HXA-257/258 的状态 owner；完整 Turn 宿主提取已与应用命令合并为 HXA-287，执行结果/Job/产物为 HXA-288，不再等待第二消费者。287-C 已实际迁移 Engine/driver/停止命令和 live 契约，删除旧 App 路径；其纯 JVM 与真实 Room 验证分别记账，不将内存 fixture 外推为所有宿主通过；实施顺序由[当前状态](../development/status.md)决定。
+UI 目前通过应用服务及 StateFlow 工作；会话页面在 `feature:conversation` 内消费状态与动作，AppConversationRoute 接入宿主语音、知识及导航能力。HXA-274 所涉恢复导航消费 RecoveryRepairDestination，由当前页面在用户操作后执行导航，不再把页面导航回调存入服务。2026-10-14 发现的工具业务与卡片/字符串耦合已在 287-B 接入独立展示 sink；Core TurnRoundCoordinator 直接实现 AgentTurnJournal，原 App coordinator 和转调 journal 已删除，本片主机及两渠道独立模拟器验收通过；工具执行请求、取消、原 Job 身份与物理容量已存在，不应再建平行框架。其他命令/读模型继续复用 HXA-257/258 的状态 owner；完整 Turn 宿主提取已与应用命令合并为 HXA-287，执行结果/Job/产物为 HXA-288，不再等待第二消费者。287-C 已实际迁移 Engine/driver/停止命令和 live 契约，删除旧 App 路径；其纯 JVM 与真实 Room 验证分别记账，不将内存 fixture 外推为所有宿主通过；实施顺序由[当前状态](../development/status.md)决定。
 
 ## 专项契约
 
@@ -93,7 +93,13 @@ app/application/context 类型化上下文贡献
 app/agent              App 宿主的上下文/历史/Goal 集成适配，非 Core Engine
 app/infrastructure/agent Room 事务、恢复记录、Goal ownership/edit 与 Engine 装配
 app/infrastructure/prompt 打包模板适配
-app/chat               会话应用组合与 UI-facing 投影；不再有 Engine 或 journal 转发
+feature/conversation   会话表现、应用命令/查询契约、草稿与回执状态机
+ui/shared              共享呈现、资源及离线预览；不读取会话或持久状态
+infrastructure/storage Room、ContentStore 与原子持久实现
+app/infrastructure/conversation 会话命令/查询、知识与模型的真实宿主适配
+app/infrastructure/chat 附件、输入交付与恢复的真实宿主适配
+app/ui/AppConversationRoute.kt 宿主语音、知识与导航接入
+app/chat               剩余宿主查询及任务投影，不持有会话表现实现或 Engine
 ```
 
-上述是职责目录，不要求一目录一 Gradle 模块。没有新建 common/utils 总包或旧包名兼容 facade；所有调用者和设备测试选择器一并迁移。`core:storage` 保留现行 Android Room 模块身份，属于共享基础设施而非中立领域；通过依赖禁令及 App 适配包明确边界。仅改顶层目录名没有额外依赖/测试收益，因此本阶段不重建模块或数据库，不改用户数据。
+上述是职责目录，不要求一目录一 Gradle 模块。`feature:conversation`、`ui:shared` 和 `infrastructure:storage` 已形成实际模块，旧 conversation-input/core:storage Gradle 路径已移除；其余 App 适配目录仍在宿主模块。没有新建 common/utils 总包、旧包名兼容 facade 或第二套数据库；存储 Kotlin/JNI/schema 身份保留，迁移本身不增加旧测试数据兼容链。依赖护栏与有界真实设备结果各自证明适用边界，不承诺任意历史数据保留。

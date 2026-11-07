@@ -1,10 +1,13 @@
 package com.helix.app.settings
 
 import com.helix.app.AppContainer
+import com.helix.core.model.AgentMode
 import com.helix.core.model.ExecutionTargetType
+import com.helix.core.model.ReasoningEffort
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
+import com.helix.feature.conversation.application.SettingsExecutionAuthority
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
@@ -16,6 +19,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import kotlin.time.Duration.Companion.seconds
 
@@ -63,7 +67,28 @@ internal object HelixSettingsApplyTool {
                 override fun execute(call: ExecutableToolCall): ToolExecutorResult {
                     if (call.cancel.isCancelled()) return ToolExecutorResult.Cancelled
                     val applied =
-                        call.args.isNotEmpty() && runBlocking { container().chatService.applyToolSettings(call) }
+                        call.args.isNotEmpty() &&
+                            runBlocking {
+                                container().chatService.applyToolSettings(
+                                    SettingsExecutionAuthority(
+                                        requireNotNull(call.sessionId),
+                                        call.turnId,
+                                        call.toolCallId,
+                                        call.toolName,
+                                        call.deadline,
+                                        call.cancel,
+                                    ),
+                                    call.args["mode"]
+                                        ?.jsonPrimitive
+                                        ?.content
+                                        ?.let(AgentMode::valueOf),
+                                    call.args["providerId"]?.jsonPrimitive?.content,
+                                    call.args["model"]?.jsonPrimitive?.content,
+                                    call.args["reasoning"]?.jsonPrimitive?.content?.let {
+                                        ReasoningEffort.valueOf(it.uppercase(java.util.Locale.ROOT))
+                                    },
+                                )
+                            }
                     return if (applied) {
                         ToolExecutorResult.Completed(
                             buildJsonObject {

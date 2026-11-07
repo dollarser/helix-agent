@@ -1,6 +1,6 @@
 # 项目与 Memory：2026-10-09 本地设备收尾
 
-范围：[HXA-246](../../development/tasks/HXA-246.md)、[项目 ADR](../../adr/workspace/005-projects.md)既有本机项目/Markdown Memory 接线。所有者授权模拟器验证；仅使用自有只读隔离 API36 arm64 AVD、合成会话/目录/数据库，不清理日常模拟器数据、不使用真实账号或物理手机。研发参考沿用该 ADR 的项目/会话/真实目录与显式记忆身份关系，没有新增框架或复制竞品源码。
+范围：[HXA-246](../../completion-records/HXA-246.md)、[项目 ADR](../../adr/workspace/005-projects.md)既有本机项目/Markdown Memory 接线。所有者授权模拟器验证；仅使用自有只读隔离 API36 arm64 AVD、合成会话/目录/数据库，不清理日常模拟器数据、不使用真实账号或物理手机。研发参考沿用该 ADR 的项目/会话/真实目录与显式记忆身份关系，没有新增框架或复制竞品源码。
 
 ## 复现与修复
 

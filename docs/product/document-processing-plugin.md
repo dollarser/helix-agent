@@ -35,7 +35,7 @@ Owner要求：参考Codex PDF和Documents插件，设计Helix独立文档插件�
 
 ## 3 与当前工作的关系
 
-[HXA-283](../development/tasks/HXA-283.md)已交付单页PDF读取主机切片；统一插件由[HXA-284](../development/tasks/HXA-284.md)与[文档ADR](../adr/workspace/006-pdf-reading.md)承接。本方案扩展到独立插件和DOCX阅读，是后续设计，不把该任务的实现、构建结果或accepted状态自动扩为本方案验收。
+[HXA-283](../development/tasks/HXA-283.md)已交付单页PDF读取主机切片；统一插件由[HXA-284](../completion-records/HXA-284.md)与[文档ADR](../adr/workspace/006-pdf-reading.md)承接。本方案扩展到独立插件和DOCX阅读，是后续设计，不把该任务的实现、构建结果或accepted状态自动扩为本方案验收。
 
 旧实现不构成设计约束。后续实施应依据本方案选择引擎、接口和存储；没有旧接口、数据库或缓存兼容承诺，也不建立长期别名。若确认插件统一拥有PDF工具，则迁移生产入口后删除旧入口，不能同时发布`files.read_pdf`与等效插件工具造成选择歧义。现有在途修改本轮不删除或重写。
 
@@ -169,6 +169,6 @@ PDF全页与区域、DOCX图像均有源像素/解码限额；输出上限不代
 
 ## 实施追踪
 
-2026-10-14：Owner授权统一插件实施，登记[HXA-284](../development/tasks/HXA-284.md)。本轮主机开发；设备与真实模型not requested。以上拟议接口由任务和ADR收敛，未执行验证不填通过。
+2026-10-14：Owner授权统一插件实施，登记[HXA-284](../completion-records/HXA-284.md)。本轮主机开发；设备与真实模型not requested。以上拟议接口由任务和ADR收敛，未执行验证不填通过。
 
 实际首版：imagePrepared仅报告图像准备，最终发送由现有视觉管线决定；沿用524288像素上限。DOCX单元格列号是源内容单元格序号，合并单元格/嵌套表格及复杂对象不承诺视觉网格还原；超长块/大量图片显式截断，不虚称全文。快照和内部观察不会自动生成用户交付文件。

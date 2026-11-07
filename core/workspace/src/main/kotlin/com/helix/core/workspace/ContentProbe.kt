@@ -21,7 +21,7 @@ import java.util.zip.CRC32
 @Suppress("TooManyFunctions") // one small function per detection stage (magic / utf-8 / mime helpers)
 object ContentProbe {
     /** How many leading bytes are sampled for detection. 8 KiB covers every common magic. */
-    const val SAMPLE_BYTES: Int = 8 * 1024
+    const val SAMPLE_BYTES: Int = com.helix.core.model.input.InputAttachmentLimits.MAX_INLINE_TEXT_BYTES
 
     /** MIME assigned when the magic table has no match (the safe default). */
     private const val OCTET_STREAM = "application/octet-stream"

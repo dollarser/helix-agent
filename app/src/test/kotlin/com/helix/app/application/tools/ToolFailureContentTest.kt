@@ -1,10 +1,10 @@
 package com.helix.app.application.tools
 
-import com.helix.app.application.diagnostics.DiagnosticRedaction
 import com.helix.app.application.tools.ToolFailureContent
 import com.helix.app.chat.ToolModelResult
 import com.helix.core.model.DispatchOutcomeCode
 import com.helix.core.model.ToolDispatchOutcome
+import com.helix.core.policy.DiagnosticRedaction
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.jsonObject

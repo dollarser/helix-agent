@@ -3,10 +3,10 @@ package com.helix.app.eval
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.HelixApplication
-import com.helix.app.chat.AutomaticTurnRecovery
 import com.helix.app.infrastructure.agent.AutomaticRecoveryPolicy
 import com.helix.app.infrastructure.agent.AutomaticRecoverySettlement
 import com.helix.app.infrastructure.agent.RoomTurnLifecycleStore
+import com.helix.app.infrastructure.agent.RoomTurnRecoveryStore
 import com.helix.app.infrastructure.agent.TurnRecovery
 import com.helix.app.provider.BuiltInModel
 import com.helix.app.scheduled.ScheduledRuntimeFixture
@@ -21,6 +21,7 @@ import com.helix.core.policy.CapabilityCenter
 import com.helix.core.policy.CapabilityGrant
 import com.helix.core.policy.CapabilityResolver
 import com.helix.core.storage.HelixStorage
+import com.helix.feature.conversation.application.recovery.AutomaticTurnRecovery
 import com.helix.feature.conversation.input.ChatSubmission
 import com.helix.provider.api.wire.WireBody
 import com.helix.provider.api.wire.WireClient
@@ -230,11 +231,16 @@ class SkillTimeoutOfflineDeviceTest {
             try {
                 TurnRecovery(storage, SystemClock()).recover()
                 var starts = 0
-                AutomaticTurnRecovery(storage, SystemClock(), { _, _ ->
-                    starts++
-                    error("Cancelled task must not admit a provider request")
-                }, AutomaticRecoverySettlement(storage, SystemClock())::finish)
-                    .recover(facts.getString("turn"))
+                val settlement = AutomaticRecoverySettlement(storage, SystemClock())
+                AutomaticTurnRecovery(
+                    RoomTurnRecoveryStore(storage, Any(), settlement::finish),
+                    SystemClock(),
+                    { _, _ ->
+                        starts++
+                        error("Cancelled task must not admit a provider request")
+                    },
+                    { throw it },
+                ).recover(facts.getString("turn"))
                 check(starts == 0)
                 check(
                     storage.turns

@@ -1,7 +1,7 @@
 package com.helix.app.provider
 
 import android.content.Context
-import com.helix.app.chat.AutomaticRuntimeCollection
+import com.helix.feature.conversation.application.recovery.AutomaticRuntimeCollection
 import com.helix.runtime.cli.client.CliModelJobClient
 import com.helix.runtime.cli.client.CliModelJobRecord
 import com.helix.runtime.cli.client.CliResultAckQueue

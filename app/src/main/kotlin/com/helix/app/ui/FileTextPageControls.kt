@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import com.helix.app.R
 import com.helix.app.files.FileManagerService
 import com.helix.app.files.viewerPageCount
+import com.helix.ui.shared.R as SharedR
 
 @Composable
 @Suppress("FunctionName", "LongMethod")
@@ -77,7 +78,7 @@ internal fun FileTextPageControls(state: FilesScreenState) {
                     modifier = Modifier.testTag("files-text-page-confirm"),
                 ) { Text(stringResource(R.string.files_confirm)) }
             },
-            dismissButton = { TextButton({ jump = false }) { Text(stringResource(R.string.common_cancel)) } },
+            dismissButton = { TextButton({ jump = false }) { Text(stringResource(SharedR.string.common_cancel)) } },
         )
     }
 }

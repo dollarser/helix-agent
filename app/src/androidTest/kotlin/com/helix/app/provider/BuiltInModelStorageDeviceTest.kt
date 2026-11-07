@@ -2,11 +2,12 @@ package com.helix.app.provider
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
-import com.helix.app.chat.ConversationLaunchStore
+import com.helix.app.infrastructure.conversation.LineConversationLaunchStore
 import com.helix.app.internal.InMemoryLineStore
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.storage.HelixStorage
 import com.helix.core.storage.repository.ProviderConfigSpec
+import com.helix.feature.conversation.application.ConversationLaunchStore
 import com.helix.provider.api.wire.WireClient
 import com.helix.provider.api.wire.WireRequest
 import com.helix.provider.api.wire.WireResponse
@@ -43,7 +44,7 @@ class BuiltInModelStorageDeviceTest {
             f.customProvider()
             f.launch.selectDraftModel("custom", "chosen")
             BuiltInModelRegistration.ensureRegistered(f.storage)
-            assertEquals("custom" to "chosen", ConversationLaunchStore(f.preferences).draftModel())
+            assertEquals("custom" to "chosen", LineConversationLaunchStore(f.preferences).draftModel())
         }
     }
 
@@ -100,7 +101,7 @@ class BuiltInModelStorageDeviceTest {
         private val directory = File(context.cacheDir, name).apply { mkdirs() }
         val storage = HelixStorage.open(context, name, File(directory, "content"))
         val preferences = InMemoryLineStore()
-        val launch = ConversationLaunchStore(preferences)
+        val launch = LineConversationLaunchStore(preferences)
 
         fun customProvider() {
             storage.providerConfigs.save(

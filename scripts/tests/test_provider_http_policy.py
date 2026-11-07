@@ -58,8 +58,8 @@ class ProviderHttpPolicyTest(unittest.TestCase):
     def test_retired_http_gates_are_absent_from_provider_and_send_paths(self):
         paths = ('app/src/main/kotlin/com/helix/app/provider/ProviderService.kt',
                  'app/src/main/kotlin/com/helix/app/provider/ProviderDraftDiscovery.kt',
-                 'app/src/main/kotlin/com/helix/app/chat/ChatService.kt',
-                 'app/src/main/kotlin/com/helix/app/chat/SessionInputDeliveryCoordinator.kt',
+                 'feature/conversation/src/main/kotlin/com/helix/feature/conversation/application/ChatService.kt',
+                 'feature/conversation/src/main/kotlin/com/helix/feature/conversation/application/input/SessionInputDeliveryCoordinator.kt',
                  'app/src/main/kotlin/com/helix/app/provider/ui/ProviderFormDialog.kt')
         for path in paths:
             text = (ROOT / path).read_text()
@@ -74,7 +74,7 @@ class ProviderHttpPolicyTest(unittest.TestCase):
             self.assertNotIn('chat_cleartext_warning', strings)
             self.assertTrue(strings.get('provider_cleartext_warning'))
             self.assertNotIn('provider_cleartext_confirm_required', strings)
-        chat = (ROOT / 'app/src/main/kotlin/com/helix/app/ui/ChatScreen.kt').read_text()
+        chat = (ROOT / 'feature/conversation/src/main/kotlin/com/helix/feature/conversation/presentation/ChatScreen.kt').read_text()
         self.assertNotIn('chat-cleartext-warning', chat)
         transport = (ROOT / 'provider/api/src/main/kotlin/com/helix/provider/api/wire/OkHttpWireClient.kt').read_text()
         self.assertIn('.followSslRedirects(false)', transport)

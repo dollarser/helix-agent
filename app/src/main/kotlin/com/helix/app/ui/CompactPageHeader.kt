@@ -17,6 +17,8 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
+import com.helix.ui.shared.NavigationMenuIcon
+import com.helix.ui.shared.R as SharedR
 
 @Composable
 @Suppress("FunctionName")
@@ -35,7 +37,7 @@ internal fun CompactPageHeader(
                 modifier = Modifier.size(48.dp).testTag(if (back) "navigate-back" else "open-navigation"),
             ) {
                 if (back) {
-                    val label = stringResource(R.string.common_back)
+                    val label = stringResource(SharedR.string.common_back)
                     Text(
                         "‹",
                         style = MaterialTheme.typography.headlineSmall,

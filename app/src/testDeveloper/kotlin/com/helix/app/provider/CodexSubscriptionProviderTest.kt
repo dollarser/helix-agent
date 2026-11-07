@@ -37,6 +37,19 @@ class CodexSubscriptionProviderTest {
             assertEquals(listOf(ModelEvent.Error(ModelErrorCode.TRANSPORT, true)), timedOut)
         }
 
+    @Test fun imageReselectionFailureIsNotRewrittenAsTransportOrProtocol() =
+        runBlocking {
+            val provider =
+                provider {
+                    throw com.helix.core.model
+                        .ImageReselectionRequiredException()
+                }
+            assertEquals(
+                listOf(ModelEvent.Error(ModelErrorCode.IMAGE_RESELECT_REQUIRED, false)),
+                provider.stream(request()).toList(),
+            )
+        }
+
     @Test fun collectionCancellationReachesTheJobExecutor() =
         runBlocking {
             var cancelled = false

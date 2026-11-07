@@ -42,8 +42,8 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import com.helix.app.R
 import com.helix.app.automation.AutomationModule
-import com.helix.app.chat.DisplayExecutionState
-import com.helix.app.chat.DisplayExecutionUi
+import com.helix.feature.conversation.presentation.DisplayExecutionState
+import com.helix.feature.conversation.presentation.DisplayExecutionUi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext

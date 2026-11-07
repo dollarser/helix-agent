@@ -20,7 +20,7 @@ Scope: Owner 指定审查 `app/src/main/resources/prompts/files.md`；提示与�
 
 `ReadTool.output` 仅包含内容窗口、编码及分页信息，`FilesStatTool` 无哈希；`ToolModelResult` 不为它们补文件身份。`EditTool` 要求完整文件 SHA-256，`WriteTool` 原说明却要求使用“read 返回的 hash”。这是静态确认的链路缺口，不能靠提示凭空生成。
 
-本轮修正错误说明并要求缺失时报告真实能力边界；不放宽现有保护。成功写入/复制等结果可带文件哈希，但不证明任意旧文件或最新内容已能通过 read 获得哈希。完整读取、版本凭据与修改的闭环接入 [HXA-286](../../development/tasks/HXA-286.md)，当前仍未实现，后续须覆盖 Standard 与 Developer，并同步去除本轮关于现状的提示。不得混用窗口、工具结果或截图哈希。
+本轮修正错误说明并要求缺失时报告真实能力边界；不放宽现有保护。成功写入/复制等结果可带文件哈希，但不证明任意旧文件或最新内容已能通过 read 获得哈希。完整读取、版本凭据与修改的闭环接入 [HXA-286](../../completion-records/HXA-286.md)，当前仍未实现，后续须覆盖 Standard 与 Developer，并同步去除本轮关于现状的提示。不得混用窗口、工具结果或截图哈希。
 
 ## 验证
 

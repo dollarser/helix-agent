@@ -1,14 +1,4 @@
 <resources>
-    <string name="tool_group_show">Show %1$d tool calls</string>
-    <string name="tool_group_hide">Hide %1$d tool calls</string>
-    <string name="tool_inspector_open">Inspect arguments and result</string>
-    <string name="tool_observed_background">Observed: background display · %1$s</string>
-    <string name="tool_observed_main">Observed: main display · %1$s</string>
-    <string name="tool_unsettled">UI still changing · effect unverified</string>
-    <string name="tool_running_elapsed">Running for %1$d s</string>
-    <string name="tool_inspector_full">Full result (redacted)</string>
-    <string name="tool_inspector_unavailable">Full result unavailable; showing summary</string>
-    <string name="tool_inspector_loading">Reading original saved result…</string>
     <string name="model_request_failed">Model request failed: %1$s</string>
     <string name="model_response_interrupted">Model response interrupted: %1$s; inspect existing results before continuing</string>
     <string name="model_failure_retry_count">%1$s (retried %2$d times)</string>

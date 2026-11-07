@@ -105,7 +105,7 @@ class FixedProviderEvaluationDeviceTest {
             val now = System.currentTimeMillis()
             container.storage.sessions.create(id, "fixed eval", null, null, now)
             container.storage.turns.start(id, id, now)
-            val outcome = container.chatService.dispatchToolCall("$id-call", id, call.name, args)
+            val outcome = container.toolExecution.dispatchToolCall("$id-call", id, call.name, args)
             if (outcome is ToolDispatchOutcome.Succeeded) {
                 dispatchVerified = container.storage.toolResults.byToolCall("$id-call") != null
                 val assistantCall = AssistantToolCall(call.id, ToolName(call.name), args)

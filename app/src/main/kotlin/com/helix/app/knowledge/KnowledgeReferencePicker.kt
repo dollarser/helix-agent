@@ -27,11 +27,13 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
-import com.helix.app.ui.ConversationSheet
 import com.helix.core.model.input.KnowledgeReference
 import com.helix.core.model.input.KnowledgeReferenceCodec
+import com.helix.ui.shared.SharedSheet
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
+import com.helix.feature.conversation.R as ConversationR
+import com.helix.ui.shared.R as SharedR
 
 /** Selection is local until Add; neither reading nor checking a row submits a conversation. */
 @Composable
@@ -85,7 +87,7 @@ fun KnowledgeReferencePicker(
             preview = changed
         }, onDismiss = { preview = null })
     }
-    ConversationSheet(
+    SharedSheet(
         stringResource(R.string.knowledge_reference_picker),
         "knowledge-reference-picker",
         onDismiss,
@@ -121,7 +123,7 @@ fun KnowledgeReferencePicker(
                 stringResource(R.string.knowledge_reference_failed),
                 Modifier.testTag("knowledge-reference-error"),
             )
-            TextButton({ retry++ }, enabled = !busy) { Text(stringResource(R.string.chat_retry)) }
+            TextButton({ retry++ }, enabled = !busy) { Text(stringResource(SharedR.string.chat_retry)) }
         }
         LazyColumn(
             Modifier
@@ -294,13 +296,13 @@ fun KnowledgeReferencePreview(
             }
         }
     }
-    ConversationSheet(reference.title, "knowledge-reference-preview", onDismiss) {
+    SharedSheet(reference.title, "knowledge-reference-preview", onDismiss) {
         Text(stringResource(R.string.knowledge_reference_lazy, reference.characters))
         if (reference.completeness !in setOf("USER_CONTENT", "READY")) {
             Text(stringResource(R.string.knowledge_reference_partial))
         }
         if (state != KnowledgeReferenceService.State.CURRENT) {
-            Text(stringResource(R.string.knowledge_reference_changed))
+            Text(stringResource(ConversationR.string.knowledge_reference_changed))
             if (onChange != null && service != null) {
                 TextButton(onClick = {
                     scope.launch {

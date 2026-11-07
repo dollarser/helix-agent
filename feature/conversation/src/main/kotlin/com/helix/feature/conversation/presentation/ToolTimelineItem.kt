@@ -1,0 +1,323 @@
+package com.helix.feature.conversation.presentation
+
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import com.helix.feature.conversation.R
+import com.helix.feature.conversation.presentation.toolHasUnsettledObservation
+import com.helix.ui.shared.ExpandableSummary
+import com.helix.ui.shared.R as SharedR
+
+/**
+ * One tool-timeline row (roadmap HXA-036): the tool REQUEST + RESULT, and — while the
+ * approval card is live — the full [ApprovalCard] confirmation surface. The four timeline
+ * message types (model text, tool request, tool result, approval card) are visually
+ * distinct here (doc 01 FR-CHAT-003).
+ */
+
+@Composable
+@Suppress("FunctionName")
+fun ToolTimelineItem(
+    row: ToolTimelineRow,
+    intents: ConversationIntents,
+    isCurrentMatch: Boolean = false,
+) {
+    var details by rememberSaveable(row.turnId, row.callId) { mutableStateOf(false) }
+    val matchView = remember(row.turnId, row.callId) { BringIntoViewRequester() }
+    LaunchedEffect(isCurrentMatch) {
+        if (isCurrentMatch) {
+            androidx.compose.runtime.withFrameNanos { }
+            matchView.bringIntoView()
+        }
+    }
+    val displayIntent = ToolPurpose.text(row.toolName, row.requestSummary, row.modelIntent)
+    val borderModifier =
+        if (isCurrentMatch) {
+            Modifier.border(2.dp, MaterialTheme.colorScheme.primary, MaterialTheme.shapes.medium)
+        } else {
+            Modifier
+        }
+    Column(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .then(borderModifier)
+                .padding(horizontal = 8.dp)
+                .testTag("tool-row-${row.callId}")
+                .bringIntoViewRequester(matchView),
+    ) {
+        ToolTimelineSummary(row, displayIntent, details) { details = !details }
+        if (details) {
+            ToolTimelineDetails(row, displayIntent, intents)
+            CommandDetailEntry(row, intents)
+            if (row.prootRecoveryAvailable) {
+                ProotRecoveryActions(row, intents.onInspectProot, intents.onRecoverProot, intents.onRetryProotAck)
+            }
+        }
+        row.card?.takeIf { details || it.state == ApprovalCardState.PENDING }?.let { card ->
+            PendingApprovalCard(card, intents)
+        }
+    }
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun ToolTimelineDetails(
+    row: ToolTimelineRow,
+    displayIntent: String,
+    intents: ConversationIntents,
+) {
+    Text(
+        stringResource(R.string.tool_intent_detail, row.modelIntent ?: displayIntent),
+        style = MaterialTheme.typography.bodySmall,
+        modifier = Modifier.testTag("tool-row-intent-detail-${row.callId}"),
+    )
+    Text(
+        stringResource(R.string.chat_tool_row, row.toolName),
+        style = MaterialTheme.typography.bodySmall,
+        modifier = Modifier.testTag("tool-row-name-${row.callId}"),
+    )
+    ExpandableSummary(
+        stringResource(R.string.chat_tool_request, row.requestSummary),
+        style = MaterialTheme.typography.bodySmall,
+        tag = "tool-row-args-${row.callId}",
+        collapsedLines = 3,
+    )
+    row.resultSummary?.let { summary ->
+        ExpandableSummary(
+            stringResource(R.string.chat_tool_result, summary),
+            style = MaterialTheme.typography.bodySmall,
+            tag = "tool-row-result-${row.callId}",
+            collapsedLines = 5,
+        )
+    }
+    Text(
+        stringResource(R.string.tool_status_detail, row.stateLabel),
+        style = MaterialTheme.typography.bodySmall,
+        modifier = Modifier.testTag("tool-row-status-detail-${row.callId}"),
+    )
+    ToolPayloadInspector(row, intents.onInspectToolResult)
+    Text(
+        stringResource(R.string.tool_call_id_detail, row.callId),
+        style = MaterialTheme.typography.labelSmall,
+        modifier = Modifier.testTag("tool-row-call-id-detail-${row.callId}"),
+    )
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun ToolTimelineSummary(
+    row: ToolTimelineRow,
+    displayIntent: String,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+) {
+    val toggleLabel = stringResource(if (expanded) R.string.tool_details_hide else R.string.tool_details_show)
+    val expandedState = stringResource(if (expanded) SharedR.string.nav_expanded else SharedR.string.nav_collapsed)
+    val routineComplete = row.state == com.helix.core.model.ToolCallState.COMPLETED && !toolHasUnsettledObservation(row)
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .clickable(onClickLabel = toggleLabel, role = Role.Button, onClick = onToggle)
+            .semantics {
+                stateDescription = if (routineComplete) "$expandedState · ${row.stateLabel}" else expandedState
+            }.testTag("tool-details-${row.callId}"),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Icon(
+            painterResource(SharedR.drawable.ic_expand_summary),
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier =
+                Modifier
+                    .size(16.dp)
+                    .rotate(if (expanded) 180f else 0f)
+                    .testTag("tool-chevron-${row.callId}"),
+        )
+        Column(Modifier.weight(1f)) {
+            Text(
+                displayIntent,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Normal,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 3,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                modifier = Modifier.testTag("tool-row-intent-${row.callId}"),
+            )
+            ToolTimelineHeading(row)
+            com.helix.feature.conversation.presentation.toolObservationPresentation(row)?.let { observation ->
+                Text(
+                    stringResource(
+                        if (observation.background) R.string.tool_observed_background else R.string.tool_observed_main,
+                        observation.packageName,
+                    ),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.testTag("tool-route-${row.callId}"),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun ToolTimelineHeading(row: ToolTimelineRow) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            row.toolName,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            modifier = Modifier.widthIn(max = 180.dp).testTag("tool-operation-${row.callId}"),
+        )
+        val tone = if (toolHasUnsettledObservation(row)) ToolStateTone.REVIEW else toolStateTone(row.state)
+        val badgeColor =
+            when (tone) {
+                ToolStateTone.ERROR -> MaterialTheme.colorScheme.error
+                ToolStateTone.REVIEW -> MaterialTheme.colorScheme.tertiary
+                ToolStateTone.ACTIVE -> MaterialTheme.colorScheme.primary
+                ToolStateTone.COMPLETE -> MaterialTheme.colorScheme.onSurfaceVariant
+                ToolStateTone.NEUTRAL -> MaterialTheme.colorScheme.outline
+            }
+        Icon(painterResource(toolStateIcon(row.state)), null, tint = badgeColor, modifier = Modifier.size(16.dp))
+        if (row.state != com.helix.core.model.ToolCallState.COMPLETED || toolHasUnsettledObservation(row)) {
+            Surface(
+                shape = RoundedCornerShape(4.dp),
+                color = badgeColor.copy(alpha = 0.12f),
+                modifier = Modifier.testTag("tool-row-state-${row.callId}"),
+            ) {
+                Text(
+                    if (toolHasUnsettledObservation(row)) stringResource(R.string.tool_unsettled) else row.stateLabel,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = badgeColor,
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                )
+            }
+        }
+        RunningToolClock(row)
+        row.durationMs?.let { duration ->
+            val formatted =
+                if (duration < 1000L) {
+                    stringResource(R.string.tool_duration_ms, duration)
+                } else {
+                    val sec = String.format(java.util.Locale.US, "%.1f", duration / 1000.0)
+                    stringResource(R.string.tool_duration_sec, sec)
+                }
+            Surface(
+                shape = RoundedCornerShape(4.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                modifier = Modifier.testTag("tool-row-duration-${row.callId}"),
+            ) {
+                Text(
+                    formatted,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                )
+            }
+        }
+    }
+}
+
+/** The live approval card wired to the conversation intents. */
+@Composable
+@Suppress("FunctionName")
+private fun PendingApprovalCard(
+    card: ApprovalCardUi,
+    intents: ConversationIntents,
+) {
+    ApprovalCard(
+        card = card,
+        onApprove = { intents.onApproveApproval(card.approvalId) },
+        onDeny = { intents.onDenyApproval(card.approvalId) },
+    )
+}
+
+/**
+ * HXA-194: the command details entry from the tool row — a read-only navigation, visible
+ * for every state of a command call (a running command shows status only on the page).
+ */
+@Composable
+@Suppress("FunctionName")
+private fun CommandDetailEntry(
+    row: ToolTimelineRow,
+    intents: ConversationIntents,
+) {
+    if (row.toolName in COMMAND_TOOL_NAMES) {
+        TextButton(
+            onClick = { intents.onOpenCommandDetail(row.turnId, row.callId) },
+            modifier = Modifier.testTag("command-detail-${row.callId}"),
+        ) { Text(stringResource(R.string.chat_tool_command_detail)) }
+    }
+}
+
+@Composable
+@Suppress("FunctionName")
+fun ProotRecoveryActions(
+    row: ToolTimelineRow,
+    action: (String, String, Boolean) -> Unit,
+    recover: (String, String) -> Unit = { _, _ -> },
+    retryAcknowledgement: (String, String) -> Unit = { _, _ -> },
+) {
+    if (row.prootRecoveredOutput == null) row.prootRecoveryReport?.let { Text(stringResource(it.labelRes)) }
+    TextButton(
+        enabled = !row.prootRecoveryBusy,
+        onClick = { recover(row.turnId, row.callId) },
+        modifier = Modifier.testTag("proot-result-${row.callId}"),
+    ) { Text(stringResource(R.string.proot_recovery_view)) }
+    if (row.prootResultUnavailable) Text(stringResource(R.string.proot_recovery_result_unavailable))
+    row.prootRecoveredOutput?.let {
+        ProotResultPanel(it, row.callId)
+        ProotAcknowledgementActions(row, it.acknowledged, retryAcknowledgement)
+    }
+    TextButton(
+        enabled = !row.prootRecoveryBusy,
+        onClick = { action(row.turnId, row.callId, false) },
+        modifier = Modifier.testTag("proot-query-${row.callId}"),
+    ) { Text(stringResource(R.string.proot_recovery_query)) }
+    if (row.prootRecoveryReport?.canStop == true) {
+        TextButton(
+            enabled = !row.prootRecoveryBusy,
+            onClick = { action(row.turnId, row.callId, true) },
+            modifier = Modifier.testTag("proot-stop-${row.callId}"),
+        ) { Text(stringResource(R.string.proot_recovery_stop)) }
+    }
+}

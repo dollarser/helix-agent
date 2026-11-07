@@ -46,9 +46,9 @@ class DetachedGoalJourneyDeviceTest {
                     )
                     f.originalResult()
                     val job = DetachedJobDashboard.read(f.storage).single { it.sessionId == f.session }
-                    f.container.chatService.performBackgroundJobAction(job, BackgroundJobAction.COLLECT)
+                    f.container.taskDashboard.performBackgroundJobAction(job, BackgroundJobAction.COLLECT)
                     compose.waitUntil(30_000) {
-                        val action = f.container.chatService.backgroundJobAction.value
+                        val action = f.container.taskDashboard.jobActionState.value
                         action?.callId == job.callId && !action.busy
                     }
                     assertManualSettlement(f, run.id)
@@ -62,7 +62,7 @@ class DetachedGoalJourneyDeviceTest {
         f: DetachedGoalFixture,
         runId: String,
     ) {
-        val action = f.container.chatService.backgroundJobAction.value
+        val action = f.container.taskDashboard.jobActionState.value
         assertEquals(BackgroundJobActionOutcome.SETTLED, action?.outcome)
         assertEquals(
             "PAUSED",

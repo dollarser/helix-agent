@@ -19,7 +19,6 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.MainActivity
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.application.agent.TurnInputFingerprint
-import com.helix.app.chat.ChatService
 import com.helix.app.provider.LoopbackModelServer
 import com.helix.app.provider.ProviderDraft
 import com.helix.app.test.TransferTestDocumentsProvider
@@ -32,8 +31,10 @@ import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.SystemClock
 import com.helix.core.model.TurnState
 import com.helix.core.storage.repository.MessageAttachmentRepository
+import com.helix.feature.conversation.application.ChatService
 import com.helix.feature.conversation.input.ChatSubmission
 import com.helix.feature.conversation.input.ChatSubmissionOutcome
+import com.helix.feature.conversation.input.ComposerEditClock
 import com.helix.provider.api.ProbeOutcome
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
@@ -83,7 +84,7 @@ class ConversationReceiptRaceDeviceTest {
                 val request =
                     ChatSubmission(
                         session,
-                        com.helix.feature.conversation.input.ComposerEditClock
+                        ComposerEditClock
                             .next(cached?.revision ?: 0),
                         java.util.UUID
                             .randomUUID()
@@ -95,10 +96,10 @@ class ConversationReceiptRaceDeviceTest {
                 val binding =
                     MessageAttachmentRepository.Binding(attachmentId, "REFERENCE", artifact.sha256)
                 val acceptedBody =
-                    com.helix.app.chat.AttachmentContext.buildUserMessageContent(
+                    com.helix.feature.conversation.application.attachment.AttachmentContext.buildUserMessageContent(
                         request.text,
                         listOf(
-                            com.helix.app.chat.AttachmentContextBlock.Text(
+                            com.helix.feature.conversation.application.attachment.AttachmentContextBlock.Text(
                                 "honest.txt",
                                 com.helix.core.model.TextAttachmentKind.TXT,
                                 "hello\n",

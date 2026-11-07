@@ -61,7 +61,7 @@ def build(source_archive, tool_archive, destination, runtime_archive=None):
         if digest(runtime) != config["runtime"]["sourceSha256"]:
             raise ValueError("Runtime source changed")
         data = runtime + b"\n;\n" + output.read_bytes()
-        expected = lock["files"]["app/src/main/assets/mermaid/mermaid.tiny.js"]
+        expected = lock["files"]["ui/shared/src/main/assets/mermaid/mermaid.tiny.js"]
         if digest(data) != expected:
             raise ValueError("Generated asset differs from reviewed output")
         destination.write_bytes(data)

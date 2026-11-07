@@ -22,6 +22,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.R
+import com.helix.ui.shared.HelixBrandMark
+import com.helix.ui.shared.SharedSheet
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
@@ -71,7 +73,7 @@ internal fun AccountAccessEntry(
     }
     AccountEntryButton(status, presentation) { open = true }
     if (open) {
-        ConversationSheet(stringResource(R.string.account_title), "account", { if (!loading) open = false }) {
+        SharedSheet(stringResource(R.string.account_title), "account", { if (!loading) open = false }) {
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     HelixBrandMark(36.dp)

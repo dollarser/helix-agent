@@ -8,7 +8,9 @@ import com.helix.core.model.VisionLimits
 import com.helix.core.workspace.AtomicFileWriter
 import java.io.File
 import java.io.FileOutputStream
+import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.StandardCopyOption
 import kotlin.math.max
 
 /**
@@ -211,7 +213,7 @@ object ImageNormalizer {
 
     /**
      * Re-encodes [bitmap] (EXIF-stripped by construction — `compress` writes no metadata) into
-     * [targetDir]/normalized.<ext>, walking the quality ladder then a bounded 0.75x edge
+     * an exclusively owned child of [targetDir], walking the quality ladder then a bounded 0.75x edge
      * downscale until the output fits [VisionLimits.MAX_NORMALIZED_RAW_BYTES].
      */
     @Suppress(
@@ -226,6 +228,10 @@ object ImageNormalizer {
         targetDir: File,
     ): NormalizationOutcome {
         var current = bitmap
+        // An attempt owns its directory exclusively. No caller-supplied basename or
+        // concurrent normalization can target an existing raw or published image.
+        val attempt = Files.createTempDirectory(targetDir.toPath(), "image-").toFile()
+        var published = false
         val (format, ext) = formatOf(rawMediaType)
         val scales =
             generateSequence(1.0) {
@@ -241,21 +247,24 @@ object ImageNormalizer {
                     current = next
                 }
                 for (quality in QUALITY_LADDER) {
-                    val out = File(targetDir, "normalized.$ext")
+                    val out = File(attempt, "encoding.tmp")
                     val written =
                         try {
-                            FileOutputStream(out).use { sink -> current.compress(format, quality, sink) }
+                            compressAndSync(current, format, quality, out)
                         } catch (e: Exception) {
                             out.delete()
                             break
                         }
                     if (written && out.length() <= VisionLimits.MAX_NORMALIZED_RAW_BYTES) {
                         val sha = AtomicFileWriter.sha256Hex(out.toPath())
+                        val destination = File(attempt, "normalized.$ext")
+                        Files.move(out.toPath(), destination.toPath(), StandardCopyOption.ATOMIC_MOVE)
+                        published = true
                         return NormalizationOutcome.Ok(
                             NormalizedImage(
-                                file = out.toPath(),
+                                file = destination.toPath(),
                                 mediaType = mimeTypeOf(format),
-                                sizeBytes = out.length(),
+                                sizeBytes = destination.length(),
                                 sha256 = sha,
                                 width = current.width,
                                 height = current.height,
@@ -267,12 +276,26 @@ object ImageNormalizer {
             }
         } finally {
             if (current !== bitmap) current.recycle()
+            if (!published) {
+                File(attempt, "encoding.tmp").delete()
+                attempt.delete()
+            }
         }
         return NormalizationOutcome.Failed(
             NormalizationCode.BUDGET_EXCEEDED,
             "re-encoded output exceeds ${VisionLimits.MAX_NORMALIZED_RAW_BYTES} bytes",
         )
     }
+
+    private fun compressAndSync(
+        bitmap: Bitmap,
+        format: Bitmap.CompressFormat,
+        quality: Int,
+        out: File,
+    ): Boolean =
+        FileOutputStream(out).use { sink ->
+            bitmap.compress(format, quality, sink).also { sink.fd.sync() }
+        }
 
     @Suppress("DEPRECATION") // WEBP with quality < 100 preserves lossy output on API 29 too.
     private fun formatOf(rawMediaType: String): Pair<Bitmap.CompressFormat, String> =

@@ -1,8 +1,8 @@
 package com.helix.app.audit
 
-import com.helix.app.application.diagnostics.DiagnosticRedaction
 import com.helix.app.proot.CommandDetailState
 import com.helix.app.proot.CommandResultBrowser
+import com.helix.core.policy.DiagnosticRedaction
 import com.helix.core.storage.HelixStorage
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive

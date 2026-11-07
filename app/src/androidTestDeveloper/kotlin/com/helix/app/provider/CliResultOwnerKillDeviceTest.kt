@@ -14,11 +14,12 @@ import androidx.compose.ui.test.performScrollToNode
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.HelixApplication
-import com.helix.app.ui.ChatScreen
+import com.helix.app.ui.AppConversationRoute
 import com.helix.core.agent.LocalModelCallContext
 import com.helix.core.model.ModelMessage
 import com.helix.core.model.ModelRequest
 import com.helix.core.model.ModelRole
+import com.helix.provider.api.SubscriptionRecoveryStatus
 import com.helix.runtime.cli.client.CliModelJobClient
 import com.helix.runtime.cli.client.CliModelProvider
 import com.helix.runtime.cli.client.CliRuntimeConnection
@@ -32,6 +33,7 @@ import org.junit.Test
 import java.io.File
 import java.util.Properties
 import java.util.UUID
+import com.helix.feature.conversation.R as ConversationR
 
 /** Host SIGKILL at fetch/persist/ack boundaries; real Runtime, synthetic request, no model replay. */
 class CliResultOwnerKillDeviceTest {
@@ -146,24 +148,20 @@ class CliResultOwnerKillDeviceTest {
         compose.setContent {
             expiryLabel =
                 androidx.compose.ui.res
-                    .stringResource(com.helix.app.R.string.subscription_recovery_expired)
+                    .stringResource(ConversationR.string.subscription_recovery_expired)
             MaterialTheme {
-                ChatScreen(
-                    chat,
-                    container.providerService,
-                    container.privacyDeletionService,
+                AppConversationRoute(
+                    chatService = chat,
+                    toolVisionConsent = container.toolVisionConsent,
+                    dashboard = container.taskDashboard,
+                    details = container.conversationDetails,
+                    experts = container.conversationExperts,
+                    providerService = container.providerService,
+                    privacyDeletionService = container.privacyDeletionService,
                 )
             }
         }
-        if (!localOnly()) {
-            compose.onNodeWithTag("chat-timeline").performScrollToNode(hasTestTag("subscription-query-$id"))
-            compose.onNodeWithTag("subscription-query-$id").performClick()
-            compose.waitUntil(10000) {
-                chat.screen.value.subscriptionRecoveries
-                    .single()
-                    .status != null
-            }
-        }
+        if (!localOnly()) queryOriginalRecovery(chat, id)
         if (expired) {
             assertEquals(
                 SubscriptionRecoveryStatus.EVIDENCE_EXPIRED,
@@ -192,6 +190,19 @@ class CliResultOwnerKillDeviceTest {
         compose.onNodeWithTag("subscription-result-text-$id").assertTextEquals("HELIX_OK")
         assertEquals("INTERRUPTED", storage.turns.resolve(id).state)
         assertEquals("INTERRUPTED", storage.modelCalls.resolve(id).state)
+    }
+
+    private fun queryOriginalRecovery(
+        chat: com.helix.feature.conversation.application.ChatService,
+        id: String,
+    ) {
+        compose.onNodeWithTag("chat-timeline").performScrollToNode(hasTestTag("subscription-query-$id"))
+        compose.onNodeWithTag("subscription-query-$id").performClick()
+        compose.waitUntil(10000) {
+            chat.screen.value.subscriptionRecoveries
+                .single()
+                .status != null
+        }
     }
 
     private fun localOnly(): Boolean =

@@ -9,7 +9,7 @@ import shutil
 import subprocess
 
 p=argparse.ArgumentParser();p.add_argument('--serial',required=True);p.add_argument('--output',required=True,type=Path)
-p.add_argument('--modules', nargs='+', choices=['feature/browser','core/storage','feature/files','runtime/quickjs','tools/root','runtime/proot-ipc'], default=['feature/browser','core/storage','feature/files','runtime/quickjs'])
+p.add_argument('--modules', nargs='+', choices=['feature/browser','infrastructure/storage','feature/files','runtime/quickjs','tools/root','runtime/proot-ipc'], default=['feature/browser','infrastructure/storage','feature/files','runtime/quickjs'])
 p.add_argument('--apk-metadata', type=Path, help='Explicit isolated build metadata, requires one module and SHA')
 p.add_argument('--apk-sha256', help='Expected SHA for explicitly selected APK')
 p.add_argument('--instrument-arg', nargs=2, action='append', default=[])

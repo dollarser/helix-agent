@@ -20,7 +20,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
 import com.helix.app.startupPhase
-import com.helix.app.ui.indicatedVerticalScroll
+import com.helix.ui.shared.indicatedVerticalScroll
 
 /** First-launch information. Acknowledgement is persisted without granting any capability. */
 @Composable
@@ -33,7 +33,7 @@ fun FirstLaunchNoticeScreen(onContinue: () -> Unit) {
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
                 .wrapContentWidth()
-                .widthIn(max = com.helix.app.HelixUiDesign.formWidth)
+                .widthIn(max = com.helix.ui.shared.HelixUiDesign.formWidth)
                 .indicatedVerticalScroll(rememberScrollState())
                 .padding(24.dp)
                 .testTag("first-launch-notice"),

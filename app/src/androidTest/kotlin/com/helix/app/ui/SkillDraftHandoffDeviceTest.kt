@@ -2,6 +2,7 @@ package com.helix.app.ui
 
 import androidx.test.core.app.ApplicationProvider
 import com.helix.app.HelixApplication
+import com.helix.core.model.input.InputSkillActivation
 import com.helix.feature.conversation.input.ChatSubmission
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -30,7 +31,14 @@ class SkillDraftHandoffDeviceTest {
                         listOf("synthetic-attachment-reference"),
                     )
                 assertTrue(service.saveComposerDraft(original))
-                val activation = c.skillRepository.prepareUserActivation(row.key, id, "参数一")
+                val prepared = c.skillRepository.prepareUserActivation(row.key, id, "参数一")
+                val activation =
+                    InputSkillActivation(
+                        prepared.key.source.name,
+                        prepared.key.name,
+                        prepared.key.snapshotHash,
+                        prepared.arguments,
+                    )
                 assertTrue(service.stageSkillActivation(id, activation, "默认提示").await())
                 val first = requireNotNull(service.loadComposerDraft(id))
                 assertEquals(original.text, first.text)

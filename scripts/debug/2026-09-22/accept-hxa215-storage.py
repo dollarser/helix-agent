@@ -31,7 +31,7 @@ def main():
             expected = []
             sources = {}
             for class_name in classes:
-                source = ROOT / ("core/storage/src/androidTest/kotlin/" + class_name.replace(".", "/") + ".kt")
+                source = ROOT / ("infrastructure/storage/src/androidTest/kotlin/" + class_name.replace(".", "/") + ".kt")
                 methods = re.findall(r"@Test\b(?:(?!@Test\b).)*?\bfun\s+(\w+)\s*\(", source.read_text(), re.S)
                 if not methods:
                     raise ValueError("No storage tests discovered")
@@ -42,7 +42,7 @@ def main():
             command = [sys.executable, "scripts/run-owned-acceptance-emulator.py",
                        "--avd", f"Helix191_API{api}", "--port", str(port), "--memory-mb", "4096", "--cores", "4",
                        "--apk", f"app/build/outputs/apk/{flavor}/debug/app-{flavor}-debug.apk",
-                       "--test-apk", "core/storage/build/outputs/apk/androidTest/debug/storage-debug-androidTest.apk",
+                       "--test-apk", "infrastructure/storage/build/outputs/apk/androidTest/debug/storage-debug-androidTest.apk",
                        "--runner", "com.helix.core.storage.test/androidx.test.runner.AndroidJUnitRunner",
                        "--classes", ",".join(classes), "--output", str(target), "--timeout", "900"]
             print(f"Starting {label}: {len(expected)} methods", flush=True)

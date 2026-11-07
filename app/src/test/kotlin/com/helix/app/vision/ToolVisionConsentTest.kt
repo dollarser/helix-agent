@@ -1,6 +1,5 @@
 package com.helix.app.vision
 
-import com.helix.app.chat.EgressDisclosure
 import com.helix.core.model.ArtifactRef
 import com.helix.core.model.Clock
 import com.helix.core.model.ImageBinding
@@ -11,6 +10,7 @@ import com.helix.core.model.SecretAlias
 import com.helix.core.storage.dao.InteractionReceiptDao
 import com.helix.core.storage.entity.InteractionReceiptEntity
 import com.helix.core.storage.repository.InteractionReceiptRepository
+import com.helix.feature.conversation.application.EgressDisclosure
 import com.helix.provider.api.ProviderConfig
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async

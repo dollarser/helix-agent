@@ -12,6 +12,7 @@ import com.helix.app.sendTestMessage
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.ReasoningEffort
+import com.helix.feature.conversation.presentation.SessionModelSelectionResult
 import com.helix.provider.api.ProbeOutcome
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -69,7 +70,7 @@ class SessionModelDeviceTest {
                     compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) { chat.screen.value.isDraft }
                     val selected =
                         chat.requestSessionModelSelection(chat.screen.value.openSessionId, provider, "fixture-model-b")
-                    assertEquals(com.helix.app.chat.SessionModelSelectionResult.APPLIED, selected.await())
+                    assertEquals(SessionModelSelectionResult.APPLIED, selected.await())
                     compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
                         chat.screen.value.selectedModel
                             ?.model == "fixture-model-b"
@@ -121,7 +122,7 @@ class SessionModelDeviceTest {
                     compose.waitUntil(20_000) { server.heldStreams.get() == 1 }
                     compose.onNodeWithTag("chat-model-menu").assertIsNotEnabled()
                     val busy = chat.requestSessionModelSelection(id, provider, "fixture-model-a").await()
-                    assertEquals(com.helix.app.chat.SessionModelSelectionResult.BUSY, busy)
+                    assertEquals(SessionModelSelectionResult.BUSY, busy)
                     val stale =
                         chat
                             .requestSessionModelSelection(
@@ -129,7 +130,7 @@ class SessionModelDeviceTest {
                                 provider,
                                 "fixture-model-a",
                             ).await()
-                    assertEquals(com.helix.app.chat.SessionModelSelectionResult.SESSION_CHANGED, stale)
+                    assertEquals(SessionModelSelectionResult.SESSION_CHANGED, stale)
                     compose.waitForIdle()
                     assertEquals("fixture-model-c", storage.sessions.resolve(id).modelId)
                     assertTrue(

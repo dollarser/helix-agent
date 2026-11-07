@@ -14,8 +14,8 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
-import com.helix.app.chat.DisplayExecutionState
-import com.helix.app.chat.DisplayExecutionUi
+import com.helix.feature.conversation.presentation.DisplayExecutionState
+import com.helix.feature.conversation.presentation.DisplayExecutionUi
 
 internal fun displayExecutionLabel(state: DisplayExecutionState): Int =
     when (state) {

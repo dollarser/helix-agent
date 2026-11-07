@@ -1,6 +1,6 @@
 package com.helix.app.infrastructure.agent
 
-import com.helix.app.application.agent.RecoveryInspectionIdentity
+import com.helix.core.agent.RecoveryInspectionIdentity
 import com.helix.core.model.TurnBudgets
 import com.helix.core.storage.entity.TurnEntity
 

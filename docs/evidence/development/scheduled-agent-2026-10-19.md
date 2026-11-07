@@ -1,6 +1,6 @@
 # 最小定时 Agent 生命周期（2026-10-19 UTC）
 
-范围：[HXA-314](../../development/tasks/HXA-314.md)、[ADR-GOAL-001](../../adr/goal/001-lifecycle-and-completion.md)。起点 `520755b5`；Owner“帮我完成上述工作”已包含最小定时 Agent，真机手测延后不取消开发。不启动整套 Harness 重构，不 push/发布，保留数据、设置和版本。
+范围：[HXA-314](../../completion-records/HXA-314.md)、[ADR-GOAL-001](../../adr/goal/001-lifecycle-and-completion.md)。起点 `520755b5`；Owner“帮我完成上述工作”已包含最小定时 Agent，真机手测延后不取消开发。不启动整套 Harness 重构，不 push/发布，保留数据、设置和版本。
 
 ## 实际行为与边界
 

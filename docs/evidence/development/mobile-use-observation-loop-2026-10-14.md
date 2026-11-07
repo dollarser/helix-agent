@@ -1,6 +1,6 @@
 # Mobile Use观察闭环优化
 
-日期：2026-10-14。范围：[HXA-282](../../development/tasks/HXA-282.md)，Owner要求综合调研并优化当前Mobile Use。沿[ADR-AGENT-001](../../adr/agent/001-turn-coordination.md)现有工具执行/业务核验分层；不新增执行引擎、模型自动续跑或批量UI执行域。
+日期：2026-10-14。范围：[HXA-282](../../completion-records/HXA-282.md)，Owner要求综合调研并优化当前Mobile Use。沿[ADR-AGENT-001](../../adr/agent/001-turn-coordination.md)现有工具执行/业务核验分层；不新增执行引擎、模型自动续跑或批量UI执行域。
 
 ## 实际问题与基线
 

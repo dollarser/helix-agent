@@ -1,5 +1,16 @@
 # 开发证据库
 
+## 架构与客户端历史收尾
+
+- [架构职责收尾](architecture-closeout.md)：2026-10-26 结构事实校正与 PRoot 展示职责，保留原验证边界。
+- [历史路径清理](obsolete-path-cleanup.md)：旧分支/脚本退役、诊断及语音未通过项。
+- [Memory 与日志效果实验](memory-log-effect-experiment.md)：有界对照已完成，没有证据采用索引默认；日志消费仍有波动。
+- [原生搜索与知识引用](native-search-and-knowledge-closeout.md)：glob/grep 与知识正文的实际消费证据，SAF/OEM 等未验边界另列。
+- [非真机客户端回归](nondevice-client-acceptance.md)：分享、语音、PTY 与自然模型任务的成功和失败分开保留。
+- [v0.0.8 候选及发布衔接](v0.0.8-candidate.md)：冻结来源、重建与复用设备证据的边界，不作为当前发布指令。
+
+## 专项交付证据
+
 - 2026-10-24 Harness 阶段 1：[应用与内容](harness-stage1-application-content-2026-10-24.md)、[round/工具边界](harness-stage1-round-tools-2026-10-24.md)、[完整生命周期](harness-stage1-lifecycle-2026-10-24.md)。每份只证明其冻结候选与实际验收范围，不外推未运行项。
 
 - [2026-10-19 三阶段收尾与朗读等待](phase-closeout-2026-10-19.md)：有界合成/播放、渠道分享目标、真实 Chrome 分享与配对延迟；两渠道自动验收及 Owner 延后手测的边界。
@@ -29,7 +40,7 @@
 - **Runtime / recovery / native 调查**：`native-*`、`proot-*`、`cli-*`、`webview-*`、`*-recovery-*`。
 - **历史验证计划**：[verification-plans/](verification-plans/README.md)：设备、长稳及公共 Benchmark 的原范围，不是当前执行授权。
 
-近期常用：
+精选历史证据：
 
 - [2026-10-02 第二轮高风险链路审查](development-review-round2-2026-10-02.md)：三个 Provider 的 SSE 分块 / UTF-8、恢复幂等与时钟回拨修复；区分 JVM 实测、Room 测试编译和未请求设备验证。
 

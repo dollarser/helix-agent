@@ -22,6 +22,7 @@ import com.helix.app.R
 import com.helix.app.audit.AuditLogService
 import com.helix.app.audit.CommandOutputCursor
 import com.helix.app.audit.CommandOutputPage
+import com.helix.ui.shared.indicatedVerticalScroll
 import kotlinx.coroutines.CancellationException
 
 private data class OutputRequest(

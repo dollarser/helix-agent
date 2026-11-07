@@ -33,13 +33,13 @@ export ANDROID_SERIAL="$SERIAL"
 app_rc=$?
 
 # 2) core:storage 设备套件（Room 迁移链）
-./gradlew :core:storage:connectedDebugAndroidTest --console=plain > "$OUT/storage-device.log" 2>&1
+./gradlew :infrastructure:storage:connectedDebugAndroidTest --console=plain > "$OUT/storage-device.log" 2>&1
 sto_rc=$?
 
 # 3) 结果归档
 cp -R app/build/reports/androidTests/connected "$OUT/app-reports" 2>/dev/null || true
-cp -R core/storage/build/reports/androidTests/connected "$OUT/storage-reports" 2>/dev/null || true
-find app/build/outputs/androidTest-results core/storage/build/outputs/androidTest-results -name "*.xml" 2>/dev/null | while read -r f; do
+cp -R infrastructure/storage/build/reports/androidTests/connected "$OUT/storage-reports" 2>/dev/null || true
+find app/build/outputs/androidTest-results infrastructure/storage/build/outputs/androidTest-results -name "*.xml" 2>/dev/null | while read -r f; do
   cp "$f" "$OUT/" 2>/dev/null || true
 done
 

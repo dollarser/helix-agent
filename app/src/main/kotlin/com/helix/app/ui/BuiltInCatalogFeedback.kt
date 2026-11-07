@@ -6,12 +6,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import com.helix.app.R
 import com.helix.app.provider.ProviderRowUi
+import com.helix.feature.conversation.R as ConversationR
 
 internal fun builtInCatalogMessage(row: ProviderRowUi?): Int? =
     when {
         row?.bundled != true || row.builtInCatalog == null -> null
         row.builtInCatalog.failure != null -> R.string.builtin_model_catalog_failed
-        row.builtInTaskDeclarationMissing -> R.string.builtin_model_tasks_missing
+        row.builtInTaskDeclarationMissing -> ConversationR.string.builtin_model_tasks_missing
         row.builtInCatalog.checkedAt > 0 && row.conversationModels.isEmpty() -> R.string.builtin_model_catalog_empty
         else -> null
     }

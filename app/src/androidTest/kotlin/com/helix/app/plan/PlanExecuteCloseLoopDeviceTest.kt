@@ -68,7 +68,7 @@ class PlanExecuteCloseLoopDeviceTest {
                 // Open the review dialog for the specific version and execute it through the button.
                 compose.navigateTo("tasks")
                 await {
-                    container.chatService.planDashboard.value
+                    container.taskDashboard.plans.value
                         .any { it.id == planId }
                 }
                 compose.onNodeWithTag("screen-tasks").performScrollToNode(hasTestTag("tasks-plan-$planId"))
@@ -137,7 +137,7 @@ class PlanExecuteCloseLoopDeviceTest {
                 seedReadyPlan(container, planId)
                 compose.navigateTo("tasks")
                 await {
-                    container.chatService.planDashboard.value
+                    container.taskDashboard.plans.value
                         .any { it.id == planId }
                 }
                 compose.onNodeWithTag("screen-tasks").performScrollToNode(hasTestTag("tasks-plan-$planId"))
@@ -237,7 +237,7 @@ class PlanExecuteCloseLoopDeviceTest {
     ) {
         try {
             compose.waitUntil(60_000) {
-                container.chatService.planDashboard.value
+                container.taskDashboard.plans.value
                     .firstOrNull { it.id == planId }
                     ?.state == "EXECUTING"
             }

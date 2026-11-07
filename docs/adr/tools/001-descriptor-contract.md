@@ -59,7 +59,7 @@ Browser/Mobile Use 的观察结果复用现有 ToolResult、InvocationOutcome �
 
 ### 2026-10-15 目标工具契约与执行事实
 
-[HXA-286](../../development/tasks/HXA-286.md) 将工具的规范名、语义、参数、描述和前置依赖作为重构输入。模型侧保持具名工具，通用操作优先采用已形成惯例的 read/write/edit、glob/grep、web_search/web_fetch；领域和外部来源保留必要限定。名称不能替代稳定来源/Binding，也不暴露一个万能 execute(action,args)。同一请求不同时提供等价执行别名，外来名称仅作发现线索。
+[HXA-286](../../completion-records/HXA-286.md) 将工具的规范名、语义、参数、描述和前置依赖作为重构输入。模型侧保持具名工具，通用操作优先采用已形成惯例的 read/write/edit、glob/grep、web_search/web_fetch；领域和外部来源保留必要限定。名称不能替代稳定来源/Binding，也不暴露一个万能 execute(action,args)。同一请求不同时提供等价执行别名，外来名称仅作发现线索。
 
 描述按用途/适用时机、前置范围、参数及副作用、结果/下一步组织，采用一致英文动作句，UI 继续本地化。Schema 明确路径身份、单位、替换/追加/提交、空结果及截断；保留内容 hash 和目标校验。契约变化同步实现、调用者、Skill、提示、批准身份和测试，直接删除旧内部入口，不靠别名维持双轨；具体参数由所属任务冻结。
 
@@ -122,9 +122,9 @@ HXA-276/277已交付有界验收；279观察增量已实现，实际结果见[27
 
 ## References
 
-- [HXA-276：Browser 贡献](../../development/tasks/HXA-276.md)
-- [HXA-277：原生资源](../../development/tasks/HXA-277.md)
-- [HXA-279：UI 观察反馈](../../development/tasks/HXA-279.md)
+- [HXA-276：Browser 贡献](../../completion-records/HXA-276.md)
+- [HXA-277：原生资源](../../completion-records/HXA-277.md)
+- [HXA-279：UI 观察反馈](../../completion-records/HXA-279.md)
 - [插件研究与任务映射](../../research/topics/helix-plugin-architecture-optimization-2026-10-11.md#7-任务承接与验收)
 - [实施状态](../../development/status.md)
 - [开发路线](../../development/roadmap.md)
@@ -132,7 +132,7 @@ HXA-276/277已交付有界验收；279观察增量已实现，实际结果见[27
 
 ## Decision history — 2026-10-17
 
-Owner 授权当前独立优化与后续任务收敛：303 将配套发现从宿主名称分支移到贡献描述，采用当前快照内的有限闭包，排除安全 hash 并冻结集合。已删除 PREFERENCE_DENIED 旧审计兼容枚举及对应展示；新预览存储基线不承诺读取旧审计行。286 的完整贡献协议及 288 的类型化执行/产物仍待实施，验收归 [303](../../development/tasks/HXA-303.md)。
+Owner 授权当前独立优化与后续任务收敛：303 将配套发现从宿主名称分支移到贡献描述，采用当前快照内的有限闭包，排除安全 hash 并冻结集合。已删除 PREFERENCE_DENIED 旧审计兼容枚举及对应展示；新预览存储基线不承诺读取旧审计行。286 的完整贡献协议及 288 的类型化执行/产物仍待实施，验收归 [303](../../completion-records/HXA-303.md)。
 
 按 Owner 目录架构研究补可信环境/映射和工具结果分类，产物发布与源回写独立，模型与 UI 使用同一原事实的不同投影。接受目标设计而非提前交付远程/新映射，现有 R1 绑定、具名工具和权限链不重建；实现按原任务完整替换。
 

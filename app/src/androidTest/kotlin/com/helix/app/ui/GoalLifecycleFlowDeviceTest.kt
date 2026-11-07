@@ -9,6 +9,8 @@ import com.helix.app.sendTestMessage
 import com.helix.core.model.AgentMode
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
+import com.helix.feature.conversation.input.ChatSubmission
+import com.helix.feature.conversation.input.ChatSubmissionOutcome
 import com.helix.provider.api.ProbeOutcome
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -133,7 +135,7 @@ class GoalLifecycleFlowDeviceTest {
                             .listBySession(session)
                             .single()
                     val input =
-                        com.helix.feature.conversation.input.ChatSubmission(
+                        ChatSubmission(
                             session,
                             0,
                             java.util.UUID
@@ -148,7 +150,7 @@ class GoalLifecycleFlowDeviceTest {
                             .sendSubmission(
                                 input,
                             ).await()
-                            .outcome is com.helix.feature.conversation.input.ChatSubmissionOutcome.Enqueued,
+                            .outcome is ChatSubmissionOutcome.Enqueued,
                     )
                     org.junit.Assert.assertNull(
                         container.storage.turns
@@ -209,7 +211,10 @@ class GoalLifecycleFlowDeviceTest {
             } finally {
                 release.countDown()
                 chat.stopContinuousGoals()
-                await { chat.backgroundTasks.value.none { it.sessionId == session && it.running } }
+                await {
+                    container.taskDashboard.tasks.value
+                        .none { it.sessionId == session && it.running }
+                }
                 chat.closeSession()
                 chat.setMode(previous.mode)
                 chat.setTurnBudgets(previous.budgets)

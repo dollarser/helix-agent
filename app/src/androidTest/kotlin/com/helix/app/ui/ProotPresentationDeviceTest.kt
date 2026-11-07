@@ -17,9 +17,9 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.dp
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.HelixApplication
-import com.helix.app.HelixTheme
 import com.helix.app.application.runtime.ProotInstallationStatus
 import com.helix.app.proot.ProotToolModule
+import com.helix.ui.shared.HelixTheme
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Rule

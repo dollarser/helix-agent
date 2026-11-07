@@ -305,7 +305,7 @@ class FirstSuccessJourneyDeviceTest {
             chat.screen.value.toolTimeline
                 .any { it.toolName == "read" },
         )
-        assertTrue(chat.conversationArtifacts(sessionId).any { it.id == artifact.id })
+        assertTrue(container.conversationDetails.conversationArtifacts(sessionId).any { it.id == artifact.id })
 
         delay(2_000)
         assertEquals("restart must not create a second turn", 1, storage.turns.listBySession(sessionId).size)

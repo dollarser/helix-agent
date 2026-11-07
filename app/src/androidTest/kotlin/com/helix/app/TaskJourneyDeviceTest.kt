@@ -16,7 +16,6 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.chat.ArtifactQuery
-import com.helix.app.chat.ChatService
 import com.helix.app.provider.LoopbackModelServer
 import com.helix.app.provider.ProviderDraft
 import com.helix.app.test.settleFixtureTerminal
@@ -40,6 +39,7 @@ import com.helix.core.storage.HelixStorage
 import com.helix.core.storage.criteria.StoredCriterion
 import com.helix.core.storage.entity.GoalControlEntity
 import com.helix.core.storage.mapping.StoredGoal
+import com.helix.feature.conversation.application.ChatService
 import com.helix.provider.api.ProbeOutcome
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
@@ -234,14 +234,14 @@ class TaskJourneyDeviceTest {
                 val sessionF = chat.createSession("HXA202 stop journey F", provider, MODEL)
                 val previous = chat.runControl.value
                 try {
-                    val settledE = stopLiveJourney(storage, chat, sessionE, "Echo probe E.")
+                    val settledE = stopLiveJourney(storage, chat, container.taskDashboard, sessionE, "Echo probe E.")
                     // A stale stop on the already-completed seeded turn changes nothing.
                     chat.stopTask(TURN_A)
                     stopAwait { storage.turns.resolve(TURN_A).state == "COMPLETED" }
                     assertEquals("COMPLETED", storage.turns.resolve(TURN_A).state)
                     // The second journey settles while E's row is already durable: its stop
                     // must be turn-scoped and rewrite nothing that E's stop committed.
-                    val settledF = stopLiveJourney(storage, chat, sessionF, "Echo probe F.")
+                    val settledF = stopLiveJourney(storage, chat, container.taskDashboard, sessionF, "Echo probe F.")
                     assertEquals(
                         "stopping a later turn must not rewrite an earlier settled row",
                         settledE,
@@ -254,8 +254,14 @@ class TaskJourneyDeviceTest {
                     )
                     // The shared dashboard feed reaches the durable settlement for both stops.
                     stopAwait {
-                        chat.backgroundTasks.value.any { it.id == settledE.id && it.state == TurnState.CANCELLED } &&
-                            chat.backgroundTasks.value.any { it.id == settledF.id && it.state == TurnState.CANCELLED }
+                        container.taskDashboard.tasks.value.any {
+                            it.id == settledE.id &&
+                                it.state == TurnState.CANCELLED
+                        } &&
+                            container.taskDashboard.tasks.value.any {
+                                it.id == settledF.id &&
+                                    it.state == TurnState.CANCELLED
+                            }
                     }
                     assertEquals("the fixture tool never executed", 0, executions.get())
                 } finally {
@@ -582,6 +588,7 @@ class TaskJourneyDeviceTest {
     private fun stopLiveJourney(
         storage: HelixStorage,
         chat: ChatService,
+        dashboard: com.helix.app.chat.TaskDashboardProjection,
         sessionId: String,
         probe: String,
     ): SettledTurnRow {
@@ -599,7 +606,7 @@ class TaskJourneyDeviceTest {
         chat.sendTestMessage(sessionId, probe)
         awaitApproval(storage, chat, sessionId)
         val turn = storage.turns.listBySession(sessionId).single()
-        stopAwait { chat.backgroundTasks.value.any { it.id == turn.id } }
+        stopAwait { dashboard.tasks.value.any { it.id == turn.id } }
         // The journey is durably live in its tool phase BEFORE the stop. The turn row persists
         // RUNNING_TOOL while the call awaits approval (the user-visible "awaiting approval" is
         // the projection over this row plus the approval row), so the stop path must walk this

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="category_video">视频</string>
+    <string name="kind_docx">DOCX 文档</string>
+    <string name="admission_snapshot_missing">附件「%1$s」已不存在或无法读取，已阻止发送；请重新选择该文件</string>
+    <string name="kind_html">HTML 网页</string>
+    <string name="category_other">其他类型</string>
+    <string name="admission_snapshot_tampered">附件「%1$s」内容与导入时的快照不一致（可能已被修改），已阻止发送；请重新选择该文件</string>
+    <string name="admission_empty_message">消息为空：请输入内容或至少选择一个可发送的附件</string>
+    <string name="category_document">文档</string>
+    <string name="admission_unsupported">附件「%1$s」（%2$s）暂不支持作为聊天输入，已阻止发送</string>
+    <string name="kind_csv">CSV 表格</string>
+    <string name="kind_json">JSON</string>
+    <string name="kind_pdf">PDF 文档</string>
+    <string name="category_text_encoding">非 UTF-8 文本编码</string>
+    <string name="category_audio">音频</string>
+    <string name="image_reselect_required">无法验证图片附件已移除 EXIF 元数据，请移除此附件后重新选择。</string>
+</resources>

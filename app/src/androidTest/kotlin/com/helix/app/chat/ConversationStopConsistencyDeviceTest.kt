@@ -24,6 +24,7 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
+import com.helix.feature.conversation.R as ConversationR
 
 class ConversationStopConsistencyDeviceTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
@@ -64,7 +65,7 @@ class ConversationStopConsistencyDeviceTest {
                     // Check Chat UI reflects cancelled label
                     compose
                         .onNodeWithTag("chat-turn-progress")
-                        .assertTextEquals(compose.activity.getString(R.string.chat_cancelled))
+                        .assertTextEquals(compose.activity.getString(ConversationR.string.chat_cancelled))
                         .assertIsDisplayed()
 
                     // Check persistence in storage

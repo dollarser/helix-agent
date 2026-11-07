@@ -57,7 +57,7 @@ class McpToolDiscoveryDeviceTest {
         )
         try {
             val result =
-                chat.dispatchToolCall(
+                container.toolExecution.dispatchToolCall(
                     turn,
                     turn,
                     "tools.search",

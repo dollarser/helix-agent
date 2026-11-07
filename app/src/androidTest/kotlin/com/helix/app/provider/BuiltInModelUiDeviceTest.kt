@@ -7,9 +7,10 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
-import com.helix.app.ui.ComposerModelMenu
+import com.helix.app.infrastructure.conversation.conversationModelSources
 import com.helix.core.model.ProviderProvisioningKind
 import com.helix.core.model.ProviderResidence
+import com.helix.feature.conversation.presentation.ComposerModelMenu
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -37,7 +38,7 @@ class BuiltInModelUiDeviceTest {
         compose.setContent {
             MaterialTheme {
                 ComposerModelMenu(
-                    listOf(row),
+                    listOf(row).conversationModelSources(null, null),
                     null,
                     null,
                     true,
@@ -60,11 +61,19 @@ class BuiltInModelUiDeviceTest {
         val discovered = row.copy(builtInCatalog = BuiltInModelCatalog(1, listOf("future-model")))
         compose.setContent {
             MaterialTheme {
-                ComposerModelMenu(listOf(discovered), null, null, true, { provider, model, _ ->
-                    selected =
-                        provider to model
-                    com.helix.app.chat.SessionModelSelectionResult.APPLIED
-                })
+                ComposerModelMenu(
+                    listOf(
+                        discovered,
+                    ).conversationModelSources(null, null),
+                    null,
+                    null,
+                    true,
+                    { provider, model, _ ->
+                        selected =
+                            provider to model
+                        com.helix.feature.conversation.presentation.SessionModelSelectionResult.APPLIED
+                    },
+                )
             }
         }
         compose.onNodeWithTag("chat-model-menu").performClick()
@@ -79,10 +88,18 @@ class BuiltInModelUiDeviceTest {
         var selections = 0
         compose.setContent {
             MaterialTheme {
-                ComposerModelMenu(listOf(row), row.id, "previous-model", true, { _, _, _ ->
-                    selections++
-                    com.helix.app.chat.SessionModelSelectionResult.APPLIED
-                })
+                ComposerModelMenu(
+                    listOf(
+                        row,
+                    ).conversationModelSources(row.id, "previous-model"),
+                    row.id,
+                    "previous-model",
+                    true,
+                    { _, _, _ ->
+                        selections++
+                        com.helix.feature.conversation.presentation.SessionModelSelectionResult.APPLIED
+                    },
+                )
             }
         }
         compose.onNodeWithTag("chat-model-menu").performClick()

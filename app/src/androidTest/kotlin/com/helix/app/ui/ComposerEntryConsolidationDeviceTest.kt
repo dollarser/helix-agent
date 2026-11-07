@@ -9,6 +9,14 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import com.helix.core.model.ProviderProvisioningKind
+import com.helix.feature.conversation.presentation.ChatScreen
+import com.helix.feature.conversation.presentation.ChatScreenState
+import com.helix.feature.conversation.presentation.ComposerActions
+import com.helix.feature.conversation.presentation.ComposerAddSheet
+import com.helix.feature.conversation.presentation.ComposerModelMenu
+import com.helix.feature.conversation.presentation.ConversationIntents
+import com.helix.feature.conversation.presentation.ProviderBindingIssue
+import com.helix.feature.conversation.presentation.VoiceInputModeSheet
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -56,8 +64,8 @@ class ComposerEntryConsolidationDeviceTest {
     @Test fun bindingFailureKeepsItsMessageAndUsesTheExistingModelEntry() {
         compose.setContent {
             MaterialTheme {
-                ConversationSection(
-                    com.helix.app.chat.ChatScreenState(
+                ChatScreen(
+                    ChatScreenState(
                         emptyList(),
                         "fixture",
                         null,
@@ -67,7 +75,7 @@ class ComposerEntryConsolidationDeviceTest {
                         null,
                         null,
                         null,
-                        modelBindingIssue = com.helix.app.provider.ProviderBindingIssue.SOURCE_DELETED,
+                        modelBindingIssue = ProviderBindingIssue.SOURCE_DELETED,
                     ),
                     com.helix.core.agent.RunControlConfig(
                         com.helix.core.model.AgentMode.ACT,

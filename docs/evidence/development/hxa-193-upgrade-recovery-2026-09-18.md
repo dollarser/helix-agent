@@ -1,6 +1,6 @@
 # HXA-193 收口证据：升级恢复验证与完整本地验收（2026-09-18）
 
-> 整合审查修正：下文为原执行者交付快照。当前仅确认构造历史数据后的Runtime冷启动恢复，不含实际旧APK覆盖升级；原 completed/闭合声明不作为完整HXA验收，HXA-193保持待收尾，见[任务](../../completion-records/HXA-193.md)。
+> 整合审查修正：下文为原执行者交付快照。当时仅确认构造历史数据后的 Runtime 冷启动恢复，不含实际旧 APK 覆盖升级；原 completed/闭合声明不作为完整 HXA 验收。后续选定旧 APK 的覆盖升级另有证据，最终范围见[完成记录](../../completion-records/HXA-193.md)，不把后续通过反写成本轮已执行。
 
 本记录属于 HXA-193 收口轮（第二个执行者，worktree `Helix-runtime-search`，分支 `codex/runtime-closeout-session-search`，基线 `c33cb893`）。前序 CI 现场复核见 [ci-runtime-assets-2026-09-17](ci-runtime-assets-2026-09-17.md)；本轮聚焦该记录留下的两项开放项中的可执行部分：**升级后已有用户数据/配置/结果/旧验证锚的恢复验证**，并补齐实际 CI 最终状态与本地全门禁。
 
@@ -100,5 +100,5 @@ git diff --check
 ## 建议 status 更新（供协调者整合，本执行者不直接改全局 status/roadmap/index）
 
 - HXA-193 标记为完成（本任务范围：包内 Runtime 可复现资产与升级验收），注明外部边界：默认滚动镜像 Docker 重建仍缺锁定 `xz-libs 5.8.3-r0`（上游镜像状态，不阻塞；持久路径为已验证的锁定固定归档）。
-- 完成记录：`docs/development/tasks/HXA-193.md`（Completed 索引与 `completion-records/index.md` 由协调者维护）。
+- 完成记录：`docs/completion-records/HXA-193.md`（Completed 索引与 `completion-records/index.md` 由协调者维护）。
 - 文档契约：完成记录落地后，活动任务文件 `docs/development/tasks/HXA-193.md` 已由后续文档修复提交删除（`check-docs.sh` 要求活动任务集合 = roadmap − 已完成记录）；原任务文件内的收口记录摘要以本证据文档为准。

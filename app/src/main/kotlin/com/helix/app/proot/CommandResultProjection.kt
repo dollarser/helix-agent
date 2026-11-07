@@ -1,6 +1,7 @@
 package com.helix.app.proot
 
 import com.helix.core.model.TurnState
+import com.helix.feature.conversation.presentation.ProotRecoveredFile
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject

@@ -116,7 +116,7 @@ SAF 可能由远端文档服务提供，不能将 content URI 一律当作本地
 
 目标需要资源身份、会话绑定版本和不可变请求快照，并表达执行所需的工作副本/来源、live 或 snapshot 模式、environment/generation、cwd/映射版本及生命周期事实。现有 Entity、表结构和接口仅是评估基线，可按目标完整替换，生产中只保留一套权威账本。请求后切目录、环境重建或旧回包都不能改写原绑定。现行手动终端与支持的 POSIX Job 默认操作真实工作区；snapshot 为显式模式。信息展示按实际原位/副本事实报告，不恢复旧默认。
 
-默认直接操作选定的真实工作区，URI-native 消费者通过 Provider 原位读写。只有具体消费者不能使用 URI、确需 POSIX 桥接时才物化为明确副本；源引用、映射与输出单独表达，导回按当前授权和可提供的源版本保证处理。远程环境可直接访问真实资源时同样原位操作，远程不意味着必须复制。同源、同项目和同名均不证明副本一致；失效不静默回退，取消不回滚，断连核查原执行。副本保留/回收按真实 owner、引用及在途使用，不能随页面关闭清除。现行实现与有界双路径证据见[原位执行](../../development/proot-in-place-execution.md)及[结果日志](../../development/result-log-closeout.md)；[287](../../development/tasks/HXA-287.md)/[288](../../development/tasks/HXA-288.md)只承接实际改动的接缝，不引入透明同步或任意 SAF 的 POSIX 仿真。
+默认直接操作选定的真实工作区，URI-native 消费者通过 Provider 原位读写。只有具体消费者不能使用 URI、确需 POSIX 桥接时才物化为明确副本；源引用、映射与输出单独表达，导回按当前授权和可提供的源版本保证处理。远程环境可直接访问真实资源时同样原位操作，远程不意味着必须复制。同源、同项目和同名均不证明副本一致；失效不静默回退，取消不回滚，断连核查原执行。副本保留/回收按真实 owner、引用及在途使用，不能随页面关闭清除。现行实现与有界双路径证据见[原位执行](../../development/proot-in-place-execution.md)及[结果日志](../../development/result-log-closeout.md)；[287](../../completion-records/HXA-287.md)/[288](../../development/tasks/HXA-288.md)只承接实际改动的接缝，不引入透明同步或任意 SAF 的 POSIX 仿真。
 
 目标补充：同一 binding 的文件/exec/终端在支持时共享真实资源；手动终端无需会话。worktree/snapshot 是明确选择的模式，普通非 Git 目录不强制复制或 Git 化。现有 Git 累积差异和后续逐调用变更记录分别表达；审批预览不是执行结果，写后 diff 不是权限或无损撤销保证，不对任意 Shell 宣称 CAS 或增加全局文件锁。当前 LinuxRunTool 已默认 in_place 并支持严格相对嵌套 cwd，主应用只收取输出/登记引用；snapshot 是明确选择的有效模式，其现行命名不能当默认强制归档残留删除。跨来源层级 manifest 仍是独立候选；已交付默认原位不等待整套 286/287/288 再切换。
 

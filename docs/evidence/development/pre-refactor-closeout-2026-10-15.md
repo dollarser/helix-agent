@@ -1,6 +1,6 @@
 # 重构前有界验收收尾
 
-日期：2026-10-15。范围：[HXA-284](../../development/tasks/HXA-284.md)、[HXA-285](../../development/tasks/HXA-285.md)、[当前状态](../../development/status.md)。Owner允许设备/模型/真实MCP并要求先收尾；本轮选择当前日常API36/Developer与已有localhost:30008 Qwen3.8-27B，只读取合成文件与指定官方MCP对象。未连接真机；按主会话通知，长稳和提前结束排查保持暂停，不作为本轮隐含工作。
+日期：2026-10-15。范围：[HXA-284](../../completion-records/HXA-284.md)、[HXA-285](../../completion-records/HXA-285.md)、[当前状态](../../development/status.md)。Owner允许设备/模型/真实MCP并要求先收尾；本轮选择当前日常API36/Developer与已有localhost:30008 Qwen3.8-27B，只读取合成文件与指定官方MCP对象。未连接真机；按主会话通知，长稳和提前结束排查保持暂停，不作为本轮隐含工作。
 
 ## 已执行
 

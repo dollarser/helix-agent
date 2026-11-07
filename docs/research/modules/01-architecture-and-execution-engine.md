@@ -155,10 +155,10 @@ Helix 已有单一 AgentLoop、单一 Turn 生命周期权威及统一工具执�
 | 事实 | 当前入口 | 解释与边界 |
 | --- | --- | --- |
 | 唯一模型/工具循环在纯 JVM Core | [AgentLoop](../../../core/agent/src/main/kotlin/com/helix/core/agent/AgentLoop.kt) 的 runToolLoop、runToolRound | 端口化模型、日志、上下文、工具和预算；可由替代宿主提供适配，不等于整个产品已有独立运行服务 |
-| 运行接口与宿主仍有应用耦合 | [AgentRuntime](../../../core/agent/src/main/kotlin/com/helix/core/agent/AgentRuntime.kt)、[AppAgentRuntime](../../../app/src/main/kotlin/com/helix/app/application/agent/AppAgentRuntime.kt)、[ChatService](../../../app/src/main/kotlin/com/helix/app/chat/ChatService.kt) 的 agentRuntime 接线 | submit/cancel 回调原 ChatService 命令，observe 消费 Engine view；完整 Turn 生命周期仍依赖 App/Room |
+| 运行接口与宿主仍有应用耦合 | [AgentRuntime](../../../core/agent/src/main/kotlin/com/helix/core/agent/AgentRuntime.kt)、[AppAgentRuntime](../../../app/src/main/kotlin/com/helix/app/application/agent/AppAgentRuntime.kt)、[ChatService](https://github.com/dollarser/helix-agent/blob/7b4976d217a6738023f6a760fc94db98689483b2/app/src/main/kotlin/com/helix/app/chat/ChatService.kt) 的 agentRuntime 接线 | submit/cancel 回调原 ChatService 命令，observe 消费 Engine view；完整 Turn 生命周期仍依赖 App/Room |
 | Engine 管持久和 live 生命周期 | [TurnEngine](https://github.com/dollarser/helix-agent/blob/9965d2dff694441458b4036942c4b8b9749f0f8e/app/src/main/kotlin/com/helix/app/engine/TurnEngine.kt)、[TurnExecutionDriver](https://github.com/dollarser/helix-agent/blob/9965d2dff694441458b4036942c4b8b9749f0f8e/app/src/main/kotlin/com/helix/app/engine/TurnExecutionDriver.kt) | 准入、取消、恢复、review 和 terminal 同一权威；terminalize 先持久结算，再释放 live owner、发布结果 |
 | Core 与宿主之间有明确适配 | [AgentLoopHost](../../../app/src/main/kotlin/com/helix/app/agent/AgentLoopHost.kt)、[TurnCoordinator](https://github.com/dollarser/helix-agent/blob/9965d2dff694441458b4036942c4b8b9749f0f8e/app/src/main/kotlin/com/helix/app/agent/TurnCoordinator.kt)、[ChatToolCalls](https://github.com/dollarser/helix-agent/blob/9965d2dff694441458b4036942c4b8b9749f0f8e/app/src/main/kotlin/com/helix/app/chat/ChatToolCalls.kt) | 分别装配 Core ports、承载 round checkpoint、适配工具批次与持久结果；保持原 Room 事务 |
-| UI 已用应用服务和读投影，但仍有宽依赖 | [ChatScreen](../../../app/src/main/kotlin/com/helix/app/ui/ChatScreen.kt) 的参数与 DisposableEffect | 订阅 StateFlow；recoveryModelsNavigation / recoveryPermissionsNavigation 写入 ChatService，是具体表现层耦合，不是已复现泄漏或卡顿 |
+| UI 已用应用服务和读投影，但仍有宽依赖 | [ChatScreen](https://github.com/dollarser/helix-agent/blob/7b4976d217a6738023f6a760fc94db98689483b2/app/src/main/kotlin/com/helix/app/ui/ChatScreen.kt) 的参数与 DisposableEffect | 订阅 StateFlow；recoveryModelsNavigation / recoveryPermissionsNavigation 写入 ChatService，是具体表现层耦合，不是已复现泄漏或卡顿 |
 | core 目录包含 Android 基础设施 | [模块依赖声明](../../../build.gradle.kts) | model/agent/policy/workspace 是 JVM，storage 是 Room Android Library；模块名字不能证明可独立部署 |
 | 工具调度与授权分工已经存在 | [ToolScheduler](../../../tools/framework/src/main/kotlin/com/helix/tools/framework/ToolScheduler.kt)、[ToolDispatcher](../../../tools/framework/src/main/kotlin/com/helix/tools/framework/ToolDispatcher.kt) | Scheduler 负责有界调度和原顺序结算；Dispatcher 负责绑定/schema、实时能力/策略/会话授权、精确批准及开始执行前复检 |
 | 超时与实际退出已分开 | [ToolDeadlineRunner](../../../tools/framework/src/main/kotlin/com/helix/tools/framework/ToolDeadlineRunner.kt)、[ExecutionOwnership](../../../tools/framework/src/main/kotlin/com/helix/tools/framework/ExecutionOwnership.kt) | 超时/取消只尝试中断；执行线程未退出仍占物理容量，原执行身份另按 Runtime 证据对账；不可将观察槽位释放误判为物理容量释放 |
@@ -167,7 +167,7 @@ Helix 已有单一 AgentLoop、单一 Turn 生命周期权威及统一工具执�
 
 ### 9.3 优化建议与任务去重
 
-下表登记当时建议的归属；[status](../../development/status.md#已交付与历史证据)提供后续交付入口，不由历史映射选择当前工作。本次不新增 HXA 或 ADR 编号。
+下表登记当时建议的归属；[status](../../development/status.md#查阅方式)提供后续交付入口，不由历史映射选择当前工作。本次不新增 HXA 或 ADR 编号。
 
 | 建议 | 承接 | 具体增量 / 退出标准 |
 | --- | --- | --- |
@@ -175,7 +175,7 @@ Helix 已有单一 AgentLoop、单一 Turn 生命周期权威及统一工具执�
 | Browser 统一贡献与共享资源生命周期 | HXA-276、277 | 277 追加四类 owner 映射与跨层取消/退出场景：Turn、调度槽位、实际执行、插件引用；接入原 Runtime 事实，不重复执行注册表 |
 | Skill 上下文和 UI 观察质量 | HXA-278、279 | 按原契约验证内容失效/压缩一致性、标签发现和有界等待；模型收益以固定任务对照证明 |
 | 应用命令和读模型持续收窄 | HXA-274 的恢复展示切片先实施；其余随有实际需求的原任务处理 | 原用户动作身份、门禁、队列、Room 和 Engine 保持单一；没有消费者时不造通用 facade/event bus，不以 ChatService 行数或空壳化验收 |
-| 完整 Turn 宿主提取 | [HXA-287](../../development/tasks/HXA-287.md)，2026-10-15已排期 | 原10月11日要求新消费者；本次评审以 App/Room 解耦和完整无页面测试为实际需求，与应用命令合并目标。尚未实施，不预建 CLI/远程 Server |
+| 完整 Turn 宿主提取 | [HXA-287](../../completion-records/HXA-287.md)，2026-10-15已排期 | 原10月11日要求新消费者；本次评审以 App/Room 解耦和完整无页面测试为实际需求，与应用命令合并目标。尚未实施，不预建 CLI/远程 Server |
 
 已交付工作保留原归属：HXA-220/223 是 Engine owner 与 live driver，HXA-234 是 Core 迁移，HXA-254/255 是项目/权限应用接口，HXA-256 是生产测试桥，HXA-257/258 是会话状态与事务；这些均不重复登记。HXA-271 的授权恢复及开放设备验收仍归原任务，274 只扩展投影及承载接口；HXA-235 的安装/快照引用仍由原任务负责，277 只增加原生资源。验收事实以各任务和当前 status 为准。
 
@@ -252,6 +252,6 @@ Owner 提供另一份审核，要求评估“大幅重构可以接受、目标�
 
 本项目判断：Helix 当前仍以手机本地控制与持久事实为中心，模型可以远端推理；Agent 调度、执行资源与 UI 按现有 ADR 分责。持续任务由持久状态、系统允许的唤醒/运行窗口和通知驱动；任务事实、长期 Memory 与临时上下文分别管理，模型总结不能升级为执行事实。远程 transport 只有在具体获准用户旅程需要时才推进认证、身份、重连与结果归属，不先建设 VM/云电脑平台。以上为对既有 286～288 方向的研究补充，本轮不增加部署域或实现大重构。
 
-> 2026-10-24 目录迁移说明：已删除旧类的链接指向公开 v0.0.7 发布基线，供追溯该旧路径；不证明当年未提交快照逐字可重建。当前替换入口和验收以 [HXA-287](../../development/tasks/HXA-287.md) 为准，旧结构不再是现行规范。
+> 2026-10-24 目录迁移说明：已删除旧类的链接指向公开 v0.0.7 发布基线，供追溯该旧路径；不证明当年未提交快照逐字可重建。当前替换入口和验收以 [HXA-287](../../completion-records/HXA-287.md) 为准，旧结构不再是现行规范。
 
 旧 App Engine 源码入口固定到公开 v0.0.7，供历史结构导航，不表示逐字恢复审查时的未提交代码；当前落点见[实施状态](../../development/status.md)。

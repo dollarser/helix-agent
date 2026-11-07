@@ -4,8 +4,13 @@ import androidx.test.core.app.ApplicationProvider
 import com.helix.app.HelixApplication
 import com.helix.app.agent.ChatHistoryBuilder
 import com.helix.app.agent.ContextCompaction
+import com.helix.app.infrastructure.conversation.RoomConversationHistoryReader
 import com.helix.core.model.ModelRole
 import com.helix.core.storage.HelixStorage
+import com.helix.feature.conversation.application.ConversationHistoryRequest
+import com.helix.feature.conversation.presentation.ChatScreenState
+import com.helix.feature.conversation.presentation.ToolTimelineRow
+import com.helix.feature.conversation.presentation.conversationScreenProjection
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -32,11 +37,12 @@ class ChatScreenProjectionDeviceTest {
                     null,
                 )
             }
-            val projection =
-                ChatScreenProjection(storage, app.appContainer.providerService, { _, _ -> "unused" }, { 0 })
-            val latest = projection.toolTimelineFor("s", emptyList())
+            val reader =
+                RoomConversationHistoryReader(storage, app.appContainer.providerService, { _, _ -> "unused" }, { 0 })
+            val projection = conversationScreenProjection { _, _ -> "unused" }
+            val latest = projection.toolTimelineFor(history(reader, "s"), emptyList())
             assertEquals(3, latest.size)
-            val older = projection.toolTimelineFor("s", latest, listOf(storage.messages.resolve("m0")), 0)
+            val older = projection.toolTimelineFor(history(reader, "s", latest, limit = 1, through = 0), latest)
             assertEquals(listOf("c0"), older.map { it.callId })
         } finally {
             storage.close()
@@ -81,16 +87,17 @@ class ChatScreenProjectionDeviceTest {
             }
             storage.close()
             storage = HelixStorage.open(app, name, files)
-            val projection =
-                ChatScreenProjection(storage, app.appContainer.providerService, { _, _ -> "unused" }, { 0 })
-            val restored = projection.toolTimelineFor("session", emptyList()).single()
+            val reader =
+                RoomConversationHistoryReader(storage, app.appContainer.providerService, { _, _ -> "unused" }, { 0 })
+            val projection = conversationScreenProjection { _, _ -> "unused" }
+            val restored = projection.toolTimelineFor(history(reader, "session"), emptyList()).single()
             assertEquals("Inspect file", restored.modelIntent)
             assertEquals("{}", restored.requestSummary)
             assertEquals("fixture failure", restored.resultSummary)
-            val withDuration = projection.toolTimelineFor("session", listOf(restored.copy(durationMs = 400))).single()
+            val live = listOf(restored.copy(durationMs = 400))
+            val withDuration = projection.toolTimelineFor(history(reader, "session", live), live).single()
             assertEquals(400L, withDuration.durationMs)
-            val screen = ChatScreenState(emptyList(), null, null, emptyList(), emptyList(), null, null, null, null)
-            val visible = projection.messagesFor("session", screen)
+            val visible = projection.messagesFor(history(reader, "session"))
             assertEquals(listOf("message-0", "message-1"), visible.map { it.id })
             assertEquals(listOf(json, "```json\n$json\n```"), visible.map { it.content })
             val persisted = storage.messages.listBySession("session")
@@ -116,4 +123,19 @@ class ChatScreenProjectionDeviceTest {
             files.deleteRecursively()
         }
     }
+
+    private fun history(
+        reader: RoomConversationHistoryReader,
+        sessionId: String,
+        live: List<ToolTimelineRow> = emptyList(),
+        limit: Int = 100,
+        through: Long = Long.MAX_VALUE,
+    ) = reader.read(
+        ConversationHistoryRequest.capture(
+            sessionId,
+            ChatScreenState(emptyList(), sessionId, null, emptyList(), live, null, null, null, null)
+                .copy(historyLimit = limit, historyThrough = through),
+            0,
+        ),
+    )
 }

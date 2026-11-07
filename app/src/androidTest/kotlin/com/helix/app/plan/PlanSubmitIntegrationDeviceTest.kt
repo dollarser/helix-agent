@@ -196,7 +196,7 @@ class PlanSubmitIntegrationDeviceTest {
                 .list()
                 .size
         val outcome =
-            container.chatService.dispatchToolCall(
+            container.toolExecution.dispatchToolCall(
                 callId,
                 turnId,
                 "plan.submit",
@@ -264,7 +264,7 @@ class PlanSubmitIntegrationDeviceTest {
                 .size
         // TurnRepository.resolve throws for a turn that never resolved — before any row exists.
         assertThrows(IllegalArgumentException::class.java) {
-            container.chatService.dispatchToolCall(
+            container.toolExecution.dispatchToolCall(
                 callId,
                 forgedTurn,
                 "plan.submit",
@@ -292,7 +292,7 @@ class PlanSubmitIntegrationDeviceTest {
                 .list()
                 .size
         val outcome =
-            container.chatService.dispatchToolCall(
+            container.toolExecution.dispatchToolCall(
                 callId,
                 turnId,
                 "plan.submit",

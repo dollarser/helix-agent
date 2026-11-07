@@ -72,7 +72,7 @@ def main() -> None:
     results = []
 
     # 2. Batch A: core:storage tests
-    storage_apk = "core/storage/build/outputs/apk/androidTest/debug/storage-debug-androidTest.apk"
+    storage_apk = "infrastructure/storage/build/outputs/apk/androidTest/debug/storage-debug-androidTest.apk"
     if Path(storage_apk).exists():
         print("\n--- Installing and running core:storage physical tests ---")
         run_adb(serial, "install", "-r", "-t", storage_apk)

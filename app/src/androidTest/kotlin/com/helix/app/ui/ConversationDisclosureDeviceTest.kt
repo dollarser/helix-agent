@@ -132,7 +132,7 @@ class ConversationDisclosureDeviceTest {
                             .listByTurn(turn.id)
                             .any { it.name == "write" && it.state == "COMPLETED" },
                     )
-                    val outputs = chat.conversationArtifacts(session)
+                    val outputs = c.conversationDetails.conversationArtifacts(session)
                     assertEquals(1, outputs.size)
                     assertQuiet()
                     screenshot("existing-with-output")

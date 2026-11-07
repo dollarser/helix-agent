@@ -16,6 +16,7 @@ import com.helix.app.projects.ProjectRecords
 import com.helix.app.ui.ArtifactsScreenDestination
 import com.helix.app.ui.TasksScreen
 import kotlinx.coroutines.CancellationException
+import com.helix.ui.shared.R as SharedR
 
 @Composable
 @Suppress("FunctionName", "TooGenericExceptionCaught", "SwallowedException")
@@ -28,8 +29,8 @@ internal fun ProjectHistory(
     onOpenCommand: (String, String) -> Unit,
 ) {
     val service = requireNotNull(container.projects)
-    val tasks by container.chatService.backgroundTasks.collectAsStateWithLifecycle()
-    val files by container.chatService.artifactFiles.collectAsStateWithLifecycle()
+    val tasks by container.taskDashboard.tasks.collectAsStateWithLifecycle()
+    val files by container.taskDashboard.artifacts.collectAsStateWithLifecycle()
     var revision by remember { mutableStateOf(0) }
     val result by produceState<Result<ProjectRecords>?>(null, members, tasks, files, revision) {
         value =
@@ -48,13 +49,15 @@ internal fun ProjectHistory(
         }
 
         records == null -> {
-            Text(stringResource(R.string.project_failed))
-            TextButton({ revision++ }) { Text(stringResource(R.string.chat_retry)) }
+            Text(stringResource(SharedR.string.project_failed))
+            TextButton({ revision++ }) { Text(stringResource(SharedR.string.chat_retry)) }
         }
 
         tab == 2 -> {
             TasksScreen(
                 container.chatService,
+                container.taskDashboard,
+                container.conversationDetails,
                 container.fileManager,
                 onOpenSession,
                 onOpenCommandDetail = onOpenCommand,

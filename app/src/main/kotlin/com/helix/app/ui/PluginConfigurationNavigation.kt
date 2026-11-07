@@ -21,6 +21,8 @@ import com.helix.app.R
 import com.helix.app.connector.MOBILE_USE_PLUGIN_ID
 import com.helix.app.plugin.PluginService
 import com.helix.app.plugin.PluginSetupReason
+import com.helix.ui.shared.indicatedVerticalScroll
+import com.helix.ui.shared.R as SharedR
 
 private const val PLUGIN_CONFIGURATION_ROUTE = "extensions/plugin-configuration/{pluginId}"
 
@@ -53,7 +55,7 @@ internal fun NavGraphBuilder.pluginConfigurationDestination(
         Column(Modifier.fillMaxSize().indicatedVerticalScroll(rememberScrollState())) {
             TextButton({
                 nav.returnFrom(source)
-            }, Modifier.testTag("plugin-configuration-back")) { Text(stringResource(R.string.common_back)) }
+            }, Modifier.testTag("plugin-configuration-back")) { Text(stringResource(SharedR.string.common_back)) }
             com.helix.app.connector.ConnectorSection(
                 service,
                 showImport = false,

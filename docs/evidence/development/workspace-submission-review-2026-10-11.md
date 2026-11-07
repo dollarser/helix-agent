@@ -23,7 +23,7 @@
 | HelixAccessibilityService.kt | `f9394043091384a70340ed4cf98dca5c52737cd69f60e1ca4b350057843ee6f6` |
 | AccessibilityTargetObserverTest.kt | `aed266478214aeec057da8d7f57f25d24078cfdd36967335e3fa9cd3bf82a652` |
 
-历史记录为 Mobile Use 224 项主机回归、既有主机门禁及 OnePlus/API35/Qwen 有界旅程通过，见[原证据](physical-mobile-use-black-screen-2026-10-10.md)和 [HXA-269](../../development/tasks/HXA-269.md)。本轮只核对身份，不重跑设备/模型；视觉黑屏的全部原因、长后台及其他 OEM 边界仍按原任务保留。
+历史记录为 Mobile Use 224 项主机回归、既有主机门禁及 OnePlus/API35/Qwen 有界旅程通过，见[原证据](physical-mobile-use-black-screen-2026-10-10.md)和 [HXA-269](../../completion-records/HXA-269.md)。本轮只核对身份，不重跑设备/模型；视觉黑屏的全部原因、长后台及其他 OEM 边界仍按原任务保留。
 
 ## Chat Reply 的实际完成度
 

@@ -29,10 +29,10 @@ import androidx.compose.ui.test.performTextInputSelection
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.text.TextRange
 import androidx.test.platform.app.InstrumentationRegistry
-import com.helix.app.HelixUiDesign
 import com.helix.app.R
 import com.helix.app.ui.stableChatLayoutScreenshot
 import com.helix.core.storage.knowledge.KnowledgeStore
+import com.helix.ui.shared.HelixUiDesign
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -43,6 +43,7 @@ import org.junit.Test
 import java.io.File
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicReference
+import com.helix.ui.shared.R as SharedR
 
 /** Replaces chat-prefill share tests with the collection-first product contract. No model is called. */
 class KnowledgeUiDeviceTest {
@@ -187,7 +188,7 @@ class KnowledgeUiDeviceTest {
             compose.onNodeWithTag("knowledge-note-body").assertTextContains("Unsaved synthetic content")
             compose.onNodeWithTag("knowledge-note-back").performClick()
             val context = InstrumentationRegistry.getInstrumentation().targetContext
-            compose.onNodeWithText(context.getString(R.string.common_discard_edit)).performClick()
+            compose.onNodeWithText(context.getString(SharedR.string.common_discard_edit)).performClick()
             assertTrue(
                 runBlocking {
                     service.noteService.notes
@@ -526,7 +527,7 @@ class KnowledgeUiDeviceTest {
         try {
             restoration.setContent {
                 if (visible.value) {
-                    com.helix.app.HelixTheme {
+                    com.helix.ui.shared.HelixTheme {
                         androidx.compose.material3.Surface(Modifier.fillMaxSize()) {
                             Box(
                                 Modifier

@@ -17,7 +17,7 @@ changed = [p for p, sha in before.items()
            if not (root / p).exists() or hashlib.sha256((root / p).read_bytes()).hexdigest() != sha]
 results = {}
 for module, task in [('core/agent', 'test'), ('tools/framework', 'test'),
-                     ('core/storage', 'testDebugUnitTest'), ('provider/openai-chat', 'test')]:
+                     ('infrastructure/storage', 'testDebugUnitTest'), ('provider/openai-chat', 'test')]:
     counts = dict(tests=0, failures=0, errors=0, skipped=0)
     probes = []
     for path in (root / module / 'build/test-results' / task).glob('TEST-*.xml'):
@@ -43,7 +43,7 @@ if any(not (root / p).is_file() or hashlib.sha256((root / p).read_bytes()).hexdi
     raise SystemExit('Probe inputs changed during the run')
 if changed:
     raise SystemExit('Production baseline changed; inspect before claiming preservation')
-expected = {'core/agent': 1, 'tools/framework': 2, 'core/storage': 1, 'provider/openai-chat': 1}
+expected = {'core/agent': 1, 'tools/framework': 2, 'infrastructure/storage': 1, 'provider/openai-chat': 1}
 for module, count in expected.items():
     actual = sum(int(p['tests']) for p in results[module]['probes'])
     if actual != count or any(int(p[k]) for p in results[module]['probes'] for k in ('failures', 'errors', 'skipped')):

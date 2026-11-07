@@ -53,7 +53,7 @@ class SkillEntryPathsDeviceTest {
             tool: String,
             args: JsonObject,
         ): JsonObject {
-            val outcome = c.chatService.dispatchToolCall("$id-${++sequence}", id, tool, args.toString())
+            val outcome = c.toolExecution.dispatchToolCall("$id-${++sequence}", id, tool, args.toString())
             assertTrue("$tool: $outcome", outcome is ToolDispatchOutcome.Succeeded)
             return Json.parseToJsonElement((outcome as ToolDispatchOutcome.Succeeded).result.payload).jsonObject
         }

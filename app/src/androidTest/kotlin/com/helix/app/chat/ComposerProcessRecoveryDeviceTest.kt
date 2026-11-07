@@ -5,6 +5,7 @@ import com.helix.app.MainActivity
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.application.agent.TurnInputFingerprint
 import com.helix.app.infrastructure.agent.TurnRecovery
+import com.helix.app.infrastructure.conversation.toInputSnapshot
 import com.helix.app.test.settleFixtureTerminal
 import com.helix.app.test.startFixtureTurn
 import com.helix.app.ui.container

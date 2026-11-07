@@ -238,12 +238,6 @@ data class CapabilityChip(
     val args: List<String> = emptyList(),
 )
 
-/** Exact selected identity; presentation and capabilities come from current provider rows. */
-data class SelectedModelUi(
-    val providerId: String,
-    val model: String,
-)
-
 /**
  * One persisted provider as its UI row (HXA-028; pure, unit-tested): a corrupt
  * row throws IAE (fail closed — the caller hides the row and the provider

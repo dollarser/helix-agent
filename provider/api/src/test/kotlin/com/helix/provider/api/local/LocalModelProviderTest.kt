@@ -101,6 +101,17 @@ class LocalModelProviderTest {
         }
 
     @Test
+    fun imageReselectionFailureRemainsActionableAfterRuntimeCleanup() =
+        runBlocking {
+            val runtime = FakeRuntime(emptyList()).apply { imageFailure = true }
+            assertEquals(
+                listOf(ModelEvent.Error(ModelErrorCode.IMAGE_RESELECT_REQUIRED, false)),
+                LocalModelProvider(config, asset, runtime, loading).stream(request()).toList(),
+            )
+            assertTrue(runtime.cancelled)
+        }
+
+    @Test
     fun failedCancelCannotPublishSuccess() =
         runBlocking {
             val runtime = FakeRuntime(listOf(ModelEvent.Completed("stop")))
@@ -138,6 +149,7 @@ class LocalModelProviderTest {
     private inner class FakeRuntime(
         private val events: List<ModelEvent>,
     ) : LocalInferenceRuntimePort {
+        var imageFailure = false
         var hang = false
         val started = CompletableDeferred<Unit>()
         var cancelFails = false
@@ -163,7 +175,12 @@ class LocalModelProviderTest {
         }
 
         override fun generate(request: LocalGenerationRequest): Flow<ModelEvent> =
-            if (hang) {
+            if (imageFailure) {
+                flow {
+                    throw com.helix.core.model
+                        .ImageReselectionRequiredException()
+                }
+            } else if (hang) {
                 flow {
                     started.complete(Unit)
                     awaitCancellation()

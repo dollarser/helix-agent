@@ -138,10 +138,13 @@ private suspend fun runGoalReportFlow(
             },
         )
     } finally {
-        chat.backgroundTasks.value
+        container.taskDashboard.tasks.value
             .filter { it.sessionId == session && it.running }
             .forEach { chat.stopTask(it.id) }
-        compose.waitUntil(10000) { chat.backgroundTasks.value.none { it.sessionId == session && it.running } }
+        compose.waitUntil(10000) {
+            container.taskDashboard.tasks.value
+                .none { it.sessionId == session && it.running }
+        }
         chat.closeSession()
         chat.setMode(previous.mode)
         chat.setTurnBudgets(previous.budgets)

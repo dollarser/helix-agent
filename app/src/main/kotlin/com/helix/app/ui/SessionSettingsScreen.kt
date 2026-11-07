@@ -20,18 +20,27 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.R
 import com.helix.app.approval.SessionPermissionEditService
-import com.helix.app.chat.ChatService
+import com.helix.app.chat.TaskDashboardProjection
+import com.helix.app.infrastructure.conversation.conversationModelSources
 import com.helix.app.provider.ProviderService
 import com.helix.app.provider.discoverReasoningOptions
-import com.helix.app.ui.indicatedVerticalScroll
 import com.helix.core.model.ProviderProvisioningKind
+import com.helix.feature.conversation.application.ChatService
+import com.helix.feature.conversation.presentation.ComposerModelMenu
+import com.helix.feature.conversation.presentation.labelRes
+import com.helix.feature.conversation.presentation.modeLabel
+import com.helix.ui.shared.SharedSheet
+import com.helix.ui.shared.indicatedVerticalScroll
 import kotlinx.coroutines.launch
+import com.helix.feature.conversation.R as ConversationR
+import com.helix.ui.shared.R as SharedR
 
 /** Single authority for configuration that belongs to the currently open Conversation. */
 @Composable
 @Suppress("FunctionName", "LongParameterList", "LongMethod", "CyclomaticComplexMethod")
 internal fun SessionSettingsScreen(
     chatService: ChatService,
+    dashboard: TaskDashboardProjection,
     accountEntry: @Composable (() -> Unit) -> Unit = {},
     skills: com.helix.extensions.skills.SkillRepository? = null,
     projects: com.helix.app.projects.ProjectService? = null,
@@ -49,7 +58,7 @@ internal fun SessionSettingsScreen(
     val scope = rememberCoroutineScope()
     var preparing by remember(sessionId) { mutableStateOf(false) }
     var prepareFailure by remember(sessionId) { mutableStateOf<String?>(null) }
-    val operationFailed = stringResource(R.string.common_operation_failed)
+    val operationFailed = stringResource(SharedR.string.common_operation_failed)
     val withDurableSession: (() -> Unit) -> Unit = { action ->
         val id = sessionId
         if (id != null && !preparing && chatService.screen.value.openSessionId == id) {
@@ -108,7 +117,13 @@ internal fun SessionSettingsScreen(
             skills,
         )
     val unavailable =
-        stringResource(if (summaryFailed) R.string.common_operation_failed else R.string.composer_permission_loading)
+        stringResource(
+            if (summaryFailed) {
+                SharedR.string.common_operation_failed
+            } else {
+                ConversationR.string.composer_permission_loading
+            },
+        )
 
     Column(
         Modifier
@@ -128,7 +143,11 @@ internal fun SessionSettingsScreen(
             )
             ComposerModelMenu(
                 accountEntry = accountEntry,
-                providers = providers,
+                providers =
+                    providers.conversationModelSources(
+                        screen.selectedModel?.providerId,
+                        screen.selectedModel?.model,
+                    ),
                 providerId = screen.selectedModel?.providerId,
                 model = screen.selectedModel?.model,
                 enabled = !screen.isSending && screen.pendingDisclosure == null,
@@ -149,7 +168,7 @@ internal fun SessionSettingsScreen(
                         open,
                         Modifier.testTag("chat-model-menu"),
                         screen.modelBindingIssue?.let { stringResource(it.messageResource) }
-                            ?: screen.selectedModel?.model ?: stringResource(R.string.chat_select_model),
+                            ?: screen.selectedModel?.model ?: stringResource(ConversationR.string.chat_select_model),
                         enabled = !screen.isSending && screen.pendingDisclosure == null,
                     )
                 },
@@ -190,7 +209,7 @@ internal fun SessionSettingsScreen(
         SettingsGroup {
             Text(stringResource(R.string.session_settings_extensions), style = MaterialTheme.typography.titleMedium)
             SettingsEntryRow(
-                stringResource(R.string.composer_permission_title),
+                stringResource(ConversationR.string.composer_permission_title),
                 R.drawable.ic_permission_shield,
                 { withDurableSession { permissionOpen = true } },
                 Modifier.testTag("session-settings-permissions"),
@@ -216,11 +235,11 @@ internal fun SessionSettingsScreen(
         SessionModeDialog(chatService, sessionId, runControl, screen.isSending) { modeOpen = false }
     }
     if (permissionOpen && sessionId != null && !screen.isDraft) {
-        ConversationSheet(stringResource(R.string.composer_permission_title), "session-permissions", {
+        SharedSheet(stringResource(ConversationR.string.composer_permission_title), "session-permissions", {
             permissionOpen =
                 false
         }) {
-            SessionPermissionSessionSection(permissionEdit, chatService)
+            SessionPermissionSessionSection(permissionEdit, chatService, dashboard)
         }
     }
 

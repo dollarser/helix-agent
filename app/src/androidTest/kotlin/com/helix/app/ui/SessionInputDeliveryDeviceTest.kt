@@ -10,6 +10,8 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import com.helix.core.model.input.SessionInputDelivery
 import com.helix.feature.conversation.input.PendingInputView
+import com.helix.feature.conversation.presentation.SessionInputQueueActions
+import com.helix.feature.conversation.presentation.SessionInputQueuePreview
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test

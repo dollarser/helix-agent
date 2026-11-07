@@ -38,6 +38,9 @@ enum class ModelErrorCode {
     /** The stream violated the protocol contract (malformed SSE/JSON, schema violation). */
     PROTOCOL,
 
+    /** A user image cannot meet its promised normalization guarantee; select it again. */
+    IMAGE_RESELECT_REQUIRED,
+
     /** A vendor safety filter blocked the output. */
     CONTENT_FILTER,
 

@@ -4,7 +4,7 @@
 
 ## 窗口与当前证据
 
-原文归 [HXA-287 联合检查点](../../development/tasks/HXA-287.md#原共同集成检查点)、[HXA-288](../../development/tasks/HXA-288.md) 和 [Agent ADR](../../adr/agent/001-turn-coordination.md)。它们是执行前、效果后提交前、提交后通知前的故障注入时点；不是三个已知 Bug，也不是只约束未来版本。
+原文归 [HXA-287 联合检查点](../../completion-records/HXA-287.md#原共同集成检查点)、[HXA-288](../../development/tasks/HXA-288.md) 和 [Agent ADR](../../adr/agent/001-turn-coordination.md)。它们是执行前、效果后提交前、提交后通知前的故障注入时点；不是三个已知 Bug，也不是只约束未来版本。
 
 | 窗口 | 当前路径及用户后果 | 本轮审查分类 |
 | --- | --- | --- |

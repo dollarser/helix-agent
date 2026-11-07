@@ -93,9 +93,12 @@ class BackgroundTaskFlowDeviceTest {
                         }
                         compose.waitUntil(
                             10000,
-                        ) { chat.backgroundTasks.value.any { it.sessionId == first && it.running } }
+                        ) {
+                            container.taskDashboard.tasks.value
+                                .any { it.sessionId == first && it.running }
+                        }
                         val firstTurn =
-                            chat.backgroundTasks.value
+                            container.taskDashboard.tasks.value
                                 .first { it.sessionId == first }
                                 .id
                         // Give the held request time to enter the fixture before subsequent requests are released.
@@ -104,7 +107,10 @@ class BackgroundTaskFlowDeviceTest {
                         compose.waitUntil(
                             10000,
                         ) { chat.screen.value.openSessionId == second && !chat.screen.value.isSending }
-                        assertTrue(chat.backgroundTasks.value.any { it.id == firstTurn && it.running })
+                        assertTrue(
+                            container.taskDashboard.tasks.value
+                                .any { it.id == firstTurn && it.running },
+                        )
                         compose.waitUntil(10000) { DataSyncForegroundService.runningInstance.get() != null }
                         if (goalId != null) {
                             // Conversation task controls only list the selected conversation.
@@ -131,11 +137,15 @@ class BackgroundTaskFlowDeviceTest {
                                     ?.state == "COMPLETED"
                             }
                             assertEquals(second, chat.screen.value.openSessionId)
-                            assertTrue(chat.backgroundTasks.value.any { it.id == firstTurn && it.running })
+                            assertTrue(
+                                container.taskDashboard.tasks.value
+                                    .any { it.id == firstTurn && it.running },
+                            )
                             val done = storage.turns.listBySession(second).last()
                             // Turn persistence precedes the asynchronous task-list projection.
                             compose.waitUntil(10000) {
-                                chat.backgroundTasks.value.any { it.id == done.id && !it.running }
+                                container.taskDashboard.tasks.value
+                                    .any { it.id == done.id && !it.running }
                             }
                             compose.onNodeWithTag("chat-conversation-details").performClick()
                             compose.onNodeWithTag("background-tasks-open").performClick()
@@ -154,7 +164,7 @@ class BackgroundTaskFlowDeviceTest {
                             server.holdChatStreams.set(true)
                             chat.sendTestMessage("Third input")
                             compose.waitUntil(10000) {
-                                chat.backgroundTasks.value.any {
+                                container.taskDashboard.tasks.value.any {
                                     it.sessionId == first && it.id != firstTurn &&
                                         it.running
                                 }
@@ -168,11 +178,14 @@ class BackgroundTaskFlowDeviceTest {
                             )
                         }
                     } finally {
-                        chat.backgroundTasks.value
+                        container.taskDashboard.tasks.value
                             .filter { it.sessionId in setOf(first, second) && it.running }
                             .forEach { chat.stopTask(it.id) }
                         compose.waitUntil(10000) {
-                            chat.backgroundTasks.value.none { it.sessionId in setOf(first, second) && it.running }
+                            container.taskDashboard.tasks.value.none {
+                                it.sessionId in setOf(first, second) &&
+                                    it.running
+                            }
                         }
                         chat.closeSession()
                         chat.setMode(previous.mode)

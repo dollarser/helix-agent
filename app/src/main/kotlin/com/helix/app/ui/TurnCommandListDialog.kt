@@ -21,11 +21,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
-import com.helix.app.chat.ChatService
+import com.helix.app.infrastructure.conversation.ConversationWorkspaceDetails
 import com.helix.app.proot.CommandEntry
-import com.helix.app.ui.indicatedVerticalScroll
 import com.helix.core.model.ToolCallState
+import com.helix.ui.shared.indicatedVerticalScroll
 import kotlinx.coroutines.CancellationException
+import com.helix.feature.conversation.R as ConversationR
 
 /**
  * HXA-194: the task page's command entry (任务页入口). Lists the turn's Linux command
@@ -36,7 +37,7 @@ import kotlinx.coroutines.CancellationException
 @Composable
 @Suppress("FunctionName", "TooGenericExceptionCaught") // A failed local read remains retryable; never an empty list.
 internal fun TurnCommandListDialog(
-    service: ChatService,
+    service: ConversationWorkspaceDetails,
     turnId: String,
     onOpenCommandDetail: (String, String) -> Unit,
     onDismiss: () -> Unit,
@@ -103,14 +104,14 @@ internal fun TurnCommandListDialog(
 /** The call's persisted state as the list label (same states the tool timeline shows). */
 private fun commandStateTextRes(state: String): Int =
     when (runCatching { ToolCallState.valueOf(state) }.getOrNull()) {
-        ToolCallState.PENDING -> R.string.tool_state_processing
-        ToolCallState.AWAITING_APPROVAL -> R.string.tool_state_awaiting_approval
-        ToolCallState.RUNNING -> R.string.tool_state_running
-        ToolCallState.NEEDS_REVIEW -> R.string.tool_state_needs_review
-        ToolCallState.INTERRUPTED -> R.string.tool_state_interrupted
-        ToolCallState.COMPLETED -> R.string.tool_state_completed
-        ToolCallState.FAILED -> R.string.tool_state_failed
-        ToolCallState.CANCELLED -> R.string.tool_state_cancelled
-        ToolCallState.DENIED -> R.string.tool_state_denied
-        null -> R.string.tool_state_unknown
+        ToolCallState.PENDING -> ConversationR.string.tool_state_processing
+        ToolCallState.AWAITING_APPROVAL -> ConversationR.string.tool_state_awaiting_approval
+        ToolCallState.RUNNING -> ConversationR.string.tool_state_running
+        ToolCallState.NEEDS_REVIEW -> ConversationR.string.tool_state_needs_review
+        ToolCallState.INTERRUPTED -> ConversationR.string.tool_state_interrupted
+        ToolCallState.COMPLETED -> ConversationR.string.tool_state_completed
+        ToolCallState.FAILED -> ConversationR.string.tool_state_failed
+        ToolCallState.CANCELLED -> ConversationR.string.tool_state_cancelled
+        ToolCallState.DENIED -> ConversationR.string.tool_state_denied
+        null -> ConversationR.string.tool_state_unknown
     }

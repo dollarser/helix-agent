@@ -5,6 +5,8 @@ import com.helix.core.storage.HelixStorage
 import com.helix.provider.api.ModelProvider
 import com.helix.provider.api.ProbeOutcome
 import com.helix.provider.api.ProviderConfig
+import com.helix.provider.api.SubscriptionRecoveredOutput
+import com.helix.provider.api.SubscriptionRecoveryStatus
 
 /** Shared variant contract; Consumer supplies no registration, client, probe override or account UI. */
 internal interface SubscriptionProviderIntegration {

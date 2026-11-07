@@ -34,7 +34,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
 import com.helix.app.ShellDestination
-import com.helix.app.ui.indicatedVerticalScroll
+import com.helix.ui.shared.indicatedVerticalScroll
+import com.helix.feature.conversation.R as ConversationR
+import com.helix.ui.shared.R as SharedR
 
 private val drawerGroupOrder =
     listOf(
@@ -131,7 +133,11 @@ internal fun GroupedNavigation(
                         Column {
                             Text(stringResource(R.string.drawer_current_conversation))
                             Text(
-                                conversation.currentTitle.ifBlank { stringResource(R.string.chat_new_session) },
+                                conversation.currentTitle.ifBlank {
+                                    stringResource(
+                                        ConversationR.string.chat_new_session,
+                                    )
+                                },
                                 style = MaterialTheme.typography.bodySmall,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
@@ -176,7 +182,7 @@ internal fun GroupedNavigation(
                     val isExpanded = group in expandedGroups
                     val hasSelectedChild = entries.any { it.matches(currentRoute) }
                     val expandedLabel =
-                        stringResource(if (isExpanded) R.string.nav_expanded else R.string.nav_collapsed)
+                        stringResource(if (isExpanded) SharedR.string.nav_expanded else SharedR.string.nav_collapsed)
                     DrawerRow(
                         label = { Text(stringResource(group)) },
                         iconRes =

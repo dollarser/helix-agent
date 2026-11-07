@@ -2,7 +2,6 @@ package com.helix.app.localmodel
 
 import androidx.test.core.app.ApplicationProvider
 import com.helix.app.HelixApplication
-import com.helix.app.chat.ChatService
 import com.helix.app.composition.ConversationComposition
 import com.helix.app.internal.InMemoryLineStore
 import com.helix.app.provider.ProviderFactory
@@ -13,6 +12,7 @@ import com.helix.core.model.ModelEvent
 import com.helix.core.model.ModelRole
 import com.helix.core.model.ToolCallId
 import com.helix.core.storage.repository.ProviderConfigSpec
+import com.helix.feature.conversation.application.ChatService
 import com.helix.feature.conversation.input.ChatSubmission
 import com.helix.feature.conversation.input.ChatSubmissionOutcome
 import com.helix.provider.api.CapabilitySource
@@ -180,7 +180,7 @@ class LocalModelRealTaskDeviceTest : com.helix.app.test.ForegroundDeviceTestHost
                         idGenerator = { UUID.randomUUID().toString() },
                         scope = scope,
                         attachmentStaging =
-                            com.helix.app.chat.AttachmentStagingSupport(
+                            com.helix.app.infrastructure.chat.AttachmentStagingSupport(
                                 com.helix.feature.files
                                     .AttachmentImporter(container.featureFiles.importPipeline),
                                 "app",

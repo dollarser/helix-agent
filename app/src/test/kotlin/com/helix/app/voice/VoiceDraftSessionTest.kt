@@ -1,5 +1,7 @@
 package com.helix.app.voice
 
+import com.helix.feature.conversation.input.VoiceDraftSession
+import com.helix.feature.conversation.input.appendVoiceDraft
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -22,6 +24,6 @@ class VoiceDraftSessionTest {
         val retry = VoiceDraftSession("Original first")
         assertEquals("Original first next", retry.commit("next", "Original first"))
         assertEquals("Original first", retry.preview(""))
-        assertEquals("Original first", VoiceInputMapper.appendDraft("Original first", "   "))
+        assertEquals("Original first", appendVoiceDraft("Original first", "   "))
     }
 }

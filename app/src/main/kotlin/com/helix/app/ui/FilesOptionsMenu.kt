@@ -35,6 +35,9 @@ import com.helix.app.R
 import com.helix.app.files.FileSourceKind
 import com.helix.app.files.SortKey
 import com.helix.core.workspace.FileScopePath
+import com.helix.ui.shared.indicatedVerticalScroll
+import com.helix.feature.conversation.R as ConversationR
+import com.helix.ui.shared.R as SharedR
 
 private enum class FilesOptionsPage { ROOT, ORDER, VIEW }
 
@@ -81,7 +84,10 @@ internal fun FilesOptionsDialog(
                         style = MaterialTheme.typography.titleMedium,
                     )
                     IconButton({ state.controlsOpen = false }, Modifier.size(48.dp).testTag("files-controls-close")) {
-                        Icon(painterResource(R.drawable.ic_close), stringResource(R.string.files_close))
+                        Icon(
+                            painterResource(SharedR.drawable.ic_close),
+                            stringResource(ConversationR.string.files_close),
+                        )
                     }
                 }
                 Column(

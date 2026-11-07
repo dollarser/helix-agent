@@ -2,9 +2,12 @@ package com.helix.app.chat
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
-import com.helix.app.provider.SubscriptionRecoveryStatus
+import com.helix.app.infrastructure.chat.RoomRecoveryObservationStore
 import com.helix.core.model.TurnState
 import com.helix.core.storage.HelixStorage
+import com.helix.feature.conversation.application.recovery.subscriptionRecoveriesFor
+import com.helix.feature.conversation.presentation.SubscriptionRecoveryUi
+import com.helix.provider.api.SubscriptionRecoveryStatus
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -38,8 +41,8 @@ class SubscriptionRecoveryDiscoveryTest {
         call("a", "a", interrupted = true)
         val rows = discover("a")
         assertEquals(1, rows.size)
-        assertTrue(subscriptionRecoveriesFor(storage, "b", rows).isEmpty())
-        assertTrue(subscriptionRecoveriesFor(storage, null, rows).isEmpty())
+        assertTrue(subscriptionRecoveriesFor(RoomRecoveryObservationStore(storage), "b", rows).isEmpty())
+        assertTrue(subscriptionRecoveriesFor(RoomRecoveryObservationStore(storage), null, rows).isEmpty())
     }
 
     @Test fun missingBindingWrongAuditTypeAndCompletedCallAreExcluded() {
@@ -55,12 +58,30 @@ class SubscriptionRecoveryDiscoveryTest {
         call("one", "s", interrupted = true)
         call("two", "s", interrupted = true)
         val previous = SubscriptionRecoveryUi("one", "call-one", true, SubscriptionRecoveryStatus.RUNNING)
-        val rows = subscriptionRecoveriesFor(storage, "s", listOf(previous))
+        val rows = subscriptionRecoveriesFor(RoomRecoveryObservationStore(storage), "s", listOf(previous))
         assertEquals(previous, rows.single { it.modelCallId == "call-one" })
         assertEquals(SubscriptionRecoveryUi("two", "call-two"), rows.single { it.modelCallId == "call-two" })
     }
 
-    private fun discover(sessionId: String) = subscriptionRecoveriesFor(storage, sessionId, emptyList())
+    @Test fun originalObservationReadsOnlyTheOriginalTurnsRecoverableCallIdentities() {
+        session("s")
+        call("one", "s", interrupted = true)
+        call("two", "s", interrupted = true)
+        storage.toolCalls.append("t1", "one", "unknown-bash", "bash", "1", "{}", "INTERRUPTED")
+        storage.toolCalls.append("t2", "one", "unknown-skill", "skills.run", "1", "{}", "NEEDS_REVIEW")
+        storage.toolCalls.append("t3", "one", "finished", "bash", "1", "{}", "SUCCEEDED")
+        storage.toolCalls.append("t4", "one", "unrelated", "read", "1", "{}", "INTERRUPTED")
+        storage.toolCalls.append("t5", "two", "other-turn", "bash", "1", "{}", "INTERRUPTED")
+
+        val facts = RoomRecoveryObservationStore(storage).originalTurn("one")
+        assertEquals("one", facts.turnId)
+        assertEquals("s", facts.sessionId)
+        assertEquals(listOf("call-one"), facts.subscriptionModelCallIds)
+        assertEquals(listOf("unknown-bash", "unknown-skill"), facts.unknownProotCallIds)
+    }
+
+    private fun discover(sessionId: String) =
+        subscriptionRecoveriesFor(RoomRecoveryObservationStore(storage), sessionId, emptyList())
 
     private fun session(id: String) {
         storage.sessions.create(id, "Recovery fixture", null, null, 1L)

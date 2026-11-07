@@ -1,6 +1,8 @@
 package com.helix.app.ui
 
 import com.helix.core.model.ReasoningEffort
+import com.helix.feature.conversation.presentation.ModelPickerEdit
+import com.helix.feature.conversation.presentation.modelPickerIdentity
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Test

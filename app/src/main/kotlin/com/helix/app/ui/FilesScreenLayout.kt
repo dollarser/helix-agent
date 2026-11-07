@@ -23,8 +23,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
-import com.helix.app.ui.indicatedHorizontalScroll
-import com.helix.app.ui.indicatedVerticalScroll
+import com.helix.ui.shared.IndicatedLazyColumn
+import com.helix.ui.shared.indicatedHorizontalScroll
+import com.helix.ui.shared.indicatedVerticalScroll
+import com.helix.feature.conversation.R as ConversationR
+import com.helix.ui.shared.R as SharedR
 
 @Composable
 @Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod")
@@ -76,7 +79,7 @@ internal fun FilesScreenLayout(
                             onClick = { cancelFlag.set(true) },
                             modifier = Modifier.testTag("files-batch-cancel"),
                         ) {
-                            Text(str(R.string.common_cancel))
+                            Text(str(SharedR.string.common_cancel))
                         }
                     }
                 }
@@ -173,7 +176,7 @@ internal fun FilesScreenLayout(
                             modifier = Modifier.testTag("files-empty"),
                         )
                     } else if (viewMode == ViewMode.LIST) {
-                        com.helix.app.ui.IndicatedLazyColumn(
+                        com.helix.ui.shared.IndicatedLazyColumn(
                             modifier = Modifier.fillMaxSize(),
                             verticalArrangement = Arrangement.spacedBy(4.dp),
                         ) {
@@ -233,7 +236,7 @@ internal fun FilesScreenLayout(
                             onClick = { copyMove = CopyMoveTarget(move = false, selectedRels) },
                             modifier = Modifier.testTag("files-batch-copy"),
                         ) {
-                            Text(str(R.string.files_copy))
+                            Text(str(ConversationR.string.files_copy))
                         }
                         TextButton(
                             onClick = { copyMove = CopyMoveTarget(move = true, selectedRels) },

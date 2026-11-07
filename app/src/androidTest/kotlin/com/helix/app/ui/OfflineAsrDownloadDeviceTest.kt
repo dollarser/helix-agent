@@ -9,9 +9,9 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.platform.app.InstrumentationRegistry
-import com.helix.app.HelixTheme
 import com.helix.app.voice.LocalSpeechModel
 import com.helix.app.voice.OfflineAsrModel
+import com.helix.ui.shared.HelixTheme
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -29,6 +29,7 @@ import java.security.MessageDigest
 import java.util.UUID
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import com.helix.ui.shared.R as SharedR
 
 /** Synthetic model bytes and an injected transport only. No network, microphone, or permission grant. */
 class OfflineAsrDownloadDeviceTest {
@@ -191,7 +192,7 @@ class OfflineAsrDownloadDeviceTest {
             compose.waitUntil(5000) { model.phase.value == OfflineAsrModel.Phase.READY }
             compose.onNodeWithTag("offline-asr-remove").performClick()
             assertNotNull(runBlocking { model.files.ready() })
-            compose.onNodeWithText(context.getString(com.helix.app.R.string.common_cancel)).performClick()
+            compose.onNodeWithText(context.getString(SharedR.string.common_cancel)).performClick()
             assertNotNull(runBlocking { model.files.ready() })
             compose.onNodeWithTag("offline-asr-remove").performClick()
             compose.onNodeWithTag("offline-asr-remove-confirm").performClick()

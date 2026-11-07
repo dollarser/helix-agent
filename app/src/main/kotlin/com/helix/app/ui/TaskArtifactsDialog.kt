@@ -21,9 +21,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
 import com.helix.app.chat.ArtifactRowUi
-import com.helix.app.chat.ChatService
 import com.helix.app.files.FileManagerService
-import com.helix.app.ui.indicatedVerticalScroll
+import com.helix.app.infrastructure.conversation.ConversationWorkspaceDetails
+import com.helix.ui.shared.indicatedVerticalScroll
 import kotlinx.coroutines.CancellationException
 
 /**
@@ -40,7 +40,7 @@ import kotlinx.coroutines.CancellationException
 // Local read failure is not an empty result.
 @Suppress("FunctionName", "LongParameterList", "TooGenericExceptionCaught")
 internal fun TaskArtifactsDialog(
-    service: ChatService,
+    service: ConversationWorkspaceDetails,
     fileManager: FileManagerService,
     turnId: String?,
     goalId: String?,

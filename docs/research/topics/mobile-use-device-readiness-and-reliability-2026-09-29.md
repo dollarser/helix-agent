@@ -2,7 +2,7 @@
 
 日期：2026-09-29。性质：讨论固化与源码评审；优化项为候选设计，不表示已实现或自动获得实施授权。
 
-> **2026-10-14 承接导航：**本页原文保留早期设备许可和截图判断。后续 [HXA-243](../../development/tasks/HXA-243.md)接入原生截图/手势，[HXA-244](../../development/tasks/HXA-244.md)将会话授权与运行状态分开，[HXA-245](../../development/tasks/HXA-245.md)承接插件浮窗；当前规则查[权限 ADR](../../adr/permissions/001-session-authorization.md)，交付范围查 [status](../../development/status.md)。不要从原文恢复锁屏/断连自动撤权、重复截图确认或“截图尚未接入”的旧判断。跨轮脉络见[演进索引](../../evidence/research-history/architecture-evolution-2026-10-14.md)，未接受的自动解锁等候选没有因整理而启用。
+> **2026-10-14 承接导航：**本页原文保留早期设备许可和截图判断。后续 [HXA-243](../../completion-records/HXA-243.md)接入原生截图/手势，[HXA-244](../../completion-records/HXA-244.md)将会话授权与运行状态分开，[HXA-245](../../completion-records/HXA-245.md)承接插件浮窗；当前规则查[权限 ADR](../../adr/permissions/001-session-authorization.md)，交付范围查 [status](../../development/status.md)。不要从原文恢复锁屏/断连自动撤权、重复截图确认或“截图尚未接入”的旧判断。跨轮脉络见[演进索引](../../evidence/research-history/architecture-evolution-2026-10-14.md)，未接受的自动解锁等候选没有因整理而启用。
 
 > **2026-09-30 时效与职责说明：**下文保留原核验基线和当时建议，不是实时缺陷清单。后续 [HXA-232](../../development/tasks/HXA-232.md) 已取消每十次动作的周期确认，并支持新快照验证后恢复已授权目标；不能继续把这两项作为未修复现状。模型/Harness 职责以 [Harness 第 13.6 节](../../architecture/harness-refactor-plan.md#136-模型与-harness-的职责优化及减法准则) 的目标准则解释：先反馈并自主处理权限内问题，真实授权、业务信息或系统认证才需要用户介入；不把本页“接续”建议扩大成所有失败都必须等待人工，也不为每个错误新增恢复引擎。截图、自动亮屏和新许可策略仍须各自接受与验证，当前实现/验证范围看 status 和具体任务。
 
@@ -390,11 +390,11 @@ AutomationSessionManager.kt  3669ad260e36a9a50f309a177a562eb9cd0863f0917eca17592
 
 保留两次无效夹具尝试：独立测试进程缺少 Kotlin 可变捕获运行时、Skill 名称不符合父目录契约；修复夹具后复验，不计入有效模型能力结论，也不隐藏已经发生的模型请求成本。样本只证明上述合成场景，不推断全设备或产品成功率。
 
-由实际观察采用的改进是显式人工交回、持久停止事实摘要、同步 QuickJS 调用说明，以及写入前置拒绝的无副作用标记；发布后失败仍保留不确定性。后台屏三个新路由创建/取消/释放及实际原 helper 断连、新 Turn 重连均通过，断连不伪报正常释放或自动重放。实现入口为 [人工交接](../../../app/src/main/kotlin/com/helix/app/chat/HumanHandoff.kt)、[停止事实](../../../app/src/main/kotlin/com/helix/app/chat/TurnStopFacts.kt) 和[真实模型夹具](../../../app/src/androidTestDeveloper/kotlin/com/helix/app/eval/ClosedLoopRealModelDeviceTest.kt)。详细构建、失败、请求与设备收据位于忽略目录 `build/real-effect-closeout-2026-11-01/`。浏览器保留、经验转 Skill、真实资料备份与语音不属于本轮。
+由实际观察采用的改进是显式人工交回、持久停止事实摘要、同步 QuickJS 调用说明，以及写入前置拒绝的无副作用标记；发布后失败仍保留不确定性。后台屏三个新路由创建/取消/释放及实际原 helper 断连、新 Turn 重连均通过，断连不伪报正常释放或自动重放。实现入口为 [人工交接](../../../app/src/main/kotlin/com/helix/app/chat/HumanHandoff.kt)、[停止事实](../../../feature/conversation/src/main/kotlin/com/helix/feature/conversation/presentation/TurnStopFacts.kt) 和[真实模型夹具](../../../app/src/androidTestDeveloper/kotlin/com/helix/app/eval/ClosedLoopRealModelDeviceTest.kt)。详细构建、失败、请求与设备收据位于忽略目录 `build/real-effect-closeout-2026-11-01/`。浏览器保留、经验转 Skill、真实资料备份与语音不属于本轮。
 
 ### 2026-11-02：有界长会话与后台生命周期复验
 
-API 36 合成渲染验收使用 200 轮、400 条消息、1000 次工具调用、25 张不同图像和 200 个产物元数据卡片，覆盖搜索定位、分组折叠、30 次确实移动的历史滚动、返回最新及保存状态恢复。真实 Activity 旋转替换后仍停留原阅读位置。测试发现关闭搜索会重置跟随状态并跳到最新；现将临时暂停跟随与会话／历史窗口替换分开，保存阅读选择，并以真实末尾锚点判断恢复完成。入口为 [ConversationTimeline](../../../app/src/main/kotlin/com/helix/app/ui/ConversationTimeline.kt)、[容量夹具](../../../app/src/androidTest/kotlin/com/helix/app/ui/ConversationVolumeDeviceTest.kt) 和[旋转夹具](../../../app/src/androidTest/kotlin/com/helix/app/ui/ConversationVolumeRotationDeviceTest.kt)。指标属于固定模拟器上的有界渲染样本，不代表大数据库冷启动、长期电量或全 OEM 表现。
+API 36 合成渲染验收使用 200 轮、400 条消息、1000 次工具调用、25 张不同图像和 200 个产物元数据卡片，覆盖搜索定位、分组折叠、30 次确实移动的历史滚动、返回最新及保存状态恢复。真实 Activity 旋转替换后仍停留原阅读位置。测试发现关闭搜索会重置跟随状态并跳到最新；现将临时暂停跟随与会话／历史窗口替换分开，保存阅读选择，并以真实末尾锚点判断恢复完成。入口为 [ConversationTimeline](../../../feature/conversation/src/main/kotlin/com/helix/feature/conversation/presentation/ConversationTimeline.kt)、[容量夹具](../../../app/src/androidTest/kotlin/com/helix/app/ui/ConversationVolumeDeviceTest.kt) 和[旋转夹具](../../../app/src/androidTest/kotlin/com/helix/app/ui/ConversationVolumeRotationDeviceTest.kt)。指标属于固定模拟器上的有界渲染样本，不代表大数据库冷启动、长期电量或全 OEM 表现。
 
 后台屏十次创建／操作／取消／释放通过；在独立夹具确认原显示上的实际 DOWN 后终止原 helper，结果保留为动作效果未知、连接断开，原显示消失且没有自动重放，随后新身份重连操作通过。主进程终止后的原 Job 两阶段恢复保留 ORPHANED 与未确认状态，不以拒绝 ACK 误判生产故障或清除未知执行载荷。API 29 隔离包验证后台后端明确不可用、没有退到主屏。并发输出、子进程取消与 MCP 协议回归还发现命令证明文件被输出白名单排除；[MCP 桥](../../../app/src/developer/kotlin/com/helix/app/mcp/McpStdioJobBridge.kt) 现将该证明放入明确输出目录，保留校验且不扩大任意输入导出。
 
@@ -410,7 +410,7 @@ API 36 合成渲染验收使用 200 轮、400 条消息、1000 次工具调用�
 
 本次 Owner 明确授权后才使用 USB 连接的 ONEPLUS A6013（Android 14／API 34）；原 Standard 包保持不变，独立 Advanced 测试包使用 0.0.9／code 1。官方 Shizuku 经来源、版本和 APK 校验安装，并按具体批准通过现有 USB ADB 启动和授予该包访问，没有新增无线配对、Root 或无障碍。基础启动／文件预览三项、后台屏同显示操作／截图／取消释放通过；实际确认 DOWN 后终止原 helper 的用例保留 UNKNOWN 与原显示释放，新 helper 重连也通过，不自动重放。
 
-[持久化夹具](../../../app/src/androidTest/kotlin/com/helix/app/ui/PersistentConversationData.kt) 在真实 Room 中生成一个含 2,000 轮、16,000 条消息、10,000 条工具记录和 100 张真实 PNG 的合成会话。前一次无效夹具的记录保留，因此实际数据库至少包含双倍消息／工具数量；无效样本不计为通过。有效数据暴露 [ToolCallDao](../../../core/storage/src/main/kotlin/com/helix/core/storage/dao/ToolCallDao.kt) 的查询缺陷：已结束但无模型调用 ID 的旧工具行越过消息窗口，挤占最新回答尾部。现将这些历史行绑定原 Turn 的消息窗口，同时保留非终态、待核查和完全无消息的直接调用入口；真实 Room 两项及原有 SQLite 边界测试覆盖该区别，没有改执行权限、容量或旧记录。
+[持久化夹具](../../../app/src/androidTest/kotlin/com/helix/app/ui/PersistentConversationData.kt) 在真实 Room 中生成一个含 2,000 轮、16,000 条消息、10,000 条工具记录和 100 张真实 PNG 的合成会话。前一次无效夹具的记录保留，因此实际数据库至少包含双倍消息／工具数量；无效样本不计为通过。有效数据暴露 [ToolCallDao](../../../infrastructure/storage/src/main/kotlin/com/helix/core/storage/dao/ToolCallDao.kt) 的查询缺陷：已结束但无模型调用 ID 的旧工具行越过消息窗口，挤占最新回答尾部。现将这些历史行绑定原 Turn 的消息窗口，同时保留非终态、待核查和完全无消息的直接调用入口；真实 Room 两项及原有 SQLite 边界测试覆盖该区别，没有改执行权限、容量或旧记录。
 
 最终候选在同一已落盘会话上重启后通过三页历史、十次跨历史搜索定位、真实图像解码和返回最新。三次独立进程冷启动的 Activity 显示时间为 1306／1297／1295 ms；原生内容就绪采样上界为 9112／9096／9056 ms，包含 UIAutomator 开销，不是 `reportFullyDrawn` 指标。首轮查询修复候选另完成 20 分 23 秒、39 次 Home／恢复，其中一次后台停留五分钟，单一进程、FD 稳定为 150，线程稳定段为 38；PSS 热身后约 139 MB。该长窗口早于最终保留无消息直接调用的补充条件，最终候选重新执行持久化／查询和断连重绑定测试；不能将整个长窗口称为最终 APK 新跑结果。USB 供电且临时保持亮屏，原设置已恢复，不外推 Doze、耗电、24 小时或其他 OEM。
 

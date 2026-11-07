@@ -94,9 +94,9 @@ HXA-276 已完成单一贡献、选择与手动浏览的主机/API36 有界验�
 - [Android：Optimize WebView startup](https://developer.android.com/develop/ui/views/layout/webapps/optimize-webview-startup)
 - [Android：Manage and diagnose WebView memory](https://developer.android.com/develop/ui/views/layout/webapps/manage-webview-memory)
 
-- [HXA-276：Browser 贡献](../../development/tasks/HXA-276.md)
-- [HXA-277：原生资源](../../development/tasks/HXA-277.md)
-- [HXA-279：标签发现与有界等待](../../development/tasks/HXA-279.md)
+- [HXA-276：Browser 贡献](../../completion-records/HXA-276.md)
+- [HXA-277：原生资源](../../completion-records/HXA-277.md)
+- [HXA-279：标签发现与有界等待](../../completion-records/HXA-279.md)
 - [插件研究与任务映射](../../research/topics/helix-plugin-architecture-optimization-2026-10-11.md#7-任务承接与验收)
 - [实施状态](../../development/status.md)
 - [开发路线](../../development/roadmap.md)

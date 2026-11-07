@@ -167,7 +167,7 @@ Helix 已覆盖文件、网页交互、手机操作、文档读取、代码执�
 
 [Codex 工具运行源码](https://github.com/openai/codex/blob/main/codex-rs/core/src/tools/parallel.rs) 区分 handler 能自行完成取消与外部中断，并追踪终态。采纳的原则是保留执行端能确认的结果，不复制其并发实现或将 task abort 推导成 Android 效果已回滚。Helix 在插件尚未派发动作、只读等待取消以及点击匹配的观察准备阶段返回已有的带效果事实结果；动作开始后的未知回执、watchdog 抢先终止及物理容量占用仍遵循原 Dispatcher。另修正 `ui.system` 中“锁屏结束授权”的旧描述，保持会话配置与运行就绪分离，恢复后重新观察。
 
-随后真实模型验收暴露了已验证业务成功却未返回对话的遵循缺口；在插件必要指导中明确返回/观察/回复的顺序，保持 [HXA-250](../../development/tasks/HXA-250.md) 的既有例外和授权工具路径。没有由宿主猜测业务完成并强制导航；小样本复测只能证明本轮旅程，不量化普遍模型收益。
+随后真实模型验收暴露了已验证业务成功却未返回对话的遵循缺口；在插件必要指导中明确返回/观察/回复的顺序，保持 [HXA-250](../../completion-records/HXA-250.md) 的既有例外和授权工具路径。没有由宿主猜测业务完成并强制导航；小样本复测只能证明本轮旅程，不量化普遍模型收益。
 
 ## 6. 插件划分和能力扩展
 
@@ -241,19 +241,19 @@ MCP 下一项实用补充是**资源消费闭环**：列举／分页、模板发
 
 ## 7. 评审后的任务承接
 
-2026-10-15 已将本次评审与 [Harness 第 23 节](../../architecture/harness-refactor-plan.md#23-2026-10-14-执行边界重构提案) 合并安排。研究不再维护另一份 P0～P3 排序；下表只索引已采用建议的归属，已记录的设计依赖与状态查看 [status](../../development/status.md#后续架构队列未启动)。
+2026-10-15 已将本次评审与 [Harness 第 23 节](../../architecture/harness-refactor-plan.md#23-2026-10-14-执行边界重构提案) 合并安排。研究不再维护另一份 P0～P3 排序；下表只索引已采用建议的归属，已记录的设计依赖与状态查看 [status](../../development/status.md#仍开放与未启动)。
 
 | 研究建议 | 承接任务与边界 |
 | --- | --- |
-| 模型侧语义、名称/参数/描述，来源与前置依赖 | [HXA-286](../../development/tasks/HXA-286.md)：整体契约先行，先修 Mobile Use 默认与单独发现配套 |
-| 应用入口、完整 Turn 和可测试宿主 | [HXA-287](../../development/tasks/HXA-287.md)：原 B+E 合并，不等第二个产品消费者；没有新增远程平台 |
+| 模型侧语义、名称/参数/描述，来源与前置依赖 | [HXA-286](../../completion-records/HXA-286.md)：整体契约先行，先修 Mobile Use 默认与单独发现配套 |
+| 应用入口、完整 Turn 和可测试宿主 | [HXA-287](../../completion-records/HXA-287.md)：原 B+E 合并，不等第二个产品消费者；没有新增远程平台 |
 | 现有 Job 操作、真实回执与产物 | [HXA-288](../../development/tasks/HXA-288.md)：原 C+D 产物部分合并；现有 Job 统一前置，模型持久终端仍为候选 |
 | 文件路径与正文搜索 | [HXA-289](../../development/tasks/HXA-289.md)：glob/grep，Standard 不依赖 Shell |
 | 网页搜索与正文 | [HXA-290](../../development/tasks/HXA-290.md)：web_search/web_fetch，搜索 provider/配置须先选定 |
 | MCP Resources 消费 | [HXA-291](../../development/tasks/HXA-291.md)：列举/模板/分页/读取/引用；不重开已结案 OAuth |
 | Browser 表单与 Mobile Use 参数 | [HXA-292](../../development/tasks/HXA-292.md)：分两条完整功能切片，保留观察/坐标/权限边界 |
-| 来源快照、Memory 与发现/上下文成本质量 | [HXA-293](../../development/tasks/HXA-293.md)：契约前置、策略有界对照后置，无收益不改默认 |
-| 完整路径、旧代码/测试退役与恢复验收 | [HXA-294](../../development/tasks/HXA-294.md)：只结算冻结范围，长稳与专项仍按当次授权 |
+| 来源快照、Memory 与发现/上下文成本质量 | [HXA-293](../../completion-records/HXA-293.md)：契约前置、策略有界对照后置，无收益不改默认 |
+| 完整路径、旧代码/测试退役与恢复验收 | [HXA-294](../../completion-records/HXA-294.md)：只结算冻结范围，长稳与专项仍按当次授权 |
 
 新任务均为已排期、未实施。命名收敛随能力与完整调用路径替换，删除旧内部别名/DTO/双注册/永久桥，不另做一次纯改名。当前外部插件格式支持继续保留；结构验收与任务质量收益分别记录。
 
@@ -356,7 +356,7 @@ Owner 追加要求：充分参考支持云端/远端执行的 Agent，给出当�
 | Linux Job | 输入经有界复制/归档进入 Job 独立 workspace，再挂载 `/workspace` | 是 snapshot，非聊天目录 live mount。输入被压平成 basename，第二项起每项都追加序号，即使不重名；cwd 只接受单层目录名。输出收取/产物发布不等于回写源文件 |
 | Room 与模型历史 | WorkspaceEntity 保存资源身份，SessionWorkspaceEntity 保存绑定及 revision，ModelCallWorkspaceEntity 保存原请求目录快照 | 这组职责有价值，应扩展原契约而非废弃重写；显示名/相对路径不能代替持久身份 |
 
-核对入口：[文件参数](https://github.com/dollarser/helix-agent/blob/9965d2dff694441458b4036942c4b8b9749f0f8e/app/src/main/kotlin/com/helix/app/chat/FileToolArguments.kt)、[Workspace 持久身份](../../../core/storage/src/main/kotlin/com/helix/core/storage/entity/WorkspaceEntity.kt)、[会话目录服务](../../../app/src/main/kotlin/com/helix/app/chat/SessionWorkspaceService.kt)、[输入快照](../../../app/src/developer/kotlin/com/helix/app/proot/LinuxInputSnapshot.kt)、[Job 参数](../../../app/src/developer/kotlin/com/helix/app/proot/LinuxRunTool.kt)、[Job 挂载](../../../runtime/proot-app/src/main/kotlin/com/helix/runtime/proot/app/ProotJobRunner.kt)、[PTY 挂载](../../../runtime/proot-app/src/main/kotlin/com/helix/runtime/proot/app/ProotTerminalLaunch.kt)、[抽屉终端装配](../../../app/src/main/kotlin/com/helix/app/DefaultAppContainer.kt)、[文件来源展示](../../../app/src/main/kotlin/com/helix/app/files/WorkspaceFileSources.kt)。RootFS 提供程序运行环境，工作目录提供任务文件，产物库保存已发布结果；三个位置不能互相替代。
+核对入口：[文件参数](https://github.com/dollarser/helix-agent/blob/9965d2dff694441458b4036942c4b8b9749f0f8e/app/src/main/kotlin/com/helix/app/chat/FileToolArguments.kt)、[Workspace 持久身份](../../../infrastructure/storage/src/main/kotlin/com/helix/core/storage/entity/WorkspaceEntity.kt)、[会话目录服务](../../../app/src/main/kotlin/com/helix/app/chat/SessionWorkspaceService.kt)、[输入快照](../../../app/src/developer/kotlin/com/helix/app/proot/LinuxInputSnapshot.kt)、[Job 参数](../../../app/src/developer/kotlin/com/helix/app/proot/LinuxRunTool.kt)、[Job 挂载](../../../runtime/proot-app/src/main/kotlin/com/helix/runtime/proot/app/ProotJobRunner.kt)、[PTY 挂载](../../../runtime/proot-app/src/main/kotlin/com/helix/runtime/proot/app/ProotTerminalLaunch.kt)、[抽屉终端装配](../../../app/src/main/kotlin/com/helix/app/DefaultAppContainer.kt)、[文件来源展示](../../../app/src/main/kotlin/com/helix/app/files/WorkspaceFileSources.kt)。RootFS 提供程序运行环境，工作目录提供任务文件，产物库保存已发布结果；三个位置不能互相替代。
 
 ### 11.3 设计结论与分工
 
@@ -410,6 +410,6 @@ Owner 要求结合现状优化原重构计划与任务。本节为一手资料�
 
 旧默认快照前提已被后续原位交付替代；Job 观察 executor 识别、截图披露条件和 FileHistoryPaths 展示分支仍有真实职责，尚无证据支持全域删除。知识库的原件/核对笔记与 Memory 的作用域/记忆资格也不因 Markdown 共性合并。未覆盖设备、服务端质量、模型漏读与结构缺口分别归因，不能靠重构计划将任何一类伪报修复。
 
-> 2026-10-24 目录迁移说明：已删除旧类的链接指向公开 v0.0.7 发布基线，供追溯该旧路径；不证明当年未提交快照逐字可重建。当前替换入口和验收以 [HXA-287](../../development/tasks/HXA-287.md) 为准，旧结构不再是现行规范。
+> 2026-10-24 目录迁移说明：已删除旧类的链接指向公开 v0.0.7 发布基线，供追溯该旧路径；不证明当年未提交快照逐字可重建。当前替换入口和验收以 [HXA-287](../../completion-records/HXA-287.md) 为准，旧结构不再是现行规范。
 
 旧 App Engine 源码入口固定到公开 v0.0.7，供历史结构导航，不表示逐字恢复审查时的未提交代码；当前落点见[实施状态](../../development/status.md)。

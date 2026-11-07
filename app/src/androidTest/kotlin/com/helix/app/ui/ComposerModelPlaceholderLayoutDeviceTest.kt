@@ -19,6 +19,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import java.util.UUID
+import com.helix.feature.conversation.R as ConversationR
 
 class ComposerModelPlaceholderLayoutDeviceTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
@@ -44,7 +45,7 @@ class ComposerModelPlaceholderLayoutDeviceTest {
             }
             compose
                 .onNodeWithTag("chat-input-placeholder", useUnmergedTree = true)
-                .assertTextEquals(compose.activity.getString(R.string.chat_input_placeholder))
+                .assertTextEquals(compose.activity.getString(ConversationR.string.chat_input_placeholder))
                 .assert(hasAnyAncestor(hasTestTag("chat-input")))
             compose.onNodeWithTag("chat-select-model-reminder").assertDoesNotExist()
             compose.onNodeWithTag("chat-context-window").assertIsDisplayed()

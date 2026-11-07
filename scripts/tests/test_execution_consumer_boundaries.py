@@ -22,14 +22,16 @@ class ExecutionConsumerBoundariesTest(unittest.TestCase):
         self.assertIn('SubmissionProviderSnapshots', source)
 
     def test_execution_is_constructed_by_the_composition_root(self):
-        facade = (APP / 'chat/ChatService.kt').read_text()
+        facade = (ROOT / 'feature/conversation/src/main/kotlin/com/helix/feature/conversation/application/ChatService.kt').read_text()
         composition = (APP / 'composition/ConversationComposition.kt').read_text()
         for constructor in ('AppAgentRuntime(', 'AgentLoopHost(', 'ApplicationToolGateway(',
                             'TurnSubmissionCommandHandler(', 'StopTurnCommandHandler('):
             self.assertNotIn(constructor, facade)
             self.assertEqual(1, composition.count(constructor), constructor)
         self.assertNotIn('createRoomTurnEngine(', facade)
-        self.assertIn('internal val agentRuntime: AgentRuntime', facade)
+        self.assertIn('val agentRuntime: AgentRuntime', facade)
+        self.assertNotIn('com.helix.app', facade)
+        self.assertNotIn('com.helix.core.storage', facade)
         self.assertIn('agentRuntime = agentRuntime', composition)
         self.assertIn('turnEngine = turnEngine', composition)
         self.assertIn('started.compareAndSet(false, true)', facade)
@@ -38,12 +40,15 @@ class ExecutionConsumerBoundariesTest(unittest.TestCase):
 
     def test_admission_and_input_contracts_do_not_depend_on_storage(self):
         for name in ('TurnSubmissionCommandHandler', 'SubmissionAdmissionFacts',
-                     'SessionInputConfiguration', 'TurnInputFingerprint'):
+                     'TurnInputFingerprint'):
             self.assertNotIn('com.helix.core.storage',
                              (APP / f'application/agent/{name}.kt').read_text())
+        configuration = (ROOT / 'core/agent/src/main/kotlin/com/helix/core/agent/SessionInputConfiguration.kt').read_text()
+        self.assertNotIn('com.helix.core.storage', configuration)
+        self.assertNotIn('com.helix.app', configuration)
         for path in (ROOT / 'core/model/src/main/kotlin/com/helix/core/model/input').glob('*.kt'):
             self.assertNotIn('com.helix.core.storage', path.read_text(), str(path))
-        storage = (ROOT / 'core/storage/src/main/kotlin/com/helix/core/storage/repository/SessionInputModels.kt').read_text()
+        storage = (ROOT / 'infrastructure/storage/src/main/kotlin/com/helix/core/storage/repository/SessionInputModels.kt').read_text()
         for name in ('SessionInputDelivery', 'InputAttachment', 'InputConfiguration', 'SessionInputSpec'):
             self.assertNotRegex(storage, rf'(?:class|interface)\s+{name}\b')
 

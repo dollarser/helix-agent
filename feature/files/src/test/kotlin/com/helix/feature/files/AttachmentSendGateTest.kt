@@ -2,6 +2,9 @@ package com.helix.feature.files
 
 import com.helix.core.model.AttachmentCategory
 import com.helix.core.model.TextAttachmentKind
+import com.helix.core.model.attachment.AttachmentMaterialization
+import com.helix.core.model.attachment.AttachmentSendDecision
+import com.helix.core.model.attachment.SnapshotKind
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule

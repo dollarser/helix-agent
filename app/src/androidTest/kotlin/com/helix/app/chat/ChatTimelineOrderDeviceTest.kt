@@ -2,17 +2,29 @@ package com.helix.app.chat
 
 import com.helix.app.R
 import com.helix.app.agent.ChatHistoryBuilder
+import com.helix.app.infrastructure.conversation.RoomConversationHistoryReader
 import com.helix.app.provider.ProviderModelsIntegrationDeviceTest
+import com.helix.feature.conversation.application.ConversationHistoryRequest
+import com.helix.feature.conversation.presentation.ChatScreenState
+import com.helix.feature.conversation.presentation.ConversationEntry
+import com.helix.feature.conversation.presentation.conversationScreenProjection
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import com.helix.feature.conversation.R as ConversationR
 
 class ChatTimelineOrderDeviceTest {
     @Test fun originalProtocolOrderSurvivesReverseToolRowInsertionAndProjectionReload() {
         ProviderModelsIntegrationDeviceTest.Fixture().use { f ->
             val storage = f.storage
             val batchSequence = prepareHistory(storage)
-            val projection =
-                ChatScreenProjection(storage, f.service, { _, _ -> "state" }, { R.string.tool_state_failed })
+            val reader =
+                RoomConversationHistoryReader(
+                    storage,
+                    f.service,
+                    { _, _ -> "state" },
+                    { ConversationR.string.tool_state_failed },
+                )
+            val projection = conversationScreenProjection { _, _ -> "state" }
             val state =
                 ChatScreenState(
                     sessions = emptyList(),
@@ -26,11 +38,12 @@ class ChatTimelineOrderDeviceTest {
                     retryTargetTurnId = null,
                 )
             repeat(2) {
+                val snapshot = reader.read(ConversationHistoryRequest.capture("timeline", state, it.toLong()))
                 val entry =
                     ConversationEntry(
                         "turn",
-                        projection.messagesFor("timeline", state),
-                        projection.toolTimelineFor("timeline", emptyList()),
+                        projection.messagesFor(snapshot),
+                        projection.toolTimelineFor(snapshot, emptyList()),
                         emptyList(),
                     )
                 assertEquals(

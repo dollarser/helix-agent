@@ -39,12 +39,12 @@ cleanup() {
 trap cleanup EXIT
 
 # 2. Run core:storage connected tests (Room migration chain & ContentStore)
-echo "=== Step 1: Running :core:storage:connectedDebugAndroidTest ==="
-./gradlew :core:storage:connectedDebugAndroidTest --console=plain > "$OUT/storage-device.log" 2>&1
+echo "=== Step 1: Running :infrastructure:storage:connectedDebugAndroidTest ==="
+./gradlew :infrastructure:storage:connectedDebugAndroidTest --console=plain > "$OUT/storage-device.log" 2>&1
 sto_rc=$?
 echo "core:storage exit code: $sto_rc"
 
-cp -R core/storage/build/reports/androidTests/connected "$OUT/storage-reports" 2>/dev/null || true
+cp -R infrastructure/storage/build/reports/androidTests/connected "$OUT/storage-reports" 2>/dev/null || true
 
 # Summary
 echo "storage_rc=$sto_rc" | tee "$OUT/summary-step1.txt"

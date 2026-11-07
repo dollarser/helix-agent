@@ -8,10 +8,10 @@ import com.helix.core.policy.UserScope
 import com.helix.extensions.plugin.PluginRegistry
 
 internal object AutomationModule {
-    fun backgroundApplicationName(value: com.helix.app.chat.DisplayExecutionUi): String? = null
+    fun backgroundApplicationName(value: com.helix.feature.conversation.presentation.DisplayExecutionUi): String? = null
 
     fun backgroundPreview(
-        value: com.helix.app.chat.DisplayExecutionUi,
+        value: com.helix.feature.conversation.presentation.DisplayExecutionUi,
         width: Int,
     ): android.graphics.Bitmap? = null
 
@@ -29,7 +29,7 @@ internal object AutomationModule {
         selectionId: (String) -> String?,
         conversationExists: (String) -> Boolean,
         callActive: (String, String) -> Boolean = { _, _ -> false },
-        displayPresentation: (com.helix.app.chat.DisplayExecutionUi) -> Unit = {},
+        displayPresentation: (com.helix.feature.conversation.presentation.DisplayExecutionUi) -> Unit = {},
         taskHost: com.helix.extensions.plugin.PluginTaskHost? = null,
     ) = Unit
 

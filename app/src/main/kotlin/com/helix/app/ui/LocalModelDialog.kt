@@ -29,11 +29,12 @@ import com.helix.app.localmodel.LocalModelInstallResult
 import com.helix.app.localmodel.LocalModelTransferPhase
 import com.helix.app.localmodel.LocalModelTransferProgress
 import com.helix.app.provider.ProviderService
-import com.helix.app.ui.indicatedVerticalScroll
 import com.helix.provider.api.ProbeOutcome
+import com.helix.ui.shared.indicatedVerticalScroll
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import com.helix.ui.shared.R as SharedR
 
 /** Curated install-first UX; exact URL/hash/size remains available as an explicit advanced import. */
 @Composable
@@ -99,7 +100,7 @@ internal fun LocalModelDialog(
             job?.cancel()
             onDismiss()
         },
-        title = { Text(stringResource(R.string.local_model_title)) },
+        title = { Text(stringResource(SharedR.string.local_model_title)) },
         text = {
             Column(
                 Modifier.indicatedVerticalScroll(rememberScrollState()),
@@ -213,7 +214,7 @@ internal fun LocalModelDialog(
                     job?.cancel()
                     onDismiss()
                 },
-            ) { Text(stringResource(R.string.chat_details_close)) }
+            ) { Text(stringResource(SharedR.string.chat_details_close)) }
         },
     )
 }

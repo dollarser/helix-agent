@@ -11,7 +11,7 @@ set -eu
 api=$1
 port=$2
 output=$3
-storage_apk="core/storage/build/outputs/apk/androidTest/debug/storage-debug-androidTest.apk"
+storage_apk="infrastructure/storage/build/outputs/apk/androidTest/debug/storage-debug-androidTest.apk"
 python3 scripts/run-owned-emulator.py --raw-results --avd "Helix_M11_Test_API_$api" --port "$port" \
  --apk "$storage_apk" --test-apk "$storage_apk" \
  --runner "com.helix.core.storage.test/androidx.test.runner.AndroidJUnitRunner" \

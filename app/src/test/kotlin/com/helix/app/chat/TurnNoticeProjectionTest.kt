@@ -1,7 +1,11 @@
 package com.helix.app.chat
 
-import com.helix.app.application.agent.TurnInterruptionNotice
+import com.helix.core.agent.TurnInterruptionNotice
 import com.helix.core.model.TurnState
+import com.helix.feature.conversation.presentation.ChatScreenState
+import com.helix.feature.conversation.presentation.MessageUi
+import com.helix.feature.conversation.presentation.attachTurnNotices
+import com.helix.feature.conversation.presentation.conversationEntries
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test

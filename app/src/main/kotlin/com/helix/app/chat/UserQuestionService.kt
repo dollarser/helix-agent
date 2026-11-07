@@ -1,6 +1,7 @@
 package com.helix.app.chat
 
 import com.helix.core.storage.HelixStorage
+import com.helix.feature.conversation.application.ChatService
 import com.helix.feature.conversation.input.ChatSubmission
 import com.helix.feature.conversation.input.ChatSubmissionOutcome
 import kotlinx.coroutines.Dispatchers

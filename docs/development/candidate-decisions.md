@@ -1,151 +1,118 @@
 # 候选需求与待裁决索引
 
-本页只索引设计状态、已实现边界和进入开发的条件，不安排第二份实施计划。当前执行顺序以 [status](status.md) 为准，正式任务以 [roadmap](roadmap.md) 为准；需求正文留在产品需求，设计正文留在对应 ADR/方案。最近定向核对：2026-10-16，HXA-286～294 结构/能力计划仍未实施，295 A 与 296～302 已有交付；新候选依据[预览后复核](../research/topics/tool-and-plugin-competitive-review-2026-10-15.md#10-2026-10-16-预览后重构与能力复核)分类，不将功能存在、有限测试和完整验收混用。
+本页只维护候选身份、已有基础与进入条件，不安排第二份实施计划。当前实施事实见 [status](status.md)，任务范围见 [roadmap](roadmap.md) 与各 HXA，设计决定归原主题 ADR；后续结构设计见 [Harness 第 24 节](../architecture/harness-refactor-plan.md#24-总体架构蓝图与渐进重构路线)。2026-11-08 定向核对：删除 10-16“286～294 均未实施”等过时判断；已交付基础、未实现功能、待验证范围与未授权候选分别记账。
 
 ## 状态如何解释
 
-- **已授权任务**：按现有 HXA 执行，不重复请求立项；完成仍需任务验收。
-- **已接受有限边界**：ADR accepted 只覆盖正文约定，不能推导未启用功能已获生产接线授权。
-- **待裁决规范**：存在 proposed ADR，已有实现与规范整体接受是两个事实。
-- **候选需求/目标设计/研究建议**：保留来源和进入条件，不分配未经接受的 HXA、不承诺交付日期。
+- **已交付基础**：只在原记录的实现与验证范围内成立，不因仍有后续候选重新立项。
+- **正式任务的剩余范围**：按原任务区分未实现、仅待验证、服务输入及实验结论；历史任务存在不授予本次设备、账号或发布权限。
+- **已接受有限边界**：ADR accepted 是约定范围的设计决定，不等于全部生产接线或验收完成。
+- **候选需求/研究建议**：保留来源和进入条件，未获准的新产品或执行域不因结构基础完成而自动启动。
 
-ADR 状态计数不能代表产品剩余工作数量；Spike、host、device、账号和发行证据也不能互相替代。
+Spike、host、device、真实账号、模型消费和发行证据不能互相替代；Owner 结束某项测试不等于未测部分 passed。
 
 ## 已有实现、有限决定与正式任务
 
-| 项目与来源 | 设计/任务状态 | 当前实现与缺口 | 进入下一步的条件 |
-| --- | --- | --- | --- |
-| [工具描述与审批契约](../adr/tools/001-descriptor-contract.md) | accepted，2026-09-30 所有者授权 R1 | contractHash、稳定实现身份、请求绑定与撤销规则已统一到同一 ADR | 实现验证见 HXA-231；不扩展成完整插件生命周期 |
-| [R1 原子工具绑定](../completion-records/HXA-231.md) | 已交付；验证范围见完成记录 | 单一 binding 事实源、请求/调度/审批/执行绑定及全部来源迁移；后续授权的有界设备/服务证据已由原记录承接 | 未覆盖故障/OEM 按具体授权验收；Core/插件/Job 不自动启动，不在此复制测试进度 |
-| [Project Memory](../adr/agent/013-markdown-memory.md) | Global/Project 有限契约及 HXA-246 本地交付 | 显式 Project 身份、会话关联、生产 resolver/权限接线及 API36 双渠道 UI、真正进程恢复通过 | HXA-251 补双API边界；真实模型质量/长稳独立，不能由 Workspace 路径推导 Project |
-| [子 Agent / Workflow](../adr/agent/004-bounded-delegation.md) | 有界设计 accepted，不直接启用生产子 Agent | [HXA-105](../completion-records/HXA-105.md) 是隔离 Spike；没有因此获得生产 `agent.spawn` 或任意 Workflow DSL | 独立任务限定只读、父预算、取消、持久拓扑、最小上下文和实际收益 |
-| [OAuth / Connector](tasks/HXA-125.md)、[动态注册](tasks/HXA-126.md)、[订阅](tasks/HXA-190.md) | 正式开放任务，不是未接受提案 | 已有实现基础；真实服务验证与剩余实现分别由任务记账 | 按各任务区分可实现部分和账号/服务输入；缺账号不等于全部实现完成 |
-| [渠道审计](tasks/HXA-120.md)、[发行验收](tasks/HXA-121.md)、[身份与升级](tasks/HXA-122.md)、[提交](tasks/HXA-123.md) | 正式开放任务 | debug 预发布不替代签名、升级、真实渠道验收或商店提交 | 所需产品输入、签名/账号及对应发行验收；发布须另有明确授权 |
+| 项目与来源 | 已有基础 | 剩余范围 / 决策边界 |
+| --- | --- | --- |
+| 工具绑定、Core、插件与 Job | [HXA-231](../completion-records/HXA-231.md)、[234](tasks/HXA-234.md)、[235](tasks/HXA-235.md)、[236](tasks/HXA-236.md)、[248](tasks/HXA-248.md)及 272～279 已有各自有界交付 | 不重排 R1/R2-A/R3/J1/J2；未覆盖设备/服务和后续能力按原任务，不复制历史验收流水 |
+| Project Memory | [HXA-246](../completion-records/HXA-246.md)已有显式项目身份、会话关联与生产接线；[ADR-AGENT-013](../adr/agent/013-markdown-memory.md)约束全局/项目范围 | 原项目生命周期、双渠道 UI/Memory 与有界进程恢复已验收；自动写入、长上下文摘要保真率、其他设备及普遍模型质量未由此证明，不能从 Workspace 路径推导 Project |
+| 子 Agent / Workflow | [ADR-AGENT-004](../adr/agent/004-bounded-delegation.md)有界设计 accepted；[HXA-105](../completion-records/HXA-105.md)是隔离 Spike | 未启用生产 `agent.spawn` 或任意 Workflow DSL；独立任务须限定委托/父预算、取消、持久拓扑、最小上下文与收益 |
+| Connector / OAuth / 订阅 | [HXA-125](tasks/HXA-125.md)受保护服务验收、[126](tasks/HXA-126.md)OAuth 与客户端注册、[190](tasks/HXA-190.md)订阅各有已有实现 | Notion/Linear 既定测试已结案，不重开自然刷新等未验项；自有 HTTPS/App Link/签名等输入与其他服务范围仍分开。付费账号暂缓见 status，缺账号不等于全部实现完成 |
+| 知识库、提醒、TTS 与定时 Agent | HXA-308～314 已有有界交付；[本机朗读](tasks/HXA-310.md)、[确认式提醒](../completion-records/HXA-313.md)、[最小定时 Agent](../completion-records/HXA-314.md)不是“尚无决定” | 定时首版为用户明确启用、绑定已有会话的 PLAN 只读分析/检索，不包含一般外部事件触发或任意副作用。真机听感、麦克风/耳机及服务端语音问题见[当前边界](status.md)，不由合成音频通过外推 |
+| 渠道与发行 | [HXA-120](tasks/HXA-120.md)～[123](tasks/HXA-123.md)与[发行就绪](release-readiness.md)分别承接审计、验收、身份升级及提交 | 开发预览已有发布不等于正式签名、全部渠道或商店验收；不得把早期发行清单理解为产品从未发布，也不由本页授予发布权限 |
 
 ## 分阶段推进的目标设计
 
-以下条目引用同一份[重构方案](../architecture/harness-refactor-plan.md)。2026-10-01 所有者已要求依次完成本地可执行的 R2-A、R3、J1/J2 与 Project Memory；各阶段以当前 status 和 HXA 为准，设备/账号/发行输入仍独立，不由方案详细程度自动扩展其他候选。
+结构基础与功能队列分开；下表是状态导航，不是执行顺序。
 
-| 项目 | 已有基础 | 缺口与进入开发条件 |
+| 范围 | 当前事实 | 后续边界 |
 | --- | --- | --- |
-| R2 Core 解耦 / ContextCompiler | [HXA-234](tasks/HXA-234.md)：实际 Core Loop、中立执行/提交端口与纯上下文编译已有生产接线 | 当前主机/真实存储及设备边界见任务；R2-B 的策略优化不混入等价迁移 |
-| R3＋最小 R5 插件统一生命周期 | [HXA-235](tasks/HXA-235.md)：统一包身份/目录、会话选择、局部失败、更新/停用/修复已接生产并完成本地主机验证 | 保留真实 Room/设备旅程，不重做已交付主体；安装仍不是审批 |
-| 插件优化 A/C/E1/B/E2/D | HXA-272～279 已按各自范围有界交付；设计与任务映射见[优化方案 第 7 节](../research/topics/helix-plugin-architecture-optimization-2026-10-11.md#7-任务承接与验收) | 剩余验证与后续优先级见 [status](status.md)，不重做已交付主体；F 与新增执行域仍是条件项，G 的文档读取已由 HXA-284 承接，其余文件流程需单独范围 |
-| J1 通用 Job 观察与等待 | [HXA-236](tasks/HXA-236.md)：原身份观察/等待、统一上下文及可信类型进展判断已接生产 | HXA-249 真实 Qwen J1、HXA-251 双API Job 六项通过；不扩大到全部生命周期/OEM |
-| J2 同次执行前后台切换 | [HXA-248](tasks/HXA-248.md)：AUTO/USER 释放等待，保留同一原执行与 lease，本地已交付 | API36 Runtime/UI 八项及 HXA-249 真实 AUTO 通过；完整取消/恢复组合仍独立 |
+| [HXA-286](../completion-records/HXA-286.md)、[293-A](../completion-records/HXA-293.md) | 类型化内容贡献与共同预算接缝已交付 | 不重建 Registry/Compiler；新贡献类型按实际消费者进入原契约 |
+| [HXA-287](../completion-records/HXA-287.md) | A 应用命令、B round/展示接缝、C 完整中立宿主已交付，见[生命周期记录](../evidence/development/harness-stage1-lifecycle-2026-10-24.md) | 不是全部 App 已模块化；新增装配/输入/编译边界按蓝图 24 核对 |
+| [HXA-288](tasks/HXA-288.md) | Job、物理容量、视觉产物、原位执行及结果/日志已有基础；[收尾裁决](../evidence/development/architecture-closeout.md)保留有实际职责的适配 | 仅有收益的局部接缝候选；显式 snapshot 跨来源 manifest 未交付，不作为默认原位可用的前置 |
+| [HXA-289](tasks/HXA-289.md)～[292](tasks/HXA-292.md) | 文件 glob/字面量 grep 有界能力已交付；网页搜索/正文与 MCP Resources 正文闭环按 [290](tasks/HXA-290.md)/[291](tasks/HXA-291.md)仍待实施；Browser/Mobile Use 保留已交付动作基线 | Search provider/费用/配置只阻塞其实际接线；新增表单提交/选择/上传与已有动作的 OEM/生命周期待验分开，不是结构重构前置 |
+| [HXA-293-B](../completion-records/HXA-293.md) | 有界 Memory/日志效果实验完成，未证明候选优于默认，见[实验记录](../evidence/development/memory-log-effect-experiment.md) | 保留默认策略；日志消费仍波动，不写作“尚未实验”或“优化已证明有效” |
+| [HXA-294](../completion-records/HXA-294.md) | 已交付切片的 A/B（含 287-C）集成证据已存在 | 按实际改动验证；不外推未实现功能、全部 Runtime/OEM 或模型效果，也不为无改动的 288 制造验收包 |
+| [总体蓝图 24](../architecture/harness-refactor-plan.md#241-结论基线与范围) | 11-07 已交付显式依赖、ConversationComposition 装配、输入契约/视图、上下文事实与映射分离，以及 conversation-input 编译边界；Debug 主机通过 | 整个 conversation 表现/应用层模块化、Room 模块迁移等未完成；该轮设备行为仅编译未执行。不将局部通过泛称蓝图完成，也不重复原 Engine 提取 |
 
 ## 产品已登记的候选与后续实施边界
 
-需求正文与兼容性边界均在[产品需求 第 2.4 节](../product/requirements.md#24-未排期未来能力候选)。本表保留登记身份；Shizuku 的后续有限实施不把其余候选变成当前交付承诺。
+需求身份与兼容性边界见[产品需求 第 2.4 节](../product/requirements.md#24-未排期未来能力候选)。已有有限交付不扩大其余候选范围。
 
-| ID | 方向 | 现有基础与主要进入条件 |
+| ID | 方向 | 已有基础与进入条件 |
 | --- | --- | --- |
-| FUT-AUTO-001 | Tasker 互操作 | 复用受控动作入口；限定 action/event/state 和命名 Task/结果回传，不承诺任意 Profile 兼容 |
-| FUT-AUTO-002 | Auto.js/AutoJs6 兼容 | 先做引擎/API/权限/模块兼容报告与支持矩阵，确定许可证和执行边界 |
-| FUT-AUTO-003 | 独立脚本 Runtime | 独立应用/UID 与受控 IPC 方案；不借现有 QuickJS 开放特权桥 |
-| FUT-SYS-001 | Shizuku Provider | HXA-243/244 已接 Mobile Use 授权及观察/动作；[平台边界](../architecture/android-platform-capabilities.md)和 status 承接有限实测。完整撤权/Binder death/OEM 仍独立，不再列为完全未实现 |
-| FUT-SYS-002 | 无线 ADB | 用户配对、密钥与连接生命周期、供应链和断连恢复方案 |
-| FUT-MEDIA-001 | PDF/Office 对话读取 | PDF 首阶段由 [HXA-283](tasks/HXA-283.md)承接，后续 [HXA-284](tasks/HXA-284.md)/ADR-WORKSPACE-006 已交付统一 PDF/DOCX 读取主机切片；设备/模型边界见任务。其他 Office 格式、编辑/生成、OCR 与完整排版仍未随本切片启用 |
-| FUT-MEDIA-002 | 视频理解 | 比较有界抽帧与原生 Provider 上传；确定时长/像素/音轨/成本/留存边界 |
-| FUT-A2A-001 | 前台局域网 A2A Server | 已有 A2A Client；新增入站服务须明确身份、端口、锁屏/后台/重启关闭边界 |
-| FUT-A2A-002 | 用户自备远程通道 | 明确 VPN/隧道/中继的身份和费用；通道在线不等于手机任务可执行 |
-| FUT-A2A-003 | 远端到本机双向任务 | 首步只接结构化 proposal，父 Turn 经正常授权执行；不继承远端权限或审批 |
+| FUT-AUTO-001 | Tasker 互操作 | 复用受控动作入口；限定 action/event/state、命名 Task 与结果回传，不承诺任意 Profile 兼容 |
+| FUT-AUTO-002 | Auto.js/AutoJs6 兼容 | 先确定引擎/API/权限/模块支持矩阵、许可证及执行边界 |
+| FUT-AUTO-003 | 独立脚本 Runtime | 先明确独立应用/UID 与受控 IPC 方案；不借现有 QuickJS 开放特权桥 |
+| FUT-SYS-001 | Shizuku Provider | HXA-243/244 已接 Mobile Use 授权、观察与动作；[平台边界](../architecture/android-platform-capabilities.md)与 status 承接后续实测，完整 OEM/撤权/恢复组合不外推 |
+| FUT-SYS-002 | 无线 ADB | [电脑 ADB helper](computer-adb-helper.md)已有有限实现，不等于手机内无线配对；无线方向仍须配对、密钥、连接生命周期、供应链及断连恢复方案 |
+| FUT-MEDIA-001 | PDF/Office 对话读取 | HXA-283/284 的统一 PDF/DOCX 阅读已有交付；[现行 PDF 契约](../adr/workspace/006-pdf-reading.md)与 status 承接页引用和扫描 PDF 视觉路径。其他 Office 格式、编辑/生成、专门 OCR 与完整排版不随阅读基础启用 |
+| FUT-MEDIA-002 | 视频理解 | 比较有界抽帧与原生 Provider 上传，确定时长/像素/音轨/成本/留存边界 |
+| FUT-A2A-001 | 前台局域网 A2A Server | 已有 A2A Client；入站服务须明确身份、端口、锁屏/后台/重启关闭边界 |
+| FUT-A2A-002 | 用户自备远程通道 | 明确 VPN/隧道/中继身份和费用；通道在线不等于手机任务可执行 |
+| FUT-A2A-003 | 远端到本机双向任务 | 首步只接结构化 proposal，父 Turn 经正常授权执行，不继承远端权限或审批 |
 
 ## 研究建议与后续增量
 
-| 来源/项目 | 当前边界 | 进入条件 |
+| 来源 / 方向 | 已有基础与候选边界 | 进入条件 |
 | --- | --- | --- |
-| [Mobile Use 设备就绪、锁屏接续与可靠性](../research/topics/mobile-use-device-readiness-and-reliability-2026-09-29.md) | 原研究按 09-29 基线阅读；[HXA-244](tasks/HXA-244.md)及[权限 ADR](../adr/permissions/001-session-authorization.md)已将会话授权与运行状态分开，锁屏/断连/进程死亡不自动撤权，恢复不得复用旧观察/动作凭据；不支持自动解开安全锁 | 按当前后端与原身份验证恢复、事实反馈及资源边界；不恢复旧自动撤权或周期确认策略。有条件亮屏、新预算策略、定时或无人值守能力仍须各自明确范围 |
-| [Schedule / Channel 自动激活](../evidence/research-history/helix-agent-complete-research-and-product-plan.md) | Goal 连续执行/提醒已存在，不等于定时或外部事件创建任务 | 用户开启、事件身份、去重、错过执行、重启 disarm、权限与预算 |
-| 同来源：可选 CompletionHook | 研究候选；不恢复普通 Goal 强制 verifier | 用户选择、确定性验收、超时/取消/记账、失败后可修复 |
-| 同来源：QuickJS Code Mode | 已有隔离 JavaScript，不等于可组合特权工具 | 先证明收益，明确受控工具调用、跨 UID、嵌套等待、取消和预算 |
-| [Workspace checkpoint / 按归属回滚](../research/modules/07-agent-capability-determinants-and-improvement-guide.md) | Workspace 已接受并交付；只读 Git 状态/文件恢复不等于 Agent rollback | 变更归属、并行用户修改、Git/SAF/外部效果差异及恢复验收；独立决定 |
-| [Mobile Use 手机截图](../architecture/plugin-platform-plan.md#10-artifact--screenshot) | HXA-243 已接手机截图/原生手势，按实际后端就绪能力选择语义/视觉；实现见 status 与平台能力文档 | 受保护内容、有效期、资源和 OEM 限制继续成立，不由有限通过推导全设备可截图 |
-| [移动入口与模板触发建议](../product/market-users-and-commercialization.md) | 有产品建议，未建立当前独立实施任务；语音输入已有交付 | 先定义用户任务与平台边界，再决定是否立项 |
-| 审查材料中的可复用任务、TTS、小组件、唤醒词线索 | 本轮未找到这些条目的现行 Helix 实施决定；材料中的不可解析引用不能充当仓库依据，竞品有功能也不是 Helix 承诺 | 先恢复原始来源和需求范围；本行仅记录待核实线索，不登记为已接受需求 |
+| [Mobile Use 就绪与可靠性](../research/topics/mobile-use-device-readiness-and-reliability-2026-09-29.md) | 按现行[权限 ADR](../adr/permissions/001-session-authorization.md)区分会话授权与运行状态；锁屏/断连/进程死亡不自动撤权，恢复不能复用旧观察/动作凭据 | 新增亮屏/无人值守策略单独限定范围；不恢复旧周期确认或自动撤权，不支持自动解开安全锁 |
+| [Schedule / Channel](../evidence/research-history/helix-agent-complete-research-and-product-plan.md) | 最小定时已由 HXA-314 交付；一般外部事件、新任务自动创建和更广执行资格仍是增量 | 明确用户开启、事件身份/去重、错过执行、恢复、权限与预算；沿现行 Goal ADR，不沿用研究中的旧重启策略 |
+| 同来源：CompletionHook | 可选候选，不恢复普通 Goal 强制 verifier | 用户选择、确定性验收、超时/取消/记账与失败后修复 |
+| [Workspace checkpoint / 按归属回滚](../research/modules/07-agent-capability-determinants-and-improvement-guide.md) | 现有 Workspace、文件恢复与应用备份不等于 Agent rollback | 先裁决变更归属、并行用户修改、Git/SAF/外部效果差异及恢复验收 |
+| [移动入口与模板触发](../product/market-users-and-commercialization.md) | 语音输入/TTS/定时已有各自实现；可复用任务、小组件、唤醒词未由此成为获准功能 | 先恢复具体来源、定义用户任务和平台边界，再决定是否立项；不把竞品线索或不可解析引用当仓库决定 |
 
 ### 插件研究的条件性增量
 
-以下承接[优化方案 第 5.6 至 5.9 节、第 6.5 节](../research/topics/helix-plugin-architecture-optimization-2026-10-11.md)，给出准备工作与进入实现的条件，不维护第二份排期。
+承接[插件优化方案 第 5.6～5.9、6.5 节](../research/topics/helix-plugin-architecture-optimization-2026-10-11.md)，不重复 272～279 的已交付主体。
 
-| 建议 | 当前承接与准备步骤 | 进入实现的条件 / 边界 |
-| --- | --- | --- |
-| F：外部异步 Job provider | 复用 HXA-236/248 的原 Job、观察/等待及释放；先为一个明确服务整理 start/status/wait/collect/cancel/continue、幂等键、账号/endpoint、结果回执，准备断连/未知启动/重复收取的受控服务 fixture | 有实际消费者、固定协议和验证环境后创建具体 provider HXA，并更新原 Job/权限主题；未确认远端停止不能报取消成功，不另建任务框架 |
-| G：文件工作流增量 | FUT-MEDIA-001 的 PDF/DOCX 阅读已由 HXA-283/284 承接；新增格式或编辑/生成仍需确定用户任务、双渠道依赖/许可证、来源与产物、资源上限 | 不再将已实现的 documents 阅读作为未选格式候选；后续按新增范围立项。保存、可读、已渲染、业务正确分别验收，不由桌面 Skill 推定 Android 已有运行依赖 |
-| MCP 服务端导出手机能力 | 现有 MCP client 只导入外部工具；先确定外部调用者、部署/认证、会话与目标绑定、撤销和原 Dispatcher 准入，准备拒绝/断连/未知效果协议样例 | 有跨宿主消费者且入口设计接受后再立项；不因 HXA-272～279 而把 Helix 变成远程设备平台 |
-| Code Mode / 可执行 hooks / LSP / Agent 定义 | HXA-275 只做组件诊断；HXA-277 只做最小类型化生命周期通知。若需要执行，先确定具体任务、运行边界、取消/预算、嵌套调用及安全责任 | 按对应既有 ADR/候选单独确定范围；Skill 或 manifest 不创建运行时或执行权限 |
-| Browser close / 完整 role-label 定位器 / 通用能力归组 | HXA-279 首版限定标签发现、有界等待和观察事实；HXA-274 保留真实提供方身份；先用冻结旅程记录剩余定位/选择困难 | 实际缺口与可测收益明确后单独拆任务；不按同名工具或 schema 自动合并，不扩建通用语义路由器 |
-| 三种作者样例与 Chat Reply 复用 | 纯 Skill/native/MCP 样例已归 HXA-272/275/276；合成聊天草稿用于 HXA-272/273。独立 Chat Reply WIP 按原归属核对 | 样例随生产通路交付，不另建文档 HXA。长期监听、OCR 专用解析、自动发送、第二个 AgentLoop 不由样例自动进入范围 |
-| 包内 CLI/脚本及账号服务 | 已有组件诊断、远程 MCP/Skill 管理和 Advanced 执行底座；导入未执行 setup 或登录服务。P2 条件与验收集中于 [Harness 第 23.12 节](../architecture/harness-refactor-plan.md#2312-插件管理与提示审查接续) | 明确目标包/许可证、ABI/解释器/依赖、实际 Runtime、凭据 owner 和用户范围后定切片；需要更强隔离时先改原 Runtime/Provider ADR，不能声称同 UID 已隔离秘密 |
-| 常驻 stdio MCP | 有有界 JSONL/Job 基础，尚未接入导入后的双向常驻会话；不扩容 HXA-291 Resources | 286/288 相应资源接缝、明确 server/依赖/认证、协商/背压/取消/真实退出夹具齐备后另定任务；不重复启动 Job 模拟持久连接 |
+| 建议 | 进入条件与保留边界 |
+| --- | --- |
+| F：外部异步 Job provider | 选定实际服务/消费者、协议及验证环境，再确定 start/status/wait/collect/cancel/continue、幂等、费用和回执；复用原 Job。未确认远端停止不能报取消成功，不另建任务框架 |
+| G：文件工作流增量 | 不重新选择已交付 PDF/DOCX 首版格式；新增格式、编辑/生成或 OCR 须明确任务、双渠道依赖/许可证、来源与产物、资源上限。保存、可读、渲染和业务正确分别验收 |
+| MCP 服务端导出手机能力 | 有跨宿主消费者后，明确部署/认证、会话目标绑定、撤销与原 Dispatcher 准入；现有 MCP client 不替代服务端设计，不随插件管理成为远程设备平台 |
+| Code Mode / 可执行 hooks / LSP / Agent 定义 | 现有隔离 JavaScript、组件诊断和最小类型化生命周期通知不是可组合特权工具或执行授权；逐项证明消费者/收益，确定运行、取消、预算、嵌套调用及安全责任 |
+| Browser close / 完整 role-label 定位器 / 通用能力归组 | 已有标签发现、有界等待与观察事实；用冻结旅程证明定位/选择缺口后再拆任务，不按同名工具/schema 合并提供方，不扩建通用语义路由器 |
+| 独立聊天辅助产品 | 既有纯 Skill/native/MCP 样例和合成聊天草稿不授权长期监听、OCR 专门解析、自动发送或第二 AgentLoop。正式承接时选择目标 App/会话、手动草稿/确认发送/规则触发边界；独立 Chat Reply WIP 按原归属核对 |
+| 包内 CLI/脚本及账号服务 | 组件诊断和 Advanced 底座不代表导入即 setup/登录；按 [第 23.12 节](../architecture/harness-refactor-plan.md#2312-插件管理与提示审查接续)明确目标包、许可证、ABI/解释器/依赖、Runtime、凭据 owner 与用户范围。同 UID 不是秘密隔离 |
+| 常驻 stdio MCP | 有界 JSONL/Job 不是双向常驻会话；先确定 server/依赖/认证、协商/背压/取消/真实退出夹具与实际缺少的资源接缝。不重做已交付 286/288 基础，不扩容 HXA-291 或重复启动 Job 模拟持久连接 |
 
 ### 系统分层的条件性增量
 
-原 2026-10-11 条件项已在 2026-10-15 评审中调整：当前 App/Room 耦合与完整无页面 Turn 测试就是明确需求，应用命令和完整 Turn 合并归 [HXA-287](tasks/HXA-287.md)，不再等待第二个产品消费者。目标决定见 [ADR-AGENT-001](../adr/agent/001-turn-coordination.md)，设计见 [Harness 第 23 节](../architecture/harness-refactor-plan.md#23-2026-10-14-执行边界重构提案)。
+完整无页面 Turn 已由 HXA-287 交付，不再等待第二产品消费者，也不再标“已排期未实施”。当前结构接续统一见[总体蓝图 24](../architecture/harness-refactor-plan.md#24-总体架构蓝图与渐进重构路线)，按实际耦合和消费者收敛应用装配、输入与编译边界。
 
-工具/插件贡献与前置依赖归 [HXA-286](tasks/HXA-286.md)，执行结果/Job/产物归 [HXA-288](tasks/HXA-288.md)，Memory/上下文归 [HXA-293](tasks/HXA-293.md)。这些是已排期、未实施的当前范围，复用 HXA-274/277 等已交付基础；不复制第二份执行状态或旧接口兼容层。
-
-仍需独立需求的范围是**部署到其他宿主**：CLI、独立 Server、远程 Agent、多设备与新执行域。先确定真实消费者、身份/授权、部署和恢复责任，再按既有 ADR 扩展；完整 Turn 领域分离本身不授权建设这些平台。后续设计依赖见 [status](status.md#后续架构队列未启动)。
+**新部署宿主仍需独立需求**：CLI、独立 Server、远程 Agent、多设备及新增执行域须先确定真实消费者、身份/授权、部署与恢复责任。领域分离和可扩展接缝不构成这些平台的实施授权。
 
 ## 本轮插件与分层评审的决策结论
 
-2026-10-11 对照[主流 Agent 机制](../research/topics/agent-plugin-architecture-research-2026-10-11.md#28-插件与执行分层的总体合理性复核)和[收敛尺度](../research/topics/helix-plugin-architecture-optimization-2026-10-11.md#21-总体合理性与收敛尺度)。本节索引决策责任和时机，不建立第二份排期，不将建议标记为 accepted。
+保留本标题供研究页引用；不再抄录 2026-10-11 的整套历史决定。接入/安装归属见 [ADR-CONNECTORS-003](../adr/connectors/003-ownership-and-installation.md)，内容与调用资格见 [ADR-SKILLS-001](../adr/skills/001-authoring-and-installation.md)，执行/持久边界见 [ADR-AGENT-001](../adr/agent/001-turn-coordination.md)。既有决定不因本次整理重新待裁决。
 
-### 已决定，按原任务实施
+后续需要 Owner 选择的独有问题已集中于上方候选表：独立聊天辅助范围、新部署宿主、手机能力导出、首个外部异步 provider、文件增量及可编程扩展。条件未满足不要求现在逐项回答；竞品具备功能不自动形成 Helix 优先级。
 
-| 事项 | 当前有效决定及归属 |
-| --- | --- |
-| 接入与执行分工 | Mobile Use 保持 native，Browser 统一为 native contribution；AgentLoop/Turn/工具执行沿原分工，使用同一治理链。见 [ADR-CONNECTORS-003](../adr/connectors/003-ownership-and-installation.md)、[ADR-AGENT-001](../adr/agent/001-turn-coordination.md) |
-| 内容、调用与默认值 | 纯 Skill 独立激活，用户/模型调用资格按四组合执行；Browser 新会话默认集合已确定。见 [ADR-SKILLS-001](../adr/skills/001-authoring-and-installation.md)、ADR-CONNECTORS-003；无需重新询问默认资格或默认选中行为 |
-| 权限与生命周期 | 元数据不授予权限；readiness 为只读投影；实际执行退出与插件共享引用各有 owner。HXA-274/277 使用现有权威事实 |
-| 旧实现与外部格式 | 本轮直接替换旧入口，无旧数据库/会话/批准迁移。HXA-275 明示当前外部组件支持范围；识别 hooks/LSP/Agent 等字段不授予执行资格 |
-| 当轮投入范围与后续 | HXA-272～279 已按原范围交付；2026-10-15 新目标已登记 HXA-286～294，完整 Turn 归 287，代码尚未实施。新增执行域仍须独立需求与决定 |
-
-本节保留 2026-10-11 当轮决策分工，不能解释为重新执行 HXA-272～279。类型命名、port 签名、源码目录及句柄实现可在适用契约内选择；影响授权、持久事实、产品范围或部署边界的新决定仍写回对应主题 ADR。
-
-### 验收前需要冻结的输入
-
-HXA-278/279 已有有界对照结果，见各任务；本段要求适用于后续新增对照，不表示原验收尚未开始。每次先固定模型/版本、设备/API/渠道、样本、次数、成功判据和成本取舍，再按当次授权执行。缺少真实服务等输入时保留相应效果边界，不把历史结果外推为普遍收益，也不阻塞无依赖的实现。
-
-### 条件满足后才需要 Owner 选择
-
-下列均为既有候选的决策问题；“建议”尚未改变产品范围或形成实施授权。这些问题不要求现在全部回答。
-
-| 事项 | 需要选择什么 | 建议与决策时机 | 原归属 |
-| --- | --- | --- | --- |
-| 独立聊天辅助产品 | 手动生成草稿、确认后发送、规则触发自动回复分别交付哪些；目标 App/会话、触发条件与后台范围是什么 | 当前插件样例保持合成内容与草稿。正式承接自动回复目标时，先确定一个目标 App 和有界触发/发送规则；独立 Chat Reply WIP 按原归属核对 | [优化方案 第 8 节](../research/topics/helix-plugin-architecture-optimization-2026-10-11.md#8-对独立聊天辅助插件的应用)、既有 Schedule/Channel 候选 |
-| 新部署宿主/远端平台 | CLI、独立进程或远端客户端是否有具体任务；部署、调用者身份、授权与恢复责任 | 完整 Turn 领域分离已归 HXA-287，不再等待新消费者；额外部署有真实需求后单独决定 | [系统分层范围](#系统分层的条件性增量)、ADR-AGENT-001 |
-| 向外提供手机能力 | 是否让 Codex/Claude 等外部客户端控制 Helix；调用者身份、部署、目标绑定与撤销怎样处理 | 首次有跨宿主任务再决定导出入口；MCP client 的现有能力不能代替服务端设计 | [插件条件项](#插件研究的条件性增量)、现有权限/平台主题；与 Turn 宿主提取分别裁决 |
-| 外部异步服务 F | 首个具体服务、账号/费用、start/status/wait/collect/cancel 协议与结果责任 | 选定一个有实际任务的 provider 和可用验证环境后立项；继续复用现有 Job | [插件条件项](#插件研究的条件性增量) F |
-| 文件工作流 G 的后续增量 | PDF/DOCX 阅读主机切片已由 HXA-284 交付；新增格式、编辑/生成或 OCR 才需另选范围 | 先验证现有阅读任务；后续明确新增用户任务、双渠道依赖与执行边界，不重新选择已交付首版格式 | [插件条件项](#插件研究的条件性增量) G、FUT-MEDIA-001 |
-| 可编程扩展范围 | Code Mode、hooks、LSP 或 Agent 定义中，哪一项有具体消费者；运行、取消、预算与权限边界是什么 | 每项分别用实际需求进入对应 ADR；HXA-275 继续只做支持诊断，HXA-277 仅提供类型化生命周期机制 | [插件条件项](#插件研究的条件性增量)及各自既有 ADR/候选 |
-
-完整 Browser 定位器、close 和通用能力归组继续用冻结旅程记录缺口，按原条件项判断收益；没有证据时保持当前 HXA-279 范围。竞品支持某能力不自动成为 Helix 的优先级或新增任务。
+新增收益对照先固定模型/版本、任务样本、设备/API/渠道、成功判据和成本取舍；历史有界通过不外推，缺服务输入不阻塞无依赖的实现。
 
 ## 2026-10-15 工具与插件评审承接
 
-[桌面与移动端竞品研究](../research/topics/tool-and-plugin-competitive-review-2026-10-15.md)中已纳入计划的部分，由 HXA-286～294 维护范围。文件 glob/grep、网页搜索/正文、MCP Resources、Browser 表单与 Mobile Use 参数分别归 289～292，不再以“尚未选择任何能力”阻止推进；网页搜索的 provider/费用/配置仍是明确准备项。
-
-Documents 继续一个插件承载 PDF/DOCX。新增编辑/生成、XLSX/OCR/媒体深化、模型持久终端、hooks/LSP/子 Agent、Code Mode 与外部异步 provider 仍需具体任务，不因同一竞品具备而全部立项。工具语义对齐不承诺模型效果；真实收益按冻结样本另验。Notion/Linear 与黑屏结案、长稳/提前结束专项暂停保持。
+[竞品研究](../research/topics/tool-and-plugin-competitive-review-2026-10-15.md)中已登记的 286～294 按上方状态表和原任务维护，不再沿用当时统一“未实施”的基线。新功能与结构重构分开；既定 Notion/Linear 测试已结案而非等待重启，长稳/黑屏等范围以 status 与当前明确授权为准。
 
 ### 后续扩展的准备与立项边界
 
-持久终端、子 Agent、hooks、LSP 的结构前提已写入 HXA-286/287/288/289/293/294，见 [第 23.9 节](../architecture/harness-refactor-plan.md#239-后续扩展约束)。本次接受可扩展边界和当前反例验证，不开启模型写入 PTY、子任务调度、脚本执行或语言服务器。后续有明确任务时分别选择输入/接管与租期、父子权限/恢复、hook 事件/决策语义、语言服务器/平台依赖；不重新立项已有基础，也不把首版渠道/数量写成通用架构上限。
-
-## 维护规则
-
-状态变化时修改原需求/ADR/HXA，再更新本页对应链接和边界；完成后引用完成记录，不复制验收流水账。不得因 `accepted`、存在代码或 Spike 成功推导生产交付；不得从历史文档恢复过时阻塞。本轮事实与代码验证见[收敛证据](../evidence/development/contract-document-convergence-2026-09-29.md)。
-
+持久终端、子 Agent、hooks、LSP 等结构约束见[第 23.9 节](../architecture/harness-refactor-plan.md#239-后续扩展约束)。接缝和当前反例验证不自动启用模型写入 PTY、子任务调度、脚本或语言服务器；后续分别确定输入/接管与租期、父子权限/恢复、事件决策语义与平台依赖，不重新立项已有基础。
 
 ## 资料检索、展示与输入增量
 
-以下为当前接线与剩余进入条件，依赖可按维护、安全、许可和实际收益采用，不把依赖数量少作为目标。
+此节保留 status 的链接入口，区分已有接线与验证边界，不把依赖少作为目标。
 
-| 方向 | 当前代码与已实现边界 | 剩余成本与进入条件 |
+| 方向 | 已有实现 | 剩余边界 |
 | --- | --- | --- |
-| 知识库语义/混合检索 | 已接内置账号嵌入目录/请求、明确所选资料索引、本机有界可重建向量缓存、RRF 与原有词法融合；复用知识引用工具并重新核验正文 | 默认关闭；需明确所选文本和查询外发。账号/模型参数/修订隔离、删除失效，离线降级关键词；不部署向量数据库，不自动上传整库，服务端同名模型更新需显式修订或重建 |
-| 公式与 Mermaid | 块级公式已按 [ADR-PLATFORM-006](../adr/platform/006-formula-preview.md)接入成熟 KaTeX 离线预览，保留源码与既有 Markdown；Mermaid 默认内嵌，SVG 围栏/完整文件支持受限静态预览；复用有界宿主与临时渲染位图缓存，保留源码和无交互安全边界；完整行内公式复用同一 KaTeX 引擎生成透明位图，与原生文本混排 | 行内公式每段最多 8 项，保留原文、链接和点击放大；临时引擎与有界缓存共享。块级公式继续按需对话框。本次已补齐 SVG/链接/配置、规模与等待预算和官方 Tiny 依赖许可；未承诺全部图种、任意系统 WebView 或硬实时中止。外部图标、ELK、自定义配置与可点击链接不在当前预览能力内 |
-| 连续语音/插话 | 加号“连续转写”复用 Silero VAD 分段，停顿后追加可编辑草稿、不自动发送；单次输入保留，开始前等待朗读物理退出 | 有界分段、队列饱和停止、迟到结果隔离与资源释放需合成回归；真实麦克风/耳机与声学回声仍须专项授权，不宣称全双工 |
-| SAF 自动同步 | 文件页提供显式双向规则、共同基线与实际 hash，立即/周期同步、暂停及冲突状态；复用传输恢复 | 删除不自动传播；双方修改/类型/撤权/中断暂停。周期至少15分钟非准点；真实目录不在当前验证范围，跨设备需重新授权绑定 |
+| 知识库语义/混合检索 | 内置账号嵌入目录/请求、明确所选资料索引、本机可重建向量缓存及 RRF/词法融合，复用知识引用工具并重核正文 | 默认关闭，须明确所选文本/查询外发；修订/权限隔离、删除失效与离线词法降级保持。不自动上传整库，不部署向量数据库；同名服务模型更新需显式修订或重建，不与 Project Memory 合库 |
+| 公式、Mermaid 与 SVG | [公式 ADR](../adr/platform/006-formula-preview.md)及 status 承接 KaTeX 离线块级/行内、Mermaid Tiny 和受限静态 SVG 预览；保留源码及有界缓存 | 行内每段最多八项；超限/未闭合/不支持图种回退源码，不执行外部资源、图内链接或自定义配置。不承诺全部图种、所有 WebView 或硬实时中止 |
+| 连续语音/插话 | 加号“连续转写”复用 Silero VAD 分段，停顿后追加可编辑草稿，不自动发送；保留单次输入，开始前等待朗读物理退出 | 分段/队列饱和/迟到隔离/释放须随变更回归；合成与播放控制结果不等于真实麦克风/耳机或声学回声验收，不宣称全双工 |
+| SAF 自动同步 | 显式双向规则、共同基线/实际 hash、立即/周期同步、暂停与冲突状态，复用传输恢复 | 删除不传播；双方修改/类型/撤权/中断暂停，周期至少 15 分钟且非准点。已有 SAF 单项实测不等于完整真实目录同步验收，跨设备需重新授权绑定 |
 
-依据：[KaTeX 安全与资源选项](https://katex.org/docs/security)、[Mermaid 使用与浏览器要求](https://mermaid.js.org/config/usage)、[elkjs 许可](https://github.com/kieler/elkjs/blob/master/LICENSE.md)、[Android AEC](https://developer.android.com/reference/android/media/audiofx/AcousticEchoCanceler)、[DocumentsContract 元数据](https://developer.android.com/reference/android/provider/DocumentsContract.Document)、[WorkManager 周期边界](https://developer.android.com/develop/background-work/background-tasks/persistent/getting-started/define-work)。具体实现和测试不由候选登记推定。
+具体通过/失败和候选范围见 [status](status.md)、[非真机客户端验收](../evidence/development/nondevice-client-acceptance.md)及[日常体验收尾](usability-closeout.md)；登记本身不构成新增验收。
+
+## 维护规则
+
+状态变化先更新原需求/ADR/HXA，再更新本页链接和条件；完成后引用原记录，不复制测试流水。历史决定从 Git 与原主题 Decision history 追溯，不在索引保留第二套合同或旧阻塞。文档整理不改变授权，不把未实现、未验证或被暂停的部分写成完成。

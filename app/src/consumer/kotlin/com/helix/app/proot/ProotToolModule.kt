@@ -6,6 +6,8 @@ import com.helix.app.readiness.RuntimeReadiness
 import com.helix.core.model.SafetyProfile
 import com.helix.core.storage.HelixStorage
 import com.helix.core.workspace.WorkspaceArtifactStore
+import com.helix.feature.conversation.presentation.ProotRecoveredOutput
+import com.helix.feature.conversation.presentation.ProotRecoveryReport
 import com.helix.tools.framework.ToolRegistry
 
 /**
@@ -83,7 +85,7 @@ internal object ProotToolModule {
         workspaceStore: WorkspaceArtifactStore,
         storage: HelixStorage,
         ownership: com.helix.tools.framework.ExecutionOwnership,
-        chat: () -> com.helix.app.chat.ChatService,
+        chat: () -> com.helix.feature.conversation.application.ChatService,
         scope: kotlinx.coroutines.CoroutineScope? = null,
         resolveWorkspacePath: (com.helix.core.workspace.FileScopePath) -> java.io.File = { error("Unavailable") },
         allowedWorkspaceRoots: () -> List<java.io.File> = { emptyList() },

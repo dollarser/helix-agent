@@ -43,7 +43,7 @@ class ScriptToolBridgeDeviceTest {
             check(container.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
             settings.setEnabled(true)
             val result =
-                container.chatService.dispatchToolCall(
+                container.toolExecution.dispatchToolCall(
                     "$id-parent",
                     id,
                     "code.javascript.run",
@@ -80,7 +80,7 @@ class ScriptToolBridgeDeviceTest {
         id: String,
     ) {
         val denied =
-            app.appContainer.chatService.dispatchToolCall(
+            app.appContainer.toolExecution.dispatchToolCall(
                 "$id-off",
                 id,
                 "code.javascript.run",

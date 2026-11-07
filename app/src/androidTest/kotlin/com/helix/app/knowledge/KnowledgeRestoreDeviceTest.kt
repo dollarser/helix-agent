@@ -17,11 +17,11 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.core.app.ActivityOptionsCompat
 import androidx.test.platform.app.InstrumentationRegistry
-import com.helix.app.HelixTheme
 import com.helix.app.R
 import com.helix.core.storage.knowledge.CollectedSource
 import com.helix.core.storage.knowledge.KnowledgeNote
 import com.helix.core.storage.knowledge.KnowledgeStore
+import com.helix.ui.shared.HelixTheme
 import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
 import org.json.JSONObject

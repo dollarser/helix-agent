@@ -1,6 +1,6 @@
 # Notion 自然到期刷新与重启复用
 
-日期：2026-10-15。范围：[HXA-126](../../development/tasks/HXA-126.md)、[HXA-282](../../development/tasks/HXA-282.md)。沿用Owner指定Notion页面与既有账号，只通过Helix正常连接及Dispatcher只读工具链验证。没有模型调用、业务写入、改时钟、伪造期限、撤销、新授权或Linear重复测试；长稳与提前结束专项保持暂停。
+日期：2026-10-15。范围：[HXA-126](../../development/tasks/HXA-126.md)、[HXA-282](../../completion-records/HXA-282.md)。沿用Owner指定Notion页面与既有账号，只通过Helix正常连接及Dispatcher只读工具链验证。没有模型调用、业务写入、改时钟、伪造期限、撤销、新授权或Linear重复测试；长稳与提前结束专项保持暂停。
 
 ## 执行与独立事实
 

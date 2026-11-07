@@ -7,7 +7,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
-import com.helix.app.HelixTheme
 import com.helix.app.internal.InMemoryLineStore
 import com.helix.app.internal.LineStore
 import com.helix.app.voice.CloudAsrConnection
@@ -15,6 +14,7 @@ import com.helix.app.voice.CloudAsrFactory
 import com.helix.app.voice.PcmCapture
 import com.helix.app.voice.SpeechConsentStore
 import com.helix.app.voice.VoiceCapture
+import com.helix.ui.shared.HelixTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

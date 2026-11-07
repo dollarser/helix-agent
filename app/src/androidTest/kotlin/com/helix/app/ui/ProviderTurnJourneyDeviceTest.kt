@@ -2,7 +2,6 @@ package com.helix.app.ui
 
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import com.helix.app.MainActivity
-import com.helix.app.chat.SessionModelSelectionResult
 import com.helix.app.chat.textAnswerStream
 import com.helix.app.chat.toolCallStream
 import com.helix.app.provider.LoopbackModelServer
@@ -11,6 +10,7 @@ import com.helix.app.sendTestMessage
 import com.helix.core.model.AgentMode
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
+import com.helix.feature.conversation.presentation.SessionModelSelectionResult
 import com.helix.provider.api.ProbeOutcome
 import com.helix.provider.api.ProviderContextSettings
 import kotlinx.coroutines.runBlocking

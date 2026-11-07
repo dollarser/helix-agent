@@ -19,8 +19,10 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import com.helix.app.R
-import com.helix.app.ui.indicatedVerticalScroll
+import com.helix.ui.shared.indicatedVerticalScroll
 import kotlinx.coroutines.CancellationException
+import com.helix.feature.conversation.R as ConversationR
+import com.helix.ui.shared.R as SharedR
 
 @Composable
 @Suppress("FunctionName")
@@ -65,13 +67,13 @@ private fun DiagnosticReportDialog(
                     preview != null -> Text(preview!!, Modifier.testTag("diagnostics-preview"))
                     else -> Text(stringResource(R.string.diagnostics_preview_loading))
                 }
-                if (copied) Text(stringResource(R.string.code_copied), Modifier.testTag("diagnostics-copied"))
+                if (copied) Text(stringResource(SharedR.string.code_copied), Modifier.testTag("diagnostics-copied"))
             }
         },
         confirmButton = {
             if (failed) {
                 TextButton(onClick = { attempt++ }, modifier = Modifier.testTag("diagnostics-retry")) {
-                    Text(stringResource(R.string.chat_retry))
+                    Text(stringResource(SharedR.string.chat_retry))
                 }
             } else {
                 TextButton(
@@ -88,7 +90,7 @@ private fun DiagnosticReportDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss, modifier = Modifier.testTag("diagnostics-close")) {
-                Text(stringResource(R.string.files_close))
+                Text(stringResource(ConversationR.string.files_close))
             }
         },
     )

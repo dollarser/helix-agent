@@ -18,6 +18,8 @@ import androidx.compose.ui.unit.dp
 import com.helix.app.R
 import com.helix.app.files.ConflictPolicy
 import com.helix.app.files.ExportTarget
+import com.helix.feature.conversation.R as ConversationR
+import com.helix.ui.shared.R as SharedR
 
 @Composable
 @Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod")
@@ -176,7 +178,7 @@ internal fun FilesExportDialog(
                                     onClick = { exportCancel.set(true) },
                                     modifier = Modifier.testTag("files-export-cancel"),
                                 ) {
-                                    Text(str(R.string.common_cancel))
+                                    Text(str(SharedR.string.common_cancel))
                                 }
                             }
 
@@ -188,7 +190,7 @@ internal fun FilesExportDialog(
                                     },
                                     modifier = Modifier.testTag("files-export-close"),
                                 ) {
-                                    Text(str(R.string.files_close))
+                                    Text(str(ConversationR.string.files_close))
                                 }
                             }
 
@@ -237,7 +239,7 @@ internal fun FilesExportDialog(
                                 },
                                 modifier = Modifier.testTag("files-export-dismiss"),
                             ) {
-                                Text(str(R.string.files_close))
+                                Text(str(ConversationR.string.files_close))
                             }
                         }
                     },

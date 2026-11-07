@@ -2,9 +2,9 @@
 
 # Helix 本机 Harness 详细重构方案：Agent Core、工具治理与 Execution Host
 
-初稿：2026-09-28；契约扩写：2026-09-29；职责准则与内容收敛：2026-09-30；执行边界提案：2026-10-14；目标与任务承接：2026-10-15。本页保留 R/J 方案的设计依据与验收方法，并以 第 23 节 维护新一轮目标设计。各轮增加和改变的原因见[架构与能力演进索引](../evidence/research-history/architecture-evolution-2026-10-14.md)；旧章节中的“当前/本轮/前置”须按其基线理解。
+初稿：2026-09-28；契约扩写：2026-09-29；职责准则与内容收敛：2026-09-30；执行边界提案：2026-10-14；总体蓝图：2026-11-06。本页以第 24 节维护后续结构设计；第 1～22 节保留 R/J 方案依据与回归方法，第 23 节保留执行边界设计及其交付衔接。当前结构看[overview](overview.md)，实时实施事实看[status](../development/status.md)。各轮动机见[架构与能力演进索引](../evidence/research-history/architecture-evolution-2026-10-14.md)；历史章节中的“当前/本轮/前置”仅指原基线，不构成当前待办或执行指令。
 
-**授权与现状：**R1 见 [HXA-231](../completion-records/HXA-231.md)，自主恢复余项见 [HXA-232](../development/tasks/HXA-232.md)。2026-10-10 核对：R2-A/Core、R3、J1 已接生产；[HXA-248](../development/tasks/HXA-248.md) J2 和 [HXA-246](../development/tasks/HXA-246.md) Project/Memory 本地交付，API36 有界设备及 [HXA-249](../development/tasks/HXA-249.md) 真实 J1/AUTO 已通过。[HXA-251](../development/tasks/HXA-251.md) 已交付双API有限补验、指定拼音输入与发现提示对照；完整R2-B策略收益、其他IME/OEM、交叉生命周期和长稳仍须证据。实时后续设计依赖见 [status](../development/status.md)，不因目标卡片详细或文档整理而扩大实现、设备、账号或发布授权。
+**授权与现状：**R1 见 [HXA-231](../completion-records/HXA-231.md)，自主恢复余项见 [HXA-232](../development/tasks/HXA-232.md)。2026-10-10 核对：R2-A/Core、R3、J1 已接生产；[HXA-248](../development/tasks/HXA-248.md) J2 和 [HXA-246](../completion-records/HXA-246.md) Project/Memory 本地交付，API36 有界设备及 [HXA-249](../completion-records/HXA-249.md) 真实 J1/AUTO 已通过。[HXA-251](../completion-records/HXA-251.md) 已交付双API有限补验、指定拼音输入与发现提示对照；完整R2-B策略收益、其他IME/OEM、交叉生命周期和长稳仍须证据。实时后续设计依赖见 [status](../development/status.md)，不因目标卡片详细或文档整理而扩大实现、设备、账号或发布授权。
 
 **2026-10-11 分层复核的后续承接：**HXA-274 的恢复目标/页面导航与 HXA-277 的原生资源引用已按各自范围交付，见[当前架构](overview.md)与 [status](../development/status.md)。原判断保留在[研究 第 9 节](../research/modules/01-architecture-and-execution-engine.md#9-2026-10-11-分层复核与优化承接)；完整 Turn 宿主和模块重组的新建议见 第 23 节，不再把早期“先不建模块”的迁移选择当作新设计限制。
 
@@ -14,9 +14,9 @@
 
 **核心结论：模型主导任务策略，用户决定授权范围，Harness 忠实执行获准调用并回传真实结果。保留完整 Android 本机 Harness，默认本机模块化部署；不强制拆成多个服务，也不把业务路线和技术恢复写成第二个工作流大脑。**
 
-**2026-10-15 新设计入口：**Owner 要求根据本次评审优化文档与任务。见 [执行边界重构提案](#23-2026-10-14-执行边界重构提案) 及 HXA-286～294；原 B+E 合并、C+D 产物共同接线，完整 Turn 纳入目标，工具/插件与上下文契约前置。目标边界已同步原主题 ADR；2026-10-24 按 第 23.1 节 更新部分交付和剩余接缝，不能再概括为整队列代码未实施。第 4 至 22 节 的旧阶段清单只作设计与历史依据，不是当前待办。源码及一手研究见[综合研究 第 10 节](../research/modules/01-architecture-and-execution-engine.md#10-2026-10-14-执行边界与新目标设计复核)，工具语义参考见[竞品专题](../research/topics/tool-and-plugin-competitive-review-2026-10-15.md)。
+**2026-10-15 历史设计承接：**Owner 要求根据本次评审优化文档与任务。见 [执行边界重构提案](#23-2026-10-14-执行边界重构提案) 及 HXA-286～294；原 B+E 合并、C+D 产物共同接线，完整 Turn 纳入目标，工具/插件与上下文契约前置。目标边界已同步原主题 ADR；2026-10-24 按 第 23.1 节 更新部分交付和剩余接缝，不能再概括为整队列代码未实施。第 4 至 22 节 的旧阶段清单只作设计与历史依据，不是当前待办。源码及一手研究见[综合研究 第 10 节](../research/modules/01-architecture-and-execution-engine.md#10-2026-10-14-执行边界与新目标设计复核)，工具语义参考见[竞品专题](../research/topics/tool-and-plugin-competitive-review-2026-10-15.md)。
 
-**2026-10-16 接续入口：**第 23.1 节 维护已交付去重基线，第 23.7 节 明确联合接线/存储检查点及近期能力优先级，第 23.10 至 23.12 节 承接会话、存储和插件运行条件。仍只更新文档，不重开已完成 UI/诊断/终端工作，不自动开始生产重构。
+**2026-10-16 历史接续说明：**第 23.1 节 维护已交付去重基线，第 23.7 节 明确联合接线/存储检查点及近期能力优先级，第 23.10 至 23.12 节 承接会话、存储和插件运行条件。仍只更新文档，不重开已完成 UI/诊断/终端工作，不自动开始生产重构。
 
 ## 1. 目标与取舍
 
@@ -299,7 +299,7 @@ R2/J1/R3 按内测瓶颈和当前任务选择；R2 存储端口不能反向成�
 
 验证/提交流程统一见[实施指南](../development/implementation-guide.md#验证与提交)和当前 HXA；代码阶段先定向再跑完整适用主机 gate，重任务使用 host-slot。文档改动不因本方案列有代码任务而重复构建 APK。
 
-模型和设备验证需要当次授权。授权后先跑改动影响的轨迹，再在最终干净已提交源码运行既有 SGLang 系统基线；需要提交时按当前授权处理。BFCL 只作工具诊断，AndroidWorld 只作指定环境端到端补充，不替代 Helix 自身安全和恢复 oracle。固定模型、fixture、采样参数与 oracle；多轮报告成功率分母和长尾，不把一次成功当可靠性提升。
+本段保留当时的验证流程；当前设备、模型服务和提交授权以根 AGENTS.md 与当前请求为准，不从历史流程增加或继承授权。获准验证先跑改动影响的轨迹，再在最终干净已提交源码运行既有 SGLang 系统基线；需要提交时按当前授权处理。BFCL 只作工具诊断，AndroidWorld 只作指定环境端到端补充，不替代 Helix 自身安全和恢复 oracle。固定模型、fixture、采样参数与 oracle；多轮报告成功率分母和长尾，不把一次成功当可靠性提升。
 
 不得回归的硬门槛：无越权、无错配 executor、无工具协议孤儿、无副作用盲目重放、无丢失 durable 结算。效率目标先记录同条件基线，再决定阈值，不事先编造百分比收益。历史输出截断、偶发多余调用、SAF 间歇问题继续单独记录，不因重构完成宣称消失。
 
@@ -829,7 +829,7 @@ R3 交付时用户应能：导入/安装 → 看组件能力 → 配置必要连
 
 ## 18. 逐卡重构步骤与退出条件
 
-以下是 **2026-09-28～30 R/J 方案的迁移卡片**，用于追溯设计和选择回归，不是当前待办或新 HXA 授权。R1/R2-A/R3/J1/J2 的实现与余项分别查 231/234/235/236/248 及 status；下一轮采用 第 23 节 的目标和切片。未实施候选也不因卡片完整而自动启动。原契约来源为 第 8 节、第 13 至 17 节，职责与反馈准则见 第 13.6 节、第 15.6 节；历史步骤、删除项和退出条件保留，适用时按当前源码与 ADR 重新核对，不要求重做已交付迁移。
+以下是 **2026-09-28～30 R/J 方案的迁移卡片**，用于追溯设计和选择回归，不是当前待办或新 HXA 授权。R1/R2-A/R3/J1/J2 的实现与余项分别查 231/234/235/236/248 及 status；后续结构设计直达第 24 节；第 23 节仅保留执行边界设计的历史承接。未实施候选也不因卡片完整而自动启动。原契约来源为 第 8 节、第 13 至 17 节，职责与反馈准则见 第 13.6 节、第 15.6 节；历史步骤、删除项和退出条件保留，适用时按当前源码与 ADR 重新核对，不要求重做已交付迁移。
 
 ### R0-1：建立可复核起点与行为清单
 
@@ -838,7 +838,7 @@ R3 交付时用户应能：导入/安装 → 看组件能力 → 配置必要连
 1. 记录本次修改归属和关键文件 SHA，不清理别人 WIP；区分源码、文档、fixture 和生成物。
 2. 为送入模型、工具执行、审批、终态、恢复、Job 收取各列唯一生产入口；对本卡触及的规则按 第 13.6 节 分类，记录依据、实现位置、是否可配置及可删除/替换条件，不建立第二份运行时规则库。
 3. 记录三个可证明基线：当前确定性测试；代表性用户任务；已知失败/未复现项。
-4. 先解决当前任务的强制门禁阻塞；历史绿色不能代替新基线，设备/模型需当次明确授权。
+4. 先解决当前任务的强制门禁阻塞；历史绿色不能代替新基线，设备、模型服务按当前 AGENTS.md 与请求的授权边界处理，不沿用本卡的历史授权口径。
 
 **交付：**当前事实表、删除候选和测试定位。**退出：**无虚构完成项；不会把 ToolExposure、Runtime Job 或旧 Engine 再做一遍。
 
@@ -1106,7 +1106,7 @@ Subagent 未来可共享部分 async-handle 观察，但拥有独立 context、�
 
 Automation 未来负责触发新 Run/Turn，不成为 AgentLoop 的工作流大脑。只有被接受的显式用户触发契约才能让 Job completion 创建新模型工作；模型调用 `await` 不等于授予未来自动唤醒权限。
 
-### 21.3 实施前需明确的决定
+### 21.3 历史实施前裁决表（2026-09-28～30）
 
 | 决定 | 本文建议 | 接受位置/约束 |
 | --- | --- | --- |
@@ -1154,20 +1154,20 @@ Automation 未来负责触发新 Run/Turn，不成为 AgentLoop 的工作流大�
 
 目标是当前合理、符合主流 Agent 实战依据且可验证扩展的架构，不兼容旧内部版本；不是以最少改动保留既有设计。已交付只证明能力/语义基线，不是类、接口、表或模块的豁免。下文“不重开”指不把已完成功能冒充未实现；若实现依赖违反目标，应直接替换全部调用者并删除旧路径，不能以有测试通过拒绝重构。
 
-这是当前重构状态的汇总入口；HXA 保存可执行小片，roadmap 只分类/索引，不另设第二总计划。状态不是本轮代码实施或设备/账号授权。
+下表是 2026-10-24 的交付与剩余边界快照，不维护当前重构状态；后续结构蓝图看第 24 节，实时实施事实看 status 与对应任务。网页、MCP Resources、Browser 等功能增量不因列在历史表中成为结构重构前置；旧“未实施”须按原日期理解，不能据此重开已交付能力。
 
 | 对象 | 2026-10-24 裁决与可核对证据 | 剩余/停止边界 |
 | --- | --- | --- |
-| Registry/Binding/发现配套 | **已完成相应范围**：`ToolRegistry` 唯一 ToolBindingStore、ToolDescriptor.discoveryCompanions；[231](../completion-records/HXA-231.md)、[303](../development/tasks/HXA-303.md) | 不重建 Registry/权限链；286 内容贡献沿同一 Registry 接入 |
-| Loop/TurnEngine/UI 分层 | **基线与完整宿主主线已交付**：AppAgentRuntime、TurnEngine 与 [当前架构](overview.md)、[UI 接入](../development/ui-prototype-integration.md) | [287](../development/tasks/HXA-287.md) A 已在 `8297a4be` 交付；B 的独立工具展示与 Core round 已接入并通过主机及两渠道模拟器验收；C 的完整 Engine/driver/Room 生命周期已交付，见[阶段证据](../evidence/development/harness-stage1-lifecycle-2026-10-24.md)；跨会话新能力不包含在内 |
-| 执行/日志/原位/清理 | **已完成有界交付**：[原位执行](../development/proot-in-place-execution.md)、[日志](../development/result-log-closeout.md)、[清理](../development/obsolete-path-cleanup.md) | 不重做原位默认、嵌套 cwd、结果补读、不重放或技术恢复。288 的类型/JSON 分支按具体职责评估，不一律删除 |
-| 插件内容/共同预算 | **结构接缝已交付**：`8297a4be` 的类型化贡献、可信帮助资格、实际调用工具读取引用及唯一 Compiler 预算；删除旧聚合与名称特判 | [286](../development/tasks/HXA-286.md)/[293-A](../development/tasks/HXA-293.md) 的结果以 checkpoint 证据为限；293-B 效果实验另行，不开放任意历史重写 |
+| Registry/Binding/发现配套 | **已完成相应范围**：`ToolRegistry` 唯一 ToolBindingStore、ToolDescriptor.discoveryCompanions；[231](../completion-records/HXA-231.md)、[303](../completion-records/HXA-303.md) | 不重建 Registry/权限链；286 内容贡献沿同一 Registry 接入 |
+| Loop/TurnEngine/UI 分层 | **基线与完整宿主主线已交付**：AppAgentRuntime、TurnEngine 与 [当前架构](overview.md)、[UI 接入](../development/ui-prototype-integration.md) | [287](../completion-records/HXA-287.md) A 已在 `8297a4be` 交付；B 的独立工具展示与 Core round 已接入并通过主机及两渠道模拟器验收；C 的完整 Engine/driver/Room 生命周期已交付，见[阶段证据](../evidence/development/harness-stage1-lifecycle-2026-10-24.md)；跨会话新能力不包含在内 |
+| 执行/日志/原位/清理 | **已完成有界交付**：[原位执行](../development/proot-in-place-execution.md)、[日志](../development/result-log-closeout.md)、[清理](../evidence/development/obsolete-path-cleanup.md) | 不重做原位默认、嵌套 cwd、结果补读、不重放或技术恢复。288 的类型/JSON 分支按具体职责评估，不一律删除 |
+| 插件内容/共同预算 | **结构接缝已交付**：`8297a4be` 的类型化贡献、可信帮助资格、实际调用工具读取引用及唯一 Compiler 预算；删除旧聚合与名称特判 | [286](../completion-records/HXA-286.md)/[293-A](../completion-records/HXA-293.md) 的结果以 checkpoint 证据为限；293-B 效果实验另行，不开放任意历史重写 |
 | 文件/网页/MCP Resources | **文件有界能力已交付，网页/Resources 仍未实施**：原生 glob/字面量 grep 通过主机与双渠道模拟器读回验证，HttpFetchTool 为原始 HTTP；McpClientSession 有元数据无正文读取端口 | [289](../development/tasks/HXA-289.md)/[290](../development/tasks/HXA-290.md)/[291](../development/tasks/HXA-291.md) 不作为结构结算前置；Search 服务选型只阻塞其真实接线 |
 | Browser/Mobile Use | **已有基线＋新能力/待验边界**：BrowserInteractionTools.browser.type、AutomationToolOutcome 的派发/未核实事实及既有后端 | [292](../development/tasks/HXA-292.md) 区分新表单能力、客户端可复现缺陷、仅待 OEM/生命周期验收和模型视觉局限，不重建手机规划器 |
-| Memory 选择 | **有界实验已完成，保留默认策略**：MemoryContext 最多两域、每域摘要前 1000 字符；现有 list/search/read 已可读后续条目 | [293-B](../development/tasks/HXA-293.md) 更正有效样本 baseline/index 各 3/4，未证明候选收益；日志消费仍波动，见[实验记录](../development/memory-log-effect-experiment.md)，不新增检索平台 |
+| Memory 选择 | **有界实验已完成，保留默认策略**：MemoryContext 最多两域、每域摘要前 1000 字符；现有 list/search/read 已可读后续条目 | [293-B](../completion-records/HXA-293.md) 更正有效样本 baseline/index 各 3/4，未证明候选收益；日志消费仍波动，见[实验记录](../evidence/development/memory-log-effect-experiment.md)，不新增检索平台 |
 | 默认快照/嵌套 cwd 重做前提 | **已被替代/取消**：LinuxRunTool 与原位/日志交付已证明默认 in_place 和严格嵌套 cwd | 取消重复功能实施，不给旧类/接口分层豁免；显式 snapshot 保留有效用途 |
 | 已有能力的其他设备组合 | **仅待验收**：已交付终端/资源/UI 的 OEM、低内存、长稳等未覆盖组合见 [status](../development/status.md) | 按明确授权验证具体组合；不先重构，也不把未覆盖当已知代码缺陷 |
-| 集成验收 | **按已交付切片待执行**：[294](../development/tasks/HXA-294.md) 引用已有主机/模拟器/模型证据 | 未实现、服务依赖、仅待设备、策略无结论分开；不是全部“只差测试”，也不是全部功能先做完 |
+| 集成验收 | **按已交付切片待执行**：[294](../completion-records/HXA-294.md) 引用已有主机/模拟器/模型证据 | 未实现、服务依赖、仅待设备、策略无结论分开；不是全部“只差测试”，也不是全部功能先做完 |
 | Provider/Knowledge/Memory 存储 | **仍有效，不安排全面重构**：ModelProvider/BoundModelProvider、KnowledgeStore 与 MarkdownMemoryStore 各有当前消费者 | 网络专属便捷属性可随真实 Provider 工作局部整理；没有确认全域缺陷。知识核对/来源与记忆作用域不同，不因正文都是 Markdown 合库 |
 
 **取消/替代的是旧实施前提，不是正确性：**不再按 A～E 或“286 全部结束 → 重建 287/288”推进，不因移出 App、去掉全部类型判断、接口数量或删行数宣称收益。保留真实外部协议适配、平台差异、用户数据及现行授权/取消/恢复语义；不兼容旧代码不授权清数据。
@@ -1243,7 +1243,7 @@ flowchart TD
 
 `ExecutionContext` 是内部约束，不是跨进程安全凭据。现有 Binder/PFD 必须继续按 Runtime 协议验证调用方、原 Job/generation、输入和目标；不发送内存 grant 对象或把宿主“已批准”当成系统授权。未来若真正跨设备，认证和权限协议须独立设计。
 
-上述身份/完成条件沿现行 ADR 和已交付 owner；[HXA-286](../development/tasks/HXA-286.md#共同契约与退出条件)只扩当前内容贡献缺少的事实，287/288 对真正改变的命令/执行接缝同步验证，不将再次定义全部类型作为启动前置。目标分层允许重组原子存储命令，但不能产生第二身份权威。
+上述身份/完成条件沿现行 ADR 和已交付 owner；[HXA-286](../completion-records/HXA-286.md#共同契约与退出条件)只扩当前内容贡献缺少的事实，287/288 对真正改变的命令/执行接缝同步验证，不将再次定义全部类型作为启动前置。目标分层允许重组原子存储命令，但不能产生第二身份权威。
 
 **一个 dispatch 完成入口，两种实际接线。**统一对 Scheduler 暴露有界、可等待的 dispatch 完成接口；同步 handler 由受限物理线程池承载，原生异步/Job 观察由 completion 接入。使用 `suspend` 或 Future 是语言层选择，不能改变物理容量语义。目标以**可信 Binding 构造的执行/观察契约**表达续接能力，替换不合目标的具体类耦合；现有识别同时承担内部只读资格和容量职责，不可只删除 `is` 分支或让外部元数据自报资格。
 
@@ -1355,7 +1355,7 @@ extensions/*, runtime/*   # 插件贡献和执行适配，保持真实隔离边�
 
 退出条件除编译和行为回归外，还包括：旧路径无有效引用、依赖方向检查通过、相同命令仍落在同一事务/权限/取消边界、没有新增事实源或新旧双入口。应用 ID、签名和发布的 v0.0.7 不受目录迁移影响。
 
-**完整 Turn 领域宿主抽离已由 287-C 交付。**提案开始时存在 TurnEngine/TurnExecutionDriver 直接依赖 HelixStorage、AppAgentRuntime submit/cancel 回调宽 ChatService 的问题；当前生命周期与 driver 在 Core，真实 Room 原子实现位于 app/infrastructure/agent，应用提交准备及命令位于 app/application/agent。旧 App Engine、混合结算和启动／取消回调已删除，见[生命周期记录](../evidence/development/harness-stage1-lifecycle-2026-10-24.md)；后续资格查询隐含 Goal 写入也已按[实验记录](../development/memory-log-effect-experiment.md)修正。以下仍是持续约束，不是尚未实施清单。抽离范围覆盖准入、执行驱动、停止、park/review、终态与恢复的领域协调；Android 生命周期、Room 和通知等实际适配留在基础设施。验收依据是依赖消除和完整行为可测，不是仅把代码搬进纯 JVM 目录。
+**完整 Turn 领域宿主抽离已由 287-C 交付。**提案开始时存在 TurnEngine/TurnExecutionDriver 直接依赖 HelixStorage、AppAgentRuntime submit/cancel 回调宽 ChatService 的问题；当前生命周期与 driver 在 Core，真实 Room 原子实现位于 app/infrastructure/agent，应用提交准备及命令位于 app/application/agent。旧 App Engine、混合结算和启动／取消回调已删除，见[生命周期记录](../evidence/development/harness-stage1-lifecycle-2026-10-24.md)；后续资格查询隐含 Goal 写入也已按[实验记录](../evidence/development/memory-log-effect-experiment.md)修正。以下仍是持续约束，不是尚未实施清单。抽离范围覆盖准入、执行驱动、停止、park/review、终态与恢复的领域协调；Android 生命周期、Room 和通知等实际适配留在基础设施。验收依据是依赖消除和完整行为可测，不是仅把代码搬进纯 JVM 目录。
 
 在 AgentTurnStore/AgentTurnJournal 已有领域契约上重组或扩展，把准入、cancel、park、终态/Goal 联动定义为**原子领域命令**，由 Room 适配提交。保留已验证的原子性和归属约束，不冻结原 DAO 布局；不得暴露通用 DAO 或让外部 `withTransaction` lambda 夹带跨层状态。Steer 与最终答复、首 ModelCall 与 step、GoalRun 与 Turn 的原事务不可拆散。内存测试实现只用于契约验证，不成为生产事实源；同一套领域断言还需检验真实 Room 适配。
 
@@ -1389,7 +1389,7 @@ Workspace 后端按实际能力提供 Path、SAF、Job snapshot 或 live mount �
 | 287-A/B/C / P1 | 提交/停止、批次投影及完整 Turn 宿主中立化分片，各片一位写入者；可移动/重写现 Engine 实现，保留唯一权威和原子语义 | 纯 JVM 完整领域生命周期与真实 Room 适配分别验收；receipt/取消/review/通知失败和原顺序回填保真，无第二 owner/反向依赖/旧桥残留 |
 | 287-UI / P2 可选 | ProotRuntimeSection 与 app 模块的状态/打开结果投影；不与 Runtime 协议重构捆绑 | 被动查询不 cold-bind/执行，打开失败可见，两变体边界保留；不扩大执行域 |
 | 288 / 条件候选 | 仅修改有证据的观察/内部身份/用途适配；不得与其他片同时写 Dispatcher | 保留现有内部观察资格、真实退出/容量和屏幕披露；以目标扩展测试/依赖改善裁决，现类无保留豁免 |
-| 293-B / 效果未决 | 固定夹具与模型对照已执行；更正有效样本不足以替换默认策略，日志消费有波动，见[实验记录](../development/memory-log-effect-experiment.md) | 保留默认；完整记录无效前置、有效样本、预算终止与负结果，不持续试到成功 |
+| 293-B / 效果未决 | 固定夹具与模型对照已执行；更正有效样本不足以替换默认策略，日志消费有波动，见[实验记录](../evidence/development/memory-log-effect-experiment.md) | 保留默认；完整记录无效前置、有效样本、预算终止与负结果，不持续试到成功 |
 
 存储端口只表达真实原子领域命令，不包一层通用 DAO 或事务 lambda。Room 仍是持久权威；无页面测试不代替真实 Room 原子性，287-C 的中立宿主和真实 Room 验证分别见阶段记录。若小片需要大量不相关模块、第二账本或外部部署，停止并缩回当前接口问题，而非继续扩大。
 
@@ -1403,7 +1403,7 @@ Workspace 后端按实际能力提供 Path、SAF、Job snapshot 或 live mount �
 
 #### 23.7.4 当前清理基线与替换验收
 
-[原清理记录](../development/obsolete-path-cleanup.md)已删除经证实失效的旧 UI/运行分支、字段和一次性改写器；有效动态注册/帮助、显式 snapshot、平台和外部协议适配保留。后续每片替换全部当前消费者、删其重复旧路径，不保留无收益兼容壳；不能凭 grep 无引用或类名判死代码。未知是否有效者先列证据缺口，不产生自动删除任务。本轮不动代码或用户数据。
+[原清理记录](../evidence/development/obsolete-path-cleanup.md)已删除经证实失效的旧 UI/运行分支、字段和一次性改写器；有效动态注册/帮助、显式 snapshot、平台和外部协议适配保留。后续每片替换全部当前消费者、删其重复旧路径，不保留无收益兼容壳；不能凭 grep 无引用或类名判死代码。未知是否有效者先列证据缺口，不产生自动删除任务。本轮不动代码或用户数据。
 
 ### 23.8 验证矩阵、收益与接受条件
 
@@ -1485,7 +1485,7 @@ Workspace 后端按实际能力提供 Path、SAF、Job snapshot 或 live mount �
 
 ### 23.11 会话存储优化接续
 
-[HXA-297](../development/tasks/HXA-297.md) 在原架构上落地查询与持久来源，具体契约归 [ADR-AGENT-001 第 18 节](../adr/agent/001-turn-coordination.md#18-会话查询投影与执行来源) 和 [ADR-AGENT-005](../adr/agent/005-session-jsonl-export.md)，不是完整宿主重组。竞品差异和采用理由见[存储审查](../research/topics/session-storage-review-2026-10-16.md)。
+[HXA-297](../completion-records/HXA-297.md) 在原架构上落地查询与持久来源，具体契约归 [ADR-AGENT-001 第 18 节](../adr/agent/001-turn-coordination.md#18-会话查询投影与执行来源) 和 [ADR-AGENT-005](../adr/agent/005-session-jsonl-export.md)，不是完整宿主重组。竞品差异和采用理由见[存储审查](../research/topics/session-storage-review-2026-10-16.md)。
 
 - 287 将当前 `SessionSearchRepository`、页面历史窗口和任务结果读取收敛到应用查询端口；查询 DTO 与 UI 状态不进入 TurnEngine。保留事务活动/搜索投影、原序分页和跨窗口定位，模型上下文继续读有效原始历史。
 - 287/288 共同保留 modelCallId/callIndex、模型与工具各自的 Turn ordinal、批次消息关联和结算时间。按原调用身份回填，不恢复 rowid/相邻行推断；直接调用不伪造模型来源，拒绝/取消路径也保留来源。
@@ -1498,9 +1498,9 @@ JSONL 保留按需导出与独立离线读取，Room/ContentStore 持久事实�
 
 ### 23.12 插件管理与提示审查接续
 
-[HXA-299](../development/tasks/HXA-299.md) 另行授权补齐 PromptSnapshot 分段成本/省略事实、原生注册/就绪/指纹的有界性能诊断及可复用外部样本入口。后续 286/293 接续这些证据，继续细分插件输入和统一预算；288 再处理真实资源生命周期。诊断计数不成为 durable 状态、授权或缓存命中依据；内部接口可直接替换。保持未选插件不触发上下文就绪探测、已选插件实时重验，以及打包提示进入实际模型 schema 的回归。实测范围与失败见任务证据，不将此次独立切片改标为整项重构启动。
+[HXA-299](../completion-records/HXA-299.md) 另行授权补齐 PromptSnapshot 分段成本/省略事实、原生注册/就绪/指纹的有界性能诊断及可复用外部样本入口。后续 286/293 接续这些证据，继续细分插件输入和统一预算；288 再处理真实资源生命周期。诊断计数不成为 durable 状态、授权或缓存命中依据；内部接口可直接替换。保持未选插件不触发上下文就绪探测、已选插件实时重验，以及打包提示进入实际模型 schema 的回归。实测范围与失败见任务证据，不将此次独立切片改标为整项重构启动。
 
-[HXA-298](../development/tasks/HXA-298.md) 在现有插件边界统一配置／提示与工具／详情、精确安装 ID 选用及必要指导/资源只读预览。统一贡献接线已由 286 承接这些用户行为，当前实现及验收见其交付记录；不保留旧 UI 双实现。Mobile Use 配置和运行能力仍由插件实现。内容事实与执行资格使用同一来源/快照，预览不触发选择、连接或授权。HXA-293-A 共同预算已交付，B 效果实验保留默认策略；294 保留内容资格、停用后预览和未知副作用不重放的回归；本轮提示整理不替代真实模型成本/效果验收。
+[HXA-298](../completion-records/HXA-298.md) 在现有插件边界统一配置／提示与工具／详情、精确安装 ID 选用及必要指导/资源只读预览。统一贡献接线已由 286 承接这些用户行为，当前实现及验收见其交付记录；不保留旧 UI 双实现。Mobile Use 配置和运行能力仍由插件实现。内容事实与执行资格使用同一来源/快照，预览不触发选择、连接或授权。HXA-293-A 共同预算已交付，B 效果实验保留默认策略；294 保留内容资格、停用后预览和未知副作用不重放的回归；本轮提示整理不替代真实模型成本/效果验收。
 
 模拟器确认过插件清理与 Skill 贡献读取的反向锁序死锁；当前共享关联元数据门闩并保留并发回归。后续拆分元数据服务时须保持发布/引用/删除的原子边界和一致锁序，不能恢复相反的跨 owner 持锁调用，也不能据此增加工具执行全局锁。
 
@@ -1527,11 +1527,11 @@ JSONL 保留按需导出与独立离线读取，Room/ContentStore 持久事实�
 
 ### 2026-10-26 有界收尾检查点
 
-本轮校正 第 23.2 节、第 23.7 节 中把原 Engine→Room 和宽 ChatService 回调写作现状的过时描述，保留历史动机与阶段证据。PRoot 安装事实／UI 资源分离已落地，旧翻译文本／资源接口删除；Dispatcher 内部观察类型、截图披露资格和请求-only 路径投影经核查继续保留，不另造角色框架或增加动态授权。范围、验证与未覆盖见[收尾记录](../development/architecture-closeout.md)，不外推为全项目目录均已最优或后续能力已经实现。
+本轮校正 第 23.2 节、第 23.7 节 中把原 Engine→Room 和宽 ChatService 回调写作现状的过时描述，保留历史动机与阶段证据。PRoot 安装事实／UI 资源分离已落地，旧翻译文本／资源接口删除；Dispatcher 内部观察类型、截图披露资格和请求-only 路径投影经核查继续保留，不另造角色框架或增加动态授权。范围、验证与未覆盖见[收尾记录](../evidence/development/architecture-closeout.md)，不外推为全项目目录均已最优或后续能力已经实现。
 
 ## 24. 总体架构蓝图与渐进重构路线
 
-设计基线：2026-11-06；实施状态更新：2026-11-07。Owner 要求结合主流 Agent 实战与当前源码，提供可在实施中修订的总体蓝图和分阶段方案。本节是本文件的**后续结构设计入口**，不新增平行计划、开发 Goal 或 HXA；不是生产重构启动授权，也不修改已接受的产品、安全或协议契约。实际实施状态仍归 [status](../development/status.md)，获准切片再落入对应任务。
+设计基线：2026-11-06；实施状态更新：2026-11-08。Owner 要求结合主流 Agent 实战与当前源码，提供可在实施中修订的总体蓝图和分阶段方案。本节是本文件的**后续结构设计入口**，不新增平行计划、开发 Goal 或 HXA；不是生产重构启动授权，也不修改已接受的产品、安全或协议契约。实际实施状态仍归 [status](../development/status.md)，获准切片再落入对应任务。
 
 ### 24.1 结论、基线与范围
 
@@ -1542,13 +1542,20 @@ JSONL 保留按需导出与独立离线读取，Room/ContentStore 持久事实�
 | 当前事实与源码入口 | 对蓝图的影响 |
 | --- | --- |
 | [TurnEngine](../../core/agent/src/main/kotlin/com/helix/core/agent/runtime/TurnEngine.kt) 和 driver 已在 Core；[RoomTurnLifecycleStore](../../app/src/main/kotlin/com/helix/app/infrastructure/agent/RoomTurnLifecycleStore.kt) 实现持久命令 | HXA-287 A/B/C 已交付，不重新排“抽离完整 Engine” |
-| [ChatService](../../app/src/main/kotlin/com/helix/app/chat/ChatService.kt) 仍构造 runtime、gateway、AgentLoopHost，并协调 draft/screen | 剩余问题是装配寄居表现门面，不是第二 Engine 或文件长本身 |
+| [ChatService](https://github.com/dollarser/helix-agent/blob/031042299b05bd39cf197267b98d2c8cbd7953b8/app/src/main/kotlin/com/helix/app/chat/ChatService.kt) 仍构造 runtime、gateway、AgentLoopHost，并协调 draft/screen | 剩余问题是装配寄居表现门面，不是第二 Engine 或文件长本身 |
 | [DefaultAppContainer](../../app/src/main/kotlin/com/helix/app/DefaultAppContainer.kt) 从 Application 反向取 knowledge/account，并在构造期启动观察与恢复 | 组合根合法；需要显式输入及一次启动/关闭的生命周期边界 |
 | [TurnSubmissionCommandHandler](../../app/src/main/kotlin/com/helix/app/application/agent/TurnSubmissionCommandHandler.kt) 仍依赖具体 ProviderService、HelixStorage 与 infrastructure snapshot | application 目前是职责目录，不是完整中立的编译边界 |
-| [ChatScreen](../../app/src/main/kotlin/com/helix/app/ui/ChatScreen.kt) / [ConversationSection](../../app/src/main/kotlin/com/helix/app/ui/ConversationSection.kt) 隐式取 knowledge/readAloud | 显式传入状态/动作或窄服务；不引入新的全局服务容器 |
-| [SessionInputModels](../../core/storage/src/main/kotlin/com/helix/core/storage/repository/SessionInputModels.kt) 混合输入命令与持久记录，UI 使用 storage 的 InputSkillActivation | 按真实语义迁移类型，不能把所有存储 DTO 一股脑搬进 core:model |
+| [ChatScreen](https://github.com/dollarser/helix-agent/blob/031042299b05bd39cf197267b98d2c8cbd7953b8/app/src/main/kotlin/com/helix/app/ui/ChatScreen.kt) / [ConversationSection](https://github.com/dollarser/helix-agent/blob/031042299b05bd39cf197267b98d2c8cbd7953b8/app/src/main/kotlin/com/helix/app/ui/ConversationSection.kt) 隐式取 knowledge/readAloud | 显式传入状态/动作或窄服务；不引入新的全局服务容器 |
+| [SessionInputModels](../../infrastructure/storage/src/main/kotlin/com/helix/core/storage/repository/SessionInputModels.kt) 混合输入命令与持久记录，UI 使用 storage 的 InputSkillActivation | 按真实语义迁移类型，不能把所有存储 DTO 一股脑搬进 core:model |
 | [SystemPromptContext](../../app/src/main/kotlin/com/helix/app/application/context/SystemPromptContext.kt) 已有统一来源/授权处理，但依赖具体存储与 MemoryService | 分离事实取得与纯内容映射；不重建 Compiler 或改变检索策略 |
 | [根构建配置](../../build.gradle.kts) 已有集中式模块依赖表，项目依赖使用 implementation；[架构护栏](../../scripts/tests/test_agent_layer_boundaries.py) 已限制 Core/App/UI 方向 | 并非完全没有依赖治理；仍需防止同 App 模块内绕行及未覆盖的 application→infrastructure 依赖 |
+
+**2026-11-08 迁移边界收尾：**
+
+- `feature:conversation` 已承接会话 presentation/application、草稿和回执状态机，原 conversation-input 模块删除；会话通过窄端口连接 App 的 Room/附件/知识/模型适配，不依赖 App 或 storage。`ui:shared` 独立持有共享呈现和预览资源，不反向读取 feature/App/storage。Room/ContentStore 已迁为 `infrastructure:storage`；存储 Kotlin/JNI/schema 身份不改，不增第二数据库或历史兼容链。当前接线见[总体架构](overview.md#当前目录与单一权威)。
+- 迁移候选的 `scripts/check-all.sh --debug` 通过：JVM 共 7450 项，7440 通过、10 项既有可选输入跳过，零失败/错误；363 项 Python 测试通过。`build/migration-final-host-receipt.json` 绑定源码输入与双渠道 Debug APK。API36 `Helix_API_36` 上 conversation 50、shared UI 24、storage 23、image 6，以及独立 App 测试包的真实 Room/输入/恢复 48 项，共 151 次方法执行通过；证据为 `build/migration-final-library-devices/*/receipt.json` 和 `build/conversation-isolated-room-device-run3/receipt.json`。上述结果仅覆盖该迁移候选。
+- 对应迁移的 Developer Debug 候选已覆盖安装至日常 `com.helix.agent.developer`，安装字节与候选一致、原 app ID/首次安装时间保持，未卸载或清数据，启动确认正常。见 `build/migration-final-daily-install/receipt.json`。这不承诺任意历史数据保留或覆盖升级兼容。
+- 上述为绑定源码/制品的实际执行结果；本次回填读取既有 receipt，没有重跑 Gradle/设备。后续文档与脚本修正单独运行适用门禁，不追溯改变旧计数。本轮没有新 Release/R8、真机、外部账号、性能收益或自然模型用户目标验收，历史 Release 通过不继承给新候选；不以这些切片宣布总体蓝图或全部产品完成。下列 11-07 记录继续作为当时阶段基线保留。
 
 **2026-11-07 第一阶段实施与验证基线（Debug 主机门禁通过）：**
 
@@ -1619,7 +1626,7 @@ Composition root 显式组装全部实现，不被业务或 UI 反向查询
 
 ### 24.4 目录与模块的目标落点
 
-推荐终态如下；路径为设计目标，不表示已创建，也不要求一次性移动所有文件：
+以下保留 2026-11-06 的目标布局；conversation、共享 UI 和 storage 的实际迁移已见 24.1，不要求重做或一次性移动其他能力：
 
 ```text
 app/                         Android 入口、composition、应用生命周期与导航接线
@@ -1634,7 +1641,7 @@ core/
   policy/                    已有授权/策略语义
   workspace/                 资源身份、内容/目录契约
 infrastructure/
-  storage/                   现 core:storage 的 Room/ContentStore 持久实现
+  storage/                   Room/ContentStore 持久实现（已迁入）
 provider/                    当前 api 与协议适配
 extensions/                  当前 Plugin/MCP/Skill/原生贡献
 runtime/                     按实际进程/执行隔离保留
@@ -1646,7 +1653,7 @@ feature 内优先按能力组织，再区分 presentation/application；不把�
 **建议采用的模块裁决：**
 
 1. `core:agent`、policy、workspace、provider:api 等有效边界保留。输入/快照类型归实际领域；仅真正跨领域者进 model，避免 model 变成新大仓库。
-2. `core:storage` 最终改为 `infrastructure:storage`，但在业务契约先剥离后做物理重命名。Room、内容存储及跨表原子实现可以同模块；不按表拆模块。
+2. `core:storage` 在业务契约剥离后已改为 `infrastructure:storage`，结果见 24.1。Room、内容存储及跨表原子实现继续同模块；不按表拆模块，也不因目录变更重命名 JNI/schema 身份。
 3. 优先以 conversation 做真实 feature 编译边界试点。其 application 只能使用契约，presentation 只能使用状态/命令；Android 获取事实留在适配器。初期可先整理包，最终若仍处在 App 的全依赖 classpath，不能宣称编译隔离完成。
 4. 需要 feature 与 storage 双向引用时，提取最小、真实使用的中立契约到所属 Core 领域；先判断是否本应一个 owner，不能靠 api/impl 模块成对膨胀消除所有依赖。
 5. 手动 DI 继续使用。组合根可按稳定能力构造协作者，但不得变成服务定位器网络；仅为少几百行不引入 Hilt/Koin。
@@ -1662,9 +1669,9 @@ feature 内优先按能力组织，再区分 presentation/application；不把�
 | 当前名称/位置 | 问题与目标 | 候选调整及实施阶段 |
 | --- | --- | --- |
 | `core/storage` / `:core:storage` | Room/ContentStore 基础设施与上层输入契约混在一起；Core 路径掩盖真实依赖 | C 先归位业务契约，E 再将持久实现迁到 `infrastructure/storage` / `:infrastructure:storage`；不是整个目录直接平移 |
-| [ChatService](../../app/src/main/kotlin/com/helix/app/chat/ChatService.kt) | 同时承担表现协调、输入动作和运行装配，名称无法说明剩余职责 | B/C 先复用现有协作者并迁出装配、应用命令；若仅剩表现协调可用 `ConversationPresenter`，仅在确属 ViewModel 生命周期时用 `ConversationViewModel`，没有独立职责则删除原总入口；不换成同样宽泛的 `ConversationManager` / `AgentService` |
-| [chat/ChatImagePreview](../../app/src/main/kotlin/com/helix/app/chat/ChatImagePreview.kt) 与 [ui/ChatImagePreview](../../app/src/main/kotlin/com/helix/app/ui/ChatImagePreview.kt) | 同名文件分别负责受约束图片读取与 Compose 展示，搜索时难以辨认层次 | B 的相关 UI/读取边界切片中，读取实现可改为 `ConversationImageReader`，UI 文件保留 Preview 或用 `ConversationImagePreview`；不合并两层，不丢会话绑定、哈希和大小验证 |
-| [SessionInputModels](../../core/storage/src/main/kotlin/com/helix/core/storage/repository/SessionInputModels.kt) | 输入规格、配置、接受结果与持久记录同处 repository 包 | C 按用户意图、已验证快照、持久记录分清归属；文件可用 `SessionInput.kt`、`SessionInputRecord.kt` 等主要概念命名，不强制每类型一文件，不把所有 Spec 机械改成 Command |
+| [ChatService](https://github.com/dollarser/helix-agent/blob/031042299b05bd39cf197267b98d2c8cbd7953b8/app/src/main/kotlin/com/helix/app/chat/ChatService.kt) | 同时承担表现协调、输入动作和运行装配，名称无法说明剩余职责 | B/C 先复用现有协作者并迁出装配、应用命令；若仅剩表现协调可用 `ConversationPresenter`，仅在确属 ViewModel 生命周期时用 `ConversationViewModel`，没有独立职责则删除原总入口；不换成同样宽泛的 `ConversationManager` / `AgentService` |
+| [chat/ChatImagePreview](https://github.com/dollarser/helix-agent/blob/031042299b05bd39cf197267b98d2c8cbd7953b8/app/src/main/kotlin/com/helix/app/chat/ChatImagePreview.kt) 与 [ui/ChatImagePreview](https://github.com/dollarser/helix-agent/blob/031042299b05bd39cf197267b98d2c8cbd7953b8/app/src/main/kotlin/com/helix/app/ui/ChatImagePreview.kt) | 同名文件分别负责受约束图片读取与 Compose 展示，搜索时难以辨认层次 | B 的相关 UI/读取边界切片中，读取实现可改为 `ConversationImageReader`，UI 文件保留 Preview 或用 `ConversationImagePreview`；不合并两层，不丢会话绑定、哈希和大小验证 |
+| [SessionInputModels](../../infrastructure/storage/src/main/kotlin/com/helix/core/storage/repository/SessionInputModels.kt) | 输入规格、配置、接受结果与持久记录同处 repository 包 | C 按用户意图、已验证快照、持久记录分清归属；文件可用 `SessionInput.kt`、`SessionInputRecord.kt` 等主要概念命名，不强制每类型一文件，不把所有 Spec 机械改成 Command |
 | [AgentLoopHost](../../app/src/main/kotlin/com/helix/app/agent/AgentLoopHost.kt) | 实现 TurnLoopRunner，负责 Core Loop 的应用接线与 Goal 时间控制；Host 表意偏宽 | B 明确剩余职责后可用 `AppTurnLoopRunner`；继续调用唯一 Core AgentLoop，不因改名创建第二 Engine/Loop |
 | [SystemPromptContext](../../app/src/main/kotlin/com/helix/app/application/context/SystemPromptContext.kt) | 名称像数据对象，实际涉及事实取得、来源注册和内容组装 | D 分离事实读取与映射后，组装部分可用 `SystemPromptAssembler`；复用 PromptRegistry/Compiler，不只改名或顺带改检索策略 |
 | [ToolSettlementWriter](../../app/src/main/kotlin/com/helix/app/application/tools/ToolSettlementWriter.kt) | 实际持久事务实现位于 application 包，位置比 Writer 后缀更误导 | C 将持久实现归 infrastructure；若保留具体 Room 实现，可用 `RoomToolSettlementWriter`，不为前缀另造无消费者接口；保持 ToolResult/ToolCall/budget 原子结算 |

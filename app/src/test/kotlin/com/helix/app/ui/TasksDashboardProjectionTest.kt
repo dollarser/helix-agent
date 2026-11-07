@@ -2,14 +2,15 @@ package com.helix.app.ui
 
 import com.helix.app.R
 import com.helix.app.chat.BackgroundTaskUi
-import com.helix.app.chat.GoalStatusUi
-import com.helix.app.chat.GoalSummaryUi
-import com.helix.app.chat.GoalUsageUi
 import com.helix.app.chat.PlanRowUi
 import com.helix.core.model.GoalBudgets
 import com.helix.core.model.TurnState
+import com.helix.feature.conversation.presentation.GoalStatusUi
+import com.helix.feature.conversation.presentation.GoalSummaryUi
+import com.helix.feature.conversation.presentation.GoalUsageUi
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import com.helix.feature.conversation.R as ConversationR
 
 /**
  * HXA-202 slice 1: the Tasks dashboard buckets are a pure projection of the persisted
@@ -87,7 +88,7 @@ class TasksDashboardProjectionTest {
         val rows = rows(task(state = TurnState.INTERRUPTED))
         val row = turnRow(rows)
         assertEquals(TasksBucket.NEEDS_YOU, row.bucket)
-        assertEquals(R.string.tasks_state_needs_review, row.statusRes)
+        assertEquals(ConversationR.string.tasks_state_needs_review, row.statusRes)
     }
 
     @Test
@@ -136,7 +137,7 @@ class TasksDashboardProjectionTest {
         val rows = rows(task(), goals = listOf(goal(state = "RUNNING", hasUnresolvedCalls = true)))
         val row = goalRow(rows)
         assertEquals(TasksBucket.NEEDS_YOU, row.bucket)
-        assertEquals(R.string.tasks_state_needs_review, row.statusRes)
+        assertEquals(ConversationR.string.tasks_state_needs_review, row.statusRes)
     }
 
     @Test

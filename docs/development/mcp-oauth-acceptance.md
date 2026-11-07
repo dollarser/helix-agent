@@ -1,6 +1,6 @@
 # MCP/OAuth 真实服务验收
 
-更新：2026-10-15。归属：[HXA-125](tasks/HXA-125.md)、[HXA-126](tasks/HXA-126.md)、[HXA-282](tasks/HXA-282.md)。本页是准备和复核步骤，不是已执行结果。
+更新：2026-10-15。归属：[HXA-125](tasks/HXA-125.md)、[HXA-126](tasks/HXA-126.md)、[HXA-282](../completion-records/HXA-282.md)。本页是准备和复核步骤，不是已执行结果。
 
 ## 选择服务
 

@@ -1,6 +1,7 @@
 package com.helix.app.chat
 
 import com.helix.app.agent.ContextCompaction
+import com.helix.app.infrastructure.conversation.RoomConversationWorkspace
 import com.helix.core.storage.HelixStorage
 import com.helix.core.storage.repository.MessageAttachmentRepository
 import kotlinx.serialization.json.buildJsonArray
@@ -86,7 +87,7 @@ internal class SessionFork(
         now: Long,
     ) {
         val source = storage.sessions.resolve(sourceSessionId)
-        val recovery = SessionWorkspaceRecovery(storage, validateDirectory)
+        val recovery = RoomConversationWorkspace(storage, validateDirectory)
         val directory = recovery.sharedDirectory(sourceSessionId)
         storage.sessions.create(newSessionId, title, source.providerId, source.modelId, now, directoryRef = directory)
         storage.projects.forSession(sourceSessionId)?.takeIf { it.archivedAt == null }?.let {

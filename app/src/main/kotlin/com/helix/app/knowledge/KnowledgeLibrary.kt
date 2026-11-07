@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import com.helix.app.R
 import com.helix.core.storage.knowledge.CollectedSource
 import com.helix.core.storage.knowledge.KnowledgeNote
+import com.helix.ui.shared.R as SharedR
 
 /** Library presentation only. Selection, permissions and mutations remain with the existing owner. */
 @Composable
@@ -71,7 +72,7 @@ internal fun KnowledgeLibrary(
             query,
             onQuery,
             singleLine = true,
-            leadingIcon = { Icon(painterResource(R.drawable.ic_files_search), contentDescription = null) },
+            leadingIcon = { Icon(painterResource(SharedR.drawable.ic_files_search), contentDescription = null) },
             placeholder = { Text(stringResource(R.string.knowledge_search_all)) },
             shape = KnowledgeActionShape,
             trailingIcon =
@@ -79,7 +80,7 @@ internal fun KnowledgeLibrary(
                     {
                         IconButton(clearSearch, Modifier.testTag("knowledge-clear-search")) {
                             Icon(
-                                painterResource(R.drawable.ic_close),
+                                painterResource(SharedR.drawable.ic_close),
                                 stringResource(R.string.knowledge_clear_search),
                             )
                         }
@@ -211,7 +212,15 @@ private fun KnowledgeLibraryIcon(kind: String) {
     ) {
         Box(contentAlignment = Alignment.Center) {
             Icon(
-                painterResource(if (kind == "KNOWLEDGE") R.drawable.ic_drawer_book else R.drawable.ic_files_document),
+                painterResource(
+                    if (kind ==
+                        "KNOWLEDGE"
+                    ) {
+                        R.drawable.ic_drawer_book
+                    } else {
+                        SharedR.drawable.ic_files_document
+                    },
+                ),
                 null,
                 Modifier.size(20.dp),
                 tint = MaterialTheme.colorScheme.primary,

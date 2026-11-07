@@ -35,7 +35,7 @@ def suite(name, runner, classes, extras=()):
     print(name,match[0],'assumptions',skipped,flush=True)
 
 artifacts={}
-for module in ['core/storage','feature/files','feature/browser','runtime/quickjs','tools/android','tools/automation']:
+for module in ['infrastructure/storage','feature/files','feature/browser','runtime/quickjs','tools/android','tools/automation']:
     folder=Path(module)/'build/outputs/apk/androidTest/debug'
     meta=json.loads((folder/'output-metadata.json').read_text())
     apk=folder/meta['elements'][0]['outputFile']

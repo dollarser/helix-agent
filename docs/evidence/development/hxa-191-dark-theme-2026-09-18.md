@@ -103,4 +103,4 @@ git diff --check
 
 - **HXA-191 建议改为「已完成 / 已交付」**：深色主题（本证据，API36 两 flavor 真实深色验证；API29 深色受模拟器镜像限制未在设备验证，见[边界](#边界与外部事实)）+ 会话搜索（[切片证据](hxa-191-session-search-2026-09-18.md)）两部分均交付并本地验收；建议 `docs/development/status.md` 将 HXA-191 指向本完成记录与两份证据，并移除「待实现」标记。
 - **重算完成索引**：`python3 scripts/generate-completion-index.py`（加入 `HXA-191`），解除 `Completion index is stale`。
-- 本执行者**未**直接改 `docs/development/status.md` / `docs/development/roadmap.md` / `docs/completion-records/index.md`（公共文件，协调者职责）；`docs/development/tasks/HXA-191.md` 已附本轮深色主题交付记录并更新分类行为「均已交付（待协调者整合实施状态）」。
+- 本执行者**未**直接改 `docs/development/status.md` / `docs/development/roadmap.md` / `docs/completion-records/index.md`（公共文件，协调者职责）；`docs/completion-records/HXA-191.md` 已附本轮深色主题交付记录并更新分类行为「均已交付（待协调者整合实施状态）」。

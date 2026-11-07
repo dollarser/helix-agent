@@ -26,6 +26,7 @@ import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
+import com.helix.ui.shared.R as SharedR
 
 internal fun previewHeaderHeight(widthDp: Float): Float = (widthDp * 0.14f).coerceIn(20f, 28f)
 
@@ -65,7 +66,7 @@ internal fun BackgroundPreviewHeader(
         CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides height) {
             IconButton(onHide, Modifier.size(height).testTag("background-preview-hide")) {
                 Icon(
-                    painterResource(R.drawable.ic_close),
+                    painterResource(SharedR.drawable.ic_close),
                     stringResource(R.string.background_preview_hide),
                     Modifier.size(12.dp),
                 )

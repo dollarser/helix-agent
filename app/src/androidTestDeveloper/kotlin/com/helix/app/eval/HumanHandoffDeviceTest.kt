@@ -3,11 +3,11 @@ package com.helix.app.eval
 import androidx.test.core.app.ApplicationProvider
 import com.helix.app.HelixApplication
 import com.helix.app.chat.HumanHandoff
-import com.helix.app.chat.HumanHandoffState
-import com.helix.app.chat.StopEffect
 import com.helix.app.chat.loadStopFacts
 import com.helix.core.model.ToolCallState
 import com.helix.core.model.TurnState
+import com.helix.feature.conversation.presentation.HumanHandoffState
+import com.helix.feature.conversation.presentation.StopEffect
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

@@ -270,7 +270,7 @@ class AuditScreenTest {
         val thread =
             Thread {
                 outcome[0] =
-                    container.chatService.dispatchToolCall(
+                    container.toolExecution.dispatchToolCall(
                         callId,
                         "audit-turn-1",
                         AUDIT_TOOL_NAME,

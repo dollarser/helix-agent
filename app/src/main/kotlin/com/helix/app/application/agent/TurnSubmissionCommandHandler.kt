@@ -4,8 +4,14 @@ import com.helix.app.application.context.PromptTemplateSource
 import com.helix.app.runcontrol.SessionRunControlStore
 import com.helix.core.agent.AgentLoop
 import com.helix.core.agent.ConversationReferenceIntent
+import com.helix.core.agent.RecoveryInspectionIdentity
+import com.helix.core.agent.RecoveryInspectionSnapshot
 import com.helix.core.agent.RunControlConfig
+import com.helix.core.agent.SessionInputConfiguration
 import com.helix.core.agent.SubmitTurnCommand
+import com.helix.core.agent.TurnSubmissionBlock
+import com.helix.core.agent.TurnSubmissionCommands
+import com.helix.core.agent.TurnSubmissionResult
 import com.helix.core.agent.runtime.TurnEngine
 import com.helix.core.agent.runtime.TurnExecutionHooks
 import com.helix.core.agent.runtime.TurnExecutionRequest
@@ -26,6 +32,7 @@ import com.helix.core.model.AttachmentPurpose
 import com.helix.core.model.Clock
 import com.helix.core.model.input.ConversationReferenceKind
 import com.helix.core.model.input.ConversationReferenceSnapshotInput
+import com.helix.feature.conversation.application.ConversationTurnCommands
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 
@@ -49,7 +56,7 @@ internal class TurnSubmissionCommandHandler(
     private val executionHooks: (String) -> TurnExecutionHooks,
     private val inspectOriginal: suspend (String) -> String,
     private val promptTemplates: PromptTemplateSource,
-) : TurnSubmissionCommands {
+) : ConversationTurnCommands {
     private val turnGate = turnEngine.executionGate
 
     override suspend fun submit(command: SubmitTurnCommand): TurnSubmissionResult =
@@ -92,7 +99,7 @@ internal class TurnSubmissionCommandHandler(
 
     /** Refuse unavailable original bindings; failed executor reconciliation remains UNKNOWN. */
     @Suppress("ReturnCount", "TooGenericExceptionCaught", "SwallowedException")
-    suspend fun inspectRecovery(
+    override suspend fun inspectRecovery(
         parentId: String,
         snapshot: RecoveryInspectionSnapshot,
     ): TurnSubmissionResult {
@@ -156,7 +163,7 @@ internal class TurnSubmissionCommandHandler(
         )
     }
 
-    fun revokeGoalIntent(sessionId: String) {
+    override fun revokeGoalIntent(sessionId: String) {
         goalContinuation.disarm(sessionId)
         goalUserRequests.entries.removeAll { entry -> entry.value.any { it.sessionId == sessionId } }
     }

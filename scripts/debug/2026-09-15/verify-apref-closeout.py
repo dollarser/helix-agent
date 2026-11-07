@@ -74,7 +74,7 @@ try:
                         subprocess.run([adb, "-s", serial, "uninstall", name], capture_output=True)
                     task = f":app:connected{flavor}DebugAndroidTest"
                     if storage_only:
-                        task = ":core:storage:connectedDebugAndroidTest"
+                        task = ":infrastructure:storage:connectedDebugAndroidTest"
                     if "--process-restart" in sys.argv[1:]:
                         with (out / f"{api}-{flavor}-assemble.log").open("w") as buildlog:
                             run(["./gradlew", f":app:assemble{flavor}Debug", f":app:assemble{flavor}DebugAndroidTest",
@@ -110,7 +110,7 @@ try:
                             run([adb, "-s", serial, "shell", "am", "force-stop", package], capture_output=True)
                         source = root / f"app/build/outputs/androidTest-results/connected/debug/flavors/{flavor.lower()}"
                         if storage_only:
-                            source = root / "core/storage/build/outputs/androidTest-results/connected/debug"
+                            source = root / "infrastructure/storage/build/outputs/androidTest-results/connected/debug"
                         if source.exists():
                             shutil.rmtree(source)
                         with (out / f"{api}-{flavor}-{phase}.log").open("w") as testlog:

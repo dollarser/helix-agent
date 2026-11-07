@@ -30,6 +30,10 @@
 | [Harness 人工介入审查](harness-human-intervention-audit-2026-09-29.md) | [HXA-232](../../development/tasks/HXA-232.md)、[Harness 职责准则](../../architecture/harness-refactor-plan.md#136-模型与-harness-的职责优化及减法准则) | 保留原失败/建议；不重新引入周期确认，不关闭未验矩阵 |
 | [QuickJS 访问与恢复备选](quickjs-access-and-autonomous-recovery-2026-09-29.md) | [QuickJS ADR](../../adr/runtime/003-quickjs.md)、HXA-232 | 原“待选”已获后续决定；任意原生访问的共享 UID 边界不变 |
 
+## 发布与重构顺序的历史复核
+
+- [v0.0.6 发布前收尾与重构顺序复核（2026-10-15）](v0.0.6-release-and-refactor-order-review-2026-10-15.md)：保留一手来源、身份/完成条件与故障反例；旧发布顺序、保数据升级和 versionCode 建议不再是当前要求。后续交付从 [status](../../development/status.md) 查询，当前结构设计看 [Harness 第 24 节](../../architecture/harness-refactor-plan.md#24-总体架构蓝图与渐进重构路线)。
+
 ## 原始报告到当前模块的映射
 
 | 历史报告 | 当前综合模块 |

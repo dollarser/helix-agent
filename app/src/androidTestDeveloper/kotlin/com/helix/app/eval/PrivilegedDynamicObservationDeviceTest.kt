@@ -43,7 +43,7 @@ class PrivilegedDynamicObservationDeviceTest {
         val selection = MobileUseEvaluationSelection(app)
         c.storage.sessions.create(session, "Dynamic observation fixture", null, null, System.currentTimeMillis())
         c.storage.turns.start(turn, session, System.currentTimeMillis())
-        c.chatService.refreshBackgroundTasksNow()
+        c.taskDashboard.refreshBackgroundNow()
         try {
             check(c.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
             selection.select(session, emptySet(), true)
@@ -61,14 +61,14 @@ class PrivilegedDynamicObservationDeviceTest {
             )
             SystemClock.sleep(1200)
             val projectionDeadline = SystemClock.elapsedRealtime() + 5000
-            while (c.chatService.backgroundTasks.value
+            while (c.taskDashboard.tasks.value
                     .none { it.id == turn } &&
                 SystemClock.elapsedRealtime() < projectionDeadline
             ) {
                 SystemClock.sleep(50)
             }
             assertTrue(
-                c.chatService.backgroundTasks.value
+                c.taskDashboard.tasks.value
                     .any { it.id == turn },
             )
             val ticks = mutableSetOf<String>()
@@ -115,7 +115,7 @@ class PrivilegedDynamicObservationDeviceTest {
         } finally {
             selection.close()
             c.storage.deleteSessionPermanently(session)
-            c.chatService.refreshBackgroundTasksNow()
+            c.taskDashboard.refreshBackgroundNow()
         }
     }
 

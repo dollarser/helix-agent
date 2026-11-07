@@ -99,7 +99,7 @@ git diff --check
 ## 建议 status 更新（供协调者整合，本执行者不直接改全局 status/roadmap/index）
 
 - **HXA-191 保持「待实现 / INCOMPLETE」**：搜索切片已交付并验收（本证据），但深色主题未做，不满足整体验收；**不写 `docs/evidence/development/hxa-191-delivery-review-2026-09-18.md`**。
-- 搜索切片的验收证据以本文件 `docs/evidence/development/hxa-191-session-search-2026-09-18.md` 为准；`docs/development/tasks/HXA-191.md` 的 `## 交付` 之后已附本切片记录。
+- 搜索切片的验收证据以本文件 `docs/evidence/development/hxa-191-session-search-2026-09-18.md` 为准；`docs/completion-records/HXA-191.md` 的 `## 交付` 之后已附本切片记录。
 - 协调者待整合的既有文档残留（本执行者不直接改，仅在此登记 + 建议）：
   - `docs/development/roadmap.md:205` HXA-193 链接指向已删除的 `tasks/HXA-193.md` → 建议改指 `../development/tasks/HXA-193.md`；
   - `docs/development/status.md:23` HXA-193 状态滞后 → 建议改指 193 完成记录与本 193 证据；

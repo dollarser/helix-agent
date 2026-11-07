@@ -1,6 +1,7 @@
 package com.helix.app
 
 import androidx.annotation.StringRes
+import com.helix.feature.conversation.R as ConversationR
 
 /**
  * Shell destinations. The session-scoped Git route is reached from conversation actions, not
@@ -46,7 +47,7 @@ enum class ShellDestination(
     ),
     Git(
         route = "git",
-        titleRes = R.string.nav_git,
+        titleRes = ConversationR.string.nav_git,
         emptyStateRes = R.string.empty_git,
     ),
     Files(

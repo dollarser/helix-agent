@@ -6,10 +6,9 @@ import com.helix.app.HelixApplication
 import com.helix.app.approval.SessionPermissionService
 import com.helix.app.approval.StorageApprovalBroker
 import com.helix.app.approval.StorageAuditSink
-import com.helix.app.chat.AttachmentStagingSupport
-import com.helix.app.chat.ChatService
 import com.helix.app.composition.ConversationComposition
 import com.helix.app.infrastructure.agent.createRoomTurnEngine
+import com.helix.app.infrastructure.chat.AttachmentStagingSupport
 import com.helix.app.internal.InMemoryLineStore
 import com.helix.app.profile.ChannelSafetyProfileStore
 import com.helix.app.provider.BuiltInModel
@@ -25,6 +24,7 @@ import com.helix.core.storage.HelixStorage
 import com.helix.core.storage.scheduled.ScheduledAgentRule
 import com.helix.core.storage.scheduled.ScheduledAgentStore
 import com.helix.core.workspace.ScopeRootResolver
+import com.helix.feature.conversation.application.ChatService
 import com.helix.feature.files.AttachmentImporter
 import com.helix.feature.files.SafImportPipeline
 import com.helix.feature.files.SafSourceOpener

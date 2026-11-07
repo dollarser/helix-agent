@@ -1,11 +1,11 @@
 package com.helix.app.ui
 
-import com.helix.app.chat.ChatScreenState
-import com.helix.app.chat.MessagePresentation
-import com.helix.app.chat.MessageUi
-import com.helix.app.chat.TurnUi
 import com.helix.app.voice.VisibleReplyFrame
 import com.helix.core.model.TurnState
+import com.helix.feature.conversation.presentation.ChatScreenState
+import com.helix.feature.conversation.presentation.MessagePresentation
+import com.helix.feature.conversation.presentation.MessageUi
+import com.helix.feature.conversation.presentation.TurnUi
 import org.junit.Assert.assertEquals
 import org.junit.Test
 

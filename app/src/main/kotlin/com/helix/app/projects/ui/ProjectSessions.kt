@@ -24,8 +24,10 @@ import com.helix.app.projects.ProjectService
 import com.helix.app.projects.ProjectSessionRow
 import com.helix.app.projects.ProjectSessionState
 import com.helix.app.ui.HelixCard
-import com.helix.app.ui.IndicatedLazyColumn
 import com.helix.app.ui.SettingsActions
+import com.helix.ui.shared.IndicatedLazyColumn
+import com.helix.feature.conversation.R as ConversationR
+import com.helix.ui.shared.R as SharedR
 
 @Composable
 @Suppress("FunctionName", "LongParameterList")
@@ -52,7 +54,7 @@ internal fun ProjectSessions(
                 TextButton({
                     adding = !adding
                 }, modifier = Modifier.testTag("project-add-session")) {
-                    Text(stringResource(if (adding) R.string.common_cancel else R.string.project_add_session))
+                    Text(stringResource(if (adding) SharedR.string.common_cancel else R.string.project_add_session))
                 }
             }
         }
@@ -101,7 +103,7 @@ private fun ProjectSessionCard(
 ) {
     HelixCard(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp)) {
-            Text(row.title.ifBlank { stringResource(R.string.chat_new_session) })
+            Text(row.title.ifBlank { stringResource(ConversationR.string.chat_new_session) })
             if (row.archived) Text(stringResource(R.string.project_archived))
             SettingsActions {
                 if (joining) {

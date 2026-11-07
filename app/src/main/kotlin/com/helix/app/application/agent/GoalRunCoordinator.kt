@@ -89,7 +89,8 @@ internal class GoalRunCoordinator(
     }
 
     /**
-     * Null means the durable state/budget refuses this wake; no rows or counters change.
+     * Null means this wake is refused and no run/Turn is created. A budget-exhausted Goal
+     * may persist its BLOCKED diagnosis in the caller's transaction.
      * Production calls this only from TurnAdmission's outer admission transaction; direct uses in
      * Android tests are fixture construction, not a second runtime admission seam.
      */

@@ -16,12 +16,14 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import com.helix.app.R
 import com.helix.app.voice.SystemVoiceSupport
 import com.helix.app.voice.VoiceInputMapper
+import com.helix.ui.shared.SharedSheet
+import com.helix.ui.shared.R as SharedR
 
 @Composable
 @Suppress("FunctionName")
 internal fun SystemVoiceSettingsEntry() {
     var open by remember { mutableStateOf(false) }
-    SettingsEntryRow(stringResource(R.string.system_voice_title), R.drawable.ic_composer_voice, { open = true })
+    SettingsEntryRow(stringResource(R.string.system_voice_title), SharedR.drawable.ic_composer_voice, { open = true })
     if (open) SystemVoiceDialog(onDismiss = { open = false })
 }
 
@@ -43,7 +45,7 @@ internal fun SystemVoiceDialog(
             failed = true
         }
     }
-    ConversationSheet(stringResource(R.string.system_voice_title), "system-voice", onDismiss) {
+    SharedSheet(stringResource(R.string.system_voice_title), "system-voice", onDismiss) {
         Column {
             failure?.let { Text(stringResource(voiceFailureText(it)), color = MaterialTheme.colorScheme.error) }
             status?.let { state ->

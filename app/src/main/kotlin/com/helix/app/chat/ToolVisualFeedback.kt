@@ -12,6 +12,7 @@ import com.helix.core.model.ProviderTransport
 import com.helix.core.model.ToolImageOmission
 import com.helix.core.model.VisualArtifact
 import com.helix.core.storage.HelixStorage
+import com.helix.feature.conversation.application.EgressDisclosure
 import com.helix.provider.api.ProviderConfig
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.int

@@ -10,6 +10,9 @@ import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
 import com.helix.app.HelixApplication
 import com.helix.app.composition.ConversationComposition
+import com.helix.app.infrastructure.chat.AttachmentStagingSupport
+import com.helix.app.infrastructure.conversation.LineConversationLaunchStore
+import com.helix.app.infrastructure.conversation.conversationModelSources
 import com.helix.app.internal.InMemoryLineStore
 import com.helix.app.profile.ChannelSafetyProfileStore
 import com.helix.app.provider.BuiltInModel
@@ -19,12 +22,16 @@ import com.helix.app.provider.ProviderFactory
 import com.helix.app.provider.ProviderService
 import com.helix.app.provider.ProviderTestStatusStore
 import com.helix.app.sendTestMessage
-import com.helix.app.ui.ComposerModelMenu
 import com.helix.core.agent.RunControlConfig
 import com.helix.core.model.ReasoningEffort
 import com.helix.core.model.TurnState
 import com.helix.core.storage.HelixStorage
 import com.helix.core.workspace.ScopeRootResolver
+import com.helix.feature.conversation.application.ChatService
+import com.helix.feature.conversation.application.ConversationLaunchStore
+import com.helix.feature.conversation.presentation.ComposerModelMenu
+import com.helix.feature.conversation.presentation.SessionModelSelectionResult
+import com.helix.feature.conversation.presentation.SessionModelSelectionSnapshot
 import com.helix.feature.files.AttachmentImporter
 import com.helix.feature.files.SafImportPipeline
 import com.helix.feature.files.SafSourceOpener
@@ -289,7 +296,7 @@ class ModelPickerPersistenceDeviceTest {
                 )
                 assertEquals(
                     BuiltInModel.PROVIDER_ID to BuiltInModel.MODEL_ID,
-                    ConversationLaunchStore(f.preferences).draftModel(),
+                    LineConversationLaunchStore(f.preferences).draftModel(),
                 )
                 assertEquals(0, f.wire.callCount)
             }
@@ -304,7 +311,8 @@ class ModelPickerPersistenceDeviceTest {
                 withTimeout(10_000) {
                     f.chat.screen.first {
                         it.openSessionId == "orphan" &&
-                            it.modelBindingIssue == com.helix.app.provider.ProviderBindingIssue.SOURCE_DELETED
+                            it.modelBindingIssue ==
+                            com.helix.feature.conversation.presentation.ProviderBindingIssue.SOURCE_DELETED
                     }
                 }
                 val staleDisplay = f.chat.screen.value
@@ -351,13 +359,14 @@ class ModelPickerPersistenceDeviceTest {
             Fixture().use { f ->
                 f.ready()
                 f.chat.closeSession()
-                ConversationLaunchStore(f.preferences).selectDraftModel("missing-fixture-source", "retained-model")
+                LineConversationLaunchStore(f.preferences).selectDraftModel("missing-fixture-source", "retained-model")
                 f.chat.newSessionDraft()
                 val draft =
                     withTimeout(10_000) {
                         f.chat.screen.first {
                             it.isDraft &&
-                                it.modelBindingIssue == com.helix.app.provider.ProviderBindingIssue.SOURCE_DELETED
+                                it.modelBindingIssue ==
+                                com.helix.feature.conversation.presentation.ProviderBindingIssue.SOURCE_DELETED
                         }
                     }
                 val id = requireNotNull(draft.openSessionId)
@@ -388,7 +397,7 @@ class ModelPickerPersistenceDeviceTest {
             val rows by f.providers.rows.collectAsState()
             MaterialTheme {
                 ComposerModelMenu(
-                    rows,
+                    rows.conversationModelSources(screen.selectedModel?.providerId, screen.selectedModel?.model),
                     screen.selectedModel?.providerId,
                     screen.selectedModel?.model,
                     true,
@@ -472,7 +481,7 @@ class ModelPickerPersistenceDeviceTest {
                     storage,
                     providers,
                     ChannelSafetyProfileStore(com.helix.core.model.SafetyProfile.STANDARD),
-                    conversationLaunchStore = ConversationLaunchStore(preferences),
+                    conversationLaunchStore = LineConversationLaunchStore(preferences),
                     toolPipeline = (context.applicationContext as HelixApplication).appContainer.toolPipeline,
                     idGenerator = { UUID.randomUUID().toString() },
                     scope = scope,

@@ -17,6 +17,7 @@ import com.helix.app.R
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
+import com.helix.feature.conversation.R as ConversationR
 
 /** Real navigation and persistence with no model calls, microphone or permission grants. */
 class TaskPreparationFlowDeviceTest {
@@ -28,11 +29,15 @@ class TaskPreparationFlowDeviceTest {
         val enabled = plugins.list().single { it.native?.pluginId == "mobile-use" }.enabled
         compose.onNodeWithTag("chat-input").performTextInput("保留我的要求")
         Espresso.closeSoftKeyboard()
-        compose.onNodeWithTag("starter-prompt-${R.string.chat_task_document}").performScrollTo().performClick()
+        compose
+            .onNodeWithTag(
+                "starter-prompt-${ConversationR.string.chat_task_document}",
+            ).performScrollTo()
+            .performClick()
         compose.onNodeWithTag("chat-input").assertTextContains("保留我的要求", substring = true)
         compose
             .onNodeWithTag("chat-input")
-            .assertTextContains(compose.activity.getString(R.string.chat_task_document), substring = true)
+            .assertTextContains(compose.activity.getString(ConversationR.string.chat_task_document), substring = true)
         compose.onNodeWithTag("phone-task-prepare").performScrollTo().performClick()
         compose.onNodeWithTag("mobile-use-dialog").assertIsDisplayed()
         compose.onNodeWithTag("connector-session-panel").assertDoesNotExist()
@@ -40,7 +45,7 @@ class TaskPreparationFlowDeviceTest {
         compose.onNodeWithTag("chat-input").assertTextContains("保留我的要求", substring = true)
         compose
             .onNodeWithTag("chat-input")
-            .assertTextContains(compose.activity.getString(R.string.chat_task_document), substring = true)
+            .assertTextContains(compose.activity.getString(ConversationR.string.chat_task_document), substring = true)
         assertEquals(enabled, plugins.list().single { it.native?.pluginId == "mobile-use" }.enabled)
         assertEquals(
             true,

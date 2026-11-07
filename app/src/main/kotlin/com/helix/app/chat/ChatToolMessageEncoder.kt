@@ -12,6 +12,7 @@ import com.helix.core.model.ToolDispatchOutcome
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import com.helix.feature.conversation.R as ConversationR
 
 /** Encodes ordered tool messages; never dispatches or settles a call. */
 internal class ChatToolMessageEncoder(
@@ -77,7 +78,7 @@ internal class ChatToolMessageEncoder(
 
             ToolDispatchOutcome.Cancelled -> {
                 status = "CANCELLED"
-                summary = str(R.string.tool_summary_cancelled_before_start)
+                summary = str(ConversationR.string.tool_summary_cancelled_before_start)
             }
         }
         val visual = (settled.outcome as? ToolDispatchOutcome.Succeeded)?.result?.visualArtifact

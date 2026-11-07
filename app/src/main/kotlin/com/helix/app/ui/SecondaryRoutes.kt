@@ -2,6 +2,7 @@ package com.helix.app.ui
 
 import androidx.annotation.StringRes
 import com.helix.app.R
+import com.helix.feature.conversation.R as ConversationR
 
 internal const val SETUP_READINESS_ROUTE = "setup/readiness"
 internal const val SETUP_CAPABILITIES_ROUTE = "setup/capabilities"
@@ -22,7 +23,7 @@ private val secondaryTitles =
         "file-location" to R.string.nav_files,
         CONVERSATION_HISTORY_ROUTE to R.string.conversation_history_title,
         CONVERSATION_SEARCH_ROUTE to R.string.conversation_search_title,
-        CONVERSATION_SETTINGS_ROUTE to R.string.session_settings_title,
+        CONVERSATION_SETTINGS_ROUTE to ConversationR.string.session_settings_title,
         SETUP_READINESS_ROUTE to R.string.nav_readiness,
         SETUP_CAPABILITIES_ROUTE to R.string.nav_capabilities,
         SETUP_RUNTIME_ROUTE to R.string.setup_runtime_title,

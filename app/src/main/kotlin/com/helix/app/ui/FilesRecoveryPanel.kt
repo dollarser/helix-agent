@@ -18,6 +18,7 @@ import com.helix.app.files.FileTransferRecovery
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.helix.feature.conversation.R as ConversationR
 
 /** Explicit recovery, including on the file home screen. No startup storage mutation. */
 @Composable
@@ -95,7 +96,10 @@ internal fun FilesRecoveryPanel(actions: FilesScreenActions) {
             }
         },
         confirmButton = {
-            TextButton(onClick = { open = false }, enabled = !busy) { Text(actions.str(R.string.files_close)) }
+            TextButton(
+                onClick = { open = false },
+                enabled = !busy,
+            ) { Text(actions.str(ConversationR.string.files_close)) }
         },
     )
 }

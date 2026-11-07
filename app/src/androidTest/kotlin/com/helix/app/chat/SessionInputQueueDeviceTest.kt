@@ -11,6 +11,9 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextReplacement
 import com.helix.app.MainActivity
+import com.helix.app.infrastructure.conversation.UserMessageEditor
+import com.helix.app.infrastructure.conversation.toInputSnapshot
+import com.helix.app.infrastructure.conversation.toSubmission
 import com.helix.app.knowledge.createEmptyTestNote
 import com.helix.app.provider.LoopbackModelServer
 import com.helix.app.provider.ProviderDraft
@@ -23,6 +26,8 @@ import com.helix.core.model.input.ConversationReferenceKind
 import com.helix.core.model.input.SessionInputDelivery
 import com.helix.core.storage.repository.SessionInputState
 import com.helix.core.workspace.FileScopePath
+import com.helix.feature.conversation.application.ChatService
+import com.helix.feature.conversation.application.MessageEditResult
 import com.helix.feature.conversation.input.ChatSubmission
 import com.helix.feature.conversation.input.ChatSubmissionOutcome
 import com.helix.provider.api.ProbeOutcome
@@ -325,14 +330,31 @@ class SessionInputQueueDeviceTest {
                 assertTrue(entered.await(10, TimeUnit.SECONDS))
                 val queued = submission(session, "send this now")
                 assertTrue(chat.sendSubmission(queued).await().outcome is ChatSubmissionOutcome.Enqueued)
-                val before = chat.sessionInputQueue(session).await().single()
+                val before =
+                    compose
+                        .container()
+                        .storage.sessionInputs
+                        .listPending(session)
+                        .single()
                 assertFalse(chat.sendQueuedInputNow(before.inputId, before.revision, "stale-turn").await())
-                assertEquals(before, chat.sessionInputQueue(session).await().single())
+                assertEquals(
+                    before,
+                    compose
+                        .container()
+                        .storage.sessionInputs
+                        .listPending(session)
+                        .single(),
+                )
                 assertTrue(chat.sendQueuedInputNow(before.inputId, before.revision, first).await())
                 assertFalse(chat.sendQueuedInputNow(before.inputId, before.revision, first).await())
                 // Retrying the original submit must still find its existing receipt after promotion.
                 assertTrue(chat.sendSubmission(queued).await().outcome is ChatSubmissionOutcome.Enqueued)
-                val promoted = chat.sessionInputQueue(session).await().single()
+                val promoted =
+                    compose
+                        .container()
+                        .storage.sessionInputs
+                        .listPending(session)
+                        .single()
                 assertEquals(before.textRef, promoted.textRef)
                 assertEquals(before.configuration, promoted.configuration)
                 assertEquals(SessionInputDelivery.STEER, promoted.delivery)

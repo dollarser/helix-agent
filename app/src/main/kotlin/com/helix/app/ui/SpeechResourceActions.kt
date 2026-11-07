@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import com.helix.app.R
+import com.helix.ui.shared.R as SharedR
 
 /** Presentation only: owners serialize resource changes and preserve unrelated files. */
 @Composable
@@ -49,7 +50,11 @@ internal fun SpeechResourceActions(
                     Text(stringResource(R.string.speech_resource_remove))
                 }
             },
-            dismissButton = { TextButton({ confirming = false }) { Text(stringResource(R.string.common_cancel)) } },
+            dismissButton = {
+                TextButton(
+                    { confirming = false },
+                ) { Text(stringResource(SharedR.string.common_cancel)) }
+            },
         )
     }
 }

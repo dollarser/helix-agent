@@ -13,6 +13,7 @@ import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.TurnBudgets
 import com.helix.core.model.TurnState
 import com.helix.core.storage.repository.SessionInputState
+import com.helix.feature.conversation.application.ChatService
 import com.helix.feature.conversation.input.ChatSubmission
 import com.helix.feature.conversation.input.ChatSubmissionOutcome
 import com.helix.provider.api.ProbeOutcome

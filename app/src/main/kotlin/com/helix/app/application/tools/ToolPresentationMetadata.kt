@@ -1,8 +1,8 @@
 package com.helix.app.application.tools
 
-import com.helix.app.application.security.ForbiddenContentGuard
 import com.helix.core.model.ModelToolSchema
 import com.helix.core.model.ToolCallPresentation
+import com.helix.core.policy.ForbiddenContentGuard
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive

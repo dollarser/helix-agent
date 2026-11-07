@@ -11,13 +11,13 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextReplacement
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.HelixApplication
-import com.helix.app.HelixTheme
 import com.helix.app.account.OfficialServices
 import com.helix.app.account.speechSocket
 import com.helix.app.internal.InMemoryLineStore
-import com.helix.app.ui.ComposerActions
-import com.helix.app.ui.ConversationComposer
 import com.helix.app.ui.InlineVoiceInput
+import com.helix.feature.conversation.input.appendVoiceDraft
+import com.helix.feature.conversation.presentation.ComposerActions
+import com.helix.feature.conversation.presentation.ConversationComposer
 import com.helix.provider.api.wire.OkHttpWireClient
 import com.helix.provider.api.wire.SocketConnection
 import com.helix.provider.api.wire.SocketConnector
@@ -26,6 +26,7 @@ import com.helix.provider.api.wire.SocketMessage
 import com.helix.provider.api.wire.WireClient
 import com.helix.provider.api.wire.WireRequest
 import com.helix.provider.api.wire.WireResponse
+import com.helix.ui.shared.HelixTheme
 import kotlinx.coroutines.runBlocking
 import org.junit.Assume.assumeTrue
 import org.junit.Rule
@@ -268,8 +269,8 @@ class ExistingAccountSpeechDeviceTest {
                                     preview = null
                                     open = false
                                 },
-                                onAccept = { draft = VoiceInputMapper.appendDraft(base, it) },
-                                onPreview = { preview = VoiceInputMapper.appendDraft(base, it) },
+                                onAccept = { draft = appendVoiceDraft(base, it) },
+                                onPreview = { preview = appendVoiceDraft(base, it) },
                                 permissionChecker = { true },
                                 consent = consent,
                                 captureFactory = { ctx, scope ->

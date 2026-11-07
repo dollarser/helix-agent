@@ -4,6 +4,7 @@ import com.helix.app.recovery.GoalUsageReservations
 import com.helix.core.model.Clock
 import com.helix.core.model.TurnState
 import com.helix.core.storage.HelixStorage
+import com.helix.feature.conversation.application.goals.DetachedGoalBudget
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
@@ -18,9 +19,9 @@ internal class GoalDetachedBudget(
     private val timerFor: (String) -> GoalLeaseControl?,
     private val idGenerator: () -> String,
     private val monotonicMillis: () -> Long = android.os.SystemClock::elapsedRealtime,
-) {
+) : DetachedGoalBudget {
     @Suppress("ReturnCount") // Ordinary Turn, missing live Goal clock and accepted lease have distinct outcomes.
-    fun prepare(
+    override fun prepare(
         sessionId: String,
         turnId: String,
         executionId: String,
@@ -53,14 +54,14 @@ internal class GoalDetachedBudget(
     }
 
     /** Original live launcher only; the Job is proven not to have started. */
-    fun reject(
+    override fun reject(
         sessionId: String,
         turnId: String,
         executionId: String,
     ) = settle(sessionId, turnId, executionId, monotonicMillis())
 
     /** Caller must verify the original Job terminal and finish its result effects before this step. */
-    fun settle(
+    override fun settle(
         sessionId: String,
         turnId: String,
         executionId: String,

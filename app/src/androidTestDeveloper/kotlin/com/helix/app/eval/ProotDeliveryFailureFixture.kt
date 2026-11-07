@@ -82,10 +82,10 @@ private fun awaitProotRunning(
 @androidx.compose.runtime.Composable
 @Suppress("FunctionName")
 internal fun ProotFixtureRecoveryActions(
-    row: com.helix.app.chat.ToolTimelineRow,
-    chat: com.helix.app.chat.ChatService,
+    row: com.helix.feature.conversation.presentation.ToolTimelineRow,
+    chat: com.helix.feature.conversation.application.ChatService,
 ) {
-    com.helix.app.ui.ProotRecoveryActions(
+    com.helix.feature.conversation.presentation.ProotRecoveryActions(
         row,
         chat::inspectInterruptedProot,
         chat::recoverInterruptedProot,

@@ -1,0 +1,413 @@
+package com.helix.feature.conversation.presentation
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.unit.dp
+import com.helix.core.model.AgentMode
+import com.helix.core.model.SessionPermissionMode
+import com.helix.core.model.TurnState
+import com.helix.feature.conversation.R
+import com.helix.feature.conversation.presentation.ChatContextUsage
+import com.helix.feature.conversation.presentation.composer.completeComposerText
+import com.helix.feature.conversation.presentation.composer.synchronizeComposerText
+import kotlinx.coroutines.launch
+import com.helix.ui.shared.R as SharedR
+
+@Composable
+// Permission persistence failures remain visible; cancellation and uncertain commits are not reported as success.
+@Suppress("FunctionName", "LongMethod", "LongParameterList", "CyclomaticComplexMethod", "TooGenericExceptionCaught")
+fun ConversationComposer(
+    input: String,
+    onInput: (String) -> Unit,
+    isSending: Boolean,
+    hasAttachments: Boolean,
+    actions: ComposerActions,
+    hasKnowledgeReferences: Boolean = false,
+    referenceLabel: String? = null,
+    pluginNames: List<String> = emptyList(),
+    expertName: String? = null,
+    onSelectedPlugins: () -> Unit = actions.onConnectors,
+    onRemoveReference: () -> Unit = {},
+    goalMode: Boolean = false,
+    mode: AgentMode = if (goalMode) AgentMode.GOAL else AgentMode.ACT,
+    onMode: suspend (AgentMode) -> Boolean = { false },
+    modelSelector: (@Composable () -> Unit)? = null,
+    permissionMode: SessionPermissionMode? = null,
+    onPermission: () -> Unit = {},
+    onPermissionMode: suspend (SessionPermissionMode) -> Boolean = { false },
+    editorKey: String? = null,
+    contextUsage: ChatContextUsage = ChatContextUsage(),
+    onCompact: () -> Unit = {},
+    canCompact: Boolean = false,
+    headerStatus: (@Composable () -> Unit)? = null,
+    optionsContent: @Composable () -> Unit = {},
+    attachmentsContent: @Composable () -> Unit = {},
+    voiceActive: Boolean = false,
+    voiceDraftEditable: Boolean = false,
+    voiceContent: @Composable () -> Unit = {},
+    referenceContent: @Composable () -> Unit = {},
+    turnState: TurnState? = null,
+    availability: ComposerAvailability = ComposerAvailability(),
+) {
+    val voiceBlocksEditing = voiceActive && !voiceDraftEditable
+    val commandScope = androidx.compose.runtime.rememberCoroutineScope()
+    val density = LocalDensity.current
+    val windowHeight = LocalWindowInfo.current.containerSize.height
+    val compactInput =
+        WindowInsets.ime.getBottom(density) > 0 || windowHeight < with(density) { 480.dp.roundToPx() }
+    val currentEditorKey by rememberUpdatedState(editorKey)
+    var commandPending by remember(editorKey) { mutableStateOf(false) }
+    var permissionPending by remember(editorKey) { mutableStateOf(false) }
+    var permissionNotice by remember(editorKey) { mutableStateOf<Int?>(null) }
+    var editorValue by rememberSaveable(editorKey, stateSaver = TextFieldValue.Saver) {
+        mutableStateOf(TextFieldValue(input, TextRange(input.length)))
+    }
+    val fieldValue = synchronizeComposerText(editorValue, input)
+    SideEffect { if (editorValue != fieldValue) editorValue = fieldValue }
+    val inputFocus = remember { FocusRequester() }
+    var addOpen by remember { mutableStateOf(false) }
+    var commandNotice by remember(editorKey, input) { mutableStateOf<Int?>(null) }
+    val command =
+        com.helix.feature.conversation.presentation.composer.ComposerCommandParser
+            .leadingCommand(input)
+    val localOnly = command != null && input.trim() == "/${command.command}"
+    val canAttempt = availability.canAttempt(localOnly)
+    val context = LocalContext.current
+    val commandColor = MaterialTheme.colorScheme.primary
+    val commandBackground = MaterialTheme.colorScheme.primaryContainer
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).testTag("chat-composer")) {
+        val activeQuery =
+            remember(fieldValue.text, fieldValue.selection) {
+                if (fieldValue.selection.collapsed) {
+                    com.helix.feature.conversation.presentation.composer.ComposerCommandParser
+                        .parseQuery(fieldValue.text, fieldValue.selection.end)
+                } else {
+                    null
+                }
+            }
+        if (activeQuery != null && !voiceActive) {
+            val suggestions =
+                androidx.compose.runtime.remember(activeQuery) {
+                    com.helix.feature.conversation.presentation.composer.ComposerCommandParser
+                        .filterSuggestions(activeQuery)
+                }
+            com.helix.feature.conversation.presentation.composer.ComposerAutocompletePopup(
+                suggestions = suggestions,
+                onSelect = { item ->
+                    editorValue = completeComposerText(fieldValue, activeQuery, item)
+                    onInput(editorValue.text)
+                    inputFocus.requestFocus()
+                },
+            )
+        }
+        ComposerHeader(
+            mode = mode,
+            pluginNames = pluginNames,
+            onPlugins = onSelectedPlugins,
+            permissionContent = {
+                ComposerPermissionMenu(permissionMode, permissionPending, onSelect = { selected ->
+                    if (!permissionPending) {
+                        permissionPending = true
+                        permissionNotice = null
+                        commandScope.launch {
+                            try {
+                                if (!onPermissionMode(selected)) {
+                                    permissionNotice = R.string.composer_permission_failed
+                                }
+                            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                                throw cancelled
+                            } catch (_: Exception) {
+                                permissionNotice = R.string.composer_permission_failed
+                            } finally {
+                                permissionPending = false
+                            }
+                        }
+                    }
+                }, onSettings = onPermission)
+            },
+            headerStatus = headerStatus,
+            optionsContent = optionsContent,
+            contextIndicator = {
+                ContextWindowIndicator(contextUsage)
+            },
+        )
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.surfaceContainerLow, RoundedCornerShape(24.dp))
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(24.dp)),
+        ) {
+            referenceContent()
+            voiceContent()
+            attachmentsContent()
+            BasicTextField(
+                value = fieldValue,
+                onValueChange = { value ->
+                    editorValue = value
+                    if (value.text != input) onInput(value.text)
+                },
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                        .heightIn(min = 24.dp)
+                        .focusRequester(inputFocus)
+                        .testTag("chat-input"),
+                enabled = availability.input && !commandPending && !voiceBlocksEditing,
+                textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
+                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                decorationBox = { innerTextField ->
+                    Box {
+                        if (fieldValue.text.isEmpty()) {
+                            Text(
+                                stringResource(R.string.chat_input_placeholder),
+                                modifier = Modifier.testTag("chat-input-placeholder"),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodyLarge,
+                            )
+                        }
+                        innerTextField()
+                    }
+                },
+                visualTransformation = { text ->
+                    val styled =
+                        androidx.compose.ui.text.AnnotatedString
+                            .Builder(text)
+                    if (command != null) {
+                        styled.addStyle(
+                            androidx.compose.ui.text.SpanStyle(
+                                color = commandColor,
+                                background = commandBackground,
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                            ),
+                            0,
+                            command.command.length + 1,
+                        )
+                    }
+                    androidx.compose.ui.text.input.TransformedText(
+                        styled.toAnnotatedString(),
+                        androidx.compose.ui.text.input.OffsetMapping.Identity,
+                    )
+                },
+                maxLines = if (compactInput) 3 else 5,
+            )
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                IconButton(
+                    { addOpen = true },
+                    enabled = !voiceActive && (availability.canAttach() || availability.input),
+                    modifier = Modifier.testTag("chat-add"),
+                ) {
+                    Icon(painterResource(SharedR.drawable.ic_composer_add), stringResource(R.string.composer_add_title))
+                }
+                Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                    modelSelector?.invoke()
+                }
+                IconButton(
+                    actions.onVoice,
+                    enabled = availability.input && !commandPending && !voiceActive,
+                    modifier = Modifier.testTag("chat-voice"),
+                ) {
+                    Icon(
+                        painterResource(SharedR.drawable.ic_composer_voice),
+                        stringResource(R.string.chat_voice_button),
+                    )
+                }
+
+                if (isSending) {
+                    IconButton(
+                        onClick = actions.onStop,
+                        enabled = turnState != TurnState.CANCELLING,
+                        modifier = Modifier.testTag("chat-stop"),
+                    ) {
+                        Icon(painterResource(SharedR.drawable.ic_composer_stop), stringResource(R.string.chat_stop))
+                    }
+                }
+                val sendEnabled =
+                    input.isNotBlank() ||
+                        (
+                            (!goalMode || isSending) &&
+                                (hasAttachments || hasKnowledgeReferences || referenceLabel != null)
+                        )
+                IconButton(
+                    onClick = {
+                        if (!canAttempt || commandPending || permissionPending) return@IconButton
+                        if (!localOnly && !availability.modelSelected) {
+                            android.widget.Toast
+                                .makeText(
+                                    context,
+                                    R.string.chat_model_required_before_send,
+                                    android.widget.Toast.LENGTH_SHORT,
+                                ).show()
+                            return@IconButton
+                        }
+                        when {
+                            command == null -> {
+                                actions.onSend()
+                            }
+
+                            input.trim() != "/${command.command}" &&
+                                command.command !in setOf("chat", "plan", "act", "goal") -> {
+                                commandNotice = R.string.chat_command_standalone
+                            }
+
+                            isSending && command.command !in setOf("help", "clear") -> {
+                                commandNotice = R.string.chat_command_wait
+                            }
+
+                            command.command == "compact" && !canCompact -> {
+                                commandNotice =
+                                    R.string.chat_command_compact_unavailable
+                            }
+
+                            else -> {
+                                val requestedMode =
+                                    when (command.command) {
+                                        "chat" -> AgentMode.CHAT
+                                        "plan" -> AgentMode.PLAN
+                                        "act" -> AgentMode.ACT
+                                        "goal" -> AgentMode.GOAL
+                                        else -> null
+                                    }
+                                if (requestedMode != null) {
+                                    commandPending = true
+                                    commandScope.launch {
+                                        try {
+                                            val switched = onMode(requestedMode)
+                                            if (currentEditorKey != editorKey) return@launch
+                                            if (switched) {
+                                                val task = input.drop(command.command.length + 1).trimStart()
+                                                onInput(task)
+                                                if (task.isNotBlank()) actions.onSend()
+                                            } else {
+                                                commandNotice = R.string.chat_command_wait
+                                            }
+                                        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                                            throw cancelled
+                                        } catch (_: Exception) {
+                                            commandNotice = R.string.composer_mode_failed
+                                        } finally {
+                                            commandPending = false
+                                        }
+                                    }
+                                } else {
+                                    when (command.command) {
+                                        "compact" -> {
+                                            onCompact()
+                                            onInput("")
+                                        }
+
+                                        "clear" -> {
+                                            onInput("")
+                                        }
+
+                                        "help" -> {
+                                            commandNotice = R.string.chat_command_help
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    enabled = sendEnabled && canAttempt && !commandPending && !permissionPending && !voiceActive,
+                    modifier = Modifier.testTag("chat-send"),
+                ) {
+                    Icon(
+                        painterResource(R.drawable.ic_composer_send),
+                        stringResource(SharedR.string.common_send),
+                    )
+                }
+            }
+            val hasUnsentContent =
+                input.isNotBlank() || hasAttachments || hasKnowledgeReferences || referenceLabel != null
+            val unavailable = availability.unavailableReason(localOnly, commandPending, permissionPending)
+            if (hasUnsentContent && unavailable != null) {
+                Text(
+                    stringResource(unavailable),
+                    Modifier.padding(horizontal = 16.dp).testTag("chat-send-status"),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+            permissionNotice?.let {
+                Text(
+                    stringResource(it),
+                    Modifier.padding(horizontal = 16.dp).testTag("chat-permission-notice"),
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+            commandNotice?.let {
+                Text(
+                    stringResource(it),
+                    Modifier.padding(horizontal = 16.dp).testTag("chat-command-notice"),
+                )
+            }
+            if (referenceLabel != null) {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        stringResource(R.string.composer_reference_chip, referenceLabel),
+                        modifier = Modifier.weight(1f).testTag("composer-reference-chip"),
+                    )
+                    TextButton(
+                        onClick = onRemoveReference,
+                        enabled = !isSending,
+                        modifier = Modifier.testTag("composer-reference-remove"),
+                    ) {
+                        Text(stringResource(SharedR.string.common_remove))
+                    }
+                }
+            }
+        }
+    }
+    if (addOpen) {
+        ComposerAddSheet(
+            messageEnabled = availability.canAttach(),
+            capabilityEnabled = !isSending,
+            actions = actions,
+            onDismiss = { addOpen = false },
+            expertName = expertName,
+            pluginNames = pluginNames,
+        )
+    }
+}

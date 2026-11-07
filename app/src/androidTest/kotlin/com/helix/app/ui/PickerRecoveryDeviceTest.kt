@@ -16,10 +16,12 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.core.app.ActivityOptionsCompat
-import com.helix.app.chat.ChatScreenState
 import com.helix.core.agent.RunControlConfig
 import com.helix.core.agent.TurnBudgetBounds
 import com.helix.core.model.AgentMode
+import com.helix.feature.conversation.presentation.ChatScreen
+import com.helix.feature.conversation.presentation.ChatScreenState
+import com.helix.feature.conversation.presentation.ConversationIntents
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -58,7 +60,7 @@ class PickerRecoveryDeviceTest {
         restore.setContent {
             CompositionLocalProvider(LocalActivityResultRegistryOwner provides owner) {
                 MaterialTheme {
-                    ConversationSection(
+                    ChatScreen(
                         ChatScreenState(
                             emptyList(),
                             session.value,

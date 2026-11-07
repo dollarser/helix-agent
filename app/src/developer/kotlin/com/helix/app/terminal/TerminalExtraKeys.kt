@@ -18,7 +18,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
-import com.helix.app.ui.indicatedHorizontalScroll
+import com.helix.ui.shared.indicatedHorizontalScroll
 
 @Composable
 @Suppress("FunctionName")

@@ -14,7 +14,7 @@ class BoundImageAccess(
     fun verify(
         image: ImageReference,
         config: ProviderConfig,
-    ) {
+    ): ImageReadPolicy {
         val binding = requireNotNull(image.binding) { "Image has no request-scoped binding" }
         val row = storage.messages.resolve(binding.messageId)
         require(row.sessionId == binding.sessionId) { "Image message belongs to another session" }
@@ -61,10 +61,15 @@ class BoundImageAccess(
             require(ToolVisionConsent.identity(image, latest) == ToolVisionConsent.identity(image, config)) {
                 "Tool image destination changed"
             }
+            return ImageReadPolicy.TOOL_OBSERVATION
         } else {
             require(attachment.purpose == AttachmentPurpose.REFERENCE && row.role == "USER") {
                 "Image source role is invalid"
             }
+            return ImageReadPolicy.NORMALIZED_USER_REFERENCE
         }
     }
 }
+
+/** Returned only after the persisted source role and independent disclosure checks succeed. */
+enum class ImageReadPolicy { NORMALIZED_USER_REFERENCE, TOOL_OBSERVATION }

@@ -11,9 +11,14 @@ import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.test.platform.app.InstrumentationRegistry
-import com.helix.app.chat.ChatImageRef
-import com.helix.app.chat.ChatImageUi
-import com.helix.app.chat.PendingAttachmentUi
+import com.helix.feature.conversation.presentation.ChatImageRef
+import com.helix.feature.conversation.presentation.ChatImageUi
+import com.helix.feature.conversation.presentation.ChatMessageImages
+import com.helix.feature.conversation.presentation.ComposerActions
+import com.helix.feature.conversation.presentation.ConversationComposer
+import com.helix.feature.conversation.presentation.PendingAttachmentStrip
+import com.helix.feature.conversation.presentation.PendingAttachmentUi
+import com.helix.ui.shared.decodePreviewBitmap
 import kotlinx.coroutines.CompletableDeferred
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull

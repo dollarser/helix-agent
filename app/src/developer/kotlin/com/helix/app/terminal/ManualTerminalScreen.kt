@@ -31,6 +31,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
+import com.helix.feature.conversation.R as ConversationR
+import com.helix.ui.shared.R as SharedR
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -274,7 +276,7 @@ private fun TerminalLicenses(onDismiss: () -> Unit) {
                 Column(Modifier.verticalScroll(rememberScrollState())) { Text(text) }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.files_close)) } },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(ConversationR.string.files_close)) } },
     )
 }
 
@@ -340,7 +342,7 @@ private fun TerminalCapacityNotice(onDismiss: () -> Unit) {
         title = { Text(stringResource(R.string.terminal_capacity_full)) },
         confirmButton = {
             TextButton(onDismiss, Modifier.testTag("terminal-capacity-dismiss")) {
-                Text(stringResource(R.string.chat_details_close))
+                Text(stringResource(SharedR.string.chat_details_close))
             }
         },
         modifier = Modifier.testTag("terminal-capacity-notice"),

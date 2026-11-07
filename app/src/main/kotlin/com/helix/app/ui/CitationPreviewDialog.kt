@@ -13,16 +13,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import com.helix.app.R
-import com.helix.app.citation.Citation
-import com.helix.app.citation.CitationContent
+import com.helix.core.model.citation.Citation
+import com.helix.core.model.citation.CitationContent
 import kotlinx.coroutines.CancellationException
-
-internal val LocalCitationHandler = staticCompositionLocalOf<((String) -> Unit)?> { null }
+import com.helix.ui.shared.R as SharedR
 
 @Composable
 @Suppress("FunctionName", "TooGenericExceptionCaught")
@@ -64,7 +62,7 @@ internal fun CitationPreviewDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) }
+            TextButton(onClick = onDismiss) { Text(stringResource(SharedR.string.common_cancel)) }
         },
     )
 }

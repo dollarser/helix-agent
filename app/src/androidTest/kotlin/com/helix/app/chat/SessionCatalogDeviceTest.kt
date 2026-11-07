@@ -2,6 +2,8 @@ package com.helix.app.chat
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import com.helix.app.infrastructure.conversation.RoomConversationWorkspace
+import com.helix.app.infrastructure.conversation.RoomSessionCatalog
 import com.helix.app.internal.InMemoryLineStore
 import com.helix.app.provider.ProviderFactory
 import com.helix.app.provider.ProviderService
@@ -15,6 +17,8 @@ import com.helix.core.model.ProviderProtocol
 import com.helix.core.storage.HelixStorage
 import com.helix.core.storage.entity.SessionEntity
 import com.helix.core.storage.repository.ProviderConfigSpec
+import com.helix.feature.conversation.application.DraftSession
+import com.helix.feature.conversation.application.SessionDraft
 import com.helix.provider.api.CapabilitySource
 import com.helix.provider.api.CredentialLookup
 import com.helix.provider.api.ProviderCapabilities
@@ -114,7 +118,7 @@ class SessionCatalogDeviceTest {
             )
             val draft =
                 SessionDraft(
-                    SessionEntity("source-present", "", "draft-provider", "model-a", 3000, null),
+                    DraftSession("source-present", "", "draft-provider", "model-a", 3000),
                     f.controls.defaultSnapshot(),
                 )
             // An untested but existing source is retained, never silently replaced.
@@ -131,7 +135,7 @@ class SessionCatalogDeviceTest {
             assertNull(saved.providerId)
             assertEquals("model-a", saved.modelId)
             assertEquals(
-                com.helix.app.provider.ProviderBindingIssue.SOURCE_DELETED,
+                com.helix.feature.conversation.presentation.ProviderBindingIssue.SOURCE_DELETED,
                 f.providers.bindings.project(saved.providerId, saved.modelId),
             )
             assertEquals(draft.control, f.controls.forSession(saved.id))
@@ -142,7 +146,7 @@ class SessionCatalogDeviceTest {
         Fixture().use { f ->
             val invalid =
                 f.controls.defaultSnapshot().copy(budgets = TurnBudgetBounds.DEFAULT.copy(maxOutputTokens = 0))
-            val draft = SessionDraft(SessionEntity("draft", "draft", null, null, 3000, null), invalid)
+            val draft = SessionDraft(DraftSession("draft", "draft", null, null, 3000), invalid)
             assertThrows(IllegalArgumentException::class.java) { f.catalog.persistDraft(draft) }
             assertNull(f.storage.sessions.find("draft"))
             assertNull(f.controls.forSession("draft"))
@@ -166,7 +170,7 @@ class SessionCatalogDeviceTest {
                         .save(null, "Project", "", "", null)
                 }
             val selected = requireNotNull(f.catalog.projectSelection(project))
-            val row = SessionEntity("project-draft", "", null, null, 3000, null, directoryRef = selected.directory)
+            val row = DraftSession("project-draft", "", null, null, 3000, directoryRef = selected.directory)
             val draft = SessionDraft(row, f.controls.defaultSnapshot(), project = selected)
             f.catalog.persistDraft(draft)
             assertEquals(
@@ -338,11 +342,11 @@ class SessionCatalogDeviceTest {
             )
         val controls = SessionRunControlStore(storage, PersistedRunControlStore(InMemoryLineStore()))
         val catalog =
-            SessionCatalog(
+            RoomSessionCatalog(
                 storage,
                 providers,
                 controls,
-                SessionWorkspaceRecovery(storage) { it },
+                RoomConversationWorkspace(storage) { it },
                 clock,
                 { "catalog-${++ids}" },
                 { it },

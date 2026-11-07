@@ -1,5 +1,6 @@
 package com.helix.app.chat
 
+import com.helix.feature.conversation.presentation.HumanHandoffState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test

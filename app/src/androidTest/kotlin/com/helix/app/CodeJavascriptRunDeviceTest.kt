@@ -32,7 +32,7 @@ import java.util.concurrent.TimeUnit
  * the production `code.javascript.run` tool, registered by [AppContainer] in the consumer build,
  * runs a REAL isolated-QuickJS-process execution through the full production pipeline (real Room
  * + the storage-backed broker + the real dispatcher, driven by
- * [com.helix.app.chat.ChatService.dispatchToolCall]) and enforces the mandated invariants:
+ * [com.helix.feature.conversation.application.ChatService.dispatchToolCall]) and enforces the mandated invariants:
  *
  * - S1 真实隔离执行 + 结果回填: an approved JS run executes in the isolated process, the
  *   model-visible result is backfilled, the call row settles COMPLETED, and the redacted §4.8
@@ -169,7 +169,7 @@ class CodeJavascriptRunDeviceTest {
         val t =
             Thread {
                 try {
-                    outcome[0] = container.chatService.dispatchToolCall(toolCallId, turnId, JS_TOOL_NAME, args)
+                    outcome[0] = container.toolExecution.dispatchToolCall(toolCallId, turnId, JS_TOOL_NAME, args)
                 } catch (e: Throwable) {
                     error[0] = e
                 } finally {

@@ -22,10 +22,11 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import com.helix.app.R
 import com.helix.app.export.SessionExportService
-import com.helix.app.ui.indicatedVerticalScroll
+import com.helix.ui.shared.indicatedVerticalScroll
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import com.helix.feature.conversation.R as ConversationR
 
 /** One user-selected session and a newly created target; never invokes the agent. */
 @Composable
@@ -83,7 +84,7 @@ internal fun SessionExportDialog(
         }
     AlertDialog(
         onDismissRequest = { if (running) job?.cancel() else onDismiss() },
-        title = { Text(stringResource(R.string.session_export_title)) },
+        title = { Text(stringResource(ConversationR.string.session_export_title)) },
         text = { SessionExportBody(running, copied, notice) },
         confirmButton = {
             if (!ready) {

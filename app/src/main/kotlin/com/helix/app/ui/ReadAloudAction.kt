@@ -22,6 +22,8 @@ import com.helix.app.R
 import com.helix.app.account.AccountStatus
 import com.helix.app.voice.ReadAloudPhase
 import com.helix.app.voice.ReadAloudService
+import com.helix.ui.shared.SharedSheet
+import com.helix.ui.shared.R as SharedR
 
 @Composable
 @Suppress("FunctionName")
@@ -108,7 +110,7 @@ internal fun ReadAloudAction(
         modifier = Modifier.testTag("chat-read-$id"),
     ) {
         Icon(
-            painterResource(if (active) R.drawable.ic_composer_stop else R.drawable.ic_read_aloud),
+            painterResource(if (active) SharedR.drawable.ic_composer_stop else R.drawable.ic_read_aloud),
             stringResource(if (active) R.string.read_aloud_stop else R.string.read_aloud_start),
         )
     }
@@ -148,7 +150,7 @@ internal fun ReadAloudAction(
         )
     }
     if (details) {
-        ConversationSheet(stringResource(R.string.read_aloud_title), "read-aloud", {
+        SharedSheet(stringResource(R.string.read_aloud_title), "read-aloud", {
             service.leave()
             details = false
         }) {

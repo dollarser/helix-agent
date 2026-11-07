@@ -24,6 +24,7 @@ import com.helix.app.connector.MobileUseSessionState
 import com.helix.app.plugin.PluginService
 import com.helix.app.plugin.PluginSetupReason
 import kotlinx.coroutines.launch
+import com.helix.ui.shared.R as SharedR
 
 @Composable
 @Suppress("FunctionName", "LongParameterList", "LongMethod")
@@ -109,7 +110,7 @@ internal fun MobileUseSessionPrompt(
                 TextButton(
                     { if (!state.busy) onDismiss() },
                     enabled = !state.busy,
-                ) { Text(stringResource(R.string.common_cancel)) }
+                ) { Text(stringResource(SharedR.string.common_cancel)) }
             }
         },
         modifier = Modifier.testTag("mobile-use-dialog"),
@@ -136,8 +137,8 @@ private fun mobileUseDialogConfirmLabel(
     unavailable: Boolean,
 ): Int =
     when {
-        state.active || unavailable -> R.string.chat_details_close
-        state.failed -> R.string.chat_retry
+        state.active || unavailable -> SharedR.string.chat_details_close
+        state.failed -> SharedR.string.chat_retry
         reason == PluginSetupReason.MOBILE_BACKEND -> R.string.mobile_use_go_authorize
         reason == PluginSetupReason.MOBILE_CONFIGURATION -> R.string.plugin_setup_continue
         else -> R.string.mobile_use_session_enable

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="background_tasks">Session tasks</string>
+    <string name="chat_active_list">Back to sessions</string>
+    <string name="chat_archive">Archive</string>
+    <string name="chat_archived_list">Archived sessions</string>
+    <string name="chat_archived_suffix"> · Archived</string>
+    <string name="chat_empty_archive">No archived sessions</string>
+    <string name="chat_empty_sessions_hint">No sessions yet. Before creating one, add a Provider in Settings → Provider and pass its connection test.</string>
+    <string name="chat_new_session">New session</string>
+    <string name="chat_no_provider">No provider</string>
+    <string name="chat_rename">Rename</string>
+    <string name="chat_restore">Restore</string>
+    <string name="chat_save_details">Save</string>
+    <string name="chat_session_header">Sessions</string>
+    <string name="chat_session_search_clear">Clear</string>
+    <string name="chat_session_search_empty">No matching sessions</string>
+    <string name="chat_session_search_group_active">Active</string>
+    <string name="chat_session_search_group_archived">Archived</string>
+    <string name="chat_session_search_hint">Search sessions and messages</string>
+    <string name="chat_session_search_truncated">More matching conversations exist. Refine your search.</string>
+    <string name="chat_session_title_label">Session title</string>
+    <string name="chat_setup_provider">Set up a provider</string>
+</resources>

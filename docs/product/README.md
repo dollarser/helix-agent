@@ -4,7 +4,7 @@
 
 核心入口：
 
-- [v0.0.6 版本说明](releases/v0.0.6.md)（[English](releases/v0.0.6.en.md)）：开发预览候选、安装条件和已验证边界；尚未创建对应 GitHub Release。
+- [v0.0.10 版本说明](releases/v0.0.10.md)（[English](releases/v0.0.10.en.md)）：该次开发预览的功能、安装条件、发布入口和验证边界；版本说明是发布快照，不代表后续 main 的全部变化。
 - [requirements.md](requirements.md)：Android 单机版产品需求与能力边界。
 - [workspace.md](workspace.md)：会话工作目录、后端能力与保留文件边界。
 - [projects.md](projects.md)：本机项目、共享上下文、成员生命周期与文件/任务/成果的关系。
@@ -15,6 +15,13 @@
 - [memory.md](memory.md)：长期记忆使用与作用域；完整 Project 能力与 Global 首版分开。
 - [local-models.md](local-models.md)：设备内模型的准备、使用与验证边界。
 - [market-users-and-commercialization.md](market-users-and-commercialization.md)：用户、渠道、商业化假设与实验。
+
+历史版本说明保留各次发布范围，不随 main 演进改写：
+
+- [v0.0.9](releases/v0.0.9.md)（[English](releases/v0.0.9.en.md)）
+- [v0.0.8](releases/v0.0.8.md)（[English](releases/v0.0.8.en.md)）
+- [v0.0.7](releases/v0.0.7.md)（[English](releases/v0.0.7.en.md)）
+- [v0.0.6](releases/v0.0.6.md)（[English](releases/v0.0.6.en.md)）
 
 竞品研究采用“总览 + 支撑材料”结构，不合成一个巨型文件：
 

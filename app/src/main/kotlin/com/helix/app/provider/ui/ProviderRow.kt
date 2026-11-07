@@ -27,9 +27,11 @@ import com.helix.app.R
 import com.helix.app.provider.ConnectionTestMapping
 import com.helix.app.provider.ConnectionTestStatus
 import com.helix.app.provider.ProviderRowUi
-import com.helix.app.ui.UiLabels
-import com.helix.app.ui.localizedString
 import com.helix.app.ui.managedAccountLabel
+import com.helix.ui.shared.UiLabels
+import com.helix.ui.shared.localizedString
+import com.helix.feature.conversation.R as ConversationR
+import com.helix.ui.shared.R as SharedR
 
 @Composable
 @Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod") // Declarative variant-specific controls.
@@ -44,7 +46,7 @@ internal fun ProviderRow(
     require(!row.bundled) { "Built-in models have no provider configuration surface" }
     val visionEnabled = row.capabilities?.vision == true
     var advanced by rememberSaveable(row.id) { mutableStateOf(false) }
-    val expansionLabel = stringResource(if (advanced) R.string.nav_expanded else R.string.nav_collapsed)
+    val expansionLabel = stringResource(if (advanced) SharedR.string.nav_expanded else SharedR.string.nav_collapsed)
     Column(
         modifier =
             Modifier
@@ -153,7 +155,7 @@ internal fun ProviderRow(
                 onClick = actions.onContext,
                 modifier = Modifier.fillMaxWidth().testTag("provider-context-${row.id}"),
             ) {
-                Text(stringResource(R.string.chat_context_title))
+                Text(stringResource(ConversationR.string.chat_context_title))
             }
         }
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {

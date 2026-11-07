@@ -24,7 +24,7 @@ import com.helix.app.R
 import com.helix.app.files.FileManagerService
 import com.helix.app.projects.ProjectService
 import com.helix.app.ui.HelixCard
-import com.helix.app.ui.IndicatedLazyColumn
+import com.helix.ui.shared.IndicatedLazyColumn
 
 internal const val PROJECT_ROUTE = "project/{projectId}"
 

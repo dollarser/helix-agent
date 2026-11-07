@@ -21,7 +21,7 @@ import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.unit.Density
 import androidx.test.core.app.ApplicationProvider
 import com.helix.app.HelixApplication
-import com.helix.app.HelixTheme
+import com.helix.ui.shared.HelixTheme
 import kotlinx.coroutines.runBlocking
 import org.junit.Rule
 import org.junit.Test

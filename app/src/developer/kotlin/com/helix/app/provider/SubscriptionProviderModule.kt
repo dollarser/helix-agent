@@ -14,6 +14,8 @@ import com.helix.provider.api.ProbeOutcome
 import com.helix.provider.api.ProviderCapabilities
 import com.helix.provider.api.ProviderCheckResult
 import com.helix.provider.api.ProviderConfig
+import com.helix.provider.api.SubscriptionRecoveredOutput
+import com.helix.provider.api.SubscriptionRecoveryStatus
 import com.helix.runtime.cli.client.CliModelProvider
 import com.helix.runtime.cli.client.CliRuntimeProtocol
 import com.helix.runtime.cli.client.CliRuntimeSupervisor

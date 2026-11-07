@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import com.helix.app.maintenance.PreviewResetRequest
 import com.helix.app.ui.FirstLaunchNoticeScreen
 import com.helix.app.ui.StartupPermissionsScreen
+import com.helix.ui.shared.HelixTheme
 
 /** Error/reset review always wins; readiness never interrupts notice or permission review. */
 @Composable

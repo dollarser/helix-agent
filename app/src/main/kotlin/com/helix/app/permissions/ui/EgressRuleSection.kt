@@ -32,6 +32,7 @@ import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import com.helix.ui.shared.R as SharedR
 
 /**
  * HXA-068 (ADR-0005/0012): the ADVANCED bounded high-sensitivity egress-rule management UI.
@@ -184,7 +185,7 @@ fun EgressRuleSection(rules: EgressRuleService) {
                     modifier = Modifier.testTag("egress-load-error"),
                 )
                 TextButton({ scope.launch { load() } }, modifier = Modifier.testTag("egress-retry")) {
-                    Text(stringResource(R.string.chat_retry))
+                    Text(stringResource(SharedR.string.chat_retry))
                 }
             }
 

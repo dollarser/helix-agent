@@ -20,11 +20,13 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextReplacement
-import com.helix.app.chat.DisplayExecutionState
-import com.helix.app.chat.DisplayExecutionUi
-import com.helix.app.chat.ToolTimelinePosition
-import com.helix.app.chat.ToolTimelineRow
 import com.helix.core.model.ToolCallState
+import com.helix.feature.conversation.presentation.ConversationIntents
+import com.helix.feature.conversation.presentation.DisplayExecutionState
+import com.helix.feature.conversation.presentation.DisplayExecutionUi
+import com.helix.feature.conversation.presentation.ToolTimelineGroup
+import com.helix.feature.conversation.presentation.ToolTimelinePosition
+import com.helix.feature.conversation.presentation.ToolTimelineRow
 import org.junit.After
 import org.junit.Assert.assertNotSame
 import org.junit.Rule

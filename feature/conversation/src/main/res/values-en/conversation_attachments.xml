@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="category_video">Video</string>
+    <string name="kind_docx">DOCX</string>
+    <string name="admission_snapshot_missing">Attachment \"%1$s\" no longer exists or is unreadable; sending blocked. Re-select this file.</string>
+    <string name="kind_html">HTML</string>
+    <string name="category_other">Other type</string>
+    <string name="admission_snapshot_tampered">Attachment \"%1$s\" no longer matches its import-time snapshot (it may have been modified); sending blocked. Re-select this file.</string>
+    <string name="admission_empty_message">Empty message: type something or select at least one sendable attachment.</string>
+    <string name="category_document">Document</string>
+    <string name="admission_unsupported">Attachment \"%1$s\" (%2$s) is not supported as chat input; sending blocked.</string>
+    <string name="kind_csv">CSV table</string>
+    <string name="kind_json">JSON</string>
+    <string name="kind_pdf">PDF</string>
+    <string name="category_text_encoding">Non-UTF-8 text encoding</string>
+    <string name="category_audio">Audio</string>
+    <string name="image_reselect_required">Could not verify that EXIF metadata was removed from this image. Remove the attachment and select it again.</string>
+</resources>

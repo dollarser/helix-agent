@@ -5,7 +5,7 @@ internal interface TurnInputDelivery {
     suspend fun prepareSteering(
         sessionId: String,
         turnId: String,
-    ): TurnSteeringDraft?
+    ): com.helix.core.agent.turn.TurnSteeringInput?
 
     /** The bounded local request boundary, not a claim of remote receipt. */
     fun requestStarting(

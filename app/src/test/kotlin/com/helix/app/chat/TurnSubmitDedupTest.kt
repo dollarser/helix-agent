@@ -8,6 +8,7 @@ import com.helix.core.model.TurnState
 import com.helix.core.model.input.ConversationReferenceKind
 import com.helix.core.model.input.ConversationReferenceSnapshotInput
 import com.helix.core.storage.entity.TurnEntity
+import com.helix.feature.conversation.application.ChatService
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue

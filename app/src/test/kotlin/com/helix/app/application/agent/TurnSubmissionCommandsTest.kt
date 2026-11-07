@@ -1,7 +1,11 @@
 package com.helix.app.application.agent
 
 import com.helix.core.agent.GoalBudgetDefaults
+import com.helix.core.agent.SessionInputConfiguration
 import com.helix.core.agent.SubmitTurnCommand
+import com.helix.core.agent.TurnSubmissionBlock
+import com.helix.core.agent.TurnSubmissionResult
+import com.helix.core.agent.turnIdOrNull
 import com.helix.core.model.AgentMode
 import com.helix.core.model.ProviderId
 import com.helix.core.model.ReasoningEffort

@@ -1,10 +1,12 @@
 package com.helix.app.ui
 
-import com.helix.app.chat.ChatScreenState
-import com.helix.app.chat.MessageUi
-import com.helix.app.chat.ToolTimelineRow
-import com.helix.app.chat.TurnUi
 import com.helix.core.model.TurnState
+import com.helix.feature.conversation.presentation.ChatScreenState
+import com.helix.feature.conversation.presentation.ConversationSearchController
+import com.helix.feature.conversation.presentation.MessageUi
+import com.helix.feature.conversation.presentation.ToolTimelineRow
+import com.helix.feature.conversation.presentation.TurnUi
+import com.helix.feature.conversation.presentation.findMatches
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -57,7 +59,7 @@ class ConversationSearchTest {
                             null,
                             null,
                             position =
-                                com.helix.app.chat
+                                com.helix.feature.conversation.presentation
                                     .ToolTimelinePosition(sequence, 0),
                         )
                     },

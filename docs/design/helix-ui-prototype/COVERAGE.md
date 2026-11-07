@@ -11,9 +11,9 @@
 | [启动与恢复](index.html#startup) | `startup` | [源码](../../../app/src/main/kotlin/com/helix/app/AppStartupScreen.kt) | 启动、失败、预览库重建确认 | 专项场景；见下表 |
 | [请求用户输入](index.html#question-input) | `question-input` | [源码](../../../app/src/main/kotlin/com/helix/app/ui/UserQuestionDialog.kt) | 单选、多选、自填、取消 | 正常 / 加载 / 空 / 错误 / 取消（评审控制） |
 | [后台工作与调用结果](index.html#background) | `background` | [源码](../../../app/src/main/kotlin/com/helix/app/ui/BackgroundTaskDialog.kt) | 状态、停止、结果、调用清单 | 正常 / 加载 / 空 / 错误 / 取消（评审控制） |
-| [当前会话](index.html#chat) | `chat` | [源码](../../../app/src/main/kotlin/com/helix/app/ui/ConversationSection.kt) | 发送、停止、消息操作、草稿 | 专项场景；见下表 |
-| [全部会话](index.html#history) | `history` | [源码](../../../app/src/main/kotlin/com/helix/app/chat/ui/ConversationHistoryScreen.kt) | 搜索、筛选、打开、重命名、删除 | 正常 / 加载 / 空 / 错误 / 取消（评审控制） |
-| [会话内搜索](index.html#search) | `search` | [源码](../../../app/src/main/kotlin/com/helix/app/ui/ConversationSearch.kt) | 搜索、定位消息 | 正常 / 加载 / 空 / 错误 / 取消（评审控制） |
+| [当前会话](index.html#chat) | `chat` | [源码](../../../feature/conversation/src/main/kotlin/com/helix/feature/conversation/presentation/ChatScreen.kt) | 发送、停止、消息操作、草稿 | 专项场景；见下表 |
+| [全部会话](index.html#history) | `history` | [源码](../../../feature/conversation/src/main/kotlin/com/helix/feature/conversation/presentation/ConversationHistoryScreen.kt) | 搜索、筛选、打开、重命名、删除 | 正常 / 加载 / 空 / 错误 / 取消（评审控制） |
+| [会话内搜索](index.html#search) | `search` | [源码](../../../feature/conversation/src/main/kotlin/com/helix/feature/conversation/presentation/ConversationSearch.kt) | 搜索、定位消息 | 正常 / 加载 / 空 / 错误 / 取消（评审控制） |
 | [会话设置](index.html#session) | `session` | [源码](../../../app/src/main/kotlin/com/helix/app/ui/SessionSettingsScreen.kt) | 工作区、专家、连接器、导出、归档 | 正常 / 加载 / 空 / 错误 / 取消（评审控制） |
 | [项目](index.html#projects) | `projects` | [源码](../../../app/src/main/kotlin/com/helix/app/projects/ui/ProjectsScreen.kt) | 新建、检索、打开项目 | 正常 / 加载 / 空 / 错误 / 取消（评审控制） |
 | [项目详情](index.html#project) | `project` | [源码](../../../app/src/main/kotlin/com/helix/app/projects/ui/ProjectDetailScreen.kt) | 说明、项目会话、工作目录 | 正常 / 加载 / 空 / 错误 / 取消（评审控制） |
@@ -31,7 +31,7 @@
 | [知识库](index.html#knowledge) | `knowledge` | [源码](../../../app/src/main/kotlin/com/helix/app/knowledge/KnowledgeScreen.kt) | 来源/笔记、搜索、多选、问答 | 正常 / 加载 / 空 / 错误 / 取消（评审控制） |
 | [来源详情](index.html#source) | `source` | [源码](../../../app/src/main/kotlin/com/helix/app/knowledge/KnowledgeScreen.kt) | 原件、提取、引用、笔记 | 正常 / 加载 / 空 / 错误 / 取消（评审控制） |
 | [知识笔记](index.html#note) | `note` | [源码](../../../app/src/main/kotlin/com/helix/app/knowledge/KnowledgeScreen.kt) | 编辑、引用快照、保存 | 正常 / 加载 / 空 / 错误 / 取消（评审控制） |
-| [知识问答](index.html#question) | `question` | [源码](../../../app/src/main/kotlin/com/helix/app/ui/ChatScreen.kt) | 范围、内容去向、生成、引用、保存笔记 | 正常 / 加载 / 空 / 错误 / 取消（评审控制） |
+| [知识问答](index.html#question) | `question` | [源码](../../../app/src/main/kotlin/com/helix/app/ui/AppConversationRoute.kt) | 范围、内容去向、生成、引用、保存笔记 | 正常 / 加载 / 空 / 错误 / 取消（评审控制） |
 | [收集到 Helix](index.html#collect) | `collect` | [源码](../../../app/src/main/kotlin/com/helix/app/knowledge/KnowledgeCaptureActivity.kt) | 材料校验、收集、不自动发送 | 正常 / 加载 / 空 / 错误 / 取消（评审控制） |
 | [人格与记忆](index.html#memory) | `memory` | [源码](../../../app/src/main/kotlin/com/helix/app/ui/MemoryDialog.kt) | 会话人格、记忆编辑、显式保存 | 正常 / 加载 / 空 / 错误 / 取消（评审控制） |
 | [提醒](index.html#reminders) | `reminders` | [源码](../../../app/src/main/kotlin/com/helix/app/reminder/ReminderScreen.kt) | 列表、创建、暂停、时间解释 | 正常 / 加载 / 空 / 错误 / 取消（评审控制） |

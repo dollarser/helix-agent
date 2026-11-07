@@ -15,6 +15,7 @@ import com.helix.feature.files.SafTreeScopeAccess
 import java.io.File
 import java.io.FileNotFoundException
 import java.nio.file.FileAlreadyExistsException
+import com.helix.ui.shared.R as SharedR
 
 /**
  * User-operated browse, preview, transfer and trash facade. Manual operations do not create
@@ -54,6 +55,14 @@ class FileManagerService internal constructor(
     shareCacheRoot: File? = null,
 ) {
     internal var directorySync: Lazy<DirectorySyncService>? = null
+
+    /** Read-only Git inspection uses the same live workspace resolver as manual file access. */
+    internal fun gitWorkspaceReader(reference: String): com.helix.app.git.GitWorkspaceReader =
+        com.helix.app.git.GitWorkspaceReader(
+            com.helix.core.workspace
+                .resolveFileScopePath(FileScopePath.fromModelReference(reference), roots)
+                .toFile(),
+        )
 
     /** Resolve the selected source again. A URI is never converted to a guessed disk path or materialized. */
     fun inspectWorkspace(reference: String): WorkspaceAccessReport {
@@ -797,7 +806,7 @@ class FileManagerService internal constructor(
         }
         val fsp = FileScopePath(scopeId, relativePath)
         return try {
-            if (shouldCancel()) return FileOpResult.Error(loc(R.string.common_cancel))
+            if (shouldCancel()) return FileOpResult.Error(loc(SharedR.string.common_cancel))
             if (scopeId == workspaceScopeId && directoryTrash.isDirectory(relativePath)) {
                 directoryTrash.trash(relativePath)
                 return FileOpResult.Ok(relativePath, false)

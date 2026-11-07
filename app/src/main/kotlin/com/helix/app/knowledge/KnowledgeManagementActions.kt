@@ -40,6 +40,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.helix.ui.shared.R as SharedR
 
 @Composable
 @Suppress("FunctionName")
@@ -104,7 +105,7 @@ private fun KnowledgePrimaryAction(
     ) {
         Icon(
             androidx.compose.ui.res
-                .painterResource(R.drawable.ic_composer_add),
+                .painterResource(SharedR.drawable.ic_composer_add),
             contentDescription = null,
             modifier = Modifier.size(18.dp),
         )
@@ -135,7 +136,7 @@ private fun KnowledgeLibraryMenu(
         IconButton({ menu = true }, Modifier.testTag("knowledge-library-more")) {
             Icon(
                 androidx.compose.ui.res
-                    .painterResource(R.drawable.ic_more_vertical),
+                    .painterResource(SharedR.drawable.ic_more_vertical),
                 stringResource(R.string.knowledge_more),
             )
         }
@@ -210,7 +211,7 @@ private fun KnowledgeAccessDialog(
                     Text(stringResource(R.string.semantic_progress, progress.first, progress.second))
                 }
                 if (semanticEnabled && semanticStatus in setOf("ERROR", "LEXICAL_FALLBACK", "PARTIAL")) {
-                    TextButton(onClick = service.semantic::rebuild) { Text(stringResource(R.string.chat_retry)) }
+                    TextButton(onClick = service.semantic::rebuild) { Text(stringResource(SharedR.string.chat_retry)) }
                 }
                 if (semanticEnabled) {
                     TextButton(

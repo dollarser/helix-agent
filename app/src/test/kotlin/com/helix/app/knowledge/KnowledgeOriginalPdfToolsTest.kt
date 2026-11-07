@@ -1,6 +1,6 @@
 package com.helix.app.knowledge
 
-import com.helix.app.citation.Citation
+import com.helix.core.model.citation.Citation
 import com.helix.tools.framework.ToolExecutorResult
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
@@ -100,7 +100,7 @@ class KnowledgeOriginalPdfToolsTest {
         )
         assertEquals(57, output.getValue("page").jsonPrimitive.int)
         assertTrue(
-            com.helix.app.citation.Citation
+            com.helix.core.model.citation.Citation
                 .parse(output.getValue("citation").jsonPrimitive.content) != null,
         )
         listOf(false, true).forEach { global ->

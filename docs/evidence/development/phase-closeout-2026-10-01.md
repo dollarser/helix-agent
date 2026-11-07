@@ -31,7 +31,7 @@
 
 | 范围 | 阶段结果 | 保留边界 |
 | --- | --- | --- |
-| [HXA-233](../../development/tasks/HXA-233.md) | 引用感知回放清理、分支/在途保护、存储反馈本地交付 | 8 项设备场景未运行；未知归属保守保留 |
+| [HXA-233](../../completion-records/HXA-233.md) | 引用感知回放清理、分支/在途保护、存储反馈本地交付 | 8 项设备场景未运行；未知归属保守保留 |
 | [HXA-126](../../development/tasks/HXA-126.md) | OAuth 元数据、显式 DCR 后备、归属/回调修复本地交付 | 两家真实服务、新 UI、自有 HTTPS/App Link/签名条件 |
 | [HXA-234](../../development/tasks/HXA-234.md) | 唯一 Core Loop、中立端口、有界上下文压缩迁移本地交付 | 9 项新增 Room 用例与真实轨迹未运行；不等于 R2-B 收益 |
 | [HXA-235](../../development/tasks/HXA-235.md) | 插件安装/选择/更新/停用/修复本地交付 | Room 与实际设备用户旅程未运行 |

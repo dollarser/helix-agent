@@ -2,6 +2,7 @@ package com.helix.app.ui
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.IntSize
+import com.helix.feature.conversation.presentation.previewPanBounds
 import org.junit.Assert.assertEquals
 import org.junit.Test
 

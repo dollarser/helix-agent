@@ -93,7 +93,10 @@ internal class TurnAdmission(
         val goalId = resolveGoal(command)
         val inspection = command.recovery?.inspection == true
         if (inspection) validateInspection(spec, command.control, goalId)
-        applyHistoryMutation(spec, goalId)
+        // Plain revisions must precede insertion of the replacement USER message. Goal
+        // regeneration instead waits for admission: a refused wake may legitimately persist
+        // a budget BLOCKED state, but must never hide the previous answer.
+        if (goalId == null) applyHistoryMutation(spec, null)
         val goalStart =
             goalId?.let {
                 GoalRunCoordinator(storage, clock, idGenerator).start(
@@ -103,6 +106,7 @@ internal class TurnAdmission(
         if (goalId != null && goalStart == null) {
             return TurnAdmissionResult.GoalRefused
         }
+        if (goalStart != null) applyHistoryMutation(spec, goalId)
         val coordinator =
             goalStart?.coordinator ?: RoomTurnRoundStore.start(
                 storage,

@@ -3,6 +3,7 @@ package com.helix.feature.files
 import com.helix.core.model.AttachmentCategory
 import com.helix.core.model.AttachmentClassification
 import com.helix.core.model.TextAttachmentKind
+import com.helix.core.model.input.InputAttachmentLimits
 import com.helix.core.workspace.ContentProbe
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -163,7 +164,7 @@ class AttachmentClassifierTest {
     @Test
     fun limitsAreTheClosedAdrValues() {
         assertEquals(10L shl 20, AttachmentClassifier.MAX_ATTACHMENT_BYTES)
-        assertEquals(4, AttachmentClassifier.MAX_ATTACHMENTS_PER_MESSAGE)
+        assertEquals(4, InputAttachmentLimits.MAX_ATTACHMENTS_PER_MESSAGE)
     }
 
     private fun unsupported(category: AttachmentCategory) = AttachmentClassification.UnsupportedAttachment(category)

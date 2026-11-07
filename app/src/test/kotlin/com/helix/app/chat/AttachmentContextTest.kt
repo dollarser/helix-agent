@@ -1,7 +1,9 @@
 package com.helix.app.chat
 
 import com.helix.core.model.TextAttachmentKind
-import com.helix.feature.files.AttachmentMaterialization
+import com.helix.core.model.attachment.AttachmentMaterialization
+import com.helix.feature.conversation.application.attachment.AttachmentContext
+import com.helix.feature.conversation.application.attachment.AttachmentContextBlock
 import com.helix.feature.files.AttachmentMaterializer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -10,7 +12,7 @@ import org.junit.Test
 
 /**
  * HXA-049 (ADR-0014 §4): [AttachmentContext] — the PURE model-visible injection of materialized
- * chat attachments. Every inlined body is bounded to [AttachmentMaterializer.MAX_INLINE_TEXT_BYTES]
+ * chat attachments. Every inlined body is bounded to [com.helix.core.model.input.InputAttachmentLimits.MAX_INLINE_TEXT_BYTES]
  * leading UTF-8 bytes (never more — the remainder is chunked-read through the path), every block is
  * source-labelled, UNTRUSTED-marked, hash-bound, and the ONLY path-shaped value is the scope-relative
  * workspace path (no `/`-prefixed absolute path ever appears). With no blocks the typed text is
@@ -109,8 +111,10 @@ class AttachmentContextTest {
         // 10_000 'x' (1 byte each) exceeds the 8192-byte cap: only the leading 8192 bytes inline,
         // as ONE contiguous run (the isolated 'x' in the file name is not part of that run).
         val out = AttachmentContext.buildUserMessageContent("", listOf(block("x".repeat(10_000), truncated = true)))
-        assertTrue(out.contains("x".repeat(AttachmentMaterializer.MAX_INLINE_TEXT_BYTES)))
-        assertFalse(out.contains("x".repeat(AttachmentMaterializer.MAX_INLINE_TEXT_BYTES + 1)))
+        assertTrue(out.contains("x".repeat(com.helix.core.model.input.InputAttachmentLimits.MAX_INLINE_TEXT_BYTES)))
+        assertFalse(
+            out.contains("x".repeat(com.helix.core.model.input.InputAttachmentLimits.MAX_INLINE_TEXT_BYTES + 1)),
+        )
     }
 
     @Test
@@ -130,8 +134,8 @@ class AttachmentContextTest {
         val bounded = AttachmentContext.boundedPrefix("🙂".repeat(5_000))
         assertTrue(bounded.startsWith("🙂"))
         val bytes = bounded.toByteArray().size
-        assertTrue(bytes <= AttachmentMaterializer.MAX_INLINE_TEXT_BYTES)
-        assertEquals(AttachmentMaterializer.MAX_INLINE_TEXT_BYTES, bytes)
+        assertTrue(bytes <= com.helix.core.model.input.InputAttachmentLimits.MAX_INLINE_TEXT_BYTES)
+        assertEquals(com.helix.core.model.input.InputAttachmentLimits.MAX_INLINE_TEXT_BYTES, bytes)
         assertTrue(bounded.length % 2 == 0)
     }
 

@@ -38,7 +38,7 @@ class ConnectorInstallationDeviceTest {
             container.storage.turns.start(id, session, System.currentTimeMillis())
             return id to
                 CompletableFuture.supplyAsync {
-                    chat.dispatchToolCall(
+                    container.toolExecution.dispatchToolCall(
                         id,
                         id,
                         "connectors.install",
@@ -52,7 +52,7 @@ class ConnectorInstallationDeviceTest {
             val previewTurn = "preview-${System.nanoTime()}"
             container.storage.turns.start(previewTurn, session, System.currentTimeMillis())
             assertTrue(
-                chat.dispatchToolCall(
+                container.toolExecution.dispatchToolCall(
                     previewTurn,
                     previewTurn,
                     "connectors.preview",

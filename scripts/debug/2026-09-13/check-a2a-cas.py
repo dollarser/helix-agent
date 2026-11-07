@@ -4,7 +4,7 @@ import re
 import sqlite3
 
 root = Path(__file__).resolve().parents[3]
-source = (root / "core/storage/src/main/kotlin/com/helix/core/storage/dao/A2aDaos.kt").read_text()
+source = (root / "infrastructure/storage/src/main/kotlin/com/helix/core/storage/dao/A2aDaos.kt").read_text()
 fragment = source[source.index('"UPDATE a2a_tasks SET'):source.index('fun updateRemoteState')]
 sql = ''.join(re.findall(r'"([^"\n]*)"', fragment.split('@Suppress')[0]))
 db = sqlite3.connect(':memory:')

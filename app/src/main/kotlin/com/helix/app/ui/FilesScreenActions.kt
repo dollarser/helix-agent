@@ -15,6 +15,7 @@ import com.helix.feature.files.SafTreeScopeService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.helix.ui.shared.R as SharedR
 
 /** Event handlers share state, but do not own composition or ActivityResult launchers. */
 @Suppress("TooManyFunctions")
@@ -411,7 +412,7 @@ internal class FilesScreenActions(
             } catch (cancelled: kotlinx.coroutines.CancellationException) {
                 throw cancelled
             } catch (_: Exception) {
-                state.status = str(R.string.common_operation_failed)
+                state.status = str(SharedR.string.common_operation_failed)
             }
         }
     }
@@ -431,7 +432,7 @@ internal class FilesScreenActions(
                 } catch (cancelled: kotlinx.coroutines.CancellationException) {
                     throw cancelled
                 } catch (_: Exception) {
-                    status = str(R.string.common_operation_failed)
+                    status = str(SharedR.string.common_operation_failed)
                 }
             }
         }

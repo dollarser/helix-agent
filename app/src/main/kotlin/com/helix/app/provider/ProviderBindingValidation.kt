@@ -2,6 +2,7 @@ package com.helix.app.provider
 
 import com.helix.core.storage.HelixStorage
 import com.helix.core.storage.entity.transportIdentity
+import com.helix.feature.conversation.presentation.ProviderBindingIssue
 
 /** Source existence is durable; observed rows only supply display/model evidence. */
 internal class ProviderBindingValidation(

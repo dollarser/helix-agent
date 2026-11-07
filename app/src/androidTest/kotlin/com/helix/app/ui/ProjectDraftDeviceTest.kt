@@ -20,6 +20,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import java.util.UUID
+import com.helix.ui.shared.R as SharedR
 
 /** Real UI and Room, synthetic local files only; no model requests or device authorization changes. */
 class ProjectDraftDeviceTest {
@@ -64,7 +65,7 @@ class ProjectDraftDeviceTest {
                     compose.onAllNodesWithTag("project-name").fetchSemanticsNodes().isEmpty()
                 }
                 compose.onNodeWithTag("conversation-project-none").assertIsSelected()
-                compose.onNodeWithText(compose.activity.getString(com.helix.app.R.string.common_cancel)).performClick()
+                compose.onNodeWithText(compose.activity.getString(SharedR.string.common_cancel)).performClick()
                 returnToConversation()
                 compose.onNodeWithTag("chat-input").assertTextContains("Keep this unsent question")
                 assertEquals(session, chat.screen.value.openSessionId)

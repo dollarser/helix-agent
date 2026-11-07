@@ -1,6 +1,6 @@
 # 插件诊断与外部样本验收（2026-10-16）
 
-范围：[HXA-299](../../development/tasks/HXA-299.md)。Owner 明确按建议实施，允许联网、日常模拟器与真实模型；不启动完整架构重组，不推送发布。起点 `main` / `6bbff42d`，162 个既有修改文件已在忽略的 `build/hxa299/baseline-tree/` 保存，既有工作不重置。竞品取舍见[插件研究追加章节](../../research/topics/plugin-guidance-and-management-2026-10-16.md#后续授权的诊断切片hxa-299)。
+范围：[HXA-299](../../completion-records/HXA-299.md)。Owner 明确按建议实施，允许联网、日常模拟器与真实模型；不启动完整架构重组，不推送发布。起点 `main` / `6bbff42d`，162 个既有修改文件已在忽略的 `build/hxa299/baseline-tree/` 保存，既有工作不重置。竞品取舍见[插件研究追加章节](../../research/topics/plugin-guidance-and-management-2026-10-16.md#后续授权的诊断切片hxa-299)。
 
 ## 交付及边界
 

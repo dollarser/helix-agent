@@ -159,7 +159,7 @@ def storage_methods():
     expected = []
     sources = {}
     for class_name in STORAGE_216:
-        source = ROOT / ("core/storage/src/androidTest/kotlin/" + class_name.replace(".", "/") + ".kt")
+        source = ROOT / ("infrastructure/storage/src/androidTest/kotlin/" + class_name.replace(".", "/") + ".kt")
         methods = re.findall(r"@Test\b(?:(?!@Test\b).)*?\bfun\s+(\w+)\s*\(", source.read_text(), re.S)
         if not methods:
             raise ValueError("No storage tests discovered in " + str(source))
@@ -390,7 +390,7 @@ def main():
                 json.dumps({"methods": expected, "sources": sources}, indent=2)
             )
             target = args.output / label
-            storage_apk = "core/storage/build/outputs/apk/androidTest/debug/storage-debug-androidTest.apk"
+            storage_apk = "infrastructure/storage/build/outputs/apk/androidTest/debug/storage-debug-androidTest.apk"
             command = [
                 sys.executable,
                 "scripts/run-owned-acceptance-emulator.py",

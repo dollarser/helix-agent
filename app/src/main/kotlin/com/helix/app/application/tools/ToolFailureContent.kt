@@ -1,7 +1,7 @@
 package com.helix.app.application.tools
 
-import com.helix.app.application.diagnostics.DiagnosticRedaction
 import com.helix.core.model.ToolDispatchOutcome
+import com.helix.core.policy.DiagnosticRedaction
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject

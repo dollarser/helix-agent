@@ -13,7 +13,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
-import com.helix.app.ui.indicatedVerticalScroll
+import com.helix.ui.shared.indicatedVerticalScroll
+import com.helix.ui.shared.R as SharedR
 
 /** Launch mapping is metadata, not the live cwd of the retained shell. */
 @Composable
@@ -48,7 +49,7 @@ internal fun TerminalInfo(
         },
         confirmButton = {
             TextButton(onClick = onDismiss, modifier = Modifier.testTag("terminal-info-close")) {
-                Text(stringResource(R.string.chat_details_close))
+                Text(stringResource(SharedR.string.chat_details_close))
             }
         },
     )

@@ -15,7 +15,7 @@ import java.util.zip.ZipFile
  *
  * This JVM test reads the .so bytes from the resolved `app.cash.zipline:zipline-android`
  * AAR (path passed in by the build as the `helix.zipline.aar` system property — same
- * pattern as :core:storage's `helix.schema.dir`). It is the ABORT evidence for the
+ * pattern as :infrastructure:storage's `helix.schema.dir`). It is the ABORT evidence for the
  * x86_64 ABI, which no on-device test can cover on this arm64-only environment.
  */
 class QuickJsNativeLibraryElfTest {

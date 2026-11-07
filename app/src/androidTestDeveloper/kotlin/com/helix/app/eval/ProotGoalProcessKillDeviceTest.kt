@@ -33,6 +33,7 @@ import org.junit.Rule
 import org.junit.Test
 import java.io.File
 import java.util.Properties
+import com.helix.feature.conversation.R as ConversationR
 
 /** Dedicated host fixture owns the remote request while this process is killed. */
 class ProotGoalProcessKillDeviceTest {
@@ -243,7 +244,7 @@ class ProotGoalProcessKillDeviceTest {
             val row =
                 container.chatService.screen.value.toolTimeline
                     .single { it.callId == call.callId }
-            assertEquals(app.getString(R.string.tool_state_cancelled), row.stateLabel)
+            assertEquals(app.getString(ConversationR.string.tool_state_cancelled), row.stateLabel)
             assertEquals(null, row.card)
         }
         assertEquals(1, run.modelCalls)
@@ -319,7 +320,7 @@ class ProotGoalProcessKillDeviceTest {
                 .single { it.callId == callId }
                 .let {
                     !it.prootRecoveryBusy && it.prootRecoveryReport?.labelRes?.let { label ->
-                        label != R.string.proot_recovery_unknown
+                        label != ConversationR.string.proot_recovery_unknown
                     } == true
                 }
         }
@@ -327,7 +328,7 @@ class ProotGoalProcessKillDeviceTest {
             chat.screen.value.toolTimeline
                 .single { it.callId == callId }
                 .prootRecoveryReport
-        assertTrue(report?.labelRes != R.string.proot_recovery_unknown)
+        assertTrue(report?.labelRes != ConversationR.string.proot_recovery_unknown)
         if (successful) verifyRecoveredOutput(callId)
         if (report?.canStop == true) {
             clickProotAction(compose, "proot-stop-$callId")

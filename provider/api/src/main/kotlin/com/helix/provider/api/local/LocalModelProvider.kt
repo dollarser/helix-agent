@@ -89,10 +89,25 @@ class LocalModelProvider(
             emit(if (invalid || terminal == null) ModelEvent.Error(ModelErrorCode.PROTOCOL, false) else terminal!!)
         }.catch { failure ->
             when (failure) {
-                is LocalRuntimeException -> emit(ModelEvent.Error(failure.code, false))
-                is IllegalArgumentException -> emit(ModelEvent.Error(ModelErrorCode.PROTOCOL, false))
-                is java.io.IOException -> emit(ModelEvent.Error(ModelErrorCode.LOCAL_GENERATION_FAILED, false))
-                else -> throw failure
+                is LocalRuntimeException -> {
+                    emit(ModelEvent.Error(failure.code, false))
+                }
+
+                is com.helix.core.model.ImageReselectionRequiredException -> {
+                    emit(ModelEvent.Error(ModelErrorCode.IMAGE_RESELECT_REQUIRED, false))
+                }
+
+                is IllegalArgumentException -> {
+                    emit(ModelEvent.Error(ModelErrorCode.PROTOCOL, false))
+                }
+
+                is java.io.IOException -> {
+                    emit(ModelEvent.Error(ModelErrorCode.LOCAL_GENERATION_FAILED, false))
+                }
+
+                else -> {
+                    throw failure
+                }
             }
         }
 

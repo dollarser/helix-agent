@@ -14,6 +14,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import com.helix.app.R
 import com.helix.core.workspace.FileScopePath
+import com.helix.feature.conversation.R as ConversationR
 
 /** A readable location plus an explicit, copyable identity; labels never become execution paths. */
 @Composable
@@ -29,7 +30,11 @@ internal fun ScopedPathText(
     var details by rememberSaveable(reference) { mutableStateOf(false) }
     Text(if (relative.isEmpty()) name else "$name / $relative")
     TextButton({ details = !details }) {
-        Text(stringResource(if (details) R.string.tool_details_hide else R.string.workspace_location_details))
+        Text(
+            stringResource(
+                if (details) ConversationR.string.tool_details_hide else R.string.workspace_location_details,
+            ),
+        )
     }
     if (details) {
         SelectionContainer { Text(reference, style = MaterialTheme.typography.bodySmall) }

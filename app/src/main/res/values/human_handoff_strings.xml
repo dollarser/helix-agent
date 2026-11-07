@@ -6,17 +6,9 @@
     <string name="human_finished">我已全部完成</string>
     <string name="human_cancel">取消后续</string>
     <string name="human_return_unconfirmed">交回未确认启动。请查看会话状态和待确认请求；不会自动重试，可通过输入框提交新请求。</string>
-    <string name="stop_facts_title">停止事实摘要</string>
-    <string name="stop_facts_verified">已验证工具效果：%1$s</string>
-    <string name="stop_facts_recorded">已记录结果：%1$s</string>
-    <string name="stop_facts_unknown">效果未知：%1$s</string>
-    <string name="stop_facts_not_started">未启动：%1$s</string>
-    <string name="stop_facts_artifacts">已登记输出产物：%1$d</string>
-    <string name="stop_facts_boundary">停止不会撤销已执行的操作。效果未知时，请先核对再继续。</string>
     <string name="human_state_finished">用户已确认全部完成，未发起后续任务。</string>
     <string name="human_state_cancelled">后续已取消，未发起新任务。</string>
     <string name="human_state_submitted">已提交新的交回输入；原任务保持停止，不自动重放。</string>
     <string name="human_return_pending">请完成会话中的现有确认后继续。</string>
-    <string name="human_stop_unconfirmed">接管停止尚未确认，请检查原任务状态；未知效果不会自动重放。</string>
     <string name="human_old_control">已有新一轮任务，此旧接管入口不能继续或控制它。</string>
 </resources>

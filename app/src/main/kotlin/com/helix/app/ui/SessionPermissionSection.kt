@@ -29,7 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.R
 import com.helix.app.approval.SessionPermissionEditService
-import com.helix.app.chat.ChatService
+import com.helix.app.chat.TaskDashboardProjection
 import com.helix.app.tool.ToolPipeline
 import com.helix.core.model.OperationEffect
 import com.helix.core.model.OperationRule
@@ -37,6 +37,9 @@ import com.helix.core.model.SessionPermissionMode
 import com.helix.core.model.ToolAvailabilityScope
 import com.helix.core.policy.SessionPermissionConfig
 import com.helix.core.storage.repository.SessionPermissionDraft
+import com.helix.feature.conversation.application.ChatService
+import com.helix.feature.conversation.presentation.SESSION_PERMISSION_PRESETS
+import com.helix.feature.conversation.presentation.labelRes
 import com.helix.tools.framework.ToolDescriptor
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -47,6 +50,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import com.helix.feature.conversation.R as ConversationR
+import com.helix.ui.shared.R as SharedR
 
 /**
  * The HXA-209 session-authorization settings section (ADR-PERMISSIONS-001). The UI's ONLY path
@@ -75,7 +80,7 @@ internal fun SessionPermissionSection(
         Text(stringResource(R.string.settings_perm_default_label), style = MaterialTheme.typography.titleMedium)
         Text(stringResource(R.string.settings_default_permissions_hint), style = MaterialTheme.typography.bodySmall)
         if (controller.failed.value) {
-            Text(stringResource(R.string.common_operation_failed), color = MaterialTheme.colorScheme.error)
+            Text(stringResource(SharedR.string.common_operation_failed), color = MaterialTheme.colorScheme.error)
         }
         PermissionDefaultPicker(controller)
     }
@@ -88,12 +93,13 @@ internal fun SessionPermissionSection(
 internal fun SessionPermissionSessionSection(
     edit: SessionPermissionEditService,
     chatService: ChatService,
+    dashboard: TaskDashboardProjection,
 ) {
     val controller = rememberPermissionController(edit, emptyList(), chatService)
     val screen by chatService.screen.collectAsStateWithLifecycle()
     SettingsGroup {
         if (controller.failed.value) {
-            Text(stringResource(R.string.common_operation_failed), color = MaterialTheme.colorScheme.error)
+            Text(stringResource(SharedR.string.common_operation_failed), color = MaterialTheme.colorScheme.error)
         }
         if (controller.sessionId != null) {
             PermissionSessionPicker(controller)
@@ -102,7 +108,7 @@ internal fun SessionPermissionSessionSection(
                 onCopyPreset = { controller.copyPresetIntoDraft(it) },
                 onSetRule = { effect, rule -> controller.setDraftRule(effect, rule) },
             )
-            PermissionTighteningNotice(controller, chatService)
+            PermissionTighteningNotice(controller, chatService, dashboard)
         } else {
             Text(
                 stringResource(
@@ -111,7 +117,7 @@ internal fun SessionPermissionSessionSection(
                     ) {
                         R.string.settings_perm_session_absent
                     } else {
-                        R.string.composer_permission_loading
+                        ConversationR.string.composer_permission_loading
                     },
                 ),
                 style = MaterialTheme.typography.bodySmall,
@@ -168,7 +174,7 @@ private fun rememberPermissionController(
 @Suppress("FunctionName")
 private fun PermissionDefaultPicker(controller: SessionPermissionController) {
     Column(Modifier.selectableGroup()) {
-        PRESETS.forEach { mode ->
+        SESSION_PERMISSION_PRESETS.forEach { mode ->
             Row(
                 Modifier
                     .fillMaxWidth()
@@ -450,6 +456,7 @@ private class SessionPermissionController(
 private fun PermissionTighteningNotice(
     controller: SessionPermissionController,
     chatService: ChatService?,
+    dashboard: TaskDashboardProjection,
 ) {
     val sessionId = controller.sessionId
     val service = chatService
@@ -458,7 +465,7 @@ private fun PermissionTighteningNotice(
     LaunchedEffect(controller.tighteningSeq.value, sessionId) {
         if (controller.tightened.value && sessionId != null && service != null) {
             withContext(Dispatchers.IO) {
-                runningCount.value = service.runningTurnIdsForSession(sessionId).size
+                runningCount.value = dashboard.runningTurnIdsForSession(sessionId).size
             }
         }
     }
@@ -483,7 +490,7 @@ private fun PermissionTighteningNotice(
                         onClick = {
                             scope.launch {
                                 withContext(Dispatchers.IO) {
-                                    service.runningTurnIdsForSession(sessionId).forEach { service.stopTask(it) }
+                                    dashboard.runningTurnIdsForSession(sessionId).forEach { service.stopTask(it) }
                                 }
                                 controller.clearTightened()
                             }
@@ -500,16 +507,6 @@ private fun PermissionTighteningNotice(
 
 /** A stable, collision-free key for a tool identity (source ref + name). */
 private fun toolKey(descriptor: ToolDescriptor): String = descriptor.origin.canonicalOf() + " " + descriptor.name.value
-
-/** The preset modes — the valid new-session defaults (CUSTOM is not a default). Shared with the
- * CUSTOM editor: a custom draft is copied from one of these presets (never from CUSTOM). */
-internal val PRESETS =
-    listOf(
-        SessionPermissionMode.APPROVAL_REQUIRED,
-        SessionPermissionMode.WORKSPACE_TRUSTED,
-        SessionPermissionMode.FULL_ACCESS,
-        SessionPermissionMode.READ_ONLY,
-    )
 
 /** All four selectable modes for a session. */
 private val ALL_MODES =

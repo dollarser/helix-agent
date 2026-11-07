@@ -12,6 +12,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.res.stringResource
 import com.helix.app.R
+import com.helix.ui.shared.R as SharedR
 
 internal val LocalPageReturn = staticCompositionLocalOf<(() -> Unit)?> { null }
 
@@ -47,10 +48,10 @@ internal fun UnsavedNavigationGuard(
                     discard()
                     pending?.invoke(true)
                     pending = null
-                }) { Text(stringResource(R.string.common_discard_edit)) }
+                }) { Text(stringResource(SharedR.string.common_discard_edit)) }
             },
             dismissButton = {
-                TextButton(cancel) { Text(stringResource(R.string.common_cancel)) }
+                TextButton(cancel) { Text(stringResource(SharedR.string.common_cancel)) }
             },
         )
     }

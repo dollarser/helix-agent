@@ -8,9 +8,13 @@
 
 所有者要求复核此前模拟器扫描问题并修复当前分支。本轮开始 HEAD 为 `a94ccc212ac2c2fce656c8ea015fa96767956aa9`，main；保留前轮已提交的 FFmpeg 及其他代理工作，不提交、不推送、不调用真实服务或账号。
 
-用户指定 sibling worktree 中的 `docs/evidence/development/emulator-sweep-analysis-2026-10-01.md`。当前 Runner 无权读取该 worktree，因此使用主项目已有的[历史报告归档](../../../reviews/2026-10-01/emulator-sweep-analysis-2026-10-01.md)及[归档说明](emulator-sweep-triage-2026-10-01.md)。接收时原件 SHA-256 为 `af56b9785a26f4e37e955329e70f96eed9e8acb7b3fa1cc01ca8d50e896b786e`；提交归档仅替换宿主用户名/安装路径，原始字节保存在 ignored `build/hxa241/emulator-sweep-original-2026-10-01.md`，该哈希不表示路径归一化后的归档哈希。不能保证 sibling 原文件此后没有变化；未越界读取，也未改写历史报告来使旧结果变绿。
+用户指定 sibling worktree 中的 `docs/evidence/development/emulator-sweep-analysis-2026-10-01.md`。当前 Runner 无权读取该 worktree，因此使用主项目已有的[历史报告归档](../../../reviews/2026-10-01/emulator-sweep-analysis-2026-10-01.md)。接收时原件 SHA-256 为 `af56b9785a26f4e37e955329e70f96eed9e8acb7b3fa1cc01ca8d50e896b786e`；提交归档仅替换宿主用户名/安装路径，原始字节保存在 ignored `build/hxa241/emulator-sweep-original-2026-10-01.md`，该哈希不表示路径归一化后的归档哈希。不能保证 sibling 原文件此后没有变化；未越界读取，也未改写历史报告来使旧结果变绿。
 
 原报告基线为 `05e91003`，记录 52 个失败用例；它不是当前 main 的测试结果。最初主机复核阶段设备、真实账号和真实模型均为 **not requested**；所有者后来明确要求“完成模拟器验收”，已在独立模拟器执行下述专项。外部真实账号/付费额度和真机仍未使用。B/C 表中的“修订”记录静态定位与修改，当前设备结论以文末最终构建证据为准。
+
+### 最初接收与分流（2026-10-01）
+
+主机门禁发现并行新增的根目录扫描笔记后，先接收到 reviews 作为历史输入；独立 worktree 中的修复不自动视为主线已合入。原报告混入多阶段宿主驱动场景，不能将所有失败计作产品故障，也不能将所有确定性失败降格为旧断言。接收时分别核查 UI 契约漂移、调用绑定/授权、Goal 持久语义与设备时序；不把 FAILED 当成功、不靠延长超时掩盖问题，不从笔记继承设备或账号授权。下文逐类复核和最终验收承接该分流，原始失败记录保持不变。
 
 ## 当前确认的产品问题
 

@@ -29,10 +29,11 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
-import com.helix.app.ui.indicatedVerticalScroll
 import com.helix.extensions.mobileuse.automation.AutomationApplicationCatalog
 import com.helix.extensions.mobileuse.config.MobileUseGrantStore
+import com.helix.ui.shared.indicatedVerticalScroll
 import kotlinx.coroutines.launch
+import com.helix.ui.shared.R as SharedR
 
 /** Global plugin configuration; saving never selects a conversation or grants Android permissions. */
 @Composable
@@ -194,10 +195,10 @@ private fun MobileUseLeaveDialog(
                     enabled = !state.busy,
                     modifier = Modifier.testTag("mobile-use-discard"),
                 ) {
-                    Text(stringResource(R.string.common_discard_edit))
+                    Text(stringResource(SharedR.string.common_discard_edit))
                 }
                 androidx.compose.material3.TextButton(onContinue, enabled = !state.busy) {
-                    Text(stringResource(R.string.common_cancel))
+                    Text(stringResource(SharedR.string.common_cancel))
                 }
             }
         },
@@ -213,7 +214,7 @@ private fun MobileUseLoadStatus(
     if (!state.loaded) {
         if (state.failed && !state.requiresReset) {
             OutlinedButton(retry, Modifier.testTag("mobile-use-reload")) {
-                Text(stringResource(R.string.chat_retry))
+                Text(stringResource(SharedR.string.chat_retry))
             }
         } else if (!state.failed) {
             Text(stringResource(R.string.tasks_commands_loading))

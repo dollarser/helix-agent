@@ -6,17 +6,9 @@
     <string name="human_finished">I completed everything</string>
     <string name="human_cancel">Cancel follow-up</string>
     <string name="human_return_unconfirmed">Hand-back start is unconfirmed. Inspect this conversation and any pending confirmation. No automatic retry; use the composer for a new request.</string>
-    <string name="stop_facts_title">Stop facts</string>
-    <string name="stop_facts_verified">Verified tool effects: %1$s</string>
-    <string name="stop_facts_recorded">Recorded results: %1$s</string>
-    <string name="stop_facts_unknown">Unknown effects: %1$s</string>
-    <string name="stop_facts_not_started">Not started: %1$s</string>
-    <string name="stop_facts_artifacts">Registered output artifacts: %1$d</string>
-    <string name="stop_facts_boundary">Stopping does not undo executed actions. Check unknown effects before continuing.</string>
     <string name="human_state_finished">You confirmed completion. No follow-up task started.</string>
     <string name="human_state_cancelled">Follow-up cancelled. No new task started.</string>
     <string name="human_state_submitted">Fresh hand-back input submitted; the original task remains stopped. No automatic replay.</string>
     <string name="human_return_pending">Complete the existing confirmation in this conversation.</string>
-    <string name="human_stop_unconfirmed">Takeover stop is unconfirmed. Inspect the original task; unknown effects are never replayed automatically.</string>
     <string name="human_old_control">A newer turn exists. This old hand-back control cannot continue it.</string>
 </resources>

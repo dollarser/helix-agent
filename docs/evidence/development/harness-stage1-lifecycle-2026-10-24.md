@@ -56,6 +56,6 @@ Release 产物来自成功构建的 output-metadata 指向的未签名 APK，不
 
 ### 后续语义复核更正
 
-后续效果实验准备发现 Goal continuation 资格查询会间接调用持久 budget blocking，故本文关于终态 hook 仅本地交接的表述过强；不是由既有测试数字证明不存在该路径。本轮按同一生命周期目标实际修正，范围、回归与结果见[后续记录](../../development/memory-log-effect-experiment.md)。Core 无 App/Room 依赖、当次真实测试通过与旧包删除仍是有效事实，不扩大为整个应用命令均纯中立。
+后续效果实验准备发现 Goal continuation 资格查询会间接调用持久 budget blocking，故本文关于终态 hook 仅本地交接的表述过强；不是由既有测试数字证明不存在该路径。本轮按同一生命周期目标实际修正，范围、回归与结果见[后续记录](memory-log-effect-experiment.md)。Core 无 App/Room 依赖、当次真实测试通过与旧包删除仍是有效事实，不扩大为整个应用命令均纯中立。
 
 后续修正验收：Goal 资格查询与 Room 结算相关的独立 Advanced/API 36 模拟器共 33 项通过、无跳过；本地证据为 `build/memory-log-experiment-2026-10-24/goal-device/`。两渠道单元检查、AndroidTest 编译与静态检查通过。此结果只覆盖该补丁，不将此前 Release 候选的通过结果转记为补丁的发行验收。

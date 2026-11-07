@@ -2,7 +2,7 @@
 
 初稿：2026-09-28；内容收敛：2026-09-30；实现状态校正：2026-10-14。本页只维护包格式、宿主已知原生贡献、Mobile Use 专项和领域迁移理由。通用绑定以[工具 ADR](../adr/tools/001-descriptor-contract.md)为准；安装、组件局部失败、更新/卸载、会话选择与原生资源的设计决定归 [Plugin 归属 ADR](../adr/connectors/003-ownership-and-installation.md)，[Harness 第 17 节](harness-refactor-plan.md#17-pluginconnection-与能力产品化)维护接线说明。
 
-**当前实现：**PluginOrigin、App 级 PluginRegistry、Mobile Use 已有实现，R1 原子绑定由 [HXA-231](../completion-records/HXA-231.md)交付，R3 安装、组件归属、选择、停用/更新/修复由 [HXA-235](../development/tasks/HXA-235.md)接入生产；[HXA-251](../development/tasks/HXA-251.md)补充有限 Room/设备旅程。完整在途引用/撤销/进程死亡交叉矩阵仍独立。本页保留的 MVP 示例是历史范围，不是现行能力上限，也不维护第二条 P0/P1/P2 排期。
+**当前实现：**PluginOrigin、App 级 PluginRegistry、Mobile Use 已有实现，R1 原子绑定由 [HXA-231](../completion-records/HXA-231.md)交付，R3 安装、组件归属、选择、停用/更新/修复由 [HXA-235](../development/tasks/HXA-235.md)接入生产；[HXA-251](../completion-records/HXA-251.md)补充有限 Room/设备旅程。完整在途引用/撤销/进程死亡交叉矩阵仍独立。本页保留的 MVP 示例是历史范围，不是现行能力上限，也不维护第二条 P0/P1/P2 排期。
 
 来源：[插件生态与 Mobile Use 研究](../research/topics/plugin-ecosystem-and-mobile-use-2026-09-28.md)及[原 MVP 证据](../evidence/development/plugin-platform-mobile-use-mvp-2026-09-28.md)；参考产品和源码事实见[插件架构调研](../research/topics/agent-plugin-architecture-research-2026-10-11.md)，增量建议见[Helix 优化方案](../research/topics/helix-plugin-architecture-optimization-2026-10-11.md)。外部格式按明确支持的版本矩阵和 HXA-235 解析契约处理，不以早期研究的草案状态判断当前规范，也不承诺完整客户端兼容或运行时拉取远端 schema。
 

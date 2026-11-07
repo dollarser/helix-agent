@@ -23,6 +23,8 @@ import com.helix.app.R
 import com.helix.extensions.skills.SkillKey
 import com.helix.extensions.skills.SkillRepository
 import com.helix.extensions.skills.UserSkillActivation
+import com.helix.ui.shared.indicatedVerticalScroll
+import com.helix.feature.conversation.R as ConversationR
 
 @Composable
 @Suppress("FunctionName")
@@ -126,7 +128,7 @@ private fun SkillSessionListDialog(
                     if (!invocable) {
                         R.string.session_skills_title
                     } else {
-                        R.string.skill_selection_title
+                        ConversationR.string.skill_selection_title
                     },
                 ),
             )

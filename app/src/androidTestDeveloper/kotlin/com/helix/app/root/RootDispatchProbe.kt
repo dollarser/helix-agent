@@ -102,7 +102,7 @@ internal class RootDispatchProbe(
         return try {
             executor
                 .submit<ToolDispatchOutcome> {
-                    container.chatService.dispatchToolCall("$turn-${System.nanoTime()}", turn, name, args)
+                    container.toolExecution.dispatchToolCall("$turn-${System.nanoTime()}", turn, name, args)
                 }.get(30, TimeUnit.SECONDS)
         } finally {
             executor.shutdownNow()

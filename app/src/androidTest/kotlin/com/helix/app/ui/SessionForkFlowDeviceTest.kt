@@ -76,7 +76,7 @@ class SessionForkFlowDeviceTest {
                     assertEquals(3, storage.messages.listBySession(source).size)
                     compose.waitUntil(10_000) { chat.screen.value.messages.size >= 4 }
                     val entries =
-                        com.helix.app.chat
+                        com.helix.feature.conversation.presentation
                             .conversationEntries(chat.screen.value)
                     assertEquals(
                         "KEEP-ORANGE-42",

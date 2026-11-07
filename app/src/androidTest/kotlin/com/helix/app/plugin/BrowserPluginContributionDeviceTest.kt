@@ -53,7 +53,7 @@ class BrowserPluginContributionDeviceTest {
                     suspend fun dispatch(
                         name: String,
                         arguments: String,
-                    ) = c.chatService.dispatchToolCall(
+                    ) = c.toolExecution.dispatchToolCall(
                         UUID.randomUUID().toString(),
                         turn,
                         name,
@@ -179,7 +179,7 @@ class BrowserPluginContributionDeviceTest {
         c.chatService.openSession(sessionId)
         try {
             val result =
-                c.chatService.dispatchToolCall(
+                c.toolExecution.dispatchToolCall(
                     UUID.randomUUID().toString(),
                     turn,
                     "browser.snapshot",

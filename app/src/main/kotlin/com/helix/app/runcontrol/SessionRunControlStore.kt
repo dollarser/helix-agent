@@ -5,6 +5,7 @@ import com.helix.core.agent.RunControlConfig
 import com.helix.core.agent.TurnBudgetBounds
 import com.helix.core.storage.HelixStorage
 import com.helix.core.storage.repository.SessionRunControlRecord
+import com.helix.feature.conversation.application.ConversationRunControls
 
 /**
  * Durable per-session run-control seam. [RunControlStore] remains the new-session defaults owner;
@@ -13,17 +14,18 @@ import com.helix.core.storage.repository.SessionRunControlRecord
 class SessionRunControlStore(
     private val storage: HelixStorage,
     private val defaults: RunControlStore,
-) {
-    fun defaultSnapshot(): RunControlConfig = validated(defaults.current)
+) : ConversationRunControls {
+    override fun defaultSnapshot(): RunControlConfig = validated(defaults.current)
 
-    fun forSession(sessionId: String): RunControlConfig? = storage.sessionRunControls.forSession(sessionId)?.toConfig()
+    override fun forSession(sessionId: String): RunControlConfig? =
+        storage.sessionRunControls.forSession(sessionId)?.toConfig()
 
-    fun ensure(
+    override fun ensure(
         sessionId: String,
         nowEpochMillis: Long,
     ): RunControlConfig = forSession(sessionId) ?: defaultSnapshot().also { set(sessionId, it, nowEpochMillis) }
 
-    fun set(
+    override fun set(
         sessionId: String,
         config: RunControlConfig,
         nowEpochMillis: Long,

@@ -12,9 +12,10 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
-import com.helix.app.chat.ToolTimelineRow
-import com.helix.app.ui.ProotRecoveryActions
-import com.helix.app.ui.ProotResultPanel
+import com.helix.feature.conversation.presentation.ProotRecoveredOutput
+import com.helix.feature.conversation.presentation.ProotRecoveryActions
+import com.helix.feature.conversation.presentation.ProotResultPanel
+import com.helix.feature.conversation.presentation.ToolTimelineRow
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -47,7 +48,7 @@ class ProotResultUiDeviceTest {
         var selected: Pair<String, String>? = null
         compose.setContent {
             MaterialTheme {
-                com.helix.app.ui.ProotAcknowledgementActions(
+                com.helix.feature.conversation.presentation.ProotAcknowledgementActions(
                     ToolTimelineRow("turn", "call", "bash", "{}", "NEEDS_REVIEW", null, null)
                         .copy(prootRecoveryBusy = busy.value),
                     acknowledged.value,

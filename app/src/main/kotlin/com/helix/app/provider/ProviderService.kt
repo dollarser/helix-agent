@@ -1,6 +1,5 @@
 package com.helix.app.provider
 
-import com.helix.app.chat.EgressDisclosure
 import com.helix.core.model.Clock
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.ProviderTransport
@@ -11,6 +10,7 @@ import com.helix.core.storage.HelixStorage
 import com.helix.core.storage.entity.ProviderConfigEntity
 import com.helix.core.storage.entity.transportIdentity
 import com.helix.core.storage.repository.ProviderConfigSpec
+import com.helix.feature.conversation.application.EgressDisclosure
 import com.helix.provider.api.CapabilityProbe
 import com.helix.provider.api.CapabilitySource
 import com.helix.provider.api.ModelMetadata

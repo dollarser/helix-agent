@@ -20,6 +20,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.helix.app.maintenance.PreviewResetSection
+import com.helix.ui.shared.HelixTheme
+import com.helix.ui.shared.R as SharedR
 
 /** Draw a first frame without reading any service or storage-backed preferences. */
 @Composable
@@ -68,7 +70,7 @@ internal fun AppStartupScreen(
 
                     AppStartupState.Failed -> {
                         Text(stringResource(R.string.app_start_failed))
-                        TextButton(onClick = onRecheck) { Text(stringResource(R.string.chat_retry)) }
+                        TextButton(onClick = onRecheck) { Text(stringResource(SharedR.string.chat_retry)) }
                         TextButton(onClick = onExit) { Text(stringResource(R.string.preview_start_exit)) }
                     }
 

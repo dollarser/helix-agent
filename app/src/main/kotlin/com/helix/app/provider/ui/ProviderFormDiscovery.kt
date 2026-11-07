@@ -4,18 +4,9 @@ import com.helix.app.R
 import com.helix.app.provider.ComposeOutcome
 import com.helix.app.provider.ProviderComposer
 import com.helix.app.provider.ProviderService
-import com.helix.core.model.ProviderProvisioningKind
 import com.helix.provider.api.ModelCatalogResult
 import com.helix.provider.api.ModelPurpose
 import kotlinx.coroutines.CancellationException
-
-internal fun providerGroupLabel(group: ProviderProvisioningKind): Int =
-    when (group) {
-        ProviderProvisioningKind.BUNDLED_SERVICE -> R.string.builtin_model_title
-        ProviderProvisioningKind.ON_DEVICE_ASSET -> R.string.local_model_title
-        ProviderProvisioningKind.USER_CONFIGURED -> R.string.provider_group_api
-        ProviderProvisioningKind.MANAGED_ACCOUNT -> R.string.provider_group_account
-    }
 
 internal data class ProviderFormDiscovery(
     val models: List<String> = emptyList(),

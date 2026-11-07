@@ -4,10 +4,10 @@ package com.helix.app.proot
 
 import com.helix.app.R
 import com.helix.app.application.tools.FileToolArguments
-import com.helix.app.approval.ApprovalCardUi
 import com.helix.core.model.CancelSignal
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.ToolOperationClass
+import com.helix.feature.conversation.presentation.ApprovalCardUi
 import com.helix.runtime.proot.ipc.ProotJobCommand
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency

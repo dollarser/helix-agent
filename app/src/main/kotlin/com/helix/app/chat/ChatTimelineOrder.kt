@@ -3,6 +3,7 @@ package com.helix.app.chat
 import com.helix.app.agent.ChatHistoryBuilder
 import com.helix.app.agent.ContextHistory
 import com.helix.core.storage.HelixStorage
+import com.helix.feature.conversation.presentation.ToolTimelinePosition
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject

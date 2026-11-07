@@ -1,15 +1,17 @@
 package com.helix.app.chat
 
-import com.helix.app.R
 import com.helix.core.model.AttachmentCategory
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.ProviderResidence
 import com.helix.core.model.TextAttachmentKind
+import com.helix.core.model.attachment.AttachmentMaterialization
+import com.helix.core.model.attachment.AttachmentSendDecision
+import com.helix.core.model.attachment.SnapshotKind
 import com.helix.core.model.input.ConversationReferenceKind
 import com.helix.core.model.input.ConversationReferenceSnapshotInput
-import com.helix.feature.files.AttachmentMaterialization
-import com.helix.feature.files.AttachmentSendDecision
-import com.helix.feature.files.SnapshotKind
+import com.helix.feature.conversation.R
+import com.helix.feature.conversation.application.EgressDisclosure
+import com.helix.feature.conversation.application.attachment.AttachmentSendAdmission
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test

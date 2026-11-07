@@ -27,6 +27,7 @@ import com.helix.app.R
 import com.helix.extensions.skills.SkillKey
 import com.helix.extensions.skills.SkillListItem
 import com.helix.extensions.skills.SkillRepository
+import com.helix.ui.shared.indicatedVerticalScroll
 
 @Composable
 @Suppress("FunctionName")

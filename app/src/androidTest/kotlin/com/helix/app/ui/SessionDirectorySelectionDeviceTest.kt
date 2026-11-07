@@ -19,6 +19,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import java.nio.file.Files
+import com.helix.ui.shared.R as SharedR
 
 class SessionDirectorySelectionDeviceTest {
     @get:Rule val compose = createComposeRule()
@@ -134,7 +135,7 @@ class SessionDirectorySelectionDeviceTest {
             compose.waitUntil(10_000) {
                 compose.onAllNodesWithTag("directory-access-capability").fetchSemanticsNodes().isNotEmpty()
             }
-            compose.onNodeWithText(context.getString(com.helix.app.R.string.chat_details_close)).performClick()
+            compose.onNodeWithText(context.getString(SharedR.string.chat_details_close)).performClick()
             compose
                 .onNodeWithText(
                     context.getString(

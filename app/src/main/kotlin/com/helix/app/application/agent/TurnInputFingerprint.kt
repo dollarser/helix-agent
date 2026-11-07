@@ -11,7 +11,7 @@ import java.security.MessageDigest
  * the same client-request id fingerprint to the same value ONLY if they carry identical content,
  * so a same-id re-drive with different content is a detectable CONFLICT, never a silent dedup to
  * the wrong turn. Pure (no storage / provider / coroutine) so it is unit-testable on the JVM, where
- * the heavy [com.helix.app.chat.ChatService] cannot be constructed.
+ * the heavy [com.helix.feature.conversation.application.ChatService] cannot be constructed.
  */
 internal object TurnInputFingerprint {
     fun of(

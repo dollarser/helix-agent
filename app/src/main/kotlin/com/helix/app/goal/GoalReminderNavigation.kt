@@ -6,7 +6,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.navigation.NavHostController
 import com.helix.app.ShellDestination
-import com.helix.app.chat.ChatService
+import com.helix.feature.conversation.application.ChatService
 
 /** Decode only a well-formed Goal route. Stored bindings determine the actual session. */
 internal fun goalReminderId(intent: Intent?): String? {

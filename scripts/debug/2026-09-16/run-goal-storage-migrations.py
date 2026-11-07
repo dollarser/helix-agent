@@ -23,8 +23,8 @@ def devices():
 rows = []
 try:
     with (OUT / 'assemble.log').open('w') as log:
-        run(['./gradlew', ':core:storage:assembleDebugAndroidTest', '--console=plain'], stdout=log, stderr=subprocess.STDOUT)
-    apk = ROOT / 'core/storage/build/outputs/apk/androidTest/debug/storage-debug-androidTest.apk'
+        run(['./gradlew', ':infrastructure:storage:assembleDebugAndroidTest', '--console=plain'], stdout=log, stderr=subprocess.STDOUT)
+    apk = ROOT / 'infrastructure/storage/build/outputs/apk/androidTest/debug/storage-debug-androidTest.apk'
     for api, port in [(29, 5574), (36, 5576)]:
         serial = f'emulator-{port}'
         if serial in devices():

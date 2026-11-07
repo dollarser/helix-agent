@@ -20,6 +20,7 @@ import com.helix.extensions.skills.SkillDocument
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import com.helix.ui.shared.R as SharedR
 
 /** Read-only package contents, including while disabled; inspecting never selects a plugin. */
 @Composable
@@ -74,8 +75,8 @@ private fun BundledSkillContents(
     skills: List<SkillDocument>,
 ) {
     var skillsExpanded by rememberSaveable(pluginId) { mutableStateOf(false) }
-    val expandedLabel = stringResource(R.string.nav_expanded)
-    val collapsedLabel = stringResource(R.string.nav_collapsed)
+    val expandedLabel = stringResource(SharedR.string.nav_expanded)
+    val collapsedLabel = stringResource(SharedR.string.nav_collapsed)
     Column {
         TextButton(
             { skillsExpanded = !skillsExpanded },
@@ -114,8 +115,8 @@ private fun BundledToolContents(
     tools: List<Pair<String, String>>,
 ) {
     var toolsExpanded by rememberSaveable(pluginId) { mutableStateOf(false) }
-    val expandedLabel = stringResource(R.string.nav_expanded)
-    val collapsedLabel = stringResource(R.string.nav_collapsed)
+    val expandedLabel = stringResource(SharedR.string.nav_expanded)
+    val collapsedLabel = stringResource(SharedR.string.nav_collapsed)
     Column {
         TextButton(
             { toolsExpanded = !toolsExpanded },

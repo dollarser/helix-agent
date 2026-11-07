@@ -20,10 +20,11 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
-import com.helix.app.ui.ConversationSheet
 import com.helix.core.storage.knowledge.KnowledgeNote
+import com.helix.ui.shared.SharedSheet
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
+import com.helix.feature.conversation.R as ConversationR
 
 /** Local editable synthesis; opening, previewing or cancelling never creates a stored note. */
 @Composable
@@ -81,11 +82,11 @@ private fun KnowledgeCandidateEditor(
     var busy by remember { mutableStateOf(false) }
     var failed by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    ConversationSheet(stringResource(R.string.knowledge_knowledge_candidate), "knowledge-candidate", {
+    SharedSheet(stringResource(R.string.knowledge_knowledge_candidate), "knowledge-candidate", {
         if (!busy) onDismiss()
     }, scrollContent = false) {
         Text(stringResource(R.string.knowledge_knowledge_candidate_scope))
-        if (!available) Text(stringResource(R.string.knowledge_reference_changed))
+        if (!available) Text(stringResource(ConversationR.string.knowledge_reference_changed))
         Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
             OutlinedTextField(
                 title,

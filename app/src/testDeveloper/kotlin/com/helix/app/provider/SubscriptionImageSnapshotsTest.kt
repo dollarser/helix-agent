@@ -3,6 +3,8 @@ package com.helix.app.provider
 import com.helix.core.model.ArtifactRef
 import com.helix.core.model.ImageBinding
 import com.helix.core.model.ImageReference
+import com.helix.core.model.ImageReselectionRequiredException
+import com.helix.core.model.ModelErrorCode
 import com.helix.core.model.ModelMessage
 import com.helix.core.model.ModelRequest
 import com.helix.core.model.ModelRole
@@ -13,6 +15,7 @@ import com.helix.core.model.ToolCallId
 import com.helix.core.model.ToolName
 import com.helix.provider.api.ProviderConfig
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -38,12 +41,10 @@ class SubscriptionImageSnapshotsTest {
         )
     private val pixels = Base64.getEncoder().encodeToString(byteArrayOf(-119, 80, 78, 71, 13, 10, 26, 10, 0))
 
-    @Test fun resolvesExactImageAndProviderInsteadOfGlobalSessionPointer() {
+    @Test fun resolvesExactRequestBindingAndProviderForEverySnapshot() {
         val seen = mutableListOf<ImageReference>()
         val source =
             object : VisionImageSource {
-                override fun load(ref: ArtifactRef): LoadedImage = error("Legacy resolution is forbidden")
-
                 override fun load(
                     image: ImageReference,
                     config: ProviderConfig,
@@ -60,11 +61,9 @@ class SubscriptionImageSnapshotsTest {
         assertEquals(seen, snapshots.map { it.reference })
     }
 
-    @Test fun rejectedBindingCannotFallBackToLegacyLoading() {
+    @Test fun rejectedBindingStopsSnapshotCreation() {
         val source =
             object : VisionImageSource {
-                override fun load(ref: ArtifactRef): LoadedImage = error("Legacy fallback is forbidden")
-
                 override fun load(
                     image: ImageReference,
                     config: ProviderConfig,
@@ -73,6 +72,25 @@ class SubscriptionImageSnapshotsTest {
         assertThrows(IllegalArgumentException::class.java) {
             subscriptionImageSnapshots(ModelRequest("vision", listOf(tool(image))), config) { source }
         }
+    }
+
+    @Test fun imageReselectionRemainsTypedBeforeCrossingTheRuntimeBoundary() {
+        val failure = ImageReselectionRequiredException()
+        var loads = 0
+        val source =
+            VisionImageSource { actualImage, destination ->
+                assertEquals(image, actualImage)
+                assertEquals(config, destination)
+                loads++
+                throw failure
+            }
+        val actual =
+            assertThrows(ImageReselectionRequiredException::class.java) {
+                subscriptionImageSnapshots(ModelRequest("vision", listOf(tool(image))), config) { source }
+            }
+        assertSame(failure, actual)
+        assertEquals(ModelErrorCode.IMAGE_RESELECT_REQUIRED.name, actual.message)
+        assertEquals(1, loads)
     }
 
     @Test fun textOnlyRequestDoesNotNeedOrLoadAnImageSource() {

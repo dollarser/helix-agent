@@ -1,11 +1,11 @@
 package com.helix.app.proot
 
 import android.content.Context
-import com.helix.app.application.diagnostics.DiagnosticRedaction
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
+import com.helix.core.policy.DiagnosticRedaction
 import com.helix.core.storage.HelixStorage
 import com.helix.runtime.proot.client.ProotLogClient
 import com.helix.runtime.proot.core.JobLogText

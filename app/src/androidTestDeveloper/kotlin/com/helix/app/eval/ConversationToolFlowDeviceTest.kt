@@ -14,9 +14,6 @@ import androidx.compose.ui.test.performTextReplacement
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.HelixApplication
 import com.helix.app.MainActivity
-import com.helix.app.chat.ConversationContent
-import com.helix.app.chat.conversationEntries
-import com.helix.app.chat.groupCompletedTools
 import com.helix.app.chat.sseResponse
 import com.helix.app.chat.textAnswerStream
 import com.helix.app.chat.toolCallStream
@@ -33,6 +30,9 @@ import com.helix.core.model.ToolVersion
 import com.helix.core.policy.SessionPermissionConfig
 import com.helix.feature.conversation.input.ChatSubmission
 import com.helix.feature.conversation.input.ChatSubmissionOutcome
+import com.helix.feature.conversation.presentation.ConversationContent
+import com.helix.feature.conversation.presentation.conversationEntries
+import com.helix.feature.conversation.presentation.groupCompletedTools
 import com.helix.provider.api.wire.WireClient
 import com.helix.provider.api.wire.WireRequest
 import com.helix.provider.api.wire.WireResponse

@@ -2,7 +2,6 @@ package com.helix.app.privacy
 
 import com.helix.app.APP_SCOPE_ID
 import com.helix.app.a2a.A2aAppService
-import com.helix.app.chat.ChatService
 import com.helix.app.goal.GoalDeletionCoordinator
 import com.helix.app.mcp.McpAppService
 import com.helix.app.provider.ProviderService
@@ -14,6 +13,7 @@ import com.helix.core.workspace.WorkspaceArtifactStore
 import com.helix.extensions.skills.SkillKey
 import com.helix.extensions.skills.SkillRepository
 import com.helix.feature.browser.BrowserController
+import com.helix.feature.conversation.application.ChatService
 
 data class DeletionResult(
     val subject: String,

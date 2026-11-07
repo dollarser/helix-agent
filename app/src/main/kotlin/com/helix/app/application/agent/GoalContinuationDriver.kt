@@ -15,7 +15,7 @@ import com.helix.core.storage.HelixStorage
 @Suppress("TooManyFunctions") // One process-local owner for activation, claims and handoff lifetime.
 internal class GoalContinuationDriver(
     private val storage: HelixStorage,
-) {
+) : com.helix.feature.conversation.application.recovery.GoalContinuationHandoff {
     private data class Activation(
         val id: String,
         val goalId: String,
@@ -42,16 +42,16 @@ internal class GoalContinuationDriver(
 
     val hasHandoff: Boolean get() = handoffs.isNotEmpty()
 
-    fun handoffOwner(sessionId: String): String? = handoffs[sessionId]
+    override fun handoffOwner(sessionId: String): String? = handoffs[sessionId]
 
     fun hasActivation(sessionId: String): Boolean = active.containsKey(sessionId)
 
     /** User successors do not replace the Goal predecessor or mint a new activation. */
-    fun resumeEligible(sessionId: String): SubmitTurnCommand? =
+    override fun resumeEligible(sessionId: String): SubmitTurnCommand? =
         active[sessionId]?.let { next(sessionId, it.lastTurnId) }
 
     /** Keep the existing foreground handoff while an admitted user successor is scheduled. */
-    fun reserveUserHandoff(
+    override fun reserveUserHandoff(
         sessionId: String,
         turnId: String,
     ) {
@@ -59,7 +59,7 @@ internal class GoalContinuationDriver(
     }
 
     /** Reserve before publishing idle; asynchronous drain rechecks eligibility before submission. */
-    fun reserveEligibleHandoff(
+    override fun reserveEligibleHandoff(
         sessionId: String,
         ownerTurnId: String,
     ) {
@@ -81,7 +81,7 @@ internal class GoalContinuationDriver(
         handoffs.clear()
     }
 
-    fun disarm(sessionId: String) {
+    override fun disarm(sessionId: String) {
         active.remove(sessionId)
         handoffs.remove(sessionId)
     }
@@ -93,7 +93,7 @@ internal class GoalContinuationDriver(
         if (active[sessionId]?.goalId == goalId) disarm(sessionId)
     }
 
-    fun finishHandoff(
+    override fun finishHandoff(
         sessionId: String,
         previousTurnId: String,
     ) {

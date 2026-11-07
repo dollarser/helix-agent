@@ -8,6 +8,8 @@ import com.helix.app.application.context.SystemPromptContext
 import com.helix.app.application.context.SystemPromptRequest
 import com.helix.app.application.tools.FileToolArguments
 import com.helix.app.application.tools.ToolPresentationMetadata
+import com.helix.app.infrastructure.chat.AttachmentStagingSupport
+import com.helix.app.infrastructure.chat.ImageReferenceVerifier
 import com.helix.app.infrastructure.prompt.StoredSystemPromptFactsProvider
 import com.helix.app.infrastructure.prompt.packagedPromptTemplates
 import com.helix.app.provider.ProviderService
@@ -46,7 +48,6 @@ internal class ChatRequestAssembler(
     private val providerService: ProviderService,
     private val toolPipeline: ToolPipeline,
     private val attachmentStaging: AttachmentStagingSupport,
-    private val visionSessionBinder: (String) -> Unit,
     /** Resolves authorized workspace instructions for every request, including non-goal turns. */
     private val projectInstructionsReader: (com.helix.core.workspace.FileScopePath) -> String = { "" },
     private val memory: com.helix.app.memory.MemoryService? = null,
@@ -210,7 +211,6 @@ internal class ChatRequestAssembler(
         }
         val target = modelTarget(sessionId, turnId)
         val config = providerService.storedConfig(target.first)
-        visionSessionBinder(sessionId)
         return TurnContextRequest(
             model = target.second ?: config.model,
             messages = history.messages,
@@ -281,7 +281,6 @@ internal class ChatRequestAssembler(
         }
         val target = modelTarget(sessionId, turnId)
         val config = providerService.storedConfig(target.first)
-        visionSessionBinder(sessionId)
         return TurnContextRequest(
             model = target.second ?: config.model,
             messages = history.messages,

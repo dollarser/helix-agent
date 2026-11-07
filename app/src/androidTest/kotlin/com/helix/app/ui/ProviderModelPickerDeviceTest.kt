@@ -11,6 +11,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import com.helix.app.infrastructure.conversation.conversationModelSources
 import com.helix.app.provider.ConnectionTestStatus
 import com.helix.app.provider.ProviderModelSelection
 import com.helix.app.provider.ProviderRowUi
@@ -20,6 +21,8 @@ import com.helix.app.provider.ui.ProviderRowActions
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.ProviderProvisioningKind
 import com.helix.core.model.ProviderResidence
+import com.helix.feature.conversation.presentation.ComposerModelMenu
+import com.helix.feature.conversation.presentation.SessionModelSelectionResult
 import com.helix.provider.api.CapabilitySource
 import com.helix.provider.api.ProviderCapabilities
 import org.junit.Assert.assertEquals
@@ -134,7 +137,7 @@ class ProviderModelPickerDeviceTest {
         val row = row("api", ProviderProvisioningKind.USER_CONFIGURED, "a")
         compose.setContent {
             MaterialTheme {
-                ComposerModelMenu(listOf(row), row.id, "a", true, onSave = {
+                ComposerModelMenu(listOf(row).conversationModelSources(row.id, "a"), row.id, "a", true, onSave = {
                     _,
                     _,
                     _,
@@ -170,11 +173,24 @@ class ProviderModelPickerDeviceTest {
         var selected: Pair<String, String>? = null
         compose.setContent {
             MaterialTheme {
-                ComposerModelMenu(listOf(subscription, local), null, null, true, onSave = { provider, model, _ ->
-                    selected =
-                        provider to model
-                    com.helix.app.chat.SessionModelSelectionResult.APPLIED
-                })
+                ComposerModelMenu(
+                    listOf(
+                        subscription,
+                        local,
+                    ).conversationModelSources(null, null),
+                    null,
+                    null,
+                    true,
+                    onSave = {
+                        provider,
+                        model,
+                        _,
+                        ->
+                        selected =
+                            provider to model
+                        SessionModelSelectionResult.APPLIED
+                    },
+                )
             }
         }
         compose.onNodeWithTag("chat-model-menu").performClick()
@@ -193,7 +209,21 @@ class ProviderModelPickerDeviceTest {
                 .copy(modelSelection = ProviderModelSelection(listOf("a"), configured = true))
         compose.setContent {
             MaterialTheme {
-                ComposerModelMenu(listOf(subscription), null, null, true, onSave = { _, _, _ -> error("Hidden") })
+                ComposerModelMenu(
+                    listOf(
+                        subscription,
+                    ).conversationModelSources(null, null),
+                    null,
+                    null,
+                    true,
+                    onSave = {
+                        _,
+                        _,
+                        _,
+                        ->
+                        error("Hidden")
+                    },
+                )
             }
         }
         compose.onNodeWithTag("chat-model-menu").performClick()
@@ -210,16 +240,25 @@ class ProviderModelPickerDeviceTest {
         var requested: String? = null
         compose.setContent {
             MaterialTheme {
-                ComposerModelMenu(listOf(row), row.id, current.value, true, { _, model, reasoning ->
-                    requested = model
-                    if (succeeds) {
-                        current.value = model
-                        actualReasoning.value = reasoning
-                        com.helix.app.chat.SessionModelSelectionResult.APPLIED
-                    } else {
-                        com.helix.app.chat.SessionModelSelectionResult.FAILED
-                    }
-                }, reasoning = actualReasoning.value)
+                ComposerModelMenu(
+                    listOf(
+                        row,
+                    ).conversationModelSources(row.id, current.value),
+                    row.id,
+                    current.value,
+                    true,
+                    { _, model, reasoning ->
+                        requested = model
+                        if (succeeds) {
+                            current.value = model
+                            actualReasoning.value = reasoning
+                            SessionModelSelectionResult.APPLIED
+                        } else {
+                            SessionModelSelectionResult.FAILED
+                        }
+                    },
+                    reasoning = actualReasoning.value,
+                )
             }
         }
         compose.onNodeWithTag("chat-reasoning-menu").assertDoesNotExist()

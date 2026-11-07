@@ -14,8 +14,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import com.helix.app.R
-import com.helix.app.chat.ChatService
-import com.helix.app.chat.GoalSummaryUi
+import com.helix.feature.conversation.application.ChatService
+import com.helix.feature.conversation.presentation.GoalSummaryUi
 import kotlinx.coroutines.launch
 
 @Composable

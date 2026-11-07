@@ -5,6 +5,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.HelixApplication
 import com.helix.app.composition.ConversationComposition
+import com.helix.app.infrastructure.chat.AttachmentStagingSupport
 import com.helix.app.internal.InMemoryLineStore
 import com.helix.app.language.AppLanguage
 import com.helix.app.language.AppLanguageStore
@@ -24,6 +25,8 @@ import com.helix.core.storage.repository.ProviderConfigSpec
 import com.helix.core.storage.repository.SessionInputState
 import com.helix.core.workspace.FileScopePath
 import com.helix.core.workspace.ScopeRootResolver
+import com.helix.feature.conversation.application.ChatService
+import com.helix.feature.conversation.application.attachment.AttachmentContext
 import com.helix.feature.conversation.input.ChatSubmission
 import com.helix.feature.conversation.input.ChatSubmissionOutcome
 import com.helix.feature.conversation.input.ComposerEditClock
@@ -984,7 +987,7 @@ class ChatServiceAttachmentRetryDeviceTest : ForegroundDeviceTestHost() {
                     credentials = CredentialLookup { ProviderFactory.NO_KEY_PLACEHOLDER },
                     wire = wireClient,
                     imageSource = {
-                        com.helix.app.provider.VisionImageSource {
+                        com.helix.app.provider.VisionImageSource { _, _ ->
                             throw IllegalArgumentException("device test: image resolution is disabled — no artifacts")
                         }
                     },

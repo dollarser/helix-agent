@@ -46,7 +46,7 @@ def collect() -> dict:
         if count:
             total['passed'] = total['tests'] - total['failures'] - total['errors'] - total['skipped']
             suites[str(directory)] = total
-    schema = Path('core/storage/src/androidTest/assets/com.helix.core.storage.HelixDatabase/1.json')
+    schema = Path('infrastructure/storage/src/androidTest/assets/com.helix.core.storage.HelixDatabase/1.json')
     database = json.loads(schema.read_text())['database']
     tables = [entity['tableName'] for entity in database['entities']]
     artifacts = []
@@ -77,7 +77,7 @@ def main() -> None:
     args.output.write_text(json.dumps(result, ensure_ascii=False, indent=2) + '\n')
     summary = {key: value for key, value in result.items() if key not in {'suites', 'selected_tests'}}
     summary['primary_suites'] = {key: value for key, value in result['suites'].items()
-                               if key.startswith(('app/', 'core/storage/', 'tools/files/', 'tools/framework/', 'runtime/cli-client/'))}
+                               if key.startswith(('app/', 'infrastructure/storage/', 'tools/files/', 'tools/framework/', 'runtime/cli-client/'))}
     summary['selected_tests'] = result['selected_tests']
     print(json.dumps(summary, ensure_ascii=False, indent=2))
 

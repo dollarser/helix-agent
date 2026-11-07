@@ -112,7 +112,7 @@ class KnowledgeReferenceUiDeviceTest {
         }
         try {
             restoration.setContent {
-                com.helix.app.HelixTheme {
+                com.helix.ui.shared.HelixTheme {
                     if (visible.value) {
                         KnowledgeReferencePicker(
                             KnowledgeReferenceService(store),

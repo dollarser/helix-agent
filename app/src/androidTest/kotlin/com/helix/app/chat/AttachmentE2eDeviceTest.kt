@@ -8,6 +8,7 @@ import com.helix.app.HelixApplication
 import com.helix.app.agent.ChatHistoryBuilder
 import com.helix.app.application.agent.GoalRoundAllowance
 import com.helix.app.composition.ConversationComposition
+import com.helix.app.infrastructure.chat.AttachmentStagingSupport
 import com.helix.app.internal.InMemoryLineStore
 import com.helix.app.language.AppLanguage
 import com.helix.app.language.AppLanguageStore
@@ -33,8 +34,11 @@ import com.helix.core.storage.repository.ProviderConfigSpec
 import com.helix.core.workspace.FileScopePath
 import com.helix.core.workspace.ScopeRootResolver
 import com.helix.core.workspace.WorkspaceArtifactStore
+import com.helix.feature.conversation.application.ChatService
+import com.helix.feature.conversation.application.attachment.AttachmentContext
 import com.helix.feature.conversation.input.ChatSubmission
 import com.helix.feature.conversation.input.ChatSubmissionOutcome
+import com.helix.feature.conversation.presentation.ChatImageRef
 import com.helix.feature.files.AttachmentImporter
 import com.helix.feature.files.SafImportPipeline
 import com.helix.feature.files.SafSourceMetadata
@@ -65,6 +69,7 @@ import java.util.Base64
 import java.util.UUID
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
+import com.helix.feature.conversation.R as ConversationR
 
 /**
  * HXA-056: the fixture-based attachment E2E (roadmap §9A: "固定 fixture 完成纯文本与图片附件
@@ -1330,9 +1335,9 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
         val label =
             zh.getString(
                 if (expectedState == "COMPLETED") {
-                    com.helix.app.R.string.tool_state_completed
+                    ConversationR.string.tool_state_completed
                 } else {
-                    com.helix.app.R.string.tool_state_failed
+                    ConversationR.string.tool_state_failed
                 },
             )
         await(fixture, "tool timeline contains the exact settled local calls") {
@@ -1882,7 +1887,6 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
             idGenerator = { "id-${UUID.randomUUID()}" },
             scope = serviceScope,
             attachmentStaging = stagingFor(workspaceRoot),
-            visionSessionBinder = imageSource::bindSession,
             strings = { resId, args -> zh.getString(resId, *args) },
         ).also { it.start() }.chatService
     }

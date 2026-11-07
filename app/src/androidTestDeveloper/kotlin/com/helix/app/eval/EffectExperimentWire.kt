@@ -1,7 +1,7 @@
 package com.helix.app.eval
 
-import com.helix.app.application.diagnostics.DiagnosticRedaction
 import com.helix.app.provider.BuiltInModel
+import com.helix.core.policy.DiagnosticRedaction
 import com.helix.provider.api.wire.WireClient
 import com.helix.provider.api.wire.WireRequest
 import com.helix.provider.api.wire.WireResponse

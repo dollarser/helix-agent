@@ -1,5 +1,6 @@
 package com.helix.app.application.agent
 
+import com.helix.core.agent.RecoveryInspectionIdentity
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

@@ -22,6 +22,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.helix.ui.shared.R as SharedR
 
 @Composable
 @Suppress("FunctionName")
@@ -249,6 +250,6 @@ internal fun OAuthClientSetupConfirmation(
                 Text(stringResource(R.string.connector_oauth_client_confirm))
             }
         },
-        dismissButton = { TextButton(onClick = dismiss) { Text(stringResource(R.string.common_cancel)) } },
+        dismissButton = { TextButton(onClick = dismiss) { Text(stringResource(SharedR.string.common_cancel)) } },
     )
 }

@@ -31,8 +31,10 @@ import com.helix.app.R
 import com.helix.app.plugin.PluginService
 import com.helix.app.plugin.PluginSessionRow
 import com.helix.app.plugin.PluginSetupReason
-import com.helix.app.ui.ConversationSheet
+import com.helix.ui.shared.SharedSheet
 import kotlinx.coroutines.launch
+import com.helix.feature.conversation.R as ConversationR
+import com.helix.ui.shared.R as SharedR
 
 /** Keep primary device/browser capabilities first; stable sorting retains the other catalog order. */
 internal fun pluginSelectionPriority(row: PluginSessionRow): Int =
@@ -179,8 +181,8 @@ internal fun PluginSessionPicker(
     }
     if (!state.canPresent) return
     PluginSessionRepairPrompt(state, onConfigure)
-    ConversationSheet(
-        title = stringResource(R.string.connector_session_title),
+    SharedSheet(
+        title = stringResource(ConversationR.string.connector_session_title),
         tag = "connector-session",
         onDismiss = { if (!state.busy) onDismiss() },
         avoidIme = true,
@@ -189,7 +191,10 @@ internal fun PluginSessionPicker(
                 Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.End,
             ) {
-                TextButton(enabled = !state.busy, onClick = dismiss) { Text(stringResource(R.string.common_cancel)) }
+                TextButton(
+                    enabled = !state.busy,
+                    onClick = dismiss,
+                ) { Text(stringResource(SharedR.string.common_cancel)) }
                 Button(
                     enabled = state.editable,
                     onClick = { scope.launch { if (state.apply()) dismiss() } },
@@ -228,7 +233,7 @@ private fun SessionSelectionFailure(
     onRetry: () -> Unit,
 ) {
     if (state.failed) {
-        TextButton(onRetry, enabled = !state.busy && !state.loading) { Text(stringResource(R.string.chat_retry)) }
+        TextButton(onRetry, enabled = !state.busy && !state.loading) { Text(stringResource(SharedR.string.chat_retry)) }
         Text(
             stringResource(
                 if (!state.loaded) {

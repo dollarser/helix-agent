@@ -103,10 +103,10 @@ class DetachedGoalRuntimeDeathDeviceTest {
         job: BackgroundJobUi,
         action: BackgroundJobAction,
     ) {
-        val chat = app.appContainer.chatService
-        chat.performBackgroundJobAction(job, action)
+        val dashboard = app.appContainer.taskDashboard
+        dashboard.performBackgroundJobAction(job, action)
         compose.waitUntil(30_000) {
-            val state = chat.backgroundJobAction.value
+            val state = dashboard.jobActionState.value
             state?.callId == job.callId && !state.busy
         }
         val expected =
@@ -115,7 +115,7 @@ class DetachedGoalRuntimeDeathDeviceTest {
             } else {
                 BackgroundJobActionOutcome.REVIEW_REQUIRED
             }
-        assertEquals(expected, chat.backgroundJobAction.value?.outcome)
+        assertEquals(expected, dashboard.jobActionState.value?.outcome)
     }
 
     private fun killRuntime() {

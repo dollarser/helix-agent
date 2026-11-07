@@ -26,11 +26,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.R
 import com.helix.app.provider.ProviderRowUi
 import com.helix.app.provider.ProviderService
-import com.helix.app.ui.IndicatedLazyColumn
 import com.helix.core.model.ProviderProvisioningKind
 import com.helix.provider.api.ModelCatalogResult
+import com.helix.ui.shared.IndicatedLazyColumn
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
+import com.helix.feature.conversation.R as ConversationR
+import com.helix.ui.shared.R as SharedR
 
 /** All provisioning types share preferences; authentication, downloads and execution stay in their own services. */
 @Composable
@@ -109,7 +111,7 @@ internal fun ProviderModelsDialog(
                         query,
                         { query = it },
                         singleLine = true,
-                        label = { Text(stringResource(R.string.provider_models_search)) },
+                        label = { Text(stringResource(ConversationR.string.provider_models_search)) },
                         modifier = Modifier.fillMaxWidth().testTag("provider-model-search"),
                     )
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -137,7 +139,7 @@ internal fun ProviderModelsDialog(
                                     }
                                 }
                             }, enabled = !busy, modifier = Modifier.testTag("provider-models-refresh")) {
-                                Text(stringResource(R.string.provider_models_refresh))
+                                Text(stringResource(ConversationR.string.provider_models_refresh))
                             }
                         }
                     }
@@ -270,7 +272,7 @@ internal fun ProviderModelsDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss, enabled = !busy, modifier = Modifier.testTag("provider-models-close")) {
-                Text(stringResource(R.string.chat_details_close))
+                Text(stringResource(SharedR.string.chat_details_close))
             }
         },
     )

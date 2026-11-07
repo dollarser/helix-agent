@@ -27,7 +27,7 @@ Helix 已将用户界面与模型请求分开投影，但没有各保存一份�
 | 请求证据 | ModelCall 有 providerSnapshot、usage、requestId、promptFingerprint、promptSections | 没有逐次完整 wire request 快照；prompt 指纹不是整个请求的指纹 |
 | JSONL 导出 | 既有 HXA-211 导出会话执行记录和引用 | 不保证可以逐字节重放当年的 Provider 请求 |
 
-源码入口：[UI 投影](../../../app/src/main/kotlin/com/helix/app/chat/ChatScreenProjection.kt)、[历史协议映射](../../../app/src/main/kotlin/com/helix/app/agent/ChatHistoryBuilder.kt)、[请求组装](../../../app/src/main/kotlin/com/helix/app/chat/ChatRequestAssembler.kt)、[请求对象](https://github.com/dollarser/helix-agent/blob/05e910039e03095d98649d96a9e64a3a71bcb078/app/src/main/kotlin/com/helix/app/agent/ChatContextRequest.kt)、[ModelCall 字段](../../../core/storage/src/main/kotlin/com/helix/core/storage/entity/ConversationEntities.kt)。
+源码入口：[UI 投影](https://github.com/dollarser/helix-agent/blob/98b904b51b18fcf56be6e3021ce782580aaacb7f/app/src/main/kotlin/com/helix/app/chat/ChatScreenProjection.kt)、[历史协议映射](../../../app/src/main/kotlin/com/helix/app/agent/ChatHistoryBuilder.kt)、[请求组装](../../../app/src/main/kotlin/com/helix/app/chat/ChatRequestAssembler.kt)、[请求对象](https://github.com/dollarser/helix-agent/blob/05e910039e03095d98649d96a9e64a3a71bcb078/app/src/main/kotlin/com/helix/app/agent/ChatContextRequest.kt)、[ModelCall 字段](../../../infrastructure/storage/src/main/kotlin/com/helix/core/storage/entity/ConversationEntities.kt)。
 
 具体例子：原来界面中出现的 `{"id":...,"tool":...,"status":...,"summary":...}` 是持久工具结果封套。模型映射将其恢复为 TOOL 消息，携带调用 ID、工具名和 `[状态] 结果正文`，并非一定原样发送整个封套。UI 可以仅显示折叠卡，模型仍能读取有界结果。完整大输出是否可见，取决于工具结果投影、引用及后续读取工具，不能把“工具运行成功”解释为“全部原始日志进入上下文”。
 
@@ -46,7 +46,7 @@ Helix 已将用户界面与模型请求分开投影，但没有各保存一份�
 | Goal 中人工接管 | `send` 可撤销续跑意图，`yieldToHumanInput` 请求暂停、取消并 join Goal Turn；是暂停后新请求，不是同 Turn steer |
 | 从历史新建会话 | HXA-213 fork 分支已实现并记录验收，但核验时未合 main |
 
-关键路径：[ChatService](../../../app/src/main/kotlin/com/helix/app/chat/ChatService.kt) 的 `send`、`yieldToHumanInput`、`launchTurn`、`stop`、`stopTask`；[输入框](../../../app/src/main/kotlin/com/helix/app/ui/ConversationComposer.kt)；[发送点击处理](../../../app/src/main/kotlin/com/helix/app/ui/ChatScreen.kt)；[fork 决策](../../adr/agent/007-session-fork.md)。
+关键路径：[ChatService](https://github.com/dollarser/helix-agent/blob/98b904b51b18fcf56be6e3021ce782580aaacb7f/app/src/main/kotlin/com/helix/app/chat/ChatService.kt) 的 `send`、`yieldToHumanInput`、`launchTurn`、`stop`、`stopTask`；[输入框](https://github.com/dollarser/helix-agent/blob/98b904b51b18fcf56be6e3021ce782580aaacb7f/app/src/main/kotlin/com/helix/app/ui/ConversationComposer.kt)；[发送点击处理](https://github.com/dollarser/helix-agent/blob/98b904b51b18fcf56be6e3021ce782580aaacb7f/app/src/main/kotlin/com/helix/app/ui/ChatScreen.kt)；[fork 决策](../../adr/agent/007-session-fork.md)。
 
 ### 已发现的交互问题
 

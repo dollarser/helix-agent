@@ -77,7 +77,7 @@ class ScannedPdfAgentDeviceTest {
                     c.pluginService.selectSkill(skill.key, session, false)
                 }
                 check(c.pluginService.standaloneSkills(session).none { it.enabled })
-                chat.selectExpert(session, null).await()
+                c.conversationExperts.selectExpert(session, null).await()
                 val binding = requireNotNull(c.storage.workspaces.binding(session))
                 scope = binding.workspaceId
                 val root = c.storage.workspaces.managedDirectory(binding.workspaceId)
@@ -130,9 +130,9 @@ class ScannedPdfAgentDeviceTest {
                                     .state,
                             ).isTerminal
                     ) {
-                        chat.toolVisionConsent.pending.value
+                        c.toolVisionConsent.pending.value
                             .filter { it.sessionId == session && it.turnId == accepted.turnId }
-                            .forEach { chat.toolVisionConsent.respond(it.id, true) }
+                            .forEach { c.toolVisionConsent.respond(it.id, true) }
                         delay(100)
                     }
                 }

@@ -15,6 +15,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
 import com.helix.app.files.ConflictPolicy
+import com.helix.feature.conversation.R as ConversationR
+import com.helix.ui.shared.R as SharedR
 
 @Composable
 @Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod")
@@ -105,7 +107,7 @@ internal fun FilesImportDialog(
                                     onClick = { importCancel.set(true) },
                                     modifier = Modifier.testTag("files-import-cancel"),
                                 ) {
-                                    Text(str(R.string.common_cancel))
+                                    Text(str(SharedR.string.common_cancel))
                                 }
                             }
 
@@ -114,7 +116,7 @@ internal fun FilesImportDialog(
                                     onClick = { importOpen = false },
                                     modifier = Modifier.testTag("files-import-close"),
                                 ) {
-                                    Text(str(R.string.files_close))
+                                    Text(str(ConversationR.string.files_close))
                                 }
                             }
 
@@ -140,7 +142,7 @@ internal fun FilesImportDialog(
                                 onClick = { importOpen = false },
                                 modifier = Modifier.testTag("files-import-dismiss"),
                             ) {
-                                Text(str(R.string.files_close))
+                                Text(str(ConversationR.string.files_close))
                             }
                         }
                     },

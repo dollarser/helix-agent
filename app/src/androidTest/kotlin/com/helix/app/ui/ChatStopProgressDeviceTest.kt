@@ -25,6 +25,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
+import com.helix.feature.conversation.R as ConversationR
+import com.helix.ui.shared.R as SharedR
 
 class ChatStopProgressDeviceTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
@@ -114,7 +116,12 @@ class ChatStopProgressDeviceTest {
         goalMode: Boolean,
         session: String,
     ) {
-        val resource = if (goalMode) R.string.chat_empty_goal else R.string.chat_empty_conversation
+        val resource =
+            if (goalMode) {
+                ConversationR.string.chat_empty_goal
+            } else {
+                ConversationR.string.chat_empty_conversation
+            }
         verifyCompactChatSettings(compose)
         captureChatLayout(compose.activity, if (goalMode) "empty-goal" else "empty-chat")
         compose
@@ -124,7 +131,7 @@ class ChatStopProgressDeviceTest {
             .assertIsDisplayed()
         compose
             .onNodeWithTag("chat-send")
-            .assertContentDescriptionEquals(compose.activity.getString(R.string.common_send))
+            .assertContentDescriptionEquals(compose.activity.getString(SharedR.string.common_send))
             .assertIsNotEnabled()
         assertTrue(
             compose
@@ -151,7 +158,7 @@ class ChatStopProgressDeviceTest {
         }
         compose
             .onNodeWithTag("chat-turn-progress")
-            .assertTextEquals(compose.activity.getString(R.string.chat_cancelled))
+            .assertTextEquals(compose.activity.getString(ConversationR.string.chat_cancelled))
             .assertIsDisplayed()
         compose.onNodeWithTag("chat-stop").assertDoesNotExist()
         compose.onNodeWithTag("chat-send").assertIsDisplayed()

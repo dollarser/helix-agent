@@ -21,7 +21,12 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
 import com.helix.app.files.FileSourceKind
-import com.helix.app.ui.indicatedVerticalScroll
+import com.helix.ui.shared.BlockPreviewKind
+import com.helix.ui.shared.IndicatedLazyColumn
+import com.helix.ui.shared.InlineDiagramBlock
+import com.helix.ui.shared.indicatedVerticalScroll
+import com.helix.ui.shared.svgFilePreview
+import com.helix.feature.conversation.R as ConversationR
 
 @Composable
 @Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod")
@@ -51,7 +56,7 @@ internal fun FilesScreenState.FilesPreviewDialog(
                                 val text = loaded?.text
                                 val diagram =
                                     text != null && text.length <= 65536 &&
-                                        svgFilePreview(file.name, loaded.info, text)
+                                        svgFilePreview(file.name, loaded.info.mimeType, loaded.info.sizeBytes, text)
                                 item {
                                     if (loaded?.imageTooLarge == true) {
                                         Text(
@@ -199,7 +204,7 @@ internal fun FilesScreenState.FilesPreviewDialog(
                                         },
                                         modifier = Modifier.testTag("files-action-copy"),
                                     ) {
-                                        Text(str(R.string.files_copy))
+                                        Text(str(ConversationR.string.files_copy))
                                     }
                                     TextButton(
                                         onClick = {
@@ -250,7 +255,7 @@ internal fun FilesScreenState.FilesPreviewDialog(
                             onClick = { openFile = null },
                             modifier = Modifier.testTag("files-preview-close"),
                         ) {
-                            Text(str(R.string.files_close))
+                            Text(str(ConversationR.string.files_close))
                         }
                     },
                     modifier = Modifier.testTag("files-preview-dialog"),

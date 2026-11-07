@@ -4,8 +4,8 @@ import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import com.helix.app.MainActivity
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.application.agent.TurnInputFingerprint
-import com.helix.app.chat.toInputSnapshot
 import com.helix.app.infrastructure.agent.createRoomTurnEngine
+import com.helix.app.infrastructure.conversation.toInputSnapshot
 import com.helix.app.test.bindFixtureLifecycle
 import com.helix.app.test.fixtureAdmissionCommand
 import com.helix.app.test.settleFixtureTerminal

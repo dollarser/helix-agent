@@ -31,6 +31,7 @@ import org.junit.Rule
 import org.junit.Test
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import com.helix.ui.shared.R as SharedR
 
 /** Controlled local reads exercise the production picker, including the unresolved first frame. */
 class LocalPickerPresentationDeviceTest {
@@ -106,7 +107,7 @@ class LocalPickerPresentationDeviceTest {
         compose.onNodeWithText(app.getString(R.string.plugin_selection_load_failed)).assertIsDisplayed()
         compose.onNodeWithText(app.getString(R.string.connector_session_empty)).assertDoesNotExist()
         fail = false
-        compose.onNodeWithText(app.getString(R.string.chat_retry)).performClick()
+        compose.onNodeWithText(app.getString(SharedR.string.chat_retry)).performClick()
         compose.waitUntil(10_000) { !state.loading && !state.failed }
         awaitPicker()
         compose.onNodeWithText("Example Plugin").assertIsDisplayed()

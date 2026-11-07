@@ -30,6 +30,7 @@ import org.junit.Rule
 import org.junit.Test
 import java.io.File
 import java.util.concurrent.CopyOnWriteArrayList
+import com.helix.feature.conversation.R as ConversationR
 
 /** Dialog interaction and screenshots; real cleanup/recovery are covered by the storage fixtures. */
 class WorkspaceCleanupDialogDeviceTest {
@@ -88,7 +89,7 @@ class WorkspaceCleanupDialogDeviceTest {
         }
         compose.onNodeWithTag("files-workspace-cleanup-confirm").assertIsDisplayed().assertIsEnabled()
         screenshot(app, language, scale)
-        compose.onNodeWithText(context.getString(R.string.files_close)).assertIsDisplayed().performClick()
+        compose.onNodeWithText(context.getString(ConversationR.string.files_close)).assertIsDisplayed().performClick()
         compose.runOnIdle { assertEquals(null, state.cleanupTarget) }
         assertTrue(calls.isEmpty())
         compose.runOnIdle {

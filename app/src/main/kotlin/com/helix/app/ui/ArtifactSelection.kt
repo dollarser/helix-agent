@@ -17,7 +17,9 @@ internal fun ArtifactSelection(
     onDismiss: () -> Unit,
 ) {
     selected?.let { row ->
-        ArtifactResultDialog(container.chatService, row, { onOpenSession(row.sessionId) }, onDismiss)
+        ArtifactResultDialog(container.conversationDetails, container.taskDashboard, row, {
+            onOpenSession(row.sessionId)
+        }, onDismiss)
     }
     selectedFile?.let { row ->
         ArtifactFileDialog(

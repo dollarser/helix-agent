@@ -22,7 +22,7 @@ def main() -> None:
         raise SystemExit(f"usage: {sys.argv[0]} <serial> <output-dir>")
     serial, output_dir = sys.argv[1], sys.argv[2]
     repo = Path(__file__).resolve().parents[3]
-    results_root = repo / "core/storage/build/outputs/androidTest-results/connected"
+    results_root = repo / "infrastructure/storage/build/outputs/androidTest-results/connected"
     # Force a fresh connected run: the AGP connected-test task can otherwise be
     # satisfied from a prior run's result XML, which would defeat the freshness
     # check below. Deleting prior result XMLs makes a stale pass impossible.
@@ -36,8 +36,8 @@ def main() -> None:
         result = subprocess.run(
             [
                 str(repo / "gradlew"),
-                ":core:storage:assembleDebugAndroidTest",
-                ":core:storage:connectedDebugAndroidTest",
+                ":infrastructure:storage:assembleDebugAndroidTest",
+                ":infrastructure:storage:connectedDebugAndroidTest",
                 f"-Pandroid.testInstrumentationRunnerArguments.class={CLASS}",
             ],
             cwd=repo,

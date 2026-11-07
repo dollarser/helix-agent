@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="project_failed">Operation did not complete. Check folder access, field lengths and project state, then retry.</string>
+</resources>

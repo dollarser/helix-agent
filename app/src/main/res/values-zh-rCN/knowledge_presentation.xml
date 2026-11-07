@@ -15,7 +15,6 @@
     <string name="knowledge_ref_missing_short">不可用</string>
     <string name="knowledge_history_empty">暂无历史资料问答。新的问题可在对话中选择引用后提出。</string>
     <string name="knowledge_reply_title">对话摘记</string>
-    <string name="knowledge_save_reply">保存为笔记</string>
     <string name="knowledge_saved_reply">已保存为笔记，未自动标记为知识</string>
     <string name="knowledge_reply_failed">未能保存笔记，请稍后重试</string>
     <string name="knowledge_reply_provenance">来自用户明确保存的会话回答。笔记独立保存，后续会话变化不会修改笔记。</string>

@@ -74,7 +74,7 @@ mutation 锁只保证串行，不保证所见版本。服务已有 `cancelRevisi
 
 ### 6. P2：并发会话目录刷新允许旧快照覆盖新结果
 
-证据：[SessionDirectory.kt:40–47](../../app/src/main/kotlin/com/helix/app/chat/SessionDirectory.kt#L40)。
+证据：[SessionDirectory.kt:40–47](../../feature/conversation/src/main/kotlin/com/helix/feature/conversation/application/SessionDirectory.kt#L40)。
 
 `refresh()` 在共享工作 scope launch，`refreshNow()` 无条件执行 `rows.value = readRows()`。没有覆盖读取和发布的串行边界或 generation 检查。一个旧读取暂停在发布前，另一个重命名后的刷新先发布新标题，旧读取再发布，就会把目录退回旧状态，直到后续刷新。
 
@@ -86,7 +86,7 @@ mutation 锁只保证串行，不保证所见版本。服务已有 `cancelRevisi
 
 ### 7. P2：知识笔记加载对 origins 元信息产生 N×M 次文件读取/解码
 
-证据：[KnowledgeStore.kt:103–107](../../core/storage/src/main/kotlin/com/helix/core/storage/knowledge/KnowledgeStore.kt#L103)、[KnowledgeStore.kt:411–419](../../core/storage/src/main/kotlin/com/helix/core/storage/knowledge/KnowledgeStore.kt#L411)、[PrivateDocumentStorage.kt:39–51](../../core/storage/src/main/kotlin/com/helix/core/storage/content/PrivateDocumentStorage.kt#L39)。
+证据：[KnowledgeStore.kt:103–107](../../infrastructure/storage/src/main/kotlin/com/helix/core/storage/knowledge/KnowledgeStore.kt#L103)、[KnowledgeStore.kt:411–419](../../infrastructure/storage/src/main/kotlin/com/helix/core/storage/knowledge/KnowledgeStore.kt#L411)、[PrivateDocumentStorage.kt:39–51](../../infrastructure/storage/src/main/kotlin/com/helix/core/storage/content/PrivateDocumentStorage.kt#L39)。
 
 `noteRecords()` 对每篇笔记调用 `find("origins", note.id)`；每次 find 都重新列出、读取并解码全部 origins。N 篇笔记与 M 条 origins 造成 N×M 次元信息读取/解码，N≈M 时为二次方。单文件/文件数上限及切到 IO 线程都不消除重复读取。
 
@@ -98,7 +98,7 @@ mutation 锁只保证串行，不保证所见版本。服务已有 `cancelRevisi
 
 ### 8. P2：聊天消息分页未限制完整 Turn 查询和投影，负载 fixture 未覆盖真实多轮历史
 
-证据：[ChatService.kt:4314–4348](../../app/src/main/kotlin/com/helix/app/chat/ChatService.kt#L4314)、[ChatScreenProjection.kt:192–198](../../app/src/main/kotlin/com/helix/app/chat/ChatScreenProjection.kt#L192)及 [261–266](../../app/src/main/kotlin/com/helix/app/chat/ChatScreenProjection.kt#L261)、[SessionProjectionLoadDeviceTest.kt:52–59](../../app/src/androidTest/kotlin/com/helix/app/chat/SessionProjectionLoadDeviceTest.kt#L52)。
+证据：[ChatService.kt:4314–4348](https://github.com/dollarser/helix-agent/blob/9362690bb1a6154185bbd40b83b0e9ae0f48d54b/app/src/main/kotlin/com/helix/app/chat/ChatService.kt#L4314)、[ChatScreenProjection.kt:192–198](https://github.com/dollarser/helix-agent/blob/9362690bb1a6154185bbd40b83b0e9ae0f48d54b/app/src/main/kotlin/com/helix/app/chat/ChatScreenProjection.kt#L192)及 [261–266](https://github.com/dollarser/helix-agent/blob/9362690bb1a6154185bbd40b83b0e9ae0f48d54b/app/src/main/kotlin/com/helix/app/chat/ChatScreenProjection.kt#L261)、[SessionProjectionLoadDeviceTest.kt:52–59](../../app/src/androidTest/kotlin/com/helix/app/chat/SessionProjectionLoadDeviceTest.kt#L52)。
 
 一次刷新在 Room transaction 内读取全部会话 Turn，生成完整 `screen.turns`；history presentation、retryTarget 也拉取全部 Turn。消息页大小并没有为这些查询和分配设上界。
 
@@ -146,7 +146,7 @@ Core 循环/生命周期 owner、Room 持久权威、应用层展示适配、执
 
 ### 3. 默认体验与商业边界：待验证假设，不列为已证实 Bug
 
-[EmptyConversationHint.kt:81–93](../../app/src/main/kotlin/com/helix/app/ui/EmptyConversationHint.kt#L81) 将研究、文档、规划用于普通模式，文件/成果任务较集中于 Goal。此选择可能降低入门复杂度，也可能让本机执行和可核验产物的区别不够直观。没有本轮用户试用数据，不能认定默认示例导致流失。
+[EmptyConversationHint.kt:81–93](https://github.com/dollarser/helix-agent/blob/9362690bb1a6154185bbd40b83b0e9ae0f48d54b/app/src/main/kotlin/com/helix/app/ui/EmptyConversationHint.kt#L81) 将研究、文档、规划用于普通模式，文件/成果任务较集中于 Goal。此选择可能降低入门复杂度，也可能让本机执行和可核验产物的区别不够直观。没有本轮用户试用数据，不能认定默认示例导致流失。
 
 可验证方向是普通模式提供一个边界小、合成输入、明确文件产物的首任务，与当前示例比较首次正确产物时间和人工介入，而非只看点击率。实施前无需新增长期 Goal 或新框架。
 

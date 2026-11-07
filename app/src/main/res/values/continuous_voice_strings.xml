@@ -1,6 +1,4 @@
 <resources>
-    <string name="voice_continuous_title">Continuous dictation</string>
-    <string name="voice_continuous_hint">Pauses add editable draft text. Cancel discards only the unfinished part. Nothing is sent as a chat message.</string>
     <string name="voice_continuous_slow">Recognition fell behind; recording stopped. Completed draft text is kept.</string>
     <string name="voice_continuous_limit">This capture reached its limit. Completed draft text is kept.</string>
 </resources>

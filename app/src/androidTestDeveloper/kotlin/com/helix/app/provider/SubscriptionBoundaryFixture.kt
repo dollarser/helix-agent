@@ -1,10 +1,10 @@
 package com.helix.app.provider
 
 import com.helix.app.HelixApplication
-import com.helix.app.chat.AttachmentStagingSupport
-import com.helix.app.chat.ChatService
 import com.helix.app.composition.ConversationComposition
+import com.helix.app.infrastructure.chat.AttachmentStagingSupport
 import com.helix.app.internal.InMemoryLineStore
+import com.helix.feature.conversation.application.ChatService
 import com.helix.feature.files.AttachmentImporter
 import com.helix.provider.api.wire.WireClient
 import com.helix.provider.api.wire.WireRequest

@@ -21,6 +21,7 @@ import com.helix.app.R
 import com.helix.app.provider.ui.ProviderEvidenceCleanupSection
 import com.helix.app.storage.StorageUsageCategory
 import com.helix.app.storage.StorageUsageEntry
+import com.helix.ui.shared.indicatedVerticalScroll
 import kotlinx.coroutines.CancellationException
 
 /** Read-only usage opens directly; cleanup retains its separate explicit confirmation. */

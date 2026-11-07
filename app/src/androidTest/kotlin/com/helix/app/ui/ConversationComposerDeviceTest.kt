@@ -28,12 +28,20 @@ import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.test.platform.app.InstrumentationRegistry
+import com.helix.app.infrastructure.conversation.conversationModelSources
 import com.helix.app.provider.ConnectionTestStatus
 import com.helix.app.provider.ProviderModelSelection
 import com.helix.app.provider.ProviderRowUi
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.ProviderResidence
 import com.helix.core.model.ReasoningEffort
+import com.helix.feature.conversation.presentation.ChatContextUsage
+import com.helix.feature.conversation.presentation.ComposerActions
+import com.helix.feature.conversation.presentation.ComposerHeader
+import com.helix.feature.conversation.presentation.ComposerModelMenu
+import com.helix.feature.conversation.presentation.ComposerReasoningMenu
+import com.helix.feature.conversation.presentation.ConversationComposer
+import com.helix.feature.conversation.presentation.SessionModelSelectionResult
 import com.helix.provider.api.CapabilitySource
 import com.helix.provider.api.ProviderCapabilities
 import org.junit.Assert.assertEquals
@@ -289,7 +297,7 @@ class ConversationComposerDeviceTest {
                     ComposerActions(onFile = {}, onVoice = {}, onSend = { sends++ }, onStop = {}),
                     modelSelector = {
                         ComposerModelMenu(
-                            listOf(provider),
+                            listOf(provider).conversationModelSources(provider.id, "selected-model"),
                             provider.id,
                             "selected-model",
                             !sending.value,
@@ -299,7 +307,7 @@ class ConversationComposerDeviceTest {
                                 effort,
                                 ->
                                 reasoning.value = effort
-                                com.helix.app.chat.SessionModelSelectionResult.APPLIED
+                                SessionModelSelectionResult.APPLIED
                             },
                             reasoning = reasoning.value,
                         )
@@ -362,12 +370,11 @@ class ConversationComposerDeviceTest {
                                     null,
                                     "A long model name",
                                     true,
-                                    { _, _, _ -> com.helix.app.chat.SessionModelSelectionResult.APPLIED },
+                                    { _, _, _ -> SessionModelSelectionResult.APPLIED },
                                 )
                             },
                             contextUsage =
-                                com.helix.app.agent
-                                    .ChatContextUsage(8000, 10000),
+                                ChatContextUsage(8000, 10000),
                         )
                     }
                 }
@@ -429,8 +436,7 @@ class ConversationComposerDeviceTest {
                             permissionMode = com.helix.core.model.SessionPermissionMode.FULL_ACCESS,
                             headerStatus = { androidx.compose.material3.Text("Queued message") },
                             contextUsage =
-                                com.helix.app.agent
-                                    .ChatContextUsage(8000, 10000),
+                                ChatContextUsage(8000, 10000),
                         )
                     }
                 }

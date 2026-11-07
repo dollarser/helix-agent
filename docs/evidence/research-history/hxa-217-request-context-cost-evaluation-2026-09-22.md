@@ -5,10 +5,10 @@
 ## 现有边界
 
 - `ModelRequest.MAX_MESSAGES` 当前为 **512**；请求消息必须非空，末条只能是 `USER` 或 `TOOL`。[`ModelRequest.kt`](../../../core/model/src/main/kotlin/com/helix/core/model/ModelRequest.kt#L229-L234) [`ModelRequest.kt`](../../../core/model/src/main/kotlin/com/helix/core/model/ModelRequest.kt#L256-L262)
-- 生产 `RandomIdGenerator` 产生 **32 个小写十六进制字符**；`ChatSubmission.clientRequestId` 只是非空字符串，实际路径还会使用常见的 **36 字符 UUID**。[`Identifier.kt`](../../../core/model/src/main/kotlin/com/helix/core/model/Identifier.kt#L30-L46) [`ChatSubmission.kt`](../../../feature/conversation-input/src/main/kotlin/com/helix/feature/conversation/input/ChatSubmission.kt)
-- `SessionInputValidation` 对 `inputId` 等输入标识允许最多 **256 个字符**；本次没有把 256 字符当成生产典型，而是额外用 64 字符做通用标识压力场景。[`SessionInputValidation.kt`](../../../core/storage/src/main/kotlin/com/helix/core/storage/repository/SessionInputValidation.kt#L6-L16) [`SessionInputValidation.kt`](../../../core/storage/src/main/kotlin/com/helix/core/storage/repository/SessionInputValidation.kt#L71-L73)
-- 既有 JSONL 是 `helix.session-export` 版本 1；单行上限 **256 KiB**，文件上限 **128 MiB**。[`SessionExportFormat.kt`](../../../core/storage/src/main/kotlin/com/helix/core/storage/export/SessionExportFormat.kt#L8-L14)
-- 现有导出行包含 `format`、`formatVersion`、`sequence`、`type`、`recordId`、`sessionId` 和 `data`，并要求 record id 带类型前缀。[`SessionExportFormat.kt`](../../../core/storage/src/main/kotlin/com/helix/core/storage/export/SessionExportFormat.kt#L55-L64) [`SessionExportFormat.kt`](../../../core/storage/src/main/kotlin/com/helix/core/storage/export/SessionExportFormat.kt#L88-L95)
+- 生产 `RandomIdGenerator` 产生 **32 个小写十六进制字符**；`ChatSubmission.clientRequestId` 只是非空字符串，实际路径还会使用常见的 **36 字符 UUID**。[`Identifier.kt`](../../../core/model/src/main/kotlin/com/helix/core/model/Identifier.kt#L30-L46) [`ChatSubmission.kt`](../../../feature/conversation/src/main/kotlin/com/helix/feature/conversation/input/ChatSubmission.kt)
+- `SessionInputValidation` 对 `inputId` 等输入标识允许最多 **256 个字符**；本次没有把 256 字符当成生产典型，而是额外用 64 字符做通用标识压力场景。[`SessionInputValidation.kt`](../../../infrastructure/storage/src/main/kotlin/com/helix/core/storage/repository/SessionInputValidation.kt#L6-L16) [`SessionInputValidation.kt`](../../../infrastructure/storage/src/main/kotlin/com/helix/core/storage/repository/SessionInputValidation.kt#L71-L73)
+- 既有 JSONL 是 `helix.session-export` 版本 1；单行上限 **256 KiB**，文件上限 **128 MiB**。[`SessionExportFormat.kt`](../../../infrastructure/storage/src/main/kotlin/com/helix/core/storage/export/SessionExportFormat.kt#L8-L14)
+- 现有导出行包含 `format`、`formatVersion`、`sequence`、`type`、`recordId`、`sessionId` 和 `data`，并要求 record id 带类型前缀。[`SessionExportFormat.kt`](../../../infrastructure/storage/src/main/kotlin/com/helix/core/storage/export/SessionExportFormat.kt#L55-L64) [`SessionExportFormat.kt`](../../../infrastructure/storage/src/main/kotlin/com/helix/core/storage/export/SessionExportFormat.kt#L88-L95)
 - 消息本身还可能携带工具调用 ID、工具名、附件引用等结构，因此本测量只估算来源 ID、角色和检查点元数据；它没有把正文、工具参数或附件字节复制进清单。[`ModelRequest.kt`](../../../core/model/src/main/kotlin/com/helix/core/model/ModelRequest.kt#L112-L150)
 
 ## 测量方法
@@ -43,7 +43,7 @@ python3 scripts/debug/2026-09-22/measure-hxa217-request-context-cost.py \
 | 512 条消息、512 个 256 字符 ASCII input ID | 160,486 B | 154,229 B | 3.9% |
 | 512 条消息、512 个 256 字符 Unicode input ID | 287,974 B | 281,717 B | 2.2% |
 
-`SessionInputRepository.appendedForMessages` 明确按 `ModelRequest.MAX_MESSAGES` 接受最多 512 个来源消息，并按 32 条分块查询；因此这次最大场景使用 512 条消息和 512 个 input ID，而不是把 216 的 pending 队列容量误当作请求来源上限。[`SessionInputRepository.kt`](../../../core/storage/src/main/kotlin/com/helix/core/storage/repository/SessionInputRepository.kt#L55-L65)
+`SessionInputRepository.appendedForMessages` 明确按 `ModelRequest.MAX_MESSAGES` 接受最多 512 个来源消息，并按 32 条分块查询；因此这次最大场景使用 512 条消息和 512 个 input ID，而不是把 216 的 pending 队列容量误当作请求来源上限。[`SessionInputRepository.kt`](../../../infrastructure/storage/src/main/kotlin/com/helix/core/storage/repository/SessionInputRepository.kt#L55-L65)
 
 512×512、UUID36 组合仍只有约 40.6 KiB（compact）或 46.7 KiB（verbose），明显低于既有 256 KiB 单行上限。256 字符 ASCII input ID 压力也低于单行上限；256 字符 Unicode input ID 压力约 275.1 KiB（compact）或 281.2 KiB（verbose），会触发既有单行界限，不能无条件宣称“完整”。100 次重复历史 ID 的累计 JSONL 行字节按实际 `sequence=0..99` 逐行求和：
 

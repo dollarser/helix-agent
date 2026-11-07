@@ -1,7 +1,7 @@
 # 预览升级确认与重构前追加验收
 
 Date: 2026-10-17
-Task: [HXA-304](../../development/tasks/HXA-304.md)
+Task: [HXA-304](../../completion-records/HXA-304.md)
 Status: 已完成；主机、指定 ARM64 设备与真实 Qwen 范围 passed；仅本地提交
 
 ## 范围与起点

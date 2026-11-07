@@ -33,12 +33,12 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.R
 import com.helix.app.profile.SafetyProfileStore
-import com.helix.app.ui.indicatedVerticalScroll
 import com.helix.core.model.SafetyProfile
 import com.helix.core.policy.GrantState
 import com.helix.feature.files.allfiles.AllFilesRootCatalog
 import com.helix.feature.files.allfiles.AllFilesRootsStore
 import com.helix.feature.files.allfiles.AllFilesSystemProbe
+import com.helix.ui.shared.indicatedVerticalScroll
 import java.io.File
 import java.nio.file.Path
 

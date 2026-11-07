@@ -15,6 +15,7 @@ import com.helix.core.agent.RunControlConfig
 import com.helix.core.agent.TurnBudgetBounds
 import com.helix.core.model.AgentMode
 import com.helix.core.model.TurnBudgets
+import com.helix.feature.conversation.presentation.ModeControlSection
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith

@@ -10,7 +10,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import com.helix.app.R
 import com.helix.app.plugin.PluginSetupReason
-import com.helix.app.ui.indicatedVerticalScroll
+import com.helix.ui.shared.indicatedVerticalScroll
+import com.helix.ui.shared.R as SharedR
 
 internal fun pluginSetupExplanation(error: PluginSetupReason): Int =
     when (error) {
@@ -59,7 +60,7 @@ internal fun PluginSetupRequiredDialog(
                 Text(
                     stringResource(
                         if (error == PluginSetupReason.MOBILE_BACKEND) {
-                            R.string.common_cancel
+                            SharedR.string.common_cancel
                         } else {
                             R.string.plugin_setup_later
                         },

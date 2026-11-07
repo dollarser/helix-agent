@@ -3,16 +3,19 @@ package com.helix.app.ui
 import android.graphics.Bitmap
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import com.helix.app.chat.ChatImageRef
-import com.helix.app.chat.ChatImageUi
-import com.helix.app.chat.ChatScreenState
-import com.helix.app.chat.MessageUi
-import com.helix.app.chat.ToolTimelinePosition
-import com.helix.app.chat.ToolTimelineRow
 import com.helix.core.agent.RunControlConfig
 import com.helix.core.agent.TurnBudgetBounds
 import com.helix.core.model.AgentMode
 import com.helix.core.model.ToolCallState
+import com.helix.feature.conversation.presentation.ChatImageRef
+import com.helix.feature.conversation.presentation.ChatImageUi
+import com.helix.feature.conversation.presentation.ChatScreen
+import com.helix.feature.conversation.presentation.ChatScreenState
+import com.helix.feature.conversation.presentation.ConversationIntents
+import com.helix.feature.conversation.presentation.MessageUi
+import com.helix.feature.conversation.presentation.ToolTimelinePosition
+import com.helix.feature.conversation.presentation.ToolTimelineRow
+import com.helix.feature.conversation.presentation.TurnUi
 import java.io.ByteArrayOutputStream
 
 /** Fixed synthetic metadata; file availability/preview is validated separately by the R8 fixture. */
@@ -67,7 +70,7 @@ internal class ConversationVolumeData {
     val screen =
         ChatScreenState(emptyList(), "volume", null, messages, tools, null, null, null, null).copy(
             activeTurn =
-                com.helix.app.chat.TurnUi(
+                TurnUi(
                     "t-199",
                     com.helix.core.model.TurnState.COMPLETED,
                     null,
@@ -92,7 +95,7 @@ internal class ConversationVolumeData {
     @Suppress("FunctionName")
     fun Content() {
         MaterialTheme {
-            ConversationSection(
+            ChatScreen(
                 screen,
                 RunControlConfig(AgentMode.CHAT, false, TurnBudgetBounds.DEFAULT),
                 "",

@@ -99,7 +99,7 @@ class AgentEvalTest(unittest.TestCase):
             for case in manifest['cases']:
                 for ref in case['tests']:
                     suffix = f"src/{source_set}/kotlin/" + ref['class'].replace('.', '/') + '.kt'
-                    matches = [root / module / suffix for module in ('app', 'core/agent', 'core/storage') if (root / module / suffix).is_file()]
+                    matches = [root / module / suffix for module in ('app', 'core/agent', 'infrastructure/storage') if (root / module / suffix).is_file()]
                     self.assertEqual(len(matches), 1, ref)
                     text = matches[0].read_text()
                     self.assertTrue('fun ' + ref['method'] + '(' in text or 'fun `' + ref['method'] + '`(' in text, ref)
@@ -178,7 +178,7 @@ class AgentEvalTest(unittest.TestCase):
         with self.assertRaises(ev.EvidenceError):
             ev.validate(r, self.root)
 
-    def test_host_manifest_tracks_extension_and_app_build_changes_but_not_outputs(self):
+    def test_host_manifest_tracks_relocated_sources_and_build_changes_but_not_outputs(self):
         runner_path = Path(__file__).resolve().parents[1] / 'run-agent-eval-host.py'
         spec = importlib.util.spec_from_file_location('host_eval_runner', runner_path)
         runner = importlib.util.module_from_spec(spec)
@@ -187,7 +187,9 @@ class AgentEvalTest(unittest.TestCase):
         (self.root / '.gitignore').write_text('**/build/\n')
         config = self.root / 'app/build.gradle.kts'
         extension = self.root / 'extensions/mobile-use/src/main/Executor.kt'
-        for path in (config, extension):
+        storage = self.root / 'infrastructure/storage/src/main/Repository.kt'
+        shared = self.root / 'ui/shared/src/main/Preview.kt'
+        for path in (config, extension, storage, shared):
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text('baseline')
         before = ev.source_manifest(self.root, runner.SOURCES)
@@ -197,10 +199,38 @@ class AgentEvalTest(unittest.TestCase):
         extension.write_text('changed extension')
         extension_changed = ev.source_manifest(self.root, runner.SOURCES)
         self.assertNotEqual(config_changed['sha256'], extension_changed['sha256'])
-        artifact = self.root / 'extensions/mobile-use/build/generated.txt'
-        artifact.parent.mkdir(parents=True)
-        artifact.write_text('temporary output')
-        self.assertEqual(extension_changed, ev.source_manifest(self.root, runner.SOURCES))
+        storage.write_text('changed storage')
+        storage_changed = ev.source_manifest(self.root, runner.SOURCES)
+        self.assertNotEqual(extension_changed['sha256'], storage_changed['sha256'])
+        shared.write_text('changed shared presentation')
+        shared_changed = ev.source_manifest(self.root, runner.SOURCES)
+        self.assertNotEqual(storage_changed['sha256'], shared_changed['sha256'])
+        for module in ('extensions/mobile-use', 'infrastructure/storage', 'ui/shared'):
+            artifact = self.root / module / 'build/generated.txt'
+            artifact.parent.mkdir(parents=True)
+            artifact.write_text('temporary output')
+        self.assertEqual(shared_changed, ev.source_manifest(self.root, runner.SOURCES))
+
+    def test_host_verifiers_route_by_package_not_relocated_module_name(self):
+        runner_path = Path(__file__).resolve().parents[1] / 'run-agent-eval-host.py'
+        spec = importlib.util.spec_from_file_location('host_eval_runner', runner_path)
+        runner = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(runner)
+        root = runner_path.parents[1]
+        manifest = ev.read_json(root / 'evals/trajectory/host-boundaries.json')
+        classes = {ref['class'] for case in manifest['cases'] for ref in case['tests']}
+        groups = runner.host_test_groups(classes)
+        self.assertEqual(classes, {name for names in groups.values() for name in names})
+        storage = 'com.helix.core.storage.repository.TurnReviewReceiptRepositoryTest'
+        self.assertIn(storage, groups['infrastructure/storage'])
+        self.assertEqual(('com.helix.core.storage.', ':infrastructure:storage:testDebugUnitTest', 'testDebugUnitTest'),
+                         runner.HOST_TEST_MODULES['infrastructure/storage'])
+        for module, names in groups.items():
+            for name in names:
+                self.assertTrue((root / module / 'src/test/kotlin' / (name.replace('.', '/') + '.kt')).is_file(), name)
+        for unknown in ('com.helix.infrastructure.storage.MissingTest', 'com.helix.other.MissingTest'):
+            with self.assertRaisesRegex(ValueError, 'exactly one module'):
+                runner.host_test_groups([storage, unknown])
 
     def test_manifest_includes_untracked_and_tracked_deletion(self):
         subprocess.run(['git', 'init', '-q', str(self.root)], check=True)

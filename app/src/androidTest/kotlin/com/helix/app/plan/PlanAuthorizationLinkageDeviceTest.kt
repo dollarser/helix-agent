@@ -328,7 +328,7 @@ class PlanAuthorizationLinkageDeviceTest {
             Thread {
                 try {
                     outcome[0] =
-                        container.chatService.dispatchToolCall(
+                        container.toolExecution.dispatchToolCall(
                             toolCallId,
                             turnId,
                             PLAN_AUTH_TOOL_NAME,

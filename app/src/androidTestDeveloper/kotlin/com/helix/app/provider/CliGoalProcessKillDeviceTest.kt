@@ -11,13 +11,14 @@ import androidx.compose.ui.test.performScrollToNode
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.HelixApplication
-import com.helix.app.ui.ChatScreen
+import com.helix.app.ui.AppConversationRoute
 import com.helix.core.model.AgentMode
 import com.helix.core.model.GoalBudgets
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.SafetyProfile
 import com.helix.core.model.TurnBudgets
 import com.helix.core.storage.repository.ProviderConfigSpec
+import com.helix.provider.api.SubscriptionRecoveryStatus
 import com.helix.runtime.cli.client.CliModelJobClient
 import com.helix.runtime.cli.client.CliModelJobState
 import com.helix.runtime.cli.client.CliRuntimeSupervisor
@@ -171,7 +172,17 @@ class CliGoalProcessKillDeviceTest {
         chat.closeSession()
         await { chat.screen.value.openSessionId == null }
         compose.setContent {
-            MaterialTheme { ChatScreen(chat, container.providerService, container.privacyDeletionService) }
+            MaterialTheme {
+                AppConversationRoute(
+                    chatService = chat,
+                    toolVisionConsent = container.toolVisionConsent,
+                    dashboard = container.taskDashboard,
+                    details = container.conversationDetails,
+                    experts = container.conversationExperts,
+                    providerService = container.providerService,
+                    privacyDeletionService = container.privacyDeletionService,
+                )
+            }
         }
         chat.openSession(session)
         await {

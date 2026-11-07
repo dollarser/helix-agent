@@ -13,6 +13,7 @@ import androidx.compose.ui.unit.dp
 import com.helix.app.R
 import com.helix.app.provider.ProviderRowUi
 import com.helix.app.provider.ui.SubscriptionSetupHint
+import com.helix.feature.conversation.R as ConversationR
 
 /** First-use shortcut for an unconfigured source; it never selects or bypasses provider testing. */
 @Composable
@@ -23,13 +24,13 @@ internal fun ModelSetupRow(
 ) {
     Column(Modifier.padding(vertical = 8.dp).testTag("chat-model-setup-${row.id}")) {
         Text(
-            stringResource(R.string.model_picker_needs_setup, row.displayName),
+            stringResource(ConversationR.string.model_picker_needs_setup, row.displayName),
             style = MaterialTheme.typography.titleSmall,
         )
         SubscriptionSetupHint(row)
         if (onConfigure != null) {
             TextButton(onConfigure, Modifier.testTag("chat-model-setup-open-${row.id}")) {
-                Text(stringResource(R.string.model_picker_setup_action))
+                Text(stringResource(ConversationR.string.model_picker_setup_action))
             }
         }
     }

@@ -1,6 +1,8 @@
 package com.helix.app.proot
 
 import com.helix.core.model.TurnState
+import com.helix.feature.conversation.presentation.ProotRecoveredFile
+import com.helix.feature.conversation.presentation.ProotRecoveredOutput
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull

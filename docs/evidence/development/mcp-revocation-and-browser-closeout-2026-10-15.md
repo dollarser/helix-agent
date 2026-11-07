@@ -1,6 +1,6 @@
 # 官方 MCP 撤销与浏览器收尾
 
-日期：2026-10-15。范围：[HXA-126](../../development/tasks/HXA-126.md)、[HXA-282](../../development/tasks/HXA-282.md)。Owner要求先完成需本人参与的OAuth流程；继续使用已登录的日常API36/Developer，不操作新连接的OnePlus、不调用模型或长稳。
+日期：2026-10-15。范围：[HXA-126](../../development/tasks/HXA-126.md)、[HXA-282](../../completion-records/HXA-282.md)。Owner要求先完成需本人参与的OAuth流程；继续使用已登录的日常API36/Developer，不操作新连接的OnePlus、不调用模型或长稳。
 
 ## 已确认的独立结果
 

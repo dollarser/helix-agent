@@ -33,7 +33,7 @@ class SkillInstallationDeviceTest {
             container.storage.turns.start(id, session, System.currentTimeMillis())
             return id to
                 CompletableFuture.supplyAsync {
-                    chat.dispatchToolCall(
+                    container.toolExecution.dispatchToolCall(
                         id,
                         id,
                         "skills.install",

@@ -7,15 +7,20 @@ import unittest
 
 
 class I18nResourceTest(unittest.TestCase):
-    def run_gate(self, files):
+    def run_gate(self, files, display_sources=None):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             script = root / "scripts/check-i18n.sh"
             script.parent.mkdir()
             shutil.copyfile(Path(__file__).resolve().parents[1] / "check-i18n.sh", script)
-            chat = root / "app/src/main/kotlin/com/helix/app/chat/ChatService.kt"
-            chat.parent.mkdir(parents=True)
-            chat.write_text("// Synthetic empty chat UI fixture\n")
+            for display in (
+                "feature/conversation/src/main/kotlin/com/helix/feature/conversation/presentation/ChatToolPresentation.kt",
+                "feature/conversation/src/main/kotlin/com/helix/feature/conversation/presentation/ChatToolTimeline.kt",
+                "app/src/main/kotlin/com/helix/app/infrastructure/conversation/ConversationToolDisplay.kt",
+            ):
+                path = root / display
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text((display_sources or {}).get(display, "// Synthetic empty tool display fixture\n"))
             for name, body in files.items():
                 path = root / "app/src/main/res" / name
                 path.parent.mkdir(parents=True, exist_ok=True)
@@ -50,6 +55,19 @@ class I18nResourceTest(unittest.TestCase):
         files["values/constants.xml"] = '<string name="protocol" translatable="false">synthetic-v1</string>'
         result = self.run_gate(files)
         self.assertEqual(0, result.returncode, result.stderr)
+
+    def test_raw_diagnostic_is_rejected_at_each_current_display_owner(self):
+        for owner in (
+            "feature/conversation/src/main/kotlin/com/helix/feature/conversation/presentation/ChatToolPresentation.kt",
+            "feature/conversation/src/main/kotlin/com/helix/feature/conversation/presentation/ChatToolTimeline.kt",
+            "app/src/main/kotlin/com/helix/app/infrastructure/conversation/ConversationToolDisplay.kt",
+        ):
+            for sink in ("setCardStateForCall", "publishToolRow"):
+                with self.subTest(owner=owner, sink=sink):
+                    result = self.run_gate(self.base(), {owner: f"fun render() {{ {sink}(outcome.detail) }}\n"})
+                    self.assertNotEqual(0, result.returncode)
+                    self.assertIn(f"raw outcome.detail reaches user-visible {sink}", result.stderr)
+                    self.assertIn(owner, result.stderr)
 
     def test_duplicate_key_across_files_fails(self):
         files = self.base()

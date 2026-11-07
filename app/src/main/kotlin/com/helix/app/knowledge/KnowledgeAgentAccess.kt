@@ -89,7 +89,7 @@ internal class KnowledgeAgentAccess(
             val sourceItems =
                 sources
                     .filter {
-                        com.helix.app.application.security.ForbiddenContentGuard
+                        com.helix.core.policy.ForbiddenContentGuard
                             .reasonFor(it.extracted.ifBlank { it.rawText }) == null
                     }.take(8)
                     .map {
@@ -99,7 +99,7 @@ internal class KnowledgeAgentAccess(
             val noteItems =
                 notes
                     .filter {
-                        com.helix.app.application.security.ForbiddenContentGuard
+                        com.helix.core.policy.ForbiddenContentGuard
                             .reasonFor(it.body) == null
                     }.map { entry("note", it.id, it.title, it.body.take(512), it.state) }
             buildJsonObject {

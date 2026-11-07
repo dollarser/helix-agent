@@ -1,12 +1,12 @@
 package com.helix.app.proot
 
+import com.helix.feature.conversation.presentation.ProotRecoveredFile
+import com.helix.feature.conversation.presentation.ProotRecoveredOutput
+
 // The command details page (HXA-194) reads ONLY persisted facts: the tool call, its settled
 // result row, the prepared-job binding audit row and the locally persisted, integrity-checked
 // result archive. Browsing never binds the Runtime, never submits and never acknowledges —
 // the explicit reconciliation stays the existing session entry (`查看结果`).
-
-/** The Linux command tools whose calls carry a command result (the developer proot tools). */
-val COMMAND_TOOL_NAMES: Set<String> = setOf("bash", "code.linux.run", "skills.run", "code.linux.job.start")
 
 /** The display state of one command result; every value gets its own user-visible text. */
 enum class CommandDetailState {

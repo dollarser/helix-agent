@@ -15,9 +15,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import com.helix.app.R
-import com.helix.app.chat.GoalSummaryUi
+import com.helix.feature.conversation.presentation.GoalSummaryUi
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
+import com.helix.ui.shared.R as SharedR
 
 @Composable
 @Suppress("FunctionName", "SwallowedException") // Show fixed localized errors for deletion/state races.
@@ -100,7 +101,7 @@ private fun GoalDeletionConfirmation(
                 enabled = !deleting,
                 onClick = onDismiss,
                 modifier = Modifier.testTag("goal-delete-cancel"),
-            ) { Text(stringResource(R.string.common_cancel)) }
+            ) { Text(stringResource(SharedR.string.common_cancel)) }
         },
     )
 }

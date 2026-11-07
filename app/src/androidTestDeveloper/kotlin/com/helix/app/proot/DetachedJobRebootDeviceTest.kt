@@ -118,10 +118,10 @@ class DetachedJobRebootDeviceTest {
     }
 
     private fun collect(job: BackgroundJobUi) {
-        val chat = app.appContainer.chatService
-        chat.performBackgroundJobAction(job, BackgroundJobAction.COLLECT)
+        val dashboard = app.appContainer.taskDashboard
+        dashboard.performBackgroundJobAction(job, BackgroundJobAction.COLLECT)
         compose.waitUntil(30_000) {
-            val action = chat.backgroundJobAction.value
+            val action = dashboard.jobActionState.value
             action?.callId == job.callId && !action.busy
         }
         val expected =
@@ -130,7 +130,7 @@ class DetachedJobRebootDeviceTest {
             } else {
                 BackgroundJobActionOutcome.SETTLED
             }
-        assertEquals(expected, chat.backgroundJobAction.value?.outcome)
+        assertEquals(expected, dashboard.jobActionState.value?.outcome)
     }
 
     private fun prepareOriginalRecord(

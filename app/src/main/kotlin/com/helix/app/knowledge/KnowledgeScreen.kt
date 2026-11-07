@@ -429,7 +429,7 @@ private fun KnowledgeDetail(
             } else {
                 item {
                     SelectionContainer {
-                        com.helix.app.ui
+                        com.helix.ui.shared
                             .MarkdownText(readable, Modifier.fillMaxWidth().testTag("knowledge-source-body"))
                     }
                 }
@@ -461,7 +461,7 @@ private fun KnowledgeDetail(
         }
     }
     if (details) {
-        com.helix.app.ui.ConversationSheet(
+        com.helix.ui.shared.SharedSheet(
             stringResource(R.string.knowledge_source_info),
             "knowledge-source-info",
             { details = false },

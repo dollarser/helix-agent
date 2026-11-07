@@ -4,7 +4,6 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.AppContainer
 import com.helix.app.HelixApplication
-import com.helix.app.application.diagnostics.DiagnosticRedaction
 import com.helix.app.application.tools.ToolFailureContent
 import com.helix.app.projects.createProjectSessionFixture
 import com.helix.app.proot.InPlaceLogCloseoutDeviceTest
@@ -27,6 +26,7 @@ import com.helix.core.model.SessionPermissionMode
 import com.helix.core.model.ToolDispatchOutcome
 import com.helix.core.model.TurnBudgets
 import com.helix.core.model.TurnState
+import com.helix.core.policy.DiagnosticRedaction
 import com.helix.core.policy.SessionPermissionConfig
 import com.helix.core.workspace.memory.MemoryMarkdown
 import com.helix.core.workspace.memory.MemoryScope

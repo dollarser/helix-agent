@@ -12,9 +12,9 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import com.helix.app.AppContainer
 import com.helix.app.HelixApplication
-import com.helix.app.HelixTheme
 import com.helix.app.MainActivity
 import com.helix.app.language.AppLanguageStore
+import com.helix.ui.shared.HelixTheme
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 

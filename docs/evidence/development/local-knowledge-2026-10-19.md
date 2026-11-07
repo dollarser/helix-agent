@@ -1,6 +1,6 @@
 # 本机知识库第一阶段验收（2026-10-19）
 
-范围：[HXA-308](../../development/tasks/HXA-308.md)、[ADR-WORKSPACE-007](../../adr/workspace/007-local-knowledge.md)。起点 `3031b22d`，初始工作区干净。先核对既有语音/分支/向外分享收尾，没有恢复被删除的单消息分享。当前任务新增的是**接收系统分享**。本地交付，不 push/发布；版本 0.0.6 / code 1、工具声明版本 1 不变。
+范围：[HXA-308](../../completion-records/HXA-308.md)、[ADR-WORKSPACE-007](../../adr/workspace/007-local-knowledge.md)。起点 `3031b22d`，初始工作区干净。先核对既有语音/分支/向外分享收尾，没有恢复被删除的单消息分享。当前任务新增的是**接收系统分享**。本地交付，不 push/发布；版本 0.0.6 / code 1、工具声明版本 1 不变。
 
 ## 实际交付
 

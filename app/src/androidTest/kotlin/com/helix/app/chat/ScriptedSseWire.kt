@@ -1,5 +1,6 @@
 package com.helix.app.chat
 
+import com.helix.feature.conversation.application.ChatService
 import com.helix.provider.api.wire.WireBody
 import com.helix.provider.api.wire.WireClient
 import com.helix.provider.api.wire.WireRequest

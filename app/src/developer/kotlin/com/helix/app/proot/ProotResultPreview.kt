@@ -1,5 +1,7 @@
 package com.helix.app.proot
 
+import com.helix.feature.conversation.presentation.ProotRecoveredFile
+import com.helix.feature.conversation.presentation.ProotRecoveredOutput
 import com.helix.runtime.proot.core.ZipJobExtractor
 import java.io.File
 import java.nio.file.Files

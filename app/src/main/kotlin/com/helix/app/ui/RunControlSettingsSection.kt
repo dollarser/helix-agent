@@ -22,6 +22,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.R
 import com.helix.app.runcontrol.RunControlStore
 import com.helix.core.agent.TurnBudgetBounds
+import com.helix.ui.shared.R as SharedR
 
 /** Bounded, profile-independent Turn budget editor (HXA-099). */
 @Composable
@@ -81,7 +82,7 @@ internal fun RunControlOutputEditor(
                     }
             },
             modifier = Modifier.fillMaxWidth().testTag("budget-save"),
-        ) { Text(stringResource(R.string.common_save)) }
+        ) { Text(stringResource(SharedR.string.common_save)) }
         if (saved && !invalid) Text(stringResource(R.string.budget_saved), modifier = Modifier.testTag("budget-saved"))
         if (saveFailed) {
             Text(stringResource(R.string.budget_save_failed), modifier = Modifier.testTag("budget-save-failed"))

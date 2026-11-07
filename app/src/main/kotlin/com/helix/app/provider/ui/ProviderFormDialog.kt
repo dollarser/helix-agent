@@ -47,13 +47,15 @@ import com.helix.app.provider.ComposeOutcome
 import com.helix.app.provider.ProviderComposer
 import com.helix.app.provider.ProviderRowUi
 import com.helix.app.provider.ProviderService
-import com.helix.app.ui.UiLabels
-import com.helix.app.ui.indicatedVerticalScroll
-import com.helix.app.ui.localizedString
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.provider.api.CleartextWarning
 import com.helix.provider.api.ProviderConfig
 import com.helix.provider.catalog.ProviderTemplate
+import com.helix.ui.shared.UiLabels
+import com.helix.ui.shared.indicatedVerticalScroll
+import com.helix.ui.shared.localizedString
+import com.helix.feature.conversation.R as ConversationR
+import com.helix.ui.shared.R as SharedR
 
 /** The un-persisted provider form (create when [providerId] is null). */
 internal data class ProviderForm(
@@ -131,7 +133,7 @@ internal fun TemplatePickerDialog(
         },
         confirmButton = {},
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) }
+            TextButton(onClick = onDismiss) { Text(stringResource(SharedR.string.common_cancel)) }
         },
         modifier = Modifier.testTag("provider-template-picker"),
     )
@@ -380,7 +382,7 @@ internal fun ProviderFormDialog(
                             ) {
                                 val label =
                                     if (discovering) {
-                                        R.string.provider_discovering_models
+                                        ConversationR.string.provider_discovering_models
                                     } else {
                                         R.string.provider_discover_models
                                     }
@@ -447,7 +449,7 @@ internal fun ProviderFormDialog(
                 enabled = !saving,
                 modifier = Modifier.testTag("provider-form-cancel"),
             ) {
-                Text(stringResource(R.string.common_cancel))
+                Text(stringResource(SharedR.string.common_cancel))
             }
         },
         modifier = Modifier.testTag("provider-form-dialog").safeDrawingPadding().imePadding(),

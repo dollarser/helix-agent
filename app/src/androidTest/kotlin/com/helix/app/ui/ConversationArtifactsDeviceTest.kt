@@ -149,7 +149,7 @@ class ConversationArtifactsDeviceTest {
             assertTrue(
                 compose
                     .container()
-                    .chatService
+                    .conversationDetails
                     .conversationArtifacts(session)
                     .isEmpty(),
             )

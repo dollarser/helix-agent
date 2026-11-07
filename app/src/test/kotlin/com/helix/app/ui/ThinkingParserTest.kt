@@ -1,5 +1,6 @@
 package com.helix.app.ui
 
+import com.helix.feature.conversation.presentation.ThinkingParser
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull

@@ -20,6 +20,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
+import com.helix.ui.shared.SharedSheet
+import com.helix.ui.shared.R as SharedR
 
 @Composable
 @Suppress("FunctionName", "LongMethod") // One existing settings sheet; transport selection keeps fields together.
@@ -30,7 +32,11 @@ internal fun CloudSpeechSettingsEntry(
     reader: com.helix.app.voice.ReadAloudService,
 ) {
     var open by remember { mutableStateOf(false) }
-    SettingsEntryRow(stringResource(R.string.speech_services_title), R.drawable.ic_composer_voice, { open = true })
+    SettingsEntryRow(
+        stringResource(R.string.speech_services_title),
+        SharedR.drawable.ic_composer_voice,
+        { open = true },
+    )
     if (open) {
         var draft by remember {
             mutableStateOf(
@@ -38,7 +44,7 @@ internal fun CloudSpeechSettingsEntry(
             )
         }
         var error by remember { mutableStateOf(false) }
-        ConversationSheet(stringResource(R.string.speech_services_title), "speech-services", { open = false }) {
+        SharedSheet(stringResource(R.string.speech_services_title), "speech-services", { open = false }) {
             Column {
                 Text(stringResource(R.string.speech_local_section))
                 OfflineAsrModelPanel(offlineAsr)

@@ -1,6 +1,6 @@
 # HXA-245 Mobile Use 插件悬浮首版：主机审查记录
 
-日期：2026-10-03。范围：[HXA-245](../../development/tasks/HXA-245.md)。基线 `main / 0619409dd1d7`；原有 Provider/恢复审查及文档改动保留。本记录生成时未提交、未推送；后续提交状态见任务页和模拟器收尾记录。起始工作树与差异保存在本地忽略目录 `build/hxa245/baseline-status.txt`、`baseline.diff`，不能把整个 dirty checkout 都归为本次悬浮功能。
+日期：2026-10-03。范围：[HXA-245](../../completion-records/HXA-245.md)。基线 `main / 0619409dd1d7`；原有 Provider/恢复审查及文档改动保留。本记录生成时未提交、未推送；后续提交状态见任务页和模拟器收尾记录。起始工作树与差异保存在本地忽略目录 `build/hxa245/baseline-status.txt`、`baseline.diff`，不能把整个 dirty checkout 都归为本次悬浮功能。
 
 **本机产物清理（2026-10-12）：** `build/hxa245/` 中的旧 APK、原始 gate 日志和工作树快照已退役删除。本文保留当时记录的实现审查和摘要结果，不表示这些原始文件仍可在本机读取。
 

@@ -23,7 +23,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
-import com.helix.app.ui.indicatedHorizontalScroll
+import com.helix.ui.shared.indicatedHorizontalScroll
+import com.helix.ui.shared.R as SharedR
 
 @Composable
 @Suppress("FunctionName")
@@ -40,11 +41,11 @@ internal fun FilesLocationBar(
                 }
                 FilesLocationMenu(state)
             }
-            FileIconButton(R.drawable.ic_files_search, R.string.files_search, "files-search-open") {
+            FileIconButton(SharedR.drawable.ic_files_search, R.string.files_search, "files-search-open") {
                 state.searchOpen = !state.searchOpen
                 state.searchQuery = ""
             }
-            FileIconButton(R.drawable.ic_chat_more, R.string.files_controls, "files-controls-open") {
+            FileIconButton(SharedR.drawable.ic_chat_more, R.string.files_controls, "files-controls-open") {
                 state.controlsOpen =
                     true
             }

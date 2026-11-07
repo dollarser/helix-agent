@@ -25,12 +25,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
-import com.helix.app.chat.ChatService
+import com.helix.app.infrastructure.conversation.ConversationWorkspaceDetails
 import com.helix.app.proot.CommandDetailState
 import com.helix.app.proot.CommandLiveOutput
 import com.helix.app.proot.CommandLogObserver
 import com.helix.app.proot.CommandResultView
-import com.helix.app.ui.indicatedVerticalScroll
+import com.helix.ui.shared.indicatedVerticalScroll
 import kotlinx.coroutines.delay
 
 /**
@@ -60,7 +60,7 @@ internal fun commandDetailRoute(
 @Composable
 @Suppress("FunctionName")
 internal fun CommandResultDetailScreen(
-    service: ChatService,
+    service: ConversationWorkspaceDetails,
     turnId: String,
     callId: String,
     onBack: () -> Unit,

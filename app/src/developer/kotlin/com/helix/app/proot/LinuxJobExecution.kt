@@ -1,10 +1,10 @@
 package com.helix.app.proot
 
-import com.helix.app.application.diagnostics.DiagnosticRedaction
 import com.helix.app.proot.LinuxRunTool.LinuxExecutor
 import com.helix.app.proot.LinuxRunTool.MAX_IMPORT_BYTES
 import com.helix.app.proot.LinuxRunTool.ParsedLinuxCall
 import com.helix.app.proot.LinuxRunTool.failed
+import com.helix.core.policy.DiagnosticRedaction
 import com.helix.core.workspace.WorkspaceArtifactStore
 import com.helix.runtime.proot.client.ProotEnvScreen
 import com.helix.runtime.proot.client.ProotJobClient
@@ -471,7 +471,7 @@ internal class LinuxJobExecution(
             } else {
                 bytes
             }
-        return com.helix.app.application.diagnostics.DiagnosticRedaction
+        return com.helix.core.policy.DiagnosticRedaction
             .redact(String(slice, Charsets.UTF_8), knownSecretValues())
     }
 

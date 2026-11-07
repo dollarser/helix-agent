@@ -4,7 +4,7 @@
 
 - [status.md](status.md)：当前实施事实、开放条件和后续设计依赖，不替对话选择任务。
 - [候选需求与待裁决索引](candidate-decisions.md)：区分接受范围、已实现基础、未启用功能和进入开发条件；不维护第二份计划。
-- [roadmap.md](roadmap.md)：HXA 清单/长期排序；不是第二份 current plan。
+- [roadmap.md](roadmap.md)：按功能新增、架构重构、缺陷/验证、发行/外部条件及已完成分组的 HXA 索引；分类不是实时排期。
 - [tasks/](tasks/)：尚未完成的 HXA 规格，包括实施、外部依赖、发行和未来范围；登记不等于当前执行。
 - [implementation-guide.md](implementation-guide.md)：按需开发/交接参考。
 - [个人工程手册](engineering-playbook.md)：所有者开发偏好、决策方法与可追溯案例；跨项目复用的解释性资料，不替代 AGENTS、有效 ADR 或当前任务。

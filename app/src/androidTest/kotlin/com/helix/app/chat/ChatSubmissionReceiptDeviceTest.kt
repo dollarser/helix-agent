@@ -21,6 +21,7 @@ import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextInput
 import com.helix.app.MainActivity
 import com.helix.app.R
+import com.helix.app.infrastructure.conversation.toSubmission
 import com.helix.app.provider.LoopbackModelServer
 import com.helix.app.provider.ProviderDraft
 import com.helix.app.ui.container
@@ -30,6 +31,7 @@ import com.helix.core.model.ProviderProtocol
 import com.helix.feature.conversation.input.ChatSubmission
 import com.helix.feature.conversation.input.ChatSubmissionOutcome
 import com.helix.feature.conversation.input.ChatSubmissionReceipt
+import com.helix.feature.conversation.presentation.ChatSubmissionErrorMapper
 import com.helix.provider.api.ProbeOutcome
 import com.helix.tools.framework.ToolRegistry
 import kotlinx.coroutines.runBlocking
@@ -43,6 +45,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import java.util.UUID
+import com.helix.feature.conversation.R as ConversationR
 
 class ChatSubmissionReceiptDeviceTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
@@ -109,7 +112,7 @@ class ChatSubmissionReceiptDeviceTest {
                     val receipt = chat.sendSubmission(request).await()
                     assertEquals(
                         ChatSubmissionOutcome.Rejected(
-                            compose.activity.getString(R.string.chat_blocked_provider_untested),
+                            compose.activity.getString(ConversationR.string.chat_blocked_provider_untested),
                         ),
                         receipt.outcome,
                     )
@@ -220,7 +223,7 @@ class ChatSubmissionReceiptDeviceTest {
                 val outcome = chat.sendSubmission(request).await().outcome
                 assertEquals(ChatSubmissionOutcome.Rejected("NO_MODEL_SELECTED"), outcome)
                 assertEquals(
-                    R.string.chat_model_required_before_send,
+                    ConversationR.string.chat_model_required_before_send,
                     ChatSubmissionErrorMapper.stringResFor("NO_MODEL_SELECTED"),
                 )
                 assertTrue(storage.turns.listBySession(sessionId).isEmpty())

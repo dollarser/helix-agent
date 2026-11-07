@@ -22,10 +22,12 @@ import androidx.compose.ui.unit.dp
 import com.helix.app.R
 import com.helix.app.chat.ArtifactRowUi
 import com.helix.app.files.FileManagerService
+import com.helix.ui.shared.launchExternalUi
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.helix.feature.conversation.R as ConversationR
 
 // HXA-203: the artifact file dialog's delivery actions, split out of ArtifactsScreen.kt
 // (same package): the system "create document" picker, the outcome texts and the
@@ -270,7 +272,7 @@ internal fun launchArtifactExportPicker(
 ) {
     state.value = ArtifactExportState.Idle
     if (!launchExternalUi { picker.launch(name) }) {
-        state.value = ArtifactExportState.Failed(context.getString(R.string.chat_picker_unavailable))
+        state.value = ArtifactExportState.Failed(context.getString(ConversationR.string.chat_picker_unavailable))
     }
 }
 

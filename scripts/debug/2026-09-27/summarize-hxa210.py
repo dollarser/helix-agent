@@ -12,7 +12,7 @@ parser.add_argument('--output', default='build/hxa210/verification-summary.json'
 parser.add_argument('--device-status', choices=('not requested', 'pending', 'passed', 'failed'), default='not requested')
 args = parser.parse_args()
 modules = [('core/model', 'test'), ('core/agent', 'test'), ('core/workspace', 'test'),
-           ('core/storage', 'testDebugUnitTest'), ('app', 'testConsumerDebugUnitTest'),
+           ('infrastructure/storage', 'testDebugUnitTest'), ('app', 'testConsumerDebugUnitTest'),
            ('app', 'testDeveloperDebugUnitTest')]
 counts = {}
 for module, variant in modules:

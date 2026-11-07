@@ -123,7 +123,7 @@ class BackgroundAppLaunchDeviceTest {
                     val deadline = SystemClock.elapsedRealtime() + 5_000
                     while (c.chatService.displayExecutions.value.any {
                             it.turnId == turn &&
-                                it.state == com.helix.app.chat.DisplayExecutionState.ACTIVE
+                                it.state == com.helix.feature.conversation.presentation.DisplayExecutionState.ACTIVE
                         } &&
                         SystemClock.elapsedRealtime() < deadline
                     ) {
@@ -135,7 +135,7 @@ class BackgroundAppLaunchDeviceTest {
                     assertFalse(
                         c.chatService.displayExecutions.value.any {
                             it.turnId == turn &&
-                                it.state == com.helix.app.chat.DisplayExecutionState.ACTIVE
+                                it.state == com.helix.feature.conversation.presentation.DisplayExecutionState.ACTIVE
                         },
                     )
                     c.pluginService.catalog.select(session, plugin.id, false)

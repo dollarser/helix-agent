@@ -15,7 +15,7 @@ import com.helix.core.model.ToolDispatchOutcome
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolVersion
 import com.helix.core.model.TurnState
-import com.helix.core.storage.repository.KnowledgeReferences
+import com.helix.core.model.input.KnowledgeReferences
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolRegistry
 import kotlinx.coroutines.runBlocking

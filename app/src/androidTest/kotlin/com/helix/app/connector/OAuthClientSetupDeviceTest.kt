@@ -19,6 +19,7 @@ import com.helix.extensions.mcp.oauth.McpOAuthServerMetadata
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
+import com.helix.ui.shared.R as SharedR
 
 class OAuthClientSetupDeviceTest {
     @get:Rule val compose = createComposeRule()
@@ -106,7 +107,7 @@ class OAuthClientSetupDeviceTest {
         compose.onNodeWithText(reviewed.redirect).assertExists()
         val cancel =
             androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext.getString(
-                com.helix.app.R.string.common_cancel,
+                SharedR.string.common_cancel,
             )
         compose.onNodeWithText(cancel).performClick()
         compose.runOnIdle { assertEquals(0, registrations) }

@@ -2,6 +2,8 @@ package com.helix.app.proot
 
 import com.helix.app.R
 import com.helix.core.storage.HelixStorage
+import com.helix.feature.conversation.presentation.ProotRecoveryReport
+import com.helix.feature.conversation.presentation.ProotRecoveryStatus
 import com.helix.runtime.proot.client.ProotJobClient
 import com.helix.runtime.proot.ipc.ProotJobState
 import kotlinx.serialization.json.jsonPrimitive

@@ -77,12 +77,13 @@ class ScannedPdfLiveModelDeviceTest {
                 )
                 val png = requireNotNull(reader.parse(call, snapshot, "view").image)
                 val ref = ArtifactRef("synthetic-raster-page")
+                val config = app.awaitAppContainer().providerService.storedConfig(BuiltInModel.PROVIDER_ID)
                 val source =
-                    VisionImageSource { requested ->
-                        require(requested == ref)
+                    VisionImageSource { requested, destination ->
+                        require(requested.ref == ref && requested.mediaType == "image/png")
+                        require(destination == config)
                         LoadedImage("image/png", Base64.getEncoder().encodeToString(png))
                     }
-                val config = app.awaitAppContainer().providerService.storedConfig(BuiltInModel.PROVIDER_ID)
                 val provider =
                     ProviderFactory(
                         { error("No static credentials") },

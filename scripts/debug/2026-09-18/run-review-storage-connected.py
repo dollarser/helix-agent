@@ -16,12 +16,12 @@ classes = [
 started = time.time()
 with (Path(output) / "storage-connected.log").open("w") as log:
     subprocess.run([
-        str(root / "gradlew"), ":core:storage:connectedDebugAndroidTest",
+        str(root / "gradlew"), ":infrastructure:storage:connectedDebugAndroidTest",
         "-Pandroid.testInstrumentationRunnerArguments.class=" + ",".join(classes),
     ], cwd=root, env=dict(os.environ, ANDROID_SERIAL=serial), stdout=log,
         stderr=subprocess.STDOUT, check=True)
 counts = {name: 0 for name in classes}
-for path in (root / "core/storage/build/outputs/androidTest-results/connected").glob("**/TEST-*.xml"):
+for path in (root / "infrastructure/storage/build/outputs/androidTest-results/connected").glob("**/TEST-*.xml"):
     if path.stat().st_mtime < started:
         continue
     for suite in ET.parse(path).getroot().iter("testsuite"):

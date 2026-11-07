@@ -5,10 +5,10 @@
   "integrity": "sha512-9bEE+R974NTh1YJlfc6ztgwhy6+9sE+wAFiFrqvSdtlJHdxGfLytQmHYHNpFKmj94+Z+uMicYrQeGXnTTjILAQ==",
   "archiveSha256": "8be3e7a12526b6649ea5bd958bffe797024379b7b3eac678bb8977978c61e470",
   "files": {
-    "app/src/main/assets/mermaid/mermaid.tiny.js": "31fe67d1fd6fa4f4f911991f492f1cc3bdf0813ccbbff28786695801f70ff635",
-    "app/src/main/assets/licenses/Mermaid-MIT.txt": "ec9fb67dcb25eccc416ed56e1aab819222c805a2a4bfe4cb19e7556bf2ffde80",
-    "app/src/main/assets/licenses/Mermaid-dependencies.txt": "aaa99fca139843124d6bd637b06d0fdb63941e7e1d44a2f3578a89c9aa54e11a",
-    "app/src/main/assets/licenses/core-js-MIT.txt": "b87653fff2d44426ab5cd4723cee3b1364dc8d35a0acdf098c54689543123bf8"
+    "ui/shared/src/main/assets/mermaid/mermaid.tiny.js": "31fe67d1fd6fa4f4f911991f492f1cc3bdf0813ccbbff28786695801f70ff635",
+    "ui/shared/src/main/assets/licenses/Mermaid-MIT.txt": "ec9fb67dcb25eccc416ed56e1aab819222c805a2a4bfe4cb19e7556bf2ffde80",
+    "ui/shared/src/main/assets/licenses/Mermaid-dependencies.txt": "aaa99fca139843124d6bd637b06d0fdb63941e7e1d44a2f3578a89c9aa54e11a",
+    "ui/shared/src/main/assets/licenses/core-js-MIT.txt": "b87653fff2d44426ab5cd4723cee3b1364dc8d35a0acdf098c54689543123bf8"
   },
   "dependencyLicenses": {
     "@antfu/install-pkg@1.1.0": {

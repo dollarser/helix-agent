@@ -2,6 +2,9 @@ package com.helix.app.chat
 
 import com.helix.core.model.TurnState
 import com.helix.core.storage.HelixStorage
+import com.helix.feature.conversation.application.HumanHandoffPort
+import com.helix.feature.conversation.presentation.HumanHandoffState
+import com.helix.feature.conversation.presentation.HumanHandoffUi
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
@@ -9,26 +12,18 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import java.util.UUID
 
-internal enum class HumanHandoffState { REQUESTED, SUBMITTED, FINISHED, CANCELLED }
-
-internal data class HumanHandoffUi(
-    val turnId: String,
-    val state: HumanHandoffState,
-    val canReturn: Boolean,
-)
-
 /** Audit metadata records the explicit human decision; Room Turn facts still own execution. */
 internal class HumanHandoff(
     private val storage: HelixStorage,
     private val now: () -> Long,
-) {
-    fun state(turnId: String): HumanHandoffState? =
+) : HumanHandoffPort {
+    override fun state(turnId: String): HumanHandoffState? =
         storage.auditEvents
             .recentByCorrelation(turnId, TYPE, 1)
             .singleOrNull()
             ?.let { parseHumanHandoffState(it.redactedPayload) }
 
-    fun record(
+    override fun record(
         turnId: String,
         state: HumanHandoffState,
     ) {
@@ -42,7 +37,7 @@ internal class HumanHandoff(
         )
     }
 
-    fun canReturn(
+    override fun canReturn(
         sessionId: String,
         turnId: String,
     ): Boolean {
@@ -52,12 +47,14 @@ internal class HumanHandoff(
             storage.turns.latestVisible(sessionId)?.id == turnId
     }
 
-    fun project(turnId: String): HumanHandoffUi? =
+    override fun project(turnId: String): HumanHandoffUi? =
         storage.turns.find(turnId)?.let { turn ->
             state(turnId)?.let { decision ->
                 HumanHandoffUi(turnId, decision, canReturn(turn.sessionId, turnId))
             }
         }
+
+    override fun continuationContext(turnId: String): String = loadStopFacts(storage, turnId).continuationContext()
 
     companion object {
         private const val TYPE = "human_handoff"

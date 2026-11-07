@@ -124,9 +124,10 @@ tasks.register<JavaExec>("detekt") {
 
 val androidLibraries =
     mapOf(
-        ":core:storage" to "com.helix.core.storage",
+        ":infrastructure:storage" to "com.helix.core.storage",
         ":feature:browser" to "com.helix.feature.browser",
-        ":feature:conversation-input" to "com.helix.feature.conversation.input",
+        ":feature:conversation" to "com.helix.feature.conversation",
+        ":ui:shared" to "com.helix.ui.shared",
         ":feature:files" to "com.helix.feature.files",
         ":feature:files-allfiles" to "com.helix.feature.files.allfiles",
         ":runtime:quickjs" to "com.helix.runtime.quickjs",
@@ -181,6 +182,11 @@ val composeMaterial3Dependency = libs.compose.material3
 val webkitDependency = libs.androidx.webkit
 val exifInterfaceDependency = libs.androidx.exifinterface
 val activityComposeDependency = libs.activity.compose
+val lifecycleComposeDependency = libs.lifecycle.runtime.compose
+val composeFoundationDependency = libs.compose.foundation
+val composeTestDependency = libs.compose.ui.test.junit4
+val composeTestManifestDependency = libs.compose.ui.test.manifest
+val espressoCoreDependency = libs.espresso.core
 
 val jvmLibraries =
     setOf(
@@ -205,7 +211,7 @@ val projectDependencies =
     mapOf(
         ":core:agent" to listOf(":core:model", ":provider:api", ":core:workspace"),
         ":core:policy" to listOf(":core:model"),
-        ":core:storage" to listOf(":core:model", ":core:policy", ":core:workspace"),
+        ":infrastructure:storage" to listOf(":core:model", ":core:policy", ":core:workspace"),
         ":core:workspace" to listOf(":core:model"),
         ":provider:api" to listOf(":core:model", ":core:policy"),
         ":provider:openai-responses" to listOf(":provider:api", ":core:model"),
@@ -250,7 +256,9 @@ val projectDependencies =
         // declared in :tools:browser) and saves browser.screenshot into the shared Workspace
         // (:core:workspace).
         ":feature:browser" to listOf(":core:model", ":core:policy", ":core:workspace", ":tools:browser"),
-        ":feature:conversation-input" to listOf(":core:model"),
+        ":feature:conversation" to
+            listOf(":core:model", ":core:agent", ":core:policy", ":core:workspace", ":provider:api", ":ui:shared"),
+        ":ui:shared" to listOf(":core:model"),
         ":feature:files" to listOf(":core:model", ":core:policy", ":core:workspace"),
         ":feature:files-allfiles" to listOf(":feature:files", ":core:workspace"),
         // HXA-053: the QuickJS module hosts the `code.javascript.run` tool (descriptor +
@@ -335,7 +343,7 @@ subprojects {
                 }
             }
 
-            if (path == ":core:storage") {
+            if (path == ":infrastructure:storage") {
                 extensions.configure<LibraryExtension> {
                     ndkVersion = "28.2.13676358"
                     defaultConfig.externalNativeBuild.cmake { abiFilters("arm64-v8a", "x86_64") }
@@ -442,17 +450,32 @@ subprojects {
             // Compose is enabled module-locally (the app keeps its own wiring) and
             // androidx-webkit provides the API surface above the System WebView. androidTest
             // drives the hardened WebView on device (verification-matrix row HXA-060).
-            if (path == ":feature:conversation-input") {
-                // Composer state and receipts are compiled independently of app and storage.
-                // This module uses snapshot state and Saver, but declares no composables.
+            if (path in setOf(":feature:conversation", ":ui:shared")) {
+                // Presentation is compiled independently of app and durable storage.
+                pluginManager.apply("org.jetbrains.kotlin.plugin.compose")
+                extensions.configure<LibraryExtension> {
+                    buildFeatures { compose = true }
+                }
                 dependencies {
                     add("implementation", platform(composeBomDependency.get()))
                     add("implementation", composeRuntimeDependency)
                     add("implementation", composeRuntimeSaveableDependency.get())
-                    // Keep the standalone runtime graph on the app's pinned Android baseline.
+                    add("implementation", composeUiDependency)
+                    add("implementation", composeFoundationDependency.get())
+                    add("implementation", composeMaterial3Dependency.get())
+                    add("implementation", lifecycleComposeDependency.get())
+                    add("implementation", activityComposeDependency.get())
+                    // Keep standalone presentation graphs on the app's pinned Android baseline.
                     constraints.add("implementation", androidCoreKtxDependency.get())
                     add("implementation", kotlinxSerializationJsonDependency.get())
                     add("implementation", coroutinesCoreDependency.get())
+                    add("androidTestImplementation", androidTestCoreKtxDependency.get())
+                    add("androidTestImplementation", androidTestRunnerDependency.get())
+                    add("androidTestImplementation", androidTestJunitDependency.get())
+                    add("androidTestImplementation", platform(composeBomDependency.get()))
+                    add("androidTestImplementation", composeTestDependency.get())
+                    add("androidTestImplementation", espressoCoreDependency.get())
+                    add("debugImplementation", composeTestManifestDependency.get())
                 }
             }
             if (path == ":feature:browser") {

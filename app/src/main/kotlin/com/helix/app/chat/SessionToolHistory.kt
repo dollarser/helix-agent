@@ -189,7 +189,7 @@ internal object SessionToolHistory {
             null
         ) {
             require(
-                com.helix.app.application.security.ForbiddenContentGuard
+                com.helix.core.policy.ForbiddenContentGuard
                     .reasonFor(content.content) == null,
             ) {
                 "REFERENCE_CONTENT_BLOCKED"
@@ -247,7 +247,7 @@ internal object SessionToolHistory {
                     null
                 ) {
                     require(
-                        com.helix.app.application.security.ForbiddenContentGuard
+                        com.helix.core.policy.ForbiddenContentGuard
                             .reasonFor(it) == null,
                     )
                 }

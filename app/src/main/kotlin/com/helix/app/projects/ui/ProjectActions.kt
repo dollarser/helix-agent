@@ -10,6 +10,7 @@ import com.helix.app.R
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import com.helix.ui.shared.R as SharedR
 
 internal class ProjectActions(
     private val scope: CoroutineScope,
@@ -34,7 +35,7 @@ internal class ProjectActions(
                     when (failure.message) {
                         "PROJECT_SESSION_BUSY" -> R.string.project_busy
                         "PROJECT_CHANGED" -> R.string.project_changed
-                        else -> R.string.project_failed
+                        else -> SharedR.string.project_failed
                     }
             } finally {
                 busy = false

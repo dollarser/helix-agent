@@ -46,7 +46,7 @@ Deciders: Project owner（知识库后继续备忘/任务提醒）；实现 Agen
 
 ## Verification
 
-[HXA-309](../../development/tasks/HXA-309.md) 维护提醒范围，[HXA-313](../../development/tasks/HXA-313.md) 维护自然语言提案与确认边界的主机/当前授权设备及合成真实模型验证；accepted 不代表测试通过。
+[HXA-309](../../development/tasks/HXA-309.md) 维护提醒范围，[HXA-313](../../completion-records/HXA-313.md) 维护自然语言提案与确认边界的主机/当前授权设备及合成真实模型验证；accepted 不代表测试通过。
 
 ## Reconsider when
 

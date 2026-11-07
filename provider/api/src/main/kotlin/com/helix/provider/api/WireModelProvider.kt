@@ -98,6 +98,9 @@ public abstract class WireModelProvider(
                         headersFor(),
                         encoder.encode(request).toByteArray(Charsets.UTF_8),
                     )
+                } catch (_: com.helix.core.model.ImageReselectionRequiredException) {
+                    emit(ModelEvent.Error(ModelErrorCode.IMAGE_RESELECT_REQUIRED, false))
+                    return@flow
                 } catch (_: IllegalArgumentException) {
                     emit(
                         ModelEvent.Error(

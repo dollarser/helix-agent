@@ -25,9 +25,11 @@ import com.helix.app.R
 import com.helix.app.provider.ProviderRowUi
 import com.helix.app.provider.ProviderService
 import com.helix.app.ui.SettingsCheckbox
-import com.helix.app.ui.indicatedVerticalScroll
 import com.helix.provider.api.ProviderContextSettings
+import com.helix.ui.shared.indicatedVerticalScroll
 import kotlinx.coroutines.launch
+import com.helix.feature.conversation.R as ConversationR
+import com.helix.ui.shared.R as SharedR
 
 @Composable
 @Suppress("FunctionName")
@@ -106,7 +108,7 @@ internal fun ProviderContextEditor(
     val parsedRatio = ratio.toIntOrNull()
     AlertDialog(
         onDismissRequest = { if (!saving) onDismiss() },
-        title = { Text(stringResource(R.string.chat_context_title)) },
+        title = { Text(stringResource(ConversationR.string.chat_context_title)) },
         text = {
             Column(Modifier.indicatedVerticalScroll(rememberScrollState())) {
                 Box {
@@ -180,7 +182,7 @@ internal fun ProviderContextEditor(
                         modifier = Modifier.testTag("provider-context-retry"),
                         enabled = !loading && !saving,
                     ) {
-                        Text(stringResource(R.string.chat_retry))
+                        Text(stringResource(SharedR.string.chat_retry))
                     }
                 }
                 if (saveFailed) {
@@ -227,7 +229,7 @@ internal fun ProviderContextEditor(
         },
         dismissButton = {
             TextButton(onDismiss, Modifier.testTag("provider-context-close"), enabled = !saving) {
-                Text(stringResource(R.string.chat_context_close))
+                Text(stringResource(ConversationR.string.chat_context_close))
             }
         },
     )

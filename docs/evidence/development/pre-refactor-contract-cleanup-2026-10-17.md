@@ -1,7 +1,7 @@
 # 重构前契约清理与任务收敛
 
 Date: 2026-10-17
-Task: [HXA-303](../../development/tasks/HXA-303.md)
+Task: [HXA-303](../../completion-records/HXA-303.md)
 Status: 已完成授权范围；主机门禁通过，设备/真实服务 not requested
 
 ## 起点与范围
@@ -22,7 +22,7 @@ Status: 已完成授权范围；主机门禁通过，设备/真实服务 not req
 | 范围 | 实现与回归入口 |
 | --- | --- |
 | 有效预算 | [TurnBudgets](../../../core/model/src/main/kotlin/com/helix/core/model/TurnBudgets.kt)、[GoalBudgets](../../../core/model/src/main/kotlin/com/helix/core/model/GoalBudgets.kt)、[RunControlStore](../../../app/src/main/kotlin/com/helix/app/runcontrol/RunControlStore.kt)、[偏好回归](../../../app/src/test/kotlin/com/helix/app/runcontrol/RunControlStoreTest.kt)；其余构造调用和夹具同步 |
-| 当前存储基线 | [SessionRunControlEntity](../../../core/storage/src/main/kotlin/com/helix/core/storage/entity/SessionRunControlEntity.kt)、[Repository](../../../core/storage/src/main/kotlin/com/helix/core/storage/repository/SessionRunControlRepository.kt)、Room 导出 schema 及契约测试 |
+| 当前存储基线 | [SessionRunControlEntity](../../../infrastructure/storage/src/main/kotlin/com/helix/core/storage/entity/SessionRunControlEntity.kt)、[Repository](../../../infrastructure/storage/src/main/kotlin/com/helix/core/storage/repository/SessionRunControlRepository.kt)、Room 导出 schema 及契约测试 |
 | 插件配套声明 | [ToolDescriptor](../../../tools/framework/src/main/kotlin/com/helix/tools/framework/ToolDescriptor.kt)、[发布快照](../../../tools/framework/src/main/kotlin/com/helix/tools/framework/ToolDescriptorSnapshot.kt)、[工作集](../../../app/src/main/kotlin/com/helix/app/mcp/ToolDiscoveryWorkset.kt)；Mobile Use/Browser/Documents/PRoot Job 贡献方 |
 | 新反例 | [发现闭包](../../../app/src/test/kotlin/com/helix/app/mcp/ToolDiscoveryCompanionsTest.kt)、[发布及权限不变](../../../tools/framework/src/test/kotlin/com/helix/tools/framework/ToolDiscoveryContractTest.kt)，以及实际插件声明回归 |
 | 后续任务 | [Harness 第 23.7.4 节](../../architecture/harness-refactor-plan.md#2374-当前清理基线与替换验收)、286/287/288/291/293/294、状态与索引；Tools/Goal/Storage 原主题 ADR 及 Decision history |

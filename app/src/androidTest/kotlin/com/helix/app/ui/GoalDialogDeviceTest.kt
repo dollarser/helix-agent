@@ -12,6 +12,7 @@ import androidx.compose.ui.test.performTextReplacement
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.HelixApplication
+import com.helix.feature.conversation.application.ChatService
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Rule
@@ -85,7 +86,7 @@ class GoalDialogDeviceTest {
     }
 
     private fun editObjective(
-        service: com.helix.app.chat.ChatService,
+        service: ChatService,
         storage: com.helix.core.storage.HelixStorage,
         id: String,
     ) {

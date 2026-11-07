@@ -22,6 +22,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
+import com.helix.ui.shared.R as SharedR
 
 /** Presentation only: opening a card never changes an authorization rule. */
 @Composable
@@ -33,7 +34,7 @@ internal fun SettingsDisclosure(
     content: @Composable () -> Unit,
 ) {
     var expanded by rememberSaveable { mutableStateOf(false) }
-    val state = stringResource(if (expanded) R.string.nav_expanded else R.string.nav_collapsed)
+    val state = stringResource(if (expanded) SharedR.string.nav_expanded else SharedR.string.nav_collapsed)
     SettingsGroup {
         Row(
             Modifier

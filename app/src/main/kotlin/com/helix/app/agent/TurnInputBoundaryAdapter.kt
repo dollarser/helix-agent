@@ -21,7 +21,7 @@ internal class TurnInputBoundaryAdapter(
         var remaining = 32
         while (remaining-- > 0) {
             val input = delivery.prepareSteering(sessionId, turnId) ?: break
-            updated = coordinator.appendSteeringBeforeRequest(input.toRoundInput()) || updated
+            updated = coordinator.appendSteeringBeforeRequest(input) || updated
         }
         return updated
     }
@@ -34,7 +34,7 @@ internal class TurnInputBoundaryAdapter(
         var boundary: ResponseInputBoundary
         do {
             val steering = delivery.prepareSteering(sessionId, turnId)
-            boundary = coordinator.completeResponseOrContinue(steering?.toRoundInput(), idGenerator())
+            boundary = coordinator.completeResponseOrContinue(steering, idGenerator())
             if (boundary == ResponseInputBoundary.RECHECK) yield()
         } while (boundary == ResponseInputBoundary.RECHECK)
         return boundary

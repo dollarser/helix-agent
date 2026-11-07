@@ -25,11 +25,15 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
-import com.helix.app.chat.ChatService
 import com.helix.core.agent.RunControlConfig
 import com.helix.core.model.AgentMode
+import com.helix.feature.conversation.application.ChatService
+import com.helix.feature.conversation.presentation.ModeControlSection
+import com.helix.feature.conversation.presentation.modeLabel
+import com.helix.ui.shared.indicatedVerticalScroll
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
+import com.helix.ui.shared.R as SharedR
 
 /** Uses the same bound, awaited session transition as composer commands. */
 @Composable
@@ -86,14 +90,14 @@ internal fun SessionModeDialog(
                 }
                 if (failed) {
                     Text(
-                        stringResource(R.string.common_operation_failed),
+                        stringResource(SharedR.string.common_operation_failed),
                         color = MaterialTheme.colorScheme.error,
                     )
                 }
             }
         },
         confirmButton = {
-            TextButton(onDismiss, enabled = !saving) { Text(stringResource(R.string.chat_details_close)) }
+            TextButton(onDismiss, enabled = !saving) { Text(stringResource(SharedR.string.chat_details_close)) }
         },
     )
 }

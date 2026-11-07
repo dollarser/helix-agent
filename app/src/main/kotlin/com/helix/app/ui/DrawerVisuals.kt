@@ -22,6 +22,7 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
+import com.helix.ui.shared.R as SharedR
 
 /** Drawer uses the application's shared palette and typography, with a quiet navigation surface. */
 @Composable
@@ -73,9 +74,9 @@ internal fun drawerIcon(route: String): Int =
         "files" -> R.drawable.ic_files_folder
         "knowledge" -> R.drawable.ic_drawer_book
         "reminders" -> R.drawable.ic_drawer_bell
-        "tasks" -> R.drawable.ic_drawer_tasks
-        "artifacts" -> R.drawable.ic_files_document
-        "browser" -> R.drawable.ic_drawer_browser
+        "tasks" -> SharedR.drawable.ic_drawer_tasks
+        "artifacts" -> SharedR.drawable.ic_files_document
+        "browser" -> SharedR.drawable.ic_drawer_browser
         "terminal" -> R.drawable.ic_drawer_terminal
         else -> R.drawable.ic_drawer_work
     }

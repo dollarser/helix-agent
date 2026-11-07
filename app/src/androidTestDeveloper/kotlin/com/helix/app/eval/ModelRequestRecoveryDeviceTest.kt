@@ -49,6 +49,7 @@ import java.io.IOException
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Duration.Companion.seconds
+import com.helix.feature.conversation.R as ConversationR
 
 /** Same 12 settled calls → failing model request shape as the reported task. No third-party actions/network. */
 class ModelRequestRecoveryDeviceTest {
@@ -307,7 +308,7 @@ class ModelRequestRecoveryDeviceTest {
                         hasTestTag("recovery-completed-${turn.id}"),
                     )
                     compose.onNodeWithTag("recovery-completed-${turn.id}").assertTextContains(
-                        compose.activity.getString(com.helix.app.R.string.recovery_completed, 12),
+                        compose.activity.getString(ConversationR.string.recovery_completed, 12),
                     )
                     compose.onNodeWithTag("recovery-next-${turn.id}").assertDoesNotExist()
                 }
@@ -332,7 +333,7 @@ class ModelRequestRecoveryDeviceTest {
                         File(directory, "$outcome-export-stage"),
                         appVersion,
                         com.helix.core.storage.export.SessionExportSanitizer { text, _ ->
-                            com.helix.app.application.diagnostics.DiagnosticRedaction
+                            com.helix.core.policy.DiagnosticRedaction
                                 .redact(text)
                         },
                         checkCancelled,

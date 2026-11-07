@@ -34,6 +34,7 @@ import com.helix.core.storage.knowledge.KnowledgeNote
 import com.helix.core.storage.knowledge.KnowledgeNoteSource
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
+import com.helix.ui.shared.R as SharedR
 
 @Composable
 @Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod", "LongParameterList", "TooGenericExceptionCaught")
@@ -208,7 +209,7 @@ internal fun KnowledgeNoteEditor(
                         bodyValue = TextFieldValue(note.body)
                         completeLeave()
                     }) {
-                        Text(stringResource(R.string.common_discard_edit))
+                        Text(stringResource(SharedR.string.common_discard_edit))
                     }
                     TextButton(
                         onClick = { cancelLeave() },
@@ -235,7 +236,7 @@ internal fun KnowledgeNoteEditor(
         }
     }
     if (management) {
-        com.helix.app.ui.ConversationSheet(stringResource(R.string.knowledge_more), "knowledge-note-more", {
+        com.helix.ui.shared.SharedSheet(stringResource(R.string.knowledge_more), "knowledge-note-more", {
             management = false
         }) {
             KnowledgeNoteManagement(note, service, dirty)
@@ -259,7 +260,7 @@ internal fun KnowledgeNoteEditor(
         }
     }
     if (tools) {
-        com.helix.app.ui.ConversationSheet(
+        com.helix.ui.shared.SharedSheet(
             stringResource(
                 R.string.knowledge_model_tools,
             ),
@@ -270,7 +271,7 @@ internal fun KnowledgeNoteEditor(
         ) {
             Text(stringResource(R.string.knowledge_generated_unreviewed))
             SelectionContainer {
-                com.helix.app.ui
+                com.helix.ui.shared
                     .MarkdownText(note.generatedDraft)
             }
             TextButton(onClick = {
@@ -283,7 +284,7 @@ internal fun KnowledgeNoteEditor(
         }
     }
     if (showSources) {
-        com.helix.app.ui.ConversationSheet(
+        com.helix.ui.shared.SharedSheet(
             stringResource(
                 R.string.knowledge_source_details,
             ),
@@ -387,7 +388,7 @@ internal fun KnowledgeNoteEditor(
                 }
                 item {
                     SelectionContainer {
-                        com.helix.app.ui.MarkdownText(
+                        com.helix.ui.shared.MarkdownText(
                             body.ifBlank { stringResource(R.string.knowledge_note_blank) },
                             Modifier.fillMaxWidth().testTag("knowledge-note-preview"),
                         )

@@ -14,13 +14,13 @@ import com.helix.app.audit.AuditLogService
 import com.helix.app.automation.AutomationModule
 import com.helix.app.capability.StorageCapabilityGrantRecorder
 import com.helix.app.capability.SystemCapabilityResolver
-import com.helix.app.chat.AttachmentStagingSupport
-import com.helix.app.chat.ChatService
 import com.helix.app.diagnostics.DiagnosticReportService
 import com.helix.app.diagnostics.ProcessEvidenceStore
 import com.helix.app.files.FileManagerService
 import com.helix.app.foreground.AndroidForegroundServiceLauncher
 import com.helix.app.foreground.DataSyncForegroundController
+import com.helix.app.infrastructure.chat.AttachmentStagingSupport
+import com.helix.app.infrastructure.conversation.LineConversationLaunchStore
 import com.helix.app.internal.PrefsLineStore
 import com.helix.app.language.AppLanguageStore
 import com.helix.app.mcp.McpAppService
@@ -46,6 +46,7 @@ import com.helix.app.storage.StorageUsageService
 import com.helix.app.tool.ApprovalCardSinkHolder
 import com.helix.app.tool.SessionToolEffectClassifier
 import com.helix.app.tool.ToolPipeline
+import com.helix.app.vision.ToolVisionConsent
 import com.helix.core.agent.AgentRuntime
 import com.helix.core.model.IdGenerator
 import com.helix.core.model.RandomIdGenerator
@@ -68,6 +69,7 @@ import com.helix.extensions.skills.SkillRepository
 import com.helix.extensions.skills.SkillTools
 import com.helix.feature.browser.BrowserController
 import com.helix.feature.browser.BrowserToolBridgeImpl
+import com.helix.feature.conversation.application.ChatService
 import com.helix.feature.files.AttachmentImporter
 import com.helix.feature.files.SafGrantStore
 import com.helix.feature.files.SafTreeScopeService
@@ -291,7 +293,7 @@ internal class DefaultAppContainer(
     private val dataSyncController =
         DataSyncForegroundController(dataSyncLauncher) {
             chatService.stopContinuousGoals("FGS_START_REJECTED")
-            chatService.backgroundTasks.value.filter { it.running && it.goalId == null }.forEach {
+            taskDashboard.tasks.value.filter { it.running && it.goalId == null }.forEach {
                 chatService.stopTask(it.id, systemReason = "FGS_START_REJECTED")
             }
         }
@@ -599,7 +601,7 @@ internal class DefaultAppContainer(
             java.io.File(context.cacheDir, "tool-image-preparation"),
             appClock,
             providerService,
-        ) { chatService.toolVisionConsent }
+        ) { toolVisionConsent }
     }
 
     init {
@@ -618,7 +620,7 @@ internal class DefaultAppContainer(
             .register(
                 toolRegistry,
                 executionOwnership::metadataExecutor,
-            ) { chatService.executeGoalTool(it) }
+            ) { conversation.goalRuntime.executeGoalTool(it) }
         com.helix.app.goal.GoalReportTool
             .register(toolRegistry, storage, executionOwnership::metadataExecutor)
         // HX2-05: `plan.submit` — Plan mode's structured termination tool; persists the
@@ -648,10 +650,10 @@ internal class DefaultAppContainer(
                 com.helix.app.plugin
                     .PluginTaskHostAdapter(
                         context,
-                        { session, turn -> chatService.toolVisionConsent.hasPending(session, turn) },
+                        { session, turn -> toolVisionConsent.hasPending(session, turn) },
                         com.helix.app.plugin.PluginTaskAccess(
                             task = { identity ->
-                                chatService.backgroundTasks.value
+                                taskDashboard.tasks.value
                                     .singleOrNull {
                                         it.id == identity.turnId && it.sessionId == identity.conversationId
                                     }?.let { task ->
@@ -740,7 +742,7 @@ internal class DefaultAppContainer(
                     args,
                     cancel,
                     ->
-                    chatService.dispatchScriptToolCall(parent, id, tool, args, cancel)
+                    toolExecution.dispatchScriptToolCall(parent, id, tool, args, cancel)
                 },
                 { job, pid, uid -> ProotToolModule.scriptJobPeer(context, job, pid, uid) },
                 { job -> ProotToolModule.scriptJobActive(context, job) },
@@ -1076,16 +1078,13 @@ internal class DefaultAppContainer(
             providerService = providerService,
             profileStore = profileStore,
             runControlStore = runControlStore,
-            conversationLaunchStore =
-                com.helix.app.chat
-                    .ConversationLaunchStore(lineStore),
+            conversationLaunchStore = LineConversationLaunchStore(lineStore),
             lanScopes = lanScopeStore::current,
             clock = appClock,
             idGenerator = { idGenerator.next() },
             turnEngine = turnEngine,
             toolPipeline = toolPipeline,
             attachmentStaging = attachmentStaging,
-            visionSessionBinder = visionImageSource::bindSession,
             mobileScreenScope = { id ->
                 if (storage.sessions.find(id) != null) {
                     pluginRegistry
@@ -1129,6 +1128,11 @@ internal class DefaultAppContainer(
         )
 
     override val chatService: ChatService get() = conversation.chatService
+    override val conversationDetails get() = conversation.conversationDetails
+    override val conversationExperts get() = conversation.conversationExperts
+    override val taskDashboard get() = conversation.taskDashboard
+    override val toolExecution: com.helix.app.application.tools.ToolExecution get() = conversation.toolExecution
+    override val toolVisionConsent: ToolVisionConsent get() = conversation.toolVisionConsent
 
     // Production, UI and background producers share the exact same runtime and Engine.
     override val agentRuntime: AgentRuntime get() = conversation.agentRuntime
@@ -1164,7 +1168,7 @@ internal class DefaultAppContainer(
         if (!started.compareAndSet(false, true)) return
         val chat = chatService
         approvalCardSink.sink = { approvalId, request ->
-            val (descriptor, task) = chat.onApprovalCard(approvalId, request)
+            val (descriptor, task) = toolExecution.onApprovalCard(approvalId, request)
             pluginRegistry.presentApproval(descriptor, task)
         }
         appScope.launch {

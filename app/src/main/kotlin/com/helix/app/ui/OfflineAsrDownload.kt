@@ -24,6 +24,7 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import com.helix.app.R
 import com.helix.app.account.AccountStatus
 import com.helix.app.voice.OfflineAsrModel
+import com.helix.ui.shared.R as SharedR
 
 /** Download consent precedes microphone permission; finishing a download never starts recording. */
 @Composable
@@ -173,7 +174,7 @@ internal fun OfflineAsrModelPanel(
             }
             if (onCancel != null) {
                 TextButton(onCancel, Modifier.testTag("offline-asr-close")) {
-                    Text(stringResource(R.string.common_cancel))
+                    Text(stringResource(SharedR.string.common_cancel))
                 }
             }
         }

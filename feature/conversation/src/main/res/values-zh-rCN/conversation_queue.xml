@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tool_state_awaiting_approval">待审批</string>
+    <string name="tool_state_cancelled">已取消</string>
+    <string name="tool_state_completed">调用完成</string>
+    <string name="tool_state_denied">已拒绝</string>
+    <string name="tool_state_failed">工具执行失败</string>
+    <string name="tool_state_interrupted">已中断（待恢复）</string>
+    <string name="tool_state_needs_review">待复核</string>
+    <string name="tool_state_processing">处理中</string>
+    <string name="tool_state_running">执行中</string>
+    <string name="tool_state_unknown">未知状态</string>
+    <string name="tool_summary_cancelled_before_start">启动前取消（无副作用）</string>
+    <string name="session_input_load_failed">无法加载排队输入，已有编辑已保留。</string>
+    <string name="session_input_revision_stale">此项已在其他位置更新，请刷新后重新检查。</string>
+    <string name="session_input_action_failed">操作失败，已保留保存的输入。</string>
+    <string name="session_input_edit">编辑</string>
+    <string name="session_input_save">保存</string>
+    <string name="session_input_delete">删除</string>
+    <string name="session_input_send_now">立即发送</string>
+    <string name="session_input_attachment_message">附件或引用消息</string>
+</resources>

@@ -5,8 +5,6 @@
     <string name="subscription_setup_models">请选择会话中要使用的模型。</string>
     <string name="subscription_setup_ready">可在会话中选择这些模型。</string>
     <string name="subscription_setup_test_action">测试连接</string>
-    <string name="model_picker_setup_action">配置此来源</string>
-    <string name="model_picker_needs_setup">%1$s · 尚未就绪</string>
     <string name="about_helix_title">关于 Helix</string>
     <string name="about_helix_version">版本：%1$s</string>
     <string name="about_helix_project">项目主页和源码</string>

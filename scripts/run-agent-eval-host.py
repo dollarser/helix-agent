@@ -13,9 +13,27 @@ from agent_eval import (aggregate, artifact, digest, fingerprint, markdown, norm
                         read_json, source_manifest, write_json)
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCES = ['app', 'core', 'provider', 'tools', 'extensions', 'runtime', 'feature', 'gradle', 'buildSrc',
+SOURCES = ['app', 'core', 'infrastructure', 'ui', 'provider', 'tools', 'extensions', 'runtime', 'feature', 'gradle', 'buildSrc',
            'build.gradle.kts', 'settings.gradle.kts', 'gradle.properties', 'gradlew', 'scripts/agent_eval.py',
            'scripts/run-agent-eval.py', 'scripts/run-agent-eval-host.py', 'evals/trajectory']
+# Module paths and runtime package identities are independent, especially after
+# storage relocation. Keep task, package and JUnit variant in one explicit map.
+HOST_TEST_MODULES = {
+    'app': ('com.helix.app.', ':app:testConsumerDebugUnitTest', 'testConsumerDebugUnitTest'),
+    'infrastructure/storage': ('com.helix.core.storage.', ':infrastructure:storage:testDebugUnitTest', 'testDebugUnitTest'),
+    'core/agent': ('com.helix.core.agent.', ':core:agent:test', 'test'),
+    'core/workspace': ('com.helix.core.workspace.', ':core:workspace:test', 'test'),
+}
+
+
+def host_test_groups(classes):
+    groups = {module: [] for module in HOST_TEST_MODULES}
+    for name in sorted(set(classes)):
+        owners = [module for module, (package, _, _) in HOST_TEST_MODULES.items() if name.startswith(package)]
+        if len(owners) != 1:
+            raise ValueError('host verifier must have exactly one module: ' + name)
+        groups[owners[0]].append(name)
+    return groups
 
 
 def main():
@@ -30,10 +48,9 @@ def main():
     source = source_manifest(ROOT, SOURCES)
     write_json(output / 'source-manifest.json', source)
     classes = sorted({ref['class'] for case in manifest['cases'] for ref in case['tests']})
-    modules = {'app': ':app:testConsumerDebugUnitTest', 'core/storage': ':core:storage:testDebugUnitTest', 'core/agent': ':core:agent:test', 'core/workspace': ':core:workspace:test'}
-    groups = {module: [name for name in classes if name.startswith('com.helix.' + module.replace('/', '.') + '.')] for module in modules}
+    groups = host_test_groups(classes)
     command = [str(ROOT / 'gradlew')]
-    for module, task in modules.items():
+    for module, (_, task, _) in HOST_TEST_MODULES.items():
         if not groups[module]:
             continue
         command.append(task)
@@ -45,7 +62,7 @@ def main():
         result = subprocess.run(command, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT)
     observed = []
     for module, names in groups.items():
-        variant = 'testConsumerDebugUnitTest' if module == 'app' else 'testDebugUnitTest' if module == 'core/storage' else 'test'
+        variant = HOST_TEST_MODULES[module][2]
         for name in names:
             path = ROOT / module / 'build/test-results' / variant / ('TEST-' + name + '.xml')
             if path.exists() and path.stat().st_mtime >= started:

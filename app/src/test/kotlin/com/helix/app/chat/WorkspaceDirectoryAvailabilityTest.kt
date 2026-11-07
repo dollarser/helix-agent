@@ -1,5 +1,6 @@
 package com.helix.app.chat
 
+import com.helix.app.infrastructure.conversation.availableWorkspaceDirectory
 import com.helix.core.workspace.ScopeNotAvailable
 import kotlinx.coroutines.CancellationException
 import org.junit.Assert.assertEquals

@@ -120,13 +120,13 @@ class DetachedGoalRecoveryDeviceTest {
     }
 
     private fun collect(job: BackgroundJobUi) {
-        val chat = app.appContainer.chatService
-        chat.performBackgroundJobAction(job, BackgroundJobAction.COLLECT)
+        val dashboard = app.appContainer.taskDashboard
+        dashboard.performBackgroundJobAction(job, BackgroundJobAction.COLLECT)
         compose.waitUntil(30_000) {
-            val action = chat.backgroundJobAction.value
+            val action = dashboard.jobActionState.value
             action?.callId == job.callId && !action.busy
         }
-        assertEquals(BackgroundJobActionOutcome.SETTLED, chat.backgroundJobAction.value?.outcome)
+        assertEquals(BackgroundJobActionOutcome.SETTLED, dashboard.jobActionState.value?.outcome)
     }
 
     private fun verifyOriginalResult(

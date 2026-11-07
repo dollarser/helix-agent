@@ -25,12 +25,16 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.R
-import com.helix.app.approval.ApprovalCardState
-import com.helix.app.approval.ApprovalCardUi
 import com.helix.app.language.AppLanguage
 import com.helix.app.language.AppLanguageStore
 import com.helix.core.model.SafetyProfile
 import com.helix.core.model.ToolOperationClass
+import com.helix.feature.conversation.presentation.ApprovalCard
+import com.helix.feature.conversation.presentation.ApprovalCardState
+import com.helix.feature.conversation.presentation.ApprovalCardUi
+import com.helix.feature.conversation.presentation.ConversationIntents
+import com.helix.feature.conversation.presentation.ToolTimelineItem
+import com.helix.feature.conversation.presentation.ToolTimelineRow
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -166,17 +170,16 @@ private fun ApprovalLayoutContent(
 ) {
     if (inTimeline) {
         ToolTimelineItem(
-            com.helix.app.chat
-                .ToolTimelineRow(
-                    "turn",
-                    "call",
-                    "write",
-                    "{}",
-                    "待审批",
-                    null,
-                    card,
-                    modelIntent = "修改发布配置",
-                ),
+            ToolTimelineRow(
+                "turn",
+                "call",
+                "write",
+                "{}",
+                "待审批",
+                null,
+                card,
+                modelIntent = "修改发布配置",
+            ),
             ConversationIntents(
                 onSend = {},
                 onStop = {},

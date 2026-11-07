@@ -272,7 +272,7 @@ internal class KnowledgeSemanticService(
             }
         return document?.takeIf {
             it.text.isNotBlank() && it.text.length <= 200_000 &&
-                com.helix.app.application.security.ForbiddenContentGuard
+                com.helix.core.policy.ForbiddenContentGuard
                     .reasonFor(it.text) == null
         }
     }

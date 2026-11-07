@@ -4,7 +4,7 @@
 
 日期：2026-09-18。本记录收口 HXA-191 两部分：**深色主题**（本轮，worktree `Helix-theme-191`，分支 `codex/hxa-191-dark-theme`）+ **会话搜索**（上一轮，见[切片证据](hxa-191-session-search-2026-09-18.md)）。两部分均交付并本地验收；不代表正式签名发行或真机长稳/OEM 通过。
 
-决策记录：遵循任务范围（`docs/development/tasks/HXA-191.md`）——主题与搜索均为**应用能力**，不新增跨会话搜索 Tool、不把命中注入当前模型上下文、不因查询获得其他会话 Agent 权限，不发起模型请求。深色主题取「**统一跟随系统**」为第一版完整方案（**复审纠正**：material3 1.4 裸 `MaterialTheme {}` **并不**跟随系统、是固定浅色，故本轮**显式接线** `Theme.kt` 的 `HelixTheme`——两个组合根按 `isSystemInDarkTheme()` 选 dark/light——并补齐此前**硬编码为浅色**的 Android 窗口侧（`values-night` 平台主题）），**不新增手动主题选择器**（避免把范围扩到共享设置/持久化）、**不强制改写外部网页配色**。会话搜索沿用已合并的只读 `SessionSearchRepository`（**无第二会话状态源**、**无 schema 变更**）。无新增执行域/授权/凭据/二进制版本架构决定。
+决策记录：遵循任务范围（`docs/completion-records/HXA-191.md`）——主题与搜索均为**应用能力**，不新增跨会话搜索 Tool、不把命中注入当前模型上下文、不因查询获得其他会话 Agent 权限，不发起模型请求。深色主题取「**统一跟随系统**」为第一版完整方案（**复审纠正**：material3 1.4 裸 `MaterialTheme {}` **并不**跟随系统、是固定浅色，故本轮**显式接线** `Theme.kt` 的 `HelixTheme`——两个组合根按 `isSystemInDarkTheme()` 选 dark/light——并补齐此前**硬编码为浅色**的 Android 窗口侧（`values-night` 平台主题）），**不新增手动主题选择器**（避免把范围扩到共享设置/持久化）、**不强制改写外部网页配色**。会话搜索沿用已合并的只读 `SessionSearchRepository`（**无第二会话状态源**、**无 schema 变更**）。无新增执行域/授权/凭据/二进制版本架构决定。
 
 ## 交付
 

@@ -37,10 +37,10 @@ import com.helix.app.AppContainer
 import com.helix.app.R
 import com.helix.app.plugin.PluginService
 import com.helix.app.proot.ProotToolModule
-import com.helix.app.ui.IndicatedLazyColumn
 import com.helix.core.model.Capability
 import com.helix.core.policy.CapabilityCenter
 import com.helix.core.policy.GrantState
+import com.helix.ui.shared.IndicatedLazyColumn
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 

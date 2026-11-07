@@ -53,7 +53,7 @@ class BackgroundDisplayDeviceTest {
         val callId = "$session-${++sequence}"
         if (name == "ui.gesture" && InstrumentationRegistry.getArguments().getString("helixInFlight") == "true") {
             // The crash case must include the production call journal, not only Dispatcher audit events.
-            return container.chatService.dispatchToolCall(callId, turn, name, args.toString())
+            return container.toolExecution.dispatchToolCall(callId, turn, name, args.toString())
         }
         val descriptor = requireNotNull(container.toolPipeline.resolveLatest(name))
         return container.toolPipeline.dispatcher.dispatch(
@@ -137,7 +137,7 @@ class BackgroundDisplayDeviceTest {
         report("BACKGROUND_VERTICAL_SCROLL=$before->$after")
     }
 
-    private fun verifyHighResolutionPreview(value: com.helix.app.chat.DisplayExecutionUi) {
+    private fun verifyHighResolutionPreview(value: com.helix.feature.conversation.presentation.DisplayExecutionUi) {
         val frame = awaitPreview(value, 720)
         assertEquals(720, frame.width)
         assertEquals(1280, frame.height)
@@ -145,7 +145,7 @@ class BackgroundDisplayDeviceTest {
     }
 
     private fun awaitPreview(
-        value: com.helix.app.chat.DisplayExecutionUi,
+        value: com.helix.feature.conversation.presentation.DisplayExecutionUi,
         width: Int,
     ): android.graphics.Bitmap {
         var frame =
@@ -161,7 +161,7 @@ class BackgroundDisplayDeviceTest {
         return requireNotNull(frame)
     }
 
-    private fun verifyPreviewPageChanges(value: com.helix.app.chat.DisplayExecutionUi) {
+    private fun verifyPreviewPageChanges(value: com.helix.feature.conversation.presentation.DisplayExecutionUi) {
         repeat(3) { cycle ->
             awaitStablePreviewWindow()
             output(
@@ -287,7 +287,10 @@ class BackgroundDisplayDeviceTest {
                     it.sessionId == session &&
                         it.turnId == turn
                 }
-            assertEquals(com.helix.app.chat.DisplayExecutionState.ACTIVE, activePresentation.state)
+            assertEquals(
+                com.helix.feature.conversation.presentation.DisplayExecutionState.ACTIVE,
+                activePresentation.state,
+            )
             assertEquals("com.helix.agent.developer.test", activePresentation.lastObservedPackage)
             val preview = awaitPreview(activePresentation, 240)
             assertEquals(240, preview.width)
@@ -367,8 +370,8 @@ class BackgroundDisplayDeviceTest {
             val presentationDeadline = SystemClock.elapsedRealtime() + 5000
             while (hostPresentation()?.state !in
                 setOf(
-                    com.helix.app.chat.DisplayExecutionState.RELEASED,
-                    com.helix.app.chat.DisplayExecutionState.CONNECTION_LOST,
+                    com.helix.feature.conversation.presentation.DisplayExecutionState.RELEASED,
+                    com.helix.feature.conversation.presentation.DisplayExecutionState.CONNECTION_LOST,
                 ) &&
                 SystemClock.elapsedRealtime() < presentationDeadline
             ) {
@@ -382,9 +385,9 @@ class BackgroundDisplayDeviceTest {
                     )
             val expected =
                 if (disconnected) {
-                    com.helix.app.chat.DisplayExecutionState.CONNECTION_LOST
+                    com.helix.feature.conversation.presentation.DisplayExecutionState.CONNECTION_LOST
                 } else {
-                    com.helix.app.chat.DisplayExecutionState.RELEASED
+                    com.helix.feature.conversation.presentation.DisplayExecutionState.RELEASED
                 }
             assertEquals(expected, requireNotNull(hostPresentation()).state)
             report("BACKGROUND_RELEASED=$displayId;dispatches=$sequence;HOST_PRESENTATION=$expected")
@@ -499,7 +502,7 @@ class BackgroundDisplayDeviceTest {
 
     private fun verifyCrossTurnRetention(
         displayId: Int,
-        activePresentation: com.helix.app.chat.DisplayExecutionUi,
+        activePresentation: com.helix.feature.conversation.presentation.DisplayExecutionUi,
         fixturePackage: String,
     ) {
         if (InstrumentationRegistry.getArguments().getString("helixDisconnect") == "true") return
@@ -922,7 +925,7 @@ class BackgroundDisplayDeviceTest {
         fun disconnected() =
             container.chatService.displayExecutions.value.any {
                 it.sessionId == session && it.turnId == turn &&
-                    it.state == com.helix.app.chat.DisplayExecutionState.CONNECTION_LOST
+                    it.state == com.helix.feature.conversation.presentation.DisplayExecutionState.CONNECTION_LOST
             }
         while (!disconnected() &&
             SystemClock.elapsedRealtime() < deadline

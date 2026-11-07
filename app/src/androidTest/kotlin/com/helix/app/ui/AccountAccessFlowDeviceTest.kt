@@ -24,7 +24,8 @@ import com.helix.app.account.AccountSession
 import com.helix.app.account.AccountStatus
 import com.helix.app.account.AccountTokenStorage
 import com.helix.app.account.AccountTokens
-import com.helix.app.chat.SessionModelSelectionResult
+import com.helix.feature.conversation.presentation.ComposerModelMenu
+import com.helix.feature.conversation.presentation.SessionModelSelectionResult
 import com.helix.provider.api.wire.WireBody
 import com.helix.provider.api.wire.WireClient
 import com.helix.provider.api.wire.WireRequest

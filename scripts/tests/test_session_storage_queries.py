@@ -9,8 +9,8 @@ import sqlite3
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
-STORAGE = ROOT / "core/storage/src/main/kotlin/com/helix/core/storage"
-SCHEMA = ROOT / "core/storage/src/androidTest/assets/com.helix.core.storage.HelixDatabase/1.json"
+STORAGE = ROOT / "infrastructure/storage/src/main/kotlin/com/helix/core/storage"
+SCHEMA = ROOT / "infrastructure/storage/src/androidTest/assets/com.helix.core.storage.HelixDatabase/1.json"
 
 
 def query(dao, method):

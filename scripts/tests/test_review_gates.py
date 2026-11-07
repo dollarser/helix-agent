@@ -23,13 +23,13 @@ claims = module("adr-status-claims")
 
 
 class ReviewGatesTest(unittest.TestCase):
-    def test_docs_gate_checks_all_tracked_markdown_and_ignores_local_notes(self):
+    def test_docs_gate_checks_worktree_markdown_including_new_and_staged_files(self):
         source = Path(__file__).resolve().parents[2]
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             # Reuse maintained documentation read-only; only the new entry links are fixtures.
             for path in source.iterdir():
-                if path.name not in {".git", ".gitignore", ".gitattributes", ".agents", "scripts", "reviews", "evals"}:
+                if path.name not in {".git", ".gitignore", ".gitattributes", ".agents", "scripts", "reviews", "evals", "build"}:
                     (root / path.name).symlink_to(path, target_is_directory=path.is_dir())
             scripts = root / "scripts"
             scripts.mkdir()
@@ -50,26 +50,40 @@ class ReviewGatesTest(unittest.TestCase):
                 path.write_text("[Project](" + os.path.relpath(root / "README.md", path.parent) + ")\n")
             subprocess.run(["git", "-C", str(root), "add", "--",
                             *(str(path.relative_to(root)) for path in entries)], check=True)
-            # Untracked and ignored notes must not become maintained docs by accident.
-            (root / "untracked.md").write_text("[Broken](missing.md)\n")
-            (root / ".gitignore").write_text("local/\n")
-            (root / "local").mkdir()
-            (root / "local/ignored.md").write_text("[Broken](missing.md)\n")
+            # New maintained documents are checked before staging, while ignored
+            # build outputs and local historical archives remain outside the gate.
+            untracked = root / "new docs/new guide.md"
+            untracked.parent.mkdir()
+            untracked.write_text("[Project](../README.md)\n")
+            fixture_links = ["/" + path.name for path in root.iterdir() if path.is_symlink()]
+            (root / ".gitignore").write_text("\n".join([*fixture_links, "local/", "build/"]) + "\n")
+            for relative in ("local/ignored.md", "build/ignored.md"):
+                path = root / relative
+                path.parent.mkdir()
+                path.write_text("[Broken](missing.md)\n")
             valid = run()
             self.assertEqual(0, valid.returncode, valid.stderr)
-            self.assertIn("6 Markdown files", valid.stdout)
+            self.assertIn("7 Markdown files", valid.stdout)
+            untracked.write_text("[Broken](missing.md)\n")
+            self.assertIn("new docs/new guide.md: has an unresolved relative link", run().stderr)
+            untracked.write_text("[Project](../README.md)\n")
+            subprocess.run(["git", "-C", str(root), "add", "--", "new docs/new guide.md"], check=True)
+            self.assertIn("7 Markdown files", run().stdout)
             entry.write_text("[Local](../local/ignored.md)\n")
             ignored_link = run()
             self.assertNotEqual(0, ignored_link.returncode)
             self.assertIn("links to an ignored local artifact", ignored_link.stderr)
-            for path in entries:
+            # These valid contents were staged, but a later invalid worktree edit
+            # must still fail. No git-show/index overlay may replace the worktree.
+            for path in [*entries, untracked]:
                 path.write_text("[Broken](missing.md)\n")
             invalid = run()
             self.assertNotEqual(0, invalid.returncode)
-            for path in entries:
+            for path in [*entries, untracked]:
                 self.assertIn(str(path.relative_to(root)) + ": has an unresolved relative link", invalid.stderr)
-            self.assertNotIn("untracked.md:", invalid.stderr)
             self.assertNotIn("local/ignored.md:", invalid.stderr)
+            self.assertNotIn("build/ignored.md:", invalid.stderr)
+            self.assertNotIn("Traceback", invalid.stderr)
             # A deleted tracked file is not a reader crash; other broken links still fail.
             entries[-1].unlink()
             self.assertNotIn("Traceback", run().stderr)
@@ -133,9 +147,14 @@ class ReviewGatesTest(unittest.TestCase):
             scripts.mkdir(parents=True)
             checker = (Path(__file__).resolve().parents[1] / "check-i18n.sh").read_text()
             (scripts / "check-i18n.sh").write_text(checker)
-            chat = root / "app/src/main/kotlin/com/helix/app/chat/ChatService.kt"
-            chat.parent.mkdir(parents=True)
-            chat.write_text("// no diagnostic sink in this fixture\n")
+            for display in (
+                "feature/conversation/src/main/kotlin/com/helix/feature/conversation/presentation/ChatToolPresentation.kt",
+                "feature/conversation/src/main/kotlin/com/helix/feature/conversation/presentation/ChatToolTimeline.kt",
+                "app/src/main/kotlin/com/helix/app/infrastructure/conversation/ConversationToolDisplay.kt",
+            ):
+                path = root / display
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("// Synthetic empty tool display fixture\n")
             resources = root / "app/src/main/res"
             for locale in ("values", "values-en", "values-zh-rCN"):
                 (resources / locale).mkdir(parents=True)

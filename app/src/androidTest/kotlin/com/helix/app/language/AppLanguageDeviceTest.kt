@@ -23,6 +23,7 @@ import org.junit.Assume.assumeTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import com.helix.feature.conversation.R as ConversationR
 
 /**
  * HXA-069 device gate: the app UI language (跟随系统 / 简体中文 / English) switches the app's
@@ -74,7 +75,10 @@ class AppLanguageDeviceTest {
         val en = AppLanguageStore.wrapForLocale(appContext, AppLanguageStore.localeListFor(AppLanguage.EN))
         assertEquals("设置", zh.getString(R.string.settings_title))
         assertEquals("Settings", en.getString(R.string.settings_title))
-        assertNotEquals(zh.getString(R.string.chat_new_session), en.getString(R.string.chat_new_session))
+        assertNotEquals(
+            zh.getString(ConversationR.string.chat_new_session),
+            en.getString(ConversationR.string.chat_new_session),
+        )
     }
 
     @Test

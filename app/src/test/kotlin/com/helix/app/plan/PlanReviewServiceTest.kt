@@ -5,9 +5,10 @@ import com.helix.core.model.PlanArtifact
 import com.helix.core.model.PlanExecutionBinding
 import com.helix.core.model.PlanId
 import com.helix.core.model.PlanStep
-import com.helix.core.model.Sha256
 import com.helix.core.storage.entity.PlanEntity
 import com.helix.core.storage.repository.PlanLifecycleState
+import com.helix.feature.conversation.application.goals.PlanReview
+import com.helix.feature.conversation.application.goals.PlanReviewState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
@@ -66,50 +67,42 @@ class PlanReviewServiceTest {
         val goalId = "goal-1"
         var beginExecutions = 0
 
-        override fun resolveEntity(planId: String): PlanEntity =
+        fun resolveEntity(planId: String): PlanEntity =
             row.takeIf { it.id == planId } ?: throw IllegalArgumentException("plan not found: $planId")
 
-        override fun resolve(planId: String): PlanArtifact =
-            artifact.takeIf { it.id.value == planId } ?: throw IllegalArgumentException("plan not found: $planId")
+        override fun review(planId: String): PlanReview {
+            val found = resolveEntity(planId)
+            return PlanReview(artifact, PlanReviewState.valueOf(found.state), found.evidenceRef)
+        }
 
-        override fun transition(
-            planId: String,
-            to: PlanLifecycleState,
-            evidenceRef: String?,
+        override fun decide(
+            expected: PlanArtifact,
+            decision: PlanReviewDecision,
         ) {
-            transitions += to to evidenceRef
-            row = row.copy(state = to.name, evidenceRef = evidenceRef)
+            require(row.state == "READY" && row.version == expected.version && row.hash == expected.sha256().hex)
+            transitions += decision.target to null
+            row = row.copy(state = decision.target.name, evidenceRef = null)
+            audits += decision.event to "{}"
         }
 
         override fun beginExecution(
-            objective: String,
-            criteria: List<String>,
+            binding: PlanExecutionBinding,
             budgets: GoalBudgets,
-            planId: String,
-            planHash: String,
         ): String {
-            // Model the real port: a re-drive of an already-executing plan returns the bound goal
-            // instead of creating a second one (idempotent execution; the conditional transition
-            // in the production port is what keeps this safe under concurrency).
-            if (row.state == PlanLifecycleState.EXECUTING.name) {
-                return requireNotNull(row.evidenceRef)
-            }
+            require(row.version == binding.planVersion && row.hash == binding.planHash.hex)
+            if (row.state == PlanLifecycleState.EXECUTING.name) return requireNotNull(row.evidenceRef)
+            require(row.state == PlanLifecycleState.APPROVED.name)
             beginExecutions++
-            goalCreation = GoalCreation(objective, criteria, planId, planHash)
-            // One atomic operation: the row moves to EXECUTING with the goal as its evidenceRef.
-            // Deliberately NOT recorded in [transitions] — that list proves the EXECUTING
-            // transition is INSIDE beginExecution, not a separate port call the service made.
+            goalCreation =
+                GoalCreation(
+                    artifact.objective,
+                    artifact.acceptanceCriteria,
+                    binding.planId.value,
+                    binding.planHash.hex,
+                )
             row = row.copy(state = PlanLifecycleState.EXECUTING.name, evidenceRef = goalId)
             audits += "plan.execution_started" to """{"goalId":"$goalId"}"""
             return goalId
-        }
-
-        override fun audit(
-            planId: String,
-            type: String,
-            detailJson: String,
-        ) {
-            audits += type to detailJson
         }
     }
 
@@ -248,7 +241,7 @@ class PlanReviewServiceTest {
         val port = FakePort(entity(PlanLifecycleState.EXECUTING, evidenceRef = "goal-9"), artifact)
         val review = PlanReviewService(port).review(planId)
         assertEquals(artifact, review.artifact)
-        assertEquals(PlanLifecycleState.EXECUTING, review.state)
+        assertEquals(PlanReviewState.EXECUTING, review.state)
         assertEquals("goal-9", review.evidenceRef)
     }
 }

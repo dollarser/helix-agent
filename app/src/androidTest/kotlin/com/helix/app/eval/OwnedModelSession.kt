@@ -1,12 +1,12 @@
 package com.helix.app.eval
 
-import com.helix.app.chat.ChatService
 import com.helix.core.agent.GoalBudgetDefaults
 import com.helix.core.model.AgentMode
 import com.helix.core.model.ReasoningEffort
 import com.helix.core.model.TurnBudgets
 import com.helix.core.storage.HelixStorage
 import com.helix.core.storage.repository.SessionRunControlRecord
+import com.helix.feature.conversation.application.ChatService
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeout
 

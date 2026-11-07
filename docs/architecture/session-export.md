@@ -1,6 +1,6 @@
 # 会话 JSONL 当前格式（内部版本 1）
 
-格式名 `helix.session-export`，内部版本 `1`。这是 [ADR-AGENT-005](../adr/agent/005-session-jsonl-export.md) 的外部投影格式；初版证据见 [HXA-211](../completion-records/HXA-211.md)，历史实现见 [HXA-297](../development/tasks/HXA-297.md)。本文定义格式，具体交付边界以完成记录为准。
+格式名 `helix.session-export`，内部版本 `1`。这是 [ADR-AGENT-005](../adr/agent/005-session-jsonl-export.md) 的外部投影格式；初版证据见 [HXA-211](../completion-records/HXA-211.md)，历史实现见 [HXA-297](../completion-records/HXA-297.md)。本文定义格式，具体交付边界以完成记录为准。
 
 ## 文件与信封
 

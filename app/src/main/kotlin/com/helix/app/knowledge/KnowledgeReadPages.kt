@@ -114,7 +114,7 @@ internal class KnowledgeReadPages(
         val body = document.getValue("text").jsonPrimitive.content
         require((original || body.isNotBlank()) && body.length <= 200_000) { "KNOWLEDGE_TEXT_UNAVAILABLE" }
         require(
-            com.helix.app.application.security.ForbiddenContentGuard
+            com.helix.core.policy.ForbiddenContentGuard
                 .reasonFor(body + "\n" + document.toString()) == null,
         ) {
             "KNOWLEDGE_CONTENT_BLOCKED"
@@ -151,7 +151,7 @@ internal class KnowledgeReadPages(
         require(result["sourceRevision"]?.jsonPrimitive?.content == revision) { "KNOWLEDGE_SOURCE_CHANGED" }
         val text = result.getValue("text").jsonPrimitive.content
         require(
-            com.helix.app.application.security.ForbiddenContentGuard
+            com.helix.core.policy.ForbiddenContentGuard
                 .reasonFor(text) == null,
         ) {
             "KNOWLEDGE_CONTENT_BLOCKED"
@@ -213,7 +213,7 @@ internal class KnowledgeReadPages(
         require(text("cursor") == null) { "KNOWLEDGE_CURSOR_REQUIRES_SELECTION" }
         val result = backend.search(query)
         require(
-            com.helix.app.application.security.ForbiddenContentGuard
+            com.helix.core.policy.ForbiddenContentGuard
                 .reasonFor(result.toString()) == null,
         ) {
             "KNOWLEDGE_CONTENT_BLOCKED"
@@ -225,7 +225,7 @@ internal class KnowledgeReadPages(
 
     private fun checkReferenceData(value: Any) {
         require(
-            com.helix.app.application.security.ForbiddenContentGuard
+            com.helix.core.policy.ForbiddenContentGuard
                 .reasonFor(value.toString()) == null,
         ) {
             "KNOWLEDGE_CONTENT_BLOCKED"

@@ -13,10 +13,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import com.helix.app.R
-import com.helix.app.chat.ChatService
-import com.helix.app.chat.GoalSummaryUi
+import com.helix.feature.conversation.application.ChatService
+import com.helix.feature.conversation.presentation.GoalSummaryUi
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
+import com.helix.feature.conversation.R as ConversationR
 
 @Composable
 @Suppress("FunctionName", "SwallowedException") // State races are surfaced as a fixed localized reminder error.
@@ -56,5 +57,10 @@ internal fun GoalReminderControls(service: ChatService, goal: GoalSummaryUi, onC
     ) {
         Text(stringResource(R.string.goal_reminder_clear))
     }
-    if (failed) Text(stringResource(R.string.goal_reminder_sync_failed), color = MaterialTheme.colorScheme.error)
+    if (failed) {
+        Text(
+            stringResource(ConversationR.string.goal_reminder_sync_failed),
+            color = MaterialTheme.colorScheme.error,
+        )
+    }
 }

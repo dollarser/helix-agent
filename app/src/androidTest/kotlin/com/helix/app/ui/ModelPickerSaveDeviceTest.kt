@@ -17,7 +17,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.test.platform.app.InstrumentationRegistry
-import com.helix.app.chat.SessionModelSelectionResult
+import com.helix.app.infrastructure.conversation.conversationModelSources
 import com.helix.app.provider.BuiltInModel
 import com.helix.app.provider.BuiltInModelCatalog
 import com.helix.app.provider.ConnectionTestStatus
@@ -25,6 +25,8 @@ import com.helix.app.provider.ProviderRowUi
 import com.helix.core.model.ProviderProvisioningKind
 import com.helix.core.model.ProviderResidence
 import com.helix.core.model.ReasoningEffort
+import com.helix.feature.conversation.presentation.ComposerModelMenu
+import com.helix.feature.conversation.presentation.SessionModelSelectionResult
 import kotlinx.coroutines.CompletableDeferred
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -83,7 +85,7 @@ class ModelPickerSaveDeviceTest {
         var saved: Triple<String, String, ReasoningEffort>? = null
         compose.setContent {
             MaterialTheme {
-                ComposerModelMenu(listOf(row), null, null, true, { p, m, r ->
+                ComposerModelMenu(listOf(row).conversationModelSources(null, null), null, null, true, { p, m, r ->
                     saved = Triple(p, m, r)
                     SessionModelSelectionResult.APPLIED
                 })
@@ -106,7 +108,7 @@ class ModelPickerSaveDeviceTest {
         var saves = 0
         compose.setContent {
             MaterialTheme {
-                ComposerModelMenu(listOf(row), id, model, true, { _, _, _ ->
+                ComposerModelMenu(listOf(row).conversationModelSources(id, model), id, model, true, { _, _, _ ->
                     saves++
                     SessionModelSelectionResult.APPLIED
                 }, reasoning = ReasoningEffort.HIGH)
@@ -146,7 +148,7 @@ class ModelPickerSaveDeviceTest {
         val restoration = StateRestorationTester(compose)
         restoration.setContent {
             MaterialTheme {
-                ComposerModelMenu(listOf(row), null, null, true, { _, _, r ->
+                ComposerModelMenu(listOf(row).conversationModelSources(null, null), null, null, true, { _, _, r ->
                     saved = r
                     SessionModelSelectionResult.APPLIED
                 }, sessionKey = "same-session")
@@ -175,7 +177,7 @@ class ModelPickerSaveDeviceTest {
         var saves = 0
         compose.setContent {
             MaterialTheme {
-                ComposerModelMenu(rows.value, null, null, true, { _, _, _ ->
+                ComposerModelMenu(rows.value.conversationModelSources(null, null), null, null, true, { _, _, _ ->
                     saves++
                     SessionModelSelectionResult.APPLIED
                 }, sessionKey = session.value)
@@ -201,7 +203,7 @@ class ModelPickerSaveDeviceTest {
         var saves = 0
         compose.setContent {
             MaterialTheme {
-                ComposerModelMenu(listOf(row), id, model, true, { _, _, _ ->
+                ComposerModelMenu(listOf(row).conversationModelSources(id, model), id, model, true, { _, _, _ ->
                     saves++
                     receipt.await()
                 })
@@ -224,7 +226,7 @@ class ModelPickerSaveDeviceTest {
         var saves = 0
         compose.setContent {
             MaterialTheme {
-                ComposerModelMenu(listOf(row), id, model, true, { _, _, _ ->
+                ComposerModelMenu(listOf(row).conversationModelSources(id, model), id, model, true, { _, _, _ ->
                     saves++
                     if (saves == 1) error("Fixture failure")
                     SessionModelSelectionResult.APPLIED
@@ -246,7 +248,7 @@ class ModelPickerSaveDeviceTest {
         var saves = 0
         compose.setContent {
             MaterialTheme {
-                ComposerModelMenu(listOf(row), id, model, true, { _, _, _ ->
+                ComposerModelMenu(listOf(row).conversationModelSources(id, model), id, model, true, { _, _, _ ->
                     receipts[saves++].await()
                 }, sessionKey = session.value)
             }

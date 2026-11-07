@@ -104,7 +104,7 @@ replace them. Passing hash checks alone is not a distribution-license review.
 
 - Official fixed `@mermaid-js/tiny` browser distribution, MIT; unmodified script.
 - [Source/release](https://github.com/mermaid-js/mermaid/tree/mermaid%4012.2.0/packages/tiny).
-- Root license: `app/src/main/assets/licenses/Mermaid-MIT.txt`; conservative runtime dependency notices: `app/src/main/assets/licenses/Mermaid-dependencies.txt`. DOMPurify is used under its Apache-2.0 alternative, not MPL-2.0.
+- Root license: `ui/shared/src/main/assets/licenses/Mermaid-MIT.txt`; conservative runtime dependency notices: `ui/shared/src/main/assets/licenses/Mermaid-dependencies.txt`. DOMPurify is used under its Apache-2.0 alternative, not MPL-2.0.
 - Tiny excludes ELK and KaTeX rendering; no diagram-triggered downloads, callbacks or external navigation.
 - Reviewed archive integrity, asset/notice hashes and dependency provenance: `config/mermaid/mermaid.lock.json`.
 
@@ -112,13 +112,13 @@ replace them. Passing hash checks alone is not a distribution-license review.
 
 - Official unmodified npm `dompurify` browser distribution; used under its Apache-2.0 alternative.
 - Source/license: <https://github.com/cure53/DOMPurify/tree/3.4.12>.
-- Original license: `app/src/main/assets/licenses/DOMPurify-LICENSE.txt`; pinned distribution integrity: `config/svg/dompurify.lock.json`.
+- Original license: `ui/shared/src/main/assets/licenses/DOMPurify-LICENSE.txt`; pinned distribution integrity: `config/svg/dompurify.lock.json`.
 - Used with independent SVG/CSS/resource limits and no network or native bridge; not an arbitrary HTML renderer.
 
 ## core-js-bundle 3.51.0
 
 - Source: https://github.com/zloirock/core-js ; official npm `core-js-bundle` fixed archive.
-- MIT license: `app/src/main/assets/licenses/core-js-MIT.txt`. Bundled only in the isolated offline Mermaid script to supply standard APIs on the tested older WebView.
+- MIT license: `ui/shared/src/main/assets/licenses/core-js-MIT.txt`. Bundled only in the isolated offline Mermaid script to supply standard APIs on the tested older WebView.
 - Mermaid syntax is transformed by build-time esbuild 0.28.2 (MIT); its verified tool inputs and exact arguments are recorded in `config/mermaid/mermaid.lock.json`. The build tool is not shipped in the APK.
 
 ## Silero VAD (v5.0, MIT)

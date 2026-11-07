@@ -90,7 +90,7 @@ PDF 原件可用 `knowledge.read` 的 `fileIndex/page` 逐页读取，`offset/li
 
 ## Verification
 
-[HXA-308](../../development/tasks/HXA-308.md)规定收集与笔记验收，[HXA-312](../../development/tasks/HXA-312.md)规定检索问答的主机、Owner 已授权的合成设备及真实模型测试。设备执行、构建来源和限制由证据记录，不从 accepted 状态推定通过。
+[HXA-308](../../completion-records/HXA-308.md)规定收集与笔记验收，[HXA-312](../../completion-records/HXA-312.md)规定检索问答的主机、Owner 已授权的合成设备及真实模型测试。设备执行、构建来源和限制由证据记录，不从 accepted 状态推定通过。
 
 ## Reconsider when
 

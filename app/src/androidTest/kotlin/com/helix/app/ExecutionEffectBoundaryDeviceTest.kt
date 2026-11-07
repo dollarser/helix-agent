@@ -248,7 +248,7 @@ class ExecutionEffectBoundaryDeviceTest {
             Thread {
                 try {
                     outcome[0] =
-                        container.chatService.dispatchToolCall(
+                        container.toolExecution.dispatchToolCall(
                             toolCallId,
                             turnId,
                             toolNameRaw,

@@ -20,28 +20,34 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.R
-import com.helix.app.chat.ChatService
-import com.helix.app.ui.IndicatedLazyColumn
+import com.helix.app.chat.TaskDashboardProjection
+import com.helix.app.infrastructure.conversation.ConversationWorkspaceDetails
+import com.helix.feature.conversation.application.ChatService
+import com.helix.feature.conversation.presentation.TaskLedgerCard
+import com.helix.ui.shared.IndicatedLazyColumn
+import com.helix.feature.conversation.R as ConversationR
 
 /** Viewing and collecting are explicit UI actions, never model input or a replay. */
 @Composable
 @Suppress("FunctionName", "LongMethod")
 internal fun BackgroundTaskDialog(
     service: ChatService,
+    dashboard: TaskDashboardProjection,
+    details: ConversationWorkspaceDetails,
     sessionId: String?,
     onDismiss: () -> Unit,
 ) {
-    val tasks by service.backgroundTasks.collectAsStateWithLifecycle()
-    LaunchedEffect(sessionId) { service.refreshBackgroundTasksNow() }
+    val tasks by dashboard.tasks.collectAsStateWithLifecycle()
+    LaunchedEffect(sessionId) { dashboard.refreshBackgroundNow() }
     var tab by remember(sessionId) { mutableStateOf(0) }
     var result by remember(sessionId) { mutableStateOf<String?>(null) }
     if (result != null) {
-        TaskResultDialog(service, requireNotNull(result)) { result = null }
+        TaskResultDialog(details, dashboard, requireNotNull(result)) { result = null }
         return
     }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.background_tasks)) },
+        title = { Text(stringResource(ConversationR.string.background_tasks)) },
         text = {
             Column {
                 SessionTaskProgress(service, sessionId)

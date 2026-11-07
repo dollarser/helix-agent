@@ -22,6 +22,7 @@ import java.io.File
 import java.util.UUID
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
+import com.helix.ui.shared.R as SharedR
 
 /** Production local picker -> bounded import -> persistence. No external endpoint/Skill execution. */
 class PluginLocalPickerDeviceTest {
@@ -60,7 +61,7 @@ class PluginLocalPickerDeviceTest {
                 waitTag("plugin-import-error")
                 assertEquals(count, service.list().size)
                 compose.onNodeWithTag("connector-import-local").performScrollTo().performClick()
-                compose.onNodeWithText(compose.activity.getString(R.string.common_cancel)).performClick()
+                compose.onNodeWithText(compose.activity.getString(SharedR.string.common_cancel)).performClick()
                 assertEquals(count, service.list().size)
                 cancelSystemPicker()
                 assertEquals(count, service.list().size)

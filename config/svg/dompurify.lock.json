@@ -5,7 +5,7 @@
   "tarball": "https://registry.npmjs.org/dompurify/-/dompurify-3.4.12.tgz",
   "integrity": "sha512-zQvGet8Z2sWbQhCmfFz/T5QWH2oBmjnqK3qvOjaqaNLrLEF912WamU+ohnTp0TCep/MFVHpdJuCZEdFOdTnEFg==",
   "files": {
-    "app/src/main/assets/svg/purify.min.js": "c45ba939765574f96cbf35ee9b6d89f73756a17921814425e74b82f7c54603ce",
-    "app/src/main/assets/licenses/DOMPurify-LICENSE.txt": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    "ui/shared/src/main/assets/svg/purify.min.js": "c45ba939765574f96cbf35ee9b6d89f73756a17921814425e74b82f7c54603ce",
+    "ui/shared/src/main/assets/licenses/DOMPurify-LICENSE.txt": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
   }
 }

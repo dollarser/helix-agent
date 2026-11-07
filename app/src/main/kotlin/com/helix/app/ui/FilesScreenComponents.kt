@@ -30,6 +30,7 @@ import com.helix.app.files.TransferResult
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import com.helix.ui.shared.R as SharedR
 
 /** The destination + policy for a batch copy/move (a single file is a one-item batch). */
 internal data class CopyMoveTarget(
@@ -113,7 +114,7 @@ internal fun FileRow(
             )
         }
         Icon(
-            painterResource(if (entry.isDirectory) R.drawable.ic_files_folder else R.drawable.ic_files_document),
+            painterResource(if (entry.isDirectory) R.drawable.ic_files_folder else SharedR.drawable.ic_files_document),
             null,
             Modifier.padding(end = 12.dp).size(36.dp),
             tint = MaterialTheme.colorScheme.primary,
@@ -162,7 +163,7 @@ internal fun GridFileItem(
             )
         }
         Icon(
-            painterResource(if (entry.isDirectory) R.drawable.ic_files_folder else R.drawable.ic_files_document),
+            painterResource(if (entry.isDirectory) R.drawable.ic_files_folder else SharedR.drawable.ic_files_document),
             null,
             Modifier.size(44.dp),
             tint = MaterialTheme.colorScheme.primary,

@@ -50,7 +50,7 @@ ALLOWLIST: list[tuple[str, str, str]] = [
     # UNTRUSTED_MARKER are written into the model's user message and must be byte-stable across
     # locales so `model-visible ⇔ persisted` holds on history reconstruction. Translating them
     # would change the model request with the UI language.
-    ("chat/AttachmentContext.kt", "", "model-visible attachment injection; byte-stable across locales"),
+    ("conversation/application/attachment/AttachmentContext.kt", "", "model-visible attachment injection; byte-stable across locales"),
     # Fixed, versioned DOM-extraction JS for browser.snapshot (SCRIPT_VERSION, pinned by
     # BrowserSnapshotScriptTest). The only CJK is a JS comment inside the versioned constant; the
     # script bytes must not change per locale.
@@ -195,6 +195,7 @@ def scan_files() -> list[Path]:
     for pattern in (
         "app/src/*/kotlin/**/*.kt",
         "feature/*/src/*/kotlin/**/*.kt",
+        "ui/*/src/*/kotlin/**/*.kt",
         "extensions/*/src/main/kotlin/**/*.kt",
         "runtime/*/src/main/kotlin/**/*.kt",
     ):
@@ -228,17 +229,21 @@ for path in scanned:
             violations += 1
 
 # ── Check 3: locale-independent executor details never cross into visible chat UI ─────
-chat_service = root / "app/src/main/kotlin/com/helix/app/chat/ChatService.kt"
-chat_text = chat_service.read_text(encoding="utf-8")
-for sink in ("setCardStateForCall", "publishToolRow"):
-    # Each sink call is deliberately small. A bounded DOTALL window catches direct interpolation
-    # even when ktfmt lays the arguments over several lines, without confusing the persistence
-    # assignments that intentionally retain outcome.detail for audit/model handling.
-    pattern = re.compile(rf"{sink}\([\s\S]{{0,600}}?outcome\.detail")
-    if pattern.search(chat_text):
-        errors.append(
-            f"i18n: raw outcome.detail reaches user-visible {sink}; map it to a string resource first"
-        )
+display_paths = (
+    "feature/conversation/src/main/kotlin/com/helix/feature/conversation/presentation/ChatToolPresentation.kt",
+    "feature/conversation/src/main/kotlin/com/helix/feature/conversation/presentation/ChatToolTimeline.kt",
+    "app/src/main/kotlin/com/helix/app/infrastructure/conversation/ConversationToolDisplay.kt",
+)
+for display_path in display_paths:
+    display_text = (root / display_path).read_text(encoding="utf-8")
+    for sink in ("setCardStateForCall", "publishToolRow"):
+        # Inspect the actual display owners, not the old facade after the feature migration.
+        # Persistence may retain raw diagnostic facts; these sinks may only receive mapped UI labels.
+        pattern = re.compile(rf"{sink}\([\s\S]{{0,600}}?outcome\.detail")
+        if pattern.search(display_text):
+            errors.append(
+                f"i18n: raw outcome.detail reaches user-visible {sink} in {display_path}; map it to a string resource first"
+            )
 
 if errors:
     print("Internationalization verification failed:", file=sys.stderr)

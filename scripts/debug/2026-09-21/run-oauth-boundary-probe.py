@@ -16,7 +16,7 @@ args.output.mkdir(parents=True, exist_ok=False)
 versions = tomllib.loads((ROOT / "gradle/libs.versions.toml").read_text())["versions"]
 cache = Path.home() / ".gradle/caches/modules-2/files-2.1"
 app_classes = ROOT / "app/build/intermediates/built_in_kotlinc/consumerDebug/compileConsumerDebugKotlin/classes"
-store_class = next((ROOT / "core/storage/build").rglob("SecretStore.class"))
+store_class = next((ROOT / "infrastructure/storage/build").rglob("SecretStore.class"))
 store_classes = next(parent for parent in store_class.parents if parent.name == "classes")
 parts = [app_classes, store_classes]
 for group, artifact, version in (

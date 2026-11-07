@@ -4,14 +4,16 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 UI = ROOT / 'app/src/main/kotlin/com/helix/app/ui'
+PRESENTATION = ROOT / 'feature/conversation/src/main/kotlin/com/helix/feature/conversation/presentation'
 
 
 class ConversationDependenciesTest(unittest.TestCase):
     def test_conversation_does_not_resolve_application_services(self):
-        for name in ('ChatScreen', 'ConversationSection', 'ConversationMessage',
-                     'ReadAloudAction', 'AutomaticReplyAudioControl'):
-            with self.subTest(component=name):
-                source = (UI / f'{name}.kt').read_text()
+        for path in (UI / 'AppConversationRoute.kt', PRESENTATION / 'ChatScreen.kt',
+                     PRESENTATION / 'ConversationMessage.kt', UI / 'ReadAloudAction.kt',
+                     UI / 'AutomaticReplyAudioControl.kt'):
+            with self.subTest(component=path.stem):
+                source = path.read_text()
                 self.assertNotIn('HelixApplication', source)
                 self.assertNotIn('applicationContext', source)
                 self.assertNotIn('AppContainer', source)
@@ -43,15 +45,19 @@ class ConversationDependenciesTest(unittest.TestCase):
         self.assertIn('LaunchedEffect(accountIdentity, service)', action)
 
     def test_audio_state_and_actions_reach_message_and_playback_slots(self):
-        screen = (UI / 'ChatScreen.kt').read_text()
-        section = (UI / 'ConversationSection.kt').read_text()
-        message = (UI / 'ConversationMessage.kt').read_text()
+        screen = (UI / 'AppConversationRoute.kt').read_text()
+        section = (PRESENTATION / 'ChatScreen.kt').read_text()
+        message = (PRESENTATION / 'ConversationMessage.kt').read_text()
         self.assertIn('consent = speechConsent', screen)
         self.assertIn('accountIdentity = accountIdentity', screen)
         self.assertIn('accountStatus = accountStatus', screen)
-        self.assertIn('ReadAloudLifecycle(reader, screen.openSessionId)', section)
-        self.assertIn('ObserveLiveReplyReadAloud(reader, speechFrame)', section)
-        self.assertIn('playback = { playback(speechFrame) }', section)
+        self.assertIn('ReadAloudLifecycle(reader, screen.openSessionId)', screen)
+        self.assertIn('ObserveLiveReplyReadAloud(reader, speechFrame)', screen)
+        self.assertIn('playback = playback', section)
+        self.assertIn('playback = {', screen)
+        self.assertIn('val frame = speechFrame', screen)
+        for dependency in ('ReadAloud', 'SpeechSettings', 'AccountSession', 'KnowledgeReferenceService'):
+            self.assertNotIn(dependency, section)
         self.assertIn('readAloudAction = { readAloudAction(message) }', section)
         self.assertIn('readAloudAction = readAloudAction', message)
         self.assertIn('readAloudAction()', message)

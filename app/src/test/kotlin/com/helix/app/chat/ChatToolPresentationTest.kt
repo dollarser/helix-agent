@@ -3,17 +3,24 @@ package com.helix.app.chat
 import com.helix.app.R
 import com.helix.app.application.tools.ToolCallFact
 import com.helix.app.application.tools.ToolPresentationFact
-import com.helix.app.approval.ApprovalCardState
-import com.helix.app.approval.ApprovalCardUi
+import com.helix.app.application.tools.ToolPresentationSink
+import com.helix.app.infrastructure.conversation.toConversationDisplay
 import com.helix.core.model.ApprovalDecision
 import com.helix.core.model.DispatchOutcomeCode
 import com.helix.core.model.SafetyProfile
 import com.helix.core.model.ToolCallState
 import com.helix.core.model.ToolOperationClass
+import com.helix.feature.conversation.presentation.ApprovalCardState
+import com.helix.feature.conversation.presentation.ApprovalCardUi
+import com.helix.feature.conversation.presentation.ChatScreenState
+import com.helix.feature.conversation.presentation.ChatToolPresentation
+import com.helix.feature.conversation.presentation.ToolTimelinePosition
+import com.helix.feature.conversation.presentation.ToolTimelineRow
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import com.helix.feature.conversation.R as ConversationR
 
 class ChatToolPresentationTest {
     private val call = ToolCallFact("session", "turn", "call", "read", "{}", "Inspect synthetic fixture")
@@ -33,8 +40,11 @@ class ChatToolPresentationTest {
             ),
         )
 
-    private fun bridge(screen: MutableStateFlow<ChatScreenState>) =
-        ChatToolPresentation(screen, { id, _ -> "label-$id" }, {}, { _, _ -> ToolTimelinePosition(4, 2) })
+    private fun bridge(screen: MutableStateFlow<ChatScreenState>): ToolPresentationSink {
+        val presentation =
+            ChatToolPresentation(screen, { id, _ -> "label-$id" }, {}, { _, _ -> ToolTimelinePosition(4, 2) })
+        return ToolPresentationSink { presentation.publish(it.toConversationDisplay()) }
+    }
 
     @Test fun preparationAndSettlementPreserveOriginalPositionIntentAndDuration() {
         val screen = screen()
@@ -43,7 +53,7 @@ class ChatToolPresentationTest {
         bridge.publish(ToolPresentationFact.Running(call))
         bridge.publish(ToolPresentationFact.Settled(call, ToolCallState.COMPLETED, "synthetic result", 42))
         val row = screen.value.toolTimeline.single()
-        assertEquals("label-${R.string.tool_state_completed}", row.stateLabel)
+        assertEquals("label-${ConversationR.string.tool_state_completed}", row.stateLabel)
         assertEquals("synthetic result", row.resultSummary)
         assertEquals(ToolTimelinePosition(4, 2), row.position)
         assertEquals(call.modelIntent, row.modelIntent)
@@ -71,7 +81,7 @@ class ChatToolPresentationTest {
             ),
         )
         assertEquals(
-            "label-${R.string.tool_state_failed}",
+            "label-${ConversationR.string.tool_state_failed}",
             screen.value.toolTimeline
                 .single()
                 .stateLabel,
@@ -87,7 +97,7 @@ class ChatToolPresentationTest {
             ),
         )
         assertEquals(
-            "label-${R.string.tool_state_denied}",
+            "label-${ConversationR.string.tool_state_denied}",
             screen.value.toolTimeline
                 .single()
                 .stateLabel,
@@ -110,7 +120,7 @@ class ChatToolPresentationTest {
             screen,
         ).publish(ToolPresentationFact.Settled(call, ToolCallState.CANCELLED, "stable business reason", null))
         assertEquals(
-            "label-${R.string.tool_summary_cancelled_before_start}",
+            "label-${ConversationR.string.tool_summary_cancelled_before_start}",
             screen.value.toolTimeline
                 .single()
                 .resultSummary,

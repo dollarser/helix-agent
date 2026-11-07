@@ -57,7 +57,7 @@ flowchart TD
 
 ### A. 收敛 ChatService 的应用层职责（高价值，较高回归风险）
 
-[`ChatService.kt`](../../../app/src/main/kotlin/com/helix/app/chat/ChatService.kt) 当前 4,612 行。它同时持有会话列表/搜索、草稿/附件/分享、会话配置、Goal 和恢复、活动/工具/计划等界面状态、提交与运行协调。已经存在 `ChatScreenProjection`、`SessionActionQueue`、`ChatToolCalls`、附件辅助和 `AgentLoopHost`；这些是真实拆分基础，不能重新实现已有功能。
+[`ChatService.kt`](https://github.com/dollarser/helix-agent/blob/5d3f89e0765d4adb255a21c4fdd0da967d64606e/app/src/main/kotlin/com/helix/app/chat/ChatService.kt) 当前 4,612 行。它同时持有会话列表/搜索、草稿/附件/分享、会话配置、Goal 和恢复、活动/工具/计划等界面状态、提交与运行协调。已经存在 `ChatScreenProjection`、`SessionActionQueue`、`ChatToolCalls`、附件辅助和 `AgentLoopHost`；这些是真实拆分基础，不能重新实现已有功能。
 
 建议逐个迁移完整状态与操作所有权：
 
@@ -120,7 +120,7 @@ flowchart TD
 
 建议用“当前契约→测试层级→稳定命令→最新合适证据→历史独有缺陷”的索引组织，而不是再建一个可变总完成日志。只合并可重复的搭建和报告逻辑，不合并不同协议、渠道、进程死亡或平台限制的独立断言。
 
-文档导航确有状态漂移：research 入口仍把手机整屏截图列为候选，而 [HXA-243](../../development/tasks/HXA-243.md) 已交付无障碍截图，[HXA-244](../../development/tasks/HXA-244.md) 已接会话持久授权；本轮更新该承接链接。PackageInstaller 专题索引的“尚待收口”也需明确为研究当时的边界，当前实现/有限验证以 status 和对应后续任务为准，不能删除原始节点缺失失败证据。
+文档导航确有状态漂移：research 入口仍把手机整屏截图列为候选，而 [HXA-243](../../completion-records/HXA-243.md) 已交付无障碍截图，[HXA-244](../../completion-records/HXA-244.md) 已接会话持久授权；本轮更新该承接链接。PackageInstaller 专题索引的“尚待收口”也需明确为研究当时的边界，当前实现/有限验证以 status 和对应后续任务为准，不能删除原始节点缺失失败证据。
 
 ## 5. 桌面与移动参考：采用原则与限制
 

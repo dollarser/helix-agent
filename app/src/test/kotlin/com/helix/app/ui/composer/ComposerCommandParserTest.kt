@@ -1,5 +1,9 @@
 package com.helix.app.ui.composer
 
+import com.helix.feature.conversation.presentation.composer.AutocompleteQuery
+import com.helix.feature.conversation.presentation.composer.ComposerCommandParser
+import com.helix.feature.conversation.presentation.composer.ComposerSuggestionItem
+import com.helix.feature.conversation.presentation.composer.ComposerSuggestionType
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull

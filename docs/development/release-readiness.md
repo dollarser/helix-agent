@@ -36,15 +36,15 @@
 | 历史输出截断 | 同一记录的逐模型调用 usage 与 probe 计数 | 遇到新 length/OUTPUT_TOKEN_LIMIT，区分每次输出预算、推理、重复调用；保持失败终态，不执行截断 ToolCall。没有新样本不重复刷结果 |
 | 能力探测偶发失败 | 阶段/错误码、fixture 和无正文计数 | 新失败时先分协议、能力与连接；连接成功不升级成能力通过；不按模型名猜能力 |
 | 多余只读工具调用 | 固定 skill-003 与真实任务轨迹 | 按具体运行保留失败和成功；只有影响完成率、预算或时延才做同条件对照，不以一次 0 调用关闭所有重复调用问题 |
-| JNI/Binder/FD、OEM 长稳 | [当前限制](status.md#known-limitations) | 按真实进程/物理硬件维度验证；模拟器结果不能关闭系统或所有 OEM 问题 |
+| JNI/Binder/FD、OEM 长稳 | [当前限制](status.md#仍开放与未启动) | 按真实进程/物理硬件维度验证；模拟器结果不能关闭系统或所有 OEM 问题 |
 
 ## 4. 模型、服务与评测边界
 
 - 设备内模型继续聚焦 **Qwen3 4B Instruct 2507 Q4_K_M**，复用现有 ModelScope/Hugging Face 精选入口及高级导入。0.6B/1.7B 只留历史对照，不重新投入主动验收。
 - 本地模型优化先测 load、prefill、decode、首响应、PSS/RSS 与 cancel-to-exit；模拟器固定任务不定义手机最低配置。KV/prefix、线程/batch、逐 token 输出及 GPU/NPU 仅在存在瓶颈证据后另行决定，不是本轮缺失功能。
 - Harness 回归使用既定 SGLang 固定任务；规范、身份和统计口径见[系统基线](harness-system-baseline.md)。BFCL/AndroidWorld 是诊断，不是官方榜单结果或扩大权限的理由。
-- Global/Project Memory 的生产接线及 HXA-246 本地主机、API36 双渠道 UI/Memory 和项目记忆进程恢复已交付，范围见[原任务](tasks/HXA-246.md)。其他设备、真实任务效果、过时信息、跨会话污染与长稳仍需独立验证，不能仅凭 prompt 中出现文本声称提升。
-- 统一 PDF/DOCX 阅读由 [HXA-284](tasks/HXA-284.md)交付，已有 API36 及 OnePlus/API34 原生读取与真实模型切片，见[重构前收尾](../evidence/development/pre-refactor-closeout-2026-10-15.md)和[真机记录](../evidence/development/device-ui-model-validation-2026-10-15.md)。完整 R8 文档矩阵、大文档资源峰值、其他格式、编辑/生成、OCR 与完整 Office 排版不由这些切片推导通过。
+- Global/Project Memory 的生产接线及 HXA-246 本地主机、API36 双渠道 UI/Memory 和项目记忆进程恢复已交付，范围见[原任务](../completion-records/HXA-246.md)。其他设备、真实任务效果、过时信息、跨会话污染与长稳仍需独立验证，不能仅凭 prompt 中出现文本声称提升。
+- 统一 PDF/DOCX 阅读由 [HXA-284](../completion-records/HXA-284.md)交付，已有 API36 及 OnePlus/API34 原生读取与真实模型切片，见[重构前收尾](../evidence/development/pre-refactor-closeout-2026-10-15.md)和[真机记录](../evidence/development/device-ui-model-validation-2026-10-15.md)。完整 R8 文档矩阵、大文档资源峰值、其他格式、编辑/生成、OCR 与完整 Office 排版不由这些切片推导通过。
 - `helix-docs` 使用内置 Skill 与按需离线章节。2026-10-15 后续优化补齐八章中文资源，版本/编号/applicationId/渠道/可调试状态由安装宿主提供；未知事实为 null，不再硬编码旧版本或声称通用 Release 签名。构建 commit/dirty、签名证书、静态帮助 UI 和源文档自动生成未包含，验证边界见[本轮记录](../evidence/development/preview-polish-2026-10-15.md)。
 - Connector/订阅按实际选定供应商验收，不承诺任意服务兼容；未选或暂缓供应商不形成无限开发义务。
 

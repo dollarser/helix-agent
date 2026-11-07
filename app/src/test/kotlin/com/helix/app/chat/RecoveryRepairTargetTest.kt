@@ -1,6 +1,8 @@
 package com.helix.app.chat
 
-import com.helix.app.ui.RecoveryBlockClass
+import com.helix.feature.conversation.application.recovery.RecoveryRepairDestination
+import com.helix.feature.conversation.application.recovery.RecoveryRepairTarget
+import com.helix.feature.conversation.presentation.RecoveryBlockClass
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test

@@ -6,8 +6,6 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.MainActivity
-import com.helix.app.chat.ConversationContent
-import com.helix.app.chat.conversationEntries
 import com.helix.app.provider.ProviderDraft
 import com.helix.app.sendTestMessage
 import com.helix.core.model.AgentMode
@@ -17,6 +15,8 @@ import com.helix.core.model.ReasoningEffort
 import com.helix.core.model.SessionPermissionMode
 import com.helix.core.model.TurnState
 import com.helix.core.policy.SessionPermissionConfig
+import com.helix.feature.conversation.presentation.ConversationContent
+import com.helix.feature.conversation.presentation.conversationEntries
 import com.helix.provider.api.ProbeOutcome
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals

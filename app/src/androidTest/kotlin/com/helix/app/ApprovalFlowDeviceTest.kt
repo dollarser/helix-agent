@@ -6,8 +6,6 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.helix.app.chat.ChatService
-import com.helix.app.chat.ToolTimelineRow
 import com.helix.app.profile.ChannelCapabilities
 import com.helix.app.provider.LoopbackModelServer
 import com.helix.app.provider.ProviderDraft
@@ -23,6 +21,8 @@ import com.helix.core.model.ToolCallState
 import com.helix.core.model.ToolDispatchOutcome
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
+import com.helix.feature.conversation.application.ChatService
+import com.helix.feature.conversation.presentation.ToolTimelineRow
 import com.helix.provider.api.ProbeOutcome
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
@@ -49,11 +49,12 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Duration.Companion.seconds
+import com.helix.feature.conversation.R as ConversationR
 
 /**
  * HXA-036 device acceptance (verification-matrix row `:app:connectedConsumerDebugAndroidTest`):
  * the production pipeline (real Room + the storage-backed broker + the real dispatcher,
- * driven through the chat service's per-call entry [com.helix.app.chat.ChatService.dispatchToolCall]
+ * driven through the chat service's per-call entry [com.helix.feature.conversation.application.ChatService.dispatchToolCall]
  * — persist the tool_call row with canonical args, dispatch, settle) enforces the mandated
  * invariants end to end, and the audit page's storage carries only redacted rows:
  *
@@ -211,7 +212,7 @@ class ApprovalFlowDeviceTest {
             Thread {
                 try {
                     outcome[0] =
-                        container.chatService.dispatchToolCall(
+                        container.toolExecution.dispatchToolCall(
                             toolCallId,
                             turnId,
                             FLOW_TOOL_NAME,
@@ -328,7 +329,7 @@ class ApprovalFlowDeviceTest {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             scenario.recreate()
             var denyLabel = ""
-            scenario.onActivity { denyLabel = it.getString(R.string.approval_action_deny) }
+            scenario.onActivity { denyLabel = it.getString(ConversationR.string.approval_action_deny) }
             val restored = container.storage.approvals.resolve(approvalId)
             assertEquals(hash, restored.bindingHash)
             assertNull(restored.decision)

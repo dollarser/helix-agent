@@ -134,7 +134,7 @@ class OfficialMcpReadDeviceTest {
             SessionPermissionConfig.of(SessionPermissionMode.APPROVAL_REQUIRED),
             0,
         )
-        val task = FutureTask { c.chatService.dispatchToolCall(call, turn, descriptor.name.value, target.arguments) }
+        val task = FutureTask { c.toolExecution.dispatchToolCall(call, turn, descriptor.name.value, target.arguments) }
         val worker =
             Thread(task, "official-mcp-read").apply {
                 isDaemon = true

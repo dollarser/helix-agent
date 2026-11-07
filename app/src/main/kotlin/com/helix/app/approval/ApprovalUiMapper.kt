@@ -10,6 +10,11 @@ import com.helix.core.policy.DataOrigin
 import com.helix.core.policy.DataSensitivity
 import com.helix.core.policy.EgressTarget
 import com.helix.core.policy.HighSensitivityRule
+import com.helix.feature.conversation.presentation.ApprovalCardState
+import com.helix.feature.conversation.presentation.ApprovalCardUi
+import com.helix.feature.conversation.presentation.ApprovalLabel
+import com.helix.feature.conversation.presentation.BoundedRuleUi
+import com.helix.feature.conversation.presentation.CodeExecutionUi
 import com.helix.runtime.quickjs.JsExecutionLimits
 import com.helix.tools.framework.CanonicalArgs
 import com.helix.tools.framework.DecisionSource
@@ -24,6 +29,7 @@ import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import com.helix.feature.conversation.R as ConversationR
 
 /**
  * Maps the execution-path facts onto [ApprovalCardUi] (roadmap HXA-036). Pure and
@@ -65,7 +71,7 @@ object ApprovalUiMapper {
         requiresReview: Boolean,
     ): Int =
         if (requiresReview) {
-            R.string.tool_failure_requires_review
+            ConversationR.string.tool_failure_requires_review
         } else {
             when (origin) {
                 is ToolOrigin.McpOrigin -> R.string.tool_failure_mcp
@@ -106,23 +112,6 @@ object ApprovalUiMapper {
             ToolOperationClass.PRIVILEGED -> R.string.operation_privileged
         }
 
-    /** Safety Profile label — a string-resource ID (HXA-069). */
-    fun profileLabel(profile: SafetyProfile): Int =
-        when (profile) {
-            SafetyProfile.STANDARD -> R.string.approval_profile_standard
-            SafetyProfile.ADVANCED -> R.string.approval_profile_advanced
-        }
-
-    /** Card state label — a string-resource ID (HXA-069). */
-    fun stateLabel(state: ApprovalCardState): Int =
-        when (state) {
-            ApprovalCardState.PENDING -> R.string.approval_state_pending
-            ApprovalCardState.APPROVED -> R.string.approval_state_approved
-            ApprovalCardState.DENIED -> R.string.approval_state_denied
-            ApprovalCardState.SUCCEEDED -> R.string.approval_state_succeeded
-            ApprovalCardState.FAILED -> R.string.approval_state_failed
-        }
-
     /** Stable user-visible labels for the dispatch outcome codes (audit page + card) —
      * string-resource IDs (HXA-069).
      * The complexity is the exhaustive label table for the closed enum — one branch per
@@ -143,7 +132,7 @@ object ApprovalUiMapper {
             }
 
             DispatchOutcomeCode.BUDGET_EXHAUSTED -> {
-                R.string.model_error_goal_budget_limit
+                ConversationR.string.model_error_goal_budget_limit
             }
 
             DispatchOutcomeCode.POLICY_DENIED -> {

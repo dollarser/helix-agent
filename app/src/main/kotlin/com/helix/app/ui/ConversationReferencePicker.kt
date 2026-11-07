@@ -18,9 +18,12 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.R
-import com.helix.app.chat.ChatService
-import com.helix.app.chat.SessionRowUi
+import com.helix.feature.conversation.application.ChatService
+import com.helix.feature.conversation.presentation.ConversationMenuRow
+import com.helix.feature.conversation.presentation.SessionRowUi
+import com.helix.ui.shared.SharedSheet
 import kotlinx.coroutines.CancellationException
+import com.helix.ui.shared.R as SharedR
 
 /** Directory facts are observed directly, independently of the conversation's message projection. */
 @Composable
@@ -55,7 +58,7 @@ internal fun ConversationReferencePicker(
     val candidates = sessions.filter { it.id != currentSessionId }
     val matches = candidates.filter { it.title.contains(query.trim(), ignoreCase = true) }
     if (!loaded && !failed) return
-    ConversationSheet(
+    SharedSheet(
         stringResource(R.string.conversation_reference_title),
         "conversation-reference",
         onDismiss,
@@ -73,7 +76,7 @@ internal fun ConversationReferencePicker(
         when {
             failed -> {
                 Text(stringResource(R.string.reference_load_failed))
-                TextButton(onClick = { refresh++ }) { Text(stringResource(R.string.chat_retry)) }
+                TextButton(onClick = { refresh++ }) { Text(stringResource(SharedR.string.chat_retry)) }
             }
 
             candidates.isEmpty() -> {

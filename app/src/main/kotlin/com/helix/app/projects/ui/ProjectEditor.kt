@@ -23,9 +23,11 @@ import com.helix.app.files.FileManagerService
 import com.helix.app.projects.ProjectService
 import com.helix.app.ui.ScopedPathText
 import com.helix.app.ui.SessionDirectoryDialog
-import com.helix.app.ui.indicatedVerticalScroll
 import com.helix.core.storage.entity.ProjectEntity
 import com.helix.core.workspace.FileScopePath
+import com.helix.ui.shared.indicatedVerticalScroll
+import com.helix.feature.conversation.R as ConversationR
+import com.helix.ui.shared.R as SharedR
 
 @Composable
 @Suppress("FunctionName", "LongMethod", "LongParameterList")
@@ -92,13 +94,13 @@ internal fun ProjectEditor(
                     !actions.busy && name.isNotBlank() && name.length <= 120 &&
                         description.length <= 2_000 && instructions.length <= 16_000,
                 modifier = Modifier.testTag("project-save"),
-            ) { Text(stringResource(R.string.chat_save_details)) }
+            ) { Text(stringResource(ConversationR.string.chat_save_details)) }
         },
         dismissButton = {
             TextButton(
                 onDismiss,
                 enabled = !actions.busy,
-            ) { Text(stringResource(R.string.common_cancel)) }
+            ) { Text(stringResource(SharedR.string.common_cancel)) }
         },
     )
     if (selecting) {

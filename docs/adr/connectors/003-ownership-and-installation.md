@@ -207,8 +207,8 @@ HXA-274 同时覆盖无订阅与页面重建、重复读取不自动导航、旧
 
 - [系统分层分析与任务承接](../../research/modules/01-architecture-and-execution-engine.md#9-2026-10-11-分层复核与优化承接)
 - [插件研究与任务映射](../../research/topics/helix-plugin-architecture-optimization-2026-10-11.md#7-任务承接与验收)
-- [HXA-274：状态投影](../../development/tasks/HXA-274.md)、[HXA-275：组件诊断](../../development/tasks/HXA-275.md)
-- [HXA-276：Browser 贡献](../../development/tasks/HXA-276.md)、[HXA-277：原生资源](../../development/tasks/HXA-277.md)
+- [HXA-274：状态投影](../../completion-records/HXA-274.md)、[HXA-275：组件诊断](../../completion-records/HXA-275.md)
+- [HXA-276：Browser 贡献](../../completion-records/HXA-276.md)、[HXA-277：原生资源](../../completion-records/HXA-277.md)
 - [HXA-129完成记录](../../completion-records/HXA-129.md)
 - [内置市场契约](005-curated-marketplace.md)
 - [签名索引契约](004-signed-index.md)
@@ -269,17 +269,17 @@ HXA-277 按准确实例实施 registration/使用引用；先撤下准入，物�
 
 ## Decision history — 2026-10-16：统一管理分区与精确选用
 
-Owner 要求对照竞品统一插件配置管理，并授权日常模拟器验证。[HXA-298](../../development/tasks/HXA-298.md) 采用统一配置、内容审查和详情入口，MCP 认证直接可见，所有使用入口携带准确安装 ID。参考 [Claude 插件管理](https://code.claude.com/docs/en/discover-plugins) 的集中配置及贡献检查，保留 Android 系统授权、会话选择和插件实现边界。卸载确认只针对真实持久影响，不增加选用或保存的重复审批；验证结果另记。
+Owner 要求对照竞品统一插件配置管理，并授权日常模拟器验证。[HXA-298](../../completion-records/HXA-298.md) 采用统一配置、内容审查和详情入口，MCP 认证直接可见，所有使用入口携带准确安装 ID。参考 [Claude 插件管理](https://code.claude.com/docs/en/discover-plugins) 的集中配置及贡献检查，保留 Android 系统授权、会话选择和插件实现边界。卸载确认只针对真实持久影响，不增加选用或保存的重复审批；验证结果另记。
 
 同轮模拟器复现清理与贡献读取的反向锁序死锁。关联 Skill 快照与插件安装元数据共享既有 mutation gate，保留原子发布和引用清理；后续拆分 owner 也须保持一致锁序。这只协调内部元数据，不是工具执行全局锁。
 
 ## Decision history — 2026-10-16：测量与会话选择短路
 
-[HXA-299](../../development/tasks/HXA-299.md) 采用现有提示快照/诊断导出承载成本与有界原生操作测量，内容不复制进诊断、统计不充当 durable 就绪或授权状态。组装会话插件上下文时先核对持久选择，未选原生插件无需进行运行时就绪探测；已选插件仍实时校验发布投影和运行状态。整体预算、通用依赖与资源生命周期继续由原重构任务承接；性能结果与真实模型证据分别记录。
+[HXA-299](../../completion-records/HXA-299.md) 采用现有提示快照/诊断导出承载成本与有界原生操作测量，内容不复制进诊断、统计不充当 durable 就绪或授权状态。组装会话插件上下文时先核对持久选择，未选原生插件无需进行运行时就绪探测；已选插件仍实时校验发布投影和运行状态。整体预算、通用依赖与资源生命周期继续由原重构任务承接；性能结果与真实模型证据分别记录。
 
 ## Decision history — 2026-10-16：导入完成与明确更新目标
 
-Owner 授权 [HXA-300](../../development/tasks/HXA-300.md) 实施导入评审。普通包确认后直接成为已安装记录，市场源仅增加发现目录；安装结果携带准确 ID，配置与选用不丢失目标。预览以组件和实际限制为主，技术字段折叠；导入不自动执行脚本、连接账号或选择会话。
+Owner 授权 [HXA-300](../../completion-records/HXA-300.md) 实施导入评审。普通包确认后直接成为已安装记录，市场源仅增加发现目录；安装结果携带准确 ID，配置与选用不丢失目标。预览以组件和实际限制为主，技术字段折叠；导入不自动执行脚本、连接账号或选择会话。
 
 重复导入只在相同本地身份和相同内容时复用。其他同名本地项仅为更新候选，用户必须明确选定目标或独立安装；不按名称/hash 跨市场来源认领。更新摘要绑定捕获的目标 revision 和候选内容，以安装器相同的完整端点相等规则比较新增、移除、地址与认证绑定变化；摘要不成为权限或凭据来源，提交仍通过既有原子发布/冲突检查。出错显示固定分类与恢复方式，不暴露异常中的正文、路径或凭据。
 

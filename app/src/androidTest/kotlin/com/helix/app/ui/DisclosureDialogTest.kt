@@ -5,9 +5,10 @@ import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.helix.app.chat.EgressDisclosure
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.ProviderResidence
+import com.helix.feature.conversation.application.EgressDisclosure
+import com.helix.feature.conversation.presentation.DisclosureDialog
 import org.junit.Assert.assertFalse
 import org.junit.Rule
 import org.junit.Test

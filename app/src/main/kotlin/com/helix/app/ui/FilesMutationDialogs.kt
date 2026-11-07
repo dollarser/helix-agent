@@ -23,6 +23,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
 import com.helix.app.files.ConflictPolicy
+import com.helix.ui.shared.R as SharedR
 
 @Composable
 @Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod")
@@ -49,7 +50,7 @@ internal fun FilesMutationDialogs(
                     dismissButton = {
                         TextButton(
                             onClick = { permanentDelete = null },
-                        ) { Text(str(R.string.common_cancel)) }
+                        ) { Text(str(SharedR.string.common_cancel)) }
                     },
                 )
             }
@@ -98,7 +99,7 @@ internal fun FilesMutationDialogs(
                             onClick = { renameTarget = null },
                             modifier = Modifier.testTag("files-rename-cancel"),
                         ) {
-                            Text(str(R.string.common_cancel))
+                            Text(str(SharedR.string.common_cancel))
                         }
                     },
                     modifier = Modifier.testTag("files-rename-dialog"),
@@ -154,7 +155,7 @@ internal fun FilesMutationDialogs(
                     },
                     dismissButton = {
                         TextButton(onClick = { copyMove = null }, modifier = Modifier.testTag("files-dest-cancel")) {
-                            Text(str(R.string.common_cancel))
+                            Text(str(SharedR.string.common_cancel))
                         }
                     },
                     modifier = Modifier.testTag("files-dest-dialog"),
@@ -198,7 +199,7 @@ internal fun FilesMutationDialogs(
                             onClick = { newFolderOpen = false },
                             modifier = Modifier.testTag("files-newfolder-cancel"),
                         ) {
-                            Text(str(R.string.common_cancel))
+                            Text(str(SharedR.string.common_cancel))
                         }
                     },
                     modifier = Modifier.testTag("files-newfolder-dialog"),
@@ -242,7 +243,7 @@ internal fun FilesMutationDialogs(
                             onClick = { newFileOpen = false },
                             modifier = Modifier.testTag("files-newfile-cancel"),
                         ) {
-                            Text(str(R.string.common_cancel))
+                            Text(str(SharedR.string.common_cancel))
                         }
                     },
                     modifier = Modifier.testTag("files-newfile-dialog"),

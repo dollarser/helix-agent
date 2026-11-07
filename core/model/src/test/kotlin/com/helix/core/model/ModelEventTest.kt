@@ -127,6 +127,7 @@ class ModelEventTest {
                 "RATE_LIMITED",
                 "SERVER_ERROR",
                 "PROTOCOL",
+                "IMAGE_RESELECT_REQUIRED",
                 "CONTENT_FILTER",
                 "OUTPUT_TOKEN_LIMIT",
             ),
@@ -134,6 +135,7 @@ class ModelEventTest {
         )
         assertEquals(true, ModelEvent.Error(ModelErrorCode.RATE_LIMITED, true).retryable)
         assertEquals(false, ModelEvent.Error(ModelErrorCode.AUTH, false).retryable)
+        assertEquals(false, ModelEvent.Error(ModelErrorCode.IMAGE_RESELECT_REQUIRED, false).retryable)
         assertEquals(ModelErrorCode.PROTOCOL, ModelEvent.Error(ModelErrorCode.PROTOCOL, false).code)
     }
 

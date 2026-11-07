@@ -23,11 +23,12 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.R
-import com.helix.app.chat.ChatScreenState
-import com.helix.app.chat.ChatService
 import com.helix.app.files.FileManagerService
 import com.helix.app.projects.ProjectService
-import com.helix.app.ui.indicatedVerticalScroll
+import com.helix.feature.conversation.application.ChatService
+import com.helix.feature.conversation.presentation.ChatScreenState
+import com.helix.ui.shared.indicatedVerticalScroll
+import com.helix.ui.shared.R as SharedR
 
 /** Project selection belongs to session settings; directory controls have their own section. */
 @Composable
@@ -113,7 +114,7 @@ internal fun ConversationProjectContext(
                 TextButton(
                     { selecting = false },
                     enabled = !actions.busy,
-                ) { Text(stringResource(R.string.common_cancel)) }
+                ) { Text(stringResource(SharedR.string.common_cancel)) }
             },
         )
     }

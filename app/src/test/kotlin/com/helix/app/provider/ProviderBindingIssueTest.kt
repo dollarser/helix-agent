@@ -2,6 +2,7 @@ package com.helix.app.provider
 
 import com.helix.app.internal.InMemoryLineStore
 import com.helix.core.model.ModelErrorCode
+import com.helix.feature.conversation.presentation.ProviderBindingIssue
 import com.helix.provider.api.CapabilitySource
 import com.helix.provider.api.ProviderCapabilities
 import org.junit.Assert.assertEquals

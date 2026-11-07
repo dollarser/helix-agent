@@ -12,6 +12,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import com.helix.app.R
+import com.helix.ui.shared.R as SharedR
 
 /** Shared hierarchy for native plugins and content-only skills; callers own expansion state. */
 @Composable
@@ -22,7 +23,7 @@ internal fun PluginCatalogHeader(
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
-    val expansion = stringResource(if (expanded) R.string.nav_expanded else R.string.nav_collapsed)
+    val expansion = stringResource(if (expanded) SharedR.string.nav_expanded else SharedR.string.nav_collapsed)
     TextButton(onClick, modifier.fillMaxWidth().semantics { stateDescription = expansion }) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))

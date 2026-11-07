@@ -17,10 +17,10 @@ Helix 首要服务开发者与效率用户。借鉴消费级产品的易用性�
 | 原判断 | 核验结论 | 对方案的影响 |
 | --- | --- | --- |
 | 抽屉有 12 个平级入口 | 成立。[ShellDestination](../../../app/src/main/kotlin/com/helix/app/ShellDestination.kt) 定义 12 项，MainActivity 逐项呈现 | 优先分组与加强上下文入口；不能据此认定底部 Tab 必然更好 |
-| Provider、目录、模式等常驻头部，占 40%～60% | 不符合当前调用链。[AdaptiveConversationHeader](../../../app/src/main/kotlin/com/helix/app/ui/AdaptiveConversationHeader.kt) 的 content 仅在 details 弹窗中执行；标题可重命名 | 保留已有渐进展开，优化头部动作密度；屏占比必须重新测量 |
+| Provider、目录、模式等常驻头部，占 40%～60% | 不符合当前调用链。[AdaptiveConversationHeader](https://github.com/dollarser/helix-agent/blob/645fa680173e83c139d52d73c1585b242d41970a/app/src/main/kotlin/com/helix/app/ui/AdaptiveConversationHeader.kt) 的 content 仅在 details 弹窗中执行；标题可重命名 | 保留已有渐进展开，优化头部动作密度；屏占比必须重新测量 |
 | 头部完全没有减负设计 | 不成立。已有窄屏分支，但常态仍有菜单、标题、Tasks、会话列表、新建、更多等多个动作 | 去重动作比“再把元数据藏起来”更有收益；Goal 管理、blockedReason、TaskLedger 仍在详情弹窗之外，需按状态核查 |
-| 工具输出只能跳页、没有折叠 | 部分不成立。[ToolTimelineItem](../../../app/src/main/kotlin/com/helix/app/ui/ToolTimelineItem.kt) 已折叠参数和结果，结果摘要默认最多 5 行；命令另有详情入口 | 改进摘要、聚合与预览一致性，保留深度详情；不重做已有折叠 |
-| Composer 完全缺少现代胶囊布局 | 不成立。[ComposerToolbar](../../../app/src/main/kotlin/com/helix/app/ui/ComposerToolbar.kt) 已有横向滚动胶囊行 | 问题在信息优先级、固定占高和可发现性；把一排胶囊改成另一排胶囊不算解决 |
+| 工具输出只能跳页、没有折叠 | 部分不成立。[ToolTimelineItem](https://github.com/dollarser/helix-agent/blob/645fa680173e83c139d52d73c1585b242d41970a/app/src/main/kotlin/com/helix/app/ui/ToolTimelineItem.kt) 已折叠参数和结果，结果摘要默认最多 5 行；命令另有详情入口 | 改进摘要、聚合与预览一致性，保留深度详情；不重做已有折叠 |
+| Composer 完全缺少现代胶囊布局 | 不成立。[ComposerToolbar](https://github.com/dollarser/helix-agent/blob/645fa680173e83c139d52d73c1585b242d41970a/app/src/main/kotlin/com/helix/app/ui/ComposerToolbar.kt) 已有横向滚动胶囊行 | 问题在信息优先级、固定占高和可发现性；把一排胶囊改成另一排胶囊不算解决 |
 | HXA-214 草稿持久化/CAS 已完成 | 审查基线645fa680尚不支持；当时ChatScreen输入仍使用按会话remember的状态。后续已独立交付，见[214完成记录](../../completion-records/HXA-214.md) | 本次与216及新版UI联合整合后重验；不把初始审查快照作为当前实现结论 |
 | ReasoningEffort 就是可展示的思考流 | 不成立。推理强度参数不等于 Provider 返回了可展示文本 | 分开“正在处理”“推理摘要”“工具执行”；不可虚构完整思考过程 |
 | 产物/文件/差异与聊天衔接值得优化 | 方向成立，但已有 HXA-194/202/203 导航与交付闭环 | 在既有身份和返回契约上增加预览，不建立第二套结果状态 |

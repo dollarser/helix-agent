@@ -29,6 +29,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import java.util.UUID
+import com.helix.ui.shared.R as SharedR
 
 /** Dedicated preference namespaces; never changes the daily script/native settings or grants. */
 class HostToolBridgeSettingsDeviceTest {
@@ -147,7 +148,7 @@ class HostToolBridgeSettingsDeviceTest {
                     .putBoolean("enabled", true)
                     .commit(),
             )
-            compose.onNodeWithText(context.getString(R.string.chat_retry)).performClick()
+            compose.onNodeWithText(context.getString(SharedR.string.chat_retry)).performClick()
             compose.waitUntil(10_000) {
                 compose
                     .onAllNodesWithTag("settings-script-tool-bridge")

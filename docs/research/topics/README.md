@@ -2,11 +2,11 @@
 
 本目录保存仍被目标设计引用的专项研究。日期是来源核验窗口，不是当前实现状态；专题中的接口草案和阶段顺序不独立维护为生产契约。
 
-2026-10-11 AgentLoop/Core/UI/Turn/权限/工具的系统分层分析已补入[现有执行引擎综合研究 第 9 节](../modules/01-architecture-and-execution-engine.md#9-2026-10-11-分层复核与优化承接)，不另建重复专题。HXA-274/277 的增量、已交付任务去重及宿主提取条件见该节，历史交付以 [status](../../development/status.md#已交付与历史证据)为准。
+2026-10-11 AgentLoop/Core/UI/Turn/权限/工具的系统分层分析已补入[现有执行引擎综合研究 第 9 节](../modules/01-architecture-and-execution-engine.md#9-2026-10-11-分层复核与优化承接)，不另建重复专题。HXA-274/277 的增量、已交付任务去重及宿主提取条件见该节，历史交付以 [status](../../development/status.md#查阅方式)为准。
 
 | 专题 | 保留内容 | 设计与实施承接 |
 | --- | --- | --- |
-| [插件提示与管理体验（2026-10-16）](plugin-guidance-and-management-2026-10-16.md) | 工具/必要指导/Skill/参考资料加载，竞品取舍，统一管理入口 | [HXA-298](../../development/tasks/HXA-298.md)；当前实现与验证独立记账，保留插件及授权边界 |
+| [插件提示与管理体验（2026-10-16）](plugin-guidance-and-management-2026-10-16.md) | 工具/必要指导/Skill/参考资料加载，竞品取舍，统一管理入口 | [HXA-298](../../completion-records/HXA-298.md)；当前实现与验证独立记账，保留插件及授权边界 |
 | [数据库与会话存储审查（2026-10-16）](session-storage-review-2026-10-16.md) | 53 张表职责、正文/执行/上下文边界，Codex/Claude Code/OpenCode/OpenHands 对照；搜索及 GC 查询证据 | 会话查询改进候选、HXA-287/288/294 设计输入；只读审查，不改变当前实施顺序 |
 | [会话管理：竞品核对、首版与重构承接（2026-10-16）](session-management-2026-10-16.md) | Codex/Claude Code/OpenHands，现有 UI 与模型工具的差距；历史/引用、授权与投递回执 | [HXA-295](../../development/tasks/HXA-295.md)、[Harness 第 23.10 节](../../architecture/harness-refactor-plan.md#2310-会话管理与受控任务投递)；首版与后续跨会话扩展分别验收 |
 | [内置工具与插件：桌面及移动端 Agent 对照（2026-10-15）](tool-and-plugin-competitive-review-2026-10-15.md) | 工具名与能力差距、发现／前置依赖、插件边界；第 6.2 节 逐项区分随包插件、基础 Skill 与市场工作流 | [工具与扩展综合研究 第 2 节](../modules/04-tools-browser-and-extensions.md#2-tool-exposure)；研究建议不替代当前任务与 ADR |

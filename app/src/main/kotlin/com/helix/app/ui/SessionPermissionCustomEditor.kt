@@ -19,6 +19,8 @@ import com.helix.core.model.OperationEffect
 import com.helix.core.model.OperationRule
 import com.helix.core.model.SessionPermissionMode
 import com.helix.core.storage.repository.SessionPermissionDraft
+import com.helix.feature.conversation.presentation.SESSION_PERMISSION_PRESETS
+import com.helix.feature.conversation.presentation.labelRes
 
 /**
  * The HXA-209 CUSTOM rule editor (ADR-PERMISSIONS-001 section 4). A CUSTOM snapshot is a FIXED
@@ -53,7 +55,7 @@ internal fun PermissionCustomEditor(
                 stringResource(R.string.settings_perm_custom_copy_prompt),
                 style = MaterialTheme.typography.bodySmall,
             )
-            PRESETS.forEach { preset ->
+            SESSION_PERMISSION_PRESETS.forEach { preset ->
                 OutlinedButton(
                     onClick = { onCopyPreset(preset) },
                     modifier = Modifier.testTag("settings-perm-custom-copy-${preset.name}"),
@@ -111,16 +113,6 @@ private fun RuleRow(
         }
     }
 }
-
-/** The localized label for a mode. Tool/schema/enum names are never translated. */
-internal fun SessionPermissionMode.labelRes(): Int =
-    when (this) {
-        SessionPermissionMode.APPROVAL_REQUIRED -> R.string.settings_perm_mode_approval_required
-        SessionPermissionMode.WORKSPACE_TRUSTED -> R.string.settings_perm_mode_workspace_trusted
-        SessionPermissionMode.FULL_ACCESS -> R.string.settings_perm_mode_full_access
-        SessionPermissionMode.READ_ONLY -> R.string.settings_perm_mode_read_only
-        SessionPermissionMode.CUSTOM -> R.string.settings_perm_mode_custom
-    }
 
 /** The localized label for an operation-effect key (a closed, versioned set). */
 internal fun OperationEffect.labelRes(): Int =

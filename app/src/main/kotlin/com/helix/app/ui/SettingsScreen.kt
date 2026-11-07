@@ -30,9 +30,9 @@ import com.helix.app.provider.ProviderService
 import com.helix.app.provider.ui.ProviderManager
 import com.helix.app.runcontrol.RunControlStore
 import com.helix.app.tool.ToolPipeline
-import com.helix.app.ui.indicatedVerticalScroll
 import com.helix.core.model.ProviderProvisioningKind
 import com.helix.core.model.SafetyProfile
+import com.helix.ui.shared.indicatedVerticalScroll
 
 /** General application preferences; agent defaults and storage have their own drawer entries. */
 @Composable
@@ -101,7 +101,7 @@ fun SettingsScreen(
 @Suppress("FunctionName")
 internal fun AppAgentDefaultsScreen(
     runControlStore: RunControlStore,
-    chatService: com.helix.app.chat.ChatService?,
+    chatService: com.helix.feature.conversation.application.ChatService?,
 ) {
     Column(
         Modifier

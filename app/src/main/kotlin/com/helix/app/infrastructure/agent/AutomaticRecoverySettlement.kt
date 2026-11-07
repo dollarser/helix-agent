@@ -1,11 +1,11 @@
 package com.helix.app.infrastructure.agent
 
-import com.helix.app.application.agent.TurnInterruptionNotice
 import com.helix.app.goal.toRuntimeGoal
 import com.helix.app.goal.toStoredGoal
 import com.helix.app.recovery.GoalUsageReservations
 import com.helix.core.agent.GoalEvent
 import com.helix.core.agent.GoalReducer
+import com.helix.core.agent.TurnInterruptionNotice
 import com.helix.core.model.Clock
 import com.helix.core.model.ErrorCode
 import com.helix.core.model.HelixError
@@ -83,7 +83,7 @@ internal class AutomaticRecoverySettlement(
         storage.withTransaction {
             val parent = storage.turns.resolve(parentId)
             val key = "recovery-ended:$parentId"
-            if (storage.auditEvents.listByCorrelation(parent.sessionId).any { it.id == key }) return@withTransaction
+            if (storage.auditEvents.find(key) != null) return@withTransaction
             val now = clock.now().toEpochMilli()
             if (parent.state == "NEEDS_REVIEW") {
                 storage.turns.updateState(

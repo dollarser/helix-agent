@@ -6,10 +6,12 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import com.helix.app.R
+import com.helix.feature.conversation.presentation.EmptyConversationHint
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Rule
 import org.junit.Test
+import com.helix.feature.conversation.R as ConversationR
 
 /** UI-only fixture. No model, network, permissions or device controls are invoked. */
 class TaskFirstEntryDeviceTest {
@@ -29,7 +31,7 @@ class TaskFirstEntryDeviceTest {
             }
         }
         compose.onNodeWithTag("chat-starter-prompts").assertIsDisplayed()
-        compose.onNodeWithTag("starter-prompt-${R.string.chat_task_document}").performClick()
+        compose.onNodeWithTag("starter-prompt-${ConversationR.string.chat_task_document}").performClick()
         compose.runOnIdle {
             assertFalse(draft.isBlank())
             assertEquals(0, modelChoices)

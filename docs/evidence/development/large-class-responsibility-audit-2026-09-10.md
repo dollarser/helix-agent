@@ -27,10 +27,10 @@ A/B/C/D 是维护建议，不是缺陷严重度；没有仅凭体积判定的紧
 
 | 文件 / 行数 | 实际形态与职责 | 建议与不应改变的边界 |
 | --- | --- | --- |
-| [ChatService.kt](../../../app/src/main/kotlin/com/helix/app/chat/ChatService.kt) · 1811 | 单个服务类：草稿/会话、模型切换、附件/出网确认、发送重试、Turn 生命期 | 先抽会话/草稿管理和附件发送准备；沿用现有 StagedAttachmentProcessor、ChatRequestAssembler，不再造重叠组件。保留唯一准入和活动 Turn 状态。 |
+| [ChatService.kt](../../../feature/conversation/src/main/kotlin/com/helix/feature/conversation/application/ChatService.kt) · 1811 | 单个服务类：草稿/会话、模型切换、附件/出网确认、发送重试、Turn 生命期 | 先抽会话/草稿管理和附件发送准备；沿用现有 StagedAttachmentProcessor、ChatRequestAssembler，不再造重叠组件。保留唯一准入和活动 Turn 状态。 |
 | [LinuxRunTool.kt](../../../app/src/developer/kotlin/com/helix/app/proot/LinuxRunTool.kt) · 1038 | Tool object＋嵌套生产执行器：schema、参数解析、快照、环境审查、提交/等待、结果导入 | 先分离 Tool 合约与 ProductionLinuxExecutor；再提取快照/导入。保持提交前持久关联、按原 jobId 对账及精确审批。 |
 | [ProotJobRunner.kt](../../../runtime/proot-app/src/main/kotlin/com/helix/runtime/proot/app/ProotJobRunner.kt) · 1028 | Runner＋输出捕获辅助类：输入解包、进程启动、输出捕获、终态、归档、进程组/孤儿清理 | 先抽输出捕获/归档和进程组控制，再抽输入准备；终态写入与取消/超时裁决仍集中，不能拆成互相竞争的 owner。 |
-| [ChatScreen.kt](../../../app/src/main/kotlin/com/helix/app/ui/ChatScreen.kt) · 842 | 多个 Compose 函数：会话列表、会话主体、模式说明、工具行/恢复入口和回调接线 | 拆 SessionListSection、ConversationSection 和恢复/工具展示；复用已有 composer/timeline，不在 UI 新增执行状态机。 |
+| [ChatScreen.kt](../../../app/src/main/kotlin/com/helix/app/ui/AppConversationRoute.kt) · 842 | 多个 Compose 函数：会话列表、会话主体、模式说明、工具行/恢复入口和回调接线 | 拆 SessionListSection、ConversationSection 和恢复/工具展示；复用已有 composer/timeline，不在 UI 新增执行状态机。 |
 | [ProviderScreen.kt](../../../app/src/main/kotlin/com/helix/app/provider/ui/ProviderScreen.kt) · 832 | 多个 Compose 函数和表单类型：列表管理、模板选择、配置表单、行操作、状态文案、endpoint 解析 | 拆表单状态/校验、模板对话框、Provider 行和状态展示；保存/连接测试仍经 ProviderService。 |
 | [FileManagerServiceTransfers.kt](../../../app/src/main/kotlin/com/helix/app/files/FileManagerServiceTransfers.kt) · 831 | 传输合约＋FileManagerTransfers：单文件/目录导入、导出目标、冲突命名、拒绝与结果映射 | 拆导入、导出、结果映射；共用冲突命名规则。不能混淆原 picker 管线与新手动恢复日志。 |
 | [ChatToolCalls.kt](https://github.com/dollarser/helix-agent/blob/9965d2dff694441458b4036942c4b8b9749f0f8e/app/src/main/kotlin/com/helix/app/chat/ChatToolCalls.kt) · 685 | 工具调用编排类：审批动作、模型工具消息转换、调用准备、批调度/单调度 | 先抽模型工具消息编码和 DispatchRequest 准备；保留 dispatchFacts、结果顺序、取消/未执行项结算的唯一归属，避免刚拆出又长成新大类。 |
@@ -55,20 +55,20 @@ A/B/C/D 是维护建议，不是缺陷严重度；没有仅凭体积判定的紧
 
 | 文件 / 行数 | 实际形态与职责 | 建议与不应改变的边界 |
 | --- | --- | --- |
-| [ConversationRepositories.kt](../../../core/storage/src/main/kotlin/com/helix/core/storage/repository/ConversationRepositories.kt) · 854 | 多个独立 Repository：Session、Message、Turn、审批、回执、执行、Artifact、Audit 仓储 | 按现有类型拆文件即可；已有职责边界，不需把多个 Repository 重新合成服务。 |
+| [ConversationRepositories.kt](../../../infrastructure/storage/src/main/kotlin/com/helix/core/storage/repository/ConversationRepositories.kt) · 854 | 多个独立 Repository：Session、Message、Turn、审批、回执、执行、Artifact、Audit 仓储 | 按现有类型拆文件即可；已有职责边界，不需把多个 Repository 重新合成服务。 |
 | [AppContainer.kt](../../../app/src/main/kotlin/com/helix/app/AppContainer.kt) · 736 | 接口＋装配根：构造依赖、连接服务和回调、持有单例 | 按文件/聊天/运行时等领域整理装配组件即可；先复用 AppFileServices 等现有装配，避免服务定位器或新 DI 框架。 |
 | [ArchiveTools.kt](../../../tools/files/src/main/kotlin/com/helix/tools/files/ArchiveTools.kt) · 694 | 两个 Tool object＋辅助函数：归档/解压合约、成员收集、执行与错误映射 | 按 FilesArchiveTool、FilesExtractTool 分文件，共用最小格式/成员帮助函数；不是一个 694 行的单类。 |
-| [ApprovalCardUi.kt](../../../app/src/main/kotlin/com/helix/app/approval/ApprovalCardUi.kt) · 572 | UI 数据类型＋mapper：审批卡数据、风险/来源/状态文案、代码和限额显示 | 可按普通审批/代码执行/规则展示整理 mapper；无须改变审批机制，不是单个 UI 大类。 |
+| [ApprovalCardUi.kt](../../../feature/conversation/src/main/kotlin/com/helix/feature/conversation/presentation/ApprovalCardUi.kt) · 572 | UI 数据类型＋mapper：审批卡数据、风险/来源/状态文案、代码和限额显示 | 可按普通审批/代码执行/规则展示整理 mapper；无须改变审批机制，不是单个 UI 大类。 |
 | [FilesMetaTools.kt](../../../tools/files/src/main/kotlin/com/helix/tools/files/FilesMetaTools.kt) · 505 | 多个文件 Tool object：文件元数据相关工具合约和执行 | 按已有 Tool 边界拆文件，避免为 schema 行数创造继承框架。 |
 | [NotificationsCalendarTools.kt](../../../tools/android/src/main/kotlin/com/helix/tools/android/NotificationsCalendarTools.kt) · 503 | 多个 Android Tool object：通知和日历工具 | 按通知/日历拆文件；维持各自 Tool 描述、动态风险与 bridge。 |
 | [FilesMutateTools.kt](../../../tools/files/src/main/kotlin/com/helix/tools/files/FilesMutateTools.kt) · 494 | 多个文件 Tool object：文件变更工具合约、执行和注册 | 按 Tool object 整理；继续调用共同存储实现，无需新的通用操作 DSL。 |
 | [AndroidSystemTools.kt](../../../tools/android/src/main/kotlin/com/helix/tools/android/AndroidSystemTools.kt) · 489 | 多个 Android Tool object：设备信息、剪贴板、分享等 | 按现有工具类型分文件即可，保持风险和权限归属。 |
-| [ConfigRepositories.kt](../../../core/storage/src/main/kotlin/com/helix/core/storage/repository/ConfigRepositories.kt) · 488 | 配置类型＋多个 Repository：Provider、Runtime、MCP、Skill 配置仓储 | 按现有 Repository 文件化；属于聚合组织问题。 |
+| [ConfigRepositories.kt](../../../infrastructure/storage/src/main/kotlin/com/helix/core/storage/repository/ConfigRepositories.kt) · 488 | 配置类型＋多个 Repository：Provider、Runtime、MCP、Skill 配置仓储 | 按现有 Repository 文件化；属于聚合组织问题。 |
 | [AutomationActions.kt](../../../extensions/mobile-use/src/main/kotlin/com/helix/extensions/mobileuse/automation/AutomationActions.kt) · 470 | 查询/结果类型＋多个执行组件：查找、节点动作、等待 | Finder、Executor、Waiter 已独立；可分文件，保持节点验证/代际绑定。 |
-| [HelixDatabase.kt](../../../core/storage/src/main/kotlin/com/helix/core/storage/HelixDatabase.kt) · 459 | Room 数据库＋迁移声明：DAO 入口、数据库构建和迁移 SQL | 可把 migrations 按版本整理为文件；保留版本顺序/注册单点，不改变 schema。 |
+| [HelixDatabase.kt](../../../infrastructure/storage/src/main/kotlin/com/helix/core/storage/HelixDatabase.kt) · 459 | Room 数据库＋迁移声明：DAO 入口、数据库构建和迁移 SQL | 可把 migrations 按版本整理为文件；保留版本顺序/注册单点，不改变 schema。 |
 | [SdkMcpClientFacade.kt](../../../extensions/mcp/src/main/kotlin/com/helix/extensions/mcp/SdkMcpClientFacade.kt) · 411 | 多个 SDK 适配类＋转换函数：连接、协议协商 transport、session、content 映射 | 按已有 facade/transport/session/conversion 分文件；无需重新设计 MCP。 |
 | [AutomationSnapshotEngine.kt](../../../extensions/mobile-use/src/main/kotlin/com/helix/extensions/mobileuse/automation/AutomationSnapshotEngine.kt) · 407 | 平台节点适配＋快照组件：节点封装、代际跟踪、指纹、遍历/回收 | 可按已存在的节点适配与捕获引擎分文件；节点 recycle 和 generation 验证不能丢失。 |
-| [ConversationDaos.kt](../../../core/storage/src/main/kotlin/com/helix/core/storage/dao/SessionDao.kt) · 402 | 多个 DAO interface：会话、消息、Turn、审批等 SQL 接口 | 按现有 DAO 类型拆文件，保持 SQL 与事务合同；不是大类。 |
+| [ConversationDaos.kt](../../../infrastructure/storage/src/main/kotlin/com/helix/core/storage/dao/SessionDao.kt) · 402 | 多个 DAO interface：会话、消息、Turn、审批等 SQL 接口 | 按现有 DAO 类型拆文件，保持 SQL 与事务合同；不是大类。 |
 | [SettingsScreen.kt](../../../app/src/main/kotlin/com/helix/app/ui/SettingsScreen.kt) · 400 | 多个 Compose 函数：设置页、PRoot 状态与修复、语言选择 | 可拆 RuntimeSection/LanguageSection；仍由服务执行业务，低风险组织清理。 |
 
 ## D：保留集中实现（10 份）
@@ -116,4 +116,4 @@ A/B/C/D 是维护建议，不是缺陷严重度；没有仅凭体积判定的紧
 
 此审查保存 HXA-182 后、拆分前的快照；表中的行数不随后续实现重写。所有者随后授权拆分，7 项 A 类进入 [HXA-183](../../completion-records/HXA-183.md)。当前实施与验收以 [实施状态](../../development/status.md) 为准；B/C 类已在 [HXA-184](../../completion-records/HXA-184.md) 完成（11 项谨慎提取、15 项文件/装配整理），D 类继续保持集中。原 ConversationDaos.kt 已按 DAO 类型分文件，表中历史链接转到 SessionDao 作为导航入口。后续任务应先验证上述快照是否仍适用。
 
-> 2026-10-24 目录迁移说明：已删除旧类的链接指向公开 v0.0.7 发布基线，供追溯该旧路径；不证明当年未提交快照逐字可重建。当前替换入口和验收以 [HXA-287](../../development/tasks/HXA-287.md) 为准，旧结构不再是现行规范。
+> 2026-10-24 目录迁移说明：已删除旧类的链接指向公开 v0.0.7 发布基线，供追溯该旧路径；不证明当年未提交快照逐字可重建。当前替换入口和验收以 [HXA-287](../../completion-records/HXA-287.md) 为准，旧结构不再是现行规范。

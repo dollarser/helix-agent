@@ -161,25 +161,23 @@ class ConnectorExternalDeviceTest {
         container.storage.turns.start(turn, session, now)
         container.chatService.openSession(session)
         val task =
-            FutureTask { container.chatService.dispatchToolCall(call, turn, descriptor(record).name.value, arguments) }
+            FutureTask {
+                container.toolExecution.dispatchToolCall(
+                    call,
+                    turn,
+                    descriptor(record).name.value,
+                    arguments,
+                )
+            }
         Thread(task, "hxa125-dispatch").apply { isDaemon = true }.start()
         try {
-            val deadline = System.currentTimeMillis() + 30_000
-            while (!task.isDone && container.storage.approvals.byToolCall(call) == null &&
-                System.currentTimeMillis() < deadline
-            ) {
-                Thread.sleep(50)
-            }
-            val approval =
-                checkNotNull(
-                    container.storage.approvals.byToolCall(call),
-                ) { "expected exact approval for public query" }
+            val approvalId = awaitApprovalId(call, task)
             if (approve) {
                 container.chatService.approveApproval(
-                    approval.id,
+                    approvalId,
                 )
             } else {
-                container.chatService.denyApproval(approval.id)
+                container.chatService.denyApproval(approvalId)
             }
             val result = task.get(90, TimeUnit.SECONDS)
             assertTrue(
@@ -195,7 +193,7 @@ class ConnectorExternalDeviceTest {
                         .state,
                 )
             }
-            val storedApproval = container.storage.approvals.resolve(approval.id)
+            val storedApproval = container.storage.approvals.resolve(approvalId)
             assertEquals(if (approve) "APPROVED" else "DENIED", storedApproval.decision)
             assertEquals(approve, storedApproval.consumedAt != null)
             assertEquals(if (approve) 1 else 0, container.mcpService.sentSummaries(session).size)
@@ -208,6 +206,21 @@ class ConnectorExternalDeviceTest {
                 task.cancel(true)
             }
         }
+    }
+
+    private fun awaitApprovalId(
+        call: String,
+        task: FutureTask<ToolDispatchOutcome>,
+    ): String {
+        val deadline = System.currentTimeMillis() + 30_000
+        while (!task.isDone && container.storage.approvals.byToolCall(call) == null &&
+            System.currentTimeMillis() < deadline
+        ) {
+            Thread.sleep(50)
+        }
+        return checkNotNull(container.storage.approvals.byToolCall(call)) {
+            "expected exact approval for public query"
+        }.id
     }
 
     private fun assertSucceeded(result: ToolDispatchOutcome) {

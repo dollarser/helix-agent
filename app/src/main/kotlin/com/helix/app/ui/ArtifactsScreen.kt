@@ -40,20 +40,23 @@ import com.helix.app.AppContainer
 import com.helix.app.R
 import com.helix.app.chat.ArtifactRowUi
 import com.helix.app.chat.BackgroundTaskUi
-import com.helix.app.chat.ChatService
-import com.helix.app.chat.MessageUi
+import com.helix.app.chat.TaskDashboardProjection
 import com.helix.app.files.FileManagerService
-import com.helix.app.ui.IndicatedLazyColumn
-import com.helix.app.ui.indicatedVerticalScroll
+import com.helix.app.infrastructure.conversation.ConversationWorkspaceDetails
 import com.helix.core.model.TurnState
+import com.helix.feature.conversation.presentation.MessageUi
+import com.helix.ui.shared.IndicatedLazyColumn
+import com.helix.ui.shared.MarkdownText
+import com.helix.ui.shared.indicatedVerticalScroll
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import com.helix.ui.shared.R as SharedR
 
 /**
  * The Artifact Center (P0-B, research doc section 28 / PX-02 "结果可交付"): one first-class page
  * with TWO honest entry kinds. The FILES section lists real artifact rows (doc 02 §8) — files the
  * agent's tools actually wrote, from the `artifacts` table, with source session and size; the
- * RESULTS section lists completed turns across sessions; failures remain in Tasks. Rows are shared [ChatService]
+ * RESULTS section lists completed turns across sessions; failures remain in Tasks. Rows are shared [TaskDashboardProjection]
  * StateFlows kept live as turns and files land in any session; entry and an explicit refresh
  * re-read storage onto those flows (off the main thread) so just-finished work is visible on
  * open. A file row opens a view that checks the file's availability AT OPEN — the row outlives
@@ -69,7 +72,7 @@ internal fun ArtifactsScreenDestination(
     projectRecords: com.helix.app.projects.ProjectRecords? = null,
     onRefresh: (() -> Unit)? = null,
 ) {
-    val service = container.chatService
+    val dashboard = container.taskDashboard
     var revision by remember { mutableStateOf(0) }
     var selected by remember { mutableStateOf<BackgroundTaskUi?>(null) }
     var selectedFile by remember { mutableStateOf<ArtifactRowUi?>(null) }
@@ -79,17 +82,17 @@ internal fun ArtifactsScreenDestination(
     // directly — is visible on open; the shared StateFlows then keep both lists live, so no
     // separate per-screen query is needed.
     LaunchedEffect(revision) {
-        service.refreshBackgroundTasksNow()
-        service.refreshTaskDashboardsNow()
+        dashboard.refreshBackgroundNow()
+        dashboard.refreshTasksNow()
     }
 
-    val allTasks by service.backgroundTasks.collectAsStateWithLifecycle()
+    val allTasks by dashboard.tasks.collectAsStateWithLifecycle()
     val taskRows: List<BackgroundTaskUi> =
         (projectRecords?.tasks ?: allTasks).filter {
             isDeliverableResult(it) &&
                 (sessionFilter == null || it.sessionId in sessionFilter)
         }
-    val allFiles by service.artifactFiles.collectAsStateWithLifecycle()
+    val allFiles by dashboard.artifacts.collectAsStateWithLifecycle()
     val fileRows = (projectRecords?.files ?: allFiles).filter { sessionFilter == null || it.sessionId in sessionFilter }
 
     Column(Modifier.fillMaxSize().testTag("screen-artifacts")) {
@@ -437,7 +440,7 @@ private fun ArtifactResultText(
             if (failed) {
                 Text(stringResource(R.string.background_task_result_missing))
                 TextButton(onRetry, modifier = Modifier.testTag("artifact-result-retry")) {
-                    Text(stringResource(R.string.chat_retry))
+                    Text(stringResource(SharedR.string.chat_retry))
                 }
             }
             if (shareFailed) Text(stringResource(R.string.artifacts_share_unavailable))
@@ -457,7 +460,8 @@ private fun ArtifactResultText(
 @Composable
 @Suppress("FunctionName", "SwallowedException")
 internal fun ArtifactResultDialog(
-    service: ChatService,
+    service: ConversationWorkspaceDetails,
+    dashboard: TaskDashboardProjection,
     row: BackgroundTaskUi,
     onOpenSession: () -> Unit,
     onDismiss: () -> Unit,
@@ -499,7 +503,7 @@ internal fun ArtifactResultDialog(
                 TextButton(
                     enabled = row.canCollect,
                     onClick = {
-                        service.collectTaskResult(row.id)
+                        dashboard.collectResult(row.id)
                         onDismiss()
                     },
                     modifier = Modifier.testTag("artifact-collect-${row.id}"),

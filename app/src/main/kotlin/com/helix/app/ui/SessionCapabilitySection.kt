@@ -29,7 +29,7 @@ import androidx.compose.ui.unit.dp
 import com.helix.app.R
 import com.helix.app.connector.SessionCapabilityUiState
 import com.helix.app.connector.SessionConnectorItemUi
-import com.helix.app.ui.IndicatedLazyColumn
+import com.helix.ui.shared.IndicatedLazyColumn
 
 /**
  * HXA-129 Session capability panel (ADR-CONNECTORS-003 §2).

@@ -109,9 +109,9 @@ HXA-272已实现统一内容读取和零工具激活，有界验证见[272证据
 
 ## References
 
-- [HXA-272：统一内容贡献](../../development/tasks/HXA-272.md)
-- [HXA-273：调用资格](../../development/tasks/HXA-273.md)
-- [HXA-278：渐进装载](../../development/tasks/HXA-278.md)
+- [HXA-272：统一内容贡献](../../completion-records/HXA-272.md)
+- [HXA-273：调用资格](../../completion-records/HXA-273.md)
+- [HXA-278：渐进装载](../../completion-records/HXA-278.md)
 - [插件研究与任务映射](../../research/topics/helix-plugin-architecture-optimization-2026-10-11.md#7-任务承接与验收)
 - [实施状态](../../development/status.md)
 - [开发路线](../../development/roadmap.md)
@@ -133,7 +133,7 @@ Owner随后要求一并优化系统提示、内置工具描述与Skill，再完�
 
 ## Decision history — 2026-10-16：提示分层可审查
 
-Owner 要求审查 Mobile Use 等插件提示的提供方式和内容。[HXA-298](../../development/tasks/HXA-298.md) 保留现有渐进装载，管理页增加必要指导和原生参考资料预览，并纠正全文自动加载的误述；Documents 必要指导归入自身资源，Chat Reply 明确独立能力依赖。参考 [Codex Skills](https://developers.openai.com/codex/skills) 和 [Claude Skills](https://code.claude.com/docs/en/skills)，不将这些指导变成审批或新执行能力；成本与模型遵循率需要独立真实模型对照，不能由 UI/主机验收推导。
+Owner 要求审查 Mobile Use 等插件提示的提供方式和内容。[HXA-298](../../completion-records/HXA-298.md) 保留现有渐进装载，管理页增加必要指导和原生参考资料预览，并纠正全文自动加载的误述；Documents 必要指导归入自身资源，Chat Reply 明确独立能力依赖。参考 [Codex Skills](https://developers.openai.com/codex/skills) 和 [Claude Skills](https://code.claude.com/docs/en/skills)，不将这些指导变成审批或新执行能力；成本与模型遵循率需要独立真实模型对照，不能由 UI/主机验收推导。
 
 ## Decision history — 2026-10-27：内置文件选择导入
 

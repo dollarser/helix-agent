@@ -10,7 +10,10 @@ import com.helix.core.model.input.InputConfiguration
 import com.helix.core.model.input.SessionInputDelivery
 import com.helix.core.model.input.SessionInputSpec
 import com.helix.core.storage.HelixStorage
+import com.helix.core.storage.RoomInputRecoveryStore
 import com.helix.core.storage.repository.SessionInputState
+import com.helix.feature.conversation.application.recovery.AutomaticInputRecovery
+import com.helix.feature.conversation.application.recovery.AutomaticTurnRecovery
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -33,7 +36,7 @@ class AutomaticRecoveryPersistenceDeviceTest {
                 var checks = 0
 
                 fun recovery() =
-                    AutomaticInputRecovery(storage, clock, {
+                    AutomaticInputRecovery(RoomInputRecoveryStore(storage, Any()), clock, {
                         checks++
                         true
                     }, { "Ended" })
@@ -82,9 +85,69 @@ class AutomaticRecoveryPersistenceDeviceTest {
                 storage.sessionInputs.parkSessionInputs("session", "PROCESS_INTERRUPTED", 2)
                 val turn = storage.turns.start("stopped", "session", 1)
                 storage.turns.updateState(turn, TurnState.INTERRUPTED, 0, 2, "USER_STOP")
-                AutomaticInputRecovery(storage, clock, { error("must not revalidate after Stop") }, { "Ended" })
+                AutomaticInputRecovery(RoomInputRecoveryStore(storage, Any()), clock, {
+                    error("must not revalidate after Stop")
+                }, { "Ended" })
                     .recover("session")
                 assertEquals(SessionInputState.NEEDS_ATTENTION, storage.sessionInputs.get("input")?.state)
+            }
+        }
+
+    @Test fun stopDuringInputRevalidationCannotResumeOrFailTheParkedInput() =
+        runBlocking {
+            withStorage { storage ->
+                val turn = storage.turns.start("parent", "session", 1)
+                storage.turns.updateState(turn, TurnState.INTERRUPTED, 0, 2, null)
+                storage.sessionInputs.accept(input())
+                storage.sessionInputs.parkSessionInputs("session", "PROCESS_INTERRUPTED", 2)
+                val before = requireNotNull(storage.sessionInputs.get("input"))
+                val engine = createRoomTurnEngine(storage, clock, idGenerator = { UUID.randomUUID().toString() })
+                AutomaticInputRecovery(RoomInputRecoveryStore(storage, engine.executionGate), clock, {
+                    engine.requestCancel("parent", "session", false, false, "USER_STOP")
+                    true
+                }, { "Ended" }).recover("session")
+                assertEquals("USER_STOP", storage.turns.resolve("parent").errorCode)
+                assertEquals(before, storage.sessionInputs.get("input"))
+                assertTrue(storage.messages.listBySession("session").isEmpty())
+            }
+        }
+
+    @Test fun inputEditDuringRevalidationCannotBeFailedUsingItsNewRevision() =
+        runBlocking {
+            withStorage { storage ->
+                storage.sessionInputs.accept(input())
+                storage.sessionInputs.parkSessionInputs("session", "PROCESS_INTERRUPTED", 2)
+                val original = requireNotNull(storage.sessionInputs.get("input"))
+                AutomaticInputRecovery(RoomInputRecoveryStore(storage, Any()), clock, {
+                    assertTrue(
+                        storage.sessionInputs.editPending(
+                            "input",
+                            original.revision,
+                            input().copy(revision = original.revision + 1, text = "User replacement"),
+                        ),
+                    )
+                    false
+                }, { "Ended" }).recover("session")
+                val current = requireNotNull(storage.sessionInputs.get("input"))
+                assertEquals(original.revision + 1, current.revision)
+                assertEquals(SessionInputState.NEEDS_ATTENTION, current.state)
+                assertEquals("User replacement", storage.sessionInputs.readText(current))
+                assertTrue(storage.messages.listBySession("session").isEmpty())
+            }
+        }
+
+    @Test fun archivedSessionDuringRevalidationCannotResumeOrFailItsInput() =
+        runBlocking {
+            withStorage { storage ->
+                storage.sessionInputs.accept(input())
+                storage.sessionInputs.parkSessionInputs("session", "PROCESS_INTERRUPTED", 2)
+                val before = storage.sessionInputs.get("input")
+                AutomaticInputRecovery(RoomInputRecoveryStore(storage, Any()), clock, {
+                    storage.sessions.archive("session", 3)
+                    true
+                }, { "Ended" }).recover("session")
+                assertEquals(before, storage.sessionInputs.get("input"))
+                assertTrue(storage.messages.listBySession("session").isEmpty())
             }
         }
 
@@ -96,10 +159,11 @@ class AutomaticRecoveryPersistenceDeviceTest {
                 val settlement = AutomaticRecoverySettlement(storage, clock)
                 val recovery =
                     AutomaticTurnRecovery(
-                        storage,
+                        com.helix.app.infrastructure.agent
+                            .RoomTurnRecoveryStore(storage, Any(), settlement::finish),
                         clock,
                         { _, _ -> error("no runtime") },
-                        settlement::finish,
+                        { throw it },
                     )
                 repeat(2) { recovery.recover("parent") }
                 assertEquals(1, storage.turns.listBySession("session").size)
@@ -107,7 +171,7 @@ class AutomaticRecoveryPersistenceDeviceTest {
                     1,
                     storage.messages.listBySession("session").count {
                         it.kind ==
-                            com.helix.app.application.agent.TurnInterruptionNotice.KIND
+                            com.helix.core.agent.TurnInterruptionNotice.KIND
                     },
                 )
                 assertTrue(storage.auditEvents.listByCorrelation("session").any { it.type == "recovery.ended" })
@@ -139,7 +203,7 @@ class AutomaticRecoveryPersistenceDeviceTest {
                 assertEquals(
                     0,
                     storage.messages.byTurn(turn.id).count {
-                        it.kind == com.helix.app.application.agent.TurnInterruptionNotice.KIND
+                        it.kind == com.helix.core.agent.TurnInterruptionNotice.KIND
                     },
                 )
                 assertTrue(
@@ -166,7 +230,7 @@ class AutomaticRecoveryPersistenceDeviceTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val name = "automatic-recovery-${UUID.randomUUID()}.db"
         val directory = File(context.cacheDir, name)
-        val storage = HelixStorage.open(context, name, directory)
+        val storage = HelixStorage.open(context, name, File(directory, "content"))
         try {
             storage.sessions.create("session", "Recovery", null, null, 0)
             block(storage)

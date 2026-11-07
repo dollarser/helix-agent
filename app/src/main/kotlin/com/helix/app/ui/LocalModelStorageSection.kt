@@ -17,6 +17,7 @@ import com.helix.app.R
 import com.helix.app.localmodel.LocalModelStorageSnapshot
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
+import com.helix.ui.shared.R as SharedR
 
 @Composable
 @Suppress("FunctionName", "LongMethod", "TooGenericExceptionCaught", "SwallowedException")
@@ -100,7 +101,7 @@ internal fun LocalModelStorageSection(
                 TextButton(
                     onClick = { confirmation = null },
                     modifier = Modifier.testTag("local-model-storage-cancel"),
-                ) { Text(stringResource(R.string.chat_details_close)) }
+                ) { Text(stringResource(SharedR.string.chat_details_close)) }
             },
         )
     }

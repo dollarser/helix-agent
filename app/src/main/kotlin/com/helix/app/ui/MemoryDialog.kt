@@ -24,12 +24,14 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
 import com.helix.app.memory.MemoryService
-import com.helix.app.ui.indicatedVerticalScroll
 import com.helix.core.workspace.memory.MemoryEntry
 import com.helix.core.workspace.memory.MemoryScope
+import com.helix.ui.shared.indicatedVerticalScroll
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.helix.feature.conversation.R as ConversationR
+import com.helix.ui.shared.R as SharedR
 
 @Composable
 @Suppress(
@@ -255,7 +257,7 @@ internal fun MemoryDialog(
                 if (failed) Text(stringResource(R.string.memory_failed), modifier = Modifier.testTag("memory-error"))
             }
         },
-        confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.files_close)) } },
+        confirmButton = { TextButton(onDismiss) { Text(stringResource(ConversationR.string.files_close)) } },
     )
     if (confirmDelete) {
         AlertDialog(
@@ -279,7 +281,11 @@ internal fun MemoryDialog(
                         ),
                 ) { Text(stringResource(R.string.memory_delete)) }
             },
-            dismissButton = { TextButton({ confirmDelete = false }) { Text(stringResource(R.string.common_cancel)) } },
+            dismissButton = {
+                TextButton(
+                    { confirmDelete = false },
+                ) { Text(stringResource(SharedR.string.common_cancel)) }
+            },
         )
     }
 }

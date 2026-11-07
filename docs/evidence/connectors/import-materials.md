@@ -1,6 +1,6 @@
 # Connector 导入材料与复跑方法
 
-本页保留历史交接来源；当前可复用入口为[外部样本说明](../../../scripts/fixtures/connectors/README.md)。2026-10-16 的 [HXA-299](../../development/tasks/HXA-299.md) 已将 QwenWork 原包、WorkBuddy 两个市场包与六份固定公开配置集中到忽略的 `scripts/local/fixtures/connectors/`，由本地 manifest 校验，不受 `gradlew clean` 影响。原件与旧证据保留，不提交第三方内容或凭据；真实账号验收不由导入通过推导。
+本页保留历史交接来源；当前可复用入口为[外部样本说明](../../../scripts/fixtures/connectors/README.md)。2026-10-16 的 [HXA-299](../../completion-records/HXA-299.md) 已将 QwenWork 原包、WorkBuddy 两个市场包与六份固定公开配置集中到忽略的 `scripts/local/fixtures/connectors/`，由本地 manifest 校验，不受 `gradlew clean` 影响。原件与旧证据保留，不提交第三方内容或凭据；真实账号验收不由导入通过推导。
 
 ## 历史交接材料
 

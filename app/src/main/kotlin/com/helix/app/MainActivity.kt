@@ -55,11 +55,10 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.helix.app.allfiles.AllFilesModule
-import com.helix.app.chat.SessionHistoryActions
-import com.helix.app.chat.ui.ConversationHistoryScreen
 import com.helix.app.language.AppLanguageStore
 import com.helix.app.root.RootModule
 import com.helix.app.ui.AppAgentDefaultsScreen
+import com.helix.app.ui.AppConversationRoute
 import com.helix.app.ui.ArtifactsScreenDestination
 import com.helix.app.ui.AuditScreen
 import com.helix.app.ui.COMMAND_DETAIL_ROUTE
@@ -68,7 +67,6 @@ import com.helix.app.ui.CONVERSATION_SEARCH_ROUTE
 import com.helix.app.ui.CONVERSATION_SETTINGS_ROUTE
 import com.helix.app.ui.CapabilitiesScreenDestination
 import com.helix.app.ui.CapabilityReadinessScreen
-import com.helix.app.ui.ChatScreen
 import com.helix.app.ui.CommandResultDetailScreen
 import com.helix.app.ui.CompactPageHeader
 import com.helix.app.ui.ConversationDrawerState
@@ -108,6 +106,10 @@ import com.helix.app.ui.tasksTurnRoute
 import com.helix.core.model.ProviderProvisioningKind
 import com.helix.feature.browser.BrowserViewOwner
 import com.helix.feature.browser.ui.BrowserScreen
+import com.helix.feature.conversation.application.SessionHistoryActions
+import com.helix.feature.conversation.presentation.ConversationHistoryScreen
+import com.helix.ui.shared.HelixTheme
+import com.helix.ui.shared.HelixUiDesign
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
@@ -416,11 +418,17 @@ internal fun HelixApp(container: AppContainer) {
     HelixTheme {
         metricsMessageId?.let { id ->
             com.helix.app.ui
-                .MessageRunMetricsDialog(id, container.chatService) { metricsMessageId = null }
+                .MessageRunMetricsDialog(id, container.conversationDetails) { metricsMessageId = null }
         }
-        citationUrl?.let(com.helix.app.citation.Citation::parse)?.let { citation ->
+        citationUrl?.let(com.helix.core.model.citation.Citation::parse)?.let { citation ->
             com.helix.app.ui.CitationPreviewDialog(citation, resolve = {
-                if (it.kind == "session") container.chatService.resolveCitation(it) else knowledge.resolveCitation(it)
+                if (it.kind ==
+                    "session"
+                ) {
+                    container.conversationDetails.resolveCitation(it)
+                } else {
+                    knowledge.resolveCitation(it)
+                }
             }, onDismiss = { citationUrl = null })
         }
         com.helix.app.ui
@@ -484,7 +492,7 @@ internal fun HelixApp(container: AppContainer) {
             ) { padding ->
                 androidx.compose.runtime.CompositionLocalProvider(
                     com.helix.app.ui.LocalNavigationDeparture provides departure,
-                    com.helix.app.ui.LocalCitationHandler provides { url -> citationUrl = url },
+                    com.helix.ui.shared.LocalCitationHandler provides { url -> citationUrl = url },
                     com.helix.app.ui.LocalRunMetricsHandler provides { id -> metricsMessageId = id },
                     com.helix.app.ui.LocalFileLocation provides { path ->
                         navController.navigate(
@@ -656,6 +664,7 @@ internal fun HelixApp(container: AppContainer) {
                                     )
                                 },
                                 chatService = container.chatService,
+                                dashboard = container.taskDashboard,
                                 skills = container.skillRepository,
                                 providerService = container.providerService,
                                 permissionEdit = container.sessionPermissionEdit,
@@ -761,7 +770,7 @@ internal fun HelixApp(container: AppContainer) {
                                 ),
                         ) { entry ->
                             CommandResultDetailScreen(
-                                container.chatService,
+                                container.conversationDetails,
                                 requireNotNull(entry.arguments?.getString("turnId")),
                                 requireNotNull(entry.arguments?.getString("callId")),
                                 onBack = { navController.returnFrom(entry) },
@@ -783,6 +792,8 @@ internal fun HelixApp(container: AppContainer) {
                         ) { entry ->
                             TasksScreen(
                                 container.chatService,
+                                container.taskDashboard,
+                                container.conversationDetails,
                                 container.fileManager,
                                 onOpenSession = { sessionId ->
                                     container.chatService.openSession(sessionId)
@@ -861,8 +872,12 @@ private fun DestinationScreen(
             val application = androidx.compose.ui.platform.LocalContext.current.applicationContext as HelixApplication
             val accountIdentity by application.account.identityState.collectAsStateWithLifecycle()
             val accountStatus by application.account.status.collectAsStateWithLifecycle()
-            ChatScreen(
+            AppConversationRoute(
                 container.chatService,
+                container.toolVisionConsent,
+                container.taskDashboard,
+                container.conversationDetails,
+                container.conversationExperts,
                 container.providerService,
                 container.privacyDeletionService,
                 container.fileManager,
@@ -939,6 +954,8 @@ private fun DestinationScreen(
         ShellDestination.Tasks -> {
             TasksScreen(
                 container.chatService,
+                container.taskDashboard,
+                container.conversationDetails,
                 container.fileManager,
                 onOpenSession = { sessionId ->
                     container.chatService.openSession(sessionId)
@@ -972,7 +989,7 @@ private fun DestinationScreen(
         // P0-B: the Git status / diff / changed-files surface (doc section 29) — the workspace
         // repository's staged / unstaged / untracked changes, read on-device with JGit.
         ShellDestination.Git -> {
-            GitStatusScreenDestination(container.chatService)
+            GitStatusScreenDestination(container.chatService, container.fileManager)
         }
 
         ShellDestination.Settings -> {
@@ -1019,7 +1036,7 @@ private fun DestinationScreen(
                 androidx.compose.ui.res
                     .stringResource(R.string.skill_invocation_prompt)
             com.helix.app.ui.CapabilitiesScreen(
-                container.chatService,
+                container.conversationExperts,
                 container.pluginService,
                 initialCapabilitiesTab,
             ) {
@@ -1036,7 +1053,12 @@ private fun DestinationScreen(
                                 container.chatService
                                     .stageSkillActivation(
                                         target,
-                                        activation,
+                                        com.helix.core.model.input.InputSkillActivation(
+                                            activation.key.source.name,
+                                            activation.key.name,
+                                            activation.key.snapshotHash,
+                                            activation.arguments,
+                                        ),
                                         skillPrompt.format(activation.key.name),
                                     ).await()
                             if (applied && container.chatService.screen.value.openSessionId == target) {

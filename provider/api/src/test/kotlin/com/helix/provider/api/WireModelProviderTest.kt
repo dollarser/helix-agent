@@ -111,6 +111,7 @@ class WireModelProviderTest {
         config: ProviderConfig,
         credentials: CredentialLookup,
         wire: WireClient,
+        requestEncoder: RequestEncoder = RequestEncoder { "{}" },
         private val streamResource: String = "chat/completions",
         private val modelsResource: String? = "models",
         private val newTestDecoder: () -> StreamDecoder = { ScriptedDecoder() },
@@ -127,7 +128,7 @@ class WireModelProviderTest {
                 ),
             credentials = credentials,
             wire = wire,
-            encoder = { "{}" },
+            encoder = requestEncoder,
             newDecoder = newTestDecoder,
             secretAlias = config.secretAlias,
             extraHeaders = config.headers,
@@ -176,6 +177,27 @@ class WireModelProviderTest {
     }
 
     // --- stream ------------------------------------------------------------
+
+    @Test
+    fun imageReselectionFailureDoesNotOpenWireOrLoseItsActionableCode() =
+        runBlocking {
+            val wire = FakeWire { error("An unverified image must not leave the device") }
+            val provider =
+                TestProvider(
+                    config(),
+                    { "x" },
+                    wire,
+                    requestEncoder = {
+                        throw com.helix.core.model
+                            .ImageReselectionRequiredException()
+                    },
+                )
+            assertEquals(
+                listOf(ModelEvent.Error(ModelErrorCode.IMAGE_RESELECT_REQUIRED, false)),
+                provider.stream(request()).toList(),
+            )
+            assertTrue(wire.requests.isEmpty())
+        }
 
     @Test
     fun streamEmitsDecoderEventsAndClosesBody() =

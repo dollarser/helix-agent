@@ -18,11 +18,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import com.helix.app.R
-import com.helix.app.chat.ChatScreenState
-import com.helix.app.chat.ChatService
-import com.helix.app.chat.MessageEditResult
-import com.helix.app.chat.MessageEditSnapshot
+import com.helix.feature.conversation.application.ChatService
+import com.helix.feature.conversation.application.MessageEditResult
+import com.helix.feature.conversation.application.MessageEditSnapshot
+import com.helix.feature.conversation.presentation.ChatScreenState
 import kotlinx.coroutines.launch
+import com.helix.ui.shared.R as SharedR
 
 /** An independent editor. The composer, attachments, submitted work and later replies remain intact. */
 @Composable
@@ -96,14 +97,14 @@ internal fun MessageEditDialog(
                         }
                     }
                 },
-            ) { Text(stringResource(R.string.common_save)) }
+            ) { Text(stringResource(SharedR.string.common_save)) }
         },
         dismissButton = {
             TextButton(
                 enabled = !saving,
                 onClick = onClose,
                 modifier = Modifier.testTag("message-edit-cancel"),
-            ) { Text(stringResource(R.string.common_cancel)) }
+            ) { Text(stringResource(SharedR.string.common_cancel)) }
         },
     )
 }

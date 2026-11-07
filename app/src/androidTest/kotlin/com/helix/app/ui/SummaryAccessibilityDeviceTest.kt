@@ -31,10 +31,12 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.R
 import com.helix.app.language.AppLanguage
 import com.helix.app.language.AppLanguageStore
+import com.helix.ui.shared.ExpandableSummary
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
+import com.helix.ui.shared.R as SharedR
 
 class SummaryAccessibilityDeviceTest {
     @get:Rule val compose = createComposeRule()
@@ -56,11 +58,11 @@ class SummaryAccessibilityDeviceTest {
         val summary = compose.onNodeWithTag("summary")
         val toggle = compose.onNodeWithTag("summary-toggle")
         val collapsed = summary.getUnclippedBoundsInRoot()
-        toggle.assertContentDescriptionEquals(context.getString(R.string.summary_expand)).assertHasClickAction()
+        toggle.assertContentDescriptionEquals(context.getString(SharedR.string.summary_expand)).assertHasClickAction()
         toggle.assertTouchWidthIsEqualTo(48.dp).assertTouchHeightIsEqualTo(48.dp)
         toggle.performClick()
         summary.assertTextEquals(text)
-        toggle.assertContentDescriptionEquals(context.getString(R.string.summary_collapse))
+        toggle.assertContentDescriptionEquals(context.getString(SharedR.string.summary_collapse))
         compose.onNodeWithTag("summary-viewport").performSemanticsAction(SemanticsActions.ScrollBy) { it(0f, 100000f) }
         compose.waitForIdle()
         val expanded = summary.getUnclippedBoundsInRoot()
@@ -68,7 +70,7 @@ class SummaryAccessibilityDeviceTest {
         assertTrue("Expanded text ends inside the reading viewport", expanded.bottom <= viewport.bottom)
         assertTrue("Expanded text remains taller than the viewport", expanded.top < viewport.top)
         toggle.performScrollTo().assertIsDisplayed().performClick()
-        toggle.assertContentDescriptionEquals(context.getString(R.string.summary_expand))
+        toggle.assertContentDescriptionEquals(context.getString(SharedR.string.summary_expand))
         val restored = summary.getUnclippedBoundsInRoot()
         assertEquals(collapsed.bottom - collapsed.top, restored.bottom - restored.top)
     }

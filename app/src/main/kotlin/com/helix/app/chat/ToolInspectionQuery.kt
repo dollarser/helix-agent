@@ -1,12 +1,8 @@
 package com.helix.app.chat
 
-import com.helix.app.application.diagnostics.DiagnosticRedaction
+import com.helix.core.policy.DiagnosticRedaction
 import com.helix.core.storage.HelixStorage
-
-data class ToolInspectionContent(
-    val arguments: String,
-    val result: String?,
-)
+import com.helix.feature.conversation.presentation.ToolInspectionContent
 
 /** Read-only user inspection of the original session-owned result. Never dispatches or acknowledges work. */
 internal class ToolInspectionQuery(

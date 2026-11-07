@@ -83,6 +83,6 @@ Owner 随后追加顶部布局反馈：`c4f95a06` 删除正常运行时独立的
 
 ## Related records
 
-- [HXA-302](../development/tasks/HXA-302.md)：原手动终端界面与生命周期接入。
+- [HXA-302](../completion-records/HXA-302.md)：原手动终端界面与生命周期接入。
 - [终端开发说明](../architecture/terminal.md)：独立入口、工作目录和单步关闭。
 - [当前状态](../development/status.md)：本轮交付与未发布边界。

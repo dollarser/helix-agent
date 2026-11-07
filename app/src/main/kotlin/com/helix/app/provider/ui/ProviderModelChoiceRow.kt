@@ -19,6 +19,7 @@ import com.helix.app.provider.ConnectionTestMapping
 import com.helix.app.provider.ProviderModelSelection
 import com.helix.app.provider.ProviderRowUi
 import com.helix.provider.api.CapabilitySource
+import com.helix.feature.conversation.R as ConversationR
 
 @Composable
 @Suppress("FunctionName")
@@ -135,7 +136,10 @@ internal fun ProviderModelChoiceRow(
                     Text(stringResource(R.string.provider_capabilities_test))
                 }
             }
-            TextButton(onClick = onContext, enabled = !busy) { Text(stringResource(R.string.chat_context_title)) }
+            TextButton(
+                onClick = onContext,
+                enabled = !busy,
+            ) { Text(stringResource(ConversationR.string.chat_context_title)) }
             if (model in selection.models) {
                 TextButton(onClick = onMove, enabled = !busy) {
                     Text(stringResource(R.string.provider_models_move_first))

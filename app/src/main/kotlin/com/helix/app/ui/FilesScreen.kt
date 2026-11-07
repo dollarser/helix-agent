@@ -26,6 +26,7 @@ import com.helix.feature.files.SafTreeScopeService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.helix.ui.shared.R as SharedR
 
 // Explicit route capabilities and picker lifecycles; selection never grants access.
 @Composable
@@ -107,7 +108,7 @@ private fun filesSourcePending(state: FilesScreenState): Boolean {
     Column {
         Text(state.status ?: stringResource(R.string.files_sources_loading))
         if (state.status != null) {
-            TextButton({ state.reloadTick++ }) { Text(stringResource(R.string.chat_retry)) }
+            TextButton({ state.reloadTick++ }) { Text(stringResource(SharedR.string.chat_retry)) }
         }
     }
     return true

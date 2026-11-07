@@ -60,7 +60,7 @@ class ScriptLinuxBridgeDeviceTest {
         fun dispatch(
             tool: String,
             args: JsonObject,
-        ) = container.chatService.dispatchToolCall("$session-${++sequence}", session, tool, args.toString())
+        ) = container.toolExecution.dispatchToolCall("$session-${++sequence}", session, tool, args.toString())
 
         fun linux(vararg argv: String): JsonObject =
             succeeded(

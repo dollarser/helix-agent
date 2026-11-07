@@ -26,9 +26,6 @@ object AttachmentClassifier {
     /** ADR-0014 per-file attachment cap: 10 MiB (distinct from the 256 MiB SAF-import cap). */
     const val MAX_ATTACHMENT_BYTES: Long = 10L shl 20
 
-    /** ADR-0014: at most 4 attachments per message. */
-    const val MAX_ATTACHMENTS_PER_MESSAGE: Int = 4
-
     /** The trusted, magic-derived image media types (HXA-055; the bytes win, the label never does). */
     private val IMAGE_MEDIA_TYPES = setOf("image/png", "image/jpeg", "image/webp", "image/gif")
 

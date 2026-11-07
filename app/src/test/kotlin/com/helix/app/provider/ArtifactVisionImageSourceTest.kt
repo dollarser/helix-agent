@@ -1,6 +1,11 @@
 package com.helix.app.provider
 
+import com.helix.app.vision.ImageReadPolicy
 import com.helix.core.model.ArtifactRef
+import com.helix.core.model.ImageBinding
+import com.helix.core.model.ImageReference
+import com.helix.core.model.ImageReselectionRequiredException
+import com.helix.core.model.ModelErrorCode
 import com.helix.core.model.VisionLimits
 import com.helix.core.storage.dao.ArtifactDao
 import com.helix.core.storage.entity.ArtifactEntity
@@ -10,6 +15,7 @@ import com.helix.core.workspace.FileScopePath
 import com.helix.core.workspace.ScopeRootResolver
 import com.helix.core.workspace.WorkspaceArtifactStore
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -21,7 +27,7 @@ import java.util.Base64
 
 /**
  * HXA-055: [ArtifactVisionImageSource] — the single production image source of the three
- * protocol adapters. Fail-closed contract: ONLY session-bound, size- and magic-verified
+ * protocol adapters. Fail-closed contract: ONLY request-bound, size- and magic-verified
  * app-private artifacts resolve; every miss throws a stable, path-free IAE (the encoders
  * propagate it, the turn fails with an actionable error). The reserved probe ref resolves
  * without any session artifact.
@@ -101,10 +107,15 @@ class ArtifactVisionImageSourceTest {
     fun setUp() {
         root = tmp.newFolder("ws").toPath()
         store = WorkspaceArtifactStore(ScopeRootResolver { _ -> root })
-        source = ArtifactVisionImageSource(ArtifactRepository(dao()), store)
+        source =
+            ArtifactVisionImageSource(ArtifactRepository(dao()), store) { image, config ->
+                requireNotNull(image.binding)
+                assertEquals(boundConfig(), config)
+                ImageReadPolicy.NORMALIZED_USER_REFERENCE
+            }
     }
 
-    /** A real JPEG file (FF D8 FF magic) under the input region, registered as an artifact. */
+    /** A byte fixture under the input region, registered with its exact hash and size. */
     private fun registerImage(
         id: String,
         sessionId: String,
@@ -125,6 +136,7 @@ class ArtifactVisionImageSourceTest {
     /** The v16 stored form of a bare app-scope relative path: its full `scope:` model reference. */
     private fun ref(bare: String): String = FileScopePath("app", bare).toModelReference()
 
+    /** Complete JPEG container framing; pixel decoding is covered by the isolated device fixtures. */
     private fun jpegBytes(): ByteArray =
         byteArrayOf(
             0xFF.toByte(),
@@ -132,47 +144,69 @@ class ArtifactVisionImageSourceTest {
             0xFF.toByte(),
             0xE0.toByte(),
             0,
-            16,
+            4,
             'J'.code.toByte(),
             'F'.code.toByte(),
+            0xFF.toByte(),
+            0xDA.toByte(),
             0,
-            1,
+            2,
+            17,
+            34,
+            0xFF.toByte(),
+            0xD9.toByte(),
+        )
+
+    private fun boundImage(
+        id: String,
+        sessionId: String = "s1",
+    ): ImageReference =
+        ImageReference(
+            ArtifactRef(id),
+            rows[id]?.mediaType ?: "image/jpeg",
+            ImageBinding(sessionId, "message-$id", rows[id]?.sha256 ?: "0".repeat(64)),
         )
 
     @Test
-    fun theReservedProbeRefResolvesWithoutAnySessionOrArtifact() {
-        val loaded = source.load(ArtifactVisionImageSource.PROBE_IMAGE_REF)
-        assertEquals("image/png", loaded.mediaType)
-        // The probe image is a VALID 1x1 PNG — the magic bytes verify after decode.
-        val raw = Base64.getDecoder().decode(loaded.base64)
-        assertEquals("image/png", ContentProbe.probeBytes(raw, raw.size.toLong()).mimeType)
-        assertTrue(raw.size < 512)
+    fun reservedProbeRefsResolveWithoutAnyBindingOrArtifact() {
+        listOf(ArtifactVisionImageSource.PROBE_IMAGE_REF, ArtifactVisionImageSource.COLOR_PROBE_REF).forEach { ref ->
+            val loaded = source.load(ImageReference(ref, "image/png"), boundConfig())
+            assertEquals("image/png", loaded.mediaType)
+            val raw = Base64.getDecoder().decode(loaded.base64)
+            assertEquals("image/png", ContentProbe.probeBytes(raw, raw.size.toLong()).mimeType)
+            assertTrue(raw.size < 512)
+        }
     }
 
     @Test
-    fun anUnboundSessionFailsClosed() {
-        assertIae { source.load(ArtifactRef("art_x")) }
+    fun anImageWithoutRequestBindingFailsClosed() {
+        registerImage("art_x", "s1", "input/normalized.jpg", jpegBytes())
+        assertIae { source.load(ImageReference(ArtifactRef("art_x"), "image/jpeg"), boundConfig()) }
     }
 
     @Test
-    fun anUnknownRefFailsClosedEvenWithABoundSession() {
-        source.bindSession("s1")
-        assertIae { source.load(ArtifactRef("art_missing")) }
+    fun anUnknownRefFailsClosedEvenWithARequestBinding() {
+        assertIae { source.load(boundImage("art_missing"), boundConfig()) }
+    }
+
+    @Test
+    fun aRequestBindingCannotReplaceTheRequiredBindingVerifier() {
+        registerImage("art_x", "s1", "input/normalized.jpg", jpegBytes())
+        val unverified = ArtifactVisionImageSource(ArtifactRepository(dao()), store)
+        assertIae { unverified.load(boundImage("art_x"), boundConfig()) }
     }
 
     @Test
     fun aRefFromAnotherSessionFailsClosed() {
         registerImage("art_a", "other-session", "input/attachments/att1/normalized.jpg", jpegBytes())
-        source.bindSession("s1")
-        assertIae { source.load(ArtifactRef("art_a")) }
+        assertIae { source.load(boundImage("art_a"), boundConfig()) }
     }
 
     @Test
     fun aVerifiedArtifactResolvesToItsBase64() {
         val bytes = jpegBytes()
         registerImage("art_ok", "s1", "input/attachments/att1/normalized.jpg", bytes)
-        source.bindSession("s1")
-        val loaded = source.load(ArtifactRef("art_ok"))
+        val loaded = source.load(boundImage("art_ok"), boundConfig())
         assertEquals("image/jpeg", loaded.mediaType)
         assertEquals(Base64.getEncoder().encodeToString(bytes), loaded.base64)
     }
@@ -190,8 +224,20 @@ class ArtifactVisionImageSourceTest {
                 "0".repeat(64),
             )
         rows[entity.id] = entity
-        source.bindSession("s1")
-        assertIae { source.load(ArtifactRef("art_big")) }
+        var reads = 0
+        val countedStore =
+            WorkspaceArtifactStore(
+                ScopeRootResolver {
+                    reads++
+                    root
+                },
+            )
+        val bounded =
+            ArtifactVisionImageSource(ArtifactRepository(dao()), countedStore) { _, _ ->
+                ImageReadPolicy.NORMALIZED_USER_REFERENCE
+            }
+        assertIae { bounded.load(boundImage("art_big"), boundConfig()) }
+        assertEquals("over-budget images must fail before file resolution", 0, reads)
     }
 
     @Test
@@ -212,8 +258,7 @@ class ArtifactVisionImageSourceTest {
                 png.size.toLong(),
                 sha,
             )
-        source.bindSession("s1")
-        assertIae { source.load(ArtifactRef("art_bad")) }
+        assertIae { source.load(boundImage("art_bad"), boundConfig()) }
     }
 
     @Test
@@ -229,8 +274,7 @@ class ArtifactVisionImageSourceTest {
                 AtomicSha.sha(jpegBytes()),
             )
         rows[entity.id] = entity
-        source.bindSession("s1")
-        assertIae { source.load(ArtifactRef("art_gone")) }
+        assertIae { source.load(boundImage("art_gone"), boundConfig()) }
     }
 
     @Test
@@ -249,15 +293,14 @@ class ArtifactVisionImageSourceTest {
                 AtomicSha.sha(jpegBytes()),
             )
         rows[entity.id] = entity
-        source.bindSession("s1")
-        assertIae { source.load(ArtifactRef("art_escape")) }
+        assertIae { source.load(boundImage("art_escape"), boundConfig()) }
     }
 
     @Test
-    fun requestScopedImageDoesNotUseTheMutableSessionPointer() {
+    fun eachRequestCarriesItsOwnSessionAndHash() {
         val entity = registerImage("image", "s1", "input/bound.jpg", jpegBytes())
-        val source = ArtifactVisionImageSource(ArtifactRepository(dao()), store) { _, _ -> }
-        source.bindSession("unrelated-session")
+        val source =
+            ArtifactVisionImageSource(ArtifactRepository(dao()), store) { _, _ -> ImageReadPolicy.TOOL_OBSERVATION }
         val image =
             com.helix.core.model.ImageReference(
                 ArtifactRef(entity.id),
@@ -268,12 +311,15 @@ class ArtifactVisionImageSourceTest {
         val loaded = source.load(image, boundConfig())
         assertEquals(jpegBytes().toList(), Base64.getDecoder().decode(loaded.base64).toList())
         assertIae { source.load(image.copy(binding = image.binding!!.copy(sessionId = "other")), boundConfig()) }
+        assertIae { source.load(image.copy(binding = image.binding!!.copy(sha256 = "0".repeat(64))), boundConfig()) }
+        assertIae { source.load(image.copy(mediaType = "image/png"), boundConfig()) }
     }
 
     @Test
     fun sameSizeTamperingIsRejectedAtTheFinalByteBoundary() {
         val entity = registerImage("image", "s1", "input/bound.jpg", jpegBytes())
-        val source = ArtifactVisionImageSource(ArtifactRepository(dao()), store) { _, _ -> }
+        val source =
+            ArtifactVisionImageSource(ArtifactRepository(dao()), store) { _, _ -> ImageReadPolicy.TOOL_OBSERVATION }
         val image =
             com.helix.core.model.ImageReference(
                 ArtifactRef(entity.id),
@@ -294,6 +340,7 @@ class ArtifactVisionImageSourceTest {
             ArtifactVisionImageSource(ArtifactRepository(dao()), store) { _, _ ->
                 checks++
                 require(checks == 1) { "Consent revoked" }
+                ImageReadPolicy.TOOL_OBSERVATION
             }
         val image =
             com.helix.core.model.ImageReference(
@@ -304,6 +351,34 @@ class ArtifactVisionImageSourceTest {
             )
         assertIae { source.load(image, boundConfig()) }
         assertEquals(2, checks)
+    }
+
+    @Test
+    fun exifRuleIsOnlyAppliedToVerifiedNormalizedUserReferences() {
+        val metadata = "Exif\u0000\u0000private-gps-fixture".toByteArray()
+        val marker = byteArrayOf(0xff.toByte(), 0xe1.toByte(), 0, (metadata.size + 2).toByte())
+        val bytes = jpegBytes().take(2).toByteArray() + marker + metadata + jpegBytes().drop(2).toByteArray()
+        val entity = registerImage("metadata", "s1", "input/metadata.jpg", bytes)
+        val image =
+            com.helix.core.model.ImageReference(
+                ArtifactRef(entity.id),
+                entity.mediaType,
+                com.helix.core.model
+                    .ImageBinding("s1", "message", entity.sha256),
+            )
+        val tool =
+            ArtifactVisionImageSource(ArtifactRepository(dao()), store) { _, _ -> ImageReadPolicy.TOOL_OBSERVATION }
+        assertEquals(bytes.toList(), Base64.getDecoder().decode(tool.load(image, boundConfig()).base64).toList())
+        val reference =
+            ArtifactVisionImageSource(
+                ArtifactRepository(dao()),
+                store,
+            ) { _, _ -> ImageReadPolicy.NORMALIZED_USER_REFERENCE }
+        val failure =
+            assertThrows(ImageReselectionRequiredException::class.java) {
+                reference.load(image, boundConfig())
+            }
+        assertEquals(ModelErrorCode.IMAGE_RESELECT_REQUIRED.name, failure.message)
     }
 
     private fun boundConfig() =

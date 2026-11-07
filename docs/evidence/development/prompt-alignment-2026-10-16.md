@@ -1,7 +1,7 @@
 # 系统提示一致性与文件工具收尾
 
 Date: 2026-10-16
-Scope: [HXA-296](../../development/tasks/HXA-296.md)，Owner 要求当前完成可独立修复的问题
+Scope: [HXA-296](../../completion-records/HXA-296.md)，Owner 要求当前完成可独立修复的问题
 
 ## 起点与取舍
 

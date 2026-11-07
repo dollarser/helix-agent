@@ -1,0 +1,14 @@
+package com.helix.feature.conversation.presentation
+
+data class ComposerActions(
+    val onFile: () -> Unit,
+    val onCamera: () -> Unit = {},
+    val onReference: () -> Unit = {},
+    val onKnowledgeReference: (() -> Unit)? = null,
+    val onExpert: () -> Unit = {},
+    val onSkills: () -> Unit = {},
+    val onConnectors: () -> Unit = {},
+    val onVoice: () -> Unit,
+    val onSend: () -> Unit,
+    val onStop: () -> Unit,
+)

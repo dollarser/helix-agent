@@ -2,17 +2,27 @@ package com.helix.app.provider
 
 import com.helix.app.account.BuiltInAccountWire
 import com.helix.app.account.testAccount
+import com.helix.core.agent.ModelStreamState
 import com.helix.core.model.ArtifactRef
+import com.helix.core.model.ImageBinding
 import com.helix.core.model.ImageReference
+import com.helix.core.model.ImageReselectionRequiredException
 import com.helix.core.model.ModelErrorCode
 import com.helix.core.model.ModelEvent
 import com.helix.core.model.ModelMessage
 import com.helix.core.model.ModelRequest
 import com.helix.core.model.ModelRole
 import com.helix.core.model.ModelToolSchema
+import com.helix.core.model.NormalizedEndpoint
+import com.helix.core.model.ProviderAuth
+import com.helix.core.model.ProviderConnection
+import com.helix.core.model.ProviderProtocol
+import com.helix.core.model.ProviderProvisioningKind
+import com.helix.core.model.ProviderTransport
 import com.helix.core.model.ToolName
-import com.helix.provider.api.ModelCatalogResult
-import com.helix.provider.api.ProviderCheckResult
+import com.helix.core.model.TurnState
+import com.helix.feature.conversation.presentation.ChatStatusLabels
+import com.helix.provider.api.ProviderConfig
 import com.helix.provider.api.wire.OkHttpWireClient
 import com.helix.provider.api.wire.WireClient
 import com.helix.provider.api.wire.WireRequest
@@ -29,13 +39,14 @@ import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.net.InetSocketAddress
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
+import com.helix.feature.conversation.R as ConversationR
 
 /** Real local HTTP sockets behind the production pinned wire; no external service or credentials. */
 class BuiltInModelTransportTest {
@@ -67,8 +78,6 @@ class BuiltInModelTransportTest {
             forbidden,
             {
                 object : VisionImageSource {
-                    override fun load(ref: ArtifactRef): LoadedImage = error("Image binding must be checked")
-
                     override fun load(
                         image: ImageReference,
                         config: com.helix.provider.api.ProviderConfig,
@@ -182,6 +191,88 @@ class BuiltInModelTransportTest {
                 assertEquals(before + (if (status == 401) 2 else 1), requests.size)
             }
         }
+
+    @Test fun allProtocolsKeepImageReselectionTypedThroughStreamAndVisibleLabelsWithoutOpeningWire() =
+        runBlocking {
+            val image =
+                ImageReference(
+                    ArtifactRef("fixture-image"),
+                    "image/jpeg",
+                    ImageBinding("fixture-session", "fixture-message", "a".repeat(64)),
+                )
+            val privateDetail = "/private/fixture/normalized.jpg synthetic-private-diagnostic"
+            for (protocol in ProviderProtocol.entries) {
+                val config = imageFixtureConfig(protocol)
+                val loads = AtomicInteger()
+                val opens = AtomicInteger()
+                val rejected =
+                    VisionImageSource { actualImage, destination ->
+                        assertEquals(image, actualImage)
+                        assertEquals(config, destination)
+                        loads.incrementAndGet()
+                        throw ImageReselectionRequiredException().apply {
+                            initCause(IllegalStateException(privateDetail))
+                        }
+                    }
+                val noWire =
+                    object : WireClient {
+                        override suspend fun open(request: WireRequest): WireResponse {
+                            opens.incrementAndGet()
+                            error("Image rejection must finish before transport")
+                        }
+                    }
+                val adapter = ProviderFactory({ error("No secret lookup") }, noWire, { rejected }).create(config)
+                val events =
+                    adapter
+                        .stream(
+                            ModelRequest(config.model, listOf(ModelMessage(ModelRole.USER, "inspect", listOf(image)))),
+                        ).toList()
+                val error = events.single() as ModelEvent.Error
+                assertEquals("protocol=$protocol", ModelErrorCode.IMAGE_RESELECT_REQUIRED, error.code)
+                assertFalse(error.retryable)
+                assertEquals(1, loads.get())
+                assertEquals(0, opens.get())
+                assertFalse(error.toString().contains(privateDetail))
+                assertFalse(error.toString().contains("IllegalStateException"))
+                assertImageReselectionLabels(error)
+            }
+            assertTrue("no image rejection may reach the HTTP fixture", requests.isEmpty())
+        }
+
+    private fun assertImageReselectionLabels(error: ModelEvent.Error) {
+        val state = ModelStreamState()
+        state.apply(error)
+        val terminal = state.terminal(cancelled = false)
+        assertEquals(TurnState.FAILED, terminal.state)
+        assertEquals(ModelErrorCode.IMAGE_RESELECT_REQUIRED.name, terminal.errorCode)
+        val expectedResource = ConversationR.string.image_reselect_required
+        val localizedLabel = "Fixture localized image reselection guidance"
+        val labels =
+            ChatStatusLabels { resource, arguments ->
+                assertEquals(expectedResource, resource)
+                assertTrue(arguments.isEmpty())
+                localizedLabel
+            }
+        assertEquals(expectedResource, labels.modelTerminalCodeRes(terminal.errorCode))
+        assertEquals(localizedLabel, labels.terminalLabel(terminal.state, terminal.errorCode))
+        val connection = ConnectionTestStatus.Failed(1L, 5, error.code, error.retryable)
+        assertEquals(expectedResource, ConnectionTestMapping.codeLabel(connection.code))
+        assertFalse(connection.retryable)
+    }
+
+    private fun imageFixtureConfig(protocol: ProviderProtocol) =
+        ProviderConfig(
+            "fixture-${protocol.name.lowercase()}",
+            "Synthetic image fixture",
+            ProviderConnection(
+                ProviderProvisioningKind.USER_CONFIGURED,
+                ProviderTransport.Network(protocol, NormalizedEndpoint.parse("https://example.invalid/v1")),
+                ProviderAuth.None,
+            ),
+            "fixture-image-model",
+            emptyMap(),
+            "{}",
+        )
 
     @Test fun redirectsCannotForwardIdentityOrReplayPost() =
         runBlocking {

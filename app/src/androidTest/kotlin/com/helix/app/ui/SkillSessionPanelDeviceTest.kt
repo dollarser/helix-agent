@@ -16,6 +16,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import java.util.UUID
+import com.helix.feature.conversation.R as ConversationR
 
 class SkillSessionPanelDeviceTest {
     @get:Rule val compose = createComposeRule()
@@ -49,7 +50,7 @@ class SkillSessionPanelDeviceTest {
         compose.waitUntil(
             10_000,
         ) { compose.onAllNodesWithTag("skill-invoke-workflow").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText(context.getString(com.helix.app.R.string.skill_selection_title)).assertExists()
+        compose.onNodeWithText(context.getString(ConversationR.string.skill_selection_title)).assertExists()
         val key = repository.list().single().key
         compose.onNodeWithTag("session-skill-workflow-${key.snapshotHash.take(8)}").assertDoesNotExist()
         compose.onNodeWithTag("skill-invoke-workflow").performScrollTo().performClick()

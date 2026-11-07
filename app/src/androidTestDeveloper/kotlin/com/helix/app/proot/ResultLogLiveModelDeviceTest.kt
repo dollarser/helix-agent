@@ -204,7 +204,7 @@ class ResultLogLiveModelDeviceTest {
                 .filter { it.index == chosen.index }
                 .joinToString("") { it.jsonFragment }
         val id = "live-log-read-${System.nanoTime()}"
-        val outcome = container.chatService.dispatchToolCall(id, "turn", name, arguments)
+        val outcome = container.toolExecution.dispatchToolCall(id, "turn", name, arguments)
         assertTrue("Read must traverse normal Dispatcher", outcome is ToolDispatchOutcome.Succeeded)
         val payload = (outcome as ToolDispatchOutcome.Succeeded).result.payload
         recordStep(name, arguments, payload)

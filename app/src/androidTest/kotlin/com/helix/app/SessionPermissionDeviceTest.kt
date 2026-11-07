@@ -44,7 +44,7 @@ import kotlin.time.Duration.Companion.seconds
  * session-permission resolver, the two-state tool availability, and the preset rule tables are
  * enforced at the REAL execution entry (production Room + the storage-backed broker + the real
  * dispatcher, driven through the chat service's per-call entry
- * [com.helix.app.chat.ChatService.dispatchToolCall]). Every test asserts BOTH the side-effect
+ * [com.helix.feature.conversation.application.ChatService.dispatchToolCall]). Every test asserts BOTH the side-effect
  * facts (did the tool actually run? was a card created? what is the durable call state?) and the
  * availability decision — never the outcome code alone.
  *
@@ -219,7 +219,7 @@ class SessionPermissionDeviceTest {
             Thread {
                 try {
                     outcome[0] =
-                        container.chatService.dispatchToolCall(
+                        container.toolExecution.dispatchToolCall(
                             toolCallId,
                             turnId,
                             SP_TOOL_NAME,

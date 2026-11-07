@@ -3,10 +3,10 @@ package com.helix.app.proot
 import android.content.Context
 import com.helix.app.APP_SCOPE_ID
 import com.helix.app.approval.SessionPermissionService
-import com.helix.app.chat.ChatService
 import com.helix.app.tool.SessionToolEffectClassifier
 import com.helix.core.storage.HelixStorage
 import com.helix.core.workspace.WorkspaceArtifactStore
+import com.helix.feature.conversation.application.ChatService
 import com.helix.runtime.proot.client.DetachedJobClient
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.ExecutionOwnership

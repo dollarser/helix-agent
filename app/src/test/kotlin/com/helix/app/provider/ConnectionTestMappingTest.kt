@@ -5,6 +5,7 @@ import com.helix.core.model.ModelErrorCode
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import com.helix.feature.conversation.R as ConversationR
 
 class ConnectionTestMappingTest {
     @Test
@@ -13,9 +14,15 @@ class ConnectionTestMappingTest {
             val res = ConnectionTestMapping.codeLabel(code)
             require(res != 0) { "no resource for $code" }
         }
-        assertEquals(R.string.conn_error_transport, ConnectionTestMapping.codeLabel(ModelErrorCode.TRANSPORT))
-        assertEquals(R.string.conn_error_auth, ConnectionTestMapping.codeLabel(ModelErrorCode.AUTH))
-        assertEquals(R.string.conn_error_rate_limited, ConnectionTestMapping.codeLabel(ModelErrorCode.RATE_LIMITED))
+        assertEquals(
+            ConversationR.string.conn_error_transport,
+            ConnectionTestMapping.codeLabel(ModelErrorCode.TRANSPORT),
+        )
+        assertEquals(ConversationR.string.conn_error_auth, ConnectionTestMapping.codeLabel(ModelErrorCode.AUTH))
+        assertEquals(
+            ConversationR.string.conn_error_rate_limited,
+            ConnectionTestMapping.codeLabel(ModelErrorCode.RATE_LIMITED),
+        )
     }
 
     @Test

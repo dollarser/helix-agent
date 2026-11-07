@@ -68,9 +68,9 @@ TurnEngine 同时拥有 durable lifecycle 与 process-local AgentLoop driver；C
 
 应用服务提供业务命令、只读状态和结构化恢复目标，页面解释导航。HXA-274 直接替换所涉 `recoveryModelsNavigation` / `recoveryPermissionsNavigation` 服务回调：恢复原因、目标类型和必要归属以数据表达，用户点击后由当前 UI 导航；无订阅、旋转、重复订阅、切换会话不自动触发跳转或执行。保留 HXA-271 已交付的原因说明和显式设置行为，不以结构调整重做系统授权。就绪与恢复目标的内容归 [ADR-CONNECTORS-003](../connectors/003-ownership-and-installation.md)，本节约束其应用/表现依赖。
 
-[HXA-287](../../development/tasks/HXA-287.md) 的应用命令收窄与完整 Turn 领域宿主中立化 A/B/C 已于 2026-10-24 交付并完成有界验收，PRoot 安装事实／展示资源分离于 2026-10-26 收尾；验证范围见任务及[生命周期记录](../../evidence/development/harness-stage1-lifecycle-2026-10-24.md)。不将已有薄端口/唯一 Engine 单独当作整体完成证据，也不重新登记已交付迁移为待办。按 2026-10-24 目标分层可直接重组当前类、接口、模块及全部调用者，不兼容旧内部入口。复用 SessionDirectory、ComposerInputState、TaskDashboardProjection、SessionCatalog；统一入口不再回调宽 ChatService，领域协调不依赖 Android、Room Entity 或 UI 类型。应用/工具服务与持久/恢复共同设计，按完整路径切换，避免两次提取半个宿主。不以空壳化、类行数或模块数量验收，不预建 CLI、远程服务或第二个 Engine。
+[HXA-287](../../completion-records/HXA-287.md) 的应用命令收窄与完整 Turn 领域宿主中立化 A/B/C 已于 2026-10-24 交付并完成有界验收，PRoot 安装事实／展示资源分离于 2026-10-26 收尾；验证范围见任务及[生命周期记录](../../evidence/development/harness-stage1-lifecycle-2026-10-24.md)。不将已有薄端口/唯一 Engine 单独当作整体完成证据，也不重新登记已交付迁移为待办。按 2026-10-24 目标分层可直接重组当前类、接口、模块及全部调用者，不兼容旧内部入口。复用 SessionDirectory、ComposerInputState、TaskDashboardProjection、SessionCatalog；统一入口不再回调宽 ChatService，领域协调不依赖 Android、Room Entity 或 UI 类型。应用/工具服务与持久/恢复共同设计，按完整路径切换，避免两次提取半个宿主。不以空壳化、类行数或模块数量验收，不预建 CLI、远程服务或第二个 Engine。
 
-沿 [HXA-286](../../development/tasks/HXA-286.md#共同契约与退出条件)与现行 ADR/实现区分 Turn/call/Job/长期 ExecutionResource/artifact 身份及归属，调用返回/物理退出/输出收尽/结果落盘、cancel requested/confirmed、迟到事实、重启 reconcile 和清理责任。TurnEngine 与调用建档仍创建原 turnId/toolCallId，Job/资源由实际执行 owner 管理，领域持久端口保存这些事实及引用；不在语义尚未明确时固定数据库接口。
+沿 [HXA-286](../../completion-records/HXA-286.md#共同契约与退出条件)与现行 ADR/实现区分 Turn/call/Job/长期 ExecutionResource/artifact 身份及归属，调用返回/物理退出/输出收尽/结果落盘、cancel requested/confirmed、迟到事实、重启 reconcile 和清理责任。TurnEngine 与调用建档仍创建原 turnId/toolCallId，Job/资源由实际执行 owner 管理，领域持久端口保存这些事实及引用；不在语义尚未明确时固定数据库接口。
 
 2026-10-24 接续改为既有唯一 Engine 上的应用命令/批次投影小片：287-A 收窄提交/停止，287-B 分开持久命令与展示；完整中立宿主由 287-C 实施并分别验证 Core/Room；消除 Engine 对 App/具体 Room 的依赖，保持唯一生命周期/事务/恢复语义而非保留现类，不为结构迁移制造第二 Engine。286 内容快照与 293-A 协同，288 仅改有证据的执行接缝，不再等待两套核心重建后共同接线。每个改动仍验证开始前、效果后提交前、提交后通知前三个窗口，fake ports 不代替真实 Room/执行证据，294 汇总而不推迟首次正确性验证。
 
@@ -448,7 +448,7 @@ AI 代理执行 host tests、静态检查和 AndroidTest APK 编译；模拟器/
 ## References
 
 - [2026-10-11 分层复核与优化承接](../../research/modules/01-architecture-and-execution-engine.md#9-2026-10-11-分层复核与优化承接)
-- [HXA-274：就绪与恢复投影](../../development/tasks/HXA-274.md)、[HXA-277：原生资源](../../development/tasks/HXA-277.md)
+- [HXA-274：就绪与恢复投影](../../completion-records/HXA-274.md)、[HXA-277：原生资源](../../completion-records/HXA-277.md)
 - [Agent 主题入口](README.md)
 - [Goal 生命周期](../goal/001-lifecycle-and-completion.md)
 - [Runtime 执行域](../runtime/001-execution-domains.md)

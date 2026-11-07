@@ -1,6 +1,6 @@
 # 插件导入、更新与完成引导（2026-10-16）
 
-范围：[HXA-300](../../development/tasks/HXA-300.md)。Owner 要求实施导入评审；原始工作区为 `main` / `6bbff42d`，184 个既有修改文件已保存到忽略的 `build/hxa300/`。本轮主机验证；设备、真实模型与业务账号 not requested，不提交、推送或发布。
+范围：[HXA-300](../../completion-records/HXA-300.md)。Owner 要求实施导入评审；原始工作区为 `main` / `6bbff42d`，184 个既有修改文件已保存到忽略的 `build/hxa300/`。本轮主机验证；设备、真实模型与业务账号 not requested，不提交、推送或发布。
 
 ## 实施
 
