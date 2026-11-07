@@ -1,5 +1,6 @@
 package com.helix.core.storage.repository
 
+import com.helix.core.storage.content.BinaryContentStaging
 import com.helix.core.storage.content.ContentRef
 import com.helix.core.storage.content.FileContentStore
 import com.helix.core.storage.dao.DocumentSnapshotDao
@@ -23,38 +24,47 @@ class DocumentSnapshotRepository(
         path: String,
         open: (String) -> InputStream,
         checkActive: () -> Unit,
-    ): DocumentSnapshotEntity =
-        content.withPublication {
-            require(session.isNotBlank() && path.startsWith("scope:"))
-            val format = path.substringAfterLast('.', "").lowercase()
-            if (format !in setOf("pdf", "docx")) throw Unavailable("UNSUPPORTED_FORMAT")
-            val ref =
-                open(path).use { input ->
-                    try {
-                        content.writeBinary(input, MAX_BYTES, checkActive)
-                    } catch (
-                        _: IllegalArgumentException,
-                    ) {
-                        throw Unavailable("RESOURCE_LIMIT")
-                    }
+    ): DocumentSnapshotEntity {
+        require(session.isNotBlank() && path.startsWith("scope:"))
+        val format = path.substringAfterLast('.', "").lowercase()
+        if (format !in setOf("pdf", "docx")) throw Unavailable("UNSUPPORTED_FORMAT")
+        checkActive()
+        return content.stageBinary().use { staged ->
+            // Open, read, copy, close and verification can all block on a SAF provider. None may
+            // hold publication; closing the source must also succeed before a reference is committed.
+            checkActive() // Stage allocation may have waited for another publisher.
+            open(path).use { input ->
+                try {
+                    staged.copyFrom(input, MAX_BYTES, checkActive)
+                } catch (_: BinaryContentStaging.LimitExceeded) {
+                    throw Unavailable("RESOURCE_LIMIT")
                 }
-            val file = content.verifiedBinary(ref, MAX_BYTES, checkActive)
-            val magic = ByteArray(5)
-            val count = file.inputStream().use { it.read(magic) }
-            val valid =
-                if (format == "pdf") {
-                    count == 5 && magic.contentEquals("%PDF-".toByteArray(Charsets.US_ASCII))
-                } else {
-                    count >= 4 && magic[0] == 80.toByte() && magic[1] == 75.toByte() && magic[2] == 3.toByte() &&
-                        magic[3] == 4.toByte()
-                }
-            if (!valid) throw Unavailable("UNSUPPORTED_FORMAT")
-            checkActive()
-            val entity =
-                DocumentSnapshotEntity(UUID.randomUUID().toString(), session, path, format, ref.toStorageString())
-            transaction { dao.insert(entity) }
-            entity
+            }
+            validateMagic(staged.file, format)
+            staged.publish(checkActive) { ref ->
+                val entity =
+                    DocumentSnapshotEntity(UUID.randomUUID().toString(), session, path, format, ref.toStorageString())
+                transaction { dao.insert(entity) }
+                entity
+            }
         }
+    }
+
+    private fun validateMagic(
+        file: File,
+        format: String,
+    ) {
+        val magic = ByteArray(5)
+        val count = file.inputStream().use { it.read(magic) }
+        val valid =
+            if (format == "pdf") {
+                count == 5 && magic.contentEquals("%PDF-".toByteArray(Charsets.US_ASCII))
+            } else {
+                count >= 4 && magic[0] == 80.toByte() && magic[1] == 75.toByte() && magic[2] == 3.toByte() &&
+                    magic[3] == 4.toByte()
+            }
+        if (!valid) throw Unavailable("UNSUPPORTED_FORMAT")
+    }
 
     fun resolve(
         session: String,

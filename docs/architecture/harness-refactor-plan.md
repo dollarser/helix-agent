@@ -1550,11 +1550,12 @@ JSONL 保留按需导出与独立离线读取，Room/ContentStore 持久事实�
 | [SystemPromptContext](../../app/src/main/kotlin/com/helix/app/application/context/SystemPromptContext.kt) 已有统一来源/授权处理，但依赖具体存储与 MemoryService | 分离事实取得与纯内容映射；不重建 Compiler 或改变检索策略 |
 | [根构建配置](../../build.gradle.kts) 已有集中式模块依赖表，项目依赖使用 implementation；[架构护栏](../../scripts/tests/test_agent_layer_boundaries.py) 已限制 Core/App/UI 方向 | 并非完全没有依赖治理；仍需防止同 App 模块内绕行及未覆盖的 application→infrastructure 依赖 |
 
-**2026-11-08 迁移边界收尾：**
+**2026-11-08 迁移及 SAF 发布边界收尾：**
 
 - `feature:conversation` 已承接会话 presentation/application、草稿和回执状态机，原 conversation-input 模块删除；会话通过窄端口连接 App 的 Room/附件/知识/模型适配，不依赖 App 或 storage。`ui:shared` 独立持有共享呈现和预览资源，不反向读取 feature/App/storage。Room/ContentStore 已迁为 `infrastructure:storage`；存储 Kotlin/JNI/schema 身份不改，不增第二数据库或历史兼容链。当前接线见[总体架构](overview.md#当前目录与单一权威)。
-- 迁移候选的 `scripts/check-all.sh --debug` 通过：JVM 共 7450 项，7440 通过、10 项既有可选输入跳过，零失败/错误；363 项 Python 测试通过。`build/migration-final-host-receipt.json` 绑定源码输入与双渠道 Debug APK。API36 `Helix_API_36` 上 conversation 50、shared UI 24、storage 23、image 6，以及独立 App 测试包的真实 Room/输入/恢复 48 项，共 151 次方法执行通过；证据为 `build/migration-final-library-devices/*/receipt.json` 和 `build/conversation-isolated-room-device-run3/receipt.json`。上述结果仅覆盖该迁移候选。
-- 对应迁移的 Developer Debug 候选已覆盖安装至日常 `com.helix.agent.developer`，安装字节与候选一致、原 app ID/首次安装时间保持，未卸载或清数据，启动确认正常。见 `build/migration-final-daily-install/receipt.json`。这不承诺任意历史数据保留或覆盖升级兼容。
+- 迁移候选的 `scripts/check-all.sh --debug` 通过：JVM 共 7450 项，7440 通过、10 项既有可选输入跳过，零失败/错误；363 项 Python 测试通过。`build/migration-final-host-receipt.json` 绑定源码输入与双渠道 Debug APK。API36 `Helix_API_36` 上 conversation 50、shared UI 24、storage 23、image 6，以及独立 App 测试包的真实 Room/输入/恢复 48 项，共 151 次方法执行通过；证据为 `build/migration-final-library-devices/*/receipt.json` 和 `build/conversation-isolated-room-device-run3/receipt.json`。它们属于迁移候选，不冒充后续 SAF 候选的整套重跑。
+- 后续 SAF 文档快照发布修复将 Provider 打开、读取、关闭及格式验证留在内容发布边界之外，只有成功暂存的内容才与 Room 引用一起发布；取消、I/O、关闭或事务失败不能发布半份引用，也不能删除其他引用持有的同内容对象。解析仍核对原会话和当前来源授权，缓存不是授权。最新 Debug 主机证据 `build/saf-publication/host-receipt.json`：JVM 共 7462 项，7452 通过、10 项既有可选输入跳过，零失败/错误；363 项 Python 测试通过。API36 storage 33 项通过，覆盖受控 Provider、管道失败/取消、引用发布及恢复，见 `build/saf-publication/device/storage/receipt.json`；这是有界 Provider/Room 验收，不代表所有云 SAF Provider。
+- 两次对应 Developer Debug 候选均覆盖安装至日常 `com.helix.agent.developer`，安装字节与候选一致、原 app ID/首次安装时间保持，未卸载或清数据，启动确认正常。分别见 `build/migration-final-daily-install/receipt.json` 与 `build/saf-publication/daily-install/receipt.json`。这不承诺任意历史数据保留或覆盖升级兼容。
 - 上述为绑定源码/制品的实际执行结果；本次回填读取既有 receipt，没有重跑 Gradle/设备。后续文档与脚本修正单独运行适用门禁，不追溯改变旧计数。本轮没有新 Release/R8、真机、外部账号、性能收益或自然模型用户目标验收，历史 Release 通过不继承给新候选；不以这些切片宣布总体蓝图或全部产品完成。下列 11-07 记录继续作为当时阶段基线保留。
 
 **2026-11-07 第一阶段实施与验证基线（Debug 主机门禁通过）：**

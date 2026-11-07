@@ -96,7 +96,7 @@ object StorageGarbageCollector {
             // and other candidates must not hold up unrelated messages for the entire collection.
             val outcome =
                 ContentLifecycle.coordinate(contentRoot) {
-                    if (now - file.lastModified() < gracePeriodMillis) {
+                    if (ContentLifecycle.isStaging(file) || now - file.lastModified() < gracePeriodMillis) {
                         FileGcOutcome()
                     } else {
                         processCandidate(file, contentRoot, referenceChecker)

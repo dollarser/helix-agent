@@ -79,44 +79,18 @@ class FileContentStore(
         return ref
     }
 
-    /** Bounded binary publication shares the existing hash layout, publication lock and GC. */
+    /** Bounded binary IO is staged outside publication; callers retain ownership of [source]. */
     fun writeBinary(
         source: java.io.InputStream,
         maxBytes: Long,
         checkActive: () -> Unit,
     ): ContentRef =
-        withPublication {
-            require(maxBytes > 0)
-            val stagingRoot = File(root, "content")
-            check(stagingRoot.mkdirs() || stagingRoot.isDirectory)
-            val staging = File(stagingRoot, "binary.tmp-${UUID.randomUUID()}")
-            try {
-                val digest = MessageDigest.getInstance("SHA-256")
-                var size = 0L
-                staging.outputStream().use { output ->
-                    val buffer = ByteArray(CONTENT_BUFFER_SIZE)
-                    while (true) {
-                        checkActive()
-                        val count = source.read(buffer)
-                        if (count < 0) break
-                        require(count > 0 && count <= maxBytes - size) { "Binary content limit" }
-                        output.write(buffer, 0, count)
-                        digest.update(buffer, 0, count)
-                        size += count
-                    }
-                }
-                checkActive()
-                val hash = digest.digest().joinToString("") { "%02x".format(it) }
-                val ref = ContentRef(ContentRef.expectedPath(hash), size, hash)
-                val destination = fileFor(ref)
-                check(destination.parentFile!!.mkdirs() || destination.parentFile!!.isDirectory)
-                if (!destination.exists()) check(staging.renameTo(destination)) { "Cannot publish binary content" }
-                verifiedBinary(ref, maxBytes, checkActive)
-                ref
-            } finally {
-                staging.delete()
-            }
+        stageBinary().use { staged ->
+            staged.copyFrom(source, maxBytes, checkActive)
+            staged.publish(checkActive) { it }
         }
+
+    internal fun stageBinary(): BinaryContentStaging = BinaryContentStaging(this)
 
     /** Only trusted composition receives a file; workers receive a duplicated read-only FD. */
     fun verifiedBinary(
@@ -126,6 +100,15 @@ class FileContentStore(
     ): File {
         require(ref.size <= maxBytes)
         val source = fileFor(ref)
+        verifyBinaryFile(source, ref, checkActive)
+        return source
+    }
+
+    internal fun verifyBinaryFile(
+        source: File,
+        ref: ContentRef,
+        checkActive: () -> Unit,
+    ) {
         require(source.isFile && source.length() == ref.size) { "Binary content expired" }
         val digest = MessageDigest.getInstance("SHA-256")
         var size = 0L
@@ -142,7 +125,6 @@ class FileContentStore(
         }
         require(size == ref.size) { "Binary size mismatch" }
         require(digest.digest().joinToString("") { "%02x".format(it) } == ref.sha256) { "Binary hash mismatch" }
-        return source
     }
 
     override fun read(ref: ContentRef): String = readBounded(ref, Int.MAX_VALUE - 1)
