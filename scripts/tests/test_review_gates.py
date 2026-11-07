@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Regression checks for generated project and completion inventories."""
 import importlib.util
+import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -21,13 +23,13 @@ claims = module("adr-status-claims")
 
 
 class ReviewGatesTest(unittest.TestCase):
-    def test_docs_gate_checks_skill_and_script_entry_links(self):
+    def test_docs_gate_checks_all_tracked_markdown_and_ignores_local_notes(self):
         source = Path(__file__).resolve().parents[2]
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             # Reuse maintained documentation read-only; only the new entry links are fixtures.
             for path in source.iterdir():
-                if path.name not in {".git", ".agents", "scripts"}:
+                if path.name not in {".git", ".gitignore", ".gitattributes", ".agents", "scripts", "reviews", "evals"}:
                     (root / path.name).symlink_to(path, target_is_directory=path.is_dir())
             scripts = root / "scripts"
             scripts.mkdir()
@@ -40,16 +42,37 @@ class ReviewGatesTest(unittest.TestCase):
             def run():
                 return subprocess.run(["bash", str(scripts / "check-docs.sh")],
                                       capture_output=True, text=True, timeout=60)
-            skill.write_text("[Project](../../../README.md)\n")
-            entry.write_text("[Project](../README.md)\n")
+            entries = [skill, entry, root / "reviews/new review.md",
+                       root / "evals/guide.md", root / "module/README.md",
+                       scripts / "nested/guide.md"]
+            for path in entries:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("[Project](" + os.path.relpath(root / "README.md", path.parent) + ")\n")
+            subprocess.run(["git", "-C", str(root), "add", "--",
+                            *(str(path.relative_to(root)) for path in entries)], check=True)
+            # Untracked and ignored notes must not become maintained docs by accident.
+            (root / "untracked.md").write_text("[Broken](missing.md)\n")
+            (root / ".gitignore").write_text("local/\n")
+            (root / "local").mkdir()
+            (root / "local/ignored.md").write_text("[Broken](missing.md)\n")
             valid = run()
             self.assertEqual(0, valid.returncode, valid.stderr)
-            skill.write_text("[Broken](missing.md)\n")
-            entry.write_text("[Broken](missing.md)\n")
+            self.assertIn("6 Markdown files", valid.stdout)
+            entry.write_text("[Local](../local/ignored.md)\n")
+            ignored_link = run()
+            self.assertNotEqual(0, ignored_link.returncode)
+            self.assertIn("links to an ignored local artifact", ignored_link.stderr)
+            for path in entries:
+                path.write_text("[Broken](missing.md)\n")
             invalid = run()
             self.assertNotEqual(0, invalid.returncode)
-            self.assertIn(".agents/skills/fixture/SKILL.md: has an unresolved relative link", invalid.stderr)
-            self.assertIn("scripts/README.md: has an unresolved relative link", invalid.stderr)
+            for path in entries:
+                self.assertIn(str(path.relative_to(root)) + ": has an unresolved relative link", invalid.stderr)
+            self.assertNotIn("untracked.md:", invalid.stderr)
+            self.assertNotIn("local/ignored.md:", invalid.stderr)
+            # A deleted tracked file is not a reader crash; other broken links still fail.
+            entries[-1].unlink()
+            self.assertNotIn("Traceback", run().stderr)
 
     def test_adr_gate_checks_topic_ids_links_and_current_inventory(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -134,6 +157,43 @@ class ReviewGatesTest(unittest.TestCase):
             complete = subprocess.run(command, capture_output=True, text=True, timeout=15)
             self.assertEqual(0, complete.returncode, complete.stderr)
             self.assertIn("1 resource keys in parity", complete.stdout)
+
+    def test_detekt_inputs_are_configured_module_sources_not_repository_archives(self):
+        source = Path(__file__).resolve().parents[2]
+        build = (source / "build.gradle.kts").read_text()
+        # Kotlin formatting may wrap property chains and lambda bodies. Match the
+        # configuration tokens rather than a particular Spotless line layout.
+        compact = re.sub(r"\s+", "", re.sub(r"(?m)^\s*//.*$", "", build))
+        detekt = compact.split('tasks.register<JavaExec>("detekt"){', 1)[1].split("valandroidLibraries", 1)[0]
+        # Pin the production scope, not an exclusion list that grows with archives.
+        self.assertIn('valsourceRoots=subprojects.map{it.layout.projectDirectory.dir("src").asFile}', detekt)
+        self.assertIn('sourceRoots.map{sourceRoot->', detekt)
+        self.assertIn('fileTree(sourceRoot)', detekt)
+        self.assertIn('include("**/*.kt")', detekt)
+        self.assertIn('inputs.files(kotlinSources)', detekt)
+        self.assertIn('sourceRoots.filter{it.isDirectory}', detekt)
+        self.assertNotIn('fileTree(projectDir)', detekt)
+        self.assertNotIn('generateSequence', detekt)
+        modules = inventory.projects((source / "settings.gradle.kts").read_text())
+        roots = [module[1:].replace(":", "/") + "/src/" for module in modules]
+        def included(path):
+            return any(path.startswith(root) for root in roots) and path.endswith(".kt")
+        for path in (
+            "app/src/main/kotlin/Product.kt", "app/src/consumer/kotlin/Consumer.kt",
+            "app/src/developer/kotlin/Developer.kt", "core/model/src/test/kotlin/ModelTest.kt",
+            "app/src/androidTestDeveloper/java/DeviceTest.kt",
+            "spikes/a2a-sdk/src/main/kotlin/Spike.kt",
+            "tests/release-smoke/src/androidTest/kotlin/Smoke.kt",
+        ):
+            with self.subTest(path=path):
+                self.assertTrue(included(path))
+        for path in (
+            "scripts/local/debug/archive/Old.kt", "scripts/debug/2026-09-01/local/Old.kt",
+            "scripts/experiments/fixture/src/main/kotlin/Standalone.kt",
+            "app/build/generated/Generated.kt", "unknown/src/main/kotlin/Unmanaged.kt",
+        ):
+            with self.subTest(path=path):
+                self.assertFalse(included(path))
 
     def test_project_inventory_tracks_new_modules_and_excludes_comments(self):
         self.assertEqual([":app", ":core:new"], inventory.projects('include(":app", /* old */ ":core:new",)'))

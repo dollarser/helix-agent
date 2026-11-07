@@ -39,6 +39,6 @@
 
 ## 已迁出的材料
 
-- 浏览器竞品/能力研究已移到 [docs/research/codex-browser-vs-helix-2026-09-24.md](../docs/research/codex-browser-vs-helix-2026-09-24.md)。
-- 进程死亡恢复与竞品机制研究已移到 [docs/research/process-death-recovery-vs-competitors-2026-09-25.md](../docs/research/process-death-recovery-vs-competitors-2026-09-25.md)。
-- 2026-09-24～25 的 clean-slate/Wave0/Wave1/强模型/小模型实施与交接文档已经收敛到 [ADR-AGENT-001](../docs/adr/agent/001-turn-coordination.md) 与 [HXA-220](../docs/development/tasks/HXA-220.md)，原临时文件已删除；逐字历史可从 Git 获取。
+- 浏览器竞品/能力研究已移到 [docs/evidence/research-history/codex-browser-vs-helix-2026-09-24.md](../docs/evidence/research-history/codex-browser-vs-helix-2026-09-24.md)。
+- 进程死亡恢复与竞品机制研究已移到 [docs/evidence/research-history/process-death-recovery-vs-competitors-2026-09-25.md](../docs/evidence/research-history/process-death-recovery-vs-competitors-2026-09-25.md)。
+- 2026-09-24～25 的 clean-slate/Wave0/Wave1/强模型/小模型实施与交接文档已经收敛到 [ADR-AGENT-001](../docs/adr/agent/001-turn-coordination.md) 与 [HXA-220](../docs/completion-records/HXA-220.md)，原临时文件已删除；逐字历史可从 Git 获取。

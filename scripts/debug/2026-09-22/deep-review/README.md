@@ -1,6 +1,6 @@
 # 2026-09-22 审查探针
 
-当前复核基线 `9a9b25dd`，历史基线 `645fa680`。详见[深度报告](../../../../docs/research/execution-engine-deep-review-2026-09-22.md)。仅用于审查，不修改业务源码，不访问设备、真实账户或外部服务。
+当前复核基线 `9a9b25dd`，历史基线 `645fa680`。详见[深度报告](../../../../docs/evidence/research-history/execution-engine-deep-review-2026-09-22.md)。仅用于审查，不修改业务源码，不访问设备、真实账户或外部服务。
 
 当前Admission探针断言取消清理期保留owner，**PASS表示R1修复不变量成立**；其他四项仍是诊断断言，PASS表示旧行为复现，其中Storage使用DAO替身，不代表当前Stop路径有同样竞态。修复后应将相应不变量转成生产回归；不能把本目录直接加入CI并永久要求缺陷存在。原Admission诊断和原报告已保存在本轮整理前的ignored快照及历史stash中。
 

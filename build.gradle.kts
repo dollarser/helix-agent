@@ -77,11 +77,24 @@ tasks.register<JavaExec>("detekt") {
     mainClass.set("io.gitlab.arturbosch.detekt.cli.Main")
 
     val reportDirectory = layout.buildDirectory.dir("reports/detekt")
-    val kotlinSources =
-        fileTree(projectDir) {
-            include("**/*.kt")
-            exclude("**/build/**", "**/.gradle/**")
+    // Only configured Gradle modules own analysis inputs. Local archives and
+    // standalone script fixtures are not product sources; optional modules join
+    // this scope when enabled through settings.gradle.kts.
+    val sourceRoots =
+        subprojects.map {
+            it.layout.projectDirectory
+                .dir("src")
+                .asFile
         }
+    val kotlinSources =
+        files(
+            sourceRoots.map { sourceRoot ->
+                fileTree(sourceRoot) {
+                    include("**/*.kt")
+                    exclude("**/build/**", "**/.gradle/**")
+                }
+            },
+        )
     inputs.files(kotlinSources)
     inputs.file(layout.projectDirectory.file("config/detekt/detekt.yml"))
     outputs.dir(reportDirectory)
@@ -90,13 +103,7 @@ tasks.register<JavaExec>("detekt") {
         reportDirectory.get().asFile.mkdirs()
         // Detekt filters excluded paths after walking them. Do not traverse build
         // outputs that concurrent lint/packaging tasks may atomically replace.
-        val sourceRoots =
-            kotlinSources.files
-                .map { source ->
-                    generateSequence(source.parentFile) { it.parentFile }.firstOrNull { it.name == "src" }
-                        ?: source.parentFile
-                }.distinct()
-        args("--input", sourceRoots.joinToString(",") { it.absolutePath })
+        args("--input", sourceRoots.filter { it.isDirectory }.joinToString(",") { it.absolutePath })
     }
 
     args(

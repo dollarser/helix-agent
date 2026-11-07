@@ -68,7 +68,7 @@
 
 #### P1-2 `next-work-plan.md` 整页为过期状态快照，与 status.md 四项矛盾
 
-**问题描述（偏差机制）**：该页更新于 2026-09-23，但 09-23/24 的收敛（129 整合、ADR-AGENT-010 接受、HXA-217 交付、196/199 物理真机闭合）后未再更新；roadmap.md:19 仍在当前叙述中主动链接它（"详见工作计划"，链接指向 [next-work-plan.md](../../../docs/development/next-work-plan.md)）。页内表把已完成工作列为待办。
+**问题描述（偏差机制）**：该页更新于 2026-09-23，但 09-23/24 的收敛（129 整合、ADR-AGENT-010 接受、HXA-217 交付、196/199 物理真机闭合）后未再更新；roadmap.md:19 仍在当前叙述中主动链接它（"详见工作计划"，链接指向 `docs/development/next-work-plan.md`（历史文件已删除，可从 Git 历史查看））。页内表把已完成工作列为待办。
 
 **证据**：
 - `docs/development/next-work-plan.md:3`「129 已在独立分支本地交付…**当前main仍为此前整合基线**」↔ `status.md:18`「已整合入 main」

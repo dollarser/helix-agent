@@ -14,12 +14,17 @@ import subprocess
 from pathlib import Path
 
 root = Path(os.environ["HELIX_PROJECT_ROOT"]).resolve()
-local_docs = root / "docs" / "local"
+# The Git inventory covers maintained docs wherever they live, including reviews,
+# evals, module READMEs and script guides. Ignore untracked/local archives without
+# maintaining a second directory allowlist. Deleted tracked files are absent from
+# the current worktree and are checked by their remaining inbound links instead.
+tracked_paths = subprocess.run(
+    ["git", "ls-files", "-z", "--", "*.md"], cwd=root,
+    check=True, capture_output=True,
+).stdout.decode("utf-8").split("\0")
 markdown_files = sorted(
-    path for path in [*root.glob("*.md"), *(root / "docs").rglob("*.md"),
-                      *(root / ".agents" / "skills").rglob("*.md"),
-                      *root.glob("scripts/README.md")]
-    if local_docs not in path.parents
+    root / relative for relative in tracked_paths
+    if relative and (root / relative).is_file()
 )
 link_pattern = re.compile(r"(?<!!)\[[^]]*]\(([^)]+)\)")
 errors: list[str] = []
@@ -69,6 +74,7 @@ if unexpected_top_level_docs:
     )
 
 
+relative_links = []
 for path in markdown_files:
     text = path.read_text(encoding="utf-8")
     for raw_target in link_pattern.findall(text):
@@ -78,15 +84,26 @@ for path in markdown_files:
         if target.startswith("/"):
             fail(path, f"uses an absolute repository link: {raw_target}")
             continue
-        resolved = (path.parent / target).resolve()
-        if resolved.is_relative_to(root):
-            ignored = subprocess.run(["git", "check-ignore", "-q", "--", str(resolved)], cwd=root)
-            if ignored.returncode == 0:
-                fail(path, f"links to an ignored local artifact; use a plain code path: {raw_target}")
-            elif ignored.returncode != 1:
-                fail(path, f"could not verify git ignore state: {raw_target}")
-        if not resolved.exists():
-            fail(path, f"has an unresolved relative link: {raw_target}")
+        relative_links.append((path, raw_target, (path.parent / target).resolve()))
+
+# Check ignore state once, with NUL-delimited paths (including spaces), rather than
+# spawning Git for every link in the expanded tracked documentation inventory.
+repository_targets = sorted({str(resolved) for _, _, resolved in relative_links
+                             if resolved.is_relative_to(root)})
+ignored_paths = set()
+if repository_targets:
+    ignored = subprocess.run(
+        ["git", "check-ignore", "-z", "--stdin"], cwd=root,
+        input="\0".join(repository_targets).encode("utf-8") + b"\0", capture_output=True,
+    )
+    if ignored.returncode not in (0, 1):
+        errors.append("could not verify git ignore state for documentation links")
+    ignored_paths = set(ignored.stdout.decode("utf-8").split("\0"))
+for path, raw_target, resolved in relative_links:
+    if str(resolved) in ignored_paths:
+        fail(path, f"links to an ignored local artifact; use a plain code path: {raw_target}")
+    if not resolved.exists():
+        fail(path, f"has an unresolved relative link: {raw_target}")
 
 roadmap_path = root / "docs" / "development" / "roadmap.md"
 matrix_path = root / "docs" / "development" / "verification-matrix.md"
