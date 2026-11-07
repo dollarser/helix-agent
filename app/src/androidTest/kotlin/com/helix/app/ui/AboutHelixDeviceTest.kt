@@ -36,7 +36,7 @@ class AboutHelixDeviceTest {
     @Test fun settingsHasAnAboutEntryWithoutOpeningLinksAutomatically() {
         compose.setContent {
             MaterialTheme {
-                SettingsScreen()
+                SettingsScreen(accountEntry = {}, speechSettings = {})
             }
         }
         AboutHelixLink.entries.forEach { link ->

@@ -1,6 +1,6 @@
 package com.helix.app.knowledge
 
-import com.helix.core.storage.repository.KnowledgeReference
+import com.helix.core.model.input.KnowledgeReference
 import com.helix.tools.framework.ExecutableToolCall
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonArray

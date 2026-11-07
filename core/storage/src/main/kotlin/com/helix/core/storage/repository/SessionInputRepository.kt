@@ -1,6 +1,15 @@
 package com.helix.core.storage.repository
 
 import com.helix.core.model.TurnState
+import com.helix.core.model.input.ConversationReferenceKind
+import com.helix.core.model.input.ConversationReferenceSnapshotInput
+import com.helix.core.model.input.InputAttachment
+import com.helix.core.model.input.InputConfiguration
+import com.helix.core.model.input.InputSkillActivation
+import com.helix.core.model.input.InputSkillActivations
+import com.helix.core.model.input.KnowledgeReferenceCodec
+import com.helix.core.model.input.SessionInputDelivery
+import com.helix.core.model.input.SessionInputSpec
 import com.helix.core.storage.HelixDatabase
 import com.helix.core.storage.content.ContentRef
 import com.helix.core.storage.content.ContentStore
@@ -223,7 +232,7 @@ class SessionInputRepository internal constructor(
             val originalBytes =
                 old.textBytes + old.referenceContentBytes +
                     SessionInputValidation.skillBytes(InputSkillActivations.decode(old.skillActivationsJson)) +
-                    SessionInputValidation.knowledgeBytes(KnowledgeReferences.decode(old.knowledgeReferencesJson))
+                    SessionInputValidation.knowledgeBytes(KnowledgeReferenceCodec.decode(old.knowledgeReferencesJson))
             if (dao.pendingBytes(old.sessionId) - originalBytes + bytes >
                 MAX_PENDING_BYTES
             ) {
@@ -550,7 +559,7 @@ class SessionInputRepository internal constructor(
             referenceRecord(),
             InputSkillActivations.decode(skillActivationsJson),
             skillActivationsRevoked,
-            KnowledgeReferences.decode(knowledgeReferencesJson),
+            KnowledgeReferenceCodec.decode(knowledgeReferencesJson),
         )
 
     private fun SessionInputEntity.referenceRecord(): InputConversationReference? {

@@ -348,15 +348,15 @@ class ContextCompactionDeviceTest {
             stream.apply(ModelEvent.Completed("stop"))
             val accepted =
                 storage.sessionInputs.accept(
-                    com.helix.core.storage.repository.SessionInputSpec(
+                    com.helix.core.model.input.SessionInputSpec(
                         "manual-steer",
                         "s",
-                        com.helix.core.storage.repository.SessionInputDelivery.STEER,
+                        com.helix.core.model.input.SessionInputDelivery.STEER,
                         coordinator.id,
                         0,
                         "Use the compacted context",
                         emptyList(),
-                        com.helix.core.storage.repository
+                        com.helix.core.model.input
                             .InputConfiguration("provider", "model", "ACT", "fingerprint"),
                         2_000,
                     ),

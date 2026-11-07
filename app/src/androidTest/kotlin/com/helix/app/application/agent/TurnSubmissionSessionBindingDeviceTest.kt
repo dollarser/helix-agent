@@ -53,7 +53,11 @@ class TurnSubmissionSessionBindingDeviceTest {
                 worker.submit<TurnAdmissionResult> {
                     val original = storage.sessions.resolve("session")
                     val binding = TurnSessionAdmissionBinding(requireNotNull(original.providerId), original.modelId)
-                    assertTrue(binding.matches(original))
+                    assertTrue(
+                        binding.matches(
+                            SubmissionSession(original.id, original.providerId, original.modelId, original.archivedAt),
+                        ),
+                    )
                     prepared.countDown()
                     check(release.await(5, TimeUnit.SECONDS))
                     engine.admit(preparedCommand(original.modelId))

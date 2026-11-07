@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.HelixApplication
+import com.helix.app.composition.ConversationComposition
 import com.helix.app.internal.InMemoryLineStore
 import com.helix.app.language.AppLanguage
 import com.helix.app.language.AppLanguageStore
@@ -23,6 +24,9 @@ import com.helix.core.storage.repository.ProviderConfigSpec
 import com.helix.core.storage.repository.SessionInputState
 import com.helix.core.workspace.FileScopePath
 import com.helix.core.workspace.ScopeRootResolver
+import com.helix.feature.conversation.input.ChatSubmission
+import com.helix.feature.conversation.input.ChatSubmissionOutcome
+import com.helix.feature.conversation.input.ComposerEditClock
 import com.helix.feature.files.AttachmentImporter
 import com.helix.feature.files.SafImportPipeline
 import com.helix.feature.files.SafSourceMetadata
@@ -929,7 +933,7 @@ class ChatServiceAttachmentRetryDeviceTest : ForegroundDeviceTestHost() {
                 AppLanguageStore.localeListFor(AppLanguage.ZH_CN),
             )
         val service =
-            ChatService(
+            ConversationComposition(
                 storage = storage,
                 providerService = providerService,
                 profileStore = FixedStandardProfileStore,
@@ -938,7 +942,7 @@ class ChatServiceAttachmentRetryDeviceTest : ForegroundDeviceTestHost() {
                 attachmentStaging = staging,
                 scope = scope,
                 strings = { resId, args -> zh.getString(resId, *args) },
-            )
+            ).also { it.start() }.chatService
         return Fixture(
             storage,
             service,

@@ -1531,13 +1531,13 @@ JSONL 保留按需导出与独立离线读取，Room/ContentStore 持久事实�
 
 ## 24. 总体架构蓝图与渐进重构路线
 
-更新：2026-11-06。Owner 要求结合主流 Agent 实战与当前源码，提供可在实施中修订的总体蓝图和分阶段方案。本节是本文件的**后续结构设计入口**，不新增平行计划、开发 Goal 或 HXA；不是生产重构启动授权，也不修改已接受的产品、安全或协议契约。实际实施状态仍归 [status](../development/status.md)，获准切片再落入对应任务。
+设计基线：2026-11-06；实施状态更新：2026-11-07。Owner 要求结合主流 Agent 实战与当前源码，提供可在实施中修订的总体蓝图和分阶段方案。本节是本文件的**后续结构设计入口**，不新增平行计划、开发 Goal 或 HXA；不是生产重构启动授权，也不修改已接受的产品、安全或协议契约。实际实施状态仍归 [status](../development/status.md)，获准切片再落入对应任务。
 
 ### 24.1 结论、基线与范围
 
 **推荐延续 Android 本机模块化单体：保留唯一执行核心，收窄应用入口，显式装配依赖，按领域组织表现与应用代码，将持久实现留在基础设施，并用实际编译依赖约束边界。**这是中等到较大范围的职责/模块调整，不是换框架、微服务化或重新实现整个 Agent。总体规模不能以当前大文件行数折算工期；先完成一个纵切，用实际迁移面校准后续批次。
 
-本次源码基线是 `03104229` 所在 main 加当前未提交工作树，不是发布版本或干净提交快照。以下是核查时点，不替代未来开工前的短范围复核：
+2026-11-06 设计核查的源码基线是 `03104229` 所在 main 加当时未提交工作树，不是发布版本或干净提交快照。下表保留该历史基线；2026-11-07 已实施变化见表后状态，不把历史问题重新登记为待办，也不替代后续开工前的短范围复核：
 
 | 当前事实与源码入口 | 对蓝图的影响 |
 | --- | --- |
@@ -1550,7 +1550,20 @@ JSONL 保留按需导出与独立离线读取，Room/ContentStore 持久事实�
 | [SystemPromptContext](../../app/src/main/kotlin/com/helix/app/application/context/SystemPromptContext.kt) 已有统一来源/授权处理，但依赖具体存储与 MemoryService | 分离事实取得与纯内容映射；不重建 Compiler 或改变检索策略 |
 | [根构建配置](../../build.gradle.kts) 已有集中式模块依赖表，项目依赖使用 implementation；[架构护栏](../../scripts/tests/test_agent_layer_boundaries.py) 已限制 Core/App/UI 方向 | 并非完全没有依赖治理；仍需防止同 App 模块内绕行及未覆盖的 application→infrastructure 依赖 |
 
-历史措辞须结合当前源码理解：ADR-AGENT-001 第 1.2 节 仍有“完整 Turn 领域宿主中立化明确未完成”的旧进度句，与 HXA-287 和当前 Core 实现不一致。本轮记录此差异，不据此重开实现或静默改变 ADR 的有效规则；实施基线校准时更正进度措辞。第 23.7 节 的 286→293-A→287 是已有交付的历史顺序，不是本轮待执行路线。网页、备份、知识等能力也以当前 status/源码为准，不沿用旧章节的“尚未提供”。
+**2026-11-07 第一阶段实施与验证基线（Debug 主机门禁通过）：**
+
+- 已修改：conversation 的 knowledge/readAloud 显式传入；`TurnSubmissionCommandHandler` 的具体 storage/provider 读取改为窄事实端口；共享 `InputSkillActivation` / `InputSkillActivations` 迁至 `core:model/input`；`SystemPromptContext` 分离事实采集与纯映射；后台/插件消费者不再依赖 `ChatService`；`DefaultAppContainer` 显式接收 account/knowledge，并通过一次性 `start()` 启动观察与恢复。
+- 第一阶段结束时尚未实施：将 `ChatService` 内 runtime/host/gateway 的全部构造上提；完整分离 delivery/config/spec 与持久 record；建立真实 feature 编译隔离及迁移 Room 模块；清理其他设置屏的隐式依赖。该项保留为阶段交接基线，后续变化见下段。
+- 验证：`scripts/check-all.sh --debug` 已通过，覆盖 347 项 host 脚本测试、Debug 单测、Spotless、Detekt、Lint、两渠道 APK 与 AndroidTest 编译、制品边界；两渠道 App 单测各有 5 项既有 opt-in 外部服务/本地样本未提供而跳过。新增真实 Room 拒权零读取、指定 Turn Goal 及跨会话拒绝测试已编译，设备行为测试本轮 not requested，不能以编译代替设备通过。实际 Detekt 输入已核对为模块源文件，35 个本地历史 Kotlin 均已排除。原设计退出条件继续有效。
+
+**2026-11-07 第二阶段实施状态（最终 Debug 主机门禁通过）：**
+
+- 当前源码已将 `AppAgentRuntime` 迁入 `application/agent`；`app/composition/ConversationComposition` 统一装配唯一 engine/runtime/host/gateway 和 submit/stop，再注入 `ChatService`。容器的 screen/foreground collectors 也移入一次性 `start()`，不在构造期启动。
+- 输入 delivery/config/spec/reference 值已归 `core:model/input`；Record、持久状态及正文引用保留 storage，`PendingSubmissionInput` 替代 Handler 对完整持久行的依赖，`PendingInputView` 使队列 UI 不再依赖 storage Record/State。设置、语音等 `ui/` 内的 `HelixApplication` 查询已改为显式依赖。
+- 已建立 `feature:conversation-input` 真实编译边界：迁移 DraftBuffer、Submission、回执状态机及原 30 项草稿/回执测试，另增 3 项 PendingInputView 测试；不代表整个 conversation 的 presentation/application 已模块化。Room 模块仍未迁移，App 其余表现/应用代码仍有同模块依赖；不能泛称 B/C/D 全阶段或总体蓝图完成。
+- 第二阶段收尾验证：最终 `scripts/check-all.sh --debug` 完整退出 0，证据为 `build/structure-final-check-debug.log`。355 项 host 脚本测试通过；35 个单测任务共 7485 项，零失败/错误，10 项既有 opt-in 外部服务/本地样本未提供而跳过；两渠道 APK、AndroidTest 编译、Spotless、Detekt、Lint 与制品边界均通过。真实 Room、恢复及设备行为测试本轮仅编译、未执行，不把主机验收当设备验收，也不外推其余会话表现/应用层或 Room 模块迁移已完成。原设计退出条件继续有效。
+
+历史措辞须结合当前源码理解：2026-11-06 发现 ADR-AGENT-001 第 1.2 节“完整 Turn 领域宿主中立化明确未完成”的旧进度句，与 HXA-287 和 Core 实现不一致；2026-11-07 已校正为其有界交付事实，不重开已完成迁移，也不改变 ADR 的有效规则。第 23.7 节 的 286→293-A→287 是已有交付的历史顺序，不是本轮待执行路线。网页、备份、知识等能力也以当前 status/源码为准，不沿用旧章节的“尚未提供”。
 
 ### 24.2 一手实践：采用什么，不照搬什么
 
@@ -1659,7 +1672,7 @@ feature 内优先按能力组织，再区分 presentation/application；不把�
 
 **名字准确时，优先调整归属，不强制改名：**
 
-- [AppAgentRuntime](../../app/src/main/kotlin/com/helix/app/chat/AppAgentRuntime.kt) 是真实 AgentRuntime 应用适配，不是旧兼容壳。B 将其从 chat 归到适当的应用运行时适配位置即可；保留提交、取消和晚订阅持久终态补发。
+- [AppAgentRuntime](../../app/src/main/kotlin/com/helix/app/application/agent/AppAgentRuntime.kt) 是真实 AgentRuntime 应用适配，不是旧兼容壳。第二阶段已从 chat 迁至 application/agent；保留提交、取消和晚订阅持久终态补发，新增改动验收状态见 24.1。
 - [DefaultAppContainer](../../app/src/main/kotlin/com/helix/app/DefaultAppContainer.kt) 是合法组合根。B 分离构造与启动/观察/恢复生命周期，不为消除 Default 创建一组互相查询的 Container。
 - [GoalRunSettlement](../../app/src/main/kotlin/com/helix/app/agent/GoalRunSettlement.kt)、[GoalTimeBudget](../../app/src/main/kotlin/com/helix/app/agent/GoalTimeBudget.kt)、[GoalDetachedBudget](../../app/src/main/kotlin/com/helix/app/agent/GoalDetachedBudget.kt) 的词汇对应真实结算、预算和执行生命周期。C 按规则与持久实现归位，不仅因旧 agent 包或 Detached 字样改名。
 - `TurnEngine`、`AgentLoop`、`TurnSubmissionCommandHandler`、职责明确的 Registry/Dispatcher/Codec 与 Room 适配器可保留。`ChatScreen`、`ChatUiModels` 在纯展示层仍合理；不全仓替换 Chat/App/Default/Host/Service 后缀。
@@ -1766,4 +1779,4 @@ feature 内优先按能力组织，再区分 presentation/application；不把�
 
 ### 24.8 本次研究交付边界
 
-本次只更新蓝图与导航，未修改生产实现、依赖、数据库/协议版本、产品范围或有效 ADR 决定；未使用设备、真实模型服务或外部账号，未提交/推送。上述源码核查不等于逐文件穷尽审计，外部官方建议不等于实测收益。设备验证状态为 **not requested**；未来阶段是否通过由对应实际证据决定。
+2026-11-06 研究交付当时只更新蓝图与导航，未修改生产实现、依赖、数据库/协议版本、产品范围或有效 ADR 决定；未使用设备、真实模型服务或外部账号，未提交/推送。上述源码核查不等于逐文件穷尽审计，外部官方建议不等于实测收益。设备验证状态为 **not requested**；未来阶段是否通过由对应实际证据决定。

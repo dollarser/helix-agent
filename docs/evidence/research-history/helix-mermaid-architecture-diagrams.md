@@ -38,7 +38,7 @@ flowchart TB
     SERVICES --> OS["【外】Android 系统授权"]
 ```
 
-源码：[入口契约](../../../core/agent/src/main/kotlin/com/helix/core/agent/AgentRuntime.kt)、[应用接线](../../../app/src/main/kotlin/com/helix/app/chat/AppAgentRuntime.kt)、[共享循环](https://github.com/dollarser/helix-agent/blob/05e910039e03095d98649d96a9e64a3a71bcb078/app/src/main/kotlin/com/helix/app/agent/AgentLoop.kt)。任务界面是持久事实的投影，不再维护一套独立任务生命周期。
+源码：[入口契约](../../../core/agent/src/main/kotlin/com/helix/core/agent/AgentRuntime.kt)、[应用接线](../../../app/src/main/kotlin/com/helix/app/application/agent/AppAgentRuntime.kt)、[共享循环](https://github.com/dollarser/helix-agent/blob/05e910039e03095d98649d96a9e64a3a71bcb078/app/src/main/kotlin/com/helix/app/agent/AgentLoop.kt)。任务界面是持久事实的投影，不再维护一套独立任务生命周期。
 
 ## 3. 已实现：请求、Prompt 与上下文
 

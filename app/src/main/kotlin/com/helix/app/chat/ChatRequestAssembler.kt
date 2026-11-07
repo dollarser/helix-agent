@@ -5,8 +5,10 @@ import com.helix.app.agent.ContextCompaction
 import com.helix.app.agent.RecoveryContextPolicy
 import com.helix.app.application.context.PromptContentContributions
 import com.helix.app.application.context.SystemPromptContext
+import com.helix.app.application.context.SystemPromptRequest
 import com.helix.app.application.tools.FileToolArguments
 import com.helix.app.application.tools.ToolPresentationMetadata
+import com.helix.app.infrastructure.prompt.StoredSystemPromptFactsProvider
 import com.helix.app.infrastructure.prompt.packagedPromptTemplates
 import com.helix.app.provider.ProviderService
 import com.helix.app.tool.ToolPipeline
@@ -45,13 +47,7 @@ internal class ChatRequestAssembler(
     private val toolPipeline: ToolPipeline,
     private val attachmentStaging: AttachmentStagingSupport,
     private val visionSessionBinder: (String) -> Unit,
-    /**
-     * P1 (research doc section 8): resolves the session workspace's project-instruction file
-     * (AGENTS.md / CLAUDE.md / HELIX.md) to the bounded, trust-framed block registered as the
-     * PROJECT section of the goal system prompt. Called only for an active goal turn. The
-     * default yields "" so JVM/device services without a workspace reader behave exactly as
-     * before (no project instructions injected).
-     */
+    /** Resolves authorized workspace instructions for every request, including non-goal turns. */
     private val projectInstructionsReader: (com.helix.core.workspace.FileScopePath) -> String = { "" },
     private val memory: com.helix.app.memory.MemoryService? = null,
     private val toolVisionConsent: com.helix.app.vision.ToolVisionConsent =
@@ -69,8 +65,8 @@ internal class ChatRequestAssembler(
     // this session's directory/mode plus the Goal sections on an active goal turn. Its
     // [PromptSnapshot] rides every built request so the request's records carry the section
     // list + fingerprint (research doc section 4.4).
-    private val systemPrompt =
-        SystemPromptContext(storage, projectInstructionsReader, packagedPromptTemplates, memory = memory)
+    private val systemPrompt = SystemPromptContext(packagedPromptTemplates)
+    private val systemPromptFacts = StoredSystemPromptFactsProvider(storage, projectInstructionsReader, memory)
 
     private fun com.helix.core.storage.entity.SessionWorkspaceEntity.snapshot() =
         com.helix.core.agent
@@ -122,14 +118,17 @@ internal class ChatRequestAssembler(
                 )
         val tools = modelTools(sessionId, control)
         val system =
-            systemPrompt.build(
-                sessionId,
-                control.mode,
-                tools.map { it.name.value }.toSet(),
-                storage.sessionExperts.forSession(sessionId),
-                directory,
-                contents = contentSections(sessionId, null, tools),
-            )
+            SystemPromptRequest(
+                sessionId = sessionId,
+                turnId = null,
+                directory = directory,
+                mode = control.mode,
+                toolNames = tools.map { it.name.value }.toSet(),
+                expert = storage.sessionExperts.forSession(sessionId),
+            ).let { request ->
+                val contents = contentSections(sessionId, null, tools)
+                systemPrompt.build(request, systemPromptFacts.collect(request), contents)
+            }
         val request =
             TurnContextRequest(
                 model,
@@ -194,14 +193,17 @@ internal class ChatRequestAssembler(
                 ?.let(com.helix.app.infrastructure.agent.TurnRuntimeRecordCodec::decode)
                 ?.expert
         val system =
-            systemPrompt.build(
-                sessionId,
-                control.mode,
-                tools.map { it.name.value }.toSet(),
-                expert,
-                directory,
-                contents = contentSections(sessionId, turnId, tools),
-            )
+            SystemPromptRequest(
+                sessionId = sessionId,
+                turnId = turnId,
+                directory = directory,
+                mode = control.mode,
+                toolNames = tools.map { it.name.value }.toSet(),
+                expert = expert,
+            ).let { request ->
+                val contents = contentSections(sessionId, turnId, tools)
+                systemPrompt.build(request, systemPromptFacts.collect(request), contents)
+            }
         val history = persistedHistory(sessionId, turnId, retryTurnId, system, directory)
         require(history.messages.lastOrNull()?.role == ModelRole.USER) {
             "the request must end with the user message"
@@ -262,14 +264,17 @@ internal class ChatRequestAssembler(
                 ?.let(com.helix.app.infrastructure.agent.TurnRuntimeRecordCodec::decode)
                 ?.expert
         val system =
-            systemPrompt.build(
-                sessionId,
-                control.mode,
-                tools.map { it.name.value }.toSet(),
-                expert,
-                directory,
-                contents = contentSections(sessionId, turnId, tools),
-            )
+            SystemPromptRequest(
+                sessionId = sessionId,
+                turnId = turnId,
+                directory = directory,
+                mode = control.mode,
+                toolNames = tools.map { it.name.value }.toSet(),
+                expert = expert,
+            ).let { request ->
+                val contents = contentSections(sessionId, turnId, tools)
+                systemPrompt.build(request, systemPromptFacts.collect(request), contents)
+            }
         val history = persistedHistory(sessionId, turnId, retryTurnId, system, directory, continuation = true)
         require(history.messages.lastOrNull()?.role in setOf(ModelRole.TOOL, ModelRole.USER)) {
             "a continuation must end with settled tool results or a user input"

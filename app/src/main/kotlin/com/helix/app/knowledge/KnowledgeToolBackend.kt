@@ -1,6 +1,6 @@
 package com.helix.app.knowledge
 
-import com.helix.core.storage.repository.KnowledgeReference
+import com.helix.core.model.input.KnowledgeReference
 import com.helix.core.storage.repository.KnowledgeReferences
 import com.helix.core.storage.repository.SessionHistoryCaller
 import com.helix.core.storage.repository.SessionInputState

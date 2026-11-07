@@ -10,14 +10,14 @@ import com.helix.app.files.FileSourceKind
 import com.helix.app.knowledge.KnowledgeService
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.SecretAlias
+import com.helix.core.model.input.ConversationReferenceKind
+import com.helix.core.model.input.ConversationReferenceManifest
+import com.helix.core.model.input.ConversationReferenceSnapshotInput
 import com.helix.core.storage.HelixStorage
 import com.helix.core.storage.backup.AppBackupArchive
 import com.helix.core.storage.content.DocumentStorage
 import com.helix.core.storage.knowledge.KnowledgeNote
 import com.helix.core.storage.knowledge.KnowledgeStore
-import com.helix.core.storage.repository.ConversationReferenceKind
-import com.helix.core.storage.repository.ConversationReferenceManifest
-import com.helix.core.storage.repository.ConversationReferenceSnapshotInput
 import com.helix.core.storage.repository.ExpertDefinition
 import com.helix.core.storage.repository.ExpertProfile
 import com.helix.core.storage.repository.MessageAttachmentRepository

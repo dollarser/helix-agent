@@ -5,7 +5,6 @@ import androidx.test.ext.junit.rules.ActivityScenarioRule
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.HelixApplication
 import com.helix.app.MainActivity
-import com.helix.app.chat.ChatSubmission
 import com.helix.app.openTestSessionControl
 import com.helix.app.provider.ProviderDraft
 import com.helix.core.model.AgentMode
@@ -13,8 +12,9 @@ import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.TurnBudgets
 import com.helix.core.model.TurnState
-import com.helix.core.storage.repository.InputSkillActivation
+import com.helix.core.model.input.InputSkillActivation
 import com.helix.extensions.plugin.PluginPackageReader
+import com.helix.feature.conversation.input.ChatSubmission
 import com.helix.provider.api.ProbeOutcome
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking

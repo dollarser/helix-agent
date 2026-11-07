@@ -1,11 +1,11 @@
 package com.helix.app.scheduled
 
 import com.helix.app.APP_SCOPE_ID
-import com.helix.app.chat.ChatService
 import com.helix.app.provider.ProviderService
 import com.helix.app.provider.ProviderTurnSnapshot
 import com.helix.app.provider.analysisHash
 import com.helix.app.tool.ToolPipeline
+import com.helix.core.agent.AgentRuntime
 import com.helix.core.agent.SubmitTurnCommand
 import com.helix.core.agent.runtime.TurnEngine
 import com.helix.core.model.AgentMode
@@ -29,13 +29,15 @@ import org.json.JSONObject
 class RuntimeScheduledAgentExecution(
     private val storage: HelixStorage,
     private val providers: ProviderService,
-    private val chat: ChatService,
+    private val runtime: AgentRuntime,
+    modelGuard: ScheduledModelRequestGuard,
+    private val stopTurn: suspend (String, String, String) -> Unit,
     private val engine: TurnEngine,
     private val tools: ToolPipeline,
     private val ledger: com.helix.core.storage.scheduled.ScheduledAgentStore,
 ) : ScheduledAgentExecution {
     init {
-        chat.installScheduledModelGuard(::verifyModelRequest)
+        modelGuard.install(::verifyModelRequest)
     }
 
     override suspend fun isBusy(sessionId: String): Boolean =
@@ -175,7 +177,7 @@ class RuntimeScheduledAgentExecution(
             check(bound.sessionId == rule.sessionId && bound.hash == rule.scopeHash)
             check(scope(rule.sessionId, bound.maxRuntimeMillis).hash == rule.scopeHash)
             // A user-created rule is not a fresh human message and cannot create/extend Goal authority.
-            chat.agentRuntime
+            runtime
                 .submit(
                     SubmitTurnCommand(
                         session = SessionId(bound.sessionId),
@@ -230,7 +232,7 @@ class RuntimeScheduledAgentExecution(
         reason: String,
     ): ScheduledTurnFact? {
         val current = lookup(attempt) ?: return null
-        chat.stopScheduledTurn(current.turnId, attempt.sessionId, reason)
+        stopTurn(current.turnId, attempt.sessionId, reason)
         return withTimeoutOrNull(STOP_WAIT_MILLIS) {
             var observed = requireNotNull(lookup(attempt.copy(turnId = current.turnId)))
             while (observed.live) {

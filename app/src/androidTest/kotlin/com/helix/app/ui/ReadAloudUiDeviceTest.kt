@@ -46,6 +46,7 @@ class ReadAloudUiDeviceTest {
         ready: Boolean = true,
         realFocus: Boolean = false,
         spoken: MutableList<String>? = null,
+        accountIdentity: String? = null,
         block: (ReadAloudService, AtomicInteger) -> Unit,
     ) {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
@@ -97,7 +98,7 @@ class ReadAloudUiDeviceTest {
 
                     override fun close() = Unit
                 }
-            })
+            }, accountIdentity = accountIdentity)
         try {
             block(service, closed)
         } finally {
@@ -134,7 +135,14 @@ class ReadAloudUiDeviceTest {
                         ReadAloudLifecycle(reader, screen.value.openSessionId)
                         val frame = visibleReplyFrame(screen.value)
                         ObserveLiveReplyReadAloud(reader, frame)
-                        AutomaticReplyAudioControl(reader, frame)
+                        AutomaticReplyAudioControl(
+                            reader,
+                            frame,
+                            app.replyAudioSettings,
+                            app.speechConsent,
+                            app.account.identityState.value,
+                            app.account.signedIn.value,
+                        )
                     }
                 }
                 compose.waitForIdle()
@@ -211,7 +219,14 @@ class ReadAloudUiDeviceTest {
                         ReadAloudLifecycle(reader, screen.value.openSessionId)
                         val frame = visibleReplyFrame(screen.value)
                         ObserveLiveReplyReadAloud(reader, frame)
-                        AutomaticReplyAudioControl(reader, frame)
+                        AutomaticReplyAudioControl(
+                            reader,
+                            frame,
+                            app.replyAudioSettings,
+                            app.speechConsent,
+                            app.account.identityState.value,
+                            app.account.signedIn.value,
+                        )
                     }
                 }
                 compose.waitForIdle()
@@ -381,23 +396,55 @@ class ReadAloudUiDeviceTest {
             }
         }
 
-    @Test fun readEntryIsOnlyOnCompletedAssistantActions() {
-        compose.setContent {
-            MaterialTheme {
-                Column {
-                    MessageRow(MessageUi("complete", "assistant", "Synthetic completed reply"))
-                    MessageRow(MessageUi("live", "assistant", "Synthetic streaming"), readAloud = false)
-                    MessageRow(MessageUi("user", "user", "Synthetic user"))
-                    MessageRow(MessageUi("tool", "tool", "Synthetic tool result"))
+    @Test fun injectedAccountIdentityChangeStopsPlayback() =
+        fixture(accountIdentity = "synthetic-account") { service, closed ->
+            val identity = mutableStateOf("synthetic-account")
+            compose.setContent {
+                MaterialTheme {
+                    ReadAloudAction(
+                        "identity",
+                        "Synthetic reply",
+                        service,
+                        accountIdentity = identity.value,
+                        accountStatus = com.helix.app.account.AccountStatus.SIGNED_IN,
+                    )
                 }
             }
+            compose.onNodeWithTag("chat-read-identity").performClick()
+            compose.waitUntil(5000) { service.state.value.phase == ReadAloudPhase.SPEAKING }
+            compose.runOnIdle { identity.value = "another-account" }
+            compose.waitUntil(5000) { closed.get() == 1 && service.state.value.phase == ReadAloudPhase.IDLE }
+            compose.onNodeWithTag("chat-read-identity").performClick()
+            compose.waitForIdle()
+            assertEquals(ReadAloudPhase.IDLE, service.state.value.phase)
         }
-        listOf("complete", "live", "user", "tool").forEach {
-            compose.onNodeWithTag("chat-message-toggle-$it").performClick()
+
+    @Test fun readEntryIsOnlyOnCompletedAssistantActions() =
+        fixture { service, _ ->
+            compose.setContent {
+                MaterialTheme {
+                    Column {
+                        listOf(
+                            MessageUi("complete", "assistant", "Synthetic completed reply"),
+                            MessageUi("live", "assistant", "Synthetic streaming"),
+                            MessageUi("user", "user", "Synthetic user"),
+                            MessageUi("tool", "tool", "Synthetic tool result"),
+                        ).forEach { message ->
+                            MessageRow(
+                                message,
+                                readAloud = message.id != "live",
+                                readAloudAction = { ReadAloudAction(message.id, message.content, service) },
+                            )
+                        }
+                    }
+                }
+            }
+            listOf("complete", "live", "user", "tool").forEach {
+                compose.onNodeWithTag("chat-message-toggle-$it").performClick()
+            }
+            compose.onNodeWithTag("chat-read-complete").assertExists()
+            compose.onNodeWithTag("chat-read-live").assertDoesNotExist()
+            compose.onNodeWithTag("chat-read-user").assertDoesNotExist()
+            compose.onNodeWithTag("chat-read-tool").assertDoesNotExist()
         }
-        compose.onNodeWithTag("chat-read-complete").assertExists()
-        compose.onNodeWithTag("chat-read-live").assertDoesNotExist()
-        compose.onNodeWithTag("chat-read-user").assertDoesNotExist()
-        compose.onNodeWithTag("chat-read-tool").assertDoesNotExist()
-    }
 }

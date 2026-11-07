@@ -28,8 +28,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
 import com.helix.app.ui.ConversationSheet
-import com.helix.core.storage.repository.KnowledgeReference
-import com.helix.core.storage.repository.KnowledgeReferences
+import com.helix.core.model.input.KnowledgeReference
+import com.helix.core.model.input.KnowledgeReferenceCodec
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
@@ -47,7 +47,7 @@ fun KnowledgeReferencePicker(
     var selected by rememberSaveable { mutableStateOf(current.map { "${it.kind}:${it.resourceId}" }) }
     var candidates by remember { mutableStateOf(emptyList<KnowledgeReferenceService.Candidate>()) }
     var preview by remember { mutableStateOf<KnowledgeReference?>(null) }
-    var preparedJson by rememberSaveable { mutableStateOf(KnowledgeReferences.encode(current)) }
+    var preparedJson by rememberSaveable { mutableStateOf(KnowledgeReferenceCodec.encode(current)) }
     var busy by remember { mutableStateOf(false) }
     var failed by remember { mutableStateOf(false) }
     var loaded by remember(service) { mutableStateOf(false) }
@@ -70,14 +70,18 @@ fun KnowledgeReferencePicker(
     preview?.let { item ->
         KnowledgeReferencePreview(item, service, onChange = { changed ->
             val key = "${changed.kind}:${changed.resourceId}"
-            val existing = KnowledgeReferences.decode(preparedJson).filterNot { "${it.kind}:${it.resourceId}" == key }
+            val existing =
+                KnowledgeReferenceCodec
+                    .decode(
+                        preparedJson,
+                    ).filterNot { "${it.kind}:${it.resourceId}" == key }
             val retained =
                 if (existing.size < 8) {
                     existing
                 } else {
                     existing.filter { "${it.kind}:${it.resourceId}" in selected }
                 }
-            if (retained.size < 8) preparedJson = KnowledgeReferences.encode(retained + changed)
+            if (retained.size < 8) preparedJson = KnowledgeReferenceCodec.encode(retained + changed)
             preview = changed
         }, onDismiss = { preview = null })
     }
@@ -138,8 +142,8 @@ fun KnowledgeReferencePicker(
                             if (!checked) {
                                 selected = selected - key
                                 preparedJson =
-                                    KnowledgeReferences.encode(
-                                        KnowledgeReferences
+                                    KnowledgeReferenceCodec.encode(
+                                        KnowledgeReferenceCodec
                                             .decode(preparedJson)
                                             .filterNot { "${it.kind}:${it.resourceId}" == key },
                                     )
@@ -147,12 +151,12 @@ fun KnowledgeReferencePicker(
                                 busy = true
                                 scope.launch {
                                     try {
-                                        val old = KnowledgeReferences.decode(preparedJson)
+                                        val old = KnowledgeReferenceCodec.decode(preparedJson)
                                         val snapshot =
                                             old.firstOrNull { "${it.kind}:${it.resourceId}" == key }
                                                 ?: service.select(item.kind, item.id)
                                         preparedJson =
-                                            KnowledgeReferences.encode(
+                                            KnowledgeReferenceCodec.encode(
                                                 old.filterNot {
                                                     "${it.kind}:${it.resourceId}" == key
                                                 } + snapshot,
@@ -194,7 +198,7 @@ fun KnowledgeReferencePicker(
                             scope.launch {
                                 try {
                                     preview =
-                                        KnowledgeReferences
+                                        KnowledgeReferenceCodec
                                             .decode(preparedJson)
                                             .firstOrNull { it.kind == item.kind && it.resourceId == item.id }
                                             ?: service.select(
@@ -228,7 +232,7 @@ fun KnowledgeReferencePicker(
                         try {
                             val items =
                                 selected.map { key ->
-                                    KnowledgeReferences
+                                    KnowledgeReferenceCodec
                                         .decode(preparedJson)
                                         .firstOrNull { "${it.kind}:${it.resourceId}" == key }
                                         ?: candidates.first { "${it.kind}:${it.id}" == key }.let {
@@ -238,7 +242,7 @@ fun KnowledgeReferencePicker(
                                             )
                                         }
                                 }
-                            KnowledgeReferences.encode(items)
+                            KnowledgeReferenceCodec.encode(items)
                             check(service.valid(items))
                             onApply(items)
                         } catch (cancel: CancellationException) {

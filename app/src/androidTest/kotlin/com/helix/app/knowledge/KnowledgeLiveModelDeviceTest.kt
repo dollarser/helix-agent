@@ -3,12 +3,11 @@ package com.helix.app.knowledge
 import android.content.Intent
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.HelixApplication
-import com.helix.app.chat.ChatSubmission
-import com.helix.app.chat.ChatSubmissionOutcome
 import com.helix.app.provider.BuiltInModel
 import com.helix.core.model.AgentMode
 import com.helix.core.model.TurnState
-import com.helix.core.storage.repository.KnowledgeReferences
+import com.helix.feature.conversation.input.ChatSubmission
+import com.helix.feature.conversation.input.ChatSubmissionOutcome
 import com.helix.provider.api.wire.OkHttpWireClient
 import com.helix.provider.api.wire.WireClient
 import com.helix.provider.api.wire.WireRequest
@@ -126,7 +125,7 @@ class KnowledgeLiveModelDeviceTest {
                         },
                         referenceSourceSessionId = source.takeIf { index == 0 },
                         referenceKind =
-                            com.helix.core.storage.repository.ConversationReferenceKind.HISTORY
+                            com.helix.core.model.input.ConversationReferenceKind.HISTORY
                                 .takeIf { index == 0 },
                     )
                 val outcome = chat.sendSubmission(request).await().outcome

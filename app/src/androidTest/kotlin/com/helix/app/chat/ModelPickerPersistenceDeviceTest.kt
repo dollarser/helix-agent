@@ -9,6 +9,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
 import com.helix.app.HelixApplication
+import com.helix.app.composition.ConversationComposition
 import com.helix.app.internal.InMemoryLineStore
 import com.helix.app.profile.ChannelSafetyProfileStore
 import com.helix.app.provider.BuiltInModel
@@ -467,7 +468,7 @@ class ModelPickerPersistenceDeviceTest {
                     { root.toPath().resolve(it.relativePath) },
                 )
             chat =
-                ChatService(
+                ConversationComposition(
                     storage,
                     providers,
                     ChannelSafetyProfileStore(com.helix.core.model.SafetyProfile.STANDARD),
@@ -476,7 +477,7 @@ class ModelPickerPersistenceDeviceTest {
                     idGenerator = { UUID.randomUUID().toString() },
                     scope = scope,
                     attachmentStaging = staging,
-                )
+                ).also { it.start() }.chatService
             providers.refresh()
         }
 

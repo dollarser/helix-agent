@@ -18,7 +18,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.helix.app.HelixApplication
 import com.helix.app.R
 import com.helix.app.account.AccountStatus
 import com.helix.app.voice.ReadAloudPhase
@@ -56,31 +55,22 @@ internal fun ReadAloudLifecycle(
 }
 
 @Composable
-@Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod") // Local resource/player UI state mapping.
+// Local resource/player UI state mapping.
+@Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod", "LongParameterList")
 internal fun ReadAloudAction(
     id: String,
     text: String,
-    supplied: ReadAloudService? = null,
+    service: ReadAloudService,
     turnId: String? = null,
     onStart: (() -> Unit)? = null,
+    consent: com.helix.app.voice.SpeechConsentStore? = null,
+    accountIdentity: String = "signed-out",
+    accountStatus: AccountStatus = AccountStatus.SIGNED_OUT,
 ) {
-    val service = supplied ?: (LocalContext.current.applicationContext as? HelixApplication)?.readAloud ?: return
-    val application = LocalContext.current.applicationContext as? HelixApplication
-    val consent = application?.speechConsent
     val consentIdentity = service.accountIdentity ?: "custom-service"
-    val accountIdentity by (
-        application?.account?.identityState
-            ?: kotlinx.coroutines.flow.MutableStateFlow("signed-out")
-    ).collectAsStateWithLifecycle()
     LaunchedEffect(accountIdentity, service) {
         if (service.accountIdentity != null && accountIdentity != service.accountIdentity) service.stop()
     }
-    val accountStatus =
-        application
-            ?.account
-            ?.status
-            ?.collectAsStateWithLifecycle()
-            ?.value
     val accountReady =
         service.accountIdentity == null ||
             (accountStatus == AccountStatus.SIGNED_IN && accountIdentity == service.accountIdentity)

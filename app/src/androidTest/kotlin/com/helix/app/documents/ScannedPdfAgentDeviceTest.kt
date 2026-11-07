@@ -8,8 +8,6 @@ import android.graphics.pdf.PdfDocument
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.HelixApplication
 import com.helix.app.account.BuiltInAccountWire
-import com.helix.app.chat.ChatSubmission
-import com.helix.app.chat.ChatSubmissionOutcome
 import com.helix.app.provider.BuiltInModel
 import com.helix.core.model.AgentMode
 import com.helix.core.model.OperationEffect
@@ -17,6 +15,8 @@ import com.helix.core.model.OperationRule
 import com.helix.core.model.TurnBudgets
 import com.helix.core.model.TurnState
 import com.helix.core.policy.SessionPermissionConfig
+import com.helix.feature.conversation.input.ChatSubmission
+import com.helix.feature.conversation.input.ChatSubmissionOutcome
 import com.helix.provider.api.wire.WireClient
 import com.helix.provider.api.wire.WireRequest
 import com.helix.provider.api.wire.WireResponse

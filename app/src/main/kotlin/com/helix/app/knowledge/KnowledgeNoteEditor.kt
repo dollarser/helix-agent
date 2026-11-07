@@ -43,7 +43,7 @@ internal fun KnowledgeNoteEditor(
     modifier: Modifier,
     isNew: Boolean = false,
     onKnowledgeCreated: ((String) -> Unit)? = null,
-    onReference: (suspend (List<com.helix.core.storage.repository.KnowledgeReference>) -> Boolean)? = null,
+    onReference: (suspend (List<com.helix.core.model.input.KnowledgeReference>) -> Boolean)? = null,
     referenceService: KnowledgeReferenceService? = null,
     onBack: () -> Unit,
 ) {

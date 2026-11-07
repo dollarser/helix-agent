@@ -4,16 +4,16 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.core.model.TurnState
+import com.helix.core.model.input.ConversationReferenceKind
+import com.helix.core.model.input.ConversationReferenceSnapshotInput
+import com.helix.core.model.input.InputAttachment
+import com.helix.core.model.input.InputConfiguration
+import com.helix.core.model.input.SessionInputDelivery
+import com.helix.core.model.input.SessionInputSpec
 import com.helix.core.storage.content.ContentRef
 import com.helix.core.storage.content.FileContentStore
-import com.helix.core.storage.repository.ConversationReferenceKind
-import com.helix.core.storage.repository.ConversationReferenceSnapshotInput
-import com.helix.core.storage.repository.InputAttachment
-import com.helix.core.storage.repository.InputConfiguration
 import com.helix.core.storage.repository.SessionInputAcceptResult
-import com.helix.core.storage.repository.SessionInputDelivery
 import com.helix.core.storage.repository.SessionInputRecord
-import com.helix.core.storage.repository.SessionInputSpec
 import com.helix.core.storage.repository.SessionInputState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -35,7 +35,7 @@ class SessionInputStorageDeviceTest {
     @Test fun continuousGoalUsesOriginalActivationButIndependentTurnDoesNot() =
         withStorage { storage ->
             val activation =
-                com.helix.core.storage.repository.InputSkillActivation(
+                com.helix.core.model.input.InputSkillActivation(
                     "USER_IMPORTED",
                     "workflow",
                     "a".repeat(64),
@@ -81,7 +81,7 @@ class SessionInputStorageDeviceTest {
     @Test fun acceptedActivationIsScopedAndDurablyRevoked() =
         withStorage { storage ->
             val activation =
-                com.helix.core.storage.repository.InputSkillActivation(
+                com.helix.core.model.input.InputSkillActivation(
                     "USER_IMPORTED",
                     "workflow",
                     "a".repeat(64),
@@ -319,7 +319,7 @@ class SessionInputStorageDeviceTest {
         try {
             storage.sessions.create(SESSION, "Reopen", null, null, 0)
             val activation =
-                com.helix.core.storage.repository.InputSkillActivation(
+                com.helix.core.model.input.InputSkillActivation(
                     "USER_IMPORTED",
                     "workflow",
                     "a".repeat(64),
@@ -413,7 +413,7 @@ class SessionInputStorageDeviceTest {
                     selectionKind = ConversationReferenceKind.HISTORY,
                     sourceMessageIds = listOf("source-old"),
                     content =
-                        com.helix.core.storage.repository
+                        com.helix.core.model.input
                             .ConversationReferenceManifest(
                                 1,
                                 "a".repeat(64),
@@ -444,7 +444,7 @@ class SessionInputStorageDeviceTest {
                     selectionKind = ConversationReferenceKind.HISTORY,
                     sourceMessageIds = listOf("source-message"),
                     content =
-                        com.helix.core.storage.repository
+                        com.helix.core.model.input
                             .ConversationReferenceManifest(
                                 1,
                                 "a".repeat(64),

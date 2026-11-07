@@ -16,11 +16,11 @@ import com.helix.core.model.Clock
 import com.helix.core.model.ModelEvent
 import com.helix.core.model.ModelRole
 import com.helix.core.model.TurnState
+import com.helix.core.model.input.InputConfiguration
+import com.helix.core.model.input.SessionInputDelivery
+import com.helix.core.model.input.SessionInputSpec
 import com.helix.core.storage.HelixStorage
-import com.helix.core.storage.repository.InputConfiguration
 import com.helix.core.storage.repository.SessionInputAcceptResult
-import com.helix.core.storage.repository.SessionInputDelivery
-import com.helix.core.storage.repository.SessionInputSpec
 import com.helix.core.storage.repository.SessionInputState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

@@ -141,7 +141,7 @@ class KnowledgeNoteService(
         messageId: String,
         title: String,
         text: String,
-        references: List<com.helix.core.storage.repository.KnowledgeReference>,
+        references: List<com.helix.core.model.input.KnowledgeReference>,
     ): String =
         withContext(Dispatchers.IO) {
             require(sessionId.isNotBlank() && messageId.isNotBlank())

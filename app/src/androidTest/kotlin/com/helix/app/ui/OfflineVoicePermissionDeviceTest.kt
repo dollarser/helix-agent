@@ -25,6 +25,11 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 /** Owner-authorized emulator only, with hostmicoff; the runner restores permission state afterwards. */
 class OfflineVoicePermissionDeviceTest {
+    private val voiceApplication
+        get() =
+            androidx.test.core.app.ApplicationProvider
+                .getApplicationContext<com.helix.app.HelixApplication>()
+
     @get:Rule val compose = createComposeRule()
     private val instrumentation get() = InstrumentationRegistry.getInstrumentation()
 
@@ -71,6 +76,10 @@ class OfflineVoicePermissionDeviceTest {
                                 },
                             )
                         },
+                        account = voiceApplication.account,
+                        speechSettings = voiceApplication.speechSettings,
+                        onStopSpeech = voiceApplication::stopSpeechForInput,
+                        consent = voiceApplication.speechConsent,
                     )
                 }
             }
@@ -113,6 +122,10 @@ class OfflineVoicePermissionDeviceTest {
                                 }
                             }
                         },
+                        account = voiceApplication.account,
+                        speechSettings = voiceApplication.speechSettings,
+                        onStopSpeech = voiceApplication::stopSpeechForInput,
+                        consent = voiceApplication.speechConsent,
                     )
                 }
             }
@@ -141,23 +154,31 @@ class OfflineVoicePermissionDeviceTest {
         var capture: VoiceCapture? = null
         compose.setContent {
             MaterialTheme {
-                InlineVoiceInput({}, { draft = it }, { context, scope ->
-                    VoiceCapture(context, scope, OfflineAsrFactory(context)) { interrupted ->
-                        val microphone =
-                            com.helix.app.voice
-                                .MicrophoneCapture(context, interrupted)
-                        object : PcmCapture {
-                            override fun read(samples: ShortArray) = microphone.read(samples)
+                InlineVoiceInput(
+                    {},
+                    { draft = it },
+                    { context, scope ->
+                        VoiceCapture(context, scope, OfflineAsrFactory(context)) { interrupted ->
+                            val microphone =
+                                com.helix.app.voice
+                                    .MicrophoneCapture(context, interrupted)
+                            object : PcmCapture {
+                                override fun read(samples: ShortArray) = microphone.read(samples)
 
-                            override fun stop() = microphone.stop()
+                                override fun stop() = microphone.stop()
 
-                            override fun close() {
-                                microphone.close()
-                                closed.set(true)
+                                override fun close() {
+                                    microphone.close()
+                                    closed.set(true)
+                                }
                             }
-                        }
-                    }.also { capture = it }
-                })
+                        }.also { capture = it }
+                    },
+                    account = voiceApplication.account,
+                    speechSettings = voiceApplication.speechSettings,
+                    onStopSpeech = voiceApplication::stopSpeechForInput,
+                    consent = voiceApplication.speechConsent,
+                )
             }
         }
         compose.waitUntil(10000) { compose.onAllNodes(hasTestTag("voice-finish")).fetchSemanticsNodes().isNotEmpty() }

@@ -95,7 +95,7 @@ class SessionToolsTest {
         body("shared", "see earlier conversation", 1)
         val frozen =
             store.write(
-                com.helix.core.storage.repository
+                com.helix.core.model.input
                     .ConversationReferenceManifest(1, "a".repeat(64), 1, 42)
                     .encode(),
             )
@@ -296,13 +296,13 @@ class SessionToolsTest {
         val bodyRef = body("long", text, 1, session = "source")
         val shared = share()
         val manifest =
-            com.helix.core.storage.repository.ConversationReferenceManifest
+            com.helix.core.model.input.ConversationReferenceManifest
                 .parse(store.read(shared))
         val snapshot =
             com.helix.core.storage.repository.ConversationReferenceSnapshot(
                 "source",
                 "Selected source",
-                com.helix.core.storage.repository.ConversationReferenceKind.HISTORY,
+                com.helix.core.model.input.ConversationReferenceKind.HISTORY,
                 emptyList(),
                 store.read(shared),
                 shared.sha256,

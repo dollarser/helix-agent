@@ -7,12 +7,12 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.AppContainer
 import com.helix.app.HelixApplication
 import com.helix.app.MainActivity
-import com.helix.app.chat.ChatSubmission
-import com.helix.app.chat.ChatSubmissionOutcome
 import com.helix.app.provider.BuiltInModel
 import com.helix.core.model.AgentMode
 import com.helix.core.model.TurnState
-import com.helix.core.storage.repository.InputSkillActivation
+import com.helix.core.model.input.InputSkillActivation
+import com.helix.feature.conversation.input.ChatSubmission
+import com.helix.feature.conversation.input.ChatSubmissionOutcome
 import com.helix.provider.api.wire.WireClient
 import com.helix.provider.api.wire.WireRequest
 import com.helix.provider.api.wire.WireResponse

@@ -7,6 +7,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.HelixApplication
 import com.helix.app.agent.ChatHistoryBuilder
 import com.helix.app.application.agent.GoalRoundAllowance
+import com.helix.app.composition.ConversationComposition
 import com.helix.app.internal.InMemoryLineStore
 import com.helix.app.language.AppLanguage
 import com.helix.app.language.AppLanguageStore
@@ -32,6 +33,8 @@ import com.helix.core.storage.repository.ProviderConfigSpec
 import com.helix.core.workspace.FileScopePath
 import com.helix.core.workspace.ScopeRootResolver
 import com.helix.core.workspace.WorkspaceArtifactStore
+import com.helix.feature.conversation.input.ChatSubmission
+import com.helix.feature.conversation.input.ChatSubmissionOutcome
 import com.helix.feature.files.AttachmentImporter
 import com.helix.feature.files.SafImportPipeline
 import com.helix.feature.files.SafSourceMetadata
@@ -1871,7 +1874,7 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
                 ),
             )
         }
-        return ChatService(
+        return ConversationComposition(
             storage = storage,
             providerService = providerService,
             profileStore = FixedStandardProfileStore,
@@ -1881,7 +1884,7 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
             attachmentStaging = stagingFor(workspaceRoot),
             visionSessionBinder = imageSource::bindSession,
             strings = { resId, args -> zh.getString(resId, *args) },
-        )
+        ).also { it.start() }.chatService
     }
 
     /** Keep authorization, approval foreign keys and audit in the same fixture database. */

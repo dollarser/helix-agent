@@ -3,6 +3,8 @@ package com.helix.app.chat
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.helix.app.application.context.SystemPromptContext
+import com.helix.app.application.context.SystemPromptRequest
+import com.helix.app.infrastructure.prompt.StoredSystemPromptFactsProvider
 import com.helix.app.infrastructure.prompt.packagedPromptTemplates
 import com.helix.app.memory.MemoryService
 import com.helix.app.projects.ProjectService
@@ -72,7 +74,8 @@ class MemoryPromptDeviceTest {
                     "SECOND_MEMORY",
                     "new",
                 )
-                val builder = SystemPromptContext(storage, { "" }, packagedPromptTemplates, memory = memory)
+                val builder = SystemPromptContext(packagedPromptTemplates)
+                val facts = StoredSystemPromptFactsProvider(storage, { "" }, memory)
                 listOf(a, b).forEach { session ->
                     storage.sessionPermissionConfigs.setForSession(
                         session,
@@ -81,8 +84,10 @@ class MemoryPromptDeviceTest {
                     )
                 }
                 val directory = FileScopePath.fromModelReference(shared)
-                val promptA = builder.build(a, AgentMode.ACT, setOf("memory.read"), directory = directory)
-                val promptB = builder.build(b, AgentMode.ACT, setOf("memory.read"), directory = directory)
+                val requestA = SystemPromptRequest(a, null, directory, AgentMode.ACT, setOf("memory.read"))
+                val requestB = SystemPromptRequest(b, null, directory, AgentMode.ACT, setOf("memory.read"))
+                val promptA = builder.build(requestA, facts.collect(requestA))
+                val promptB = builder.build(requestB, facts.collect(requestB))
                 assertTrue(promptA.content.contains("FIRST_MEMORY"))
                 assertTrue(promptA.content.contains("FIRST_INSTRUCTIONS"))
                 assertFalse(promptA.content.contains("SECOND_MEMORY"))
@@ -120,15 +125,13 @@ class MemoryPromptDeviceTest {
                 FileScopePath.fromModelReference(
                     requireNotNull(storage.sessions.resolve("session").directoryRef),
                 )
-            val builder = SystemPromptContext(storage, { "" }, packagedPromptTemplates, memory = service)
+            val builder = SystemPromptContext(packagedPromptTemplates)
+            val facts = StoredSystemPromptFactsProvider(storage, { "" }, service)
+            val request = SystemPromptRequest("session", null, path, AgentMode.ACT, setOf("memory.read"))
             assertFalse(
                 builder
-                    .build(
-                        "session",
-                        AgentMode.ACT,
-                        setOf("memory.read"),
-                        directory = path,
-                    ).content
+                    .build(request, facts.collect(request))
+                    .content
                     .contains("MEMORY_FIXTURE_CONTENT"),
             )
             storage.sessionPermissionConfigs.setForSession(
@@ -136,18 +139,14 @@ class MemoryPromptDeviceTest {
                 SessionPermissionConfig.of(SessionPermissionMode.FULL_ACCESS),
                 2,
             )
-            val enabled = builder.build("session", AgentMode.ACT, setOf("memory.read"), directory = path)
+            val enabled = builder.build(request, facts.collect(request))
             assertTrue(enabled.content.contains("MEMORY_FIXTURE_CONTENT"))
             assertEquals(TrustLevel.UNTRUSTED, enabled.sections.single { it.name == "memory.summary.global" }.trust)
             flags["enabled"] = false
             assertFalse(
                 builder
-                    .build(
-                        "session",
-                        AgentMode.ACT,
-                        setOf("memory.read"),
-                        directory = path,
-                    ).content
+                    .build(request, facts.collect(request))
+                    .content
                     .contains("MEMORY_FIXTURE_CONTENT"),
             )
         } finally {

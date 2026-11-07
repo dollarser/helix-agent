@@ -1,8 +1,8 @@
 package com.helix.app.knowledge
 
+import com.helix.core.model.input.KnowledgeReference
+import com.helix.core.model.input.KnowledgeReferenceCodec
 import com.helix.core.storage.knowledge.KnowledgeStore
-import com.helix.core.storage.repository.KnowledgeReference
-import com.helix.core.storage.repository.KnowledgeReferences
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.withContext
@@ -83,7 +83,7 @@ class KnowledgeReferenceService(
         }
 
     suspend fun valid(items: List<KnowledgeReference>): Boolean {
-        KnowledgeReferences.encode(items)
+        KnowledgeReferenceCodec.encode(items)
         return items.all { state(it) == State.CURRENT }
     }
 

@@ -133,18 +133,22 @@ class GoalLifecycleFlowDeviceTest {
                             .listBySession(session)
                             .single()
                     val input =
-                        com.helix.app.chat.ChatSubmission(
+                        com.helix.feature.conversation.input.ChatSubmission(
                             session,
                             0,
                             java.util.UUID
                                 .randomUUID()
                                 .toString(),
                             "Please keep the existing goal and answer now.",
-                            delivery = com.helix.core.storage.repository.SessionInputDelivery.STEER,
+                            delivery = com.helix.core.model.input.SessionInputDelivery.STEER,
                             expectedTurnId = turn.id,
                         )
                     assertTrue(
-                        chat.sendSubmission(input).await().outcome is com.helix.app.chat.ChatSubmissionOutcome.Enqueued,
+                        chat
+                            .sendSubmission(
+                                input,
+                            ).await()
+                            .outcome is com.helix.feature.conversation.input.ChatSubmissionOutcome.Enqueued,
                     )
                     org.junit.Assert.assertNull(
                         container.storage.turns

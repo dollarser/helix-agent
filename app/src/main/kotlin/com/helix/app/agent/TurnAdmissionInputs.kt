@@ -1,6 +1,6 @@
 package com.helix.app.agent
 
-import com.helix.core.storage.repository.ConversationReferenceSnapshotInput
+import com.helix.core.model.input.ConversationReferenceSnapshotInput
 import com.helix.core.storage.repository.MessageAttachmentRepository
 
 internal data class TurnStartSpec(

@@ -28,7 +28,7 @@ class KnowledgeReadToolsTest {
                 call: ExecutableToolCall,
                 inputId: String,
                 hash: String,
-            ): List<com.helix.core.storage.repository.KnowledgeReference> = error("No references in this fixture")
+            ): List<com.helix.core.model.input.KnowledgeReference> = error("No references in this fixture")
 
             override suspend fun search(query: String): JsonObject {
                 reads++

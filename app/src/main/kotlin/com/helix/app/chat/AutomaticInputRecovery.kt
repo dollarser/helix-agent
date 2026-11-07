@@ -1,8 +1,8 @@
 package com.helix.app.chat
 
 import com.helix.core.model.Clock
+import com.helix.core.model.input.SessionInputDelivery
 import com.helix.core.storage.HelixStorage
-import com.helix.core.storage.repository.SessionInputDelivery
 import com.helix.core.storage.repository.SessionInputRecord
 import com.helix.core.storage.repository.SessionInputState
 

@@ -1,5 +1,8 @@
 package com.helix.core.storage.repository
 
+import com.helix.core.model.input.ConversationReferenceKind
+import com.helix.core.model.input.ConversationReferenceManifest
+import com.helix.core.model.input.ConversationReferenceSnapshotInput
 import com.helix.core.storage.content.ContentRef
 import com.helix.core.storage.content.ContentStore
 import com.helix.core.storage.dao.SessionHistoryDao

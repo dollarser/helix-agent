@@ -20,7 +20,7 @@
 
 | 主题 | 本次源码/证据锚点 | 剩余问题与任务归属 |
 | --- | --- | --- |
-| 执行入口 | [AgentRuntime](../../../core/agent/src/main/kotlin/com/helix/core/agent/AgentRuntime.kt)、[AppAgentRuntime](../../../app/src/main/kotlin/com/helix/app/chat/AppAgentRuntime.kt) 已有 submit/cancel/observe | 审计新增入口是否遵守同一准入，不再创建另一套 AgentRuntime |
+| 执行入口 | [AgentRuntime](../../../core/agent/src/main/kotlin/com/helix/core/agent/AgentRuntime.kt)、[AppAgentRuntime](../../../app/src/main/kotlin/com/helix/app/application/agent/AppAgentRuntime.kt) 已有 submit/cancel/observe | 审计新增入口是否遵守同一准入，不再创建另一套 AgentRuntime |
 | 单循环 | [AgentLoop](https://github.com/dollarser/helix-agent/blob/05e910039e03095d98649d96a9e64a3a71bcb078/app/src/main/kotlin/com/helix/app/agent/AgentLoop.kt) 已承载模式共用执行 | 不再讨论“四套Loop统一”或仅为改名重构；收益要落在可测依赖和行为上 |
 | 请求与压缩 | [ChatRequestAssembler](../../../app/src/main/kotlin/com/helix/app/chat/ChatRequestAssembler.kt)、[ContextCompactionRound](https://github.com/dollarser/helix-agent/blob/05e910039e03095d98649d96a9e64a3a71bcb078/app/src/main/kotlin/com/helix/app/agent/ContextCompactionRound.kt) 是生产主干 | 保留历史配对、摘要、附件和恢复；旧 ContextBuilder 不再是待合并的第二套生产系统 |
 | Prompt | [PromptRegistry](../../../core/agent/src/main/kotlin/com/helix/core/agent/PromptRegistry.kt) 与内置 sections 已存在 | 可研究预算、冲突诊断和来源呈现，不把 Registry 再列为待新建模块 |

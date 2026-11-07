@@ -5,8 +5,8 @@ import com.helix.core.model.AttachmentCategory
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.ProviderResidence
 import com.helix.core.model.TextAttachmentKind
-import com.helix.core.storage.repository.ConversationReferenceKind
-import com.helix.core.storage.repository.ConversationReferenceSnapshotInput
+import com.helix.core.model.input.ConversationReferenceKind
+import com.helix.core.model.input.ConversationReferenceSnapshotInput
 import com.helix.feature.files.AttachmentMaterialization
 import com.helix.feature.files.AttachmentSendDecision
 import com.helix.feature.files.SnapshotKind
@@ -26,7 +26,7 @@ import org.junit.Test
 class AttachmentSendAdmissionTest {
     @Test fun knowledgeMetadataRequiresConfirmationAndScansTitles() {
         val reference =
-            com.helix.core.storage.repository.KnowledgeReference(
+            com.helix.core.model.input.KnowledgeReference(
                 "NOTE",
                 "synthetic",
                 "Synthetic note",
@@ -124,7 +124,7 @@ class AttachmentSendAdmissionTest {
                 selectionKind = ConversationReferenceKind.HISTORY,
                 sourceMessageIds = listOf("message"),
                 content =
-                    com.helix.core.storage.repository
+                    com.helix.core.model.input
                         .ConversationReferenceManifest(
                             1,
                             "a".repeat(64),
@@ -158,7 +158,7 @@ class AttachmentSendAdmissionTest {
                 selectionKind = ConversationReferenceKind.HISTORY,
                 sourceMessageIds = listOf("message"),
                 content =
-                    com.helix.core.storage.repository
+                    com.helix.core.model.input
                         .ConversationReferenceManifest(
                             1,
                             "a".repeat(64),

@@ -5,7 +5,7 @@ import android.content.Intent
 import android.os.Handler
 import android.os.Looper
 import com.helix.app.MainActivity
-import com.helix.app.chat.ChatService
+import com.helix.app.approval.ApprovalCardUi
 import com.helix.extensions.plugin.PluginTaskHost
 import com.helix.extensions.plugin.PluginTaskIdentity
 import com.helix.extensions.plugin.PluginTaskSnapshot
@@ -14,7 +14,7 @@ import com.helix.extensions.plugin.PluginTaskSnapshot
 internal class PluginTaskHostAdapter(
     private val context: Context,
     private val awaitingDataDisclosure: (String, String) -> Boolean = { _, _ -> false },
-    private val chat: () -> ChatService,
+    private val access: PluginTaskAccess,
 ) : PluginTaskHost {
     private var displayedCards = emptyList<com.helix.app.approval.ApprovalCardUi>()
     private var displayedLocale = ""
@@ -35,16 +35,13 @@ internal class PluginTaskHostAdapter(
         return displayedApprovals
     }
 
-    private fun task(identity: PluginTaskIdentity) =
-        chat().backgroundTasks.value.singleOrNull {
-            it.id == identity.turnId && it.sessionId == identity.conversationId
-        }
+    private fun task(identity: PluginTaskIdentity) = access.task(identity)
 
-    override val conversationVisible: Boolean get() = chat().conversationVisible
+    override val conversationVisible: Boolean get() = access.conversationVisible()
 
     override fun snapshot(task: PluginTaskIdentity): PluginTaskSnapshot? =
         task(task)?.let {
-            val cards = if (it.running) chat().nativeApprovals(task.turnId) else emptyList()
+            val cards = if (it.running) it.approvals else emptyList()
             PluginTaskSnapshot(
                 it.state,
                 cards.isNotEmpty(),
@@ -58,19 +55,18 @@ internal class PluginTaskHostAdapter(
         approvalId: String,
         approve: Boolean,
     ) {
-        val current = task(task)?.takeIf { it.running } ?: return
-        chat().reviewNativeApproval(current.sessionId, current.id, approvalId, approve)
+        task(task)?.takeIf { it.running } ?: return
+        access.reviewApproval(task, approvalId, approve)
     }
 
     override fun requestStop(task: PluginTaskIdentity) {
-        val current = task(task)?.takeIf { it.running } ?: return
-        chat().takeOverTask(current.sessionId, current.id)
+        task(task)?.takeIf { it.running } ?: return
+        access.requestStop(task)
     }
 
     override fun openConversation(task: PluginTaskIdentity) {
         Handler(Looper.getMainLooper()).post {
-            if (task(task) != null && chat().sessions.value.any { it.id == task.conversationId }) {
-                chat().openSession(task.conversationId)
+            if (task(task) != null && access.openConversation(task)) {
                 PluginTaskNavigation.request(task)
                 context.startActivity(
                     Intent(context, MainActivity::class.java)
@@ -83,3 +79,18 @@ internal class PluginTaskHostAdapter(
         }
     }
 }
+
+/** Only the task projection and exact-identity actions needed by a native extension surface. */
+internal class PluginTaskAccess(
+    val task: (PluginTaskIdentity) -> PluginTaskState?,
+    val conversationVisible: () -> Boolean,
+    val reviewApproval: (PluginTaskIdentity, String, Boolean) -> Unit,
+    val requestStop: (PluginTaskIdentity) -> Unit,
+    val openConversation: (PluginTaskIdentity) -> Boolean,
+)
+
+internal data class PluginTaskState(
+    val state: com.helix.core.model.TurnState,
+    val running: Boolean,
+    val approvals: List<ApprovalCardUi>,
+)

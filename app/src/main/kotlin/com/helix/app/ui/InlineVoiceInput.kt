@@ -48,33 +48,31 @@ import kotlinx.coroutines.launch
 internal fun InlineVoiceInput(
     onDismiss: () -> Unit,
     onAccept: (String) -> Unit,
-    captureFactory: (Context, CoroutineScope) -> VoiceCapture = { context, scope ->
-        val application = context.applicationContext as com.helix.app.HelixApplication
-        VoiceCapture(context, scope, application.speechSettings.asrFactory(context))
-    },
+    captureFactory: (Context, CoroutineScope) -> VoiceCapture,
+    account: com.helix.app.account.AccountSession,
+    speechSettings: com.helix.app.voice.SpeechSettingsStore,
+    consent: com.helix.app.voice.SpeechConsentStore,
+    onStopSpeech: suspend () -> Unit,
     onPreview: (String) -> Unit = {},
     onError: (String) -> Unit = {},
     permissionChecker: (Context) -> Boolean = { context ->
         ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
             PackageManager.PERMISSION_GRANTED
     },
-    suppliedConsent: com.helix.app.voice.SpeechConsentStore? = null,
     dictation: ContinuousVoiceOptions = ContinuousVoiceOptions(),
 ) {
     val context = LocalContext.current
     val resources = LocalResources.current
     val scope = rememberCoroutineScope()
     val capture = remember { captureFactory(context.applicationContext, scope) }
-    val application = context.applicationContext as com.helix.app.HelixApplication
-    val consent = suppliedConsent ?: application.speechConsent
-    val accountIdentity by application.account.identityState.collectAsState()
+    val accountIdentity by account.identityState.collectAsState()
     val accountRequired =
         remember(capture) {
-            application.speechSettings.forAccount(application.account.status.value).requiresAccount
+            speechSettings.forAccount(account.status.value).requiresAccount
         }
     val consentIdentity =
         remember(capture) {
-            if (accountRequired) application.account.identity else "custom-service"
+            if (accountRequired) account.identity else "custom-service"
         }
     val state by capture.state.collectAsState()
     val preview by rememberUpdatedState(onPreview)
@@ -122,7 +120,7 @@ internal fun InlineVoiceInput(
         if (permission && uploadConsent) {
             capture.start(
                 segmenter = if (dictation.enabled) ({ dictation.segmenterFactory(context) }) else null,
-            ) { application.stopSpeechForInput() }
+            ) { onStopSpeech() }
         }
     }
     LaunchedEffect(state) {

@@ -3,11 +3,11 @@ package com.helix.app.chat
 import com.helix.app.application.agent.TurnInputFingerprint
 import com.helix.app.infrastructure.agent.SubmitReceipt
 import com.helix.core.agent.turn.SubmitReceiptDecision
+import com.helix.core.agent.turn.TurnInputAttachment
 import com.helix.core.model.TurnState
+import com.helix.core.model.input.ConversationReferenceKind
+import com.helix.core.model.input.ConversationReferenceSnapshotInput
 import com.helix.core.storage.entity.TurnEntity
-import com.helix.core.storage.repository.ConversationReferenceKind
-import com.helix.core.storage.repository.ConversationReferenceSnapshotInput
-import com.helix.core.storage.repository.MessageAttachmentRepository
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
@@ -24,7 +24,7 @@ class TurnSubmitDedupTest {
     private fun binding(
         artifactId: String,
         sha: String = "sha-$artifactId",
-    ) = MessageAttachmentRepository.Binding(artifactId, "INPUT", sha)
+    ) = TurnInputAttachment(artifactId, "INPUT", sha)
 
     private fun reference(content: String) =
         ConversationReferenceSnapshotInput(
@@ -33,7 +33,7 @@ class TurnSubmitDedupTest {
             selectionKind = ConversationReferenceKind.HISTORY,
             sourceMessageIds = listOf("m1"),
             content =
-                com.helix.core.storage.repository
+                com.helix.core.model.input
                     .ConversationReferenceManifest(
                         1,
                         java.security.MessageDigest

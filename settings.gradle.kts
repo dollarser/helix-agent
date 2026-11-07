@@ -53,6 +53,7 @@ include(
     ":extensions:documents",
     ":extensions:skills",
     ":feature:browser",
+    ":feature:conversation-input",
     ":feature:files",
     ":feature:files-allfiles",
     ":runtime:quickjs",

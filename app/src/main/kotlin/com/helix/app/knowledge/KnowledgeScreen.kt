@@ -62,7 +62,7 @@ internal fun KnowledgeNavigation(
 @Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod", "TooGenericExceptionCaught", "ThrowsCount")
 fun KnowledgeScreen(
     service: KnowledgeService,
-    onReference: suspend (List<com.helix.core.storage.repository.KnowledgeReference>) -> Boolean,
+    onReference: suspend (List<com.helix.core.model.input.KnowledgeReference>) -> Boolean,
 ) {
     val all by service.items.collectAsStateWithLifecycle(emptyList())
     val loadedNotes by service.noteService.notes.collectAsStateWithLifecycle(initialValue = null)
@@ -366,7 +366,7 @@ internal fun knowledgeStatus(item: CollectedSource): String =
 private fun KnowledgeDetail(
     item: CollectedSource,
     service: KnowledgeService,
-    onReference: suspend (List<com.helix.core.storage.repository.KnowledgeReference>) -> Boolean,
+    onReference: suspend (List<com.helix.core.model.input.KnowledgeReference>) -> Boolean,
     onBack: () -> Unit,
     onDistill: () -> Unit,
 ) {

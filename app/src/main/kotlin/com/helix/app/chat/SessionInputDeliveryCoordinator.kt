@@ -12,9 +12,9 @@ import com.helix.core.agent.runtime.TurnEngine
 import com.helix.core.model.AgentMode
 import com.helix.core.model.Clock
 import com.helix.core.model.VisionLimits
+import com.helix.core.model.input.SessionInputDelivery
 import com.helix.core.storage.HelixStorage
 import com.helix.core.storage.repository.MessageAttachmentRepository
-import com.helix.core.storage.repository.SessionInputDelivery
 import com.helix.core.storage.repository.SessionInputRecord
 import com.helix.core.storage.repository.SessionInputState
 import kotlinx.coroutines.CancellationException
@@ -40,20 +40,20 @@ internal class SessionInputDeliveryCoordinator(
     private val submissionCommands: TurnSubmissionCommandHandler,
     private val onAdmissionResult: (String, TurnSubmissionResult) -> String?,
     private val knowledgeReferencesValid: suspend (
-        List<com.helix.core.storage.repository.KnowledgeReference>,
+        List<com.helix.core.model.input.KnowledgeReference>,
     ) -> Boolean = { it.isEmpty() },
     private val referenceToolsAvailable: (String, Boolean, Boolean) -> Boolean =
         { _, conversation, knowledge -> !conversation && !knowledge },
     private val skillActivationsValid: (
         String,
-        List<com.helix.core.storage.repository.InputSkillActivation>,
+        List<com.helix.core.model.input.InputSkillActivation>,
     ) -> Boolean =
         { _, items -> items.isEmpty() },
 ) {
     fun queueStillConsumable(
         input: SessionInputRecord,
         requireHead: Boolean,
-    ): Boolean = submissionCommands.queueStillConsumable(input, requireHead)
+    ): Boolean = submissionCommands.queueStillConsumable(input.inputId, input.sessionId, input.revision, requireHead)
 
     suspend fun consumeQueue(
         input: SessionInputRecord,
@@ -73,7 +73,10 @@ internal class SessionInputDeliveryCoordinator(
                     input.inputId,
                     input.revision,
                     prepared.first,
-                    prepared.second,
+                    prepared.second.map {
+                        com.helix.core.agent.turn
+                            .TurnInputAttachment(it.artifactId, it.purpose, it.boundSha256)
+                    },
                     control,
                     requireHead,
                 )
@@ -120,7 +123,7 @@ internal class SessionInputDeliveryCoordinator(
                 session.providerId == provider &&
                     (session.modelId ?: providerService.storedConfig(provider).model) == input.configuration.modelId &&
                     SessionInputConfiguration.matches(
-                        input,
+                        input.configuration,
                         facts,
                         control,
                         if (input.delivery == SessionInputDelivery.STEER) {

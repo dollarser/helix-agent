@@ -28,7 +28,7 @@ internal object ContextHistoryContent {
     ): String =
         buildString {
             val manifest =
-                com.helix.core.storage.repository.ConversationReferenceManifest
+                com.helix.core.model.input.ConversationReferenceManifest
                     .parse(reference.content)
             appendLine("[UNTRUSTED_CONVERSATION_REFERENCE]")
             appendLine("Source conversation: ${reference.sourceSessionTitle}")

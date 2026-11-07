@@ -40,7 +40,9 @@ flowchart TD
   Provider --> Subscription[可选订阅客户端与私有进程]
 ```
 
-图表示职责与调用方向，不表示每层一个进程或 Server。`AppAgentRuntime` 当前由 ChatService 构造，submit 调 `application/agent` 的提交准备，cancel 调 Core 停止命令；它是端口适配，不是已经独立部署的 Harness。Engine 持久结算后才释放 live owner 并发布相应观察；UI 投影不反向提交终态。
+图表示职责与调用方向，不表示每层一个进程或 Server。当前由 [ConversationComposition](../../app/src/main/kotlin/com/helix/app/composition/ConversationComposition.kt) 统一装配唯一 Engine、runtime、AgentLoopHost、gateway 及提交/停止命令，再注入 `ChatService`；[AppAgentRuntime](../../app/src/main/kotlin/com/helix/app/application/agent/AppAgentRuntime.kt) 位于 application/agent，submit 调提交准备，cancel 调 Core 停止命令。`DefaultAppContainer` 显式接收 account/knowledge，构造不启动观察；一次性 `start()` 才启动会话、screen/foreground collectors 与恢复。这里调整的是装配与启动边界，不是独立部署的 Harness。Engine 持久结算后才释放 live owner 并发布相应观察；UI 投影不反向提交终态。
+
+输入 delivery/config/spec/reference 值归 `core:model/input`，持久 Record、状态与正文引用继续由 storage 持有；提交准备通过 `PendingSubmissionInput` 消费所需事实，队列 UI 通过 `PendingInputView` 消费展示值，均不接收整条持久输入行。`feature:conversation-input` 已建立独立的草稿、提交及回执状态机编译边界，原 30 项草稿/回执测试已迁入，另增 3 项 PendingInputView 测试；范围不是整个 conversation 表现/应用层，Room 模块迁移也未完成。设置、语音等 UI 的 `HelixApplication` 查询已替换为显式依赖。2026-11-07 第二阶段最终 Debug 主机门禁已通过；真实 Room、恢复及设备行为测试仅编译、未执行，不以主机结果代替设备验收，详见[实施范围与验证状态](harness-refactor-plan.md#241-结论基线与范围)。
 
 手动文件管理、组件安装和浏览器拥有独立服务路径，不必先建立 Agent Turn。feature 通过应用接口提交动作。[ADR-AGENT-001](../adr/agent/001-turn-coordination.md)已将 live driver/observation 与 durable lifecycle 同归 TurnEngine；HXA-220/223 的交付不能继续画成 ChatService 持有 live worker 的迁移期结构。
 

@@ -5,8 +5,6 @@ import android.os.SystemClock
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.HelixApplication
-import com.helix.app.chat.ChatSubmission
-import com.helix.app.chat.ChatSubmissionOutcome
 import com.helix.app.internal.PrefsLineStore
 import com.helix.app.openTestSessionControl
 import com.helix.app.proot.ensureInstalledRuntime
@@ -20,6 +18,8 @@ import com.helix.core.policy.SessionPermissionConfig
 import com.helix.extensions.mobileuse.config.MobileUseGrantStore
 import com.helix.extensions.skills.SkillEnablementScope
 import com.helix.extensions.skills.SkillKey
+import com.helix.feature.conversation.input.ChatSubmission
+import com.helix.feature.conversation.input.ChatSubmissionOutcome
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertTrue

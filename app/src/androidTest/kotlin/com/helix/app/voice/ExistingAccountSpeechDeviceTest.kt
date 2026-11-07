@@ -38,6 +38,11 @@ import java.util.concurrent.atomic.AtomicInteger
 
 /** Explicit existing-account emulator acceptance. No login/logout, LLM, microphone or speaker. */
 class ExistingAccountSpeechDeviceTest {
+    private val voiceApplication
+        get() =
+            androidx.test.core.app.ApplicationProvider
+                .getApplicationContext<com.helix.app.HelixApplication>()
+
     @get:Rule val compose = createComposeRule()
     private val context get() = InstrumentationRegistry.getInstrumentation().targetContext
     private val application get() = context.applicationContext as HelixApplication
@@ -266,7 +271,7 @@ class ExistingAccountSpeechDeviceTest {
                                 onAccept = { draft = VoiceInputMapper.appendDraft(base, it) },
                                 onPreview = { preview = VoiceInputMapper.appendDraft(base, it) },
                                 permissionChecker = { true },
-                                suppliedConsent = consent,
+                                consent = consent,
                                 captureFactory = { ctx, scope ->
                                     lateinit var capture: VoiceCapture
                                     capture =
@@ -280,6 +285,9 @@ class ExistingAccountSpeechDeviceTest {
                                         }
                                     capture
                                 },
+                                account = voiceApplication.account,
+                                speechSettings = voiceApplication.speechSettings,
+                                onStopSpeech = voiceApplication::stopSpeechForInput,
                             )
                         }
                     },

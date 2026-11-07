@@ -16,6 +16,7 @@ import com.helix.core.agent.CancelResult
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.TurnState
+import com.helix.feature.conversation.input.ChatSubmission
 import com.helix.provider.api.ProbeOutcome
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals

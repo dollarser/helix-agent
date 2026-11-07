@@ -73,7 +73,7 @@ data class MessageUi(
     val presentation: MessagePresentation = MessagePresentation.NORMAL,
     val images: List<ChatImageUi> = emptyList(),
     val historyContext: MessageHistoryContext = MessageHistoryContext.CURRENT,
-    val knowledgeReferences: List<com.helix.core.storage.repository.KnowledgeReference> = emptyList(),
+    val knowledgeReferences: List<com.helix.core.model.input.KnowledgeReference> = emptyList(),
     val interruptionNotice: com.helix.app.application.agent.TurnInterruptionNotice? = null,
 )
 

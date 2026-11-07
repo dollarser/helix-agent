@@ -20,15 +20,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
-import com.helix.core.storage.repository.SessionInputDelivery
-import com.helix.core.storage.repository.SessionInputRecord
-import com.helix.core.storage.repository.SessionInputState
+import com.helix.feature.conversation.input.PendingInputView
 
 /** A compact single-line preview per queued input; actions retain the displayed input identity. */
 @Composable
 @Suppress("FunctionName", "LongParameterList")
 internal fun SessionInputQueuePreview(
-    records: List<SessionInputRecord>,
+    records: List<PendingInputView>,
     previews: Map<String, String>,
     busy: Map<String, Boolean>,
     activeTurnId: String?,
@@ -59,7 +57,7 @@ internal fun SessionInputQueuePreview(
 @Composable
 @Suppress("FunctionName", "LongMethod")
 private fun SessionInputPendingRow(
-    record: SessionInputRecord,
+    record: PendingInputView,
     preview: String?,
     busy: Boolean,
     activeTurnId: String?,
@@ -89,7 +87,7 @@ private fun SessionInputPendingRow(
                 softWrap = false,
                 overflow = TextOverflow.Ellipsis,
             )
-            if (record.state == SessionInputState.NEEDS_ATTENTION) {
+            if (record.needsAttention) {
                 Text(
                     stringResource(R.string.session_input_needs_attention),
                     style = MaterialTheme.typography.bodySmall,
@@ -111,10 +109,9 @@ private fun SessionInputPendingRow(
         ) {
             Icon(painterResource(R.drawable.ic_close), stringResource(R.string.session_input_delete))
         }
-        val canSend = record.delivery == SessionInputDelivery.QUEUE || record.state == SessionInputState.NEEDS_ATTENTION
         IconButton(
             onClick = { actions.send(record, activeTurnId) },
-            enabled = !busy && canSend,
+            enabled = !busy && record.canSend,
             modifier = Modifier.testTag("session-input-send-now-${record.inputId}"),
         ) {
             Icon(painterResource(R.drawable.ic_composer_send), stringResource(R.string.session_input_send_now))

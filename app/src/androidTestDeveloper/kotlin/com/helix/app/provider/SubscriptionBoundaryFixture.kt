@@ -3,6 +3,7 @@ package com.helix.app.provider
 import com.helix.app.HelixApplication
 import com.helix.app.chat.AttachmentStagingSupport
 import com.helix.app.chat.ChatService
+import com.helix.app.composition.ConversationComposition
 import com.helix.app.internal.InMemoryLineStore
 import com.helix.feature.files.AttachmentImporter
 import com.helix.provider.api.wire.WireClient
@@ -49,7 +50,7 @@ internal class SubscriptionBoundaryFixture(
             scope = scope,
         )
     val chat =
-        ChatService(
+        ConversationComposition(
             storage = app.appContainer.storage,
             providerService = providers,
             profileStore = app.appContainer.profileStore,
@@ -75,7 +76,7 @@ internal class SubscriptionBoundaryFixture(
                     localOnly,
                 )
             },
-        )
+        ).also { it.start() }.chatService
 
     suspend fun close() = job.cancelAndJoin()
 }

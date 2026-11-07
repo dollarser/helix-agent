@@ -43,7 +43,7 @@ class GlobalDnsDeviceTest {
         compose.runOnUiThread {
             compose.activity.setContent {
                 HelixTheme {
-                    SettingsScreen()
+                    SettingsScreen(accountEntry = {}, speechSettings = {})
                 }
             }
         }

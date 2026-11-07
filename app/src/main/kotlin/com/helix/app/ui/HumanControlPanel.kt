@@ -21,9 +21,9 @@ import androidx.compose.ui.res.stringResource
 import com.helix.app.R
 import com.helix.app.chat.ChatScreenState
 import com.helix.app.chat.ChatService
-import com.helix.app.chat.ChatSubmissionOutcome
 import com.helix.app.chat.HumanHandoffState
 import com.helix.app.chat.HumanHandoffUi
+import com.helix.feature.conversation.input.ChatSubmissionOutcome
 import kotlinx.coroutines.launch
 
 @Composable

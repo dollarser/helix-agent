@@ -1,8 +1,8 @@
 package com.helix.app.chat
 
+import com.helix.core.model.input.ConversationReferenceKind
+import com.helix.core.model.input.ConversationReferenceSnapshotInput
 import com.helix.core.storage.HelixStorage
-import com.helix.core.storage.repository.ConversationReferenceKind
-import com.helix.core.storage.repository.ConversationReferenceSnapshotInput
 
 /** Captures metadata only; tools must revalidate the fixed source revision before reading. */
 internal class ConversationReferenceResolver(

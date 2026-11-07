@@ -332,7 +332,7 @@ class KnowledgeUiDeviceTest {
             compose.onNodeWithTag("knowledge-reference").performClick()
             compose.waitUntil(5000) { draft.get() != null }
             val selected =
-                com.helix.core.storage.repository.KnowledgeReferences
+                com.helix.core.model.input.KnowledgeReferenceCodec
                     .decode(
                         requireNotNull(draft.get()),
                     ).single()
@@ -562,10 +562,10 @@ class KnowledgeUiDeviceTest {
 
 private fun captureReferences(
     draft: AtomicReference<String?>,
-    references: List<com.helix.core.storage.repository.KnowledgeReference>,
+    references: List<com.helix.core.model.input.KnowledgeReference>,
 ): Boolean {
     draft.set(
-        com.helix.core.storage.repository.KnowledgeReferences
+        com.helix.core.model.input.KnowledgeReferenceCodec
             .encode(references),
     )
     return true

@@ -348,6 +348,7 @@ private fun drawerDirection(direction: androidx.compose.ui.unit.LayoutDirection)
 @Suppress("FunctionName", "LongMethod")
 @Composable
 internal fun HelixApp(container: AppContainer) {
+    val application = androidx.compose.ui.platform.LocalContext.current.applicationContext as HelixApplication
     val repository = container.shellRepository
     val navController = rememberNavController()
     val mobileUseDialog =
@@ -431,8 +432,11 @@ internal fun HelixApp(container: AppContainer) {
                 GroupedNavigation(
                     destinations = repository.destinations,
                     header = {
-                        com.helix.app.ui.AccountSettingsEntry(
+                        com.helix.app.ui.AccountAccessEntry(
                             com.helix.app.ui.AccountEntryPresentation.DRAWER,
+                            application.account,
+                            onRefreshProviders = container.providerService::refresh,
+                            onChanged = {},
                         )
                     },
                     currentRoute = currentRoute,
@@ -643,6 +647,14 @@ internal fun HelixApp(container: AppContainer) {
                         }
                         composable(CONVERSATION_SETTINGS_ROUTE) { entry ->
                             SessionSettingsScreen(
+                                accountEntry = { changed ->
+                                    com.helix.app.ui.AccountAccessEntry(
+                                        com.helix.app.ui.AccountEntryPresentation.MODEL_PICKER,
+                                        application.account,
+                                        onRefreshProviders = container.providerService::refresh,
+                                        onChanged = changed,
+                                    )
+                                },
                                 chatService = container.chatService,
                                 skills = container.skillRepository,
                                 providerService = container.providerService,
@@ -846,11 +858,59 @@ private fun DestinationScreen(
         }
 
         ShellDestination.Sessions -> {
+            val application = androidx.compose.ui.platform.LocalContext.current.applicationContext as HelixApplication
+            val accountIdentity by application.account.identityState.collectAsStateWithLifecycle()
+            val accountStatus by application.account.status.collectAsStateWithLifecycle()
             ChatScreen(
                 container.chatService,
                 container.providerService,
                 container.privacyDeletionService,
                 container.fileManager,
+                accountEntry = { changed ->
+                    com.helix.app.ui.AccountAccessEntry(
+                        com.helix.app.ui.AccountEntryPresentation.MODEL_PICKER,
+                        application.account,
+                        onRefreshProviders = container.providerService::refresh,
+                        onChanged = changed,
+                    )
+                },
+                voiceInput = { dictation, actions ->
+                    com.helix.app.ui.OfflineAsrGate(
+                        application.account,
+                        application.speechSettings,
+                        application.offlineAsr,
+                        actions.onDismiss,
+                        actions.onError,
+                    ) {
+                        com.helix.app.ui.InlineVoiceInput(
+                            onDismiss = actions.onDismiss,
+                            onAccept = actions.onAccept,
+                            onPreview = actions.onPreview,
+                            onError = actions.onError,
+                            dictation = dictation,
+                            account = application.account,
+                            speechSettings = application.speechSettings,
+                            consent = application.speechConsent,
+                            onStopSpeech = application::stopSpeechForInput,
+                            captureFactory = { context, scope ->
+                                com.helix.app.voice.VoiceCapture(
+                                    context,
+                                    scope,
+                                    application.speechSettings.asrFactory(application.account) {
+                                        com.helix.app.voice
+                                            .OfflineAsrFactory(context)
+                                    },
+                                )
+                            },
+                        )
+                    }
+                },
+                knowledge = application.knowledge.references,
+                reader = application.readAloud,
+                speechConsent = application.speechConsent,
+                replyAudioSettings = application.replyAudioSettings,
+                accountIdentity = accountIdentity,
+                accountStatus = accountStatus,
                 sessionPermissionEdit = container.sessionPermissionEdit,
                 skills = container.skillRepository,
                 sessionExport = container.sessionExport,
@@ -927,7 +987,27 @@ private fun DestinationScreen(
                         requireNotNull(container.executionOwnership),
                     )
                 }
-            SettingsScreen(container.memory, backup)
+            val application = context as HelixApplication
+            SettingsScreen(
+                accountEntry = {
+                    com.helix.app.ui.AccountAccessEntry(
+                        com.helix.app.ui.AccountEntryPresentation.SETTINGS,
+                        application.account,
+                        onRefreshProviders = container.providerService::refresh,
+                        onChanged = {},
+                    )
+                },
+                speechSettings = {
+                    com.helix.app.ui.CloudSpeechSettingsEntry(
+                        application.speechSettings,
+                        application.account,
+                        application.offlineAsr,
+                        application.readAloud,
+                    )
+                },
+                memory = container.memory,
+                contentBackup = backup,
+            )
         }
 
         ShellDestination.Models -> {

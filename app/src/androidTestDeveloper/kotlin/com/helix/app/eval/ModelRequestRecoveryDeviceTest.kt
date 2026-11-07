@@ -10,8 +10,6 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performScrollToNode
 import com.helix.app.HelixApplication
 import com.helix.app.MainActivity
-import com.helix.app.chat.ChatSubmission
-import com.helix.app.chat.ChatSubmissionOutcome
 import com.helix.app.chat.sseResponse
 import com.helix.app.chat.textAnswerStream
 import com.helix.app.chat.toolCallStream
@@ -23,6 +21,8 @@ import com.helix.core.model.SafetyProfile
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
+import com.helix.feature.conversation.input.ChatSubmission
+import com.helix.feature.conversation.input.ChatSubmissionOutcome
 import com.helix.provider.api.wire.WireBody
 import com.helix.provider.api.wire.WireClient
 import com.helix.provider.api.wire.WireRequest

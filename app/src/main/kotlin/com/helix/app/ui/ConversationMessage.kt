@@ -90,6 +90,7 @@ internal fun MessageRow(
     searchQuery: String? = null,
     isCurrentMatch: Boolean = false,
     readAloud: Boolean = true,
+    readAloudAction: @Composable () -> Unit = {},
     imageContent: @Composable () -> Unit = {},
 ) {
     val isUser = message.role == "user"
@@ -182,6 +183,7 @@ internal fun MessageRow(
                     onEdit = onEdit,
                     onRegenerate = onRegenerate,
                     readAloud = readAloud,
+                    readAloudAction = readAloudAction,
                     onSaveReply = onSaveReply,
                     modifier =
                         Modifier
@@ -203,6 +205,7 @@ private fun MessageActionRow(
     onEdit: ((String) -> Unit)?,
     onRegenerate: ((String) -> Unit)?,
     readAloud: Boolean,
+    readAloudAction: @Composable () -> Unit,
     onSaveReply: ((String) -> Unit)?,
     modifier: Modifier,
 ) {
@@ -226,7 +229,7 @@ private fun MessageActionRow(
             }
         }
         if (readAloud && message.role == "assistant" && message.presentation == MessagePresentation.NORMAL) {
-            ReadAloudAction(message.id, message.content, turnId = message.turnId)
+            readAloudAction()
         }
         if (isUser && onEdit != null) {
             IconButton(

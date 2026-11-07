@@ -2,7 +2,7 @@ package com.helix.app.knowledge
 
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
-import com.helix.core.storage.repository.KnowledgeReference
+import com.helix.core.model.input.KnowledgeReference
 import com.helix.tools.android.AndroidShareTool
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency

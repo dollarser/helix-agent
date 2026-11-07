@@ -1,4 +1,4 @@
-package com.helix.core.storage.repository
+package com.helix.core.model.input
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject

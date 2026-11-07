@@ -3,8 +3,8 @@ package com.helix.app.knowledge
 import android.content.Context
 import com.helix.app.account.AccountSession
 import com.helix.app.account.OfficialServices
+import com.helix.core.model.input.KnowledgeReference
 import com.helix.core.storage.knowledge.KnowledgeStore
-import com.helix.core.storage.repository.KnowledgeReference
 import com.helix.provider.api.EmbeddingClient
 import com.helix.provider.api.ModelPurpose
 import kotlinx.coroutines.CancellationException

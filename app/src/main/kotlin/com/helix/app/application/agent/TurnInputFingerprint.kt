@@ -1,7 +1,7 @@
 package com.helix.app.application.agent
 
-import com.helix.core.storage.repository.ConversationReferenceSnapshotInput
-import com.helix.core.storage.repository.MessageAttachmentRepository
+import com.helix.core.agent.turn.TurnInputAttachment
+import com.helix.core.model.input.ConversationReferenceSnapshotInput
 import java.security.MessageDigest
 
 /**
@@ -16,7 +16,7 @@ import java.security.MessageDigest
 internal object TurnInputFingerprint {
     fun of(
         text: String?,
-        attachments: List<MessageAttachmentRepository.Binding>,
+        attachments: List<TurnInputAttachment>,
         references: List<ConversationReferenceSnapshotInput> = emptyList(),
         revisedMessageId: String? = null,
         regenerateMessageId: String? = null,

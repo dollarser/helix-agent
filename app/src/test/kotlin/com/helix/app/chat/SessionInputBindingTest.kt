@@ -3,6 +3,7 @@ package com.helix.app.chat
 import com.helix.core.agent.RunControlConfig
 import com.helix.core.agent.TurnBudgetBounds
 import com.helix.core.model.AgentMode
+import com.helix.feature.conversation.input.ChatSubmission
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Test

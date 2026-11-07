@@ -3,7 +3,8 @@ package com.helix.app.chat
 import com.helix.app.R
 import com.helix.core.model.AttachmentCategory
 import com.helix.core.model.TextAttachmentKind
-import com.helix.core.storage.repository.ConversationReferenceSnapshotInput
+import com.helix.core.model.input.ConversationReferenceSnapshotInput
+import com.helix.core.model.input.KnowledgeReferenceCodec
 import com.helix.core.storage.repository.KnowledgeReferences
 import com.helix.feature.files.AttachmentMaterialization
 import com.helix.feature.files.AttachmentSendDecision
@@ -81,9 +82,9 @@ object AttachmentSendAdmission {
         target: EgressDisclosure.EgressTarget,
         strings: (Int, Array<out Any>) -> String,
         reference: ConversationReferenceSnapshotInput? = null,
-        knowledge: List<com.helix.core.storage.repository.KnowledgeReference> = emptyList(),
+        knowledge: List<com.helix.core.model.input.KnowledgeReference> = emptyList(),
     ): Outcome {
-        com.helix.core.storage.repository.KnowledgeReferences
+        com.helix.core.model.input.KnowledgeReferenceCodec
             .encode(knowledge)
         return when (gate) {
             is AttachmentSendDecision.Ready -> {
@@ -97,7 +98,7 @@ object AttachmentSendAdmission {
                             EgressDisclosure.OutgoingContent.FileText(
                                 sourceLabel = item.title,
                                 sizeBytes =
-                                    KnowledgeReferences
+                                    KnowledgeReferenceCodec
                                         .encode(listOf(item))
                                         .toByteArray()
                                         .size
@@ -184,7 +185,7 @@ object AttachmentSendAdmission {
                 EgressDisclosure.OutgoingContent.ConversationReference(
                     sourceLabel = it.sourceSessionTitle,
                     sizeBytes =
-                        com.helix.core.storage.repository.ConversationReferenceManifest
+                        com.helix.core.model.input.ConversationReferenceManifest
                             .parse(it.content)
                             .contentBytes,
                     sha256 = it.contentSha256,

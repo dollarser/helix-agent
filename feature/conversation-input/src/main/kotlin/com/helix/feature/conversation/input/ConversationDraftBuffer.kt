@@ -1,13 +1,9 @@
-package com.helix.app.ui
+package com.helix.feature.conversation.input
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.setValue
-import com.helix.app.chat.ChatSubmission
-import com.helix.app.chat.ChatSubmissionOutcome
-import com.helix.app.chat.ChatSubmissionReceipt
-import com.helix.app.chat.ComposerEditClock
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.sync.Mutex
@@ -19,7 +15,7 @@ import java.util.UUID
 
 /** Current user edits are authoritative; optional cache failures never disable plain-text input. */
 @Suppress("TooManyFunctions") // Draft recovery keeps all state transitions behind one serialized owner.
-internal class ConversationDraftBuffer(
+class ConversationDraftBuffer(
     val sessionId: String,
     private val newId: () -> String = { UUID.randomUUID().toString() },
 ) {
@@ -60,9 +56,9 @@ internal class ConversationDraftBuffer(
         val target = activeTurnId.takeIf { immediate }
         delivery(
             if (target == null) {
-                com.helix.core.storage.repository.SessionInputDelivery.QUEUE
+                com.helix.core.model.input.SessionInputDelivery.QUEUE
             } else {
-                com.helix.core.storage.repository.SessionInputDelivery.STEER
+                com.helix.core.model.input.SessionInputDelivery.STEER
             },
             target,
         )
@@ -80,9 +76,9 @@ internal class ConversationDraftBuffer(
                     it
             }
 
-    fun skills(items: List<com.helix.core.storage.repository.InputSkillActivation>) {
+    fun skills(items: List<com.helix.core.model.input.InputSkillActivation>) {
         if (sending || value.skillActivations == items) return
-        com.helix.core.storage.repository.InputSkillActivations
+        com.helix.core.model.input.InputSkillActivations
             .encode(items)
         edited = true
         value =
@@ -93,9 +89,9 @@ internal class ConversationDraftBuffer(
             )
     }
 
-    fun knowledgeReferences(items: List<com.helix.core.storage.repository.KnowledgeReference>) {
+    fun knowledgeReferences(items: List<com.helix.core.model.input.KnowledgeReference>) {
         if (sending || value.knowledgeReferences == items) return
-        com.helix.core.storage.repository.KnowledgeReferences
+        com.helix.core.model.input.KnowledgeReferenceCodec
             .encode(items)
         edited = true
         value =
@@ -113,11 +109,11 @@ internal class ConversationDraftBuffer(
     }
 
     fun delivery(
-        delivery: com.helix.core.storage.repository.SessionInputDelivery,
+        delivery: com.helix.core.model.input.SessionInputDelivery,
         expectedTurnId: String?,
     ) {
         if (sending) return
-        require((delivery == com.helix.core.storage.repository.SessionInputDelivery.STEER) == (expectedTurnId != null))
+        require((delivery == com.helix.core.model.input.SessionInputDelivery.STEER) == (expectedTurnId != null))
         if (value.delivery == delivery && value.expectedTurnId == expectedTurnId) return
         edited = true
         value =
@@ -146,7 +142,7 @@ internal class ConversationDraftBuffer(
 
     fun reference(
         sourceSessionId: String?,
-        kind: com.helix.core.storage.repository.ConversationReferenceKind?,
+        kind: com.helix.core.model.input.ConversationReferenceKind?,
     ) {
         if (sending) return
         require((sourceSessionId == null) == (kind == null))
@@ -317,9 +313,9 @@ internal class ConversationDraftBuffer(
                         value.expectedTurnId.orEmpty(),
                         value.referenceSourceSessionId.orEmpty(),
                         value.referenceKind?.name.orEmpty(),
-                        com.helix.core.storage.repository.InputSkillActivations
+                        com.helix.core.model.input.InputSkillActivations
                             .encode(value.skillActivations),
-                        com.helix.core.storage.repository.KnowledgeReferences
+                        com.helix.core.model.input.KnowledgeReferenceCodec
                             .encode(value.knowledgeReferences),
                     ),
                 )
@@ -335,17 +331,17 @@ internal class ConversationDraftBuffer(
                 parts[3],
                 Json.decodeFromString(parts[4]),
                 parts[5].ifEmpty { null },
-                com.helix.core.storage.repository.SessionInputDelivery
+                com.helix.core.model.input.SessionInputDelivery
                     .valueOf(parts.getOrNull(6) ?: "QUEUE"),
                 parts.getOrNull(7)?.ifEmpty { null },
                 parts.getOrNull(8)?.ifEmpty { null },
                 parts.getOrNull(9)?.ifEmpty { null }?.let {
-                    com.helix.core.storage.repository.ConversationReferenceKind
+                    com.helix.core.model.input.ConversationReferenceKind
                         .valueOf(it)
                 },
-                com.helix.core.storage.repository.InputSkillActivations
+                com.helix.core.model.input.InputSkillActivations
                     .decode(parts.getOrNull(10) ?: "[]"),
-                com.helix.core.storage.repository.KnowledgeReferences
+                com.helix.core.model.input.KnowledgeReferenceCodec
                     .decode(parts.getOrNull(11) ?: "[]"),
             )
         }

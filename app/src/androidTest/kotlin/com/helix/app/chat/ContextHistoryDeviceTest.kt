@@ -61,12 +61,12 @@ class ContextHistoryDeviceTest {
                 storage.messageReferenceSnapshots.bind(
                     "quoted",
                     listOf(
-                        com.helix.core.storage.repository.ConversationReferenceSnapshotInput(
+                        com.helix.core.model.input.ConversationReferenceSnapshotInput(
                             "source",
                             "引用来源",
-                            com.helix.core.storage.repository.ConversationReferenceKind.HISTORY,
+                            com.helix.core.model.input.ConversationReferenceKind.HISTORY,
                             emptyList(),
-                            com.helix.core.storage.repository
+                            com.helix.core.model.input
                                 .ConversationReferenceManifest(
                                     1,
                                     "a".repeat(64),
@@ -110,12 +110,12 @@ class ContextHistoryDeviceTest {
                 storage.messageReferenceSnapshots.bind(
                     "quoted",
                     listOf(
-                        com.helix.core.storage.repository.ConversationReferenceSnapshotInput(
+                        com.helix.core.model.input.ConversationReferenceSnapshotInput(
                             "source",
                             "引用来源",
-                            com.helix.core.storage.repository.ConversationReferenceKind.HISTORY,
+                            com.helix.core.model.input.ConversationReferenceKind.HISTORY,
                             emptyList(),
-                            com.helix.core.storage.repository
+                            com.helix.core.model.input
                                 .ConversationReferenceManifest(
                                     1,
                                     "a".repeat(64),

@@ -10,9 +10,9 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextReplacement
 import androidx.test.platform.app.InstrumentationRegistry
+import com.helix.core.model.input.KnowledgeReference
 import com.helix.core.storage.knowledge.KnowledgeNote
 import com.helix.core.storage.knowledge.KnowledgeStore
-import com.helix.core.storage.repository.KnowledgeReference
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull

@@ -32,6 +32,7 @@ import kotlinx.coroutines.launch
 @Suppress("FunctionName", "LongParameterList", "LongMethod", "CyclomaticComplexMethod")
 internal fun SessionSettingsScreen(
     chatService: ChatService,
+    accountEntry: @Composable (() -> Unit) -> Unit = {},
     skills: com.helix.extensions.skills.SkillRepository? = null,
     projects: com.helix.app.projects.ProjectService? = null,
     onProject: (String) -> Unit = {},
@@ -126,6 +127,7 @@ internal fun SessionSettingsScreen(
                 stringResource(modeLabel(runControl.mode)),
             )
             ComposerModelMenu(
+                accountEntry = accountEntry,
                 providers = providers,
                 providerId = screen.selectedModel?.providerId,
                 model = screen.selectedModel?.model,

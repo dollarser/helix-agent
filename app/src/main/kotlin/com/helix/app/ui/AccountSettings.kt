@@ -17,30 +17,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.helix.app.HelixApplication
 import com.helix.app.R
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
-
-@Composable
-@Suppress("FunctionName")
-internal fun AccountSettingsEntry(
-    presentation: AccountEntryPresentation = AccountEntryPresentation.SETTINGS,
-    onChanged: () -> Unit = {},
-) {
-    val application = LocalContext.current.applicationContext as HelixApplication
-    AccountAccessEntry(
-        presentation,
-        application.account,
-        onRefreshProviders = { application.readyAppContainerOrNull()?.providerService?.refresh() },
-        onChanged = onChanged,
-    )
-}
 
 @Composable
 @Suppress("FunctionName", "LongMethod", "TooGenericExceptionCaught")

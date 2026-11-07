@@ -85,7 +85,7 @@ class SessionDraftDeviceTest {
                     assertEquals("scope:$ownedScope:work", directory)
                     val id = requireNotNull(chat.screen.value.openSessionId)
                     val submission =
-                        com.helix.app.chat.ChatSubmission(
+                        com.helix.feature.conversation.input.ChatSubmission(
                             id,
                             0,
                             java.util.UUID

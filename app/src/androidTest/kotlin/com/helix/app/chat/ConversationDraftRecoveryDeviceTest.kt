@@ -3,6 +3,7 @@ package com.helix.app.chat
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.helix.core.storage.HelixStorage
+import com.helix.feature.conversation.input.ChatSubmission
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

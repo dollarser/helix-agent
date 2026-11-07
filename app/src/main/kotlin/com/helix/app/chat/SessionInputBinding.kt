@@ -2,9 +2,10 @@ package com.helix.app.chat
 
 import com.helix.app.application.agent.SessionInputConfiguration
 import com.helix.core.agent.RunControlConfig
+import com.helix.core.model.input.InputConfiguration
 import com.helix.core.storage.content.FileContentStore
-import com.helix.core.storage.repository.InputConfiguration
 import com.helix.core.storage.repository.SessionInputRecord
+import com.helix.feature.conversation.input.ChatSubmission
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
@@ -48,12 +49,12 @@ internal object SessionInputBinding {
                 put("referenceKind", request.referenceKind?.name)
                 put(
                     "knowledgeReferences",
-                    com.helix.core.storage.repository.KnowledgeReferences
+                    com.helix.core.model.input.KnowledgeReferenceCodec
                         .encode(request.knowledgeReferences),
                 )
                 put(
                     "skills",
-                    com.helix.core.storage.repository.InputSkillActivations
+                    com.helix.core.model.input.InputSkillActivations
                         .encode(request.skillActivations),
                 )
             }.toString(),

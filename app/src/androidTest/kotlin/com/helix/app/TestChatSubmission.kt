@@ -1,9 +1,9 @@
 package com.helix.app
 
 import com.helix.app.chat.ChatService
-import com.helix.app.chat.ChatSubmission
 import com.helix.core.model.AgentMode
 import com.helix.core.model.TurnBudgets
+import com.helix.feature.conversation.input.ChatSubmission
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeout

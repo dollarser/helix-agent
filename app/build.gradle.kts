@@ -122,6 +122,7 @@ dependencies {
     // HXA-015: the recovery coordinator pairs core:agent decisions with storage writes.
     implementation(project(":core:storage"))
     implementation(project(":feature:files"))
+    implementation(project(":feature:conversation-input"))
     // HXA-060: the minimal hardened WebView browser (tabs / URL policy / downloads UI).
     implementation(project(":feature:browser"))
     // HXA-276: Browser native contribution reuses descriptors / executors in :tools:browser.

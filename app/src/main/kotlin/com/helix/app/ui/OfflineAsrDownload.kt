@@ -16,38 +16,39 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
-import com.helix.app.HelixApplication
 import com.helix.app.R
 import com.helix.app.account.AccountStatus
 import com.helix.app.voice.OfflineAsrModel
 
 /** Download consent precedes microphone permission; finishing a download never starts recording. */
 @Composable
-@Suppress("FunctionName", "LongMethod") // Resolve account routing before microphone or download UI.
+// Resolve account routing before microphone or download UI.
+@Suppress("FunctionName", "LongMethod", "LongParameterList")
 internal fun OfflineAsrGate(
+    account: com.helix.app.account.AccountSession,
+    speechSettings: com.helix.app.voice.SpeechSettingsStore,
+    offlineAsr: OfflineAsrModel,
     onDismiss: () -> Unit,
     onError: (String) -> Unit,
     content: @Composable () -> Unit,
 ) {
-    val app = LocalContext.current.applicationContext as HelixApplication
     val resources = androidx.compose.ui.platform.LocalResources.current
-    val signedIn by app.account.signedIn.collectAsState()
-    val accountStatus by app.account.status.collectAsState()
-    val stored = app.speechSettings.read()
-    val needsAccount = app.speechSettings.automatic || stored.requiresAccount
+    val signedIn by account.signedIn.collectAsState()
+    val accountStatus by account.status.collectAsState()
+    val stored = speechSettings.read()
+    val needsAccount = speechSettings.automatic || stored.requiresAccount
     var routingReady by remember { mutableStateOf(!needsAccount) }
     var accountUnavailable by remember { mutableStateOf(false) }
     var usedAccount by remember { mutableStateOf(false) }
     LaunchedEffect(needsAccount) {
         if (needsAccount) {
             try {
-                app.account.restore()
+                account.restore()
             } catch (cancel: kotlinx.coroutines.CancellationException) {
                 throw cancel
             } catch (_: java.io.IOException) {
@@ -56,7 +57,7 @@ internal fun OfflineAsrGate(
         }
         routingReady = true
     }
-    val settings = app.speechSettings.forAccount(accountStatus)
+    val settings = speechSettings.forAccount(accountStatus)
     val error =
         speechRoutingError(
             settings,
@@ -83,7 +84,7 @@ internal fun OfflineAsrGate(
         }
 
         else -> {
-            OfflineAsrGateContent(app.offlineAsr, onDismiss, content)
+            OfflineAsrGateContent(offlineAsr, onDismiss, content)
         }
     }
 }

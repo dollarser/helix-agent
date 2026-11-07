@@ -26,14 +26,15 @@ import com.helix.app.R
 import com.helix.app.approval.SessionPermissionEditService
 import com.helix.app.chat.ChatService
 import com.helix.app.chat.ChatSubmissionErrorMapper
-import com.helix.app.chat.ChatSubmissionOutcome
-import com.helix.app.chat.ChatSubmissionReceipt
 import com.helix.app.provider.ProviderService
 import com.helix.app.provider.discoverReasoningOptions
 import com.helix.core.model.ProviderProvisioningKind
 import com.helix.core.model.SessionPermissionMode
-import com.helix.core.storage.repository.InputSkillActivation
+import com.helix.core.model.input.InputSkillActivation
 import com.helix.extensions.skills.SkillRepository
+import com.helix.feature.conversation.input.ChatSubmissionOutcome
+import com.helix.feature.conversation.input.ChatSubmissionReceipt
+import com.helix.feature.conversation.input.ConversationDraftBuffer
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
@@ -57,11 +58,19 @@ import kotlinx.coroutines.withContext
 @Composable
 // Explicit application-service dependencies at the screen boundary.
 @Suppress("FunctionName", "LongMethod", "LongParameterList", "CyclomaticComplexMethod")
-fun ChatScreen(
+internal fun ChatScreen(
     chatService: ChatService,
     providerService: ProviderService,
     privacyDeletionService: com.helix.app.privacy.PrivacyDeletionService,
     fileManager: com.helix.app.files.FileManagerService? = null,
+    accountEntry: @Composable (() -> Unit) -> Unit = {},
+    voiceInput: @Composable (ContinuousVoiceOptions, VoiceInputActions) -> Unit = { _, _ -> },
+    knowledge: com.helix.app.knowledge.KnowledgeReferenceService? = null,
+    reader: com.helix.app.voice.ReadAloudService? = null,
+    speechConsent: com.helix.app.voice.SpeechConsentStore? = null,
+    replyAudioSettings: com.helix.app.voice.ReplyAudioSettings? = null,
+    accountIdentity: String = "signed-out",
+    accountStatus: com.helix.app.account.AccountStatus = com.helix.app.account.AccountStatus.SIGNED_OUT,
     sessionPermissionEdit: SessionPermissionEditService? = null,
     skills: SkillRepository? = null,
     onNavigation: () -> Unit = {},
@@ -144,7 +153,6 @@ fun ChatScreen(
     var referenceOpen by remember(sessionId) { mutableStateOf(false) }
     var referenceRequest by remember(sessionId) { mutableStateOf(0) }
     var knowledgeOpen by remember(sessionId) { mutableStateOf(false) }
-    val knowledge = (context.applicationContext as? com.helix.app.HelixApplication)?.knowledge?.references
     var permissionRevision by remember(sessionId) { mutableStateOf(0) }
     var permissionMode by remember(sessionId) { mutableStateOf<SessionPermissionMode?>(null) }
     val referenceUnavailableReason = stringResource(R.string.chat_blocked_reference_unavailable)
@@ -512,6 +520,34 @@ fun ChatScreen(
                 }
             } else {
                 ConversationSection(
+                    accountEntry = accountEntry,
+                    voiceInput = voiceInput,
+                    reader = reader,
+                    playback = { frame ->
+                        if (replyAudioSettings != null && speechConsent != null) {
+                            AutomaticReplyAudioControl(
+                                reader,
+                                frame,
+                                replyAudioSettings,
+                                speechConsent,
+                                accountIdentity,
+                                accountStatus == com.helix.app.account.AccountStatus.SIGNED_IN,
+                            )
+                        }
+                    },
+                    readAloudAction = { message ->
+                        if (reader != null) {
+                            ReadAloudAction(
+                                message.id,
+                                message.content,
+                                reader,
+                                turnId = message.turnId,
+                                consent = speechConsent,
+                                accountIdentity = accountIdentity,
+                                accountStatus = accountStatus,
+                            )
+                        }
+                    },
                     screen = screen,
                     runControl = runControl,
                     permissionMode = permissionMode,

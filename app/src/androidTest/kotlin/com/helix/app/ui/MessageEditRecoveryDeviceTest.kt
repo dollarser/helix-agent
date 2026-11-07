@@ -4,7 +4,6 @@ import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import com.helix.app.MainActivity
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.application.agent.TurnInputFingerprint
-import com.helix.app.chat.ChatSubmission
 import com.helix.app.chat.toInputSnapshot
 import com.helix.app.infrastructure.agent.createRoomTurnEngine
 import com.helix.app.test.bindFixtureLifecycle
@@ -19,6 +18,7 @@ import com.helix.core.model.AgentMode
 import com.helix.core.model.Clock
 import com.helix.core.model.TurnBudgets
 import com.helix.core.model.TurnState
+import com.helix.feature.conversation.input.ChatSubmission
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue

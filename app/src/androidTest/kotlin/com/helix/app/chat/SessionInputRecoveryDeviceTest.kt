@@ -11,11 +11,11 @@ import com.helix.app.infrastructure.agent.TurnRecovery
 import com.helix.core.agent.turn.TurnRoundCoordinator
 import com.helix.core.model.SystemClock
 import com.helix.core.model.TurnState
+import com.helix.core.model.input.InputConfiguration
+import com.helix.core.model.input.SessionInputDelivery
+import com.helix.core.model.input.SessionInputSpec
 import com.helix.core.storage.HelixStorage
-import com.helix.core.storage.repository.InputConfiguration
 import com.helix.core.storage.repository.SessionInputAcceptResult
-import com.helix.core.storage.repository.SessionInputDelivery
-import com.helix.core.storage.repository.SessionInputSpec
 import com.helix.core.storage.repository.SessionInputState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull

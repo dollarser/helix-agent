@@ -2,6 +2,8 @@ package com.helix.app.chat
 
 import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import com.helix.app.ui.container
+import com.helix.feature.conversation.input.ChatSubmissionOutcome
+import com.helix.feature.conversation.input.ChatSubmissionReceipt
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 

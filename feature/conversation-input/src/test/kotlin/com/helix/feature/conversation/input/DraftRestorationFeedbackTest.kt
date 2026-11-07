@@ -1,6 +1,5 @@
-package com.helix.app.ui
+package com.helix.feature.conversation.input
 
-import com.helix.app.chat.ChatSubmission
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

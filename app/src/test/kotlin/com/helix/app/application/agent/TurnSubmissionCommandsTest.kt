@@ -7,9 +7,12 @@ import com.helix.core.model.ProviderId
 import com.helix.core.model.ReasoningEffort
 import com.helix.core.model.SessionId
 import com.helix.core.model.TurnBudgets
+import com.helix.core.model.input.InputConfiguration
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class TurnSubmissionCommandsTest {
@@ -50,6 +53,31 @@ class TurnSubmissionCommandsTest {
         assertNotEquals(
             original,
             SessionInputConfiguration.hash("provider-facts", control.copy(budgets = TurnBudgets(4096)), "PLAN"),
+        )
+    }
+
+    @Test fun acceptedConfigurationChecksExactFingerprintWithoutStorageRecord() {
+        val control = command.runControl()
+        val hash = SessionInputConfiguration.hash("provider-facts", control, "PLAN")
+        val configuration = InputConfiguration("provider", "model", "PLAN", "v1:$hash:original-input")
+        assertTrue(SessionInputConfiguration.matches(configuration, "provider-facts", control, "PLAN"))
+        assertTrue(
+            SessionInputConfiguration.matches(
+                configuration,
+                "provider-facts",
+                control.copy(immediateMessages = true),
+                "PLAN",
+            ),
+        )
+        assertFalse(SessionInputConfiguration.matches(configuration, "changed", control, "PLAN"))
+        assertFalse(SessionInputConfiguration.matches(configuration, "provider-facts", control, "ACT"))
+        assertFalse(
+            SessionInputConfiguration.matches(
+                configuration.copy(fingerprint = hash),
+                "provider-facts",
+                control,
+                "PLAN",
+            ),
         )
     }
 

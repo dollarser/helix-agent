@@ -32,11 +32,11 @@ import com.helix.core.model.ToolName
 import com.helix.core.model.ToolVersion
 import com.helix.core.model.TurnId
 import com.helix.core.model.TurnState
+import com.helix.core.model.input.ConversationReferenceKind
+import com.helix.core.model.input.ConversationReferenceSnapshotInput
 import com.helix.core.storage.content.ContentRef
 import com.helix.core.storage.content.FileContentStore
 import com.helix.core.storage.entity.MessageEntity
-import com.helix.core.storage.repository.ConversationReferenceKind
-import com.helix.core.storage.repository.ConversationReferenceSnapshotInput
 import com.helix.core.storage.repository.ToolCallOrigin
 import com.helix.provider.api.ProbeOutcome
 import com.helix.tools.framework.ExecutableToolCall

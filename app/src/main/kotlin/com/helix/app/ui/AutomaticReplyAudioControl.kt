@@ -14,7 +14,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -22,7 +21,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.compose.currentStateAsState
-import com.helix.app.HelixApplication
 import com.helix.app.R
 import com.helix.app.voice.ReadAloudService
 import com.helix.app.voice.VisibleReplyFrame
@@ -31,15 +29,19 @@ import kotlinx.coroutines.launch
 
 @Composable
 // One UI mapping over opt-in, account and destination-consent states; no execution policy.
-@Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod")
-internal fun AutomaticReplyAudioControl(reader: ReadAloudService?, frame: VisibleReplyFrame?) {
-    val app = LocalContext.current.applicationContext as? HelixApplication ?: return
+@Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod", "LongParameterList")
+internal fun AutomaticReplyAudioControl(
+    reader: ReadAloudService?,
+    frame: VisibleReplyFrame?,
+    settings: com.helix.app.voice.ReplyAudioSettings,
+    consent: com.helix.app.voice.SpeechConsentStore,
+    identity: String,
+    signedIn: Boolean,
+) {
     if (reader == null) return
-    val automatic by app.replyAudioSettings.automatic.collectAsStateWithLifecycle()
+    val automatic by settings.automatic.collectAsStateWithLifecycle()
     val lifecycle by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
     val visible = lifecycle.isAtLeast(Lifecycle.State.STARTED)
-    val identity by app.account.identityState.collectAsStateWithLifecycle()
-    val signedIn by app.account.signedIn.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     val starts = reader.automaticStarts
     var confirm by remember(reader) { mutableStateOf(false) }
@@ -50,14 +52,14 @@ internal fun AutomaticReplyAudioControl(reader: ReadAloudService?, frame: Visibl
     val consentIdentity = reader.accountIdentity ?: "custom-service"
     val approved =
         !reader.uploadsText || reader.uploadDestination?.let {
-            app.speechConsent.approved("tts", it, consentIdentity)
+            consent.approved("tts", it, consentIdentity)
         } == true
 
     fun save(value: Boolean) {
         busy = true
         scope.launch {
             try {
-                app.replyAudioSettings.setAutomatic(value)
+                settings.setAutomatic(value)
                 if (!value && reader.livePlaybackTurnId != null) reader.stop()
             } catch (cancel: CancellationException) {
                 throw cancel
@@ -68,7 +70,7 @@ internal fun AutomaticReplyAudioControl(reader: ReadAloudService?, frame: Visibl
             }
         }
     }
-    LaunchedEffect(automatic, frame, accountReady, approved, revision, visible) {
+    LaunchedEffect(reader, automatic, frame, accountReady, approved, revision, visible) {
         if ((!accountReady || !approved) && reader.livePlaybackTurnId != null) reader.stop()
         val enabled = automatic && accountReady && approved
         if (starts.start(frame, enabled && visible)) {
@@ -109,7 +111,7 @@ internal fun AutomaticReplyAudioControl(reader: ReadAloudService?, frame: Visibl
                 TextButton({
                     val granted =
                         reader.uploadDestination?.let {
-                            app.speechConsent.approve("tts", it, consentIdentity)
+                            consent.approve("tts", it, consentIdentity)
                         } == true
                     if (granted) {
                         confirm = false

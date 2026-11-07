@@ -57,6 +57,11 @@ internal fun ConversationSection(
     onInput: (String) -> Unit,
     bindableProviders: List<ProviderRowUi>,
     intents: ConversationIntents,
+    accountEntry: @Composable (() -> Unit) -> Unit = {},
+    voiceInput: @Composable (ContinuousVoiceOptions, VoiceInputActions) -> Unit = { _, _ -> },
+    reader: com.helix.app.voice.ReadAloudService? = null,
+    playback: @Composable (com.helix.app.voice.VisibleReplyFrame?) -> Unit = {},
+    readAloudAction: @Composable (com.helix.app.chat.MessageUi) -> Unit = {},
     permissionMode: SessionPermissionMode? = null,
     referenceLabel: String? = null,
     pluginNames: List<String> = emptyList(),
@@ -79,7 +84,6 @@ internal fun ConversationSection(
         ),
 ) {
     val context = LocalContext.current
-    val reader = (context.applicationContext as? com.helix.app.HelixApplication)?.readAloud
     ReadAloudLifecycle(reader, screen.openSessionId)
     val speechFrame = visibleReplyFrame(screen)
     ObserveLiveReplyReadAloud(reader, speechFrame)
@@ -202,7 +206,7 @@ internal fun ConversationSection(
             onTasks = intents.onTasks,
             onSettings = intents.onSettings,
             onSearch = { searchActive = !searchActive },
-            playback = { AutomaticReplyAudioControl(reader, speechFrame) },
+            playback = { playback(speechFrame) },
         ) { closeDetails ->
             artifacts(closeDetails)
             if (runControl.mode == AgentMode.GOAL || screen.hasGoals) {
@@ -413,6 +417,7 @@ internal fun ConversationSection(
                             val message = content.value
                             MessageRow(
                                 message = message,
+                                readAloudAction = { readAloudAction(message) },
                                 onOpenTaskResult = intents.onOpenTaskResult,
                                 onSaveReply =
                                     intents.onSaveReply?.takeIf {
@@ -578,35 +583,30 @@ internal fun ConversationSection(
             voiceContent = {
                 androidx.compose.runtime.key(screen.openSessionId) {
                     if (voiceOpen) {
-                        OfflineAsrGate(onDismiss = {
-                            voiceDraft?.cancel()
-                            voicePreview = null
-                            voiceOpen = false
-                        }, onError = { inputNotice = it }) {
-                            InlineVoiceInput(
+                        voiceInput(
+                            ContinuousVoiceOptions(
+                                enabled = continuousVoice,
+                                onCommitted = { text -> voiceDraft?.commit(text, input)?.let(onInput) },
+                                onRestart = {
+                                    voiceDraft =
+                                        com.helix.app.voice
+                                            .VoiceDraftSession(input)
+                                    voicePreview = input
+                                },
+                            ),
+                            VoiceInputActions(
                                 onDismiss = {
                                     voiceDraft?.cancel()
                                     voicePreview = null
                                     voiceOpen = false
                                 },
-                                dictation =
-                                    ContinuousVoiceOptions(
-                                        enabled = continuousVoice,
-                                        onCommitted = { text -> voiceDraft?.commit(text, input)?.let(onInput) },
-                                        onRestart = {
-                                            voiceDraft =
-                                                com.helix.app.voice
-                                                    .VoiceDraftSession(input)
-                                            voicePreview = input
-                                        },
-                                    ),
                                 onAccept = { text -> voiceDraft?.commit(text, input)?.let(onInput) },
                                 onPreview = { text ->
                                     voicePreview = if (text.isBlank()) null else voiceDraft?.preview(text)
                                 },
                                 onError = { inputNotice = it },
-                            )
-                        }
+                            ),
+                        )
                     }
                 }
             },
@@ -650,6 +650,7 @@ internal fun ConversationSection(
                     screen.selectedModel?.model,
                     !screen.isSending && screen.pendingDisclosure == null,
                     intents.onSaveModel,
+                    accountEntry = accountEntry,
                     sourceGroups = modelSourceGroups,
                     onConfigureSource = intents.onConfigureModelSource,
                     onRefreshModels = intents.onRefreshModels,

@@ -1,10 +1,11 @@
 package com.helix.app.infrastructure.agent
 
+import com.helix.app.application.agent.RecoveryInspectionIdentity
 import com.helix.core.model.TurnBudgets
 import com.helix.core.storage.entity.TurnEntity
 
 internal object AutomaticRecoveryPolicy {
-    fun requestId(parent: String) = "auto-recovery:$parent"
+    fun requestId(parent: String) = RecoveryInspectionIdentity.requestId(parent)
 
     fun isInspection(turn: TurnEntity): Boolean =
         turn.recoveryFromTurnId?.let { turn.clientRequestId == requestId(it) } == true

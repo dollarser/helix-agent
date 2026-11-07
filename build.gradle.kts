@@ -126,6 +126,7 @@ val androidLibraries =
     mapOf(
         ":core:storage" to "com.helix.core.storage",
         ":feature:browser" to "com.helix.feature.browser",
+        ":feature:conversation-input" to "com.helix.feature.conversation.input",
         ":feature:files" to "com.helix.feature.files",
         ":feature:files-allfiles" to "com.helix.feature.files.allfiles",
         ":runtime:quickjs" to "com.helix.runtime.quickjs",
@@ -168,10 +169,13 @@ val libsuServiceDependency = libs.libsu.service
 val roomRuntimeDependency = libs.room.runtime
 val roomKtxDependency = libs.room.ktx
 val roomCompilerDependency = libs.room.compiler
+val androidCoreKtxDependency = libs.androidx.core.ktx
 val androidTestCoreKtxDependency = libs.androidx.test.core.ktx
 val androidTestRunnerDependency = libs.androidx.test.runner
 val androidTestJunitDependency = libs.androidx.test.junit
 val composeBomDependency = libs.compose.bom
+val composeRuntimeDependency = libs.compose.runtime
+val composeRuntimeSaveableDependency = libs.compose.runtime.saveable
 val composeUiDependency = libs.compose.ui
 val composeMaterial3Dependency = libs.compose.material3
 val webkitDependency = libs.androidx.webkit
@@ -246,6 +250,7 @@ val projectDependencies =
         // declared in :tools:browser) and saves browser.screenshot into the shared Workspace
         // (:core:workspace).
         ":feature:browser" to listOf(":core:model", ":core:policy", ":core:workspace", ":tools:browser"),
+        ":feature:conversation-input" to listOf(":core:model"),
         ":feature:files" to listOf(":core:model", ":core:policy", ":core:workspace"),
         ":feature:files-allfiles" to listOf(":feature:files", ":core:workspace"),
         // HXA-053: the QuickJS module hosts the `code.javascript.run` tool (descriptor +
@@ -437,6 +442,19 @@ subprojects {
             // Compose is enabled module-locally (the app keeps its own wiring) and
             // androidx-webkit provides the API surface above the System WebView. androidTest
             // drives the hardened WebView on device (verification-matrix row HXA-060).
+            if (path == ":feature:conversation-input") {
+                // Composer state and receipts are compiled independently of app and storage.
+                // This module uses snapshot state and Saver, but declares no composables.
+                dependencies {
+                    add("implementation", platform(composeBomDependency.get()))
+                    add("implementation", composeRuntimeDependency)
+                    add("implementation", composeRuntimeSaveableDependency.get())
+                    // Keep the standalone runtime graph on the app's pinned Android baseline.
+                    constraints.add("implementation", androidCoreKtxDependency.get())
+                    add("implementation", kotlinxSerializationJsonDependency.get())
+                    add("implementation", coroutinesCoreDependency.get())
+                }
+            }
             if (path == ":feature:browser") {
                 pluginManager.apply("org.jetbrains.kotlin.plugin.compose")
                 extensions.configure<LibraryExtension> {
@@ -597,7 +615,8 @@ subprojects {
                 path == ":provider:openai-chat" ||
                 path == ":provider:anthropic" ||
                 path == ":provider:api" ||
-                path == ":core:agent"
+                path == ":core:agent" ||
+                path == ":core:model"
             ) {
                 dependencies.add("implementation", kotlinxSerializationJsonDependency.get())
             }

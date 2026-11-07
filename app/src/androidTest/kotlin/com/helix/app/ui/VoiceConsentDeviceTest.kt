@@ -24,6 +24,11 @@ import java.util.concurrent.atomic.AtomicInteger
 
 /** Synthetic PCM/transport and in-memory consent only; no microphone, account or network. */
 class VoiceConsentDeviceTest {
+    private val voiceApplication
+        get() =
+            androidx.test.core.app.ApplicationProvider
+                .getApplicationContext<com.helix.app.HelixApplication>()
+
     @get:Rule val compose = createComposeRule()
     private var visible by mutableStateOf(true)
     private var generation by mutableStateOf(0)
@@ -41,7 +46,7 @@ class VoiceConsentDeviceTest {
                         onDismiss = { visible = false },
                         onAccept = { draft = it },
                         onError = { notice = it },
-                        suppliedConsent = consent,
+                        consent = consent,
                         permissionChecker = { true },
                         captureFactory = { context, scope ->
                             VoiceCapture(
@@ -70,6 +75,9 @@ class VoiceConsentDeviceTest {
                                 }
                             }
                         },
+                        account = voiceApplication.account,
+                        speechSettings = voiceApplication.speechSettings,
+                        onStopSpeech = voiceApplication::stopSpeechForInput,
                     )
                 }
             }

@@ -1,9 +1,9 @@
 package com.helix.app.ui
 
-import com.helix.core.storage.repository.SessionInputRecord
+import com.helix.feature.conversation.input.PendingInputView
 
 internal data class SessionInputQueueActions(
-    val edit: (SessionInputRecord) -> Unit,
-    val delete: (SessionInputRecord) -> Unit,
-    val send: (SessionInputRecord, String?) -> Unit,
+    val edit: (PendingInputView) -> Unit,
+    val delete: (PendingInputView) -> Unit,
+    val send: (PendingInputView, String?) -> Unit,
 )

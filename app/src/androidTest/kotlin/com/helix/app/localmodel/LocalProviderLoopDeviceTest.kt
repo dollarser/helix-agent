@@ -3,8 +3,7 @@ package com.helix.app.localmodel
 import androidx.test.core.app.ApplicationProvider
 import com.helix.app.HelixApplication
 import com.helix.app.chat.ChatService
-import com.helix.app.chat.ChatSubmission
-import com.helix.app.chat.ChatSubmissionOutcome
+import com.helix.app.composition.ConversationComposition
 import com.helix.app.internal.InMemoryLineStore
 import com.helix.app.provider.ProviderFactory
 import com.helix.app.provider.ProviderService
@@ -14,6 +13,8 @@ import com.helix.core.model.ModelEvent
 import com.helix.core.model.ModelRole
 import com.helix.core.model.ToolCallId
 import com.helix.core.storage.repository.ProviderConfigSpec
+import com.helix.feature.conversation.input.ChatSubmission
+import com.helix.feature.conversation.input.ChatSubmissionOutcome
 import com.helix.provider.api.CapabilitySource
 import com.helix.provider.api.ModelMetadata
 import com.helix.provider.api.ProviderCapabilities
@@ -98,7 +99,7 @@ class LocalProviderLoopDeviceTest : com.helix.app.test.ForegroundDeviceTestHost(
             status.recordPassed(id, System.currentTimeMillis(), runtime.capabilities)
             status.selectedModels.write(id, listOf(id))
             val chat =
-                ChatService(
+                ConversationComposition(
                     storage = storage,
                     providerService = providers,
                     profileStore = container.profileStore,
@@ -114,7 +115,7 @@ class LocalProviderLoopDeviceTest : com.helix.app.test.ForegroundDeviceTestHost(
                             { error("No attachment fixture") },
                         ),
                     strings = { resource, args -> app.getString(resource, *args) },
-                )
+                ).also { it.start() }.chatService
             val session = chat.createSession("Local fixture", id, id)
             try {
                 chat.openSession(session)

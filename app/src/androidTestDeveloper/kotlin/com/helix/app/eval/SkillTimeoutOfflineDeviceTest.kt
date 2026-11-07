@@ -4,7 +4,6 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.HelixApplication
 import com.helix.app.chat.AutomaticTurnRecovery
-import com.helix.app.chat.ChatSubmission
 import com.helix.app.infrastructure.agent.AutomaticRecoveryPolicy
 import com.helix.app.infrastructure.agent.AutomaticRecoverySettlement
 import com.helix.app.infrastructure.agent.RoomTurnLifecycleStore
@@ -22,6 +21,7 @@ import com.helix.core.policy.CapabilityCenter
 import com.helix.core.policy.CapabilityGrant
 import com.helix.core.policy.CapabilityResolver
 import com.helix.core.storage.HelixStorage
+import com.helix.feature.conversation.input.ChatSubmission
 import com.helix.provider.api.wire.WireBody
 import com.helix.provider.api.wire.WireClient
 import com.helix.provider.api.wire.WireRequest

@@ -5,6 +5,8 @@ import android.os.Process
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.application.context.SystemPromptContext
+import com.helix.app.application.context.SystemPromptRequest
+import com.helix.app.infrastructure.prompt.StoredSystemPromptFactsProvider
 import com.helix.app.infrastructure.prompt.packagedPromptTemplates
 import com.helix.app.memory.MemoryService
 import com.helix.app.memory.createMemoryService
@@ -62,9 +64,9 @@ class MemoryProcessRecoveryDeviceTest {
                 FileScopePath.fromModelReference(
                     requireNotNull(storage.sessions.resolve(SESSION).directoryRef),
                 )
-            val prompt =
-                SystemPromptContext(storage, { "" }, packagedPromptTemplates, memory = memory)
-                    .build(SESSION, AgentMode.ACT, setOf("memory.read"), directory = directory)
+            val request = SystemPromptRequest(SESSION, null, directory, AgentMode.ACT, setOf("memory.read"))
+            val facts = StoredSystemPromptFactsProvider(storage, { "" }, memory).collect(request)
+            val prompt = SystemPromptContext(packagedPromptTemplates).build(request, facts)
             assertTrue(prompt.content.contains(FIXTURE))
             assertTrue(prompt.content.contains(PROJECT_FIXTURE))
             assertTrue(prompt.content.contains("PROJECT_RECOVERY_INSTRUCTIONS"))

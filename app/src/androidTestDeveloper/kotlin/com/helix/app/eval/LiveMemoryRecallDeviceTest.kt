@@ -4,6 +4,8 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.HelixApplication
 import com.helix.app.application.context.SystemPromptContext
+import com.helix.app.application.context.SystemPromptRequest
+import com.helix.app.infrastructure.prompt.StoredSystemPromptFactsProvider
 import com.helix.app.infrastructure.prompt.packagedPromptTemplates
 import com.helix.app.memory.MemoryService
 import com.helix.app.projects.ProjectService
@@ -79,7 +81,8 @@ class LiveMemoryRecallDeviceTest {
                         "new",
                     )
                 }
-                val builder = SystemPromptContext(storage, { "" }, packagedPromptTemplates, memory = memory)
+                val builder = SystemPromptContext(packagedPromptTemplates)
+                val facts = StoredSystemPromptFactsProvider(storage, { "" }, memory)
                 for ((index, allowed) in listOf(0 to true, 1 to true, 0 to false, 1 to false)) {
                     val session =
                         createProjectSessionFixture(
@@ -97,7 +100,8 @@ class LiveMemoryRecallDeviceTest {
                     }
                     val directory =
                         FileScopePath.fromModelReference(requireNotNull(storage.sessions.resolve(session).directoryRef))
-                    val prompt = builder.build(session, AgentMode.ACT, emptySet(), directory = directory)
+                    val request = SystemPromptRequest(session, null, directory, AgentMode.ACT, emptySet())
+                    val prompt = builder.build(request, facts.collect(request))
                     assertFalse(prompt.content.contains(markers[1 - index]))
                     assertTrue(prompt.content.contains(markers[index]) == allowed)
                     assertTrue(prompt.content.contains(global) == allowed)

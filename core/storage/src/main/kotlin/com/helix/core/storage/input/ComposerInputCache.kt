@@ -38,9 +38,9 @@ class ComposerInputCache(
     /** New user input replaces the prior cache; only a late older writer is ignored. */
     @Synchronized
     fun save(draft: ComposerInputSnapshot): Boolean {
-        com.helix.core.storage.repository.InputSkillActivations
+        com.helix.core.model.input.InputSkillActivations
             .decode(draft.skillActivationsJson)
-        com.helix.core.storage.repository.KnowledgeReferences
+        com.helix.core.model.input.KnowledgeReferenceCodec
             .decode(draft.knowledgeReferencesJson)
         require(draft.sessionId.isNotBlank() && draft.clientRequestId.isNotBlank() && draft.revision >= 0)
         get(draft.sessionId)
@@ -216,11 +216,11 @@ class ComposerInputCache(
             optional("referenceSourceSessionId"),
             optional("referenceKind"),
             (item["skillActivations"] ?: JsonArray(emptyList())).toString().also {
-                com.helix.core.storage.repository.InputSkillActivations
+                com.helix.core.model.input.InputSkillActivations
                     .decode(it)
             },
             (item["knowledgeReferences"] ?: JsonArray(emptyList())).toString().also {
-                com.helix.core.storage.repository.KnowledgeReferences
+                com.helix.core.model.input.KnowledgeReferenceCodec
                     .decode(it)
             },
         )

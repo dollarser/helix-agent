@@ -2,9 +2,9 @@ package com.helix.app.knowledge
 
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.HelixApplication
+import com.helix.core.model.input.KnowledgeReference
 import com.helix.core.storage.knowledge.KnowledgeNote
 import com.helix.core.storage.knowledge.KnowledgeStore
-import com.helix.core.storage.repository.KnowledgeReference
 import com.helix.provider.api.wire.OkHttpWireClient
 import com.helix.provider.api.wire.WireClient
 import com.helix.provider.api.wire.WireRequest

@@ -16,31 +16,33 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
-import com.helix.app.HelixApplication
 import com.helix.app.R
 
 @Composable
 @Suppress("FunctionName", "LongMethod") // One existing settings sheet; transport selection keeps fields together.
-internal fun CloudSpeechSettingsEntry() {
-    val application = LocalContext.current.applicationContext as HelixApplication
+internal fun CloudSpeechSettingsEntry(
+    settings: com.helix.app.voice.SpeechSettingsStore,
+    account: com.helix.app.account.AccountSession,
+    offlineAsr: com.helix.app.voice.OfflineAsrModel,
+    reader: com.helix.app.voice.ReadAloudService,
+) {
     var open by remember { mutableStateOf(false) }
     SettingsEntryRow(stringResource(R.string.speech_services_title), R.drawable.ic_composer_voice, { open = true })
     if (open) {
         var draft by remember {
             mutableStateOf(
-                application.speechSettings.forAccount(application.account.status.value),
+                settings.forAccount(account.status.value),
             )
         }
         var error by remember { mutableStateOf(false) }
         ConversationSheet(stringResource(R.string.speech_services_title), "speech-services", { open = false }) {
             Column {
                 Text(stringResource(R.string.speech_local_section))
-                OfflineAsrModelPanel(application.offlineAsr)
-                OfflineTtsModelPanel(application.readAloud)
+                OfflineAsrModelPanel(offlineAsr)
+                OfflineTtsModelPanel(reader)
                 Text(stringResource(R.string.speech_cloud_section))
                 SpeechSettingToggle(stringResource(R.string.speech_http_enable), draft.httpEnabled, {
                     draft = draft.copy(httpEnabled = it)
@@ -84,8 +86,8 @@ internal fun CloudSpeechSettingsEntry() {
                 if (error) Text(stringResource(R.string.speech_settings_invalid))
                 TextButton({
                     try {
-                        application.readAloud.leave()
-                        application.speechSettings.save(draft)
+                        reader.leave()
+                        settings.save(draft)
                         open = false
                     } catch (_: IllegalArgumentException) {
                         error = true

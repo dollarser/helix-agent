@@ -27,7 +27,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.R
-import com.helix.core.storage.repository.KnowledgeReference
+import com.helix.core.model.input.KnowledgeReference
 
 /** Same preview for editable drafts and immutable historical message citations. */
 @Composable

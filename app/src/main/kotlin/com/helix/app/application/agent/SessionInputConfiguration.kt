@@ -1,8 +1,8 @@
 package com.helix.app.application.agent
 
 import com.helix.core.agent.RunControlConfig
-import com.helix.core.storage.content.FileContentStore
-import com.helix.core.storage.repository.SessionInputRecord
+import com.helix.core.model.input.InputConfiguration
+import java.security.MessageDigest
 
 /** One configuration identity shared by accepted-input creation and admission revalidation. */
 internal object SessionInputConfiguration {
@@ -13,16 +13,17 @@ internal object SessionInputConfiguration {
     ): String {
         // A default for future messages cannot invalidate an already accepted input.
         val executionControl = control.copy(immediateMessages = false)
-        return FileContentStore.sha256Hex(
-            "$providerFacts\n$executionControl\n$selectedMode".toByteArray(Charsets.UTF_8),
-        )
+        return MessageDigest
+            .getInstance("SHA-256")
+            .digest("$providerFacts\n$executionControl\n$selectedMode".toByteArray(Charsets.UTF_8))
+            .joinToString("") { "%02x".format(it) }
     }
 
     fun matches(
-        input: SessionInputRecord,
+        configuration: InputConfiguration,
         providerFacts: String,
         control: RunControlConfig,
         selectedMode: String,
     ): Boolean =
-        input.configuration.fingerprint.substringBeforeLast(':') == "v1:${hash(providerFacts, control, selectedMode)}"
+        configuration.fingerprint.substringBeforeLast(':') == "v1:${hash(providerFacts, control, selectedMode)}"
 }

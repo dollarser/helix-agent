@@ -123,9 +123,7 @@ internal fun ComposerModelMenu(
     reasoning: ReasoningEffort = ReasoningEffort.OFF,
     sessionKey: String? = null,
     entry: (@Composable (() -> Unit) -> Unit)? = null,
-    accountEntry: @Composable (() -> Unit) -> Unit = { changed ->
-        AccountSettingsEntry(AccountEntryPresentation.MODEL_PICKER, onChanged = changed)
-    },
+    accountEntry: @Composable (() -> Unit) -> Unit = {},
     onDetectReasoning: (suspend (String, String) -> List<ReasoningEffort>)? = null,
 ) {
     val identity = modelPickerIdentity(sessionKey, providerId, model, reasoning)

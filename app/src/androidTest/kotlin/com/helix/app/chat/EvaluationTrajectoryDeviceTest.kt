@@ -9,6 +9,7 @@ import com.helix.app.ui.resetDeterministicUiState
 import com.helix.core.model.AgentMode
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
+import com.helix.feature.conversation.input.ChatSubmission
 import com.helix.provider.api.ProbeOutcome
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json

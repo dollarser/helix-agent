@@ -1,12 +1,18 @@
 package com.helix.core.storage.repository
 
 import com.helix.core.model.AgentMode
+import com.helix.core.model.input.InputSkillActivation
+import com.helix.core.model.input.InputSkillActivations
+import com.helix.core.model.input.KnowledgeReference
+import com.helix.core.model.input.KnowledgeReferenceCodec
+import com.helix.core.model.input.SessionInputDelivery
+import com.helix.core.model.input.SessionInputSpec
 import com.helix.core.storage.entity.SessionInputEntity
 
 internal object SessionInputValidation {
     fun validate(spec: SessionInputSpec) {
         InputSkillActivations.encode(spec.skillActivations)
-        KnowledgeReferences.encode(spec.knowledgeReferences)
+        KnowledgeReferenceCodec.encode(spec.knowledgeReferences)
         listOf(spec.inputId, spec.sessionId, spec.configuration.providerId).forEach(::identifier)
         spec.expectedTurnId?.let(::identifier)
         require(spec.revision >= 0 && spec.createdAt >= 0)
@@ -65,7 +71,7 @@ internal object SessionInputValidation {
         if (items.isEmpty()) {
             0L
         } else {
-            KnowledgeReferences
+            KnowledgeReferenceCodec
                 .encode(items)
                 .toByteArray(Charsets.UTF_8)
                 .size
@@ -120,7 +126,7 @@ internal object SessionInputValidation {
         createdAt = spec.createdAt,
         updatedAt = spec.createdAt,
         skillActivationsJson = InputSkillActivations.encode(spec.skillActivations),
-        knowledgeReferencesJson = KnowledgeReferences.encode(spec.knowledgeReferences),
+        knowledgeReferencesJson = KnowledgeReferenceCodec.encode(spec.knowledgeReferences),
     )
 
     private fun identifier(value: String) {

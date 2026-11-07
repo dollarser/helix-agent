@@ -2,7 +2,7 @@ package com.helix.app.ui
 
 import androidx.test.core.app.ApplicationProvider
 import com.helix.app.HelixApplication
-import com.helix.app.chat.ChatSubmission
+import com.helix.feature.conversation.input.ChatSubmission
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

@@ -8,7 +8,7 @@ import com.helix.core.agent.TurnContextRequest
 import com.helix.core.model.AgentMode
 import com.helix.core.model.ReasoningEffort
 import com.helix.core.model.TurnBudgets
-import com.helix.core.storage.repository.ConversationReferenceKind
+import com.helix.core.model.input.ConversationReferenceKind
 import com.helix.core.storage.repository.ConversationReferenceSnapshot
 import com.helix.provider.api.ProviderContextSettings
 import org.junit.Assert.assertEquals
@@ -24,7 +24,7 @@ class ContextReferenceCompactionTest {
             "原会话",
             ConversationReferenceKind.HISTORY,
             listOf("source-message"),
-            com.helix.core.storage.repository
+            com.helix.core.model.input
                 .ConversationReferenceManifest(1, "a".repeat(64), 1, 42)
                 .encode(),
             "a".repeat(64),

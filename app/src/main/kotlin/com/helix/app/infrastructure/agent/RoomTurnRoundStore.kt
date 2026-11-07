@@ -21,8 +21,8 @@ import com.helix.core.agent.turn.TurnSteeringInput
 import com.helix.core.model.Clock
 import com.helix.core.model.ModelRole
 import com.helix.core.model.TurnState
+import com.helix.core.model.input.ConversationReferenceSnapshotInput
 import com.helix.core.storage.HelixStorage
-import com.helix.core.storage.repository.ConversationReferenceSnapshotInput
 import com.helix.core.storage.repository.MessageAttachmentRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.buildJsonObject
@@ -372,7 +372,7 @@ internal class RoomTurnRoundStore(
                     ConversationReferenceSnapshotInput(
                         reference.sourceSessionId,
                         reference.sourceSessionTitle,
-                        com.helix.core.storage.repository.ConversationReferenceKind
+                        com.helix.core.model.input.ConversationReferenceKind
                             .valueOf(reference.selectionKind),
                         reference.sourceMessageIds,
                         reference.content,

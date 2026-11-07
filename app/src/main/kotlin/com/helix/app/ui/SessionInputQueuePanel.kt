@@ -22,9 +22,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
 import com.helix.app.chat.ChatService
-import com.helix.app.chat.ChatSubmissionOutcome
-import com.helix.core.storage.repository.SessionInputRecord
-import com.helix.core.storage.repository.SessionInputState
+import com.helix.feature.conversation.input.ChatSubmissionOutcome
+import com.helix.feature.conversation.input.PendingInputView
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
@@ -48,9 +47,9 @@ internal fun SessionInputQueuePanel(
     refreshKey: Any? = null,
     activeTurnId: String? = null,
 ) {
-    var records by remember(sessionId) { mutableStateOf<List<SessionInputRecord>>(emptyList()) }
+    var records by remember(sessionId) { mutableStateOf<List<PendingInputView>>(emptyList()) }
     var previews by remember(sessionId) { mutableStateOf<Map<String, String>>(emptyMap()) }
-    var editing by remember(sessionId) { mutableStateOf<SessionInputRecord?>(null) }
+    var editing by remember(sessionId) { mutableStateOf<PendingInputView?>(null) }
     var editText by remember(sessionId) { mutableStateOf("") }
     var notice by remember(sessionId) { mutableStateOf<Int?>(null) }
     var loadGeneration by remember(sessionId) { mutableStateOf(0) }
@@ -61,10 +60,7 @@ internal fun SessionInputQueuePanel(
         val generation = ++loadGeneration
         val result =
             preservingCancellation {
-                val pending =
-                    service.sessionInputDeliveryStatus(sessionId).await().filter {
-                        it.state == SessionInputState.PENDING || it.state == SessionInputState.NEEDS_ATTENTION
-                    }
+                val pending = service.pendingInputViews(sessionId).await()
                 pending to
                     pending.associate {
                         it.inputId to
@@ -85,7 +81,7 @@ internal fun SessionInputQueuePanel(
     }
 
     fun act(
-        record: SessionInputRecord,
+        record: PendingInputView,
         action: suspend () -> Boolean,
     ) {
         if (busy[record.inputId] == true) return
@@ -170,7 +166,7 @@ private fun SessionInputQueueEditor(
     text: String,
     saving: Boolean,
     notice: Int?,
-    references: List<com.helix.core.storage.repository.KnowledgeReference>,
+    references: List<com.helix.core.model.input.KnowledgeReference>,
     onChange: (String) -> Unit,
     onDismiss: () -> Unit,
     onSave: () -> Unit,
@@ -202,10 +198,10 @@ private fun SessionInputQueueEditor(
 
 private suspend fun sendQueueInput(
     service: ChatService,
-    record: SessionInputRecord,
+    record: PendingInputView,
     turn: String?,
 ): Boolean =
-    if (turn != null && record.state == SessionInputState.PENDING) {
+    if (turn != null && !record.needsAttention) {
         service.sendQueuedInputNow(record.inputId, record.revision, turn).await()
     } else {
         when (service.resumeSessionInput(record.inputId, record.revision).await()) {

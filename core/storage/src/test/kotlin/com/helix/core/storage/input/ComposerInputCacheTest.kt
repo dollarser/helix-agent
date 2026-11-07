@@ -16,7 +16,7 @@ class ComposerInputCacheTest {
     @Test fun referenceOnlyDraftSurvivesDiskReopenAndOldReceiptCannotClearNewSelection() {
         val root = temporary.newFolder()
         val item =
-            com.helix.core.storage.repository.KnowledgeReference(
+            com.helix.core.model.input.KnowledgeReference(
                 "NOTE",
                 "note-a",
                 "合成笔记",
@@ -26,7 +26,7 @@ class ComposerInputCacheTest {
         val first =
             input("a", 1, "first", "").copy(
                 knowledgeReferencesJson =
-                    com.helix.core.storage.repository.KnowledgeReferences
+                    com.helix.core.model.input.KnowledgeReferenceCodec
                         .encode(listOf(item)),
             )
         val store = ComposerInputCache(root)

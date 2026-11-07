@@ -26,6 +26,11 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 /** Injected PCM and permission observation only: no OS grant, microphone or network use. */
 class InlineVoiceInputDeviceTest {
+    private val voiceApplication
+        get() =
+            androidx.test.core.app.ApplicationProvider
+                .getApplicationContext<com.helix.app.HelixApplication>()
+
     @get:Rule val compose = createComposeRule()
     private val closed = AtomicBoolean(false)
     private var draft by mutableStateOf("原草稿")
@@ -44,7 +49,7 @@ class InlineVoiceInputDeviceTest {
     }
 
     @Composable
-    @Suppress("FunctionName")
+    @Suppress("FunctionName", "LongMethod") // One complete capture/composer fixture keeps lifecycle wiring visible.
     private fun Fixture(
         permission: Boolean = true,
         editableVoice: Boolean = false,
@@ -105,6 +110,10 @@ class InlineVoiceInputDeviceTest {
                                             }
                                         }
                                     },
+                                    account = voiceApplication.account,
+                                    speechSettings = voiceApplication.speechSettings,
+                                    onStopSpeech = voiceApplication::stopSpeechForInput,
+                                    consent = voiceApplication.speechConsent,
                                 )
                             }
                         },

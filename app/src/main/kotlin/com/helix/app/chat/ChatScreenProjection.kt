@@ -371,7 +371,7 @@ private fun visibleContent(
     storage: HelixStorage,
     messageId: String,
     content: String?,
-    references: List<com.helix.core.storage.repository.KnowledgeReference>,
+    references: List<com.helix.core.model.input.KnowledgeReference>,
 ): String? {
     if (references.isEmpty()) return content
     val original = content.orEmpty()

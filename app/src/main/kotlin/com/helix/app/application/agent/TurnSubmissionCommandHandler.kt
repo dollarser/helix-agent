@@ -1,9 +1,6 @@
 package com.helix.app.application.agent
 
 import com.helix.app.application.context.PromptTemplateSource
-import com.helix.app.infrastructure.agent.TurnRuntimeSnapshot
-import com.helix.app.provider.ProviderService
-import com.helix.app.provider.ProviderTurnSnapshot
 import com.helix.app.runcontrol.SessionRunControlStore
 import com.helix.core.agent.AgentLoop
 import com.helix.core.agent.ConversationReferenceIntent
@@ -27,12 +24,8 @@ import com.helix.core.agent.turn.TurnSteeringConfiguration
 import com.helix.core.model.AgentMode
 import com.helix.core.model.AttachmentPurpose
 import com.helix.core.model.Clock
-import com.helix.core.storage.HelixStorage
-import com.helix.core.storage.repository.ConversationReferenceKind
-import com.helix.core.storage.repository.ConversationReferenceSnapshotInput
-import com.helix.core.storage.repository.MessageAttachmentRepository
-import com.helix.core.storage.repository.SessionInputRecord
-import com.helix.core.storage.repository.SessionInputState
+import com.helix.core.model.input.ConversationReferenceKind
+import com.helix.core.model.input.ConversationReferenceSnapshotInput
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 
@@ -43,10 +36,10 @@ import kotlinx.coroutines.CoroutineScope
  */
 @Suppress("LongParameterList", "TooManyFunctions") // Existing application owners, not parallel lifecycle state.
 internal class TurnSubmissionCommandHandler(
-    private val storage: HelixStorage,
+    private val admissionFacts: SubmissionAdmissionFacts,
     private val clock: Clock,
     private val idGenerator: () -> String,
-    private val providerService: ProviderService,
+    private val providerSnapshots: SubmissionProviderSnapshots,
     private val sessionRunControls: SessionRunControlStore,
     private val turnEngine: TurnEngine,
     private val goalContinuation: GoalContinuationDriver,
@@ -67,7 +60,7 @@ internal class TurnSubmissionCommandHandler(
             goalId = command.goalId?.value,
             attachmentBindings =
                 command.attachments.map {
-                    MessageAttachmentRepository.Binding(
+                    TurnInputAttachment(
                         artifactId = it.artifactId,
                         purpose = AttachmentPurpose.REFERENCE,
                         boundSha256 = it.boundSha256,
@@ -101,17 +94,19 @@ internal class TurnSubmissionCommandHandler(
     @Suppress("ReturnCount", "TooGenericExceptionCaught", "SwallowedException")
     suspend fun inspectRecovery(
         parentId: String,
-        snapshot: TurnRuntimeSnapshot,
+        snapshot: RecoveryInspectionSnapshot,
     ): TurnSubmissionResult {
-        val parent = storage.turns.resolve(parentId)
-        val session = storage.sessions.resolve(parent.sessionId)
+        val parentSessionId = admissionFacts.recoverySessionId(parentId)
+        val session =
+            admissionFacts.session(parentSessionId)
+                ?: return blocked(TurnSubmissionBlock.RECOVERY_UNAVAILABLE)
         if (session.archivedAt != null || turnEngine.liveExecution.hasActive(session.id)) {
             return blocked(TurnSubmissionBlock.RECOVERY_UNAVAILABLE)
         }
         if (session.providerId != snapshot.providerId || session.modelId != snapshot.modelId) {
             return blocked(TurnSubmissionBlock.RECOVERY_UNAVAILABLE)
         }
-        if (providerSnapshot(snapshot.providerId, snapshot.modelId) != snapshot.providerSnapshot) {
+        if (providerSnapshots.capture(snapshot.providerId, snapshot.modelId).encoded != snapshot.providerSnapshot) {
             return blocked(TurnSubmissionBlock.RECOVERY_UNAVAILABLE)
         }
         val executorObservation =
@@ -122,22 +117,15 @@ internal class TurnSubmissionCommandHandler(
             } catch (_: Exception) {
                 "Original executor reconciliation unavailable; effects remain unknown."
             }
-        val goalId =
-            storage.goalTurnBindings.byTurn(parentId)?.let {
-                storage.goalRuns.resolve(it.runId).goalId
-            }
-        val limits =
-            com.helix.app.infrastructure.agent.AutomaticRecoveryPolicy
-                .limits(snapshot) ?: return blocked(TurnSubmissionBlock.RECOVERY_UNAVAILABLE)
+        val goalId = admissionFacts.recoveryGoalId(parentId)
+        val limits = snapshot.control.budgets ?: return blocked(TurnSubmissionBlock.RECOVERY_UNAVAILABLE)
         return launchTurn(
             text = promptTemplates.text("automatic-recovery").trim() + "\n\n" + executorObservation,
             providerId = snapshot.providerId,
             goalId = goalId,
-            requestedSessionId = parent.sessionId,
+            requestedSessionId = parentSessionId,
             controlOverride = snapshot.control.copy(mode = AgentMode.PLAN, budgets = limits),
-            clientRequestId =
-                com.helix.app.infrastructure.agent.AutomaticRecoveryPolicy
-                    .requestId(parentId),
+            clientRequestId = RecoveryInspectionIdentity.requestId(parentId),
             recoveryParent = parentId,
         )
     }
@@ -147,20 +135,18 @@ internal class TurnSubmissionCommandHandler(
         inputId: String,
         expectedRevision: Long,
         content: String,
-        bindings: List<MessageAttachmentRepository.Binding>,
+        bindings: List<TurnInputAttachment>,
         control: RunControlConfig,
         requireHead: Boolean,
     ): TurnSubmissionResult {
         val input =
-            storage.sessionInputs
-                .get(inputId)
-                ?.takeIf { it.revision == expectedRevision && it.state == SessionInputState.PENDING }
+            admissionFacts.pendingInput(inputId, expectedRevision)
                 ?: return blocked(TurnSubmissionBlock.INPUT_NO_LONGER_CONSUMABLE)
         return launchTurn(
             text = content,
             providerId = input.configuration.providerId,
             attachmentBindings = bindings,
-            referenceSnapshots = listOfNotNull(storage.sessionInputs.readReference(input)),
+            referenceSnapshots = listOfNotNull(input.reference),
             requestedSessionId = input.sessionId,
             controlOverride = control,
             clientRequestId = input.inputId,
@@ -176,20 +162,11 @@ internal class TurnSubmissionCommandHandler(
     }
 
     fun queueStillConsumable(
-        input: SessionInputRecord,
+        inputId: String,
+        sessionId: String,
+        expectedRevision: Long,
         requireHead: Boolean,
-    ): Boolean {
-        val current = storage.sessionInputs.get(input.inputId) ?: return false
-        val headMatches = !requireHead || storage.sessionInputs.headQueue(input.sessionId)?.inputId == input.inputId
-        val unsettled = storage.turns.admissionBlockers(input.sessionId).isNotEmpty()
-        val sameRevision = current.revision == input.revision
-        return current.state == SessionInputState.PENDING && sameRevision && headMatches && !unsettled
-    }
-
-    private suspend fun providerSnapshot(
-        providerId: String,
-        modelId: String?,
-    ): String = ProviderTurnSnapshot.capture(providerService, providerId, modelId)
+    ): Boolean = admissionFacts.queueStillConsumable(inputId, sessionId, expectedRevision, requireHead)
 
     private fun blocked(reason: TurnSubmissionBlock): TurnSubmissionResult.Blocked =
         TurnSubmissionResult.Blocked(reason)
@@ -202,7 +179,7 @@ internal class TurnSubmissionCommandHandler(
         text: String?,
         providerId: String,
         retryTurnId: String? = null,
-        attachmentBindings: List<MessageAttachmentRepository.Binding> = emptyList(),
+        attachmentBindings: List<TurnInputAttachment> = emptyList(),
         referenceSnapshots: List<ConversationReferenceSnapshotInput> = emptyList(),
         goalId: String? = null,
         requestedSessionId: String,
@@ -212,14 +189,14 @@ internal class TurnSubmissionCommandHandler(
         continuation: com.helix.core.agent.GoalContinuationRequest? = null,
         directUserRequest: Boolean = false,
         revisedMessageId: String? = null,
-        queuedInput: SessionInputRecord? = null,
+        queuedInput: PendingSubmissionInput? = null,
         requireQueueHead: Boolean = true,
         regenerateMessageId: String? = null,
         recoveryParent: String? = null,
     ): TurnSubmissionResult {
         val session =
-            storage.sessions
-                .find(requestedSessionId)
+            admissionFacts
+                .session(requestedSessionId)
                 ?.takeIf { it.archivedAt == null }
                 ?: return blocked(TurnSubmissionBlock.SESSION_UNAVAILABLE)
         val sessionId = session.id
@@ -228,21 +205,12 @@ internal class TurnSubmissionCommandHandler(
         // Turn's mode, tool table, dispatcher mode, or limits.
         val selectedControl = sessionRunControls.ensure(sessionId, clock.now().toEpochMilli())
         val control = controlOverride ?: selectedControl
-        val sourceText =
-            text ?: retryTurnId?.let { sourceTurn ->
-                storage.messages
-                    .listBySession(sessionId)
-                    .lastOrNull { it.turnId == sourceTurn && it.role == "USER" }
-                    ?.let {
-                        com.helix.app.agent.ContextHistory
-                            .read(storage, it)
-                    }
-            }
+        val sourceText = text ?: retryTurnId?.let { admissionFacts.retryText(sessionId, it) }
         val manualCompaction = sourceText == com.helix.core.agent.ContextCommands.COMPACT
         // The Room read runs OUTSIDE the gate: a suspend point must never be reached while holding the monitor.
         val providerConfig =
             try {
-                providerService.storedConfig(providerId)
+                providerSnapshots.capture(providerId, session.modelId)
             } catch (_: IllegalArgumentException) {
                 // The provider row was deleted or is corrupt between the gate
                 // and the snapshot (storedConfig throws IAE for both): no turn
@@ -250,26 +218,21 @@ internal class TurnSubmissionCommandHandler(
                 // send must never vanish.
                 return blocked(TurnSubmissionBlock.PROVIDER_CHANGED)
             }
-        val snapshot = ProviderTurnSnapshot.encode(providerConfig, session.modelId)
-        val admittedModelId = session.modelId ?: providerConfig.model
+        val snapshot = providerConfig.encoded
+        val admittedModelId = providerConfig.modelId
         synchronized(turnGate) {
             if (queuedInput != null &&
                 !SessionInputConfiguration.matches(
-                    queuedInput,
+                    queuedInput.configuration,
                     snapshot,
                     control,
                     selectedControl.mode.name,
                 )
             ) {
-                storage.sessionInputs.markNeedsAttention(
-                    queuedInput.inputId,
-                    queuedInput.revision,
-                    "INPUT_CONFIGURATION_CHANGED",
-                    clock.now().toEpochMilli(),
-                )
+                admissionFacts.markConfigurationChanged(queuedInput, clock.now().toEpochMilli())
                 return blocked(TurnSubmissionBlock.INPUT_CONFIGURATION_CHANGED)
             }
-            if (continuation != null && storage.sessionInputs.headQueue(sessionId) != null) {
+            if (continuation != null && admissionFacts.hasQueuedInput(sessionId)) {
                 return blocked(TurnSubmissionBlock.CONTINUATION_DEFERRED)
             }
             if (continuation != null && !goalContinuation.admits(sessionId, goalId, continuation, snapshot)) {
@@ -322,7 +285,14 @@ internal class TurnSubmissionCommandHandler(
             if (turnEngine.liveExecution.hasActive(sessionId)) {
                 return blocked(TurnSubmissionBlock.SESSION_BUSY)
             }
-            if (queuedInput != null && !queueStillConsumable(queuedInput, requireQueueHead)) {
+            if (queuedInput != null &&
+                !queueStillConsumable(
+                    queuedInput.inputId,
+                    queuedInput.sessionId,
+                    queuedInput.revision,
+                    requireQueueHead,
+                )
+            ) {
                 return blocked(TurnSubmissionBlock.INPUT_NO_LONGER_CONSUMABLE)
             }
             val isGoalOrRetry =
@@ -333,7 +303,9 @@ internal class TurnSubmissionCommandHandler(
             if (regenerateMessageId != null && (revisedMessageId != null || text != null)) {
                 return blocked(TurnSubmissionBlock.INVALID_HISTORY_MUTATION)
             }
-            val liveSession = storage.sessions.resolve(sessionId)
+            val liveSession =
+                admissionFacts.session(sessionId)
+                    ?: return blocked(TurnSubmissionBlock.SESSION_UNAVAILABLE)
             if (liveSession.archivedAt != null) return blocked(TurnSubmissionBlock.SESSION_UNAVAILABLE)
             if (!expectedBinding.matches(liveSession)) {
                 return blocked(TurnSubmissionBlock.PROVIDER_CHANGED)
@@ -354,9 +326,7 @@ internal class TurnSubmissionCommandHandler(
                     input =
                         TurnAdmissionInput(
                             text,
-                            attachmentBindings.map {
-                                TurnInputAttachment(it.artifactId, it.purpose, it.boundSha256)
-                            },
+                            attachmentBindings,
                             referenceSnapshots.map { reference ->
                                 ConversationReferenceIntent(
                                     reference.sourceSessionId,
@@ -508,6 +478,6 @@ internal data class TurnSessionAdmissionBinding(
     val providerId: String,
     val modelId: String?,
 ) {
-    fun matches(current: com.helix.core.storage.entity.SessionEntity): Boolean =
+    fun matches(current: SubmissionSession): Boolean =
         current.archivedAt == null && current.providerId == providerId && current.modelId == modelId
 }

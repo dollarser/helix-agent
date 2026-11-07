@@ -7,8 +7,6 @@ import android.content.pm.PackageManager
 import android.os.IBinder
 import android.os.SystemClock
 import com.helix.app.HelixApplication
-import com.helix.app.chat.ChatSubmission
-import com.helix.app.chat.ChatSubmissionOutcome
 import com.helix.app.provider.ProviderDraft
 import com.helix.core.model.AgentMode
 import com.helix.core.model.NormalizedEndpoint
@@ -16,6 +14,8 @@ import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.SessionPermissionMode
 import com.helix.core.model.TurnState
 import com.helix.core.policy.SessionPermissionConfig
+import com.helix.feature.conversation.input.ChatSubmission
+import com.helix.feature.conversation.input.ChatSubmissionOutcome
 import com.helix.provider.api.ProbeOutcome
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonArray

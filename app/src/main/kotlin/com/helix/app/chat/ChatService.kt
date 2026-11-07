@@ -2,15 +2,12 @@ package com.helix.app.chat
 
 import android.util.Log
 import com.helix.app.R
-import com.helix.app.agent.AgentLoopHost
 import com.helix.app.agent.ChatContextProjection
 import com.helix.app.agent.ChatContextUsage
 import com.helix.app.agent.ChatHistoryBuilder
 import com.helix.app.agent.ContextCompaction
 import com.helix.app.agent.GoalRunSettlement
 import com.helix.app.agent.GoalTimeBudget
-import com.helix.app.agent.TurnInputDelivery
-import com.helix.app.agent.TurnSteeringDraft
 import com.helix.app.agent.UnresolvedEffectPolicy
 import com.helix.app.application.agent.GoalContinuationDriver
 import com.helix.app.application.agent.GoalRunCoordinator
@@ -26,8 +23,6 @@ import com.helix.app.application.security.ForbiddenContentGuard
 import com.helix.app.application.tools.ApplicationToolGateway
 import com.helix.app.application.tools.FileToolArguments
 import com.helix.app.chat.ChatAttachmentRetry.RetryStagedCheck
-import com.helix.app.infrastructure.prompt.packagedPromptTemplates
-import com.helix.app.internal.InMemoryLineStore
 import com.helix.app.plan.PlanReview
 import com.helix.app.plan.PlanReviewService
 import com.helix.app.plan.StoragePlanReviewPort
@@ -35,8 +30,6 @@ import com.helix.app.profile.SafetyProfileStore
 import com.helix.app.provider.ProviderService
 import com.helix.app.provider.SubscriptionRecoveredOutput
 import com.helix.app.provider.SubscriptionRecoveryStatus
-import com.helix.app.runcontrol.PersistedRunControlStore
-import com.helix.app.runcontrol.RunControlStore
 import com.helix.app.runcontrol.SessionRunControlStore
 import com.helix.app.todo.TaskLedgerProjection
 import com.helix.app.tool.ToolPipeline
@@ -74,25 +67,28 @@ import com.helix.core.model.ProviderId
 import com.helix.core.model.ReasoningEffort
 import com.helix.core.model.SafetyProfile
 import com.helix.core.model.SessionId
-import com.helix.core.model.SystemClock
 import com.helix.core.model.ToolDispatchOutcome
 import com.helix.core.model.TurnBudgets
 import com.helix.core.model.TurnId
 import com.helix.core.model.TurnState
-import com.helix.core.policy.NetworkOriginScope
+import com.helix.core.model.input.ConversationReferenceKind
+import com.helix.core.model.input.ConversationReferenceSnapshotInput
+import com.helix.core.model.input.InputAttachment
+import com.helix.core.model.input.SessionInputDelivery
+import com.helix.core.model.input.SessionInputSpec
 import com.helix.core.storage.HelixStorage
 import com.helix.core.storage.entity.SessionEntity
-import com.helix.core.storage.repository.ConversationReferenceKind
-import com.helix.core.storage.repository.ConversationReferenceSnapshotInput
 import com.helix.core.storage.repository.ExpertProfile
-import com.helix.core.storage.repository.InputAttachment
 import com.helix.core.storage.repository.MessageAttachmentRepository
 import com.helix.core.storage.repository.SessionInputAcceptResult
-import com.helix.core.storage.repository.SessionInputDelivery
 import com.helix.core.storage.repository.SessionInputRecord
-import com.helix.core.storage.repository.SessionInputSpec
 import com.helix.core.storage.repository.SessionInputState
 import com.helix.core.workspace.FileScopePath
+import com.helix.feature.conversation.input.ChatSubmission
+import com.helix.feature.conversation.input.ChatSubmissionOutcome
+import com.helix.feature.conversation.input.ChatSubmissionReceipt
+import com.helix.feature.conversation.input.ComposerEditClock
+import com.helix.feature.conversation.input.PendingInputView
 import com.helix.feature.files.AttachmentClassifier
 import com.helix.feature.files.AttachmentImportResult
 import com.helix.feature.files.AttachmentMaterialization
@@ -108,7 +104,6 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -136,75 +131,34 @@ import kotlin.jvm.Volatile
  * this facade never creates a second queue, execution registry or persistence authority.
  */
 @Suppress("TooManyFunctions", "LargeClass", "LongParameterList")
-class ChatService(
+class ChatService internal constructor(
     private val storage: HelixStorage,
     private val providerService: ProviderService,
     profileStore: SafetyProfileStore,
-    private val runControlStore: RunControlStore =
-        PersistedRunControlStore(InMemoryLineStore()).also { it.setMode(AgentMode.ACT) },
-    private val conversationLaunchStore: ConversationLaunchStore = ConversationLaunchStore(InMemoryLineStore()),
+    private val conversationLaunchStore: ConversationLaunchStore,
     private val toolPipeline: ToolPipeline,
-    private val clock: Clock = SystemClock(),
+    private val clock: Clock,
     private val idGenerator: () -> String,
-    scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+    scope: CoroutineScope,
     private val attachmentStaging: AttachmentStagingSupport,
-    /**
-     * HXA-055: binds the session for the in-flight turn build BEFORE the model stream — the
-     * protocol image resolver runs inside `provider.stream`, and the shared production image
-     * source (app-private artifacts, session-scoped, fail-closed) refuses to resolve without
-     * the bound session. Production passes the source's [bindSession]; a no-op keeps test
-     * services without image artifacts fail-closed on their own (their resolver throws).
-     */
-    private val visionSessionBinder: (String) -> Unit = {},
-    /**
-     * HXA-069: resolves the string-resource IDs this service emits (approval codes, terminal
-     * labels, tool states, the egress blocks) to the current locale — ChatService is pure JVM
-     * (no [android.content.Context]), so the production container injects a locale-aware
-     * resolver. The default is a stable placeholder so JVM/device construction without a locale
-     * still compiles.
-     */
-    private val strings: (Int, Array<out Any>) -> String = { resId, _ -> "§$resId" },
-    private val turnEngine: TurnEngine =
-        com.helix.app.infrastructure.agent.createRoomTurnEngine(
-            storage,
-            clock,
-            idGenerator,
-        ),
-    private val lanScopes: () -> Set<NetworkOriginScope> = { emptySet() },
-    private val subscriptionResultRecovery: (
-        String,
-        String,
-        Boolean,
-    ) -> SubscriptionRecoveredOutput? =
-        { _, _, _ -> null },
-    private val subscriptionRecovery: (String, String, Boolean) -> SubscriptionRecoveryStatus =
-        { _, _, _ -> SubscriptionRecoveryStatus.UNKNOWN },
-    private val goalReminderSync: (String) -> Unit = {},
-    /**
-     * P1 (research doc section 8): resolves the session workspace's project-instruction file to
-     * the bounded, trust-framed PROJECT section of the goal system prompt. The production
-     * container injects the workspace reader; the default yields "" so JVM/device construction
-     * without a workspace behaves exactly as before.
-     */
-    private val bindSessionDirectory: (String) -> String = { it },
-    private val projectInstructionsReader: (com.helix.core.workspace.FileScopePath) -> String = { "" },
-    private val memory: com.helix.app.memory.MemoryService? = null,
-    mobileScreenScope: (String) -> com.helix.core.policy.AutomationSessionScope? = { null },
-    mobileScreenSources: com.helix.app.internal.LineStore = InMemoryLineStore(),
-    private val knowledgeReferences: com.helix.app.knowledge.KnowledgeReferenceService? = null,
-    private val knowledgeNotes: com.helix.app.knowledge.KnowledgeNoteService? = null,
+    private val strings: (Int, Array<out Any>) -> String,
+    private val turnEngine: TurnEngine,
+    private val sessionRunControls: SessionRunControlStore,
+    private val goalContinuation: GoalContinuationDriver,
+    private val goalUserRequests: MutableMap<String, List<GoalUserRequest>>,
+    private val requestAssembler: ChatRequestAssembler,
+    private val toolCalls: ApplicationToolGateway,
+    private val submissionCommands: TurnSubmissionCommandHandler,
+    private val stopCommands: com.helix.core.agent.runtime.StopTurnCommandHandler,
+    internal val agentRuntime: AgentRuntime,
+    val toolVisionConsent: com.helix.app.vision.ToolVisionConsent,
+    private val subscriptionResultRecovery: (String, String, Boolean) -> SubscriptionRecoveredOutput?,
+    private val subscriptionRecovery: (String, String, Boolean) -> SubscriptionRecoveryStatus,
+    private val goalReminderSync: (String) -> Unit,
+    private val bindSessionDirectory: (String) -> String,
+    private val knowledgeReferences: com.helix.app.knowledge.KnowledgeReferenceService?,
+    private val knowledgeNotes: com.helix.app.knowledge.KnowledgeNoteService?,
 ) {
-    // The unified AgentRuntime (HX2-01): every in-app turn entry drives the turn through this —
-    // none owns engine admission directly. The container re-exposes the SAME instance as the
-    // production entry point (AppContainer.agentRuntime).
-    internal val agentRuntime: AgentRuntime by lazy {
-        AppAgentRuntime(
-            submissionCommands = submissionCommands,
-            stopCommands = stopCommands,
-            runtime = turnEngine.runtimeView,
-        )
-    }
-
     // The Plan closed loop (research doc section 4.2/4.3; HX2-05): the review state machine the
     // plan surface drives — approve is the ONLY source of a PlanExecutionBinding, and execute
     // creates the plan-bound Goal. The production port is backed by [storage] (the same
@@ -215,7 +169,6 @@ class ChatService(
     private val inputState = ComposerInputState()
     private val drafts get() = inputState.drafts
     private val conversationReferences = ConversationReferenceResolver(storage)
-    private val sessionRunControls = SessionRunControlStore(storage, runControlStore)
     private val workspaceRecovery = SessionWorkspaceRecovery(storage, bindSessionDirectory)
     private val catalog =
         SessionCatalog(
@@ -228,109 +181,18 @@ class ChatService(
             bindSessionDirectory,
         )
     private val _runControl = MutableStateFlow(sessionRunControls.defaultSnapshot())
-    val toolVisionConsent =
-        com.helix.app.vision
-            .ToolVisionConsent(
-                storage.interactionReceipts,
-                clock,
-                com.helix.app.vision
-                    .MobileUseScreenConsent(clock, mobileScreenSources, mobileScreenScope),
-            )
-    private val requestAssembler =
-        ChatRequestAssembler(
-            storage,
-            providerService,
-            toolPipeline,
-            attachmentStaging,
-            visionSessionBinder,
-            projectInstructionsReader,
-            memory,
-            toolVisionConsent,
-            profile = { profile.value },
-        )
     private val attachmentRetry = ChatAttachmentRetry(storage, attachmentStaging)
     private val labels = ChatStatusLabels(strings)
     private val projection = ChatScreenProjection(storage, providerService, strings, labels::modelTerminalCodeRes)
     private val stagingProcessor = StagedAttachmentProcessor(storage, attachmentStaging, idGenerator, strings)
     private val workScope = scope
     private val sessionActions = SessionActionQueue(workScope)
-    private val toolPresentation by lazy {
+    internal val toolPresentation by lazy {
         ChatToolPresentation(
             _screen,
             strings,
             ::refreshBackgroundTasks,
             positionForCall = { session, call -> ChatTimelineOrder.positions(storage, session)[call] },
-        )
-    }
-    private val toolCalls: ApplicationToolGateway by lazy {
-        ApplicationToolGateway(
-            storage,
-            toolPipeline,
-            clock,
-            idGenerator,
-            profile,
-            workScope,
-            toolPresentation,
-            turnEngine.liveHandles,
-            lanScopes,
-            attachmentStaging.workspaceScopeId,
-        )
-    }
-
-    @Volatile
-    private var scheduledModelGuard: (
-        suspend (
-            String,
-            String,
-            com.helix.provider.api.ProviderDescriptor,
-            com.helix.core.model.ModelRequest,
-        ) -> Unit
-    )? = null
-
-    internal fun installScheduledModelGuard(
-        guard: suspend (
-            String,
-            String,
-            com.helix.provider.api.ProviderDescriptor,
-            com.helix.core.model.ModelRequest,
-        ) -> Unit,
-    ) {
-        check(scheduledModelGuard == null)
-        scheduledModelGuard = guard
-    }
-
-    private val agentLoop: AgentLoopHost by lazy {
-        AgentLoopHost(
-            storage,
-            providerService,
-            requestAssembler,
-            toolCalls,
-            ChatToolMessages(storage, toolPipeline, strings),
-            clock,
-            idGenerator,
-            turnEngine.liveHandles,
-            strings,
-            ::refreshScreen,
-            ::publishModelText,
-            beforeModelStream = { turn, call, provider, request ->
-                scheduledModelGuard?.invoke(turn, call, provider, request)
-            },
-            inputDelivery =
-                object : TurnInputDelivery {
-                    override suspend fun prepareSteering(
-                        sessionId: String,
-                        turnId: String,
-                    ): TurnSteeringDraft? = sessionInputDelivery.prepareSteering(sessionId, turnId)
-
-                    override fun requestStarting(
-                        sessionId: String,
-                        turnId: String,
-                        modelCallId: String,
-                        messageIds: Set<String>,
-                    ) {
-                        bindInputAuthority(sessionId, turnId, modelCallId, messageIds)
-                    }
-                },
         )
     }
     private val goals by lazy {
@@ -344,7 +206,7 @@ class ChatService(
             goalReminderSync,
         )
     }
-    private val recovery by lazy {
+    internal val recovery by lazy {
         ChatRecoveryActions(storage, workScope, _screen, subscriptionRecovery, subscriptionResultRecovery)
     }
 
@@ -668,13 +530,21 @@ class ChatService(
 
     /** Serializes per-session turn admission (one active turn per session). */
     private val turnGate = turnEngine.executionGate
-    private val goalContinuation: GoalContinuationDriver = GoalContinuationDriver(storage)
     private val automaticTurnRecovery by lazy {
         AutomaticTurnRecovery(
             storage,
             clock,
             { parent, snapshot ->
-                val result = submissionCommands.inspectRecovery(parent, snapshot)
+                val result =
+                    submissionCommands.inspectRecovery(
+                        parent,
+                        com.helix.app.application.agent.RecoveryInspectionSnapshot(
+                            snapshot.providerId,
+                            snapshot.modelId,
+                            snapshot.providerSnapshot,
+                            snapshot.control,
+                        ),
+                    )
                 projectSubmission(storage.turns.resolve(parent).sessionId, result)
             },
             turnEngine::finishAutomaticRecovery,
@@ -719,7 +589,6 @@ class ChatService(
 
     @Volatile private var pendingInputResume: InputResumeConfirmation? = null
 
-    private val goalUserRequests = java.util.concurrent.ConcurrentHashMap<String, List<GoalUserRequest>>()
     private val goalLifecycle: com.helix.app.goal.GoalLifecycleService by lazy {
         com.helix.app.goal.GoalLifecycleService(
             storage,
@@ -878,7 +747,7 @@ class ChatService(
      * just the bounded inline view.
      */
     private val credentialScan: (String) -> String? = ForbiddenContentGuard::reasonFor
-    private val sessionInputDelivery: SessionInputDeliveryCoordinator by lazy {
+    internal val sessionInputDelivery: SessionInputDeliveryCoordinator by lazy {
         SessionInputDeliveryCoordinator(
             storage = storage,
             providerService = providerService,
@@ -938,7 +807,13 @@ class ChatService(
             idGenerator,
         ).settle(sessionId, turnId, executionId, terminalElapsedMs)
 
-    init {
+    private val started =
+        java.util.concurrent.atomic
+            .AtomicBoolean(false)
+
+    /** Observing the provider and directory is application-owned, never an execution lifecycle. */
+    internal fun start() {
+        if (!started.compareAndSet(false, true)) return
         refreshSessions()
         workScope.launch {
             // Provider rows can arrive after the initial session projection on cold start.
@@ -1457,7 +1332,7 @@ class ChatService(
     /** Trusted library navigation command. Preserves the target composer; never creates a Turn. */
     fun stageKnowledgeReferences(
         expectedSessionId: String?,
-        items: List<com.helix.core.storage.repository.KnowledgeReference>,
+        items: List<com.helix.core.model.input.KnowledgeReference>,
     ): kotlinx.coroutines.Deferred<Boolean> =
         workScope.async {
             try {
@@ -1474,7 +1349,7 @@ class ChatService(
                             ?: ChatSubmission(id, 0, idGenerator(), "")
                     val keys = items.map { it.kind to it.resourceId }.toSet()
                     val merged = old.knowledgeReferences.filterNot { (it.kind to it.resourceId) in keys } + items
-                    com.helix.core.storage.repository.KnowledgeReferences
+                    com.helix.core.model.input.KnowledgeReferenceCodec
                         .encode(merged)
                     val next =
                         old.copy(
@@ -1517,7 +1392,7 @@ class ChatService(
             submissionGate.withLock {
                 if (openSessionId != expectedSessionId || pendingSend != null) return@withLock false
                 val item =
-                    com.helix.core.storage.repository.InputSkillActivation(
+                    com.helix.core.model.input.InputSkillActivation(
                         activation.key.source.name,
                         activation.key.name,
                         activation.key.snapshotHash,
@@ -2633,7 +2508,13 @@ class ChatService(
         val expected =
             TurnInputFingerprint.of(
                 body,
-                bindings.map { MessageAttachmentRepository.Binding(it.artifactId, it.purpose, it.boundSha256) },
+                bindings.map {
+                    com.helix.core.agent.turn.TurnInputAttachment(
+                        it.artifactId,
+                        it.purpose,
+                        it.boundSha256,
+                    )
+                },
                 references.map {
                     ConversationReferenceSnapshotInput(
                         it.sourceSessionId,
@@ -3718,24 +3599,6 @@ class ChatService(
         refreshStoppedTurn(turnId)
     }
 
-    private val submissionCommands: TurnSubmissionCommandHandler by lazy {
-        TurnSubmissionCommandHandler(
-            storage = storage,
-            clock = clock,
-            idGenerator = idGenerator,
-            providerService = providerService,
-            sessionRunControls = sessionRunControls,
-            turnEngine = turnEngine,
-            goalContinuation = goalContinuation,
-            goalUserRequests = goalUserRequests,
-            workScope = workScope,
-            agentLoop = agentLoop,
-            executionHooks = ::executionHooks,
-            inspectOriginal = { turnId -> recovery.inspectOriginal(turnId) },
-            promptTemplates = packagedPromptTemplates,
-        )
-    }
-
     /** Presentation only: a refusal never selects another session or discards its draft. */
     private fun projectSubmission(
         sessionId: String,
@@ -3780,28 +3643,6 @@ class ChatService(
             setBlocked(str(label))
         }
         return result.turnIdOrNull()
-    }
-
-    private val stopCommands by lazy {
-        com.helix.core.agent.runtime.StopTurnCommandHandler(
-            turnEngine = turnEngine,
-            delivery =
-                object : com.helix.core.agent.runtime.TurnDeliveryControl {
-                    override fun handoffOwner(sessionId: String) = goalContinuation.handoffOwner(sessionId)
-
-                    override fun disarmTurn(
-                        sessionId: String,
-                        turnId: String,
-                    ) = goalContinuation.disarmTurn(sessionId, turnId)
-
-                    override fun disarm(sessionId: String) = goalContinuation.disarm(sessionId)
-
-                    override fun forgetUserRequests(turnId: String) {
-                        goalUserRequests.remove(turnId)
-                    }
-                },
-            pendingApprovals = { turnId -> toolCalls.cancelPendingApproval(turnId) },
-        )
     }
 
     private fun refreshStoppedTurn(turnId: String) {
@@ -3907,7 +3748,7 @@ class ChatService(
         if (reference != null) {
             try {
                 val manifest =
-                    com.helix.core.storage.repository.ConversationReferenceManifest
+                    com.helix.core.model.input.ConversationReferenceManifest
                         .parse(reference.content)
                 require(
                     storage.sessionHistory.captureReference(
@@ -3993,9 +3834,9 @@ class ChatService(
             }
         }
 
-    fun sessionInputDeliveryStatus(sessionId: String): kotlinx.coroutines.Deferred<List<SessionInputRecord>> =
+    fun pendingInputViews(sessionId: String): kotlinx.coroutines.Deferred<List<PendingInputView>> =
         workScope.async {
-            storage.sessionInputs.listPending(sessionId) + storage.sessionInputs.recentAppended(sessionId)
+            storage.sessionInputs.listPending(sessionId).mapNotNull(SessionInputRecord::toPendingInputView)
         }
 
     fun readSessionInput(inputId: String): kotlinx.coroutines.Deferred<String?> =
@@ -4308,7 +4149,7 @@ class ChatService(
 
     private fun validSkillActivations(
         session: String,
-        activations: List<com.helix.core.storage.repository.InputSkillActivation>,
+        activations: List<com.helix.core.model.input.InputSkillActivation>,
     ): Boolean =
         activations.all { activation ->
             val repository = toolPipeline.skills ?: return@all false
@@ -4357,7 +4198,7 @@ class ChatService(
         input: SessionInputRecord,
     ): Pair<String, List<MessageAttachmentRepository.Binding>>? = sessionInputDelivery.revalidate(input)
 
-    private fun bindInputAuthority(
+    internal fun bindInputAuthority(
         sessionId: String,
         turnId: String,
         modelCallId: String,
@@ -4396,14 +4237,14 @@ class ChatService(
     }
 
     /** Presentation consumes the immutable text already reduced by Core. */
-    private fun publishModelText(
+    internal fun publishModelText(
         turnId: String,
         text: String,
     ) {
         publishTurn(TurnUi(turnId, TurnState.RECEIVING_MODEL, text, null, false))
     }
 
-    private fun executionHooks(sessionId: String): TurnExecutionHooks =
+    internal fun executionHooks(sessionId: String): TurnExecutionHooks =
         object : TurnExecutionHooks {
             override fun beforeExecution(turnId: String) {
                 if (openSessionId == sessionId) {
@@ -4559,7 +4400,7 @@ class ChatService(
         }
     }
 
-    private fun refreshScreen() {
+    internal fun refreshScreen() {
         refreshBackgroundTasks()
         sessionDraft?.takeIf { it.session.id == openSessionId }?.let { draft ->
             val refreshed =

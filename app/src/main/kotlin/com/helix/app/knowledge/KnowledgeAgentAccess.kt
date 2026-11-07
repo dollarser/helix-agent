@@ -39,7 +39,7 @@ internal class KnowledgeAgentAccess(
 
     override suspend fun related(
         query: String,
-        references: List<com.helix.core.storage.repository.KnowledgeReference>?,
+        references: List<com.helix.core.model.input.KnowledgeReference>?,
     ): List<JsonObject> =
         semantic?.search(query, references).orEmpty().map { hit ->
             val kind = hit.document.key.substringBefore(':')

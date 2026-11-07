@@ -139,21 +139,22 @@ class SpeechSettingsStore(
         )
     }
 
-    fun asrFactory(context: Context): StreamingAsrFactory {
-        val application = context.applicationContext as com.helix.app.HelixApplication
-        val settings = forAccount(application.account.status.value)
-        val identity = application.account.identity
+    fun asrFactory(
+        account: com.helix.app.account.AccountSession,
+        offlineFactory: () -> StreamingAsrFactory,
+    ): StreamingAsrFactory {
+        val settings = forAccount(account.status.value)
+        val identity = account.identity
 
         fun verifyAccount() {
             if (settings.useAccountLogin) {
-                check(application.account.signedIn.value && application.account.identity == identity)
+                check(account.signedIn.value && account.identity == identity)
             }
         }
         return if (settings.httpEnabled && settings.webSocket) {
             CloudAsrFactory(settings.asrEndpoint) {
                 settings.validate()
                 verifyAccount()
-                val account = (context.applicationContext as com.helix.app.HelixApplication).account
                 WebSocketAsr(settings.asrEndpoint, settings.socket(account, settings.asrEndpoint))
             }
         } else if (settings.httpEnabled) {
@@ -163,12 +164,12 @@ class SpeechSettingsStore(
                 HttpFileAsr(
                     settings.session(
                         settings.asrEndpoint,
-                        (context.applicationContext as com.helix.app.HelixApplication).account,
+                        account,
                     ),
                 )
             }
         } else {
-            OfflineAsrFactory(context)
+            offlineFactory()
         }
     }
 }

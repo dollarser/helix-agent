@@ -1,10 +1,7 @@
-package com.helix.app.ui
+package com.helix.feature.conversation.input
 
 import androidx.compose.runtime.saveable.SaverScope
-import com.helix.app.chat.ChatSubmission
-import com.helix.app.chat.ChatSubmissionOutcome
-import com.helix.app.chat.ChatSubmissionReceipt
-import com.helix.core.storage.repository.InputSkillActivation
+import com.helix.core.model.input.InputSkillActivation
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
@@ -30,7 +27,7 @@ class ConversationDraftBufferTest {
             val saved = with(ConversationDraftBuffer.saverFor("session")) { requireNotNull(scope.save(buffer)) }
             val restored = requireNotNull(ConversationDraftBuffer.saverFor("session").restore(saved))
             val item =
-                com.helix.core.storage.repository.KnowledgeReference(
+                com.helix.core.model.input.KnowledgeReference(
                     "NOTE",
                     "note-a",
                     "Synthetic",
@@ -53,7 +50,7 @@ class ConversationDraftBufferTest {
             val buffer = ConversationDraftBuffer("session")
             buffer.edit("Unsent question")
             val item =
-                com.helix.core.storage.repository.KnowledgeReference(
+                com.helix.core.model.input.KnowledgeReference(
                     "NOTE",
                     "note-a",
                     "合成笔记",
@@ -121,10 +118,10 @@ class ConversationDraftBufferTest {
         assertEquals("turn-two", second.expectedTurnId)
         val idle = buffer.captureSubmission(true, null)
         assertNull(idle.expectedTurnId)
-        assertEquals(com.helix.core.storage.repository.SessionInputDelivery.QUEUE, idle.delivery)
+        assertEquals(com.helix.core.model.input.SessionInputDelivery.QUEUE, idle.delivery)
         val queued = buffer.captureSubmission(false, "turn-three")
         assertNull(queued.expectedTurnId)
-        assertEquals(com.helix.core.storage.repository.SessionInputDelivery.QUEUE, queued.delivery)
+        assertEquals(com.helix.core.model.input.SessionInputDelivery.QUEUE, queued.delivery)
     }
 
     @Test fun activitySnapshotCannotRestoreAnotherConversationsInput() {
@@ -178,13 +175,13 @@ class ConversationDraftBufferTest {
             buffer.edit("follow up")
             assertTrue(fixture.save(buffer))
             val original = requireNotNull(buffer.saved)
-            buffer.delivery(com.helix.core.storage.repository.SessionInputDelivery.STEER, "active-turn")
+            buffer.delivery(com.helix.core.model.input.SessionInputDelivery.STEER, "active-turn")
             assertNotEquals(original.clientRequestId, buffer.value.clientRequestId)
             assertEquals("follow up", buffer.value.text)
             assertTrue(buffer.dirty)
             assertTrue(fixture.save(buffer))
             assertEquals("active-turn", fixture.disk?.expectedTurnId)
-            assertEquals(com.helix.core.storage.repository.SessionInputDelivery.STEER, fixture.disk?.delivery)
+            assertEquals(com.helix.core.model.input.SessionInputDelivery.STEER, fixture.disk?.delivery)
         }
 
     @Test fun queuedReceiptClearsOnlyItsDraftAndResetsDeliveryForNextInput() =
@@ -192,7 +189,7 @@ class ConversationDraftBufferTest {
             val fixture = Fixture()
             val buffer = fixture.open()
             buffer.edit("adjust")
-            buffer.delivery(com.helix.core.storage.repository.SessionInputDelivery.STEER, "turn")
+            buffer.delivery(com.helix.core.model.input.SessionInputDelivery.STEER, "turn")
             assertTrue(fixture.save(buffer))
             val submitted = requireNotNull(buffer.saved)
             buffer.accepted(
@@ -207,7 +204,7 @@ class ConversationDraftBufferTest {
                 { fixture.disk },
             )
             assertEquals("", buffer.value.text)
-            assertEquals(com.helix.core.storage.repository.SessionInputDelivery.QUEUE, buffer.value.delivery)
+            assertEquals(com.helix.core.model.input.SessionInputDelivery.QUEUE, buffer.value.delivery)
             assertNull(buffer.value.expectedTurnId)
             assertNull(buffer.saved)
         }

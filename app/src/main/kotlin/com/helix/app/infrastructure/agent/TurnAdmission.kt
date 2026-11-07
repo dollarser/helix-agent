@@ -14,10 +14,10 @@ import com.helix.core.agent.turn.TurnHistoryMutation
 import com.helix.core.model.AgentMode
 import com.helix.core.model.Clock
 import com.helix.core.model.TurnState
+import com.helix.core.model.input.ConversationReferenceKind
+import com.helix.core.model.input.ConversationReferenceSnapshotInput
 import com.helix.core.storage.HelixStorage
 import com.helix.core.storage.entity.TurnEntity
-import com.helix.core.storage.repository.ConversationReferenceKind
-import com.helix.core.storage.repository.ConversationReferenceSnapshotInput
 import com.helix.core.storage.repository.MessageAttachmentRepository
 import com.helix.core.storage.repository.SessionInputState
 

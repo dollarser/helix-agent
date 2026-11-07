@@ -168,7 +168,7 @@ class HelixApplication : Application() {
                 } catch (_: java.io.IOException) {
                     Log.w("HelixAccount", "Account restoration unavailable; built-in models remain locked")
                 }
-                startupPhase("container") { DefaultAppContainer(this) }
+                startupPhase("container") { DefaultAppContainer(this, account, knowledge).also { it.start() } }
             },
             onReady = {
                 val restoring =

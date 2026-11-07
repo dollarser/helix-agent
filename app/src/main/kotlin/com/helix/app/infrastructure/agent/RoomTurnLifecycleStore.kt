@@ -121,7 +121,7 @@ internal class RoomTurnLifecycleStore(
             storage.sessionInputs
                 .listPending(sessionId)
                 .filter {
-                    it.delivery == com.helix.core.storage.repository.SessionInputDelivery.STEER &&
+                    it.delivery == com.helix.core.model.input.SessionInputDelivery.STEER &&
                         it.expectedTurnId == turnId &&
                         it.state == com.helix.core.storage.repository.SessionInputState.PENDING
                 }.forEach {

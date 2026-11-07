@@ -1,5 +1,7 @@
 package com.helix.core.storage.repository
 
+import com.helix.core.model.input.KnowledgeReference
+import com.helix.core.model.input.KnowledgeReferenceCodec
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
@@ -11,8 +13,8 @@ class KnowledgeReferencesTest {
 
     @Test fun metadataRoundTripHasNoBodyAndLargeDocumentsDoNotFillThePrompt() {
         val item = reference()
-        val encoded = KnowledgeReferences.encode(listOf(item))
-        assertEquals(listOf(item), KnowledgeReferences.decode(encoded))
+        val encoded = KnowledgeReferenceCodec.encode(listOf(item))
+        assertEquals(listOf(item), KnowledgeReferenceCodec.decode(encoded))
         assertFalse(encoded.contains("\"text\""))
         assertTrue(KnowledgeReferences.message("question", listOf(item), "accepted-input").length < 1600)
         assertTrue(KnowledgeReferences.message("question", listOf(item), "accepted-input").contains("referenceInputId"))
@@ -21,18 +23,18 @@ class KnowledgeReferencesTest {
     @Test fun duplicatesLimitsAndMalformedMetadataFailClosed() {
         assertThrows(
             IllegalArgumentException::class.java,
-        ) { KnowledgeReferences.encode(listOf(reference(), reference())) }
+        ) { KnowledgeReferenceCodec.encode(listOf(reference(), reference())) }
         assertThrows(IllegalArgumentException::class.java) {
-            KnowledgeReferences.encode((1..9).map { reference("note-$it") })
+            KnowledgeReferenceCodec.encode((1..9).map { reference("note-$it") })
         }
         assertThrows(IllegalArgumentException::class.java) { reference().copy(characters = 200_001) }
         assertThrows(IllegalArgumentException::class.java) { reference().copy(sourceHash = "display-name") }
-        val raw = KnowledgeReferences.encode(listOf(reference()))
+        val raw = KnowledgeReferenceCodec.encode(listOf(reference()))
         assertThrows(
             IllegalArgumentException::class.java,
-        ) { KnowledgeReferences.decode(raw.replace("180000", "\"180000\"")) }
+        ) { KnowledgeReferenceCodec.decode(raw.replace("180000", "\"180000\"")) }
         assertThrows(IllegalArgumentException::class.java) {
-            KnowledgeReferences.decode(raw.replace("\"NOTE\"", "\"SESSION\""))
+            KnowledgeReferenceCodec.decode(raw.replace("\"NOTE\"", "\"SESSION\""))
         }
     }
 

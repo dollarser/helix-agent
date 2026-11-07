@@ -8,6 +8,7 @@ import com.helix.app.approval.StorageApprovalBroker
 import com.helix.app.approval.StorageAuditSink
 import com.helix.app.chat.AttachmentStagingSupport
 import com.helix.app.chat.ChatService
+import com.helix.app.composition.ConversationComposition
 import com.helix.app.infrastructure.agent.createRoomTurnEngine
 import com.helix.app.internal.InMemoryLineStore
 import com.helix.app.profile.ChannelSafetyProfileStore
@@ -123,8 +124,9 @@ internal class ScheduledRuntimeFixture(
                 { error("No attachments") },
                 { root.toPath().resolve(it.relativePath) },
             )
+        val modelGuard = ScheduledModelRequestGuard()
         chat =
-            ChatService(
+            ConversationComposition(
                 storage,
                 providers,
                 ChannelSafetyProfileStore(com.helix.core.model.SafetyProfile.STANDARD),
@@ -133,8 +135,19 @@ internal class ScheduledRuntimeFixture(
                 turnEngine = engine,
                 scope = scope,
                 attachmentStaging = staging,
+                scheduledModelGuard = modelGuard,
+            ).also { it.start() }.chatService
+        execution =
+            RuntimeScheduledAgentExecution(
+                storage,
+                providers,
+                chat.agentRuntime,
+                modelGuard,
+                chat::stopScheduledTurn,
+                engine,
+                pipeline,
+                ledger,
             )
-        execution = RuntimeScheduledAgentExecution(storage, providers, chat, engine, pipeline, ledger)
         service = ScheduledAgentService(ledger, execution, ScheduledFakeWake())
         providers.refresh()
         com.helix.app.test

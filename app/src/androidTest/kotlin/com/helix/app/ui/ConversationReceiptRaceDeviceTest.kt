@@ -20,8 +20,6 @@ import com.helix.app.MainActivity
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.application.agent.TurnInputFingerprint
 import com.helix.app.chat.ChatService
-import com.helix.app.chat.ChatSubmission
-import com.helix.app.chat.ChatSubmissionOutcome
 import com.helix.app.provider.LoopbackModelServer
 import com.helix.app.provider.ProviderDraft
 import com.helix.app.test.TransferTestDocumentsProvider
@@ -34,6 +32,8 @@ import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.SystemClock
 import com.helix.core.model.TurnState
 import com.helix.core.storage.repository.MessageAttachmentRepository
+import com.helix.feature.conversation.input.ChatSubmission
+import com.helix.feature.conversation.input.ChatSubmissionOutcome
 import com.helix.provider.api.ProbeOutcome
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
@@ -83,7 +83,7 @@ class ConversationReceiptRaceDeviceTest {
                 val request =
                     ChatSubmission(
                         session,
-                        com.helix.app.chat.ComposerEditClock
+                        com.helix.feature.conversation.input.ComposerEditClock
                             .next(cached?.revision ?: 0),
                         java.util.UUID
                             .randomUUID()
@@ -126,7 +126,17 @@ class ConversationReceiptRaceDeviceTest {
                             acceptedBody,
                             attachments = listOf(binding),
                             clientRequestId = request.clientRequestId,
-                            inputFingerprint = TurnInputFingerprint.of(acceptedBody, listOf(binding)),
+                            inputFingerprint =
+                                TurnInputFingerprint.of(
+                                    acceptedBody,
+                                    listOf(
+                                        com.helix.core.agent.turn.TurnInputAttachment(
+                                            binding.artifactId,
+                                            binding.purpose,
+                                            binding.boundSha256,
+                                        ),
+                                    ),
+                                ),
                         ),
                     )
                 kotlinx.coroutines.runBlocking { coordinator.beginModelStream() }

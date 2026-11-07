@@ -18,10 +18,10 @@ import com.helix.core.model.ToolDispatchOutcome
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolVersion
 import com.helix.core.model.TurnState
+import com.helix.core.model.input.ConversationReferenceKind
 import com.helix.core.storage.content.FileContentStore
 import com.helix.core.storage.entity.MessageEntity
 import com.helix.core.storage.entity.MessageReferenceSnapshotEntity
-import com.helix.core.storage.repository.ConversationReferenceKind
 import com.helix.core.storage.repository.ConversationReferenceSnapshot
 import com.helix.core.storage.repository.SessionHistoryRepository
 import com.helix.tools.framework.ExecutableToolCall

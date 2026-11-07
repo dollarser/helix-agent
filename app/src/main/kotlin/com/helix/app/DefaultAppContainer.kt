@@ -91,6 +91,8 @@ import java.nio.file.Path
 @Suppress("LargeClass") // Existing composition root; stateful runtime recovery is delegated, not duplicated here.
 internal class DefaultAppContainer(
     context: Context,
+    private val account: com.helix.app.account.AccountSession,
+    private val knowledge: com.helix.app.knowledge.KnowledgeService,
 ) : AppContainer {
     private val appContext: Context = context.applicationContext
     private val processEvidenceStore = ProcessEvidenceStore(context.applicationContext as Application)
@@ -231,13 +233,14 @@ internal class DefaultAppContainer(
                 factory =
                     productionProviderFactory(
                         appContext,
+                        account,
                         credentials,
                         localModels,
                         debugCustomApis,
                     ) { visionImageSource },
                 testStatus =
                     ProviderTestStatusStore(lineStore) {
-                        (appContext.applicationContext as HelixApplication).account.identity
+                        account.identity
                     },
                 debugCustomApis = debugCustomApis,
                 contextSettingsStore = providerContextSettings,
@@ -646,7 +649,31 @@ internal class DefaultAppContainer(
                     .PluginTaskHostAdapter(
                         context,
                         { session, turn -> chatService.toolVisionConsent.hasPending(session, turn) },
-                    ) { chatService },
+                        com.helix.app.plugin.PluginTaskAccess(
+                            task = { identity ->
+                                chatService.backgroundTasks.value
+                                    .singleOrNull {
+                                        it.id == identity.turnId && it.sessionId == identity.conversationId
+                                    }?.let { task ->
+                                        com.helix.app.plugin.PluginTaskState(
+                                            task.state,
+                                            task.running,
+                                            if (task.running) chatService.nativeApprovals(task.id) else emptyList(),
+                                        )
+                                    }
+                            },
+                            conversationVisible = { chatService.conversationVisible },
+                            reviewApproval = { task, approval, approve ->
+                                chatService.reviewNativeApproval(task.conversationId, task.turnId, approval, approve)
+                            },
+                            requestStop = { task -> chatService.takeOverTask(task.conversationId, task.turnId) },
+                            openConversation = { task ->
+                                val exists = chatService.sessions.value.any { it.id == task.conversationId }
+                                if (exists) chatService.openSession(task.conversationId)
+                                exists
+                            },
+                        ),
+                    ),
             conversationExists = { storage.sessions.find(it) != null },
             callActive = { session, turn ->
                 storage.turns.find(turn)?.let { row ->
@@ -763,7 +790,7 @@ internal class DefaultAppContainer(
     /**
      * The broker publishes approval cards to the chat service. The holder breaks the
      * construction cycle (the broker is built before the chat service that renders its
-     * cards); the chat service installs the sink at the end of container construction.
+     * cards); application startup installs the sink after the full graph is constructed.
      */
     private val approvalCardSink: ApprovalCardSinkHolder = ApprovalCardSinkHolder()
 
@@ -1015,6 +1042,10 @@ internal class DefaultAppContainer(
             openPreviewSource = featureFiles.sourceOpener::openStream,
         )
 
+    private val scheduledModelGuard =
+        com.helix.app.scheduled
+            .ScheduledModelRequestGuard()
+
     override val scheduledAgents by lazy {
         val ledger =
             com.helix.core.storage.scheduled
@@ -1024,7 +1055,9 @@ internal class DefaultAppContainer(
             com.helix.app.scheduled.RuntimeScheduledAgentExecution(
                 storage,
                 providerService,
-                chatService,
+                agentRuntime,
+                scheduledModelGuard,
+                chatService::stopScheduledTurn,
                 turnEngine,
                 toolPipeline,
                 ledger,
@@ -1034,10 +1067,11 @@ internal class DefaultAppContainer(
         )
     }
 
-    override val chatService: ChatService =
-        ChatService(
-            knowledgeReferences = (appContext.applicationContext as HelixApplication).knowledge.references,
-            knowledgeNotes = (appContext.applicationContext as HelixApplication).knowledge.noteService,
+    private val conversation =
+        com.helix.app.composition.ConversationComposition(
+            scheduledModelGuard = scheduledModelGuard,
+            knowledgeReferences = knowledge.references,
+            knowledgeNotes = knowledge.noteService,
             storage = storage,
             providerService = providerService,
             profileStore = profileStore,
@@ -1092,34 +1126,12 @@ internal class DefaultAppContainer(
                         appClock,
                     ).reconcile(goalId)
             },
-        ).also {
-            // The broker (built above) publishes pending cards into the chat timeline.
-            val chat = it
-            approvalCardSink.sink = { approvalId, request ->
-                val (descriptor, task) = chat.onApprovalCard(approvalId, request)
-                pluginRegistry.presentApproval(descriptor, task)
-            }
-            // HXA-066: keep the dataSync foreground service up only while a turn is actively
-            // moving data; it stops the moment the turn waits for the user (approval) or goes idle.
-            appScope.launch {
-                it.screen.collect { screen ->
-                    val turn = screen.activeTurn
-                    processEvidenceStore.checkpointTurn(turn?.id, turn?.id, turn?.state?.name)
-                }
-            }
-            appScope.launch {
-                it.foregroundTransportState.collect { state ->
-                    dataSyncController.onTurnState(state)
-                }
-            }
-        }
+        )
 
-    // The unified agent entry point (research doc section 34; HX2-01): the production turn path
-    // behind the core AgentRuntime contract.
-    // The SAME instance every in-app turn entry drives (HX2-01): the container re-exposes the
-    // runtime ChatService itself submits through, so the production entry point and the in-app
-    // producers never fork into two runtimes.
-    override val agentRuntime: AgentRuntime = chatService.agentRuntime
+    override val chatService: ChatService get() = conversation.chatService
+
+    // Production, UI and background producers share the exact same runtime and Engine.
+    override val agentRuntime: AgentRuntime get() = conversation.agentRuntime
 
     override val privacyDeletionService: PrivacyDeletionService by lazy {
         PrivacyDeletionService(
@@ -1143,9 +1155,30 @@ internal class DefaultAppContainer(
         )
     }
 
-    init {
+    private val started =
+        java.util.concurrent.atomic
+            .AtomicBoolean(false)
+
+    /** Application-owned observers start once, after the complete graph has been constructed. */
+    fun start() {
+        if (!started.compareAndSet(false, true)) return
+        val chat = chatService
+        approvalCardSink.sink = { approvalId, request ->
+            val (descriptor, task) = chat.onApprovalCard(approvalId, request)
+            pluginRegistry.presentApproval(descriptor, task)
+        }
         appScope.launch {
-            (appContext.applicationContext as HelixApplication).account.identityState.collect {
+            chat.screen.collect { screen ->
+                val turn = screen.activeTurn
+                processEvidenceStore.checkpointTurn(turn?.id, turn?.id, turn?.state?.name)
+            }
+        }
+        appScope.launch {
+            chat.foregroundTransportState.collect { state -> dataSyncController.onTurnState(state) }
+        }
+        conversation.start()
+        appScope.launch {
+            account.identityState.collect {
                 providerService.refresh()
             }
         }
@@ -1166,6 +1199,7 @@ internal class DefaultAppContainer(
 
 private fun productionProviderFactory(
     context: Context,
+    account: com.helix.app.account.AccountSession,
     credentials: com.helix.provider.api.CredentialLookup,
     localModels: com.helix.app.localmodel.LocalModelService,
     debugCustomApis: com.helix.app.provider.DebugCustomApiStore,
@@ -1178,7 +1212,7 @@ private fun productionProviderFactory(
     customApiForDebug = debugCustomApis::enabled,
     builtInWire =
         com.helix.app.account
-            .BuiltInAccountWire((context.applicationContext as HelixApplication).account),
+            .BuiltInAccountWire(account),
 ) { config ->
     localModels.provider(config) ?: SubscriptionProviderModule.create(context, config, images)
 }

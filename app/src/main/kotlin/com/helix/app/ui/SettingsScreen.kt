@@ -38,6 +38,8 @@ import com.helix.core.model.SafetyProfile
 @Composable
 @Suppress("FunctionName")
 fun SettingsScreen(
+    accountEntry: @Composable () -> Unit,
+    speechSettings: @Composable () -> Unit,
     memory: com.helix.app.memory.MemoryService? = null,
     contentBackup: com.helix.app.backup.AppBackupService? = null,
 ) {
@@ -52,7 +54,7 @@ fun SettingsScreen(
             .testTag("screen-settings"),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        SettingsGroup { AccountSettingsEntry() }
+        SettingsGroup { accountEntry() }
         SettingsGroup { LanguageSection() }
         SettingsGroup {
             TextButton(
@@ -64,7 +66,7 @@ fun SettingsScreen(
             }
         }
         SettingsGroup {
-            CloudSpeechSettingsEntry()
+            speechSettings()
             SystemVoiceSettingsEntry()
         }
         SettingsGroup {

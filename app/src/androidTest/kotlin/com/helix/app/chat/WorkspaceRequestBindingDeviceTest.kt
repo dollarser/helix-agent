@@ -13,6 +13,8 @@ import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.SessionPermissionMode
 import com.helix.core.model.ToolCallState
 import com.helix.core.policy.SessionPermissionConfig
+import com.helix.feature.conversation.input.ChatSubmission
+import com.helix.feature.conversation.input.ChatSubmissionOutcome
 import com.helix.provider.api.ProbeOutcome
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
