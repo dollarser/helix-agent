@@ -8,7 +8,7 @@ Helix brings mobile interaction, a browser, files and tools into one conversatio
 
 [Download previews](https://github.com/dollarser/helix-agent/releases) · [Changelog](CHANGELOG.md) · [Documentation](docs/README.md) · [Issues](https://github.com/dollarser/helix-agent/issues) · [Contributing](CONTRIBUTING.md)
 
-> **Development preview: Android 10+, ARM64 APKs.** These are not stable/store-production builds. They use the existing development certificate; old test-data compatibility is not guaranteed. Read the [upgrade notes](docs/product/releases/v0.0.10.en.md) and save important material first. Features on `main` may not yet be in a published APK.
+> **Development preview: Android 10+, ARM64 APKs.** Helix has not been officially released. These are not stable/store-production builds and use the existing development certificate. In-place updates are not guaranteed; even a successful update may not preserve historical data. Read the [upgrade notes](docs/product/releases/v0.0.10.en.md) and save important material first. Features on `main` may not yet be in a published APK.
 
 ## What it does
 

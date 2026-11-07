@@ -8,7 +8,7 @@ Helix 将手机操作、浏览器、文件和工具放进同一会话。你选�
 
 [下载开发预览](https://github.com/dollarser/helix-agent/releases) · [更新日志](CHANGELOG.md) · [文档](docs/README.md) · [反馈](https://github.com/dollarser/helix-agent/issues) · [贡献](CONTRIBUTING.md)
 
-> **开发预览，Android 10+，当前提供 ARM64 APK。** 尚非稳定版，使用既有开发签名而非商店生产签名，不承诺旧测试数据兼容。升级前阅读[版本说明](docs/product/releases/v0.0.10.md)，另存重要内容；`main` 的功能不一定已随 APK 发布。
+> **开发预览，Android 10+，当前提供 ARM64 APK。** 项目尚未正式发布，尚非稳定版，使用既有开发签名而非商店生产签名。新版本不保证可以覆盖安装；即使覆盖安装成功，也不保证保留历史数据。升级前阅读[版本说明](docs/product/releases/v0.0.10.md)，另存重要内容；`main` 的功能不一定已随 APK 发布。
 
 ## 能做什么
 
