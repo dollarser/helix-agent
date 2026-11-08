@@ -11,7 +11,7 @@ import org.junit.Test
 
 class ToolModelResultTest {
     @Test fun savedExecutionPagesKeepOriginalLogHandleWithoutRepeatingTheAction() {
-        for (name in listOf("bash", "code.linux.run", "code.linux.job.start")) {
+        for (name in listOf("bash", "code.linux.run", "skills.run", "code.linux.job.start")) {
             val content = "{\"error\":\"${"x".repeat(3000)}\",\"exitCode\":7,\"logTruncated\":true}"
             val page = ToolResultReadTool.page("original/call", content, 0, name)
             assertEquals("original/call", page.getValue("logRef").jsonPrimitive.content)
@@ -32,6 +32,51 @@ class ToolModelResultTest {
             )
         }
         assertFalse(ToolResultReadTool.page("t/c", "failure", 0, "files.archive").containsKey("logRef"))
+    }
+
+    @Test fun completeResultBodyDoesNotClaimSeparateStreamsWereRead() {
+        val body = """{"error":"inspect stderr","exitCode":7,"logTruncated":false}"""
+        for (offset in listOf(0, body.length)) {
+            val page = ToolResultReadTool.page("t/c", body, offset, "bash")
+            assertEquals("result_body", page.getValue("paginationScope").jsonPrimitive.content)
+            assertFalse(page.getValue("truncated").jsonPrimitive.boolean)
+            assertFalse(page.getValue("logTruncated").jsonPrimitive.boolean)
+            val logs = page.getValue("logContent").jsonObject
+            assertEquals("absent_from_result_body", logs.getValue("stderr").jsonPrimitive.content)
+            assertEquals("absent_from_result_body", logs.getValue("stdout").jsonPrimitive.content)
+        }
+    }
+
+    @Test fun inlineStreamPreviewsRemainDistinctFromTheSeparateCapture() {
+        val body = """{"stdout":"","stderr":"partial","logTruncated":true}"""
+        val page = ToolResultReadTool.page("t/c", body, 0, "bash")
+        val logs = page.getValue("logContent").jsonObject
+        assertEquals("inline_preview", logs.getValue("stdout").jsonPrimitive.content)
+        assertEquals("inline_preview", logs.getValue("stderr").jsonPrimitive.content)
+        assertEquals(body, page.getValue("content").jsonPrimitive.content)
+        val unrelated = ToolResultReadTool.page("t/c", body, 0, "mcp.example")
+        assertFalse(unrelated.containsKey("logContent"))
+        assertFalse(unrelated.containsKey("logReadTool"))
+    }
+
+    @Test fun unrecognizedLogBodiesStayUnknownRatherThanClaimingAbsence() {
+        val unknownBodies =
+            listOf("not json", "[]", "null", """{"stderr":42,"stdout":false}""", """{"stderr":[],"stdout":{}}""")
+        for (content in unknownBodies) {
+            val page = ToolResultReadTool.page("t/c", content, 0, "bash")
+            val logs = page.getValue("logContent").jsonObject
+            assertEquals("unknown", logs.getValue("stderr").jsonPrimitive.content)
+            assertEquals("unknown", logs.getValue("stdout").jsonPrimitive.content)
+            assertEquals(
+                com.helix.tools.framework.ToolSchemaValidation.Valid,
+                com.helix.tools.framework.ToolSchemaValidator
+                    .validate(ToolResultReadTool.outputSchema, page),
+            )
+        }
+        val nullOrMissing = ToolResultReadTool.page("t/c", """{"stderr":null}""", 0, "bash")
+        val absent = nullOrMissing.getValue("logContent").jsonObject
+        assertEquals("absent_from_result_body", absent.getValue("stderr").jsonPrimitive.content)
+        assertEquals("absent_from_result_body", absent.getValue("stdout").jsonPrimitive.content)
     }
 
     @Test fun largeResultCanBeReadLosslesslyWithoutRepeatingTheOriginalTool() {

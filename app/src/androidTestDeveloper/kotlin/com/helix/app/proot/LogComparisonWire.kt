@@ -18,10 +18,12 @@ import java.io.File
 internal class LogComparisonWire(
     private val delegate: WireClient,
     private val directory: File,
+    private val captureSyntheticResponses: Boolean = false,
     private val catalog: (Set<String>) -> String,
 ) : WireClient {
     var minimal = false
     var calls = 0
+    val statuses = mutableListOf<Int>()
 
     override suspend fun open(request: WireRequest): WireResponse {
         if (request.method != "POST" || request.url != BuiltInModel.GENERATION_URL) return delegate.open(request)
@@ -35,12 +37,21 @@ internal class LogComparisonWire(
                 put("original", body)
                 put("sent", sent)
                 put("toolsUnchanged", body["tools"] == sent["tools"])
+                put("exactProductionBytes", bytes.contentEquals(original))
+                put("bodyBytes", bytes.size)
             }
+        val requestIndex = calls++
         File(
             directory,
-            "request-${calls++}.json",
+            "request-$requestIndex.json",
         ).writeText(DiagnosticRedaction.redact(evidence.toString(), emptySet()))
-        return delegate.open(WireRequest(request.method, request.url, request.headers, bytes))
+        val response = delegate.open(WireRequest(request.method, request.url, request.headers, bytes))
+        statuses += response.status
+        return if (captureSyntheticResponses && response.status in 200..299) {
+            WireResponse(response.status, response.headers, SyntheticSseCapture(response.body, directory, requestIndex))
+        } else {
+            response
+        }
     }
 }
 

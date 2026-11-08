@@ -151,12 +151,37 @@ class InPlaceLogCloseoutDeviceTest {
             storage.toolCalls.append("row", "turn", "call", "bash", "1", "{}", "RUNNING")
         }
 
-        fun run(command: String): ProotJobRecord {
-            start(command)
+        fun run(
+            command: String,
+            workspaceOverride: File? = null,
+        ): ProotJobRecord {
+            start(command, workspaceOverride)
             return terminal()
         }
 
-        fun start(command: String) {
+        @Suppress("LongMethod") // Keep owned workspace validation beside the single fixture submission.
+        fun start(
+            command: String,
+            workspaceOverride: File? = null,
+        ) {
+            val executionWorkspace = workspaceOverride?.canonicalFile ?: workspace
+            val reference =
+                if (workspaceOverride == null) {
+                    "scope:app:${workspace.name}"
+                } else {
+                    val binding = requireNotNull(storage.workspaces.binding("session"))
+                    val resource = requireNotNull(storage.workspaces.find(binding.workspaceId))
+                    check(resource.ownership == "MANAGED" && resource.ownerSessionId == "session")
+                    check(binding.relativePath.isEmpty())
+                    check(
+                        storage.workspaces
+                            .managedDirectory(resource.id)
+                            .toFile()
+                            .canonicalFile == executionWorkspace,
+                    )
+                    requireNotNull(storage.sessions.resolve("session").directoryRef)
+                }
+            // An override remains caller-owned: close() only deletes this fixture's own workspace.
             val manifest = JobManifestCodec.encode(JobManifest(emptyList()))
             val input = File(scratch, "input.zip")
             JobZipWriter(input.outputStream()).use { it.writeManifest(manifest) }
@@ -170,8 +195,8 @@ class InPlaceLogCloseoutDeviceTest {
                     60000,
                     1024 * 1024,
                     FileContentStore.sha256Hex(manifest.toByteArray()),
-                    workspacePath = workspace.path,
-                    workspaceWitness = LiveJobWorkspace.witness(workspace),
+                    workspacePath = executionWorkspace.path,
+                    workspaceWitness = LiveJobWorkspace.witness(executionWorkspace),
                     artifactPaths = listOf("document.txt"),
                 )
             val call =
@@ -185,7 +210,7 @@ class InPlaceLogCloseoutDeviceTest {
                     emptyList(),
                     null,
                     System.currentTimeMillis() + 60000,
-                    workspaceReference = "scope:app:${workspace.name}",
+                    workspaceReference = reference,
                     artifactPaths = spec.artifactPaths,
                 )
             ProotJobBindingStore(storage).record(call, spec)

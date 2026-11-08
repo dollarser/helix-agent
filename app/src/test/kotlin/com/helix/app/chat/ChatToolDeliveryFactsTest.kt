@@ -34,6 +34,8 @@ class ChatToolDeliveryFactsTest {
                 ).single()
                 .text
         assertTrue(history.contains("\"contentKind\":\"tool_result\""))
+        assertTrue(history.contains("\"paginationScope\":\"result_body\""))
+        assertTrue(history.contains("\"stderr\":\"absent_from_result_body\""))
         assertTrue(history.contains("\"logRef\":\"original/call\""))
         assertTrue(history.contains("\"logReadTool\":\"code.linux.job.read_log\""))
         assertTrue(history.contains("\"exitCode\":7"))
