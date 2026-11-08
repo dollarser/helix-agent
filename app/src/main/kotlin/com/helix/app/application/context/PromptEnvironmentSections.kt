@@ -14,7 +14,8 @@ import com.helix.core.workspace.FileScopePath
  *
  * - [BASE_NAME] always: the harness identity and evidence/authority invariants;
  * - [FILES_NAME] only when the session's admitted tools include the local file tools — the
- *   working directory comes from session facts ([FileScopePath]), never from model-visible text;
+ *   separate [DIRECTORY_NAME] follows stable guidance with request-local session facts
+ *   ([FileScopePath]), never a path derived from model-visible text;
  * - [PLAN_NAME] only in Plan mode: plan is read-only and file/tool text cannot enable Act.
  *
  * Harness sections are [PromptSource.BUILTIN_TEMPLATE]; plugin skills remain external content,
@@ -23,6 +24,7 @@ import com.helix.core.workspace.FileScopePath
 internal object PromptEnvironmentSections {
     const val BASE_NAME = "env.base"
     const val FILES_NAME = "env.files"
+    const val DIRECTORY_NAME = "env.directory"
     const val PLAN_NAME = "env.plan"
 
     fun register(
@@ -35,7 +37,7 @@ internal object PromptEnvironmentSections {
         val workingDirectory = directory.toModelReference()
         registry.register(
             PromptSection(BASE_NAME, ORDER_BASE, PromptScope.RUNTIME, PromptSource.BUILTIN_TEMPLATE) {
-                source.text("base").replace(PLACEHOLDER, workingDirectory)
+                source.text("base")
             },
         )
         registry.register(
@@ -46,7 +48,19 @@ internal object PromptEnvironmentSections {
                 PromptSource.BUILTIN_TEMPLATE,
                 PromptOmissionReason.FILE_TOOLS_UNAVAILABLE,
             ) {
-                if (fileToolsAvailable) source.text("files").replace(PLACEHOLDER, workingDirectory) else ""
+                if (fileToolsAvailable) source.text("files") else ""
+            },
+        )
+        // Still resolved from this request's facts, never replayed from persisted history.
+        registry.register(
+            PromptSection(
+                DIRECTORY_NAME,
+                ORDER_DIRECTORY,
+                PromptScope.WORKSPACE,
+                PromptSource.BUILTIN_TEMPLATE,
+                PromptOmissionReason.FILE_TOOLS_UNAVAILABLE,
+            ) {
+                if (fileToolsAvailable) source.text("directory").replace(PLACEHOLDER, workingDirectory) else ""
             },
         )
         registry.register(
@@ -57,7 +71,7 @@ internal object PromptEnvironmentSections {
                 PromptSource.BUILTIN_TEMPLATE,
                 PromptOmissionReason.NOT_PLAN_MODE,
             ) {
-                if (mode == AgentMode.PLAN) source.text("plan").replace(PLACEHOLDER, workingDirectory) else ""
+                if (mode == AgentMode.PLAN) source.text("plan") else ""
             },
         )
     }
@@ -66,4 +80,5 @@ internal object PromptEnvironmentSections {
     private const val ORDER_BASE = -2_000
     private const val ORDER_FILES = -1_900
     private const val ORDER_PLAN = -1_800
+    private const val ORDER_DIRECTORY = -1_770
 }

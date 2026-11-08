@@ -77,7 +77,7 @@ public class AnthropicStreamDecoder : StreamDecoder {
     private var terminalEmitted = false
     private var protocolFailed = false
     private var streamEnded = false
-    private var inputTokens: Long? = null
+    private var reportedUsage = JsonObject(emptyMap())
     private var openBlocks = LinkedHashMap<Int, BlockKind>()
 
     /** Every started tool-call id and the block that started it (duplicate-id guard,
@@ -188,7 +188,7 @@ public class AnthropicStreamDecoder : StreamDecoder {
             obj["message"] as? JsonObject
                 ?: throw ProtocolViolation("message_start: missing message object")
         val usage = message["usage"] as? JsonObject ?: return
-        inputTokens = AnthropicUsage.inputTokens(usage)
+        reportedUsage = usage
         // Nothing is emitted: the Usage event travels with the terminal chunk.
     }
 
@@ -372,8 +372,16 @@ public class AnthropicStreamDecoder : StreamDecoder {
                 "refusal" -> ModelEvent.Refusal("refusal")
                 else -> throw ProtocolViolation("unknown stop reason: $reason")
             }
-        val output = (obj["usage"] as? JsonObject)?.get("output_tokens")
-        out += ModelEvent.Usage(inputTokens, (output as? JsonPrimitive)?.longOrNull)
+        val usage = obj["usage"] as? JsonObject ?: JsonObject(emptyMap())
+        // Delta usage is cumulative, not additive. Retain fields omitted by the delta.
+        reportedUsage = JsonObject(reportedUsage + usage)
+        out +=
+            ModelEvent.Usage(
+                inputTokens = AnthropicUsage.inputTokens(reportedUsage),
+                outputTokens = AnthropicUsage.count(usage, "output_tokens"),
+                cachedInputTokens = AnthropicUsage.count(reportedUsage, "cache_read_input_tokens"),
+                cacheCreationInputTokens = AnthropicUsage.count(reportedUsage, "cache_creation_input_tokens"),
+            )
         emitTerminal(out, terminal)
     }
 

@@ -136,14 +136,22 @@ sealed interface ModelEvent {
     /**
      * Token accounting. Nullable fields mean "the provider did not report this figure" —
      * the Agent Loop must never treat unknown usage as 0 (doc 02 section 5.3).
+     * Cache counts are server-reported subsets of inputTokens, never additional budget
+     * charges. Null also covers invalid provider figures; it is distinct from reported zero.
      */
     data class Usage(
         val inputTokens: Long?,
         val outputTokens: Long?,
+        val cachedInputTokens: Long? = null,
+        val cacheCreationInputTokens: Long? = null,
     ) : ModelEvent {
         init {
             require(inputTokens == null || inputTokens >= 0) { "inputTokens must be >= 0" }
             require(outputTokens == null || outputTokens >= 0) { "outputTokens must be >= 0" }
+            require(cachedInputTokens == null || cachedInputTokens >= 0) { "cachedInputTokens must be >= 0" }
+            require(cacheCreationInputTokens == null || cacheCreationInputTokens >= 0) {
+                "cacheCreationInputTokens must be >= 0"
+            }
         }
     }
 

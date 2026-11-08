@@ -7,6 +7,7 @@ import com.helix.provider.api.StreamDecoder
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -353,14 +354,20 @@ public class ChatCompletionsStreamDecoder : StreamDecoder {
         startedIds.clear()
     }
 
+    private fun usageCount(element: JsonElement?): Long? {
+        val value = element as? JsonPrimitive ?: return null
+        return value.longOrNull?.takeIf { !value.isString && it >= 0 }
+    }
+
     private fun handleUsage(
         chunk: JsonObject,
         out: MutableList<ModelEvent>,
     ) {
         val usage = chunk["usage"] as? JsonObject ?: return
-        val input = (usage["prompt_tokens"] as? JsonPrimitive)?.longOrNull
-        val output = (usage["completion_tokens"] as? JsonPrimitive)?.longOrNull
-        out += ModelEvent.Usage(input, output)
+        val input = usageCount(usage["prompt_tokens"])
+        val output = usageCount(usage["completion_tokens"])
+        val cached = usageCount((usage["prompt_tokens_details"] as? JsonObject)?.get("cached_tokens"))
+        out += ModelEvent.Usage(input, output, cachedInputTokens = cached)
     }
 
     private fun failProtocol(

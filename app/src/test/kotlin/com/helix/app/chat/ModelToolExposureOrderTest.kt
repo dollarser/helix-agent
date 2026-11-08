@@ -51,11 +51,68 @@ class ModelToolExposureOrderTest {
         assertEquals((optional + essential).toSet(), exposed.toSet())
     }
 
-    @Test fun optionalToolsKeepTheirOriginalRelativeOrder() {
+    @Test fun optionalToolsUseStableNamesWithinTheirPriorityRank() {
         val tools = listOf(descriptor("optional.z"), descriptor("write"), descriptor("optional.a"))
         assertEquals(
-            listOf("write", "optional.z", "optional.a"),
+            listOf("write", "optional.a", "optional.z"),
             ModelToolExposureOrder.prioritize(tools).map { it.name.value },
+        )
+    }
+
+    @Test fun discoveryRecencyPermutationsProduceIdenticalProviderRequests() {
+        val tools =
+            listOf(
+                "mcp.fixture.z",
+                "read",
+                "goal.report",
+                "mcp.fixture.a",
+                "ask_user",
+                "ui.snapshot",
+            ).map(::descriptor)
+        val preferred = setOf("ui.snapshot", "mcp.fixture.z")
+        val encoders =
+            listOf(
+                com.helix.provider.openai.responses
+                    .ResponsesRequestEncoder { error("no images") },
+                com.helix.provider.openai.chat
+                    .ChatCompletionsRequestEncoder { error("no images") },
+                com.helix.provider.anthropic
+                    .AnthropicRequestEncoder { error("no images") },
+            )
+        for (encoder in encoders) {
+            fun wire(input: List<ToolDescriptor>): String =
+                encoder.encode(
+                    com.helix.core.model.ModelRequest(
+                        model = "fixture",
+                        messages =
+                            listOf(
+                                com.helix.core.model
+                                    .ModelMessage(com.helix.core.model.ModelRole.USER, "Read"),
+                            ),
+                        tools =
+                            ModelToolExposureOrder
+                                .prioritize(input, preferred)
+                                .map(com.helix.app.application.tools.FileToolArguments::modelSchema)
+                                .map(com.helix.app.application.tools.ToolPresentationMetadata::augment),
+                        maxOutputTokens = 1024,
+                    ),
+                )
+            val expected = wire(tools)
+            repeat(64) { seed ->
+                assertEquals(expected, wire(tools.shuffled(kotlin.random.Random(seed))))
+            }
+        }
+    }
+
+    @Test fun removalReadditionAndPreferenceChangesRemainLive() {
+        val tools = listOf("optional.z", "optional.a", "read").map(::descriptor)
+        val expected = ModelToolExposureOrder.prioritize(tools)
+        val removed = ModelToolExposureOrder.prioritize(tools.dropLast(1), setOf("read"))
+        assertTrue(removed.none { it.name.value == "read" })
+        assertEquals(expected, ModelToolExposureOrder.prioritize(removed + tools.last()))
+        assertEquals(
+            listOf("read", "optional.z", "optional.a"),
+            ModelToolExposureOrder.prioritize(tools, setOf("optional.z")).map { it.name.value },
         )
     }
 
@@ -105,7 +162,7 @@ class ModelToolExposureOrderTest {
 
     @Test fun withoutAnActiveAutomationSessionUiDoesNotDisplaceOtherTools() {
         val tools = (0 until 64).map { descriptor("optional.$it") } + descriptor("ui.snapshot")
-        assertEquals(tools, ModelToolExposureOrder.prioritize(tools))
+        assertEquals(tools.sortedBy { it.name.value }, ModelToolExposureOrder.prioritize(tools))
     }
 
     @Test fun defaultSurfacePreservesCompleteWorkflowAndLeavesOptionalToolsDiscoverable() {
@@ -158,12 +215,17 @@ class ModelToolExposureOrderTest {
                 kotlinx.serialization.json.buildJsonObject {
                     put("type", kotlinx.serialization.json.JsonPrimitive("object"))
                 },
-            operationClass = ToolOperationClass.READ_ONLY,
+            operationClass = if (name.startsWith("mcp.")) ToolOperationClass.NETWORK else ToolOperationClass.READ_ONLY,
             timeout = 1.seconds,
             maxOutputBytes = 1024,
             requiredCapabilities = emptySet(),
             idempotency = Idempotency.IDEMPOTENT,
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
-            origin = ToolOrigin.BuiltInOrigin,
+            origin =
+                if (name.startsWith("mcp.")) {
+                    ToolOrigin.McpOrigin("fixture", "2025-11-25", "a".repeat(64))
+                } else {
+                    ToolOrigin.BuiltInOrigin
+                },
         )
 }

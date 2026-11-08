@@ -27,7 +27,7 @@ import kotlinx.serialization.json.JsonPrimitive
  * approval-hash work and must not be assumed to be this one. (HXA-031
  * delivers the JSON Schema subset + value validation, not that encoder.)
  */
-internal object ToolSchemaCanonicalizer {
+object ToolSchemaCanonicalizer {
     fun canonicalize(element: JsonElement): String =
         when (element) {
             is JsonObject -> {

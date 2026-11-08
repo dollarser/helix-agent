@@ -3,6 +3,7 @@ package com.helix.app.application.tools
 import com.helix.core.model.ModelToolSchema
 import com.helix.core.model.ToolCallPresentation
 import com.helix.core.policy.ForbiddenContentGuard
+import com.helix.tools.framework.ToolSchemaCanonicalizer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -60,7 +61,9 @@ internal object ToolPresentationMetadata {
                             JsonObject(properties + (RESERVED_INTENT_KEY to intentSchema))
                     ),
             )
-        return schema.copy(inputSchemaJson = augmented.toString())
+        // Use the same object-key discipline as schema identity, after all model-only additions.
+        // Never canonicalize historical model arguments or reorder arrays here.
+        return schema.copy(inputSchemaJson = ToolSchemaCanonicalizer.canonicalize(augmented))
     }
 
     /**

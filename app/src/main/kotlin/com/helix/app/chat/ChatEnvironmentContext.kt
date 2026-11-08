@@ -17,6 +17,7 @@ internal object ChatEnvironmentContext {
                 add("base")
                 if (fileToolsAvailable) add("files")
                 if (mode == AgentMode.PLAN) add("plan")
+                if (fileToolsAvailable) add("directory")
             }
         return selected.map { name ->
             val text =

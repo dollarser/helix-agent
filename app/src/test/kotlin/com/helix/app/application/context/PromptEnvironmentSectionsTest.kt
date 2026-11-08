@@ -36,6 +36,7 @@ class PromptEnvironmentSectionsTest {
         assertEquals(
             mapOf(
                 "env.files" to "FILE_TOOLS_UNAVAILABLE",
+                "env.directory" to "FILE_TOOLS_UNAVAILABLE",
                 "env.plan" to "NOT_PLAN_MODE",
             ),
             snapshot.omittedSections.associate { it.name to it.omissionReason!!.name },
@@ -95,8 +96,9 @@ class PromptEnvironmentSectionsTest {
     private val templates =
         PromptTemplateSource { name ->
             when (name) {
-                "base" -> "BASE in {{working_directory}}"
-                "files" -> "FILES at {{working_directory}}"
+                "base" -> "BASE"
+                "files" -> "FILES"
+                "directory" -> "DIRECTORY at {{working_directory}}"
                 "plan" -> "PLAN-ONLY"
                 else -> error("unknown template: $name")
             }
@@ -110,8 +112,8 @@ class PromptEnvironmentSectionsTest {
         PromptEnvironmentSections.register(registry, directory, AgentMode.CHAT, false, templates)
         val resolved = registry.resolve()
         assertEquals(listOf("env.base"), resolved.map { it.name })
-        // The working directory is the session fact rendered as a bounded model reference.
-        assertEquals("BASE in scope:app:work/demo", registry.assemble())
+        // No file tools means no working-directory disclosure.
+        assertEquals("BASE", registry.assemble())
     }
 
     @Test
@@ -119,8 +121,8 @@ class PromptEnvironmentSectionsTest {
         val registry = PromptRegistry()
         PromptEnvironmentSections.register(registry, directory, AgentMode.CHAT, true, templates)
         val resolved = registry.resolve()
-        assertEquals(listOf("env.base", "env.files"), resolved.map { it.name })
-        assertTrue("FILES at scope:app:work/demo" in registry.assemble())
+        assertEquals(listOf("env.base", "env.files", "env.directory"), resolved.map { it.name })
+        assertTrue("DIRECTORY at scope:app:work/demo" in registry.assemble())
     }
 
     @Test
@@ -147,7 +149,7 @@ class PromptEnvironmentSectionsTest {
         PromptEnvironmentSections.register(registry, directory, AgentMode.GOAL, true, templates)
         val resolved = registry.resolve()
         assertEquals(
-            listOf("env.base", "env.files", "goal.identity"),
+            listOf("env.base", "env.files", "env.directory", "goal.identity"),
             resolved.map { it.name },
         )
         assertTrue(resolved.all { it.trust == com.helix.core.agent.TrustLevel.SYSTEM })

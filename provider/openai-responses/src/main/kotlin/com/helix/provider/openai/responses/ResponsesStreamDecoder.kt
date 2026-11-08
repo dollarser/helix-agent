@@ -419,14 +419,26 @@ public class ResponsesStreamDecoder : StreamDecoder {
         out += ModelEvent.Error(error, retryable)
     }
 
+    private fun usageCount(element: JsonElement?): Long? {
+        val value = element as? JsonPrimitive ?: return null
+        return value.longOrNull?.takeIf { !value.isString && it >= 0 }
+    }
+
     private fun emitUsage(
         response: JsonObject,
         out: MutableList<ModelEvent>,
     ) {
         val usage = response["usage"] as? JsonObject ?: return
-        val input = (usage["input_tokens"] as? JsonPrimitive)?.longOrNull
-        val output = (usage["output_tokens"] as? JsonPrimitive)?.longOrNull
-        out += ModelEvent.Usage(input, output)
+        val input = usageCount(usage["input_tokens"])
+        val output = usageCount(usage["output_tokens"])
+        val details = usage["input_tokens_details"] as? JsonObject
+        out +=
+            ModelEvent.Usage(
+                input,
+                output,
+                cachedInputTokens = usageCount(details?.get("cached_tokens")),
+                cacheCreationInputTokens = usageCount(details?.get("cache_write_tokens")),
+            )
     }
 
     private fun failProtocol(

@@ -13,6 +13,35 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ModelStreamStateTest {
+    @Test fun cacheMetadataCoexistsWithClientObservation() {
+        val state = ModelStreamState()
+        state.apply(ModelEvent.Usage(100, 3, 80, 10))
+        state.recordClientObservation(ModelClientObservation(10, 1, 2, false))
+        val usage =
+            kotlinx.serialization.json.Json.parseToJsonElement(
+                state.usageJson!!,
+            ) as kotlinx.serialization.json.JsonObject
+        assertEquals("80", usage.getValue("cachedInputTokens").toString())
+        assertEquals("10", usage.getValue("cacheCreationInputTokens").toString())
+        assertTrue("clientObservation" in usage)
+    }
+
+    @Test fun cacheUsageIsDurableDiagnosticMetadataAndDoesNotIncreaseBudgets() {
+        val state = ModelStreamState()
+        state.apply(ModelEvent.Usage(100, 3, 80, 10))
+        assertEquals(100L, state.inputTokens)
+        assertEquals(3L, state.outputTokens)
+        assertEquals(
+            """{"inputTokens":100,"outputTokens":3,"cachedInputTokens":80,"cacheCreationInputTokens":10}""",
+            state.usageJson,
+        )
+        state.apply(ModelEvent.Usage(null, null, 0, null))
+        assertEquals("""{"cachedInputTokens":0}""", state.usageJson)
+        assertNull(state.inputTokens)
+        state.apply(ModelEvent.Usage(null, null))
+        assertNull(state.usageJson)
+    }
+
     @Test fun finishDiagnosticsDistinguishPromisesFromActualToolCallsWithoutInventingContinuation() {
         val promise = ModelStreamState()
         promise.apply(ModelEvent.TextDelta("Next I'll inspect the installation."))

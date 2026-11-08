@@ -310,14 +310,15 @@ const val MAX_MODEL_TOOL_CALLS = 32
 
 /** Encodes nullable token usage without turning an unreported value into zero. */
 private fun usageToJson(usage: ModelEvent.Usage): String? {
-    val input = usage.inputTokens
-    val output = usage.outputTokens
-    if (input == null && output == null) return null
-    return buildString {
-        append("{")
-        if (input != null) append("\"inputTokens\":").append(input)
-        if (input != null && output != null) append(",")
-        if (output != null) append("\"outputTokens\":").append(output)
-        append("}")
+    val counts =
+        linkedMapOf(
+            "inputTokens" to usage.inputTokens,
+            "outputTokens" to usage.outputTokens,
+            "cachedInputTokens" to usage.cachedInputTokens,
+            "cacheCreationInputTokens" to usage.cacheCreationInputTokens,
+        ).filterValues { it != null }
+    if (counts.isEmpty()) return null
+    return counts.entries.joinToString(prefix = "{", postfix = "}", separator = ",") { (key, count) ->
+        "\"$key\":$count"
     }
 }

@@ -51,7 +51,59 @@ class AnthropicUsageTest {
                 "event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n"
         val decoder = AnthropicStreamDecoder()
         val events = decoder.feed(wire.toByteArray()) + decoder.finish()
-        assertEquals(listOf(ModelEvent.Usage(104, 3), ModelEvent.Completed("stop")), events)
+        assertEquals(
+            listOf(
+                ModelEvent.Usage(104, 3, cachedInputTokens = 88, cacheCreationInputTokens = 4),
+                ModelEvent.Completed("stop"),
+            ),
+            events,
+        )
+    }
+
+    @Test fun streamMergesCumulativeCacheCountsWithoutAddingThemTwice() {
+        assertEquals(
+            ModelEvent.Usage(104, 3, 88, 4),
+            streamUsage(
+                """{"input_tokens":12,"cache_read_input_tokens":80,"cache_creation_input_tokens":4}""",
+                """{"output_tokens":3,"cache_read_input_tokens":88}""",
+            ),
+        )
+        assertEquals(ModelEvent.Usage(12, 3), streamUsage("""{"input_tokens":12}""", """{"output_tokens":3}"""))
+        assertEquals(
+            ModelEvent.Usage(12, 3, 0, 0),
+            streamUsage(
+                """{"input_tokens":12,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}""",
+                """{"output_tokens":3}""",
+            ),
+        )
+    }
+
+    @Test fun malformedCacheCountsStayUnknownInsteadOfBecomingZero() {
+        for (invalid in listOf("-1", "\"4\"", "null", "{}", "[]", "1.5", "true", "9223372036854775808")) {
+            for (key in listOf("cache_read_input_tokens", "cache_creation_input_tokens")) {
+                assertEquals(
+                    ModelEvent.Usage(null, 3),
+                    streamUsage(
+                        """{"input_tokens":12,"$key":$invalid}""",
+                        """{"output_tokens":3}""",
+                    ),
+                )
+            }
+        }
+    }
+
+    private fun streamUsage(
+        start: String,
+        delta: String,
+    ): ModelEvent.Usage {
+        val wire =
+            "event: message_start\ndata: {\"message\":{\"usage\":$start}}\n\n" +
+                "event: message_delta\ndata: {\"delta\":{\"stop_reason\":\"end_turn\"},\"usage\":$delta}\n\n" +
+                "event: message_stop\ndata: {}\n\n"
+        val decoder = AnthropicStreamDecoder()
+        return (wire.toByteArray().toList().flatMap { decoder.feed(byteArrayOf(it)) } + decoder.finish())
+            .filterIsInstance<ModelEvent.Usage>()
+            .single()
     }
 
     private fun input(json: String) = AnthropicUsage.inputTokens(Json.parseToJsonElement(json).jsonObject)

@@ -16,6 +16,32 @@ import org.junit.Test
 
 class ToolPresentationMetadataTest {
     @Test
+    fun equivalentSchemaObjectOrdersProduceIdenticalWireBytesWithoutReorderingArrays() {
+        val first =
+            """{"type":"object","properties":{"z":{"type":"string","enum":["z","a"]},""" +
+                """"a":{"description":"A","type":"integer"}},"required":["z","a"]}"""
+        val reordered =
+            """{"required":["z","a"],"properties":{"a":{"type":"integer","description":"A"},""" +
+                """"z":{"enum":["z","a"],"type":"string"}},"type":"object"}"""
+
+        fun augment(raw: String) =
+            ToolPresentationMetadata.augment(ModelToolSchema(ToolName("fixture"), "Fixture", raw))
+        val canonical = augment(first)
+        assertEquals(canonical.inputSchemaJson, augment(reordered).inputSchemaJson)
+        val root = Json.parseToJsonElement(canonical.inputSchemaJson).jsonObject
+        assertEquals(Json.parseToJsonElement("""["z","a"]"""), root["required"])
+        assertEquals(
+            Json.parseToJsonElement("""["z","a"]"""),
+            root
+                .getValue("properties")
+                .jsonObject
+                .getValue("z")
+                .jsonObject["enum"],
+        )
+        assertFalse(canonical.inputSchemaJson == augment(first.replace("\"z\",\"a\"", "\"a\",\"z\"")).inputSchemaJson)
+    }
+
+    @Test
     fun augmentAddsOptionalReservedIntentWithoutChangingRequiredBusinessFields() {
         val original =
             ModelToolSchema(

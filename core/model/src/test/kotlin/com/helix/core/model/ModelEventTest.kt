@@ -83,6 +83,14 @@ class ModelEventTest {
 
     @Test
     fun usageAllowsUnreportedFiguresButNotNegative() {
+        assertEquals(null, ModelEvent.Usage(null, null).cachedInputTokens)
+        assertEquals(0L, ModelEvent.Usage(null, null, 0, 0).cacheCreationInputTokens)
+        assertThrows<IllegalArgumentException>("negative cached input must be rejected") {
+            ModelEvent.Usage(null, null, -1)
+        }
+        assertThrows<IllegalArgumentException>("negative created input must be rejected") {
+            ModelEvent.Usage(null, null, cacheCreationInputTokens = -1)
+        }
         assertEquals(null, ModelEvent.Usage(null, null).inputTokens)
         assertEquals(0L, ModelEvent.Usage(0, 0).inputTokens)
         assertThrows<IllegalArgumentException>("negative input must be rejected") {

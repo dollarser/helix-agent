@@ -7,7 +7,8 @@ import com.helix.tools.framework.ToolDescriptor
  * Stable model-surface ordering. Request capacity is governed by context and provider constraints.
  *
  * This does not grant authority or bypass availability/policy. It only prevents essential built-in
- * contracts from disappearing because optional catalogs happened to register earlier.
+ * contracts from disappearing because optional catalogs happened to register earlier. Within each
+ * rank, names stabilize the wire prefix when discovery recency changes but membership does not.
  */
 internal object ModelToolExposureOrder {
     private val coreFiles =
@@ -44,10 +45,9 @@ internal object ModelToolExposureOrder {
         preferred: Set<String> = emptySet(),
     ): List<ToolDescriptor> =
         tools
-            .withIndex()
             .sortedWith(
-                compareBy<IndexedValue<ToolDescriptor>> { rank(it.value, preferred) }.thenBy { it.index },
-            ).map { it.value }
+                compareBy<ToolDescriptor> { rank(it, preferred) }.thenBy { it.name.value },
+            )
 
     private fun rank(
         tool: ToolDescriptor,

@@ -2,7 +2,8 @@
 
 - `base.md`: always loaded.
 - The base discovery guidance explains combined queries, replacement windows and current-request schemas; it does not change tool availability, search ranking or authorization. Task-specific search terms belong only in explicit historical eval fixtures.
-- `files.md`: only when local file tools are exposed; working directory comes from session facts.
+- `files.md`: stable guidance, only when local file tools are exposed.
+- `directory.md`: request-fresh working directory from session facts, after stable built-in guidance.
 - Mobile Use guidance is owned by `extensions/mobile-use/src/main/assets/plugins/mobile-use/skills/android-ui-task/SKILL.md`, injected only when its tools are exposed. It is not a standalone skill and grants no capability.
 - `plan.md`: only in Plan mode.
 - `goal-identity.md`, `goal-protocol.md`, `goal-safety.md`: active durable Goal binding only.

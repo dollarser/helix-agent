@@ -18,7 +18,7 @@ internal object AnthropicUsage {
         name: String,
     ): Long? = if (name in usage) count(usage, name) else 0L
 
-    private fun count(
+    fun count(
         usage: JsonObject,
         name: String,
     ): Long? {

@@ -37,7 +37,8 @@ internal class SystemPromptContext(
             registry.register(
                 PromptSection(
                     name = "tool.presentation",
-                    order = -1_650,
+                    // Stable built-in guidance precedes request-fresh plugin/skill content.
+                    order = -1_790,
                     scope = PromptScope.TOOL,
                     source = PromptSource.BUILTIN_TEMPLATE,
                 ) {
