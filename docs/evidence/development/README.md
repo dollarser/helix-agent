@@ -11,6 +11,10 @@
 
 ## 专项交付证据
 
+- [2026-11-08 长任务缓存前缀与计量](long-task-cache-2026-11-08.md)：确定性工具/schema、固定说明与新鲜目录分层、三协议缓存 usage；前缀字节与服务端实际命中分开。
+
+- [2026-11-08 网页、Resources 与有界客户端验收](continue-delivery-2026-11-08.md)：Fetch、MCP 文本与合成下一请求、API36 预览/SAF及自然修复；最终门禁、双渠道 Release 基础入口与日常覆盖安装完成，自然诊断仍有失败。
+
 - 2026-10-24 Harness 阶段 1：[应用与内容](harness-stage1-application-content-2026-10-24.md)、[round/工具边界](harness-stage1-round-tools-2026-10-24.md)、[完整生命周期](harness-stage1-lifecycle-2026-10-24.md)。每份只证明其冻结候选与实际验收范围，不外推未运行项。
 
 - [2026-10-19 三阶段收尾与朗读等待](phase-closeout-2026-10-19.md)：有界合成/播放、渠道分享目标、真实 Chrome 分享与配对延迟；两渠道自动验收及 Owner 延后手测的边界。

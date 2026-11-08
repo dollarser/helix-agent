@@ -24,13 +24,17 @@
 
 ## 最新验收及未通过项
 
+- 长任务缓存优化已稳定工具/schema 顺序、固定提示前缀及缓存读写计量。Qwen3.8-27B 的真实 ChatService 四轮任务有一次严格验收通过，后续三轮报告缓存读取；这是优化后复用观测，不是前后 A/B、费用节省或普遍长任务收益。此前早停及失败样本保留，自主完成可靠性仍开放，见[缓存验证](../evidence/development/long-task-cache-2026-11-08.md)。
+
+- 最新收尾的双渠道完整 Debug 主机门禁、API36 后台预览 17 项及私有 SAF 12 项通过，Developer Debug 已保数据覆盖日常模拟器。区分结果正文与独立日志后，真实自然诊断及修复均有界通过；真实模型的网页/MCP 文本读取、下一请求消费及答案也有严格通过样本。MCP 使用本机协议服务，不代表第三方生产服务；历史早停与诊断失败不抹去，旧 Release/真实系统 SAF 结果不继承为新候选验收。见[本轮证据](../evidence/development/continue-delivery-2026-11-08.md)。
+
 - 会话 presentation/application、共享 UI 与 Room/ContentStore 已分别进入 `feature:conversation`、`ui:shared` 和 `infrastructure:storage`，实际依赖护栏、Debug 主机与 API36 有界设备回归通过；随后 SAF 文档快照发布失败/取消边界修复也有独立 Debug 与 storage 设备结果，两次对应候选均覆盖更新日常模拟器且未清数据。计数、候选与新旧证据边界只维护在[蓝图 24.1](../architecture/harness-refactor-plan.md#241-结论基线与范围)，不继承下述旧 Release/真机结果，也不等于自然模型用户目标已验收。
 - 有序收尾补齐真实系统 SAF 的新建、原件读取、撤权失败及跨 UID 分享接收验证，修复树 URI 编码/身份与创建 API；超大文本改为有界分页，支持页码跳转和同页可见分块选择，跨页选择仍不提供。范围见[文件 ADR](../adr/workspace/002-manual-files-and-recovery.md)。API36 文件/菜单/预览及选择设备回归通过，具体候选分开记账。
 - 本轮整合生产源码的双渠道 Debug/Release R8 主机门禁通过；新增验证包隔离工具另经完整主机测试。API36 双渠道全新隔离测试签名 R8 各三项基础入口及同候选覆盖后语言配置保留通过，隔离包已清理、日常包未清数据；不是正式签名、完整产品或真机 Release 验收。
 - 后台 helper 异常死亡后的主屏焦点抢占已作有界清理修复，API36 正常释放、真实死亡和重连通过；Owner 后续接受双进程退出后的主屏焦点行为为合理；历史 ANR 与旧最近任务空白缩略图保留历史证据，未复现时不重复追查。历史 Mobile Use 耗时分解与模型数字核验边界见[研究记录](../research/topics/mobile-use-device-readiness-and-reliability-2026-09-29.md#2026-11-04有序收尾的断连与历史耗时复核)。Owner 随后授权真机覆盖安装；ONEPLUS_A6013/API34 保数据安装同一 Debug 候选后，七项文件/菜单/分页复制/预览界面检查，以及正常释放、原 helper 真实死亡后焦点恢复和重连通过。复制夹具固定像素回滚曾使第二块在真机离屏，已移除该回滚并在真机/模拟器重测，实际剪贴板断言保留。双渠道隔离测试签名 R8 各三项基础入口也在该真机通过并完成隔离包清理；未进行真机覆盖安装配置保留专项或正式签名验收。真实系统 SAF 的专项证据仍来自 API36；本轮未在真机新增该目录授权。首轮测试运行器曾写入简体中文选项且未事先记录原选项，后续使用保留设置模式；没有清除应用数据。
 - 电脑 ADB helper 当前源码覆盖 Android 12+ 的 Advanced Debug/Release，使用应用签发、绑定进程与 APK 的一次性交接，不再依赖 `run-as`；Standard 当前无手机操作宿主适配，保持无此入口。v0.0.10 公开制品不变，新路径未发布。此前 API34 真机 Debug 的 Root/ADB 证据仅用于其未变路径，不能代表新 Release 交接验收；使用、退出及范围见[电脑 ADB helper](computer-adb-helper.md)。无线配对、跨 Helix 进程 task 关联与纯无障碍独立屏仍明确延期。
 
-- 当前仍需区分的失败：自然日志诊断有成功也有未读 stderr 的样本，不能把 Turn COMPLETED 当作目标完成；Memory 索引对照未证明优于默认，保留当前策略。见[Memory/日志实验](../evidence/development/memory-log-effect-experiment.md)、[客户端回归](../evidence/development/nondevice-client-acceptance.md)。
+- 当前仍需区分的失败：历史自然日志诊断未补读 stderr，修正后的有限成功不证明一般可靠性；真实网页/MCP 任务也曾在仅表示下一步意图后早停，后续带完整 SSE 留痕的成功不能倒推旧轮原因或消除该风险。不能把 Turn COMPLETED 当作目标完成；Memory 索引对照未证明优于默认，保留当前策略。见[Memory/日志实验](../evidence/development/memory-log-effect-experiment.md)、[客户端回归](../evidence/development/nondevice-client-acceptance.md)。
 - 合成语音同一 PCM 的 HTTP/WS 传输通过，但“接入→接助”等字词差异仍在；TTS 服务全局单会话及排队/取消收尾需要服务端配合。模拟音频、播放控制和网络测试不代表真实麦克风/耳机体验。
 - 既有结构、原位执行、结果日志和日常体验的具体批次移交[证据库](../evidence/development/README.md)保存，不再把各轮安装、测试数量和旧“未提交”状态复制为当前进度。实际通过范围仍以绑定源码/制品的原记录为准，其他 OEM、活动终端覆盖安装恢复与资源矩阵不由局部结果推导。
 - 发布快照统一从[产品版本入口](../product/README.md)查阅；当前源码的后续修改不属于旧 APK，也不继承其发行通过。日常迭代用 Debug，签名与发布条件见[发行就绪](release-readiness.md)。
@@ -40,7 +44,7 @@
 | 范围 | 边界与入口 |
 | --- | --- |
 | 架构重构 | 完整 Turn 宿主、内容/预算、装配/输入契约，以及 conversation、共享 UI 与 Room 模块迁移均已有有界交付；后续仅按[蓝图 24.1](../architecture/harness-refactor-plan.md#241-结论基线与范围)的证据边界及[渐进路线](../architecture/harness-refactor-plan.md#245-分阶段实施路线)选择仍有收益的纵切。已完成内容不重做，不把网页、MCP Resources 等新能力当结构前置 |
-| 功能新增 | 网页工作流、MCP Resources 正文、Browser 新表单能力、跨会话任务投递等按[功能任务](roadmap.md#功能新增与能力扩展)的剩余范围分别推进；生产子 Agent、远程、hooks/LSP、模型 PTY 等仍依[候选索引](candidate-decisions.md)进入条件，建议不等于已授权实施 |
+| 功能新增 | 网页 Fetch 与 MCP 文本 Resources 已有有界交付；Search、MCP 二进制及第三方生产服务验证、模型自主完成可靠性、Browser 新表单能力、跨会话任务投递等按[功能任务](roadmap.md#功能新增与能力扩展)的剩余范围分别推进；生产子 Agent、远程、hooks/LSP、模型 PTY 等仍依[候选索引](candidate-decisions.md)进入条件，建议不等于已授权实施 |
 | 验证与缺陷 | 已有文件搜索、设备交互等尚缺的验收与已知失败见[验证任务](roadmap.md#缺陷修复与验证收尾)；不把待验证写成未实现，不用文档整理关闭 pending |
 | 服务与账号 | Notion/Linear 既定测试已结案，Claude/Grok 付费账号暂缓；新账号/付费额度/真实外部副作用需当前明确授权，配置缺失与无效分别处理 |
 | 系统与资源 | 其他 OEM/API、物理低内存/热压/Doze/16 KiB、24h 与全部 Runtime 组合未全部验收；已有资源结果不外推，见[资源复核](../evidence/development/resource-gate-review-2026-10-12.md)及[原生引用调查](../evidence/development/native-reference-release-trace.md) |

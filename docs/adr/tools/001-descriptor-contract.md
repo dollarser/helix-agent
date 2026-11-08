@@ -171,3 +171,14 @@ Registry/Binding 与 303 发现配套是现行基线，不再迁移。286 聚焦
 ## Decision history — 2026-10-26：原生路径与正文定位
 
 HXA-289 的 `glob` / `grep` 采用原 Dispatcher、请求目录绑定和 Workspace 读授权；删除被替代的模型 `files.search`，文件管理 UI 的名称筛选仍有效。glob 使用有界非回溯路径匹配，grep 明确为 UTF-8 字面量搜索，不伪装支持正则。命中返回原 scope 身份，正文哈希绑定实际完整读取流；搜索行号和片段不是写入凭证。结果区分截断、未读、跳过及 complete，offset 重新扫描而非稳定快照；扫描/字节上限后缩小范围，不声称全局不存在。实现和验证归原 [HXA-289](../../development/tasks/HXA-289.md)，不新建索引、Shell 路径或权限。
+
+## Decision history — 2026-11-07：独立网页正文读取
+
+Owner 授权完成后续事项。HXA-290 的 Fetch 采用独立 `web_fetch` 文本读取契约，保留 `http.fetch` 原始响应语义与 Provider/MCP 严格端点类型。网页 query 是请求数据，不是授权；新 URL 解析仍进入既有 SSRF、精确网络 scope、Dispatcher、取消和结果路径。OkHttp 负责 HTTP framing/解压，jsoup 仅本机解析受控字节，不增加浏览器、登录态、Node 或其他执行域。选用 MIT 解析库避免把旧正则去标签冒充通用正文提取，并保留完整上游许可。
+
+结果区分真实来源 URL、返回文本 hash、输入/正文截断与解析覆盖，不把摘要、空壳、登录页或搜索片段宣称为已读全文。第三方正文不能改变权限或成为宿主指令；保留实际下一请求消费和真实网页质量的独立验证要求。参考 [jsoup 官方说明](https://jsoup.org/) 与 [OWASP SSRF 防护](https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html)，实施状态及尚未验证范围归 [HXA-290](../../development/tasks/HXA-290.md)。
+
+
+## Decision history — 2026-11-08：网页 URL 与内容编码失败边界
+
+网页 URL 不放宽既有 origin 的 host 合法性；不兼容的 host 在 DNS 前报告稳定失败。重定向须在规范化前检查原始 Location，避免空 userinfo、控制字符被解析器消去。Fetch 的可读文本仅来自无编码/identity 或单层 gzip 自动解压后的字节，其他及多重 Content-Encoding 明确失败，不能把未解码压缩字节当正文。解压前检查所有编码字段、解压后保留字节预算；错误 HTTP 与非文本响应继续不消费正文。实现与新证据归 HXA-290，旧主机结果不证明后续收口源码。
