@@ -160,7 +160,7 @@ class SessionToolEffectClassifier(
                 undetermined(OperationEffect.REMOTE_BUSINESS_MUTATION)
             }
 
-            name == HTTP_FETCH -> {
+            name in NETWORK_READ_TOOLS -> {
                 CallEffectClassification(OperationFootprint())
             }
 
@@ -348,6 +348,8 @@ class SessionToolEffectClassifier(
         const val QUICKJS_RUN: String = "code.javascript.run"
 
         const val HTTP_FETCH: String = "http.fetch"
+
+        private val NETWORK_READ_TOOLS = setOf(HTTP_FETCH, "web_fetch")
 
         private const val BROWSER_PREFIX = "browser."
 

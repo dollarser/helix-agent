@@ -446,9 +446,11 @@ class SessionToolEffectClassifierTest {
 
     @Test
     fun httpFetchIsACleanNetworkRead() {
-        val c = bound.classify(request(), descriptor("http.fetch", ToolOperationClass.NETWORK))
-        assertEquals(emptySet<OperationEffect>(), c.footprint.effects)
-        assertTrue(c.footprint.undeterminedEffects.isEmpty())
+        for (name in listOf("http.fetch", "web_fetch")) {
+            val c = bound.classify(request(), descriptor(name, ToolOperationClass.NETWORK))
+            assertEquals(emptySet<OperationEffect>(), c.footprint.effects)
+            assertTrue(c.footprint.undeterminedEffects.isEmpty())
+        }
     }
 
     @Test

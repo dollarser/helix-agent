@@ -153,6 +153,7 @@ val ziplineDependency = libs.zipline
 val kotlinxSerializationJsonDependency = libs.kotlinx.serialization.json
 val coroutinesCoreDependency = libs.kotlinx.coroutines.core
 val okhttpDependency = libs.okhttp.wire
+val jsoupDependency = libs.jsoup
 val okhttpSseDependency = libs.okhttp.sse
 val okhttpVersion = libs.versions.okhttp.get()
 val mcpClientDependency = libs.mcp.client
@@ -407,6 +408,8 @@ subprojects {
             // Context-backed port (ClipboardManager round-trip, intent building, foreground
             // gating) on device (verification-matrix row HXA-064).
             if (path == ":tools:android") {
+                dependencies.add("implementation", okhttpDependency.get())
+                dependencies.add("implementation", jsoupDependency.get())
                 dependencies.add("androidTestImplementation", androidTestCoreKtxDependency.get())
                 dependencies.add("androidTestImplementation", androidTestRunnerDependency.get())
                 dependencies.add("androidTestImplementation", androidTestJunitDependency.get())

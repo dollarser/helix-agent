@@ -4,6 +4,14 @@ Helix source code is licensed under Apache License 2.0. Third-party libraries,
 tools, runtime assets, models, and command-line artifacts retain their own
 licenses and are not relicensed by the Helix project.
 
+## Web document parsing
+
+jsoup 1.24.1 is used only to parse already-fetched HTML, under its MIT license.
+The unmodified upstream notice is bundled as `assets/licenses/jsoup-MIT.txt`.
+Its Maven inputs are pinned in the version catalog, dependency locks and
+verification metadata. The Netty BOM referenced by its POM is resolution
+metadata for upstream tests, not a new shipped Netty runtime dependency.
+
 ## Offline formula previews
 
 KaTeX 0.19.1's unmodified browser script, stylesheet and fonts are bundled for

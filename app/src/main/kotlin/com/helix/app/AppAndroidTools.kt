@@ -77,5 +77,7 @@ internal object AppAndroidTools {
                 egressPolicy,
             ),
         )
+        com.helix.tools.android.WebFetchTool
+            .register(toolRegistry, egressPolicy)
     }
 }
