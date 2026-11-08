@@ -30,10 +30,15 @@ internal fun PreviewResizeControl(
     modifier: Modifier,
     onResize: (Float) -> Unit,
 ) {
+    if (!previewShowsResizeHandle(width, ratio)) return
     val density = LocalDensity.current.density
     val currentWidth by rememberUpdatedState(width)
     val resize by rememberUpdatedState<(Float, Offset) -> Float> { start, drag ->
-        boundedPreviewWidth(start + previewWidthDelta(drag.x, drag.y, ratio) / density, maximum).also(onResize)
+        boundedPreviewWidth(
+            start + previewWidthDelta(drag.x, drag.y, ratio) / density,
+            maximum,
+            previewMinimumWidth(ratio),
+        ).also(onResize)
     }
     Canvas(
         modifier.size(24.dp).testTag("background-preview-resize").pointerInput(Unit) {

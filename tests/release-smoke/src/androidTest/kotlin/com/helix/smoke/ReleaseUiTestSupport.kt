@@ -282,7 +282,11 @@ internal class ReleaseUiTestSupport {
         launch()
         val deadline = SystemClock.elapsedRealtime() + 15_000
         while (SystemClock.elapsedRealtime() < deadline) {
-            node("我已知晓，开始使用", "I understand, start using")?.let(::tap)
+            node("我已知晓，继续", "I understand, continue")?.let(::tap)
+            if (node("后台运行与预览", "Background and preview") != null) {
+                // Continue without granting notification or battery-optimization permissions.
+                click("继续", "Continue")
+            }
             if (node("应用导航", "App navigation") != null) return
             SystemClock.sleep(100)
         }

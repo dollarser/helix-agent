@@ -1,6 +1,8 @@
 <resources>
     <string name="background_preview_title">后台屏</string>
     <string name="background_preview_hide">隐藏</string>
+    <string name="background_preview_show_controls">显示后台屏控制栏</string>
+    <string name="background_preview_hide_controls">隐藏后台屏控制栏</string>
     <string name="background_preview_waiting">等待画面</string>
     <string name="background_preview_expand">展开后台屏</string>
     <string name="background_preview_collapse">收起后台屏</string>

@@ -44,11 +44,39 @@ class HelixIsolatedRoomTestRunner : AndroidJUnitRunner() {
                 "com.helix.app.infrastructure.chat.RoomSessionInputCommandsDeviceTest",
                 "com.helix.app.chat.MessageRegenerateDeviceTest",
                 "com.helix.app.chat.AutomaticRecoveryPersistenceDeviceTest",
+                "com.helix.app.documents.SafSnapshotCapacityDeviceTest",
+                "com.helix.app.files.SafDirectoryReliabilityDeviceTest",
+                "com.helix.app.documents.SafPlatformCancellationDeviceTest",
+                "com.helix.app.files.SafSystemDirectoryReliabilityDeviceTest",
+                "com.helix.app.eval.BackgroundPreviewUiDeviceTest",
             )
 
         // Whole audited classes are preferred; method selection is explicit rather than a wildcard.
         val METHODS =
             mapOf(
+                "com.helix.app.documents.SafSnapshotCapacityDeviceTest" to
+                    setOf(
+                        "cancellationRetainsPhysicalCapacityAndStagingUntilProviderActuallyReturns",
+                        "timeoutRetainsPhysicalCapacityAndStagingUntilProviderActuallyReturns",
+                    ),
+                "com.helix.app.files.SafDirectoryReliabilityDeviceTest" to
+                    setOf(
+                        "nestedSearchHonorsResultAndScanLimitsAndHidesMetadata",
+                        "bidirectionalAdditionsAndSingleSideEditsUseVerifiedProviderBytes",
+                        "doubleEditConflictSurvivesReopenUntilExplicitContentReconciliation",
+                        "oneSidedDeletionAndTypeReplacementNeverDestroyTheOtherSide",
+                        "revokedGrantStopsSyncAndReauthorizationResumesFromSavedBaseline",
+                        "providerScanDepthLimitLeavesBothTreesUntouched",
+                        "interruptedPrivateTransferBlocksSyncUntilExplicitRecovery",
+                    ),
+                "com.helix.app.documents.SafPlatformCancellationDeviceTest" to
+                    setOf(
+                        "cooperativeProviderCanCancelQueryAndAssetOpen",
+                        "cancellationDoesNotForceAnUncooperativeProviderToReturn",
+                        "providerCancellationCallbackCanItselfBlockItsCallingThread",
+                    ),
+                "com.helix.app.files.SafSystemDirectoryReliabilityDeviceTest" to
+                    setOf("systemProviderSearchAndSyncConflictRecoverAfterServiceReopen"),
                 "com.helix.app.infrastructure.conversation.ConversationReferenceKnowledgeDeviceTest" to
                     setOf(
                         "referencesKeepTheirCapturedCeilingAndRejectChangedCapturedHistory",
