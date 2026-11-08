@@ -96,21 +96,34 @@ class McpDynamicToolBridge(
     private val identity: McpServerIdentity,
     metadata: List<McpToolMetadata>,
     caller: McpToolCaller,
+    resourceCaller: McpToolCaller? = null,
 ) {
     init {
         require(config.enabled) { "MCP tools can only be registered from a user-enabled server" }
+    }
+
+    private val allMetadata = metadata + if (resourceCaller != null) McpResourceTools.metadata() else emptyList()
+
+    init {
+        require(allMetadata.map { it.name }.distinct().size == allMetadata.size) {
+            "Remote tool conflicts with host resource tool name"
+        }
     }
 
     private val source =
         McpToolSource(
             serverId = config.id.value,
             protocolVersion = identity.negotiatedProtocolVersion,
-            specs = metadata.map { tool -> tool.toSpec() },
+            specs = allMetadata.map { tool -> tool.toSpec() },
         )
     private val descriptors = source.load()
     private val executors =
-        descriptors.zip(metadata).associate { (descriptor, tool) ->
-            descriptor to McpToolExecutor(tool.name, caller)
+        descriptors.zip(allMetadata).associate { (descriptor, tool) ->
+            descriptor to
+                McpToolExecutor(
+                    tool.name,
+                    if (resourceCaller != null && tool.name in McpResourceTools.names) resourceCaller else caller,
+                )
         }
 
     fun register(
@@ -341,9 +354,16 @@ private fun mcpFailure(
     val state = if (sent) "UNKNOWN" else "NOT_SENT"
     val guidance = if (sent) "Inspect remote effects; cancellation is not rollback" else "No tool request submitted"
     val cause = failure.cause ?: failure
+    val resourceFailure =
+        (cause as? McpResourceException)
+            ?.reason
+            ?.name
+            ?.let { "; resourceFailure=$it" }
+            .orEmpty()
     val detail =
         "MCP request=$state; originalCallId=${call.toolCallId}; " +
-            "connectionAttempts=${facts?.connectionAttempts ?: 1}; cause=${cause::class.simpleName}; $guidance"
+            "connectionAttempts=${facts?.connectionAttempts ?: 1}; " +
+            "cause=${cause::class.simpleName}$resourceFailure; $guidance"
     val audit =
         buildJsonObject {
             put("requestSent", sent)

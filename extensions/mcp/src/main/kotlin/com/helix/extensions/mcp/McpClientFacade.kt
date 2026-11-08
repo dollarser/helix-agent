@@ -26,6 +26,12 @@ interface McpClientSession {
         limits: McpToolResultLimits = McpToolResultLimits(),
     ): McpToolResult
 
+    suspend fun listResources(cursor: String? = null): McpResourcePage
+
+    suspend fun listResourceTemplates(cursor: String? = null): McpResourcePage
+
+    suspend fun readResource(uri: String): List<McpResourceText>
+
     suspend fun close()
 }
 

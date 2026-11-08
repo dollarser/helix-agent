@@ -72,6 +72,18 @@ internal class SdkMcpClientSession(
         return McpToolResult(result.isError == true, blocks, structured)
     }
 
+    private fun resources(): SdkMcpResources {
+        check(!closed.get()) { "MCP session is closed" }
+        if (capabilities.resources == null) throw McpResourceException(McpResourceFailure.UNSUPPORTED)
+        return SdkMcpResources(sdkClient)
+    }
+
+    override suspend fun listResources(cursor: String?): McpResourcePage = resources().list(cursor, false)
+
+    override suspend fun listResourceTemplates(cursor: String?): McpResourcePage = resources().list(cursor, true)
+
+    override suspend fun readResource(uri: String): List<McpResourceText> = resources().read(uri)
+
     override suspend fun close() {
         if (!closed.compareAndSet(false, true)) return
         try {

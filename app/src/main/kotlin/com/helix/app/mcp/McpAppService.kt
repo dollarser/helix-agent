@@ -95,35 +95,32 @@ class McpAppService(
         toolNames: Set<String>,
     ) {
         val available = snapshot.metadata.tools.associateBy { it.name }
-        require(toolNames.isNotEmpty()) { "at least one MCP tool must be selected" }
+        require(toolNames.isNotEmpty() || snapshot.metadata.capabilities.resources) {
+            "select a tool or use a Resources-capable server"
+        }
         require(toolNames.all { it in available }) { "MCP tool selection contains an unknown tool" }
         val enabledConfig = storage.load(snapshot.serverId.value).copy(enabled = true)
         val selected = toolNames.sorted().map { McpToolSchemaAdapter.adapt(available.getValue(it)) }
         lateinit var bridge: McpDynamicToolBridge
-        val baseCaller =
-            runtime.caller(enabledConfig) { call ->
-                check(activeBridges[snapshot.serverId.value] === bridge) { "MCP_SERVER_DISABLED_OR_REPLACED" }
-                requireSource(snapshot.serverId.value, call.sessionId)
-                pendingSummaries.remove(call.toolCallId)?.let { pending ->
-                    recordSent(pending.sessionId, pending.summary)
-                }
-            }
+        val onSend: (com.helix.tools.framework.ExecutableToolCall) -> Unit = { call ->
+            check(activeBridges[snapshot.serverId.value] === bridge) { "MCP_SERVER_DISABLED_OR_REPLACED" }
+            requireSource(snapshot.serverId.value, call.sessionId)
+            pendingSummaries.remove(call.toolCallId)?.let { pending -> recordSent(pending.sessionId, pending.summary) }
+        }
+        val baseCaller = runtime.caller(enabledConfig, onSend = onSend)
+        val resourceCaller = runtime.caller(enabledConfig, resourceOperation = true, onSend = onSend)
         bridge =
             McpDynamicToolBridge(
                 config = enabledConfig,
                 identity = snapshot.identity,
                 metadata = selected,
-                caller =
-                    com.helix.extensions.mcp.McpToolCaller { call, name ->
-                        withLiveCall(snapshot.serverId.value, admitted = {
-                            requireSource(snapshot.serverId.value, call.sessionId)
-                            check(
-                                activeBridges[snapshot.serverId.value] === bridge,
-                            ) { "MCP_SERVER_DISABLED_OR_REPLACED" }
-                        }) {
-                            baseCaller.call(call, name)
-                        }
+                resourceCaller =
+                    if (snapshot.metadata.capabilities.resources) {
+                        guardedCaller(snapshot.serverId.value, { bridge }, resourceCaller)
+                    } else {
+                        null
                     },
+                caller = guardedCaller(snapshot.serverId.value, { bridge }, baseCaller),
             )
         synchronized(callGate) {
             bridge.register(registry) {
@@ -131,6 +128,17 @@ class McpAppService(
                 activeBridges[snapshot.serverId.value] = bridge
             }
         }
+    }
+
+    private fun guardedCaller(
+        serverId: String,
+        bridge: () -> McpDynamicToolBridge,
+        caller: com.helix.extensions.mcp.McpToolCaller,
+    ) = com.helix.extensions.mcp.McpToolCaller { call, name ->
+        withLiveCall(serverId, admitted = {
+            requireSource(serverId, call.sessionId)
+            check(activeBridges[serverId] === bridge()) { "MCP_SERVER_DISABLED_OR_REPLACED" }
+        }) { caller.call(call, name) }
     }
 
     fun isActive(serverId: String): Boolean = activeBridges.containsKey(serverId)

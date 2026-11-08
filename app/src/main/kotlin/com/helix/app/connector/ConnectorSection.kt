@@ -606,7 +606,8 @@ internal fun EndpointRow(
                     }
                 }
             }
-            OutlinedButton(enabled = !busy && selection.isNotEmpty(), onClick = {
+            val canEnable = selection.isNotEmpty() || result.metadata.capabilities.resources
+            OutlinedButton(enabled = !busy && canEnable, onClick = {
                 scope.launch {
                     busy = true
                     try {

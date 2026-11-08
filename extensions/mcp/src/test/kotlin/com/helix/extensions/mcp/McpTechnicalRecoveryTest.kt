@@ -168,6 +168,12 @@ class McpTechnicalRecoveryTest {
                         limits: McpToolResultLimits,
                     ) = McpToolResult(false, listOf(McpResultBlock.Text("received")), null)
 
+                    override suspend fun listResources(cursor: String?): McpResourcePage = error("unused")
+
+                    override suspend fun listResourceTemplates(cursor: String?): McpResourcePage = error("unused")
+
+                    override suspend fun readResource(uri: String): List<McpResourceText> = error("unused")
+
                     override suspend fun close(): Unit = throw IOException("cleanup failed")
                 }
             val runtime =

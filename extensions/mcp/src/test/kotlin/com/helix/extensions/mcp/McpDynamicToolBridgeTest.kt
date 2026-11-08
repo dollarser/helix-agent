@@ -192,6 +192,42 @@ class McpDynamicToolBridgeTest {
         )
     }
 
+    @Test
+    fun hostResourceDescriptorsUseMcpIdentityAndNeverDispatchAsRemoteTools() {
+        val registry = ToolRegistry()
+        var resourceName: String? = null
+        McpDynamicToolBridge(
+            config = McpServerConfig.disabled("fixture", "https://mcp.example.com/mcp").copy(enabled = true),
+            identity = McpServerIdentity("fixture", "1", "2025-03-26"),
+            metadata = emptyList(),
+            caller = McpToolCaller { _, _ -> error("resources must not call a remote tool") },
+            resourceCaller =
+                McpToolCaller { _, name ->
+                    resourceName = name
+                    McpToolResult(false, emptyList(), buildJsonObject { put("text", "remote text") })
+                },
+        ).register(registry)
+        assertEquals(3, registry.all().size)
+        val descriptor = registry.all().single { it.name.value.endsWith(".read_mcp_resource") }
+        assertEquals("fixture", (descriptor.origin as ToolOrigin.McpOrigin).serverId)
+        val result =
+            registry.executor(descriptor.name, descriptor.version).execute(
+                ExecutableToolCall(
+                    "resource-call",
+                    descriptor.name.value,
+                    "1",
+                    buildJsonObject { put("uri", "memo://one") },
+                    ExecutionTargetType.LOCAL_ANDROID,
+                    Instant.now().plusSeconds(5),
+                    NoCancellation,
+                ),
+            )
+        assertTrue(result is ToolExecutorResult.Completed)
+        assertEquals("read_mcp_resource", resourceName)
+        registry.replaceMcpServer("fixture", emptyList())
+        assertTrue(registry.all().isEmpty())
+    }
+
     private fun bridge(
         tool: McpToolMetadata,
         result: (ExecutableToolCall) -> McpToolResult = {

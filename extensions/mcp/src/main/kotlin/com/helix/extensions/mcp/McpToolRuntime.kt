@@ -10,6 +10,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import java.time.Duration
 
 class McpToolRuntime(
@@ -42,6 +44,7 @@ class McpToolRuntime(
     fun caller(
         config: McpServerConfig,
         limits: McpToolResultLimits = McpToolResultLimits(),
+        resourceOperation: Boolean = false,
         onSend: (ExecutableToolCall) -> Unit = {},
     ): McpToolCaller {
         require(config.enabled)
@@ -70,7 +73,11 @@ class McpToolRuntime(
                                 ensureNotCancelled(call.cancel.isCancelled(), "send")
                                 onSend(call)
                                 sent = true
-                                session.callTool(serverToolName, call.args, limits)
+                                if (resourceOperation) {
+                                    readResources(session, config, call, serverToolName, onSend)
+                                } else {
+                                    session.callTool(serverToolName, call.args, limits)
+                                }
                             } catch (failure: Throwable) {
                                 closeSession(session)?.let(failure::addSuppressed)
                                 throw failure
@@ -83,6 +90,28 @@ class McpToolRuntime(
                 throw trackedFailure(sent, attempts, failure)
             }
         }
+    }
+
+    private suspend fun readResources(
+        session: McpClientSession,
+        config: McpServerConfig,
+        call: ExecutableToolCall,
+        name: String,
+        onSend: (ExecutableToolCall) -> Unit,
+    ): McpToolResult {
+        val result =
+            McpResourceTools.execute(session, name, call.args, config.id.value + "\n" + config.endpoint.full) {
+                ensureNotCancelled(call.cancel.isCancelled(), "resource request")
+                onSend(call)
+            }
+        return result.copy(
+            structuredContent =
+                buildJsonObject {
+                    put("serverId", config.id.value)
+                    put("endpoint", config.endpoint.full)
+                    result.structuredContent?.forEach { (key, value) -> put(key, value) }
+                },
+        )
     }
 
     private fun trackedFailure(
