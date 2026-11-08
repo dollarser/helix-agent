@@ -48,3 +48,14 @@
 - **构建与安装边界：** `debug-host-4` 虽完成构建/测试，但产物检查与并行隔离构建竞争共享输出，整轮失败；`live-build-5` 测试构造编译失败也保留。最终序列化门禁及相应独立测试候选分别验收。`daily-install-1` 将 gate 7 的 Developer Debug 保数据覆盖至 `Helix_API_36`，安装字节及 firstInstallTime 核验通过，无卸载或清数据。本轮无真机、推送或发布，Debug 不代表新 Release 验收。
 
 Search、登录/JS 页面完整正文、通用提取质量、第三方生产 Resources 服务、二进制和其他模型/OEM仍不由本轮证明。四轮任务的实际缓存复用与非因果边界见[缓存接续](long-task-cache-2026-11-08.md)。
+
+## 2026-11-08 非语音补验
+
+Owner 排除语音识别质量后，本轮仅补模拟器可执行的剩余验证与验收器缺口；不操作真机、不重新登录、不推送或发布。证据在 ignored `build/validation/remaining-2026-11-08/`。基线为 `87df1928`；工作区新增/修改仅为测试与本节说明，未提交。生产源码没有改动，不能把测试加强称为修复了未知生产问题。
+
+- **主机与 Release：** `full-host-2` 完整 `--all` 通过，期间输入未变，双渠道 Debug/Release R8 候选单独冻结。`release-smoke-1` 对同生产源码的隔离测试签名 Release 在 API36 两渠道各 3 项基础入口通过，日常包未变；不是正式签名、完整 Release 产品、配置保留升级或真机验收。随后测试改动由 `final-debug-host-3` 完整 Debug 门禁通过，App XML Consumer 1,649、Developer 1,847，各零 failure/error、5 项既有 skip；UP-TO-DATE 项不记为新执行。生产输入与完整 Release 基线一致，差异只涉及 AndroidTest。`full-host-1` 的 Gradle 本机 socket 执行限制、`final-debug-host-2` 新测试复杂度门禁失败均保留，未放宽检查。
+- **真实 SAF 进程恢复：** `system-saf-process-1` 在实际 DocumentsUI/ExternalStorageProvider 的本轮新建空目录中，完成初始同步后于生产 rename 发布点真实终止隔离应用进程，再用不同 PID 验证。持久 journal 为 PUBLISHING，规则从 RUNNING/启用转为 REVIEW/禁用并发出停止调度决定；自动 run 不重放，源/新目标/旧备份字节保留。只有显式恢复清理匹配备份，随后同步 copied=0。只覆盖这一发布切点；调度器为记录决定的夹具，不证明真实 WorkManager/Doze 调度。准确目录授权、自建 Provider 内容、空目录及私有夹具均清理，日常包未改变。
+- **系统 SAF 原路径回归：** 抽取共享 picker 后，`system-saf-regression-1` 原搜索/双向同步/冲突及服务重开用例 1 项通过，授权和内容同样清理。它仍是服务重开，不与前述真正进程死亡混淆。其他 Provider/OEM、任意发布切点、跨 Provider 原子性仍未由此覆盖；只读发现系统 Provider 不等于它们已授权或通过。
+- **真实视觉与证据修正：** 旧 `budget.request.images` 是估算计量，不足以证明传输。新增测试探针原样委托现存账号 transport，按本轮 nonce/Turn/modelCall 记录可解码编码图片及同请求响应，不记录凭据、图片或请求正文。五项离线正反例通过。`visual-live-1` 的随机无语义图形合成任务实际通过，13 次 HTTP 200，其中 9 次携带编码图片，12 次工具调用。页面随机圆和按钮计数各为 1，后续 snapshot 观察到输入 nonce，最终文件字节精确匹配；离线轨迹复核没有脚本/OCR/终端调用。它证明该轮传输及效果，不外推模型通用视觉可靠性，也不关闭历史自主早停。
+- **测试收尾边界：** 视觉验收复用现有 ADB helper 启动握手，在 instrumentation 建立真实应用进程后才连接，结束前关闭本轮请求入口并等待捕获的原执行 Job 退出，再恢复配置。其他请求透传不被测试入口拒绝。数字读回测试同时修正测试包硬编码及无界等待，但本轮没有运行数字读回，不把编译成功当作数字识别验收。视觉运行使用日常现存账号，未复制凭据或重新登录；helper 已按本轮进程回执停止，原缺省 scope/execution 配置恢复，清理前只读数据库及重启后 inventory 均无活动 Turn。两种检查分别记账，重启后状态不代替原 Job 退出。
+- **安装与剩余：** 最终日常 Developer Debug APK 与此前已装通过包字节相同，核验后保留现有包，仅更新测试 APK；firstInstallTime 保留，没有卸载或清数据。测试签名 Release 隔离包保留。语音识别质量没有测试或改动，服务端 TTS 并发/收尾、其他真实 Provider/OEM、物理资源与正式发行条件仍按原范围开放。当前证据不要求反复运行已留痕早停样本直到成功。

@@ -24,9 +24,11 @@
 
 ## 最新验收及未通过项
 
+- 非语音补验新增真实系统 SAF 发布后跨进程恢复：不同 PID、REVIEW/禁自动执行、字节保留及显式恢复通过；原系统 SAF 回归同样通过。当前生产源码完整主机 Debug/Release R8、API36 双渠道隔离测试签名 Release 各三项基础入口通过；随机无语义图形的真实模型单轮核验编码图片传输、点击与文件效果通过，仍不代表一般模型可靠性。测试修正及各候选边界见[本轮补验](../evidence/development/continue-delivery-2026-11-08.md#2026-11-08-非语音补验)。本轮无真机、重登录、发布或语音质量验证。
+
 - 长任务缓存优化已稳定工具/schema 顺序、固定提示前缀及缓存读写计量。Qwen3.8-27B 的真实 ChatService 四轮任务有一次严格验收通过，后续三轮报告缓存读取；这是优化后复用观测，不是前后 A/B、费用节省或普遍长任务收益。此前早停及失败样本保留，自主完成可靠性仍开放，见[缓存验证](../evidence/development/long-task-cache-2026-11-08.md)。
 
-- 最新收尾的双渠道完整 Debug 主机门禁、API36 后台预览 17 项及私有 SAF 12 项通过，Developer Debug 已保数据覆盖日常模拟器。区分结果正文与独立日志后，真实自然诊断及修复均有界通过；真实模型的网页/MCP 文本读取、下一请求消费及答案也有严格通过样本。MCP 使用本机协议服务，不代表第三方生产服务；历史早停与诊断失败不抹去，旧 Release/真实系统 SAF 结果不继承为新候选验收。见[本轮证据](../evidence/development/continue-delivery-2026-11-08.md)。
+- 此前独立收尾的双渠道完整 Debug 主机门禁、API36 后台预览 17 项及私有 SAF 12 项通过，Developer Debug 已保数据覆盖日常模拟器。区分结果正文与独立日志后，真实自然诊断及修复均有界通过；真实模型的网页/MCP 文本读取、下一请求消费及答案也有严格通过样本。MCP 使用本机协议服务，不代表第三方生产服务；历史早停与诊断失败不抹去，旧 Release/真实系统 SAF 结果不继承为新候选验收。见[本轮证据](../evidence/development/continue-delivery-2026-11-08.md)。
 
 - 会话 presentation/application、共享 UI 与 Room/ContentStore 已分别进入 `feature:conversation`、`ui:shared` 和 `infrastructure:storage`，实际依赖护栏、Debug 主机与 API36 有界设备回归通过；随后 SAF 文档快照发布失败/取消边界修复也有独立 Debug 与 storage 设备结果，两次对应候选均覆盖更新日常模拟器且未清数据。计数、候选与新旧证据边界只维护在[蓝图 24.1](../architecture/harness-refactor-plan.md#241-结论基线与范围)，不继承下述旧 Release/真机结果，也不等于自然模型用户目标已验收。
 - 有序收尾补齐真实系统 SAF 的新建、原件读取、撤权失败及跨 UID 分享接收验证，修复树 URI 编码/身份与创建 API；超大文本改为有界分页，支持页码跳转和同页可见分块选择，跨页选择仍不提供。范围见[文件 ADR](../adr/workspace/002-manual-files-and-recovery.md)。API36 文件/菜单/预览及选择设备回归通过，具体候选分开记账。

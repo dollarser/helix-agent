@@ -97,7 +97,7 @@ class MobileUseNumberReadbackDeviceTest {
                 )
                 report("NUMBER_READBACK_SESSION=$session;TRIAL=$trial")
                 val prompt =
-                    "请使用手机操作，在已选后台屏打开测试应用 com.helix.agent.developer.test，" +
+                    "请使用手机操作，在已选后台屏打开测试应用 ${fixtureComponent.packageName}，" +
                         "获取公开数据校验页的截图，再读取页面的下载、评论、评分。" +
                         "最终只回答这三个字段，每个字段一行，保留原文数字和单位，不换算、不估计。" +
                         "不要写日期、其他指标或未请求字段，即使是说明它未被请求也不要复述。" +
@@ -117,52 +117,55 @@ class MobileUseNumberReadbackDeviceTest {
                 throw error
             } finally {
                 withContext(NonCancellable) {
-                    val turn =
-                        c.storage.turns
-                            .listBySession(session)
-                            .lastOrNull()
-                    if (turn != null && !TurnState.valueOf(turn.state).isTerminal) {
-                        c.chatService.stopTurn(turn.id)
-                        while (c.storage.turns
-                                .resolve(turn.id)
-                                .state == TurnState.CANCELLING.name
-                        ) {
-                            delay(100)
+                    var driverExited = false
+                    try {
+                        stopAndJoinOwnedVisualCase(c, session)
+                        driverExited = true
+                    } finally {
+                        if (!driverExited) {
+                            passed = false
+                            failure = "Owned driver exit unconfirmed; restore deferred"
+                        }
+                        try {
+                            saveClosedLoopEvidence(
+                                app,
+                                c,
+                                ClosedLoopCaseEvidence(
+                                    session,
+                                    "number-readback",
+                                    trial,
+                                    BuiltInModel.MODEL_ID,
+                                    started,
+                                    passed,
+                                    failure,
+                                ),
+                            )
+                        } finally {
+                            if (driverExited) {
+                                lines.setLines(MobileUseGrantStore.CONFIG_KEY, oldScope)
+                                lines.setLines(MobileUseGrantStore.EXECUTION_KEY, oldDisplay)
+                                c.pluginService.catalog.select(session, plugin.id, false)
+                                c.pluginService.setEnabled(plugin.id, plugin.enabled)
+                                app.startActivity(
+                                    Intent()
+                                        .setComponent(
+                                            fixtureComponent,
+                                        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                                        .putExtra("numericReadback", false),
+                                )
+                                original?.let { c.chatService.openSession(it) }
+                            }
                         }
                     }
-                    saveClosedLoopEvidence(
-                        app,
-                        c,
-                        ClosedLoopCaseEvidence(
-                            session,
-                            "number-readback",
-                            trial,
-                            BuiltInModel.MODEL_ID,
-                            started,
-                            passed,
-                            failure,
-                        ),
-                    )
-                    lines.setLines(MobileUseGrantStore.CONFIG_KEY, oldScope)
-                    lines.setLines(MobileUseGrantStore.EXECUTION_KEY, oldDisplay)
-                    c.pluginService.catalog.select(session, plugin.id, false)
-                    c.pluginService.setEnabled(plugin.id, plugin.enabled)
-                    app.startActivity(
-                        Intent()
-                            .setComponent(
-                                fixtureComponent,
-                            ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-                            .putExtra("numericReadback", false),
-                    )
-                    original?.let { c.chatService.openSession(it) }
                 }
             }
         }
     }
 
     private suspend fun awaitTerminal(session: String) {
+        val deadline = SystemClock.elapsedRealtime() + 240_000
         var previous = ""
-        while (true) {
+        while (SystemClock.elapsedRealtime() < deadline) {
             c.toolVisionConsent.pending.value.filter { it.sessionId == session }.forEach {
                 c.toolVisionConsent.respond(it.id, true)
             }
@@ -180,6 +183,7 @@ class MobileUseNumberReadbackDeviceTest {
             }
             delay(250)
         }
+        error("Numeric readback timed out at 240 seconds; stop in finally, never replay")
     }
 
     private fun report(value: String) {
@@ -208,7 +212,7 @@ class MobileUseNumberReadbackDeviceTest {
                         ?.let { it > 0 } == true
                 }
             }
-        assertTrue("A captured image must reach a real model request", imageConsumed)
+        assertTrue("Context budget must include estimated image tokens; not transport evidence", imageConsumed)
         val answer =
             c.storage.messages
                 .listBySession(session)

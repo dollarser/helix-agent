@@ -3,9 +3,7 @@ package com.helix.app.files
 import android.app.Application
 import android.content.Intent
 import android.net.Uri
-import android.os.SystemClock
 import android.provider.DocumentsContract
-import android.view.accessibility.AccessibilityNodeInfo
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
@@ -32,7 +30,6 @@ import java.util.concurrent.atomic.AtomicReference
 /** Real DocumentsUI/ExternalStorageProvider with a plain Application and no daily app container. */
 class SafSystemDirectoryReliabilityDeviceTest {
     @get:Rule val compose = createComposeRule()
-    private val instrumentation get() = InstrumentationRegistry.getInstrumentation()
 
     @Test
     // Nested finally blocks guarantee exact-grant release after picker or cleanup failure.
@@ -101,7 +98,7 @@ class SafSystemDirectoryReliabilityDeviceTest {
             succeeded = true
         } finally {
             try {
-                closeOwnedPicker()
+                SystemSafPickerControls().closeOwnedPicker()
             } finally {
                 try {
                     ownedGrant?.let { uri ->
@@ -144,77 +141,10 @@ class SafSystemDirectoryReliabilityDeviceTest {
         chosen: AtomicReference<Intent?>,
         folder: String,
     ): Intent {
-        val automation = instrumentation.uiAutomation
-        automation.serviceInfo =
-            automation.serviceInfo.apply {
-                flags = flags or android.accessibilityservice.AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
-            }
         compose.onNodeWithTag("reliability-tree-open").performClick()
-        awaitNode { it.text?.toString() == folder }
-        val select =
-            awaitNode {
-                it.viewIdResourceName?.endsWith(":id/action_menu_select") == true ||
-                    it.viewIdResourceName == "android:id/button1"
-            }
-        assertTrue(select.isEnabled)
-        assertTrue(select.performAction(AccessibilityNodeInfo.ACTION_CLICK))
-        val allow =
-            awaitNode {
-                it.viewIdResourceName == "android:id/button1" &&
-                    it.text?.toString() in setOf("Allow", "ALLOW", "允许")
-            }
-        val confirmation = requireNotNull(automation.rootInActiveWindow)
-        assertTrue(
-            "Grant confirmation must name the exact approved folder",
-            find(confirmation) {
-                it.viewIdResourceName == "android:id/message" && it.text?.toString()?.contains(folder) == true
-            } != null,
-        )
-        assertTrue(allow.performAction(AccessibilityNodeInfo.ACTION_CLICK))
+        SystemSafPickerControls().selectExactFolder(folder)
         compose.waitUntil(15_000) { chosen.get() != null }
         return requireNotNull(chosen.get())
-    }
-
-    private fun awaitNode(predicate: (AccessibilityNodeInfo) -> Boolean): AccessibilityNodeInfo {
-        val deadline = SystemClock.elapsedRealtime() + 15_000
-        while (SystemClock.elapsedRealtime() < deadline) {
-            val root = instrumentation.uiAutomation.rootInActiveWindow
-            if (root?.packageName?.toString()?.endsWith(".documentsui") == true) {
-                find(root, predicate)?.let { return it }
-            }
-            Thread.sleep(100)
-        }
-        error("Expected exact-folder picker control did not become available")
-    }
-
-    private fun closeOwnedPicker() {
-        val automation = instrumentation.uiAutomation
-        repeat(5) {
-            val owner = automation.rootInActiveWindow?.packageName?.toString()
-            if (owner != null && !owner.endsWith(".documentsui")) return
-            if (owner != null) {
-                assertTrue(
-                    automation.performGlobalAction(
-                        android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK,
-                    ),
-                )
-            }
-            Thread.sleep(200)
-        }
-        val owner = automation.rootInActiveWindow?.packageName?.toString()
-        assertTrue("Owned picker must be closed", owner != null && !owner.endsWith(".documentsui"))
-    }
-
-    @Suppress("ReturnCount") // Recursive traversal stops at the first matching platform node.
-    private fun find(
-        node: AccessibilityNodeInfo,
-        predicate: (AccessibilityNodeInfo) -> Boolean,
-    ): AccessibilityNodeInfo? {
-        if (predicate(node)) return node
-        for (index in 0 until node.childCount) {
-            node.getChild(index)?.let { find(it, predicate) }?.let { return it }
-        }
-        return null
     }
 
     private companion object {

@@ -48,6 +48,7 @@ class HelixIsolatedRoomTestRunner : AndroidJUnitRunner() {
                 "com.helix.app.files.SafDirectoryReliabilityDeviceTest",
                 "com.helix.app.documents.SafPlatformCancellationDeviceTest",
                 "com.helix.app.files.SafSystemDirectoryReliabilityDeviceTest",
+                "com.helix.app.files.SafSystemProcessRecoveryDeviceTest",
                 "com.helix.app.eval.BackgroundPreviewUiDeviceTest",
             )
 
@@ -75,6 +76,8 @@ class HelixIsolatedRoomTestRunner : AndroidJUnitRunner() {
                         "cancellationDoesNotForceAnUncooperativeProviderToReturn",
                         "providerCancellationCallbackCanItselfBlockItsCallingThread",
                     ),
+                "com.helix.app.files.SafSystemProcessRecoveryDeviceTest" to
+                    setOf("publishedSyncSurvivesProcessDeathWithoutAutomaticReplay"),
                 "com.helix.app.files.SafSystemDirectoryReliabilityDeviceTest" to
                     setOf("systemProviderSearchAndSyncConflictRecoverAfterServiceReopen"),
                 "com.helix.app.infrastructure.conversation.ConversationReferenceKnowledgeDeviceTest" to

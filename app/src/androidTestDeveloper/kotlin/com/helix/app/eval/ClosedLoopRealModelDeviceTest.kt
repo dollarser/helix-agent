@@ -55,6 +55,7 @@ class ClosedLoopRealModelDeviceTest {
                     .model == model,
             )
             val previous = c.chatService.screen.value.openSessionId
+            awaitVisualBackend(case)
 
             val bridge = HostToolBridgeSettings(app)
             val originalBridge = bridge.enabled
@@ -74,8 +75,14 @@ class ClosedLoopRealModelDeviceTest {
             var skill: SkillKey? = null
             var failure: String? = null
             var passed = false
+            var visualWire: OwnedVisualRequestProbe? = null
             val started = SystemClock.elapsedRealtime()
             try {
+                if (case == "visual") {
+                    check(provider == com.helix.app.provider.BuiltInModel.PROVIDER_ID)
+                    check(model == com.helix.app.provider.BuiltInModel.MODEL_ID)
+                    visualWire = OwnedVisualRequestProbe(c, session, nonce)
+                }
                 check(c.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
                 c.sessionPermissionEdit.saveSessionConfig(
                     session,
@@ -122,29 +129,54 @@ class ClosedLoopRealModelDeviceTest {
                     )
                 }
                 waitBounded(session)
-                passed = verify(session, case, root, nonce)
+                passed = verify(session, case, root, nonce) &&
+                    (case != "visual" || visualWire?.hasAcceptedImageRequest() == true)
             } catch (error: Exception) {
                 failure = "${error.javaClass.simpleName}: ${error.message}"
             } finally {
-                c.storage.turns
-                    .listBySession(session)
-                    .lastOrNull()
-                    ?.let { c.chatService.stopTurn(it.id) }
-                saveClosedLoopEvidence(
-                    app,
-                    c,
-                    ClosedLoopCaseEvidence(session, case, trial, model, started, passed, failure),
-                )
-                lines.setLines(MobileUseGrantStore.CONFIG_KEY, scope)
-                lines.setLines(MobileUseGrantStore.EXECUTION_KEY, execution)
-                bridge.setEnabled(originalBridge)
-                c.pluginService.setEnabled(plugin.id, plugin.enabled)
-                skill?.let(c.skillRepository::removePermanentlyForPrivacy)
-                source.deleteRecursively()
-                if (previous != null) c.chatService.openSession(previous) else c.chatService.closeSession()
+                kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
+                    visualWire?.close()
+                    var driverExited = false
+                    try {
+                        stopAndJoinOwnedVisualCase(c, session, visualWire?.driverJobs().orEmpty())
+                        driverExited = true
+                    } finally {
+                        if (!driverExited) {
+                            passed = false
+                            failure = "Owned driver exit unconfirmed; restore deferred"
+                        }
+                        visualWire?.restore()
+                        try {
+                            saveClosedLoopEvidence(
+                                app,
+                                c,
+                                ClosedLoopCaseEvidence(session, case, trial, model, started, passed, failure),
+                                visualWire?.evidence(),
+                            )
+                        } finally {
+                            if (driverExited) {
+                                lines.setLines(MobileUseGrantStore.CONFIG_KEY, scope)
+                                lines.setLines(MobileUseGrantStore.EXECUTION_KEY, execution)
+                                bridge.setEnabled(originalBridge)
+                                c.pluginService.setEnabled(plugin.id, plugin.enabled)
+                                skill?.let(c.skillRepository::removePermanentlyForPrivacy)
+                                source.deleteRecursively()
+                                if (previous != null) {
+                                    c.chatService.openSession(previous)
+                                } else {
+                                    c.chatService.closeSession()
+                                }
+                            }
+                        }
+                    }
+                }
             }
             assertTrue("Synthetic $trial failed; inspect retained evidence: $failure", passed)
         }
+
+    private fun awaitVisualBackend(case: String) {
+        if (case == "visual" && args.getString("helixAdbHelper") == "true") awaitComputerAdbHelper()
+    }
 
     private suspend fun exerciseHumanReturn(
         session: String,

@@ -23,6 +23,7 @@ internal fun saveClosedLoopEvidence(
     app: Context,
     c: AppContainer,
     snapshot: ClosedLoopCaseEvidence,
+    visualRequests: JsonArray? = null,
 ) = with(snapshot) {
     val turn =
         c.storage.turns
@@ -31,6 +32,7 @@ internal fun saveClosedLoopEvidence(
     val calls = turn?.let { c.storage.toolCalls.listByTurn(it.id) }.orEmpty()
     val payload =
         buildJsonObject {
+            visualRequests?.let { put("visualWireRequests", it) }
             put("case", case)
             put("trial", trial)
             put("session", session)
