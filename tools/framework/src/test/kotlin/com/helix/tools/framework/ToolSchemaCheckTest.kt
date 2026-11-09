@@ -153,12 +153,12 @@ class ToolSchemaCheckTest {
     fun stringAndNumberBoundsAreChecked() {
         assertInvalid("""{"type":"string","minLength":-1}""", "must be a non-negative integer")
         assertInvalid("""{"type":"string","maxLength":1.5}""", "must be a non-negative integer")
-        assertInvalid("""{"type":"string","minLength":5,"maxLength":2}""", "minLength (5.0) must not be greater")
+        assertInvalid("""{"type":"string","minLength":5,"maxLength":2}""", "minLength (5) must not be greater")
         assertInvalid("""{"type":"number","minimum":"x"}""", "must be a JSON number")
-        assertInvalid("""{"type":"number","minimum":5,"maximum":1}""", "minimum (5.0) must not be greater")
+        assertInvalid("""{"type":"number","minimum":5,"maximum":1}""", "minimum (5) must not be greater")
         assertInvalid(
             """{"type":"number","exclusiveMinimum":5,"exclusiveMaximum":1}""",
-            "exclusiveMinimum (5.0) must not be greater",
+            "exclusiveMinimum (5) must not be greater",
         )
     }
 

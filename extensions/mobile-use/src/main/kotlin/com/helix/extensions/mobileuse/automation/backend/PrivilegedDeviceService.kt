@@ -27,7 +27,8 @@ internal class PrivilegedDeviceService(
         reply: Parcel,
     ) {
         check(allowed())
-        val target = targetFor(request)
+        val target = mobileUseStageTiming("target_${request.operation.name.lowercase()}") { targetFor(request) }
+        var responseTarget = target
         var image: SharedMemory? = null
         var snapshot: com.helix.extensions.mobileuse.automation.AutomationSnapshotResult? = null
         val status =
@@ -57,12 +58,15 @@ internal class PrivilegedDeviceService(
 
                 AutomationDeviceOperation.SCREENSHOT -> {
                     val captured = screenshot(request, target)
-                    image = captured.second
+                    image = captured.second?.memory
+                    responseTarget = captured.second?.target
                     captured.first
                 }
 
                 AutomationDeviceOperation.GESTURE -> {
-                    PrivilegedGestureExecution(screen, ::allowed).execute(request)
+                    mobileUseStageTiming(
+                        "gesture_dispatch",
+                    ) { PrivilegedGestureExecution(screen, ::allowed).execute(request) }
                 }
 
                 AutomationDeviceOperation.SNAPSHOT, AutomationDeviceOperation.NODE_ACTION -> {
@@ -81,7 +85,7 @@ internal class PrivilegedDeviceService(
                 }
             reply.writeNoException()
             reply.writeString(published)
-            PrivilegedDeviceParcel.writeTarget(reply, if (published == status) target else null)
+            PrivilegedDeviceParcel.writeTarget(reply, if (published == status) responseTarget else null)
             reply.writeParcelable(if (published == "SAVED") it else null, 0)
             PrivilegedSemanticParcel.write(reply, if (published == status) snapshot else null)
         }
@@ -90,7 +94,7 @@ internal class PrivilegedDeviceService(
     private fun screenshot(
         request: AutomationDeviceRequest,
         target: AutomationDisplayTarget?,
-    ): Pair<String, SharedMemory?> =
+    ): Pair<String, CapturedImage?> =
         when {
             target == null -> {
                 "TARGET_UNAVAILABLE" to null
@@ -135,7 +139,7 @@ internal class PrivilegedDeviceService(
                     systemPackageInstaller(packageManager),
                 )
         val snapshot = engine.capture(screen.freshRoot())
-        val after = screen.deviceTarget(includeRevision = false, allowVisualFallback = request.wholeDisplay)
+        val after = screen.deviceTarget(allowVisualFallback = request.wholeDisplay)
         if (!allowed() || !target.sameWindow(after)) {
             return "TARGET_CHANGED" to null
         }
@@ -168,16 +172,23 @@ internal class PrivilegedDeviceService(
 
     private fun targetFor(request: AutomationDeviceRequest): AutomationDisplayTarget? {
         val operation = request.operation
-        if (operation == AutomationDeviceOperation.SCREENSHOT) {
+        if (operation == AutomationDeviceOperation.OBSERVE || operation == AutomationDeviceOperation.SCREENSHOT) {
+            // Observe and capture must use the same settled window mapping, not opposite sides of a transition.
             screen.synchronizeWindowTransactions()
             check(allowed())
         }
         return if (operation == AutomationDeviceOperation.LAUNCH) {
             null
+        } else if (operation == AutomationDeviceOperation.OBSERVE) {
+            // WindowManager synchronization may finish before Accessibility's final bounds update arrives.
+            stableCoordinateTarget(
+                read = { screen.deviceTarget(allowVisualFallback = request.wholeDisplay) },
+                allowed = ::allowed,
+                now = android.os.SystemClock::uptimeMillis,
+                sleep = android.os.SystemClock::sleep,
+            )
         } else {
             screen.deviceTarget(
-                includeRevision =
-                    operation in setOf(AutomationDeviceOperation.OBSERVE, AutomationDeviceOperation.GESTURE),
                 allowVisualFallback = request.wholeDisplay,
             )
         }
@@ -188,31 +199,39 @@ internal class PrivilegedDeviceService(
         screen: ShizukuHierarchy,
         target: AutomationDisplayTarget,
         wholeDisplay: Boolean,
-    ): SharedMemory? {
+    ): CapturedImage? {
         check(target.width.toLong() * target.height <= VisionLimits.MAX_TOTAL_PIXELS)
         val windows = screen.windows()
-        val bitmap = checkNotNull(screen.screenshot()) { "SCREENSHOT_UNAVAILABLE" }
+        val bitmap =
+            mobileUseStageTiming("screen_capture") { checkNotNull(screen.screenshot()) { "SCREENSHOT_UNAVAILABLE" } }
         return try {
             if (bitmap.width != target.width || bitmap.height != target.height) return null
-            if (!target.sameWindow(screen.deviceTarget(includeRevision = false, allowVisualFallback = wholeDisplay)) ||
+            if (!target.sameWindow(screen.deviceTarget(allowVisualFallback = wholeDisplay)) ||
                 screen.windows() != windows ||
                 !allowed()
             ) {
                 return null
             }
             val output = java.io.ByteArrayOutputStream()
-            check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, BoundedCaptureOutput(output)))
+            mobileUseStageTiming("png_encode") {
+                check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, BoundedCaptureOutput(output)))
+            }
             if (!allowed() ||
-                !target.sameWindow(screen.deviceTarget(includeRevision = false, allowVisualFallback = wholeDisplay)) ||
+                !target.sameWindow(screen.deviceTarget(allowVisualFallback = wholeDisplay)) ||
                 screen.windows() != windows
             ) {
                 return null
             }
-            readOnlyImage(output.toByteArray())
+            CapturedImage(readOnlyImage(output.toByteArray()), target)
         } finally {
             bitmap.recycle()
         }
     }
+
+    private data class CapturedImage(
+        val memory: SharedMemory,
+        val target: AutomationDisplayTarget,
+    )
 
     private fun readOnlyImage(bytes: ByteArray): SharedMemory {
         val memory = SharedMemory.create("helix-screen", bytes.size)

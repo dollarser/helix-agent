@@ -15,6 +15,30 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AutomationToolOutcomeTest {
+    @Test fun disconnectedServiceExplainsUserControlledRecoveryWithoutReplay() {
+        val result =
+            AutomationActionResult(AutomationActionStatus.SERVICE_NOT_CONNECTED).toToolOutcome()
+                as ToolExecutorResult.Failed
+        assertTrue(result.sideEffectFree)
+        assertFalse(result.requiresReview)
+        assertTrue(result.detail.contains("Helix System permissions"))
+        assertTrue(result.detail.contains("in Android settings"))
+        assertTrue(result.detail.contains("fresh observation"))
+        assertTrue(result.detail.contains("do not replay"))
+    }
+
+    @Test fun coordinateStalenessRequiresDeviceFrameRatherThanSemanticToken() {
+        val result =
+            AutomationActionResult(AutomationActionStatus.STALE_TOKEN)
+                .toToolOutcome(coordinateAction = true) as ToolExecutorResult.Failed
+        assertTrue(result.sideEffectFree)
+        assertFalse(result.requiresReview)
+        assertTrue(result.detail.contains("Call ui.device"))
+        assertTrue(result.detail.contains("generation numbers are not coordinate frames"))
+        assertTrue(result.detail.contains("consumes its frame"))
+        assertFalse(result.detail.contains("ui.click_match"))
+    }
+
     @Test fun inaccessiblePlatformServicesExplainRootIdentityWithoutInventingAnInputEffect() {
         val result =
             AutomationActionResult(AutomationActionStatus.PRIVILEGED_SERVICE_UNAVAILABLE).toToolOutcome()
@@ -48,17 +72,6 @@ class AutomationToolOutcomeTest {
         assertFalse(changed.requiresReview)
     }
 
-    @Test fun frameChangeExplainsThePreDispatchStageWithoutSuggestingAConnectionFailure() {
-        val result =
-            AutomationActionResult(AutomationActionStatus.FRAME_CHANGED).toToolOutcome()
-                as ToolExecutorResult.Failed
-        assertTrue(result.detail.contains("before DOWN"))
-        assertTrue(result.detail.contains("ui.click_match"))
-        assertTrue(result.detail.contains("not a Shizuku"))
-        assertTrue(result.sideEffectFree)
-        assertFalse(result.requiresReview)
-    }
-
     @Test fun unsupportedActionExplainsRecoveryWithoutClaimingAFocusCause() {
         val result =
             AutomationActionResult(AutomationActionStatus.ACTION_NOT_SUPPORTED).toToolOutcome()
@@ -66,6 +79,8 @@ class AutomationToolOutcomeTest {
         assertTrue(result.detail.startsWith("ACTION_NOT_SUPPORTED:"))
         assertTrue(result.detail.contains("ui.snapshot"))
         assertTrue(result.detail.contains("scrollable container"))
+        assertTrue(result.detail.contains("ui.device.systemActions"))
+        assertTrue(result.detail.contains("use back to close the shade"))
         assertTrue(result.detail.contains("scrollDirections"))
         assertTrue(result.detail.contains("not finger motion"))
         assertFalse(result.detail.contains("focus"))

@@ -25,6 +25,7 @@ import com.helix.extensions.mobileuse.automation.AutomationToolPort
 import com.helix.extensions.mobileuse.automation.AutomationWaitCondition
 import com.helix.extensions.mobileuse.automation.AutomationWaitStatus
 import com.helix.extensions.mobileuse.automation.AutomationWaiter
+import com.helix.extensions.mobileuse.automation.SnapshotTruncationReasons
 import com.helix.extensions.mobileuse.tools.AutomationToolSchemas.array
 import com.helix.extensions.mobileuse.tools.AutomationToolSchemas.bool
 import com.helix.extensions.mobileuse.tools.AutomationToolSchemas.integer
@@ -37,6 +38,7 @@ import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
+import com.helix.tools.framework.ToolJsonNumbers
 import com.helix.tools.framework.ToolOrigin
 import com.helix.tools.framework.ToolRegistry
 import kotlinx.serialization.json.JsonArray
@@ -46,7 +48,6 @@ import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
-import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -315,15 +316,27 @@ class AutomationTools(
                 put("windowId", JsonPrimitive(snapshot.windowId))
                 put("generation", JsonPrimitive(snapshot.generation))
                 put("observedAtMillis", JsonPrimitive(snapshot.createdAt.toEpochMilli()))
-                val nodeIndex = snapshot.nodes.associateBy { it.token }
-                // Keep the complete index for click ancestors, but omit empty layout containers from model output.
-                val visibleNodes =
-                    snapshot.nodes.filter {
-                        !it.text.isNullOrBlank() || !it.contentDescription.isNullOrBlank() ||
-                            it.clickable || it.longClickable || it.editable || it.scrollable ||
-                            it.checkable || it.canSetProgress || it.redacted
+                val projection = AutomationSnapshotProjection(snapshot)
+                put("nodes", JsonArray(projection.nodes))
+                put("returnedNodeCount", JsonPrimitive(projection.nodes.size))
+                if (projection.limited) {
+                    put("truncated", JsonPrimitive(true))
+                    put(
+                        "truncationReasons",
+                        JsonArray((snapshot.truncationReasons + "OUTPUT_LIMIT").map(::JsonPrimitive)),
+                    )
+                    if (!snapshot.truncated && snapshot.nodes.none { it.redacted }) {
+                        put(
+                            "recoveryHint",
+                            JsonPrimitive(
+                                "Model output is limited to 200 nodes and 128 KiB. " +
+                                    "Use ui.find for a specific observed label/attribute in the captured tree. " +
+                                    "OUTPUT_LIMIT is separate from collection limits; " +
+                                    "do not assume omitted controls are absent.",
+                            ),
+                        )
                     }
-                put("nodes", JsonArray(visibleNodes.map { AutomationNodeJson.compact(it, nodeIndex) }))
+                }
             }
         }
 
@@ -360,13 +373,13 @@ class AutomationTools(
             missingTargetHint(result.status.name)?.let { put("recoveryHint", JsonPrimitive(it)) }
             result.snapshot?.let { snapshot ->
                 put("truncated", JsonPrimitive(snapshot.truncated))
+                put("capturedNodeCount", JsonPrimitive(snapshot.nodes.size))
                 put("truncationReasons", JsonArray(snapshot.truncationReasons.map(::JsonPrimitive)))
                 snapshotRecoveryHint(snapshot, result.backend)?.let { put("recoveryHint", JsonPrimitive(it)) }
             }
             result.backend?.let { put("backend", JsonPrimitive(it)) }
             if (result.pauseReason == null && result.status in
                 setOf(
-                    AutomationSnapshotStatus.SERVICE_NOT_CONNECTED,
                     AutomationSnapshotStatus.NO_ACTIVE_SESSION,
                     AutomationSnapshotStatus.UNSUPPORTED_UI,
                 )
@@ -504,7 +517,7 @@ class AutomationTools(
         if (operation == ToolOperationClass.READ_ONLY) Idempotency.IDEMPOTENT else Idempotency.NON_IDEMPOTENT,
         ExecutionTargetType.LOCAL_ANDROID,
         origin,
-        discoveryCompanions = setOf(SNAPSHOT, FIND).filter { it != name }.map(::ToolName).toSet(),
+        discoveryCompanions = setOf(SNAPSHOT, FIND, LONG_CLICK).filter { it != name }.map(::ToolName).toSet(),
     )
 
     private fun emptyObject() = obj(emptyMap(), emptyList())
@@ -663,8 +676,9 @@ class AutomationTools(
                 "matchCount" to integer(0),
                 "ambiguous" to bool(),
                 "observedAtMillis" to integer(0),
+                "capturedNodeCount" to integer(0),
                 "truncated" to bool(),
-                "truncationReasons" to array(str(32), 4),
+                "truncationReasons" to array(str(32), SnapshotTruncationReasons.all.size),
                 "waitStatus" to str(64),
                 "suggestedAction" to str(32),
                 "suggestedClickToken" to str(32),
@@ -685,10 +699,12 @@ class AutomationTools(
                 "packageName" to str(255),
                 "windowId" to integer(0),
                 "generation" to integer(0),
+                "capturedNodeCount" to integer(0),
+                "returnedNodeCount" to integer(0),
                 "observedAtMillis" to integer(0),
                 "truncated" to bool(),
-                "truncationReasons" to array(str(32), 4),
-                "nodes" to array(nodeSchema(compact = true), 200),
+                "truncationReasons" to array(str(32), SnapshotTruncationReasons.all.size),
+                "nodes" to array(nodeSchema(compact = true), AutomationSnapshotProjection.MAX_NODES),
             ),
             listOf("status"),
         )
@@ -727,4 +743,10 @@ private fun optionalInt(
     args: JsonObject,
     key: String,
     default: Int,
-) = args[key]?.jsonPrimitive?.intOrNull ?: default
+) = if (key !in
+    args
+) {
+    default
+} else {
+    requireNotNull(ToolJsonNumbers.intOrNull(args[key])) { "AUTOMATION_ARGUMENT_INVALID_$key" }
+}

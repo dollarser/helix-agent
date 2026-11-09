@@ -19,12 +19,12 @@ import com.helix.runtime.quickjs.JsExecutionLimits
 import com.helix.tools.framework.CanonicalArgs
 import com.helix.tools.framework.DecisionSource
 import com.helix.tools.framework.ToolDescriptor
+import com.helix.tools.framework.ToolJsonNumbers
 import com.helix.tools.framework.ToolOrigin
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.longOrNull
 import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
 import java.time.ZoneId
@@ -317,7 +317,12 @@ object ApprovalUiMapper {
      * the structural offline boundary — a string-resource ID + arg.
      */
     private fun prootLimitsLabel(arguments: JsonObject): ApprovalLabel {
-        val deadline = (arguments["timeoutSeconds"] as? JsonPrimitive)?.longOrNull ?: 60L
+        val deadline =
+            if ("timeoutSeconds" !in arguments) {
+                60L
+            } else {
+                requireNotNull(ToolJsonNumbers.longOrNull(arguments["timeoutSeconds"]))
+            }
         return ApprovalLabel(R.string.approval_limits_proot, listOf(deadline.toString()))
     }
 

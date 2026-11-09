@@ -331,9 +331,7 @@ class AutomationPermissionCenter(
         val lease = deviceLease(call) ?: return AutomationScreenshot("WINDOW_CAPTURE_REQUIRES_ACCESSIBILITY")
         val (service, session) = lease
         val frame = service.deviceAccess.observe(session).frame
-        return if (frame?.target?.copy(revision = "") ==
-            expected.copy(revision = "")
-        ) {
+        return if (frame?.target == expected) {
             service.deviceAccess.screenshot(session, frame.token, call)
         } else {
             AutomationScreenshot("TARGET_CHANGED")
@@ -453,7 +451,7 @@ class AutomationPermissionCenter(
 
     fun accessibilitySettingsIntent(): Intent =
         com.helix.tools.deviceaccess.DeviceAccess
-            .accessibilitySettingsIntent()
+            .accessibilitySettingsIntent(ComponentName(appContext, HelixAccessibilityService::class.java))
 
     fun allowlistedPackages(): Set<String> = allowlist.packages()
 

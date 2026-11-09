@@ -25,7 +25,10 @@ internal object AutomationToolDescriptions {
             }
 
             AutomationTools.LONG_CLICK -> {
-                "Long-press a fresh observed node token to open its contextual actions; observe the resulting screen."
+                "Invoke the standard long-click action on a fresh node with longClickable=true; " +
+                    "prefer this to a coordinate hold for selection or contextual actions. " +
+                    "Use the observed longClick.token, which may identify the label's actionable ancestor. " +
+                    "Observe the resulting screen."
             }
 
             AutomationTools.SET_TEXT -> {
@@ -69,6 +72,8 @@ internal object AutomationToolDescriptions {
 private const val SNAPSHOT_DESCRIPTION =
     "Observe the current authorized Android screen without acting. Returns fresh node tokens, " +
         "labels, bounds and state; omitted flags mean false. " +
+        "A node's longClick supplies ui.long_click and its fresh target token for selection/context actions. " +
+        "Compare ancestorContexts for overlapping same-label controls; visibleToUser does not prove topmost. " +
         "Each new semantic observation replaces earlier tokens, even if the screen looks unchanged. " +
         "Inspect this result before another read; do not collect tokens across " +
         "observations. For scrolling choose a node with scrollable=true. " +
@@ -80,6 +85,8 @@ private const val SNAPSHOT_DESCRIPTION =
 private const val FIND_DESCRIPTION =
     "Find controls in a fresh screen observation using observed labels or attributes. " +
         "Default text matching is exact; use match=contains for a substring. " +
+        "Compare ancestorContexts for same-label overlapping controls; never pick the first arbitrarily. " +
+        "A node's longClick gives the tool and token for selection/context actions. " +
         "For simply clicking a known label/viewId, prefer ui.click_match instead of find then click. " +
         "An actionable unique match supplies suggestedClickToken: if intended, call ui.click immediately. " +
         "This observation replaces all earlier node tokens. Offscreen matches are not clickable: " +
@@ -100,7 +107,10 @@ private const val SCROLL_DESCRIPTION =
 
 private const val WAIT_DESCRIPTION =
     "Wait read-only for a screen condition: present/absent require a selector; changed/stable " +
-        "may observe the whole screen. Set timeoutMillis (maximum 60000); normally omit " +
+        "may observe the whole screen. After an action, prefer present with the expected label/state or " +
+        "absent with the dismissed target. Use a selector for stable on dynamic pages; " +
+        "changed compares against this wait call's first read, not the pre-action screen. " +
+        "Set timeoutMillis (maximum 60000); normally omit " +
         "pollMillis (default 100, range 50..1000). Inspect waitStatus. " +
         "TIMED_OUT does not prove the previous action failed. A unique intended match provides " +
         "suggestedClickToken for ui.click. Never repeat unchanged waits indefinitely."

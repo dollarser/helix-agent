@@ -14,7 +14,7 @@ class PrivilegedSemanticEngine(
     private val permissionController = permissionControllerPackage?.takeIf { wholePhone && it == packageName }
     private val installer = installerPackage?.takeIf { wholePhone && it == packageName }
     private var sequence = 0
-    private val registry = NodeTokenRegistry { ByteArray(16).also { it[0] = (++sequence).toByte() } }
+    private val registry = NodeTokenRegistry { privilegedSemanticToken(++sequence) }
     private val session =
         ActiveAutomationSession(
             "privileged-observation",
@@ -50,6 +50,14 @@ class PrivilegedSemanticEngine(
             0,
             request,
         )
+}
+
+internal fun privilegedSemanticToken(ordinal: Int): ByteArray {
+    require(ordinal in 1..NodeTokenRegistry.MAX_TOKENS)
+    return java.nio.ByteBuffer
+        .allocate(16)
+        .putInt(ordinal)
+        .array()
 }
 
 private class GuardedSemanticNode(

@@ -44,11 +44,12 @@ class HelixAccessibilityService : AccessibilityService() {
             query = ::observeActiveTarget,
             dispatch = { handler.post(it) },
             observe = { AutomationServiceController.targetObserved(it.packageName) },
-            windowChanged = { generationTracker.contentChanged() },
+            windowChanged = { generationTracker.windowChanged() },
         )
 
     private val tokenRegistry = NodeTokenRegistry()
     private val snapshotEngine = AutomationSnapshotEngine(tokenRegistry)
+    private var semanticLease: AccessibilitySemanticLease? = null
     private val actionExecutor = AutomationNodeActionExecutor(tokenRegistry)
     private var screenReceiverRegistered = false
     private val screenOffReceiver =
@@ -101,6 +102,7 @@ class HelixAccessibilityService : AccessibilityService() {
 
                 else -> true
             }
+        if (windowMayHaveChanged) traceSemanticLease("window_event_${event.eventType}")
         generationTracker.eventReceived(event.windowId, activeWindow, windowMayHaveChanged)
         targetObserver.request(windowMayHaveChanged)
     }
@@ -159,10 +161,15 @@ class HelixAccessibilityService : AccessibilityService() {
         stopForeground(STOP_FOREGROUND_REMOVE)
     }
 
-    internal fun captureSnapshot(session: ActiveAutomationSession): AutomationSnapshotResult =
-        snapshotEngine.capture(currentRoot(), session, generationTracker.current())
+    internal fun captureSnapshot(session: ActiveAutomationSession): AutomationSnapshotResult {
+        val epoch = generationTracker.currentWindowEpoch()
+        val result = snapshotEngine.capture(currentRoot(), session, generationTracker.current())
+        semanticLease = result.snapshot?.let { AccessibilitySemanticLease(it, epoch, ::traceSemanticLease) }
+        return result
+    }
 
     internal fun invalidateSnapshotTokens() {
+        semanticLease = null
         tokenRegistry.invalidate()
         deviceAccess.invalidateFrames()
     }
@@ -186,13 +193,55 @@ class HelixAccessibilityService : AccessibilityService() {
     internal fun performNodeAction(
         session: ActiveAutomationSession,
         request: AutomationNodeActionRequest,
-    ): AutomationActionResult =
-        actionExecutor.execute(
+    ): AutomationActionResult {
+        val generation = revalidatedNodeGeneration(session, request.token)
+        return actionExecutor.execute(
             root = currentRoot(),
             session = session,
-            generation = generationTracker.current(),
+            generation =
+                if (generationTracker.current() ==
+                    generation.first
+                ) {
+                    generation.second
+                } else {
+                    generationTracker.current()
+                },
             request = request,
+            stillCurrent = { generationTracker.current() == generation.first },
         )
+    }
+
+    @Suppress("ReturnCount") // Refuse each missing original binding before the bounded read.
+    private fun revalidatedNodeGeneration(
+        session: ActiveAutomationSession,
+        token: String,
+    ): Pair<Long, Long> {
+        val current = generationTracker.current()
+        val unchanged = current to current
+        val binding = tokenRegistry.lookup(token).binding ?: return unchanged.also { traceSemanticLease("retired") }
+        if (binding.generation == current) return unchanged
+        val lease = semanticLease ?: return unchanged.also { traceSemanticLease("lease_missing") }
+        if (lease.generation != binding.generation || lease.windowEpoch != generationTracker.currentWindowEpoch()) {
+            traceSemanticLease("window_epoch")
+            return unchanged
+        }
+        // Separate registry: this read cannot retire or replace the model's observation tokens.
+        val fresh = AutomationSnapshotEngine(NodeTokenRegistry()).capture(currentRoot(), session, current).snapshot
+        return if (fresh != null && generationTracker.current() == current &&
+            lease.matches(fresh, generationTracker.currentWindowEpoch(), token)
+        ) {
+            current to binding.generation
+        } else {
+            if (fresh == null) traceSemanticLease("fresh_unavailable")
+            if (generationTracker.current() != current) traceSemanticLease("changed_during_read")
+            unchanged
+        }
+    }
+
+    private fun traceSemanticLease(reason: String) {
+        if (!android.util.Log.isLoggable("HelixMobileTiming", android.util.Log.DEBUG)) return
+        android.util.Log.d("HelixMobileTiming", "semanticLease=$reason")
+    }
 
     @Suppress("ReturnCount") // Distinct authorization/API refusals never reach the platform action.
     internal fun performGlobalAction(

@@ -9,13 +9,13 @@ import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
+import com.helix.tools.framework.ToolJsonNumbers
 import com.helix.tools.framework.ToolOrigin
 import com.helix.tools.framework.ToolRegistry
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlin.time.Duration.Companion.seconds
@@ -279,7 +279,16 @@ internal class McpToolDiscovery(
                             call.args
                                 .getValue("query")
                                 .jsonPrimitive.content
-                        val limit = call.args["limit"]?.jsonPrimitive?.intOrNull ?: 8
+                        val limit =
+                            if ("limit" !in call.args) {
+                                8
+                            } else {
+                                ToolJsonNumbers.intOrNull(call.args["limit"])
+                                    ?: return ToolExecutorResult.Failed(
+                                        "MCP_DISCOVERY_LIMIT_INVALID",
+                                        sideEffectFree = true,
+                                    )
+                            }
                         if (query.isBlank()) return ToolExecutorResult.Failed("MCP_DISCOVERY_QUERY_REQUIRED")
                         val matches =
                             search(

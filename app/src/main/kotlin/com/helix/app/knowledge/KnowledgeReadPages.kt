@@ -2,6 +2,7 @@ package com.helix.app.knowledge
 
 import com.helix.core.model.input.KnowledgeReference
 import com.helix.tools.framework.ExecutableToolCall
+import com.helix.tools.framework.ToolJsonNumbers
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -86,10 +87,8 @@ internal class KnowledgeReadPages(
     private fun integer(
         key: String,
         default: Int,
-    ) = call.args[key]
-        ?.jsonPrimitive
-        ?.also { require(!it.isString) }
-        ?.int ?: default
+    ) = call.args[key]?.let { requireNotNull(ToolJsonNumbers.intOrNull(it)) { "$key must be an exact 32-bit integer" } }
+        ?: default
 
     private fun kind(reference: KnowledgeReference) = if (reference.kind == "SOURCE") "source" else "note"
 

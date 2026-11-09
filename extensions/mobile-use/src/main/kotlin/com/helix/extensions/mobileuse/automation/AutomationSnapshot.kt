@@ -54,6 +54,7 @@ data class AutomationSnapshotNode(
     val checkable: Boolean = false,
     val checked: Boolean = false,
     val scrollDirections: Set<AutomationScrollDirection> = emptySet(),
+    val visibleToUser: Boolean = true,
 )
 
 data class AutomationSnapshot(
@@ -164,7 +165,7 @@ internal class NodeTokenRegistry(
 
     companion object {
         private const val TOKEN_BYTES = 16
-        const val MAX_TOKENS = 200
+        const val MAX_TOKENS = 1000
     }
 }
 

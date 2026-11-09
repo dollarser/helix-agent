@@ -7,6 +7,7 @@ import com.helix.tools.android.AndroidShareTool
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
+import com.helix.tools.framework.ToolJsonNumbers
 import com.helix.tools.framework.ToolRegistry
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
@@ -92,7 +93,9 @@ internal object DeviceReminderTools {
                 "maxLength": 64
               },
               "revision": {
-                "type": "integer"
+                "type": "integer",
+                "minimum": ${Long.MIN_VALUE},
+                "maximum": ${Long.MAX_VALUE}
               }
             """,
                             "\"id\",\"revision\"",
@@ -248,7 +251,7 @@ internal object DeviceReminderTools {
         @Suppress("ReturnCount") // Revalidate exact list identity and cancellation before mutation.
         private suspend fun cancel(session: String, call: ExecutableToolCall): ToolExecutorResult {
             val id = string(call, "id")
-            val revision = (call.args["revision"] as? JsonPrimitive)?.content?.toLongOrNull()
+            val revision = ToolJsonNumbers.longOrNull(call.args["revision"])
             if (id == null || revision == null || listed[session]?.get(id) != revision) {
                 return ToolExecutorResult.Failed("List reminders first and use the exact id/revision")
             }

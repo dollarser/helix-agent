@@ -9,7 +9,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 
 /** Shared effect truth for semantic and physical operations; never infer rollback or replay. */
-internal fun AutomationActionResult.toToolOutcome(): ToolExecutorResult =
+internal fun AutomationActionResult.toToolOutcome(coordinateAction: Boolean = false): ToolExecutorResult =
     if (status == AutomationActionStatus.SUCCEEDED) {
         ToolExecutorResult.Completed(dispatchedActionPayload())
     } else {
@@ -21,7 +21,7 @@ internal fun AutomationActionResult.toToolOutcome(): ToolExecutorResult =
                 )
         val gestureHint = gestureFailureHint(status)
         val message =
-            if (status == AutomationActionStatus.PRIVILEGED_SERVICE_UNAVAILABLE) {
+            if (needsServiceRecovery(status)) {
                 "${status.name}: ${missingTargetHint(status.name)}"
             } else if (status == AutomationActionStatus.SENSITIVE_UI) {
                 "${status.name}: Helix refused this sensitive target before dispatch. No action was executed. " +
@@ -45,14 +45,11 @@ internal fun AutomationActionResult.toToolOutcome(): ToolExecutorResult =
                     "then act without another observation. For a known unique click selector use ui.click_match. " +
                     "For scrolling find scrollable=true. Never reconstruct a token."
             } else if (status == AutomationActionStatus.ACTION_NOT_SUPPORTED) {
-                "${status.name}: This action was rejected as unsupported. Observe again with ui.snapshot or ui.find; " +
-                    "choose a target supporting the requested action (a scrollable container for ui.scroll). " +
-                    "For scrolling, copy one of its advertised scrollDirections exactly: these " +
-                    "are viewport directions, " +
-                    "not finger motion, and a horizontal edge may expose only right/forward or left/backward. " +
-                    "Do not repeat the same call or guess coordinates."
+                unsupportedActionHint()
             } else if (gestureHint != null) {
                 gestureHint
+            } else if (status == AutomationActionStatus.STALE_TOKEN && coordinateAction) {
+                staleCoordinateFrameHint()
             } else if (status == AutomationActionStatus.STALE_TOKEN) {
                 "STALE_TOKEN: This observation is no longer actionable; no action was dispatched. " +
                     "A later observation, attempted action or changed target can invalidate it. " +
@@ -115,13 +112,6 @@ private fun actionText(maximum: Int) =
 
 private fun gestureFailureHint(status: AutomationActionStatus): String? =
     when (status) {
-        AutomationActionStatus.FRAME_CHANGED -> {
-            "FRAME_CHANGED: Screen content changed before DOWN; no input dispatched. " +
-                "This is not a Shizuku connection failure. An ad, animation or page transition may have completed. " +
-                "Observe the current page instead of repeatedly tapping an earlier screen. For a changing label, " +
-                "prefer ui.click_match using a fresh, unique resource ID instead of its rotating placeholder text."
-        }
-
         AutomationActionStatus.GESTURE_OCCLUDED -> {
             "GESTURE_OCCLUDED: Another window covers the intended path; no input dispatched. " +
                 "Observe the owned display's windows and choose a visible authorized path."
@@ -137,7 +127,10 @@ private fun dispatchedActionPayload() =
         put("status", JsonPrimitive("DISPATCHED"))
         put("effectStatus", JsonPrimitive("UNVERIFIED"))
         put("observationRequired", JsonPrimitive(true))
-        put("nextObservation", JsonPrimitive("ui.snapshot or ui.find; ui.device for coordinate actions"))
+        put(
+            "nextObservation",
+            JsonPrimitive("ui.wait for an expected label/state; ui.snapshot or ui.find; ui.device for visual results"),
+        )
         put(
             "actionHint",
             JsonPrimitive(
@@ -146,3 +139,22 @@ private fun dispatchedActionPayload() =
             ),
         )
     }
+
+private fun staleCoordinateFrameHint(): String =
+    "STALE_TOKEN: This coordinate frame is unknown, consumed or changed; no gesture was dispatched. " +
+        "Call ui.device and copy its exact opaque frame, then recheck the current target before acting. " +
+        "ui.snapshot/ui.find tokens and generation numbers are not coordinate frames. " +
+        "Every attempted gesture consumes its frame; never reuse it or blindly replay an earlier effect."
+
+private fun unsupportedActionHint(): String =
+    "ACTION_NOT_SUPPORTED: This action was rejected as unsupported. Observe again with ui.snapshot or ui.find; " +
+        "choose a target supporting the requested action (a scrollable container for ui.scroll). " +
+        "For ui.system, check ui.device.systemActions; use back to close the shade when " +
+        "dismiss_notification_shade is unavailable. " +
+        "For scrolling, copy one of its advertised scrollDirections exactly: these " +
+        "are viewport directions, " +
+        "not finger motion, and a horizontal edge may expose only right/forward or left/backward. " +
+        "Do not repeat the same call or guess coordinates."
+
+private fun needsServiceRecovery(status: AutomationActionStatus): Boolean =
+    status in setOf(AutomationActionStatus.SERVICE_NOT_CONNECTED, AutomationActionStatus.PRIVILEGED_SERVICE_UNAVAILABLE)

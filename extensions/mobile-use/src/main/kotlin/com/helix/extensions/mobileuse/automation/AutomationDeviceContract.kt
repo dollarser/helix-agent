@@ -12,7 +12,6 @@ data class AutomationDisplayTarget(
     val height: Int,
     val rotation: Int,
     val bounds: AutomationNodeBounds,
-    val revision: String = "",
     val displaySession: String = "",
     val independentFocus: Boolean = false,
     val semanticAvailable: Boolean = true,
@@ -79,6 +78,7 @@ data class AutomationScreenshot(
     val height: Int = 0,
     val screenBounds: AutomationNodeBounds? = null,
     val acquisitionScopeRef: String? = null,
+    val frame: String? = null,
 )
 
 interface AutomationDevicePort {

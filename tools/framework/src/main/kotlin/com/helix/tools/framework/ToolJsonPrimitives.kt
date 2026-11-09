@@ -1,8 +1,6 @@
 package com.helix.tools.framework
 
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.doubleOrNull
-import kotlinx.serialization.json.longOrNull
 
 /**
  * JsonPrimitive kind classification for the schema subset (HXA-031).
@@ -18,7 +16,7 @@ internal object ToolJsonPrimitives {
     fun isBoolean(p: JsonPrimitive): Boolean = !p.isString && (p.content == "true" || p.content == "false")
 
     /** true only for JSON number literals (a string "123" is not a number). */
-    fun isNumber(p: JsonPrimitive): Boolean = !p.isString && (p.longOrNull != null || p.doubleOrNull != null)
+    fun isNumber(p: JsonPrimitive): Boolean = ToolJsonNumbers.decimalOrNull(p) != null
 
     /** The boolean literal value, or null when the primitive is not a boolean literal. */
     fun booleanOf(p: JsonPrimitive): Boolean? =
@@ -28,14 +26,6 @@ internal object ToolJsonPrimitives {
                 "false" -> false
                 else -> null
             }
-        } else {
-            null
-        }
-
-    /** The numeric value as a double, or null when the primitive is not a number literal. */
-    fun doubleOf(p: JsonPrimitive): Double? =
-        if (!p.isString) {
-            p.longOrNull?.toDouble() ?: p.doubleOrNull
         } else {
             null
         }

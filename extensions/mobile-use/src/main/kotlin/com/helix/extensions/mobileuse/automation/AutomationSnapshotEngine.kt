@@ -18,6 +18,7 @@ internal interface SnapshotNode {
     val editable: Boolean
     val scrollable: Boolean
     val enabled: Boolean
+    val visibleToUser: Boolean
     val password: Boolean
     val accessibilityDataSensitive: Boolean
     val childCount: Int
@@ -57,6 +58,7 @@ internal data class ObservedSnapshotNode(
     val editable: Boolean,
     val scrollable: Boolean,
     val enabled: Boolean,
+    val visibleToUser: Boolean,
     val password: Boolean,
     val accessibilityDataSensitive: Boolean,
     val childCount: Int,
@@ -90,6 +92,7 @@ internal fun SnapshotNode.observe(): ObservedSnapshotNode {
         editable = editable,
         scrollable = scrollable,
         enabled = enabled,
+        visibleToUser = visibleToUser,
         password = password,
         accessibilityDataSensitive = accessibilityDataSensitive,
         childCount = childCount,
@@ -123,6 +126,7 @@ internal fun ObservedSnapshotNode.fingerprint(
             editable.toString(),
             scrollable.toString(),
             enabled.toString(),
+            visibleToUser.toString(),
             checkable.toString(),
             checked.toString(),
             scrollDirections.sortedBy { it.ordinal }.toString(),
@@ -246,6 +250,7 @@ internal class AutomationSnapshotEngine(
                         false,
                         observed.enabled,
                         redacted = true,
+                        visibleToUser = observed.visibleToUser,
                     )
                 state.hasUsefulSemantics = true
                 if (!observed.password) visitChildren(node, observed.childCount, null, depth, path, state)
@@ -288,6 +293,7 @@ internal class AutomationSnapshotEngine(
                     checkable = observed.checkable,
                     checked = observed.checked,
                     scrollDirections = observed.scrollDirections,
+                    visibleToUser = observed.visibleToUser,
                 )
             state.hasUsefulSemantics =
                 state.hasUsefulSemantics ||
@@ -326,7 +332,11 @@ internal class AutomationSnapshotEngine(
                 state.truncate("NODE_LIMIT")
                 return
             }
-            val child = node.childAt(index) ?: continue
+            val child = node.childAt(index)
+            if (child == null) {
+                state.truncate("MISSING_CHILD")
+                continue
+            }
             visitOwned(child, parentToken, depth + 1, path + index, state)
             if (state.abortStatus != null) return
         }
@@ -344,6 +354,7 @@ internal class AutomationSnapshotEngine(
         val truncated: Boolean get() = truncationReasons.isNotEmpty()
 
         fun truncate(reason: String) {
+            require(reason in SnapshotTruncationReasons.all)
             truncationReasons += reason
         }
 
@@ -379,7 +390,7 @@ internal class AutomationSnapshotEngine(
         const val MAX_NODES = NodeTokenRegistry.MAX_TOKENS
         const val MAX_DEPTH = 64
         const val MAX_FIELD_CHARACTERS = 256
-        const val MAX_TOTAL_CHARACTERS = 16_384
+        const val MAX_TOTAL_CHARACTERS = 65_536
     }
 }
 

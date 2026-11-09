@@ -126,7 +126,9 @@ object ModelCatalogDiscovery {
             }
         } catch (_: SocketTimeoutException) {
             Page(ModelCatalogResult.Failed(ModelErrorCode.TIMEOUT, "Model directory timed out", true))
-        } catch (_: IOException) {
-            Page(ModelCatalogResult.Failed(ModelErrorCode.TRANSPORT, "IOException", true))
+        } catch (error: IOException) {
+            // Export only a fixed enum, never exception text, URLs, headers, or credentials.
+            val reason = WireFailureEvidence.reason(error).name
+            Page(ModelCatalogResult.Failed(ModelErrorCode.TRANSPORT, "Model directory transport: $reason", true))
         }
 }

@@ -23,6 +23,45 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class ChatCompletionsRequestEncoderTest {
+    @Test fun decimalSchemaAndHistoryNumbersSurviveWireEncodingExactly() {
+        val schema =
+            """{"type":"object","properties":{"value":{"type":"number"""" +
+                ""","default":0.123456789012345678901""" +
+                ""","minimum":-1.25e-3,"enum":[1e400,9223372036854775808]}}}"""
+        val arguments = """{"value":0.123456789012345678901,"nested":[-1.25e-3,1e400,9223372036854775808]}"""
+        val request =
+            ModelRequest(
+                model = "fixture",
+                messages =
+                    listOf(
+                        ModelMessage(ModelRole.USER, "sample"),
+                        ModelMessage(
+                            ModelRole.ASSISTANT,
+                            "",
+                            toolCalls = listOf(AssistantToolCall(ToolCallId("call"), ToolName("sample"), arguments)),
+                        ),
+                        ModelMessage(
+                            ModelRole.TOOL,
+                            "done",
+                            toolCallId = ToolCallId("call"),
+                            toolName = ToolName("sample"),
+                        ),
+                    ),
+                tools = listOf(ModelToolSchema(ToolName("sample"), "sample", schema)),
+            )
+        val body = parsed(encoder.encode(request))
+        val tool = body["tools"]!!.jsonArray.single().jsonObject
+        assertEquals(schema, tool["function"]!!.jsonObject["parameters"].toString())
+        val call =
+            body["messages"]!!
+                .jsonArray[1]
+                .jsonObject["tool_calls"]!!
+                .jsonArray
+                .single()
+                .jsonObject
+        assertEquals(arguments, call["function"]!!.jsonObject["arguments"]!!.jsonPrimitive.content)
+    }
+
     @Test fun leadingSystemsAreCombinedWithoutChangingCanonicalHistoryOrToolOrder() {
         val messages =
             listOf(

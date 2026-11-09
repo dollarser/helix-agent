@@ -24,6 +24,50 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class ResponsesRequestEncoderTest {
+    @Test fun decimalSchemaAndHistoryNumbersSurviveWireEncodingExactly() {
+        val schema =
+            """{"type":"object","properties":{"value":{"type":"number"""" +
+                ""","default":0.123456789012345678901""" +
+                ""","minimum":-1.25e-3,"enum":[1e400,9223372036854775808]}}}"""
+        val arguments = """{"value":0.123456789012345678901,"nested":[-1.25e-3,1e400,9223372036854775808]}"""
+        val request =
+            ModelRequest(
+                model = "fixture",
+                messages =
+                    listOf(
+                        ModelMessage(ModelRole.USER, "sample"),
+                        ModelMessage(
+                            ModelRole.ASSISTANT,
+                            "",
+                            toolCalls = listOf(AssistantToolCall(ToolCallId("call"), ToolName("sample"), arguments)),
+                        ),
+                        ModelMessage(
+                            ModelRole.TOOL,
+                            "done",
+                            toolCallId = ToolCallId("call"),
+                            toolName = ToolName("sample"),
+                        ),
+                    ),
+                tools = listOf(ModelToolSchema(ToolName("sample"), "sample", schema)),
+            )
+        val body = parsed(encoder.encode(request))
+        assertEquals(
+            schema,
+            body["tools"]!!
+                .jsonArray
+                .single()
+                .jsonObject["parameters"]
+                .toString(),
+        )
+        assertEquals(
+            arguments,
+            body["input"]!!
+                .jsonArray[1]
+                .jsonObject["arguments"]!!
+                .jsonPrimitive.content,
+        )
+    }
+
     private val resolver =
         ImageResolver { image ->
             when (image.ref.value) {

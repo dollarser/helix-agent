@@ -41,7 +41,6 @@ class AutomationPrivilegedSemanticHostTest {
             100,
             0,
             AutomationNodeBounds(0, 0, 100, 100),
-            "revision",
         )
     private val backend = Backend()
 
@@ -91,8 +90,8 @@ class AutomationPrivilegedSemanticHostTest {
         assertEquals(0, backend.actions)
     }
 
-    @Test fun freshSnapshotAcceptsContentUpdatesWithinTheAuthorizedWindow() {
-        backend.publishedTarget = target.copy(revision = "updated-content")
+    @Test fun freshSnapshotPublishesNodeContentWithinTheAuthorizedWindow() {
+        backend.publishedTarget = target
         val result = host.snapshot(call, backend)
         assertEquals(AutomationSnapshotStatus.SUCCESS, result.status)
         assertEquals(
@@ -134,7 +133,7 @@ class AutomationPrivilegedSemanticHostTest {
                 nodeAction = AutomationNodeActionRequest(AutomationNodeAction.CLICK, node.token),
                 nodeFingerprint = node.privilegedFingerprint(),
             )
-        assertTrue(privilegedSemanticNodeMatches(request, target.copy(revision = "unrelated-change"), node))
+        assertTrue(privilegedSemanticNodeMatches(request, target, node))
         for (changed in listOf(
             node.copy(text = "Delete"),
             node.copy(enabled = false),

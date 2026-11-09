@@ -16,7 +16,15 @@ complexity:
   # default threshold. (A scenario suite that shares one fixture harness is one class
   # by design — splitting it only moves the size, not the coupling.)
   LargeClass:
-    excludes: ['**/src/test/**', '**/src/androidTest/**']
+    excludes: ['**/src/test/**', '**/src/androidTest/**', '**/src/androidTest*/**']
+  # Preserve Detekt's existing test exemptions for flavor-specific Android tests.
+  # All other complexity/style rules still apply to these sources.
+  TooManyFunctions:
+    excludes: ['**/test/**', '**/androidTest/**', '**/commonTest/**', '**/jvmTest/**', '**/androidUnitTest/**', '**/androidInstrumentedTest/**', '**/jsTest/**', '**/iosTest/**', '**/src/androidTest*/**']
+
+exceptions:
+  TooGenericExceptionCaught:
+    excludes: ['**/test/**', '**/androidTest/**', '**/commonTest/**', '**/jvmTest/**', '**/androidUnitTest/**', '**/androidInstrumentedTest/**', '**/jsTest/**', '**/iosTest/**', '**/src/androidTest*/**']
 
 style:
   MagicNumber:

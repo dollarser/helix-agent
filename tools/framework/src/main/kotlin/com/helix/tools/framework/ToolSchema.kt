@@ -4,8 +4,6 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.doubleOrNull
-import kotlinx.serialization.json.longOrNull
 import java.util.regex.Pattern
 import java.util.regex.PatternSyntaxException
 
@@ -40,8 +38,8 @@ import java.util.regex.PatternSyntaxException
  * `false`/`true`/schema object; `enum` is a non-empty array of VALUES (not
  * schemas — its entries are never recursively checked); `type` is one type
  * name or an array of them; `pattern` is a regex of at most [MAX_PATTERN_LENGTH]
- * characters that must compile (server-supplied patterns are bounded by the
- * length cap to limit ReDoS exposure of the validation thread; patterns are
+ * characters that must compile (the length cap and heuristic reduce, but do not
+ * eliminate, regex backtracking risk; patterns are
  * matched unanchored, per JSON Schema semantics).
  *
  * The subset check runs at descriptor construction (single enforcement
@@ -64,7 +62,7 @@ object ToolSchema {
     val ANNOTATION_KEYWORDS: Set<String> =
         setOf("description", "title", "default", "examples", "\$comment")
 
-    /** Server/MCP-supplied patterns longer than this are rejected (bounded ReDoS exposure). */
+    /** Server/MCP-supplied patterns longer than this are rejected; this is not a regex runtime bound. */
     const val MAX_PATTERN_LENGTH = 256
 
     /**
@@ -73,8 +71,7 @@ object ToolSchema {
      * quantified — the classic `(a+)+` / `(.*)*` shapes. Bounded repetition
      * (`{n,m}`) in either position stays allowed. This is a heuristic
      * (character classes, escapes and alternation are not fully tracked);
-     * together with the length cap it bounds the validation thread's
-     * exposure to server-supplied patterns.
+     * together with the length cap it reduces exposure but is not a hard runtime bound.
      */
     private val NESTED_UNBOUNDED_QUANTIFIER = Regex("\\((?:\\?<[=!])?[^()]*[+*][^()]*\\)[+*]")
 
@@ -98,6 +95,7 @@ object ToolSchema {
 
     /** Checks a schema against the subset; returns human-readable violations (empty = valid). */
     fun check(schema: JsonObject): List<String> {
+        ToolJsonBudget.violation(schema)?.let { return listOf("$: $it") }
         val violations = mutableListOf<String>()
         checkNode(schema, "$", violations)
         return violations
@@ -180,6 +178,7 @@ object ToolSchema {
                         out.add("$path: array entries must be type-name strings")
                     }
                 }
+                if (names.isEmpty()) out.add("$path: type array must not be empty")
                 names
             }
 
@@ -293,7 +292,7 @@ object ToolSchema {
     ) {
         val p = value as? JsonPrimitive
         // a numeric STRING ("3") is not a number: guard before longOrNull
-        val n = if (p != null && ToolJsonPrimitives.isNumber(p)) p.longOrNull else null
+        val n = ToolJsonNumbers.longOrNull(p)
         if (n == null || n < 0) {
             out.add("$path: must be a non-negative integer")
         }
@@ -345,7 +344,10 @@ object ToolSchema {
     ) {
         checkBoundPair(schema, path, out, "minimum", "maximum")
         checkBoundPair(schema, path, out, "exclusiveMinimum", "exclusiveMaximum")
+        checkBoundPair(schema, path, out, "minimum", "exclusiveMaximum")
+        checkBoundPair(schema, path, out, "exclusiveMinimum", "maximum")
         checkBoundPair(schema, path, out, "minLength", "maxLength")
+        checkBoundPair(schema, path, out, "minItems", "maxItems")
     }
 
     private fun checkBoundPair(
@@ -355,10 +357,16 @@ object ToolSchema {
         lowKey: String,
         highKey: String,
     ) {
-        val low = (schema[lowKey] as? JsonPrimitive)?.let { ToolJsonPrimitives.doubleOf(it) }
-        val high = (schema[highKey] as? JsonPrimitive)?.let { ToolJsonPrimitives.doubleOf(it) }
-        if (low != null && high != null && low > high) {
-            out.add("$path: $lowKey ($low) must not be greater than $highKey ($high)")
+        val low = ToolJsonNumbers.decimalOrNull(schema[lowKey])
+        val high = ToolJsonNumbers.decimalOrNull(schema[highKey])
+        val exclusive = lowKey.startsWith("exclusive") || highKey.startsWith("exclusive")
+        if (low != null && high != null) {
+            val order = low.compareTo(high)
+            if (order > 0 || (order == 0 && exclusive)) {
+                out.add(
+                    "$path: $lowKey ($low) must not be greater than $highKey ($high) or equal with an exclusive bound",
+                )
+            }
         }
     }
 }

@@ -29,7 +29,13 @@ import kotlinx.serialization.json.JsonPrimitive
  * binding can never disagree on what the arguments were.
  */
 object CanonicalArgs {
-    fun canonicalize(element: JsonElement): String =
+    fun canonicalize(element: JsonElement): String {
+        val violation = ToolJsonBudget.violation(element, checkNumbers = false)
+        require(violation == null) { requireNotNull(violation) }
+        return encode(element)
+    }
+
+    private fun encode(element: JsonElement): String =
         when (element) {
             is JsonPrimitive -> {
                 element.toString()
@@ -39,12 +45,12 @@ object CanonicalArgs {
                 element.keys
                     .sorted()
                     .joinToString(",", "{", "}") { key ->
-                        JsonPrimitive(key).toString() + ":" + canonicalize(element.getValue(key))
+                        JsonPrimitive(key).toString() + ":" + encode(element.getValue(key))
                     }
             }
 
             is JsonArray -> {
-                element.joinToString(",", "[", "]") { canonicalize(it) }
+                element.joinToString(",", "[", "]") { encode(it) }
             }
         }
 }

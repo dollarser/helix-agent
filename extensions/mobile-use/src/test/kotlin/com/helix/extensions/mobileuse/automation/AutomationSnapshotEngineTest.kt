@@ -15,10 +15,76 @@ class AutomationSnapshotEngineTest {
     private val registry =
         NodeTokenRegistry {
             tokenSeed += 1
-            ByteArray(16) { tokenSeed.toByte() }
+            java.nio.ByteBuffer
+                .allocate(16)
+                .putInt(tokenSeed)
+                .array()
         }
     private val engine = AutomationSnapshotEngine(registry, clock)
     private val session = activeSession(setOf(PACKAGE))
+
+    @Test fun collectionReachesLateControlsBeyondTheModelOutputBudget() {
+        val button = FakeSnapshotNode(PACKAGE, 7, text = "Visible target", clickable = true)
+        val children =
+            List(72) { FakeSnapshotNode(PACKAGE, 7, text = "Label $it") } + button +
+                List(226) { FakeSnapshotNode(PACKAGE, 7) } + FakeSnapshotNode(PACKAGE, 7, text = "Late target")
+        val root = FakeSnapshotNode(PACKAGE, 7, text = "Fixture", children = children)
+        val snapshot = requireNotNull(engine.capture(root, session, 1).snapshot)
+        assertEquals(301, snapshot.nodes.size)
+        assertEquals(
+            301,
+            snapshot.nodes
+                .map { it.token }
+                .distinct()
+                .size,
+        )
+        assertEquals(75, snapshot.nodes.count { !it.text.isNullOrBlank() || it.clickable })
+        assertTrue(snapshot.truncationReasons.isEmpty())
+        val found = AutomationFinder.find(snapshot, AutomationFindQuery(text = "Visible target"))
+        assertEquals(AutomationFindStatus.FOUND, found.status)
+        assertFalse(found.truncated)
+        val missing = AutomationFinder.find(snapshot, AutomationFindQuery(text = "Late target"))
+        assertEquals(AutomationFindStatus.FOUND, missing.status)
+        assertFalse(missing.truncated)
+        val action =
+            AutomationNodeActionExecutor(registry).execute(
+                root,
+                session,
+                1,
+                AutomationNodeActionRequest(AutomationNodeAction.CLICK, found.nodes.single().token),
+            )
+        assertEquals(AutomationActionStatus.SUCCEEDED, action.status)
+        assertEquals(1, button.actionCalls)
+    }
+
+    @Test fun collectionLimitDoesNotInventMissingLateTargetsOrAllowLeaseRenewal() {
+        val children =
+            List(AutomationSnapshotEngine.MAX_NODES) { FakeSnapshotNode(PACKAGE, 7) } +
+                FakeSnapshotNode(PACKAGE, 7, text = "Beyond collection")
+        val root = FakeSnapshotNode(PACKAGE, 7, text = "Fixture", children = children)
+        val snapshot = requireNotNull(engine.capture(root, session, 1).snapshot)
+        assertEquals(AutomationSnapshotEngine.MAX_NODES, snapshot.nodes.size)
+        assertEquals(setOf("NODE_LIMIT"), snapshot.truncationReasons)
+        val found = AutomationFinder.find(snapshot, AutomationFindQuery(text = "Beyond collection"))
+        assertEquals(AutomationFindStatus.NOT_FOUND, found.status)
+        assertTrue(found.truncated)
+        assertFalse(AccessibilitySemanticLease(snapshot, 1).matches(snapshot, 1, snapshot.nodes.first().token))
+    }
+
+    @Test
+    fun missingChildrenCannotProduceACompleteRenewableSnapshot() {
+        val root =
+            FakeSnapshotNode(
+                PACKAGE,
+                7,
+                text = "Files",
+                children = listOf(null, FakeSnapshotNode(PACKAGE, 7, text = "File A")),
+            )
+        val snapshot = checkNotNull(engine.capture(root, session, 1).snapshot)
+        assertTrue(snapshot.truncated)
+        assertTrue("MISSING_CHILD" in snapshot.truncationReasons)
+        assertFalse(AccessibilitySemanticLease(snapshot, 1).matches(snapshot, 1, snapshot.nodes.first().token))
+    }
 
     @Test
     fun explicitSettingsGrantRequiresAllowlistAndPreservesSensitiveNodeChecks() {
@@ -128,6 +194,7 @@ class AutomationSnapshotEngineTest {
                             "true",
                             "true",
                             "true",
+                            "true",
                             "[]",
                         ),
                     ),
@@ -166,7 +233,7 @@ class AutomationSnapshotEngineTest {
         assertTrue(snapshot.truncated)
         assertEquals(setOf("FIELD_LIMIT", "TEXT_LIMIT", "NODE_LIMIT"), snapshot.truncationReasons)
         assertTrue(snapshot.nodes.filter { it.text != null }.all { it.text!!.length <= 256 })
-        assertTrue(snapshot.nodes.sumOf { it.text?.length ?: 0 } <= 16_384)
+        assertTrue(snapshot.nodes.sumOf { it.text?.length ?: 0 } <= AutomationSnapshotEngine.MAX_TOTAL_CHARACTERS)
         assertEquals(1, root.recycleCount)
         assertTrue(children.take(AutomationSnapshotEngine.MAX_NODES - 1).all { it.recycleCount == 1 })
         assertTrue(children.drop(AutomationSnapshotEngine.MAX_NODES - 1).all { it.recycleCount == 0 })
@@ -356,6 +423,13 @@ class AutomationSnapshotEngineTest {
 }
 
 class NodeTokenRegistryTest {
+    @Test fun privilegedOrdinalTokensRemainUniqueBeyondOneByteAndAcrossTheEntireCaptureBudget() {
+        val tokens = (1..NodeTokenRegistry.MAX_TOKENS).map { privilegedSemanticToken(it).toList() }
+        assertEquals(NodeTokenRegistry.MAX_TOKENS, tokens.distinct().size)
+        assertEquals(tokens.first(), privilegedSemanticToken(1).toList())
+        assertTrue(tokens.all { it.size == 16 })
+    }
+
     private var seed = 0
     private val registry =
         NodeTokenRegistry {
@@ -418,14 +492,17 @@ private class FakeSnapshotNode(
     override val editable: Boolean = false,
     override val scrollable: Boolean = false,
     override val enabled: Boolean = true,
+    override val visibleToUser: Boolean = true,
     override val password: Boolean = false,
     override val accessibilityDataSensitive: Boolean = false,
     override val canImeEnter: Boolean = false,
     override val checkable: Boolean = false,
     override val checked: Boolean = false,
-    private val children: List<FakeSnapshotNode> = emptyList(),
+    private val children: List<FakeSnapshotNode?> = emptyList(),
     private val throwOnChildRead: Boolean = false,
 ) : SnapshotNode {
+    var actionCalls = 0
+        private set
     var recycleCount = 0
         private set
 
@@ -440,7 +517,10 @@ private class FakeSnapshotNode(
     override fun performAction(
         action: Int,
         arguments: android.os.Bundle?,
-    ): Boolean = false
+    ): Boolean {
+        actionCalls++
+        return clickable
+    }
 
     override fun recycle() {
         recycleCount += 1

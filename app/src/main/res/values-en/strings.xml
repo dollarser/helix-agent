@@ -1445,7 +1445,7 @@
     <string name="device_access_accessibility_none">No accessibility service in this build</string>
     <string name="device_access_accessibility_disconnected">Authorized · Not connected</string>
     <string name="device_access_accessibility_restore">Restore connection</string>
-    <string name="device_access_accessibility_restore_help">Open Android settings and check Helix accessibility. If enabled but disconnected, turn it off and on again.</string>
+    <string name="device_access_accessibility_restore_help">Turn Helix accessibility off and on in Android settings, then return. If it still does not connect, restart the device and try again. Mobile Use configuration is retained.</string>
     <string name="device_access_backend_ready">Available</string>
     <string name="device_access_root_reconnect">Reconnect enabled features</string>
     <string name="device_access_status_checking">Checking…</string>

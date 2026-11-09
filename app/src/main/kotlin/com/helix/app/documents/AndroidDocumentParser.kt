@@ -22,7 +22,6 @@ import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.float
 import kotlinx.serialization.json.int
-import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -73,10 +72,10 @@ internal class AndroidDocumentParser(
                 android.os.Bundle().apply {
                     putString("format", snapshot.format)
                     putString("operation", operation)
-                    putInt("page", call.args["page"]?.jsonPrimitive?.intOrNull ?: 1)
-                    putInt("textOffset", call.args["offset"]?.jsonPrimitive?.intOrNull ?: 0)
-                    putInt("textLimit", call.args["limit"]?.jsonPrimitive?.intOrNull ?: DocumentLimits.TEXT)
-                    putInt("startBlock", call.args["startBlock"]?.jsonPrimitive?.intOrNull ?: 1)
+                    putInt("page", DocumentIntegerArguments.read(call.args, "page", 1))
+                    putInt("textOffset", DocumentIntegerArguments.read(call.args, "offset", 0))
+                    putInt("textLimit", DocumentIntegerArguments.read(call.args, "limit", DocumentLimits.TEXT))
+                    putInt("startBlock", DocumentIntegerArguments.read(call.args, "startBlock", 1))
                     putString("imageId", call.args["imageId"]?.jsonPrimitive?.content)
                     call.args["region"]?.jsonArray?.let { values ->
                         putFloatArray("region", values.map { it.jsonPrimitive.float }.toFloatArray())

@@ -41,7 +41,7 @@ fun privilegedGesturePermitted(
 ): Boolean {
     val target = requireNotNull(request.target)
     validateAutomationGesture(request.strokes, target, request.wholeDisplay, 10, 10_000)
-    if (current != target) return false
+    if (!target.sameWindow(current)) return false
     if (target.isWholeTaskTarget(request.wholeDisplay)) return true
     val active = windows.singleOrNull { it.windowId == target.windowId } ?: return false
     if (request.wholeDisplay) return true
@@ -81,8 +81,7 @@ fun AutomationSnapshotNode.privilegedFingerprint(): String =
         ),
     )
 
-fun AutomationDisplayTarget.sameWindow(other: AutomationDisplayTarget?): Boolean =
-    other != null && copy(revision = "") == other.copy(revision = "")
+fun AutomationDisplayTarget.sameWindow(other: AutomationDisplayTarget?): Boolean = other != null && this == other
 
 fun privilegedSemanticNodeMatches(
     request: AutomationDeviceRequest,

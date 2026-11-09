@@ -691,7 +691,7 @@ internal class ApplicationToolGateway(
                         rawArgsJson,
                         descriptor?.version?.value?.toString() ?: "unknown",
                         DispatchOutcomeCode.INVALID_ARGUMENTS,
-                        "Tool arguments must be a valid JSON object.",
+                        "Tool arguments must be a valid JSON object within the nesting and node limits.",
                         PreDispatchDenialKind.FRAMEWORK_REJECTED,
                         modelIntent,
                         origin,
@@ -862,7 +862,16 @@ internal class ApplicationToolGateway(
      * rejection path handles the malformed input itself; the raw parse text is model
      * content and is never logged or shown). */
     private fun parseJsonObjectOrNull(raw: String): JsonObject? =
-        runCatching { Json.parseToJsonElement(raw) }.getOrNull() as? JsonObject
+        runCatching {
+            com.helix.core.model.JsonInputLimits
+                .requireSafeNesting(raw)
+            Json.parseToJsonElement(raw).also {
+                require(
+                    com.helix.tools.framework.ToolJsonBudget
+                        .violation(it, checkNumbers = false) == null,
+                )
+            }
+        }.getOrNull() as? JsonObject
 
     /**
      * The durable settlement for a slot the dispatcher threw away instead of returning

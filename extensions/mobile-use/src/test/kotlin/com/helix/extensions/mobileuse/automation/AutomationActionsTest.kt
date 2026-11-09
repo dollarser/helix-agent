@@ -111,6 +111,70 @@ class AutomationNodeActionExecutorTest {
     private val executor = AutomationNodeActionExecutor(registry)
     private val session = actionSession()
 
+    @Test fun invisibleNodesCannotBeClickedAndVisibilityChangesInvalidateTheirOriginalToken() {
+        val hidden = ActionFakeNode(clickable = true, visibleToUser = false)
+        var token = issue(hidden, emptyList(), 7)
+        assertEquals(AutomationActionStatus.ACTION_NOT_SUPPORTED, execute(hidden, token, 7).status)
+        assertTrue(hidden.performedActions.isEmpty())
+        token = issue(ActionFakeNode(clickable = true), emptyList(), 7)
+        assertEquals(AutomationActionStatus.STALE_TOKEN, execute(hidden, token, 7).status)
+        assertTrue(hidden.performedActions.isEmpty())
+    }
+
+    @Test fun longClickUsesTheAdvertisedCapabilityWithoutCoordinateFallbackOrReplay() {
+        val node = ActionFakeNode(longClickable = true)
+        val token = issue(node, emptyList(), 7)
+        val request = AutomationNodeActionRequest(AutomationNodeAction.LONG_CLICK, token)
+        assertEquals(AutomationActionStatus.SUCCEEDED, executor.execute(node, session, 7, request).status)
+        assertEquals(listOf(AccessibilityNodeInfo.ACTION_LONG_CLICK), node.performedActions)
+        assertEquals(AutomationActionStatus.STALE_TOKEN, executor.execute(node, session, 7, request).status)
+        assertEquals(1, node.performedActions.size)
+    }
+
+    @Test fun longClickRefusesRemovedOrDisabledCapabilityAndPreservesUncertainEffects() {
+        val observed = ActionFakeNode(longClickable = true)
+        val removed = ActionFakeNode(longClickable = false)
+        var token = issue(observed, emptyList(), 7)
+        assertEquals(
+            AutomationActionStatus.STALE_TOKEN,
+            executor
+                .execute(
+                    removed,
+                    session,
+                    7,
+                    AutomationNodeActionRequest(AutomationNodeAction.LONG_CLICK, token),
+                ).status,
+        )
+        assertTrue(removed.performedActions.isEmpty())
+        val disabled = ActionFakeNode(longClickable = true, enabled = false)
+        token = issue(disabled, emptyList(), 7)
+        assertEquals(
+            AutomationActionStatus.ACTION_NOT_SUPPORTED,
+            executor
+                .execute(
+                    disabled,
+                    session,
+                    7,
+                    AutomationNodeActionRequest(AutomationNodeAction.LONG_CLICK, token),
+                ).status,
+        )
+        assertTrue(disabled.performedActions.isEmpty())
+        val lost = ActionFakeNode(longClickable = true, throwAfterAction = true)
+        token = issue(lost, emptyList(), 7)
+        assertEquals(
+            AutomationActionStatus.ACTION_OUTCOME_UNKNOWN,
+            executor
+                .execute(
+                    lost,
+                    session,
+                    7,
+                    AutomationNodeActionRequest(AutomationNodeAction.LONG_CLICK, token),
+                ).status,
+        )
+        assertEquals(listOf(AccessibilityNodeInfo.ACTION_LONG_CLICK), lost.performedActions)
+        assertEquals(NodeTokenLookupStatus.RETIRED, registry.lookup(token).status)
+    }
+
     @Test
     fun clickRewalksTokenPathRevalidatesFingerprintAndRecyclesNodes() {
         val child = ActionFakeNode(text = "Continue", clickable = true)
@@ -516,6 +580,50 @@ class AutomationNodeActionExecutorTest {
     }
 
     @Test
+    fun changedGenerationAtDispatchBoundaryRejectsWithoutAnEffect() {
+        val node = ActionFakeNode(text = "Continue", clickable = true)
+        val token = issue(node, emptyList(), 7)
+        var current = true
+        val changing =
+            object : SnapshotNode by node {
+                override val text: String?
+                    get() {
+                        current = false
+                        return node.text
+                    }
+            }
+        val result =
+            executor.execute(
+                changing,
+                session,
+                7,
+                AutomationNodeActionRequest(AutomationNodeAction.CLICK, token),
+                stillCurrent = { current },
+            )
+        assertEquals(AutomationActionStatus.STALE_TOKEN, result.status)
+        assertEquals(null, node.performedAction)
+    }
+
+    @Test
+    fun retiredDuringTargetReadCannotDispatchEvenWithTheSameFingerprint() {
+        val node = ActionFakeNode(text = "Continue", clickable = true)
+        val token = issue(node, emptyList(), 7)
+        val result =
+            executor.execute(
+                node,
+                session,
+                7,
+                AutomationNodeActionRequest(AutomationNodeAction.CLICK, token),
+                stillCurrent = {
+                    registry.invalidate()
+                    true
+                },
+            )
+        assertEquals(AutomationActionStatus.STALE_TOKEN, result.status)
+        assertEquals(null, node.performedAction)
+    }
+
+    @Test
     fun replacementObservationNeverDispatchesAnOldToken() {
         val observed = ActionFakeNode(text = "Continue", clickable = true)
         val token = issue(observed, emptyList(), 7)
@@ -714,6 +822,7 @@ private class ActionFakeNode(
     override val editable: Boolean = false,
     override val scrollable: Boolean = false,
     override val enabled: Boolean = true,
+    override val visibleToUser: Boolean = true,
     override val password: Boolean = false,
     override val accessibilityDataSensitive: Boolean = false,
     private val children: List<ActionFakeNode> = emptyList(),

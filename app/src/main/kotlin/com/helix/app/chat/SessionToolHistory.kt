@@ -6,12 +6,11 @@ import com.helix.core.storage.entity.MessageReferenceSnapshotEntity
 import com.helix.core.storage.repository.SessionHistoryCaller
 import com.helix.core.storage.repository.SessionHistoryRepository
 import com.helix.tools.framework.ExecutableToolCall
+import com.helix.tools.framework.ToolJsonNumbers
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonPrimitive
-import kotlinx.serialization.json.long
 import kotlinx.serialization.json.put
 import java.io.IOException
 
@@ -32,7 +31,11 @@ internal object SessionToolHistory {
             } else {
                 null
             }
-        val before = call.args["beforeSequence"]?.jsonPrimitive?.long ?: Long.MAX_VALUE
+        val before =
+            call.args["beforeSequence"]?.let {
+                requireNotNull(ToolJsonNumbers.longOrNull(it)) { "beforeSequence must be an exact 64-bit integer" }
+            }
+                ?: Long.MAX_VALUE
         val page =
             repository.page(
                 caller,
@@ -182,7 +185,9 @@ internal object SessionToolHistory {
             repository.read(
                 caller,
                 call.text("messageId"),
-                call.args["referenceOrdinal"]?.jsonPrimitive?.int,
+                call.args["referenceOrdinal"]?.let {
+                    requireNotNull(ToolJsonNumbers.intOrNull(it)) { "referenceOrdinal must be an exact 32-bit integer" }
+                },
                 reference,
             )
         if (reference !=
@@ -201,9 +206,9 @@ internal object SessionToolHistory {
             ToolResultReadTool.page(
                 call.text("messageId"),
                 content.content,
-                call.args
-                    .getValue("offset")
-                    .jsonPrimitive.int,
+                requireNotNull(
+                    ToolJsonNumbers.intOrNull(call.args["offset"]),
+                ) { "offset must be an exact 32-bit integer" },
             )
         return JsonObject(
             page - "resultRef" +
@@ -212,9 +217,9 @@ internal object SessionToolHistory {
                     put("contentHash", content.sha256)
                     if ("referenceOrdinal" !in call.args) {
                         val start =
-                            call.args
-                                .getValue("offset")
-                                .jsonPrimitive.int
+                            requireNotNull(
+                                ToolJsonNumbers.intOrNull(call.args["offset"]),
+                            ) { "offset must be an exact 32-bit integer" }
                         val text = page.getValue("content").jsonPrimitive.content
                         val end = start + text.codePointCount(0, text.length)
                         put(

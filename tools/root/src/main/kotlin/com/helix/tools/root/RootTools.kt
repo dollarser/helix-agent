@@ -10,6 +10,7 @@ import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
+import com.helix.tools.framework.ToolJsonNumbers
 import com.helix.tools.framework.ToolOrigin
 import com.helix.tools.framework.ToolRegistry
 import kotlinx.serialization.json.JsonArray
@@ -17,9 +18,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonPrimitive
-import kotlinx.serialization.json.longOrNull
 import java.nio.charset.StandardCharsets
 import java.util.Base64
 import kotlin.time.Duration.Companion.seconds
@@ -244,7 +243,7 @@ class RootTools(
             mapOf(
                 "scopeId" to stringSchema(64),
                 "relativePath" to stringSchema(1024),
-                "offset" to integerSchema(0),
+                "offset" to JsonObject(integerSchema(0) + ("maximum" to JsonPrimitive(Long.MAX_VALUE))),
                 "maxBytes" to integerSchema(1, MAX_FILE_BYTES),
             ),
             listOf("scopeId", "relativePath"),
@@ -375,13 +374,25 @@ class RootTools(
         args: JsonObject,
         key: String,
         default: Int,
-    ) = args[key]?.jsonPrimitive?.intOrNull ?: default
+    ) = if (key !in
+        args
+    ) {
+        default
+    } else {
+        requireNotNull(ToolJsonNumbers.intOrNull(args[key])) { "ROOT_ARGUMENT_INVALID_$key" }
+    }
 
     private fun optionalLong(
         args: JsonObject,
         key: String,
         default: Long,
-    ) = args[key]?.jsonPrimitive?.longOrNull ?: default
+    ) = if (key !in
+        args
+    ) {
+        default
+    } else {
+        requireNotNull(ToolJsonNumbers.longOrNull(args[key])) { "ROOT_ARGUMENT_INVALID_$key" }
+    }
 
     private fun redactLog(line: String): String =
         line

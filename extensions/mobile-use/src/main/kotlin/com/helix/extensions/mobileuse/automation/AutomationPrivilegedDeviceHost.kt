@@ -226,6 +226,7 @@ internal class AutomationPrivilegedDeviceHost(
             }
         }
 
+    @Suppress("ReturnCount") // A missing/foreign capture must not replace any coordinate credential.
     private fun publishCapture(
         call: ExecutableToolCall,
         saved: BoundFrame,
@@ -234,8 +235,25 @@ internal class AutomationPrivilegedDeviceHost(
         if (reply.screenshot?.png != null && !saved.frame.target.sameWindow(reply.target)) {
             return AutomationDeviceReply("TARGET_CHANGED")
         }
-        // A fresh read never refreshes the original coordinate frame's revision.
-        return reply.copy(screenshot = reply.screenshot?.copy(acquisitionScopeRef = call.authorizationScopeRef))
+        val capture = reply.screenshot ?: return reply
+        if (capture.png == null) return reply
+        // A screenshot replaces the observation token and binds its coordinate environment.
+        // Pixels are observation output, never a precondition for the subsequent action.
+        val next =
+            saved.copy(
+                frame =
+                    saved.frame.copy(
+                        token =
+                            java.util.UUID
+                                .randomUUID()
+                                .toString(),
+                        target = requireNotNull(reply.target),
+                    ),
+            )
+        bound = next
+        return reply.copy(
+            screenshot = capture.copy(acquisitionScopeRef = call.authorizationScopeRef, frame = next.frame.token),
+        )
     }
 
     private fun wholeDisplay(scope: com.helix.core.policy.AutomationSessionScope) =

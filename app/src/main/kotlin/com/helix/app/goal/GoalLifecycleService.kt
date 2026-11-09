@@ -13,14 +13,13 @@ import com.helix.core.storage.entity.GoalControlEntity
 import com.helix.core.storage.mapping.StoredGoal
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.ToolExecutorResult
+import com.helix.tools.framework.ToolJsonNumbers
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import kotlinx.serialization.json.long
 import kotlinx.serialization.json.put
 
 /** Edits are CAS-protected and settle between rounds. No persisted edit is authority to wake a process. */
@@ -136,9 +135,9 @@ internal class GoalLifecycleService(
         require(control.sessionId == call.sessionId) { "Goal belongs to another session" }
         require(
             control.revision ==
-                call.args
-                    .getValue("expected_revision")
-                    .jsonPrimitive.long,
+                requireNotNull(ToolJsonNumbers.longOrNull(call.args["expected_revision"])) {
+                    "expected_revision must be an exact 64-bit integer"
+                },
         ) {
             "Goal changed; read goal.get again"
         }
@@ -242,7 +241,11 @@ internal class GoalLifecycleService(
         previous: GoalBudgets,
     ): GoalBudgets =
         previous.copy(
-            maxGoalRounds = args?.get("max_goal_rounds")?.jsonPrimitive?.int ?: previous.maxGoalRounds,
+            maxGoalRounds =
+                args?.get("max_goal_rounds")?.let {
+                    requireNotNull(ToolJsonNumbers.intOrNull(it)) { "max_goal_rounds must be an exact 32-bit integer" }
+                }
+                    ?: previous.maxGoalRounds,
         )
 
     private companion object {

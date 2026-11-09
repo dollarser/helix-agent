@@ -54,6 +54,17 @@ def passed(output):
     )
 
 
+def clean_install_packages(device, app_package, runner_package, output):
+    """Called only after frozen manifests and the new emulator owner have been verified."""
+    for package in dict.fromkeys((runner_package, app_package)):
+        installed = device("shell", "pm", "list", "packages", package).splitlines()
+        if "package:" + package in installed:
+            removed = device("uninstall", package)
+            (output / ("uninstall-" + package + ".txt")).write_text(removed)
+            if removed.strip() != "Success":
+                raise RuntimeError("Clean installation did not remove the exact fixture package")
+
+
 @contextmanager
 def capture_test_logcat(adb, serial, output, owner_alive):
     """Stream this owned run's filtered bytes before instrumentation can overflow logd."""
@@ -159,6 +170,10 @@ def run(args):
             (output / "device-properties.json").write_text(json.dumps(properties, indent=2))
             if args.reverse_port:
                 device("reverse", f"tcp:{args.reverse_port}", f"tcp:{args.reverse_port}")
+            if args.clean_install:
+                # The exact frozen manifests and owned emulator identity were checked above.
+                # Disposable pre-release fixtures need no version/migration compatibility chain.
+                clean_install_packages(device, app_package, args.runner.split("/", 1)[0], output)
             device("install", "-r", str(output / "app.apk"), timeout=120)
             device("install", "-r", str(output / "test.apk"), timeout=120)
             if args.clear_app_data:
@@ -280,6 +295,7 @@ if __name__ == "__main__":
     parser.add_argument("--font-scale", type=float, choices=(1.0, 1.3, 1.5), default=1.0)
     parser.add_argument("--reverse-port", type=int)
     parser.add_argument("--clear-app-data", action="store_true")
+    parser.add_argument("--clean-install", action="store_true", help="Remove only the two verified fixture packages on this owned emulator before installation")
     parser.add_argument("--grant-shared-storage", action="store_true")
     parser.add_argument("--airplane-mode", action="store_true",
                         help="Cut the network (disable wifi + data) for the offline scenario")

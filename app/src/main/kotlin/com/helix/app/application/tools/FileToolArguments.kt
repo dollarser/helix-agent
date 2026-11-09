@@ -60,9 +60,17 @@ internal object FileToolArguments {
     ): String {
         val parsed =
             runCatching {
+                com.helix.core.model.JsonInputLimits
+                    .requireSafeNesting(arguments)
                 kotlinx.serialization.json.Json
                     .parseToJsonElement(arguments.ifBlank { "{}" })
-            }.getOrNull() as? JsonObject ?: return arguments
+            }.getOrNull()
+                .let { it as? JsonObject }
+                ?.takeIf {
+                    com.helix.tools.framework.ToolJsonBudget
+                        .violation(it, checkNumbers = false) == null
+                }
+                ?: return arguments
         // Invalid paths stay invalid and are rejected by the ordinary dispatch validation path.
         return runCatching {
             normalize(parsed, directory, toolName).toString()

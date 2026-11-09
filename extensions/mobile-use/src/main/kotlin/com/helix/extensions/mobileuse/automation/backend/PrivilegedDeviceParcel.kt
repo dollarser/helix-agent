@@ -30,7 +30,6 @@ internal object PrivilegedDeviceParcel {
                 target.bounds.bottom,
             )
         values.forEach(parcel::writeInt)
-        parcel.writeString(target.revision)
         parcel.writeString(target.displaySession)
         parcel.writeInt(if (target.independentFocus) 1 else 0)
         parcel.writeInt(if (target.semanticAvailable) 1 else 0)
@@ -43,7 +42,6 @@ internal object PrivilegedDeviceParcel {
         require(name.length in 1..255)
         val values = List(9) { parcel.readInt() }
         require(values[1] >= 0 && values[2] in 1..32768 && values[3] in 1..32768 && values[4] in 0..3)
-        val revision = requireNotNull(parcel.readString()).also { require(it.length <= 64) }
         val session = requireNotNull(parcel.readString()).also { require(it.length <= 64) }
         val independentFocus = parcel.readInt() == 1
         val semanticAvailable = parcel.readInt().also { require(it in 0..1) } == 1
@@ -59,7 +57,6 @@ internal object PrivilegedDeviceParcel {
             values[3],
             values[4],
             bounds,
-            revision,
             session,
             independentFocus,
             semanticAvailable,

@@ -16,6 +16,7 @@ internal class AutomationNodeActionExecutor(
         session: ActiveAutomationSession,
         generation: Long,
         request: AutomationNodeActionRequest,
+        stillCurrent: () -> Boolean = { true },
     ): AutomationActionResult {
         if (request.token.length != TOKEN_HEX_LENGTH) {
             root?.recycleSafely()
@@ -41,7 +42,9 @@ internal class AutomationNodeActionExecutor(
         return try {
             val observed = targetNode.observe()
             validateObservedTarget(observed, session, generation, binding)?.let(::result)
-                ?: executeValidated(targetNode, observed, request)
+                ?: executeValidated(targetNode, observed, request) {
+                    stillCurrent() && tokenRegistry.lookup(request.token).binding == binding
+                }
         } catch (_: RuntimeException) {
             result(AutomationActionStatus.UNSUPPORTED_UI)
         } finally {
@@ -92,7 +95,9 @@ internal class AutomationNodeActionExecutor(
         node: SnapshotNode,
         observed: ObservedSnapshotNode,
         request: AutomationNodeActionRequest,
+        stillCurrent: () -> Boolean,
     ): AutomationActionResult {
+        if (!observed.visibleToUser) return result(AutomationActionStatus.ACTION_NOT_SUPPORTED)
         argumentFailure(observed, request)?.let { return result(it) }
         if (sensitiveSemanticPolicy.isDenied(observed, request.action)) {
             return result(AutomationActionStatus.SENSITIVE_UI)
@@ -110,6 +115,7 @@ internal class AutomationNodeActionExecutor(
                 actionAndArguments(observed, request)
                     ?: return result(AutomationActionStatus.ACTION_NOT_SUPPORTED)
             }
+        if (!stillCurrent()) return result(AutomationActionStatus.STALE_TOKEN)
         return try {
             performPlatformAutomationAction { dispatchNodeAction(node, request, actionAndArguments) }
         } finally {

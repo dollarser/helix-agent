@@ -21,7 +21,7 @@ internal fun AutomationDisplayTarget.gestureDisplay(): GestureDisplay =
 /** Authorization/cancellation is checked separately by the runner for every input event. */
 internal class PrivilegedGestureGuard(
     private val request: AutomationDeviceRequest,
-    private val target: (Boolean) -> AutomationDisplayTarget?,
+    private val target: () -> AutomationDisplayTarget?,
     private val display: () -> GestureDisplay,
     private val windows: () -> List<AutomationWindowRegion>,
 ) {
@@ -38,12 +38,12 @@ internal class PrivilegedGestureGuard(
             else -> withinApp()
         }
 
-    @Suppress("ReturnCount") // Distinguish content, mapping and occlusion before any DOWN is sent.
+    @Suppress("ReturnCount") // Validate execution identity and scope without rereading screen content.
     private fun beforeDown(): Boolean {
         val original = requireNotNull(request.target)
-        val current = target(true)
-        if (original != current) {
-            refusal = if (original.sameWindow(current)) "FRAME_CHANGED" else "TARGET_CHANGED"
+        val current = target()
+        if (!original.sameWindow(current)) {
+            refusal = "TARGET_CHANGED"
             return false
         }
         val covering = windows()
@@ -58,7 +58,7 @@ internal class PrivilegedGestureGuard(
 
     private fun withinApp(): Boolean {
         val original = requireNotNull(request.target)
-        val current = target(false) ?: return false
+        val current = target() ?: return false
         // A new window in the authorized app is valid only while the path still lies in that window
         // and no other window covers it. An absent root cannot establish a restricted scope.
         return original.packageName == current.packageName && original.gestureDisplay() == current.gestureDisplay() &&

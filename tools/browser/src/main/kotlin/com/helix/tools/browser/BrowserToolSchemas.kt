@@ -1,11 +1,11 @@
 package com.helix.tools.browser
 
 import com.helix.tools.framework.ToolExecutorResult
+import com.helix.tools.framework.ToolJsonNumbers
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.intOrNull
 
 // The `browser.*` built-in tools (roadmap HXA-062, doc 09 §3.3): the 11 in-app WebView actions —
 // open / navigate / back / forward / reload / snapshot / find / click / type / scroll / screenshot.
@@ -147,11 +147,7 @@ internal fun intArg(
     key: String,
     min: Int,
     max: Int,
-): Int? =
-    (args[key] as? JsonPrimitive)
-        ?.let { p ->
-            if (p.isString) p.content.toIntOrNull() else p.intOrNull
-        }?.takeIf { it in min..max }
+): Int? = ToolJsonNumbers.intOrNull(args[key])?.takeIf { it in min..max }
 
 /** Bounds a port error message for the model-visible `detail` (never the audit, which keeps it raw). */
 internal fun bounded(detail: String): String {

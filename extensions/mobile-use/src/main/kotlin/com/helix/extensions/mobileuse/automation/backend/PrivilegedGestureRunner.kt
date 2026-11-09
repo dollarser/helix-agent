@@ -18,9 +18,14 @@ internal class PrivilegedGestureRunner(
         try {
             require(plan.isNotEmpty())
             val start = now()
+            var validationDelay = 0L
             for (step in plan) {
-                waitUntil(start + step.time)
-                check(allowed() && ready(entered))
+                waitUntil(start + step.time + validationDelay)
+                // New DOWN events check only execution identity and scope, never pixels or tree content.
+                val beforeValidation = now()
+                check(allowed() && ready(entered && step.action != 0) && allowed())
+                // Admission time must not consume the requested physical press/swipe duration.
+                if (step.action == 0) validationDelay += now() - beforeValidation
                 if (step.action == 0) downTime = now()
                 touches = step.touches
                 entered = true

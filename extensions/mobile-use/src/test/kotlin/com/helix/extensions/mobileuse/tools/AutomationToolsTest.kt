@@ -35,6 +35,121 @@ import org.junit.Test
 import java.time.Instant
 
 class AutomationToolsTest {
+    @Test fun longClickCapabilitySuppliesItsActualToolAndParentTokenWithoutExecutingIt() {
+        val original = clickableAncestorSnapshot()
+        val tree = requireNotNull(original.snapshot)
+        port.snapshotResult =
+            original.copy(
+                snapshot =
+                    tree.copy(
+                        nodes =
+                            tree.nodes.map {
+                                if (it.token == PARENT_TOKEN) it.copy(longClickable = true) else it
+                            },
+                    ),
+            )
+        val found = completed(execute(AutomationTools.FIND, args("text" to "weixin.qq.com")))
+        val node =
+            found
+                .getValue("nodes")
+                .jsonArray
+                .single()
+                .jsonObject
+        assertEquals(
+            "ui.long_click",
+            node
+                .getValue("longClick")
+                .jsonObject
+                .getValue("tool")
+                .jsonPrimitive.content,
+        )
+        assertEquals(
+            PARENT_TOKEN,
+            node
+                .getValue("longClick")
+                .jsonObject
+                .getValue("token")
+                .jsonPrimitive.content,
+        )
+        assertTrue(port.nodeRequests.isEmpty())
+        assertEquals(
+            ToolSchemaValidation.Valid,
+            ToolSchemaValidator.validate(
+                tools.descriptors().single { it.name.value == AutomationTools.FIND }.outputSchema,
+                found,
+            ),
+        )
+        for (name in listOf(AutomationTools.SNAPSHOT, AutomationTools.FIND)) {
+            assertTrue(
+                tools.descriptors().single { it.name.value == name }.discoveryCompanions.any {
+                    it.value == AutomationTools.LONG_CLICK
+                },
+            )
+        }
+    }
+
+    @Test fun outputLimitIsDistinctFromCollectionAndFindCanReachTheOmittedNode() {
+        val original = successfulSnapshot()
+        val tree = requireNotNull(original.snapshot)
+        val nodes = (0..210).map { tree.nodes.single().copy(token = "node$it", text = "Item $it") }
+        port.snapshotResult = original.copy(snapshot = tree.copy(nodes = nodes))
+        val projected = completed(execute(AutomationTools.SNAPSHOT, buildJsonObject {}))
+        assertEquals("211", projected.getValue("capturedNodeCount").jsonPrimitive.content)
+        assertEquals("200", projected.getValue("returnedNodeCount").jsonPrimitive.content)
+        assertEquals(
+            "OUTPUT_LIMIT",
+            projected
+                .getValue("truncationReasons")
+                .jsonArray
+                .single()
+                .jsonPrimitive.content,
+        )
+        assertEquals("true", projected.getValue("truncated").jsonPrimitive.content)
+        assertEquals(
+            ToolSchemaValidation.Valid,
+            ToolSchemaValidator.validate(
+                tools
+                    .descriptors()
+                    .single {
+                        it.name.value == AutomationTools.SNAPSHOT
+                    }.outputSchema,
+                projected,
+            ),
+        )
+        val found = completed(execute(AutomationTools.FIND, args("text" to "Item 210")))
+        assertEquals("FOUND", found.getValue("status").jsonPrimitive.content)
+        assertEquals("false", found.getValue("truncated").jsonPrimitive.content)
+    }
+
+    @Test fun allCaptureTruncationReasonsFitTheDeclaredOutputSchema() {
+        val original = successfulSnapshot()
+        val reasons = com.helix.extensions.mobileuse.automation.SnapshotTruncationReasons.all
+        port.snapshotResult =
+            original.copy(
+                snapshot = requireNotNull(original.snapshot).copy(truncated = true, truncationReasons = reasons),
+            )
+        val result = completed(execute(AutomationTools.SNAPSHOT, buildJsonObject {}))
+        assertEquals(
+            reasons,
+            result
+                .getValue("truncationReasons")
+                .jsonArray
+                .map { it.jsonPrimitive.content }
+                .toSet(),
+        )
+        assertEquals(
+            ToolSchemaValidation.Valid,
+            ToolSchemaValidator.validate(
+                tools
+                    .descriptors()
+                    .single {
+                        it.name.value == AutomationTools.SNAPSHOT
+                    }.outputSchema,
+                result,
+            ),
+        )
+    }
+
     @Test fun pollingIsOptionalDocumentedAndStrictlyBounded() {
         for (name in listOf(AutomationTools.WAIT, AutomationTools.CLICK_MATCH)) {
             val descriptor = tools.descriptors().single { it.name.value == name }
@@ -240,6 +355,21 @@ class AutomationToolsTest {
                     tools.descriptors().single { base -> base.name == it.name }.contractHash
             },
         )
+    }
+
+    @Test
+    fun disconnectedSnapshotAndClickMatchShareActionableRecoveryWithoutDispatch() {
+        port.snapshotResult = AutomationSnapshotResult(AutomationSnapshotStatus.SERVICE_NOT_CONNECTED)
+        val snapshot = completed(execute(AutomationTools.SNAPSHOT, buildJsonObject {}))
+        val hint = snapshot.getValue("recoveryHint").jsonPrimitive.content
+        assertTrue(hint.contains("Helix System permissions"))
+        assertTrue(hint.contains("in Android settings"))
+        assertTrue(hint.contains("fresh observation"))
+        assertTrue(hint.contains("already authorized"))
+        val click = execute(AutomationTools.CLICK_MATCH, args("text" to "Save")) as ToolExecutorResult.Failed
+        assertEquals("SERVICE_NOT_CONNECTED: $hint", click.detail)
+        assertTrue(click.sideEffectFree)
+        assertTrue(port.nodeRequests.isEmpty())
     }
 
     @Test

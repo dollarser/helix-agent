@@ -57,7 +57,7 @@ class AutomationDeviceToolsTest {
                 .discoveryCompanions
                 .map { it.value }
                 .toSet()
-        assertEquals(setOf("ui.screenshot", "ui.device"), companions("ui.gesture"))
+        assertEquals(setOf("ui.screenshot", "ui.device", "ui.wait", "ui.long_click"), companions("ui.gesture"))
         assertEquals(setOf("ui.device"), companions("ui.screenshot"))
         assertTrue(companions("ui.device").isEmpty())
     }
@@ -293,12 +293,13 @@ class AutomationDeviceToolsTest {
     }
 
     @Test fun screenshotPublishesThroughOriginalCallAndVisionSidecar() {
+        port.capture = port.capture.copy(frame = "capture-bound-frame")
         val call = call("ui.screenshot", json("""{"frame":"frame"}"""))
         val result = tools.executor("ui.screenshot").execute(call) as ToolExecutorResult.Completed
         assertSame(call, publishedCall)
         assertSame(visual, result.visualArtifact)
         assertEquals(
-            "frame",
+            "capture-bound-frame",
             result.output.jsonObject
                 .getValue("frame")
                 .toString()
@@ -376,6 +377,20 @@ class AutomationDeviceToolsTest {
             )
         }
         assertEquals(0, port.observations)
+    }
+
+    @Test fun integralGestureTimingsPreserveExactRequestedDurations() {
+        for (token in listOf("300", "300.0", "3e2", "3000e-1")) {
+            val args = """{"frame":"frame","strokes":[
+                {"points":[{"x":100,"y":200}],"startMillis":1e2,"durationMillis":$token}]}"""
+            assertEquals(
+                ToolSchemaValidation.Valid,
+                ToolSchemaValidator.validate(descriptor("ui.gesture").inputSchema, json(args)),
+            )
+            assertTrue(execute("ui.gesture", args) is ToolExecutorResult.Completed)
+            assertEquals(100L, port.strokes.single().startMillis)
+            assertEquals(300L, port.strokes.single().durationMillis)
+        }
     }
 
     @Test fun gesturesArePassedAsOnePhysicalBatchAndUnknownEffectsAreNotReplayable() {
@@ -465,6 +480,44 @@ class AutomationDeviceToolsTest {
         name: String,
         args: String,
     ) = tools.executor(name).execute(call(name, json(args)))
+
+    @Test fun patternsUseTheOriginalFrameAndRejectAmbiguousOrIncompleteInputs() {
+        val args = """{"frame":"frame","pattern":
+            {"kind":"pinch","center":{"x":500,"y":500},"span":100,"scale":2}}"""
+        assertTrue(
+            ToolSchemaValidator.validate(
+                descriptor("ui.gesture").inputSchema,
+                json(args),
+            ) is ToolSchemaValidation.Valid,
+        )
+        tools.executor("ui.gesture").execute(call("ui.gesture", json(args)))
+        assertEquals(2, port.strokes.size)
+        assertEquals(
+            450f,
+            port.strokes[0]
+                .points
+                .first()
+                .x,
+        )
+        assertEquals(
+            400f,
+            port.strokes[0]
+                .points
+                .last()
+                .x,
+        )
+        for (bad in listOf(
+            """{"frame":"frame"}""",
+            """{"frame":"frame","strokes":[],"pattern":{"kind":"tap","center":{"x":1,"y":1}}}""",
+            """{"frame":"frame","pattern":{"kind":"swipe","center":{"x":1,"y":1}}}""",
+            """{"frame":"frame","pattern":{"kind":"pinch","center":{"x":1,"y":1},"span":20,"scale":0}}""",
+            """{"frame":"frame","pattern":{"kind":"tap","center":{"x":1,"y":1},"scale":2}}""",
+        )) {
+            port.strokes = emptyList()
+            assertTrue(tools.executor("ui.gesture").execute(call("ui.gesture", json(bad))) is ToolExecutorResult.Failed)
+            assertTrue(port.strokes.isEmpty())
+        }
+    }
 
     private fun call(
         name: String,

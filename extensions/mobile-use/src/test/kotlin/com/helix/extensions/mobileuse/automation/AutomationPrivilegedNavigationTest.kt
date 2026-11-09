@@ -108,7 +108,6 @@ class AutomationPrivilegedNavigationTest {
                         100,
                         0,
                         AutomationNodeBounds(0, 0, 100, 100),
-                        "r",
                     ),
                 action = AutomationActionResult(AutomationActionStatus.ACTION_OUTCOME_UNKNOWN),
             )

@@ -32,13 +32,15 @@ internal class AndroidSnapshotNode(
     override val clickable: Boolean
         get() = node.isClickable
     override val longClickable: Boolean
-        get() = node.isLongClickable
+        get() = node.automationLongClickable
     override val editable: Boolean
         get() = node.isEditable
     override val scrollable: Boolean
         get() = node.isScrollable
     override val enabled: Boolean
         get() = node.isEnabled
+    override val visibleToUser: Boolean
+        get() = node.isVisibleToUser
     override val checkable: Boolean
         get() = node.isCheckable
     override val checked: Boolean
@@ -112,3 +114,7 @@ internal class AndroidSnapshotNode(
         node.recycle()
     }
 }
+
+/** Delegated accessibility actions need not set the corresponding View flag (for example, DocumentsUI). */
+internal val AccessibilityNodeInfo.automationLongClickable: Boolean
+    get() = isLongClickable || actionList.any { it.id == AccessibilityNodeInfo.ACTION_LONG_CLICK }

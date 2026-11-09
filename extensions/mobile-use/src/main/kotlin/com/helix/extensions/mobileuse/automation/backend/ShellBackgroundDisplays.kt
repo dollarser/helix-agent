@@ -43,7 +43,7 @@ internal class ShellBackgroundDisplays(
         if (!owned.display.valid || !ShizukuExecutionGuard.check(owner)) return BackgroundPreviewRead.Refused
         screen.route(owned.display)
         val target =
-            screen.deviceTarget(includeRevision = false, allowVisualFallback = wholeDisplay)
+            screen.deviceTarget(allowVisualFallback = wholeDisplay)
                 ?: return BackgroundPreviewRead.Transition
         if (!permittedTarget(owned, owner, target)) {
             return BackgroundPreviewRead.Refused
@@ -55,7 +55,7 @@ internal class ShellBackgroundDisplays(
             return BackgroundPreviewRead.Refused
         }
         val current =
-            screen.deviceTarget(includeRevision = false, allowVisualFallback = wholeDisplay)
+            screen.deviceTarget(allowVisualFallback = wholeDisplay)
                 ?: return BackgroundPreviewRead.Transition
         if (!permittedTarget(owned, owner, current)) {
             return BackgroundPreviewRead.Refused

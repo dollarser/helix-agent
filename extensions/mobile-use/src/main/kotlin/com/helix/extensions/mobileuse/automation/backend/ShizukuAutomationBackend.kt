@@ -104,7 +104,6 @@ internal fun shizukuActionStatus(status: String?): AutomationActionStatus =
         "TARGET_AMBIGUOUS" -> AutomationActionStatus.TARGET_AMBIGUOUS
         "TARGET_CHANGED" -> AutomationActionStatus.TARGET_CHANGED
         "NOT_DISPATCHED" -> AutomationActionStatus.ACTION_NOT_DISPATCHED
-        "FRAME_CHANGED" -> AutomationActionStatus.FRAME_CHANGED
         "GESTURE_OCCLUDED" -> AutomationActionStatus.GESTURE_OCCLUDED
         else -> AutomationActionStatus.ACTION_OUTCOME_UNKNOWN
     }

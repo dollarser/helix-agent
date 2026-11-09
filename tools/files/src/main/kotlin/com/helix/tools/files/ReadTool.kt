@@ -15,16 +15,14 @@ import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
+import com.helix.tools.framework.ToolJsonNumbers
 import com.helix.tools.framework.ToolOrigin
 import com.helix.tools.framework.ToolRegistry
 import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.jsonPrimitive
-import kotlinx.serialization.json.longOrNull
 import java.io.FileNotFoundException
 import java.io.IOException
 import kotlin.time.Duration.Companion.seconds
@@ -89,6 +87,7 @@ object ReadTool {
                         buildJsonObject {
                             put("type", JsonPrimitive("integer"))
                             put("minimum", JsonPrimitive(0))
+                            put("maximum", JsonPrimitive(Long.MAX_VALUE))
                             put("default", JsonPrimitive(0))
                             put("description", JsonPrimitive("Byte offset to start the window at"))
                         },
@@ -245,22 +244,18 @@ object ReadTool {
      */
     @Suppress("SwallowedException") // a bad model reference is deliberately null, not propagated (sanitized)
     private fun parseArgs(args: JsonObject): Parsed? {
-        val ref = args["path"]?.jsonPrimitive?.content
+        val ref = (args["path"] as? JsonPrimitive)?.takeIf { it.isString }?.content
         val path = ref?.let { runCatching { FileScopePath.fromModelReference(it) }.getOrNull() }
         return if (ref == null || path == null) {
             null
         } else {
             val hash = args["includeSha256"]
             val includeHash = if (hash == null) false else (hash as? JsonPrimitive)?.booleanOrNull ?: return null
-            Parsed(path, longValue(args["offset"]) ?: 0L, longValue(args["maxBytes"]) ?: DEFAULT_MAX_BYTES, includeHash)
+            val offset = if ("offset" !in args) 0L else ToolJsonNumbers.longOrNull(args["offset"])
+            val maxBytes = if ("maxBytes" !in args) DEFAULT_MAX_BYTES else ToolJsonNumbers.longOrNull(args["maxBytes"])
+            if (offset == null || maxBytes == null) null else Parsed(path, offset, maxBytes, includeHash)
         }
     }
-
-    /** Reads an optional integer argument (a numeric primitive), or null when absent/not a number. */
-    private fun longValue(element: JsonElement?): Long? =
-        (element as? JsonPrimitive)?.let {
-            if (it.isString) it.content.toLongOrNull() else it.longOrNull
-        }
 
     private fun output(
         window: ReadWindow,

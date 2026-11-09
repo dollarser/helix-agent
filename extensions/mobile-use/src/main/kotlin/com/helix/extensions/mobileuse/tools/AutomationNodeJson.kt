@@ -28,6 +28,8 @@ internal object AutomationNodeJson {
         put("token", JsonPrimitive(node.token))
         put("parentToken", JsonPrimitive(node.parentToken ?: ""))
         put("clickTargetToken", JsonPrimitive(automationClickTargetToken(node, nodeIndex)))
+        longClick(node, nodeIndex)?.let { put("longClick", it) }
+        automationNodeContext(node, nodeIndex)?.let { put("ancestorContexts", it) }
         put("depth", JsonPrimitive(node.depth))
         put("className", JsonPrimitive(node.className ?: ""))
         put("text", JsonPrimitive(node.text ?: ""))
@@ -38,6 +40,7 @@ internal object AutomationNodeJson {
         put("viewId", JsonPrimitive(node.viewId ?: ""))
         put("clickable", JsonPrimitive(node.clickable))
         put("offscreen", JsonPrimitive(automationNodeOffscreen(node)))
+        put("visibleToUser", JsonPrimitive(node.visibleToUser))
         put("checkable", JsonPrimitive(node.checkable))
         put("checked", JsonPrimitive(node.checked))
         put("longClickable", JsonPrimitive(node.longClickable))
@@ -73,6 +76,16 @@ internal object AutomationNodeJson {
                     put("current", JsonPrimitive(range.current))
                 },
             )
+        }
+    }
+
+    private fun longClick(
+        node: AutomationSnapshotNode,
+        index: Map<String, AutomationSnapshotNode>,
+    ) = automationLongClickTargetToken(node, index).takeIf(String::isNotEmpty)?.let { token ->
+        buildJsonObject {
+            put("tool", JsonPrimitive(AutomationTools.LONG_CLICK))
+            put("token", JsonPrimitive(token))
         }
     }
 }

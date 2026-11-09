@@ -129,6 +129,60 @@ class ReadToolTest {
             .jsonPrimitive.content
             .toBoolean()
 
+    @Test
+    fun integralDecimalAndExponentWindowsMatchValidatedValues() {
+        val root = root()
+        val path = write(root, "work/numbers.txt", "abcdef".toByteArray())
+        for (token in listOf("2.0", "2e0", "20e-1")) {
+            val args =
+                kotlinx.serialization.json.Json
+                    .parseToJsonElement(
+                        """{"path":"${path.toModelReference()}","offset":$token,"maxBytes":2e0}""",
+                    ).jsonObject
+            assertEquals(
+                ToolSchemaValidation.Valid,
+                ToolSchemaValidator.validate(ReadTool.descriptor().inputSchema, args),
+            )
+            val output = json(ReadTool.executor(store(root)).execute(call(args)))
+            assertEquals(2L, num(output, "offset"))
+            assertEquals("cd", str(output, "text"))
+        }
+    }
+
+    @Test
+    fun offsetSchemaReflectsLongStorageRange() {
+        val schema = ReadTool.descriptor().inputSchema
+        val valid =
+            kotlinx.serialization.json.Json.parseToJsonElement(
+                """{"path":"scope:ws:work/file","offset":9223372036854775807}""",
+            )
+        val overflow =
+            kotlinx.serialization.json.Json.parseToJsonElement(
+                """{"path":"scope:ws:work/file","offset":9223372036854775808}""",
+            )
+        assertEquals(ToolSchemaValidation.Valid, ToolSchemaValidator.validate(schema, valid))
+        assertTrue(ToolSchemaValidator.validate(schema, overflow) is ToolSchemaValidation.Invalid)
+    }
+
+    @Test
+    fun suppliedInvalidWindowNeverFallsBackToDefault() {
+        val root = root()
+        val path = write(root, "work/numbers.txt", "abcdef".toByteArray())
+        for (key in listOf("offset", "maxBytes")) {
+            for (token in listOf("null", "true", "[]", "{}", "\"2\"", "1.5", "9223372036854775808", "1e10001")) {
+                val args =
+                    kotlinx.serialization.json.Json
+                        .parseToJsonElement(
+                            """{"path":"${path.toModelReference()}","$key":$token}""",
+                        ).jsonObject
+                assertTrue(
+                    "$key=$token",
+                    ReadTool.executor(store(root)).execute(call(args)) is ToolExecutorResult.Failed,
+                )
+            }
+        }
+    }
+
     // ── descriptor contract ─────────────────────────────────────────────────────────────
 
     @Test

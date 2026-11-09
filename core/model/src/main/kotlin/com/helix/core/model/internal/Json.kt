@@ -78,7 +78,7 @@ internal object Json {
     }
 }
 
-/** Parsed JSON node of the strict subset accepted by [parseJson]. */
+/** Parsed JSON node; storage numbers and external JSON number tokens remain distinct. */
 internal sealed interface JsonNode {
     data class Str(
         val value: String,
@@ -86,6 +86,11 @@ internal sealed interface JsonNode {
 
     data class Num(
         val value: Long,
+    ) : JsonNode
+
+    /** Validated RFC 8259 token, never converted through floating point. */
+    data class NumberToken(
+        val value: String,
     ) : JsonNode
 
     data class Bool(
@@ -110,18 +115,27 @@ internal sealed interface JsonNode {
  */
 internal fun parseJson(text: String): JsonNode = JsonParser(text).parseDocument()
 
+/** Model-facing schemas and arguments accept all JSON numbers without changing storage decoding. */
+internal object ModelJson {
+    fun parse(text: String): JsonNode = JsonParser(text, modelNumbers = true).parseDocument()
+}
+
 // A recursive-descent parser keeps one function per grammar production; the function count
 // is intrinsic to the design, not a god-class smell, so the threshold is suppressed here only.
 @Suppress("TooManyFunctions")
 private class JsonParser(
     private val s: String,
+    private val modelNumbers: Boolean = false,
 ) {
     private var pos = 0
+    private var nodes = 0
 
     val eof: Boolean
         get() = pos >= s.length
 
     fun parseDocument(): JsonNode {
+        com.helix.core.model.JsonInputLimits
+            .requireSafeNesting(s)
         skipWhitespace()
         val node = parseValue()
         skipWhitespace()
@@ -134,6 +148,7 @@ private class JsonParser(
     }
 
     private fun parseValue(): JsonNode {
+        checkNodeBudget()
         skipWhitespace()
         if (eof) throw fail("unexpected end of input")
         return when (val c = s[pos]) {
@@ -146,6 +161,10 @@ private class JsonParser(
             in '0'..'9', '-' -> parseNumber()
             else -> throw fail("unexpected character '$c'")
         }
+    }
+
+    private fun checkNodeBudget() {
+        if (++nodes > com.helix.core.model.JsonInputLimits.MAX_NODES) throw fail("JSON node limit exceeded")
     }
 
     private fun parseObject(): JsonNode.Obj {
@@ -258,9 +277,13 @@ private class JsonParser(
         pos += 4
     }
 
-    private fun parseNumber(): JsonNode.Num {
+    private fun parseNumber(): JsonNode {
         val start = pos
         readDigits()
+        if (modelNumbers) {
+            readFractionAndExponent()
+            return JsonNode.NumberToken(s.substring(start, pos))
+        }
         rejectFloatExponent()
         return parseLongAt(start)
     }
@@ -274,6 +297,23 @@ private class JsonParser(
         } else {
             while (!eof && s[pos] in '0'..'9') pos++
         }
+    }
+
+    private fun readFractionAndExponent() {
+        if (!eof && s[pos] == '.') {
+            pos++
+            readRequiredDigits()
+        }
+        if (!eof && s[pos] in "eE") {
+            pos++
+            if (!eof && s[pos] in "+-") pos++
+            readRequiredDigits()
+        }
+    }
+
+    private fun readRequiredDigits() {
+        if (eof || s[pos] !in '0'..'9') throw fail("invalid number")
+        while (!eof && s[pos] in '0'..'9') pos++
     }
 
     private fun rejectFloatExponent() {

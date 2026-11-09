@@ -9,6 +9,16 @@ import org.junit.Test
 class PrivilegedGestureRunnerTest {
     private val plan = privilegedGesturePlan(listOf(AutomationStroke(listOf(AutomationPoint(1f, 1f)), 0, 100)))
 
+    @Test fun revocationDuringAdmissionStillPreventsTheFirstDown() {
+        var allowed = true
+        val runner =
+            PrivilegedGestureRunner({ 0 }, {}, { allowed }, {
+                allowed = false
+                true
+            }, { _, _ -> error("No input after revoked authorization") })
+        assertEquals("NOT_DISPATCHED", runner.execute(plan))
+    }
+
     @Test fun cancellationAfterDownSendsCancelEvenWhenGrantIsGone() {
         var time = 0L
         var allowed = true
@@ -21,6 +31,22 @@ class PrivilegedGestureRunnerTest {
             }).execute(plan)
         assertEquals("OUTCOME_UNKNOWN", result)
         assertEquals(listOf(0, 3), actions)
+    }
+
+    @Test fun slowPreDownValidationDoesNotCompressThePhysicalTouch() {
+        var time = 0L
+        val events = mutableListOf<Pair<Int, Long>>()
+        val runner =
+            PrivilegedGestureRunner({ time }, { time += it }, { true }, { entered ->
+                if (!entered) time += 250
+                true
+            }, { event, _ ->
+                events += event.action to time
+                true
+            })
+        assertEquals("DISPATCHED", runner.execute(plan))
+        assertEquals(250L, events.single { it.first == 0 }.second)
+        assertEquals(350L, events.single { it.first == 1 }.second)
     }
 
     @Test fun preDispatchFailureNeverInjectsAndCleanupFailureIsUnknown() {

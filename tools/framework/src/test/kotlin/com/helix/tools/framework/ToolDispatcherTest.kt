@@ -239,6 +239,101 @@ class ToolDispatcherTest {
         assertEquals(DispatchOutcomeCode.INVALID_ARGUMENTS, sink.events.single().code)
     }
 
+    @Test
+    fun exactIntegerExecutionKeepsOriginalArgumentsAndApprovalHash() {
+        val d =
+            descriptor(
+                inputSchema =
+                    json(
+                        """{"type":"object","properties":{"n":{"type":"integer","minimum":0,""" +
+                            """"maximum":9223372036854775807}},"required":["n"]}""",
+                    ),
+            )
+        val executor = CaptureExecutor { ToolExecutorResult.Completed(emptyObject()) }
+        registerTool(d, executor)
+        val forms = listOf("1.0", "1e2", "9007199254740993", "9223372036854775807")
+        forms.forEachIndexed { index, number ->
+            val args = json("""{"n":$number}""")
+            broker.script(ApprovalAcquisition.Approved(proofFor("exact-$index")))
+            val outcome = dispatcher.dispatch(request(d.name, d.version, args, toolCallId = "exact-$index"))
+            assertTrue("$number: $outcome", outcome is ToolDispatchOutcome.Succeeded)
+            val call = executor.calls.last()
+            assertSame(args, call.args)
+            assertEquals(number, call.args.getValue("n").toString())
+            assertEquals(
+                listOf(1L, 100L, 9007199254740993L, Long.MAX_VALUE)[index],
+                ToolJsonNumbers.longOrNull(call.args["n"]),
+            )
+            assertEquals(
+                sha256Hex("""{"n":$number}"""),
+                broker.acquireCalls
+                    .last()
+                    .binding.argsHash,
+            )
+        }
+        assertEquals(forms.size, broker.consumeCalls.size)
+    }
+
+    @Test
+    fun roundedFractionsOverflowAndNumericStringsStopBeforeApprovalAndExecution() {
+        val d =
+            descriptor(
+                inputSchema =
+                    json(
+                        """{"type":"object","properties":{"n":{"type":"integer","minimum":0,""" +
+                            """"maximum":9223372036854775807}},"required":["n"]}""",
+                    ),
+            )
+        val executor = CaptureExecutor { ToolExecutorResult.Completed(emptyObject()) }
+        registerTool(d, executor)
+        val invalid = listOf("1.0000000000000000001", "9223372036854775808", "1e-400", "1e999999999", "\"1\"", "null")
+        for (number in invalid) {
+            val outcome = dispatcher.dispatch(request(d.name, d.version, json("""{"n":$number}""")))
+            assertEquals(number, DispatchOutcomeCode.INVALID_ARGUMENTS, (outcome as ToolDispatchOutcome.Denied).code)
+        }
+        assertTrue(executor.calls.isEmpty())
+        assertTrue(broker.acquireCalls.isEmpty())
+        assertTrue(broker.consumeCalls.isEmpty())
+        assertTrue(sink.events.all { it.code == DispatchOutcomeCode.INVALID_ARGUMENTS })
+    }
+
+    @Test
+    fun numericEnumsAreExactThroughoutDispatch() {
+        val d =
+            descriptor(
+                operationClass = ToolOperationClass.READ_ONLY,
+                inputSchema =
+                    json(
+                        """{"type":"object","properties":{"n":{"enum":[1,9007199254740993]}},"required":["n"]}""",
+                    ),
+            )
+        val executor = CaptureExecutor { ToolExecutorResult.Completed(emptyObject()) }
+        registerTool(d, executor)
+        for (number in listOf("1.0", "1e0", "9007199254740993.0")) {
+            val outcome = dispatcher.dispatch(request(d.name, d.version, json("""{"n":$number}""")))
+            assertTrue("$number: $outcome", outcome is ToolDispatchOutcome.Succeeded)
+        }
+        for (number in listOf("1.0000000000000001", "9007199254740992", "\"1\"")) {
+            val outcome = dispatcher.dispatch(request(d.name, d.version, json("""{"n":$number}""")))
+            assertEquals(number, DispatchOutcomeCode.INVALID_ARGUMENTS, (outcome as ToolDispatchOutcome.Denied).code)
+        }
+        assertEquals(3, executor.calls.size)
+    }
+
+    @Test
+    fun untypedDeepArgumentsAreDeniedBeforeApprovalOrCanonicalHashing() {
+        val d = descriptor()
+        val executor = CaptureExecutor { ToolExecutorResult.Completed(emptyObject()) }
+        registerTool(d, executor)
+        var args = emptyArgs()
+        repeat(1000) { args = JsonObject(mapOf("nested" to args)) }
+        val outcome = dispatcher.dispatch(request(d.name, d.version, args))
+        assertEquals(DispatchOutcomeCode.INVALID_ARGUMENTS, (outcome as ToolDispatchOutcome.Denied).code)
+        assertTrue(outcome.detail.contains("nesting depth"))
+        assertTrue(executor.calls.isEmpty())
+        assertTrue(broker.acquireCalls.isEmpty())
+    }
+
     // ------------------------------------------------- capability + policy stages
 
     @Test

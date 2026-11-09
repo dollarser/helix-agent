@@ -13,6 +13,8 @@ internal object AutomationToolSchemas {
                 "token" to str(32),
                 "parentToken" to str(32),
                 "clickTargetToken" to str(32),
+                "longClick" to obj(mapOf("tool" to str(32), "token" to str(32)), listOf("tool", "token")),
+                "ancestorContexts" to ancestorContextsSchema(),
                 "depth" to integer(0),
                 "className" to str(512),
                 "text" to str(2_000),
@@ -20,6 +22,7 @@ internal object AutomationToolSchemas {
                 "viewId" to str(512),
                 "clickable" to bool(),
                 "offscreen" to bool(),
+                "visibleToUser" to bool(),
                 "longClickable" to bool(),
                 "checkable" to bool(),
                 "checked" to bool(),
@@ -63,6 +66,15 @@ internal object AutomationToolSchemas {
                     "canImeEnter",
                 )
             },
+        )
+
+    private fun ancestorContextsSchema() =
+        array(
+            obj(
+                mapOf("className" to str(256), "viewId" to str(256), "labels" to array(str(96), 4)),
+                listOf("className", "viewId", "labels"),
+            ),
+            2,
         )
 
     fun obj(

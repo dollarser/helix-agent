@@ -32,7 +32,6 @@ class BackgroundDisplayIdentityTest {
                 1280,
                 0,
                 AutomationNodeBounds(0, 0, 720, 1280),
-                "content",
                 "first-display",
             )
         val registry = AutomationFrameRegistry { "frame" }

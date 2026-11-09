@@ -1,7 +1,7 @@
 package com.helix.core.model
 
 import com.helix.core.model.internal.JsonNode
-import com.helix.core.model.internal.parseJson
+import com.helix.core.model.internal.ModelJson
 
 /**
  * Role of one model request message (doc 02 section 6.1, doc 10 section 2.1: all vendor
@@ -72,7 +72,7 @@ data class ImageReference(
  * vendor protocols key the following tool-result messages by these ids).
  *
  * [argumentsJson] is the model's argument JSON exactly as produced (a JSON object in the
- * strict subset — the same canonical form the request's tool schemas use); it is re-encoded
+ * RFC 8259 syntax, including decimal/exponent numbers); it is re-encoded
  * verbatim by the adapters, never re-serialized from a parsed tree (no key-order drift).
  */
 data class AssistantToolCall(
@@ -83,7 +83,7 @@ data class AssistantToolCall(
     init {
         require(argumentsJson.isNotBlank()) { "tool call arguments must not be blank" }
         require(argumentsJson.none { it == '\u0000' }) { "tool call arguments must not contain NUL" }
-        val parsed = parseJson(argumentsJson)
+        val parsed = ModelJson.parse(argumentsJson)
         require(parsed is JsonNode.Obj) { "tool call arguments must be a JSON object" }
         require(parsed.entries.size <= MAX_ARGUMENT_ENTRIES) {
             "tool call arguments have too many entries (max $MAX_ARGUMENT_ENTRIES)"
@@ -173,8 +173,9 @@ data class ModelMessage(
  * A tool offered to the model in this request (filtered by mode/capability/scope before
  * building — doc 02 section 5.1: unavailable tools never enter the model tool table).
  *
- * [inputSchemaJson] must be a JSON object in canonical form (ADR-0001 decode discipline: the
- * shared strict parser is the gate); adapters re-encode it into their vendor shape.
+ * [inputSchemaJson] must be a JSON object with RFC 8259 numbers, including decimals and
+ * exponents. Duplicate keys and malformed JSON are rejected. The original numeric tokens
+ * are retained without rounding; adapters re-encode it into their vendor shape.
  */
 data class ModelToolSchema(
     val name: ToolName,
@@ -192,7 +193,7 @@ data class ModelToolSchema(
             "tool description contains a control character"
         }
         require(inputSchemaJson.isNotBlank()) { "inputSchemaJson must not be blank" }
-        val parsed = parseJson(inputSchemaJson)
+        val parsed = ModelJson.parse(inputSchemaJson)
         require(parsed is JsonNode.Obj) { "inputSchemaJson must be a JSON object" }
         require(parsed.entries.size <= MAX_SCHEMA_ENTRIES) {
             "input schema has too many entries (max $MAX_SCHEMA_ENTRIES)"

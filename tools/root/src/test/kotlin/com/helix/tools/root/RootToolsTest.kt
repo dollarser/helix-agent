@@ -32,6 +32,34 @@ class RootToolsTest {
     private val tools = RootTools(port, sessions)
 
     @Test
+    fun integralRepresentationsKeepLimitsAndInvalidValuesDoNotReachRoot() {
+        sessions.start()
+        for (token in listOf("2", "2.0", "2e0", "20e-1")) {
+            completed(
+                execute(
+                    RootTools.PROCESS_LIST,
+                    kotlinx.serialization.json.Json
+                        .parseToJsonElement("""{"limit":$token}""")
+                        .jsonObject,
+                ),
+            )
+            assertEquals(RootOperationRequest.ProcessList(2), port.requests.last())
+        }
+        val count = port.requests.size
+        for (token in listOf("null", "true", "[]", "{}", "\"2\"", "1.5", "2147483648", "1e10001")) {
+            assertTrue(
+                execute(
+                    RootTools.PROCESS_LIST,
+                    kotlinx.serialization.json.Json
+                        .parseToJsonElement("""{"limit":$token}""")
+                        .jsonObject,
+                ) is ToolExecutorResult.Failed,
+            )
+        }
+        assertEquals(count, port.requests.size)
+    }
+
+    @Test
     fun registryContainsOnlyFiveHighLevelReadsWithCorrectRiskAndTarget() {
         val descriptors = tools.descriptors()
         assertEquals(

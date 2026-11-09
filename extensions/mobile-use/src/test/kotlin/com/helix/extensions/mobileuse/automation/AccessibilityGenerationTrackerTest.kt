@@ -4,6 +4,18 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class AccessibilityGenerationTrackerTest {
+    @Test fun onlyVerifiedSameWindowContentEventsPreserveSemanticLeaseEpoch() {
+        val tracker = AccessibilityGenerationTracker()
+        val epoch = tracker.currentWindowEpoch()
+        tracker.eventReceived(44, 44, false)
+        tracker.eventReceived(88, 44, false)
+        assertEquals(epoch, tracker.currentWindowEpoch())
+        tracker.eventReceived(44, 44, true)
+        tracker.eventReceived(-1, 44, false)
+        tracker.eventReceived(44, null, false)
+        assertEquals(epoch + 3, tracker.currentWindowEpoch())
+    }
+
     @Test fun ordinaryEventsFromAnotherKnownWindowDoNotInvalidateTheTarget() {
         val tracker = AccessibilityGenerationTracker()
         val initial = tracker.current()

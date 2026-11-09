@@ -2,7 +2,13 @@ package com.helix.extensions.mobileuse.tools
 
 /** Distinguish a missing object from a platform service refusal before recommending recovery. */
 internal fun missingTargetHint(status: String): String? =
-    if (status == "TARGET_UNAVAILABLE") {
+    if (status == "SERVICE_NOT_CONNECTED") {
+        "Open Helix System permissions and check Accessibility. If already enabled but disconnected, " +
+            "turn the Helix service off and on in Android settings, then return. " +
+            "After reconnection, obtain a fresh observation; do not replay the previous action automatically. " +
+            "ui.device can report an already authorized independent backend; do not expand permissions " +
+            "or silently switch backends."
+    } else if (status == "TARGET_UNAVAILABLE") {
         "No actionable app or window was found. Open the intended authorized app with ui.launch, " +
             "then observe again. If the app is opening, wait briefly. " +
             "This does not mean the backend lacks the capability."

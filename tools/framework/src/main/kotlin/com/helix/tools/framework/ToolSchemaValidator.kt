@@ -5,23 +5,21 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.doubleOrNull
-import kotlinx.serialization.json.longOrNull
 import java.util.regex.Pattern
 
 /**
  * The result of validating one JSON value against a tool schema (HXA-031).
  *
- * [Invalid.reasons] carries EVERY detected violation (one reason per
+ * [Invalid.reasons] carries detected violations within the resource budget (one reason per
  * constraint, recursing into children) with JSONPath-like locations, so the
- * dispatcher (HXA-035) can report a complete, model-usable error instead of
+ * dispatcher (HXA-035) can report a bounded, model-usable error instead of
  * playing whack-a-mole with the model.
  */
 sealed interface ToolSchemaValidation {
     /** The value satisfies every constraint of the schema. */
     data object Valid : ToolSchemaValidation
 
-    /** One or more constraint violations; [reasons] is never empty. */
+    /** One or more constraint violations; [reasons] is never empty and diagnostics are bounded. */
     data class Invalid(
         val reasons: List<String>,
     ) : ToolSchemaValidation
@@ -43,7 +41,7 @@ sealed interface ToolSchemaValidation {
  *   counts 1), `pattern` matched UNANCHORED (JSON Schema semantics);
  * - `number`/`integer`: `minimum`/`maximum` inclusive,
  *   `exclusiveMinimum`/`exclusiveMaximum` exclusive (numeric bounds compared
- *   as doubles — bounds are tool contract, not a security boundary).
+ *   exactly, without floating-point rounding).
  *
  * The schema is expected to have passed [ToolSchema.check] at registration
  * (a malformed schema reaching validation would be a framework bug; it
@@ -51,12 +49,29 @@ sealed interface ToolSchemaValidation {
  */
 @Suppress("TooManyFunctions") // one focused checker per schema keyword; splitting fragments the validation flow
 object ToolSchemaValidator {
+    @Suppress("ReturnCount") // Preflight failures must not enter recursive validation.
     fun validate(
         schema: JsonObject,
         value: JsonElement,
     ): ToolSchemaValidation {
-        val reasons = mutableListOf<String>()
-        validateNode(schema, value, "$", reasons)
+        val schemaErrors = ToolSchema.check(schema)
+        if (schemaErrors.isNotEmpty()) {
+            val details = schemaErrors.take(MAX_DIAGNOSTICS).map { "schema: ${it.take(MAX_DIAGNOSTIC_LENGTH)}" }
+            val omitted =
+                if (schemaErrors.size > MAX_DIAGNOSTICS) {
+                    listOf("schema: further diagnostics omitted")
+                } else {
+                    emptyList()
+                }
+            return ToolSchemaValidation.Invalid(details + omitted)
+        }
+        ToolJsonBudget.violation(value)?.let { return ToolSchemaValidation.Invalid(listOf("$: $it")) }
+        val reasons = ValidationState()
+        try {
+            validateNode(schema, value, "$", reasons)
+        } catch (_: ValidationLimitReached) {
+            reasons.finish()
+        }
         return if (reasons.isEmpty()) ToolSchemaValidation.Valid else ToolSchemaValidation.Invalid(reasons)
     }
 
@@ -64,8 +79,9 @@ object ToolSchemaValidator {
         schema: JsonObject,
         value: JsonElement,
         path: String,
-        out: MutableList<String>,
+        out: ValidationState,
     ) {
+        out.consume()
         checkType(schema, value, path, out)
         checkEnum(schema, value, path, out)
         when (value) {
@@ -95,7 +111,7 @@ object ToolSchemaValidator {
         schema: JsonObject,
         value: JsonElement,
         path: String,
-        out: MutableList<String>,
+        out: ValidationState,
     ) {
         val type = schema["type"] ?: return
         val names = mutableListOf<String>()
@@ -106,6 +122,7 @@ object ToolSchemaValidator {
 
             is JsonArray -> {
                 type.forEach { element ->
+                    out.consume()
                     if (element is JsonPrimitive && element.isString) {
                         names += element.content
                     }
@@ -129,18 +146,34 @@ object ToolSchemaValidator {
 
     private fun String.matchesType(value: JsonElement): Boolean =
         when (this) {
-            ToolSchema.TYPE_OBJECT -> value is JsonObject
-            ToolSchema.TYPE_ARRAY -> value is JsonArray
-            ToolSchema.TYPE_STRING -> value is JsonPrimitive && value.isString
-            ToolSchema.TYPE_BOOLEAN -> value is JsonPrimitive && ToolJsonPrimitives.isBoolean(value)
-            ToolSchema.TYPE_NUMBER -> value is JsonPrimitive && ToolJsonPrimitives.isNumber(value)
-            ToolSchema.TYPE_INTEGER -> value is JsonPrimitive && ToolJsonPrimitives.isNumber(value) && isIntegral(value)
-            else -> false
-        }
+            ToolSchema.TYPE_OBJECT -> {
+                value is JsonObject
+            }
 
-    private fun isIntegral(value: JsonPrimitive): Boolean =
-        value.longOrNull != null ||
-            (value.doubleOrNull?.let { it.isFinite() && it == Math.floor(it) } ?: false)
+            ToolSchema.TYPE_ARRAY -> {
+                value is JsonArray
+            }
+
+            ToolSchema.TYPE_STRING -> {
+                value is JsonPrimitive && value.isString
+            }
+
+            ToolSchema.TYPE_BOOLEAN -> {
+                value is JsonPrimitive && ToolJsonPrimitives.isBoolean(value)
+            }
+
+            ToolSchema.TYPE_NUMBER -> {
+                value is JsonPrimitive && ToolJsonPrimitives.isNumber(value)
+            }
+
+            ToolSchema.TYPE_INTEGER -> {
+                value is JsonPrimitive && ToolJsonPrimitives.isNumber(value) && ToolJsonNumbers.isIntegral(value)
+            }
+
+            else -> {
+                false
+            }
+        }
 
     private fun typeNameOf(value: JsonElement): String =
         when (value) {
@@ -160,7 +193,7 @@ object ToolSchemaValidator {
                 when {
                     value.isString -> "string"
                     ToolJsonPrimitives.isBoolean(value) -> "boolean"
-                    ToolJsonPrimitives.isNumber(value) -> if (value.longOrNull != null) "integer" else "number"
+                    ToolJsonPrimitives.isNumber(value) -> if (ToolJsonNumbers.isIntegral(value)) "integer" else "number"
                     else -> "null"
                 }
             }
@@ -170,11 +203,37 @@ object ToolSchemaValidator {
         schema: JsonObject,
         value: JsonElement,
         path: String,
-        out: MutableList<String>,
+        out: ValidationState,
     ) {
         val list = schema["enum"] as? JsonArray ?: return
-        if (!list.contains(value)) {
+        if (list.none { equivalent(it, value, out) }) {
             out.add("$path: value is not one of the allowed enum values")
+        }
+    }
+
+    private fun equivalent(
+        left: JsonElement,
+        right: JsonElement,
+        out: ValidationState,
+    ): Boolean {
+        out.consume()
+        return when {
+            left is JsonObject && right is JsonObject -> {
+                left.keys == right.keys && left.all { (key, value) -> equivalent(value, right.getValue(key), out) }
+            }
+
+            left is JsonArray && right is JsonArray -> {
+                left.size == right.size && left.indices.all { equivalent(left[it], right[it], out) }
+            }
+
+            left is JsonPrimitive && right is JsonPrimitive &&
+                ToolJsonPrimitives.isNumber(left) && ToolJsonPrimitives.isNumber(right) -> {
+                ToolJsonNumbers.decimalOrNull(left)!!.compareTo(ToolJsonNumbers.decimalOrNull(right)!!) == 0
+            }
+
+            else -> {
+                left == right
+            }
         }
     }
 
@@ -182,18 +241,20 @@ object ToolSchemaValidator {
         schema: JsonObject,
         value: JsonObject,
         path: String,
-        out: MutableList<String>,
+        out: ValidationState,
     ) {
         (schema["required"] as? JsonArray)
             ?.filterIsInstance<JsonPrimitive>()
             ?.filter { it.isString }
             ?.forEach { required ->
+                out.consume()
                 if (value[required.content] == null) {
                     out.add("$path: missing required property '${required.content}'")
                 }
             }
         val properties = schema["properties"] as? JsonObject
         properties?.forEach { (name, subschema) ->
+            out.consume()
             val child = value[name] ?: return@forEach
             if (subschema is JsonObject) {
                 validateNode(subschema, child, "$path[\"$name\"]", out)
@@ -207,7 +268,7 @@ object ToolSchemaValidator {
         value: JsonObject,
         known: Set<String>,
         path: String,
-        out: MutableList<String>,
+        out: ValidationState,
     ) {
         val additional = schema["additionalProperties"] ?: return
         val unknownKeys = value.keys.filter { it !in known }
@@ -234,14 +295,14 @@ object ToolSchemaValidator {
         schema: JsonObject,
         value: JsonArray,
         path: String,
-        out: MutableList<String>,
+        out: ValidationState,
     ) {
-        (schema["minItems"] as? JsonPrimitive)?.longOrNull?.let { min ->
+        ToolJsonNumbers.longOrNull(schema["minItems"])?.let { min ->
             if (value.size < min) {
                 out.add("$path: array has ${value.size} items, minimum is $min")
             }
         }
-        (schema["maxItems"] as? JsonPrimitive)?.longOrNull?.let { max ->
+        ToolJsonNumbers.longOrNull(schema["maxItems"])?.let { max ->
             if (value.size > max) {
                 out.add("$path: array has ${value.size} items, maximum is $max")
             }
@@ -256,16 +317,16 @@ object ToolSchemaValidator {
         schema: JsonObject,
         text: String,
         path: String,
-        out: MutableList<String>,
+        out: ValidationState,
     ) {
         // JSON Schema length semantics: unicode code points, not UTF-16 units.
         val length = text.codePoints().count()
-        (schema["minLength"] as? JsonPrimitive)?.longOrNull?.let { min ->
+        ToolJsonNumbers.longOrNull(schema["minLength"])?.let { min ->
             if (length < min) {
                 out.add("$path: string has $length code points, minimum is $min")
             }
         }
-        (schema["maxLength"] as? JsonPrimitive)?.longOrNull?.let { max ->
+        ToolJsonNumbers.longOrNull(schema["maxLength"])?.let { max ->
             if (length > max) {
                 out.add("$path: string has $length code points, maximum is $max")
             }
@@ -281,28 +342,54 @@ object ToolSchemaValidator {
         schema: JsonObject,
         value: JsonPrimitive,
         path: String,
-        out: MutableList<String>,
+        out: ValidationState,
     ) {
-        val d = value.doubleOrNull ?: return
-        (schema["minimum"] as? JsonPrimitive)?.doubleOrNull?.let { bound ->
+        val d = ToolJsonNumbers.decimalOrNull(value) ?: return
+        ToolJsonNumbers.decimalOrNull(schema["minimum"])?.let { bound ->
             if (d < bound) {
                 out.add("$path: value $d is less than minimum $bound")
             }
         }
-        (schema["maximum"] as? JsonPrimitive)?.doubleOrNull?.let { bound ->
+        ToolJsonNumbers.decimalOrNull(schema["maximum"])?.let { bound ->
             if (d > bound) {
                 out.add("$path: value $d is greater than maximum $bound")
             }
         }
-        (schema["exclusiveMinimum"] as? JsonPrimitive)?.doubleOrNull?.let { bound ->
+        ToolJsonNumbers.decimalOrNull(schema["exclusiveMinimum"])?.let { bound ->
             if (d <= bound) {
                 out.add("$path: value $d is not greater than exclusive minimum $bound")
             }
         }
-        (schema["exclusiveMaximum"] as? JsonPrimitive)?.doubleOrNull?.let { bound ->
+        ToolJsonNumbers.decimalOrNull(schema["exclusiveMaximum"])?.let { bound ->
             if (d >= bound) {
                 out.add("$path: value $d is not less than exclusive maximum $bound")
             }
         }
     }
+
+    /** A large enum may be compared repeatedly by items; bound total work as well as tree size. */
+    private class ValidationState : ArrayList<String>() {
+        private var remainingWork = MAX_VALIDATION_STEPS
+
+        fun consume() {
+            if (--remainingWork < 0) throw ValidationLimitReached()
+        }
+
+        override fun add(element: String): Boolean {
+            if (size >= MAX_DIAGNOSTICS) throw ValidationLimitReached()
+            return super.add(
+                if (element.length > MAX_DIAGNOSTIC_LENGTH) element.take(MAX_DIAGNOSTIC_LENGTH) + "…" else element,
+            )
+        }
+
+        fun finish() {
+            super.add("$: validation resource limit exceeded; further diagnostics omitted")
+        }
+    }
+
+    private class ValidationLimitReached : RuntimeException()
+
+    private const val MAX_DIAGNOSTIC_LENGTH = 1024
+    private const val MAX_DIAGNOSTICS = 100
+    private const val MAX_VALIDATION_STEPS = 1_000_000
 }

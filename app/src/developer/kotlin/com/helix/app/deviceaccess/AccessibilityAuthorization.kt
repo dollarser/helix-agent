@@ -23,9 +23,10 @@ internal fun AccessibilityAuthorization(context: Context) {
     var failed by remember { mutableStateOf(false) }
     var presentation by remember { mutableStateOf<AccessibilityPresentation?>(null) }
     var checkFailed by remember { mutableStateOf(false) }
+    var serviceComponent by remember { mutableStateOf<ComponentName?>(null) }
     com.helix.app.ui.ForegroundRefresh(context) {
         try {
-            presentation =
+            val (currentPresentation, currentComponent) =
                 withContext(Dispatchers.IO) {
                     val components =
                         context.packageManager
@@ -38,13 +39,16 @@ internal fun AccessibilityAuthorization(context: Context) {
                         components.count { DeviceAccess.accessibilityEnabled(context, it) },
                         components.count { DeviceAccess.accessibilityConnected(context, it) },
                         components.size,
-                    )
+                    ) to components.singleOrNull()
                 }
+            presentation = currentPresentation
+            serviceComponent = currentComponent
             checkFailed = false
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (_: RuntimeException) {
             presentation = null
+            serviceComponent = null
             checkFailed = true
         }
     }
@@ -62,7 +66,7 @@ internal fun AccessibilityAuthorization(context: Context) {
         actionLabel = stringResource(presentation?.action ?: R.string.permissions_system_settings),
     ) {
         try {
-            context.startActivity(DeviceAccess.accessibilitySettingsIntent())
+            context.startActivity(DeviceAccess.accessibilitySettingsIntent(serviceComponent))
             failed = false
         } catch (_: RuntimeException) {
             failed = true

@@ -19,6 +19,7 @@ import com.helix.tools.framework.ToolDescriptor
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolImagePublication
+import com.helix.tools.framework.ToolJsonNumbers
 import com.helix.tools.framework.ToolOrigin
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -28,7 +29,6 @@ import kotlinx.serialization.json.float
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import kotlinx.serialization.json.long
 import java.util.Locale
 import kotlin.time.Duration.Companion.seconds
 
@@ -102,7 +102,9 @@ class AutomationDeviceTools(
                 ToolOperationClass.EXTERNAL_ACTION,
                 obj(mapOf("action" to choices(AutomationGlobalAction.entries.map(::actionName))), "action"),
                 actionOutput(),
-                "Run an action reported by ui.device. Back/home can leave a paused screen. " +
+                "Run only an action listed in the current ui.device.systemActions; the schema includes actions " +
+                    "that some devices do not support. To close the notification/quick-settings shade, " +
+                    "use back if dismiss_notification_shade is not listed. Back/home can leave a paused screen. " +
                     "Other system controls need system/whole-phone scope. " +
                     "headset_hook can answer/end a call; lock_screen pauses execution without revoking " +
                     "the conversation grant. After unlocking, obtain fresh observations before acting.",
@@ -112,17 +114,18 @@ class AutomationDeviceTools(
                 ToolOperationClass.EXTERNAL_ACTION,
                 gestureInput(),
                 actionOutput(),
-                "Tap/hold/swipe/drag/pinch using strokes in physical screen pixels, not dp. " +
-                    "One point taps/holds: use 80-120 ms for a normal tap; 500+ ms is a deliberate long press. " +
-                    "Several points form a path. " +
-                    "Parallel strokes use multiple fingers. " +
-                    "Root/ADB/Shizuku gestures support up to 10 strokes and 10 seconds without Accessibility. " +
-                    "Map image pixels via that screenshot's screenBounds; never subtract windowBounds. " +
+                "Use exactly one of strokes or pattern in physical pixels, not dp. " +
+                    "tap/double_tap/long_press: center; swipe: center,to plus optional fingers,spacing; " +
+                    "pinch: center,span (finger distance),scale; rotate: center,span,degrees clockwise. " +
+                    "durationMillis is optional. Raw strokes: one point taps/holds, multiple points form a path; " +
+                    "parallel strokes use multiple fingers. Tap 80-120 ms; long press 500+ ms. " +
+                    "Prefer ui.long_click for longClickable=true nodes; Accessibility holds may be ignored " +
+                    "by custom controls regardless of duration. " +
+                    "Double-tap uses 80 ms strokes at 0 and 160 ms. Root/ADB/Shizuku support 10 strokes/10 seconds. " +
+                    "Map pixels via screenBounds; never subtract windowBounds or clamp paths. " +
                     "Refresh frame after window/rotation changes. " +
-                    "Splash screens, animations and rotating content can also invalidate a frame before DOWN; " +
-                    "re-observe after a transition instead of repeatedly capturing and tapping a changing page. " +
-                    "DISPATCHED acknowledges input only; verify its effect with a fresh observation. " +
-                    "Never blindly replay.",
+                    "Content/video changes do not invalidate coordinates; a same-window popup may receive the touch. " +
+                    "DISPATCHED is input only: verify the effect, never replay.",
             ),
             descriptor(
                 SCREENSHOT,
@@ -173,8 +176,8 @@ class AutomationDeviceTools(
                             port
                                 .forCall(
                                     call,
-                                ).gesture(text(call.args, "frame"), strokes(call.args), call)
-                                .toToolOutcome()
+                                ).gesture(text(call.args, "frame"), gestureStrokes(call.args), call)
+                                .toToolOutcome(coordinateAction = true)
                         }
 
                         SCREENSHOT -> {
@@ -238,7 +241,7 @@ class AutomationDeviceTools(
         val output =
             buildJsonObject {
                 put("status", JsonPrimitive("SAVED"))
-                put("frame", JsonPrimitive(text(call.args, "frame")))
+                put("frame", JsonPrimitive(capture.frame ?: text(call.args, "frame")))
                 put("reference", JsonPrimitive(published.reference))
                 put("sha256", JsonPrimitive(published.sha256))
                 put("sizeBytes", JsonPrimitive(published.sizeBytes))
@@ -253,8 +256,9 @@ class AutomationDeviceTools(
                         if (published.visual != null) {
                             "Pixels are attached. If this screenshot was taken because semantic targeting failed " +
                                 "and the intended visual target is now clear, you may try ui.gesture with this same " +
-                                "frame and the mapped screen coordinates. Capture does not renew the frame: " +
-                                "changed content can still invalidate a coordinate action. " +
+                                "returned frame and the mapped screen coordinates. Always use this output's frame; " +
+                                "a new capture-bound frame replaces its input. " +
+                                "Content may change; execute one action, then observe its result. " +
                                 "Do not repeat equivalent semantic searches " +
                                 "or end with a future-intent statement. Missing nodes have " +
                                 "unknown cause; pixels do not prove touch acceptance. If an" +
@@ -291,6 +295,11 @@ class AutomationDeviceTools(
             },
         )
 
+    private fun gestureStrokes(args: JsonObject): List<AutomationStroke> {
+        require(("strokes" in args) != ("pattern" in args)) { "Use exactly one of strokes or pattern" }
+        return args["pattern"]?.let { AutomationGesturePatternInput.strokes(it.jsonObject) } ?: strokes(args)
+    }
+
     private fun strokes(args: JsonObject): List<AutomationStroke> =
         args.getValue("strokes").jsonArray.map { value ->
             val stroke = value.jsonObject
@@ -301,8 +310,8 @@ class AutomationDeviceTools(
                 }
             AutomationStroke(
                 points,
-                stroke["startMillis"]?.jsonPrimitive?.long ?: 0,
-                stroke.getValue("durationMillis").jsonPrimitive.long,
+                if ("startMillis" !in stroke) 0 else requireNotNull(ToolJsonNumbers.longOrNull(stroke["startMillis"])),
+                requireNotNull(ToolJsonNumbers.longOrNull(stroke["durationMillis"])),
             )
         }
 
@@ -368,10 +377,26 @@ class AutomationDeviceTools(
         origin,
         discoveryCompanions =
             when (name) {
-                DEVICE -> emptySet()
-                SCREENSHOT -> setOf(ToolName(DEVICE))
-                GESTURE -> setOf(ToolName(SCREENSHOT), ToolName(DEVICE))
-                else -> setOf(ToolName(AutomationTools.SNAPSHOT), ToolName(AutomationTools.FIND))
+                DEVICE -> {
+                    emptySet()
+                }
+
+                SCREENSHOT -> {
+                    setOf(ToolName(DEVICE))
+                }
+
+                GESTURE -> {
+                    setOf(
+                        ToolName(SCREENSHOT),
+                        ToolName(DEVICE),
+                        ToolName(AutomationTools.WAIT),
+                        ToolName(AutomationTools.LONG_CLICK),
+                    )
+                }
+
+                else -> {
+                    setOf(ToolName(AutomationTools.SNAPSHOT), ToolName(AutomationTools.FIND))
+                }
             },
     )
 
@@ -379,11 +404,22 @@ class AutomationDeviceTools(
         val point = obj(mapOf("x" to number(), "y" to number()), "x", "y")
         val stroke =
             obj(
-                mapOf("points" to array(point, 512), "startMillis" to integer(), "durationMillis" to integer()),
+                mapOf(
+                    "points" to array(point, 512),
+                    "startMillis" to longArgument(),
+                    "durationMillis" to longArgument(),
+                ),
                 "points",
                 "durationMillis",
             )
-        return obj(mapOf("frame" to str(64), "strokes" to array(stroke, 20)), "frame", "strokes")
+        return obj(
+            mapOf(
+                "frame" to str(64),
+                "strokes" to array(stroke, 20),
+                "pattern" to AutomationGesturePatternInput.schema(),
+            ),
+            "frame",
+        )
     }
 
     private fun deviceOutput() =
@@ -457,7 +493,9 @@ class AutomationDeviceTools(
             put("maxLength", JsonPrimitive(64))
             put(
                 "description",
-                JsonPrimitive("Exact opaque frame returned by ui.device; not a node token or page label."),
+                JsonPrimitive(
+                    "Exact latest opaque frame returned by ui.device or ui.screenshot; not a node token or page label.",
+                ),
             )
         }
 
@@ -510,6 +548,13 @@ class AutomationDeviceTools(
     private fun bool() = buildJsonObject { put("type", JsonPrimitive("boolean")) }
 
     private fun number() = buildJsonObject { put("type", JsonPrimitive("number")) }
+
+    private fun longArgument() =
+        buildJsonObject {
+            put("type", JsonPrimitive("integer"))
+            put("minimum", JsonPrimitive(Long.MIN_VALUE))
+            put("maximum", JsonPrimitive(Long.MAX_VALUE))
+        }
 
     private fun integer() = buildJsonObject { put("type", JsonPrimitive("integer")) }
 

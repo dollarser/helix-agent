@@ -38,7 +38,7 @@ class PrivilegedGestureGuardTest {
         assertFalse(restricted.ready(false))
     }
 
-    private val target = AutomationDisplayTarget("app", 7, 0, 100, 200, 0, AutomationNodeBounds(0, 0, 100, 200), "v1")
+    private val target = AutomationDisplayTarget("app", 7, 0, 100, 200, 0, AutomationNodeBounds(0, 0, 100, 200))
     private val own = AutomationWindowRegion(7, 1, "app", target.bounds)
     private val shade = target.copy(packageName = "system", windowId = 8, bounds = AutomationNodeBounds(0, 0, 100, 140))
     private val request =
@@ -67,8 +67,8 @@ class PrivilegedGestureGuardTest {
         assertTrue(3 !in events)
     }
 
-    @Test fun changedWindowOrRevisionBeforeDownStillRejectsWithoutInput() {
-        for (current in listOf(null, shade, target.copy(revision = "v2"))) {
+    @Test fun changedWindowOrMappingBeforeDownRejectsWithoutInput() {
+        for (current in listOf(null, shade, target.copy(rotation = 1), target.copy(displaySession = "replaced"))) {
             val guard = PrivilegedGestureGuard(request, { current }, { target.gestureDisplay() }, { listOf(own) })
             val runner =
                 PrivilegedGestureRunner(
@@ -80,15 +80,52 @@ class PrivilegedGestureGuardTest {
                     { guard.refusal },
                 )
             assertEquals(
-                if (current?.copy(revision = "") ==
-                    target.copy(revision = "")
-                ) {
-                    "FRAME_CHANGED"
-                } else {
-                    "TARGET_CHANGED"
-                },
+                "TARGET_CHANGED",
                 runner.execute(privilegedGesturePlan(request.strokes)),
             )
+        }
+    }
+
+    @Test fun aSecondTapChecksIdentityAndDoesNotReplayAPartialAction() {
+        val taps =
+            listOf(
+                AutomationStroke(listOf(AutomationPoint(50f, 50f)), 0, 60),
+                AutomationStroke(listOf(AutomationPoint(50f, 50f)), 160, 60),
+            )
+        for (switchWindow in listOf(false, true)) {
+            var current = target
+            var reads = 0
+            var time = 0L
+            val events = mutableListOf<Int>()
+            val guard =
+                PrivilegedGestureGuard(
+                    request.copy(strokes = taps),
+                    {
+                        reads++
+                        current
+                    },
+                    { target.gestureDisplay() },
+                    { listOf(own) },
+                )
+            val runner =
+                PrivilegedGestureRunner(
+                    { time },
+                    { time += it },
+                    { true },
+                    guard::ready,
+                    { event, _ ->
+                        events += event.action
+                        if (switchWindow && event.action == 1) current = shade
+                        true
+                    },
+                    { guard.refusal },
+                )
+            assertEquals(
+                if (switchWindow) "OUTCOME_UNKNOWN" else "DISPATCHED",
+                runner.execute(privilegedGesturePlan(taps)),
+            )
+            assertEquals(if (switchWindow) listOf(0, 1) else listOf(0, 1, 0, 1), events.filter { it != 2 })
+            assertEquals(2, reads)
         }
     }
 
@@ -116,7 +153,7 @@ class PrivilegedGestureGuardTest {
     }
 
     @Test fun restrictedGesturesStillBindAppAndRejectCoveringPanels() {
-        var current = target.copy(revision = "")
+        var current = target
         var windows = listOf(own)
         val guard =
             PrivilegedGestureGuard(
@@ -126,9 +163,9 @@ class PrivilegedGestureGuardTest {
                 { windows },
             )
         assertTrue(guard.ready(true))
-        current = shade.copy(revision = "")
+        current = shade
         assertFalse(guard.ready(true))
-        current = target.copy(revision = "")
+        current = target
         windows = listOf(own, AutomationWindowRegion(8, 2, "system", shade.bounds))
         assertFalse(guard.ready(true))
     }
@@ -147,7 +184,7 @@ class PrivilegedGestureGuardTest {
         val runner =
             PrivilegedGestureRunner({ time }, { time += it }, { true }, guard::ready, { event, _ ->
                 events += event.action
-                current = target.copy(windowId = 8, revision = "changed-content")
+                current = target.copy(windowId = 8)
                 true
             })
         assertEquals("DISPATCHED", runner.execute(privilegedGesturePlan(request.strokes)))

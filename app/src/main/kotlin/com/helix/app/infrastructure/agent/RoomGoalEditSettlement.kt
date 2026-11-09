@@ -9,8 +9,8 @@ import com.helix.core.model.Clock
 import com.helix.core.storage.HelixStorage
 import com.helix.core.storage.entity.GoalControlEntity
 import com.helix.core.storage.mapping.StoredGoal
+import com.helix.tools.framework.ToolJsonNumbers
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
@@ -56,7 +56,12 @@ internal class RoomGoalEditSettlement(
             val budgets =
                 goal.budgets.copy(
                     maxGoalRounds =
-                        values?.get("max_goal_rounds")?.jsonPrimitive?.int ?: goal.budgets.maxGoalRounds,
+                        values?.get("max_goal_rounds")?.let {
+                            requireNotNull(
+                                ToolJsonNumbers.intOrNull(it),
+                            ) { "max_goal_rounds must be an exact 32-bit integer" }
+                        }
+                            ?: goal.budgets.maxGoalRounds,
                 )
             val next = GoalReducer.reduce(goal.toRuntimeGoal(), GoalEvent.BudgetsUpdated(budgets))
             if (next.ignored) return false

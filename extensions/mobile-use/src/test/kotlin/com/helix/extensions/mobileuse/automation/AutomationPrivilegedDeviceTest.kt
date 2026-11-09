@@ -44,7 +44,6 @@ class AutomationPrivilegedDeviceTest {
             100,
             0,
             AutomationNodeBounds(0, 0, 100, 100),
-            "revision",
         )
     private val stroke = AutomationStroke(listOf(AutomationPoint(10f, 10f), AutomationPoint(80f, 80f)), 0, 200)
 
@@ -120,24 +119,14 @@ class AutomationPrivilegedDeviceTest {
         assertEquals(listOf(AutomationDeviceOperation.OBSERVE), backend.calls)
     }
 
-    @Test fun freshPixelsDoNotRefreshAnOlderCoordinateCredential() {
+    @Test fun gestureDoesNotPerformAnImplicitCapture() {
         val authority = Authority()
         val backend = Backend(target)
         val host = AutomationPrivilegedDeviceHost(authority)
         val frame = requireNotNull(host.observe(authority.call, backend).frame)
-        backend.captureTarget = target.copy(revision = "animated-content")
-        val captured = host.execute(authority.call, frame.token, AutomationDeviceOperation.SCREENSHOT)
-        assertEquals("SAVED", captured.status)
-        assertEquals(authority.call.authorizationScopeRef, captured.screenshot?.acquisitionScopeRef)
         host.execute(authority.call, frame.token, AutomationDeviceOperation.GESTURE, listOf(stroke))
-        assertEquals(target, backend.lastRequest?.target)
-        assertFalse(
-            privilegedGesturePermitted(
-                requireNotNull(backend.lastRequest),
-                backend.captureTarget,
-                listOf(AutomationWindowRegion(7, 1, target.packageName, target.bounds)),
-            ),
-        )
+        assertEquals(listOf(AutomationDeviceOperation.OBSERVE, AutomationDeviceOperation.GESTURE), backend.calls)
+        assertFalse(host.owns(frame.token))
     }
 
     @Test fun changedCaptureWindowNeverPublishesPixels() {
@@ -155,6 +144,25 @@ class AutomationPrivilegedDeviceTest {
             assertEquals("TARGET_CHANGED", result.status)
             assertNull(result.screenshot)
         }
+    }
+
+    @Test fun captureBoundCredentialReplacesInputAndCarriesCoordinateEnvironmentIntoDispatch() {
+        val authority = Authority()
+        val backend = Backend(target)
+        val host = AutomationPrivilegedDeviceHost(authority)
+        val old = requireNotNull(host.observe(authority.call, backend).frame)
+        backend.captureTarget = target
+        val captured = host.execute(authority.call, old.token, AutomationDeviceOperation.SCREENSHOT)
+        val fresh = requireNotNull(captured.screenshot?.frame)
+        assertFalse(host.owns(old.token))
+        assertTrue(host.owns(fresh))
+        assertEquals(
+            "FRAME_STALE",
+            host.execute(authority.call, old.token, AutomationDeviceOperation.GESTURE, listOf(stroke)).status,
+        )
+        host.execute(authority.call, fresh, AutomationDeviceOperation.GESTURE, listOf(stroke))
+        assertEquals(backend.captureTarget, backend.lastRequest?.target)
+        assertFalse(host.owns(fresh))
     }
 
     @Test fun semanticScrollAcceptsVisibleContainerAboveKeyboardButClickDoesNot() {
@@ -254,8 +262,8 @@ class AutomationPrivilegedDeviceTest {
         val request = AutomationDeviceRequest(AutomationDeviceOperation.GESTURE, target, listOf(stroke))
         val own = AutomationWindowRegion(7, 1, target.packageName, target.bounds)
         assertTrue(privilegedGesturePermitted(request, target, listOf(own)))
+        assertFalse(privilegedGesturePermitted(request, target.copy(windowId = 8), listOf(own)))
         assertFalse(privilegedGesturePermitted(request, target.copy(rotation = 1), listOf(own)))
-        assertFalse(privilegedGesturePermitted(request, target.copy(revision = "changed"), listOf(own)))
         assertFalse(privilegedGesturePermitted(request, target, emptyList()))
         val overlay = AutomationWindowRegion(8, 2, null, AutomationNodeBounds(20, 20, 40, 40))
         assertFalse(privilegedGesturePermitted(request, target, listOf(own, overlay)))

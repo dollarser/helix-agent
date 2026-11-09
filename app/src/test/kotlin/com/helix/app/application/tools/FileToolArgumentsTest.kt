@@ -10,6 +10,36 @@ import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class FileToolArgumentsTest {
+    @Test fun deeplyNestedArgumentsRemainUnchangedForOrdinaryRejection() {
+        val original = "{\"path\":\"notes.txt\",\"extra\":" + "[".repeat(10000) + "0" + "]".repeat(10000) + "}"
+        assertEquals(original, FileToolArguments.bindRequest(original, FileScopePath("first", "project"), "read"))
+    }
+
+    @Test fun schemaProjectionPreservesDecimalDefaultsForFileAndOtherTools() {
+        val input =
+            Json
+                .parseToJsonElement(
+                    """{"type":"object","properties":{"path":{"type":"string"},""" +
+                        """"value":{"type":"number","default":0.7""" +
+                        ""","minimum":-1.25e-3,"enum":[0.123456789012345678901,1e400]}}}""",
+                ).jsonObject
+        for (name in listOf("write", "bfcl.sample")) {
+            val descriptor =
+                com.helix.tools.files.WriteTool.descriptor().copy(
+                    name =
+                        com.helix.core.model
+                            .ToolName(name),
+                    inputSchema = input,
+                )
+            val projected =
+                Json
+                    .parseToJsonElement(
+                        FileToolArguments.modelSchema(descriptor).inputSchemaJson,
+                    ).jsonObject
+            assertEquals(input["properties"]!!.jsonObject["value"], projected["properties"]!!.jsonObject["value"])
+        }
+    }
+
     @Test fun skillImportSourceIsFrozenBeforeApprovalWithoutChangingExpectedHash() {
         for (tool in listOf("skills.preview", "skills.install")) {
             val input = """{"path":".agents/skills/demo","expectedHash":"pinned"}"""

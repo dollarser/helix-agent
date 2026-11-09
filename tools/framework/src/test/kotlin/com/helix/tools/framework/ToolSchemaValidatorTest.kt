@@ -169,7 +169,7 @@ class ToolSchemaValidatorTest {
         val invalid = result as? ToolSchemaValidation.Invalid
         assertTrue(
             "expected fail-closed invalid for malformed type, got $result",
-            invalid != null && invalid.reasons.any { it.contains("malformed type declaration") },
+            invalid != null && invalid.reasons.any { it.contains("schema:") },
         )
     }
 }

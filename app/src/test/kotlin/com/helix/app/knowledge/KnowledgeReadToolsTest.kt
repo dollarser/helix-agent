@@ -8,6 +8,7 @@ import com.helix.tools.framework.ToolSchemaValidation
 import com.helix.tools.framework.ToolSchemaValidator
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -18,6 +19,7 @@ class KnowledgeReadToolsTest {
     private var cancelled = false
     private var reads = 0
     private var revokeDuringRead = false
+    private var document: JsonObject? = null
     private val backend =
         object : KnowledgeReadTools.Backend {
             override fun allowed() = allowed
@@ -41,7 +43,7 @@ class KnowledgeReadToolsTest {
                 id: String,
             ): JsonObject? {
                 search(id)
-                return null
+                return document
             }
         }
 
@@ -112,6 +114,42 @@ class KnowledgeReadToolsTest {
             ToolSchemaValidator.validate(schema, Json.parseToJsonElement("""{"query":"x","all":true}""")) !=
                 ToolSchemaValidation.Valid,
         )
+    }
+
+    @Test fun integerPaginationUsesExactNumbersAndDefaultsOnlyWhenAbsent() {
+        document =
+            Json.parseToJsonElement(
+                """{"title":"Test","text":"abc","contentHash":"${knowledgeHash("abc")}"}""",
+            ) as JsonObject
+        val schema = KnowledgeReadTools.descriptor(false).inputSchema
+        for (numbers in listOf("\"offset\":0.0,\"limit\":1e0", "\"offset\":0e2,\"limit\":1.000")) {
+            val args = """{"kind":"note","id":"test",$numbers}"""
+            assertEquals(
+                ToolSchemaValidation.Valid,
+                ToolSchemaValidator.validate(schema, Json.parseToJsonElement(args)),
+            )
+            val result = run(args, false) as ToolExecutorResult.Completed
+            assertEquals(
+                "\"a\"",
+                result.output.jsonObject
+                    .getValue("text")
+                    .toString(),
+            )
+        }
+        val default = run("""{"kind":"note","id":"test"}""", false) as ToolExecutorResult.Completed
+        assertEquals(
+            "\"abc\"",
+            default.output.jsonObject
+                .getValue("text")
+                .toString(),
+        )
+        for (number in listOf("null", "\"1\"", "1.00000000000000001", "2147483648", "1e-400")) {
+            val args = """{"kind":"note","id":"test","limit":$number}"""
+            assertTrue(
+                "Must reject supplied $number instead of defaulting",
+                run(args, false) is ToolExecutorResult.Failed,
+            )
+        }
     }
 
     @Test fun readToolsAreAvailableInReviewModesAndChatRequiresItsToolSwitch() {

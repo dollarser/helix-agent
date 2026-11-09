@@ -14,7 +14,7 @@ internal class PrivilegedGestureExecution(
         val guard =
             PrivilegedGestureGuard(
                 request,
-                { revision -> screen.deviceTarget(revision, request.wholeDisplay) },
+                { screen.deviceTarget(allowVisualFallback = request.wholeDisplay) },
                 screen::gestureDisplay,
                 screen::windows,
             )

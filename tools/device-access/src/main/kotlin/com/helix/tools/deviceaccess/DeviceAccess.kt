@@ -58,8 +58,18 @@ object DeviceAccess {
                     android.content.pm.PackageManager.PERMISSION_GRANTED
             }.getOrDefault(false)
 
-    fun accessibilitySettingsIntent(): Intent =
-        Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    /** Public settings entry. The optional AOSP row hint is advisory; OEMs may ignore it. */
+    fun accessibilitySettingsIntent(component: ComponentName? = null): Intent =
+        Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK).apply {
+            component?.let {
+                putExtra(
+                    ":settings:show_fragment_args",
+                    android.os.Bundle().apply {
+                        putString(":settings:fragment_args_key", it.flattenToString())
+                    },
+                )
+            }
+        }
 
     fun accessibilityEnabled(
         context: Context,

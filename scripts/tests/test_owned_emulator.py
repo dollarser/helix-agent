@@ -3,6 +3,7 @@ import importlib.util
 from pathlib import Path
 from types import SimpleNamespace
 import unittest
+import tempfile
 from unittest.mock import patch
 
 spec = importlib.util.spec_from_file_location("owned", Path(__file__).resolve().parents[1] / "run-owned-emulator.py")
@@ -11,6 +12,24 @@ spec.loader.exec_module(owned)
 
 
 class RunnerTest(unittest.TestCase):
+    def test_clean_install_only_removes_exact_verified_packages(self):
+        calls = []
+        def device(*args):
+            calls.append(args)
+            if args[0] == "uninstall":
+                return "Success\n"
+            return "package:app.test.other\n" if args[-1] == "app.test" else "package:app\npackage:app.other\n"
+        with tempfile.TemporaryDirectory() as directory:
+            owned.clean_install_packages(device, "app", "app.test", Path(directory))
+            self.assertEqual([call for call in calls if call[0] == "uninstall"], [("uninstall", "app")])
+            self.assertEqual((Path(directory) / "uninstall-app.txt").read_text(), "Success\n")
+
+    def test_clean_install_failure_cannot_continue_as_a_clean_candidate(self):
+        def device(*args):
+            return "Failure" if args[0] == "uninstall" else "package:app.test\n"
+        with tempfile.TemporaryDirectory() as directory, self.assertRaisesRegex(RuntimeError, "did not remove"):
+            owned.clean_install_packages(device, "app", "app.test", Path(directory))
+
     def verify_target(self, package="com.helix.agent.developer", target=None,
                       test_package="com.helix.agent.developer.test", runner=None):
         manifest = '<manifest package="' + package + '" />'

@@ -4,6 +4,14 @@ import java.util.concurrent.atomic.AtomicLong
 
 internal class AccessibilityGenerationTracker {
     private val generation = AtomicLong(1L)
+    private val windowEpoch = AtomicLong(1L)
+
+    fun currentWindowEpoch(): Long = windowEpoch.get()
+
+    fun windowChanged(): Long {
+        windowEpoch.incrementAndGet()
+        return contentChanged()
+    }
 
     fun current(): Long = generation.get()
 
@@ -13,7 +21,12 @@ internal class AccessibilityGenerationTracker {
         eventWindowId: Int,
         activeWindowId: Int?,
         windowMayHaveChanged: Boolean,
-    ): Long = if (windowMayHaveChanged) contentChanged() else contentChangedInWindow(eventWindowId, activeWindowId)
+    ): Long =
+        if (windowMayHaveChanged || eventWindowId < 0 || (activeWindowId ?: -1) < 0) {
+            windowChanged()
+        } else {
+            contentChangedInWindow(eventWindowId, activeWindowId)
+        }
 
     fun contentChangedInWindow(
         eventWindowId: Int,

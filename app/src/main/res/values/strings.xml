@@ -1445,7 +1445,7 @@
     <string name="device_access_accessibility_none">此版本未提供无障碍服务</string>
     <string name="device_access_accessibility_disconnected">已授权 · 未连接</string>
     <string name="device_access_accessibility_restore">恢复连接</string>
-    <string name="device_access_accessibility_restore_help">前往系统设置检查 Helix 无障碍。若已开启但未连接，可关闭后重新开启。</string>
+    <string name="device_access_accessibility_restore_help">在系统设置中关闭后重新开启 Helix 无障碍，然后返回。若仍未连接，请重启设备后再试。手机操作配置会保留。</string>
     <string name="device_access_backend_ready">可用</string>
     <string name="device_access_root_reconnect">连接已启用的功能</string>
     <string name="device_access_status_checking">正在检查…</string>

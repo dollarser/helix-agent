@@ -10,6 +10,7 @@ import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
+import com.helix.tools.framework.ToolJsonNumbers
 import com.helix.tools.framework.ToolOrigin
 import com.helix.tools.framework.ToolRegistry
 import kotlinx.serialization.json.Json
@@ -18,7 +19,6 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.int
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -140,9 +140,9 @@ internal object ToolResultReadTool {
                         page(
                             reference,
                             content,
-                            call.args
-                                .getValue("offset")
-                                .jsonPrimitive.int,
+                            requireNotNull(
+                                ToolJsonNumbers.intOrNull(call.args["offset"]),
+                            ) { "offset must be an exact 32-bit integer" },
                             source.name,
                         ).let { page ->
                             buildJsonObject {

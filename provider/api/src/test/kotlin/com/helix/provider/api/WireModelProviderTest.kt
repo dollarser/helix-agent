@@ -470,9 +470,30 @@ class WireModelProviderTest {
             val provider = TestProvider(config(), { "x" }, wire)
             val result = provider.listModels()
             assertEquals(
-                ModelCatalogResult.Failed(ModelErrorCode.TRANSPORT, "IOException", true),
+                ModelCatalogResult.Failed(ModelErrorCode.TRANSPORT, "Model directory transport: IO", true),
                 result,
             )
+        }
+
+    @Test
+    fun modelListTransportDiagnosticIsCategorizedWithoutExceptionContent() =
+        runBlocking {
+            val failures =
+                listOf(
+                    java.net.UnknownHostException("secret host and credential") to "DNS",
+                    javax.net.ssl.SSLException("secret certificate URL") to "TLS",
+                    java.net.ConnectException("secret destination") to "CONNECTION",
+                    IOException("secret response") to "IO",
+                )
+            for ((failure, reason) in failures) {
+                val wire = FakeWire { error("unused") }
+                wire.ioFailure = failure
+                val result = TestProvider(config(), { "secret-token" }, wire).listModels()
+                assertEquals(
+                    ModelCatalogResult.Failed(ModelErrorCode.TRANSPORT, "Model directory transport: $reason", true),
+                    result,
+                )
+            }
         }
 
     @Test

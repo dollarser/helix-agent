@@ -11,6 +11,7 @@ import com.helix.extensions.mobileuse.automation.AutomationDisplayTarget
 import com.helix.extensions.mobileuse.automation.AutomationGlobalAction
 import com.helix.extensions.mobileuse.automation.AutomationNodeBounds
 import com.helix.extensions.mobileuse.automation.AutomationWindowRegion
+import com.helix.extensions.mobileuse.automation.automationLongClickable
 import java.io.StringWriter
 
 /** Shell-only platform bridge. No hidden API access or generated code in the main app process. */
@@ -224,22 +225,20 @@ internal class ShizukuHierarchy : AutoCloseable {
             .invoke(manager, displayId) as android.view.Display
     }
 
-    fun deviceTarget(
-        includeRevision: Boolean = true,
-        allowVisualFallback: Boolean = false,
-    ): AutomationDisplayTarget? {
+    /** Window/display metadata only: coordinate admission never traverses the content tree. */
+    fun deviceTarget(allowVisualFallback: Boolean = false): AutomationDisplayTarget? {
         val instance = checkNotNull(automation)
         instance.serviceInfo = checkNotNull(instance.serviceInfo)
         val root = root() ?: return visualDeviceTarget(allowVisualFallback)
         return try {
             val size = android.graphics.Point().also { display().getRealSize(it) }
-            val bounds = Rect().also(root::getBoundsInScreen)
             val window = displayWindows()
             try {
                 val active = window.singleOrNull { it.id == root.windowId }
                 if (active == null || (android.os.Build.VERSION.SDK_INT >= 30 && active.displayId != displayId)) {
                     null
                 } else {
+                    val bounds = Rect().also(active::getBoundsInScreen)
                     AutomationDisplayTarget(
                         root.packageName?.toString().orEmpty(),
                         root.windowId,
@@ -253,14 +252,6 @@ internal class ShizukuHierarchy : AutoCloseable {
                             bounds.right,
                             bounds.bottom,
                         ),
-                        if (includeRevision) {
-                            java.security.MessageDigest
-                                .getInstance("SHA-256")
-                                .digest(read().toByteArray())
-                                .joinToString("") { "%02x".format(it) }
-                        } else {
-                            ""
-                        },
                         displaySession,
                         independentFocus,
                     )
@@ -438,7 +429,7 @@ private class HierarchyWriter(
                 },
             "editable" to node.isEditable.toString(),
             "scrollable" to node.isScrollable.toString(),
-            "long-clickable" to node.isLongClickable.toString(),
+            "long-clickable" to node.automationLongClickable.toString(),
             "checkable" to node.isCheckable.toString(),
             "checked" to node.isChecked.toString(),
             "text" to

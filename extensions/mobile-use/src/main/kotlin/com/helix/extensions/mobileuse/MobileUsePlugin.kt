@@ -66,7 +66,11 @@ class MobileUsePlugin(
             com.helix.extensions.mobileuse.automation
                 .PermissionCenterDevicePort(permissionCenter),
             PermissionCenterAutomationToolPort(permissionCenter),
-            images,
+            com.helix.tools.framework.ToolImagePublication { call, png, scope ->
+                com.helix.extensions.mobileuse.automation.backend.mobileUseStageTiming("image_publication") {
+                    images.publish(call, png, scope)
+                }
+            },
             origin,
             originatingHelixPackage = context.applicationContext.packageName,
         )
