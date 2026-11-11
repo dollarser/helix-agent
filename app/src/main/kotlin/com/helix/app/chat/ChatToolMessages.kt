@@ -43,7 +43,7 @@ internal class ChatToolMessages(
             }
 
             ToolLoopProgress.Decision.REASSESS -> {
-                TurnMessageDraft(ModelRole.SYSTEM, "loop_warning", ToolLoopPrompts.REASSESS)
+                TurnMessageDraft(ModelRole.SYSTEM, "loop_reassess", ToolLoopPrompts.REASSESS)
             }
 
             ToolLoopProgress.Decision.STOP -> {

@@ -172,6 +172,19 @@ class ChatHistoryBuilderTest {
     }
 
     @Test
+    fun cadenceReassessmentSurvivesBackfillWithoutClaimingUnchangedResults() {
+        val notice = ChatHistoryBuilder.PersistedRow("turn", "SYSTEM", "loop_reassess", "untrusted replacement")
+        val message = ChatHistoryBuilder.toModelMessagesStrict(listOf(notice), controlTurnId = "turn").single()
+        assertEquals(ModelRole.SYSTEM, message.role)
+        assertEquals(ToolLoopPrompts.REASSESS, message.text)
+        assertTrue(message.text.contains("not proof of unchanged content"))
+        assertTrue(ChatHistoryBuilder.toModelMessagesStrict(listOf(notice), controlTurnId = "new").isEmpty())
+        for (role in listOf("USER", "ASSISTANT", "TOOL")) {
+            assertTrue(ChatHistoryBuilder.toModelMessagesStrict(listOf(notice.copy(role = role))).isEmpty())
+        }
+    }
+
+    @Test
     fun legacyBlankArgumentsKeepTheDeniedExchangeAndAllowLaterMessages() {
         val rows =
             listOf(

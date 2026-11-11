@@ -128,4 +128,57 @@ class DurableToolLoopProgressTest {
         changed[5] = changed[5].copy(state = "RUNNING")
         assertEquals(ToolLoopProgress.Decision.CONTINUE, decision(changed + calls().first()))
     }
+
+    @Test fun longHistoryLoadsEachBoundedFactOnlyOnce() {
+        val saved = List(1000) { index -> calls().first().copy(id = "c$index", callId = "c$index") }
+        val loadedResults = mutableListOf<String>()
+        var descriptorLoads = 0
+        var observationLoads = 0
+        val actual =
+            DurableToolLoopProgress.fromHistory(
+                saved,
+                {
+                    loadedResults += it
+                    result(it).copy(contentRef = "fresh-$it")
+                },
+                {
+                    observationLoads++
+                    null
+                },
+            ) { _, _ ->
+                descriptorLoads++
+                read.copy(requiredCapabilities = setOf(Capability.MOBILE_USE))
+            }
+        assertEquals(ToolLoopProgress.Decision.REASSESS, actual)
+        assertEquals(saved.takeLast(ToolLoopProgress.WINDOW).map { it.id }, loadedResults)
+        assertEquals(ToolLoopProgress.WINDOW, descriptorLoads)
+        assertEquals(ToolLoopProgress.WINDOW, observationLoads)
+    }
+
+    @Test fun unsettledOrUnverifiedResultsDoNotLoadTrustedObservationAudit() {
+        for (state in listOf("RUNNING", "NEEDS_REVIEW", "DENIED", "FAILED", "COMPLETED")) {
+            var observationLoads = 0
+            DurableToolLoopProgress.fromHistory(
+                calls(state),
+                { result(it, verified = false) },
+                {
+                    observationLoads++
+                    null
+                },
+            ) { _, _ -> read }
+            assertEquals("state=$state", 0, observationLoads)
+        }
+    }
+
+    @Test fun workflowUsesTheSameResultSnapshotAsExactClassifier() {
+        val loads = mutableMapOf<String, Int>()
+        val actual =
+            DurableToolLoopProgress.fromHistory(calls(), { id ->
+                val count = (loads[id] ?: 0) + 1
+                loads[id] = count
+                result(id, verified = count == 1).copy(contentRef = "fresh-$id")
+            }) { _, _ -> read.copy(requiredCapabilities = setOf(Capability.MOBILE_USE)) }
+        assertEquals(ToolLoopProgress.Decision.REASSESS, actual)
+        assertEquals(setOf(1), loads.values.toSet())
+    }
 }

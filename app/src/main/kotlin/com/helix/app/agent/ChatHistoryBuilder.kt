@@ -121,6 +121,14 @@ object ChatHistoryBuilder {
                     }
                 }
 
+                "loop_reassess" -> {
+                    if (currentControlNotice(row, controlTurnId)) {
+                        ModelMessage(ModelRole.SYSTEM, ToolLoopPrompts.REASSESS)
+                    } else {
+                        null
+                    }
+                }
+
                 "loop_warning" -> {
                     if (currentControlNotice(row, controlTurnId)) {
                         ModelMessage(ModelRole.SYSTEM, ToolLoopPrompts.WARNING)

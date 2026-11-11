@@ -25,13 +25,14 @@ internal class DurableToolLoopProgress(
     fun evaluate(turnId: String): ToolLoopProgress.Decision {
         val reset =
             storage.auditEvents
-                .listByCorrelation(turnId)
-                .lastOrNull { it.type == RESET }
+                .recentByCorrelation(turnId, RESET, 1)
+                .singleOrNull()
                 ?.redactedPayload
         val calls = storage.toolCalls.recentByTurn(turnId, ToolLoopProgress.WINDOW)
         val start = if (reset == null) 0 else calls.indexOfLast { it.id == reset } + 1
+        val descriptors = registry.all().associateBy { it.name.value to it.version.value.toString() }
         return fromHistory(calls.drop(start), storage.toolResults::byToolCall, ::trustedObservation) { name, version ->
-            registry.all().find { it.name.value == name && it.version.value.toString() == version }
+            descriptors[name to version]
         }
     }
 
@@ -81,13 +82,15 @@ internal class DurableToolLoopProgress(
             observationFor: (ToolCallEntity) -> JsonObject? = { null },
             descriptorFor: (String, String) -> ToolDescriptor?,
         ): ToolLoopProgress.Decision {
-            val observations =
+            // Resolve each durable row once, so both classifiers see the same bounded facts.
+            val history =
                 calls.takeLast(ToolLoopProgress.WINDOW).map { call ->
-                    val descriptor = descriptorFor(call.name, call.version)
-                    val result = resultFor(call.id)
-                    val observation = observationFor(call)
-                    if (call.state == "COMPLETED" && result?.verified == true && observation != null) {
-                        val fact = observationFact(observation)
+                    HistoryEntry(call, resultFor(call.id), descriptorFor(call.name, call.version))
+                }
+            val observations =
+                history.map { (call, result, descriptor) ->
+                    if (call.state == "COMPLETED" && result?.verified == true) {
+                        val fact = observationFor(call)?.let(::observationFact)
                         if (fact != null) return@map fact
                     }
                     val denied = call.state in setOf("DENIED", "FAILED") && result?.status in setOf("DENIED", "FAILED")
@@ -109,7 +112,7 @@ internal class DurableToolLoopProgress(
                 }
             val exact = ToolLoopProgress.evaluateFacts(observations)
             if (exact != ToolLoopProgress.Decision.CONTINUE) return exact
-            val workflow = workflow(calls, resultFor, descriptorFor)
+            val workflow = workflow(history)
             return if (ToolLoopProgress.repeatingObservationWorkflow(workflow)) {
                 ToolLoopProgress.Decision.REASSESS
             } else {
@@ -129,14 +132,14 @@ internal class DurableToolLoopProgress(
                         setOf(Capability.ACCESSIBILITY_AUTOMATION, Capability.MOBILE_USE),
                     ).isEmpty() && call.state == "COMPLETED" && result?.verified == true
 
-        private fun workflow(
-            calls: List<ToolCallEntity>,
-            resultFor: (String) -> ToolResultEntity?,
-            descriptorFor: (String, String) -> ToolDescriptor?,
-        ): List<ToolLoopProgress.WorkflowStep?> =
-            calls.takeLast(ToolLoopProgress.WINDOW).map { call ->
-                val descriptor = descriptorFor(call.name, call.version)
-                val result = resultFor(call.id)
+        private data class HistoryEntry(
+            val call: ToolCallEntity,
+            val result: ToolResultEntity?,
+            val descriptor: ToolDescriptor?,
+        )
+
+        private fun workflow(history: List<HistoryEntry>): List<ToolLoopProgress.WorkflowStep?> =
+            history.map { (call, result, descriptor) ->
                 if (call.state != "COMPLETED" || result?.verified != true ||
                     descriptor?.requiredCapabilities?.contains(Capability.MOBILE_USE) != true
                 ) {
