@@ -150,6 +150,47 @@ internal class PinnedWebFetchTransport(
         throw WebFetchFailure("redirect-limit")
     }
 
+    /** Fixed-provider JSON POST uses the same connection-time governance, never redirects or retries. */
+    @Suppress("ThrowsCount") // Distinct protocol failures are stable, bounded admission checks.
+    internal fun postJson(
+        request: Request,
+        deadline: Long,
+        cancel: CancelSignal,
+        beforeSend: () -> Unit = {},
+    ): ByteArray {
+        checkWebFetchActive(deadline, cancel)
+        val url = request.url
+        val ceiling = policyProvider.current().let { it.copy(lanScopes = it.lanScopes.toSet()) }
+        val endpoint = webFetchEndpoint(url)
+        val pinned = resolver.resolve(url.host).map { it.copyOf() }
+        checkWebFetchActive(deadline, cancel)
+        authorize(pinned, endpoint, ceiling)
+        val client = createClient(HopTarget(url, endpoint, pinned, ceiling), deadline, cancel, beforeSend)
+        val call = client.newCall(request)
+        val watch =
+            cancellationWatch.scheduleWithFixedDelay({
+                if (cancel.isCancelled() || System.currentTimeMillis() >= deadline) call.cancel()
+            }, 0, CANCELLATION_POLL_MS, TimeUnit.MILLISECONDS)
+        return try {
+            call.execute().use { response ->
+                checkWebFetchActive(deadline, cancel)
+                if (!response.isSuccessful) throw WebFetchFailure("provider-http-${response.code}")
+                if (response.body.contentType()?.subtype != "json") throw WebFetchFailure("invalid-provider-response")
+                checkWebFetchEncoding(response.headers.values("Content-Encoding"), allowGzip = false)
+                val bytes = readBody(response.body.source(), deadline, cancel)
+                if (bytes.size > WEB_BODY_LIMIT) throw WebFetchFailure("provider-response-too-large")
+                checkWebFetchActive(deadline, cancel)
+                authorize(pinned, endpoint, ceiling)
+                bytes
+            }
+        } finally {
+            watch.cancel(false)
+            call.cancel()
+            client.connectionPool.evictAll()
+            client.dispatcher.executorService.shutdown()
+        }
+    }
+
     private fun authorize(
         addresses: List<ByteArray>,
         endpoint: NormalizedEndpoint,
@@ -209,6 +250,7 @@ internal class PinnedWebFetchTransport(
         target: HopTarget,
         deadline: Long,
         cancel: CancelSignal,
+        beforeSend: () -> Unit = {},
     ): OkHttpClient =
         OkHttpClient
             .Builder()
@@ -225,6 +267,7 @@ internal class PinnedWebFetchTransport(
             }.addNetworkInterceptor { chain ->
                 checkWebFetchActive(deadline, cancel)
                 checkPeer(chain, target)
+                beforeSend()
                 val response = chain.proceed(chain.request())
                 try {
                     if (response.isSuccessful && isReadable(response)) {

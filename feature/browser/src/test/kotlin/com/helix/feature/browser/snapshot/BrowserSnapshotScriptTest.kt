@@ -15,6 +15,7 @@ class BrowserSnapshotScriptTest {
 
     @Test
     fun theJsLiteralsMatchTheKotlinBounds() {
+        assertTrue(script.contains("var MAX_BODY_TEXT = ${BrowserSnapshotScript.MAX_BODY_TEXT_LENGTH};"))
         assertTrue("MAX_NODES literal drifted", script.contains("var MAX_NODES = ${BrowserSnapshotScript.MAX_NODES};"))
         assertTrue(
             "MAX_TEXT literal drifted",

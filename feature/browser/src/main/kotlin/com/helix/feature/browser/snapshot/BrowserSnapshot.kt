@@ -21,6 +21,8 @@ data class BrowserSnapshot(
     val truncated: Boolean,
     val nodeCount: Int,
     val nodes: List<SnapshotNode>,
+    val text: UntrustedWebContent = UntrustedWebContent(""),
+    val textTruncated: Boolean = false,
 )
 
 /**

@@ -62,6 +62,11 @@ object SnapshotBinder {
             root["truncated"]?.asPrimitive()?.booleanOrNull
                 ?: return SnapshotResult.Failed(SnapshotFailure.MALFORMED_RESULT)
 
+        val body = readBody(root) ?: return SnapshotResult.Failed(SnapshotFailure.MALFORMED_RESULT)
+        if (body.text.length > BrowserSnapshotScript.MAX_BODY_TEXT_LENGTH) {
+            return SnapshotResult.Failed(SnapshotFailure.OVER_BUDGET)
+        }
+
         val nodesElement = root["nodes"]?.asArray() ?: return SnapshotResult.Failed(SnapshotFailure.MALFORMED_RESULT)
 
         if (nodesElement.size > BrowserSnapshotScript.MAX_NODES) {
@@ -98,8 +103,22 @@ object SnapshotBinder {
                 truncated = truncated,
                 nodeCount = nodes.size,
                 nodes = nodes,
+                text = UntrustedWebContent(body.text),
+                textTruncated = body.truncated,
             ),
         )
+    }
+
+    private data class ReadableBody(
+        val text: String,
+        val truncated: Boolean,
+    )
+
+    @Suppress("ReturnCount")
+    private fun readBody(root: JsonObject): ReadableBody? {
+        val text = root["text"]?.asPrimitive()?.takeIf { it.isString }?.content ?: return null
+        val truncated = root["textTruncated"]?.asPrimitive()?.booleanOrNull ?: return null
+        return ReadableBody(text, truncated)
     }
 
     @Suppress("ReturnCount", "CyclomaticComplexMethod")

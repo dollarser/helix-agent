@@ -482,6 +482,7 @@ subprojects {
                 }
             }
             if (path == ":feature:browser") {
+                dependencies.add("androidTestImplementation", project(":tools:framework"))
                 pluginManager.apply("org.jetbrains.kotlin.plugin.compose")
                 extensions.configure<LibraryExtension> {
                     buildFeatures {

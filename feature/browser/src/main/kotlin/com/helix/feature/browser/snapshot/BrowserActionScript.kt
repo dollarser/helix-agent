@@ -1,5 +1,6 @@
 package com.helix.feature.browser.snapshot
 
+import com.helix.tools.browser.BrowserNodeAction
 import kotlinx.serialization.json.JsonPrimitive
 
 /**
@@ -177,6 +178,77 @@ object BrowserActionScript {
                    nameId: nameId, placeholder: ph, reason: refuse };
         })();
         """.trimIndent()
+
+    private val NODE_ACTION =
+        """
+          var performed = false;
+          if (refuse === "" && (target.disabled || target.matches(":disabled"))) refuse = "disabled";
+          if (refuse === "") {
+            if (ACTION === "APPEND") {
+              if ((tag !== "textarea" && (tag !== "input" ||
+                   ["", "text", "search", "email", "url", "tel"].indexOf(tl) < 0)) || target.readOnly) {
+                refuse = "not-editable-text";
+              } else {
+                var proto = tag === "input" ? window.HTMLInputElement.prototype : window.HTMLTextAreaElement.prototype;
+                var setter = Object.getOwnPropertyDescriptor(proto, "value").set;
+                setter.call(target, target.value + VALUE);
+                target.dispatchEvent(new Event("input", { bubbles: true }));
+                target.dispatchEvent(new Event("change", { bubbles: true }));
+                performed = true;
+              }
+            } else if (ACTION === "SELECT") {
+              if (tag !== "select" || target.multiple) refuse = "not-single-select";
+              else {
+                var options = Array.prototype.filter.call(target.options, function (option) {
+                  return (option.value === VALUE || String(option.textContent || "").trim() === VALUE) && !option.disabled &&
+                    !(option.parentElement && option.parentElement.tagName === "OPTGROUP" && option.parentElement.disabled);
+                });
+                if (options.length !== 1) refuse = "option-missing-or-ambiguous";
+                else {
+                  target.selectedIndex = options[0].index;
+                  target.dispatchEvent(new Event("input", { bubbles: true }));
+                  target.dispatchEvent(new Event("change", { bubbles: true }));
+                  performed = true;
+                }
+              }
+            } else if (ACTION === "PRESS") {
+              var key = VALUE === "Space" ? " " : VALUE;
+              target.focus();
+              target.dispatchEvent(new KeyboardEvent("keydown", { key: key, bubbles: true, cancelable: true }));
+              target.dispatchEvent(new KeyboardEvent("keyup", { key: key, bubbles: true, cancelable: true }));
+              performed = true;
+            } else if (ACTION === "SUBMIT") {
+              var submitter = (tag === "button" && (tl === "" || tl === "submit")) ||
+                              (tag === "input" && (tl === "submit" || tl === "image"));
+              if (!submitter || !target.form) refuse = "not-submit-button";
+              else {
+                HTMLFormElement.prototype.requestSubmit.call(target.form, target);
+                performed = true;
+              }
+            }
+          }
+          return { v: 1, status: refuse !== "" ? "refused" : (performed ? "performed" : "error"),
+                   nodeIndex: __NODE_INDEX__, tag: tag, role: role, type: type, autocomplete: ac,
+                   nameId: nameId, placeholder: ph, reason: refuse };
+        })();
+        """.trimIndent()
+
+    /** Only host-owned constant bodies may call this, never page/model script. */
+    internal fun guardedNodeScript(
+        nodeIndex: Int,
+        body: String,
+    ): String = (HEAD + CLASSIFY + body).replace("__NODE_INDEX__", nodeIndex.toString())
+
+    /** Model payloads are only JSON literals; the operation is a host-owned enum. */
+    fun nodeAction(
+        nodeIndex: Int,
+        action: BrowserNodeAction,
+        value: String,
+    ): String =
+        HEAD.replace("__NODE_INDEX__", nodeIndex.toString()) +
+            "var ACTION = " + JsonPrimitive(action.name) + ";var VALUE = " + JsonPrimitive(value) + ";" +
+            CLASSIFY.replace("__NODE_INDEX__", nodeIndex.toString()) +
+            NODE_ACTION.replace("__NODE_INDEX__", nodeIndex.toString())
 
     /** `browser.scroll`: a bounded viewport scroll of the current page. */
     private val SCROLL_FIXED =

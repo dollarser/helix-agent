@@ -193,3 +193,22 @@ Owner 授权完成后续事项。HXA-290 的 Fetch 采用独立 `web_fetch` 文�
 - Schema 仍是 `ToolSchema` 明确列出的子集：未知关键词/类型、组合 schema、引用等不支持结构拒绝注册。`default` 等注释不自动补写参数。正则长度与嵌套量词检查是既有启发式防护，不宣称实现完整 JSON Schema 或任意正则的硬时间保证。
 
 验证覆盖 schema → dispatcher → executor 的精确整数/枚举、边界拒绝发生在审批和副作用之前，以及原始参数和审批 hash 不变。此次不改变版本、审批权限链或外部协议。
+
+### 2026-11-11：Web Search 配置与费用边界
+
+`web_search` 使用用户主动配置的 Tavily Basic BYOK，默认关闭。官方 [Search API](https://docs.tavily.com/documentation/api-reference/endpoint/search) 确认固定 HTTPS POST `/search`、Bearer 认证；显式 `search_depth=basic`、`auto_parameters=false`，不请求生成答案、原始网页或高级深度。官方 [Credits & Pricing](https://docs.tavily.com/documentation/api-credits) 当前记录 Basic 每次 1 credit、免费计划每月 1,000 credits，同时存在付费套餐与 PAYG；Helix 不承诺所有账户免费，不注册账户、不改计费设置、不自动启用服务。
+
+密钥仅存 SecretStore，普通设置只存服务商选择与启用状态；UI 不回填密钥，模型参数不能携带 key 或改 endpoint。关闭/未配置在网络前明确失败。Search 沿 Dispatcher 的 NETWORK / NON_IDEMPOTENT 保守分类，不加入无副作用读取白名单，因此不在 Plan 放行。复用 PinnedWebFetchTransport 的初始和当前 egress scope、全 DNS 候选、连接 peer、TLS 校验与取消/截止时间，不创建伪造 Provider/MCP identity；与现有 Fetch 相同，未声称额外的 Provider 出站审批 facet。
+
+固定服务请求不跟随重定向、不自动连接重试；HTTP 失败/中断不证明额度未扣除，不自动重放。响应最多 1 MiB，解析前有界 JSON 深度，最多五条结果，标题/摘要 UTF-16 安全截断并显式返回截断事实。源 URL 只代表搜索结果链接，摘要不是已抓取全文，外部文本不是授权。真实服务质量、账户额度与真实模型下一请求消费不能由离线夹具证明。
+
+
+### Decision history — 2026-11-11：浏览器搜索与 DeepSeek 原生搜索
+
+按 owner 本轮「实现让 Helix 使用现有浏览器搜索，同时支持 deepseek 等大模型厂商的搜索」要求，区分两条执行路径，不将网页抓取冒充原生 API：
+
+- `browser.search(query, engine)` 支持显式选择 Bing、Google、DuckDuckGo，固定 HTTPS 查询地址，复用现有 Browser bridge 的会话归属、出站治理、导航、取消与容量。返回导航状态；模型需继续 `browser.wait` / `browser.snapshot` 获取页面证据。它不提供结构化 API 命中、不绕过网站登录或验证码，也不需要 Tavily/DeepSeek key。
+- `web_search` 由用户设置明确选定 Tavily Basic 或 DeepSeek Search，按服务商隔离 SecretStore 密钥，不复用聊天模型凭据，不自动 fallback 或开通收费服务。设置保存服务商与 opt-in；UI 切换服务商时关闭未保存的启用状态，只有显式保存才改变生效配置。
+- DeepSeek [官方独立 Search API](https://api-docs.deepseek.com/guides/search/) 是 `POST https://api.deepseek.com/v1/tools/search`、Bearer key；固定 `count=5`、`need_content=false`，query 按官方 1–128 Unicode 字符限制校验，`summary` 映射有界 snippet。该路径不调用聊天模型，亦不依赖某个模型支持 Responses。2026-11-11 文档标价成功且非空搜索每千次 US$0.75；实际账户计费以厂商为准，不以网络失败推断未扣费。
+- [Responses API](https://api-docs.deepseek.com/guides/responses_api/) 的 server-side `web_search` 与上述独立端点不是同一协议，官方支持限制不同；本轮没有向所有 OpenAI-compatible 模型盲目添加搜索 flag。OpenAI、Anthropic、Gemini 的原生搜索协议与引用约束未在本轮实现，不声明通用兼容。
+- 两个 API provider 共用既有固定端点 PinnedWebFetchTransport、响应上界、撤销重查和不重试契约。真实付费请求及真实模型消费与离线协议、模拟器验证分别记录。

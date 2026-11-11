@@ -77,6 +77,12 @@ internal object AppAndroidTools {
                 egressPolicy,
             ),
         )
+        com.helix.tools.android.WebSearchTool.register(
+            toolRegistry,
+            egressPolicy,
+            com.helix.app.search.WebSearchSettings
+                .create(context, storage.secrets),
+        )
         com.helix.tools.android.WebFetchTool
             .register(toolRegistry, egressPolicy)
     }

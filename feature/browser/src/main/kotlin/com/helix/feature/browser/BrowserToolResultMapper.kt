@@ -41,6 +41,8 @@ internal object BrowserToolResultMapper {
                 },
             message = "",
             observedAtMillis = s.mintedAtMillis,
+            text = s.text.text,
+            textTruncated = s.textTruncated,
         )
 
     fun failedSnapshot(
@@ -70,7 +72,7 @@ internal object BrowserToolResultMapper {
         raw: String?,
         nodeIndex: Int,
     ): ActionOutcome {
-        if (raw == null) return ActionOutcome(ActionStatus.TIMED_OUT, nodeIndex, "", "", "")
+        if (raw == null) return ActionOutcome(ActionStatus.UNKNOWN, nodeIndex, "", "", "effect-uncertain")
         val obj = parseActionRaw(raw) ?: return ActionOutcome(ActionStatus.ERROR, nodeIndex, "", "", "bad result")
         val tag = obj.str("tag")
         val role = obj.str("role")

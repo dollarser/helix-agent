@@ -139,3 +139,28 @@ Owner 要求完成浏览器任务页面归属、恢复与返回原会话闭环�
 Owner 授权浏览器优化与模拟器验证，暂不使用真机或发布。采用项目已锁定的 WebKit 官方异步启动接口，不升级依赖、不创建预热空页。将原生首页与网页导航分开，普通退出保留实例，明确关闭才释放页面；普通手动标签地址/标题可持久恢复，但使用新身份且由用户重新打开。任务来源与不记录历史标签不持久化，继续保留活动调用的原身份、取消/未知结果和 URL 策略。此决定扩展 11-02 阶段未实现的普通标签恢复，不恢复旧页面执行、授权或未提交状态。验收按实际成功候选、合成页面/进程重启与资源释放证据结算，不外推到所有设备或网站。
 
 同日设备复核实际复现：隐藏网页的延迟 alert 仍覆盖原生首页及其他界面，离开时已显示的确认框也未结束回调。修正为页面状态和实际 View 可见性共同限制弹窗，网页脱离窗口时取消已有结果，销毁时移除新增监听；不销毁为普通返回保留的页面。[延迟弹窗用例](../../../app/src/androidTest/kotlin/com/helix/app/ui/BrowserDialogVisibilityDeviceTest.kt)验证隐藏页三种弹窗均完成取消、可见页三种弹窗正常交互，以及隐藏时已有结果只完成一次。
+
+
+## Decision history — 2026-11-11：高频表单动作
+
+Owner 要求补齐高频工具。在既有 Browser 贡献及授权链增加 `browser.append`、`browser.select`、`browser.press`、`browser.submit`，不接受任意脚本。动作使用短期 snapshot token，执行前再次校验 tab/origin/generation/fingerprint/TTL，保留敏感字段拒绝与主线程派发边界。四项均为 NON_IDEMPOTENT；页面变化后不能验证结果时返回需要复核的未知效果，禁止自动重放。
+
+Append 只追加可编辑文本 input/textarea；select 只接受唯一、启用的单选 option 精确 value 或显示 label，二者合并命中必须唯一，缺失/重复/禁用不产生成功。Press 仅派发明确键集合的合成 keydown/keyup，不承诺原生默认动作；Enter 提交使用 submit。Submit 只对表单内启用的 submit 按钮调用原生 requestSubmit，保留浏览器约束验证及页面 preventDefault；performed 仅证明派发，不证明业务提交成功，需再观察页面/业务结果。动作异步派发队列中尚未开始的任务在超时/中断后不再启动；此改动不调整冷引擎启动时的同步 open 等待。
+
+同轮增加 `browser.upload`：只接受单个不超过 1 MiB 的 `scope:` 文件、预读 SHA-256、精确 HTTP(S) pageUrl 和短期节点 token。Workspace 读取与远端副作用共同进入既有授权分类；读取后的实际内容 hash 必须匹配请求。派发前重新提取 DOM 由宿主复验指纹，并用随机的一次性 document→节点标记防止同 URL 导航或节点重排后重定向数据。标记不携带字节或宿主权限，最多保留十秒。文件作为有界不可变副本进入固定脚本，不开放裸路径、任意 content URI 或永久特权桥。input/change 可能立即外发，因此授权覆盖接收页面和文件；attached 仅代表赋给字段及事件派发，不代表服务器接收，未知结果不得自动重放。
+
+验证分别记录 host、真实 WebView 合成页面和外部网站；离线夹具不证明真实账号业务成功。2026-11-11 API36 合成页面专项 15 项通过，涵盖四项动作、上传来源/页面反例及未知效果；最终集成门禁另行记录，不继承旧 Release 或真实网站结论。
+
+### Decision history — 2026-11-11：现有浏览器搜索导航
+
+`browser.search` 是 Browser 插件的具名导航工具，显式 engine/query 生成固定 HTTPS 搜索地址，复用会话所属 tab 与当前 URL policy；不是结构化 API。导航拒绝或目标不匹配不能报告 started；仅实际接受导航返回 started，页面结果由后续 snapshot/wait 证据决定。固定引擎为 Bing、Google、DuckDuckGo，不绕过验证码、登录或外站拒绝。
+
+搜索开页将取消/截止时间检查传至主线程执行点。同步主线程 hop 超时或中断移除尚未执行的 Runnable；已开始的物理操作不能假称撤销，返回 unknown 并要求检查，不自动重放。共享 onMain 的这项排队取消修正沿用 Browser 原有 controller/host 归属，不引入另一执行域。原生 DeepSeek/Tavily 搜索则见工具契约 ADR，费用与凭据不由 Browser 导航默许。
+
+## Decision history — 2026-11-11：有界正文观察
+
+真实搜索回归中，只有交互节点的快照不能提供 IANA 普通段落证据。`browser.snapshot` 增加独立 `text` / `textTruncated`：读取当前可见 light DOM 文本，不读取表单值、可编辑内容、隐藏子树或脚本/样式；不跨 iframe/shadow root。字符上限 12000、独立遍历上限 20000，任一预算提前结束明确标记正文不完整。正文仍为不可信外部数据，不授予后续执行权限。
+
+工具结果构造时正文位于 nodes 前，但持久结果规范化会重排 JSON 字段，大快照仍可能需要分页读取正文。普通段落更新由重新 snapshot 观察；`browser.find` / `browser.wait` 仍匹配语义动作节点，不充当全文搜索。正文遍历不改变动作节点顺序或索引，正文内容不进入动作树 fingerprint，不扩大动作令牌权限。主机重新校验正文类型/长度与截断字段。独立正文预算不代表节点预算截断，两个标记分别保留。
+
+正文可见性按 light DOM / CSS 布局判断，不等同像素可见：`visibility:hidden` 不剪断可由子节点恢复 `visibility:visible` 的遍历；文本节点依据其父元素的计算 visibility 判断。正文不保证排除视口外、被遮挡、overflow 或 clip-path 完全裁切的文本。`textTruncated=false` 只表示未触及正文提取预算，不证明完整像素可见范围、frame 或 shadow 内容覆盖。

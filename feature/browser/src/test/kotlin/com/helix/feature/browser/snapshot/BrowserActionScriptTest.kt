@@ -39,6 +39,21 @@ class BrowserActionScriptTest {
         )
 
     @Test
+    fun nodeActionsUseLiteralPayloadsAndFixedNativeSemantics() {
+        val payload = "\";throw Error('injected');//"
+        for (action in com.helix.tools.browser.BrowserNodeAction.entries) {
+            val script = BrowserActionScript.nodeAction(3, action, payload)
+            assertTrue(script.contains("var VALUE = " + kotlinx.serialization.json.JsonPrimitive(payload)))
+            assertTrue(script.contains("nodeIndex: 3"))
+            assertFalse(script.contains("__NODE_INDEX__"))
+        }
+        val script = BrowserActionScript.nodeAction(0, com.helix.tools.browser.BrowserNodeAction.SUBMIT, "")
+        assertTrue(script.contains("HTMLFormElement.prototype.requestSubmit.call(target.form, target)"))
+        assertFalse(script.contains("target.form.submit()"))
+        assertTrue(script.contains("options.length !== 1"))
+    }
+
+    @Test
     fun theJsBoundsMatchTheKotlinBounds() {
         // A one-sided drift here would desync the click/type walk from EXTRACT and silently map a
         // nodeIndex to the wrong element — so both field scripts must carry the same literals.

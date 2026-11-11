@@ -34,7 +34,29 @@ class SnapshotBinderTest {
         vararg nodes: String,
         version: Int = BrowserSnapshotScript.SCRIPT_VERSION,
         truncated: Boolean = false,
-    ): String = """{"v":$version,"truncated":$truncated,"nodes":[${nodes.joinToString(",")}]}"""
+    ): String =
+        """{"v":$version,"truncated":$truncated,
+            "text":"","textTruncated":false,"nodes":[${nodes.joinToString(",")}]}"""
+
+    @Test fun bodyTextIsUntrustedBoundedAndIndependentOfActionTokens() {
+        val base = payload(node(0))
+
+        fun withText(value: String) = bind(base.replace("\"text\":\"\",", "\"text\":$value,"))
+        val first = (withText("\"Read this prose\"") as SnapshotResult.Success).snapshot
+        val second = (withText("\"Changed prose\"") as SnapshotResult.Success).snapshot
+        assertEquals("Read this prose", first.text.text)
+        assertEquals(first.nodes, second.nodes)
+        assertEquals(first.fingerprint, second.fingerprint)
+        val long = "x".repeat(BrowserSnapshotScript.MAX_BODY_TEXT_LENGTH + 1)
+        assertEquals(SnapshotResult.Failed(SnapshotFailure.OVER_BUDGET), withText("\"$long\""))
+        for (replacement in listOf("null", "[]", "false", "123")) {
+            assertEquals(SnapshotResult.Failed(SnapshotFailure.MALFORMED_RESULT), withText(replacement))
+        }
+        val missingFlag = bind(base.replace("\"textTruncated\":false,", ""))
+        assertEquals(SnapshotResult.Failed(SnapshotFailure.MALFORMED_RESULT), missingFlag)
+        val cut = bind(base.replace("\"textTruncated\":false", "\"textTruncated\":true"))
+        assertTrue((cut as SnapshotResult.Success).snapshot.textTruncated)
+    }
 
     private fun bind(raw: String?): SnapshotResult = SnapshotBinder.bind(raw, tab, now)
 
@@ -141,15 +163,18 @@ class SnapshotBinderTest {
 
     @Test
     fun aMissingOrNonNumericVersionFailsMalformed() {
-        val noVersion = """{"truncated":false,"nodes":[]}"""
+        val noVersion = """{"truncated":false,
+            "text":"","textTruncated":false,"nodes":[]}"""
         assertEquals(SnapshotResult.Failed(SnapshotFailure.MALFORMED_RESULT), bind(noVersion))
-        val nonNumeric = """{"v":"one","truncated":false,"nodes":[]}"""
+        val nonNumeric = """{"v":"one","truncated":false,
+            "text":"","textTruncated":false,"nodes":[]}"""
         assertEquals(SnapshotResult.Failed(SnapshotFailure.MALFORMED_RESULT), bind(nonNumeric))
     }
 
     @Test
     fun aNonBooleanTruncatedFailsMalformed() {
-        val raw = """{"v":${BrowserSnapshotScript.SCRIPT_VERSION},"truncated":"yes","nodes":[]}"""
+        val raw = """{"v":${BrowserSnapshotScript.SCRIPT_VERSION},"truncated":"yes",
+            "text":"","textTruncated":false,"nodes":[]}"""
         assertEquals(SnapshotResult.Failed(SnapshotFailure.MALFORMED_RESULT), bind(raw))
     }
 
@@ -162,14 +187,16 @@ class SnapshotBinderTest {
     @Test
     fun anOverBudgetTreeFailsOverBudget() {
         val nodes = (0 until BrowserSnapshotScript.MAX_NODES + 1).joinToString(",") { node(it) }
-        val raw = """{"v":${BrowserSnapshotScript.SCRIPT_VERSION},"truncated":true,"nodes":[$nodes]}"""
+        val raw = """{"v":${BrowserSnapshotScript.SCRIPT_VERSION},"truncated":true,
+            "text":"","textTruncated":false,"nodes":[$nodes]}"""
         assertEquals(SnapshotResult.Failed(SnapshotFailure.OVER_BUDGET), bind(raw))
     }
 
     @Test
     fun anExactlyAtBudgetTreeIsAccepted() {
         val nodes = (0 until BrowserSnapshotScript.MAX_NODES).joinToString(",") { node(it) }
-        val raw = """{"v":${BrowserSnapshotScript.SCRIPT_VERSION},"truncated":true,"nodes":[$nodes]}"""
+        val raw = """{"v":${BrowserSnapshotScript.SCRIPT_VERSION},"truncated":true,
+            "text":"","textTruncated":false,"nodes":[$nodes]}"""
         val snapshot = (bind(raw) as SnapshotResult.Success).snapshot
         assertEquals(BrowserSnapshotScript.MAX_NODES, snapshot.nodeCount)
     }
@@ -214,7 +241,8 @@ class SnapshotBinderTest {
     @Test
     fun aNonStringTextFieldFailsMalformed() {
         val nodeJson = """{"i":0,"tag":"a","role":"link","text":42,"value":null,"href":null,"name":null}"""
-        val raw = """{"v":${BrowserSnapshotScript.SCRIPT_VERSION},"truncated":false,"nodes":[$nodeJson]}"""
+        val raw = """{"v":${BrowserSnapshotScript.SCRIPT_VERSION},"truncated":false,
+            "text":"","textTruncated":false,"nodes":[$nodeJson]}"""
         assertEquals(SnapshotResult.Failed(SnapshotFailure.MALFORMED_RESULT), bind(raw))
     }
 
@@ -227,7 +255,8 @@ class SnapshotBinderTest {
 
     @Test
     fun aNonObjectNodeFailsMalformed() {
-        val raw = """{"v":${BrowserSnapshotScript.SCRIPT_VERSION},"truncated":false,"nodes":["a string node"]}"""
+        val raw = """{"v":${BrowserSnapshotScript.SCRIPT_VERSION},"truncated":false,
+            "text":"","textTruncated":false,"nodes":["a string node"]}"""
         assertEquals(SnapshotResult.Failed(SnapshotFailure.MALFORMED_RESULT), bind(raw))
     }
 }

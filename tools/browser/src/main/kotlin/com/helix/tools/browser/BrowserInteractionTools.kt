@@ -167,14 +167,39 @@ object BrowserTypeTool {
 }
 
 /** Maps a closed [ActionOutcome] to the click/type result (shared by [BrowserClickTool] and [BrowserTypeTool]). */
-private fun actionResult(out: ActionOutcome): ToolExecutorResult =
+internal fun actionResult(out: ActionOutcome): ToolExecutorResult =
     when (out.status) {
-        ActionStatus.PERFORMED -> ToolExecutorResult.Completed(actionOutput(ST_ACT_PERFORMED, out))
-        ActionStatus.REFUSED -> ToolExecutorResult.Completed(actionOutput(ST_ACT_REFUSED, out))
-        ActionStatus.STALE_TOKEN -> ToolExecutorResult.Completed(actionOutput(ST_ACT_STALE, out))
-        ActionStatus.NO_TAB -> ToolExecutorResult.Failed("unknown tab: no such browser tab", sideEffectFree = true)
-        ActionStatus.TIMED_OUT -> ToolExecutorResult.TimedOut
-        ActionStatus.ERROR -> ToolExecutorResult.Failed(bounded(out.reason))
+        ActionStatus.PERFORMED -> {
+            ToolExecutorResult.Completed(actionOutput(ST_ACT_PERFORMED, out))
+        }
+
+        ActionStatus.REFUSED -> {
+            ToolExecutorResult.Completed(actionOutput(ST_ACT_REFUSED, out))
+        }
+
+        ActionStatus.STALE_TOKEN -> {
+            ToolExecutorResult.Completed(actionOutput(ST_ACT_STALE, out))
+        }
+
+        ActionStatus.NO_TAB -> {
+            ToolExecutorResult.Failed("unknown tab: no such browser tab", sideEffectFree = true)
+        }
+
+        ActionStatus.TIMED_OUT -> {
+            ToolExecutorResult.TimedOut
+        }
+
+        ActionStatus.UNKNOWN -> {
+            ToolExecutorResult.Failed(
+                "Browser action outcome is unknown; inspect the page before any new action. " +
+                    "Do not replay automatically.",
+                requiresReview = true,
+            )
+        }
+
+        ActionStatus.ERROR -> {
+            ToolExecutorResult.Failed(bounded(out.reason))
+        }
     }
 
 private fun actionOutput(

@@ -28,6 +28,7 @@ object BrowserSnapshotScript {
     const val MAX_NODES = 400
     const val MAX_TEXT_LENGTH = 200
     const val MAX_VISITED_ELEMENTS = 20000
+    const val MAX_BODY_TEXT_LENGTH = 12000
 
     /**
      * Walks `document.body` in document order and returns (as the last expression value)
@@ -120,10 +121,62 @@ object BrowserSnapshotScript {
               if (el.children && el.children.length > 0) walk(el);
             }
           }
+          // Independent, iterative light-DOM text observation. Never changes action indices.
+          var MAX_BODY_TEXT = 12000;
+          function bodyText(body) {
+            var text = "";
+            var count = 0;
+            var cut = false;
+            var cursor = body;
+            while (cursor) {
+              if (++count > MAX_VISITED) { cut = true; break; }
+              var descend = true;
+              var parent = cursor.parentElement;
+              if (parent && String(parent.tagName).toLowerCase() === "details" && !parent.open &&
+                  cursor !== parent.querySelector("summary")) {
+                descend = false;
+              } else if (cursor.nodeType === 1) {
+                var tag = String(cursor.tagName || "").toLowerCase();
+                var style = window.getComputedStyle(cursor);
+                descend = !cursor.hidden && !cursor.inert &&
+                  cursor.getAttribute("aria-hidden") !== "true" && !cursor.isContentEditable &&
+                  !/^(script|style|template|noscript|input|textarea|select|option|iframe|object|embed)$/.test(tag) &&
+                  style.display !== "none" && style.opacity !== "0" &&
+                  style.contentVisibility !== "hidden";
+              } else if (cursor.nodeType === 3) {
+                var range = document.createRange();
+                range.setStart(cursor, 0);
+                range.setEnd(cursor, Math.min(cursor.length, MAX_BODY_TEXT + 1));
+                // Visibility is inherited but descendants can restore it. Do not prune ancestors.
+                var textStyle = window.getComputedStyle(cursor.parentElement);
+                if (textStyle.visibility !== "hidden" && textStyle.visibility !== "collapse" &&
+                    range.getClientRects().length) {
+                  var raw = cursor.data;
+                  var room = MAX_BODY_TEXT - text.length;
+                  var part = raw.substring(0, room + 1).replace(/\s+/g, " ").trim();
+                  if (part) {
+                    var joined = (text ? " " : "") + part;
+                    text += joined.substring(0, room);
+                    if (joined.length > room || raw.length > room + 1) { cut = true; break; }
+                  } else if (raw.length > room + 1) { cut = true; break; }
+                }
+              }
+              if (descend && cursor.firstChild) { cursor = cursor.firstChild; continue; }
+              while (cursor && cursor !== body && !cursor.nextSibling) cursor = cursor.parentNode;
+              if (!cursor || cursor === body) break;
+              cursor = cursor.nextSibling;
+            }
+            if (text.length && /[\uD800-\uDBFF]/.test(text.charAt(text.length - 1))) {
+              text = text.substring(0, text.length - 1);
+            }
+            return { text: text, textTruncated: cut };
+          }
           var body = document ? document.body : null;
-          if (!body || !body.children) return { v: 1, truncated: false, nodes: [] };
+          if (!body || !body.children) return { v: 1, truncated: false, nodes: [], text: "", textTruncated: false };
           walk(body);
-          return { v: 1, truncated: truncated, nodes: nodes };
+          var readable = bodyText(body);
+          return { v: 1, truncated: truncated, nodes: nodes,
+            text: readable.text, textTruncated: readable.textTruncated };
         })();
         """.trimIndent()
 }

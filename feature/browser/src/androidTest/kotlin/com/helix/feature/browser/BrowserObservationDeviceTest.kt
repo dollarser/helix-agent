@@ -259,7 +259,7 @@ class BrowserObservationDeviceTest {
             val outcome = result.get(5, java.util.concurrent.TimeUnit.SECONDS) as EvalFixedOutcome.Result
             assertEquals(null, outcome.raw)
             assertEquals(
-                com.helix.tools.browser.ActionStatus.TIMED_OUT,
+                com.helix.tools.browser.ActionStatus.UNKNOWN,
                 BrowserToolResultMapper.mapAction(outcome.raw, 0).status,
             )
             SystemClock.sleep(1000)

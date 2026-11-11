@@ -12,7 +12,9 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.Instant
@@ -41,6 +43,7 @@ class BrowserToolsMappingTest {
             bridge.snapshotResult.copy(
                 url = "a".repeat(MAX_URL - 1) + "😀tail",
                 title = "a".repeat(MAX_NODE_TEXT - 1) + "😀tail",
+                text = "a".repeat(11999) + "😀tail",
             )
         bridge.snapshotResult = original
         val output =
@@ -55,6 +58,9 @@ class BrowserToolsMappingTest {
         assertEquals("a".repeat(MAX_NODE_TEXT - 1), output.getValue("title").jsonPrimitive.content)
         assertEquals("true", output.getValue("urlTruncated").jsonPrimitive.content)
         assertEquals("true", output.getValue("titleTruncated").jsonPrimitive.content)
+        assertEquals("a".repeat(11999), output.getValue("text").jsonPrimitive.content)
+        assertEquals("true", output.getValue("textTruncated").jsonPrimitive.content)
+        assertTrue(output.keys.indexOf("text") < output.keys.indexOf("nodes"))
         assertEquals(original, bridge.snapshotResult)
         assertEquals(
             ToolSchemaValidation.Valid,
@@ -78,6 +84,151 @@ class BrowserToolsMappingTest {
             )
         assertEquals("false", exact.getValue("urlTruncated").jsonPrimitive.content)
         assertEquals("false", exact.getValue("titleTruncated").jsonPrimitive.content)
+    }
+
+    @Test
+    fun searchEncodesTheQueryAndRetainsTheOriginalSession() {
+        bridge.echoOpenUrl = true
+        val args =
+            buildJsonObject {
+                put("query", "中文 &x=1#frag +")
+                put("engine", "bing")
+            }
+        val output =
+            json(
+                BrowserSearchTool.executor(bridge).execute(
+                    call(BrowserSearchTool.NAME, args).copy(sessionId = "search-owner"),
+                ),
+            )
+        assertEquals("search-owner", bridge.openSession)
+        assertEquals(
+            "https://www.bing.com/search?q=%E4%B8%AD%E6%96%87+%26x%3D1%23frag+%2B",
+            bridge.openUrl,
+        )
+        assertEquals("started", output.getValue("status").jsonPrimitive.content)
+        assertEquals("bing", output.getValue("engine").jsonPrimitive.content)
+        assertFalse(output.containsKey("results"))
+        val origin =
+            com.helix.tools.framework.ToolOrigin
+                .PluginOrigin("browser", "0.1.0", "browser")
+        assertEquals(
+            ToolSchemaValidation.Valid,
+            ToolSchemaValidator.validate(
+                BrowserSearchTool.descriptor(origin).outputSchema,
+                output,
+            ),
+        )
+    }
+
+    @Test
+    fun searchValidatesEngineQueryAndCancellationBeforeOpening() {
+        val executor = BrowserSearchTool.executor(bridge)
+        val valid =
+            buildJsonObject {
+                put("query", "query")
+                put("engine", "google")
+            }
+        for (args in listOf(
+            buildJsonObject {
+                put("query", " ")
+                put("engine", "bing")
+            },
+            buildJsonObject {
+                put("query", "q")
+                put("engine", "deepseek")
+            },
+            buildJsonObject {
+                put("query", "q")
+                put("engine", "https://evil.example/")
+            },
+            buildJsonObject {
+                put("query", "x".repeat(201))
+                put("engine", "bing")
+            },
+            buildJsonObject {
+                put("query", "q")
+                put("engine", "bing")
+                put("sessionId", "other")
+            },
+        )) {
+            assertTrue(executor.execute(call(BrowserSearchTool.NAME, args)) is ToolExecutorResult.Failed)
+        }
+        assertEquals(
+            ToolExecutorResult.TimedOut,
+            executor.execute(
+                call(BrowserSearchTool.NAME, valid).copy(deadline = Instant.EPOCH),
+            ),
+        )
+        assertEquals(
+            ToolExecutorResult.Cancelled,
+            executor.execute(
+                call(BrowserSearchTool.NAME, valid).copy(
+                    cancel =
+                        object : CancelSignal {
+                            override fun isCancelled() = true
+                        },
+                ),
+            ),
+        )
+        assertEquals(null, bridge.openUrl)
+    }
+
+    @Test
+    fun searchUsesEveryExplicitEngineAndPropagatesHostFailure() {
+        bridge.echoOpenUrl = true
+        val executor = BrowserSearchTool.executor(bridge)
+        for ((engine, prefix) in mapOf(
+            "google" to "https://www.google.com/search?q=",
+            "bing" to "https://www.bing.com/search?q=",
+            "duckduckgo" to "https://duckduckgo.com/?q=",
+        )) {
+            json(
+                executor.execute(
+                    call(
+                        BrowserSearchTool.NAME,
+                        buildJsonObject {
+                            put("query", "中".repeat(200))
+                            put("engine", engine)
+                        },
+                    ),
+                ),
+            )
+            assertTrue(bridge.openUrl!!.startsWith(prefix))
+            assertTrue(bridge.openUrl!!.length <= MAX_URL)
+        }
+        bridge.openResult = OpenOutcome("", "", "", "browser-host-unavailable")
+        assertEquals(
+            "browser-host-unavailable",
+            failed(
+                executor.execute(
+                    call(
+                        BrowserSearchTool.NAME,
+                        buildJsonObject {
+                            put("query", "q")
+                            put("engine", "bing")
+                        },
+                    ),
+                ),
+            ).detail,
+        )
+    }
+
+    @Test
+    fun searchDoesNotClaimResultsForDeniedOrUncertainNavigation() {
+        val args =
+            buildJsonObject {
+                put("query", "q")
+                put("engine", "bing")
+            }
+        bridge.openResult = OpenOutcome("t", "about:blank", "about:blank")
+        assertTrue(
+            BrowserSearchTool.executor(bridge).execute(call(BrowserSearchTool.NAME, args))
+                is ToolExecutorResult.Failed,
+        )
+        bridge.openResult = OpenOutcome("", "", "", "browser-open-outcome-unknown")
+        assertTrue(
+            failed(BrowserSearchTool.executor(bridge).execute(call(BrowserSearchTool.NAME, args))).requiresReview,
+        )
     }
 
     private val bridge = FakeBridge()
@@ -166,19 +317,80 @@ class BrowserToolsMappingTest {
     }
 
     @Test
+    fun uploadRequiresSourceIdentityAndNeverReportsUnknownAsAttached() {
+        val args =
+            buildJsonObject {
+                put("tabId", JsonPrimitive("t1"))
+                put("token", JsonPrimitive("token"))
+                put("pageUrl", JsonPrimitive("https://example.com/"))
+                put("path", JsonPrimitive("scope:app:fixture.txt"))
+                put("sha256", JsonPrimitive("a".repeat(64)))
+            }
+        bridge.uploadResult = BrowserUploadOutcome(ActionOutcome(ActionStatus.PERFORMED, 1, "input", "field", ""), 3)
+        assertEquals(
+            "attached",
+            json(
+                run(BrowserUploadTool.NAME, BrowserUploadTool.executor(bridge), args),
+            )["status"]!!.jsonPrimitive.content,
+        )
+        bridge.uploadResult = BrowserUploadOutcome(ActionOutcome(ActionStatus.UNKNOWN, 1, "", "", "lost-page"))
+        val uncertain = failed(run(BrowserUploadTool.NAME, BrowserUploadTool.executor(bridge), args))
+        assertTrue(uncertain.requiresReview)
+        assertFalse(uncertain.sideEffectFree)
+        assertTrue(
+            failed(
+                run(BrowserUploadTool.NAME, BrowserUploadTool.executor(bridge), JsonObject(args - "sha256")),
+            ).sideEffectFree,
+        )
+    }
+
+    @Test
     fun browserContributionHasOnePluginOwnerForEveryContract() {
         val origin =
             com.helix.tools.framework.ToolOrigin
                 .PluginOrigin("browser", "0.1.0", "browser")
         val bindings = BrowserTools.bindings(bridge, origin)
-        assertEquals(14, bindings.size)
-        assertEquals(14, bindings.map { it.descriptor.name }.distinct().size)
+        assertEquals(20, bindings.size)
+        assertEquals(20, bindings.map { it.descriptor.name }.distinct().size)
         assertTrue(bindings.all { it.descriptor.origin == origin })
         assertTrue(
             bindings.all {
                 it.descriptor.name.value
                     .startsWith("browser.")
             },
+        )
+    }
+
+    @Test
+    fun nodeActionsRemainNonIdempotentAndUnknownRequiresReview() {
+        val origin =
+            com.helix.tools.framework.ToolOrigin
+                .PluginOrigin("browser", "1", "browser")
+        for (action in BrowserNodeAction.entries) {
+            assertEquals(
+                com.helix.tools.framework.Idempotency.NON_IDEMPOTENT,
+                BrowserNodeActionTool.descriptor(origin, action).idempotency,
+            )
+        }
+        val result =
+            actionResult(ActionOutcome(ActionStatus.UNKNOWN, 0, "button", "button", ""))
+                as ToolExecutorResult.Failed
+        assertTrue(result.requiresReview)
+        assertFalse(result.sideEffectFree)
+    }
+
+    @Test
+    fun invalidSyntheticKeyNeverReachesBridge() {
+        val args =
+            buildJsonObject {
+                put("tabId", "tab")
+                put("token", "token")
+                put("key", "Unrecognized")
+            }
+        assertTrue(
+            BrowserNodeActionTool
+                .executor(bridge, BrowserNodeAction.PRESS)
+                .execute(call("browser.press", args)) is ToolExecutorResult.Failed,
         )
     }
 
@@ -790,6 +1002,13 @@ class BrowserToolsMappingTest {
 
     /** Returns one canned outcome per port method; each test sets the field it exercises. */
     private class FakeBridge : BrowserToolBridge {
+        var uploadResult = BrowserUploadOutcome(ActionOutcome(ActionStatus.REFUSED, -1, "", "", "fixture"))
+
+        override fun upload(
+            request: BrowserUploadRequest,
+            isActive: () -> Boolean,
+        ) = uploadResult
+
         var tabsContext: BrowserObservationContext? = null
         var tabsResult: BrowserTabsOutcome = BrowserTabsOutcome(emptyList(), false, false)
         var waitRequest: BrowserWaitRequest? = null
@@ -833,10 +1052,19 @@ class BrowserToolsMappingTest {
                 "",
             )
 
+        var echoOpenUrl = false
+        var openUrl: String? = null
+        var openSession: String? = null
+
         override fun open(
             url: String,
             sessionId: String?,
-        ): OpenOutcome = openResult
+            isActive: () -> Boolean,
+        ): OpenOutcome {
+            openUrl = url
+            openSession = sessionId
+            return if (echoOpenUrl) openResult.copy(url = url) else openResult
+        }
 
         override fun tabs(context: BrowserObservationContext): BrowserTabsOutcome {
             tabsContext = context
@@ -870,6 +1098,14 @@ class BrowserToolsMappingTest {
             tabId: String,
             token: String,
         ): ActionOutcome = clickResult
+
+        override fun nodeAction(
+            tabId: String,
+            token: String,
+            action: BrowserNodeAction,
+            value: String,
+            isActive: () -> Boolean,
+        ): ActionOutcome = click(tabId, token)
 
         override fun type(
             tabId: String,

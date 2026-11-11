@@ -16,6 +16,7 @@ object BrowserTools {
             ToolBinding(BrowserTabsTool.descriptor(origin), BrowserTabsTool.executor(bridge)),
             ToolBinding(BrowserWaitTool.descriptor(origin), BrowserWaitTool.executor(bridge)),
             ToolBinding(BrowserOpenTool.descriptor(origin), BrowserOpenTool.executor(bridge)),
+            ToolBinding(BrowserSearchTool.descriptor(origin), BrowserSearchTool.executor(bridge)),
             ToolBinding(BrowserNavigateTool.descriptor(origin), BrowserNavigateTool.executor(bridge)),
             ToolBinding(BrowserBackTool.descriptor(origin), BrowserBackTool.executor(bridge)),
             ToolBinding(BrowserForwardTool.descriptor(origin), BrowserForwardTool.executor(bridge)),
@@ -24,12 +25,20 @@ object BrowserTools {
             ToolBinding(BrowserFindTool.descriptor(origin), BrowserFindTool.executor(bridge)),
             ToolBinding(BrowserClickTool.descriptor(origin), BrowserClickTool.executor(bridge)),
             ToolBinding(BrowserTypeTool.descriptor(origin), BrowserTypeTool.executor(bridge)),
+            ToolBinding(BrowserUploadTool.descriptor(origin), BrowserUploadTool.executor(bridge)),
             ToolBinding(BrowserScrollTool.descriptor(origin), BrowserScrollTool.executor(bridge)),
             ToolBinding(
                 BrowserScreenshotTool.descriptor(origin),
                 BrowserScreenshotTool.executor(bridge, visualPreparation),
             ),
             ToolBinding(BrowserDownloadTool.descriptor(origin), BrowserDownloadTool.executor(bridge)),
+        ).plus(
+            BrowserNodeAction.entries.map { action ->
+                ToolBinding(
+                    BrowserNodeActionTool.descriptor(origin, action),
+                    BrowserNodeActionTool.executor(bridge, action),
+                )
+            },
         ).map { binding ->
             val descriptor =
                 binding.descriptor.copy(

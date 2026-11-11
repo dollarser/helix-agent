@@ -65,15 +65,32 @@ class BrowserToolBridgeImpl(
     private val scopeId: String,
 ) : BrowserToolBridge {
     private val mainHandler = Handler(Looper.getMainLooper())
+    private val uploader = BrowserUploadSupport(controller, workspaceStore)
+
+    override fun upload(
+        request: com.helix.tools.browser.BrowserUploadRequest,
+        isActive: () -> Boolean,
+    ): com.helix.tools.browser.BrowserUploadOutcome = uploader.upload(request, isActive)
+
     private val downloader = BrowserDownloader(workspaceStore, scopeId)
 
     override fun open(
         url: String,
         sessionId: String?,
-    ): OpenOutcome {
-        val result = onMain(SYNC_TIMEOUT_MS) { controller.openTab(url, sessionId) }
-        return OpenOutcome(result.tabId, result.url, result.origin, result.failureReason)
-    }
+        isActive: () -> Boolean,
+    ): OpenOutcome =
+        try {
+            onMain(SYNC_TIMEOUT_MS) {
+                if (!isActive()) {
+                    OpenOutcome("", "", "", "browser-open-inactive")
+                } else {
+                    val result = controller.openTab(url, sessionId)
+                    OpenOutcome(result.tabId, result.url, result.origin, result.failureReason)
+                }
+            }
+        } catch (_: MainHopTimeout) {
+            OpenOutcome("", "", "", "browser-open-outcome-unknown")
+        }
 
     @Suppress("SwallowedException")
     override fun navigate(
@@ -345,13 +362,21 @@ class BrowserToolBridgeImpl(
     override fun click(
         tabId: String,
         token: String,
-    ): ActionOutcome = runAction(tabId, token, BrowserActionScript::click)
+    ): ActionOutcome = runAction(tabId, token, scriptFor = BrowserActionScript::click)
 
     override fun type(
         tabId: String,
         token: String,
         text: String,
     ): ActionOutcome = runAction(tabId, token) { nodeIndex -> BrowserActionScript.type(nodeIndex, text) }
+
+    override fun nodeAction(
+        tabId: String,
+        token: String,
+        action: com.helix.tools.browser.BrowserNodeAction,
+        value: String,
+        isActive: () -> Boolean,
+    ): ActionOutcome = runAction(tabId, token, isActive) { BrowserActionScript.nodeAction(it, action, value) }
 
     /**
      * Validates the node token against the tab's LIVE state (fail-closed), then runs the fixed
@@ -363,6 +388,7 @@ class BrowserToolBridgeImpl(
     private fun runAction(
         tabId: String,
         token: String,
+        isActive: () -> Boolean = { true },
         scriptFor: (Int) -> String,
     ): ActionOutcome {
         val nodeIndex = SnapshotToken.parse(token)?.nodeIndex ?: -1
@@ -372,13 +398,28 @@ class BrowserToolBridgeImpl(
             val status = if (controller.tab(tabId) == null) ActionStatus.NO_TAB else ActionStatus.STALE_TOKEN
             return ActionOutcome(status, nodeIndex, "", "", verdictReason(verdict))
         }
+        var inactive = false
         val outcome =
             onMainAsync(EVAL_TIMEOUT_MS) { completer ->
-                controller.evaluateFixed(tabId, scriptFor(nodeIndex)) { completer(it) }
+                inactive = !isActive()
+                if (inactive || controller.verifyNodeToken(tabId, token) !is TokenVerdict.Valid) {
+                    completer(EvalFixedOutcome.NoPage)
+                } else {
+                    controller.evaluateFixed(tabId, scriptFor(nodeIndex)) { completer(it) }
+                }
             }
         return when (outcome) {
-            is EvalFixedOutcome.NoPage -> ActionOutcome(ActionStatus.STALE_TOKEN, nodeIndex, "", "", "page changed")
-            is EvalFixedOutcome.Result -> BrowserToolResultMapper.mapAction(outcome.raw, nodeIndex)
+            is EvalFixedOutcome.NoPage -> {
+                if (inactive) {
+                    ActionOutcome(ActionStatus.REFUSED, nodeIndex, "", "", "execution-inactive-before-dispatch")
+                } else {
+                    ActionOutcome(ActionStatus.STALE_TOKEN, nodeIndex, "", "", "page changed")
+                }
+            }
+
+            is EvalFixedOutcome.Result -> {
+                BrowserToolResultMapper.mapAction(outcome.raw, nodeIndex)
+            }
         }
     }
 
@@ -507,22 +548,26 @@ class BrowserToolBridgeImpl(
         val latch = CountDownLatch(1)
         val box = AtomicReference<Any?>()
         var failure: Throwable? = null
-        mainHandler.post {
-            try {
-                box.set(block())
-            } catch (t: Throwable) {
-                failure = t
-            } finally {
-                latch.countDown()
+        val retired = AtomicBoolean(false)
+        val work =
+            Runnable {
+                try {
+                    if (!retired.get()) box.set(block())
+                } catch (t: Throwable) {
+                    failure = t
+                } finally {
+                    latch.countDown()
+                }
             }
-        }
-        if (!latch.await(
-                timeoutMs,
-                TimeUnit.MILLISECONDS,
-            )
-        ) {
-            throw MainHopTimeout("main-thread hop timed out after ${timeoutMs}ms")
-        }
+        mainHandler.post(work)
+        val completed =
+            try {
+                latch.await(timeoutMs, TimeUnit.MILLISECONDS)
+            } finally {
+                retired.set(true)
+                mainHandler.removeCallbacks(work)
+            }
+        if (!completed) throw MainHopTimeout("main-thread hop timed out after ${timeoutMs}ms")
         failure?.let { throw it }
         @Suppress("UNCHECKED_CAST")
         return box.get() as T
@@ -549,12 +594,16 @@ class BrowserToolBridgeImpl(
                     latch.countDown()
                 }
             }
-        mainHandler.post { block(completer) }
-        if (!latch.await(
-                timeoutMs,
-                TimeUnit.MILLISECONDS,
-            )
-        ) {
+        mainHandler.post { if (!done.get()) block(completer) }
+        val completed =
+            try {
+                latch.await(timeoutMs, TimeUnit.MILLISECONDS)
+            } catch (interrupted: InterruptedException) {
+                done.set(true)
+                throw interrupted
+            }
+        if (!completed) {
+            done.set(true)
             throw MainHopTimeout("main-thread eval timed out after ${timeoutMs}ms")
         }
         @Suppress("UNCHECKED_CAST")

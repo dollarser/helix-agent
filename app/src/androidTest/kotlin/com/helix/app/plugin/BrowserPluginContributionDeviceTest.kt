@@ -106,8 +106,9 @@ class BrowserPluginContributionDeviceTest {
                     it.descriptor.name.value
                         .startsWith("browser.")
                 }
-        assertEquals(14, bindings.size)
-        assertTrue(bindings.all { it.descriptor.origin == ToolOrigin.PluginOrigin("browser", "0.1.0", "browser") })
+        assertEquals(20, bindings.size)
+        assertTrue(bindings.any { it.descriptor.name.value == "browser.search" })
+        assertTrue(bindings.all { it.descriptor.origin == ToolOrigin.PluginOrigin("browser", "1", "browser") })
         val first = UUID.randomUUID().toString()
         c.storage.sessions.create(first, "Browser contribution fixture", null, null, 0)
         c.sessionPermissionEdit.saveSessionConfig(

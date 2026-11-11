@@ -54,18 +54,12 @@ class SessionToolEffectClassifier(
         sessionId: String,
     ): Boolean = insideWorkspace(path, sessionWorkspace(sessionId))
 
-    private fun isBuiltInMetadata(descriptor: ToolDescriptor): Boolean =
-        descriptor.origin == ToolOrigin.BuiltInOrigin && descriptor.operationClass == ToolOperationClass.METADATA
-
     override fun classify(
         request: ToolDispatchRequest,
         descriptor: ToolDescriptor,
     ): CallEffectClassification {
-        if (com.helix.extensions.documents.DocumentTools
-                .owns(descriptor)
-        ) {
-            return documentFootprint(request, descriptor)
-        }
+        val special = specialFootprint(request, descriptor)
+        if (special != null) return special
         val name = descriptor.name.value
         return when (name) {
             "skills.preview", "skills.install" -> {
@@ -102,6 +96,37 @@ class SessionToolEffectClassifier(
             }
         }
     }
+
+    private fun specialFootprint(
+        request: ToolDispatchRequest,
+        descriptor: ToolDescriptor,
+    ): CallEffectClassification? =
+        when {
+            com.helix.extensions.documents.DocumentTools
+                .owns(descriptor) -> {
+                documentFootprint(request, descriptor)
+            }
+
+            descriptor.isBrowserUpload() -> {
+                val reads =
+                    fileFootprint(
+                        descriptor.name.value,
+                        request.args,
+                        request.sessionId,
+                        readTool = true,
+                    ).footprint
+                CallEffectClassification(
+                    reads.copy(
+                        undeterminedEffects =
+                            reads.undeterminedEffects + OperationEffect.REMOTE_BUSINESS_MUTATION,
+                    ),
+                )
+            }
+
+            else -> {
+                null
+            }
+        }
 
     private fun classifyOther(
         request: ToolDispatchRequest,
@@ -146,7 +171,7 @@ class SessionToolEffectClassifier(
                 fileFootprint(name, request.args, request.sessionId, readTool = false)
             }
 
-            isBuiltInMetadata(descriptor) -> {
+            descriptor.isBuiltInMetadata() -> {
                 // Closed session metadata is admitted by Policy, not device mutation.
                 // The registry forbids external tools from claiming METADATA.
                 CallEffectClassification(OperationFootprint())
@@ -380,3 +405,12 @@ class SessionToolEffectClassifier(
 
 private fun ToolDescriptor.isDeviceFileHandoff(): Boolean =
     origin == ToolOrigin.BuiltInOrigin && name.value in setOf(DeviceFileTools.SHARE, DeviceFileTools.OPEN)
+
+private fun ToolDescriptor.isBrowserUpload(): Boolean {
+    val owner = origin
+    return name.value == "browser.upload" && owner is ToolOrigin.PluginOrigin &&
+        owner.pluginId == "browser" && owner.runtimeId == "browser"
+}
+
+private fun ToolDescriptor.isBuiltInMetadata(): Boolean =
+    origin == ToolOrigin.BuiltInOrigin && operationClass == ToolOperationClass.METADATA

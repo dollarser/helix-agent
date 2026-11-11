@@ -1741,4 +1741,15 @@
     <string name="workspace_directory_purpose">The working directory is the default base for files and relative paths. Without a selection, a private directory is created. A project is optional; the whole directory is not sent to the model.</string>
     <string name="workspace_change_directory">Change directory</string>
     <string name="workspace_internal_storage_help">Helix manages internal storage; its location cannot be changed manually. Changing the working directory keeps existing files in their original locations. View or export them in Files.</string>
+    <string name="web_search_title">Web Search</string>
+    <string name="web_search_help">Browser search uses existing browser tools without an API key. API search sends queries to the selected provider and may incur charges: Tavily Basic consumes credits; DeepSeek Search is billed per successful nonempty search. Configure your own key and billing limits before enabling. Switching provider turns this form off until saved.</string>
+    <string name="web_search_enabled">Enable Web Search</string>
+    <string name="web_search_key">Selected provider API key</string>
+    <string name="web_search_replace_key">Replace saved key (optional)</string>
+    <string name="web_search_save">Save</string>
+    <string name="web_search_remove_key">Remove key and disable</string>
+    <string name="web_search_save_error">Could not load or save settings. Reopen and try again.</string>
+    <string name="web_search_loading">Loading settings…</string>
+    <string name="web_search_retry">Retry</string>
+    <string name="web_search_saved">Saved</string>
 </resources>

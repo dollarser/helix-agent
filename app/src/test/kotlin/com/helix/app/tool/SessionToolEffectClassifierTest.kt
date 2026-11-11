@@ -445,12 +445,52 @@ class SessionToolEffectClassifierTest {
     }
 
     @Test
+    fun browserUploadIncludesSourceReadAndRemoteEffectsOnlyForTrustedOwner() {
+        val tool =
+            descriptor("browser.upload", ToolOperationClass.EXTERNAL_ACTION).copy(
+                origin = ToolOrigin.PluginOrigin("browser", "1", "browser"),
+            )
+        for ((path, effect) in listOf(
+            "scope:ws-1:file.txt" to OperationEffect.FILE_READ_WORKSPACE,
+            "scope:other:file.txt" to OperationEffect.FILE_READ_EXTERNAL,
+        )) {
+            val footprint = bound.classify(request("""{"path":"$path"}"""), tool).footprint
+            assertEquals(setOf(effect), footprint.effects)
+            assertEquals(setOf(OperationEffect.REMOTE_BUSINESS_MUTATION), footprint.undeterminedEffects)
+        }
+        val foreign = tool.copy(origin = ToolOrigin.PluginOrigin("foreign", "1", "browser"))
+        assertTrue(
+            bound
+                .classify(request("""{"path":"scope:ws-1:file.txt"}"""), foreign)
+                .footprint.effects
+                .isEmpty(),
+        )
+    }
+
+    @Test
     fun httpFetchIsACleanNetworkRead() {
         for (name in listOf("http.fetch", "web_fetch")) {
             val c = bound.classify(request(), descriptor(name, ToolOperationClass.NETWORK))
             assertEquals(emptySet<OperationEffect>(), c.footprint.effects)
             assertTrue(c.footprint.undeterminedEffects.isEmpty())
         }
+    }
+
+    @Test
+    fun webSearchQuotaConsumptionIsNotACleanRead() {
+        val c =
+            bound.classify(
+                request(),
+                com.helix.tools.android.WebSearchTool
+                    .descriptor(),
+            )
+        assertEquals(setOf(OperationEffect.REMOTE_BUSINESS_MUTATION), c.footprint.undeterminedEffects)
+        assertEquals(
+            ToolOperationClass.NETWORK,
+            com.helix.tools.android.WebSearchTool
+                .descriptor()
+                .operationClass,
+        )
     }
 
     @Test

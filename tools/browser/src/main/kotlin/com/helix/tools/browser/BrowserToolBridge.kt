@@ -23,6 +23,7 @@ interface BrowserToolBridge {
     fun open(
         url: String,
         sessionId: String? = null,
+        isActive: () -> Boolean = { true },
     ): OpenOutcome
 
     /** Discover only the original session's tabs, or the exact trusted target scope. */
@@ -67,6 +68,21 @@ interface BrowserToolBridge {
         token: String,
         text: String,
     ): ActionOutcome
+
+    /** A fixed node action; never arbitrary script or an authorization grant. */
+    fun nodeAction(
+        tabId: String,
+        token: String,
+        action: BrowserNodeAction,
+        value: String,
+        isActive: () -> Boolean = { true },
+    ): ActionOutcome
+
+    /** Bounded, source-version and page-bound file disclosure. */
+    fun upload(
+        request: BrowserUploadRequest,
+        isActive: () -> Boolean,
+    ): BrowserUploadOutcome
 
     /** Bounded viewport scroll of [tabId] by [dx] / [dy] CSS pixels. */
     fun scroll(
@@ -159,6 +175,8 @@ data class SnapshotOutcome(
     val nodes: List<BrowserNodeView>,
     val message: String,
     val observedAtMillis: Long = 0,
+    val text: String = "",
+    val textTruncated: Boolean = false,
 )
 
 /** One [BrowserToolBridge.find] hit within the most recent snapshot. */
@@ -230,7 +248,7 @@ data class BrowserWaitOutcome(
     val observation: FindOutcome? = null,
 )
 
-enum class ActionStatus { PERFORMED, REFUSED, STALE_TOKEN, NO_TAB, TIMED_OUT, ERROR }
+enum class ActionStatus { PERFORMED, REFUSED, STALE_TOKEN, NO_TAB, TIMED_OUT, ERROR, UNKNOWN }
 
 /**
  * Outcome of [BrowserToolBridge.click] / [BrowserToolBridge.type]. [reason] carries the refusal

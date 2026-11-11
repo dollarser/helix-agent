@@ -73,6 +73,8 @@ fun SettingsScreen(
             com.helix.app.network
                 .NetworkSettingsEntry()
         }
+        com.helix.app.search
+            .WebSearchSettingsEntry()
         contentBackup?.let { backup ->
             val context = androidx.compose.ui.platform.LocalContext.current
             SettingsGroup {

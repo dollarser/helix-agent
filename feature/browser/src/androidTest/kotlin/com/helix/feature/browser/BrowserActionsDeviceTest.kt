@@ -7,6 +7,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.core.workspace.ScopeRootResolver
 import com.helix.core.workspace.WorkspaceArtifactStore
 import com.helix.tools.browser.ActionStatus
+import com.helix.tools.browser.BrowserNodeAction
 import com.helix.tools.browser.BrowserToolBridge
 import com.helix.tools.browser.ScreenshotStatus
 import com.helix.tools.browser.ScrollStatus
@@ -54,6 +55,15 @@ class BrowserActionsDeviceTest {
         fixture = BrowserActivityFixture()
 
         controller = fixture.controller
+        // These are action semantics tests. Cold-engine cost has its own startup benchmark;
+        // finish the existing asynchronous preparation before exercising 3-second main hops.
+        onMain { controller.warmUpEngine() }
+        awaitState("browser engine prepared") {
+            controller.engineState.value.takeIf {
+                it == BrowserEngineState.READY || it == BrowserEngineState.FAILED
+            }
+        }
+        assertEquals(BrowserEngineState.READY, controller.engineState.value)
         // A real store over a temp dir so the bridge is fully constructed. The NO_PAGE screenshot
         // path never writes to it; the SAVED path is exercised by the JVM mapping test instead.
         val screenshotDir = File(context.cacheDir, "hxa062-browser-screenshot").apply { mkdirs() }
@@ -169,10 +179,16 @@ class BrowserActionsDeviceTest {
 
     @Test
     fun screenshotOfAnUnattachedWebViewFailsClosedAsNoPage() {
-        // This harness keeps the WebView detached (no window, no size), so there is no renderable
-        // page: the bridge must fail closed as NO_PAGE, never crash or emit a bogus capture.
+        // The real Activity fixture normally sizes the view. Explicitly remove its renderable
+        // size to test the no-page capture boundary rather than assuming a detached fixture.
         val tabId = onMain { controller.newTab() }
         navigateToLoadedPage(tabId, "data:text/html,<h1>S</h1>")
+        onMain {
+            val view = requireNotNull(controller.hostView(tabId))
+            view.layout(0, 0, 0, 0)
+            assertEquals(0, view.width)
+            assertEquals(0, view.height)
+        }
         assertEquals(ScreenshotStatus.NO_PAGE, bridge.screenshot(tabId).status)
     }
 
@@ -188,6 +204,94 @@ class BrowserActionsDeviceTest {
         val snap = bridge.snapshot(opened.tabId)
         assertTrue("the opened tab must snapshot", snap.ok)
         assertTrue(snap.nodes.any { it.role == "heading" && it.text == "Opened" })
+    }
+
+    @Test
+    fun explicitActionsVerifyDomEffectsAndRefuseInvalidTargets() {
+        val tab = onMain { controller.newTab() }
+        navigateToLoadedPage(
+            tab,
+            "data:text/html,<input value='before'><select>" +
+                "<option value='a'>A</option><option value='b'>B</option><option value='x' disabled>X</option>" +
+                "</select><button onkeydown=\"this.textContent=event.key\">Key</button>",
+        )
+
+        fun token(value: String) =
+            bridge
+                .snapshot(tab)
+                .nodes
+                .single { it.value == value }
+                .token
+        assertEquals(
+            ActionStatus.PERFORMED,
+            bridge.nodeAction(tab, token("before"), BrowserNodeAction.APPEND, " after").status,
+        )
+        assertTrue(bridge.snapshot(tab).nodes.any { it.value == "before after" })
+        assertEquals(ActionStatus.REFUSED, bridge.nodeAction(tab, token("A"), BrowserNodeAction.SELECT, "x").status)
+        assertEquals(ActionStatus.PERFORMED, bridge.nodeAction(tab, token("A"), BrowserNodeAction.SELECT, "B").status)
+        assertTrue(bridge.snapshot(tab).nodes.any { it.value == "B" })
+        val button =
+            bridge
+                .snapshot(tab)
+                .nodes
+                .single { it.role == "button" }
+                .token
+        assertEquals(ActionStatus.PERFORMED, bridge.nodeAction(tab, button, BrowserNodeAction.PRESS, "Enter").status)
+        assertTrue(bridge.snapshot(tab).nodes.any { it.text == "Enter" })
+        val fresh =
+            bridge
+                .snapshot(tab)
+                .nodes
+                .single { it.role == "button" }
+                .token
+        assertEquals(ActionStatus.REFUSED, bridge.nodeAction(tab, fresh, BrowserNodeAction.SUBMIT, "").status)
+    }
+
+    @Test
+    fun submitUsesValidationAndDoesNotEquateDispatchWithBusinessSuccess() {
+        val tab = onMain { controller.newTab() }
+        navigateToLoadedPage(
+            tab,
+            "data:text/html,<h1>not submitted</h1>" +
+                "<form onsubmit=\"event.preventDefault();document.querySelector('h1').textContent='handled'\">" +
+                "<input required><button>Submit</button></form>",
+        )
+
+        fun submitToken() =
+            bridge
+                .snapshot(tab)
+                .nodes
+                .single { it.role == "button" }
+                .token
+        assertEquals(ActionStatus.PERFORMED, bridge.nodeAction(tab, submitToken(), BrowserNodeAction.SUBMIT, "").status)
+        assertTrue(bridge.snapshot(tab).nodes.any { it.text == "not submitted" })
+        val field =
+            bridge
+                .snapshot(tab)
+                .nodes
+                .single { it.role == "field" }
+                .token
+        assertEquals(ActionStatus.PERFORMED, bridge.type(tab, field, "valid").status)
+        assertEquals(ActionStatus.PERFORMED, bridge.nodeAction(tab, submitToken(), BrowserNodeAction.SUBMIT, "").status)
+        assertTrue(bridge.snapshot(tab).nodes.any { it.text == "handled" })
+    }
+
+    @Test
+    fun nodeActionsRespectCancellationSensitiveFieldsAndOldPages() {
+        val tab = onMain { controller.newTab() }
+        navigateToLoadedPage(tab, "data:text/html,<input type=password><input value=before>")
+        val snap = bridge.snapshot(tab)
+        val normal = snap.nodes.single { it.value == "before" }.token
+        val secret = snap.nodes.single { it.role == "field" && it.value.isEmpty() }.token
+        assertEquals(ActionStatus.REFUSED, bridge.nodeAction(tab, secret, BrowserNodeAction.APPEND, "bad").status)
+        assertEquals(
+            ActionStatus.REFUSED,
+            bridge.nodeAction(tab, normal, BrowserNodeAction.APPEND, "bad") { false }.status,
+        )
+        assertTrue(bridge.snapshot(tab).nodes.any { it.value == "before" })
+        navigateToLoadedPage(tab, "data:text/html,<input value=new>")
+        assertEquals(ActionStatus.STALE_TOKEN, bridge.nodeAction(tab, normal, BrowserNodeAction.APPEND, "bad").status)
+        assertTrue(bridge.snapshot(tab).nodes.any { it.value == "new" })
     }
 
     // ---------------------------------------------------------------- helpers
