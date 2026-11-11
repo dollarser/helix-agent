@@ -7,6 +7,7 @@ import kotlinx.serialization.json.buildJsonObject
 
 /** Semantic tool schemas, shared by their descriptors and nested node output. */
 internal object AutomationToolSchemas {
+    @Suppress("LongMethod") // Full and compact schemas share the same versioned node fields.
     fun nodeSchema(compact: Boolean = false) =
         obj(
             mapOf(
@@ -18,6 +19,9 @@ internal object AutomationToolSchemas {
                 "depth" to integer(0),
                 "className" to str(512),
                 "text" to str(2_000),
+                "hintText" to str(2_000),
+                "isShowingHintText" to bool(),
+                "editableValue" to str(2_000),
                 "contentDescription" to str(2_000),
                 "viewId" to str(512),
                 "clickable" to bool(),

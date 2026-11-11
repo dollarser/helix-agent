@@ -229,6 +229,8 @@ class AutomationToolsTest {
                 ),
             )
         assertEquals("TIMED_OUT", result["waitStatus"]?.jsonPrimitive?.content)
+        assertFalse(result.containsKey("matchCount"))
+        assertFalse(result.containsKey("suggestedClickToken"))
         assertTrue(
             result
                 .getValue("recoveryHint")
@@ -424,6 +426,139 @@ class AutomationToolsTest {
         assertEquals(
             snapshot.createdAt.toEpochMilli().toString(),
             found.getValue("observedAtMillis").jsonPrimitive.content,
+        )
+    }
+
+    @Test
+    fun waitResultLimitDoesNotImplyUniqueClickableAncestor() {
+        val result = clickableAncestorSnapshot()
+        val snapshot = requireNotNull(result.snapshot)
+        val parent = snapshot.nodes.first { it.token == PARENT_TOKEN }
+        val child = snapshot.nodes.first { it.token == CHILD_TOKEN }
+        val otherParent = parent.copy(token = SECOND_TOKEN)
+        val otherChild = child.copy(token = TOKEN, parentToken = SECOND_TOKEN)
+        port.snapshotResult = result.copy(snapshot = snapshot.copy(nodes = snapshot.nodes + otherParent + otherChild))
+        val output =
+            completed(
+                execute(
+                    AutomationTools.WAIT,
+                    buildJsonObject {
+                        put("text", JsonPrimitive(child.text))
+                        put("maxResults", JsonPrimitive(1))
+                    },
+                ),
+            )
+        assertEquals("2", output.getValue("matchCount").jsonPrimitive.content)
+        assertEquals("true", output.getValue("ambiguous").jsonPrimitive.content)
+        assertEquals("true", output.getValue("queryTruncated").jsonPrimitive.content)
+        assertEquals("false", output.getValue("captureTruncated").jsonPrimitive.content)
+        assertEquals("true", output.getValue("truncated").jsonPrimitive.content)
+        assertEquals(1, output.getValue("nodes").jsonArray.size)
+        assertFalse(output.containsKey("suggestedClickToken"))
+        assertWaitSchema(output)
+        val full = completed(execute(AutomationTools.WAIT, args("text" to requireNotNull(child.text))))
+        assertEquals("false", full.getValue("truncated").jsonPrimitive.content)
+        assertEquals("2", full.getValue("matchCount").jsonPrimitive.content)
+        assertFalse(full.containsKey("suggestedClickToken"))
+        assertWaitSchema(full)
+        assertTrue(port.nodeRequests.isEmpty())
+    }
+
+    @Test
+    fun completeWaitCanSuggestSharedClickableAncestor() {
+        val result = clickableAncestorSnapshot()
+        val snapshot = requireNotNull(result.snapshot)
+        val child = snapshot.nodes.first { it.token == CHILD_TOKEN }
+        port.snapshotResult = result.copy(snapshot = snapshot.copy(nodes = snapshot.nodes + child.copy(token = TOKEN)))
+        val output = completed(execute(AutomationTools.WAIT, args("text" to requireNotNull(child.text))))
+        assertEquals("2", output.getValue("matchCount").jsonPrimitive.content)
+        assertEquals("true", output.getValue("ambiguous").jsonPrimitive.content)
+        assertEquals("false", output.getValue("truncated").jsonPrimitive.content)
+        assertEquals(PARENT_TOKEN, output.getValue("suggestedClickToken").jsonPrimitive.content)
+        assertWaitSchema(output)
+    }
+
+    @Test
+    fun stableWaitReportsDefaultTwentyOfSixtyTwoWithoutIncompleteCapture() {
+        val result = successfulSnapshot()
+        val snapshot = requireNotNull(result.snapshot)
+        port.snapshotResult =
+            result.copy(
+                snapshot =
+                    snapshot.copy(
+                        nodes = (1..62).map { snapshot.nodes.single().copy(token = "%032x".format(it)) },
+                    ),
+            )
+        val output =
+            completed(
+                execute(
+                    AutomationTools.WAIT,
+                    buildJsonObject {
+                        put("condition", JsonPrimitive("stable"))
+                        put("stableMillis", JsonPrimitive(50))
+                    },
+                ),
+            )
+        assertEquals("STABLE", output.getValue("waitStatus").jsonPrimitive.content)
+        assertEquals("62", output.getValue("capturedNodeCount").jsonPrimitive.content)
+        assertEquals("62", output.getValue("matchCount").jsonPrimitive.content)
+        assertEquals("20", output.getValue("returnedNodeCount").jsonPrimitive.content)
+        assertEquals("20", output.getValue("maxResults").jsonPrimitive.content)
+        assertEquals(20, output.getValue("nodes").jsonArray.size)
+        assertEquals("false", output.getValue("captureTruncated").jsonPrimitive.content)
+        assertEquals("true", output.getValue("queryTruncated").jsonPrimitive.content)
+        assertEquals("true", output.getValue("truncated").jsonPrimitive.content)
+        assertWaitSchema(output)
+    }
+
+    @Test
+    fun waitQueryScopeIsIndependentOfCapturedTreeSizeAndCaptureCompleteness() {
+        val result = successfulSnapshot()
+        val snapshot = requireNotNull(result.snapshot)
+        val target = snapshot.nodes.single()
+        for (captureTruncated in listOf(false, true)) {
+            port.snapshotResult =
+                result.copy(
+                    snapshot =
+                        snapshot.copy(
+                            nodes =
+                                listOf(target) +
+                                    (1..61).map {
+                                        target.copy(token = "%032x".format(it), text = "Other")
+                                    },
+                            truncated = captureTruncated,
+                        ),
+                )
+            val output = completed(execute(AutomationTools.WAIT, args("text" to "Continue")))
+            assertEquals("FOUND", output.getValue("waitStatus").jsonPrimitive.content)
+            assertEquals("1", output.getValue("matchCount").jsonPrimitive.content)
+            assertEquals("false", output.getValue("queryTruncated").jsonPrimitive.content)
+            assertEquals(captureTruncated.toString(), output.getValue("captureTruncated").jsonPrimitive.content)
+            assertEquals(captureTruncated.toString(), output.getValue("truncated").jsonPrimitive.content)
+            assertEquals(!captureTruncated, output.containsKey("suggestedClickToken"))
+            assertWaitSchema(output)
+        }
+    }
+
+    @Test
+    fun absentWaitReportsZeroMatchesWithoutSuggestingAnAction() {
+        port.snapshotResult = successfulSnapshot()
+        val output = completed(execute(AutomationTools.WAIT, args("text" to "Missing", "condition" to "absent")))
+        assertEquals("ABSENT", output.getValue("waitStatus").jsonPrimitive.content)
+        assertEquals("0", output.getValue("matchCount").jsonPrimitive.content)
+        assertEquals("0", output.getValue("returnedNodeCount").jsonPrimitive.content)
+        assertEquals("false", output.getValue("truncated").jsonPrimitive.content)
+        assertFalse(output.containsKey("suggestedClickToken"))
+        assertWaitSchema(output)
+    }
+
+    private fun assertWaitSchema(output: JsonObject) {
+        assertEquals(
+            ToolSchemaValidation.Valid,
+            ToolSchemaValidator.validate(
+                tools.descriptors().single { it.name.value == AutomationTools.WAIT }.outputSchema,
+                output,
+            ),
         )
     }
 

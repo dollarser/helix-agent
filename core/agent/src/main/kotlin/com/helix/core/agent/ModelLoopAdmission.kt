@@ -22,8 +22,9 @@ class ModelLoopAdmission(
             callId: String,
             turnBudget: TurnBudgetTracker,
             goalBudget: GoalModelBudget,
+            summary: Boolean = false,
         ): ModelLoopAdmission {
-            val admission = turnBudget.prepareCall(request)
+            val admission = turnBudget.prepareCall(request, summary)
             val code =
                 when (admission.decision) {
                     TurnBudgetTracker.BeginDecision.MODEL_CALL_LIMIT -> "MODEL_CALL_LIMIT"
@@ -37,7 +38,7 @@ class ModelLoopAdmission(
                     ?: return ModelLoopAdmission(null, failed("GOAL_BUDGET_LIMIT"))
             return ModelLoopAdmission(prepared, null) { stream ->
                 goalBudget.finish(turnId, callId, prepared, stream)
-                val withinTurnBudget = turnBudget.finishCall(callId, prepared, stream)
+                val withinTurnBudget = turnBudget.finishCall(callId, prepared, stream, summary)
                 when {
                     stream.finishedToolCalls.isNotEmpty() &&
                         !goalBudget.canContinue(

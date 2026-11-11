@@ -9,11 +9,8 @@ import com.helix.core.agent.ContextCompiler
 import com.helix.core.agent.ContextSegments
 import com.helix.core.agent.ContextSourceSnapshot
 import com.helix.core.agent.ContextSummaryFormat
-import com.helix.core.agent.RunControlConfig
 import com.helix.core.agent.TurnContextRequest
-import com.helix.core.model.AgentMode
 import com.helix.core.model.ReasoningEffort
-import com.helix.core.model.TurnBudgets
 import com.helix.core.storage.HelixStorage
 import com.helix.core.workspace.FileScopePath
 import com.helix.provider.api.ProviderContextSettings
@@ -105,7 +102,6 @@ class PathHistoryDeviceTest {
                 ContextCompiler(ContextSummaryFormat("Summarize", "Preserve sources")).plan(
                     snapshot,
                     request,
-                    RunControlConfig(AgentMode.ACT, true, TurnBudgets(maxOutputTokens = 4096)),
                     ProviderContextSettings(manualWindow = 128000),
                     true,
                 ),

@@ -8,7 +8,7 @@
 - `plan.md`: only in Plan mode.
 - `goal-identity.md`, `goal-protocol.md`, `goal-safety.md`: active durable Goal binding only.
 - `tool-presentation.md`: model-facing tool intent guidance.
-- `loop-warning.md`, `loop-exhausted.md`: trusted no-progress controls selected by the Harness.
+- `loop-warning.md`, `loop-exhausted.md`: trusted no-progress controls selected by the Harness. `loop-reassess.md` is a non-stopping phone-workflow cadence reminder; it does not assert unchanged content.
 - `ask-user.md`: structured question tool guidance; answers never grant tool permissions.
 - `compaction-continuity.md`: historical fact attribution and trust boundaries when replaying a summary.
 - `compaction.md`: continuity-summary instructions; compression budgets and history selection remain in code.

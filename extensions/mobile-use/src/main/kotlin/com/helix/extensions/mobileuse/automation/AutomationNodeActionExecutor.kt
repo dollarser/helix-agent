@@ -211,16 +211,7 @@ internal class AutomationNodeActionExecutor(
                 }
             }
 
-            AutomationNodeAction.SCROLL_FORWARD -> {
-                AccessibilityNodeInfo.ACTION_SCROLL_FORWARD.takeIf { observed.enabled && observed.scrollable }?.to(null)
-            }
-
-            AutomationNodeAction.SCROLL_BACKWARD -> {
-                AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD.takeIf { observed.enabled && observed.scrollable }?.to(
-                    null,
-                )
-            }
-
+            AutomationNodeAction.SCROLL_FORWARD, AutomationNodeAction.SCROLL_BACKWARD,
             AutomationNodeAction.SCROLL_UP, AutomationNodeAction.SCROLL_DOWN,
             AutomationNodeAction.SCROLL_LEFT, AutomationNodeAction.SCROLL_RIGHT,
             -> {

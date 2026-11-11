@@ -14,6 +14,8 @@ internal object AutomationNodeJson {
         JsonObject(
             full(node, nodeIndex).filter { (key, value) ->
                 key in setOf("token", "clickable", "enabled", "bounds") ||
+                    key == "editableValue" || key == "isShowingHintText" ||
+                    (key == "text" && node.editable && node.isShowingHintText == true) ||
                     (
                         key !in setOf("parentToken", "depth", "className") && value != JsonPrimitive("") &&
                             (value != JsonPrimitive(false) || (key == "checked" && node.checkable))
@@ -32,7 +34,10 @@ internal object AutomationNodeJson {
         automationNodeContext(node, nodeIndex)?.let { put("ancestorContexts", it) }
         put("depth", JsonPrimitive(node.depth))
         put("className", JsonPrimitive(node.className ?: ""))
-        put("text", JsonPrimitive(node.text ?: ""))
+        // Android can expose the placeholder as text. Keep it only in hintText in model-facing output.
+        // The collected node retains platform text for matching, fingerprints and audit.
+        put("text", JsonPrimitive(if (node.editable && node.isShowingHintText == true) "" else node.text ?: ""))
+        editableValue(node)
         put(
             "contentDescription",
             JsonPrimitive(node.contentDescription ?: ""),
@@ -76,6 +81,18 @@ internal object AutomationNodeJson {
                     put("current", JsonPrimitive(range.current))
                 },
             )
+        }
+    }
+
+    private fun kotlinx.serialization.json.JsonObjectBuilder.editableValue(node: AutomationSnapshotNode) {
+        if (!node.redacted) {
+            node.hintText?.let { put("hintText", JsonPrimitive(it)) }
+            node.isShowingHintText?.takeIf { node.editable || node.hintText != null }?.let { showing ->
+                put("isShowingHintText", JsonPrimitive(showing))
+                if (node.editable && (showing || node.text != null)) {
+                    put("editableValue", JsonPrimitive(if (showing) "" else node.text))
+                }
+            }
         }
     }
 

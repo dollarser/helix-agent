@@ -19,6 +19,10 @@ internal class AndroidSnapshotNode(
         get() = node.className?.toString()
     override val text: String?
         get() = node.text?.toString()
+    override val hintText: String?
+        get() = node.hintText?.toString()
+    override val isShowingHintText: Boolean?
+        get() = node.isShowingHintText
     override val contentDescription: String?
         get() = node.contentDescription?.toString()
     override val viewId: String?

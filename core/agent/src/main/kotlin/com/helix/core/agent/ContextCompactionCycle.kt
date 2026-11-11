@@ -4,6 +4,27 @@ import com.helix.core.model.ModelRequest
 
 object ContextCommands {
     const val COMPACT = "/compact"
+
+    data class CompactCommand(
+        val focus: String?,
+    )
+
+    /** Recognize a whole command token, never a prefix such as /compactly. */
+    fun parseCompact(text: String?): CompactCommand? {
+        val command = text?.trim().orEmpty()
+        if (!command.startsWith(COMPACT)) return null
+        val remainder = command.substring(COMPACT.length)
+        return if (remainder.isNotEmpty() && !remainder.first().isWhitespace()) {
+            null
+        } else {
+            CompactCommand(remainder.trim().takeIf { it.isNotEmpty() })
+        }
+    }
+
+    fun parseCompact(message: com.helix.core.model.ModelMessage?): CompactCommand? =
+        if (message?.role == com.helix.core.model.ModelRole.USER) parseCompact(message.text) else null
+
+    fun compact(focus: String?): String = focus?.trim()?.takeIf { it.isNotEmpty() }?.let { "$COMPACT $it" } ?: COMPACT
 }
 
 data class PreparedContext(
@@ -42,6 +63,5 @@ fun interface ContextCompactionCycles {
         turnId: String,
         providerId: String,
         context: TurnContextRequest,
-        control: RunControlConfig,
     ): ContextCompactionCycle
 }

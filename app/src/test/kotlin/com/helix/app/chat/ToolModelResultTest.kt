@@ -10,6 +10,169 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ToolModelResultTest {
+    @Test fun knownEnvelopeIsReducedBeforeApplyingTheInlineBudget() {
+        val data = "\"".repeat(9000)
+        val inner =
+            kotlinx.serialization.json
+                .JsonPrimitive(data)
+                .toString()
+        val original =
+            kotlinx.serialization.json
+                .buildJsonObject {
+                    put("result", kotlinx.serialization.json.JsonPrimitive(inner))
+                    put("outputBytes", kotlinx.serialization.json.JsonPrimitive(inner.toByteArray().size))
+                }.toString()
+        assertTrue(original.toByteArray().size > 32_768)
+        val projected = ToolModelResult.project("code.javascript.run", original, "t/c")
+        val body =
+            kotlinx.serialization.json.Json
+                .parseToJsonElement(projected)
+                .jsonObject
+        assertEquals(data, body.getValue("result").jsonPrimitive.content)
+        assertFalse(body.containsKey("truncated"))
+        assertFalse(body.containsKey("outputBytes"))
+    }
+
+    @Test fun stillLargeDecodedResultsKeepOffsetsIntoOriginalSavedBody() {
+        val original =
+            kotlinx.serialization.json
+                .buildJsonObject {
+                    put("result", kotlinx.serialization.json.JsonPrimitive("\"" + "x".repeat(40_000) + "\""))
+                    put("outputBytes", kotlinx.serialization.json.JsonPrimitive(40_002))
+                }.toString()
+        val projected =
+            kotlinx.serialization.json.Json
+                .parseToJsonElement(
+                    ToolModelResult.project("code.javascript.run", original, "t/c"),
+                ).jsonObject
+        val preview = projected.getValue("preview").jsonPrimitive.content
+        val offset = projected.getValue("nextOffset").jsonPrimitive.int
+        assertEquals(original.take(offset), preview)
+        assertEquals(
+            original.substring(offset, offset + 2048),
+            ToolResultReadTool
+                .page("t/c", original, offset)
+                .getValue("content")
+                .jsonPrimitive.content,
+        )
+    }
+
+    @Test fun largeProjectionPreservesSourceCutAndUnicodeDiagnosticBoundary() {
+        val error = "x" + "😀".repeat(600)
+        val payload =
+            kotlinx.serialization.json
+                .buildJsonObject {
+                    put("error", kotlinx.serialization.json.JsonPrimitive(error))
+                    put("truncated", kotlinx.serialization.json.JsonPrimitive(true))
+                    put("status", kotlinx.serialization.json.JsonPrimitive("UNKNOWN"))
+                    put("data", kotlinx.serialization.json.JsonPrimitive("x".repeat(40_000)))
+                }.toString()
+        val projected =
+            kotlinx.serialization.json.Json
+                .parseToJsonElement(
+                    ToolModelResult.project("future.tool", payload, "t/c"),
+                ).jsonObject
+        assertTrue(projected.getValue("sourceTruncated").jsonPrimitive.boolean)
+        assertEquals("UNKNOWN", projected.getValue("status").jsonPrimitive.content)
+        assertEquals(
+            error.substring(0, error.offsetByCodePoints(0, 512)) + "…",
+            projected.getValue("error").jsonPrimitive.content,
+        )
+    }
+
+    @Test fun fileMutationsRemoveOnlyTopLevelAccountingAndPreserveOutcome() {
+        val payload =
+            """{"usageBytesAfter":100,"sha256":"version","overwritten":true,"trashRef":"recovery",""" +
+                """"content":{"usageBytesAfter":5}}"""
+        for (name in listOf(
+            "write",
+            "edit",
+            "files.copy",
+            "files.move",
+            "files.delete",
+            "files.archive",
+            "files.extract",
+        )) {
+            val projected =
+                kotlinx.serialization.json.Json
+                    .parseToJsonElement(
+                        ToolModelResult.project(name, payload),
+                    ).jsonObject
+            assertFalse(projected.containsKey("usageBytesAfter"))
+            assertEquals("version", projected.getValue("sha256").jsonPrimitive.content)
+            assertTrue(projected.getValue("overwritten").jsonPrimitive.boolean)
+            assertEquals("recovery", projected.getValue("trashRef").jsonPrimitive.content)
+            assertEquals(
+                5,
+                projected
+                    .getValue("content")
+                    .jsonObject
+                    .getValue("usageBytesAfter")
+                    .jsonPrimitive.int,
+            )
+        }
+    }
+
+    @Test fun contentAndExecutionToolsNeverDropStreamsOrMatchingUserFields() {
+        val payload =
+            """{"stdout":"essential answer","stderr":"warning","exitCode":7,"usageBytesAfter":12,""" +
+                """"outputBytes":50,"error":"diagnosis","text":"file body"}"""
+        for (name in listOf(
+            "read",
+            "grep",
+            "glob",
+            "ui.snapshot",
+            "bash",
+            "code.linux.run",
+            "skills.run",
+            "code.linux.job.start",
+            "mcp.server.write",
+        )) {
+            assertEquals(payload, ToolModelResult.project(name, payload, "t/c"))
+        }
+    }
+
+    @Test fun inlineLimitIsExactly32KiBUtf8AcrossToolsAndUnicodeWidths() {
+        for (unit in listOf("a", "中", "😀")) {
+            for (size in listOf(16_384, 18_000, 32_767, 32_768, 32_769)) {
+                val width = unit.toByteArray().size
+                val payload = unit.repeat(size / width) + "a".repeat(size % width)
+                assertEquals(size, payload.toByteArray().size)
+                for (tool in listOf("ui.snapshot", "mcp.search", "future.tool")) {
+                    assertInlineBoundary(tool, payload, size)
+                }
+            }
+        }
+    }
+
+    private fun assertInlineBoundary(
+        tool: String,
+        payload: String,
+        size: Int,
+    ) {
+        val result = ToolModelResult.project(tool, payload, "turn/call")
+        if (size <= 32_768) {
+            assertEquals(payload, result)
+        } else {
+            val projected =
+                kotlinx.serialization.json.Json
+                    .parseToJsonElement(result)
+                    .jsonObject
+            assertTrue(projected.getValue("truncated").jsonPrimitive.boolean)
+            val preview = projected.getValue("preview").jsonPrimitive.content
+            val nextOffset = projected.getValue("nextOffset").jsonPrimitive.int
+            assertEquals(2048, preview.codePointCount(0, preview.length))
+            assertFalse(preview.last().isHighSurrogate())
+            assertEquals(payload.substring(0, payload.offsetByCodePoints(0, nextOffset)), preview)
+        }
+    }
+
+    @Test fun missingReadCapabilityPreservesFullBodyAndReadResultsAreNeverReprojected() {
+        val payload = "😀".repeat(10_000)
+        assertEquals(payload, ToolModelResult.project("ui.snapshot", payload))
+        assertEquals(payload, ToolModelResult.project(ToolResultReadTool.NAME, payload, "turn/call"))
+    }
+
     @Test fun savedExecutionPagesKeepOriginalLogHandleWithoutRepeatingTheAction() {
         for (name in listOf("bash", "code.linux.run", "skills.run", "code.linux.job.start")) {
             val content = "{\"error\":\"${"x".repeat(3000)}\",\"exitCode\":7,\"logTruncated\":true}"
@@ -89,6 +252,8 @@ class ToolModelResultTest {
                 ).jsonObject
         assertTrue(projected.getValue("truncated").jsonPrimitive.boolean)
         assertEquals("tools.read_result", projected.getValue("readTool").jsonPrimitive.content)
+        assertEquals("result_body", projected.getValue("paginationScope").jsonPrimitive.content)
+        assertEquals(ToolResultReadTool.PAGINATION_HINT, projected.getValue("readHint").jsonPrimitive.content)
         var offset = 0
         val restored = StringBuilder()
         do {
@@ -99,11 +264,36 @@ class ToolModelResultTest {
                     .validate(ToolResultReadTool.outputSchema, page),
             )
             assertTrue(page.toString().toByteArray().size < 16_384)
+            if (page.getValue("truncated").jsonPrimitive.boolean) {
+                assertEquals(ToolResultReadTool.PAGINATION_HINT, page.getValue("readHint").jsonPrimitive.content)
+                assertTrue(page.getValue("nextOffset").jsonPrimitive.int > offset)
+            } else {
+                assertFalse(page.containsKey("readHint"))
+                assertFalse(page.containsKey("nextOffset"))
+            }
             restored.append(page.getValue("content").jsonPrimitive.content)
             offset = page["nextOffset"]?.jsonPrimitive?.int ?: -1
         } while (offset >= 0)
         assertEquals(payload, restored.toString())
         assertEquals(payload, ToolModelResult.project("mcp.search", payload))
+    }
+
+    @Test fun finishingResultPagesPreservesSourceTruncationAndDoesNotRefreshTokens() {
+        val payload = """{"truncated":true,"token":"original-token","items":"${"x".repeat(5000)}"}"""
+        val restored = StringBuilder()
+        var offset = 0
+        do {
+            val page = ToolResultReadTool.page("turn/call", payload, offset, "ui.snapshot")
+            restored.append(page.getValue("content").jsonPrimitive.content)
+            offset = page["nextOffset"]?.jsonPrimitive?.int ?: -1
+        } while (offset >= 0)
+        assertEquals(payload, restored.toString())
+        val source =
+            kotlinx.serialization.json.Json
+                .parseToJsonElement(restored.toString())
+                .jsonObject
+        assertTrue(source.getValue("truncated").jsonPrimitive.boolean)
+        assertEquals("original-token", source.getValue("token").jsonPrimitive.content)
     }
 
     @Test fun javascriptResultIsDecodedOnlyAtItsKnownEnvelopeBoundary() {

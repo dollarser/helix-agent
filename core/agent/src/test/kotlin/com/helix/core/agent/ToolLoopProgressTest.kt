@@ -5,6 +5,25 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class ToolLoopProgressTest {
+    @Test fun longerObservationWorkflowsOnlySuggestReassessment() {
+        val cycle =
+            listOf("device", "find", "click", "screenshot").map {
+                ToolLoopProgress.WorkflowStep(it, it != "click")
+            }
+        assertEquals(false, ToolLoopProgress.repeatingObservationWorkflow(cycle + cycle))
+        assertEquals(true, ToolLoopProgress.repeatingObservationWorkflow(cycle + cycle + cycle))
+        assertEquals(true, ToolLoopProgress.repeatingObservationWorkflow(List(1000) { cycle[it % 4] }))
+        assertEquals(false, ToolLoopProgress.repeatingObservationWorkflow(cycle + cycle + listOf(null) + cycle))
+        assertEquals(
+            false,
+            ToolLoopProgress.repeatingObservationWorkflow(
+                List(24) {
+                    ToolLoopProgress.WorkflowStep("click", false)
+                },
+            ),
+        )
+    }
+
     @Test fun repeatedEvidenceWarnsBeforeStopping() {
         assertEquals(ToolLoopProgress.Decision.CONTINUE, ToolLoopProgress.evaluate(listOf("a", "a")))
         assertEquals(ToolLoopProgress.Decision.WARN, ToolLoopProgress.evaluate(List(3) { "a" }))

@@ -176,6 +176,8 @@ data class AutomationWaitResult(
     val status: AutomationWaitStatus,
     val matches: List<AutomationSnapshotNode> = emptyList(),
     val observation: AutomationSnapshotResult? = null,
+    /** Full evaluated candidate count; absent when no terminal condition was evaluated. */
+    val matchCount: Int? = null,
 )
 
 /** UTF-16 text plus Bundle overhead must fit the shared Binder budget. */

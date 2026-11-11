@@ -280,14 +280,13 @@ internal class EngineLoopFixture(
 
                 override suspend fun canContinue(turnId: String) = true
             },
-            ContextCompactionCycles { _, _, _, context, config ->
+            ContextCompactionCycles { _, _, _, context ->
                 ContextCompactionRound(
                     object : ContextCompactionSource {
                         override suspend fun inputFloor(model: String) = 0L
 
                         override suspend fun plan(
                             request: TurnContextRequest,
-                            control: RunControlConfig,
                             settings: ProviderContextSettings,
                             force: Boolean,
                             inputScale: Double,
@@ -297,7 +296,6 @@ internal class EngineLoopFixture(
                         }
                     },
                     ContextSummaryFormat("Summarize.", "Preserve facts."),
-                    config,
                     ProviderContextSettings(),
                     context.messages.last().text == ContextCommands.COMPACT,
                 )

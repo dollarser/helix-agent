@@ -8,11 +8,13 @@ data class ModelMetadata(
     val vision: Boolean? = null,
     val contextWindow: Long? = null,
     val purposes: Set<ModelPurpose> = emptySet(),
+    val maxOutputTokens: Long? = null,
 ) {
     init {
         require(reasoningEfforts == null || reasoningEfforts.size <= 16)
         require(reasoningEfforts == null || reasoningEfforts.distinct().size == reasoningEfforts.size)
         require(reasoningEfforts?.contains(ReasoningEffort.OFF) != true)
+        require(maxOutputTokens == null || maxOutputTokens in 1..ProviderCapabilities.MAX_CONTEXT_BOUND)
         require(contextWindow == null || contextWindow in 1..ProviderCapabilities.MAX_CONTEXT_BOUND)
     }
 }

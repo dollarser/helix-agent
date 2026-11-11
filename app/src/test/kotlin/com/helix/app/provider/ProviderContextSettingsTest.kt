@@ -36,6 +36,45 @@ class ProviderContextSettingsTest {
         assertEquals(ProviderContextSettings(), store.read("q", "https://example.test/v1", "model-a"))
     }
 
+    @Test fun outputLimitIsNotPersistedAsUserPolicy() {
+        val store = ProviderContextSettingsStore(InMemoryLineStore())
+        val policy = ProviderContextSettings(32000, 65536, false, 65)
+        store.write("p", "endpoint", "exact", policy.copy(serverOutputLimit = 4096))
+        assertEquals(policy, store.read("p", "endpoint", "exact"))
+    }
+
+    @Test fun exactMetadataDerivationPreservesUserPolicy() {
+        val memory = InMemoryLineStore()
+        val policies = ProviderContextSettingsStore(memory)
+        val metadata = ProviderModelMetadataStore(memory)
+        val policy = ProviderContextSettings(32000, 65536, false, 65)
+        policies.write("p", "endpoint", "exact", policy)
+        metadata.write(
+            "p",
+            "endpoint",
+            mapOf(
+                "exact" to
+                    com.helix.provider.api
+                        .ModelMetadata(maxOutputTokens = 4096),
+            ),
+        )
+        assertEquals(
+            policy.copy(serverOutputLimit = 4096),
+            metadata.contextSettings("p", "endpoint", "exact", policies),
+        )
+        assertEquals(null, metadata.contextSettings("p", "endpoint", "other", policies).serverOutputLimit)
+        assertEquals(null, metadata.contextSettings("p", "other", "exact", policies).serverOutputLimit)
+        assertEquals(null, metadata.contextSettings("other", "endpoint", "exact", policies).serverOutputLimit)
+    }
+
+    @Test fun optionalWindowProbeMissesAreThrottledPerExactIdentity() {
+        val cache = ContextWindowProbeCache()
+        assertEquals(true, cache.due(listOf("p", "model"), 100))
+        assertEquals(false, cache.due(listOf("p", "model"), 60099))
+        assertEquals(true, cache.due(listOf("p", "model"), 60100))
+        assertEquals(true, cache.due(listOf("p", "other"), 101))
+    }
+
     @Test fun invalidWindowAndThresholdAreRejected() {
         assertThrows(IllegalArgumentException::class.java) { ProviderContextSettings(manualWindow = 0) }
         assertThrows(IllegalArgumentException::class.java) {

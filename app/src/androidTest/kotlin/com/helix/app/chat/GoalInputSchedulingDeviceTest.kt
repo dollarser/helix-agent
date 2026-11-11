@@ -343,6 +343,16 @@ class GoalInputSchedulingDeviceTest {
             manualCompactionFixture(existingGoal = true, cancel = true)
         }
 
+    @Test fun focusedManualCompactionPreservesGoalAndUsesUserMessage() =
+        runBlocking {
+            manualCompactionFixture(existingGoal = true, cancel = false, focus = "Keep failed tests and pending work")
+        }
+
+    @Test fun cancelledFocusedCompactionPreservesGoalAndHistory() =
+        runBlocking {
+            manualCompactionFixture(existingGoal = true, cancel = true, focus = "Keep failed tests and pending work")
+        }
+
     @Test fun emptyHistoryCompactionAndRetryNeverBecomeGoalWork() =
         runBlocking {
             fixture { chat, session, wire ->
@@ -365,7 +375,11 @@ class GoalInputSchedulingDeviceTest {
         }
 
     @Suppress("LongMethod") // One real admission, model request and durable settlement assertion sequence.
-    private suspend fun manualCompactionFixture(existingGoal: Boolean, cancel: Boolean) {
+    private suspend fun manualCompactionFixture(
+        existingGoal: Boolean,
+        cancel: Boolean,
+        focus: String? = null,
+    ) {
         fixture { chat, session, wire ->
             val storage = compose.container().storage
             val goal =
@@ -397,11 +411,26 @@ class GoalInputSchedulingDeviceTest {
                 }
                 old.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
             }
-            val turn = accepted(chat, submission(session, "/compact"))
+            val turn =
+                accepted(
+                    chat,
+                    submission(
+                        session,
+                        com.helix.core.agent.ContextCommands
+                            .compact(focus),
+                    ),
+                )
             wire.awaitRequest(0)
             assertNull(storage.goalTurnBindings.byTurn(turn))
             val request = Json.parseToJsonElement(wire.body(0)) as JsonObject
             assertTrue(request["tools"] == null || request["tools"].toString() == "[]")
+            if (focus != null) {
+                val messages = requireNotNull(request["messages"]) as kotlinx.serialization.json.JsonArray
+                val focusMessage = messages.last() as JsonObject
+                assertEquals("user", (focusMessage["role"] as kotlinx.serialization.json.JsonPrimitive).content)
+                assertTrue(focusMessage.toString().contains(focus))
+                assertFalse(messages.first().toString().contains(focus))
+            }
             if (cancel) chat.stopTurn(turn)
             wire.release(0)
             compose.waitUntil(15_000) {

@@ -73,7 +73,7 @@ fun ConversationComposer(
     onPermissionMode: suspend (SessionPermissionMode) -> Boolean = { false },
     editorKey: String? = null,
     contextUsage: ChatContextUsage = ChatContextUsage(),
-    onCompact: () -> Unit = {},
+    onCompact: (String?) -> Unit = {},
     canCompact: Boolean = false,
     headerStatus: (@Composable () -> Unit)? = null,
     optionsContent: @Composable () -> Unit = {},
@@ -105,7 +105,15 @@ fun ConversationComposer(
     var commandNotice by remember(editorKey, input) { mutableStateOf<Int?>(null) }
     val command =
         com.helix.feature.conversation.presentation.composer.ComposerCommandParser
-            .leadingCommand(input)
+            .leadingCommand(
+                if (com.helix.core.agent.ContextCommands
+                        .parseCompact(input) != null
+                ) {
+                    input.trimStart()
+                } else {
+                    input
+                },
+            )
     val localOnly = command != null && input.trim() == "/${command.command}"
     val canAttempt = availability.canAttempt(localOnly)
     val context = LocalContext.current
@@ -285,7 +293,7 @@ fun ConversationComposer(
                             }
 
                             input.trim() != "/${command.command}" &&
-                                command.command !in setOf("chat", "plan", "act", "goal") -> {
+                                command.command !in setOf("chat", "plan", "act", "goal", "compact") -> {
                                 commandNotice = R.string.chat_command_standalone
                             }
 
@@ -331,7 +339,11 @@ fun ConversationComposer(
                                 } else {
                                     when (command.command) {
                                         "compact" -> {
-                                            onCompact()
+                                            onCompact(
+                                                com.helix.core.agent.ContextCommands
+                                                    .parseCompact(input)
+                                                    ?.focus,
+                                            )
                                             onInput("")
                                         }
 

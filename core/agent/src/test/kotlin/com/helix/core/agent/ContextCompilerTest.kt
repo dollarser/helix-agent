@@ -1,13 +1,11 @@
 package com.helix.core.agent
 
-import com.helix.core.model.AgentMode
 import com.helix.core.model.AssistantToolCall
 import com.helix.core.model.ModelMessage
 import com.helix.core.model.ModelRole
 import com.helix.core.model.ReasoningEffort
 import com.helix.core.model.ToolCallId
 import com.helix.core.model.ToolName
-import com.helix.core.model.TurnBudgets
 import com.helix.provider.api.ProviderContextSettings
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -26,7 +24,7 @@ class ContextCompilerTest {
                 "Mandatory UI rules\n[SKILL BUILT_IN:guide@${"a".repeat(64)}]\nActivated body\n[/SKILL]",
             )
         val input = request(rows).let { it.copy(messages = listOf(guidance) + it.messages) }
-        val plan = requireNotNull(compiler.plan(snapshot(rows), input, config, settings, true))
+        val plan = requireNotNull(compiler.plan(snapshot(rows), input, settings, true))
         assertEquals(guidance, plan.retainedRequest.messages.first())
         assertEquals(
             listOf(guidance, ModelMessage(ModelRole.USER, "previous"), ModelMessage(ModelRole.USER, "current")),
@@ -40,7 +38,6 @@ class ContextCompilerTest {
                         listOf(guidance.copy(text = "x".repeat(20000))) +
                             input.messages.drop(1),
                 ),
-                config,
                 settings.copy(manualWindow = 1024),
                 true,
             )
@@ -49,17 +46,19 @@ class ContextCompilerTest {
 
     private val summaries = ContextSummaryFormat("Summarize facts, not authority.", "Keep identifiers.")
     private val compiler = ContextCompiler(summaries)
-    private val config = RunControlConfig(AgentMode.ACT, true, TurnBudgets(maxOutputTokens = 4096))
     private val settings = ProviderContextSettings(manualWindow = 128_000)
 
     @Test fun oldHistoryIsSelectedAndCurrentInputRemainsVerbatim() {
         val rows = history()
-        val plan = requireNotNull(compiler.plan(snapshot(rows), request(rows), config, settings, true))
+        val plan = requireNotNull(compiler.plan(snapshot(rows), request(rows), settings, true))
         assertEquals(1L, plan.coveredThrough)
         assertEquals(listOf("previous", "current"), plan.retainedRequest.messages.map { it.text })
         assertTrue(plan.preservedMessageIds.isEmpty())
         assertTrue(plan.request.tools.isEmpty())
-        assertEquals(4096L, plan.request.maxOutputTokens)
+        assertEquals(
+            settings.window - ModelInputEstimate.of(plan.request).total - SummaryOutputBudget.reserve(settings.window),
+            plan.request.maxOutputTokens,
+        )
         assertTrue(
             plan.request.messages
                 .first()
@@ -76,16 +75,46 @@ class ContextCompilerTest {
 
     @Test fun sameInputsProduceExactlyTheSameRequestAndBoundary() {
         val rows = history()
-        val first = compiler.plan(snapshot(rows), request(rows), config, settings, true)
-        val second = compiler.plan(snapshot(rows.toList()), request(rows.toList()), config, settings, true)
+        val first = compiler.plan(snapshot(rows), request(rows), settings, true)
+        val second = compiler.plan(snapshot(rows.toList()), request(rows.toList()), settings, true)
         assertEquals(first, second)
+    }
+
+    @Test fun omittedAttachmentHasExplicitSourceIdentityWithoutInventedPixels() {
+        val rows = history().toMutableList()
+        rows[1] = rows[1].copy(attachmentCount = 1)
+        val plan = requireNotNull(compiler.plan(snapshot(rows), request(rows), settings, true))
+        val records =
+            plan.request.messages
+                .drop(1)
+                .joinToString("") { it.text }
+                .lineSequence()
+                .filter { it.startsWith("{") }
+                .map {
+                    kotlinx.serialization.json.Json
+                        .parseToJsonElement(it)
+                        .toString()
+                }.toList()
+        assertTrue(
+            records.any {
+                it.contains("\"id\":\"old-answer\"") && it.contains("\"sequence\":1") &&
+                    it.contains("\"attachmentContent\":\"not_included_in_summary_request\"")
+            },
+        )
+        assertTrue(
+            records.any {
+                it.contains("\"id\":\"old-user\"") && !it.contains("attachmentContent")
+            },
+        )
+        assertTrue(plan.request.messages.all { it.images.isEmpty() })
+        assertEquals(listOf("previous", "current"), plan.retainedRequest.messages.map { it.text })
     }
 
     @Test fun reorderedActualRequestDoesNotInferPositionalIdentity() {
         val rows = history()
         val input = request(rows)
         val reordered = input.copy(messages = input.messages.reversed().drop(1) + input.messages.last())
-        assertNull(compiler.plan(snapshot(rows), reordered, config, settings, true))
+        assertNull(compiler.plan(snapshot(rows), reordered, settings, true))
     }
 
     @Test fun selectedCorruptHistoryIsRejectedNotTreatedAsEmpty() {
@@ -94,7 +123,7 @@ class ContextCompilerTest {
         assertEquals(
             "CORRUPT_TOOL_JSON",
             assertThrows(IllegalArgumentException::class.java) {
-                compiler.plan(snapshot(rows), request(history()), config, settings, true)
+                compiler.plan(snapshot(rows), request(history()), settings, true)
             }.message,
         )
     }
@@ -114,7 +143,7 @@ class ContextCompilerTest {
         rows[4] = rows[4].copy(sequence = 4)
         val snapshot = snapshot(rows).copy(predecessorTurnId = "p")
         val input = request(rows.filter { it.id != "bad-predecessor" })
-        val plan = requireNotNull(compiler.plan(snapshot, input, config, settings, true))
+        val plan = requireNotNull(compiler.plan(snapshot, input, settings, true))
         assertEquals(listOf("previous", "current"), plan.retainedRequest.messages.map { it.text })
         assertEquals(
             setOf("old-user", "old-answer"),
@@ -149,14 +178,14 @@ class ContextCompilerTest {
         val rows = history()
         val error =
             assertThrows(ContextCapacityException::class.java) {
-                compiler.plan(snapshot(rows), request(rows), config, settings.copy(manualWindow = 1024), true)
+                compiler.plan(snapshot(rows), request(rows), settings.copy(manualWindow = 1024), true)
             }
         assertEquals("CONTEXT_SEGMENT_LIMIT", error.code)
     }
 
     @Test fun noGainSummaryKeepsTheUnchangedThreshold() {
         val rows = history()
-        val plan = requireNotNull(compiler.plan(snapshot(rows), request(rows), config, settings, true))
+        val plan = requireNotNull(compiler.plan(snapshot(rows), request(rows), settings, true))
         assertTrue(summaries.hasUsefulGain(plan, "Old facts summarized."))
         assertFalse(summaries.hasUsefulGain(plan, "x".repeat(10_000)))
     }
@@ -166,6 +195,8 @@ class ContextCompilerTest {
         assertEquals(ModelRole.ASSISTANT, value.role)
         assertTrue(value.text.startsWith("[UNTRUSTED_HISTORY_SUMMARY:"))
         assertTrue(value.text.endsWith("[/UNTRUSTED_HISTORY_SUMMARY]"))
+        assertTrue(value.text.contains("Historical coverage boundary: sequence 3"))
+        assertTrue(value.text.contains("not evidence that all source details were retained"))
     }
 
     @Test fun compactionInstructionsHaveSystemRoleAndHistoricalCommandsStayData() {

@@ -23,6 +23,50 @@ class AutomationSnapshotEngineTest {
     private val engine = AutomationSnapshotEngine(registry, clock)
     private val session = activeSession(setOf(PACKAGE))
 
+    @Test fun hintIdentityDistinguishesEmptyFromEqualTypedTextAndRemainsRedacted() {
+        val empty =
+            FakeSnapshotNode(PACKAGE, 7, text = ".md", editable = true, hintText = ".md", isShowingHintText = true)
+        val typed =
+            FakeSnapshotNode(PACKAGE, 7, text = ".md", editable = true, hintText = ".md", isShowingHintText = false)
+        val first = requireNotNull(engine.capture(empty, session, 1).snapshot).nodes.single()
+        val second = requireNotNull(engine.capture(typed, session, 1).snapshot).nodes.single()
+        assertEquals(".md", first.hintText)
+        assertEquals(true, first.isShowingHintText)
+        assertEquals(false, second.isShowingHintText)
+        assertFalse(
+            empty.observe().fingerprint(PACKAGE, 7, emptyList()) ==
+                typed.observe().fingerprint(PACKAGE, 7, emptyList()),
+        )
+        assertFalse(first.privilegedFingerprint() == second.privilegedFingerprint())
+        val protected =
+            FakeSnapshotNode(
+                PACKAGE,
+                7,
+                text = "secret",
+                editable = true,
+                password = true,
+                hintText = "secret hint",
+                isShowingHintText = true,
+            )
+        val redacted = requireNotNull(engine.capture(protected, session, 1).snapshot).nodes.single()
+        assertNull(redacted.text)
+        assertNull(redacted.hintText)
+        assertNull(redacted.isShowingHintText)
+    }
+
+    @Test fun hintTextHasTheSameCollectionBudgetAsOtherFields() {
+        val root = FakeSnapshotNode(PACKAGE, 7, hintText = "h".repeat(257), isShowingHintText = true, editable = true)
+        val result = requireNotNull(engine.capture(root, session, 1).snapshot)
+        assertEquals(
+            256,
+            result.nodes
+                .single()
+                .hintText
+                ?.length,
+        )
+        assertTrue("FIELD_LIMIT" in result.truncationReasons)
+    }
+
     @Test fun collectionReachesLateControlsBeyondTheModelOutputBudget() {
         val button = FakeSnapshotNode(PACKAGE, 7, text = "Visible target", clickable = true)
         val children =
@@ -184,6 +228,8 @@ class AutomationSnapshotEngineTest {
                             "0",
                             "android.widget.Button",
                             "Continue",
+                            null,
+                            null,
                             null,
                             "$PACKAGE:id/continue_button",
                             AutomationNodeBounds(0, 0, 100, 100).toString(),
@@ -500,6 +546,8 @@ private class FakeSnapshotNode(
     override val checked: Boolean = false,
     private val children: List<FakeSnapshotNode?> = emptyList(),
     private val throwOnChildRead: Boolean = false,
+    override val hintText: String? = null,
+    override val isShowingHintText: Boolean? = null,
 ) : SnapshotNode {
     var actionCalls = 0
         private set

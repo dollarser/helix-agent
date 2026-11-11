@@ -450,6 +450,51 @@ class AutomationNodeActionExecutorTest {
         }
     }
 
+    @Test fun everyScrollDirectionRequiresItsOwnAdvertisedActionBeforeDispatch() {
+        val directions = AutomationScrollDirection.entries
+        val actions = AutomationNodeAction.entries.filter { it.scrollDirection != null }
+        for (allowed in directions) {
+            for (action in actions) {
+                val node = ActionFakeNode(scrollable = true, scrollDirections = setOf(allowed))
+                val token = issue(node, emptyList(), 7)
+                val result = executor.execute(node, session, 7, AutomationNodeActionRequest(action, token))
+                val supported = action.scrollDirection == allowed
+                assertEquals(
+                    "$allowed vs $action",
+                    if (supported) AutomationActionStatus.SUCCEEDED else AutomationActionStatus.ACTION_NOT_SUPPORTED,
+                    result.status,
+                )
+                assertEquals(if (supported) listOf(allowed.platformAction) else emptyList(), node.performedActions)
+            }
+        }
+    }
+
+    @Test fun removedScrollCapabilityIsStaleAndAPlatformFalseDoesNotProveNoEffect() {
+        val original = ActionFakeNode(scrollable = true, scrollDirections = setOf(AutomationScrollDirection.FORWARD))
+        val token = issue(original, emptyList(), 7)
+        val changed = ActionFakeNode(scrollable = true, scrollDirections = setOf(AutomationScrollDirection.BACKWARD))
+        val request = AutomationNodeActionRequest(AutomationNodeAction.SCROLL_FORWARD, token)
+        assertEquals(AutomationActionStatus.STALE_TOKEN, executor.execute(changed, session, 7, request).status)
+        assertTrue(changed.performedActions.isEmpty())
+        val rejected =
+            ActionFakeNode(
+                scrollable = true,
+                scrollDirections = setOf(AutomationScrollDirection.FORWARD),
+                performResult = false,
+            )
+        val fresh = issue(rejected, emptyList(), 7)
+        assertEquals(
+            AutomationActionStatus.ACTION_FAILED,
+            executor.execute(rejected, session, 7, request.copy(token = fresh)).status,
+        )
+        assertEquals(listOf(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD), rejected.performedActions)
+        assertEquals(
+            AutomationActionStatus.STALE_TOKEN,
+            executor.execute(rejected, session, 7, request.copy(token = fresh)).status,
+        )
+        assertEquals(1, rejected.performedActions.size)
+    }
+
     @Test fun verticalScrollNeverTurnsIntoAHorizontalPagerAction() {
         val horizontal =
             ActionFakeNode(

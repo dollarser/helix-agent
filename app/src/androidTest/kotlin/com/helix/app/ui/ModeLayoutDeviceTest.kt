@@ -69,6 +69,7 @@ class ModeLayoutDeviceTest {
         var mode = AgentMode.ACT
         var sends = 0
         var compactions = 0
+        var focus: String? = null
         compose.setContent {
             val density = LocalDensity.current
             CompositionLocalProvider(LocalDensity provides Density(density.density, 1.8f)) {
@@ -84,7 +85,10 @@ class ModeLayoutDeviceTest {
                                 mode = it
                                 true
                             },
-                            onCompact = { compactions++ },
+                            onCompact = {
+                                compactions++
+                                focus = it
+                            },
                             canCompact = true,
                         )
                     }
@@ -113,6 +117,14 @@ class ModeLayoutDeviceTest {
         compose.onNodeWithTag("chat-send").performClick()
         compose.runOnIdle {
             assertEquals(1, compactions)
+            assertEquals(null, focus)
+            input.value = "  /compact\t keep failed tests and pending work  "
+        }
+        compose.onNodeWithTag("chat-send").performClick()
+        compose.runOnIdle {
+            assertEquals(2, compactions)
+            assertEquals("keep failed tests and pending work", focus)
+            assertEquals("", input.value)
             active.value = true
             input.value = "/act "
         }

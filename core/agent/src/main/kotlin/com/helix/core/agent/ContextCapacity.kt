@@ -39,22 +39,10 @@ object ContextCapacity {
                 input > inputLimit || request.messages.size >= ModelRequest.MAX_MESSAGES - 16
         )
 
-    fun withoutSummary(
-        manual: Boolean,
-        planningFailure: String?,
-        capacityFailure: String?,
-    ): String? =
-        when {
-            manual -> planningFailure ?: "CONTEXT_NOT_COMPACTABLE"
-            capacityFailure != null -> planningFailure ?: capacityFailure
-            else -> null
-        }
-
     fun forSummary(
         request: ModelRequest,
         observedInput: Long,
         observedEstimate: Long,
-        budgets: com.helix.core.model.TurnBudgets,
         window: Long,
     ): String? {
         val estimate = ModelInputEstimate.of(request).total
@@ -62,7 +50,7 @@ object ContextCapacity {
         return failure(
             request.messages.size,
             (estimate * ratio).toLong(),
-            minOf(request.maxOutputTokens ?: 0, budgets.maxOutputTokens),
+            requireNotNull(request.maxOutputTokens),
             com.helix.provider.api.ProviderCapabilities.MAX_CONTEXT_BOUND,
             window,
         )

@@ -71,21 +71,17 @@ class ModelRequestRecoveryTest {
             val fixture =
                 HeadlessLoopFixture { listOf(ModelEvent.Error(ModelErrorCode.SERVER_ERROR, true)) }
                     .also { it.inferenceRecovery = true }
-            var planned = false
             fixture.source =
                 object : ContextCompactionSource {
                     override suspend fun inputFloor(model: String) = 0L
 
                     override suspend fun plan(
                         request: TurnContextRequest,
-                        control: RunControlConfig,
                         settings: com.helix.provider.api.ProviderContextSettings,
                         force: Boolean,
                         inputScale: Double,
-                    ): ContextCompactionPlan? {
-                        if (planned) return null
-                        planned = true
-                        return ContextCompactionPlan(
+                    ): ContextCompactionPlan? =
+                        ContextCompactionPlan(
                             1,
                             SummaryOutputBudget(128, 128).modelRequest(
                                 request.model,
@@ -95,11 +91,11 @@ class ModelRequestRecoveryTest {
                             request,
                             originalInputTokens = 10000,
                         )
-                    }
                 }
             val result = fixture.loop().runToolLoop("s", fixture.journal, "p", null, fixture.control)
             assertEquals(TurnLoopResult.Terminal(ModelStreamTerminal(TurnState.FAILED, "SERVER_ERROR")), result)
-            assertEquals(6, fixture.requests.size)
+            assertEquals(3, fixture.requests.size)
+            assertEquals(0, fixture.journal.log.count { it == "diagnostic:model.automatic_retry" })
             assertTrue(fixture.dispatched.isEmpty())
         }
 }

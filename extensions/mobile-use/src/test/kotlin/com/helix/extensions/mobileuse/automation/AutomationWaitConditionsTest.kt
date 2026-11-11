@@ -115,6 +115,45 @@ class AutomationWaitConditionsTest {
         assertEquals(AutomationWaitStatus.CHANGED, result.status)
         assertEquals(3, calls)
         assertEquals(1, result.matches.size)
+        assertEquals(2, result.matchCount)
+    }
+
+    @Test fun stabilityObservesChangesBeyondReturnedNodes() {
+        for (limit in listOf(1, 20)) {
+            var calls = 0
+            val result =
+                waiter.waitFor(
+                    AutomationFindQuery(maxResults = limit),
+                    Duration.ofSeconds(1),
+                    condition = AutomationWaitCondition.STABLE,
+                ) {
+                    calls++
+                    val tree = requireNotNull(snapshot("unchanged").snapshot)
+                    val nodes =
+                        (0..limit).map {
+                            tree.nodes.single().copy(
+                                token = "node-$it",
+                                text = if (it == limit) "change-$calls" else "same",
+                            )
+                        }
+                    AutomationSnapshotResult(AutomationSnapshotStatus.SUCCESS, tree.copy(nodes = nodes))
+                }
+            assertEquals(AutomationWaitStatus.TIMED_OUT, result.status)
+            assertTrue(calls > 1)
+        }
+    }
+
+    @Test fun captureTruncationStillPreventsChangedAndStableProof() {
+        for (condition in listOf(AutomationWaitCondition.CHANGED, AutomationWaitCondition.STABLE)) {
+            val result =
+                waiter.waitFor(
+                    AutomationFindQuery(maxResults = 1),
+                    Duration.ofSeconds(1),
+                    condition = condition,
+                ) { snapshot("Ready", truncated = true) }
+            assertEquals(AutomationWaitStatus.INCOMPLETE_SNAPSHOT, result.status)
+            assertEquals(1, result.matchCount)
+        }
     }
 
     @Test fun aLateSnapshotCannotTurnTimeoutIntoSuccess() {

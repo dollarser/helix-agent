@@ -196,7 +196,7 @@ class ProviderService(
     }
 
     val contextRevision: StateFlow<Long> = _contextRevision.asStateFlow()
-    private val contextWindowProbes = java.util.concurrent.ConcurrentHashMap<List<String>, Long>()
+    private val contextWindowProbes = ContextWindowProbeCache()
 
     suspend fun contextSettings(
         providerId: String,
@@ -204,18 +204,17 @@ class ProviderService(
     ): ProviderContextSettings {
         val config = storedConfig(providerId)
         val selectedModel = model ?: config.model
-        val stored = contextSettingsStore.read(providerId, config.transport.cacheKey, selectedModel)
+        val stored =
+            testStatus.modelMetadata
+                .contextSettings(providerId, config.transport.cacheKey, selectedModel, contextSettingsStore)
         val detected = metadataFor(providerId, selectedModel)?.contextWindow
         val missingWindow = stored.serverWindow == null && detected == null
         val mayDiscover = BuiltInModel.owns(providerId) && testStatus.builtInCatalog.accountAvailable()
         if (missingWindow && mayDiscover) {
             val key = testStatus.builtInCatalog.identity() + listOf(config.transport.cacheKey, selectedModel)
-            val time = clock.now().toEpochMilli()
-            val previous = contextWindowProbes.putIfAbsent(key, time)
-            val due =
-                previous == null ||
-                    (time - previous >= 60_000 && contextWindowProbes.replace(key, previous, time))
-            if (due) return discoverContextWindow(providerId, selectedModel)
+            if (contextWindowProbes.due(key, clock.now().toEpochMilli())) {
+                return discoverContextWindow(providerId, selectedModel)
+            }
         }
         return stored.withDetectedWindow(detected)
     }
@@ -278,8 +277,8 @@ class ProviderService(
             }
             // Do not re-enter discovery if an optional metadata request took longer than the miss-cache interval.
             val current = storedConfig(providerId)
-            contextSettingsStore
-                .read(providerId, current.transport.cacheKey, model)
+            testStatus.modelMetadata
+                .contextSettings(providerId, current.transport.cacheKey, model, contextSettingsStore)
                 .withDetectedWindow(metadataFor(providerId, model)?.contextWindow)
         }
 

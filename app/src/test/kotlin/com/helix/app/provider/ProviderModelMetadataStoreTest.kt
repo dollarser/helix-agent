@@ -14,7 +14,13 @@ class ProviderModelMetadataStoreTest {
         val store = ProviderModelMetadataStore(memory)
         val models =
             mapOf(
-                "future-model" to ModelMetadata(listOf(ReasoningEffort.fromWire("adaptive_next")), true, 300001),
+                "future-model" to
+                    ModelMetadata(
+                        listOf(ReasoningEffort.fromWire("adaptive_next")),
+                        true,
+                        300001,
+                        maxOutputTokens = 8192,
+                    ),
                 "unknown" to ModelMetadata(),
                 "unsupported" to ModelMetadata(emptyList(), false, null),
             )
@@ -25,6 +31,29 @@ class ProviderModelMetadataStoreTest {
         assertNotEquals(models["unknown"], models["unsupported"])
         store.write("p", "https://fixture.test", emptyMap())
         assertEquals(emptyMap<String, ModelMetadata>(), store.read("p", "https://fixture.test"))
+    }
+
+    @Test fun catalogRefreshReplacesOutputFactsWithoutChangingOtherMetadata() {
+        val store = ProviderModelMetadataStore(InMemoryLineStore())
+        store.write("p", "endpoint", mapOf("exact" to ModelMetadata(contextWindow = 131072)))
+        store.catalog(
+            "p",
+            "endpoint",
+            com.helix.provider.api.ModelCatalogResult.Listed(
+                listOf("exact", "unknown"),
+                outputLimits = mapOf("exact" to 4096),
+            ),
+        )
+        assertEquals(4096L, store.read("p", "endpoint").getValue("exact").maxOutputTokens)
+        assertEquals(131072L, store.read("p", "endpoint").getValue("exact").contextWindow)
+        assertEquals(null, store.read("p", "endpoint").getValue("unknown").maxOutputTokens)
+        store.catalog(
+            "p",
+            "endpoint",
+            com.helix.provider.api.ModelCatalogResult
+                .Listed(listOf("exact")),
+        )
+        assertEquals(null, store.read("p", "endpoint").getValue("exact").maxOutputTokens)
     }
 
     @Test fun oldEffortsStayCompatibleAndMalformedServerTokensAreRejected() {

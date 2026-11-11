@@ -75,8 +75,8 @@ class AgentLoop(
             }
         runtimeRecord?.let { require(context.model == it.modelId) { "Turn runtime model drift" } }
         val provider = models.modelProviderFor(providerId, context.model)
-        var manualCommandPending = context.messages.lastOrNull()?.text == ContextCommands.COMPACT
-        var compactionRound = compactionCycles.create(sessionId, turnId, providerId, context, control)
+        var manualCommandPending = ContextCommands.parseCompact(context.messages.lastOrNull()) != null
+        var compactionRound = compactionCycles.create(sessionId, turnId, providerId, context)
         var toolRounds = runtimeRecord?.admittedToolRounds ?: 0
         var finalResponsePending = false
         var modelRetries = 0
@@ -129,6 +129,7 @@ class AgentLoop(
                     coordinator.snapshot().modelCallId,
                     budgetTracker,
                     goalBudget,
+                    summary = compaction != null,
                 )
             admission.failure?.let {
                 coordinator.recordDiagnostic(
@@ -189,12 +190,18 @@ class AgentLoop(
                 "budget.result",
                 RequestBudgetDiagnostics.result(accountingFailure?.errorCode ?: decision.errorCode, acc, budgetTracker),
             )
-            accountingFailure?.let { return TurnLoopResult.Terminal(it) }
+            if (accountingFailure != null && compaction == null) return TurnLoopResult.Terminal(accountingFailure)
+            val summaryDecision =
+                if (decision.state == TurnState.CANCELLED || decision.errorCode == ModelStreamState.REFUSAL) {
+                    decision
+                } else {
+                    accountingFailure ?: decision
+                }
             val recoveryElapsed =
                 recoveryStartedNanos?.let { (System.nanoTime() - it).coerceAtLeast(0) / 1_000_000 } ?: 0
             val retryDelay =
                 ModelRecoveryPolicy.retryDelayMillis(
-                    provider.allowsEmptyInferenceRetry,
+                    provider.allowsEmptyInferenceRetry && compaction == null,
                     modelRetries,
                     acc,
                 )
@@ -240,7 +247,7 @@ class AgentLoop(
                         .finish(
                             compaction,
                             acc,
-                            decision,
+                            summaryDecision,
                             coordinator,
                             idGenerator(),
                             notices.text(LoopNotice.COMPACTED),
@@ -252,10 +259,10 @@ class AgentLoop(
                         return TurnLoopResult.Terminal(it)
                     }
                     context = contextAssembler.buildBackfill(sessionId, turnId, retryTurnId, control)
-                    manualCommandPending = context.messages.lastOrNull()?.text == ContextCommands.COMPACT
+                    manualCommandPending = ContextCommands.parseCompact(context.messages.lastOrNull()) != null
                     // The explicit compaction command has finished; the accepted user input is
                     // an ordinary request in this same Turn, retaining its budget tracker.
-                    compactionRound = compactionCycles.create(sessionId, turnId, providerId, context, control)
+                    compactionRound = compactionCycles.create(sessionId, turnId, providerId, context)
                 }
                 events.emit(AgentLoopEvent.Refresh)
                 context = contextAssembler.rebuild(sessionId, turnId, retryTurnId, control, context)

@@ -78,14 +78,13 @@ internal class AgentLoopHost(
             toolMessages = toolMessages,
             goalBudget = GoalModelCallBudget(storage, clock),
             compactionCycles =
-                ContextCompactionCycles { session, turn, provider, context, control ->
+                ContextCompactionCycles { session, turn, provider, context ->
                     contextCompactionRound(
                         storage,
                         session,
                         turn,
-                        control,
                         providerService.contextSettings(provider, context.model),
-                        context.messages.lastOrNull()?.text == ContextCommands.COMPACT,
+                        ContextCommands.parseCompact(context.messages.lastOrNull()) != null,
                         providerService.resolveReasoning(provider, context.model, ReasoningEffort.LOW),
                     )
                 },

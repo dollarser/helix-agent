@@ -32,7 +32,8 @@ class ChatStatusLabels(
     @Suppress("CyclomaticComplexMethod") // closed error-code to resource mapping
     fun modelTerminalCodeRes(errorCode: String?): Int =
         when (errorCode) {
-            "CONTEXT_NOT_COMPACTABLE", "CONTEXT_NO_GAIN" -> R.string.context_not_compactable
+            "CONTEXT_NOT_COMPACTABLE" -> R.string.context_not_compactable
+            "CONTEXT_NO_GAIN" -> R.string.context_summary_no_gain
             "CONTEXT_MATERIALIZATION_LIMIT" -> R.string.context_materialization_limit
             "CONTEXT_SEGMENT_LIMIT" -> R.string.context_segment_limit
             "CONTEXT_WINDOW_LIMIT" -> R.string.context_window_limit
@@ -41,6 +42,7 @@ class ChatStatusLabels(
             "OUTPUT_TOKEN_LIMIT" -> R.string.budget_output_limit
             "TURN_TOTAL_TOKEN_LIMIT" -> R.string.budget_total_limit
             "CONTEXT_SUMMARY_INVALID" -> R.string.context_summary_invalid
+            "CONTEXT_SUMMARY_OUTPUT_LIMIT" -> R.string.context_summary_output_limit
             ModelStreamState.REFUSAL -> R.string.model_refused
             ModelStreamState.TOOL_STREAM_TRUNCATED -> R.string.model_error_tool_stream_truncated
             ModelStreamState.TOOL_STREAM_INVALID -> R.string.model_error_tool_stream_invalid

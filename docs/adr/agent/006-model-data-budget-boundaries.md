@@ -13,7 +13,7 @@ Deciders: Project owner（授权在独立 worktree 优化工具回显、模型�
 
 - 聊天气泡只投影用户与助手正文。工具调用、结果、压缩 checkpoint 保留持久记录和协议配对，工具过程从现有可展开工具时间线查看；不按内容是否像 JSON 删除真实用户/助手正文。
 - 模型仍收到 TOOL 结果。已知 QuickJS 包装中的 JSON 字符串可解码一层，保留业务字段；未知格式原样保留，不递归删用户字段。
-- 大于 16 KiB 的已结算成功结果或失败诊断，在 `tools.read_result` 已注册且该会话启用时，模型投影为明确标注截断的 JSON，含 `resultRef`、前 2048 个 Unicode code point、`nextOffset` 和总字符数。完整正文仍在 `tool_results`/内容存储；失败诊断不冒充验证成功。读取工具被禁用时不生成无法读取的新投影。
+- 大于 32 KiB 的已结算成功结果或失败诊断，在 `tools.read_result` 已注册且该会话启用时，模型投影为明确标注截断的 JSON，含 `resultRef`、前 2048 个 Unicode code point、`nextOffset` 和总字符数。完整正文仍在 `tool_results`/内容存储；失败诊断不冒充验证成功。读取工具被禁用时不生成无法读取的新投影。
 - `tools.read_result` 是本地只读工具，走既有 schema、授权、执行限制和审计管线。引用包含本地 Turn/ToolCall ID；执行器以 Dispatcher 注入的会话与 Turn 验证归属，返回同会话已验证的成功正文，或已保存的 FAILED/NEEDS_REVIEW/INTERRUPTED 诊断。`sourceStatus` 和 `sourceVerified` 保留原动作事实，读取成功不表示原动作成功。`contentKind=tool_result` 区别结果正文与另行捕获的 stdout/stderr；受管执行附原 `logRef`/`logReadTool`、已知退出码和日志截断事实，正文没有 stderr 不证明日志未保存。每页最多 2048 个 code point，输出最多 16 KiB，期限 5 秒；取消、过期、缺失、未结算或校验失败返回相应结果，不执行原工具、不读取任意路径、不扩大授权。原工具输出受框架 8 MiB 硬上限约束；此实现按页输出但每次读取会校验完整原内容，不承诺文件流式随机访问。
 - 上下文预检、Turn 准入和 Goal 预留共用输入估算，包括指令、历史/工具参数、工具 schema、消息协议开销和图片余量。Provider 报告用量优先；缺失时保守估算，部分输出工具参数也计费。估算不是模型 tokenizer 的精确计数；已有实际输入校准仍保留。
 - 单次输出、消息数量、Provider 窗口和压缩失败分别诊断。累计资源上限字段诊断为 null，旧错误码只作历史记录解释。每次调用通过 `budget.request` 保存压缩前上下文与预算快照，`budget.admitted` 保存实际获准任务/摘要请求的估算与输出上限，`budget.result` 保存结算与用量来源，`context.compaction` 保存摘要结果。元数据带格式版本，单条不超过 512 字符，不含正文、凭据或外部地址。
@@ -89,3 +89,20 @@ Owner 授权将结果读取与发现归入 `tools.*`，公开名改为 `tools.re
 ## Decision history — 2026-11-08：结果分页与独立日志证据范围
 
 真实诊断样本把 270 字符结果正文的 `truncated=false` 和 `logTruncated=false` 误解释为已读取全部 stderr。结果读取页明确 `paginationScope=result_body`；受管执行另带 `logContent.stdout/stderr`，区分结果中存在的字符串预览与 `absent_from_result_body`；合法对象缺键或 null 表示正文无该流，解析失败、非对象或非字符串非 null 值保持 `unknown`，不把未知当缺失。即使结果分页结束，独立捕获流仍以原 `logRef`、日志读取工具和其分页事实为准；capture 未截断不证明已消费日志。保留内联 stdout/stderr、原退出码和失败状态，不自动读取、重执行或授予权限。工具描述与通用完成原则要求在结论依赖另附证据时读取它，不为单个测试植入强制工具路径。结构回归不能替代真实模型复验，也不消除历史行为失败。
+
+## Decision history — 2026-11-09：在不完整页内给出继续读取提示
+
+长结果投影和 tools.read_result 的非末页都带宿主固定 readHint，指出使用原 resultRef、offset=nextOffset 继续读取，并将完整结果结论与必要证据读完关联；末页不再附继续提示。投影也明确 contentKind=tool_result、paginationScope=result_body。分页结束只表示保存正文读完，不恢复原观察未采集或未输出的节点，也不刷新 UI token。原 Unicode 偏移、单页预算、会话归属、原调用状态、取消和只读执行边界保持，版本仍为 1；不强制模型自动调用或将分页成功当任务完成。回归验证每一非末页的继续信息、末页收束、Unicode 无损重组以及正文内原始截断与 token 保留。
+
+## Decision history — 2026-11-10：有界结果内联阈值对照
+
+整轮任务证据中，17～20 KiB 的完整 UI 结果被原 16 KiB 投影阈值拆为多次 2048 code point 补读，完整列表中的同一行字段因此跨页。作为独立横向变量，将通用内联阈值调为 32 KiB UTF-8 字节；不按工具、应用或评测任务特判，不改变已存真值。超过阈值仍使用原有有界预览及完整只读补读，读取工具不可用时仍保持原正文；单页 2048 code point／16 KiB、框架输出硬限、模型请求估算与上下文准入保持。边界、Unicode、失败诊断和无损补读分别回归；分页调用减少是机制预期，不等于模型任务完成率已经改善。
+
+
+## Decision history — 2026-11-11：按语义统一工具结果投影
+
+模型投影先处理已知内建包装，再以投影后的 UTF-8 字节数应用 32 KiB 内联阈值，避免 QuickJS JSON 字符串转义造成不必要分页。仍超限时，预览和偏移始终指向已保存的原始正文；不建立第二份分页存储。原正文的 `truncated` 以 `sourceTruncated` 单独保留，不与结果正文分页混同；诊断预览按 Unicode code point 截断。
+
+按实际结果语义区分：文件变更只省略既有配额记账字段（归档纳入同类），保留资源版本、覆盖、恢复及结果字段；QuickJS 仅在已知包装边界解码；文件读取、搜索、UI 观察、命令执行和外部/未知工具保留正文与输出。执行工具及独立日志捕获工具名单共用一个内建契约，stdout/stderr、退出码、失败、副作用和日志回读不被全局删减。未知格式保持原样，不递归删同名用户字段，不增加密码/令牌或其他敏感内容的启发式筛选；既有权限、脱敏和审计边界不变。
+
+实际模型请求省略执行结果的审计哈希 `executorOutputHash`，但持久 TOOL 包装及底层结果仍保存；文件 `sha256`、调用引用、日志引用、执行器截断和副作用事实继续可见。省略审计冗余不等于取消完整性校验，也不把读取成功视作原动作成功。回归覆盖已知/未知工具、包装减小阈值、原文分页、Unicode、源截断、日志与出站历史边界。

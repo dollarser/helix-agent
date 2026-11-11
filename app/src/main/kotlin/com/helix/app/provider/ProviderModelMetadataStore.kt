@@ -20,6 +20,17 @@ import java.security.MessageDigest
 class ProviderModelMetadataStore(
     private val store: LineStore,
 ) {
+    /** Derive response limits from exact endpoint/model facts, never persisted user policy. */
+    fun contextSettings(
+        providerId: String,
+        endpoint: String,
+        model: String,
+        settings: ProviderContextSettingsStore,
+    ): com.helix.provider.api.ProviderContextSettings =
+        settings
+            .read(providerId, endpoint, model)
+            .copy(serverOutputLimit = read(providerId, endpoint)[model]?.maxOutputTokens)
+
     fun write(
         providerId: String,
         endpoint: String,
@@ -49,7 +60,10 @@ class ProviderModelMetadataStore(
             endpoint,
             catalog.models.associateWith { id ->
                 val old = previous[id] ?: ModelMetadata()
-                old.copy(purposes = catalog.purposes[id].orEmpty().ifEmpty { old.purposes })
+                old.copy(
+                    purposes = catalog.purposes[id].orEmpty().ifEmpty { old.purposes },
+                    maxOutputTokens = catalog.outputLimits[id],
+                )
             },
         )
     }
@@ -92,15 +106,17 @@ class ProviderModelMetadataStore(
             put("efforts", efforts?.let(::JsonArray) ?: JsonNull)
             put("vision", metadata.vision?.let(::JsonPrimitive) ?: JsonNull)
             put("context", metadata.contextWindow?.let(::JsonPrimitive) ?: JsonNull)
+            put("output", metadata.maxOutputTokens?.let(::JsonPrimitive) ?: JsonNull)
             put("purposes", JsonArray(metadata.purposes.map { JsonPrimitive(it.name) }))
         }
 
     private fun decode(value: JsonElement): ModelMetadata {
         val item = value.jsonObject
-        require(item.keys == setOf("efforts", "vision", "context", "purposes"))
+        require(item.keys == setOf("efforts", "vision", "context", "purposes", "output"))
         val efforts = item.getValue("efforts").takeUnless { it == JsonNull }
         val vision = literal(item.getValue("vision"))
         val context = literal(item.getValue("context"))
+        val output = literal(item.getValue("output"))
         return ModelMetadata(
             reasoningEfforts =
                 efforts?.let { list ->
@@ -108,6 +124,7 @@ class ProviderModelMetadataStore(
                 },
             vision = vision?.let { requireNotNull(it.booleanOrNull) },
             contextWindow = context?.let { requireNotNull(it.longOrNull) },
+            maxOutputTokens = output?.let { requireNotNull(it.longOrNull) },
             purposes =
                 (item.getValue("purposes") as JsonArray)
                     .map {

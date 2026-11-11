@@ -3,11 +3,8 @@ package com.helix.app.agent
 import com.helix.core.agent.ContextCompiler
 import com.helix.core.agent.ContextSourceRow
 import com.helix.core.agent.ContextSourceSnapshot
-import com.helix.core.agent.RunControlConfig
 import com.helix.core.agent.TurnContextRequest
-import com.helix.core.model.AgentMode
 import com.helix.core.model.ReasoningEffort
-import com.helix.core.model.TurnBudgets
 import com.helix.core.model.input.ConversationReferenceKind
 import com.helix.core.storage.repository.ConversationReferenceSnapshot
 import com.helix.provider.api.ProviderContextSettings
@@ -29,7 +26,6 @@ class ContextReferenceCompactionTest {
                 .encode(),
             "a".repeat(64),
         )
-    private val control = RunControlConfig(AgentMode.ACT, true, TurnBudgets(maxOutputTokens = 4096))
 
     @Test fun emptyAndUnreferencedBodiesKeepExistingSemantics() {
         assertNull(ContextHistoryContent.materialize(null, emptyList()))
@@ -115,7 +111,6 @@ class ContextReferenceCompactionTest {
     ) = ContextCompiler(ContextCompaction.summaries).plan(
         ContextSourceSnapshot(rows, null, "c", null, 0),
         request,
-        control,
         ProviderContextSettings(manualWindow = 128_000),
         force = true,
     )

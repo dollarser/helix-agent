@@ -79,7 +79,11 @@ class ToolVisionFlowDeviceTest {
     @Test
     fun actualBrowserScreenshotPixelsFlowThroughHistoryAndConsent() =
         runBlocking {
-            val c = ApplicationProvider.getApplicationContext<HelixApplication>().appContainer
+            val app = ApplicationProvider.getApplicationContext<HelixApplication>()
+            val c = app.appContainer
+            // A clean test install must finish onboarding before MainActivity resumes its browser owner.
+            app.acceptStartupNotice()
+            app.finishStartupPermissions()
             ActivityScenario.launch(MainActivity::class.java).use { scenario ->
                 lateinit var tab: String
                 scenario.onActivity { activity ->
@@ -104,7 +108,7 @@ class ToolVisionFlowDeviceTest {
                         if (!loaded) delay(50)
                     }
                     assertTrue("Synthetic browser page did not settle", loaded)
-                    delay(200)
+                    awaitBrowserDraw(c.browser, tab)
                     Fixture(browser = c.browser, tabId = tab).use { fixture ->
                         val result = fixture.prepare() as ToolExecutorResult.Completed
                         assertTrue("Screenshot must contain actual pixels", result.visualArtifact != null)
@@ -134,8 +138,32 @@ class ToolVisionFlowDeviceTest {
             }
         }
 
+    private suspend fun awaitBrowserDraw(
+        browser: BrowserController,
+        tab: String,
+    ) {
+        // Loading completion does not guarantee the next draw contains the current DOM.
+        // https://developer.android.com/reference/android/webkit/WebView.VisualStateCallback
+        val ready = kotlinx.coroutines.CompletableDeferred<Unit>()
+        androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().runOnMainSync {
+            requireNotNull(browser.hostView(tab)).postVisualStateCallback(
+                1,
+                object : android.webkit.WebView.VisualStateCallback() {
+                    override fun onComplete(requestId: Long) {
+                        ready.complete(Unit)
+                    }
+                },
+            )
+        }
+        kotlinx.coroutines.withTimeout(10000) { ready.await() }
+    }
+
     private fun assertBrowserPixels(base64: String) {
         val bytes = Base64.getDecoder().decode(base64)
+        val evidence =
+            File(ApplicationProvider.getApplicationContext<android.content.Context>().filesDir, "vision-evidence")
+        check(evidence.isDirectory || evidence.mkdirs())
+        File(evidence, "browser.png").writeBytes(bytes)
         val bitmap = requireNotNull(BitmapFactory.decodeByteArray(bytes, 0, bytes.size))
         try {
             assertTrue(bitmap.width >= 64 && bitmap.height >= 64)
@@ -260,6 +288,42 @@ class ToolVisionFlowDeviceTest {
                     )
                     fixture.phoneScope = null
                     assertThrows(IllegalArgumentException::class.java) { fixture.source.load(bound, fixture.config) }
+                }
+            }
+        }
+
+    @Test fun capturedBytesReopenedThroughViewImageReuseLiveGrantThroughFinalPixelRead() =
+        runBlocking {
+            for (local in listOf(false, true)) {
+                Fixture(onDevice = local).use { fixture ->
+                    // Synthetic native publisher input; no real screen or network account is used.
+                    val captured = fixture.publishScreen()
+                    assertTrue(captured.visual != null)
+                    val result = fixture.prepare() as ToolExecutorResult.Completed
+                    assertTrue(result.visualArtifact!!.artifactId != captured.visual!!.artifactId)
+                    fixture.coordinator.settleBatchCall("call", false)
+                    fixture.coordinator.openNextModelCall(listOf(fixture.draft(result)), "next")
+                    val rows = fixture.history()
+                    val projected =
+                        kotlinx.coroutines.withTimeout(2000) {
+                            fixture.feedback.restore(
+                                "s",
+                                "turn",
+                                fixture.config,
+                                "vision",
+                                ChatHistoryBuilder.toModelMessages(rows),
+                                rows,
+                            ) { id -> listOf(fixture.image(id)) }
+                        }
+                    assertTrue(
+                        fixture.consent.pending.value
+                            .isEmpty(),
+                    )
+                    val image = projected.last().images.single()
+                    assertTrue(image.binding!!.consentId!!.startsWith("mobile-screen-consent-"))
+                    assertPixelContent(fixture.source.load(image, fixture.config).base64)
+                    fixture.phoneScope = null
+                    assertThrows(IllegalArgumentException::class.java) { fixture.source.load(image, fixture.config) }
                 }
             }
         }
@@ -425,18 +489,39 @@ class ToolVisionFlowDeviceTest {
                 { config },
                 consent,
             )
+        private val artifactSink =
+            ToolArtifactRegistrationSink(storage, workspace::openRead) {
+                resolveFileScopePath(it, roots).toFile()
+            }
         val preparer =
             ToolImagePreparer(
                 storage,
                 workspace,
-                ToolArtifactRegistrationSink(storage, workspace::openRead) {
-                    resolveFileScopePath(it, roots).toFile()
-                },
+                artifactSink,
                 "ws",
                 File(root, "staging"),
                 clock,
-                { true },
+                { _, _ -> true },
+                inheritScreenImage = consent.mobileScreens::inherit,
             )
+
+        fun publishScreen() =
+            com.helix.app.vision
+                .WorkspaceToolImagePublisher(
+                    workspace,
+                    artifactSink,
+                    "ws",
+                    preparer,
+                    registerScreenImage = { original, image, scope, hash ->
+                        consent.mobileScreens.register(original, image, scope, hash)
+                    },
+                    ownsTurn = { session, turn -> storage.turns.resolve(turn).sessionId == session },
+                ).publish(
+                    call.copy(toolName = "ui.screenshot", deadline = Instant.now().plusSeconds(30)),
+                    input.readBytes(),
+                    phoneScope!!.toScopeRef(),
+                )
+
         private val toolName = if (browser == null) "view_image" else "browser.screenshot"
         val call =
             ExecutableToolCall(

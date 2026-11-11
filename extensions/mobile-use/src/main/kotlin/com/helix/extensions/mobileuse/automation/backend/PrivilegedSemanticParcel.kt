@@ -29,8 +29,15 @@ internal object PrivilegedSemanticParcel {
         parcel.writeStringList(snapshot.truncationReasons.toList())
         parcel.writeInt(snapshot.nodes.size)
         snapshot.nodes.forEach { node ->
-            listOf(node.token, node.parentToken, node.className, node.text, node.contentDescription, node.viewId)
-                .forEach(parcel::writeString)
+            listOf(
+                node.token,
+                node.parentToken,
+                node.className,
+                node.text,
+                node.contentDescription,
+                node.viewId,
+                node.hintText,
+            ).forEach(parcel::writeString)
             listOf(node.depth, node.bounds.left, node.bounds.top, node.bounds.right, node.bounds.bottom)
                 .forEach(parcel::writeInt)
             listOf(
@@ -46,13 +53,14 @@ internal object PrivilegedSemanticParcel {
                 node.checked,
                 node.visibleToUser,
             ).forEach { parcel.writeInt(if (it) 1 else 0) }
+            parcel.writeInt(node.isShowingHintText?.let { if (it) 1 else 0 } ?: -1)
             parcel.writeInt(if (node.range == null) 0 else 1)
             node.range?.let { listOf(it.min, it.max, it.current).forEach(parcel::writeFloat) }
             parcel.writeStringList(node.scrollDirections.map { it.name })
         }
     }
 
-    @Suppress("ReturnCount") // Distinguish absent payload, refusal and a populated snapshot.
+    @Suppress("ReturnCount", "LongMethod") // Distinguish absent payload, refusal and a populated snapshot.
     fun read(parcel: Parcel): AutomationSnapshotResult? {
         val status = parcel.readString()?.let(AutomationSnapshotStatus::valueOf) ?: return null
         if (parcel.readInt() == 0) return AutomationSnapshotResult(status)
@@ -69,6 +77,12 @@ internal object PrivilegedSemanticParcel {
                 require(characters <= AutomationSnapshotEngine.MAX_TOTAL_CHARACTERS)
                 val values = List(5) { parcel.readInt() }
                 val flags = List(11) { parcel.readInt() == 1 }
+                val showingHint =
+                    parcel
+                        .readInt()
+                        .also { require(it in -1..1) }
+                        .takeIf { it >= 0 }
+                        ?.let { it == 1 }
                 val range =
                     if (parcel.readInt() == 1) {
                         AutomationNodeRange(parcel.readFloat(), parcel.readFloat(), parcel.readFloat())
@@ -98,6 +112,8 @@ internal object PrivilegedSemanticParcel {
                     flags[9],
                     directions,
                     flags[10],
+                    strings[6],
+                    showingHint,
                 )
             }
         return AutomationSnapshotResult(
@@ -107,7 +123,7 @@ internal object PrivilegedSemanticParcel {
     }
 
     private fun readNodeStrings(parcel: Parcel) =
-        List(6) { index ->
+        List(7) { index ->
             val limit = if (index < 2) 32 else AutomationSnapshotEngine.MAX_FIELD_CHARACTERS
             text(parcel, limit)
         }

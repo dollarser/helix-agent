@@ -27,12 +27,15 @@ class TurnBudgetTracker(
     )
 
     /** Usage is observed, not a cumulative execution allowance. */
-    fun prepareCall(request: ModelRequest): CallAdmission {
+    fun prepareCall(
+        request: ModelRequest,
+        summary: Boolean = false,
+    ): CallAdmission {
         modelCalls = if (modelCalls == Int.MAX_VALUE) modelCalls else modelCalls + 1
         return CallAdmission(
             BeginDecision.ALLOWED,
             request.copy(
-                maxOutputTokens = minOf(request.maxOutputTokens ?: budgets.maxOutputTokens, budgets.maxOutputTokens),
+                maxOutputTokens = outputLimit(request, summary),
             ),
         )
     }
@@ -41,11 +44,12 @@ class TurnBudgetTracker(
         callId: String,
         request: ModelRequest,
         stream: ModelStreamState,
+        summary: Boolean = false,
     ): Boolean {
         val account = ModelCallUsage.account(callId, request, stream)
         val callTotal = ModelCallUsage.total(account)
         lastFailureCode =
-            if (account.effectiveOutput > minOf(budgets.maxOutputTokens, request.maxOutputTokens ?: Long.MAX_VALUE)) {
+            if (account.effectiveOutput > outputLimit(request, summary)) {
                 "OUTPUT_TOKEN_LIMIT"
             } else {
                 null
@@ -53,6 +57,16 @@ class TurnBudgetTracker(
         totalTokens = if (callTotal > Long.MAX_VALUE - totalTokens) Long.MAX_VALUE else totalTokens + callTotal
         return lastFailureCode == null
     }
+
+    private fun outputLimit(
+        request: ModelRequest,
+        summary: Boolean,
+    ): Long =
+        if (summary) {
+            requireNotNull(request.maxOutputTokens)
+        } else {
+            minOf(request.maxOutputTokens ?: budgets.maxOutputTokens, budgets.maxOutputTokens)
+        }
 
     enum class BeginDecision { ALLOWED, MODEL_CALL_LIMIT, INPUT_LIMIT, TOKEN_LIMIT }
 

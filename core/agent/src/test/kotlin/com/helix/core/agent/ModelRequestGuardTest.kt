@@ -42,7 +42,6 @@ class ModelRequestGuardTest {
 
                     override suspend fun plan(
                         request: TurnContextRequest,
-                        control: RunControlConfig,
                         settings: ProviderContextSettings,
                         force: Boolean,
                         inputScale: Double,

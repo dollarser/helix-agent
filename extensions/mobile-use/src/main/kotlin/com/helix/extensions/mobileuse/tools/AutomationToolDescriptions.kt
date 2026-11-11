@@ -37,6 +37,8 @@ internal object AutomationToolDescriptions {
                     "Omit submit for ordinary filling (default false); text insertion does not need IME submission. " +
                     "Set submit=true only when canImeEnter=true " +
                     "and the task requests a keyboard action. Read the returned observation for fresh tokens; " +
+                    "editableValue is the exposed value. When isShowingHintText=true, text and editableValue " +
+                    "are empty; hintText is only the placeholder. An empty editableValue is not a failed clear. " +
                     "The host briefly checks stability; UNSETTLED may include fresh state that is still changing. " +
                     "Inspect it before deciding what to do."
             }
@@ -112,7 +114,11 @@ private const val WAIT_DESCRIPTION =
         "changed compares against this wait call's first read, not the pre-action screen. " +
         "Set timeoutMillis (maximum 60000); normally omit " +
         "pollMillis (default 100, range 50..1000). Inspect waitStatus. " +
-        "TIMED_OUT does not prove the previous action failed. A unique intended match provides " +
+        "Nodes default to maxResults=20 (maximum 50); conditions use all matching captured nodes. " +
+        "matchCount counts captured matches; captureTruncated and queryTruncated distinguish incomplete " +
+        "capture from limited returned nodes, and truncated covers either. Narrow with ui.find or inspect " +
+        "ui.snapshot when queryTruncated. TIMED_OUT does not prove the previous action failed. " +
+        "A unique intended match in a complete result provides " +
         "suggestedClickToken for ui.click. Never repeat unchanged waits indefinitely."
 
 private const val CLICK_MATCH_DESCRIPTION =

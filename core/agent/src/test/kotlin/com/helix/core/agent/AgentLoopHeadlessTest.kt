@@ -16,6 +16,20 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AgentLoopHeadlessTest {
+    @Test fun terminalAnswerRetainsModelTextWithoutAddingWrappersOrExtractingASubstring() =
+        runBlocking {
+            for (answer in listOf("False", "7.25 L", "**Result:**\n\nA normal explanation remains intact.")) {
+                val fixture =
+                    HeadlessLoopFixture {
+                        answer.chunked(3).map { ModelEvent.TextDelta(it) } + ModelEvent.Completed("stop")
+                    }
+                val result = fixture.loop().runToolLoop("s", fixture.journal, "p", null, fixture.control)
+                assertEquals(TurnLoopResult.Terminal(ModelStreamTerminal(TurnState.COMPLETED, null)), result)
+                assertEquals(answer, fixture.journal.currentStream().text)
+                assertEquals(AgentLoopEvent.TextChanged("turn", answer), fixture.events.last())
+            }
+        }
+
     @Test fun retrySelectionSurvivesToolBackfillAndBackfillEntry() =
         runBlocking {
             val fixture =
@@ -262,7 +276,6 @@ class AgentLoopHeadlessTest {
 
                     override suspend fun plan(
                         request: TurnContextRequest,
-                        control: RunControlConfig,
                         settings: com.helix.provider.api.ProviderContextSettings,
                         force: Boolean,
                         inputScale: Double,

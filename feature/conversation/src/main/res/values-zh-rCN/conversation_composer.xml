@@ -61,13 +61,13 @@
     <string name="chat_command_plan_desc">切换至只读规划模式</string>
     <string name="chat_command_act_desc">切换至普通执行模式</string>
     <string name="chat_command_goal_desc">切换至自主目标模式</string>
-    <string name="chat_command_compact_desc">压缩当前会话上下文</string>
+    <string name="chat_command_compact_desc">压缩上下文，可在 /compact 后填写重点</string>
     <string name="chat_command_clear_desc">清空当前输入</string>
     <string name="chat_command_help_desc">查看可用指令与提示</string>
     <string name="chat_command_standalone">请单独发送命令；任务内容请在切换模式后发送。</string>
     <string name="chat_command_wait">当前任务结束后再发送此命令。</string>
     <string name="chat_command_compact_unavailable">当前无法压缩：请先完成发送或处理附件。</string>
-    <string name="chat_command_help">/chat 只读对话 · /plan 规划 · /act 执行 · /goal 持续目标 · /compact 压缩 · /clear 清空输入。选择后点击发送执行。</string>
+    <string name="chat_command_help">/chat 只读对话 · /plan 规划 · /act 执行 · /goal 持续目标 · /compact [重点] 压缩 · /clear 清空输入。选择后点击发送执行。</string>
     <string name="chat_command_chat_desc">切换至只读对话模式</string>
     <string name="composer_mode_switching">正在切换会话模式…</string>
     <string name="composer_mode_failed">模式切换未完成，文字已保留，请重试。</string>

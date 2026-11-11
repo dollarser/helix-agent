@@ -103,8 +103,9 @@ class WorkspaceToolImagePublisherTest {
                 { session, record -> records += session to record },
                 "workspace",
                 { _, _, _ -> visual },
-                registerScreenImage = { original, prepared, acquisitionScope ->
+                registerScreenImage = { original, prepared, acquisitionScope, capturedHash ->
                     assertSame(call, original)
+                    assertEquals(records.single().second.sha256, capturedHash)
                     registeredVisual = prepared
                     registeredScope = acquisitionScope
                 },

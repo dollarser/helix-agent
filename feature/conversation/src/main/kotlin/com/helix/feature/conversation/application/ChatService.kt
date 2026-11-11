@@ -1834,10 +1834,18 @@ class ChatService(
      * any thread; the visible outcome arrives via [screen].
      */
     @Suppress("ReturnCount") // draft admission keeps each rejected state explicit
-    fun compactContext() {
+    fun compactContext(focus: String? = null) {
         if (_screen.value.isDraft || _screen.value.isSending || stagedAttachments.isNotEmpty()) return
         val sessionId = openSessionId ?: return
-        sendSubmission(ChatSubmission(sessionId, 0, idGenerator(), com.helix.core.agent.ContextCommands.COMPACT))
+        sendSubmission(
+            ChatSubmission(
+                sessionId,
+                0,
+                idGenerator(),
+                com.helix.core.agent.ContextCommands
+                    .compact(focus),
+            ),
+        )
     }
 
     /** Optional per-session file cache. Its success is never required for submission. */

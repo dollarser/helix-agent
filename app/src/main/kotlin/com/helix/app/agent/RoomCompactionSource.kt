@@ -3,7 +3,6 @@ package com.helix.app.agent
 import com.helix.core.agent.ContextCompactionPlan
 import com.helix.core.agent.ContextCompactionRound
 import com.helix.core.agent.ContextCompactionSource
-import com.helix.core.agent.RunControlConfig
 import com.helix.core.agent.TurnContextRequest
 import com.helix.core.model.ReasoningEffort
 import com.helix.core.storage.HelixStorage
@@ -19,12 +18,10 @@ internal class RoomCompactionSource(
 
     override suspend fun plan(
         request: TurnContextRequest,
-        control: RunControlConfig,
         settings: ProviderContextSettings,
         force: Boolean,
         inputScale: Double,
-    ): ContextCompactionPlan? =
-        ContextCompaction.plan(storage, sessionId, request, control, settings, force, turnId, inputScale)
+    ): ContextCompactionPlan? = ContextCompaction.plan(storage, sessionId, request, settings, force, turnId, inputScale)
 }
 
 /** Constructs the same Core cycle for production and real Room fixtures. */
@@ -32,7 +29,6 @@ internal fun contextCompactionRound(
     storage: HelixStorage,
     sessionId: String,
     turnId: String,
-    control: RunControlConfig,
     settings: ProviderContextSettings,
     manual: Boolean,
     summaryReasoning: ReasoningEffort = ReasoningEffort.OFF,
@@ -40,7 +36,6 @@ internal fun contextCompactionRound(
     ContextCompactionRound(
         RoomCompactionSource(storage, sessionId, turnId),
         ContextCompaction.summaries,
-        control,
         settings,
         manual,
         summaryReasoning,

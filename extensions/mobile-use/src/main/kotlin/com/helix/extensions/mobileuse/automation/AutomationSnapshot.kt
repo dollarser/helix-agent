@@ -55,6 +55,8 @@ data class AutomationSnapshotNode(
     val checked: Boolean = false,
     val scrollDirections: Set<AutomationScrollDirection> = emptySet(),
     val visibleToUser: Boolean = true,
+    val hintText: String? = null,
+    val isShowingHintText: Boolean? = null,
 )
 
 data class AutomationSnapshot(

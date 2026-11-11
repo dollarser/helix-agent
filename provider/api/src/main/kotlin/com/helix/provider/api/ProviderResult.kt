@@ -10,9 +10,12 @@ public sealed interface ModelCatalogResult {
     public data class Listed(
         val models: List<String>,
         val purposes: Map<String, Set<ModelPurpose>> = emptyMap(),
+        val outputLimits: Map<String, Long> = emptyMap(),
     ) : ModelCatalogResult {
         init {
             require(purposes.keys.all { it in models })
+            require(outputLimits.keys.all { it in models })
+            require(outputLimits.values.all { it in 1..ProviderCapabilities.MAX_CONTEXT_BOUND })
             require(models.size <= MAX_MODELS) { "at most $MAX_MODELS models per list" }
             require(models.toSet().size == models.size) { "model ids must be unique" }
             models.forEach { id ->

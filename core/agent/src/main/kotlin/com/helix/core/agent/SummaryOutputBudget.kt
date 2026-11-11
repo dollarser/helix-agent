@@ -9,23 +9,31 @@ data class SummaryOutputBudget(
         model: String,
         history: String,
         summaries: ContextSummaryFormat,
+        focus: String? = null,
     ) = com.helix.core.model.ModelRequest(
         model = model,
-        messages = summaries.summaryMessages(history, target),
+        messages = summaries.summaryMessages(history, target, focus),
         tools = emptyList(),
         maxOutputTokens = allowance,
         reasoning = com.helix.core.model.ReasoningEffort.OFF,
     )
 
     companion object {
-        fun forRequest(
-            input: Long,
-            configuredOutput: Long,
+        /** Window-scaled uncertainty margin; still an estimate, never an exact tokenizer guarantee. */
+        fun reserve(window: Long): Long = minOf(window / 4, maxOf(2048L, (window + 9) / 10))
+
+        /** Bind the fully assembled request, including instructions and optional manual focus. */
+        fun bound(
+            request: com.helix.core.model.ModelRequest,
             window: Long,
-        ): SummaryOutputBudget {
-            val allowance = minOf(16_384L, configuredOutput, window / 4)
-            val target = minOf((input / 8).coerceIn(128L, 4096L), allowance)
-            return SummaryOutputBudget(target, allowance)
+            inputScale: Double = 1.0,
+            serverOutputLimit: Long? = null,
+        ): com.helix.core.model.ModelRequest {
+            require(inputScale.isFinite() && inputScale >= 1.0)
+            val input = kotlin.math.ceil(ModelInputEstimate.of(request).total * inputScale).toLong()
+            val remaining = window - input - reserve(window)
+            if (remaining <= 0) throw ContextCapacityException("CONTEXT_WINDOW_LIMIT")
+            return request.copy(maxOutputTokens = minOf(remaining, serverOutputLimit ?: remaining))
         }
     }
 }

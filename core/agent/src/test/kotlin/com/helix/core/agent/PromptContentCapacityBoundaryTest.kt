@@ -1,6 +1,5 @@
 package com.helix.core.agent
 
-import com.helix.core.model.AgentMode
 import com.helix.core.model.ArtifactRef
 import com.helix.core.model.AssistantToolCall
 import com.helix.core.model.ImageReference
@@ -10,7 +9,6 @@ import com.helix.core.model.ModelToolSchema
 import com.helix.core.model.ReasoningEffort
 import com.helix.core.model.ToolCallId
 import com.helix.core.model.ToolName
-import com.helix.core.model.TurnBudgets
 import com.helix.provider.api.ProviderContextSettings
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.cancel
@@ -23,8 +21,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class PromptContentCapacityBoundaryTest {
-    private val control = RunControlConfig(AgentMode.ACT, true, TurnBudgets(maxOutputTokens = 128))
-
     private fun request(required: String = "Protected instruction"): TurnContextRequest {
         val prompt =
             PromptRegistry()
@@ -112,7 +108,6 @@ class PromptContentCapacityBoundaryTest {
                 ContextCompactionRound(
                     source,
                     ContextSummaryFormat("Summarize", "Facts"),
-                    control,
                     ProviderContextSettings(manualWindow = 1024, autoCompact = false),
                     false,
                 )
@@ -138,7 +133,6 @@ class PromptContentCapacityBoundaryTest {
                 ContextCompactionRound(
                     source { reads++ },
                     ContextSummaryFormat("Summarize", "Facts"),
-                    control,
                     ProviderContextSettings(manualWindow = 1024, autoCompact = false),
                     false,
                 )
@@ -165,7 +159,6 @@ class PromptContentCapacityBoundaryTest {
 
             override suspend fun plan(
                 request: TurnContextRequest,
-                control: RunControlConfig,
                 settings: ProviderContextSettings,
                 force: Boolean,
                 inputScale: Double,

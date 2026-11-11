@@ -11,4 +11,9 @@ internal object ToolLoopPrompts {
         com.helix.app.infrastructure.prompt.packagedPromptTemplates
             .text("loop-warning")
             .trim()
+
+    val REASSESS =
+        com.helix.app.infrastructure.prompt.packagedPromptTemplates
+            .text("loop-reassess")
+            .trim()
 }

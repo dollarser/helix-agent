@@ -77,7 +77,7 @@ class LongTurnCompactionDeviceTest {
             val coordinator = first.coordinator
             repeat(4) { batch(storage, coordinator.id, it) }
             val originals = storage.messages.listBySession("s").associate { it.id to storage.messages.readContent(it) }
-            val round = contextCompactionRound(storage, "s", coordinator.id, control, settings, false)
+            val round = contextCompactionRound(storage, "s", coordinator.id, settings, false)
             val prepared = round.prepare(request(storage))
             val plan = requireNotNull(prepared.plan)
             val kept = plan.retainedRequest.messages.mapNotNull { it.toolCallId?.value }
@@ -138,21 +138,36 @@ class LongTurnCompactionDeviceTest {
                         GoalTurnStart(
                             goal,
                             GoalWakeReason.USER_OPEN,
-                            TurnStartSpec("s", next(), next(), "{}", "Continue immediately"),
+                            TurnStartSpec(
+                                "s",
+                                next(),
+                                next(),
+                                "{}",
+                                "Continue immediately. " + "Pending verification. ".repeat(200),
+                            ),
                             control.budgets,
                         ),
                     ),
                 )
+            // Establish pressure explicitly: the preceding summary may now retain less old history.
+            val nextRequest = request(storage)
+            assertTrue(
+                com.helix.core.agent.ContextCapacity.shouldCompact(
+                    nextRequest,
+                    settings,
+                    Long.MAX_VALUE,
+                    nextRequest.inputTokens(),
+                ),
+            )
             // The very first request of the new Turn must not require another completed tool step.
             assertNotNull(
                 contextCompactionRound(
                     storage,
                     "s",
                     second.coordinator.id,
-                    control,
                     settings,
                     false,
-                ).prepare(request(storage)).plan,
+                ).prepare(nextRequest).plan,
             )
             repeat(4) { batch(storage, second.coordinator.id, it + 4) }
             assertNotNull(
@@ -160,7 +175,6 @@ class LongTurnCompactionDeviceTest {
                     storage,
                     "s",
                     second.coordinator.id,
-                    control,
                     settings,
                     false,
                 ).prepare(request(storage)).plan,
@@ -179,7 +193,7 @@ class LongTurnCompactionDeviceTest {
             calls(storage, current.id, 4)
             val plan =
                 requireNotNull(
-                    ContextCompaction.plan(storage, "s", request(storage), control, settings, true, current.id),
+                    ContextCompaction.plan(storage, "s", request(storage), settings, true, current.id),
                 )
             val keptCalls =
                 plan.retainedRequest.messages
@@ -191,20 +205,20 @@ class LongTurnCompactionDeviceTest {
             assertEquals(keptCalls.dropLast(1), keptResults)
         }
 
-    @Test fun expansionIsRejectedTwiceThenSoftPressureUsesOriginalHistory() =
+    @Test fun expansionFailsAfterThreeAttemptsWithoutUsingOriginalHistory() =
         withStorage { storage ->
             val current = start(storage)
             repeat(4) { batch(storage, current.id, it) }
             val original = request(storage)
-            val round = contextCompactionRound(storage, "s", current.id, control, settings, false)
-            repeat(2) {
+            val round = contextCompactionRound(storage, "s", current.id, settings, false)
+            repeat(3) { attempt ->
                 val plan = requireNotNull(round.prepare(original).plan)
                 val stream = kotlinx.coroutines.runBlocking { current.beginModelStream(true) }
                 stream.apply(ModelEvent.TextDelta("not a useful summary ".repeat(750)))
                 stream.apply(ModelEvent.Completed("stop"))
                 assertFalse(ContextCompaction.hasUsefulGain(plan, stream.text))
-                runBlocking {
-                    assertNull(
+                val terminal =
+                    runBlocking {
                         round.finish(
                             plan,
                             stream,
@@ -213,23 +227,26 @@ class LongTurnCompactionDeviceTest {
                             next(),
                             "Compacted",
                             "Unchanged",
-                        ),
-                    )
-                }
+                        )
+                    }
+                if (attempt < 2) assertNull(terminal) else assertEquals("CONTEXT_NO_GAIN", terminal?.errorCode)
             }
             assertNull(ContextCompaction.checkpoint(storage, storage.messages.listBySession("s")))
             val prepared = round.prepare(original)
             assertNull(prepared.plan)
-            assertNull(prepared.failure)
-            assertEquals(original.messages, prepared.request!!.messages)
-            assertEquals(2, storage.modelCalls.listByTurn(current.id).count { it.state == "FAILED" })
+            assertNull(prepared.request)
+            assertEquals("CONTEXT_NO_GAIN", prepared.failure?.errorCode)
+            current.settleFixtureTerminal(requireNotNull(prepared.failure))
+            assertEquals(original.messages, request(storage).messages)
+            assertEquals(3, storage.modelCalls.listByTurn(current.id).count { it.state == "FAILED" })
+            assertEquals(3, storage.modelCalls.listByTurn(current.id).size)
         }
 
     @Test fun nonRetryableServerFailureCannotEnterCompactionRetry() =
         withStorage { storage ->
             val current = start(storage)
             repeat(4) { batch(storage, current.id, it) }
-            val round = contextCompactionRound(storage, "s", current.id, control, settings, false)
+            val round = contextCompactionRound(storage, "s", current.id, settings, false)
             val plan = requireNotNull(round.prepare(request(storage)).plan)
             val stream = kotlinx.coroutines.runBlocking { current.beginModelStream(true) }
             stream.apply(ModelEvent.Error(ModelErrorCode.SERVER_ERROR, false))
@@ -262,7 +279,6 @@ class LongTurnCompactionDeviceTest {
                     storage,
                     "s",
                     current.id,
-                    control,
                     ProviderContextSettings(manualWindow = 32000, triggerPercent = 80),
                     false,
                 )
@@ -279,7 +295,7 @@ class LongTurnCompactionDeviceTest {
                 )
             assertEquals(
                 "CONTEXT_WINDOW_LIMIT",
-                contextCompactionRound(storage, "s", current.id, control, settings, false)
+                contextCompactionRound(storage, "s", current.id, settings, false)
                     .prepare(huge)
                     .failure
                     ?.errorCode,
@@ -295,7 +311,7 @@ class LongTurnCompactionDeviceTest {
                 val beforeCount = request(storage).messages.count { it.toolCallId != null }
                 val plan =
                     requireNotNull(
-                        ContextCompaction.plan(storage, "s", request(storage), control, settings, true, current.id),
+                        ContextCompaction.plan(storage, "s", request(storage), settings, true, current.id),
                     )
                 assertTrue(plan.coveredThrough > boundary)
                 boundary = plan.coveredThrough
@@ -323,7 +339,7 @@ class LongTurnCompactionDeviceTest {
             repeat(4) { batch(storage, current.id, it) }
             val plan =
                 requireNotNull(
-                    ContextCompaction.plan(storage, "s", request(storage), control, settings, true, current.id),
+                    ContextCompaction.plan(storage, "s", request(storage), settings, true, current.id),
                 )
             kotlinx.coroutines.runBlocking { current.beginModelStream(true) }.apply {
                 apply(ModelEvent.TextDelta("ORANGE-42; never delete original files."))
@@ -351,11 +367,10 @@ class LongTurnCompactionDeviceTest {
                     storage,
                     "s",
                     current.id,
-                    control,
                     ProviderContextSettings(manualWindow = 4096, triggerPercent = 30),
                     false,
                 )
-            repeat(2) { attempt ->
+            repeat(3) { attempt ->
                 val plan = requireNotNull(round.prepare(request(storage)).plan)
                 val stream = kotlinx.coroutines.runBlocking { current.beginModelStream(true) }
                 stream.apply(ModelEvent.TextDelta("not useful ".repeat(1450)))
@@ -372,9 +387,14 @@ class LongTurnCompactionDeviceTest {
                             "Unchanged",
                         )
                     }
-                if (attempt == 0) assertNull(terminal) else assertEquals("CONTEXT_WINDOW_LIMIT", terminal?.errorCode)
+                if (attempt < 2) assertNull(terminal) else assertEquals("CONTEXT_NO_GAIN", terminal?.errorCode)
             }
             assertNull(ContextCompaction.checkpoint(storage, storage.messages.listBySession("s")))
+            val prepared = round.prepare(request(storage))
+            assertNull(prepared.request)
+            assertEquals("CONTEXT_NO_GAIN", prepared.failure?.errorCode)
+            current.settleFixtureTerminal(requireNotNull(prepared.failure))
+            assertEquals(3, storage.modelCalls.listByTurn(current.id).size)
         }
 
     @Test fun measuredInputScaleSelectsASmallerSummaryBeforeAdmission() =
@@ -388,12 +408,11 @@ class LongTurnCompactionDeviceTest {
                         storage,
                         "s",
                         current.id,
-                        control,
                         settings,
                         false,
                     ).prepare(original).plan,
                 )
-            val round = contextCompactionRound(storage, "s", current.id, control, settings, false)
+            val round = contextCompactionRound(storage, "s", current.id, settings, false)
             round.observe(original, original.inputTokens() * 2)
             val prepared = round.prepare(original)
             assertNull(prepared.failure)
@@ -441,7 +460,6 @@ class LongTurnCompactionDeviceTest {
                     storage,
                     "s",
                     current.id,
-                    control,
                     ProviderContextSettings(manualWindow = 1024),
                     true,
                 )
@@ -460,7 +478,7 @@ class LongTurnCompactionDeviceTest {
             val current = start(storage)
             repeat(4) { batch(storage, current.id, it) }
             val original = request(storage)
-            val round = contextCompactionRound(storage, "s", current.id, control, settings, false)
+            val round = contextCompactionRound(storage, "s", current.id, settings, false)
             val plan = requireNotNull(round.prepare(original).plan)
             val stream = kotlinx.coroutines.runBlocking { current.beginModelStream(true) }
             stream.apply(ModelEvent.TextDelta("incomplete summary"))
@@ -487,7 +505,7 @@ class LongTurnCompactionDeviceTest {
             assertEquals(original.messages, request(storage).messages)
             val resumed = start(storage)
             assertNotNull(
-                contextCompactionRound(storage, "s", resumed.id, control, settings, false)
+                contextCompactionRound(storage, "s", resumed.id, settings, false)
                     .prepare(request(storage))
                     .plan,
             )
@@ -497,7 +515,7 @@ class LongTurnCompactionDeviceTest {
         withStorage { storage ->
             val current = start(storage)
             repeat(4) { batch(storage, current.id, it) }
-            val round = contextCompactionRound(storage, "s", current.id, control, settings, false)
+            val round = contextCompactionRound(storage, "s", current.id, settings, false)
             val plan = requireNotNull(round.prepare(request(storage)).plan)
             val stream = kotlinx.coroutines.runBlocking { current.beginModelStream(true) }
             stream.apply(ModelEvent.TextDelta("ORANGE-42; no deletion. Last result still needs verification."))

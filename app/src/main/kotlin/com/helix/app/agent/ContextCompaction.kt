@@ -2,7 +2,6 @@ package com.helix.app.agent
 
 import com.helix.core.agent.ContextCheckpoint
 import com.helix.core.agent.ContextCompactionPlan
-import com.helix.core.agent.RunControlConfig
 import com.helix.core.agent.TokenEstimator
 import com.helix.core.agent.TurnContextRequest
 import com.helix.core.model.ModelMessage
@@ -81,12 +80,10 @@ internal object ContextCompaction {
     fun pressure(request: TurnContextRequest): Long = request.inputTokens() + request.maxOutputTokens
 
     /** Bounded host snapshot acquisition followed by the single pure compiler. */
-    @Suppress("LongParameterList") // The adapter preserves the existing explicit request binding.
     fun plan(
         storage: HelixStorage,
         sessionId: String,
         request: TurnContextRequest,
-        control: RunControlConfig,
         settings: ProviderContextSettings,
         force: Boolean,
         currentTurnId: String,
@@ -122,7 +119,7 @@ internal object ContextCompaction {
                     floor,
                 )
             }
-        return compiler.plan(snapshot, request, control, settings, force, inputScale)
+        return compiler.plan(snapshot, request, settings, force, inputScale)
     }
 
     fun persist(

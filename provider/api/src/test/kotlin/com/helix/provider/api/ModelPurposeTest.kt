@@ -176,11 +176,14 @@ class ModelPurposeTest {
                 FixtureWire { url ->
                     if ("after_id=" in url) {
                         """{
-                    "data":[{"id":"same","type":"embedding"},{"id":"tail","task":"chat"}],
+                    "data":[{"id":"same","type":"embedding","max_output_tokens":4096},{"id":"tail","task":"chat"}],
                     "has_more":false
                 }"""
                     } else {
-                        """{"data":[{"id":"same"}],"has_more":true,"last_id":"https://other.test/a?b=1"}"""
+                        """{
+                            "data":[{"id":"same","max_output_tokens":8192}],
+                            "has_more":true,"last_id":"https://other.test/a?b=1"
+                        }"""
                     }
                 }
             val result =
@@ -191,6 +194,7 @@ class ModelPurposeTest {
                 ) as ModelCatalogResult.Listed
             assertEquals(listOf("same", "tail"), result.models)
             assertEquals(setOf(ModelPurpose.EMBEDDING), result.purposes["same"])
+            assertEquals(mapOf("same" to 4096L), result.outputLimits)
             assertEquals(2, wire.closed)
             val expected = "https://custom.test/v1/models?after_id=https%3A%2F%2Fother.test%2Fa%3Fb%3D1"
             assertEquals(expected, wire.urls.last())

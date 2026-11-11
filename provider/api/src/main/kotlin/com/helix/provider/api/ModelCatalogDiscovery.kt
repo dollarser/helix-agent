@@ -61,15 +61,19 @@ object ModelCatalogDiscovery {
     ): ModelCatalogResult {
         val ids = linkedSetOf<String>()
         val purposes = linkedMapOf<String, Set<ModelPurpose>>()
+        val outputLimits = linkedMapOf<String, Long>()
         val cursors = mutableSetOf<String>()
         var pageUrl = url
         repeat(32) {
             val page = readPage(wire, pageUrl, headers, outputModalitiesOnly)
             if (page.result !is ModelCatalogResult.Listed) return page.result
             ids += page.result.models
+            page.result.outputLimits.forEach { (id, limit) ->
+                outputLimits[id] = minOf(outputLimits[id] ?: limit, limit)
+            }
             page.result.purposes.forEach { (id, values) -> purposes[id] = purposes[id].orEmpty() + values }
             if (ids.size > ModelCatalogResult.Listed.MAX_MODELS) return incomplete("Model directory exceeds item limit")
-            val cursor = page.cursor ?: return ModelCatalogResult.Listed(ids.toList(), purposes)
+            val cursor = page.cursor ?: return ModelCatalogResult.Listed(ids.toList(), purposes, outputLimits)
             if (!cursors.add(cursor)) return incomplete("Model directory repeated a pagination cursor")
             // Only a cursor value is accepted. Never follow server-provided URLs with credentials.
             pageUrl = url + (if ('?' in url) "&" else "?") + "after_id=" +

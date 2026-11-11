@@ -3,6 +3,7 @@ package com.helix.app.chat
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
@@ -16,17 +17,29 @@ internal object ToolModelResult {
             "files.move" to setOf("usageBytesAfter"),
             "files.delete" to setOf("usageBytesAfter"),
             "files.extract" to setOf("usageBytesAfter"),
+            "files.archive" to setOf("usageBytesAfter"),
         )
 
-    @Suppress("ReturnCount") // Independent lossless fallbacks for unknown output formats.
     fun project(
         name: String,
         payload: String,
         reference: String? = null,
     ): String {
-        if (reference != null && name != ToolResultReadTool.NAME && payload.toByteArray().size > MAX_INLINE_BYTES) {
-            return largePayload(payload, reference)
+        if (name == ToolResultReadTool.NAME) return payload
+        val projected = projectEnvelope(name, payload)
+        return if (reference != null && projected.toByteArray().size > MAX_INLINE_BYTES) {
+            // Offsets and preview always address the saved original, never the transformed envelope.
+            largePayload(payload, reference)
+        } else {
+            projected
         }
+    }
+
+    @Suppress("ReturnCount") // Independent lossless fallbacks for unknown output formats.
+    private fun projectEnvelope(
+        name: String,
+        payload: String,
+    ): String {
         val excluded = omitted[name].orEmpty()
         if (excluded.isEmpty() && name != "code.javascript.run") return payload
         val document =
@@ -63,8 +76,10 @@ internal object ToolModelResult {
             IMPORTANT_FIELDS.forEach { key ->
                 val value = document?.get(key)
                 val bounded =
-                    if (value is JsonPrimitive && value.isString && value.content.length > 512) {
-                        JsonPrimitive(value.content.take(512) + "…")
+                    if (value is JsonPrimitive && value.isString &&
+                        value.content.codePointCount(0, value.content.length) > 512
+                    ) {
+                        JsonPrimitive(value.content.substring(0, value.content.offsetByCodePoints(0, 512)) + "…")
                     } else {
                         value
                     }
@@ -74,20 +89,25 @@ internal object ToolModelResult {
                     remaining -= bytes
                 }
             }
+            (document?.get("truncated") as? JsonPrimitive)?.booleanOrNull?.let { put("sourceTruncated", it) }
             put("truncated", true)
+            put("contentKind", "tool_result")
+            put("paginationScope", "result_body")
             put("resultRef", reference)
             put("readTool", ToolResultReadTool.NAME)
+            put("readHint", ToolResultReadTool.PAGINATION_HINT)
             put("totalCharacters", payload.codePointCount(0, payload.length))
             put("preview", payload.substring(0, payload.offsetByCodePoints(0, PREVIEW_CHARACTERS)))
             put("nextOffset", PREVIEW_CHARACTERS)
         }.toString()
     }
 
-    private const val MAX_INLINE_BYTES = 16_384
+    private const val MAX_INLINE_BYTES = 32_768
     private const val PREVIEW_CHARACTERS = 2048
     private val IMPORTANT_FIELDS =
         setOf(
             "state",
+            "status",
             "exitCode",
             "failureCode",
             "deliveryErrorCode",

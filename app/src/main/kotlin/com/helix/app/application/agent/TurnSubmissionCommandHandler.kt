@@ -213,7 +213,9 @@ internal class TurnSubmissionCommandHandler(
         val selectedControl = sessionRunControls.ensure(sessionId, clock.now().toEpochMilli())
         val control = controlOverride ?: selectedControl
         val sourceText = text ?: retryTurnId?.let { admissionFacts.retryText(sessionId, it) }
-        val manualCompaction = sourceText == com.helix.core.agent.ContextCommands.COMPACT
+        val manualCompaction =
+            com.helix.core.agent.ContextCommands
+                .parseCompact(sourceText) != null
         // The Room read runs OUTSIDE the gate: a suspend point must never be reached while holding the monitor.
         val providerConfig =
             try {

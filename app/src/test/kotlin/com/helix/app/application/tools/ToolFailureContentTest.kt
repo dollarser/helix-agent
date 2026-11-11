@@ -35,7 +35,7 @@ class ToolFailureContentTest {
         val payload =
             kotlinx.serialization.json
                 .buildJsonObject {
-                    put("stdout", kotlinx.serialization.json.JsonPrimitive("a".repeat(20000)))
+                    put("stdout", kotlinx.serialization.json.JsonPrimitive("a".repeat(40000)))
                     put("state", kotlinx.serialization.json.JsonPrimitive("FAILED"))
                     put("exitCode", kotlinx.serialization.json.JsonPrimitive(7))
                     put("jobId", kotlinx.serialization.json.JsonPrimitive("original"))

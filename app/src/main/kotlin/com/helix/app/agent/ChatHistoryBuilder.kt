@@ -294,7 +294,8 @@ private fun parseToolResult(
         null
     }
 
-// Keep platform delivery facts in the actual model message, not just the persisted UI envelope.
+// Keep actionable delivery facts in the model message. The payload hash stays in durable audit data;
+// it is not a file version, source identity, or evidence that an external effect succeeded.
 private val TOOL_DELIVERY_FIELDS =
     setOf(
         "callRef",
@@ -303,5 +304,4 @@ private val TOOL_DELIVERY_FIELDS =
         "sideEffectFree",
         "requiresReview",
         "executorPayloadTruncated",
-        "executorOutputHash",
     )

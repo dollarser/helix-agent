@@ -9,7 +9,7 @@ data class ConversationIntents(
     val onSend: () -> Unit,
     val onStop: () -> Unit,
     val onStopTurn: ((String) -> Unit)? = null,
-    val onCompact: () -> Unit = {},
+    val onCompact: (String?) -> Unit = {},
     val onLoadOlderMessages: () -> Unit = {},
     val onRefreshConversation: () -> Unit = {},
     val onShowLatestMessages: () -> Unit = {},

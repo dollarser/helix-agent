@@ -16,6 +16,25 @@ import org.junit.Test
 class ChatToolDeliveryFactsTest {
     private val encoder = ChatToolMessageEncoder { _, _ -> "cancelled" }
 
+    @Test fun modelHistoryOmitsAuditHashButRetainsFileVersionAndDeliveryTruth() {
+        val result = BoundToolResult("""{"sha256":"file-version","text":"body"}""", Sha256("a".repeat(64)), true, 1)
+        val draft = encoder.toolResultDraft(SettledCall("wire", "read", ToolDispatchOutcome.Succeeded(result), "t/c"))
+        assertTrue(draft.content.contains("executorOutputHash"))
+        val history =
+            com.helix.app.agent.ChatHistoryBuilder
+                .toModelMessagesStrict(
+                    listOf(
+                        com.helix.app.agent.ChatHistoryBuilder
+                            .PersistedRow("t", "TOOL", draft.kind, draft.content),
+                    ),
+                ).single()
+                .text
+        assertFalse(history.contains("executorOutputHash"))
+        assertTrue(history.contains("file-version"))
+        assertTrue(history.contains("\"executorPayloadTruncated\":true"))
+        assertTrue(history.contains("\"callRef\":\"t/c\""))
+    }
+
     @Test fun savedResultAndSeparateLogIdentitySurviveTheModelHistoryPath() {
         val page = ToolResultReadTool.page("original/call", "{\"exitCode\":7}", 0, "bash")
         val result = BoundToolResult(page.toString(), Sha256("b".repeat(64)), false, 1)

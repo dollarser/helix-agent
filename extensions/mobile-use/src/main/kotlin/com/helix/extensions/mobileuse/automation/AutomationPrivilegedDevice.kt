@@ -63,6 +63,8 @@ fun AutomationSnapshotNode.privilegedFingerprint(): String =
             depth.toString(),
             className,
             text,
+            hintText,
+            isShowingHintText?.toString(),
             contentDescription,
             viewId,
             bounds.toString(),

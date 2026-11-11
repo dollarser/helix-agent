@@ -216,6 +216,42 @@ class ToolVisualFeedbackTest {
             )
         }
 
+    @Test fun viewImageWithTrustedScreenProvenanceUsesGrantForNetworkAndLocal() =
+        runBlocking {
+            for (local in listOf(false, true)) {
+                val fixture = Fixture()
+                if (local) fixture.destination = fixture.localConfig()
+                fixture.registerNativeScreen()
+                val first =
+                    kotlinx.coroutines.withTimeout(
+                        1000,
+                    ) { fixture.restore(config = fixture.destination).single() }
+                assertEquals("view_image", first.toolName!!.value)
+                assertEquals(1, first.images.size)
+                assertTrue(
+                    fixture.consent.pending.value
+                        .isEmpty(),
+                )
+                assertTrue(
+                    first.images
+                        .single()
+                        .binding!!
+                        .consentId!!
+                        .startsWith("mobile-screen-consent-"),
+                )
+                fixture.phoneScope = null
+                val denied =
+                    kotlinx.coroutines.withTimeout(
+                        1000,
+                    ) { fixture.restore(config = fixture.destination).single() }
+                assertTrue(denied.images.isEmpty())
+                assertTrue(
+                    fixture.consent.pending.value
+                        .isEmpty(),
+                )
+            }
+        }
+
     @Test fun mobileStartConsentFeedsPixelsAndStopsOnGrantLoss() =
         runBlocking {
             val fixture = Fixture()

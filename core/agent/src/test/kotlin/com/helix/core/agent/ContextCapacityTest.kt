@@ -60,7 +60,7 @@ class ContextCapacityTest {
         )
     }
 
-    @Test fun summaryAdmissionAccountsForMeasuredScaleAndKeepsSoftFallbackPossible() {
+    @Test fun summaryAdmissionUsesFullSummaryOutputAndMeasuredScale() {
         val request =
             com.helix.core.model.ModelRequest(
                 "fixture",
@@ -70,26 +70,24 @@ class ContextCapacityTest {
                 ),
                 maxOutputTokens = 256,
             )
-        val budgets =
-            com.helix.core.model
-                .TurnBudgets(maxOutputTokens = 256)
         val estimate = ModelInputEstimate.of(request).total
-        assertNull(ContextCapacity.forSummary(request, estimate, estimate, budgets, 1024))
+        assertNull(ContextCapacity.forSummary(request, estimate, estimate, 1024))
         assertNull(
             ContextCapacity.forSummary(
                 request,
                 estimate,
                 estimate,
-                budgets.copy(maxOutputTokens = 1),
                 1024,
             ),
         )
         assertEquals(
             "CONTEXT_WINDOW_LIMIT",
-            ContextCapacity.forSummary(request, estimate * 10, estimate, budgets, 1024),
+            ContextCapacity.forSummary(request, estimate * 10, estimate, 1024),
         )
-        assertNull(ContextCapacity.withoutSummary(false, "CONTEXT_SEGMENT_LIMIT", null))
-        assertEquals("CONTEXT_SEGMENT_LIMIT", ContextCapacity.withoutSummary(true, "CONTEXT_SEGMENT_LIMIT", null))
+        assertEquals(
+            "CONTEXT_WINDOW_LIMIT",
+            ContextCapacity.forSummary(request.copy(maxOutputTokens = 1000), estimate, estimate, 1024),
+        )
     }
 
     @Test fun utf8CountingMatchesJvmIncludingUnpairedSurrogates() {

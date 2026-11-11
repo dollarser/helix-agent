@@ -53,8 +53,6 @@ internal class ChatToolMessageEncoder(
         when (val o = settled.outcome) {
             is ToolDispatchOutcome.Succeeded -> {
                 status = "SUCCEEDED"
-                // Mainline key-stripping (file tools) and the branch's structured test line
-                // (exec tools) are disjoint by tool name; composing them keeps both.
                 summary =
                     withTestSummary(
                         settled.toolName,
@@ -127,9 +125,9 @@ internal class ChatToolMessageEncoder(
     ) = with(builder) {
         settled.resultReference?.let {
             put("callRef", it)
-            if (settled.toolName in setOf("bash", "code.linux.run", "skills.run", "code.linux.job.start")) {
+            if (settled.toolName in ToolResultContract.capturedLogTools) {
                 put("logRef", it)
-                put("logReadTool", "code.linux.job.read_log")
+                put("logReadTool", ToolResultContract.LOG_READ_TOOL)
             }
         }
         when (val outcome = settled.outcome) {
@@ -159,12 +157,9 @@ internal class ChatToolMessageEncoder(
         toolName: String,
         payload: String,
     ): String =
-        if (toolName in EXEC_TOOLS) {
+        if (toolName in ToolResultContract.executionTools) {
             TestRunResult.parse(payload)?.let { "$payload\n${it.line}" } ?: payload
         } else {
             payload
         }
 }
-
-// The exec tools whose output may carry a test/build summary (research doc section 44).
-private val EXEC_TOOLS = setOf("bash", "code.linux.run", "skills.run")

@@ -708,3 +708,34 @@ AndroidWorld 文件选择失败在独立 API33 模拟器复现：无障碍坐标
 同名、重叠的可交互节点输出有界 `ancestorContexts`，只包含真实祖先类型、资源及可见标签；保留多个候选供调用者结合当前状态选择，不按树序、绘制序或坐标自动选择或重定位。上下文最多两层标签集合、每组四项、每项 96 字符。`longClick` 将已观察节点或可用祖先的标准能力关联到 `ui.long_click` 与当前 token，语义工具及手势工具发现同时提供该工具。它只改善发现和调用参数，不授予权限、不自动从坐标动作切换或重放。
 
 回归应覆盖超过原 200 节点的后段操作栏、超过新采集额度的真实截断、输出字节／节点限制、缺子节点及字段／深度限制、不可见目标拒绝、重复菜单的上下文和真实菜单结果。主机、隔离模拟器、实际模型整项任务分别报告；单次工具链菜单成功不代替模型文件移动完成。平台事实参考 [AccessibilityNodeInfo](https://developer.android.com/reference/android/view/accessibility/AccessibilityNodeInfo)，不复制代码或增加依赖。
+
+### Decision history — 2026-11-09：六个滚动方向统一按当前动作能力准入
+
+文件列表到达末端后只公布 backward，调用者仍请求 forward；此前 forward/backward 分支仅检查 enabled 与 scrollable，随后平台返回 false，被保守映射为需要复核的不确定失败。与上下左右四方向相比，这是派发前能力检查遗漏。现六个方向统一要求当前节点明确公布对应标准 action；不能从 scrollable 推断任意方向，也不能把 forward/backward 自动翻译成物理上下左右。原 token、窗口／路径／指纹、授权、取消和动作消耗约束保持，能力改变仍使原令牌失效。
+
+当前节点没有请求的方向时，返回已有 ACTION_NOT_SUPPORTED，确认为本次未派发，sideEffectFree=true、requiresReview=false，调用者可依据新观察选择下一步；不自动反向滚动、重试或更换后端。能力检查不依赖具体应用或评测名称。
+
+进入平台后返回 false 或抛出异常继续保留 ACTION_FAILED／ACTION_OUTCOME_UNKNOWN 的不确定语义。有限只读后置观察可以展示当前画面，但画面变化未必由本次动作造成，画面不变也不能证明没有外部效果；因此不能仅凭稳定快照把这些结果升级为成功、无副作用或自动解除复核。已确认平台接受的滚动仍使用现有有界后置观察，并明确效果 UNVERIFIED。回归须同时覆盖派发前方向拒绝、正常反向滚动、能力失效，以及控件实际改变视口后返回 false 的情况；验收不把普通失败或截图稳定一概视为成功。公开能力契约参考 [Android AccessibilityAction](https://developer.android.com/reference/android/view/accessibility/AccessibilityNodeInfo.AccessibilityAction)，不复制实现或增加依赖。
+
+### Decision history — 2026-11-09：已授权截图的同内容重读
+
+同 Conversation 内，`view_image` 读取可信原生截图的相同字节时，可以继承仍有效的原屏幕共享范围，不因生成独立归一化 artifact 再次索取相同内容授权。继承由宿主计算实际内容身份并核对可信来源、会话和原范围；文件名或模型声明不构成来源，普通文件权限与最终像素物化的撤权检查仍适用。具体来源登记、失配处理和消息绑定见 [ADR-AGENT-011 的同会话截图内容继承决定](../agent/011-tool-multimodal-vision-feedback.md#decision-history--2026-11-09同会话截图内容的可信来源继承)。已有精确 Turn 的图片等待提示保持，不新增审批或等待状态。
+
+### Decision history — 2026-11-09：后置观测预览的截断事实
+
+动作后附带观察继续保留 32 节点／12 KiB 输出预算。再次裁剪必须同步 nodes、returnedNodeCount、truncated 与去重后的 OUTPUT_LIMIT，保留 capturedNodeCount 和原采集截断原因，不把输出裁剪解释为原始树完整。ATTACHED 只表示观察附带成功，不证明动作效果或列表完整；有截断时，工具返回和技能明确提示通过 ui.snapshot／ui.find 补充相关证据，再判断不存在、数量或唯一性。不自动重放、不增加评测专用拦截、不更改节点去重或官方判分。现场保存的结果没有同次裁剪前全树，因此只确认元数据不一致，不能断言每个未见条目都曾被采集。分页结果正文与采集完整性分别按 [ADR-AGENT-006](../agent/006-model-data-budget-boundaries.md) 处理。
+
+### 2026-11-10：编辑值与占位提示分离
+
+Android `AccessibilityNodeInfo.text` 可能是空编辑框正在显示的提示，不能把 `ACTION_SET_TEXT("")` 后 text 仍为提示认定为清空失败。采集保留原生 text 供显示/查找，另读取当前最低支持 API 29 已具备的原生 hintText、isShowingHintText，并贯通截图外的语义快照、动作后预览、特权 Parcel 和目标 fingerprint。依据 [Android 官方 isShowingHintText 契约](https://developer.android.com/reference/android/view/accessibility/AccessibilityNodeInfo#isShowingHintText())，已暴露的编辑值 `editableValue` 在 editable 且 showingHint=true 时明确为空；showingHint=false 且原生 text 非 null 时为原生文本。标志未知或原生值缺失时不编造空值，文本恰好等于 hint 不足以判断空值。紧凑预览保留显式空 editableValue 和 false 状态，密码/受保护节点不输出提示或值；hint 同样受字段、整体字符与输出预算限制。真假提示变化进入两种语义 fingerprint，不能仅因显示字符串相同就复用目标。
+
+后续模型对照仍把 text 中的占位提示误判为已输入值。因此模型输出投影在 editable 且 showingHint=true 时将 text 与 editableValue 一致表示为空，提示只放 hintText；紧凑投影保留这个显式空值。原始采集、匹配和 fingerprint 仍保留平台 text，非编辑节点、未知提示状态和真实输入等于提示时均不做该变换。该变化消除模型输入中的歧义，不宣称模型一定会主动清空真实存在的默认扩展名。
+
+这是平台暴露的字段语义，不是对文件保存结果的判分；应用保存时是否自动添加扩展名仍需独立终态观察。无应用包名、扩展名或评测题专用分支，不更改 SET_TEXT 的空串派发。内部协议版本仍为 1，当前所有 Parcel 读写端同时更新，不保留旧格式兼容链。
+
+
+### Decision history — 2026-11-10：等待条件与返回节点范围分离
+
+`ui.wait` 与 `ui.find` 一致，在返回节点限额前保留 `matchCount`，用 `ambiguous` 表达多个匹配，用 `truncated` 表达采集或查询返回受限。等待结果同时提供 `returnedNodeCount`、`maxResults`、`captureTruncated` 与 `queryTruncated`，区分整树采集不完整和完整采集上的节点返回限额；默认返回 20、最多 50 个节点。未完成条件求值的超时／拒绝结果不伪造匹配计数。真实采集截断时计数只代表已采集范围，不证明全屏唯一或不存在。
+
+`changed`／`stable` 仍基于全部匹配节点（空选择器为整树）判断，查询返回受限不改变条件状态；真实采集截断仍阻止 absent／changed／stable 成立。仅完整候选结果可生成唯一点击建议，多个标签共享同一可点祖先的既有语义保留。查询返回受限时提示收窄选择器或观察快照，不引入分页、自动点击、操作禁令或放宽 token 新鲜度、遮挡、取消和授权边界。

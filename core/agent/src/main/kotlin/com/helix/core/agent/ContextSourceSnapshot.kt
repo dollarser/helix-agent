@@ -58,7 +58,6 @@ interface ContextCompactionSource {
 
     suspend fun plan(
         request: TurnContextRequest,
-        control: RunControlConfig,
         settings: com.helix.provider.api.ProviderContextSettings,
         force: Boolean,
         inputScale: Double,

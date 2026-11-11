@@ -37,7 +37,9 @@
     <string name="context_materialization_limit">Conversation content exceeds the on-device preparation limit. Start a new conversation with the necessary references; the original history is preserved.</string>
     <string name="context_not_compactable">暂无可压缩的较早完整轮次，近期对话将保持原文。</string>
     <string name="context_segment_limit">A complete history or tool step is too large to summarize within the current limits. Adjust the context/input limit or start a new conversation with references to large results. History is preserved.</string>
-    <string name="context_summary_invalid">压缩未生成有效摘要，原始历史已保留。</string>
+    <string name="context_summary_no_gain">压缩未减少上下文，原始历史已保留。请重试压缩，或选择上下文窗口更大的模型。</string>
+    <string name="context_summary_output_limit">摘要达到本次输出上限，原始历史已保留。请重试压缩；若仍失败，可更换模型。</string>
+    <string name="context_summary_invalid">压缩未生成有效摘要，原始历史已保留。请重试压缩。</string>
     <string name="context_window_limit">保留内容仍超过模型窗口，请新建会话或减少当前输入。</string>
     <string name="data_category_accessibility">Accessibility 内容</string>
     <string name="data_category_browser">浏览器页面内容</string>

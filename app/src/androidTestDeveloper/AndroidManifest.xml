@@ -3,6 +3,10 @@
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <application>
+        <activity android:name="com.helix.app.eval.EditableHintFixtureActivity" android:exported="true" android:theme="@android:style/Theme.Material.Light.NoActionBar" />
+        <activity android:name="com.helix.app.eval.RecordIdentityFixtureActivity" android:exported="true" android:theme="@android:style/Theme.Material.Light.NoActionBar" />
+        <provider android:name="com.helix.app.eval.RecordIdentityFixtureActivity$StateProvider" android:authorities="${applicationId}.record-identity" android:exported="true" />
+        <activity android:name="com.helix.app.eval.ScrollBoundaryFixtureActivity" android:exported="true" android:theme="@android:style/Theme.Material.Light.NoActionBar" />
         <activity android:name="com.helix.app.eval.MobileInteractionFixtureActivity" android:exported="true" android:theme="@android:style/Theme.Material.Light.NoActionBar" />
         <provider android:name="com.helix.app.eval.MobileInteractionFixtureActivity$StateProvider" android:authorities="${applicationId}.mobile-interaction" android:exported="true" />
         <activity android:name="com.helix.app.eval.DynamicCoordinateFixtureActivity" android:exported="true" android:theme="@android:style/Theme.Material.Light.NoActionBar" />

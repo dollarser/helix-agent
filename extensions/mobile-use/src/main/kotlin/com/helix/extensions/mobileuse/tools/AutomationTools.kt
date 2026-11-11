@@ -23,6 +23,7 @@ import com.helix.extensions.mobileuse.automation.AutomationSnapshotStatus
 import com.helix.extensions.mobileuse.automation.AutomationTextMatch
 import com.helix.extensions.mobileuse.automation.AutomationToolPort
 import com.helix.extensions.mobileuse.automation.AutomationWaitCondition
+import com.helix.extensions.mobileuse.automation.AutomationWaitResult
 import com.helix.extensions.mobileuse.automation.AutomationWaitStatus
 import com.helix.extensions.mobileuse.automation.AutomationWaiter
 import com.helix.extensions.mobileuse.automation.SnapshotTruncationReasons
@@ -225,9 +226,10 @@ class AutomationTools(
             AutomationWaitCondition.valueOf(
                 (call.args["condition"]?.jsonPrimitive?.contentOrNull ?: "present").uppercase(java.util.Locale.ROOT),
             )
+        val query = query(call.args)
         val result =
             AutomationWaiter().waitFor(
-                query(call.args),
+                query,
                 minOf(requested, available),
                 java.time.Duration.ofMillis(optionalInt(call.args, "pollMillis", 100).toLong()),
                 condition,
@@ -257,7 +259,6 @@ class AutomationTools(
                         .orEmpty()
                         .associateBy { it.token }
                 put("nodes", JsonArray(result.matches.map { AutomationNodeJson.full(it, nodeIndex) }))
-                putClickSuggestion(result.matches, nodeIndex)?.forEach { (key, value) -> put(key, value) }
                 if (result.status == AutomationWaitStatus.TIMED_OUT) {
                     put(
                         "recoveryHint",
@@ -270,9 +271,45 @@ class AutomationTools(
                     )
                 }
                 observation?.let { recoveryJson(it).forEach { (key, value) -> put(key, value) } }
+                waitScopeJson(result, query, nodeIndex).forEach { (key, value) -> put(key, value) }
             },
         )
     }
+
+    private fun waitScopeJson(
+        result: AutomationWaitResult,
+        query: AutomationFindQuery,
+        nodeIndex: Map<String, AutomationSnapshotNode>,
+    ): JsonObject =
+        buildJsonObject {
+            val observation = result.observation
+            put("returnedNodeCount", JsonPrimitive(result.matches.size))
+            put("maxResults", JsonPrimitive(query.maxResults))
+            observation?.snapshot?.let {
+                put("captureTruncated", JsonPrimitive(it.truncated))
+                put("observedAtMillis", JsonPrimitive(it.createdAt.toEpochMilli()))
+            }
+            result.matchCount?.let { count ->
+                val queryTruncated = count > query.maxResults
+                val truncated = observation?.snapshot?.truncated == true || queryTruncated
+                put("matchCount", JsonPrimitive(count))
+                put("ambiguous", JsonPrimitive(count > 1))
+                put("queryTruncated", JsonPrimitive(queryTruncated))
+                put("truncated", JsonPrimitive(truncated))
+                if (!truncated) {
+                    putClickSuggestion(result.matches, nodeIndex)?.forEach { (key, value) -> put(key, value) }
+                }
+                if (queryTruncated && observation?.snapshot?.truncated != true) {
+                    put(
+                        "recoveryHint",
+                        JsonPrimitive(
+                            "Returned nodes are limited by maxResults; the wait condition used all matching nodes. " +
+                                "Narrow the selector with ui.find or inspect ui.snapshot for more context.",
+                        ),
+                    )
+                }
+            }
+        }
 
     private fun find(
         result: AutomationSnapshotResult,
@@ -622,7 +659,15 @@ class AutomationTools(
                 "match" to str(8),
                 "checkable" to bool(),
                 "checked" to bool(),
-                "maxResults" to integer(1, 50),
+                "maxResults" to
+                    JsonObject(
+                        integer(1, 50) +
+                            mapOf(
+                                "default" to JsonPrimitive(20),
+                                "description" to
+                                    JsonPrimitive("Returned node limit; wait conditions use all captured matches."),
+                            ),
+                    ),
             )
         fields["scrollable"] = bool()
         fields["editable"] = bool()
@@ -674,6 +719,10 @@ class AutomationTools(
                 "backend" to str(16),
                 "nodes" to array(nodeSchema(), 50),
                 "matchCount" to integer(0),
+                "returnedNodeCount" to integer(0),
+                "maxResults" to integer(1, 50),
+                "captureTruncated" to bool(),
+                "queryTruncated" to bool(),
                 "ambiguous" to bool(),
                 "observedAtMillis" to integer(0),
                 "capturedNodeCount" to integer(0),

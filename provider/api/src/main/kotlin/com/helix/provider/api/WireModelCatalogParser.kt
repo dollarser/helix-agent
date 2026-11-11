@@ -3,8 +3,10 @@ package com.helix.provider.api
 import com.helix.core.model.ModelErrorCode
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.longOrNull
 
 internal object WireModelCatalogParser {
     /**
@@ -28,47 +30,55 @@ internal object WireModelCatalogParser {
                 false,
             )
         }
-        val collected = ArrayList<String>()
-        val purposes = linkedMapOf<String, Set<ModelPurpose>>()
-        var problem: String? = (parsed as? ModelListParse.Problem)?.detail
-        if (parsed is ModelListParse.Ok) {
-            for (entry in parsed.data) {
-                val text = (entry as? JsonObject)?.get("id")?.let { (it as? JsonPrimitive)?.content }
-                if (text == null) {
-                    problem = "model entry has no id string"
-                    break
-                }
-                collected += text
-                purposes[text] =
-                    if (outputModalitiesOnly) {
-                        ModelPurposes.outputModalities(entry as JsonObject)
-                    } else {
-                        ModelPurposes.parse(entry as JsonObject)
-                    }
-            }
-        }
-        return when {
-            problem != null -> {
-                ModelCatalogResult.Failed(
-                    ModelErrorCode.PROTOCOL,
-                    boundedDetail(problem),
-                    retryable = false,
-                )
+        return when (parsed) {
+            is ModelListParse.Problem -> {
+                ModelCatalogResult.Failed(ModelErrorCode.PROTOCOL, boundedDetail(parsed.detail), false)
             }
 
-            else -> {
-                try {
-                    ModelCatalogResult.Listed(collected, purposes.filterValues { it.isNotEmpty() })
-                } catch (e: IllegalArgumentException) {
-                    ModelCatalogResult.Failed(
-                        ModelErrorCode.PROTOCOL,
-                        boundedDetail("model list violates bounds: ${e.message}"),
-                        retryable = false,
-                    )
-                }
+            is ModelListParse.Ok -> {
+                parseEntries(parsed.data, outputModalitiesOnly)
             }
         }
     }
+
+    private fun parseEntries(
+        entries: JsonArray,
+        outputModalitiesOnly: Boolean,
+    ): ModelCatalogResult =
+        try {
+            val collected = ArrayList<String>()
+            val purposes = linkedMapOf<String, Set<ModelPurpose>>()
+            val outputLimits = linkedMapOf<String, Long>()
+            for (value in entries) {
+                val entry = requireNotNull(value as? JsonObject) { "model entry is not an object" }
+                val id = entry["id"] as? JsonPrimitive
+                require(id != null && id.isString) { "model entry has no id string" }
+                val text = id.content
+                declaredOutputLimit(entry)?.let { outputLimits[text] = it }
+                collected += text
+                purposes[text] =
+                    if (outputModalitiesOnly) ModelPurposes.outputModalities(entry) else ModelPurposes.parse(entry)
+            }
+            ModelCatalogResult.Listed(collected, purposes.filterValues { it.isNotEmpty() }, outputLimits)
+        } catch (error: IllegalArgumentException) {
+            ModelCatalogResult.Failed(
+                ModelErrorCode.PROTOCOL,
+                boundedDetail("model list violates bounds: ${error.message}"),
+                false,
+            )
+        }
+
+    /** Only explicit single-response caps, never context capacity or inferred model defaults. */
+    private fun declaredOutputLimit(entry: JsonObject): Long? =
+        listOf("max_output_tokens", "max_completion_tokens")
+            .mapNotNull { key ->
+                val value = entry[key]?.takeUnless { it == JsonNull } ?: return@mapNotNull null
+                val number = value as? JsonPrimitive
+                require(number != null && !number.isString)
+                requireNotNull(number.longOrNull).also {
+                    require(it in 1..ProviderCapabilities.MAX_CONTEXT_BOUND)
+                }
+            }.minOrNull()
 }
 
 private sealed interface ModelListParse {

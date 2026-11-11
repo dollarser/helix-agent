@@ -1,10 +1,8 @@
 package com.helix.core.agent
 
-import com.helix.core.model.AgentMode
 import com.helix.core.model.ModelMessage
 import com.helix.core.model.ModelRole
 import com.helix.core.model.ReasoningEffort
-import com.helix.core.model.TurnBudgets
 import com.helix.provider.api.ProviderContextSettings
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -15,7 +13,6 @@ import org.junit.Test
 
 class PromptContentProjectionTest {
     private val settings = ProviderContextSettings(manualWindow = 1024, autoCompact = false)
-    private val control = RunControlConfig(AgentMode.ACT, true, TurnBudgets(maxOutputTokens = 128))
 
     private fun request(
         optional: String,
@@ -127,7 +124,6 @@ class PromptContentProjectionTest {
 
                     override suspend fun plan(
                         request: TurnContextRequest,
-                        control: RunControlConfig,
                         settings: ProviderContextSettings,
                         force: Boolean,
                         inputScale: Double,
@@ -152,7 +148,6 @@ class PromptContentProjectionTest {
                 ContextCompactionRound(
                     source,
                     ContextSummaryFormat("Summarize.", "Facts."),
-                    control,
                     settings,
                     false,
                 )
@@ -174,7 +169,6 @@ class PromptContentProjectionTest {
 
                     override suspend fun plan(
                         request: TurnContextRequest,
-                        control: RunControlConfig,
                         settings: ProviderContextSettings,
                         force: Boolean,
                         inputScale: Double,
@@ -184,7 +178,6 @@ class PromptContentProjectionTest {
                 ContextCompactionRound(
                     source,
                     ContextSummaryFormat("Summarize.", "Facts."),
-                    control,
                     settings,
                     false,
                 )

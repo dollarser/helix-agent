@@ -220,7 +220,12 @@ public abstract class WireModelProvider(
         return ModelCatalogDiscovery.fetch(wire, wireUrl(path), headersFor()).also { result ->
             discoveredMetadata =
                 if (result is ModelCatalogResult.Listed) {
-                    result.purposes.mapValues { ModelMetadata(purposes = it.value) }
+                    result.models.associateWith { id ->
+                        ModelMetadata(
+                            purposes = result.purposes[id].orEmpty(),
+                            maxOutputTokens = result.outputLimits[id],
+                        )
+                    }
                 } else {
                     emptyMap()
                 }

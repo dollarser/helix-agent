@@ -26,7 +26,20 @@ class SnapshotTruncationParcelDeviceTest {
                 false,
                 true,
             )
-        val nodes = (1..NodeTokenRegistry.MAX_TOKENS).map { base.copy(token = "token$it", visibleToUser = it % 2 == 0) }
+        val nodes =
+            (1..NodeTokenRegistry.MAX_TOKENS).map {
+                base.copy(
+                    token = "token$it",
+                    visibleToUser = it % 2 == 0,
+                    hintText = ".ext",
+                    isShowingHintText =
+                        when (it % 3) {
+                            0 -> null
+                            1 -> true
+                            else -> false
+                        },
+                )
+            }
         val snapshot = AutomationSnapshot("synthetic.fixture", 7, 1, Instant.EPOCH, nodes, false)
         val parcel = Parcel.obtain()
         try {
@@ -63,7 +76,14 @@ class SnapshotTruncationParcelDeviceTest {
                 false,
                 true,
             )
-        val cases = listOf(listOf(base.copy(text = "x".repeat(257))), List(260) { base.copy(token = "t$it") })
+        val cases =
+            listOf(
+                listOf(base.copy(text = "x".repeat(257))),
+                listOf(base.copy(hintText = "h".repeat(257))),
+                List(260) {
+                    base.copy(token = "t$it")
+                },
+            )
         for (nodes in cases) {
             val parcel = Parcel.obtain()
             try {

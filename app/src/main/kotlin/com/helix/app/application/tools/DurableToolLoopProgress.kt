@@ -91,14 +91,7 @@ internal class DurableToolLoopProgress(
                         if (fact != null) return@map fact
                     }
                     val denied = call.state in setOf("DENIED", "FAILED") && result?.status in setOf("DENIED", "FAILED")
-                    val stableRead =
-                        descriptor?.operationClass == ToolOperationClass.READ_ONLY &&
-                            descriptor.idempotency == Idempotency.IDEMPOTENT &&
-                            descriptor.requiredCapabilities
-                                .intersect(
-                                    setOf(Capability.ACCESSIBILITY_AUTOMATION, Capability.MOBILE_USE),
-                                ).isEmpty() &&
-                            call.state == "COMPLETED" && result?.verified == true
+                    val stableRead = stableRead(descriptor, call, result)
                     ToolLoopProgress.Fact(
                         if (result == null || (!denied && !stableRead)) {
                             null
@@ -114,7 +107,46 @@ internal class DurableToolLoopProgress(
                         },
                     )
                 }
-            return ToolLoopProgress.evaluateFacts(observations)
+            val exact = ToolLoopProgress.evaluateFacts(observations)
+            if (exact != ToolLoopProgress.Decision.CONTINUE) return exact
+            val workflow = workflow(calls, resultFor, descriptorFor)
+            return if (ToolLoopProgress.repeatingObservationWorkflow(workflow)) {
+                ToolLoopProgress.Decision.REASSESS
+            } else {
+                ToolLoopProgress.Decision.CONTINUE
+            }
         }
+
+        private fun stableRead(
+            descriptor: ToolDescriptor?,
+            call: ToolCallEntity,
+            result: ToolResultEntity?,
+        ): Boolean =
+            descriptor?.operationClass == ToolOperationClass.READ_ONLY &&
+                descriptor.idempotency == Idempotency.IDEMPOTENT &&
+                descriptor.requiredCapabilities
+                    .intersect(
+                        setOf(Capability.ACCESSIBILITY_AUTOMATION, Capability.MOBILE_USE),
+                    ).isEmpty() && call.state == "COMPLETED" && result?.verified == true
+
+        private fun workflow(
+            calls: List<ToolCallEntity>,
+            resultFor: (String) -> ToolResultEntity?,
+            descriptorFor: (String, String) -> ToolDescriptor?,
+        ): List<ToolLoopProgress.WorkflowStep?> =
+            calls.takeLast(ToolLoopProgress.WINDOW).map { call ->
+                val descriptor = descriptorFor(call.name, call.version)
+                val result = resultFor(call.id)
+                if (call.state != "COMPLETED" || result?.verified != true ||
+                    descriptor?.requiredCapabilities?.contains(Capability.MOBILE_USE) != true
+                ) {
+                    null
+                } else {
+                    ToolLoopProgress.WorkflowStep(
+                        "${call.name}:${call.version}",
+                        descriptor.operationClass == ToolOperationClass.READ_ONLY || call.name == "ui.screenshot",
+                    )
+                }
+            }
     }
 }

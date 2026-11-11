@@ -15,7 +15,6 @@ class ContextCompiler(
     fun plan(
         snapshot: ContextSourceSnapshot,
         request: TurnContextRequest,
-        control: RunControlConfig,
         settings: ProviderContextSettings,
         force: Boolean,
         inputScale: Double = 1.0,
@@ -25,46 +24,49 @@ class ContextCompiler(
         val previous = snapshot.checkpoint
         val history = snapshot.rows
         val selected = mutableListOf<ContextSourceRow>()
-        val prefix = StringBuilder()
-        previous?.let { prefix.append(summaries.summaryMessage(it).text).append('\n') }
-        val summaryOutput =
-            SummaryOutputBudget.forRequest(
-                request.inputTokens(),
-                control.budgets.maxOutputTokens,
-                settings.window,
-            )
-        val inputLimit = compactionInputLimit(settings, summaryOutput, inputScale)
+        val previousSummary = previous?.let { summaries.summaryMessage(it).text + "\n" }.orEmpty()
+        val historyBody = StringBuilder()
+        var taskContext = ContextSummaryTaskContext.serialize(snapshot, emptyList())
+        val contextTurns = mutableSetOf(snapshot.currentTurnId)
+        val focus = ContextCommands.parseCompact(request.messages.lastOrNull())?.focus
+        val envelope = summaries.summaryMessages("", 128L, focus)
+        val inputLimit = compactionInputLimit(settings, ModelInputEstimate.of(envelope, emptyList()).total, inputScale)
         var through: Long? = null
-        var prefixBytes = TokenEstimator.utf8Bytes(prefix.toString())
+        var historyBytes = TokenEstimator.utf8Bytes(previousSummary)
         for (turn in ContextSegments.candidates(history, snapshot.currentTurnId)) {
             val serialized = turn.joinToString("\n", transform = ::serializeRow)
             val groupBytes = TokenEstimator.utf8Bytes(serialized) + 1
+            val candidateContext = ContextSummaryTaskContext.update(snapshot, selected, turn, contextTurns, taskContext)
+            val contextBytes = TokenEstimator.utf8Bytes(candidateContext)
             val byteLimit =
                 minOf(
                     inputLimit * TokenEstimator.CONSERVATIVE_BYTES_PER_TOKEN,
                     ContextSourceSnapshot.MAX_BODY_BYTES.toLong(),
                 )
-            if (groupBytes > byteLimit - prefixBytes) {
+            if (groupBytes + contextBytes > byteLimit - historyBytes) {
                 if (selected.isEmpty()) throw ContextCapacityException("CONTEXT_SEGMENT_LIMIT")
                 break
             }
-            prefixBytes += groupBytes
-            prefix.append(serialized).append('\n')
+            historyBytes += groupBytes
+            taskContext = candidateContext
+            contextTurns.addAll(turn.mapNotNull { it.turnId })
+            historyBody.append(serialized).append('\n')
             selected.addAll(turn)
             through = maxOf(previous?.coveredThrough ?: 0, turn.last().sequence)
         }
         return through?.let { boundary ->
             val removed = selected.map { it.id }.toSet()
             val retained = ContextSegments.remainingRequest(snapshot, removed, request) ?: return null
-            val output =
-                SummaryOutputBudget.forRequest(
-                    (request.inputTokens() - retained.inputTokens()).coerceAtLeast(0),
-                    control.budgets.maxOutputTokens,
-                    settings.window,
-                )
             ContextCompactionPlan(
                 boundary,
-                output.modelRequest(request.model, prefix.toString(), summaries),
+                summaryRequest(
+                    request,
+                    retained,
+                    taskContext + previousSummary + historyBody,
+                    settings,
+                    inputScale,
+                    focus,
+                ),
                 retained,
                 history.filter { it.sequence <= boundary && it.id !in removed }.map { it.id }.toSet(),
                 request.inputTokens(),
@@ -72,28 +74,49 @@ class ContextCompiler(
         }
     }
 
+    private fun summaryRequest(
+        request: TurnContextRequest,
+        retained: TurnContextRequest,
+        history: String,
+        settings: ProviderContextSettings,
+        inputScale: Double,
+        focus: String?,
+    ): com.helix.core.model.ModelRequest {
+        val target =
+            ((request.inputTokens() - retained.inputTokens()).coerceAtLeast(0) / 8)
+                .coerceIn(128L, 4096L)
+        return SummaryOutputBudget.bound(
+            SummaryOutputBudget(target, 128L).modelRequest(request.model, history, summaries, focus),
+            settings.window,
+            inputScale,
+            settings.serverOutputLimit,
+        )
+    }
+
     private fun serializeRow(row: ContextSourceRow): String =
         buildJsonObject {
             put("id", row.id)
+            put("sequence", row.sequence)
             put("role", row.role)
             put("kind", row.kind)
             put("content", row.content.orEmpty())
             put("attachmentCount", row.attachmentCount)
+            if (row.attachmentCount > 0) put("attachmentContent", "not_included_in_summary_request")
         }.toString()
 
     private fun compactionInputLimit(
         settings: ProviderContextSettings,
-        output: SummaryOutputBudget,
+        envelopeInput: Long,
         inputScale: Double,
     ): Long {
-        val reserve = minOf(COMPACTION_ENVELOPE_RESERVE, settings.window / 4)
+        val reserve = SummaryOutputBudget.reserve(settings.window)
         return (
             minOf(
-                settings.window - output.allowance - reserve,
+                settings.window - 128L - reserve,
                 com.helix.provider.api.ProviderCapabilities.MAX_CONTEXT_BOUND - reserve,
             ) /
                 inputScale
-        ).toLong()
+        ).toLong() - envelopeInput
     }
 
     companion object {
@@ -233,8 +256,6 @@ class ContextCompiler(
                 jobObservationMessage = message,
             )
         }
-
-        private const val COMPACTION_ENVELOPE_RESERVE = 2048L
 
         fun needsPlan(
             request: TurnContextRequest,

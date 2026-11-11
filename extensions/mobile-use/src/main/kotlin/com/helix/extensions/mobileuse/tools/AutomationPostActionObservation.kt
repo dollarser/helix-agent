@@ -45,14 +45,19 @@ internal class AutomationPostActionObservation(
         if (read.observation?.containsKey("nodes") == true) {
             fields["nextObservation"] =
                 JsonPrimitive(
-                    "Read observation below; it may still be changing. Use fresh tokens; query again if needed.",
+                    if (read.observation["truncated"]?.jsonPrimitive?.content == "true") {
+                        "Observation incomplete. Use ui.snapshot or ui.find before absence, count or uniqueness claims."
+                    } else {
+                        "Read observation below; it may still be changing. Use fresh tokens; query again if needed."
+                    },
                 )
             fields["actionHint"] =
                 JsonPrimitive(
                     "Input dispatched; effect remains UNVERIFIED. Earlier tokens/frames are invalid. " +
                         "Read the attached observation and use only its fresh tokens for the next action. " +
-                        "Check truncated before assuming a target is absent. This state may still be loading; " +
-                        "verify the requested effect, and observe again if needed. " +
+                        "If truncated, use ui.snapshot/ui.find and check completeness " +
+                        "before absence/count/uniqueness claims. " +
+                        "Loading may continue; verify the effect. " +
                         "Never blindly replay an uncertain action.",
                 )
         }
@@ -152,16 +157,24 @@ internal class AutomationPostActionObservation(
                 observation +
                     mapOf(
                         "nodes" to JsonArray(selected),
+                        "returnedNodeCount" to JsonPrimitive(selected.size),
                         "truncated" to JsonPrimitive(true),
+                        "truncationReasons" to
+                            JsonArray(
+                                (observation["truncationReasons"]?.jsonArray.orEmpty() + JsonPrimitive("OUTPUT_LIMIT"))
+                                    .distinct(),
+                            ),
                         "recoveryHint" to
                             JsonPrimitive(
-                                "Post-action observation shortened. Use ui.find for a needed target; " +
-                                    "this replaces these tokens. " +
+                                "Post-action output is limited to 32 nodes / 12 KiB. " +
+                                    "Use ui.snapshot for a wider view or ui.find for a target; " +
+                                    "check completeness before absence/count/uniqueness claims. " +
+                                    "New reads replace these tokens. " +
                                     observation["recoveryHint"]
                                         ?.jsonPrimitive
                                         ?.content
                                         .orEmpty()
-                                        .take(350),
+                                        .take(300),
                             ),
                     ),
             )

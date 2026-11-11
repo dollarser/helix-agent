@@ -10,6 +10,8 @@ internal interface SnapshotNode {
     val windowId: Int
     val className: String?
     val text: String?
+    val hintText: String? get() = null
+    val isShowingHintText: Boolean? get() = null
     val contentDescription: String?
     val viewId: String?
     val bounds: AutomationNodeBounds
@@ -69,6 +71,8 @@ internal data class ObservedSnapshotNode(
     val checked: Boolean = false,
     val fieldTruncated: Boolean = false,
     val scrollDirections: Set<AutomationScrollDirection> = emptySet(),
+    val hintText: String? = null,
+    val isShowingHintText: Boolean? = null,
 )
 
 internal fun SnapshotNode.observe(): ObservedSnapshotNode {
@@ -83,6 +87,8 @@ internal fun SnapshotNode.observe(): ObservedSnapshotNode {
         windowId = windowId,
         className = bounded(className),
         text = bounded(text),
+        hintText = bounded(hintText),
+        isShowingHintText = isShowingHintText,
         contentDescription =
             bounded(contentDescription),
         viewId = bounded(viewId),
@@ -118,6 +124,8 @@ internal fun ObservedSnapshotNode.fingerprint(
             path.joinToString("."),
             className,
             text,
+            hintText,
+            isShowingHintText?.toString(),
             contentDescription,
             viewId,
             bounds.toString(),
@@ -258,6 +266,7 @@ internal class AutomationSnapshotEngine(
             }
             if (observed.fieldTruncated) state.truncate("FIELD_LIMIT")
             val text = state.bound(observed.text)
+            val hint = state.bound(observed.hintText)
             val description = state.bound(observed.contentDescription)
             val className = state.bound(observed.className)
             val viewId = state.bound(observed.viewId)
@@ -279,6 +288,8 @@ internal class AutomationSnapshotEngine(
                     depth = depth,
                     className = className,
                     text = text,
+                    hintText = hint,
+                    isShowingHintText = observed.isShowingHintText,
                     contentDescription = description,
                     viewId = viewId,
                     bounds = observed.bounds,

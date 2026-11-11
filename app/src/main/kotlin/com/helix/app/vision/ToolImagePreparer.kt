@@ -30,9 +30,9 @@ class ToolImagePreparer(
     private val artifactScope: String,
     private val temporaryRoot: File,
     private val clock: Clock,
-    private val visionAvailable: (String) -> Boolean,
+    private val visionAvailable: (String, String) -> Boolean,
     private val normalize: (Path, String, Path) -> NormalizationOutcome = ImageNormalizer::normalize,
-    private val turnVisionAvailable: ((String, String) -> Boolean)? = null,
+    private val inheritScreenImage: (ExecutableToolCall, String, String, VisualArtifact) -> Unit = { _, _, _, _ -> },
 ) : ToolVisualPreparation {
     private val decodeSlot = Semaphore(1, true)
 
@@ -44,7 +44,7 @@ class ToolImagePreparer(
         val session = call.sessionId ?: throw VisualPreparationException("SESSION_REQUIRED")
         val turn = call.turnId ?: throw VisualPreparationException("TURN_REQUIRED")
         if (storage.turns.resolve(turn).sessionId != session) throw VisualPreparationException("SESSION_MISMATCH")
-        if (!(turnVisionAvailable?.invoke(session, turn) ?: visionAvailable(session))) {
+        if (!visionAvailable(session, turn)) {
             throw VisualPreparationException("VISION_UNAVAILABLE")
         }
         val path = FileScopePath.fromModelReference(reference)
@@ -113,14 +113,18 @@ class ToolImagePreparer(
             )
         val artifact = requireNotNull(storage.artifacts.findBySessionAndPath(session, destination.toModelReference()))
         check(written.record.sha256 == normalized.sha256 && artifact.sha256 == normalized.sha256)
-        return VisualArtifact(
-            artifact.id,
-            artifact.sha256,
-            artifact.mediaType,
-            artifact.size,
-            normalized.width,
-            normalized.height,
-        )
+        val image =
+            VisualArtifact(
+                artifact.id,
+                artifact.sha256,
+                artifact.mediaType,
+                artifact.size,
+                normalized.width,
+                normalized.height,
+            )
+        checkActive(call)
+        inheritScreenImage(call, hash, type, image)
+        return image
     }
 
     private fun copyBounded(

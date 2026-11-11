@@ -130,21 +130,26 @@ class AutomationDeviceTools(
             descriptor(
                 SCREENSHOT,
                 ToolOperationClass.LOCAL_MUTATION,
-                obj(mapOf("frame" to screenshotFrameInput()), "frame"),
+                obj(
+                    mapOf(
+                        "frame" to screenshotFrameInput(),
+                        "count" to boundedInteger(1, 4),
+                        "intervalMillis" to boundedInteger(500, 3000),
+                    ),
+                    "frame",
+                ),
                 screenshotOutput(),
-                "Call ui.device first and copy its exact opaque frame value into frame; " +
-                    "if ui.device is not loaded, discover it with tools.search. " +
-                    "Capture that frame into a PNG artifact and the shared vision pipeline. " +
-                    "Root/ADB/Shizuku main-display capture needs whole-phone scope; " +
-                    "scoped main-window capture needs Accessibility API34+. " +
-                    "Protected surfaces can fail. " +
-                    "Pixels require a vision-capable model and existing disclosure. " +
-                    "width/height describe the PNG; imageWidth/imageHeight describe attached pixels. " +
-                    "screenX=left+x*(right-left)/imageWidth; screenY=top+y*(bottom-top)/imageHeight. " +
-                    "When this is a fallback after semantic targeting failed and the visual target is clear, " +
-                    "a visual gesture may work for custom-drawn controls. Missing nodes do " +
-                    "not prove sensitivity. Android can hide sensitive controls and reject " +
-                    "Accessibility touches; pixels do not remove that restriction.",
+                "Copy the exact frame from ui.device (discover it if needed). " +
+                    "Capture PNG through shared vision; pixels need a vision model and existing disclosure. " +
+                    "count=1 by default; count=2..4 samples on-device without model round trips, " +
+                    "waiting intervalMillis (500..3000, default 1000) after each capture, within 15s. " +
+                    "Multiple frames form an indexed observation-only sheet, with no gesture frame/mapping. " +
+                    "Sampling starts now; it cannot recover earlier video or audio. Times bracket capture requests. " +
+                    "Root/ADB/Shizuku main capture needs whole-phone scope; scoped Accessibility needs API34+. " +
+                    "Protected surfaces may fail. Single images: width/height are PNG size, imageWidth/imageHeight " +
+                    "attached size; screenX=left+x*(right-left)/imageWidth; screenY=top+y*(bottom-top)/imageHeight. " +
+                    "Missing nodes have unknown cause. Visible custom controls may accept gestures; " +
+                    "pixels do not bypass Android touch protection.",
             ),
         )
 
@@ -232,16 +237,24 @@ class AutomationDeviceTools(
         )
     }
 
-    @Suppress("ReturnCount") // Failed capture and cancelled pre-publication calls do not create artifacts.
+    // Failed capture and cancelled pre-publication calls do not create artifacts.
+    @Suppress("ReturnCount", "CyclomaticComplexMethod")
     private fun screenshot(call: ExecutableToolCall): ToolExecutorResult {
-        val capture = port.forCall(call).screenshot(text(call.args, "frame"), call)
+        val count = call.args["count"]?.let { requireNotNull(ToolJsonNumbers.intOrNull(it)) } ?: 1
+        val interval = call.args["intervalMillis"]?.let { requireNotNull(ToolJsonNumbers.longOrNull(it)) } ?: 1000
+        val sequence = AutomationScreenshotSequence(port).capture(call, text(call.args, "frame"), count, interval)
+        sequence.termination?.let { return it }
+        val capture = sequence.capture
         val bytes = capture.png ?: return refusedCapture(capture.status)
         AutomationTermination.beforeDispatch(call)?.let { return it }
         val published = images.publish(call, bytes, capture.acquisitionScopeRef)
         val output =
             buildJsonObject {
                 put("status", JsonPrimitive("SAVED"))
-                put("frame", JsonPrimitive(capture.frame ?: text(call.args, "frame")))
+                if (count == 1) put("frame", JsonPrimitive(capture.frame ?: text(call.args, "frame")))
+                put("captureKind", JsonPrimitive(if (count == 1) "single" else "contact_sheet"))
+                put("samples", sequence.samples)
+                put("timingBasis", JsonPrimitive("capture_request_interval"))
                 put("reference", JsonPrimitive(published.reference))
                 put("sha256", JsonPrimitive(published.sha256))
                 put("sizeBytes", JsonPrimitive(published.sizeBytes))
@@ -253,7 +266,12 @@ class AutomationDeviceTools(
                 put(
                     "actionHint",
                     JsonPrimitive(
-                        if (published.visual != null) {
+                        if (published.visual != null && count > 1) {
+                            "Read indexed frames in order. Times bracket real capture requests, not video " +
+                                "presentation timestamps; gaps may omit content. The sheet has no phone " +
+                                "coordinate mapping or gesture frame. Obtain a fresh single screenshot " +
+                                "before acting. Sampling cannot recover content that ended before this call."
+                        } else if (published.visual != null) {
                             "Pixels are attached. If this screenshot was taken because semantic targeting failed " +
                                 "and the intended visual target is now clear, you may try ui.gesture with this same " +
                                 "returned frame and the mapped screen coordinates. Always use this output's frame; " +
@@ -512,6 +530,26 @@ class AutomationDeviceTools(
                 "imageWidth" to integer(),
                 "imageHeight" to integer(),
                 "pixelsAttached" to bool(),
+                "captureKind" to choices(listOf("single", "contact_sheet")),
+                "timingBasis" to choices(listOf("capture_request_interval")),
+                "samples" to
+                    array(
+                        obj(
+                            mapOf(
+                                "index" to integer(),
+                                "requestStartedAt" to str(64),
+                                "requestFinishedAt" to str(64),
+                                "offsetMillis" to integer(),
+                                "durationMillis" to integer(),
+                            ),
+                            "index",
+                            "requestStartedAt",
+                            "requestFinishedAt",
+                            "offsetMillis",
+                            "durationMillis",
+                        ),
+                        4,
+                    ),
                 "screenBounds" to boundsSchema(),
                 "note" to str(512),
                 "actionHint" to str(768),
@@ -557,6 +595,15 @@ class AutomationDeviceTools(
         }
 
     private fun integer() = buildJsonObject { put("type", JsonPrimitive("integer")) }
+
+    private fun boundedInteger(
+        minimum: Int,
+        maximum: Int,
+    ) = buildJsonObject {
+        put("type", JsonPrimitive("integer"))
+        put("minimum", JsonPrimitive(minimum))
+        put("maximum", JsonPrimitive(maximum))
+    }
 
     private fun choices(values: List<String>) =
         buildJsonObject {

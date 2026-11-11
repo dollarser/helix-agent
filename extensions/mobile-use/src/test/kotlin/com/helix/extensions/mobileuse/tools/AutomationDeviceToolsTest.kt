@@ -42,6 +42,35 @@ import org.junit.Test
 import java.time.Instant
 
 class AutomationDeviceToolsTest {
+    @Test fun samplingParametersShareExactIntegerSemanticsWithTheirSchema() {
+        val args = """{"frame":"frame","count":1e0,"intervalMillis":1e3}"""
+        assertEquals(
+            ToolSchemaValidation.Valid,
+            ToolSchemaValidator.validate(descriptor("ui.screenshot").inputSchema, json(args)),
+        )
+        val result = execute("ui.screenshot", args) as ToolExecutorResult.Completed
+        assertEquals(
+            1,
+            result.output.jsonObject
+                .getValue("samples")
+                .jsonArray.size,
+        )
+        assertEquals(
+            "single",
+            result.output.jsonObject
+                .getValue("captureKind")
+                .jsonPrimitive.content,
+        )
+        for (bad in listOf("0", "5", "1.5", "\"2\"")) {
+            assertTrue(
+                ToolSchemaValidator.validate(
+                    descriptor("ui.screenshot").inputSchema,
+                    json("""{"frame":"frame","count":$bad}"""),
+                ) is ToolSchemaValidation.Invalid,
+            )
+        }
+    }
+
     private val port = FakeDevicePort()
     private val actions = FakeSystemPort()
     private val visual = VisualArtifact("artifact", "a".repeat(64), "image/png", 1, 1, 1)

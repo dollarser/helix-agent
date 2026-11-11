@@ -17,6 +17,32 @@ import org.junit.Test
  */
 class PromptEnvironmentSectionsTest {
     @Test
+    fun creationScopeDoesNotInferDeletionFromMatchingTitles() {
+        val base = packagedPromptTemplates.text("base")
+        assertTrue(base.contains("Creating or adding an item does not imply deleting"))
+        assertTrue(base.contains("does not establish entity identity or equal content"))
+        assertTrue(base.contains("Verify the item actually created or changed"))
+        assertTrue(base.contains("User-requested deletion or deduplication remains available"))
+    }
+
+    @Test
+    fun compactionDistinguishesOmittedSourcesAndUnverifiedAcceptance() {
+        val summarize = packagedPromptTemplates.text("compaction")
+        val resume = packagedPromptTemplates.text("compaction-continuity")
+        val base = packagedPromptTemplates.text("base")
+        assertTrue(summarize.contains("not attachment pixels"))
+        assertTrue(summarize.contains("attachmentContent=not_included_in_summary_request"))
+        assertTrue(summarize.contains("message id and sequence"))
+        assertTrue(summarize.contains("exact available source values (including units)"))
+        assertTrue(summarize.contains("original user message id"))
+        assertTrue(summarize.contains("silence do not establish user acceptance"))
+        assertTrue(resume.contains("retrieve the original message, result or attachment"))
+        assertTrue(resume.contains("insufficient by itself"))
+        assertTrue(resume.contains("Reuse available original authorization"))
+        assertTrue(base.contains("preserve its content unless the user requested adaptation"))
+    }
+
+    @Test
     fun omittedEnvironmentReasonsDoNotLoadUnavailableTemplates() {
         val loaded = mutableListOf<String>()
         val registry = PromptRegistry()
@@ -186,6 +212,52 @@ class PromptEnvironmentSectionsTest {
             assertTrue(prompt.contains("Uncertain side effects require reconciliation"))
             assertTrue(!prompt.contains("linux job time await"))
             assertTrue(!prompt.contains("limit=8"))
+        }
+    }
+
+    @Test
+    fun exactSavedIdentityGuidanceIsPresentWithoutNativeFileToolsInEveryMode() {
+        for (mode in AgentMode.values()) {
+            val registry = PromptRegistry()
+            PromptEnvironmentSections.register(registry, directory, mode, false, packagedPromptTemplates)
+            val base = registry.resolve().single { it.name == PromptEnvironmentSections.BASE_NAME }
+            assertEquals(PromptSource.BUILTIN_TEMPLATE, base.source)
+            assertTrue(base.content.contains("exact filename or path"))
+            assertTrue(base.content.contains("Verify saved identity and content separately"))
+            assertTrue(base.content.contains("Do not infer an extensionless filename from a document title alone"))
+            assertTrue(registry.resolve().none { it.name == "env.files" })
+            assertEquals(
+                mode == AgentMode.PLAN,
+                registry.resolve().any { it.name == PromptEnvironmentSections.PLAN_NAME },
+            )
+        }
+    }
+
+    @Test
+    fun explicitAnswerFormatOverridesDefaultPresentationWithoutForcingUnsupportedClaims() {
+        for (mode in AgentMode.values()) {
+            val registry = PromptRegistry()
+            PromptEnvironmentSections.register(registry, directory, mode, false, packagedPromptTemplates)
+            val base = registry.resolve().single { it.name == PromptEnvironmentSections.BASE_NAME }
+            assertEquals(PromptSource.BUILTIN_TEMPLATE, base.source)
+            assertTrue(base.content.contains("return only the requested content in that format"))
+            assertTrue(base.content.contains("not truthfulness or permission requirements"))
+            assertTrue(base.content.contains("Do not guess an unsupported answer just to fit the format"))
+            assertTrue(base.content.contains("Without an explicit format constraint, use normal helpful prose"))
+        }
+    }
+
+    @Test
+    fun explicitFieldValuesKeepUnitsAndRequireEvidenceBeyondTheTitle() {
+        for (mode in AgentMode.values()) {
+            val registry = PromptRegistry()
+            PromptEnvironmentSections.register(registry, directory, mode, false, packagedPromptTemplates)
+            val base = registry.resolve().single { it.name == PromptEnvironmentSections.BASE_NAME }
+            assertTrue(base.content.contains("Preserve explicitly requested field values, including their units"))
+            assertTrue(base.content.contains("do not silently shorten them to bare numbers"))
+            assertTrue(base.content.contains("fill both and verify their combined meaning"))
+            assertTrue(base.content.contains("a matching title alone does not verify the other fields"))
+            assertTrue(base.content.contains("what remains unverified"))
         }
     }
 

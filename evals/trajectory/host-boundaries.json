@@ -10,7 +10,7 @@
     {"id": "recovery-summary", "tests": [{"class": "com.helix.app.chat.RecoverySummaryBuilderTest", "method": "formatCarriesDurableFactsWithoutArgsAndBoundsLargeSummaries"}, {"class": "com.helix.app.chat.RecoverySummaryBuilderTest", "method": "successorHistoryDropsPredecessorExecutionProtocolButKeepsUserIntent"}]},
     {"id": "recovery-plan", "tests": [{"class": "com.helix.core.agent.RecoveryCoordinatorTest", "method": "the plan is deterministic and complete"}]},
     {"id": "goal-admission", "tests": [{"class": "com.helix.core.agent.GoalDriverTest", "method": "continuousPolicyAllowsServiceContinuationButNeverAmbientWake"}]},
-    {"id": "compaction-admission", "tests": [{"class": "com.helix.core.agent.ContextCapacityTest", "method": "summaryAdmissionAccountsForMeasuredScaleAndKeepsSoftFallbackPossible"}]},
+    {"id": "compaction-admission", "tests": [{"class": "com.helix.core.agent.ContextCapacityTest", "method": "summaryAdmissionUsesFullSummaryOutputAndMeasuredScale"}]},
     {"id": "tool-settlement", "tests": [{"class": "com.helix.core.agent.TurnCoordinatorTest", "method": "batchTracksEveryCallAndRequiresAllKnownSettlements"}]}
   ]
 }

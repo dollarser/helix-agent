@@ -25,16 +25,10 @@ data class MobileUseScreenTarget(
 /** Persistent screenshot provenance + the owning Conversation's explicit screen-sharing configuration. */
 class MobileUseScreenConsent(
     private val clock: Clock,
-    private val sources: LineStore = InMemoryLineStore(),
+    sources: LineStore = InMemoryLineStore(),
     private val scopeForConversation: (String) -> AutomationSessionScope? = { null },
 ) {
-    private data class Source(
-        val scopeRef: String,
-        val sessionId: String,
-        val turnId: String,
-        val sha256: String,
-        val mediaType: String,
-    )
+    private val sources = MobileScreenSources(sources)
 
     /** Only the native screenshot publisher calls this; tool JSON cannot manufacture screen provenance. */
     @Synchronized
@@ -42,19 +36,41 @@ class MobileUseScreenConsent(
         call: ExecutableToolCall,
         image: VisualArtifact,
         scopeRef: String,
+        capturedSha256: String? = null,
     ) {
         val session = requireNotNull(call.sessionId)
         require(call.toolName == "ui.screenshot" && scopeRef == currentScope(session)) {
             "Screen acquisition grant is no longer available"
         }
-        val captured = Source(scopeRef, session, requireNotNull(call.turnId), image.sha256, image.mediaType)
-        val previous = source(image.artifactId)
-        check(previous == null || previous == captured) { "Screen acquisition provenance is immutable" }
-        if (previous != null) return
-        sources.setLines(
-            key(image.artifactId),
-            listOf(VERSION, scopeRef, session, requireNotNull(call.turnId), image.sha256, image.mediaType),
-        )
+        val captured = MobileScreenSource(scopeRef, session, requireNotNull(call.turnId), image.sha256, image.mediaType)
+        sources.rememberArtifact(image.artifactId, captured)
+        sources.rememberContent(captured)
+        capturedSha256?.let { sources.rememberContent(captured.copy(sha256 = it, mediaType = "image/png")) }
+    }
+
+    /** Only host-computed bytes from the scoped read may match a trusted capture in this Conversation. */
+    @Synchronized
+    fun inherit(
+        call: ExecutableToolCall,
+        sourceSha256: String,
+        sourceMediaType: String,
+        image: VisualArtifact,
+    ) {
+        if (call.toolName != "view_image") return
+        val session = requireNotNull(call.sessionId)
+        val captured =
+            sources.forContent(session, sourceSha256, sourceMediaType)?.takeIf {
+                it.sessionId == session && it.sha256 == sourceSha256 &&
+                    it.mediaType == sourceMediaType && it.scopeRef == currentScope(session)
+            } ?: return
+        val derived =
+            captured.copy(
+                turnId = requireNotNull(call.turnId),
+                sha256 = image.sha256,
+                mediaType = image.mediaType,
+            )
+        sources.rememberArtifact(image.artifactId, derived)
+        sources.rememberContent(derived)
     }
 
     /** No dialog: enabling Mobile Use covers future screenshots and the user's selected conversation models. */
@@ -64,7 +80,7 @@ class MobileUseScreenConsent(
         config: ProviderConfig,
     ): String? {
         val binding = image.binding
-        val source = source(image.ref.value)
+        val source = sources.forArtifact(image.ref.value)
         if (binding == null || source == null) return null
         val matches =
             source.sessionId == binding.sessionId && source.turnId == binding.turnId &&
@@ -85,21 +101,12 @@ class MobileUseScreenConsent(
     ): Boolean = requestId(image, config) == id
 
     @Synchronized
-    fun isScreenImage(image: ImageReference): Boolean = source(image.ref.value) != null
-
-    private fun source(artifactId: String): Source? {
-        val fields = sources.lines(key(artifactId))
-        if (fields.isEmpty()) return null
-        check(fields.size == 6 && fields[0] == VERSION) { "Screen provenance is unreadable" }
-        return Source(fields[1], fields[2], fields[3], fields[4], fields[5])
-    }
+    fun isScreenImage(image: ImageReference): Boolean = sources.forArtifact(image.ref.value) != null
 
     private fun currentScope(session: String): String? =
         scopeForConversation(session)
             ?.takeIf { it.grantId.isNotBlank() && clock.now().isBefore(it.expiresAt) }
             ?.toScopeRef()
-
-    private fun key(artifactId: String) = "mobile-screen-source-" + digest(artifactId)
 
     private fun digest(value: String): String =
         MessageDigest
@@ -109,6 +116,5 @@ class MobileUseScreenConsent(
 
     companion object {
         const val PREFIX = "mobile-screen-consent-"
-        private const val VERSION = "mobile-screen-source-v1"
     }
 }

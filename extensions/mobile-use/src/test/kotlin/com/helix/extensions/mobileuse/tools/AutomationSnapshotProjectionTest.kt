@@ -13,6 +13,41 @@ import org.junit.Test
 import java.time.Instant
 
 class AutomationSnapshotProjectionTest {
+    @Test fun emptyEditableValueSurvivesCompactOutputWhileEqualTypedTextRemainsAValue() {
+        val base = node("field", ".md").copy(editable = true, hintText = ".md", isShowingHintText = true)
+        for (showing in listOf(true, false)) {
+            val field = base.copy(isShowingHintText = showing)
+            for (output in listOf(AutomationNodeJson.full(field), AutomationNodeJson.compact(field, emptyMap()))) {
+                assertEquals(if (showing) "" else ".md", output.getValue("text").jsonPrimitive.content)
+                assertEquals(".md", output.getValue("hintText").jsonPrimitive.content)
+                assertEquals(showing.toString(), output.getValue("isShowingHintText").jsonPrimitive.content)
+                assertEquals(if (showing) "" else ".md", output.getValue("editableValue").jsonPrimitive.content)
+            }
+        }
+        assertFalse(AutomationNodeJson.full(base.copy(isShowingHintText = null)).containsKey("editableValue"))
+        assertFalse(
+            AutomationNodeJson.full(base.copy(text = null, isShowingHintText = false)).containsKey("editableValue"),
+        )
+        val redacted = AutomationNodeJson.full(base.copy(redacted = true))
+        assertFalse(redacted.containsKey("hintText"))
+        assertFalse(redacted.containsKey("editableValue"))
+        assertEquals(".md", base.text) // Projection must not mutate platform matching/fingerprint facts.
+        assertEquals(
+            ".md",
+            AutomationNodeJson
+                .full(base.copy(editable = false))
+                .getValue("text")
+                .jsonPrimitive.content,
+        )
+        assertEquals(
+            ".md",
+            AutomationNodeJson
+                .full(base.copy(isShowingHintText = null))
+                .getValue("text")
+                .jsonPrimitive.content,
+        )
+    }
+
     @Test fun overlappingSameLabelTargetsExposeDifferentContextsWithoutPickingOne() {
         val directory = node("directory", "Podcasts")
         val selection = node("selection", "1 selected")

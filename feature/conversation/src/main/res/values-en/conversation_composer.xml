@@ -61,13 +61,13 @@
     <string name="chat_command_plan_desc">Switch to read-only Plan mode</string>
     <string name="chat_command_act_desc">Switch to normal Act mode</string>
     <string name="chat_command_goal_desc">Switch to autonomous Goal mode</string>
-    <string name="chat_command_compact_desc">Compact current conversation context</string>
+    <string name="chat_command_compact_desc">Compact context · optional focus after /compact</string>
     <string name="chat_command_clear_desc">Clear current input</string>
     <string name="chat_command_help_desc">Show available commands and tips</string>
     <string name="chat_command_standalone">Send the command on its own, then send your task after switching modes.</string>
     <string name="chat_command_wait">Send this command after the current task finishes.</string>
     <string name="chat_command_compact_unavailable">Compaction is unavailable. Finish the current request or handle attachments first.</string>
-    <string name="chat_command_help">/chat read-only chat · /plan planning · /act execution · /goal ongoing goal · /compact: shorten context · /clear: reset input. Select, then send to execute.</string>
+    <string name="chat_command_help">/chat read-only chat · /plan planning · /act execution · /goal ongoing goal · /compact [focus]: shorten context · /clear: reset input. Select, then send to execute.</string>
     <string name="chat_command_chat_desc">Switch to read-only Chat mode</string>
     <string name="composer_mode_switching">Changing conversation mode…</string>
     <string name="composer_mode_failed">Mode change did not complete. Your text is preserved; please retry.</string>

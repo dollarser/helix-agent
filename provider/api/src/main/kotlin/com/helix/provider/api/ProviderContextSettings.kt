@@ -6,11 +6,13 @@ data class ProviderContextSettings(
     val serverWindow: Long? = null,
     val autoCompact: Boolean = true,
     val triggerPercent: Int = 80,
+    val serverOutputLimit: Long? = null,
 ) {
     init {
         require(manualWindow == null || manualWindow in MIN_WINDOW..MAX_WINDOW)
         require(serverWindow == null || serverWindow in MIN_WINDOW..MAX_WINDOW)
         require(triggerPercent in 10..95)
+        require(serverOutputLimit == null || serverOutputLimit in 1..MAX_WINDOW)
     }
 
     val window: Long get() = listOfNotNull(manualWindow, serverWindow).minOrNull() ?: DEFAULT_WINDOW

@@ -30,6 +30,10 @@ import kotlin.time.Duration.Companion.seconds
 /** Reads only already-settled results owned by the dispatcher's trusted session. Never executes the original tool. */
 internal object ToolResultReadTool {
     const val NAME = "tools.read_result"
+    const val PAGINATION_HINT =
+        "Read tools.read_result with this resultRef and offset=nextOffset until truncated=false " +
+            "before complete-result claims. " +
+            "This only completes saved text; source truncation remains and UI tokens are not refreshed."
     private const val PAGE_CHARACTERS = 2048
 
     val outputSchema =
@@ -50,6 +54,7 @@ internal object ToolResultReadTool {
             "content":{"type":"string","maxLength":4096},
             "truncated":{"type":"boolean"},
             "nextOffset":{"type":"integer","minimum":0},
+            "readHint":{"type":"string","maxLength":256},
             "sourceStatus":{"type":"string"},"sourceVerified":{"type":"boolean"},
             "logRef":{"type":"string"},"logReadTool":{"type":"string"},
             "exitCode":{"type":"integer"},"logTruncated":{"type":"boolean"}
@@ -185,9 +190,9 @@ internal object ToolResultReadTool {
             put("contentKind", "tool_result")
             put("paginationScope", "result_body")
             put("resultRef", reference)
-            if (toolName in setOf("bash", "code.linux.run", "skills.run", "code.linux.job.start")) {
+            if (toolName in ToolResultContract.capturedLogTools) {
                 put("logRef", reference)
-                put("logReadTool", "code.linux.job.read_log")
+                put("logReadTool", ToolResultContract.LOG_READ_TOOL)
                 val execution = runCatching { Json.parseToJsonElement(content) as? JsonObject }.getOrNull()
                 put(
                     "logContent",
@@ -212,7 +217,10 @@ internal object ToolResultReadTool {
             put("totalCharacters", count)
             put("content", content.substring(content.offsetByCodePoints(0, offset), content.offsetByCodePoints(0, end)))
             put("truncated", end < count)
-            if (end < count) put("nextOffset", end)
+            if (end < count) {
+                put("nextOffset", end)
+                put("readHint", PAGINATION_HINT)
+            }
         }
     }
 }

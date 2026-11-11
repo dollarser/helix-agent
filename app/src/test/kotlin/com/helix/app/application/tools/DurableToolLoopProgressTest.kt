@@ -70,7 +70,13 @@ class DurableToolLoopProgressTest {
         assertEquals(ToolLoopProgress.Decision.STOP, decision(calls(name = "goal.get")))
         for (capability in listOf(Capability.ACCESSIBILITY_AUTOMATION, Capability.MOBILE_USE)) {
             assertEquals(
-                ToolLoopProgress.Decision.CONTINUE,
+                if (capability ==
+                    Capability.MOBILE_USE
+                ) {
+                    ToolLoopProgress.Decision.REASSESS
+                } else {
+                    ToolLoopProgress.Decision.CONTINUE
+                },
                 decision(
                     descriptor =
                         read.copy(
@@ -80,6 +86,39 @@ class DurableToolLoopProgressTest {
             )
         }
         assertEquals(ToolLoopProgress.Decision.CONTINUE, decision(descriptor = null))
+    }
+
+    @Test fun successfulPhoneCyclesWithFreshTokensAndContentPromptReviewWithoutStopping() {
+        val names = listOf("ui.device", "ui.find", "ui.click", "ui.screenshot")
+        val saved =
+            List(24) { index ->
+                calls()[0].copy(
+                    id = "call-$index",
+                    callId = "call-$index",
+                    name = names[index % 4],
+                    argsHash = "fresh-token-$index",
+                )
+            }
+        val decision =
+            DurableToolLoopProgress.fromHistory(saved, { result(it).copy(contentRef = "new-image-$it") }) { name, _ ->
+                read.copy(
+                    requiredCapabilities = setOf(Capability.MOBILE_USE),
+                    operationClass =
+                        if (name ==
+                            "ui.click"
+                        ) {
+                            ToolOperationClass.EXTERNAL_ACTION
+                        } else if (name ==
+                            "ui.screenshot"
+                        ) {
+                            ToolOperationClass.LOCAL_MUTATION
+                        } else {
+                            ToolOperationClass.READ_ONLY
+                        },
+                )
+            }
+        assertEquals(ToolLoopProgress.Decision.REASSESS, decision)
+        assertEquals(ToolLoopProgress.Decision.CONTINUE, decision(saved.map { it.copy(state = "NEEDS_REVIEW") }))
     }
 
     @Test fun changedArgumentsAndWriteThenReadPermitFreshVerification() {

@@ -99,14 +99,19 @@ class AutomationPostActionObservationTest {
             AutomationActionStatus.TOKEN_UNKNOWN,
             AutomationActionStatus.STALE_TOKEN,
             AutomationActionStatus.SENSITIVE_UI,
+            AutomationActionStatus.ACTION_NOT_SUPPORTED,
+            AutomationActionStatus.ACTION_FAILED,
             AutomationActionStatus.ACTION_OUTCOME_UNKNOWN,
         )) {
             port.action = status
             val result = execute(call()) as ToolExecutorResult.Failed
             assertTrue(result.detail.startsWith(status.name))
-            assertEquals(status == AutomationActionStatus.ACTION_OUTCOME_UNKNOWN, result.requiresReview)
+            val uncertain =
+                status in setOf(AutomationActionStatus.ACTION_FAILED, AutomationActionStatus.ACTION_OUTCOME_UNKNOWN)
+            assertEquals(uncertain, result.requiresReview)
+            assertEquals(!uncertain, result.sideEffectFree)
         }
-        assertEquals(4, port.actions)
+        assertEquals(6, port.actions)
         assertEquals(0, port.observations)
     }
 
@@ -226,6 +231,14 @@ class AutomationPostActionObservationTest {
         assertTrue(nodes.size < 32)
         assertTrue(nodes.toString().toByteArray(Charsets.UTF_8).size <= 12 * 1024 + 2)
         assertEquals("true", observation.getValue("truncated").jsonPrimitive.content)
+        assertEquals(nodes.size.toString(), observation.getValue("returnedNodeCount").jsonPrimitive.content)
+        assertEquals("100", observation.getValue("capturedNodeCount").jsonPrimitive.content)
+        assertEquals(
+            listOf("OUTPUT_LIMIT"),
+            observation.getValue("truncationReasons").jsonArray.map {
+                it.jsonPrimitive.content
+            },
+        )
         assertTrue(
             observation
                 .getValue("recoveryHint")
@@ -233,6 +246,68 @@ class AutomationPostActionObservationTest {
                 .contains("ui.find"),
         )
         assertFalse(observation.toString().contains("original"))
+    }
+
+    @Test fun nodeLimitMetadataMatchesTheActualPreviewAndPreservesCaptureFacts() {
+        val original = requireNotNull(port.result.snapshot)
+        for (count in listOf(32, 33, 75, 250)) {
+            port.result =
+                port.result.copy(
+                    snapshot =
+                        original.copy(
+                            nodes =
+                                (1..count).map { index ->
+                                    original.nodes.single().copy(token = "fresh-$index", text = "Item $index")
+                                },
+                        ),
+                )
+            val output = completed()
+            val observation = output.getValue("observation").jsonObject
+            assertEquals(minOf(count, 32), observation.getValue("nodes").jsonArray.size)
+            assertEquals(minOf(count, 32).toString(), observation.getValue("returnedNodeCount").jsonPrimitive.content)
+            assertEquals(count.toString(), observation.getValue("capturedNodeCount").jsonPrimitive.content)
+            assertEquals((count > 32).toString(), observation.getValue("truncated").jsonPrimitive.content)
+            val reasons = if (count > 32) listOf("OUTPUT_LIMIT") else emptyList()
+            assertEquals(
+                reasons,
+                observation.getValue("truncationReasons").jsonArray.map { it.jsonPrimitive.content },
+            )
+            if (count > 32) {
+                assertTrue(
+                    output
+                        .getValue("nextObservation")
+                        .jsonPrimitive.content
+                        .contains("ui.snapshot"),
+                )
+            }
+            val schema = tools.descriptors().single { it.name.value == AutomationTools.SCROLL }.outputSchema
+            assertEquals(ToolSchemaValidation.Valid, ToolSchemaValidator.validate(schema, output))
+        }
+    }
+
+    @Test fun previewLimitRetainsOriginalCollectionReasonsWithoutDuplicates() {
+        val original = requireNotNull(port.result.snapshot)
+        port.result =
+            port.result.copy(
+                snapshot =
+                    original.copy(
+                        nodes = (1..75).map { original.nodes.single().copy(token = "fresh-$it") },
+                        truncated = true,
+                        truncationReasons = setOf("NODE_LIMIT", "MISSING_CHILD", "OUTPUT_LIMIT"),
+                    ),
+            )
+        val output = completed()
+        val observation = output.getValue("observation").jsonObject
+        assertEquals("UNSETTLED", output.getValue("observationStatus").jsonPrimitive.content)
+        assertEquals("UNVERIFIED", output.getValue("effectStatus").jsonPrimitive.content)
+        assertEquals("32", observation.getValue("returnedNodeCount").jsonPrimitive.content)
+        assertEquals(
+            listOf("NODE_LIMIT", "MISSING_CHILD", "OUTPUT_LIMIT"),
+            observation.getValue("truncationReasons").jsonArray.map { it.jsonPrimitive.content },
+        )
+        val schema = tools.descriptors().single { it.name.value == AutomationTools.SCROLL }.outputSchema
+        assertEquals(ToolSchemaValidation.Valid, ToolSchemaValidator.validate(schema, output))
+        assertEquals(1, port.actions)
     }
 
     @Test fun sourceTruncationRetainsBoundedFreshStateWithoutClaimingStability() {

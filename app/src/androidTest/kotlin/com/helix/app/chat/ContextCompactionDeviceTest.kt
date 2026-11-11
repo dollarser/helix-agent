@@ -2,6 +2,7 @@ package com.helix.app.chat
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import com.helix.app.agent.ChatContextProjection
 import com.helix.app.agent.ChatHistoryBuilder
 import com.helix.app.agent.ContextCompaction
 import com.helix.app.agent.TurnStartSpec
@@ -9,7 +10,6 @@ import com.helix.app.test.completeResponseOrContinueFixture
 import com.helix.app.test.settleFixtureTerminal
 import com.helix.app.test.startFixtureTurn
 import com.helix.core.agent.ModelStreamTerminal
-import com.helix.core.agent.RunControlConfig
 import com.helix.core.agent.TurnContextRequest
 import com.helix.core.agent.turn.TurnRoundCoordinator
 import com.helix.core.model.Clock
@@ -34,70 +34,103 @@ class ContextCompactionDeviceTest {
         object : Clock {
             override fun now(): Instant = Instant.ofEpochMilli(1000)
         }
-    private val control =
-        RunControlConfig(
-            com.helix.core.model.AgentMode.CHAT,
-            false,
-            com.helix.core.agent.TurnBudgetBounds.DEFAULT,
-        )
     private var sequence = 0
 
     private fun next() = "context-${sequence++}"
 
-    @Test fun manualNoGainCompletesWithoutCheckpointOrHistoryReplacement() {
+    @Test fun manualNoGainRetriesThenFailsWithoutCheckpointOrHistoryReplacement() {
         withStorage { storage ->
             val coordinator = seed(storage)
-            val originals = storage.messages.listBySession("s").associate { it.id to storage.messages.readContent(it) }
+            val before = storage.messages.listBySession("s")
+            val originals = before.associate { it.id to storage.messages.readContent(it) }
+            val round =
+                com.helix.app.agent.contextCompactionRound(
+                    storage,
+                    "s",
+                    coordinator.id,
+                    ProviderContextSettings(),
+                    true,
+                )
+            var result: ModelStreamTerminal? = null
+            kotlinx.coroutines.runBlocking {
+                repeat(3) { attempt ->
+                    val prepared = round.prepare(request(storage))
+                    assertNull(prepared.failure)
+                    val plan = requireNotNull(prepared.plan).copy(originalInputTokens = 32)
+                    val stream = coordinator.beginModelStream(compacting = true)
+                    stream.apply(ModelEvent.TextDelta("No useful reduction is possible."))
+                    stream.apply(ModelEvent.Usage(872, 971))
+                    stream.apply(ModelEvent.Completed("stop"))
+                    result =
+                        round.finish(
+                            plan,
+                            stream,
+                            stream.terminal(false),
+                            coordinator,
+                            next(),
+                            "Compacted",
+                            "Unchanged",
+                        )
+                    if (attempt < 2) assertNull(result)
+                }
+                val blocked = round.prepare(request(storage))
+                assertNull(blocked.request)
+                assertEquals(result, blocked.failure)
+            }
+            assertEquals(ModelStreamTerminal(TurnState.FAILED, "CONTEXT_NO_GAIN"), result)
+            coordinator.settleFixtureTerminal(requireNotNull(result))
+            assertEquals("CONTEXT_NO_GAIN", storage.turns.resolve(coordinator.id).errorCode)
+            assertNull(ContextCompaction.checkpoint(storage, storage.messages.listBySession("s")))
+            originals.forEach { (id, text) ->
+                assertEquals(text, storage.messages.readContent(storage.messages.resolve(id)))
+            }
+            assertEquals(before, storage.messages.listBySession("s"))
+            val calls = storage.modelCalls.listByTurn(coordinator.id)
+            assertEquals(3, calls.size)
+            calls.forEach { call ->
+                assertEquals("FAILED", call.state)
+                assertTrue(call.usage!!.contains("\"inputTokens\":872"))
+                assertTrue(call.usage!!.contains("\"outputTokens\":971"))
+                assertTrue(ChatContextProjection.isSummary(storage, call.id))
+            }
+        }
+    }
+
+    @Test fun invalidSummaryFailureReasonPreservesPriorCheckpointAndOriginalRows() {
+        withStorage { storage ->
+            val coordinator = seed(storage)
             val plan =
                 requireNotNull(
                     ContextCompaction.plan(
                         storage,
                         "s",
                         request(storage),
-                        control,
                         ProviderContextSettings(),
                         true,
                         coordinator.id,
                     ),
-                ).copy(originalInputTokens = 32)
-            val round =
-                com.helix.app.agent.contextCompactionRound(
-                    storage,
-                    "s",
-                    coordinator.id,
-                    control,
-                    ProviderContextSettings(),
-                    true,
                 )
-            val stream = kotlinx.coroutines.runBlocking { coordinator.beginModelStream(compacting = true) }
-            stream.apply(ModelEvent.TextDelta("No useful reduction is possible."))
-            stream.apply(ModelEvent.Usage(872, 971))
-            stream.apply(ModelEvent.Completed("stop"))
-            val result =
-                kotlinx.coroutines.runBlocking {
-                    round.finish(
-                        plan,
-                        stream,
-                        stream.terminal(false),
-                        coordinator,
-                        next(),
-                        "Compacted",
-                        "Unchanged",
-                    )
-                }
-            assertEquals(TurnState.COMPLETED, result?.state)
-            coordinator.settleFixtureTerminal(requireNotNull(result))
-            assertNull(ContextCompaction.checkpoint(storage, storage.messages.listBySession("s")))
-            originals.forEach { (id, text) ->
+            val valid = kotlinx.coroutines.runBlocking { coordinator.beginModelStream(compacting = true) }
+            valid.apply(ModelEvent.TextDelta("Keep the original constraints and unresolved work."))
+            valid.apply(ModelEvent.Completed("stop"))
+            kotlinx.coroutines.runBlocking { coordinator.commitCompaction(plan, "retry-summary") }
+            val before = storage.messages.listBySession("s")
+            val original = before.associate { it.id to storage.messages.readContent(it) }
+            val checkpoint = requireNotNull(ContextCompaction.checkpoint(storage, before))
+            val invalid = kotlinx.coroutines.runBlocking { coordinator.beginModelStream(compacting = true) }
+            invalid.apply(ModelEvent.TextDelta("<tool_call><function=helix>ui.snapshot</function></tool_call>"))
+            invalid.apply(ModelEvent.Completed("stop"))
+            kotlinx.coroutines.runBlocking {
+                coordinator.commitCompaction(plan, "resume-original", failureReason = "CONTEXT_SUMMARY_INVALID")
+            }
+            assertEquals(before, storage.messages.listBySession("s"))
+            original.forEach { (id, text) ->
                 assertEquals(text, storage.messages.readContent(storage.messages.resolve(id)))
             }
-            val call = storage.modelCalls.listByTurn(coordinator.id).single()
-            assertEquals("COMPLETED", call.state)
-            assertTrue(
-                com.helix.app.agent.ChatContextProjection
-                    .isSummary(storage, call.id),
-            )
-            assertEquals("Unchanged", storage.messages.readContent(storage.messages.listBySession("s").last()))
+            assertEquals(checkpoint, ContextCompaction.checkpoint(storage, storage.messages.listBySession("s")))
+            assertEquals("FAILED", storage.modelCalls.resolve("retry-summary").state)
+            assertEquals("RUNNING", storage.modelCalls.resolve("resume-original").state)
+            assertEquals(TurnState.WAITING_MODEL.name, storage.turns.resolve(coordinator.id).state)
         }
     }
 
@@ -117,7 +150,6 @@ class ContextCompactionDeviceTest {
                         storage,
                         "s",
                         request,
-                        control,
                         ProviderContextSettings(),
                         true,
                         coordinator.id,
@@ -164,7 +196,6 @@ class ContextCompactionDeviceTest {
                         storage,
                         "s",
                         request(storage),
-                        control,
                         ProviderContextSettings(),
                         true,
                         coordinator.id,
@@ -200,20 +231,18 @@ class ContextCompactionDeviceTest {
                     storage,
                     "s",
                     request,
-                    control,
                     ProviderContextSettings(),
                     false,
                     coordinator.id,
                 ),
             )
             val low = ProviderContextSettings(manualWindow = 8192, triggerPercent = 10)
-            assertNotNull(ContextCompaction.plan(storage, "s", request, control, low, false, coordinator.id))
+            assertNotNull(ContextCompaction.plan(storage, "s", request, low, false, coordinator.id))
             assertNull(
                 ContextCompaction.plan(
                     storage,
                     "s",
                     request,
-                    control,
                     low.copy(autoCompact = false),
                     false,
                     coordinator.id,
@@ -224,7 +253,6 @@ class ContextCompactionDeviceTest {
                     storage,
                     "s",
                     request,
-                    control,
                     low.copy(autoCompact = false),
                     true,
                     coordinator.id,
@@ -242,7 +270,6 @@ class ContextCompactionDeviceTest {
                         storage,
                         "s",
                         request(storage),
-                        control,
                         ProviderContextSettings(),
                         true,
                         coordinator.id,
@@ -276,7 +303,6 @@ class ContextCompactionDeviceTest {
                         storage,
                         "s",
                         request(storage),
-                        control,
                         ProviderContextSettings(),
                         true,
                         coordinator.id,
@@ -309,7 +335,6 @@ class ContextCompactionDeviceTest {
                         storage,
                         "s",
                         request(storage),
-                        control,
                         ProviderContextSettings(),
                         true,
                         coordinator.id,
@@ -337,7 +362,6 @@ class ContextCompactionDeviceTest {
                         storage,
                         "s",
                         request(storage),
-                        control,
                         ProviderContextSettings(),
                         true,
                         coordinator.id,

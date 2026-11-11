@@ -47,7 +47,9 @@ internal class ToolVisionServices(
             artifactSink,
             scopeId,
             preparation,
-            registerScreenImage = { call, image, scope -> consent().mobileScreens.register(call, image, scope) },
+            registerScreenImage = { call, image, scope, capturedHash ->
+                consent().mobileScreens.register(call, image, scope, capturedHash)
+            },
         ) { session, turn ->
             storage.turns.resolve(turn).sessionId == session
         }
@@ -80,15 +82,7 @@ internal class ToolVisionServices(
             scopeId,
             temporaryRoot,
             clock,
-            visionAvailable = { sessionId ->
-                runBlocking {
-                    val session = storage.sessions.resolve(sessionId)
-                    val provider = session.providerId
-                    val model = session.modelId
-                    provider != null && model != null && visionCapabilities.available(provider, model)
-                }
-            },
-            turnVisionAvailable = { sessionId, turnId ->
+            visionAvailable = { sessionId, turnId ->
                 runBlocking {
                     val runtime = storage.turnRuntimeRecords.find(turnId)
                     val session = storage.sessions.resolve(sessionId)
@@ -96,6 +90,14 @@ internal class ToolVisionServices(
                     val model = runtime?.modelId ?: session.modelId
                     provider != null && model != null && visionCapabilities.available(provider, model)
                 }
+            },
+            inheritScreenImage = {
+                call,
+                hash,
+                type,
+                image,
+                ->
+                consent().mobileScreens.inherit(call, hash, type, image)
             },
         )
 }

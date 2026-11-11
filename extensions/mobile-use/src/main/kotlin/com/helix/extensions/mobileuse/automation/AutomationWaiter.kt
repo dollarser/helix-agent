@@ -76,7 +76,9 @@ class AutomationWaiter(
                         fingerprint != baseline,
                         Duration.between(stableSince, clock.now()) >= stableFor,
                     )
-                if (terminal != null) return AutomationWaitResult(terminal, nodes.take(query.maxResults), latest)
+                if (terminal != null) {
+                    return AutomationWaitResult(terminal, nodes.take(query.maxResults), latest, nodes.size)
+                }
             }
             val remaining = Duration.between(clock.now(), deadline)
             if (remaining.isNegative || remaining.isZero) break

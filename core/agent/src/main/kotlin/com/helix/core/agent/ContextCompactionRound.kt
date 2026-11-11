@@ -1,32 +1,28 @@
 package com.helix.core.agent
 
-import com.helix.core.agent.ContextCompactionPlan
-import com.helix.core.agent.ModelStreamState
-import com.helix.core.agent.ModelStreamTerminal
-import com.helix.core.agent.RunControlConfig
-import com.helix.core.agent.TurnContextRequest
-import com.helix.core.model.ModelRequest
 import com.helix.core.model.ReasoningEffort
 import com.helix.core.model.TurnState
 import com.helix.provider.api.ProviderContextSettings
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 /** Summary planning and commit decisions, separate from normal model/tool loop orchestration. */
 class ContextCompactionRound(
     private val source: ContextCompactionSource,
     private val summaries: ContextSummaryFormat,
-    private val control: RunControlConfig,
     private val settings: ProviderContextSettings,
     private val manual: Boolean,
     private val summaryReasoning: ReasoningEffort = ReasoningEffort.OFF,
-) : com.helix.core.agent.ContextCompactionCycle {
+) : ContextCompactionCycle {
     private var attempts = 0
-    private var failures = 0
-    private var bypassAt: Long? = null
-    private var beforeSummary: TurnContextRequest? = null
+    private var pendingFailure: String? = null
+    private var terminalFailure: ModelStreamTerminal? = null
+    private var summaryCommitted = false
     private var observedInput = 0L
     private var observedEstimate = 0L
+    private var summaryInputScale = 1.0
 
     override fun observe(
         request: TurnContextRequest,
@@ -37,7 +33,9 @@ class ContextCompactionRound(
             observedInput = actualInput ?: observedEstimate
         }
         attempts = 0
-        failures = 0
+        pendingFailure = null
+        terminalFailure = null
+        summaryCommitted = false
     }
 
     private val inputScale: Double
@@ -57,8 +55,10 @@ class ContextCompactionRound(
             settings.window,
         )
 
-    override suspend fun prepare(request: TurnContextRequest): com.helix.core.agent.PreparedContext {
+    @Suppress("ReturnCount") // Terminal latch, projection failure, successful continuation and summary admission.
+    override suspend fun prepare(request: TurnContextRequest): PreparedContext {
         currentCoroutineContext().ensureActive()
+        terminalFailure?.let { return PreparedContext(null, null, it, request) }
         val bounded =
             try {
                 ContextCompiler.projectContent(
@@ -67,14 +67,32 @@ class ContextCompactionRound(
                     inputScale,
                 )
             } catch (failure: ContextCapacityException) {
-                return PreparedContext(null, null, ModelStreamTerminal(TurnState.FAILED, failure.code), request)
+                return failedPreparation(request, failure.code)
             }
-        val calibratedTrigger = shouldCompact(bounded)
+        val hardFailure = capacityFailure(bounded)
+        // A successful checkpoint permits progress even if the pressure trigger remains true.
+        // Only an ordinary model call resets this allowance; the hard window is still enforced.
+        if (summaryCommitted) {
+            return if (hardFailure == null) {
+                PreparedContext(bounded.modelRequest(), null, null, bounded)
+            } else {
+                failedPreparation(bounded, hardFailure)
+            }
+        }
+        return prepareSummary(bounded, hardFailure)
+    }
+
+    private suspend fun prepareSummary(
+        request: TurnContextRequest,
+        hardFailure: String?,
+    ): PreparedContext {
+        val required = manual || pendingFailure != null || shouldCompact(request)
+        val summaryScale = maxOf(inputScale, summaryInputScale)
         var planningFailure: String? = null
         val plan =
             try {
-                if (shouldAttempt(bounded)) {
-                    source.plan(bounded, control, settings, manual || calibratedTrigger, inputScale)?.let {
+                if (attempts < MAX_ATTEMPTS) {
+                    source.plan(request, settings, required, summaryScale)?.let {
                         it.copy(request = it.request.copy(reasoning = summaryReasoning))
                     }
                 } else {
@@ -84,74 +102,68 @@ class ContextCompactionRound(
                 planningFailure = failure.code
                 null
             }
-        if (plan != null) {
-            attempts++
-            beforeSummary = bounded
-        }
         val code =
             if (plan == null) {
-                ContextCapacity.withoutSummary(manual, planningFailure, capacityFailure(bounded))
+                planningFailure ?: pendingFailure?.let(::summaryTerminalCode) ?: hardFailure
+                    ?: "CONTEXT_NOT_COMPACTABLE".takeIf { required || attempts >= MAX_ATTEMPTS }
             } else {
+                val summaryEstimate = ModelInputEstimate.of(plan.request).total
                 ContextCapacity.forSummary(
                     plan.request,
-                    observedInput,
-                    observedEstimate,
-                    control.budgets,
+                    kotlin.math.ceil(summaryEstimate * summaryScale).toLong(),
+                    summaryEstimate,
                     settings.window,
                 )
             }
-        return com.helix.core.agent.PreparedContext(
-            if (code == null) plan?.request ?: bounded.modelRequest() else null,
-            plan,
-            code?.let { ModelStreamTerminal(TurnState.FAILED, it) },
-            bounded,
-        )
+        if (code != null) return failedPreparation(request, code)
+        if (plan != null) attempts++
+        return PreparedContext(plan?.request ?: request.modelRequest(), plan, null, request)
+    }
+
+    private fun failedPreparation(
+        request: TurnContextRequest,
+        code: String,
+    ): PreparedContext {
+        val failure = ModelStreamTerminal(TurnState.FAILED, code)
+        terminalFailure = failure
+        return PreparedContext(null, null, failure, request)
     }
 
     override suspend fun finish(
         plan: ContextCompactionPlan,
         stream: ModelStreamState,
         decision: ModelStreamTerminal,
-        journal: com.helix.core.agent.AgentTurnJournal,
+        journal: AgentTurnJournal,
         nextId: String,
         notice: String,
         unchangedNotice: String,
     ): ModelStreamTerminal? {
+        val estimate = ModelInputEstimate.of(plan.request).total
+        stream.inputTokens?.takeIf { estimate > 0 }?.let {
+            summaryInputScale = maxOf(summaryInputScale, it.toDouble() / estimate)
+        }
         val failure = validationFailure(plan, stream, decision)
         journal.recordDiagnostic(
             "context.compaction",
-            kotlinx.serialization.json
-                .buildJsonObject {
-                    put("code", kotlinx.serialization.json.JsonPrimitive(failure?.errorCode ?: "COMPLETED"))
-                    put("attempt", kotlinx.serialization.json.JsonPrimitive(attempts))
-                    put("before", kotlinx.serialization.json.JsonPrimitive(plan.originalInputTokens))
-                    if (failure == null || failure.errorCode == "CONTEXT_NO_GAIN") {
-                        put(
-                            "after",
-                            kotlinx.serialization.json.JsonPrimitive(
-                                summaries.summarizedRequest(plan, stream.text).inputTokens(),
-                            ),
-                        )
-                    }
-                }.toString(),
+            buildJsonObject {
+                put("code", failure?.errorCode ?: "COMPLETED")
+                put("attempt", attempts)
+                put("before", plan.originalInputTokens)
+                if (failure == null || failure.errorCode == "CONTEXT_NO_GAIN") {
+                    put("after", summaries.summarizedRequest(plan, stream.text).inputTokens())
+                }
+            }.toString(),
         )
-        return if (manual && failure?.errorCode == "CONTEXT_NO_GAIN") {
-            currentCoroutineContext().ensureActive()
-            journal.commitCompaction(plan, null, unchangedNotice, saveSummary = false)
-            ModelStreamTerminal(TurnState.COMPLETED, null)
-        } else if (failure != null) {
+        return if (failure != null) {
             recover(plan, stream, failure, journal, nextId)
         } else {
             currentCoroutineContext().ensureActive()
             journal.commitCompaction(plan, if (manual) null else nextId, if (manual) notice else null)
             // Checkpoint removes the old absolute usage floor; retain the same-model calibration scale.
+            summaryCommitted = true
+            pendingFailure = null
             if (manual) decision else null
         }
-    }
-
-    private fun shouldAttempt(request: TurnContextRequest): Boolean {
-        val bypass = bypassAt?.let { request.inputTokens() < it + maxOf(256, it / 5) } == true
-        return attempts < 2 && !bypass
     }
 
     private suspend fun shouldCompact(request: TurnContextRequest): Boolean =
@@ -172,43 +184,52 @@ class ContextCompactionRound(
                 decision
             }
 
-            !stream.completed || stream.finishedToolCalls.isNotEmpty() || stream.text.isBlank() ||
-                stream.text.length > ContextSummaryFormat.MAX_SUMMARY_CHARS -> {
-                ModelStreamTerminal(
-                    TurnState.FAILED,
-                    "CONTEXT_SUMMARY_INVALID",
-                )
+            !stream.completed || stream.hasToolCallFragments || stream.text.isBlank() ||
+                stream.text.length > ContextSummaryFormat.MAX_SUMMARY_CHARS ||
+                ContextSummaryText.isToolCallOnly(stream.text) -> {
+                ModelStreamTerminal(TurnState.FAILED, "CONTEXT_SUMMARY_INVALID")
+            }
+
+            !summaries.hasUsefulGain(plan, stream.text) -> {
+                ModelStreamTerminal(TurnState.FAILED, "CONTEXT_NO_GAIN")
             }
 
             else -> {
-                if (!summaries.hasUsefulGain(plan, stream.text)) {
-                    ModelStreamTerminal(TurnState.FAILED, "CONTEXT_NO_GAIN")
-                } else {
-                    null
-                }
+                null
             }
         }
 
-    @Suppress("ReturnCount") // Refusal/cancel, irreducible hard limit, and a bounded retry remain explicit.
     private suspend fun recover(
         plan: ContextCompactionPlan,
         stream: ModelStreamState,
         failure: ModelStreamTerminal,
-        journal: com.helix.core.agent.AgentTurnJournal,
+        journal: AgentTurnJournal,
         nextId: String,
     ): ModelStreamTerminal? {
+        val retryableEmptyFailure =
+            stream.retryableError && !stream.completed && !stream.receiving &&
+                failure.errorCode != ModelStreamState.REFUSAL
         val recoverable =
-            failure.errorCode in setOf("CONTEXT_NO_GAIN", "CONTEXT_SUMMARY_INVALID") &&
-                stream.finishedToolCalls.isEmpty() && failure.state != TurnState.CANCELLED
-        if (manual || !recoverable) return failure
-        currentCoroutineContext().ensureActive()
-        failures++
-        val original = requireNotNull(beforeSummary)
-        if (failures > 1 || attempts >= 2) {
-            capacityFailure(original)?.let { return ModelStreamTerminal(TurnState.FAILED, it) }
-            bypassAt = original.inputTokens()
+            failure.state == TurnState.FAILED && !stream.hasToolCallFragments &&
+                (failure.errorCode in RETRYABLE_FAILURES || retryableEmptyFailure)
+        if (recoverable) {
+            currentCoroutineContext().ensureActive()
+            val code = requireNotNull(failure.errorCode)
+            pendingFailure = code
+            // Close every failed summary call with its usage, without publishing its text or history.
+            journal.commitCompaction(plan, nextId.takeIf { attempts < MAX_ATTEMPTS }, failureReason = code)
+            if (attempts < MAX_ATTEMPTS) return null
         }
-        journal.commitCompaction(plan, nextId, failureReason = requireNotNull(failure.errorCode))
-        return null
+        val terminal = failure.copy(errorCode = failure.errorCode?.let(::summaryTerminalCode))
+        terminalFailure = terminal
+        return terminal
+    }
+
+    private companion object {
+        const val MAX_ATTEMPTS = 3
+        val RETRYABLE_FAILURES = setOf("CONTEXT_NO_GAIN", "CONTEXT_SUMMARY_INVALID", "OUTPUT_TOKEN_LIMIT")
     }
 }
+
+private fun summaryTerminalCode(code: String): String =
+    if (code == "OUTPUT_TOKEN_LIMIT") "CONTEXT_SUMMARY_OUTPUT_LIMIT" else code

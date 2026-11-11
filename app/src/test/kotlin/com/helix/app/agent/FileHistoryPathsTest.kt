@@ -6,12 +6,9 @@ import com.helix.core.agent.ContextSegments
 import com.helix.core.agent.ContextSourceRow
 import com.helix.core.agent.ContextSourceSnapshot
 import com.helix.core.agent.ContextSummaryFormat
-import com.helix.core.agent.RunControlConfig
 import com.helix.core.agent.TurnContextRequest
-import com.helix.core.model.AgentMode
 import com.helix.core.model.ModelRole
 import com.helix.core.model.ReasoningEffort
-import com.helix.core.model.TurnBudgets
 import com.helix.core.workspace.FileScopePath
 import com.helix.provider.api.ProviderContextSettings
 import kotlinx.serialization.json.Json
@@ -165,7 +162,6 @@ class FileHistoryPathsTest {
                 compiler.plan(
                     ContextSourceSnapshot(source, null, "turn", null, 0),
                     request,
-                    RunControlConfig(AgentMode.ACT, true, TurnBudgets(maxOutputTokens = 4096)),
                     ProviderContextSettings(manualWindow = 128_000),
                     true,
                 ),
