@@ -38,3 +38,23 @@ internal class McpCallInterruption(
         initCause(cause)
     }
 }
+
+/**
+ * Local host admission only. Never wrap transport, credential refresh, or other external effects here.
+ * Map delivery facts while retaining cancellation/interruption types.
+ */
+@Suppress("TooGenericExceptionCaught", "InstanceOfCheckForException")
+fun requireMcpCallAdmission(admission: () -> Unit) {
+    try {
+        admission()
+    } catch (failure: Exception) {
+        val tracked =
+            when (failure) {
+                is kotlinx.coroutines.TimeoutCancellationException -> McpCallCancellation(false, 0, true, failure)
+                is CancellationException -> McpCallCancellation(false, 0, false, failure)
+                is InterruptedException -> McpCallInterruption(false, 0, failure)
+                else -> McpCallException(false, 0, failure)
+            }
+        throw tracked
+    }
+}

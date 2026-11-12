@@ -136,8 +136,10 @@ class McpAppService(
         caller: com.helix.extensions.mcp.McpToolCaller,
     ) = com.helix.extensions.mcp.McpToolCaller { call, name ->
         withLiveCall(serverId, admitted = {
-            requireSource(serverId, call.sessionId)
-            check(activeBridges[serverId] === bridge()) { "MCP_SERVER_DISABLED_OR_REPLACED" }
+            com.helix.extensions.mcp.requireMcpCallAdmission {
+                requireSource(serverId, call.sessionId)
+                check(activeBridges[serverId] === bridge()) { "MCP_SERVER_DISABLED_OR_REPLACED" }
+            }
         }) { caller.call(call, name) }
     }
 

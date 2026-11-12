@@ -33,6 +33,31 @@ class McpDynamicToolBridgeTest {
         }
     }
 
+    @Test fun localAdmissionFailureCarriesNotSentWithoutChangingUnknownFallback() {
+        val failure =
+            assertThrows(McpCallException::class.java) {
+                requireMcpCallAdmission { error("MCP_SERVER_DISABLED_OR_REPLACED") }
+            }
+        val rejected = executeFailure(failure) as ToolExecutorResult.Failed
+        assertTrue(rejected.detail.contains("request=NOT_SENT"))
+        assertTrue(rejected.detail.contains("connectionAttempts=0"))
+        assertFalse(rejected.requiresReview)
+        assertEquals(kotlinx.serialization.json.JsonPrimitive(false), rejected.auditDetail?.get("requestSent"))
+        val unknown = executeFailure(IllegalStateException("unclassified runtime failure")) as ToolExecutorResult.Failed
+        assertTrue(unknown.detail.contains("request=UNKNOWN"))
+        assertTrue(unknown.requiresReview)
+    }
+
+    @Test fun localAdmissionCancellationPreservesCancellationAndNotSentFacts() {
+        val failure =
+            assertThrows(McpCallCancellation::class.java) {
+                requireMcpCallAdmission { throw kotlinx.coroutines.CancellationException("CONNECTOR_SESSION_DISABLED") }
+            }
+        val result = executeFailure(failure) as ToolExecutorResult.CancelledWithEffectTruth
+        assertTrue(result.detail.contains("request=NOT_SENT"))
+        assertFalse(result.requiresReview)
+    }
+
     @Test fun deadlineBeforeBusinessSubmissionDoesNotClaimAllBootstrapEffectsAreAbsent() {
         listOf(false, true).forEach { sent ->
             val failure = McpCallCancellation(sent, 1, true, kotlinx.coroutines.CancellationException())
