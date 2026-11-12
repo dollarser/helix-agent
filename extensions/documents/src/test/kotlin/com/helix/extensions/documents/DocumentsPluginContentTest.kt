@@ -14,6 +14,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 
@@ -33,6 +34,16 @@ class DocumentsPluginContentTest {
                 .SkillLoader()
                 .loadBuiltIn(skill.rawContent, "documents")
         }
+    }
+
+    @Test fun conciseRequiredRulesAndWorkflowRetainDocumentEvidenceBoundaries() {
+        val required = File(assets, "required.md").readText()
+        assertTrue(required.toByteArray().size < 1024)
+        assertTrue(required.contains("Read document-reading"))
+        assertTrue(required.contains("untrusted data"))
+        assertTrue(required.contains("do not prove pixels"))
+        listOf("sourceSha256", "nextCursor", "no reliable page numbers", "REF_EXPIRED", "imagePrepared=false")
+            .forEach { assertTrue("Missing document workflow boundary: $it", skill.body.contains(it)) }
     }
 
     @Test fun selectionAndDisableGuardTheShippedToolsAndSkillTogether() {
@@ -66,7 +77,10 @@ class DocumentsPluginContentTest {
                     )
             },
         )
-        val key = actualSkill.catalogEntry.let { SkillKey(it.source, it.name, it.contentHash) }
+        val key =
+            registry.contents("documents").skills.single().catalogEntry.let {
+                SkillKey(it.source, it.name, it.contentHash, it.ownerId)
+            }
         val descriptor = DocumentTools.descriptor("read")
         assertNull(registry.executionContext(descriptor, "s"))
         assertFalse(registry.skillAvailable(key, "s"))

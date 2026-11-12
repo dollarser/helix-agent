@@ -35,12 +35,39 @@ class MobileUseToolContractsTest {
         val root = java.io.File("src/main/assets/plugins/mobile-use/skills/android-ui-task")
         val entry = root.resolve("SKILL.md").readText()
         assertTrue(entry.toByteArray().size < 1024)
+        assertTrue(entry.contains("Observe the authorized target"))
+        assertTrue(entry.contains("Launch only if it is not already open"))
         assertTrue(entry.contains("references/android-ui-reference.md"))
         val text = entry + root.resolve("references/android-ui-reference.md").readText()
         assertTrue(text.contains("name: android-ui-task"))
         assertTrue(text.contains("ui.wait"))
         assertTrue(text.contains("ACTION_OUTCOME_UNKNOWN"))
         assertTrue(text.contains("does not grant permission"))
+    }
+
+    @Test fun requiredGuidanceKeepsImmediateBoundariesAndDelegatesWorkflowDetails() {
+        val root = java.io.File("src/main/assets/plugins/mobile-use")
+        val required = root.resolve("required.md").readText()
+        val reference = root.resolve("skills/android-ui-task/references/android-ui-reference.md").readText()
+        assertTrue(required.toByteArray().size < 2048)
+        listOf(
+            "Read android-ui-task",
+            "ACTION_OUTCOME_UNKNOWN",
+            "actual attached pixels",
+            "originatingHelixPackage",
+            "background mode",
+        ).forEach { assertTrue("Missing immediate boundary: $it", required.contains(it)) }
+        listOf(
+            "submit=true",
+            "canImeEnter=true",
+            "scrollDirections",
+            "text and editableValue as empty",
+            "ACTION_OUTCOME_UNKNOWN",
+            "ui.click_match",
+            "pollMillis",
+        ).forEach { assertTrue("Missing workflow detail: $it", reference.contains(it)) }
+        assertFalse(required.contains("submit=true"))
+        assertFalse(required.contains("pollMillis"))
     }
 
     @Test fun onlyTheOwnedContractReceivesMobileUseRouting() {
