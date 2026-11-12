@@ -14,6 +14,20 @@ class InputSkillActivationsTest {
         assertThrows(IllegalArgumentException::class.java) { item.copy(snapshotHash = "latest") }
     }
 
+    @Test fun equalContentFromDifferentOwnersRemainsDistinct() {
+        val standalone = InputSkillActivation("USER_IMPORTED", "workflow", "a".repeat(64), "")
+        val first = standalone.copy(ownerId = "conn-first")
+        val second = standalone.copy(ownerId = "conn-second")
+        val items = listOf(standalone, first, second)
+        assertEquals(items, InputSkillActivations.decode(InputSkillActivations.encode(items)))
+        assertThrows(IllegalArgumentException::class.java) { first.copy(ownerId = "../other") }
+        val native = first.copy(source = "BUILT_IN", ownerId = "browser.tools")
+        assertEquals(listOf(native), InputSkillActivations.decode(InputSkillActivations.encode(listOf(native))))
+        assertThrows(IllegalArgumentException::class.java) { first.copy(source = "PROJECT") }
+        assertThrows(IllegalArgumentException::class.java) { native.copy(ownerId = "browser..tools") }
+        assertThrows(IllegalArgumentException::class.java) { InputSkillActivations.encode(listOf(first, first)) }
+    }
+
     @Test fun rejectGrantFieldsEvenAlongsideValidActivationFacts() {
         val item = InputSkillActivation("PROJECT", "workflow", "a".repeat(64), "")
         val encoded = InputSkillActivations.encode(listOf(item))

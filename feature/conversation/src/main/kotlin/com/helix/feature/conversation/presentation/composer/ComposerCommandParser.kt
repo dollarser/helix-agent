@@ -110,11 +110,10 @@ object ComposerCommandParser {
 
         val triggerChar = prefix[triggerIndex]
 
-        // Slash commands are local controls only at the start of the input.
-        if (triggerChar == '/') {
-            if (triggerIndex != 0) {
-                return null
-            }
+        // Skills can be inserted after text; built-in commands are filtered to the leading position.
+        if (triggerChar == '/' && triggerIndex > 0) {
+            val previous = prefix[triggerIndex - 1]
+            if (!previous.isWhitespace() && !ComposerSkillTokens.isMarker(previous)) return null
         }
 
         // At-mention must be at start of input, or preceded by whitespace
@@ -126,7 +125,7 @@ object ComposerCommandParser {
 
         // Token is between trigger and cursor; cannot contain whitespace or another trigger
         val token = prefix.substring(triggerIndex + 1)
-        if (token.any { it.isWhitespace() || it == '/' || it == '@' }) {
+        if (token.any { it.isWhitespace() || it in "/@" || ComposerSkillTokens.isMarker(it) }) {
             return null
         }
 
@@ -145,6 +144,7 @@ object ComposerCommandParser {
         query: AutocompleteQuery,
         commands: List<SlashCommandSpec> = BUILTIN_SLASH_COMMANDS,
         connectors: List<ComposerSuggestionItem> = emptyList(),
+        skills: List<ComposerSuggestionItem> = emptyList(),
         files: List<ComposerSuggestionItem> = emptyList(),
         artifacts: List<ComposerSuggestionItem> = emptyList(),
     ): List<ComposerSuggestionItem> {
@@ -153,6 +153,7 @@ object ComposerCommandParser {
         return when (query.triggerChar) {
             '/' -> {
                 commands
+                    .filter { query.rangeStart == 0 }
                     .filter { it.command.lowercase().contains(lowerToken) }
                     .map {
                         ComposerSuggestionItem(
@@ -162,6 +163,10 @@ object ComposerCommandParser {
                             type = ComposerSuggestionType.SLASH_COMMAND,
                             insertText = "/${it.command} ",
                         )
+                    } +
+                    skills.filter {
+                        it.label.lowercase().contains(lowerToken) ||
+                            (it.detail?.lowercase()?.contains(lowerToken) == true)
                     }
             }
 

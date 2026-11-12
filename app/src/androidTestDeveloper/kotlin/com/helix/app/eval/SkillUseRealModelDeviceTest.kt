@@ -88,7 +88,14 @@ class SkillUseRealModelDeviceTest {
         evidence: JSONObject,
     ) {
         val skill = c.skillRepository.list(session).single { it.key.name == "helix-docs" }
-        val activation = InputSkillActivation(skill.key.source.name, skill.key.name, skill.key.snapshotHash, trial)
+        val activation =
+            InputSkillActivation(
+                skill.key.source.name,
+                skill.key.name,
+                skill.key.snapshotHash,
+                trial,
+                skill.key.ownerId,
+            )
         val prompt =
             "Case $trial。仅查阅 Helix 内置帮助：安装技能会不会自动执行附带脚本？" +
                 "请按本次技能读取 references/manifest.json，再按其索引读取相关说明，用中文简短回答并标注指南来源。" +

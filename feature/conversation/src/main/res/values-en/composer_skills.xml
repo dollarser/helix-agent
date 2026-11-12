@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="composer_remove_skill">Remove skill</string>
+    <string name="composer_skill_unavailable">Skill unavailable. Try again.</string>
+    <string name="composer_skill_choose">Choose the skill to use.</string>
+</resources>

@@ -48,7 +48,7 @@ class SessionInputRepository internal constructor(
                 .asReversed()
                 .flatMap {
                     InputSkillActivations.decode(it.skillActivationsJson)
-                }.distinctBy { Triple(it.source, it.name, it.snapshotHash) }
+                }.distinctBy { listOf(it.source, it.name, it.snapshotHash, it.ownerId) }
         }
 
     fun revokeSkillActivations(turnId: String) = transaction { dao.revokeSkillActivations(taskTurnIds(turnId)) }

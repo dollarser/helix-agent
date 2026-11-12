@@ -34,6 +34,7 @@ import com.helix.core.model.AgentMode
 import com.helix.core.model.ProviderProvisioningKind
 import com.helix.core.model.SessionPermissionMode
 import com.helix.core.model.TurnState
+import com.helix.core.model.input.InputSkillActivation
 import com.helix.feature.conversation.R
 import com.helix.feature.conversation.input.VoiceDraftSession
 import com.helix.feature.conversation.presentation.AdaptiveConversationHeader
@@ -63,6 +64,7 @@ import com.helix.feature.conversation.presentation.TurnRecoveryPanel
 import com.helix.feature.conversation.presentation.VoiceInputActions
 import com.helix.feature.conversation.presentation.VoiceInputModeSheet
 import com.helix.feature.conversation.presentation.appendTaskPrompt
+import com.helix.feature.conversation.presentation.composer.ComposerSuggestionItem
 import com.helix.feature.conversation.presentation.findMatches
 import com.helix.ui.shared.launchExternalUi
 import kotlinx.coroutines.Dispatchers
@@ -99,6 +101,13 @@ fun ChatScreen(
     onViewMetrics: ((String) -> Unit)? = null,
     hasKnowledgeReferences: Boolean = false,
     composerAvailability: ComposerAvailability = ComposerAvailability(),
+    skillActivations: List<InputSkillActivation> = emptyList(),
+    skillLabels: Map<String, String> = emptyMap(),
+    skillSuggestions: List<ComposerSuggestionItem> = emptyList(),
+    onSkillActivationsChange: (List<InputSkillActivation>) -> Unit = {},
+    onSkillSelect: suspend (
+        ComposerSuggestionItem,
+    ) -> Boolean = { false },
     composerStatus: @Composable () -> Unit = {},
     composerFeedback: @Composable () -> Unit = {},
     composerOptions: @Composable () -> Unit = {},
@@ -617,6 +626,11 @@ fun ChatScreen(
         composerFeedback()
         composerStatus()
         ConversationComposer(
+            skillActivations = skillActivations,
+            skillLabels = skillLabels,
+            skillSuggestions = skillSuggestions,
+            onSkillActivationsChange = onSkillActivationsChange,
+            onSkillSelect = onSkillSelect,
             referenceContent = knowledgeReferenceContent,
             voiceActive = voiceOpen,
             voiceDraftEditable = continuousVoice,

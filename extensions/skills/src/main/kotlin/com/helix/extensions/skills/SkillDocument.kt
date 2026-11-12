@@ -11,6 +11,7 @@ data class SkillCatalogEntry(
     val description: String,
     val source: SkillSource,
     val contentHash: String,
+    val ownerId: String = "",
 )
 
 /**

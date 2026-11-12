@@ -74,12 +74,8 @@ class ExpertContributionsDeviceTest {
                         1,
                     )
                     assertTrue(service.catalog.effectiveSelected(peer).isEmpty())
-                    assertTrue(
-                        c.skillRepository
-                            .read(key, peer)
-                            .body
-                            .contains("Synthetic dependency only"),
-                    )
+                    assertFalse(c.skillRepository.listForModel(peer, null).any { it.key == key })
+                    assertThrows(IllegalArgumentException::class.java) { c.skillRepository.read(key, peer) }
                     storage.sessionExperts.clearForSession(peer, 2)
                     val profile =
                         ExpertProfile(
@@ -121,9 +117,17 @@ class ExpertContributionsDeviceTest {
                     )
                     assertEquals(profile, storage.sessionExperts.forSession(session))
                     assertEquals(profile, ExpertProfileSnapshotCodec.decode(frozen))
-                    c.skillRepository.setEnabled(key, false, SkillEnablementScope.SESSION, session)
-                    assertThrows(IllegalArgumentException::class.java) { c.skillRepository.read(key, session) }
-                    c.skillRepository.setEnabled(key, true, SkillEnablementScope.SESSION, session)
+                    val rejected =
+                        assertThrows(IllegalArgumentException::class.java) {
+                            c.skillRepository.setEnabled(key, false, SkillEnablementScope.SESSION, session)
+                        }
+                    assertEquals("PLUGIN_OWNED_SKILL", rejected.message)
+                    assertTrue(
+                        c.skillRepository
+                            .read(key, session)
+                            .body
+                            .contains("Synthetic dependency only"),
+                    )
                     service.setEnabled(linked.id, false)
                     assertThrows(IllegalArgumentException::class.java) { c.skillRepository.read(key, session) }
                     service.setEnabled(linked.id, true)

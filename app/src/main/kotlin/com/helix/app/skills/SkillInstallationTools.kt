@@ -62,6 +62,7 @@ internal object SkillInstallationTools {
                                 put("source", JsonPrimitive(key.source.name))
                                 put("name", JsonPrimitive(key.name))
                                 put("snapshotHash", JsonPrimitive(key.snapshotHash))
+                                put("ownerId", JsonPrimitive(key.ownerId))
                                 put("installed", JsonPrimitive(true))
                                 put("enabled", JsonPrimitive(service.isEnabled(key)))
                             },
@@ -83,8 +84,8 @@ internal object SkillInstallationTools {
     }"""
     private const val OUTPUT = """{
       "type":"object","properties":{
-        "source":{"type":"string"},"name":{"type":"string"},"snapshotHash":{"type":"string"},
+        "source":{"type":"string"},"name":{"type":"string"},"snapshotHash":{"type":"string"},"ownerId":{"type":"string"},
         "installed":{"type":"boolean"},"enabled":{"type":"boolean"}
-      },"required":["source","name","snapshotHash","installed","enabled"],"additionalProperties":false
+      },"required":["source","name","snapshotHash","ownerId","installed","enabled"],"additionalProperties":false
     }"""
 }

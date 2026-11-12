@@ -13,11 +13,29 @@ data class InputSkillActivation(
     val name: String,
     val snapshotHash: String,
     val arguments: String,
+    val ownerId: String = "",
 ) {
     init {
         require(source in setOf("BUILT_IN", "USER_IMPORTED", "PROJECT"))
         require(name.isNotBlank() && name.length <= 64 && '\u0000' !in name)
         require(snapshotHash.length == 64 && snapshotHash.all { it in "0123456789abcdef" })
+        require(
+            ownerId.isEmpty() ||
+                when (source) {
+                    "USER_IMPORTED" -> {
+                        Regex("[A-Za-z0-9_-]{1,128}").matches(ownerId)
+                    }
+
+                    "BUILT_IN" -> {
+                        Regex("[a-z0-9](?:[a-z0-9.-]{0,62}[a-z0-9])?").matches(ownerId) &&
+                            "--" !in ownerId && ".." !in ownerId
+                    }
+
+                    else -> {
+                        false
+                    }
+                },
+        )
         require(arguments.length <= 4096 && '\u0000' !in arguments)
     }
 }
@@ -25,7 +43,8 @@ data class InputSkillActivation(
 object InputSkillActivations {
     fun encode(items: List<InputSkillActivation>): String {
         require(
-            items.size <= 4 && items.map { Triple(it.source, it.name, it.snapshotHash) }.distinct().size == items.size,
+            items.size <= 4 &&
+                items.map { listOf(it.source, it.name, it.snapshotHash, it.ownerId) }.distinct().size == items.size,
         )
         val raw =
             JsonArray(
@@ -35,6 +54,7 @@ object InputSkillActivations {
                         put("name", item.name)
                         put("snapshotHash", item.snapshotHash)
                         put("arguments", item.arguments)
+                        put("ownerId", item.ownerId)
                     }
                 },
             ).toString()
@@ -49,7 +69,7 @@ object InputSkillActivations {
         val items =
             array.map { element ->
                 val item = requireNotNull(element as? JsonObject) { "SKILL_ACTIVATION_INVALID" }
-                require(item.keys == setOf("source", "name", "snapshotHash", "arguments"))
+                require(item.keys == setOf("source", "name", "snapshotHash", "arguments", "ownerId"))
 
                 fun string(key: String): String =
                     item
@@ -57,7 +77,13 @@ object InputSkillActivations {
                         .jsonPrimitive
                         .also { require(it.isString) }
                         .content
-                InputSkillActivation(string("source"), string("name"), string("snapshotHash"), string("arguments"))
+                InputSkillActivation(
+                    string("source"),
+                    string("name"),
+                    string("snapshotHash"),
+                    string("arguments"),
+                    string("ownerId"),
+                )
             }
         encode(items)
         return items

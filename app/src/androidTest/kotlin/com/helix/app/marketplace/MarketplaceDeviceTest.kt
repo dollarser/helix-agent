@@ -4,7 +4,9 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.HelixApplication
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -20,14 +22,67 @@ class MarketplaceDeviceTest {
         val item = service.items().first { it.id == "code-review" }
         val installed = service.install(item)
         try {
-            container.pluginService.setEnabled(installed.id, false)
+            val key = installed.skills.single()
+            assertFalse(container.skillRepository.listSelectable().any { it.key == key })
+            service.disable(item)
+            assertThrows(IllegalArgumentException::class.java) { container.skillRepository.read(key) }
             assertEquals(MarketplaceItemStatus.INSTALLED_INACTIVE, service.status(item))
             assertEquals(installed.id, service.findInstalled(item)?.id)
             service.enableSkill(item)
+            assertTrue(
+                container.skillRepository
+                    .read(key)
+                    .body
+                    .isNotBlank(),
+            )
             assertEquals(MarketplaceItemStatus.ACTIVE, service.status(item))
             assertEquals(installed.id, service.findInstalled(item)?.id)
         } finally {
             service.uninstall(item)
+        }
+    }
+
+    @Test
+    fun enablingSessionScopedPackageDoesNotSelectItForAnyConversation() {
+        val token =
+            java.util.UUID
+                .randomUUID()
+                .toString()
+                .replace("-", "")
+                .take(12)
+        val item = service.items().first { it.id == "code-review" }.copy(id = "market-scope-$token")
+        val name = "market-scope-$token"
+        val bundle =
+            com.helix.extensions.plugin.PluginPackageReader().parse(
+                mapOf(
+                    ".codex-plugin/plugin.json" to """{"name":"$name"}""".toByteArray(),
+                    "skills/$name/SKILL.md" to "---\nname: $name\ndescription: Fixture\n---\nGuide".toByteArray(),
+                ),
+            )
+        val installed = container.pluginService.install(bundle, item.installIdentity())
+        val session = "market-scope-session-$token"
+        container.storage.sessions.create(session, "Marketplace scope fixture", null, null, 0)
+        try {
+            val key = installed.skills.single()
+            val before = container.pluginService.catalog.selected(session)
+            service.disable(item)
+            service.enableSkill(item)
+            assertEquals(before, container.pluginService.catalog.selected(session))
+            assertFalse(container.pluginService.catalog.defaultSelected(installed.id))
+            assertThrows(IllegalArgumentException::class.java) { container.skillRepository.read(key, session) }
+            container.pluginService.selectFromUser(session, installed.id, true)
+            assertEquals(
+                "Guide",
+                container.skillRepository
+                    .read(key, session)
+                    .body
+                    .trim(),
+            )
+            service.disable(item)
+            assertThrows(IllegalArgumentException::class.java) { container.skillRepository.read(key, session) }
+        } finally {
+            service.uninstall(item)
+            container.storage.deleteSessionPermanently(session)
         }
     }
 
@@ -69,7 +124,20 @@ class MarketplaceDeviceTest {
 
     @Test
     fun allRemoteCatalogItemsKeepTheirIdentityThroughInstallAndRemoval() {
-        service.items().filter { it.type != MarketplaceItemType.SKILL }.forEach { item ->
+        val token =
+            java.util.UUID
+                .randomUUID()
+                .toString()
+                .replace("-", "")
+                .take(12)
+        MarketplaceCatalog.items().filter { it.type != MarketplaceItemType.SKILL }.forEach { catalogItem ->
+            // Exercise every shipped payload under owned identities; never reuse or remove an existing install.
+            val item =
+                catalogItem.copy(
+                    id = "fixture-$token-${catalogItem.id}",
+                    targetConnectorName = "fixture-$token-${catalogItem.targetConnectorName ?: catalogItem.id}",
+                )
+            val original = service.findInstalled(catalogItem)
             assertEquals(MarketplaceItemStatus.NOT_INSTALLED, service.status(item))
             val installed = service.install(item)
             try {
@@ -87,6 +155,7 @@ class MarketplaceDeviceTest {
             }
             assertEquals(MarketplaceItemStatus.NOT_INSTALLED, service.status(item))
             assertTrue(container.pluginService.list().none { it.id == installed.id })
+            assertEquals(original, service.findInstalled(catalogItem))
         }
     }
 

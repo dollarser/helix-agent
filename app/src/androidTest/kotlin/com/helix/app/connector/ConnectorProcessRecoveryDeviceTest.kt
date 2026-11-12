@@ -39,7 +39,6 @@ class ConnectorProcessRecoveryDeviceTest {
             )
         val service = app.appContainer.pluginService
         val installed = service.install(bundle)
-        service.setSkillEnabled(installed.skills.single(), true)
         Files.write(marker, "${installed.id}\n${Process.myPid()}".toByteArray())
         assertTrue(service.skillEnabled(installed.skills.single()))
     }

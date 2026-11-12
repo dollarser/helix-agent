@@ -39,6 +39,13 @@ data class InstalledPlugin(
     val enabled: Boolean = true,
     val native: NativePluginComponent? = null,
 ) {
+    init {
+        require(skills.all { it.source == SkillSource.USER_IMPORTED && it.ownerId == id && id.isNotEmpty() }) {
+            "PLUGIN_SKILL_OWNER_MISMATCH"
+        }
+        require(native == null || skills.isEmpty()) { "PLUGIN_NATIVE_SKILLS_HOST_OWNED" }
+    }
+
     val componentDiagnostics: List<com.helix.extensions.plugin.PluginDiagnostic>
         get() =
             com.helix.extensions.plugin.PluginDiagnostics.components(
@@ -92,6 +99,7 @@ internal fun encode(record: InstalledPlugin): String =
                     buildJsonObject {
                         put("name", skill.name)
                         put("hash", skill.snapshotHash)
+                        put("ownerId", skill.ownerId)
                     }
                 },
             ),
@@ -127,6 +135,7 @@ internal fun decode(text: String): InstalledPlugin {
                 SkillSource.USER_IMPORTED,
                 s.getValue("name").jsonPrimitive.content,
                 s.getValue("hash").jsonPrimitive.content,
+                s.getValue("ownerId").jsonPrimitive.content,
             )
         },
         obj.getValue("diagnostics").jsonArray.map { it.jsonPrimitive.content },

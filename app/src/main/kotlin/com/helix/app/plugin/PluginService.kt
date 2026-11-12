@@ -44,7 +44,7 @@ class PluginService(
     fun previewJson(text: String): PluginPackage = reader.readJson(text.toByteArray(Charsets.UTF_8))
 
     fun standaloneSkills(sessionId: String? = null) =
-        skills.list(sessionId).filter {
+        skills.listSelectable(sessionId).filter {
             catalog.independentlyInstalled(it.key) && nativeRegistry?.ownsSkill(it.key) != true
         }
 
@@ -110,7 +110,7 @@ class PluginService(
 
     fun list(): List<InstalledPlugin> = catalog.list()
 
-    internal fun expertSkills() = skills.list()
+    internal fun expertSkills() = skills.listSelectable()
 
     fun sessionTitle(sessionId: String): String = storage.sessions.resolve(sessionId).title
 
@@ -530,11 +530,11 @@ class PluginService(
         synchronized(catalog.mutationLock) {
             cleanupPending = false
             cleanupStaging()
-            catalog.unusedSkills().forEach { key ->
+            skills.pluginSnapshotKeys().filter { key -> catalog.list().none { key in it.skills } }.forEach { key ->
                 try {
                     skills.withSnapshotReferences {
-                        // Independent imports can acquire ownership between the initial scan and this lock.
-                        if (key in catalog.unusedSkills() && skills.hasSnapshot(key)) {
+                        // Publication and cleanup share the gate; never remove a live package revision.
+                        if (catalog.list().none { key in it.skills } && skills.hasSnapshot(key)) {
                             skills.removePermanentlyForPrivacy(key)
                         }
                     }

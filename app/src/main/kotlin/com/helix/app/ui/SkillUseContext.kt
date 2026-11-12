@@ -8,8 +8,8 @@ import com.helix.extensions.skills.SkillSource
 
 internal val skillKeySaver =
     listSaver<SkillKey?, String>(
-        save = { key -> key?.let { listOf(it.source.name, it.name, it.snapshotHash) }.orEmpty() },
-        restore = { if (it.isEmpty()) null else SkillKey(SkillSource.valueOf(it[0]), it[1], it[2]) },
+        save = { key -> key?.let { listOf(it.source.name, it.name, it.snapshotHash, it.ownerId) }.orEmpty() },
+        restore = { if (it.isEmpty()) null else SkillKey(SkillSource.valueOf(it[0]), it[1], it[2], it[3]) },
     )
 
 internal data class SkillUseContext(

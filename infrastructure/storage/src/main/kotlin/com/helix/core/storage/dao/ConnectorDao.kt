@@ -5,7 +5,6 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import com.helix.core.storage.entity.ConnectorInstallationEntity
-import com.helix.core.storage.entity.ConnectorSkillOwnershipEntity
 import com.helix.core.storage.entity.SessionConnectorEntity
 
 @Dao
@@ -45,23 +44,6 @@ interface ConnectorDao {
         id: String,
         selected: Boolean,
     ): Int
-
-    @Query("SELECT * FROM connector_skill_ownership")
-    fun ownerships(): List<ConnectorSkillOwnershipEntity>
-
-    @Insert(onConflict = OnConflictStrategy.IGNORE)
-    fun claim(row: ConnectorSkillOwnershipEntity)
-
-    @Query(
-        "UPDATE connector_skill_ownership SET independent = :independent WHERE source = :source AND " +
-            "name = :name AND hash = :hash",
-    )
-    fun setIndependent(
-        source: String,
-        name: String,
-        hash: String,
-        independent: Boolean,
-    )
 
     @Query("SELECT connectorId FROM session_connectors WHERE sessionId = :sessionId ORDER BY connectorId")
     fun selected(sessionId: String): List<String>

@@ -12,6 +12,35 @@ import java.util.UUID
 
 /** Synthetic production install/selection/read; never operates a user account or device app. */
 class PluginSkillContributionDeviceTest {
+    @Test fun everyBundledPluginKeepsSkillsOutOfIndependentAndExpertChoices() {
+        val c = ApplicationProvider.getApplicationContext<HelixApplication>().appContainer
+        val service = c.pluginService
+        val bundled = service.list().mapNotNull { it.native }
+        assertTrue(bundled.isNotEmpty())
+        val choices =
+            c.skillRepository
+                .listSelectable()
+                .map { it.key }
+                .toSet()
+        val expertChoices = service.expertSkillChoices().map { it.reference }.toSet()
+        for (owner in bundled) {
+            for (document in service.bundledSkillContents(owner.pluginId)) {
+                val entry = document.catalogEntry
+                assertEquals(owner.pluginId, entry.ownerId)
+                val key =
+                    com.helix.extensions.skills
+                        .SkillKey(entry.source, entry.name, entry.contentHash, entry.ownerId)
+                assertFalse(key in choices)
+                assertFalse(expertSkillReference(key) in expertChoices)
+                val error =
+                    assertThrows(IllegalArgumentException::class.java) {
+                        c.skillRepository.setEnabled(key, true, com.helix.extensions.skills.SkillEnablementScope.GLOBAL)
+                    }
+                assertEquals("PLUGIN_OWNED_SKILL", error.message)
+            }
+        }
+    }
+
     @Test fun nativeBrowserEntryAndReferenceShareExactIdentityAndSelection() {
         val c = ApplicationProvider.getApplicationContext<HelixApplication>().appContainer
         val session = UUID.randomUUID().toString()
@@ -24,6 +53,7 @@ class PluginSkillContributionDeviceTest {
                     .list(session)
                     .single { it.key.name == "browser" }
                     .key
+            assertEquals("browser", key.ownerId)
             val entry = c.skillRepository.read(key, session)
             assertTrue(entry.body.toByteArray().size < 1024)
             assertTrue(entry.body.contains("references/browser-workflow.md"))
@@ -44,11 +74,18 @@ class PluginSkillContributionDeviceTest {
                     session,
                 )
             }
-            c.skillRepository.setEnabled(key, false, com.helix.extensions.skills.SkillEnablementScope.SESSION, session)
-            assertThrows(IllegalArgumentException::class.java) {
-                c.skillRepository.readResource(key, "references/browser-workflow.md", session)
-            }
-            c.skillRepository.setEnabled(key, true, com.helix.extensions.skills.SkillEnablementScope.SESSION, session)
+            val rejected =
+                assertThrows(IllegalArgumentException::class.java) {
+                    c.skillRepository.setEnabled(
+                        key,
+                        false,
+                        com.helix.extensions.skills.SkillEnablementScope.SESSION,
+                        session,
+                    )
+                }
+            assertEquals("PLUGIN_OWNED_SKILL", rejected.message)
+            assertEquals(reference, c.skillRepository.readResource(key, "references/browser-workflow.md", session))
+            assertFalse(c.skillRepository.listSelectable(session).any { it.key == key })
             c.pluginService.selectFromUser(session, plugin.id, false)
             assertThrows(IllegalArgumentException::class.java) {
                 c.skillRepository.readResource(key, "references/browser-workflow.md", session)
@@ -74,7 +111,6 @@ class PluginSkillContributionDeviceTest {
         val session = UUID.randomUUID().toString()
         c.storage.sessions.create(session, "Partial readiness fixture", null, null, 0)
         try {
-            c.pluginService.setSkillEnabled(installed.skills.single(), true)
             c.pluginService.selectFromUser(session, installed.id, true)
             val initial = c.pluginService.sessionRows(session).single { it.id == installed.id }
             assertFalse(
@@ -125,7 +161,11 @@ class PluginSkillContributionDeviceTest {
         val key = installed.skills.single()
         try {
             assertTrue(installed.endpoints.isEmpty())
-            c.pluginService.setSkillEnabled(key, true)
+            val rejected =
+                assertThrows(IllegalArgumentException::class.java) {
+                    c.pluginService.setSkillEnabled(key, true)
+                }
+            assertEquals("PLUGIN_OWNED_SKILL", rejected.message)
             assertThrows(IllegalArgumentException::class.java) { c.skillRepository.read(key, session) }
             c.pluginService.selectFromUser(session, installed.id, true)
             assertTrue(

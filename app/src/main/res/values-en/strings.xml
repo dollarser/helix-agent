@@ -468,7 +468,7 @@
     <string name="connector_install">Install portable components</string>
     <string name="connector_failed">Import or save failed. Check JSON, skill format, package size, and storage space.</string>
     <string name="connector_skill_review">Skills retain original instructions and files. Scripts do not run on installation. Review the source before enabling; host-specific tool names may need adaptation.</string>
-    <string name="connector_remove_note">Remove the local connection and credentials; keep Skill snapshots. Revoke vendor authorization on the vendor side.</string>
+    <string name="connector_remove_note">Remove this plugin’s local connection, credentials and Skills. Other plugins and independently installed Skills are unaffected. Revoke vendor authorization on the vendor side.</string>
     <string name="connector_remove">Remove plugin</string>
     <string name="connector_active">Tools enabled</string>
     <string name="connector_inactive">Tools inactive. Test the connection and select tools.</string>
@@ -1458,9 +1458,7 @@
     <string name="plugin_setup_continue">Go to settings</string>
     <string name="plugin_setup_later">Not now</string>
     <string name="skill_invocation_arguments">Arguments for this input (optional)</string>
-    <string name="skill_invocation_once">Use once</string>
-    <string name="skill_invocation_prompt">Use skill: %1$s</string>
-    <string name="skill_invocation_selected">Skill for this input: %1$s · Remove</string>
+    <string name="skill_invocation_once">Add to this message</string>
     <string name="skill_invocation_limit">Use up to 4 skills per input. Remove one before adding another.</string>
     <string name="plugin_state_disconnected">Not connected</string>
     <string name="plugin_state_host_missing">Host unavailable</string>

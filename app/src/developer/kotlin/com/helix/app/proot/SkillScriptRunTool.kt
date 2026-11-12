@@ -41,6 +41,7 @@ internal object SkillScriptRunTool {
                         ),
                     "name" to stringSchema(),
                     "snapshotHash" to stringSchema(),
+                    "ownerId" to buildJsonObject { put("type", "string") },
                     "path" to stringSchema(),
                     "args" to
                         Json.parseToJsonElement(
@@ -100,7 +101,16 @@ internal object SkillScriptRunTool {
             call.args
                 .getValue(name)
                 .jsonPrimitive.content
-        val key = SkillKey(SkillSource.valueOf(text("source")), text("name"), text("snapshotHash"))
+        val key =
+            SkillKey(
+                SkillSource.valueOf(text("source")),
+                text("name"),
+                text("snapshotHash"),
+                call.args["ownerId"]
+                    ?.jsonPrimitive
+                    ?.content
+                    .orEmpty(),
+            )
         val path = text("path")
         val scripts = repository.scripts(key, call.sessionId, call.turnId)
         require(scripts.any { it.relativePath == path })

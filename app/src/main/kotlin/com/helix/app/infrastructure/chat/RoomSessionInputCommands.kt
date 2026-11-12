@@ -82,7 +82,9 @@ internal class RoomSessionInputCommands(
         transaction {
             val original = editable(key) ?: return@transaction false
             val hasReference = original.reference != null || original.knowledgeReferences.isNotEmpty()
-            val hasContent = text.isNotBlank() || original.attachments.isNotEmpty() || hasReference
+            val hasContent =
+                text.isNotBlank() || original.attachments.isNotEmpty() || hasReference ||
+                    original.skillActivations.isNotEmpty()
             if (!hasContent) return@transaction false
             val nextRevision = Math.addExact(key.revision, 1L)
             val replacement =

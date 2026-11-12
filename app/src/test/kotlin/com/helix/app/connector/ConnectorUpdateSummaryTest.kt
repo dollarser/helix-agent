@@ -23,7 +23,7 @@ class ConnectorUpdateSummaryTest {
             "CLAUDE",
             "old",
             endpoints.map { InstalledEndpoint("saved-${it.name}", it) },
-            listOf(SkillKey(SkillSource.USER_IMPORTED, "git-ops", "a".repeat(64))),
+            listOf(SkillKey(SkillSource.USER_IMPORTED, "git-ops", "a".repeat(64), "conn-1")),
             emptyList(),
             "local:sample",
             2,

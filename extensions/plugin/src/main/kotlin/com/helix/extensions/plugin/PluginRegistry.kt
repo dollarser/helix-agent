@@ -50,7 +50,6 @@ data class PluginContents(
 class PluginRegistry(
     private val toolRegistry: ToolRegistry,
     private val catalog: NativePluginCatalog,
-    private val explicitlySelectedSkill: (com.helix.extensions.skills.SkillKey, String) -> Boolean = { _, _ -> false },
 ) {
     val performance = PluginPerformanceDiagnostics()
     private val factories = LinkedHashMap<String, HelixPlugin>()
@@ -117,7 +116,7 @@ class PluginRegistry(
             val plugin = factories[pluginId]
             PluginContents(
                 plugin?.tools().orEmpty().map { it.descriptor.name.value to it.descriptor.description },
-                plugin?.skills.orEmpty(),
+                plugin?.scopedSkills().orEmpty(),
                 plugin?.requiredInstructions.orEmpty(),
             )
         }
@@ -134,23 +133,10 @@ class PluginRegistry(
         synchronized(catalog.mutationLock) {
             factories
                 .flatMap { (id, plugin) ->
-                    plugin.skills.filter { document ->
-                        sessionId == null || (
-                            ready(id) &&
-                                (
-                                    catalog.selectionId(sessionId, id) != null ||
-                                        explicitlySelectedSkill(
-                                            com.helix.extensions.skills.SkillKey(
-                                                document.catalogEntry.source,
-                                                document.catalogEntry.name,
-                                                document.catalogEntry.contentHash,
-                                            ),
-                                            sessionId,
-                                        )
-                                )
-                        )
+                    plugin.scopedSkills().filter {
+                        sessionId == null || (ready(id) && catalog.selectionId(sessionId, id) != null)
                     }
-                }.distinctBy { it.catalogEntry }
+                }
         }
 
     fun skillAvailable(
@@ -158,20 +144,18 @@ class PluginRegistry(
         sessionId: String?,
     ): Boolean =
         synchronized(catalog.mutationLock) {
-            val owners = factories.filterValues { plugin -> plugin.skills.any { matches(it, key) } }
-            owners.isEmpty() ||
-                owners.any { (id, _) ->
-                    ready(id) &&
-                        (
-                            sessionId == null || catalog.selectionId(sessionId, id) != null ||
-                                explicitlySelectedSkill(key, sessionId)
-                        )
-                }
+            if (key.source != com.helix.extensions.skills.SkillSource.BUILT_IN || key.ownerId.isEmpty()) {
+                true
+            } else {
+                val owner = factories[key.ownerId]
+                owner != null && owner.scopedSkills().any { matches(it, key) } && ready(key.ownerId) &&
+                    (sessionId == null || catalog.selectionId(sessionId, key.ownerId) != null)
+            }
         }
 
     fun ownsSkill(key: com.helix.extensions.skills.SkillKey): Boolean =
         synchronized(catalog.mutationLock) {
-            factories.values.any { plugin -> plugin.skills.any { matches(it, key) } }
+            factories[key.ownerId]?.scopedSkills()?.any { matches(it, key) } == true
         }
 
     private fun matches(
@@ -179,7 +163,8 @@ class PluginRegistry(
         key: com.helix.extensions.skills.SkillKey,
     ): Boolean =
         document.catalogEntry.let { entry ->
-            entry.source == key.source && entry.name == key.name && entry.contentHash == key.snapshotHash
+            entry.source == key.source && entry.name == key.name && entry.contentHash == key.snapshotHash &&
+                entry.ownerId == key.ownerId
         }
 
     fun register(plugin: HelixPlugin): PluginManifest =
@@ -345,7 +330,8 @@ class PluginRegistry(
                             plugin.requiredInstructions,
                         ) +
                             bindings.map { it.descriptor.contractHash.hex }.sorted() +
-                            plugin.skills
+                            plugin
+                                .scopedSkills()
                                 .sortedBy {
                                     it.catalogEntry.name
                                 }.map { "${it.catalogEntry}:${it.rawContent}" }
@@ -363,4 +349,15 @@ class PluginRegistry(
         synchronized(catalog.mutationLock) {
             factories[pluginId]?.manifest?.takeIf { catalog.find(pluginId) != null }
         }
+}
+
+/** Owner identity is supplied by the trusted host, never by shared raw document metadata. */
+internal fun HelixPlugin.scopedSkills(): List<SkillDocument> {
+    require(PortablePluginManifest.validName(manifest.name)) { "PLUGIN_NAME_INVALID" }
+    return skills.map { document ->
+        require(document.catalogEntry.source == com.helix.extensions.skills.SkillSource.BUILT_IN) {
+            "PLUGIN_NATIVE_SKILL_SOURCE_INVALID"
+        }
+        document.copy(catalogEntry = document.catalogEntry.copy(ownerId = manifest.name))
+    }
 }

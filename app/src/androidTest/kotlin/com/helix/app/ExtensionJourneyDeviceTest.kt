@@ -799,8 +799,7 @@ class ExtensionJourneyDeviceTest {
                 ),
             )
         val installed = pluginService.install(bundle)
-        // The user explicitly enables the persisted skill (GLOBAL scope, a durable row).
-        pluginService.setSkillEnabled(installed.skills.single(), true)
+        // Plugin ownership controls the persisted skill; no independent skill switch.
         // A non-default session permission mode is also a durable row keyed by the session.
         val sessionId = newSession("restart")
         saveConfig(sessionId, SessionPermissionMode.APPROVAL_REQUIRED)

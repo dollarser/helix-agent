@@ -2,9 +2,12 @@ package com.helix.app.plugin
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onParent
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextReplacement
@@ -96,7 +99,12 @@ class PluginContentsDeviceTest {
         compose.onNodeWithTag("plugin-skills-heading-mobile-use").performScrollTo().performClick()
         compose.onNodeWithText("android-ui-task").assertDoesNotExist()
         compose.onNodeWithText("ui.snapshot").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithTag("plugin-tab-0-bundled-plugin:mobile-use").performScrollTo().performClick()
+        val configuration = compose.onNodeWithTag("plugin-tab-0-bundled-plugin:mobile-use")
+        configuration.onParent().performScrollTo()
+        configuration.performScrollTo().performClick().assertIsSelected()
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithTag("mobile-use-plugin-settings").fetchSemanticsNodes().isNotEmpty()
+        }
         compose.onNodeWithTag("mobile-use-plugin-settings").performScrollTo().assertIsDisplayed()
     }
 }

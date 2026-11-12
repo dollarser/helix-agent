@@ -98,7 +98,6 @@ import com.helix.core.storage.entity.TurnRuntimeRecordEntity
             com.helix.core.storage.entity.SessionWorkspaceEntity::class,
             com.helix.core.storage.entity.ModelCallWorkspaceEntity::class,
             com.helix.core.storage.entity.ConnectorInstallationEntity::class,
-            com.helix.core.storage.entity.ConnectorSkillOwnershipEntity::class,
             com.helix.core.storage.entity.SessionConnectorEntity::class,
             com.helix.core.storage.entity.ConnectorEndpointEntity::class,
             MessageEntity::class,

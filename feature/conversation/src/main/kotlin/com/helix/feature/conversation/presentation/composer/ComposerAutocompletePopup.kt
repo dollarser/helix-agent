@@ -1,5 +1,6 @@
 package com.helix.feature.conversation.presentation.composer
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -9,7 +10,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -19,8 +21,10 @@ import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.SuggestionChipDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -35,8 +39,20 @@ fun ComposerAutocompletePopup(
     suggestions: List<ComposerSuggestionItem>,
     onSelect: (ComposerSuggestionItem) -> Unit,
     modifier: Modifier = Modifier,
+    highlightedIndex: Int = 0,
 ) {
     if (suggestions.isEmpty()) return
+    val listState = rememberLazyListState()
+    LaunchedEffect(highlightedIndex, suggestions) {
+        val target = highlightedIndex.coerceIn(suggestions.indices)
+        val layout = listState.layoutInfo
+        val item = layout.visibleItemsInfo.firstOrNull { it.index == target }
+        if (item == null || item.offset < layout.viewportStartOffset ||
+            item.offset + item.size > layout.viewportEndOffset
+        ) {
+            listState.scrollToItem(target)
+        }
+    }
 
     Card(
         modifier =
@@ -52,10 +68,15 @@ fun ComposerAutocompletePopup(
         elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
     ) {
         IndicatedLazyColumn(
+            state = listState,
             modifier = Modifier.fillMaxWidth().heightIn(max = 240.dp),
         ) {
-            items(suggestions, key = { it.id }) { item ->
-                ComposerSuggestionRow(item = item, onClick = { onSelect(item) })
+            itemsIndexed(suggestions, key = { _, item -> item.id }) { index, item ->
+                ComposerSuggestionRow(
+                    item = item,
+                    highlighted = index == highlightedIndex,
+                    onClick = { onSelect(item) },
+                )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
             }
         }
@@ -66,13 +87,16 @@ fun ComposerAutocompletePopup(
 @Suppress("FunctionName")
 private fun ComposerSuggestionRow(
     item: ComposerSuggestionItem,
+    highlighted: Boolean,
     onClick: () -> Unit,
 ) {
     Row(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .clickable(onClick = onClick)
+                .background(
+                    if (highlighted) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
+                ).clickable(onClick = onClick)
                 .padding(horizontal = 12.dp, vertical = 8.dp)
                 .testTag("composer-suggestion-${item.id}"),
         verticalAlignment = Alignment.CenterVertically,

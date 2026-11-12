@@ -18,6 +18,7 @@ data class SkillKey(
     val source: SkillSource,
     val name: String,
     val snapshotHash: String,
+    val ownerId: String = "",
 )
 
 data class SkillListItem(
@@ -25,6 +26,8 @@ data class SkillListItem(
     val description: String,
     val enabled: Boolean,
     val invocation: SkillInvocationPolicy = SkillInvocationPolicy(),
+    val independentlySelectable: Boolean = true,
+    val independentEnabled: Boolean = enabled,
 )
 
 data class SkillResource(
@@ -48,11 +51,12 @@ class SkillRepository(
     builtIns: List<SkillDocument> = BuiltInSkills.documents(),
     private val resourceLimitBytes: Long = 512 * 1024,
     private val sourceAvailable: (SkillKey, String?) -> Boolean = { _, _ -> true },
-    private val onIndependentInstall: (SkillKey) -> Unit = {},
     private val beforeRemove: (SkillKey) -> Unit = {},
     private val contributedDocuments: (String?) -> List<SkillDocument> = { emptyList() },
     private val userActivations: (String, String) -> List<UserSkillActivation> = { _, _ -> emptyList() },
     private val expertEnablement: (SkillKey, String?) -> Boolean = { _, _ -> false },
+    private val independentlySelectable: (SkillKey) -> Boolean = { true },
+    private val pluginAvailable: (SkillKey, String?) -> Boolean = { _, _ -> false },
     metadataLock: Any = Any(),
 ) {
     // Hosts with compound plugin publication must share its metadata gate. A separate lock
@@ -88,8 +92,18 @@ class SkillRepository(
                         record.document.catalogEntry.description,
                         isEnabled(key, sessionId),
                         record.document.invocation,
+                        key.ownerId.isEmpty() && key !in contributionKeys && independentlySelectable(key),
+                        key !in contributionKeys && independentlyEnabled(key, sessionId),
                     )
                 }.sortedWith(compareBy({ it.key.name }, { it.key.source.name }, { it.key.snapshotHash }))
+        }
+
+    /** User choices exclude content whose availability is controlled by its owning plugin. */
+    fun listSelectable(sessionId: String? = null): List<SkillListItem> =
+        synchronized(lock) {
+            list(sessionId)
+                .filter { it.independentlySelectable }
+                .map { it.copy(enabled = it.independentEnabled) }
         }
 
     /** Manual management preview only; execution must use read and its enablement checks. */
@@ -200,7 +214,7 @@ class SkillRepository(
             val directory = requireNotNull(records.getValue(key).directory) { "SKILL_HAS_NO_FILESYSTEM_SCRIPTS" }
             val preview = inspector.inspect(directory, key.source)
             require(preview.snapshotHash == key.snapshotHash) { "SKILL_SNAPSHOT_CHANGED" }
-            SkillSnapshotRef(key.name, key.snapshotHash, directory, key.source)
+            SkillSnapshotRef(key.name, key.snapshotHash, directory, key.source, key.ownerId)
         }
     }
 
@@ -238,9 +252,9 @@ class SkillRepository(
     fun activatedContent(
         sessionId: String,
         turnId: String,
-    ): List<Pair<SkillDocument, String>> =
+    ): List<ActivatedSkillContent> =
         userActivations(sessionId, turnId).map { activation ->
-            read(activation.key, sessionId, turnId) to activation.arguments
+            ActivatedSkillContent(activation.key, read(activation.key, sessionId, turnId), activation.arguments)
         }
 
     /** Durable lookup must not acquire a Room transaction while holding the content lock. */
@@ -287,6 +301,9 @@ class SkillRepository(
         synchronized(lock) {
             refreshContributions()
             require(records.containsKey(key)) { "Unknown skill snapshot: ${key.name}" }
+            require(
+                key.ownerId.isEmpty() && key !in contributionKeys && independentlySelectable(key),
+            ) { "PLUGIN_OWNED_SKILL" }
             when (scope) {
                 SkillEnablementScope.GLOBAL -> {
                     globalOverrides[key] = enabled
@@ -303,12 +320,14 @@ class SkillRepository(
         }
     }
 
-    fun registerSnapshot(
-        snapshot: SkillSnapshotRef,
-        independent: Boolean = true,
-    ): SkillKey =
+    fun registerSnapshot(snapshot: SkillSnapshotRef): SkillKey =
         synchronized(lock) {
-            val normalizedRoot = snapshotsRoot.toAbsolutePath().normalize()
+            val normalizedRoot = skillOwnerRoot(snapshotsRoot, snapshot.ownerId).toAbsolutePath().normalize()
+            requireSafeRoot(snapshotsRoot, "snapshots")
+            if (snapshot.ownerId.isNotEmpty()) {
+                requireSafeRoot(snapshotsRoot.resolve(".plugins"), "plugin namespace")
+                requireSafeRoot(normalizedRoot, "plugin owner")
+            }
             val normalizedDirectory = snapshot.directory.toAbsolutePath().normalize()
             require(normalizedDirectory.startsWith(normalizedRoot)) { "Snapshot is outside the installed root" }
             require(
@@ -322,9 +341,9 @@ class SkillRepository(
             require(preview.name == snapshot.name && preview.snapshotHash == snapshot.snapshotHash) {
                 "Snapshot identity does not match its content"
             }
-            val document = SkillLoader().load(snapshot.directory, SkillSource.USER_IMPORTED)
+            val loaded = SkillLoader().load(snapshot.directory, SkillSource.USER_IMPORTED)
+            val document = loaded.copy(catalogEntry = loaded.catalogEntry.copy(ownerId = snapshot.ownerId))
             val key = document.catalogEntry.toKey(snapshot.snapshotHash)
-            if (independent) onIndependentInstall(key)
             records[key] = SkillRecord(document, snapshot.directory)
             key
         }
@@ -333,6 +352,23 @@ class SkillRepository(
 
     /** A compound publisher holds file references until its durable manifest is committed. */
     fun <T> withSnapshotReferences(block: () -> T): T = synchronized(lock, block)
+
+    /** Independent installs and package-owned content have separate identities and lifecycles. */
+    fun uninstall(key: SkillKey) {
+        synchronized(lock) {
+            require(key.ownerId.isEmpty() && independentlySelectable(key)) { "PLUGIN_OWNED_SKILL" }
+            remove(key)
+        }
+    }
+
+    fun pluginSnapshotKeys(): List<SkillKey> =
+        synchronized(lock) {
+            records.keys.filter {
+                it.source ==
+                    SkillSource.USER_IMPORTED &&
+                    it.ownerId.isNotEmpty()
+            }
+        }
 
     fun remove(key: SkillKey): Path =
         synchronized(lock) {
@@ -362,14 +398,34 @@ class SkillRepository(
     }
 
     private fun scanSnapshots() {
-        Files.list(snapshotsRoot).use { names ->
-            names
+        scanOwner(snapshotsRoot, "")
+        val plugins = snapshotsRoot.resolve(".plugins")
+        if (!Files.isDirectory(plugins, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(plugins)) return
+        Files.list(plugins).use { owners ->
+            owners
                 .filter { Files.isDirectory(it, LinkOption.NOFOLLOW_LINKS) && !Files.isSymbolicLink(it) }
-                .forEach { nameDirectory -> scanNameDirectory(nameDirectory) }
+                .filter { SKILL_OWNER_ID.matches(it.fileName.toString()) }
+                .forEach { scanOwner(it, it.fileName.toString()) }
         }
     }
 
-    private fun scanNameDirectory(nameDirectory: Path) {
+    private fun scanOwner(
+        root: Path,
+        ownerId: String,
+    ) {
+        Files.list(root).use { names ->
+            names
+                .filter {
+                    it.fileName.toString() != ".plugins" &&
+                        Files.isDirectory(it, LinkOption.NOFOLLOW_LINKS) && !Files.isSymbolicLink(it)
+                }.forEach { nameDirectory -> scanNameDirectory(nameDirectory, ownerId) }
+        }
+    }
+
+    private fun scanNameDirectory(
+        nameDirectory: Path,
+        ownerId: String,
+    ) {
         Files.list(nameDirectory).use { snapshots ->
             snapshots
                 .filter { Files.isDirectory(it, LinkOption.NOFOLLOW_LINKS) && !Files.isSymbolicLink(it) }
@@ -379,7 +435,8 @@ class SkillRepository(
                         val preview = inspector.inspect(directory, SkillSource.USER_IMPORTED)
                         require(preview.name == nameDirectory.fileName.toString())
                         require(preview.snapshotHash == container.fileName.toString())
-                        val document = SkillLoader().load(directory, SkillSource.USER_IMPORTED)
+                        val loaded = SkillLoader().load(directory, SkillSource.USER_IMPORTED)
+                        val document = loaded.copy(catalogEntry = loaded.catalogEntry.copy(ownerId = ownerId))
                         records[document.catalogEntry.toKey(preview.snapshotHash)] = SkillRecord(document, directory)
                     }
                 }
@@ -390,17 +447,22 @@ class SkillRepository(
         key: SkillKey,
         sessionId: String?,
     ): Boolean {
-        if (!sourceAvailable(key, sessionId) ||
-            (key in contributionKeys && contributedDocuments(sessionId).none { it.catalogEntry.toKey() == key })
-        ) {
-            return false
-        }
-        val session = sessionId?.let { sessionOverrides[it]?.get(key) }
-        return session ?: if (expertEnablement(key, sessionId)) {
-            true
+        if (!sourceAvailable(key, sessionId)) return false
+        return if (key in contributionKeys) {
+            contributedDocuments(sessionId).any { it.catalogEntry.toKey() == key }
         } else {
-            globalOverrides[key] ?: (key.source == SkillSource.BUILT_IN)
+            pluginAvailable(key, sessionId) || independentlyEnabled(key, sessionId)
         }
+    }
+
+    private fun independentlyEnabled(
+        key: SkillKey,
+        sessionId: String?,
+    ): Boolean {
+        if (key.ownerId.isNotEmpty() || !independentlySelectable(key)) return false
+        val session = sessionId?.let { sessionOverrides[it]?.get(key) }
+        return session
+            ?: (expertEnablement(key, sessionId) || (globalOverrides[key] ?: (key.source == SkillSource.BUILT_IN)))
     }
 
     /** Replace host content facts; stale revisions cannot remain readable through an old key. */
@@ -569,7 +631,7 @@ class SkillRepository(
             else -> null
         }
 
-    private fun SkillCatalogEntry.toKey(hash: String = contentHash): SkillKey = SkillKey(source, name, hash)
+    private fun SkillCatalogEntry.toKey(hash: String = contentHash): SkillKey = SkillKey(source, name, hash, ownerId)
 
     private data class SkillRecord(
         val document: SkillDocument,

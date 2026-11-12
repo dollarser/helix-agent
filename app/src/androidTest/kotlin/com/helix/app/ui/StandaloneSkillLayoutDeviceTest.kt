@@ -2,6 +2,7 @@ package com.helix.app.ui
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
@@ -98,31 +99,27 @@ class StandaloneSkillLayoutDeviceTest {
                 }
                 compose.onNodeWithTag("skill-use-BUILT_IN-helix-docs").performScrollTo().performClick()
                 compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
-                    compose.onAllNodesWithTag("skill-invocation-arguments").fetchSemanticsNodes().isNotEmpty()
+                    compose.onAllNodesWithTag("skill-invocation-confirm").fetchSemanticsNodes().isNotEmpty()
                 }
                 captureChatLayout(compose.activity, "skill-use-focused")
-                compose.onNodeWithTag("skill-invocation-arguments").performTextInput("本次参数")
+                compose.onNodeWithTag("skill-invocation-arguments").assertDoesNotExist()
                 compose.onNodeWithTag("skill-invocation-confirm").performClick()
                 compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
                     compose.onAllNodesWithTag("chat-input").fetchSemanticsNodes().isNotEmpty()
                 }
-                compose.onNodeWithTag("chat-input").assertTextContains("保留这条草稿")
-                compose
-                    .onNodeWithText(
-                        compose.activity.getString(
-                            R.string.skill_invocation_selected,
-                            compose.activity.getString(R.string.skill_catalog_helix_docs),
-                        ),
-                    ).assertIsDisplayed()
-                compose
-                    .onNodeWithText(
-                        compose.activity.getString(R.string.skill_invocation_selected, "helix-docs"),
-                    ).assertDoesNotExist()
+                val skillTitle = compose.activity.getString(R.string.skill_catalog_helix_docs)
+                compose.onNodeWithTag("chat-input").assertTextEquals(" $skillTitle 保留这条草稿")
+                compose.onNodeWithTag("chat-input").assertTextContains(
+                    compose.activity.getString(R.string.skill_catalog_helix_docs),
+                    substring = true,
+                )
+                compose.onNodeWithTag("skill-activation-helix-docs").assertDoesNotExist()
                 compose.onNodeWithTag("skill-use-review").assertDoesNotExist()
                 compose.onNodeWithTag("skill-unapplied").assertDoesNotExist()
                 val draft = requireNotNull(c.chatService.loadComposerDraft(session))
+                assertEquals("保留这条草稿", draft.text)
                 assertEquals("helix-docs", draft.skillActivations.single().name)
-                assertEquals("本次参数", draft.skillActivations.single().arguments)
+                assertEquals("", draft.skillActivations.single().arguments)
                 assertTrue(
                     c.storage.turns
                         .listBySession(session)

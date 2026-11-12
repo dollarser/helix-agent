@@ -113,7 +113,6 @@ class PluginFileWorkflowModelDeviceTest {
                     SessionPermissionConfig.of(SessionPermissionMode.FULL_ACCESS),
                     System.currentTimeMillis(),
                 )
-                c.pluginService.setSkillEnabled(installed.skills.single(), true)
                 c.pluginService.selectFromUser(id, installed.id, true)
                 c.chatService.openTestSessionControl(id, AgentMode.ACT, TurnBudgets(maxOutputTokens = 32768))
                 val relativePrefix =

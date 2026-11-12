@@ -54,8 +54,13 @@ class ConnectorDeviceTest {
                         .size,
                 )
                 assertEquals(installed, service.install(preview))
-                assertFalse(service.skillEnabled(installed.skills.single()))
-                service.setSkillEnabled(installed.skills.single(), true)
+                assertTrue(service.skillEnabled(installed.skills.single()))
+                assertEquals(
+                    "PLUGIN_OWNED_SKILL",
+                    assertThrows(IllegalArgumentException::class.java) {
+                        service.setSkillEnabled(installed.skills.single(), true)
+                    }.message,
+                )
                 assertTrue(
                     container.skillRepository
                         .read(installed.skills.single())
@@ -82,7 +87,7 @@ class ConnectorDeviceTest {
     }
 
     @Test
-    fun removingOneBundlePreservesSharedSkillAndDeletesOnlyItsCredential() {
+    fun removingOneBundlePreservesOtherOwnerSkillAndDeletesOnlyItsCredential() {
         val name = "shared-${UUID.randomUUID()}"
         val reader = PluginPackageReader()
         val first = service.install(reader.parse(fixture(name)))
@@ -92,8 +97,10 @@ class ConnectorDeviceTest {
             )
         val alias = SecretAlias(first.endpoints.single().id)
         try {
-            assertEquals(first.skills, second.skills)
-            service.setSkillEnabled(first.skills.single(), true)
+            assertEquals(first.skills.single().snapshotHash, second.skills.single().snapshotHash)
+            assertTrue(first.skills.single() != second.skills.single())
+            assertEquals(first.id, first.skills.single().ownerId)
+            assertEquals(second.id, second.skills.single().ownerId)
             container.storage.secrets.put(alias, "connector-device-fixture")
             service.remove(first)
             assertTrue(service.skillEnabled(second.skills.single()))
@@ -200,13 +207,19 @@ class ConnectorDeviceTest {
             mcp.enable(snapshot, setOf("search"))
             assertTrue(mcp.isActive(config.id.value))
             val replaced = captured.execute(call) as com.helix.tools.framework.ToolExecutorResult.Failed
-            assertEquals("MCP tool failed: IllegalStateException", replaced.detail)
+            assertTrue(replaced.detail.contains("request=NOT_SENT"))
+            assertTrue(replaced.detail.contains("connectionAttempts=0"))
+            assertFalse(replaced.requiresReview)
+            assertEquals(kotlinx.serialization.json.JsonPrimitive(false), replaced.auditDetail?.get("requestSent"))
             val current = registry.executor(descriptor.name, descriptor.version)
             mcp.disable(config.id.value)
             assertFalse(mcp.isActive(config.id.value))
             assertTrue(registry.all().isEmpty())
             val disabled = current.execute(call) as com.helix.tools.framework.ToolExecutorResult.Failed
-            assertEquals("MCP tool failed: IllegalStateException", disabled.detail)
+            assertTrue(disabled.detail.contains("request=NOT_SENT"))
+            assertTrue(disabled.detail.contains("connectionAttempts=0"))
+            assertFalse(disabled.requiresReview)
+            assertEquals(kotlinx.serialization.json.JsonPrimitive(false), disabled.auditDetail?.get("requestSent"))
         } finally {
             mcp.disable(config.id.value)
         }

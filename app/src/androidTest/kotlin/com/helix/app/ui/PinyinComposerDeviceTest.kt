@@ -35,10 +35,18 @@ import org.junit.Test
 class PinyinComposerDeviceTest {
     @get:Rule val compose = createComposeRule()
 
-    @Test fun pinyinCompositionAndChineseCommitReachDraftWithoutSending() {
+    @Test fun pinyinCompositionAndChineseCommitReachDraftWithoutSending() = verifyComposition(false)
+
+    @Test fun pinyinCompositionPreservesInlineSkillAndCommitsOnlyChineseTaskText() = verifyComposition(true)
+
+    private fun verifyComposition(withSkill: Boolean) {
         val probe = mutableStateOf(TextFieldValue())
         val draft = mutableStateOf("")
         var sends = 0
+        val skill =
+            com.helix.core.model.input
+                .InputSkillActivation("BUILT_IN", "browser", "a".repeat(64), "")
+        val activations = mutableStateOf(if (withSkill) listOf(skill) else emptyList())
         compose.setContent {
             MaterialTheme {
                 Column(Modifier.safeDrawingPadding().imePadding()) {
@@ -53,6 +61,8 @@ class PinyinComposerDeviceTest {
                         false,
                         false,
                         ComposerActions(onFile = {}, onVoice = {}, onSend = { sends++ }, onStop = {}),
+                        skillActivations = activations.value,
+                        onSkillActivationsChange = { activations.value = it },
                     )
                 }
             }
@@ -61,13 +71,42 @@ class PinyinComposerDeviceTest {
         enterPinyin("ime-probe") { probe.value.text }
         // Gboard keeps Pinyin preedit in its own window; other IMEs may also expose TextField composition.
         // Capture the IME preedit and verify its Chinese candidate and actual commit, regardless of its IPC strategy.
-        compose.waitUntil(10_000) { probe.value.text == "你好" && probe.value.composition == null }
+        awaitProbeCommit(probe, withSkill)
         compose.onNodeWithTag("ime-probe").assertTextEquals("你好")
         compose.onNodeWithTag("chat-input").performClick().assertIsFocused()
         enterPinyin("chat-input") { draft.value }
         compose.waitUntil(10_000) { draft.value == "你好" }
-        compose.onNodeWithTag("chat-input").assertTextEquals("你好")
+        if (withSkill) {
+            compose.onNodeWithTag("chat-input").assertTextEquals(" browser 你好")
+            compose.runOnIdle { assertEquals(listOf(skill), activations.value) }
+            capturePreedit("pinyin-inline-skill-committed.png")
+        } else {
+            compose.onNodeWithTag("chat-input").assertTextEquals("你好")
+        }
         compose.runOnIdle { assertEquals(0, sends) }
+    }
+
+    private fun awaitProbeCommit(
+        probe: androidx.compose.runtime.State<TextFieldValue>,
+        withSkill: Boolean,
+    ) {
+        try {
+            compose.waitUntil(10_000) { probe.value.text == "你好" && probe.value.composition == null }
+        } catch (failure: androidx.compose.ui.test.ComposeTimeoutException) {
+            val value = compose.runOnIdle { probe.value }
+            InstrumentationRegistry.getInstrumentation().sendStatus(
+                0,
+                android.os.Bundle().apply {
+                    putString(
+                        "stream",
+                        "PINYIN_PROBE_COMMIT_TIMEOUT skill=$withSkill text=${value.text} " +
+                            "selection=${value.selection} composition=${value.composition}\n",
+                    )
+                },
+            )
+            capturePreedit("pinyin-probe-commit-timeout-skill-$withSkill.png")
+            throw failure
+        }
     }
 
     /** Some startup attempts expose committed ni plus hao preedit; clear both before one bounded retry. */
@@ -105,6 +144,12 @@ class PinyinComposerDeviceTest {
             automation.serviceInfo.apply {
                 flags = flags or AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
             }
+        // A hardware keyboard can collapse Gboard to its floating language toolbar.
+        // Expand its on-screen layout without changing the installed IME or selected language.
+        if (findKeyboardNode(automation, "n") == null && findKeyboardNode(automation, "更多键盘选项") != null) {
+            clickKeyboard("更多键盘选项")
+            clickKeyboard("显示屏幕键盘")
+        }
         val bannerLabel = "关闭新语言包安装横幅。"
         val banner =
             automation.windows
@@ -116,8 +161,19 @@ class PinyinComposerDeviceTest {
                 .filter { it.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD }
                 .firstNotNullOfOrNull { window -> window.root?.let { findCandidate(it, "Pinyin keyboard") } }
         if (layout != null) clickKeyboard("Pinyin keyboard")
-        // The fixture uses full Pinyin; runners must preserve/restore a user's double-Pinyin scheme.
-        "nihao".forEach { clickKeyboard(it.toString()) }
+        // The runner reads the installed scheme first; never change an owner's keyboard preference.
+        val scheme = InstrumentationRegistry.getArguments().getString("pinyinScheme", "full")
+        val keys =
+            when (scheme) {
+                "full" -> "nihao"
+                "xiaohe" -> "nihc"
+                else -> error("Unsupported Pinyin fixture scheme: $scheme")
+            }
+        InstrumentationRegistry.getInstrumentation().sendStatus(
+            0,
+            android.os.Bundle().apply { putString("stream", "PINYIN_SCHEME=$scheme keys=$keys\n") },
+        )
+        keys.forEach { clickKeyboard(it.toString()) }
     }
 
     private fun capturePreedit(name: String) {

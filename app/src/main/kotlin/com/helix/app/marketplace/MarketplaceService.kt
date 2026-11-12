@@ -5,7 +5,6 @@ import com.helix.app.plugin.PluginService
 import com.helix.extensions.plugin.PluginPackage
 import com.helix.extensions.plugin.PluginPackageReader
 import com.helix.extensions.plugin.PluginSkill
-import com.helix.extensions.skills.SkillEnablementScope
 import com.helix.extensions.skills.SkillRepository
 import java.security.MessageDigest
 
@@ -90,20 +89,13 @@ class MarketplaceService(
                             ),
                         diagnostics = emptyList(),
                     )
-                val installed =
-                    pluginService.install(
-                        bundle,
-                        "marketplace:${item.id}",
-                        existing?.revision,
-                        sessionScoped = false,
-                        cancelled = cancelled,
-                    )
-                val skillKey = installed.skills.firstOrNull()
-                if (skillKey != null) {
-                    check(!cancelled()) { "IMPORT_CANCELLED" }
-                    pluginService.setSkillEnabled(skillKey, true)
-                }
-                installed
+                pluginService.install(
+                    bundle,
+                    "marketplace:${item.id}",
+                    existing?.revision,
+                    sessionScoped = false,
+                    cancelled = cancelled,
+                )
             }
         }
     }
@@ -121,9 +113,7 @@ class MarketplaceService(
         val installed = findInstalled(item) ?: return
         when (item.type) {
             MarketplaceItemType.SKILL -> {
-                installed.skills.forEach { key ->
-                    pluginService.setSkillEnabled(key, false)
-                }
+                pluginService.setEnabled(installed.id, false)
             }
 
             MarketplaceItemType.CONNECTOR, MarketplaceItemType.MCP -> {
@@ -137,17 +127,6 @@ class MarketplaceService(
     fun enableSkill(item: MarketplaceItem) {
         val installed = findInstalled(item) ?: return
         pluginService.setEnabled(installed.id, true)
-        installed.skills.forEach { key ->
-            pluginService.setSkillEnabled(key, true)
-        }
-    }
-
-    fun setSkillEnabled(
-        skillName: String,
-        enabled: Boolean,
-    ) {
-        val matched = skillRepository.list().firstOrNull { it.key.name == skillName } ?: return
-        skillRepository.setEnabled(matched.key, enabled, SkillEnablementScope.GLOBAL)
     }
 
     private fun sha256(bytes: ByteArray): String {

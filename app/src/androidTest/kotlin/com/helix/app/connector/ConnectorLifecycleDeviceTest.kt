@@ -183,7 +183,7 @@ class ConnectorLifecycleDeviceTest {
     }
 
     @Test
-    fun sessionDefaultsAreCopiedAndSharedSkillSourcesStayIndependent() {
+    fun sessionDefaultsAreCopiedAndIdenticalSkillsStayOwnerScoped() {
         val identity = "test:" + UUID.randomUUID()
         val first = service.install(bundle(identity, "shared"), identity)
         val second = service.install(bundle(identity, "shared"), "$identity:other")
@@ -192,27 +192,29 @@ class ConnectorLifecycleDeviceTest {
         val b = session()
         try {
             val key = first.skills.single()
-            service.setSkillEnabled(key, true)
             assertFalse(service.catalog.skillAvailable(key, a))
             assertTrue(service.catalog.skillAvailable(key, b))
             service.catalog.setDefault(first.id, false)
             assertTrue(service.catalog.skillAvailable(key, b))
+            val otherKey = second.skills.single()
+            assertEquals(key.snapshotHash, otherKey.snapshotHash)
+            assertNotEquals(key, otherKey)
             service.catalog.select(a, second.id, true)
-            assertTrue(service.catalog.skillAvailable(key, a))
+            assertFalse(service.catalog.skillAvailable(key, a))
+            assertTrue(service.catalog.skillAvailable(otherKey, a))
             service.catalog.select(b, first.id, false)
             assertFalse(service.catalog.skillAvailable(key, b))
             service.remove(first)
-            assertTrue(service.catalog.skillAvailable(key, a))
-            service.catalog.claim(key, independent = true)
-            service.remove(second)
-            assertTrue(service.catalog.skillAvailable(key, b))
+            assertFalse(c.skillRepository.hasSnapshot(key))
+            assertTrue(service.catalog.skillAvailable(otherKey, a))
             assertTrue(
                 c.skillRepository
-                    .read(key, b)
+                    .read(otherKey, a)
                     .body
                     .contains("shared"),
             )
-            c.skillRepository.removePermanentlyForPrivacy(key)
+            service.remove(second)
+            assertFalse(c.skillRepository.hasSnapshot(otherKey))
         } finally {
             service.list().filter { it.identity.startsWith(identity) }.forEach(service::remove)
             c.storage.deleteSessionPermanently(a)

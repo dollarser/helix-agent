@@ -26,7 +26,10 @@ internal class SessionInputAttachments(
     fun materialize(input: SessionInputRecord): Pair<String, List<MessageAttachmentRepository.Binding>> {
         val text =
             com.helix.core.model.input.KnowledgeReferences.message(
-                storage.sessionInputs.readText(input),
+                com.helix.feature.conversation.application.input.skillInputText(
+                    storage.sessionInputs.readText(input),
+                    input.skillActivations,
+                ),
                 input.knowledgeReferences,
                 input.inputId,
             )
@@ -84,7 +87,10 @@ internal class SessionInputAttachments(
             } ?: return AttachmentSendAdmission.Outcome.Blocked("INPUT_REVISION_CHANGED")
         return AttachmentSendAdmission.admit(
             verified(input),
-            storage.sessionInputs.readText(input),
+            com.helix.feature.conversation.application.input.skillInputText(
+                storage.sessionInputs.readText(input),
+                input.skillActivations,
+            ),
             target,
             strings,
             storage.sessionInputs.readReference(input),

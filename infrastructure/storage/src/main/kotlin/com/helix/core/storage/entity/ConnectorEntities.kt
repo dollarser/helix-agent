@@ -15,14 +15,6 @@ data class ConnectorInstallationEntity(
     val defaultSelected: Boolean,
 )
 
-@Entity(tableName = "connector_skill_ownership", primaryKeys = ["source", "name", "hash"])
-data class ConnectorSkillOwnershipEntity(
-    val source: String,
-    val name: String,
-    val hash: String,
-    val independent: Boolean,
-)
-
 /** No installation FK: missing packages remain visibly unavailable, never rebound by name. */
 @Entity(
     tableName = "session_connectors",

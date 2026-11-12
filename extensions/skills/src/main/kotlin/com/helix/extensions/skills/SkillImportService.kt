@@ -52,6 +52,7 @@ class SkillImportService(
     fun commit(
         staged: StagedSkillImport,
         installedRoot: Path,
+        ownerId: String = "",
     ): SkillSnapshotRef {
         requireOwnedStaging(staged)
         val currentPreview = inspector.inspect(staged.skillDirectory, SkillSource.USER_IMPORTED)
@@ -60,7 +61,15 @@ class SkillImportService(
         require(Files.isDirectory(installedRoot, LinkOption.NOFOLLOW_LINKS) && !Files.isSymbolicLink(installedRoot)) {
             "Installed skill root must be a regular, non-symlink directory"
         }
-        val nameRoot = installedRoot.resolve(currentPreview.name)
+        val ownerRoot = skillOwnerRoot(installedRoot, ownerId)
+        if (ownerId.isNotEmpty()) {
+            val plugins = installedRoot.resolve(".plugins")
+            Files.createDirectories(plugins)
+            require(Files.isDirectory(plugins, LinkOption.NOFOLLOW_LINKS) && !Files.isSymbolicLink(plugins))
+            Files.createDirectories(ownerRoot)
+            require(Files.isDirectory(ownerRoot, LinkOption.NOFOLLOW_LINKS) && !Files.isSymbolicLink(ownerRoot))
+        }
+        val nameRoot = ownerRoot.resolve(currentPreview.name)
         if (Files.exists(nameRoot, LinkOption.NOFOLLOW_LINKS)) {
             require(Files.isDirectory(nameRoot, LinkOption.NOFOLLOW_LINKS) && !Files.isSymbolicLink(nameRoot)) {
                 "Installed skill name path must be a regular, non-symlink directory"
@@ -78,7 +87,7 @@ class SkillImportService(
                 invalid("Existing snapshot path does not match its content hash")
             }
             deleteTree(staged.stagingDirectory)
-            return snapshot(currentPreview, target)
+            return snapshot(currentPreview, target).copy(ownerId = ownerId)
         }
         Files.createDirectory(snapshotContainer)
         try {
@@ -92,7 +101,7 @@ class SkillImportService(
             throw failure
         }
         deleteTree(staged.stagingDirectory)
-        return snapshot(currentPreview, target)
+        return snapshot(currentPreview, target).copy(ownerId = ownerId)
     }
 
     fun discard(staged: StagedSkillImport) {

@@ -19,7 +19,7 @@ internal object SessionInputValidation {
         require(spec.text.length <= SessionInputRepository.MAX_TEXT_CHARS && '\u0000' !in spec.text)
         require(
             spec.text.isNotBlank() || spec.attachments.isNotEmpty() || spec.reference != null ||
-                spec.knowledgeReferences.isNotEmpty(),
+                spec.knowledgeReferences.isNotEmpty() || spec.skillActivations.isNotEmpty(),
         )
         require(spec.configuration.modelId.isNotBlank() && spec.configuration.modelId.length <= 256)
         require(spec.configuration.fingerprint.isNotBlank() && spec.configuration.fingerprint.length <= 1024)

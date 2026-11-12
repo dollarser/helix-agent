@@ -28,7 +28,12 @@ class StandaloneSkillCatalogDeviceTest {
     private val rows =
         BuiltInSkills.documents().map { doc ->
             SkillListItem(
-                SkillKey(doc.catalogEntry.source, doc.catalogEntry.name, doc.catalogEntry.contentHash),
+                SkillKey(
+                    doc.catalogEntry.source,
+                    doc.catalogEntry.name,
+                    doc.catalogEntry.contentHash,
+                    doc.catalogEntry.ownerId,
+                ),
                 doc.catalogEntry.description,
                 true,
             )

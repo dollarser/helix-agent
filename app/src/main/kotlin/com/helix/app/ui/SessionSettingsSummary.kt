@@ -44,7 +44,7 @@ internal fun rememberSessionSettingsSummary(
                                     ?: permissions.appDefault()
                             }
                         ).mode,
-                        skills?.list(sessionId)?.count { it.enabled } ?: 0,
+                        skills?.listSelectable(sessionId)?.count { it.enabled } ?: 0,
                     )
                 }
             failed = false

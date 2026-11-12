@@ -25,6 +25,8 @@ import com.helix.core.model.TurnState
 import com.helix.core.policy.SessionPermissionConfig
 import com.helix.extensions.mobileuse.automation.AutomationPermissionCenter
 import com.helix.extensions.mobileuse.automation.AutomationServiceState
+import com.helix.extensions.mobileuse.automation.backend.RootAutomationBackend
+import com.helix.extensions.mobileuse.automation.backend.ShizukuAutomationBackend
 import com.helix.provider.api.ProbeOutcome
 import com.helix.tools.deviceaccess.DeviceAccess
 import kotlinx.coroutines.delay
@@ -216,9 +218,24 @@ class ProgressiveSkillModelDeviceTest {
                                             await { DeviceAccess.root("mobile-use")?.cachedAppGrant == true }
                                             DeviceAccess.connectRoot("mobile-use")
                                             await { DeviceAccess.root("mobile-use")?.connectedBinder() != null }
-                                        } else if (backend == "accessibility") {
-                                            ownedBackend.connect()
                                         }
+                                        // The instrumentation AX observer and privileged UiAutomation cannot
+                                        // own the platform connection together. Verify the production choice
+                                        // before connecting the AX fixture, rather than silently testing Shizuku.
+                                        val center =
+                                            AutomationPermissionCenter(
+                                                app,
+                                                ShizukuAutomationBackend(app),
+                                                RootAutomationBackend { DeviceAccess.root("mobile-use") },
+                                                adb = { com.helix.app.automation.AutomationModule.computerAdbBackend },
+                                            )
+                                        assertEquals(
+                                            "Requested fixture backend must match the selected production backend",
+                                            backend,
+                                            center.preferredClickBackend().name.lowercase(),
+                                        )
+                                        if (backend == "accessibility") ownedBackend.connect()
+                                        println("PROGRESSIVE_BACKEND_CONFIRMED=$backend")
                                         val packages = setOf(app.packageName, "${app.packageName}.test")
                                         check(selection.select(session, packages, false))
                                         app.startActivity(
@@ -273,10 +290,26 @@ class ProgressiveSkillModelDeviceTest {
                                     .listBySession(session)
                                     .first()
                                     .id
-                            await(240000) {
-                                c.storage.turns.find(requestedTurnId)?.let {
-                                    TurnState.valueOf(it.state).isTerminal
-                                } == true
+                            try {
+                                await(240000) {
+                                    c.storage.turns.find(requestedTurnId)?.let {
+                                        TurnState.valueOf(it.state).isTerminal
+                                    } == true
+                                }
+                            } catch (failure: IllegalStateException) {
+                                println("PROGRESSIVE_TIMEOUT_PROMPT=$prompt")
+                                c.storage.modelCalls.listByTurn(requestedTurnId).forEach { call ->
+                                    println("PROGRESSIVE_TIMEOUT_MANIFEST=${call.requestManifest}")
+                                }
+                                c.storage.toolCalls.listByTurn(requestedTurnId).forEach { call ->
+                                    val result = c.storage.toolResults.byToolCall(call.id)
+                                    println(
+                                        "PROGRESSIVE_TIMEOUT kind=$kind rep=$repetition name=${call.name} " +
+                                            "args=${call.argsJson} state=${call.state} result=${result?.summary} " +
+                                            "body=${result?.let(c.storage.toolResults::readContent)}",
+                                    )
+                                }
+                                throw failure
                             }
                             val turn = requireNotNull(c.storage.turns.find(requestedTurnId))
                             val calls = c.storage.toolCalls.listByTurn(turn.id)

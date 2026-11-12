@@ -16,13 +16,18 @@ class PluginSearchTest {
                 "local",
                 "hash",
                 listOf(InstalledEndpoint("endpoint", PluginEndpoint("Calendar", "https://private.invalid", false))),
-                listOf(SkillKey(SkillSource.USER_IMPORTED, "Meeting notes", "hash")),
+                listOf(SkillKey(SkillSource.USER_IMPORTED, "Meeting notes", "hash", "fixture")),
                 emptyList(),
                 "fixture",
                 1,
                 true,
             )
-        val native = portable.copy(name = "mobile-use", native = NativePluginComponent("mobile-use", "fixture"))
+        val native =
+            portable.copy(
+                name = "mobile-use",
+                skills = emptyList(),
+                native = NativePluginComponent("mobile-use", "fixture"),
+            )
         assertTrue(matchesPluginQuery(native, " Mobile "))
         assertTrue(matchesPluginQuery(native, "mobile-use"))
         assertTrue(matchesPluginQuery(native, "ui.snapshot", listOf("ui.snapshot")))

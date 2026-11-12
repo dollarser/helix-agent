@@ -61,7 +61,7 @@ fun PluginRegistry.contentContributions(
     fun key(document: com.helix.extensions.skills.SkillDocument) =
         document.catalogEntry.let {
             com.helix.extensions.skills
-                .SkillKey(it.source, it.name, it.contentHash)
+                .SkillKey(it.source, it.name, it.contentHash, it.ownerId)
         }
     return buildList {
         owners.forEach { (owner, plugin) ->
@@ -77,29 +77,30 @@ fun PluginRegistry.contentContributions(
         repository.list(sessionId).filter { it.enabled && it.key in eligible }.forEach { item ->
             val document = repository.inspect(item.key)
             if (document.catalogEntry.source == com.helix.extensions.skills.SkillSource.BUILT_IN &&
-                document.hostCatalogued
+                item.key.ownerId.isEmpty() && document.hostCatalogued
             ) {
                 add(PluginContentContribution.SkillCatalog(item.key, item.description))
             }
         }
         owners.forEach { (owner, plugin) ->
-            plugin.skills.distinctBy(::key).filter { key(it) in eligible }.forEach { document ->
+            plugin.scopedSkills().filter { key(it) in eligible }.forEach { document ->
                 add(PluginContentContribution.SkillCatalog(key(document), document.catalogEntry.description, owner))
             }
         }
         turnId?.let { turn ->
             repository
                 .activatedContent(sessionId, turn)
-                .distinctBy { (document, arguments) ->
-                    key(document) to arguments
-                }.forEach { (document, arguments) ->
-                    val skillKey = key(document)
+                .distinctBy { it.key to it.arguments }
+                .forEach { (skillKey, document, arguments) ->
                     add(
                         PluginContentContribution.ActivatedSkill(
                             skillKey,
                             document.body,
                             arguments,
-                            owners.filter { (_, plugin) -> plugin.skills.any { key(it) == skillKey } }.map { it.first },
+                            owners
+                                .filter { (_, plugin) ->
+                                    plugin.scopedSkills().any { key(it) == skillKey }
+                                }.map { it.first },
                         ),
                     )
                 }

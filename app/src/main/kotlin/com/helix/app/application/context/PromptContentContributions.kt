@@ -71,6 +71,7 @@ internal object PromptContentContributions {
                 put("source", key.source.name)
                 put("name", key.name)
                 put("snapshotHash", key.snapshotHash)
+                put("ownerId", key.ownerId)
                 put("description", item.description)
             }
         return section(
@@ -221,7 +222,7 @@ internal object PromptContentContributions {
 
 private fun NativePluginState.identity() = PromptContentOwner(pluginId, runtimeId, version, revision, fingerprint)
 
-private fun SkillKey.identity() = "${source.name}:$name@$snapshotHash"
+private fun SkillKey.identity() = "${source.name}:$ownerId:$name@$snapshotHash"
 
 private fun SkillKey.readReference(tools: Set<String>): PromptContentReadReference? =
     if ("skills.read" !in tools) {
@@ -233,6 +234,7 @@ private fun SkillKey.readReference(tools: Set<String>): PromptContentReadReferen
                 put("source", source.name)
                 put("name", name)
                 put("snapshotHash", snapshotHash)
+                put("ownerId", ownerId)
             }.toString(),
         )
     }

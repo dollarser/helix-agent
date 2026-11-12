@@ -95,6 +95,23 @@ class PromptContentContributionsTest {
         assertNull(revoked.readReference)
     }
 
+    @Test fun packageOwnedCatalogsKeepSeparateReadIdentitiesForIdenticalContent() {
+        val first = SkillKey(SkillSource.USER_IMPORTED, "guide", "b".repeat(64), "conn-first")
+        val second = first.copy(ownerId = "conn-second")
+        val sections =
+            resolve(
+                listOf(
+                    PluginContentContribution.SkillCatalog(first, "Same instructions"),
+                    PluginContentContribution.SkillCatalog(second, "Same instructions"),
+                ),
+                setOf("skills.read"),
+            )
+        assertEquals(2, sections.size)
+        assertEquals(2, sections.map { it.readReference!!.argumentsJson }.distinct().size)
+        assertTrue(sections.any { it.readReference!!.argumentsJson.contains("conn-first") })
+        assertTrue(sections.any { it.readReference!!.argumentsJson.contains("conn-second") })
+    }
+
     @Test fun discoveryGuidanceIsNotRepeatedForEveryToolSource() {
         for (omitted in listOf(0, 2)) {
             val catalog =

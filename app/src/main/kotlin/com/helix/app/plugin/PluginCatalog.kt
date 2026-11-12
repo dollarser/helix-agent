@@ -2,7 +2,6 @@ package com.helix.app.plugin
 
 import com.helix.core.storage.HelixStorage
 import com.helix.core.storage.entity.ConnectorInstallationEntity
-import com.helix.core.storage.entity.ConnectorSkillOwnershipEntity
 import com.helix.core.storage.entity.SessionConnectorEntity
 import com.helix.extensions.skills.SkillKey
 import com.helix.extensions.skills.SkillSource
@@ -29,21 +28,6 @@ class PluginCatalog(
         )
     }
 
-    fun releaseIndependent(key: SkillKey) {
-        claim(key, independent = false)
-        dao.setIndependent(key.source.name, key.name, key.snapshotHash, false)
-    }
-
-    fun unusedSkills(): List<SkillKey> {
-        val active = list().flatMap { it.skills }.toSet()
-        return dao
-            .ownerships()
-            .filter { !it.independent }
-            .map {
-                SkillKey(SkillSource.valueOf(it.source), it.name, it.hash)
-            }.filter { it !in active }
-    }
-
     fun retiredEndpoints(): List<String> {
         val active = list().flatMap { it.endpoints }.map { it.id }.toSet()
         return dao.endpointIds().filter { it !in active }
@@ -52,38 +36,25 @@ class PluginCatalog(
     @Synchronized
     fun list(): List<InstalledPlugin> = dao.installations().map { decode(it.manifest) }
 
-    fun independentlyInstalled(key: SkillKey): Boolean =
-        dao
-            .ownerships()
-            .firstOrNull {
-                it.source == key.source.name && it.name == key.name && it.hash == key.snapshotHash
-            }?.independent ?: true
-
-    @Synchronized
-    fun claim(
-        key: SkillKey,
-        independent: Boolean,
-    ) {
-        dao.claim(ConnectorSkillOwnershipEntity(key.source.name, key.name, key.snapshotHash, independent))
-        if (independent) dao.setIndependent(key.source.name, key.name, key.snapshotHash, true)
-    }
+    fun independentlyInstalled(key: SkillKey): Boolean = key.ownerId.isEmpty()
 
     @Synchronized
     fun skillAvailable(
         key: SkillKey,
         sessionId: String?,
+    ): Boolean =
+        key.source != SkillSource.USER_IMPORTED || independentlyInstalled(key) || pluginSkillAvailable(key, sessionId)
+
+    /** Package source eligibility never depends on the independent installation's switch or expert reference. */
+    @Synchronized
+    fun pluginSkillAvailable(
+        key: SkillKey,
+        sessionId: String?,
     ): Boolean {
-        if (key.source != SkillSource.USER_IMPORTED) return true
-        val ownership =
-            dao.ownerships().firstOrNull {
-                it.source == key.source.name && it.name == key.name && it.hash == key.snapshotHash
-            }
         val selected = sessionId?.let(::effectiveSelected)
-        return ownership == null || ownership.independent ||
-            list().any {
-                it.enabled && key in it.skills &&
-                    (!it.sessionScoped || selected == null || it.id in selected || expertSkillSelected(key, sessionId))
-            }
+        return list().any {
+            it.enabled && key in it.skills && (!it.sessionScoped || selected == null || it.id in selected)
+        }
     }
 
     @Synchronized

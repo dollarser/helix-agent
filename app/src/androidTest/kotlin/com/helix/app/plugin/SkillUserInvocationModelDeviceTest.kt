@@ -67,7 +67,6 @@ class SkillUserInvocationModelDeviceTest {
             val id = c.chatService.createSession("Invocation model fixture", provider, model)
             val key = installed.skills.single()
             try {
-                c.pluginService.setSkillEnabled(key, true)
                 c.pluginService.selectFromUser(id, installed.id, true)
                 assertTrue(c.skillRepository.listForModel(id, "fake").none { it.key == key })
                 val unavailable = c.pluginService.componentReadiness(installed, id, "fake").copy(selected = true)
@@ -77,9 +76,11 @@ class SkillUserInvocationModelDeviceTest {
                 c.chatService.openTestSessionControl(id, AgentMode.ACT, TurnBudgets(maxOutputTokens = 32768))
                 val prompt =
                     "Read-only check: call skills.read for source=${key.source.name}, name=${key.name}, " +
-                        "snapshotHash=${key.snapshotHash}. Report the first heading and my parameter. " +
+                        "snapshotHash=${key.snapshotHash}, ownerId=${key.ownerId}. " +
+                        "Report the first heading and my parameter. " +
                         "No external actions."
-                val input = InputSkillActivation(key.source.name, key.name, key.snapshotHash, activation.arguments)
+                val input =
+                    InputSkillActivation(key.source.name, key.name, key.snapshotHash, activation.arguments, key.ownerId)
                 val submission =
                     ChatSubmission(id, 0, UUID.randomUUID().toString(), prompt, skillActivations = listOf(input))
                 c.chatService.sendSubmission(submission).await()

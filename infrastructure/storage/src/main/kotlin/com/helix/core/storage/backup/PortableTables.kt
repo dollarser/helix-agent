@@ -259,13 +259,6 @@ internal object PortableTables {
                     "manifest",
                     "defaultSelected",
                 ),
-            "connector_skill_ownership" to
-                listOf(
-                    "source",
-                    "name",
-                    "hash",
-                    "independent",
-                ),
             "session_connectors" to
                 listOf(
                     "sessionId",
@@ -421,7 +414,6 @@ internal object PortableTables {
             "goal_turn_bindings" to setOf(),
             "goal_controls" to setOf("revision"),
             "connector_installations" to setOf("revision", "defaultSelected"),
-            "connector_skill_ownership" to setOf("independent"),
             "session_connectors" to setOf(),
             "connector_endpoints" to setOf(),
             "mcp_servers" to setOf("enabled"),

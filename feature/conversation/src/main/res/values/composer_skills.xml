@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="composer_remove_skill">移除技能</string>
+    <string name="composer_skill_unavailable">技能暂时不可用，请重试</string>
+    <string name="composer_skill_choose">请选择要使用的技能</string>
+</resources>

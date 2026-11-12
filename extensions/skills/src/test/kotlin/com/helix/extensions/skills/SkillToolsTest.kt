@@ -20,6 +20,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.nio.file.Files
+import java.nio.file.Path
 import java.time.Instant
 
 class SkillToolsTest {
@@ -138,6 +139,109 @@ class SkillToolsTest {
         }
     }
 
+    @Test
+    fun `list keeps identical plugin and independent installation identities`() {
+        val root = Files.createTempDirectory("skill-tools-owners")
+        var selected = true
+        val repository =
+            SkillRepository(
+                root.resolve("snapshots"),
+                root.resolve("state"),
+                root.resolve("trash"),
+                builtIns = emptyList(),
+                pluginAvailable = { key, session -> key.ownerId == "plugin-a" && selected && session == "owner" },
+            )
+        val independent = installSnapshot(root, repository)
+        val importer = SkillImportService(root.resolve("staging"))
+        val plugin =
+            repository.registerSnapshot(
+                importer.commit(
+                    importer.stageDirectory(root.resolve("source/fixture")),
+                    root.resolve("snapshots"),
+                    "plugin-a",
+                ),
+            )
+        val registry = ToolRegistry()
+        SkillTools.registerAll(registry, repository)
+        assertOwnerEntries(registry)
+        val args = keyArgs(plugin.source.name, plugin.name, plugin.snapshotHash, "\"ownerId\":\"plugin-a\"")
+        assertTrue(
+            execute(
+                registry,
+                SkillTools.READ,
+                args,
+                "owner",
+            ).getValue("instructions").jsonPrimitive.content.contains("Fixture"),
+        )
+        assertTrue(
+            executeRaw(
+                registry,
+                SkillTools.READ,
+                keyArgs(independent.source.name, independent.name, independent.snapshotHash),
+                "owner",
+            ) is ToolExecutorResult.Failed,
+        )
+        selected = false
+        assertTrue(executeRaw(registry, SkillTools.READ, args, "owner") is ToolExecutorResult.Failed)
+    }
+
+    @Test
+    fun `remove independent snapshot moves only its files to recoverable trash`() {
+        val root = Files.createTempDirectory("skill-tools-remove")
+        val repository =
+            SkillRepository(
+                root.resolve("snapshots"),
+                root.resolve("state"),
+                root.resolve("trash"),
+                builtIns = emptyList(),
+            )
+        val key = installSnapshot(root, repository)
+        val registry = ToolRegistry()
+        SkillTools.registerAll(registry, repository)
+        val args = keyArgs(key.source.name, key.name, key.snapshotHash)
+        val output = execute(registry, SkillTools.REMOVE, args)
+        assertEquals("true", output.getValue("removed").jsonPrimitive.content)
+        assertEquals("true", output.getValue("recoverable").jsonPrimitive.content)
+        assertFalse(output.containsKey("retainedByPlugin"))
+        assertFalse(repository.hasSnapshot(key))
+        Files.list(root.resolve("trash")).use { assertEquals(1L, it.count()) }
+        assertTrue(executeRaw(registry, SkillTools.REMOVE, args) is ToolExecutorResult.Failed)
+    }
+
+    private fun assertOwnerEntries(registry: ToolRegistry) {
+        val entries =
+            execute(
+                registry,
+                SkillTools.LIST,
+                "{}",
+                "owner",
+            ).getValue("entries").jsonArray.map { it.jsonObject }
+        assertEquals(2, entries.size)
+        val own = entries.single { it.getValue("ownerId").jsonPrimitive.content == "plugin-a" }
+        val standalone =
+            entries.single {
+                it
+                    .getValue("ownerId")
+                    .jsonPrimitive.content
+                    .isEmpty()
+            }
+        assertEquals("true", own.getValue("enabled").jsonPrimitive.content)
+        assertEquals("false", own.getValue("independentlySelectable").jsonPrimitive.content)
+        assertEquals("false", standalone.getValue("enabled").jsonPrimitive.content)
+        assertEquals("true", standalone.getValue("independentlySelectable").jsonPrimitive.content)
+    }
+
+    private fun installSnapshot(
+        root: Path,
+        repository: SkillRepository,
+    ): SkillKey {
+        val directory = Files.createDirectories(root.resolve("source/fixture"))
+        Files.writeString(directory.resolve("SKILL.md"), "---\nname: fixture\ndescription: Fixture\n---\nFixture body")
+        val importer = SkillImportService(root.resolve("staging"))
+        val staged = importer.stageDirectory(directory)
+        return repository.registerSnapshot(importer.commit(staged, root.resolve("snapshots")))
+    }
+
     private fun execute(
         registry: ToolRegistry,
         name: String,
@@ -184,6 +288,7 @@ class SkillToolsTest {
             append("{\"source\":\"").append(source)
             append("\",\"name\":\"").append(name)
             append("\",\"snapshotHash\":\"").append(hash).append('"')
+            if (extra?.contains("\"ownerId\"") != true) append(",\"ownerId\":\"\"")
             if (extra != null) append(',').append(extra)
             append('}')
         }

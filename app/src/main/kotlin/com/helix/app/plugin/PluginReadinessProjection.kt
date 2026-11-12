@@ -43,7 +43,7 @@ internal class PluginReadinessProjection(
                 else -> PluginComponentState.AVAILABLE
             }
         return PluginComponentFact(
-            "${key.source}:${key.name}:${key.snapshotHash}",
+            "${key.source}:${key.name}:${key.snapshotHash}:${key.ownerId}",
             PluginComponentKind.SKILL,
             state,
             item != null,

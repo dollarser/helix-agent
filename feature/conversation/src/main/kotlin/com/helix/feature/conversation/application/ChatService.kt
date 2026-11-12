@@ -1179,7 +1179,6 @@ class ChatService(
     fun stageSkillActivation(
         expectedSessionId: String,
         activation: com.helix.core.model.input.InputSkillActivation,
-        prompt: String,
     ): kotlinx.coroutines.Deferred<Boolean> =
         workScope.async {
             submissionGate.withLock {
@@ -1190,11 +1189,14 @@ class ChatService(
                     inputCache.read(expectedSessionId)
                         ?: ChatSubmission(expectedSessionId, 0, idGenerator(), "")
                 if (old.revisedMessageId != null) return@withLock false
-                val retained = old.skillActivations.filterNot { it.source == item.source && it.name == item.name }
+                val retained =
+                    old.skillActivations.filterNot {
+                        it.source == item.source && it.name == item.name && it.snapshotHash == item.snapshotHash &&
+                            it.ownerId == item.ownerId
+                    }
                 if (retained.size >= 4) return@withLock false
                 val next =
                     old.copy(
-                        text = old.text.ifBlank { prompt },
                         skillActivations = retained + item,
                         revision = ComposerEditClock.next(old.revision),
                         clientRequestId = idGenerator(),
@@ -2238,7 +2240,7 @@ class ChatService(
         val hasContent =
             text.isNotBlank() || stagedAttachments.isNotEmpty() ||
                 !sessionDraft?.attachments.isNullOrEmpty() || request.referenceSourceSessionId != null ||
-                request.knowledgeReferences.isNotEmpty()
+                request.knowledgeReferences.isNotEmpty() || request.skillActivations.isNotEmpty()
         return validText && hasContent
     }
 
@@ -2262,11 +2264,16 @@ class ChatService(
         "LongMethod",
     ) // Linear fail-closed send gate stays auditable as one choke point.
     private suspend fun sendNow(
-        text: String,
+        rawText: String,
         goalId: String? = null,
         submission: ChatSubmission? = null,
         textOnly: Boolean = false,
     ): ChatSubmissionOutcome {
+        val text =
+            com.helix.feature.conversation.application.input.skillInputText(
+                rawText,
+                submission?.skillActivations.orEmpty(),
+            )
         if (text.length > MAX_MODEL_TEXT_CHARS || text.indexOf('\u0000') >= 0) {
             return submissionBlocked(str(R.string.chat_blocked_message_invalid, MAX_MODEL_TEXT_CHARS))
         }

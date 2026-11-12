@@ -9,6 +9,123 @@ import java.nio.file.Files
 import java.nio.file.Path
 
 class SkillRepositoryTest {
+    @Test fun pluginContentFollowsOwnerAndCannotBeSelectedIndependently() {
+        val roots = roots()
+        val document = SkillLoader().loadBuiltIn("---\nname: guide\ndescription: Guide\n---\nWorkflow", "guide")
+        var selected = true
+        val repository =
+            SkillRepository(
+                roots.snapshots,
+                roots.state,
+                roots.trash,
+                contributedDocuments = { session ->
+                    if (session == null ||
+                        (session == "a" && selected)
+                    ) {
+                        listOf(document)
+                    } else {
+                        emptyList()
+                    }
+                },
+            )
+        val key = repository.list().single { it.key.name == "guide" }.key
+        assertTrue(repository.listSelectable("a").none { it.key == key })
+        assertTrue(repository.listForModel("a", null).any { it.key == key && it.enabled })
+        assertFalse(repository.list("b").single { it.key == key }.enabled)
+        for (enabled in listOf(true, false)) {
+            assertThrows(IllegalArgumentException::class.java) {
+                repository.setEnabled(key, enabled, SkillEnablementScope.SESSION, "a")
+            }
+            assertThrows(IllegalArgumentException::class.java) {
+                repository.setEnabled(key, enabled, SkillEnablementScope.GLOBAL)
+            }
+        }
+        selected = false
+        assertThrows(IllegalArgumentException::class.java) { repository.read(key, "a") }
+        selected = true
+        assertEquals("Workflow", repository.read(key, "a").body.trim())
+        assertTrue(repository.listSelectable("a").any { it.key.name == "repo-inspection" })
+    }
+
+    @Test fun identicalPluginAndIndependentContentHaveSeparateFilesAndEnablement() {
+        val roots = roots()
+        val source = importedSource(roots.root)
+        val importer = SkillImportService(roots.staging)
+        var selected = true
+        val repository =
+            SkillRepository(
+                roots.snapshots,
+                roots.state,
+                roots.trash,
+                builtIns = emptyList(),
+                pluginAvailable = { key, session -> key.ownerId == "plugin-a" && selected && session == "a" },
+            )
+        val standalone = repository.registerSnapshot(importer.commit(importer.stageDirectory(source), roots.snapshots))
+        val plugin =
+            repository.registerSnapshot(
+                importer.commit(importer.stageDirectory(source), roots.snapshots, "plugin-a"),
+            )
+        val other =
+            repository.registerSnapshot(
+                importer.commit(importer.stageDirectory(source), roots.snapshots, "plugin-b"),
+            )
+        assertEquals(standalone.snapshotHash, plugin.snapshotHash)
+        assertEquals(plugin.snapshotHash, other.snapshotHash)
+        assertEquals(3, setOf(standalone, plugin, other).size)
+        assertEquals(listOf(standalone), repository.listSelectable("a").map { it.key })
+        assertFalse(repository.listSelectable("a").single().enabled)
+        assertTrue(repository.read(plugin, "a").body.contains("Imported body"))
+        assertThrows(IllegalArgumentException::class.java) { repository.read(standalone, "a") }
+        assertThrows(IllegalArgumentException::class.java) { repository.read(other, "a") }
+        assertThrows(
+            IllegalArgumentException::class.java,
+        ) { repository.setEnabled(plugin, true, SkillEnablementScope.GLOBAL) }
+        assertThrows(IllegalArgumentException::class.java) { repository.uninstall(plugin) }
+        repository.setEnabled(standalone, true, SkillEnablementScope.SESSION, "a")
+        val independentDirectory = repository.scriptSnapshot(standalone, "a", null).directory
+        val pluginDirectory = repository.scriptSnapshot(plugin, "a", null).directory
+        assertFalse(Files.isSameFile(independentDirectory, pluginDirectory))
+        selected = false
+        assertThrows(IllegalArgumentException::class.java) { repository.read(plugin, "a") }
+        assertTrue(repository.read(standalone, "a").body.contains("Imported body"))
+        val restarted = SkillRepository(roots.snapshots, roots.state, roots.trash, builtIns = emptyList())
+        assertEquals(setOf(plugin, other), restarted.pluginSnapshotKeys().toSet())
+        assertEquals(listOf(standalone), restarted.listSelectable("a").map { it.key })
+        assertTrue(restarted.read(standalone, "a").body.contains("Imported body"))
+        restarted.removePermanentlyForPrivacy(plugin)
+        assertTrue(restarted.hasSnapshot(other))
+        assertTrue(restarted.hasSnapshot(standalone))
+        restarted.uninstall(standalone)
+        assertFalse(restarted.hasSnapshot(standalone))
+        assertTrue(restarted.hasSnapshot(other))
+    }
+
+    @Test fun changingOneOwnerFileDoesNotChangeOtherOwnerAndFailsHashValidation() {
+        val roots = roots()
+        val source = importedSource(roots.root)
+        val importer = SkillImportService(roots.staging)
+        val repository =
+            SkillRepository(
+                roots.snapshots,
+                roots.state,
+                roots.trash,
+                builtIns = emptyList(),
+                pluginAvailable = { _, _ -> true },
+            )
+        val first =
+            repository.registerSnapshot(
+                importer.commit(importer.stageDirectory(source), roots.snapshots, "plugin-a"),
+            )
+        val second =
+            repository.registerSnapshot(
+                importer.commit(importer.stageDirectory(source), roots.snapshots, "plugin-b"),
+            )
+        val firstDirectory = repository.scriptSnapshot(first, null, null).directory
+        Files.writeString(firstDirectory.resolve("references/guide.txt"), "changed")
+        assertThrows(IllegalArgumentException::class.java) { repository.scriptSnapshot(first, null, null) }
+        assertEquals("guide", repository.readResource(second, "references/guide.txt").content)
+    }
+
     @Test fun expertEnablementIsSessionScopedAndCannotOverrideSourceOrExplicitSessionDisable() {
         val roots = roots()
         var linked = true
@@ -66,8 +183,10 @@ class SkillRepositoryTest {
         available = false
         assertThrows(IllegalArgumentException::class.java) { repository.readResource(key, "references/guide.txt", "s") }
         available = true
-        repository.setEnabled(key, false, SkillEnablementScope.SESSION, "s")
-        assertThrows(IllegalArgumentException::class.java) { repository.readResource(key, "references/guide.txt", "s") }
+        assertThrows(IllegalArgumentException::class.java) {
+            repository.setEnabled(key, false, SkillEnablementScope.SESSION, "s")
+        }
+        assertEquals("参考", repository.readResource(key, "references/guide.txt", "s").content)
         documents = listOf(loader.loadBuiltIn(manifest, "guide", mapOf("references/guide.txt" to "changed")))
         val changed = repository.list("s").single().key
         assertTrue(changed.snapshotHash != key.snapshotHash)

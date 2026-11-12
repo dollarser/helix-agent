@@ -39,7 +39,7 @@ internal class SkillUseState(
         try {
             val result =
                 withContext(Dispatchers.IO) {
-                    repository.list(session).single { it.key == key } to inspectSupport()
+                    repository.listSelectable(session).single { it.key == key } to inspectSupport()
                 }
             row = result.first
             snapshot = result.second

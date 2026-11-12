@@ -7,7 +7,6 @@ import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.onParent
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.navigation.compose.NavHost
@@ -47,7 +46,7 @@ class PluginConfigurationReturnDeviceTest {
             )
         c.storage.sessions.create(name, "Repair return fixture", null, null, 0)
         try {
-            service.setSkillEnabled(record.skills.single(), false)
+            service.setEnabled(record.id, false)
             compose.setContent {
                 MaterialTheme {
                     RepairHost(service, name, record.id)
@@ -55,6 +54,7 @@ class PluginConfigurationReturnDeviceTest {
             }
             val tag = "connector-session-${record.id}"
             waitTag(tag)
+            waitEnabled(tag)
             compose
                 .onNodeWithTag(tag)
                 .assertIsOff()
@@ -65,13 +65,14 @@ class PluginConfigurationReturnDeviceTest {
             waitTag("plugin-configuration-back")
             assertFalse(record.id in service.catalog.selected(name))
             if (complete) {
-                completeConfiguration(service, record, name)
+                completeConfiguration(service, record)
             }
             compose.onNodeWithTag("plugin-configuration-back").performScrollTo().performClick()
             waitTag(tag)
             if (complete) {
                 compose.waitUntil(5_000) { runCatching { compose.onNodeWithTag(tag).assertIsOn() }.isSuccess }
                 assertFalse(record.id in service.catalog.selected(name))
+                waitEnabled("plugin-session-apply")
                 compose.onNodeWithTag("plugin-session-apply").performClick()
                 compose.waitUntil(5_000) { record.id in service.catalog.selected(name) }
             } else {
@@ -79,7 +80,7 @@ class PluginConfigurationReturnDeviceTest {
                 assertFalse(record.id in service.catalog.selected(name))
             }
         } finally {
-            service.remove(record)
+            service.list().singleOrNull { it.id == record.id }?.let(service::remove)
             c.storage.deleteSessionPermanently(name)
         }
     }
@@ -87,19 +88,16 @@ class PluginConfigurationReturnDeviceTest {
     private fun completeConfiguration(
         service: com.helix.app.plugin.PluginService,
         record: com.helix.app.plugin.InstalledPlugin,
-        name: String,
     ) {
-        waitTag("plugin-tab-1-${record.id}")
-        compose.onNodeWithTag("plugin-tab-1-${record.id}").onParent().performScrollTo()
-        compose.onNodeWithTag("plugin-tab-1-${record.id}").performScrollTo().performClick()
-        val skillTag = "plugin-skill-enabled-$name"
-        waitTag(skillTag)
+        val defaultTag = "connector-default-${record.id}"
+        waitTag(defaultTag)
         compose
-            .onNodeWithTag(skillTag)
+            .onNodeWithTag(defaultTag)
             .performScrollTo()
             .assertIsOff()
             .performClick()
-        compose.waitUntil(5_000) { service.skillEnabled(record.skills.single()) }
+        compose.waitUntil(5_000) { service.list().single { it.id == record.id }.enabled }
+        compose.onNodeWithTag("plugin-skill-enabled-${record.skills.single().name}").assertDoesNotExist()
     }
 
     @androidx.compose.runtime.Composable
@@ -123,6 +121,10 @@ class PluginConfigurationReturnDeviceTest {
             }
             pluginConfigurationDestination(nav, service)
         }
+    }
+
+    private fun waitEnabled(tag: String) {
+        compose.waitUntil(5_000) { runCatching { compose.onNodeWithTag(tag).assertIsEnabled() }.isSuccess }
     }
 
     private fun waitTag(tag: String) {

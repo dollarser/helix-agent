@@ -38,7 +38,6 @@ import com.helix.app.plugin.PluginImportReview
 import com.helix.app.plugin.PluginImportTargetPicker
 import com.helix.app.plugin.PluginPackagePreview
 import com.helix.app.plugin.PluginService
-import com.helix.app.ui.SettingsCheckbox
 import com.helix.app.ui.rememberImportActionState
 import com.helix.extensions.mcp.McpHandshakeSnapshot
 import com.helix.extensions.mcp.oauth.McpOAuthVendor
@@ -380,38 +379,10 @@ fun ConnectorSection(
                 ) {
                     Text(stringResource(R.string.plugin_contents_skills, record.skills.size))
                     record.skills.forEach { key ->
-                        var enabled by remember(service, key) { mutableStateOf<Boolean?>(null) }
-                        var reading by remember(service, key) { mutableStateOf(true) }
-                        @Suppress("TooGenericExceptionCaught") // Read errors stay visible; cancellation propagates.
-                        LaunchedEffect(service, key, revision) {
-                            reading = true
-                            try {
-                                enabled = withContext(Dispatchers.IO) { service.skillEnabled(key) }
-                            } catch (cancelled: CancellationException) {
-                                throw cancelled
-                            } catch (error: Exception) {
-                                importFailure = PluginImportFailure.from(error)
-                            } finally {
-                                reading = false
-                            }
-                        }
-                        Row {
-                            SettingsCheckbox(
-                                checked = enabled,
-                                enabled = !action.busy && !reading,
-                                modifier = Modifier.testTag("plugin-skill-enabled-${key.name}"),
-                                onCheckedChange = { value ->
-                                    action.launch(onFailure = { importFailure = PluginImportFailure.from(it) }) {
-                                        withContext(Dispatchers.IO) { service.setSkillEnabled(key, value) }
-                                        enabled = value
-                                    }
-                                },
-                            )
-                            var expanded by remember(key) { mutableStateOf(false) }
-                            Column {
-                                TextButton({ expanded = !expanded }) { Text("Skill: ${key.name}") }
-                                if (expanded) PluginSkillPreview(service, key)
-                            }
+                        var expanded by remember(key) { mutableStateOf(false) }
+                        Column {
+                            TextButton({ expanded = !expanded }) { Text("Skill: ${key.name}") }
+                            if (expanded) PluginSkillPreview(service, key)
                         }
                     }
                     record.endpoints.forEach { endpoint -> KnownEndpointTools(service, endpoint) }

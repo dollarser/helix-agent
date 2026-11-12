@@ -6,7 +6,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.HelixApplication
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Test
@@ -53,8 +53,8 @@ class ConnectorSuppliedArchiveDeviceTest {
                 )
                 assertTrue(installed.endpoints.none { service.enabled(it) })
                 for (key in installed.skills) {
-                    assertFalse(service.skillEnabled(key))
-                    service.setSkillEnabled(key, true)
+                    assertTrue(service.skillEnabled(key))
+                    assertPluginOwned(service, key)
                     assertTrue(
                         app.appContainer.skillRepository
                             .read(key)
@@ -62,7 +62,6 @@ class ConnectorSuppliedArchiveDeviceTest {
                             .isNotBlank(),
                     )
                     assertOriginalPreserved(app, bundle, key)
-                    service.setSkillEnabled(key, false)
                 }
                 assertTrue(installed.diagnostics.any { it.startsWith("SKILL_METADATA_NORMALIZED:dingtalk-doc") })
                 assertTrue(installed.diagnostics.any { it.startsWith("SKILL_REQUIRES_BINARY:dingtalk-doc:dws") })
@@ -74,6 +73,14 @@ class ConnectorSuppliedArchiveDeviceTest {
             Files.delete(file)
             Files.delete(incoming)
         }
+    }
+
+    private fun assertPluginOwned(
+        service: com.helix.app.plugin.PluginService,
+        key: com.helix.extensions.skills.SkillKey,
+    ) {
+        val error = assertThrows(IllegalArgumentException::class.java) { service.setSkillEnabled(key, true) }
+        assertEquals("PLUGIN_OWNED_SKILL", error.message)
     }
 
     private fun assertOriginalPreserved(

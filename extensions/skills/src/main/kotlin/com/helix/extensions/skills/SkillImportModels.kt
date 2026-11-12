@@ -52,7 +52,18 @@ data class SkillSnapshotRef(
     val snapshotHash: String,
     val directory: Path,
     val source: SkillSource,
+    val ownerId: String = "",
 )
+
+internal val SKILL_OWNER_ID = Regex("[A-Za-z0-9_-]{1,128}")
+
+internal fun skillOwnerRoot(
+    root: Path,
+    ownerId: String,
+): Path {
+    require(ownerId.isEmpty() || SKILL_OWNER_ID.matches(ownerId)) { "Invalid skill owner" }
+    return if (ownerId.isEmpty()) root else root.resolve(".plugins").resolve(ownerId)
+}
 
 class InvalidSkillImportException(
     message: String,

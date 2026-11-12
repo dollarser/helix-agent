@@ -68,7 +68,7 @@ class PluginRegistryTest {
         assertEquals("", registry.contents("missing").requiredInstructions)
     }
 
-    @Test fun explicitlyLinkedSkillDoesNotSelectItsOwnersTools() {
+    @Test fun bundledSkillAvailabilityFollowsOnlyItsSelectedOwner() {
         val catalog = MemoryNativePluginCatalog()
         val guide = skill("linked-guide")
         val key =
@@ -76,27 +76,36 @@ class PluginRegistryTest {
                 guide.catalogEntry.source,
                 guide.catalogEntry.name,
                 guide.catalogEntry.contentHash,
+                "skill-owner",
             )
-        var linked = true
-        val registry =
-            PluginRegistry(ToolRegistry(), catalog) { candidate, session ->
-                linked && session == "selected" && candidate == key
-            }
+        val registry = PluginRegistry(ToolRegistry(), catalog)
         registry.register(
             object : HelixPlugin by plugin("skill-owner") {
                 override val skills = listOf(guide)
             },
         )
+        assertFalse(registry.skillAvailable(key, "selected"))
+        assertTrue(registry.ownsSkill(key))
+        assertFalse(registry.ownsSkill(key.copy(ownerId = "")))
+        assertFalse(registry.skillAvailable(key.copy(ownerId = "missing-owner"), "selected"))
+        assertTrue(registry.skillAvailable(key.copy(ownerId = ""), "selected"))
+        assertTrue(registry.skillDocuments("selected").isEmpty())
+        catalog.selections["selected" to "skill-owner"] = "selection"
         assertTrue(registry.skillAvailable(key, "selected"))
-        assertEquals(listOf(guide), registry.skillDocuments("selected"))
-        assertTrue(registry.selectedRuntimes("selected").isEmpty())
+        assertEquals(
+            listOf(guide.copy(catalogEntry = guide.catalogEntry.copy(ownerId = "skill-owner"))),
+            registry.skillDocuments("selected"),
+        )
+        assertEquals(1, registry.selectedRuntimes("selected").size)
         assertFalse(registry.skillAvailable(key, "peer"))
         assertTrue(registry.skillDocuments("peer").isEmpty())
         registry.setEnabled("skill-owner", false)
         assertFalse(registry.skillAvailable(key, "selected"))
         registry.setEnabled("skill-owner", true)
-        linked = false
+        assertTrue(registry.skillAvailable(key, "selected"))
+        catalog.selections.clear()
         assertFalse(registry.skillAvailable(key, "selected"))
+        assertTrue(registry.skillDocuments("selected").isEmpty())
     }
 
     @Test fun bodiesLoadOnlyFromExactDurableActivationsAndRetainMandatoryRules() {
@@ -145,13 +154,14 @@ class PluginRegistryTest {
         assertEquals("user argument", activated.acceptedArguments)
         assertEquals(listOf("fixture"), activated.owners.map { it.pluginId })
         assertEquals(discovered, registry.contentContributions(repository, "s"))
-        repository.setEnabled(key, false, com.helix.extensions.skills.SkillEnablementScope.SESSION, "s")
+        assertTrue(repository.listSelectable("s").isEmpty())
+        assertThrows(IllegalArgumentException::class.java) {
+            repository.setEnabled(key, false, com.helix.extensions.skills.SkillEnablementScope.SESSION, "s")
+        }
+        assertEquals(guide.body, repository.read(key, "s").body)
+        catalog.selections.clear()
         assertThrows(IllegalArgumentException::class.java) { registry.contentContributions(repository, "s", "turn") }
         activations = emptyList()
-        val disabled = registry.contentContributions(repository, "s", "next")
-        assertEquals(1, disabled.size)
-        assertEquals("Mandatory rule", (disabled.single() as PluginContentContribution.RequiredInstructions).text)
-        catalog.selections.clear()
         assertTrue(registry.contentContributions(repository, "s", "next").isEmpty())
         assertThrows(IllegalArgumentException::class.java) { repository.read(key, "s") }
         activations = listOf(activation.copy(key = key.copy(snapshotHash = "missing")))
@@ -198,6 +208,37 @@ class PluginRegistryTest {
         assertEquals(2, before.size)
         registry.setEnabled("second", false)
         assertTrue(registry.contentContributions(repository, "s").isEmpty())
+    }
+
+    @Test fun hostCataloguedDocumentInsideNativePluginHasOnlyItsExactOwnerContribution() {
+        val catalog = MemoryNativePluginCatalog()
+        val registry = PluginRegistry(ToolRegistry(), catalog)
+        val base = plugin("owned-host-guide")
+        registry.register(
+            object : HelixPlugin by base {
+                override val skills = listOf(skill("guide").copy(hostCatalogued = true))
+            },
+        )
+        catalog.selections["session" to "owned-host-guide"] = "selection"
+        val root =
+            java.nio.file.Files
+                .createTempDirectory("owned-host-guide")
+        val repository =
+            com.helix.extensions.skills.SkillRepository(
+                root.resolve("snapshots"),
+                root.resolve("state"),
+                root.resolve("trash"),
+                builtIns = emptyList(),
+                sourceAvailable = registry::skillAvailable,
+                contributedDocuments = registry::skillDocuments,
+            )
+        val contributions =
+            registry
+                .contentContributions(repository, "session")
+                .filterIsInstance<PluginContentContribution.SkillCatalog>()
+        assertEquals(1, contributions.size)
+        assertEquals("owned-host-guide", contributions.single().key.ownerId)
+        assertEquals("owned-host-guide", contributions.single().owner?.pluginId)
     }
 
     @Test fun hostCatalogMetadataIsExplicitAndCannotBeGrantedByImportedFrontmatter() {
@@ -420,7 +461,9 @@ class PluginRegistryTest {
         catalog.selections["session" to "workflow"] = "selection"
         assertEquals("Observe before acting", repository.read(key, "session").body.trim())
         catalog.selections.clear()
-        repository.setEnabled(key, true, com.helix.extensions.skills.SkillEnablementScope.SESSION, "session")
+        assertThrows(IllegalArgumentException::class.java) {
+            repository.setEnabled(key, true, com.helix.extensions.skills.SkillEnablementScope.SESSION, "session")
+        }
         assertThrows(IllegalArgumentException::class.java) { repository.read(key, "session") }
         assertEquals("Observe before acting", repository.inspect(key).body.trim())
     }
@@ -543,17 +586,22 @@ class PluginRegistryTest {
         assertTrue(help.key.snapshotHash.isNotBlank())
         val key = repository.list("session").single { it.key.name == "guide" }.key
         assertTrue(contributions.filterIsInstance<PluginContentContribution.SkillCatalog>().any { it.key == key })
-        repository.setEnabled(key, false, com.helix.extensions.skills.SkillEnablementScope.SESSION, "session")
-        val afterDisable = registry.contentContributions(repository, "session")
-        assertEquals(
-            "Mandatory operational rule",
-            afterDisable.filterIsInstance<PluginContentContribution.RequiredInstructions>().single().text,
-        )
-        assertTrue(afterDisable.none { it is PluginContentContribution.ActivatedSkill })
-        assertTrue(help in afterDisable)
-        assertTrue(afterDisable.filterIsInstance<PluginContentContribution.SkillCatalog>().none { it.key == key })
-        assertThrows(IllegalArgumentException::class.java) { repository.read(key, "session") }
-        repository.setEnabled(key, true, com.helix.extensions.skills.SkillEnablementScope.SESSION, "session")
+        assertTrue(repository.listSelectable("session").none { it.key == key })
+        listOf(false, true).forEach { enabled ->
+            assertEquals(
+                "PLUGIN_OWNED_SKILL",
+                assertThrows(IllegalArgumentException::class.java) {
+                    repository.setEnabled(
+                        key,
+                        enabled,
+                        com.helix.extensions.skills.SkillEnablementScope.SESSION,
+                        "session",
+                    )
+                }.message,
+            )
+        }
+        assertEquals(contributions, registry.contentContributions(repository, "session"))
+        assertTrue(repository.read(key, "session").body.isNotBlank())
         registry.setEnabled("fixture", false)
         assertEquals(null, registry.executionContext(descriptor, "session"))
         assertEquals(listOf(help), registry.contentContributions(repository, "session"))
@@ -600,7 +648,10 @@ class PluginRegistryTest {
             },
         )
         registry.setEnabled("mobile-use", false)
-        assertEquals(listOf(skill), registry.contents("mobile-use").skills)
+        assertEquals(
+            listOf(skill.copy(catalogEntry = skill.catalogEntry.copy(ownerId = "mobile-use"))),
+            registry.contents("mobile-use").skills,
+        )
         assertEquals(
             original.tools().map {
                 it.descriptor.name.value

@@ -29,3 +29,10 @@ data class UserSkillActivation(
     val key: SkillKey,
     val arguments: String,
 )
+
+/** The accepted snapshot identity must not be reconstructed from the manifest-only content hash. */
+data class ActivatedSkillContent(
+    val key: SkillKey,
+    val document: SkillDocument,
+    val arguments: String,
+)

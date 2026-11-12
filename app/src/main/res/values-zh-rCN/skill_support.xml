@@ -10,9 +10,9 @@
     <string name="skill_support_configure">配置所需能力</string>
     <string name="skill_support_retry">重新检查</string>
     <string name="skill_support_failed">无法读取此技能，请重新检查或返回插件详情。</string>
-    <string name="skill_support_disabled">此技能已停用。开启本会话使用后再调用。</string>
-    <string name="skill_support_session_enable">在本会话启用</string>
-    <string name="skill_support_discovery">开启后，模型可在本会话的后续任务中按需使用。</string>
+    <string name="skill_support_disabled">尚未在本会话单独启用此技能。开启后可从此处调用。</string>
+    <string name="skill_support_session_enable">在本会话单独启用</string>
+    <string name="skill_support_discovery">开启后，模型可按需读取此技能的操作指导；所需工具仍取决于已启用的插件和权限。</string>
     <string name="skill_support_manual_only">此技能仅支持明确的本次调用。</string>
     <string name="skill_support_no_user">此技能未开放手动调用。</string>
     <string name="skill_support_once_hint">仅加入本次消息，发送后执行。</string>
@@ -22,4 +22,7 @@
     <string name="skill_support_script_runner">已提供技能脚本执行入口（Python／JavaScript／Shell）。</string>
     <string name="skill_support_script_no_runner">当前未提供专用技能脚本执行入口。</string>
     <string name="skill_support_preview_only">此技能仅供预览，不开放调用。</string>
+    <string name="skill_support_session_persistence">此开关立即保存到当前会话，关闭窗口不会撤销。</string>
+    <string name="skill_support_close">关闭</string>
+    <string name="skill_invocation_enable_in_settings">请先在会话设置 → 技能中启用。</string>
 </resources>

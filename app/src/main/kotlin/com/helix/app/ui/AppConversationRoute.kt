@@ -191,40 +191,83 @@ internal fun AppConversationRoute(
         rememberSaveable(sessionId, saver = ConversationDraftBuffer.saverFor(sessionId ?: "closed-composer")) {
             ConversationDraftBuffer(sessionId ?: "closed-composer")
         }
-    val skillPrompt = stringResource(R.string.skill_invocation_prompt)
-    val skillLimit = stringResource(R.string.skill_invocation_limit)
+    val skillComposer =
+        remember(skills, sessionId, connectors) {
+            if (skills != null && sessionId != null) SkillComposerState(skills, sessionId, connectors) else null
+        }
+    LaunchedEffect(skillComposer, skillsOpen, connectorsOpen, expertOpen) { skillComposer?.reload() }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { scope.launch { skillComposer?.reload() } }
+    val skillSuggestions =
+        skillComposer
+            ?.rows
+            .orEmpty()
+            .filter {
+                it.enabled && it.invocation.userInvocable && it.invocation.unsupportedExecutionFields.isEmpty()
+            }.map { row ->
+                val (title, description) = skillCatalogPresentation(row)
+                com.helix.feature.conversation.presentation.composer.ComposerSuggestionItem(
+                    id = skillSuggestionId(row.key),
+                    label = "/${row.key.name}",
+                    detail =
+                        if (skillComposer?.rows.orEmpty().count { it.key.name == row.key.name } > 1) {
+                            "$title · ${row.key.source.name.lowercase()} · ${row.key.snapshotHash.take(
+                                8,
+                            )} · $description"
+                        } else {
+                            "$title · $description"
+                        },
+                    type = com.helix.feature.conversation.presentation.composer.ComposerSuggestionType.SKILL,
+                    insertText = "",
+                )
+            }
+    val skillLabels =
+        buffer.value.skillActivations.associate { activation ->
+            "${activation.source}:${activation.name}:${activation.snapshotHash}:${activation.ownerId}" to
+                (
+                    skillCatalogName(activation.source, activation.name) +
+                        if (buffer.value.skillActivations.count { it.name == activation.name } > 1) {
+                            " · ${activation.ownerId.ifEmpty { activation.source.lowercase() }}" +
+                                " · ${activation.snapshotHash.take(8)}"
+                        } else {
+                            ""
+                        }
+                )
+        }
     if (skillsOpen && sessionId != null && skills != null) {
-        SkillSessionPanel(
+        SkillInvocationPanel(
             skills,
             sessionId,
-            onExtensions,
+            initial =
+                buffer.value.skillActivations.map {
+                    com.helix.extensions.skills.SkillKey(
+                        com.helix.extensions.skills.SkillSource
+                            .valueOf(it.source),
+                        it.name,
+                        it.snapshotHash,
+                        it.ownerId,
+                    )
+                },
             onDismiss = { skillsOpen = false },
-            onInvoke = invoke@{ activation ->
+            onApply = apply@{ activations ->
                 if (chatService.screen.value.openSessionId != sessionId || !buffer.editable ||
                     buffer.sending
                 ) {
-                    return@invoke false
+                    return@apply false
                 }
-                val key = activation.key
-                val item =
-                    InputSkillActivation(
-                        key.source.name,
-                        key.name,
-                        key.snapshotHash,
-                        activation.arguments,
-                    )
-                val retained =
-                    buffer.value.skillActivations.filterNot {
-                        it.source == item.source && it.name == item.name
-                    }
-                if (retained.size < 4) {
-                    buffer.skills(retained + item)
-                    if (buffer.value.text.isBlank()) buffer.edit(skillPrompt.format(key.name))
-                    true
-                } else {
-                    chatService.showBlockedReason(skillLimit)
-                    false
-                }
+                if (activations.size > 4) return@apply false
+                buffer.skills(
+                    activations.map { activation ->
+                        val key = activation.key
+                        InputSkillActivation(
+                            key.source.name,
+                            key.name,
+                            key.snapshotHash,
+                            activation.arguments,
+                            key.ownerId,
+                        )
+                    },
+                )
+                true
             },
             context =
                 SkillUseContext(
@@ -609,6 +652,38 @@ internal fun AppConversationRoute(
                     humanControl = { turnId -> HumanControlPanel(chatService, screen, turnId) },
                     input = input,
                     onInput = buffer::edit,
+                    skillActivations = buffer.value.skillActivations,
+                    skillLabels = skillLabels,
+                    skillSuggestions = skillSuggestions,
+                    onSkillActivationsChange = { items ->
+                        if (buffer.editable && !buffer.sending && screen.pendingDisclosure == null) buffer.skills(items)
+                    },
+                    onSkillSelect = selectSkill@{ item ->
+                        val owner = sessionId ?: return@selectSkill false
+                        if (!buffer.editable || buffer.sending ||
+                            screen.pendingDisclosure != null
+                        ) {
+                            return@selectSkill false
+                        }
+                        val revision = buffer.value.revision
+                        val activation = skillComposer?.prepare(item.id) ?: return@selectSkill false
+                        val sameDraft =
+                            chatService.screen.value.openSessionId == owner && buffer.value.revision == revision
+                        val canEdit =
+                            buffer.editable && !buffer.sending && chatService.screen.value.pendingDisclosure == null
+                        if (!sameDraft || !canEdit) {
+                            return@selectSkill false
+                        }
+                        val selected = buffer.value.skillActivations
+                        val duplicate =
+                            selected.any {
+                                it.source == activation.source && it.name == activation.name &&
+                                    it.snapshotHash == activation.snapshotHash && it.ownerId == activation.ownerId
+                            }
+                        if (!duplicate && selected.size >= 4) return@selectSkill false
+                        if (!duplicate) buffer.skills(selected + activation)
+                        true
+                    },
                     composerAvailability =
                         ComposerAvailability(
                             input = buffer.editable && editMessageId == null,
@@ -654,22 +729,6 @@ internal fun AppConversationRoute(
                             localCommands = buffer.editable && !buffer.sending && editMessageId == null,
                         ),
                     composerStatus = {
-                        buffer.value.skillActivations.forEach { activation ->
-                            androidx.compose.material3.TextButton(
-                                onClick = {
-                                    buffer.skills(buffer.value.skillActivations - activation)
-                                },
-                                enabled = buffer.editable && !buffer.sending,
-                                modifier = Modifier.testTag("skill-activation-${activation.name}"),
-                            ) {
-                                Text(
-                                    stringResource(
-                                        R.string.skill_invocation_selected,
-                                        skillCatalogName(activation.source, activation.name),
-                                    ),
-                                )
-                            }
-                        }
                         sessionId?.let { id ->
                             SessionInputQueuePanel(
                                 referenceContent = {
@@ -707,6 +766,12 @@ internal fun AppConversationRoute(
                         )
                     },
                     composerFeedback = {
+                        if (skillComposer?.failed == true) {
+                            Text(stringResource(R.string.skill_support_apply_failed))
+                            TextButton(onClick = { scope.launch { skillComposer.reload() } }) {
+                                Text(stringResource(R.string.skill_support_retry))
+                            }
+                        }
                         if (pluginLoadFailed) Text(stringResource(R.string.plugin_selection_load_failed))
                         selectedExpertName?.let { name ->
                             TextButton(

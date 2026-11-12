@@ -1,5 +1,6 @@
 package com.helix.core.storage
 
+import com.helix.core.storage.backup.PortableTables
 import com.helix.core.storage.internal.MiniJson
 import com.helix.core.storage.internal.Value
 import org.junit.Assert.assertEquals
@@ -19,7 +20,6 @@ class DatabaseContractTest {
             "session_workspaces",
             "model_call_workspaces",
             "connector_installations",
-            "connector_skill_ownership",
             "session_connectors",
             "connector_endpoints",
             "messages",
@@ -108,6 +108,23 @@ class DatabaseContractTest {
         val tables = entities().map { (it.entries.getValue("tableName") as Value.Str).value }
         assertEquals(expectedTables, tables.toSet())
         assertEquals(expectedTables.size, tables.size)
+    }
+
+    @Test
+    fun `every portable backup table and typed column exists in the current schema`() {
+        assertEquals(PortableTables.columns.keys, PortableTables.integers.keys)
+        assertTrue(expectedTables.containsAll(PortableTables.columns.keys))
+        PortableTables.columns.forEach { (table, portableColumns) ->
+            assertTrue("Unknown portable column in $table", columns(table).containsAll(portableColumns))
+            assertEquals("Duplicate portable column in $table", portableColumns.size, portableColumns.toSet().size)
+            val integers = PortableTables.integers.getValue(table)
+            assertTrue("Unknown integer column in $table", portableColumns.containsAll(integers))
+            val fields = (entity(table).entries.getValue("fields") as Value.Arr).items.map { it as Value.Obj }
+            integers.forEach { name ->
+                val field = fields.single { (it.entries.getValue("columnName") as Value.Str).value == name }
+                assertEquals("$table.$name", "INTEGER", (field.entries.getValue("affinity") as Value.Str).value)
+            }
+        }
     }
 
     @Test fun documentSnapshotsAndInternalObservationsAreDurableFacts() {

@@ -9,7 +9,6 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
-import androidx.compose.ui.test.performTextInput
 import androidx.test.core.app.ApplicationProvider
 import com.helix.app.HelixApplication
 import org.junit.Assert.assertEquals
@@ -21,7 +20,7 @@ import com.helix.feature.conversation.R as ConversationR
 class SkillSessionPanelDeviceTest {
     @get:Rule val compose = createComposeRule()
 
-    @Test fun useOnceBindsParametersWithoutChangingEnablement() {
+    @Test fun useOncePreservesIdentityWithoutParametersOrEnablementChanges() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val root =
             java.nio.file.Files
@@ -54,10 +53,10 @@ class SkillSessionPanelDeviceTest {
         val key = repository.list().single().key
         compose.onNodeWithTag("session-skill-workflow-${key.snapshotHash.take(8)}").assertDoesNotExist()
         compose.onNodeWithTag("skill-invoke-workflow").performScrollTo().performClick()
-        compose.onNodeWithTag("skill-invocation-arguments").performTextInput("中文参数")
+        compose.onNodeWithTag("skill-invocation-arguments").assertDoesNotExist()
         compose.onNodeWithTag("skill-invocation-confirm").performClick()
         compose.waitUntil(10_000) { invoked != null }
-        assertEquals("中文参数", invoked!!.arguments)
+        assertEquals("", invoked!!.arguments)
         assertEquals(repository.list().single().key, invoked!!.key)
         assertEquals(true, repository.list().single().enabled)
         assertEquals(0, repository.listForModel("ui-session", "fake").size)

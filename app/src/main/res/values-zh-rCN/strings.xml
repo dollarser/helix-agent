@@ -466,7 +466,7 @@
     <string name="connector_install">安装可迁移部分</string>
     <string name="connector_failed">导入或保存失败。请检查 JSON、Skill 格式、包大小及存储空间。</string>
     <string name="connector_skill_review">Skill 含原始指令和配套文件，脚本不会在安装时执行。启用前请审阅源文件；平台专有工具名可能需要适配。</string>
-    <string name="connector_remove_note">移除本机连接和凭据；保留 Skill 快照。厂商授权请在厂商侧撤销。</string>
+    <string name="connector_remove_note">移除此插件的本机连接、凭据和 Skill，不影响其他插件或独立安装的 Skill。厂商授权请在厂商侧撤销。</string>
     <string name="connector_remove">移除插件</string>
     <string name="connector_active">工具已启用</string>
     <string name="connector_inactive">工具未激活，请测试连接并选择工具</string>
@@ -1455,9 +1455,7 @@
     <string name="plugin_setup_continue">去设置</string>
     <string name="plugin_setup_later">暂不设置</string>
     <string name="skill_invocation_arguments">本次参数（可选）</string>
-    <string name="skill_invocation_once">使用一次</string>
-    <string name="skill_invocation_prompt">使用技能：%1$s</string>
-    <string name="skill_invocation_selected">本次技能：%1$s · 点击移除</string>
+    <string name="skill_invocation_once">加入本次消息</string>
     <string name="skill_invocation_limit">一次输入最多使用 4 个技能，请先移除一个。</string>
     <string name="plugin_state_disconnected">未连接</string>
     <string name="plugin_state_host_missing">宿主能力不可用</string>

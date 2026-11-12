@@ -1032,9 +1032,6 @@ private fun DestinationScreen(
         }
 
         ShellDestination.Extensions -> {
-            val skillPrompt =
-                androidx.compose.ui.res
-                    .stringResource(R.string.skill_invocation_prompt)
             com.helix.app.ui.CapabilitiesScreen(
                 container.conversationExperts,
                 container.pluginService,
@@ -1058,8 +1055,8 @@ private fun DestinationScreen(
                                             activation.key.name,
                                             activation.key.snapshotHash,
                                             activation.arguments,
+                                            activation.key.ownerId,
                                         ),
-                                        skillPrompt.format(activation.key.name),
                                     ).await()
                             if (applied && container.chatService.screen.value.openSessionId == target) {
                                 completion.complete {

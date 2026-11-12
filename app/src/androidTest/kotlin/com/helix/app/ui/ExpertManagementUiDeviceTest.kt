@@ -62,6 +62,21 @@ class ExpertManagementUiDeviceTest {
                         "expert-description",
                     ).performScrollTo()
                     .performTextInput("Synthetic capability preset")
+                val bundledSkills =
+                    c.skillRepository.list().filter {
+                        it.key.name in
+                            setOf(
+                                "browser",
+                                "android-ui-task",
+                            )
+                    }
+                assertTrue(bundledSkills.isNotEmpty())
+                bundledSkills.forEach { skill ->
+                    val key = skill.key
+                    compose
+                        .onNodeWithTag("expert-dependency-${key.source.name}/${key.name}/${key.snapshotHash}")
+                        .assertDoesNotExist()
+                }
                 val reference = "native:" + com.helix.extensions.browser.BrowserPlugin.PLUGIN_ID
                 compose.onNodeWithTag("expert-dependency-$reference").performScrollTo().performClick()
                 compose.onNodeWithTag("session-expert-save").assertIsDisplayed()

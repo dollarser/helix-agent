@@ -36,9 +36,13 @@ class ComposerCommandParserTest {
     }
 
     @Test
-    fun `parseQuery leaves slash after ordinary text as ordinary text`() {
+    fun `slash after text discovers skills without offering local commands`() {
         val text = "first line\n/goal"
-        assertNull(ComposerCommandParser.parseQuery(text, text.length))
+        val query = requireNotNull(ComposerCommandParser.parseQuery(text, text.length))
+        assertTrue(ComposerCommandParser.filterSuggestions(query).isEmpty())
+        val skill = ComposerSuggestionItem("skill:goal", "/goal", "Skill", ComposerSuggestionType.SKILL, "")
+        assertEquals(listOf(skill), ComposerCommandParser.filterSuggestions(query, skills = listOf(skill)))
+        assertNull(ComposerCommandParser.leadingCommand(text))
     }
 
     @Test

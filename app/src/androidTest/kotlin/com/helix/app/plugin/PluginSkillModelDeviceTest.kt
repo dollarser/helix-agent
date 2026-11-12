@@ -56,7 +56,7 @@ class PluginSkillModelDeviceTest {
                 c.chatService.sendTestMessage(
                     id,
                     "This is a read-only plugin documentation check. Call skills.list, find chat-reply, " +
-                        "then call skills.read with its exact source/name/snapshotHash. " +
+                        "then call skills.read with its exact source/name/snapshotHash/ownerId. " +
                         "Report its first Markdown heading. " +
                         "Do not call any phone tool, send messages, or modify files.",
                 )

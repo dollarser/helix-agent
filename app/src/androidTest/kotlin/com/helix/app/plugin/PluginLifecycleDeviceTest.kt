@@ -63,7 +63,6 @@ class PluginLifecycleDeviceTest {
         try {
             service.catalog.select(session, record.id, true)
             val selectedBefore = service.catalog.selected(session)
-            service.setSkillEnabled(key, true)
             assertTrue(service.catalog.skillAvailable(key, session))
             service.setEnabled(record.id, false)
             val disabled = service.list().single { it.id == record.id }
@@ -165,7 +164,6 @@ class PluginLifecycleDeviceTest {
         container.storage.secrets.put(alias, "synthetic-cancelled-update")
         try {
             service.catalog.select(session, old.id, true)
-            service.setSkillEnabled(old.skills.single(), true)
             val selection = service.catalog.selected(session)
             assertThrows(IllegalStateException::class.java) {
                 service.install(bundle("replacement"), identity, old.revision, cancelled = { true })

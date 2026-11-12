@@ -6,7 +6,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.HelixApplication
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Test
@@ -83,13 +83,15 @@ class WorkBuddySuppliedArchiveDeviceTest {
     ) {
         val service = app.appContainer.pluginService
         val repository = app.appContainer.skillRepository
-        assertFalse(service.skillEnabled(key))
-        service.setSkillEnabled(key, true)
+        assertTrue(service.skillEnabled(key))
         assertTrue(repository.read(key).body.isNotBlank())
         files.filterKeys { it.startsWith("references/") }.forEach { (relative, content) ->
             assertEquals(content.toString(Charsets.UTF_8), repository.readResource(key, relative).content)
         }
-        service.setSkillEnabled(key, false)
-        assertFalse(service.skillEnabled(key))
+        assertEquals(
+            "PLUGIN_OWNED_SKILL",
+            assertThrows(IllegalArgumentException::class.java) { service.setSkillEnabled(key, false) }.message,
+        )
+        assertTrue(service.skillEnabled(key))
     }
 }

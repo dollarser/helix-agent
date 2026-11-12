@@ -4,7 +4,7 @@
 - The base discovery guidance explains combined queries, replacement windows and current-request schemas; it does not change tool availability, search ranking or authorization. Task-specific search terms belong only in explicit historical eval fixtures.
 - `files.md`: stable guidance, only when local file tools are exposed.
 - `directory.md`: request-fresh working directory from session facts, after stable built-in guidance.
-- Mobile Use guidance is owned by `extensions/mobile-use/src/main/assets/plugins/mobile-use/skills/android-ui-task/SKILL.md`, injected only when its tools are exposed. It is not a standalone skill and grants no capability.
+- Plugin guidance is owned by each plugin: `required.md` supplies concise always-needed rules for the selected plugin, its bundled `SKILL.md` supplies the workflow, and `references/` holds detailed on-demand guidance. Mobile Use owns `android-ui-task`; Browser owns `browser`; Documents owns `document-reading`; Chat Reply owns `chat-reply`. Short workflows can remain self-contained: Documents keeps format-specific reading steps in its skill, and guidance-only Chat Reply has no duplicated required layer. Plugin selection makes its skills available together with its tools; standalone skill selection does not enable plugin capabilities. Skill bodies and references use the normal version-bound skill read/activation path, rather than being unconditionally injected when tool names appear. None of this grants authorization.
 - `plan.md`: only in Plan mode.
 - `goal-identity.md`, `goal-protocol.md`, `goal-safety.md`: active durable Goal binding only.
 - `tool-presentation.md`: model-facing tool intent guidance.

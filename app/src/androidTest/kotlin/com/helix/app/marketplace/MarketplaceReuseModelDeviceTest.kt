@@ -106,7 +106,6 @@ class MarketplaceReuseModelDeviceTest {
                     val item = market.items().single { it.imported?.entry?.name == name }
                     val installed = market.imports.installCandidate(item, market.imports.previewItem(item), null)
                     installedId = installed.id
-                    c.pluginService.setSkillEnabled(installed.skills.single(), true)
                     check(c.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
                     c.lanScopeStore.add(origin)
                     val endpoint = installed.endpoints.single()

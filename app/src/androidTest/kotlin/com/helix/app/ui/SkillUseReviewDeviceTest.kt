@@ -12,7 +12,6 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
-import androidx.compose.ui.test.performTextInput
 import androidx.test.core.app.ApplicationProvider
 import com.helix.app.HelixApplication
 import com.helix.app.R
@@ -56,7 +55,7 @@ class SkillUseReviewDeviceTest {
         assertTrue(repo.list().single().enabled)
     }
 
-    @Test fun onceAndSessionEnablementAreSeparateAndFailedHandoffKeepsArguments() {
+    @Test fun onceAndSessionEnablementAreSeparateAndFailedHandoffDoesNotClose() {
         val repo = repository("")
         val key = repo.list().single().key
         repo.setEnabled(key, false, SkillEnablementScope.GLOBAL)
@@ -78,11 +77,11 @@ class SkillUseReviewDeviceTest {
         compose.onNodeWithTag("skill-invocation-confirm").assertIsNotEnabled()
         compose.onNodeWithTag("skill-session-enable").performClick()
         compose.waitUntil(10_000) { repo.list("s").single().enabled }
-        compose.onNodeWithTag("skill-invocation-arguments").performScrollTo().performTextInput("保留参数")
+        compose.onNodeWithTag("skill-invocation-arguments").assertDoesNotExist()
         compose.onNodeWithTag("skill-invocation-confirm").assertIsEnabled().performClick()
         compose.waitUntil(10_000) { attempts == 1 }
         compose.onNodeWithTag("skill-use-failed").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("保留参数").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("skill-invocation-confirm").assertIsEnabled()
         assertEquals(false, repo.list().single().enabled)
         assertEquals(true, repo.list("s").single().enabled)
         assertEquals(false, repo.list("other").single().enabled)

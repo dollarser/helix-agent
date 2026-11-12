@@ -51,7 +51,6 @@ class PluginAuthorExamplesDeviceTest {
         try {
             assertEquals(bundle.componentDiagnostics, record.componentDiagnostics)
             assertTrue(record.endpoints.isEmpty())
-            c.pluginService.setSkillEnabled(record.skills.single(), true)
             c.pluginService.selectFromUser(session, record.id, true)
             val key = record.skills.single()
             val args =
@@ -59,6 +58,7 @@ class PluginAuthorExamplesDeviceTest {
                     put("source", key.source.name)
                     put("name", key.name)
                     put("snapshotHash", key.snapshotHash)
+                    if (key.ownerId.isNotEmpty()) put("ownerId", key.ownerId)
                 }.toString()
 
             fun read() =
@@ -222,6 +222,7 @@ class PluginAuthorExamplesDeviceTest {
                     put("source", key.source.name)
                     put("name", key.name)
                     put("snapshotHash", key.snapshotHash)
+                    if (key.ownerId.isNotEmpty()) put("ownerId", key.ownerId)
                 }.toString()
             val result =
                 c.toolExecution.dispatchToolCall(

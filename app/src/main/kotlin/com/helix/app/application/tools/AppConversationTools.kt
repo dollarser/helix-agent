@@ -41,6 +41,7 @@ internal class AppConversationTools(
                             .valueOf(activation.source),
                         activation.name,
                         activation.snapshotHash,
+                        activation.ownerId,
                     ),
                     sessionId,
                     activation.arguments,

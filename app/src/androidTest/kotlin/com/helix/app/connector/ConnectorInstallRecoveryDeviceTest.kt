@@ -28,7 +28,6 @@ class ConnectorInstallRecoveryDeviceTest {
         val old = c.pluginService.install(bundle("old"), identity)
         c.storage.sessions.create(session, "Recovery", null, null, 0)
         c.pluginService.catalog.select(session, old.id, true)
-        c.pluginService.setSkillEnabled(old.skills.single(), true)
         c.storage.secrets.put(SecretAlias(old.endpoints.single().id), "synthetic-recovery")
         val fields =
             listOf(phase, Process.myPid().toString(), old.id, old.hash, old.endpoints.single().id) +

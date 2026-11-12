@@ -2,11 +2,9 @@ package com.helix.app.plugin
 
 import com.helix.extensions.plugin.PluginPackage
 import com.helix.extensions.plugin.PluginPackageReader
-import com.helix.extensions.skills.SkillEnablementScope
 import com.helix.extensions.skills.SkillImportService
 import com.helix.extensions.skills.SkillKey
 import com.helix.extensions.skills.SkillRepository
-import com.helix.extensions.skills.SkillSource
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.UUID
@@ -39,7 +37,7 @@ internal class PluginInstaller(
         val id = previous?.id ?: "conn-" + UUID.randomUUID()
         val staging = Files.createTempDirectory(cache, "connector-skills-")
         try {
-            val keys = prepareSkills(bundle, staging, previous, cancelled)
+            val keys = prepareSkills(bundle, staging, id, cancelled)
             val endpoints =
                 PluginEndpointBindings
                     .reconcile(previous?.endpoints.orEmpty(), bundle.endpoints) {
@@ -78,11 +76,9 @@ internal class PluginInstaller(
     private fun prepareSkills(
         bundle: PluginPackage,
         staging: Path,
-        previous: InstalledPlugin?,
+        ownerId: String,
         cancelled: () -> Boolean,
     ): List<SkillKey> {
-        val enabled = skills.list().filter { it.enabled && it.key in previous?.skills.orEmpty() }.map { it.key.name }
-        val published = catalog.list().flatMap { it.skills }.toSet()
         val scopedImporter = importer.withStagingRoot(staging.resolve("imports"))
         return bundle.skills.mapIndexed { index, skill ->
             check(!cancelled()) { "IMPORT_CANCELLED" }
@@ -94,16 +90,8 @@ internal class PluginInstaller(
             }
             val staged = scopedImporter.stageDirectory(directory)
             try {
-                val key = SkillKey(SkillSource.USER_IMPORTED, staged.preview.name, staged.preview.snapshotHash)
-                // This marker precedes placement, so a crash cannot turn a candidate into an independent skill.
-                catalog.claim(key, independent = false)
                 boundary("preparing")
-                val existed = skills.hasSnapshot(key)
-                val registered = skills.registerSnapshot(scopedImporter.commit(staged, snapshots), independent = false)
-                if (!existed && key !in published && key.name in enabled) {
-                    skills.setEnabled(registered, true, SkillEnablementScope.GLOBAL)
-                }
-                registered
+                skills.registerSnapshot(scopedImporter.commit(staged, snapshots, ownerId))
             } finally {
                 runCatching { scopedImporter.discard(staged) }.onFailure { cleanupFailed() }
             }

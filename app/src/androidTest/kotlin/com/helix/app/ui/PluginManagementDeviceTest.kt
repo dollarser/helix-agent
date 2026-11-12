@@ -2,6 +2,8 @@ package com.helix.app.ui
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -54,8 +56,7 @@ class PluginManagementDeviceTest {
         val configured = mutableListOf<String>()
         container.storage.sessions.create(session, "Plugin selection fixture", null, null, 0)
         try {
-            // Exercise explicit configuration with no ready component.
-            service.setSkillEnabled(record.skills.single(), false)
+            // Packaged skills follow plugin selection without a separate setup switch.
             compose.setContent {
                 MaterialTheme {
                     ExtensionsScreen(
@@ -74,17 +75,25 @@ class PluginManagementDeviceTest {
                 .performScrollTo()
                 .assertIsDisplayed()
             tab(record, 1)
+            compose.onNodeWithText("Skill: ${record.skills.single().name}").performScrollTo().assertIsDisplayed()
+            compose.onNodeWithTag("plugin-skill-enabled-${record.skills.single().name}").assertDoesNotExist()
             compose.onNodeWithTag("plugin-use-${record.id}").performScrollTo().performClick()
             waitFor("connector-session-${record.id}")
             compose.onNodeWithTag("connector-session-bundled-plugin:browser").assertDoesNotExist()
             assertFalse(record.id in service.catalog.selected(session))
             assertFalse(service.enabled(record.endpoints.single()))
             compose.onNodeWithTag("plugin-session-configure-${record.id}").assertDoesNotExist()
+            waitEnabled("connector-session-${record.id}")
             compose.onNodeWithTag("connector-session-${record.id}").performScrollTo().performClick()
-            waitFor("plugin-setup-continue")
-            compose.onNodeWithTag("plugin-setup-continue").performClick()
-            compose.runOnIdle { assertEquals(listOf(record.id), configured) }
-            assertFalse(record.id in service.catalog.selected(session))
+            compose.waitUntil(10_000) {
+                runCatching { compose.onNodeWithTag("connector-session-${record.id}").assertIsOn() }.isSuccess
+            }
+            compose.onNodeWithTag("plugin-setup-continue").assertDoesNotExist()
+            waitEnabled("plugin-session-apply")
+            compose.onNodeWithTag("plugin-session-apply").performClick()
+            compose.waitUntil(10_000) { record.id in service.catalog.selected(session) }
+            compose.runOnIdle { assertTrue(configured.isEmpty()) }
+            assertTrue(record.id in service.catalog.selected(session))
             assertFalse(service.enabled(record.endpoints.single()))
         } finally {
             container.storage.deleteSessionPermanently(session)
@@ -98,10 +107,14 @@ class PluginManagementDeviceTest {
             compose.setContent { MaterialTheme { ExtensionsScreen(null, null, service) } }
             open(record)
             tab(record, 2)
+            waitEnabled("plugin-remove-${record.id}")
             compose.onNodeWithTag("plugin-remove-${record.id}").performScrollTo().performClick()
+            waitFor("plugin-remove-confirm-${record.id}")
             compose.onNodeWithText(containerContext().getString(SharedR.string.common_cancel)).performClick()
             assertTrue(service.list().any { it.id == record.id })
+            waitEnabled("plugin-remove-${record.id}")
             compose.onNodeWithTag("plugin-remove-${record.id}").performScrollTo().performClick()
+            waitEnabled("plugin-remove-confirm-${record.id}")
             compose.onNodeWithTag("plugin-remove-confirm-${record.id}").performClick()
             compose.waitUntil(10_000) { service.list().none { it.id == record.id } }
             compose.waitUntil(10_000) {
@@ -159,6 +172,10 @@ class PluginManagementDeviceTest {
             .performScrollTo()
             .performClick()
             .assertIsSelected()
+    }
+
+    private fun waitEnabled(tag: String) {
+        compose.waitUntil(10_000) { runCatching { compose.onNodeWithTag(tag).assertIsEnabled() }.isSuccess }
     }
 
     private fun waitFor(tag: String) {

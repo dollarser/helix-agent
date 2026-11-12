@@ -33,7 +33,7 @@ internal class SkillSessionState(
 
     suspend fun reload() {
         try {
-            rows = withContext(Dispatchers.IO) { repository.list(session) }
+            rows = withContext(Dispatchers.IO) { repository.listSelectable(session) }
             loaded = true
             failed = false
         } catch (

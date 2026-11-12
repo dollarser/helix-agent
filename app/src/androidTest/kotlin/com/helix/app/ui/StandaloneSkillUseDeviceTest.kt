@@ -56,7 +56,7 @@ class StandaloneSkillUseDeviceTest {
             compose
                 .onNode(hasText(app.getString(R.string.skill_catalog_helix_docs)) and hasAnyAncestor(isDialog()))
                 .assertIsDisplayed()
-            compose.onNodeWithText(app.getString(android.R.string.cancel)).performClick()
+            compose.onNodeWithText(app.getString(R.string.skill_support_close)).performClick()
             compose.onNodeWithTag("skill-use-review").assertDoesNotExist()
             assertEquals(before, container.pluginService.standaloneSkills(session))
             assertEquals(global, container.pluginService.standaloneSkills())

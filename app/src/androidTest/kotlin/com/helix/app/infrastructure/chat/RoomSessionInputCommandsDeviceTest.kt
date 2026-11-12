@@ -116,6 +116,22 @@ class RoomSessionInputCommandsDeviceTest {
             assertEquals(SessionInputState.PENDING, storage.sessionInputs.get("input")?.state)
         }
 
+    @Test fun clearingQueuedTextRetainsExactSkillIdentityAndParksForRevalidation() =
+        fixture { storage, commands, _ ->
+            val skill = InputSkillActivation("USER_IMPORTED", "guide", "a".repeat(64), "")
+            val request = spec().copy(skillActivations = listOf(skill))
+            val accepted = (commands.acceptAndName(request, "Title") as InputAcceptance.Accepted).receipt
+            assertTrue(commands.editTextAndPark(accepted.key, "", 2))
+            val edited = requireNotNull(storage.sessionInputs.get("input"))
+            assertEquals("", commands.readText("input"))
+            assertEquals(listOf(skill), edited.skillActivations)
+            assertEquals(request.configuration, edited.configuration)
+            assertEquals(SessionInputState.NEEDS_ATTENTION, edited.state)
+            assertEquals("INPUT_EDITED", edited.blockedReason)
+            assertFalse(commands.editTextAndPark(accepted.key, "stale edit", 3))
+            assertEquals(edited, storage.sessionInputs.get("input"))
+        }
+
     @Test fun failedParkRollsBackTheAlreadyEditedRowAndBytes() =
         fixture { storage, commands, _ ->
             val accepted =

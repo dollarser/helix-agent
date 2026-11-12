@@ -12,7 +12,9 @@ import org.junit.Test
 import java.util.UUID
 
 class SkillDraftHandoffDeviceTest {
-    @Test fun oncePreservesDraftDeduplicatesAndRejectsAnotherSession() =
+    @Test
+    @Suppress("LongMethod") // One session lifecycle verifies durable handoff and cleanup together.
+    fun oncePreservesDraftDeduplicatesAndRejectsAnotherSession() =
         runBlocking {
             val c = ApplicationProvider.getApplicationContext<HelixApplication>().appContainer
             val service = c.chatService
@@ -38,20 +40,37 @@ class SkillDraftHandoffDeviceTest {
                         prepared.key.name,
                         prepared.key.snapshotHash,
                         prepared.arguments,
+                        prepared.key.ownerId,
                     )
-                assertTrue(service.stageSkillActivation(id, activation, "默认提示").await())
+                assertTrue(service.stageSkillActivation(id, activation).await())
                 val first = requireNotNull(service.loadComposerDraft(id))
                 assertEquals(original.text, first.text)
                 assertEquals(original.attachmentIds, first.attachmentIds)
                 assertEquals(1, first.skillActivations.size)
                 assertEquals(row.key.snapshotHash, first.skillActivations.single().snapshotHash)
+                assertEquals(row.key.ownerId, first.skillActivations.single().ownerId)
                 assertTrue(first.revision > original.revision)
-                assertTrue(service.stageSkillActivation(id, activation.copy(arguments = "参数二"), "默认提示").await())
+                assertTrue(service.stageSkillActivation(id, activation.copy(arguments = "参数二")).await())
                 val next = requireNotNull(service.loadComposerDraft(id))
                 assertEquals(1, next.skillActivations.size)
                 assertEquals("参数二", next.skillActivations.single().arguments)
-                assertFalse(service.stageSkillActivation("wrong-$id", activation, "ignored").await())
+                assertFalse(service.stageSkillActivation("wrong-$id", activation).await())
                 assertEquals(next, service.loadComposerDraft(id))
+                // A cached older snapshot is still a distinct chip, not a name-only replacement target.
+                val older = activation.copy(snapshotHash = "b".repeat(64))
+                val blank =
+                    next.copy(
+                        text = "",
+                        revision = next.revision + 1,
+                        clientRequestId = UUID.randomUUID().toString(),
+                        skillActivations = listOf(older),
+                    )
+                assertTrue(service.saveComposerDraft(blank))
+                assertTrue(service.stageSkillActivation(id, activation).await())
+                val stagedBlank = requireNotNull(service.loadComposerDraft(id))
+                assertEquals("", stagedBlank.text)
+                assertEquals(original.attachmentIds, stagedBlank.attachmentIds)
+                assertEquals(listOf(older, activation), stagedBlank.skillActivations)
                 assertEquals(
                     row.enabled,
                     c.skillRepository

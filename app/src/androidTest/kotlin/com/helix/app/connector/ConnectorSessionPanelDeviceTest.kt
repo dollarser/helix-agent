@@ -43,7 +43,6 @@ class ConnectorSessionPanelDeviceTest {
         val initiallySelected = service.catalog.selected(session)
         val revision = androidx.compose.runtime.mutableIntStateOf(0)
         try {
-            service.setSkillEnabled(record.skills.single(), true)
             assertEquals(1, service.sessionRows(session).single { it.id == record.id }.readyComponents)
             compose.setContent { SelectionPanel(service, session, record.id.takeIf { scoped }, revision) }
             val selected = "connector-session-${record.id}"
