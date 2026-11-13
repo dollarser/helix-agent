@@ -1,38 +1,44 @@
 # Changelog
 
-Notable changes are curated for users; development previews do not promise stable data or API compatibility. Exact build identity, downloadable APKs, checksums and verification results are recorded in each GitHub Release.
+[简体中文](CHANGELOG.zh-CN.md) | **English**
 
-## 0.0.11 — Development preview preparation, unpublished
+Notable changes for users, newest first. Entries are curated rather than copied from commit logs, using the grouping approach of [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Development previews do not promise stable data or API compatibility. Published dates below use UTC; an unreleased candidate has no release date.
+
+## 0.0.11 (Unreleased development preview)
+
+[Changes since v0.0.10](https://github.com/dollarser/helix-agent/compare/v0.0.10...main) · [Release notes](docs/product/releases/v0.0.11.en.md) · [中文说明](docs/product/releases/v0.0.11.md)
 
 ### Added
 
-- Explicit cross-session history, management, creation and task-delivery grants, with idempotent creation, Queue and active-Turn Steer.
-- Bounded public web fetching, browser search/form actions, opt-in search providers and binary MCP Resources delivered as host-managed artifacts.
-- Plugin-owned skills, atomic composer skill tokens and slash discovery.
+- Manual update checks in Settings → About Helix, using ModelScope metadata to select the newest semantic version for the installed package and device ABI. A separate action opens the browser download; there are no background checks, automatic installations or data clearing.
+- Separate permissions for cross-session history, management, creation and task delivery, including queued work and redirecting an active turn.
+- Bounded public web fetching, browser search/form actions and opt-in search providers.
+- Binary MCP Resources delivered as managed file artifacts, plus plugin-owned skills, composer skill tokens and slash discovery.
 - Advanced FFmpeg media workflows through the existing PRoot/Job runtime.
 - Computer ADB helper support for non-debuggable Advanced builds on Android 12+, using app-issued, one-use, process-bound handoff tickets. Standard has no helper entry; wireless pairing and cross-process task recovery are not added.
 
-### Changed and fixed
+### Changed
 
-- Fixed ordinary conversations failing before the model request when the production Room store rejected the bounded `tools.cost` diagnostic. Unknown diagnostic types and payload limits remain enforced.
-- Tool calls show compact summaries with grouped, copyable details; business content and internal diagnostics are presented separately without rewriting stored tool, model or audit records.
-- Local release checks now require the production conversation, successful tool backfill, persisted history after process restart, cancellation, no replay and continuation. A real Room core batch is mandatory separately from optional UI refinement tests.
+- API settings use one page with unified save/cancel, separate connection/model checks and model pickers grouped by service.
+- Tool calls show compact summaries with grouped, copyable details. Business content and internal diagnostics are presented separately without rewriting stored tool, model or audit records.
+- Context compaction, bounded tool discovery, cache accounting and Goal coordination preserve durable execution and recovery boundaries.
+- Local release acceptance now requires actual conversations, successful tool-result backfill, history after process restart, cancellation, no replay and continuation. Optional UI refinements are checked separately.
+- FFmpeg's packaged notice describes its integrated runtime and bounded Android checks. Native bytes and original licenses are preserved; exact corresponding-source materials are linked from the release notes.
+- Chinese and English READMEs focus on core capabilities, real interface previews and GitHub/ModelScope downloads. Version changes move to bilingual changelogs with verified historical dates and explicit preview upgrade risks.
 
-- Single-page API settings, unified save/cancel, separate connection/model checks and model pickers grouped by service.
-- Context compaction, bounded tool discovery, cache accounting, Goal coordination and durable tool/recovery boundaries.
+### Fixed
+
+- Ordinary conversations failing before the model request because the production Room store rejected the bounded `tools.cost` diagnostic. Unknown diagnostic types and payload limits remain enforced.
 - Real SAF search, revocation, directory handoff and refresh/layout handling.
-- MediaCodec encoder initialization avoids the undefined encoder-flush preflight. Device support still depends on codec, dimensions and pixel format.
-- FFmpeg's packaged notice now describes the integrated runtime and bounded Android checks instead of its earlier standalone preparation stage; the notice update preserves all native bytes and original licenses.
+- MediaCodec initialization using an encoder flush, whose behavior is only defined for decoders. Support still depends on the device codec, dimensions and pixel format.
 
 ### Upgrade and validation notes
 
-VersionName is 0.0.11; versionCode and Helix-owned internal versions remain 1. The database structure differs from v0.0.10. In-place installation and historical data retention are not guaranteed; incompatible database reconstruction requires independent confirmation. Published v0.0.10 tags and artifacts remain unchanged.
+VersionName is 0.0.11; versionCode and Helix-owned internal versions remain 1. The database structure differs from v0.0.10. In-place installation and historical data retention are not guaranteed; incompatible database reconstruction requires independent confirmation. Android may reject installation over a preview with a higher versionCode. Do not uninstall merely to bypass this: uninstalling removes private application data. Published v0.0.10 tags and artifacts remain unchanged.
 
-The final UI-integrated candidate passed 35 real-Room Debug core checks per channel and all four selected non-debuggable R8 methods per channel on isolated API36 emulators. The R8 core journey uses a real loopback HTTP provider, tool-result backfill, verified process restart, persisted history and cancellation/no-replay checks. No methods were skipped or missing. The final complete `check-all.sh --all` host gate and ordinary ARM64 distribution build passed with stable source inputs. Earlier ONEPLUS_A6013/API34 runs covered 30 Debug checks and 8 R8 entry checks; those are historical, bounded evidence and did not detect the ordinary-conversation defect. They are not final-candidate core acceptance. Final distribution signing, commit, CI and publication identity belong to the actual release record.
+Both channels of the combined candidate passed the real-Room Debug core, focused update/About checks, isolated non-debuggable R8 conversation checks and complete host gate. See the [release notes](docs/product/releases/v0.0.11.en.md#final-core-acceptance-and-historical-evidence) for exact methods, devices and limits. Earlier phone entry/media checks are identified separately. Signing, commit, CI and download identities belong to the actual release record; this entry does not announce publication or availability of the update manifest.
 
-[中文准备说明](docs/product/releases/v0.0.11.md) · [English preparation notes](docs/product/releases/v0.0.11.en.md)
-
-## [0.0.10](https://github.com/dollarser/helix-agent/releases/tag/v0.0.10) — Development preview
+## [0.0.10](https://github.com/dollarser/helix-agent/releases/tag/v0.0.10) - 2026-11-06 (Development preview)
 
 ### Added
 
@@ -57,9 +63,11 @@ VersionCode stays 1 and the development signing certificate is unchanged. Room s
 
 [中文版本说明](docs/product/releases/v0.0.10.md) · [English release notes](docs/product/releases/v0.0.10.en.md) · [Full source comparison](https://github.com/dollarser/helix-agent/compare/v0.0.9...v0.0.10)
 
-## Earlier previews
+## Earlier preview notes
 
-- **[0.0.9](https://github.com/dollarser/helix-agent/releases/tag/v0.0.9)** — [中文](docs/product/releases/v0.0.9.md) / [English](docs/product/releases/v0.0.9.en.md)
-- **[0.0.8](https://github.com/dollarser/helix-agent/releases/tag/v0.0.8)** — [中文](docs/product/releases/v0.0.8.md) / [English](docs/product/releases/v0.0.8.en.md)
-- **[0.0.7](https://github.com/dollarser/helix-agent/releases/tag/v0.0.7)** — [中文](docs/product/releases/v0.0.7.md) / [English](docs/product/releases/v0.0.7.en.md)
-- **[0.0.6](https://github.com/dollarser/helix-agent/releases/tag/v0.0.6)** — [中文](docs/product/releases/v0.0.6.md) / [English](docs/product/releases/v0.0.6.en.md)
+Historical notes are retained even when an old download is no longer listed. Dates are included only when a publication record establishes them; a build or commit timestamp is not substituted.
+
+- **[0.0.9](https://github.com/dollarser/helix-agent/releases/tag/v0.0.9) - 2026-10-29:** [中文](docs/product/releases/v0.0.9.md) / [English](docs/product/releases/v0.0.9.en.md).
+- **0.0.8:** [中文](docs/product/releases/v0.0.8.md) / [English](docs/product/releases/v0.0.8.en.md).
+- **0.0.7 - 2026-10-24:** [中文](docs/product/releases/v0.0.7.md) / [English](docs/product/releases/v0.0.7.en.md) / [archived publication record](docs/evidence/development/v0.0.7-publication-2026-10-24.md).
+- **0.0.6:** [中文](docs/product/releases/v0.0.6.md) / [English](docs/product/releases/v0.0.6.en.md). The notes distinguish the original preview from its later redistribution.

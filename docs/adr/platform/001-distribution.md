@@ -33,6 +33,23 @@ Developer 的 RootFS 随 APK 离线交付，以单流 XZ 存储；锁定身份�
 
 开发预览版不承诺保留旧数据，不以旧会话/配置迁移或无损覆盖升级作为发布前置。不兼容数据库继续按现行开发 baseline 重建，数据库外文件按现有范围保留；发布说明和随包帮助必须明确这一限制。此决定不授权删除任意日常安装、用户文件或其他应用数据，也不等于正式发行身份和长期升级契约已经确定。
 
+### ModelScope 更新发现
+
+两渠道的「关于 Helix」提供用户主动的检查更新，以及 GitHub Releases / ModelScope 下载入口。检查只读取公开元数据，不随启动、恢复、进入设置或后台任务自动请求，不下载 APK、不申请安装权限，也不清理数据。发现新版本后仍需用户另一次点击才交给浏览器下载；浏览器下载完成和 Android 安装器的确认、包名/签名校验属于独立步骤，Helix 不声称已经验证 APK 或完成升级。
+
+固定仓库为 `https://modelscope.cn/datasets/dollars/Helix`，清单入口为该仓库的 `resolve/master/update-manifest.json`。入口与实际发布可用性须在每次发布时独立验证；404 显示「尚未发布」，不能当作已是最新。读取最多 64 KiB、5 次 HTTPS 请求，总请求预算 20 秒，每次阻塞连接/读取最长 10 秒（取消后最多等待当前阻塞操作结束）；重定向仅限 ModelScope 自有域名。取消/关闭或离开界面后旧请求不得重新打开对话框或覆盖新结果。网络失败、格式不合法、未发布和没有匹配制品均给出明确结果与重试/手动下载入口。
+
+清单格式固定 `schemaVersion: 1`，`releases` 为 1–32 项数组。每项包含：
+
+- `versionName`：语义版本（主/次/补丁与可选预发布、构建标签）；检测按其优先级比较，忽略构建标签，不以字符串字典序或固定的 Android versionCode 代替。
+- `versionCode`：APK 的真实正整数版本号，当前仍为 1；清单和实现不得擅自递增。新版本名而 versionCode 不大于当前安装时，提示系统可能拒绝覆盖，不引导卸载/清除数据。
+- `packageName`：当前支持的 `com.helix.agent`（Standard）或 `com.helix.agent.developer`（Advanced），只匹配本机安装身份。
+- `abis`：非空且不重复的 `arm64-v8a` / `x86_64` 列表，按本机支持的 ABI 选择。包名、版本名和 ABI 不允许重复歧义制品；优先最高版本，再按设备 ABI 优先级选择。
+- `apkUrl`：固定仓库 `resolve/<revision>/<path>.apk` 的 HTTPS 直链；禁止其他仓库、查询/片段、用户信息、编码路径、路径穿越或非 APK 目标。发布使用 `releases/v<versionName>/` 下不可覆盖的制品路径，清单只在 APK 上传并核验后最后发布。入口不锁定某个版本，不把 README 等非 APK 文件的上传时间作为更新依据。
+- `sha256` / `sizeBytes`：从实际最终 APK 计算的 64 位小写十六进制摘要和字节大小，用于发布校验及显示；清单本身不是 APK 签名证明，当前浏览器下载方案不冒充应用内哈希/签名验证。
+
+正式商店渠道必须在上架前按该商店更新政策审查/接入其更新机制，不能把当前直接分发入口视为 Google Play 已合规的证明；不为预览功能提前引入新的构建渠道或 `REQUEST_INSTALL_PACKAGES` 权限。
+
 ## Alternatives considered
 
 把 Standard 人为裁成弱产品不能满足目标；为所有渠道统一删除一个渠道不允许的能力扩大了限制；独立 Runtime 安装包增加使用成本。
@@ -56,8 +73,14 @@ Developer 的 RootFS 随 APK 离线交付，以单流 XZ 存储；锁定身份�
 - [实施状态](../../development/status.md)
 - [开发路线](../../development/roadmap.md)
 - [主题入口](README.md)
+- [Android 版本规则](https://developer.android.com/studio/publish/versioning)
+- [Android 应用签名与更新](https://developer.android.com/studio/publish/app-signing)
+- [Google Play 安装包权限政策](https://support.google.com/googleplay/android-developer/answer/12085295)
+- [Google Play 自更新约束](https://support.google.com/googleplay/android-developer/answer/16559646)
 
 ## Decision history
+
+- 2026-11-13：Owner 要求增加 ModelScope 下载源与 Helix 更新检测。采用手动元数据检查、渠道/ABI 精确选择和浏览器下载交接，保留 versionName / versionCode=1 规则；不引入 APK 安装权限、静默安装、自动后台检查或数据清理。公开源可达、制品签名与发布一致性和主机/设备 UI 验证分别验收。
 
 - 2026-10-15：Owner 明确“预览版不需要数据保留”。取消预览发布的旧数据迁移前置，保留真实数据重建说明、签名/版本校验、当前版本恢复正确性及独立测试安装边界；正式发行的升级承诺仍由 HXA-122 决定。
 

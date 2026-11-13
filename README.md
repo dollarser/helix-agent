@@ -6,11 +6,9 @@
 
 Helix 将手机操作、浏览器、文件和工具放进同一会话。你选择模型、项目与访问范围，查看执行过程，继续处理生成的文件与结果。项目独立开发，自有源码采用 Apache-2.0，不依赖 OEM 预装集成。
 
-[下载开发预览](https://github.com/dollarser/helix-agent/releases) · [更新日志](CHANGELOG.md) · [文档](docs/README.md) · [反馈](https://github.com/dollarser/helix-agent/issues) · [贡献](CONTRIBUTING.md)
+[最新下载：GitHub Releases](https://github.com/dollarser/helix-agent/releases) · [ModelScope](https://modelscope.cn/datasets/dollars/Helix) · [更新日志](CHANGELOG.zh-CN.md) · [文档](docs/README.md) · [反馈](https://github.com/dollarser/helix-agent/issues) · [贡献](CONTRIBUTING.md)
 
-> **开发预览，Android 10+，当前提供 ARM64 APK。** 项目尚未正式发布，尚非稳定版，使用既有开发签名而非商店生产签名。新版本不保证可以覆盖安装；即使覆盖安装成功，也不保证保留历史数据。升级前阅读[版本说明](docs/product/releases/v0.0.10.md)，另存重要内容；`main` 的功能不一定已随 APK 发布。
-
-当前源码正在准备 **v0.0.11**，versionCode 与内部版本保持 **1**，尚未发布；最终分发签名、提交与 CI 身份以实际发行记录为准。数据库结构已不同于 v0.0.10，不能以编号相同推断兼容。功能变化、升级风险、最终会话核心必测与历史真机检查的区别见 [v0.0.11 准备说明](docs/product/releases/v0.0.11.md)。现有下载仍以各发布页为准。
+> **开发预览，Android 10+，ARM64 APK。** 尚非稳定发行，使用开发签名。升级不保证可以覆盖安装或保留历史数据，请先另存重要内容；卸载会删除应用私有数据。功能、签名及升级条件以下载版本的说明为准，版本变化见[更新日志](CHANGELOG.zh-CN.md)。
 
 ## 能做什么
 
@@ -27,9 +25,17 @@ Helix 将手机操作、浏览器、文件和工具放进同一会话。你选�
 
 完成质量取决于模型、授权、系统与目标应用。安全窗口、登录限制及不支持的内容可能无法操作；实际交付和未验证边界见[当前状态](docs/development/status.md)。
 
+## 界面预览
+
+开发预览的真实英文界面。文件预览使用为演示准备的公开示例，未使用私人资料或在线账号，也不是模型生成结果。点击图片查看原图。
+
+| 新会话与审批 | 本地文件预览 | 内置插件 |
+| --- | --- | --- |
+| [<img src="docs/assets/readme/new-conversation-en.png" width="250" alt="新会话入口，可选择模型、审批方式和添加材料">](docs/assets/readme/new-conversation-en.png) | [<img src="docs/assets/readme/file-preview-en.png" width="250" alt="实际打开的公开示例文本，包含文件信息和附件操作">](docs/assets/readme/file-preview-en.png) | [<img src="docs/assets/readme/built-in-plugins-en.png" width="250" alt="内置 Browser、Chat Reply 和 Documents 插件列表">](docs/assets/readme/built-in-plugins-en.png) |
+
 ## 开始第一个任务
 
-1. 从 [Releases](https://github.com/dollarser/helix-agent/releases) 选择安装包，核对该页 SHA-256 后安装。首次打开阅读说明；通知、省电和悬浮窗等权限按用途选择，可跳过。
+1. 从 [GitHub Releases](https://github.com/dollarser/helix-agent/releases) 或 [ModelScope](https://modelscope.cn/datasets/dollars/Helix) 选择安装包，核对发布说明中的 SHA-256 后安装。首次打开阅读说明；通知、省电和悬浮窗等权限按用途选择，可跳过。
 2. 在模型选择中登录 Helix 账号使用内置服务，或配置自己的 API / 下载设备内模型。内置服务的目录、权限与额度以服务端实际状态为准；远程推理可能产生服务费用。
 3. 新建会话，按需选择项目、工作目录与插件。先用测试资料尝试：
 
@@ -45,7 +51,7 @@ Helix 将手机操作、浏览器、文件和工具放进同一会话。你选�
 
 从输入框加号选择“选择插件”，选用手机操作（Mobile Use）。缺少配置时进入相关设置，返回后重新检查；不要求一次获得所有后端权限。默认范围为全手机，也可指定应用，具体调用仍经过范围与审批检查。
 
-Root、Shizuku 和无障碍能力并不相同；任务屏依赖实际可用的后端，不能保证操作所有应用。当前源码的电脑 ADB helper 支持 **Advanced Debug / Release、Android 12+**，不需要 Root 或 Shizuku，由已授权的电脑 ADB 启动；没有应用内无线配对。**已公开的 v0.0.10 APK 不包含该入口，新路径尚未发布。** 见[启动与使用说明](docs/development/computer-adb-helper.md)。
+Root、Shizuku 和无障碍能力不同，不能保证操作所有应用。Advanced 的电脑 ADB helper 由已授权的电脑启动，无需 Root 或 Shizuku；适用系统、安装包要求和操作步骤见[使用说明](docs/development/computer-adb-helper.md)。
 
 ## 选择安装包
 
@@ -55,8 +61,6 @@ Root、Shizuku 和无障碍能力并不相同；任务屏依赖实际可用的�
 | Advanced / developer | `com.helix.agent.developer` | 基础产品加进阶终端、Linux 环境和实验性第三方订阅适配 |
 
 渠道由安装包决定，应用内无需选择权限档位；系统授权、访问范围和具体任务审批独立生效。订阅适配需要对应账号权益，不代表服务商官方授权。设备内模型及离线语音权重按需下载，不随 APK 提供。
-
-当前预览保持 versionCode 为 1；曾安装 code 2 的设备可能被 Android 拒绝降级。不要为覆盖安装而随意卸载：卸载会删除应用私有数据。签名、升级影响及本版本验证范围以发布页为准。
 
 ## 数据、隐私与控制
 

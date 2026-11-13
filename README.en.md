@@ -6,11 +6,9 @@
 
 Helix brings mobile interaction, a browser, files and tools into one conversation. Choose a model, project and access scope; inspect execution and continue working with the resulting files. Helix is an independent Apache-2.0 project and does not require OEM integration.
 
-[Download previews](https://github.com/dollarser/helix-agent/releases) · [Changelog](CHANGELOG.md) · [Documentation](docs/README.md) · [Issues](https://github.com/dollarser/helix-agent/issues) · [Contributing](CONTRIBUTING.md)
+[Latest downloads: GitHub Releases](https://github.com/dollarser/helix-agent/releases) · [ModelScope](https://modelscope.cn/datasets/dollars/Helix) · [Changelog](CHANGELOG.md) · [Documentation](docs/README.md) · [Issues](https://github.com/dollarser/helix-agent/issues) · [Contributing](CONTRIBUTING.md)
 
-> **Development preview: Android 10+, ARM64 APKs.** Helix has not been officially released. These are not stable/store-production builds and use the existing development certificate. In-place updates are not guaranteed; even a successful update may not preserve historical data. Read the [upgrade notes](docs/product/releases/v0.0.10.en.md) and save important material first. Features on `main` may not yet be in a published APK.
-
-Current source is preparing **v0.0.11**, with versionCode and internal versions still **1**. It is not published; final distribution signing, commit and CI identity are recorded with the actual release. Its database structure differs from v0.0.10; an unchanged internal number does not imply compatibility. See the [v0.0.11 preparation notes](docs/product/releases/v0.0.11.en.md) for changes, upgrade risks, final core-conversation acceptance and separately identified historical physical-device checks. Existing downloads remain those listed on their published release pages.
+> **Development preview: Android 10+, ARM64 APKs.** These are not stable releases and use a development certificate. In-place updates and historical data retention are not guaranteed. Save important material first; uninstalling removes private application data. Check the downloaded version's notes for features, signing and upgrade conditions, and the [changelog](CHANGELOG.md) for version changes.
 
 ## What it does
 
@@ -27,9 +25,17 @@ Current source is preparing **v0.0.11**, with versionCode and internal versions 
 
 Results depend on the model, permissions, device and target application. Secure windows and login restrictions can prevent access. See [current status](docs/development/status.md) for implementation and validation limits.
 
+## Interface preview
+
+Real English-language screens from a development preview. The file preview uses a public example prepared for this demonstration, not model-generated output. No personal material or online account was used. Select an image to view it at full size.
+
+| Conversation and approvals | Local file preview | Built-in plugins |
+| --- | --- | --- |
+| [<img src="docs/assets/readme/new-conversation-en.png" width="250" alt="New conversation with model selection, approval controls and attachments">](docs/assets/readme/new-conversation-en.png) | [<img src="docs/assets/readme/file-preview-en.png" width="250" alt="An opened public example text file with file details and attachment actions">](docs/assets/readme/file-preview-en.png) | [<img src="docs/assets/readme/built-in-plugins-en.png" width="250" alt="Built-in Browser, Chat Reply and Documents plugins">](docs/assets/readme/built-in-plugins-en.png) |
+
 ## First task
 
-1. Download a channel APK from [Releases](https://github.com/dollarser/helix-agent/releases), verify its published SHA-256 and install it. Read the first-launch notice; optional notification, battery and overlay permissions can be skipped.
+1. Download a channel APK from [GitHub Releases](https://github.com/dollarser/helix-agent/releases) or [ModelScope](https://modelscope.cn/datasets/dollars/Helix), verify the SHA-256 in its release notes and install it. Read the first-launch notice; optional notification, battery and overlay permissions can be skipped.
 2. Sign in to use Helix's built-in models, configure your own API, or download an on-device model. Built-in availability and quotas depend on the service. Remote providers may charge for usage.
 3. Start a conversation and optionally choose a project, working directory and plugins. Begin with test material:
 
@@ -45,7 +51,7 @@ Do not invent additional times. Read the file back and verify the content.
 
 Use the composer's plus menu to select the Mobile Use plugin. Missing setup leads to the relevant settings and is checked again on return. You do not need every backend permission. The default scope is the whole phone; you can select specific applications. Individual calls still follow scope and approval checks.
 
-Root, Shizuku and accessibility provide different capabilities. The task screen depends on an available backend and cannot operate every application. The computer-started ADB helper in current source supports **Advanced Debug / Release on Android 12+**, using authorized computer ADB without Root or Shizuku. There is no in-app wireless pairing. **Published v0.0.10 APKs lack this entry; the new path has not been released.** See the [startup and usage guide](docs/development/computer-adb-helper.md).
+Root, Shizuku and accessibility provide different capabilities and cannot operate every application. Advanced's ADB helper starts from an authorized computer without Root or Shizuku. See the [usage guide](docs/development/computer-adb-helper.md) for supported systems, package requirements and setup.
 
 ## Choose a package
 
@@ -55,8 +61,6 @@ Root, Shizuku and accessibility provide different capabilities. The task screen 
 | Advanced / developer | `com.helix.agent.developer` | Base product plus advanced terminal/Linux environment and experimental third-party subscription adapters |
 
 Capabilities follow the installed channel rather than an in-app permission tier. System grants, scopes and task approvals remain separate. Subscription adapters require eligible accounts and do not imply provider endorsement. Model and offline speech weights download separately.
-
-Preview versionCode remains 1. Android may reject installation over older code-2 previews; do not casually uninstall to bypass this, as uninstalling removes private data. Consult each release for signing, upgrade impact and tested scope.
 
 ## Data and control
 

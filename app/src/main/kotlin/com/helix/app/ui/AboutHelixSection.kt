@@ -33,6 +33,7 @@ internal fun AboutHelixSection() {
         }
     AboutHelixContent(
         version,
+        updateEntry = { AppUpdateEntry() },
         onOpen = { openProjectLink(context, it.url) },
     )
 }
@@ -41,6 +42,7 @@ internal fun AboutHelixSection() {
 @Suppress("FunctionName")
 internal fun AboutHelixContent(
     version: String,
+    updateEntry: @Composable () -> Unit = {},
     onOpen: (AboutHelixLink) -> Boolean,
 ) {
     var failed by remember { mutableStateOf(false) }
@@ -49,6 +51,7 @@ internal fun AboutHelixContent(
             Text(stringResource(R.string.about_helix_title), style = MaterialTheme.typography.titleMedium)
             Text(stringResource(R.string.about_helix_summary), style = MaterialTheme.typography.bodyMedium)
             Text(stringResource(R.string.about_helix_version, version), style = MaterialTheme.typography.bodySmall)
+            updateEntry()
             AboutHelixLink.entries.forEach { link ->
                 TextButton({ failed = !onOpen(link) }, Modifier.testTag(link.tag)) {
                     Text(stringResource(link.label))
@@ -73,6 +76,7 @@ internal enum class AboutHelixLink(
     AUTHOR(R.string.about_helix_author, "https://github.com/dollarser", "about-author"),
     PROJECT(R.string.about_helix_project, "https://github.com/dollarser/helix-agent", "about-project"),
     UPDATES(R.string.about_helix_updates, "https://github.com/dollarser/helix-agent/releases", "about-updates"),
+    MODELSCOPE(R.string.update_modelscope_downloads, com.helix.app.update.MODELSCOPE_PROJECT, "about-modelscope"),
     FEEDBACK(R.string.about_helix_feedback, "https://github.com/dollarser/helix-agent/issues", "about-feedback"),
 }
 

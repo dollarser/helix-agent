@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="update_check">Check for updates</string>
+    <string name="update_source">Source: ModelScope · dollars/Helix</string>
+    <string name="update_modelscope_downloads">ModelScope downloads</string>
+    <string name="update_available">Version %1$s is available</string>
+    <string name="update_variant">%1$s · %2$s · %3$s</string>
+    <string name="update_preview_code">This preview keeps the same Android version code. Android may refuse an in-place update. Do not uninstall or clear app data to work around this.</string>
+    <string name="update_browser_handoff">The browser will download the APK. Installation requires your separate confirmation. Android checks the package and signature; Helix has not verified the downloaded file.</string>
+    <string name="update_open_failed">Unable to open a browser. Retry using ModelScope downloads in About Helix.</string>
+    <string name="update_download">Open download</string>
+    <string name="update_retry">Retry</string>
+    <string name="update_close">Close</string>
+    <string name="update_network_failed">Could not check for updates. Check your connection and retry, or browse ModelScope downloads.</string>
+    <string name="update_not_published">The update manifest is not published yet. Browse ModelScope downloads to check manually.</string>
+    <string name="update_invalid_manifest">The update manifest could not be validated. No download was opened. Retry later or visit the ModelScope repository.</string>
+    <string name="update_unsupported_version">This installed version cannot be compared. Check ModelScope downloads manually.</string>
+    <string name="update_current">You have the latest version for this channel and device.</string>
+    <string name="update_no_compatible">No release matches this channel and device. Check ModelScope downloads.</string>
+    <string name="update_checking">Checking…</string>
+</resources>
