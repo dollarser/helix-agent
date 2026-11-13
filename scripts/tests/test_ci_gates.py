@@ -34,7 +34,8 @@ class CiGatesTest(unittest.TestCase):
 
     def run_gate(self, gate, wrapper=False, exit_code=0):
         script = 'ci-run-gate.sh' if wrapper else 'check-all.sh'
-        env = dict(os.environ, FAKE_EXIT=str(exit_code), HELIX_GRADLE_PROFILE='0')
+        env = dict(os.environ, FAKE_EXIT=str(exit_code), HELIX_GRADLE_PROFILE='0',
+                   HELIX_CI_GRADLE_BUDGET='0')
         command = ['bash', str(self.root / 'scripts' / script)] + ([] if gate is None else [gate])
         result = subprocess.run(command,
                                 cwd=self.root, env=env, capture_output=True, text=True)
@@ -115,6 +116,28 @@ class CiGatesTest(unittest.TestCase):
             self.assertIn('--profile', args)
             report = self.root / 'build/ci' / (gate[2:] + '.tsv')
             self.assertEqual('7', report.read_text().strip().split('\t')[-1])
+
+    def test_ci_memory_budget_reaches_every_gradle_invocation_without_changing_tasks(self):
+        self.append_gradle_args()
+        budget = ['--profile', '--max-workers=2', '--no-parallel',
+                  '-Pkotlin.daemon.jvmargs=-Xmx6g']
+        for gate, calls in (('--build', 3), ('--analysis', 1), ('--release-analysis', 1),
+                            ('--tests-build', 2), ('--debug-build-analysis', 1),
+                            ('--debug-analysis', 1), ('--debug-tests-build', 1)):
+            with self.subTest(gate=gate):
+                (self.root / 'gradle-args.txt').unlink(missing_ok=True)
+                direct, expected = self.run_gate(gate)
+                self.assertEqual(0, direct.returncode, direct.stderr)
+                self.assertFalse(set(budget) & set(expected))
+                (self.root / 'gradle-args.txt').unlink()
+                wrapped, actual = self.run_gate(gate, wrapper=True)
+                self.assertEqual(0, wrapped.returncode, wrapped.stderr)
+                self.assertEqual(expected, [arg for arg in actual if arg not in budget])
+                for option in budget:
+                    self.assertEqual(calls, actual.count(option))
+                for index, arg in enumerate(actual):
+                    if arg == '--profile':
+                        self.assertEqual(budget, actual[index:index + len(budget)])
 
 
 class SourceGateTest(unittest.TestCase):

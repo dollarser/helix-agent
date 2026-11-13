@@ -8,6 +8,7 @@ case "${1:-}" in
 esac
 mkdir -p build/ci
 export HELIX_GRADLE_PROFILE=1
+export HELIX_CI_GRADLE_BUDGET=1
 started=$SECONDS
 set +e
 ./scripts/check-all.sh "$1" 2>&1 | tee "build/ci/$gate.log"

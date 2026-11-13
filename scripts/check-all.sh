@@ -5,9 +5,14 @@ readonly project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$project_root"
 
 # Historical experiments are opt-in with -PincludeSpikes=true, not product gates.
-gradle_profile=()
+gradle_options=()
 if [[ "${HELIX_GRADLE_PROFILE:-0}" == 1 ]]; then
-    gradle_profile+=(--profile)
+    gradle_options+=(--profile)
+fi
+if [[ "${HELIX_CI_GRADLE_BUDGET:-0}" == 1 ]]; then
+    # Public ubuntu-24.04 has 16 GiB RAM. Kotlin gets its own heap alongside
+    # Gradle's 4 GiB; bound concurrency without changing any gate tasks.
+    gradle_options+=(--max-workers=2 --no-parallel -Pkotlin.daemon.jvmargs=-Xmx6g)
 fi
 
 source_checks() {
@@ -21,14 +26,14 @@ source_checks() {
 }
 
 analysis_checks() {
-    ./gradlew ${gradle_profile[@]+"${gradle_profile[@]}"} spotlessCheck detekt lintDebug lintRelease lintConsumerDebug lintDeveloperDebug lintConsumerRelease lintDeveloperRelease
+    ./gradlew ${gradle_options[@]+"${gradle_options[@]}"} spotlessCheck detekt lintDebug lintRelease lintConsumerDebug lintDeveloperDebug lintConsumerRelease lintDeveloperRelease
 }
 
 test_build_checks() {
-    ./gradlew ${gradle_profile[@]+"${gradle_profile[@]}"} test :app:assembleConsumerDebug :app:assembleDeveloperDebug :runtime:proot-app:assembleDebug :runtime:cli-app:assembleDebug \
+    ./gradlew ${gradle_options[@]+"${gradle_options[@]}"} test :app:assembleConsumerDebug :app:assembleDeveloperDebug :runtime:proot-app:assembleDebug :runtime:cli-app:assembleDebug \
         compileDebugAndroidTestSources :app:compileConsumerDebugAndroidTestSources :app:compileDeveloperDebugAndroidTestSources \
         :app:assembleConsumerRelease :app:assembleDeveloperRelease :runtime:proot-app:assembleRelease :runtime:cli-app:assembleRelease
-    ./gradlew ${gradle_profile[@]+"${gradle_profile[@]}"} -PincludeReleaseSmoke=true \
+    ./gradlew ${gradle_options[@]+"${gradle_options[@]}"} -PincludeReleaseSmoke=true \
         :tests:release-smoke:assembleDebugAndroidTest :tests:release-smoke:lintDebug
 }
 
@@ -39,22 +44,22 @@ debug_build_tasks=(
 )
 
 debug_analysis_checks() {
-    ./gradlew ${gradle_profile[@]+"${gradle_profile[@]}"} "${debug_analysis_tasks[@]}"
+    ./gradlew ${gradle_options[@]+"${gradle_options[@]}"} "${debug_analysis_tasks[@]}"
 }
 
 # One task graph shares configuration and input snapshots across build and analysis.
 debug_build_analysis_checks() {
     ./scripts/check-lockfiles.sh
-    ./gradlew ${gradle_profile[@]+"${gradle_profile[@]}"} "${debug_build_tasks[@]}" "${debug_analysis_tasks[@]}"
+    ./gradlew ${gradle_options[@]+"${gradle_options[@]}"} "${debug_build_tasks[@]}" "${debug_analysis_tasks[@]}"
 }
 
 release_analysis_checks() {
-    ./gradlew ${gradle_profile[@]+"${gradle_profile[@]}"} lintRelease lintConsumerRelease lintDeveloperRelease
+    ./gradlew ${gradle_options[@]+"${gradle_options[@]}"} lintRelease lintConsumerRelease lintDeveloperRelease
 }
 
 debug_test_build_checks() {
     # Test source correctness is compiled; Android Lint is reserved for production.
-    ./gradlew ${gradle_profile[@]+"${gradle_profile[@]}"} "${debug_build_tasks[@]}"
+    ./gradlew ${gradle_options[@]+"${gradle_options[@]}"} "${debug_build_tasks[@]}"
 }
 
 build_checks() {
