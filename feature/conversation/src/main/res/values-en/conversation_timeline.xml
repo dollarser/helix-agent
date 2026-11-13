@@ -2,14 +2,10 @@
 <resources>
     <string name="tool_group_show">Show %1$d tool calls</string>
     <string name="tool_group_hide">Hide %1$d tool calls</string>
-    <string name="tool_inspector_open">Inspect arguments and result</string>
     <string name="tool_observed_background">Observed: background display · %1$s</string>
     <string name="tool_observed_main">Observed: main display · %1$s</string>
     <string name="tool_unsettled">UI still changing · effect unverified</string>
     <string name="tool_running_elapsed">Running for %1$d s</string>
-    <string name="tool_inspector_full">Full result (redacted)</string>
-    <string name="tool_inspector_unavailable">Full result unavailable; showing summary</string>
-    <string name="tool_inspector_loading">Reading original saved result…</string>
     <string name="chat_image_preview">Preview image</string>
     <string name="chat_image_unavailable">Image unavailable</string>
     <string name="knowledge_save_reply">Save as note</string>
@@ -51,7 +47,6 @@
     <string name="chat_delete_attachment">Delete</string>
     <string name="chat_tool_request">Request args: %1$s</string>
     <string name="chat_tool_result">Result: %1$s</string>
-    <string name="chat_tool_row">Tool: %1$s</string>
     <string name="chat_tool_command_detail">Details</string>
     <string name="files_close">Close</string>
     <string name="files_copy">Copy</string>
@@ -98,9 +93,7 @@
     <string name="approval_provider_label">Provider / MCP</string>
     <string name="tool_details_show">Details</string>
     <string name="tool_details_hide">Hide details</string>
-    <string name="tool_intent_detail">Intent: %1$s</string>
     <string name="tool_status_detail">Status: %1$s</string>
-    <string name="tool_call_id_detail">Call ID: %1$s</string>
     <string name="tool_purpose_write">Write file</string>
     <string name="tool_purpose_edit">Edit file</string>
     <string name="tool_purpose_read">Read content</string>
@@ -173,4 +166,26 @@
     <string name="stop_facts_not_started">Not started: %1$s</string>
     <string name="stop_facts_artifacts">Registered output artifacts: %1$d</string>
     <string name="stop_facts_boundary">Stopping does not undo executed actions. Check unknown effects before continuing.</string>
+    <string name="tool_content_full">View full content</string>
+    <string name="tool_content_loading">Loading content…</string>
+    <string name="tool_content_unavailable">Full content is unavailable</string>
+    <string name="tool_content_retry">Retry loading</string>
+    <string name="tool_field_name">Name</string>
+    <string name="tool_field_source">Source</string>
+    <string name="tool_field_path">Path</string>
+    <string name="tool_field_content">Content</string>
+    <string name="tool_field_instructions">Instructions</string>
+    <string name="tool_field_description">Description</string>
+    <string name="tool_field_status">Status</string>
+    <string name="tool_field_error">Error</string>
+    <string name="tool_field_message">Message</string>
+    <string name="tool_field_text">Text</string>
+    <string name="tool_field_application">Application</string>
+    <string name="tool_field_enabled">Enabled</string>
+    <string name="tool_field_entries">Entries</string>
+    <string name="tool_field_nodes">Screen content</string>
+    <string name="tool_field_truncated">Content incomplete</string>
+    <string name="tool_field_observation">Observation status</string>
+    <string name="tool_field_empty">No items</string>
+    <string name="tool_field_none">None</string>
 </resources>

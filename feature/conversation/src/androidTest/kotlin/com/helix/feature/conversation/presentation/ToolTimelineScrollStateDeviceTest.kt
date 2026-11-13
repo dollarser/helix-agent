@@ -41,12 +41,12 @@ class ToolTimelineScrollStateDeviceTest : ConversationDeviceTestFixture() {
             }
         }
         compose.onNodeWithTag("tool-details-call").performClick()
-        compose.onNodeWithTag("tool-row-name-call").assertExists()
+        compose.onNodeWithTag("tool-row-result-call").assertExists()
         compose.onNodeWithTag("scroll-fixture").performScrollToIndex(30)
-        compose.onNodeWithTag("tool-row-name-call").assertDoesNotExist()
+        compose.onNodeWithTag("tool-row-result-call").assertDoesNotExist()
         compose.onNodeWithTag("scroll-fixture").performScrollToIndex(0)
-        compose.onNodeWithTag("tool-row-name-call").assertExists()
+        compose.onNodeWithTag("tool-row-result-call").assertExists()
         compose.onNodeWithTag("tool-details-call").performClick()
-        compose.onNodeWithTag("tool-row-name-call").assertDoesNotExist()
+        compose.onNodeWithTag("tool-row-result-call").assertDoesNotExist()
     }
 }

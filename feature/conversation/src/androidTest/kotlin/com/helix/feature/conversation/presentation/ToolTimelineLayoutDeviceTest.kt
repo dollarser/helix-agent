@@ -54,8 +54,8 @@ class ToolTimelineLayoutDeviceTest : ConversationDeviceTestFixture() {
             filenameEnd <= layout.getLineEnd(layout.lineCount - 1, true),
         )
         compose.onNodeWithTag("tool-details-call").performClick()
-        compose.onNodeWithTag("tool-row-intent-detail-call").assertTextContains(intent, substring = true)
-        verifyExpansion("tool-row-args-call", args)
+        compose.onNodeWithTag("tool-row-intent-detail-call").assertDoesNotExist()
+        verifyExpansion("tool-row-args-call", path)
     }
 
     @Test fun longToolNameKeepsItsStateVisibleOnANarrowScreen() {
@@ -119,11 +119,11 @@ class ToolTimelineLayoutDeviceTest : ConversationDeviceTestFixture() {
         compose.onNodeWithTag("tool-row-state-call", useUnmergedTree = true).assertIsDisplayed()
         compose.onNodeWithTag("tool-row-duration-call", useUnmergedTree = true).assertIsDisplayed()
         compose.onNodeWithTag("tool-details-call").performClick()
-        compose.onNodeWithTag("tool-row-name-call").assertExists()
-        compose.onNodeWithTag("tool-row-intent-detail-call").assertTextContains(intent, substring = true)
+        compose.onNodeWithTag("tool-row-name-call").assertDoesNotExist()
+        compose.onNodeWithTag("tool-row-intent-detail-call").assertDoesNotExist()
         compose.onNodeWithTag("tool-row-status-detail-call").assertTextContains("需要审查", substring = true)
         compose.onNodeWithTag("tool-row-duration-call", useUnmergedTree = true).assertIsDisplayed()
-        compose.onNodeWithTag("tool-row-call-id-detail-call").assertTextContains("call", substring = true)
+        compose.onNodeWithTag("tool-row-call-id-detail-call").assertDoesNotExist()
         compose.onNodeWithTag("tool-row-args-call").assertTextContains("./gradlew", substring = true)
         compose.onNodeWithTag("tool-row-result-call").assertTextContains("effect uncertain", substring = true)
         compose.onNodeWithTag("command-detail-call").assertExists()
@@ -194,7 +194,10 @@ class ToolTimelineLayoutDeviceTest : ConversationDeviceTestFixture() {
                 onApproveApproval = { actions++ },
                 onDenyApproval = { actions++ },
             )
-        render(ToolTimelineRow("turn", "call", "read", "{}", "执行中", null, null), intents = intents)
+        render(
+            ToolTimelineRow("turn", "call", "read", """{"path":"fixture.txt"}""", "执行中", null, null),
+            intents = intents,
+        )
         val title = compose.onNodeWithTag("tool-row-intent-call", useUnmergedTree = true)
         val chevron = compose.onNodeWithTag("tool-chevron-call", useUnmergedTree = true)
         val iconBounds = chevron.getUnclippedBoundsInRoot()
@@ -246,13 +249,10 @@ class ToolTimelineLayoutDeviceTest : ConversationDeviceTestFixture() {
         tag: String,
         text: String,
     ) {
-        val node = compose.onNodeWithTag(tag)
-        val before = node.getUnclippedBoundsInRoot().let { it.bottom - it.top }
-        compose.onNodeWithTag("$tag-toggle").performScrollTo().performClick()
-        node.assertTextContains(text, substring = true)
-        val after = node.getUnclippedBoundsInRoot().let { it.bottom - it.top }
-        assertTrue(after > before)
-        compose.onNodeWithTag("$tag-toggle").performScrollTo().performClick()
+        compose.onNodeWithTag(tag).assertExists()
+        compose.onNodeWithTag("tool-content-full-call").performScrollTo().performClick()
+        compose.onNodeWithTag("tool-content-text").assertTextContains(text, substring = true)
+        compose.onNodeWithTag("tool-content-close").performClick()
     }
 
     private fun render(

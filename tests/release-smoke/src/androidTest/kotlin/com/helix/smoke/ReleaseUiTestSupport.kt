@@ -146,12 +146,22 @@ internal class ReleaseUiTestSupport {
     }
 
     fun restartTarget() {
-        ParcelFileDescriptor.AutoCloseInputStream(automation.executeShellCommand("am force-stop $target")).use {
-            it.readBytes()
+        fun command(value: String) =
+            ParcelFileDescriptor.AutoCloseInputStream(automation.executeShellCommand(value)).use {
+                it.readBytes().toString(Charsets.UTF_8).trim()
+            }
+        val previous = command("pidof $target")
+        check(command("am force-stop $target").isEmpty()) { "Owned target force-stop failed" }
+        val deadline = SystemClock.elapsedRealtime() + 5_000
+        while (command("pidof $target").isNotEmpty() && SystemClock.elapsedRealtime() < deadline) {
+            SystemClock.sleep(100)
         }
+        check(command("pidof $target").isEmpty()) { "Owned target process did not exit" }
         SystemClock.sleep(1_500)
         if (Build.VERSION.SDK_INT >= 33) check(automation.clearCache())
         ready()
+        val current = command("pidof $target")
+        check(current.isNotEmpty() && current != previous) { "Owned target did not start a new process" }
     }
 
     fun reconnectOwnedAccessibility() {

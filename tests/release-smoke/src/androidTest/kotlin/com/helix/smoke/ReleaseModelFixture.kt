@@ -12,6 +12,7 @@ import java.util.concurrent.atomic.AtomicReference
 /** Deterministic loopback provider; every tool still enters the real R8 Dispatcher. */
 internal class ReleaseModelFixture(
     private val fixturePackage: String,
+    private val conversation: ReleaseConversationScenario? = null,
 ) : AutoCloseable {
     private val server = ServerSocket(0, 4, InetAddress.getByName("127.0.0.1"))
     private val workers = Executors.newFixedThreadPool(3)
@@ -67,7 +68,8 @@ internal class ReleaseModelFixture(
             offset += count
         }
         val request = JSONObject(body.toString(Charsets.UTF_8))
-        val response = model(request)
+        if (conversation?.holdCancelledRequest(request, socket) == true) return
+        val response = conversation?.reply(request) ?: model(request)
         val message = response.first
         val finish = response.second
         val usage = JSONObject().put("prompt_tokens", 100)

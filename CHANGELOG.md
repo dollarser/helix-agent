@@ -14,6 +14,10 @@ Notable changes are curated for users; development previews do not promise stabl
 
 ### Changed and fixed
 
+- Fixed ordinary conversations failing before the model request when the production Room store rejected the bounded `tools.cost` diagnostic. Unknown diagnostic types and payload limits remain enforced.
+- Tool calls show compact summaries with grouped, copyable details; business content and internal diagnostics are presented separately without rewriting stored tool, model or audit records.
+- Local release checks now require the production conversation, successful tool backfill, persisted history after process restart, cancellation, no replay and continuation. A real Room core batch is mandatory separately from optional UI refinement tests.
+
 - Single-page API settings, unified save/cancel, separate connection/model checks and model pickers grouped by service.
 - Context compaction, bounded tool discovery, cache accounting, Goal coordination and durable tool/recovery boundaries.
 - Real SAF search, revocation, directory handoff and refresh/layout handling.
@@ -24,7 +28,7 @@ Notable changes are curated for users; development previews do not promise stabl
 
 VersionName is 0.0.11; versionCode and Helix-owned internal versions remain 1. The database structure differs from v0.0.10. In-place installation and historical data retention are not guaranteed; incompatible database reconstruction requires independent confirmation. Published v0.0.10 tags and artifacts remain unchanged.
 
-Full local Debug and Release/R8 host gates passed. Bounded ONEPLUS_A6013/API34 checks include 30 Debug checks and 8 isolated, test-signed non-debuggable R8 entry checks. The final media subset was rerun on that phone and an API36 emulator; these repeated checks are not additional unique product coverage. Ordinary Release APKs remain unsigned. No final release commit, remote CI, tag, upload or publication is claimed.
+The final UI-integrated candidate passed 35 real-Room Debug core checks per channel and all four selected non-debuggable R8 methods per channel on isolated API36 emulators. The R8 core journey uses a real loopback HTTP provider, tool-result backfill, verified process restart, persisted history and cancellation/no-replay checks. No methods were skipped or missing. The final complete `check-all.sh --all` host gate and ordinary ARM64 distribution build passed with stable source inputs. Earlier ONEPLUS_A6013/API34 runs covered 30 Debug checks and 8 R8 entry checks; those are historical, bounded evidence and did not detect the ordinary-conversation defect. They are not final-candidate core acceptance. Final distribution signing, commit, CI and publication identity belong to the actual release record.
 
 [中文准备说明](docs/product/releases/v0.0.11.md) · [English preparation notes](docs/product/releases/v0.0.11.en.md)
 

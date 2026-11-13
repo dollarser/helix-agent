@@ -18,6 +18,23 @@ spec.loader.exec_module(runner)
 
 
 class ReleaseSmokeBoundaryTest(unittest.TestCase):
+    def test_basic_and_core_require_actual_production_conversation_method(self):
+        core = runner.CORE_CONVERSATION_CASE
+        unrelated = {("com.helix.smoke.ReleaseSmokeTest", "settingsAndAboutShowInstalledVersion"): (0, "")}
+        for suite in ("basic", "core"):
+            self.assertIn(core[0], runner.SUITE_CLASSES[suite])
+            with patch.object(runner, "require_passed", return_value=unrelated):
+                with self.assertRaisesRegex(ValueError, "production conversation journey did not execute"):
+                    runner.require_suite_passed("fixture", suite)
+            with patch.object(runner, "require_passed", return_value={core: (0, "")}):
+                self.assertIn(core, runner.require_suite_passed("fixture", suite))
+
+    def test_failed_or_skipped_core_journey_cannot_pass(self):
+        for failure in ("Instrumentation contains failed tests", "Instrumentation contains skipped tests"):
+            with patch.object(runner, "require_passed", side_effect=ValueError(failure)):
+                with self.assertRaises(ValueError):
+                    runner.require_suite_passed("fixture", "basic")
+
     def test_execution_boundaries_require_a_named_case_and_emulator_before_device_access(self):
         for serial, boundary in (("physical-fixture", "cancel"), ("emulator-5554", None)):
             with self.subTest(serial=serial), tempfile.TemporaryDirectory() as directory:
@@ -142,12 +159,15 @@ class ReleaseSmokeBoundaryTest(unittest.TestCase):
             with patch("sys.argv", arguments), patch.object(runner, "command", side_effect=command) as commands, \
                     patch.object(runner, "installed_package", side_effect=[False, False, True, False, True, True]), \
                     patch.object(runner.subprocess, "run", return_value=result) as instrument, \
-                    patch.object(runner, "require_passed", return_value=["fixture"]), \
+                    patch.object(runner, "require_passed", return_value={runner.CORE_CONVERSATION_CASE: (0, "")}), \
                     patch.object(runner, "to_xml", return_value="<testsuite/>"):
                 with self.assertRaisesRegex(RuntimeError, "cleanup incomplete"):
                     runner.main()
             self.assertIn("com.helix.validation.orderedchecks.test/androidx.test.runner.AndroidJUnitRunner",
                           instrument.call_args.args[0])
+            instrumentation_args = instrument.call_args.args[0]
+            selected_classes = instrumentation_args[instrumentation_args.index("class") + 1].split(",")
+            self.assertIn(runner.CORE_CONVERSATION_CASE[0], selected_classes)
             called = [call.args[0] for call in commands.call_args_list]
             self.assertIn(["fixture-adb", "-s", "fixture", "uninstall", "com.helix.validation.orderedchecks.test"], called)
             self.assertFalse(any("com.helix.validation.releasechecks.test" in arg for call in called for arg in call))

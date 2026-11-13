@@ -2,6 +2,7 @@
 """Launch an exclusive emulator, run a bounded instrumentation suite, always close it."""
 import argparse
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -16,6 +17,10 @@ import time
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from owned_acceptance import split_recovery_log
 from emulator_input import enable_hardware_keyboard, enable_onscreen_keyboard
+
+_owned_spec = importlib.util.spec_from_file_location("owned_emulator_helpers", Path(__file__).with_name("run-owned-emulator.py"))
+owned_emulator = importlib.util.module_from_spec(_owned_spec)
+_owned_spec.loader.exec_module(owned_emulator)
 
 
 def passed(output):
@@ -44,6 +49,10 @@ def run(args):
         shutil.copyfile(source, target)
         artifacts[label] = hashlib.sha256(target.read_bytes()).hexdigest()
     (output / "artifacts.json").write_text(json.dumps(artifacts, indent=2))
+    # Clean installation is only for the ordinary app-targeting instrumentation path.
+    # Independent Release smoke hosts intentionally target their own package instead.
+    app_package = (owned_emulator.verify_apk_target(sdk, output / "app.apk", output / "test.apk", args.runner)
+                   if args.clean_install else None)
     enable_hardware_keyboard(args.avd)
     command = [str(sdk / "emulator/emulator"), "-avd", args.avd, "-port", str(args.port),
                "-read-only", "-no-window", "-no-audio", "-no-snapshot", "-no-boot-anim",
@@ -102,6 +111,8 @@ def run(args):
                 (output / "system-theme.txt").write_text(device("shell", "dumpsys", "uimode"))
             if args.reverse_port:
                 device("reverse", f"tcp:{args.reverse_port}", f"tcp:{args.reverse_port}")
+            if args.clean_install:
+                owned_emulator.clean_install_packages(device, app_package, args.runner.split("/", 1)[0], output)
             device("install", "-r", str(output / "app.apk"), timeout=120)
             device("install", "-r", str(output / "test.apk"), timeout=120)
             if args.clear_app_data:
@@ -222,6 +233,8 @@ if __name__ == "__main__":
     parser.add_argument("--reverse-port", type=int)
     parser.add_argument("--grant-shared-storage", action="store_true")
     parser.add_argument("--clear-app-data", action="store_true", help="Reset only the target app before seeding this owned instance")
+    parser.add_argument("--clean-install", action="store_true",
+                        help="Remove only the manifest-verified fixture packages on the newly owned emulator")
     parser.add_argument("--airplane-mode", action="store_true",
                         help="Cut the network (disable wifi + data) for the offline scenario")
     parser.add_argument("--night-mode", choices=("yes", "no"), help="Owned emulator system mode; dark also uses font scale 1.3")

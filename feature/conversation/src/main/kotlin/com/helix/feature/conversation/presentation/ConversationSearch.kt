@@ -170,11 +170,12 @@ private fun contentMatch(
 
         is ConversationContent.Tool -> {
             content.value.let { tool ->
+                val arguments = presentToolPayload(tool.toolName, tool.requestSummary).text
+                val result = tool.resultSummary?.let { presentToolPayload(tool.toolName, it).text }
                 if (tool.toolName.contains(query, ignoreCase = true) ||
-                    tool.requestSummary.contains(query, ignoreCase = true) ||
-                    tool.resultSummary?.contains(query, ignoreCase = true) == true
+                    arguments.contains(query, ignoreCase = true) || result?.contains(query, ignoreCase = true) == true
                 ) {
-                    SearchMatch(tool.callId, itemIndex, tool.resultSummary ?: tool.requestSummary)
+                    SearchMatch(tool.callId, itemIndex, result?.takeIf(String::isNotEmpty) ?: arguments)
                 } else {
                     null
                 }

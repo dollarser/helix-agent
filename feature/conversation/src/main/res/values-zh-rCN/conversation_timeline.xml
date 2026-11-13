@@ -2,14 +2,10 @@
 <resources>
     <string name="tool_group_show">查看 %1$d 次工具调用</string>
     <string name="tool_group_hide">收起 %1$d 次工具调用</string>
-    <string name="tool_inspector_open">检查参数与结果</string>
     <string name="tool_observed_background">观察记录：后台屏 · %1$s</string>
     <string name="tool_observed_main">观察记录：主屏 · %1$s</string>
     <string name="tool_unsettled">界面仍在变化 · 效果待核验</string>
     <string name="tool_running_elapsed">已运行 %1$d 秒</string>
-    <string name="tool_inspector_full">完整结果（已脱敏）</string>
-    <string name="tool_inspector_unavailable">无法读取完整结果，显示摘要</string>
-    <string name="tool_inspector_loading">正在读取原调用结果…</string>
     <string name="chat_image_preview">查看图片</string>
     <string name="chat_image_unavailable">图片不可用</string>
     <string name="knowledge_save_reply">保存为笔记</string>
@@ -51,7 +47,6 @@
     <string name="chat_delete_attachment">删除</string>
     <string name="chat_tool_request">请求参数：%1$s</string>
     <string name="chat_tool_result">结果：%1$s</string>
-    <string name="chat_tool_row">工具：%1$s</string>
     <string name="chat_tool_command_detail">详情</string>
     <string name="files_close">关闭</string>
     <string name="files_copy">复制</string>
@@ -98,9 +93,7 @@
     <string name="approval_provider_label">模型服务／MCP</string>
     <string name="tool_details_show">查看详情</string>
     <string name="tool_details_hide">收起详情</string>
-    <string name="tool_intent_detail">Intent：%1$s</string>
     <string name="tool_status_detail">状态：%1$s</string>
-    <string name="tool_call_id_detail">Call ID：%1$s</string>
     <string name="tool_purpose_write">写入文件</string>
     <string name="tool_purpose_edit">修改文件</string>
     <string name="tool_purpose_read">读取内容</string>
@@ -173,4 +166,26 @@
     <string name="stop_facts_not_started">未启动：%1$s</string>
     <string name="stop_facts_artifacts">已登记输出产物：%1$d</string>
     <string name="stop_facts_boundary">停止不会撤销已执行的操作。效果未知时，请先核对再继续。</string>
+    <string name="tool_content_full">查看完整内容</string>
+    <string name="tool_content_loading">正在读取内容…</string>
+    <string name="tool_content_unavailable">完整内容暂时无法读取</string>
+    <string name="tool_content_retry">重试读取</string>
+    <string name="tool_field_name">名称</string>
+    <string name="tool_field_source">来源</string>
+    <string name="tool_field_path">路径</string>
+    <string name="tool_field_content">内容</string>
+    <string name="tool_field_instructions">说明</string>
+    <string name="tool_field_description">描述</string>
+    <string name="tool_field_status">状态</string>
+    <string name="tool_field_error">错误</string>
+    <string name="tool_field_message">信息</string>
+    <string name="tool_field_text">文字</string>
+    <string name="tool_field_application">应用</string>
+    <string name="tool_field_enabled">已启用</string>
+    <string name="tool_field_entries">条目</string>
+    <string name="tool_field_nodes">界面内容</string>
+    <string name="tool_field_truncated">内容不完整</string>
+    <string name="tool_field_observation">观察状态</string>
+    <string name="tool_field_empty">无条目</string>
+    <string name="tool_field_none">无</string>
 </resources>

@@ -28,6 +28,29 @@
 
 不要为了“清单全绿”无限运行模型测试或扩大权限。已有失败需记录；新证据不足时保留边界，恢复入口或诊断完成不等于原始问题根治。
 
+### 每次候选必测的会话核心
+
+按 Owner 2026-11-13 的验收优先级，会话核心不得被设置页、UI 导航、编译成功或历史候选的通过记录替代。冻结当前源码和 APK 后，发布前本地必跑以下两层；GitHub CI 仍只执行主机检查及测试 APK 编译，不执行设备测试。
+
+- **Release/R8 生产旅程，两渠道**：`scripts/run-release-smoke.py --suite core` 通过公开 UI 配置仅本机 loopback 的合成 Provider，实际发送普通会话、执行只读工具并验证模型收到回填；进程停止重启后，确认完成回复仍显示且进入下一次请求的历史；请求中停止，确认连接结束、重启不重放、后续会话可继续。默认 `basic` 也包含这条必测旅程。runner 验证该方法实际执行，缺失、跳过、失败、清理不完整均阻断；不能只凭总测试数或截图判定通过。
+- **Debug 真实持久化边界，两渠道**：`ProviderTurnJourneyDeviceTest`（模型选择、工具回填、压缩后继续）、`LocalProviderLoopDeviceTest`（本地模型同一生产链）、`TurnDiagnosticStoreDeviceTest`（诊断 producer/Room sink 与限额）、`ConversationStopConsistencyDeviceTest`（停止及旧停止身份）、`RoomTurnLifecycleStoreDeviceTest`（队列、终态及恢复归属）、`ToolSettlementRecoveryDeviceTest`（事务失败、UNKNOWN、重复恢复与结果持久化）、`SessionInputAdmissionFailureDeviceTest`（准入失败与暂停输入）、`PermissionAtomicityDeviceTest`（权限状态及审计原子性）、`ToolInspectionQueryDeviceTest`（完整工具详情查询及原始参数/结果/审计保真）。用现有独占模拟器 runner 按实际方法集合核对；需要重启阶段的其他专项按原 runner 运行，不把一次数据库重开写成主进程死亡。
+
+真实 Room 核心批次复用现有 runner。成功构建同候选的普通 Debug 主包与双渠道 AndroidTest APK 后，在已授权的本机执行（输出目录每次新建，AVD 必须与 API 匹配）：
+
+```bash
+python3 scripts/with-host-slot.py -- python3 scripts/run-acceptance-matrix.py \
+  --scope 206 --group core-conversation --api 36 --avd Helix_API_36_test \
+  --clean-install --output build/release-core-room-NEW
+```
+
+默认运行双渠道，方法集合从当前源码提取并与实际执行核对；清装只针对新建独占模拟器中经 APK manifest 核对的两个测试包，不接触日常实例或源 AVD。Release/R8 则按 `run-release-smoke.py --help` 提供隔离包、测试 APK、确切 serial 和新输出目录，两渠道分别运行 `--suite core`。隔离签名与包名不证明正式签名发布，普通 Debug 包也不能代替 R8 行为。
+
+主机 `check-all.sh --all` 继续负责 schema/参数、权限策略、预算、取消/恢复状态机、格式/静态分析及构建边界。设备必测的意义是验证这些模块在最终应用里的真实接线，不能由 host fake 替代。
+
+复杂布局、主题、IME、手势细节和易变的辅助入口按本次影响范围选跑，不要求每次发布重跑全部体验专项。授权 UI、错误/未知结果提示、停止/恢复入口属于核心边界，不能因归类为 UI 而跳过。渠道专属 runtime、SAF、浏览器、JNI 等有变更时增加对应专项；真实模型、其他 OEM、长稳和资源压力单列范围，不把上述合成旅程外推成所有能力已验收。
+
+这些是候选退出条件，不是本页宣称已经通过。具体命令、源码/APK 身份、已执行和未执行项仍归本次 evidence。任一核心项未执行即为 `pending`，不能以“只剩 UI”或“主机全绿”宣布可以发布。
+
 ## 3. 已知问题的关闭规则
 
 | 项目 | 当前处置入口 | 何时继续、何时停止 |

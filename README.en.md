@@ -10,7 +10,7 @@ Helix brings mobile interaction, a browser, files and tools into one conversatio
 
 > **Development preview: Android 10+, ARM64 APKs.** Helix has not been officially released. These are not stable/store-production builds and use the existing development certificate. In-place updates are not guaranteed; even a successful update may not preserve historical data. Read the [upgrade notes](docs/product/releases/v0.0.10.en.md) and save important material first. Features on `main` may not yet be in a published APK.
 
-Current source is preparing **v0.0.11**, with versionCode and internal versions still **1**. It is not published, and ordinary Release APKs are not yet signed. Its database structure differs from v0.0.10; an unchanged internal number does not imply compatibility. See the [v0.0.11 preparation notes](docs/product/releases/v0.0.11.en.md) for changes, upgrade risks and the actual physical-device/Release checks. Existing downloads remain those listed on their published release pages.
+Current source is preparing **v0.0.11**, with versionCode and internal versions still **1**. It is not published; final distribution signing, commit and CI identity are recorded with the actual release. Its database structure differs from v0.0.10; an unchanged internal number does not imply compatibility. See the [v0.0.11 preparation notes](docs/product/releases/v0.0.11.en.md) for changes, upgrade risks, final core-conversation acceptance and separately identified historical physical-device checks. Existing downloads remain those listed on their published release pages.
 
 ## What it does
 

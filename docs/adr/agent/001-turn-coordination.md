@@ -283,7 +283,7 @@ HXA-229 的 per-call `ToolCallPresentation.modelIntent` 仅描述模型意图。
 
 Dispatcher、MCP、Skill、effect classifier、approval binding 和 argsHash 只消费业务参数。`tool_calls.argsJson` 保存 stripped canonical args，`modelIntent` 单独持久化；Provider history 不重放 presentation metadata。缺失、非法、secret-like、控制字符、超长或明显结果/权限声明的 intent 回退 `ToolPurpose`，不拒绝原本合法的业务调用。Export 仍经过正文 redaction/sanitizer。
 
-UI 默认优先展示有效 intent，无 intent 时展示 ToolPurpose，并保留 Harness 状态与耗时；工具名称、完整 intent、请求参数、结果预览、调用标识和诊断入口收进详情。待审批卡保持可见。status、result、approval、UNKNOWN/NEEDS_REVIEW 始终来自 Harness；展开保留原参数、结果与 call identity。不增加 Activity grouping 或额外 LLM 结果总结。自然语言过滤是有界防护，不是语义真实性证明；通过过滤的文本仍不获得执行或授权权威。
+UI 标题优先展示有效 intent，无 intent 时展示 ToolPurpose，并保留工具名称、Harness 状态与耗时。展开只展示可读参数与结果，不重复 intent、工具名称或调用标识；只有长内容才提供一个完整内容入口。已知工具 schema 中的内部定位元数据不进入聊天预览、完整内容及搜索片段；正文、代码、错误和未知第三方业务字段不按关键词删改。原参数、结果、call identity 及审计仍保存在持久记录和显式技术诊断，模型上下文不受展示投影影响。待审批卡保持可见；status、result、approval、UNKNOWN/NEEDS_REVIEW 始终来自 Harness，不通过额外 LLM 总结推断执行事实。自然语言过滤是有界防护，不是语义真实性证明；通过过滤的文本仍不获得执行或授权权威。
 
 Mobile Use输入动作的模型可见结果采用`status=DISPATCHED`、`effectStatus=UNVERIFIED`，只确认派发/平台动作调用完成，不能证明目标接受触摸或用户任务完成；后续由模型通过新观察或直接业务事实核验。此处UNVERIFIED不是执行器丢失回执的UNKNOWN，不改变ToolCall完成、取消、NEEDS_REVIEW或恢复状态。平台未提供拒绝回执时，不从节点缺失/页面不变伪造敏感过滤原因；Helix自身明确的敏感目标拒绝仍是执行前失败。仅变更Mobile Use工具输出契约与版本，保留历史结果，不修改核心状态枚举、Room或自动重放策略。
 
@@ -556,3 +556,9 @@ Owner 明确决定：获准投递的委托指令进入目标后，按目标会�
 预算预留继续先于参数/策略拒绝：拒绝尝试仍计入 Goal 工具预算，准备中断后的未结预留交给现有恢复处理，不因抽象端口而退款未知效果。工具结果/调用终态/预算与前置拒绝的审计仍保持原完整结算事务。没有新增数据库、通用事务框架、兼容转发入口或执行域；源码护栏同时禁止 application agent/tools 通过 import 或全限定名重新依赖 storage/infrastructure。
 
 本片最终验收：完整 `scripts/check-all.sh --debug` 通过，399 项脚本测试、6,791 项 JVM 测试零失败，其中 10 项既有可选外部服务/本地样本跳过。新增 6 项 Goal 事务和 3 项工具存储测试；Developer 在 Helix_API_36 实际运行 77 项通过（Goal 36、提交 11、工具/恢复 30）。初次设备运行的新增恢复夹具错误地构造 PAUSED+PENDING，已改用真实 TurnRecovery 顺序，并补独立 inspection start 的失败回滚测试；未降低生产校验或删除断言。最终主机与设备期间源输入一致，主/测试 APK 保数据覆盖安装且字节一致。回执保存在 `build/goal-gateway-refactor-2026-11-12/`；没有新 Release/R8、真机、真实模型或第三方服务验收，未提交、推送或发布。
+
+### Decision history — 2026-11-13：工具详情去重与可读内容
+
+Owner 要求聊天不显示 Call ID、snapshotHash 等内部字段，也不在展开后重复常驻标题的 intent 和工具名称。工具参数与结果使用只读展示投影：仅按已注册 Skill／Mobile Use 的结构路径隐藏定位标识，不对正文、代码、错误或第三方业务字段做关键词删除。底层调用、模型历史、结果内容和审计保留原值，设置中的显式技术诊断仍可检查原始脱敏字段。
+
+展开提供一次可读预览，取消每条工具固定的重复“检查参数与结果”入口；只有预览实际溢出时提供单个“查看完整内容”，复制沿用该可读内容。截断 JSON 不作为原始前缀回退展示；完整内容读取失败明确显示不可用并允许重试，保持已有业务摘要、具体错误、审批及未知效果边界。工具箭头统一为收起向右、展开向下，重复点击与恢复不派发工具。

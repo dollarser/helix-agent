@@ -39,7 +39,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.helix.feature.conversation.R
 import com.helix.feature.conversation.presentation.toolHasUnsettledObservation
-import com.helix.ui.shared.ExpandableSummary
 import com.helix.ui.shared.R as SharedR
 
 /**
@@ -82,7 +81,7 @@ fun ToolTimelineItem(
     ) {
         ToolTimelineSummary(row, displayIntent, details) { details = !details }
         if (details) {
-            ToolTimelineDetails(row, displayIntent, intents)
+            ToolTimelineDetails(row, intents)
             CommandDetailEntry(row, intents)
             if (row.prootRecoveryAvailable) {
                 ProotRecoveryActions(row, intents.onInspectProot, intents.onRecoverProot, intents.onRetryProotAck)
@@ -98,43 +97,13 @@ fun ToolTimelineItem(
 @Suppress("FunctionName")
 private fun ToolTimelineDetails(
     row: ToolTimelineRow,
-    displayIntent: String,
     intents: ConversationIntents,
 ) {
-    Text(
-        stringResource(R.string.tool_intent_detail, row.modelIntent ?: displayIntent),
-        style = MaterialTheme.typography.bodySmall,
-        modifier = Modifier.testTag("tool-row-intent-detail-${row.callId}"),
-    )
-    Text(
-        stringResource(R.string.chat_tool_row, row.toolName),
-        style = MaterialTheme.typography.bodySmall,
-        modifier = Modifier.testTag("tool-row-name-${row.callId}"),
-    )
-    ExpandableSummary(
-        stringResource(R.string.chat_tool_request, row.requestSummary),
-        style = MaterialTheme.typography.bodySmall,
-        tag = "tool-row-args-${row.callId}",
-        collapsedLines = 3,
-    )
-    row.resultSummary?.let { summary ->
-        ExpandableSummary(
-            stringResource(R.string.chat_tool_result, summary),
-            style = MaterialTheme.typography.bodySmall,
-            tag = "tool-row-result-${row.callId}",
-            collapsedLines = 5,
-        )
-    }
+    ToolPayloadDetails(row, intents.onInspectToolResult)
     Text(
         stringResource(R.string.tool_status_detail, row.stateLabel),
         style = MaterialTheme.typography.bodySmall,
         modifier = Modifier.testTag("tool-row-status-detail-${row.callId}"),
-    )
-    ToolPayloadInspector(row, intents.onInspectToolResult)
-    Text(
-        stringResource(R.string.tool_call_id_detail, row.callId),
-        style = MaterialTheme.typography.labelSmall,
-        modifier = Modifier.testTag("tool-row-call-id-detail-${row.callId}"),
     )
 }
 
@@ -167,7 +136,7 @@ private fun ToolTimelineSummary(
             modifier =
                 Modifier
                     .size(16.dp)
-                    .rotate(if (expanded) 180f else 0f)
+                    .rotate(if (expanded) 0f else -90f)
                     .testTag("tool-chevron-${row.callId}"),
         )
         Column(Modifier.weight(1f)) {

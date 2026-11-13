@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""199/206 device batches. Invoke under with-host-slot after building the selected APKs.
+"""Runtime/product device batches. Invoke under with-host-slot after building the selected APKs.
 
 Reuse the owned runner; fix expected methods from current source before launching.
 Batch evidence is deliberately separate from whole-product/physical acceptance.
@@ -18,6 +18,12 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from owned_acceptance import collect_owned, sha256
 
 PRODUCT = {
+    "core-conversation": (["ui.ProviderTurnJourneyDeviceTest", "localmodel.LocalProviderLoopDeviceTest",
+                           "infrastructure.agent.TurnDiagnosticStoreDeviceTest",
+                           "chat.ConversationStopConsistencyDeviceTest",
+                           "infrastructure.agent.RoomTurnLifecycleStoreDeviceTest",
+                           "chat.ToolSettlementRecoveryDeviceTest", "chat.SessionInputAdmissionFailureDeviceTest",
+                           "PermissionAtomicityDeviceTest", "chat.ToolInspectionQueryDeviceTest"], None),
     "file-task": (["ui.ProductFileJourneyDeviceTest"], None),
     "delivery": (["ArtifactDeliveryDeviceTest", "CommandExecutionDetailsDeviceTest", "ui.GitStatusDeviceTest",
                   "ui.GitReadOnlyBoundaryDeviceTest"], None),
@@ -62,19 +68,32 @@ def methods_for(selectors, flavor):
     return methods, sources
 
 
+def verify_device_api(directory, expected_api):
+    observed = json.loads((directory / "device.json").read_text()).get("api")
+    if observed != expected_api:
+        raise ValueError(f"Owned device API {observed} does not match selected API {expected_api}")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--scope", choices=("199", "206"), required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--api", type=int, choices=(29, 36), action="append")
+    parser.add_argument("--avd", help="Explicit AVD for a single selected --api; each batch still owns a new instance")
     parser.add_argument("--flavor", choices=("consumer", "developer"), action="append")
     parser.add_argument("--group", action="append")
     parser.add_argument("--first-port", type=int, default=5640)
     parser.add_argument("--start-at", help="Resume at a named flavor-api-group batch in a NEW output directory")
     parser.add_argument("--plan-only", action="store_true")
+    parser.add_argument("--clear-app-data", action="store_true",
+                        help="Clear only the fixture app on each newly owned read-only emulator instance")
+    parser.add_argument("--clean-install", action="store_true",
+                        help="Replace only manifest-verified fixture packages on each newly owned emulator")
     parser.add_argument("--app-directory", type=Path,
                         help="Optional preserved production APK directory for same-fixture baseline comparison")
     args = parser.parse_args()
+    if args.avd and len(args.api or [29, 36]) != 1:
+        raise ValueError("An explicit AVD requires exactly one --api")
     if args.scope == "199":
         spec = importlib.util.spec_from_file_location("integrated", ROOT / "scripts/verify-integrated-runtimes.py")
         runtime = importlib.util.module_from_spec(spec)
@@ -121,11 +140,15 @@ def main():
                 app = (args.app_directory / f"app-{flavor}-debug.apk" if args.app_directory else
                        Path(f"app/build/outputs/apk/{flavor}/debug/app-{flavor}-debug.apk"))
                 command = [sys.executable, "scripts/run-owned-acceptance-emulator.py",
-                           "--avd", f"Helix191_API{api}", "--port", str(port), "--memory-mb", "4096", "--cores", "4",
+                           "--avd", args.avd or f"Helix191_API{api}", "--port", str(port), "--memory-mb", "4096", "--cores", "4",
                            "--apk", str(app),
                            "--test-apk", f"app/build/outputs/apk/androidTest/{flavor}/debug/app-{flavor}-debug-androidTest.apk",
                            "--runner", f"com.helix.agent{suffix}.test/com.helix.app.HelixAndroidJUnitRunner",
                            "--classes", ",".join(classes), "--output", str(target), "--timeout", "1200"]
+                if args.clear_app_data:
+                    command.append("--clear-app-data")
+                if args.clean_install:
+                    command.append("--clean-install")
                 if recovery:
                     command.extend(["--recovery-setup-class", recovery, "--instrument-arg", "recoveryPhase=verify"])
                 environment = dict(os.environ)
@@ -146,6 +169,7 @@ def main():
                     result = subprocess.run(command, cwd=ROOT, env=environment, stdout=log, stderr=subprocess.STDOUT)
                 outcome = {"batch": label, "exit": result.returncode}
                 if result.returncode == 0:
+                    verify_device_api(target, api)
                     report = collect_owned(target, expected)
                     (args.output / f"{label}-report.json").write_text(json.dumps(report, indent=2) + "\n")
                     outcome.update(verdict=report["verdict"], counts=report["counts"])

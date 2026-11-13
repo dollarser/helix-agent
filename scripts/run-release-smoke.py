@@ -17,6 +17,25 @@ import subprocess
 from instrumentation_junit import require_passed, to_xml
 
 
+CORE_CONVERSATION_CASE = (
+    "com.helix.smoke.ReleaseConversationSmokeTest",
+    "conversationToolBackfillAndCancellationSurviveProcessRestart",
+)
+SUITE_CLASSES = {
+    "basic": ("com.helix.smoke.ReleaseSmokeTest", CORE_CONVERSATION_CASE[0]),
+    "core": (CORE_CONVERSATION_CASE[0],),
+    "mobile-use": ("com.helix.smoke.MobileUseReleaseTest",),
+    "mobile-use-execution": ("com.helix.smoke.MobileUseExecutionReleaseTest",),
+}
+
+
+def require_suite_passed(raw, suite):
+    records = require_passed(raw)
+    if suite in ("basic", "core") and CORE_CONVERSATION_CASE not in records:
+        raise ValueError("Required production conversation journey did not execute")
+    return records
+
+
 def isolated_package(value):
     if not re.fullmatch(r"com\.helix\.validation\.[a-z][a-z0-9]*(?:\.developer)?", value):
         raise ValueError("An isolated com.helix.validation.<name> package is required")
@@ -56,7 +75,7 @@ def main():
     parser.add_argument("--apk", required=True, type=Path)
     parser.add_argument("--test-apk", required=True, type=Path)
     parser.add_argument("--out-dir", required=True, type=Path)
-    parser.add_argument("--suite", choices=("basic", "mobile-use", "mobile-use-execution"), default="basic")
+    parser.add_argument("--suite", choices=tuple(SUITE_CLASSES), default="basic")
     parser.add_argument("--verify-reinstall", action="store_true")
     parser.add_argument("--boundary", choices=("cancel", "unknown", "stale"))
     parser.add_argument("--adb", default=shutil.which("adb"))
@@ -110,13 +129,12 @@ def main():
                                  if item and item != "null"]
             secure_setting(adb, "enabled_accessibility_services", ":".join(original_services + [service]))
             secure_setting(adb, "accessibility_enabled", "1")
-        test_class = {"mobile-use": "MobileUseReleaseTest", "mobile-use-execution": "MobileUseExecutionReleaseTest",
-                      "basic": "ReleaseSmokeTest"}[args.suite]
+        test_classes = ",".join(SUITE_CLASSES[args.suite])
         extra = ["-e", "boundary", args.boundary] if args.boundary is not None else []
         try:
             result = subprocess.run(
                 adb + ["shell", "am", "instrument", "-w", "-r", "-e", "targetPackage", app, "-e", "class",
-                       "com.helix.smoke." + test_class] + extra +
+                       test_classes] + extra +
                 [test_package + "/androidx.test.runner.AndroidJUnitRunner"],
                 capture_output=True, text=True, timeout=300,
             )
@@ -128,7 +146,7 @@ def main():
         raw = result.stdout + result.stderr
         (args.out_dir / "instrumentation.log").write_text(raw)
         result.check_returncode()
-        records = require_passed(raw)
+        records = require_suite_passed(raw, args.suite)
         (args.out_dir / "junit.xml").write_text(to_xml(records))
         if args.verify_reinstall:
             for phase in ("setup", "verify"):
@@ -145,7 +163,7 @@ def main():
                 (args.out_dir / ("reinstall-" + phase + ".log")).write_text(text)
                 require_passed(text)
             metadata["sameCandidateReinstallConfigurationPassed"] = True
-        metadata.update(status="passed", tests=len(records))
+        metadata.update(status="passed", tests=len(records), methods=["#".join(key) for key in sorted(records)])
     except (OSError, ValueError, subprocess.SubprocessError) as failure:
         metadata.update(status="failed", failure=type(failure).__name__)
         raise

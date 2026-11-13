@@ -49,7 +49,7 @@ class ConversationToolGroupsDeviceTest : ConversationDeviceTestFixture(usesClipb
                 ->
                 ToolInspectionContent(
                     "{\"path\":\"fixture.txt\"}",
-                    "{\"result\":true}",
+                    "{\"result\":true,\"content\":\"${"synthetic long result. ".repeat(200)}\"}",
                 )
             },
         )
@@ -116,10 +116,10 @@ class ConversationToolGroupsDeviceTest : ConversationDeviceTestFixture(usesClipb
     @Test fun lightInspectorFormatsAndCopiesPresentationWithoutDispatch() {
         render(dark = false, scale = 1f)
         compose.onNodeWithTag("tool-details-failed").performClick()
-        compose.onNodeWithTag("tool-inspector-failed").performScrollTo().performClick()
-        compose.onNodeWithTag("tool-inspector-copy").assertIsDisplayed()
+        compose.onNodeWithTag("tool-content-full-failed").performScrollTo().performClick()
+        compose.onNodeWithTag("tool-content-copy").assertIsDisplayed()
         screenshot("light-inspector")
-        compose.onNodeWithTag("tool-inspector-copy").performClick()
+        compose.onNodeWithTag("tool-content-copy").performClick()
     }
 
     private fun render(
