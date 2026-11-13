@@ -3,6 +3,10 @@ package com.helix.core.storage
 import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import com.helix.core.model.input.InputConfiguration
+import com.helix.core.model.input.ModelDelegationOrigin
+import com.helix.core.model.input.SessionInputDelivery
+import com.helix.core.model.input.SessionInputSpec
 import com.helix.core.storage.content.ContentRef
 import com.helix.core.storage.content.FileContentStore
 import com.helix.core.storage.entity.ApprovalEntity
@@ -18,6 +22,7 @@ import com.helix.core.storage.entity.TurnEntity
 import com.helix.core.storage.export.SessionExportRepository
 import com.helix.core.storage.export.SessionExportSanitizer
 import com.helix.core.storage.export.SessionExportSnapshotter
+import com.helix.core.storage.repository.SessionInputValidation
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.jsonArray
@@ -38,6 +43,46 @@ import kotlin.concurrent.thread
 
 /** Real Room relations; synthetic data only. Final content and SAF delivery have separate tests. */
 class SessionExportSnapshotDeviceTest {
+    @Test fun messageSnapshotCapturesDelegationWithoutPullingSourceHistory() =
+        fixture { database, directory ->
+            seed(database)
+            val content = FileContentStore(File(directory, "delegated-content")).write("delegated task")
+            val spec =
+                SessionInputSpec(
+                    "delegated-input",
+                    "selected",
+                    SessionInputDelivery.QUEUE,
+                    null,
+                    0,
+                    "delegated task",
+                    emptyList(),
+                    InputConfiguration("provider", "model", "ACT", "fixture"),
+                    1,
+                    delegation = ModelDelegationOrigin("other", "source-turn", "source-call", "request", 7),
+                )
+            database.sessionInputDao().insert(
+                SessionInputValidation
+                    .entity(spec, 1, content.toStorageString(), null)
+                    .copy(state = "APPENDED", messageId = "message", consumedTurnId = "turn"),
+            )
+            SessionExportSnapshotter(database).capture("selected", directory) {}.use { snapshot ->
+                val rows = snapshot.file.readLines().map { Json.parseToJsonElement(it).jsonObject }
+                val data =
+                    rows
+                        .single { it["recordId"]?.jsonPrimitive?.content == "message:message" }
+                        .getValue("data")
+                        .jsonObject
+                assertEquals("USER", data.getValue("role").jsonPrimitive.content)
+                assertEquals("MODEL_DELEGATION", data.getValue("inputOrigin").jsonPrimitive.content)
+                assertEquals("other", data.getValue("delegationSourceSessionId").jsonPrimitive.content)
+                assertEquals("source-turn", data.getValue("delegationSourceTurnId").jsonPrimitive.content)
+                assertEquals("source-call", data.getValue("delegationSourceCallId").jsonPrimitive.content)
+                assertEquals("request", data.getValue("delegationRequestKey").jsonPrimitive.content)
+                assertEquals("7", data.getValue("delegationGrantRevision").jsonPrimitive.content)
+                assertFalse(rows.any { it["recordId"]?.jsonPrimitive?.content == "session:other" })
+            }
+        }
+
     @Test fun revisedHistoryRemainsExportableWithItsReplacementRequestId() =
         fixture { database, directory ->
             seed(database)

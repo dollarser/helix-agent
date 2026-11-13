@@ -21,11 +21,13 @@ data class SessionHistoryCaller(
 data class SessionHistoryPage(
     val messages: List<MessageEntity>,
     val nextBeforeSequence: Long?,
+    val delegations: Map<String, com.helix.core.model.input.ModelDelegationOrigin> = emptyMap(),
 )
 
 data class SessionHistoryContent(
     val content: String,
     val sha256: String,
+    val delegation: com.helix.core.model.input.ModelDelegationOrigin? = null,
 )
 
 /** Created only after a persisted, caller-owned reference binding has been checked. */
@@ -42,6 +44,8 @@ class SessionReferenceAccess internal constructor(
 class SessionHistoryRepository(
     private val dao: SessionHistoryDao,
     private val contentStore: ContentStore,
+    private val accessRepository: SessionAccessRepository? = null,
+    private val delegationForMessage: (String) -> com.helix.core.model.input.ModelDelegationOrigin? = { null },
 ) {
     /** Metadata exposure only; each call still needs its own durable owner and revision checks. */
     fun referenceToolNames(sessionId: String): Set<String> =
@@ -169,12 +173,15 @@ class SessionHistoryRepository(
         before: Long,
         limit: Int,
         reference: SessionReferenceAccess? = null,
+        access: SessionAccess? = null,
     ): SessionHistoryPage {
         require(before >= 0 && limit in 1..MAX_PAGE)
+        require(reference == null || access == null)
+        validateAccess(caller, access)
         caller(caller)
         val rows =
             if (reference == null) {
-                dao.page(caller.sessionId, before, limit + 1)
+                dao.page(access?.targetSessionId ?: caller.sessionId, before, limit + 1)
             } else {
                 reference.rows.values
                     .filter { it.sequence < before }
@@ -182,23 +189,31 @@ class SessionHistoryRepository(
                     .take(limit + 1)
             }
         val page = rows.take(limit)
-        return SessionHistoryPage(page, page.lastOrNull()?.sequence?.takeIf { rows.size > limit })
+        val origins = page.mapNotNull { row -> delegationForMessage(row.id)?.let { row.id to it } }.toMap()
+        validateAccess(caller, access)
+        return SessionHistoryPage(page, page.lastOrNull()?.sequence?.takeIf { rows.size > limit }, origins)
     }
 
     fun message(
         caller: SessionHistoryCaller,
         messageId: String,
+        access: SessionAccess? = null,
     ): MessageEntity {
         caller(caller)
-        return requireNotNull(dao.message(caller.sessionId, messageId)) { "SESSION_MESSAGE_UNAVAILABLE" }
+        validateAccess(caller, access)
+        return requireNotNull(dao.message(access?.targetSessionId ?: caller.sessionId, messageId)) {
+            "SESSION_MESSAGE_UNAVAILABLE"
+        }
     }
 
     fun references(
         caller: SessionHistoryCaller,
         messageId: String,
+        access: SessionAccess? = null,
     ): List<MessageReferenceSnapshotEntity> {
-        message(caller, messageId)
-        return dao.references(messageId)
+        message(caller, messageId, access)
+        // Cross-session scope does not transitively share saved references or attachments.
+        return if (access == null) dao.references(messageId) else emptyList()
     }
 
     fun read(
@@ -206,11 +221,15 @@ class SessionHistoryRepository(
         messageId: String,
         referenceOrdinal: Int?,
         reference: SessionReferenceAccess? = null,
+        access: SessionAccess? = null,
     ): SessionHistoryContent {
+        require(reference == null || access == null)
+        require(access == null || referenceOrdinal == null)
+        validateAccess(caller, access)
         caller(caller)
         val message =
             if (reference == null) {
-                message(caller, messageId)
+                message(caller, messageId, access)
             } else {
                 require(referenceOrdinal == null)
                 requireNotNull(reference.rows[messageId]).also { captured ->
@@ -234,31 +253,25 @@ class SessionHistoryRepository(
         require(
             (
                 if (reference == null) {
-                    message(caller, messageId)
+                    message(caller, messageId, access)
                 } else {
                     requireNotNull(dao.message(reference.sourceSessionId, messageId))
                 }
             ).contentRef == message.contentRef,
         ) { "SESSION_MESSAGE_CHANGED" }
-        return SessionHistoryContent(content, ref.sha256)
+        val origin = if (referenceOrdinal == null) delegationForMessage(message.id) else null
+        validateAccess(caller, access)
+        return SessionHistoryContent(content, ref.sha256, origin)
     }
 
-    fun rename(
+    private fun validateAccess(
         caller: SessionHistoryCaller,
-        expectedTitle: String,
-        title: String,
-    ): Boolean {
-        require(caller.toolName == "session.rename")
-        require(expectedTitle.length <= 200 && title.isNotBlank() && title.length <= 200 && '\u0000' !in title)
-        return dao.rename(
-            caller.sessionId,
-            caller.turnId,
-            caller.callId,
-            expectedTitle,
-            title.trim(),
-            com.helix.core.storage.SearchText
-                .fold(title.trim()),
-        ) == 1
+        access: SessionAccess?,
+    ) {
+        if (access != null) {
+            require(access.readHistory) { "SESSION_DATA_UNAVAILABLE" }
+            requireNotNull(accessRepository).validate(caller, access)
+        }
     }
 
     companion object {

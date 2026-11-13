@@ -38,6 +38,17 @@ class SessionInputQueuePanelDeviceTest : ConversationDeviceTestFixture() {
     private val queue = RecordingInputQueue()
     private val activeTurn = mutableStateOf<String?>(null)
 
+    @Test fun delegatedQueueShowsOriginAndOnlySupportedActions() {
+        queue.record = checkNotNull(queue.record).copy(delegationSourceSessionId = "source-session")
+        render()
+        compose
+            .onNodeWithTag("session-input-origin-queued")
+            .assertTextEquals(context.getString(R.string.session_input_delegated_from, "source-session"))
+        compose.onNodeWithTag("session-input-edit-action-queued").assertDoesNotExist()
+        compose.onNodeWithTag("session-input-send-now-queued").assertDoesNotExist()
+        compose.onNodeWithTag("session-input-delete-queued").assertIsDisplayed()
+    }
+
     @Test fun withdrawalUsesDisplayedRevisionAndKeepsTheInputUntilTheCommandAcceptsIt() {
         val outcome = CompletableDeferred<Boolean>()
         queue.onWithdraw = { outcome }

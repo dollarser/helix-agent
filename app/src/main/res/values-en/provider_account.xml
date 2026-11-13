@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="provider_account_manage_title">%1$s · Subscription login</string>
+    <string name="provider_account_open_login">Sign in and sign out</string>
+    <string name="provider_account_operation_failed">The operation did not complete. Check the account status and try again.</string>
+    <string name="provider_account_failure">%1$s: %2$s</string>
+</resources>

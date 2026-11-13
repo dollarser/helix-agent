@@ -52,6 +52,8 @@ internal class WorkspaceSearch(
         PathGlob.matches(pattern, "", ignoreCase)
         excludes.forEach { PathGlob.matches(it, "", ignoreCase) }
         walk()
+        // Provider calls can finish after cancellation/deadline, including an empty final listing.
+        checkpoint()
         return buildJsonObject {
             put("path", JsonPrimitive(base.toModelReference()))
             put("matches", JsonArray(matches))

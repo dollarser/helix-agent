@@ -97,6 +97,8 @@ internal fun AppConversationRoute(
     onGit: () -> Unit = {},
     onOpenCommandDetail: (String, String) -> Unit = { _, _ -> },
     sessionExport: com.helix.app.export.SessionExportService? = null,
+    sessionAccess: com.helix.app.session.SessionAccessService? = null,
+    sessionCreation: com.helix.app.session.SessionCreationService? = null,
     connectors: com.helix.app.plugin.PluginService? = null,
     onManageExperts: () -> Unit = {},
     onExtensions: () -> Unit = {},
@@ -114,6 +116,7 @@ internal fun AppConversationRoute(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var renameId by remember { mutableStateOf<String?>(null) }
+    var accessSource by remember { mutableStateOf<com.helix.feature.conversation.presentation.SessionRowUi?>(null) }
     val sessionId = screen.openSessionId
     androidx.lifecycle.compose.LifecycleResumeEffect(chatService) {
         val view = chatService.showConversation()
@@ -923,6 +926,10 @@ internal fun AppConversationRoute(
                                 if (chatService.screen.value.openSessionId == sessionId) interruptionResult = original
                             },
                             onNew = { navigateAfterSave { chatService.newSessionDraft() } },
+                            onSessionAccess =
+                                sessionAccess?.let {
+                                    { accessSource = referenceSessions.firstOrNull { it.id == screen.openSessionId } }
+                                },
                             onRename = { renameId = screen.openSessionId },
                             onExport = sessionExport?.let { { exportSessionId = screen.openSessionId } },
                             onSend = onSendAction,
@@ -1066,6 +1073,28 @@ internal fun AppConversationRoute(
                 }
             },
         )
+    }
+
+    accessSource?.let { source ->
+        sessionAccess?.let { access ->
+            com.helix.feature.conversation.presentation.SessionAccessDialog(
+                source = source,
+                targets = referenceSessions,
+                load = { access.load(source.id) },
+                save = { access.save(source.id, it) },
+                loadCreation =
+                    sessionCreation?.let { creation ->
+                        { kotlinx.coroutines.withContext(Dispatchers.IO) { creation.allowed(source.id) } }
+                    },
+                saveCreation =
+                    sessionCreation?.let { creation ->
+                        { allowed ->
+                            kotlinx.coroutines.withContext(Dispatchers.IO) { creation.setAllowed(source.id, allowed) }
+                        }
+                    },
+                onDismiss = { accessSource = null },
+            )
+        }
     }
 
     renameId?.let { id ->

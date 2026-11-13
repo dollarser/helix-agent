@@ -74,6 +74,9 @@ interface AppContainer {
 
     val toolExecution: com.helix.app.application.tools.ToolExecution
 
+    val sessionAccessService: com.helix.app.session.SessionAccessService
+    val sessionDelegationService: com.helix.app.session.SessionDelegationService
+    val sessionCreationService: com.helix.app.session.SessionCreationService
     val chatService: ChatService
 
     val conversationDetails: com.helix.app.infrastructure.conversation.ConversationWorkspaceDetails

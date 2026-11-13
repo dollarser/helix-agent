@@ -1,12 +1,12 @@
 package com.helix.app.application.tools
 
 import com.helix.app.application.tools.DurableToolLoopProgress
+import com.helix.app.application.tools.ToolDispatchCall
+import com.helix.app.application.tools.ToolLoopResult
 import com.helix.core.agent.ToolLoopProgress
 import com.helix.core.model.Capability
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
-import com.helix.core.storage.entity.ToolCallEntity
-import com.helix.core.storage.entity.ToolResultEntity
 import com.helix.tools.framework.TimeNowTool
 import com.helix.tools.framework.ToolDescriptor
 import org.junit.Assert.assertEquals
@@ -19,19 +19,19 @@ class DurableToolLoopProgressTest {
         state: String = "COMPLETED",
         name: String = "read",
     ) = List(6) {
-        ToolCallEntity("c$it", "turn", "c$it", name, "1", "{}", "a".repeat(64), state, "intent $it")
+        ToolDispatchCall("c$it", "turn", "c$it", name, "1", "{}", "a".repeat(64), state, "intent $it")
     }
 
     private fun result(
         id: String,
         status: String = "SUCCEEDED",
         verified: Boolean = true,
-    ) = ToolResultEntity("r$id", id, status, "same result", null, verified)
+    ) = ToolLoopResult("r$id", id, status, "same result", null, verified)
 
     private fun decision(
-        calls: List<ToolCallEntity> = calls(),
+        calls: List<ToolDispatchCall> = calls(),
         descriptor: ToolDescriptor? = read,
-        resultFor: (String) -> ToolResultEntity? = { result(it) },
+        resultFor: (String) -> ToolLoopResult? = { result(it) },
     ) = DurableToolLoopProgress.fromHistory(calls, resultFor) { _, _ -> descriptor }
 
     @Test fun restoredRowsDetectTheSameLoopDespiteDifferentCallIdsAndIntents() {

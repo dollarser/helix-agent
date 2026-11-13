@@ -8,9 +8,10 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.agent.GoalTimeBudget
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.application.agent.GoalContinuationDriver
-import com.helix.app.application.agent.GoalRoundAllowance
-import com.helix.app.application.agent.GoalRunCoordinator
-import com.helix.app.application.agent.GoalTurnStart
+import com.helix.app.infrastructure.agent.GoalTurnStart
+import com.helix.app.infrastructure.agent.RoomGoalContinuationFacts
+import com.helix.app.infrastructure.agent.RoomGoalRoundAllowance
+import com.helix.app.infrastructure.agent.RoomGoalRunCommands
 import com.helix.app.infrastructure.agent.TurnRecovery
 import com.helix.app.recovery.GoalUsageReservations
 import com.helix.core.agent.GoalWakeReason
@@ -131,10 +132,10 @@ class GoalProcessKillDeviceTest {
         assertEquals(1, report.closedRuns.size)
         val goal = storage.goals.resolve(goalId)
         assertEquals("PAUSED", goal.state)
-        assertEquals(runs, GoalRoundAllowance(storage).used(goalId))
+        assertEquals(runs, RoomGoalRoundAllowance(storage).used(goalId))
         assertNull(storage.goalControls.find(goalId)?.pendingJson)
         assertEquals("Bound interrupted execution", goal.objective)
-        assertTrue(!GoalContinuationDriver(storage).isArmed("session", goalId))
+        assertTrue(!GoalContinuationDriver(RoomGoalContinuationFacts(storage)).isArmed("session", goalId))
         assertEquals(runs * 5_000L, goal.runTimeMillis)
         assertEquals(runs * 100L, goal.totalTokens)
         assertEquals(runs, goal.modelCalls)
@@ -149,7 +150,7 @@ class GoalProcessKillDeviceTest {
         if (runs == 2) {
             assertNotNull(coordinator(storage).start(request(goalId, "third")))
             assertEquals(3, storage.turns.listBySession("session").size)
-            assertEquals(3, GoalRoundAllowance(storage).used(goalId))
+            assertEquals(3, RoomGoalRoundAllowance(storage).used(goalId))
         }
     }
 
@@ -163,7 +164,7 @@ class GoalProcessKillDeviceTest {
     }
 
     private fun coordinator(storage: HelixStorage) =
-        GoalRunCoordinator(storage, clock(2_000)) {
+        RoomGoalRunCommands(storage, clock(2_000)) {
             UUID.randomUUID().toString()
         }
 

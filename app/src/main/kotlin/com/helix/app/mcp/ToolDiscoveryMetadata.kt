@@ -11,6 +11,7 @@ internal data class ToolDiscoveryMetadata(
     val source: String,
     val category: String,
     val searchText: String,
+    val fieldNames: Set<String>,
 ) {
     companion object {
         private val aliases = loadAliases()
@@ -18,6 +19,8 @@ internal data class ToolDiscoveryMetadata(
             aliases.getValue("categories").jsonObject.mapValues { it.value.jsonPrimitive.content }
         private val operationAliases =
             aliases.getValue("operations").jsonObject.mapValues { it.value.jsonPrimitive.content }
+        private val namespaceAliases =
+            aliases.getValue("namespaces").jsonObject.mapValues { it.value.jsonPrimitive.content }
 
         private fun loadAliases(): kotlinx.serialization.json.JsonObject {
             val stream = ToolDiscoveryMetadata::class.java.getResourceAsStream("/tool-discovery-aliases.json")
@@ -56,12 +59,13 @@ internal data class ToolDiscoveryMetadata(
                     category,
                     aliases,
                     operation,
-                    fields
-                        ?.keys
-                        ?.sorted()
-                        ?.joinToString(" ")
-                        .orEmpty(),
+                    namespaceAliases.filterKeys { name.startsWith("$it.") }.values.joinToString(" "),
                 ).joinToString(" ").lowercase(),
+                fields
+                    ?.keys
+                    ?.map { it.lowercase() }
+                    ?.toSet()
+                    .orEmpty(),
             )
         }
     }

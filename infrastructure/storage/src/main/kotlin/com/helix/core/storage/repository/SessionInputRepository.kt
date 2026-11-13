@@ -1,10 +1,8 @@
 package com.helix.core.storage.repository
 
 import com.helix.core.model.TurnState
-import com.helix.core.model.input.ConversationReferenceKind
 import com.helix.core.model.input.ConversationReferenceSnapshotInput
 import com.helix.core.model.input.InputAttachment
-import com.helix.core.model.input.InputConfiguration
 import com.helix.core.model.input.InputSkillActivation
 import com.helix.core.model.input.InputSkillActivations
 import com.helix.core.model.input.KnowledgeReferenceCodec
@@ -15,7 +13,6 @@ import com.helix.core.storage.content.ContentRef
 import com.helix.core.storage.content.ContentStore
 import com.helix.core.storage.entity.SessionInputAttachmentEntity
 import com.helix.core.storage.entity.SessionInputEntity
-import kotlinx.serialization.json.jsonPrimitive
 
 /** Bounded, transactionally accepted user intents. This repository never starts execution. */
 @Suppress("TooManyFunctions") // One transactional owner for acceptance, consumption and parked-input CAS.
@@ -24,6 +21,26 @@ class SessionInputRepository internal constructor(
     private val contentStore: ContentStore,
 ) {
     private val dao get() = database.sessionInputDao()
+
+    fun delegationReceipt(
+        source: String,
+        key: String,
+    ): SessionInputRecord? =
+        transaction {
+            val receipt = dao.delegationReceipt(source, key) ?: return@transaction null
+            requireNotNull(dao.byId(receipt.inputId)) { "SESSION_DELEGATION_UNAVAILABLE" }.record()
+        }
+
+    fun isDelegatedTurn(turnId: String): Boolean = transaction { dao.isDelegatedTurn(turnId) }
+
+    fun delegationTargetAllowed(
+        sourceTurnId: String,
+        targetSessionId: String,
+    ): Boolean = transaction { SessionInputDelegation(database).targetAllowed(sourceTurnId, targetSessionId) }
+
+    /** Same transaction as append; checking after context publication would be too late. */
+    fun delegationAllowed(record: SessionInputRecord): Boolean =
+        transaction { SessionInputDelegation(database).allowed(record) }
 
     fun sessionsWithPending(): List<String> = transaction { dao.sessionsWithPending() }
 
@@ -80,7 +97,9 @@ class SessionInputRepository internal constructor(
         transaction {
             require(at >= 0)
             val old = editable(inputId, expectedRevision) ?: return@transaction false
-            if (old.state != SessionInputState.PENDING.name || old.delivery != SessionInputDelivery.QUEUE.name ||
+            if (old.inputOrigin != "USER") return@transaction false
+            if (old.state != SessionInputState.PENDING.name ||
+                old.delivery != SessionInputDelivery.QUEUE.name ||
                 !targetAvailable(old.sessionId, SessionInputDelivery.STEER.name, expectedTurnId)
             ) {
                 return@transaction false
@@ -102,21 +121,7 @@ class SessionInputRepository internal constructor(
         contentStore.readBounded(ContentRef.parse(record.textRef), MAX_PENDING_BYTES.toInt())
 
     fun readReference(record: SessionInputRecord): ConversationReferenceSnapshotInput? =
-        record.reference?.let { reference ->
-            val ref = ContentRef.parse(reference.contentRef)
-            require(ref.sha256 == reference.contentSha256 && ref.size == reference.contentBytes)
-            ConversationReferenceSnapshotInput(
-                sourceSessionId = reference.sourceSessionId,
-                sourceSessionTitle = reference.sourceSessionTitle,
-                selectionKind = reference.selectionKind,
-                sourceMessageIds = reference.sourceMessageIds,
-                content =
-                    contentStore.readBounded(
-                        ref,
-                        ConversationReferenceSnapshotInput.MAX_CONTENT_BYTES,
-                    ),
-            )
-        }
+        record.materializeReference(contentStore)
 
     /** Both pending states occupy capacity; a blocked head is returned rather than skipped. */
     fun listPending(
@@ -205,6 +210,15 @@ class SessionInputRepository internal constructor(
                     referenceRef,
                 )
             dao.insert(row)
+            spec.delegation?.let { origin ->
+                dao.insertDelegationReceipt(
+                    com.helix.core.storage.entity.SessionDelegationReceiptEntity(
+                        origin.sourceSessionId,
+                        origin.requestKey,
+                        spec.inputId,
+                    ),
+                )
+            }
             replaceAttachments(spec)
             SessionInputAcceptResult.Accepted(row.record(), false)
         }
@@ -220,6 +234,7 @@ class SessionInputRepository internal constructor(
         require(replacement.inputId == inputId && replacement.revision == Math.addExact(expectedRevision, 1L))
         return transaction {
             val old = editable(inputId, expectedRevision) ?: return@transaction false
+            if (old.inputOrigin != "USER" || replacement.delegation != null) return@transaction false
             require(replacement.sessionId == old.sessionId)
             // A stale Steer may be edited while parked, but it cannot resume or be consumed.
             if (!validAttachments(replacement) || !targetOwned(replacement.sessionId, replacement.expectedTurnId)) {
@@ -383,7 +398,7 @@ class SessionInputRepository internal constructor(
     ): Boolean =
         transaction {
             val old = editable(inputId, expectedRevision) ?: return@transaction false
-            if (old.delivery != SessionInputDelivery.STEER.name) return@transaction false
+            if (old.inputOrigin != "USER" || old.delivery != SessionInputDelivery.STEER.name) return@transaction false
             val target = old.expectedTurnId?.let { database.turnDao().byId(it) } ?: return@transaction false
             if (!TurnState.valueOf(target.state).isTerminal) return@transaction false
             check(
@@ -417,6 +432,7 @@ class SessionInputRepository internal constructor(
             ) {
                 return@transaction false
             }
+            if (!delegationAllowed(old.record())) return@transaction false
             validateMapping(old, turnId, messageId)
             check(
                 dao.update(
@@ -471,10 +487,30 @@ class SessionInputRepository internal constructor(
 
     private fun acceptanceFailure(spec: SessionInputSpec): String? =
         when {
-            database.sessionDao().byId(spec.sessionId) == null -> "INPUT_SESSION_MISSING"
-            !validAttachments(spec) -> "INPUT_ATTACHMENT_CHANGED"
-            !targetAvailable(spec.sessionId, spec.delivery.name, spec.expectedTurnId) -> "INPUT_TARGET_UNAVAILABLE"
-            else -> null
+            spec.delegation != null && !SessionInputDelegation(database).validAcceptance(spec) -> {
+                "SESSION_DELEGATION_UNAVAILABLE"
+            }
+
+            spec.delegation != null &&
+                !delegationTargetAllowed(requireNotNull(spec.delegation).sourceTurnId, spec.sessionId) -> {
+                "SESSION_DELEGATION_CYCLE"
+            }
+
+            database.sessionDao().byId(spec.sessionId) == null -> {
+                "INPUT_SESSION_MISSING"
+            }
+
+            !validAttachments(spec) -> {
+                "INPUT_ATTACHMENT_CHANGED"
+            }
+
+            !targetAvailable(spec.sessionId, spec.delivery.name, spec.expectedTurnId) -> {
+                "INPUT_TARGET_UNAVAILABLE"
+            }
+
+            else -> {
+                null
+            }
         }
 
     private fun validAttachments(spec: SessionInputSpec): Boolean =
@@ -533,55 +569,11 @@ class SessionInputRepository internal constructor(
             record.expectedTurnId == spec.expectedTurnId && record.configuration == spec.configuration &&
             record.attachments == spec.attachments && readText(record) == spec.text &&
             readReference(record) == spec.reference && record.skillActivations == spec.skillActivations &&
-            record.knowledgeReferences == spec.knowledgeReferences
+            record.knowledgeReferences == spec.knowledgeReferences && record.delegation == spec.delegation
     }
 
     private fun SessionInputEntity.record() =
-        SessionInputRecord(
-            schemaVersion,
-            inputId,
-            sessionId,
-            sequence,
-            SessionInputDelivery.valueOf(delivery),
-            expectedTurnId,
-            revision,
-            textRef,
-            textBytes,
-            dao.attachments(inputId).map { InputAttachment(it.artifactId, it.boundSha256) },
-            InputConfiguration(providerId, modelId, mode, configurationFingerprint),
-            SessionInputState.valueOf(state),
-            consumedTurnId,
-            messageId,
-            requestModelCallId,
-            blockedReason,
-            createdAt,
-            updatedAt,
-            referenceRecord(),
-            InputSkillActivations.decode(skillActivationsJson),
-            skillActivationsRevoked,
-            KnowledgeReferenceCodec.decode(knowledgeReferencesJson),
-        )
-
-    private fun SessionInputEntity.referenceRecord(): InputConversationReference? {
-        val sourceId = referenceSourceSessionId ?: return null
-        val title = requireNotNull(referenceSourceSessionTitle)
-        val kind = ConversationReferenceKind.valueOf(requireNotNull(referenceSelectionKind))
-        val messageIds =
-            (
-                kotlinx.serialization.json.Json
-                    .parseToJsonElement(requireNotNull(referenceSourceMessageIdsJson))
-                    as kotlinx.serialization.json.JsonArray
-            ).map { it.jsonPrimitive.content }
-        return InputConversationReference(
-            sourceSessionId = sourceId,
-            sourceSessionTitle = title,
-            selectionKind = kind,
-            sourceMessageIds = messageIds,
-            contentRef = requireNotNull(referenceContentRef),
-            contentBytes = referenceContentBytes,
-            contentSha256 = requireNotNull(referenceContentSha256),
-        )
-    }
+        toInputRecord(dao.attachments(inputId).map { InputAttachment(it.artifactId, it.boundSha256) })
 
     private fun <T> transaction(block: () -> T): T =
         contentStore.withPublication { database.runInTransaction(java.util.concurrent.Callable { block() }) }

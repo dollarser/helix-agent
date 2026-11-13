@@ -22,6 +22,10 @@ class WebSearchSettings(
         return configuration.getOrNull(1) == "true" &&
             WebSearchProvider.entries.any { it.name == configuration.firstOrNull() }
     }
+    val nativeOpenAiEnabled: Boolean get() = lines.lines("native-openai").singleOrNull() == "true"
+
+    fun saveNativeOpenAi(enabled: Boolean) = lines.setLines("native-openai", listOf(enabled.toString()))
+
     val hasKey: Boolean get() = hasKey(provider)
 
     fun hasKey(provider: WebSearchProvider): Boolean = secrets.contains(keyAlias(provider))

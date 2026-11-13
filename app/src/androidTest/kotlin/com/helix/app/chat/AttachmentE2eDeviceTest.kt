@@ -6,8 +6,8 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.HelixApplication
 import com.helix.app.agent.ChatHistoryBuilder
-import com.helix.app.application.agent.GoalRoundAllowance
 import com.helix.app.composition.ConversationComposition
+import com.helix.app.infrastructure.agent.RoomGoalRoundAllowance
 import com.helix.app.infrastructure.chat.AttachmentStagingSupport
 import com.helix.app.internal.InMemoryLineStore
 import com.helix.app.language.AppLanguage
@@ -140,7 +140,7 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
                 assertEquals(14L, run.tokens)
                 assertNotNull(run.endedAt)
             }
-            assertEquals(1, GoalRoundAllowance(fixture.storage).used(goalId))
+            assertEquals(1, RoomGoalRoundAllowance(fixture.storage).used(goalId))
             assertEquals(
                 "BLOCKED(round-limit)",
                 fixture.storage.goals
@@ -505,7 +505,7 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
         val goal = fixture.storage.goals.resolve(goalId)
         assertEquals(modelCalls, goal.modelCalls)
         assertEquals(toolCalls, goal.toolCalls)
-        assertEquals(1, GoalRoundAllowance(fixture.storage).used(goalId))
+        assertEquals(1, RoomGoalRoundAllowance(fixture.storage).used(goalId))
         assertEquals("BLOCKED(round-limit)", goal.finishReason)
         fixture.storage.goalRuns
             .listByGoal(goalId)

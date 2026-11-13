@@ -1,12 +1,14 @@
 package com.helix.extensions.mcp
 
 import io.modelcontextprotocol.kotlin.sdk.client.Client
+import io.modelcontextprotocol.kotlin.sdk.types.BlobResourceContents
 import io.modelcontextprotocol.kotlin.sdk.types.ListResourceTemplatesRequest
 import io.modelcontextprotocol.kotlin.sdk.types.ListResourcesRequest
 import io.modelcontextprotocol.kotlin.sdk.types.PaginatedRequestParams
 import io.modelcontextprotocol.kotlin.sdk.types.ReadResourceRequest
 import io.modelcontextprotocol.kotlin.sdk.types.ReadResourceRequestParams
 import io.modelcontextprotocol.kotlin.sdk.types.TextResourceContents
+import kotlinx.coroutines.ensureActive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
@@ -65,19 +67,55 @@ internal class SdkMcpResources(
         return page
     }
 
-    suspend fun read(uri: String): List<McpResourceText> {
+    suspend fun read(uri: String): List<McpResourceContent> {
         requireResourceUri(uri)
         val result = client.readResource(ReadResourceRequest(ReadResourceRequestParams(uri)))
         require(result.contents.size in 1..64) { "MCP resource content count must be 1..64" }
-        var bytes = 0L
+        var textBytes = 0L
+        var binaryBytes = 0L
         return result.contents.map { content ->
-            if (content !is TextResourceContents) throw McpResourceException(McpResourceFailure.BINARY_UNSUPPORTED)
+            kotlinx.coroutines.currentCoroutineContext().ensureActive()
             if (content.uri != uri) throw McpResourceException(McpResourceFailure.URI_MISMATCH)
             require(content.mimeType == null || content.mimeType!!.length <= 256) { "MCP MIME type too large" }
-            val textBytes = content.text.toByteArray(Charsets.UTF_8)
-            bytes += textBytes.size
-            require(bytes <= 262144) { "MCP resource text exceeds 256 KiB" }
-            McpResourceText(content.uri, content.mimeType, content.text, hashFields(listOf(content.text)))
+            when (content) {
+                is TextResourceContents -> {
+                    textBytes += content.text.toByteArray(Charsets.UTF_8).size
+                    require(textBytes <= 262144) { "MCP resource text exceeds 256 KiB" }
+                    McpResourceText(content.uri, content.mimeType, content.text, hashFields(listOf(content.text)))
+                }
+
+                is BlobResourceContents -> {
+                    val encoded = content.blob
+                    require(encoded.length <= ((MAX_RESOURCE_BINARY_BYTES + 2) / 3 * 4)) {
+                        "MCP resource binary exceeds 1 MiB"
+                    }
+                    val decoded =
+                        java.util.Base64
+                            .getDecoder()
+                            .decode(encoded)
+                    require(
+                        java.util.Base64
+                            .getEncoder()
+                            .encodeToString(decoded) == encoded,
+                    ) {
+                        "MCP resource blob is not canonical base64"
+                    }
+                    binaryBytes += decoded.size
+                    require(binaryBytes <= MAX_RESOURCE_BINARY_BYTES) { "MCP resource binary exceeds 1 MiB" }
+                    val hash =
+                        java.security.MessageDigest
+                            .getInstance("SHA-256")
+                            .digest(decoded)
+                            .joinToString("") { "%02x".format(it) }
+                    McpResourceBlob(content.uri, content.mimeType, decoded, hash)
+                }
+
+                else -> {
+                    error("Unsupported MCP resource content")
+                }
+            }
         }
     }
 }
+
+internal const val MAX_RESOURCE_BINARY_BYTES = 1024 * 1024

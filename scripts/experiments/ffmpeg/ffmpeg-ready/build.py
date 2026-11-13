@@ -16,6 +16,8 @@ import venv
 
 from kit import HERE, ROOT, OUT, RECIPE, atomic_json, components, digest, identity, proof_matches, require, run, tree_manifest, validate_components
 
+from source_patches import patched_source
+
 HELPER = HERE.parent / 'build-ffmpeg-plus.py'
 HELPER_SHA = 'b688d55f8341221d352f5bdbce499f259517f4ce6ed121a70847274cd29d14c1'
 DEPS = [name for name in RECIPE['sources'] if name != 'ffmpeg']
@@ -144,6 +146,7 @@ def build_deps(module, target: str, jobs: int, tools: dict) -> None:
 def build(target: str, profile: str, jobs: int) -> None:
     require((OUT/'tools-venv/bin/meson').is_file(), 'Run build.py prepare first')
     snapshot('ffmpeg')
+    source = patched_source(OUT/'source/ffmpeg')
     module = helper()
     tools = toolchain(module, target)
     build_deps(module, target, jobs, tools)
@@ -174,7 +177,7 @@ def build(target: str, profile: str, jobs: int) -> None:
     if profile == 'ready-av1':
         flags += ['--enable-libdav1d']
     deps = json.loads((OUT/'proof'/f'deps-{target}.json').read_text())
-    key = identity({'flags':flags,'toolchain':tools,'dependencies':deps,'source':RECIPE['sources']['ffmpeg']})
+    key = identity({'flags':flags,'toolchain':tools,'dependencies':deps,'source':RECIPE['sources']['ffmpeg'],'patches':RECIPE['patches']})
     proof = OUT/'proof'/f'{profile}-{target}.json'
     if proof_matches(proof, key, install):
         require((obj/'config_components.h').is_file(), 'Missing component evidence')
@@ -185,11 +188,12 @@ def build(target: str, profile: str, jobs: int) -> None:
     remove_owned(install)
     obj.mkdir(parents=True)
     atomic_json(obj/'configure-argv.json',flags)
-    module.run([OUT/'source/ffmpeg/configure']+flags,cwd=obj,env=env,log=f'{profile}-{target}-configure.log')
+    module.run([source/'configure']+flags,cwd=obj,env=env,log=f'{profile}-{target}-configure.log')
     inventory = validate_components((obj/'config_components.h').read_text(),(obj/'config.h').read_text(),profile,target)
     module.run(['make',f'-j{jobs}'],cwd=obj,env=env,log=f'{profile}-{target}-build.log')
     module.run(['make','install'],cwd=obj,env=env,log=f'{profile}-{target}-install.log')
     snapshot('ffmpeg')
+    require(patched_source(OUT/'source/ffmpeg') == source, 'Patched source identity changed')
     atomic_json(obj/'capabilities.json',inventory)
     atomic_json(proof,{'key':key,'profile':profile,'target':target,'toolchain':tools,
                       'recipe_sha256':digest(HERE/'recipe.json'),'config_sha256':digest(obj/'config_components.h'),

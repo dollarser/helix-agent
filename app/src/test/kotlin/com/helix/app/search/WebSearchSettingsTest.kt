@@ -13,6 +13,18 @@ import org.junit.Test
 
 class WebSearchSettingsTest {
     @Test
+    fun nativeSearchOptInIsSeparateFromProviderCredentialsAndDefaultsOff() {
+        val lines = InMemoryLineStore()
+        val settings = WebSearchSettings(lines, MemorySecrets())
+        assertFalse(settings.nativeOpenAiEnabled)
+        settings.saveNativeOpenAi(true)
+        assertTrue(WebSearchSettings(lines, MemorySecrets()).nativeOpenAiEnabled)
+        assertNull(settings.configuredSearch())
+        settings.saveNativeOpenAi(false)
+        assertFalse(settings.nativeOpenAiEnabled)
+    }
+
+    @Test
     fun defaultsOffAndPersistsOnlyOptInOutsideSecretStore() {
         val lines = InMemoryLineStore()
         val settings = WebSearchSettings(lines, MemorySecrets())

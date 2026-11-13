@@ -117,10 +117,7 @@ internal class RoomSessionCatalog(
         title: String,
     ) {
         require(title.isNotBlank() && title.length <= 200 && '\u0000' !in title)
-        storage.withTransaction {
-            val row = storage.sessions.resolve(id)
-            storage.sessions.updateDetails(id, title, row.directoryRef)
-        }
+        require(storage.sessionAccess.userRename(id, title)) { "Session metadata changed" }
     }
 
     override fun create(
@@ -173,7 +170,9 @@ internal class RoomSessionCatalog(
         id: String,
         archived: Boolean,
     ) {
-        if (archived) storage.sessions.archive(id, clock.now().toEpochMilli()) else storage.sessions.restore(id)
+        require(
+            storage.sessionAccess.userSetArchived(id, archived, clock.now().toEpochMilli()),
+        ) { "Session metadata changed" }
     }
 
     /** Caller already revalidated the original input/session identity under the application gate. */

@@ -113,8 +113,8 @@ internal class RoomTurnLifecycleStore(
                 }
             val discarded = RoomGoalEditSettlement(storage, clock, idGenerator).settle(turnId)
             goalsToReconcile.forEach {
-                com.helix.app.application.agent
-                    .GoalRoundAllowance(
+                com.helix.app.infrastructure.agent
+                    .RoomGoalRoundAllowance(
                         storage,
                     ).blockIfExhausted(it)
             }

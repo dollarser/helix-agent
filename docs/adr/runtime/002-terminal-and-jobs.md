@@ -42,6 +42,8 @@ Deciders: Project owner（2026-10-15 要求按评审更新目标设计和任务�
 
 所有者选择复用既有执行通道，而非独立 `runtime/media` 或五种固定操作。固定 Ready-AV1 仅随 developer 的 PRoot 模块打包；guest `ffmpeg` / `ffprobe` 用原样 argv 调用 APK 内 Android/Bionic CLI。公开 Android 系统路径与 APK 原生目录的显式 PRoot 映射是 ABI 桥接，不把 Bionic 程序当成 Alpine/musl 包；不新增 Service、JNI 执行器、后台任务引擎或全局锁。
 
+媒体载荷映射到 guest `/data/helix-media`，匹配 Android linker 的系统 namespace 路由，使平台 sphal/gralloc 能被 MediaCodec 解析。该映射只绑定 APK 原生库和命令目录，不绑定宿主 `/data`、凭据或修改 Android linker 配置。
+
 PRoot 已有共享 UID、原 Job 进程组/取消/预算/日志/恢复语义保持。多输入和滤镜/字幕/编码策略交给模型与 FFmpeg；额外资源仍受原执行权限。显式 snapshot 的输入快照使用 Job 64 MiB/128 MiB 传输上限，stdout 和旧 result.txt 预览限额不因此扩大。仅 snapshot 沿 `output/` 文件导入发布约定；默认原位模式登记原文件引用，不复制文件正文。两路均按原 session/turn 幂等结算，不覆盖被用户改动的文件，不重跑命令补收取。
 
 Standard 不因本裁决加入 PRoot/FFmpeg，已有图片与视觉功能不变。编译组件、设备能力、输出文件完整性和媒体任务正确性分别反馈；未经过当前设备验证的 MediaCodec/Bionic-in-PRoot 路径不写成已验收。正式制品继续核对全部依赖、来源许可和 25 MB 增量门槛。
@@ -214,3 +216,11 @@ DocumentsContract 不保证独占创建、原子替换 rename、锁等 Git 所�
 Owner 明确授权在现有运行器上补脚本统一工具调用，不替换 PRoot、Jobs 或真实工作区。显式 `toolBridge=true` 且用户开启脚本委托时，按次随机 abstract Unix socket/proof 只通过瞬时 IPC/环境传入；不进 Job 记录、fingerprint、日志或模型参数。接受同 UID 且属于原 Job PID/startTicks/进程树的 socket peer，原进程身份不可读时仅有界等待，不重新启动。Python `import helix; helix.call(name,args)` 与 Node `import {call} from '/tmp/helix.mjs'` 进入同一网关；SDK 不重试，传输中断按结果未知处理。Node abstract socket 的官方适配依据见 [net IPC](https://nodejs.org/api/net.html#ipc-support)。stdout/stderr 在实时与归档之前跨块过滤完整 proof 和截断前缀，原始输出预算与持续 drain/进程组停止不变。
 
 前台桥随原调用结束关闭；后台 Job 只能在原 Turn 活跃、原持久 Job 未终结及批准 deadline 内保留，不能借短提交调用结束扩大权限或跨任务恢复。主进程/Runtime 重启不恢复临时能力，也不重放未确认请求。PRoot 与应用共享 UID，不声称强凭据隔离。Skill 仅将经固定 tree hash 校验的脚本资源暂存到 Job `/tmp/skill`，仍在用户选定的真实工作区执行，源资源无写回。stdin/日志/产物沿原运行器交付，不新增第二套任务循环。
+
+## Decision history — 2026-11-12：媒体 linker namespace
+
+HXA-240 API36 实测暴露 `/opt` guest 路径缺少 Android sphal namespace；媒体 guest 根改为 `/data/helix-media`，仍只绑定本 APK 载荷，不扩大宿主数据映射。字体选择与 MediaCodec 模式必须验证实际帧，不能仅依赖进程退出码。
+
+## Decision history — 2026-11-12：同步 MediaCodec 生命周期修复
+
+固定 FFmpeg 9.0.2 载荷增加可复建、逐文件 SHA 绑定的窄补丁：不再为 global-header 先发 dummy EOS 后 flush encoder。Android 仅定义 decoder flush，真实编码包及原 extradata BSF 保留配置数据。同步模式仍执行同步 API，未通过改成 async 或弱化输出验证掩盖失败。原始源码树保持不变，补丁树独立校验，制品身份锁显式更新，LGPL/组件/ABI/25MB门槛不变。

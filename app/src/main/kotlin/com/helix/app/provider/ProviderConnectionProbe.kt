@@ -29,10 +29,11 @@ internal class ProviderConnectionProbe(
         detectCapabilities: Boolean = false,
         modelId: String? = null,
         verifyGeneration: Boolean = false,
+        expectedConfig: ProviderConfig? = null,
     ): ProbeOutcome {
         val target = modelId ?: storedConfig(providerId).model
         ProviderSelectedModels.validate(listOf(target))
-        return runChecked(providerId, detectCapabilities, target, verifyGeneration)
+        return runChecked(providerId, detectCapabilities, target, verifyGeneration, expectedConfig)
     }
 
     private suspend fun runChecked(
@@ -40,6 +41,7 @@ internal class ProviderConnectionProbe(
         detectCapabilities: Boolean,
         modelId: String,
         verifyGeneration: Boolean,
+        expectedConfig: ProviderConfig?,
     ): ProbeOutcome {
         val account = refreshAccount(providerId)
         if (account != null && !account.ready) {
@@ -47,7 +49,13 @@ internal class ProviderConnectionProbe(
         }
         val (token, snapshot) =
             gate.begin(providerId, if (detectCapabilities) "capabilities:$modelId" else "connection") {
-                storage.providerConfigs.resolve(providerId) to storedConfig(providerId)
+                val current = storedConfig(providerId)
+                if (expectedConfig != null &&
+                    !sameProviderEditableConfig(current, expectedConfig)
+                ) {
+                    throw ProviderDraftSaveConflictException()
+                }
+                storage.providerConfigs.resolve(providerId) to current
             }
         val config = snapshot.second.copy(model = modelId)
         if (config.transport is com.helix.core.model.ProviderTransport.OnDeviceLocal) {
@@ -93,6 +101,7 @@ internal class ProviderConnectionProbe(
         detectCapabilities: Boolean,
         previous: ProviderCapabilities?,
     ) {
+        result.directory?.let { testStatus.modelMetadata.catalog(config.id, config.transport.cacheKey, it) }
         if (result.metadata.isNotEmpty()) {
             testStatus.modelMetadata.merge(config.id, config.transport.cacheKey, result.metadata)
         }
@@ -136,13 +145,15 @@ internal class ProviderConnectionProbe(
         } else if (result.generationAttempted) {
             testStatus.modelEvidence.generation(config.id, config.transport.cacheKey, config.model, failure)
         }
-        if (result.sourceFailure) {
+        val unsupported = outcome.detail == ProviderConnectionCheck.CATALOG_UNSUPPORTED
+        if (result.sourceFailure || (unsupported && testStatus.statusFor(config.id) !is ConnectionTestStatus.Passed)) {
             testStatus.recordFailed(
                 config.id,
                 clock.now().toEpochMilli(),
                 outcome.phase,
                 outcome.code,
                 outcome.retryable,
+                catalogUnsupported = unsupported,
             )
         }
     }
@@ -153,6 +164,8 @@ internal class ProviderConnectionProbe(
         val window: Long? = null,
         val generationAttempted: Boolean = false,
         val sourceFailure: Boolean = false,
+        val directoryOnly: Boolean = false,
+        val directory: com.helix.provider.api.ModelCatalogResult.Listed? = null,
     )
 
     private suspend fun collectResult(
@@ -174,15 +187,12 @@ internal class ProviderConnectionProbe(
                     provider,
                     includeVision = config.transport !is com.helix.core.model.ProviderTransport.OnDeviceLocal,
                 )
-            val metadata =
-                if (outcome is ProbeOutcome.Ok ||
-                    config.transport is com.helix.core.model.ProviderTransport.Network
-                ) {
-                    provider.modelMetadata()
-                } else {
-                    emptyMap()
-                }
-            val window = if (outcome is ProbeOutcome.Ok) provider.contextWindow(config.model) else null
+            val directoryOnly =
+                !detectCapabilities && !verifyGeneration &&
+                    config.provisioning == com.helix.core.model.ProviderProvisioningKind.USER_CONFIGURED
+            val metadata = collectMetadata(provider, config, outcome, directoryOnly)
+            val window =
+                if (outcome is ProbeOutcome.Ok && !directoryOnly) provider.contextWindow(config.model) else null
             Result(
                 outcome,
                 metadata,
@@ -190,9 +200,25 @@ internal class ProviderConnectionProbe(
                 connection?.generationAttempted == true,
                 connection?.sourceFailure == true ||
                     (outcome is ProbeOutcome.Failed && outcome.code == com.helix.core.model.ModelErrorCode.AUTH),
+                directoryOnly,
+                connection?.directory,
             )
         } catch (failure: com.helix.provider.api.local.LocalRuntimeException) {
             Result(ProbeOutcome.Failed(1, failure.code, failure.code.name, false))
+        }
+
+    private suspend fun collectMetadata(
+        provider: com.helix.provider.api.ModelProvider,
+        config: ProviderConfig,
+        outcome: ProbeOutcome,
+        directoryOnly: Boolean,
+    ): Map<String, com.helix.provider.api.ModelMetadata> =
+        if (!directoryOnly &&
+            (outcome is ProbeOutcome.Ok || config.transport is com.helix.core.model.ProviderTransport.Network)
+        ) {
+            provider.modelMetadata()
+        } else {
+            emptyMap()
         }
 
     private fun publishModelEvidence(
@@ -222,7 +248,7 @@ internal class ProviderConnectionProbe(
         publishModelEvidence(config, outcome, result.generationAttempted, detectCapabilities)
         if (!detectCapabilities) outcome.models?.let { testStatus.modelEvidence.catalog(providerId, identity, it) }
         if (config.model != current.model) {
-            discoverContextWindow(providerId, config.model, result.window)
+            if (!result.directoryOnly) discoverContextWindow(providerId, config.model, result.window)
             if (!detectCapabilities || testStatus.statusFor(providerId) !is ConnectionTestStatus.Passed) {
                 testStatus.recordPassed(
                     providerId,
@@ -234,7 +260,7 @@ internal class ProviderConnectionProbe(
             return
         }
         // Reuse this provider's catalog instead of cold-binding and fetching it twice.
-        discoverContextWindow(providerId, config.model, result.window)
+        if (!result.directoryOnly) discoverContextWindow(providerId, config.model, result.window)
         storage.providerConfigs.overwrite(
             storage.providerConfigs.resolve(providerId).let { e ->
                 ProviderConfigSpec(

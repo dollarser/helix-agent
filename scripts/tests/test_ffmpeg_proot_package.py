@@ -5,6 +5,7 @@ import importlib.util
 import json
 import tempfile
 import unittest
+import zipfile
 
 ROOT = Path(__file__).resolve().parents[2]
 SPEC = importlib.util.spec_from_file_location('prepare_ffmpeg', ROOT / 'scripts/prepare-ffmpeg-proot.py')
@@ -23,6 +24,16 @@ class PackageTests(unittest.TestCase):
         self.assertIn('assets/runtime/media/NOTICE.txt', entries)
         self.assertTrue(any('LICENSES/dav1d/' in k for k in entries))
         self.assertFalse(any(Path(k).suffix.lower() in {'.ttf', '.otf', '.ttc'} for k in entries))
+
+    def test_encoder_fix_recipe_patch_and_license_are_distributed(self):
+        with zipfile.ZipFile(CANDIDATE) as bundle:
+            prefix = 'scripts/debug/2026-10-01/ffmpeg-ready/'
+            recipe = json.loads(bundle.read(prefix + 'recipe.json'))
+            for name, record in recipe['patches'].items():
+                self.assertEqual(record['sha256'], MODULE.digest(bundle.read(prefix + name)))
+            self.assertIn('LICENSES/ffmpeg/COPYING.LGPLv2.1', bundle.namelist())
+            self.assertIn(prefix + 'source_patches.py', bundle.namelist())
+            self.assertIn(b'encoder-flush', bundle.read('NOTICE.txt'))
 
     def test_repeated_extraction_has_identical_content(self):
         with tempfile.TemporaryDirectory() as folder:

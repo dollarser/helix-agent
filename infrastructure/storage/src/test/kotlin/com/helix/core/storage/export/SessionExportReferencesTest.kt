@@ -8,6 +8,33 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class SessionExportReferencesTest {
+    @Test fun delegationEdgesDoNotIncludeUnselectedSourceHistory() {
+        val data =
+            Json
+                .parseToJsonElement(
+                    """{"delegationSourceSessionId":"source","delegationSourceTurnId":"turn",
+              "delegationSourceCallId":"call"}""",
+                ).jsonObject
+        val references =
+            SessionExportReferences { false }
+                .describe(SessionExportType.MESSAGE, data)
+                .getValue("references")
+                .jsonArray
+        val sourceEdges =
+            references
+                .map { it.jsonObject }
+                .filter {
+                    it
+                        .getValue("field")
+                        .jsonPrimitive.content
+                        .startsWith("delegation")
+                }
+        assertEquals(3, sourceEdges.size)
+        sourceEdges.forEach {
+            assertEquals("not_in_selected_snapshot", it.getValue("status").jsonPrimitive.content)
+        }
+    }
+
     @Test fun modelStepReferencesThePersistedToolMessage() {
         val data = Json.parseToJsonElement("""{"turnId":"turn","toolMessageId":"batch"}""").jsonObject
         val references =

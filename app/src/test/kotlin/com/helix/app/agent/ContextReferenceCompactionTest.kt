@@ -1,5 +1,6 @@
 package com.helix.app.agent
 
+import com.helix.core.agent.ContextCapacityException
 import com.helix.core.agent.ContextCompiler
 import com.helix.core.agent.ContextSourceRow
 import com.helix.core.agent.ContextSourceSnapshot
@@ -11,6 +12,7 @@ import com.helix.provider.api.ProviderContextSettings
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -68,7 +70,12 @@ class ContextReferenceCompactionTest {
             request(rows).let {
                 it.copy(messages = it.messages.dropLast(1) + it.messages.last().copy(text = "tampered reference"))
             }
-        assertNull(plan(rows, request))
+        assertEquals(
+            "CONTEXT_NOT_COMPACTABLE",
+            assertThrows(ContextCapacityException::class.java) {
+                plan(rows, request)
+            }.code,
+        )
     }
 
     @Test fun summaryUsesFrozenContentRatherThanLaterReferenceInput() {

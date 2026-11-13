@@ -2,6 +2,7 @@ package com.helix.app.proot
 
 import com.helix.runtime.proot.ipc.ProotJobCommand
 import com.helix.runtime.proot.ipc.ProotJobSpec
+import com.helix.tools.framework.ExecutionOwnership
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import org.junit.Assert.assertEquals
@@ -43,6 +44,23 @@ class DetachedJobBindingTest {
         val malformed = JsonObject(payload() + ("inputManifestSha256" to JsonPrimitive("bad")))
         assertThrows(IllegalArgumentException::class.java) {
             ProotJobBindingStore.detachedBinding(malformed, "session", "call")
+        }
+    }
+
+    @Test fun admissionRejectsForeignSynchronousAndMalformedHandlesWithoutRuntimeAccess() {
+        val valid = payload().toString()
+        assertEquals("exec-1", ProotJobBindingStore.controlBinding(valid, "session", "call").executionId)
+        listOf(
+            Triple(valid, "foreign", "call"),
+            Triple(valid, "session", "other-call"),
+            Triple(JsonObject(payload() - "executionMode").toString(), "session", "call"),
+            Triple("{}", "session", "call"),
+            Triple("[]", "session", "call"),
+            Triple("not-json", "session", "call"),
+        ).forEach { (json, session, call) ->
+            assertThrows(ExecutionOwnership.ControlBindingRejected::class.java) {
+                ProotJobBindingStore.controlBinding(json, session, call)
+            }
         }
     }
 

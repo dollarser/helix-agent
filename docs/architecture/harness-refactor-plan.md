@@ -1550,6 +1550,12 @@ JSONL 保留按需导出与独立离线读取，Room/ContentStore 持久事实�
 | [SystemPromptContext](../../app/src/main/kotlin/com/helix/app/application/context/SystemPromptContext.kt) 已有统一来源/授权处理，但依赖具体存储与 MemoryService | 分离事实取得与纯内容映射；不重建 Compiler 或改变检索策略 |
 | [根构建配置](../../build.gradle.kts) 已有集中式模块依赖表，项目依赖使用 implementation；[架构护栏](../../scripts/tests/test_agent_layer_boundaries.py) 已限制 Core/App/UI 方向 | 并非完全没有依赖治理；仍需防止同 App 模块内绕行及未覆盖的 application→infrastructure 依赖 |
 
+**2026-11-12 Goal 协调与工具网关剩余存储依赖收敛：**
+
+- Goal 创建、启动/恢复、轮次和解除阻塞的完整事务命令归 `infrastructure/agent`，纯 reducer 保持在 Core；原 application 转发实现删除，当前调用者全部迁移。plan/Turn 的外层事务继续包含 Goal 创建，恢复启动失败不能留下半份预算结算或新 Run。
+- 工具网关注入 `ToolGatewayStore` 与 `ToolSettlementStore`；Turn/Call、循环历史和请求来源使用应用事实类型，不泄漏 Room entity，也不在网关中构造存储适配。审批、脚本归属、预算预留、结果结算及展示先后语义保留。
+- 应用 agent/tools 全目录新增 storage/infrastructure 引用护栏，包含全限定名；本片不宣称时间租约、其他旧 agent 持久职责或总体蓝图全部迁完。设计取舍与验证边界见 [ADR-AGENT-001](../adr/agent/001-turn-coordination.md)。
+
 **2026-11-08 迁移及 SAF 发布边界收尾：**
 
 - `feature:conversation` 已承接会话 presentation/application、草稿和回执状态机，原 conversation-input 模块删除；会话通过窄端口连接 App 的 Room/附件/知识/模型适配，不依赖 App 或 storage。`ui:shared` 独立持有共享呈现和预览资源，不反向读取 feature/App/storage。Room/ContentStore 已迁为 `infrastructure:storage`；存储 Kotlin/JNI/schema 身份不改，不增第二数据库或历史兼容链。当前接线见[总体架构](overview.md#当前目录与单一权威)。
@@ -1675,7 +1681,7 @@ feature 内优先按能力组织，再区分 presentation/application；不把�
 | [SessionInputModels](../../infrastructure/storage/src/main/kotlin/com/helix/core/storage/repository/SessionInputModels.kt) | 输入规格、配置、接受结果与持久记录同处 repository 包 | C 按用户意图、已验证快照、持久记录分清归属；文件可用 `SessionInput.kt`、`SessionInputRecord.kt` 等主要概念命名，不强制每类型一文件，不把所有 Spec 机械改成 Command |
 | [AgentLoopHost](../../app/src/main/kotlin/com/helix/app/agent/AgentLoopHost.kt) | 实现 TurnLoopRunner，负责 Core Loop 的应用接线与 Goal 时间控制；Host 表意偏宽 | B 明确剩余职责后可用 `AppTurnLoopRunner`；继续调用唯一 Core AgentLoop，不因改名创建第二 Engine/Loop |
 | [SystemPromptContext](../../app/src/main/kotlin/com/helix/app/application/context/SystemPromptContext.kt) | 名称像数据对象，实际涉及事实取得、来源注册和内容组装 | D 分离事实读取与映射后，组装部分可用 `SystemPromptAssembler`；复用 PromptRegistry/Compiler，不只改名或顺带改检索策略 |
-| [ToolSettlementWriter](../../app/src/main/kotlin/com/helix/app/application/tools/ToolSettlementWriter.kt) | 实际持久事务实现位于 application 包，位置比 Writer 后缀更误导 | C 将持久实现归 infrastructure；若保留具体 Room 实现，可用 `RoomToolSettlementWriter`，不为前缀另造无消费者接口；保持 ToolResult/ToolCall/budget 原子结算 |
+| [RoomToolSettlementWriter](../../app/src/main/kotlin/com/helix/app/infrastructure/tools/RoomToolSettlementWriter.kt) | 已迁入 infrastructure，应用结算仅依赖完整命令端口 | 保持 ToolResult/ToolCall/budget 原子结算；拒绝路径的审计与预算由同一 Room adapter 提交，不暴露通用事务回调 |
 | [TurnRuntimeSnapshot](../../app/src/main/kotlin/com/helix/app/infrastructure/agent/TurnRuntimeRecordCodec.kt) | 应用消费的配置/用量快照藏在基础设施 Codec 文件中，容易混同实时观察状态 | C 将类型独立到实际契约归属；只有需要明确区分实时快照时才考虑 `PersistedTurnRuntimeSnapshot`，不能把它改成 UiState 或丢掉持久配置/用量语义 |
 
 **名字准确时，优先调整归属，不强制改名：**

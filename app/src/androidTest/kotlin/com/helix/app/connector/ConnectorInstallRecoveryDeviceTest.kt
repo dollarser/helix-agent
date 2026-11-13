@@ -8,7 +8,9 @@ import com.helix.app.plugin.PluginService
 import com.helix.core.model.SecretAlias
 import com.helix.extensions.plugin.PluginPackageReader
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -20,6 +22,8 @@ class ConnectorInstallRecoveryDeviceTest {
     private val marker get() = File(app.filesDir, "connector-install-recovery-fixture.txt")
     private val identity = "test:connector-process-recovery"
     private val session = "connector-process-recovery-session"
+    private val revokeSelection
+        get() = InstrumentationRegistry.getArguments().getString("revokeSelection") == "true"
 
     @Test
     fun prepare() {
@@ -28,6 +32,7 @@ class ConnectorInstallRecoveryDeviceTest {
         val old = c.pluginService.install(bundle("old"), identity)
         c.storage.sessions.create(session, "Recovery", null, null, 0)
         c.pluginService.catalog.select(session, old.id, true)
+        if (revokeSelection) c.pluginService.catalog.select(session, old.id, false)
         c.storage.secrets.put(SecretAlias(old.endpoints.single().id), "synthetic-recovery")
         val fields =
             listOf(phase, Process.myPid().toString(), old.id, old.hash, old.endpoints.single().id) +
@@ -66,13 +71,20 @@ class ConnectorInstallRecoveryDeviceTest {
         c.pluginService.cleanupRetired()
         // Preserve the exact pre-kill selection, including legitimate bundled channel plugins.
         val selectedBefore = fields.drop(5).toSet()
-        assertTrue(installed.id in selectedBefore)
+        assertEquals(!revokeSelection, installed.id in selectedBefore)
         assertEquals(selectedBefore, c.pluginService.catalog.selected(session))
-        assertTrue(
-            c.skillRepository.read(installed.skills.single(), session).body.contains(
-                if (fields[0] == "after-commit") "new" else "old",
-            ),
-        )
+        val key = installed.skills.single()
+        val content =
+            if (revokeSelection) {
+                assertFalse(c.pluginService.catalog.endpointAvailable(installed.endpoints.single().id, session))
+                assertFalse(c.pluginService.catalog.skillAvailable(key, session))
+                assertThrows(IllegalArgumentException::class.java) { c.skillRepository.read(key, session) }
+                // Management inspection observes persisted bytes without selecting or activating the skill.
+                c.skillRepository.inspect(key)
+            } else {
+                c.skillRepository.read(key, session)
+            }
+        assertTrue(content.body.contains(if (fields[0] == "after-commit") "new" else "old"))
         assertTrue(
             app.cacheDir
                 .listFiles()

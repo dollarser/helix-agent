@@ -11,6 +11,27 @@ import com.helix.core.storage.entity.SessionInputEntity
 @Dao
 @Suppress("TooManyFunctions") // Room requires explicit bounded reads and writes for both related tables.
 interface SessionInputDao {
+    @Query("SELECT * FROM session_delegation_receipts WHERE sourceSessionId = :source AND requestKey = :key")
+    fun delegationReceipt(
+        source: String,
+        key: String,
+    ): com.helix.core.storage.entity.SessionDelegationReceiptEntity?
+
+    @Insert
+    fun insertDelegationReceipt(receipt: com.helix.core.storage.entity.SessionDelegationReceiptEntity)
+
+    @Query(
+        "SELECT EXISTS(SELECT 1 FROM session_inputs WHERE consumedTurnId = :turnId " +
+            "AND inputOrigin = 'MODEL_DELEGATION')",
+    )
+    fun isDelegatedTurn(turnId: String): Boolean
+
+    @Query(
+        "SELECT DISTINCT delegationSourceSessionId AS sessionId, delegationSourceTurnId AS turnId " +
+            "FROM session_inputs WHERE consumedTurnId = :turnId AND inputOrigin = 'MODEL_DELEGATION'",
+    )
+    fun delegationParents(turnId: String): List<SessionDelegationParent>
+
     @Query("SELECT * FROM session_inputs WHERE inputId = :id")
     fun byId(id: String): SessionInputEntity?
 
@@ -178,3 +199,9 @@ interface SessionInputDao {
     @Query("SELECT COUNT(*) FROM session_inputs WHERE textRef = :contentRef OR referenceContentRef = :contentRef")
     fun countByContentRef(contentRef: String): Int
 }
+
+/** Only durable ancestry identity, never history bodies or mutable execution state. */
+data class SessionDelegationParent(
+    val sessionId: String,
+    val turnId: String,
+)

@@ -201,6 +201,7 @@ class ExecutionOwnership(
         override fun execute(call: ExecutableToolCall): ToolExecutorResult =
             ToolExecutorResult.Failed("Native execution requires its host guard.", sideEffectFree = true)
 
+        @Suppress("ReturnCount") // Invalid binding and busy control are distinct pre-effect refusals.
         fun runGuarded(
             call: ExecutableToolCall,
             host: ExecutionOwnership,
@@ -225,6 +226,7 @@ class ExecutionOwnership(
         override fun execute(call: ExecutableToolCall): ToolExecutorResult =
             ToolExecutorResult.Failed("Metadata requires its host execution guard.", sideEffectFree = true)
 
+        @Suppress("ReturnCount") // Invalid binding and busy control are distinct pre-effect refusals.
         fun runGuarded(
             call: ExecutableToolCall,
             host: ExecutionOwnership,
@@ -241,6 +243,9 @@ class ExecutionOwnership(
         }
     }
 
+    /** Trusted resolver rejection before control admission; never catches failures from the action. */
+    class ControlBindingRejected : IllegalArgumentException("Original execution binding is unavailable")
+
     /** Only trusted platform wiring supplies the binding resolver; model metadata cannot opt in. */
     fun controlExecutor(
         resolve: (ExecutableToolCall) -> Owner,
@@ -254,12 +259,22 @@ class ExecutionOwnership(
         override fun execute(call: ExecutableToolCall): ToolExecutorResult =
             ToolExecutorResult.Failed("Runtime control requires execution admission.", sideEffectFree = true)
 
+        @Suppress("ReturnCount") // Invalid binding and busy control are distinct pre-effect refusals.
         fun runGuarded(
             call: ExecutableToolCall,
             host: ExecutionOwnership,
         ): ToolExecutorResult {
             check(host === this@ExecutionOwnership) { "control belongs to another admission host" }
-            val original = resolve(call)
+            val original =
+                try {
+                    resolve(call)
+                } catch (_: ControlBindingRejected) {
+                    return ToolExecutorResult.Failed(
+                        "JOB_HANDLE_INVALID: original execution is unavailable in this session; " +
+                            "no control action started.",
+                        sideEffectFree = true,
+                    )
+                }
             val permit = acquireControl(original) ?: return busy()
             return permit.use {
                 invoke(call, it.takeIf { it.wasRetained })

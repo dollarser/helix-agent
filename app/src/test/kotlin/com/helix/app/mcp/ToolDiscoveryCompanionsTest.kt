@@ -4,6 +4,8 @@ import com.helix.core.model.ToolName
 import com.helix.tools.framework.ToolOrigin
 import com.helix.tools.framework.ToolRegistry
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ToolDiscoveryCompanionsTest {
@@ -59,5 +61,48 @@ class ToolDiscoveryCompanionsTest {
         val available = listOf(huge, recent, observe)
         assertEquals(listOf(recent, observe), ToolDiscoveryWorkset.retain(emptyList(), listOf(recent), available))
         assertEquals(listOf(huge), ToolDiscoveryWorkset.retain(listOf(huge), listOf(recent), available))
+    }
+
+    @Test fun recentGroupsAreChargedForModelOnlyMetadataAndRemainDiscoverable() {
+        val recent = tool("sample.act", "sample.observe")
+        val observe = tool("sample.observe")
+
+        fun rawBytes(tool: com.helix.tools.framework.ToolDescriptor): Long =
+            tool.name.value
+                .toByteArray()
+                .size +
+                tool.description
+                    .toByteArray()
+                    .size
+                    .toLong() +
+                tool.inputSchema
+                    .toString()
+                    .toByteArray()
+                    .size + 128L
+        val rawGroup = rawBytes(recent) + rawBytes(observe)
+        val newBase =
+            tool("sample.new").copy(
+                inputSchema =
+                    kotlinx.serialization.json.buildJsonObject {
+                        put("type", kotlinx.serialization.json.JsonPrimitive("object"))
+                        put("description", kotlinx.serialization.json.JsonPrimitive(""))
+                    },
+            )
+        val padding = (64 * 1024L - rawGroup - rawBytes(newBase) - 100).toInt()
+        val current =
+            newBase.copy(
+                inputSchema =
+                    kotlinx.serialization.json.buildJsonObject {
+                        put("type", kotlinx.serialization.json.JsonPrimitive("object"))
+                        put("description", kotlinx.serialization.json.JsonPrimitive("x".repeat(padding)))
+                    },
+            )
+        val available = listOf(current, recent, observe)
+        assertTrue(available.sumOf(::rawBytes) <= 64 * 1024L)
+        assertTrue(available.sumOf(ToolDiscoveryWorkset::bytes) > 64 * 1024L)
+        val selected = ToolDiscoveryWorkset.retain(listOf(current), listOf(recent), available)
+        assertEquals(listOf(current), selected)
+        assertFalse(recent in selected || observe in selected)
+        assertEquals(listOf(recent, observe), ToolDiscoveryWorkset.complete(listOf(recent), available))
     }
 }

@@ -47,6 +47,7 @@ data class ProviderRowUi(
     val modelGenerations: Map<String, ProviderModelVerification> = emptyMap(),
     val accountState: ManagedAccountSnapshot? = null,
     val builtInCatalog: BuiltInModelCatalog? = null,
+    val configuration: ProviderConfig? = null,
 ) {
     val bundled: Boolean get() = provisioning == ProviderProvisioningKind.BUNDLED_SERVICE
     val managedExternally: Boolean get() = provisioning == ProviderProvisioningKind.MANAGED_ACCOUNT
@@ -267,6 +268,7 @@ internal fun providerRowUi(
     }
     return ProviderRowUi(
         id = entity.id,
+        configuration = config,
         displayName = entity.displayName,
         protocol = (config.transport as? ProviderTransport.Network)?.protocol,
         origin = (config.transport as? ProviderTransport.Network)?.endpoint?.origin.orEmpty(),

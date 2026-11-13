@@ -129,7 +129,7 @@ class ConversationReferenceLoopTest {
             dao.activeTurn = fixture.journal.id
             dao.activeCall = request.callId
             val registry = ToolRegistry()
-            SessionTools.register(registry, SessionHistoryRepository(dao, store))
+            SessionTools.register(registry, SessionHistoryRepository(dao, store), dao.accessRepository())
             val result =
                 requireNotNull(registry.executor(ToolName(request.name), ToolVersion(1))).execute(
                     ExecutableToolCall(

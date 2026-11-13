@@ -7,9 +7,11 @@ import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolSchemaValidation
 import com.helix.tools.framework.ToolSchemaValidator
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
@@ -84,6 +86,163 @@ class BrowserToolsMappingTest {
             )
         assertEquals("false", exact.getValue("urlTruncated").jsonPrimitive.content)
         assertEquals("false", exact.getValue("titleTruncated").jsonPrimitive.content)
+    }
+
+    @Test
+    fun textSnapshotOmitsNodesButPreservesObservationAndDefaultFullView() {
+        val nodes =
+            List(100) { index ->
+                BrowserNodeView(index, "link", "Page $index", "", "https://example.com/$index", "", "token-$index")
+            }
+        val original =
+            bridge.snapshotResult.copy(
+                nodes = nodes,
+                nodeCount = nodes.size,
+                truncated = true,
+                text = "Ordinary page paragraph.",
+                textTruncated = false,
+                observedAtMillis = 1234,
+                navigationGeneration = 7,
+            )
+        bridge.snapshotResult = original
+        val descriptor =
+            BrowserSnapshotTool.descriptor(
+                com.helix.tools.framework.ToolOrigin
+                    .PluginOrigin("browser", "0.1.0", "browser"),
+            )
+
+        fun snapshot(view: String?): JsonObject {
+            val args =
+                buildJsonObject {
+                    put("tabId", "t1")
+                    if (view != null) put("view", view)
+                }
+            assertEquals(ToolSchemaValidation.Valid, ToolSchemaValidator.validate(descriptor.inputSchema, args))
+            val output = json(run(BrowserSnapshotTool.NAME, BrowserSnapshotTool.executor(bridge), args))
+            assertEquals(ToolSchemaValidation.Valid, ToolSchemaValidator.validate(descriptor.outputSchema, output))
+            return output
+        }
+        val full = snapshot(null)
+        assertEquals(full, snapshot("full"))
+        assertEquals("full", full.getValue("view").jsonPrimitive.content)
+        assertEquals(
+            "token-0",
+            full
+                .getValue("nodes")
+                .let { it as kotlinx.serialization.json.JsonArray }[0]
+                .jsonObject
+                .getValue("token")
+                .jsonPrimitive.content,
+        )
+        val text = snapshot("text")
+        assertEquals("text", text.getValue("view").jsonPrimitive.content)
+        assertFalse(text.containsKey("nodes"))
+        assertEquals("100", text.getValue("nodeCount").jsonPrimitive.content)
+        assertEquals(
+            full.filterKeys { it != "nodes" && it != "view" },
+            text.filterKeys {
+                it != "view" && it != "links" &&
+                    it != "linksTruncated"
+            },
+        )
+        assertTrue(text.toString().length < full.toString().length / 2)
+        assertEquals(original, bridge.snapshotResult)
+        assertEquals(3, bridge.snapshotCalls)
+    }
+
+    @Test
+    fun textSnapshotKeepsIndependentTextAndSourceTruncationFacts() {
+        bridge.snapshotResult =
+            bridge.snapshotResult.copy(
+                url = "a".repeat(MAX_URL - 1) + "😀tail",
+                title = "a".repeat(MAX_NODE_TEXT - 1) + "😀tail",
+                text = "a".repeat(11999) + "😀tail",
+                truncated = false,
+            )
+        val output =
+            json(
+                run(
+                    BrowserSnapshotTool.NAME,
+                    BrowserSnapshotTool.executor(bridge),
+                    buildJsonObject {
+                        put("tabId", "t1")
+                        put("view", "text")
+                    },
+                ),
+            )
+        assertEquals("a".repeat(MAX_URL - 1), output.getValue("url").jsonPrimitive.content)
+        assertEquals("a".repeat(MAX_NODE_TEXT - 1), output.getValue("title").jsonPrimitive.content)
+        assertEquals("a".repeat(11999), output.getValue("text").jsonPrimitive.content)
+        for (key in listOf("urlTruncated", "titleTruncated", "textTruncated")) {
+            assertEquals("true", output.getValue(key).jsonPrimitive.content)
+        }
+        assertEquals("false", output.getValue("truncated").jsonPrimitive.content)
+        assertFalse(output.containsKey("nodes"))
+    }
+
+    @Test
+    fun textSnapshotPreservesSourceTextTruncationWithoutTreeTruncation() {
+        bridge.snapshotResult =
+            bridge.snapshotResult.copy(
+                text = "Partial paragraph within the output length limit.",
+                textTruncated = true,
+                truncated = false,
+            )
+        val output =
+            json(
+                run(
+                    BrowserSnapshotTool.NAME,
+                    BrowserSnapshotTool.executor(bridge),
+                    buildJsonObject {
+                        put("tabId", "t1")
+                        put("view", "text")
+                    },
+                ),
+            )
+        assertEquals(bridge.snapshotResult.text, output.getValue("text").jsonPrimitive.content)
+        assertEquals("true", output.getValue("textTruncated").jsonPrimitive.content)
+        assertEquals("false", output.getValue("truncated").jsonPrimitive.content)
+        assertEquals("text", output.getValue("view").jsonPrimitive.content)
+        assertFalse(output.containsKey("nodes"))
+    }
+
+    @Test
+    fun invalidSnapshotViewsFailBeforeObservation() {
+        for (view in listOf(JsonPrimitive("unknown"), JsonPrimitive(1), JsonNull)) {
+            val result =
+                run(
+                    BrowserSnapshotTool.NAME,
+                    BrowserSnapshotTool.executor(bridge),
+                    buildJsonObject {
+                        put("tabId", "t1")
+                        put("view", view)
+                    },
+                )
+            assertTrue(failed(result).detail.contains("'view'"))
+        }
+        assertEquals(0, bridge.snapshotCalls)
+    }
+
+    @Test
+    fun textSnapshotPreservesFailureAndCancellation() {
+        val args =
+            buildJsonObject {
+                put("tabId", "t1")
+                put("view", "text")
+            }
+        val executor = BrowserSnapshotTool.executor(bridge)
+        val cancelled =
+            call(BrowserSnapshotTool.NAME, args).copy(
+                cancel =
+                    object : CancelSignal {
+                        override fun isCancelled(): Boolean = true
+                    },
+            )
+        assertEquals(ToolExecutorResult.Cancelled, executor.execute(cancelled))
+        assertEquals(0, bridge.snapshotCalls)
+        bridge.snapshotResult = bridge.snapshotResult.copy(ok = false, message = "no page")
+        assertEquals("no page", failed(executor.execute(call(BrowserSnapshotTool.NAME, args))).detail)
+        assertEquals(1, bridge.snapshotCalls)
     }
 
     @Test
@@ -1087,7 +1246,12 @@ class BrowserToolsMappingTest {
 
         override fun reload(tabId: String): ReloadOutcome = reloadResult
 
-        override fun snapshot(tabId: String): SnapshotOutcome = snapshotResult
+        var snapshotCalls = 0
+
+        override fun snapshot(tabId: String): SnapshotOutcome {
+            snapshotCalls++
+            return snapshotResult
+        }
 
         override fun find(
             tabId: String,

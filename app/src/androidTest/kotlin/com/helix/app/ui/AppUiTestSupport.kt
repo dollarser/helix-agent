@@ -16,6 +16,7 @@ import com.helix.app.AppContainer
 import com.helix.app.HelixApplication
 import com.helix.app.language.AppLanguage
 import com.helix.app.language.AppLanguageStore
+import com.helix.core.model.ProviderProvisioningKind
 import com.helix.core.model.SafetyProfile
 import kotlinx.coroutines.runBlocking
 
@@ -86,10 +87,21 @@ fun editableProviderTag(tag: String) = hasTestTag(tag) and editableProviderRow()
 
 fun editableProviderText(text: String) = hasText(text, substring = true) and editableProviderRow()
 
-private fun editableProviderRow() =
-    hasAnyAncestor(
-        hasTestTag("provider-row") and hasAnyDescendant(hasTestTag("provider-edit")),
+private fun editableProviderRow(): androidx.compose.ui.test.SemanticsMatcher {
+    val application =
+        InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as HelixApplication
+    // These end-to-end fixtures delete prior editable services, then create exactly one.
+    // Resolve that durable identity rather than matching a shared action or localized label.
+    val fixtures =
+        application.appContainer.providerService.rows.value.filter {
+            !it.bundled && !it.managedExternally && it.provisioning == ProviderProvisioningKind.USER_CONFIGURED
+        }
+    check(fixtures.size == 1) { "Expected one editable provider fixture, found ${fixtures.size}" }
+    val fixtureId = fixtures.single().id
+    return hasAnyAncestor(
+        hasTestTag("provider-row") and hasAnyDescendant(hasTestTag("provider-manage-models-$fixtureId")),
     )
+}
 
 /** Navigates through the production IA. Secondary routes must be reached through their landing. */
 fun AndroidComposeTestRule<*, *>.navigateTo(route: String) {

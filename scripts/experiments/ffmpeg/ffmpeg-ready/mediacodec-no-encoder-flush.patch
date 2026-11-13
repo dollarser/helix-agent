@@ -1,0 +1,122 @@
+--- a/libavcodec/mediacodecenc.c
++++ b/libavcodec/mediacodecenc.c
+@@ -882,109 +882,17 @@
+     return 0;
+ }
+ 
+-static int mediacodec_send_dummy_frame(AVCodecContext *avctx)
+-{
+-    MediaCodecEncContext *s = avctx->priv_data;
+-    int ret;
+-
+-    s->frame->width = avctx->width;
+-    s->frame->height = avctx->height;
+-    s->frame->format = avctx->pix_fmt;
+-    s->frame->pts = 0;
+-
+-    ret = av_frame_get_buffer(s->frame, 0);
+-    if (ret < 0)
+-        return ret;
+-
+-    do {
+-        ret = mediacodec_send(avctx, s->frame);
+-    } while (ret == AVERROR(EAGAIN));
+-    av_frame_unref(s->frame);
+-
+-    if (ret < 0)
+-        return ret;
+-
+-    ret = mediacodec_send(avctx, NULL);
+-    if (ret < 0) {
+-        av_log(avctx, AV_LOG_ERROR, "Flush failed: %s\n", av_err2str(ret));
+-        return ret;
+-    }
+-
++/* MediaCodec flush is only defined for decoders. Do not send a dummy EOS
++ * and flush an encoder to obtain global headers: real packets already carry
++ * the codec configuration and the existing extract_extradata BSF preserves it.
++ * Keep synchronous and asynchronous codecs on the same real-input lifecycle.
++ */
++static int mediacodec_generate_extradata(AVCodecContext *avctx)
++{
++    if (avctx->flags & AV_CODEC_FLAG_GLOBAL_HEADER)
++        av_log(avctx, AV_LOG_VERBOSE,
++               "MediaCodec codec configuration is extracted from real packets.\n");
+     return 0;
+-}
+-
+-static int mediacodec_receive_dummy_pkt(AVCodecContext *avctx, AVPacket *pkt)
+-{
+-    MediaCodecEncContext *s = avctx->priv_data;
+-    int ret;
+-
+-    do {
+-        ret = mediacodec_receive(avctx, pkt);
+-    } while (ret == AVERROR(EAGAIN));
+-
+-    if (ret < 0)
+-        return ret;
+-
+-    do {
+-        ret = av_bsf_send_packet(s->bsf, pkt);
+-        if (ret < 0)
+-            return ret;
+-        ret = av_bsf_receive_packet(s->bsf, pkt);
+-    } while (ret == AVERROR(EAGAIN));
+-
+-    return ret;
+-}
+-
+-static int mediacodec_generate_extradata(AVCodecContext *avctx)
+-{
+-    MediaCodecEncContext *s = avctx->priv_data;
+-    AVPacket *pkt = NULL;
+-    int ret;
+-    size_t side_size;
+-    uint8_t *side;
+-
+-    if (!(avctx->flags & AV_CODEC_FLAG_GLOBAL_HEADER))
+-        return 0;
+-
+-    // Send dummy frame and receive a packet doesn't work in async mode
+-    if (s->async_mode || !s->extract_extradata) {
+-        av_log(avctx, AV_LOG_WARNING,
+-               "Mediacodec encoder doesn't support AV_CODEC_FLAG_GLOBAL_HEADER. "
+-               "Use extract_extradata bsf when necessary.\n");
+-        return 0;
+-    }
+-
+-    pkt = av_packet_alloc();
+-    if (!pkt)
+-        return AVERROR(ENOMEM);
+-
+-    ret = mediacodec_send_dummy_frame(avctx);
+-    if (ret < 0)
+-        goto bailout;
+-    ret = mediacodec_receive_dummy_pkt(avctx, pkt);
+-    if (ret < 0)
+-        goto bailout;
+-
+-    side = av_packet_get_side_data(pkt, AV_PKT_DATA_NEW_EXTRADATA, &side_size);
+-    if (side && side_size > 0) {
+-        avctx->extradata = av_mallocz(side_size + AV_INPUT_BUFFER_PADDING_SIZE);
+-        if (!avctx->extradata) {
+-            ret = AVERROR(ENOMEM);
+-            goto bailout;
+-        }
+-
+-        memcpy(avctx->extradata, side, side_size);
+-        avctx->extradata_size = side_size;
+-    }
+-
+-bailout:
+-    if (s->eof_sent) {
+-        s->eof_sent = 0;
+-        ff_AMediaCodec_flush(s->codec);
+-    }
+-    av_bsf_flush(s->bsf);
+-    av_packet_free(&pkt);
+-    return ret;
+ }
+ 
+ static av_cold int mediacodec_close(AVCodecContext *avctx)

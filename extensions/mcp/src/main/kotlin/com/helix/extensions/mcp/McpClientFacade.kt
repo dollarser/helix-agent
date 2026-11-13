@@ -30,7 +30,7 @@ interface McpClientSession {
 
     suspend fun listResourceTemplates(cursor: String? = null): McpResourcePage
 
-    suspend fun readResource(uri: String): List<McpResourceText>
+    suspend fun readResource(uri: String): List<McpResourceContent>
 
     suspend fun close()
 }

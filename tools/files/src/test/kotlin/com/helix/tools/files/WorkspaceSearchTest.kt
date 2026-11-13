@@ -271,6 +271,67 @@ class WorkspaceSearchTest {
         assertEquals(first["path"], second["path"])
     }
 
+    @Test fun cancellationDuringFinalEmptyProviderListingDoesNotReportComplete() {
+        val cancelled =
+            java.util.concurrent.atomic
+                .AtomicBoolean(false)
+        val source = emptyDocumentStore { cancelled.set(true) }
+        val signal =
+            object : CancelSignal {
+                override fun isCancelled() = cancelled.get()
+            }
+        assertEquals(
+            ToolExecutorResult.Cancelled,
+            execute(false, args("pattern" to "**/*"), cancel = signal, source = source),
+        )
+    }
+
+    @Test fun deadlineDuringFinalEmptyProviderListingDoesNotReportComplete() {
+        val deadline = Instant.now().plusMillis(100)
+        val source =
+            emptyDocumentStore {
+                while (!Instant.now().isAfter(deadline)) Thread.sleep(5)
+            }
+        assertEquals(
+            ToolExecutorResult.TimedOut,
+            execute(false, args("pattern" to "**/*"), deadline = deadline, source = source),
+        )
+    }
+
+    private fun emptyDocumentStore(onList: () -> Unit): WorkspaceArtifactStore {
+        val backend =
+            object : WorkspaceFileBackend {
+                override fun stat(path: String) = WorkspaceFileInfo(true, 0)
+
+                override fun children(path: String): List<String> {
+                    onList()
+                    return emptyList()
+                }
+
+                override fun read(path: String) = error("read-only empty fixture")
+
+                override fun validateMutation(path: String) = error("read-only fixture")
+
+                override fun create(
+                    path: String,
+                    directory: Boolean,
+                ) = error("read-only fixture")
+
+                override fun write(path: String) = error("read-only fixture")
+
+                override fun rename(
+                    path: String,
+                    destination: String,
+                ) = error("read-only fixture")
+
+                override fun delete(path: String) = error("read-only fixture")
+            }
+        return WorkspaceArtifactStore(
+            ScopeRootResolver { error("No native fallback") },
+            documentBackend = { backend },
+        )
+    }
+
     @Test fun documentBackendUsesSameSearchAndReadIdentity() {
         val backend =
             object : WorkspaceFileBackend {

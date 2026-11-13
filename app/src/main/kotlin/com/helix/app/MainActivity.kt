@@ -929,6 +929,8 @@ private fun DestinationScreen(
                 sessionPermissionEdit = container.sessionPermissionEdit,
                 skills = container.skillRepository,
                 sessionExport = container.sessionExport,
+                sessionAccess = container.sessionAccessService,
+                sessionCreation = container.sessionCreationService,
                 connectors = container.pluginService,
                 onManageExperts = { navController.navigateFrom(sourceEntry, EXPERTS_ROUTE) },
                 onExtensions = { navController.navigateFrom(sourceEntry, ShellDestination.Extensions.route) },

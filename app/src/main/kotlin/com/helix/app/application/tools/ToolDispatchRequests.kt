@@ -10,7 +10,6 @@ import com.helix.core.model.SafetyProfile
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolVersion
 import com.helix.core.policy.DataOrigin
-import com.helix.core.storage.entity.TurnEntity
 import com.helix.extensions.plugin.executionContext
 import com.helix.tools.framework.ToolDescriptor
 import com.helix.tools.framework.ToolDispatchRequest
@@ -29,7 +28,7 @@ internal class ToolDispatchRequests(
      */
     @Suppress("LongMethod", "CyclomaticComplexMethod", "LongParameterList")
     fun build(
-        turn: com.helix.core.storage.entity.TurnEntity,
+        turn: ToolDispatchTurn,
         toolCallId: String,
         toolName: ToolName,
         descriptor: ToolDescriptor?,

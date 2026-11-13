@@ -147,6 +147,7 @@ class AgentLoop(
                     compaction != null,
                 ),
             )
+            coordinator.recordDiagnostic("tools.cost", RequestBudgetDiagnostics.tools(request))
             // The per-request prompt record commits inside collectModelStream, before the wire call.
             val manifestJson =
                 createRequestManifest(
@@ -201,7 +202,7 @@ class AgentLoop(
                 recoveryStartedNanos?.let { (System.nanoTime() - it).coerceAtLeast(0) / 1_000_000 } ?: 0
             val retryDelay =
                 ModelRecoveryPolicy.retryDelayMillis(
-                    provider.allowsEmptyInferenceRetry && compaction == null,
+                    provider.allowsEmptyInferenceRetry && compaction == null && !request.nativeWebSearch,
                     modelRetries,
                     acc,
                 )
@@ -211,7 +212,7 @@ class AgentLoop(
                     ModelFailureDiagnostics.record(
                         decision.errorCode,
                         acc,
-                        provider.allowsEmptyInferenceRetry,
+                        provider.allowsEmptyInferenceRetry && !request.nativeWebSearch,
                         retryDelay,
                         modelRetries,
                     ),

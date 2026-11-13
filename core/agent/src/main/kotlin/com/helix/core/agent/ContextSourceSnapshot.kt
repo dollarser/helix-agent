@@ -56,6 +56,7 @@ data class ContextSourceSnapshot(
 interface ContextCompactionSource {
     suspend fun inputFloor(model: String): Long
 
+    /** Null means no pressure or no eligible history; source/identity/capacity failures must throw. */
     suspend fun plan(
         request: TurnContextRequest,
         settings: com.helix.provider.api.ProviderContextSettings,

@@ -1171,7 +1171,6 @@
     <string name="provider_models_move_first">移至候选首位</string>
     <string name="provider_models_save_use">加入候选并用于当前会话</string>
     <string name="provider_models_connection_required">来源尚未通过连接验证</string>
-    <string name="provider_models_source_settings_hint">此处只编辑接入信息。会话候选和逐模型参数请在“管理会话模型”中设置。</string>
     <string name="model_selection_saved_but_not_applied">模型候选已保存，但尚未应用到当前会话。</string>
     <string name="provider_account_present">已保存登录凭据；远端连接和模型能力仍以验证结果为准。</string>
     <string name="provider_account_logged_out">账号已退出，请重新登录。</string>
@@ -1738,13 +1737,26 @@
     <string name="workspace_internal_storage_help">内部存储由 Helix 管理，不支持手动更改位置。切换工作目录后，已有文件仍保留在原处，可在文件管理器中查看或导出。</string>
     <string name="web_search_title">网页搜索</string>
     <string name="web_search_help">浏览器搜索使用现有浏览器，无需 API 密钥。API 搜索会将搜索词发送到选定服务商并可能收费：Tavily Basic 消耗额度；DeepSeek Search 按成功且非空的搜索计费。请先配置自己的密钥和账户费用上限。切换服务商后需重新启用并保存。</string>
-    <string name="web_search_enabled">启用网页搜索</string>
+    <string name="web_search_enabled">启用独立搜索 API</string>
     <string name="web_search_key">所选服务商 API 密钥</string>
     <string name="web_search_replace_key">替换已保存的密钥（可选）</string>
     <string name="web_search_save">保存</string>
-    <string name="web_search_remove_key">移除密钥并关闭</string>
+    <string name="web_search_remove_key">移除所选 API 密钥并关闭独立搜索</string>
     <string name="web_search_save_error">无法读取或保存设置，请重新打开后重试。</string>
     <string name="web_search_loading">正在读取设置…</string>
     <string name="web_search_retry">重试</string>
     <string name="web_search_saved">已保存</string>
+    <string name="provider_show_api_key">显示 API 密钥</string>
+    <string name="provider_hide_api_key">隐藏 API 密钥</string>
+    <string name="provider_service_settings">服务设置</string>
+    <string name="provider_settings_models">模型</string>
+    <string name="provider_settings_saved">已保存</string>
+    <string name="native_search_enabled">允许 OpenAI 原生网页搜索</string>
+    <string name="native_search_help">保存后，每次请求前检查是否允许当前 OpenAI Responses 模型自主检索公开网页；会话禁用搜索时不提供。仅支持官方 api.openai.com，不改变模型或复用到兼容端点。一次请求可能多次检索，按搜索调用另加模型 token 计费（当前公开标价每千次搜索 10 美元，实际以账户账单为准）。查询由模型生成并发送给搜索服务。关闭只影响后续请求，已开始的检索可能已计费。</string>
+    <string name="provider_key_hide_to_replace">隐藏后可输入替换值</string>
+    <string name="provider_models_save_connection_first">请先保存连接设置，再测试模型</string>
+    <string name="provider_save_review_required">部分设置可能已更改，请关闭并重新打开此服务，核对后再保存。</string>
+    <string name="provider_save_conflict">此服务已发生变化，请关闭并重新打开后再保存。</string>
+    <string name="provider_context_independent_save">此处保存立即生效，不受服务设置取消影响。</string>
+    <string name="provider_model_immediate_setting">此操作立即生效，取消服务设置不会撤销。</string>
 </resources>

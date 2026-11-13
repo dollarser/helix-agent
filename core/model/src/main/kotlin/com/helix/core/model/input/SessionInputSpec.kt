@@ -29,4 +29,5 @@ data class SessionInputSpec(
     val reference: ConversationReferenceSnapshotInput? = null,
     val skillActivations: List<InputSkillActivation> = emptyList(),
     val knowledgeReferences: List<KnowledgeReference> = emptyList(),
+    val delegation: ModelDelegationOrigin? = null,
 )

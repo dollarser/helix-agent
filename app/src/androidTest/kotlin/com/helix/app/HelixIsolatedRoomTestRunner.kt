@@ -12,16 +12,19 @@ class HelixIsolatedRoomTestRunner : AndroidJUnitRunner() {
         className: String,
         context: Context,
     ): Application {
-        check(context.packageName == ISOLATED_PACKAGE) { "Isolated Room tests require the validation APK" }
+        check(context.packageName in ISOLATED_PACKAGES) { "Isolated Room tests require the validation APK" }
         return super.newApplication(cl, Application::class.java.name, context)
     }
 
     override fun onCreate(arguments: Bundle?) {
-        check(targetContext.packageName == ISOLATED_PACKAGE)
+        check(targetContext.packageName in ISOLATED_PACKAGES)
         requireNotNull(arguments)
         check(arguments.getString("helix.isolatedRoom") == "true")
         check(arguments.getString("helix.preserveUserSettings") == "true")
         val selected = requireNotNull(arguments.getString("class")) { "Select explicit isolated test classes" }
+        if (targetContext.packageName == "com.helix.agent.asrvalidation") {
+            check(selected == "com.helix.app.files.SafSystemDirectoryReliabilityDeviceTest")
+        }
         check(
             selected.split(',').all { selection ->
                 val name = selection.substringBefore('#')
@@ -33,7 +36,7 @@ class HelixIsolatedRoomTestRunner : AndroidJUnitRunner() {
     }
 
     private companion object {
-        const val ISOLATED_PACKAGE = "com.helix.agent.developer.asrvalidation"
+        val ISOLATED_PACKAGES = setOf("com.helix.agent.developer.asrvalidation", "com.helix.agent.asrvalidation")
         val CLASSES =
             setOf(
                 "com.helix.app.infrastructure.conversation.ConversationReferenceKnowledgeDeviceTest",
@@ -48,6 +51,19 @@ class HelixIsolatedRoomTestRunner : AndroidJUnitRunner() {
                 "com.helix.app.files.SafDirectoryReliabilityDeviceTest",
                 "com.helix.app.documents.SafPlatformCancellationDeviceTest",
                 "com.helix.app.files.SafSystemDirectoryReliabilityDeviceTest",
+                "com.helix.app.files.SafSourcePermissionRemovalDeviceTest",
+                "com.helix.app.ui.FilesSafRefreshDeviceTest",
+                "com.helix.app.provider.ui.ProviderUnifiedSettingsDeviceTest",
+                "com.helix.app.provider.ui.ProviderApiKeyVisibilityDeviceTest",
+                "com.helix.app.provider.ProviderKeyRevealDeviceTest",
+                "com.helix.app.provider.ProviderModelsIntegrationDeviceTest",
+                "com.helix.app.provider.ProviderDirectoryWireDeviceTest",
+                "com.helix.app.provider.ui.ProviderAccountDialogDeviceTest",
+                "com.helix.app.provider.ui.ProviderModelsDialogDeviceTest",
+                "com.helix.app.provider.ui.ProviderModelActionFailureDeviceTest",
+                "com.helix.app.provider.ProviderDraftSaveDeviceTest",
+                "com.helix.app.ui.ProviderSettingsFormDeviceTest",
+                "com.helix.app.ui.ProviderModelPickerDeviceTest",
                 "com.helix.app.files.SafSystemProcessRecoveryDeviceTest",
                 "com.helix.app.eval.BackgroundPreviewUiDeviceTest",
             )

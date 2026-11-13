@@ -4,7 +4,9 @@ import com.helix.core.model.ModelErrorCode
 import com.helix.core.model.ModelEvent
 import com.helix.core.model.ModelRequest
 import com.helix.core.model.NormalizedEndpoint
+import com.helix.core.model.ProviderAuth
 import com.helix.core.model.ProviderProtocol
+import com.helix.core.model.ProviderProvisioningKind
 import com.helix.core.model.SecretAlias
 import com.helix.provider.api.CapabilitySource
 import com.helix.provider.api.ModelCatalogResult
@@ -30,7 +32,8 @@ class ProviderConnectionCheckTest {
                             mapOf(config.model to setOf(com.helix.provider.api.ModelPurpose.EMBEDDING)),
                         )
                 }
-            val result = ProviderConnectionCheck.inspect(config, provider, null, verifyGeneration = true)
+            val result =
+                ProviderConnectionCheck.inspect(config, provider, null, verifyGeneration = true)
             assertEquals(2, (result.outcome as ProbeOutcome.Failed).phase)
             assertEquals(false, result.generationAttempted)
             assertEquals(false, result.sourceFailure)
@@ -49,7 +52,14 @@ class ProviderConnectionCheckTest {
                             override suspend fun listModels() = ModelCatalogResult.Listed(emptyList())
                         }
                     }
-                val result = ProviderConnectionCheck.run(config, source, null) as ProbeOutcome.Failed
+                val result =
+                    ProviderConnectionCheck
+                        .inspect(
+                            if (subscription) managedConfig else config,
+                            source,
+                            null,
+                            verifyGeneration = true,
+                        ).outcome as ProbeOutcome.Failed
                 assertEquals(ModelErrorCode.PROTOCOL, result.code)
                 assertEquals(2, result.phase)
                 assertEquals(0, fixture.generations)
@@ -67,7 +77,14 @@ class ProviderConnectionCheckTest {
                         ModelEvent.Usage(10, 16),
                     ),
                 )
-            val result = ProviderConnectionCheck.run(config, provider, null) as ProbeOutcome.Ok
+            val result =
+                ProviderConnectionCheck
+                    .inspect(
+                        config,
+                        provider,
+                        null,
+                        verifyGeneration = true,
+                    ).outcome as ProbeOutcome.Ok
             assertEquals(CapabilitySource.CONNECTION_ONLY, result.capabilities.source)
             assertEquals(1, provider.generations)
         }
@@ -82,7 +99,14 @@ class ProviderConnectionCheckTest {
                     listOf(ModelEvent.Completed("stop"), ModelEvent.ReasoningDelta("late")),
                 )
             for (events in invalid) {
-                val result = ProviderConnectionCheck.run(config, Fixture(null, events), null) as ProbeOutcome.Failed
+                val result =
+                    ProviderConnectionCheck
+                        .inspect(
+                            config,
+                            Fixture(null, events),
+                            null,
+                            verifyGeneration = true,
+                        ).outcome as ProbeOutcome.Failed
                 assertEquals(ModelErrorCode.PROTOCOL, result.code)
                 assertEquals(3, result.phase)
             }
@@ -91,7 +115,14 @@ class ProviderConnectionCheckTest {
     @Test fun emptyTokenLimitedResponseIsNotAProtocolViolationOrSuccess() =
         runBlocking {
             val provider = Fixture(null, listOf(ModelEvent.Usage(10, 2048), ModelEvent.Completed("length")))
-            val result = ProviderConnectionCheck.run(config, provider, null) as ProbeOutcome.Failed
+            val result =
+                ProviderConnectionCheck
+                    .inspect(
+                        config,
+                        provider,
+                        null,
+                        verifyGeneration = true,
+                    ).outcome as ProbeOutcome.Failed
             assertEquals(ModelErrorCode.OUTPUT_TOKEN_LIMIT, result.code)
             assertEquals(1, provider.generations)
             assertEquals(2048L, provider.lastRequest?.maxOutputTokens)
@@ -108,7 +139,14 @@ class ProviderConnectionCheckTest {
                         ModelEvent.Error(ModelErrorCode.TRANSPORT, true),
                     ),
                 )
-            val result = ProviderConnectionCheck.run(config, provider, null) as ProbeOutcome.Failed
+            val result =
+                ProviderConnectionCheck
+                    .inspect(
+                        config,
+                        provider,
+                        null,
+                        verifyGeneration = true,
+                    ).outcome as ProbeOutcome.Failed
             assertEquals(ModelErrorCode.TRANSPORT, result.code)
         }
 
@@ -123,13 +161,29 @@ class ProviderConnectionCheckTest {
                         ModelEvent.Usage(10, 2),
                     ),
                 )
-            org.junit.Assert.assertTrue(ProviderConnectionCheck.run(config, provider, null) is ProbeOutcome.Ok)
+            org.junit.Assert.assertTrue(
+                ProviderConnectionCheck
+                    .inspect(
+                        config,
+                        provider,
+                        null,
+                        verifyGeneration = true,
+                    ).outcome is ProbeOutcome.Ok,
+            )
         }
 
     @Test fun usageWithoutCompletionStillFails() =
         runBlocking {
             val provider = Fixture(null, listOf(ModelEvent.TextDelta("ok"), ModelEvent.Usage(10, 2)))
-            org.junit.Assert.assertTrue(ProviderConnectionCheck.run(config, provider, null) is ProbeOutcome.Failed)
+            org.junit.Assert.assertTrue(
+                ProviderConnectionCheck
+                    .inspect(
+                        config,
+                        provider,
+                        null,
+                        verifyGeneration = true,
+                    ).outcome is ProbeOutcome.Failed,
+            )
         }
 
     private val config =
@@ -147,7 +201,7 @@ class ProviderConnectionCheckTest {
     @Test fun authenticatedCatalogDoesNotGenerateOrDependOnConfiguredModel() =
         runBlocking {
             val provider = Fixture(ModelCatalogResult.Listed(listOf("different-model")))
-            val result = ProviderConnectionCheck.run(config, provider, null) as ProbeOutcome.Ok
+            val result = ProviderConnectionCheck.run(managedConfig, provider, null) as ProbeOutcome.Ok
             assertEquals(listOf("different-model"), result.models)
             assertEquals(CapabilitySource.CONNECTION_ONLY, result.capabilities.source)
             assertEquals(0, provider.generations)
@@ -157,25 +211,43 @@ class ProviderConnectionCheckTest {
     @Test fun failedAccountDoesNotGenerateOrFallBackToCachedModels() =
         runBlocking {
             val provider = Fixture(ModelCatalogResult.Failed(ModelErrorCode.AUTH, "rejected", false))
-            val result = ProviderConnectionCheck.run(config, provider, null) as ProbeOutcome.Failed
+            val result = ProviderConnectionCheck.run(managedConfig, provider, null) as ProbeOutcome.Failed
             assertEquals(ModelErrorCode.AUTH, result.code)
             assertEquals(0, provider.generations)
             assertEquals(0, provider.fallbackCatalogCalls)
         }
 
-    @Test fun localCatalogWithoutAccountVerificationStillRequiresRealConnection() =
+    @Test fun managedCatalogWithoutAccountVerificationStillRequiresRealConnection() =
         runBlocking {
             val provider = Fixture(null)
-            val result = ProviderConnectionCheck.run(config, provider, null) as ProbeOutcome.Failed
+            val result = ProviderConnectionCheck.run(managedConfig, provider, null) as ProbeOutcome.Failed
             assertEquals(ModelErrorCode.TRANSPORT, result.code)
             assertEquals(1, provider.generations)
             assertEquals(1, provider.fallbackCatalogCalls)
         }
 
+    @Test fun localConnectionStillRequiresGenerationInsteadOfDirectorySuccess() =
+        runBlocking {
+            val local =
+                config.copy(
+                    connection =
+                        com.helix.core.model.ProviderConnection(
+                            ProviderProvisioningKind.ON_DEVICE_ASSET,
+                            com.helix.core.model.ProviderTransport.OnDeviceLocal,
+                            ProviderAuth.None,
+                        ),
+                )
+            val provider = Fixture(null)
+            val observed = ProviderConnectionCheck.inspect(local, provider, null)
+            assertEquals(ModelErrorCode.TRANSPORT, (observed.outcome as ProbeOutcome.Failed).code)
+            assertEquals(true, observed.generationAttempted)
+            assertEquals(1, provider.generations)
+        }
+
     @Test fun unsupportedAccountCheckCannotClaimConnection() =
         runBlocking {
             val provider = Fixture(ModelCatalogResult.Unsupported)
-            val result = ProviderConnectionCheck.run(config, provider, null) as ProbeOutcome.Failed
+            val result = ProviderConnectionCheck.run(managedConfig, provider, null) as ProbeOutcome.Failed
             assertEquals(ModelErrorCode.TRANSPORT, result.code)
             assertEquals(1, provider.generations)
         }
@@ -187,6 +259,7 @@ class ProviderConnectionCheckTest {
                     config,
                     Fixture(null, listOf(ModelEvent.Error(ModelErrorCode.PROTOCOL, false))),
                     null,
+                    verifyGeneration = true,
                 )
             assertEquals(true, generation.generationAttempted)
             assertEquals(false, generation.sourceFailure)
@@ -195,6 +268,7 @@ class ProviderConnectionCheckTest {
                     config,
                     Fixture(null, listOf(ModelEvent.Error(ModelErrorCode.AUTH, false))),
                     null,
+                    verifyGeneration = true,
                 )
             assertEquals(true, auth.sourceFailure)
         }
@@ -202,7 +276,7 @@ class ProviderConnectionCheckTest {
     @Test fun sourceCatalogSuccessDoesNotProveBasicGeneration() =
         runBlocking {
             val provider = Fixture(ModelCatalogResult.Listed(listOf("b")))
-            val observed = ProviderConnectionCheck.inspect(config, provider, null)
+            val observed = ProviderConnectionCheck.inspect(managedConfig, provider, null)
             assertEquals(false, observed.generationAttempted)
             assertEquals(false, observed.sourceFailure)
             assertEquals(0, provider.generations)
@@ -215,10 +289,107 @@ class ProviderConnectionCheckTest {
                     ModelCatalogResult.Listed(listOf("b")),
                     listOf(ModelEvent.TextDelta("ok"), ModelEvent.Completed("stop")),
                 )
-            val observed = ProviderConnectionCheck.inspect(config, provider, null, verifyGeneration = true)
+            val observed = ProviderConnectionCheck.inspect(managedConfig, provider, null, verifyGeneration = true)
             assertEquals(true, observed.generationAttempted)
             assertEquals(1, provider.generations)
             org.junit.Assert.assertTrue(observed.outcome is ProbeOutcome.Ok)
+        }
+
+    private val managedConfig get() =
+        config.copy(
+            connection =
+                config.connection.copy(
+                    provisioning = ProviderProvisioningKind.MANAGED_ACCOUNT,
+                    auth = ProviderAuth.ManagedAccount,
+                ),
+        )
+
+    @Test fun directoryConnectionIgnoresConfiguredModelPurposeAndEmptyCatalog() =
+        runBlocking {
+            val catalogs =
+                listOf(
+                    ModelCatalogResult.Listed(emptyList()),
+                    ModelCatalogResult.Listed(listOf("different-model")),
+                    ModelCatalogResult.Listed(
+                        listOf(config.model),
+                        mapOf(config.model to setOf(com.helix.provider.api.ModelPurpose.EMBEDDING)),
+                    ),
+                )
+            for (catalog in catalogs) {
+                val fixture = Fixture(null)
+                var calls = 0
+                val provider =
+                    object : ModelProvider by fixture {
+                        override suspend fun listModels(): ModelCatalogResult {
+                            calls++
+                            return catalog
+                        }
+                    }
+                val observed = ProviderConnectionCheck.inspect(config, provider, null)
+                val result = observed.outcome as ProbeOutcome.Ok
+                assertEquals(catalog.models, result.models)
+                assertEquals(CapabilitySource.CONNECTION_ONLY, result.capabilities.source)
+                assertEquals(false, observed.generationAttempted)
+                assertEquals(false, observed.sourceFailure)
+                assertEquals(1, calls)
+                assertEquals(0, fixture.generations)
+                assertEquals(0, fixture.accountCalls)
+            }
+        }
+
+    @Test fun directoryFailurePreservesClassificationWithoutGenerationFallback() =
+        runBlocking {
+            for (failure in listOf(
+                ModelCatalogResult.Failed(ModelErrorCode.AUTH, "HTTP 401", false),
+                ModelCatalogResult.Failed(ModelErrorCode.TIMEOUT, "catalog timeout", true),
+            )) {
+                val fixture = Fixture(null)
+                val provider =
+                    object : ModelProvider by fixture {
+                        override suspend fun listModels() = failure
+                    }
+                val observed = ProviderConnectionCheck.inspect(config, provider, null)
+                assertEquals(ProbeOutcome.Failed(2, failure.code, failure.detail, failure.retryable), observed.outcome)
+                assertEquals(true, observed.sourceFailure)
+                assertEquals(false, observed.generationAttempted)
+                assertEquals(0, fixture.generations)
+            }
+        }
+
+    @Test fun unsupportedDirectoryDoesNotFallBackToGenerationOrAccountCheck() =
+        runBlocking {
+            val fixture = Fixture(ModelCatalogResult.Listed(listOf(config.model)))
+            val provider =
+                object : ModelProvider by fixture {
+                    override suspend fun listModels() = ModelCatalogResult.Unsupported
+                }
+            val observed = ProviderConnectionCheck.inspect(config, provider, null)
+            assertEquals(
+                ProbeOutcome.Failed(2, ModelErrorCode.PROTOCOL, "MODEL_CATALOG_UNSUPPORTED", false),
+                observed.outcome,
+            )
+            assertEquals(false, observed.sourceFailure)
+            assertEquals(false, observed.generationAttempted)
+            assertEquals(0, fixture.generations)
+            assertEquals(0, fixture.accountCalls)
+        }
+
+    @Test fun cancellingDirectoryDoesNotBecomeSuccessOrGenerate() =
+        runBlocking {
+            val fixture = Fixture(null)
+            val cancellation = kotlinx.coroutines.CancellationException("cancel catalog")
+            val provider =
+                object : ModelProvider by fixture {
+                    override suspend fun listModels(): ModelCatalogResult = throw cancellation
+                }
+            try {
+                ProviderConnectionCheck.inspect(config, provider, null)
+                org.junit.Assert.fail("Cancellation must propagate")
+            } catch (actual: kotlinx.coroutines.CancellationException) {
+                org.junit.Assert.assertSame(cancellation, actual)
+            }
+            assertEquals(0, fixture.generations)
+            assertEquals(0, fixture.accountCalls)
         }
 
     private inner class Fixture(
@@ -232,7 +403,12 @@ class ProviderConnectionCheckTest {
         override val descriptor =
             ProviderDescriptor(config.id, config.displayName, config.protocol, config.model, config.endpoint)
 
-        override suspend fun connectionCatalog() = account
+        var accountCalls = 0
+
+        override suspend fun connectionCatalog(): ModelCatalogResult? {
+            accountCalls++
+            return account
+        }
 
         override suspend fun listModels(): ModelCatalogResult {
             fallbackCatalogCalls++

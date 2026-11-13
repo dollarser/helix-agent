@@ -5,7 +5,9 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
@@ -19,12 +21,14 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.MainActivity
+import com.helix.app.R
 import com.helix.app.ui.container
 import com.helix.app.ui.deleteEditableProviders
 import com.helix.app.ui.editableProviderTag
+import com.helix.app.ui.editableProviderText
 import com.helix.app.ui.navigateTo
 import com.helix.app.ui.resetDeterministicUiState
-import kotlinx.coroutines.runBlocking
+import com.helix.core.model.ModelErrorCode
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -34,7 +38,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** Real loopback discovery and the current selection dialog, not the retired inline chip/edit UI. */
+/** Real loopback discovery through the single-page API service draft editor. */
 @RunWith(AndroidJUnit4::class)
 class ProviderModelDiscoveryUiTest {
     @get:Rule
@@ -63,19 +67,20 @@ class ProviderModelDiscoveryUiTest {
         val before = row(id).modelSelection
         assertEquals(listOf("fixture-model-a", "fixture-model-b", "fixture-model-c"), row(id).backendModels)
         openModels(id)
-        filterModels("fixture-model-b")
+        formNode("provider-model-choice-fixture-model-b").assertIsDisplayed()
+        composeRule.onNodeWithTag("provider-model-search").assertDoesNotExist()
         composeRule.onNodeWithTag("provider-model-choice-fixture-model-b").assertIsOff().performClick()
-        composeRule.onNodeWithTag("provider-model-choice-fixture-model-b").assertIsOn()
-        composeRule.onNodeWithTag("provider-model-choice-fixture-model-a").assertDoesNotExist()
-        composeRule.onNodeWithTag("provider-form-dialog").assertDoesNotExist()
-        composeRule.onNodeWithTag("provider-models-close").performClick()
+        formNode("provider-model-choice-fixture-model-b").assertIsOn()
+        composeRule.onNodeWithTag("provider-form-dialog").assertIsDisplayed()
+        composeRule.onNodeWithTag("provider-form-cancel").performClick()
         awaitModelsClosed()
         assertEquals(before, row(id).modelSelection)
 
         openModels(id)
-        filterModels("fixture-model-b")
+        formNode("provider-model-choice-fixture-model-b").assertIsDisplayed()
+        composeRule.onNodeWithTag("provider-model-search").assertDoesNotExist()
         composeRule.onNodeWithTag("provider-model-choice-fixture-model-b").assertIsOff().performClick()
-        composeRule.onNodeWithTag("provider-models-save").performClick()
+        composeRule.onNodeWithTag("provider-form-save").performClick()
         awaitModelsClosed()
         assertEquals((before.models + "fixture-model-b").toSet(), row(id).conversationModels.toSet())
         assertEquals("fixture-model-z", row(id).model)
@@ -90,26 +95,32 @@ class ProviderModelDiscoveryUiTest {
         val port = startServer(LoopbackModelServer.Mode.ANTHROPIC_UNSUPPORTED)
         val name = "No List ${System.currentTimeMillis()}"
         val id = createProvider(name, "http://127.0.0.1:$port/v1", "fixture-model-z", "anthropic", "fixture-key")
-        testConnection("passed")
+        testConnection("failed")
+        assertTrue((row(id).status as ConnectionTestStatus.Failed).catalogUnsupported)
+        assertFalse(row(id).chatSelectable)
         val before = row(id).modelSelection
         openModels(id)
-        composeRule.onNodeWithTag("provider-models-refresh").performScrollTo().performClick()
+        formNode("provider-discover-models").performClick()
+        val unsupported =
+            hasText(composeRule.activity.getString(R.string.provider_directory_unsupported)) and
+                hasAnyAncestor(hasTestTag("provider-form-dialog"))
         composeRule.waitUntil(10_000) {
-            composeRule.onAllNodesWithTag("provider-models-catalog-scope").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodes(unsupported).fetchSemanticsNodes().isNotEmpty()
         }
+        composeRule.onNode(unsupported).performScrollTo().assertIsDisplayed()
         assertEquals(before, row(id).modelSelection)
         assertEquals(null, row(id).backendModels)
-        composeRule.onNodeWithTag("provider-model-list").performScrollToNode(hasTestTag("provider-model-add-entry"))
-        composeRule.onNodeWithTag("provider-model-add-entry").performClick()
-        composeRule.onNodeWithTag("provider-model-list").performScrollToNode(hasTestTag("provider-model-manual"))
-        composeRule.onNodeWithTag("provider-model-manual").performTextInput("manual-fixture")
+        formNode("provider-model-add-entry").performClick()
+        formNode("provider-model-manual").performTextInput("manual-fixture")
         androidx.test.espresso.Espresso
             .closeSoftKeyboard()
-        composeRule.onNodeWithTag("provider-models-add").performScrollTo().performClick()
-        composeRule.onNodeWithTag("provider-models-save").performClick()
+        formNode("provider-models-add").performClick()
+        composeRule.onNodeWithTag("provider-form-save").performClick()
         awaitModelsClosed()
         assertTrue("manual-fixture" in row(id).conversationModels)
-        assertTrue(row(id).chatSelectable)
+        assertFalse(row(id).chatSelectable)
+        assertTrue((row(id).status as ConnectionTestStatus.Failed).catalogUnsupported)
+        assertTrue(row(id).conversationModels.none(row(id)::modelSelectable))
         deleteProviderAndAwait(name)
     }
 
@@ -132,7 +143,11 @@ class ProviderModelDiscoveryUiTest {
         }
         composeRule.onNode(editableProviderTag("provider-status-failed")).performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("失败阶段：模型列表", substring = true).assertIsDisplayed()
-        composeRule.onNodeWithText("认证或访问权限被服务端拒绝", substring = true).performScrollTo().assertIsDisplayed()
+        val failure = row(id).status as ConnectionTestStatus.Failed
+        assertEquals(ModelErrorCode.AUTH, failure.code)
+        assertFalse(failure.retryable)
+        val authLabel = composeRule.activity.getString(ConnectionTestMapping.codeLabel(ModelErrorCode.AUTH))
+        composeRule.onNode(editableProviderText(authLabel)).performScrollTo().assertIsDisplayed()
         assertFalse(row(id).chatSelectable)
         assertEquals(before, row(id).modelSelection)
         assertTrue(row(id).conversationModels.none(row(id)::modelSelectable))
@@ -151,14 +166,14 @@ class ProviderModelDiscoveryUiTest {
         openModels(id)
         // Lazy composition keeps all choices reachable without instantiating 300 row nodes.
         composeRule
-            .onNodeWithTag("provider-model-list")
+            .onNodeWithTag("provider-form-scroll")
             .performScrollToNode(hasTestTag("provider-model-choice-fixture-model-299"))
         composeRule.onNodeWithTag("provider-model-choice-fixture-model-299").assertIsDisplayed()
-        composeRule.onNodeWithTag("provider-model-list").performScrollToNode(hasTestTag("provider-model-search"))
+        composeRule.onNodeWithTag("provider-form-scroll").performScrollToNode(hasTestTag("provider-model-search"))
         filterModels("fixture-model-299")
         composeRule.onNodeWithTag("provider-model-choice-fixture-model-299").assertIsOff().performClick()
         composeRule.onNodeWithTag("provider-model-choice-fixture-model-298").assertDoesNotExist()
-        composeRule.onNodeWithTag("provider-models-save").performClick()
+        composeRule.onNodeWithTag("provider-form-save").performClick()
         awaitModelsClosed()
         assertEquals((before.models + "fixture-model-299").toSet(), row(id).conversationModels.toSet())
         assertEquals(300, row(id).backendModels?.size)
@@ -169,7 +184,15 @@ class ProviderModelDiscoveryUiTest {
 
     /** The long catalog can leave this action off-screen; deletion then finishes off Compose. */
     private fun deleteProviderAndAwait(name: String) {
-        composeRule.onNode(editableProviderTag("provider-delete")).performScrollTo().performClick()
+        composeRule
+            .onNode(
+                androidx.compose.ui.test.SemanticsMatcher("Provider overflow") {
+                    val tag = androidx.compose.ui.semantics.SemanticsProperties.TestTag
+                    it.config.contains(tag) && it.config[tag].startsWith("provider-overflow-")
+                },
+            ).performScrollTo()
+            .performClick()
+        composeRule.onNodeWithTag("provider-delete").performClick()
         composeRule.waitUntil(10_000) {
             composeRule.onAllNodesWithText(name).fetchSemanticsNodes().isEmpty()
         }
@@ -202,13 +225,13 @@ class ProviderModelDiscoveryUiTest {
         composeRule.onNodeWithTag("provider-form-name").performTextInput(name)
         composeRule.onNodeWithTag("provider-form-endpoint").performTextClearance()
         composeRule.onNodeWithTag("provider-form-endpoint").performTextInput(endpoint)
-        composeRule.onNodeWithTag("provider-model-add-entry").performScrollTo().performClick()
-        composeRule.onNodeWithTag("provider-form-model").performTextClearance()
-        composeRule.onNodeWithTag("provider-form-model").performTextInput(model)
         if (key != null) {
-            composeRule.onNodeWithTag("provider-form-key").performTextInput(key)
+            formNode("provider-form-key").performTextInput(key)
         }
-        composeRule.onNodeWithTag("provider-cleartext-warning").performScrollTo().assertIsDisplayed()
+        formNode("provider-model-manual").performTextReplacement(model)
+        androidx.test.espresso.Espresso
+            .closeSoftKeyboard()
+        formNode("provider-cleartext-warning").assertIsDisplayed()
         composeRule.onNodeWithTag("provider-cleartext-confirm").assertDoesNotExist()
         composeRule.onNodeWithTag("provider-form-save").assertIsEnabled().performClick()
         // Compose idle does not wait for the Room/Keystore work on the IO dispatcher.
@@ -240,20 +263,28 @@ class ProviderModelDiscoveryUiTest {
     private fun openModels(id: String) {
         composeRule.onNodeWithTag("provider-manage-models-$id").performScrollTo().performClick()
         composeRule.waitUntil(10_000) {
-            composeRule.onAllNodesWithTag("provider-model-list").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodesWithTag("provider-form-scroll").fetchSemanticsNodes().isNotEmpty()
         }
     }
 
     private fun filterModels(query: String) {
-        composeRule.onNodeWithTag("provider-model-search").performTextReplacement(query)
+        formNode("provider-model-search").performTextReplacement(query)
         androidx.test.espresso.Espresso
             .closeSoftKeyboard()
-        composeRule.onNodeWithTag("provider-model-list").performScrollToNode(hasTestTag("provider-model-choice-$query"))
+        composeRule
+            .onNodeWithTag(
+                "provider-form-scroll",
+            ).performScrollToNode(hasTestTag("provider-model-choice-$query"))
+    }
+
+    private fun formNode(tag: String): androidx.compose.ui.test.SemanticsNodeInteraction {
+        composeRule.onNodeWithTag("provider-form-scroll").performScrollToNode(hasTestTag(tag))
+        return composeRule.onNodeWithTag(tag).performScrollTo()
     }
 
     private fun awaitModelsClosed() {
         composeRule.waitUntil(10_000) {
-            composeRule.onAllNodesWithTag("provider-model-list").fetchSemanticsNodes().isEmpty()
+            composeRule.onAllNodesWithTag("provider-form-scroll").fetchSemanticsNodes().isEmpty()
         }
     }
 }

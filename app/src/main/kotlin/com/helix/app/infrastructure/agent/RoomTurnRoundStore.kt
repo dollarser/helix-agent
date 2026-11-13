@@ -342,6 +342,7 @@ internal class RoomTurnRoundStore(
         val current = storage.sessionInputs.headSteer(sessionId, turnId) ?: return false
         return current.state == com.helix.core.storage.repository.SessionInputState.PENDING &&
             current.inputId == draft.inputId && current.revision == draft.revision &&
+            storage.sessionInputs.delegationAllowed(current) &&
             current.configuration.providerId == draft.configuration.providerId &&
             current.configuration.modelId == draft.configuration.modelId &&
             current.configuration.mode == draft.configuration.mode &&

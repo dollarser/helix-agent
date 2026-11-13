@@ -197,7 +197,7 @@ class McpToolDiscoveryTest {
         assertEquals(listOf(click, capture, weak), found)
     }
 
-    @Test fun completeTermMatchesStillRankAheadOfOrFallbacks() {
+    @Test fun completeTermMatchesRankFirstWithoutHidingComplementaryPartialMatches() {
         val complete = search.copy(name = ToolName("android.ui.click"), description = "Click a button on Android UI")
         val partial = search.copy(name = ToolName("android.screen"), description = "Inspect Android UI")
         registerFixture(complete)
@@ -206,6 +206,54 @@ class McpToolDiscoveryTest {
         val found = discovery.search("session", "android ui click", 2)
 
         assertEquals(listOf(complete, partial), found)
+        assertTrue(partial in discovery.visible("session", registry.all()))
+    }
+
+    @Test fun unavailableCompleteMatchesStillAllowAvailablePartialDiscovery() {
+        val complete = search.copy(name = ToolName("android.ui.click"), description = "Click a button on Android UI")
+        val partial = search.copy(name = ToolName("android.screen"), description = "Inspect Android UI")
+        listOf(complete, partial).forEach(::registerFixture)
+        val filtered = McpToolDiscovery(registry) { _, tool -> tool != complete }
+        assertEquals(listOf(partial), filtered.search("session", "android ui click", 8))
+        assertEquals(listOf(search, partial), filtered.visible("session", registry.all()))
+    }
+
+    @Test fun englishWholeWordsRankBeforeButDoNotHideSubstringMatches() {
+        val execute = search.copy(name = ToolName("sample.execute"), description = "Execute a command")
+        val download = search.copy(name = ToolName("browser.download"), description = "Download executable files")
+        val done = search.copy(name = ToolName("plan.submit"), description = "Record previously executed steps")
+        listOf(execute, download, done).forEach(::registerFixture)
+        assertEquals(listOf(execute, done), discovery.search("session", "execute", 8))
+        assertEquals(listOf(download), discovery.search("session", "executable", 8))
+    }
+
+    @Test fun underscoreNameComponentsRankBeforeLongerNumbersAndExactNamesRemainPrecise() {
+        val issue = search.copy(name = ToolName("sample.create_issue"), description = "Create a record")
+        val log = search.copy(name = ToolName("sample.read_log"), description = "Inspect saved output")
+        val exact = search.copy(name = ToolName("sample.tool_49"), description = "Inspect a record")
+        val longer = search.copy(name = ToolName("sample.tool_499"), description = "Inspect a record")
+        listOf(issue, log, exact, longer).forEach(::registerFixture)
+        assertEquals(listOf(issue), discovery.search("s", "issue", 8))
+        assertEquals(listOf(log), discovery.search("s", "read log", 8))
+        assertEquals(listOf(exact, longer), discovery.search("s", "tool_49", 8))
+        assertEquals(listOf(exact), discovery.search("s", "sample.tool_49", 8))
+    }
+
+    @Test fun camelCaseSchemaFieldFragmentsRemainDiscoverableWithoutDescriptionMatches() {
+        val tool =
+            search.copy(
+                name = ToolName("sample.inspect"),
+                description = "Inspect a record",
+                inputSchema =
+                    Json
+                        .parseToJsonElement(
+                            """{"type":"object","properties":{"maxOutputTokens":{"type":"integer"}}}""",
+                        ).jsonObject,
+            )
+        registerFixture(tool)
+        assertEquals(listOf(tool), discovery.search("s", "output", 8))
+        assertEquals(listOf(tool), discovery.search("s", "output tokens", 8))
+        assertEquals(listOf(tool), discovery.search("s", "maxOutputTokens", 8))
     }
 
     @Test fun missCannotRetainReplacedOrDisabledBindings() {
@@ -358,6 +406,73 @@ class McpToolDiscoveryTest {
         )
         assertEquals(listOf(search), discovery.visible("session", registry.all()))
         assertTrue(discovery.search("session", tools.last().name.value, 1).isNotEmpty())
+    }
+
+    @Test fun eagerSourceBudgetIncludesModelPresentationMetadataAndDefersTheWholeGroup() {
+        val tools =
+            (1..20).map {
+                remote(it).copy(description = "x".repeat(600), inputSchema = Json.parseToJsonElement("{}").jsonObject)
+            }
+        val rawBytes =
+            tools.sumOf {
+                it.name.value
+                    .toByteArray()
+                    .size +
+                    it.description
+                        .toByteArray()
+                        .size
+                        .toLong() +
+                    it.inputSchema
+                        .toString()
+                        .toByteArray()
+                        .size + 128L
+            }
+        assertTrue(rawBytes < 16 * 1024L)
+        assertTrue(tools.sumOf(ToolDiscoveryWorkset::bytes) > 16 * 1024L)
+        replaceCatalog("catalog", tools)
+        assertEquals(listOf(search), discovery.visible("session", registry.all()))
+        assertEquals(listOf(tools.last()), discovery.search("session", tools.last().name.value, 1))
+        assertEquals(listOf(search, tools.last()), discovery.visible("session", registry.all()))
+    }
+
+    @Test fun oversizedUnselectedSourceDoesNotRequireItsSchemasToBeProjectable() {
+        val tools =
+            (1..32).map {
+                remote(it).copy(
+                    description = "x".repeat(1023) + "\n",
+                    inputSchema =
+                        Json
+                            .parseToJsonElement(
+                                """{"type":"object","properties":{"__helix_intent":{"type":"string"}}}""",
+                            ).jsonObject,
+                )
+            }
+        replaceCatalog("catalog", tools)
+        assertEquals(listOf(search), discovery.visible("session", registry.all()))
+    }
+
+    @Test fun rawPreflightKeepsPreviouslyDeferredLongNameSourcesOutOfProjection() {
+        val tools =
+            (1..16).map {
+                remote(it).copy(
+                    name = ToolName("mcp.catalog.${"a".repeat(64)}.${"t$it".padEnd(51, 'b')}"),
+                    description = "x".repeat(800),
+                    inputSchema =
+                        Json
+                            .parseToJsonElement(
+                                """{"type":"object","properties":{"__helix_intent":{"type":"string"}}}""",
+                            ).jsonObject,
+                )
+            }
+        val withoutNames =
+            tools.sumOf {
+                com.helix.core.agent.ModelInputEstimate
+                    .toolBytes(it.description, it.inputSchema.toString())
+            }
+        assertEquals(15920L, withoutNames)
+        assertEquals(17968L, withoutNames + tools.sumOf { it.name.value.length })
+        replaceCatalog("catalog", tools)
+        assertEquals(listOf(search), discovery.visible("session", registry.all()))
     }
 
     @Test

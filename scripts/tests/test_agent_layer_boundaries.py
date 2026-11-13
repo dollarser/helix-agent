@@ -62,6 +62,19 @@ class AgentLayerBoundariesTest(unittest.TestCase):
              'com.helix.app.approval.ApprovalUiMapper'),
         ))
 
+    def test_goal_and_tool_application_do_not_reference_storage_adapters(self):
+        # Check fully qualified uses as well as imports: an inline constructor must not
+        # bypass the port boundary. Production adapters belong in infrastructure.
+        for area in ('agent', 'tools'):
+            directory = ROOT / f'app/src/main/kotlin/com/helix/app/application/{area}'
+            sources = list(directory.rglob('*.kt'))
+            self.assertTrue(sources)
+            for path in sources:
+                with self.subTest(path=str(path.relative_to(ROOT))):
+                    source = path.read_text()
+                    self.assertNotRegex(source, r'com\.helix\.core\.storage\.')
+                    self.assertNotRegex(source, r'com\.helix\.app\.infrastructure\.')
+
     def test_round_and_cancellation_have_no_retired_forwarding_paths(self):
         for name in ('TurnCoordinator', 'RoomTurnJournal'):
             self.assertFalse((ROOT / f'app/src/main/kotlin/com/helix/app/agent/{name}.kt').exists())
@@ -85,3 +98,14 @@ class AgentLayerBoundariesTest(unittest.TestCase):
         source = (ROOT / 'app/src/main/kotlin/com/helix/app/application/agent/GoalContinuationDriver.kt').read_text()
         self.assertNotIn('blockIfExhausted(', source)
         self.assertNotIn('withTransaction', source)
+
+    def test_migrated_goal_and_settlement_seams_do_not_import_storage(self):
+        for relative in (
+            'application/agent/GoalContinuationDriver.kt',
+            'application/agent/GoalContinuationFacts.kt',
+            'application/tools/ToolSettlement.kt',
+            'application/tools/ToolSettlementStore.kt',
+        ):
+            source = (ROOT / 'app/src/main/kotlin/com/helix/app' / relative).read_text()
+            self.assertNotRegex(source, r'import com\.helix\.core\.storage\.')
+            self.assertNotIn('withTransaction', source)

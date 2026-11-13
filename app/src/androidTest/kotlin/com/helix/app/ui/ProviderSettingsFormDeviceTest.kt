@@ -5,16 +5,20 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsFocused
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.isDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextReplacement
+import com.helix.app.provider.ProviderModelSelection
 import com.helix.app.provider.ui.ProviderForm
 import com.helix.app.provider.ui.ProviderFormDialog
 import com.helix.app.provider.ui.ProviderFormDiscovery
 import com.helix.app.provider.ui.ProviderFormField
+import com.helix.app.provider.ui.ProviderModelsEditorState
 import com.helix.app.provider.ui.TemplatePickerDialog
 import com.helix.app.provider.ui.providerErrorField
 import com.helix.app.provider.ui.validateProviderForm
@@ -64,7 +68,7 @@ class ProviderSettingsFormDeviceTest {
         compose.onNodeWithTag("provider-form-scroll-hint").assertIsDisplayed()
         compose.onNodeWithTag("provider-form-save").performClick()
         compose.onNodeWithTag("provider-form-error").assertIsDisplayed()
-        compose.onNodeWithTag("provider-form-model").assertIsDisplayed()
+        compose.onNodeWithTag("provider-model-manual").assertIsDisplayed()
         compose.runOnIdle { assertEquals(ProviderFormField.MODEL, providerErrorField(state.value.error)) }
     }
 
@@ -98,8 +102,7 @@ class ProviderSettingsFormDeviceTest {
         }
         compose.onNodeWithTag("provider-form-save").assertIsEnabled().performClick()
         compose.onNodeWithTag("provider-cleartext-warning").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithTag("provider-form-model").assertDoesNotExist()
-        compose.onNodeWithTag("provider-model-add-entry").performScrollTo().performClick()
+        compose.onNodeWithTag("provider-form-scroll").performScrollToNode(hasTestTag("provider-discover-models"))
         compose
             .onNodeWithTag("provider-discover-models")
             .performScrollTo()
@@ -144,6 +147,7 @@ class ProviderSettingsFormDeviceTest {
     }
 
     @Test fun optionalKeyAndEditableModelDropdownRemainUsable() {
+        val models = ProviderModelsEditorState(ProviderModelSelection()).apply { addingModel = true }
         val state =
             mutableStateOf(
                 ProviderForm(
@@ -163,6 +167,7 @@ class ProviderSettingsFormDeviceTest {
                     onSave = {},
                     onDismiss = {},
                     discoveryState = ProviderFormDiscovery(listOf("model-a", "model-b")),
+                    models = models,
                 )
             }
         }
@@ -173,20 +178,21 @@ class ProviderSettingsFormDeviceTest {
         }
         compose.onNodeWithTag("provider-form-key").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("provider-form-save").assertIsEnabled()
-        compose.onNodeWithTag("provider-model-add-entry").performScrollTo().performClick()
-        compose.onNodeWithTag("provider-form-model").performScrollTo()
+        compose.onNodeWithTag("provider-form-scroll").performScrollToNode(hasTestTag("provider-model-manual"))
+        compose.onNodeWithTag("provider-model-manual").performScrollTo().performClick()
         compose.onNodeWithTag("provider-model-option-model-a").performClick()
-        compose.runOnIdle { assertEquals("model-a", state.value.fields.model) }
+        compose.runOnIdle { assertEquals("model-a", models.manual) }
         compose.onNodeWithTag("provider-model-option-model-b").assertDoesNotExist()
-        compose.onNodeWithTag("provider-form-model").performClick()
+        compose.onNodeWithTag("provider-model-manual").performClick()
         compose.onNodeWithTag("provider-model-option-model-b").performClick()
-        compose.runOnIdle { assertEquals("model-b", state.value.fields.model) }
-        compose.onNodeWithTag("provider-form-model").performTextReplacement("manual-model")
+        compose.runOnIdle { assertEquals("model-b", models.manual) }
+        compose.onNodeWithTag("provider-model-manual").performTextReplacement("manual-model")
         compose.runOnIdle {
-            assertEquals("manual-model", state.value.fields.model)
+            assertEquals("manual-model", models.manual)
         }
-        compose.onNodeWithTag("provider-form-model").performClick()
+        compose.onNodeWithTag("provider-model-manual").performClick()
         compose.onNodeWithTag("provider-form-save").assertIsEnabled()
+        compose.onNodeWithTag("provider-form-scroll").performScrollToNode(hasTestTag("provider-form-advanced"))
         compose.onNodeWithTag("provider-form-advanced").performScrollTo().performClick()
         compose.onNodeWithTag("provider-form-key").performScrollTo()
         compose.waitUntil(5_000) { compose.onNodeWithTag("provider-form-key").isDisplayed() }

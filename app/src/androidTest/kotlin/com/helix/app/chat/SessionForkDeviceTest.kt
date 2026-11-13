@@ -400,6 +400,55 @@ class SessionForkDeviceTest {
             assertEquals(1, ContextHistory.load(storage, "fork").rows.size)
         }
 
+    @Test fun delegatedHistoryKeepsOriginLabelWithoutCopyingExecutionOrGrant() =
+        withStorage { storage, _ ->
+            storage.sessions.create("sender", "Sender", null, null, 0)
+            val sender = storage.turns.start("sender-turn", "sender", 0)
+            listOf(
+                com.helix.core.model.TurnState.BUILDING_CONTEXT,
+                com.helix.core.model.TurnState.WAITING_MODEL,
+                com.helix.core.model.TurnState.RECEIVING_MODEL,
+                com.helix.core.model.TurnState.RUNNING_TOOL,
+            ).fold(sender) { current, state -> storage.turns.updateState(current, state, 0, null, null) }
+            storage.toolCalls.append("sender-call", "sender-turn", "wire", "session.queue", "1", "{}", "RUNNING")
+            storage.sessionAccess.setGrant("sender", "s", false, false, true)
+            val spec =
+                com.helix.core.model.input.SessionInputSpec(
+                    "delegated",
+                    "s",
+                    com.helix.core.model.input.SessionInputDelivery.QUEUE,
+                    null,
+                    0,
+                    "Read source-context /same-name/file",
+                    emptyList(),
+                    com.helix.core.model.input
+                        .InputConfiguration("p", "m", "ACT", "fingerprint"),
+                    1,
+                    delegation =
+                        com.helix.core.model.input.ModelDelegationOrigin(
+                            "sender",
+                            "sender-turn",
+                            "sender-call",
+                            "key",
+                            1,
+                        ),
+                )
+            storage.sessionInputs.accept(spec)
+            storage.withTransaction {
+                storage.turns.start("delegated-turn", "s", 1, spec.inputId)
+                storage.messages.append("delegated-message", "s", "delegated-turn", "USER", "TEXT", spec.text)
+                check(storage.sessionInputs.markAppended(spec.inputId, 0, "delegated-turn", "delegated-message", 2))
+            }
+            fork(storage, "delegated-message")
+            val copied = ContextHistory.load(storage, "fork").rows.single()
+            val body = storage.messages.readContent(copied).orEmpty()
+            assertTrue(body.contains("[MODEL_DELEGATION]"))
+            assertTrue(body.contains("Source session: sender"))
+            assertNull(storage.sessionInputs.forMessage(copied.id))
+            assertTrue(storage.sessionAccess.grants("fork").isEmpty())
+            assertTrue(storage.turns.listBySession("fork").isEmpty())
+        }
+
     private fun fork(
         storage: HelixStorage,
         message: String,

@@ -69,7 +69,6 @@ fun ComposerReasoningMenu(
                     },
                     reasoningLabel(reasoning),
                 ),
-                maxLines = 1,
             )
         }
         DropdownMenu(expanded, onDismissRequest = { expanded = false }) {
@@ -91,7 +90,7 @@ private fun ReasoningChoices(
     enabled: Boolean,
     onSelect: (ReasoningEffort) -> Unit,
 ) {
-    if (options.isEmpty()) {
+    if (options.isEmpty() || options == listOf(ReasoningEffort.OFF)) {
         DropdownMenuItem(
             text = {
                 Text(
@@ -99,6 +98,7 @@ private fun ReasoningChoices(
                         when {
                             busy -> R.string.chat_reasoning_detecting
                             failed -> R.string.chat_reasoning_detection_failed
+                            options == listOf(ReasoningEffort.OFF) -> R.string.chat_reasoning_unsupported
                             else -> R.string.chat_reasoning_not_confirmed
                         },
                     ),

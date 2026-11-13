@@ -18,6 +18,7 @@ import com.helix.app.chat.HumanHandoff
 import com.helix.app.chat.TaskDashboardProjection
 import com.helix.app.chat.loadTurnRecoverySources
 import com.helix.app.infrastructure.agent.ProviderSubmissionSnapshots
+import com.helix.app.infrastructure.agent.RoomGoalContinuationFacts
 import com.helix.app.infrastructure.agent.RoomSessionWorkStore
 import com.helix.app.infrastructure.agent.RoomSubmissionAdmissionFacts
 import com.helix.app.infrastructure.agent.RoomTurnRecoveryStore
@@ -68,6 +69,7 @@ import com.helix.app.tool.ToolPipeline
 import com.helix.app.vision.MobileUseScreenConsent
 import com.helix.app.vision.ToolVisionConsent
 import com.helix.core.agent.AgentRuntime
+import com.helix.core.agent.SessionInputConfiguration
 import com.helix.core.agent.runtime.StopTurnCommandHandler
 import com.helix.core.agent.runtime.TurnDeliveryControl
 import com.helix.core.agent.runtime.TurnEngine
@@ -126,9 +128,10 @@ internal class ConversationComposition(
     knowledgeReferences: KnowledgeReferenceService? = null,
     knowledgeNotes: KnowledgeNoteService? = null,
     scheduledModelGuard: ScheduledModelRequestGuard = ScheduledModelRequestGuard(),
+    nativeWebSearchEnabled: () -> Boolean = { false },
 ) {
     private val sessionRunControls = SessionRunControlStore(storage, runControlStore)
-    private val goalContinuation = GoalContinuationDriver(storage)
+    private val goalContinuation = GoalContinuationDriver(RoomGoalContinuationFacts(storage))
     private val goalUserRequests = ConcurrentHashMap<String, List<GoalUserRequest>>()
     val toolVisionConsent =
         ToolVisionConsent(
@@ -146,13 +149,20 @@ internal class ConversationComposition(
             memory,
             toolVisionConsent,
             profile = { profileStore.flow.value },
+            nativeWebSearchEnabled = nativeWebSearchEnabled,
         )
     private val toolCalls =
         ApplicationToolGateway(
-            storage,
+            com.helix.app.infrastructure.tools
+                .RoomToolGatewayStore(storage, clock, idGenerator),
+            com.helix.app.infrastructure.tools.RoomToolSettlementStore(
+                storage,
+                toolPipeline.auditSink,
+                clock,
+                idGenerator,
+            ),
             toolPipeline,
             clock,
-            idGenerator,
             profileStore.flow,
             scope,
             presentation = { fact -> chatService.toolPresentation.publish(fact.toConversationDisplay()) },
@@ -302,20 +312,69 @@ internal class ConversationComposition(
             },
             skillActivationsValid = { session, items -> chatService.validSkillActivations(session, items) },
         )
+    private val sessionCatalog =
+        RoomSessionCatalog(
+            storage,
+            providerService,
+            sessionRunControls,
+            workspaceRecovery,
+            clock,
+            idGenerator,
+            bindSessionDirectory,
+        )
+    val sessionCreationService =
+        com.helix.app.session.SessionCreationService(
+            com.helix.app.session
+                .RoomSessionCreationStore(storage),
+            { title -> sessionCatalog.create(title, null, null) },
+            { clock.now().toEpochMilli() },
+        )
+    val sessionDelegationService =
+        com.helix.app.session.SessionDelegationService(
+            storage,
+            configuration = { target, expectedTurnId ->
+                val session = storage.sessions.resolve(target)
+                require(session.archivedAt == null) { "SESSION_DATA_UNAVAILABLE" }
+                val provider = requireNotNull(session.providerId) { "SESSION_CONFIGURATION_UNAVAILABLE" }
+                require(providerService.chatSelectable(provider)) { "SESSION_CONFIGURATION_UNAVAILABLE" }
+                val model = session.modelId ?: providerService.storedConfig(provider).model
+                val control =
+                    if (expectedTurnId == null) {
+                        sessionRunControls.ensure(target, clock.now().toEpochMilli())
+                    } else {
+                        val active = turnEngine.liveExecution.byTurn(expectedTurnId)?.takeIf { it.sessionId == target }
+                        requireNotNull(active) {
+                            "INPUT_TARGET_UNAVAILABLE"
+                        }.control
+                    }
+                val facts = ProviderTurnSnapshot.capture(providerService, provider, model)
+                if (expectedTurnId != null) {
+                    require(
+                        storage.modelCalls
+                            .listByTurn(expectedTurnId)
+                            .firstOrNull()
+                            ?.providerSnapshot == facts,
+                    ) {
+                        "INPUT_CONFIGURATION_CHANGED"
+                    }
+                }
+                val fingerprint = SessionInputConfiguration.hash(facts, control, control.mode.name)
+                com.helix.core.model.input.InputConfiguration(
+                    provider,
+                    model,
+                    control.mode.name,
+                    "v1:$fingerprint:0",
+                )
+            },
+            wakeTarget = { target -> chatService.notifyAcceptedInput(target) },
+            now = { clock.now().toEpochMilli() },
+            id = idGenerator,
+        )
     val chatService: ChatService =
         ChatService(
             providers = AppConversationProviders(providerService),
             profile = profileStore.flow,
-            catalog =
-                RoomSessionCatalog(
-                    storage,
-                    providerService,
-                    sessionRunControls,
-                    workspaceRecovery,
-                    clock,
-                    idGenerator,
-                    bindSessionDirectory,
-                ),
+            catalog = sessionCatalog,
             historyReader = historyReader,
             screenReader =
                 RoomConversationScreenReader(

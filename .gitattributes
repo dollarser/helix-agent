@@ -2,3 +2,7 @@
 # Keep other whitespace checks, including space-before-tab, enabled for these exact files.
 /ui/shared/src/main/assets/mermaid/mermaid.tiny.js whitespace=-blank-at-eol,-blank-at-eof
 /ui/shared/src/main/assets/licenses/Mermaid-dependencies.txt whitespace=-blank-at-eol,-blank-at-eof
+
+# Unified-diff blank context lines require one space; preserve the hash-pinned patch bytes.
+# Keep blank-at-eof, space-before-tab and all other staged/source checks enabled.
+/scripts/experiments/ffmpeg/ffmpeg-ready/mediacodec-no-encoder-flush.patch whitespace=-blank-at-eol

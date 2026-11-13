@@ -446,6 +446,33 @@ class ProotJobRunnerDeviceTest {
         assertEquals(ProotJobState.CANCELLED, record.state)
     }
 
+    @Test
+    fun cancellationCleanupAndJournalReopenKeepProofWhileAllowingNextExecution() {
+        aCancelledJobIsKilledByGroupAndTerminal()
+        val id = jobIds.last()
+        val terminal = requireNotNull(runner.query(id))
+        val deadline = android.os.SystemClock.elapsedRealtime() + 10_000
+        while (runner.isJobRunning(id) && android.os.SystemClock.elapsedRealtime() < deadline) {
+            Thread.sleep(25)
+        }
+        assertTrue("cancelled executor still occupies capacity", !runner.isJobRunning(id))
+        val reopened = ProotJobStore(ProotRuntimeInstaller.runtimeRoot(context))
+        assertEquals(terminal, reopened.load(id))
+        runner.jobStore.cleanupScratch(id)
+        assertTrue("cancelled scratch retained", !File(reopened.jobDir(id), "tmp").exists())
+        val receipt = runner.acknowledgeResult(id, requireNotNull(terminal.terminalCommit), System.currentTimeMillis())
+        assertNotNull(receipt)
+        assertEquals(ProotJobState.CANCELLED, receipt?.state)
+        assertEquals(terminal.terminalCommit, reopened.load(id)?.terminalCommit)
+        assertTrue("acknowledged payload retained", !reopened.outputFile(id).exists())
+        assertEquals(
+            receipt,
+            runner.acknowledgeResult(id, requireNotNull(terminal.terminalCommit), System.currentTimeMillis()),
+        )
+        aJobRunsUnderProotAndDeliversVerifiedOutput()
+        assertEquals(ProotJobState.CANCELLED, reopened.load(id)?.state)
+    }
+
     /** Hold input EOF so cancellation is exercised before launch, independent of executor timing. */
     private fun withPendingInput(
         spec: ProotJobSpec,

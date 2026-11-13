@@ -1,9 +1,8 @@
-package com.helix.app.application.agent
+package com.helix.app.infrastructure.agent
 
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.goal.toRuntimeGoal
 import com.helix.app.goal.toStoredGoal
-import com.helix.app.infrastructure.agent.RoomTurnRoundStore
 import com.helix.core.agent.Criterion
 import com.helix.core.agent.Goal
 import com.helix.core.agent.GoalEffect
@@ -34,8 +33,11 @@ internal data class StartedGoalTurn(
     val budgets: TurnBudgets,
 )
 
-/** User-action boundary, not a model Tool. It never schedules work or replays an interrupted Turn. */
-internal class GoalRunCoordinator(
+/**
+ * Durable Goal commands. Each mutation joins the caller's admission/plan transaction or opens
+ * its own; no process-local activation or external work happens inside this boundary.
+ */
+internal class RoomGoalRunCommands(
     private val storage: HelixStorage,
     private val clock: Clock,
     private val idGenerator: () -> String,
@@ -54,17 +56,8 @@ internal class GoalRunCoordinator(
         return created ?: error("a new goal must be saved")
     }
 
-    /**
-     * Computes and persists a fresh READY goal and returns its id. [create] wraps this in its
-     * own transaction; a caller that must commit the goal TOGETHER with other writes — the plan
-     * EXECUTING transition (research doc 5.1: restart + double-click execute) — calls this from
-     * INSIDE its own storage transaction. Callers MUST already be inside a transaction; this
-     * method does not open one.
-     *
-     * HX2-05: a plan-executing goal binds the approved plan version; the pair is all-or-nothing
-     * (StoredGoal enforces the same invariant at the row level).
-     */
-    fun saveReadyGoal(
+    /** Internal write; create always joins an existing transaction or opens its own. */
+    private fun saveReadyGoal(
         objective: String,
         criteria: List<String>,
         budgets: GoalBudgets,
@@ -95,10 +88,13 @@ internal class GoalRunCoordinator(
      * Android tests are fixture construction, not a second runtime admission seam.
      */
     fun start(request: GoalTurnStart): StartedGoalTurn? {
-        if (request.recoveryInspection) return RecoveryGoalRunStart(storage, clock, idGenerator).start(request)
         var started: StartedGoalTurn? = null
         storage.withTransaction {
-            if (GoalRoundAllowance(storage).blockIfExhausted(request.goalId)) return@withTransaction
+            if (request.recoveryInspection) {
+                started = RoomRecoveryGoalRunStart(storage, clock, idGenerator).start(request)
+                return@withTransaction
+            }
+            if (RoomGoalRoundAllowance(storage).blockIfExhausted(request.goalId)) return@withTransaction
             val previous = storage.goals.resolve(request.goalId).toRuntimeGoal()
             if (com.helix.core.agent.GoalDriver.admit(
                     previous,

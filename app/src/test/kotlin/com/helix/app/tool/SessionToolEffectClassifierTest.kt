@@ -75,6 +75,26 @@ class SessionToolEffectClassifierTest {
         assertFalse(DeviceFileTools.descriptor(false).operationClass.isReviewModeAdmitted)
     }
 
+    @Test fun sessionCreationAndDeliveryRemainNormalMutations() {
+        val registry =
+            com.helix.tools.framework
+                .ToolRegistry()
+        com.helix.app.session.SessionCreationTool
+            .register(registry) { error("classification only") }
+        com.helix.app.session.SessionDelegationTool
+            .register(registry) { error("classification only") }
+        val classifier = SessionToolEffectClassifier { "scope:ws:project" }
+        for (name in listOf("session.create", "session.queue", "session.steer")) {
+            val descriptor = requireNotNull(registry.resolveLatest(ToolName(name)))
+            assertEquals(ToolOperationClass.LOCAL_MUTATION, descriptor.operationClass)
+            assertFalse(descriptor.operationClass.isReviewModeAdmitted)
+            assertEquals(
+                setOf(OperationEffect.DEVICE_SYSTEM_MUTATION),
+                classifier.classify(request("{}"), descriptor).footprint.effects,
+            )
+        }
+    }
+
     @Test fun sessionRenameIsARealMutationWhileHistoryRemainsReadOnly() {
         val classifier = SessionToolEffectClassifier { "scope:ws:project" }
         val rename =

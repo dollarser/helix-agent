@@ -12,6 +12,7 @@ import com.helix.core.model.ModelRole
 import com.helix.core.model.ReasoningEffort
 import com.helix.core.model.TurnBudgets
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.long
@@ -21,6 +22,36 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class RequestBudgetDiagnosticsTest {
+    @Test fun finalToolCostsAreBoundedAndReferToManifestOrderWithoutContent() {
+        val tools =
+            (0 until 100).map { index ->
+                com.helix.core.model.ModelToolSchema(
+                    com.helix.core.model
+                        .ToolName("private.tool_$index"),
+                    "private description",
+                    "{\"description\":\"${"x".repeat(index * 10)}\"}",
+                )
+            }
+        val request = context.copy(tools = tools).modelRequest()
+        val encoded = RequestBudgetDiagnostics.tools(request)
+        assertTrue(encoded.length <= 512)
+        assertFalse(encoded.contains("private"))
+        val body = Json.parseToJsonElement(encoded).jsonObject
+        assertEquals(100L, body.getValue("count").jsonPrimitive.long)
+        assertEquals(ModelInputEstimate.of(request).tools, body.getValue("estimatedTokens").jsonPrimitive.long)
+        assertEquals(
+            listOf(99L, 98L, 97L),
+            body.getValue("largest").jsonArray.map {
+                it.jsonObject
+                    .getValue("index")
+                    .jsonPrimitive.long
+            },
+        )
+        val empty = Json.parseToJsonElement(RequestBudgetDiagnostics.tools(context.modelRequest())).jsonObject
+        assertEquals(0L, empty.getValue("estimatedTokens").jsonPrimitive.long)
+        assertTrue(empty.getValue("largest").jsonArray.isEmpty())
+    }
+
     private val context =
         TurnContextRequest(
             "model",

@@ -1,0 +1,17 @@
+<resources>
+    <string name="session_access_title">会话访问</string>
+    <string name="session_access_source">来源：%1$s
+%2$s</string>
+    <string name="session_access_target">目标：%1$s
+%2$s</string>
+    <string name="session_access_read">读取历史</string>
+    <string name="session_access_manage">重命名、归档和恢复</string>
+    <string name="session_access_revoke">撤销全部访问</string>
+    <string name="session_access_save">保存</string>
+    <string name="session_access_cancel">取消</string>
+    <string name="session_access_failed">无法加载或保存权限，请关闭后重试。</string>
+    <string name="session_access_create">允许模型创建新的空会话（不授予读取或运行权限）</string>
+    <string name="session_access_delegate">委托任务</string>
+    <string name="session_access_delegate_details">执行权限与撤销范围</string>
+    <string name="session_access_delegate_explanation">委托任务按目标会话当前权限和正常审批执行。撤销会阻止未来及尚未进入上下文的投递，不撤回已进入上下文的内容或停止目标任务；停止请使用目标会话的停止操作。</string>
+</resources>

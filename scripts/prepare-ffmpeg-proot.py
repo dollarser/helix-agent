@@ -10,7 +10,7 @@ import shutil
 import tempfile
 import zipfile
 
-SHA256 = '7fc77f64f27bcd56e1283b9e1233cc743da7b9ed3015accecd7ad7366bef2185'
+SHA256 = '0b7e52e160c60659c4930deb3b498d73123aed3942cadc4a1329b2234c50528a'
 LIBRARIES = {'libavcodec.so', 'libavformat.so', 'libavfilter.so', 'libavutil.so', 'libswscale.so', 'libswresample.so'}
 FILES = LIBRARIES | {'ffmpeg', 'ffprobe'}
 LIMIT = 25_000_000

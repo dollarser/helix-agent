@@ -2,7 +2,6 @@ package com.helix.app.infrastructure.agent
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
-import com.helix.app.application.agent.GoalRunCoordinator
 import com.helix.core.agent.GoalWakeReason
 import com.helix.core.agent.ModelStreamTerminal
 import com.helix.core.agent.RunControlConfig
@@ -146,7 +145,7 @@ class RoomTurnLifecycleStoreDeviceTest {
                     override fun now(): Instant = Instant.ofEpochMilli(2000)
                 }
             val goalCoordinator =
-                GoalRunCoordinator(
+                RoomGoalRunCommands(
                     storage,
                     clock,
                     { UUID.randomUUID().toString() },

@@ -141,9 +141,20 @@ class HelixStorage internal constructor(
     val messages: MessageRepository by lazy {
         MessageRepository(database.messageDao(), contentStore, database.sessionSearchDao(), ::withTransaction)
     }
+    val sessionCreation get() = database.sessionCreationDao()
+
+    val sessionAccess by lazy {
+        com.helix.core.storage.repository.SessionAccessRepository(
+            database.sessionAccessDao(),
+            database.sessionHistoryDao(),
+        )
+    }
+
     val sessionHistory by lazy {
         com.helix.core.storage.repository
-            .SessionHistoryRepository(database.sessionHistoryDao(), contentStore)
+            .SessionHistoryRepository(database.sessionHistoryDao(), contentStore, sessionAccess) { messageId ->
+                sessionInputs.forMessage(messageId)?.delegation
+            }
     }
     val sessionInputs by lazy {
         com.helix.core.storage.repository

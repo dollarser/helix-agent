@@ -4,6 +4,7 @@
 
 核心入口：
 
+- [v0.0.11 准备说明](releases/v0.0.11.md)（[English](releases/v0.0.11.en.md)）：当前未发布候选的功能、升级风险及有界真机/Release 验收；普通 Release 尚未签名，不替代下方已发布快照。
 - [v0.0.10 版本说明](releases/v0.0.10.md)（[English](releases/v0.0.10.en.md)）：该次开发预览的功能、安装条件、发布入口和验证边界；版本说明是发布快照，不代表后续 main 的全部变化。
 - [requirements.md](requirements.md)：Android 单机版产品需求与能力边界。
 - [workspace.md](workspace.md)：会话工作目录、后端能力与保留文件边界。

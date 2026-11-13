@@ -63,12 +63,13 @@ class ProviderTestStatusStore(
                     )
                 }
 
-                "FAILED" -> {
+                "FAILED", "CATALOG_UNSUPPORTED" -> {
                     ConnectionTestStatus.Failed(
                         atMillis = fields[2].toLong(),
                         phase = fields[3].toInt(),
                         code = ModelErrorCode.valueOf(fields[4]),
                         retryable = fields[5].toBooleanStrict(),
+                        catalogUnsupported = fields[1] == "CATALOG_UNSUPPORTED",
                     )
                 }
 
@@ -140,7 +141,7 @@ class ProviderTestStatusStore(
         capabilities: ProviderCapabilities,
         modelIds: List<String>? = null,
     ) {
-        val modelsField = modelIds?.takeIf { it.isNotEmpty() }?.let(::modelIdsJson) ?: NO_MODEL_LIST
+        val modelsField = modelIds?.let(::modelIdsJson) ?: NO_MODEL_LIST
         replace(providerId, "$providerId|PASSED|$atMillis|0|-|false|${toJsonString(capabilities)}|$modelsField")
     }
 
@@ -151,8 +152,10 @@ class ProviderTestStatusStore(
         phase: Int,
         code: ModelErrorCode,
         retryable: Boolean,
+        catalogUnsupported: Boolean = false,
     ) {
-        replace(providerId, "$providerId|FAILED|$atMillis|$phase|${code.name}|$retryable|-|$NO_MODEL_LIST")
+        val state = if (catalogUnsupported) "CATALOG_UNSUPPORTED" else "FAILED"
+        replace(providerId, "$providerId|$state|$atMillis|$phase|${code.name}|$retryable|-|$NO_MODEL_LIST")
     }
 
     /** Invalidate evidence after deletion or a connection edit; only edits retain a changed-configuration marker. */

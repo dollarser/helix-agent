@@ -30,7 +30,30 @@ import java.util.UUID
 class BrowserSearchModelDeviceTest {
     @Test
     fun sourceAuditRejectsMissingReadingConsumptionAndCitation() {
+        InstrumentationRegistry.getArguments().getString("browserSearchEvidenceCaptureBatches")?.let { id ->
+            require(Regex("[a-f0-9]{8}").matches(id))
+            val app = ApplicationProvider.getApplicationContext<HelixApplication>()
+            val directory = File(app.cacheDir, "browser-search-model/$id")
+            val turns = JSONObject(File(directory, "result.json").readText()).getJSONArray("turns")
+            runBlocking {
+                captureBrowserModelBatches(
+                    app.awaitAppContainer().storage,
+                    directory,
+                    (0 until turns.length()).map { turns.getJSONObject(it).getString("id") }.toSet(),
+                )
+            }
+        }
         exerciseBrowserSearchEvidenceVerifier()
+        InstrumentationRegistry.getArguments().getString("browserSearchRejectedEvidenceReplay")?.let { id ->
+            require(Regex("[a-f0-9]{8}").matches(id))
+            val app = ApplicationProvider.getApplicationContext<HelixApplication>()
+            assertTrue(!verifyBrowserSearchModelEvidence(File(app.cacheDir, "browser-search-model/$id")))
+        }
+        InstrumentationRegistry.getArguments().getString("browserSearchEvidenceReplay")?.let { id ->
+            require(Regex("[a-f0-9]{8}").matches(id))
+            val app = ApplicationProvider.getApplicationContext<HelixApplication>()
+            assertTrue(verifyBrowserSearchModelEvidence(File(app.cacheDir, "browser-search-model/$id")))
+        }
     }
 
     @Suppress(
@@ -42,7 +65,13 @@ class BrowserSearchModelDeviceTest {
         runBlocking {
             assumeTrue(InstrumentationRegistry.getArguments().getString("browserSearchModelAcceptance") == "true")
             val app = ApplicationProvider.getApplicationContext<HelixApplication>()
-            check(app.packageName == "com.helix.agent.developer.asrvalidation")
+            check(
+                app.packageName == "com.helix.agent.developer.asrvalidation" ||
+                    (
+                        app.packageName == "com.helix.agent.developer" &&
+                            InstrumentationRegistry.getArguments().getString("browserSearchDailyAcceptance") == "true"
+                    ),
+            )
             val c = app.awaitAppContainer()
             check(app.account.signedIn.value)
             check(
@@ -88,6 +117,7 @@ class BrowserSearchModelDeviceTest {
                     "tools.read_result",
                     "browser.search",
                     "browser.snapshot",
+                    "browser.find",
                     "browser.open",
                     "browser.navigate",
                     "browser.click",
@@ -105,9 +135,11 @@ class BrowserSearchModelDeviceTest {
                     session,
                 )
             var completed = false
+            var cleaningUp = false
 
             fun evidence() {
                 val turns = c.storage.turns.listBySession(session)
+                if (turns.isNotEmpty()) captureBrowserModelBatches(c.storage, directory, turns.map { it.id }.toSet())
                 val calls = turns.flatMap { c.storage.toolCalls.listByTurn(it.id) }
                 val messages = c.storage.messages.listBySession(session)
                 val result =
@@ -153,7 +185,8 @@ class BrowserSearchModelDeviceTest {
                                 },
                             ),
                         )
-                File(directory, "result.json").writeText(result.toString(2))
+                File(directory, if (cleaningUp) "cleanup-result.json" else "result.json")
+                    .writeText(result.toString(2))
             }
 
             try {
@@ -242,9 +275,11 @@ class BrowserSearchModelDeviceTest {
                                         )
                                 },
                             )
-                            if (turns.size == 1 &&
-                                turns.single().state == "COMPLETED"
-                            ) {
+                            val settledPredecessors =
+                                turns.dropLast(1).all {
+                                    it.state == "INTERRUPTED" && it.errorCode == "RECOVERY_INSPECTION_FINISHED"
+                                }
+                            if (turns.lastOrNull()?.state == "COMPLETED" && settledPredecessors) {
                                 break
                             }
                             delay(250)
@@ -274,7 +309,7 @@ class BrowserSearchModelDeviceTest {
                             session,
                             c.storage.turns
                                 .listBySession(session)
-                                .single()
+                                .last()
                                 .id,
                         )
                     assertTrue(
@@ -287,8 +322,10 @@ class BrowserSearchModelDeviceTest {
                         verifyBrowserSearchModelEvidence(directory),
                     )
                     completed = true
+                    evidence()
                 }
             } finally {
+                cleaningUp = true
                 finishOwnedCase(
                     c.storage,
                     c.chatService,

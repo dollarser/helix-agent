@@ -1174,7 +1174,6 @@
     <string name="provider_models_move_first">Move to top</string>
     <string name="provider_models_save_use">Select and use in current conversation</string>
     <string name="provider_models_connection_required">Provider connection not verified</string>
-    <string name="provider_models_source_settings_hint">Edit connection details here. Use Manage conversation models for visibility and per-model settings.</string>
     <string name="model_selection_saved_but_not_applied">Model choices were saved but have not been applied to this conversation.</string>
     <string name="provider_account_present">Login credentials are stored. Remote access and model capabilities require verification.</string>
     <string name="provider_account_logged_out">Signed out. Sign in again to continue.</string>
@@ -1741,13 +1740,26 @@
     <string name="workspace_internal_storage_help">Helix manages internal storage; its location cannot be changed manually. Changing the working directory keeps existing files in their original locations. View or export them in Files.</string>
     <string name="web_search_title">Web Search</string>
     <string name="web_search_help">Browser search uses existing browser tools without an API key. API search sends queries to the selected provider and may incur charges: Tavily Basic consumes credits; DeepSeek Search is billed per successful nonempty search. Configure your own key and billing limits before enabling. Switching provider turns this form off until saved.</string>
-    <string name="web_search_enabled">Enable Web Search</string>
+    <string name="web_search_enabled">Enable standalone search API</string>
     <string name="web_search_key">Selected provider API key</string>
     <string name="web_search_replace_key">Replace saved key (optional)</string>
     <string name="web_search_save">Save</string>
-    <string name="web_search_remove_key">Remove key and disable</string>
+    <string name="web_search_remove_key">Remove selected API key and disable standalone search</string>
     <string name="web_search_save_error">Could not load or save settings. Reopen and try again.</string>
     <string name="web_search_loading">Loading settings…</string>
     <string name="web_search_retry">Retry</string>
     <string name="web_search_saved">Saved</string>
+    <string name="provider_show_api_key">Show API key</string>
+    <string name="provider_hide_api_key">Hide API key</string>
+    <string name="provider_service_settings">Service settings</string>
+    <string name="provider_settings_models">Models</string>
+    <string name="provider_settings_saved">Saved</string>
+    <string name="native_search_enabled">Allow OpenAI native web search</string>
+    <string name="native_search_help">After saving, each request checks whether the current OpenAI Responses model may search the public web autonomously. Session search restrictions still apply. Only official api.openai.com is supported; the model is unchanged and compatible endpoints are excluded. A request may search multiple times: search calls plus model tokens are billed (currently US$10 per 1,000 searches; actual account pricing applies). Model-generated queries are sent to search services. Turning this off affects later requests; an in-flight search may already be billed.</string>
+    <string name="provider_key_hide_to_replace">Hide to enter a replacement</string>
+    <string name="provider_models_save_connection_first">Save the connection before testing models</string>
+    <string name="provider_save_review_required">Some settings may have changed. Close and reopen this service to review before saving again.</string>
+    <string name="provider_save_conflict">This service changed. Close and reopen it before saving.</string>
+    <string name="provider_context_independent_save">Changes saved here take effect immediately, even if you cancel service settings.</string>
+    <string name="provider_model_immediate_setting">This action takes effect immediately; cancelling service settings does not undo it.</string>
 </resources>

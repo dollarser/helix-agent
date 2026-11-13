@@ -1,17 +1,22 @@
 package com.helix.feature.conversation.presentation
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -20,10 +25,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -41,19 +48,12 @@ import kotlinx.coroutines.launch
 import com.helix.feature.conversation.R as ConversationR
 import com.helix.ui.shared.R as SharedR
 
-private fun matchesModelQuery(
-    row: ConversationModelSourceUi,
-    model: String,
-    query: String,
-): Boolean = listOf(model, row.modelLabel(model), row.displayName).any { it.contains(query, ignoreCase = true) }
-
 private fun ConversationModelSourceUi.needsModelSetup(query: String): Boolean =
     setupStep != ConversationModelSetupStep.READY &&
         (displayName.contains(query, ignoreCase = true) || knownModels.any { it.contains(query, ignoreCase = true) })
 
 @Composable
-// Android localized format resources accept varargs; these short display labels need the exact arguments.
-@Suppress("FunctionName", "SpreadOperator")
+@Suppress("FunctionName")
 private fun ConversationModelItem(
     row: ConversationModelSourceUi,
     model: String,
@@ -62,30 +62,57 @@ private fun ConversationModelItem(
     reasoning: (@Composable () -> Unit)? = null,
     onSelect: () -> Unit,
 ) {
-    DropdownMenuItem(
-        text = {
-            Column {
-                Text((if (current) "✓ " else "") + row.modelLabel(model))
-                val subtitle =
-                    row.displayLabel?.let { stringResource(it.resourceId, *it.arguments.toTypedArray()) }
-                        ?: row.displayName
-                Text(subtitle, style = MaterialTheme.typography.labelSmall)
-                row.unavailable
-                    ?.takeUnless { row.chatSelectable }
-                    ?.label
-                    ?.let { ModelCatalogLabel(it) }
-                row
-                    .choice(model)
-                    ?.generationFailure
-                    ?.label
-                    ?.let { ModelCatalogLabel(it) }
+    val selectable = enabled && row.modelSelectable(model)
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color =
+            if (current) {
+                MaterialTheme.colorScheme.secondaryContainer
+            } else {
+                MaterialTheme.colorScheme.surfaceContainerLow
+            },
+        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+    ) {
+        Column {
+            Row(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 56.dp)
+                        .selectable(
+                            selected = current,
+                            enabled = selectable,
+                            role = Role.RadioButton,
+                            onClick = onSelect,
+                        ).testTag("chat-model-${row.id}-$model")
+                        .padding(horizontal = 12.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                RadioButton(selected = current, onClick = null, enabled = selectable)
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        row.modelLabel(model),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color =
+                            if (selectable) {
+                                MaterialTheme.colorScheme.onSurface
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                    )
+                    row
+                        .choice(model)
+                        ?.generationFailure
+                        ?.label
+                        ?.let { ModelCatalogLabel(it) }
+                }
             }
-        },
-        trailingIcon = reasoning,
-        onClick = { if (enabled && row.modelSelectable(model)) onSelect() },
-        enabled = enabled && row.modelSelectable(model),
-        modifier = Modifier.semantics { selected = current }.testTag("chat-model-${row.id}-$model"),
-    )
+            reasoning?.let { content ->
+                Box(Modifier.fillMaxWidth().padding(start = 36.dp, end = 8.dp, bottom = 4.dp)) { content() }
+            }
+        }
+    }
 }
 
 @Composable
@@ -149,10 +176,7 @@ fun ComposerModelMenu(
             )
     val visibleProviders = providers.filter { it.visibleInModelPicker || (it.bundled && it.id == providerId) }
     val currentLabel = model?.let { currentProvider?.modelLabel(it) ?: it }
-    val entries =
-        visibleProviders
-            .flatMap { row -> row.conversationModels.map { row to it } }
-            .filter { (row, candidate) -> matchesModelQuery(row, candidate, query) }
+    val groups = conversationModelGroups(visibleProviders, query)
     val pendingProviders = visibleProviders.filter { !it.bundled && it.needsModelSetup(query) }
     LaunchedEffect(expanded, refreshRequest) {
         if (expanded && onRefreshModels != null) {
@@ -260,7 +284,7 @@ fun ComposerModelMenu(
                                 )
                             }
                         }
-                        if (entries.isEmpty()) {
+                        if (groups.isEmpty()) {
                             item {
                                 Text(
                                     stringResource(R.string.provider_models_picker_empty),
@@ -268,40 +292,44 @@ fun ComposerModelMenu(
                                 )
                             }
                         }
-                        items(entries, key = { (row, candidate) ->
-                            "${row.id.length}:${row.id}$candidate"
-                        }) { (row, candidate) ->
-                            val current = row.id == edit.providerId && candidate == edit.model
-                            ConversationModelItem(
-                                row,
-                                candidate,
-                                current,
-                                enabled && !saving,
-                                reasoning =
-                                    if (current) {
-                                        {
-                                            androidx.compose.runtime.key(row.id, candidate) {
-                                                ComposerReasoningMenu(
-                                                    edit.reasoning,
-                                                    enabled && !saving,
-                                                    {
-                                                        edit = edit.copy(reasoning = it)
-                                                        saveFailure = null
-                                                    },
-                                                    efforts = row.reasoningOptionsFor(candidate),
-                                                    onDetect =
-                                                        onDetectReasoning?.let { detect ->
-                                                            { detect(row.id, candidate) }
+                        groups.forEach { group ->
+                            val row = group.source
+                            item(key = "source:${row.id}") { ConversationModelSourceHeader(row) }
+                            items(group.models, key = { candidate ->
+                                "model:${row.id.length}:${row.id}$candidate"
+                            }) { candidate ->
+                                val current = row.id == edit.providerId && candidate == edit.model
+                                ConversationModelItem(
+                                    row,
+                                    candidate,
+                                    current,
+                                    enabled && !saving,
+                                    reasoning =
+                                        if (current) {
+                                            {
+                                                androidx.compose.runtime.key(row.id, candidate) {
+                                                    ComposerReasoningMenu(
+                                                        edit.reasoning,
+                                                        enabled && !saving,
+                                                        {
+                                                            edit = edit.copy(reasoning = it)
+                                                            saveFailure = null
                                                         },
-                                                )
+                                                        efforts = row.reasoningOptionsFor(candidate),
+                                                        onDetect =
+                                                            onDetectReasoning?.let { detect ->
+                                                                { detect(row.id, candidate) }
+                                                            },
+                                                    )
+                                                }
                                             }
-                                        }
-                                    } else {
-                                        null
-                                    },
-                            ) {
-                                edit = edit.select(row.id, candidate)
-                                saveFailure = null
+                                        } else {
+                                            null
+                                        },
+                                ) {
+                                    edit = edit.select(row.id, candidate)
+                                    saveFailure = null
+                                }
                             }
                         }
                         items(pendingProviders, key = { "setup:${it.id}" }) { row ->
@@ -393,6 +421,27 @@ fun ComposerModelMenu(
                 },
             )
         }
+    }
+}
+
+@Composable
+// Android localized source labels keep their resource-owned formatting arguments.
+@Suppress("FunctionName", "SpreadOperator")
+private fun ConversationModelSourceHeader(row: ConversationModelSourceUi) {
+    Column(Modifier.fillMaxWidth().padding(start = 4.dp, end = 4.dp, top = 20.dp, bottom = 8.dp)) {
+        val label =
+            row.displayLabel?.let { stringResource(it.resourceId, *it.arguments.toTypedArray()) }
+                ?: row.displayName
+        Text(
+            label,
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.semantics { heading() }.testTag("chat-model-source-${row.id}"),
+        )
+        row.unavailable
+            ?.takeUnless { row.chatSelectable }
+            ?.label
+            ?.let { ModelCatalogLabel(it) }
     }
 }
 

@@ -278,6 +278,49 @@ class ToolModelResultTest {
         assertEquals(payload, ToolModelResult.project("mcp.search", payload))
     }
 
+    @Test fun largerResultPagesAreBoundedAndUnicodeLossless() {
+        for (payload in listOf("😀".repeat(9000), "\u0001".repeat(9000), "中".repeat(9000))) {
+            val first = ToolResultReadTool.page("t/c", payload, 0, maxCharacters = 8192)
+            val content = first.getValue("content").jsonPrimitive.content
+            assertEquals(8192, content.codePointCount(0, content.length))
+            assertEquals(8192, first.getValue("nextOffset").jsonPrimitive.int)
+            assertTrue(first.toString().toByteArray().size < 65_536)
+            assertEquals(
+                com.helix.tools.framework.ToolSchemaValidation.Valid,
+                com.helix.tools.framework.ToolSchemaValidator
+                    .validate(ToolResultReadTool.outputSchema, first),
+            )
+            val last = ToolResultReadTool.page("t/c", payload, 8192, maxCharacters = 8192)
+            assertFalse(last.getValue("truncated").jsonPrimitive.boolean)
+            assertEquals(payload, content + last.getValue("content").jsonPrimitive.content)
+        }
+        assertEquals(
+            "a",
+            ToolResultReadTool
+                .page("t/c", "abc", 0, maxCharacters = 1)
+                .getValue("content")
+                .jsonPrimitive.content,
+        )
+        for (limit in listOf(0, -1, 8193, Int.MAX_VALUE)) {
+            org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {
+                ToolResultReadTool.page("t/c", "abc", 0, maxCharacters = limit)
+            }
+        }
+    }
+
+    @Test fun exactEndAndLargeReadResultRemainTruthful() {
+        val payload = "\u0001".repeat(8192)
+        val page = ToolResultReadTool.page("r".repeat(260), payload, 0, maxCharacters = 8192)
+        assertFalse(page.getValue("truncated").jsonPrimitive.boolean)
+        assertFalse(page.containsKey("nextOffset"))
+        assertTrue(page.toString().toByteArray().size < 65_536)
+        assertEquals(page.toString(), ToolModelResult.project("tools.read_result", page.toString(), "t/c"))
+        val empty = ToolResultReadTool.page("t/c", payload, 8192, maxCharacters = 8192)
+        assertEquals("", empty.getValue("content").jsonPrimitive.content)
+        assertFalse(empty.getValue("truncated").jsonPrimitive.boolean)
+        assertFalse(empty.containsKey("nextOffset"))
+    }
+
     @Test fun finishingResultPagesPreservesSourceTruncationAndDoesNotRefreshTokens() {
         val payload = """{"truncated":true,"token":"original-token","items":"${"x".repeat(5000)}"}"""
         val restored = StringBuilder()

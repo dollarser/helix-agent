@@ -49,7 +49,7 @@ internal fun ProviderConnectionTestAction(
             row.managedExternally -> R.string.provider_account_connection_test
             else -> R.string.provider_connection_test
         }
-    val modifier = Modifier.fillMaxWidth().testTag("provider-test")
+    val modifier = Modifier.testTag("provider-test")
     if (highlight) {
         FilledTonalButton(onClick = onTest, enabled = !testing, modifier = modifier) {
             Text(stringResource(label))

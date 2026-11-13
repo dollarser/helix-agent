@@ -262,6 +262,14 @@ fun ChatScreen(
                 )
             }
             Column {
+                if (!screen.isDraft) {
+                    intents.onSessionAccess?.let { open ->
+                        ConversationMenuRow(stringResource(R.string.session_access_title), {
+                            closeDetails()
+                            open()
+                        }, Modifier.testTag("session-access-open"))
+                    }
+                }
                 ConversationMenuRow(stringResource(ConversationR.string.chat_rename), {
                     closeDetails()
                     intents.onRename()

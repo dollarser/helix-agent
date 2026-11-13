@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -30,6 +31,7 @@ import com.helix.core.model.ModelErrorCode
 import com.helix.core.model.ProviderProvisioningKind
 import com.helix.feature.conversation.application.ChatService
 import com.helix.provider.api.ProbeOutcome
+import com.helix.provider.api.ProviderConfig
 import com.helix.ui.shared.ModelSourceTabs
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -40,7 +42,7 @@ import kotlinx.coroutines.launch
  *
  * The UI dispatches intents to [ProviderService] and observes its [rows]
  * StateFlow — it never holds a network Job, never touches DAOs/OkHttp and
- * never sees a secret (only the [ProviderRowUi.hasKey] flag, NFR-007).
+ * reads saved keys only for explicit, short-lived display in the connection editor.
  *
  * Rules rendered here (all enforced in the pure/service layer):
  * - a provider is chat-selectable ONLY after a completed connection test
@@ -58,6 +60,7 @@ fun ProviderManager(
 ) {
     val rows by providerService.rows.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
+    val context = androidx.compose.ui.platform.LocalContext.current
     var group by rememberSaveable(initialSource) {
         mutableStateOf(
             initialSource?.takeIf { it in providerService.sourceGroups }
@@ -69,6 +72,9 @@ fun ProviderManager(
     }
     var discovery by remember { mutableStateOf<List<String>>(emptyList()) }
     var discovering by remember { mutableStateOf(false) }
+    var discoveryJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
+    var modelBusy by remember { mutableStateOf(false) }
+    var modelContext by remember { mutableStateOf<String?>(null) }
     var discoveryMessage by remember { mutableStateOf<Int?>(null) }
     var deleteFailure by remember { mutableStateOf(false) }
     var localModelOpen by remember { mutableStateOf(false) }
@@ -79,13 +85,52 @@ fun ProviderManager(
             androidx.lifecycle.ViewModelProvider(formOwner)[ProviderEditorState::class.java]
         }
     var form by editor::form
-    var contextRow by remember { mutableStateOf<com.helix.app.provider.ProviderRowUi?>(null) }
+    var contextTarget by remember { mutableStateOf<Pair<ProviderRowUi, String>?>(null) }
+    var accountRow by remember { mutableStateOf<ProviderRowUi?>(null) }
     var modelsRow by remember { mutableStateOf<ProviderRowUi?>(null) }
     var testingId by remember { mutableStateOf<String?>(null) }
     var detectingId by remember { mutableStateOf<String?>(null) }
-    var capabilityResults by remember { mutableStateOf<Map<String, ProbeOutcome>>(emptyMap()) }
+    var connectionResults by remember { mutableStateOf<Map<String, ProviderCheckFeedback<ProbeOutcome>>>(emptyMap()) }
+    var modelFailures by remember { mutableStateOf<Map<String, ProviderCheckFeedback<String>>>(emptyMap()) }
     val saving = editor.saving
-    var accountFailureId by remember { mutableStateOf<String?>(null) }
+
+    fun checkModel(
+        row: ProviderRowUi,
+        model: String,
+        capabilities: Boolean,
+    ) {
+        val baseline = row.configuration ?: return
+        if (testingId != null || model !in row.conversationModels) return
+        testingId = row.id
+        detectingId = row.id
+        modelFailures = modelFailures - row.id
+        scope.launch {
+            try {
+                val result =
+                    if (capabilities) {
+                        providerService.runCapabilityTest(row.id, model, expectedConfig = baseline)
+                    } else {
+                        providerService.runConnectionTest(
+                            row.id,
+                            model,
+                            verifyGeneration = true,
+                            expectedConfig = baseline,
+                        )
+                    }
+                if (result is ProbeOutcome.Failed) {
+                    modelFailures = modelFailures + (row.id to ProviderCheckFeedback(baseline, row.accountState, model))
+                }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                modelFailures = modelFailures + (row.id to ProviderCheckFeedback(baseline, row.accountState, model))
+            } finally {
+                testingId = null
+                detectingId = null
+            }
+        }
+    }
+    accountRow?.let { ProviderAccountDialog(it, providerService) { accountRow = null } }
 
     if (localModelOpen) {
         providerService.localModels?.let {
@@ -95,30 +140,28 @@ fun ProviderManager(
         }
     }
     modelsRow?.let { row ->
-        ProviderModelsDialog(
-            row,
-            providerService,
-            onDismiss = { modelsRow = null },
-        )
+        ProviderModelsDialog(row, providerService, onDismiss = { modelsRow = null })
     }
     Column(Modifier.fillMaxWidth()) {
         ModelSourceTabs(providerService.sourceGroups, group) { group = it }
-        Text(
-            stringResource(
-                if (group == ProviderProvisioningKind.MANAGED_ACCOUNT) {
-                    R.string.provider_subscription_experimental_notice
-                } else {
-                    modelSourceDescription(group)
-                },
-            ),
-            modifier = Modifier.padding(vertical = 12.dp),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        if (group != ProviderProvisioningKind.USER_CONFIGURED) {
+            Text(
+                stringResource(
+                    if (group == ProviderProvisioningKind.MANAGED_ACCOUNT) {
+                        R.string.provider_subscription_experimental_notice
+                    } else {
+                        modelSourceDescription(group)
+                    },
+                ),
+                modifier = Modifier.padding(vertical = 12.dp),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         if (group == ProviderProvisioningKind.USER_CONFIGURED) {
-            OutlinedButton(onClick = {
+            FilledTonalButton(onClick = {
                 templatePickerOpen = true
-            }, modifier = Modifier.fillMaxWidth().testTag("provider-add")) {
+            }, modifier = Modifier.fillMaxWidth().padding(top = 12.dp).testTag("provider-add")) {
                 Text(stringResource(R.string.provider_add))
             }
         }
@@ -143,26 +186,38 @@ fun ProviderManager(
                 actions =
                     ProviderRowActions(
                         onManageModels = { modelsRow = row },
-                        onContext = { contextRow = row },
-                        onDeclareVision = { enabled ->
-                            // The user-visible manual declaration (ADR-0014): vision may come from a
-                            // real probe OR this explicit mark — the UI shows 「手动声明」 afterwards.
-                            scope.launch { providerService.declareVisionCapability(row.id, enabled) }
-                        },
+                        onContext = { model -> contextTarget = row to model },
+                        onTestModel = { model -> checkModel(row, model, false) },
                         onTest = {
-                            if (testingId == null) {
+                            val baseline = row.configuration
+                            if (testingId == null && baseline != null) {
                                 testingId = row.id
                                 scope.launch {
                                     try {
-                                        providerService.runConnectionTest(
-                                            row.id,
-                                            row.model,
-                                        )
+                                        val result =
+                                            providerService.runConnectionTest(
+                                                row.id,
+                                                expectedConfig = baseline,
+                                            )
+                                        connectionResults = connectionResults +
+                                            (row.id to ProviderCheckFeedback(baseline, row.accountState, result))
+                                    } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                                        throw cancelled
                                     } catch (e: Exception) {
-                                        // A row that cannot even be resolved (corruption) fails
-                                        // closed: the status stays 未测试, the row stays
-                                        // non-selectable, and the exception is logged — never
-                                        // rendered raw (doc 02 section 13).
+                                        connectionResults = connectionResults +
+                                            (
+                                                row.id to
+                                                    ProviderCheckFeedback(
+                                                        baseline,
+                                                        row.accountState,
+                                                        com.helix.provider.api.ProbeOutcome.Failed(
+                                                            1,
+                                                            com.helix.core.model.ModelErrorCode.PROTOCOL,
+                                                            "CONNECTION_CHECK_FAILED",
+                                                            false,
+                                                        ),
+                                                    )
+                                            )
                                         Log.w(TAG, "connection test for ${row.id} did not run", e)
                                     } finally {
                                         testingId = null
@@ -170,38 +225,7 @@ fun ProviderManager(
                                 }
                             }
                         },
-                        onDetectCapabilities = {
-                            if (testingId == null) {
-                                testingId = row.id
-                                detectingId = row.id
-                                capabilityResults = capabilityResults - row.id
-                                scope.launch {
-                                    try {
-                                        val result =
-                                            providerService.runCapabilityTest(
-                                                row.id,
-                                                row.model,
-                                            )
-                                        capabilityResults = capabilityResults + (row.id to result)
-                                    } catch (e: kotlinx.coroutines.CancellationException) {
-                                        throw e
-                                    } catch (e: Exception) {
-                                        Log.w(TAG, "capability detection failed: ${e.javaClass.simpleName}")
-                                        val failure =
-                                            ProbeOutcome.Failed(
-                                                0,
-                                                ModelErrorCode.PROTOCOL,
-                                                "capability detection did not complete",
-                                                false,
-                                            )
-                                        capabilityResults = capabilityResults + (row.id to failure)
-                                    } finally {
-                                        testingId = null
-                                        detectingId = null
-                                    }
-                                }
-                            }
-                        },
+                        onDetectCapabilities = { model -> checkModel(row, model, true) },
                         onEdit = { modelOverride ->
                             // storedConfig is a Room read: it runs on the service's IO
                             // scope, never on this (UI) thread. HXA-059: a backend model
@@ -213,8 +237,11 @@ fun ProviderManager(
                                     val config = providerService.storedConfig(row.id)
                                     discovery = row.backendModels.orEmpty().filterNot(row::conversationProhibited)
                                     discoveryMessage = null
-                                    form =
-                                        editingProviderForm(row, config, modelOverride)
+                                    editor.row = row
+                                    editor.models = ProviderModelsEditorState(row.modelSelection)
+                                    editor.saveSession =
+                                        providerService.beginDraftSave(row.id, config, row.modelSelection)
+                                    form = editingProviderForm(row, config, modelOverride)
                                 } catch (e: Exception) {
                                     // A row that cannot be resolved (corruption) fails
                                     // closed: the edit is not opened and the exception
@@ -249,28 +276,35 @@ fun ProviderManager(
                                 }
                             }
                         },
-                        onManageAccount = {
-                            scope.launch {
-                                accountFailureId =
-                                    if (
-                                        providerService.openManagedAccount(row.id) ==
-                                        ManagedProviderAccountResult.OPENED
-                                    ) {
-                                        null
-                                    } else {
-                                        row.id
-                                    }
-                            }
-                        },
+                        onManageAccount = { accountRow = row },
                     ),
-                accountUnavailable = accountFailureId == row.id,
+                accountUnavailable = false,
                 detectingCapabilities = detectingId == row.id,
-                capabilityOutcome = capabilityResults[row.id],
+                connectionOutcome =
+                    connectionResults[row.id]
+                        ?.takeIf {
+                            it.matches(row)
+                        }?.value,
+                modelOperationError =
+                    modelFailures[row.id]
+                        ?.takeIf {
+                            it.matches(row)
+                        }?.value,
             )
         }
     }
 
-    contextRow?.let { ProviderContextDialog(it, providerService) { contextRow = null } }
+    contextTarget?.let { (row, model) ->
+        val live = rows.firstOrNull { it.id == row.id }
+        if (live != null && model in live.conversationModels &&
+            com.helix.app.provider
+                .sameProviderEditableConfig(live.configuration, row.configuration)
+        ) {
+            ProviderContextDialog(live, providerService, initialModel = model, fixedModel = true) {
+                contextTarget = null
+            }
+        }
+    }
 
     if (templatePickerOpen) {
         TemplatePickerDialog(
@@ -278,6 +312,15 @@ fun ProviderManager(
                 templatePickerOpen = false
                 discovery = emptyList()
                 discoveryMessage = null
+                editor.row = null
+                editor.models =
+                    ProviderModelsEditorState(
+                        com.helix.app.provider
+                            .ProviderModelSelection(),
+                    ).apply {
+                        addingModel = true
+                    }
+                editor.saveSession = providerService.beginDraftSave()
                 form =
                     ProviderForm(
                         providerId = null,
@@ -302,10 +345,84 @@ fun ProviderManager(
 
     val currentForm = form
     if (currentForm != null) {
+        val models = requireNotNull(editor.models)
+        val session = requireNotNull(editor.saveSession)
+        val liveRow = currentForm.providerId?.let { id -> rows.firstOrNull { it.id == id } }
+
+        fun runModelAction(action: suspend (ProviderConfig) -> ProbeOutcome?) {
+            val baseline = currentForm.savedConfig ?: return
+            val busy = modelBusy || saving || discovering
+            if (!currentForm.connectionMatchesSaved() || busy) return
+            val target = ProviderCheckFeedback(baseline, liveRow?.accountState, Unit)
+
+            fun showFailure() {
+                val latest = providerService.rows.value.firstOrNull { it.id == baseline.id }
+                if (editor.saveSession === session && latest != null && target.matches(latest)) {
+                    form = form?.copy(error = SaveResult.Rejected(R.string.provider_models_operation_failed))
+                }
+            }
+            modelBusy = true
+            form = currentForm.copy(error = null)
+            scope.launch {
+                try {
+                    if (action(baseline) is ProbeOutcome.Failed) showFailure()
+                } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    showFailure()
+                } finally {
+                    modelBusy = false
+                }
+            }
+        }
+        modelContext?.let { model ->
+            if (liveRow != null && currentForm.connectionMatchesSaved() &&
+                com.helix.app.provider
+                    .sameProviderEditableConfig(liveRow.configuration, currentForm.savedConfig)
+            ) {
+                ProviderContextDialog(
+                    liveRow,
+                    providerService,
+                    initialModel = model,
+                    independentSave = true,
+                    fixedModel = true,
+                ) {
+                    modelContext =
+                        null
+                }
+            }
+        }
         ProviderFormDialog(
             form = currentForm,
             saving = saving,
+            models = models,
+            modelRow = liveRow,
+            modelBusy = modelBusy,
+            onTest = { model ->
+                runModelAction { baseline ->
+                    providerService.runConnectionTest(
+                        baseline.id,
+                        model,
+                        verifyGeneration = true,
+                        expectedConfig = baseline,
+                    )
+                }
+            },
+            onProbe = { model ->
+                runModelAction { baseline ->
+                    providerService.runCapabilityTest(baseline.id, model, expectedConfig = baseline)
+                }
+            },
+            onDeclareVision = { enabled ->
+                runModelAction { baseline ->
+                    providerService.declareVisionCapability(baseline.id, enabled, expectedConfig = baseline)
+                    null
+                }
+            },
+            onContext = { if (currentForm.connectionMatchesSaved()) modelContext = it },
+            loadStoredKey = providerService::revealUserConfiguredApiKey,
             onField = { updated ->
+                if (saving || modelBusy) return@ProviderFormDialog
                 if (updated.catalogIdentity() != currentForm.catalogIdentity()) {
                     discovery = emptyList()
                     discoveryMessage = null
@@ -317,27 +434,56 @@ fun ProviderManager(
                 if (!discovering) {
                     val target = currentForm
                     discovering = true
-                    scope.launch {
-                        try {
-                            val result = discoverProviderForm(target, providerService)
-                            if (form == target) {
-                                discovery = result.models
-                                discoveryMessage = result.message
+                    discoveryJob =
+                        scope.launch {
+                            try {
+                                val result = discoverProviderForm(target, providerService)
+                                if (editor.saveSession === session && form == target) {
+                                    discovery = result.models
+                                    discoveryMessage = result.message
+                                }
+                            } finally {
+                                if (editor.saveSession === session) discovering = false
                             }
-                        } finally {
-                            discovering = false
                         }
-                    }
                 }
             },
             onDismiss = {
-                if (!saving) form = null
+                if (!saving) {
+                    discoveryJob?.cancel()
+                    discoveryJob = null
+                    discovering = false
+                    modelContext = null
+                    editor.close()
+                    modelsRow = null
+                }
             },
             onSave = {
-                editor.save(currentForm) { attemptSave(it, providerService) }
+                editor.save(currentForm) {
+                    attemptSave(it, models, session, providerService).also { result ->
+                        if (result == SaveResult.Saved) {
+                            android.widget.Toast
+                                .makeText(
+                                    context,
+                                    R.string.provider_settings_saved,
+                                    android.widget.Toast.LENGTH_SHORT,
+                                ).show()
+                        }
+                    }
+                }
             },
         )
     }
 }
 
 private const val TAG = "HelixProviderUi"
+
+private data class ProviderCheckFeedback<T>(
+    val config: ProviderConfig,
+    val account: com.helix.app.provider.ManagedAccountSnapshot?,
+    val value: T,
+) {
+    fun matches(row: ProviderRowUi): Boolean =
+        com.helix.app.provider
+            .sameProviderEditableConfig(row.configuration, config) && row.accountState == account
+}

@@ -24,7 +24,11 @@
     "todo": "待办 清单",
     "plan": "计划 规划"
   },
+  "namespaces": {
+    "code.linux": "linux terminal shell command commands 终端 命令"
+  },
   "operations": {
+    "run": "运行 执行 run execute execution",
     "read": "读取",
     "read_resource": "读取 参考资料",
     "write": "写入",

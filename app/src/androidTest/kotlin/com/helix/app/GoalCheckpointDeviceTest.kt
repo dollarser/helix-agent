@@ -6,10 +6,10 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import com.helix.app.agent.TurnStartSpec
-import com.helix.app.application.agent.GoalTurnStart
 import com.helix.app.goal.GoalReminderPayload
 import com.helix.app.goal.GoalReminderReconciler
 import com.helix.app.goal.GoalReminderScheduler
+import com.helix.app.infrastructure.agent.GoalTurnStart
 import com.helix.app.test.FixtureGoalRunCoordinator
 import com.helix.app.test.settleFixtureTerminal
 import com.helix.core.agent.Checkpoint

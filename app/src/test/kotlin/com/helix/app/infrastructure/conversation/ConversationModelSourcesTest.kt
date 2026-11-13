@@ -48,11 +48,19 @@ class ConversationModelSourcesTest {
         assertEquals(listOf("second", "first"), value.conversationModels)
         assertEquals("Selected label", value.modelLabel("second"))
         assertEquals(listOf(ReasoningEffort.OFF, ReasoningEffort.HIGH), value.reasoningOptionsFor("second"))
-        assertTrue(value.reasoningOptionsFor("first").isEmpty())
+        assertEquals(listOf(ReasoningEffort.OFF), value.reasoningOptionsFor("first"))
         assertFalse(value.modelSelectable("image"))
         assertFalse(value.conversationEligible("image"))
         assertEquals(ConversationModelSetupStep.READY, value.setupStep)
         assertNull(value.displayLabel)
+    }
+
+    @Test
+    fun reasoningContentWithoutEffortMetadataRemainsUnknownInConversationProjection() {
+        // The fixture has reasoning=true, but no exact effort declaration.
+        val value = row().conversationModelSource()
+        assertTrue(value.reasoningOptionsFor("first").isEmpty())
+        assertTrue(value.modelSelectable("first"))
     }
 
     @Test

@@ -3,7 +3,7 @@ package com.helix.app.chat
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.helix.app.agent.TurnStartSpec
-import com.helix.app.application.agent.GoalRoundAllowance
+import com.helix.app.infrastructure.agent.RoomGoalRoundAllowance
 import com.helix.app.infrastructure.agent.TurnAdmission
 import com.helix.app.infrastructure.agent.createRoomTurnEngine
 import com.helix.app.test.bindFixtureLifecycle
@@ -194,7 +194,7 @@ class MessageRegenerateDeviceTest {
             storage.goalTurnBindings.bind("t1", run.id)
             storage.goalRuns.finish(run, "COMPLETED", 2, 0, 0, 0, 0)
             storage.goals.updateGoal(storage.goals.resolve(goal).copy(state = "PAUSED"))
-            assertEquals(1, GoalRoundAllowance(storage).used(goal))
+            assertEquals(1, RoomGoalRoundAllowance(storage).used(goal))
             assertTrue(storage.goalRuns.listOpenByGoal(goal).isEmpty())
             val history = storage.messages.allRevisions("s")
             assertEquals(TurnAdmissionResult.GoalRefused, regenerateGoal(storage, goal, answer))
@@ -240,8 +240,8 @@ class MessageRegenerateDeviceTest {
         state: String,
     ): String {
         val id =
-            com.helix.app.application.agent
-                .GoalRunCoordinator(storage, testClock) {
+            com.helix.app.infrastructure.agent
+                .RoomGoalRunCommands(storage, testClock) {
                     UUID.randomUUID().toString()
                 }.create("Synthetic objective", listOf("Verified result"), GoalBudgets(maxGoalRounds = 1))
         storage.goals.updateGoal(storage.goals.resolve(id).copy(state = state))

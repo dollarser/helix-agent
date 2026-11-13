@@ -4,7 +4,11 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.agent.TurnStartSpec
-import com.helix.app.application.agent.GoalBlockerResolution
+import com.helix.app.infrastructure.agent.GoalTurnStart
+import com.helix.app.infrastructure.agent.RoomGoalBlockerResolution
+import com.helix.app.infrastructure.agent.RoomGoalContinuationFacts
+import com.helix.app.infrastructure.agent.RoomGoalRoundAllowance
+import com.helix.app.infrastructure.agent.StartedGoalTurn
 import com.helix.app.test.FixtureGoalRunCoordinator
 import com.helix.app.test.settleFixtureTerminal
 import com.helix.core.agent.GoalBudgetDefaults
@@ -30,16 +34,16 @@ class GoalRoundAllowanceDeviceTest {
     @Test fun default256CountsOnlyAdmittedAutomaticPromptsAndSurvivesReopen() =
         Fixture().use { f ->
             repeat(3) { f.finish(f.start(GoalWakeReason.USER_OPEN)) }
-            assertEquals(0, GoalRoundAllowance(f.storage).used(f.goal))
+            assertEquals(0, RoomGoalRoundAllowance(f.storage).used(f.goal))
             repeat(256) { index ->
                 val turn = f.start(GoalWakeReason.FOREGROUND_CONTINUATION)
-                assertEquals(index + 1, GoalRoundAllowance(f.storage).used(f.goal))
-                assertFalse(GoalRoundAllowance(f.storage).blockIfExhausted(f.goal))
+                assertEquals(index + 1, RoomGoalRoundAllowance(f.storage).used(f.goal))
+                assertFalse(RoomGoalRoundAllowance(f.storage).blockIfExhausted(f.goal))
                 f.finish(turn)
             }
             f.reopen()
-            assertEquals(256, GoalRoundAllowance(f.storage).used(f.goal))
-            assertTrue(GoalRoundAllowance(f.storage).blockIfExhausted(f.goal))
+            assertEquals(256, RoomGoalRoundAllowance(f.storage).used(f.goal))
+            assertTrue(RoomGoalRoundAllowance(f.storage).blockIfExhausted(f.goal))
             assertEquals(
                 "BLOCKED(round-limit)",
                 f.storage.goals
@@ -47,11 +51,11 @@ class GoalRoundAllowanceDeviceTest {
                     .finishReason,
             )
             assertNull(f.coordinator().start(f.request(GoalWakeReason.FOREGROUND_CONTINUATION)))
-            assertFalse(GoalBlockerResolution(f.storage, f.clock, f.ids).resolve(f.goal, "session", true))
+            assertFalse(RoomGoalBlockerResolution(f.storage, f.clock, f.ids).resolve(f.goal, "session", true))
             assertTrue(f.coordinator().updateBudgets(f.goal, GoalBudgetDefaults.VALUE.copy(maxGoalRounds = 257)))
-            assertTrue(GoalBlockerResolution(f.storage, f.clock, f.ids).resolve(f.goal, "session", true))
+            assertTrue(RoomGoalBlockerResolution(f.storage, f.clock, f.ids).resolve(f.goal, "session", true))
             assertNotNull(f.coordinator().start(f.request(GoalWakeReason.FOREGROUND_CONTINUATION)))
-            assertEquals(257, GoalRoundAllowance(f.storage).used(f.goal))
+            assertEquals(257, RoomGoalRoundAllowance(f.storage).used(f.goal))
         }
 
     @Test fun cancellationDoesNotRefundRoundAndHumanInputDoesNotSpendIt() =
@@ -60,16 +64,16 @@ class GoalRoundAllowanceDeviceTest {
             val turnId = turn.coordinator.id
             f.storage.turns.requestPause(turnId, 2000)
             turn.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.CANCELLED, "USER_STOP"))
-            assertEquals(1, GoalRoundAllowance(f.storage).used(f.goal))
+            assertEquals(1, RoomGoalRoundAllowance(f.storage).used(f.goal))
             f.reopen()
             f.finish(f.start(GoalWakeReason.USER_OPEN))
-            assertEquals(1, GoalRoundAllowance(f.storage).used(f.goal))
+            assertEquals(1, RoomGoalRoundAllowance(f.storage).used(f.goal))
         }
 
     @Test fun continuationQueriesNeverPersistRoundExhaustionAndTerminalPreparationOwnsIt() =
         Fixture(maxRounds = 1).use { f ->
             val turn = f.start(GoalWakeReason.FOREGROUND_CONTINUATION)
-            val driver = GoalContinuationDriver(f.storage)
+            val driver = GoalContinuationDriver(RoomGoalContinuationFacts(f.storage))
             driver.started(
                 "session",
                 f.goal,

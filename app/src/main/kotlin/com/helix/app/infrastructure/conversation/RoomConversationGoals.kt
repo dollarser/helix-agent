@@ -1,9 +1,9 @@
 package com.helix.app.infrastructure.conversation
 
-import com.helix.app.application.agent.GoalBlockerResolution
-import com.helix.app.application.agent.GoalRunCoordinator
 import com.helix.app.chat.GoalSummaryQuery
+import com.helix.app.infrastructure.agent.RoomGoalBlockerResolution
 import com.helix.app.infrastructure.agent.RoomGoalOwnership
+import com.helix.app.infrastructure.agent.RoomGoalRunCommands
 import com.helix.core.model.Clock
 import com.helix.core.storage.HelixStorage
 import com.helix.feature.conversation.application.goals.ConversationGoals
@@ -28,7 +28,7 @@ internal class RoomConversationGoals(
         budgets: com.helix.core.model.GoalBudgets,
     ): String =
         withContext(Dispatchers.IO) {
-            GoalRunCoordinator(storage, clock, idGenerator).create(objective, criteria, budgets)
+            RoomGoalRunCommands(storage, clock, idGenerator).create(objective, criteria, budgets)
         }
 
     override suspend fun goalSummaries(sessionId: String?): List<GoalSummaryUi> =
@@ -51,7 +51,7 @@ internal class RoomConversationGoals(
                     com.helix.core.agent
                         .Checkpoint(Math.addExact(clock.now().toEpochMilli(), it))
                 }
-            val changed = GoalRunCoordinator(storage, clock, idGenerator).setCheckpoint(goalId, checkpoint)
+            val changed = RoomGoalRunCommands(storage, clock, idGenerator).setCheckpoint(goalId, checkpoint)
             if (changed) goalReminderSync(goalId)
             changed
         }
@@ -71,7 +71,7 @@ internal class RoomConversationGoals(
             val fits =
                 outcome != "BLOCKED(CONTEXT_WINDOW_LIMIT)" ||
                     contextFits(session, goal.objective)
-            GoalBlockerResolution(storage, clock, idGenerator).resolve(goalId, session, fits)
+            RoomGoalBlockerResolution(storage, clock, idGenerator).resolve(goalId, session, fits)
         }
 
     override suspend fun updateGoalBudgets(
@@ -80,7 +80,7 @@ internal class RoomConversationGoals(
         expectedRevision: Long?,
     ): Boolean =
         withContext(Dispatchers.IO) {
-            GoalRunCoordinator(storage, clock, idGenerator).updateBudgets(goalId, budgets, expectedRevision)
+            RoomGoalRunCommands(storage, clock, idGenerator).updateBudgets(goalId, budgets, expectedRevision)
         }
 
     override suspend fun editGoalObjective(

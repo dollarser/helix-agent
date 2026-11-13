@@ -308,8 +308,9 @@ HXA-295 A 先交付当前会话 `session.status/history/search/read/rename`：�
 HXA-295 B/C 在 HXA-286/287 契约和应用宿主上补齐受控跨会话查询、管理、创建与投递，当前尚未实现：
 
 - 用户显式授予的目标/操作范围分别约束查询、元数据变更和发消息；授权版本在查询、执行和发布边界校验。项目成员、同目录、知道 ID、引用快照或 FULL_ACCESS 本身不开放其他会话。
+- 2026-11-12 B 接线：会话菜单显式选择来源/目标，历史读取与元数据管理分别保存到 Room 的修订授权。撤销保留版本以使旧调用/游标失效。列表 SQL 先过滤目标；历史游标绑定来源、目标、操作、查询、授权修订与截止内内容指纹，返回前复核。跨目标读取不传递引用/附件权限；元数据 CAS 与原活动调用及授权修订共用提交边界，归档仍不停止执行。
 - 创建只建立新身份，不隐式运行；原会话授权、审批 proof、Mobile Use frame/node 或运行句柄不复制。创建/投递采用持久 receipt；重复请求不重复建对象/执行，内容冲突明确拒绝。
-- 投递保留可信来源类型及源 session/Turn/call；模型转发不是目标用户输入，不能启用 Skill、修改授权或冒领审批。实际执行同时受目标当前授权和用户准许的委托范围约束。
+- 投递保留可信来源类型及源 session/Turn/call；模型转发不是目标用户输入，不能启用 Skill、修改授权或冒领审批。投递由独立目标许可控制；实际执行使用目标会话当前权限和正常审批，不将来源权限与目标权限求交集。
 - Queue 与 Steer 共用原准入，Steer 绑定 `expectedTurnId`；目标结束/变化不能静默转向新运行。已结束任务的继续工作建立新 Turn，原终态和 UNKNOWN 不重写、不重放。
 - 受理、排队、进入上下文、实际运行与终态是不同回执；停止受理不等于实际退出。归档只组织会话，不停止/删除/撤权。子 Agent 拓扑、递归互唤和远程环境不是本能力的隐含部分。
 
@@ -523,3 +524,35 @@ Owner 反馈会话工具逐条刷屏及重复核验提示。展示层允许同�
 完成要求扩展到用户明确给出的字段值：保留单位、限定词与格式，不主动简化为裸数字或用应用默认值覆盖。界面把数值与单位分开时分别填入并核对组合后的含义；按足够的当前证据逐项核对用户指定的重要字段，标题正确不能代表其他字段正确。无法表示或仍未验证的要求应如实报告；在授权范围内纠正已知差异。不添加应用/评测题专用分支，也不要求对每个字段无条件重复工具调用。该行为提示的可见性有跨模式回归，实际模型字段填写能力仍以独立任务复测为准。
 
 后续讨论核实后缀来源并区分命名语义：独立 Extension 字段和预填值来自目标应用；Helix set_text 不自动追加后缀。只要求“新建名为 X 的笔记”不足以直接认定用户要求无后缀文件名，因此原评测失败不能单独证明模型违反用户要求。保留原任务、原 oracle 与失败证据；独立精确身份测试应明确“完整文件名 X、无扩展名”，不通过生产提示强制剥离所有应用默认后缀。
+
+### Decision history — 2026-11-12：受控创建与持久幂等回执
+
+HXA-295 C1 将创建授权独立于目标读历史和改元数据授权，默认关闭；明确用户动作按来源会话保存可撤销许可。`session.create` 只建立空身份/默认状态，不开始工作，不继承来源 Provider、项目、权限或运行句柄；创建目标并不隐含读取、管理或投递授权。原活动调用、许可和取消/期限在 Room 事务内复核，SessionCatalog 创建与持久 requestKey 回执同事务；同 key 同规范化标题返回首次 receipt，冲突拒绝，目标删除不触发重建。此决定不代替 C2/C3 的来源和投递授权设计。
+
+采用的一手依据：OpenAI Agents SDK 明确 [session ID 不提供认证或历史访问授权](https://openai.github.io/openai-agents-python/sessions/#sqlite-storage-trust-boundary)，[handoff 可用性不能代替参数授权](https://openai.github.io/openai-agents-python/handoffs/)；Claude SDK 区分 [resume 与独立 fork 身份](https://code.claude.com/docs/en/agent-sdk/sessions)；LangGraph 明确 [恢复时副作用可能重复，需持久幂等](https://docs.langchain.com/oss/python/langgraph/fault-tolerance)。采用宿主控制、显式目标和持久回执，不引入这些框架、不复制其代码，也不把完整历史 handoff 或“继续最近会话”作为本机跨会话模型授权。
+
+### Decision history — 2026-11-12：投递后使用目标会话权限
+
+Owner 明确决定：获准投递的委托指令进入目标后，按目标会话当前权限执行，不附加来源权限交集，也不因此收紧目标已有任务。投递许可只决定哪些来源能向哪些目标发送任务方向；模型来源须保留，不能伪装用户批准待审批操作、变更权限或生成直接用户意图。Queue 建立独立新 Turn；Steer 只进入明确匹配的活动 Turn，不能静默改为 Queue。撤销投递许可阻止新请求和尚未原子追加到上下文的待投递输入；已进入上下文的内容不能撤回，撤销不自动停止目标运行，目标现有 Stop 和权限设置继续有效。
+
+该选择有主流实践支持而非统一行业规则：Claude [恢复子 Agent 文档](https://code.claude.com/docs/en/sub-agents#resume-subagents) 明确 agent 的任务方向按接收者自身权限执行，但不能替代用户审批或改权限配置。其父子权限模式继承属于独立机制，不等同任意跨会话授权。OpenAI handoff 使用接收 agent 的配置，宿主仍须授权具体输入；Codex [steer](https://learn.chatgpt.com/docs/app-server#steer-an-active-turn) 保留目标 Turn 的运行配置且要求 expectedTurnId。此决定替换此前 HXA-295 的委托权限交集要求，不削弱宿主安全边界或用户确认要求。
+
+### Decision history — 2026-11-12：Goal 续跑事实与工具结算事务端口
+
+局部收敛应用层对存储实现的依赖，不做全仓分层迁移。`GoalContinuationDriver` 仅保留可撤销的进程内 activation/handoff，依赖 `GoalContinuationFactsReader` 的领域快照；Room adapter 在一个读事务内组合轮次、前驱 Turn/Run、待处理编辑及未结调用。生成续跑命令使用同一快照，实际 admission 仍在原事务内重新校验；读到持久事实不恢复授权，也不把重启当作自动续跑许可。
+
+工具结算按完整命令交给 Room adapter：调用终态、结果和 Goal 预算同事务；前置拒绝的调用、结果、审计和预算也同事务。应用层只映射结果并在提交后发布可丢弃的展示事件，不暴露通用 transaction callback、不把预算拆成独立提交。不改变 UNKNOWN、取消容量、原调用身份、重复结算和恢复语义；文件内容写入依然不受数据库回滚保护，失败只可能留下无引用内容，不能宣称外部副作用已回滚。
+
+一手参考：[OpenAI Agents SDK sessions](https://openai.github.io/openai-agents-python/sessions/) 将会话持久化抽象与具体存储分离；[LangGraph persistence](https://docs.langchain.com/oss/python/langgraph/persistence) 区分持久检查点与进程内存。这里仅采用显式事实/命令边界，继续使用现有 Room 事务，不引入框架、恢复执行器或新存储。上述参考不证明本机原子性，仍以实际 Room 故障注入和恢复测试验证。
+
+该纵切验证：2026-11-12 最终 `scripts/check-all.sh --debug` 通过，新增 Goal 快照/撤销与工具命令/展示顺序 JVM 测试两渠道各 8 项通过。Developer 在 Helix_API_36（API36/arm64-v8a）实际运行 42 项通过：工具结算恢复 11、Goal 续跑 9、轮次 4、停止 8、Run 协调 10；包含结果/验证位/状态/预算四阶段失败和前置拒绝审计/预算失败回滚，重试、数据库重开及不重放。日常模拟器已覆盖安装成功构建的候选，主/测试 APK 安装字节均一致；未卸载、清数据或使用真机。本片不声称迁完 GoalRunCoordinator、轮次查询或时间租约底层事务，也不替代真实模型、Release 或全设备矩阵验收。
+
+### Decision history — 2026-11-12：Goal 原子命令与工具网关持久边界
+
+继续完成上一片留下的 Goal 协调与工具网关直接存储依赖。Goal 创建、启动、恢复、轮次和解除阻塞的消费者实际都位于持久或组合边界，因此完整命令归 `infrastructure/agent`，不保留只转发的 application facade，也不为目录对称创建无消费者接口。`RoomGoalRunCommands.create` 自身保证 Goal 与审计原子提交，并可加入 plan EXECUTING 或 Turn admission 的外层 Room 事务；不再暴露要求调用者自行保证事务的 `saveReadyGoal`。恢复启动也进入同一个事务，原 Run 的未知预算结算、新 Run、Goal 状态及 Turn 创建不能在失败时部分落盘。
+
+`ApplicationToolGateway` 仍承担真实应用编排，通过 `ToolGatewayStore` 获取最小 Turn/Call 事实并提交持久命令，通过已有 `ToolSettlementStore` 结算；仅组合根构造 Room 适配。批次身份、原脚本父调用、审批状态和有界循环历史由适配器读写；工具执行、审批等待及展示不在数据库事务中运行。循环检测使用同一持久快照中的调用、结果、重置边界与可信 dispatcher 观察，不把 UI 摘要或任意审计内容当作授权。
+
+预算预留继续先于参数/策略拒绝：拒绝尝试仍计入 Goal 工具预算，准备中断后的未结预留交给现有恢复处理，不因抽象端口而退款未知效果。工具结果/调用终态/预算与前置拒绝的审计仍保持原完整结算事务。没有新增数据库、通用事务框架、兼容转发入口或执行域；源码护栏同时禁止 application agent/tools 通过 import 或全限定名重新依赖 storage/infrastructure。
+
+本片最终验收：完整 `scripts/check-all.sh --debug` 通过，399 项脚本测试、6,791 项 JVM 测试零失败，其中 10 项既有可选外部服务/本地样本跳过。新增 6 项 Goal 事务和 3 项工具存储测试；Developer 在 Helix_API_36 实际运行 77 项通过（Goal 36、提交 11、工具/恢复 30）。初次设备运行的新增恢复夹具错误地构造 PAUSED+PENDING，已改用真实 TurnRecovery 顺序，并补独立 inspection start 的失败回滚测试；未降低生产校验或删除断言。最终主机与设备期间源输入一致，主/测试 APK 保数据覆盖安装且字节一致。回执保存在 `build/goal-gateway-refactor-2026-11-12/`；没有新 Release/R8、真机、真实模型或第三方服务验收，未提交、推送或发布。

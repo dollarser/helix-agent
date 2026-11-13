@@ -85,7 +85,7 @@ class ProviderStoresTest {
     }
 
     @Test
-    fun passedWithoutModelListWritesCanonicalNullField() {
+    fun absentAndEmptyModelDirectoriesRemainDistinct() {
         val backing = InMemoryLineStore()
         val store = ProviderTestStatusStore(backing)
         store.recordPassed("prov_1", 5_000L, capabilities, null)
@@ -94,8 +94,8 @@ class ProviderStoresTest {
         assertTrue(line.endsWith("|null"))
         assertEquals(null, (store.statusFor("prov_1") as ConnectionTestStatus.Passed).modelIds)
         store.recordPassed("prov_1", 5_000L, capabilities, emptyList())
-        assertTrue(backing.lines("provider_test_status").single().endsWith("|null"))
-        assertEquals(null, (store.statusFor("prov_1") as ConnectionTestStatus.Passed).modelIds)
+        assertTrue(backing.lines("provider_test_status").single().endsWith("|[]"))
+        assertEquals(emptyList<String>(), (store.statusFor("prov_1") as ConnectionTestStatus.Passed).modelIds)
     }
 
     @Test

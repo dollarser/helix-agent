@@ -19,11 +19,11 @@ class SessionHistoryStorageDeviceTest {
             assertEquals("Original", dao.caller("s", "t", "c", "session.rename")?.title)
             assertNull(dao.caller("foreign", "t", "c", "session.rename"))
             assertNull(dao.caller("s", "t", "c", "session.read"))
-            assertEquals(0, dao.rename("s", "t", "c", "stale", "wrong", "wrong"))
-            assertEquals(1, dao.rename("s", "t", "c", "Original", "Saved", "saved"))
+            assertEquals(0, db.sessionAccessDao().rename("s", "s", 0L, "t", "c", "stale", "wrong", "wrong"))
+            assertEquals(1, db.sessionAccessDao().rename("s", "s", 0L, "t", "c", "Original", "Saved", "saved"))
             assertEquals("scope:ws:folder", db.sessionDao().byId("s")?.directoryRef)
             db.toolCallDao().updateState("c", "COMPLETED")
-            assertEquals(0, dao.rename("s", "t", "c", "Saved", "late", "late"))
+            assertEquals(0, db.sessionAccessDao().rename("s", "s", 0L, "t", "c", "Saved", "late", "late"))
             assertNull(dao.caller("s", "t", "c", "session.rename"))
         }
 

@@ -54,4 +54,5 @@
     <string name="reference_tools_required">On-demand references require enabled conversation tools and a tool-capable model.</string>
     <string name="model_picker_setup_action">Configure source</string>
     <string name="model_picker_needs_setup">%1$s · Setup required</string>
+    <string name="session_input_delegated_from">Delegated from %1$s</string>
 </resources>

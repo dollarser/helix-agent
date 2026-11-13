@@ -62,7 +62,11 @@ internal suspend fun discoverProviderForm(
                 )
             }
 
-            else -> {
+            ModelCatalogResult.Unsupported -> {
+                ProviderFormDiscovery(message = R.string.provider_directory_unsupported)
+            }
+
+            is ModelCatalogResult.Failed -> {
                 ProviderFormDiscovery(emptyList(), R.string.provider_discovery_failed)
             }
         }

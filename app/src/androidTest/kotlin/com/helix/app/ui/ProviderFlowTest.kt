@@ -3,6 +3,7 @@ package com.helix.app.ui
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.isDisplayed
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -10,8 +11,10 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextReplacement
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.MainActivity
 import org.junit.Assert.assertTrue
@@ -45,7 +48,7 @@ class ProviderFlowTest {
 
     @Test
     fun untestedAndFailedProvidersAreNotChatSelectable() {
-        // --- create from the Ollama template (keyless), re-point to https ---
+        // --- create a keyless API service against the unreachable loopback endpoint ---
         composeRule.navigateTo("models")
         composeRule.onNodeWithTag("provider-group-USER_CONFIGURED").performClick()
         composeRule.onNodeWithTag("provider-add").performClick()
@@ -59,17 +62,22 @@ class ProviderFlowTest {
         composeRule.onNodeWithTag("provider-form-name").performTextInput(providerName)
         composeRule.onNodeWithTag("provider-form-endpoint").performTextClearance()
         composeRule.onNodeWithTag("provider-form-endpoint").performTextInput("https://127.0.0.1:9/v1")
-        composeRule.onNodeWithTag("provider-model-add-entry").performScrollTo().performClick()
-        composeRule.onNodeWithTag("provider-form-model").performTextInput("probe-model")
+        composeRule.onNodeWithTag("provider-form-scroll").performScrollToNode(hasTestTag("provider-model-manual"))
+        composeRule.onNodeWithTag("provider-model-manual").performScrollTo().performTextReplacement("probe-model")
+        androidx.test.espresso.Espresso
+            .closeSoftKeyboard()
         composeRule.onNodeWithTag("provider-form-save").performClick()
         composeRule.waitForIdle()
 
+        // Room/Keystore persistence is asynchronous and is not covered by Compose idle.
+        composeRule.waitUntil(10_000) {
+            composeRule.onAllNodesWithTag("provider-form-dialog").fetchSemanticsNodes().isEmpty()
+        }
         // --- created: the dialog closed (save succeeded) and the row is 未测试 ---
-        composeRule.waitForIdle()
         composeRule.onNodeWithTag("provider-form-dialog").assertIsNotDisplayed()
         composeRule.onNodeWithText(providerName).performScrollTo().assertIsDisplayed()
         composeRule.onNode(editableProviderTag("provider-status-untested")).performScrollTo().assertIsDisplayed()
-        composeRule.onNode(editableProviderText("尚未通过连接测试")).performScrollTo().assertIsDisplayed()
+        composeRule.onNode(editableProviderText("尚未通过连接测试")).assertDoesNotExist()
 
         // Untested sources may display setup guidance, but must not be selectable.
         assertNotSelectableFromModelPicker()
@@ -92,7 +100,8 @@ class ProviderFlowTest {
         // --- cleanup: the UI delete removes the row (and its secret/binding) ---
         composeRule.navigateTo("models")
         composeRule.onNodeWithTag("provider-group-USER_CONFIGURED").performClick()
-        composeRule.onNode(editableProviderTag("provider-delete")).performScrollTo().performClick()
+        openProviderOverflow()
+        composeRule.onNodeWithTag("provider-delete").performClick()
         composeRule.waitUntil(10_000) {
             composeRule
                 .container()
@@ -108,6 +117,17 @@ class ProviderFlowTest {
             "the deleted provider must be gone from the persisted rows",
             rows.none { it.displayName == providerName },
         )
+    }
+
+    private fun openProviderOverflow() {
+        composeRule
+            .onNode(
+                androidx.compose.ui.test.SemanticsMatcher("Provider overflow") {
+                    val tag = androidx.compose.ui.semantics.SemanticsProperties.TestTag
+                    it.config.contains(tag) && it.config[tag].startsWith("provider-overflow-")
+                },
+            ).performScrollTo()
+            .performClick()
     }
 
     private fun assertNotSelectableFromModelPicker() {

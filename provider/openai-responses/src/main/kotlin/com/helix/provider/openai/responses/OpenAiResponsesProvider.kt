@@ -40,7 +40,7 @@ public class OpenAiResponsesProvider(
             ),
         credentials = credentials,
         wire = wire,
-        encoder = ResponsesRequestEncoder(imageResolver),
+        encoder = ResponsesRequestEncoder(imageResolver, supportsNativeWebSearch(config)),
         newDecoder = { ResponsesStreamDecoder() },
         secretAlias = (config.auth as? com.helix.core.model.ProviderAuth.Secret)?.alias,
         extraHeaders = config.headers,
@@ -51,6 +51,9 @@ public class OpenAiResponsesProvider(
         }
     }
 
+    override fun decoderFor(request: com.helix.core.model.ModelRequest): StreamDecoder =
+        ResponsesStreamDecoder(ResponsesToolNames(request)::decode)
+
     override fun streamPath(): String = STREAM_PATH
 
     override fun modelsPath(): String = MODELS_PATH
@@ -58,7 +61,15 @@ public class OpenAiResponsesProvider(
     override fun authHeaders(): Map<String, String> =
         secretAlias?.let { mapOf("Authorization" to "Bearer ${resolveCredential(credentials, it)}") }.orEmpty()
 
-    internal companion object {
+    public companion object {
+        public fun supportsNativeWebSearch(config: ProviderConfig): Boolean {
+            val network = config.transport as? com.helix.core.model.ProviderTransport.Network ?: return false
+            val endpoint = network.endpoint
+            return network.protocol == ProviderProtocol.OPENAI_RESPONSES &&
+                endpoint.scheme == "https" && endpoint.host == "api.openai.com" && endpoint.port == 443 &&
+                endpoint.path.trimEnd('/') == "/v1"
+        }
+
         const val STREAM_PATH = "responses"
         const val MODELS_PATH = "models"
     }

@@ -409,6 +409,7 @@ internal class FilesScreenActions(
                     }
                 state.replaceSources(withContext(Dispatchers.IO) { fileManager.sources() })
                 state.status = str(R.string.files_saf_granted, name)
+                state.reloadTick++
             } catch (cancelled: kotlinx.coroutines.CancellationException) {
                 throw cancelled
             } catch (_: Exception) {

@@ -33,10 +33,17 @@ internal class McpToolDiscovery(
     private val admittedWindows = LinkedHashMap<String, Set<ToolDescriptor>>(16, 0.75f, true)
     private val loaded = LinkedHashMap<String, List<ToolDescriptor>>(16, 0.75f, true)
 
+    private data class SearchTerm(
+        val text: String,
+        val pattern: Regex,
+    )
+
     private data class SearchCandidate(
         val descriptor: ToolDescriptor,
         val exactName: Boolean,
         val allTerms: Boolean,
+        val wholeNameHits: Int,
+        val wholeTermHits: Int,
         val phraseInName: Boolean,
         val nameHits: Int,
         val matchedTerms: Int,
@@ -62,7 +69,16 @@ internal class McpToolDiscovery(
                 .split(Regex("[\\s,;]+"))
                 .filter { it.isNotBlank() }
                 .distinct()
-        val matches =
+                .map { term ->
+                    val pattern =
+                        if (term.all { it in 'a'..'z' || it in '0'..'9' || it == '_' }) {
+                            Regex("(?<![a-z0-9])${Regex.escape(term)}(?![a-z0-9])")
+                        } else {
+                            Regex(Regex.escape(term))
+                        }
+                    SearchTerm(term, pattern)
+                }
+        val ranked =
             catalog
                 .mapNotNull { descriptor ->
                     if (descriptor.name.value == "tools.search" ||
@@ -76,22 +92,34 @@ internal class McpToolDiscovery(
                 }.sortedWith(
                     compareByDescending<SearchCandidate> { it.exactName }
                         .thenByDescending { it.allTerms }
+                        .thenByDescending { it.wholeNameHits }
+                        .thenByDescending { it.wholeTermHits }
                         .thenByDescending { it.phraseInName }
                         .thenByDescending { it.nameHits }
                         .thenByDescending { it.matchedTerms }
                         .thenByDescending { it.phraseInDescription }
                         .thenByDescending { it.descriptionHits }
                         .thenBy { it.descriptor.name.value },
-                ).asSequence()
-                .map { it.descriptor }
-                // Availability can read durable session policy. Only inspect ranked matching
-                // candidates, stopping when the bounded result window is full.
-                .filter { availability(sessionId, it) }
-                .take(limit)
-                .toList()
+                )
+        val matches = selectAvailable(sessionId, ranked, limit)
         updateWorkset(sessionId, matches)
         while (loaded.size > MAX_SESSIONS) loaded.remove(loaded.keys.first())
         return matches
+    }
+
+    private fun selectAvailable(
+        sessionId: String,
+        ranked: List<SearchCandidate>,
+        limit: Int,
+    ): List<ToolDescriptor> {
+        // Whole-keyword matches rank first; complementary or inflected matches stay reachable.
+        // Availability may read durable policy, so stop once the result window is full.
+        return ranked
+            .asSequence()
+            .map { it.descriptor }
+            .filter { availability(sessionId, it) }
+            .take(limit)
+            .toList()
     }
 
     private fun updateWorkset(
@@ -135,18 +163,29 @@ internal class McpToolDiscovery(
         descriptor: ToolDescriptor,
         metadata: ToolDiscoveryMetadata,
         query: String,
-        terms: List<String>,
+        terms: List<SearchTerm>,
     ): SearchCandidate? {
         val name = descriptor.name.value.lowercase()
         val description = descriptor.description.lowercase() + " " + metadata.searchText
-        val nameHits = terms.count { it in name }
-        val descriptionHits = terms.count { it !in name && it in description }
+        val nameHits = terms.count { it.text in name }
+        val descriptionHits =
+            terms.count { term ->
+                term.text !in name &&
+                    (term.text in description || metadata.fieldNames.any { term.text in it })
+            }
         val matchedTerms = nameHits + descriptionHits
         if (matchedTerms == 0) return null
+        val wholeTermHits =
+            terms.count { term ->
+                term.pattern.containsMatchIn(name) || term.pattern.containsMatchIn(description) ||
+                    metadata.fieldNames.any { term.text in it }
+            }
         return SearchCandidate(
             descriptor,
             name == query,
-            matchedTerms == terms.size,
+            wholeTermHits == terms.size,
+            terms.count { it.pattern.containsMatchIn(name) },
+            wholeTermHits,
             query in name,
             nameHits,
             matchedTerms,
@@ -180,8 +219,7 @@ internal class McpToolDiscovery(
                     (it.name.value == "tools.search" || it.name.value in defaultNames)
             }
         val discovery = local.filter { it.name.value == "tools.search" }
-        // ChatService truncates this list to the model limit. Keep discovery and its
-        // current results reachable; optional local tools use the same bounded discovery window.
+        // Preserve every current match and complete group; final request admission enforces capacity.
         return (discovery + selected + local + mcp)
             .distinctBy { it.name }
     }
@@ -247,6 +285,7 @@ internal class McpToolDiscovery(
                         "connectors, MCP and A2A. Search when a needed tool is absent; " +
                         "combine concise keywords for related capabilities, or use its exact name for one tool. " +
                         "Exact-name queries return only that tool. " +
+                        "Complete keywords rank first; partial and inflected matches remain available. " +
                         "Use returned tools from the next request's schemas; " +
                         "do not guess arguments or repeat a successful search. " +
                         "Matches load a complete working set. Valid recent tools remain within a schema byte budget. " +

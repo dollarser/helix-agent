@@ -1,9 +1,9 @@
 package com.helix.app.provider
 
 import com.helix.core.model.ReasoningEffort
-import com.helix.provider.api.ProbeOutcome
+import com.helix.provider.api.ModelCatalogResult
 
-/** Explicit picker action: prefer model metadata, then reuse identity-checked capability detection. */
+/** Explicit, identity-checked metadata discovery. Never generates a paid tools/vision fixture. */
 suspend fun ProviderService.discoverReasoningOptions(
     providerId: String,
     model: String,
@@ -12,16 +12,7 @@ suspend fun ProviderService.discoverReasoningOptions(
         builtInModels.refresh(false)
         return BuiltInModel.reasoningOptionsFor(model)
     }
-    refreshModelCatalog(providerId)
-    val declared =
-        rows.value
-            .firstOrNull { it.id == providerId }
-            ?.modelMetadata
-            ?.get(model)
-            ?.reasoningEfforts
-    if (declared == null) {
-        check(runCapabilityTest(providerId, model) is ProbeOutcome.Ok) { "CAPABILITY_DETECTION_FAILED" }
-    }
+    check(refreshModelCatalog(providerId) !is ModelCatalogResult.Failed) { "REASONING_DISCOVERY_FAILED" }
     return reasoningOptions(providerId, model)
 }
 
@@ -37,8 +28,7 @@ internal fun ProviderRowUi.reasoningOptionsFor(selectedModel: String): List<Reas
         bundled -> BuiltInModel.reasoningOptionsFor(selectedModel)
         !chatSelectable -> emptyList()
         explicit != null && explicit.isNotEmpty() -> listOf(ReasoningEffort.OFF) + explicit
-        explicit != null -> emptyList()
-        capabilitiesForModel(selectedModel)?.reasoning == true -> ReasoningEffort.FALLBACK
+        explicit != null -> listOf(ReasoningEffort.OFF)
         else -> emptyList()
     }
 }

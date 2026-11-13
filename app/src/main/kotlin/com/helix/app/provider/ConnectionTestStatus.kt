@@ -10,9 +10,10 @@ import com.helix.feature.conversation.R as ConversationR
  *
  * The three-way distinction is a task contract: a provider whose connection
  * test has not completed (or was overridden manually) must NOT be displayed as
- * "available" — only [State.Passed] (a completed [com.helix.provider.api.CapabilityProbe]
- * run) is connection evidence. Project-provided services may be selectable by an explicit
- * bundled contract while remaining untested; selection does not manufacture evidence. [State.Failed] carries the probe
+ * "available" — [Passed] records a completed directory, account or explicit model check;
+ * directory success is not evidence of generation or model capabilities.
+ * Project-provided services may be selectable by an explicit bundled contract while remaining
+ * untested; selection does not manufacture evidence. [Failed] carries the probe
  * phase that failed so the UI can show WHERE the test stopped (FR-LLM-004:
  * distinguish network/TLS/auth, model list, text stream and tool call) with a
  * SAFE label — never a raw exception message (doc 02 section 13).
@@ -26,7 +27,8 @@ sealed interface ConnectionTestStatus {
     data object Untested : ConnectionTestStatus
 
     /**
-     * A completed probe; [capabilities] is the PROBED snapshot (source = PROBED).
+     * A completed connection check; [capabilities] retains independently observed model evidence
+     * or CONNECTION_ONLY. The directory alone never supplies capabilities.
      * [modelIds] (HXA-059) is the backend's model list carried out of the phase-2
      * query — `null` when the backend does not expose a list (the UI then shows
      * "the backend gives no model list, enter it manually"). The list is display
@@ -51,6 +53,7 @@ sealed interface ConnectionTestStatus {
         val phase: Int,
         val code: ModelErrorCode,
         val retryable: Boolean,
+        val catalogUnsupported: Boolean = false,
     ) : ConnectionTestStatus
 }
 

@@ -2,6 +2,7 @@ package com.helix.app.infrastructure.chat
 
 import com.helix.core.model.input.InputConfiguration
 import com.helix.core.model.input.KnowledgeReference
+import com.helix.core.model.input.ModelDelegationOrigin
 import com.helix.core.model.input.SessionInputDelivery
 import com.helix.core.storage.repository.SessionInputRecord
 import com.helix.core.storage.repository.SessionInputState
@@ -21,6 +22,18 @@ class PendingInputViewMapperTest {
             PendingInputView("queued", 7, SessionInputDelivery.QUEUE, false, listOf(reference)),
             record.toPendingInputView(),
         )
+    }
+
+    @Test fun delegatedInputRetainsSourceAndCannotBeEditedOrPromoted() {
+        val origin = ModelDelegationOrigin("source", "source-turn", "source-call", "request", 1)
+        val record = input(SessionInputState.PENDING).copy(delegation = origin)
+        val projected = requireNotNull(record.toPendingInputView())
+        assertEquals("source", projected.delegationSourceSessionId)
+        assertFalse(projected.canEdit)
+        assertFalse(projected.canSend)
+        val parked = requireNotNull(record.copy(state = SessionInputState.NEEDS_ATTENTION).toPendingInputView())
+        assertTrue(parked.canSend)
+        assertFalse(parked.canEdit)
     }
 
     @Test fun attentionProjectionPreservesDeliveryWithoutBecomingAnOrdinaryPendingInput() {

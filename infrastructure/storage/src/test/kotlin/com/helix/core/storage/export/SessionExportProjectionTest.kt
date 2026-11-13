@@ -13,6 +13,27 @@ import org.junit.Test
 class SessionExportProjectionTest {
     private val projection = SessionExportProjection { text, _ -> text.replace("synthetic-secret", "[redacted]") }
 
+    @Test fun delegatedMessagePreservesRoleAndSeparateTrustedProvenance() {
+        val data =
+            buildJsonObject {
+                put("role", "USER")
+                put("inputOrigin", "MODEL_DELEGATION")
+                put("delegationSourceSessionId", "source")
+                put("delegationSourceTurnId", "source-turn")
+                put("delegationSourceCallId", "source-call")
+                put("delegationRequestKey", "request")
+                put("delegationGrantRevision", 7)
+            }
+        val row =
+            buildJsonObject {
+                put("data", data)
+                put("omittedFields", buildJsonObject {})
+            }
+        val result = projection.project(SessionExportType.MESSAGE, row)
+        data.forEach { (key, value) -> assertEquals(value, result[key]) }
+        assertEquals(1, SessionExportFormat.VERSION)
+    }
+
     @Test fun toolProvenanceAndOrderComeFromPersistedFields() {
         val data =
             buildJsonObject {

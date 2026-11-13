@@ -8,7 +8,7 @@ import com.helix.app.agent.ContextHistoryMapping
 import com.helix.app.agent.GoalModelCallBudget
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.agent.contextCompactionRound
-import com.helix.app.application.agent.GoalTurnStart
+import com.helix.app.infrastructure.agent.GoalTurnStart
 import com.helix.app.test.FixtureGoalRunCoordinator
 import com.helix.app.test.settleFixtureTerminal
 import com.helix.app.test.startFixtureTurn
@@ -269,7 +269,7 @@ class LongTurnCompactionDeviceTest {
             assertEquals(1, storage.modelCalls.listByTurn(current.id).size)
         }
 
-    @Test fun actualStepUsageTriggersBeforeLocalEstimateAndIrreducibleInputFails() =
+    @Test fun actualStepUsageTriggersBeforeLocalEstimate() =
         withStorage { storage ->
             val current = start(storage)
             repeat(3) { batch(storage, current.id, it) }
@@ -285,21 +285,27 @@ class LongTurnCompactionDeviceTest {
             assertNull(round.prepare(original).plan)
             round.observe(original, 27000)
             assertNotNull(round.prepare(original).plan)
-            val huge =
-                original.copy(
-                    messages =
-                        listOf(
-                            com.helix.core.model
-                                .ModelMessage(ModelRole.USER, "x".repeat(50000)),
-                        ),
+        }
+
+    @Test fun irreduciblePersistedCurrentInputFailsWithoutDroppingOrSummarizingIt() =
+        withStorage { storage ->
+            val current =
+                startFixtureTurn(
+                    storage,
+                    clock,
+                    ::next,
+                    TurnStartSpec("s", next(), next(), "{}", "x".repeat(50000)),
                 )
-            assertEquals(
-                "CONTEXT_WINDOW_LIMIT",
+            val original = request(storage)
+            assertTrue(original.inputTokens() > settings.window)
+            val prepared =
                 contextCompactionRound(storage, "s", current.id, settings, false)
-                    .prepare(huge)
-                    .failure
-                    ?.errorCode,
-            )
+                    .prepare(original)
+            assertEquals("CONTEXT_WINDOW_LIMIT", prepared.failure?.errorCode)
+            assertNull(prepared.request)
+            assertNull(prepared.plan)
+            assertEquals(original.messages, request(storage).messages)
+            assertNull(ContextCompaction.checkpoint(storage, storage.messages.listBySession("s")))
         }
 
     @Test fun repeatedStepCompactionKeepsCurrentInputAndAdvancesBoundary() =
@@ -546,6 +552,40 @@ class LongTurnCompactionDeviceTest {
                     .checkpoint,
             )
             assertTrue(request(storage).messages.any { it.text.contains("ORANGE-42") })
+        }
+
+    @Test fun fixedSchemaPressureWithoutEnoughHistoryNeverPublishesAFalseCheckpoint() =
+        withStorage { storage ->
+            val current = start(storage)
+            val smallWindow = ProviderContextSettings(manualWindow = 16384)
+            val round = contextCompactionRound(storage, "s", current.id, smallWindow, false)
+            val schema =
+                com.helix.core.model.ModelToolSchema(
+                    com.helix.core.model
+                        .ToolName("time.now"),
+                    "Synthetic schema cost",
+                    """{"type":"object","description":"${"x".repeat(52000)}"}""",
+                )
+            repeat(3) { step ->
+                val original = request(storage).copy(tools = listOf(schema))
+                assertTrue(ContextCompaction.pressure(original) >= smallWindow.window * 80 / 100)
+                assertTrue(ContextCompaction.pressure(original) < smallWindow.window)
+                val prepared = round.prepare(original)
+                assertNull(prepared.failure)
+                assertNull(prepared.plan)
+                assertEquals(original.modelRequest(), prepared.request)
+                assertNull(ContextCompaction.checkpoint(storage, storage.messages.listBySession("s")))
+                assertEquals(1, storage.modelCalls.listByTurn(current.id).size)
+                calls(storage, current.id, step)
+                storage.messages.append(
+                    next(),
+                    "s",
+                    current.id,
+                    "TOOL",
+                    ChatHistoryBuilder.KIND_TOOL_RESULT,
+                    """{"id":"call-$step","tool":"time.now","status":"COMPLETED","summary":"short settled result"}""",
+                )
+            }
         }
 
     private fun start(storage: HelixStorage) =

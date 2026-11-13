@@ -2,7 +2,7 @@ package com.helix.app.infrastructure.conversation
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
-import com.helix.app.application.agent.GoalRunCoordinator
+import com.helix.app.infrastructure.agent.RoomGoalRunCommands
 import com.helix.app.plan.PlanReviewService
 import com.helix.app.plan.StoragePlanReviewPort
 import com.helix.core.model.Clock
@@ -211,7 +211,7 @@ class ConversationGoalPlanBoundaryDeviceTest {
 
         fun id(): String = UUID.randomUUID().toString()
 
-        fun goal(): String = GoalRunCoordinator(storage, clock, ::id).create("original", emptyList(), GoalBudgets(5))
+        fun goal(): String = RoomGoalRunCommands(storage, clock, ::id).create("original", emptyList(), GoalBudgets(5))
 
         fun goals(ids: () -> String = ::id) = RoomConversationGoals(storage, clock, ids, { _, _ -> true }, Any(), {})
 

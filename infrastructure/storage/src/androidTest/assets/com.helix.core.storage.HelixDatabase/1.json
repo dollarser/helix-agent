@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "bf89ad766be046c1fd808931a77e367a",
+    "identityHash": "8b421309f7eab6265b6beec462b63b93",
     "entities": [
       {
         "tableName": "projects",
@@ -247,6 +247,207 @@
             "onUpdate": "NO ACTION",
             "columns": [
               "providerId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "session_access_grants",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`sourceSessionId` TEXT NOT NULL, `targetSessionId` TEXT NOT NULL, `readHistory` INTEGER NOT NULL, `manageMetadata` INTEGER NOT NULL, `revision` INTEGER NOT NULL, `delegateTasks` INTEGER NOT NULL, PRIMARY KEY(`sourceSessionId`, `targetSessionId`), FOREIGN KEY(`sourceSessionId`) REFERENCES `sessions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`targetSessionId`) REFERENCES `sessions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "sourceSessionId",
+            "columnName": "sourceSessionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "targetSessionId",
+            "columnName": "targetSessionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "readHistory",
+            "columnName": "readHistory",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "manageMetadata",
+            "columnName": "manageMetadata",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "revision",
+            "columnName": "revision",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "delegateTasks",
+            "columnName": "delegateTasks",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "sourceSessionId",
+            "targetSessionId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_session_access_grants_targetSessionId",
+            "unique": false,
+            "columnNames": [
+              "targetSessionId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_session_access_grants_targetSessionId` ON `${TABLE_NAME}` (`targetSessionId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "sessions",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "sourceSessionId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "sessions",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "targetSessionId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "session_creation_grants",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`sourceSessionId` TEXT NOT NULL, `allowed` INTEGER NOT NULL, `revision` INTEGER NOT NULL, PRIMARY KEY(`sourceSessionId`), FOREIGN KEY(`sourceSessionId`) REFERENCES `sessions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "sourceSessionId",
+            "columnName": "sourceSessionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "allowed",
+            "columnName": "allowed",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "revision",
+            "columnName": "revision",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "sourceSessionId"
+          ]
+        },
+        "foreignKeys": [
+          {
+            "table": "sessions",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "sourceSessionId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "session_creation_receipts",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`sourceSessionId` TEXT NOT NULL, `requestKey` TEXT NOT NULL, `title` TEXT NOT NULL, `createdSessionId` TEXT NOT NULL, `sourceTurnId` TEXT NOT NULL, `sourceCallId` TEXT NOT NULL, `grantRevision` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, PRIMARY KEY(`sourceSessionId`, `requestKey`), FOREIGN KEY(`sourceSessionId`) REFERENCES `sessions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "sourceSessionId",
+            "columnName": "sourceSessionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "requestKey",
+            "columnName": "requestKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdSessionId",
+            "columnName": "createdSessionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sourceTurnId",
+            "columnName": "sourceTurnId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sourceCallId",
+            "columnName": "sourceCallId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "grantRevision",
+            "columnName": "grantRevision",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "sourceSessionId",
+            "requestKey"
+          ]
+        },
+        "foreignKeys": [
+          {
+            "table": "sessions",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "sourceSessionId"
             ],
             "referencedColumns": [
               "id"
@@ -3675,7 +3876,7 @@
       },
       {
         "tableName": "session_inputs",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`inputId` TEXT NOT NULL, `schemaVersion` INTEGER NOT NULL, `sessionId` TEXT NOT NULL, `sequence` INTEGER NOT NULL, `delivery` TEXT NOT NULL, `expectedTurnId` TEXT, `revision` INTEGER NOT NULL, `textRef` TEXT NOT NULL, `textBytes` INTEGER NOT NULL, `referenceSourceSessionId` TEXT, `referenceSourceSessionTitle` TEXT, `referenceSelectionKind` TEXT, `referenceSourceMessageIdsJson` TEXT, `referenceContentRef` TEXT, `referenceContentBytes` INTEGER NOT NULL, `referenceContentSha256` TEXT, `providerId` TEXT NOT NULL, `modelId` TEXT NOT NULL, `mode` TEXT NOT NULL, `configurationFingerprint` TEXT NOT NULL, `state` TEXT NOT NULL, `consumedTurnId` TEXT, `messageId` TEXT, `requestModelCallId` TEXT, `blockedReason` TEXT, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `skillActivationsJson` TEXT NOT NULL, `skillActivationsRevoked` INTEGER NOT NULL, `knowledgeReferencesJson` TEXT NOT NULL DEFAULT '[]', PRIMARY KEY(`inputId`), FOREIGN KEY(`sessionId`) REFERENCES `sessions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`expectedTurnId`) REFERENCES `turns`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION , FOREIGN KEY(`consumedTurnId`) REFERENCES `turns`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION , FOREIGN KEY(`messageId`) REFERENCES `messages`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION , FOREIGN KEY(`requestModelCallId`) REFERENCES `model_calls`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`inputId` TEXT NOT NULL, `schemaVersion` INTEGER NOT NULL, `sessionId` TEXT NOT NULL, `sequence` INTEGER NOT NULL, `delivery` TEXT NOT NULL, `expectedTurnId` TEXT, `revision` INTEGER NOT NULL, `textRef` TEXT NOT NULL, `textBytes` INTEGER NOT NULL, `referenceSourceSessionId` TEXT, `referenceSourceSessionTitle` TEXT, `referenceSelectionKind` TEXT, `referenceSourceMessageIdsJson` TEXT, `referenceContentRef` TEXT, `referenceContentBytes` INTEGER NOT NULL, `referenceContentSha256` TEXT, `providerId` TEXT NOT NULL, `modelId` TEXT NOT NULL, `mode` TEXT NOT NULL, `configurationFingerprint` TEXT NOT NULL, `state` TEXT NOT NULL, `consumedTurnId` TEXT, `messageId` TEXT, `requestModelCallId` TEXT, `blockedReason` TEXT, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `skillActivationsJson` TEXT NOT NULL, `skillActivationsRevoked` INTEGER NOT NULL, `knowledgeReferencesJson` TEXT NOT NULL DEFAULT '[]', `inputOrigin` TEXT NOT NULL DEFAULT 'USER', `delegationSourceSessionId` TEXT, `delegationSourceTurnId` TEXT, `delegationSourceCallId` TEXT, `delegationRequestKey` TEXT, `delegationGrantRevision` INTEGER, PRIMARY KEY(`inputId`), FOREIGN KEY(`sessionId`) REFERENCES `sessions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`expectedTurnId`) REFERENCES `turns`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION , FOREIGN KEY(`consumedTurnId`) REFERENCES `turns`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION , FOREIGN KEY(`messageId`) REFERENCES `messages`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION , FOREIGN KEY(`requestModelCallId`) REFERENCES `model_calls`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION )",
         "fields": [
           {
             "fieldPath": "inputId",
@@ -3846,6 +4047,38 @@
             "affinity": "TEXT",
             "notNull": true,
             "defaultValue": "'[]'"
+          },
+          {
+            "fieldPath": "inputOrigin",
+            "columnName": "inputOrigin",
+            "affinity": "TEXT",
+            "notNull": true,
+            "defaultValue": "'USER'"
+          },
+          {
+            "fieldPath": "delegationSourceSessionId",
+            "columnName": "delegationSourceSessionId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "delegationSourceTurnId",
+            "columnName": "delegationSourceTurnId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "delegationSourceCallId",
+            "columnName": "delegationSourceCallId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "delegationRequestKey",
+            "columnName": "delegationRequestKey",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "delegationGrantRevision",
+            "columnName": "delegationGrantRevision",
+            "affinity": "INTEGER"
           }
         ],
         "primaryKey": {
@@ -3930,6 +4163,16 @@
             ],
             "orders": [],
             "createSql": "CREATE INDEX IF NOT EXISTS `index_session_inputs_referenceContentRef` ON `${TABLE_NAME}` (`referenceContentRef`)"
+          },
+          {
+            "name": "index_session_inputs_delegationSourceSessionId_delegationRequestKey",
+            "unique": true,
+            "columnNames": [
+              "delegationSourceSessionId",
+              "delegationRequestKey"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_session_inputs_delegationSourceSessionId_delegationRequestKey` ON `${TABLE_NAME}` (`delegationSourceSessionId`, `delegationRequestKey`)"
           }
         ],
         "foreignKeys": [
@@ -3983,6 +4226,50 @@
             "onUpdate": "NO ACTION",
             "columns": [
               "requestModelCallId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "session_delegation_receipts",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`sourceSessionId` TEXT NOT NULL, `requestKey` TEXT NOT NULL, `inputId` TEXT NOT NULL, PRIMARY KEY(`sourceSessionId`, `requestKey`), FOREIGN KEY(`sourceSessionId`) REFERENCES `sessions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "sourceSessionId",
+            "columnName": "sourceSessionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "requestKey",
+            "columnName": "requestKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "inputId",
+            "columnName": "inputId",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "sourceSessionId",
+            "requestKey"
+          ]
+        },
+        "foreignKeys": [
+          {
+            "table": "sessions",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "sourceSessionId"
             ],
             "referencedColumns": [
               "id"
@@ -4269,7 +4556,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'bf89ad766be046c1fd808931a77e367a')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '8b421309f7eab6265b6beec462b63b93')"
     ]
   }
 }

@@ -1,7 +1,6 @@
 package com.helix.app.application.agent
 
 import com.helix.app.agent.AutomaticGoalContinuation
-import com.helix.app.goal.toRuntimeGoal
 import com.helix.core.agent.GoalContinuationRequest
 import com.helix.core.agent.RunControlConfig
 import com.helix.core.agent.SubmitTurnCommand
@@ -9,12 +8,11 @@ import com.helix.core.model.AgentMode
 import com.helix.core.model.GoalId
 import com.helix.core.model.ProviderId
 import com.helix.core.model.SessionId
-import com.helix.core.storage.HelixStorage
 
 /** Called only under ChatService's turn gate. Room owns facts; this owns revocable live activation. */
 @Suppress("TooManyFunctions") // One process-local owner for activation, claims and handoff lifetime.
 internal class GoalContinuationDriver(
-    private val storage: HelixStorage,
+    private val factsReader: GoalContinuationFactsReader,
 ) : com.helix.feature.conversation.application.recovery.GoalContinuationHandoff {
     private data class Activation(
         val id: String,
@@ -147,7 +145,8 @@ internal class GoalContinuationDriver(
     ): SubmitTurnCommand? {
         val activation = active[sessionId] ?: return null
         if (activation.lastTurnId != turnId) return null
-        if (!eligible(activation)) {
+        val facts = factsReader.read(activation.goalId, activation.lastTurnId)
+        if (!eligible(activation, facts)) {
             disarm(sessionId)
             return null
         }
@@ -157,8 +156,8 @@ internal class GoalContinuationDriver(
             providerId = ProviderId(activation.providerId),
             mode = AgentMode.GOAL,
             text =
-                "[Goal continuation ${GoalRoundAllowance(storage).used(activation.goalId) + 1}/" +
-                    "${storage.goals.resolve(activation.goalId).budgets.maxGoalRounds}] " +
+                "[Goal continuation ${facts.roundsUsed + 1}/" +
+                    "${facts.goal.budgets.maxGoalRounds}] " +
                     "Continue the existing objective using current history and results. " +
                     "Do not repeat settled actions. Read goal.get, then report complete, in_progress or blocked " +
                     "with goal.update.",
@@ -172,36 +171,28 @@ internal class GoalContinuationDriver(
         )
     }
 
-    @Suppress("ReturnCount") // Prepared human requests and settled automatic predecessors have distinct admission.
-    private fun eligible(activation: Activation): Boolean {
-        if (!GoalRoundAllowance(storage).available(activation.goalId)) return false
-        val turn = storage.turns.resolve(activation.lastTurnId)
-        val goal = storage.goals.resolve(activation.goalId).toRuntimeGoal()
-        if (activation.prepared) {
-            return preparedEligible(activation, turn, goal)
-        }
-        val binding = storage.goalTurnBindings.byTurn(turn.id) ?: return false
-        val run = storage.goalRuns.resolve(binding.runId)
-        return AutomaticGoalContinuation.accepts(turn.state, turn.errorCode, turn.pauseRequestedAt) &&
-            run.endedAt != null &&
-            run.outcome == "RUN_FINISHED" && goal.state.name == "PAUSED" && goal.hasRunBudgetHeadroom() &&
-            storage.goalRuns
-                .listByGoal(activation.goalId)
-                .lastOrNull()
-                ?.id == run.id &&
-            !storage.goalTurnBindings.hasUnsettledCalls(activation.goalId) &&
-            storage.toolCalls.listByTurn(turn.id).none { it.state == "DENIED" }
+    private fun eligible(activation: Activation): Boolean =
+        eligible(activation, factsReader.read(activation.goalId, activation.lastTurnId))
+
+    @Suppress("ReturnCount") // Round capacity and prepared versus settled predecessors are distinct gates.
+    private fun eligible(
+        activation: Activation,
+        facts: GoalContinuationFacts,
+    ): Boolean {
+        if (facts.roundsUsed >= facts.goal.budgets.maxGoalRounds) return false
+        if (activation.prepared) return preparedEligible(facts)
+        return AutomaticGoalContinuation.accepts(
+            facts.turnState,
+            facts.turnErrorCode,
+            facts.pauseRequestedAt,
+        ) && facts.predecessorRunFinished &&
+            facts.predecessorRunOutcome == "RUN_FINISHED" && facts.goal.state.name == "PAUSED" &&
+            facts.goal.hasRunBudgetHeadroom() && facts.predecessorIsLatestRun &&
+            !facts.hasUnsettledCalls && !facts.hasDeniedCalls
     }
 
-    private fun preparedEligible(
-        activation: Activation,
-        turn: com.helix.core.storage.entity.TurnEntity,
-        goal: com.helix.core.agent.Goal,
-    ): Boolean =
-        turn.state == "COMPLETED" && turn.pauseRequestedAt == null &&
-            goal.state.name in setOf("READY", "PAUSED", "INPUT_REQUIRED") && goal.hasRunBudgetHeadroom() &&
-            storage.goalControls.find(activation.goalId)?.pendingJson == null &&
-            !storage.goalTurnBindings.hasUnsettledCalls(activation.goalId) &&
-            storage.goalRuns.listOpenByGoal(activation.goalId).isEmpty() &&
-            storage.toolCalls.listByTurn(turn.id).none { it.state == "DENIED" }
+    private fun preparedEligible(facts: GoalContinuationFacts): Boolean =
+        facts.turnState == "COMPLETED" && facts.pauseRequestedAt == null &&
+            facts.goal.state.name in setOf("READY", "PAUSED", "INPUT_REQUIRED") && facts.goal.hasRunBudgetHeadroom() &&
+            !facts.hasPendingEdit && !facts.hasUnsettledCalls && !facts.hasOpenRuns && !facts.hasDeniedCalls
 }

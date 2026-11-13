@@ -60,4 +60,27 @@ class ReasoningDetectionDeviceTest {
         compose.onNodeWithTag("chat-reasoning-status").assertIsDisplayed()
         compose.onNodeWithTag("chat-reasoning-high").assertDoesNotExist()
     }
+
+    @Test fun explicitUnsupportedOffersOnlyDefaultWithoutAnotherProbe() {
+        var probes = 0
+        compose.setContent {
+            MaterialTheme {
+                ComposerReasoningMenu(
+                    ReasoningEffort.OFF,
+                    true,
+                    {},
+                    efforts = listOf(ReasoningEffort.OFF),
+                    onDetect = {
+                        probes++
+                        emptyList()
+                    },
+                )
+            }
+        }
+        compose.onNodeWithTag("chat-reasoning-menu").performClick()
+        compose.onNodeWithTag("chat-reasoning-status").assertIsDisplayed()
+        compose.onNodeWithTag("chat-reasoning-off").assertIsDisplayed()
+        compose.onNodeWithTag("chat-reasoning-high").assertDoesNotExist()
+        compose.runOnIdle { assertEquals(0, probes) }
+    }
 }

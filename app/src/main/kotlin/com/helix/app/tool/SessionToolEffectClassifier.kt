@@ -361,6 +361,11 @@ class SessionToolEffectClassifier(
                     .associateWith { OperationEffect.FILE_MUTATION_EXTERNAL } +
                 mapOf(
                     "session.rename" to OperationEffect.DEVICE_SYSTEM_MUTATION,
+                    "session.create" to OperationEffect.DEVICE_SYSTEM_MUTATION,
+                    "session.queue" to OperationEffect.DEVICE_SYSTEM_MUTATION,
+                    "session.steer" to OperationEffect.DEVICE_SYSTEM_MUTATION,
+                    "session.archive" to OperationEffect.DEVICE_SYSTEM_MUTATION,
+                    "session.restore" to OperationEffect.DEVICE_SYSTEM_MUTATION,
                     "settings.apply" to OperationEffect.DEVICE_SYSTEM_MUTATION,
                     "device.open_settings" to OperationEffect.DEVICE_SYSTEM_MUTATION,
                 )

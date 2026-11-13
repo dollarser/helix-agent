@@ -7,7 +7,7 @@ import com.helix.app.application.context.PromptContentContributions
 import com.helix.app.application.context.SystemPromptContext
 import com.helix.app.application.context.SystemPromptRequest
 import com.helix.app.application.tools.FileToolArguments
-import com.helix.app.application.tools.ToolPresentationMetadata
+import com.helix.app.application.tools.ToolModelSchemaProjection
 import com.helix.app.infrastructure.chat.AttachmentStagingSupport
 import com.helix.app.infrastructure.chat.ImageReferenceVerifier
 import com.helix.app.infrastructure.prompt.StoredSystemPromptFactsProvider
@@ -58,6 +58,7 @@ internal class ChatRequestAssembler(
                 com.helix.core.model
                     .SystemClock(),
             ),
+    private val nativeWebSearchEnabled: () -> Boolean = { false },
     private val profile: () -> com.helix.core.model.SafetyProfile = { com.helix.core.model.SafetyProfile.STANDARD },
 ) : TurnContextAssembler {
     private val imageVerifier = ImageReferenceVerifier(storage, attachmentStaging)
@@ -225,7 +226,7 @@ internal class ChatRequestAssembler(
             prompt = system,
             directory = directory,
             workspaceBinding = binding?.snapshot(),
-        ).let { bindHistory(it, history) }
+        ).let { bindSearchHistory(it, config, history) }
             .let { JobObservationContext(storage, toolPipeline).include(it, sessionId, turnId, control, profile()) }
     }
 
@@ -295,9 +296,20 @@ internal class ChatRequestAssembler(
             prompt = system,
             directory = directory,
             workspaceBinding = binding?.snapshot(),
-        ).let { bindHistory(it, history) }
+        ).let { bindSearchHistory(it, config, history) }
             .let { JobObservationContext(storage, toolPipeline).include(it, sessionId, turnId, control, profile()) }
     }
+
+    private fun bindSearchHistory(
+        request: TurnContextRequest,
+        config: com.helix.provider.api.ProviderConfig,
+        history: History,
+    ): TurnContextRequest =
+        bindHistory(
+            com.helix.app.search.NativeWebSearchAdmission
+                .apply(request, config, nativeWebSearchEnabled()),
+            history,
+        )
 
     override suspend fun rebuild(
         sessionId: String,
@@ -367,10 +379,10 @@ internal class ChatRequestAssembler(
                     preferred = preferred,
                 )
             }.map { descriptor ->
-                FileToolArguments.modelSchema(descriptor).copy(
+                ToolModelSchemaProjection.project(descriptor).copy(
                     bindingRef = bindings.single { it.descriptor == descriptor }.ref,
                 )
-            }.map(ToolPresentationMetadata::augment)
+            }
     }
 
     /**

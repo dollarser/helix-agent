@@ -15,6 +15,8 @@ import com.helix.core.storage.repository.SessionInputState
 internal class RoomSubmissionAdmissionFacts(
     private val storage: HelixStorage,
 ) : SubmissionAdmissionFacts {
+    override fun isDelegatedTurn(turnId: String): Boolean = storage.sessionInputs.isDelegatedTurn(turnId)
+
     override fun session(sessionId: String): SubmissionSession? =
         storage.sessions.find(sessionId)?.let { SubmissionSession(it.id, it.providerId, it.modelId, it.archivedAt) }
 
@@ -41,6 +43,7 @@ internal class RoomSubmissionAdmissionFacts(
                     input.revision,
                     input.configuration,
                     storage.sessionInputs.readReference(input),
+                    input.delegation,
                 )
             }
 

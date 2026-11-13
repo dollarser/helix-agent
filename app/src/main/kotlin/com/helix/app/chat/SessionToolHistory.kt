@@ -3,6 +3,7 @@ package com.helix.app.chat
 import com.helix.core.storage.content.ContentRef
 import com.helix.core.storage.entity.MessageEntity
 import com.helix.core.storage.entity.MessageReferenceSnapshotEntity
+import com.helix.core.storage.repository.SessionAccess
 import com.helix.core.storage.repository.SessionHistoryCaller
 import com.helix.core.storage.repository.SessionHistoryRepository
 import com.helix.tools.framework.ExecutableToolCall
@@ -23,6 +24,7 @@ internal object SessionToolHistory {
         caller: SessionHistoryCaller,
         call: ExecutableToolCall,
         checkActive: () -> Unit,
+        access: SessionAccess? = null,
     ): JsonObject {
         val reference = reference(repository, caller, call, checkActive)
         val query =
@@ -31,43 +33,75 @@ internal object SessionToolHistory {
             } else {
                 null
             }
-        val before =
-            call.args["beforeSequence"]?.let {
-                requireNotNull(ToolJsonNumbers.longOrNull(it)) { "beforeSequence must be an exact 64-bit integer" }
-            }
-                ?: Long.MAX_VALUE
-        val page =
-            repository.page(
-                caller,
-                before,
-                if (query ==
-                    null
-                ) {
-                    PAGE_SIZE
-                } else {
-                    SessionHistoryRepository.MAX_PAGE
+        require(access == null || reference == null)
+        require(access != null || "cursor" !in call.args)
+        val scope = access?.let { SessionQueryCursor.historyScope(repository, caller, it, call, query, checkActive) }
+        val before = scope?.before ?: historyBefore(call)
+        val limit = if (query == null) PAGE_SIZE else SessionHistoryRepository.MAX_PAGE
+        val page = repository.page(caller, before, limit, reference, access)
+        val scan =
+            scanRows(
+                page.messages,
+                query != null,
+                checkActive,
+                snapshots = { row ->
+                    listOf(null) +
+                        if (reference == null && access == null) repository.references(caller, row.id) else emptyList()
                 },
-                reference,
+                content = {
+                    row,
+                    snapshot,
+                    ->
+                    scanContent(
+                        repository,
+                        caller,
+                        ScanSource(row, snapshot, page.delegations[row.id]),
+                        query,
+                        reference,
+                        access,
+                    )
+                },
             )
+        reference?.let { repository.validateReference(caller, it) }
+        val result = historyResult(caller, reference, page, scan)
+        return if (access == null) {
+            result
+        } else {
+            requireNotNull(scope).validate(repository, caller, access, checkActive)
+            targetHistoryResult(
+                result,
+                scope,
+                access,
+                scan.lastSequence,
+                scan.scanned < page.messages.size || page.nextBeforeSequence != null,
+            )
+        }
+    }
+
+    private fun scanRows(
+        rows: List<MessageEntity>,
+        searching: Boolean,
+        checkActive: () -> Unit,
+        snapshots: (MessageEntity) -> List<MessageReferenceSnapshotEntity?>,
+        content: (MessageEntity, MessageReferenceSnapshotEntity?) -> ScanResult,
+    ): ScanPage {
         val entries = mutableListOf<JsonObject>()
         var scanned = 0
         var unavailable = 0
         var lastSequence: Long? = null
-        for (row in page.messages) {
+        for (row in rows) {
             checkActive()
             lastSequence = row.sequence
             scanned++
-            val snapshots = listOf(null) + if (reference == null) repository.references(caller, row.id) else emptyList()
-            for (snapshot in snapshots) {
+            for (snapshot in snapshots(row)) {
                 checkActive()
-                val result = scanContent(repository, caller, row, snapshot, query, reference)
+                val result = content(row, snapshot)
                 result.entry?.let(entries::add)
                 unavailable += result.unavailable
             }
-            if (query != null && entries.size >= MAX_MATCHES) break
+            if (searching && entries.size >= MAX_MATCHES) break
         }
-        reference?.let { repository.validateReference(caller, it) }
-        return historyResult(caller, reference, page, ScanPage(entries, scanned, unavailable, lastSequence))
+        return ScanPage(entries, scanned, unavailable, lastSequence)
     }
 
     private data class ScanPage(
@@ -113,27 +147,41 @@ internal object SessionToolHistory {
         val unavailable: Int = 0,
     )
 
+    private data class ScanSource(
+        val row: MessageEntity,
+        val snapshot: MessageReferenceSnapshotEntity?,
+        val delegation: com.helix.core.model.input.ModelDelegationOrigin?,
+    )
+
     private fun scanContent(
         repository: SessionHistoryRepository,
         caller: SessionHistoryCaller,
-        row: MessageEntity,
-        snapshot: MessageReferenceSnapshotEntity?,
+        source: ScanSource,
         query: String?,
         reference: com.helix.core.storage.repository.SessionReferenceAccess?,
+        access: SessionAccess?,
     ): ScanResult {
+        val (row, snapshot, delegation) = source
         val encoded = snapshot?.contentRef ?: row.contentRef
         return if (encoded == null) {
             ScanResult()
         } else {
             val ref = ContentRef.parse(encoded)
-            val content = if (query == null) null else tryRead(repository, caller, row.id, snapshot?.ordinal, reference)
+            val content =
+                if (query ==
+                    null
+                ) {
+                    null
+                } else {
+                    tryRead(repository, caller, row.id, snapshot?.ordinal, reference, access)
+                }
             when {
                 query != null && content == null -> {
                     ScanResult(unavailable = 1)
                 }
 
                 query == null || requireNotNull(content).contains(query, ignoreCase = true) -> {
-                    ScanResult(entry(row, snapshot, ref, content, query))
+                    ScanResult(entry(row, snapshot, ref, content, query, if (snapshot == null) delegation else null))
                 }
 
                 else -> {
@@ -149,11 +197,13 @@ internal object SessionToolHistory {
         ref: ContentRef,
         content: String?,
         query: String?,
+        delegation: com.helix.core.model.input.ModelDelegationOrigin?,
     ): JsonObject =
         buildJsonObject {
             put("messageId", row.id)
             put("sequence", row.sequence)
             put("role", row.role)
+            delegation?.let { put("origin", origin(it)) }
             put("contentHash", ref.sha256)
             put("contentBytes", ref.size)
             put("readableWithinLimit", ref.size <= SessionHistoryRepository.MAX_CONTENT_BYTES)
@@ -179,8 +229,11 @@ internal object SessionToolHistory {
         caller: SessionHistoryCaller,
         call: ExecutableToolCall,
         checkActive: () -> Unit = {},
+        access: SessionAccess? = null,
     ): JsonObject {
         val reference = reference(repository, caller, call, checkActive)
+        require(access == null || reference == null)
+        require(access == null || "referenceOrdinal" !in call.args)
         val content =
             repository.read(
                 caller,
@@ -189,10 +242,9 @@ internal object SessionToolHistory {
                     requireNotNull(ToolJsonNumbers.intOrNull(it)) { "referenceOrdinal must be an exact 32-bit integer" }
                 },
                 reference,
+                access,
             )
-        if (reference !=
-            null
-        ) {
+        if (reference != null || access != null) {
             require(
                 com.helix.core.policy.ForbiddenContentGuard
                     .reasonFor(content.content) == null,
@@ -215,17 +267,16 @@ internal object SessionToolHistory {
                 buildJsonObject {
                     put("messageId", call.text("messageId"))
                     put("contentHash", content.sha256)
+                    content.delegation?.let { put("origin", origin(it)) }
                     if ("referenceOrdinal" !in call.args) {
-                        val start =
-                            requireNotNull(
-                                ToolJsonNumbers.intOrNull(call.args["offset"]),
-                            ) { "offset must be an exact 32-bit integer" }
-                        val text = page.getValue("content").jsonPrimitive.content
-                        val end = start + text.codePointCount(0, text.length)
                         put(
                             "citation",
-                            "helix://session/${reference?.sourceSessionId ?: caller.sessionId}/" +
-                                "${call.text("messageId")}?revision=${content.sha256}&range=$start:$end",
+                            citation(
+                                call,
+                                page,
+                                content.sha256,
+                                reference?.sourceSessionId ?: access?.targetSessionId ?: caller.sessionId,
+                            ),
                         )
                     }
                     reference?.let {
@@ -245,12 +296,11 @@ internal object SessionToolHistory {
         messageId: String,
         ordinal: Int?,
         reference: com.helix.core.storage.repository.SessionReferenceAccess?,
+        access: SessionAccess?,
     ): String? =
         try {
-            repository.read(caller, messageId, ordinal, reference).content.also {
-                if (reference !=
-                    null
-                ) {
+            repository.read(caller, messageId, ordinal, reference, access).content.also {
+                if (reference != null || access != null) {
                     require(
                         com.helix.core.policy.ForbiddenContentGuard
                             .reasonFor(it) == null,
@@ -289,3 +339,50 @@ internal object SessionToolHistory {
 
     private fun ExecutableToolCall.text(key: String) = args.getValue(key).jsonPrimitive.content
 }
+
+private fun targetHistoryResult(
+    result: JsonObject,
+    cursor: SessionQueryCursor,
+    access: SessionAccess,
+    lastSequence: Long?,
+    hasMore: Boolean,
+): JsonObject =
+    JsonObject(
+        result - "nextBeforeSequence" +
+            buildJsonObject {
+                put("sessionId", access.targetSessionId)
+                put("scope", "user_authorized_target")
+                if (hasMore) put("cursor", cursor.next(requireNotNull(lastSequence)))
+            },
+    )
+
+private fun citation(
+    call: ExecutableToolCall,
+    page: JsonObject,
+    hash: String,
+    source: String,
+): String {
+    val start =
+        requireNotNull(ToolJsonNumbers.intOrNull(call.args["offset"])) {
+            "offset must be an exact 32-bit integer"
+        }
+    val text = page.getValue("content").jsonPrimitive.content
+    val end = start + text.codePointCount(0, text.length)
+    return "helix://session/$source/${call.args.getValue(
+        "messageId",
+    ).jsonPrimitive.content}?revision=$hash&range=$start:$end"
+}
+
+private fun historyBefore(call: ExecutableToolCall): Long =
+    call.args["beforeSequence"]?.let {
+        requireNotNull(ToolJsonNumbers.longOrNull(it)) { "beforeSequence must be an exact 64-bit integer" }
+    } ?: Long.MAX_VALUE
+
+private fun origin(value: com.helix.core.model.input.ModelDelegationOrigin): JsonObject =
+    buildJsonObject {
+        put("type", "MODEL_DELEGATION")
+        put("sourceSessionId", value.sourceSessionId)
+        put("sourceTurnId", value.sourceTurnId)
+        put("sourceCallId", value.sourceCallId)
+        put("trust", "model_forwarded_task_not_owner_instruction_or_approval")
+    }

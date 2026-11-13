@@ -1,6 +1,6 @@
 # 开发任务索引
 
-核对日期：2026-11-08。
+核对日期：2026-11-12。
 
 按工作类型区分尚未完成的范围与已完成记录；每个 HXA 只出现一次。分类不是执行顺序，也不因登记而取得代码、设备、账号或发行授权。当前事实看 [status](status.md)，任务范围与验收以原 HXA 为准，未接受的建议看[候选索引](candidate-decisions.md)。
 
@@ -14,14 +14,13 @@
 
 ## 功能新增与能力扩展
 
-已有基础不归零；网页 Fetch 与 MCP 文本 Resources 已有实现和有界验收，Search 接线、MCP 二进制与第三方生产服务、模型自主完成可靠性、表单新动作及跨会话投递分别保留开放范围。
+已有基础不归零；Fetch、浏览器搜索、Tavily/DeepSeek Search 接线、MCP 文本与二进制产物、跨会话查询/创建/投递已有各自有界交付。付费 Search 实接、第三方 MCP 服务、二进制真实模型消费、一般自主完成可靠性与表单新动作分别保留开放范围。
 
 | 任务 | 状态 | 范围 | 规格或证据 |
 | --- | --- | --- | --- |
-| HXA-290 | Fetch 主机、公共页面及真实模型有界消费通过；Search 与自主完成可靠性开放 | 网页搜索与正文读取工作流 | [任务](tasks/HXA-290.md) / [有界证据](../evidence/development/continue-delivery-2026-11-08.md) |
-| HXA-291 | 文本 Resources 主机、本机协议服务配合真实模型有界通过；二进制及第三方服务开放 | MCP Resources 发现、读取与引用 | [任务](tasks/HXA-291.md) / [有界证据](../evidence/development/continue-delivery-2026-11-08.md) |
+| HXA-290 | Fetch/浏览器搜索真实模型有界通过，API Search 接线及离线/设备通过；付费实接与一般可靠性开放 | 网页搜索与正文读取工作流 | [任务](tasks/HXA-290.md) / [有界证据](../evidence/development/continue-delivery-2026-11-08.md) |
+| HXA-291 | 文本真实模型有界通过；二进制协议/本机持久化通过，二进制模型消费及第三方服务待验 | MCP Resources 发现、读取与引用 | [任务](tasks/HXA-291.md) / [有界证据](../evidence/development/continue-delivery-2026-11-08.md) |
 | HXA-292 | 既有动作基线已交付；新表单能力与待验组合分开 | Browser 表单与 Mobile Use 动作契约 | [任务](tasks/HXA-292.md) |
-| HXA-295 | A 已交付，301补有界运行；B/C 未实施 | 会话查询、管理与受控任务投递 | [任务](tasks/HXA-295.md) |
 
 ## 架构重构
 
@@ -35,6 +34,8 @@
 
 主分类为已有能力的缺陷、恢复或证据补齐；个别任务仍含小范围实现余项，必须读原规格，不把整项标为仅待测试。
 
+2026-11-12 的取消/撤权/恢复/清理组合已补有界验收，覆盖 232/235/236/238/239/248 的相邻路径；不关闭全部恢复矩阵，见[组合记录](../evidence/development/recovery-combinations-2026-11-12.md)。
+
 跨任务的最新边界见 [status](status.md)：结果正文与独立日志语义修正后的真实诊断/修复、API36 预览新增边界及网页/MCP 真实模型任务均有有界通过记录。历史诊断失败、资源任务早停与验收器错误仍保留，自主完成可靠性不由一次成功关闭。四轮 ChatService 的缓存读取是实际复用观测，不是优化前后因果收益或计费结论。分别见[客户端与自然任务证据](../evidence/development/continue-delivery-2026-11-08.md)及[缓存证据](../evidence/development/long-task-cache-2026-11-08.md)，不重复创建 HXA 或将开放范围记为完成。
 
 | 任务 | 状态 | 范围 | 规格或证据 |
@@ -46,11 +47,12 @@
 | HXA-237 | 收尾验收 | 订阅引导、Codex 客户端版本与移动终端体验 | [任务规格](tasks/HXA-237.md) |
 | HXA-238 | 收尾验收 | 执行锁收窄与 Provider 表单反馈 | [任务规格](tasks/HXA-238.md) |
 | HXA-239 | 收尾验收 | 输入框选模、指令光标与权限快捷切换 | [任务规格](tasks/HXA-239.md) |
-| HXA-240 | 收尾验收 | Advanced Bash / Linux Job 复用 FFmpeg | [任务规格](tasks/HXA-240.md) |
+| HXA-240 | API36/API33 完整 PRoot 媒体、字体、多产物 Job 与 NDK sync/async 通过；真实模型/API29/OEM 未验 | Advanced Bash / Linux Job 复用 FFmpeg | [任务规格](tasks/HXA-240.md) |
 | HXA-248 | 主机及有界模型旅程已交付；完整组合与恢复矩阵待验 | J2 同执行 AUTO 与用户后台释放 | [任务规格](tasks/HXA-248.md) |
 | HXA-271 | 阶段实现与有界验收已交付；进程恢复/视觉等明确余项 pending | 会话执行交互与信息层级 | [任务](tasks/HXA-271.md) |
 | HXA-283 | 旧 PDF 入口已由284接替；原卡验收余项未单独结案 | 有界 PDF 读取与总结 | [任务](tasks/HXA-283.md) |
-| HXA-289 | 原生有界能力已交付；SAF／模型自主定位待验 | Workspace 路径匹配与文件内容搜索 | [任务](tasks/HXA-289.md) |
+| HXA-289 | 原生有界能力与双渠道真实 SAF 已验证；模型自主定位受 HTTP 530/测试账号登出阻断 | Workspace 路径匹配与文件内容搜索 | [任务](tasks/HXA-289.md) |
+| HXA-295 | A/B/C 已交付，Debug 与模拟器有界验收通过；真实模型发现质量等未覆盖范围见原记录 | 会话查询、管理、幂等创建与 Queue/Steer 投递 | [任务](tasks/HXA-295.md) / [B/C 证据](../evidence/development/session-management-cross-session-2026-11-12.md) |
 | HXA-309 | 主机/模拟器已交付；最终候选真机手测 pending | 本机备忘与任务提醒 | [任务](tasks/HXA-309.md) / [证据](../evidence/development/local-reminders-2026-10-19.md) |
 | HXA-310 | 主机/模拟器/下载已交付；实际口述、外放听感及真机质量待手测 | 本机回复主动朗读 | [任务](tasks/HXA-310.md) / [证据](../evidence/development/read-aloud-2026-10-19.md) |
 

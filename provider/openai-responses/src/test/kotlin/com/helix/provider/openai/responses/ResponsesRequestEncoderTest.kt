@@ -68,6 +68,36 @@ class ResponsesRequestEncoderTest {
         )
     }
 
+    @Test fun functionToolsPreserveOptionalParametersWithoutServerStrictNormalization() {
+        val schemas =
+            listOf(
+                """{"type":"object","properties":{"cursor":{"type":"string","minLength":1}},
+                    "required":[],"additionalProperties":false}""",
+                """{"type":"object","properties":{"target":{"type":"string"},"options":{"type":"object",
+                    "properties":{"cursor":{"type":"string"}},"required":[],"additionalProperties":false}},
+                    "required":["target"],"additionalProperties":false}""",
+            )
+        val request =
+            ModelRequest(
+                model = "fixture",
+                messages = listOf(ModelMessage(ModelRole.USER, "List the first page")),
+                tools =
+                    schemas.mapIndexed { index, schema ->
+                        ModelToolSchema(ToolName("sample$index"), "sample", schema)
+                    },
+                nativeWebSearch = true,
+            )
+        val tools = parsed(ResponsesRequestEncoder(resolver, true).encode(request))["tools"]!!.jsonArray
+        assertEquals(parsed("""{"type":"web_search"}"""), tools.first())
+        schemas.forEachIndexed { index, schema ->
+            val tool = tools[index + 1].jsonObject
+            assertEquals(JsonPrimitive(false), tool["strict"])
+            assertEquals(parsed(schema), tool["parameters"])
+        }
+        val compatibilityTools = parsed(encoder.encode(request.copy(nativeWebSearch = false)))["tools"]!!.jsonArray
+        assertEquals(tools.drop(1), compatibilityTools.toList())
+    }
+
     private val resolver =
         ImageResolver { image ->
             when (image.ref.value) {
@@ -279,7 +309,7 @@ class ResponsesRequestEncoderTest {
             parsed(schema),
             parameters,
         )
-        assertEquals("t.a", str(tool, "name"))
+        assertEquals(ResponsesToolNames(request).encode("t.a"), str(tool, "name"))
     }
 
     @Test
@@ -369,7 +399,7 @@ class ResponsesRequestEncoderTest {
         val fn = items[2].jsonObject
         assertEquals("function_call", fn["type"]?.jsonPrimitive?.content)
         assertEquals("call_a1", fn["call_id"]?.jsonPrimitive?.content)
-        assertEquals("time.now", fn["name"]?.jsonPrimitive?.content)
+        assertEquals(ResponsesToolNames(request).encode("time.now"), fn["name"]?.jsonPrimitive?.content)
         assertEquals("{\"tz\":\"UTC\"}", fn["arguments"]?.jsonPrimitive?.content)
         val out = items[3].jsonObject
         assertEquals("function_call_output", out["type"]?.jsonPrimitive?.content)

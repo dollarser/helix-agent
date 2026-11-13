@@ -12,8 +12,19 @@ internal class ProviderEditorState(
     private val scope: kotlinx.coroutines.CoroutineScope? = null,
 ) : ViewModel() {
     var form by mutableStateOf<ProviderForm?>(null)
+    var row: com.helix.app.provider.ProviderRowUi? = null
+    var models: ProviderModelsEditorState? = null
+    var saveSession: com.helix.app.provider.ProviderDraftSaveSession? = null
     var saving by mutableStateOf(false)
         private set
+
+    fun close() {
+        if (saving) return
+        form = null
+        row = null
+        models = null
+        saveSession = null
+    }
 
     fun save(
         target: ProviderForm,
@@ -27,8 +38,16 @@ internal class ProviderEditorState(
                 if (form == target) {
                     form =
                         when (result) {
-                            SaveResult.Saved -> null
-                            is SaveResult.Rejected -> target.copy(error = result)
+                            SaveResult.Saved -> {
+                                row = null
+                                models = null
+                                saveSession = null
+                                null
+                            }
+
+                            is SaveResult.Rejected -> {
+                                target.copy(error = result)
+                            }
                         }
                 }
             } finally {

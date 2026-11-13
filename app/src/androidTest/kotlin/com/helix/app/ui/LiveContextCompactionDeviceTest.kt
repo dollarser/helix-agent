@@ -247,7 +247,7 @@ class LiveContextCompactionDeviceTest {
         val registry =
             ToolRegistry()
         SessionTools
-            .register(registry, storage.sessionHistory)
+            .register(registry, storage.sessionHistory, storage.sessionAccess)
         val result =
             requireNotNull(
                 registry.executor(

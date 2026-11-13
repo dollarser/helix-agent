@@ -6,6 +6,8 @@ import com.helix.core.model.input.InputConfiguration
 
 /** Facts needed to prepare admission, never an alternative admission writer or execution owner. */
 internal interface SubmissionAdmissionFacts {
+    fun isDelegatedTurn(turnId: String): Boolean = false
+
     fun session(sessionId: String): SubmissionSession?
 
     fun retryText(
@@ -64,4 +66,5 @@ internal data class PendingSubmissionInput(
     val revision: Long,
     val configuration: InputConfiguration,
     val reference: ConversationReferenceSnapshotInput?,
+    val delegation: com.helix.core.model.input.ModelDelegationOrigin? = null,
 )

@@ -44,7 +44,16 @@ data class SessionInputRecord(
     val skillActivations: List<InputSkillActivation> = emptyList(),
     val skillActivationsRevoked: Boolean = false,
     val knowledgeReferences: List<KnowledgeReference> = emptyList(),
-)
+    val delegation: com.helix.core.model.input.ModelDelegationOrigin? = null,
+) {
+    val origin: com.helix.core.model.input.SessionInputOrigin
+        get() =
+            if (delegation == null) {
+                com.helix.core.model.input.SessionInputOrigin.USER
+            } else {
+                com.helix.core.model.input.SessionInputOrigin.MODEL_DELEGATION
+            }
+}
 
 sealed interface SessionInputAcceptResult {
     data class Accepted(

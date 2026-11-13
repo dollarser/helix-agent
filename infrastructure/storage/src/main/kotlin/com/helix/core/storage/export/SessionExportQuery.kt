@@ -58,7 +58,10 @@ internal data class SessionExportQuery(
                 ),
                 SessionExportQuery(
                     SessionExportType.MESSAGE,
-                    "messages x",
+                    "(SELECT m.*, i.inputOrigin, i.delegationSourceSessionId, i.delegationSourceTurnId, " +
+                        "i.delegationSourceCallId, i.delegationRequestKey, i.delegationGrantRevision " +
+                        "FROM messages m LEFT JOIN session_inputs i ON i.messageId = m.id " +
+                        "AND i.sessionId = m.sessionId) x",
                     "x.sessionId = ?",
                     listOf(
                         "id",
@@ -70,6 +73,12 @@ internal data class SessionExportQuery(
                         "sequence",
                         "supersededBy",
                         "createdAt",
+                        "inputOrigin",
+                        "delegationSourceSessionId",
+                        "delegationSourceTurnId",
+                        "delegationSourceCallId",
+                        "delegationRequestKey",
+                        "delegationGrantRevision",
                     ),
                     "x.sequence, x.id",
                 ),

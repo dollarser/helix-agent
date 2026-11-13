@@ -7,10 +7,10 @@ internal data class ProviderRowActions(
     val onTest: () -> Unit,
     val onEdit: (modelOverride: String?) -> Unit,
     val onDelete: () -> Unit,
-    val onDeclareVision: (enabled: Boolean) -> Unit,
     val onManageAccount: () -> Unit,
-    val onDetectCapabilities: () -> Unit = {},
-    val onContext: () -> Unit = {},
+    val onDetectCapabilities: (String) -> Unit = {},
+    val onContext: (String) -> Unit = {},
+    val onTestModel: (String) -> Unit = {},
     val onUnload: () -> Unit = {},
     val onManageModels: () -> Unit = {},
 )

@@ -1,117 +1,115 @@
 package com.helix.app.provider.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
 import com.helix.app.provider.ConnectionTestMapping
 import com.helix.app.provider.ConnectionTestStatus
 import com.helix.app.provider.ProviderRowUi
 import com.helix.app.ui.managedAccountLabel
+import com.helix.core.model.ProviderProvisioningKind
 import com.helix.ui.shared.UiLabels
 import com.helix.ui.shared.localizedString
-import com.helix.feature.conversation.R as ConversationR
-import com.helix.ui.shared.R as SharedR
 
 @Composable
-@Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod") // Declarative variant-specific controls.
+@Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod")
 internal fun ProviderRow(
     row: ProviderRowUi,
     testing: Boolean,
     actions: ProviderRowActions,
     accountUnavailable: Boolean,
     detectingCapabilities: Boolean = false,
-    capabilityOutcome: com.helix.provider.api.ProbeOutcome? = null,
+    connectionOutcome: com.helix.provider.api.ProbeOutcome? = null,
+    modelOperationError: String? = null,
 ) {
     require(!row.bundled) { "Built-in models have no provider configuration surface" }
-    val visionEnabled = row.capabilities?.vision == true
-    var advanced by rememberSaveable(row.id) { mutableStateOf(false) }
-    val expansionLabel = stringResource(if (advanced) SharedR.string.nav_expanded else SharedR.string.nav_collapsed)
-    Column(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .testTag("provider-row")
-                .padding(vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+    Surface(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp).testTag("provider-row"),
+        shape = MaterialTheme.shapes.extraLarge,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                row.displayName,
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.weight(1f),
-            )
-            StatusChip(row.status, row.managedExternally)
-        }
-        row.accountState?.let { account ->
-            Text(stringResource(managedAccountLabel(account)), Modifier.testTag("provider-account-state"))
-        }
-        row.assetSizeBytes?.let { size ->
-            Text(stringResource(R.string.local_model_resources, UiLabels.formatBytes(size)))
-        }
-        if (!row.managedExternally) {
-            Text(
-                providerLocationLabel(row),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        if (!row.managedExternally) {
-            Text(
-                buildString {
-                    append(
-                        stringResource(
-                            R.string.provider_row_model,
-                            row.modelLabel(row.model),
-                            UiLabels.protocolLabel(row.protocol),
-                        ),
-                    )
-                    if (row.hasKey) append(stringResource(R.string.provider_row_has_key))
-                    if (row.isCleartext) append(stringResource(R.string.provider_row_cleartext))
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        val detail =
-            if (row.managedExternally &&
-                row.status !is ConnectionTestStatus.Failed
-            ) {
-                null
-            } else {
-                statusDetail(row)
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(row.displayName, style = MaterialTheme.typography.titleMedium)
+                    if (!row.managedExternally) {
+                        Text(
+                            providerLocationLabel(row),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+                if (!row.managedExternally) ProviderOverflow(row, actions)
             }
-        if (detail != null) {
-            Text(
-                detail,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        if (row.managedExternally) {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                StatusChip(
+                    row.status,
+                    row.managedExternally,
+                    row.provisioning == ProviderProvisioningKind.USER_CONFIGURED,
+                )
+            }
+            row.accountState?.let { account ->
+                Text(
+                    stringResource(managedAccountLabel(account)),
+                    Modifier.testTag("provider-account-state"),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            row.assetSizeBytes?.let { size ->
+                Text(stringResource(R.string.local_model_resources, UiLabels.formatBytes(size)))
+            }
+            if (!row.managedExternally && row.protocol != null) {
+                Text(
+                    buildString {
+                        append(UiLabels.protocolLabel(row.protocol))
+                        if (row.hasKey) append(stringResource(R.string.provider_row_has_key))
+                        if (row.isCleartext) append(stringResource(R.string.provider_row_cleartext))
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color =
+                        if (row.isCleartext) {
+                            MaterialTheme.colorScheme.error
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                )
+            }
+            if (row.status is ConnectionTestStatus.Failed) {
+                statusDetail(row)?.let {
+                    Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                }
+            }
             if (accountUnavailable) {
                 Text(
                     stringResource(R.string.provider_subscription_runtime_unavailable),
@@ -120,100 +118,94 @@ internal fun ProviderRow(
                     modifier = Modifier.testTag("provider-subscription-runtime-unavailable"),
                 )
             }
-        }
-        if (row.managedExternally) {
-            OutlinedButton(
-                onClick = actions.onManageAccount,
-                modifier = Modifier.fillMaxWidth().testTag("provider-manage-account"),
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                Text(stringResource(R.string.provider_subscription_manage_account))
-            }
-            SubscriptionSetupHint(row)
-            ProviderConnectionTestAction(row, testing, detectingCapabilities, actions.onTest)
-        }
-        Text(stringResource(R.string.provider_models_selected_count, row.conversationModels.size))
-        OutlinedButton(
-            onClick = actions.onManageModels,
-            modifier = Modifier.fillMaxWidth().testTag("provider-manage-models-${row.id}"),
-        ) {
-            Text(stringResource(R.string.provider_models_manage))
-        }
-        if (!row.managedExternally) {
-            TextButton(
-                onClick = { advanced = !advanced },
-                modifier =
-                    Modifier
-                        .testTag(
-                            "provider-options-${row.id}",
-                        ).semantics { stateDescription = expansionLabel },
-            ) { Text(stringResource(R.string.provider_advanced_options)) }
-            // Explicit probe outcomes remain visible even when the optional controls are folded.
-            ProviderCapabilityResult(capabilityOutcome)
-        }
-        if (!row.managedExternally && advanced) {
-            OutlinedButton(
-                onClick = actions.onContext,
-                modifier = Modifier.fillMaxWidth().testTag("provider-context-${row.id}"),
-            ) {
-                Text(stringResource(ConversationR.string.chat_context_title))
-            }
-        }
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (!row.managedExternally) {
-                ProviderConnectionTestAction(row, testing, detectingCapabilities, actions.onTest)
-                if (advanced) {
-                    OutlinedButton(
-                        onClick = actions.onDetectCapabilities,
-                        enabled = !testing && row.chatSelectable,
-                        modifier = Modifier.fillMaxWidth().testTag("provider-capabilities"),
-                    ) {
-                        Text(
-                            stringResource(
-                                if (detectingCapabilities) {
-                                    R.string.provider_capabilities_testing
-                                } else {
-                                    R.string.provider_capabilities_test
-                                },
-                            ),
-                        )
-                    }
-                }
-            }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (row.provisioning == com.helix.core.model.ProviderProvisioningKind.USER_CONFIGURED) {
-                TextButton(onClick = { actions.onEdit(null) }, modifier = Modifier.testTag("provider-edit")) {
-                    Text(stringResource(R.string.provider_edit_button))
-                }
-                if (advanced) {
-                    TextButton(
-                        onClick = { actions.onDeclareVision(!visionEnabled) },
-                        modifier = Modifier.testTag("provider-vision-declare"),
-                    ) {
-                        Text(
-                            stringResource(
-                                if (visionEnabled) {
-                                    R.string.provider_vision_declare_off
-                                } else {
-                                    R.string.provider_vision_declare_on
-                                },
-                            ),
-                        )
-                    }
-                }
-                TextButton(
-                    onClick = actions.onDelete,
-                    modifier = Modifier.testTag("provider-delete"),
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                FilledTonalButton(
+                    onClick = {
+                        if (row.provisioning == ProviderProvisioningKind.USER_CONFIGURED) {
+                            actions.onEdit(null)
+                        } else {
+                            actions.onManageModels()
+                        }
+                    },
+                    modifier = Modifier.testTag("provider-manage-models-${row.id}"),
                 ) {
-                    Text(stringResource(R.string.provider_delete))
+                    Text(
+                        stringResource(
+                            if (row.provisioning == ProviderProvisioningKind.USER_CONFIGURED) {
+                                R.string.provider_service_settings
+                            } else {
+                                R.string.provider_models_manage
+                            },
+                        ),
+                    )
                 }
-            } else if (!row.managedExternally) {
-                TextButton(onClick = actions.onUnload) { Text(stringResource(R.string.local_model_unload)) }
-                TextButton(onClick = actions.onDelete, modifier = Modifier.testTag("provider-delete")) {
-                    Text(stringResource(R.string.provider_delete))
+                if (row.managedExternally) {
+                    OutlinedButton(
+                        onClick = actions.onManageAccount,
+                        modifier = Modifier.testTag("provider-manage-account"),
+                    ) {
+                        Text(stringResource(R.string.provider_subscription_manage_account))
+                    }
+                } else {
+                    ProviderConnectionTestAction(row, testing, detectingCapabilities, actions.onTest)
                 }
             }
+            (connectionOutcome as? com.helix.provider.api.ProbeOutcome.Failed)?.let { failure ->
+                if (failure.detail == com.helix.app.provider.ProviderConnectionCheck.CATALOG_UNSUPPORTED) {
+                    if ((row.status as? ConnectionTestStatus.Failed)?.catalogUnsupported != true) {
+                        Text(
+                            stringResource(R.string.provider_directory_unsupported),
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                } else {
+                    Text(
+                        stringResource(R.string.provider_models_operation_failed),
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            ProviderSelectedModelList(row, testing || detectingCapabilities, actions)
+            modelOperationError?.takeIf { it in row.conversationModels }?.let { model ->
+                Text(
+                    stringResource(R.string.provider_model_check_failed, row.modelLabel(model)),
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun ProviderOverflow(
+    row: ProviderRowUi,
+    actions: ProviderRowActions,
+) {
+    var open by remember(row.id) { mutableStateOf(false) }
+    Box {
+        IconButton(onClick = { open = true }, modifier = Modifier.testTag("provider-overflow-${row.id}")) {
+            Icon(painterResource(R.drawable.ic_provider_more), stringResource(R.string.provider_more_actions))
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            if (row.provisioning == ProviderProvisioningKind.ON_DEVICE_ASSET) {
+                DropdownMenuItem(text = { Text(stringResource(R.string.local_model_unload)) }, onClick = {
+                    open = false
+                    actions.onUnload()
+                })
+            }
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.provider_delete), color = MaterialTheme.colorScheme.error) },
+                onClick = {
+                    open = false
+                    actions.onDelete()
+                },
+                modifier = Modifier.testTag("provider-delete"),
+            )
         }
     }
 }
@@ -223,6 +215,7 @@ internal fun ProviderRow(
 private fun StatusChip(
     status: ConnectionTestStatus,
     accountOnly: Boolean = false,
+    apiDirectory: Boolean = false,
 ) {
     val (color, tag) =
         when (status) {
@@ -248,6 +241,10 @@ private fun StatusChip(
                 stringResource(
                     if (accountOnly) {
                         R.string.provider_account_connected
+                    } else if (apiDirectory && status.modelIds != null) {
+                        R.string.provider_directory_passed
+                    } else if (apiDirectory) {
+                        R.string.provider_model_connection_passed
                     } else if (status.capabilities.source == com.helix.provider.api.CapabilitySource.CONNECTION_ONLY) {
                         R.string.conn_connection_only
                     } else {
@@ -257,10 +254,14 @@ private fun StatusChip(
             }
 
             is ConnectionTestStatus.Failed -> {
-                stringResource(
-                    R.string.conn_failed_phase,
-                    stringResource(ConnectionTestMapping.phaseLabel(status.phase)),
-                )
+                if (status.catalogUnsupported) {
+                    stringResource(R.string.provider_directory_unsupported_short)
+                } else {
+                    stringResource(
+                        R.string.conn_failed_phase,
+                        stringResource(ConnectionTestMapping.phaseLabel(status.phase)),
+                    )
+                }
             }
         }
     Surface(
@@ -289,7 +290,9 @@ private fun statusDetail(row: ProviderRowUi): String? =
         }
 
         is ConnectionTestStatus.Passed -> {
-            if (row.capabilityChips.isEmpty()) {
+            if (row.provisioning == com.helix.core.model.ProviderProvisioningKind.USER_CONFIGURED ||
+                row.capabilityChips.isEmpty()
+            ) {
                 null
             } else {
                 // Compose: resolve each capability chip in a `for` loop (composable scope); a
@@ -306,47 +309,24 @@ private fun statusDetail(row: ProviderRowUi): String? =
         }
 
         is ConnectionTestStatus.Failed -> {
-            stringResource(
-                R.string.provider_failed_detail,
-                stringResource(ConnectionTestMapping.phaseLabel(status.phase)),
+            if (status.catalogUnsupported) {
+                stringResource(R.string.provider_directory_unsupported)
+            } else {
                 stringResource(
-                    if (row.managedExternally && status.code == com.helix.core.model.ModelErrorCode.TRANSPORT) {
-                        R.string.conn_subscription_transport
-                    } else {
-                        ConnectionTestMapping.codeLabel(status.code)
-                    },
-                ),
-                if (status.retryable) stringResource(R.string.provider_retryable) else "",
-            )
+                    R.string.provider_failed_detail,
+                    stringResource(ConnectionTestMapping.phaseLabel(status.phase)),
+                    stringResource(
+                        if (row.managedExternally && status.code == com.helix.core.model.ModelErrorCode.TRANSPORT) {
+                            R.string.conn_subscription_transport
+                        } else {
+                            ConnectionTestMapping.codeLabel(status.code)
+                        },
+                    ),
+                    if (status.retryable) stringResource(R.string.provider_retryable) else "",
+                )
+            }
         }
     }
-
-/**
- * The backend-model list (carried out of the last passed connection test) and the capability
- * probe result for a provider row. Split from [ProviderRow] to keep each section a focused unit.
- */
-@Composable
-@Suppress("FunctionName")
-private fun ProviderCapabilityResult(capabilityOutcome: com.helix.provider.api.ProbeOutcome?) {
-    capabilityOutcome?.let { outcome ->
-        Text(
-            when (outcome) {
-                is com.helix.provider.api.ProbeOutcome.Ok -> {
-                    stringResource(R.string.provider_capabilities_passed)
-                }
-
-                is com.helix.provider.api.ProbeOutcome.Failed -> {
-                    stringResource(
-                        R.string.provider_capabilities_failed,
-                        stringResource(ConnectionTestMapping.codeLabel(outcome.code)),
-                    )
-                }
-            },
-            style = MaterialTheme.typography.bodySmall,
-            modifier = Modifier.testTag("provider-capability-result"),
-        )
-    }
-}
 
 @Composable
 private fun providerLocationLabel(row: ProviderRowUi): String {

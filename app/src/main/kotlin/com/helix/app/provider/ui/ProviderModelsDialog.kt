@@ -1,14 +1,9 @@
 package com.helix.app.provider.ui
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -17,7 +12,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -26,17 +20,17 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.R
 import com.helix.app.provider.ProviderRowUi
 import com.helix.app.provider.ProviderService
+import com.helix.app.provider.sameProviderEditableConfig
 import com.helix.core.model.ProviderProvisioningKind
 import com.helix.provider.api.ModelCatalogResult
+import com.helix.provider.api.ProbeOutcome
 import com.helix.ui.shared.IndicatedLazyColumn
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
-import com.helix.feature.conversation.R as ConversationR
 import com.helix.ui.shared.R as SharedR
 
-/** All provisioning types share preferences; authentication, downloads and execution stay in their own services. */
+/** API and subscription model editing share the same draft, list, actions and explicit save contract. */
 @Composable
-// Dialog state and explicit user operations; no automatic network work.
 @Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod")
 internal fun ProviderModelsDialog(
     row: ProviderRowUi,
@@ -47,232 +41,139 @@ internal fun ProviderModelsDialog(
     val rows by service.rows.collectAsStateWithLifecycle()
     val live = rows.firstOrNull { it.id == row.id }
     val current = live ?: row
-    var baseline by remember(row.id) { mutableStateOf(row.modelSelection) }
-    var selection by remember(row.id) { mutableStateOf(row.modelSelection) }
-    var query by remember(row.id) { mutableStateOf("") }
-    var onlySelected by remember { mutableStateOf(false) }
-    var expanded by remember { mutableStateOf<String?>(null) }
-    var contextModel by remember { mutableStateOf<String?>(null) }
-    var manual by remember { mutableStateOf("") }
-    var manualDisplayName by remember { mutableStateOf("") }
-    var addingModel by remember { mutableStateOf(false) }
+    val draft = remember(row.id) { ProviderModelsEditorState(row.modelSelection) }
+    val config = remember(row.id) { row.configuration }
+    val connectionReady = live != null && sameProviderEditableConfig(live.configuration, config)
+    var contextModel by remember(row.id) { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf(false) }
-    var catalogUnsupported by remember { mutableStateOf(false) }
+    var discovery by remember(row.id) { mutableStateOf(ProviderFormDiscovery()) }
     val scope = rememberCoroutineScope()
 
-    fun perform(action: suspend () -> Unit) {
-        if (busy || live == null) return
+    fun <T> perform(action: suspend () -> T) {
+        if (busy || !connectionReady) return
+        val account = current.accountState
+
+        fun showFailure() {
+            val latest = service.rows.value.firstOrNull { it.id == row.id }
+            if (latest != null && latest.accountState == account &&
+                sameProviderEditableConfig(latest.configuration, config)
+            ) {
+                draft.error = true
+            }
+        }
         busy = true
-        error = false
+        draft.error = false
         scope.launch {
             try {
-                action()
+                if (action() is ProbeOutcome.Failed) showFailure()
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: Exception) {
-                error = true
+                showFailure()
             } finally {
                 busy = false
+                discovery = discovery.copy(running = false)
             }
         }
     }
-
-    suspend fun save() {
-        val value = selection.copy(configured = true)
-        service.saveModelSelection(row.id, value, baseline)
-        baseline = value
-        selection = value
-    }
     contextModel?.let { model ->
-        ProviderContextDialog(current, service, initialModel = model) { contextModel = null }
-    }
-    val candidates =
-        (selection.models + current.knownModels + selection.customModels).distinct().filter {
-            (!onlySelected || it in selection.models) &&
-                (
-                    it.contains(query, ignoreCase = true) ||
-                        current.copy(modelSelection = selection).modelLabel(it).contains(query, ignoreCase = true)
-                )
+        if (connectionReady) {
+            ProviderContextDialog(current, service, initialModel = model, independentSave = true, fixedModel = true) {
+                contextModel = null
+            }
         }
-    AlertDialog(
+    }
+    ProviderEditorDialog(
         onDismissRequest = { if (!busy) onDismiss() },
         title = { Text(stringResource(R.string.provider_models_manage_title, current.displayName)) },
         text = {
             IndicatedLazyColumn(
-                Modifier.fillMaxWidth().heightIn(max = 480.dp).testTag("provider-model-list"),
+                Modifier.fillMaxWidth().fillMaxHeight().testTag("provider-model-list"),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                item {
-                    Text(stringResource(R.string.provider_models_selection_help))
-                    Text(stringResource(R.string.provider_model_probe_cost))
-                    Text(stringResource(R.string.provider_models_selected_count, selection.models.size))
-                    OutlinedTextField(
-                        query,
-                        { query = it },
-                        singleLine = true,
-                        label = { Text(stringResource(ConversationR.string.provider_models_search)) },
-                        modifier = Modifier.fillMaxWidth().testTag("provider-model-search"),
-                    )
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(onlySelected, { onlySelected = it })
-                        Text(stringResource(R.string.provider_models_only_selected))
-                    }
-                    Row {
-                        TextButton(
-                            onClick = {
-                                selection =
-                                    selection.copy(models = emptyList(), configured = true)
-                            },
-                            enabled = !busy,
-                            modifier = Modifier.testTag("provider-model-clear"),
-                        ) {
-                            Text(stringResource(R.string.provider_models_clear))
-                        }
-                        if (current.provisioning != ProviderProvisioningKind.ON_DEVICE_ASSET) {
-                            TextButton(onClick = {
-                                perform {
-                                    when (service.refreshModelCatalog(row.id)) {
-                                        is ModelCatalogResult.Listed -> catalogUnsupported = false
-                                        is ModelCatalogResult.Failed -> error = true
-                                        else -> catalogUnsupported = true
+                providerFormModels(
+                    draft = draft,
+                    row = current,
+                    discovery = discovery,
+                    busy = busy || !connectionReady,
+                    connectionReady = connectionReady,
+                    inputModifier = Modifier,
+                    onDiscover = {
+                        perform {
+                            discovery = ProviderFormDiscovery(running = true)
+                            discovery =
+                                when (val result = service.refreshModelCatalog(row.id, expectedConfig = config)) {
+                                    is ModelCatalogResult.Listed -> {
+                                        ProviderFormDiscovery(
+                                            result.models,
+                                            R.string.provider_discovery_hint,
+                                        )
+                                    }
+
+                                    is ModelCatalogResult.Failed -> {
+                                        ProviderFormDiscovery(
+                                            message = R.string.provider_discovery_failed,
+                                        )
+                                    }
+
+                                    ModelCatalogResult.Unsupported -> {
+                                        ProviderFormDiscovery(
+                                            message = R.string.provider_directory_unsupported,
+                                        )
                                     }
                                 }
-                            }, enabled = !busy, modifier = Modifier.testTag("provider-models-refresh")) {
-                                Text(stringResource(ConversationR.string.provider_models_refresh))
-                            }
                         }
-                    }
-                    if (current.managedExternally ||
-                        catalogUnsupported
-                    ) {
-                        Text(
-                            stringResource(R.string.provider_models_catalog_scope),
-                            Modifier.testTag("provider-models-catalog-scope"),
-                        )
-                    }
-                    if (current.provisioning == ProviderProvisioningKind.ON_DEVICE_ASSET) {
-                        Text(stringResource(R.string.provider_models_local_help))
-                    }
-                    if (selection.models.isEmpty()) Text(stringResource(R.string.provider_models_empty))
-                    if (live == null || error) Text(stringResource(R.string.provider_models_operation_failed))
-                    if (live?.modelSelection != baseline) {
+                    },
+                    onContext = { contextModel = it },
+                    onTest = { model ->
+                        perform {
+                            service.runConnectionTest(
+                                row.id,
+                                model,
+                                verifyGeneration = true,
+                                expectedConfig = config,
+                            )
+                        }
+                    },
+                    onProbe = { model ->
+                        perform { service.runCapabilityTest(row.id, model, expectedConfig = config) }
+                    },
+                    onDeclareVision = null,
+                    allowDiscovery = current.provisioning != ProviderProvisioningKind.ON_DEVICE_ASSET,
+                    allowAdd = current.provisioning != ProviderProvisioningKind.ON_DEVICE_ASSET,
+                )
+                item("result") {
+                    if (draft.selection.models.isEmpty()) Text(stringResource(R.string.provider_models_empty_short))
+                    if (!connectionReady || draft.error) Text(stringResource(R.string.provider_models_operation_failed))
+                    if (live?.modelSelection != draft.baseline) {
                         Text(stringResource(R.string.provider_models_stale))
-                        TextButton(
-                            onClick = {
-                                live?.let {
-                                    baseline = it.modelSelection
-                                    selection = it.modelSelection
-                                }
-                                error =
-                                    false
-                            },
-                            enabled = !busy,
-                        ) { Text(stringResource(R.string.provider_models_reload)) }
-                    }
-                }
-                items(candidates, key = { it }) { model ->
-                    if (expanded == model) {
-                        OutlinedTextField(
-                            value = selection.displayNames[model].orEmpty(),
-                            onValueChange = { selection = selection.withDisplayName(model, it.take(256)) },
-                            label = { Text(stringResource(R.string.provider_model_display_name)) },
-                            supportingText = {
-                                Text(stringResource(R.string.provider_model_display_name_hint))
-                            },
-                            placeholder = { Text(model) },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth().testTag("provider-model-name-$model"),
-                        )
-                    }
-                    ProviderModelChoiceRow(
-                        current.copy(modelSelection = selection),
-                        model,
-                        selection,
-                        busy,
-                        expanded = expanded == model,
-                        onToggle = { selection = selection.toggle(model, it) },
-                        onExpand = { expanded = if (expanded == model) null else model },
-                        onContext = { contextModel = model },
-                        onTest = { perform { service.runConnectionTest(row.id, model, verifyGeneration = true) } },
-                        onProbe = { perform { service.runCapabilityTest(row.id, model) } },
-                        onMove = { selection = selection.moveFirst(model) },
-                    )
-                }
-                if (current.provisioning != ProviderProvisioningKind.ON_DEVICE_ASSET) {
-                    item {
-                        Column {
-                            TextButton(
-                                onClick = { addingModel = true },
-                                enabled = !busy,
-                                modifier = Modifier.testTag("provider-model-add-entry"),
-                            ) { Text(stringResource(R.string.provider_model_add_entry)) }
-                            if (addingModel) {
-                                Text(stringResource(R.string.provider_model_add_help))
-                                ProviderModelInput(
-                                    value = manual,
-                                    onValueChange = { manual = it },
-                                    models = current.knownModels,
-                                    enabled = !busy,
-                                    modifier = Modifier.testTag("provider-model-manual"),
-                                )
-                                OutlinedTextField(
-                                    value = manualDisplayName,
-                                    onValueChange = { manualDisplayName = it.take(256) },
-                                    label = { Text(stringResource(R.string.provider_model_display_name)) },
-                                    supportingText = {
-                                        Text(stringResource(R.string.provider_model_display_name_hint))
-                                    },
-                                    placeholder = { Text(manual) },
-                                    singleLine = true,
-                                    modifier = Modifier.fillMaxWidth().testTag("provider-model-display-name"),
-                                )
-                                TextButton(
-                                    onClick = {
-                                        try {
-                                            selection =
-                                                selection
-                                                    .addCustom(manual.trim())
-                                                    .withDisplayName(manual.trim(), manualDisplayName)
-                                            manual = ""
-                                            manualDisplayName = ""
-                                            addingModel = false
-                                            error = false
-                                        } catch (
-                                            _: IllegalArgumentException,
-                                        ) {
-                                            error = true
-                                        }
-                                    },
-                                    enabled =
-                                        !busy && manual.isNotBlank() && !current.conversationProhibited(manual.trim()),
-                                    modifier = Modifier.testTag("provider-models-add"),
-                                ) {
-                                    Text(
-                                        stringResource(R.string.provider_models_add),
-                                    )
-                                }
+                        TextButton(onClick = {
+                            live?.let {
+                                draft.baseline = it.modelSelection
+                                draft.selection = it.modelSelection
+                                draft.error = false
                             }
-                        }
+                        }, enabled = !busy) { Text(stringResource(R.string.provider_models_reload)) }
                     }
                 }
             }
         },
         confirmButton = {
-            TextButton(
+            Button(
                 onClick = {
                     perform {
-                        save()
+                        val value = draft.selectionForSave()
+                        service.saveModelSelection(row.id, value, draft.baseline, expectedConfig = config)
                         onDismiss()
                     }
                 },
-                enabled = !busy && live != null,
+                enabled = !busy && connectionReady,
                 modifier = Modifier.testTag("provider-models-save"),
             ) { Text(stringResource(R.string.provider_models_save)) }
         },
         dismissButton = {
             TextButton(onClick = onDismiss, enabled = !busy, modifier = Modifier.testTag("provider-models-close")) {
-                Text(stringResource(SharedR.string.chat_details_close))
+                Text(stringResource(SharedR.string.common_cancel))
             }
         },
     )

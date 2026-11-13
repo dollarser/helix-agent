@@ -42,6 +42,36 @@ class DetachedJobCollectionDeviceTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
     private val context get() = ApplicationProvider.getApplicationContext<HelixApplication>()
 
+    @Test fun missingAndFailedBeforePreparationCallsRejectBeforeRuntimeImportOrSettlement() {
+        Fixture(context).use { f ->
+            val collector =
+                DetachedJobCollection(context, f.storage, f.ownership, { _, _, _ ->
+                    error("Invalid handle reached import")
+                }, { _, _ -> error("Invalid handle reached settlement") })
+            val failedStart = "failed-before-preparation"
+            f.storage.toolCalls.append(
+                UUID.randomUUID().toString(),
+                f.job.binding.turnId,
+                failedStart,
+                DetachedJobTools.START,
+                "1",
+                "{}",
+                "FAILED",
+            )
+            assertNull(f.storage.auditEvents.find("proot-job-$failedStart"))
+            val executor = f.ownership.guard(collector.executor())
+            listOf("never-prepared", failedStart).forEach { original ->
+                val call = f.call.copy(args = buildJsonObject { put("originalCallId", original) })
+                val result = executor.execute(call) as ToolExecutorResult.Failed
+                assertTrue(result.sideEffectFree)
+                assertFalse(result.requiresReview)
+                assertTrue(result.detail.startsWith("JOB_HANDLE_INVALID:"))
+                assertEquals(f.owner, f.ownership.retainedOwners().singleOrNull())
+                requireNotNull(f.ownership.acquireReconciliation(f.owner)).close()
+            }
+        }
+    }
+
     @Test fun importFailureKeepsOwnerAndRetriesOnlyTheOriginalArchive() {
         ensureInstalledRuntime(context)
         val script = "printf collected-out; printf collected-err >&2; printf collection-proof > result.txt"
@@ -103,7 +133,9 @@ class DetachedJobCollectionDeviceTest {
                     if (settlements == 1) throw IOException("injected Goal settlement failure")
                 })
             val first = f.ownership.guard(collector().executor())
-            assertThrows(IllegalStateException::class.java) { first.execute(f.call.copy(sessionId = "foreign")) }
+            val foreign = first.execute(f.call.copy(sessionId = "foreign")) as ToolExecutorResult.Failed
+            assertTrue(foreign.sideEffectFree)
+            assertFalse(foreign.requiresReview)
             assertEquals(0, imports)
             assertThrows(IOException::class.java) { first.execute(f.call) }
             assertEquals(f.owner, f.ownership.retainedOwners().singleOrNull())
@@ -117,26 +149,34 @@ class DetachedJobCollectionDeviceTest {
         }
     }
 
-    @Test fun failedExecutionSettlesItsOriginalFailureWithoutInventingAnOutputArchive() {
+    @Test fun failedExecutionPreservesDiagnosticsWithoutInventingUserArtifacts() {
         ensureInstalledRuntime(context)
-        Fixture(context, "exit 7").use { f ->
+        Fixture(context, "printf failure-out; printf failure-err >&2; exit 7").use { f ->
             finish(f, ProotJobState.FAILED)
             var effects = 0
             val collector =
                 DetachedJobCollection(context, f.storage, f.ownership, { _, record, archive ->
                     assertEquals(ProotJobState.FAILED, record.state)
                     assertEquals(7, record.exitCode)
-                    assertNull(archive)
+                    val preview =
+                        ProotResultPreview.read(
+                            requireNotNull(archive),
+                            File(context.cacheDir, "failure-preview"),
+                        )
+                    assertEquals("failure-out", preview.stdout)
+                    assertEquals("failure-err", preview.stderr)
+                    assertTrue(preview.files.isEmpty())
                     effects++
                 }, { _, _ -> })
             val result = f.ownership.guard(collector.executor()).execute(f.call) as ToolExecutorResult.Completed
-            assertEquals(
-                "false",
-                result.output.jsonObject
-                    .getValue("streamsAvailable")
-                    .jsonPrimitive.content,
-            )
-            assertFalse(result.output.jsonObject.containsKey("stdout"))
+            val output = result.output.jsonObject
+            assertEquals("true", output.getValue("streamsAvailable").jsonPrimitive.content)
+            assertEquals("failure-out", output.getValue("stdout").jsonPrimitive.content)
+            assertEquals("failure-err", output.getValue("stderr").jsonPrimitive.content)
+            assertEquals("FAILED", output.getValue("state").jsonPrimitive.content)
+            assertEquals("7", output.getValue("exitCode").jsonPrimitive.content)
+            assertEquals("false", output.getValue("resultAvailable").jsonPrimitive.content)
+            assertFalse(output.containsKey("artifactDirectory"))
             assertEquals(1, effects)
             assertNull(f.ownership.retainedOwners().singleOrNull())
         }

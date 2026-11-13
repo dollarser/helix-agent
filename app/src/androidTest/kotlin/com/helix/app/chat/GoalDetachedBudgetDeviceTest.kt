@@ -6,8 +6,8 @@ import com.helix.app.agent.GoalDetachedBudget
 import com.helix.app.agent.GoalLeaseControl
 import com.helix.app.agent.GoalTimeBudget
 import com.helix.app.agent.TurnStartSpec
-import com.helix.app.application.agent.GoalRunCoordinator
-import com.helix.app.application.agent.GoalTurnStart
+import com.helix.app.infrastructure.agent.GoalTurnStart
+import com.helix.app.infrastructure.agent.RoomGoalRunCommands
 import com.helix.core.agent.GoalWakeReason
 import com.helix.core.agent.runtime.GoalDeadlineControl
 import com.helix.core.model.Clock
@@ -287,7 +287,7 @@ class GoalDetachedBudgetDeviceTest {
 
         init {
             storage.sessions.create("session", "Detached goal", null, null, 1_000)
-            val coordinator = GoalRunCoordinator(storage, clock) { UUID.randomUUID().toString() }
+            val coordinator = RoomGoalRunCommands(storage, clock) { UUID.randomUUID().toString() }
             goalId = coordinator.create("Result", listOf("Verified"), GoalBudgets(maxGoalRounds = 256))
             runId =
                 requireNotNull(

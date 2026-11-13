@@ -12,6 +12,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
 import com.helix.feature.conversation.R as ConversationR
@@ -54,28 +56,7 @@ internal fun FilesSafDialog(
                                 )
                             }
                             safSources.forEach { source ->
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    modifier = Modifier.fillMaxWidth().testTag("files-saf-source-${source.scopeId}"),
-                                ) {
-                                    Column {
-                                        Text(source.displayName, style = MaterialTheme.typography.bodyLarge)
-                                        Text(
-                                            source.scopeId,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        )
-                                    }
-                                    TextButton(
-                                        onClick = {
-                                            revokeScope(source)
-                                        },
-                                        modifier = Modifier.testTag("files-saf-remove-${source.scopeId}"),
-                                    ) {
-                                        Text(str(R.string.files_remove))
-                                    }
-                                }
+                                FilesSafSourceRow(source) { revokeScope(source) }
                             }
                         }
                     },
@@ -98,6 +79,39 @@ internal fun FilesSafDialog(
                     modifier = Modifier.testTag("files-saf-dialog"),
                 )
             }
+        }
+    }
+}
+
+/** Reserve the action width before measuring a provider-supplied directory name. */
+@Composable
+@Suppress("FunctionName")
+internal fun FilesSafSourceRow(
+    source: com.helix.feature.files.SafTreeSource,
+    onRemove: () -> Unit,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.fillMaxWidth().testTag("files-saf-source-${source.scopeId}"),
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                source.displayName,
+                style = MaterialTheme.typography.bodyLarge,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                source.scopeId,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        TextButton(onClick = onRemove, modifier = Modifier.testTag("files-saf-remove-${source.scopeId}")) {
+            Text(stringResource(R.string.files_remove))
         }
     }
 }

@@ -14,6 +14,7 @@ internal fun SessionInputRecord.toPendingInputView(): PendingInputView? =
                 delivery = delivery,
                 needsAttention = state == SessionInputState.NEEDS_ATTENTION,
                 knowledgeReferences = knowledgeReferences,
+                delegationSourceSessionId = delegation?.sourceSessionId,
             )
         }
 

@@ -10,6 +10,7 @@ import com.helix.feature.files.ContentResolverSafDestinationReReader
 import com.helix.feature.files.ContentResolverSafDestinationVerifier
 import com.helix.feature.files.ContentResolverSafGrantProbe
 import com.helix.feature.files.ContentResolverSafMetadataReader
+import com.helix.feature.files.ContentResolverSafPermissionRelease
 import com.helix.feature.files.ContentResolverSafSourceOpener
 import com.helix.feature.files.ContentResolverSafTreeCheck
 import com.helix.feature.files.ContentResolverSafTreeDestination
@@ -72,7 +73,11 @@ internal class AppFileServices(
      * the same live grant service for reads and manual writes. Tools see only opaque scope IDs.
      */
     val safTree: SafTreeScopeService =
-        SafTreeScopeService(safGrantStore, ContentResolverSafTreeCheck(context.contentResolver))
+        SafTreeScopeService(
+            safGrantStore,
+            ContentResolverSafTreeCheck(context.contentResolver),
+            ContentResolverSafPermissionRelease(context.contentResolver)::release,
+        )
 
     /**
      * The SAF tree scope access the file manager consumes (HXA-057): the scope service + the

@@ -58,8 +58,9 @@ internal class AppConversationGoalRuntime(
             current =
                 storage.sessionInputs
                     .appendedForMessages(turnId, messageIds)
-                    .filter { it.sessionId == sessionId && it.requestModelCallId == modelCallId }
-                    .map { input ->
+                    .filter {
+                        it.sessionId == sessionId && it.requestModelCallId == modelCallId && it.delegation == null
+                    }.map { input ->
                         GoalUserRequest(
                             sessionId,
                             storage.sessionInputs.readText(input),

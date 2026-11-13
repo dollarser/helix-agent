@@ -136,6 +136,8 @@ internal class DetachedGoalFixture(
                             } else {
                                 "sleep 2; "
                             }
+                        // This archive-import journey deliberately uses the supported snapshot mode.
+                        put("workspaceMode", "snapshot")
                         put("script", delay + "printf await-result > result.txt")
                         put("output", "scope:app:output/${output.name}")
                         put("leaseSeconds", if (expireLease) 2 else 20)

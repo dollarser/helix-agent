@@ -164,3 +164,9 @@ Append 只追加可编辑文本 input/textarea；select 只接受唯一、启用
 工具结果构造时正文位于 nodes 前，但持久结果规范化会重排 JSON 字段，大快照仍可能需要分页读取正文。普通段落更新由重新 snapshot 观察；`browser.find` / `browser.wait` 仍匹配语义动作节点，不充当全文搜索。正文遍历不改变动作节点顺序或索引，正文内容不进入动作树 fingerprint，不扩大动作令牌权限。主机重新校验正文类型/长度与截断字段。独立正文预算不代表节点预算截断，两个标记分别保留。
 
 正文可见性按 light DOM / CSS 布局判断，不等同像素可见：`visibility:hidden` 不剪断可由子节点恢复 `visibility:visible` 的遍历；文本节点依据其父元素的计算 visibility 判断。正文不保证排除视口外、被遮挡、overflow 或 clip-path 完全裁切的文本。`textTruncated=false` 只表示未触及正文提取预算，不证明完整像素可见范围、frame 或 shadow 内容覆盖。
+
+## Decision history — 2026-11-12：按用途选择快照正文视图
+
+`browser.snapshot` 增加可选 `view=full|text`，默认 full 保留既有动作节点与 token；text 使用同一次宿主观察但不序列化 nodes，返回显式 view，并保留 URL/title、截断、origin、navigationGeneration、fingerprint、observedAtMillis、正文和实际观测 nodeCount。节点未返回不等于页面无节点。text 另返回同次观察的紧凑 links（text、href、原 token、hrefMayBeTruncated），最多 40 条且整个数组不超过 12 KiB UTF-8，只保留完整条目；树截断或条目省略以 linksTruncated 表达。原 href 提取在 200 UTF-16 单元处有界，达到该长度保守标记可能截断；href 只作展示，不能从缩略面包屑推断导航地址。浏览器点击使用原 link token，未返回的链接可用 browser.find 查找；其他交互仍可请求 full。所有动作保持原身份、有效期、schema 发现与权限链。文本提取的 12000 字符及遍历边界不变，节点/正文截断分别表达。两种视图都刷新观察，不将正文视图冒充保存结果的静态读取。
+
+此选择针对真实长快照分页的共同成本，不按查询或网站裁剪。参考 [Playwright MCP](https://github.com/microsoft/playwright-mcp) 的定向查找与不同快照输出选择，以及 [Anthropic 上下文工程](https://www.anthropic.com/research/effective-context-engineering-for-ai-agents) 的按需读取原则；保留完整动作观察而非全局删除节点。实际效率与功能验证记入 HXA-290，不由实现本身推定。

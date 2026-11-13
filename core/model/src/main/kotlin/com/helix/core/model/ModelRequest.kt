@@ -232,6 +232,8 @@ data class ModelRequest(
     val seed: Long? = null,
     val stopSequences: List<String> = emptyList(),
     val reasoning: ReasoningEffort = ReasoningEffort.OFF,
+    /** Host-authorized public-web retrieval within this model request; never a model argument. */
+    val nativeWebSearch: Boolean = false,
 ) {
     init {
         require(model.isNotBlank() && model.length <= MAX_MODEL_LENGTH) {

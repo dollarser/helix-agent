@@ -6,8 +6,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.agent.GoalLeaseAllocation
 import com.helix.app.agent.GoalTimeBudget
 import com.helix.app.agent.TurnStartSpec
-import com.helix.app.application.agent.GoalRunCoordinator
-import com.helix.app.application.agent.GoalTurnStart
+import com.helix.app.infrastructure.agent.GoalTurnStart
+import com.helix.app.infrastructure.agent.RoomGoalRunCommands
 import com.helix.core.agent.GoalWakeReason
 import com.helix.core.model.Clock
 import com.helix.core.model.GoalBudgets
@@ -226,7 +226,7 @@ class GoalLeaseClockDeviceTest {
                     override fun now(): Instant = Instant.ofEpochMilli(2_000)
                 }
             storage.sessions.create("session", "Clock", null, null, 1_000)
-            val coordinator = GoalRunCoordinator(storage, clock) { UUID.randomUUID().toString() }
+            val coordinator = RoomGoalRunCommands(storage, clock) { UUID.randomUUID().toString() }
             goalId =
                 coordinator.create(
                     "Check result",

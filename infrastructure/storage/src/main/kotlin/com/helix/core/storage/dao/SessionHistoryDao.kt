@@ -60,21 +60,4 @@ interface SessionHistoryDao {
             "WHERE m.sessionId = :sessionId AND m.role = 'USER' AND m.supersededBy IS NULL)",
     )
     fun hasConversationReferences(sessionId: String): Boolean
-
-    /** The CAS changes only the title, preserving workspace/configuration and concurrent user edits. */
-    @Query(
-        "UPDATE sessions SET title = :title, searchTitle = :searchTitle " +
-            "WHERE id = :sessionId AND title = :expectedTitle " +
-            "AND EXISTS (SELECT 1 FROM turns t JOIN tool_calls c ON c.turnId = t.id " +
-            "WHERE t.sessionId = :sessionId AND t.id = :turnId AND t.state = 'RUNNING_TOOL' " +
-            "AND c.id = :callId AND c.name = 'session.rename' AND c.state = 'RUNNING')",
-    )
-    fun rename(
-        sessionId: String,
-        turnId: String,
-        callId: String,
-        expectedTitle: String,
-        title: String,
-        searchTitle: String,
-    ): Int
 }

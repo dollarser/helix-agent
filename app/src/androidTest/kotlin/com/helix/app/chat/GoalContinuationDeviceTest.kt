@@ -5,8 +5,9 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.application.agent.GoalContinuationDriver
-import com.helix.app.application.agent.GoalTurnStart
 import com.helix.app.goal.GoalLifecycleService
+import com.helix.app.infrastructure.agent.GoalTurnStart
+import com.helix.app.infrastructure.agent.RoomGoalContinuationFacts
 import com.helix.app.infrastructure.agent.TurnRecovery
 import com.helix.app.test.FixtureGoalRunCoordinator
 import com.helix.app.test.settleFixtureTerminal
@@ -63,7 +64,7 @@ class GoalContinuationDeviceTest {
                         ),
                     ),
                 )
-            val driver = GoalContinuationDriver(storage)
+            val driver = GoalContinuationDriver(RoomGoalContinuationFacts(storage))
             val control =
                 RunControlConfig(
                     mode = AgentMode.GOAL,
@@ -95,7 +96,7 @@ class GoalContinuationDeviceTest {
                         ),
                     ),
                 )
-            val driver = GoalContinuationDriver(storage)
+            val driver = GoalContinuationDriver(RoomGoalContinuationFacts(storage))
             val control =
                 RunControlConfig(
                     mode = AgentMode.GOAL,
@@ -147,7 +148,7 @@ class GoalContinuationDeviceTest {
                         ),
                     ),
                 )
-            val driver = GoalContinuationDriver(storage)
+            val driver = GoalContinuationDriver(RoomGoalContinuationFacts(storage))
             val control =
                 RunControlConfig(
                     mode = AgentMode.GOAL,
@@ -169,7 +170,7 @@ class GoalContinuationDeviceTest {
             driver.disarmAll()
             assertFalse(driver.hasHandoff)
             assertFalse(driver.admits("session", goal, next.goalContinuation!!, "snapshot"))
-            assertNull(GoalContinuationDriver(storage).next("session", "first"))
+            assertNull(GoalContinuationDriver(RoomGoalContinuationFacts(storage)).next("session", "first"))
         }
 
     @Test fun creationIsOwnedDeferredAndRecoveryNeverArmsIt() =
@@ -195,7 +196,7 @@ class GoalContinuationDeviceTest {
             service.settle("create")
             assertNull(storage.goalControls.find(goal.id)?.pendingJson)
             assertEquals(2L, storage.goalControls.find(goal.id)?.revision)
-            assertNull(GoalContinuationDriver(storage).next("session", "create"))
+            assertNull(GoalContinuationDriver(RoomGoalContinuationFacts(storage)).next("session", "create"))
         }
 
     @Test fun automaticAndForeignRequestsCannotEditAndStaleRevisionFails() =
@@ -270,7 +271,7 @@ class GoalContinuationDeviceTest {
                         ),
                     ),
                 )
-            val driver = GoalContinuationDriver(storage)
+            val driver = GoalContinuationDriver(RoomGoalContinuationFacts(storage))
             driver.started(
                 "session",
                 goal,

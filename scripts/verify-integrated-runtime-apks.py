@@ -158,7 +158,7 @@ def verify_media_payload(archive, developer, abis=None):
     manifest = json.loads(archive.read('assets/runtime/media/candidate.json'))
     if manifest['profile'] != 'ready-av1' or manifest['target'] != 'arm64-v8a':
         raise RuntimeError('Wrong FFmpeg configuration')
-    if manifest['artifact_identity'] != '424662b10eb22413c752a62bf3aabe9daa5e9544dc5ba76a021ca14e0c7236c7':
+    if manifest['artifact_identity'] != '612d2940173a3c5404695ed68cbbe6dbe1b2c6635f3615e94c2a5c4fd0b074b1':
         raise RuntimeError('FFmpeg identity changed without an explicit verifier update')
     total = 0
     for row in manifest['files']:

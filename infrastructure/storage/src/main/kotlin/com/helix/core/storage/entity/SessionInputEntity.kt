@@ -25,6 +25,7 @@ import androidx.room.PrimaryKey
         Index(value = ["sessionId", "state", "delivery", "sequence"]),
         Index("expectedTurnId"), Index("consumedTurnId"), Index(value = ["messageId"], unique = true),
         Index("requestModelCallId"), Index("textRef"), Index("referenceContentRef"),
+        Index(value = ["delegationSourceSessionId", "delegationRequestKey"], unique = true),
     ],
 )
 data class SessionInputEntity(
@@ -58,6 +59,12 @@ data class SessionInputEntity(
     val skillActivationsJson: String = "[]",
     val skillActivationsRevoked: Boolean = false,
     @androidx.room.ColumnInfo(defaultValue = "'[]'") val knowledgeReferencesJson: String = "[]",
+    @androidx.room.ColumnInfo(defaultValue = "'USER'") val inputOrigin: String = "USER",
+    val delegationSourceSessionId: String? = null,
+    val delegationSourceTurnId: String? = null,
+    val delegationSourceCallId: String? = null,
+    val delegationRequestKey: String? = null,
+    val delegationGrantRevision: Long? = null,
 )
 
 /** NO_ACTION protects accepted attachment references from independent artifact deletion. */
@@ -80,4 +87,23 @@ data class SessionInputAttachmentEntity(
     val ordinal: Int,
     val artifactId: String,
     val boundSha256: String,
+)
+
+/** Dedup tombstone survives target/input deletion; lifecycle remains in session_inputs. */
+@Entity(
+    tableName = "session_delegation_receipts",
+    primaryKeys = ["sourceSessionId", "requestKey"],
+    foreignKeys = [
+        ForeignKey(
+            entity = SessionEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["sourceSessionId"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+    ],
+)
+data class SessionDelegationReceiptEntity(
+    val sourceSessionId: String,
+    val requestKey: String,
+    val inputId: String,
 )

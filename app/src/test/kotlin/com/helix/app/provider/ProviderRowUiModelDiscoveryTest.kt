@@ -73,7 +73,9 @@ class ProviderRowUiModelDiscoveryTest {
                         "high" to ModelMetadata(listOf(ReasoningEffort.HIGH), false, 8192),
                     ),
             )
-        assertEquals(ReasoningEffort.LOW, supportedReasoning(ReasoningEffort.LOW, row.reasoningOptionsFor(row.model)))
+        assertEquals(ReasoningEffort.OFF, supportedReasoning(ReasoningEffort.LOW, row.reasoningOptionsFor(row.model)))
+        assertEquals(emptyList<ReasoningEffort>(), row.reasoningOptionsFor(row.model))
+        assertEquals(listOf(ReasoningEffort.OFF), row.reasoningOptionsFor("plain"))
         assertEquals(ReasoningEffort.OFF, supportedReasoning(ReasoningEffort.LOW, row.reasoningOptionsFor("plain")))
         assertEquals(ReasoningEffort.OFF, supportedReasoning(ReasoningEffort.LOW, row.reasoningOptionsFor("high")))
         assertEquals(ReasoningEffort.HIGH, supportedReasoning(ReasoningEffort.HIGH, row.reasoningOptionsFor("high")))

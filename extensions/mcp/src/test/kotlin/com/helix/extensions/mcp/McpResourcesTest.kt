@@ -47,9 +47,19 @@ class McpResourcesTest {
         }
 
     @Test
-    fun wrongSourceAndUnsupportedBinaryAndOversizeFailClosed() =
+    fun wrongSourceAndUnavailablePublisherAndOversizeFailClosed() =
         runBlocking {
-            for (mode in listOf("normal", "wrong-uri", "binary", "oversize", "cycle", "unsupported")) {
+            for (mode in listOf(
+                "normal",
+                "wrong-uri",
+                "binary",
+                "oversize",
+                "invalid-binary",
+                "oversize-binary",
+                "cumulative-binary",
+                "cycle",
+                "unsupported",
+            )) {
                 ResourceFixture(mode).use { fixture ->
                     val session = McpClients.sdk("resource-test", "1").connect(fixture.endpoint)
                     try {
@@ -71,6 +81,122 @@ class McpResourcesTest {
                     } finally {
                         session.close()
                     }
+                }
+            }
+        }
+
+    @Test
+    fun binaryUsesTypedPublisherWithoutBase64InModelResult() =
+        runBlocking {
+            ResourceFixture("binary").use { fixture ->
+                val session = McpClients.sdk("resource-test", "1").connect(fixture.endpoint)
+                try {
+                    val result =
+                        McpResourceTools.execute(
+                            session,
+                            "read_mcp_resource",
+                            args("memo://two"),
+                            publishBlob = { blob, index ->
+                                assertEquals("memo://two", blob.uri)
+                                assertEquals("abc", blob.bytes.decodeToString())
+                                assertEquals(0, index)
+                                assertEquals(
+                                    "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+                                    blob.contentHash,
+                                )
+                                buildJsonObject { put("artifactRef", "verified-local-artifact") }
+                            },
+                        )
+                    assertTrue(result.structuredContent.toString().contains("verified-local-artifact"))
+                    assertFalse(result.structuredContent.toString().contains("YWJj"))
+                    assertFalse("tools/call" in fixture.methods)
+                } finally {
+                    session.close()
+                }
+            }
+        }
+
+    @Test
+    fun exactBinaryLimitSucceedsAndPaddingEdgesRejectBeforePublication() =
+        runBlocking {
+            for (mode in listOf("exact-binary", "edge-one-binary", "edge-two-binary", "late-invalid-binary")) {
+                ResourceFixture(mode).use { fixture ->
+                    val session = McpClients.sdk("resource-test", "1").connect(fixture.endpoint)
+                    var published = 0
+                    try {
+                        val result =
+                            runCatching {
+                                McpResourceTools.execute(
+                                    session,
+                                    "read_mcp_resource",
+                                    args("memo://two"),
+                                    publishBlob = { blob, _ ->
+                                        assertEquals(1024 * 1024, blob.bytes.size)
+                                        published++
+                                        buildJsonObject { put("status", "REGISTERED") }
+                                    },
+                                )
+                            }
+                        assertEquals(mode, mode == "exact-binary", result.isSuccess)
+                        assertEquals(mode, if (mode == "exact-binary") 1 else 0, published)
+                    } finally {
+                        session.close()
+                    }
+                }
+            }
+        }
+
+    @Test
+    fun savedButUnregisteredBlobReturnsAnErrorWithRecoveryReference() =
+        runBlocking {
+            ResourceFixture("binary").use { fixture ->
+                val session = McpClients.sdk("resource-test", "1").connect(fixture.endpoint)
+                try {
+                    val result =
+                        McpResourceTools.execute(
+                            session,
+                            "read_mcp_resource",
+                            args("memo://two"),
+                            publishBlob = { _, _ ->
+                                buildJsonObject {
+                                    put("status", "SAVED_NOT_REGISTERED")
+                                    put("path", "scope:app/output/saved.bin")
+                                }
+                            },
+                        )
+                    assertTrue(result.isError)
+                    assertTrue(result.structuredContent.toString().contains("saved.bin"))
+                    assertFalse(result.structuredContent.toString().contains("artifactRef"))
+                } finally {
+                    session.close()
+                }
+            }
+        }
+
+    @Test
+    fun revokedAfterReadNeverPublishesBinary() =
+        runBlocking {
+            ResourceFixture("binary").use { fixture ->
+                val session = McpClients.sdk("resource-test", "1").connect(fixture.endpoint)
+                var published = false
+                try {
+                    assertTrue(
+                        runCatching {
+                            McpResourceTools.execute(
+                                session,
+                                "read_mcp_resource",
+                                args("memo://two"),
+                                publishBlob = { _, _ ->
+                                    published = true
+                                    buildJsonObject {}
+                                },
+                                checkCurrent = { check("resources/read" !in fixture.methods) },
+                            )
+                        }.isFailure,
+                    )
+                    assertFalse(published)
+                } finally {
+                    session.close()
                 }
             }
         }
@@ -239,8 +365,39 @@ private class ResourceFixture(
                                         buildJsonObject {
                                             put("uri", uri)
                                             put("mimeType", "text/plain")
-                                            if (mode == "binary") {
-                                                put("blob", "YWJj")
+                                            if (mode.endsWith("binary")) {
+                                                put(
+                                                    "blob",
+                                                    when (mode) {
+                                                        "invalid-binary" -> {
+                                                            "YR=="
+                                                        }
+
+                                                        "oversize-binary" -> {
+                                                            "AAAA".repeat(350000)
+                                                        }
+
+                                                        "cumulative-binary" -> {
+                                                            "AAAA".repeat(180000)
+                                                        }
+
+                                                        "exact-binary", "edge-one-binary", "edge-two-binary" -> {
+                                                            val extra =
+                                                                when (mode) {
+                                                                    "edge-one-binary" -> 1
+                                                                    "edge-two-binary" -> 2
+                                                                    else -> 0
+                                                                }
+                                                            java.util.Base64
+                                                                .getEncoder()
+                                                                .encodeToString(ByteArray(1024 * 1024 + extra))
+                                                        }
+
+                                                        else -> {
+                                                            "YWJj"
+                                                        }
+                                                    },
+                                                )
                                             } else {
                                                 put(
                                                     "text",
@@ -254,7 +411,13 @@ private class ResourceFixture(
                                                 )
                                             }
                                         }
-                                    """{"contents":[$content]}"""
+                                    if (mode == "late-invalid-binary") {
+                                        """{"contents":[$content,{"uri":"$uri","blob":"!!!!"}]}"""
+                                    } else if (mode == "cumulative-binary") {
+                                        """{"contents":[$content,$content]}"""
+                                    } else {
+                                        """{"contents":[$content]}"""
+                                    }
                                 }
 
                                 else -> {

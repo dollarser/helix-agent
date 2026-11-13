@@ -94,4 +94,5 @@
     <string name="voice_input_modes_title">Voice input</string>
     <string name="voice_input_single">Single recording</string>
     <string name="composer_add_session_group">Conversation capabilities</string>
+    <string name="chat_reasoning_unsupported">This model has no adjustable reasoning effort.</string>
 </resources>

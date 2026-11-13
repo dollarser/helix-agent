@@ -25,7 +25,7 @@ class ProotMediaTerminalDeviceTest {
 
         val relative = "media-regression-${UUID.randomUUID()}"
         val workspace = File(context.filesDir, "workspaces/app/terminal/$relative").apply { check(mkdirs()) }
-        ActivityScenario.launch(ManualTerminalActivity::class.java).use {
+        ActivityScenario.launch(ManualTerminalActivity::class.java).use { activity ->
             runBlocking {
                 var session: String? = null
                 try {
@@ -63,6 +63,8 @@ class ProotMediaTerminalDeviceTest {
                         connection.detach()
                     }
                 } finally {
+                    // Close the UI reclamation owner before explicitly settling this test terminal.
+                    activity.close()
                     session?.let { owned ->
                         terminal.stop(owned)
                         withTimeout(15_000) { while (!terminal.query(owned).canSettle) delay(50) }

@@ -22,6 +22,31 @@ class SessionInputValidationTest {
         )
     private val skill = InputSkillActivation("BUILT_IN", "review", "a".repeat(64), "")
 
+    @Test fun delegationNeverCarriesSkillAttachmentReferenceOrSelfAuthority() {
+        val origin =
+            com.helix.core.model.input
+                .ModelDelegationOrigin("source", "turn", "call", "key", 1)
+        val delegated = empty.copy(text = "task", delegation = origin)
+        SessionInputValidation.validate(delegated)
+        SessionInputValidation.validate(
+            delegated.copy(delivery = SessionInputDelivery.STEER, expectedTurnId = "target"),
+        )
+        assertThrows(IllegalArgumentException::class.java) {
+            SessionInputValidation.validate(delegated.copy(skillActivations = listOf(skill)))
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            SessionInputValidation.validate(delegated.copy(sessionId = "source"))
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            SessionInputValidation.validate(
+                delegated.copy(delivery = SessionInputDelivery.STEER, expectedTurnId = null),
+            )
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            origin.copy(grantRevision = 0)
+        }
+    }
+
     @Test fun plainEmptyInputIsStillRejected() {
         assertThrows(IllegalArgumentException::class.java) { SessionInputValidation.validate(empty) }
         assertThrows(IllegalArgumentException::class.java) { SessionInputValidation.validate(empty.copy(text = " ")) }

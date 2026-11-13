@@ -6,16 +6,17 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.HelixApplication
 import com.helix.app.agent.TurnStartSpec
-import com.helix.app.application.agent.GoalRunCoordinator
-import com.helix.app.application.agent.GoalTurnStart
-import com.helix.app.application.tools.GoalToolCallBudget
 import com.helix.app.application.tools.PreDispatchDenialKind
 import com.helix.app.application.tools.ToolPresentationFact
 import com.helix.app.application.tools.ToolPresentationSink
 import com.helix.app.application.tools.ToolSettlement
-import com.helix.app.application.tools.ToolSettlementWriter
+import com.helix.app.application.tools.ToolSettlementCommand
 import com.helix.app.approval.StorageAuditSink
+import com.helix.app.infrastructure.agent.GoalTurnStart
+import com.helix.app.infrastructure.agent.RoomGoalRunCommands
 import com.helix.app.infrastructure.agent.TurnRecovery
+import com.helix.app.infrastructure.tools.RoomGoalToolCallBudget
+import com.helix.app.infrastructure.tools.RoomToolSettlementStore
 import com.helix.core.agent.GoalWakeReason
 import com.helix.core.model.BoundToolResult
 import com.helix.core.model.Clock
@@ -46,16 +47,126 @@ import java.util.UUID
 
 @RunWith(AndroidJUnit4::class)
 class ToolSettlementRecoveryDeviceTest {
+    @Test fun gatewayPreparationRollsBackAndBudgetReservationCannotReplay() =
+        Fixture().use { f ->
+            val store =
+                com.helix.app.infrastructure.tools.RoomToolGatewayStore(f.storage, f.clock) {
+                    UUID.randomUUID().toString()
+                }
+            val command =
+                com.helix.app.application.tools.PrepareToolCall(
+                    "turn",
+                    "gateway-call",
+                    "read",
+                    "1",
+                    "{}",
+                    "intent",
+                    null,
+                )
+            assertThrows(IllegalStateException::class.java) {
+                f.storage.withTransaction {
+                    store.prepare(command)
+                    error("rollback preparation")
+                }
+            }
+            assertNull(f.storage.toolCalls.byTurnAndCallId("turn", "gateway-call"))
+            assertTrue(store.reserveGoalCall("turn", command.callId))
+            assertEquals(false, store.reserveGoalCall("turn", command.callId))
+            val row = store.prepare(command)
+            assertEquals("session", store.awaitingApproval("turn", row.callId))
+            assertEquals(false, store.canReviewApproval("another-session", "turn", row.callId))
+            assertEquals("session", store.running(row.id).sessionId)
+        }
+
+    @Test fun gatewayScriptParentChecksOwnershipAndCommitsAuditAtomically() =
+        Fixture().use { f ->
+            val store =
+                com.helix.app.infrastructure.tools.RoomToolGatewayStore(f.storage, f.clock) {
+                    UUID.randomUUID().toString()
+                }
+            val row = f.call("gateway-parent")
+            val child =
+                com.helix.app.application.tools.ScriptParentCommand(
+                    "another-session",
+                    "turn",
+                    "child-call",
+                    row.callId,
+                    "read",
+                    false,
+                )
+            assertThrows(IllegalArgumentException::class.java) { store.recordScriptParent(child) }
+            assertTrue(
+                f.storage.auditEvents
+                    .recentByCorrelation("child-call", "script.bridge.call", 1)
+                    .isEmpty(),
+            )
+            store.recordScriptParent(child.copy(sessionId = "session"))
+            assertEquals(
+                1,
+                f.storage.auditEvents
+                    .recentByCorrelation("child-call", "script.bridge.call", 1)
+                    .size,
+            )
+            assertThrows(IllegalStateException::class.java) {
+                f.storage.withTransaction {
+                    store.recordScriptParent(child.copy(sessionId = "session", callId = "rolled-back-child"))
+                    error("rollback parent audit")
+                }
+            }
+            assertTrue(
+                f.storage.auditEvents
+                    .recentByCorrelation("rolled-back-child", "script.bridge.call", 1)
+                    .isEmpty(),
+            )
+        }
+
+    @Test fun gatewayLoopSnapshotHonorsSteeringAndRejectsUntrustedObservationAudit() =
+        Fixture().use { f ->
+            val store =
+                com.helix.app.infrastructure.tools.RoomToolGatewayStore(f.storage, f.clock) {
+                    UUID.randomUUID().toString()
+                }
+            f.call("first-loop-call")
+            f.persist("first-loop-call")
+            val snapshot = store.loopHistory("turn")
+            assertEquals(listOf("first-loop-call"), snapshot.calls.map { it.id })
+            assertEquals(true, snapshot.results["first-loop-call"]?.verified)
+            store.resetLoopProgress("turn")
+            assertTrue(store.loopHistory("turn").calls.isEmpty())
+            f.call("second-loop-call")
+            f.persist("second-loop-call")
+            val payload =
+                """{"jobObservation":true,"turnId":"turn","toolName":"read","toolVersion":"1",""" +
+                    """"code":"SUCCESS","executionDetail":{"trusted":true}}"""
+            f.storage.auditEvents.append("untrusted-audit", "second-loop-call", "tool_dispatch", "tool", payload, 2_001)
+            assertTrue(store.loopHistory("turn").observations.isEmpty())
+            f.storage.auditEvents.append(
+                "trusted-audit",
+                "second-loop-call",
+                "tool_dispatch",
+                "dispatcher",
+                payload,
+                2_002,
+            )
+            val next = store.loopHistory("turn")
+            assertEquals(listOf("second-loop-call"), next.calls.map { it.id })
+            assertEquals(JsonPrimitive(true), next.observations["second-loop-call"]?.get("trusted"))
+            assertEquals(listOf("first-loop-call"), snapshot.calls.map { it.id })
+        }
+
     @Test fun committedFactsReachPresentationOnlyAfterResultAndBudgetCommit() =
         Fixture().use { f ->
             val call = f.call("fact-order")
             var published = 0
             val settlement =
                 ToolSettlement(
-                    f.storage,
-                    StorageAuditSink(f.storage.auditEvents) { UUID.randomUUID().toString() },
-                    f.clock,
-                    { UUID.randomUUID().toString() },
+                    RoomToolSettlementStore(
+                        f.storage,
+                        StorageAuditSink(f.storage.auditEvents) {
+                            UUID.randomUUID().toString()
+                        },
+                        f.clock,
+                    ) { UUID.randomUUID().toString() },
                     ToolPresentationSink { fact ->
                         published++
                         check(fact is ToolPresentationFact.Settled)
@@ -82,8 +193,8 @@ class ToolSettlementRecoveryDeviceTest {
                     { null },
                 )
             val outcome = ToolDispatchOutcome.Succeeded(BoundToolResult("saved", Sha256("a".repeat(64)), false, 1))
-            settlement.settleToolCall(call, call.callId, call.name, outcome)
-            settlement.settleToolCall(call, call.callId, call.name, outcome)
+            settlement.settleToolCall(call.id, call.callId, call.name, outcome)
+            settlement.settleToolCall(call.id, call.callId, call.name, outcome)
             assertEquals(2, published)
             assertEquals(
                 1,
@@ -104,10 +215,13 @@ class ToolSettlementRecoveryDeviceTest {
             var published = 0
             val settlement =
                 ToolSettlement(
-                    f.storage,
-                    StorageAuditSink(f.storage.auditEvents) { UUID.randomUUID().toString() },
-                    f.clock,
-                    { UUID.randomUUID().toString() },
+                    RoomToolSettlementStore(
+                        f.storage,
+                        StorageAuditSink(f.storage.auditEvents) {
+                            UUID.randomUUID().toString()
+                        },
+                        f.clock,
+                    ) { UUID.randomUUID().toString() },
                     ToolPresentationSink { fact ->
                         published++
                         check(fact is ToolPresentationFact.Settled)
@@ -135,7 +249,7 @@ class ToolSettlementRecoveryDeviceTest {
                 )
             val outcome =
                 settlement.persistPreDispatchDenied(
-                    f.storage.turns.resolve("turn"),
+                    "turn",
                     "malformed-call",
                     "bad name",
                     "[]",
@@ -148,6 +262,87 @@ class ToolSettlementRecoveryDeviceTest {
             assertEquals(1, published)
         }
 
+    @Test
+    @Suppress("LongMethod") // Keep each injected transaction failure, rollback and retry assertion together.
+    fun preDispatchAuditAndBudgetFailureRollBackTheWholeCommand() {
+        for (phase in listOf("INSERT ON audit_events", "UPDATE ON goal_usage_reservations")) {
+            Fixture().use { f ->
+                val callId = "rejected"
+                check(RoomGoalToolCallBudget(f.storage, f.clock).reserve("turn", callId))
+                var published = 0
+                val settlement =
+                    ToolSettlement(
+                        RoomToolSettlementStore(
+                            f.storage,
+                            StorageAuditSink(f.storage.auditEvents) { UUID.randomUUID().toString() },
+                            f.clock,
+                        ) { UUID.randomUUID().toString() },
+                        ToolPresentationSink { published++ },
+                        { null },
+                    )
+                f.sql("CREATE TRIGGER fail_denial BEFORE $phase BEGIN SELECT RAISE(ABORT, 'fixture failure'); END")
+                assertThrows(RuntimeException::class.java) {
+                    settlement.persistPreDispatchDenied(
+                        "turn",
+                        callId,
+                        "bad name",
+                        "[]",
+                        "unknown",
+                        DispatchOutcomeCode.UNKNOWN_TOOL,
+                        "Unavailable binding",
+                        PreDispatchDenialKind.FRAMEWORK_REJECTED,
+                    )
+                }
+                assertEquals(0, published)
+                assertNull(f.storage.toolCalls.byTurnAndCallId("turn", callId))
+                assertNull(f.storage.toolResults.byToolCall(callId))
+                assertTrue(
+                    f.storage.auditEvents
+                        .listByCorrelation(callId)
+                        .isEmpty(),
+                )
+                assertEquals(
+                    0,
+                    f.storage.goals
+                        .resolve(f.goalId)
+                        .toolCalls,
+                )
+                f.sql("DROP TRIGGER fail_denial")
+                settlement.persistPreDispatchDenied(
+                    "turn",
+                    callId,
+                    "bad name",
+                    "[]",
+                    "unknown",
+                    DispatchOutcomeCode.UNKNOWN_TOOL,
+                    "Unavailable binding",
+                    PreDispatchDenialKind.FRAMEWORK_REJECTED,
+                )
+                assertEquals(1, published)
+                assertEquals(
+                    1,
+                    f.storage.goals
+                        .resolve(f.goalId)
+                        .toolCalls,
+                )
+                f.reopen()
+                assertEquals(
+                    "FAILED",
+                    f.storage.toolCalls
+                        .resolve(callId)
+                        .state,
+                )
+                assertNotNull(f.storage.toolResults.byToolCall(callId))
+                assertEquals(
+                    1,
+                    f.storage.auditEvents
+                        .listByCorrelation(callId)
+                        .size,
+                )
+            }
+        }
+    }
+
     @Test fun failedDiagnosticsSurviveProjectionFailureAndRoomReopenWithoutReplay() =
         Fixture().use { f ->
             val call = f.call("failed-diagnostics")
@@ -155,10 +350,11 @@ class ToolSettlementRecoveryDeviceTest {
             val strings: (Int, Array<out Any>) -> String = { _, _ -> error("projection unavailable") }
             val settlement =
                 ToolSettlement(
-                    f.storage,
-                    app.toolPipeline.auditSink,
-                    f.clock,
-                    { UUID.randomUUID().toString() },
+                    RoomToolSettlementStore(
+                        f.storage,
+                        app.toolPipeline.auditSink,
+                        f.clock,
+                    ) { UUID.randomUUID().toString() },
                     ToolPresentationSink { strings(0, emptyArray()) },
                     { null },
                 )
@@ -168,7 +364,7 @@ class ToolSettlementRecoveryDeviceTest {
                     "failure-prefix " + "诊断😀".repeat(5000),
                     requiresReview = true,
                 )
-            settlement.settleToolCall(call, call.callId, call.name, outcome, sideEffectUnknown = true)
+            settlement.settleToolCall(call.id, call.callId, call.name, outcome, sideEffectUnknown = true)
             f.reopen()
             val result = f.storage.toolResults.byToolCall(call.id)!!
             assertEquals(false, result.verified)
@@ -208,10 +404,11 @@ class ToolSettlementRecoveryDeviceTest {
             }
             val settlement =
                 ToolSettlement(
-                    f.storage,
-                    app.toolPipeline.auditSink,
-                    f.clock,
-                    { UUID.randomUUID().toString() },
+                    RoomToolSettlementStore(
+                        f.storage,
+                        app.toolPipeline.auditSink,
+                        f.clock,
+                    ) { UUID.randomUUID().toString() },
                     ToolPresentationSink { strings(0, emptyArray()) },
                     { null },
                 )
@@ -221,7 +418,7 @@ class ToolSettlementRecoveryDeviceTest {
                     "BEGIN SELECT RAISE(ABORT, 'fixture failure'); END",
             )
             assertThrows(RuntimeException::class.java) {
-                settlement.settleToolCall(call, call.callId, call.name, outcome)
+                settlement.settleToolCall(call.id, call.callId, call.name, outcome)
             }
             assertEquals(0, notifications)
             assertEquals(
@@ -251,15 +448,16 @@ class ToolSettlementRecoveryDeviceTest {
             }
             val settlement =
                 ToolSettlement(
-                    f.storage,
-                    app.toolPipeline.auditSink,
-                    f.clock,
-                    { UUID.randomUUID().toString() },
+                    RoomToolSettlementStore(
+                        f.storage,
+                        app.toolPipeline.auditSink,
+                        f.clock,
+                    ) { UUID.randomUUID().toString() },
                     ToolPresentationSink { strings(0, emptyArray()) },
                     { null },
                 )
             val outcome = ToolDispatchOutcome.Succeeded(BoundToolResult("payload", Sha256("a".repeat(64)), false, 1))
-            settlement.settleToolCall(call, call.callId, call.name, outcome)
+            settlement.settleToolCall(call.id, call.callId, call.name, outcome)
             assertEquals(1, notifications)
             val saved = f.storage.toolResults.byToolCall(call.id)
             assertNotNull(saved)
@@ -514,7 +712,7 @@ class ToolSettlementRecoveryDeviceTest {
 
         init {
             storage.sessions.create("session", "Settlement", null, null, 1_000)
-            val goals = GoalRunCoordinator(storage, clock) { UUID.randomUUID().toString() }
+            val goals = RoomGoalRunCommands(storage, clock) { UUID.randomUUID().toString() }
             goalId = goals.create("Check settlement", listOf("Saved"), GoalBudgets(maxGoalRounds = 256))
             requireNotNull(
                 goals.start(
@@ -530,17 +728,25 @@ class ToolSettlementRecoveryDeviceTest {
 
         fun call(id: String) =
             storage.toolCalls.append(id, "turn", id, "read", "1", "{}", "RUNNING").also {
-                check(GoalToolCallBudget(storage, clock).reserve("turn", id))
+                check(RoomGoalToolCallBudget(storage, clock).reserve("turn", id))
             }
 
         fun persist(id: String) =
-            ToolSettlementWriter(storage, clock) { UUID.randomUUID().toString() }.persist(
-                storage.toolCalls.resolve(id),
-                ToolCallState.COMPLETED,
-                "SUCCEEDED",
-                "saved",
-                "payload",
-                true,
+            RoomToolSettlementStore(
+                storage,
+                StorageAuditSink(storage.auditEvents) {
+                    UUID.randomUUID().toString()
+                },
+                clock,
+            ) { UUID.randomUUID().toString() }.persist(
+                ToolSettlementCommand(
+                    id,
+                    ToolCallState.COMPLETED,
+                    "SUCCEEDED",
+                    "saved",
+                    "payload",
+                    true,
+                ),
             )
 
         fun sql(statement: String) =

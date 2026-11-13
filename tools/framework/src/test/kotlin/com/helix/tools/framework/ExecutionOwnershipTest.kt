@@ -259,6 +259,40 @@ class ExecutionOwnershipTest {
         requireNotNull(gate.acquireReconciliation(owner)).close()
     }
 
+    @Test fun rejectedControlBindingHasNoEffectsAndKeepsOriginalOwner() {
+        val gate = ExecutionOwnership(MemoryStore())
+        requireNotNull(gate.acquire("start")).use { it.retain(owner) }
+        val control =
+            gate.controlExecutor({ throw ExecutionOwnership.ControlBindingRejected() }) { _, _ ->
+                error("Rejected binding reached control action")
+            }
+        val result = gate.guard(control).execute(call()) as ToolExecutorResult.Failed
+        assertTrue(result.sideEffectFree)
+        assertFalse(result.requiresReview)
+        assertTrue(result.detail.startsWith("JOB_HANDLE_INVALID:"))
+        assertEquals(owner, gate.retainedOwners().singleOrNull())
+        requireNotNull(gate.acquireReconciliation(owner)).close()
+    }
+
+    @Test fun unexpectedResolverAndPostAdmissionFailuresAreNeverDeclaredSideEffectFree() {
+        val gate = ExecutionOwnership(MemoryStore())
+        requireNotNull(gate.acquire("start")).use { it.retain(owner) }
+        val broken =
+            gate.controlExecutor({ throw IOException("storage unavailable") }) { _, _ ->
+                error("Storage failure reached action")
+            }
+        assertThrows(IOException::class.java) { gate.guard(broken).execute(call()) }
+        val actionFailure =
+            gate.controlExecutor({ owner }) { _, _ ->
+                throw ExecutionOwnership.ControlBindingRejected()
+            }
+        assertThrows(ExecutionOwnership.ControlBindingRejected::class.java) {
+            gate.guard(actionFailure).execute(call())
+        }
+        assertEquals(owner, gate.retainedOwners().singleOrNull())
+        requireNotNull(gate.acquireReconciliation(owner)).close()
+    }
+
     @Test fun alreadySettledControlDoesNotBlockUnrelatedExecution() {
         val gate = ExecutionOwnership(MemoryStore())
         val control =

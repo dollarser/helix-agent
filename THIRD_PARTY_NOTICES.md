@@ -80,6 +80,17 @@ Native/runtime locks and original
 upstream licenses remain authoritative; Helix's Apache-2.0 license does not
 replace them. Passing hash checks alone is not a distribution-license review.
 
+For the unpublished v0.0.11 candidate, the patched FFmpeg 9.0.2 Ready-AV1 build
+requires distinct corresponding-source materials. The ten pinned upstream
+archives, MediaCodec patch, build/relinking instructions and original licenses
+have been prepared locally; they have not been uploaded. The old
+`media-corresponding-source.tar.gz` must not be assumed to cover this binary.
+Before distribution, add an exact accessible source-material link without
+replacing source assets still needed by older releases. The maintained recipe
+and patch are in [the FFmpeg preparation kit](scripts/experiments/ffmpeg/README.md).
+See [v0.0.11 preparation](docs/product/releases/v0.0.11.en.md) for the current
+release and validation boundary.
+
 ## topjohnwu/libsu 6.0.0
 
 - Components: `com.github.topjohnwu.libsu:core:6.0.0` and

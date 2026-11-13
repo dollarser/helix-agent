@@ -29,5 +29,14 @@
   "av1_additions":{"decoder":"libdav1d","parser":"av1","demuxer":"av1,obu,ivf"},
   "native_additions":{"decoder":"h264_mediacodec,hevc_mediacodec","encoder":"h264_mediacodec,hevc_mediacodec"},
   "device_status":"not_requested",
-  "production_integration":false
+  "production_integration":false,
+  "patches": {
+  "mediacodec-no-encoder-flush.patch": {
+    "target": "libavcodec/mediacodecenc.c",
+    "sha256": "a3001340ed48452939bd3309ab7ea6f0b300f398710a559fbaf1f3bb7f417eec",
+    "before_sha256": "d65e6f3b4e9d60633ad8f80ec917d77ecab354675497a61c39fbab7f78f222c1",
+    "after_sha256": "5bea43cb5128e38f96ea08007eb46b15fd5c2cc6bbf86b2f072cfd3a7f2d3eda",
+    "reason": "Do not send dummy EOS and flush a MediaCodec encoder for global headers; encoder flush is undefined by Android. Extract codec configuration from real packets in both sync and async modes."
+  }
+}
 }

@@ -1,0 +1,17 @@
+<resources>
+    <string name="session_access_title">Session access</string>
+    <string name="session_access_source">Source: %1$s
+%2$s</string>
+    <string name="session_access_target">Target: %1$s
+%2$s</string>
+    <string name="session_access_read">Read history</string>
+    <string name="session_access_manage">Rename, archive and restore</string>
+    <string name="session_access_revoke">Revoke all access</string>
+    <string name="session_access_save">Save</string>
+    <string name="session_access_cancel">Cancel</string>
+    <string name="session_access_failed">Could not load or save access. Close and try again.</string>
+    <string name="session_access_create">Allow creating new empty conversations (does not grant reading or running them)</string>
+    <string name="session_access_delegate">Delegate tasks</string>
+    <string name="session_access_delegate_details">Execution permissions and revocation</string>
+    <string name="session_access_delegate_explanation">Delegated tasks use the target conversation’s current permissions and normal approvals. Revocation blocks future deliveries and those not yet in context. It does not retract context or stop target work; use Stop in the target conversation.</string>
+</resources>

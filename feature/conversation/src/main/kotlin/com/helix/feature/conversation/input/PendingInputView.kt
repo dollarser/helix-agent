@@ -10,6 +10,8 @@ data class PendingInputView(
     val delivery: SessionInputDelivery,
     val needsAttention: Boolean,
     val knowledgeReferences: List<KnowledgeReference> = emptyList(),
+    val delegationSourceSessionId: String? = null,
 ) {
-    val canSend: Boolean get() = delivery == SessionInputDelivery.QUEUE || needsAttention
+    val canEdit: Boolean get() = delegationSourceSessionId == null
+    val canSend: Boolean get() = needsAttention || (canEdit && delivery == SessionInputDelivery.QUEUE)
 }

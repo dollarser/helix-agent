@@ -30,7 +30,7 @@ class TurnSubmissionCommandDeviceTest {
 
     @Test
     fun explicitMissingSessionNeverFallsBackToOpenConversation() =
-        withRuntime { provider, session ->
+        withRuntime { provider, session, _ ->
             val container = compose.container()
             val unknown = command(provider, "missing-${UUID.randomUUID()}")
             val error =
@@ -48,7 +48,7 @@ class TurnSubmissionCommandDeviceTest {
 
     @Test
     fun archivedExplicitSessionCannotAdmitNewTurn() =
-        withRuntime { provider, session ->
+        withRuntime { provider, session, _ ->
             val container = compose.container()
             container.storage.sessions.archive(session, System.currentTimeMillis())
             val error =
@@ -65,7 +65,7 @@ class TurnSubmissionCommandDeviceTest {
 
     @Test
     fun sameReceiptDeduplicatesAndDivergentInputIsTypedConflict() =
-        withRuntime { provider, session ->
+        withRuntime { provider, session, _ ->
             val container = compose.container()
             val input = command(provider, session)
             val original = container.agentRuntime.submit(input)
@@ -95,7 +95,91 @@ class TurnSubmissionCommandDeviceTest {
             )
         }
 
-    private fun withRuntime(block: suspend (String, String) -> Unit) =
+    @Test fun queueUsesTargetPermissionsWithoutNewGoal(): Unit =
+        withRuntime { provider, target, server ->
+            val container = compose.container()
+            val caller = delegationCaller(container, provider, "session.queue")
+            try {
+                val goalsBefore =
+                    container.storage.goals
+                        .list()
+                        .map { it.id }
+                        .toSet()
+                container.storage.sessionAccess.setGrant(caller.sessionId, target, false, false, true)
+                val requests = configureDelegatedRename(container, caller, target, server)
+                val first = container.sessionDelegationService.queue(caller, target, "queue-key", "Rename this task.")
+                val repeated =
+                    container.sessionDelegationService.queue(
+                        caller,
+                        target,
+                        "queue-key",
+                        "Rename this task.",
+                    )
+                assertEquals(first.record.inputId, repeated.record.inputId)
+                compose.waitUntil(20_000) {
+                    container.storage.turns
+                        .listBySession(target)
+                        .singleOrNull()
+                        ?.state == "COMPLETED"
+                }
+                assertQueuedDelegation(container, caller, target, first.record.inputId, goalsBefore, requests)
+            } finally {
+                closeDelegationCaller(container, caller)
+            }
+        }
+
+    @Test fun steerBindsExpectedTurnAndRejectsTerminalRequest(): Unit =
+        withRuntime { provider, target, server ->
+            val container = compose.container()
+            val caller = delegationCaller(container, provider, "session.steer")
+            val arrived = java.util.concurrent.CountDownLatch(1)
+            val release = java.util.concurrent.CountDownLatch(1)
+            try {
+                container.storage.sessionAccess.setGrant(caller.sessionId, target, false, false, true)
+                val requests = java.util.concurrent.CopyOnWriteArrayList<String>()
+                server.holdChatStreams.set(false)
+                server.scriptedChat = { body ->
+                    requests.add(body)
+                    if (requests.size == 1) {
+                        arrived.countDown()
+                        check(release.await(15, java.util.concurrent.TimeUnit.SECONDS))
+                    }
+                    delegationTextStream()
+                }
+                val targetTurn = container.agentRuntime.submit(command(provider, target)).value
+                check(arrived.await(10, java.util.concurrent.TimeUnit.SECONDS))
+                val first =
+                    container.sessionDelegationService.steer(
+                        caller,
+                        target,
+                        targetTurn,
+                        "steer-key",
+                        "Also mention the scope.",
+                    )
+                release.countDown()
+                compose.waitUntil(20_000) {
+                    container.storage.turns
+                        .resolve(targetTurn)
+                        .state == "COMPLETED"
+                }
+                assertEquals(
+                    listOf(targetTurn),
+                    container.storage.turns
+                        .listBySession(target)
+                        .map { it.id },
+                )
+                val record = requireNotNull(container.storage.sessionInputs.get(first.record.inputId))
+                assertEquals(targetTurn, record.consumedTurnId)
+                assertEquals(com.helix.core.storage.repository.SessionInputState.APPENDED, record.state)
+                assertTrue(requests.any { "[MODEL_DELEGATION]" in it && "Also mention the scope." in it })
+                assertTerminalSteer(container, caller, target, targetTurn, first.record.inputId)
+            } finally {
+                release.countDown()
+                closeDelegationCaller(container, caller)
+            }
+        }
+
+    private fun withRuntime(block: suspend (String, String, LoopbackModelServer) -> Unit) =
         runBlocking {
             compose.resetDeterministicUiState()
             val container = compose.container()
@@ -127,7 +211,7 @@ class TurnSubmissionCommandDeviceTest {
                     server.holdChatStreams.set(true)
                     chat.openSession(session)
                     compose.waitUntil(10_000) { chat.screen.value.openSessionId == session }
-                    block(provider, session)
+                    block(provider, session, server)
                 } finally {
                     container.storage.turns
                         .listBySession(session)
@@ -161,5 +245,192 @@ class TurnSubmissionCommandDeviceTest {
         text = "Synthetic admission check",
         budgets = TurnBudgets(maxOutputTokens = 1024),
         clientRequestId = UUID.randomUUID().toString(),
+    )
+}
+
+private suspend fun delegationCaller(
+    container: com.helix.app.AppContainer,
+    provider: String,
+    name: String,
+): com.helix.core.storage.repository.SessionHistoryCaller {
+    val source = container.chatService.createSession("Delegation source", provider, "fixture-model-a")
+    var turn = container.storage.turns.start(UUID.randomUUID().toString(), source, System.currentTimeMillis())
+    listOf(
+        com.helix.core.model.TurnState.BUILDING_CONTEXT,
+        com.helix.core.model.TurnState.WAITING_MODEL,
+        com.helix.core.model.TurnState.RECEIVING_MODEL,
+        com.helix.core.model.TurnState.RUNNING_TOOL,
+    ).forEach {
+        turn = container.storage.turns.updateState(turn, it, 0, null, null)
+    }
+    val call = UUID.randomUUID().toString()
+    container.storage.toolCalls.append(call, turn.id, call, name, "1", "{}", "RUNNING")
+    return com.helix.core.storage.repository
+        .SessionHistoryCaller(source, turn.id, call, name)
+}
+
+private fun closeDelegationCaller(
+    container: com.helix.app.AppContainer,
+    caller: com.helix.core.storage.repository.SessionHistoryCaller,
+) {
+    container.storage.toolCalls.updateState(
+        container.storage.toolCalls.resolve(caller.callId),
+        com.helix.core.model.ToolCallState.COMPLETED,
+    )
+    val turn = container.storage.turns.resolve(caller.turnId)
+    val stopping = container.storage.turns.updateState(turn, com.helix.core.model.TurnState.CANCELLING, 0, null, null)
+    container.storage.turns.updateState(
+        stopping,
+        com.helix.core.model.TurnState.CANCELLED,
+        0,
+        System.currentTimeMillis(),
+        null,
+    )
+    container.storage.sessions.archive(caller.sessionId, System.currentTimeMillis())
+}
+
+private fun delegationToolStream(
+    name: String,
+    args: org.json.JSONObject,
+): String {
+    val function =
+        org.json
+            .JSONObject()
+            .put("name", name)
+            .put("arguments", args.toString())
+    return "data: {\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[" +
+        "{\"id\":\"call-${UUID.randomUUID()}\",\"index\":0," +
+        "\"type\":\"function\",\"function\":$function}]},\"finish_reason\":\"tool_calls\"}]}\n\ndata: [DONE]\n\n"
+}
+
+private fun delegationTextStream(): String =
+    "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Fixture complete\"}," +
+        "\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n"
+
+private suspend fun configureDelegatedRename(
+    container: com.helix.app.AppContainer,
+    caller: com.helix.core.storage.repository.SessionHistoryCaller,
+    target: String,
+    server: LoopbackModelServer,
+): List<String> {
+    container.sessionPermissionEdit.saveSessionConfig(
+        caller.sessionId,
+        com.helix.core.policy.SessionPermissionConfig.of(
+            com.helix.core.model.SessionPermissionMode.READ_ONLY,
+        ),
+        System.currentTimeMillis(),
+    )
+    container.sessionPermissionEdit.saveSessionConfig(
+        target,
+        com.helix.core.policy.SessionPermissionConfig.of(
+            com.helix.core.model.SessionPermissionMode.FULL_ACCESS,
+        ),
+        System.currentTimeMillis(),
+    )
+    assertTrue(container.chatService.setModeFromComposer(target, AgentMode.GOAL))
+    val originalTitle =
+        container.storage.sessions
+            .resolve(target)
+            .title
+    val requests = java.util.concurrent.CopyOnWriteArrayList<String>()
+    val step =
+        java.util.concurrent.atomic
+            .AtomicInteger()
+    server.holdChatStreams.set(false)
+    server.scriptedChat = { body ->
+        requests.add(body)
+        when (step.getAndIncrement()) {
+            0 -> {
+                delegationToolStream("tools.search", org.json.JSONObject().put("query", "session.rename"))
+            }
+
+            1 -> {
+                delegationToolStream(
+                    "session.rename",
+                    org.json
+                        .JSONObject()
+                        .put("expectedTitle", originalTitle)
+                        .put("title", "Delegated target rename"),
+                )
+            }
+
+            else -> {
+                delegationTextStream()
+            }
+        }
+    }
+    return requests
+}
+
+private fun assertQueuedDelegation(
+    container: com.helix.app.AppContainer,
+    caller: com.helix.core.storage.repository.SessionHistoryCaller,
+    target: String,
+    inputId: String,
+    goalsBefore: Set<String>,
+    requests: List<String>,
+) {
+    val turn =
+        container.storage.turns
+            .listBySession(target)
+            .single()
+    assertEquals(
+        "Delegated target rename",
+        container.storage.sessions
+            .resolve(target)
+            .title,
+    )
+    assertEquals(
+        goalsBefore,
+        container.storage.goals
+            .list()
+            .map { it.id }
+            .toSet(),
+    )
+    assertEquals(null, container.storage.goalTurnBindings.byTurn(turn.id))
+    val record = requireNotNull(container.storage.sessionInputs.get(inputId))
+    assertEquals(com.helix.core.model.input.SessionInputOrigin.MODEL_DELEGATION, record.origin)
+    assertEquals(turn.id, record.consumedTurnId)
+    assertTrue(requests.any { "[MODEL_DELEGATION]" in it && caller.sessionId in it })
+    assertEquals(
+        "RUNNING_TOOL",
+        container.storage.turns
+            .resolve(caller.turnId)
+            .state,
+    )
+}
+
+private suspend fun assertTerminalSteer(
+    container: com.helix.app.AppContainer,
+    caller: com.helix.core.storage.repository.SessionHistoryCaller,
+    target: String,
+    targetTurn: String,
+    inputId: String,
+) {
+    val repeated =
+        container.sessionDelegationService.steer(
+            caller,
+            target,
+            targetTurn,
+            "steer-key",
+            "Also mention the scope.",
+        )
+    assertEquals(inputId, repeated.record.inputId)
+    assertThrows(IllegalArgumentException::class.java) {
+        runBlocking {
+            container.sessionDelegationService.steer(
+                caller,
+                target,
+                targetTurn,
+                "new-key",
+                "Must not become a new Turn.",
+            )
+        }
+    }
+    assertEquals(
+        1,
+        container.storage.turns
+            .listBySession(target)
+            .size,
     )
 }

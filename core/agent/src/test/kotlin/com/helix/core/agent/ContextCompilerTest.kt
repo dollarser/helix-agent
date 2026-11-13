@@ -9,7 +9,6 @@ import com.helix.core.model.ToolName
 import com.helix.provider.api.ProviderContextSettings
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -114,7 +113,12 @@ class ContextCompilerTest {
         val rows = history()
         val input = request(rows)
         val reordered = input.copy(messages = input.messages.reversed().drop(1) + input.messages.last())
-        assertNull(compiler.plan(snapshot(rows), reordered, settings, true))
+        assertEquals(
+            "CONTEXT_NOT_COMPACTABLE",
+            assertThrows(ContextCapacityException::class.java) {
+                compiler.plan(snapshot(rows), reordered, settings, true)
+            }.code,
+        )
     }
 
     @Test fun selectedCorruptHistoryIsRejectedNotTreatedAsEmpty() {

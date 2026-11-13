@@ -17,7 +17,7 @@ import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.MainActivity
-import com.helix.app.application.agent.GoalRoundAllowance
+import com.helix.app.infrastructure.agent.RoomGoalRoundAllowance
 import com.helix.app.provider.ProviderDraft
 import com.helix.core.agent.TurnBudgetBounds
 import com.helix.core.model.NormalizedEndpoint
@@ -191,7 +191,7 @@ class GoalRealModelUiDeviceTest {
         }
         val goal = storage.goals.resolve(requireNotNull(goalId))
         assertEquals(expectedState, goal.state)
-        assertEquals(0, GoalRoundAllowance(storage).used(goal.id))
+        assertEquals(0, RoomGoalRoundAllowance(storage).used(goal.id))
         assertTrue(goal.totalTokens > 0)
         val turn = storage.turns.listBySession(requireNotNull(sessionId)).last()
         assertEquals(turn.errorCode, "COMPLETED", turn.state)
@@ -248,7 +248,7 @@ class GoalRealModelUiDeviceTest {
                 put("model", model)
                 put("goalState", goal.state)
                 put("modelCalls", goal.modelCalls)
-                put("automaticRounds", GoalRoundAllowance(storage).used(goal.id))
+                put("automaticRounds", RoomGoalRoundAllowance(storage).used(goal.id))
                 put("tokens", goal.totalTokens)
                 put("runs", storage.goalRuns.listByGoal(goal.id).size)
                 put(

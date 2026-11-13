@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.application.agent.GoalContinuationDriver
+import com.helix.app.infrastructure.agent.RoomGoalContinuationFacts
 import com.helix.app.infrastructure.agent.createRoomTurnEngine
 import com.helix.app.test.startFixtureTurn
 import com.helix.core.agent.CancelResult
@@ -248,7 +249,7 @@ class StopTurnCommandHandlerDeviceTest {
         var executor: Job? = null
         var onApprovalCancel: () -> Unit = {}
         var approvalCancellations = 0
-        private val continuation = GoalContinuationDriver(storage)
+        private val continuation = GoalContinuationDriver(RoomGoalContinuationFacts(storage))
         private val userRequests = mutableMapOf<String, Unit>()
         val handler =
             StopTurnCommandHandler(

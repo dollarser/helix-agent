@@ -11,6 +11,7 @@ import com.helix.core.storage.entity.SessionInputEntity
 
 internal object SessionInputValidation {
     fun validate(spec: SessionInputSpec) {
+        validateDelegation(spec)
         InputSkillActivations.encode(spec.skillActivations)
         KnowledgeReferenceCodec.encode(spec.knowledgeReferences)
         listOf(spec.inputId, spec.sessionId, spec.configuration.providerId).forEach(::identifier)
@@ -39,6 +40,17 @@ internal object SessionInputValidation {
         spec.reference?.let { reference ->
             require(reference.sourceSessionId != spec.sessionId)
             require(reference.contentSha256.length == 64)
+        }
+    }
+
+    private fun validateDelegation(spec: SessionInputSpec) {
+        spec.delegation?.let {
+            require(it.sourceSessionId != spec.sessionId)
+            require((spec.delivery == SessionInputDelivery.QUEUE) == (spec.expectedTurnId == null))
+            require(
+                spec.attachments.isEmpty() && spec.reference == null &&
+                    spec.skillActivations.isEmpty() && spec.knowledgeReferences.isEmpty(),
+            )
         }
     }
 
@@ -127,6 +139,12 @@ internal object SessionInputValidation {
         updatedAt = spec.createdAt,
         skillActivationsJson = InputSkillActivations.encode(spec.skillActivations),
         knowledgeReferencesJson = KnowledgeReferenceCodec.encode(spec.knowledgeReferences),
+        inputOrigin = if (spec.delegation == null) "USER" else "MODEL_DELEGATION",
+        delegationSourceSessionId = spec.delegation?.sourceSessionId,
+        delegationSourceTurnId = spec.delegation?.sourceTurnId,
+        delegationSourceCallId = spec.delegation?.sourceCallId,
+        delegationRequestKey = spec.delegation?.requestKey,
+        delegationGrantRevision = spec.delegation?.grantRevision,
     )
 
     private fun identifier(value: String) {

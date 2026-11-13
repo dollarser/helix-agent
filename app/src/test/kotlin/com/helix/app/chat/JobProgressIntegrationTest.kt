@@ -1,9 +1,9 @@
 package com.helix.app.chat
 
 import com.helix.app.application.tools.DurableToolLoopProgress
+import com.helix.app.application.tools.ToolDispatchCall
+import com.helix.app.application.tools.ToolLoopResult
 import com.helix.core.agent.ToolLoopProgress
-import com.helix.core.storage.entity.ToolCallEntity
-import com.helix.core.storage.entity.ToolResultEntity
 import com.helix.tools.framework.JobObservation
 import com.helix.tools.framework.JobObservationBinding
 import com.helix.tools.framework.JobObservationEvidence
@@ -22,7 +22,7 @@ class JobProgressIntegrationTest {
     private val binding = JobObservationBinding("s", "t", "job", "p", "e", "g", "a".repeat(64))
     private val calls =
         (1..6).map {
-            ToolCallEntity("c$it", "t", "c$it", "jobs.await", "1", "{}", "a".repeat(64), "COMPLETED")
+            ToolDispatchCall("c$it", "t", "c$it", "jobs.await", "1", "{}", "a".repeat(64), "COMPLETED")
         }
 
     private fun evidence(
@@ -61,7 +61,7 @@ class JobProgressIntegrationTest {
         terminal: Boolean = false,
     ) = DurableToolLoopProgress.fromHistory(
         calls,
-        { id -> ToolResultEntity("r$id", id, "SUCCEEDED", "same", "changes-every-poll-$id", true) },
+        { id -> ToolLoopResult("r$id", id, "SUCCEEDED", "same", "changes-every-poll-$id", true) },
         { call -> evidence(call.id, reason, terminal) },
     ) { _, _ -> TimeNowTool.descriptor() }
 
@@ -82,7 +82,7 @@ class JobProgressIntegrationTest {
             DurableToolLoopProgress.fromHistory(
                 calls,
                 { id ->
-                    ToolResultEntity("r$id", id, "SUCCEEDED", "same", null, true)
+                    ToolLoopResult("r$id", id, "SUCCEEDED", "same", null, true)
                 },
             ) { _, _ -> TimeNowTool.descriptor() }
         assertEquals(ToolLoopProgress.Decision.STOP, result)

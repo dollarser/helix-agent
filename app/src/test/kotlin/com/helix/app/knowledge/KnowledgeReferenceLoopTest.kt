@@ -154,7 +154,7 @@ class KnowledgeReferenceLoopTest {
         val registry = ToolRegistry()
         KnowledgeReadTools.register(registry, f.backend)
         com.helix.app.chat.SessionTools
-            .register(registry, f.history)
+            .register(registry, f.history, f.dao.accessRepository())
         fixture.tools +=
             listOf("session.history", "session.read").map {
                 val descriptor =

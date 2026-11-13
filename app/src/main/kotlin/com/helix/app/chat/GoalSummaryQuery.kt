@@ -1,8 +1,8 @@
 package com.helix.app.chat
 
-import com.helix.app.application.agent.GoalRoundAllowance
 import com.helix.app.goal.goalModelReport
 import com.helix.app.goal.toRuntimeGoal
+import com.helix.app.infrastructure.agent.RoomGoalRoundAllowance
 import com.helix.core.agent.GoalEffect
 import com.helix.core.agent.GoalEvent
 import com.helix.core.agent.GoalReducer
@@ -65,7 +65,7 @@ internal class GoalSummaryQuery(
                 storage.goalControls.find(goal.id)?.revision ?: 0,
                 canEditObjective(goal),
                 sessionId = ownerSession,
-                roundsStarted = GoalRoundAllowance(storage).used(goal.id),
+                roundsStarted = RoomGoalRoundAllowance(storage).used(goal.id),
             )
         }
 
@@ -116,7 +116,7 @@ internal class GoalSummaryQuery(
                 storage.goalControls.find(goal.id)?.revision ?: 0,
                 canEditObjective(goal),
                 sessionId = owner,
-                roundsStarted = GoalRoundAllowance(storage).used(goal.id),
+                roundsStarted = RoomGoalRoundAllowance(storage).used(goal.id),
             )
         }
     }

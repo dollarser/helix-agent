@@ -133,6 +133,7 @@ internal class DefaultAppContainer(
         )
 
     private val lineStore = PrefsLineStore(context, PREFS_NAME)
+    private val providerLines = PrefsLineStore(context, PREFS_NAME, synchronous = true)
     private val mobileUseLines = PrefsLineStore(context, "helix-mobile-use", synchronous = true)
 
     override val profileStore: SafetyProfileStore =
@@ -207,11 +208,11 @@ internal class DefaultAppContainer(
 
     private val providerContextSettings =
         com.helix.app.provider
-            .ProviderContextSettingsStore(lineStore)
+            .ProviderContextSettingsStore(providerLines)
 
     private val debugCustomApis =
         com.helix.app.provider.DebugCustomApiStore(
-            lineStore,
+            providerLines,
             appContext.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0,
         )
 
@@ -241,7 +242,7 @@ internal class DefaultAppContainer(
                         debugCustomApis,
                     ) { visionImageSource },
                 testStatus =
-                    ProviderTestStatusStore(lineStore) {
+                    ProviderTestStatusStore(providerLines) {
                         account.identity
                     },
                 debugCustomApis = debugCustomApis,
@@ -614,8 +615,17 @@ internal class DefaultAppContainer(
             .register(toolRegistry, memory)
         com.helix.app.chat.ToolResultReadTool
             .register(toolRegistry, storage)
+        com.helix.app.session.SessionDelegationTool
+            .register(toolRegistry) { sessionDelegationService }
+        com.helix.app.session.SessionCreationTool
+            .register(toolRegistry) { sessionCreationService }
         com.helix.app.chat.SessionTools
-            .register(toolRegistry, storage.sessionHistory) { chatService.refreshSessions() }
+            .register(
+                toolRegistry,
+                storage.sessionHistory,
+                onRenamed = { chatService.refreshSessions() },
+                accessRepository = storage.sessionAccess,
+            )
         com.helix.app.goal.GoalLifecycleTools
             .register(
                 toolRegistry,
@@ -953,6 +963,13 @@ internal class DefaultAppContainer(
     override val mcpService: McpAppService =
         McpAppService(
             storage = McpStorageBridge(storage),
+            publishResourceBlob = com.helix.app.mcp.McpResourceArtifactPublisher(
+                workspaceStore,
+                ToolArtifactRegistrationSink(storage, workspaceStore::openRead) { path ->
+                    resolveFileScopePath(path, scopeRoots).toFile()
+                },
+                APP_SCOPE_ID,
+            ) { session, turn -> storage.turns.resolve(turn).sessionId == session }::publish,
             prepareCredential = { config -> mcpOAuthCoordinator.prepareCredential(config) },
             sourceAvailable = pluginCatalog::endpointAvailable,
             profile = { profileStore.profile },
@@ -1072,6 +1089,11 @@ internal class DefaultAppContainer(
     private val conversation =
         com.helix.app.composition.ConversationComposition(
             scheduledModelGuard = scheduledModelGuard,
+            nativeWebSearchEnabled = {
+                com.helix.app.search.WebSearchSettings
+                    .create(context, storage.secrets)
+                    .nativeOpenAiEnabled
+            },
             knowledgeReferences = knowledge.references,
             knowledgeNotes = knowledge.noteService,
             storage = storage,
@@ -1127,6 +1149,12 @@ internal class DefaultAppContainer(
             },
         )
 
+    override val sessionAccessService by lazy {
+        com.helix.app.session
+            .SessionAccessService(storage.sessionAccess)
+    }
+    override val sessionDelegationService get() = conversation.sessionDelegationService
+    override val sessionCreationService get() = conversation.sessionCreationService
     override val chatService: ChatService get() = conversation.chatService
     override val conversationDetails get() = conversation.conversationDetails
     override val conversationExperts get() = conversation.conversationExperts

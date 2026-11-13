@@ -205,9 +205,9 @@ class ContextSummaryValidationTest {
             val manual = SummaryValidationFixture(manual = true)
             manual.planAvailable = false
             assertBlocked(manual, "CONTEXT_NOT_COMPACTABLE")
-            val pressured = SummaryValidationFixture(inputFloor = 3500)
-            pressured.planAvailable = false
-            assertBlocked(pressured, "CONTEXT_NOT_COMPACTABLE")
+            val oversized = SummaryValidationFixture(inputFloor = 8192)
+            oversized.planAvailable = false
+            assertBlocked(oversized, "CONTEXT_WINDOW_LIMIT")
             val retry = SummaryValidationFixture()
             assertNull(retry.finish(ContextSummaryTextTest.CAPTURED))
             retry.planAvailable = false
@@ -235,6 +235,54 @@ class ContextSummaryValidationTest {
             assertNotNull(prepared.request)
         }
 
+    @Test fun noEligibleHistoryUnderSoftPressureDoesNotStartASummaryOrPublishSuccess() =
+        runBlocking {
+            val fixture = SummaryValidationFixture(inputFloor = 3500)
+            fixture.planAvailable = false
+            repeat(4) {
+                val prepared = fixture.round.prepare(fixture.current)
+                assertNull(prepared.failure)
+                assertNull(prepared.plan)
+                assertEquals(fixture.current.modelRequest(), prepared.request)
+            }
+            assertEquals(0, fixture.commits)
+            assertTrue(fixture.notices.isEmpty())
+            fixture.assertHistoryUnchanged()
+            fixture.inputFloor = 8192
+            assertBlocked(fixture, "CONTEXT_WINDOW_LIMIT")
+        }
+
+    @Test fun aStartedSummaryCannotDeferWhenItsPlanDisappearsEvenWithoutAFailedStream() =
+        runBlocking {
+            val fixture = SummaryValidationFixture()
+            assertNotNull(fixture.round.prepare(fixture.current).plan)
+            fixture.planAvailable = false
+            assertBlocked(fixture, "CONTEXT_NOT_COMPACTABLE")
+            fixture.assertHistoryUnchanged()
+        }
+
+    @Test fun pendingSummaryFailureCannotDeferWhenItsNextPlanHasNoPossibleGain() =
+        runBlocking {
+            val fixture = SummaryValidationFixture()
+            assertNull(fixture.finish(ContextSummaryTextTest.CAPTURED))
+            fixture.preserveAll = true
+            assertNull(fixture.finish("Valid notes, but the retained history has no gain."))
+            assertEquals("CONTEXT_NO_GAIN", fixture.finish("Still no useful gain.")?.errorCode)
+            assertEquals(listOf("CONTEXT_SUMMARY_INVALID", "CONTEXT_NO_GAIN", "CONTEXT_NO_GAIN"), fixture.failures)
+            assertBlocked(fixture, "CONTEXT_NO_GAIN")
+            fixture.assertHistoryUnchanged()
+        }
+
+    @Test fun softPressureNeverSwallowsPlanningFailures() =
+        runBlocking {
+            val fixture = SummaryValidationFixture(inputFloor = 3500)
+            fixture.planningFailure = "CONTEXT_SEGMENT_LIMIT"
+            assertBlocked(fixture, "CONTEXT_SEGMENT_LIMIT")
+            fixture.planningFailure = null
+            assertBlocked(fixture, "CONTEXT_SEGMENT_LIMIT")
+            fixture.assertHistoryUnchanged()
+        }
+
     @Test fun successfulSummaryAllowsProgressAbovePressureTriggerButStillChecksHardWindow() =
         runBlocking {
             val fixture = SummaryValidationFixture()
@@ -256,6 +304,11 @@ class ContextSummaryValidationTest {
             fixture.round.observe(fixture.original, fixture.original.inputTokens() * 2)
             assertNull(fixture.finish("Verified constraints."))
             assertEquals(fixture.current.inputTokens() * 2, fixture.round.admissionInput(fixture.current))
+            fixture.current =
+                fixture.current.copy(
+                    messages =
+                        fixture.current.messages + ModelMessage(ModelRole.USER, "New complete history. ".repeat(200)),
+                )
             fixture.round.observe(fixture.current, null)
             assertNotNull(fixture.round.prepare(fixture.current).plan)
             assertEquals(2, fixture.plans)
@@ -332,6 +385,7 @@ private class SummaryValidationFixture(
     var commits = 0
     var plans = 0
     var planAvailable = true
+    var preserveAll = false
     var planningFailure: String? = null
     val failures = mutableListOf<String>()
     val forcedPlans = mutableListOf<Boolean>()
@@ -359,7 +413,13 @@ private class SummaryValidationFixture(
                 return ContextCompactionPlan(
                     10,
                     SummaryOutputBudget(128, 128).modelRequest("fixture", "history", summaries),
-                    request.copy(messages = listOf(ModelMessage(ModelRole.USER, "Current objective"))),
+                    if (preserveAll) {
+                        request
+                    } else {
+                        request.copy(
+                            messages = listOf(ModelMessage(ModelRole.USER, "Current objective")),
+                        )
+                    },
                     originalInputTokens = request.inputTokens(),
                 )
             }

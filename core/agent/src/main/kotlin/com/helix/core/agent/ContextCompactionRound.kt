@@ -86,7 +86,15 @@ class ContextCompactionRound(
         request: TurnContextRequest,
         hardFailure: String?,
     ): PreparedContext {
-        val required = manual || pendingFailure != null || shouldCompact(request)
+        val mustComplete = manual || attempts > 0 || pendingFailure != null
+        val required =
+            mustComplete ||
+                ContextCapacity.shouldCompact(
+                    request,
+                    settings,
+                    com.helix.provider.api.ProviderCapabilities.MAX_CONTEXT_BOUND,
+                    admissionInput(request),
+                )
         val summaryScale = maxOf(inputScale, summaryInputScale)
         var planningFailure: String? = null
         val plan =
@@ -102,15 +110,34 @@ class ContextCompactionRound(
                 planningFailure = failure.code
                 null
             }
+        // Pressure starts a feasibility check, not a summary obligation. Only the first automatic
+        // attempt can be deferred, and only while the ordinary request still passes hard admission.
+        // An empty summary gives the maximum possible gain, including its complete replay framing.
+        if (summaries.shouldDeferSummary(plan, mustComplete, planningFailure ?: hardFailure)) {
+            return PreparedContext(request.modelRequest(), null, null, request)
+        }
+        return admitSummary(
+            request,
+            plan,
+            planningFailure ?: pendingFailure?.let(::summaryTerminalCode) ?: hardFailure,
+            required,
+        )
+    }
+
+    private fun admitSummary(
+        request: TurnContextRequest,
+        plan: ContextCompactionPlan?,
+        capacityFailure: String?,
+        required: Boolean,
+    ): PreparedContext {
         val code =
             if (plan == null) {
-                planningFailure ?: pendingFailure?.let(::summaryTerminalCode) ?: hardFailure
-                    ?: "CONTEXT_NOT_COMPACTABLE".takeIf { required || attempts >= MAX_ATTEMPTS }
+                capacityFailure ?: "CONTEXT_NOT_COMPACTABLE".takeIf { required || attempts >= MAX_ATTEMPTS }
             } else {
                 val summaryEstimate = ModelInputEstimate.of(plan.request).total
                 ContextCapacity.forSummary(
                     plan.request,
-                    kotlin.math.ceil(summaryEstimate * summaryScale).toLong(),
+                    kotlin.math.ceil(summaryEstimate * maxOf(inputScale, summaryInputScale)).toLong(),
                     summaryEstimate,
                     settings.window,
                 )
@@ -165,14 +192,6 @@ class ContextCompactionRound(
             if (manual) decision else null
         }
     }
-
-    private suspend fun shouldCompact(request: TurnContextRequest): Boolean =
-        ContextCapacity.shouldCompact(
-            request,
-            settings,
-            com.helix.provider.api.ProviderCapabilities.MAX_CONTEXT_BOUND,
-            admissionInput(request),
-        )
 
     private fun validationFailure(
         plan: ContextCompactionPlan,
@@ -229,6 +248,15 @@ class ContextCompactionRound(
         const val MAX_ATTEMPTS = 3
         val RETRYABLE_FAILURES = setOf("CONTEXT_NO_GAIN", "CONTEXT_SUMMARY_INVALID", "OUTPUT_TOKEN_LIMIT")
     }
+}
+
+private fun ContextSummaryFormat.shouldDeferSummary(
+    plan: ContextCompactionPlan?,
+    mustComplete: Boolean,
+    capacityFailure: String?,
+): Boolean {
+    val noUsefulPlan = plan == null || !hasUsefulGain(plan, "")
+    return !mustComplete && capacityFailure == null && noUsefulPlan
 }
 
 private fun summaryTerminalCode(code: String): String =

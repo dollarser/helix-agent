@@ -93,6 +93,9 @@ class SafSystemDirectoryReliabilityDeviceTest {
                     scopes.resolve(scope, SafAccessMode.WRITE).writable
                 }
             contract.verify()
+            check(scopes.revoke(scope))
+            SafNativeSearchContract(backend, scope, fixtureName).verifyRevoked()
+            assertEquals(scope, scopes.grant(uri.toString(), folder).scopeId)
             contract.removeOwnedSubtree()
             assertTrue(backend.children("").isEmpty())
             succeeded = true

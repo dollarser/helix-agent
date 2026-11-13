@@ -37,19 +37,33 @@ internal fun ProviderContextDialog(
     row: ProviderRowUi,
     service: ProviderService,
     initialModel: String = row.model,
+    independentSave: Boolean = false,
+    fixedModel: Boolean = false,
     onDismiss: () -> Unit,
-) = ProviderContextEditor(
-    row,
-    load = { service.contextSettings(row.id, it) },
-    discover = { service.discoverContextWindow(row.id, it) },
-    save = { model, settings -> service.saveContextSettings(row.id, model, settings) },
-    initialModel = initialModel,
-    onDismiss = onDismiss,
-)
+) {
+    val expected = remember(row.id, initialModel) { row.configuration }
+    ProviderContextEditor(
+        row,
+        load = { service.contextSettings(row.id, it, expectedConfig = expected) },
+        discover = { service.discoverContextWindow(row.id, it, expectedConfig = expected) },
+        save = { model, settings -> service.saveContextSettings(row.id, model, settings, expectedConfig = expected) },
+        initialModel = initialModel,
+        independentSave = independentSave,
+        fixedModel = fixedModel,
+        onDismiss = onDismiss,
+    )
+}
 
 @Composable
 // Failed storage/discovery stays repairable, using closed UI errors.
-@Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod", "SwallowedException", "TooGenericExceptionCaught")
+@Suppress(
+    "FunctionName",
+    "LongMethod",
+    "CyclomaticComplexMethod",
+    "SwallowedException",
+    "TooGenericExceptionCaught",
+    "LongParameterList",
+)
 internal fun ProviderContextEditor(
     row: ProviderRowUi,
     load: suspend (String) -> ProviderContextSettings,
@@ -57,6 +71,8 @@ internal fun ProviderContextEditor(
     save: suspend (String, ProviderContextSettings) -> Unit,
     onDismiss: () -> Unit,
     initialModel: String = row.model,
+    independentSave: Boolean = false,
+    fixedModel: Boolean = false,
 ) {
     var model by rememberSaveable(row.id, initialModel) { mutableStateOf(initialModel) }
     var modelMenu by remember { mutableStateOf(false) }
@@ -111,22 +127,32 @@ internal fun ProviderContextEditor(
         title = { Text(stringResource(ConversationR.string.chat_context_title)) },
         text = {
             Column(Modifier.indicatedVerticalScroll(rememberScrollState())) {
-                Box {
-                    TextButton(
-                        { modelMenu = true },
-                        Modifier.testTag("provider-context-model"),
-                        enabled = !saving,
-                    ) { Text("${row.modelLabel(model)} ▾") }
-                    DropdownMenu(modelMenu, { modelMenu = false }) {
-                        (row.knownModels + model).distinct().forEach { candidate ->
-                            DropdownMenuItem(
-                                text = { Text(row.modelLabel(candidate)) },
-                                modifier = Modifier.testTag("provider-context-choice-$candidate"),
-                                onClick = {
-                                    model = candidate
-                                    modelMenu = false
-                                },
-                            )
+                if (independentSave) {
+                    Text(
+                        stringResource(R.string.provider_context_independent_save),
+                        Modifier.testTag("provider-context-independent-save"),
+                    )
+                }
+                if (fixedModel) {
+                    Text(row.modelLabel(model), Modifier.testTag("provider-context-model"))
+                } else {
+                    Box {
+                        TextButton(
+                            { modelMenu = true },
+                            Modifier.testTag("provider-context-model"),
+                            enabled = !saving,
+                        ) { Text("${row.modelLabel(model)} ▾") }
+                        DropdownMenu(modelMenu, { modelMenu = false }) {
+                            (row.knownModels + model).distinct().forEach { candidate ->
+                                DropdownMenuItem(
+                                    text = { Text(row.modelLabel(candidate)) },
+                                    modifier = Modifier.testTag("provider-context-choice-$candidate"),
+                                    onClick = {
+                                        model = candidate
+                                        modelMenu = false
+                                    },
+                                )
+                            }
                         }
                     }
                 }

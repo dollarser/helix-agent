@@ -60,7 +60,7 @@ internal class DetachedJobControl(
             val bindings = ProotJobBindingStore(storage)
             val client = DetachedJobClient(context)
             return DetachedJobControl(
-                bindings::resolveDetached,
+                bindings::resolveDetachedForAdmission,
                 client::cancel,
                 ownership,
                 DetachedJobObservationStore(storage)::observe,

@@ -37,7 +37,7 @@ internal class SessionFork(
                     continue
                 }
                 // Copy questions as inert history, never as new answer requests in the branch.
-                val history = row.copy(kind = UserQuestionService.forkKind(row.kind))
+                val history = inertHistory(row)
                 val copied = storage.messages.copyHistory(history, identities.getValue(row.id), newSessionId)
                 sequences[row.sequence] = copied.sequence
                 storage.messageAttachments.bind(
@@ -79,6 +79,23 @@ internal class SessionFork(
             checkActive()
         }
     }
+
+    private fun inertHistory(row: com.helix.core.storage.entity.MessageEntity) =
+        row.copy(
+            kind = UserQuestionService.forkKind(row.kind),
+            contentRef =
+                if (storage.sessionInputs.forMessage(row.id)?.delegation != null) {
+                    storage.contentStore
+                        .write(
+                            requireNotNull(
+                                com.helix.app.agent.ContextHistoryContent
+                                    .read(storage, row),
+                            ),
+                        ).toStorageString()
+                } else {
+                    row.contentRef
+                },
+        )
 
     private fun createSharedSession(
         sourceSessionId: String,

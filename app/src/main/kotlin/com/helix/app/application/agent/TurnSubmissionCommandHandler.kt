@@ -103,6 +103,7 @@ internal class TurnSubmissionCommandHandler(
         parentId: String,
         snapshot: RecoveryInspectionSnapshot,
     ): TurnSubmissionResult {
+        if (admissionFacts.isDelegatedTurn(parentId)) return blocked(TurnSubmissionBlock.RECOVERY_UNAVAILABLE)
         val parentSessionId = admissionFacts.recoverySessionId(parentId)
         val session =
             admissionFacts.session(parentSessionId)
@@ -157,7 +158,7 @@ internal class TurnSubmissionCommandHandler(
             requestedSessionId = input.sessionId,
             controlOverride = control,
             clientRequestId = input.inputId,
-            continuousGoal = input.configuration.mode == AgentMode.GOAL.name,
+            continuousGoal = input.delegation == null && input.configuration.mode == AgentMode.GOAL.name,
             queuedInput = input,
             requireQueueHead = requireHead,
         )
@@ -201,6 +202,10 @@ internal class TurnSubmissionCommandHandler(
         regenerateMessageId: String? = null,
         recoveryParent: String? = null,
     ): TurnSubmissionResult {
+        if (retryTurnId != null && admissionFacts.isDelegatedTurn(retryTurnId)) {
+            return blocked(TurnSubmissionBlock.INPUT_NO_LONGER_CONSUMABLE)
+        }
+        val delegated = queuedInput?.delegation != null
         val session =
             admissionFacts
                 .session(requestedSessionId)
@@ -214,7 +219,7 @@ internal class TurnSubmissionCommandHandler(
         val control = controlOverride ?: selectedControl
         val sourceText = text ?: retryTurnId?.let { admissionFacts.retryText(sessionId, it) }
         val manualCompaction =
-            com.helix.core.agent.ContextCommands
+            !delegated && com.helix.core.agent.ContextCommands
                 .parseCompact(sourceText) != null
         // The Room read runs OUTSIDE the gate: a suspend point must never be reached while holding the monitor.
         val providerConfig =
@@ -252,7 +257,7 @@ internal class TurnSubmissionCommandHandler(
                     regenerateMessageId == null &&
                     retryTurnId == null &&
                     continuation == null &&
-                    (queuedInput != null || directUserRequest)
+                    !delegated && (queuedInput != null || directUserRequest)
             val recoveryFromTurnId =
                 if (recoveryParent != null) {
                     recoveryParent
@@ -388,7 +393,7 @@ internal class TurnSubmissionCommandHandler(
                         },
                     goal =
                         when {
-                            manualCompaction -> {
+                            manualCompaction || delegated -> {
                                 TurnGoalIntent.None
                             }
 

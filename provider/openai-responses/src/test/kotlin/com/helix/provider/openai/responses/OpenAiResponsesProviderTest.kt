@@ -91,6 +91,32 @@ class OpenAiResponsesProviderTest {
             listOf(ModelMessage(ModelRole.USER, "hi")),
         )
 
+    @Test fun providerUsesRequestScopedToolNamesInBothDirections() =
+        runBlocking {
+            val request =
+                userRequest().copy(
+                    tools =
+                        listOf(
+                            com.helix.core.model.ModelToolSchema(
+                                com.helix.core.model
+                                    .ToolName("files.read"),
+                                "read",
+                                """{"type":"object"}""",
+                            ),
+                        ),
+                )
+            val alias = ResponsesToolNames(request).encode("files.read")
+            val response =
+                sse(
+                    "response.output_item.added",
+                    """{"output_index":0,"item":{"type":"function_call","call_id":"c1","name":"$alias"}}""",
+                )
+            val wire = FakeWire(WireResponse(200, emptyMap(), FakeBody(response.toByteArray())))
+            val events = provider(wire).stream(request).toList()
+            assertEquals("files.read", events.filterIsInstance<ModelEvent.ToolCallStarted>().single().name)
+            assertTrue(String(requireNotNull(wire.requests.single().body)).contains("\"name\":\"$alias\""))
+        }
+
     // --- SSE fixtures (same shapes as the HXA-022 decoder tests) -------------
 
     private fun sse(

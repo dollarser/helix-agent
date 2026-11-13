@@ -41,6 +41,9 @@ class WebSearchSettingsDeviceTest {
             )
         val settings = WebSearchSettings(InMemoryLineStore(), store)
         try {
+            assertFalse(settings.nativeOpenAiEnabled)
+            settings.saveNativeOpenAi(true)
+            assertTrue(settings.nativeOpenAiEnabled)
             assertFalse(settings.enabled)
             settings.save(false, "synthetic-offline-fixture-key")
             assertNull(settings.configuredSearch()?.key)
@@ -80,6 +83,8 @@ class WebSearchSettingsDeviceTest {
             assertTrue(result.toString().contains("not-configured"))
             settings.removeKey()
             assertFalse(settings.hasKey)
+            settings.saveNativeOpenAi(false)
+            assertFalse(settings.nativeOpenAiEnabled)
         } finally {
             settings.removeKey()
             directory.deleteRecursively()

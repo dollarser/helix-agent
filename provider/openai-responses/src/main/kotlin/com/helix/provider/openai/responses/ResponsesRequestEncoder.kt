@@ -62,29 +62,24 @@ public fun interface ImageResolver {
  */
 public class ResponsesRequestEncoder(
     private val imageResolver: ImageResolver,
+    private val nativeWebSearchSupported: Boolean,
 ) : RequestEncoder {
+    public constructor(imageResolver: ImageResolver) : this(imageResolver, false)
+
     public override fun encode(request: ModelRequest): String {
+        require(!request.nativeWebSearch || nativeWebSearchSupported) {
+            "Native web search requires official OpenAI Responses"
+        }
+        require(!request.nativeWebSearch || request.tools.none { it.name.value == "web_search" })
+        val names = ResponsesToolNames(request)
         val root =
             buildJsonObject {
                 put("model", request.model)
                 put("stream", true)
                 putJsonArray("input") {
-                    request.messages.forEach { message -> inputItems(message).forEach { add(it) } }
+                    request.messages.forEach { message -> inputItems(message, names).forEach { add(it) } }
                 }
-                if (request.tools.isNotEmpty()) {
-                    putJsonArray("tools") {
-                        request.tools.forEach { tool ->
-                            add(
-                                buildJsonObject {
-                                    put("type", "function")
-                                    put("name", tool.name.value)
-                                    put("description", tool.description)
-                                    put("parameters", parseSchema(tool.inputSchemaJson))
-                                },
-                            )
-                        }
-                    }
-                }
+                encodeTools(request, names)?.let { put("tools", it) }
                 request.temperature?.let { put("temperature", it) }
                 request.maxOutputTokens?.let { put("max_output_tokens", it) }
                 request.seed?.let { put("seed", it) }
@@ -101,13 +96,39 @@ public class ResponsesRequestEncoder(
         return root.toString()
     }
 
+    private fun encodeTools(
+        request: ModelRequest,
+        names: ResponsesToolNames,
+    ): kotlinx.serialization.json.JsonArray? {
+        if (request.tools.isEmpty() && !request.nativeWebSearch) return null
+        return kotlinx.serialization.json.buildJsonArray {
+            if (request.nativeWebSearch) add(buildJsonObject { put("type", "web_search") })
+            request.tools.forEach { tool ->
+                add(
+                    buildJsonObject {
+                        put("type", "function")
+                        put("name", names.encode(tool.name.value))
+                        put("description", tool.description)
+                        put("parameters", parseSchema(tool.inputSchemaJson))
+                        // Responses otherwise normalizes optional properties into required fields.
+                        // Preserve the canonical schema; local validation remains authoritative.
+                        put("strict", false)
+                    },
+                )
+            }
+        }
+    }
+
     /**
      * One [ModelMessage] can become MULTIPLE wire items: an assistant tool-call step
      * (HXA-037 back-fill) is a text `message` item (when it has text) followed by one
      * `function_call` item per call, in the model's original order; the following
      * `function_call_output` items answer them by call id.
      */
-    private fun inputItems(message: ModelMessage): List<JsonElement> {
+    private fun inputItems(
+        message: ModelMessage,
+        names: ResponsesToolNames,
+    ): List<JsonElement> {
         if (message.role == ModelRole.ASSISTANT && message.toolCalls.isNotEmpty()) {
             val items = mutableListOf<JsonElement>()
             if (message.text.isNotEmpty()) {
@@ -118,7 +139,7 @@ public class ResponsesRequestEncoder(
                     buildJsonObject {
                         put("type", "function_call")
                         put("call_id", call.id.value)
-                        put("name", call.name.value)
+                        put("name", names.encode(call.name.value))
                         put("arguments", call.argumentsJson)
                     }
             }

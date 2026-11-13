@@ -3,10 +3,10 @@ package com.helix.app.test
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.agent.TurnSteeringDraft
 import com.helix.app.agent.toRoundInput
-import com.helix.app.application.agent.GoalRunCoordinator
-import com.helix.app.application.agent.GoalTurnStart
-import com.helix.app.application.agent.StartedGoalTurn
+import com.helix.app.infrastructure.agent.GoalTurnStart
+import com.helix.app.infrastructure.agent.RoomGoalRunCommands
 import com.helix.app.infrastructure.agent.RoomTurnRoundStore
+import com.helix.app.infrastructure.agent.StartedGoalTurn
 import com.helix.app.infrastructure.agent.createRoomTurnEngine
 import com.helix.core.agent.Checkpoint
 import com.helix.core.agent.ModelStreamTerminal
@@ -71,7 +71,7 @@ internal class FixtureGoalRunCoordinator(
     clock: Clock,
     idGenerator: () -> String,
 ) {
-    private val delegate = GoalRunCoordinator(storage, clock, idGenerator)
+    private val delegate = RoomGoalRunCommands(storage, clock, idGenerator)
     private val engine =
         createRoomTurnEngine(storage, clock, idGenerator)
 
@@ -82,14 +82,6 @@ internal class FixtureGoalRunCoordinator(
         planId: PlanId? = null,
         planHash: Sha256? = null,
     ): String = delegate.create(objective, criteria, budgets, planId, planHash)
-
-    fun saveReadyGoal(
-        objective: String,
-        criteria: List<String>,
-        budgets: GoalBudgets,
-        planId: PlanId?,
-        planHash: Sha256?,
-    ): String = delegate.saveReadyGoal(objective, criteria, budgets, planId, planHash)
 
     fun start(request: GoalTurnStart): StartedGoalTurn? =
         delegate.start(request)?.also {

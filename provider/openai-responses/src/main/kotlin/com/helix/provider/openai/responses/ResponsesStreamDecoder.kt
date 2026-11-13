@@ -6,6 +6,7 @@ import com.helix.core.model.ToolCallId
 import com.helix.provider.api.StreamDecoder
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -53,7 +54,9 @@ import kotlinx.serialization.json.longOrNull
  * protocol surface.
  */
 @Suppress("TooManyFunctions")
-public class ResponsesStreamDecoder : StreamDecoder {
+public class ResponsesStreamDecoder(
+    private val decodeToolName: (String) -> String = { it },
+) : StreamDecoder {
     private val parser = ResponsesSseParser()
 
     // Known, recorded trade-off (M3 closeout review): the vendor CHUNK parser is lenient
@@ -68,6 +71,9 @@ public class ResponsesStreamDecoder : StreamDecoder {
     private var pendingRefusal = false
     private var hasFunctionCall = false
     private var toolCallCount = 0
+    private val openSearches = mutableSetOf<Int>()
+    private val finishedSearches = mutableSetOf<Int>()
+    private val citations = ResponsesCitations { throw ProtocolViolation(it) }
 
     /** Started-but-not-finished function calls (output_index -> id). The event contract
      * ([ModelEvent]: "deltas reference a tool call by index; ToolCallFinished closes an
@@ -105,6 +111,7 @@ public class ResponsesStreamDecoder : StreamDecoder {
         if (parser.isFailed && !protocolFailed) {
             failProtocol(out, "sse: ${parser.failure}")
         } else if (!terminalEmitted) {
+            markUnknownSearches(out)
             if (pendingRefusal) {
                 // The vendor signaled the content-filter refusal on the item level
                 // only; it is still a legitimate completion.
@@ -136,6 +143,8 @@ public class ResponsesStreamDecoder : StreamDecoder {
         }
     }
 
+    // This declarative switch mirrors the vendor event vocabulary; branches have independent handlers.
+    @Suppress("CyclomaticComplexMethod")
     private fun mapEvent(
         event: SseEvent,
         out: MutableList<ModelEvent>,
@@ -162,7 +171,19 @@ public class ResponsesStreamDecoder : StreamDecoder {
             }
 
             "response.output_item.done" -> {
-                handleOutputItemDone(event)
+                handleOutputItemDone(event, out)
+            }
+
+            "response.output_text.annotation.added" -> {
+                val obj = parsePayload(event)
+                citations.add(obj["annotation"])
+            }
+
+            "response.web_search_call.in_progress",
+            "response.web_search_call.searching",
+            "response.web_search_call.completed",
+            -> {
+                requireIndex(parsePayload(event))
             }
 
             "response.completed" -> {
@@ -184,7 +205,9 @@ public class ResponsesStreamDecoder : StreamDecoder {
             // response.created / response.in_progress / response.content_part.* /
             // ping and any future vendor event: ignored (forward compatible).
             else -> {
-                Unit
+                if (event.type.startsWith("response.web_search_call.")) {
+                    throw ProtocolViolation("unknown web search event")
+                }
             }
         }
     }
@@ -239,6 +262,13 @@ public class ResponsesStreamDecoder : StreamDecoder {
         val item =
             obj["item"] as? JsonObject
                 ?: throw ProtocolViolation("output_item.added: missing item")
+        if (stringOf(item["type"]) == "web_search_call") {
+            if (!openSearches.add(requireIndex(obj))) {
+                throw ProtocolViolation("duplicate web search output index")
+            }
+            out += searchStatus("started")
+            return
+        }
         if (stringOf(item["type"]) != "function_call") return
         val callId = requireString(item, "call_id")
         val name = requireString(item, "name")
@@ -275,7 +305,7 @@ public class ResponsesStreamDecoder : StreamDecoder {
         openCalls[index] = id
         argumentBuffers[index] = StringBuilder()
         hasFunctionCall = true
-        out += ModelEvent.ToolCallStarted(index, id, name)
+        out += ModelEvent.ToolCallStarted(index, id, decodeToolName(name))
     }
 
     private fun handleTextDelta(
@@ -327,9 +357,19 @@ public class ResponsesStreamDecoder : StreamDecoder {
         out += ModelEvent.ToolCallFinished(index)
     }
 
-    private fun handleOutputItemDone(event: SseEvent) {
+    private fun handleOutputItemDone(
+        event: SseEvent,
+        out: MutableList<ModelEvent>,
+    ) {
         val obj = parsePayload(event)
         val item = obj["item"] as? JsonObject ?: return
+        if (stringOf(item["type"]) == "web_search_call") {
+            finishSearch(requireIndex(obj), item, out)
+        }
+        if (stringOf(item["type"]) == "message") {
+            citations.addMessage(item)
+            citations.flush()?.let { out += ModelEvent.TextDelta(it) }
+        }
         if (stringOf(item["type"]) != "message" || stringOf(item["status"]) != "incomplete") return
         // Prime the refusal; the terminal is emitted by response.incomplete
         // (carrying the usage) or by finish() when the vendor sends no
@@ -350,10 +390,58 @@ public class ResponsesStreamDecoder : StreamDecoder {
         if (stringOf(response["status"]) != "completed") {
             throw ProtocolViolation("response.completed with unexpected status")
         }
+        collectFinalOutput(response, out)
         assertNoOpenCalls()
         emitUsage(response, out)
         terminalEmitted = true
         out += ModelEvent.Completed(if (hasFunctionCall) FINISH_TOOL_CALLS else FINISH_STOP)
+    }
+
+    private fun finishSearch(
+        index: Int,
+        item: JsonObject,
+        out: MutableList<ModelEvent>,
+    ) {
+        val status = stringOf(item["status"])
+        if (finishedSearches.add(index)) {
+            openSearches.remove(index)
+            val outcome =
+                when (status) {
+                    "completed" -> "completed"
+                    "failed" -> "failed"
+                    else -> "outcome unknown"
+                }
+            out += searchStatus(outcome)
+        }
+        if (status != "completed") throw ProtocolViolation("web search ended without completed status")
+    }
+
+    private fun markUnknownSearches(out: MutableList<ModelEvent>) {
+        openSearches.forEach { _ -> out += searchStatus("outcome unknown") }
+        finishedSearches.addAll(openSearches)
+        openSearches.clear()
+    }
+
+    private fun searchStatus(status: String): ModelEvent.TextDelta =
+        ModelEvent.TextDelta("\n\nOpenAI web search: $status.\n\n")
+
+    private fun collectFinalOutput(
+        response: JsonObject,
+        out: MutableList<ModelEvent>,
+    ) {
+        (response["output"] as? JsonArray)?.forEachIndexed { index, element ->
+            val item = element as? JsonObject ?: return@forEachIndexed
+            when (stringOf(item["type"])) {
+                "web_search_call" -> {
+                    finishSearch(index, item, out)
+                }
+
+                "message" -> {
+                    citations.addMessage(item)
+                }
+            }
+        }
+        citations.flush()?.let { out += ModelEvent.TextDelta(it) }
     }
 
     private fun handleFailed(
@@ -375,6 +463,7 @@ public class ResponsesStreamDecoder : StreamDecoder {
         val response =
             obj["response"] as? JsonObject
                 ?: throw ProtocolViolation("response.incomplete: missing response object")
+        collectFinalOutput(response, out)
         assertNoOpenCalls()
         emitUsage(response, out)
         terminalEmitted = true
@@ -397,6 +486,9 @@ public class ResponsesStreamDecoder : StreamDecoder {
      * Align: fail the stream, the user retries, the model regenerates.
      */
     private fun assertNoOpenCalls() {
+        if (openSearches.isNotEmpty()) {
+            throw ProtocolViolation("response terminated with unfinished web search")
+        }
         if (openCalls.isNotEmpty()) {
             throw ProtocolViolation("response terminated with ${openCalls.size} unfinished function call(s)")
         }
@@ -414,6 +506,7 @@ public class ResponsesStreamDecoder : StreamDecoder {
         code: String?,
         out: MutableList<ModelEvent>,
     ) {
+        markUnknownSearches(out)
         terminalEmitted = true
         val (error, retryable) = mapVendorError(code)
         out += ModelEvent.Error(error, retryable)
@@ -446,6 +539,7 @@ public class ResponsesStreamDecoder : StreamDecoder {
         detail: String,
     ) {
         if (protocolFailed) return
+        markUnknownSearches(out)
         out += ModelEvent.Error(ModelErrorCode.PROTOCOL, retryable = false)
         protocolFailed = true
         failureDetail = detail
@@ -481,6 +575,10 @@ public class ResponsesStreamDecoder : StreamDecoder {
                 "response.function_call_arguments.done",
                 "response.reasoning_summary_text.delta",
                 "response.output_item.done",
+                "response.output_text.annotation.added",
+                "response.web_search_call.in_progress",
+                "response.web_search_call.searching",
+                "response.web_search_call.completed",
                 "response.completed",
                 "response.failed",
                 "response.incomplete",

@@ -316,11 +316,107 @@ class SessionCatalogDeviceTest {
             )
         }
 
+    @Test fun modelCreationReceiptSurvivesServiceRecreationAndRevocation(): Unit =
+        Fixture().use { f ->
+            val source = f.catalog.create("source", null, null)
+            val caller = creationCaller(f, source)
+
+            fun service() =
+                com.helix.app.session.SessionCreationService(
+                    com.helix.app.session
+                        .RoomSessionCreationStore(f.storage),
+                    { title -> f.catalog.create(title, null, null) },
+                    { f.now },
+                )
+            service().setAllowed(source, true)
+            val receipt = service().create(caller, "stable-key", "New")
+            f.reopenStorage()
+            assertEquals(receipt, service().create(caller, "stable-key", "New"))
+            assertEquals(
+                2,
+                f.storage.sessions
+                    .list()
+                    .size,
+            )
+            assertEquals(
+                emptyList<com.helix.core.storage.entity.TurnEntity>(),
+                f.storage.turns.listBySession(receipt.createdSessionId),
+            )
+            assertNull(
+                f.storage.sessions
+                    .resolve(receipt.createdSessionId)
+                    .providerId,
+            )
+            assertFalse(service().allowed(receipt.createdSessionId))
+            service().setAllowed(source, false)
+            assertThrows(IllegalArgumentException::class.java) {
+                service().create(caller, "stable-key", "New")
+            }
+        }
+
+    @Test fun receiptFailureRollsBackCreatedSessionAndDefaults() =
+        Fixture().use { f ->
+            val source = f.catalog.create("source", null, null)
+            val caller = creationCaller(f, source)
+            val base =
+                com.helix.app.session
+                    .RoomSessionCreationStore(f.storage)
+            val failing =
+                object : com.helix.app.session.SessionCreationService.Store by base {
+                    override fun insert(receipt: com.helix.core.storage.entity.SessionCreationReceiptEntity): Unit =
+                        error("synthetic receipt failure")
+                }
+            val service =
+                com.helix.app.session.SessionCreationService(
+                    failing,
+                    { title -> f.catalog.create(title, null, null) },
+                    { f.now },
+                )
+            service.setAllowed(source, true)
+            assertThrows(IllegalStateException::class.java) { service.create(caller, "key", "New") }
+            assertEquals(
+                listOf(source),
+                f.storage.sessions
+                    .list()
+                    .map { it.id },
+            )
+            assertNull(base.receipt(source, "key"))
+        }
+
+    private fun creationCaller(
+        f: Fixture,
+        source: String,
+    ): com.helix.core.storage.repository.SessionHistoryCaller {
+        var turn = f.storage.turns.start("creation-turn", source, f.now)
+        listOf(
+            com.helix.core.model.TurnState.BUILDING_CONTEXT,
+            com.helix.core.model.TurnState.WAITING_MODEL,
+            com.helix.core.model.TurnState.RECEIVING_MODEL,
+            com.helix.core.model.TurnState.RUNNING_TOOL,
+        ).forEach {
+            turn = f.storage.turns.updateState(turn, it, 0, null, null)
+        }
+        f.storage.toolCalls.append("creation-call", turn.id, "wire-call", "session.create", "1", "{}", "RUNNING")
+        return com.helix.core.storage.repository.SessionHistoryCaller(
+            source,
+            turn.id,
+            "creation-call",
+            "session.create",
+        )
+    }
+
     private class Fixture : AutoCloseable {
         private val context = ApplicationProvider.getApplicationContext<Context>()
         private val name = "catalog-${UUID.randomUUID()}.db"
         private val root = File(context.filesDir, name)
-        val storage = HelixStorage.open(context, name, root)
+        var storage = HelixStorage.open(context, name, root)
+            private set
+
+        fun reopenStorage() {
+            storage.close()
+            storage = HelixStorage.open(context, name, root)
+        }
+
         private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         var now = 1000L
         var ids = 0

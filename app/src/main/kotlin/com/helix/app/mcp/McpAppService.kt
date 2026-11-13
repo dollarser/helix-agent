@@ -5,12 +5,14 @@ import com.helix.core.policy.DataSensitivity
 import com.helix.extensions.mcp.McpDynamicToolBridge
 import com.helix.extensions.mcp.McpHandshakeService
 import com.helix.extensions.mcp.McpHandshakeSnapshot
+import com.helix.extensions.mcp.McpResourceBlob
 import com.helix.extensions.mcp.McpServerConfig
 import com.helix.extensions.mcp.McpSessionCheckpointTracker
 import com.helix.extensions.mcp.McpSessionSendSummary
 import com.helix.extensions.mcp.McpSsrfEndpointGate
 import com.helix.extensions.mcp.McpToolDispatchFacts
 import com.helix.extensions.mcp.McpToolRuntime
+import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.ToolDescriptor
 import com.helix.tools.framework.ToolRegistry
 import kotlinx.serialization.json.JsonObject
@@ -23,6 +25,7 @@ class McpAppService(
     private val registry: ToolRegistry,
     lanScopes: () -> Set<com.helix.core.policy.NetworkOriginScope> = { emptySet() },
     private val prepareCredential: suspend (McpServerConfig) -> Unit = {},
+    publishResourceBlob: ((ExecutableToolCall, McpResourceBlob, Int) -> JsonObject)? = null,
     private val sourceAvailable: (String, String?) -> Boolean = { _, _ -> true },
 ) {
     private val callGate = Any()
@@ -62,7 +65,15 @@ class McpAppService(
 
     private val endpointGate = McpSsrfEndpointGate(profile, lanScopes)
     private val handshake = McpHandshakeService(storage.credentials(), endpointGate, "Helix", "1")
-    private val runtime = McpToolRuntime(storage.credentials(), endpointGate, "Helix", "1", prepareCredential)
+    private val runtime =
+        McpToolRuntime(
+            storage.credentials(),
+            endpointGate,
+            "Helix",
+            "1",
+            prepareCredential,
+            publishResourceBlob = publishResourceBlob,
+        )
     private val activeBridges = ConcurrentHashMap<String, McpDynamicToolBridge>()
     private val trackers = ConcurrentHashMap<String, McpSessionCheckpointTracker>()
     private val pendingSummaries = ConcurrentHashMap<String, PendingSend>()

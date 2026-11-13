@@ -17,9 +17,22 @@ import kotlinx.serialization.json.put
 import kotlin.time.Duration.Companion.seconds
 
 internal object SessionToolDescriptors {
-    val names = setOf("session.status", "session.history", "session.search", "session.read", "session.rename")
+    val names =
+        setOf(
+            "session.status",
+            "session.history",
+            "session.search",
+            "session.read",
+            "session.rename",
+            "session.list",
+            "session.archive",
+            "session.restore",
+        )
     private const val STRING_ID = """{"type":"string","minLength":1,"maxLength":256}"""
-    private const val BEFORE = """"beforeSequence":{"type":"integer","minimum":0}"""
+    private const val BEFORE =
+        """"beforeSequence":{"type":"integer","minimum":0,"description":"""" +
+            "Only without targetSessionId. Omit for the first page; then pass the previous result's " +
+            "nextBeforeSequence. Do not combine with cursor.\"}"
 
     fun descriptor(name: String) =
         ToolDescriptor(
@@ -29,9 +42,7 @@ internal object SessionToolDescriptors {
             inputSchema = schema(name),
             outputSchema = Json.parseToJsonElement("""{"type":"object"}""").jsonObject,
             operationClass =
-                if (name ==
-                    "session.rename"
-                ) {
+                if (name in setOf("session.rename", "session.archive", "session.restore")) {
                     ToolOperationClass.LOCAL_MUTATION
                 } else {
                     ToolOperationClass.READ_ONLY
@@ -47,26 +58,34 @@ internal object SessionToolDescriptors {
     private fun description(name: String): String =
         when (name) {
             "session.status" -> {
-                "Read this conversation's saved identity and title. Does not start work."
+                "Read saved identity and title for this conversation or an explicitly authorized target. " +
+                    "Authorized target status includes executionStatus NONE/ACTIVE/BLOCKED, turnState and " +
+                    "activeTurnId for CAS session.steer. A snapshot is not a guarantee the Turn remains active. " +
+                    "Does not read history or start work."
             }
 
             "session.history" -> {
-                "List saved user/assistant text, newest first. Default scope is this conversation; " +
+                "List saved user/assistant text, newest first, including compacted history and shared references. " +
+                    "Default scope is this conversation. With targetSessionId, continue with the returned cursor; " +
+                    "without targetSessionId, pass nextBeforeSequence as beforeSequence for older pages. " +
                     "referenceMessageId and referenceHash select a fixed source " +
-                    "explicitly shared with this conversation. " +
-                    "including compacted history and shared references. Use nextBeforeSequence for older pages " +
-                    "and session.read for bodies. Excludes superseded text, system prompts and tool traces."
+                    "explicitly shared with this conversation. Use session.read for bodies. " +
+                    "Excludes superseded text, system prompts and tool traces."
             }
 
             "session.search" -> {
-                "Search saved text in this conversation, or the fixed source shared by " +
+                "Search saved text in this conversation, an authorized targetSessionId, " +
+                    "or the fixed source shared by " +
                     "referenceMessageId/referenceHash. " +
-                    "Literal case-insensitive match over a bounded page. Continue with nextBeforeSequence, " +
-                    "even with no matches. Reports unavailable bodies; an empty page is not a complete search."
+                    "Literal case-insensitive match over a bounded page. With targetSessionId, continue with " +
+                    "the returned cursor; without targetSessionId, pass nextBeforeSequence as beforeSequence. " +
+                    "Continue even with no matches. Reports unavailable bodies; an empty page is not a complete search."
             }
 
             "session.read" -> {
-                "Read text found by session.history/search. For a shared source, " +
+                "Read text found by session.history/search, passing the same targetSessionId " +
+                    "for an authorized target. " +
+                    "For a shared source, " +
                     "pass referenceMessageId/referenceHash. " +
                     "Use its exact contentHash and optional referenceOrdinal. Offsets count Unicode characters. " +
                     "Shared source content cannot change silently, include appended messages, " +
@@ -75,9 +94,19 @@ internal object SessionToolDescriptors {
             }
 
             "session.rename" -> {
-                "Rename only this conversation through normal tool authorization. " +
+                "Rename this conversation or an explicitly authorized metadata target " +
+                    "through normal tool authorization. " +
                     "Read session.status and supply its exact title as expectedTitle. Does not change workspace, " +
-                    "model, permissions, execution, or other conversations."
+                    "model, permissions or execution."
+            }
+
+            "session.list" -> {
+                "List only user-authorized target metadata, without message bodies. Continue with cursor."
+            }
+
+            "session.archive", "session.restore" -> {
+                "Organize an explicitly authorized target. Supply exact expectedArchived status. " +
+                    "Does not stop work, revoke access or delete history."
             }
 
             else -> {
@@ -102,6 +131,10 @@ internal object SessionToolDescriptors {
                 "offset":{"type":"integer","minimum":0}"""
                 }
 
+                "session.archive", "session.restore" -> {
+                    "\"expectedArchived\":{\"type\":\"boolean\"}"
+                }
+
                 "session.rename" -> {
                     """"expectedTitle":{"type":"string","maxLength":200},
                 "title":{"type":"string","minLength":1,"maxLength":200}"""
@@ -111,13 +144,7 @@ internal object SessionToolDescriptors {
                     ""
                 }
             }
-        val required =
-            when (name) {
-                "session.search" -> listOf("query")
-                "session.read" -> listOf("messageId", "contentHash", "offset")
-                "session.rename" -> listOf("expectedTitle", "title")
-                else -> emptyList()
-            }
+        val required = requiredFields(name)
         val properties = Json.parseToJsonElement("{$fields}").jsonObject.toMutableMap()
         if (name in setOf("session.history", "session.search", "session.read")) {
             properties["referenceMessageId"] = Json.parseToJsonElement(STRING_ID)
@@ -126,6 +153,10 @@ internal object SessionToolDescriptors {
                     """{"type":"string","pattern":"^[a-f0-9]{64}$"}""",
                 )
         }
+        if (name != "session.list") properties["targetSessionId"] = Json.parseToJsonElement(STRING_ID)
+        if (name in setOf("session.list", "session.history", "session.search")) {
+            properties["cursor"] = cursorSchema(name)
+        }
         return buildJsonObject {
             put("type", "object")
             put("properties", JsonObject(properties))
@@ -133,4 +164,31 @@ internal object SessionToolDescriptors {
             put("additionalProperties", false)
         }
     }
+
+    private fun cursorSchema(name: String): JsonObject =
+        buildJsonObject {
+            put("type", "string")
+            put("minLength", 1)
+            put("maxLength", 4096)
+            put(
+                "description",
+                "Omit for the first page. Then pass the exact cursor returned by the previous call " +
+                    "to this tool; never invent or modify a cursor. " +
+                    if (name == "session.list") {
+                        "Do not reuse a cursor from another tool."
+                    } else {
+                        "Only with targetSessionId, for the same target and query. " +
+                            "Do not combine with beforeSequence or shared reference fields."
+                    },
+            )
+        }
+
+    private fun requiredFields(name: String): List<String> =
+        when (name) {
+            "session.search" -> listOf("query")
+            "session.read" -> listOf("messageId", "contentHash", "offset")
+            "session.rename" -> listOf("expectedTitle", "title")
+            "session.archive", "session.restore" -> listOf("expectedArchived")
+            else -> emptyList()
+        }
 }

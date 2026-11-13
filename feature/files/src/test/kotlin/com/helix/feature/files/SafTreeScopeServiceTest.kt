@@ -9,6 +9,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
+import java.io.IOException
+import java.nio.file.Files
 
 /**
  * HXA-057 (JVM gate): [SafTreeScopeService] — the persisted grant registry + real-time
@@ -46,6 +48,68 @@ class SafTreeScopeServiceTest {
         assertTrue(service.revoke(grant.scopeId))
         assertFalse(service.revoke(grant.scopeId))
         assertNull(service.source(grant.scopeId))
+    }
+
+    @Test
+    fun removalReleasesOnlyTheSelectedTreeBeforeForgettingIt() {
+        val path = storePath("release")
+        val store = SafGrantStore(path, clock)
+        val selected = "content://host/tree/selected"
+        val other = "content://host/tree/other"
+        val released = mutableListOf<String>()
+        val service =
+            SafTreeScopeService(store, liveCheck(selected, other)) { uri ->
+                assertEquals(uri, store.find(store.deriveScopeId(uri))?.treeUri)
+                released += uri
+            }
+        val source = service.grant(selected, "Selected")
+        service.grant(other, "Other")
+        assertTrue(service.revoke(source.scopeId))
+        assertFalse(service.revoke(source.scopeId))
+        assertFalse(service.revoke("unknown"))
+        assertEquals(listOf(selected), released)
+        assertEquals(listOf(other), SafGrantStore(path, clock).list().map { it.treeUri })
+        assertThrows(ScopeNotAvailable::class.java) { service.resolve(source.scopeId) }
+    }
+
+    @Test
+    fun permissionReleaseFailureRetainsTheSourceForRetry() {
+        val path = storePath("release-failure")
+        val tree = "content://host/tree/retry"
+        var failRelease = true
+        val service =
+            SafTreeScopeService(SafGrantStore(path, clock), liveCheck(tree)) {
+                if (failRelease) throw SecurityException("Release refused")
+            }
+        val source = service.grant(tree, "Retry")
+        assertThrows(SecurityException::class.java) { service.revoke(source.scopeId) }
+        assertEquals(source.scopeId, service.source(source.scopeId)?.scopeId)
+        assertEquals(source, SafGrantStore(path, clock).find(source.scopeId))
+        failRelease = false
+        assertTrue(service.revoke(source.scopeId))
+        assertTrue(SafGrantStore(path, clock).list().isEmpty())
+    }
+
+    @Test
+    fun persistenceFailureAfterReleaseKeepsIdentityForAnIdempotentRetry() {
+        val path = storePath("remove-persistence")
+        val tree = "content://host/tree/retry-persistence"
+        val permissions = mutableSetOf(tree)
+        val service =
+            SafTreeScopeService(SafGrantStore(path, clock), liveCheck(tree)) { permissions.remove(it) }
+        val source = service.grant(tree, "Retry")
+        val saved = Files.readAllBytes(path)
+        Files.delete(path)
+        Files.createDirectory(path)
+        val blocker = Files.createFile(path.resolve("blocker"))
+        assertThrows(IOException::class.java) { service.revoke(source.scopeId) }
+        assertTrue(permissions.isEmpty())
+        assertEquals(source.scopeId, service.source(source.scopeId)?.scopeId)
+        Files.delete(blocker)
+        Files.delete(path)
+        Files.write(path, saved)
+        assertTrue(service.revoke(source.scopeId))
+        assertTrue(SafGrantStore(path, clock).list().isEmpty())
     }
 
     // ── 来源列表: re-verifies on every call, omits dead grants ────────────────────────────

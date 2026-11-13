@@ -24,5 +24,6 @@ public class OpenAiResponsesAdapter(
     public val requestBodyEncoder: ResponsesRequestEncoder = ResponsesRequestEncoder(imageResolver)
 
     /** One decoder per stream (one model call); never share across calls. */
-    public fun newDecoder(): ResponsesStreamDecoder = ResponsesStreamDecoder()
+    public fun newDecoder(request: ModelRequest): ResponsesStreamDecoder =
+        ResponsesStreamDecoder(ResponsesToolNames(request)::decode)
 }

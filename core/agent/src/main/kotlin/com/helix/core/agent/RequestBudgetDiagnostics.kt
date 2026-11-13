@@ -5,11 +5,41 @@ import com.helix.core.agent.ModelStreamState
 import com.helix.core.agent.TurnBudgetTracker
 import com.helix.core.model.ModelRequest
 import com.helix.core.model.TurnBudgets
+import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
 /** Bounded counts and protocol categories, never prompt, result, endpoint or credential content. */
 object RequestBudgetDiagnostics {
+    /** Indexes identify the same ordered tools in the request manifest; no schema or description text is logged. */
+    fun tools(request: ModelRequest): String {
+        val costs = request.tools.map(ModelInputEstimate::toolBytes)
+        return buildJsonObject {
+            put("source", "estimated")
+            put("projection", "model_schema")
+            put("count", costs.size)
+            put("estimatedBytes", costs.sum())
+            put("estimatedTokens", TokenEstimator.estimateTokens(costs.sum()))
+            put("bytesPerToken", TokenEstimator.CONSERVATIVE_BYTES_PER_TOKEN)
+            put(
+                "largest",
+                buildJsonArray {
+                    costs.indices
+                        .sortedWith(compareByDescending<Int> { costs[it] }.thenBy { it })
+                        .take(3)
+                        .forEach { index ->
+                            add(
+                                buildJsonObject {
+                                    put("index", index)
+                                    put("estimatedBytes", costs[index])
+                                },
+                            )
+                        }
+                },
+            )
+        }.toString()
+    }
+
     fun admitted(
         request: ModelRequest,
         compacting: Boolean,
@@ -19,6 +49,7 @@ object RequestBudgetDiagnostics {
             put("source", "estimated")
             put("input", ModelInputEstimate.of(request).total)
             put("outputLimit", request.maxOutputTokens)
+            put("nativeWebSearch", request.nativeWebSearch)
         }.toString()
 
     fun request(

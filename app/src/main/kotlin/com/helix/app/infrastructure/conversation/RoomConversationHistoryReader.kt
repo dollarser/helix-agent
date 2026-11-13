@@ -191,21 +191,32 @@ internal class RoomConversationHistoryReader(
         content: String?,
         references: List<KnowledgeReference>,
     ): String? {
-        if (references.isEmpty()) return content
+        val source =
+            storage.sessionInputs
+                .forMessage(messageId)
+                ?.delegation
+                ?.sourceSessionId
+        val origin =
+            source
+                ?.let {
+                    strings(com.helix.feature.conversation.R.string.session_input_delegated_from, arrayOf(it)) + "\n\n"
+                }.orEmpty()
+        if (references.isEmpty()) return if (source == null) content else origin + content.orEmpty()
         val original = content.orEmpty()
         val prefix =
             AttachmentContext.authoredPrefix(
                 original,
                 storage.messageAttachments.listByMessage(messageId).size,
             )
-        return KnowledgeReferences.authoredPrefix(
-            prefix,
-            references,
-            storage.sessionInputs
-                .forMessage(messageId)
-                ?.inputId
-                .orEmpty(),
-        ) +
+        return origin +
+            KnowledgeReferences.authoredPrefix(
+                prefix,
+                references,
+                storage.sessionInputs
+                    .forMessage(messageId)
+                    ?.inputId
+                    .orEmpty(),
+            ) +
             original.substring(prefix.length)
     }
 

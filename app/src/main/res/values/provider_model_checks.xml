@@ -1,0 +1,8 @@
+<resources>
+    <string name="provider_row_protocol">接口：%1$s</string>
+    <string name="provider_directory_passed">模型目录已读取</string>
+    <string name="provider_model_connection_passed">模型请求已通过</string>
+    <string name="provider_directory_unsupported_short">不支持目录验证</string>
+    <string name="provider_directory_unsupported">此接口不提供模型目录，请在具体模型下进行基础生成测试。</string>
+    <string name="provider_model_check_failed">%1$s：测试未完成或未通过，请查看该模型的验证结果。</string>
+</resources>

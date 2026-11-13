@@ -94,4 +94,5 @@
     <string name="voice_input_modes_title">语音输入</string>
     <string name="voice_input_single">单次语音</string>
     <string name="composer_add_session_group">本会话能力</string>
+    <string name="chat_reasoning_unsupported">This model has no adjustable reasoning effort.</string>
 </resources>

@@ -69,6 +69,7 @@ class SafGrantStore(
      * @return the persisted grant.
      * @throws IllegalArgumentException when [treeUri] is not a content:// URI.
      */
+    @Synchronized
     fun grant(
         treeUri: String,
         displayName: String,
@@ -89,22 +90,27 @@ class SafGrantStore(
     }
 
     /** Removes the grant [scopeId] names. @return true when an entry was removed. */
+    @Synchronized
     fun revoke(scopeId: String): Boolean {
-        val removed = grants.remove(scopeId) != null
-        if (removed) persist()
-        return removed
+        if (scopeId !in grants) return false
+        persist(grants.values.filterNot { it.scopeId == scopeId })
+        grants.remove(scopeId)
+        return true
     }
 
     /** The grant [scopeId] names, or null. */
+    @Synchronized
     override fun find(scopeId: String): SafTreeGrant? = grants[scopeId]
 
     /** All grants, oldest first. */
+    @Synchronized
     override fun list(): List<SafTreeGrant> = grants.values.sortedBy { it.grantedAtMillis }
 
     /**
      * 撤销检测 sweep: probes every stored tree and removes (persisting) the grants whose
      * provider no longer answers. @return the grants that were revoked, oldest first.
      */
+    @Synchronized
     fun sweepRevoked(probe: SafGrantProbe): List<SafTreeGrant> {
         val revoked = grants.values.filter { !probe.isStillGranted(it.treeUri) }
         if (revoked.isNotEmpty()) {
@@ -129,14 +135,14 @@ class SafGrantStore(
         return SCOPE_ID_PREFIX + hex.substring(0, 12)
     }
 
-    private fun persist() {
+    private fun persist(entries: Collection<SafTreeGrant> = grants.values) {
         val document =
             buildJsonObject {
                 put("version", FORMAT_VERSION)
                 put(
                     "grants",
                     buildJsonArray {
-                        grants.values
+                        entries
                             .sortedBy { it.grantedAtMillis }
                             .forEach { g ->
                                 add(

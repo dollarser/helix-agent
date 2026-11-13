@@ -31,6 +31,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
@@ -155,10 +156,10 @@ class ProviderModelsIntegrationDeviceTest {
         runBlocking {
             Fixture().use { f ->
                 f.service.saveSelectedModels("p", listOf("a", "b"))
-                check(f.service.runConnectionTest("p", "b") is ProbeOutcome.Ok)
+                check(f.service.runConnectionTest("p", "b", verifyGeneration = true) is ProbeOutcome.Ok)
                 check(f.service.runCapabilityTest("p", "b") is ProbeOutcome.Ok)
                 f.generationFailure = ModelErrorCode.PROTOCOL
-                check(f.service.runConnectionTest("p", "a") is ProbeOutcome.Failed)
+                check(f.service.runConnectionTest("p", "a", verifyGeneration = true) is ProbeOutcome.Failed)
                 assertTrue(f.service.chatSelectable("p"))
                 assertFalse(
                     f.service.rows.value
@@ -173,7 +174,7 @@ class ProviderModelsIntegrationDeviceTest {
                 f.capabilityFailure = ModelErrorCode.PROTOCOL
                 check(f.service.runCapabilityTest("p", "b") is ProbeOutcome.Failed)
                 f.generationFailure = null
-                check(f.service.runConnectionTest("p", "b") is ProbeOutcome.Ok)
+                check(f.service.runConnectionTest("p", "b", verifyGeneration = true) is ProbeOutcome.Ok)
                 val row =
                     f.service.rows.value
                         .single()
@@ -282,8 +283,271 @@ class ProviderModelsIntegrationDeviceTest {
             }
         }
 
+    @Test fun directoryConnectionPublishesCatalogWithoutModelEvidenceOrExtraRequests() =
+        runBlocking {
+            for (catalog in listOf(
+                ModelCatalogResult.Listed(emptyList()),
+                ModelCatalogResult.Listed(listOf("embedding-only")),
+            )) {
+                Fixture().use { f ->
+                    f.catalog = catalog
+                    assertTrue(f.service.runConnectionTest("p") is ProbeOutcome.Ok)
+                    assertEquals(1, f.catalogCalls)
+                    assertEquals(0, f.generations)
+                    assertEquals(0, f.contextCalls)
+                    assertEquals(0, f.metadataCalls)
+                    assertEquals(emptyList<String>(), f.probed)
+                    val row =
+                        f.service.rows.value
+                            .single()
+                    assertTrue(row.status is ConnectionTestStatus.Passed)
+                    assertEquals(catalog.models, row.backendModels)
+                    assertTrue(row.modelGenerations.isEmpty())
+                    assertTrue(row.modelVerifications.isEmpty())
+                }
+            }
+        }
+
+    @Test fun directoryConnectionPreservesPreviouslyDiscoveredModelContext() =
+        runBlocking {
+            Fixture().use { f ->
+                f.contextWindow = 8192L
+                assertEquals(8192L, f.service.discoverContextWindow("p", "a").serverWindow)
+                f.contextCalls = 0
+                f.metadataCalls = 0
+                assertTrue(f.service.runConnectionTest("p") is ProbeOutcome.Ok)
+                assertEquals(0, f.contextCalls)
+                assertEquals(0, f.metadataCalls)
+                assertEquals(8192L, f.service.contextSettings("p", "a").serverWindow)
+            }
+        }
+
+    @Test fun failedDirectoryDoesNotPublishModelFailureOrMakeExtraRequests() =
+        runBlocking {
+            for (catalog in listOf(
+                ModelCatalogResult.Unsupported,
+                ModelCatalogResult.Failed(ModelErrorCode.AUTH, "HTTP 401", false),
+                ModelCatalogResult.Failed(ModelErrorCode.TIMEOUT, "catalog timeout", true),
+            )) {
+                Fixture().use { f ->
+                    f.catalog = catalog
+                    val outcome = f.service.runConnectionTest("p") as ProbeOutcome.Failed
+                    if (catalog is ModelCatalogResult.Failed) {
+                        assertEquals(catalog.code, outcome.code)
+                        assertEquals(catalog.detail, outcome.detail)
+                        assertEquals(catalog.retryable, outcome.retryable)
+                    } else {
+                        assertEquals("MODEL_CATALOG_UNSUPPORTED", outcome.detail)
+                    }
+                    assertEquals(1, f.catalogCalls)
+                    assertEquals(0, f.generations)
+                    assertEquals(0, f.contextCalls)
+                    assertEquals(0, f.metadataCalls)
+                    val row =
+                        f.service.rows.value
+                            .single()
+                    assertTrue(row.modelGenerations.isEmpty())
+                    assertTrue(row.modelVerifications.isEmpty())
+                    assertFalse(f.service.chatSelectable("p"))
+                }
+            }
+        }
+
+    @Test fun cancelledDirectoryDoesNotPublishOrStartAnotherRequest() =
+        runBlocking {
+            Fixture().use { f ->
+                f.service.refresh()
+                val initial =
+                    kotlinx.coroutines.withTimeout(5000) {
+                        f.service.rows
+                            .first { rows -> rows.any { it.id == "p" } }
+                            .single()
+                    }
+                val entered = CompletableDeferred<Unit>()
+                f.catalogPause = {
+                    entered.complete(Unit)
+                    kotlinx.coroutines.awaitCancellation()
+                }
+                val test = async { f.service.runConnectionTest("p") }
+                entered.await()
+                test.cancel()
+                test.join()
+                assertTrue(test.isCancelled)
+                assertEquals(1, f.catalogCalls)
+                assertEquals(0, f.generations)
+                assertEquals(0, f.contextCalls)
+                assertEquals(0, f.metadataCalls)
+                val row =
+                    f.service.rows.value
+                        .single()
+                assertEquals(initial, row)
+                assertFalse(row.status is ConnectionTestStatus.Passed)
+                assertTrue(row.modelGenerations.isEmpty())
+                assertTrue(row.modelVerifications.isEmpty())
+            }
+        }
+
+    @Test fun unsupportedDirectoryDoesNotRevokeIndependentModelGeneration() =
+        runBlocking {
+            Fixture().use { f ->
+                f.catalog = ModelCatalogResult.Unsupported
+                val first = f.service.runConnectionTest("p") as ProbeOutcome.Failed
+                assertEquals("MODEL_CATALOG_UNSUPPORTED", first.detail)
+                assertTrue((f.status.statusFor("p") as ConnectionTestStatus.Failed).catalogUnsupported)
+                assertEquals(0, f.generations)
+                assertTrue(f.service.runConnectionTest("p", "b", verifyGeneration = true) is ProbeOutcome.Ok)
+                val passed = f.status.statusFor("p") as ConnectionTestStatus.Passed
+                val generation =
+                    f.service.rows.value
+                        .single()
+                        .modelGenerations
+                        .getValue("b")
+                val repeated = f.service.runConnectionTest("p") as ProbeOutcome.Failed
+                assertEquals("MODEL_CATALOG_UNSUPPORTED", repeated.detail)
+                assertEquals(passed, f.status.statusFor("p"))
+                assertEquals(
+                    generation,
+                    f.service.rows.value
+                        .single()
+                        .modelGenerations
+                        .getValue("b"),
+                )
+                assertEquals(1, f.generations)
+                assertEquals(3, f.catalogCalls)
+            }
+        }
+
+    @Test fun staleContextConfigurationCannotLoadDiscoverOrWriteAcrossEndpoints() =
+        runBlocking {
+            Fixture().use { f ->
+                val original = f.service.storedConfig("p")
+                f.service.saveContextSettings(
+                    "p",
+                    "a",
+                    com.helix.provider.api
+                        .ProviderContextSettings(manualWindow = 8192L),
+                    expectedConfig = original,
+                )
+                f.contextWindow = 16384L
+                assertEquals(16384L, f.service.discoverContextWindow("p", "a", expectedConfig = original).serverWindow)
+                val oldSettings = f.service.contextSettingsStore.read("p", original.transport.cacheKey, "a")
+                changeEndpoint(f, original)
+                val current = f.service.storedConfig("p")
+                f.service.saveContextSettings(
+                    "p",
+                    "a",
+                    com.helix.provider.api
+                        .ProviderContextSettings(manualWindow = 32768L),
+                    expectedConfig = current,
+                )
+                val newSettings = f.service.contextSettingsStore.read("p", current.transport.cacheKey, "a")
+                val calls = f.contextCalls
+                val staleOperations: List<suspend () -> Unit> =
+                    listOf(
+                        {
+                            f.service.contextSettings("p", "a", expectedConfig = original)
+                            Unit
+                        },
+                        {
+                            f.service.discoverContextWindow("p", "a", expectedConfig = original)
+                            Unit
+                        },
+                        {
+                            f.service.saveContextSettings(
+                                "p",
+                                "a",
+                                com.helix.provider.api
+                                    .ProviderContextSettings(manualWindow = 65536L),
+                                expectedConfig = original,
+                            )
+                        },
+                    )
+                for (operation in staleOperations) {
+                    try {
+                        operation()
+                        org.junit.Assert.fail("Stale context operation must reject its original configuration")
+                    } catch (_: ProviderDraftSaveConflictException) {
+                        // The explicit conflict is required; an arbitrary failure is not sufficient.
+                    }
+                }
+                assertEquals(calls, f.contextCalls)
+                assertEquals(oldSettings, f.service.contextSettingsStore.read("p", original.transport.cacheKey, "a"))
+                assertEquals(newSettings, f.service.contextSettingsStore.read("p", current.transport.cacheKey, "a"))
+                assertEquals(32768L, f.service.contextSettings("p", "a", expectedConfig = current).manualWindow)
+            }
+        }
+
+    @Test fun staleModelDialogCannotSaveSelectionOrDiscoverAnotherEndpoint() =
+        runBlocking {
+            Fixture().use { f ->
+                f.service.saveSelectedModels("p", listOf("a"))
+                val original = f.service.storedConfig("p")
+                val baseline =
+                    f.service.rows.value
+                        .single()
+                        .modelSelection
+                changeEndpoint(f, original)
+                val selected = ProviderModelSelection(listOf("b"), configured = true)
+                assertConfigurationConflict {
+                    f.service.saveModelSelection("p", selected, baseline, expectedConfig = original)
+                }
+                assertConfigurationConflict {
+                    f.service.refreshModelCatalog("p", expectedConfig = original)
+                }
+                assertEquals(
+                    baseline,
+                    f.service.rows.value
+                        .single()
+                        .modelSelection,
+                )
+                assertEquals(0, f.catalogCalls)
+                assertEquals(0, f.metadataCalls)
+                assertEquals(0, f.contextCalls)
+                assertEquals(0, f.generations)
+                val current = f.service.storedConfig("p")
+                f.service.saveModelSelection("p", selected, baseline, expectedConfig = current)
+                assertEquals(
+                    selected,
+                    f.service.rows.value
+                        .single()
+                        .modelSelection,
+                )
+                assertTrue(f.service.refreshModelCatalog("p", expectedConfig = current) is ModelCatalogResult.Listed)
+                assertEquals(1, f.catalogCalls)
+            }
+        }
+
+    private suspend fun changeEndpoint(
+        fixture: Fixture,
+        original: ProviderConfig,
+    ) {
+        fixture.service.update(
+            "p",
+            ProviderDraft(
+                templateId = null,
+                displayName = original.displayName,
+                protocol = original.protocol,
+                endpoint = NormalizedEndpoint.parse("https://changed.test/v1"),
+                model = original.model,
+                headersJson = "{}",
+                credentialRequired = false,
+            ),
+            null,
+        )
+    }
+
+    private suspend fun assertConfigurationConflict(action: suspend () -> Unit) {
+        try {
+            action()
+            org.junit.Assert.fail("Stale model operation must reject its original configuration")
+        } catch (_: ProviderDraftSaveConflictException) {
+            // Only the explicit configuration conflict satisfies this contract.
+        }
+    }
+
     internal class Fixture(
         private val managed: Boolean = false,
+        private val draftCatalog: Boolean = false,
     ) : AutoCloseable {
         val context: Context = ApplicationProvider.getApplicationContext()
         val suffix = UUID.randomUUID().toString()
@@ -294,7 +558,14 @@ class ProviderModelsIntegrationDeviceTest {
         private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         val probed = mutableListOf<String>()
         var generations = 0
+        var catalog: ModelCatalogResult = ModelCatalogResult.Listed(listOf("a", "b", "new"))
+        var catalogCalls = 0
+        var contextCalls = 0
+        var contextWindow: Long? = null
+        var metadataCalls = 0
+        var catalogPause: suspend () -> Unit = {}
         val requests = mutableListOf<ModelRequest>()
+        val catalogRequests = java.util.concurrent.CopyOnWriteArrayList<WireRequest>()
         var generationFailure: ModelErrorCode? = null
         var capabilityFailure: ModelErrorCode? = null
         var login = ManagedAccountSnapshot(ManagedAccountSnapshot.State.LOGGED_IN, FIRST_LOGIN)
@@ -319,7 +590,24 @@ class ProviderModelsIntegrationDeviceTest {
             val wire =
                 object : WireClient {
                     override suspend fun open(request: WireRequest): WireResponse {
-                        error("No network")
+                        check(draftCatalog && request.method == "GET" && request.url.endsWith("/models")) {
+                            "Unexpected fixture request"
+                        }
+                        catalogRequests += request
+                        return WireResponse(
+                            200,
+                            emptyMap(),
+                            object : com.helix.provider.api.wire.WireBody {
+                                override suspend fun bytes() =
+                                    """{"data":[{"id":"a"},{"id":"b"},{"id":"new"}]}""".toByteArray()
+
+                                override suspend fun forEachChunk(onChunk: suspend (ByteArray) -> Boolean) {
+                                    error("No streamed fixture request")
+                                }
+
+                                override fun close() = Unit
+                            },
+                        )
                     }
                 }
             val factory =
@@ -361,8 +649,21 @@ class ProviderModelsIntegrationDeviceTest {
                         model = config.model,
                     )
 
-                override suspend fun listModels(): ModelCatalogResult =
-                    ModelCatalogResult.Listed(listOf("a", "b", "new"))
+                override suspend fun listModels(): ModelCatalogResult {
+                    catalogCalls++
+                    catalogPause()
+                    return catalog
+                }
+
+                override suspend fun contextWindow(model: String): Long? {
+                    contextCalls++
+                    return contextWindow
+                }
+
+                override suspend fun modelMetadata(): Map<String, com.helix.provider.api.ModelMetadata> {
+                    metadataCalls++
+                    return emptyMap()
+                }
 
                 override suspend fun validateConfiguration(): ProviderCheckResult = ProviderCheckResult.Ok
 

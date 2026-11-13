@@ -718,6 +718,9 @@ class ChatService(
 
     fun newSessionDraft(): String? = openSessionDraft(null)
 
+    /** Current selection authority; screen projections may still describe the previous conversation. */
+    fun isCurrentConversation(sessionId: String): Boolean = openSessionId == sessionId
+
     /** Capture admission against the service owner, not an asynchronously refreshed UI snapshot. */
     suspend fun attachFileToConversation(
         uri: String,
@@ -1669,7 +1672,8 @@ class ChatService(
         return goal
     }
 
-    suspend fun goalSummaries() = goals.goalSummaries(resolvableOpenSessionId())
+    // Resolve the persisted session on IO too, before invoking the Goal adapter.
+    suspend fun goalSummaries() = withContext(Dispatchers.IO) { goals.goalSummaries(resolvableOpenSessionId()) }
 
     /** Cross-session goal list for the Tasks dashboard (doc section 13). */
     suspend fun goalSummariesAll() = goals.goalSummariesAll()
@@ -1683,12 +1687,13 @@ class ChatService(
         return changed
     }
 
-    suspend fun recheckGoalBlocker(goalId: String): Boolean {
-        val session = resolvableOpenSessionId() ?: return false
-        val resolved = goals.recheckGoalBlocker(goalId, session)
-        refreshTaskDashboards()
-        return resolved
-    }
+    suspend fun recheckGoalBlocker(goalId: String): Boolean =
+        withContext(Dispatchers.IO) {
+            val session = resolvableOpenSessionId() ?: return@withContext false
+            val resolved = goals.recheckGoalBlocker(goalId, session)
+            refreshTaskDashboards()
+            resolved
+        }
 
     suspend fun updateGoalBudgets(
         goalId: String,
@@ -3591,6 +3596,9 @@ class ChatService(
         modelCallId: String,
         messageIds: Set<String>,
     ) = goalRuntime.bindInputAuthority(sessionId, turnId, modelCallId, messageIds)
+
+    /** Host delivery notification; the existing scheduler owns admission and busy-target ordering. */
+    fun notifyAcceptedInput(sessionId: String) = requestSessionDrain(sessionId)
 
     /** Every wake queues on the same admission mutex; a wake arriving during drain is never lost. */
     @Suppress("TooGenericExceptionCaught")

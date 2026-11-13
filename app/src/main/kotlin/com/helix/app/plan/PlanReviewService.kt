@@ -1,6 +1,6 @@
 package com.helix.app.plan
 
-import com.helix.app.application.agent.GoalRunCoordinator
+import com.helix.app.infrastructure.agent.RoomGoalRunCommands
 import com.helix.core.model.Clock
 import com.helix.core.model.GoalBudgets
 import com.helix.core.model.PlanArtifact
@@ -150,7 +150,7 @@ internal class StoragePlanReviewPort(
             } else {
                 require(row.state == PlanLifecycleState.APPROVED.name) { "Plan is no longer approved" }
                 val goalId =
-                    GoalRunCoordinator(storage, clock, idGenerator).saveReadyGoal(
+                    RoomGoalRunCommands(storage, clock, idGenerator).create(
                         plan.objective,
                         plan.acceptanceCriteria,
                         budgets,

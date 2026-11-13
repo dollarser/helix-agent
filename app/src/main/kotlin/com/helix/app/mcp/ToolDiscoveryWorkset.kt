@@ -1,5 +1,8 @@
 package com.helix.app.mcp
 
+import com.helix.app.application.tools.ToolModelSchemaProjection
+import com.helix.core.agent.ModelInputEstimate
+import com.helix.core.agent.TokenEstimator
 import com.helix.core.model.ToolName
 import com.helix.tools.framework.ToolDescriptor
 
@@ -7,18 +10,9 @@ import com.helix.tools.framework.ToolDescriptor
 internal object ToolDiscoveryWorkset {
     private const val RECENT_SCHEMA_BYTES = 64 * 1024L
     private const val EAGER_MCP_BYTES = 16 * 1024L
-    private const val SCHEMA_FRAME_BYTES = 128L
 
-    fun bytes(tool: ToolDescriptor): Long =
-        tool.name.value
-            .toByteArray(Charsets.UTF_8)
-            .size
-            .toLong() +
-            tool.description.toByteArray(Charsets.UTF_8).size +
-            tool.inputSchema
-                .toString()
-                .toByteArray(Charsets.UTF_8)
-                .size + SCHEMA_FRAME_BYTES
+    /** Includes path guidance and presentation metadata through the actual request projection. */
+    fun bytes(tool: ToolDescriptor): Long = ModelInputEstimate.toolBytes(ToolModelSchemaProjection.project(tool))
 
     fun retain(
         matches: List<ToolDescriptor>,
@@ -26,13 +20,16 @@ internal object ToolDiscoveryWorkset {
         available: List<ToolDescriptor>,
     ): List<ToolDescriptor> {
         val selected = complete(matches, available).toMutableList()
-        var used = selected.sumOf(::bytes)
+        val costs = mutableMapOf<ToolDescriptor, Long>()
+
+        fun cost(tool: ToolDescriptor): Long = costs.getOrPut(tool) { bytes(tool) }
+        var used = selected.sumOf(::cost)
         previous.forEach { tool ->
             val group = complete(listOf(tool), available).filter { it !in selected }
-            val cost = group.sumOf(::bytes)
-            if (used + cost <= RECENT_SCHEMA_BYTES) {
+            val groupCost = group.sumOf(::cost)
+            if (used + groupCost <= RECENT_SCHEMA_BYTES) {
                 selected += group
-                used += cost
+                used += groupCost
             }
         }
         return selected
@@ -42,10 +39,19 @@ internal object ToolDiscoveryWorkset {
         val selected = mutableListOf<ToolDescriptor>()
         var remaining = EAGER_MCP_BYTES
         tools.groupBy { ToolDiscoveryMetadata.of(it).source }.toSortedMap().values.forEach { group ->
-            val cost = group.sumOf(::bytes)
-            if (cost <= remaining) {
-                selected += group
-                remaining -= cost
+            // A lower bound avoids projecting large, unselected catalogs (including unsupported
+            // presentation-key collisions). Admission still uses the complete final projection.
+            val lowerBound =
+                group.sumOf {
+                    TokenEstimator.utf8Bytes(it.name.value) +
+                        ModelInputEstimate.toolBytes(it.description, it.inputSchema.toString())
+                }
+            if (lowerBound <= remaining) {
+                val cost = group.sumOf(::bytes)
+                if (cost <= remaining) {
+                    selected += group
+                    remaining -= cost
+                }
             }
         }
         return selected

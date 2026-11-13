@@ -1,5 +1,6 @@
 package com.helix.app.chat
 
+import com.helix.core.storage.repository.SessionAccessRepository
 import com.helix.core.storage.repository.SessionHistoryCaller
 import com.helix.core.storage.repository.SessionHistoryRepository
 import com.helix.tools.framework.ExecutableToolCall
@@ -7,7 +8,6 @@ import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolRegistry
 import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import java.io.IOException
 import java.time.Instant
@@ -17,6 +17,7 @@ internal object SessionTools {
     fun register(
         registry: ToolRegistry,
         repository: SessionHistoryRepository,
+        accessRepository: SessionAccessRepository,
         onRenamed: () -> Unit = {},
     ) {
         SessionToolDescriptors.names.forEach { name ->
@@ -24,7 +25,7 @@ internal object SessionTools {
                 SessionToolDescriptors.descriptor(name),
                 object : ToolExecutor {
                     override fun execute(call: ExecutableToolCall): ToolExecutorResult =
-                        execute(repository, call, onRenamed)
+                        execute(repository, call, onRenamed, accessRepository)
                 },
             )
         }
@@ -34,6 +35,7 @@ internal object SessionTools {
         repository: SessionHistoryRepository,
         call: ExecutableToolCall,
         onRenamed: () -> Unit,
+        accessRepository: SessionAccessRepository,
     ): ToolExecutorResult {
         return try {
             checkActive(call)
@@ -45,6 +47,19 @@ internal object SessionTools {
                     call.toolName,
                 )
             val session = repository.caller(caller)
+            if (call.toolName in setOf("session.list", "session.rename", "session.archive", "session.restore") ||
+                "targetSessionId" in call.args
+            ) {
+                return SessionTargetTools.execute(
+                    repository,
+                    accessRepository,
+                    caller,
+                    call,
+                    onRenamed,
+                ) {
+                    checkActive(call)
+                }
+            }
             val output =
                 when (call.toolName) {
                     "session.status" -> {
@@ -58,15 +73,11 @@ internal object SessionTools {
                     }
 
                     "session.history", "session.search" -> {
-                        SessionToolHistory.history(repository, caller, call) { checkActive(call) }
+                        SessionToolHistory.history(repository, caller, call, checkActive = { checkActive(call) })
                     }
 
                     "session.read" -> {
-                        SessionToolHistory.read(repository, caller, call) { checkActive(call) }
-                    }
-
-                    "session.rename" -> {
-                        return rename(repository, caller, call, onRenamed)
+                        SessionToolHistory.read(repository, caller, call, checkActive = { checkActive(call) })
                     }
 
                     else -> {
@@ -105,34 +116,8 @@ internal object SessionTools {
         )
     }
 
-    private fun rename(
-        repository: SessionHistoryRepository,
-        caller: SessionHistoryCaller,
-        call: ExecutableToolCall,
-        onRenamed: () -> Unit,
-    ): ToolExecutorResult {
-        checkActive(call)
-        val changed = repository.rename(caller, call.text("expectedTitle"), call.text("title"))
-        if (!changed) {
-            return ToolExecutorResult.Failed(
-                "SESSION_CHANGED: read session.status before retry.",
-                sideEffectFree = true,
-            )
-        }
-        // Notifications are advisory. A failed observer cannot undo a committed rename.
-        val notified = notifyRename(onRenamed)
-        return ToolExecutorResult.Completed(
-            buildJsonObject {
-                put("sessionId", caller.sessionId)
-                put("title", call.text("title").trim())
-                put("applied", true)
-            },
-            auditDetail = buildJsonObject { put("observerNotified", notified) },
-        )
-    }
-
     @Suppress("TooGenericExceptionCaught", "SwallowedException") // Advisory UI invalidation after the durable commit.
-    private fun notifyRename(callback: () -> Unit): Boolean =
+    internal fun notifyRename(callback: () -> Unit): Boolean =
         try {
             callback()
             true
@@ -147,6 +132,4 @@ internal object SessionTools {
     }
 
     private class SessionReadStopped : java.util.concurrent.CancellationException()
-
-    private fun ExecutableToolCall.text(key: String) = args.getValue(key).jsonPrimitive.content
 }

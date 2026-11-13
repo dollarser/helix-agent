@@ -2,16 +2,12 @@ package com.helix.app.application.tools
 
 import android.util.Log
 import com.helix.app.agent.UnresolvedEffectPolicy
-import com.helix.app.application.tools.GoalToolCallBudget
-import com.helix.app.application.tools.PendingTurnApprovals
 import com.helix.app.tool.ToolPipeline
 import com.helix.core.agent.AgentToolGateway
 import com.helix.core.agent.BufferedModelToolCall
-import com.helix.core.agent.LocalToolCallBatch
 import com.helix.core.agent.RunControlConfig
 import com.helix.core.agent.SettledBatch
 import com.helix.core.agent.SettledCall
-import com.helix.core.agent.TurnMessageDraft
 import com.helix.core.agent.runtime.TurnExecutionHandles
 import com.helix.core.model.AgentMode
 import com.helix.core.model.ApprovalDecision
@@ -19,13 +15,9 @@ import com.helix.core.model.ApprovalWaitCancelledException
 import com.helix.core.model.Clock
 import com.helix.core.model.DispatchOutcomeCode
 import com.helix.core.model.SafetyProfile
-import com.helix.core.model.ToolCallState
 import com.helix.core.model.ToolDispatchOutcome
 import com.helix.core.model.ToolName
 import com.helix.core.policy.DataOrigin
-import com.helix.core.storage.HelixStorage
-import com.helix.core.storage.entity.TurnEntity
-import com.helix.core.storage.repository.ToolCallOrigin
 import com.helix.tools.framework.ApprovalRequest
 import com.helix.tools.framework.CanonicalArgs
 import com.helix.tools.framework.ToolDescriptor
@@ -34,7 +26,6 @@ import com.helix.tools.framework.ToolScheduler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 
 /**
@@ -43,10 +34,10 @@ import kotlinx.serialization.json.JsonObject
  */
 @Suppress("LongParameterList", "TooManyFunctions", "LargeClass")
 internal class ApplicationToolGateway(
-    private val storage: HelixStorage,
+    private val store: ToolGatewayStore,
+    settlementStore: ToolSettlementStore,
     private val toolPipeline: ToolPipeline,
     private val clock: Clock,
-    private val idGenerator: () -> String,
     private val profile: StateFlow<SafetyProfile>,
     private val workScope: CoroutineScope,
     private val presentation: ToolPresentationSink,
@@ -58,10 +49,7 @@ internal class ApplicationToolGateway(
     private val requests = ToolDispatchRequests(toolPipeline, liveHandles, lanScopes)
     private val outcomeStore =
         ToolSettlement(
-            storage,
-            toolPipeline.auditSink,
-            clock,
-            idGenerator,
+            settlementStore,
             presentation,
         ) { dispatchFacts[it]?.descriptor?.origin }
     private val dispatchFacts = java.util.concurrent.ConcurrentHashMap<String, DispatchFacts>()
@@ -76,15 +64,8 @@ internal class ApplicationToolGateway(
         approve: Boolean,
     ) {
         workScope.launch {
-            val turn = storage.turns.resolve(turnId)
-            if (turn.sessionId != sessionId ||
-                turn.state != com.helix.core.model.TurnState.RUNNING_TOOL.name
-            ) {
-                return@launch
-            }
             val pending = pendingApprovals.find(approvalId)?.takeIf { it.turnId == turnId } ?: return@launch
-            val call = storage.toolCalls.byTurnAndCallId(turnId, pending.callId)
-            if (call?.state != ToolCallState.AWAITING_APPROVAL.name) return@launch
+            if (!store.canReviewApproval(sessionId, turnId, pending.callId)) return@launch
             if (pendingApprovals.claim(turnId, approvalId) == null) return@launch
             decideApproval(approvalId, if (approve) ApprovalDecision.APPROVED else ApprovalDecision.DENIED)
         }
@@ -152,15 +133,13 @@ internal class ApplicationToolGateway(
             error("approval card requested without dispatch facts for model call $callId")
         }
         pendingApprovals.register(approvalId, facts.turnId, callId)
-        storage.toolCalls.byTurnAndCallId(facts.turnId, callId)?.let { row ->
-            storage.toolCalls.updateState(row, ToolCallState.AWAITING_APPROVAL)
-        }
+        val sessionId = store.awaitingApproval(facts.turnId, callId)
         // Required disclosure is not best-effort: an undisplayable approval must fail closed.
         presentation.publish(
             ToolPresentationFact.ApprovalRequested(
                 approvalId,
                 ToolCallFact(
-                    storage.turns.resolve(facts.turnId).sessionId,
+                    sessionId,
                     facts.turnId,
                     callId,
                     request.binding.toolName,
@@ -177,7 +156,7 @@ internal class ApplicationToolGateway(
         )
         return descriptor to
             com.helix.extensions.plugin
-                .PluginTaskIdentity(storage.turns.resolve(facts.turnId).sessionId, facts.turnId)
+                .PluginTaskIdentity(sessionId, facts.turnId)
     }
 
     override fun prepareModelCalls(
@@ -244,21 +223,18 @@ internal class ApplicationToolGateway(
      * This runs on the work scope's IO thread — the scheduler and the broker's blocking
      * user-decision wait never touch the main thread.
      */
-    override fun loopProgress(turnId: String) = DurableToolLoopProgress(storage, toolPipeline.registry).evaluate(turnId)
+    override fun loopProgress(turnId: String) = DurableToolLoopProgress(store, toolPipeline.registry).evaluate(turnId)
 
-    override fun resetLoopProgress(turnId: String) =
-        DurableToolLoopProgress(storage, toolPipeline.registry).reset(turnId, idGenerator(), clock.now().toEpochMilli())
+    override fun resetLoopProgress(turnId: String) = store.resetLoopProgress(turnId)
 
     @Suppress("TooGenericExceptionCaught") // settle every slot before propagating a batch failure
     override suspend fun executeBatch(
         request: com.helix.core.agent.ToolBatchRequest,
         observer: com.helix.core.agent.ToolBatchObserver,
     ): SettledBatch {
-        val turn = storage.turns.resolve(request.turnId)
-        require(turn.sessionId == request.sessionId) { "TOOL_BATCH_SESSION_MISMATCH" }
+        val turn = store.batchTurn(request.turnId, request.sessionId, request.modelCallId)
         val calls = request.calls
         val control = request.control
-        require(storage.modelCalls.resolve(request.modelCallId).turnId == turn.id) { "MODEL_CALL_TURN_MISMATCH" }
         val prepareds = prepareBatchCalls(turn, calls, control, request.modelCallId)
         val requests = prepareds.mapNotNull { it.request }
         val batch =
@@ -287,7 +263,7 @@ internal class ApplicationToolGateway(
                         }
                     if (p.preSettled == null) {
                         outcomeStore.settleToolCall(
-                            p.row!!,
+                            p.row!!.id,
                             p.callId,
                             p.toolNameRaw,
                             outcome,
@@ -313,7 +289,7 @@ internal class ApplicationToolGateway(
     }
 
     private fun prepareBatchCalls(
-        turn: com.helix.core.storage.entity.TurnEntity,
+        turn: ToolDispatchTurn,
         calls: List<BufferedModelToolCall>,
         control: RunControlConfig,
         modelCallId: String,
@@ -329,7 +305,7 @@ internal class ApplicationToolGateway(
                 control.chatToolsEnabled,
                 call.bindingRef,
                 call.bindingRequired,
-                ToolCallOrigin(modelCallId, index),
+                ToolSettlementOrigin(modelCallId, index),
             )
         }
 
@@ -369,7 +345,7 @@ internal class ApplicationToolGateway(
     private data class PreparedToolCall(
         val callId: String,
         val toolNameRaw: String,
-        val row: com.helix.core.storage.entity.ToolCallEntity?,
+        val row: ToolDispatchCall?,
         val request: ToolDispatchRequest?,
         val preSettled: ToolDispatchOutcome.Denied?,
     )
@@ -384,7 +360,7 @@ internal class ApplicationToolGateway(
      * [ToolDispatchOutcome.Denied] (preSettled) — the dispatcher is never fed garbage.
      */
     private fun prepareToolCall(
-        turn: com.helix.core.storage.entity.TurnEntity,
+        turn: ToolDispatchTurn,
         toolCallId: String,
         toolNameRaw: String,
         rawArgsJson: String,
@@ -393,10 +369,10 @@ internal class ApplicationToolGateway(
         chatToolsEnabled: Boolean,
         bindingRef: com.helix.core.model.ToolBindingRef? = null,
         bindingRequired: Boolean = false,
-        origin: ToolCallOrigin? = null,
+        origin: ToolSettlementOrigin? = null,
     ): PreparedToolCall {
         val businessArgs = rawArgsJson
-        return if (GoalToolCallBudget(storage, clock).reserve(turn.id, toolCallId)) {
+        return if (store.reserveGoalCall(turn.id, toolCallId)) {
             prepareAdmittedToolCall(
                 turn,
                 toolCallId,
@@ -416,7 +392,7 @@ internal class ApplicationToolGateway(
                 null,
                 null,
                 outcomeStore.persistPreDispatchDenied(
-                    turn,
+                    turn.id,
                     toolCallId,
                     toolNameRaw,
                     businessArgs,
@@ -432,7 +408,7 @@ internal class ApplicationToolGateway(
     }
 
     private fun prepareAdmittedToolCall(
-        turn: com.helix.core.storage.entity.TurnEntity,
+        turn: ToolDispatchTurn,
         toolCallId: String,
         toolNameRaw: String,
         rawArgsJson: String,
@@ -441,7 +417,7 @@ internal class ApplicationToolGateway(
         chatToolsEnabled: Boolean,
         bindingRef: com.helix.core.model.ToolBindingRef? = null,
         bindingRequired: Boolean = false,
-        origin: ToolCallOrigin? = null,
+        origin: ToolSettlementOrigin? = null,
     ): PreparedToolCall {
         val selectedRef =
             bindingRef ?: if (!bindingRequired) {
@@ -471,7 +447,7 @@ internal class ApplicationToolGateway(
                 toolCallId,
                 toolNameRaw,
                 requireNotNull(toolName),
-                requireNotNull(args),
+                (args as ToolArgumentPreparation.Ready).args,
                 descriptor,
                 modelIntent,
                 mode,
@@ -483,7 +459,7 @@ internal class ApplicationToolGateway(
 
     @Suppress("LongParameterList")
     private fun prepareValidatedToolCall(
-        turn: com.helix.core.storage.entity.TurnEntity,
+        turn: ToolDispatchTurn,
         toolCallId: String,
         toolNameRaw: String,
         toolName: ToolName,
@@ -493,7 +469,7 @@ internal class ApplicationToolGateway(
         mode: AgentMode,
         chatToolsEnabled: Boolean,
         bindingRef: com.helix.core.model.ToolBindingRef? = null,
-        origin: ToolCallOrigin? = null,
+        origin: ToolSettlementOrigin? = null,
     ): PreparedToolCall {
         val canonical = CanonicalArgs.canonicalize(args)
         recoveryEffectRejection(
@@ -506,16 +482,16 @@ internal class ApplicationToolGateway(
             origin,
         )?.let { return it }
         val row =
-            storage.toolCalls.append(
-                id = toolCallId,
-                turnId = turn.id,
-                callId = toolCallId,
-                name = toolNameRaw,
-                version = (bindingRef?.version ?: descriptor?.version)?.value?.toString() ?: "0",
-                argsJson = canonical,
-                state = ToolCallState.PENDING.name,
-                modelIntent = modelIntent,
-                origin = origin,
+            store.prepare(
+                PrepareToolCall(
+                    turn.id,
+                    toolCallId,
+                    toolNameRaw,
+                    (bindingRef?.version ?: descriptor?.version)?.value?.toString() ?: "0",
+                    canonical,
+                    modelIntent,
+                    origin,
+                ),
             )
         val currentProfile = profile.value
         publishPreparedTool(row, turn.sessionId)
@@ -533,7 +509,7 @@ internal class ApplicationToolGateway(
                 ).copy(
                     bindingRef = bindingRef,
                     bindingPinned = true,
-                    onExecutionStarting = executionStarting(turn.id, toolCallId, row),
+                    onExecutionStarting = executionStarting(toolCallId, row),
                 )
         dispatchFacts[toolCallId] =
             DispatchFacts(
@@ -548,14 +524,14 @@ internal class ApplicationToolGateway(
     }
 
     private fun publishPreparedTool(
-        row: com.helix.core.storage.entity.ToolCallEntity,
+        row: ToolDispatchCall,
         sessionId: String,
     ) {
         emit(ToolPresentationFact.Prepared(callFact(row, sessionId)))
     }
 
     private fun callFact(
-        row: com.helix.core.storage.entity.ToolCallEntity,
+        row: ToolDispatchCall,
         sessionId: String,
     ) = ToolCallFact(
         sessionId,
@@ -567,28 +543,24 @@ internal class ApplicationToolGateway(
     )
 
     private fun executionStarting(
-        turnId: String,
         toolCallId: String,
-        row: com.helix.core.storage.entity.ToolCallEntity,
+        row: ToolDispatchCall,
     ): () -> Unit =
         {
             executionStartTimes[toolCallId] = clock.now().toEpochMilli()
-            storage.toolCalls.updateState(row, ToolCallState.RUNNING)
-            emit(ToolPresentationFact.Running(callFact(row, storage.turns.resolve(turnId).sessionId)))
+            emit(ToolPresentationFact.Running(store.running(row.id)))
         }
 
     private fun recoveryEffectRejection(
-        turn: com.helix.core.storage.entity.TurnEntity,
+        turn: ToolDispatchTurn,
         toolCallId: String,
         toolNameRaw: String,
         canonicalArgs: String,
         descriptor: ToolDescriptor?,
         modelIntent: String?,
-        origin: ToolCallOrigin?,
+        origin: ToolSettlementOrigin?,
     ): PreparedToolCall? {
-        val inspection =
-            com.helix.app.infrastructure.agent.AutomaticRecoveryPolicy
-                .isInspection(turn)
+        val inspection = turn.recoveryInspection
         if (descriptor == null ||
             UnresolvedEffectPolicy.permitsInspection(inspection, descriptor.operationClass)
         ) {
@@ -596,7 +568,7 @@ internal class ApplicationToolGateway(
         }
         val denied =
             outcomeStore.persistPreDispatchDenied(
-                turn = turn,
+                turnId = turn.id,
                 toolCallId = toolCallId,
                 toolNameRaw = toolNameRaw,
                 rawArgs = canonicalArgs,
@@ -623,38 +595,23 @@ internal class ApplicationToolGateway(
         rawArgsJson: String,
         descriptor: ToolDescriptor?,
         sessionId: String,
-    ): JsonObject? {
-        val normalizedArgs = if (rawArgsJson.isBlank()) "{}" else rawArgsJson
-        return parseJsonObjectOrNull(normalizedArgs)?.let { parsed ->
-            if (FileToolArguments.handles(descriptor)) {
-                runCatching {
-                    FileToolArguments.normalize(
-                        parsed,
-                        FileToolArguments.directory(
-                            workspaceScopeId,
-                            storage.sessions.resolve(sessionId).directoryRef,
-                        ),
-                        descriptor?.name?.value,
-                    )
-                }.getOrNull()
-            } else {
-                parsed
-            }
+    ): ToolArgumentPreparation.Result =
+        ToolArgumentPreparation.prepare(rawArgsJson, descriptor) {
+            FileToolArguments.directory(workspaceScopeId, store.directoryRef(sessionId))
         }
-    }
 
-    /** The pre-settled Denied for an invalid tool NAME or non-object ARGUMENTS; null when both are valid. */
+    /** The pre-settled Denied for an invalid tool name or rejected arguments; null when both are ready. */
     @Suppress("LongParameterList") // one parameter per validated fact; splitting the pair would obscure the invariant
     private fun invalidToolCallRejection(
-        turn: com.helix.core.storage.entity.TurnEntity,
+        turn: ToolDispatchTurn,
         toolCallId: String,
         toolNameRaw: String,
         rawArgsJson: String,
         modelIntent: String?,
         toolName: ToolName?,
-        args: JsonObject?,
+        args: ToolArgumentPreparation.Result,
         descriptor: ToolDescriptor?,
-        origin: ToolCallOrigin?,
+        origin: ToolSettlementOrigin?,
     ): PreparedToolCall? =
         when {
             toolName == null -> {
@@ -664,7 +621,7 @@ internal class ApplicationToolGateway(
                     null,
                     null,
                     outcomeStore.persistPreDispatchDenied(
-                        turn,
+                        turn.id,
                         toolCallId,
                         toolNameRaw,
                         rawArgsJson,
@@ -678,20 +635,20 @@ internal class ApplicationToolGateway(
                 )
             }
 
-            args == null -> {
+            args is ToolArgumentPreparation.Rejected -> {
                 PreparedToolCall(
                     toolCallId,
                     toolNameRaw,
                     null,
                     null,
                     outcomeStore.persistPreDispatchDenied(
-                        turn,
+                        turn.id,
                         toolCallId,
                         toolNameRaw,
                         rawArgsJson,
                         descriptor?.version?.value?.toString() ?: "unknown",
                         DispatchOutcomeCode.INVALID_ARGUMENTS,
-                        "Tool arguments must be a valid JSON object within the nesting and node limits.",
+                        args.detail,
                         PreDispatchDenialKind.FRAMEWORK_REJECTED,
                         modelIntent,
                         origin,
@@ -728,7 +685,7 @@ internal class ApplicationToolGateway(
         parent: com.helix.tools.framework.ExecutableToolCall?,
         callbackCancel: com.helix.core.model.CancelSignal?,
     ): ToolDispatchOutcome {
-        val turn = storage.turns.resolve(turnId)
+        val turn = store.turn(turnId)
         parent?.let { recordScriptParent(it, toolCallId, turnId, turn.sessionId) }
         val extracted = ToolPresentationMetadata.extract(rawArgsJson)
         val initial =
@@ -756,7 +713,7 @@ internal class ApplicationToolGateway(
                 (clock.now().toEpochMilli() - start).coerceAtLeast(0L)
             }
         outcomeStore.settleToolCall(
-            prepared.row!!,
+            prepared.row!!.id,
             toolCallId,
             toolNameRaw,
             outcome,
@@ -795,30 +752,15 @@ internal class ApplicationToolGateway(
         sessionId: String,
     ) {
         require(parent.sessionId == sessionId && parent.turnId == turnId) { "SCRIPT_OWNER_MISMATCH" }
-        val original = storage.toolCalls.byTurnAndCallId(turnId, parent.toolCallId)
-        require(
-            original != null && original.name == parent.toolName &&
-                (
-                    original.state == ToolCallState.RUNNING.name ||
-                        (
-                            parent.hostToolBridge?.retainingExecution == true &&
-                                original.state == ToolCallState.COMPLETED.name
-                        )
-                ),
-        ) {
-            "SCRIPT_PARENT_NOT_RUNNING"
-        }
-        storage.auditEvents.append(
-            idGenerator(),
-            toolCallId,
-            "script.bridge.call",
-            "platform",
-            kotlinx.serialization.json
-                .buildJsonObject {
-                    put("parentToolCallId", kotlinx.serialization.json.JsonPrimitive(parent.toolCallId))
-                    put("turnId", kotlinx.serialization.json.JsonPrimitive(turnId))
-                }.toString(),
-            clock.now().toEpochMilli(),
+        store.recordScriptParent(
+            ScriptParentCommand(
+                sessionId,
+                turnId,
+                toolCallId,
+                parent.toolCallId,
+                parent.toolName,
+                parent.hostToolBridge?.retainingExecution == true,
+            ),
         )
     }
 
@@ -857,21 +799,6 @@ internal class ApplicationToolGateway(
                     ),
             )
         }
-
-    /** A JSON object, or null for any malformed input (parse failures are swallowed — the
-     * rejection path handles the malformed input itself; the raw parse text is model
-     * content and is never logged or shown). */
-    private fun parseJsonObjectOrNull(raw: String): JsonObject? =
-        runCatching {
-            com.helix.core.model.JsonInputLimits
-                .requireSafeNesting(raw)
-            Json.parseToJsonElement(raw).also {
-                require(
-                    com.helix.tools.framework.ToolJsonBudget
-                        .violation(it, checkNumbers = false) == null,
-                )
-            }
-        }.getOrNull() as? JsonObject
 
     /**
      * The durable settlement for a slot the dispatcher threw away instead of returning

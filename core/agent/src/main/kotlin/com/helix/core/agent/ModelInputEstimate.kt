@@ -16,6 +16,16 @@ data class ModelInputEstimate(
     val total: Long get() = instructions + history + tools + images
 
     companion object {
+        private const val TOOL_FRAME_BYTES = 128L
+
+        /** Final description/schema bytes plus the existing 32-token framing estimate, not wire bytes. */
+        fun toolBytes(tool: ModelToolSchema): Long = toolBytes(tool.description, tool.inputSchemaJson)
+
+        fun toolBytes(
+            description: String,
+            schema: String,
+        ): Long = TokenEstimator.utf8Bytes(description) + TokenEstimator.utf8Bytes(schema) + TOOL_FRAME_BYTES
+
         fun of(request: ModelRequest): ModelInputEstimate = of(request.messages, request.tools)
 
         fun of(
@@ -34,11 +44,7 @@ data class ModelInputEstimate(
             return ModelInputEstimate(
                 textTokens(messages.filter { it.role == ModelRole.SYSTEM }),
                 textTokens(messages.filter { it.role != ModelRole.SYSTEM }),
-                TokenEstimator.estimateTokens(
-                    tools.sumOf {
-                        TokenEstimator.utf8Bytes(it.description) + TokenEstimator.utf8Bytes(it.inputSchemaJson)
-                    },
-                ) + tools.size * 32L,
+                TokenEstimator.estimateTokens(tools.sumOf(::toolBytes)),
                 messages.sumOf { it.images.size * 2048L },
             )
         }

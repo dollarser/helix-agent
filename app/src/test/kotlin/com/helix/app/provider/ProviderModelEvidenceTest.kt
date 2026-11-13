@@ -47,7 +47,7 @@ class ProviderModelEvidenceTest {
     @Test fun nondefaultModelHasItsOwnToolAndReasoningEvidenceWithoutChangingDefault() {
         val row = row().copy(modelVerifications = mapOf("b" to ProviderModelVerification(2, caps)))
         assertTrue(requireNotNull(row.capabilitiesForModel("b")).toolCalls)
-        assertTrue(ReasoningEffort.HIGH in row.reasoningOptionsFor("b"))
+        assertTrue(row.reasoningOptionsFor("b").isEmpty()) // Reasoning content does not prove effort values.
         assertEquals("a", row.model)
         assertNull(row.capabilitiesForModel("unknown"))
         val failed =

@@ -68,7 +68,7 @@ internal class LinuxJobObservationPort(
             val client = DetachedJobClient(context)
             val receipts = DetachedJobObservationStore(storage)
             return LinuxJobObservationPort(
-                bindings::resolveDetached,
+                bindings::resolveDetachedForAdmission,
                 { client.query(it).record },
                 receipts::observe,
                 { receipts.read(it)?.settled == true },

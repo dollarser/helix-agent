@@ -153,7 +153,7 @@ def package(profile):
     for name,paths in licenses.items():
         for path in paths:
             entries[f'LICENSES/{name}/{path}']=(OUT/'source'/name/path).read_bytes()
-    for path in sorted(HERE.glob('*.py'))+sorted(HERE.glob('*.json')):
+    for path in sorted(HERE.glob('*.py'))+sorted(HERE.glob('*.json'))+sorted(HERE.glob('*.patch')):
         entries['scripts/debug/2026-10-01/ffmpeg-ready/'+path.name]=path.read_bytes()
     entries['scripts/debug/2026-10-01/build-ffmpeg-plus.py']=(HERE.parent/'build-ffmpeg-plus.py').read_bytes()
     entries['scripts/with-host-slot.py']=(ROOT/'scripts/with-host-slot.py').read_bytes()

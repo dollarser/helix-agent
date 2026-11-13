@@ -35,6 +35,7 @@ private class SearchForm(
     enabled: Boolean,
     savedKeys: Map<WebSearchProvider, Boolean>,
 ) {
+    var nativeOpenAiEnabled by mutableStateOf(settings.nativeOpenAiEnabled)
     var savedKeys by mutableStateOf(savedKeys)
     var provider by mutableStateOf(settings.provider)
     var enabled by mutableStateOf(enabled)
@@ -79,6 +80,16 @@ internal fun WebSearchSettingsEntry() {
 
 @Composable
 private fun SearchSettingsForm(form: SearchForm) {
+    Text(stringResource(R.string.native_search_help))
+    Row {
+        Text(stringResource(R.string.native_search_enabled))
+        Switch(
+            enabled = !form.busy,
+            checked = form.nativeOpenAiEnabled,
+            onCheckedChange = { form.nativeOpenAiEnabled = it },
+            modifier = Modifier.testTag("native-openai-search"),
+        )
+    }
     Row {
         WebSearchProvider.entries.forEach { provider ->
             TextButton(enabled = !form.busy, onClick = {
@@ -124,9 +135,11 @@ private fun SearchSettingsActions(form: SearchForm) {
                     form.settings.removeKey(form.provider)
                 } else {
                     form.settings.save(form.enabled, form.key, form.provider)
+                    form.settings.saveNativeOpenAi(form.nativeOpenAiEnabled)
                 }
-                form.settings.enabled to form.settings.hasKey
-            }.onSuccess { (enabled, hasKey) ->
+                Triple(form.settings.enabled, form.settings.hasKey, form.settings.nativeOpenAiEnabled)
+            }.onSuccess { (enabled, hasKey, nativeEnabled) ->
+                form.nativeOpenAiEnabled = nativeEnabled
                 form.enabled = enabled
                 form.hasKey = hasKey
                 form.savedKeys = form.savedKeys + (form.provider to hasKey)

@@ -60,7 +60,10 @@ class SessionToolsTest {
                     .jsonPrimitive.boolean,
             )
             assertFalse("sessionId" in tool.inputSchema.getValue("properties").jsonObject)
-            assertEquals(name != "session.rename", tool.operationClass.isReviewModeAdmitted)
+            assertEquals(
+                name !in setOf("session.rename", "session.archive", "session.restore"),
+                tool.operationClass.isReviewModeAdmitted,
+            )
         }
         assertEquals(
             ToolOperationClass.LOCAL_MUTATION,
@@ -447,7 +450,7 @@ class SessionToolsTest {
         onRenamed: () -> Unit = {},
     ): ToolExecutorResult {
         val registry = ToolRegistry()
-        SessionTools.register(registry, SessionHistoryRepository(dao, content), onRenamed)
+        SessionTools.register(registry, SessionHistoryRepository(dao, content), dao.accessRepository(), onRenamed)
         return requireNotNull(registry.executor(ToolName(name), ToolVersion(1))).execute(
             ExecutableToolCall(
                 "c",
@@ -518,7 +521,42 @@ class SessionToolsTest {
 
         override fun references(messageId: String) = snapshots.filter { it.messageId == messageId }
 
-        override fun rename(
+        fun accessRepository(): com.helix.core.storage.repository.SessionAccessRepository {
+            val accessDao =
+                java.lang.reflect.Proxy.newProxyInstance(
+                    com.helix.core.storage.dao.SessionAccessDao::class.java.classLoader,
+                    arrayOf(com.helix.core.storage.dao.SessionAccessDao::class.java),
+                ) { _, method, args ->
+                    when (method.name) {
+                        "rename" -> {
+                            rename(
+                                args[0] as String,
+                                args[3] as String,
+                                args[4] as String,
+                                args[5] as String,
+                                args[6] as String,
+                                args[7] as String,
+                            )
+                        }
+
+                        "grant" -> {
+                            null
+                        }
+
+                        "grants", "list" -> {
+                            emptyList<Any>()
+                        }
+
+                        else -> {
+                            error("Unexpected ${method.name}")
+                        }
+                    }
+                } as com.helix.core.storage.dao.SessionAccessDao
+            return com.helix.core.storage.repository
+                .SessionAccessRepository(accessDao, this)
+        }
+
+        fun rename(
             sessionId: String,
             turnId: String,
             callId: String,

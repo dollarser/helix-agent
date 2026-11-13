@@ -19,9 +19,9 @@ Client 不声明未实现的 sampling、elicitation 或 roots。initialize resul
 
 取消 Helix 自设的全局64工具数量上限及请求/绑定/manifest联动计数校验，不以另一固定全局数量替代，不静默截断最终集合。工具数量不等于上下文成本；已有上下文预检、Provider已知协议限制和manifest字节容量仍有效。实际工具绑定必须完整记录，无法容纳则明确失败，不删绑定掩盖超限。默认工具复用共享常用契约及已选原生插件preferred组，避免动作可见而观察不可见；模式、功能开关与用户禁用先于曝光选择，优先级不注册工具或扩大能力。具体集合由当前源码与授权任务定义，不设随实现变化的固定计数门禁。
 
-`tools.search` 复用同一注册表，覆盖已启用的内置、MCP、A2A 工具；完整名称优先，再按名称/描述/来源/参数字段及宿主维护的中英文别名相关性排序，部分匹配可回退；可按source/category过滤，搜索自身不进入结果。每次请求提供准入快照的简短来源/类别目录，元数据不是权限或instructions。一次搜索最多返回16个匹配；本次发现及可用、同来源的宿主已知操作前置契约完整装载，近期有效成员按估计schema字节预算保留，优先新发现，不设整个请求的工具数量上限。零命中保留有效旧成员，失效/撤销/模式变化立即过滤。其他会话不继承；下一次模型请求重新校验版本、当前模式和可用性。
+`tools.search` 复用同一注册表，覆盖已启用的内置、MCP、A2A 工具；完整名称优先，再按名称/描述/来源/参数字段及宿主维护的中英文别名相关性排序。全关键词和完整词命中用于排序，不排除互补的部分匹配或词形片段。名称、描述、参数字段及元数据保留子串召回；词边界提升排序质量而非缩减可用能力，camelCase字段、中文和限定名称仍可检索。精确名称被禁用时不自动替换成另一能力。可按source/category过滤，搜索自身不进入结果。每次请求提供准入快照的简短来源/类别目录，元数据不是权限或instructions。一次搜索最多返回16个匹配；本次发现及可用、同来源的宿主已知操作前置契约完整装载，近期有效成员按估计schema字节预算保留，优先新发现，不设整个请求的工具数量上限。零命中保留有效旧成员，失效/撤销/模式变化立即过滤。其他会话不继承；下一次模型请求重新校验版本、当前模式和可用性。
 
-近期成员采用64KiB估计schema预算，本次匹配和前置契约不因该软预算丢弃，超出实际上下文或manifest字节容量仍明确失败。MCP按来源组在16KiB估计schema预算内提前提供，超过成本的来源继续可搜索；不再有合计16/17个工具的数量突变。以上是当前有界启发式，不是模型精确token容量、权限规则或普遍最优值；基于真实任务对照和当前上下文约束继续评估。Byte估计与最终Provider/token口径区别保留，动态缓存不是Room恢复事实。进程重开重新发现；搜索和加载从不授予执行许可。
+近期成员采用64KiB估计schema预算，本次匹配和前置契约不因该软预算丢弃，超出实际上下文或manifest字节容量仍明确失败。MCP按来源组在16KiB估计schema预算内提前提供，超过成本的来源继续可搜索；不再有合计16/17个工具的数量突变。成本使用与请求相同的最终路径说明、展示元数据及规范化schema投影，加现有每工具32-token包络估算，不再按未增强的descriptor计费；MCP组先以含名称的原始字节下界跳过已超预算目录，避免为未选中契约提前触发模型投影验证。不改变模型输入估算总口径。近期预算包含本次匹配成本，超过64KiB的单工具或能力组可能在下一次搜索后需要重新发现；该静态缓存不随256K上下文扩大，不应称作大窗口自适应优化。以上是当前有界启发式，不是模型精确token容量、权限规则或普遍最优值；基于真实任务对照和当前上下文约束继续评估。Byte估计与最终Provider/token口径区别保留，动态缓存不是Room恢复事实。进程重开重新发现；搜索和加载从不授予执行许可。
 
 依赖排除 ktor-server-websockets 必须由 Client fixture 和 Android/R8 检查证明可行；升级后若依赖链变化重新评估。仅对明确的可选 JVM TLS provider/日志 adapter 做定点 missing-class 处理，其他错误保持门禁。
 
@@ -67,6 +67,10 @@ Client 不声明未实现的 sampling、elicitation 或 roots。initialize resul
 
 ## Decision history
 
+- 2026-11-13（大窗口召回修正）：Owner明确未来以≥256K模型为前提、任务成功率和工具可用性优先。撤回上一轮全关键词硬过滤及英文词边界准入，保留它们的排序优势和原子能力组，部分匹配、词干和字段片段仍可达；精确名称与授权边界不变。不为小窗口另加策略，不凭空扩大默认常驻或引入固定全局工具数。最终投影成本与诊断继续保留，16KiB eager/64KiB recent仍是已知静态启发式，不宣称解决大型schema往返淘汰或真实模型成功率；以256K任务组合、160项默认能力、80KiB schema重新发现的JVM回归明确当前边界。
+
+- 2026-11-13：Owner要求参考主流Agent实际改进工具加载。采用最终modelSchema成本统一计费、可用全关键词匹配优先和词边界匹配，保留中文/限定名称、部分匹配回退、完整能力组及全部原授权边界。对照[OpenAI工具发现](https://developers.openai.com/api/docs/guides/tools-tool-search)与[Claude工具搜索](https://platform.claude.com/docs/en/agents-and-tools/tool-use/tool-search-tool)的按需活跃集合原则，不复制原生deferred协议、不套固定工具数或常驻数量。默认工具组暂不整体隐藏；改变近期保留成本不等于扩大执行许可，也不声称已完成整上下文自适应工作集或真实模型成功率验收。
+
 - 2026-10-16（现状与运行资格）：Owner 要求收敛后续文档。区分 Resources 元数据与正文消费、有限 stdio Job 基础与常驻协议服务；保持 291 独立范围。依据 [MCP transport](https://modelcontextprotocol.io/specification/2025-11-25/basic/transports) 和 [lifecycle](https://modelcontextprotocol.io/specification/2025-11-25/basic/lifecycle) 明确未来双向流/协商/关闭及凭据前置，不宣称本次已经实现常驻 stdio。
 
 - 2026-10-13：Owner要求优化工具发现误调用并直接复用外部插件。工具描述/Skill/历史中的名称仅是发现线索，调用以本次实际schema为准；tools.search版本4明确schemaAvailability=next_request，仍重验撤销/版本，不在同批或旧请求开放。其他宿主的mcp__限定名可按远端动作部分检索，返回Helix当前名称；不注册执行别名、不自动调度或重放。Browser观察描述就近提醒动作需先发现。实际模型收益与设备验证另计，主机契约不冒充遵循率。
@@ -98,3 +102,13 @@ Client 不声明未实现的 sampling、elicitation 或 roots。initialize resul
 模板匹配共享每次发现 16,777,216 个工作单元的计算预算，DP cell、绑定搜索分支与逐字符比较共同消耗，跨模板/页/阶段不重置；超额返回 `MATCH_BUDGET_EXCEEDED`。DP 每8行、绑定搜索每1024个工作单元重新检查来源/取消并 `yield`，让同事件循环的 deadline 生效，避免累积 CPU 阻塞。搜索只保留模板深度的显式栈与 URI 区间，不递归、不复制候选值、不建立无界缓存。
 
 2026-11-08 契约补正：依据 [RFC6570 §3.2.2](https://www.rfc-editor.org/rfc/rfc6570.html#section-3.2.2)，简单标量允许空展开；非空展开只消耗 ASCII unreserved 字符或完整 `%HH` 单元，不允许原始 reserved/非 ASCII 字符，不能拆开百分号编码。变量名称继续仅支持 `[A-Za-z0-9_]+`，不声称覆盖 RFC6570 的点号/百分号编码名称或全部标量语法；文字中的百分号也必须属于完整 `%HH`，不得跨文字/变量边界拼接。相同变量名必须在各处匹配完全相同的编码片段（不做 URI 解码、大小写或路径归一化）；相邻不同变量及相邻重复变量仍支持。新增空值、编码边界、重复绑定、歧义预算与搜索阶段取消/撤销/deadline 回归；最终通过结果由统一门禁补录。
+
+### 2026-11-12 二进制 Resources 产物路径
+
+`resources/read` 使用类型化 Text/Blob 内容边界。Blob 在 SDK 接缝校验严格 base64、URI 与已发现请求一致，正文全批校验后才允许宿主发布；每次读取累计二进制最多 1 MiB，文本仍累计 256 KiB、最多64块。二进制内容版本为解码字节 SHA-256，文本沿用原 hashFields 契约，不混淆二者。
+
+发布只接受宿主原始 session/turn，写入 App 私有工作区 output 的随机名称，复用原子写入、quota、内容探测和 Room artifact 注册。远端 URI、MIME 不指定路径、不成为执行资源或授权，不自动上传图像给模型。结果保留来源 URI、声明 MIME、不可信标识及内容 hash；二进制仅返回本机产物/路径引用，不将 base64 放入模型上下文。后续查看、导出、执行等仍走已有工具权限路径。
+
+文件已保存但注册失败明确返回 `SAVED_NOT_REGISTERED`、已验证路径和 hash，不捏造 artifactRef、不回滚文件；取消或撤销仍不得伪称成功，已发生的文件效果保留并遵循现行 UNKNOWN/review。发布前和返回前复查来源，发布过程中复核取消/deadline；缺宿主发布接缝明确失败。
+
+决策依据：[MCP 2025-11-25 Resources](https://modelcontextprotocol.io/specification/2025-11-25/server/resources) 定义 Text/Blob 及 application-controlled 消费；[Codex Resources handler](https://github.com/openai/codex/blob/main/codex-rs/core/src/tools/handlers/mcp_resource/read_mcp_resource.rs) 使用独立 resources/read、解析实际服务器/环境并保留来源。采纳来源绑定和独立协议操作，Helix 按移动端现有工作区/产物路径做有界物化，不照搬其他宿主协议 JSON 回填，也不复制参考代码。

@@ -1,9 +1,6 @@
 package com.helix.app.infrastructure.agent
 
 import com.helix.app.agent.TurnStartSpec
-import com.helix.app.application.agent.GoalRunCoordinator
-import com.helix.app.application.agent.GoalTurnStart
-import com.helix.app.infrastructure.agent.RoomTurnRoundStore
 import com.helix.core.agent.RunControlConfig
 import com.helix.core.agent.turn.AdmittedTurn
 import com.helix.core.agent.turn.SubmitReceiptDecision
@@ -99,7 +96,7 @@ internal class TurnAdmission(
         if (goalId == null) applyHistoryMutation(spec, null)
         val goalStart =
             goalId?.let {
-                GoalRunCoordinator(storage, clock, idGenerator).start(
+                RoomGoalRunCommands(storage, clock, idGenerator).start(
                     GoalTurnStart(it, command.wakeReason, spec, command.control.budgets, inspection),
                 )
             }
@@ -172,6 +169,7 @@ internal class TurnAdmission(
             !queue.requireHead ||
                 storage.sessionInputs.headQueue(command.identity.sessionId)?.inputId == queue.inputId
         return identityMatches && input.state == SessionInputState.PENDING &&
+            storage.sessionInputs.delegationAllowed(input) &&
             configuration == queue.configuration && headMatches
     }
 
@@ -193,7 +191,7 @@ internal class TurnAdmission(
                         ?.takeIf {
                             it.state !in setOf("COMPLETED", "FAILED", "CANCELLED")
                         }?.id ?: ownership.unfinishedForSession(command.identity.sessionId)
-                        ?: GoalRunCoordinator(storage, clock, idGenerator).create(
+                        ?: RoomGoalRunCommands(storage, clock, idGenerator).create(
                             intent.objective,
                             intent.criteria,
                             intent.budgets,

@@ -94,6 +94,9 @@ import com.helix.core.storage.entity.TurnRuntimeRecordEntity
             com.helix.core.storage.entity.ProjectEntity::class,
             com.helix.core.storage.entity.ProjectSessionEntity::class,
             SessionEntity::class,
+            com.helix.core.storage.entity.SessionAccessGrantEntity::class,
+            com.helix.core.storage.entity.SessionCreationGrantEntity::class,
+            com.helix.core.storage.entity.SessionCreationReceiptEntity::class,
             com.helix.core.storage.entity.WorkspaceEntity::class,
             com.helix.core.storage.entity.SessionWorkspaceEntity::class,
             com.helix.core.storage.entity.ModelCallWorkspaceEntity::class,
@@ -140,6 +143,7 @@ import com.helix.core.storage.entity.TurnRuntimeRecordEntity
             com.helix.core.storage.entity.ExpertEntity::class,
             com.helix.core.storage.entity.SessionRunControlEntity::class,
             com.helix.core.storage.entity.SessionInputEntity::class,
+            com.helix.core.storage.entity.SessionDelegationReceiptEntity::class,
             com.helix.core.storage.entity.SessionInputAttachmentEntity::class,
             ToolCallReviewEntity::class,
             TurnRuntimeRecordEntity::class,
@@ -167,6 +171,10 @@ abstract class HelixDatabase : RoomDatabase() {
     abstract fun messageDao(): MessageDao
 
     abstract fun sessionSearchDao(): com.helix.core.storage.dao.SessionSearchDao
+
+    abstract fun sessionCreationDao(): com.helix.core.storage.dao.SessionCreationDao
+
+    abstract fun sessionAccessDao(): com.helix.core.storage.dao.SessionAccessDao
 
     abstract fun sessionHistoryDao(): com.helix.core.storage.dao.SessionHistoryDao
 

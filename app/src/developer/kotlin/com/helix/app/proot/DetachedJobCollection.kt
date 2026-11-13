@@ -172,7 +172,7 @@ internal class DetachedJobCollection(
     }
 
     private fun binding(call: ExecutableToolCall): DetachedJobBinding =
-        bindings.resolveDetached(
+        bindings.resolveDetachedForAdmission(
             requireNotNull(call.sessionId),
             call.args
                 .getValue("originalCallId")

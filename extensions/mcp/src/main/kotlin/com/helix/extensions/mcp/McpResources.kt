@@ -8,12 +8,25 @@ data class McpResourcePage(
     val nextCursor: String?,
 )
 
+sealed interface McpResourceContent {
+    val uri: String
+    val mimeType: String?
+    val contentHash: String
+}
+
+data class McpResourceBlob(
+    override val uri: String,
+    override val mimeType: String?,
+    val bytes: ByteArray,
+    override val contentHash: String,
+) : McpResourceContent
+
 data class McpResourceText(
-    val uri: String,
-    val mimeType: String?,
+    override val uri: String,
+    override val mimeType: String?,
     val text: String,
-    val contentHash: String,
-)
+    override val contentHash: String,
+) : McpResourceContent
 
 internal fun requireResourceUri(uri: String) {
     require(uri.length in 1..4096 && uri.none { it.isISOControl() }) { "Invalid MCP resource URI" }
@@ -23,7 +36,7 @@ internal fun requireResourceUri(uri: String) {
 /** Public codes contain no server-controlled text, credentials, or resource contents. */
 enum class McpResourceFailure {
     UNSUPPORTED,
-    BINARY_UNSUPPORTED,
+    BINARY_PUBLISHER_UNAVAILABLE,
     URI_MISMATCH,
     NOT_DISCOVERED,
     MATCH_BUDGET_EXCEEDED,

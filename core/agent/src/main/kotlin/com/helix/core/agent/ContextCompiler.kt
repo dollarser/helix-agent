@@ -54,9 +54,13 @@ class ContextCompiler(
             selected.addAll(turn)
             through = maxOf(previous?.coveredThrough ?: 0, turn.last().sequence)
         }
+        val removed = selected.map { it.id }.toSet()
+        // Validate even an empty candidate set: automatic preflight must never turn a corrupt
+        // or reordered source projection into ordinary admission.
+        val retained =
+            ContextSegments.remainingRequest(snapshot, removed, request)
+                ?: throw ContextCapacityException("CONTEXT_NOT_COMPACTABLE")
         return through?.let { boundary ->
-            val removed = selected.map { it.id }.toSet()
-            val retained = ContextSegments.remainingRequest(snapshot, removed, request) ?: return null
             ContextCompactionPlan(
                 boundary,
                 summaryRequest(

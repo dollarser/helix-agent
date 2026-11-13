@@ -1,9 +1,9 @@
-package com.helix.app.application.agent
+package com.helix.app.infrastructure.agent
 
 import com.helix.core.storage.HelixStorage
 
 /** Counts admitted automatic prompts, excluding human turns and recovery inspections. */
-internal class GoalRoundAllowance(
+internal class RoomGoalRoundAllowance(
     private val storage: HelixStorage,
 ) {
     fun used(goalId: String): Int {

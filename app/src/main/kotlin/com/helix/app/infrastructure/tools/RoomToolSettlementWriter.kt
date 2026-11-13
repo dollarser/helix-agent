@@ -1,18 +1,17 @@
-package com.helix.app.application.tools
+package com.helix.app.infrastructure.tools
 
 import com.helix.core.model.Clock
 import com.helix.core.model.ToolCallState
 import com.helix.core.storage.HelixStorage
-import com.helix.core.storage.entity.ToolCallEntity
 
 /** Commit each call's durable outcome and Goal charge before publishing any UI projection. */
-internal class ToolSettlementWriter(
+internal class RoomToolSettlementWriter(
     private val storage: HelixStorage,
     private val clock: Clock,
     private val idGenerator: () -> String,
 ) {
     fun persist(
-        call: ToolCallEntity,
+        rowId: String,
         state: ToolCallState,
         status: String,
         summary: String,
@@ -22,6 +21,7 @@ internal class ToolSettlementWriter(
         // Room cannot roll back files. A failed commit can leave an unreferenced content
         // object, but never a terminal call without its result or its budget settlement.
         storage.withTransaction {
+            val call = storage.toolCalls.resolve(rowId)
             val contentRef =
                 content?.takeIf { it.isNotBlank() }?.let {
                     storage.contentStore
@@ -38,7 +38,7 @@ internal class ToolSettlementWriter(
                 check(existing.status == status && existing.verified == verified) { "Conflicting tool settlement" }
                 check(storage.toolCalls.resolve(call.id).state == state.name) { "Incomplete tool settlement" }
             }
-            GoalToolCallBudget(storage, clock).finish(call.callId)
+            RoomGoalToolCallBudget(storage, clock).finish(call.callId)
         }
     }
 }

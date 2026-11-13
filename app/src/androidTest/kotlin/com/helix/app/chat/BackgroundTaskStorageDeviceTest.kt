@@ -3,8 +3,8 @@ package com.helix.app.chat
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.helix.app.agent.TurnStartSpec
-import com.helix.app.application.agent.GoalBlockerResolution
-import com.helix.app.application.agent.GoalTurnStart
+import com.helix.app.infrastructure.agent.GoalTurnStart
+import com.helix.app.infrastructure.agent.RoomGoalBlockerResolution
 import com.helix.app.infrastructure.agent.TurnRecovery
 import com.helix.app.test.FixtureGoalRunCoordinator
 import com.helix.app.test.ForegroundDeviceTestHost
@@ -90,7 +90,7 @@ class BackgroundTaskStorageDeviceTest : ForegroundDeviceTestHost() {
         fixture { storage, coordinator, goal ->
             val first = requireNotNull(coordinator.start(request(goal, "first")))
             first.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.FAILED, "CONTEXT_WINDOW_LIMIT"))
-            val resolution = GoalBlockerResolution(storage, clock, ::id)
+            val resolution = RoomGoalBlockerResolution(storage, clock, ::id)
             assertEquals("BLOCKED", storage.goals.resolve(goal).state)
             assertFalse(resolution.resolve(goal, "other-session", true))
             assertFalse(resolution.resolve(goal, "s", false))
@@ -106,7 +106,7 @@ class BackgroundTaskStorageDeviceTest : ForegroundDeviceTestHost() {
             assertTrue(storage.turns.requestPause("first", 2001))
             TurnRecovery(storage, clock).recover()
             assertEquals("BLOCKED", storage.goals.resolve(goal).state)
-            assertFalse(GoalBlockerResolution(storage, clock, ::id).resolve(goal, "s", true))
+            assertFalse(RoomGoalBlockerResolution(storage, clock, ::id).resolve(goal, "s", true))
             assertNull(coordinator.start(request(goal, "second")))
             assertEquals("NEEDS_REVIEW", storage.toolCalls.resolve("unknown").state)
         }
@@ -131,7 +131,7 @@ class BackgroundTaskStorageDeviceTest : ForegroundDeviceTestHost() {
             TurnRecovery(storage, clock).recover()
             assertEquals("PAUSED", storage.goals.resolve(goal).state)
             assertEquals(10000L, storage.goals.resolve(goal).totalTokens)
-            assertFalse(GoalBlockerResolution(storage, clock, ::id).resolve(goal, "s", true))
+            assertFalse(RoomGoalBlockerResolution(storage, clock, ::id).resolve(goal, "s", true))
             TurnRecovery(storage, clock).recover()
             assertEquals(10000L, storage.goals.resolve(goal).totalTokens)
             val second = requireNotNull(coordinator.start(request(goal, "second")))

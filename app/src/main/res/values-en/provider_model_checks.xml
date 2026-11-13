@@ -1,0 +1,8 @@
+<resources>
+    <string name="provider_row_protocol">Protocol: %1$s</string>
+    <string name="provider_directory_passed">Model directory retrieved</string>
+    <string name="provider_model_connection_passed">Model request verified</string>
+    <string name="provider_directory_unsupported_short">Directory check unsupported</string>
+    <string name="provider_directory_unsupported">This API does not provide a model directory. Run a basic generation test for a specific model.</string>
+    <string name="provider_model_check_failed">%1$s: the test did not complete or pass. Review this model’s verification result.</string>
+</resources>

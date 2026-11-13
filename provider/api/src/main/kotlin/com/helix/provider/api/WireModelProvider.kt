@@ -128,22 +128,26 @@ public abstract class WireModelProvider(
                 }
             evidence.response = response
             try {
-                readResponse(response, evidence) { emit(it) }
+                readResponse(response, evidence, request) { emit(it) }
             } finally {
                 response.body.close()
             }
         }.flowOn(Dispatchers.IO)
 
+    /** Override only for request-scoped protocol decoding state; never share it across streams. */
+    protected open fun decoderFor(request: ModelRequest): StreamDecoder = newDecoder()
+
     private suspend fun readResponse(
         response: WireResponse,
         evidence: WireFailureEvidence,
+        request: ModelRequest,
         emit: suspend (ModelEvent) -> Unit,
     ) {
         if (response.status !in 200..299) {
             emit(evidence.httpError())
             return
         }
-        val decoder = newDecoder()
+        val decoder = decoderFor(request)
         var terminalEmitted = false
         var failed = false
 

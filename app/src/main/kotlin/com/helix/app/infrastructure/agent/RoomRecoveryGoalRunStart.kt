@@ -1,18 +1,16 @@
-package com.helix.app.application.agent
+package com.helix.app.infrastructure.agent
 
 import com.helix.app.goal.toRuntimeGoal
 import com.helix.app.goal.toStoredGoal
-import com.helix.app.infrastructure.agent.RoomTurnRoundStore
 import com.helix.app.recovery.GoalUsageReservations
 import com.helix.core.agent.GoalEffect
 import com.helix.core.agent.GoalEvent
 import com.helix.core.agent.GoalReducer
-import com.helix.core.agent.turn.TurnRoundCoordinator
 import com.helix.core.model.Clock
 import com.helix.core.storage.HelixStorage
 
 /** Called only by the Engine's admission transaction after its read-only recovery guard. */
-internal class RecoveryGoalRunStart(
+internal class RoomRecoveryGoalRunStart(
     private val storage: HelixStorage,
     private val clock: Clock,
     private val ids: () -> String,

@@ -108,3 +108,63 @@ H.264/HEVC 的 MediaCodec 路径继续依赖设备，历史异步参数只是候
 - [FFmpeg CLI](https://ffmpeg.org/ffmpeg.html) 用于参数/流映射和编入能力的操作参考，不把 FFmpeg 全部上游能力等同于本裁剪包。
 
 历史材料维护（2026-10-10）：本页提及的`verify-hxa240-apks.py`已退役；以上为当时执行记录，现行入口与删除来源见[整理摘要](historical-version-retirement-2026-10-10.md)。
+
+## 2026-11-12：日常 API36 实际媒体任务验收
+
+本轮只使用已核实的 `Helix_API_36` / `emulator-5554` / API36 arm64 Developer；没有访问真机、外部账号或下载媒体/可执行文件。使用当前 App 的手动 PTY 与真实 Dispatcher → detached Job → 原结果收取链，输入为测试现场生成的原始 YUV/PCM 与字幕。
+
+### 新发现与修复
+
+- 原 guest `/opt/helix-media` 路径不匹配 Android linker 的系统 namespace 路由。软件转码可用，但四种 H.264/HEVC NDK sync/async 探测均在 gralloc 初始化处 abort；平台日志明确显示不存在 sphal namespace、无法加载 mapper。相同已安装载荷在 app UID 下直接运行能输出 H.264，不能把这个差异归为硬件不支持。
+- 将 guest 根改为 `/data/helix-media`，匹配平台已有 linker 路由；仅映射本 APK 原生库和临时命令目录，未绑定宿主 `/data`，未修改 linker 配置或扩大凭据映射。工具描述随新路径更新，不保留旧入口别名。固定 vendor ZIP 与编译组件未变。
+- libass 没有自动系统 font provider。只给 `fontsdir=/system/fonts`，默认 Arial 缺失时可返回成功但不画出字幕。明确选用实际存在的 Roboto 后字幕出现。随包 USAGE 增加 `force_style=Fontname=...` / ASS family 与 drawtext `fontfile` 指引，设备断言比较解码后的像素，不能只看退出码或文件存在。
+- MediaCodec 探测逐模式有界，且分别检查 ffprobe 的 codec、帧数及实际解码。H.264 sync 的 exit 0 空文件不计成功；HEVC sync 曾阻塞，原 150 秒测试 deadline 终止并完成终端清理，后续改为单模式 15 秒加 2 秒强制终止上限。这是条件能力探测，未将不可用模式静默替换成其他编码器。
+
+### 验证覆盖与边界
+
+软件用例包含 2 秒 MPEG-4/AAC、中文/空格路径、视频流复制与多输出音频抽取、FLAC 解码、crop/scale/transpose、系统 Roboto drawtext/字幕、缺失输入失败及未编入 HTTP。另一真实 detached Job 对 1,200,000 bytes PCM 输入执行显式 snapshot，产出 FLAC、ffprobe JSON 和 32,000 bytes 解码 PCM；两次收取同一结果只登记三份媒体产物，不重跑命令。
+
+最终结果：`scripts/check-all.sh --debug` exit 0（390 项 Python 主机测试、Debug 单测、Spotless/detekt、双渠道 lint/APK/AndroidTest 编译与制品边界）；新增/既有 3 项媒体设备用例全部通过，无失败/跳过。API36 上 H.264 与 HEVC 的 NDK async 模式均产出 8 帧、codec 正确且可完整解码；H.264 sync 为无流空文件，HEVC sync 在 15+2 秒期限内被终止（137），这两项模式不计媒体能力通过。字体断言比较实际解码像素。
+
+最终覆盖安装 Developer Debug SHA-256 `4c732c9b42088f48225743747d756ff05ce86a9804552432cf77f453dd73cac4`，AndroidTest SHA-256 `f571265ede346432f1c47ca86471e03b684c04571f79a78d47ec23e79f6434ef`；ADB 已分别核对安装字节。未清空日常模拟器数据；测试终端均 stop/settle，直接 app-UID 对照的临时文件已清理。旧终端须重新打开才使用更新后的 guest 映射。初次 Gradle socket 沙箱失败、格式门禁失败、字体无变化失败和未加单模式 deadline 的 HEVC timeout 保留为前置失败，不计入最终绿色结果。
+
+原始日志、对照探测、源码/安装制品身份保存在 ignored `build/hxa240-media-2026-11-12/`。此次不包含真机/OEM、API29、完整编码器/色彩空间或真实模型选择命令的用户旅程，也不将 synthetic fixture 当成真实用户媒体。没有提交或推送。
+
+## 2026-11-12 后续：修复同步 MediaCodec，而非绕到异步模式
+
+依据 [Android MediaCodec 状态契约](https://developer.android.com/reference/android/media/MediaCodec)，encoder 收到 EOS 后再 `flush()` 的行为未定义；该回退只为 decoder 定义。[FFmpeg MediaCodec 文档](https://ffmpeg.org/ffmpeg-codecs.html#MediaCodec)区分 sync/async 与 global-header 行为，并说明 NDK 路径仍依赖平台服务。对照固定 9.0.2 源码 `mediacodec_generate_extradata` 可见：sync 为取得全局头先送 dummy frame/EOS，再 flush 同一个 encoder；async 跳过这段。MP4 设置 global-header 后进入该路径，外部 `extract_extradata` 没有阻止初始化探测。
+
+在同一 API36 app UID、相同原始 8 帧输入下，原载荷 H.264→MP4 为 exit0/0帧，HEVC→MP4 超时137；同一同步模式换 MPEG-TS 则两者均为8帧。独立重编的窄补丁仅移除 dummy-EOS/encoder-flush 预取，保留真实输入、同步队列与现有 extradata BSF；两种 codec 的 MP4、MPEG-TS 对照均恢复8帧。没有把 `ndk_async=0` 偷换为1，也没有替换 codec。
+
+补丁已进入 `ffmpeg-ready/recipe.json`，固定 patch SHA 与目标文件修改前/后 SHA。`source_patches.py` 验证原始来源不变，单独生成并校验补丁源码树；非目标路径、源码漂移、patch 漂移和输出 SHA 不符均拒绝。分发 ZIP 含 patch、helper、recipe 与 LGPL说明；应用准备器和独立 APK verifier 的精确身份锁均显式更新，未放宽字节/ABI/组件断言。原生载荷 10,080,568 → 10,080,024 bytes（减少544），仍低于25,000,000 bytes；ZIP 4,737,982 → 4,740,668 bytes，增加部分为可复建材料。
+
+重建的 arm64 与 macOS companion 均来自同一固定来源/补丁。原40项host媒体回归、11项补丁与制品检查通过。新的固定ZIP SHA-256：`e438d5fdfcb427586d1040d0f70c948dc982923ac0e61f32b19a9355c8be0640`。原始对照、重建、完整门禁与设备结果在 ignored `build/hxa240-sync-2026-11-12/`；前一节的同步限制属于修复前观察，不代表新候选结论。
+
+
+后续最终结算：完整 `scripts/check-all.sh --debug` exit0，398项主机脚本检查通过，Debug单测/静态检查/双渠道lint/APK/AndroidTest编译与独立制品边界通过。第一轮独立APK verifier因旧artifact identity拒绝新载荷，显式更新为新精确身份后整门重跑通过，未移除该校验。
+
+- API36 / `Helix_API_36` / `emulator-5554` / arm64-v8a：严格版3项设备用例全通过，无跳过。四种 H.264/HEVC sync/async 都必须有正确codec、8帧及成功完整解码；旧的“条件失败也算测试通过”分支已移除。保留字体像素、软件媒体、1.2MB snapshot、多产物及原结果重复收取断言。
+- API33 / `Helix_ProductionEval_API33_20261109` / `emulator-5582` / arm64-v8a：同一APK覆盖安装成功，但3项完整集成用例均在业务初始化前被 `PreviewResetRequest: Preview state requires explicit reset` 阻塞。没有清数据、reset或修改门禁。另用该已安装APK的独立app-UID媒体子进程完成四种模式：均8帧、96×64、codec正确、完整解码通过；此证据不等于App/PRoot/Dispatcher旅程通过。
+- 两个模拟器报告的 AVC/HEVC encoder 均为软件组件（API36实际创建 `c2.android.avc.encoder` / `c2.android.hevc.encoder`，hardware=false）。验证的是MediaCodec API路径，不是真实手机硬件加速性能或OEM兼容性。
+- 主机检查时可用空间8.6GiB，现有API33模板数据分区10G、RAM2G；为不额外占用存储及第三个模拟器的运行资源，本轮保留API33完整旅程边界而不新建实例。不访问已断线真机。
+
+最终Developer Debug APK SHA-256 `b83bb96bf7671202edc505a4dbd37a0d0be5a14c6becd7dc8ea218811f991dd6`，AndroidTest SHA-256 `ec2a996ddafadf60ddb53ba054176e1af5daa5c21ac047a664bf3eb21c672fb0`；两个目标均由ADB核对安装字节。日常API36已更新，未清应用数据。实验性覆盖库与两台设备上的媒体层临时文件已清理，正式用例只消费APK内载荷。没有提交或推送；API33旧状态的完整旅程、API29、真机/OEM和真实模型媒体任务仍需单独结算。
+
+
+## 2026-11-12 后续：API33 完整 App/PRoot 旅程闭环
+
+在同一 `Helix_ProductionEval_API33_20261109` / `emulator-5582` / API33 arm64 上使用 Goal/工具网关重构后已通过完整 Debug 门禁的候选，覆盖安装并核对主/测试 APK 字节。先 force-stop，再将旧 `databases` 与 `files/execution-admission` 同文件系统移动至应用私有保留目录；旧字节仍可恢复，未执行清数据、卸载或永久删除，RootFS、工作区与凭据未改动。新实例按当前格式正常初始化，生产版本门禁与 reset 契约保持原样，不新增兼容迁移或测试旁路。
+
+相同三项正式设备用例全部通过，耗时 22.732 秒，无失败或跳过：
+
+- `ProotMediaWorkflowDeviceTest`：真实 PTY → PRoot → APK 内 Bionic 媒体载荷；软件音视频、多输出、裁剪转换、中文路径、字体实际像素、缺失输入及无 HTTP 断言通过。H.264/HEVC 的 `ndk_async=0/1` 四种模式各自严格验证 codec、8 帧及完整解码，不以替换异步模式或空文件判成功。
+- `ProotMediaTerminalDeviceTest`：实际 FFmpeg/ffprobe 版本与中文路径音频转换，无 linker 错误。
+- `ProotMediaJobDeviceTest`：正式 Dispatcher → detached Job，1,200,000 bytes snapshot、多份媒体产物、原任务重复收取不重放且保持字节。
+
+此结果替代上一节 API33 完整旅程 blocked 的当前结论，历史失败保留。仍仅为模拟器软件 MediaCodec 组件路径，不代表真实硬件/OEM/API29、真实模型媒体旅程或最终 Release/R8 验收。没有修改产品源码、提交或推送。原始日志、JUnit、安装字节与可恢复状态位置记录在 ignored `build/hxa240-api33-clean-2026-11-12/`；复用候选的完整门禁来源为 `build/goal-gateway-refactor-2026-11-12/summary.json`，没有把复用门禁描述为本次重跑。
+
+## 2026-11-13：0.0.11 OnePlus 真机接续
+
+ONEPLUS_A6013/API34/ARM64/4 KiB 页在本轮明确授权下完成相同三项 App/PRoot 媒体检查；最终 API36 模拟器也重跑三项通过。硬编输出为 320×240/NV12，H.264/HEVC sync/async 四模式分别核对 8 帧和解码。96×64/yuv420p 的原 Qualcomm 配置失败、单变量对照及测试清理竞态均保留；该设备的输入限制不能外推所有 Qualcomm/OEM，也没有证明 320×240 是最低尺寸。生产媒体逻辑未为通过测试而缩放用户内容或切换 codec。
+
+完整主机 Debug/Release R8 门禁及测试签名 R8 基础入口检查另有版本绑定证据，见 [0.0.11 本轮记录](v0.0.11-preparation-2026-11-13.md)。此前本页“未使用真机”等表述保留为各历史批次范围，不再代表当前缺口。API29、其他 OEM、16 KiB 页真机、真实模型媒体旅程及长期资源行为仍未由这些测试证明。

@@ -1,9 +1,9 @@
 package com.helix.app.goal
 
-import com.helix.app.application.agent.GoalRoundAllowance
-import com.helix.app.application.agent.GoalRunCoordinator
 import com.helix.app.infrastructure.agent.RoomGoalEditSettlement
 import com.helix.app.infrastructure.agent.RoomGoalOwnership
+import com.helix.app.infrastructure.agent.RoomGoalRoundAllowance
+import com.helix.app.infrastructure.agent.RoomGoalRunCommands
 import com.helix.core.agent.GoalEvent
 import com.helix.core.agent.GoalReducer
 import com.helix.core.model.Clock
@@ -89,7 +89,7 @@ internal class GoalLifecycleService(
                 .jsonPrimitive.content
         require(objective.isNotBlank() && objective.length <= com.helix.core.agent.Goal.MAX_OBJECTIVE_LENGTH)
         val budgets = budgets(call.args["budgets"]?.jsonObject, defaults)
-        val id = GoalRunCoordinator(storage, clock, ids).saveReadyGoal(objective, emptyList(), budgets, null, null)
+        val id = RoomGoalRunCommands(storage, clock, ids).create(objective, emptyList(), budgets, null, null)
         bind(id, session)
         val pending = buildJsonObject { put("status", "active") }
         check(storage.goalControls.stage(id, 0, call.turnId, pending.toString()) == 1)
@@ -209,7 +209,7 @@ internal class GoalLifecycleService(
                     )
                     put(
                         "rounds_started",
-                        GoalRoundAllowance(storage)
+                        RoomGoalRoundAllowance(storage)
                             .used(goal.id),
                     )
                     put("model_calls", goal.modelCalls)

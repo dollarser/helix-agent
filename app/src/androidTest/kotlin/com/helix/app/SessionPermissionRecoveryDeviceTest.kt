@@ -32,6 +32,60 @@ class SessionPermissionRecoveryDeviceTest {
     private val bareSession = "sp-recovery-bare"
 
     @Test
+    fun revokedSessionDoesNotRegainPermissionAfterSwitchAndRealProcessRestart() {
+        val context = ApplicationProvider.getApplicationContext<HelixApplication>()
+        val container = context.appContainer
+        val first = "sp-revocation-first"
+        val second = "sp-revocation-second"
+        val marker = context.noBackupFilesDir.resolve("revoked-permission-pid")
+        val phase = InstrumentationRegistry.getArguments().getString("recoveryPhase")
+        if (phase != "verify") {
+            val now = System.currentTimeMillis()
+            listOf(first, second).forEach { id ->
+                if (container.storage.sessions
+                        .list()
+                        .none { it.id == id }
+                ) {
+                    container.storage.sessions.create(id, "Revocation recovery", null, null, now)
+                }
+            }
+            container.sessionPermissionEdit.saveSessionConfig(
+                first,
+                SessionPermissionConfig.of(SessionPermissionMode.FULL_ACCESS),
+                now,
+            )
+            container.sessionPermissionEdit.saveSessionConfig(
+                second,
+                SessionPermissionConfig.of(SessionPermissionMode.WORKSPACE_TRUSTED),
+                now,
+            )
+            container.sessionPermissionEdit.saveSessionConfig(
+                first,
+                SessionPermissionConfig.of(SessionPermissionMode.READ_ONLY),
+                now + 1,
+            )
+            assertEquals(
+                SessionPermissionMode.WORKSPACE_TRUSTED,
+                container.sessionPermissionEdit.activeConfigFor(second)?.mode,
+            )
+            marker.writeText(Process.myPid().toString())
+            if (phase == "setup") Process.killProcess(Process.myPid())
+        }
+        if (phase == "setup") return
+        try {
+            if (phase == "verify") assertNotEquals(marker.readText().toInt(), Process.myPid())
+            assertEquals(SessionPermissionMode.READ_ONLY, container.sessionPermissionEdit.activeConfigFor(first)?.mode)
+            assertEquals(
+                SessionPermissionMode.WORKSPACE_TRUSTED,
+                container.sessionPermissionEdit.activeConfigFor(second)?.mode,
+            )
+        } finally {
+            listOf(first, second).forEach { container.storage.deleteSessionPermanently(it) }
+            marker.delete()
+        }
+    }
+
+    @Test
     fun sessionAuthorizationSurvivesARealProcessRestart() {
         val context = ApplicationProvider.getApplicationContext<android.app.Application>()
         val container = (context as HelixApplication).appContainer

@@ -48,7 +48,7 @@ class GuestMediaTest {
             assertTrue(process.waitFor(10, java.util.concurrent.TimeUnit.SECONDS))
             assertEquals(37, process.exitValue())
             assertEquals(
-                listOf("/opt/helix-media/lib/libhelix_ffmpeg.so") + arguments,
+                listOf("/data/helix-media/lib/libhelix_ffmpeg.so") + arguments,
                 sink.readText().split('\u0000').dropLast(1),
             )
             assertFalse(java.io.File(root, "forbidden").exists())
@@ -72,13 +72,23 @@ class GuestMediaTest {
                 "-b",
                 "/system",
                 "-b",
-                "/data/app/native libs:/opt/helix-media/lib",
+                "/data/app/native libs:/data/helix-media/lib",
                 "-b",
-                "/data/user/0/tmp/scripts:/opt/helix-media/bin",
+                "/data/user/0/tmp/scripts:/data/helix-media/bin",
             ),
             binds,
         )
         assertFalse(binds.any { it == "/data" || it == "/storage" })
+    }
+
+    @Test
+    fun `media executables select Android data linker route without binding host data`() {
+        assertEquals("/data/helix-media", GuestMedia.GUEST_ROOT)
+        val binds = GuestMedia.bindings("/apk/lib", "/private/commands", setOf("/system", "/apex"))
+        assertTrue(binds.contains("/apk/lib:/data/helix-media/lib"))
+        assertFalse(GuestMedia.systemPaths.contains("/data"))
+        assertFalse(binds.contains("/data"))
+        assertFalse(binds.any { it.startsWith("/data:") })
     }
 
     @Test
@@ -105,7 +115,7 @@ class GuestMediaTest {
 
     @Test
     fun `path preserves existing programs and provides bridge first`() {
-        assertEquals("/opt/helix-media/bin:/custom:/bin", GuestMedia.path("/custom:/bin"))
+        assertEquals("/data/helix-media/bin:/custom:/bin", GuestMedia.path("/custom:/bin"))
         assertTrue(GuestMedia.path(null).endsWith(GuestMedia.DEFAULT_PATH))
     }
 }

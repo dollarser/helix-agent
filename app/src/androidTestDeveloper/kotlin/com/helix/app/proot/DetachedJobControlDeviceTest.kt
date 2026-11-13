@@ -16,8 +16,8 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -69,9 +69,12 @@ class DetachedJobControlDeviceTest {
             val cancel = fixture.ownership.guard(fixture.control.executor())
             val foreign = fixture.call.copy(sessionId = "foreign-session")
             val missing = fixture.call.copy(args = buildJsonObject { put("originalCallId", "missing") })
-            assertThrows(IllegalStateException::class.java) { cancel.execute(foreign) }
-            assertThrows(IllegalArgumentException::class.java) { cancel.execute(missing) }
-            assertThrows(IllegalStateException::class.java) { fixture.query(foreign) }
+            listOf(cancel.execute(foreign), cancel.execute(missing), fixture.query(foreign)).forEach { result ->
+                val rejected = result as ToolExecutorResult.Failed
+                assertTrue(rejected.sideEffectFree)
+                assertFalse(rejected.requiresReview)
+                assertTrue(rejected.detail.startsWith("JOB_HANDLE_INVALID:"))
+            }
             val observation = fixture.query(missing) as ToolExecutorResult.Failed
             assertTrue(observation.sideEffectFree)
             assertTrue(observation.detail.startsWith("JOB_HANDLE_INVALID:"))

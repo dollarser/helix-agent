@@ -144,7 +144,7 @@ internal fun FileDirectoryTask(
                             }
                         if (id != null) {
                             lifecycle
-                                .navigationCompletion { handoff.chat.screen.value.openSessionId == id }
+                                .navigationCompletion { handoff.chat.isCurrentConversation(id) }
                                 .complete { handoff.onOpen(id) }
                         } else {
                             failed = true

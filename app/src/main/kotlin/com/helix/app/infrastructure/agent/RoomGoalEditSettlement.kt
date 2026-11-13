@@ -69,8 +69,8 @@ internal class RoomGoalEditSettlement(
         }
         pending["objective"]?.jsonPrimitive?.content?.let { storage.goals.updateObjective(goal.id, it) }
         if (pending["status"]?.jsonPrimitive?.content == "active" && goal.state == "BLOCKED") {
-            com.helix.app.application.agent
-                .GoalBlockerResolution(
+            com.helix.app.infrastructure.agent
+                .RoomGoalBlockerResolution(
                     storage,
                     clock,
                     ids,

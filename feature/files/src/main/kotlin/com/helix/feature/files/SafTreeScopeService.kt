@@ -15,6 +15,7 @@ package com.helix.feature.files
 class SafTreeScopeService(
     private val store: SafGrantStore,
     private val check: SafTreeGrantCheck,
+    private val releasePersistedPermission: (String) -> Unit = {},
 ) {
     private val resolver = SafTreeScopeResolver(store, check)
 
@@ -46,8 +47,17 @@ class SafTreeScopeService(
         return SafTreeSource(grant.scopeId, grant.displayName)
     }
 
-    /** Removes the grant [scopeId] names (the file manager's 移除 entry). @return true when removed. */
-    fun revoke(scopeId: String): Boolean = store.revoke(scopeId)
+    /**
+     * Releases only this source's OS grant before forgetting its registry identity. Failure keeps
+     * the record available for retry; an interrupted removal cannot leave an untracked OS grant.
+     * Workspace bindings share this source and do not independently own its permission.
+     */
+    @Synchronized
+    fun revoke(scopeId: String): Boolean {
+        val grant = store.find(scopeId) ?: return false
+        releasePersistedPermission(grant.treeUri)
+        return store.revoke(scopeId)
+    }
 
     /**
      * Records (or refreshes) a grant for a user-selected tree (the [android.app.action 重新授权]
@@ -55,6 +65,7 @@ class SafTreeScopeService(
      * stored model-opaquely (the derived scope id is the only form the model sees).
      * @throws IllegalArgumentException when [treeUri] is not a content:// URI.
      */
+    @Synchronized
     fun grant(
         treeUri: String,
         displayName: String,
@@ -64,6 +75,7 @@ class SafTreeScopeService(
      * The 撤销检测 sweep: probes every stored tree and removes (persisting) the grants whose
      * provider no longer answers. @return the revoked grants, oldest first.
      */
+    @Synchronized
     fun sweepRevoked(): List<SafTreeGrant> = store.sweepRevoked(SafGrantProbe { uri -> check.verify(uri) != null })
 
     /**

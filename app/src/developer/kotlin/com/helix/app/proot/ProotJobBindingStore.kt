@@ -4,6 +4,7 @@ import com.helix.core.policy.SessionPermissionConfig
 import com.helix.core.storage.HelixStorage
 import com.helix.runtime.proot.ipc.DetachedJobBinding
 import com.helix.runtime.proot.ipc.ProotJobSpec
+import com.helix.tools.framework.ExecutionOwnership
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
@@ -99,6 +100,24 @@ internal class ProotJobBindingStore(
         return binding
     }
 
+    /** Read-only control admission; storage failures remain exceptions, not proven no-effect results. */
+    @Suppress("ThrowsCount") // Each missing identity fact rejects before Runtime or control admission.
+    fun resolveDetachedForAdmission(
+        sessionId: String,
+        toolCallId: String,
+    ): DetachedJobBinding {
+        val event =
+            storage.auditEvents.find(eventId(toolCallId))
+                ?: throw ExecutionOwnership.ControlBindingRejected()
+        if (event.type != "proot.job_prepared") throw ExecutionOwnership.ControlBindingRejected()
+        val binding = controlBinding(event.redactedPayload, sessionId, toolCallId)
+        val turn = storage.turns.find(binding.turnId) ?: throw ExecutionOwnership.ControlBindingRejected()
+        if (turn.sessionId != sessionId || storage.toolCalls.byTurnAndCallId(turn.id, toolCallId) == null) {
+            throw ExecutionOwnership.ControlBindingRejected()
+        }
+        return binding
+    }
+
     /** Only the current binding shape is accepted; execution mode is not a format version. */
     private fun requireVersion(payload: JsonObject) {
         val version = payload.getValue("version").jsonPrimitive.content
@@ -109,6 +128,24 @@ internal class ProotJobBindingStore(
 
     companion object {
         const val PAYLOAD_VERSION = 1
+
+        /** Parsing only: no Runtime, database mutation, import or settlement can have started here. */
+        internal fun controlBinding(
+            payload: String,
+            sessionId: String,
+            toolCallId: String,
+        ): DetachedJobBinding =
+            try {
+                detachedBinding(Json.parseToJsonElement(payload) as JsonObject, sessionId, toolCallId)
+            } catch (_: IllegalArgumentException) {
+                throw ExecutionOwnership.ControlBindingRejected()
+            } catch (_: IllegalStateException) {
+                throw ExecutionOwnership.ControlBindingRejected()
+            } catch (_: ClassCastException) {
+                throw ExecutionOwnership.ControlBindingRejected()
+            } catch (_: NoSuchElementException) {
+                throw ExecutionOwnership.ControlBindingRejected()
+            }
 
         internal fun detachedBinding(
             payload: JsonObject,

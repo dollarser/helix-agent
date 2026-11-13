@@ -2,9 +2,31 @@
 
 Notable changes are curated for users; development previews do not promise stable data or API compatibility. Exact build identity, downloadable APKs, checksums and verification results are recorded in each GitHub Release.
 
-## Unreleased
+## 0.0.11 — Development preview preparation, unpublished
 
-- Computer ADB helper now supports non-debuggable Advanced builds on Android 12+, using app-issued one-time process-bound handoff tickets instead of `run-as`. Standard has no entry because its current host does not compose Mobile Use. No wireless pairing or cross-Helix-process task recovery is added. Published v0.0.10 artifacts remain unchanged; the next preview version is pending owner confirmation.
+### Added
+
+- Explicit cross-session history, management, creation and task-delivery grants, with idempotent creation, Queue and active-Turn Steer.
+- Bounded public web fetching, browser search/form actions, opt-in search providers and binary MCP Resources delivered as host-managed artifacts.
+- Plugin-owned skills, atomic composer skill tokens and slash discovery.
+- Advanced FFmpeg media workflows through the existing PRoot/Job runtime.
+- Computer ADB helper support for non-debuggable Advanced builds on Android 12+, using app-issued, one-use, process-bound handoff tickets. Standard has no helper entry; wireless pairing and cross-process task recovery are not added.
+
+### Changed and fixed
+
+- Single-page API settings, unified save/cancel, separate connection/model checks and model pickers grouped by service.
+- Context compaction, bounded tool discovery, cache accounting, Goal coordination and durable tool/recovery boundaries.
+- Real SAF search, revocation, directory handoff and refresh/layout handling.
+- MediaCodec encoder initialization avoids the undefined encoder-flush preflight. Device support still depends on codec, dimensions and pixel format.
+- FFmpeg's packaged notice now describes the integrated runtime and bounded Android checks instead of its earlier standalone preparation stage; the notice update preserves all native bytes and original licenses.
+
+### Upgrade and validation notes
+
+VersionName is 0.0.11; versionCode and Helix-owned internal versions remain 1. The database structure differs from v0.0.10. In-place installation and historical data retention are not guaranteed; incompatible database reconstruction requires independent confirmation. Published v0.0.10 tags and artifacts remain unchanged.
+
+Full local Debug and Release/R8 host gates passed. Bounded ONEPLUS_A6013/API34 checks include 30 Debug checks and 8 isolated, test-signed non-debuggable R8 entry checks. The final media subset was rerun on that phone and an API36 emulator; these repeated checks are not additional unique product coverage. Ordinary Release APKs remain unsigned. No final release commit, remote CI, tag, upload or publication is claimed.
+
+[中文准备说明](docs/product/releases/v0.0.11.md) · [English preparation notes](docs/product/releases/v0.0.11.en.md)
 
 ## [0.0.10](https://github.com/dollarser/helix-agent/releases/tag/v0.0.10) — Development preview
 

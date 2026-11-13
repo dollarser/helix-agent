@@ -35,6 +35,7 @@ data class TurnContextRequest(
     val jobObservationMessage: ModelMessage? = null,
     /** The same bounded canonical text used by replay and compaction; transient, never a second journal. */
     val historySnapshot: ContextSourceSnapshot? = null,
+    val nativeWebSearch: Boolean = false,
 ) {
     fun modelRequest(): ModelRequest =
         ModelRequest(
@@ -43,6 +44,7 @@ data class TurnContextRequest(
             tools,
             maxOutputTokens = maxOutputTokens,
             reasoning = reasoning,
+            nativeWebSearch = nativeWebSearch,
         )
 
     fun inputTokens(): Long = ModelInputEstimate.of(messages, tools).total

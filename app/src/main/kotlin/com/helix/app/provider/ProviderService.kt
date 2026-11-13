@@ -162,9 +162,13 @@ class ProviderService(
         id: String,
         selection: ProviderModelSelection,
         expected: ProviderModelSelection? = null,
+        expectedConfig: ProviderConfig? = null,
     ) = withContext(Dispatchers.IO) {
         probeGate.access {
             val config = storedConfig(id)
+            if (expectedConfig != null && !sameProviderEditableConfig(config, expectedConfig)) {
+                throw ProviderDraftSaveConflictException()
+            }
             require(!BuiltInModel.owns(id)) { "Built-in conversation models are enabled by the service directory" }
             require(
                 selection.models.none {
@@ -180,8 +184,13 @@ class ProviderService(
     }
 
     /** Explicit directory fetch only; never generates or changes model choices. */
-    suspend fun refreshModelCatalog(id: String): com.helix.provider.api.ModelCatalogResult =
-        withContext(workScope.coroutineContext.minusKey(kotlinx.coroutines.Job)) { modelCatalog.refresh(id) }
+    suspend fun refreshModelCatalog(
+        id: String,
+        expectedConfig: ProviderConfig? = null,
+    ): com.helix.provider.api.ModelCatalogResult =
+        withContext(workScope.coroutineContext.minusKey(kotlinx.coroutines.Job)) {
+            modelCatalog.refresh(id, expectedConfig)
+        }
 
     private val modelCatalog by lazy {
         ProviderCatalogDiscovery(
@@ -196,90 +205,41 @@ class ProviderService(
     }
 
     val contextRevision: StateFlow<Long> = _contextRevision.asStateFlow()
-    private val contextWindowProbes = ContextWindowProbeCache()
+    private val contextOperations by lazy {
+        ProviderContextOperations(
+            factory,
+            testStatus,
+            contextSettingsStore,
+            clock,
+            probeGate,
+            ::storedConfig,
+            ::managedAccountFor,
+            ::metadataFor,
+            { _contextRevision.value++ },
+            ::refresh,
+        )
+    }
 
     suspend fun contextSettings(
         providerId: String,
         model: String? = null,
-    ): ProviderContextSettings {
-        val config = storedConfig(providerId)
-        val selectedModel = model ?: config.model
-        val stored =
-            testStatus.modelMetadata
-                .contextSettings(providerId, config.transport.cacheKey, selectedModel, contextSettingsStore)
-        val detected = metadataFor(providerId, selectedModel)?.contextWindow
-        val missingWindow = stored.serverWindow == null && detected == null
-        val mayDiscover = BuiltInModel.owns(providerId) && testStatus.builtInCatalog.accountAvailable()
-        if (missingWindow && mayDiscover) {
-            val key = testStatus.builtInCatalog.identity() + listOf(config.transport.cacheKey, selectedModel)
-            if (contextWindowProbes.due(key, clock.now().toEpochMilli())) {
-                return discoverContextWindow(providerId, selectedModel)
-            }
-        }
-        return stored.withDetectedWindow(detected)
-    }
+        expectedConfig: ProviderConfig? = null,
+    ): ProviderContextSettings = contextOperations.load(providerId, model, expectedConfig)
 
     suspend fun saveContextSettings(
         providerId: String,
         model: String,
         settings: ProviderContextSettings,
-    ) = probeGate.mutate(providerId) {
-        val config = storedConfig(providerId)
-        val local = config.transport is com.helix.core.model.ProviderTransport.OnDeviceLocal
-        if (local) {
-            require(settings.manualWindow == null || settings.manualWindow in 1024L..32768L)
-            testStatus.modelEvidence.verify(
-                providerId,
-                config.transport.cacheKey,
-                model,
-                ProviderModelVerification(clock.now().toEpochMilli()),
-            )
-            testStatus.modelMetadata.write(config.id, config.transport.cacheKey, emptyMap())
-        }
-        val previous = contextSettingsStore.read(providerId, config.transport.cacheKey, model)
-        contextSettingsStore.write(
-            providerId,
-            config.transport.cacheKey,
-            model,
-            if (local) {
-                settings.copy(serverWindow = if (settings.manualWindow == null) 4096L else null)
-            } else {
-                settings.copy(serverWindow = previous.serverWindow)
-            },
-        )
-        _contextRevision.value++
-        refresh()
-    }
+        expectedConfig: ProviderConfig? = null,
+    ) = contextOperations.save(providerId, model, settings, expectedConfig)
 
     suspend fun discoverContextWindow(
         providerId: String,
         model: String,
+        expectedConfig: ProviderConfig? = null,
     ): ProviderContextSettings =
         withContext(workScope.coroutineContext.minusKey(kotlinx.coroutines.Job)) {
-            val account = managedAccountFor(providerId)
-            check(account == null || account.ready) { "Account is not ready" }
-            val (token, config) = probeGate.begin(providerId, "context:$model") { storedConfig(providerId) }
-            val detected = factory.create(config.copy(model = model)).contextWindow(model)
-            val sameAccount = managedAccountFor(providerId) == account
-            probeGate.publish(providerId, token) {
-                if (sameAccount &&
-                    storedConfig(providerId).copy(capabilitySnapshot = config.capabilitySnapshot) == config
-                ) {
-                    val previous = contextSettingsStore.read(providerId, config.transport.cacheKey, model)
-                    contextSettingsStore.write(
-                        providerId,
-                        config.transport.cacheKey,
-                        model,
-                        previous.copy(serverWindow = detected),
-                    )
-                    _contextRevision.value++
-                }
-            }
-            // Do not re-enter discovery if an optional metadata request took longer than the miss-cache interval.
-            val current = storedConfig(providerId)
-            testStatus.modelMetadata
-                .contextSettings(providerId, current.transport.cacheKey, model, contextSettingsStore)
-                .withDetectedWindow(metadataFor(providerId, model)?.contextWindow)
+            contextOperations.discover(providerId, model, expectedConfig)
         }
 
     private val workScope = scope
@@ -382,6 +342,41 @@ class ProviderService(
         )
     }
 
+    /** Allocate once per opened form; Cancel simply discards this in-memory session. */
+    fun beginDraftSave(
+        providerId: String? = null,
+        expectedConfig: ProviderConfig? = null,
+        expectedSelection: ProviderModelSelection = ProviderModelSelection(),
+    ): ProviderDraftSaveSession {
+        require((providerId == null) == (expectedConfig == null))
+        require(expectedConfig == null || expectedConfig.id == providerId)
+        return ProviderDraftSaveSession(providerId ?: idGenerator(), expectedConfig, expectedSelection)
+    }
+
+    private val draftPersistence by lazy {
+        ProviderDraftPersistence(storage.providerConfigs, storage.secrets, testStatus, debugCustomApis, idGenerator)
+    }
+
+    /** Save one form with compensation across stores, retaining the same creation identity on retry. */
+    suspend fun saveDraft(
+        session: ProviderDraftSaveSession,
+        draft: ProviderDraft,
+        apiKey: String?,
+        selection: ProviderModelSelection,
+    ): String =
+        withContext(Dispatchers.IO) {
+            probeGate.mutate(session.providerId) {
+                require(!managed.isManaged(session.providerId) && !BuiltInModel.owns(session.providerId))
+                val transport = ProviderTransport.Network(draft.protocol, draft.endpoint).cacheKey
+                require(selection.models.none { conversationProhibited(session.providerId, it, transport) })
+                kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
+                    draftPersistence.save(session, draft, apiKey, selection)
+                    refreshNow()
+                    session.providerId
+                }
+            }
+        }
+
     /**
      * Persists a new provider from a composed [ProviderDraft].
      *
@@ -398,40 +393,12 @@ class ProviderService(
         draft: ProviderDraft,
         apiKey: String?,
     ): String =
-        withContext(workScope.coroutineContext) {
-            require(!draft.credentialRequired || !apiKey.isNullOrBlank()) {
-                "this provider requires an API key"
-            }
-            val id = idGenerator()
-            val alias =
-                if (apiKey.isNullOrBlank()) {
-                    null
-                } else {
-                    val generated = idGenerator()
-                    storage.secrets.put(SecretAlias(generated), apiKey)
-                    generated
-                }
-            storage.providerConfigs.save(
-                ProviderConfigSpec(
-                    id = id,
-                    displayName = draft.displayName,
-                    protocol = draft.protocol,
-                    endpoint = draft.endpoint.full,
-                    model = draft.model,
-                    headersJson = draft.headersJson,
-                    secretAlias = alias,
-                    authKind = if (alias == null) "NONE" else "SECRET",
-                    capabilitySnapshot = UNTESTED_PROVIDER_SNAPSHOT,
-                ),
-            )
-
-            debugCustomApis.record(id, draft)
-            testStatus.clear(id)
-            // The model entered during API setup is an explicit initial choice, not the discovered directory.
-            testStatus.selectedModels.write(id, listOf(draft.model))
-            refreshNow()
-            id
-        }
+        saveDraft(
+            beginDraftSave(),
+            draft,
+            apiKey,
+            ProviderModelSelection(listOf(draft.model), configured = true),
+        )
 
     /** Edits the user's provider; connection changes still invalidate old model evidence. */
     suspend fun update(
@@ -439,51 +406,14 @@ class ProviderService(
         draft: ProviderDraft,
         apiKey: String?,
     ) {
-        withContext(workScope.coroutineContext) {
-            probeGate.mutate(providerId) {
-                require(!managed.isManaged(providerId)) { "managed provider cannot be edited" }
-                require(!BuiltInModel.owns(providerId)) { "Bundled service cannot be edited" }
-                val existing = storage.providerConfigs.resolve(providerId)
-                require(existing.provisioningKind == "USER_CONFIGURED") { "Provider is not user-configured" }
-                val requiresRetest = providerConnectionChanged(configFrom(existing), draft, apiKey)
-                val alias =
-                    when {
-                        apiKey.isNullOrBlank() -> {
-                            existing.secretAlias
-                        }
-
-                        // keep the stored key
-                        else -> {
-                            val updatedAlias =
-                                existing.secretAlias?.takeUnless { it == ProviderFactory.NO_KEY_ALIAS } ?: idGenerator()
-                            storage.secrets.put(SecretAlias(updatedAlias), apiKey)
-                            updatedAlias
-                        }
-                    }
-                debugCustomApis.clear(providerId)
-                storage.providerConfigs.overwrite(
-                    ProviderConfigSpec(
-                        id = providerId,
-                        displayName = draft.displayName,
-                        protocol = draft.protocol,
-                        endpoint = draft.endpoint.full,
-                        model = draft.model,
-                        headersJson = draft.headersJson,
-                        secretAlias = alias,
-                        authKind = if (alias == null) "NONE" else "SECRET",
-                        capabilitySnapshot =
-                            if (requiresRetest) UNTESTED_PROVIDER_SNAPSHOT else existing.capabilitySnapshot,
-                    ),
-                )
-                debugCustomApis.record(providerId, draft)
-                if (requiresRetest) {
-                    testStatus.clear(providerId, configurationChanged = true)
-                    testStatus.modelMetadata.write(providerId, existing.transportIdentity, emptyMap())
-                }
-
-                refreshNow()
-            }
-        }
+        val config = storedConfig(providerId)
+        val selection = testStatus.selectedModels.selection(providerId)
+        saveDraft(
+            beginDraftSave(providerId, config, selection),
+            draft,
+            apiKey,
+            selection,
+        )
     }
 
     /** Deletes the provider (sessions keep their rows, providerId nulled by the FK). */
@@ -506,25 +436,39 @@ class ProviderService(
         }
     }
 
-    /** Catalog discovery plus one short text reply; independent of optional capability detection. */
+    /** API connection checks only fetch the directory; generation requires an explicit per-model action. */
     suspend fun runConnectionTest(
         providerId: String,
         modelId: String? = null,
         verifyGeneration: Boolean = false,
+        expectedConfig: ProviderConfig? = null,
     ): ProbeOutcome =
         withContext(workScope.coroutineContext.minusKey(kotlinx.coroutines.Job)) {
             connectionProbe
-                .run(providerId, modelId = modelId, verifyGeneration = verifyGeneration)
-                .also { refreshNow() }
+                .run(
+                    providerId,
+                    modelId = modelId,
+                    verifyGeneration = verifyGeneration,
+                    expectedConfig = expectedConfig,
+                ).also { refreshNow() }
         }
 
     /** Explicit capability detection; failures never invalidate a passed connection. */
     suspend fun runCapabilityTest(
         providerId: String,
         modelId: String? = null,
+        expectedConfig: ProviderConfig? = null,
     ): ProbeOutcome =
         withContext(workScope.coroutineContext.minusKey(kotlinx.coroutines.Job)) {
-            connectionProbe.run(providerId, detectCapabilities = true, modelId = modelId).also { refreshNow() }
+            connectionProbe
+                .run(
+                    providerId,
+                    detectCapabilities = true,
+                    modelId = modelId,
+                    expectedConfig = expectedConfig,
+                ).also {
+                    refreshNow()
+                }
         }
 
     suspend fun installCuratedLocalModel(
@@ -596,6 +540,10 @@ class ProviderService(
                 }
             }
         }
+
+    /** Explicit local reveal only. Never exposes bundled or runtime-managed credentials. */
+    suspend fun revealUserConfiguredApiKey(providerId: String): String? =
+        revealConfiguredProviderKey(storage, providerId, managed.isManaged(providerId))
 
     suspend fun openManagedAccount(providerId: String): ManagedProviderAccountResult =
         withContext(workScope.coroutineContext) {
@@ -742,13 +690,17 @@ class ProviderService(
     suspend fun declareVisionCapability(
         providerId: String,
         enabled: Boolean,
-    ) {
+        expectedConfig: ProviderConfig? = null,
+    ) = withContext(Dispatchers.IO) {
         probeGate.mutate(providerId) {
             require(!managed.isManaged(providerId)) { "managed provider capabilities cannot be overridden" }
             require(!BuiltInModel.owns(providerId)) { "Bundled service capabilities are project-declared" }
             val row = storage.providerConfigs.resolve(providerId)
+            if (expectedConfig != null && !sameProviderEditableConfig(configFrom(row), expectedConfig)) {
+                throw ProviderDraftSaveConflictException()
+            }
             storeVisionDeclaration(storage, row, enabled, testStatus, clock.now().toEpochMilli())
-            refresh()
+            refreshNow()
         }
     }
 }

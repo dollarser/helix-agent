@@ -33,6 +33,9 @@ class McpToolRuntime(
             permit,
         )
     },
+    private val publishResourceBlob: (
+        (ExecutableToolCall, McpResourceBlob, Int) -> kotlinx.serialization.json.JsonObject
+    )? = null,
     private val retryDelay: suspend (Long) -> Unit = { delay(it) },
 ) {
     init {
@@ -100,7 +103,16 @@ class McpToolRuntime(
         onSend: (ExecutableToolCall) -> Unit,
     ): McpToolResult {
         val result =
-            McpResourceTools.execute(session, name, call.args, config.id.value + "\n" + config.endpoint.full) {
+            McpResourceTools.execute(
+                session,
+                name,
+                call.args,
+                config.id.value + "\n" + config.endpoint.full,
+                publishBlob =
+                    publishResourceBlob?.let { publish ->
+                        { blob, index -> publish(call, blob, index) }
+                    },
+            ) {
                 ensureNotCancelled(call.cancel.isCancelled(), "resource request")
                 onSend(call)
             }

@@ -57,6 +57,7 @@ data class ConversationIntents(
     val onSkills: () -> Unit = {},
     val onConnectors: () -> Unit = {},
     val onManageGoal: () -> Unit = {},
+    val onSessionAccess: (() -> Unit)? = null,
     val onRename: () -> Unit = {},
     val onExport: (() -> Unit)? = null,
     val onRecoverSubscriptionResult: (String, String) -> Unit = { _, _ -> },

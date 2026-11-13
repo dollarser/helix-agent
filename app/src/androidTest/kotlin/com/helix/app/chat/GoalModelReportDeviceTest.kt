@@ -3,13 +3,13 @@ package com.helix.app.chat
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.helix.app.agent.TurnStartSpec
-import com.helix.app.application.agent.GoalBlockerResolution
-import com.helix.app.application.agent.GoalTurnStart
-import com.helix.app.application.agent.StartedGoalTurn
 import com.helix.app.goal.GoalLifecycleService
 import com.helix.app.goal.GoalLifecycleTools
 import com.helix.app.goal.GoalReportTool
 import com.helix.app.goal.goalModelReport
+import com.helix.app.infrastructure.agent.GoalTurnStart
+import com.helix.app.infrastructure.agent.RoomGoalBlockerResolution
+import com.helix.app.infrastructure.agent.StartedGoalTurn
 import com.helix.app.recovery.GoalUsageReservations
 import com.helix.app.test.FixtureGoalRunCoordinator
 import com.helix.app.test.settleFixtureTerminal
@@ -94,7 +94,7 @@ class GoalModelReportDeviceTest {
             start.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
             assertEquals("BLOCKED", s.goals.resolve(g).state)
             assertFalse(GoalSummaryQuery(s).forSession("s").single().canContinue)
-            assertTrue(GoalBlockerResolution(s, clock, ::id).resolve(g, "s", true))
+            assertTrue(RoomGoalBlockerResolution(s, clock, ::id).resolve(g, "s", true))
             assertEquals("PAUSED", s.goals.resolve(g).state)
             assertEquals(1, s.goalRuns.listByGoal(g).size)
         }
@@ -256,7 +256,7 @@ class GoalModelReportDeviceTest {
                     ),
                 )
             next.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.FAILED, "CONTEXT_WINDOW_LIMIT"))
-            assertFalse(GoalBlockerResolution(s, clock, ::id).resolve(g, "s", false))
+            assertFalse(RoomGoalBlockerResolution(s, clock, ::id).resolve(g, "s", false))
             assertEquals("BLOCKED", s.goals.resolve(g).state)
         }
 

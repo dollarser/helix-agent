@@ -22,6 +22,7 @@ internal class SafSystemDirectoryContract(
 
     fun verify() {
         verifySearch()
+        SafNativeSearchContract(saf, scope, owned).verify()
         verifySync()
     }
 

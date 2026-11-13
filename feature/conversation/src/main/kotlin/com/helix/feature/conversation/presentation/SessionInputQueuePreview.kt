@@ -71,6 +71,15 @@ private fun SessionInputPendingRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
+            record.delegationSourceSessionId?.let { source ->
+                Text(
+                    stringResource(R.string.session_input_delegated_from, source),
+                    modifier = Modifier.testTag("session-input-origin-${record.inputId}"),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.labelSmall,
+                )
+            }
             if (record.knowledgeReferences.isNotEmpty()) {
                 Text(
                     record.knowledgeReferences.joinToString(" · ") { it.title },
@@ -98,12 +107,14 @@ private fun SessionInputPendingRow(
                 )
             }
         }
-        IconButton(
-            onClick = { actions.edit(record) },
-            enabled = !busy,
-            modifier = Modifier.testTag("session-input-edit-action-${record.inputId}"),
-        ) {
-            Icon(painterResource(ConversationR.drawable.ic_chat_edit), stringResource(R.string.session_input_edit))
+        if (record.canEdit) {
+            IconButton(
+                onClick = { actions.edit(record) },
+                enabled = !busy,
+                modifier = Modifier.testTag("session-input-edit-action-${record.inputId}"),
+            ) {
+                Icon(painterResource(ConversationR.drawable.ic_chat_edit), stringResource(R.string.session_input_edit))
+            }
         }
         IconButton(
             onClick = { actions.delete(record) },
@@ -112,15 +123,17 @@ private fun SessionInputPendingRow(
         ) {
             Icon(painterResource(SharedR.drawable.ic_close), stringResource(R.string.session_input_delete))
         }
-        IconButton(
-            onClick = { actions.send(record, activeTurnId) },
-            enabled = !busy && record.canSend,
-            modifier = Modifier.testTag("session-input-send-now-${record.inputId}"),
-        ) {
-            Icon(
-                painterResource(ConversationR.drawable.ic_composer_send),
-                stringResource(R.string.session_input_send_now),
-            )
+        if (record.delegationSourceSessionId == null || record.needsAttention) {
+            IconButton(
+                onClick = { actions.send(record, activeTurnId) },
+                enabled = !busy && record.canSend,
+                modifier = Modifier.testTag("session-input-send-now-${record.inputId}"),
+            ) {
+                Icon(
+                    painterResource(ConversationR.drawable.ic_composer_send),
+                    stringResource(R.string.session_input_send_now),
+                )
+            }
         }
     }
 }

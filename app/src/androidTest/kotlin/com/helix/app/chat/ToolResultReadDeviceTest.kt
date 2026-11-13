@@ -24,6 +24,62 @@ import java.util.UUID
 
 /** Real Room/files: paging is a read of verified durable data, never replay of a tool. */
 class ToolResultReadDeviceTest {
+    @Test fun pageSizeIsBoundedAtExecutionAndDefaultsToLargerPages() =
+        withStorage { storage ->
+            storage.toolCalls.append("large-row", "source", "large", "time.now", "1", "{}", "COMPLETED")
+            val result =
+                storage.toolResults.append(
+                    "large-result",
+                    "large-row",
+                    "SUCCEEDED",
+                    "summary",
+                    "😀".repeat(9000),
+                )
+            storage.toolResults.markVerified(result)
+            val call = request().copy(args = args("source/large"))
+            val page = (ToolResultReadTool.read(storage, call) as ToolExecutorResult.Completed).output.jsonObject
+            assertEquals("8192", page.getValue("nextOffset").jsonPrimitive.content)
+            assertEquals("😀".repeat(8192), page.getValue("content").jsonPrimitive.content)
+            val short =
+                call.copy(
+                    args =
+                        buildJsonObject {
+                            args("source/large").forEach { (key, value) -> put(key, value) }
+                            put("maxCharacters", 1)
+                        },
+                )
+            assertEquals(
+                "😀",
+                (ToolResultReadTool.read(storage, short) as ToolExecutorResult.Completed)
+                    .output.jsonObject
+                    .getValue("content")
+                    .jsonPrimitive.content,
+            )
+            for (limit in listOf(0, -1, 8193)) {
+                assertFailed(
+                    storage,
+                    call.copy(
+                        args =
+                            buildJsonObject {
+                                args("source/large").forEach { (key, value) -> put(key, value) }
+                                put("maxCharacters", limit)
+                            },
+                    ),
+                )
+            }
+            assertFailed(
+                storage,
+                call.copy(
+                    args =
+                        buildJsonObject {
+                            args("source/large").forEach { (key, value) -> put(key, value) }
+                            put("maxCharacters", 1.5)
+                        },
+                ),
+            )
+            assertTrue(storage.toolCalls.listByTurn("current").isEmpty())
+        }
+
     @Test fun deletedPayloadFailsWithoutReexecution() =
         withStorage { storage ->
             val result = storage.toolResults.byToolCall("row")!!

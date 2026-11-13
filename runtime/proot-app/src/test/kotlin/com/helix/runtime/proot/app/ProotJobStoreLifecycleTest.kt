@@ -189,6 +189,31 @@ class ProotJobStoreLifecycleTest {
         assertFalse(store.outputFile(record.jobId).exists())
     }
 
+    @Test fun cancelledPhysicalJobSurvivesCleanupAndReopenUntilExitThenAcknowledgesOnce() {
+        val root = temporary.newFolder()
+        var running = true
+        val cancelled = record(0)
+        val store = ProotJobStore(root, physicallyRunning = { running })
+        store.put(cancelled)
+        File(store.jobDir(cancelled.jobId), "tmp").mkdirs()
+        store.outputFile(cancelled.jobId).writeText("partial output")
+        store.cleanupScratch(cancelled.jobId)
+        store.prune(31 * day)
+        assertNull(store.acknowledge(cancelled.jobId, checkNotNull(cancelled.terminalCommit), day))
+        assertTrue(File(store.jobDir(cancelled.jobId), "tmp").isDirectory)
+        assertEquals("partial output", store.outputFile(cancelled.jobId).readText())
+        val reopened = ProotJobStore(root, physicallyRunning = { running })
+        assertFalse(reopened.load(cancelled.jobId)!!.evidenceExpired)
+        running = false
+        reopened.cleanupScratch(cancelled.jobId)
+        assertFalse(File(reopened.jobDir(cancelled.jobId), "tmp").exists())
+        val receipt = reopened.acknowledge(cancelled.jobId, checkNotNull(cancelled.terminalCommit), day)!!
+        val restarted = ProotJobStore(root)
+        assertEquals(receipt, restarted.acknowledge(cancelled.jobId, checkNotNull(cancelled.terminalCommit), 2 * day))
+        assertEquals(ProotJobState.CANCELLED, receipt.state)
+        assertFalse(restarted.outputFile(cancelled.jobId).exists())
+    }
+
     @Test fun activeJobsRemainBudgetedEvenAfterLongDowntime() {
         val store = ProotJobStore(temporary.newFolder())
         repeat(128) { store.put(record(it).copy(state = ProotJobState.RUNNING, terminalAtEpochMs = null)) }

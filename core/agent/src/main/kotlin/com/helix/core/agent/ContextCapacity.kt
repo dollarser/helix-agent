@@ -28,6 +28,7 @@ object ContextCapacity {
         )
     }
 
+    /** Pressure signal; the first automatic attempt must also pass the compaction feasibility check. */
     fun shouldCompact(
         request: TurnContextRequest,
         settings: com.helix.provider.api.ProviderContextSettings,

@@ -1,11 +1,11 @@
-package com.helix.app.application.tools
+package com.helix.app.infrastructure.tools
 
 import com.helix.app.recovery.GoalUsageReservations
 import com.helix.core.model.Clock
 import com.helix.core.storage.HelixStorage
 
 /** Tool-call attempts reserve Goal capacity before entering the scheduler, including denied attempts. */
-internal class GoalToolCallBudget(
+internal class RoomGoalToolCallBudget(
     private val storage: HelixStorage,
     private val clock: Clock,
 ) {

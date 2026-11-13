@@ -14,6 +14,9 @@ class DatabaseContractTest {
     private val expectedTables =
         setOf(
             "sessions",
+            "session_access_grants",
+            "session_creation_grants",
+            "session_creation_receipts",
             "projects",
             "project_sessions",
             "workspaces",
@@ -62,6 +65,7 @@ class DatabaseContractTest {
             "experts",
             "session_run_controls",
             "session_inputs",
+            "session_delegation_receipts",
             "session_input_attachments",
             "tool_call_reviews",
             "turn_runtime_records",
@@ -108,6 +112,51 @@ class DatabaseContractTest {
         val tables = entities().map { (it.entries.getValue("tableName") as Value.Str).value }
         assertEquals(expectedTables, tables.toSet())
         assertEquals(expectedTables.size, tables.size)
+    }
+
+    @Test fun crossSessionScopeAndCreationReceiptsHaveDistinctDurableIdentities() {
+        assertEquals(
+            listOf("sourceSessionId", "targetSessionId", "readHistory", "manageMetadata", "revision", "delegateTasks"),
+            columns("session_access_grants"),
+        )
+        assertEquals(
+            listOf("sourceSessionId", "inputId", "requestKey").toSet(),
+            columns("session_delegation_receipts").toSet(),
+        )
+        assertTrue(
+            setOf(
+                "inputOrigin",
+                "delegationSourceSessionId",
+                "delegationSourceTurnId",
+                "delegationSourceCallId",
+                "delegationRequestKey",
+                "delegationGrantRevision",
+            ).all { it in columns("session_inputs") },
+        )
+        assertEquals(listOf("sourceSessionId", "allowed", "revision"), columns("session_creation_grants"))
+        assertEquals(
+            listOf(
+                "sourceSessionId",
+                "requestKey",
+                "title",
+                "createdSessionId",
+                "sourceTurnId",
+                "sourceCallId",
+                "grantRevision",
+                "createdAt",
+            ),
+            columns("session_creation_receipts"),
+        )
+        mapOf(
+            "session_access_grants" to listOf("sourceSessionId", "targetSessionId"),
+            "session_creation_grants" to listOf("sourceSessionId"),
+            "session_delegation_receipts" to listOf("sourceSessionId", "requestKey"),
+            "session_creation_receipts" to listOf("sourceSessionId", "requestKey"),
+        ).forEach { (table, key) ->
+            val primaryKey = entity(table).entries.getValue("primaryKey") as Value.Obj
+            val names = primaryKey.entries.getValue("columnNames") as Value.Arr
+            assertEquals(key, names.items.map { (it as Value.Str).value })
+        }
     }
 
     @Test

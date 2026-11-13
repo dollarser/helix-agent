@@ -71,7 +71,7 @@ class StartupAndThinkingDeviceTest {
                         null,
                     )
                 try {
-                    assertTrue(service.runConnectionTest(id) is ProbeOutcome.Ok)
+                    assertTrue(service.runConnectionTest(id, verifyGeneration = true) is ProbeOutcome.Ok)
                 } finally {
                     service.delete(id)
                 }

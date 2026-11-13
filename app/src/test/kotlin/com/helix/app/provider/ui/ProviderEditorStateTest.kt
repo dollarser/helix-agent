@@ -40,10 +40,10 @@ class ProviderEditorStateTest {
                 calls++
                 reply.await()
             }
-            state.save(form, save)
+            state.save(form, persist = save)
             assertTrue(state.saving)
             assertEquals(form, state.form)
-            state.save(form, save)
+            state.save(form, persist = save)
             assertEquals(1, calls)
             reply.complete(SaveResult.Saved)
             assertFalse(state.saving)
@@ -65,6 +65,27 @@ class ProviderEditorStateTest {
             assertEquals(R.string.provider_save_failed, retained.error?.res)
             state.save(retained) { SaveResult.Saved }
             assertNull(state.form)
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @Test fun successfulWholeFormSaveClosesAndClearsRetainedDrafts() {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+        try {
+            val state = ProviderEditorState(scope)
+            state.form = form
+            state.models =
+                ProviderModelsEditorState(
+                    com.helix.app.provider
+                        .ProviderModelSelection(),
+                )
+            state.models!!.manual = "unsaved"
+            state.save(form) { SaveResult.Saved }
+            assertNull(state.form)
+            assertNull(state.models)
+            assertNull(state.saveSession)
+            assertFalse(state.saving)
         } finally {
             scope.cancel()
         }

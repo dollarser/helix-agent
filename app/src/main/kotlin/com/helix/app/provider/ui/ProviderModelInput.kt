@@ -10,7 +10,6 @@ import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -36,7 +35,6 @@ internal fun ProviderModelInput(
 ) {
     var expanded by remember { mutableStateOf(false) }
     val keyboard = LocalSoftwareKeyboardController.current
-    LaunchedEffect(models) { if (models.isNotEmpty()) expanded = true }
     val known = value in models
     val matches = models.filter { known || it.contains(value, ignoreCase = true) }.take(200)
     ExposedDropdownMenuBox(

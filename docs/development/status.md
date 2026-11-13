@@ -1,6 +1,6 @@
 # 当前实施状态
 
-更新：2026-11-08。本页只维护当前能力、事实来源与开放边界；当前对话决定工作范围，历史授权不自动延续到新任务。历史命令、统计和安装流水留在原任务/证据，不在这里重复。
+更新：2026-11-13。本页只维护当前能力、事实来源与开放边界；当前对话决定工作范围，历史授权不自动延续到新任务。历史命令、统计和安装流水留在原任务/证据，不在这里重复。
 
 ## 当前能力与唯一说明入口
 
@@ -16,13 +16,21 @@
 | 知识库、分享、提醒与朗读 | HXA-308～314 的知识库、检索问答、确认式提醒、本机朗读和最小定时 Agent 均已有有界交付；原阶段“不含 TTS”等措辞不再是产品全局限制。分享面板打开不等于接收 App 已保存 | [知识库/分享](knowledge-sharing-closeout.md)、[知识库 ADR](../adr/workspace/007-local-knowledge.md)、[Goal ADR](../adr/goal/001-lifecycle-and-completion.md) |
 | 文档与应用备份 | PDF 导入复用隔离解析器，区分页覆盖、无文本和部分提取；回答引用可打开修订绑定的页/片段。设置中的本地备份默认包含会话、记忆、配置与任务历史，原件/工作区可选，静态凭据独立加密且默认关闭；恢复先预检与明确确认，重启前消费者屏障、替换日志及失败回滚，任务暂停且不重放。不是进程/系统授权或账号登录镜像 | [PDF](../adr/workspace/006-pdf-reading.md)、[应用备份](../adr/workspace/008-content-backup.md) |
 | 请求观测 | 消息操作按需显示持久请求的客户端首响应/首字、耗时、报告 Token 和全请求平均吞吐；缺失值为未知，不推算金额或服务器速度 | [结果投影](../adr/agent/006-model-data-budget-boundaries.md) |
-| 工具、扩展与内置帮助 | Plugin/Skill/MCP 等贡献复用宿主授权与执行边界；工具按来源发现和按需 schema，独立短名不机械命名空间化。内置帮助的资源读取仍是动态有效入口 | [工具契约](tool-contracts.md)、[安装归属 ADR](../adr/connectors/003-ownership-and-installation.md)、[插件计划](../architecture/plugin-platform-plan.md) |
+| 工具、扩展与内置帮助 | Plugin/Skill/MCP 等贡献复用宿主授权与执行边界；技能按安装归属管理，当前消息输入框已有原子技能标记与斜杠发现，见[技能 ADR](../adr/skills/001-authoring-and-installation.md)；工具按来源发现和按需 schema，独立短名不机械命名空间化。内置帮助的资源读取仍是动态有效入口 | [工具契约](tool-contracts.md)、[安装归属 ADR](../adr/connectors/003-ownership-and-installation.md)、[插件计划](../architecture/plugin-platform-plan.md) |
 
 消息中完整的 `math` 围栏和独占行块公式提供 KaTeX 离线预览，保留源码复制与原 Markdown；完整闭合的 `mermaid`、`svg` 围栏默认内嵌离线图，支持源码切换/复制/放大；完整有界 SVG 文件可在文件管理中预览，图内链接/配置和外部资源不执行；行内公式已接保守分隔符识别、原生位图混排及点击放大；不支持、未闭合和超限保持源码，Tiny 不支持图种同样回退。知识库设置已提供默认关闭的语义检索：明确选择资料和内置嵌入模型，复用受控 search/read；正文权威、本机派生缓存、修订/权限隔离及离线词法降级保持。连续语音与 SAF 同步的具体剩余接线见[增量条件](candidate-decisions.md#资料检索展示与输入增量)。
 
 审计页支持对已脱敏工具调用字段进行全历史关键词分批检索，保留会话/工具/日期筛选；不搜索原始参数、输出或系统日志正文。定时结果可在权限允许时发送无正文通知，点击仅审阅记录，不重放任务。
 
 ## 最新验收及未通过项
+
+- v0.0.11 / code 1 已完成本地完整 Debug/Release R8 门禁及 ONEPLUS_A6013/API34 有界验收：Debug 专项 30、双渠道隔离测试签名 R8 入口 8 项通过；最终媒体子集在该真机/API36 模拟器分别通过。普通 Release 尚未签名，未提交/推送/发布；其他 OEM、16 KiB 真机、真实模型媒体和长稳不外推。测试参数/清理修正、复用证据与升级边界见[本轮记录](../evidence/development/v0.0.11-preparation-2026-11-13.md)及[版本准备说明](../product/releases/v0.0.11.md)。
+
+- 跨会话查询/管理、幂等创建及明确 Queue/Steer 已完成 B/C 有界交付，不再等待宿主迁移；Debug、真实 Room 与模拟器应用/UI 验收通过，确定性本地模型不代表真实 Provider 的自然发现质量。见 [HXA-295](tasks/HXA-295.md)。
+- 原生 glob/grep 的双渠道真实系统 SAF 与目录同步/冲突回归通过；自然模型定位先遇 HTTP 530，修正测试启动竞态后确认既有测试账号为 SIGNED_OUT，仍未通过，不等于文件工具失败。见 [HXA-289](tasks/HXA-289.md)。
+- FFmpeg 复用原 PRoot/Job 的 API33/36 软件媒体、字体、多产物与 H.264/HEVC NDK sync/async 已有有界通过；同步模式的 encoder-flush 缺陷已由固定来源窄补丁修复，旧空文件/超时为修复前观察。0.0.11 的 ONEPLUS_A6013/API34 真机也通过完整 App/PRoot 媒体三项，硬编合成输入为 320×240/NV12，四种模式均核对帧数和实际解码；不表示该尺寸是最低要求或所有 Qualcomm/OEM 通用。API29、其他 OEM、16 KiB 真机及当前候选真实模型媒体旅程仍未验，见 [HXA-240](tasks/HXA-240.md)和[本轮记录](../evidence/development/v0.0.11-preparation-2026-11-13.md)。
+
+- 长任务浏览器案例定位到 32 请求中的 27 次结果分页；已增加有界可调页长与保留真实链接 token 的正文视图。完整 Debug 与 API36 29 项回归通过，最后 15 请求、零分页的真实恢复样本经独立来源审计通过；原 JUnit 失败保留，未证明总延迟或普遍可靠性改善。见 [HXA-290](tasks/HXA-290.md#2026-11-12-长任务与浏览器结果效率)。
 
 - 非语音补验新增真实系统 SAF 发布后跨进程恢复：不同 PID、REVIEW/禁自动执行、字节保留及显式恢复通过；原系统 SAF 回归同样通过。当前生产源码完整主机 Debug/Release R8、API36 双渠道隔离测试签名 Release 各三项基础入口通过；随机无语义图形的真实模型单轮核验编码图片传输、点击与文件效果通过，仍不代表一般模型可靠性。测试修正及各候选边界见[本轮补验](../evidence/development/continue-delivery-2026-11-08.md#2026-11-08-非语音补验)。本轮无真机、重登录、发布或语音质量验证。
 
@@ -46,7 +54,7 @@
 | 范围 | 边界与入口 |
 | --- | --- |
 | 架构重构 | 完整 Turn 宿主、内容/预算、装配/输入契约，以及 conversation、共享 UI 与 Room 模块迁移均已有有界交付；后续仅按[蓝图 24.1](../architecture/harness-refactor-plan.md#241-结论基线与范围)的证据边界及[渐进路线](../architecture/harness-refactor-plan.md#245-分阶段实施路线)选择仍有收益的纵切。已完成内容不重做，不把网页、MCP Resources 等新能力当结构前置 |
-| 功能新增 | 网页 Fetch 与 MCP 文本 Resources 已有有界交付；Search、MCP 二进制及第三方生产服务验证、模型自主完成可靠性、Browser 新表单能力、跨会话任务投递等按[功能任务](roadmap.md#功能新增与能力扩展)的剩余范围分别推进；生产子 Agent、远程、hooks/LSP、模型 PTY 等仍依[候选索引](candidate-decisions.md)进入条件，建议不等于已授权实施 |
+| 功能新增 | Fetch/浏览器搜索、API Search 接线、MCP 二进制产物及跨会话查询/创建/投递已有有界交付；付费 Search 实接、第三方 MCP 服务/二进制模型消费、一般自主完成可靠性与 Browser 新表单能力等按[功能任务](roadmap.md#功能新增与能力扩展)的剩余范围分别推进；生产子 Agent、远程、hooks/LSP、模型 PTY 等仍依[候选索引](candidate-decisions.md)进入条件，建议不等于已授权实施 |
 | 验证与缺陷 | 已有文件搜索、设备交互等尚缺的验收与已知失败见[验证任务](roadmap.md#缺陷修复与验证收尾)；不把待验证写成未实现，不用文档整理关闭 pending |
 | 服务与账号 | Notion/Linear 既定测试已结案，Claude/Grok 付费账号暂缓；新账号/付费额度/真实外部副作用需当前明确授权，配置缺失与无效分别处理 |
 | 系统与资源 | 其他 OEM/API、物理低内存/热压/Doze/16 KiB、24h 与全部 Runtime 组合未全部验收；已有资源结果不外推，见[资源复核](../evidence/development/resource-gate-review-2026-10-12.md)及[原生引用调查](../evidence/development/native-reference-release-trace.md) |
@@ -56,3 +64,25 @@
 ## 查阅方式
 
 现行规则查 [ADR](../adr/README.md) 与[总体架构](../architecture/overview.md)；任务实施查[完成记录索引](../completion-records/index.md)和[证据索引](../evidence/README.md)。历史阶段记录是当时证据，不覆盖当前源码和接受的契约，也不授予新的设备、账号、清数据或发布权限。
+
+
+### 2026-11-12 MCP Resources 二进制交付
+
+HXA-291 增补严格 Blob 解码与累计1 MiB预算、来源/取消复核、App 私有产物及 Room 注册；模型输出仅含来源/hash/产物引用，保存但未注册返回明确错误事实。完整 Debug 门禁通过，MCP JVM111项及双渠道产物各5项通过；API36私有文件/Room重开1项通过，日常模拟器已覆盖更新。未验证二进制真实模型消费或第三方生产服务，未运行 Release、未提交推送。详见 [HXA-291](tasks/HXA-291.md#2026-11-12-二进制-resources-接续)。
+
+
+### 2026-11-12 恢复与清理组合补验
+
+修复原Job控制在无效/跨会话句柄准入阶段误报NEEDS_REVIEW：可信解析前置拒绝无副作用，实际执行、导入与存储异常仍保守处理。全Debug门禁及API36 Developer 49项组合测试通过，另7次真实进程终止后恢复验证通过；日常模拟器已覆盖更新。未以局部结果关闭全部恢复/OEM/真实服务矩阵，详见[组合验证记录](../evidence/development/recovery-combinations-2026-11-12.md)。
+
+
+### 2026-11-12 Goal/工具重构前候选整合复核
+
+在保留会话、搜索、MCP、Provider、恢复及 FFmpeg 未提交改动的同一源码候选上，重跑 `scripts/check-all.sh --all` 全部通过，覆盖双渠道 Debug/Release、R8、JVM、静态分析、测试源码编译及制品边界。Gradle 复用输入未变的任务结果；本次门禁对应 JVM 结果为 7,998 项、零失败、10 项跳过，不把跳过记作通过。定向静态审查未发现新的可复现缺陷，已同步本页过时的 FFmpeg sync 限制。
+
+同候选 Debug 覆盖安装到 Helix_API_36，核对安装字节与构建制品一致，保留应用数据和设置；会话 37、MCP/Provider/搜索 4、恢复 27、FFmpeg 3 项确定性设备集成均通过。原始命令、非文档源码冻结清单、制品身份与测试结果保存在 ignored `build/candidate-integration-2026-11-12/`。这不代表真实模型/第三方生产服务、全部恢复/OEM/API 矩阵或 Release 设备验收；Release APK 仍未正式签名，未提交、推送或发布。
+
+
+### 2026-11-12 Goal 协调与工具网关存储边界
+
+Goal 创建、启动/恢复、轮次与解除阻塞的完整事务命令归 infrastructure；工具网关注入持久端口，不再持有 HelixStorage、Room entity 或在应用层构造 Room adapter。保留 plan/admission 外层原子性、预算与 UNKNOWN 恢复语义，并补齐独立恢复启动失败回滚。完整 Debug 门禁与 API36 77 项定向设备回归通过，日常模拟器已保数据覆盖更新；本片未重新验收 Release/R8、真机或真实模型。设计与具体证据见 [执行 ADR](../adr/agent/001-turn-coordination.md)。

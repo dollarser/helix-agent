@@ -21,6 +21,7 @@ internal class RoomSessionInputDeliveryStore(
     override fun load(key: InputDeliveryKey): AcceptedInputSnapshot? =
         read {
             val record = exact(key) ?: return@read null
+            require(storage.sessionInputs.delegationAllowed(record)) { "SESSION_DELEGATION_REVOKED" }
             AcceptedInputSnapshot(
                 key,
                 record.delivery,

@@ -82,7 +82,7 @@ internal class SdkMcpClientSession(
 
     override suspend fun listResourceTemplates(cursor: String?): McpResourcePage = resources().list(cursor, true)
 
-    override suspend fun readResource(uri: String): List<McpResourceText> = resources().read(uri)
+    override suspend fun readResource(uri: String): List<McpResourceContent> = resources().read(uri)
 
     override suspend fun close() {
         if (!closed.compareAndSet(false, true)) return

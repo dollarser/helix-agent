@@ -212,3 +212,11 @@ Owner 授权完成后续事项。HXA-290 的 Fetch 采用独立 `web_fetch` 文�
 - DeepSeek [官方独立 Search API](https://api-docs.deepseek.com/guides/search/) 是 `POST https://api.deepseek.com/v1/tools/search`、Bearer key；固定 `count=5`、`need_content=false`，query 按官方 1–128 Unicode 字符限制校验，`summary` 映射有界 snippet。该路径不调用聊天模型，亦不依赖某个模型支持 Responses。2026-11-11 文档标价成功且非空搜索每千次 US$0.75；实际账户计费以厂商为准，不以网络失败推断未扣费。
 - [Responses API](https://api-docs.deepseek.com/guides/responses_api/) 的 server-side `web_search` 与上述独立端点不是同一协议，官方支持限制不同；本轮没有向所有 OpenAI-compatible 模型盲目添加搜索 flag。OpenAI、Anthropic、Gemini 的原生搜索协议与引用约束未在本轮实现，不声明通用兼容。
 - 两个 API provider 共用既有固定端点 PinnedWebFetchTransport、响应上界、撤销重查和不重试契约。真实付费请求及真实模型消费与离线协议、模拟器验证分别记录。
+
+### Decision history — 2026-11-12：OpenAI Responses 原生搜索准入
+
+Owner 明确搜索只需在请求前决定是否允许，不需要按服务端生成的每个搜索词逐次审批。原生搜索是当前模型请求内的供应商托管公开网页检索，不伪装为本地 Dispatcher 工具，也不套用本地远端业务修改的逐参数 proof。用户在网页搜索设置中明确保存默认关闭的 OpenAI 原生检索选项；每个任务请求读取此 opt-in，并沿现有会话/模式/工具可用性过滤确认搜索未被禁用。允许时发送 Responses `web_search`，移除同次请求中的本地同名函数，避免两条搜索路径同时曝光。关闭只影响后续请求，不声称撤回已在服务端开始的调用。
+
+首版仅支持官方 HTTPS `api.openai.com:443/v1` 的 Responses，保持用户已选模型与凭据；不向任意兼容端点加 flag，不静默改模型/协议、不另起嵌套模型。模型若不支持，由原服务错误路径明确失败，无付费 fallback。引用通过安全 URL 校验后的 Markdown 链接进入原有正文流/持久化；原生调用不生成本地 function_call 或要求本地回填。请求诊断记录是否授权原生搜索。含原生搜索的请求禁止自动空响应重试，避免未知执行后再次计费；取消/断线不证明未收费。压缩、连接检查和独立分析请求默认不含此能力。
+
+依据：[OpenAI Web search](https://developers.openai.com/api/docs/guides/tools-web-search)。服务端可执行多次搜索，设置披露搜索调用费与模型 token 费；2026-11-12 核查公开标价为每千次搜索 US$10 加适用 token，实际账户价格为准。不注册账户、改账单或自动发起真实验收请求。此合同不授予真实账号消费权限。首版验证需区分离线流/协议、实际调用事件和引用、真实下一轮模型消费，自动选择搜索的模型没有调用搜索不算搜索实接通过。

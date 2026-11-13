@@ -6,6 +6,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -18,6 +21,7 @@ import com.helix.app.provider.ProviderRowUi
 import com.helix.app.provider.ui.ProviderModelChoiceRow
 import com.helix.app.provider.ui.ProviderRow
 import com.helix.app.provider.ui.ProviderRowActions
+import com.helix.app.provider.ui.ProviderSelectedModelList
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.ProviderProvisioningKind
 import com.helix.core.model.ProviderResidence
@@ -34,36 +38,212 @@ class ProviderModelPickerDeviceTest {
     @get:Rule val compose = createComposeRule()
     private val caps = ProviderCapabilities(true, true, false, false, false, false, 8192, CapabilitySource.PROBED)
 
-    @Test fun optionalProviderControlsRequireExpansionAndNeverRunOnOpen() {
-        var probes = 0
-        var visionChanges = 0
+    @Test fun selectedModelsExposeExactModelActionsWithoutGlobalOptionsOrAutomaticRequests() {
+        val source = androidx.compose.runtime.mutableStateOf(ProviderProvisioningKind.USER_CONFIGURED)
+        val calls = mutableListOf<Pair<String, String>>()
+        var connections = 0
         compose.setContent {
             MaterialTheme {
                 Column(Modifier.verticalScroll(rememberScrollState())) {
                     ProviderRow(
-                        row("api", ProviderProvisioningKind.USER_CONFIGURED, "a"),
+                        selectedRow("source", source.value),
                         false,
-                        ProviderRowActions({}, {}, {}, { visionChanges++ }, {}, onDetectCapabilities = { probes++ }),
+                        ProviderRowActions(
+                            { connections++ },
+                            {},
+                            {},
+                            {},
+                            onDetectCapabilities = { calls += "capabilities" to it },
+                            onContext = { calls += "context" to it },
+                            onTestModel = { calls += "generation" to it },
+                        ),
                         false,
                     )
                 }
             }
         }
-        compose.onNodeWithTag("provider-manage-models-api").assertIsDisplayed()
-        compose.onNodeWithTag("provider-test").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithTag("provider-context-api").assertDoesNotExist()
-        compose.onNodeWithTag("provider-capabilities").assertDoesNotExist()
-        compose.onNodeWithTag("provider-vision-declare").assertDoesNotExist()
-        compose.onNodeWithTag("provider-options-api").performScrollTo().performClick()
-        compose.onNodeWithTag("provider-context-api").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithTag("provider-capabilities").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithTag("provider-vision-declare").performScrollTo().assertIsDisplayed()
-        compose.runOnIdle {
-            assertEquals(0, probes)
-            assertEquals(0, visionChanges)
+        listOf(ProviderProvisioningKind.USER_CONFIGURED, ProviderProvisioningKind.MANAGED_ACCOUNT).forEach { kind ->
+            compose.runOnIdle {
+                source.value = kind
+                calls.clear()
+            }
+            compose.onNodeWithTag("provider-options-source").assertDoesNotExist()
+            compose.onNodeWithTag("provider-context-source").assertDoesNotExist()
+            compose.onNodeWithTag("provider-capabilities").assertDoesNotExist()
+            compose.onNodeWithTag("provider-selected-model-a").assertDoesNotExist()
+            compose.onNodeWithTag("provider-selected-model-embedding").assertDoesNotExist()
+            compose.onNodeWithTag("provider-selected-model-b").performScrollTo().assertIsDisplayed()
+            compose.onNodeWithTag("provider-selected-model-custom").performScrollTo().assertIsDisplayed()
+            compose.runOnIdle {
+                assertEquals(emptyList<Pair<String, String>>(), calls)
+                assertEquals(0, connections)
+            }
+            compose.onNodeWithTag("provider-model-context-b").assertDoesNotExist()
+            compose.onNodeWithTag("provider-selected-model-toggle-b").performScrollTo().performClick()
+            compose.onNodeWithTag("provider-model-context-b").performScrollTo().performClick()
+            compose.onNodeWithTag("provider-selected-model-toggle-custom").performScrollTo().performClick()
+            compose.onNodeWithTag("provider-model-context-b").assertDoesNotExist()
+            compose.onNodeWithTag("provider-model-test-custom").performScrollTo().performClick()
+            compose.onNodeWithTag("provider-selected-model-toggle-b").performScrollTo().performClick()
+            compose.onNodeWithTag("provider-model-probe-b").performScrollTo().performClick()
+            compose.runOnIdle {
+                assertEquals(listOf("context" to "b", "generation" to "custom", "capabilities" to "b"), calls)
+                assertEquals(0, connections)
+            }
         }
-        compose.onNodeWithTag("provider-options-api").performScrollTo().performClick()
-        compose.onNodeWithTag("provider-capabilities").assertDoesNotExist()
+    }
+
+    @Test fun capabilityDetectionDisablesEverySelectedModelAction() {
+        val calls = mutableListOf<String>()
+        compose.setContent {
+            MaterialTheme {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    ProviderRow(
+                        selectedRow("api", ProviderProvisioningKind.USER_CONFIGURED),
+                        false,
+                        ProviderRowActions(
+                            {},
+                            {},
+                            {},
+                            {},
+                            onContext = { calls += it },
+                            onTestModel = { calls += it },
+                            onDetectCapabilities = { calls += it },
+                        ),
+                        false,
+                        detectingCapabilities = true,
+                    )
+                }
+            }
+        }
+        listOf("b", "custom").forEach { model ->
+            compose.onNodeWithTag("provider-selected-model-toggle-$model").performScrollTo().performClick()
+            listOf("context", "test", "probe").forEach { action ->
+                compose
+                    .onNodeWithTag("provider-model-$action-$model")
+                    .performScrollTo()
+                    .assertIsNotEnabled()
+                    .performClick()
+            }
+        }
+        compose.runOnIdle { assertEquals(emptyList<String>(), calls) }
+    }
+
+    @Test fun emptySelectionHasNoModelActionsDespiteConfiguredModelAndCatalog() {
+        val source = androidx.compose.runtime.mutableStateOf(ProviderProvisioningKind.USER_CONFIGURED)
+        compose.setContent {
+            MaterialTheme {
+                ProviderRow(
+                    selectedRow(
+                        "source",
+                        source.value,
+                    ).copy(modelSelection = ProviderModelSelection(emptyList(), configured = true)),
+                    false,
+                    ProviderRowActions(
+                        { error("Not requested") },
+                        {},
+                        {},
+                        {},
+                        onContext = { error("No selected model") },
+                        onTestModel = { error("No selected model") },
+                        onDetectCapabilities = { error("No selected model") },
+                    ),
+                    false,
+                )
+            }
+        }
+        listOf(ProviderProvisioningKind.USER_CONFIGURED, ProviderProvisioningKind.MANAGED_ACCOUNT).forEach { kind ->
+            compose.runOnIdle { source.value = kind }
+            compose.onNodeWithTag("provider-selected-models-source").assertExists()
+            compose.onNodeWithTag("provider-options-source").assertDoesNotExist()
+            listOf("a", "b", "custom", "embedding").forEach { model ->
+                compose.onNodeWithTag("provider-selected-model-$model").assertDoesNotExist()
+                listOf("context", "test", "probe").forEach { action ->
+                    compose.onNodeWithTag("provider-model-$action-$model").assertDoesNotExist()
+                }
+            }
+        }
+    }
+
+    @Test fun identicalModelIdsRemainBoundToTheirProviderAcrossRecomposition() {
+        val reversed = androidx.compose.runtime.mutableStateOf(false)
+        val calls = mutableListOf<Triple<String, String, String>>()
+        compose.setContent {
+            MaterialTheme {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    val providers = if (reversed.value) listOf("subscription", "api") else listOf("api", "subscription")
+                    providers.forEach { id ->
+                        val kind =
+                            if (id ==
+                                "api"
+                            ) {
+                                ProviderProvisioningKind.USER_CONFIGURED
+                            } else {
+                                ProviderProvisioningKind.MANAGED_ACCOUNT
+                            }
+                        ProviderSelectedModelList(
+                            selectedRow(
+                                id,
+                                kind,
+                            ).copy(modelSelection = ProviderModelSelection(listOf("b"), configured = true)),
+                            false,
+                            ProviderRowActions(
+                                {},
+                                {},
+                                {},
+                                {},
+                                onContext = { calls += Triple(id, "context", it) },
+                                onTestModel = { calls += Triple(id, "test", it) },
+                                onDetectCapabilities = { calls += Triple(id, "probe", it) },
+                            ),
+                        )
+                    }
+                }
+            }
+        }
+        listOf(false, true).forEach { reverse ->
+            compose.runOnIdle {
+                reversed.value = reverse
+                calls.clear()
+            }
+            exerciseProviderScopedActions(calls)
+        }
+    }
+
+    private fun exerciseProviderScopedActions(calls: List<Triple<String, String, String>>) {
+        listOf("api", "subscription").forEach { id ->
+            val actionVisible =
+                compose
+                    .onAllNodes(
+                        hasTestTag("provider-model-context-b") and
+                            hasAnyAncestor(hasTestTag("provider-selected-models-$id")),
+                    ).fetchSemanticsNodes()
+                    .isNotEmpty()
+            if (!actionVisible) {
+                compose
+                    .onNode(
+                        hasTestTag("provider-selected-model-toggle-b") and
+                            hasAnyAncestor(hasTestTag("provider-selected-models-$id")),
+                    ).performScrollTo()
+                    .performClick()
+            }
+            listOf("context", "test", "probe").forEach { action ->
+                compose
+                    .onNode(
+                        hasTestTag("provider-model-$action-b") and
+                            hasAnyAncestor(hasTestTag("provider-selected-models-$id")),
+                    ).performScrollTo()
+                    .performClick()
+            }
+        }
+        compose.runOnIdle {
+            assertEquals(
+                listOf("api", "subscription").flatMap { id ->
+                    listOf("context", "test", "probe").map { Triple(id, it, "b") }
+                },
+                calls,
+            )
+        }
     }
 
     @Test fun modelNameTogglesTheOnlySelectionControl() {
@@ -105,7 +285,7 @@ class ProviderModelPickerDeviceTest {
                 ProviderRow(
                     row(source.value, ProviderProvisioningKind.MANAGED_ACCOUNT, "a"),
                     false,
-                    ProviderRowActions({}, {}, {}, {}, {}),
+                    ProviderRowActions({}, {}, {}, {}),
                     false,
                 )
             }
@@ -118,18 +298,18 @@ class ProviderModelPickerDeviceTest {
                 compose
                     .onNodeWithTag("provider-manage-account")
                     .fetchSemanticsNode()
-                    .boundsInRoot.top
+                    .boundsInRoot
             val models =
                 compose
                     .onNodeWithTag("provider-manage-models-$id")
                     .fetchSemanticsNode()
-                    .boundsInRoot.top
-            val connection =
-                compose
-                    .onNodeWithTag("provider-test")
-                    .fetchSemanticsNode()
-                    .boundsInRoot.top
-            org.junit.Assert.assertTrue(login < connection && connection < models)
+                    .boundsInRoot
+            compose.onNodeWithTag("provider-test").assertDoesNotExist()
+            compose.onNodeWithTag("provider-options-$id").assertDoesNotExist()
+            compose.onNodeWithTag("provider-manage-account").assertIsDisplayed()
+            compose.onNodeWithTag("provider-manage-models-$id").assertIsDisplayed()
+            // The responsive action group uses separate touch targets, horizontally or wrapped.
+            org.junit.Assert.assertTrue(login.left >= models.right || login.top >= models.bottom)
         }
     }
 
@@ -285,6 +465,26 @@ class ProviderModelPickerDeviceTest {
             assertEquals(com.helix.core.model.ReasoningEffort.MEDIUM, actualReasoning.value)
         }
     }
+
+    private fun selectedRow(
+        id: String,
+        kind: ProviderProvisioningKind,
+    ): ProviderRowUi =
+        row(id, kind, "a").copy(
+            modelSelection = ProviderModelSelection(listOf("b", "custom", "embedding"), configured = true),
+            modelMetadata =
+                mapOf(
+                    "embedding" to
+                        com.helix.provider.api.ModelMetadata(
+                            purposes = setOf(com.helix.provider.api.ModelPurpose.EMBEDDING),
+                        ),
+                ),
+            accountState =
+                com.helix.app.provider.ManagedAccountSnapshot(
+                    com.helix.app.provider.ManagedAccountSnapshot.State.LOGGED_IN,
+                    "12345678-1234-1234-1234-123456789abc",
+                ),
+        )
 
     private fun reasoningFixtureRow(): ProviderRowUi =
         row("api", ProviderProvisioningKind.USER_CONFIGURED, "a")

@@ -14,10 +14,13 @@ import com.helix.provider.api.ProviderConfig
 import kotlinx.coroutines.flow.toList
 
 internal object ProviderConnectionCheck {
+    const val CATALOG_UNSUPPORTED = "MODEL_CATALOG_UNSUPPORTED"
+
     data class Observation(
         val outcome: ProbeOutcome,
         val generationAttempted: Boolean,
         val sourceFailure: Boolean = false,
+        val directory: ModelCatalogResult.Listed? = null,
     )
 
     suspend fun run(
@@ -66,12 +69,16 @@ internal object ProviderConnectionCheck {
             ModelCatalogResult.Unsupported -> false
         }
 
+    @Suppress("ReturnCount") // Directory-only checks return before any generation path.
     suspend fun inspect(
         config: ProviderConfig,
         provider: ModelProvider,
         previous: ProviderCapabilities?,
         verifyGeneration: Boolean = false,
     ): Observation {
+        if (!verifyGeneration && config.provisioning == com.helix.core.model.ProviderProvisioningKind.USER_CONFIGURED) {
+            return inspectDirectory(provider, previous)
+        }
         val accountCatalog = (provider as? SubscriptionConnectionProvider)?.connectionCatalog()
         val catalog = accountCatalog ?: provider.listModels()
         val shortCircuit: ProbeOutcome? =
@@ -114,6 +121,25 @@ internal object ProviderConnectionCheck {
             }
         return Observation(outcome, true, error?.code == ModelErrorCode.AUTH)
     }
+
+    /** A directory check never selects a model, validates generation, or falls back to a paid request. */
+    private suspend fun inspectDirectory(
+        provider: ModelProvider,
+        previous: ProviderCapabilities?,
+    ): Observation =
+        when (val catalog = provider.listModels()) {
+            is ModelCatalogResult.Listed -> {
+                Observation(connected(previous, catalog), false, directory = catalog)
+            }
+
+            is ModelCatalogResult.Failed -> {
+                Observation(ProbeOutcome.Failed(2, catalog.code, catalog.detail, catalog.retryable), false, true)
+            }
+
+            ModelCatalogResult.Unsupported -> {
+                Observation(ProbeOutcome.Failed(2, ModelErrorCode.PROTOCOL, CATALOG_UNSUPPORTED, false), false)
+            }
+        }
 
     // Thinking backends may spend this probe's entire token budget on reasoning. This
     // proves connectivity, not visible-answer quality or optional tool capabilities.
