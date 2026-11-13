@@ -25,6 +25,7 @@ import com.helix.core.model.input.ConversationReferenceSnapshotInput
 import com.helix.core.storage.HelixStorage
 import com.helix.core.storage.repository.MessageAttachmentRepository
 import kotlinx.coroutines.CancellationException
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
@@ -75,9 +76,7 @@ internal class RoomTurnRoundStore(
             require(payload.toByteArray().size <= ModelFailureDiagnostics.MAX_BYTES)
         } else if (type == "context.job_observations") {
             require(payload.length <= 1024)
-            val refs =
-                kotlinx.serialization.json.Json
-                    .parseToJsonElement(payload)
+            val refs = Json.parseToJsonElement(payload)
             require(refs is kotlinx.serialization.json.JsonArray && refs.size <= 8)
             require(
                 refs.all { ref ->
@@ -92,6 +91,7 @@ internal class RoomTurnRoundStore(
                         "budget.request",
                         "budget.admitted",
                         "budget.result",
+                        "tools.cost",
                         "context.compaction",
                         com.helix.core.agent.ModelRecoveryPolicy.DIAGNOSTIC_TYPE,
                     ),
