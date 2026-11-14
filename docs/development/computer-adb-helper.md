@@ -1,10 +1,10 @@
 # 电脑 ADB helper
 
-当前源码支持 Android 12／API31+ 的 Advanced Debug 和非 debuggable Release 单 APK，包名为 `com.helix.agent.developer`。已公开的 v0.0.10 不包含入口；新实现尚未发布，不要用它的附件尝试以下新路径。Standard 当前没有手机操作宿主适配，不提供 helper 入口。其他 API/OEM、工作资料和多用户场景须分别验证。
+当前源码支持 Android 12／API31+ 的 Advanced Debug 和非 debuggable Release 单 APK，包名为 `com.helix.agent.developer`。新路径已随 [v0.0.11 开发预览](https://github.com/dollarser/helix-agent/releases/tag/v0.0.11)的 Advanced APK 公开提供；v0.0.10 的公开 Release APK 不包含入口，不能使用其附件尝试以下路径。Standard 当前没有手机操作宿主适配，不提供 helper 入口。其他 API/OEM、工作资料和多用户场景须分别验证。
 
 ## 启动
 
-电脑准备 Python 3 和 Android SDK Platform Tools，连接手机并完成 Android 的电脑 ADB 授权。确认要操作的设备，使用本仓库与候选 APK 对应的脚本：
+电脑准备 Python 3 和 Android SDK Platform Tools，连接手机并完成 Android 的电脑 ADB 授权。确认要操作的设备，使用与已安装 APK 源码匹配的脚本；v0.0.11 使用 [`v0.0.11` 标签中的脚本](https://github.com/dollarser/helix-agent/blob/v0.0.11/scripts/start-adb-helper.py)：
 
 ```sh
 adb devices -l
