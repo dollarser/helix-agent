@@ -4,9 +4,9 @@
 
 Notable changes for users, newest first. Entries are curated rather than copied from commit logs, using the grouping approach of [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Development previews do not promise stable data or API compatibility. Published dates below use UTC; an unreleased candidate has no release date.
 
-## 0.0.11 (Unreleased development preview)
+## [0.0.11](https://github.com/dollarser/helix-agent/releases/tag/v0.0.11) - 2026-11-14 (GitHub development preview)
 
-[Changes since v0.0.10](https://github.com/dollarser/helix-agent/compare/v0.0.10...main) · [Release notes](docs/product/releases/v0.0.11.en.md) · [中文说明](docs/product/releases/v0.0.11.md)
+[Changes since v0.0.10](https://github.com/dollarser/helix-agent/compare/v0.0.10...v0.0.11) · [Release notes](docs/product/releases/v0.0.11.en.md) · [中文说明](docs/product/releases/v0.0.11.md)
 
 ### Added
 
@@ -36,7 +36,7 @@ Notable changes for users, newest first. Entries are curated rather than copied 
 
 VersionName is 0.0.11; versionCode and Helix-owned internal versions remain 1. The database structure differs from v0.0.10. In-place installation and historical data retention are not guaranteed; incompatible database reconstruction requires independent confirmation. Android may reject installation over a preview with a higher versionCode. Do not uninstall merely to bypass this: uninstalling removes private application data. Published v0.0.10 tags and artifacts remain unchanged.
 
-Both channels of the combined candidate passed the real-Room Debug core, focused update/About checks, isolated non-debuggable R8 conversation checks and complete host gate. See the [release notes](docs/product/releases/v0.0.11.en.md#final-core-acceptance-and-historical-evidence) for exact methods, devices and limits. Earlier phone entry/media checks are identified separately. Signing, commit, CI and download identities belong to the actual release record; this entry does not announce publication or availability of the update manifest.
+Both channels of the combined candidate passed the real-Room Debug core, focused update/About checks, isolated non-debuggable R8 conversation checks and complete host gate. See the [release notes](docs/product/releases/v0.0.11.en.md#final-core-acceptance-and-historical-evidence) for exact methods, devices and limits. Earlier phone entry/media checks are identified separately. GitHub and ModelScope provide the same two development-signed ARM64 APKs, and the ModelScope update manifest is live. v0.0.10 has no in-app update entry, so the first upgrade requires a manual download. Both channels passed a system-installer cover upgrade and the 0.0.11 live update check on an isolated API36 emulator; this is not a general historical-data compatibility guarantee. The source tag is fixed at `a957defd`; later publication-documentation commits are not APK build sources. See the [release body](https://github.com/dollarser/helix-agent/releases/tag/v0.0.11) for exact identities and CI.
 
 ## [0.0.10](https://github.com/dollarser/helix-agent/releases/tag/v0.0.10) - 2026-11-06 (Development preview)
 

@@ -4,9 +4,9 @@
 
 面向用户整理重要变化，最新版本在前，不直接堆叠 Git 提交记录；分类方式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。开发预览不承诺稳定的数据或 API 兼容性。下列已发布日期采用 UTC；未发布候选不填写发布日期。
 
-## 0.0.11（未发布的开发预览）
+## [0.0.11](https://github.com/dollarser/helix-agent/releases/tag/v0.0.11) - 2026-11-14（GitHub 开发预览）
 
-[相对 v0.0.10 的变化](https://github.com/dollarser/helix-agent/compare/v0.0.10...main) · [版本说明](docs/product/releases/v0.0.11.md) · [English notes](docs/product/releases/v0.0.11.en.md)
+[相对 v0.0.10 的变化](https://github.com/dollarser/helix-agent/compare/v0.0.10...v0.0.11) · [版本说明](docs/product/releases/v0.0.11.md) · [English notes](docs/product/releases/v0.0.11.en.md)
 
 ### 新增
 
@@ -36,7 +36,7 @@
 
 versionName 为 0.0.11，versionCode 和 Helix 自有内部版本保持 1。数据库结构与 v0.0.10 不同，不保证可覆盖安装或保留历史数据；不兼容主库重建须独立确认。Android 可能拒绝覆盖历史 versionCode 更高的预览包；不要仅为绕过限制而卸载，卸载会删除应用私有数据。已发布的 v0.0.10 标签和附件不变。
 
-整合候选的双渠道已通过真实 Room Debug 核心批次、更新/关于页专项、隔离非 debuggable R8 会话检查及完整主机门禁。具体方法、设备和边界见[版本说明](docs/product/releases/v0.0.11.md#最终核心验收与历史证据)，较早的真机入口/媒体检查另行标注。签名、提交、CI 和下载身份以实际发行记录为准；本条目不表示应用或更新清单已经发布。
+整合候选的双渠道已通过真实 Room Debug 核心批次、更新/关于页专项、隔离非 debuggable R8 会话检查及完整主机门禁。具体方法、设备和边界见[版本说明](docs/product/releases/v0.0.11.md#最终核心验收与历史证据)，较早的真机入口/媒体检查另行标注。GitHub 与 ModelScope 提供相同的双渠道开发签名 ARM64 APK，ModelScope 更新清单已上线。v0.0.10 没有应用内更新入口，首次升级须手动下载；隔离 API36 模拟器已验证两渠道系统安装器覆盖升级及 0.0.11 线上检查结果，但不构成一般历史数据兼容承诺。源码标签固定在 `a957defd`，后续发布文档提交不作为 APK 构建源码；精确身份与 CI 见[发布正文](https://github.com/dollarser/helix-agent/releases/tag/v0.0.11)。
 
 ## [0.0.10](https://github.com/dollarser/helix-agent/releases/tag/v0.0.10) - 2026-11-06（开发预览）
 
