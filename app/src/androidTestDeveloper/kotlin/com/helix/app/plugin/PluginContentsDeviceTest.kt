@@ -55,16 +55,16 @@ class PluginContentsDeviceTest {
                 .isNotEmpty()
         }
         compose.onNodeWithText("android-ui-task").assertDoesNotExist()
-        compose.onNodeWithText("ui.snapshot").assertDoesNotExist()
+        compose.onNodeWithText("ui_snapshot").assertDoesNotExist()
         compose.onNodeWithTag("plugin-required-heading-mobile-use").performScrollTo().performClick()
         compose.onNodeWithTag("plugin-required-content-mobile-use").assertExists()
         compose.onNodeWithTag("plugin-required-heading-mobile-use").performScrollTo().performClick()
         compose.onNodeWithTag("plugin-skills-heading-mobile-use").performScrollTo().performClick()
         compose.onNodeWithTag("plugin-tools-heading-mobile-use").performScrollTo().performClick()
-        compose.onNodeWithText("ui.snapshot").performScrollTo().performClick()
+        compose.onNodeWithText("ui_snapshot").performScrollTo().performClick()
         compose
             .onNodeWithTag(
-                "plugin-tool-description-ui.snapshot",
+                "plugin-tool-description-ui_snapshot",
                 useUnmergedTree = true,
             ).performScrollTo()
             .assertIsDisplayed()
@@ -92,13 +92,13 @@ class PluginContentsDeviceTest {
 
     private fun verifyIndependentSections() {
         compose.onNodeWithTag("plugin-tools-heading-mobile-use").performScrollTo().performClick()
-        compose.onNodeWithText("ui.snapshot").assertDoesNotExist()
+        compose.onNodeWithText("ui_snapshot").assertDoesNotExist()
         compose.onNodeWithText("android-ui-task").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("mobile-use-plugin-settings").assertDoesNotExist()
         compose.onNodeWithTag("plugin-tools-heading-mobile-use").performScrollTo().performClick()
         compose.onNodeWithTag("plugin-skills-heading-mobile-use").performScrollTo().performClick()
         compose.onNodeWithText("android-ui-task").assertDoesNotExist()
-        compose.onNodeWithText("ui.snapshot").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("ui_snapshot").performScrollTo().assertIsDisplayed()
         val configuration = compose.onNodeWithTag("plugin-tab-0-bundled-plugin:mobile-use")
         configuration.onParent().performScrollTo()
         configuration.performScrollTo().performClick().assertIsSelected()

@@ -46,16 +46,21 @@ class JobLaunchWaitDispatchTest {
                         return ToolExecutorResult.Completed(buildJsonObject {})
                     }
                 },
-                fixture.descriptor("fixture.next"),
+                fixture.descriptor("fixture_next"),
             )
             try {
-                val requests = listOf(fixture.call("a"), fixture.call("next", "fixture.next"))
+                val requests = listOf(fixture.call("a"), fixture.call("next", "fixture_next"))
                 val batch =
                     CompletableFuture
                         .supplyAsync {
                             fixture.scheduler.scheduleBatch(requests)
                         }.get(5, TimeUnit.SECONDS)
-                assertTrue(batch.outcomes.all { it is ToolDispatchOutcome.Succeeded })
+                assertTrue(
+                    batch.settlements.all {
+                        it is ToolScheduler.BatchSettlement.Outcome &&
+                            it.outcome is ToolDispatchOutcome.Succeeded
+                    },
+                )
                 assertEquals(
                     listOf("a", "next"),
                     fixture.events.sortedBy { it.correlationId }.map { it.correlationId },

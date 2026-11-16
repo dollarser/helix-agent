@@ -101,7 +101,7 @@ private suspend fun runGoalReportFlow(
                     com.helix.core.model
                         .ProviderId(provider),
                 mode = com.helix.core.model.AgentMode.GOAL,
-                text = "Answer 2 + 2. Report your Goal status using goal.report, then answer briefly.",
+                text = "Answer 2 + 2. Report your Goal status using goal_report, then answer briefly.",
                 budgets =
                     com.helix.core.model
                         .TurnBudgets(maxOutputTokens = 4096),
@@ -134,7 +134,7 @@ private suspend fun runGoalReportFlow(
         assertEquals(1, turns.size)
         assertTrue(
             storage.toolCalls.listByTurn(turns.single().id).any {
-                it.name == "goal.report" && it.state == "COMPLETED"
+                it.name == "goal_report" && it.state == "COMPLETED"
             },
         )
     } finally {

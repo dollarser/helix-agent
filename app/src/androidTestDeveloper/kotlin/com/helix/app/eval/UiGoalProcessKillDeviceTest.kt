@@ -89,8 +89,8 @@ class UiGoalProcessKillDeviceTest {
         chat.setMode(AgentMode.GOAL)
         chat.setTurnBudgets(TurnBudgets(maxOutputTokens = 512))
         facts.setProperty("unsettled", unsettled.toString())
-        if (unsettled) hold.install(container, "ui.click")
-        chat.continueGoal(goal, "UI_GOAL_KILL Take a fresh ui.snapshot and click the Fixture click button once.")
+        if (unsettled) hold.install(container, "ui_click")
+        chat.continueGoal(goal, "UI_GOAL_KILL Take a fresh ui_snapshot and click the Fixture click button once.")
         awaitRunning(facts)
         await { fixtureClicked(automation) }
         val run =
@@ -141,7 +141,7 @@ class UiGoalProcessKillDeviceTest {
         facts.setProperty("provider", provider)
         save(facts)
         assertTrue(container.providerService.runConnectionTest(provider) is ProbeOutcome.Ok)
-        facts.setProperty("tool", "ui.click")
+        facts.setProperty("tool", "ui_click")
         save(facts)
     }
 
@@ -221,7 +221,7 @@ class UiGoalProcessKillDeviceTest {
                 turn?.let {
                     container.storage.toolCalls
                         .listByTurn(it.id)
-                        .singleOrNull { it.name == "ui.click" }
+                        .singleOrNull { it.name == "ui_click" }
                 }
             if (call != null) {
                 assertEquals(facts.getProperty("tool"), call.name)
@@ -256,9 +256,9 @@ class UiGoalProcessKillDeviceTest {
         val goal = storage.goals.resolve(id)
         val run = storage.goalRuns.listByGoal(id).minBy { it.startedAt }
         val turn = storage.turns.resolve(facts.getProperty("turn"))
-        val call = storage.toolCalls.listByTurn(turn.id).single { it.name == "ui.click" }
+        val call = storage.toolCalls.listByTurn(turn.id).single { it.name == "ui_click" }
         assertEquals(
-            listOf("tools.search", "ui.snapshot", "tools.search", "ui.click"),
+            listOf("tools_search", "ui_snapshot", "tools_search", "ui_click"),
             storage.toolCalls.listByTurn(turn.id).map { it.name },
         )
         assertEquals(facts.getProperty("turn"), turn.id)
@@ -286,7 +286,7 @@ class UiGoalProcessKillDeviceTest {
         assertEquals(run, storage.goalRuns.listByGoal(id).single { it.id == run.id })
         com.helix.app.test
             .assertReadOnlyRecoverySuccessors(storage, turn)
-        assertEquals(call, storage.toolCalls.listByTurn(turn.id).single { it.name == "ui.click" })
+        assertEquals(call, storage.toolCalls.listByTurn(turn.id).single { it.name == "ui_click" })
     }
 
     private suspend fun cleanup(facts: Properties) {

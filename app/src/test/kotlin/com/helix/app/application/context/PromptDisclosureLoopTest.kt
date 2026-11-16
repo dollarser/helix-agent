@@ -47,7 +47,7 @@ class PromptDisclosureLoopTest {
                         },
                         index % 2,
                     )
-                val tools = if (index % 2 == 0) setOf("tools.search", "skills.read") else emptySet()
+                val tools = if (index % 2 == 0) setOf("tools_search", "skills_read") else emptySet()
                 val sections = PromptContentContributions.sections(contributions, catalog, null, tools)
                 val registry = PromptRegistry()
                 sections.forEach(registry::register)

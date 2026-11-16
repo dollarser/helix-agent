@@ -1,5 +1,6 @@
 package com.helix.app.connector
 
+import com.helix.app.plugin.PluginName
 import com.helix.app.plugin.PluginSessionRow
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.runBlocking
@@ -10,7 +11,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ConnectorSessionPanelStateTest {
-    private val row = PluginSessionRow("plugin", "Plugin", false, false, true, true, readyComponents = 1)
+    private val row = PluginSessionRow("plugin", PluginName("Plugin"), false, false, true, true, readyComponents = 1)
 
     @Test fun applyTimeSetupFailureTargetsTheActualPluginAndClearsOnlyItsNewCheck() =
         runBlocking {

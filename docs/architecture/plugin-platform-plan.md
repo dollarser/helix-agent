@@ -106,7 +106,7 @@ Plugin package 组织 manifest、Skill、MCP server 与 host extension；Connect
 
 ### 6.3 工具表
 
-初版迁移保留九个既有模型接口：`ui.snapshot`、`ui.find`、`ui.click`、`ui.long_click`、`ui.set_text`、`ui.scroll`、`ui.back`、`ui.home`、`ui.wait`。这是初版范围，不是现行工具数量上限或完整清单。
+初版迁移保留九个既有模型接口：`ui_snapshot`、`ui_find`、`ui_click`、`ui_long_click`、`ui_set_text`、`ui_scroll`、`ui_back`、`ui_home`、`ui_wait`。这是初版范围，不是现行工具数量上限或完整清单。
 
 是否改成 `mobile.observe + mobile.act` 等面向模型接口，应由实际 Eval 决定；不能为模仿 Computer Use 同时改 provenance 和工具语义。
 
@@ -171,7 +171,7 @@ Mobile Use 初版 MVP 主要使用 Accessibility 语义树。HXA-243 等后续�
 | 范围 | 本专项应验证 |
 | --- | --- |
 | Manifest/归属 | 支持版本解析、重复插件 ID、已知/未知 runtime、PluginOrigin/contractHash、MobileUsePlugin 全部贡献的来源；默认 Built-in 构造仅在仍保留时测 |
-| 注册集成 | App 级唯一 PluginRegistry，候选批次发布；developer ui.snapshot 的 provenance 为 mobile-use，复用 R1 绑定/撤销测试 |
+| 注册集成 | App 级唯一 PluginRegistry，候选批次发布；developer ui_snapshot 的 provenance 为 mobile-use，复用 R1 绑定/撤销测试 |
 | Android 行为 | snapshot/find、click/set_text/scroll、stale token、敏感目标/动作、force-stop/许可清理；已授权目标恢复不引入额外周期确认 |
 | 已有 R3 生命周期与剩余验收 | 主体及有限补验见 HXA-235/HXA-251；完整在途引用/撤销/进程死亡组合按主方案验收，不在这里复制一套 oracle |
 

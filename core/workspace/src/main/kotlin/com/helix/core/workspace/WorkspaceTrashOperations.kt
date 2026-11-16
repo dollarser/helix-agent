@@ -12,7 +12,7 @@ internal class WorkspaceTrashOperations(
     private val resolveContained: (FileScopePath, Path) -> Path,
 ) {
     /**
-     * Moves the regular file at [path] into the scope's `.helix/trash/` (HXA-043 `files.delete`)
+     * Moves the regular file at [path] into the scope's `.helix/trash/` (HXA-043 `files_delete`)
      * as a single rename: the file's bytes and size are unchanged, the scope's aggregate usage
      * is unchanged (the trash lives inside the scope), and the original path is gone.
      *

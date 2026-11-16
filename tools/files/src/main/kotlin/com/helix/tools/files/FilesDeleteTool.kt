@@ -13,6 +13,7 @@ import com.helix.core.workspace.WorkspaceLayout
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
+import com.helix.tools.framework.ToolDiscoveryHints
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolOrigin
@@ -26,7 +27,7 @@ import java.io.IOException
 import kotlin.time.Duration.Companion.seconds
 
 object FilesDeleteTool {
-    const val NAME: String = "files.delete"
+    const val NAME: String = "files_delete"
 
     const val VERSION: Int = 1
 
@@ -46,6 +47,7 @@ object FilesDeleteTool {
             idempotency = Idempotency.IDEMPOTENT,
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
             origin = ToolOrigin.BuiltInOrigin,
+            discovery = ToolDiscoveryHints(category = "files"),
         )
 
     private fun inputSchema(): JsonObject =
@@ -106,7 +108,7 @@ object FilesDeleteTool {
                 call: ExecutableToolCall,
             ): ToolExecutorResult {
                 val path = filesMutateToolsRefArg(call.args, "path")
-                if (path == null) return ToolExecutorResult.Failed("invalid 'files.delete' arguments")
+                if (path == null) return ToolExecutorResult.Failed("invalid 'files_delete' arguments")
                 val region = filesMutateToolsUserRegionOf(path)
                 if (region == null) {
                     return ToolExecutorResult.Failed(

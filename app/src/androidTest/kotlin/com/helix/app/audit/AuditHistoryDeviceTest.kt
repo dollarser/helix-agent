@@ -60,10 +60,10 @@ class AuditHistoryDeviceTest {
                     assertEquals(listOf("event-17"), service.records.value.map { it.id })
                     assertTrue(service.history.value.page.exhausted)
                     service.setFilter(AuditLogFilter(keyword = "HIDDEN_ARGUMENT"))
-                    service.setFilter(AuditLogFilter(keyword = "time.now"))
+                    service.setFilter(AuditLogFilter(keyword = "time_now"))
                     await(service)
                     assertEquals(200, service.records.value.size)
-                    assertTrue(service.records.value.all { it.toolName == "time.now" })
+                    assertTrue(service.records.value.all { it.toolName == "time_now" })
                     service.setFilter(AuditLogFilter(keyword = "HIDDEN_ARGUMENT"))
                     await(service)
                     assertTrue(service.records.value.isEmpty())
@@ -83,7 +83,7 @@ class AuditHistoryDeviceTest {
         storage: HelixStorage,
         index: Int,
     ) {
-        val tool = if (index == 17) "needle.read" else "time.now"
+        val tool = if (index == 17) "needle.read" else "time_now"
         val payload = """{"turnId":"turn-$index","sessionId":"synthetic","toolName":"$tool","toolVersion":"1",
             "code":"SUCCESS","decisionSource":"POLICY","operationClass":"READ_ONLY",
             "args":"HIDDEN_ARGUMENT","startedAt":1,"finishedAt":1}"""

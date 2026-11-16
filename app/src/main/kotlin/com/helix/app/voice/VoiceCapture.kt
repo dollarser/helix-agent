@@ -32,6 +32,8 @@ class VoiceCapture(
         val text: String = "",
         val failure: Failure? = null,
         val committedText: String = "",
+        val serviceFailure: SpeechFailure? = null,
+        val errorDetails: com.helix.provider.api.wire.HttpFailureDetails? = null,
     ) {
         val retryable get() = phase == Phase.FAILED || (phase == Phase.REVIEW && text.isBlank())
         val processing get() = phase in setOf(Phase.LOADING, Phase.FINISHING)
@@ -158,25 +160,41 @@ class VoiceCapture(
                 } catch (interrupted: kotlinx.coroutines.CancellationException) {
                     throw interrupted
                 } catch (failure: ContinuousCaptureFailure) {
-                    publish(mutableState.value.copy(phase = Phase.FAILED, failure = failure.failure))
-                } catch (_: AudioFocusUnavailableException) {
-                    publish(State(Phase.FAILED, failure = Failure.FOCUS))
-                } catch (rejected: SpeechSocketFailure) {
                     publish(
                         mutableState.value.copy(
                             phase = Phase.FAILED,
-                            failure =
-                                if (rejected.closeCode ==
-                                    1013
-                                ) {
-                                    Failure.BUSY
-                                } else {
+                            failure = failure.failure,
+                            errorDetails = speechFailureDetails(failure),
+                            serviceFailure =
+                                if (failure.failure ==
                                     Failure.CONNECTION
+                                ) {
+                                    speechFailure(failure)
+                                } else {
+                                    null
                                 },
                         ),
                     )
-                } catch (_: Exception) {
-                    publish(mutableState.value.copy(phase = Phase.FAILED, failure = failure))
+                } catch (_: AudioFocusUnavailableException) {
+                    publish(State(Phase.FAILED, failure = Failure.FOCUS))
+                } catch (error: SpeechSocketFailure) {
+                    publish(
+                        mutableState.value.copy(
+                            phase = Phase.FAILED,
+                            failure = if (error.closeCode == 1013) Failure.BUSY else failure,
+                            serviceFailure = if (failure == Failure.CONNECTION) speechFailure(error) else null,
+                            errorDetails = if (failure == Failure.CONNECTION) speechFailureDetails(error) else null,
+                        ),
+                    )
+                } catch (error: Exception) {
+                    publish(
+                        mutableState.value.copy(
+                            phase = Phase.FAILED,
+                            failure = failure,
+                            serviceFailure = if (failure == Failure.CONNECTION) speechFailure(error) else null,
+                            errorDetails = if (failure == Failure.CONNECTION) speechFailureDetails(error) else null,
+                        ),
+                    )
                 } catch (_: LinkageError) {
                     publish(State(Phase.FAILED, failure = Failure.MODEL))
                 } finally {

@@ -17,7 +17,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -41,6 +40,7 @@ internal fun AccountAccessEntry(
     var open by remember { mutableStateOf(false) }
     var loading by remember { mutableStateOf(false) }
     var failure by remember { mutableStateOf<Int?>(null) }
+    var failureDetails by remember { mutableStateOf<com.helix.provider.api.wire.HttpFailureDetails?>(null) }
     var registered by remember { mutableStateOf(false) }
     var confirmLogout by remember { mutableStateOf(false) }
     LaunchedEffect(account) {
@@ -49,6 +49,7 @@ internal fun AccountAccessEntry(
             onChanged()
         } catch (error: java.io.IOException) {
             failure = accountFailureLabel(error)
+            failureDetails = (error as? com.helix.app.account.AccountRequestFailure)?.details
         }
     }
 
@@ -56,6 +57,7 @@ internal fun AccountAccessEntry(
         if (loading) return
         loading = true
         failure = null
+        failureDetails = null
         registered = false
         scope.launch {
             try {
@@ -64,6 +66,7 @@ internal fun AccountAccessEntry(
                 throw cancelled
             } catch (error: Exception) {
                 failure = accountFailureLabel(error)
+                failureDetails = (error as? com.helix.app.account.AccountRequestFailure)?.details
             } finally {
                 onRefreshProviders()
                 onChanged()
@@ -81,6 +84,10 @@ internal fun AccountAccessEntry(
                 }
                 if (signedIn) {
                     Text(stringResource(R.string.account_signed_in), style = MaterialTheme.typography.titleLarge)
+                    AccountUsageSection(account) { error ->
+                        failure = accountFailureLabel(error)
+                        failureDetails = (error as? com.helix.app.account.AccountRequestFailure)?.details
+                    }
                     OutlinedButton({
                         confirmLogout = true
                     }, Modifier.fillMaxWidth(), enabled = !loading) { Text(stringResource(R.string.account_logout)) }
@@ -104,11 +111,7 @@ internal fun AccountAccessEntry(
                     )
                 }
                 if (failure != null) {
-                    Text(
-                        stringResource(requireNotNull(failure)),
-                        Modifier.testTag("account-failure"),
-                        color = MaterialTheme.colorScheme.error,
-                    )
+                    AccountFailureNotice(requireNotNull(failure), failureDetails)
                 }
                 Text(
                     stringResource(R.string.account_description),

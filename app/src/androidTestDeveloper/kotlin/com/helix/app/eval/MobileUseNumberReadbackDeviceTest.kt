@@ -200,7 +200,7 @@ class MobileUseNumberReadbackDeviceTest {
                 .last()
         assertEquals(TurnState.COMPLETED.name, turn.state)
         val calls = c.storage.toolCalls.listByTurn(turn.id)
-        assertTrue(calls.any { it.name in setOf("ui.screenshot", "ui.snapshot") && it.state == "COMPLETED" })
+        assertTrue(calls.any { it.name in setOf("ui_screenshot", "ui_snapshot") && it.state == "COMPLETED" })
         val imageConsumed =
             c.storage.modelCalls.listByTurn(turn.id).any { model ->
                 c.storage.auditEvents.listByCorrelation(model.id).any { event ->

@@ -265,8 +265,8 @@ class ChatCompletionsStreamDecoderTest {
         assertEquals(
             listOf(
                 ModelEvent.ToolCallStarted(0, ToolCallId("call_a"), "read"),
-                ModelEvent.ToolCallStarted(1, ToolCallId("call_b"), "write"),
                 ModelEvent.ToolArgumentsDelta(0, frag1Open),
+                ModelEvent.ToolCallStarted(1, ToolCallId("call_b"), "write"),
                 ModelEvent.ToolArgumentsDelta(1, frag2Open),
                 ModelEvent.ToolArgumentsDelta(0, frag1Close),
                 ModelEvent.ToolArgumentsDelta(1, frag2Close),
@@ -389,7 +389,6 @@ class ChatCompletionsStreamDecoderTest {
         val stream = toolStartChunk(0, "call_a", "read") + finishChunk("\"stop\"")
         assertEquals(
             listOf(
-                ModelEvent.ToolCallStarted(0, ToolCallId("call_a"), "read"),
                 ModelEvent.Error(ModelErrorCode.PROTOCOL, retryable = false),
             ),
             decodeAll(stream),
@@ -410,7 +409,6 @@ class ChatCompletionsStreamDecoderTest {
         val stream = toolStartChunk(0, "call_a", "read") + toolStartChunk(0, "call_b", "write")
         assertEquals(
             listOf(
-                ModelEvent.ToolCallStarted(0, ToolCallId("call_a"), "read"),
                 ModelEvent.Error(ModelErrorCode.PROTOCOL, retryable = false),
             ),
             decodeAll(stream),
@@ -460,7 +458,6 @@ class ChatCompletionsStreamDecoderTest {
         val stream = toolStartChunk(0, "call_a", "read") + toolStartChunk(1, "call_a", "write")
         assertEquals(
             listOf(
-                ModelEvent.ToolCallStarted(0, ToolCallId("call_a"), "read"),
                 ModelEvent.Error(ModelErrorCode.PROTOCOL, retryable = false),
             ),
             decodeAll(stream),

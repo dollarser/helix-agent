@@ -56,7 +56,7 @@ class ChatToolDeliveryFactsTest {
         assertTrue(history.contains("\"paginationScope\":\"result_body\""))
         assertTrue(history.contains("\"stderr\":\"absent_from_result_body\""))
         assertTrue(history.contains("\"logRef\":\"original/call\""))
-        assertTrue(history.contains("\"logReadTool\":\"code.linux.job.read_log\""))
+        assertTrue(history.contains("\"logReadTool\":\"code_linux_job_read_log\""))
         assertTrue(history.contains("\"exitCode\":7"))
     }
 
@@ -68,7 +68,7 @@ class ChatToolDeliveryFactsTest {
                 sideEffectFree = false,
                 requiresReview = true,
             )
-        val message = encoder.toolResultDraft(SettledCall("wire-call", "device.share_text", failure, "turn/local-call"))
+        val message = encoder.toolResultDraft(SettledCall("wire-call", "device_share_text", failure, "turn/local-call"))
         val content = Json.parseToJsonElement(message.content).jsonObject
         assertEquals("TIMEOUT", content.getValue("status").jsonPrimitive.content)
         assertEquals("false", content.getValue("sideEffectFree").jsonPrimitive.content)

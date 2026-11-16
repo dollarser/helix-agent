@@ -99,13 +99,13 @@ private class BrowserSourceEvidence(
             }.toMap()
 
     fun findChain(): SourceChain? =
-        calls.filter { it.name == "browser.search" }.firstNotNullOfOrNull { search ->
+        calls.filter { it.name == "browser_search" }.firstNotNullOfOrNull { search ->
             val tab = search.payload.optString("tabId")
             val started = search.payload.optString("status") == "started" && tab.isNotEmpty()
             if (!started || firstSeen(search) < 1) return@firstNotNullOfOrNull null
             calls
                 .filter { page ->
-                    page.name == "browser.snapshot" && page.args.optString("tabId") == tab &&
+                    page.name == "browser_snapshot" && page.args.optString("tabId") == tab &&
                         searchOrigin(page, search) &&
                         firstSeen(page) > firstSeen(search)
                 }.firstNotNullOfOrNull { page -> chainFromPage(search, page) }
@@ -126,7 +126,7 @@ private class BrowserSourceEvidence(
         page: SourceCall,
     ): SourceChain? {
         val direct =
-            calls.filter { it.name in setOf("browser.navigate", "browser.open") }.firstNotNullOfOrNull { nav ->
+            calls.filter { it.name in setOf("browser_navigate", "browser_open") }.firstNotNullOfOrNull { nav ->
                 val consumed = consumption(page, listOf(nav.args.optString("url")))
                 if (validDirectNavigation(
                         page,
@@ -156,7 +156,7 @@ private class BrowserSourceEvidence(
                     .contains(requested)
         val navigationMatches =
             nav.payload.optString("url") == requested &&
-                (nav.name == "browser.open" || nav.payload.optString("status") == "started")
+                (nav.name == "browser_open" || nav.payload.optString("status") == "started")
         return sourceMatches && navigationMatches && consumed >= 0 && firstSeen(nav) > consumed
     }
 
@@ -168,14 +168,14 @@ private class BrowserSourceEvidence(
         val observations =
             listOf(page) +
                 calls.filter { find ->
-                    find.name == "browser.find" && find.args.optString("tabId") == tab &&
+                    find.name == "browser_find" && find.args.optString("tabId") == tab &&
                         find.payload.opt("observationExpired") == false && firstSeen(find) > firstSeen(page) &&
                         uninterruptedObservation(page, find, tab)
                 }
         val unknownClicks = savedCalls.filter(::unknownClick).map { SourceCall(it) }
         return (calls + unknownClicks)
             .filter { click ->
-                click.name == "browser.click" && click.args.optString("tabId") == tab &&
+                click.name == "browser_click" && click.args.optString("tabId") == tab &&
                     (click.payload.optString("status") == "performed" || unknownClick(click.saved))
             }.firstNotNullOfOrNull { click ->
                 val token = click.args.optString("token")
@@ -195,7 +195,7 @@ private class BrowserSourceEvidence(
     private fun unknownClick(saved: JSONObject): Boolean {
         val uncertain = saved.optString("state") == "NEEDS_REVIEW" && saved.optString("resultStatus") == "NEEDS_REVIEW"
         val payload = runCatching { JSONObject(saved.optString("result")) }.getOrNull()
-        return saved.optString("name") == "browser.click" && uncertain &&
+        return saved.optString("name") == "browser_click" && uncertain &&
             payload?.opt("requiresReview") == true && payload.opt("sideEffectFree") == false
     }
 
@@ -221,7 +221,7 @@ private class BrowserSourceEvidence(
 
     private fun replayedClick(nav: SourceCall): Boolean =
         savedCalls.drop(savedCalls.indexOf(nav.saved) + 1).any {
-            it.optString("name") == "browser.click" &&
+            it.optString("name") == "browser_click" &&
                 it.optJSONObject("args")?.optString("tabId") == nav.args.optString("tabId")
         }
 
@@ -245,7 +245,7 @@ private class BrowserSourceEvidence(
         val start = savedCalls.indexOf(observation.saved)
         val end = savedCalls.indexOf(next.saved)
         return savedCalls.subList(start + 1, end).none {
-            it.optString("name") == "browser.snapshot" && it.optJSONObject("args")?.optString("tabId") == tab
+            it.optString("name") == "browser_snapshot" && it.optJSONObject("args")?.optString("tabId") == tab
         }
     }
 
@@ -262,10 +262,10 @@ private class BrowserSourceEvidence(
         consumed: Int,
         nav: SourceCall,
     ): SourceChain? {
-        val tab = if (nav.name == "browser.open") nav.payload.optString("tabId") else nav.args.optString("tabId")
+        val tab = if (nav.name == "browser_open") nav.payload.optString("tabId") else nav.args.optString("tabId")
         return calls
             .filter { body ->
-                body.name == "browser.snapshot" && tab.isNotEmpty() && body.args.optString("tabId") == tab &&
+                body.name == "browser_snapshot" && tab.isNotEmpty() && body.args.optString("tabId") == tab &&
                     body.payload.optString("url") in officialSources &&
                     body.payload.opt("textTruncated") == false &&
                     supportsBody(body.payload.optString("text")) && firstSeen(body) > firstSeen(nav) &&
@@ -302,19 +302,19 @@ private class BrowserSourceEvidence(
         if (start < 0 || end <= start) return false
         val retargeting =
             setOf(
-                "browser.navigate",
-                "browser.back",
-                "browser.forward",
-                "browser.reload",
-                "browser.click",
-                "browser.type",
+                "browser_navigate",
+                "browser_back",
+                "browser_forward",
+                "browser_reload",
+                "browser_click",
+                "browser_type",
             )
         return savedCalls.subList(start + 1, end).none { call ->
             val name = call.optString("name")
             val args = call.optJSONObject("args")
             val payload = runCatching { JSONObject(call.optString("result")) }.getOrNull()
             (name in retargeting && args?.optString("tabId") == tab) ||
-                (name in setOf("browser.open", "browser.search") && payload?.optString("tabId") == tab)
+                (name in setOf("browser_open", "browser_search") && payload?.optString("tabId") == tab)
         }
     }
 
@@ -428,7 +428,7 @@ private class BrowserSourceEvidence(
                 .filter { call ->
                     call.id == source.id ||
                         (
-                            call.name == "tools.read_result" && call.args.optString("resultRef") == source.ref &&
+                            call.name == "tools_read_result" && call.args.optString("resultRef") == source.ref &&
                                 firstSeen(call) > firstSeen(source)
                         )
                 }.associateBy { wireIds[it.ref] }
@@ -594,7 +594,7 @@ private class BrowserEvidenceFixture(
         val search =
             tool(
                 "search",
-                "browser.search",
+                "browser_search",
                 JSONObject()
                     .put("engine", "bing")
                     .put("query", "IANA example domains"),
@@ -607,7 +607,7 @@ private class BrowserEvidenceFixture(
         val page =
             tool(
                 "page",
-                "browser.snapshot",
+                "browser_snapshot",
                 tab,
                 JSONObject()
                     .put("url", searchUrl)
@@ -617,7 +617,7 @@ private class BrowserEvidenceFixture(
         val nav =
             tool(
                 "nav",
-                if (open) "browser.open" else "browser.navigate",
+                if (open) "browser_open" else "browser_navigate",
                 JSONObject()
                     .put("tabId", "tab")
                     .put("url", requested),
@@ -629,7 +629,7 @@ private class BrowserEvidenceFixture(
         val body =
             tool(
                 "body",
-                "browser.snapshot",
+                "browser_snapshot",
                 JSONObject().put("tabId", bodyTab),
                 JSONObject()
                     .put("url", finalSource)
@@ -640,7 +640,7 @@ private class BrowserEvidenceFixture(
         val intervening =
             tool(
                 "retarget",
-                "browser.navigate",
+                "browser_navigate",
                 JSONObject().put("tabId", "tab").put("url", "https://example.com/"),
                 JSONObject().put("status", "started").put("url", "https://example.com/"),
             )
@@ -792,7 +792,7 @@ private class BrowserEvidenceFixture(
                 ).put(if (useNodes) "nodes" else "links", JSONArray().put(token)).toString(),
             )
             val click = calls[2]
-            click.put("name", "browser.click")
+            click.put("name", "browser_click")
             click.put("args", JSONObject().put("tabId", "tab").put("token", "observed-link-token"))
             click.put("result", JSONObject().put("status", "performed").toString())
             if (useFind) {
@@ -801,7 +801,7 @@ private class BrowserEvidenceFixture(
                     2,
                     tool(
                         "find",
-                        "browser.find",
+                        "browser_find",
                         JSONObject().put("tabId", "tab").put("query", "IANA"),
                         JSONObject().put("matches", JSONArray().put(token)).put("observationExpired", false),
                     ),
@@ -840,7 +840,7 @@ private class BrowserEvidenceFixture(
                         3,
                         tool(
                             "uncertain",
-                            "browser.navigate",
+                            "browser_navigate",
                             JSONObject().put("tabId", "tab").put("url", "https://example.com/"),
                             JSONObject(),
                         ).put("state", "NEEDS_REVIEW").put("resultStatus", "NEEDS_REVIEW"),
@@ -900,7 +900,7 @@ private class BrowserEvidenceFixture(
             JSONObject()
                 .put("id", "call_nav")
                 .put("localId", call.getString("callId"))
-                .put("name", "browser.click")
+                .put("name", "browser_click")
                 .put("arguments", call.getJSONObject("args").toString())
         val batch =
             JSONObject()
@@ -918,7 +918,7 @@ private class BrowserEvidenceFixture(
             saveRequest(index, JSONArray(messages))
         }
         File(directory, "response-2.json").writeText(JSONObject().put("completeObservedDelivery", true).toString())
-        val function = JSONObject().put("name", "browser.click").put("arguments", binding.getString("arguments"))
+        val function = JSONObject().put("name", "browser_click").put("arguments", binding.getString("arguments"))
         val wire = JSONObject().put("index", 0).put("id", "call_nav").put("function", function)
         val choice =
             JSONObject()
@@ -1004,7 +1004,7 @@ private class BrowserEvidenceFixture(
         val read =
             tool(
                 "read",
-                "tools.read_result",
+                "tools_read_result",
                 JSONObject()
                     .put("resultRef", if (wrongRef) "turn/other" else "turn/page")
                     .put("offset", 0),
@@ -1038,7 +1038,7 @@ private class BrowserEvidenceFixture(
                                                 .put(
                                                     "function",
                                                     JSONObject()
-                                                        .put("name", "tools.read_result")
+                                                        .put("name", "tools_read_result")
                                                         .put("arguments", read.getJSONObject("args").toString()),
                                                 ),
                                         ),
@@ -1129,7 +1129,7 @@ private class BrowserEvidenceFixture(
                     it
                         .getJSONArray("tools")
                         .getJSONObject(1)
-                        .put("name", "browser.tabs")
+                        .put("name", "browser_tabs")
                 }
             },
             "wrong search tab" to {

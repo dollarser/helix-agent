@@ -39,7 +39,7 @@ class MobileUseScreenConsent(
         capturedSha256: String? = null,
     ) {
         val session = requireNotNull(call.sessionId)
-        require(call.toolName == "ui.screenshot" && scopeRef == currentScope(session)) {
+        require(call.toolName == "ui_screenshot" && scopeRef == currentScope(session)) {
             "Screen acquisition grant is no longer available"
         }
         val captured = MobileScreenSource(scopeRef, session, requireNotNull(call.turnId), image.sha256, image.mediaType)

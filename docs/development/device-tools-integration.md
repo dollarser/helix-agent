@@ -8,28 +8,28 @@ Owner 授权参考 WorkBuddy 移动版迁移工具名、描述和常见操作方
 
 | 工具 | 参数要点 | 实际效果 |
 | --- | --- | --- |
-| `device.open_url` | `url` | 仅打开 HTTP/HTTPS 系统处理器 |
-| `device.open_settings` | `action`, `packageName` | 打开现有白名单系统设置页，不修改设置 |
-| `device.clipboard_read` | 无 | 前台受限、长度有界的剪贴板读取 |
-| `device.clipboard_write` | `text` | 前台受限的文本写入 |
-| `device.share_text` | `text`, 可选 `title` | 启动系统分享面板 |
-| `device.create_note` | `text`, 可选 `title` | 与 WorkBuddy 一致，交给用户选择备忘录 App 保存 |
-| `device.share_files` | `paths`，1–8 个 | 分享作用域文件，图片也走此入口 |
-| `device.open_file` | `paths`，恰好 1 个 | 通过系统面板选择外部打开应用 |
-| `device.notifications_query` | 应用白名单、起止 epoch 毫秒 | 在通知访问授权下查询有界快照 |
-| `device.prepare_calendar_event` | 标题、起止 epoch 毫秒、可选时区/地点/说明 | 校验并持有结构化草稿，不写日历 |
-| `device.create_calendar_event` | `draftId` | 授权及日历权限校验后写入系统 Calendar Provider |
-| `device.create_reminder` | `time`（含 UTC offset 的 ISO 8601）, `label` | 保存 Helix 一次性近似通知提醒，返回实际调度状态 |
-| `device.list_reminders` | 无 | 查询最多 50 个活动定时提醒及 ID/revision，`hasMore` 表示截断 |
-| `device.cancel_reminder` | `id`, `revision` | 必须先在同一会话查询，原子重检持久修订后取消 |
-| `device.open_page` | `route` 枚举 | 向原生 UI 请求导航；账号路由进入设置顶部账号区 |
+| `device_open_url` | `url` | 仅打开 HTTP/HTTPS 系统处理器 |
+| `device_open_settings` | `action`, `packageName` | 打开现有白名单系统设置页，不修改设置 |
+| `device_clipboard_read` | 无 | 前台受限、长度有界的剪贴板读取 |
+| `device_clipboard_write` | `text` | 前台受限的文本写入 |
+| `device_share_text` | `text`, 可选 `title` | 启动系统分享面板 |
+| `device_create_note` | `text`, 可选 `title` | 与 WorkBuddy 一致，交给用户选择备忘录 App 保存 |
+| `device_share_files` | `paths`，1–8 个 | 分享作用域文件，图片也走此入口 |
+| `device_open_file` | `paths`，恰好 1 个 | 通过系统面板选择外部打开应用 |
+| `device_notifications_query` | 应用白名单、起止 epoch 毫秒 | 在通知访问授权下查询有界快照 |
+| `device_prepare_calendar_event` | 标题、起止 epoch 毫秒、可选时区/地点/说明 | 校验并持有结构化草稿，不写日历 |
+| `device_create_calendar_event` | `draftId` | 授权及日历权限校验后写入系统 Calendar Provider |
+| `device_create_reminder` | `time`（含 UTC offset 的 ISO 8601）, `label` | 保存 Helix 一次性近似通知提醒，返回实际调度状态 |
+| `device_list_reminders` | 无 | 查询最多 50 个活动定时提醒及 ID/revision，`hasMore` 表示截断 |
+| `device_cancel_reminder` | `id`, `revision` | 必须先在同一会话查询，原子重检持久修订后取消 |
+| `device_open_page` | `route` 枚举 | 向原生 UI 请求导航；账号路由进入设置顶部账号区 |
 
 页面枚举为 `home/settings/permissions/session/account/models/memoryLibrary/reminders/tasks/plugins`。不接受任意路由和任意 params，不提供不存在的 WorkBuddy 页面。`navigation-requested` 表示已排入应用内导航请求，不是渲染验收。
 
 ## 与参考产品的有意差异
 
 - 不创建名为 `mcp__workbuddy_device__` 的伪 MCP 服务；内置工具统一 `device.*`，外部 MCP 继续遵循自身来源/命名空间。
-- 不保留旧工具入口或双目录。旧名称只在一次性用户可用性选择迁移及拒绝旧入口的测试中出现；历史审计保留原调用身份。原工具禁用选择不会因改名失效，单次批准不能转授新绑定。
+- 不保留旧工具入口、双目录或旧名称开关迁移。当前名称按原来源和作用域保存禁用选择；旧名称只用于拒绝旧入口的反例或历史记录，不解析为新绑定，单次批准不能转授新绑定。2026-11-15 Owner 再次明确不兼容旧内部版本，早期一次性选择迁移已移除，历史验收保留其当时范围。
 - 不把 Helix 通知提醒冒充系统 Clock 的响铃闹钟。不提供无法可靠管理准确 ID 的 `list_alarms/cancel_alarm`；手动重复提醒、精确权限及恢复规则保持原有实现。
 - 日历保留已有草稿→写入边界，不为靠近参考签名而绕过审阅、权限或实际写入结果。
 - 图片分享包含在 `share_files` 中，不再另设重复执行路径。分享和备忘录交接返回 `chooser-opened`，不能当作已保存/已发送。

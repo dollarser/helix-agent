@@ -34,8 +34,8 @@ class BrowserToolsMappingTest {
             com.helix.tools.framework.ToolOrigin
                 .PluginOrigin("browser", "0.1.0", "browser")
         val descriptors = BrowserTools.bindings(bridge, origin).map { it.descriptor }
-        val click = descriptors.single { it.name.value == "browser.click" }
-        assertEquals(setOf("browser.snapshot", "browser.find"), click.discoveryCompanions.map { it.value }.toSet())
+        val click = descriptors.single { it.name.value == "browser_click" }
+        assertEquals(setOf("browser_snapshot", "browser_find"), click.discoveryCompanions.map { it.value }.toSet())
         assertTrue(descriptors.all { it.origin == origin })
     }
 
@@ -509,13 +509,13 @@ class BrowserToolsMappingTest {
             com.helix.tools.framework.ToolOrigin
                 .PluginOrigin("browser", "0.1.0", "browser")
         val bindings = BrowserTools.bindings(bridge, origin)
-        assertEquals(20, bindings.size)
-        assertEquals(20, bindings.map { it.descriptor.name }.distinct().size)
+        assertEquals(19, bindings.size)
+        assertEquals(19, bindings.map { it.descriptor.name }.distinct().size)
         assertTrue(bindings.all { it.descriptor.origin == origin })
         assertTrue(
             bindings.all {
                 it.descriptor.name.value
-                    .startsWith("browser.")
+                    .startsWith("browser_")
             },
         )
     }
@@ -549,7 +549,7 @@ class BrowserToolsMappingTest {
         assertTrue(
             BrowserNodeActionTool
                 .executor(bridge, BrowserNodeAction.PRESS)
-                .execute(call("browser.press", args)) is ToolExecutorResult.Failed,
+                .execute(call("browser_press", args)) is ToolExecutorResult.Failed,
         )
     }
 
@@ -842,6 +842,53 @@ class BrowserToolsMappingTest {
                 ),
             )
         assertEquals("bad result", f.detail)
+    }
+
+    @Test
+    fun textModesShareOnePublishedToolAndKeepActionBoundaries() {
+        val origin =
+            com.helix.tools.framework.ToolOrigin
+                .PluginOrigin("browser", "1", "browser")
+        val bindings = BrowserTools.bindings(bridge, origin)
+        assertEquals(19, bindings.size)
+        assertEquals(1, bindings.count { it.descriptor.name.value == BrowserTypeTool.NAME })
+        val descriptor = bindings.single { it.descriptor.name.value == BrowserTypeTool.NAME }.descriptor
+        assertEquals(com.helix.tools.framework.Idempotency.NON_IDEMPOTENT, descriptor.idempotency)
+        assertEquals(com.helix.core.model.ToolOperationClass.EXTERNAL_ACTION, descriptor.operationClass)
+        val args =
+            buildJsonObject {
+                put("tabId", "t1")
+                put("token", "tok")
+                put("text", "literal")
+                put("mode", "append")
+            }
+        assertEquals(ToolSchemaValidation.Valid, ToolSchemaValidator.validate(descriptor.inputSchema, args))
+        run(BrowserTypeTool.NAME, BrowserTypeTool.executor(bridge), args)
+        assertEquals(BrowserNodeAction.APPEND, bridge.lastNodeAction)
+        assertEquals("literal", bridge.lastNodeValue)
+        bridge.lastNodeAction = null
+        run(BrowserTypeTool.NAME, BrowserTypeTool.executor(bridge), JsonObject(args - "mode"))
+        assertEquals(null, bridge.lastNodeAction)
+        val invalid = JsonObject(args + ("mode" to JsonPrimitive("submit")))
+        assertTrue(ToolSchemaValidator.validate(descriptor.inputSchema, invalid) != ToolSchemaValidation.Valid)
+        assertTrue(failed(run(BrowserTypeTool.NAME, BrowserTypeTool.executor(bridge), invalid)).sideEffectFree)
+        assertEquals(null, bridge.lastNodeAction)
+    }
+
+    @Test
+    fun appendRefusalAndUnknownKeepExistingOutcomeSemantics() {
+        val args =
+            buildJsonObject {
+                put("tabId", "t1")
+                put("token", "tok")
+                put("text", "x")
+                put("mode", "append")
+            }
+        bridge.clickResult = ActionOutcome(ActionStatus.REFUSED, 1, "input", "field", "sensitive")
+        val result = json(run(BrowserTypeTool.NAME, BrowserTypeTool.executor(bridge), args))
+        assertEquals("refused", result.getValue("status").jsonPrimitive.content)
+        bridge.clickResult = ActionOutcome(ActionStatus.UNKNOWN, 1, "input", "field", "")
+        assertTrue(failed(run(BrowserTypeTool.NAME, BrowserTypeTool.executor(bridge), args)).requiresReview)
     }
 
     @Test
@@ -1195,6 +1242,8 @@ class BrowserToolsMappingTest {
             )
         var findResult: FindOutcome = FindOutcome(true, "t1", "x", 0, emptyList(), "")
         var clickResult: ActionOutcome = ActionOutcome(ActionStatus.PERFORMED, 0, "button", "button", "")
+        var lastNodeAction: BrowserNodeAction? = null
+        var lastNodeValue: String? = null
         var typeResult: ActionOutcome = ActionOutcome(ActionStatus.PERFORMED, 0, "input", "field", "")
         var scrollResult: ScrollOutcome = ScrollOutcome(ScrollStatus.SCROLLED, 0, 100, "")
         var screenshotResult: ScreenshotOutcome =
@@ -1269,7 +1318,11 @@ class BrowserToolsMappingTest {
             action: BrowserNodeAction,
             value: String,
             isActive: () -> Boolean,
-        ): ActionOutcome = click(tabId, token)
+        ): ActionOutcome {
+            lastNodeAction = action
+            lastNodeValue = value
+            return click(tabId, token)
+        }
 
         override fun type(
             tabId: String,

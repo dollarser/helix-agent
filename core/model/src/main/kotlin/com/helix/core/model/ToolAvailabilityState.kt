@@ -16,7 +16,7 @@ enum class ToolAvailabilityState {
     ENABLED,
 
     /**
-     * Removed from the model schema, tools.search results and the session exposure window;
+     * Removed from the model schema, tools_search results and the session exposure window;
      * the execution entry still refuses a directly constructed call. Disabling does
      * not unload the capability and does not affect other sessions or manual operation.
      */

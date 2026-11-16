@@ -46,6 +46,20 @@ class ModelFailureLabelsTest {
         )
     }
 
+    @Test fun includesServerDetailCooldownAndValidatedRequestId() {
+        val result =
+            ModelFailureLabels.format(
+                "RATE_LIMITED",
+                "base",
+                """{"httpStatus":429,"serverMessage":"Quota exceeded",
+                    "requestId":"req-test_1","retryAfterMillis":120001}""",
+                strings,
+            )
+        assertTrue(result.contains("Quota exceeded"))
+        assertTrue(result.contains("req-test_1"))
+        assertTrue(result.contains("121"))
+    }
+
     @Test fun toolArgumentOverflowIsAModelResponseErrorNotAnExecutedToolFailure() {
         ModelFailureLabels.format(
             com.helix.core.agent.ModelStreamState.TOOL_ARGUMENTS_OVERFLOW,

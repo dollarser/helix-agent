@@ -115,7 +115,12 @@ class McpDynamicToolBridgeTest {
         val bridge = bridge(metadata(hints = mapOf("readOnlyHint" to true, "idempotentHint" to true)))
         val descriptor = bridge.descriptors().single()
 
-        assertEquals("mcp.fixture.search", descriptor.name.value)
+        assertEquals(
+            com.helix.tools.framework.RemoteToolNames
+                .mcp("fixture", "search")
+                .value,
+            descriptor.name.value,
+        )
         assertEquals(com.helix.core.model.ToolOperationClass.NETWORK, descriptor.operationClass)
         assertEquals(com.helix.tools.framework.Idempotency.NON_IDEMPOTENT, descriptor.idempotency)
         val origin = descriptor.origin as ToolOrigin.McpOrigin
@@ -233,7 +238,12 @@ class McpDynamicToolBridgeTest {
                 },
         ).register(registry)
         assertEquals(3, registry.all().size)
-        val descriptor = registry.all().single { it.name.value.endsWith(".read_mcp_resource") }
+        val descriptor =
+            registry.all().single {
+                it.name ==
+                    com.helix.tools.framework.RemoteToolNames
+                        .mcp("fixture", "read_mcp_resource")
+            }
         assertEquals("fixture", (descriptor.origin as ToolOrigin.McpOrigin).serverId)
         val result =
             registry.executor(descriptor.name, descriptor.version).execute(
@@ -251,6 +261,41 @@ class McpDynamicToolBridgeTest {
         assertEquals("read_mcp_resource", resourceName)
         registry.replaceMcpServer("fixture", emptyList())
         assertTrue(registry.all().isEmpty())
+    }
+
+    @Test
+    fun dottedRemoteNameIsPreservedForDispatch() {
+        val registry = ToolRegistry()
+        val remoteName = "vendor.search.items"
+        var dispatched: String? = null
+        McpDynamicToolBridge(
+            config = McpServerConfig.disabled("fixture", "https://mcp.example.com/mcp").copy(enabled = true),
+            identity = McpServerIdentity("fixture", "1", "2025-03-26"),
+            metadata = listOf(metadata().copy(name = remoteName)),
+            caller =
+                McpToolCaller { _, name ->
+                    dispatched = name
+                    McpToolResult(false, emptyList(), null)
+                },
+        ).register(registry)
+        val descriptor = registry.all().single()
+        assertEquals(
+            com.helix.tools.framework.RemoteToolNames
+                .mcp("fixture", remoteName),
+            descriptor.name,
+        )
+        registry.executor(descriptor.name, descriptor.version).execute(
+            ExecutableToolCall(
+                "remote-call",
+                descriptor.name.value,
+                "1",
+                buildJsonObject { put("query", "test") },
+                ExecutionTargetType.LOCAL_ANDROID,
+                Instant.now().plusSeconds(5),
+                NoCancellation,
+            ),
+        )
+        assertEquals(remoteName, dispatched)
     }
 
     private fun bridge(

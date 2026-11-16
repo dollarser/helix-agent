@@ -65,7 +65,7 @@ class ScriptLinuxBridgeDeviceTest {
         fun linux(vararg argv: String): JsonObject =
             succeeded(
                 dispatch(
-                    "code.linux.run",
+                    "code_linux_run",
                     buildJsonObject {
                         put("argv", JsonArray(argv.map(::JsonPrimitive)))
                         put("workspace", "scope:app:")
@@ -114,7 +114,7 @@ class ScriptLinuxBridgeDeviceTest {
                     put("cwd", cwd)
                     put("args", JsonArray(listOf("", "a; echo no", "中文").map(::JsonPrimitive)))
                 }
-            val good = succeeded(dispatch("skills.run", skill("scripts/run.py")))
+            val good = succeeded(dispatch("skills_run", skill("scripts/run.py")))
             assertTrue(
                 good
                     .getValue("stdout")
@@ -122,13 +122,13 @@ class ScriptLinuxBridgeDeviceTest {
                     .contains("SKILL_OK"),
             )
             assertEquals("original-workspace", File(workspace, "skill.txt").readText())
-            val missing = dispatch("skills.run", skill("scripts/missing.py"))
+            val missing = dispatch("skills_run", skill("scripts/missing.py"))
             assertTrue(missing.toString(), missing is ToolDispatchOutcome.ExecutionFailed)
             assertFalse(File(workspace, "must-not-run.txt").exists())
             assertEquals(
                 2,
                 storage.toolCalls.listByTurn(session).count {
-                    it.name == "time.now" &&
+                    it.name == "time_now" &&
                         it.state == "COMPLETED"
                 },
             )
@@ -150,14 +150,14 @@ class ScriptLinuxBridgeDeviceTest {
     private val pythonSource =
         """
         import helix
-        r=helix.call('time.now',{})
+        r=helix.call('time_now',{})
         assert r['status']=='SUCCEEDED'
         print('PYTHON_BRIDGE_OK')
         """.trimIndent()
     private val nodeSource =
         """
         import {call} from '/tmp/helix.mjs';
-        const r=await call('time.now',{});
+        const r=await call('time_now',{});
         if(r.status!=='SUCCEEDED') throw Error('failed');
         console.log('NODE_BRIDGE_OK',process.version);
         """.trimIndent()

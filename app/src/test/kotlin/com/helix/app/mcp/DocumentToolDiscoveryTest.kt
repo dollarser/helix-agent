@@ -15,7 +15,7 @@ class DocumentToolDiscoveryTest {
             )
         }
         assertEquals(
-            setOf("documents.read"),
+            setOf("documents_read"),
             ToolDiscoveryWorkset
                 .complete(listOf(all[1]), listOf(all[1]))
                 .map {

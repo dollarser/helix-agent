@@ -42,7 +42,7 @@
                          模型继续分析
 ```
 
-`browser.screenshot` 保存图片后使用同一准备管线；已有图表/截图文件通过 `view_image` 进入。没有新增录屏、整机截屏或 OCR 服务，也不替代 Mobile Use 的 Accessibility 语义树。
+`browser_screenshot` 保存图片后使用同一准备管线；已有图表/截图文件通过 `view_image` 进入。没有新增录屏、整机截屏或 OCR 服务，也不替代 Mobile Use 的 Accessibility 语义树。
 
 ## 3. 用户可能看到什么
 

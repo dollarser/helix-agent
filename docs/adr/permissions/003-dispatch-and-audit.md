@@ -38,7 +38,7 @@ Owner 授权实施分层清理，并允许修正不合理的 Room 设计。执�
 
 ### 本机工具目录迁移
 
-本机系统工具统一为 `device.*`，旧 `android.*`、`clipboard.*`、`notifications.query`、`calendar.*` 的对应注册入口直接移除，不保留别名、调用转发或旧历史调用重写。设备工具的 schema、Capability、当前用户规则、执行绑定和审计仍走原链路。一次性迁移同源工具的 ENABLED/DISABLED 用户选择，拆分时禁用意图覆盖对应入口，冲突时 DISABLED 优先；这不是旧协议兼容，不迁移单次批准或改写调用身份。MCP/插件的同名条目不受影响。
+本机系统工具统一为 `device.*`，旧 `android.*`、`clipboard.*`、`notifications.query`、`calendar.*` 的对应注册入口直接移除，不保留别名、调用转发或旧历史调用重写。设备工具的 schema、Capability、当前用户规则、执行绑定和审计仍走原链路。当前 ENABLED/DISABLED 用户选择按现行工具名、稳定来源与作用域直接保存；不在启动时迁移旧名称或旧带版本来源键，不迁移单次批准或改写调用身份。MCP/插件的同名条目不受影响。
 
 系统分享和外部备忘录保存只能报告 chooser-opened，不能报告已发送、已落库。文件分享/打开同时保留逐文件作用域读取分类和设备外部动作授权，受控快照经临时只读内容 URI 交付；打开本应用页面只请求导航，不授予登录或设置变更权限。云端连接器直接保存仍使用其独立受治理工具，未接入不能冒充支持或退化成分享。详细目录见 [设备工具接入说明](../../development/device-tools-integration.md)。
 
@@ -83,7 +83,7 @@ Owner 授权实施分层清理，并允许修正不合理的 Room 设计。执�
 
 - 2026-09-28 后续修复：owner 要求解决已授权 Settings 任务的跨目标/暂停失败。正式授权选项列出本机已安装且标记为系统应用的精确 Settings/SystemUI/Settings Intelligence 包（`com.android.settings.intelligence`、`com.google.android.settings.intelligence`），用户勾选并启动时一并纳入 allowlist；不做包名前缀或任意 Intent 跟随授权。权限中心增加暂停确认：用户选择当前 session 已授权且非禁止的目标，确认只绑定当前 pause/session；返回该包后再次检查 live snapshot、敏感节点和锁屏，再消费确认。停止/到期/恢复会清除待恢复确认，不预存下次 checkpoint 授权。snapshot/find/wait 增加 pause/recovery metadata，wait 遇授权阻塞立即返回，不自动批准或盲目重试。
 
-- 2026-09-28 同轮滑块修复：授权/恢复修复后的真实轨迹已到达滑块，但节点不支持 click/set-text/container-scroll。新增 `ui.set_progress(token,value)`，仅接受节点声明支持 `ACTION_SET_PROGRESS`、有限且在原生 range 内的数值；范围/能力纳入 token fingerprint，执行前重新核验。该动作按 EXTERNAL_ACTION 走原有 capability、scope、审批与敏感语义检查，不提供坐标、盲拖或系统 settings 写 API；执行返回成功仅表示平台动作接受，任务效果仍须独立观察。
+- 2026-09-28 同轮滑块修复：授权/恢复修复后的真实轨迹已到达滑块，但节点不支持 click/set-text/container-scroll。新增 `ui_set_progress(token,value)`，仅接受节点声明支持 `ACTION_SET_PROGRESS`、有限且在原生 range 内的数值；范围/能力纳入 token fingerprint，执行前重新核验。该动作按 EXTERNAL_ACTION 走原有 capability、scope、审批与敏感语义检查，不提供坐标、盲拖或系统 settings 写 API；执行返回成功仅表示平台动作接受，任务效果仍须独立观察。
 
 - 2026-09-28：owner 授权按操作类型收敛权限。移除注册、Policy、审批与新审计中的 baseRisk/dynamicRisk/L0–L3；展示 READ_ONLY、METADATA、LOCAL_MUTATION、NETWORK、EXTERNAL_ACTION、CODE_EXECUTION、PRIVILEGED 对应操作及实际范围/询问原因。等级不再是权限来源或默认拒绝依据。已接入会话的调用按可信 effect footprint 与当前 ALLOW/ASK/DENY 解析；未接入会话时，非只读/闭合元数据操作要求精确批准。凭据、SSRF、Capability、模式、未知副作用与执行前复检不变。旧审计缺少 operationClass 时保留其他事实，不从旧等级推断新类别；工具契约 hash 变化使旧批准失效。
 
@@ -104,7 +104,7 @@ Owner 授权参考 WorkBuddy 迁移且删除旧工具入口。采用 `device.*`�
 
 ## Decision history — 2026-10-21：成组工具与独立短名
 
-Owner 进一步授权整理其他工具，并明确离散工具可无命名空间。Goal 使用 `goal.*`，设置使用 `settings.inspect/apply`，结果读取使用 `tools.read_result`；`ask_user/read/write/edit/bash/view_image` 保留短名。旧设置提案/页面弹窗移除，`settings.inspect` 为只读，实际配置修改保持原 DEVICE_SYSTEM_MUTATION 分类、当前 live 调用/Turn 校验与未来输入生效边界。一次性迁移用户可用性选择，不转授单次批准或重写审计。见 [工具契约整理](../../development/tool-contracts.md)。
+Owner 进一步授权整理其他工具，并明确离散工具可无命名空间。Goal 使用 `goal.*`，设置使用 `settings_inspect/apply`，结果读取使用 `tools_read_result`；`ask_user/read/write/edit/bash/view_image` 保留短名。旧设置提案/页面弹窗移除，`settings_inspect` 为只读，实际配置修改保持原 DEVICE_SYSTEM_MUTATION 分类、当前 live 调用/Turn 校验与未来输入生效边界。一次性迁移用户可用性选择，不转授单次批准或重写审计。见 [工具契约整理](../../development/tool-contracts.md)。
 
 ## Decision history — 2026-10-31：本机输出检索
 
@@ -113,3 +113,7 @@ Owner 授权补命令与应用日志关键词检索。审计元数据查询保�
 ### Decision history — 2026-11-12：供应商托管搜索的请求级授权
 
 Owner 明确 OpenAI 服务端原生公开网页搜索在模型请求前决定是否允许，无需逐搜索词审批。此能力使用明确 opt-in、请求前会话搜索可用性过滤和供应商协议检查，不作为本地待执行 function_call。服务端生成的搜索词只在已授权请求范围内用于检索，不授予其他工具、本地文件或远端业务修改权限。禁用搜索时不发送能力；原生搜索调用、引用和失败保持真实可追溯，未知计费不自动重试。既有 Dispatcher 精确审批契约仍适用于本地执行工具。具体范围见工具 ADR 同日决定。
+
+## Decision history — 2026-11-15：移除旧内部身份迁移
+
+Owner 要求全项目以当前最优和未来兼容为准、不兼容旧 Helix 版本。移除旧工具名与带版本插件来源键的启动迁移，以及仅为这些转换存在的存储接口和测试；所有当前消费者直接使用现行名称与稳定来源。保留当前来源/作用域隔离、外层禁用优先、旧执行引用与旧批准不得复用的反例。启动不删除或改写旧行、历史调用或用户资料；不同版本生产数据策略与实际数据清理不由此次代码删减自动授权。

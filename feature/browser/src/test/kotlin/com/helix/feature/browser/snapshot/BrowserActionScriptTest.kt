@@ -5,7 +5,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Pins the fixed versioned action scripts for `browser.click` / `browser.type` / `browser.scroll`
+ * Pins the fixed versioned action scripts for `browser_click` / `browser_type` / `browser_scroll`
  * (HXA-062; doc 09 §3.4: only Helix's own versioned script fragments are ever evaluated).
  *
  * Unlike the read-only [BrowserSnapshotScript.EXTRACT], these scripts DO act (focus / click / set
@@ -66,6 +66,37 @@ class BrowserActionScriptTest {
                 "MAX_VISITED literal drifted",
                 script.contains("var MAX_VISITED = ${BrowserActionScript.MAX_VISITED_ELEMENTS};"),
             )
+        }
+    }
+
+    @Test
+    fun observationAndEveryNodeActionUseTheSameFixedClassification() {
+        val scripts =
+            listOf(BrowserSnapshotScript.EXTRACT, clickScript, typeScript) +
+                com.helix.tools.browser.BrowserNodeAction.entries.map {
+                    BrowserActionScript.nodeAction(0, it, "")
+                }
+        // Indentation differs between the extraction and action IIFEs.
+        val shared =
+            BrowserSnapshotScript.KIND_OF
+                .lines()
+                .map(String::trim)
+                .filter(String::isNotEmpty)
+        for (script in scripts) {
+            val lines = script.lines().map(String::trim).filter(String::isNotEmpty)
+            assertTrue(lines.windowed(shared.size).any { it == shared })
+            assertTrue(script.contains("if (el.hidden) continue;"))
+        }
+        assertTrue(BrowserSnapshotScript.EXTRACT.contains("truncated = true; return;"))
+        assertFalse(clickScript.contains("truncated = true"))
+        assertTrue(clickScript.contains("if (target) return;"))
+    }
+
+    @Test
+    fun actionWalkStopsAtTheRequestedIndexIncludingNestedTargets() {
+        for (script in listOf(clickScript, typeScript)) {
+            assertTrue(script.contains("if (seen === 0) { target = el; return; }"))
+            assertTrue(script.contains("if (target) return;"))
         }
     }
 

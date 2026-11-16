@@ -28,6 +28,7 @@ internal class PluginReadinessProjection(
         record.endpoints.map(::endpointFact) + record.skills.map { skillFact(it, items[it], readable) } +
             listOfNotNull(record.native?.let { nativeFact(record, it) }),
         record.componentDiagnostics,
+        record.pluginName(),
     )
 
     private fun skillFact(

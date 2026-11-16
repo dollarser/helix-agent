@@ -8,12 +8,12 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SpeechRoutingTest {
-    @Test fun signedInDefaultUsesOfficialStreamingWithoutChangingStoredPreference() {
+    @Test fun signedInDefaultUsesOfficialHttpWithoutChangingStoredPreference() {
         val lines = InMemoryLineStore()
         val settings = SpeechSettingsStore(lines)
         val route = settings.forAccount(AccountStatus.SIGNED_IN)
-        assertTrue(route.httpEnabled && route.webSocket && route.useAccountLogin)
-        assertEquals("wss://api.sunlingzhang.com/ws/asr", route.asrEndpoint)
+        assertTrue(route.httpEnabled && !route.webSocket && route.useAccountLogin)
+        assertEquals("https://api.hilex.me/v1/audio/transcriptions", route.asrEndpoint)
         route.validate()
         assertTrue(lines.lines("settings").isEmpty())
         assertFalse(settings.forAccount(AccountStatus.SIGNED_OUT).httpEnabled)
@@ -56,7 +56,7 @@ class SpeechRoutingTest {
         store.save(store.forAccount(AccountStatus.SIGNED_IN))
         val route = store.forAccount(AccountStatus.SIGNED_OUT)
         assertTrue(route.httpEnabled && route.useAccountLogin)
-        assertEquals("wss://api.sunlingzhang.com/ws/asr", route.asrEndpoint)
+        assertEquals("https://api.hilex.me/v1/audio/transcriptions", route.asrEndpoint)
     }
 
     @Test fun repeatedConsentDoesNotGrowHistoryAndOnlyRecentGrantsAreRetained() {
@@ -154,7 +154,7 @@ class SpeechRoutingTest {
         val store = SpeechSettingsStore(InMemoryLineStore())
         for (status in listOf(AccountStatus.REAUTH_REQUIRED, AccountStatus.UNAVAILABLE)) {
             val route = store.forAccount(status)
-            assertTrue(route.httpEnabled && route.useAccountLogin && route.webSocket)
+            assertTrue(route.httpEnabled && route.useAccountLogin && !route.webSocket)
         }
     }
 

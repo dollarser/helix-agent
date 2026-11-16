@@ -19,22 +19,30 @@ class ToolAvailabilityGroupsDeviceTest {
         val toggled = mutableListOf<String>()
         compose.setContent {
             MaterialTheme {
-                ToolAvailabilityGroups(listOf("browser.open", "browser.click", "files.read"), { it }) { name ->
+                ToolAvailabilityGroups(listOf("browser_open", "browser_click", "read"), { it }, {
+                    if (it ==
+                        "read"
+                    ) {
+                        "files"
+                    } else {
+                        "browser"
+                    }
+                }) { name ->
                     TextButton({ toggled += name }, Modifier.testTag(name)) { Text(name) }
                 }
             }
         }
         compose.onNodeWithTag("settings-perm-group-browser").assertDoesNotExist()
-        compose.onNodeWithTag("browser.open").assertDoesNotExist()
+        compose.onNodeWithTag("browser_open").assertDoesNotExist()
         compose.onNodeWithTag("settings-perm-tools").performClick()
-        compose.onNodeWithTag("browser.open").assertDoesNotExist()
+        compose.onNodeWithTag("browser_open").assertDoesNotExist()
         compose.onNodeWithTag("settings-perm-group-browser").performClick()
-        compose.onNodeWithTag("browser.open").assertExists()
-        compose.onNodeWithTag("files.read").assertDoesNotExist()
+        compose.onNodeWithTag("browser_open").assertExists()
+        compose.onNodeWithTag("read").assertDoesNotExist()
         compose.runOnIdle { assertEquals(emptyList<String>(), toggled) }
-        compose.onNodeWithTag("browser.open").performClick()
+        compose.onNodeWithTag("browser_open").performClick()
         compose.onNodeWithTag("settings-perm-tools").performClick()
-        compose.onNodeWithTag("browser.open").assertDoesNotExist()
-        compose.runOnIdle { assertEquals(listOf("browser.open"), toggled) }
+        compose.onNodeWithTag("browser_open").assertDoesNotExist()
+        compose.runOnIdle { assertEquals(listOf("browser_open"), toggled) }
     }
 }

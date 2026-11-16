@@ -40,7 +40,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 
 /**
- * HXA-085 device acceptance: the `code.linux.run` tool end-to-end from the MAIN app
+ * HXA-085 device acceptance: the `code_linux_run` tool end-to-end from the MAIN app
  * process — descriptor gate (policy/registration), the production executor running a
  * REAL job through the separately signed PRoot Runtime (cold bind, re-handshake per
  * execution, NO replay), the hash-verified output archive, the WORKSPACE IMPORT of the
@@ -96,7 +96,7 @@ class LinuxRunToolE2eDeviceTest {
     @Test
     fun theDescriptorIsL2CodeExecutionOnLocalProot() {
         val d = LinuxRunTool.descriptor()
-        assertEquals("code.linux.run", d.name.value)
+        assertEquals("code_linux_run", d.name.value)
         assertEquals(com.helix.core.model.ToolOperationClass.CODE_EXECUTION, d.operationClass)
         assertEquals(com.helix.core.model.ToolOperationClass.CODE_EXECUTION, d.operationClass)
         assertEquals(ExecutionTargetType.LOCAL_PROOT, d.executionTarget)
@@ -437,7 +437,7 @@ class LinuxRunToolE2eDeviceTest {
         val scratchRoot = File(context.filesDir, "proot-jobs-e2e-" + nextId())
         scratch += scratchRoot
         val executor =
-            LinuxRunTool.ProductionLinuxExecutor(
+            LinuxJobExecution(
                 client = jobClient,
                 gate = { supervisorGate() },
                 store = store,

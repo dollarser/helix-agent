@@ -22,9 +22,9 @@ import org.junit.runner.RunWith
  *   bound are unit-tested on the JVM — a library's instrumented test runs in a background test app
  *   with no visible Activity, and API 29+ redacts `getPrimaryClip` for a non-foreground app, so an
  *   on-device read-back would be flaky by construction.)
- * - `device.open_url` builds the REAL `ACTION_VIEW` intent (correct data + `CATEGORY_BROWSABLE`)
+ * - `device_open_url` builds the REAL `ACTION_VIEW` intent (correct data + `CATEGORY_BROWSABLE`)
  *   and launches it, but REFUSES every non-http(s) scheme WITHOUT building/launching any intent;
- * - `device.share_text` builds the REAL `ACTION_CHOOSER` wrapping an `ACTION_SEND` carrying the share
+ * - `device_share_text` builds the REAL `ACTION_CHOOSER` wrapping an `ACTION_SEND` carrying the share
  *   text (and subject), never picking a target app.
  *
  * The [ForegroundProbe] and [IntentLauncher] are injected so the test asserts the real intent
@@ -83,7 +83,7 @@ class AndroidSystemBridgeDeviceTest {
         assertEquals(0, written.length)
     }
 
-    // ── device.open_url: real ACTION_VIEW, http/https only ───────────────────────────────
+    // ── device_open_url: real ACTION_VIEW, http/https only ───────────────────────────────
 
     @Test
     fun openUriLaunchesAnActionViewIntentWithTheHttpUrl() {
@@ -111,7 +111,7 @@ class AndroidSystemBridgeDeviceTest {
         }
     }
 
-    // ── device.open_settings: package-specific system Settings ───────────────────────────
+    // ── device_open_settings: package-specific system Settings ───────────────────────────
 
     @Test
     fun openUnknownAppSourcesBuildsThePackageSpecificSettingsIntent() {
@@ -133,7 +133,7 @@ class AndroidSystemBridgeDeviceTest {
         assertEquals("package:com.example.app", intent.dataString)
     }
 
-    // ── device.share_text: real ACTION_CHOOSER wrapping ACTION_SEND ────────────────────────────
+    // ── device_share_text: real ACTION_CHOOSER wrapping ACTION_SEND ────────────────────────────
 
     @Test
     fun shareBuildsAChooserWrappingActionSendWithTheTextAndSubject() {

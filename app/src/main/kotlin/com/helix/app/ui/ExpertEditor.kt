@@ -33,6 +33,7 @@ import androidx.compose.ui.window.DialogProperties
 import com.helix.app.R
 import com.helix.app.infrastructure.conversation.ConversationExperts
 import com.helix.app.plugin.ExpertAbilityChoice
+import com.helix.app.plugin.expertAbilityLabel
 import com.helix.core.storage.repository.ExpertDefinition
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -173,7 +174,7 @@ internal fun ExpertEditor(
 
 @Composable
 @Suppress("FunctionName")
-private fun ExpertDependenciesEditor(
+internal fun ExpertDependenciesEditor(
     title: Int,
     choices: List<ExpertAbilityChoice>,
     selected: List<String>,
@@ -192,7 +193,7 @@ private fun ExpertDependenciesEditor(
                 onChange(if (checked) selected + choice.reference else selected - choice.reference)
             }, modifier = Modifier.testTag("expert-dependency-${choice.reference}"))
             Column(Modifier.padding(vertical = 12.dp)) {
-                Text(choice.name)
+                Text(expertAbilityLabel(choice))
                 if (!choice.available) {
                     Text(
                         stringResource(R.string.expert_dependency_unavailable),

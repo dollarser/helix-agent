@@ -73,7 +73,7 @@ class PrivilegedDynamicObservationDeviceTest {
             )
             val ticks = mutableSetOf<String>()
             repeat(3) {
-                val snapshot = execute("ui.snapshot")
+                val snapshot = execute("ui_snapshot")
                 assertEquals("SUCCESS", snapshot["status"]?.jsonPrimitive?.content)
                 assertEquals("shizuku", snapshot["backend"]?.jsonPrimitive?.content)
                 ticks +=
@@ -86,11 +86,11 @@ class PrivilegedDynamicObservationDeviceTest {
                 SystemClock.sleep(120)
             }
             assertEquals(3, ticks.size)
-            val frame = execute("ui.device").getValue("frame").jsonPrimitive.content
+            val frame = execute("ui_device").getValue("frame").jsonPrimitive.content
             println("OVERLAY_PROBE_READY")
             SystemClock.sleep(2500)
             repeat(12) {
-                val image = execute("ui.screenshot", """{"frame":"$frame"}""")
+                val image = execute("ui_screenshot", """{"frame":"$frame"}""")
                 assertEquals("SAVED", image["status"]?.jsonPrimitive?.content)
                 assertTrue(
                     image
@@ -103,7 +103,7 @@ class PrivilegedDynamicObservationDeviceTest {
             }
             val action =
                 dispatch(
-                    "ui.gesture",
+                    "ui_gesture",
                     """{"frame":"$frame","strokes":[
                         {"points":[{"x":540,"y":600}],"startMillis":0,"durationMillis":100}]}""",
                 )

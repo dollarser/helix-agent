@@ -98,7 +98,7 @@ class TurnSubmissionCommandDeviceTest {
     @Test fun queueUsesTargetPermissionsWithoutNewGoal(): Unit =
         withRuntime { provider, target, server ->
             val container = compose.container()
-            val caller = delegationCaller(container, provider, "session.queue")
+            val caller = delegationCaller(container, provider, "session_queue")
             try {
                 val goalsBefore =
                     container.storage.goals
@@ -131,7 +131,7 @@ class TurnSubmissionCommandDeviceTest {
     @Test fun steerBindsExpectedTurnAndRejectsTerminalRequest(): Unit =
         withRuntime { provider, target, server ->
             val container = compose.container()
-            val caller = delegationCaller(container, provider, "session.steer")
+            val caller = delegationCaller(container, provider, "session_steer")
             val arrived = java.util.concurrent.CountDownLatch(1)
             val release = java.util.concurrent.CountDownLatch(1)
             try {
@@ -341,12 +341,12 @@ private suspend fun configureDelegatedRename(
         requests.add(body)
         when (step.getAndIncrement()) {
             0 -> {
-                delegationToolStream("tools.search", org.json.JSONObject().put("query", "session.rename"))
+                delegationToolStream("tools_search", org.json.JSONObject().put("query", "session_rename"))
             }
 
             1 -> {
                 delegationToolStream(
-                    "session.rename",
+                    "session_rename",
                     org.json
                         .JSONObject()
                         .put("expectedTitle", originalTitle)

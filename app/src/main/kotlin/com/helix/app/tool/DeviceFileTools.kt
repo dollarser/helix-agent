@@ -14,8 +14,8 @@ import kotlinx.serialization.json.buildJsonObject
 
 /** Scoped file handoff; URL download and arbitrary Android URI access are separate operations. */
 internal object DeviceFileTools {
-    const val SHARE = "device.share_files"
-    const val OPEN = "device.open_file"
+    const val SHARE = "device_share_files"
+    const val OPEN = "device_open_file"
     const val MAX_FILES = 8
 
     fun descriptor(open: Boolean) =

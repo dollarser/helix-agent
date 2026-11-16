@@ -4,7 +4,7 @@ description: Read and summarize authorized PDF and DOCX documents with source lo
 ---
 # Document reading
 
-1. Use the selected Documents plugin and current documents.inspect/read/view schemas. An attachment does not select the plugin or grant file access.
+1. Use the selected Documents plugin and current documents_inspect/read/view schemas. An attachment does not select the plugin or grant file access.
 2. Inspect the exact source. Use its documentRef and sourceSha256 for subsequent reads; inspect again only to refresh the version or recover REF_EXPIRED.
 3. For PDF, read relevant 1-based pages. Empty text on older Android or scanned pages requires view and a vision-capable model. Use view for tables, charts and multi-column layout; normalized regions [left,top,right,bottom] allow bounded close inspection.
 4. For DOCX, read body blocks in order, follow nextCursor as startBlock, and retain heading and table row/cell locations. View embedded imageId near the relevant text. DOCX has no reliable page numbers. Disclose unsupported charts/OLE/SmartArt/external images and omitted headers/notes; suggest PDF export if needed.

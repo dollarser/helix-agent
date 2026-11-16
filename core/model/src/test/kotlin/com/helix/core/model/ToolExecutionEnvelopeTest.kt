@@ -15,7 +15,7 @@ class ToolExecutionEnvelopeTest {
         protocolVersion = 1,
         executionId = ExecutionId("exec-1"),
         targetId = ExecutionTargetId("target-1"),
-        toolName = ToolName("code.javascript.run"),
+        toolName = ToolName("code_javascript_run"),
         toolVersion = ToolVersion(2),
         descriptorHash = sha('a'),
         inputRef = ArtifactRef("in-1"),
@@ -95,7 +95,7 @@ class ToolExecutionEnvelopeTest {
         }
         // Invalid ToolName in the payload.
         assertThrows<IllegalArgumentException> {
-            ToolExecutionEnvelope.parse(valid.replace("\"code.javascript.run\"", "\"a..b\""))
+            ToolExecutionEnvelope.parse(valid.replace("\"code_javascript_run\"", "\"a..b\""))
         }
         // Wrong type for approvalProofRef.
         assertThrows<IllegalArgumentException> { ToolExecutionEnvelope.parse(valid.replace("\"appr-1\"", "123")) }

@@ -7,19 +7,19 @@ internal fun clickMatchRefusal(status: String): ToolExecutorResult.Failed {
     val hint =
         when (status) {
             "TARGET_NOT_FOUND" -> {
-                "No click dispatched. Inspect ui.snapshot for the current page and selector. " +
-                    "If the control is still loading, use a bounded timeoutMillis on ui.click_match. " +
+                "No click dispatched. Inspect ui_snapshot for the current page and selector. " +
+                    "If the control is still loading, use a bounded timeoutMillis on ui_click_match. " +
                     "A timeout does not prove an earlier action failed; do not repeat unchanged waits."
             }
 
             "TARGET_AMBIGUOUS" -> {
-                "No click dispatched. Inspect ui.find/ui.snapshot and narrow the selector " +
+                "No click dispatched. Inspect ui_find/ui_snapshot and narrow the selector " +
                     "with an observed viewId, exact text or other attributes; packageName pins the app. " +
                     "Do not choose the first match or guess coordinates."
             }
 
             "TARGET_NOT_CLICKABLE" -> {
-                "No click dispatched. Inspect the latest ui.find/ui.snapshot for " +
+                "No click dispatched. Inspect the latest ui_find/ui_snapshot for " +
                     "an actionable parent via clickTargetToken; scroll a fresh container for offscreen targets."
             }
 

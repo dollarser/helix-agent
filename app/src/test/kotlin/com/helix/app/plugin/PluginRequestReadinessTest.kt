@@ -24,7 +24,7 @@ class PluginRequestReadinessTest {
         val offline = fact.copy(kind = PluginComponentKind.MCP, state = PluginComponentState.NOT_CONNECTED)
         val context =
             pluginReadinessContext(
-                listOf(PluginReadinessSnapshot("plugin", 7, true, true, listOf(fact, fact, offline), emptyList())),
+                listOf(selectedPlugin(fact, fact, offline)),
                 1,
                 false,
             )
@@ -76,7 +76,17 @@ class PluginRequestReadinessTest {
             )
         val snapshots =
             (0..63).map {
-                PluginReadinessSnapshot("plugin-$it", 1, it == 63, true, List(1000) { component }, emptyList())
+                PluginReadinessSnapshot(
+                    "plugin-$it",
+                    1,
+                    it == 63,
+                    true,
+                    List(1000) {
+                        component
+                    },
+                    emptyList(),
+                    PluginName("plugin-$it"),
+                )
             }
         val context = pluginReadinessContext(snapshots, 64, true)
         val serialized = context.plugins.joinToString { it.requestSummary().toString() }
@@ -90,4 +100,15 @@ class PluginRequestReadinessTest {
         assertTrue(omitted.plugins.isEmpty())
         assertTrue(context.acquisitionSummary().toString().contains("Individual optional rows"))
     }
+
+    private fun selectedPlugin(vararg components: PluginComponentFact) =
+        PluginReadinessSnapshot(
+            pluginId = "plugin",
+            revision = 7,
+            selected = true,
+            enabled = true,
+            components = components.toList(),
+            diagnostics = emptyList(),
+            name = PluginName("plugin"),
+        )
 }

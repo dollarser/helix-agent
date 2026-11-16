@@ -1,6 +1,7 @@
 package com.helix.app.files
 
 import com.helix.core.workspace.FileScopePath
+import com.helix.core.workspace.WorkspaceFileBackend
 import java.security.MessageDigest
 import java.util.concurrent.CancellationException
 
@@ -75,7 +76,7 @@ internal object DirectorySyncPlan {
 
 /** Bounded actual-byte hashing. No provider timestamps, links, content URI or cached permissions. */
 internal class DirectorySyncScan(
-    private val backend: (String) -> ManualFileBackend,
+    private val backend: (String) -> WorkspaceFileBackend,
 ) {
     // A bounded tree walk owns its quota and nested streams.
     @Suppress("NestedBlockDepth", "CyclomaticComplexMethod")

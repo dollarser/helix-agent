@@ -34,7 +34,7 @@ class MobileScreenInheritanceTest {
     private val call =
         ExecutableToolCall(
             "capture",
-            "ui.screenshot",
+            "ui_screenshot",
             "1",
             JsonObject(emptyMap()),
             ExecutionTargetType.LOCAL_ANDROID,
@@ -65,7 +65,7 @@ class MobileScreenInheritanceTest {
         screens().inherit(view, "d".repeat(64), "image/png", derived)
         screens().inherit(view, capturedHash, "image/jpeg", derived)
         screens().inherit(view.copy(sessionId = "other"), capturedHash, "image/png", derived)
-        screens().inherit(view.copy(toolName = "browser.screenshot"), capturedHash, "image/png", derived)
+        screens().inherit(view.copy(toolName = "browser_screenshot"), capturedHash, "image/png", derived)
         assertFalse(screens().isScreenImage(derivedImage()))
     }
 

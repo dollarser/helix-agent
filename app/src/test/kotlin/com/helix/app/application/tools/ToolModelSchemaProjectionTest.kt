@@ -17,11 +17,11 @@ import org.junit.Test
 class ToolModelSchemaProjectionTest {
     @Test fun rawEagerCostWithMaximumLengthNameRemainsALowerBoundOfFinalProjection() {
         val descriptor =
-            ReadTool.descriptor().copy(name = ToolName("${"a".repeat(64)}.${"b".repeat(63)}"))
+            ReadTool.descriptor().copy(name = ToolName("a".repeat(64)))
         val raw =
             TokenEstimator.utf8Bytes(descriptor.name.value) +
                 ModelInputEstimate.toolBytes(descriptor.description, descriptor.inputSchema.toString())
-        assertEquals(128, descriptor.name.value.length)
+        assertEquals(64, descriptor.name.value.length)
         assertTrue(raw <= ToolDiscoveryWorkset.bytes(descriptor))
     }
 

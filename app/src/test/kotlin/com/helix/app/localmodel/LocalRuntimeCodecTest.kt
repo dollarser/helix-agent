@@ -30,7 +30,7 @@ class LocalRuntimeCodecTest {
 
     @Test
     fun toolHistoryKeepsCallIdentityAndBusinessArguments() {
-        val call = AssistantToolCall(ToolCallId("call-1"), ToolName("files.read"), "{\"path\":\"a\"}")
+        val call = AssistantToolCall(ToolCallId("call-1"), ToolName("files_read"), "{\"path\":\"a\"}")
         val request =
             ModelRequest(
                 "asset",
@@ -65,12 +65,12 @@ class LocalRuntimeCodecTest {
     @Test
     fun outputIsNormalizedToTheExistingToolStream() {
         val response = """{
-            "text":"", "reasoning":"check", "calls":[{"name":"files.read","arguments":"{}"}],
+            "text":"", "reasoning":"check", "calls":[{"name":"files_read","arguments":"{}"}],
             "inputTokens":12, "outputTokens":8, "finish":"stop"
         }"""
         val events = LocalRuntimeCodec.decode(response.toByteArray())
         assertTrue(events[0] is ModelEvent.ReasoningDelta)
-        assertEquals("files.read", (events[1] as ModelEvent.ToolCallStarted).name)
+        assertEquals("files_read", (events[1] as ModelEvent.ToolCallStarted).name)
         assertEquals(ModelEvent.ToolArgumentsDelta(0, "{}"), events[2])
         assertEquals(ModelEvent.Completed("tool_calls"), events.last())
         assertEquals(

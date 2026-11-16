@@ -19,6 +19,7 @@ import com.helix.app.provider.ProviderService
 import com.helix.app.provider.ProviderTestStatusStore
 import com.helix.app.sendTestMessage
 import com.helix.app.test.ForegroundDeviceTestHost
+import com.helix.app.test.registeredFixtureToolName
 import com.helix.app.vision.BoundImageAccess
 import com.helix.app.vision.ToolVisionConsent
 import com.helix.core.model.ModelRole
@@ -58,6 +59,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -326,8 +328,8 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
                             .GoalBudgets(maxGoalRounds = 1),
                     )
                 }
+            fixture.wire.scriptToolCall("executed", "time_now", "{}")
             fixture.wire.script(
-                sseResponse(toolCallStream("executed", "\"time.now\"", "{}")),
                 sseResponse(textAnswerStream("checked")),
                 sseResponse(textAnswerStream("continued")),
             )
@@ -389,8 +391,10 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
                             .GoalBudgets(maxGoalRounds = 1),
                     )
                 }
+            fixture.wire.scriptForRequest { body ->
+                sseResponse(twoTimeCallStream(registeredFixtureToolName(body, "time_now")))
+            }
             fixture.wire.script(
-                sseResponse(twoTimeCallStream()),
                 sseResponse(textAnswerStream("checked twice")),
                 sseResponse(textAnswerStream("continued")),
             )
@@ -486,11 +490,12 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
         }
     }
 
-    private fun twoTimeCallStream(): String {
+    private fun twoTimeCallStream(wireName: String): String {
+        val nameJson = org.json.JSONObject.quote(wireName)
         val extra =
             "{\"id\":\"two\",\"index\":1,\"type\":\"function\"," +
-                "\"function\":{\"name\":\"time.now\",\"arguments\":\"{}\"}},"
-        return toolCallStream("one", "\"time.now\"", "{}").replace(
+                "\"function\":{\"name\":$nameJson,\"arguments\":\"{}\"}},"
+        return toolCallStream("one", nameJson, "{}").replace(
             "\"tool_calls\":[",
             "\"tool_calls\":[" + extra,
         )
@@ -1171,18 +1176,44 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
 
     @Test
     fun repeatedWireIdAcrossSuccessfulRoundsKeepsIndependentLocalResults() {
-        verifyRepeatedWireId("\"time.now\"", "COMPLETED")
+        verifyRepeatedWireId("COMPLETED")
     }
 
     @Test
     fun repeatedWireIdAcrossRejectedRoundsKeepsIndependentLocalResults() {
-        // Unknown/unexposed tools are framework failures, not user or recovery-policy denials.
-        verifyRepeatedWireId("\"fixture.unregistered\"", "FAILED")
+        // A declared tool with invalid schema reaches dispatch without executing or causing effects.
+        verifyRepeatedWireId("DENIED", expectedResultStatus = "DENIED", argsJson = """{"unexpected":true}""")
+    }
+
+    @Test
+    fun unknownWireToolFailsBeforeCreatingAnyLocalToolCall() {
+        val fixture = newFixture(vision = false)
+        try {
+            stageTextAttachment(fixture, "synthetic unknown tool fixture")
+            fixture.wire.script(sseResponse(toolCallStream("unknown", "\"fixture_unregistered\"", "{}")))
+            sendToDisclosure(fixture)
+            fixture.service.confirmSend()
+            await(fixture, "unknown tool terminalizes at the protocol boundary") { turnIsTerminal(fixture) }
+            val turn =
+                fixture.storage.turns
+                    .listBySession(SESSION_ID)
+                    .single()
+            assertEquals(TurnState.FAILED.name, turn.state)
+            assertEquals("PROTOCOL", turn.errorCode)
+            assertEquals(1, fixture.wire.callCount)
+            assertTrue(
+                fixture.storage.toolCalls
+                    .listByTurn(turn.id)
+                    .isEmpty(),
+            )
+        } finally {
+            settleAndClose(fixture)
+        }
     }
 
     @Test
     fun selectedSessionModelIsUsedForInitialAndBackfillRequests() {
-        verifyRepeatedWireId("\"time.now\"", "COMPLETED", sessionModel = "session-selected-model")
+        verifyRepeatedWireId("COMPLETED", sessionModel = "session-selected-model")
     }
 
     @Test
@@ -1212,8 +1243,8 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
                     .modelId == "model-e2e"
             }
             assertEquals(0, fixture.wire.callCount)
+            fixture.wire.scriptToolCall("explicit-model-tool", "time_now", "{}")
             fixture.wire.script(
-                sseResponse(toolCallStream("explicit-model-tool", "\"time.now\"", "{}")),
                 sseResponse(textAnswerStream("Explicit selection completed.")),
             )
             val admitted =
@@ -1267,19 +1298,16 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
     }
 
     private fun verifyRepeatedWireId(
-        nameJson: String,
         expectedState: String,
+        expectedResultStatus: String = "SUCCEEDED",
         argsJson: String = "{}",
         sessionModel: String? = "model-e2e",
     ) {
         val fixture = newFixture(vision = false, sessionModel = sessionModel)
         try {
             stageTextAttachment(fixture, "synthetic repeated tool id fixture")
-            fixture.wire.script(
-                sseResponse(toolCallStream("same-wire-id", nameJson, argsJson)),
-                sseResponse(toolCallStream("same-wire-id", nameJson, argsJson)),
-                sseResponse(textAnswerStream("Repeated calls handled.")),
-            )
+            repeat(2) { fixture.wire.scriptToolCall("same-wire-id", "time_now", argsJson) }
+            fixture.wire.script(sseResponse(textAnswerStream("Repeated calls handled.")))
             sendToDisclosure(fixture)
             fixture.service.confirmSend()
             await(fixture, "two repeated-ID rounds complete") {
@@ -1301,28 +1329,60 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
                 val result = fixture.storage.toolResults.byToolCall(call.callId)
                 assertEquals("tool=${call.name}, result=$result, turn=${turn.errorCode}", expectedState, call.state)
                 assertNotNull(result)
-                if (expectedState == "FAILED") {
-                    assertEquals("FAILED", result?.status)
-                    assertTrue(requireNotNull(result).summary.isNotBlank())
+                assertEquals(expectedResultStatus, result?.status)
+                if (expectedState == "DENIED") {
+                    assertTrue(requireNotNull(result).summary.contains("registered schema"))
+                    assertTrue(result.summary.contains("unexpected"))
                 }
-                assertTrue(!fixture.wire.lastRequestBody.contains(call.callId))
             }
             verifyLiveToolLabels(fixture, calls.map { it.callId }.toSet(), expectedState)
-            val messages =
-                kotlinx.serialization.json.Json
-                    .parseToJsonElement(fixture.wire.lastRequestBody)
-                    .let { it as kotlinx.serialization.json.JsonObject }
-                    .getValue("messages")
-                    as kotlinx.serialization.json.JsonArray
-            val results =
-                messages
-                    .map { it as kotlinx.serialization.json.JsonObject }
-                    .filter { it["role"].toString() == "\"tool\"" }
-            assertEquals(2, results.size)
-            results.forEach { assertEquals("\"same-wire-id\"", it["tool_call_id"].toString()) }
+            verifyRepeatedToolBackfill(
+                fixture.wire.lastRequestBody,
+                calls.map { "${turn.id}/${it.callId}" }.toSet(),
+                if (expectedState == "DENIED") "INVALID_ARGUMENTS" else "SUCCEEDED",
+            )
         } finally {
             settleAndClose(fixture)
         }
+    }
+
+    private fun verifyRepeatedToolBackfill(
+        requestBody: String,
+        expectedCallRefs: Set<String>,
+        outcomeCode: String,
+    ) {
+        val array = org.json.JSONObject(requestBody).getJSONArray("messages")
+        val messages = (0 until array.length()).map(array::getJSONObject)
+        val results = messages.filter { it.getString("role") == "tool" }
+        assertEquals(2, results.size)
+        results.forEach {
+            assertEquals("same-wire-id", it.getString("tool_call_id"))
+            assertTrue(it.getString("content").startsWith("[$outcomeCode] "))
+        }
+        val calls =
+            messages.filter { it.optJSONArray("tool_calls") != null }.flatMap { message ->
+                val toolCalls = message.getJSONArray("tool_calls")
+                (0 until toolCalls.length()).map(toolCalls::getJSONObject)
+            }
+        assertEquals(2, calls.size)
+        calls.forEach { call ->
+            assertEquals("same-wire-id", call.getString("id"))
+            assertFalse(call.has("localId"))
+            assertEquals(
+                registeredFixtureToolName(requestBody, "time_now"),
+                call.getJSONObject("function").getString("name"),
+            )
+        }
+        // Local references are intentional result-delivery facts, not protocol pairing identities.
+        val deliveredRefs =
+            results
+                .map { result ->
+                    org.json
+                        .JSONObject(
+                            result.getString("content").substringAfter("\nDelivery facts: "),
+                        ).getString("callRef")
+                }.toSet()
+        assertEquals(expectedCallRefs, deliveredRefs)
     }
 
     private fun verifyLiveToolLabels(
@@ -1334,10 +1394,10 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
         val zh = AppLanguageStore.wrapForLocale(context, AppLanguageStore.localeListFor(AppLanguage.ZH_CN))
         val label =
             zh.getString(
-                if (expectedState == "COMPLETED") {
-                    ConversationR.string.tool_state_completed
-                } else {
-                    ConversationR.string.tool_state_failed
+                when (expectedState) {
+                    "COMPLETED" -> ConversationR.string.tool_state_completed
+                    "DENIED" -> com.helix.app.R.string.approval_code_invalid_arguments
+                    else -> error("Unexpected repeated-call fixture state $expectedState")
                 },
             )
         await(fixture, "tool timeline contains the exact settled local calls") {
@@ -1356,8 +1416,8 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
         val fixture = newFixture(vision = false)
         try {
             stageTextAttachment(fixture, "e2e tool body\n")
+            fixture.wire.scriptToolCall("call-e2e", "time_now", "{}")
             fixture.wire.script(
-                sseResponse(toolCallStream("call-e2e", "\"time.now\"", "{}")),
                 sseResponse(textAnswerStream("现在的时间已查到。")),
             )
 
@@ -1375,7 +1435,7 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
             // The tool actually ran (durable timeline row) and the FINAL answer persisted.
             val toolCalls = fixture.storage.toolCalls.listByTurn(turn.id)
             assertEquals(1, toolCalls.size)
-            assertEquals("time.now", toolCalls.single().name)
+            assertEquals("time_now", toolCalls.single().name)
             assertEquals("现在的时间已查到。", fixture.assistantMessage())
             // The back-fill request carried BOTH the attachment block and the tool result.
             val body2 = fixture.wire.lastRequestBody
@@ -1949,7 +2009,7 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
                     .ToolScheduler(clock, dispatcher, registry),
             ).also { pipeline ->
                 com.helix.app.test
-                    .discoverFixtureTool(pipeline, SESSION_ID, "time.now")
+                    .discoverFixtureTool(pipeline, SESSION_ID, "time_now")
             }
     }
 

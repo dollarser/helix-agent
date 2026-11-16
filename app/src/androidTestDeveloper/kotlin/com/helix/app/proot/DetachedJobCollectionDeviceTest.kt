@@ -349,7 +349,7 @@ class DetachedJobCollectionDeviceTest {
         val call =
             ExecutableToolCall(
                 "control-call",
-                "code.linux.job.collect",
+                "code_linux_job_collect",
                 "1",
                 buildJsonObject { put("originalCallId", job.binding.toolCallId) },
                 ExecutionTargetType.LOCAL_PROOT,

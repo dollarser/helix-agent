@@ -50,16 +50,17 @@ class CodexToolNamesTest {
         )
     }
 
-    private val tool = ModelToolSchema(ToolName("fixture.echo"), "echo", """{"type":"object"}""")
+    private val tool = ModelToolSchema(ToolName("fixture_echo"), "echo", """{"type":"object"}""")
     private val call = AssistantToolCall(ToolCallId("call1"), tool.name, """{"text":"x"}""")
     private val request = ModelRequest("fixture", listOf(ModelMessage(ModelRole.USER, "echo")), tools = listOf(tool))
 
-    @Test fun aliasesAreStableAndCannotConfuseDottedAndUnderscoreNames() {
-        val both = request.copy(tools = listOf(tool, tool.copy(name = ToolName("fixture_echo"))))
+    @Test fun registeredNamesArePreservedAcrossCatalogChanges() {
+        val both = request.copy(tools = listOf(tool, tool.copy(name = ToolName("fixture_echo_other"))))
         val encoded = CodexToolNames(both).encode(both)
         val names = encoded.tools.map { it.name.value }
         assertTrue(names.all { it.matches(Regex("[A-Za-z0-9_-]{1,64}")) })
         assertNotEquals(names[0], names[1])
+        assertEquals(listOf("fixture_echo", "fixture_echo_other"), names)
         assertEquals(
             names[0],
             CodexToolNames(request)

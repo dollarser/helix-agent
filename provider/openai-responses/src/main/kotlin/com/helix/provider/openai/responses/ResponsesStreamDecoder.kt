@@ -55,7 +55,7 @@ import kotlinx.serialization.json.longOrNull
  */
 @Suppress("TooManyFunctions")
 public class ResponsesStreamDecoder(
-    private val decodeToolName: (String) -> String = { it },
+    private val decodeToolName: (String) -> String? = { it },
 ) : StreamDecoder {
     private val parser = ResponsesSseParser()
 
@@ -302,10 +302,11 @@ public class ResponsesStreamDecoder(
         if (toolCallCount > MAX_TOOL_CALLS) {
             throw ProtocolViolation("too many function calls in one response")
         }
+        val canonicalName = decodeToolName(name) ?: throw ProtocolViolation("unknown function name")
         openCalls[index] = id
         argumentBuffers[index] = StringBuilder()
         hasFunctionCall = true
-        out += ModelEvent.ToolCallStarted(index, id, decodeToolName(name))
+        out += ModelEvent.ToolCallStarted(index, id, canonicalName)
     }
 
     private fun handleTextDelta(

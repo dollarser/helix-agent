@@ -71,12 +71,12 @@ class ChatScreenProjectionDeviceTest {
                     Triple(
                         "ASSISTANT",
                         ChatHistoryBuilder.KIND_TOOL_CALLS,
-                        "[{\"id\":\"call\",\"name\":\"code.javascript.run\",\"arguments\":\"{}\"}]",
+                        "[{\"id\":\"call\",\"name\":\"code_javascript_run\",\"arguments\":\"{}\"}]",
                     ),
                     Triple(
                         "TOOL",
                         ChatHistoryBuilder.KIND_TOOL_RESULT,
-                        """{"id":"call","tool":"code.javascript.run","status":"SUCCEEDED","summary":"output"}""",
+                        """{"id":"call","tool":"code_javascript_run","status":"SUCCEEDED","summary":"output"}""",
                     ),
                     Triple("ASSISTANT", ContextCompaction.KIND, "internal summary"),
                     Triple("TOOL", ChatHistoryBuilder.KIND_TEXT, "legacy tool output"),

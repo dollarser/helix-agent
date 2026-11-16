@@ -15,7 +15,7 @@ data class ToolObservationPresentation(
 
 @Suppress("ReturnCount") // Malformed or absent evidence never becomes a current target.
 fun toolObservationPresentation(row: ToolTimelineRow): ToolObservationPresentation? {
-    if (row.toolName != "ui.device") return null
+    if (row.toolName != "ui_device") return null
     val body =
         try {
             Json.parseToJsonElement(row.resultSummary ?: return null) as? JsonObject
@@ -32,7 +32,7 @@ fun toolObservationPresentation(row: ToolTimelineRow): ToolObservationPresentati
 
 @Suppress("ReturnCount") // Only registered observation fields from supported UI tools carry this state.
 fun toolHasUnsettledObservation(row: ToolTimelineRow): Boolean {
-    if (row.toolName !in setOf("ui.set_text", "ui.scroll")) return false
+    if (row.toolName !in setOf("ui_set_text", "ui_scroll")) return false
     val body =
         try {
             Json.parseToJsonElement(row.resultSummary ?: return false) as? JsonObject

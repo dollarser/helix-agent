@@ -38,6 +38,7 @@ import com.helix.app.plugin.PluginImportReview
 import com.helix.app.plugin.PluginImportTargetPicker
 import com.helix.app.plugin.PluginPackagePreview
 import com.helix.app.plugin.PluginService
+import com.helix.app.plugin.pluginName
 import com.helix.app.ui.rememberImportActionState
 import com.helix.extensions.mcp.McpHandshakeSnapshot
 import com.helix.extensions.mcp.oauth.McpOAuthVendor
@@ -284,7 +285,7 @@ fun ConnectorSection(
             records.associate {
                 it.id to
                     com.helix.app.plugin
-                        .pluginLabel(it.native?.pluginId ?: it.name)
+                        .pluginLabel(it.pluginName())
             }
         val visible =
             records.filter {

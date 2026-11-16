@@ -5,7 +5,7 @@ import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class PluginSelectionChangesTest {
-    private val ready = PluginSessionRow("a", "A", false, false, true, true, true, 1, 1)
+    private val ready = PluginSessionRow("a", PluginName("A"), false, false, true, true, true, 1, 1)
 
     @Test fun `only picker-owned changes are applied and unrelated selections survive`() {
         assertEquals(

@@ -8,6 +8,7 @@ import com.helix.core.storage.repository.SessionHistoryCaller
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
+import com.helix.tools.framework.ToolDiscoveryHints
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolOrigin
@@ -48,7 +49,7 @@ internal object SessionDelegationTool {
                             call.toolCallId,
                             call.toolName,
                         )
-                    if (call.toolName == "session.steer") {
+                    if (call.toolName == "session_steer") {
                         service.steer(
                             caller,
                             call.text("targetSessionId"),
@@ -121,7 +122,7 @@ internal object SessionDelegationTool {
 
     private fun descriptor(steer: Boolean) =
         ToolDescriptor(
-            name = ToolName(if (steer) "session.steer" else "session.queue"),
+            name = ToolName(if (steer) "session_steer" else "session_queue"),
             version = ToolVersion(1),
             description =
                 (
@@ -148,6 +149,7 @@ internal object SessionDelegationTool {
             idempotency = Idempotency.IDEMPOTENT,
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
             origin = ToolOrigin.BuiltInOrigin,
+            discovery = ToolDiscoveryHints(category = "session"),
         )
 
     private fun schema(steer: Boolean) =

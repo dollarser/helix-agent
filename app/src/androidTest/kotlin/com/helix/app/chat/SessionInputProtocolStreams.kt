@@ -1,6 +1,8 @@
 package com.helix.app.chat
 
+import com.helix.app.test.declaredFixtureToolName
 import com.helix.core.model.ProviderProtocol
+import com.helix.tools.framework.TimeNowTool
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
@@ -33,8 +35,14 @@ internal object SessionInputProtocolStreams {
     fun tool(
         protocol: ProviderProtocol,
         probe: Boolean,
+        requestBody: String,
     ): String {
-        val name = if (probe) "echo" else "time.now"
+        val name =
+            when {
+                probe -> "echo"
+                protocol == ProviderProtocol.ANTHROPIC_MESSAGES -> "time_now"
+                else -> declaredFixtureToolName(requestBody, "time_now", TimeNowTool.descriptor().description)
+            }
         val args =
             if (probe) {
                 """{"text":"probe"}"""

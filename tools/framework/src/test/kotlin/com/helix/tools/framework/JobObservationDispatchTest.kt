@@ -79,17 +79,22 @@ class JobObservationDispatchTest {
                         return ToolExecutorResult.Completed(buildJsonObject {})
                     }
                 }
-            fixture.register(next, fixture.descriptor("fixture.next"))
+            fixture.register(next, fixture.descriptor("fixture_next"))
             val result =
                 CompletableFuture.supplyAsync {
                     fixture.scheduler.scheduleBatch(
-                        listOf(fixture.call(), fixture.call("next", "fixture.next", buildJsonObject {})),
+                        listOf(fixture.call(), fixture.call("next", "fixture_next", buildJsonObject {})),
                     )
                 }
             try {
                 val batch = result.get(5, TimeUnit.SECONDS)
                 assertEquals(2, batch.settlements.size)
-                assertTrue(batch.outcomes.all { it is ToolDispatchOutcome.Succeeded })
+                assertTrue(
+                    batch.settlements.all {
+                        it is ToolScheduler.BatchSettlement.Outcome &&
+                            it.outcome is ToolDispatchOutcome.Succeeded
+                    },
+                )
                 assertEquals(setOf("observe", "next"), fixture.events.map { it.correlationId }.toSet())
                 assertEquals(2, fixture.events.size)
                 assertEquals(0, fixture.service.activeCount())

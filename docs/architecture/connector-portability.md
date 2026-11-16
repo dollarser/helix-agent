@@ -12,7 +12,7 @@ flowchart TD
     Preview --> Package[连接器记录与内容 hash]
     Package --> Skills[固定 Skill snapshots]
     Package --> MCP[禁用的 MCP 端点]
-    Skills --> Read[skills.list / read / read_resource]
+    Skills --> Read[skills_list / read / read_resource]
     MCP --> Test[用户测试连接与选择工具]
     Test --> Registry[现有动态 Tool Registry]
     Registry --> Dispatcher[Policy / Approval / 执行 / 审计]
@@ -23,7 +23,7 @@ flowchart TD
 
 ## 2. 调研材料中需要修正的结论
 
-- **MCP 不要求全量 schema 永久常驻。** `tools/list` 发现与模型上下文装配是不同接口。可先给 catalog、再搜索和加载工具；把 MCP 全部转成 bash 不是节省上下文的必要条件。Helix 仍使用用户选择工具后的注册方式；HXA-127 已实现 tools.search，从当前启用 registry 搜索并向下一次模型请求加载最多16个匹配 schema；2026-09-28 经所有者授权将同一发现窗口扩展到内置/A2A，默认基础工具与有效自动化会话工具单独保留，不扩大执行权限。现行契约见[ADR-MCP-001](../adr/mcp/001-client-and-discovery.md)。
+- **MCP 不要求全量 schema 永久常驻。** `tools/list` 发现与模型上下文装配是不同接口。可先给 catalog、再搜索和加载工具；把 MCP 全部转成 bash 不是节省上下文的必要条件。Helix 仍使用用户选择工具后的注册方式；HXA-127 已实现 tools_search，从当前启用 registry 搜索并向下一次模型请求加载最多16个匹配 schema；2026-09-28 经所有者授权将同一发现窗口扩展到内置/A2A，默认基础工具与有效自动化会话工具单独保留，不扩大执行权限。现行契约见[ADR-MCP-001](../adr/mcp/001-client-and-discovery.md)。
 - **远程 MCP OAuth 不要求平台后端代持。** HXA-071 的首版握手历史上只支持手工 bearer；当前 OAuth 核心已按 [ADR-CONNECTORS-002](../adr/connectors/002-oauth.md) 进入 HXA-126，使用 Android public client、浏览器授权、PKCE 与本机 SecretStore。特定厂商的 client 注册/redirect、两家真实服务账号和动态注册仍以 status/HXA-126 为准，不能从协议支持推导服务方已验收。
 - **把 schema 编译成 CLI 不会自动消除 MCP 运行时依赖。** 如果 wrapper 最终仍调用 MCP server，就仍依赖协议与会话。只有重新实现业务 HTTP API 才可能不再走 MCP，那属于新的 adapter。
 - **模型能加 `--yes` 时，CLI flag 本身不证明用户批准。** 同样，隐藏工具列表不等于撤销已经排队的调用。宿主必须在执行边界检查当前 enablement；已发出的远端副作用不能靠关开关撤回。
@@ -54,7 +54,7 @@ flowchart TD
 
 MCP 原始 headers/环境变量不进入持久记录。首版仅迁移无 userinfo/query/fragment/变量占位的 HTTPS URL；不符合的端点给出需配置诊断，用户可修正导出内容后重导。query 经常混有 token，后续可在类型化编辑器明确区分参数与凭据后支持。Connector 内部 Skill 目录按原文声明名归一，文件字节保留；拒绝非单层路径及同包重名，普通 Skill 名称和内容校验不变。源 `enabled/disabled` 不授予 Helix 能力；新 Skill 默认禁用，已存在同 hash 的共享 Skill 保持既有用户选择。
 
-安装只产生 package 记录与 Skill snapshot；测试连接时才懒注册 MCP，因此导入不联网、不激活任何服务。相同 package hash 的重复安装返回既有记录。MCP 用每次安装专属 UUID 命名空间，避免与用户已有 server 冲突。模型工具名仍为 `mcp.<serverId>.<toolName>`，不静默改写 Skill 中的源平台工具名；迁移后需要检查真实工具列表，必要时修改源 Skill 并重导。
+安装只产生 package 记录与 Skill snapshot；测试连接时才懒注册 MCP，因此导入不联网、不激活任何服务。相同 package hash 的重复安装返回既有记录。MCP 用每次安装专属 UUID 命名空间，避免与用户已有 server 冲突。模型工具名在注册边界生成来源限定的可移植名称，远端原名保留供派发，具体规则见[工具契约 ADR](../adr/tools/001-descriptor-contract.md#可移植工具名与来源边界2026-11-16)。不静默改写 Skill 中的源平台工具名；模型通过当前工具目录发现可调用名称，必要时修改源 Skill 并重导。
 
 用户在密码输入框提供自己的 bearer，只写 SecretStore；Room 仅有 alias。认证配置替换使 MCP disabled，再次测试与选择；空输入复用已存凭据。匿名连接同样可后续补配置 bearer。连接测试使用现有 endpoint gate，不绕过 DNS/TLS/egress 检查。开关不是 Tool Approval：所有调用仍进入原有管线。
 
@@ -72,7 +72,7 @@ HXA-125 模拟器实测补充：MCP 注册适配允许已知的根 JSON Schema 2
 
 1. **HXA-125 收尾验收**：公开来源与匿名服务/恢复已有证据，受保护服务仍需独立账号下的拒绝、撤销和重连验证；见[进展记录](../evidence/development/hxa-125-progress.md)。
 2. **HXA-126 进行中**：预注册 public-client OAuth 核心已整合；两家真实服务注册/redirect 条件与动态注册仍未闭合。
-3. **HXA-127 已交付**：大 catalog 渐进发现与 `tools.search` 已进入生产路径；见[完成记录](../completion-records/HXA-127.md)。
+3. **HXA-127 已交付**：大 catalog 渐进发现与 `tools_search` 已进入生产路径；见[完成记录](../completion-records/HXA-127.md)。
 4. **HXA-128 已交付**：CLI/stdio 可移植运行时 Spike 已完成，保留其版本/ABI/许可边界；见[完成记录](../completion-records/HXA-128.md)。
 5. **HXA-129 已交付**：Connector 安全替换、安装归属和会话启停已完成；见[完成记录](../completion-records/HXA-129.md)。
 6. **HXA-130 已交付**：签名索引与来源验证已完成；市场/目录产品能力继续受当前 Connector ADR 与 roadmap 约束，不能由签名来源自动提升 ToolCall 权限；见[完成记录](../completion-records/HXA-130.md)。

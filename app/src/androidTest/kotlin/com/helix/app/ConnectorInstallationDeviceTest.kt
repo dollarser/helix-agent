@@ -41,7 +41,7 @@ class ConnectorInstallationDeviceTest {
                     container.toolExecution.dispatchToolCall(
                         id,
                         id,
-                        "connectors.install",
+                        "plugins_install",
                         """{"path":"$path","expectedHash":"$hash"}""",
                         mode = mode,
                     )
@@ -55,7 +55,7 @@ class ConnectorInstallationDeviceTest {
                 container.toolExecution.dispatchToolCall(
                     previewTurn,
                     previewTurn,
-                    "connectors.preview",
+                    "plugins_preview",
                     """{"path":"$path"}""",
                     mode = AgentMode.PLAN,
                 ) is ToolDispatchOutcome.Succeeded,

@@ -84,18 +84,18 @@ WebView 只能由浏览器 feature 持有。Agent Runtime 不持有 `WebView` �
 
 | Tool | 操作类型 | 说明 |
 | --- | --- | --- |
-| `browser.open` | NETWORK | 新建标签并导航；展示目标 origin |
-| `browser.navigate` | NETWORK | 当前标签导航；跨 origin 更新作用域 |
-| `browser.back` / `browser.forward` / `browser.reload` | LOCAL_MUTATION / NETWORK | 只作用于 Helix 标签 |
-| `browser.snapshot` | READ_ONLY | 返回裁剪后的语义树、URL、标题；可能含敏感页面内容 |
-| `browser.find` | READ_ONLY | 当前 snapshot 内查找 |
-| `browser.click` | EXTERNAL_ACTION | 依据 snapshot node ID 点击；要求页面代次一致 |
-| `browser.type` | EXTERNAL_ACTION | 输入文字；密码框、支付框和验证码框默认拒绝 |
-| `browser.scroll` | LOCAL_MUTATION | 有界滚动 |
-| `browser.screenshot` | LOCAL_MUTATION | 只截当前 Helix WebView，保存到 Workspace |
-| `browser.download` | NETWORK + 文件效果 | 显示 URL、文件名、大小上限和目标位置 |
+| `browser_open` | NETWORK | 新建标签并导航；展示目标 origin |
+| `browser_navigate` | NETWORK | 当前标签导航；跨 origin 更新作用域 |
+| `browser_back` / `browser_forward` / `browser_reload` | LOCAL_MUTATION / NETWORK | 只作用于 Helix 标签 |
+| `browser_snapshot` | READ_ONLY | 返回裁剪后的语义树、URL、标题；可能含敏感页面内容 |
+| `browser_find` | READ_ONLY | 当前 snapshot 内查找 |
+| `browser_click` | EXTERNAL_ACTION | 依据 snapshot node ID 点击；要求页面代次一致 |
+| `browser_type` | EXTERNAL_ACTION | 输入文字；密码框、支付框和验证码框默认拒绝 |
+| `browser_scroll` | LOCAL_MUTATION | 有界滚动 |
+| `browser_screenshot` | LOCAL_MUTATION | 只截当前 Helix WebView，保存到 Workspace |
+| `browser_download` | NETWORK + 文件效果 | 显示 URL、文件名、大小上限和目标位置 |
 
-`browser.click/type` 只能使用最近一次 snapshot 返回的短期 node token。页面导航、刷新、DOM 大变化或超时都会使 token 失效，防止模型在页面变化后点击错误对象。
+`browser_click/type` 只能使用最近一次 snapshot 返回的短期 node token。页面导航、刷新、DOM 大变化或超时都会使 token 失效，防止模型在页面变化后点击错误对象。
 
 ### 3.4 WebView 安全约束
 
@@ -153,14 +153,14 @@ Material Files 和 Amaze File Manager 只作为路径、冲突、长任务和 Ro
 | `write` | LOCAL_MUTATION | 原子新建/覆盖，显示覆盖目标并按当前规则授权 |
 | `edit` | LOCAL_MUTATION | 唯一匹配 patch 或带前置 hash 的 patch |
 | `bash` | CODE_EXECUTION | 仅 PRoot Runtime；不是 Android 主进程 Shell |
-| `files.list` | READ_ONLY | 有界目录枚举 |
+| `files_list` | READ_ONLY | 有界目录枚举 |
 | `glob` / `grep` | READ_ONLY | 文件名或正文搜索，有文件数/时间限制 |
-| `files.stat` | READ_ONLY | size、mtime、MIME、hash 可选 |
-| `files.mkdir` | LOCAL_MUTATION | 作用域内创建 |
-| `files.copy` | LOCAL_MUTATION | 分类源/目标范围与覆盖效果后授权 |
-| `files.move` | LOCAL_MUTATION | 显示源、目标和冲突策略 |
-| `files.delete` | LOCAL_MUTATION | 默认进入 Helix 回收站 |
-| `files.archive` / `files.extract` | LOCAL_MUTATION | 防 Zip Slip、文件数和膨胀比限制 |
+| `files_stat` | READ_ONLY | size、mtime、MIME、hash 可选 |
+| `files_mkdir` | LOCAL_MUTATION | 作用域内创建 |
+| `files_copy` | LOCAL_MUTATION | 分类源/目标范围与覆盖效果后授权 |
+| `files_move` | LOCAL_MUTATION | 显示源、目标和冲突策略 |
+| `files_delete` | LOCAL_MUTATION | 默认进入 Helix 回收站 |
+| `files_archive` / `files_extract` | LOCAL_MUTATION | 防 Zip Slip、文件数和膨胀比限制 |
 
 短工具名和 namespaced 工具共享相同执行实现，不能出现两套 Policy。
 
@@ -224,21 +224,21 @@ Helix 当前 `ShizukuHierarchy` 在 shell/Root UID 的特权进程中连接 UiAu
 
 | Tool | 操作类型 | 实际能力 |
 | --- | --- | --- |
-| `ui.snapshot` / `ui.find` | READ_ONLY | 当前语义树、文本/属性匹配、token 与节点边界 |
-| `ui.click` / `ui.click_match` / `ui.long_click` | EXTERNAL_ACTION | 操作当前有效节点；`click_match` 原子执行最新快照上的唯一语义匹配，歧义/不可点时零副作用拒绝 |
-| `ui.set_text` / `ui.ime_enter` / `ui.set_progress` | EXTERNAL_ACTION | 原生文本输入、IME 提交与滑块；只在节点声明对应能力时执行，拒绝不存在的能力与越界数值 |
-| `ui.scroll` | EXTERNAL_ACTION | 节点 forward/backward 滚动，屏幕手势另走 gesture |
-| `ui.back` / `ui.home` | EXTERNAL_ACTION | 保留原便捷动作入口，可离开暂停目标 |
-| `ui.wait` | READ_ONLY | 等待出现、消失、匹配内容改变、语义稳定；单次最多 60 秒 |
-| `ui.device` | READ_ONLY | 当前 display/window、旋转、物理像素、frame 和实际系统动作 |
-| `ui.apps` | READ_ONLY | Android 可见且已授权的可启动应用；列表截断明确标记 |
-| `ui.launch` / `ui.system` | EXTERNAL_ACTION | 启动应用；返回/主屏/最近任务、通知/快捷设置、电源菜单/分屏/锁屏、方向键、应用抽屉、媒体/耳机及菜单动作；只调用平台实际支持项 |
-| `ui.gesture` | EXTERNAL_ACTION | 单点点击/长按、路径滑动/拖动、多指缩放；一组 strokes 为一次原生手势 |
-| `ui.screenshot` | LOCAL_MUTATION | 授权窗口/屏幕 PNG、会话/Turn 产物和既有视觉回填，不往 JSON 塞 Base64 |
+| `ui_snapshot` / `ui_find` | READ_ONLY | 当前语义树、文本/属性匹配、token 与节点边界 |
+| `ui_click` / `ui_click_match` / `ui_long_click` | EXTERNAL_ACTION | 操作当前有效节点；`click_match` 原子执行最新快照上的唯一语义匹配，歧义/不可点时零副作用拒绝 |
+| `ui_set_text` / `ui_ime_enter` / `ui_set_progress` | EXTERNAL_ACTION | 原生文本输入、IME 提交与滑块；只在节点声明对应能力时执行，拒绝不存在的能力与越界数值 |
+| `ui_scroll` | EXTERNAL_ACTION | 节点 forward/backward 滚动，屏幕手势另走 gesture |
+| `ui_back` / `ui_home` | EXTERNAL_ACTION | 保留原便捷动作入口，可离开暂停目标 |
+| `ui_wait` | READ_ONLY | 等待出现、消失、匹配内容改变、语义稳定；单次最多 60 秒 |
+| `ui_device` | READ_ONLY | 当前 display/window、旋转、物理像素、frame 和实际系统动作 |
+| `ui_apps` | READ_ONLY | Android 可见且已授权的可启动应用；列表截断明确标记 |
+| `ui_launch` / `ui_system` | EXTERNAL_ACTION | 启动应用；返回/主屏/最近任务、通知/快捷设置、电源菜单/分屏/锁屏、方向键、应用抽屉、媒体/耳机及菜单动作；只调用平台实际支持项 |
+| `ui_gesture` | EXTERNAL_ACTION | 单点点击/长按、路径滑动/拖动、多指缩放；一组 strokes 为一次原生手势 |
+| `ui_screenshot` | LOCAL_MUTATION | 授权窗口/屏幕 PNG、会话/Turn 产物和既有视觉回填，不往 JSON 塞 Base64 |
 
-两组共 18 个工具；`ui.system` 枚举 18 种动作，设备可用集合来自 `getSystemActions()`（API 29 使用平台已有基础动作）。`ui.ime_enter` 仅在 API 30+ 且当前可编辑节点实际声明 IME Enter action 时可用；枚举存在不是设备支持证明。`headset_hook` 可接听/挂断电话，`lock_screen` 会暂停物理操作而不删除 Conversation 授权，应由模型按任务意图选择。
+两组共 18 个工具；`ui_system` 枚举 18 种动作，设备可用集合来自 `getSystemActions()`（API 29 使用平台已有基础动作）。`ui_ime_enter` 仅在 API 30+ 且当前可编辑节点实际声明 IME Enter action 时可用；枚举存在不是设备支持证明。`headset_hook` 可接听/挂断电话，`lock_screen` 会暂停物理操作而不删除 Conversation 授权，应由模型按任务意图选择。
 
-手机操作按各工具/参数实际支持能力选择已就绪的 Root → Shizuku → Accessibility，不只限于早期精确点击。语义节点 token 绑定原观察后端，执行不能把旧 token 移到另一后端；派发失败或 UNKNOWN 不跨后端重放。工具名称/schema 以当前发布 descriptor 为准，`ui.device` 返回实际后端状态及能力，不能把一个后端就绪解释为所有操作均支持。应用启动与系统动作也采用已实现的独立特权路径，合同见 ADR-PERMISSIONS-001 的 2026-10-06 决定。
+手机操作按各工具/参数实际支持能力选择已就绪的 Root → Shizuku → Accessibility，不只限于早期精确点击。语义节点 token 绑定原观察后端，执行不能把旧 token 移到另一后端；派发失败或 UNKNOWN 不跨后端重放。工具名称/schema 以当前发布 descriptor 为准，`ui_device` 返回实际后端状态及能力，不能把一个后端就绪解释为所有操作均支持。应用启动与系统动作也采用已实现的独立特权路径，合同见 ADR-PERMISSIONS-001 的 2026-10-06 决定。
 
 Mobile Use 的 Root 连接由设置中的明确授权按钮创建，允许切换目标应用，并可主动断开；状态查询和模型调用不请求 Root、不冷绑定。复用 libsu 非 daemon 服务与同一有界特权点击协议，原 `root.*` 的后台失权规则不变。Root manager 撤销未来授权未必杀死已运行的 UID 0 服务；逐调用仍检查原会话范围、停止、锁屏和取消，不能将系统 Root 授权视为业务授权。验证与边界见 [Root 优先级证据](../evidence/development/mobile-use-root-priority-2026-10-04.md)。
 
@@ -254,7 +254,7 @@ Mobile Use 的 Root 连接由设置中的明确授权按钮创建，允许切换
 
 ### 图片交给模型处理的确认
 
-系统无障碍许可、Mobile Use 操作范围、`ui.screenshot` 工具授权与网络图片确认是不同对象。`WorkspaceToolImagePublisher` 先登记本会话/Turn 的截图，`ToolImagePreparer` 产生可选的规范化视觉来源；工具返回的视觉来源不等于图片已经发送成功。
+系统无障碍许可、Mobile Use 操作范围、`ui_screenshot` 工具授权与网络图片确认是不同对象。`WorkspaceToolImagePublisher` 先登记本会话/Turn 的截图，`ToolImagePreparer` 产生可选的规范化视觉来源；工具返回的视觉来源不等于图片已经发送成功。
 
 Mobile Use 设置显示当前接收 Provider/模型与服务 origin，点击“保存并开启”同时允许本会话当前及以后用户选择的模型处理后续原生截图，无需逐图或切换接收方确认。原生截图通过可信发布接口持久登记采集 Scope、会话/Turn、哈希和类型；`MobileUseScreenConsent` 使用该 Conversation 的保存配置校验，不从文件名、工具 JSON 或模型参数推导授权。每次模型请求的 proof 仍绑定实际内容和接收方，防止在途路由变化借用旧 proof，但重新绑定不制造新的用户审批。
 
@@ -291,12 +291,12 @@ libsu 通过 JitPack 获取；当前生产依赖已由 HXA-094 按 [ADR-RUNTIME-
 
 | Tool | 操作类型 | 说明 |
 | --- | --- | --- |
-| `root.status` | READ_ONLY | 当前真实授权和 RootService 状态 |
-| `root.file.read` | READ_ONLY + Root 能力 | 用户选择的 RootScope 路径 |
+| `root_status` | READ_ONLY | 当前真实授权和 RootService 状态 |
+| `root_file_read` | READ_ONLY + Root 能力 | 用户选择的 RootScope 路径 |
 | `root.file.copy` | 特权文件修改（规划） | Root 与普通存储间复制，显示方向和 hash |
-| `root.package.info` | READ_ONLY + Root 能力 | 只读包/UID/路径信息 |
-| `root.process.list` | READ_ONLY + Root 能力 | 有界进程快照 |
-| `root.log.read` | READ_ONLY + Root 能力 | 有界、脱敏、仅用户主动请求 |
+| `root_package_info` | READ_ONLY + Root 能力 | 只读包/UID/路径信息 |
+| `root_process_list` | READ_ONLY + Root 能力 | 有界进程快照 |
+| `root_log_read` | READ_ONLY + Root 能力 | 有界、脱敏、仅用户主动请求 |
 | `root.exec` | 特权执行（规划） | 仅开发者控制台；默认不提供给 Agent 自动选择 |
 
 禁止内置或自动执行：关闭 SELinux、修改 boot/vendor/system 分区、刷写镜像、安装 Root 模块、提取其他 App 凭据、绕过锁屏、隐藏 Helix、修改金融/认证 App、静默安装 APK、静默授权自身权限。
@@ -308,20 +308,20 @@ RootService 是更高权限的执行域，不是更强沙箱。它不得持有 P
 本节是完整工具目录的权威名称/分组清单；具体产品优先级和实现里程碑以 PRD/backlog 为准：
 
 ```text
-P0 核心：time.now, read, write, edit, files.list, glob, grep, files.stat,
-         files.mkdir, code.javascript.run
+P0 核心：time_now, read, write, edit, files_list, glob, grep, files_stat,
+         files_mkdir, code_javascript_run
 
-P1 文件：files.copy/move/delete/archive/extract
+P1 文件：files_copy/move/delete/archive/extract
 
-P1 浏览器：browser.open/navigate/back/forward/reload/snapshot/find,
-           browser.click/type/scroll/screenshot/download
+P1 浏览器：browser_open/navigate/back/forward/reload/snapshot/find,
+           browser_click/type/scroll/screenshot/download
 
-P1 系统：device.open_url/open_settings, device.clipboard_read/clipboard_write,
-         device.notifications_query, device.prepare_calendar_event/create_calendar_event,
-         device.share_text/share_files/open_file/create_note/open_page,
-         device.create_reminder/list_reminders/cancel_reminder
+P1 系统：device_open_url/open_settings, device_clipboard_read/clipboard_write,
+         device_notifications_query, device_prepare_calendar_event/create_calendar_event,
+         device_share_text/share_files/open_file/create_note/open_page,
+         device_create_reminder/list_reminders/cancel_reminder
 
-P1 网络：http.fetch
+P1 网络：http_fetch
 
 P1 开发者：bash
 
@@ -371,13 +371,13 @@ P2 高权限：ui.*, root.*
 
 Mobile Use 的显示设置允许选择主屏或后台屏，及是否允许迁移主屏正在使用的同一 App；保存设置不授予 Root、Shizuku 或 Android 权限。后台模式复用已连接 Root 服务（UID0）或已授权 Shizuku UserService（UID2000），并固定原显示后端。配对与连接由 Shizuku 管理，Helix 不自行开启无线调试或创建信任，不新增第二套工具/Agent 循环。选中后台模式而连接不可用时明确失败，主屏能力保持原实现。
 
-`ShellBackgroundDisplay` 创建 own-content VirtualDisplay，输出到 ImageReader，最多约10fps消费最新帧；`ShizukuHierarchy` 按 windowsOnAllDisplays 精确取对应显示的 root，节点动作仍走现有 PrivilegedSemanticEngine。应用启动固定 `am start --display`，触摸/返回事件明确设置 displayId；不向后台屏派发无法绑定显示的系统动作。Home 的系统策略会关闭全局系统窗口，因此后台模式不发布 Home 能力，主屏仍支持。ui.device 反馈 displayId、executionDisplay、独立焦点事实；帧内部绑定随机 displaySession，防止 displayId 回收误用。截图仍经过原分享授权、大小预算及视觉产物发布，指定 App 范围不允许无条件曝光其他覆盖窗口。
+`ShellBackgroundDisplay` 创建 own-content VirtualDisplay，输出到 ImageReader，最多约10fps消费最新帧；`ShizukuHierarchy` 按 windowsOnAllDisplays 精确取对应显示的 root，节点动作仍走现有 PrivilegedSemanticEngine。应用启动固定 `am start --display`，触摸/返回事件明确设置 displayId；不向后台屏派发无法绑定显示的系统动作。Home 的系统策略会关闭全局系统窗口，因此后台模式不发布 Home 能力，主屏仍支持。ui_device 反馈 displayId、executionDisplay、独立焦点事实；帧内部绑定随机 displaySession，防止 displayId 回收误用。截图仍经过原分享授权、大小预算及视觉产物发布，指定 App 范围不允许无条件曝光其他覆盖窗口。
 
 API31 起提供本后端；API34+ 请求独立焦点及禁止抢主焦点，以实际 Display flags 核验，非 trusted/OEM/旧系统可能共享焦点。无 ALWAYS_UNLOCKED 标志，锁屏时不继续 GUI。后台屏是原 App 的显示位置，不是账号/数据隔离；移入主屏正在使用的 App 需用户选项，移除显示结束其活动但不回滚已发外部效果。应用若自行跳主屏，后台观察不追随，用户可选择主屏继续。
 
 显示资源归属原会话/授权，同一有效授权下跨 Turn 复用，单轮完成或取消不回收；授权变化、会话删除、锁屏、Binder/服务死亡后回收；每次执行仍绑定自己的原 Turn、取消与 deadline，原动作退出前不回收仍在执行的物理资源。进程重启不恢复旧 token 或重放未知效果。参考 [Mika 固定源码](../research/topics/mobile-use-device-readiness-and-reliability-2026-09-29.md#mika-automation-review-2026-11-01)，独立实现，无参考代码/二进制复制。平台事实见 [UiAutomation](https://developer.android.com/reference/android/app/UiAutomation)、[DisplayManager](https://developer.android.com/reference/android/hardware/display/DisplayManager)、[AOSP Display flags](https://github.com/aosp-mirror/platform_frameworks_base/blob/main/core/java/android/view/Display.java)、[Home 系统策略](https://github.com/aosp-mirror/platform_frameworks_base/blob/main/services/core/java/com/android/server/policy/PhoneWindowManager.java)。本节是当前实现说明，实际验收范围由本轮收据区分，不能把编译或合成样例当所有 OEM、模型与账号成功率证明。
 
-会话实时状态来自同一显示池创建/释放点及实际 UserService Binder 死亡事件，不轮询截图。创建与释放报告通过原宿主 owner Binder 返回，检查 shell/root 调用 UID、固定消息形状和原路由代际；宿主仅向原会话/Turn 发布显示事实，最近目标另校验原授权与当前应用范围，不发布 route key、displaySession 或授权 proof。释放完成、连接丢失和释放未确认分别表达，旧路由的迟到释放不能覆盖新路由。该进程内 UI 投影不取代 Room 执行事实、不持久恢复为 live；历史 ui.device 观察继续单独标识。
+会话实时状态来自同一显示池创建/释放点及实际 UserService Binder 死亡事件，不轮询截图。创建与释放报告通过原宿主 owner Binder 返回，检查 shell/root 调用 UID、固定消息形状和原路由代际；宿主仅向原会话/Turn 发布显示事实，最近目标另校验原授权与当前应用范围，不发布 route key、displaySession 或授权 proof。释放完成、连接丢失和释放未确认分别表达，旧路由的迟到释放不能覆盖新路由。该进程内 UI 投影不取代 Room 执行事实、不持久恢复为 live；历史 ui_device 观察继续单独标识。
 
 ### 人工接管与重新交回
 

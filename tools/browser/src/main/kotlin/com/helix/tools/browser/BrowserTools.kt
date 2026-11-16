@@ -33,7 +33,7 @@ object BrowserTools {
             ),
             ToolBinding(BrowserDownloadTool.descriptor(origin), BrowserDownloadTool.executor(bridge)),
         ).plus(
-            BrowserNodeAction.entries.map { action ->
+            BrowserNodeAction.entries.filter { it != BrowserNodeAction.APPEND }.map { action ->
                 ToolBinding(
                     BrowserNodeActionTool.descriptor(origin, action),
                     BrowserNodeActionTool.executor(bridge, action),
@@ -43,7 +43,7 @@ object BrowserTools {
             val descriptor =
                 binding.descriptor.copy(
                     discoveryCompanions =
-                        setOf("browser.snapshot", "browser.find")
+                        setOf("browser_snapshot", "browser_find")
                             .filter { it != binding.descriptor.name.value }
                             .map(::ToolName)
                             .toSet(),

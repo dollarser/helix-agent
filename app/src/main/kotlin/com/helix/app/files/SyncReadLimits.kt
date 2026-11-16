@@ -1,12 +1,14 @@
 package com.helix.app.files
 
+import com.helix.core.workspace.WorkspaceFileBackend
+import com.helix.core.workspace.WorkspaceFileInfo
 import java.io.FilterInputStream
 import java.io.InputStream
 
 /** A source can grow after scanning. Bound every subsequent copy/verification read as well. */
-internal fun boundedSyncBackend(delegate: ManualFileBackend): ManualFileBackend =
-    object : ManualFileBackend by delegate {
-        override fun stat(path: String): ManualFileInfo? =
+internal fun boundedSyncBackend(delegate: WorkspaceFileBackend): WorkspaceFileBackend =
+    object : WorkspaceFileBackend by delegate {
+        override fun stat(path: String): WorkspaceFileInfo? =
             delegate.stat(path)?.also {
                 require(!it.directory && it.size <= LIMIT) { "SYNC_FILE_CHANGED_OR_TOO_LARGE" }
             }

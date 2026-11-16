@@ -9,6 +9,7 @@ import com.helix.core.model.ToolVersion
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
+import com.helix.tools.framework.ToolDiscoveryHints
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolOrigin
@@ -18,7 +19,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlin.time.Duration.Companion.seconds
 
 object ClipboardReadTool {
-    const val NAME: String = "device.clipboard_read"
+    const val NAME: String = "device_clipboard_read"
 
     const val VERSION: Int = 1
 
@@ -68,6 +69,7 @@ object ClipboardReadTool {
             idempotency = Idempotency.IDEMPOTENT,
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
             origin = ToolOrigin.BuiltInOrigin,
+            discovery = ToolDiscoveryHints(category = "device"),
         )
 
     fun executor(bridge: AndroidSystemBridge): ToolExecutor =

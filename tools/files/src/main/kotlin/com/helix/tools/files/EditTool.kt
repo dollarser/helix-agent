@@ -17,6 +17,7 @@ import com.helix.core.workspace.WriteOutcome
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
+import com.helix.tools.framework.ToolDiscoveryHints
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolOrigin
@@ -85,7 +86,7 @@ object EditTool {
                 "Replace an exact text span in a workspace file; requires the file's current SHA-256 and an " +
                     "unambiguous match. Read with includeSha256=true to obtain the content and hash together. " +
                     "Edits persist after task failure/cancellation; results are not backups. If undo is requested, " +
-                    "copy the original with files.copy and verify its sha256 matches expectedSha256 before editing. " +
+                    "copy the original with files_copy and verify its sha256 matches expectedSha256 before editing. " +
                     "Explicit restoration must check the current hash, preserving newer changes.",
             inputSchema = inputSchema(),
             outputSchema = outputSchema(),
@@ -96,6 +97,7 @@ object EditTool {
             idempotency = Idempotency.IDEMPOTENT,
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
             origin = ToolOrigin.BuiltInOrigin,
+            discovery = ToolDiscoveryHints(category = "files"),
         )
 
     private fun inputSchema(): JsonObject =

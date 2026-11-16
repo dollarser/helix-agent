@@ -65,7 +65,7 @@ sealed interface BrowserReloadResult {
 
 /**
  * The outcome of evaluating one fixed action script on a settled page (HXA-062
- * `browser.click` / `type` / `scroll`).
+ * `browser_click` / `type` / `scroll`).
  */
 sealed interface EvalFixedOutcome {
     /** The tab has no settled page to evaluate on (unknown / loading / error / never navigated). */

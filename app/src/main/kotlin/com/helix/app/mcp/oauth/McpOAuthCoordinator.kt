@@ -289,7 +289,5 @@ class McpOAuthCoordinator(
         const val DEFAULT_REDIRECT_URI = "helix://oauth/mcp/callback"
 
         fun tokenAlias(serverId: String): String = "mcp.$serverId.oauth.token"
-
-        fun refreshAlias(serverId: String): String = "mcp.$serverId.oauth.refresh"
     }
 }

@@ -122,7 +122,10 @@ class ResourceConsumptionDeviceTest {
             val requests = CopyOnWriteArrayList<String>()
             val wireStages = CopyOnWriteArrayList<String>()
             val webCalls = CopyOnWriteArrayList<String>()
-            val readName = "mcp.$serverId.read_mcp_resource"
+            val readName =
+                com.helix.tools.framework.RemoteToolNames
+                    .mcp(serverId, "read_mcp_resource")
+                    .value
             val session =
                 c.chatService.createSession(
                     "Synthetic resource consumption $suffix",
@@ -187,7 +190,7 @@ class ResourceConsumptionDeviceTest {
                                     1 -> {
                                         toolCallStream(
                                             "wire-discover-web",
-                                            JSONObject.quote("tools.search"),
+                                            JSONObject.quote("tools_search"),
                                             """{"query":"${WebFetchTool.NAME}"}""",
                                         )
                                     }
@@ -204,7 +207,7 @@ class ResourceConsumptionDeviceTest {
                                     3 -> {
                                         toolCallStream(
                                             "wire-discover-resource",
-                                            JSONObject.quote("tools.search"),
+                                            JSONObject.quote("tools_search"),
                                             """{"query":"$serverId"}""",
                                         )
                                     }

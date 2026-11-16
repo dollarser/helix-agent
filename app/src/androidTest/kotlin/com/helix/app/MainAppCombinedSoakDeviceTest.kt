@@ -47,7 +47,7 @@ import java.util.concurrent.TimeUnit
  * Contract (mirrored line-for-line by scripts/test-run-ev04-mainapp-soak-fixture-logic.py):
  *  - `blockTaskGrid(block, flavor)` covers each expected class exactly once per block; the four
  *    base non-goal classes rotate by block; developer adds `proot`+`cli`; `goal` is ALWAYS last.
- *  - Goal parity: odd blocks COMPLETED (model goal.report), even blocks PAUSED (explicit user pause) -> 6/6 over 12.
+ *  - Goal parity: odd blocks COMPLETED (model goal_report), even blocks PAUSED (explicit user pause) -> 6/6 over 12.
  *  - Writes `progress.json` (runId/phase/seq/block/updatedMonotonicMs), `cycles.jsonl`,
  *    `heartbeat.jsonl`, and the terminal `soak-done.json` (runId/flavor/blocks/goalSuccess/
  *    goalStop/taskClasses/singlePid/pid/durationMs int/resourceStart/resourceEnd) to the app
@@ -216,7 +216,10 @@ class MainAppCombinedSoakDeviceTest {
                         .first()
                         .name
                 container.mcpService.enable(snapshot, setOf(toolName))
-                mcpToolName = "mcp.$MCP_SERVER_ID.$toolName"
+                mcpToolName =
+                    com.helix.tools.framework.RemoteToolNames
+                        .mcp(MCP_SERVER_ID, toolName)
+                        .value
             }
             Log.i(TAG, "HelixSoak:pid=$pid mcp enabled tool=$mcpToolName")
         } catch (e: Exception) {
@@ -435,10 +438,10 @@ class MainAppCombinedSoakDeviceTest {
             require(awaitBrowserLoaded(tabId)) { "browser: page did not settle" }
             requireNotNull(modelServer).arm(
                 listOf(
-                    ScriptedTaskModelServer.Step("browser.snapshot") {
+                    ScriptedTaskModelServer.Step("browser_snapshot") {
                         JSONObject().put("tabId", tabId).toString()
                     },
-                    ScriptedTaskModelServer.Step("browser.click") {
+                    ScriptedTaskModelServer.Step("browser_click") {
                         val snap = main { browser.latestSnapshot(tabId) }
                         val token =
                             snap
@@ -455,11 +458,11 @@ class MainAppCombinedSoakDeviceTest {
             val turn = requireTerminal(awaitTurn(session, block))
             val calls = container.storage.toolCalls.listByTurn(turn.id)
             val snapCall =
-                requireNotNull(calls.firstOrNull { it.name == "browser.snapshot" }) {
+                requireNotNull(calls.firstOrNull { it.name == "browser_snapshot" }) {
                     "browser: no snapshot call"
                 }
             val clickCall =
-                requireNotNull(calls.firstOrNull { it.name == "browser.click" }) {
+                requireNotNull(calls.firstOrNull { it.name == "browser_click" }) {
                     "browser: no click call"
                 }
             require(ToolCallState.valueOf(snapCall.state) == ToolCallState.COMPLETED) {
@@ -521,7 +524,7 @@ class MainAppCombinedSoakDeviceTest {
         return "ok"
     }
 
-    // -- goal: odd blocks COMPLETED via goal.report; even blocks Stop -> PAUSED (6/6 over 12) ---
+    // -- goal: odd blocks COMPLETED via goal_report; even blocks Stop -> PAUSED (6/6 over 12) ---
     @Suppress("LongMethod", "UseCheckOrError") // goal drive is one fixture path; throws mark the soak abort
     private suspend fun driveGoal(
         block: Int,
@@ -543,7 +546,7 @@ class MainAppCombinedSoakDeviceTest {
                             JSONObject().put("path", path).put("content", "EV04 goal $block").toString()
                         },
                         ScriptedTaskModelServer.Step("read") { JSONObject().put("path", path).toString() },
-                        ScriptedTaskModelServer.Step("goal.report") {
+                        ScriptedTaskModelServer.Step("goal_report") {
                             JSONObject()
                                 .put("status", "complete")
                                 .put("summary", "EV04 goal $block: synthetic write/read completed")
@@ -585,9 +588,9 @@ class MainAppCombinedSoakDeviceTest {
                 check(settled?.state == "COMPLETED") { "report Turn did not complete" }
                 check(
                     container.storage.toolCalls.listByTurn(requireNotNull(settled).id).any {
-                        it.name == "goal.report" && it.state == "COMPLETED"
+                        it.name == "goal_report" && it.state == "COMPLETED"
                     },
-                ) { "no settled goal.report ToolCall" }
+                ) { "no settled goal_report ToolCall" }
             } else {
                 check(settled?.state == "CANCELLED") { "user Stop did not cancel the Turn: ${settled?.state}" }
                 check(settled?.pauseRequestedAt != null) { "missing durable user pause request" }
@@ -633,18 +636,18 @@ class MainAppCombinedSoakDeviceTest {
         }
     }
 
-    // -- developer proot: real approved code.linux.run guest write + read-back (companion-gated) --
+    // -- developer proot: real approved code_linux_run guest write + read-back (companion-gated) --
     private fun driveProot(
         block: Int,
         session: String,
     ): String {
         val present =
-            container.toolPipeline.registry.resolveLatest(ToolName("code.linux.run")) != null
-        require(present) { "proot: code.linux.run not registered (developer channel absent)" }
+            container.toolPipeline.registry.resolveLatest(ToolName("code_linux_run")) != null
+        require(present) { "proot: code_linux_run not registered (developer channel absent)" }
         val outPath = "scope:app:output/ev04-$block-proot.txt"
         requireNotNull(modelServer).arm(
             listOf(
-                ScriptedTaskModelServer.Step("code.linux.run") {
+                ScriptedTaskModelServer.Step("code_linux_run") {
                     JSONObject()
                         .put(
                             "argv",
@@ -664,12 +667,12 @@ class MainAppCombinedSoakDeviceTest {
         val turn = requireTerminal(awaitTurn(session, block))
         val calls = container.storage.toolCalls.listByTurn(turn.id)
         val runCall =
-            requireNotNull(calls.firstOrNull { it.name == "code.linux.run" }) {
-                "proot: no code.linux.run call"
+            requireNotNull(calls.firstOrNull { it.name == "code_linux_run" }) {
+                "proot: no code_linux_run call"
             }
         // Honest gate: without the PRoot companion the real guest write cannot succeed.
         require(ToolCallState.valueOf(runCall.state) == ToolCallState.COMPLETED) {
-            "proot: code.linux.run not COMPLETED (state=${runCall.state}); " +
+            "proot: code_linux_run not COMPLETED (state=${runCall.state}); " +
                 "PRoot companion install + anchor required before this round (device pilot)"
         }
         val readCall = requireNotNull(calls.firstOrNull { it.name == "read" }) { "proot: no read call" }
@@ -742,12 +745,12 @@ class MainAppCombinedSoakDeviceTest {
     // -- consumer: the proot channel MUST be absent (a consumer build has no LinuxRunTool) -------
     private fun consumerChannelAbsentCheck() {
         val prootAbsent =
-            container.toolPipeline.registry.resolveLatest(ToolName("code.linux.run")) == null
+            container.toolPipeline.registry.resolveLatest(ToolName("code_linux_run")) == null
         if (!prootAbsent) {
             // A consumer build leaking the developer PRoot tool is a build-config error: invalidate
             // the whole round (the runner's consumer check_classes then fails all five base classes).
             for (c in expectedClasses(flavor)) recordClass(c, "fail")
-            Log.e(TAG, "HelixSoak:pid=$pid consumer invariant violated: code.linux.run present")
+            Log.e(TAG, "HelixSoak:pid=$pid consumer invariant violated: code_linux_run present")
         }
         // The CLI channel is a subscription *provider* (not a tool); consumer builds have no
         // subscription providers, so the `cli` class never enters a consumer grid — no separate

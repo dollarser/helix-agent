@@ -115,10 +115,10 @@ class PluginService(
     fun sessionTitle(sessionId: String): String = storage.sessions.resolve(sessionId).title
 
     /** Composer summary reads committed selection metadata without probing every runtime. */
-    fun selectedNames(sessionId: String): List<String> =
+    fun selectedNames(sessionId: String): List<PluginName> =
         synchronized(catalog.mutationLock) {
-            val names = list().associate { it.id to it.name }
-            catalog.effectiveSelected(sessionId).map { names[it] ?: it }
+            val names = list().associate { it.id to it.pluginName() }
+            catalog.effectiveSelected(sessionId).map { names[it] ?: PluginName(it) }
         }
 
     /** Session selection is the user-facing enablement control; it never edits future defaults. */
@@ -163,7 +163,7 @@ class PluginService(
             pluginSetupReason(error)?.let { reason -> throw PluginSelectionUnavailable(reason, pluginId) }
         }
         if (!record.enabled) {
-            // Legacy global disables must not revive dormant choices in other conversations.
+            // Re-enabling availability must not revive dormant choices in other conversations.
             // Revoke durable choices before publishing availability; a later failure stays closed.
             storage.withTransaction {
                 storage.connectors.clearPluginSelections(pluginId)
@@ -200,7 +200,7 @@ class PluginService(
             val readiness = record?.let { readiness.snapshot(it, items, readable) }
             PluginSessionRow(
                 id,
-                record?.name ?: id,
+                record?.pluginName() ?: PluginName(id),
                 id in selected,
                 record != null && catalog.defaultSelected(id),
                 record != null,

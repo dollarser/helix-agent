@@ -58,7 +58,7 @@ class PromptSnapshotRecordTest {
                                 .PromptContentIdentity("fixture", "revision", "resource"),
                         readReference =
                             com.helix.core.agent.PromptContentReadReference(
-                                "skills.read",
+                                "skills_read",
                                 "{\"name\":\"fixture\",\"snapshotHash\":\"revision\"}",
                             ),
                     ) { "PRIVATE-BODY PRIVATE-ACCEPTED-ARGUMENTS" },
@@ -71,7 +71,7 @@ class PromptSnapshotRecordTest {
                 .single()
                 .jsonObject
         assertEquals("fixture", section["identity"]!!.jsonObject["owner"]!!.jsonPrimitive.content)
-        assertEquals("skills.read", section["readReference"]!!.jsonObject["tool"]!!.jsonPrimitive.content)
+        assertEquals("skills_read", section["readReference"]!!.jsonObject["tool"]!!.jsonPrimitive.content)
         assertEquals("true", section["rereadable"]!!.jsonPrimitive.content)
         assertTrue("PRIVATE-BODY" !in record.auditPayload)
         assertTrue("PRIVATE-ACCEPTED-ARGUMENTS" !in record.sectionsJson)

@@ -73,9 +73,9 @@ flowchart TD
 
 | 工具 | 输入要点 | 输出与用途 |
 | --- | --- | --- |
-| `documents.inspect` | 已授权文件引用 | 格式、源快照hash、documentRef、页数或结构统计、读取能力、限制和警告；不自动外发全文 |
-| `documents.read` | documentRef；PDF页或DOCX块范围；可选继续cursor | 有界正文/表格、图像引用、来源定位、截断/未支持标记与下一位置 |
-| `documents.view` | documentRef与页/图片定位；必要的有界PDF区域 | PDF页/区域或DOCX嵌入图片的真实视觉观察；明确是否已进入模型请求 |
+| `documents_inspect` | 已授权文件引用 | 格式、源快照hash、documentRef、页数或结构统计、读取能力、限制和警告；不自动外发全文 |
+| `documents_read` | documentRef；PDF页或DOCX块范围；可选继续cursor | 有界正文/表格、图像引用、来源定位、截断/未支持标记与下一位置 |
+| `documents_view` | documentRef与页/图片定位；必要的有界PDF区域 | PDF页/区域或DOCX嵌入图片的真实视觉观察；明确是否已进入模型请求 |
 
 首版不增加“自动总结”“自动判断重要页”“运行Python”“万能转换”工具。总结与阅读策略交给当前模型。三工具构成完整阅读组，沿现有发现工作集策略呈现，不让工具数量增长成为使用前提。
 

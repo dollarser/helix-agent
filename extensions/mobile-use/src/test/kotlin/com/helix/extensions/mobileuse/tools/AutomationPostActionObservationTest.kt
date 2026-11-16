@@ -243,7 +243,7 @@ class AutomationPostActionObservationTest {
             observation
                 .getValue("recoveryHint")
                 .jsonPrimitive.content
-                .contains("ui.find"),
+                .contains("ui_find"),
         )
         assertFalse(observation.toString().contains("original"))
     }
@@ -277,7 +277,7 @@ class AutomationPostActionObservationTest {
                     output
                         .getValue("nextObservation")
                         .jsonPrimitive.content
-                        .contains("ui.snapshot"),
+                        .contains("ui_snapshot"),
                 )
             }
             val schema = tools.descriptors().single { it.name.value == AutomationTools.SCROLL }.outputSchema

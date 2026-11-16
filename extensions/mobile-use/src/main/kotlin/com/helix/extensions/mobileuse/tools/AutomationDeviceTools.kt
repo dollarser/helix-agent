@@ -16,6 +16,7 @@ import com.helix.extensions.mobileuse.automation.AutomationToolPort
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
+import com.helix.tools.framework.ToolDiscoveryHints
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolImagePublication
@@ -53,7 +54,7 @@ class AutomationDeviceTools(
                     "Supported flags describe configured backend capabilities, not whether an app is open. " +
                     "backendReady reports connection; targetAvailable reports an actionable object; " +
                     "semanticAvailable reports a readable tree. TARGET_UNAVAILABLE is a missing target, " +
-                    "not a permanent capability failure. Open an authorized app with ui.launch, then refresh. " +
+                    "not a permanent capability failure. Open an authorized app with ui_launch, then refresh. " +
                     "Never silently switch a background task to the main screen. " +
                     "screenBounds uses physical display pixels; " +
                     "windowBounds, when present, is not a coordinate origin. " +
@@ -86,8 +87,8 @@ class AutomationDeviceTools(
                 ToolOperationClass.EXTERNAL_ACTION,
                 obj(mapOf("packageName" to str(255)), "packageName"),
                 actionOutput(),
-                "Open an authorized app by package name from ui.apps; never grants new targets. " +
-                    "Check ui.device.executionDisplay for completion handoff. In background " +
+                "Open an authorized app by package name from ui_apps; never grants new targets. " +
+                    "Check ui_device.executionDisplay for completion handoff. In background " +
                     "mode, Helix stays on the main screen: " +
                     "do not launch the originating Helix package onto the task display. " +
                     "In main-screen mode, use the observed originating Helix package to return before " +
@@ -102,7 +103,7 @@ class AutomationDeviceTools(
                 ToolOperationClass.EXTERNAL_ACTION,
                 obj(mapOf("action" to choices(AutomationGlobalAction.entries.map(::actionName))), "action"),
                 actionOutput(),
-                "Run only an action listed in the current ui.device.systemActions; the schema includes actions " +
+                "Run only an action listed in the current ui_device.systemActions; the schema includes actions " +
                     "that some devices do not support. To close the notification/quick-settings shade, " +
                     "use back if dismiss_notification_shade is not listed. Back/home can leave a paused screen. " +
                     "Other system controls need system/whole-phone scope. " +
@@ -119,7 +120,7 @@ class AutomationDeviceTools(
                     "pinch: center,span (finger distance),scale; rotate: center,span,degrees clockwise. " +
                     "durationMillis is optional. Raw strokes: one point taps/holds, multiple points form a path; " +
                     "parallel strokes use multiple fingers. Tap 80-120 ms; long press 500+ ms. " +
-                    "Prefer ui.long_click for longClickable=true nodes; Accessibility holds may be ignored " +
+                    "Prefer ui_long_click for longClickable=true nodes; Accessibility holds may be ignored " +
                     "by custom controls regardless of duration. " +
                     "Double-tap uses 80 ms strokes at 0 and 160 ms. Root/ADB/Shizuku support 10 strokes/10 seconds. " +
                     "Map pixels via screenBounds; never subtract windowBounds or clamp paths. " +
@@ -139,7 +140,7 @@ class AutomationDeviceTools(
                     "frame",
                 ),
                 screenshotOutput(),
-                "Copy the exact frame from ui.device (discover it if needed). " +
+                "Copy the exact frame from ui_device (discover it if needed). " +
                     "Capture PNG through shared vision; pixels need a vision model and existing disclosure. " +
                     "count=1 by default; count=2..4 samples on-device without model round trips, " +
                     "waiting intervalMillis (500..3000, default 1000) after each capture, within 15s. " +
@@ -273,7 +274,7 @@ class AutomationDeviceTools(
                                 "before acting. Sampling cannot recover content that ended before this call."
                         } else if (published.visual != null) {
                             "Pixels are attached. If this screenshot was taken because semantic targeting failed " +
-                                "and the intended visual target is now clear, you may try ui.gesture with this same " +
+                                "and the intended visual target is now clear, you may try ui_gesture with this same " +
                                 "returned frame and the mapped screen coordinates. Always use this output's frame; " +
                                 "a new capture-bound frame replaces its input. " +
                                 "Content may change; execute one action, then observe its result. " +
@@ -302,7 +303,7 @@ class AutomationDeviceTools(
                 put(
                     "actionHint",
                     JsonPrimitive(
-                        missingTargetHint(status) ?: "No image was captured. Discover ui.device if needed, " +
+                        missingTargetHint(status) ?: "No image was captured. Discover ui_device if needed, " +
                             "call it and copy its exact frame " +
                             "before a new screenshot. A node token, page label or invented frame is invalid. " +
                             "Inspect readiness/scope; fresh observation does not grant permission. " +
@@ -393,6 +394,7 @@ class AutomationDeviceTools(
         if (operation == ToolOperationClass.READ_ONLY) Idempotency.IDEMPOTENT else Idempotency.NON_IDEMPOTENT,
         ExecutionTargetType.LOCAL_ANDROID,
         origin,
+        discovery = ToolDiscoveryHints(category = "ui"),
         discoveryCompanions =
             when (name) {
                 DEVICE -> {
@@ -512,7 +514,7 @@ class AutomationDeviceTools(
             put(
                 "description",
                 JsonPrimitive(
-                    "Exact latest opaque frame returned by ui.device or ui.screenshot; not a node token or page label.",
+                    "Exact latest opaque frame returned by ui_device or ui_screenshot; not a node token or page label.",
                 ),
             )
         }
@@ -631,11 +633,11 @@ class AutomationDeviceTools(
     }
 
     companion object {
-        const val DEVICE = "ui.device"
-        const val APPS = "ui.apps"
-        const val LAUNCH = "ui.launch"
-        const val SYSTEM = "ui.system"
-        const val GESTURE = "ui.gesture"
-        const val SCREENSHOT = "ui.screenshot"
+        const val DEVICE = "ui_device"
+        const val APPS = "ui_apps"
+        const val LAUNCH = "ui_launch"
+        const val SYSTEM = "ui_system"
+        const val GESTURE = "ui_gesture"
+        const val SCREENSHOT = "ui_screenshot"
     }
 }

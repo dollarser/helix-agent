@@ -41,8 +41,8 @@ internal fun AutomationActionResult.toToolOutcome(coordinateAction: Boolean = fa
             } else if (status == AutomationActionStatus.TOKEN_UNKNOWN) {
                 "TOKEN_UNKNOWN: This token is not recognized in the active observation; no action was dispatched. " +
                     "It may belong to an older observation or have been copied incorrectly; this code alone " +
-                    "does not prove time-based expiry. Obtain ui.find/ui.snapshot and copy the exact fresh token, " +
-                    "then act without another observation. For a known unique click selector use ui.click_match. " +
+                    "does not prove time-based expiry. Obtain ui_find/ui_snapshot and copy the exact fresh token, " +
+                    "then act without another observation. For a known unique click selector use ui_click_match. " +
                     "For scrolling find scrollable=true. Never reconstruct a token."
             } else if (status == AutomationActionStatus.ACTION_NOT_SUPPORTED) {
                 unsupportedActionHint()
@@ -53,12 +53,12 @@ internal fun AutomationActionResult.toToolOutcome(coordinateAction: Boolean = fa
             } else if (status == AutomationActionStatus.STALE_TOKEN) {
                 "STALE_TOKEN: This observation is no longer actionable; no action was dispatched. " +
                     "A later observation, attempted action or changed target can invalidate it. " +
-                    "Re-observe with ui.find/ui.snapshot and decide whether the action is still needed. " +
-                    "Use only the new token without an intervening observation, or ui.click_match " +
+                    "Re-observe with ui_find/ui_snapshot and decide whether the action is still needed. " +
+                    "Use only the new token without an intervening observation, or ui_click_match " +
                     "for a unique selector. Never reuse the stale token."
             } else if (status == AutomationActionStatus.TARGET_CHANGED) {
                 "TARGET_CHANGED: The target changed before dispatch; no input was dispatched. " +
-                    "An ad or page transition may already have completed. Observe with ui.snapshot or ui.device and " +
+                    "An ad or page transition may already have completed. Observe with ui_snapshot or ui_device and " +
                     "decide whether the original action is still needed. Never replay old tokens or coordinates, " +
                     "and do not treat this refusal as proof that an earlier action failed."
             } else {
@@ -129,7 +129,7 @@ private fun dispatchedActionPayload() =
         put("observationRequired", JsonPrimitive(true))
         put(
             "nextObservation",
-            JsonPrimitive("ui.wait for an expected label/state; ui.snapshot or ui.find; ui.device for visual results"),
+            JsonPrimitive("ui_wait for an expected label/state; ui_snapshot or ui_find; ui_device for visual results"),
         )
         put(
             "actionHint",
@@ -142,14 +142,14 @@ private fun dispatchedActionPayload() =
 
 private fun staleCoordinateFrameHint(): String =
     "STALE_TOKEN: This coordinate frame is unknown, consumed or changed; no gesture was dispatched. " +
-        "Call ui.device and copy its exact opaque frame, then recheck the current target before acting. " +
-        "ui.snapshot/ui.find tokens and generation numbers are not coordinate frames. " +
+        "Call ui_device and copy its exact opaque frame, then recheck the current target before acting. " +
+        "ui_snapshot/ui_find tokens and generation numbers are not coordinate frames. " +
         "Every attempted gesture consumes its frame; never reuse it or blindly replay an earlier effect."
 
 private fun unsupportedActionHint(): String =
-    "ACTION_NOT_SUPPORTED: This action was rejected as unsupported. Observe again with ui.snapshot or ui.find; " +
-        "choose a target supporting the requested action (a scrollable container for ui.scroll). " +
-        "For ui.system, check ui.device.systemActions; use back to close the shade when " +
+    "ACTION_NOT_SUPPORTED: This action was rejected as unsupported. Observe again with ui_snapshot or ui_find; " +
+        "choose a target supporting the requested action (a scrollable container for ui_scroll). " +
+        "For ui_system, check ui_device.systemActions; use back to close the shade when " +
         "dismiss_notification_shade is unavailable. " +
         "For scrolling, copy one of its advertised scrollDirections exactly: these " +
         "are viewport directions, " +

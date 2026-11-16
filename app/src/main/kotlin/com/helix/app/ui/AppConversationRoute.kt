@@ -151,7 +151,7 @@ internal fun AppConversationRoute(
             expertLoadFailed = true
         }
     }
-    var selectedPluginNames by remember(sessionId) { mutableStateOf(emptyList<String>()) }
+    var selectedPluginNames by remember(sessionId) { mutableStateOf(emptyList<com.helix.app.plugin.PluginName>()) }
     var pluginLoadFailed by remember(sessionId) { mutableStateOf(false) }
     LaunchedEffect(sessionId, connectorsOpen, expertOpen) {
         try {

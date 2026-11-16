@@ -7,6 +7,7 @@ import com.helix.core.model.ToolVersion
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
+import com.helix.tools.framework.ToolDiscoveryHints
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolOrigin
@@ -25,7 +26,7 @@ internal object SkillInstallationTools {
     ) {
         val descriptor =
             ToolDescriptor(
-                name = ToolName("skills.install"),
+                name = ToolName("skills_install"),
                 version = ToolVersion(1),
                 description = "Install a reviewed Workspace Skill using its preview hash. New snapshots stay disabled.",
                 inputSchema = Json.parseToJsonElement(INPUT).jsonObject,
@@ -37,6 +38,7 @@ internal object SkillInstallationTools {
                 idempotency = Idempotency.IDEMPOTENT,
                 executionTarget = ExecutionTargetType.LOCAL_ANDROID,
                 origin = ToolOrigin.BuiltInOrigin,
+                discovery = ToolDiscoveryHints(category = "skills"),
             )
 
         registry.register(
@@ -69,7 +71,7 @@ internal object SkillInstallationTools {
                         )
                     } catch (_: Exception) {
                         ToolExecutorResult.Failed(
-                            "SKILL_INSTALL_NOT_CONFIRMED: query skills.list by hash; refresh preview before retry",
+                            "SKILL_INSTALL_NOT_CONFIRMED: query skills_list by hash; refresh preview before retry",
                         )
                     }
             },

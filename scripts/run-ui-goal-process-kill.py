@@ -41,12 +41,12 @@ class Fixture(ModelFixture):
             type(self).model_requests += 1
         results = [m for m in request.get('messages', []) if m.get('role') == 'tool']
         if not results:
-            tool, args = 'tools.search', {'query': 'ui.snapshot'}
+            tool, args = 'tools_search', {'query': 'ui_snapshot'}
         elif results[-1].get('tool_call_id') == 'ui-goal-tools-search-snapshot':
-            tool, args = 'ui.snapshot', {}
+            tool, args = 'ui_snapshot', {}
         elif results[-1].get('tool_call_id') == 'ui-goal-ui-snapshot':
             assert find_button(results[-1].get('content')) is not None, 'No synthetic button in actual snapshot'
-            tool, args = 'tools.search', {'query': 'ui.click'}
+            tool, args = 'tools_search', {'query': 'ui_click'}
         else:
             self.result_path.write_text(json.dumps(results[-1], indent=2))
             if results[-1].get('tool_call_id') == 'ui-goal-ui-click':
@@ -57,9 +57,9 @@ class Fixture(ModelFixture):
             snapshot = next(m for m in results if m.get('tool_call_id') == 'ui-goal-ui-snapshot')
             node = find_button(snapshot.get('content'))
             assert node is not None, 'Snapshot did not contain the synthetic button'
-            tool, args = 'ui.click', {'token': node['token']}
-        suffix = '-snapshot' if tool == 'tools.search' and args['query'] == 'ui.snapshot' else '-click' if tool == 'tools.search' else ''
-        delta = {'tool_calls': [{'id': 'ui-goal-' + tool.replace('.', '-') + suffix, 'index': 0, 'type': 'function',
+            tool, args = 'ui_click', {'token': node['token']}
+        suffix = '-snapshot' if tool == 'tools_search' and args['query'] == 'ui_snapshot' else '-click' if tool == 'tools_search' else ''
+        delta = {'tool_calls': [{'id': 'ui-goal-' + tool.replace('_', '-') + suffix, 'index': 0, 'type': 'function',
                                 'function': {'name': tool, 'arguments': json.dumps(args)}}]}
         chunks = [{'id': 'fixture', 'object': 'chat.completion.chunk', 'choices': [
             {'index': 0, 'delta': d, 'finish_reason': finish}]} for d, finish in
@@ -188,7 +188,7 @@ def main():
         assert clicks(base) == 1, 'UI action replayed'
         result = dict(serial=args.serial, unsettled=Fixture.unsettled, installedApks=hashes, records=records,
                       modelRequests=before, backfillRequests=Fixture.backfills, uiClicks=clicks(base),
-                      scope=('Production action held after execution before result settlement' if Fixture.unsettled else 'Production Goal/ui.click with durable synthetic UI click counter and held model backfill'))
+                      scope=('Production action held after execution before result settlement' if Fixture.unsettled else 'Production Goal/ui_click with durable synthetic UI click counter and held model backfill'))
     finally:
         for key, value in [('enabled_accessibility_services', old_services), ('accessibility_enabled', old_enabled)]:
             command = ['delete', 'secure', key] if value in ('null', '') else ['put', 'secure', key, value]

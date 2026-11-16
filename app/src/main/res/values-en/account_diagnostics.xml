@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="account_retry_after">Try again after %1$d seconds.</string>
+    <string name="account_request_id">Request ID: %1$s</string>
+    <string name="account_copy_request_id">Copy request ID</string>
+    <string name="account_request_id_copied">Request ID copied</string>
+</resources>

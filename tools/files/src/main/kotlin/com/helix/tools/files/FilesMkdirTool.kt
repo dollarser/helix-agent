@@ -12,6 +12,7 @@ import com.helix.core.workspace.WorkspaceLayout
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
+import com.helix.tools.framework.ToolDiscoveryHints
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolOrigin
@@ -24,7 +25,7 @@ import java.io.IOException
 import kotlin.time.Duration.Companion.seconds
 
 object FilesMkdirTool {
-    const val NAME: String = "files.mkdir"
+    const val NAME: String = "files_mkdir"
 
     const val VERSION: Int = 1
 
@@ -44,6 +45,7 @@ object FilesMkdirTool {
             idempotency = Idempotency.IDEMPOTENT,
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
             origin = ToolOrigin.BuiltInOrigin,
+            discovery = ToolDiscoveryHints(category = "files"),
         )
 
     private fun inputSchema(): JsonObject =
@@ -86,7 +88,7 @@ object FilesMkdirTool {
                 if (call.cancel.isCancelled()) return ToolExecutorResult.Cancelled
                 val path =
                     filesMetaToolsParsePath(call.args)
-                        ?: return ToolExecutorResult.Failed("invalid 'files.mkdir' arguments")
+                        ?: return ToolExecutorResult.Failed("invalid 'files_mkdir' arguments")
                 val ref = path.toModelReference()
                 return try {
                     val region = WorkspaceLayout.regionOf(path.relativePath)

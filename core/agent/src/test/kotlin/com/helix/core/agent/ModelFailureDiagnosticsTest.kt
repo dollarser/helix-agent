@@ -21,6 +21,7 @@ class ModelFailureDiagnosticsTest {
                     ModelFailureDiagnostic.Stage.HTTP,
                     ModelFailureDiagnostic.Reason.HTTP_STATUS,
                     httpStatus = 422,
+                    requestId = "req-test-42",
                     adapterRetryable = true,
                 ),
             ),
@@ -31,6 +32,7 @@ class ModelFailureDiagnosticsTest {
                     ModelFailureDiagnostics.record("PROTOCOL", stream, false, null, 0),
                 ).jsonObject
         assertEquals("422", result.getValue("httpStatus").jsonPrimitive.content)
+        assertEquals("req-test-42", result.getValue("requestId").jsonPrimitive.content)
         assertEquals("true", result.getValue("adapterRetryable").jsonPrimitive.content)
         assertEquals("false", result.getValue("retryable").jsonPrimitive.content)
         assertEquals("PROVIDER_RETRY_DISABLED", result.getValue("recoveryDecision").jsonPrimitive.content)

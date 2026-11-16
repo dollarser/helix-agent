@@ -13,11 +13,11 @@ internal fun verifyOfflineEvidenceRejection(directory: File) {
         originals.forEach { (file, text) ->
             file.writeText(text.replace("Delivery facts:", "Removed delivery identity:"))
         }
-        assertFalse(verifyFileLocationEvidence(directory))
+        assertFalse(verifyFileLocationEvidence(directory, FileLocationAcceptance.SEARCH_TOOLS))
     } finally {
         originals.forEach { (file, text) -> file.writeText(text) }
     }
-    assertTrue(verifyFileLocationEvidence(directory))
+    assertTrue(verifyFileLocationEvidence(directory, FileLocationAcceptance.SEARCH_TOOLS))
     File(
         directory,
         "negative-evidence-check.txt",

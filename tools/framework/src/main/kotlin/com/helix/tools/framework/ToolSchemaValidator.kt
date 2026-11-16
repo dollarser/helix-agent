@@ -207,9 +207,14 @@ object ToolSchemaValidator {
     ) {
         val list = schema["enum"] as? JsonArray ?: return
         if (list.none { equivalent(it, value, out) }) {
-            out.add("$path: value is not one of the allowed enum values")
+            out.add(
+                "$path: value is not one of the allowed enum values: ${expectedChoices(list.map { it.toString() })}",
+            )
         }
     }
+
+    private fun expectedChoices(values: List<String>): String =
+        values.take(8).joinToString { it.take(80) }.ifEmpty { "(none)" } + if (values.size > 8) ", …" else ""
 
     private fun equivalent(
         left: JsonElement,
@@ -275,7 +280,13 @@ object ToolSchemaValidator {
         when (additional) {
             is JsonPrimitive -> {
                 if (ToolJsonPrimitives.booleanOf(additional) == false) {
-                    unknownKeys.forEach { key -> out.add("$path: additional property '$key' is not allowed") }
+                    unknownKeys.forEach { key ->
+                        out.add(
+                            "$path: additional property '$key' is not allowed; accepted properties: ${expectedChoices(
+                                known.sorted(),
+                            )}",
+                        )
+                    }
                 }
             }
 

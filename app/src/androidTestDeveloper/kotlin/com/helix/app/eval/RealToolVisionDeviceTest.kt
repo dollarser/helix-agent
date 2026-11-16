@@ -107,10 +107,10 @@ class RealToolVisionDeviceTest {
         container.chatService.sendTestMessage(
             session,
             if (browserCase) {
-                "Use browser.screenshot on tab $tabId, inspect the returned pixels, and reply only " +
+                "Use browser_screenshot on tab $tabId, inspect the returned pixels, and reply only " +
                     "LEFT=<English color>;RIGHT=<English color>. Do not use DOM or infer colors from text."
             } else {
-                "First call files.list with path \".\" to list this session Workspace. " +
+                "First call files_list with path \".\" to list this session Workspace. " +
                     "Then use view_image to inspect $reference. Identify the dominant color of each half. " +
                     "Reply only LEFT=<English color>;RIGHT=<English color>. Do not infer colors from the filename."
             },
@@ -174,9 +174,9 @@ class RealToolVisionDeviceTest {
                 .toSet()
         c.chatService.sendTestMessage(
             session,
-            "On synthetic browser tab $id, first take browser.screenshot and inspect its actual pixels. " +
+            "On synthetic browser tab $id, first take browser_screenshot and inspect its actual pixels. " +
                 "Click exactly once the RED button, not the green one. A/B text and DOM do not disclose colors. " +
-                "Use a fresh browser.snapshot only to obtain the token for the visually chosen button. " +
+                "Use a fresh browser_snapshot only to obtain the token for the visually chosen button. " +
                 "After clicking take another screenshot, verify the result, and report the clicked letter. " +
                 "Only screenshot/snapshot/click/find on this tab and tool/skill discovery are permitted. " +
                 "Do not navigate, use phone tools, scripts, terminal or other tabs.",
@@ -251,13 +251,13 @@ class RealToolVisionDeviceTest {
         println("REAL_VISUAL_ACTION=$result")
         assertTrue(result.toString(), turns.isNotEmpty() && turns.all { it.state == "COMPLETED" })
         assertTrue(result.toString(), observed == "\"$expected:1\"" && images >= 2)
-        assertTrue(result.toString(), calls.count { it.name == "browser.click" && it.state == "COMPLETED" } == 1)
-        val permitted = setOf("browser.screenshot", "browser.snapshot", "browser.click", "browser.find")
+        assertTrue(result.toString(), calls.count { it.name == "browser_click" && it.state == "COMPLETED" } == 1)
+        val permitted = setOf("browser_screenshot", "browser_snapshot", "browser_click", "browser_find")
         assertTrue(
             result.toString(),
             calls.all {
-                it.name in permitted || it.name.startsWith("tools.") ||
-                    it.name == "skills.read"
+                it.name in permitted || it.name.startsWith("tools_") ||
+                    it.name == "skills_read"
             },
         )
     }
@@ -274,7 +274,7 @@ class RealToolVisionDeviceTest {
                     .parseToJsonElement(call.argsJson)
                     .jsonObject
             val visualAction = InstrumentationRegistry.getArguments().getString("visionAction") == "true"
-            val permitted = call.name == "browser.screenshot" || (visualAction && call.name == "browser.click")
+            val permitted = call.name == "browser_screenshot" || (visualAction && call.name == "browser_click")
             if (approval != null && permitted &&
                 args["tabId"]?.jsonPrimitive?.content == tabId
             ) {
@@ -311,10 +311,10 @@ class RealToolVisionDeviceTest {
                         "TOOL_OBSERVATION"
                 }
             }
-        val visualTool = if (browserCase) "browser.screenshot" else "view_image"
+        val visualTool = if (browserCase) "browser_screenshot" else "view_image"
         val passed =
             turn.state == "COMPLETED" && imageCount > 0 &&
-                (browserCase || calls.any { it.name == "files.list" && it.state == "COMPLETED" }) &&
+                (browserCase || calls.any { it.name == "files_list" && it.state == "COMPLETED" }) &&
                 calls.any { it.name == visualTool && it.state == "COMPLETED" } &&
                 answer.contains("LEFT=red", true) && answer.contains("RIGHT=green", true)
         val result =

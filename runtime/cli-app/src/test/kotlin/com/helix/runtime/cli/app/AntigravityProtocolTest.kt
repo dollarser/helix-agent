@@ -113,7 +113,7 @@ class AntigravityProtocolTest {
             """[{"functionCall":{"name":"unknown","args":{}}}]""",
             """[{"functionCall":{"name":"allowed","args":[]}}]""",
         ).forEach { parts ->
-            val decoded = AntigravityResponse.decode(response(parts), mapOf("allowed" to "files.read"))
+            val decoded = AntigravityResponse.decode(response(parts), mapOf("allowed" to "files_read"))
             assertTrue(decoded.events.last() is ModelEvent.Error)
             assertFalse(decoded.events.any { it is ModelEvent.ToolCallStarted })
         }
@@ -122,9 +122,9 @@ class AntigravityProtocolTest {
     @Test fun signedPartsSurviveReopenButCannotCrossAccountsOrModels() {
         val root = Files.createTempDirectory("antigravity-replay").toFile()
         try {
-            val wireName = AntigravityRequest.wireName("files.read")
+            val wireName = AntigravityRequest.wireName("files_read")
             val parts = """[{"thoughtSignature":"opaque","functionCall":{"name":"$wireName","args":{}}}]"""
-            val decoded = AntigravityResponse.decode(response(parts), mapOf(wireName to "files.read"))
+            val decoded = AntigravityResponse.decode(response(parts), mapOf(wireName to "files_read"))
             val message = requireNotNull(decoded.assistant)
             val original = requireNotNull(decoded.originalParts)
             AntigravityReplayStore(root).save("model-a", "login-a", message, original)
@@ -173,7 +173,7 @@ class AntigravityProtocolTest {
                             it.copy(
                                 name =
                                     com.helix.core.model
-                                        .ToolName("files.list"),
+                                        .ToolName("files_list"),
                             )
                         },
                 )
@@ -188,9 +188,9 @@ class AntigravityProtocolTest {
     @Test fun replayUsesHarnessBoundWorkspaceArgumentsAfterReopen() {
         val root = Files.createTempDirectory("antigravity-bound-path").toFile()
         try {
-            val name = AntigravityRequest.wireName("files.list")
+            val name = AntigravityRequest.wireName("files_list")
             val parts = """[{"thoughtSignature":"opaque","functionCall":{"name":"$name","args":{"path":"."}}}]"""
-            val decoded = AntigravityResponse.decode(response(parts), mapOf(name to "files.list"))
+            val decoded = AntigravityResponse.decode(response(parts), mapOf(name to "files_list"))
             val original = requireNotNull(decoded.assistant)
             AntigravityReplayStore(root).save("model", "account", original, requireNotNull(decoded.originalParts))
             val canonical =
@@ -256,7 +256,7 @@ class AntigravityProtocolTest {
                 com.helix.core.model
                     .ToolCallId("call-1"),
                 com.helix.core.model
-                    .ToolName("files.read"),
+                    .ToolName("files_read"),
                 "{}",
             )
         val request =
@@ -283,7 +283,7 @@ class AntigravityProtocolTest {
                 .jsonObject
                 .getValue("functionResponse")
                 .jsonObject
-        assertEquals(AntigravityRequest.wireName("files.read"), part.getValue("name").jsonPrimitive.content)
+        assertEquals("files_read", part.getValue("name").jsonPrimitive.content)
         assertEquals(
             "[1,2]",
             part

@@ -343,7 +343,7 @@ class WorkspaceArtifactStore(
     fun reclaimTempFiles(scope: String): Int = AtomicFileWriter.cleanupRecursively(resolve(scope))
 
     /**
-     * Stat metadata for [path] (HXA-042 `files.stat`). Bounded and existence-agnostic: a missing
+     * Stat metadata for [path] (HXA-042 `files_stat`). Bounded and existence-agnostic: a missing
      * path is reported (exists=false, size -1), not thrown. The regular/symlink flags are read
      * without following links ([LinkOption.NOFOLLOW_LINKS]) so a symlinked file is reported as a
      * symlink, not as its target. Only containment is enforced here — reads are region-agnostic.
@@ -376,7 +376,7 @@ class WorkspaceArtifactStore(
     }
 
     /**
-     * Lists the immediate children of a directory referenced by [path] (HXA-042 `files.list`).
+     * Lists the immediate children of a directory referenced by [path] (HXA-042 `files_list`).
      * The referenced path must be an existing directory. Returns at most [maxEntries] entries
      * (the first [maxEntries] in filesystem order), reporting [truncated] when more remain — a
      * bounded listing the model can page by name. Only containment is enforced here; the tool
@@ -462,7 +462,7 @@ class WorkspaceArtifactStore(
     }
 
     /**
-     * Creates a directory referenced by [path] (HXA-042 `files.mkdir`). Intermediate segments are
+     * Creates a directory referenced by [path] (HXA-042 `files_mkdir`). Intermediate segments are
      * created as needed. Fails closed when the target already exists (a file or a directory) so an
      * accidental `mkdir` never clobbers content. [region], when non-null, must be a writable user
      * region that the path stays inside (the tool layer enforces this; the store enforces
@@ -494,7 +494,7 @@ class WorkspaceArtifactStore(
     }
 
     /**
-     * Copies the regular file at [src] to [dst] (HXA-043 `files.copy`). [dst] must stay inside
+     * Copies the regular file at [src] to [dst] (HXA-043 `files_copy`). [dst] must stay inside
      * the user [region]; [src] is containment-enforced against its own scope root (the tool layer
      * decides whether [src] may come from a user region). The conflict policy is explicit: an
      * existing [dst] (file OR directory) is refused unless [overwrite] is set, and an
@@ -565,7 +565,7 @@ class WorkspaceArtifactStore(
     }
 
     /**
-     * Moves the regular file at [src] to [dst] (HXA-043 `files.move`). Same conflict and region
+     * Moves the regular file at [src] to [dst] (HXA-043 `files_move`). Same conflict and region
      * rules as [copyFile]. A same-scope move is a single (preferred-atomic) rename — no quota
      * check is needed because the scope's aggregate usage can only shrink. A cross-scope move is
      * copy-then-delete and is NOT atomic: the destination is quota-checked and fully published
@@ -885,9 +885,9 @@ private fun candidateRef(
 }
 
 /**
- * Outcome of [WorkspaceArtifactStore.stat] (HXA-042 `files.stat`). [mtimeEpochMillis] is the
+ * Outcome of [WorkspaceArtifactStore.stat] (HXA-042 `files_stat`). [mtimeEpochMillis] is the
  * last-modified time (epoch ms), or -1 when the path does not exist (HXA-046: the file manager's
- * time sort and the doc 09 `files.stat` mtime field).
+ * time sort and the doc 09 `files_stat` mtime field).
  */
 data class StatInfo(
     val exists: Boolean,
@@ -898,7 +898,7 @@ data class StatInfo(
     val mtimeEpochMillis: Long,
 )
 
-/** One bounded page of [WorkspaceArtifactStore.listDir] (HXA-042 `files.list`). */
+/** One bounded page of [WorkspaceArtifactStore.listDir] (HXA-042 `files_list`). */
 data class ListResult(
     val entries: List<String>,
     val truncated: Boolean,

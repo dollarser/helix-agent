@@ -9,6 +9,7 @@ import com.helix.core.model.ToolVersion
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
+import com.helix.tools.framework.ToolDiscoveryHints
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolOrigin
@@ -18,7 +19,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlin.time.Duration.Companion.seconds
 
 object CalendarCommitEventTool {
-    const val NAME: String = "device.create_calendar_event"
+    const val NAME: String = "device_create_calendar_event"
 
     const val VERSION: Int = 1
 
@@ -27,7 +28,7 @@ object CalendarCommitEventTool {
             name = ToolName(NAME),
             version = ToolVersion(VERSION),
             description =
-                "Commit a previously prepared calendar-event draft (device.prepare_calendar_event) to the " +
+                "Commit a previously prepared calendar-event draft (device_prepare_calendar_event) to the " +
                     "system Calendar Provider. This is the write step: it needs the WRITE_CALENDAR " +
                     "permission and authorization under the current session rules. Refused with status " +
                     "'permission-missing' when the permission is not granted, 'draft-not-found' when the " +
@@ -38,7 +39,7 @@ object CalendarCommitEventTool {
                         buildJsonObject {
                             put(
                                 "draftId",
-                                stringSchema(MAX_DRAFT_ID, "The draftId returned by device.prepare_calendar_event."),
+                                stringSchema(MAX_DRAFT_ID, "The draftId returned by device_prepare_calendar_event."),
                             )
                         },
                     required = listOf("draftId"),
@@ -76,6 +77,7 @@ object CalendarCommitEventTool {
             idempotency = Idempotency.NON_IDEMPOTENT,
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
             origin = ToolOrigin.BuiltInOrigin,
+            discovery = ToolDiscoveryHints(category = "device"),
         )
 
     fun executor(bridge: CalendarBridge): ToolExecutor =
@@ -86,7 +88,7 @@ object CalendarCommitEventTool {
                 val draftId =
                     strArg(call.args, "draftId", MAX_DRAFT_ID)
                         ?: return ToolExecutorResult.Failed(
-                            "invalid 'device.create_calendar_event' arguments: 'draftId' must be a non-empty string",
+                            "invalid 'device_create_calendar_event' arguments: 'draftId' must be a non-empty string",
                         )
                 val out = bridge.commitEvent(draftId)
                 val status =

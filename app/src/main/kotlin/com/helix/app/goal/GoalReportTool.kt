@@ -8,6 +8,7 @@ import com.helix.core.storage.HelixStorage
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
+import com.helix.tools.framework.ToolDiscoveryHints
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolOrigin
@@ -19,8 +20,8 @@ import kotlin.time.Duration.Companion.seconds
 
 /** Model-owned semantic report. The host validates ownership, never certifies its truth. */
 internal object GoalReportTool {
-    const val NAME = "goal.report"
-    const val UPDATE_NAME = "goal.update"
+    const val NAME = "goal_report"
+    const val UPDATE_NAME = "goal_update"
     private val schema =
         Json
             .parseToJsonElement(
@@ -70,6 +71,7 @@ internal object GoalReportTool {
                 idempotency = Idempotency.IDEMPOTENT,
                 executionTarget = ExecutionTargetType.LOCAL_ANDROID,
                 origin = ToolOrigin.BuiltInOrigin,
+                discovery = ToolDiscoveryHints(category = "goals"),
             )
 
         registry.register(

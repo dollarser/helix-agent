@@ -19,6 +19,33 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
 class SocketWireTest {
+    @Test fun silentHandshakeDeadlineIsTypedAsTimeout() {
+        // Exercise the production 30-second deadline, without a configurable production timeout seam.
+        java.net.ServerSocket(0, 1, java.net.InetAddress.getByName("127.0.0.1")).use { server ->
+            val release = CountDownLatch(1)
+            val worker = Executors.newSingleThreadExecutor()
+            val peer =
+                worker.submit {
+                    server.accept().use { release.await(40, TimeUnit.SECONDS) }
+                }
+            try {
+                val error =
+                    assertThrows(java.net.SocketTimeoutException::class.java) {
+                        OkHttpSocketConnector().connect("http://127.0.0.1:${server.localPort}/socket", emptyMap())
+                    }
+                assertEquals(SpeechFailure.TIMEOUT, speechFailure(error))
+            } finally {
+                release.countDown()
+                server.close()
+                try {
+                    peer.get(2, TimeUnit.SECONDS)
+                } finally {
+                    worker.shutdownNow()
+                }
+            }
+        }
+    }
+
     @Test fun transportPreservesBusyAndServiceFailureCloseCodes() {
         for (code in listOf(1013, 1011)) {
             MockWebServer().use { server ->

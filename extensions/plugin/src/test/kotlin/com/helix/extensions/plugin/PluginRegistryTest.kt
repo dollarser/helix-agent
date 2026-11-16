@@ -540,7 +540,7 @@ class PluginRegistryTest {
             )
         val contribution =
             object : HelixPlugin by base {
-                override val preferredTools = setOf("fixture.fixture")
+                override val preferredTools = setOf("fixture_fixture")
                 override val skills = listOf(skill("guide"))
                 override val requiredInstructions = "Mandatory operational rule"
                 override val dataOrigin = com.helix.core.policy.DataOrigin.ACCESSIBILITY
@@ -569,7 +569,7 @@ class PluginRegistryTest {
         assertEquals(emptyList<com.helix.core.policy.UserScope>(), registry.imageScopes("session"))
         catalog.selections["session" to "fixture"] = "selection"
         assertEquals(scope, registry.executionContext(descriptor, "session")?.scope)
-        assertEquals(setOf("fixture.fixture"), registry.preferredTools("session"))
+        assertEquals(setOf("fixture_fixture"), registry.preferredTools("session"))
         assertEquals(listOf(scope), registry.imageScopes("session"))
         val contributions = registry.contentContributions(repository, "session")
         assertEquals(
@@ -812,7 +812,7 @@ class PluginRegistryTest {
             )
         val descriptor =
             ToolDescriptor(
-                name = ToolName("fixture.$id"),
+                name = ToolName("fixture_${id.replace('-', '_')}"),
                 version = ToolVersion(1),
                 description = "fixture tool",
                 inputSchema = buildJsonObject {},
@@ -850,7 +850,7 @@ class PluginRegistryTest {
 
                 override fun tools() =
                     listOf(
-                        binding.copy(descriptor = binding.descriptor.copy(name = ToolName("new.tool"))),
+                        binding.copy(descriptor = binding.descriptor.copy(name = ToolName("new_tool"))),
                         binding,
                     )
             }

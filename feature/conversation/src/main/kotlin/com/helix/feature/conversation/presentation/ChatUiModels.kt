@@ -109,7 +109,7 @@ data class ChatScreenState(
     val contextUsage: ChatContextUsage = ChatContextUsage(),
     /**
      * The open session's task progress (HX2-07): the model's working-memory ledger projected
-     * from its latest successful `todo.write` call; empty when the model has not kept one.
+     * from its latest successful `todo_write` call; empty when the model has not kept one.
      */
     val taskLedger: List<LedgerItemUi> = emptyList(),
     val hasGoals: Boolean = false,

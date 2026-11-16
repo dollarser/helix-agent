@@ -28,7 +28,7 @@ Affected modules: app
 - 输入框上方为语音（左）及附件/停止/发送（右）；下方为模式（左）、模型与思考强度（右）。窄屏与大字体保留可访问控件；权限与上下文选项仍在更多菜单中。
 - 重新生成改为图标，保留无障碍名称。原实现点击后、启动后台任务前调用 `currentSession()`，在主线程触发 Room 读取；现在后台读取并固定点击时的 session，提交时再次校验，避免跨会话重试。保留旧回答的 supersession/audit，不复制用户消息。
 - 修复草稿刷新边界：持久会话刷新若遇到新打开的临时草稿，不得按“数据库无此行”清除其 ID。启动恢复先在 IO 上查询，再在主线程检查并应用，不能覆盖用户已经选择的会话或草稿。
-- 新增可通过 `tools.search` 发现的 `helix.settings`；没有扩张默认工具面或提高工具数量上限。`inspect` 返回平台能力状态、Standard/Advanced 说明和可选模型，不输出 endpoint/header/key。`propose` 仅产生原会话的临时待确认建议，工具结果明确 `applied=false`。
+- 新增可通过 `tools_search` 发现的 `helix.settings`；没有扩张默认工具面或提高工具数量上限。`inspect` 返回平台能力状态、Standard/Advanced 说明和可选模型，不输出 endpoint/header/key。`propose` 仅产生原会话的临时待确认建议，工具结果明确 `applied=false`。
 - 配置建议 ID 绑定 session/turn/tool call；仅原会话空闲时展示，连接显示可读名称。用户确认后，应用服务重新校验会话、执行状态、模型和思考选项，并在事务中应用。模型不能授予权限、切换安全 profile 或改变正在运行的 Turn；进程退出丢弃未确认建议，不自动重放。
 
 ## Alternatives considered

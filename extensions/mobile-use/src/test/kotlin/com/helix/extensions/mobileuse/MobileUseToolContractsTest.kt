@@ -16,7 +16,7 @@ import kotlin.time.Duration.Companion.seconds
 class MobileUseToolContractsTest {
     private val descriptor =
         ToolDescriptor(
-            ToolName("ui.snapshot"),
+            ToolName("ui_snapshot"),
             ToolVersion(1),
             "Observe UI",
             buildJsonObject {},
@@ -40,7 +40,7 @@ class MobileUseToolContractsTest {
         assertTrue(entry.contains("references/android-ui-reference.md"))
         val text = entry + root.resolve("references/android-ui-reference.md").readText()
         assertTrue(text.contains("name: android-ui-task"))
-        assertTrue(text.contains("ui.wait"))
+        assertTrue(text.contains("ui_wait"))
         assertTrue(text.contains("ACTION_OUTCOME_UNKNOWN"))
         assertTrue(text.contains("does not grant permission"))
     }
@@ -63,7 +63,7 @@ class MobileUseToolContractsTest {
             "scrollDirections",
             "text and editableValue as empty",
             "ACTION_OUTCOME_UNKNOWN",
-            "ui.click_match",
+            "ui_click_match",
             "pollMillis",
         ).forEach { assertTrue("Missing workflow detail: $it", reference.contains(it)) }
         assertFalse(required.contains("submit=true"))
@@ -73,7 +73,7 @@ class MobileUseToolContractsTest {
     @Test fun onlyTheOwnedContractReceivesMobileUseRouting() {
         assertTrue(contracts.owns(descriptor.copy()))
         assertFalse(contracts.owns(null))
-        assertFalse(contracts.owns(descriptor.copy(name = ToolName("ui.unregistered"))))
+        assertFalse(contracts.owns(descriptor.copy(name = ToolName("ui_unregistered"))))
         assertFalse(contracts.owns(descriptor.copy(origin = ToolOrigin.BuiltInOrigin)))
         assertFalse(contracts.owns(descriptor.copy(origin = ToolOrigin.PluginOrigin("other", "1", "mobile-use"))))
         assertFalse(contracts.owns(descriptor.copy(version = ToolVersion(2))))
@@ -81,8 +81,8 @@ class MobileUseToolContractsTest {
     }
 
     @Test fun readinessNamesMustBelongToThePublishedContractSet() {
-        assertTrue(contracts.containsName("ui.snapshot"))
-        assertFalse(contracts.containsName("ui.unregistered"))
+        assertTrue(contracts.containsName("ui_snapshot"))
+        assertFalse(contracts.containsName("ui_unregistered"))
         assertFalse(contracts.containsName(null))
     }
 }

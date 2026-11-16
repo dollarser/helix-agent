@@ -1,5 +1,6 @@
 package com.helix.app.connector
 
+import com.helix.app.plugin.PluginName
 import com.helix.app.plugin.PluginSelectionUnavailable
 import com.helix.app.plugin.PluginSessionRow
 import com.helix.app.plugin.PluginSetupReason
@@ -270,6 +271,14 @@ class MobileUseSessionStateTest {
 
     companion object {
         private val readyRow =
-            PluginSessionRow(MOBILE_USE_PLUGIN_ID, "Mobile Use", false, false, true, true, readyComponents = 1)
+            PluginSessionRow(
+                MOBILE_USE_PLUGIN_ID,
+                PluginName("Mobile Use"),
+                false,
+                false,
+                true,
+                true,
+                readyComponents = 1,
+            )
     }
 }

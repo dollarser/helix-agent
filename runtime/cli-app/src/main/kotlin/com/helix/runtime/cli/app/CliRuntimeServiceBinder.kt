@@ -3,6 +3,7 @@ package com.helix.runtime.cli.app
 import android.os.Binder
 import android.os.Parcel
 import android.os.ParcelFileDescriptor
+import com.helix.runtime.cli.client.CliModelJobRecord
 import com.helix.runtime.cli.client.CliModelJobRecordCodec
 import com.helix.runtime.cli.client.CliModelRequestCodec
 import com.helix.runtime.cli.client.CliPfdChannel
@@ -196,7 +197,7 @@ internal class CliRuntimeServiceBinder(
 
     private fun writeRecordOrMissing(
         reply: Parcel,
-        record: CodexModelJobRecord?,
+        record: CliModelJobRecord?,
     ) {
         if (record == null) {
             reply.writeInt(CliRuntimeProtocol.REPLY_JOB_NOT_FOUND)
@@ -208,7 +209,7 @@ internal class CliRuntimeServiceBinder(
     private fun writeRecord(
         reply: Parcel,
         status: Int,
-        record: CodexModelJobRecord,
+        record: CliModelJobRecord,
     ) {
         reply.writeInt(status)
         reply.writeString(CliModelJobRecordCodec.encode(record))

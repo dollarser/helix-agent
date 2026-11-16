@@ -63,7 +63,7 @@ class ScannedPdfLiveModelDeviceTest {
                 val call =
                     ExecutableToolCall(
                         "synthetic",
-                        "documents.view",
+                        "documents_view",
                         "1",
                         JsonObject(mapOf("page" to JsonPrimitive(1))),
                         ExecutionTargetType.LOCAL_ANDROID,

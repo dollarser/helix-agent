@@ -38,7 +38,7 @@ import java.util.concurrent.TimeUnit
  * server; the device test covers the production entry point's fail-closed behaviour, which is the
  * on-device-specific contract.
  *
- * Threading: `browser.download` does no main-thread hop (pure HTTP + workspace I/O), so it is
+ * Threading: `browser_download` does no main-thread hop (pure HTTP + workspace I/O), so it is
  * called directly from the (non-main) instrumentation thread, exactly as a real tool executor would.
  * The [BrowserController] is constructed only because the bridge needs one; the download path never
  * touches the WebView.

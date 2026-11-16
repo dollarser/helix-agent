@@ -113,17 +113,17 @@ class BrowserSearchModelDeviceTest {
                 ) { "" }
             val allowed =
                 setOf(
-                    "tools.search",
-                    "tools.read_result",
-                    "browser.search",
-                    "browser.snapshot",
-                    "browser.find",
-                    "browser.open",
-                    "browser.navigate",
-                    "browser.click",
-                    "browser.tabs",
-                    "browser.wait",
-                    "browser.scroll",
+                    "tools_search",
+                    "tools_read_result",
+                    "browser_search",
+                    "browser_snapshot",
+                    "browser_find",
+                    "browser_open",
+                    "browser_navigate",
+                    "browser_click",
+                    "browser_tabs",
+                    "browser_wait",
+                    "browser_scroll",
                     "browser.close",
                 )
             val availability =
@@ -134,6 +134,9 @@ class BrowserSearchModelDeviceTest {
                     },
                     session,
                 )
+            val began = android.os.SystemClock.elapsedRealtime()
+            var fixtureApprovals = 0
+            val admission = SyntheticModelSubmission(session) { fixtureApprovals++ }
             var completed = false
             var cleaningUp = false
 
@@ -146,9 +149,30 @@ class BrowserSearchModelDeviceTest {
                     JSONObject()
                         .put("completed", completed)
                         .put("realModel", true)
+                        .put(
+                            "modelIdentities",
+                            JSONArray(
+                                turns.flatMap { c.storage.modelCalls.listByTurn(it.id) }.map {
+                                    val snapshot = JSONObject(it.providerSnapshot)
+                                    JSONObject()
+                                        .put("providerId", snapshot.getString("providerId"))
+                                        .put("modelId", snapshot.getString("model"))
+                                },
+                            ),
+                        ).put("elapsedMs", android.os.SystemClock.elapsedRealtime() - began)
+                        .put("humanInterventions", 0)
+                        .put("fixtureApprovals", fixtureApprovals)
+                        .put("submissionReceipts", admission.receipts)
                         .put("httpStatuses", JSONArray(wire.statuses))
                         .put("wireRequests", wire.calls)
                         .put(
+                            "modelCalls",
+                            turns.sumOf {
+                                c.storage.modelCalls
+                                    .listByTurn(it.id)
+                                    .size
+                            },
+                        ).put(
                             "turns",
                             JSONArray(
                                 turns.map {
@@ -217,19 +241,12 @@ class BrowserSearchModelDeviceTest {
                         "请用浏览器搜索 IANA example domains，读取搜索结果，再打开其中的 IANA 官方网页并读取正文。" +
                             "回答：example.com 和 example.org 用于什么目的，是否可注册或转让？" +
                             "给出你实际打开阅读的官方来源 URL，逐字引用说明不可注册或转让的英文原句。" +
-                            "必须先 browser.search，再读取搜索页，打开结果并读取目标页面；" +
+                            "必须先 browser_search，再读取搜索页，打开结果并读取目标页面；" +
                             "不要使用 API 搜索、web_fetch 或已有知识替代本次浏览器核验。" +
                             "只搜索这些公开非敏感词，不登录，不下载，不提交其他表单。"
-                    val receipt =
-                        c.chatService
-                            .sendSubmission(
-                                ChatSubmission(
-                                    session,
-                                    0,
-                                    UUID.randomUUID().toString(),
-                                    prompt,
-                                ),
-                            ).await()
+                    val request = ChatSubmission(session, 0, UUID.randomUUID().toString(), prompt)
+                    val receipt = admission.submit(c, request)
+                    evidence()
                     assertTrue(receipt.outcome is ChatSubmissionOutcome.Accepted)
                     withTimeout(300_000) {
                         while (true) {
@@ -241,7 +258,7 @@ class BrowserSearchModelDeviceTest {
                             pending.forEach { call ->
                                 check(call.name in allowed)
                                 val args = JSONObject(call.argsJson)
-                                if (call.name == "browser.search") {
+                                if (call.name == "browser_search") {
                                     check(
                                         args.optString("query").lowercase().let {
                                             "iana" in it &&
@@ -251,8 +268,8 @@ class BrowserSearchModelDeviceTest {
                                 }
                                 if (call.name in
                                     setOf(
-                                        "browser.open",
-                                        "browser.navigate",
+                                        "browser_open",
+                                        "browser_navigate",
                                     )
                                 ) {
                                     val uri = java.net.URI(args.getString("url"))
@@ -261,6 +278,7 @@ class BrowserSearchModelDeviceTest {
                                             (uri.host == "iana.org" || uri.host.endsWith(".iana.org")),
                                     )
                                 }
+                                fixtureApprovals += 1
                                 c.chatService.approveApproval(
                                     requireNotNull(c.storage.approvals.byToolCall(call.id)).id,
                                 )
@@ -292,14 +310,14 @@ class BrowserSearchModelDeviceTest {
                     assertTrue(
                         "No successful real browser search",
                         calls.any {
-                            it.name == "browser.search" &&
+                            it.name == "browser_search" &&
                                 it.state == "COMPLETED"
                         },
                     )
                     assertTrue(
                         "No browser page reading",
                         calls.any {
-                            it.name == "browser.snapshot" &&
+                            it.name == "browser_snapshot" &&
                                 it.state == "COMPLETED"
                         },
                     )

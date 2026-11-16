@@ -39,7 +39,7 @@ class AutomationScreenshotSequenceTest {
     private val call =
         ExecutableToolCall(
             "call",
-            "ui.screenshot",
+            "ui_screenshot",
             "1",
             JsonObject(emptyMap()),
             ExecutionTargetType.LOCAL_ANDROID,

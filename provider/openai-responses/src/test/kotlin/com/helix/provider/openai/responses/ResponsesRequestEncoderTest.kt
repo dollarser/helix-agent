@@ -10,6 +10,7 @@ import com.helix.core.model.ModelToolSchema
 import com.helix.core.model.ReasoningEffort
 import com.helix.core.model.ToolCallId
 import com.helix.core.model.ToolName
+import com.helix.provider.api.ProviderToolNames
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -300,7 +301,7 @@ class ResponsesRequestEncoderTest {
             ModelRequest(
                 model = "m",
                 messages = listOf(ModelMessage(ModelRole.USER, "hi")),
-                tools = listOf(ModelToolSchema(ToolName("t.a"), "d", schema)),
+                tools = listOf(ModelToolSchema(ToolName("t_a"), "d", schema)),
             )
         val tool = parsed(encoder.encode(request))["tools"]?.jsonArray?.get(0)?.jsonObject ?: error("no tool")
         val parameters = tool["parameters"]?.jsonObject ?: error("no parameters")
@@ -309,7 +310,7 @@ class ResponsesRequestEncoderTest {
             parsed(schema),
             parameters,
         )
-        assertEquals(ResponsesToolNames(request).encode("t.a"), str(tool, "name"))
+        assertEquals(ProviderToolNames(request).encode("t_a"), str(tool, "name"))
     }
 
     @Test
@@ -368,7 +369,7 @@ class ResponsesRequestEncoderTest {
                     listOf(
                         AssistantToolCall(
                             ToolCallId("call_a1"),
-                            ToolName("time.now"),
+                            ToolName("time_now"),
                             "{\"tz\":\"UTC\"}",
                         ),
                     ),
@@ -385,7 +386,7 @@ class ResponsesRequestEncoderTest {
                             "1700000000",
                             emptyList(),
                             ToolCallId("call_a1"),
-                            ToolName("time.now"),
+                            ToolName("time_now"),
                         ),
                     ),
             )
@@ -399,7 +400,7 @@ class ResponsesRequestEncoderTest {
         val fn = items[2].jsonObject
         assertEquals("function_call", fn["type"]?.jsonPrimitive?.content)
         assertEquals("call_a1", fn["call_id"]?.jsonPrimitive?.content)
-        assertEquals(ResponsesToolNames(request).encode("time.now"), fn["name"]?.jsonPrimitive?.content)
+        assertEquals(ProviderToolNames(request).encode("time_now"), fn["name"]?.jsonPrimitive?.content)
         assertEquals("{\"tz\":\"UTC\"}", fn["arguments"]?.jsonPrimitive?.content)
         val out = items[3].jsonObject
         assertEquals("function_call_output", out["type"]?.jsonPrimitive?.content)
@@ -414,8 +415,8 @@ class ResponsesRequestEncoderTest {
                 text = "checking",
                 toolCalls =
                     listOf(
-                        AssistantToolCall(ToolCallId("call_a1"), ToolName("time.now"), "{\"tz\":\"UTC\"}"),
-                        AssistantToolCall(ToolCallId("call_b2"), ToolName("file.read"), "{\"path\":\"a.txt\"}"),
+                        AssistantToolCall(ToolCallId("call_a1"), ToolName("time_now"), "{\"tz\":\"UTC\"}"),
+                        AssistantToolCall(ToolCallId("call_b2"), ToolName("file_read"), "{\"path\":\"a.txt\"}"),
                     ),
             )
         val request =
@@ -429,13 +430,13 @@ class ResponsesRequestEncoderTest {
                             ModelRole.TOOL,
                             "1700000000",
                             toolCallId = ToolCallId("call_a1"),
-                            toolName = ToolName("time.now"),
+                            toolName = ToolName("time_now"),
                         ),
                         ModelMessage(
                             ModelRole.TOOL,
                             "content",
                             toolCallId = ToolCallId("call_b2"),
-                            toolName = ToolName("file.read"),
+                            toolName = ToolName("file_read"),
                         ),
                         ModelMessage(
                             ModelRole.USER,

@@ -7,6 +7,7 @@ import com.helix.core.model.ToolVersion
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
+import com.helix.tools.framework.ToolDiscoveryHints
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolOrigin
@@ -15,7 +16,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlin.time.Duration.Companion.seconds
 
 object BrowserBackTool {
-    const val NAME: String = "browser.back"
+    const val NAME: String = "browser_back"
     const val VERSION: Int = 1
 
     fun descriptor(origin: ToolOrigin.PluginOrigin): ToolDescriptor =
@@ -53,6 +54,7 @@ object BrowserBackTool {
             idempotency = Idempotency.NON_IDEMPOTENT,
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
             origin = origin,
+            discovery = ToolDiscoveryHints(category = "browser"),
         )
 
     fun executor(bridge: BrowserToolBridge): ToolExecutor =
@@ -63,7 +65,7 @@ object BrowserBackTool {
                 val tabId =
                     strArg(call.args, "tabId", MAX_TAB_ID)
                         ?: return ToolExecutorResult.Failed(
-                            "invalid 'browser.back' arguments: 'tabId' must be a string",
+                            "invalid 'browser_back' arguments: 'tabId' must be a string",
                         )
                 val out = bridge.back(tabId)
                 return historyResult(out)
@@ -72,10 +74,10 @@ object BrowserBackTool {
 }
 
 // ===========================================================================
-// browser.forward
+// browser_forward
 // ===========================================================================
 object BrowserForwardTool {
-    const val NAME: String = "browser.forward"
+    const val NAME: String = "browser_forward"
     const val VERSION: Int = 1
 
     fun descriptor(origin: ToolOrigin.PluginOrigin): ToolDescriptor =
@@ -113,6 +115,7 @@ object BrowserForwardTool {
             idempotency = Idempotency.NON_IDEMPOTENT,
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
             origin = origin,
+            discovery = ToolDiscoveryHints(category = "browser"),
         )
 
     fun executor(bridge: BrowserToolBridge): ToolExecutor =
@@ -123,7 +126,7 @@ object BrowserForwardTool {
                 val tabId =
                     strArg(call.args, "tabId", MAX_TAB_ID)
                         ?: return ToolExecutorResult.Failed(
-                            "invalid 'browser.forward' arguments: 'tabId' must be a string",
+                            "invalid 'browser_forward' arguments: 'tabId' must be a string",
                         )
                 val out = bridge.forward(tabId)
                 return historyResult(out)
@@ -170,10 +173,10 @@ private fun historyResult(out: HistoryOutcome): ToolExecutorResult =
     }
 
 // ===========================================================================
-// browser.reload
+// browser_reload
 // ===========================================================================
 object BrowserReloadTool {
-    const val NAME: String = "browser.reload"
+    const val NAME: String = "browser_reload"
     const val VERSION: Int = 1
 
     fun descriptor(origin: ToolOrigin.PluginOrigin): ToolDescriptor =
@@ -210,6 +213,7 @@ object BrowserReloadTool {
             idempotency = Idempotency.NON_IDEMPOTENT,
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
             origin = origin,
+            discovery = ToolDiscoveryHints(category = "browser"),
         )
 
     fun executor(bridge: BrowserToolBridge): ToolExecutor =
@@ -220,7 +224,7 @@ object BrowserReloadTool {
                 val tabId =
                     strArg(call.args, "tabId", MAX_TAB_ID)
                         ?: return ToolExecutorResult.Failed(
-                            "invalid 'browser.reload' arguments: 'tabId' must be a string",
+                            "invalid 'browser_reload' arguments: 'tabId' must be a string",
                         )
                 val out = bridge.reload(tabId)
                 val status = if (out.status == ReloadStatus.RELOADED) ST_RELOAD_RELOADED else ST_RELOAD_NO_CHANGE

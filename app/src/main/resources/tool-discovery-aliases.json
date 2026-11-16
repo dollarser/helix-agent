@@ -14,6 +14,7 @@
     "session": "会话 对话 历史 聊天 引用 标题",
     "device": "手机 安卓 本机 设备 分享 剪贴板 日历 提醒",
     "settings": "设置 配置 模型 思考 模式",
+    "plugins": "插件 连接器 安装 预览",
     "tools": "工具 发现 结果 读取",
     "user": "询问 用户 问题 偏好 澄清",
     "time": "时间 时区 日期",
@@ -25,11 +26,13 @@
     "plan": "计划 规划"
   },
   "namespaces": {
-    "code.linux": "linux terminal shell command commands 终端 命令"
+    "code": "linux terminal shell command commands 终端 命令"
   },
   "operations": {
     "run": "运行 执行 run execute execution",
     "read": "读取",
+    "glob": "文件名 路径 通配 查找 filename path pattern",
+    "grep": "文件 内容 搜索 文本 查找 content text search",
     "read_resource": "读取 参考资料",
     "write": "写入",
     "edit": "编辑",

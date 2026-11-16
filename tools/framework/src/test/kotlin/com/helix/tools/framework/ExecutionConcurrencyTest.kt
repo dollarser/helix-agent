@@ -36,7 +36,7 @@ class ExecutionConcurrencyTest {
         native: Boolean = false,
     ) = ExecutableToolCall(
         id,
-        "code.javascript.run",
+        "code_javascript_run",
         "1",
         buildJsonObject { put("access", if (native) "native" else "isolated") },
         ExecutionTargetType.LOCAL_QUICKJS,

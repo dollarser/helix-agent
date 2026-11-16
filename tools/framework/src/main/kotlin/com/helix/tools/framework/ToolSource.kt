@@ -42,7 +42,7 @@ interface ToolSource {
  * The built-in tool source: a fixed set of product-code descriptors.
  *
  * Invariants enforced at construction (fail-closed): the set must contain no
- * duplicate (name, version) pair. (The `mcp.*` namespace rule is enforced
+ * duplicate (name, version) pair. (The remote-source ownership rule is enforced
  * once, in [ToolDescriptor]'s constructor, so a built-in-origin descriptor
  * can never carry an MCP name.)
  *
@@ -95,12 +95,11 @@ data class McpToolSpec(
 /**
  * The MCP tool source for ONE connected, user-enabled server (doc 10 section
  * 4.3). Converts each [McpToolSpec] into a [ToolDescriptor] named
- * `mcp.<serverId>.<toolName>` bound to an [ToolOrigin.McpOrigin].
+ * a portable source-qualified name bound to an [ToolOrigin.McpOrigin].
  *
  * Invariants enforced at construction (fail-closed):
- * - [serverId] and every [McpToolSpec.serverToolName] are single name
- *   segments, so the full name has exactly 3 segments (stable, unambiguous,
- *   and parseable back into server + tool);
+ * - [serverId] is a local identifier; remote names follow MCP and are adapted once
+ *   through [RemoteToolNames], preserving source identity independently of presentation;
  * - the (serverId, serverToolName) pair is unique within this source;
  * - no [McpToolSpec] may declare [ToolOperationClass.READ_ONLY] or [ToolOperationClass.METADATA]
  *   (server hints are not classification, doc 02 section 7; only built-in tools carry METADATA).
@@ -133,10 +132,9 @@ class McpToolSource(
 
     override fun load(): List<ToolDescriptor> = descriptors
 
-    private fun McpToolSpec.toDescriptor(): ToolDescriptor {
-        requireSingleNameSegment(serverToolName, "MCP tool name")
-        return ToolDescriptor(
-            name = ToolName("${ToolDescriptor.MCP_NAME_PREFIX}$serverId.$serverToolName"),
+    private fun McpToolSpec.toDescriptor(): ToolDescriptor =
+        ToolDescriptor(
+            name = RemoteToolNames.mcp(serverId, serverToolName),
             version = version,
             description = description,
             inputSchema = inputSchema,
@@ -148,8 +146,8 @@ class McpToolSource(
             idempotency = idempotency,
             executionTarget = executionTarget,
             origin = ToolOrigin.McpOrigin(serverId, protocolVersion, sourceSchemaHash, serverProvidedHints),
+            discovery = ToolDiscoveryHints(category = "mcp", keywords = setOf(serverToolName)),
         )
-    }
 
     private fun requireSingleNameSegment(
         value: String,
@@ -178,7 +176,6 @@ class McpToolSource(
 @Suppress("LongParameterList")
 data class A2aToolSpec(
     val skillId: String,
-    val skillSlug: String,
     val description: String,
     val cardHash: String,
     val skillHash: String,
@@ -193,7 +190,7 @@ data class A2aToolSpec(
 
 /**
  * Source for the enabled Skill snapshot of one A2A Agent. Its namespace and provenance are
- * deliberately distinct from MCP; an A2A Agent cannot register an `mcp.*` tool or a built-in.
+ * deliberately distinct from MCP; an A2A Agent cannot register a tool owned by MCP or a built-in.
  */
 class A2aToolSource(
     private val agentId: String,
@@ -207,17 +204,16 @@ class A2aToolSource(
         requireSingleA2aSegment(agentId, "A2A agent id")
         requireNoDuplicates(descriptors)
         require(specs.map { it.skillId }.toSet().size == specs.size) { "duplicate A2A Skill id" }
-        require(specs.map { it.skillSlug }.toSet().size == specs.size) { "duplicate A2A Skill slug" }
     }
 
     override fun load(): List<ToolDescriptor> = descriptors
 
     private fun A2aToolSpec.toDescriptor(): ToolDescriptor {
         require(skillId.isNotBlank() && skillId.length <= 256) { "A2A Skill id is invalid" }
-        requireSingleA2aSegment(skillSlug, "A2A Skill slug")
         return ToolDescriptor(
-            name = ToolName("${ToolDescriptor.A2A_NAME_PREFIX}$agentId.$skillSlug"),
+            name = RemoteToolNames.a2a(agentId, skillId),
             version = ToolVersion(1),
+            discovery = ToolDiscoveryHints(category = "a2a", keywords = setOf(skillId.trim().take(128))),
             description = description,
             inputSchema = inputSchema,
             outputSchema = outputSchema,

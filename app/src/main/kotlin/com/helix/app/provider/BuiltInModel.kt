@@ -17,19 +17,21 @@ import kotlinx.serialization.json.jsonPrimitive
 /** Public deployment identity. No backend credential is embedded, looked up or synthesized. */
 object BuiltInModel {
     const val PROVIDER_ID = "builtin-helix-qwen"
-    const val MODEL_ID = "Qwen3.8-27B"
+    const val MODEL_ID = "gpt-6-luna"
+    const val QWEN_MODEL_ID = "Qwen3.8-27B"
     const val CLIENT_ID = com.helix.app.account.AccountSession.CLIENT_ID
     const val API_ROOT = com.helix.app.account.OfficialServices.INFERENCE_BASE_URL
     const val GENERATION_URL = "$API_ROOT/chat/completions"
+    const val RESPONSES_URL = "$API_ROOT/responses"
     const val CATALOG_URL = "$API_ROOT/models?output_modalities=all"
 
     val capabilities =
         ProviderCapabilities(
             streaming = true,
-            toolCalls = true,
+            toolCalls = false,
             parallelToolCalls = false,
-            vision = true,
-            reasoning = true,
+            vision = false,
+            reasoning = false,
             jsonSchemaOutput = false,
             maxContextTokens = null,
             source = CapabilitySource.BUNDLED_CONTRACT,
@@ -38,11 +40,13 @@ object BuiltInModel {
     /** Only the named bundled adapter contract is known; directory membership adds no capabilities. */
     fun capabilitiesFor(model: String): ProviderCapabilities =
         if (model ==
-            MODEL_ID
+            QWEN_MODEL_ID
         ) {
-            capabilities
+            capabilities.copy(streaming = true, toolCalls = true, vision = true, reasoning = true)
+        } else if (model == MODEL_ID) {
+            capabilities.copy(toolCalls = true, reasoning = true)
         } else {
-            capabilities.copy(streaming = false, toolCalls = false, vision = false, reasoning = false)
+            capabilities.copy(streaming = false)
         }
 
     /**
@@ -51,7 +55,22 @@ object BuiltInModel {
      * The deployment template is unconfirmed; this is not detected gateway or directory evidence.
      */
     fun reasoningOptionsFor(model: String): List<com.helix.core.model.ReasoningEffort> =
-        if (model == MODEL_ID) com.helix.core.model.ReasoningEffort.FALLBACK else emptyList()
+        when (model) {
+            QWEN_MODEL_ID -> {
+                com.helix.core.model.ReasoningEffort.FALLBACK
+            }
+
+            MODEL_ID -> {
+                listOf("none", "low", "medium", "high", "xhigh", "max").map {
+                    com.helix.core.model.ReasoningEffort
+                        .fromWire(it)
+                }
+            }
+
+            else -> {
+                emptyList()
+            }
+        }
 
     val connection =
         ProviderConnection(
@@ -77,6 +96,7 @@ object BuiltInModel {
             "RATE_LIMITED" -> R.string.builtin_model_rate_limit
             "TRANSPORT", "SERVER_ERROR", "HTTP_ERROR" -> R.string.builtin_model_service_error
             "TIMEOUT" -> R.string.builtin_model_timeout
+            "PROTOCOL" -> R.string.builtin_model_protocol_error
             else -> null
         }
 

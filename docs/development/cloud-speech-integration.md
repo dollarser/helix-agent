@@ -1,30 +1,32 @@
 # 云端语音接入与增量回答朗读
 
-保留现有 Agent/LLM、工具权限、离线语音及用户模型文件。HTTP 文件/WAV 模式与账号认证已交付；Owner 随后提供持续 WebSocket 契约，本轮增加显式 WS 模式和一个回答一个连接的持续文本输入。本文较早日期的 HTTP/缺失 WS 记录保留其历史阶段，最新 WS 验证范围见末节。持续语音不等于原生语音大模型或自动全双工轮次。
+保留现有 Agent/LLM、工具权限、离线语音及用户模型文件。当前 OpenAI 云语音使用 HTTP 文件识别/PCM 合成，自建语音保留 WebSocket 与一个回答一个连接的持续文本输入。本文较早日期的 HTTP/缺失 WS 记录保留其历史阶段，当前云模型契约见 2026-11-15 交接小节。持续语音不等于原生语音大模型或自动全双工轮次。
 
 ## 当前可操作入口
 
-- 设置→语音服务：无显式配置且账号已登录时默认使用官方 WS；显式离线保持离线。官方账号模式只选择 HTTP/WS，不编辑独立 ASR/TTS 地址；地址由下述统一基址派生。自定义无鉴权 HTTP/HTTPS 保留独立地址，不推断聊天 provider 地址或 Key，不发送账号令牌。
-- 麦克风入口：离线模式先检查本机模型，缺失时显示来源、体积与显式下载入口；下载成功后用户主动开始才申请麦克风，不自动录音。HTTP 模式先确认目标与上传范围，录音结束后仅上传该次完整 WAV，最终文字预览后由用户加入草稿。没有用假 partial 冒充流式转写。
+- 设置→语音服务：无显式配置且账号已登录时默认使用官方云模型 HTTP；显式离线保持离线。官方账号模式选择语音模型与 HTTP/自建 WS，不编辑独立 ASR/TTS 地址；地址由下述统一基址派生。自定义无鉴权 HTTP/HTTPS 保留独立地址，不推断聊天 provider 地址或 Key，不发送账号令牌。
+- 麦克风入口：离线模式先检查本机模型，缺失时显示来源、体积与显式下载入口；下载成功后用户主动开始才申请麦克风，不自动录音。HTTP 模式先确认目标与上传范围，短录音结束后上传本次 WAV；长录音达到五分钟边界后分段上传，最终文字预览后由用户加入草稿。没有用假 partial 冒充流式转写。
 - 正在生成的普通可见回答：用户点击朗读后接收该回答后续文本增量；停止仅停止声音，不取消 Agent。普通完整回答仍可点击朗读/停止。
-- HTTP TTS 按提交的文本段请求合成，每段完整 WAV 返回后分块播放。WS 模式在同一个连接内持续追加可见文本，并行接收和播放 PCM；HTTP 分句不是持续 WS。
+- 云 HTTP TTS 按最多 2000 Unicode 码点分段，明确请求 `stream=true` PCM（24kHz、16-bit、单声道），边接收边播放；自定义旧 HTTP WAV 服务保留。WS 模式在同一个连接内持续追加可见文本，并行接收和播放 PCM；HTTP 分句不是持续 WS。
 - `127.0.0.1` 在 Android 上指设备自身。Owner 的 Mac loopback 映射仅用于本轮主机联调，不会自动让手机可访问；客户端不创建 ADB 转发、防火墙规则或持久端口开放。
 
 ## 已核实的服务契约
 
 ### 当前统一网关（Owner 契约，2026-10-28）
 
-仅配置 `ACCOUNT_BASE_URL=https://accounts.sunlingzhang.com`、`INFERENCE_BASE_URL=https://api.sunlingzhang.com/v1`、`SPEECH_WS_BASE_URL=wss://api.sunlingzhang.com`，由 `OfficialServices` 统一派生官方端点。账号登录/注册/刷新/退出仍是 accounts 的 `/auth/*`。此次直接切换，不保留旧语音域名、重定向或旧域回退；历史日期的记录不代表当前地址。
+2026-11-15 Owner 更新部署域名为 hilex.me；沿用既有协议路径，不把旧部署实测视作新域验证。此前后端未启动阶段的失败记录仅为历史；2026-11-15 后续已接通 OpenAI 云模型，当前契约见下节，不返回模拟成功。
+
+仅配置 `ACCOUNT_BASE_URL=https://accounts.hilex.me`、`INFERENCE_BASE_URL=https://api.hilex.me/v1`、`SPEECH_WS_BASE_URL=wss://api.hilex.me`，由 `OfficialServices` 统一派生官方端点。账号登录/注册/刷新/退出仍是 accounts 的 `/auth/*`。Owner 确认既有令牌通用，不按旧新签发域区分或仅因换域要求登录；请求目标仍受当前官方白名单与精确路径约束。此次直接切换，不保留旧语音域名、重定向或旧域回退；历史日期的记录不代表当前地址。
 
 | 能力 | 当前端点与实现范围 |
 | --- | --- |
-| 模型目录 | `GET https://api.sunlingzhang.com/v1/models`；目录列表不等于模型能力验证 |
-| LLM 对话 | `POST https://api.sunlingzhang.com/v1/chat/completions`，JSON/SSE |
-| 文件 ASR | `POST https://api.sunlingzhang.com/v1/audio/transcriptions`，multipart `file` |
-| 文件 TTS | `POST https://api.sunlingzhang.com/v1/audio/speech`，JSON `input`，WAV |
-| 实时 ASR | `wss://api.sunlingzhang.com/ws/asr` |
-| 双流 TTS | `wss://api.sunlingzhang.com/ws/tts` |
-| 公开健康检查 | `GET https://api.sunlingzhang.com/healthz`，无认证，根路径无 `/v1` |
+| 模型目录 | `GET https://api.hilex.me/v1/models?output_modalities=all`；按用途分流，目录不等于模型能力验证 |
+| LLM 对话 | `POST https://api.hilex.me/v1/chat/completions`，JSON/SSE |
+| 文件 ASR | `POST https://api.hilex.me/v1/audio/transcriptions`，multipart `model=gpt-transcribe` + 真实音频 `file` |
+| 文件 TTS | `POST https://api.hilex.me/v1/audio/speech`，JSON `model=gpt-realtime-2.1-mini/input/voice/response_format`，显式 PCM |
+| 实时 ASR | `wss://api.hilex.me/ws/asr` |
+| 双流 TTS | `wss://api.hilex.me/ws/tts` |
+| 公开健康检查 | `GET https://api.hilex.me/healthz`，无认证，根路径无 `/v1` |
 
 契约另提供 `/v1/completions`、`/v1/embeddings` 和 `/v1/audio/transcriptions/vibevoice`；本项目尚无专用文本补全、Embedding 调用或 VibeVoice 文件识别选择流程，本轮不新增这些能力，也不把目录可列出模型当作已经接通。第三方 provider 和自定义语音地址不改写。Bearer、ClientID、401 刷新与取消/迟到回调边界不变，真实账号/音频联调仍需独立授权。本轮以进程内 Wire/Socket mock 校验实际调用，不把 mock 当真实服务 E2E。
 
@@ -318,3 +320,34 @@ Owner 要求客户端避免朗读中间过程。全局自动开关、默认关�
 完整双渠道 Debug 门禁通过，自动策略、最终正文投影与朗读端口三组每渠道 24 项 JVM 检查零失败／错误／跳过；覆盖步骤不触发、终态先于正文、隐藏思考排除、每轮去重、历史导航、关闭／取消、会话身份与离页边界，并保留底层增量和音频取消测试。Developer Debug 保留数据安装到 Helix_API_36／API36，8 项语音 UI 设备检查通过：注入静音引擎／播放端确认只有最终正文进入合成、关闭后重新开启不重播、切换任务停止，以及原手动入口、模型资源确认和生命周期行为。测试模型仅使用专用缓存目录的合成清单，无真实模型下载、麦克风录音或真实 TTS 服务请求，不能据此声称云端首包延迟、音质或真机听感通过。
 
 原自动朗读偏好、安全 profile、草稿模型与会话启动目标按原字段恢复，专用缓存由夹具清理。源码／安装字节身份、逐项设备日志、完整门禁和中间静态检查失败保留于 ignored 的 `build/final-only-audio-*`；最终静态条件按规则拆分后全门禁复验通过，没有减弱规则或跳过测试。未改 ASR、服务端、模型或内部版本，未提交、推送、发布或使用真机。
+
+## hilex.me 域名切换与不可用路径（2026-11-15）
+
+当前官方 HTTP/WS 地址已改用 hilex.me，沿用既有路径；自定义地址不变。ASR/TTS 现在按实际网络、超时、账号拒绝、HTTP/协议、繁忙或服务错误显示安全本地化提示，不自动回退，也不显示远端错误正文。完整双渠道 Debug 门禁及 API36 日常模拟器的合成失败/重试测试通过；具体统计、安装范围和新域公开探测见[账号切换验收](account-login-integration.md#hilexme-切换验收2026-11-15)。公开 API 健康检查只确认推理网关 ready；本轮没有认证语音请求、实际录音/播放或识别质量工作，不继承旧域端到端验收。
+
+## 2026-11-15 云模型交接落地
+
+- 云识别 `gpt-transcribe` 和云合成 `gpt-realtime-2.1-mini` 使用上述 HTTP 接口。原 `/ws/asr`、`/ws/tts` 只接自建模型，不能通过换模型名转发 OpenAI；没有原生 `/v1/realtime` 客户端入口。
+- 识别上传实际 WAV 数据，multipart boundary 交给 OkHttp。每段最多 5 分钟、21 MiB；长录音顺序分段，任何分段提交失败都终止本次操作，不自动重放已提交音频。保留已录音本地预览不表示云请求成功。
+- 合成按 Unicode 码点计数，包含空格标点，每段 1–2000；默认 voice `marin`，speed `1`。服务端支持 mp3/wav/pcm/opus/flac，当前客户端选用 PCM 24kHz、16-bit、单声道。指定云模型现在支持 `stream=true` 的原始 PCM HTTP 流，客户端边接收边播放并跨奇数字节分块拼接；这不是原生 Realtime WebSocket。未知第三方模型仍保留缓冲式兼容路径。
+- 云模型目录按 `architecture.output_modalities` 与 `endpoints` 分类为文本、识别、合成，不把独立语音模型放入聊天选择器。当前服务契约允许语音专用账号发现其有权限的模型，不要求额外 qwen 权限。历史交接的 qwen 目录权限限制已被此契约替代；目录失败时仍允许直接指定语音模型，不靠目录推断调用权限。
+- 账号请求使用 Bearer access_token 和 X-Client-ID；用户选择的 API 服务凭据只用于其明确配置端点。禁止内部 Worker/OpenAI 上游密钥注入客户端或使用免认证本机入口。
+- 429 保留服务端 detail/Retry-After，错误显示可复制的 X-Request-ID；401 仅正规刷新一次，403 保留服务端说明。断网/超时不无条件重放文本或音频。普通日志不写识别内容、待合成文本、原始音频或凭据。
+- 真实服务联调与 Android 集成验收分别记录；主机收到有效音频不能代替 Android 录制、播放与界面验收。
+
+本次真实流式合成探针（纯合成输入、主机）：HTTP 200，audio/pcm、chunked、24000Hz；首块约 3.25 秒，EOF 约 4.43 秒，非零音频 156000 字节。读取中确有奇数字节块，必须保留未配对字节至下一块。此证据只证明主机分段接收，Android 边收边播另行验收。
+
+### 本轮验证范围（2026-11-15）
+
+完整 `scripts/check-all.sh --debug` 通过，Consumer 单元测试 1866 项、Developer 2067 项均无失败，各有 5 项既有外部 profile/供给归档 opt-in 测试跳过；不把这些跳过当作实测通过。日常 `Helix_API_36` 覆盖安装保留数据，五组定向仪器测试共 10 项通过、无跳过，覆盖账号失败恢复、模型/鉴权来源切换、错误请求编号复制、语音失败处理、任意 PCM 分块和实际静音 AudioTrack 在 HTTP EOF 前播放完首段。安装字节与最终候选一致；源输入、APK 指纹与日志保留在忽略的 `build/cloud-handoff-20261115/`。没有执行 Release/R8 或物理真机验收。
+
+真实服务另以纯合成输入验证账号目录、普通 Luna 对话、ASR、TTS 与 PCM 流式，并读取普通账号额度。Luna 不带 tools 的流式请求已通过。早期带 tools 请求的泛化拒绝后来已由新的真实探针细化：Chat `none` 非流/流和 Responses `medium` 流均返回 502 / `unsupported_country_region_territory`，工具回填尚未到达。客户端已显式选择推理强度对应的协议；未改变地区/网络出口，不把外部拒绝算作业务成功或以重试掩盖。当前边界及请求编号见[账号当前结论](account-login-integration.md#当前契约整理与保数据复验2026-11-15)。显式 Qwen 请求按 `X-Inference-Provider: local` 路由，云请求不加；local 目录实测仍未单独列出 Qwen，local 生成未实测。真实 API Key-only、语音专用账号及物理扬声器体验仍不属于本轮已验证范围。所有临时账号探针已退出，没有调用管理员额度核对操作。
+
+
+### 2026-11-15 当前候选 Android 真实服务复验
+
+在 Owner 明确批准后，日常 `Helix_API_36` 的 Developer 应用已使用正式账号登录；按 Owner 要求保持登录，没有退出或清数据。前述“临时账号探针已退出”仅指其历史主机探针，不能据此推断当前模拟器会话状态。
+
+本次通过生产 Android HTTP 客户端分别请求纯合成文本 TTS 和独立生成的合成 WAV ASR，均返回 HTTP 502：TTS 请求编号 `617aa24aa5d24066fd9890089f39e94b55186fe571bd4e26`，ASR 请求编号 `0c593f17213189e86b813e6f8a3a56921b1181cc838a781f`。没有取得可播放音频或识别结果，因而真实往返、播放及播放中取消仍未验通；未继续重复请求、切换出口或绕过限制。此次语音响应尚不能确认与先前模型工具请求的地区错误同因。原始安全阶段记录及失败结果保存在 ignored `build/cloud-readiness-20261115/live-services-r2/`，不记录凭据、原始账号字段或私人音频。
+
+当前源码的确定性 Android PCM 分块、HTTP 流播放与取消、失败提示等回归已通过；它们使用本地夹具，不能替代上述真实服务或麦克风、扬声器/OEM 体验。

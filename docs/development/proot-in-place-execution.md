@@ -4,12 +4,12 @@ Owner 于 2026-10-21 要求在已授权真实工作区运行，代码和文档�
 
 ## 当前契约
 
-- `code.linux.run`（含 `bash` 别名）和 `code.linux.job.start` 默认 `workspaceMode: in_place`。聊天请求在规范化和审批前冻结 `workspace` 引用，不跟随后续会话目录切换。运行在现有非导出私有 PRoot 进程，仍共享应用 UID/网络，不是安全沙箱。
+- `code_linux_run`（含 `bash` 别名）和 `code_linux_job_start` 默认 `workspaceMode: in_place`。聊天请求在规范化和审批前冻结 `workspace` 引用，不跟随后续会话目录切换。运行在现有非导出私有 PRoot 进程，仍共享应用 UID/网络，不是安全沙箱。
 - 当前支持 App/managed 中可直接访问的 POSIX 目录，以及当前已授权、已启用的全文件 PATH 根；不新授予系统权限。主应用经原 Workspace 解析器解析，Runtime 复核允许根和目录身份，环境准备后再次校验；支持存在的嵌套 `cwd`。不挂载数据库、凭据目录或任意模型提供的 Android 绝对路径。
 - 原位 `files` 引用必须属于本次挂载目录，保留真实层级、不复制、不改名。跨目录输入需显式文件复制或选择快照，不能凭脚本自动扩展授权。
 - 代码和文档直接留在原路径，不要求 `output/`。可在 `artifacts` 声明最多 64 个相对工作区根的文件路径；该参数不相对于 `cwd`。不声明的文件仍存在，可经已授权文件工具发现，不自动遍历整个项目猜测产物。
 - Runtime 仅返回有界 stdout/stderr 与文件清单，文件清单包含大小和 SHA-256，不传回文件内容。主应用核对原目录及原文件版本后登记原 `scope:` 引用；未捕获、已变化或不可读的文件标为 `unavailableArtifacts`，不冒充成功登记。登记失败不覆盖文件、不执行补偿命令。观察与登记校验分别有有限时间窗口，取消不伪造完整结果。
-- 内部日志和清单仍沿原 ZIP/PFD、原终态记录、收取/ACK 路径传输与恢复。原位归档不包含工作副本、代码或文档正文。内部归档以 `RUNTIME_EVIDENCE` 登记，不作为聊天 `OUTPUT` 文件展示；用户产物仍登记原文件引用。按原 jobId/executionId 收取日志和清单，不重新运行命令。未改变有界日志预览和 `tools.read_result` 的能力，也未新增完整 Runtime 日志查询工具。
+- 内部日志和清单仍沿原 ZIP/PFD、原终态记录、收取/ACK 路径传输与恢复。原位归档不包含工作副本、代码或文档正文。内部归档以 `RUNTIME_EVIDENCE` 登记，不作为聊天 `OUTPUT` 文件展示；用户产物仍登记原文件引用。按原 jobId/executionId 收取日志和清单，不重新运行命令。未改变有界日志预览和 `tools_read_result` 的能力，也未新增完整 Runtime 日志查询工具。
 - `snapshot` 为显式选择，沿既有输入复制、名称映射、`result.txt` 导入与 `output/` 产物发布约定；不自动回写源文件。原位模式拒绝旧 `output` 导入参数，使用 `artifacts` 登记已有文件。
 - SAF 是文档 URI 能力，不能通用转换成 POSIX 路径。原生文件工具仍走 Provider；生产执行通道不把 URI 伪装为 POSIX，不默认物化或同步。文件工具通过文档 API 原位访问；只有确需 CLI 且无可用映射时才明确选取快照。独立文件夹同步不是工作区前置。只读 RPC 可行性探针见[实验](../../scripts/experiments/saf-bridge/README.md)，它不是生产目录挂载或 Git 支持；URI/FD 与目录路径能力分开。
 - 取消、失败或应用进程死亡不回滚已经修改的真实文件；清理作业临时目录不删除原位工作区。UNKNOWN 不重发，旧实例回包不改变新调用的目录绑定。权限、执行容量、租期和原调用身份继续沿现有路径校验。

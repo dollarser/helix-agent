@@ -30,7 +30,7 @@ Affected modules: `core:workspace`, `app`
 
 任何真实的 Android 10（API 29）用户：文件管理页（HXA-046）无法列出 Workspace 任何
 目录；`read` 工具与文本预览对任何文件都失败（`ReadWindow` 是 `read` 的唯一读路径）。
-文件工具区（`files.list`/`read`/预览）在该 API 等级上整体不可用。是生产能力缺失，
+文件工具区（`files_list`/`read`/预览）在该 API 等级上整体不可用。是生产能力缺失，
 不是测试问题。
 
 ## Root cause

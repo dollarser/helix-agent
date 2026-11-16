@@ -15,8 +15,8 @@ import java.security.MessageDigest
 import java.util.Arrays
 
 /**
- * HXA-043: the copy / move / trash store seams behind `files.copy` / `files.move` /
- * `files.delete` — explicit conflict policy (an existing destination, file OR directory, is
+ * HXA-043: the copy / move / trash store seams behind `files_copy` / `files_move` /
+ * `files_delete` — explicit conflict policy (an existing destination, file OR directory, is
  * refused without an explicit overwrite; an overwrite into a directory is always refused),
  * cross-scope operations (destination-scope quota gated; a cross-scope move never loses its
  * source), and the trash: delete is a rename into `.helix/trash/` with a reversible entry name,

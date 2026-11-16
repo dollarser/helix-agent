@@ -49,6 +49,18 @@ class ModelPurposeTest {
             assertEquals("https://custom.test/v1/models?output_modalities=all&after_id=next", wire.urls.last())
         }
 
+    @Test fun officialKeyDirectoryRequestsAllModalitiesButThirdPartyUrlsStayUntouched() =
+        runBlocking {
+            val wire = FixtureWire { """{"data":[]}""" }
+            for (url in listOf("https://api.hilex.me/v1/models", "https://custom.test/v1/models")) {
+                ModelCatalogDiscovery.fetch(wire, url, emptyMap())
+            }
+            assertEquals(
+                listOf("https://api.hilex.me/v1/models?output_modalities=all", "https://custom.test/v1/models"),
+                wire.urls,
+            )
+        }
+
     @Test fun standardDirectoryAndOpaqueAliasesRemainUnknown() {
         assertEquals(
             emptySet<ModelPurpose>(),
@@ -69,7 +81,7 @@ class ModelPurposeTest {
         assertEquals(setOf(ModelPurpose.OTHER), parse("""{"capabilities":{"chat":false},"task":"chat"}"""))
         assertEquals(setOf(ModelPurpose.RERANK), parse("""{"endpoints":["rerank"]}"""))
         assertEquals(
-            setOf(ModelPurpose.IMAGE, ModelPurpose.AUDIO),
+            setOf(ModelPurpose.IMAGE, ModelPurpose.TRANSCRIPTION),
             parse("""{"tasks":["text-to-image","speech-to-text"]}"""),
         )
         assertEquals(

@@ -119,7 +119,7 @@
 | HXA-050 | 已完成（原任务范围） | Zipline Spike | [完成记录](../completion-records/HXA-050.md) |
 | HXA-051 | 已完成（原任务范围） | isolated Service/Binder | [完成记录](../completion-records/HXA-051.md) |
 | HXA-052 | 已完成（原任务范围） | JS ABI 与限制 | [完成记录](../completion-records/HXA-052.md) |
-| HXA-053 | 已完成（原任务范围） | `code.javascript.run` | [完成记录](../completion-records/HXA-053.md) |
+| HXA-053 | 已完成（原任务范围） | `code_javascript_run` | [完成记录](../completion-records/HXA-053.md) |
 | HXA-054 | 已完成（原任务范围） | 攻击和端到端测试 | [完成记录](../completion-records/HXA-054.md) |
 | HXA-055 | 已完成（原任务范围） | 图片输入与 Provider 视觉能力 | [完成记录](../completion-records/HXA-055.md) |
 | HXA-056 | 已完成（原任务范围） | 文本/图片附件端到端硬化与发布边界 | [完成记录](../completion-records/HXA-056.md) |

@@ -8,7 +8,7 @@ import org.junit.Test
 
 class ModelToolBindingsTest {
     private val ref =
-        ToolBindingRef(ToolName("internal.read"), ToolVersion(1), "a".repeat(64), "native", "v1", "process-1")
+        ToolBindingRef(ToolName("internal_read"), ToolVersion(1), "a".repeat(64), "native", "v1", "process-1")
     private val schema = ModelToolSchema(ToolName("read"), "Read", """{"type":"object"}""", bindingRef = ref)
 
     @Test fun aliasesResolveOnlyThroughTheActualExposureSnapshot() {
@@ -16,7 +16,7 @@ class ModelToolBindingsTest {
         val snapshot = ModelToolBindings(source)
         source.clear()
         assertEquals(ref, snapshot.resolve("read"))
-        assertNull(snapshot.resolve("internal.read"))
+        assertNull(snapshot.resolve("internal_read"))
         assertNull(snapshot.resolve("write"))
         assertNull(ModelToolBindings(emptyList()).resolve("read"))
         assertNull(ModelToolBindings(listOf(schema.copy(bindingRef = null))).resolve("read"))
@@ -61,7 +61,7 @@ class ModelToolBindingsTest {
         val manifest = CompactManifestCodec.bounded("call", 1, null, emptyList(), emptyList(), tools = listOf(entry))
         assertEquals(listOf(entry), manifest.tools)
         val encoded = CompactManifestCodec.encodeCompact(manifest)
-        assertTrue(encoded.contains("\"tools\":[[\"read\",\"internal.read\",\"1\""))
+        assertTrue(encoded.contains("\"tools\":[[\"read\",\"internal_read\",\"1\""))
         assertTrue(encoded.contains("owner\\u0001\\n\\\""))
         assertTrue(encoded.contains("\"v1\",\"process-1\""))
         assertThrows(IllegalArgumentException::class.java) {

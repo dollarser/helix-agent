@@ -52,7 +52,7 @@ class SessionCreationService(
         title: String,
         checkActive: () -> Unit = {},
     ): SessionCreationReceiptEntity {
-        require(caller.toolName == "session.create")
+        require(caller.toolName == "session_create")
         require(key.isNotBlank() && key.length <= 128 && '\u0000' !in key)
         require(title.isNotBlank() && title.length <= 200 && '\u0000' !in title)
         val canonical = title.trim()

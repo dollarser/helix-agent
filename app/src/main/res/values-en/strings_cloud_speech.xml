@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="cloud_speech_self_hosted_ws">Self-hosted speech (WebSocket)</string>
+    <string name="cloud_speech_self_hosted_hint">WebSocket uses self-hosted models. OpenAI cloud speech models always use HTTP.</string>
+    <string name="cloud_speech_asr_model">Recognition model</string>
+    <string name="cloud_speech_tts_model">Speech synthesis model</string>
+    <string name="cloud_speech_route_http">HTTP audio request</string>
+    <string name="cloud_speech_route_ws">Self-hosted WebSocket</string>
+    <string name="cloud_speech_api_services">Use a configured API key service</string>
+    <string name="cloud_speech_providers_failed">Cannot read API service settings. Close and reopen this page.</string>
+    <string name="speech_failure_permission">Speech access denied. Check service permissions, account restrictions, or required password changes.</string>
+    <string name="speech_failure_invalid_request">Speech request parameters are invalid. Check the selected model and audio or text settings; local speech will not be used as a fallback.</string>
+</resources>

@@ -30,7 +30,7 @@ import kotlin.time.Duration.Companion.seconds
 class SessionToolEffectClassifierTest {
     @Test fun skillImportKeepsExternalReadAndInstallationEffectsSeparate() {
         val classifier = SessionToolEffectClassifier { "scope:ws:project" }
-        for (name in listOf("skills.preview", "skills.install")) {
+        for (name in listOf("skills_preview", "skills_install")) {
             val tool = descriptor(name)
             val local =
                 classifier
@@ -42,7 +42,7 @@ class SessionToolEffectClassifierTest {
             assertEquals(setOf(OperationEffect.FILE_READ_WORKSPACE), local.effects)
             assertEquals(setOf(OperationEffect.FILE_READ_EXTERNAL), external.effects)
             assertEquals(
-                if (name == "skills.install") setOf(OperationEffect.DEVICE_SYSTEM_MUTATION) else emptySet(),
+                if (name == "skills_install") setOf(OperationEffect.DEVICE_SYSTEM_MUTATION) else emptySet(),
                 external.undeterminedEffects,
             )
         }
@@ -84,7 +84,7 @@ class SessionToolEffectClassifierTest {
         com.helix.app.session.SessionDelegationTool
             .register(registry) { error("classification only") }
         val classifier = SessionToolEffectClassifier { "scope:ws:project" }
-        for (name in listOf("session.create", "session.queue", "session.steer")) {
+        for (name in listOf("session_create", "session_queue", "session_steer")) {
             val descriptor = requireNotNull(registry.resolveLatest(ToolName(name)))
             assertEquals(ToolOperationClass.LOCAL_MUTATION, descriptor.operationClass)
             assertFalse(descriptor.operationClass.isReviewModeAdmitted)
@@ -99,7 +99,7 @@ class SessionToolEffectClassifierTest {
         val classifier = SessionToolEffectClassifier { "scope:ws:project" }
         val rename =
             com.helix.app.chat.SessionToolDescriptors
-                .descriptor("session.rename")
+                .descriptor("session_rename")
         assertEquals(
             setOf(OperationEffect.DEVICE_SYSTEM_MUTATION),
             classifier.classify(request("{}"), rename).footprint.effects,
@@ -107,7 +107,7 @@ class SessionToolEffectClassifierTest {
         assertFalse(rename.operationClass.isReviewModeAdmitted)
         val read =
             com.helix.app.chat.SessionToolDescriptors
-                .descriptor("session.read")
+                .descriptor("session_read")
         assertTrue(
             classifier
                 .classify(request("{}"), read)
@@ -253,7 +253,7 @@ class SessionToolEffectClassifierTest {
         val native =
             bound.classify(
                 request("""{"access":"native","code":"return 1"}"""),
-                descriptor("code.javascript.run", ToolOperationClass.CODE_EXECUTION),
+                descriptor("code_javascript_run", ToolOperationClass.CODE_EXECUTION),
             )
         assertEquals(setOf(OperationEffect.COMMAND_EXECUTION), native.footprint.effects)
         assertEquals(linuxUndetermined, native.footprint.undeterminedEffects)
@@ -264,7 +264,7 @@ class SessionToolEffectClassifierTest {
         val argv =
             bound.classify(
                 request("""{"argv":["rm","-rf","/tmp/x"]}"""),
-                descriptor("code.linux.run", ToolOperationClass.CODE_EXECUTION),
+                descriptor("code_linux_run", ToolOperationClass.CODE_EXECUTION),
             )
         assertEquals(setOf(OperationEffect.COMMAND_EXECUTION), argv.footprint.effects)
         assertEquals(linuxUndetermined, argv.footprint.undeterminedEffects)
@@ -273,14 +273,14 @@ class SessionToolEffectClassifierTest {
         val script =
             bound.classify(
                 request("""{"script":"rm -rf /var/x"}"""),
-                descriptor("code.linux.run", ToolOperationClass.CODE_EXECUTION),
+                descriptor("code_linux_run", ToolOperationClass.CODE_EXECUTION),
             )
         assertTrue("the floor rule reads the script lane too", script.rmCommandHit)
 
         val plain =
             bound.classify(
                 request("""{"argv":["ls","-la"]}"""),
-                descriptor("code.linux.run", ToolOperationClass.CODE_EXECUTION),
+                descriptor("code_linux_run", ToolOperationClass.CODE_EXECUTION),
             )
         assertFalse(plain.rmCommandHit)
         assertEquals(setOf(OperationEffect.COMMAND_EXECUTION), plain.footprint.effects)
@@ -291,18 +291,18 @@ class SessionToolEffectClassifierTest {
         val start =
             bound.classify(
                 request("""{"script":"rm -rf /tmp/x","leaseSeconds":300}"""),
-                descriptor("code.linux.job.start", ToolOperationClass.CODE_EXECUTION),
+                descriptor("code_linux_job_start", ToolOperationClass.CODE_EXECUTION),
             )
         assertTrue(start.rmCommandHit)
         assertEquals(linuxUndetermined, start.footprint.undeterminedEffects)
-        val cancel = bound.classify(request(), descriptor("code.linux.job.cancel", ToolOperationClass.LOCAL_MUTATION))
+        val cancel = bound.classify(request(), descriptor("code_linux_job_cancel", ToolOperationClass.LOCAL_MUTATION))
         assertEquals(setOf(OperationEffect.COMMAND_EXECUTION), cancel.footprint.effects)
         assertTrue(cancel.footprint.undeterminedEffects.isEmpty())
     }
 
     @Test
     fun builtInPlanMetadataDoesNotInventDeviceMutation() {
-        val result = bound.classify(request(), descriptor("plan.submit", ToolOperationClass.METADATA))
+        val result = bound.classify(request(), descriptor("plan_submit", ToolOperationClass.METADATA))
         assertTrue(result.footprint.effects.isEmpty())
         assertTrue(result.footprint.undeterminedEffects.isEmpty())
         assertFalse(result.rmCommandHit)
@@ -311,7 +311,7 @@ class SessionToolEffectClassifierTest {
     @Test
     fun quickJsIsSandboxedCommandExecutionOnly() {
         val c =
-            bound.classify(request(), descriptor("code.javascript.run", ToolOperationClass.CODE_EXECUTION))
+            bound.classify(request(), descriptor("code_javascript_run", ToolOperationClass.CODE_EXECUTION))
         assertEquals(setOf(OperationEffect.COMMAND_EXECUTION), c.footprint.effects)
         assertTrue(c.footprint.undeterminedEffects.isEmpty())
         assertFalse(c.rmCommandHit)
@@ -321,13 +321,13 @@ class SessionToolEffectClassifierTest {
     fun remoteOriginsAreUndeterminedRemoteBusinessMutation() {
         val mcp =
             descriptor(
-                "mcp.catalog.tool_1",
+                "mcp_catalog_tool_1",
                 ToolOperationClass.NETWORK,
                 origin = ToolOrigin.McpOrigin("catalog", "2025-03-26", "a".repeat(64)),
             )
         val a2a =
             descriptor(
-                "a2a.echo_skill",
+                "a2a_echo_skill",
                 ToolOperationClass.NETWORK,
                 origin =
                     ToolOrigin.A2aOrigin(
@@ -385,7 +385,7 @@ class SessionToolEffectClassifierTest {
         val c =
             bound.classify(
                 request("""{"source":"scope:ws-1:a.md","destination":"scope:other-9:b.md"}"""),
-                descriptor("files.copy"),
+                descriptor("files_copy"),
             )
         assertEquals(
             setOf(OperationEffect.FILE_READ_WORKSPACE, OperationEffect.FILE_MUTATION_EXTERNAL),
@@ -398,7 +398,7 @@ class SessionToolEffectClassifierTest {
         val c =
             bound.classify(
                 request("""{"source":"scope:ws-1:a.md","destination":"scope:other-9:b.md"}"""),
-                descriptor("files.move"),
+                descriptor("files_move"),
             )
         assertEquals(
             setOf(
@@ -417,7 +417,7 @@ class SessionToolEffectClassifierTest {
         val c =
             bound.classify(
                 request("""{"source":"scope:ws-1:a.zip","destination":"scope:other-9:out"}"""),
-                descriptor("files.extract"),
+                descriptor("files_extract"),
             )
         assertEquals(
             setOf(OperationEffect.FILE_READ_WORKSPACE, OperationEffect.FILE_MUTATION_EXTERNAL),
@@ -432,7 +432,7 @@ class SessionToolEffectClassifierTest {
         val c =
             bound.classify(
                 request("""{"source":"scope:ws-1:dir","destination":"scope:other-9:out.zip"}"""),
-                descriptor("files.archive"),
+                descriptor("files_archive"),
             )
         assertEquals(
             setOf(OperationEffect.FILE_READ_WORKSPACE, OperationEffect.FILE_MUTATION_EXTERNAL),
@@ -445,21 +445,27 @@ class SessionToolEffectClassifierTest {
         val c =
             bound.classify(
                 request("""{"archive":"scope:ws-1:a.zip","path":"scope:ws-1:out"}"""),
-                descriptor("files.extract"),
+                descriptor("files_extract"),
             )
         assertEquals(setOf(OperationEffect.FILE_MUTATION_WORKSPACE), c.footprint.effects)
     }
 
     @Test
     fun readToolsWithoutScopeReferencesAreClean() {
-        val c = bound.classify(request("""{"limit":10}"""), descriptor("time.now"))
+        val c = bound.classify(request("""{"limit":10}"""), descriptor("time_now"))
         assertEquals(emptySet<OperationEffect>(), c.footprint.effects)
         assertTrue(c.footprint.undeterminedEffects.isEmpty())
     }
 
     @Test
     fun browserInteractionIsUndeterminedRemoteBusinessMutation() {
-        val c = bound.classify(request(), descriptor("browser.click", ToolOperationClass.EXTERNAL_ACTION))
+        val c =
+            bound.classify(
+                request(),
+                descriptor("browser_click", ToolOperationClass.EXTERNAL_ACTION).copy(
+                    requiredCapabilities = setOf(com.helix.core.model.Capability.WEB_BROWSING),
+                ),
+            )
         assertEquals(setOf(OperationEffect.REMOTE_BUSINESS_MUTATION), c.footprint.undeterminedEffects)
         assertTrue(c.footprint.effects.isEmpty())
     }
@@ -467,7 +473,7 @@ class SessionToolEffectClassifierTest {
     @Test
     fun browserUploadIncludesSourceReadAndRemoteEffectsOnlyForTrustedOwner() {
         val tool =
-            descriptor("browser.upload", ToolOperationClass.EXTERNAL_ACTION).copy(
+            descriptor("browser_upload", ToolOperationClass.EXTERNAL_ACTION).copy(
                 origin = ToolOrigin.PluginOrigin("browser", "1", "browser"),
             )
         for ((path, effect) in listOf(
@@ -489,7 +495,7 @@ class SessionToolEffectClassifierTest {
 
     @Test
     fun httpFetchIsACleanNetworkRead() {
-        for (name in listOf("http.fetch", "web_fetch")) {
+        for (name in listOf("http_fetch", "web_fetch")) {
             val c = bound.classify(request(), descriptor(name, ToolOperationClass.NETWORK))
             assertEquals(emptySet<OperationEffect>(), c.footprint.effects)
             assertTrue(c.footprint.undeterminedEffects.isEmpty())
@@ -515,13 +521,13 @@ class SessionToolEffectClassifierTest {
 
     @Test
     fun otherNetworkToolsAreUndeterminedRemoteBusinessMutation() {
-        val c = bound.classify(request(), descriptor("web.scrape", ToolOperationClass.NETWORK))
+        val c = bound.classify(request(), descriptor("web_scrape", ToolOperationClass.NETWORK))
         assertEquals(setOf(OperationEffect.REMOTE_BUSINESS_MUTATION), c.footprint.undeterminedEffects)
     }
 
     @Test
     fun privilegedAndUnknownToolsAreUndeterminedDeviceSystemMutation() {
-        for (name in listOf("android.clipboard.write", "device.screenshot")) {
+        for (name in listOf("android_clipboard_write", "device_screenshot")) {
             val c = bound.classify(request(), descriptor(name, ToolOperationClass.EXTERNAL_ACTION))
             assertEquals(setOf(OperationEffect.DEVICE_SYSTEM_MUTATION), c.footprint.undeterminedEffects)
             assertTrue(c.footprint.effects.isEmpty())
@@ -538,14 +544,14 @@ class SessionToolEffectClassifierTest {
         val result =
             classifier.classify(
                 request("""{"originalCallId":"original","output":"scope:foreign:x"}"""),
-                descriptor("code.linux.job.collect", ToolOperationClass.LOCAL_MUTATION),
+                descriptor("code_linux_job_collect", ToolOperationClass.LOCAL_MUTATION),
             )
         assertEquals(setOf(OperationEffect.FILE_MUTATION_WORKSPACE), result.footprint.effects)
         assertTrue(result.footprint.undeterminedEffects.isEmpty())
     }
 
     @Test fun detachedCollectionWithoutHostResolverCannotClaimNoEffects() {
-        val result = bound.classify(request(), descriptor("code.linux.job.collect", ToolOperationClass.LOCAL_MUTATION))
+        val result = bound.classify(request(), descriptor("code_linux_job_collect", ToolOperationClass.LOCAL_MUTATION))
         assertEquals(
             setOf(OperationEffect.FILE_MUTATION_WORKSPACE, OperationEffect.FILE_MUTATION_EXTERNAL),
             result.footprint.undeterminedEffects,
@@ -555,7 +561,7 @@ class SessionToolEffectClassifierTest {
             noOutput
                 .classify(
                     request("""{"originalCallId":"original"}"""),
-                    descriptor("code.linux.job.collect", ToolOperationClass.LOCAL_MUTATION),
+                    descriptor("code_linux_job_collect", ToolOperationClass.LOCAL_MUTATION),
                 ).footprint.all
                 .isEmpty(),
         )

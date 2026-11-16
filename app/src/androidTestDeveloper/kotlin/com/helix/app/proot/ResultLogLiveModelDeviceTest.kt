@@ -61,7 +61,7 @@ class ResultLogLiveModelDeviceTest {
                     ToolFailureContent.encode(failed),
                 )
                 val messages = admittedMessages(container, failed)
-                val discovered = step(container, messages, "tools.search")
+                val discovered = step(container, messages, "tools_search")
                 assertTrue("Discovery must return the real log reader", discovered.contains(ProotLogTool.NAME))
                 val read = step(container, messages, ProotLogTool.NAME)
                 assertTrue(read.contains("SYNTH_RUNTIME_FAULT_731"))

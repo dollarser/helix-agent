@@ -40,7 +40,7 @@ import kotlin.time.Duration.Companion.seconds
 /**
  * HXA-209 D8 device acceptance — the execution-effect BOUNDARY at the REAL execution entry. The
  * one [com.helix.app.tool.SessionToolEffectClassifier] classifies the developer-only
- * `code.linux.run` shell (COMMAND_EXECUTION is a determined effect; the six file/remote/device
+ * `code_linux_run` shell (COMMAND_EXECUTION is a determined effect; the six file/remote/device
  * effects are undetermined — a command runs with the app's full reach), and the ONE
  * [com.helix.core.policy.SessionPermissionResolver] refuses a shell write BEFORE the real backend
  * runs when the session config DENYs the effect. The boundary is PER-EFFECT, not a blanket
@@ -166,7 +166,7 @@ class ExecutionEffectBoundaryDeviceTest {
         assertEquals("the read-only tool must actually execute", 1, executions.get())
     }
 
-    /** `code.linux.run` takes exactly one of `argv` / `script`; this is a shell script. */
+    /** `code_linux_run` takes exactly one of `argv` / `script`; this is a shell script. */
     private fun shellArgs(script: String): String = buildJsonObject { put("script", script) }.toString()
 
     /**

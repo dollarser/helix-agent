@@ -4,7 +4,7 @@ package com.helix.core.policy
  * ADR-PERMISSIONS-001 §3 limited rm command rule (HXA-209, phase A slice).
  *
  * Detects an EXPLICIT `rm -rf <non-empty target>` submitted to the Agent Shell
- * execution entry (`code.linux.run`, exactly one of the `argv` / `script`
+ * execution entry (`code_linux_run`, exactly one of the `argv` / `script`
  * input forms). A match requires at least a precise one-time approval in every
  * session mode; it is never a permanent denial and never a read-only bypass.
  *

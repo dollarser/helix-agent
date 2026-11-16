@@ -13,10 +13,9 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
-import java.security.MessageDigest
 import java.util.UUID
 
-/** Gemini-shaped payload, not OpenAI wire. Every internal tool name has a deterministic reversible mapping. */
+/** Gemini-shaped payload, not OpenAI wire. Portable registered tool names stay unchanged. */
 internal class AntigravityRequest(
     private val input: ModelRequest,
     private val images: List<CliImageSnapshot>,
@@ -205,11 +204,8 @@ internal class AntigravityRequest(
 
     companion object {
         fun wireName(name: String): String =
-            "hx_" +
-                MessageDigest
-                    .getInstance("SHA-256")
-                    .digest(name.toByteArray(Charsets.UTF_8))
-                    .take(16)
-                    .joinToString("") { "%02x".format(it) }
+            com.helix.core.model
+                .ToolName(name)
+                .value
     }
 }

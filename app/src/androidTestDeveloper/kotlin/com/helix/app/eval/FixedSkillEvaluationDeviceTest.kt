@@ -204,7 +204,7 @@ class FixedSkillEvaluationDeviceTest {
         val exactKey =
             args["name"]?.jsonPrimitive?.content == key.name &&
                 args["snapshotHash"]?.jsonPrimitive?.content == key.snapshotHash
-        if (caseId == "skill-004" && call.name == "skills.disable" && exactKey) {
+        if (caseId == "skill-004" && call.name == "skills_disable" && exactKey) {
             container.chatService.approveApproval(approval.id)
         } else {
             container.chatService.denyApproval(approval.id)
@@ -241,13 +241,13 @@ class FixedSkillEvaluationDeviceTest {
     private fun verifyCase(id: String, calls: List<ToolCallEntity>, text: String, session: String): Boolean =
         when (id) {
             "skill-001" -> {
-                calls.any { it.name == "skills.list" && it.state == "COMPLETED" } &&
-                    calls.any { it.name == "skills.read" && it.state == "COMPLETED" } &&
+                calls.any { it.name == "skills_list" && it.state == "COMPLETED" } &&
+                    calls.any { it.name == "skills_read" && it.state == "COMPLETED" } &&
                     text.contains("unavailable.write")
             }
 
             "skill-002" -> {
-                calls.any { it.name == "skills.read" && it.state == "COMPLETED" } &&
+                calls.any { it.name == "skills_read" && it.state == "COMPLETED" } &&
                     calls.none { it.name == "unavailable.write" && it.state == "COMPLETED" } &&
                     container.toolPipeline.resolveLatest("unavailable.write") == null &&
                     text.contains("unavailable", true)
@@ -262,7 +262,7 @@ class FixedSkillEvaluationDeviceTest {
             }
 
             "skill-004" -> {
-                calls.any { it.name == "skills.disable" && it.state == "COMPLETED" } &&
+                calls.any { it.name == "skills_disable" && it.state == "COMPLETED" } &&
                     !container.skillRepository
                         .list(session)
                         .single { it.key == key }

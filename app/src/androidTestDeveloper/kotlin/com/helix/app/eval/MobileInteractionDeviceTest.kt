@@ -56,7 +56,7 @@ class MobileInteractionDeviceTest {
         fixture.await("accessibility connection") { center.serviceState() == AutomationServiceState.CONNECTED }
         fixture.launch()
         MobileInteractionSession(app).use { session ->
-            val device = session.output("ui.device")
+            val device = session.output("ui_device")
             assertEquals("accessibility", device.getValue("clickMatchBackend").jsonPrimitive.content)
             val report = exercisePatterns(session)
             save("accessibility", report.put("timings", session.timings))
@@ -67,9 +67,9 @@ class MobileInteractionDeviceTest {
     private fun frame(session: MobileInteractionSession): String {
         val deadline = SystemClock.elapsedRealtime() + 3_000
         do {
-            val device = session.output("ui.device")
+            val device = session.output("ui_device")
             val token = device.getValue("frame").jsonPrimitive.content
-            val capture = session.output("ui.screenshot", fixture.frame(token))
+            val capture = session.output("ui_screenshot", fixture.frame(token))
             val status = capture.getValue("status").jsonPrimitive.content
             if (status in setOf("TARGET_CHANGED", "STALE_TOKEN")) {
                 // IME/window animations can finish after the observation; reacquire reads only, never replay input.
@@ -92,7 +92,7 @@ class MobileInteractionDeviceTest {
         pattern: String,
     ) {
         val token = frame(session)
-        val result = session.output("ui.gesture", fixture.json("""{"frame":"$token","pattern":$pattern}"""))
+        val result = session.output("ui_gesture", fixture.json("""{"frame":"$token","pattern":$pattern}"""))
         assertEquals("DISPATCHED", result.getValue("status").jsonPrimitive.content)
     }
 
@@ -124,14 +124,14 @@ class MobileInteractionDeviceTest {
         gesture(session, """{"kind":"tap","center":${fixture.point("bx", "by")}}""")
         val expected =
             session.output(
-                "ui.wait",
+                "ui_wait",
                 fixture.json("""{"text":"Applied fixture","condition":"present","timeoutMillis":3000}"""),
             )
         assertEquals("FOUND", expected.getValue("waitStatus").jsonPrimitive.content)
         assertEquals(1.0, fixture.number("semanticClicks"), 0.0)
         val timeout =
             session.output(
-                "ui.wait",
+                "ui_wait",
                 fixture.json("""{"text":"Never appears","condition":"present","timeoutMillis":300}"""),
             )
         assertEquals("TIMED_OUT", timeout.getValue("waitStatus").jsonPrimitive.content)
@@ -161,20 +161,20 @@ class MobileInteractionDeviceTest {
         val taps = fixture.number("taps")
         gesture(session, """{"kind":"tap","center":${fixture.point("cx", "cy")}}""")
         assertEquals(taps + 1, fixture.number("taps"), 0.0)
-        session.output("ui.system", fixture.json("""{"action":"back"}"""))
+        session.output("ui_system", fixture.json("""{"action":"back"}"""))
         fixture.await("IME hidden") { fixture.number("ime") == 0.0 }
         val old = frame(session)
-        session.output("ui.system", fixture.json("""{"action":"notifications"}"""))
+        session.output("ui_system", fixture.json("""{"action":"notifications"}"""))
         // Global actions deliberately retire the prior coordinate lease before the target is inspected.
         assertRejected(session, old, setOf("NO_ACTIVE_SESSION"))
         awaitPackage(session, "com.android.systemui")
-        session.output("ui.system", fixture.json("""{"action":"back"}"""))
+        session.output("ui_system", fixture.json("""{"action":"back"}"""))
         awaitPackage(session, fixture.packageName)
         val beforeDialog = frame(session)
         fixture.change("dialog")
         SystemClock.sleep(500)
         assertRejected(session, beforeDialog)
-        session.output("ui.system", fixture.json("""{"action":"back"}"""))
+        session.output("ui_system", fixture.json("""{"action":"back"}"""))
         awaitPackage(session, fixture.packageName)
         val beforeRotation = frame(session)
         fixture.change("rotate")
@@ -190,7 +190,7 @@ class MobileInteractionDeviceTest {
         name: String,
     ) {
         fixture.await("foreground package $name") {
-            session.output("ui.device")["packageName"]?.jsonPrimitive?.content == name
+            session.output("ui_device")["packageName"]?.jsonPrimitive?.content == name
         }
     }
 
@@ -202,7 +202,7 @@ class MobileInteractionDeviceTest {
         val before = fixture.number("taps")
         val result =
             session.dispatch(
-                "ui.gesture",
+                "ui_gesture",
                 fixture.json("""{"frame":"$token","pattern":{"kind":"tap","center":${fixture.point("cx", "cy")}}}"""),
             )
         assertTrue(
@@ -224,7 +224,7 @@ class MobileInteractionDeviceTest {
         val tick = fixture.number("ticks")
         fixture.await("unrelated comment update") { fixture.number("ticks") > tick }
         SystemClock.sleep(100)
-        val result = session.output("ui.click", fixture.json("""{"token":"$retained"}"""))
+        val result = session.output("ui_click", fixture.json("""{"token":"$retained"}"""))
         assertEquals("DISPATCHED", result.getValue("status").jsonPrimitive.content)
         fixture.await("semantic click effect") { fixture.number("semanticClicks") == 1.0 }
         val changed = semanticToken(session)
@@ -252,7 +252,7 @@ class MobileInteractionDeviceTest {
         val deadline = SystemClock.elapsedRealtime() + 3_000
         var last = ""
         do {
-            val result = session.output("ui.snapshot")
+            val result = session.output("ui_snapshot")
             last = result.toString()
             val node =
                 result["nodes"]
@@ -274,7 +274,7 @@ class MobileInteractionDeviceTest {
         session: MobileInteractionSession,
         token: String,
     ) {
-        val result = session.dispatch("ui.click", fixture.json("""{"token":"$token"}"""))
+        val result = session.dispatch("ui_click", fixture.json("""{"token":"$token"}"""))
         assertTrue("Expected stale semantic token: $result", result is ToolDispatchOutcome.ExecutionFailed)
         val failure = result as ToolDispatchOutcome.ExecutionFailed
         assertTrue(

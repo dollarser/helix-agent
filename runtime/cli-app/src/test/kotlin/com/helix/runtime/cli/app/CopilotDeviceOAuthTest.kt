@@ -121,7 +121,7 @@ class CopilotDeviceOAuthTest {
                 },
             )
         val started = controller.start()
-        val cancellation = CopilotLoginCancellation()
+        val cancellation = DeviceLoginCancellation()
         controller.finish(started, cancellation)
         assertEquals(listOf(5_000L, 10_000L), sleeps)
         val stored =
@@ -164,13 +164,13 @@ class CopilotDeviceOAuthTest {
                     {},
                 )
             assertThrows(IllegalStateException::class.java) {
-                controller.finish(controller.start(), CopilotLoginCancellation())
+                controller.finish(controller.start(), DeviceLoginCancellation())
             }
             assertFalse(CliSubscriptionCredentialVault(store).contains(CliSubscriptionProvider.COPILOT))
         }
 
         val store = MemoryStore()
-        val cancellation = CopilotLoginCancellation().also { it.cancel() }
+        val cancellation = DeviceLoginCancellation().also { it.cancel() }
         val controller =
             CopilotLoginController(
                 CliSubscriptionCredentialVault(store),
@@ -213,7 +213,7 @@ class CopilotDeviceOAuthTest {
         val vault = CliSubscriptionCredentialVault(store)
         val controller = CopilotLoginController(vault, transport, { 0 }, {})
 
-        controller.finish(controller.start(), CopilotLoginCancellation())
+        controller.finish(controller.start(), DeviceLoginCancellation())
 
         assertEquals(2, exchanges)
         assertTrue(vault.contains(CliSubscriptionProvider.COPILOT))
@@ -245,7 +245,7 @@ class CopilotDeviceOAuthTest {
         val controller = CopilotLoginController(vault, transport, { now }, { now += it })
 
         val started = controller.start()
-        controller.finish(started, CopilotLoginCancellation())
+        controller.finish(started, DeviceLoginCancellation())
 
         assertEquals(2, polls)
         assertEquals(1, exchanges)

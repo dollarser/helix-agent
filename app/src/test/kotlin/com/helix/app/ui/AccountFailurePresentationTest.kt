@@ -20,7 +20,12 @@ class AccountFailurePresentationTest {
         for (status in listOf(408, 504)) {
             assertEquals(R.string.account_error_timeout, accountFailureLabel(AccountRequestFailure(status)))
         }
-        assertEquals(R.string.account_error_request, accountFailureLabel(AccountRequestFailure(422)))
+        for (status in listOf(400, 409, 422)) {
+            assertEquals(R.string.account_error_request, accountFailureLabel(AccountRequestFailure(status)))
+        }
+        for (status in listOf(302, 404, 405, 415)) {
+            assertEquals(R.string.account_error_endpoint, accountFailureLabel(AccountRequestFailure(status)))
+        }
     }
 
     @Test fun labelsDoNotDependOnSensitiveMessages() {

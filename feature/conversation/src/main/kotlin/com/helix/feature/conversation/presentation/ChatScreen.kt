@@ -521,12 +521,15 @@ fun ChatScreen(
                 val past = screen.turns.firstOrNull { it.id == entry.key && it.id != screen.activeTurn?.id }
                 if (past?.state == TurnState.FAILED && past.errorLabel != null) {
                     item(key = "error-${entry.key}") {
-                        Text(
-                            past.errorLabel,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.testTag("chat-turn-error-${entry.key}"),
-                        )
+                        Column {
+                            Text(
+                                past.errorLabel,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.testTag("chat-turn-error-${entry.key}"),
+                            )
+                            CopyTextButton(past.errorLabel, "chat-copy-error-${entry.key}")
+                        }
                     }
                 }
                 // HXA-204 slice 2: the settled turn's recovery panel (the active turn's panel is
@@ -589,6 +592,7 @@ fun ChatScreen(
                             color = MaterialTheme.colorScheme.error,
                             modifier = Modifier.testTag("chat-turn-error"),
                         )
+                        CopyTextButton(turn.errorLabel, "chat-copy-error")
                         turn.budgetDetail?.let { Text(it, modifier = Modifier.testTag("chat-budget-detail")) }
                     }
                 }

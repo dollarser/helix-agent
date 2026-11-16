@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="cloud_speech_self_hosted_ws">自建语音（WebSocket）</string>
+    <string name="cloud_speech_self_hosted_hint">WebSocket 连接自建模型；OpenAI 云语音模型始终使用 HTTP。</string>
+    <string name="cloud_speech_asr_model">识别模型</string>
+    <string name="cloud_speech_tts_model">合成模型</string>
+    <string name="cloud_speech_route_http">HTTP 音频请求</string>
+    <string name="cloud_speech_route_ws">自建 WebSocket</string>
+    <string name="cloud_speech_api_services">使用已配置的 API Key 服务</string>
+    <string name="cloud_speech_providers_failed">无法读取 API 服务配置，请关闭后重新打开。</string>
+    <string name="speech_failure_permission">语音服务拒绝访问，请检查服务权限、账号限制或首次修改密码要求。</string>
+    <string name="speech_failure_invalid_request">语音请求参数无效，请检查所选模型及音频或文本设置；不会自动切换本地语音。</string>
+</resources>

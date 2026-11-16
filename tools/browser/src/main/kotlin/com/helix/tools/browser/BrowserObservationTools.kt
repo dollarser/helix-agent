@@ -7,6 +7,7 @@ import com.helix.core.model.ToolVersion
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
+import com.helix.tools.framework.ToolDiscoveryHints
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolOrigin
@@ -18,7 +19,7 @@ import java.time.Instant
 import kotlin.time.Duration.Companion.seconds
 
 object BrowserTabsTool {
-    const val NAME = "browser.tabs"
+    const val NAME = "browser_tabs"
     const val VERSION = 1
 
     fun descriptor(origin: ToolOrigin.PluginOrigin): ToolDescriptor =
@@ -29,7 +30,7 @@ object BrowserTabsTool {
                 "List up to 32 tabs opened by this session, or the exact trusted browser target scope. " +
                     "Other sessions and unscoped manual tabs are excluded. Does not load or activate pages. " +
                     "Metadata only: URL/title do not prove current page text, even when a URL embeds HTML. " +
-                    "Use browser.snapshot to read page content. Empty tabs are not actionable pages.",
+                    "Use browser_snapshot to read page content. Empty tabs are not actionable pages.",
             inputSchema = objectSchema(buildJsonObject {}, emptyList()),
             outputSchema = tabsOutputSchema(),
             operationClass = ToolOperationClass.READ_ONLY,
@@ -39,6 +40,7 @@ object BrowserTabsTool {
             idempotency = Idempotency.IDEMPOTENT,
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
             origin = origin,
+            discovery = ToolDiscoveryHints(category = "browser"),
         )
 
     private fun tabsOutputSchema(): JsonObject =
@@ -123,7 +125,7 @@ object BrowserTabsTool {
                 }
                 if (call.args.isNotEmpty()) {
                     return ToolExecutorResult.Failed(
-                        "browser.tabs takes no arguments",
+                        "browser_tabs takes no arguments",
                         sideEffectFree = true,
                     )
                 }
@@ -157,7 +159,7 @@ object BrowserTabsTool {
 }
 
 object BrowserWaitTool {
-    const val NAME = "browser.wait"
+    const val NAME = "browser_wait"
     const val VERSION = 1
 
     fun descriptor(origin: ToolOrigin.PluginOrigin): ToolDescriptor =
@@ -192,6 +194,7 @@ object BrowserWaitTool {
             idempotency = Idempotency.IDEMPOTENT,
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
             origin = origin,
+            discovery = ToolDiscoveryHints(category = "browser"),
         )
 
     private fun waitOutputSchema(): JsonObject =
@@ -244,13 +247,13 @@ object BrowserWaitTool {
                     }
                 val timeout = intArg(call.args, "timeoutMillis", 1, 10000)?.takeIf { it in 1..10000 }
                 if (call.args.keys != setOf("tabId", "query", "condition", "timeoutMillis")) {
-                    return ToolExecutorResult.Failed("invalid browser.wait arguments", sideEffectFree = true)
+                    return ToolExecutorResult.Failed("invalid browser_wait arguments", sideEffectFree = true)
                 }
                 if (tabId == null || query == null) {
-                    return ToolExecutorResult.Failed("invalid browser.wait arguments", sideEffectFree = true)
+                    return ToolExecutorResult.Failed("invalid browser_wait arguments", sideEffectFree = true)
                 }
                 if (condition == null || timeout == null) {
-                    return ToolExecutorResult.Failed("invalid browser.wait arguments", sideEffectFree = true)
+                    return ToolExecutorResult.Failed("invalid browser_wait arguments", sideEffectFree = true)
                 }
                 val out =
                     bridge.waitFor(

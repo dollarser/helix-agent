@@ -60,7 +60,15 @@ class ToolTimelineLayoutDeviceTest : ConversationDeviceTestFixture() {
 
     @Test fun longToolNameKeepsItsStateVisibleOnANarrowScreen() {
         render(
-            ToolTimelineRow("turn", "call", "mcp.documents.search_workspace_records", "{}", "执行失败", "No match", null),
+            ToolTimelineRow(
+                "turn",
+                "call",
+                "mcp_documents_search_workspace_records_fixture",
+                "{}",
+                "执行失败",
+                "No match",
+                null,
+            ),
         )
         val row = compose.onNodeWithTag("tool-row-call").getUnclippedBoundsInRoot()
         val status = compose.onNodeWithTag("tool-row-state-call", useUnmergedTree = true)
@@ -219,7 +227,7 @@ class ToolTimelineLayoutDeviceTest : ConversationDeviceTestFixture() {
             ToolTimelineRow(
                 "turn",
                 "call",
-                "mcp.documents.search_workspace_records",
+                "mcp_documents_search_workspace_records_fixture",
                 "{}",
                 "执行中",
                 null,

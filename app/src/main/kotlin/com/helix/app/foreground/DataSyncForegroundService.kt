@@ -27,7 +27,7 @@ import com.helix.app.R
  * the notification also carries an explicit stop action.
  *
  * This service holds no socket and does no model/tool work — the transport itself lives in the
- * provider / `http.fetch` ports; here it only keeps that user-initiated work visible and
+ * provider / `http_fetch` ports; here it only keeps that user-initiated work visible and
  * stoppable while the system is allowed to let it run.
  */
 class DataSyncForegroundService : Service() {

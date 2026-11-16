@@ -15,7 +15,7 @@ import java.util.UUID
 
 /** Closed native navigation requests, never arbitrary routes, credentials or settings changes. */
 internal object DevicePageTool {
-    const val NAME = "device.open_page"
+    const val NAME = "device_open_page"
     val routes =
         mapOf(
             "home" to "sessions",

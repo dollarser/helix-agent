@@ -64,7 +64,9 @@ import kotlinx.serialization.json.longOrNull
  * style is one early return per vendor contract violation.
  */
 @Suppress("TooManyFunctions", "ReturnCount")
-public class AnthropicStreamDecoder : StreamDecoder {
+public class AnthropicStreamDecoder(
+    private val decodeToolName: (String) -> String? = { it },
+) : StreamDecoder {
     private val reader = AnthropicSseReader()
 
     // Known, recorded trade-off (M3 closeout review): the vendor CHUNK parser is lenient
@@ -230,7 +232,8 @@ public class AnthropicStreamDecoder : StreamDecoder {
         out: MutableList<ModelEvent>,
     ) {
         val id = requireString(block, "id")
-        val name = requireString(block, "name")
+        val wireName = requireString(block, "name")
+        val name = decodeToolName(wireName) ?: throw ProtocolViolation("unknown tool name in this request")
         if (id.isEmpty() || name.isEmpty()) {
             throw ProtocolViolation("tool_use block with empty id/name")
         }

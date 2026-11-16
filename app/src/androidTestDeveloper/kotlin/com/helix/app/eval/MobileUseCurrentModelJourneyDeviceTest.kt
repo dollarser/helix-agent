@@ -236,8 +236,8 @@ class MobileUseCurrentModelJourneyDeviceTest {
                 .listBySession(session)
                 .last()
         val calls = c.storage.toolCalls.listByTurn(turn.id)
-        val observedAt = calls.indexOfLast { it.name == "ui.snapshot" && it.state == "COMPLETED" }
-        val inputs = setOf("ui.launch", "ui.set_text", "ui.scroll", "ui.click", "ui.gesture", "ui.click_match")
+        val observedAt = calls.indexOfLast { it.name == "ui_snapshot" && it.state == "COMPLETED" }
+        val inputs = setOf("ui_launch", "ui_set_text", "ui_scroll", "ui_click", "ui_gesture", "ui_click_match")
         val actedAt = calls.indexOfLast { it.name in inputs }
         check(observedAt > actedAt) { "Model did not observe after its final input" }
         // Read the model's actual live-Turn observation. A fabricated post-completion call has
@@ -271,12 +271,12 @@ class MobileUseCurrentModelJourneyDeviceTest {
             val args = JSONObject(call.argsJson)
             val permitted =
                 when (call.name) {
-                    "ui.set_text" -> args.optString("text") == "你好 Helix" && !args.optBoolean("submit", false)
+                    "ui_set_text" -> args.optString("text") == "你好 Helix" && !args.optBoolean("submit", false)
 
-                    "ui.launch" -> args.optString("packageName") == fixture
+                    "ui_launch" -> args.optString("packageName") == fixture
 
-                    "ui.click", "ui.click_match", "ui.scroll", "ui.gesture", "ui.snapshot", "ui.find", "ui.wait",
-                    "ui.device", "ui.screenshot", "ui.apps",
+                    "ui_click", "ui_click_match", "ui_scroll", "ui_gesture", "ui_snapshot", "ui_find", "ui_wait",
+                    "ui_device", "ui_screenshot", "ui_apps",
                     -> true
 
                     else -> false

@@ -59,7 +59,7 @@ internal class SnapshotDispatchFixture(
                     snapshots,
                     DocumentParser { _, _, _ -> DocumentResult(buildJsonObject { put("pageCount", 1) }) },
                     ToolImagePublication { _, _, _ -> error("Inspect must not publish an image") },
-                ).single { it.descriptor.name.value == "documents.inspect" }
+                ).single { it.descriptor.name.value == "documents_inspect" }
         registry.register(
             binding.descriptor,
             object : ToolExecutor {
@@ -108,7 +108,7 @@ internal class SnapshotDispatchFixture(
             toolCallId = id,
             turnId = "turn-$id",
             sessionId = session,
-            toolName = ToolName("documents.inspect"),
+            toolName = ToolName("documents_inspect"),
             toolVersion = ToolVersion(1),
             args = buildJsonObject { put("path", FileScopePath(scope, "report.pdf").toModelReference()) },
             mode = AgentMode.ACT,

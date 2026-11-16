@@ -87,34 +87,34 @@ class SessionTargetToolsTest {
 
     @Test fun unknownAndUnauthorizedAreIndistinguishableAndManageDoesNotRead() {
         target("private", read = false, manage = true)
-        val denied = execute("session.history", """{"targetSessionId":"private"}""") as ToolExecutorResult.Failed
-        val unknown = execute("session.history", """{"targetSessionId":"missing"}""") as ToolExecutorResult.Failed
+        val denied = execute("session_history", """{"targetSessionId":"private"}""") as ToolExecutorResult.Failed
+        val unknown = execute("session_history", """{"targetSessionId":"missing"}""") as ToolExecutorResult.Failed
         assertEquals(denied, unknown)
-        assertTrue(execute("session.status", """{"targetSessionId":"private"}""") is ToolExecutorResult.Completed)
+        assertTrue(execute("session_status", """{"targetSessionId":"private"}""") is ToolExecutorResult.Completed)
     }
 
     @Test fun delegationGrantIsDiscoverableWithoutOpeningHistory() {
         target("delegation", read = false, manage = false)
         grants["delegation"] = grants.getValue("delegation").copy(delegateTasks = true)
         val listed =
-            output(execute("session.list"))
+            output(execute("session_list"))
                 .getValue("entries")
                 .jsonArray
                 .single()
                 .jsonObject
         assertEquals("delegation", listed.getValue("sessionId").jsonPrimitive.content)
         assertEquals("true", listed.getValue("delegateTasks").jsonPrimitive.content)
-        val status = output(execute("session.status", """{"targetSessionId":"delegation"}"""))
+        val status = output(execute("session_status", """{"targetSessionId":"delegation"}"""))
         assertEquals("true", status.getValue("delegateTasks").jsonPrimitive.content)
         assertEquals("false", status.getValue("readHistory").jsonPrimitive.content)
-        assertTrue(execute("session.history", """{"targetSessionId":"delegation"}""") is ToolExecutorResult.Failed)
+        assertTrue(execute("session_history", """{"targetSessionId":"delegation"}""") is ToolExecutorResult.Failed)
     }
 
     @Test fun targetStatusDistinguishesActiveBlockedAndNoTurnWithoutHistoryAccess() {
         target("delegation", read = false, manage = false)
         grants["delegation"] = grants.getValue("delegation").copy(delegateTasks = true)
 
-        fun status() = output(execute("session.status", """{"targetSessionId":"delegation"}"""))
+        fun status() = output(execute("session_status", """{"targetSessionId":"delegation"}"""))
         assertEquals("NONE", status().getValue("executionStatus").jsonPrimitive.content)
         executions["delegation"] = SessionAccessExecution("target-turn", "WAITING_MODEL")
         assertEquals("ACTIVE", status().getValue("executionStatus").jsonPrimitive.content)
@@ -124,33 +124,33 @@ class SessionTargetToolsTest {
         assertEquals("null", status().getValue("activeTurnId").toString())
         executions["delegation"] = SessionAccessExecution("target-turn", "COMPLETED")
         assertEquals("NONE", status().getValue("executionStatus").jsonPrimitive.content)
-        assertTrue(execute("session.history", """{"targetSessionId":"delegation"}""") is ToolExecutorResult.Failed)
+        assertTrue(execute("session_history", """{"targetSessionId":"delegation"}""") is ToolExecutorResult.Failed)
     }
 
     @Test fun listFiltersBeforeDisclosureAndContinuationBindsMetadataAndScope() {
         repeat(23) { target("target%02d".format(it)) }
         history.sources["secret"] = SessionEntity("secret", "Never disclose", null, null, 1, null)
-        val first = output(execute("session.list"))
+        val first = output(execute("session_list"))
         assertEquals(20, first.getValue("entries").jsonArray.size)
         assertFalse(first.toString().contains("Never disclose"))
         val cursor = first.getValue("cursor").jsonPrimitive.content
-        assertEquals(3, output(execute("session.list", """{"cursor":"$cursor"}""")).getValue("entries").jsonArray.size)
+        assertEquals(3, output(execute("session_list", """{"cursor":"$cursor"}""")).getValue("entries").jsonArray.size)
         grants["target00"] = grants.getValue("target00").copy(revision = 2, readHistory = false)
-        assertTrue(execute("session.list", """{"cursor":"$cursor"}""") is ToolExecutorResult.Failed)
+        assertTrue(execute("session_list", """{"cursor":"$cursor"}""") is ToolExecutorResult.Failed)
     }
 
     @Test fun historyCursorBindsTargetQuerySnapshotAndGrantRevision() {
         target("a")
         target("b")
         repeat(25) { body("a", "a$it", it.toLong(), "needle $it") }
-        val first = output(execute("session.history", """{"targetSessionId":"a"}"""))
+        val first = output(execute("session_history", """{"targetSessionId":"a"}"""))
         val cursor = first.getValue("cursor").jsonPrimitive.content
         assertTrue(
-            execute("session.history", """{"targetSessionId":"b","cursor":"$cursor"}""") is ToolExecutorResult.Failed,
+            execute("session_history", """{"targetSessionId":"b","cursor":"$cursor"}""") is ToolExecutorResult.Failed,
         )
         assertTrue(
             execute(
-                "session.search",
+                "session_search",
                 """{"targetSessionId":"a","query":"needle","cursor":"$cursor"}""",
             ) is ToolExecutorResult.Failed,
         )
@@ -158,14 +158,14 @@ class SessionTargetToolsTest {
         assertEquals(
             5,
             output(
-                execute("session.history", """{"targetSessionId":"a","cursor":"$cursor"}"""),
+                execute("session_history", """{"targetSessionId":"a","cursor":"$cursor"}"""),
             ).getValue("entries").jsonArray.size,
         )
-        val search = output(execute("session.search", """{"targetSessionId":"a","query":"needle"}"""))
+        val search = output(execute("session_search", """{"targetSessionId":"a","query":"needle"}"""))
         val searchCursor = search.getValue("cursor").jsonPrimitive.content
         assertTrue(
             execute(
-                "session.search",
+                "session_search",
                 """{"targetSessionId":"a","query":"changed","cursor":"$searchCursor"}""",
             ) is ToolExecutorResult.Failed,
         )
@@ -173,12 +173,12 @@ class SessionTargetToolsTest {
         val originalRow = history.rows[rowIndex]
         history.rows[rowIndex] = originalRow.copy(contentRef = store.write("edited").toStorageString())
         assertTrue(
-            execute("session.history", """{"targetSessionId":"a","cursor":"$cursor"}""") is ToolExecutorResult.Failed,
+            execute("session_history", """{"targetSessionId":"a","cursor":"$cursor"}""") is ToolExecutorResult.Failed,
         )
         history.rows[rowIndex] = originalRow
         grants["a"] = grants.getValue("a").copy(revision = 2)
         assertTrue(
-            execute("session.history", """{"targetSessionId":"a","cursor":"$cursor"}""") is ToolExecutorResult.Failed,
+            execute("session_history", """{"targetSessionId":"a","cursor":"$cursor"}""") is ToolExecutorResult.Failed,
         )
     }
 
@@ -198,7 +198,7 @@ class SessionTargetToolsTest {
             }
         val result =
             execute(
-                "session.read",
+                "session_read",
                 """{"targetSessionId":"a","messageId":"message","contentHash":"${ref.sha256}","offset":0}""",
                 revoking,
             )
@@ -217,7 +217,7 @@ class SessionTargetToolsTest {
         assertEquals(
             ToolExecutorResult.Cancelled,
             execute(
-                "session.history",
+                "session_history",
                 """{"targetSessionId":"a"}""",
                 cancel = cancel,
             ),
@@ -226,7 +226,7 @@ class SessionTargetToolsTest {
         assertEquals(
             ToolExecutorResult.TimedOut,
             execute(
-                "session.history",
+                "session_history",
                 """{"targetSessionId":"a"}""",
                 deadline = Instant.EPOCH,
             ),

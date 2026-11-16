@@ -14,7 +14,7 @@ class ChatReplyPlugin(
     override val manifest: PluginManifest =
         context.assets.open(MANIFEST_ASSET).use { PluginManifestReader.parse(it.readBytes()) }
 
-    override val preferredTools = setOf("ui.snapshot", "ui.find", "ui.set_text", "ui.wait")
+    override val preferredTools = setOf("ui_snapshot", "ui_find", "ui_set_text", "ui_wait")
 
     override val skills =
         listOf(

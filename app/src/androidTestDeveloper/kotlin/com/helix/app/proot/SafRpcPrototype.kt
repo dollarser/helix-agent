@@ -3,8 +3,8 @@ package com.helix.app.proot
 import android.net.LocalServerSocket
 import android.net.LocalSocket
 import android.os.Process
-import com.helix.app.files.ManualFileBackend
 import com.helix.core.workspace.FileScopePath
+import com.helix.core.workspace.WorkspaceFileBackend
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -17,7 +17,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 /** Test-only proof of directory RPC. Not a production endpoint, filesystem mount or permission grant. */
 internal class SafRpcPrototype(
-    private val backend: ManualFileBackend,
+    private val backend: WorkspaceFileBackend,
     private val checkGrant: () -> Unit,
 ) : AutoCloseable {
     val name = "helix-saf-${UUID.randomUUID()}"

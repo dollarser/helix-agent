@@ -90,7 +90,7 @@ class TurnCoordinatorDeviceTest {
             failIds = true
             assertThrows(Exception::class.java) {
                 kotlinx.coroutines.runBlocking {
-                    coordinator.commitModelToolStep("""[{"id":"call","name":"time.now","arguments":"{}"}]""")
+                    coordinator.commitModelToolStep("""[{"id":"call","name":"time_now","arguments":"{}"}]""")
                 }
             }
             assertTrue(!coordinator.snapshot().modelCallClosed)
@@ -101,7 +101,7 @@ class TurnCoordinatorDeviceTest {
             )
             failIds = false
             kotlinx.coroutines.runBlocking {
-                coordinator.commitModelToolStep("""[{"id":"call","name":"time.now","arguments":"{}"}]""")
+                coordinator.commitModelToolStep("""[{"id":"call","name":"time_now","arguments":"{}"}]""")
             }
             assertTrue(coordinator.snapshot().modelCallClosed)
             assertEquals("COMPLETED", storage.modelCalls.resolve("rollback-model").state)
@@ -142,12 +142,12 @@ class TurnCoordinatorDeviceTest {
 
             val first = kotlinx.coroutines.runBlocking { coordinator.beginModelStream() }
             first.apply(ModelEvent.TextDelta("checking the time"))
-            first.apply(ModelEvent.ToolCallStarted(0, ToolCallId("tool-1"), "time.now"))
+            first.apply(ModelEvent.ToolCallStarted(0, ToolCallId("tool-1"), "time_now"))
             first.apply(ModelEvent.ToolArgumentsDelta(0, "{}"))
             first.apply(ModelEvent.ToolCallFinished(0))
             kotlinx.coroutines.runBlocking { coordinator.beginToolBatch(listOf("tool-1")) }
             kotlinx.coroutines.runBlocking {
-                coordinator.commitModelToolStep("""[{"id":"tool-1","name":"time.now","arguments":"{}"}]""")
+                coordinator.commitModelToolStep("""[{"id":"tool-1","name":"time_now","arguments":"{}"}]""")
             }
             coordinator.settleBatchCall("tool-1", sideEffectUnknown = false)
             kotlinx.coroutines.runBlocking {
@@ -224,7 +224,7 @@ class TurnCoordinatorDeviceTest {
                 )
 
             val stream = kotlinx.coroutines.runBlocking { coordinator.beginModelStream() }
-            stream.apply(ModelEvent.ToolCallStarted(0, ToolCallId("call-ok"), "time.now"))
+            stream.apply(ModelEvent.ToolCallStarted(0, ToolCallId("call-ok"), "time_now"))
             stream.apply(ModelEvent.ToolArgumentsDelta(0, "{}"))
             stream.apply(ModelEvent.ToolCallFinished(0))
             stream.apply(ModelEvent.ToolCallStarted(1, ToolCallId("call-unknown"), "files.write"))
@@ -232,7 +232,7 @@ class TurnCoordinatorDeviceTest {
             stream.apply(ModelEvent.ToolCallFinished(1))
             kotlinx.coroutines.runBlocking { coordinator.beginToolBatch(listOf("call-ok", "call-unknown")) }
             val toolCallsJson =
-                """[{"id":"call-ok","name":"time.now","arguments":"{}"},""" +
+                """[{"id":"call-ok","name":"time_now","arguments":"{}"},""" +
                     """{"id":"call-unknown","name":"files.write","arguments":"{}"}]"""
             kotlinx.coroutines.runBlocking { coordinator.commitModelToolStep(toolCallsJson) }
             seedSettledReviewBatch(storage)
@@ -320,7 +320,7 @@ class TurnCoordinatorDeviceTest {
             "tc-ok",
             "turn-review",
             "call-ok",
-            "time.now",
+            "time_now",
             "1",
             "{}",
             ToolCallState.COMPLETED.name,
@@ -344,7 +344,7 @@ class TurnCoordinatorDeviceTest {
     }
 
     private companion object {
-        const val TOOL_RESULT = """{"id":"tool-1","tool":"time.now","status":"SUCCEEDED","summary":"ok"}"""
+        const val TOOL_RESULT = """{"id":"tool-1","tool":"time_now","status":"SUCCEEDED","summary":"ok"}"""
     }
 }
 

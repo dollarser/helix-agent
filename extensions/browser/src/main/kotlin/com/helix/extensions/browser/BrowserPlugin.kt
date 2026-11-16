@@ -42,7 +42,7 @@ class BrowserPlugin(
             .bufferedReader()
             .use { it.readText() }
     override val dataOrigin = DataOrigin.BROWSER
-    override val preferredTools = setOf("browser.search", "browser.open", "browser.snapshot", "browser.find")
+    override val preferredTools = setOf("browser_search", "browser_open", "browser_snapshot", "browser_find")
     private val bindings =
         BrowserTools.bindings(
             bridge,

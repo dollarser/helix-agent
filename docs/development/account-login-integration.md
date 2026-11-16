@@ -2,21 +2,49 @@
 
 2026-10-21，Owner 要求将内置模型改为新账号登录，并参考国内主流平台的交互与界面。附件引用在读取工具中不可见；本机 Downloads 中同名 AccountAuth.java 已读，按其接口接入，没有将文件内容当作权限。没有复制测试账号或密码至本记录、代码或夹具；Owner随后明确授权的Git忽略本机测试配置另见本文验收补充。沿用同一 [Provider ADR](../adr/provider/001-models-and-connection.md)，不新增执行框架或修改主Agent/工具权限。
 
-最新结论：仅账号访问内置模型、官方账号语音双头及UI状态已完成。后续Owner提供WS契约，持续ASR/TTS也已完成两渠道各18项真实模拟器验收，同PCM HTTP/WS和繁忙1013通过，见[云端语音最新记录](cloud-speech-integration.md)。本文早期WS缺失记录只描述当时阶段；旧固定样本质量仍独立开放，不由新样本正常而关闭。
+最新契约以以下“当前部署”与“账号额度和诊断”两节为准。下文带日期的早期验收保留其当时范围，不作为本轮客户端或真实服务验收的替代证据。
+
+## 当前部署（2026-11-15）
+
+官方账号地址为 `https://accounts.hilex.me`，模型公网 base URL 为 `https://api.hilex.me/v1`，由 `OfficialServices` 统一派生。OpenAI 云模型不得通过本机免认证入口调用。账号请求使用 Bearer access token 和有效 `X-Client-ID`；自配 API Key 使用自身 Bearer Key，不借用账号管理令牌，不在客户端存放 Worker 内部密钥或上游 OpenAI 服务密钥。
+
+Owner 确认旧、新账号域使用通用令牌，持久记录不保存或判断签发域；有效会话不因换域强制重新登录。官方请求目标仅允许当前 accounts/api HTTPS 主机，WS 精确限定当前官方路径，不保留旧域回退或重定向。第三方 Provider 与自定义语音认证路径保持独立。
+
+完整发现使用 `GET /v1/models?output_modalities=all`，根据 `architecture.output_modalities` 与可选 `endpoints` 区分对话、识别及合成，语音模型不进入聊天选择器。发现仍取决于服务端模型目录权限，只有 ASR/TTS 权限的 Key 不能因为可直接调用语音就被认为能够发现目录。
+
+云端 `gpt-transcribe` 使用 HTTP `/v1/audio/transcriptions`，`gpt-realtime-2.1-mini` 使用 HTTP `/v1/audio/speech`；保留自建语音 `/ws/asr`、`/ws/tts`，但不能只改 model 名称便假设 WS 会转发至 OpenAI。具体音频约束与当前路由见[云端语音接入](cloud-speech-integration.md)。
+
+## 账号额度和诊断（2026-11-15）
+
+已登录账号详情提供按需展开的“额度与用量”。`AccountUsageClient` 只接受 `AccountSession`，通过其精确目标绑定的认证 wire 访问账号域名：
+
+- `/account/luna-usage`：`model/month/timezone` 和 `monthly_tokens/used_tokens/reserved_tokens/remaining_tokens`；月周期显示服务端 `YYYY-MM`。
+- `/account/audio-usage`：`day/timezone`，`asr`、`tts` 各有 `model/unit/limit/used/reserved/remaining/requests`。ASR 的 `milliseconds` 除以 60000 显示分钟；TTS 的 `characters` 原样显示，不混用秒或 UTF-16 长度。
+- `/account/usage`：展示 `today`、按 service 汇总的请求数量及最多 20 条服务/状态记录。只映射展示白名单，不把原始 JSON、账号标识、IP 或设备标识放进 UI。
+
+两类额度响应的可选 `resets_at` 解析为 `Instant`，界面按各自服务端 `timezone` 显示下次重置时间；ASR/TTS 使用音频响应顶层的同一重置时刻。缺失或非法值不推算、不用设备时区代替。
+
+额度上限和剩余值均由服务端返回；不写死默认配额，不用 `limit-used-reserved` 重算余额。已计入包含预留/待核对量，不能再次扣除。日/月周期以服务端 `Asia/Shanghai` 为准，不使用客户端本地日期重算。仅配置 API Key 的 Provider 不调用这些账号接口、不伪造余额。额度读取绑定当前登录代际，切换/退出后的旧响应不能进入新账号；响应大小和总耗时有界。
+
+账号错误先展示已解析的服务端 `detail`，无有效说明时用本地化分类；不展示异常堆栈或任意响应全文。保留 `X-Request-ID` 并提供复制入口。429 不无限重试，展示并遵守 `Retry-After`；401 只进行一次正规的刷新流程，403 保留服务端权限、封禁或首次改密提示。网络中断不无条件重交同份文本/音频，旋转刷新结果未知仍要求重新登录，不把请求诊断 ID 当作幂等保证。
+
+请求诊断使用应用版本、随机安装实例 ID、应用 User-Agent 和每次逻辑请求随机 ID；安装 ID 不使用硬件序列号、MAC 或邮箱，也不参与认证。诊断信息不携带凭据，不把凭据或诊断字段塞进 WS URL 查询。常规日志不写识别结果、待合成文本或原始音频。
+
+本日独立真实服务探测已获得三项额度接口 HTTP 200，验证上述字段和单位；登录、目录、合成音频 HTTP TTS/ASR、退出也取得成功响应。只保留脱敏结构和状态，不保留身份/凭据或真实用量。该探测证明服务器契约，不等于 Android 额度 UI、所有模型或发布候选全部通过。本轮客户端集成测试状态另随最终验收记录，不沿用下文历史通过数。
 
 ## 已采用的契约与入口
 
 - 设置、对话选模中的“Helix账号”均打开同一现有底部面板。登录使用邮箱/密码；注册为独立模式，确认密码后显式提交，注册成功不自动登录。
-- `https://accounts.sunlingzhang.com/auth/login`：JSON `username/password`；`/auth/register` 为 `email/password`；`/auth/refresh` 和 `/auth/logout` 为 `refresh_token`。
+- `https://accounts.hilex.me/auth/login`：JSON `username/password`；`/auth/register` 为 `email/password`；`/auth/refresh` 和 `/auth/logout` 为 `refresh_token`。
 - 响应读取 `access_token/refresh_token/expires_in/refresh_expires_in`。密码不保存；令牌组合为一条记录，经现有 Android Keystore AES-GCM SecretStore 原子保存，避免独立access/refresh写入撕裂。
-- 内置模型仍是固定模型目录和生成地址，经 AccountSession 注入 `Authorization: Bearer …` 与示例 User-Agent；同时发送固定公开 `X-Client-Id` 标识客户端，不复用自配Provider Key；单独ClientID及内置Key直调均废弃。None连接元数据表示无自配Key alias，不表示免登录。
+- 内置模型仍是固定模型目录和生成地址，经 AccountSession 注入 `Authorization: Bearer …` 与应用版本 User-Agent；同时发送固定公开 `X-Client-Id` 标识客户端，不复用自配Provider Key；单独ClientID及内置Key直调均废弃。None连接元数据表示无自配Key alias，不表示免登录。
 - 到期前30秒单飞刷新；401最多在响应正文前刷新并重发一次，已经开始的流不重放。刷新失败或结果不确定清除本机会话，需重新登录，不重试旋转请求。退出在远端请求前清除本机访问权，即使远端失败也不恢复；新账号、退出后的迟到正文不能进入新会话。
 - 固定白名单HTTPS目标，无重定向、隐式重试、明文/未知域令牌传输或调用方认证头覆盖。自配模型保持原凭据路径。账号变化后的目录以不同会话身份读取，旧目录和迟到缓存写入不能冒充当前账号。
 - 语音设置的可选“使用Helix账号登录”只接受官方HTTPS域名；已有3/4行公开ID设置不再解析或复用；需重新显式配置。新记录使用account-v1标记。内网/自配无鉴权HTTP仍可显式使用，Bearer不发送到Mac loopback或10.0.2.2。
 
 ## UI与交互
 
-当前官方部署基址统一于 `OfficialServices`：账号为 `https://accounts.sunlingzhang.com`，推理为 `https://api.sunlingzhang.com/v1`，语音 WS 为 `wss://api.sunlingzhang.com`。只有 accounts/api 两个 HTTPS 主机可接受账号令牌；WS 精确限定 `/ws/asr`、`/ws/tts`。官方语音地址由模式派生，设置不再提供独立地址编辑框；自定义 HTTP/HTTPS 地址与其无账号认证路径保留。此次不做旧语音域回退或重定向。详见[当前网关契约](cloud-speech-integration.md#当前统一网关owner-契约2026-10-28)。
+当前官方部署基址统一于 `OfficialServices`：账号为 `https://accounts.hilex.me`，推理为 `https://api.hilex.me/v1`，语音 WS 为 `wss://api.hilex.me`。只有 accounts/api 两个 HTTPS 主机可接受账号令牌；WS 精确限定 `/ws/asr`、`/ws/tts`。官方语音地址由模式派生，设置不再提供独立地址编辑框；自定义 HTTP/HTTPS 地址与其无账号认证路径保留。此次不做旧语音域回退或重定向。详见[当前网关契约](cloud-speech-integration.md#当前统一网关owner-契约2026-10-28)。
 
 实际查看[阿里云官方登录页](https://account.aliyun.com/login/login.htm)与[腾讯云官方邮箱登录](https://cloud.tencent.com/login)，参考其账密表单层级、突出主按钮、密码显隐及独立注册入口，使用Helix自有主题和图标。手机布局为欢迎标题、邮箱与密码、52dp圆角主按钮、注册切换和登录状态。提供邮箱格式反馈、Next/Done键盘行为、重复密码确认、请求中禁用重复提交/模式切换、退出确认和安全错误提示；密码状态不使用rememberSaveable，关闭表单即释放引用。未提供实际服务契约的短信、微信、QQ、找回密码不展示；没有伪造协议链接、默认勾选或无效按钮。
 
@@ -79,7 +107,7 @@ Advanced使用5574端口，APK路径中consumer替换developer，runner包为com
 | app/HelixApplication.kt、DefaultAppContainer.kt | 同一应用账号所有权、Provider与目录身份注入 |
 | app/provider/ProviderFactory.kt、BuiltInModelCatalog.kt、BuiltInModelDiscovery.kt、ProviderTestStatusStore.kt | 账号注入、缓存身份与原身份发布 |
 | app/ui/AccountSettings.kt、AccountLoginForm.kt、SettingsScreen.kt、ComposerModelMenu.kt | 服务意图、登录/注册表单和现有入口 |
-| app/voice/SpeechSettingsStore.kt、HttpSpeech.kt，app/ui/CloudSpeechSettings.kt | 官方语音可选账号模式及旧标识配置迁移 |
+| app/voice/SpeechSettingsStore.kt、HttpSpeech.kt，app/ui/CloudSpeechSettings.kt | 当前账号语音设置、官方地址派生及自定义 HTTP 模式 |
 | 三套strings.xml | 账号、登录错误及语音模式文案 |
 | app/src/test/.../account/、provider/BuiltInModel*Test.kt、voice/HttpSpeechTest.kt | mock会话、身份、socket和配置回归 |
 | app/src/androidTest/.../ui/AccountLoginFormDeviceTest.kt、voice/CloudSpeechDeviceTest.kt | 合成表单检查及旧真实服务profile明确拒绝 |
@@ -193,3 +221,42 @@ Owner 在实际安装后指出与已选 HTML 原型的布局、字体、圆角�
 共享账号 HTTP 与语音授权适配保留安全状态码给原有错误映射，丢弃错误响应正文。刷新结果不确定时仍清除可能已轮换的凭据并要求新的显式登录，不重放刷新或模型生成；错误分类改善不改变身份、权限和取消边界。模拟不可用与恢复使用合成 Wire/内存账号，不停止真实服务。最终验证结果补记于本段。
 
 最终验证：`./scripts/check-all.sh --debug` 退出 0；两渠道 App JVM 1471/1633 项零失败，各保留原有 5 项跳过。新增分类测试覆盖 530/5xx、401/403、429、408/504、连接失败及非网络本地异常；共享刷新/语音回归验证安全分类、无错误正文、未发送模型/打开 socket 与显式恢复。已有刷新结果未知不得复用 token 的测试保留并通过。独立 API36 ARM64 定点 UI 三项全部通过，包含模拟 530 后准确提示、用户显式重试恢复及草稿/查询不丢、不自动发送。首次 UI 断言错误使用 Application 中文资源对比 Compose 英文页面，修正为当前 Compose 资源精确断言后复验，不放宽文案匹配。生产门禁后仅此测试资源取值变更，另经 Spotless/Detekt/AndroidTest 打包通过；未进行 Release/R8 或真机验收。证据位于 `build/memory-log-experiment-2026-10-25/`；所有临时实例已关闭，未关闭实际服务，未推送或发布。
+
+## hilex.me 切换验收（2026-11-15）
+
+初次域名切换执行 `./scripts/check-all.sh --debug` 及 `:app:assembleDeveloperDebugAndroidTest --offline --max-workers=2` 成功。源码门禁 423 项通过；两渠道 App JVM 测试分别 1819、2020 项，零失败/错误，各 5 项既有或未提供真实 profile 的跳过；当时包含官方路径、旧请求目标拒绝、账号签发域隔离、连接拒绝、HTTP 错误与 WebSocket 超时/失败分类。Owner 随后明确令牌通用，签发域隔离已撤销，当前契约见本文开头及后续验收；该初次记录不作为新契约的复测证据。格式、detekt、Debug lint、双渠道 APK/AndroidTest 源码编译、国际化与制品边界检查均通过。初轮新增代码的 Compose smart-cast、静态复杂度和账号 3xx 分类问题均已修正并重跑，没有降低断言或门禁。
+
+API36 日常模拟器 `Helix_API_36` 的 Developer 包已保数据覆盖更新，安装字节与最终成功候选一致。外部一次性 SQLite 事务只更新官方内置 Provider 的 endpoint；第三方 Provider、会话及历史 model_calls 行逐项摘要前后相同，数据库完整性为 ok。没有 App 兼容迁移、卸载、清数据、真机安装或提交推送。模拟器保留用户语言设置，6 项 instrumentation 通过：账号表单 4 项；生产 ASR/TTS 错误状态、部分文本不得冒充最终结果、无音频/离线兜底、主动重试恢复 2 项（分别覆盖 503、超时、鉴权和协议错误）。语音仅用注入的合成数据和静音端口，没有使用麦克风、扬声器或真实账号。
+
+首次外网探测被执行环境网络策略阻止，未发送请求。Owner 随后明确允许新域名网络访问后，通过正式授权路径进行了无凭据 HTTPS GET，未跟随重定向且 TLS 校验成功：账号根路径 200、`/auth/login` 与 `/openapi.json` 401；API `/healthz` 200、`/v1/models` 401；语音文件路径的 GET 及 API `/openapi.json` 404。健康 JSON 为 `ready=true`、`service=inference-gateway`，声明 `access_token + X-Client-ID`，与客户端现有认证模式吻合。
+
+这些结果只证明域名/HTTPS 和网关可达，不能把 GET 404 当作 POST 路径不存在，也不能把 401 或网关 ready 当作登录、LLM、ASR、TTS 引擎验通。此次没有发送账号、密码、令牌、聊天内容或用户音频，没有执行新域的登录/刷新、真实生成或语音质量验收；新域完整协议仍未由公开 OpenAPI 核实。后续可用既有有效会话验证实际请求，无需仅因换域重新登录。源码指纹、成功门禁、安装校验、原始 instrumentation 和无凭据探测记录保存在忽略的 `build/official-endpoints-20261115/`。
+
+### 当前契约整理与保数据复验（2026-11-15）
+
+按 Owner 明确更正，账号令牌不再记录或校验签发域。原有有效令牌无需仅因切换域名而重新登录或改写存储；刷新与退出使用新的账号服务。新增合成存储测试覆盖有效凭据直接复用、过期 access 的刷新、账号身份保持与退出，不读取真实账号秘密。官方请求仍只允许当前受信目标，不因令牌通用而向任意地址发送；自定义 Provider 和语音地址保持独立。
+
+最终源码的完整 `scripts/check-all.sh --debug` 及 App/Browser 测试 APK 打包通过。423 项主机脚本通过；Consumer/Developer App JVM 分别报告 1821/2022 项，零失败/错误，各保留 5 项既有条件跳过。格式、detekt、Debug lint、双渠道构建、AndroidTest 源码编译、依赖锁及制品边界均通过。此次没有运行 Release/R8。
+
+日常 `Helix_API_36` 上保数据覆盖 Developer Debug，安装后 APK 字节与成功构建候选一致；7 项 App 与 12 项浏览器 instrumentation 全部通过。只读语音配置检查确认该实例仍是 automatic 选择，登录状态下派生 ASR `wss://api.hilex.me/ws/asr`、TTS `wss://api.hilex.me/ws/tts`，没有 `/v1/ws` 或旧域名回退。该检查不读取真实账号或证明其当前登录状态。安装及测试前后的第三方 Provider、会话、历史调用、工具可用性和语音设置摘要一致，数据库完整性为 ok；官方 Provider 已是 `https://api.hilex.me:443/v1`，本次无需再改数据库。其余 App 用例覆盖合成语音失败、插件名称 UI 和真实 Room 夹具中的当前插件来源/修订契约。中英文截图仅是合成 UI 展示复核，不冒充真实模型自然发现验收。
+
+证据在忽略的 `build/compatibility-audit-20261115/`，最终主机日志为 `accepted-debug-gate-r2.log`，设备结果和安装身份为 `app-device.xml`、`browser-device.xml`、`daily-receipt.json`。初轮编译与静态问题已修正并重跑，失败日志保留。本轮未卸载、清空用户数据、操作真机、提交、推送或发布；新域真实登录/生成/语音服务仍未进行带凭据端到端验收。
+
+当前内置服务默认模型为 `gpt-6-luna`，不再用目录已不返回的 Qwen 作为新会话默认。服务稳定 ID 不变，已有会话/草稿的显式模型选择不自动替换。Luna 普通文本调用已有主机实测；当前客户端将关闭推理显式编码为 `none` 并使用 Chat Completions，有推理请求预先选用 Responses，不因失败跨协议重试。早期 tools 400 是历史观察，后续两轮真实探针的 Chat `none` 非流/流与 Responses `medium` 流均返回 502 / `unsupported_country_region_territory`，尚未到工具调用或回填，不应再将其描述为未实现路由或已确定的参数缺陷。脱敏状态与请求编号在忽略的 `build/luna-routing-20261115/real-probe.json`、`real-probe-retry.json`；未改变网络出口或绕过地区限制。
+
+
+### 2026-11-15 当前候选真实账号与额度复验
+
+Owner 明确批准本次将测试账号凭据发送至 `accounts.hilex.me`，并要求登录后不要退出。日常 `Helix_API_36` 已通过正式 `AccountSession.login` 登录并保留登录态；未清除应用数据。临时本地凭据交接和 ADB reverse 已移除，证据不包含密码或令牌。首次尝试因测试输入解析错误未登录，修正后成功，旧失败没有覆盖。
+
+现有登录态下的生产额度读取/解析通过，账户界面也实际显示 Luna、ASR、TTS 对应单位及重置时间/时区。界面证据只保存字段存在性，不导出账号或额度值。真实 Android ASR/TTS 均返回 HTTP 502，播放/识别/真实取消未通过，不能沿用先前主机成功结论；请求编号及边界见[语音当前复验](cloud-speech-integration.md#2026-11-15-当前候选-android-真实服务复验)。安装字节、登录收据及安全阶段结果保存在 ignored `build/cloud-readiness-20261115/`。
+
+普通 Luna 另经真实 Android 界面单次提交纯合成提示，界面发送与 Activity 重建已执行，但唯一 Turn 最终 FAILED，未获得要求的回答。6 条持久 ModelCall 记录的公开身份均为当前 `gpt-6-luna`；这不等于 6 次已证明的网络请求。该轮未留存具体 errorCode、HTTP 状态或 request ID，原因仍未知，不能推断为地区限制；未重发提示。此前零 Turn 的失败来自新测试启动同步及重复标题选择器，修正后重新验收，旧记录保留。脱敏结论见 ignored `build/cloud-readiness-20261115/live-luna-r8/summary.json`，不把失败算作普通对话通过。
+
+同模型文件定位新批次的生产请求进一步得到 HTTP 422：服务拒绝含点号的 function.name。精确持久诊断 request ID 为 `2de1a929ba13ddd9e0844f72cf988b2e33baaecb1b813ab3`；这是本次已确认的 wire 工具名兼容缺陷，不能归为地区限制。修复范围及新候选记录见[当前工具名协议修复](status.md#2026-11-15-真实工具名协议缺陷与新候选)。
+
+### 工具名修复后新候选真实复验（2026-11-15）
+
+新普通 Developer App/test 的包 ID 和 SHA 均与冻结制品一致，保数据覆盖后无需重登即可读取真实额度，最终界面仍为已登录。普通 Luna 仅一次 UI 提交，实际模型 `gpt-6-luna`，最终 FAILED/SERVER_ERROR；6 条 HTTP 502 诊断中前 5 条为生产自动恢复，末条恢复耗尽，未人工重发。末条 request ID 为 `7d4110c065529bf0c462b71f0008e876991a50830cc30c4e`；该普通请求没有独立证明地区原因，不沿用历史未知错误作解释。详见 ignored `build/cloud-readiness-20261115/live-wirefix/summary.json`。
+
+同候选单次真实文件任务的 function.name 已全部合法，不再出现 422；该任务 6 条精确持久诊断明确为地区拒绝，尚无工具执行。没有改网络出口、切换模型或放宽权限。相关 request ID 和完整脱敏诊断在 ignored `build/real-task-live-wirefix-20261115-192002/model-failure-diagnostics.json`，未把服务拒绝算作模型质量分数。ASR/TTS 本轮 502 保留原证据，未为取得成功而重复请求。

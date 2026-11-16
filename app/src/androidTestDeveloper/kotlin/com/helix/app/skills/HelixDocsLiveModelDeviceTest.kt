@@ -83,10 +83,10 @@ class HelixDocsLiveModelDeviceTest {
                     "model must use the catalog-discovered built-in guide; calls=${calls.map { it.name }}",
                     calls.any {
                         it.name ==
-                            "skills.read"
+                            "skills_read"
                     },
                 )
-                val resourceCalls = calls.filter { it.name == "skills.read_resource" }
+                val resourceCalls = calls.filter { it.name == "skills_read_resource" }
                 assertTrue("model must read the guide manifest and chapters", resourceCalls.size >= 3)
                 val paths =
                     resourceCalls.mapNotNull { call ->

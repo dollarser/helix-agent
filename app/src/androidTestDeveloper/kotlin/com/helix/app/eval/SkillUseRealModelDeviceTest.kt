@@ -134,12 +134,12 @@ class SkillUseRealModelDeviceTest {
         evidence
             .put("turnState", turn.state)
             .put("toolCalls", calls.size)
-            .put("referenceReads", calls.count { it.name == "skills.read_resource" && it.state == "COMPLETED" })
+            .put("referenceReads", calls.count { it.name == "skills_read_resource" && it.state == "COMPLETED" })
             .put("failedTools", calls.count { it.state == "FAILED" })
             .put("answer", answer)
         check(turn.state == "COMPLETED" && probe.consumed)
-        check(calls.any { it.name == "skills.read_resource" && it.state == "COMPLETED" })
-        val mutations = setOf("skills.install", "skills.enable", "skills.run", "write", "edit", "bash")
+        check(calls.any { it.name == "skills_read_resource" && it.state == "COMPLETED" })
+        val mutations = setOf("skills_install", "skills_enable", "skills_run", "write", "edit", "bash")
         check(calls.none { it.name in mutations })
         check("脚本" in answer && ("不会" in answer || "不自动" in answer))
     }

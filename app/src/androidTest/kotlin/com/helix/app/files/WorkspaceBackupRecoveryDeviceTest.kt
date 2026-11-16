@@ -7,6 +7,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.core.workspace.FileScopePath
 import com.helix.core.workspace.ScopeRootResolver
 import com.helix.core.workspace.WorkspaceArtifactStore
+import com.helix.core.workspace.WorkspaceFileBackend
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -27,7 +28,7 @@ class WorkspaceBackupRecoveryDeviceTest {
         val roots = ScopeRootResolver { root.toPath() }
         val original = NioManualFileBackend("fixture", roots, false) {}
         val backend =
-            object : ManualFileBackend by original {
+            object : WorkspaceFileBackend by original {
                 override fun delete(path: String) {
                     if (phase == "setup-prepared") die(context, fixture, phase)
                     original.delete(path)

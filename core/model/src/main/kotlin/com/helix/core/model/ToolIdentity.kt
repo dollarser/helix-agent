@@ -1,48 +1,24 @@
 package com.helix.core.model
 
 /**
- * Stable tool name exposed to the model.
- *
- * Built-in tools use short names (`read`, `write`, `edit`, `bash`) or dotted names
- * (`files.list`, `browser.click`, `code.javascript.run`, `time.now`); MCP tools are forced to
- * `mcp.<server>.<tool>`. Names are fixed by the Tool Registry and can never be registered from
- * model output.
- *
- * Shape: 1..8 dot-separated segments, each 1..64 characters of `[A-Za-z0-9_-]` starting with a
- * letter or digit; total length at most 128 characters.
+ * Stable portable tool identity shared by registries and model protocols.
+ * Product tools use lowercase snake_case. External adapters construct source-qualified names
+ * before registration and retain the remote server name separately for dispatch.
  */
 @JvmInline
 value class ToolName(
     val value: String,
 ) {
     init {
-        require(value.length in 1..MAX_TOTAL_LENGTH) { "tool name must be 1..$MAX_TOTAL_LENGTH characters" }
-        val segments = value.split(SEPARATOR)
-        require(segments.size in 1..MAX_SEGMENTS) { "tool name must have 1..$MAX_SEGMENTS segments" }
-        segments.forEach { segment ->
-            require(segment.length in 1..MAX_SEGMENT_LENGTH) {
-                "tool name segment must be 1..$MAX_SEGMENT_LENGTH characters"
-            }
-            // Strict ASCII, the same convention as Identifier.isAllowedCharacter for the
-            // domain IDs (a Unicode-aware isLetterOrDigit would accept e.g. "café").
-            require(Identifier.isAsciiLetterOrDigit(segment.first())) {
-                "tool name segment must start with an ASCII letter or digit"
-            }
-            segment.forEach { c ->
-                require(c == '_' || c == '-' || Identifier.isAsciiLetterOrDigit(c)) {
-                    "tool name segment contains invalid character"
-                }
-            }
+        require(PORTABLE.matches(value)) {
+            "tool name must be 1..64 ASCII letters, digits, underscores or hyphens"
         }
     }
 
     override fun toString(): String = value
 
     private companion object {
-        const val SEPARATOR = "."
-        const val MAX_TOTAL_LENGTH = 128
-        const val MAX_SEGMENTS = 8
-        const val MAX_SEGMENT_LENGTH = 64
+        val PORTABLE = Regex("[A-Za-z0-9_-]{1,64}")
     }
 }
 

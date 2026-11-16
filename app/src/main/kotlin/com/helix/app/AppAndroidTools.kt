@@ -28,7 +28,7 @@ internal object AppAndroidTools {
             toolRegistry,
             AndroidSystemBridgeImpl(context),
         )
-        // HXA-065: the device.notifications_query / device.prepare_calendar_event / device.create_calendar_event tools.
+        // HXA-065: the device_notifications_query / device_prepare_calendar_event / device_create_calendar_event tools.
         // The production ports are Context-backed: NotificationsBridgeImpl reads the live snapshot
         // held by the (manifest-declared) NotificationListenerService and gates the whole query on the
         // user enabling "Notification access"; CalendarBridgeImpl holds in-memory drafts (prepare
@@ -63,7 +63,7 @@ internal object AppAndroidTools {
                 ) = reminders.cancelRevision(id, revision)
             },
         )
-        // HXA-066: the http.fetch tool — a bounded GET/HEAD over the raw-socket transport
+        // HXA-066: the http_fetch tool — a bounded GET/HEAD over the raw-socket transport
         // (HttpFetchBridgeImpl) that enforces the connection-time SSRF / URL-Policy: it resolves
         // every A/AAAA/IPv4-mapped candidate, connects only to the verified set, revalidates the
         // actual peer, keeps the original hostname for TLS Host/SNI/cert, and re-runs the whole

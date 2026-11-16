@@ -78,7 +78,7 @@ class ModelPickerPersistenceDeviceTest {
                 )
                 val before = f.storage.sessions.resolve("saved")
                 val controls = f.storage.sessionRunControls.forSession("saved")
-                f.wire.script(stalledResponse("data: {\"choices\":[{\"delta\":{\"content\":\"waiting\"}}]}\n\n"))
+                f.wire.script(stalledResponse("event: response.output_text.delta\ndata: {\"delta\":\"waiting\"}\n\n"))
                 f.chat.sendTestMessage("Isolated stalled fixture")
                 val running =
                     withTimeout(15_000) {
@@ -108,13 +108,13 @@ class ModelPickerPersistenceDeviceTest {
                         .modelId,
                 )
                 assertEquals(controls, f.storage.sessionRunControls.forSession("saved"))
+                val body = Json.parseToJsonElement(f.wire.lastRequestBody).jsonObject
                 assertEquals(
                     "low",
-                    Json
-                        .parseToJsonElement(f.wire.lastRequestBody)
-                        .jsonObject[
-                        "reasoning_effort",
-                    ]?.jsonPrimitive
+                    body["reasoning"]
+                        ?.jsonObject
+                        ?.get("effort")
+                        ?.jsonPrimitive
                         ?.content,
                 )
                 f.chat.stop(running.activeTurn!!.id)
@@ -156,7 +156,7 @@ class ModelPickerPersistenceDeviceTest {
                 f.chat.closeSession()
                 f.open()
                 assertEquals(ReasoningEffort.HIGH, f.chat.runControl.value.reasoning)
-                f.wire.script(sseResponse(textAnswerStream("Fixture response")))
+                f.wire.script(sseResponse(lunaTextResponseStream()))
                 f.chat.sendTestMessage("Fixture request, no external inference")
                 val terminal = withTimeout(15_000) { f.chat.screen.first { it.activeTurn?.state?.isTerminal == true } }
                 assertEquals(
@@ -166,7 +166,14 @@ class ModelPickerPersistenceDeviceTest {
                 )
                 val body = Json.parseToJsonElement(f.wire.lastRequestBody).jsonObject
                 assertEquals(BuiltInModel.MODEL_ID, body["model"]?.jsonPrimitive?.content)
-                assertEquals("xhigh", body["reasoning_effort"]?.jsonPrimitive?.content)
+                assertEquals(
+                    "high",
+                    body["reasoning"]
+                        ?.jsonObject
+                        ?.get("effort")
+                        ?.jsonPrimitive
+                        ?.content,
+                )
                 assertEquals(1, f.wire.callCount)
             }
         }
@@ -418,6 +425,16 @@ class ModelPickerPersistenceDeviceTest {
             }
         }
     }
+
+    private fun lunaTextResponseStream(): String =
+        listOf(
+            "response.output_item.added" to """{"output_index":0,"item":{"type":"message","id":"m1"}}""",
+            "response.output_text.delta" to """{"output_index":0,"delta":"Fixture response"}""",
+            "response.output_item.done" to
+                """{"output_index":0,"item":{"type":"message","id":"m1","status":"completed"}}""",
+            "response.completed" to
+                """{"response":{"status":"completed","usage":{"input_tokens":1,"output_tokens":1}}}""",
+        ).joinToString("") { (event, data) -> "event: $event\ndata: $data\n\n" }
 
     private class Fixture : AutoCloseable {
         private val context = ApplicationProvider.getApplicationContext<Context>()

@@ -107,7 +107,7 @@ internal class DurableToolLoopProgress(
                 } else {
                     ToolLoopProgress.WorkflowStep(
                         "${call.name}:${call.version}",
-                        descriptor.operationClass == ToolOperationClass.READ_ONLY || call.name == "ui.screenshot",
+                        descriptor.operationClass == ToolOperationClass.READ_ONLY || call.name == "ui_screenshot",
                     )
                 }
             }

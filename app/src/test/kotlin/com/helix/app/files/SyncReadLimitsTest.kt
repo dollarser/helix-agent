@@ -1,6 +1,8 @@
 package com.helix.app.files
 
 import com.helix.core.workspace.ScopeRootResolver
+import com.helix.core.workspace.WorkspaceFileBackend
+import com.helix.core.workspace.WorkspaceFileInfo
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
@@ -43,10 +45,10 @@ class SyncReadLimitsTest {
     private fun fixture(
         bytes: Int,
         closed: AtomicBoolean,
-    ): ManualFileBackend {
+    ): WorkspaceFileBackend {
         val nio = NioManualFileBackend("app", ScopeRootResolver { temp.root.toPath() }, false) {}
-        return object : ManualFileBackend by nio {
-            override fun stat(path: String) = ManualFileInfo(false, -1)
+        return object : WorkspaceFileBackend by nio {
+            override fun stat(path: String) = WorkspaceFileInfo(false, -1)
 
             override fun read(path: String) =
                 object : InputStream() {

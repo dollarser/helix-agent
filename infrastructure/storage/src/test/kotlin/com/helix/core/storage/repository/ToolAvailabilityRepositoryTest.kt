@@ -14,51 +14,54 @@ class ToolAvailabilityRepositoryTest {
     private val dao = FakeToolAvailabilityDao()
     private val repository = ToolAvailabilityRepository(dao)
 
-    @Test fun toolReplacementMovesDisabledChoicesWithoutAliasesAndIsIdempotent() {
-        repository.set("built-in", "old", ToolAvailabilityScope.GLOBAL, "", ToolAvailabilityState.DISABLED, 10)
-        repository.set("built-in", "new", ToolAvailabilityScope.GLOBAL, "", ToolAvailabilityState.ENABLED, 20)
-        repository.set("mcp:other", "old", ToolAvailabilityScope.GLOBAL, "", ToolAvailabilityState.ENABLED, 30)
-        val replacements = mapOf("old" to setOf("new", "split"))
-        repository.moveToolStates("built-in", replacements)
-        assertEquals(emptyList<ToolAvailabilityEntity>(), repository.byTool("built-in", "old"))
-        assertEquals("DISABLED", repository.byTool("built-in", "new").single().state)
-        assertEquals("DISABLED", repository.byTool("built-in", "split").single().state)
-        assertEquals("ENABLED", repository.byTool("mcp:other", "old").single().state)
-        val first = repository.byTool("built-in", "new")
-        repository.moveToolStates("built-in", replacements)
-        assertEquals(first, repository.byTool("built-in", "new"))
-    }
-
-    @Test fun sourceNormalizationPreservesDisabledScopesAndDoesNotResetRevisions() {
-        val old = "plugin:mobile-use:0.2.0:mobile-use"
-        val stable = "plugin:mobile-use:mobile-use"
-        repository.set(old, "ui.click", ToolAvailabilityScope.GLOBAL, "", ToolAvailabilityState.DISABLED, 10)
-        repository.set(stable, "ui.click", ToolAvailabilityScope.GLOBAL, "", ToolAvailabilityState.ENABLED, 20)
-        repository.set(old, "ui.click", ToolAvailabilityScope.SESSION, "session", ToolAvailabilityState.DISABLED, 15)
+    @Test fun currentNamesAndStableSourcesKeepScopesAndSourcesSeparate() {
+        val source = "plugin:mobile-use:mobile-use"
+        repository.set(source, "ui_click", ToolAvailabilityScope.GLOBAL, "", ToolAvailabilityState.DISABLED, 10)
+        repository.set(source, "ui_click", ToolAvailabilityScope.SESSION, "session", ToolAvailabilityState.ENABLED, 20)
         repository.set(
-            "plugin:other:other",
-            "ui.click",
-            ToolAvailabilityScope.GLOBAL,
-            "",
-            ToolAvailabilityState.ENABLED,
+            source,
+            "ui_click",
+            ToolAvailabilityScope.WORKSPACE,
+            "workspace",
+            ToolAvailabilityState.DISABLED,
             30,
         )
-        val normalize: (String) -> String = { if (it == old) stable else it }
-        assertEquals(2, repository.normalizeSourceRefs(normalize))
-        assertEquals(emptyList<ToolAvailabilityEntity>(), repository.byTool(old, "ui.click"))
-        val global = repository.byTool(stable, "ui.click").single { it.scopeKind == "GLOBAL" }
-        assertEquals(2L, global.revision)
-        assertEquals(10L, global.createdAtEpoch)
-        assertEquals(20L, global.updatedAtEpoch)
-        assertEquals(ToolAvailabilityState.DISABLED, repository.statesFor(stable, "ui.click", "session", null).global)
-        assertEquals(ToolAvailabilityState.DISABLED, repository.statesFor(stable, "ui.click", "session", null).session)
+        val states = repository.statesFor(source, "ui_click", "session", "workspace")
+        assertEquals(ToolAvailabilityState.DISABLED, states.global)
+        assertEquals(ToolAvailabilityState.ENABLED, states.session)
+        assertEquals(ToolAvailabilityState.DISABLED, states.workspace)
+        assertNull(repository.statesFor(source, "ui_click", "another-session", "another-workspace").session)
+        assertNull(repository.statesFor(source, "ui_click", "another-session", "another-workspace").workspace)
         assertEquals(
-            ToolAvailabilityState.ENABLED,
-            repository.statesFor("plugin:other:other", "ui.click", "session", null).global,
+            ToolAvailabilityStates(),
+            repository.statesFor("plugin:other:mobile-use", "ui_click", "session", null),
         )
-        val normalized = dao.all()
-        assertEquals(0, repository.normalizeSourceRefs(normalize))
-        assertEquals(normalized, dao.all())
+        repository.set(
+            "built-in",
+            "goal_create",
+            ToolAvailabilityScope.SESSION,
+            "session",
+            ToolAvailabilityState.DISABLED,
+            40,
+        )
+        assertEquals(
+            ToolAvailabilityState.DISABLED,
+            repository.statesFor("built-in", "goal_create", "session", null).session,
+        )
+        assertEquals(ToolAvailabilityStates(), repository.statesFor("mcp:other", "goal_create", "session", null))
+    }
+
+    @Test fun obsoleteKeysRemainDistinctAndAreNotMovedToCurrentIdentities() {
+        val obsoleteSource = "plugin:mobile-use:0.2.0:mobile-use"
+        repository.set(obsoleteSource, "ui_click", ToolAvailabilityScope.GLOBAL, "", ToolAvailabilityState.DISABLED, 10)
+        repository.set("built-in", "create_goal", ToolAvailabilityScope.GLOBAL, "", ToolAvailabilityState.DISABLED, 20)
+        assertEquals(
+            ToolAvailabilityStates(),
+            repository.statesFor("plugin:mobile-use:mobile-use", "ui_click", "session", null),
+        )
+        assertEquals(ToolAvailabilityStates(), repository.statesFor("built-in", "goal_create", "session", null))
+        assertEquals(1, repository.byTool(obsoleteSource, "ui_click").size)
+        assertEquals(1, repository.byTool("built-in", "create_goal").size)
     }
 
     @Test
@@ -202,6 +205,4 @@ private class FakeToolAvailabilityDao : ToolAvailabilityDao {
         rows.removeAt(index)
         return 1
     }
-
-    override fun all(): List<ToolAvailabilityEntity> = rows.toList()
 }

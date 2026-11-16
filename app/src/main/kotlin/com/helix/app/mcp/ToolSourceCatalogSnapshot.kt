@@ -10,10 +10,12 @@ internal data class ToolSourceCatalogEntry(
     val source: String,
     val categories: List<String>,
     val revision: String,
+    val aliases: List<String> = emptyList(),
 ) {
     fun facts() =
         buildJsonObject {
             put("source", source)
+            if (aliases.isNotEmpty()) put("aliases", JsonArray(aliases.map(::JsonPrimitive)))
             put("categories", JsonArray(categories.map(::JsonPrimitive)))
         }
 }

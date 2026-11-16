@@ -132,6 +132,15 @@ class BuiltInSkillsTest {
     }
 
     @Test
+    fun `preview help requires explicit reset confirmation and distinguishes database from files`() {
+        val channels = HelixUserGuide.resources.getValue("references/sections/channels.md")
+        assertTrue(channels.contains("blocks opening the database until the user explicitly confirms a reset"))
+        assertTrue(channels.contains("retaining files outside the database"))
+        assertTrue(channels.contains("Diagnostic exports are not restorable app backups"))
+        assertFalse(channels.contains("Incompatible database schemas are recreated"))
+    }
+
+    @Test
     fun `bundled help is readable only by enabled hash-pinned model skill`() {
         val root = Files.createTempDirectory("helix-docs")
         val repository = SkillRepository(root.resolve("snapshots"), root.resolve("state"), root.resolve("trash"))

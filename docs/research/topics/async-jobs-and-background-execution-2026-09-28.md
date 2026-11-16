@@ -2,7 +2,7 @@
 
 > **专项研究输入，目录整理：2026-09-29。**launch/join 和竞品比较保留原核验窗口；当前 Linux Job 行为见[终端](../../architecture/terminal.md)。具体观察执行接口、控制资源、watchdog、AUTO/按钮拆分统一以[Harness 第 8 节](../../architecture/harness-refactor-plan.md)为目标方案，不继续在本专题维护第二套契约和阶段排期。
 >
-> 下文 Job/AsyncHandle 示例是研究提议，不证明通用 `jobs.await` 已实现，也不授权默认自动创建后继 Turn。实施范围见[候选索引](../../development/candidate-decisions.md)。
+> 下文 Job/AsyncHandle 示例是研究提议，不证明通用 `jobs_await` 已实现，也不授权默认自动创建后继 Turn。实施范围见[候选索引](../../development/candidate-decisions.md)。
 
 ---
 
@@ -61,10 +61,10 @@ status await cancel
 当前已有：
 
 ~~~text
-code.linux.job.start
-code.linux.job.status
-code.linux.job.cancel
-code.linux.job.collect
+code_linux_job_start
+code_linux_job_status
+code_linux_job_cancel
+code_linux_job_collect
 ~~~
 
 并已经具备 persistent identity、Runtime owner、lease / budget、bounded logs、terminal reconciliation、ORPHANED / UNKNOWN、process death 后不 replay、accepted != succeeded 等能力。
@@ -176,7 +176,7 @@ launch ToolCall
   -> terminal ToolResult = ACCEPTED + JobHandle
 
 later
-  -> jobs.await / jobs.collect
+  -> jobs_await / jobs.collect
   -> new ToolCall / observation
   -> terminal Job result/ref
 ~~~
@@ -248,7 +248,7 @@ Claude Code 与 VS Code 共同说明：
 但正确抽象应该是：
 
 ~~~text
-code.linux.run
+code_linux_run
      │
      │ still running
      ▼
@@ -413,10 +413,10 @@ manual PTY Session
 Linux async Job 已经提供：
 
 ~~~text
-code.linux.job.start
-code.linux.job.status
-code.linux.job.cancel
-code.linux.job.collect
+code_linux_job_start
+code_linux_job_status
+code_linux_job_cancel
+code_linux_job_collect
 ~~~
 
 并已有：
@@ -473,7 +473,7 @@ ToolCall = RUNNING
 正确方式：
 
 ~~~text
-ToolCall: code.linux.job.start
+ToolCall: code_linux_job_start
         │
         ├── validate / authorize / submit
         └── terminal ToolResult:
@@ -505,13 +505,13 @@ Job RUNNING
 
 Job 后来进入 SUCCEEDED / FAILED / CANCELLED / ORPHANED 时，不能回头改写 launch ToolResult。
 
-最终结果通过新的 jobs.await / jobs.collect，或者现有 code.linux.job.collect 获取。
+最终结果通过新的 jobs_await / jobs.collect，或者现有 code_linux_job_collect 获取。
 
 这保留了 Helix immutable effect/history 语义。
 
 ---
 
-## 12. jobs.await：建议增加
+## 12. jobs_await：建议增加
 
 结论：**需要。**
 
@@ -534,7 +534,7 @@ status
 推荐：
 
 ~~~text
-jobs.await(
+jobs_await(
   handles = [...],
   condition = ANY | ALL
 )
@@ -559,7 +559,7 @@ jobs.await(
 ~~~text
 ModelCall
 ↓
-jobs.await(job-A)
+jobs_await(job-A)
 ↓
 job-A terminal
 ↓
@@ -668,7 +668,7 @@ background subagent
 通常不适合：
 
 ~~~text
-ui.click
+ui_click
 files.write
 one-shot MCP mutation
 browser one-shot action
@@ -796,10 +796,10 @@ provider-specific query
 - resultRef；
 - stale / source unavailable。
 
-### jobs.await
+### jobs_await
 
 ~~~text
-jobs.await(handles, condition = ANY | ALL)
+jobs_await(handles, condition = ANY | ALL)
 ~~~
 
 表达 reasoning dependency。
@@ -1038,7 +1038,7 @@ GoalBudget
 ~~~text
 AsyncHandle / JobHandle projection
 jobs.status
-jobs.await
+jobs_await
 jobs.cancel
 ~~~
 
@@ -1187,4 +1187,4 @@ old Turn never replayed
 
 ## 28. 最终建议
 
-> **Helix 应增加“异步执行 + 明确 join”的通用能力，而不是增加一个万能后台工具：等待用 jobs.await 表达依赖；后台化优先在启动时选择 FOREGROUND / BACKGROUND / AUTO；运行中 promotion 只对能证明 same-execution detach 的 Runtime 开放；现有 Linux Job 是基础，不应重写。**
+> **Helix 应增加“异步执行 + 明确 join”的通用能力，而不是增加一个万能后台工具：等待用 jobs_await 表达依赖；后台化优先在启动时选择 FOREGROUND / BACKGROUND / AUTO；运行中 promotion 只对能证明 same-execution detach 的 Runtime 开放；现有 Linux Job 是基础，不应重写。**

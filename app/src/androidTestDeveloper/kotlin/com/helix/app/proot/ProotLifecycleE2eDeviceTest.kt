@@ -420,7 +420,7 @@ class ProotLifecycleE2eDeviceTest {
     ): LinuxRunTool.LinuxExecutor {
         val scratchRoot = File(context.filesDir, "proot-lc-e2e-" + nextId())
         scratch += scratchRoot
-        return LinuxRunTool.ProductionLinuxExecutor(
+        return LinuxJobExecution(
             client = jobClient,
             gate = gate,
             store = store,

@@ -67,9 +67,9 @@ class SkillInstallerModelDeviceTest {
                     ownedSession,
                     "Create a useful Skill for summarizing a local text file. Use write to create $path/SKILL.md. " +
                         "Its YAML name must be $name, with description and Markdown instructions. The parent exists. " +
-                        "Then call skills.preview on $path and fix any errors. " +
-                        "Then call skills.install with the exact preview hash. " +
-                        "After approval enable this snapshot and read it with skills.read.",
+                        "Then call skills_preview on $path and fix any errors. " +
+                        "Then call skills_install with the exact preview hash. " +
+                        "After approval enable this snapshot and read it with skills_read.",
                 )
                 awaitCreatedDraft(container, ownedSession, path)
                 assertEquals(name, requireNotNull(container.skillAuthoringService).preview(path).name)
@@ -91,12 +91,12 @@ class SkillInstallerModelDeviceTest {
                 target == "$path/SKILL.md"
             }
 
-            "skills.install" -> {
+            "skills_install" -> {
                 target == path && args["expectedHash"]?.jsonPrimitive?.content ==
                     requireNotNull(container.skillAuthoringService).preview(path).snapshotHash
             }
 
-            "skills.enable" -> {
+            "skills_enable" -> {
                 val ownName = path.substringAfterLast('/')
                 val ownHash = requireNotNull(container.skillAuthoringService).preview(path).snapshotHash
                 container.skillRepository.list().any {
@@ -142,7 +142,7 @@ class SkillInstallerModelDeviceTest {
                     }
                 if (TurnState.valueOf(turn.state).isTerminal) {
                     val calls = container.storage.toolCalls.listByTurn(turn.id)
-                    for (tool in listOf("write", "skills.preview", "skills.install", "skills.enable", "skills.read")) {
+                    for (tool in listOf("write", "skills_preview", "skills_install", "skills_enable", "skills_read")) {
                         assertTrue(
                             "missing $tool, error=${turn.errorCode}: ${calls.map { it.name to it.state }}",
                             calls.any { it.name == tool && it.state == "COMPLETED" },

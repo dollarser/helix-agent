@@ -61,10 +61,10 @@ class SkillEntryPathsDeviceTest {
         fun path(value: String) = buildJsonObject { put("path", "scope:app:$value") }
 
         fun install(source: String): JsonObject {
-            val preview = call("skills.preview", buildJsonObject { put("path", source) })
+            val preview = call("skills_preview", buildJsonObject { put("path", source) })
             val result =
                 call(
-                    "skills.install",
+                    "skills_install",
                     buildJsonObject {
                         put("path", source)
                         put("expectedHash", preview.getValue("hash"))
@@ -83,7 +83,7 @@ class SkillEntryPathsDeviceTest {
                     .single { it.key == key }
                     .enabled,
             )
-            assertTrue(call("skills.list", JsonObject(emptyMap())).toString().contains(key.snapshotHash))
+            assertTrue(call("skills_list", JsonObject(emptyMap())).toString().contains(key.snapshotHash))
             val identity =
                 buildJsonObject {
                     put("source", key.source.name)
@@ -91,13 +91,13 @@ class SkillEntryPathsDeviceTest {
                     put("snapshotHash", key.snapshotHash)
                 }
             call(
-                "skills.enable",
+                "skills_enable",
                 JsonObject(identity + ("scope" to kotlinx.serialization.json.JsonPrimitive("SESSION"))),
             )
-            assertTrue(call("skills.read", identity).toString().contains("Synthetic instructions"))
+            assertTrue(call("skills_read", identity).toString().contains("Synthetic instructions"))
             assertTrue(
                 call(
-                    "skills.read_resource",
+                    "skills_read_resource",
                     JsonObject(
                         identity +
                             ("path" to kotlinx.serialization.json.JsonPrimitive("references/guide.md")),
@@ -110,11 +110,11 @@ class SkillEntryPathsDeviceTest {
         }
         try {
             check(c.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
-            call("files.mkdir", path(root))
+            call("files_mkdir", path(root))
             val name = "created-${UUID.randomUUID()}"
             val directory = "$root/.agents/skills/$name"
-            call("files.mkdir", path("$directory/references"))
-            call("files.mkdir", path("$directory/scripts"))
+            call("files_mkdir", path("$directory/references"))
+            call("files_mkdir", path("$directory/scripts"))
             content(name).forEach { (relative, text) ->
                 call(
                     "write",
@@ -131,7 +131,7 @@ class SkillEntryPathsDeviceTest {
             val url = requireNotNull(InstrumentationRegistry.getArguments().getString("skill.fixture.url"))
             val downloaded =
                 call(
-                    "browser.download",
+                    "browser_download",
                     buildJsonObject {
                         put("url", url)
                         put("suggestedName", "$id.zip")
@@ -142,7 +142,7 @@ class SkillEntryPathsDeviceTest {
             install(reference)
             val run =
                 call(
-                    "skills.run",
+                    "skills_run",
                     JsonObject(
                         created +
                             buildJsonObject {

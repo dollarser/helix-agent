@@ -8,7 +8,7 @@ import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
 
 /*
- * Restricted zip/tar codec for the `files.archive` / `files.extract` tools (roadmap HXA-047).
+ * Restricted zip/tar codec for the `files_archive` / `files_extract` tools (roadmap HXA-047).
  *
  * This is a PURE format codec: it knows nothing about scopes, the workspace store, or the model
  * reference. Scope admission, path containment, and quota are enforced by the tool layer through

@@ -1,6 +1,7 @@
 package com.helix.app.files
 
 import com.helix.core.workspace.ScopeRootResolver
+import com.helix.core.workspace.WorkspaceFileBackend
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
@@ -40,12 +41,12 @@ class ManualTransferRecoveryTest {
 
     private fun text(name: String) = Files.readAllBytes(root.resolve(name)).toString(Charsets.UTF_8)
 
-    private fun operations(fs: ManualFileBackend = nio) =
+    private fun operations(fs: WorkspaceFileBackend = nio) =
         ManualFileOperations({ fs }, { writable }, ManualTransferJournal(journalRoot))
 
     private fun crashAfterRename(backup: Boolean) {
         val fs =
-            object : ManualFileBackend by nio {
+            object : WorkspaceFileBackend by nio {
                 override fun rename(
                     path: String,
                     destination: String,
@@ -106,7 +107,7 @@ class ManualTransferRecoveryTest {
 
     @Test fun partialCopyIsRemovedAfterRestartWithoutChangingExistingTarget() {
         val fs =
-            object : ManualFileBackend by nio {
+            object : WorkspaceFileBackend by nio {
                 override fun create(
                     path: String,
                     directory: Boolean,
@@ -128,7 +129,7 @@ class ManualTransferRecoveryTest {
         put("folder/a", "a")
         put("folder/b", "b")
         val fs =
-            object : ManualFileBackend by nio {
+            object : WorkspaceFileBackend by nio {
                 override fun delete(path: String) {
                     nio.delete(path)
                     if (path.startsWith("folder/")) throw ProcessDeath()

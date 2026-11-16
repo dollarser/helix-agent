@@ -15,35 +15,35 @@ import kotlin.time.Duration.Companion.seconds
 class ModelToolExposureOrderTest {
     private val uiNames =
         setOf(
-            "ui.apps",
-            "ui.launch",
-            "ui.snapshot",
-            "ui.find",
-            "ui.click",
-            "ui.click_match",
-            "ui.set_text",
-            "ui.scroll",
-            "ui.back",
-            "ui.wait",
-            "ui.device",
-            "ui.screenshot",
-            "ui.gesture",
-            "device.open_url",
+            "ui_apps",
+            "ui_launch",
+            "ui_snapshot",
+            "ui_find",
+            "ui_click",
+            "ui_click_match",
+            "ui_set_text",
+            "ui_scroll",
+            "ui_back",
+            "ui_wait",
+            "ui_device",
+            "ui_screenshot",
+            "ui_gesture",
+            "device_open_url",
         )
 
     @Test fun essentialBuiltInsSurviveTheModelToolLimit() {
-        val optional = (0 until 80).map { descriptor("optional.$it") }
+        val optional = (0 until 80).map { descriptor("optional_$it") }
         val essential =
             listOf(
                 descriptor("write"),
                 descriptor("read"),
                 descriptor("edit"),
-                descriptor("files.list"),
-                descriptor("files.stat"),
-                descriptor("files.mkdir"),
+                descriptor("files_list"),
+                descriptor("files_stat"),
+                descriptor("files_mkdir"),
                 descriptor("glob"),
-                descriptor("tools.search"),
-                descriptor("goal.report"),
+                descriptor("tools_search"),
+                descriptor("goal_report"),
             )
         val exposed = ModelToolExposureOrder.prioritize(optional + essential)
         val names = exposed.map { it.name.value }
@@ -52,9 +52,9 @@ class ModelToolExposureOrderTest {
     }
 
     @Test fun optionalToolsUseStableNamesWithinTheirPriorityRank() {
-        val tools = listOf(descriptor("optional.z"), descriptor("write"), descriptor("optional.a"))
+        val tools = listOf(descriptor("optional_z"), descriptor("write"), descriptor("optional_a"))
         assertEquals(
-            listOf("write", "optional.a", "optional.z"),
+            listOf("write", "optional_a", "optional_z"),
             ModelToolExposureOrder.prioritize(tools).map { it.name.value },
         )
     }
@@ -62,14 +62,14 @@ class ModelToolExposureOrderTest {
     @Test fun discoveryRecencyPermutationsProduceIdenticalProviderRequests() {
         val tools =
             listOf(
-                "mcp.fixture.z",
+                "mcp_fixture_z",
                 "read",
-                "goal.report",
-                "mcp.fixture.a",
+                "goal_report",
+                "mcp_fixture_a",
                 "ask_user",
-                "ui.snapshot",
+                "ui_snapshot",
             ).map(::descriptor)
-        val preferred = setOf("ui.snapshot", "mcp.fixture.z")
+        val preferred = setOf("ui_snapshot", "mcp_fixture_z")
         val encoders =
             listOf(
                 com.helix.provider.openai.responses
@@ -105,36 +105,36 @@ class ModelToolExposureOrderTest {
     }
 
     @Test fun removalReadditionAndPreferenceChangesRemainLive() {
-        val tools = listOf("optional.z", "optional.a", "read").map(::descriptor)
+        val tools = listOf("optional_z", "optional_a", "read").map(::descriptor)
         val expected = ModelToolExposureOrder.prioritize(tools)
         val removed = ModelToolExposureOrder.prioritize(tools.dropLast(1), setOf("read"))
         assertTrue(removed.none { it.name.value == "read" })
         assertEquals(expected, ModelToolExposureOrder.prioritize(removed + tools.last()))
         assertEquals(
-            listOf("read", "optional.z", "optional.a"),
-            ModelToolExposureOrder.prioritize(tools, setOf("optional.z")).map { it.name.value },
+            listOf("read", "optional_z", "optional_a"),
+            ModelToolExposureOrder.prioritize(tools, setOf("optional_z")).map { it.name.value },
         )
     }
 
     @Test fun tokenActionsKeepTheirSnapshotAndNavigationContractsUnderCrowding() {
         val ui =
             listOf(
-                "ui.snapshot",
-                "ui.find",
-                "ui.click",
-                "ui.click_match",
-                "ui.set_text",
-                "ui.ime_enter",
-                "ui.scroll",
-                "ui.back",
-                "ui.wait",
-                "ui.device",
-                "ui.screenshot",
-                "ui.gesture",
-                "device.open_url",
-                "http.fetch",
+                "ui_snapshot",
+                "ui_find",
+                "ui_click",
+                "ui_click_match",
+                "ui_set_text",
+                "ui_ime_enter",
+                "ui_scroll",
+                "ui_back",
+                "ui_wait",
+                "ui_device",
+                "ui_screenshot",
+                "ui_gesture",
+                "device_open_url",
+                "http_fetch",
             ).map(::descriptor)
-        val crowded = (0 until 80).map { descriptor("optional.$it") } + ui + descriptor("write")
+        val crowded = (0 until 80).map { descriptor("optional_$it") } + ui + descriptor("write")
         val exposed =
             ModelToolExposureOrder
                 .prioritize(
@@ -148,7 +148,7 @@ class ModelToolExposureOrderTest {
         assertTrue(exposed.containsAll(ui))
         assertTrue(
             exposed.none {
-                it.name.value in setOf("ui.long_click", "ui.set_progress", "ui.home")
+                it.name.value in setOf("ui_long_click", "ui_set_progress", "ui_home")
             },
         )
         assertTrue(exposed.any { it.name.value == "write" })
@@ -156,12 +156,12 @@ class ModelToolExposureOrderTest {
     }
 
     @Test fun priorityNeverReintroducesAnUnavailableContract() {
-        val admitted = listOf(descriptor("ui.back"), descriptor("read"))
+        val admitted = listOf(descriptor("ui_back"), descriptor("read"))
         assertEquals(admitted.toSet(), ModelToolExposureOrder.prioritize(admitted, preferred = uiNames).toSet())
     }
 
     @Test fun withoutAnActiveAutomationSessionUiDoesNotDisplaceOtherTools() {
-        val tools = (0 until 64).map { descriptor("optional.$it") } + descriptor("ui.snapshot")
+        val tools = (0 until 64).map { descriptor("optional_$it") } + descriptor("ui_snapshot")
         assertEquals(tools.sortedBy { it.name.value }, ModelToolExposureOrder.prioritize(tools))
     }
 
@@ -173,33 +173,33 @@ class ModelToolExposureOrderTest {
                     "read",
                     "write",
                     "edit",
-                    "ui.snapshot",
-                    "ui.apps",
-                    "ui.find",
-                    "ui.click_match",
-                    "ui.launch",
-                    "ui.wait",
-                    "ui.device",
-                    "ui.screenshot",
-                    "ui.gesture",
-                    "device.open_url",
-                    "skills.read",
-                    "skills.read_resource",
-                    "skills.enable",
+                    "ui_snapshot",
+                    "ui_apps",
+                    "ui_find",
+                    "ui_click_match",
+                    "ui_launch",
+                    "ui_wait",
+                    "ui_device",
+                    "ui_screenshot",
+                    "ui_gesture",
+                    "device_open_url",
+                    "skills_read",
+                    "skills_read_resource",
+                    "skills_enable",
                 ),
             ),
         )
-        assertTrue("code.linux.run" !in names)
-        assertTrue("http.fetch" !in names)
-        assertTrue("code.javascript.run" !in names)
+        assertTrue("code_linux_run" !in names)
+        assertTrue("http_fetch" !in names)
+        assertTrue("code_javascript_run" !in names)
         val nonUi = ModelToolExposureOrder.defaultNames(emptySet())
-        assertTrue("ui.snapshot" !in nonUi)
-        assertTrue("device.open_url" !in nonUi)
-        assertTrue("code.javascript.run" in nonUi)
-        assertTrue("http.fetch" !in nonUi)
-        assertTrue("skills.list" !in names)
-        assertTrue("skills.disable" !in names)
-        assertTrue("skills.read_resource" in names)
+        assertTrue("ui_snapshot" !in nonUi)
+        assertTrue("device_open_url" !in nonUi)
+        assertTrue("code_javascript_run" in nonUi)
+        assertTrue("http_fetch" !in nonUi)
+        assertTrue("skills_list" !in names)
+        assertTrue("skills_disable" !in names)
+        assertTrue("skills_read_resource" in names)
     }
 
     private fun descriptor(name: String) =
@@ -215,14 +215,14 @@ class ModelToolExposureOrderTest {
                 kotlinx.serialization.json.buildJsonObject {
                     put("type", kotlinx.serialization.json.JsonPrimitive("object"))
                 },
-            operationClass = if (name.startsWith("mcp.")) ToolOperationClass.NETWORK else ToolOperationClass.READ_ONLY,
+            operationClass = if (name.startsWith("mcp_")) ToolOperationClass.NETWORK else ToolOperationClass.READ_ONLY,
             timeout = 1.seconds,
             maxOutputBytes = 1024,
             requiredCapabilities = emptySet(),
             idempotency = Idempotency.IDEMPOTENT,
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
             origin =
-                if (name.startsWith("mcp.")) {
+                if (name.startsWith("mcp_")) {
                     ToolOrigin.McpOrigin("fixture", "2025-11-25", "a".repeat(64))
                 } else {
                     ToolOrigin.BuiltInOrigin

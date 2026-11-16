@@ -25,11 +25,11 @@ class SkillSupportService(
             } else {
                 null
             }
-        return SkillSupportSnapshot(document, repository.inspectFiles(key), dependency, "skills.run" in toolNames())
+        return SkillSupportSnapshot(document, repository.inspectFiles(key), dependency, "skills_run" in toolNames())
     }
 
     private fun webDependency(sessionId: String?): SkillWebDependency {
-        if ("http.fetch" in toolNames()) return SkillWebDependency(true, null, null)
+        if ("http_fetch" in toolNames()) return SkillWebDependency(true, null, null)
         val record = plugins.list().singleOrNull { it.native?.pluginId == "browser" }
         val facts =
             record?.let { installed ->

@@ -46,7 +46,7 @@ internal class AutomationPostActionObservation(
             fields["nextObservation"] =
                 JsonPrimitive(
                     if (read.observation["truncated"]?.jsonPrimitive?.content == "true") {
-                        "Observation incomplete. Use ui.snapshot or ui.find before absence, count or uniqueness claims."
+                        "Observation incomplete. Use ui_snapshot or ui_find before absence, count or uniqueness claims."
                     } else {
                         "Read observation below; it may still be changing. Use fresh tokens; query again if needed."
                     },
@@ -55,7 +55,7 @@ internal class AutomationPostActionObservation(
                 JsonPrimitive(
                     "Input dispatched; effect remains UNVERIFIED. Earlier tokens/frames are invalid. " +
                         "Read the attached observation and use only its fresh tokens for the next action. " +
-                        "If truncated, use ui.snapshot/ui.find and check completeness " +
+                        "If truncated, use ui_snapshot/ui_find and check completeness " +
                         "before absence/count/uniqueness claims. " +
                         "Loading may continue; verify the effect. " +
                         "Never blindly replay an uncertain action.",
@@ -167,7 +167,7 @@ internal class AutomationPostActionObservation(
                         "recoveryHint" to
                             JsonPrimitive(
                                 "Post-action output is limited to 32 nodes / 12 KiB. " +
-                                    "Use ui.snapshot for a wider view or ui.find for a target; " +
+                                    "Use ui_snapshot for a wider view or ui_find for a target; " +
                                     "check completeness before absence/count/uniqueness claims. " +
                                     "New reads replace these tokens. " +
                                     observation["recoveryHint"]

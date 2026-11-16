@@ -30,7 +30,7 @@ import java.nio.file.Path
 import java.time.Instant
 
 /**
- * HXA-043 (`:tools:files:test`): `files.copy` / `files.move` / `files.delete` — the explicit
+ * HXA-043 (`:tools:files:test`): `files_copy` / `files_move` / `files_delete` — the explicit
  * conflict policy (an existing destination is refused without `overwrite`; a directory
  * destination is always refused), cross-scope operations, region admission (only
  * `input/`/`work/`/`output/`), delete-into-trash with a returned trash reference, sanitized
@@ -159,18 +159,18 @@ class FilesMutateToolsTest {
         s: WorkspaceArtifactStore,
         args: JsonObject,
         cancel: CancelSignal = noCancel,
-    ): ToolExecutorResult = FilesCopyTool.executor(s).execute(call("files.copy", args, cancel))
+    ): ToolExecutorResult = FilesCopyTool.executor(s).execute(call("files_copy", args, cancel))
 
     private fun moveExec(
         s: WorkspaceArtifactStore,
         args: JsonObject,
-    ): ToolExecutorResult = FilesMoveTool.executor(s).execute(call("files.move", args))
+    ): ToolExecutorResult = FilesMoveTool.executor(s).execute(call("files_move", args))
 
     private fun deleteExec(
         s: WorkspaceArtifactStore,
         args: JsonObject,
         cancel: CancelSignal = noCancel,
-    ): ToolExecutorResult = FilesDeleteTool.executor(s).execute(call("files.delete", args, cancel))
+    ): ToolExecutorResult = FilesDeleteTool.executor(s).execute(call("files_delete", args, cancel))
 
     private fun write(
         root: Path,
@@ -236,9 +236,9 @@ class FilesMutateToolsTest {
         val copy = FilesCopyTool.descriptor()
         val move = FilesMoveTool.descriptor()
         val delete = FilesDeleteTool.descriptor()
-        assertEquals("files.copy", copy.name.value)
-        assertEquals("files.move", move.name.value)
-        assertEquals("files.delete", delete.name.value)
+        assertEquals("files_copy", copy.name.value)
+        assertEquals("files_move", move.name.value)
+        assertEquals("files_delete", delete.name.value)
         listOf(copy, move, delete).forEach { d ->
             assertEquals(1, d.version.value)
             assertEquals(ToolOperationClass.LOCAL_MUTATION, d.operationClass)
@@ -252,7 +252,7 @@ class FilesMutateToolsTest {
         assertEquals(Idempotency.IDEMPOTENT, delete.idempotency)
     }
 
-    // ── files.copy ──────────────────────────────────────────────────────────────────────
+    // ── files_copy ──────────────────────────────────────────────────────────────────────
 
     @Test
     fun copyCompletesAndPassesTheOutputSchema() {
@@ -334,7 +334,7 @@ class FilesMutateToolsTest {
         assertTrue(Files.isDirectory(root.resolve("output/dir")))
     }
 
-    // ── files.move ──────────────────────────────────────────────────────────────────────
+    // ── files_move ──────────────────────────────────────────────────────────────────────
 
     @Test
     fun moveCompletesAndRemovesTheSource() {
@@ -370,7 +370,7 @@ class FilesMutateToolsTest {
         assertFalse(Files.exists(a.resolve("work/a.txt")))
     }
 
-    // ── files.delete ────────────────────────────────────────────────────────────────────
+    // ── files_delete ────────────────────────────────────────────────────────────────────
 
     @Test
     fun deleteMovesTheFileToTrashAndReturnsItsReference() {

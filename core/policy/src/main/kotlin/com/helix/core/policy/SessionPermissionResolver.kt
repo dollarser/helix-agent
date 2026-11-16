@@ -215,7 +215,7 @@ object SessionPermissionResolver {
  * (ADR-PERMISSIONS-001 section 1.1): an OUTER disable always wins — a session ENABLED can
  * never silently override a global/workspace DISABLED — otherwise the narrowest explicit
  * state wins, defaulting to ENABLED. The execution entry and EVERY exposure surface (model
- * schema, tools.search, discovery) must use this one function so they cannot disagree.
+ * schema, tools_search, discovery) must use this one function so they cannot disagree.
  */
 fun effectiveAvailability(
     global: ToolAvailabilityState? = null,

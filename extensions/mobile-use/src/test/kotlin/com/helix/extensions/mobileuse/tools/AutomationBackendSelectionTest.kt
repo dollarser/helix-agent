@@ -88,7 +88,7 @@ class AutomationBackendSelectionTest {
                     }
                 val failed = execute(port) as ToolExecutorResult.Failed
                 assertTrue(failed.detail.startsWith(refusal.name + ":"))
-                assertTrue(failed.detail.contains("ui.snapshot") || failed.detail.contains("ui.find"))
+                assertTrue(failed.detail.contains("ui_snapshot") || failed.detail.contains("ui_find"))
                 assertTrue(failed.sideEffectFree)
                 assertFalse(failed.requiresReview)
                 assertEquals(listOf(backend.name.lowercase()), port.actions)

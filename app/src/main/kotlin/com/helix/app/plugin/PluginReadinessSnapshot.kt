@@ -67,6 +67,7 @@ data class PluginReadinessSnapshot(
     val enabled: Boolean,
     val components: List<PluginComponentFact>,
     val diagnostics: List<PluginDiagnostic>,
+    val name: PluginName,
 ) {
     val ready: Int get() = if (enabled) components.count { it.ready } else 0
     val fullyReady: Boolean get() = components.isNotEmpty() && ready == components.size && !hasSkippedComponents
@@ -76,6 +77,8 @@ data class PluginReadinessSnapshot(
     fun modelFacts() =
         buildJsonObject {
             put("pluginId", pluginId)
+            put("name", name.original)
+            put("aliases", JsonArray(name.aliases.map(::JsonPrimitive)))
             put("revision", revision)
             put("selected", selected)
             put("effect", "NEXT_REQUEST")

@@ -105,7 +105,7 @@ class JsExecutionClient(
                 params.executionId,
                 JsExecutionStatus.REQUEST_REJECTED,
                 "QUICKJS_NATIVE_ACCESS_DISABLED: user has not enabled native access in Runtime settings. " +
-                    "Not executed. Use read/write/files.mkdir for workspace files, " +
+                    "Not executed. Use read/write/files_mkdir for workspace files, " +
                     "or access=isolated for offline computation; " +
                     "isolated code cannot access files. Do not retry native access without a user settings change.",
                 params.inputJsonUtf8?.let(JsHash::sha256Hex) ?: "",

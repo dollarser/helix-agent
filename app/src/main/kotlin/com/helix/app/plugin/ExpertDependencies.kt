@@ -14,6 +14,7 @@ data class ExpertAbilityChoice(
     val reference: String,
     val name: String,
     val available: Boolean,
+    val pluginName: PluginName? = null,
 )
 
 fun PluginService.expertPluginChoices(): List<ExpertAbilityChoice> =
@@ -23,6 +24,7 @@ fun PluginService.expertPluginChoices(): List<ExpertAbilityChoice> =
             ref,
             record.name,
             records.size == 1 && record.enabled && componentReadiness(record).ready > 0,
+            record.pluginName(),
         )
     }
 

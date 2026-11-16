@@ -7,6 +7,7 @@ import com.helix.core.model.ToolVersion
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
+import com.helix.tools.framework.ToolDiscoveryHints
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolJsonNumbers
@@ -81,7 +82,7 @@ internal class McpToolDiscovery(
         val ranked =
             catalog
                 .mapNotNull { descriptor ->
-                    if (descriptor.name.value == "tools.search" ||
+                    if (descriptor.name.value == "tools_search" ||
                         admittedWindows[sessionId]?.contains(descriptor) == false
                     ) {
                         return@mapNotNull null
@@ -216,9 +217,9 @@ internal class McpToolDiscovery(
         val local =
             available.filter {
                 it.origin !is ToolOrigin.McpOrigin &&
-                    (it.name.value == "tools.search" || it.name.value in defaultNames)
+                    (it.name.value == "tools_search" || it.name.value in defaultNames)
             }
-        val discovery = local.filter { it.name.value == "tools.search" }
+        val discovery = local.filter { it.name.value == "tools_search" }
         // Preserve every current match and complete group; final request admission enforces capacity.
         return (discovery + selected + local + mcp)
             .distinctBy { it.name }
@@ -246,7 +247,20 @@ internal class McpToolDiscovery(
             val versions =
                 descriptors.sortedBy { it.name.value }.joinToString(
                     "\n",
-                ) { "${it.name.value}@${it.version.value}" }
+                ) {
+                    JsonArray(
+                        listOf(
+                            it.name.value,
+                            it.version.value.toString(),
+                            it.description,
+                            it.schemaHash.hex,
+                            ToolDiscoveryMetadata.of(it).category,
+                            it.discovery.keywords
+                                .sorted()
+                                .joinToString("\n"),
+                        ).map(::JsonPrimitive),
+                    ).toString()
+                }
             val revision =
                 java.security.MessageDigest
                     .getInstance("SHA-256")
@@ -257,6 +271,13 @@ internal class McpToolDiscovery(
                     source,
                     descriptors.map { ToolDiscoveryMetadata.of(it).category }.distinct().sorted(),
                     revision,
+                    descriptors
+                        .flatMap {
+                            com.helix.app.plugin
+                                .nativePluginName(it.origin)
+                                ?.aliases
+                                .orEmpty()
+                        }.distinct(),
                 )
             val size =
                 row
@@ -277,23 +298,16 @@ internal class McpToolDiscovery(
     ) {
         val descriptor =
             ToolDescriptor(
-                name = ToolName("tools.search"),
+                name = ToolName("tools_search"),
                 version = ToolVersion(1),
                 description =
-                    "Search user-enabled tools by name, description, source, fields or common Chinese aliases: " +
-                        "files, browser, Android UI, Linux, Skills, " +
-                        "connectors, MCP and A2A. Search when a needed tool is absent; " +
-                        "combine concise keywords for related capabilities, or use its exact name for one tool. " +
-                        "Exact-name queries return only that tool. " +
-                        "Complete keywords rank first; partial and inflected matches remain available. " +
-                        "Use returned tools from the next request's schemas; " +
-                        "do not guess arguments or repeat a successful search. " +
-                        "Matches load a complete working set. Valid recent tools remain within a schema byte budget. " +
-                        "Older tools can be evicted; use the next request's schemas. " +
-                        "Do not issue multiple searches in one response. " +
-                        "a miss preserves still-available tools. " +
-                        "Returned names are discovery hints, not current schemas. " +
-                        "Discovery grants no execution permission.",
+                    "Find a missing user-enabled tool by name, purpose or parameter descriptions. " +
+                        "Search globally by default; source/category are optional exact filters. " +
+                        "Prefer tools already exposed. Use concise keywords, or an exact name for one tool. " +
+                        "Results load their full schemas for the next model request, not this response. " +
+                        "Use those schemas rather than guessing arguments. Do not repeat successful searches. " +
+                        "No matches is not proof a capability does not exist; follow retryHint. " +
+                        "Discovery never enables tools or grants execution permission.",
                 inputSchema = Json.parseToJsonElement(INPUT).jsonObject,
                 outputSchema = Json.parseToJsonElement(OUTPUT).jsonObject,
                 operationClass = ToolOperationClass.READ_ONLY,
@@ -303,6 +317,7 @@ internal class McpToolDiscovery(
                 idempotency = Idempotency.IDEMPOTENT,
                 executionTarget = ExecutionTargetType.LOCAL_ANDROID,
                 origin = ToolOrigin.BuiltInOrigin,
+                discovery = ToolDiscoveryHints(category = "tools"),
             )
 
         registry.register(
@@ -340,6 +355,10 @@ internal class McpToolDiscovery(
                         return ToolExecutorResult.Completed(
                             buildJsonObject {
                                 put("schemaAvailability", JsonPrimitive("next_request"))
+                                put("status", JsonPrimitive(if (matches.isEmpty()) "no_matches" else "matched"))
+                                if (matches.isEmpty()) {
+                                    put("retryHint", JsonPrimitive(noMatchHint(call)))
+                                }
                                 put(
                                     "tools",
                                     JsonArray(
@@ -369,9 +388,18 @@ internal class McpToolDiscovery(
         private const val CATALOG_BYTES = 4096
 
         @Suppress("ktlint:standard:max-line-length", "MaxLineLength")
-        private const val INPUT = """{"type":"object","properties":{"query":{"type":"string","minLength":1,"maxLength":200},"limit":{"type":"integer","minimum":1,"maximum":16},"source":{"type":"string","minLength":1,"maxLength":200,"description":"Optional tool catalog owner filter: helix, plugin:<id>, mcp:<id> or a2a:<id>. Omit to search all owners. This is NOT execution-log storage: saved/live belong to read_log, not tools.search."},"category":{"type":"string","minLength":1,"maxLength":200,"description":"Optional tool category from discovery metadata, e.g. code or files; not a log stream."}},"required":["query"],"additionalProperties":false}"""
+        private const val INPUT = """{"type":"object","properties":{"query":{"type":"string","minLength":1,"maxLength":200},"limit":{"type":"integer","minimum":1,"maximum":16},"source":{"type":"string","minLength":1,"maxLength":200,"description":"Optional tool catalog owner filter: helix, plugin:<id>, mcp:<id> or a2a:<id>. Omit to search all owners. This is NOT execution-log storage: saved/live belong to read_log, not tools_search."},"category":{"type":"string","minLength":1,"maxLength":200,"description":"Optional exact category copied from the tool catalog. Omit unless known; guessing can hide relevant tools."}},"required":["query"],"additionalProperties":false}"""
 
         @Suppress("ktlint:standard:max-line-length", "MaxLineLength")
-        private const val OUTPUT = """{"type":"object","properties":{"schemaAvailability":{"type":"string","enum":["next_request"]},"tools":{"type":"array","items":{"type":"object","properties":{"name":{"type":"string"},"description":{"type":"string"},"version":{"type":"integer"},"source":{"type":"string"},"category":{"type":"string"}},"required":["name","description","version","source","category"],"additionalProperties":false}}},"required":["schemaAvailability","tools"],"additionalProperties":false}"""
+        private const val OUTPUT = """{"type":"object","properties":{"schemaAvailability":{"type":"string","enum":["next_request"]},"status":{"type":"string","enum":["matched","no_matches"]},"retryHint":{"type":"string","maxLength":512},"tools":{"type":"array","items":{"type":"object","properties":{"name":{"type":"string"},"description":{"type":"string"},"version":{"type":"integer"},"source":{"type":"string"},"category":{"type":"string"}},"required":["name","description","version","source","category"],"additionalProperties":false}}},"required":["schemaAvailability","status","tools"],"additionalProperties":false}"""
     }
 }
+
+private fun noMatchHint(call: ExecutableToolCall): String =
+    if ("source" in call.args || "category" in call.args) {
+        "No enabled tools matched these filters. Retry the same query " +
+            "without source/category to search globally; filters were not relaxed."
+    } else {
+        "No enabled tools matched. Try a shorter purpose, a parameter " +
+            "or an exact tool name. Unavailable tools are not returned."
+    }

@@ -31,7 +31,7 @@ class TurnDiagnosticStoreDeviceTest {
         verifyToolCost(
             (0 until 100).map { index ->
                 ModelToolSchema(
-                    ToolName("private.tool_$index"),
+                    ToolName("private_tool_$index"),
                     "private description",
                     "{\"description\":\"${"x".repeat(index * 10)}\"}",
                 )

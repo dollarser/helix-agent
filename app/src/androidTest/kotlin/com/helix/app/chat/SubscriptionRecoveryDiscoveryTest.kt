@@ -68,7 +68,7 @@ class SubscriptionRecoveryDiscoveryTest {
         call("one", "s", interrupted = true)
         call("two", "s", interrupted = true)
         storage.toolCalls.append("t1", "one", "unknown-bash", "bash", "1", "{}", "INTERRUPTED")
-        storage.toolCalls.append("t2", "one", "unknown-skill", "skills.run", "1", "{}", "NEEDS_REVIEW")
+        storage.toolCalls.append("t2", "one", "unknown-skill", "skills_run", "1", "{}", "NEEDS_REVIEW")
         storage.toolCalls.append("t3", "one", "finished", "bash", "1", "{}", "SUCCEEDED")
         storage.toolCalls.append("t4", "one", "unrelated", "read", "1", "{}", "INTERRUPTED")
         storage.toolCalls.append("t5", "two", "other-turn", "bash", "1", "{}", "INTERRUPTED")

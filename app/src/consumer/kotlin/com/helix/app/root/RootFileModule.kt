@@ -2,9 +2,9 @@ package com.helix.app.root
 
 import android.content.Context
 import com.helix.app.files.FileManagerService
-import com.helix.app.files.ManualFileBackend
-import com.helix.app.files.ManualFileInfo
 import com.helix.app.files.RootFileOperations
+import com.helix.core.workspace.WorkspaceFileBackend
+import com.helix.core.workspace.WorkspaceFileInfo
 import java.io.File
 import java.io.FileNotFoundException
 
@@ -24,7 +24,7 @@ internal object RootFileModule {
 
         override fun list(relativePath: String): List<FileManagerService.FileEntry> = emptyList()
 
-        override fun stat(relativePath: String): ManualFileInfo? = null
+        override fun stat(relativePath: String): WorkspaceFileInfo? = null
 
         override fun viewerTextBytes(
             relativePath: String,
@@ -50,6 +50,6 @@ internal object RootFileModule {
             shareDir: File,
         ): File = throw FileNotFoundException("Root is not available in consumer build")
 
-        override fun manualBackend(): ManualFileBackend? = null
+        override fun manualBackend(): WorkspaceFileBackend? = null
     }
 }

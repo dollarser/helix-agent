@@ -17,16 +17,82 @@ import com.helix.provider.api.wire.WireBody
 import com.helix.provider.api.wire.WireClient
 import com.helix.provider.api.wire.WireRequest
 import com.helix.provider.api.wire.WireResponse
+import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class OpenAiChatProviderTest {
+    @Test fun providerBindsConcurrentWireAliasesToEachRequestAndRejectsUnknownNames() =
+        runBlocking {
+            var forgedName: String? = null
+            val wire =
+                object : WireClient {
+                    override suspend fun open(request: WireRequest): WireResponse {
+                        val body =
+                            kotlinx.serialization.json.Json
+                                .parseToJsonElement(
+                                    String(requireNotNull(request.body)),
+                                ).jsonObject
+                        val alias =
+                            body
+                                .getValue("tools")
+                                .jsonArray
+                                .single()
+                                .jsonObject
+                                .getValue("function")
+                                .jsonObject
+                                .getValue("name")
+                                .jsonPrimitive.content
+                        assertTrue(Regex("[A-Za-z0-9_-]{1,64}").matches(alias))
+                        val name = forgedName ?: alias
+                        val stream =
+                            """data: {"choices":[{"index":0,"delta":{"tool_calls":[""" +
+                                """{"index":0,"id":"c1","function":{"name":"$name","arguments":"{}"}}]}}]}""" +
+                                "\n\n" + """data: {"choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}]}""" +
+                                "\n\ndata: [DONE]\n\n"
+                        return WireResponse(200, emptyMap(), FakeBody(stream.toByteArray()))
+                    }
+                }
+            val provider = provider(wire)
+
+            fun request(name: String) =
+                userRequest().copy(
+                    tools =
+                        listOf(
+                            com.helix.core.model.ModelToolSchema(
+                                com.helix.core.model
+                                    .ToolName(name),
+                                "test",
+                                """{"type":"object"}""",
+                            ),
+                        ),
+                )
+            val jobs =
+                listOf("files_read", "browser_click").map { name ->
+                    async { name to provider.stream(request(name)).toList() }
+                }
+            for (job in jobs) {
+                val (name, events) = job.await()
+                assertEquals(name, events.filterIsInstance<ModelEvent.ToolCallStarted>().single().name)
+                assertEquals(ModelEvent.Completed("tool_calls"), events.last())
+            }
+            for (unknown in listOf("files.read", "missing", "helix_tool_999")) {
+                forgedName = unknown
+                val events = provider.stream(request("files_read")).toList()
+                assertTrue(events.none { it is ModelEvent.ToolCallStarted || it is ModelEvent.Completed })
+                assertEquals(ModelErrorCode.PROTOCOL, events.filterIsInstance<ModelEvent.Error>().single().code)
+            }
+        }
+
     @Test
     fun keylessNetworkDoesNotResolveOrSendCredentials() =
         runBlocking {

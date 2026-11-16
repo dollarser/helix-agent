@@ -5,7 +5,7 @@ import com.helix.tools.framework.ToolRegistry
 
 /** External note handoff: deliberately does not claim a note was persisted by another app. */
 object DeviceCreateNoteTool {
-    const val NAME: String = "device.create_note"
+    const val NAME: String = "device_create_note"
 
     fun descriptor() =
         AndroidShareTool.descriptor().copy(

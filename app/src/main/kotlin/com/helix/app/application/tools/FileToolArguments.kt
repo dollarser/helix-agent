@@ -16,21 +16,21 @@ internal object FileToolArguments {
             "view_image",
             "write",
             "edit",
-            "files.list",
-            "files.stat",
+            "files_list",
+            "files_stat",
             "glob",
             "grep",
-            "files.mkdir",
-            "files.copy",
-            "files.move",
-            "files.delete",
-            "files.archive",
-            "files.extract",
-            "code.linux.run",
-            "code.linux.job.start",
-            "skills.run",
-            "skills.preview",
-            "skills.install",
+            "files_mkdir",
+            "files_copy",
+            "files_move",
+            "files_delete",
+            "files_archive",
+            "files_extract",
+            "code_linux_run",
+            "code_linux_job_start",
+            "skills_run",
+            "skills_preview",
+            "skills_install",
         )
     private val pathKeys = setOf("path", "source", "destination", "output", "workspace")
     private const val PATH_HELP =
@@ -43,7 +43,7 @@ internal object FileToolArguments {
                 (
                     com.helix.extensions.documents.DocumentTools
                         .owns(descriptor) &&
-                        descriptor.name.value == "documents.inspect"
+                        descriptor.name.value == "documents_inspect"
                 )
         )
 
@@ -82,9 +82,9 @@ internal object FileToolArguments {
         directory: FileScopePath,
         toolName: String? = null,
     ): JsonObject {
-        val keys = if (toolName == "skills.run") setOf("workspace") else pathKeys
+        val keys = if (toolName == "skills_run") setOf("workspace") else pathKeys
         val bound =
-            if (toolName in setOf("code.linux.run", "code.linux.job.start", "skills.run")) {
+            if (toolName in setOf("code_linux_run", "code_linux_job_start", "skills_run")) {
                 JsonObject(mapOf("workspace" to JsonPrimitive(directory.toModelReference())) + args)
             } else {
                 args
@@ -119,7 +119,7 @@ internal object FileToolArguments {
             return ModelToolSchema(descriptor.name, descriptor.description, descriptor.inputSchema.toString())
         }
         val schema = descriptor.inputSchema
-        val updated = withPathDescriptions(schema, descriptor.name.value == "skills.run")
+        val updated = withPathDescriptions(schema, descriptor.name.value == "skills_run")
         return ModelToolSchema(
             descriptor.name,
             descriptor.description,

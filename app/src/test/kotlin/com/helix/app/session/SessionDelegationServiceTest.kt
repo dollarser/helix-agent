@@ -15,7 +15,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SessionDelegationServiceTest {
-    private val caller = SessionHistoryCaller("source", "turn", "call", "session.queue")
+    private val caller = SessionHistoryCaller("source", "turn", "call", "session_queue")
     private val configuration = InputConfiguration("target-provider", "target-model", "CHAT", "target-fingerprint")
 
     @Test fun defaultDeniedAndStoppedCallCannotQueue() {
@@ -230,7 +230,7 @@ class SessionDelegationServiceTest {
                     selected = target to turn
                     activeConfiguration
                 })
-            val receipt = service.steer(caller.copy(toolName = "session.steer"), "target", "target-turn", "key", "task")
+            val receipt = service.steer(caller.copy(toolName = "session_steer"), "target", "target-turn", "key", "task")
             assertEquals("target" to "target-turn", selected)
             assertEquals(SessionInputDelivery.STEER, receipt.record.delivery)
             assertEquals("target-turn", receipt.record.expectedTurnId)
@@ -241,7 +241,7 @@ class SessionDelegationServiceTest {
     @Test fun steerReplyLossAfterTargetFinishesReturnsOriginalReceipt() =
         runBlocking {
             val store = Store().apply { allowed = true }
-            val steerCaller = caller.copy(toolName = "session.steer")
+            val steerCaller = caller.copy(toolName = "session_steer")
             val accepted = service(store).steer(steerCaller, "target", "target-turn", "key", "task").record
             store.rows["source" to "key"] =
                 accepted.copy(state = SessionInputState.APPENDED, consumedTurnId = "target-turn")
@@ -260,7 +260,7 @@ class SessionDelegationServiceTest {
         runBlocking {
             val store = Store().apply { allowed = true }
             val service = service(store)
-            val steerCaller = caller.copy(toolName = "session.steer")
+            val steerCaller = caller.copy(toolName = "session_steer")
             service.steer(steerCaller, "target", "target-turn", "key", "task")
             val changed =
                 assertThrows(IllegalArgumentException::class.java) {
@@ -290,7 +290,7 @@ class SessionDelegationServiceTest {
             assertThrows(IllegalArgumentException::class.java) {
                 runBlocking {
                     service.steer(
-                        caller.copy(toolName = "session.steer"),
+                        caller.copy(toolName = "session_steer"),
                         "target",
                         "target-turn",
                         "key",

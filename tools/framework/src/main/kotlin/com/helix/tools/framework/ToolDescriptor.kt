@@ -20,7 +20,7 @@ import kotlin.time.Duration.Companion.hours
  * section 7, HXA-030).
  *
  * Identity is ([name], [version]): the name is the stable model-visible name
- * (built-in short names or `mcp.<server>.<tool>`), the version is the
+ * (built-in snake_case names or source-qualified remote names), the version is the
  * monotonic tool API version. The [schemaHash] binds the INPUT + OUTPUT
  * schema contract: any schema change is a new hash, and the hash participates
  * in approval binding (doc 10 section 4.3: a schema change invalidates all
@@ -58,6 +58,8 @@ data class ToolDescriptor(
     val origin: ToolOrigin,
     /** Same-origin tools to expose together when available. Discovery only; never authority or execution. */
     val discoveryCompanions: Set<ToolName> = emptySet(),
+    /** Retrieval only; omitted category defaults to the name namespace. */
+    val discovery: ToolDiscoveryHints = ToolDiscoveryHints(),
 ) {
     init {
         require(description.isNotBlank()) { "tool description must not be blank" }
@@ -86,6 +88,11 @@ data class ToolDescriptor(
         }
         // Namespace separation (doc 02 section 7.1): MCP names come from MCP
         // origins only, built-in names from built-in origins only.
+        if (origin == ToolOrigin.BuiltInOrigin || origin is ToolOrigin.PluginOrigin) {
+            require(Regex("[a-z][a-z0-9_]{0,63}").matches(name.value)) {
+                "product tool names must use lowercase snake_case: ${name.value}"
+            }
+        }
         val isMcpName = name.value.startsWith(MCP_NAME_PREFIX)
         val isA2aName = name.value.startsWith(A2A_NAME_PREFIX)
         require((origin is ToolOrigin.McpOrigin) == isMcpName && (origin is ToolOrigin.A2aOrigin) == isA2aName) {
@@ -129,11 +136,11 @@ data class ToolDescriptor(
     val contractHash: Sha256 = contractHashOf(this)
 
     companion object {
-        /** The `mcp.` name prefix (doc 02 section 7.1, doc 10 section 4.3). */
-        const val MCP_NAME_PREFIX = "mcp."
+        /** The `mcp_` name prefix (doc 02 section 7.1, doc 10 section 4.3). */
+        const val MCP_NAME_PREFIX = "mcp_"
 
-        /** The `a2a.` namespace is reserved for user-enabled remote Agent Skills. */
-        const val A2A_NAME_PREFIX = "a2a."
+        /** The `a2a_` namespace is reserved for user-enabled remote Agent Skills. */
+        const val A2A_NAME_PREFIX = "a2a_"
 
         const val MAX_DESCRIPTION_LENGTH = 1024
 

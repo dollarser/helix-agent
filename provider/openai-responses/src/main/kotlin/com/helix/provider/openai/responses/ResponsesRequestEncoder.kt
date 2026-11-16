@@ -5,6 +5,7 @@ import com.helix.core.model.ModelMessage
 import com.helix.core.model.ModelRequest
 import com.helix.core.model.ModelRole
 import com.helix.core.model.ReasoningEffort
+import com.helix.provider.api.ProviderToolNames
 import com.helix.provider.api.RequestEncoder
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
@@ -71,7 +72,7 @@ public class ResponsesRequestEncoder(
             "Native web search requires official OpenAI Responses"
         }
         require(!request.nativeWebSearch || request.tools.none { it.name.value == "web_search" })
-        val names = ResponsesToolNames(request)
+        val names = ProviderToolNames(request)
         val root =
             buildJsonObject {
                 put("model", request.model)
@@ -98,7 +99,7 @@ public class ResponsesRequestEncoder(
 
     private fun encodeTools(
         request: ModelRequest,
-        names: ResponsesToolNames,
+        names: ProviderToolNames,
     ): kotlinx.serialization.json.JsonArray? {
         if (request.tools.isEmpty() && !request.nativeWebSearch) return null
         return kotlinx.serialization.json.buildJsonArray {
@@ -127,7 +128,7 @@ public class ResponsesRequestEncoder(
      */
     private fun inputItems(
         message: ModelMessage,
-        names: ResponsesToolNames,
+        names: ProviderToolNames,
     ): List<JsonElement> {
         if (message.role == ModelRole.ASSISTANT && message.toolCalls.isNotEmpty()) {
             val items = mutableListOf<JsonElement>()

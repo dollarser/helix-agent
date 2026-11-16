@@ -7,6 +7,7 @@ import com.helix.core.model.ToolVersion
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
+import com.helix.tools.framework.ToolDiscoveryHints
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolOrigin
@@ -15,7 +16,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlin.time.Duration.Companion.seconds
 
 object BrowserOpenTool {
-    const val NAME: String = "browser.open"
+    const val NAME: String = "browser_open"
     const val VERSION: Int = 1
 
     fun descriptor(origin: ToolOrigin.PluginOrigin): ToolDescriptor =
@@ -25,7 +26,8 @@ object BrowserOpenTool {
             description =
                 "Open a new Helix in-app browser tab, select it, and navigate it to an http/https " +
                     "URL. Returns the new tab id; pass it to the other browser.* tools. An empty " +
-                    "url opens a blank tab.",
+                    "url opens a blank tab. Use browser_navigate to reuse an existing tab. " +
+                    "Opening a tab does not prove page loading; use browser_snapshot to inspect it.",
             inputSchema =
                 objectSchema(
                     properties =
@@ -42,7 +44,10 @@ object BrowserOpenTool {
                     properties =
                         buildJsonObject {
                             put("tabId", stringSchema(MAX_TAB_ID, "The id of the new tab."))
-                            put("url", stringSchema(MAX_URL, "The committed target URL."))
+                            put(
+                                "url",
+                                stringSchema(MAX_URL, "The requested navigation target, not proof the page loaded."),
+                            )
                             put(
                                 "origin",
                                 stringSchema(MAX_ORIGIN, "Target origin (about:blank / data:opaque for non-http)."),
@@ -57,6 +62,7 @@ object BrowserOpenTool {
             idempotency = Idempotency.NON_IDEMPOTENT,
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
             origin = origin,
+            discovery = ToolDiscoveryHints(category = "browser"),
         )
 
     fun executor(bridge: BrowserToolBridge): ToolExecutor =
@@ -66,7 +72,7 @@ object BrowserOpenTool {
                 if (call.cancel.isCancelled()) return ToolExecutorResult.Cancelled
                 val url =
                     strArg(call.args, "url", MAX_URL)
-                        ?: return ToolExecutorResult.Failed("invalid 'browser.open' arguments: 'url' must be a string")
+                        ?: return ToolExecutorResult.Failed("invalid 'browser_open' arguments: 'url' must be a string")
                 val out = bridge.open(url, call.sessionId)
                 out.failureReason?.let { return ToolExecutorResult.Failed(it) }
                 return ToolExecutorResult.Completed(
@@ -81,10 +87,10 @@ object BrowserOpenTool {
 }
 
 // ===========================================================================
-// browser.navigate
+// browser_navigate
 // ===========================================================================
 object BrowserNavigateTool {
-    const val NAME: String = "browser.navigate"
+    const val NAME: String = "browser_navigate"
     const val VERSION: Int = 1
 
     fun descriptor(origin: ToolOrigin.PluginOrigin): ToolDescriptor =
@@ -94,12 +100,18 @@ object BrowserNavigateTool {
             description =
                 "Navigate an existing browser tab to an http/https URL through the URL policy. " +
                     "Reports whether the navigation started, was denied by policy (with the reason), " +
-                    "or the tab is unknown.",
+                    "or the tab is unknown. Use browser_snapshot after navigation to inspect actual page content.",
             inputSchema =
                 objectSchema(
                     properties =
                         buildJsonObject {
-                            put("tabId", stringSchema(MAX_TAB_ID, "The tab to navigate (from a prior browser.open)."))
+                            put(
+                                "tabId",
+                                stringSchema(
+                                    MAX_TAB_ID,
+                                    "Exact tabId returned by browser_tabs, browser_open or browser_search.",
+                                ),
+                            )
                             put("url", stringSchema(MAX_URL, "The destination URL (http/https)."))
                         },
                     required = listOf("tabId", "url"),
@@ -112,7 +124,13 @@ object BrowserNavigateTool {
                                 "status",
                                 enumSchema(listOf(ST_NAV_STARTED, ST_NAV_DENIED), "started, or denied by policy."),
                             )
-                            put("url", stringSchema(MAX_URL, "The committed target URL; empty on denial."))
+                            put(
+                                "url",
+                                stringSchema(
+                                    MAX_URL,
+                                    "The requested navigation target; empty on denial, not proof of page loading.",
+                                ),
+                            )
                             put("origin", stringSchema(MAX_ORIGIN, "The target origin; empty on denial."))
                             put(
                                 "reason",
@@ -128,6 +146,7 @@ object BrowserNavigateTool {
             idempotency = Idempotency.NON_IDEMPOTENT,
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
             origin = origin,
+            discovery = ToolDiscoveryHints(category = "browser"),
         )
 
     fun executor(bridge: BrowserToolBridge): ToolExecutor =
@@ -138,12 +157,12 @@ object BrowserNavigateTool {
                 val tabId =
                     strArg(call.args, "tabId", MAX_TAB_ID)
                         ?: return ToolExecutorResult.Failed(
-                            "invalid 'browser.navigate' arguments: 'tabId' must be a string",
+                            "invalid 'browser_navigate' arguments: 'tabId' must be a string",
                         )
                 val url =
                     strArg(call.args, "url", MAX_URL)
                         ?: return ToolExecutorResult.Failed(
-                            "invalid 'browser.navigate' arguments: 'url' must be a string",
+                            "invalid 'browser_navigate' arguments: 'url' must be a string",
                         )
                 val out = bridge.navigate(tabId, url)
                 return when (out.status) {

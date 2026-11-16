@@ -2,6 +2,7 @@ package com.helix.app.files
 
 import android.provider.DocumentsContract
 import androidx.test.platform.app.InstrumentationRegistry
+import com.helix.core.workspace.WorkspaceFileBackend
 import com.helix.feature.files.SafGrantStore
 import com.helix.feature.files.SafTreeGrantCheck
 import com.helix.feature.files.SafTreeGrantFacts
@@ -152,7 +153,7 @@ class ManualSafFileDeviceTest {
     private var writable = true
     private var live = true
 
-    private fun withBackend(block: (ManualFileBackend, ManualFileOperations, String) -> Unit) {
+    private fun withBackend(block: (WorkspaceFileBackend, ManualFileOperations, String) -> Unit) {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val context = instrumentation.targetContext
         val authority = "${instrumentation.context.packageName}.manualfiles"

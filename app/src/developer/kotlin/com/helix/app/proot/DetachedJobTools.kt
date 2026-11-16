@@ -6,6 +6,7 @@ import com.helix.core.model.ToolVersion
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
+import com.helix.tools.framework.ToolDiscoveryHints
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
@@ -16,11 +17,11 @@ import kotlin.time.Duration.Companion.seconds
 
 /** Contracts are defined here; register only with the complete launch/accounting/collection host. */
 internal object DetachedJobTools {
-    const val START = "code.linux.job.start"
-    const val STATUS = "code.linux.job.status"
-    const val CANCEL = "code.linux.job.cancel"
-    const val COLLECT = "code.linux.job.collect"
-    const val AWAIT = "jobs.await"
+    const val START = "code_linux_job_start"
+    const val STATUS = "code_linux_job_status"
+    const val CANCEL = "code_linux_job_cancel"
+    const val COLLECT = "code_linux_job_collect"
+    const val AWAIT = "jobs_await"
     const val MAX_STREAM_CHARACTERS = 4096
     private val resultSchema = buildJsonObject { put("type", "object") }
 
@@ -74,7 +75,7 @@ internal object DetachedJobTools {
             description =
                 "Start one trusted Linux Job in the developer Runtime, sharing Helix UID and network access. " +
                     "BACKGROUND returns acceptance; AUTO returns the original result when completed during waiting, " +
-                    "otherwise its same handle. Query/cancel by originalCallId or use jobs.await; " +
+                    "otherwise its same handle. Query/cancel by originalCallId or use jobs_await; " +
                     "never replay an uncertain submission.",
             inputSchema = JsonObject(base.inputSchema + ("properties" to JsonObject(properties))),
             outputSchema = resultSchema,
@@ -123,6 +124,7 @@ internal object DetachedJobTools {
     fun await(): ToolDescriptor =
         control(false).copy(
             name = ToolName(AWAIT),
+            discovery = ToolDiscoveryHints(category = "jobs"),
             discoveryCompanions = emptySet(),
             description =
                 "Wait up to 15 seconds for ANY or ALL original job handles in this session. " +

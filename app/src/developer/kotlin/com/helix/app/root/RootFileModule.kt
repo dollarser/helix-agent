@@ -2,10 +2,10 @@ package com.helix.app.root
 
 import android.content.Context
 import com.helix.app.files.FileManagerService
-import com.helix.app.files.ManualFileBackend
-import com.helix.app.files.ManualFileInfo
 import com.helix.app.files.RootFileOperations
 import com.helix.core.workspace.ContentProbe
+import com.helix.core.workspace.WorkspaceFileBackend
+import com.helix.core.workspace.WorkspaceFileInfo
 import com.helix.tools.root.RootFileAccessor
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -44,10 +44,10 @@ internal object RootFileModule {
             }
         }
 
-        override fun stat(relativePath: String): ManualFileInfo? {
+        override fun stat(relativePath: String): WorkspaceFileInfo? {
             val targetPath = RootFileAccessor.toAbsolutePath(relativePath)
             val stat = RootFileAccessor.stat(targetPath) ?: return null
-            return ManualFileInfo(stat.isDirectory, stat.sizeBytes)
+            return WorkspaceFileInfo(stat.isDirectory, stat.sizeBytes)
         }
 
         override fun viewerTextBytes(
@@ -129,16 +129,16 @@ internal object RootFileModule {
             return target
         }
 
-        override fun manualBackend(): ManualFileBackend = RootManualBackend()
+        override fun manualBackend(): WorkspaceFileBackend = RootManualBackend()
 
-        private inner class RootManualBackend : ManualFileBackend {
+        private inner class RootManualBackend : WorkspaceFileBackend {
             override fun validateMutation(path: String) {
                 check(isRootGranted()) { "Root permission required" }
                 val abs = RootFileAccessor.toAbsolutePath(path)
                 require(abs != "/") { "The storage root cannot be changed" }
             }
 
-            override fun stat(path: String): ManualFileInfo? = this@RealRootFileOperations.stat(path)
+            override fun stat(path: String): WorkspaceFileInfo? = this@RealRootFileOperations.stat(path)
 
             override fun children(path: String): List<String> =
                 this@RealRootFileOperations.list(path).map { it.name }.sorted()

@@ -39,22 +39,22 @@ class KnowledgeReferenceToolsTest {
 
     @Test fun globalOffAllowsOnlySelectedAndGlobalOnNeverWidensExplicitScope() {
         val f = fixture()
-        val selected = output(f.execute("knowledge.read", read(f)))
+        val selected = output(f.execute("knowledge_read", read(f)))
         assertFalse(selected.containsKey("references"))
         assertFalse(selected.toString().contains("UNSELECTED_RELATED_EXCERPT"))
         assertTrue(
-            f.execute("knowledge.read", f.args("""{"kind":"note","id":"private"}""")) is ToolExecutorResult.Failed,
+            f.execute("knowledge_read", f.args("""{"kind":"note","id":"private"}""")) is ToolExecutorResult.Failed,
         )
         f.enabled = true
         assertTrue(
             f.execute(
-                "knowledge.read",
+                "knowledge_read",
                 f.scoped(f.args("""{"kind":"note","id":"private"}""")),
             ) is ToolExecutorResult.Failed,
         )
         assertFalse(f.reads.contains("private"))
         assertTrue(
-            f.execute("knowledge.read", f.args("""{"kind":"note","id":"private"}""")) is ToolExecutorResult.Completed,
+            f.execute("knowledge_read", f.args("""{"kind":"note","id":"private"}""")) is ToolExecutorResult.Completed,
         )
     }
 
@@ -62,7 +62,7 @@ class KnowledgeReferenceToolsTest {
         val text = "😀中".repeat(8000) + "TAIL_EVIDENCE"
         val f = fixture(text)
         val hit =
-            output(f.execute("knowledge.search", f.scoped(f.args("""{"query":"TAIL_EVIDENCE"}"""))))
+            output(f.execute("knowledge_search", f.scoped(f.args("""{"query":"TAIL_EVIDENCE"}"""))))
                 .getValue("items")
                 .jsonArray
                 .single()
@@ -74,7 +74,7 @@ class KnowledgeReferenceToolsTest {
             val page =
                 output(
                     f.execute(
-                        "knowledge.read",
+                        "knowledge_read",
                         read(
                             f,
                             buildJsonObject {
@@ -101,7 +101,7 @@ class KnowledgeReferenceToolsTest {
             val response =
                 output(
                     f.execute(
-                        "knowledge.search",
+                        "knowledge_search",
                         f.scoped(
                             buildJsonObject {
                                 put("query", "marker")
@@ -120,7 +120,7 @@ class KnowledgeReferenceToolsTest {
             if (cursor != null) {
                 assertTrue(
                     f.execute(
-                        "knowledge.search",
+                        "knowledge_search",
                         f.scoped(
                             buildJsonObject {
                                 put("query", "changed")
@@ -138,42 +138,42 @@ class KnowledgeReferenceToolsTest {
     @Test fun changedDeletedAndConcurrentMutationFailInsteadOfSubstitutingCurrentBody() {
         val f = fixture()
         f.documents["selected"] = "Changed evidence"
-        assertTrue(f.execute("knowledge.read", read(f)) is ToolExecutorResult.Failed)
+        assertTrue(f.execute("knowledge_read", read(f)) is ToolExecutorResult.Failed)
         f.documents.remove("selected")
-        assertTrue(f.execute("knowledge.read", read(f)) is ToolExecutorResult.Failed)
+        assertTrue(f.execute("knowledge_read", read(f)) is ToolExecutorResult.Failed)
         f.documents["selected"] = "Selected evidence"
         f.afterRead = { f.documents["selected"] = "Changed during read" }
-        assertTrue(f.execute("knowledge.read", read(f)) is ToolExecutorResult.Failed)
+        assertTrue(f.execute("knowledge_read", read(f)) is ToolExecutorResult.Failed)
     }
 
     @Test fun laterTurnsRetainGrantButOtherConversationSupersessionAndRevocationDeny() {
         val f = fixture()
-        assertTrue(f.execute("knowledge.read", read(f), turn = "followup") is ToolExecutorResult.Completed)
+        assertTrue(f.execute("knowledge_read", read(f), turn = "followup") is ToolExecutorResult.Completed)
         f.input = f.input.copy(sessionId = "other")
-        assertTrue(f.execute("knowledge.read", read(f)) is ToolExecutorResult.Failed)
+        assertTrue(f.execute("knowledge_read", read(f)) is ToolExecutorResult.Failed)
         f.input = f.input.copy(sessionId = "s")
         f.dao.rows[0] = f.dao.rows[0].copy(supersededBy = "edited-owner")
-        assertTrue(f.execute("knowledge.read", read(f)) is ToolExecutorResult.Failed)
+        assertTrue(f.execute("knowledge_read", read(f)) is ToolExecutorResult.Failed)
         f.dao.rows[0] = f.dao.rows[0].copy(supersededBy = null)
         f.afterRead = { f.input = f.input.copy(state = SessionInputState.WITHDRAWN) }
-        assertTrue(f.execute("knowledge.read", read(f)) is ToolExecutorResult.Failed)
+        assertTrue(f.execute("knowledge_read", read(f)) is ToolExecutorResult.Failed)
     }
 
     @Test fun invalidRangesCancellationAndCredentialsNeverPublishData() {
         val f = fixture()
         for (extra in listOf("""{"offset":1}""", """{"offset":-1}""", """{"limit":4097}""")) {
-            assertTrue(f.execute("knowledge.read", read(f, f.args(extra))) is ToolExecutorResult.Failed)
+            assertTrue(f.execute("knowledge_read", read(f, f.args(extra))) is ToolExecutorResult.Failed)
         }
-        assertEquals(ToolExecutorResult.TimedOut, f.execute("knowledge.read", read(f), deadline = Instant.EPOCH))
+        assertEquals(ToolExecutorResult.TimedOut, f.execute("knowledge_read", read(f), deadline = Instant.EPOCH))
         val cancel =
             object : CancelSignal {
                 override fun isCancelled() = true
             }
-        assertEquals(ToolExecutorResult.Cancelled, f.execute("knowledge.read", read(f), cancel = cancel))
+        assertEquals(ToolExecutorResult.Cancelled, f.execute("knowledge_read", read(f), cancel = cancel))
         val guarded = fixture("synthetic key sk-abcdefghijklmnopq")
-        assertTrue(guarded.execute("knowledge.read", read(guarded)) is ToolExecutorResult.Failed)
+        assertTrue(guarded.execute("knowledge_read", read(guarded)) is ToolExecutorResult.Failed)
         assertTrue(
-            guarded.execute("knowledge.search", guarded.scoped(guarded.args("""{"query":"synthetic"}""")))
+            guarded.execute("knowledge_search", guarded.scoped(guarded.args("""{"query":"synthetic"}""")))
                 is ToolExecutorResult.Failed,
         )
     }
@@ -182,13 +182,13 @@ class KnowledgeReferenceToolsTest {
         val f = fixture()
         for (field in listOf("referenceInputId", "referenceHash")) {
             val forged = JsonObject(read(f) + (field to kotlinx.serialization.json.JsonPrimitive("0".repeat(64))))
-            assertTrue(f.execute("knowledge.read", forged) is ToolExecutorResult.Failed)
+            assertTrue(f.execute("knowledge_read", forged) is ToolExecutorResult.Failed)
         }
         f.input = f.input.copy(state = SessionInputState.PENDING)
-        assertTrue(f.execute("knowledge.read", read(f)) is ToolExecutorResult.Failed)
+        assertTrue(f.execute("knowledge_read", read(f)) is ToolExecutorResult.Failed)
         f.input = f.input.copy(state = SessionInputState.APPENDED)
         f.dao.active = false
-        assertTrue(f.execute("knowledge.read", read(f)) is ToolExecutorResult.Failed)
+        assertTrue(f.execute("knowledge_read", read(f)) is ToolExecutorResult.Failed)
         assertTrue(f.reads.isEmpty())
     }
 
@@ -200,11 +200,11 @@ class KnowledgeReferenceToolsTest {
                 override fun isCancelled() = stopped
             }
         f.afterRead = { stopped = true }
-        assertEquals(ToolExecutorResult.Cancelled, f.execute("knowledge.read", read(f), cancel = cancel))
+        assertEquals(ToolExecutorResult.Cancelled, f.execute("knowledge_read", read(f), cancel = cancel))
         f.enabled = true
         f.afterRead = { f.enabled = false }
         assertTrue(
-            f.execute("knowledge.read", f.args("""{"kind":"note","id":"selected"}"""))
+            f.execute("knowledge_read", f.args("""{"kind":"note","id":"selected"}"""))
                 is ToolExecutorResult.Failed,
         )
     }
@@ -213,12 +213,12 @@ class KnowledgeReferenceToolsTest {
         for (kind in listOf("NOTE", "KNOWLEDGE", "SOURCE")) {
             val state = if (kind == "SOURCE") "RAW_TEXT" else "USER_CONTENT"
             val f = KnowledgeReferenceFixture(temporary.root, "😀中文", kind, state)
-            val result = output(f.execute("knowledge.read", read(f)))
+            val result = output(f.execute("knowledge_read", read(f)))
             assertEquals("😀中文", result.getValue("text").jsonPrimitive.content)
             assertEquals(3, result.getValue("totalCharacters").jsonPrimitive.int)
             assertEquals(kind, result.getValue("category").jsonPrimitive.content)
             f.completeness = "READY"
-            assertTrue(f.execute("knowledge.read", read(f)) is ToolExecutorResult.Failed)
+            assertTrue(f.execute("knowledge_read", read(f)) is ToolExecutorResult.Failed)
         }
     }
 }

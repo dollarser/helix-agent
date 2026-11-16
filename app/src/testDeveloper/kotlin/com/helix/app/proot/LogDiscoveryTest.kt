@@ -24,7 +24,7 @@ class LogDiscoveryTest {
             reader.copy(
                 name =
                     com.helix.core.model
-                        .ToolName("code.linux.run"),
+                        .ToolName("code_linux_run"),
                 description = "Run commands",
             ),
             executor,
@@ -33,7 +33,7 @@ class LogDiscoveryTest {
             reader.copy(
                 name =
                     com.helix.core.model
-                        .ToolName("root.logs"),
+                        .ToolName("root_logs"),
                 description = "Read system logs",
             ),
             executor,
@@ -58,7 +58,7 @@ class LogDiscoveryTest {
             requireNotNull(
                 registry.resolveLatest(
                     com.helix.core.model
-                        .ToolName("tools.search"),
+                        .ToolName("tools_search"),
                 ),
             )
         val source = contract.inputSchema.toString()

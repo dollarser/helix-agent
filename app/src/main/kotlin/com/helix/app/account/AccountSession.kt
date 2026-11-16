@@ -26,6 +26,7 @@ class AccountSession(
         OkHttpWireClient(followRedirects = false, maxBodyBytes = 65536),
     private val now: () -> Long = System::currentTimeMillis,
 ) {
+    internal val cooldown = AccountRequestCooldown { System.nanoTime() / 1_000_000 }
     private val gate = Mutex()
     private val sessionRevision =
         java.util.concurrent.atomic
@@ -138,9 +139,6 @@ class AccountSession(
                         throw cancelled
                     } catch (rejected: AccountRequestFailure) {
                         clear(AccountStatus.REAUTH_REQUIRED)
-                        if (rejected.status in setOf(401, 403)) {
-                            return@withLock null
-                        }
                         throw rejected
                     } catch (network: IOException) {
                         clear(AccountStatus.REAUTH_REQUIRED)
@@ -194,22 +192,30 @@ class AccountSession(
         fields: Map<String, String>,
     ): ByteArray =
         kotlinx.coroutines.withTimeoutOrNull(30000) {
+            val endpoint = "${OfficialServices.ACCOUNT_BASE_URL}/auth/$operation"
+            val scope = if (operation in setOf("login", "register")) -1L else revision
+            cooldown.check(scope, endpoint)
             val body = buildJsonObject { fields.forEach { (key, value) -> put(key, value) } }.toString().toByteArray()
             val response =
                 auth.open(
                     WireRequest(
                         "POST",
-                        "${OfficialServices.ACCOUNT_BASE_URL}/auth/$operation",
+                        endpoint,
                         mapOf(
                             "X-Client-Id" to CLIENT_ID,
                             "Content-Type" to "application/json",
-                            "User-Agent" to AGENT,
                         ),
                         body,
                     ),
                 )
             try {
-                if (response.status !in 200..299) throw AccountRequestFailure(response.status)
+                if (response.status !in 200..299) {
+                    val details =
+                        com.helix.provider.api.wire
+                            .readHttpFailure(response)
+                    cooldown.record(scope, endpoint, details)
+                    throw AccountRequestFailure(details)
+                }
                 response.body.bytes().also { require(it.size <= 65536) }
             } finally {
                 response.body.close()
@@ -220,7 +226,6 @@ class AccountSession(
 
     companion object {
         const val CLIENT_ID = "helix-android-preview-v1"
-        const val AGENT = "android-ai-client/1.0"
         private val HOSTS =
             setOf(URI(OfficialServices.ACCOUNT_BASE_URL).host, URI(OfficialServices.INFERENCE_BASE_URL).host)
 
@@ -248,41 +253,49 @@ private class AccountServiceWire(
     // No account and refresh rejection must return local 401 before any service body is emitted.
     @Suppress("ReturnCount")
     override suspend fun open(request: WireRequest): WireResponse {
-        require(request.url == endpoint)
-        require(
-            request.headers.keys.none {
-                it.lowercase() in
-                    setOf("authorization", "x-client-id", "cookie", "proxy-authorization")
-            },
-        )
+        validateRequest(request)
         val current =
             try {
                 account.authorization(expectedRevision = revision)
             } catch (failure: AccountRequestFailure) {
-                return errorResponse(failure.status)
+                return errorResponse(failure.details)
             } ?: return errorResponse(401)
+        try {
+            account.cooldown.check(revision, endpoint)
+        } catch (failure: AccountRequestFailure) {
+            return errorResponse(failure.details)
+        }
         boundIdentity.compareAndSet(null, current.identity)
         if (boundIdentity.get() != current.identity) {
             throw com.helix.provider.api.wire.WireRequestStateException(
                 com.helix.provider.api.wire.WireRequestStateException.Reason.ACCOUNT_CHANGED,
             )
         }
-        var response = send(request, current)
+        val logicalRequest =
+            WireRequest(
+                request.method,
+                request.url,
+                com.helix.provider.api.wire.RequestDiagnostics
+                    .headers(request.headers),
+                request.body,
+            )
+        var response = send(logicalRequest, current)
         if (response.status == 401) {
             response.body.close()
             val next =
                 try {
                     account.authorization(current.access, revision)
                 } catch (failure: AccountRequestFailure) {
-                    return errorResponse(failure.status)
+                    return errorResponse(failure.details)
                 } ?: return errorResponse(401)
             if (next.identity != current.identity) {
                 throw com.helix.provider.api.wire.WireRequestStateException(
                     com.helix.provider.api.wire.WireRequestStateException.Reason.ACCOUNT_CHANGED,
                 )
             }
-            response = send(request, next)
+            response = send(logicalRequest, next)
         }
+        response = retainCooldown(response)
         val body = response.body
 
         fun checkIdentity() {
@@ -311,6 +324,29 @@ private class AccountServiceWire(
         )
     }
 
+    private fun validateRequest(request: WireRequest) {
+        require(request.url == endpoint)
+        require(
+            request.headers.keys.none {
+                it.lowercase() in
+                    setOf("authorization", "x-client-id", "cookie", "proxy-authorization")
+            },
+        )
+    }
+
+    private suspend fun retainCooldown(response: WireResponse): WireResponse {
+        if (response.status != 429) return response
+        val details =
+            try {
+                com.helix.provider.api.wire
+                    .readHttpFailure(response)
+            } finally {
+                response.body.close()
+            }
+        account.cooldown.record(revision, endpoint, details)
+        return errorResponse(details)
+    }
+
     private suspend fun send(
         request: WireRequest,
         current: AccountTokens,
@@ -319,33 +355,75 @@ private class AccountServiceWire(
             WireRequest(
                 request.method,
                 endpoint,
-                request.headers.filterKeys { !it.equals("User-Agent", true) } +
+                request.headers +
                     mapOf(
                         "Authorization" to "Bearer ${current.access}",
                         "X-Client-Id" to AccountSession.CLIENT_ID,
-                        "User-Agent" to AccountSession.AGENT,
                     ),
                 request.body,
             ),
         )
 
     private fun errorResponse(status: Int) =
-        WireResponse(
-            status,
-            emptyMap(),
-            object : WireBody {
-                override suspend fun bytes() = ByteArray(0)
+        errorResponse(
+            com.helix.provider.api.wire
+                .HttpFailureDetails(status),
+        )
 
-                override suspend fun forEachChunk(onChunk: suspend (ByteArray) -> Boolean) = Unit
+    private fun errorResponse(details: com.helix.provider.api.wire.HttpFailureDetails): WireResponse {
+        val bytes =
+            details.detail?.let { detail ->
+                kotlinx.serialization.json
+                    .buildJsonObject {
+                        put("detail", kotlinx.serialization.json.JsonPrimitive(detail))
+                    }.toString()
+                    .toByteArray()
+            } ?: ByteArray(0)
+        return WireResponse(
+            details.status,
+            buildMap {
+                details.requestId?.let { put("X-Request-ID", listOf(it)) }
+                details.retryAfterMillis?.let {
+                    put(
+                        "Retry-After",
+                        listOf(
+                            (
+                                it / 1000 +
+                                    if (it % 1000 ==
+                                        0L
+                                    ) {
+                                        0
+                                    } else {
+                                        1
+                                    }
+                            ).toString(),
+                        ),
+                    )
+                }
+            },
+            object : WireBody {
+                override suspend fun bytes() = bytes
+
+                override suspend fun forEachChunk(onChunk: suspend (ByteArray) -> Boolean) {
+                    onChunk(bytes)
+                }
 
                 override fun close() = Unit
             },
         )
+    }
 }
 
 internal class AccountRequestFailure(
-    val status: Int,
-) : IOException("Account request failed: HTTP $status")
+    val details: com.helix.provider.api.wire.HttpFailureDetails,
+) : IOException("Account request failed: HTTP ${details.status}") {
+    constructor(status: Int) : this(
+        com.helix.provider.api.wire
+            .HttpFailureDetails(status),
+    )
+
+    val status: Int get() = details.status
+}
 
 /** Sanitized local response/storage failure; never mislabeled as a network outage. */
 internal class AccountDataFailure :

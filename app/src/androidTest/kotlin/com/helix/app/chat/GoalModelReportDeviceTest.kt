@@ -126,7 +126,7 @@ class GoalModelReportDeviceTest {
     @Test fun laterWorkInvalidatesEarlierReport() =
         fixture { s, g, start ->
             report(s, "t", "complete")
-            s.toolCalls.append("later", "t", "later", "time.now", "1", "{}", "COMPLETED")
+            s.toolCalls.append("later", "t", "later", "time_now", "1", "{}", "COMPLETED")
             assertNull(s.goalModelReport("t"))
             kotlinx.coroutines.runBlocking { start.coordinator.beginModelStream() }
             start.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
@@ -145,9 +145,9 @@ class GoalModelReportDeviceTest {
 
             val registry = ToolRegistry()
             GoalReportTool.register(registry, s)
-            val descriptor = registry.resolve(ToolName("goal.report"), ToolVersion(1))
+            val descriptor = registry.resolve(ToolName("goal_report"), ToolVersion(1))
             ModelToolSchema(descriptor.name, descriptor.description, descriptor.inputSchema.toString())
-            val executor = registry.executor(ToolName("goal.report"), ToolVersion(1))
+            val executor = registry.executor(ToolName("goal_report"), ToolVersion(1))
             val call = executableReport()
             assertTrue(executor.execute(call) is ToolExecutorResult.Completed)
             assertTrue(executor.execute(call.copy(sessionId = "foreign")) is ToolExecutorResult.Failed)
@@ -160,7 +160,7 @@ class GoalModelReportDeviceTest {
 
             val registry = ToolRegistry()
             GoalReportTool.register(registry, s)
-            val executor = registry.executor(ToolName("goal.report"), ToolVersion(1))
+            val executor = registry.executor(ToolName("goal_report"), ToolVersion(1))
             val cancelled =
                 object : CancelSignal {
                     override fun isCancelled(): Boolean = true
@@ -174,7 +174,7 @@ class GoalModelReportDeviceTest {
     @Test fun unverifiedReportCannotCompleteGoal() =
         fixture { s, g, start ->
             val args = executableReport().args.toString()
-            s.toolCalls.append("unverified", "t", "report", "goal.report", "1", args, "COMPLETED")
+            s.toolCalls.append("unverified", "t", "report", "goal_report", "1", args, "COMPLETED")
             s.toolResults.append("result", "unverified", "SUCCEEDED", "unchecked", args)
             assertNull(s.goalModelReport("t"))
             kotlinx.coroutines.runBlocking { start.coordinator.beginModelStream() }
@@ -193,7 +193,7 @@ class GoalModelReportDeviceTest {
         fixture { s, _, _ ->
             val registry = ToolRegistry()
             GoalReportTool.register(registry, s)
-            val schema = registry.resolve(ToolName("goal.report"), ToolVersion(1)).inputSchema
+            val schema = registry.resolve(ToolName("goal_report"), ToolVersion(1)).inputSchema
             val invalid =
                 listOf(
                     buildJsonObject {
@@ -263,7 +263,7 @@ class GoalModelReportDeviceTest {
     private fun executableReport(): ExecutableToolCall =
         ExecutableToolCall(
             "call",
-            "goal.report",
+            "goal_report",
             "1",
             buildJsonObject {
                 put("status", "complete")
@@ -282,7 +282,7 @@ class GoalModelReportDeviceTest {
 
             val registry = ToolRegistry()
             GoalReportTool.register(registry, s, owner::metadataExecutor)
-            val executor = owner.guard(registry.executor(ToolName("goal.report"), ToolVersion(1)))
+            val executor = owner.guard(registry.executor(ToolName("goal_report"), ToolVersion(1)))
             val reservations = GoalUsageReservations(s)
             assertTrue(
                 reservations.reserve(
@@ -323,9 +323,9 @@ class GoalModelReportDeviceTest {
 
             val registry = ToolRegistry()
             GoalLifecycleTools.register(registry, owner::metadataExecutor, service::execute)
-            val read = owner.guard(registry.executor(ToolName("goal.get"), ToolVersion(1)))
+            val read = owner.guard(registry.executor(ToolName("goal_get"), ToolVersion(1)))
             assertTrue(
-                read.execute(executableReport().copy(toolName = "goal.get", args = buildJsonObject {}))
+                read.execute(executableReport().copy(toolName = "goal_get", args = buildJsonObject {}))
                     is ToolExecutorResult.Completed,
             )
             assertTrue(
@@ -338,10 +338,10 @@ class GoalModelReportDeviceTest {
                     ),
                 ),
             )
-            val update = owner.guard(registry.executor(ToolName("goal.update"), ToolVersion(1)))
+            val update = owner.guard(registry.executor(ToolName("goal_update"), ToolVersion(1)))
             val call =
                 executableReport().copy(
-                    toolName = "goal.update",
+                    toolName = "goal_update",
                     args =
                         buildJsonObject {
                             put("id", goal)
@@ -380,7 +380,7 @@ class GoalModelReportDeviceTest {
                 put("status", status)
                 put("summary", "Checked the work")
             }.toString()
-        s.toolCalls.append(call, turn, call, "goal.report", "1", args, "COMPLETED")
+        s.toolCalls.append(call, turn, call, "goal_report", "1", args, "COMPLETED")
         val result = s.toolResults.append(id(), call, "SUCCEEDED", "Report accepted", args)
         s.toolResults.markVerified(result)
     }

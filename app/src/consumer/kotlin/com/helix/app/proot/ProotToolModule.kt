@@ -17,7 +17,7 @@ import com.helix.tools.framework.ToolRegistry
  *
  * The consumer channel ships NO PRoot capability (ADR-0013/ADR-0005: the PRoot/CLI
  * companion is a developer/Advanced capability; the consumer Play build has no PRoot
- * client, no `code.linux.run` tool and no repair entry). [registerTools] is a no-op;
+ * client, no `code_linux_run` tool and no repair entry). [registerTools] is a no-op;
  * [AVAILABLE] is false so any shared routing stays variant-neutral.
  */
 @Suppress("TooManyFunctions") // flavor-seam parity with the developer module (HXA-085/087 surfaces)

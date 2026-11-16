@@ -7,6 +7,7 @@ import com.helix.core.model.ToolVersion
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
+import com.helix.tools.framework.ToolDiscoveryHints
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolOrigin
@@ -30,7 +31,7 @@ object WebFetchTool {
                     "Check status, truncated and decodingLoss before claiming full coverage; " +
                     "login/JS pages may have little text. " +
                     "Cite finalUrl only for claims supported by text. " +
-                    "Use http.fetch for raw HTTP responses and browser for interactive pages.",
+                    "Use http_fetch for raw HTTP responses and browser for interactive pages.",
             inputSchema =
                 objectSchema(
                     buildJsonObject {
@@ -108,6 +109,7 @@ object WebFetchTool {
             idempotency = Idempotency.NON_IDEMPOTENT,
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
             origin = ToolOrigin.BuiltInOrigin,
+            discovery = ToolDiscoveryHints(category = "web"),
         )
 
     fun register(

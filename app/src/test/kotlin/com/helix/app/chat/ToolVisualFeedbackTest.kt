@@ -255,7 +255,7 @@ class ToolVisualFeedbackTest {
     @Test fun mobileStartConsentFeedsPixelsAndStopsOnGrantLoss() =
         runBlocking {
             val fixture = Fixture()
-            fixture.messages = fixture.messages.map { it.copy(toolName = ToolName("ui.screenshot")) }
+            fixture.messages = fixture.messages.map { it.copy(toolName = ToolName("ui_screenshot")) }
             fixture.registerNativeScreen()
             val first = fixture.restore().single()
             assertEquals(1, first.images.size)
@@ -287,7 +287,7 @@ class ToolVisualFeedbackTest {
     @Test fun localMobilePixelsKeepGrantProvenanceWithoutNetworkPrompt() =
         runBlocking {
             val fixture = Fixture()
-            fixture.messages = fixture.messages.map { it.copy(toolName = ToolName("ui.screenshot")) }
+            fixture.messages = fixture.messages.map { it.copy(toolName = ToolName("ui_screenshot")) }
             fixture.destination = fixture.localConfig()
             fixture.registerNativeScreen()
             val local = fixture.restore(config = fixture.destination).single()
@@ -425,7 +425,7 @@ class ToolVisualFeedbackTest {
             val call =
                 com.helix.tools.framework.ExecutableToolCall(
                     "call",
-                    "ui.screenshot",
+                    "ui_screenshot",
                     "1",
                     kotlinx.serialization.json.JsonObject(emptyMap()),
                     com.helix.core.model.ExecutionTargetType.LOCAL_ANDROID,

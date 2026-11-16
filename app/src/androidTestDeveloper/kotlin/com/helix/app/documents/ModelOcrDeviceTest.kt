@@ -107,7 +107,7 @@ class ModelOcrDeviceTest {
                 )
                 assertTrue(
                     "Model did not view original scanned pixels",
-                    calls.any { it.name == "documents.view" && it.state == "COMPLETED" },
+                    calls.any { it.name == "documents_view" && it.state == "COMPLETED" },
                 )
                 assertTrue("OCR answer incorrect", answer.contains("OCR-782") && answer.contains("47"))
                 assertTrue(original.contentEquals(source.readBytes()))

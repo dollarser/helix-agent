@@ -14,6 +14,7 @@ import com.helix.tools.framework.CanonicalArgs
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
+import com.helix.tools.framework.ToolDiscoveryHints
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolOrigin
@@ -29,7 +30,7 @@ import java.util.UUID
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * The synchronous, bounded execution seam the `code.javascript.run` tool calls (HXA-053).
+ * The synchronous, bounded execution seam the `code_javascript_run` tool calls (HXA-053).
  *
  * Production is backed by [com.helix.runtime.quickjs.JsExecutionClient] (the HXA-051/052
  * isolated-service protocol); tests inject a fake that returns canned [JsExecutionResult]s.
@@ -46,7 +47,7 @@ fun interface JsExecutor {
 }
 
 /**
- * The `code.javascript.run` built-in tool (roadmap HXA-053): runs Agent-generated JavaScript
+ * The `code_javascript_run` built-in tool (roadmap HXA-053): runs Agent-generated JavaScript
  * in the isolated, offline QuickJS backend (doc 03) and backfills the bounded JSON result.
  *
  * Contract (doc 03 §4.1 / §5, mobile-tool-orchestration §3.1):
@@ -67,7 +68,7 @@ fun interface JsExecutor {
  */
 @Suppress("TooManyFunctions") // one helper per schema / result-mapping concern
 object CodeJavascriptRunTool {
-    const val NAME: String = "code.javascript.run"
+    const val NAME: String = "code_javascript_run"
 
     const val VERSION: Int = 1
 
@@ -90,7 +91,7 @@ object CodeJavascriptRunTool {
                 "Run a synchronous JavaScript function body; return JSON, not a Promise. No top-level await. " +
                     "Default access=isolated is offline. " +
                     "access=native requires the user's Runtime native-access switch; discovery does not enable it. " +
-                    "Prefer read/write/files.mkdir for workspace files. Native runs in a private app-UID process. " +
+                    "Prefer read/write/files_mkdir for workspace files. Native runs in a private app-UID process. " +
                     "Native APIs: native.files.readText/writeText/list/mkdirs/delete(path,...); " +
                     "native.net.request(url,method='GET',body=null,headers={}); native.android.context; " +
                     "native.java.create(type,types=[],args=[]), call(target,method,types=[],args=[]), " +
@@ -112,6 +113,7 @@ object CodeJavascriptRunTool {
             idempotency = Idempotency.NON_IDEMPOTENT,
             executionTarget = ExecutionTargetType.LOCAL_QUICKJS,
             origin = ToolOrigin.BuiltInOrigin,
+            discovery = ToolDiscoveryHints(category = "code"),
         )
 
     private fun inputSchema(): JsonObject =
@@ -174,7 +176,7 @@ object CodeJavascriptRunTool {
             put("default", false)
             put(
                 "description",
-                "Synchronous helix.call(tool,args): const r=helix.call('time.now',{}); return r; " +
+                "Synchronous helix.call(tool,args): const r=helix.call('time_now',{}); return r; " +
                     "No top-level await; do not return a Promise. " +
                     "Uses task authorization and user delegation. No automatic retries.",
             )
@@ -244,7 +246,7 @@ object CodeJavascriptRunTool {
     ): ToolExecutorResult {
         val code =
             (call.args["code"] as? JsonPrimitive)?.content
-                ?: return ToolExecutorResult.Failed("invalid 'code.javascript.run' arguments: 'code' must be a string")
+                ?: return ToolExecutorResult.Failed("invalid 'code_javascript_run' arguments: 'code' must be a string")
         val inputBytes: ByteArray? =
             call.args["input"]?.let { CanonicalArgs.canonicalize(it).toByteArray(StandardCharsets.UTF_8) }
         val nativeAccess = (call.args["access"] as? JsonPrimitive)?.content == "native"

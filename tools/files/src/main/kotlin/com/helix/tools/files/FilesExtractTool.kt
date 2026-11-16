@@ -16,6 +16,7 @@ import com.helix.core.workspace.WorkspaceQuota
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
+import com.helix.tools.framework.ToolDiscoveryHints
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolOrigin
@@ -29,7 +30,7 @@ import java.nio.file.FileAlreadyExistsException
 import kotlin.time.Duration.Companion.seconds
 
 object FilesExtractTool {
-    const val NAME: String = "files.extract"
+    const val NAME: String = "files_extract"
 
     const val VERSION: Int = 1
 
@@ -50,6 +51,7 @@ object FilesExtractTool {
             idempotency = Idempotency.NON_IDEMPOTENT,
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
             origin = ToolOrigin.BuiltInOrigin,
+            discovery = ToolDiscoveryHints(category = "files"),
         )
 
     private fun inputSchema(): JsonObject =
@@ -121,7 +123,7 @@ object FilesExtractTool {
                 val source = archiveToolsRefArg(call.args, "source")
                 val dest = archiveToolsRefArg(call.args, "destination")
                 if (source == null || dest == null) {
-                    return ToolExecutorResult.Failed("invalid 'files.extract' arguments")
+                    return ToolExecutorResult.Failed("invalid 'files_extract' arguments")
                 }
                 if (source.scopeId != dest.scopeId) {
                     return ToolExecutorResult.Failed("source and destination must be in the same scope")

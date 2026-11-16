@@ -122,7 +122,7 @@ class ToolPayloadDetailsDeviceTest : ConversationDeviceTestFixture(usesClipboard
                         ToolTimelineRow(
                             "turn",
                             "call",
-                            "skills.read",
+                            "skills_read",
                             arguments,
                             state.name,
                             result,

@@ -287,7 +287,7 @@ class AutomationPrivilegedDeviceTest {
         val call =
             ExecutableToolCall(
                 "call",
-                "ui.device",
+                "ui_device",
                 "1",
                 JsonObject(emptyMap()),
                 ExecutionTargetType.LOCAL_ANDROID,

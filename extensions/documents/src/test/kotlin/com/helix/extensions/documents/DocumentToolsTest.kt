@@ -83,7 +83,7 @@ class DocumentToolsTest {
         args: String = """{"documentRef":"ref","page":2}""",
     ) = ExecutableToolCall(
         "c",
-        "documents.$operation",
+        "documents_$operation",
         "1",
         Json.parseToJsonElement(args).jsonObject,
         ExecutionTargetType.LOCAL_ANDROID,
@@ -125,7 +125,7 @@ class DocumentToolsTest {
         .bindings(snapshots, parser, images)
         .single {
             it.descriptor.name.value ==
-                "documents.$operation"
+                "documents_$operation"
         }.executor
 
     @Test fun textPaginationPreservesSnapshotSourceAndReadOnlyOrigin() {
@@ -147,10 +147,10 @@ class DocumentToolsTest {
         assertEquals("scope:ws:paper.pdf", output["sourcePath"]!!.jsonPrimitive.content)
         assertEquals("3", output["nextPage"]!!.jsonPrimitive.content)
         assertEquals("true", output["truncated"]!!.jsonPrimitive.content)
-        DocumentTools.names.forEach { name ->
+        listOf("inspect", "read", "view").forEach { operation ->
             assertEquals(
                 ToolOperationClass.READ_ONLY,
-                DocumentTools.descriptor(name.substringAfter('.')).operationClass,
+                DocumentTools.descriptor(operation).operationClass,
             )
         }
     }

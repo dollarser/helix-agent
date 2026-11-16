@@ -353,9 +353,13 @@ internal class ChatRequestAssembler(
             ModePolicy
                 .filterTools(control.mode, latest, control.chatToolsEnabled) {
                     ToolModeProfile(it.operationClass)
-                }.filter { !it.name.value.startsWith("memory.") || memory?.enabled == true }
-                .filter { !recoveryOnly || it.operationClass == com.helix.core.model.ToolOperationClass.READ_ONLY }
-                .filter {
+                }.filter {
+                    it.name.value !in
+                        (com.helix.app.memory.MemoryTools.reads + com.helix.app.memory.MemoryTools.writes) ||
+                        memory?.enabled == true
+                }.filter {
+                    !recoveryOnly || it.operationClass == com.helix.core.model.ToolOperationClass.READ_ONLY
+                }.filter {
                     it.name.value !in com.helix.app.goal.GoalLifecycleTools.names ||
                         control.mode != AgentMode.PLAN
                 }
@@ -369,8 +373,11 @@ internal class ChatRequestAssembler(
             // SAME shared predicate the execution entry refuses with — visible() applies it too,
             // but the schema list is the last gate before truncation and must not drift.
             .filter { toolPipeline.disabledToolFilter?.invoke(sessionId, it) ?: true }
-            .filter { !it.name.value.startsWith("memory.") || memory?.enabled == true }
-            .filter { !recoveryOnly || it.operationClass == com.helix.core.model.ToolOperationClass.READ_ONLY }
+            .filter {
+                it.name.value !in
+                    (com.helix.app.memory.MemoryTools.reads + com.helix.app.memory.MemoryTools.writes) ||
+                    memory?.enabled == true
+            }.filter { !recoveryOnly || it.operationClass == com.helix.core.model.ToolOperationClass.READ_ONLY }
             .filter {
                 it.name.value !in com.helix.app.goal.GoalLifecycleTools.names || control.mode != AgentMode.PLAN
             }.let {

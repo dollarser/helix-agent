@@ -203,7 +203,7 @@ class FixedFileEvaluationDeviceTest {
             }
 
             "file-002" -> {
-                calls.any { it.name == "files.list" && it.state == "COMPLETED" } &&
+                calls.any { it.name == "files_list" && it.state == "COMPLETED" } &&
                     calls.none { it.name == "write" }
             }
 

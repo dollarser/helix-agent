@@ -32,20 +32,15 @@ internal fun matchesPluginQuery(
     contents: List<String> = emptyList(),
 ): Boolean {
     val term = query.trim()
-    return listOf(pluginDisplayName(record), record.native?.pluginId.orEmpty())
+    return record
+        .pluginName()
+        .aliases
+        .plus(record.native?.pluginId.orEmpty())
         .plus(contents)
         .plus(record.skills.map { it.name })
         .plus(record.endpoints.map { it.endpoint.name })
         .any { it.contains(term, ignoreCase = true) }
 }
-
-internal fun pluginDisplayName(record: InstalledPlugin): String =
-    when (record.native?.pluginId) {
-        "mobile-use" -> "Mobile Use"
-        "browser" -> "Browser"
-        "documents" -> "Documents"
-        else -> pluginTitleCase(record.name)
-    }
 
 internal data class PluginManagementActions(
     val use: (() -> Unit)?,
@@ -150,7 +145,7 @@ private fun PluginManagementHeader(
     onClick: () -> Unit,
 ) {
     PluginCatalogHeader(
-        pluginLabel(record.native?.pluginId ?: record.name),
+        pluginLabel(record.pluginName()),
         expanded,
         Modifier.testTag(record.native?.let { "bundled-plugin-${it.pluginId}" } ?: "extension-manage-${record.id}"),
         onClick,

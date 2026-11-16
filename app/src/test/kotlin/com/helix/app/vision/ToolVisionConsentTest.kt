@@ -197,7 +197,7 @@ class ToolVisionConsentTest {
         val call =
             com.helix.tools.framework.ExecutableToolCall(
                 "call",
-                "ui.screenshot",
+                "ui_screenshot",
                 "1",
                 kotlinx.serialization.json.JsonObject(emptyMap()),
                 com.helix.core.model.ExecutionTargetType.LOCAL_ANDROID,

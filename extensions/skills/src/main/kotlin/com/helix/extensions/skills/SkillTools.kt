@@ -7,6 +7,7 @@ import com.helix.core.model.ToolVersion
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
+import com.helix.tools.framework.ToolDiscoveryHints
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolOrigin
@@ -23,13 +24,13 @@ import kotlin.time.Duration.Companion.seconds
 
 @Suppress("TooManyFunctions")
 object SkillTools {
-    const val LIST = "skills.list"
-    const val READ = "skills.read"
-    const val READ_RESOURCE = "skills.read_resource"
-    const val SCRIPTS = "skills.scripts"
-    const val ENABLE = "skills.enable"
-    const val DISABLE = "skills.disable"
-    const val REMOVE = "skills.remove"
+    const val LIST = "skills_list"
+    const val READ = "skills_read"
+    const val READ_RESOURCE = "skills_read_resource"
+    const val SCRIPTS = "skills_scripts"
+    const val ENABLE = "skills_enable"
+    const val DISABLE = "skills_disable"
+    const val REMOVE = "skills_remove"
 
     fun registerAll(
         registry: ToolRegistry,
@@ -303,6 +304,7 @@ object SkillTools {
                 idempotency = idempotency,
                 executionTarget = ExecutionTargetType.LOCAL_ANDROID,
                 origin = ToolOrigin.BuiltInOrigin,
+                discovery = ToolDiscoveryHints(category = "skills"),
             )
     }
 

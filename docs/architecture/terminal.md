@@ -1,6 +1,6 @@
 # 终端、日志与后台命令
 
-本页说明已交付 Linux Job、手动终端与多会话的当前结构和控制边界，交付证据见下方 HXA-194～199。决策见[执行域](../adr/runtime/001-execution-domains.md)、[终端与 Job](../adr/runtime/002-terminal-and-jobs.md)，最新未闭合条件看[实施状态](../development/status.md)。[HXA-236](../development/tasks/HXA-236.md) 已接入 Linux 原身份 status/`jobs.await` 与独立停止等待并完成基础主机验证；完整 J1 的观察上下文/可信类型进展判断与设备边界仍开放。AUTO/手动后台化仍属 [Harness 第 8 节](harness-refactor-plan.md) 的 J2，不由后台启动或 await 推导为已交付。
+本页说明已交付 Linux Job、手动终端与多会话的当前结构和控制边界，交付证据见下方 HXA-194～199。决策见[执行域](../adr/runtime/001-execution-domains.md)、[终端与 Job](../adr/runtime/002-terminal-and-jobs.md)，最新未闭合条件看[实施状态](../development/status.md)。[HXA-236](../development/tasks/HXA-236.md) 已接入 Linux 原身份 status/`jobs_await` 与独立停止等待并完成基础主机验证；完整 J1 的观察上下文/可信类型进展判断与设备边界仍开放。AUTO/手动后台化仍属 [Harness 第 8 节](harness-refactor-plan.md) 的 J2，不由后台启动或 await 推导为已交付。
 
 ## 三种对象
 
@@ -22,19 +22,19 @@ developer 已注册下列入口，沿既有 Dispatcher 的 schema、能力、会
 
 | 工具 | 参数与行为 |
 | --- | --- |
-| `code.linux.job.start` | 复用 Linux 命令、输入及原 output；`leaseSeconds` 默认 300、最大 1800。返回 accepted 和 originalCallId，不代表执行成功。 |
-| `code.linux.job.status` | 仅 originalCallId；只查询可信当前会话的原 Job，不续租、不导入。 |
-| `jobs.await` | 同会话原调用 handles，ANY/ALL，有界等待；返回等待原因与原状态/待结算事实，不取消原任务、不续租、不导入。 |
-| `code.linux.job.cancel` | 仅 originalCallId；幂等取消原 Job，终态仍需收取结算。 |
-| `code.linux.job.collect` | 仅 originalCallId；取得原终态与归档，按原 output 及当前授权导入、结算预算与占用。失败重试此入口，不重新启动命令。 |
+| `code_linux_job_start` | 复用 Linux 命令、输入及原 output；`leaseSeconds` 默认 300、最大 1800。返回 accepted 和 originalCallId，不代表执行成功。 |
+| `code_linux_job_status` | 仅 originalCallId；只查询可信当前会话的原 Job，不续租、不导入。 |
+| `jobs_await` | 同会话原调用 handles，ANY/ALL，有界等待；返回等待原因与原状态/待结算事实，不取消原任务、不续租、不导入。 |
+| `code_linux_job_cancel` | 仅 originalCallId；幂等取消原 Job，终态仍需收取结算。 |
+| `code_linux_job_collect` | 仅 originalCallId；取得原终态与归档，按原 output 及当前授权导入、结算预算与占用。失败重试此入口，不重新启动命令。 |
 
-`collect` 与只读查询分开。其文件效果由宿主查询原绑定和持久 ToolCall 参数决定，不信任收取请求提供替代路径；新 DENY、原工具禁用及撤销的 scope 会阻止延后写入。成功导入回执持久化后，重复收取不覆盖后续用户修改。未知/orphan 保留原身份与恢复审查，不能凭一次查询假定原进程退出；这不禁止其他任务执行。旧同步 `bash`/`code.linux.run` 继续返回同步结果。
+`collect` 与只读查询分开。其文件效果由宿主查询原绑定和持久 ToolCall 参数决定，不信任收取请求提供替代路径；新 DENY、原工具禁用及撤销的 scope 会阻止延后写入。成功导入回执持久化后，重复收取不覆盖后续用户修改。未知/orphan 保留原身份与恢复审查，不能凭一次查询假定原进程退出；这不禁止其他任务执行。旧同步 `bash`/`code_linux_run` 继续返回同步结果。
 
 Runtime 中断留下 ORPHANED 时，先在 Tasks 收取原结果。若旧进程是否停止无法确认，页面会提示重启设备后再次收取。宿主在提交前记录 Android 启动次数；旧记录首次收取时保存启动观察，必须在此之后实际重启。只有系统启动次数严格增加才能证明旧进程不再执行：此时结算原预算并释放占用，不导入未知输出、不重跑命令，执行状态仍为 ORPHANED。系统证据不可读或倒退时不自动释放。原 Turn 已结束时未知租期只结算一次，不以停止证明缺失为由永久保留预算。
 
 原执行记录丢失时，只有 Runtime 校验原绑定后明确返回 NOT_FOUND、原 Turn 已终态或停驻于 INTERRUPTED，且上述重启证据成立，人工收取才可结算原预算并解除占用。宿主保存独立的记录丢失处置审计，页面显示 UNKNOWN 与结果无法恢复，不生成 Runtime 终态、输出回执或 ACK。Runtime 不可用、绑定失效、同次开机及结算失败仍保留占用；不能把通信失败当作记录不存在。此出口不重放命令。
 
-后台任务运行期间，普通获准调用可继续执行；宿主显式包装的 Goal、Plan、Todo 内置 executor 继续处理绑定会话/Turn 的元数据。这个准入不按工具名称或自报 READ_ONLY/METADATA 自动授予，不修改 owner，也不绕过 Dispatcher 权限和各工具的绑定/取消校验。存在 pending 后台时间租期时，`goal.report` 与 `update_goal` 可以上报进度，不能提前上报 complete；先收取原 Job，再检查目标并报告完成。
+后台任务运行期间，普通获准调用可继续执行；宿主显式包装的 Goal、Plan、Todo 内置 executor 继续处理绑定会话/Turn 的元数据。这个准入不按工具名称或自报 READ_ONLY/METADATA 自动授予，不修改 owner，也不绕过 Dispatcher 权限和各工具的绑定/取消校验。存在 pending 后台时间租期时，`goal_report` 与 `update_goal` 可以上报进度，不能提前上报 complete；先收取原 Job，再检查目标并报告完成。
 
 后台 start 已进入现有聊天工具行与 Tasks 命令列表的详情入口。详情只读本地事实：启动回执显示“已提交，当前执行状态待查询”，不把旧 RUNNING 快照当成此刻仍在运行。显式 status/cancel/collect 核验原绑定后记录不可变终态；结果导入、预算结算与占用释放完成后另记结算凭据。成功、失败或取消的执行终态仍可能待结算，页面分别展示；仅有准备绑定不证明任务已启动。打开页面不冷绑定 Runtime、不查询、不 ACK、不重放。
 

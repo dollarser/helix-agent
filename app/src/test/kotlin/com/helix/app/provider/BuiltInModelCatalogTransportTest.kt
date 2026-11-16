@@ -42,7 +42,7 @@ class BuiltInModelCatalogTransportTest {
                             BuiltInAccountWire(testAccount(), loopback),
                     ).create(builtInConfig())
                 server.enqueue(
-                    MockResponse.Builder().body("""{"data":[{"id":"future-model"},{"id":"Qwen3.8-27B"}]}""").build(),
+                    MockResponse.Builder().body("""{"data":[{"id":"future-model"},{"id":"gpt-6-luna"}]}""").build(),
                 )
                 assertEquals(
                     ModelCatalogResult.Listed(listOf("future-model", BuiltInModel.MODEL_ID)),

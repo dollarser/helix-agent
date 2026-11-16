@@ -44,6 +44,7 @@ interface CloudTtsConnection : AutoCloseable {
 class CloudAsrFactory(
     override val destination: String? = null,
     override val supportsPartial: Boolean = true,
+    private val maxDurationSeconds: Int = 120,
     private val connect: () -> CloudAsrConnection,
 ) : StreamingAsrFactory {
     override val uploadsAudio = true
@@ -58,7 +59,7 @@ class CloudAsrFactory(
                 check(!closed.get() && !finished)
                 require(samples.size in 1..16000 && samples.all { it.isFinite() && it in -1f..1f })
                 samplesSent += samples.size
-                check(samplesSent <= 16000 * 120) { "ASR_DURATION_LIMIT" }
+                check(samplesSent.toLong() <= 16000L * maxDurationSeconds) { "ASR_DURATION_LIMIT" }
                 return checkedText(connection.send(samples)).also { check(!closed.get()) }
             }
 
@@ -89,6 +90,7 @@ interface InterruptibleSpeechEngine : SpeechEngine {
 
 class CloudSpeechEngine(
     private val connection: CloudTtsConnection,
+    private val maxDurationSeconds: Int = 120,
 ) : InterruptibleSpeechEngine {
     private val closed = AtomicBoolean()
 
@@ -104,15 +106,19 @@ class CloudSpeechEngine(
         val receiving = AtomicBoolean(true)
         try {
             connection.stream(text) { samples, sampleRate ->
-                if (receiving.get() && !closed.get() && keepGoing()) {
+                if (!receiving.get()) return@stream
+                if (closed.get() || !keepGoing()) throw SpeechStopped()
+                run {
                     require(sampleRate in 8000..48000 && (rate == null || rate == sampleRate))
                     require(samples.size in 1..sampleRate && samples.all { it.isFinite() && it in -1f..1f })
                     rate = sampleRate
                     frames += samples.size
-                    check(frames <= sampleRate * 120L) { "TTS_DURATION_LIMIT" }
+                    check(frames <= sampleRate.toLong() * maxDurationSeconds) { "TTS_DURATION_LIMIT" }
                     consume(samples.copyOf(), sampleRate)
                 }
             }
+        } catch (_: SpeechStopped) {
+            // Stop before another HTTP segment can be submitted.
         } finally {
             receiving.set(false)
         }
@@ -125,3 +131,5 @@ class CloudSpeechEngine(
         if (closed.compareAndSet(false, true)) connection.close()
     }
 }
+
+private class SpeechStopped : RuntimeException()

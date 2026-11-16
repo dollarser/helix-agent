@@ -194,7 +194,7 @@ class ModelRequestRecoveryDeviceTest {
                                 sseResponse(
                                     toolCallStream(
                                         "discover",
-                                        JSONObject.quote("tools.search"),
+                                        JSONObject.quote("tools_search"),
                                         JSONObject().put("query", "diagnostics $suffix").toString(),
                                     ),
                                 )

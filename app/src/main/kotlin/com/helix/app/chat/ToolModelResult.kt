@@ -13,11 +13,11 @@ internal object ToolModelResult {
         mapOf(
             "write" to setOf("usageBytesAfter", "encoding", "mimeType"),
             "edit" to setOf("usageBytesAfter"),
-            "files.copy" to setOf("usageBytesAfter"),
-            "files.move" to setOf("usageBytesAfter"),
-            "files.delete" to setOf("usageBytesAfter"),
-            "files.extract" to setOf("usageBytesAfter"),
-            "files.archive" to setOf("usageBytesAfter"),
+            "files_copy" to setOf("usageBytesAfter"),
+            "files_move" to setOf("usageBytesAfter"),
+            "files_delete" to setOf("usageBytesAfter"),
+            "files_extract" to setOf("usageBytesAfter"),
+            "files_archive" to setOf("usageBytesAfter"),
         )
 
     fun project(
@@ -41,7 +41,7 @@ internal object ToolModelResult {
         payload: String,
     ): String {
         val excluded = omitted[name].orEmpty()
-        if (excluded.isEmpty() && name != "code.javascript.run") return payload
+        if (excluded.isEmpty() && name != "code_javascript_run") return payload
         val document =
             try {
                 Json.parseToJsonElement(payload) as? JsonObject
@@ -49,7 +49,7 @@ internal object ToolModelResult {
                 null
             }
         // Never slice serialized JSON or recursively remove user content with matching keys.
-        if (name == "code.javascript.run" && document != null) {
+        if (name == "code_javascript_run" && document != null) {
             val result = document["result"] as? JsonPrimitive
             val decoded =
                 result?.takeIf { it.isString }?.let {

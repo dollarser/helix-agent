@@ -26,7 +26,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * HXA-085 (app, JVM): the `code.linux.run` tool contract — the registered descriptor
+ * HXA-085 (app, JVM): the `code_linux_run` tool contract — the registered descriptor
  * (L2 CODE_EXECUTION / LOCAL_PROOT / offline), the argument parsing (argv/script
  * exclusivity, caps), the stable parse failures, and the approval-card code section
  * (full script / argv + offline line). The production executor's job flow is
@@ -99,7 +99,7 @@ class LinuxRunToolTest {
     @Test
     fun descriptorIsL2CodeExecutionOnTheProotLaneOffline() {
         val d = LinuxRunTool.descriptor()
-        assertEquals("code.linux.run", d.name.value)
+        assertEquals("code_linux_run", d.name.value)
         assertEquals(ToolOperationClass.CODE_EXECUTION, d.operationClass)
         assertEquals(ExecutionTargetType.LOCAL_PROOT, d.executionTarget)
         // Generic L2: no auto-approve path can mint approval (ADR-0012).
@@ -349,7 +349,7 @@ class LinuxRunToolTest {
     private fun call(args: JsonObject): ExecutableToolCall =
         ExecutableToolCall(
             toolCallId = "tc-linux-test",
-            toolName = "code.linux.run",
+            toolName = "code_linux_run",
             toolVersion = "1",
             args = args,
             executionTarget = ExecutionTargetType.LOCAL_PROOT,

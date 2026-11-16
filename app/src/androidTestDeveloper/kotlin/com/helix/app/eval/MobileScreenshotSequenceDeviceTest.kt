@@ -58,7 +58,7 @@ class MobileScreenshotSequenceDeviceTest {
                     } == true
             }
             fixture.await("animated fixture exposed in the accessibility window") {
-                session.output("ui.snapshot")["nodes"]?.jsonArray?.any {
+                session.output("ui_snapshot")["nodes"]?.jsonArray?.any {
                     it.jsonObject["text"]
                         ?.jsonPrimitive
                         ?.content
@@ -67,7 +67,7 @@ class MobileScreenshotSequenceDeviceTest {
             }
             var device = JsonObject(emptyMap())
             fixture.await("new fixture window at its final full-screen bounds") {
-                device = session.output("ui.device")
+                device = session.output("ui_device")
                 device["packageName"]?.jsonPrimitive?.content == target &&
                     device["windowBounds"] == device["screenBounds"]
             }
@@ -75,7 +75,7 @@ class MobileScreenshotSequenceDeviceTest {
             val before = Instant.now()
             val result =
                 session.output(
-                    "ui.screenshot",
+                    "ui_screenshot",
                     fixture.json("""{"frame":"$frame","count":4,"intervalMillis":700}"""),
                 )
             val after = Instant.now()

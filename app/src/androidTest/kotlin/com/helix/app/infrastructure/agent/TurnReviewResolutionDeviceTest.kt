@@ -230,10 +230,10 @@ class TurnReviewResolutionDeviceTest {
         kotlinx.coroutines.runBlocking { coordinator.beginToolBatch(listOf(LOCAL_OLD)) }
         kotlinx.coroutines.runBlocking {
             coordinator.commitModelToolStep(
-                "[{\"id\":\"$WIRE_OLD\",\"localId\":\"$LOCAL_OLD\",\"name\":\"time.now\",\"arguments\":\"{}\"}]",
+                "[{\"id\":\"$WIRE_OLD\",\"localId\":\"$LOCAL_OLD\",\"name\":\"time_now\",\"arguments\":\"{}\"}]",
             )
         }
-        storage.toolCalls.append(LOCAL_OLD, TURN, LOCAL_OLD, "time.now", "1", "{}", ToolCallState.COMPLETED.name)
+        storage.toolCalls.append(LOCAL_OLD, TURN, LOCAL_OLD, "time_now", "1", "{}", ToolCallState.COMPLETED.name)
         storage.toolResults.append("result-old", LOCAL_OLD, "SUCCEEDED", "old-ok", null)
         coordinator.settleBatchCall(LOCAL_OLD, sideEffectUnknown = false)
         kotlinx.coroutines.runBlocking {
@@ -242,7 +242,7 @@ class TurnReviewResolutionDeviceTest {
                     TurnMessageDraft(
                         ModelRole.TOOL,
                         ChatHistoryBuilder.KIND_TOOL_RESULT,
-                        "{\"id\":\"$WIRE_OLD\",\"tool\":\"time.now\",\"status\":\"SUCCEEDED\",\"summary\":\"old-ok\"}",
+                        "{\"id\":\"$WIRE_OLD\",\"tool\":\"time_now\",\"status\":\"SUCCEEDED\",\"summary\":\"old-ok\"}",
                     ),
                 ),
                 MODEL_CALL_2,
@@ -258,12 +258,12 @@ class TurnReviewResolutionDeviceTest {
         kotlinx.coroutines.runBlocking { coordinator.beginToolBatch(listOf(LOCAL_OK, LOCAL_UNKNOWN)) }
         kotlinx.coroutines.runBlocking {
             coordinator.commitModelToolStep(
-                "[{\"id\":\"$WIRE_OK\",\"localId\":\"$LOCAL_OK\",\"name\":\"time.now\"," +
+                "[{\"id\":\"$WIRE_OK\",\"localId\":\"$LOCAL_OK\",\"name\":\"time_now\"," +
                     "\"arguments\":\"{}\"},{\"id\":\"$WIRE_UNKNOWN\",\"localId\":\"$LOCAL_UNKNOWN\"," +
                     "\"name\":\"files.write\",\"arguments\":\"{}\"}]",
             )
         }
-        storage.toolCalls.append(LOCAL_OK, TURN, LOCAL_OK, "time.now", "1", "{}", ToolCallState.COMPLETED.name)
+        storage.toolCalls.append(LOCAL_OK, TURN, LOCAL_OK, "time_now", "1", "{}", ToolCallState.COMPLETED.name)
         storage.toolResults.append("result-ok", LOCAL_OK, "SUCCEEDED", "new-ok", null)
         storage.toolCalls.append(
             LOCAL_UNKNOWN,

@@ -5,6 +5,7 @@ import com.helix.extensions.skills.SkillKey
 import com.helix.extensions.skills.SkillRepository
 import com.helix.extensions.skills.SkillSource
 import com.helix.tools.framework.ExecutableToolCall
+import com.helix.tools.framework.ToolDiscoveryHints
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolRegistry
@@ -19,7 +20,7 @@ import kotlinx.serialization.json.put
 
 /** Same PRoot executor, workspace and permission path; imported metadata never grants execution. */
 internal object SkillScriptRunTool {
-    const val NAME = "skills.run"
+    const val NAME = "skills_run"
 
     fun register(
         registry: ToolRegistry,
@@ -53,6 +54,7 @@ internal object SkillScriptRunTool {
         val descriptor =
             base.copy(
                 name = ToolName(NAME),
+                discovery = ToolDiscoveryHints(category = "skills"),
                 description =
                     "Run an enabled, hash-pinned Skill script in Linux (.py/.js/.mjs/.sh). " +
                         "args is an argument array, never shell interpolation. Keeps selected real workspace. " +

@@ -259,7 +259,7 @@ class WireModelProviderTest {
             val events = provider.stream(request()).toList()
             val failure = events.single() as ModelEvent.Error
             assertEquals(ModelErrorCode.TRANSPORT, failure.code)
-            assertEquals(true, failure.retryable)
+            assertEquals(false, failure.retryable)
             org.junit.Assert.assertNotNull(failure.diagnostic)
         }
 
@@ -272,7 +272,7 @@ class WireModelProviderTest {
             val events = provider.stream(request()).toList()
             val failure = events.single() as ModelEvent.Error
             assertEquals(ModelErrorCode.TIMEOUT, failure.code)
-            assertEquals(true, failure.retryable)
+            assertEquals(false, failure.retryable)
             org.junit.Assert.assertNotNull(failure.diagnostic)
         }
 
@@ -292,7 +292,7 @@ class WireModelProviderTest {
             val events = provider.stream(request()).toList()
             val failure = events.single() as ModelEvent.Error
             assertEquals(ModelErrorCode.TIMEOUT, failure.code)
-            assertEquals(true, failure.retryable)
+            assertEquals(false, failure.retryable)
             org.junit.Assert.assertNotNull(failure.diagnostic)
             assertTrue(closed[0])
         }

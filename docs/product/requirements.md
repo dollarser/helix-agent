@@ -156,7 +156,7 @@ Advanced 扩大的是可选能力和可配置范围，不是绕过安全内核�
 
 1. 用户在 Helix 内置浏览器打开网页。
 2. Agent 获取当前页面的有界语义 snapshot；网页内容被标记为不可信。
-3. Agent 生成研究计划并引用实际 URL；页面跳转由 `browser.navigate` 完成。
+3. Agent 生成研究计划并引用实际 URL；页面跳转由 `browser_navigate` 完成。
 4. 点击、输入、下载等动作展示目标元素、origin 和影响并按风险审批。
 5. 页面发生导航或结构变化后，旧 node token 失效，必须重新 snapshot。
 
@@ -242,28 +242,28 @@ Advanced 扩大的是可选能力和可配置范围，不是绕过安全内核�
 
 | 工具 | 优先级 | 默认风险 | 说明 |
 | --- | --- | --- | --- |
-| `time.now` | P0 | L0 | 返回本地时间、UTC、时区 |
+| `time_now` | P0 | L0 | 返回本地时间、UTC、时区 |
 | `read` | P0 | L0/L1 | scopeId + 相对路径，限大小、编码检测 |
 | `write` | P0 | L1/L2 | 原子写，覆盖时升为 L2 |
 | `edit` | P0 | L1/L2 | old text 唯一匹配或带前置 hash |
-| `files.list` | P0 | L0/L1 | Workspace/SAF/All-files 作用域，限定数量 |
+| `files_list` | P0 | L0/L1 | Workspace/SAF/All-files 作用域，限定数量 |
 | `glob` / `grep` | P0 | L0/L1 | 限文件数、命中数和时间 |
-| `files.stat` | P0 | L0 | 有界元数据和可选 hash |
-| `files.mkdir` | P0 | L1 | 禁止越界 |
-| `files.copy` | P1 | L1/L2 | 目标冲突和跨 scope 必须显式策略 |
-| `files.move` | P1 | L2 | 默认审批 |
-| `files.delete` | P1 | L2 | 按会话规则解析授权，优先进入 Helix 回收站 |
-| `http.fetch` | P1 | L1 | 默认 GET；Standard 仅公网；Advanced 仅可访问用户预建的精确 LAN/loopback origin scope；metadata 和凭据转发始终拒绝 |
-| `code.javascript.run` | P0 | L2 | 必须展示代码并审批 |
+| `files_stat` | P0 | L0 | 有界元数据和可选 hash |
+| `files_mkdir` | P0 | L1 | 禁止越界 |
+| `files_copy` | P1 | L1/L2 | 目标冲突和跨 scope 必须显式策略 |
+| `files_move` | P1 | L2 | 默认审批 |
+| `files_delete` | P1 | L2 | 按会话规则解析授权，优先进入 Helix 回收站 |
+| `http_fetch` | P1 | L1 | 默认 GET；Standard 仅公网；Advanced 仅可访问用户预建的精确 LAN/loopback origin scope；metadata 和凭据转发始终拒绝 |
+| `code_javascript_run` | P0 | L2 | 必须展示代码并审批 |
 | `bash` | P1 | L2 | 仅独立 PRoot Runtime；每次展示 script/argv |
-| `browser.open` / `browser.snapshot` | P1 | L1 | 内置浏览器导航和页面语义快照 |
-| `browser.click` / `browser.type` | P1 | L2 | node token 绑定页面代次；敏感字段拒绝 |
-| `skills.list` / `skills.read` | P1 | L0/L1 | Skill 渐进加载 |
+| `browser_open` / `browser_snapshot` | P1 | L1 | 内置浏览器导航和页面语义快照 |
+| `browser_click` / `browser_type` | P1 | L2 | node token 绑定页面代次；敏感字段拒绝 |
+| `skills_list` / `skills_read` | P1 | L0/L1 | Skill 渐进加载 |
 | `mcp.<server>.<tool>` | P1 | 动态 | MCP annotation 不能降低 Helix 风险 |
 | `a2a.<agent>.<skill>` | P1 | 动态/NETWORK | 固定 Agent Card/Skill snapshot；远端输出不授权本机动作 |
-| `ui.snapshot` | P2 | L1 | 限时 Accessibility Session |
-| `ui.click` / `ui.set_text` | P2 | L2 | 目标包 allowlist；敏感界面拒绝 |
-| `root.status` | P2 | L0 | 用户主动请求 Root 后报告真实状态 |
+| `ui_snapshot` | P2 | L1 | 限时 Accessibility Session |
+| `ui_click` / `ui_set_text` | P2 | L2 | 目标包 allowlist；敏感界面拒绝 |
+| `root_status` | P2 | L0 | 用户主动请求 Root 后报告真实状态 |
 | `android.open_uri` | P1 | L1 | 只打开，不代替用户确认外部动作 |
 | `android.share` / `android.app_info` | P1 | L1 | 分享先预览；应用信息有界 |
 | `clipboard.read` / `clipboard.write` | P1 | L1/L2 | 仅前台可见会话；敏感内容和跨 App 外发升级 |
@@ -432,7 +432,7 @@ NFR-001 与 NFR-002 的结果必须可重算：[M10 固定集](../../evals/m10/R
 26. MCP Server 修改 tool schema 后旧审批失效。
 27. 恶意 Skill zip 路径穿越和压缩炸弹被拒绝。
 28. A2A Agent Card/Skill 或 endpoint 变化后旧工具与审批失效；SSE 断线、取消或重启只对账原 task ID，远端结果不能触发本机未审批动作。
-29. Plan 模式调用 `write`、`bash`、`browser.click` 或 `ui.click` 被拒绝。
+29. Plan 模式调用 `write`、`bash`、`browser_click` 或 `ui_click` 被拒绝。
 30. Goal 预算耗尽进入 BLOCKED，调整预算后显式恢复；用户暂停与系统中断停驻，重启不重新激活或重复副作用。
 31. Ollama/SGLang 不支持某协议字段时明确降级，不静默丢 ToolCall。
 32. PRoot/CLI 已安装但进程未运行且从未手动打开时，批准 Job 能冷绑定并完成握手；空闲回收后下一 Job 仍可执行。

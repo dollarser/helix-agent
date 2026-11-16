@@ -129,7 +129,7 @@ class StoredSystemPromptFactsProviderDeviceTest {
             null,
             FileScopePath.fromModelReference(requireNotNull(storage.sessions.resolve(SESSION).directoryRef)),
             AgentMode.ACT,
-            setOf("memory.read"),
+            setOf("memory_read"),
         )
 
     private fun bindGoal(

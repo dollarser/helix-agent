@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="account_usage_title">额度与用量</string>
+    <string name="account_usage_hide">收起额度与用量</string>
+    <string name="account_usage_loading">正在读取账号用量…</string>
+    <string name="account_usage_tokens">tokens</string>
+    <string name="account_usage_minutes">分钟</string>
+    <string name="account_usage_characters">字符</string>
+    <string name="account_usage_amounts">剩余 %1$s / 额度 %2$s %3$s\n已计入 %4$s · 预留/待核对 %5$s</string>
+    <string name="account_usage_reserved_note">已计入包含预留/待核对量，剩余额度直接采用服务端结果。日/月周期以 Asia/Shanghai 为准。</string>
+    <string name="account_usage_statistics">请求统计 · %1$s</string>
+    <string name="account_usage_count">%1$s：%2$d 次请求</string>
+    <string name="account_usage_recent">最近请求（最多 20 条）</string>
+    <string name="account_usage_record">%1$s · 状态 %2$s</string>
+    <string name="account_usage_pending">处理中</string>
+    <string name="account_usage_refresh">刷新</string>
+    <string name="account_usage_reset_at">下次重置：%1$s（%2$s）</string>
+</resources>

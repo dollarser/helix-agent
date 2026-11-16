@@ -16,11 +16,11 @@ class ChatHistoryBuilderTest {
                 "TOOL",
                 ChatHistoryBuilder.KIND_TOOL_RESULT,
                 """{"id":"c","tool":"bash","status":"FAILED","summary":"failed",
-                "callRef":"t/c","logRef":"t/c","logReadTool":"code.linux.job.read_log",
+                "callRef":"t/c","logRef":"t/c","logReadTool":"code_linux_job_read_log",
                 "sideEffectFree":false,"requiresReview":true}""",
             )
         val text = ChatHistoryBuilder.toModelMessagesStrict(listOf(row)).single().text
-        assertTrue(text.contains("code.linux.job.read_log"))
+        assertTrue(text.contains("code_linux_job_read_log"))
         assertTrue(text.contains("t/c"))
         assertTrue(text.contains("\"requiresReview\":true"))
         assertTrue(text.contains("\"sideEffectFree\":false"))
@@ -31,8 +31,8 @@ class ChatHistoryBuilderTest {
         val calls =
             """
             [
-                {"id":"c1","name":"ui.set_text","arguments":"{\"text\":\"你好\"}"},
-                {"id":"c2","name":"ui.snapshot","arguments":"{}"}
+                {"id":"c1","name":"ui_set_text","arguments":"{\"text\":\"你好\"}"},
+                {"id":"c2","name":"ui_snapshot","arguments":"{}"}
             ]
             """.trimIndent()
         val step = AssistantToolResponseContent.attachText(calls, text)
@@ -45,13 +45,13 @@ class ChatHistoryBuilderTest {
                     "t1",
                     "TOOL",
                     ChatHistoryBuilder.KIND_TOOL_RESULT,
-                    """{"id":"c1","tool":"ui.set_text","status":"FAILED","summary":"not executed"}""",
+                    """{"id":"c1","tool":"ui_set_text","status":"FAILED","summary":"not executed"}""",
                 ),
                 ChatHistoryBuilder.PersistedRow(
                     "t1",
                     "TOOL",
                     ChatHistoryBuilder.KIND_TOOL_RESULT,
-                    """{"id":"c2","tool":"ui.snapshot","status":"DENIED","summary":"permission missing"}""",
+                    """{"id":"c2","tool":"ui_snapshot","status":"DENIED","summary":"permission missing"}""",
                 ),
             )
         val messages = ChatHistoryBuilder.toModelMessagesStrict(rows)
@@ -68,7 +68,7 @@ class ChatHistoryBuilderTest {
     @Test fun selectedToolStepRetainsTextWithoutItsDisplayCopy() {
         val step =
             AssistantToolResponseContent.attachText(
-                """[{"id":"c1","name":"ui.snapshot","arguments":"{}"}]""",
+                """[{"id":"c1","name":"ui_snapshot","arguments":"{}"}]""",
                 "正在观察",
             )
         val row = ChatHistoryBuilder.PersistedRow("t1", "ASSISTANT", ChatHistoryBuilder.KIND_TOOL_CALLS, step)
@@ -91,7 +91,7 @@ class ChatHistoryBuilderTest {
                     "current",
                     "ASSISTANT",
                     ChatHistoryBuilder.KIND_TOOL_CALLS,
-                    """[{"id":"c1","name":"ui.snapshot","arguments":"{}"}]""",
+                    """[{"id":"c1","name":"ui_snapshot","arguments":"{}"}]""",
                 ),
             )
         assertEquals(listOf("独立答复", "独立步骤", ""), ChatHistoryBuilder.toModelMessagesStrict(rows).map { it.text })
@@ -100,12 +100,12 @@ class ChatHistoryBuilderTest {
     @Test fun malformedResponseTextFailsClosedWithoutChangingCallArguments() {
         val payloads =
             listOf(
-                """[{"id":"c1","name":"ui.snapshot","arguments":"{}","assistantText":12}]""",
-                """[{"id":"c1","name":"ui.snapshot","arguments":"{}","assistantText":null}]""",
+                """[{"id":"c1","name":"ui_snapshot","arguments":"{}","assistantText":12}]""",
+                """[{"id":"c1","name":"ui_snapshot","arguments":"{}","assistantText":null}]""",
                 """
                 [
-                    {"id":"c1","name":"ui.snapshot","arguments":"{}"},
-                    {"id":"c2","name":"ui.snapshot","arguments":"{}","assistantText":"wrong call"}
+                    {"id":"c1","name":"ui_snapshot","arguments":"{}"},
+                    {"id":"c2","name":"ui_snapshot","arguments":"{}","assistantText":"wrong call"}
                 ]
                 """.trimIndent(),
             )
@@ -121,7 +121,7 @@ class ChatHistoryBuilderTest {
     }
 
     @Test fun responseCommitRejectsRebindingAndPreservesTextlessSteps() {
-        val calls = """[{"id":"c1","name":"ui.snapshot","arguments":"{}"}]"""
+        val calls = """[{"id":"c1","name":"ui_snapshot","arguments":"{}"}]"""
         assertEquals(calls, AssistantToolResponseContent.attachText(calls, "  "))
         val bound = AssistantToolResponseContent.attachText(calls, "原始步骤")
         assertThrows(IllegalArgumentException::class.java) { AssistantToolResponseContent.attachText(bound, "其他步骤") }
@@ -273,8 +273,8 @@ class ChatHistoryBuilderTest {
     @Test
     fun anAssistantToolCallStepMapsToAnAssistantMessageWithItsCallsInOrder() {
         val content =
-            """[{"id":"c1","name":"fs.read","arguments":"{\"path\":\"a.txt\"}"},""" +
-                """{"id":"c2","name":"time.now","arguments":"{}"}]"""
+            """[{"id":"c1","name":"read","arguments":"{\"path\":\"a.txt\"}"},""" +
+                """{"id":"c2","name":"time_now","arguments":"{}"}]"""
         val messages =
             ChatHistoryBuilder.toModelMessages(
                 listOf(
@@ -288,7 +288,7 @@ class ChatHistoryBuilderTest {
         assertEquals("", step.text)
         assertEquals(2, step.toolCalls.size)
         assertEquals("c1", step.toolCalls[0].id.value)
-        assertEquals("fs.read", step.toolCalls[0].name.value)
+        assertEquals("read", step.toolCalls[0].name.value)
         assertEquals("""{"path":"a.txt"}""", step.toolCalls[0].argumentsJson)
         assertEquals("c2", step.toolCalls[1].id.value)
     }
@@ -302,20 +302,20 @@ class ChatHistoryBuilderTest {
                         "t1",
                         "TOOL",
                         ChatHistoryBuilder.KIND_TOOL_RESULT,
-                        """{"id":"c1","tool":"fs.read","status":"SUCCEEDED","summary":"42 bytes read"}""",
+                        """{"id":"c1","tool":"read","status":"SUCCEEDED","summary":"42 bytes read"}""",
                     ),
                     ChatHistoryBuilder.PersistedRow(
                         "t1",
                         "TOOL",
                         ChatHistoryBuilder.KIND_TOOL_RESULT,
-                        """{"id":"c2","tool":"time.now","status":"CANCELLED","summary":""}""",
+                        """{"id":"c2","tool":"time_now","status":"CANCELLED","summary":""}""",
                     ),
                 ),
             )
         assertEquals(2, messages.size)
         assertEquals(ModelRole.TOOL, messages[0].role)
         assertEquals("c1", messages[0].toolCallId!!.value)
-        assertEquals("fs.read", messages[0].toolName!!.value)
+        assertEquals("read", messages[0].toolName!!.value)
         assertEquals("[SUCCEEDED] 42 bytes read", messages[0].text)
         assertEquals("c2", messages[1].toolCallId!!.value)
         assertEquals("[CANCELLED]", messages[1].text)

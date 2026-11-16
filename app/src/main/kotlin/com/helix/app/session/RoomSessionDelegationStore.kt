@@ -21,7 +21,7 @@ internal class RoomSessionDelegationStore(
     ): Long {
         storage.sessionHistory.caller(caller)
         require(
-            caller.toolName in setOf("session.queue", "session.steer") && caller.sessionId != target,
+            caller.toolName in setOf("session_queue", "session_steer") && caller.sessionId != target,
         ) { UNAVAILABLE }
         val access = storage.sessionAccess.resolve(caller, target, metadataOnly = true)
         require(access.delegateTasks) { UNAVAILABLE }

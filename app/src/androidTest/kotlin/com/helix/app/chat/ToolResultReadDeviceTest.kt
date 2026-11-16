@@ -26,7 +26,7 @@ import java.util.UUID
 class ToolResultReadDeviceTest {
     @Test fun pageSizeIsBoundedAtExecutionAndDefaultsToLargerPages() =
         withStorage { storage ->
-            storage.toolCalls.append("large-row", "source", "large", "time.now", "1", "{}", "COMPLETED")
+            storage.toolCalls.append("large-row", "source", "large", "time_now", "1", "{}", "COMPLETED")
             val result =
                 storage.toolResults.append(
                     "large-result",
@@ -116,7 +116,7 @@ class ToolResultReadDeviceTest {
             storage.toolCalls.updateState(source, ToolCallState.NEEDS_REVIEW)
             assertFailed(storage, call)
             storage.toolCalls.updateState(source, ToolCallState.COMPLETED)
-            storage.toolCalls.append("unverified", "source", "unverified", "time.now", "1", "{}", "COMPLETED")
+            storage.toolCalls.append("unverified", "source", "unverified", "time_now", "1", "{}", "COMPLETED")
             storage.toolResults.append("unverified-result", "unverified", "SUCCEEDED", "summary", "secret")
             for (reference in listOf("source/missing", "source/unverified", "foreign/saved", "../saved")) {
                 assertFailed(storage, call.copy(args = args(reference)))
@@ -224,7 +224,7 @@ class ToolResultReadDeviceTest {
             storage.turns.start("source", "session", 1)
             storage.turns.start("current", "session", 2)
             storage.turns.start("foreign", "other", 1)
-            storage.toolCalls.append("row", "source", "saved", "time.now", "1", "{}", "COMPLETED")
+            storage.toolCalls.append("row", "source", "saved", "time_now", "1", "{}", "COMPLETED")
             val result = storage.toolResults.append("result", "row", "SUCCEEDED", "summary", "saved output")
             storage.toolResults.markVerified(result)
             storage.close()

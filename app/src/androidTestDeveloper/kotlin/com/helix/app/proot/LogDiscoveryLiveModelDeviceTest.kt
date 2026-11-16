@@ -46,7 +46,7 @@ class LogDiscoveryLiveModelDeviceTest {
                 listOf(
                     "查看这次失败命令已保存的错误日志，找出错误原因。不要重新运行命令。",
                     "Inspect the original failed command's captured stderr without rerunning it.",
-                    "Inspect the saved evidence with code.linux.job.read_log if available; do not rerun commands.",
+                    "Inspect the saved evidence with code_linux_job_read_log if available; do not rerun commands.",
                 )
             for (enabled in listOf(true, false)) {
                 for ((index, prompt) in prompts.withIndex()) {
@@ -222,7 +222,7 @@ class LogDiscoveryLiveModelDeviceTest {
             var filtered = 0
             rows.forEach { line ->
                 val row = Json.parseToJsonElement(line).jsonObject
-                if (row.getValue("chosen").jsonPrimitive.content == "tools.search") {
+                if (row.getValue("chosen").jsonPrimitive.content == "tools_search") {
                     val enabled =
                         row
                             .getValue("readerAdmitted")
@@ -263,7 +263,7 @@ class LogDiscoveryLiveModelDeviceTest {
         name: String?,
         arguments: String,
     ): String? =
-        if (name == "tools.search") {
+        if (name == "tools_search") {
             runCatching {
                 Json
                     .parseToJsonElement(

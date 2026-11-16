@@ -61,7 +61,7 @@ Related HXA: HXA-190
 
 ## Residual risk
 
-以下不在本轮做结构搬迁：app 编排/存储门面、PFD/SSE/JSON 去重、files.copy/move 共用逻辑、quota 扫描优化、根 Gradle convention 化、spike/testing 模块取舍和 lint variant 调度。原报告没有附完整逐项重现材料，不能把代码重复或模块数量当作确定故障。
+以下不在本轮做结构搬迁：app 编排/存储门面、PFD/SSE/JSON 去重、files_copy/move 共用逻辑、quota 扫描优化、根 Gradle convention 化、spike/testing 模块取舍和 lint variant 调度。原报告没有附完整逐项重现材料，不能把代码重复或模块数量当作确定故障。
 
 PRoot watchdog 的 kill sweep 队头等待、线程池 close 后的完成时序、CLI progress preview 大小，以及超限响应的 retryable 分类，仍需按具体调用链与场景补证；本轮不增加模型输出限额或盲目重试。文件 orphan KDoc 与 section marker 属于文档卫生，应随责任模块整理，不声称 orphan 回收或全仓卫生已完成。
 

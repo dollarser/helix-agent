@@ -46,7 +46,7 @@ class PdfReadingDeviceTest {
     private fun call() =
         ExecutableToolCall(
             "pdf-device",
-            "documents.read",
+            "documents_read",
             "1",
             JsonObject(emptyMap()),
             ExecutionTargetType.LOCAL_ANDROID,

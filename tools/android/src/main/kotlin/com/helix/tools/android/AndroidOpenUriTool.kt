@@ -9,6 +9,7 @@ import com.helix.core.model.ToolVersion
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
+import com.helix.tools.framework.ToolDiscoveryHints
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolOrigin
@@ -18,7 +19,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlin.time.Duration.Companion.seconds
 
 object AndroidOpenUriTool {
-    const val NAME: String = "device.open_url"
+    const val NAME: String = "device_open_url"
 
     const val VERSION: Int = 1
 
@@ -31,10 +32,10 @@ object AndroidOpenUriTool {
                     "Installation alone does not ensure app routing: URL paths, domain approval and user defaults " +
                     "matter. A homepage may open in a browser. opened only means launch accepted; observe the actual " +
                     "app/page before claiming success. To open an installed app itself, use available authorized " +
-                    "ui.apps then ui.launch. Only opens the link; no navigation or follow-on app control. " +
+                    "ui_apps then ui_launch. Only opens the link; no navigation or follow-on app control. " +
                     "Prefer known links over browser typing. Never invent download URLs; prefer an installed app " +
                     "store, otherwise verify the official download URL with fetch/browser first. If unknown-source " +
-                    "permission blocks installation, retain the verified APK and use device.open_settings for the " +
+                    "permission blocks installation, retain the verified APK and use device_open_settings for the " +
                     "source package rather than switching stores. Non-http(s) URLs refused.",
             inputSchema =
                 objectSchema(
@@ -67,6 +68,7 @@ object AndroidOpenUriTool {
             idempotency = Idempotency.NON_IDEMPOTENT,
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
             origin = ToolOrigin.BuiltInOrigin,
+            discovery = ToolDiscoveryHints(category = "device"),
         )
 
     fun executor(bridge: AndroidSystemBridge): ToolExecutor =
@@ -77,7 +79,7 @@ object AndroidOpenUriTool {
                 val url =
                     strArg(call.args, "url", MAX_URL)
                         ?: return ToolExecutorResult.Failed(
-                            "invalid 'device.open_url' arguments: 'url' must be a non-empty string",
+                            "invalid 'device_open_url' arguments: 'url' must be a non-empty string",
                         )
                 val out = bridge.openUri(url)
                 val status =

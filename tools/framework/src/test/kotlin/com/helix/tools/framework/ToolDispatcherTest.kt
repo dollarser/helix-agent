@@ -55,7 +55,7 @@ import kotlin.time.Duration.Companion.seconds
  * full pipeline — validate → capability → policy → approval → timeout/cancel → execute →
  * bound result → verify → audit — including the same-turn denial invariant (the exact
  * denied high-risk action is not re-requested in the same turn; material parameter/scope
- * changes may generate a new approval) and the first real tool (`time.now`).
+ * changes may generate a new approval) and the first real tool (`time_now`).
  */
 class ToolDispatcherTest {
     private lateinit var clock: FakeClock
@@ -1052,7 +1052,7 @@ class ToolDispatcherTest {
         assertTrue("contract changed", variant.contractHash.hex != d.contractHash.hex)
     }
 
-    // ------------------------------------------------------------- time.now end-to-end
+    // ------------------------------------------------------------- time_now end-to-end
 
     @Test
     fun timeNowRunsTheNoApprovalPathEndToEnd() {

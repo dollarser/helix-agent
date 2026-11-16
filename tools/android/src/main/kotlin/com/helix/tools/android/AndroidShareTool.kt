@@ -9,6 +9,7 @@ import com.helix.core.model.ToolVersion
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
+import com.helix.tools.framework.ToolDiscoveryHints
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolOrigin
@@ -18,7 +19,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlin.time.Duration.Companion.seconds
 
 object AndroidShareTool {
-    const val NAME: String = "device.share_text"
+    const val NAME: String = "device_share_text"
 
     const val VERSION: Int = 1
 
@@ -62,6 +63,7 @@ object AndroidShareTool {
             idempotency = Idempotency.NON_IDEMPOTENT,
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
             origin = ToolOrigin.BuiltInOrigin,
+            discovery = ToolDiscoveryHints(category = "device"),
         )
 
     fun executor(bridge: AndroidSystemBridge): ToolExecutor =
@@ -72,7 +74,7 @@ object AndroidShareTool {
                 val text =
                     strArg(call.args, "text", MAX_SHARE_TEXT)
                         ?: return ToolExecutorResult.Failed(
-                            "invalid 'device.share_text' arguments: 'text' must be a non-empty string",
+                            "invalid 'device_share_text' arguments: 'text' must be a non-empty string",
                         )
                 val subject = (call.args["title"] as? JsonPrimitive)?.content.orEmpty()
                 val out = bridge.share(text, subject)

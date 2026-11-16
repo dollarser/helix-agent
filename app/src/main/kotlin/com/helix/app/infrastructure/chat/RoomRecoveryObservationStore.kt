@@ -24,7 +24,7 @@ internal class RoomRecoveryObservationStore(
                         storage.toolCalls
                             .listByTurn(turn.id)
                             .filter {
-                                it.name in setOf("bash", "code.linux.run", "skills.run") &&
+                                it.name in setOf("bash", "code_linux_run", "skills_run") &&
                                     it.state in setOf("INTERRUPTED", "NEEDS_REVIEW")
                             }.map { it.callId },
                 )

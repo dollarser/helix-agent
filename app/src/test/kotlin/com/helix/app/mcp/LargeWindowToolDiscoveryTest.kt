@@ -26,7 +26,7 @@ import org.junit.Test
 class LargeWindowToolDiscoveryTest {
     private val registry = ToolRegistry()
     private val discovery = McpToolDiscovery(registry).also { it.register(registry) }
-    private val search = requireNotNull(registry.resolveLatest(ToolName("tools.search")))
+    private val search = requireNotNull(registry.resolveLatest(ToolName("tools_search")))
     private val executor =
         object : ToolExecutor {
             override fun execute(call: ExecutableToolCall) = ToolExecutorResult.Completed(buildJsonObject {})
@@ -47,10 +47,10 @@ class LargeWindowToolDiscoveryTest {
     )
 
     @Test fun combinedTaskKeepsComplementaryCapabilitiesDespiteOneCompleteMatch() {
-        val overview = tool("project.overview", "Report terminal browser workspace readiness")
-        val terminal = tool("runtime.execute", "Run a terminal command")
-        val browser = tool("browser.open", "Open a browser page")
-        val files = tool("files.archive", "Archive the workspace")
+        val overview = tool("project_overview", "Report terminal browser workspace readiness")
+        val terminal = tool("runtime_execute", "Run a terminal command")
+        val browser = tool("browser_open", "Open a browser page")
+        val files = tool("files_archive", "Archive the workspace")
         val tools = listOf(overview, terminal, browser, files)
         tools.forEach(::register)
         val matches = discovery.search("s", "terminal browser workspace", 16)
@@ -62,32 +62,32 @@ class LargeWindowToolDiscoveryTest {
     }
 
     @Test fun inflectedAndPartialNamesRemainReachableAlongsideWholeWordMatches() {
-        val whole = tool("sample.connect", "Open a connection")
-        val connector = tool("sample.connector", "Inspect an integration")
-        val archive = tool("files.archive", "Package files")
+        val whole = tool("sample_connect", "Open a connection")
+        val connector = tool("sample_connector", "Inspect an integration")
+        val archive = tool("files_archive", "Package files")
         listOf(whole, connector, archive).forEach(::register)
         assertEquals(listOf(whole, connector), discovery.search("s", "connect", 16))
         assertEquals(listOf(archive), discovery.search("s", "archiv", 16))
-        assertEquals(listOf(whole), discovery.search("s", "sample.connect", 16))
+        assertEquals(listOf(whole), discovery.search("s", "sample_connect", 16))
     }
 
     @Test fun largeDefaultSetAndRepeatedCapabilitySearchesDoNotImposeAGlobalToolCount() {
-        val defaults = (1..160).map { tool("fixture.default_$it", "x".repeat(600)) }
+        val defaults = (1..160).map { tool("fixture_default_$it", "x".repeat(600)) }
         val lifecycle =
             listOf(
-                tool("worker.start", "Start work").copy(
-                    discoveryCompanions = setOf(ToolName("worker.status"), ToolName("worker.collect")),
+                tool("worker_start", "Start work").copy(
+                    discoveryCompanions = setOf(ToolName("worker_status"), ToolName("worker_collect")),
                 ),
-                tool("worker.status", "Observe work"),
-                tool("worker.collect", "Collect work"),
+                tool("worker_status", "Observe work"),
+                tool("worker_collect", "Collect work"),
             )
         val capabilities =
             listOf(
-                tool("files.archive", "Package workspace"),
-                tool("browser.open", "Open a page"),
-                tool("ui.inspect", "Inspect device screen"),
+                tool("files_archive", "Package workspace"),
+                tool("browser_open", "Open a page"),
+                tool("ui_inspect", "Inspect device screen"),
                 tool(
-                    "mcp.fixture.fetch",
+                    "mcp_fixture_fetch",
                     "Fetch a record",
                     ToolOrigin.McpOrigin("fixture", "2025-03-26", "a".repeat(64)),
                 ),
@@ -111,7 +111,7 @@ class LargeWindowToolDiscoveryTest {
     @Test fun oversizedRecentSchemaStaysRediscoverableButItsStaticBudgetIsNotWindowAdaptive() {
         val large =
             tool(
-                "mcp.large.inspect",
+                "mcp_large_inspect",
                 "Inspect records",
                 ToolOrigin.McpOrigin("large", "2025-03-26", "a".repeat(64)),
             ).copy(
@@ -121,7 +121,7 @@ class LargeWindowToolDiscoveryTest {
                         put("description", "x".repeat(80_556))
                     },
             )
-        val small = tool("files.archive", "Archive files")
+        val small = tool("files_archive", "Archive files")
         listOf(large, small).forEach(::register)
         discovery.visible("s", registry.all())
         assertEquals(listOf(large), discovery.search("s", large.name.value, 1))

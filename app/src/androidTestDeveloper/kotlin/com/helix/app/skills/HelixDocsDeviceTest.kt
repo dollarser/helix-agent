@@ -33,8 +33,8 @@ class HelixDocsDeviceTest {
         val repository = container.skillRepository
         val tools = container.toolPipeline.registry
 
-        assertTrue("skills.read" in ModelToolExposureOrder.defaultNames(emptySet()))
-        assertTrue("skills.read_resource" in ModelToolExposureOrder.defaultNames(emptySet()))
+        assertTrue("skills_read" in ModelToolExposureOrder.defaultNames(emptySet()))
+        assertTrue("skills_read_resource" in ModelToolExposureOrder.defaultNames(emptySet()))
         assertNotNull(tools.resolveLatest(ToolName(SkillTools.READ_RESOURCE)))
 
         val listing = invoke(SkillTools.LIST, buildJsonObject {})

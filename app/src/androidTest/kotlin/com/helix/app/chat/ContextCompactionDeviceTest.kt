@@ -118,7 +118,7 @@ class ContextCompactionDeviceTest {
             val original = before.associate { it.id to storage.messages.readContent(it) }
             val checkpoint = requireNotNull(ContextCompaction.checkpoint(storage, before))
             val invalid = kotlinx.coroutines.runBlocking { coordinator.beginModelStream(compacting = true) }
-            invalid.apply(ModelEvent.TextDelta("<tool_call><function=helix>ui.snapshot</function></tool_call>"))
+            invalid.apply(ModelEvent.TextDelta("<tool_call><function=helix>ui_snapshot</function></tool_call>"))
             invalid.apply(ModelEvent.Completed("stop"))
             kotlinx.coroutines.runBlocking {
                 coordinator.commitCompaction(plan, "resume-original", failureReason = "CONTEXT_SUMMARY_INVALID")
@@ -445,7 +445,7 @@ class ContextCompactionDeviceTest {
             turnId,
             "ASSISTANT",
             ChatHistoryBuilder.KIND_TOOL_CALLS,
-            """[{"id":"tool-$index","name":"time.now","arguments":"{}"}]""",
+            """[{"id":"tool-$index","name":"time_now","arguments":"{}"}]""",
         )
         storage.messages.append(
             next(),
@@ -453,7 +453,7 @@ class ContextCompactionDeviceTest {
             turnId,
             "TOOL",
             ChatHistoryBuilder.KIND_TOOL_RESULT,
-            """{"id":"tool-$index","tool":"time.now","status":"COMPLETED","summary":"Verified time"}""",
+            """{"id":"tool-$index","tool":"time_now","status":"COMPLETED","summary":"Verified time"}""",
         )
     }
 

@@ -70,7 +70,7 @@ class VisualInstallEvalService : Service() {
                     container.chatService.setMode(AgentMode.ACT)
                     waitUntil(10_000) {
                         com.helix.app.automation.AutomationModule
-                            .scopeFor("ui.snapshot", session) != null
+                            .scopeFor("ui_snapshot", session) != null
                     }
                     submitAndAwait(app, session)
                     writeEvidence(app, session, evidenceFile)
@@ -117,9 +117,9 @@ class VisualInstallEvalService : Service() {
                         0,
                         "visual-install-eval-${System.nanoTime()}",
                         "The current foreground screen is the Android installer for WeChat. " +
-                            "Use ui.device and ui.screenshot to inspect the current frame visually. " +
-                            "Click the visible Install button using ui.gesture on that SAME frame. " +
-                            "Do not use ui.find, ui.wait, ui.click, or ui.click_match. " +
+                            "Use ui_device and ui_screenshot to inspect the current frame visually. " +
+                            "Click the visible Install button using ui_gesture on that SAME frame. " +
+                            "Do not use ui_find, ui_wait, ui_click, or ui.click_match. " +
                             "After the gesture, observe the result and finish only after installation completes.",
                     ),
                 ).await()
@@ -144,11 +144,11 @@ class VisualInstallEvalService : Service() {
         val turn = requireNotNull(storage.turns.listBySession(session).lastOrNull())
         val calls = storage.toolCalls.listByTurn(turn.id)
         val screenshots =
-            calls.filter { it.name == "ui.screenshot" }.mapNotNull { call ->
+            calls.filter { it.name == "ui_screenshot" }.mapNotNull { call ->
                 storage.toolResults.byToolCall(call.id)?.let(storage.toolResults::readContent)
             }
         check(turn.state == TurnState.COMPLETED.name) { "turn did not complete: ${turn.state}" }
-        check(calls.any { it.name == "ui.gesture" }) { "ui.gesture was not used" }
+        check(calls.any { it.name == "ui_gesture" }) { "ui_gesture was not used" }
         check(calls.none { it.name in SEMANTIC_TOOLS }) { "semantic tools participated: $calls" }
         check(screenshots.any { it.contains("\"pixelsAttached\":true") }) { "screenshot pixels were not delivered" }
         evidenceFile.writeText(
@@ -158,7 +158,7 @@ class VisualInstallEvalService : Service() {
                 put("installed", isInstalled())
                 put("turnState", turn.state)
                 put("calls", JsonArray(calls.map { JsonPrimitive(it.name) }))
-                put("gestureCount", calls.count { it.name == "ui.gesture" })
+                put("gestureCount", calls.count { it.name == "ui_gesture" })
                 put("semanticActionCount", calls.count { it.name in SEMANTIC_TOOLS })
                 put("pixelsAttached", true)
             }.toString(),
@@ -187,6 +187,6 @@ class VisualInstallEvalService : Service() {
         const val ARG_ENABLED = "helixPackageInstallerVisualFallback"
         const val MODEL = "Qwen3.8-27B"
         const val WECHAT_PACKAGE = "com.tencent.mm"
-        val SEMANTIC_TOOLS = setOf("ui.find", "ui.wait", "ui.click", "ui.click_match")
+        val SEMANTIC_TOOLS = setOf("ui_find", "ui_wait", "ui_click", "ui_click_match")
     }
 }

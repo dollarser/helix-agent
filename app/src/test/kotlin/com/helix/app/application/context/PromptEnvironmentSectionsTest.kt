@@ -94,7 +94,7 @@ class PromptEnvironmentSectionsTest {
                     listOf(
                         com.helix.extensions.plugin.PluginContentContribution.RequiredInstructions(
                             owner,
-                            "Plugin guidance: ui.wait; ACTION_OUTCOME_UNKNOWN; does not grant permission",
+                            "Plugin guidance: ui_wait; ACTION_OUTCOME_UNKNOWN; does not grant permission",
                             "b".repeat(64),
                         ),
                     ),
@@ -106,7 +106,7 @@ class PromptEnvironmentSectionsTest {
             assertEquals(PromptSource.EXTERNAL_CONTENT, mobile.source)
             assertEquals(PromptScope.SKILL, mobile.scope)
             assertTrue(mobile.content.contains("does not grant permission"))
-            assertTrue(mobile.content.contains("ui.wait"))
+            assertTrue(mobile.content.contains("ui_wait"))
             assertTrue(mobile.content.contains("ACTION_OUTCOME_UNKNOWN"))
             assertEquals(
                 mode == AgentMode.PLAN,
@@ -116,7 +116,7 @@ class PromptEnvironmentSectionsTest {
         val registry = PromptRegistry()
         PromptEnvironmentSections.register(registry, directory, AgentMode.CHAT, false, packagedPromptTemplates)
         assertTrue(registry.resolve().none { it.name.startsWith("plugin.required.") })
-        assertTrue(!registry.assemble().contains("ui.screenshot"))
+        assertTrue(!registry.assemble().contains("ui_screenshot"))
     }
 
     private val templates =
@@ -206,7 +206,7 @@ class PromptEnvironmentSectionsTest {
             assertTrue(prompt.contains("combine concise keywords for related capabilities"))
             assertTrue(prompt.contains("valid recent tools remain within a schema byte budget"))
             assertTrue(prompt.contains("available workflow prerequisites"))
-            assertTrue(prompt.contains("Do not issue multiple tools.search calls in the same response"))
+            assertTrue(prompt.contains("Do not issue multiple tools_search calls in the same response"))
             assertTrue(prompt.contains("schemas exposed in the next model request"))
             assertTrue(prompt.contains("does not enable a disabled tool or grant execution permission"))
             assertTrue(prompt.contains("Uncertain side effects require reconciliation"))

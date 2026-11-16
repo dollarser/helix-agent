@@ -21,6 +21,7 @@ class OkHttpWireClientTest {
     private lateinit var server: HttpServer
     private lateinit var base: String
     private var requestContentType: String? = null
+    private var diagnosticHeaders: Map<String, String?> = emptyMap()
     private var handler: suspend (path: String, body: ByteArray) -> Pair<Int, String> = { path, _ ->
         200 to "hello $path"
     }
@@ -32,6 +33,9 @@ class OkHttpWireClientTest {
             "/",
         ) { exchange ->
             requestContentType = exchange.requestHeaders.getFirst("Content-Type")
+            diagnosticHeaders =
+                listOf("X-Client-Version", "X-Device-ID", "X-Client-Request-ID", "User-Agent")
+                    .associateWith { exchange.requestHeaders.getFirst(it) }
             val body = exchange.requestBody.readBytes()
             val (status, payload) =
                 runBlocking { handler(exchange.requestURI.path, body) }
@@ -49,6 +53,14 @@ class OkHttpWireClientTest {
     fun stopServer() {
         server.stop(0)
     }
+
+    @Test fun sendsDiagnosticsOnTheActualWire() =
+        runBlocking {
+            val response = OkHttpWireClient().open(WireRequest("GET", "$base/diagnostics", emptyMap(), null))
+            response.body.close()
+            assertTrue(diagnosticHeaders.values.all { !it.isNullOrBlank() })
+            assertEquals(diagnosticHeaders["X-Client-Version"], diagnosticHeaders["User-Agent"])
+        }
 
     @Test fun serverDirectedReadRecoveryDoesNotResubmitAnActionBody() =
         runBlocking {

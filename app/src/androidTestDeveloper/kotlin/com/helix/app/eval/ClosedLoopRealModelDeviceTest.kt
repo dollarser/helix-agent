@@ -262,8 +262,8 @@ class ClosedLoopRealModelDeviceTest {
         nonce: String,
     ): String =
         "Owned synthetic test. Only operate $fixture in the selected BACKGROUND display and this session directory. " +
-            "Launch that package. Observe ui.device and ui.snapshot, then take " +
-            "ui.screenshot using that same display frame. " +
+            "Launch that package. Observe ui_device and ui_snapshot, then take " +
+            "ui_screenshot using that same display frame. " +
             "Use the actual image to locate and tap the PURPLE circle exactly once; the " +
             "colored circles have no semantic node. " +
             "Fill Background text with $nonce. Click Increment exactly once. Reobserve the actual counts and input. " +
@@ -277,13 +277,13 @@ class ClosedLoopRealModelDeviceTest {
         nonce: String,
     ): String =
         "Owned synthetic test, only this session workspace. Demonstrate THREE " +
-            "distinct script bridges by calling time.now " +
-            "once via each: isolated code.javascript.run with toolBridge=true (helix.call), code.linux.run Python3 " +
+            "distinct script bridges by calling time_now " +
+            "once via each: isolated code_javascript_run with toolBridge=true (helix.call), code_linux_run Python3 " +
             "(import helix; helix.call), and Node (import {call} from '/tmp/helix.mjs'; " +
             "await call). Use toolBridge=true; no native JS. " +
             "Then inspect and run the enabled owned Skill ${key.source}/${key.name}, " +
             "snapshotHash=${key.snapshotHash}, " +
-            "path=scripts/deliver.py via skills.run with args=[$nonce] and artifacts=[output/skill.txt]. " +
+            "path=scripts/deliver.py via skills_run with args=[$nonce] and artifacts=[output/skill.txt]. " +
             "Do not replace the Skill with an ad-hoc write. Read the produced file, " +
             "verify its exact contents, and deliver its artifact reference. " +
             "No network, accounts, other files, dependency installs, or repeated effectful calls."
@@ -324,9 +324,9 @@ class ClosedLoopRealModelDeviceTest {
         nonce: String,
     ): Boolean {
         val calls = c.storage.toolCalls.listByTurn(turnId)
-        val times = calls.count { it.name == "time.now" && it.state == "COMPLETED" }
+        val times = calls.count { it.name == "time_now" && it.state == "COMPLETED" }
         return File(root, "output/skill.txt").readText() == nonce && times == 3 &&
-            calls.any { it.name == "skills.run" && it.state == "COMPLETED" } &&
+            calls.any { it.name == "skills_run" && it.state == "COMPLETED" } &&
             c.storage.artifacts.listByTurn(turnId).any {
                 it.purpose == "OUTPUT" && it.relativePath.endsWith("output/skill.txt")
             }
@@ -344,7 +344,7 @@ class ClosedLoopRealModelDeviceTest {
             }
         return effect && File(root, "output/result.txt").readText() == nonce &&
             calls.any { call ->
-                call.name == "ui.screenshot" && c.storage.toolResults.byToolCall(call.callId)?.let { row ->
+                call.name == "ui_screenshot" && c.storage.toolResults.byToolCall(call.callId)?.let { row ->
                     c.storage.toolResults
                         .readContent(row)
                         ?.contains("\"pixelsAttached\":true")

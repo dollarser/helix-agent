@@ -121,7 +121,7 @@ class ConversationReferenceLoopTest {
                 requireNotNull(ContextHistoryContent.materialize("Analyze this source", listOf(reference), "binding")),
             )
         fixture.tools =
-            SessionToolDescriptors.names.filter { it != "session.rename" }.map {
+            SessionToolDescriptors.names.filter { it != "session_rename" }.map {
                 val descriptor = SessionToolDescriptors.descriptor(it)
                 ModelToolSchema(descriptor.name, descriptor.description, descriptor.inputSchema.toString())
             }
@@ -185,7 +185,7 @@ class ConversationReferenceLoopTest {
                                     .messages
                                     .joinToString { it.text }
                             assertFalse(initial.contains("TAIL_EVIDENCE"))
-                            call("session.search", scope(reference, buildJsonObject { put("query", "TAIL_EVIDENCE") }))
+                            call("session_search", scope(reference, buildJsonObject { put("query", "TAIL_EVIDENCE") }))
                         }
 
                         1 -> {
@@ -197,7 +197,7 @@ class ConversationReferenceLoopTest {
                                     .single()
                                     .jsonObject
                             call(
-                                "session.read",
+                                "session_read",
                                 scope(
                                     reference,
                                     buildJsonObject {
@@ -227,7 +227,7 @@ class ConversationReferenceLoopTest {
             assertEquals(expected, fixture.loop().runToolLoop("s", fixture.journal, "p", null, fixture.control))
             assertEquals(3, fixture.requests.size)
             val calls = fixture.dispatched.flatMap { it.calls }.map { it.name }
-            assertEquals(listOf("session.search", "session.read"), calls)
+            assertEquals(listOf("session_search", "session_read"), calls)
             assertFollowup(reference, expected)
         }
 
@@ -238,7 +238,7 @@ class ConversationReferenceLoopTest {
         val followup =
             HeadlessLoopFixture("follow-up") { step ->
                 if (step == 0) {
-                    call("session.history", scope(reference, buildJsonObject {}))
+                    call("session_history", scope(reference, buildJsonObject {}))
                 } else {
                     listOf(ModelEvent.TextDelta("Continued"), ModelEvent.Completed("stop"))
                 }
@@ -274,7 +274,7 @@ class ConversationReferenceLoopTest {
         fixture =
             HeadlessLoopFixture("probe") { step ->
                 if (step == 0) {
-                    call("session.history", args)
+                    call("session_history", args)
                 } else {
                     val result =
                         fixture.requests
@@ -318,14 +318,14 @@ class ConversationReferenceLoopTest {
                 HeadlessLoopFixture("paging") { step ->
                     when (step) {
                         0 -> {
-                            call("session.search", scope(reference, buildJsonObject { put("query", "TAIL_EVIDENCE") }))
+                            call("session_search", scope(reference, buildJsonObject { put("query", "TAIL_EVIDENCE") }))
                         }
 
                         1 -> {
                             val output = toolOutput(fixture)
                             assertTrue(output.getValue("entries").jsonArray.isEmpty())
                             call(
-                                "session.search",
+                                "session_search",
                                 scope(
                                     reference,
                                     buildJsonObject {
@@ -338,7 +338,7 @@ class ConversationReferenceLoopTest {
 
                         2 -> {
                             assertTrue(toolOutput(fixture).toString().contains("TAIL_EVIDENCE"))
-                            call("session.search", scope(reference, buildJsonObject { put("query", "LATER_PRIVATE") }))
+                            call("session_search", scope(reference, buildJsonObject { put("query", "LATER_PRIVATE") }))
                         }
 
                         else -> {

@@ -14,6 +14,21 @@ import java.net.UnknownHostException
 import javax.net.ssl.SSLHandshakeException
 
 class WireFailureEvidenceTest {
+    @Test fun longServerCooldownDoesNotRetryAtTheShorterLocalCap() =
+        runBlocking {
+            val evidence = WireFailureEvidence()
+            val original = response("""{"detail":"Wait for quota reset"}""")
+            evidence.response =
+                WireResponse(
+                    429,
+                    mapOf("Retry-After" to listOf("900"), "X-Request-ID" to listOf("req_123")),
+                    original.body,
+                )
+            val failure = evidence.httpError()
+            assertFalse(failure.retryable)
+            assertEquals("req_123", failure.diagnostic?.requestId)
+        }
+
     @Test fun selectedErrorFieldsAreSanitizedWithoutRetainingTheOtherBodyFields() =
         runBlocking {
             val evidence = WireFailureEvidence()
@@ -41,7 +56,7 @@ class WireFailureEvidenceTest {
             400,
             mapOf(
                 "Content-Type" to listOf("application/json; charset=utf-8"),
-                "X-Request-Id" to listOf("PRIVATE_HEADER_SENTINEL"),
+                "X-Request-Id" to listOf("req_diagnostic_fixture"),
                 "Set-Cookie" to listOf("PRIVATE_COOKIE"),
             ),
             object : WireBody {
@@ -89,13 +104,13 @@ class WireFailureEvidenceTest {
         assertEquals(Reason.TLS, WireFailureEvidence.reason(SSLHandshakeException("PRIVATE_CERT")))
     }
 
-    @Test fun retryAfterIsParsedAndBoundedWithoutLoggingItsRawValue() =
+    @Test fun retryAfterPreservesServerCooldownWithoutLoggingItsRawValue() =
         runBlocking {
             val evidence = WireFailureEvidence()
             evidence.response = WireResponse(429, mapOf("Retry-After" to listOf("30")), response("").body)
             assertEquals(30_000L, evidence.httpFailure(true).retryAfterMillis)
             evidence.response = WireResponse(429, mapOf("retry-after" to listOf("999999999")), response("").body)
-            assertEquals(300_000L, evidence.httpFailure(true).retryAfterMillis)
+            assertEquals(999_999_999_000L, evidence.httpFailure(true).retryAfterMillis)
         }
 
     @Test fun diagnosticReadFailureDoesNotReplaceTheOriginalHttpStatus() =
@@ -120,7 +135,7 @@ class WireFailureEvidenceTest {
             assertFalse(diagnostic.toString().contains("PRIVATE_BODY"))
         }
 
-    @Test fun tlsAndIdentityFailuresAreNotTransientButDnsAndResetAre() {
+    @Test fun transportFailuresNeverReplayAmbiguousRequests() {
         val evidence = WireFailureEvidence()
         val tls =
             evidence.transport(
@@ -138,14 +153,14 @@ class WireFailureEvidenceTest {
         assertFalse(changed.retryable)
         assertEquals(Reason.ACCOUNT_CHANGED, changed.diagnostic?.reason)
         assertFalse(changed.toString().contains("PRIVATE"))
-        org.junit.Assert.assertTrue(
+        assertFalse(
             evidence
                 .transport(
                     UnknownHostException("PRIVATE_HOST"),
                     com.helix.core.model.ModelFailureDiagnostic.Stage.CONNECT,
                 ).retryable,
         )
-        org.junit.Assert.assertTrue(
+        assertFalse(
             evidence
                 .transport(
                     java.net.SocketException("reset"),

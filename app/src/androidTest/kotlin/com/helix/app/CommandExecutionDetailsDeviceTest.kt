@@ -230,7 +230,7 @@ class CommandExecutionDetailsDeviceTest {
                 callId,
                 TURN,
                 callId,
-                "code.linux.job.start",
+                "code_linux_job_start",
                 "1",
                 """{"script":"sleep 30"}""",
                 "COMPLETED",

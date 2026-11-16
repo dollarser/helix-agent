@@ -14,7 +14,7 @@ output.mkdir(parents=True, exist_ok=False)
 classes = ','.join([
     'com.helix.app.connector.ConnectorLifecycleDeviceTest',
     'com.helix.app.connector.ConnectorSnapshotReferenceDeviceTest',
-    'com.helix.app.connector.ConnectorCatalogMigrationDeviceTest',
+    'com.helix.app.connector.ConnectorCatalogDeviceTest',
     'com.helix.app.connector.ConnectorSendBoundaryDeviceTest',
     'com.helix.app.connector.ConnectorDispatchDeviceTest',
     'com.helix.app.connector.ConnectorSessionPanelDeviceTest',
@@ -27,6 +27,11 @@ classes = ','.join([
     'com.helix.app.SessionPermissionDeviceTest',
     'com.helix.app.chat.SessionForkDeviceTest',
     'com.helix.app.connector.ConnectorUiDeviceTest',
+])
+storage_classes = ','.join([
+    'com.helix.core.storage.FreshSchemaDeviceTest',
+    'com.helix.core.storage.PreviewDatabaseGateDeviceTest',
+    'com.helix.core.storage.RoomGuardAndConfigTablesTest',
 ])
 summary = []
 port = 5660
@@ -58,7 +63,7 @@ for api in (29, 36):
                                  '--avd', f'Helix191_API{api}', '--port', str(port),
                                  '--apk', apk, '--test-apk', apk,
                                  '--runner', 'com.helix.core.storage.test/androidx.test.runner.AndroidJUnitRunner',
-                                 '--classes', 'com.helix.core.storage.ConnectorMigrationDeviceTest,com.helix.core.storage.RoomMigrationFixtureTest',
+                                 '--classes', storage_classes,
                                  '--output', str(output / batch), '--timeout', '600'],
                                 stdout=log, stderr=subprocess.STDOUT, check=False)
     summary.append({'batch': batch, 'exitCode': result.returncode})
@@ -67,4 +72,4 @@ for api in (29, 36):
     port += 2
     if result.returncode:
         raise SystemExit(result.returncode)
-print('PASS all connector quadrants, process-death boundaries and storage migrations', flush=True)
+print('PASS connector quadrants, process recovery, current storage baseline and explicit reset', flush=True)

@@ -85,22 +85,22 @@ class ToolDescriptorTest {
         }
         // an mcp.* name with a built-in origin
         assertThrows(IllegalArgumentException::class.java) {
-            builtIn().copy(name = ToolName("mcp.srv.tool"))
+            builtIn().copy(name = ToolName("mcp_srv_tool"))
         }
     }
 
     @Test
     fun mcpToolsCanNeverBeReadOnlyOrMetadataEvenWhenHelixDeclaresIt() {
         assertThrows(IllegalArgumentException::class.java) {
-            mcpDescriptor("mcp.srv.tool", ToolOperationClass.READ_ONLY)
+            mcpDescriptor("mcp_srv_tool", ToolOperationClass.READ_ONLY)
         }
         // METADATA is a built-in-only closed set; an MCP tool must not ride it into the
         // read-gated (Plan/Chat) modes either.
         assertThrows(IllegalArgumentException::class.java) {
-            mcpDescriptor("mcp.srv.tool", ToolOperationClass.METADATA)
+            mcpDescriptor("mcp_srv_tool", ToolOperationClass.METADATA)
         }
         // a non-review-admitted MCP classification is accepted (effect at least NETWORK)
-        val d = mcpDescriptor("mcp.srv.tool", ToolOperationClass.NETWORK)
+        val d = mcpDescriptor("mcp_srv_tool", ToolOperationClass.NETWORK)
         assertEquals(ToolOperationClass.NETWORK, d.operationClass)
     }
 

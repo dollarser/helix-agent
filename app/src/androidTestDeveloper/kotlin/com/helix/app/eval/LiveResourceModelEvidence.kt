@@ -39,6 +39,7 @@ internal fun publishLiveResourceEvidence(
     session: String,
     directory: File,
     wire: LogComparisonWire,
+    serverId: String,
     marker: String,
     completed: Boolean,
 ): Boolean {
@@ -62,7 +63,11 @@ internal fun publishLiveResourceEvidence(
     val resource =
         results
             .filter {
-                it.optString("tool").endsWith(".read_mcp_resource") && it.optString("status") == "SUCCEEDED"
+                it.optString("tool") ==
+                    com.helix.tools.framework.RemoteToolNames
+                        .mcp(serverId, "read_mcp_resource")
+                        .value &&
+                    it.optString("status") == "SUCCEEDED"
             }.map { JSONObject(it.getString("summary")) }
     val requests =
         directory

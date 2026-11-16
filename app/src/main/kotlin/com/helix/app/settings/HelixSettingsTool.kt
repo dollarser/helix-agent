@@ -9,6 +9,7 @@ import com.helix.core.model.ToolVersion
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
+import com.helix.tools.framework.ToolDiscoveryHints
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolOrigin
@@ -25,12 +26,12 @@ import kotlin.time.Duration.Companion.seconds
 internal object HelixSettingsTool {
     fun descriptor() =
         ToolDescriptor(
-            name = ToolName("settings.inspect"),
+            name = ToolName("settings_inspect"),
             version = ToolVersion(1),
             description =
                 "Inspect this session's saved mode/model/reasoning, configured selectable models " +
                     "and device capability availability. Takes no arguments and changes nothing. " +
-                    "Use settings.apply for authorized future-input changes, or device.open_page for navigation. " +
+                    "Use settings_apply for authorized future-input changes, or device_open_page for navigation. " +
                     "Capability availability is not tool authorization. " +
                     "Missing permission requires user action.",
             inputSchema =
@@ -46,6 +47,7 @@ internal object HelixSettingsTool {
             idempotency = Idempotency.IDEMPOTENT,
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
             origin = ToolOrigin.BuiltInOrigin,
+            discovery = ToolDiscoveryHints(category = "settings"),
         )
 
     fun register(
@@ -69,7 +71,7 @@ internal object HelixSettingsTool {
                 }
                 if (call.args.isNotEmpty()) {
                     return ToolExecutorResult.Failed(
-                        "settings.inspect takes no arguments; use settings.apply or device.open_page.",
+                        "settings_inspect takes no arguments; use settings_apply or device_open_page.",
                         sideEffectFree = true,
                     )
                 }
@@ -98,7 +100,7 @@ internal object HelixSettingsTool {
                 "guidance",
                 "Standard supports files, JavaScript, browser and authorized Android tools. " +
                     "Advanced adds Linux/terminal on developer builds, without granting permissions. " +
-                    "Use tools.search for optional tools. Missing tools may not need Advanced. " +
+                    "Use tools_search for optional tools. Missing tools may not need Advanced. " +
                     "DENIED/LOST requires user permission action; UNAVAILABLE means platform/build unavailable. " +
                     "GRANTED is platform availability, not per-call scope authorization.",
             )

@@ -73,7 +73,7 @@ class SessionInputProtocolDeviceTest {
             assertEquals(TurnState.COMPLETED.name, storage.turns.resolve(first).state)
             assertEquals(1, storage.turns.listBySession(session).size)
             val call = storage.toolCalls.listByTurn(first).single()
-            assertEquals("time.now", call.name)
+            assertEquals("time_now", call.name)
             assertEquals("COMPLETED", call.state)
             assertEquals("{}", call.argsJson)
             assertEquals(SessionInputProtocolStreams.INTENT, call.modelIntent)
@@ -105,7 +105,11 @@ class SessionInputProtocolDeviceTest {
         val function = call.getValue("function").jsonObject
         val result = messages.single { it.string("role") == "tool" }
         assertEquals(SessionInputProtocolStreams.CALL_ID, call.string("id"))
-        assertEquals("time.now", function.string("name"))
+        assertEquals(
+            com.helix.app.test
+                .registeredFixtureToolName(body.toString(), "time_now"),
+            function.string("name"),
+        )
         assertFalse(function.string("arguments").contains(ToolPresentationMetadata.RESERVED_INTENT_KEY))
         assertEquals(call.string("id"), result.string("tool_call_id"))
     }
@@ -116,7 +120,11 @@ class SessionInputProtocolDeviceTest {
         val result = items.single { it.string("type") == "function_call_output" }
         assertEquals(SessionInputProtocolStreams.CALL_ID, call.string("call_id"))
         assertEquals(call.string("call_id"), result.string("call_id"))
-        assertEquals("time.now", call.string("name"))
+        assertEquals(
+            com.helix.app.test
+                .registeredFixtureToolName(body.toString(), "time_now"),
+            call.string("name"),
+        )
         assertFalse(call.string("arguments").contains(ToolPresentationMetadata.RESERVED_INTENT_KEY))
         assertTrue(result.string("output").isNotBlank())
         val user = items.single { it.string("role") == "user" && it.toString().contains(SUPPLEMENT) }
@@ -138,7 +146,7 @@ class SessionInputProtocolDeviceTest {
         val supplement = content.single { it.string("type") == "text" && it.string("text") == SUPPLEMENT }
         assertEquals("user", user.string("role"))
         assertEquals(SessionInputProtocolStreams.CALL_ID, call.string("id"))
-        assertEquals("time.now", call.string("name"))
+        assertEquals("time_now", call.string("name"))
         assertFalse(call.getValue("input").toString().contains(ToolPresentationMetadata.RESERVED_INTENT_KEY))
         assertEquals(call.string("id"), result.string("tool_use_id"))
         assertTrue(result.getValue("content").toString().length > 2)
@@ -180,7 +188,12 @@ class SessionInputProtocolDeviceTest {
                     ),
                     null,
                 )
-            check(container.providerService.runConnectionTest(provider) is ProbeOutcome.Ok)
+            val connection =
+                container.providerService.runConnectionTest(
+                    provider,
+                    verifyGeneration = protocol == ProviderProtocol.ANTHROPIC_MESSAGES,
+                )
+            check(connection is ProbeOutcome.Ok) { "Fixture connection failed: $connection" }
             check(container.providerService.runCapabilityTest(provider) is ProbeOutcome.Ok)
             val session = chat.createSession("Input protocol fixture", provider, "fixture-model-a")
             try {
@@ -194,7 +207,7 @@ class SessionInputProtocolDeviceTest {
                         ?.mode == AgentMode.ACT
                 }
                 com.helix.app.test
-                    .discoverFixtureTool(container.toolPipeline, session, "time.now")
+                    .discoverFixtureTool(container.toolPipeline, session, "time_now")
                 block(session, wire)
             } finally {
                 wire.release.countDown()

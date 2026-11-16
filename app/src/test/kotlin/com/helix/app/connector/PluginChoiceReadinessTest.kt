@@ -1,5 +1,6 @@
 package com.helix.app.connector
 
+import com.helix.app.plugin.PluginName
 import com.helix.app.plugin.PluginSessionRow
 import com.helix.app.plugin.PluginSetupReason
 import kotlinx.coroutines.CancellationException
@@ -11,7 +12,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class PluginChoiceReadinessTest {
-    private val ready = PluginSessionRow("plugin", "Plugin", false, false, true, true, readyComponents = 1)
+    private val ready = PluginSessionRow("plugin", PluginName("Plugin"), false, false, true, true, readyComponents = 1)
 
     @Test fun clickingRechecksLostPermissionAndKeepsTheChoiceUnselected() =
         runBlocking {

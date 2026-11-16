@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="builtin_model_protocol_error">内置模型接口或响应格式不匹配，请检查服务部署后重试。</string>
+    <string name="account_error_endpoint">账号接口或响应不匹配，请检查服务部署后重试。</string>
+</resources>

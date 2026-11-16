@@ -8,6 +8,7 @@ import com.helix.core.storage.HelixStorage
 import com.helix.core.workspace.ScopeRootResolver
 import com.helix.core.workspace.WorkspaceArtifactStore
 import com.helix.extensions.a2a.A2aClients
+import com.helix.tools.framework.RemoteToolNames
 import com.helix.tools.framework.ToolRegistry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -86,12 +87,13 @@ class A2aDiscoveryDeviceTest {
                 service.registerDisabled("changing-agent", server.cardEndpoint, null)
                 val first = kotlinx.coroutines.runBlocking { service.testConnection("changing-agent") }
                 service.enable(first, setOf("echo"))
-                assertTrue(registry.all().any { it.name.value.startsWith("a2a.changing-agent.echo_") })
+                val registeredName = RemoteToolNames.a2a("changing-agent", "echo")
+                assertEquals(listOf(registeredName), registry.all().map { it.name })
 
                 kotlinx.coroutines.runBlocking { service.testConnection("changing-agent") }
                 assertFalse(storage.a2aAgents.resolve("changing-agent").enabled)
                 assertTrue(storage.a2aCapabilities.listByAgent("changing-agent").none { it.enabled })
-                assertTrue(registry.all().none { it.name.value.startsWith("a2a.changing-agent.") })
+                assertTrue("Changed card must remove its previously registered tool", registry.all().isEmpty())
             }
 
             val retainedHash = storage.a2aAgents.resolve("changing-agent").cardHash

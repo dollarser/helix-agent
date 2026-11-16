@@ -1,5 +1,6 @@
 package com.helix.app.skills
 
+import com.helix.app.plugin.PluginName
 import com.helix.extensions.skills.SkillLoader
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -50,6 +51,7 @@ class SkillSupportSnapshotTest {
                 true,
                 listOf(guidance, browser),
                 emptyList(),
+                PluginName("browser", "browser"),
             )
         assertEquals(false, browserCapabilityProvided(facts, true))
         assertEquals(
@@ -81,6 +83,7 @@ class SkillSupportSnapshotTest {
                 true,
                 listOf(browser),
                 emptyList(),
+                PluginName("browser", "browser"),
             )
         assertEquals(false, browserCapabilityProvided(facts, true))
         assertEquals(true, browserCapabilityProvided(facts, false))

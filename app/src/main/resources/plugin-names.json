@@ -1,0 +1,18 @@
+{
+  "mobile-use": {
+    "en": "Mobile Use",
+    "zh": "手机操作"
+  },
+  "browser": {
+    "en": "Browser",
+    "zh": "浏览器"
+  },
+  "documents": {
+    "en": "Documents",
+    "zh": "文档"
+  },
+  "chat-reply": {
+    "en": "Chat Reply",
+    "zh": "消息回复"
+  }
+}

@@ -1,9 +1,11 @@
 package com.helix.app.files
 
+import com.helix.core.workspace.WorkspaceFileBackend
+
 /** Reconciles observed storage, never blindly replays deletion of a move source. */
 internal class ManualTransferRecovery(
     private val journal: ManualTransferJournal,
-    private val backend: (String) -> ManualFileBackend,
+    private val backend: (String) -> WorkspaceFileBackend,
     private val writable: (String) -> Boolean,
 ) {
     private val tree = ManualFileTree()
@@ -57,7 +59,7 @@ internal class ManualTransferRecovery(
     }
 
     private fun verifyBackup(
-        fs: ManualFileBackend,
+        fs: WorkspaceFileBackend,
         record: ManualTransferRecord,
     ) {
         check(record.oldHash.isNotEmpty() && tree.fingerprint(fs, record.backup) == record.oldHash) {

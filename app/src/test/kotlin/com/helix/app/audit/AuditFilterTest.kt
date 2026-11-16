@@ -22,7 +22,7 @@ class AuditFilterTest {
     private fun record(
         id: String,
         sessionId: String = "s-1",
-        toolName: String = "time.now",
+        toolName: String = "time_now",
         operationClass: ToolOperationClass? = ToolOperationClass.READ_ONLY,
         startedAt: Long = 1_700_000_000_000L, // 2023-11-14T22:13:20Z
     ) =
@@ -56,7 +56,7 @@ class AuditFilterTest {
 
     @Test
     fun toolFilter() {
-        val records = listOf(record("a", toolName = "time.now"), record("b", toolName = "fs.write"))
+        val records = listOf(record("a", toolName = "time_now"), record("b", toolName = "fs.write"))
         val result = AuditFilters.applyAll(records, AuditLogFilter(toolName = "fs.write"), zone)
         assertEquals(listOf("b"), result.map { it.id })
     }

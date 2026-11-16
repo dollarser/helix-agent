@@ -75,7 +75,7 @@ class SkillUserInvocationModelDeviceTest {
                 val activation = c.skillRepository.prepareUserActivation(key, id, "中文参数")
                 c.chatService.openTestSessionControl(id, AgentMode.ACT, TurnBudgets(maxOutputTokens = 32768))
                 val prompt =
-                    "Read-only check: call skills.read for source=${key.source.name}, name=${key.name}, " +
+                    "Read-only check: call skills_read for source=${key.source.name}, name=${key.name}, " +
                         "snapshotHash=${key.snapshotHash}, ownerId=${key.ownerId}. " +
                         "Report the first heading and my parameter. " +
                         "No external actions."
@@ -97,7 +97,7 @@ class SkillUserInvocationModelDeviceTest {
                         .last()
                 assertEquals(turn.errorCode, "COMPLETED", turn.state)
                 val calls = c.storage.toolCalls.listByTurn(turn.id)
-                assertTrue(calls.any { it.name == "skills.read" && it.state == "COMPLETED" })
+                assertTrue(calls.any { it.name == "skills_read" && it.state == "COMPLETED" })
                 assertTrue(c.skillRepository.listForModel(id, "another-turn").none { it.key == key })
                 println("USER_SKILL_MODEL=PASS")
             } finally {

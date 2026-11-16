@@ -6,6 +6,7 @@ import com.helix.core.model.ModelMessage
 import com.helix.core.model.ModelRequest
 import com.helix.core.model.ModelRole
 import com.helix.core.model.ReasoningEffort
+import com.helix.provider.api.ProviderToolNames
 import com.helix.provider.api.RequestEncoder
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -109,6 +110,7 @@ public class AnthropicRequestEncoder(
 ) : RequestEncoder {
     /** Encode the request body as a compact JSON string. */
     public override fun encode(request: ModelRequest): String {
+        val toolNames = ProviderToolNames(request)
         val body =
             buildJsonObject {
                 put("model", request.model)
@@ -117,7 +119,7 @@ public class AnthropicRequestEncoder(
                 if (system != null) put("system", system)
                 putJsonArray("messages") {
                     messageRuns(request.messages).forEach { run ->
-                        add(runElement(run, imageResolver))
+                        add(runElement(run, imageResolver, toolNames))
                     }
                 }
                 if (request.tools.isNotEmpty()) {
@@ -125,7 +127,7 @@ public class AnthropicRequestEncoder(
                         request.tools.forEach { tool ->
                             add(
                                 buildJsonObject {
-                                    put("name", tool.name.value)
+                                    put("name", toolNames.encode(tool.name.value))
                                     put("description", tool.description)
                                     put("input_schema", parseSchema(tool.inputSchemaJson))
                                 },
@@ -235,6 +237,7 @@ public class AnthropicRequestEncoder(
     private fun runElement(
         run: Run,
         resolver: ImageResolver,
+        toolNames: ProviderToolNames,
     ): JsonElement =
         if (run.toolResults != null) {
             buildJsonObject {
@@ -252,7 +255,7 @@ public class AnthropicRequestEncoder(
         } else {
             // A non-tool run always carries its single message.
             if (run.single != null) {
-                messageElement(run.single, resolver)
+                messageElement(run.single, resolver, toolNames)
             } else {
                 buildJsonObject {
                     put("role", "user")
@@ -269,6 +272,7 @@ public class AnthropicRequestEncoder(
     private fun messageElement(
         message: ModelMessage,
         resolver: ImageResolver,
+        toolNames: ProviderToolNames,
     ): JsonElement {
         val role =
             when (message.role) {
@@ -287,7 +291,7 @@ public class AnthropicRequestEncoder(
                 putJsonArray("content") {
                     addTextBlock(message.text)
                     message.toolCalls.forEach { call ->
-                        addToolUseBlock(call)
+                        addToolUseBlock(call, toolNames)
                     }
                     message.images.forEach { image ->
                         addImageBlock(image, resolver)
@@ -330,14 +334,17 @@ public class AnthropicRequestEncoder(
     }
 
     /** A `tool_use` content block for one assistant tool call (HXA-037 back-fill). */
-    private fun JsonArrayBuilder.addToolUseBlock(call: AssistantToolCall) {
+    private fun JsonArrayBuilder.addToolUseBlock(
+        call: AssistantToolCall,
+        toolNames: ProviderToolNames,
+    ) {
         // HXA-037 back-fill: the assistant's tool calls become `tool_use` blocks in the
         // model's original order; the merged tool-result run below answers them by id.
         add(
             buildJsonObject {
                 put("type", "tool_use")
                 put("id", call.id.value)
-                put("name", call.name.value)
+                put("name", toolNames.encode(call.name.value))
                 put("input", Json.parseToJsonElement(call.argumentsJson))
             },
         )

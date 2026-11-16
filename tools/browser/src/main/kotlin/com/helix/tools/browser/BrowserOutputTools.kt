@@ -7,6 +7,7 @@ import com.helix.core.model.ToolVersion
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
+import com.helix.tools.framework.ToolDiscoveryHints
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolOrigin
@@ -15,7 +16,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlin.time.Duration.Companion.seconds
 
 object BrowserScreenshotTool {
-    const val NAME: String = "browser.screenshot"
+    const val NAME: String = "browser_screenshot"
     const val VERSION: Int = 1
 
     fun descriptor(origin: ToolOrigin.PluginOrigin): ToolDescriptor =
@@ -63,6 +64,7 @@ object BrowserScreenshotTool {
             idempotency = Idempotency.NON_IDEMPOTENT,
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
             origin = origin,
+            discovery = ToolDiscoveryHints(category = "browser"),
         )
 
     fun executor(
@@ -76,7 +78,7 @@ object BrowserScreenshotTool {
                 val tabId =
                     strArg(call.args, "tabId", MAX_TAB_ID)
                         ?: return ToolExecutorResult.Failed(
-                            "invalid 'browser.screenshot' arguments: 'tabId' must be a string",
+                            "invalid 'browser_screenshot' arguments: 'tabId' must be a string",
                         )
                 val out = bridge.screenshot(tabId)
                 return when (out.status) {
@@ -132,10 +134,10 @@ object BrowserScreenshotTool {
 }
 
 // ===========================================================================
-// browser.download
+// browser_download
 // ===========================================================================
 object BrowserDownloadTool {
-    const val NAME: String = "browser.download"
+    const val NAME: String = "browser_download"
     const val VERSION: Int = 1
 
     @Suppress("LongMethod") // 8-field output schema: the download surface is wider than the sibling browser tools
@@ -216,6 +218,7 @@ object BrowserDownloadTool {
             idempotency = Idempotency.NON_IDEMPOTENT,
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
             origin = origin,
+            discovery = ToolDiscoveryHints(category = "browser"),
         )
 
     fun executor(bridge: BrowserToolBridge): ToolExecutor =
@@ -226,7 +229,7 @@ object BrowserDownloadTool {
                 val url =
                     strArg(call.args, "url", MAX_URL)
                         ?: return ToolExecutorResult.Failed(
-                            "invalid 'browser.download' arguments: 'url' must be a string",
+                            "invalid 'browser_download' arguments: 'url' must be a string",
                         )
                 val suggestedName = strArg(call.args, "suggestedName", MAX_DL_SUGGESTED_NAME) ?: ""
                 val out = bridge.download(url, suggestedName)

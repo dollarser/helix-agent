@@ -15,7 +15,7 @@ Chat/Plan 以只读研究和计划审阅为职责，不因会话审批预设扩�
 
 允许闭合代码白名单中的内置 METADATA 操作维护当前会话/Turn 的计划、Todo 或运行元数据；以可信来源、操作类别和当前绑定判定，不允许任意工具宣称 METADATA。用户文件、外部网络业务写入、安装和执行不借此豁免。
 
-内置 `settings.inspect` 只查询当前会话配置、可选模型与平台能力，归 READ_ONLY；不接受 action/page/配置写入参数。`settings.apply` 是正常授权的 LOCAL_MUTATION，仅改变后续输入默认值，不能改变当前 Turn、授予权限或切换安全 profile。页面导航统一由 `device.open_page` 请求，不借设置工具创建临时提案/确认弹窗。独立短工具名不因形式统一而强制增加命名空间。
+内置 `settings_inspect` 只查询当前会话配置、可选模型与平台能力，归 READ_ONLY；不接受 action/page/配置写入参数。`settings_apply` 是正常授权的 LOCAL_MUTATION，仅改变后续输入默认值，不能改变当前 Turn、授予权限或切换安全 profile。页面导航统一由 `device_open_page` 请求，不借设置工具创建临时提案/确认弹窗。独立短工具名不因形式统一而强制增加命名空间。
 
 计划审阅固定计划版本与执行绑定，不一次性批准计划中所有工具。Act/Goal 执行仍由当前会话授权和精确审批决定。普通研究可以直接文本结束，不强制创建计划表单。
 
@@ -54,4 +54,4 @@ Chat/Plan 以只读研究和计划审阅为职责，不因会话审批预设扩�
 
 ## Decision history — 2026-10-21：设置职责拆分
 
-Owner 授权整理工具命名、参数和描述，并明确离散工具可以保留短名。移除旧设置提案与重复弹窗，查看、修改、页面导航分别使用 `settings.inspect`、`settings.apply`、`device.open_page`；修改继续正常授权，不增加 Plan/Chat 的写入能力。详见 [工具契约整理](../../development/tool-contracts.md)。
+Owner 授权整理工具命名、参数和描述，并明确离散工具可以保留短名。移除旧设置提案与重复弹窗，查看、修改、页面导航分别使用 `settings_inspect`、`settings_apply`、`device_open_page`；修改继续正常授权，不增加 Plan/Chat 的写入能力。详见 [工具契约整理](../../development/tool-contracts.md)。

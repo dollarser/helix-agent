@@ -100,9 +100,9 @@ class CurrentInstallVisualGestureDeviceTest {
                 container.chatService.sendTestMessage(
                     session,
                     "The current foreground screen is the Android installer for WeChat. " +
-                        "Use ui.device and ui.screenshot to inspect the current frame visually. " +
-                        "Then click the visible Install button using ui.gesture on that same frame. " +
-                        "Do not use ui.find, ui.wait, ui.click, or ui.click_match. " +
+                        "Use ui_device and ui_screenshot to inspect the current frame visually. " +
+                        "Then click the visible Install button using ui_gesture on that same frame. " +
+                        "Do not use ui_find, ui_wait, ui_click, or ui_click_match. " +
                         "Do not use coordinates unless they come from the screenshot you just inspected. " +
                         "After the gesture, observe the result and finish only after installation has completed.",
                 )
@@ -119,19 +119,19 @@ class CurrentInstallVisualGestureDeviceTest {
                 println("VISUAL_INSTALL_CALLS=${calls.map { it.name + ":" + it.argsJson }}")
                 assertTrue("nonvisual tools participated", calls.all { it.name in VISUAL_TOOLS })
                 assertVisualTrace(calls)
-                assertTrue("ui.screenshot missing", calls.any { it.name == "ui.screenshot" })
-                assertTrue("ui.gesture missing", calls.any { it.name == "ui.gesture" })
+                assertTrue("ui_screenshot missing", calls.any { it.name == "ui_screenshot" })
+                assertTrue("ui_gesture missing", calls.any { it.name == "ui_gesture" })
                 assertFalse(
                     "semantic click must not participate",
-                    calls.any { it.name == "ui.click" || it.name == "ui.click_match" },
+                    calls.any { it.name == "ui_click" || it.name == "ui_click_match" },
                 )
                 assertFalse(
                     "semantic find/wait must not participate",
-                    calls.any { it.name == "ui.find" || it.name == "ui.wait" },
+                    calls.any { it.name == "ui_find" || it.name == "ui_wait" },
                 )
 
                 val screenshotResults =
-                    calls.filter { it.name == "ui.screenshot" }.mapNotNull { call ->
+                    calls.filter { it.name == "ui_screenshot" }.mapNotNull { call ->
                         container.storage.toolResults.byToolCall(call.id)?.let {
                             container.storage.toolResults.readContent(it)
                         }
@@ -157,11 +157,11 @@ class CurrentInstallVisualGestureDeviceTest {
         var successfulGestures = 0
         calls.forEach { call ->
             when (call.name) {
-                "ui.device" -> {
+                "ui_device" -> {
                     screenshotFrame = null
                 }
 
-                "ui.screenshot" -> {
+                "ui_screenshot" -> {
                     val result = resultContent(call)
                     assertEquals("SAVED", result["status"]?.jsonPrimitive?.content)
                     assertEquals(true, result["pixelsAttached"]?.jsonPrimitive?.booleanOrNull)
@@ -177,7 +177,7 @@ class CurrentInstallVisualGestureDeviceTest {
                     )
                 }
 
-                "ui.gesture" -> {
+                "ui_gesture" -> {
                     val frame =
                         Json
                             .parseToJsonElement(call.argsJson)
@@ -194,7 +194,7 @@ class CurrentInstallVisualGestureDeviceTest {
             }
         }
         assertTrue("no successful visual gesture", successfulGestures > 0)
-        val lastGesture = calls.indexOfLast { it.name == "ui.gesture" }
+        val lastGesture = calls.indexOfLast { it.name == "ui_gesture" }
         assertTrue("missing post-action observation", calls.drop(lastGesture + 1).any { it.name in OBSERVATION_TOOLS })
     }
 
@@ -229,7 +229,7 @@ class CurrentInstallVisualGestureDeviceTest {
         waitUntil(10_000) {
             container.chatService.screen.value.openSessionId == session &&
                 com.helix.app.automation.AutomationModule
-                    .scopeFor("ui.snapshot", session) != null
+                    .scopeFor("ui_snapshot", session) != null
         }
     }
 
@@ -269,7 +269,7 @@ class CurrentInstallVisualGestureDeviceTest {
         const val ARG_ENABLED = "helixPackageInstallerVisualFallback"
         const val MODEL = "Qwen3.8-27B"
         const val WECHAT_PACKAGE = "com.tencent.mm"
-        val OBSERVATION_TOOLS = setOf("ui.device", "ui.screenshot", "ui.apps")
-        val VISUAL_TOOLS = OBSERVATION_TOOLS + "ui.gesture"
+        val OBSERVATION_TOOLS = setOf("ui_device", "ui_screenshot", "ui_apps")
+        val VISUAL_TOOLS = OBSERVATION_TOOLS + "ui_gesture"
     }
 }

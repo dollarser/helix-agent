@@ -20,7 +20,9 @@ object ModelCatalogDiscovery {
         headers: Map<String, String>,
         outputModalitiesOnly: Boolean = false,
     ): ModelCatalogResult {
-        val base = read(wire, url, headers, outputModalitiesOnly)
+        val directoryUrl =
+            if (url == "https://api.hilex.me/v1/models") "$url?output_modalities=all" else url
+        val base = read(wire, directoryUrl, headers, outputModalitiesOnly)
         if (base !is ModelCatalogResult.Listed || !siliconFlow(url)) return base
         val purposes = base.purposes.toMutableMap()
         for ((filter, purpose) in listOf(

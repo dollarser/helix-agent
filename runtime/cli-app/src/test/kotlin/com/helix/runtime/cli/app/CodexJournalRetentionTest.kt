@@ -1,5 +1,7 @@
 package com.helix.runtime.cli.app
 
+import com.helix.runtime.cli.client.CliModelJobRecord
+import com.helix.runtime.cli.client.CliModelJobState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -47,10 +49,10 @@ class CodexJournalRetentionTest {
     private fun record(
         index: Int,
         acknowledged: Long?,
-    ) = CodexModelJobRecord(
+    ) = CliModelJobRecord(
         id(index),
         "a".repeat(64),
-        CodexModelJobState.SUCCEEDED,
+        CliModelJobState.SUCCEEDED,
         1,
         2,
         model = "fixture",

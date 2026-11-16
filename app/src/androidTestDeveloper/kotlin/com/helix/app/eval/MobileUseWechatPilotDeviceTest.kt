@@ -115,14 +115,14 @@ class MobileUseWechatPilotDeviceTest {
                 awaitMobileUseProjection(session)
 
                 exposed = exposedEvaluationTools(container, AgentMode.ACT)
-                check("device.open_url" in exposed) { "device.open_url missing from active Mobile Use surface" }
-                check("ui.snapshot" in exposed && "tools.search" in exposed) { "Mobile Use discovery is unavailable" }
+                check("device_open_url" in exposed) { "device_open_url missing from active Mobile Use surface" }
+                check("ui_snapshot" in exposed && "tools_search" in exposed) { "Mobile Use discovery is unavailable" }
                 check(
                     container.toolPipeline.registry
                         .all()
-                        .any { it.name.value == "ui.ime_enter" },
+                        .any { it.name.value == "ui_ime_enter" },
                 ) {
-                    "ui.ime_enter missing from registered Mobile Use tools"
+                    "ui_ime_enter missing from registered Mobile Use tools"
                 }
 
                 container.chatService.sendTestMessage(session, prompt)
@@ -188,19 +188,19 @@ class MobileUseWechatPilotDeviceTest {
                                 },
                             ),
                         )
-                        put("usedOpenUri", calls.any { it.name == "device.open_url" })
-                        put("usedOpenSettings", calls.any { it.name == "device.open_settings" })
-                        put("usedImeEnter", calls.any { it.name == "ui.ime_enter" })
+                        put("usedOpenUri", calls.any { it.name == "device_open_url" })
+                        put("usedOpenSettings", calls.any { it.name == "device_open_settings" })
+                        put("usedImeEnter", calls.any { it.name == "ui_ime_enter" })
                         put(
                             "usedSetTextSubmit",
-                            calls.any { it.name == "ui.set_text" && it.argsJson.contains("\"submit\":true") },
+                            calls.any { it.name == "ui_set_text" && it.argsJson.contains("\"submit\":true") },
                         )
                         put(
                             "registeredUiTools",
                             JsonArray(
                                 container.toolPipeline.registry
                                     .all()
-                                    .filter { it.name.value.startsWith("ui.") }
+                                    .filter { it.name.value.startsWith("ui_") }
                                     .map { JsonPrimitive(it.name.value) },
                             ),
                         )
@@ -265,7 +265,7 @@ class MobileUseWechatPilotDeviceTest {
         while (
             container.chatService.screen.value.openSessionId != session ||
             com.helix.app.automation.AutomationModule
-                .scopeFor("ui.snapshot", session) == null
+                .scopeFor("ui_snapshot", session) == null
         ) {
             check(SystemClock.elapsedRealtime() < deadline) { "Mobile Use projection did not converge" }
             Thread.sleep(50)

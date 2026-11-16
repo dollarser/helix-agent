@@ -1,7 +1,7 @@
 package com.helix.tools.browser
 
 /**
- * The trusted host-side sensitive-field policy for `browser.click` / `browser.type` (HXA-062;
+ * The trusted host-side sensitive-field policy for `browser_click` / `browser_type` (HXA-062;
  * doc 09 §3.3 “密码框、支付框和验证码框默认拒绝” + §3.4 “对支付、账号恢复、系统权限、验证码和生物
  * 识别页面禁止自主点击或输入”).
  *

@@ -217,7 +217,7 @@ class ExtensionJourneyDeviceTest {
     /** The MCP descriptors currently registered for [serverId] in the shared registry. */
     private fun mcpDescriptors(serverId: String): List<com.helix.tools.framework.ToolDescriptor> =
         container.toolPipeline.registry.all().filter {
-            it.origin is ToolOrigin.McpOrigin && it.name.value.startsWith("mcp.$serverId.")
+            (it.origin as? ToolOrigin.McpOrigin)?.serverId == serverId
         }
 
     /**
@@ -266,7 +266,10 @@ class ExtensionJourneyDeviceTest {
     }
 
     /** The full name the production MCP source gives the fixture tool under [serverId]. */
-    private fun mcpToolFullName(serverId: String) = "mcp.$serverId.${InAppMcpServer.TOOL_NAME}"
+    private fun mcpToolFullName(serverId: String) =
+        com.helix.tools.framework.RemoteToolNames
+            .mcp(serverId, InAppMcpServer.TOOL_NAME)
+            .value
 
     /** A portable connector fixture: one skill plus one https MCP endpoint. */
     private fun connectorFixture(name: String): Map<String, ByteArray> =
@@ -835,7 +838,7 @@ class ExtensionJourneyDeviceTest {
                 "no MCP tool is registered after the restart",
                 container.toolPipeline.registry
                     .all()
-                    .none { it.name.value.startsWith("mcp.${record.endpoints.single().id}.") },
+                    .none { (it.origin as? ToolOrigin.McpOrigin)?.serverId == record.endpoints.single().id },
             )
             // The session permission mode is persisted -> it is still the non-default mode.
             assertEquals(

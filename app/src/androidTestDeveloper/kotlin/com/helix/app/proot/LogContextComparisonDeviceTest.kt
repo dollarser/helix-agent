@@ -183,7 +183,7 @@ class LogContextComparisonDeviceTest {
         c.toolPipeline.registry
             .all()
             .distinctBy { it.origin.canonicalOf() to it.name }
-            .filter { it.name.value !in setOf("tools.search", "tools.read_result", ProotLogTool.NAME) }
+            .filter { it.name.value !in setOf("tools_search", "tools_read_result", ProotLogTool.NAME) }
             .forEach {
                 c.storage.toolAvailability.set(
                     it.origin.canonicalOf(),

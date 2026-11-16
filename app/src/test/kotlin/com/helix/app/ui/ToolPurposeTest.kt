@@ -9,14 +9,14 @@ import com.helix.feature.conversation.R as ConversationR
 
 class ToolPurposeTest {
     @Test fun mobileActionsDescribeTheActualStepWithoutShowingInputPayloads() {
-        assertEquals(ConversationR.string.tool_purpose_launch, ToolPurpose.actionRes("ui.launch"))
-        assertEquals(ConversationR.string.tool_purpose_snapshot, ToolPurpose.actionRes("ui.snapshot"))
-        assertEquals(ConversationR.string.tool_purpose_click, ToolPurpose.actionRes("ui.click_match"))
-        assertEquals(ConversationR.string.tool_purpose_input, ToolPurpose.actionRes("ui.set_text"))
-        assertEquals(ConversationR.string.tool_purpose_back, ToolPurpose.actionRes("ui.back"))
-        assertEquals(ConversationR.string.tool_purpose_open_link, ToolPurpose.actionRes("device.open_url"))
-        assertEquals(ConversationR.string.tool_purpose_interact, ToolPurpose.actionRes("ui.future_action"))
-        assertEquals(ConversationR.string.tool_purpose_execute, ToolPurpose.actionRes("custom.operation"))
+        assertEquals(ConversationR.string.tool_purpose_launch, ToolPurpose.actionRes("ui_launch"))
+        assertEquals(ConversationR.string.tool_purpose_snapshot, ToolPurpose.actionRes("ui_snapshot"))
+        assertEquals(ConversationR.string.tool_purpose_click, ToolPurpose.actionRes("ui_click_match"))
+        assertEquals(ConversationR.string.tool_purpose_input, ToolPurpose.actionRes("ui_set_text"))
+        assertEquals(ConversationR.string.tool_purpose_back, ToolPurpose.actionRes("ui_back"))
+        assertEquals(ConversationR.string.tool_purpose_open_link, ToolPurpose.actionRes("device_open_url"))
+        assertEquals(ConversationR.string.tool_purpose_execute, ToolPurpose.actionRes("ui_future_action"))
+        assertEquals(ConversationR.string.tool_purpose_execute, ToolPurpose.actionRes("custom_operation"))
         assertNull(ToolPurpose.target("""{"text":"private input","targetToken":"opaque-node-id"}"""))
     }
 

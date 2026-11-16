@@ -19,7 +19,7 @@ import kotlinx.serialization.json.jsonPrimitive
  *
  * The conflict policy is EXPLICIT (roadmap HXA-043): an existing destination — a file OR a
  * directory — is refused unless `overwrite` is set, and an `overwrite` into a directory is
- * refused regardless. Deleting never erases: `files.delete` moves the file into the scope's
+ * refused regardless. Deleting never erases: `files_delete` moves the file into the scope's
  * `.helix/trash/` (restore and physical purge are separate store operations, HXA-043).
  *
  * All three are LOCAL_MUTATION operations; current scope and user rules govern approval.
@@ -77,7 +77,7 @@ internal fun filesMutateToolsBoolSchema(description: String?): JsonObject =
 
 internal fun filesMutateToolsIntSchema(): JsonObject = buildJsonObject { put("type", JsonPrimitive("integer")) }
 
-/** The shared `source`/`destination`/`overwrite` contract of `files.copy` and `files.move`. */
+/** The shared `source`/`destination`/`overwrite` contract of `files_copy` and `files_move`. */
 internal fun filesMutateToolsCopyMoveInputSchema(): JsonObject =
     buildJsonObject {
         put("type", JsonPrimitive("object"))
@@ -108,7 +108,7 @@ internal fun filesMutateToolsCopyMoveInputSchema(): JsonObject =
         put("additionalProperties", JsonPrimitive(false))
     }
 
-/** The shared result contract of `files.copy` and `files.move`. */
+/** The shared result contract of `files_copy` and `files_move`. */
 internal fun filesMutateToolsCopyMoveOutputSchema(): JsonObject =
     buildJsonObject {
         put("type", JsonPrimitive("object"))
@@ -139,8 +139,8 @@ internal fun filesMutateToolsCopyMoveOutputSchema(): JsonObject =
         put("additionalProperties", JsonPrimitive(false))
     }
 
-// ── files.copy ────────────────────────────────────────────────────────────────────────────
+// ── files_copy ────────────────────────────────────────────────────────────────────────────
 
-// ── files.move ────────────────────────────────────────────────────────────────────────────
+// ── files_move ────────────────────────────────────────────────────────────────────────────
 
-// ── files.delete ──────────────────────────────────────────────────────────────────────────
+// ── files_delete ──────────────────────────────────────────────────────────────────────────

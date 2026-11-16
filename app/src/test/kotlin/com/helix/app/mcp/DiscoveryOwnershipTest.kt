@@ -42,7 +42,7 @@ class DiscoveryOwnershipTest {
         discovery.register(registry, ownership::metadataExecutor)
         val collect =
             TimeNowTool.descriptor().copy(
-                name = ToolName("code.linux.job.collect"),
+                name = ToolName("code_linux_job_collect"),
                 operationClass = ToolOperationClass.LOCAL_MUTATION,
             )
         registry.register(
@@ -58,16 +58,16 @@ class DiscoveryOwnershipTest {
         val call =
             ExecutableToolCall(
                 "search",
-                "tools.search",
+                "tools_search",
                 "1",
-                Json.parseToJsonElement("""{"query":"code.linux.job.collect"}""").jsonObject,
+                Json.parseToJsonElement("""{"query":"code_linux_job_collect"}""").jsonObject,
                 ExecutionTargetType.LOCAL_ANDROID,
                 Instant.now().plusSeconds(30),
                 NoCancellation,
                 "s",
                 "t",
             )
-        val search = requireNotNull(registry.resolveLatest(ToolName("tools.search")))
+        val search = requireNotNull(registry.resolveLatest(ToolName("tools_search")))
         val result = ownership.guard(registry.executor(search.name, search.version)).execute(call)
         assertTrue(result is ToolExecutorResult.Completed)
         assertTrue(collect in discovery.visible("s", registry.all()))

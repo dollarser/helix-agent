@@ -107,8 +107,8 @@ internal object BrowserToolResultMapper {
                 ActionOutcome(ActionStatus.REFUSED, nodeIndex, tag, role, "not-a-field")
             }
 
-            "not-found" -> {
-                ActionOutcome(ActionStatus.STALE_TOKEN, nodeIndex, tag, role, "not-found")
+            "stale-target", "not-found" -> {
+                ActionOutcome(ActionStatus.STALE_TOKEN, nodeIndex, tag, role, status)
             }
 
             "" -> {

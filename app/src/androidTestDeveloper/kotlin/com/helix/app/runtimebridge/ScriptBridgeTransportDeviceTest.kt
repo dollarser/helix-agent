@@ -22,7 +22,7 @@ class ScriptBridgeTransportDeviceTest {
     private fun parent() =
         ExecutableToolCall(
             "fixture",
-            "code.linux.run",
+            "code_linux_run",
             "1",
             buildJsonObject {},
             ExecutionTargetType.LOCAL_PROOT,
@@ -42,7 +42,7 @@ class ScriptBridgeTransportDeviceTest {
         lease.bindPeer(Process.myPid(), Process.myUid())
         try {
             assertFalse(lease.endpoint.toString().contains(lease.endpoint.proof))
-            val valid = """{"proof":"${lease.endpoint.proof}","id":"same","tool":"time.now","args":{}}"""
+            val valid = """{"proof":"${lease.endpoint.proof}","id":"same","tool":"time_now","args":{}}"""
             assertTrue(exchange(lease, valid.replace(lease.endpoint.proof, "wrong")).contains("REFUSED"))
             assertEquals(0, count.get())
             assertTrue(exchange(lease, valid).contains("CANCELLED"))
@@ -72,7 +72,7 @@ class ScriptBridgeTransportDeviceTest {
         try {
             LocalSocket().use { socket ->
                 socket.connect(LocalSocketAddress(lease.endpoint.socketName))
-                val request = """{"proof":"${lease.endpoint.proof}","id":"one","tool":"time.now","args":{}}"""
+                val request = """{"proof":"${lease.endpoint.proof}","id":"one","tool":"time_now","args":{}}"""
                 socket.outputStream.write((request + "\n").toByteArray())
                 socket.outputStream.flush()
                 assertTrue(started.await(5, TimeUnit.SECONDS))

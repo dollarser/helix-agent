@@ -66,7 +66,7 @@ class ShizukuMobileUseDeviceTest {
             com.helix.app.eval
                 .selectMobileUseForTest(session, emptySet(), wholePhone = true)
             if (rootMode) awaitStableInstaller(session, installerPackage)
-            val descriptor = requireNotNull(container.toolPipeline.resolveLatest("ui.click_match"))
+            val descriptor = requireNotNull(container.toolPipeline.resolveLatest("ui_click_match"))
 
             fun request(
                 id: String,
@@ -75,7 +75,7 @@ class ShizukuMobileUseDeviceTest {
                 toolCallId = "$session-$id",
                 turnId = turn,
                 sessionId = session,
-                toolName = ToolName("ui.click_match"),
+                toolName = ToolName("ui_click_match"),
                 toolVersion = descriptor.version,
                 args =
                     buildJsonObject {
@@ -166,7 +166,7 @@ class ShizukuMobileUseDeviceTest {
         val call =
             com.helix.tools.framework.ExecutableToolCall(
                 "observe-installer",
-                "ui.device",
+                "ui_device",
                 "3",
                 buildJsonObject {},
                 ExecutionTargetType.LOCAL_ANDROID,

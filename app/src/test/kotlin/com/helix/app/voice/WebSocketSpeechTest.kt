@@ -57,6 +57,43 @@ class WebSocketSpeechTest {
         fun connector() = SocketConnector { _, _ -> this }
     }
 
+    @Test fun unavailableHandshakeFailsOnceWithoutUploadingOrFallback() {
+        var connections = 0
+        val connector =
+            SocketConnector { _, _ ->
+                connections++
+                throw com.helix.provider.api.wire
+                    .SocketHandshakeFailure(503)
+            }
+        val asr =
+            assertThrows(com.helix.provider.api.wire.SocketHandshakeFailure::class.java) {
+                WebSocketAsr("wss://api.hilex.me/ws/asr", connector)
+            }
+        assertEquals(SpeechFailure.SERVICE, speechFailure(asr))
+        var requestedText = false
+        val tts =
+            assertThrows(com.helix.provider.api.wire.SocketHandshakeFailure::class.java) {
+                WebSocketTts("wss://api.hilex.me/ws/tts", connector).generateStream({
+                    requestedText = true
+                    "hello"
+                }, { true }) { _, _ -> fail("Unavailable service cannot produce audio") }
+            }
+        assertEquals(SpeechFailure.SERVICE, speechFailure(tts))
+        assertEquals(false, requestedText)
+        assertEquals(2, connections)
+    }
+
+    @Test fun rejectedReadyClosesSocketAndDoesNotExposeServiceBody() {
+        val wire = Fake(16000)
+        wire.incoming.clear()
+        wire.json("{\"type\":\"error\",\"message\":\"private server diagnostics\"}")
+        val error = assertThrows(SpeechServiceFailure::class.java) { WebSocketAsr("test", wire.connector()) }
+        assertEquals(SpeechFailure.SERVICE, speechFailure(error))
+        assertEquals("Speech service rejected input", error.message)
+        assertTrue(wire.closed)
+        assertTrue(wire.binary.isEmpty())
+    }
+
     @Test fun cumulativeSnapshotsReplaceAndFinalFlushesExactlyOnce() {
         val wire = Fake(16000)
         val asr = WebSocketAsr("test", wire.connector())
@@ -261,24 +298,26 @@ class WebSocketSpeechTest {
         val settings =
             SpeechServiceSettings(
                 true,
-                "wss://api.sunlingzhang.com/ws/asr",
-                "wss://api.sunlingzhang.com/ws/tts",
+                "wss://api.hilex.me/ws/asr",
+                "wss://api.hilex.me/ws/tts",
                 true,
                 true,
+                "self-hosted",
+                "self-hosted",
             )
         store.save(settings)
         assertEquals(settings, store.read())
         assertThrows(IllegalArgumentException::class.java) { store.save(settings.copy(useAccountLogin = false)) }
         val custom = settings.copy(customAsrEndpoint = "wss://evil.test/ws/asr")
-        assertEquals("wss://api.sunlingzhang.com/ws/asr", custom.asrEndpoint)
+        assertEquals("wss://api.hilex.me/ws/asr", custom.asrEndpoint)
         assertEquals("wss://evil.test/ws/asr", custom.customAsrEndpoint)
         lines.setLines(
             "settings",
             listOf(
                 "account-v1",
                 "true",
-                "https://api.sunlingzhang.com/v1/audio/transcriptions",
-                "https://api.sunlingzhang.com/v1/audio/speech",
+                "https://api.hilex.me/v1/audio/transcriptions",
+                "https://api.hilex.me/v1/audio/speech",
                 "true",
                 "false",
             ),

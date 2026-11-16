@@ -139,13 +139,13 @@ class FilesMetaToolsTest {
         assertTrue(ToolSchema.check(d.outputSchema).isEmpty())
     }
 
-    // ── files.stat ──────────────────────────────────────────────────────────────────────
+    // ── files_stat ──────────────────────────────────────────────────────────────────────
 
     @Test
     fun statDescriptorIsAValidReadOnlyBuiltIn() {
         assertDescriptor(
             FilesStatTool.descriptor(),
-            "files.stat",
+            "files_stat",
             ToolOperationClass.READ_ONLY,
         )
     }
@@ -154,7 +154,7 @@ class FilesMetaToolsTest {
     fun statReportsARegularFile() {
         val root = root()
         val path = write(root, "work/a.txt", "hello".toByteArray())
-        val out = json(run(root, "files.stat", FilesStatTool::executor, pathArgs(path)))
+        val out = json(run(root, "files_stat", FilesStatTool::executor, pathArgs(path)))
         assertEquals(path.toModelReference(), str(out, "path"))
         assertEquals(true, flag(out, "exists"))
         assertEquals(5L, num(out, "sizeBytes"))
@@ -166,7 +166,7 @@ class FilesMetaToolsTest {
     @Test
     fun statReportsADirectory() {
         val root = root()
-        val out = json(run(root, "files.stat", FilesStatTool::executor, pathArgs(FileScopePath("ws", "work"))))
+        val out = json(run(root, "files_stat", FilesStatTool::executor, pathArgs(FileScopePath("ws", "work"))))
         assertEquals(true, flag(out, "exists"))
         assertEquals(true, flag(out, "isDirectory"))
         assertEquals(false, flag(out, "isRegularFile"))
@@ -175,7 +175,7 @@ class FilesMetaToolsTest {
     @Test
     fun statOfAMissingPathIsAResultNotAnError() {
         val root = root()
-        val out = json(run(root, "files.stat", FilesStatTool::executor, pathArgs(FileScopePath("ws", "work/nope.txt"))))
+        val out = json(run(root, "files_stat", FilesStatTool::executor, pathArgs(FileScopePath("ws", "work/nope.txt"))))
         assertEquals(false, flag(out, "exists"))
         assertEquals(-1L, num(out, "sizeBytes"))
     }
@@ -183,17 +183,17 @@ class FilesMetaToolsTest {
     @Test
     fun statOfAnInvalidReferenceFailsClosed() {
         val root = root()
-        val r = run(root, "files.stat", FilesStatTool::executor, buildJsonObject { put("path", JsonPrimitive("/abs")) })
+        val r = run(root, "files_stat", FilesStatTool::executor, buildJsonObject { put("path", JsonPrimitive("/abs")) })
         assertTrue(failed(r).contains("invalid"))
     }
 
-    // ── files.list ──────────────────────────────────────────────────────────────────────
+    // ── files_list ──────────────────────────────────────────────────────────────────────
 
     @Test
     fun listDescriptorIsAValidReadOnlyBuiltIn() {
         assertDescriptor(
             FilesListTool.descriptor(),
-            "files.list",
+            "files_list",
             ToolOperationClass.READ_ONLY,
         )
     }
@@ -204,7 +204,7 @@ class FilesMetaToolsTest {
         write(root, "work/z.txt", "z".toByteArray())
         write(root, "work/a.txt", "a".toByteArray())
         write(root, "work/m.txt", "m".toByteArray())
-        val out = json(run(root, "files.list", FilesListTool::executor, pathArgs(FileScopePath("ws", "work"))))
+        val out = json(run(root, "files_list", FilesListTool::executor, pathArgs(FileScopePath("ws", "work"))))
         val names = out.getValue("entries").jsonArray.map { it.jsonPrimitive.content }
         assertEquals(listOf("a.txt", "m.txt", "z.txt"), names)
         assertEquals(false, flag(out, "truncated"))
@@ -219,7 +219,7 @@ class FilesMetaToolsTest {
                 put("path", JsonPrimitive(FileScopePath("ws", "work").toModelReference()))
                 put("maxEntries", JsonPrimitive(3))
             }
-        val out = json(run(root, "files.list", FilesListTool::executor, args))
+        val out = json(run(root, "files_list", FilesListTool::executor, args))
         assertEquals(3, out.getValue("entries").jsonArray.size)
         assertEquals(true, flag(out, "truncated"))
     }
@@ -227,20 +227,20 @@ class FilesMetaToolsTest {
     @Test
     fun listOfAMissingPathOrAFileFailsClosed() {
         val root = root()
-        val missing = run(root, "files.list", FilesListTool::executor, pathArgs(FileScopePath("ws", "work/nope")))
+        val missing = run(root, "files_list", FilesListTool::executor, pathArgs(FileScopePath("ws", "work/nope")))
         assertTrue(failed(missing).contains("not a directory"))
         val file = write(root, "work/afile.txt", "x".toByteArray())
-        val onFile = run(root, "files.list", FilesListTool::executor, pathArgs(file))
+        val onFile = run(root, "files_list", FilesListTool::executor, pathArgs(file))
         assertTrue(failed(onFile).contains("not a directory"))
     }
 
-    // ── files.mkdir ─────────────────────────────────────────────────────────────────────
+    // ── files_mkdir ─────────────────────────────────────────────────────────────────────
 
     @Test
     fun mkdirDescriptorIsAValidMutationBuiltIn() {
         assertDescriptor(
             FilesMkdirTool.descriptor(),
-            "files.mkdir",
+            "files_mkdir",
             ToolOperationClass.LOCAL_MUTATION,
         )
     }
@@ -249,7 +249,7 @@ class FilesMetaToolsTest {
     fun mkdirCreatesMissingParents() {
         val root = root()
         val path = FileScopePath("ws", "output/sub/dir")
-        val out = json(run(root, "files.mkdir", FilesMkdirTool::executor, pathArgs(path)))
+        val out = json(run(root, "files_mkdir", FilesMkdirTool::executor, pathArgs(path)))
         assertEquals(path.toModelReference(), str(out, "path"))
         assertEquals(true, flag(out, "created"))
         assertTrue(Files.isDirectory(root.resolve("output/sub/dir")))
@@ -260,7 +260,7 @@ class FilesMetaToolsTest {
         val root = root()
         val path = FileScopePath("ws", "work/existing")
         Files.createDirectories(root.resolve("work/existing"))
-        val detail = failed(run(root, "files.mkdir", FilesMkdirTool::executor, pathArgs(path)))
+        val detail = failed(run(root, "files_mkdir", FilesMkdirTool::executor, pathArgs(path)))
         assertTrue(detail.contains("already exists"))
     }
 
@@ -270,7 +270,7 @@ class FilesMetaToolsTest {
         val helix = FileScopePath("ws", ".helix/newdir")
         assertTrue(
             failed(
-                run(root, "files.mkdir", FilesMkdirTool::executor, pathArgs(helix)),
+                run(root, "files_mkdir", FilesMkdirTool::executor, pathArgs(helix)),
             ).contains("outside .helix/"),
         )
         assertFalse(Files.exists(root.resolve(".helix/newdir")))
@@ -289,11 +289,11 @@ class FilesMetaToolsTest {
         val args = pathArgs(path)
         assertEquals(
             ToolExecutorResult.Cancelled,
-            run(root, "files.stat", FilesStatTool::executor, args, alreadyCancelled),
+            run(root, "files_stat", FilesStatTool::executor, args, alreadyCancelled),
         )
         assertEquals(
             ToolExecutorResult.Cancelled,
-            run(root, "files.list", FilesListTool::executor, args, alreadyCancelled),
+            run(root, "files_list", FilesListTool::executor, args, alreadyCancelled),
         )
         val searchArgs =
             buildJsonObject {
@@ -306,7 +306,7 @@ class FilesMetaToolsTest {
         )
         assertEquals(
             ToolExecutorResult.Cancelled,
-            run(root, "files.mkdir", FilesMkdirTool::executor, args, alreadyCancelled),
+            run(root, "files_mkdir", FilesMkdirTool::executor, args, alreadyCancelled),
         )
     }
 
@@ -314,12 +314,12 @@ class FilesMetaToolsTest {
     fun theOutputsPassTheirRegisteredSchemas() {
         val root = root()
         val file = write(root, "work/a.txt", "hello".toByteArray())
-        val statOut = json(run(root, "files.stat", FilesStatTool::executor, pathArgs(file)))
+        val statOut = json(run(root, "files_stat", FilesStatTool::executor, pathArgs(file)))
         assertEquals(
             ToolSchemaValidation.Valid,
             ToolSchemaValidator.validate(FilesStatTool.descriptor().outputSchema, statOut),
         )
-        val listOut = json(run(root, "files.list", FilesListTool::executor, pathArgs(FileScopePath("ws", "work"))))
+        val listOut = json(run(root, "files_list", FilesListTool::executor, pathArgs(FileScopePath("ws", "work"))))
         assertEquals(
             ToolSchemaValidation.Valid,
             ToolSchemaValidator.validate(FilesListTool.descriptor().outputSchema, listOut),
@@ -335,7 +335,7 @@ class FilesMetaToolsTest {
             ToolSchemaValidator.validate(GlobTool.descriptor().outputSchema, searchOut),
         )
         val mkdirOut =
-            json(run(root, "files.mkdir", FilesMkdirTool::executor, pathArgs(FileScopePath("ws", "work/newdir"))))
+            json(run(root, "files_mkdir", FilesMkdirTool::executor, pathArgs(FileScopePath("ws", "work/newdir"))))
         assertEquals(
             ToolSchemaValidation.Valid,
             ToolSchemaValidator.validate(FilesMkdirTool.descriptor().outputSchema, mkdirOut),

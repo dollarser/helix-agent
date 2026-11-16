@@ -1,6 +1,7 @@
 package com.helix.app.files
 
 import com.helix.core.workspace.FileScopePath
+import com.helix.core.workspace.WorkspaceFileBackend
 import java.nio.file.FileAlreadyExistsException
 import java.util.UUID
 import java.util.concurrent.CancellationException
@@ -8,7 +9,7 @@ import java.util.concurrent.CancellationException
 /** Explicit manual operations; roll back owned staging on provider failure, then propagate. */
 @Suppress("TooGenericExceptionCaught", "TooManyFunctions")
 class ManualFileOperations internal constructor(
-    private val backend: (String) -> ManualFileBackend,
+    private val backend: (String) -> WorkspaceFileBackend,
     private val writable: (String) -> Boolean,
     private val journal: ManualTransferJournal? = null,
 ) {
@@ -16,7 +17,7 @@ class ManualFileOperations internal constructor(
 
     fun canWrite(scope: String): Boolean = writable(scope)
 
-    internal fun syncBackend(scope: String): ManualFileBackend {
+    internal fun syncBackend(scope: String): WorkspaceFileBackend {
         check(canWrite(scope)) { "SYNC_PERMISSION_REVOKED" }
         return backend(scope)
     }

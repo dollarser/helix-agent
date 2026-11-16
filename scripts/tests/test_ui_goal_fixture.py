@@ -22,21 +22,21 @@ class UiGoalFixtureTest(unittest.TestCase):
     def test_cold_request_discovers_snapshot_before_calling_it(self):
         call = self.reply([])
         self.assertEqual('ui-goal-tools-search-snapshot', call['id'])
-        self.assertEqual('tools.search', call['function']['name'])
-        self.assertEqual({'query': 'ui.snapshot'}, json.loads(call['function']['arguments']))
+        self.assertEqual('tools_search', call['function']['name'])
+        self.assertEqual({'query': 'ui_snapshot'}, json.loads(call['function']['arguments']))
 
     def test_click_discovery_preserves_the_original_snapshot_token(self):
         search = {'role': 'tool', 'tool_call_id': 'ui-goal-tools-search-snapshot', 'content': '[SUCCEEDED] {}'}
-        self.assertEqual('ui.snapshot', self.reply([search])['function']['name'])
+        self.assertEqual('ui_snapshot', self.reply([search])['function']['name'])
         snapshot = {'role': 'tool', 'tool_call_id': 'ui-goal-ui-snapshot',
                     'content': '[SUCCEEDED] '+json.dumps({'nodes': [{'text': 'Fixture click', 'token': 'original-token'}]})}
         call = self.reply([search, snapshot])
-        self.assertEqual({'query': 'ui.click'}, json.loads(call['function']['arguments']))
+        self.assertEqual({'query': 'ui_click'}, json.loads(call['function']['arguments']))
         click_search = {'role': 'tool', 'tool_call_id': 'ui-goal-tools-search-click', 'content': '[SUCCEEDED] {}'}
         with tempfile.TemporaryDirectory() as directory:
             runner.Fixture.result_path = Path(directory)/'result.json'
             call = self.reply([search, snapshot, click_search])
-        self.assertEqual('ui.click', call['function']['name'])
+        self.assertEqual('ui_click', call['function']['name'])
         self.assertEqual({'token': 'original-token'}, json.loads(call['function']['arguments']))
 
     def test_denied_snapshot_is_never_treated_as_a_button(self):

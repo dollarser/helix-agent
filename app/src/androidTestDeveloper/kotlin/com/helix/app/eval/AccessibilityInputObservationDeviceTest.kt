@@ -160,7 +160,7 @@ class AccessibilityInputObservationDeviceTest {
                     PermissionCenterAutomationToolPort(center).forCall(
                         ExecutableToolCall(
                             "observe",
-                            "ui.snapshot",
+                            "ui_snapshot",
                             "5",
                             buildJsonObject {},
                             ExecutionTargetType.LOCAL_ANDROID,
@@ -176,8 +176,8 @@ class AccessibilityInputObservationDeviceTest {
                         toolCallId = "$turn-prime",
                         turnId = turn,
                         sessionId = session,
-                        toolName = ToolName("ui.snapshot"),
-                        toolVersion = requireNotNull(c.toolPipeline.resolveLatest("ui.snapshot")).version,
+                        toolName = ToolName("ui_snapshot"),
+                        toolVersion = requireNotNull(c.toolPipeline.resolveLatest("ui_snapshot")).version,
                         args = buildJsonObject {},
                         mode = AgentMode.ACT,
                         profile = SafetyProfile.ADVANCED,
@@ -201,8 +201,8 @@ class AccessibilityInputObservationDeviceTest {
                                     toolCallId = "$turn-input",
                                     turnId = turn,
                                     sessionId = session,
-                                    toolName = ToolName("ui.set_text"),
-                                    toolVersion = requireNotNull(c.toolPipeline.resolveLatest("ui.set_text")).version,
+                                    toolName = ToolName("ui_set_text"),
+                                    toolVersion = requireNotNull(c.toolPipeline.resolveLatest("ui_set_text")).version,
                                     args =
                                         buildJsonObject {
                                             put("token", input.token)
@@ -232,8 +232,8 @@ class AccessibilityInputObservationDeviceTest {
                                     toolCallId = "$turn-observe-$index",
                                     turnId = turn,
                                     sessionId = session,
-                                    toolName = ToolName("ui.snapshot"),
-                                    toolVersion = requireNotNull(c.toolPipeline.resolveLatest("ui.snapshot")).version,
+                                    toolName = ToolName("ui_snapshot"),
+                                    toolVersion = requireNotNull(c.toolPipeline.resolveLatest("ui_snapshot")).version,
                                     args = buildJsonObject {},
                                     mode = AgentMode.ACT,
                                     profile = SafetyProfile.ADVANCED,

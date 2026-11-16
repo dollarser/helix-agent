@@ -477,14 +477,14 @@ class ChatSubmissionReceiptDeviceTest {
                     val executor =
                         registry.executor(
                             com.helix.core.model
-                                .ToolName("settings.inspect"),
+                                .ToolName("settings_inspect"),
                             com.helix.core.model
                                 .ToolVersion(1),
                         )
                     val call =
                         com.helix.tools.framework.ExecutableToolCall(
                             "settings-test",
-                            "settings.inspect",
+                            "settings_inspect",
                             "1",
                             invalidInspection,
                             com.helix.core.model.ExecutionTargetType.LOCAL_ANDROID,
@@ -505,13 +505,13 @@ class ChatSubmissionReceiptDeviceTest {
                     val applyExecutor =
                         registry.executor(
                             com.helix.core.model
-                                .ToolName("settings.apply"),
+                                .ToolName("settings_apply"),
                             com.helix.core.model
                                 .ToolVersion(1),
                         )
                     val applyCall =
                         call.copy(
-                            toolName = "settings.apply",
+                            toolName = "settings_apply",
                             args = buildJsonObject { put("mode", "PLAN") },
                             turnId = "stale-turn",
                         )

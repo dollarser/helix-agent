@@ -74,14 +74,14 @@ private fun skillMetadata(
     when {
         path.isEmpty() -> {
             setOf("snapshotHash", "ownerId", "sessionId") +
-                if (name == "skills.read_resource") setOf("sha256") else emptySet()
+                if (name == "skills_read_resource") setOf("sha256") else emptySet()
         }
 
-        name == "skills.list" && path == listOf("entries", "*") -> {
+        name == "skills_list" && path == listOf("entries", "*") -> {
             setOf("snapshotHash", "ownerId")
         }
 
-        name == "skills.scripts" && path == listOf("scripts", "*") -> {
+        name == "skills_scripts" && path == listOf("scripts", "*") -> {
             setOf("sha256")
         }
 
@@ -144,33 +144,33 @@ private fun renderPrimitive(
 
 private val SKILL_TOOLS =
     setOf(
-        "skills.list",
-        "skills.read",
-        "skills.read_resource",
-        "skills.scripts",
-        "skills.enable",
-        "skills.disable",
-        "skills.remove",
-        "skills.run",
+        "skills_list",
+        "skills_read",
+        "skills_read_resource",
+        "skills_scripts",
+        "skills_enable",
+        "skills_disable",
+        "skills_remove",
+        "skills_run",
     )
 private val UI_TOOLS =
     setOf(
-        "ui.apps",
-        "ui.launch",
-        "ui.snapshot",
-        "ui.screenshot",
-        "ui.find",
-        "ui.click",
-        "ui.click_match",
-        "ui.long_click",
-        "ui.set_text",
-        "ui.scroll",
-        "ui.back",
-        "ui.wait",
-        "ui.device",
-        "ui.gesture",
-        "ui.system",
-        "ui.set_progress",
+        "ui_apps",
+        "ui_launch",
+        "ui_snapshot",
+        "ui_screenshot",
+        "ui_find",
+        "ui_click",
+        "ui_click_match",
+        "ui_long_click",
+        "ui_set_text",
+        "ui_scroll",
+        "ui_back",
+        "ui_wait",
+        "ui_device",
+        "ui_gesture",
+        "ui_system",
+        "ui_set_progress",
     )
 private val UI_IDENTITY =
     setOf(

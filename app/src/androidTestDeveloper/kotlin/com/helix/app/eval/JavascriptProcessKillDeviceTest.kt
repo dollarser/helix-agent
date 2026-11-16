@@ -128,7 +128,7 @@ class JavascriptProcessKillDeviceTest {
         facts.setProperty("provider", provider)
         save(facts)
         assertTrue(container.providerService.runConnectionTest(provider) is ProbeOutcome.Ok)
-        facts.setProperty("tool", "code.javascript.run")
+        facts.setProperty("tool", "code_javascript_run")
         save(facts)
     }
 

@@ -59,7 +59,7 @@ class SystemPromptContextTest {
             request.copy(sessionId = "session-b"),
             request.copy(turnId = "turn-b"),
             request.copy(directory = FileScopePath("other", "")),
-            request.copy(toolNames = setOf("memory.read")),
+            request.copy(toolNames = setOf("memory_read")),
         ).forEach { other ->
             assertThrows(IllegalArgumentException::class.java) { mapper.build(other, facts) }
         }
@@ -77,7 +77,7 @@ class SystemPromptContextTest {
     fun memoryRetainsHashTrustBudgetAndOnlyAdmittedReadReference() {
         val memory =
             MemoryContextSnapshot(listOf(MemorySummarySnapshot(MemoryScope.Global, "quoted", "hash", true)))
-        for (tools in listOf(emptySet(), setOf("memory.read"))) {
+        for (tools in listOf(emptySet(), setOf("memory_read"))) {
             val admitted = request.copy(toolNames = tools)
             val summary =
                 mapper
@@ -88,7 +88,7 @@ class SystemPromptContextTest {
             assertEquals(PromptContentRetention.OPTIONAL, summary.retention)
             assertEquals(50, summary.priority)
             assertEquals("hash", summary.identity?.revision)
-            assertEquals("memory.read" in tools, summary.readReference != null)
+            assertEquals("memory_read" in tools, summary.readReference != null)
             assertTrue(summary.content.contains("prefixTruncated=true"))
         }
     }

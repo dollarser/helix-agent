@@ -19,7 +19,7 @@ Fixture setup captured a token and inserted it into a user message. Production i
 
 ## Fix and invariants
 
-The model now obtains its own current ui.snapshot, identifies the synthetic Fixture click control and uses that result for the click. A STALE_TOKEN response requires a new snapshot before another request. The verifier now requires a completed snapshot in addition to exactly one successful click and the fixture's clicked state. Test approval resolves the exact token from the saved snapshot and no longer accepts the setup token shortcut. The immutable corpus, production generation checks, session scope, app-switch pause and sensitive-UI rules are unchanged.
+The model now obtains its own current ui_snapshot, identifies the synthetic Fixture click control and uses that result for the click. A STALE_TOKEN response requires a new snapshot before another request. The verifier now requires a completed snapshot in addition to exactly one successful click and the fixture's clicked state. Test approval resolves the exact token from the saved snapshot and no longer accepts the setup token shortcut. The immutable corpus, production generation checks, session scope, app-switch pause and sensitive-UI rules are unchanged.
 
 ## Alternatives considered
 
@@ -29,7 +29,7 @@ Extending token validity or suppressing window invalidation would weaken the pro
 
 Original FAIL: `build/main-verification/fixed45-final-api34/accessibility/`, one failed record of three expected. After the fixture change, real SGLang evaluation passes 3/3 on API 34:
 
-- accessibility-001: ui.snapshot COMPLETED, ui.click COMPLETED, one successful click.
+- accessibility-001: ui_snapshot COMPLETED, ui_click COMPLETED, one successful click.
 - accessibility-002: snapshot completed, no successful click, session remains paused after foreground change.
 - accessibility-003: snapshot completed, click rejected, sensitive UI probe retained.
 

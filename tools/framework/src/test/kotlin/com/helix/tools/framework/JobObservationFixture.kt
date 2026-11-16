@@ -69,7 +69,7 @@ internal class JobObservationFixture : JobObservationPort {
         outerMillis: Long = 5_000,
     ) = ExecutableToolCall(
         id,
-        "jobs.await",
+        "jobs_await",
         "1",
         buildJsonObject {
             put("handles", JsonArray(handles.map(::JsonPrimitive)))

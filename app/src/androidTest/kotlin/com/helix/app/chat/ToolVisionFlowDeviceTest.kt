@@ -268,7 +268,7 @@ class ToolVisionFlowDeviceTest {
                     }
                     // Trusted captured-image fixture: no real Accessibility capture or network call.
                     fixture.consent.mobileScreens.register(
-                        fixture.call.copy(toolName = "ui.screenshot"),
+                        fixture.call.copy(toolName = "ui_screenshot"),
                         requireNotNull(result.visualArtifact),
                         fixture.phoneScope!!.toScopeRef(),
                     )
@@ -517,12 +517,12 @@ class ToolVisionFlowDeviceTest {
                     },
                     ownsTurn = { session, turn -> storage.turns.resolve(turn).sessionId == session },
                 ).publish(
-                    call.copy(toolName = "ui.screenshot", deadline = Instant.now().plusSeconds(30)),
+                    call.copy(toolName = "ui_screenshot", deadline = Instant.now().plusSeconds(30)),
                     input.readBytes(),
                     phoneScope!!.toScopeRef(),
                 )
 
-        private val toolName = if (browser == null) "view_image" else "browser.screenshot"
+        private val toolName = if (browser == null) "view_image" else "browser_screenshot"
         val call =
             ExecutableToolCall(
                 "call",

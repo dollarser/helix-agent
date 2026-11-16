@@ -125,7 +125,7 @@ class LocalProviderLoopDeviceTest : com.helix.app.test.ForegroundDeviceTestHost(
                     while (storage.sessionRunControls.forSession(session)?.mode != AgentMode.ACT) delay(20)
                 }
                 com.helix.app.test
-                    .discoverFixtureTool(container.toolPipeline, session, "time.now")
+                    .discoverFixtureTool(container.toolPipeline, session, "time_now")
                 val receipt =
                     chat
                         .sendSubmission(
@@ -154,7 +154,7 @@ class LocalProviderLoopDeviceTest : com.helix.app.test.ForegroundDeviceTestHost(
                 val turn = storage.turns.listBySession(session).single()
                 assertEquals(turn.id, storage.sessionInputs.get(receipt.submission.clientRequestId)?.consumedTurnId)
                 assertEquals(listOf("COMPLETED"), storage.toolCalls.listByTurn(turn.id).map { it.state })
-                assertEquals(listOf("time.now"), storage.toolCalls.listByTurn(turn.id).map { it.name })
+                assertEquals(listOf("time_now"), storage.toolCalls.listByTurn(turn.id).map { it.name })
                 assertEquals(2, storage.modelCalls.listByTurn(turn.id).size)
                 assertTrue(runtime.sawBackfill)
             } finally {
@@ -178,7 +178,7 @@ class LocalProviderLoopDeviceTest : com.helix.app.test.ForegroundDeviceTestHost(
             flow {
                 val result = request.request.messages.lastOrNull { it.role == ModelRole.TOOL }
                 if (result == null) {
-                    emit(ModelEvent.ToolCallStarted(0, ToolCallId("local-time"), "time.now"))
+                    emit(ModelEvent.ToolCallStarted(0, ToolCallId("local-time"), "time_now"))
                     emit(ModelEvent.ToolArgumentsDelta(0, "{}"))
                     emit(ModelEvent.ToolCallFinished(0))
                     emit(ModelEvent.Completed("tool_calls"))

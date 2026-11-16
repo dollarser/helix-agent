@@ -65,14 +65,14 @@ class SkillAuthoringDeviceTest {
         val name = "authoring-${System.currentTimeMillis()}"
         val path = service.saveDraft(name, "Use for the device test", "Read the input and report its size.")
         try {
-            val descriptor = container.toolPipeline.registry.resolve(ToolName("skills.preview"), ToolVersion(1))
+            val descriptor = container.toolPipeline.registry.resolve(ToolName("skills_preview"), ToolVersion(1))
             val args = buildJsonObject { put("path", JsonPrimitive(path)) }
             assertEquals(ToolSchemaValidation.Valid, ToolSchemaValidator.validate(descriptor.inputSchema, args))
             val result =
                 container.toolPipeline.registry.executor(descriptor.name, descriptor.version).execute(
                     ExecutableToolCall(
                         "preview",
-                        "skills.preview",
+                        "skills_preview",
                         "1",
                         args,
                         ExecutionTargetType.LOCAL_ANDROID,

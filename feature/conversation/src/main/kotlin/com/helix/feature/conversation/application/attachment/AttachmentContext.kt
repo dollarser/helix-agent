@@ -169,7 +169,7 @@ object AttachmentContext {
         if (document) {
             append("\n原始文档路径（已绑定来源）：${block.relativePath}")
             append(
-                "\n选用“文档”插件后用 documents.inspect/read 按页或DOCX内容块读取，图表/扫描页用 documents.view；" +
+                "\n选用“文档”插件后用 documents_inspect/read 按页或DOCX内容块读取，图表/扫描页用 documents_view；" +
                     "未选用时请用户选用，不能假定工具已加载。引用页码或DOCX内容块并说明未读范围和截断。",
             )
             append("不要把 read 返回的PDF/DOCX二进制/base64当作正文。")

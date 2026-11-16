@@ -173,7 +173,7 @@ class ProotGoalProcessKillDeviceTest {
         facts.setProperty("provider", provider)
         saveProotFacts(marker, facts)
         assertTrue(container.providerService.runConnectionTest(provider) is ProbeOutcome.Ok)
-        facts.setProperty("tool", "code.linux.run")
+        facts.setProperty("tool", "code_linux_run")
         saveProotFacts(marker, facts)
     }
 

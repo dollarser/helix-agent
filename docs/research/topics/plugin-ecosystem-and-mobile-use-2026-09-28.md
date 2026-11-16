@@ -357,7 +357,7 @@ PluginRegistry
 ├── generation/token stale protection
 ├── sensitive target policy
 ├── semantic sensitive action policy
-└── ui.snapshot/find/click/... tools
+└── ui_snapshot/find/click/... tools
 ```
 
 因此 Mobile Use MVP 应主要完成**插件化**，而不是替换 runtime。
@@ -733,7 +733,7 @@ Plugin selected 不能自动 enable everything，否则会把 package selection 
 
 ### 15.11 Tool exposure 与 Plugin 平台必须一起收敛
 
-2026-09-29 证据校正：历史 AndroidWorld 试跑确认64项截断曾留下 `ui.click` 却缺少 `ui.snapshot`；后续P5还记录了Skill过度依赖搜索导致的额外模型往返。二者不能概括为“P5已证明核心write被挤掉”，也不证明当前源码仍有相同截断。完整来源与当前默认工具/发现分析见[工具曝光与发现专题](tool-exposure-and-discovery-2026-09-29.md)；安装量增长需要更好的组织与发现，不意味着全部schema进入每次请求。
+2026-09-29 证据校正：历史 AndroidWorld 试跑确认64项截断曾留下 `ui_click` 却缺少 `ui_snapshot`；后续P5还记录了Skill过度依赖搜索导致的额外模型往返。二者不能概括为“P5已证明核心write被挤掉”，也不证明当前源码仍有相同截断。完整来源与当前默认工具/发现分析见[工具曝光与发现专题](tool-exposure-and-discovery-2026-09-29.md)；安装量增长需要更好的组织与发现，不意味着全部schema进入每次请求。
 
 长期必须明确：
 

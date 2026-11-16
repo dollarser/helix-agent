@@ -180,7 +180,7 @@ class CoolapkBackgroundRealModelDeviceTest {
                 .mapNotNull { c.storage.toolResults.byToolCall(it.callId) }
                 .mapNotNull { c.storage.toolResults.readContent(it) }
         return turn.state == TurnState.COMPLETED.name &&
-            calls.any { it.name == "ui.launch" && it.state == "COMPLETED" } &&
+            calls.any { it.name == "ui_launch" && it.state == "COMPLETED" } &&
             results.any { it.contains("\"pixelsAttached\":true") } &&
             results.any { it.contains("文件管理器") }
     }

@@ -28,7 +28,7 @@ internal object SessionToolHistory {
     ): JsonObject {
         val reference = reference(repository, caller, call, checkActive)
         val query =
-            if (call.toolName == "session.search") {
+            if (call.toolName == "session_search") {
                 call.text("query").trim().also { require(it.isNotEmpty()) }
             } else {
                 null

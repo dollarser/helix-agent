@@ -42,7 +42,7 @@ class ValidationInventoryDeviceTest {
                             as kotlinx.serialization.json.JsonObject
                     }.map { it["code"]?.toString() }
             report("LIVE_TOOL name=${call.name} state=${call.state} codes=$codes")
-            if (call.name == "tools.search") {
+            if (call.name == "tools_search") {
                 val search =
                     kotlinx.serialization.json.Json
                         .parseToJsonElement(call.argsJson)

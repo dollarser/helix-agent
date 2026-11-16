@@ -16,7 +16,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 
-/** Explicit opt-in; fresh isolated DB/context, only synthetic facts and the safe time.now tool. */
+/** Explicit opt-in; fresh isolated DB/context, only synthetic facts and the safe time_now tool. */
 class ScheduledAgentLiveModelDeviceTest {
     @Test fun scheduledSyntheticTaskUsesRuntimeToolAndOriginalDestination(): Unit =
         runBlocking {
@@ -38,13 +38,13 @@ class ScheduledAgentLiveModelDeviceTest {
                 val attempt =
                     f.execute(
                         "这是合成验收任务。合成项目负责人 TEAM_SYNTH_42，预算137，增量42。" +
-                            "必须先调用 time.now 一次，再用中文报告负责人、预算加增量之和，" +
+                            "必须先调用 time_now 一次，再用中文报告负责人、预算加增量之和，" +
                             "以及逐字复制工具返回的完整 utcIso 字符串（包括小数秒），不要调用其他工具。",
                     )
                 assertEquals("COMPLETED", attempt.state)
                 val calls = f.storage.toolCalls.listByTurn(attempt.turnId)
                 assertEquals(1, calls.size)
-                assertEquals("time.now", calls.single().name)
+                assertEquals("time_now", calls.single().name)
                 val result = requireNotNull(f.storage.toolResults.byToolCall(calls.single().id))
                 val resultBody = requireNotNull(f.storage.toolResults.readContent(result))
                 assertTrue(result.verified)

@@ -25,7 +25,7 @@ import java.time.Instant
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * HXA-066 (verification matrix row `:tools:android:testDebugUnitTest`): the `http.fetch` tool's
+ * HXA-066 (verification matrix row `:tools:android:testDebugUnitTest`): the `http_fetch` tool's
  * fail-closed outcome → result mapping. A [FakeHttpFetchBridge] returns canned port outcomes and
  * captures the request the tool built; each branch must be pinned — a fetch and a policy REFUSAL
  * both become Completed (the refusal carries the STABLE reason code and an empty body, never a fake
@@ -248,7 +248,7 @@ class HttpFetchToolsMappingTest {
     @Test
     fun descriptorCarriesTheExpectedContract() {
         val d = HttpFetchTool.descriptor()
-        assertEquals("http.fetch", d.name.value)
+        assertEquals("http_fetch", d.name.value)
         assertEquals(1, d.version.value)
         assertEquals(ToolOperationClass.NETWORK, d.operationClass)
         assertEquals(30.seconds, d.timeout)

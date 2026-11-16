@@ -51,11 +51,4 @@ interface ToolAvailabilityDao {
         scopeKind: String,
         scopeRef: String,
     ): Int
-
-    /** Every stored state, deterministic order; the settings surfaces read through this. */
-    @Query(
-        "SELECT * FROM tool_availability " +
-            "ORDER BY sourceRef, toolName, scopeKind, scopeRef",
-    )
-    fun all(): List<ToolAvailabilityEntity>
 }

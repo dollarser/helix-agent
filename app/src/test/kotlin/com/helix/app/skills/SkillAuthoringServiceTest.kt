@@ -54,13 +54,13 @@ class SkillAuthoringServiceTest {
                 registry
                     .executor(
                         com.helix.core.model
-                            .ToolName("skills.preview"),
+                            .ToolName("skills_preview"),
                         com.helix.core.model
                             .ToolVersion(1),
                     ).execute(
                         com.helix.tools.framework.ExecutableToolCall(
                             "preview",
-                            "skills.preview",
+                            "skills_preview",
                             "1",
                             kotlinx.serialization.json.buildJsonObject {
                                 put("path", kotlinx.serialization.json.JsonPrimitive(source))

@@ -46,6 +46,19 @@ class ToolSchemaValidatorTest {
     }
 
     @Test
+    fun correctiveDiagnosticsDescribeAllowedInputsWithoutEchoingArgumentValues() {
+        val schema =
+            """
+            {"type":"object","properties":{"mode":{"type":"string","enum":["literal","regex"]}},
+            "additionalProperties":false}
+            """
+        invalid(schema, """{"wrong":"private-value"}""", "accepted properties: mode")
+        invalid(schema, """{"mode":"private-value"}""", "allowed enum values: \"literal\", \"regex\"")
+        val result = ToolSchemaValidator.validate(json(schema), value("""{"mode":"private-value"}"""))
+        assertTrue((result as ToolSchemaValidation.Invalid).reasons.none { "private-value" in it })
+    }
+
+    @Test
     fun additionalPropertiesSubschemaIsApplied() {
         val schema =
             """{"type":"object","properties":{"a":{"type":"string"}},"additionalProperties":{"type":"integer"}}"""

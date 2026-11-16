@@ -217,6 +217,23 @@ def summary_exit_code(summary):
     return int(not results or summary.get("missing_count", 0) > 0 or any(item.get("verdict") != "PASS" for item in results))
 
 
+def instrumentation_args(values):
+    """Non-secret opt-in flags/identifiers only; reject runner control and shell syntax."""
+    result = []
+    seen = set()
+    for value in values:
+        key, separator, content = value.partition("=")
+        if (not separator or not re.fullmatch(r"[A-Za-z][A-Za-z0-9_.]*", key)
+                or not re.fullmatch(r"[A-Za-z0-9_.:/-]+", content)
+                or key in {"class", "package", "notClass", "notPackage", "debug", "log"}
+                or re.search(r"secret|token|password|credential|api.?key", key, re.I)
+                or key in seen):
+            raise ValueError("Invalid, duplicate, reserved, or secret instrumentation argument")
+        seen.add(key)
+        result.extend(["-e", key, content])
+    return result
+
+
 def main():
     parser = argparse.ArgumentParser(description="Isolated AndroidTest Runner")
     parser.add_argument("classes_file", help="Path to classes file (.txt) or manifest (.json)")
@@ -226,7 +243,12 @@ def main():
     parser.add_argument("--serial", required=True, help="Explicitly authorized ADB device serial")
     parser.add_argument("--timeout", type=int, default=180, help="Per-class timeout in seconds")
     parser.add_argument("--manifest", default=None, help="Manifest path for aggregation validation")
+    parser.add_argument("--instrument-arg", action="append", default=[], help="Non-secret KEY=VALUE opt-in flag or identifier; repeatable")
     args = parser.parse_args()
+    try:
+        extra_args = instrumentation_args(args.instrument_arg)
+    except ValueError as error:
+        parser.error(str(error))
     if args.application_id and not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+", args.application_id):
         parser.error("--application-id must be an Android package name")
 
@@ -311,6 +333,7 @@ def main():
         "target_package": target_pkg,
         "test_package": test_pkg,
         "runner": runner,
+        "instrumentation_args": dict(zip(extra_args[1::3], extra_args[2::3])),
         "out_dir": out_dir,
     }
 
@@ -374,6 +397,7 @@ def main():
             "-e",
             "class",
             cls,
+            *extra_args,
             runner,
         ]
 

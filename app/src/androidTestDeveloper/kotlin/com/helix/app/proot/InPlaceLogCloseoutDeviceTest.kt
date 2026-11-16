@@ -115,6 +115,7 @@ class InPlaceLogCloseoutDeviceTest {
     internal class Fixture(
         private val sharedStorage: HelixStorage? = null,
         externalWorkspace: Boolean = false,
+        runtimeAccessibleStorage: Boolean = false,
     ) {
         val context = ApplicationProvider.getApplicationContext<Context>()
         private val id =
@@ -124,7 +125,12 @@ class InPlaceLogCloseoutDeviceTest {
                 .replace("-", "")
                 .take(12)
         private val database = "closeout-$id"
-        private val scratch = File(context.noBackupFilesDir, database).apply { mkdirs() }
+        private val scratch =
+            if (runtimeAccessibleStorage) {
+                File(context.filesDir, "workspaces/app/$database-state").apply { check(mkdirs()) }
+            } else {
+                File(context.noBackupFilesDir, database).apply { mkdirs() }
+            }
         val workspace =
             if (externalWorkspace) {
                 File(requireNotNull(context.getExternalFilesDir(null)), "direct-fixture-$id")
@@ -224,7 +230,7 @@ class InPlaceLogCloseoutDeviceTest {
             submissions++
             val outcome = client.submit(spec, source, target)
             submitted = outcome is ProotJobClient.SubmitOutcome.Accepted
-            assertTrue("Expected accepted owned fixture; got ${outcome.javaClass.simpleName}", submitted)
+            assertTrue("Expected accepted owned fixture; got $outcome for ${spec.workspacePath}", submitted)
         }
 
         fun terminal(): ProotJobRecord =

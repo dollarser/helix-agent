@@ -42,16 +42,16 @@ class SpeechCaptureRoutingTest {
         assertEquals("http://127.0.0.1:18767/asr", customCapture.destination)
     }
 
-    @Test fun restoredAccountSelectsStreamingAndSignOutInvalidatesTheCapturedOwner() =
+    @Test fun restoredAccountSelectsHttpCloudAndSignOutInvalidatesTheCapturedOwner() =
         runBlocking {
             val settings = SpeechSettingsStore(InMemoryLineStore())
             val owner = account(AccountTokens("synthetic-access", "synthetic-refresh", 10000, 20000, "owner"))
             assertSame(offline, settings.asrFactory(owner) { offline })
             owner.restore()
-            val capture = settings.asrFactory(owner) { error("Signed-in automatic routing must use streaming") }
+            val capture = settings.asrFactory(owner) { error("Signed-in automatic routing must use HTTP cloud") }
             assertTrue(capture.uploadsAudio)
-            assertTrue(capture.supportsPartial)
-            assertEquals("wss://api.sunlingzhang.com/ws/asr", capture.destination)
+            assertFalse(capture.supportsPartial)
+            assertEquals("https://api.hilex.me/v1/audio/transcriptions", capture.destination)
             owner.logout()
             assertThrows(IllegalStateException::class.java) { capture.open() }
             assertSame(offline, settings.asrFactory(owner) { offline })

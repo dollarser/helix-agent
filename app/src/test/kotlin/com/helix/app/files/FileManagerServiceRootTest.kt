@@ -3,6 +3,8 @@ package com.helix.app.files
 import com.helix.core.workspace.ScopeNotAvailable
 import com.helix.core.workspace.ScopeRootResolver
 import com.helix.core.workspace.WorkspaceArtifactStore
+import com.helix.core.workspace.WorkspaceFileBackend
+import com.helix.core.workspace.WorkspaceFileInfo
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -54,9 +56,9 @@ class FileManagerServiceRootTest {
 
         override fun list(relativePath: String): List<FileManagerService.FileEntry> = entries
 
-        override fun stat(relativePath: String): ManualFileInfo? =
+        override fun stat(relativePath: String): WorkspaceFileInfo? =
             entries.firstOrNull { it.relativePath == relativePath }?.let {
-                ManualFileInfo(it.isDirectory, it.sizeBytes)
+                WorkspaceFileInfo(it.isDirectory, it.sizeBytes)
             }
 
         var requestedTextLimit: Long? = null
@@ -100,10 +102,10 @@ class FileManagerServiceRootTest {
             return file
         }
 
-        override fun manualBackend(): ManualFileBackend = backend
+        override fun manualBackend(): WorkspaceFileBackend = backend
     }
 
-    private class FakeRootBackend : ManualFileBackend {
+    private class FakeRootBackend : WorkspaceFileBackend {
         val files = mutableMapOf<String, ByteArray>()
         val directories = mutableSetOf<String>()
 
@@ -112,10 +114,10 @@ class FileManagerServiceRootTest {
         }
 
         @Suppress("ReturnCount")
-        override fun stat(path: String): ManualFileInfo? {
-            if (path in directories) return ManualFileInfo(true, 0L)
+        override fun stat(path: String): WorkspaceFileInfo? {
+            if (path in directories) return WorkspaceFileInfo(true, 0L)
             val bytes = files[path] ?: return null
-            return ManualFileInfo(false, bytes.size.toLong())
+            return WorkspaceFileInfo(false, bytes.size.toLong())
         }
 
         override fun children(path: String): List<String> =

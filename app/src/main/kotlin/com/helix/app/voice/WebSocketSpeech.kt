@@ -40,18 +40,20 @@ private fun event(message: SocketMessage): JsonObject =
     when (message) {
         is SocketMessage.Text -> Json.parseToJsonElement(message.value).jsonObject
         is SocketMessage.Closed -> throw SpeechSocketFailure(message.code)
-        is SocketMessage.Binary -> throw IOException("Unexpected speech audio")
+        is SocketMessage.Binary -> throw SpeechProtocolFailure("Unexpected speech audio")
     }
 
 private fun JsonObject.text(key: String): String? {
     val value = get(key) ?: return null
-    val primitive = value as? kotlinx.serialization.json.JsonPrimitive ?: throw IOException("Invalid speech field")
+    val primitive =
+        value as? kotlinx.serialization.json.JsonPrimitive ?: throw SpeechProtocolFailure("Invalid speech field")
     require(primitive.isString) { "Invalid speech string" }
     return primitive.content
 }
 
 private fun SocketConnection.ready(rate: Int) {
-    val value = event(receive(30000) ?: throw IOException("Speech ready timeout"))
+    val value = event(receive(30000) ?: throw java.net.SocketTimeoutException("Speech ready timeout"))
+    if (value.text("type") == "error") throw SpeechServiceFailure()
     require(
         value.text("type") == "ready" && value["sample_rate"]?.jsonPrimitive?.intOrNull == rate &&
             value.text("format") == "s16le" && value["channels"]?.jsonPrimitive?.intOrNull == 1,
@@ -59,6 +61,12 @@ private fun SocketConnection.ready(rate: Int) {
 }
 
 private fun SocketConnection.end() = sendText("{\"type\":\"end\"}")
+
+private fun requireTtsDone(message: SocketMessage) {
+    val value = event(message)
+    if (value.text("type") == "error") throw SpeechServiceFailure()
+    if (value.text("type") != "done") throw SpeechProtocolFailure("Unexpected TTS event")
+}
 
 @Suppress("TooGenericExceptionCaught") // Any handshake/parser failure must release the socket.
 internal class WebSocketAsr(
@@ -87,7 +95,7 @@ internal class WebSocketAsr(
         while (true) {
             val next = socket.receive(0) ?: break
             accept(next)
-            if (final) throw IOException("ASR finalized before end")
+            if (final) throw SpeechProtocolFailure("ASR finalized before end")
         }
         check(!closed.get())
         return transcript
@@ -105,11 +113,11 @@ internal class WebSocketAsr(
             }
 
             "error" -> {
-                throw IOException("ASR service rejected input")
+                throw SpeechServiceFailure()
             }
 
             else -> {
-                throw IOException("Unexpected ASR event")
+                throw SpeechProtocolFailure("Unexpected ASR event")
             }
         }
     }
@@ -121,7 +129,7 @@ internal class WebSocketAsr(
         val deadline = nanoTime() + 180_000_000_000L
         while (!final) {
             check(!closed.get())
-            if (nanoTime() >= deadline) throw IOException("ASR final timeout")
+            if (nanoTime() >= deadline) throw java.net.SocketTimeoutException("ASR final timeout")
             socket.receive(1000)?.let { accept(it) }
         }
         check(!closed.get())
@@ -201,7 +209,7 @@ internal class WebSocketTts(
         var complete = false
         while (!complete) {
             check(!closed.get() && keepGoing())
-            if (nanoTime() >= deadline) throw IOException("TTS session timeout")
+            if (nanoTime() >= deadline) throw java.net.SocketTimeoutException("TTS session timeout")
             val message = runInterruptible(Dispatchers.IO) { stream.receive(1000) } ?: continue
             if (message is SocketMessage.Binary) {
                 decoder.accept(message.value) { pcm ->
@@ -209,8 +217,7 @@ internal class WebSocketTts(
                     consume(pcm, 24000)
                 }
             } else {
-                val value = event(message)
-                if (value.text("type") != "done") throw IOException("Unexpected TTS event or service error")
+                requireTtsDone(message)
                 decoder.finish()
                 complete = true
             }

@@ -8,11 +8,11 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.MainActivity
-import com.helix.app.files.ManualFileBackend
 import com.helix.app.files.ManualFileOperations
 import com.helix.app.files.ManualTransferJournal
 import com.helix.app.files.NioManualFileBackend
 import com.helix.core.workspace.ScopeRootResolver
+import com.helix.core.workspace.WorkspaceFileBackend
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertThrows
@@ -39,7 +39,7 @@ class FileTransferRecoveryDeviceTest {
             folder.resolve("target").writeText("old")
             val nio = NioManualFileBackend("app", ScopeRootResolver { root.toPath() }, true) {}
             val broken =
-                object : ManualFileBackend by nio {
+                object : WorkspaceFileBackend by nio {
                     override fun rename(
                         path: String,
                         destination: String,

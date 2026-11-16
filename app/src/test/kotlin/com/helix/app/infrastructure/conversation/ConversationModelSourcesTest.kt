@@ -121,7 +121,8 @@ class ConversationModelSourcesTest {
 
     @Test
     fun bundledCatalogFailureRetainsDeclaredSelectionAndExactFeedback() {
-        val purposes = listOf(BuiltInModel.MODEL_ID, "other").associateWith { setOf(ModelPurpose.CHAT) }
+        val models = listOf(BuiltInModel.MODEL_ID, BuiltInModel.QWEN_MODEL_ID, "other")
+        val purposes = models.associateWith { setOf(ModelPurpose.CHAT) }
         val value =
             row()
                 .copy(
@@ -131,7 +132,7 @@ class ConversationModelSourcesTest {
                     builtInCatalog =
                         BuiltInModelCatalog(
                             checkedAt = 1,
-                            models = listOf(BuiltInModel.MODEL_ID, "other"),
+                            models = models,
                             failure = ModelErrorCode.TIMEOUT,
                             purposes = purposes,
                         ),
@@ -142,9 +143,15 @@ class ConversationModelSourcesTest {
         assertEquals(ModelErrorCode.TIMEOUT, value.catalogFeedback?.failure)
         assertEquals(SharedR.string.builtin_model_title, value.displayLabel?.resourceId)
         val bundledChoice = requireNotNull(value.choice(BuiltInModel.MODEL_ID))
-        assertEquals(R.string.builtin_reasoning_contract_notice, bundledChoice.reasoningNotice?.resourceId)
+        assertNull(bundledChoice.reasoningNotice)
+        assertEquals(
+            BuiltInModel.reasoningOptionsFor(BuiltInModel.MODEL_ID),
+            value.reasoningOptionsFor(BuiltInModel.MODEL_ID),
+        )
+        val qwenChoice = requireNotNull(value.choice(BuiltInModel.QWEN_MODEL_ID))
+        assertEquals(R.string.builtin_reasoning_contract_notice, qwenChoice.reasoningNotice?.resourceId)
         assertNull(requireNotNull(value.choice("other")).reasoningNotice)
-        assertEquals(ReasoningEffort.FALLBACK, value.reasoningOptionsFor(BuiltInModel.MODEL_ID))
+        assertEquals(ReasoningEffort.FALLBACK, value.reasoningOptionsFor(BuiltInModel.QWEN_MODEL_ID))
         assertTrue(value.reasoningOptionsFor("other").isEmpty())
     }
 

@@ -51,6 +51,7 @@ import com.helix.feature.conversation.R as ConversationR
 /** Real local HTTP sockets behind the production pinned wire; no external service or credentials. */
 class BuiltInModelTransportTest {
     private val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
+    private val originalUrls = CopyOnWriteArrayList<String>()
     private val requests = CopyOnWriteArrayList<Pair<Map<String, List<String>>, String>>()
     private val release = CountDownLatch(1)
     private var reply: (HttpExchange) -> Unit = { respond(it, 200, TEXT_STREAM) }
@@ -60,9 +61,10 @@ class BuiltInModelTransportTest {
         object : WireClient {
             override suspend fun open(request: WireRequest): WireResponse {
                 require(
-                    request.url == BuiltInModel.GENERATION_URL ||
+                    request.url == BuiltInModel.GENERATION_URL || request.url == BuiltInModel.RESPONSES_URL ||
                         (allowCatalog && request.url == BuiltInModel.CATALOG_URL),
                 )
+                originalUrls += request.url
                 // Test-only route substitution after production origin/header checks, never shipped to the app.
                 val url = "http://127.0.0.1:${server.address.port}/v1/chat/completions"
                 return http.open(WireRequest(request.method, url, request.headers, request.body))
@@ -107,11 +109,128 @@ class BuiltInModelTransportTest {
         server.stop(0)
     }
 
+    @Test fun lunaOffIsExplicitNoneAndReasoningUsesResponsesWithoutFallback() =
+        runBlocking {
+            provider.stream(request).toList()
+            assertTrue(requests.single().second.contains("\"reasoning_effort\":\"none\""))
+            reply = { respond(it, 400, "{\"error\":{\"message\":\"Responses unavailable\"}}") }
+            val events = provider.stream(request.copy(reasoning = com.helix.core.model.ReasoningEffort.MEDIUM)).toList()
+            assertTrue(events.any { it is ModelEvent.Error })
+            assertEquals(2, requests.size)
+            assertEquals(listOf(BuiltInModel.GENERATION_URL, BuiltInModel.RESPONSES_URL), originalUrls)
+            assertTrue(requests.last().second.contains("\"reasoning\":{\"effort\":\"medium\"}"))
+            assertFalse(requests.last().second.contains("reasoning_effort"))
+        }
+
+    @Test fun lunaResponsesStreamsToolsAndBackfillsResultsWithAccountAuthentication() =
+        runBlocking {
+            val schema = ModelToolSchema(ToolName("echo"), "Echo fixture", """{"type":"object","properties":{}}""")
+            reply = { respond(it, 200, LUNA_RESPONSE_TOOL_STREAM) }
+            val input = request.copy(reasoning = com.helix.core.model.ReasoningEffort.MEDIUM, tools = listOf(schema))
+            val events = provider.stream(input).toList()
+            assertTrue(events.any { it is ModelEvent.ToolCallStarted })
+            assertTrue(events.any { it is ModelEvent.ToolCallFinished })
+            assertTrue(events.any { it is ModelEvent.Completed })
+            val result =
+                ModelMessage(
+                    ModelRole.TOOL,
+                    "fixture-result",
+                    toolCallId =
+                        com.helix.core.model
+                            .ToolCallId("c1"),
+                    toolName = ToolName("echo"),
+                )
+            val assistant =
+                ModelMessage(
+                    ModelRole.ASSISTANT,
+                    "",
+                    toolCalls =
+                        listOf(
+                            com.helix.core.model
+                                .AssistantToolCall(
+                                    com.helix.core.model
+                                        .ToolCallId("c1"),
+                                    ToolName("echo"),
+                                    "{}",
+                                ),
+                        ),
+                )
+            provider.stream(input.copy(messages = input.messages + assistant + result)).toList()
+            assertTrue(originalUrls.all { it == BuiltInModel.RESPONSES_URL })
+            assertMatchingResponseToolHistory()
+            assertTrue(requests.last().second.contains("function_call_output"))
+            assertTrue(requests.last().second.contains("fixture-result"))
+            assertTrue(requests.all { it.first.keys.any { key -> key.equals("X-Client-ID", true) } })
+            assertTrue(requests.all { it.first.keys.none { key -> key.equals("X-Inference-Provider", true) } })
+        }
+
+    private fun assertMatchingResponseToolHistory() {
+        val encoded =
+            kotlinx.serialization.json.Json.parseToJsonElement(
+                requests.last().second,
+            ) as kotlinx.serialization.json.JsonObject
+        val items = encoded["input"] as kotlinx.serialization.json.JsonArray
+        val calls =
+            items.filterIsInstance<kotlinx.serialization.json.JsonObject>().filter {
+                it["call_id"] ==
+                    kotlinx.serialization.json.JsonPrimitive("c1")
+            }
+        assertEquals(2, calls.size)
+        assertEquals(
+            setOf(
+                kotlinx.serialization.json.JsonPrimitive("function_call"),
+                kotlinx.serialization.json.JsonPrimitive("function_call_output"),
+            ),
+            calls
+                .map {
+                    it["type"]
+                }.toSet(),
+        )
+    }
+
+    @Test fun selfHostedHeaderFollowsExactInvocationAndNeverLeaksIntoCloudDiscovery() =
+        runBlocking {
+            provider.stream(request.copy(model = BuiltInModel.QWEN_MODEL_ID)).toList()
+            provider.stream(request).toList()
+            assertEquals(
+                listOf("local"),
+                requests[0]
+                    .first.entries
+                    .single {
+                        it.key.equals("X-Inference-Provider", true)
+                    }.value,
+            )
+            assertFalse(requests[1].first.keys.any { it.equals("X-Inference-Provider", true) })
+            allowCatalog = true
+            reply = { respond(it, 200, """{"data":[]}""") }
+            provider.contextWindow(BuiltInModel.QWEN_MODEL_ID)
+            provider.contextWindow(BuiltInModel.MODEL_ID)
+            provider.listModels()
+            assertEquals(
+                listOf("local"),
+                requests[2]
+                    .first.entries
+                    .single {
+                        it.key.equals("X-Inference-Provider", true)
+                    }.value,
+            )
+            assertTrue(
+                requests.drop(3).all { (headers, _) ->
+                    headers.keys.none { it.equals("X-Inference-Provider", true) }
+                },
+            )
+            assertEquals(5, requests.size)
+        }
+
     @Test fun officialQwenEffortsUseExactWireValuesAndDefaultOmitsTheParameter() =
         runBlocking {
             val efforts = com.helix.core.model.ReasoningEffort.FALLBACK
             for (effort in efforts) {
-                val events = provider.stream(request.copy(reasoning = effort)).toList()
+                val events =
+                    provider
+                        .stream(
+                            request.copy(model = BuiltInModel.QWEN_MODEL_ID, reasoning = effort),
+                        ).toList()
                 assertTrue(events.any { it is ModelEvent.Completed })
                 val body =
                     kotlinx.serialization.json.Json
@@ -166,6 +285,7 @@ class BuiltInModelTransportTest {
             val cases =
                 listOf(
                     401 to ModelErrorCode.AUTH,
+                    404 to ModelErrorCode.PROTOCOL,
                     429 to ModelErrorCode.RATE_LIMITED,
                     502 to ModelErrorCode.SERVER_ERROR,
                     503 to ModelErrorCode.SERVER_ERROR,
@@ -185,11 +305,22 @@ class BuiltInModelTransportTest {
                     }, builtInWire = BuiltInAccountWire(testAccount(), local)).create(builtInConfig())
                 val event = fresh.stream(request).toList().single() as ModelEvent.Error
                 assertEquals(expected, event.code)
-                assertEquals(status != 401, event.retryable)
+                assertEquals(status in listOf(429, 502, 503, 504), event.retryable)
                 assertEquals(status, event.diagnostic?.httpStatus)
                 assertFalse(event.diagnostic.toString().contains("private server diagnostic"))
                 assertEquals(before + (if (status == 401) 2 else 1), requests.size)
             }
+        }
+
+    @Test fun stoppedBackendReportsTransportFailureWithoutFallbackOrCompletion() =
+        runBlocking {
+            server.stop(0)
+            val event = provider.stream(request).toList().single() as ModelEvent.Error
+            assertEquals(ModelErrorCode.TRANSPORT, event.code)
+            // The transport cannot prove upstream acceptance; automatic replay is disabled.
+            assertFalse(event.retryable)
+            assertEquals(com.helix.app.R.string.builtin_model_service_error, BuiltInModel.errorLabel(event.code.name))
+            assertTrue(requests.isEmpty())
         }
 
     @Test fun allProtocolsKeepImageReselectionTypedThroughStreamAndVisibleLabelsWithoutOpeningWire() =
@@ -319,7 +450,7 @@ class BuiltInModelTransportTest {
                         it,
                         200,
                         """{"data":[
-                            {"id":"Qwen3.8-27B","context_length":32768},
+                            {"id":"gpt-6-luna","context_length":32768},
                             {"id":"other","context_length":262144}]}""",
                     )
                 }
@@ -337,8 +468,10 @@ class BuiltInModelTransportTest {
     @Test fun toolResultBackfillRetainsCallIdentityAndUsesSameModel() =
         runBlocking {
             reply = { respond(it, 200, TOOL_STREAM) }
-            val events = provider.stream(request).toList()
+            val input = toolRequest()
+            val events = provider.stream(input).toList()
             val started = events.filterIsInstance<ModelEvent.ToolCallStarted>().single()
+            assertEquals("read", started.name)
             val fragments = events.filterIsInstance<ModelEvent.ToolArgumentsDelta>()
             val name = ToolName(started.name)
             val call =
@@ -350,7 +483,7 @@ class BuiltInModelTransportTest {
             val assistant = ModelMessage(ModelRole.ASSISTANT, "", toolCalls = listOf(call))
             val result = ModelMessage(ModelRole.TOOL, "fixture-result", toolCallId = started.id, toolName = name)
             reply = { respond(it, 200, TEXT_STREAM) }
-            val final = provider.stream(request.copy(messages = request.messages + assistant + result)).toList()
+            val final = provider.stream(input.copy(messages = input.messages + assistant + result)).toList()
             assertTrue(final.any { it is ModelEvent.Completed })
             val body = requests.last().second
             assertTrue(body.contains("\"tool_call_id\":\"${started.id.value}\""))
@@ -361,7 +494,7 @@ class BuiltInModelTransportTest {
     @Test fun incompleteToolStreamIsNotCompletedOrReplayed() =
         runBlocking {
             reply = { respond(it, 200, TOOL_STREAM.substringBefore("\"finish_reason\"")) }
-            val events = provider.stream(request).toList()
+            val events = provider.stream(toolRequest()).toList()
             assertTrue(events.any { it is ModelEvent.ToolCallStarted })
             assertFalse(events.any { it is ModelEvent.Completed })
             assertFalse(events.any { it is ModelEvent.ToolCallFinished })
@@ -378,6 +511,30 @@ class BuiltInModelTransportTest {
             )
             assertEquals(1, requests.size)
         }
+
+    @Test fun undeclaredLegalToolNameFailsWithoutCallCompletionOrReplay() =
+        runBlocking {
+            reply = { respond(it, 200, TOOL_STREAM) }
+            val events = provider.stream(request).toList()
+            assertEquals(ModelErrorCode.PROTOCOL, events.filterIsInstance<ModelEvent.Error>().single().code)
+            assertFalse(events.any { it is ModelEvent.ToolCallStarted })
+            assertFalse(events.any { it is ModelEvent.ToolCallFinished })
+            assertFalse(events.any { it is ModelEvent.Completed })
+            assertEquals(1, requests.size)
+        }
+
+    private fun toolRequest(): ModelRequest =
+        request.copy(
+            tools =
+                listOf(
+                    ModelToolSchema(
+                        ToolName("read"),
+                        "Read fixture",
+                        """{"type":"object","properties":{"path":{"type":"string"}},
+                            "required":["path"],"additionalProperties":false}""",
+                    ),
+                ),
+        )
 
     @Test fun cancellationAfterPartialStreamExitsWithoutCompletionOrRetry() =
         runBlocking {
@@ -424,6 +581,21 @@ class BuiltInModelTransportTest {
     }
 
     private companion object {
+        const val LUNA_RESPONSE_TOOL_STREAM =
+            """event: response.output_item.added
+data: {"output_index":0,"item":{"type":"function_call","call_id":"c1","name":"echo"}}
+
+event: response.function_call_arguments.delta
+data: {"output_index":0,"delta":"{}"}
+
+event: response.function_call_arguments.done
+data: {"output_index":0,"arguments":"{}"}
+
+event: response.completed
+data: {"response":{"status":"completed","usage":{"input_tokens":1,"output_tokens":1}}}
+
+"""
+
         const val TEXT_STREAM =
             "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"OK\"}}]}\n\n" +
                 "data: {\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n"

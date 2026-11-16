@@ -29,12 +29,21 @@ class SessionToolAvailabilityTest {
         assertNotEquals(original.canonicalOf(), updated.copy(runtimeId = "other").canonicalOf())
         val stored =
             mapOf(
-                (original.canonicalOf() to "ui.click") to
+                (original.canonicalOf() to "ui_click") to
                     ToolAvailabilityStates(
                         global = ToolAvailabilityState.DISABLED,
                     ),
             )
-        assertEquals(ToolAvailabilityState.DISABLED, fold(stored, updated.canonicalOf(), "ui.click"))
+        assertEquals(ToolAvailabilityState.DISABLED, fold(stored, updated.canonicalOf(), "ui_click"))
+    }
+
+    @Test fun obsoleteVersionedPreferenceKeyDoesNotMatchTheCurrentSource() {
+        val current = ToolOrigin.PluginOrigin("mobile-use", "1", "mobile-use").canonicalOf()
+        val obsolete = "plugin:mobile-use:0.2.0:mobile-use"
+        val stored = mapOf((obsolete to "ui_click") to ToolAvailabilityStates(global = ToolAvailabilityState.DISABLED))
+        assertNotEquals(obsolete, current)
+        assertEquals(ToolAvailabilityState.ENABLED, fold(stored, current, "ui_click"))
+        assertEquals(ToolAvailabilityState.DISABLED, fold(stored, obsolete, "ui_click"))
     }
 
     private val schemaA = "0".repeat(64)

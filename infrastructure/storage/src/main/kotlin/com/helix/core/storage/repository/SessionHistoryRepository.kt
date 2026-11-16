@@ -51,9 +51,9 @@ class SessionHistoryRepository(
     fun referenceToolNames(sessionId: String): Set<String> =
         buildSet {
             val knowledge = dao.hasKnowledgeReferences(sessionId)
-            if (knowledge) addAll(listOf("knowledge.search", "knowledge.read"))
+            if (knowledge) addAll(listOf("knowledge_search", "knowledge_read"))
             if (knowledge || dao.hasConversationReferences(sessionId)) {
-                addAll(listOf("session.history", "session.search", "session.read"))
+                addAll(listOf("session_history", "session_search", "session_read"))
             }
         }
 

@@ -46,7 +46,7 @@ class SessionAccessStorageDeviceTest {
             }
             db.turnDao().insert(TurnEntity("turn", "source", "RUNNING_TOOL", 0, 0, null, null))
             db.toolCallDao().insert(
-                ToolCallEntity("call", "turn", "wire", "session.rename", "1", "{}", "a".repeat(64), "RUNNING"),
+                ToolCallEntity("call", "turn", "wire", "session_rename", "1", "{}", "a".repeat(64), "RUNNING"),
             )
             var dao = db.sessionAccessDao()
             val initial = dao.setGrant("source", "target", false, true)
@@ -102,17 +102,17 @@ class SessionAccessStorageDeviceTest {
             }
             db.turnDao().insert(TurnEntity("turn", "source", "RUNNING_TOOL", 0, 0, null, null))
             db.toolCallDao().insert(
-                ToolCallEntity("archive", "turn", "wire", "session.archive", "1", "{}", "a".repeat(64), "RUNNING"),
+                ToolCallEntity("archive", "turn", "wire", "session_archive", "1", "{}", "a".repeat(64), "RUNNING"),
             )
             val dao = db.sessionAccessDao()
             val grant = dao.setGrant("source", "target", true, true)
             assertEquals(
                 0,
-                dao.archive("source", "target", grant.revision, "turn", "archive", "session.restore", false, null),
+                dao.archive("source", "target", grant.revision, "turn", "archive", "session_restore", false, null),
             )
             assertEquals(
                 1,
-                dao.archive("source", "target", grant.revision, "turn", "archive", "session.archive", false, 100L),
+                dao.archive("source", "target", grant.revision, "turn", "archive", "session_archive", false, 100L),
             )
             assertEquals(grant, dao.grant("source", "target"))
             assertEquals(100L, db.sessionDao().byId("target")?.archivedAt)

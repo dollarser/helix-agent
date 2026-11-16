@@ -1151,7 +1151,7 @@
     <string name="user_question_skip">Skip</string>
     <string name="user_question_title">Your preference</string>
     <string name="git_diff_read_error">Could not read the diff. Refresh the repository and try again.</string>
-    <string name="tool_rejected_binding_unavailable">This tool was not exposed in this request or its binding is no longer valid. Nothing was executed. Search the exact tool name with tools.search, then use the schema exposed in the next request. Do not repeat this call directly.</string>
+    <string name="tool_rejected_binding_unavailable">This tool was not exposed in this request or its binding is no longer valid. Nothing was executed. Search the exact tool name with tools_search, then use the schema exposed in the next request. Do not repeat this call directly.</string>
     <string name="quickjs_native_save_failed">Could not read or save native access settings. Please try again.</string>
     <string name="provider_models_manage">Manage conversation models</string>
     <string name="provider_models_manage_title">%1$s · Models</string>
@@ -1505,7 +1505,6 @@
     <string name="document_sources_title">Document sources</string>
     <string name="document_source_preview_note">Opens the current source. Reading refers to the snapshot SHA-256 and page/block cited in the answer. Exact location jumping is unavailable; source changes are indicated.</string>
     <string name="document_plugin_select">PDF/DOCX reading needs the Documents plugin · Select</string>
-    <string name="document_plugin_name">Documents</string>
     <string name="workspace_location_details">Location details</string>
     <string name="workspace_copy_location">Copy full path</string>
     <string name="preview_reset_title">Reset previous preview data</string>
@@ -1564,7 +1563,7 @@
     <string name="cloud_voice_connection_error">Could not reach the speech service. Try again shortly.</string>
     <string name="speech_services_title">Speech services</string>
     <string name="speech_http_input_title">Cloud speech input</string>
-    <string name="speech_http_description">HTTP mode recognizes completed recordings and synthesizes text segments. Continuous streaming is not supported. HTTP is unencrypted.</string>
+    <string name="speech_http_description">Recordings are uploaded in segments. Cloud PCM speech can play as it arrives. Custom HTTP connections without HTTPS are unencrypted.</string>
     <string name="speech_http_loopback">Enter an address reachable from Android. 127.0.0.1 refers to this device, not your computer.</string>
     <string name="speech_http_enable">Online speech</string>
     <string name="speech_asr_endpoint">Full ASR transcription URL</string>

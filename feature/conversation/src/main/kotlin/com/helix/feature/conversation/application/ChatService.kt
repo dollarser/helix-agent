@@ -1494,7 +1494,7 @@ class ChatService(
             openSessionId == sessionId && active == null && !turnGateHolds(sessionId)
         } else {
             val turnId = call.turnId
-            call.sessionId == sessionId && call.toolName == "settings.apply" && turnId != null &&
+            call.sessionId == sessionId && call.toolName == "settings_apply" && turnId != null &&
                 active?.turnId == turnId && !inputCommands.hasPending(sessionId) &&
                 !call.isStopped(clock.now()) && turnHistory.turn(turnId)?.state != TurnState.CANCELLING
         }
@@ -1707,7 +1707,7 @@ class ChatService(
 
     // --------------------------------------------------------------------------------
     // Plan review (research doc section 4.2/4.3; HX2-05): the user's decisions on a plan
-    // submitted through `plan.submit` — approve / revise / cancel / execute.
+    // submitted through `plan_submit` — approve / revise / cancel / execute.
     // --------------------------------------------------------------------------------
 
     suspend fun reviewPlan(planId: String): PlanReview {

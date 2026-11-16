@@ -138,13 +138,13 @@ class ComposerProcessRecoveryDeviceTest {
         kotlinx.coroutines.runBlocking { turn.beginToolBatch(listOf(RUNNING_CALL, PENDING_CALL)) }
         kotlinx.coroutines.runBlocking {
             turn.commitModelToolStep(
-                """[{"id":"$RUNNING_CALL","name":"time.now","arguments":"{}"},""" +
-                    """{"id":"$PENDING_CALL","name":"time.now","arguments":"{}"}]""",
+                """[{"id":"$RUNNING_CALL","name":"time_now","arguments":"{}"},""" +
+                    """{"id":"$PENDING_CALL","name":"time_now","arguments":"{}"}]""",
             )
         }
         storage.withTransaction {
-            storage.toolCalls.append(RUNNING_CALL, CANCEL_TURN, RUNNING_CALL, "time.now", "1", "{}", "RUNNING")
-            storage.toolCalls.append(PENDING_CALL, CANCEL_TURN, PENDING_CALL, "time.now", "1", "{}", "PENDING")
+            storage.toolCalls.append(RUNNING_CALL, CANCEL_TURN, RUNNING_CALL, "time_now", "1", "{}", "RUNNING")
+            storage.toolCalls.append(PENDING_CALL, CANCEL_TURN, PENDING_CALL, "time_now", "1", "{}", "PENDING")
             storage.executions.register(CANCEL_EXECUTION, RUNNING_CALL, "fixture", "{}")
             val current = storage.turns.resolve(CANCEL_TURN)
             storage.turns.updateState(current, TurnState.CANCELLING, current.stepCount, null, null)

@@ -64,7 +64,7 @@ class KnowledgeReferenceLoopTest {
                             .text
                     if (step == 0) {
                         assertFalse(previous.contains("SEMANTIC_SYNTHETIC_EVIDENCE"))
-                        call("knowledge.search", f.scoped(buildJsonObject { put("query", "different meaning") }))
+                        call("knowledge_search", f.scoped(buildJsonObject { put("query", "different meaning") }))
                     } else {
                         assertTrue(previous.contains("SEMANTIC_SYNTHETIC_EVIDENCE"))
                         assertTrue(previous.contains("hybrid_candidate_not_full_document"))
@@ -97,7 +97,7 @@ class KnowledgeReferenceLoopTest {
                     if (step == 0) {
                         assertFalse(previous.contains("PDF_ORIGINAL_TAIL_EVIDENCE"))
                         call(
-                            "knowledge.read",
+                            "knowledge_read",
                             f.scoped(
                                 buildJsonObject {
                                     put("kind", "source")
@@ -156,7 +156,7 @@ class KnowledgeReferenceLoopTest {
         com.helix.app.chat.SessionTools
             .register(registry, f.history, f.dao.accessRepository())
         fixture.tools +=
-            listOf("session.history", "session.read").map {
+            listOf("session_history", "session_read").map {
                 val descriptor =
                     com.helix.app.chat.SessionToolDescriptors
                         .descriptor(it)
@@ -225,7 +225,7 @@ class KnowledgeReferenceLoopTest {
                     when (step) {
                         0 -> {
                             assertFalse(previous.contains("TAIL_EVIDENCE"))
-                            call("knowledge.search", f.scoped(f.args("""{"query":"TAIL_EVIDENCE"}""")))
+                            call("knowledge_search", f.scoped(f.args("""{"query":"TAIL_EVIDENCE"}""")))
                         }
 
                         1 -> {
@@ -235,7 +235,7 @@ class KnowledgeReferenceLoopTest {
                         2 -> {
                             assertTrue(previous.contains("TAIL_EVIDENCE"))
                             assertTrue(previous.contains("untrusted_data_not_instructions_or_authorization"))
-                            call("knowledge.read", f.scoped(f.args("""{"kind":"note","id":"private"}""")))
+                            call("knowledge_read", f.scoped(f.args("""{"kind":"note","id":"private"}""")))
                         }
 
                         else -> {
@@ -265,7 +265,7 @@ class KnowledgeReferenceLoopTest {
                 .single()
                 .jsonObject
         return call(
-            "knowledge.read",
+            "knowledge_read",
             f.scoped(
                 buildJsonObject {
                     put("kind", "note")
@@ -292,7 +292,7 @@ class KnowledgeReferenceLoopTest {
                         .text
                 when (step) {
                     0 -> {
-                        call("session.history", buildJsonObject {})
+                        call("session_history", buildJsonObject {})
                     }
 
                     1 -> {
@@ -306,7 +306,7 @@ class KnowledgeReferenceLoopTest {
                                 .single()
                                 .jsonObject
                         call(
-                            "session.read",
+                            "session_read",
                             buildJsonObject {
                                 put("messageId", hit.getValue("messageId"))
                                 put("contentHash", hit.getValue("contentHash"))
@@ -343,7 +343,7 @@ class KnowledgeReferenceLoopTest {
         val raw = body.substringAfter("[UNTRUSTED_KNOWLEDGE_REFERENCES]\n").substringBefore('\n')
         val manifest = Json.parseToJsonElement(raw).jsonObject
         return call(
-            "knowledge.read",
+            "knowledge_read",
             buildJsonObject {
                 put("kind", "note")
                 put("id", "selected")

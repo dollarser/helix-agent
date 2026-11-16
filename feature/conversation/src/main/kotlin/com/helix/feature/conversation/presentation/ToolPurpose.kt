@@ -23,60 +23,150 @@ object ToolPurpose {
     }
 
     private fun isFileOperation(name: String): Boolean =
-        name in setOf("read", "write", "edit", "view_image", "documents.inspect", "documents.view") ||
-            name.startsWith("files.")
+        name in setOf("read", "write", "edit", "view_image", "documents_inspect", "documents_view") ||
+            name in fileActions
 
     fun actionRes(name: String): Int =
         mobileActions[name] ?: when {
             name == "write" -> R.string.tool_purpose_write
             name == "edit" -> R.string.tool_purpose_edit
-            name == "documents.view" -> R.string.tool_purpose_read
+            name == "documents_view" -> R.string.tool_purpose_read
             isRead(name) -> R.string.tool_purpose_read
             isInspect(name) -> R.string.tool_purpose_inspect
-            name.endsWith(".find") || name.endsWith(".search") -> R.string.tool_purpose_search
-            name.startsWith("browser.") || name.startsWith("ui.") -> R.string.tool_purpose_interact
-            name == "bash" || name == "code.javascript.run" -> R.string.tool_purpose_run
+            name in searchActions -> R.string.tool_purpose_search
+            name in interactionActions -> R.string.tool_purpose_interact
+            name == "bash" || name == "code_javascript_run" -> R.string.tool_purpose_run
             else -> R.string.tool_purpose_execute
         }
 
     private val mobileActions =
         mapOf(
-            "ui.apps" to R.string.tool_purpose_apps,
-            "ui.launch" to R.string.tool_purpose_launch,
-            "ui.snapshot" to R.string.tool_purpose_snapshot,
-            "ui.screenshot" to R.string.tool_purpose_screenshot,
-            "ui.find" to R.string.tool_purpose_find_control,
-            "ui.click" to R.string.tool_purpose_click,
-            "ui.click_match" to R.string.tool_purpose_click,
-            "ui.set_text" to R.string.tool_purpose_input,
-            "ui.scroll" to R.string.tool_purpose_scroll,
-            "ui.back" to R.string.tool_purpose_back,
-            "ui.wait" to R.string.tool_purpose_wait,
-            "ui.device" to R.string.tool_purpose_device,
-            "ui.gesture" to R.string.tool_purpose_gesture,
-            "device.open_url" to R.string.tool_purpose_open_link,
-            "device.clipboard_read" to R.string.tool_purpose_clipboard_read,
-            "device.clipboard_write" to R.string.tool_purpose_clipboard_write,
-            "device.share_text" to R.string.tool_purpose_share_text,
-            "device.share_files" to R.string.tool_purpose_share_files,
-            "device.create_note" to R.string.tool_purpose_create_note,
-            "device.open_file" to R.string.tool_purpose_open_file,
-            "device.open_page" to R.string.tool_purpose_open_page,
-            "device.open_settings" to R.string.tool_purpose_open_settings,
-            "device.prepare_calendar_event" to R.string.tool_purpose_prepare_calendar_event,
-            "device.create_calendar_event" to R.string.tool_purpose_create_calendar_event,
-            "device.create_reminder" to R.string.tool_purpose_create_reminder,
-            "device.cancel_reminder" to R.string.tool_purpose_cancel_reminder,
-            "device.notifications_query" to R.string.tool_purpose_inspect,
-            "device.list_reminders" to R.string.tool_purpose_inspect,
+            "ui_apps" to R.string.tool_purpose_apps,
+            "ui_launch" to R.string.tool_purpose_launch,
+            "ui_snapshot" to R.string.tool_purpose_snapshot,
+            "ui_screenshot" to R.string.tool_purpose_screenshot,
+            "ui_find" to R.string.tool_purpose_find_control,
+            "ui_click" to R.string.tool_purpose_click,
+            "ui_click_match" to R.string.tool_purpose_click,
+            "ui_set_text" to R.string.tool_purpose_input,
+            "ui_scroll" to R.string.tool_purpose_scroll,
+            "ui_back" to R.string.tool_purpose_back,
+            "ui_wait" to R.string.tool_purpose_wait,
+            "ui_device" to R.string.tool_purpose_device,
+            "ui_gesture" to R.string.tool_purpose_gesture,
+            "device_open_url" to R.string.tool_purpose_open_link,
+            "device_clipboard_read" to R.string.tool_purpose_clipboard_read,
+            "device_clipboard_write" to R.string.tool_purpose_clipboard_write,
+            "device_share_text" to R.string.tool_purpose_share_text,
+            "device_share_files" to R.string.tool_purpose_share_files,
+            "device_create_note" to R.string.tool_purpose_create_note,
+            "device_open_file" to R.string.tool_purpose_open_file,
+            "device_open_page" to R.string.tool_purpose_open_page,
+            "device_open_settings" to R.string.tool_purpose_open_settings,
+            "device_prepare_calendar_event" to R.string.tool_purpose_prepare_calendar_event,
+            "device_create_calendar_event" to R.string.tool_purpose_create_calendar_event,
+            "device_create_reminder" to R.string.tool_purpose_create_reminder,
+            "device_cancel_reminder" to R.string.tool_purpose_cancel_reminder,
+            "device_notifications_query" to R.string.tool_purpose_inspect,
+            "device_list_reminders" to R.string.tool_purpose_inspect,
         )
 
-    private fun isRead(name: String): Boolean =
-        name == "read" || name.endsWith(".read") || name.endsWith(".read_resource")
+    // Explicit product presentation identities; remote names never imply an operation.
+    private val fileActions =
+        setOf(
+            "files_list",
+            "files_stat",
+            "files_mkdir",
+            "files_copy",
+            "files_move",
+            "files_delete",
+            "files_archive",
+            "files_extract",
+        )
+    private val readActions =
+        setOf(
+            "read",
+            "memory_read",
+            "session_read",
+            "skills_read",
+            "skills_read_resource",
+            "knowledge_read",
+            "root_file_read",
+            "root_log_read",
+            "documents_read",
+        )
+    private val inspectActions =
+        setOf(
+            "memory_list",
+            "session_status",
+            "session_list",
+            "skills_list",
+            "files_list",
+            "files_stat",
+            "code_linux_job_status",
+            "settings_inspect",
+            "root_status",
+            "root_package_info",
+            "root_process_list",
+            "documents_inspect",
+        )
+    private val searchActions =
+        setOf(
+            "memory_search",
+            "session_search",
+            "knowledge_search",
+            "tools_search",
+            "browser_search",
+            "browser_find",
+            "ui_find",
+            "glob",
+            "grep",
+            "web_search",
+        )
+    private val interactionActions =
+        setOf(
+            "browser_tabs",
+            "browser_wait",
+            "browser_open",
+            "browser_search",
+            "browser_navigate",
+            "browser_back",
+            "browser_forward",
+            "browser_reload",
+            "browser_snapshot",
+            "browser_find",
+            "browser_click",
+            "browser_type",
+            "browser_upload",
+            "browser_scroll",
+            "browser_screenshot",
+            "browser_download",
+            "browser_select",
+            "browser_press",
+            "browser_submit",
+            "ui_snapshot",
+            "ui_find",
+            "ui_click",
+            "ui_click_match",
+            "ui_long_click",
+            "ui_set_text",
+            "ui_ime_enter",
+            "ui_set_progress",
+            "ui_scroll",
+            "ui_back",
+            "ui_home",
+            "ui_wait",
+            "ui_device",
+            "ui_apps",
+            "ui_launch",
+            "ui_system",
+            "ui_gesture",
+            "ui_screenshot",
+        )
 
-    private fun isInspect(name: String): Boolean =
-        name.endsWith(".inspect") || name.endsWith(".list") || name.endsWith(".stat") || name.endsWith(".info") ||
-            name.endsWith(".status") || name.endsWith(".query")
+    private fun isRead(name: String): Boolean = name in readActions
+
+    private fun isInspect(name: String): Boolean = name in inspectActions
 
     fun target(arguments: String): String? {
         val fields =

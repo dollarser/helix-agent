@@ -1,5 +1,6 @@
 package com.helix.app.chat
 
+import com.helix.app.test.registeredFixtureToolName
 import com.helix.feature.conversation.application.ChatService
 import com.helix.provider.api.wire.WireBody
 import com.helix.provider.api.wire.WireClient
@@ -19,23 +20,45 @@ import com.helix.provider.api.wire.WireResponse
 class ScriptedSseWire {
     /** One recorded exchange (body decoded as UTF-8 for JSON assertions). */
     data class RecordedRequest(
+        val method: String,
         val url: String,
         val headers: Map<String, String>,
         val body: String,
     )
 
     val requests = ArrayList<RecordedRequest>()
+    var responseSelectionFailure: String? = null
+        private set
 
     /** One canned response per model call, in call order; running out fails the call. */
-    private val canned = ArrayList<WireResponse>()
+    private val canned = ArrayList<(String) -> WireResponse>()
 
     /** Appends the responses for the NEXT model calls (call order). */
     fun script(vararg responses: WireResponse) {
-        canned += responses.toList()
+        canned += responses.map { response -> { _: String -> response } }
+    }
+
+    /** A positive model response must choose the tool name from the actual outgoing request. */
+    fun scriptForRequest(response: (String) -> WireResponse) {
+        canned += response
+    }
+
+    /** Explicitly opt known positive calls into request binding; raw scripts preserve malformed/unknown cases. */
+    fun scriptToolCall(
+        callId: String,
+        canonicalName: String,
+        arguments: String,
+    ) {
+        scriptForRequest { body ->
+            sseResponse(toolCallStream(callId, jsonString(registeredFixtureToolName(body, canonicalName)), arguments))
+        }
     }
 
     val callCount: Int
         get() = requests.size
+
+    val pendingResponseCount: Int
+        get() = (canned.size - requests.size).coerceAtLeast(0)
 
     val allBodies: List<String>
         get() = requests.map { it.body }
@@ -47,9 +70,16 @@ class ScriptedSseWire {
         object : WireClient {
             override suspend fun open(request: WireRequest): WireResponse {
                 val body = request.body?.toString(Charsets.UTF_8).orEmpty()
-                requests += RecordedRequest(request.url, request.headers, body)
-                return canned.getOrNull(requests.size - 1)
-                    ?: error("scripted wire: no canned response for call $requests.size")
+                requests += RecordedRequest(request.method, request.url, request.headers, body)
+                val response =
+                    canned.getOrNull(requests.size - 1)
+                        ?: error("scripted wire: no canned response for call ${requests.size}")
+                return try {
+                    response(body)
+                } catch (failure: IllegalStateException) {
+                    responseSelectionFailure = failure.message
+                    throw failure
+                }
             }
         }
 }

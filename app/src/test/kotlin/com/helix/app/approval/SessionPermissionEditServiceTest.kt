@@ -334,16 +334,6 @@ class SessionPermissionEditServiceTest {
             scopeRef: String,
         ): Int = rows.remove(keyOf(sourceRef, toolName, scopeKind, scopeRef))?.let { 1 } ?: 0
 
-        override fun all(): List<ToolAvailabilityEntity> =
-            rows.values.sortedWith(
-                compareBy(
-                    { it.sourceRef },
-                    { it.toolName },
-                    { it.scopeKind },
-                    { it.scopeRef },
-                ),
-            )
-
         private fun keyOf(entity: ToolAvailabilityEntity): String =
             keyOf(entity.sourceRef, entity.toolName, entity.scopeKind, entity.scopeRef)
 
@@ -352,7 +342,7 @@ class SessionPermissionEditServiceTest {
             toolName: String,
             scopeKind: String,
             scopeRef: String,
-        ): String = listOf(sourceRef, toolName, scopeKind, scopeRef).joinToString(" ")
+        ): String = listOf(sourceRef, toolName, scopeKind, scopeRef).joinToString("\u0000")
     }
 
     private class FakeSessionPermissionConfigDao : SessionPermissionConfigDao {

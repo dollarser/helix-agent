@@ -76,7 +76,7 @@ class SkillOnlyInputDeviceTest {
                         TurnBudgets(maxOutputTokens = 4096),
                     )
                     com.helix.app.test
-                        .discoverFixtureTool(c.toolPipeline, session, "time.now")
+                        .discoverFixtureTool(c.toolPipeline, session, "time_now")
                     wire.exercise = true
                     wire.release.countDown()
                     val empty = ChatSubmission(session, 0, UUID.randomUUID().toString(), "")

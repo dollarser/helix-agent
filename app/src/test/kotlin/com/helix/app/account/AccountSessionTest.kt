@@ -17,7 +17,7 @@ import java.io.IOException
 import java.util.concurrent.atomic.AtomicInteger
 
 class AccountSessionTest {
-    private val url = "https://api.sunlingzhang.com/v1/chat/completions"
+    private val url = "https://api.hilex.me/v1/chat/completions"
     private val payload =
         """
         {"access_token":"next-access","refresh_token":"next-refresh",
@@ -31,6 +31,60 @@ class AccountSessionTest {
 
     private fun request(target: String = url) = WireRequest("POST", target, emptyMap(), "{}".toByteArray())
 
+    @Test fun cooldownSurvivesNewWireWithoutReplaying() =
+        runBlocking {
+            var sends = 0
+            val account =
+                AccountSession(
+                    MemoryAccountTokens(AccountTokens("a", "r", 100000, 200000, "id")),
+                    now = { 100L },
+                )
+            val target = "https://accounts.hilex.me/account/luna-usage"
+            val request = WireRequest("GET", target, emptyMap(), null)
+            val delegate =
+                wire {
+                    sends++
+                    val original = accountResponse(429, """{"detail":"quota"}""")
+                    WireResponse(429, mapOf("Retry-After" to listOf("30")), original.body)
+                }
+            account
+                .wire(target, delegate)
+                .open(request)
+                .body
+                .close()
+            val blocked = account.wire(target, delegate).open(request)
+            val details =
+                com.helix.provider.api.wire
+                    .readHttpFailure(blocked)
+            assertEquals(429, details.status)
+            assertTrue(requireNotNull(details.retryAfterMillis) in 1..30_000L)
+            blocked.body.close()
+            assertEquals(1, sends)
+        }
+
+    @Test fun loginAndRegistrationCooldownBlocksImmediateResubmission() =
+        runBlocking {
+            var sends = 0
+            val account =
+                AccountSession(
+                    MemoryAccountTokens(null),
+                    wire {
+                        sends++
+                        val original = accountResponse(429)
+                        WireResponse(429, mapOf("Retry-After" to listOf("30")), original.body)
+                    },
+                )
+            repeat(2) {
+                assertThrows(AccountRequestFailure::class.java) {
+                    runBlocking { account.login("test@example.test", "fixture-password") }
+                }
+                assertThrows(AccountRequestFailure::class.java) {
+                    runBlocking { account.register("test@example.test", "fixture-password") }
+                }
+            }
+            assertEquals(2, sends)
+        }
+
     @Test fun restoreDistinguishesExpiredRefreshFromRefreshableAccess() =
         runBlocking {
             val expired = AccountSession(MemoryAccountTokens(AccountTokens("a", "r", 1, 2, "id")), now = { 100L })
@@ -41,6 +95,34 @@ class AccountSessionTest {
                 AccountSession(MemoryAccountTokens(AccountTokens("a", "r", 1, 200000, "id")), now = { 100L })
             refreshable.restore()
             assertEquals(AccountStatus.SIGNED_IN, refreshable.status.value)
+        }
+
+    @Test fun refreshRejectionPreservesForbiddenDetailAndRequestId() =
+        runBlocking {
+            val store = MemoryAccountTokens(AccountTokens("a", "r", 1, 200000, "id"))
+            val account =
+                AccountSession(
+                    store,
+                    wire {
+                        val original = accountResponse(403, """{"detail":"Change password first"}""")
+                        com.helix.provider.api.wire.WireResponse(
+                            403,
+                            mapOf("X-Request-ID" to listOf("req_refresh")),
+                            original.body,
+                        )
+                    },
+                    { 100L },
+                )
+            val response = account.wire(url, wire { error("Must not send model request") }).open(request())
+            val details =
+                com.helix.provider.api.wire
+                    .readHttpFailure(response)
+            assertEquals(403, details.status)
+            assertEquals("Change password first", details.detail)
+            assertEquals("req_refresh", details.requestId)
+            assertEquals(AccountStatus.REAUTH_REQUIRED, account.status.value)
+            assertNull(store.value)
+            response.body.close()
         }
 
     @Test fun refreshFailureRequiresSignInButPreservesHttpClassification() =
@@ -144,7 +226,7 @@ class AccountSessionTest {
                 AccountSession(
                     store,
                     wire {
-                        assertEquals("https://accounts.sunlingzhang.com/auth/login", it.url)
+                        assertEquals("https://accounts.hilex.me/auth/login", it.url)
                         assertEquals(AccountSession.CLIENT_ID, it.headers["X-Client-Id"])
                         assertTrue(it.body!!.toString(Charsets.UTF_8).contains("\"username\":\"user@example.test\""))
                         accountResponse(200, payload)
@@ -163,10 +245,10 @@ class AccountSessionTest {
         runBlocking {
             val account = testAccount()
             for (target in listOf(
-                "http://api.sunlingzhang.com/v1",
+                "http://api.hilex.me/v1",
                 "https://evil.test/v1",
-                "https://api.sunlingzhang.com:444/v1",
-                "https://user:pass@api.sunlingzhang.com/v1",
+                "https://api.hilex.me:444/v1",
+                "https://user:pass@api.hilex.me/v1",
                 "$url?token=x",
             )) {
                 assertThrows(IllegalArgumentException::class.java) { account.wire(target) }
@@ -182,7 +264,7 @@ class AccountSessionTest {
                 )
             service.open(request()).body.close()
             assertThrows(IllegalArgumentException::class.java) {
-                runBlocking { service.open(request("https://api.sunlingzhang.com/v1/audio/speech")) }
+                runBlocking { service.open(request("https://api.hilex.me/v1/audio/speech")) }
             }
             assertThrows(IllegalArgumentException::class.java) {
                 runBlocking {

@@ -16,7 +16,7 @@ class ToolSourceTest {
     fun `A2A source uses a distinct namespace and exact snapshot provenance`() {
         val descriptor = A2aToolSource("travel-agent", listOf(a2aSpec())).load().single()
 
-        assertEquals("a2a.travel-agent.echo-skill_deadbeef0000", descriptor.name.value)
+        assertEquals(RemoteToolNames.a2a("travel-agent", "echo-skill").value, descriptor.name.value)
         assertEquals(ToolOperationClass.NETWORK, descriptor.operationClass)
         val origin = descriptor.origin as ToolOrigin.A2aOrigin
         assertEquals("travel-agent", origin.agentId)
@@ -32,7 +32,7 @@ class ToolSourceTest {
         assertNotEquals(first.contractHash, changed.contractHash)
         assertThrows(IllegalArgumentException::class.java) {
             ToolDescriptor(
-                name = ToolName("mcp.agent.echo"),
+                name = ToolName("mcp_agent_echo"),
                 version = first.version,
                 description = first.description,
                 inputSchema = first.inputSchema,
@@ -49,10 +49,10 @@ class ToolSourceTest {
     }
 
     @Test
-    fun mcpSourceForcesTheMcpDotServerDotToolNaming() {
+    fun mcpSourceUsesPortableSourceQualifiedNames() {
         val source = McpToolSource("wikipedia", "2025-03-26", listOf(mcpSpec("search")))
         val descriptor = source.load().single()
-        assertEquals("mcp.wikipedia.search", descriptor.name.value)
+        assertEquals(RemoteToolNames.mcp("wikipedia", "search").value, descriptor.name.value)
         val origin = descriptor.origin
         assertTrue(origin is ToolOrigin.McpOrigin)
         assertEquals("wikipedia", (origin as ToolOrigin.McpOrigin).serverId)
@@ -115,15 +115,13 @@ class ToolSourceTest {
         assertThrows(IllegalArgumentException::class.java) { McpToolSource("x".repeat(65), "1", emptyList()) }
         assertThrows(IllegalArgumentException::class.java) { McpToolSource("-srv", "1", emptyList()) }
         assertThrows(IllegalArgumentException::class.java) { McpToolSource("sr.v", "1", emptyList()) }
+        val dotted = McpToolSource("srv", "1", listOf(mcpSpec("to.ol"))).load().single()
+        assertEquals(RemoteToolNames.mcp("srv", "to.ol"), dotted.name)
+        assertEquals(setOf("to.ol"), dotted.discovery.keywords)
         assertThrows(IllegalArgumentException::class.java) {
-            McpToolSource("srv", "1", listOf(mcpSpec("to.ol")))
+            McpToolSource("srv", "1", listOf(mcpSpec("x".repeat(129))))
         }
-        assertThrows(IllegalArgumentException::class.java) {
-            McpToolSource("srv", "1", listOf(mcpSpec("x".repeat(65))))
-        }
-        // the boundary lengths are accepted: 4 ("mcp.") + 64 + 1 + 59 = 128,
-        // exactly the ToolName total-length limit
-        McpToolSource("x".repeat(64), "1", listOf(mcpSpec("y".repeat(59))))
+        McpToolSource("x".repeat(64), "1", listOf(mcpSpec("y".repeat(128))))
     }
 
     @Test

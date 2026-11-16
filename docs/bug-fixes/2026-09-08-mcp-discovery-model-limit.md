@@ -7,7 +7,7 @@ Affected modules: app
 
 ## Problem
 
-tools.search 搜索成功后，下一次模型请求仍可能没有对应工具 schema；注册较晚的搜索入口自身也可能不可见。
+tools_search 搜索成功后，下一次模型请求仍可能没有对应工具 schema；注册较晚的搜索入口自身也可能不可见。
 
 ## Impact
 

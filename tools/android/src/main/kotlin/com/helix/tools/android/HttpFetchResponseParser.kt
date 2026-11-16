@@ -48,88 +48,83 @@ internal object HttpFetchResponseParser {
         return HeaderSet(location, contentType, contentLength, chunked)
     }
 
-    /**
-     * Reads the response body bounded to [maxBodyBytes]. With a Content-Length, at most
-     * [maxBodyBytes] are read (the full length is still reported so [truncated] is meaningful);
-     * otherwise the body is read until the connection closes, cut at the cap. Chunked framing is
-     * decoded before bounding.
-     */
-    @Suppress("ReturnCount")
+    /** Bounds decoded bytes, never the chunk framing. Unknown lengths are observed lower bounds. */
     private fun readBody(
         input: InputStream,
         contentLength: Long,
         chunked: Boolean,
         maxBodyBytes: Long,
     ): Triple<String, Long, Boolean> {
-        if (chunked) {
-            val all = readUntilClosed(input, maxBodyBytes)
-            val decoded = decodeChunked(all)
-            return if (decoded.size > maxBodyBytes) {
-                Triple(
-                    String(decoded.copyOfRange(0, maxBodyBytes.toInt()), StandardCharsets.UTF_8),
-                    decoded.size.toLong(),
-                    true,
-                )
-            } else {
-                Triple(String(decoded, StandardCharsets.UTF_8), decoded.size.toLong(), false)
+        val cap = maxBodyBytes.toInt()
+        require(maxBodyBytes in 0..Int.MAX_VALUE.toLong())
+        return when {
+            chunked -> {
+                readChunks(input, cap)
+            }
+
+            contentLength >= 0 -> {
+                val bytes = ByteArray(minOf(contentLength, maxBodyBytes).toInt())
+                readFully(input, bytes)
+                Triple(String(bytes, StandardCharsets.UTF_8), contentLength, contentLength > maxBodyBytes)
+            }
+
+            else -> {
+                readClosedBody(input, cap)
             }
         }
-        if (contentLength >= 0) {
-            val toRead = minOf(contentLength, maxBodyBytes)
-            val buf = ByteArray(toRead.toInt())
-            readFully(input, buf)
-            val text = String(buf, StandardCharsets.UTF_8)
-            return Triple(text, contentLength, contentLength > maxBodyBytes)
-        }
-        val all = readUntilClosed(input, maxBodyBytes)
-        val truncated = all.size >= maxBodyBytes
-        val bounded = if (truncated) all.copyOfRange(0, maxBodyBytes.toInt()) else all
-        return Triple(String(bounded, StandardCharsets.UTF_8), all.size.toLong(), truncated)
     }
 
-    /** Reads bytes until EOF, never exceeding [cap]. */
-    private fun readUntilClosed(
+    private fun readClosedBody(
         input: InputStream,
-        cap: Long,
-    ): ByteArray {
-        val buffer = ByteArrayOutputStream()
+        cap: Int,
+    ): Triple<String, Long, Boolean> {
+        val output = ByteArrayOutputStream()
         val block = ByteArray(8192)
-        while (buffer.size() < cap) {
-            val want = minOf(block.size.toLong(), cap - buffer.size()).toInt()
-            val n = input.read(block, 0, want)
-            if (n < 0) break
-            buffer.write(block, 0, n)
+        while (output.size() < cap) {
+            val count = input.read(block, 0, minOf(block.size, cap - output.size()))
+            if (count < 0) break
+            output.write(block, 0, count)
         }
-        return buffer.toByteArray()
+        val truncated = output.size() == cap && input.read() != -1
+        return Triple(output.toString("UTF-8"), output.size().toLong() + if (truncated) 1 else 0, truncated)
     }
 
-    /** Decodes HTTP `transfer-encoding: chunked` framing from raw bytes (best-effort, v1). */
-    @Suppress("LoopWithTooManyJumpStatements") // chunked parser: stop at the first malformed frame
-    private fun decodeChunked(raw: ByteArray): ByteArray {
-        val out = ByteArrayOutputStream()
-        var offset = 0
-        while (offset < raw.size) {
-            val lineEnd = indexOfCrlf(raw, offset)
-            if (lineEnd < 0) break
-            val sizeHex = String(raw, offset, lineEnd - offset, StandardCharsets.US_ASCII).trim().split(";").first()
-            val size = sizeHex.toIntOrNull(16) ?: break
-            offset = lineEnd + 2
-            if (size == 0) break
-            val chunkEnd = minOf(offset + size, raw.size)
-            out.write(raw, offset, chunkEnd - offset)
-            offset = chunkEnd + 2
+    private fun readChunks(
+        input: InputStream,
+        cap: Int,
+    ): Triple<String, Long, Boolean> {
+        val output = ByteArrayOutputStream()
+        while (true) {
+            val size = readChunkSize(input)
+            if (size == 0L) {
+                readTrailers(input)
+                return Triple(output.toString("UTF-8"), output.size().toLong(), false)
+            }
+            val remaining = cap - output.size()
+            val bytes = ByteArray(minOf(size, remaining.toLong()).toInt())
+            readFully(input, bytes)
+            output.write(bytes)
+            if (size > remaining) {
+                if (input.read() == -1) throw ProtocolError()
+                return Triple(output.toString("UTF-8"), output.size().toLong() + 1, true)
+            }
+            if (input.read() != '\r'.code || input.read() != '\n'.code) throw ProtocolError()
         }
-        return out.toByteArray()
     }
 
-    private fun indexOfCrlf(
-        data: ByteArray,
-        from: Int,
-    ): Int {
-        for (i in from until data.size - 1) {
-            if (data[i].toInt() == '\r'.code && data[i + 1].toInt() == '\n'.code) return i
-        }
-        return -1
+    private fun readChunkSize(input: InputStream): Long {
+        val sizeText = readRequiredLine(input).substringBefore(';')
+        if (sizeText.isEmpty() || sizeText.any { it.digitToIntOrNull(16) == null }) throw ProtocolError()
+        return sizeText.toLongOrNull(16) ?: throw ProtocolError()
+    }
+
+    private fun readRequiredLine(input: InputStream): String = readLine(input) ?: throw ProtocolError()
+
+    private fun readTrailers(input: InputStream) {
+        // An incomplete terminating frame must not look like a complete body.
+        do {
+            val trailer = readLine(input) ?: throw ProtocolError()
+        } while (trailer.isNotEmpty())
     }
 
     private fun readLine(input: InputStream): String? {
@@ -140,6 +135,7 @@ internal object HttpFetchResponseParser {
             if (b != '\r'.code) sb.append(b.toChar())
             b = input.read()
         }
+        if (b == -1) throw ProtocolError()
         return sb.toString()
     }
 
@@ -150,7 +146,7 @@ internal object HttpFetchResponseParser {
         var off = 0
         while (off < buffer.size) {
             val n = input.read(buffer, off, buffer.size - off)
-            if (n < 0) break
+            if (n < 0) throw ProtocolError()
             off += n
         }
     }

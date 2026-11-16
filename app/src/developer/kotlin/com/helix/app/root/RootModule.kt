@@ -78,7 +78,9 @@ internal object RootModule {
     }
 
     fun scopeFor(toolName: String?): UserScope? =
-        if (toolName?.startsWith("root.") == true && toolName != RootTools.STATUS) {
+        if (toolName in
+            setOf(RootTools.FILE_READ, RootTools.PACKAGE_INFO, RootTools.PROCESS_LIST, RootTools.LOG_READ)
+        ) {
             sessions?.status()?.scope
         } else {
             null

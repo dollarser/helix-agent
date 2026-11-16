@@ -87,7 +87,7 @@ class A2aDynamicToolBridgeTest {
         bridge.register(registry)
 
         val descriptor = bridge.descriptors().single()
-        assertTrue(descriptor.name.value.startsWith("a2a.research.web_research_"))
+        assertTrue(descriptor.name.value.startsWith("a2a_research_web_research_"))
         assertEquals(descriptor, registry.resolve(descriptor.name, descriptor.version))
         val result =
             registry.executor(ToolName(descriptor.name.value), ToolVersion(1)).execute(

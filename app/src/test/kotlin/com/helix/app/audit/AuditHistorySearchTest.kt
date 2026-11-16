@@ -23,7 +23,7 @@ class AuditHistorySearchTest {
         marker: Int = 17,
     ): List<AuditEventPageRow> =
         (count downTo 1).map { number ->
-            val name = if (number == marker) "needle42.read" else "time.now"
+            val name = if (number == marker) "needle42.read" else "time_now"
             val payload = """{"turnId":"turn-$number","sessionId":"session","toolName":"$name", "toolVersion":"1",
             "code":"SUCCESS","decisionSource":"POLICY","operationClass":"READ_ONLY",
             "args":"FORBIDDEN_MARKER","startedAt":$number,"finishedAt":$number}"""

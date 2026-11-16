@@ -290,7 +290,7 @@ class BrowserController(
     }
 
     /**
-     * Opens a new tab and, for an admitted [url], navigates it (HXA-062 `browser.open`). A blank
+     * Opens a new tab and, for an admitted [url], navigates it (HXA-062 `browser_open`). A blank
      * [url] yields a blank tab; a denied [url] leaves the fresh tab on its policy error page and
      * is reported as the blank document — the denied URL is never loaded.
      */
@@ -403,7 +403,7 @@ class BrowserController(
     /**
      * Runs the fixed versioned DOM-extraction script on the tab's committed page and
      * delivers a bounded [BrowserSnapshot] — or a fail-closed [SnapshotResult.Failed] — via
-     * [onResult] on the main thread (doc 09 §3.3 `browser.snapshot`; §3.4: only Helix's own
+     * [onResult] on the main thread (doc 09 §3.3 `browser_snapshot`; §3.4: only Helix's own
      * versioned script fragment is ever evaluated, the model cannot submit a script).
      *
      * Loading, failed documents and unavailable hosts remain distinct failures; a refused
@@ -455,7 +455,7 @@ class BrowserController(
 
     /**
      * Runs a FIXED, versioned action script on the tab's settled page and delivers the raw
-     * result via [onResult] on the main thread (HXA-062 `browser.click` / `type` / `scroll`;
+     * result via [onResult] on the main thread (HXA-062 `browser_click` / `type` / `scroll`;
      * doc 09 §3.4: [script] is always a
      * [com.helix.feature.browser.snapshot.BrowserActionScript] fragment — the model cannot
      * submit a script). A tab without a settled page fails closed with
@@ -485,7 +485,7 @@ class BrowserController(
     }
 
     /**
-     * Captures the tab's WebView to PNG bytes (HXA-062 `browser.screenshot`; doc 09 §3.3:
+     * Captures the tab's WebView to PNG bytes (HXA-062 `browser_screenshot`; doc 09 §3.3:
      * screenshot only the Helix WebView, save to the Workspace). Returns null when the tab has
      * no settled, sized page. Must be called on the main thread (WebView draw).
      */

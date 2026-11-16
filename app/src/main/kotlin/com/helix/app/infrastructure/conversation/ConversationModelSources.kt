@@ -65,7 +65,7 @@ private fun ProviderRowUi.choice(
             )
         },
     reasoningNotice =
-        if (bundled && model == BuiltInModel.MODEL_ID) {
+        if (bundled && model == BuiltInModel.QWEN_MODEL_ID) {
             ConversationModelLabel(R.string.builtin_reasoning_contract_notice)
         } else {
             null

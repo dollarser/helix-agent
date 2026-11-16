@@ -14,7 +14,7 @@ class DetachedCommandProjectionTest {
         callState: String = "COMPLETED",
     ) = CommandResultProjection.project(
         "original",
-        "code.linux.job.start",
+        "code_linux_job_start",
         "{}",
         CommandResultFacts(callState, "COMPLETED", "session", "SUCCEEDED", "Submission accepted", content),
         CommandBrowseFacts(null, null, false, terminal),
@@ -26,7 +26,7 @@ class DetachedCommandProjectionTest {
         assertEquals(CommandDetailState.SUBMITTED, view.state)
         assertTrue(view.settlementPending)
         assertFalse(view.noOutput)
-        assertTrue("code.linux.job.start" in COMMAND_TOOL_NAMES)
+        assertTrue("code_linux_job_start" in COMMAND_TOOL_NAMES)
     }
 
     @Test fun verifiedSuccessStillNeedsHostSettlement() {

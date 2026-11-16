@@ -176,13 +176,13 @@ class BrowserObservationModelDeviceTest {
                                     }
 
                                     "ambiguous" -> {
-                                        "Take a snapshot of tab $id then use browser.find for Same. " +
+                                        "Take a snapshot of tab $id then use browser_find for Same. " +
                                             "Report the observed matchCount and ambiguity. Do not click " +
                                             "or guess hidden matches."
                                     }
 
                                     "pixels" -> {
-                                        "Take browser.screenshot of tab $id. Report whether pixels " +
+                                        "Take browser_screenshot of tab $id. Report whether pixels " +
                                             "were supplied to you. " +
                                             "End with a separate line PIXELS_NOT_SUPPLIED " +
                                             "if no pixels were supplied, " +
@@ -204,7 +204,7 @@ class BrowserObservationModelDeviceTest {
                                         await {
                                             c.storage.turns.listBySession(session).lastOrNull()?.let {
                                                 c.storage.toolCalls.listByTurn(it.id).any { call ->
-                                                    call.name.startsWith("browser.")
+                                                    call.name.startsWith("browser_")
                                                 }
                                             } == true
                                         }
@@ -245,8 +245,8 @@ class BrowserObservationModelDeviceTest {
                             val noActions =
                                 calls.none {
                                     it.name in
-                                        setOf("browser.click", "browser.type", "browser.open", "browser.navigate") ||
-                                        it.name.startsWith("ui.")
+                                        setOf("browser_click", "browser_type", "browser_open", "browser_navigate") ||
+                                        it.name.startsWith("ui_")
                                 }
 
                             fun outputBody(name: String): String =
@@ -261,40 +261,40 @@ class BrowserObservationModelDeviceTest {
                                 when (kind) {
                                     "existing" -> {
                                         reply.contains("Verified fixture") &&
-                                            calls.any { it.name == "browser.snapshot" && it.state == "COMPLETED" }
+                                            calls.any { it.name == "browser_snapshot" && it.state == "COMPLETED" }
                                     }
 
                                     "delayed" -> {
                                         reply.contains("Ready") &&
                                             calls.any {
-                                                it.name in setOf("browser.wait", "browser.snapshot") &&
+                                                it.name in setOf("browser_wait", "browser_snapshot") &&
                                                     it.state == "COMPLETED"
                                             }
                                     }
 
                                     "stale" -> {
                                         reply.contains("stale", true) &&
-                                            calls.any { it.name == "browser.snapshot" && it.state == "COMPLETED" }
+                                            calls.any { it.name == "browser_snapshot" && it.state == "COMPLETED" }
                                     }
 
                                     "ambiguous" -> {
                                         reply.contains("80") &&
-                                            outputBody("browser.find").contains("\"matchCount\":80") &&
-                                            calls.any { it.name == "browser.find" && it.state == "COMPLETED" }
+                                            outputBody("browser_find").contains("\"matchCount\":80") &&
+                                            calls.any { it.name == "browser_find" && it.state == "COMPLETED" }
                                     }
 
                                     "pixels" -> {
-                                        calls.any { it.name == "browser.screenshot" && it.state == "COMPLETED" } &&
+                                        calls.any { it.name == "browser_screenshot" && it.state == "COMPLETED" } &&
                                             reply.trim().lineSequence().last() == "PIXELS_NOT_SUPPLIED" &&
                                             (
-                                                outputBody("browser.screenshot").contains("\"pixelsAttached\":false") ||
-                                                    outputBody("browser.screenshot").contains("VISION_UNAVAILABLE")
+                                                outputBody("browser_screenshot").contains("\"pixelsAttached\":false") ||
+                                                    outputBody("browser_screenshot").contains("VISION_UNAVAILABLE")
                                             )
                                     }
 
                                     else -> {
                                         reply.contains("1") &&
-                                            calls.any { it.name == "browser.snapshot" && it.state == "COMPLETED" }
+                                            calls.any { it.name == "browser_snapshot" && it.state == "COMPLETED" }
                                     }
                                 }
                             val result = CompletableFuture<String>()

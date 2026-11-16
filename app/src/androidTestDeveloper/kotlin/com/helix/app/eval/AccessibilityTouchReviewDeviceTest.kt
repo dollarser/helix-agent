@@ -91,18 +91,18 @@ class AccessibilityTouchReviewDeviceTest {
         )
         SystemClock.sleep(1000)
         if (mode == "no-semantics") {
-            val snapshot = dispatch("ui.snapshot", buildJsonObject {})
+            val snapshot = dispatch("ui_snapshot", buildJsonObject {})
             assertFalse(snapshot.toString().contains("TOUCH REVIEW"))
         }
         val before = oracle()
         assertTrue(before.first > 0 && before.second > 0)
         awaitInitialPresentation()
-        val observation = dispatch("ui.device", buildJsonObject {})
+        val observation = dispatch("ui_device", buildJsonObject {})
         assertEquals("accessibility", observation["clickMatchBackend"]?.jsonPrimitive?.content)
         val frame = observation.getValue("frame").jsonPrimitive.content
         val gesture =
             dispatch(
-                "ui.gesture",
+                "ui_gesture",
                 buildJsonObject {
                     put("frame", frame)
                     put(
@@ -141,7 +141,7 @@ class AccessibilityTouchReviewDeviceTest {
     private fun awaitInitialPresentation() {
         // Drain initial asynchronous window publication before taking the coordinate frame.
         // This is read-only preparation, never a retry of a dispatched gesture.
-        dispatch("ui.device", buildJsonObject {})
+        dispatch("ui_device", buildJsonObject {})
         InstrumentationRegistry.getInstrumentation().waitForIdleSync()
         SystemClock.sleep(250)
     }
@@ -151,13 +151,13 @@ class AccessibilityTouchReviewDeviceTest {
         val x = requireNotNull(args.getString("helixTouchX")).toInt()
         val y = requireNotNull(args.getString("helixTouchY")).toInt()
         require(x in 0..1080 && y in 0..2400)
-        val observation = dispatch("ui.device", buildJsonObject {})
+        val observation = dispatch("ui_device", buildJsonObject {})
         assertEquals("com.google.android.packageinstaller", observation["packageName"]?.jsonPrimitive?.content)
         assertEquals("accessibility", observation["clickMatchBackend"]?.jsonPrimitive?.content)
         val frame = observation.getValue("frame").jsonPrimitive.content
         val result =
             dispatch(
-                "ui.gesture",
+                "ui_gesture",
                 buildJsonObject {
                     put("frame", frame)
                     put(

@@ -7,6 +7,7 @@ import com.helix.core.model.ToolVersion
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
+import com.helix.tools.framework.ToolDiscoveryHints
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolOrigin
@@ -27,11 +28,11 @@ internal object SkillAuthoringTools {
     ) {
         val descriptor =
             ToolDescriptor(
-                name = ToolName("skills.preview"),
+                name = ToolName("skills_preview"),
                 version = ToolVersion(1),
                 description =
                     "Validate an authored or imported Workspace Skill directory/ZIP. " +
-                        "Return its hash and file manifest for skills.install; does not install or enable.",
+                        "Return its hash and file manifest for skills_install; does not install or enable.",
                 inputSchema = Json.parseToJsonElement(INPUT).jsonObject,
                 outputSchema = Json.parseToJsonElement(OUTPUT).jsonObject,
                 operationClass = ToolOperationClass.READ_ONLY,
@@ -41,6 +42,7 @@ internal object SkillAuthoringTools {
                 idempotency = Idempotency.IDEMPOTENT,
                 executionTarget = ExecutionTargetType.LOCAL_ANDROID,
                 origin = ToolOrigin.BuiltInOrigin,
+                discovery = ToolDiscoveryHints(category = "skills"),
             )
 
         registry.register(

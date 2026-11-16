@@ -11,6 +11,7 @@ import com.helix.core.workspace.WorkspaceArtifactStore
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
+import com.helix.tools.framework.ToolDiscoveryHints
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolOrigin
@@ -23,7 +24,7 @@ import java.io.IOException
 import kotlin.time.Duration.Companion.seconds
 
 object FilesStatTool {
-    const val NAME: String = "files.stat"
+    const val NAME: String = "files_stat"
 
     const val VERSION: Int = 1
 
@@ -41,6 +42,7 @@ object FilesStatTool {
             idempotency = Idempotency.IDEMPOTENT,
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
             origin = ToolOrigin.BuiltInOrigin,
+            discovery = ToolDiscoveryHints(category = "files"),
         )
 
     private fun inputSchema(): JsonObject =
@@ -93,7 +95,7 @@ object FilesStatTool {
                 if (call.cancel.isCancelled()) return ToolExecutorResult.Cancelled
                 val path =
                     filesMetaToolsParsePath(call.args)
-                        ?: return ToolExecutorResult.Failed("invalid 'files.stat' arguments")
+                        ?: return ToolExecutorResult.Failed("invalid 'files_stat' arguments")
                 return try {
                     val s = store.stat(path)
                     ToolExecutorResult.Completed(

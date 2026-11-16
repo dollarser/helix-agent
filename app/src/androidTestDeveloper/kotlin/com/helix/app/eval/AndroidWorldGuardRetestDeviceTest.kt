@@ -360,9 +360,9 @@ class AndroidWorldGuardRetestDeviceTest {
                     .all()
                     .filterNot { tool ->
                         val discovery =
-                            tool.name.value == "tools.search" &&
+                            tool.name.value == "tools_search" &&
                                 tool.operationClass == ToolOperationClass.READ_ONLY
-                        tool.name.value.startsWith("ui.") || discovery
+                        tool.name.value.startsWith("ui_") || discovery
                     }.forEach { tool ->
                         container.storage.toolAvailability.set(
                             tool.origin.canonicalOf(),
@@ -391,14 +391,14 @@ class AndroidWorldGuardRetestDeviceTest {
                     .filterValues { rows ->
                         rows.any {
                             it.descriptor.name.value
-                                .startsWith("ui.")
+                                .startsWith("ui_")
                         }
                     }.forEach { (owner, rows) ->
                         originalBindings[owner] = rows
                         val replacements =
                             rows.map { registered ->
                                 if (!registered.descriptor.name.value
-                                        .startsWith("ui.")
+                                        .startsWith("ui_")
                                 ) {
                                     registered.binding
                                 } else {
@@ -454,7 +454,7 @@ class AndroidWorldGuardRetestDeviceTest {
                     rows
                         .filter {
                             it.descriptor.name.value
-                                .startsWith("ui.")
+                                .startsWith("ui_")
                         }.forEach { guarded ->
                             val original =
                                 requireNotNull(originalBindings[owner]).single {
@@ -884,7 +884,7 @@ class AndroidWorldGuardRetestDeviceTest {
         refused: (String) -> Unit = {},
     ): Boolean {
         val target = taskPackage(task)
-        if (name in setOf("ui.snapshot", "ui.find", "ui.wait", "ui.screenshot")) {
+        if (name in setOf("ui_snapshot", "ui_find", "ui_wait", "ui_screenshot")) {
             return observationAllowed(turnId, task, name, ui)
         }
         val input = Json.parseToJsonElement(arguments).jsonObject
@@ -898,23 +898,23 @@ class AndroidWorldGuardRetestDeviceTest {
                 root?.recycle()
             }
         return when {
-            name in setOf("ui.device", "ui.apps", "tools.search") -> {
+            name in setOf("ui_device", "ui_apps", "tools_search") -> {
                 container.toolPipeline.resolveLatest(name)?.operationClass == ToolOperationClass.READ_ONLY
             }
 
-            name in setOf("ui.snapshot", "ui.find", "ui.wait") -> {
+            name in setOf("ui_snapshot", "ui_find", "ui_wait") -> {
                 active == (target ?: "com.android.systemui")
             }
 
-            name in setOf("ui.back", "ui.home") -> {
+            name in setOf("ui_back", "ui_home") -> {
                 true
             }
 
-            name == "ui.system" -> {
+            name == "ui_system" -> {
                 allowedSystemAction(target, active, input)
             }
 
-            name == "ui.launch" -> {
+            name == "ui_launch" -> {
                 allowedLaunch(target, input)
             }
 
@@ -954,11 +954,11 @@ class AndroidWorldGuardRetestDeviceTest {
     ): Boolean {
         if (active != target) return false
         return when {
-            name == "ui.gesture" -> {
+            name == "ui_gesture" -> {
                 GuardUiGeometry.withinBounds(input, appBounds)
             }
 
-            name == "ui.click_match" && input["packageName"] != null &&
+            name == "ui_click_match" && input["packageName"] != null &&
                 input["packageName"]?.jsonPrimitive?.content != target -> {
                 false
             }
@@ -966,14 +966,14 @@ class AndroidWorldGuardRetestDeviceTest {
             else -> {
                 name in
                     setOf(
-                        "ui.click",
-                        "ui.click_match",
-                        "ui.long_click",
-                        "ui.set_text",
-                        "ui.ime_enter",
-                        "ui.scroll",
-                        "ui.set_progress",
-                        "ui.screenshot",
+                        "ui_click",
+                        "ui_click_match",
+                        "ui_long_click",
+                        "ui_set_text",
+                        "ui_ime_enter",
+                        "ui_scroll",
+                        "ui_set_progress",
+                        "ui_screenshot",
                     )
             }
         }
@@ -988,7 +988,7 @@ class AndroidWorldGuardRetestDeviceTest {
         refused: (String) -> Unit,
     ): Boolean =
         when {
-            name == "ui.gesture" && active == "com.android.systemui" -> {
+            name == "ui_gesture" && active == "com.android.systemui" -> {
                 verifiedBrightnessGesture(
                     turnId,
                     input,
@@ -997,7 +997,7 @@ class AndroidWorldGuardRetestDeviceTest {
                 )
             }
 
-            name == "ui.set_progress" && active == "com.android.systemui" -> {
+            name == "ui_set_progress" && active == "com.android.systemui" -> {
                 recordedBrightnessToken(turnId, input)
             }
 
@@ -1042,7 +1042,7 @@ class AndroidWorldGuardRetestDeviceTest {
         val scope = grants.find(sessionId)?.scope
         val photoRead =
             task == "FilesMoveFile" && activePackage == "com.google.android.apps.photos" &&
-                name == "ui.snapshot"
+                name == "ui_snapshot"
         return scope != null && (activePackage in observationPackages || photoRead) &&
             activePackage in scope.allowedPackages && !scope.allApplications &&
             container.toolPipeline.resolveLatest(name)?.operationClass == ToolOperationClass.READ_ONLY
@@ -1059,7 +1059,7 @@ class AndroidWorldGuardRetestDeviceTest {
                 .listByTurn(turnId)
                 .asReversed()
                 .asSequence()
-                .filter { it.name in setOf("ui.snapshot", "ui.find", "ui.wait") && it.state == "COMPLETED" }
+                .filter { it.name in setOf("ui_snapshot", "ui_find", "ui_wait") && it.state == "COMPLETED" }
                 .mapNotNull { observation ->
                     container.storage.toolResults
                         .byToolCall(observation.callId)
@@ -1101,7 +1101,7 @@ class AndroidWorldGuardRetestDeviceTest {
     private fun latestBrightnessObservation(turnId: String): JsonObject? {
         val latest =
             container.storage.toolCalls.listByTurn(turnId).lastOrNull {
-                it.name in setOf("ui.snapshot", "ui.find", "ui.wait") && it.state == "COMPLETED"
+                it.name in setOf("ui_snapshot", "ui_find", "ui_wait") && it.state == "COMPLETED"
             }
         return latest
             ?.let { container.storage.toolResults.byToolCall(it.callId) }

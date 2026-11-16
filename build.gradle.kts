@@ -254,7 +254,7 @@ val projectDependencies =
             ),
         ":extensions:skills" to listOf(":core:model", ":tools:framework"),
         // HXA-062: :feature:browser implements the browser tools' port (BrowserToolBridge,
-        // declared in :tools:browser) and saves browser.screenshot into the shared Workspace
+        // declared in :tools:browser) and saves browser_screenshot into the shared Workspace
         // (:core:workspace).
         ":feature:browser" to listOf(":core:model", ":core:policy", ":core:workspace", ":tools:browser"),
         ":feature:conversation" to
@@ -262,7 +262,7 @@ val projectDependencies =
         ":ui:shared" to listOf(":core:model"),
         ":feature:files" to listOf(":core:model", ":core:policy", ":core:workspace"),
         ":feature:files-allfiles" to listOf(":feature:files", ":core:workspace"),
-        // HXA-053: the QuickJS module hosts the `code.javascript.run` tool (descriptor +
+        // HXA-053: the QuickJS module hosts the `code_javascript_run` tool (descriptor +
         // executor), a tools:framework contract; the app wires it into the pipeline. A JVM
         // tool-framework dependency of an Android library mirrors :runtime:proot-client.
         ":runtime:quickjs" to listOf(":core:model", ":tools:framework"),

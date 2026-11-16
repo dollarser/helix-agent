@@ -106,13 +106,13 @@ class SafCustomProviderOfflineDeviceTest {
                             )
                         val allowed =
                             setOf(
-                                "tools.search",
-                                "tools.read_result",
+                                "tools_search",
+                                "tools_read_result",
                                 "glob",
                                 "grep",
                                 "read",
-                                "files.list",
-                                "files.stat",
+                                "files_list",
+                                "files_stat",
                             )
                         val availability =
                             NaturalFixtureAvailability(
@@ -223,7 +223,7 @@ class SafCustomProviderOfflineDeviceTest {
                                 evidence()
                                 assertTrue(
                                     "Require grounded answer and actual glob/grep/read consumption: $directory",
-                                    verifyFileLocationEvidence(directory),
+                                    verifyFileLocationEvidence(directory, FileLocationAcceptance.SEARCH_TOOLS),
                                 )
                                 verifyOfflineEvidenceRejection(directory)
                                 completed = true

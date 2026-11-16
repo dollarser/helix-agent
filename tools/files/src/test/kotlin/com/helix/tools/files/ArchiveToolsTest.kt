@@ -29,7 +29,7 @@ import java.nio.file.Path
 import java.time.Instant
 
 /**
- * HXA-047 (`:tools:files:test`): `files.archive` (create) and `files.extract` — scope + region
+ * HXA-047 (`:tools:files:test`): `files_archive` (create) and `files_extract` — scope + region
  * admission (archives are read from any user region but written into `work/` only), the
  * create→extract round trip, the matrix-mandated Zip Slip and expansion-bomb fixtures at the tool
  * level, the entry-type / corrupt / truncated refusals, conflict + overwrite policy, cross-scope
@@ -77,13 +77,13 @@ class ArchiveToolsTest {
         s: WorkspaceArtifactStore,
         args: JsonObject,
         cancel: CancelSignal = noCancel,
-    ): ToolExecutorResult = FilesArchiveTool.executor(s).execute(call("files.archive", args, cancel))
+    ): ToolExecutorResult = FilesArchiveTool.executor(s).execute(call("files_archive", args, cancel))
 
     private fun extractExec(
         s: WorkspaceArtifactStore,
         args: JsonObject,
         cancel: CancelSignal = noCancel,
-    ): ToolExecutorResult = FilesExtractTool.executor(s).execute(call("files.extract", args, cancel))
+    ): ToolExecutorResult = FilesExtractTool.executor(s).execute(call("files_extract", args, cancel))
 
     private fun write(
         root: Path,
@@ -141,8 +141,8 @@ class ArchiveToolsTest {
     fun descriptorsAreValidL2BuiltInMutations() {
         val archive = FilesArchiveTool.descriptor()
         val extract = FilesExtractTool.descriptor()
-        assertEquals("files.archive", archive.name.value)
-        assertEquals("files.extract", extract.name.value)
+        assertEquals("files_archive", archive.name.value)
+        assertEquals("files_extract", extract.name.value)
         listOf(archive, extract).forEach { d ->
             assertEquals(1, d.version.value)
             assertEquals(ToolOperationClass.LOCAL_MUTATION, d.operationClass)

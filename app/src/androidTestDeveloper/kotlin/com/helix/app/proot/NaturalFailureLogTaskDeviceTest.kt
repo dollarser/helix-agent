@@ -101,6 +101,7 @@ class NaturalFailureLogTaskDeviceTest {
                 descriptors.map { it.origin.canonicalOf() to it.name.value },
                 "session",
             )
+        val began = android.os.SystemClock.elapsedRealtime()
         var initializedFixture: InPlaceLogCloseoutDeviceTest.Fixture? = null
         var active: String? = null
         var evidence: JsonObject? = null
@@ -189,6 +190,9 @@ class NaturalFailureLogTaskDeviceTest {
                         facts +
                             buildJsonObject {
                                 put("case", label)
+                                put("elapsedMs", android.os.SystemClock.elapsedRealtime() - began)
+                                put("humanInterventions", 0)
+                                put("fixtureApprovals", 0)
                                 put("prompt", prompt)
                                 put("timedOut", timedOut)
                                 put("wireRequests", wire.calls)
@@ -488,6 +492,18 @@ class NaturalFailureLogTaskDeviceTest {
             put("documentSha256", actualHash)
             put("expectedLabel", expected)
             put(
+                "modelIdentities",
+                JsonArray(
+                    c.storage.modelCalls.listByTurn(id).map {
+                        val snapshot = Json.parseToJsonElement(it.providerSnapshot).jsonObject
+                        buildJsonObject {
+                            put("providerId", snapshot.getValue("providerId"))
+                            put("modelId", snapshot.getValue("model"))
+                        }
+                    },
+                ),
+            )
+            put(
                 "modelCalls",
                 c.storage.modelCalls
                     .listByTurn(id)
@@ -660,5 +676,5 @@ internal class NaturalFixtureAvailability(
 }
 
 internal fun naturalFailureAllowedTools(repair: Boolean): Set<String> =
-    setOf("tools.search", "tools.read_result", ProotLogTool.NAME) +
-        if (repair) setOf("read", "edit", "write", "files.stat", "files.list") else emptySet()
+    setOf("tools_search", "tools_read_result", ProotLogTool.NAME) +
+        if (repair) setOf("read", "edit", "write", "files_stat", "files_list") else emptySet()

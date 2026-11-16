@@ -29,7 +29,7 @@ import java.util.concurrent.TimeUnit
 
 /**
  * HXA-053 device acceptance (verification-matrix row `:app:connectedConsumerDebugAndroidTest`):
- * the production `code.javascript.run` tool, registered by [AppContainer] in the consumer build,
+ * the production `code_javascript_run` tool, registered by [AppContainer] in the consumer build,
  * runs a REAL isolated-QuickJS-process execution through the full production pipeline (real Room
  * + the storage-backed broker + the real dispatcher, driven by
  * [com.helix.feature.conversation.application.ChatService.dispatchToolCall]) and enforces the mandated invariants:
@@ -72,7 +72,7 @@ class CodeJavascriptRunDeviceTest {
         // The production registry (built by AppContainer for the consumer variant) MUST already
         // carry the real tool — this is the HXA-053 "registered in the Tool Registry" acceptance.
         assertNotNull(
-            "code.javascript.run must be registered by AppContainer in the consumer build",
+            "code_javascript_run must be registered by AppContainer in the consumer build",
             container.toolPipeline.registry.resolveLatest(toolName),
         )
         // Seed the session row BEFORE opening it (turns are seeded per-test, but the
@@ -95,7 +95,7 @@ class CodeJavascriptRunDeviceTest {
     fun settleAbandonedApprovals() {
         // Backstop: a test that died mid-approval (any assertion before its approve/deny)
         // leaves its dispatch BLOCKED in the broker, holding an EXCLUSIVE scheduler slot
-        // (every non-read call is a full barrier — `code.javascript.run` on lane:quickjs
+        // (every non-read call is a full barrier — `code_javascript_run` on lane:quickjs
         // is exclusive too) for the process lifetime — every later dispatch in this
         // process would then wait on admission forever (no approval record: the "no
         // pending approval record" cascade seen in the full developer suite). Cancel any
@@ -452,6 +452,6 @@ class CodeJavascriptRunDeviceTest {
     }
 
     companion object {
-        const val JS_TOOL_NAME = "code.javascript.run"
+        const val JS_TOOL_NAME = "code_javascript_run"
     }
 }

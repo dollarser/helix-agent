@@ -31,7 +31,7 @@ class MobileWaitScopeDeviceTest {
     @Test fun limitedDuplicateTargetsDoNotSuggestUniqueClick() =
         exercise("duplicate-targets") { session, evidence ->
             val selector = fixture.json("""{"text":"Wait duplicate target"}""")
-            val before = session.output("ui.find", selector)
+            val before = session.output("ui_find", selector)
             evidence.put("before", JSONObject(before.toString()))
             val nodes = before.getValue("nodes").jsonArray
             assertEquals(2, nodes.size)
@@ -52,7 +52,7 @@ class MobileWaitScopeDeviceTest {
             assertEquals(2, targets.distinct().size)
             val output =
                 session.output(
-                    "ui.wait",
+                    "ui_wait",
                     fixture.json("""{"text":"Wait duplicate target","maxResults":1,"timeoutMillis":2000}"""),
                 )
             evidence.put("wait", JSONObject(output.toString()))
@@ -65,7 +65,7 @@ class MobileWaitScopeDeviceTest {
             assertLimitedCompleteCapture(output)
             assertFalse(output.containsKey("suggestedClickToken"))
             assertWaitSchema(output)
-            val after = session.output("ui.find", selector)
+            val after = session.output("ui_find", selector)
             evidence.put("after", JSONObject(after.toString()))
             // Each native click listener changes its label, so both unchanged labels also witness no click.
             assertEquals(2, after.getValue("matchCount").jsonPrimitive.int)
@@ -76,7 +76,7 @@ class MobileWaitScopeDeviceTest {
         exercise("default-limit") { session, evidence ->
             val output =
                 session.output(
-                    "ui.wait",
+                    "ui_wait",
                     fixture.json("""{"condition":"stable","stableMillis":200,"timeoutMillis":5000}"""),
                 )
             evidence.put("wait", JSONObject(output.toString()))
@@ -99,7 +99,7 @@ class MobileWaitScopeDeviceTest {
     }
 
     private fun assertWaitSchema(output: JsonObject) {
-        val descriptor = requireNotNull(app.appContainer.toolPipeline.resolveLatest("ui.wait"))
+        val descriptor = requireNotNull(app.appContainer.toolPipeline.resolveLatest("ui_wait"))
         assertEquals(ToolSchemaValidation.Valid, ToolSchemaValidator.validate(descriptor.outputSchema, output))
     }
 
@@ -121,7 +121,7 @@ class MobileWaitScopeDeviceTest {
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK),
                 )
                 fixture.await("dense native fixture ready") {
-                    session.output("ui.snapshot")["nodes"]?.jsonArray?.any {
+                    session.output("ui_snapshot")["nodes"]?.jsonArray?.any {
                         it.jsonObject["contentDescription"]?.jsonPrimitive?.content == "Preview label 39"
                     } == true
                 }

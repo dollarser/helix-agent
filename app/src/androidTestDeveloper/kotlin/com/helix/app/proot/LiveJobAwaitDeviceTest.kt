@@ -109,7 +109,7 @@ class LiveJobAwaitDeviceTest {
                 )
                 val discovery =
                     if (args.getString("liveDiscoveryExplicit") == "true") {
-                        "First call tools.search with query='linux job time await', limit=8. " +
+                        "First call tools_search with query='linux job time await', limit=8. " +
                             "Use only returned schemas on the next request. " +
                             "Each successful search REPLACES the discovery window; " +
                             "do not run separate exact searches in parallel. "
@@ -117,14 +117,14 @@ class LiveJobAwaitDeviceTest {
                         ""
                     }
                 val manualInstruction =
-                    "Only use tools.search, code.linux.job.start, time.now, jobs.await " +
-                        "and code.linux.job.collect. Start exactly ONE Linux Job with script " +
+                    "Only use tools_search, code_linux_job_start, time_now, jobs_await " +
+                        "and code_linux_job_collect. Start exactly ONE Linux Job with script " +
                         "`sleep 2; printf $marker > result.txt`, leaseSeconds=20 and output=" +
                         "scope:app:output/${output.name}. Read the time, await the ORIGINAL handle, " +
                         "collect the original result, then reply DONE. Never repeat the script. " +
                         "A start acceptance is not completion. Do not use other tools."
                 val autoInstruction =
-                    "Only use tools.search and code.linux.job.start. Start exactly ONE Linux Job " +
+                    "Only use tools_search and code_linux_job_start. Start exactly ONE Linux Job " +
                         "with script `sleep 2; printf $marker > result.txt`, leaseSeconds=20, " +
                         "waitMode=AUTO, waitMillis=15000 and output=scope:app:output/${output.name}. " +
                         "When executionComplete is true, use that original completed result and reply DONE. " +
@@ -238,7 +238,7 @@ class LiveJobAwaitDeviceTest {
         }
 
     private fun assertManualJourney(calls: List<com.helix.core.storage.entity.ToolCallEntity>) {
-        assertTrue(calls.any { it.name == "time.now" && it.state == "COMPLETED" })
+        assertTrue(calls.any { it.name == "time_now" && it.state == "COMPLETED" })
         assertTrue(calls.any { it.name == DetachedJobTools.AWAIT && it.state == "COMPLETED" })
         assertTrue(calls.any { it.name == DetachedJobTools.COLLECT && it.state == "COMPLETED" })
     }

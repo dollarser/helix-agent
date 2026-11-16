@@ -220,8 +220,6 @@ internal class DeviceLoginCancellation {
     fun check() = check(!cancelled.get()) { "login cancelled" }
 }
 
-internal typealias CopilotLoginCancellation = DeviceLoginCancellation
-
 internal class CopilotLoginController(
     private val vault: CliSubscriptionCredentialVault,
     private val transport: CopilotDeviceTransport,
@@ -232,7 +230,7 @@ internal class CopilotLoginController(
 
     fun finish(
         attempt: CopilotDeviceAttempt,
-        cancellation: CopilotLoginCancellation,
+        cancellation: DeviceLoginCancellation,
     ) {
         var interval = attempt.intervalMillis
         while (true) {
@@ -269,7 +267,7 @@ internal class CopilotLoginController(
 
     private fun exchangeWithRetry(
         githubToken: String,
-        cancellation: CopilotLoginCancellation,
+        cancellation: DeviceLoginCancellation,
     ): CliSubscriptionSession {
         var lastFailure: IOException? = null
         repeat(5) { attempt ->

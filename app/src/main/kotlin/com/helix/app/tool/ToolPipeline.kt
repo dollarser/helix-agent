@@ -23,7 +23,7 @@ import kotlinx.serialization.json.JsonObject
  * façade — the UI never touches the dispatcher, the scheduler, the broker or storage
  * directly.
  *
- * The HXA-036 registered set is the first real tool, `time.now` (read-only, no approval); the
+ * The HXA-036 registered set is the first real tool, `time_now` (read-only, no approval); the
  * mutating tools arrive with their own HXAs and register here.
  */
 class ToolPipeline(
@@ -35,7 +35,7 @@ class ToolPipeline(
     val plugins: com.helix.extensions.plugin.PluginRegistry? = null,
     /**
      * HXA-209 (ADR-PERMISSIONS-001 section 1.1): the shared disabled-tool predicate — the
-     * ONE instance the model schema, tools.search, the loaded window and the execution entry
+     * ONE instance the model schema, tools_search, the loaded window and the execution entry
      * all read, so a disable can never be visible on one surface and refused on another.
      * Null when no availability store is wired (everything stays visible).
      */

@@ -140,9 +140,9 @@ class DetachedGoalJourneyDeviceTest {
                     assertEquals("goal-result", f.output.readText())
                     val calls = f.storage.toolCalls.listByTurn(f.turn)
                     assertEquals(6, calls.size)
-                    val reports = calls.filter { it.name == "goal.report" }.map { it.state }
+                    val reports = calls.filter { it.name == "goal_report" }.map { it.state }
                     assertEquals(listOf("FAILED", "COMPLETED"), reports)
-                    assertTrue(calls.filter { it.name != "goal.report" }.all { it.state == "COMPLETED" })
+                    assertTrue(calls.filter { it.name != "goal_report" }.all { it.state == "COMPLETED" })
                     assertEquals(
                         1,
                         f.storage.turns

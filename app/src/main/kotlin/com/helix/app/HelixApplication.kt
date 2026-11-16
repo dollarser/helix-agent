@@ -68,7 +68,11 @@ class HelixApplication : Application() {
     val speechSettings by lazy {
         awaitPortableProfile()
         com.helix.app.voice
-            .SpeechSettingsStore(this)
+            .SpeechSettingsStore(
+                this,
+                com.helix.app.voice
+                    .ConfiguredSpeechProviders { appContainer.storage },
+            )
     }
     val speechConsent by lazy {
         awaitPortableProfile()
@@ -129,13 +133,13 @@ class HelixApplication : Application() {
                     {
                         settings.validate()
                         if (settings.useAccountLogin) check(account.signedIn.value && account.identity == identity)
-                        settings.tts(account)
+                        speechSettings.tts(settings, account)
                     }
                 } else {
                     null
                 },
             uploadDestination = settings.ttsEndpoint.takeIf { settings.httpEnabled },
-            segmentedHttp = settings.httpEnabled && !settings.webSocket,
+            segmentedHttp = settings.httpEnabled && !settings.ttsWebSocket,
             accountIdentity = identity.takeIf { settings.requiresAccount },
             synthesis = speechSynthesis,
         )
@@ -280,6 +284,8 @@ class HelixApplication : Application() {
         // Android also creates this Application in isolated QuickJS and private Runtime
         // processes. Only the main process owns host diagnostics, Room and recovery.
         if (Process.isIsolated() || getProcessName() != packageName) return
+        com.helix.app.diagnostics.ClientRequestDiagnostics
+            .install(this)
         com.helix.app.diagnostics.DiagnosticArchives
             .install(this)
         processDiagnostics = ProcessDiagnostics.install(this)

@@ -19,7 +19,7 @@ class MobileUsePresentedExecutorTest {
     private val call =
         ExecutableToolCall(
             "call",
-            "ui.snapshot",
+            "ui_snapshot",
             "1",
             JsonObject(emptyMap()),
             ExecutionTargetType.LOCAL_ANDROID,
@@ -105,10 +105,10 @@ class MobileUsePresentedExecutorTest {
     }
 
     @Test fun registeredObservationsKeepControlsAndPreserveTakeoverCancellation() {
-        for (name in listOf("ui.snapshot", "ui.find", "ui.wait", "ui.device", "ui.apps")) {
+        for (name in listOf("ui_snapshot", "ui_find", "ui_wait", "ui_device", "ui_apps")) {
             assertTrue(retainsMobileUseOverlay(name))
         }
-        for (name in listOf("ui.screenshot", "ui.gesture", "ui.click", "ui.set_text", "ui.launch", "future.read")) {
+        for (name in listOf("ui_screenshot", "ui_gesture", "ui_click", "ui_set_text", "ui_launch", "future.read")) {
             assertFalse(retainsMobileUseOverlay(name))
         }
         val observing =

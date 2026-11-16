@@ -137,7 +137,7 @@ class ConversationToolFlowDeviceTest {
                         val i = step.getAndIncrement()
                         val name =
                             when (i) {
-                                0 -> "tools.search"
+                                0 -> "tools_search"
                                 4 -> write
                                 else -> read
                             }

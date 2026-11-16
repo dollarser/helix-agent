@@ -7,8 +7,8 @@ import org.junit.Test
 
 class ScriptBridgeProtocolTest {
     @Test fun transportCredentialsCannotSelectIdentityOrBecomeToolArguments() {
-        val text = """{"proof":"ephemeral-proof","id":"one","tool":"time.now","args":{}}"""
-        assertEquals("time.now", ScriptBridgeProtocol.decode(text, "ephemeral-proof").tool)
+        val text = """{"proof":"ephemeral-proof","id":"one","tool":"time_now","args":{}}"""
+        assertEquals("time_now", ScriptBridgeProtocol.decode(text, "ephemeral-proof").tool)
         assertThrows(IllegalArgumentException::class.java) { ScriptBridgeProtocol.decode(text, "other-proof") }
         assertThrows(IllegalArgumentException::class.java) {
             ScriptBridgeProtocol.decode(
@@ -27,7 +27,7 @@ class ScriptBridgeProtocolTest {
             ScriptBridgeProtocol.decode("x".repeat(ScriptBridgeProtocol.MAX_BYTES + 1), null)
         }
         assertThrows(IllegalArgumentException::class.java) {
-            ScriptBridgeProtocol.decode("""{"id":"../other","tool":"time.now","args":{}}""", null)
+            ScriptBridgeProtocol.decode("""{"id":"../other","tool":"time_now","args":{}}""", null)
         }
     }
 }

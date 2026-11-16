@@ -84,7 +84,7 @@ object CommandResultProjection {
                 CommandDetailState.READ_FAILED
             }
 
-            toolName == "code.linux.job.start" -> {
+            toolName == "code_linux_job_start" -> {
                 DetachedCommandProjection.state(facts, content?.accepted == true, browse.detached) {
                     resolveState(facts, content)
                 }

@@ -2,6 +2,7 @@ package com.helix.provider.openai.responses
 
 import com.helix.core.model.ModelEvent
 import com.helix.core.model.ModelRequest
+import com.helix.provider.api.ProviderToolNames
 
 /**
  * OpenAI Responses API adapter (HXA-022, protocol `OPENAI_RESPONSES`).
@@ -25,5 +26,5 @@ public class OpenAiResponsesAdapter(
 
     /** One decoder per stream (one model call); never share across calls. */
     public fun newDecoder(request: ModelRequest): ResponsesStreamDecoder =
-        ResponsesStreamDecoder(ResponsesToolNames(request)::decode)
+        ResponsesStreamDecoder(ProviderToolNames(request)::decode)
 }

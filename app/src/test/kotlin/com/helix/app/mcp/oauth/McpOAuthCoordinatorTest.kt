@@ -147,9 +147,7 @@ class McpOAuthCoordinatorTest {
 
             // Verify saved in SecretStore
             val tokenAlias = SecretAlias("mcp.slack-mcp.oauth.token")
-            val refreshAlias = SecretAlias("mcp.slack-mcp.oauth.refresh")
             assertEquals("xoxb-mock-token", secretStore.get(tokenAlias))
-            assertFalse(secretStore.contains(refreshAlias))
             assertTrue(secretStore.get(SecretAlias("mcp.slack-mcp.oauth.binding")).contains("xoxr-mock-refresh"))
 
             // Replay attempt must fail (one-time consumption)
@@ -174,7 +172,6 @@ class McpOAuthCoordinatorTest {
     fun revokeAndClearRemovesSecretsAndCallsRevocation() =
         runBlocking {
             val tokenAlias = SecretAlias("mcp.slack-mcp.oauth.token")
-            val refreshAlias = SecretAlias("mcp.slack-mcp.oauth.refresh")
             val prepared =
                 coordinator.prepareAuthorization(
                     "slack-mcp",
@@ -203,7 +200,7 @@ class McpOAuthCoordinatorTest {
 
             assertTrue(outcome.vendorRevoked)
             assertFalse(secretStore.contains(tokenAlias))
-            assertFalse(secretStore.contains(refreshAlias))
+            assertFalse(secretStore.contains(SecretAlias("mcp.slack-mcp.oauth.binding")))
         }
 
     @Test

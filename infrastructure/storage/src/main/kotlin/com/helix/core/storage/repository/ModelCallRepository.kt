@@ -60,7 +60,7 @@ class ModelCallRepository(
         check(dao.bindToolMessage(id, messageId) == 1) { "MODEL_TOOL_MESSAGE_CONFLICT" }
     }
 
-    /** Reconcile abandoned calls, including rows left by older recovery versions; keep known metadata. */
+    /** Reconcile running calls whose Turns were interrupted; keep known metadata. */
     fun interruptForInterruptedTurns(): Int = dao.interruptForInterruptedTurns(clock())
 
     fun update(

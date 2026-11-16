@@ -1,5 +1,6 @@
 package com.helix.app.mcp
 
+import com.helix.app.plugin.nativePluginName
 import com.helix.tools.framework.ToolDescriptor
 import com.helix.tools.framework.ToolOrigin
 import kotlinx.serialization.json.Json
@@ -31,6 +32,31 @@ internal data class ToolDiscoveryMetadata(
             return Json.parseToJsonElement(text).jsonObject
         }
 
+        /** Index descriptions and nested parameter names, not values or arbitrary extension metadata. */
+        private fun parameterText(schema: kotlinx.serialization.json.JsonObject): Pair<Set<String>, List<String>> {
+            val names = linkedSetOf<String>()
+            val descriptions = mutableListOf<String>()
+            val pending = ArrayDeque<kotlinx.serialization.json.JsonObject>()
+            pending.add(schema)
+            while (pending.isNotEmpty()) {
+                val node = pending.removeFirst()
+                (node["description"] as? kotlinx.serialization.json.JsonPrimitive)
+                    ?.takeIf { it.isString }
+                    ?.content
+                    ?.let(descriptions::add)
+                (node["properties"] as? kotlinx.serialization.json.JsonObject)?.let { properties ->
+                    names.addAll(properties.keys)
+                    properties.values
+                        .filterIsInstance<kotlinx.serialization.json.JsonObject>()
+                        .forEach(pending::addLast)
+                }
+                for (key in listOf("items", "additionalProperties")) {
+                    (node[key] as? kotlinx.serialization.json.JsonObject)?.let(pending::addLast)
+                }
+            }
+            return names.mapTo(linkedSetOf()) { it.lowercase() } to descriptions
+        }
+
         fun of(tool: ToolDescriptor): ToolDiscoveryMetadata {
             val source =
                 when (val origin = tool.origin) {
@@ -40,32 +66,24 @@ internal data class ToolDiscoveryMetadata(
                     is ToolOrigin.A2aOrigin -> "a2a:${origin.agentId}"
                 }
             val name = tool.name.value
-            val category =
-                when {
-                    name in setOf("read", "write", "edit", "view_image") || name.startsWith("files.") -> "files"
-                    name.startsWith("goal.") -> "goals"
-                    name == "ask_user" -> "user"
-                    name in setOf("web_fetch", "web_search") -> "web"
-                    else -> name.substringBefore('.')
-                }
+            val category = tool.discovery.category ?: "other"
             val aliases = categoryAliases[category].orEmpty()
-            val operation = operationAliases[name.substringAfterLast('.')].orEmpty()
-            val fields = tool.inputSchema["properties"] as? kotlinx.serialization.json.JsonObject
+            val operation = operationAliases.filterKeys { name == it || name.endsWith("_$it") }.values.joinToString(" ")
+            val parameters = parameterText(tool.inputSchema)
             return ToolDiscoveryMetadata(
                 source,
                 category,
                 listOf(
                     source,
+                    tool.discovery.keywords.joinToString(" "),
+                    parameters.second.joinToString(" "),
+                    nativePluginName(tool.origin)?.aliases.orEmpty().joinToString(" "),
                     category,
                     aliases,
                     operation,
-                    namespaceAliases.filterKeys { name.startsWith("$it.") }.values.joinToString(" "),
+                    namespaceAliases[category].orEmpty(),
                 ).joinToString(" ").lowercase(),
-                fields
-                    ?.keys
-                    ?.map { it.lowercase() }
-                    ?.toSet()
-                    .orEmpty(),
+                parameters.first,
             )
         }
     }

@@ -6,6 +6,7 @@ import com.helix.core.workspace.FileScopePath
 import com.helix.core.workspace.WorkspaceArtifactStore
 import com.helix.core.workspace.WorkspaceLayout
 import com.helix.feature.browser.snapshot.BrowserActionScript
+import com.helix.feature.browser.snapshot.BrowserActionTargetGuard
 import com.helix.feature.browser.snapshot.BrowserOrigin
 import com.helix.feature.browser.snapshot.SnapshotFailure
 import com.helix.feature.browser.snapshot.SnapshotResult
@@ -185,7 +186,7 @@ class BrowserToolBridgeImpl(
                         tabId,
                         when (result.failure) {
                             SnapshotFailure.PAGE_LOADING -> {
-                                "page_loading: navigation has not settled; check browser.tabs before another snapshot"
+                                "page_loading: navigation has not settled; check browser_tabs before another snapshot"
                             }
 
                             SnapshotFailure.PAGE_ERROR -> {
@@ -405,7 +406,13 @@ class BrowserToolBridgeImpl(
                 if (inactive || controller.verifyNodeToken(tabId, token) !is TokenVerdict.Valid) {
                     completer(EvalFixedOutcome.NoPage)
                 } else {
-                    controller.evaluateFixed(tabId, scriptFor(nodeIndex)) { completer(it) }
+                    val node = controller.latestSnapshot(tabId)?.nodes?.getOrNull(nodeIndex)
+                    if (node == null) {
+                        completer(EvalFixedOutcome.NoPage)
+                    } else {
+                        val script = BrowserActionTargetGuard.bind(scriptFor(nodeIndex), node)
+                        controller.evaluateFixed(tabId, script) { completer(it) }
+                    }
                 }
             }
         return when (outcome) {

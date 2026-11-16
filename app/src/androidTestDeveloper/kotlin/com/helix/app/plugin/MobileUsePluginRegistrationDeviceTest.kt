@@ -102,27 +102,27 @@ class MobileUsePluginRegistrationDeviceTest {
         val uiTools =
             container.toolPipeline.registry
                 .all()
-                .filter { it.name.value.startsWith("ui.") }
+                .filter { it.name.value.startsWith("ui_") }
         assertEquals(
             setOf(
-                "ui.snapshot",
-                "ui.find",
-                "ui.click",
-                "ui.click_match",
-                "ui.long_click",
-                "ui.set_text",
-                "ui.ime_enter",
-                "ui.set_progress",
-                "ui.scroll",
-                "ui.back",
-                "ui.home",
-                "ui.wait",
-                "ui.device",
-                "ui.apps",
-                "ui.launch",
-                "ui.system",
-                "ui.gesture",
-                "ui.screenshot",
+                "ui_snapshot",
+                "ui_find",
+                "ui_click",
+                "ui_click_match",
+                "ui_long_click",
+                "ui_set_text",
+                "ui_ime_enter",
+                "ui_set_progress",
+                "ui_scroll",
+                "ui_back",
+                "ui_home",
+                "ui_wait",
+                "ui_device",
+                "ui_apps",
+                "ui_launch",
+                "ui_system",
+                "ui_gesture",
+                "ui_screenshot",
             ),
             uiTools.map { it.name.value }.toSet(),
         )

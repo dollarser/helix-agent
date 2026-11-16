@@ -124,7 +124,7 @@ class DetachedJobControlDeviceTest {
         val call =
             ExecutableToolCall(
                 "control-call",
-                "code.linux.job.status",
+                "code_linux_job_status",
                 "1",
                 buildJsonObject { put("originalCallId", job.binding.toolCallId) },
                 ExecutionTargetType.LOCAL_PROOT,
@@ -142,7 +142,7 @@ class DetachedJobControlDeviceTest {
                 "stored-call",
                 binding.turnId,
                 binding.toolCallId,
-                "code.linux.run",
+                "code_linux_run",
                 "2",
                 "{}",
                 "RUNNING",

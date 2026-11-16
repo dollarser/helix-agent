@@ -10,6 +10,7 @@ import com.helix.core.model.ToolVersion
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
+import com.helix.tools.framework.ToolDiscoveryHints
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolOrigin
@@ -23,10 +24,10 @@ import kotlinx.serialization.json.jsonObject
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * The `todo.write` built-in tool (research doc sections 13/16; HX2-07): the model's
+ * The `todo_write` built-in tool (research doc sections 13/16; HX2-07): the model's
  * working-memory ledger. Each call REPLACES the whole ledger with the full current list of
  * items and their states (todo / in_progress / done / blocked). The durable record is the
- * tool-call row the dispatcher persists around this executor — exactly like `goal.report`,
+ * tool-call row the dispatcher persists around this executor — exactly like `goal_report`,
  * this tool only validates and echoes; [TaskLedgerProjection] reads the latest successful
  * call back into the conversation's Progress section.
  *
@@ -35,11 +36,11 @@ import kotlin.time.Duration.Companion.seconds
  * state (the persisted call row), no user-visible local mutation, no egress, no file path or
  * foreign Goal ID in its input. IDEMPOTENT: the call declares state, the latest call wins,
  * and a replay with the same args leaves the same ledger. It is valid in every mode (ACT or
- * GOAL, bound or unbound, and a plain chat task) — unlike `goal.report` there is no goal
+ * GOAL, bound or unbound, and a plain chat task) — unlike `goal_report` there is no goal
  * gate: a chat task keeps its progress too.
  */
 internal object TodoWriteTool {
-    const val NAME: String = "todo.write"
+    const val NAME: String = "todo_write"
 
     const val VERSION: Int = 1
 
@@ -98,6 +99,7 @@ internal object TodoWriteTool {
                 idempotency = Idempotency.IDEMPOTENT,
                 executionTarget = ExecutionTargetType.LOCAL_ANDROID,
                 origin = ToolOrigin.BuiltInOrigin,
+                discovery = ToolDiscoveryHints(category = "todo"),
             )
 
         registry.register(

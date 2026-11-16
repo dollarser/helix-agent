@@ -263,7 +263,7 @@ internal class LoopbackModelServer(
                     }.toString()
             val function =
                 kotlinx.serialization.json.buildJsonObject {
-                    put("name", kotlinx.serialization.json.JsonPrimitive("goal.report"))
+                    put("name", kotlinx.serialization.json.JsonPrimitive("goal_report"))
                     put("arguments", kotlinx.serialization.json.JsonPrimitive(arguments))
                 }
             return "data: {\"id\":\"goal-fixture\",\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[" +

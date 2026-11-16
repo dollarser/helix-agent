@@ -23,12 +23,12 @@ class DeviceNamespaceTest {
         AndroidSystemTools.registerAll(registry, Bridge())
         assertEquals(
             setOf(
-                "device.open_url",
-                "device.open_settings",
-                "device.clipboard_read",
-                "device.clipboard_write",
-                "device.share_text",
-                "device.create_note",
+                "device_open_url",
+                "device_open_settings",
+                "device_clipboard_read",
+                "device_clipboard_write",
+                "device_share_text",
+                "device_create_note",
             ),
             registry.all().map { it.name.value }.toSet(),
         )
@@ -39,7 +39,7 @@ class DeviceNamespaceTest {
             "clipboard.read",
             "clipboard.write",
         ).forEach {
-            assertFalse(registry.contains(ToolName(it), ToolVersion(1)))
+            assertFalse(registry.all().any { tool -> tool.name.value == it })
         }
     }
 

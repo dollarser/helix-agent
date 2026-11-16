@@ -35,7 +35,7 @@ class MobilePostActionPreviewDeviceTest {
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK),
                 )
                 fixture.await("bottom edge with dense visible content") {
-                    session.output("ui.snapshot")["nodes"]?.jsonArray?.any {
+                    session.output("ui_snapshot")["nodes"]?.jsonArray?.any {
                         it.jsonObject["text"]?.jsonPrimitive?.content == "y=3500;calls=0"
                     } == true
                 }
@@ -55,14 +55,14 @@ class MobilePostActionPreviewDeviceTest {
         val scroll =
             session
                 .output(
-                    "ui.find",
+                    "ui_find",
                     fixture.json("""{"contentDescription":"Boundary scroll target","scrollable":true}"""),
                 ).getValue("nodes")
                 .jsonArray
                 .single()
                 .jsonObject
         val token = scroll.getValue("token").jsonPrimitive.content
-        val result = session.output("ui.scroll", fixture.json("""{"token":"$token","direction":"backward"}"""))
+        val result = session.output("ui_scroll", fixture.json("""{"token":"$token","direction":"backward"}"""))
         evidence.put("scroll", JSONObject(result.toString()))
         val preview = result.getValue("observation").jsonObject
         assertEquals(32, preview.getValue("nodes").jsonArray.size)
@@ -78,16 +78,16 @@ class MobilePostActionPreviewDeviceTest {
             result
                 .getValue("nextObservation")
                 .jsonPrimitive.content
-                .contains("ui.snapshot"),
+                .contains("ui_snapshot"),
         )
-        val wider = session.output("ui.snapshot")
+        val wider = session.output("ui_snapshot")
         evidence.put("wider", JSONObject(wider.toString()))
         assertTrue(wider.getValue("nodes").jsonArray.size > 32)
         assertEquals(
             wider.getValue("nodes").jsonArray.size,
             wider.getValue("returnedNodeCount").jsonPrimitive.int,
         )
-        val found = session.output("ui.find", fixture.json("""{"contentDescription":"Preview label 39"}"""))
+        val found = session.output("ui_find", fixture.json("""{"contentDescription":"Preview label 39"}"""))
         evidence.put("target", JSONObject(found.toString()))
         assertEquals(1, found.getValue("nodes").jsonArray.size)
     }

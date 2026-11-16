@@ -202,7 +202,7 @@ class CommandResultProjectionTest {
         val v =
             CommandResultProjection.project(
                 callId = "call-9",
-                toolName = "code.linux.run",
+                toolName = "code_linux_run",
                 argsJson = """{"script":"pwd"}""",
                 facts =
                     CommandResultFacts(
@@ -217,7 +217,7 @@ class CommandResultProjectionTest {
                 scopeLabel = "dir-9",
             )
         assertEquals("call-9", v.callId)
-        assertEquals("code.linux.run", v.toolName)
+        assertEquals("code_linux_run", v.toolName)
         assertEquals("session-9", v.sessionId)
         assertEquals("dir-9", v.scopeLabel)
         assertEquals("pwd", v.commandText)

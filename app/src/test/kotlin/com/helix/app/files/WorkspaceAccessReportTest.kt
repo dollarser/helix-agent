@@ -3,6 +3,8 @@ package com.helix.app.files
 import com.helix.core.workspace.ScopeNotAvailable
 import com.helix.core.workspace.ScopeRootResolver
 import com.helix.core.workspace.WorkspaceArtifactStore
+import com.helix.core.workspace.WorkspaceFileBackend
+import com.helix.core.workspace.WorkspaceFileInfo
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
@@ -32,10 +34,10 @@ class WorkspaceAccessReportTest {
         val roots = ScopeRootResolver { throw ScopeNotAvailable("URI has no POSIX path") }
         var readable = true
         val backend =
-            object : ManualFileBackend {
+            object : WorkspaceFileBackend {
                 override fun validateMutation(path: String) = error("No mutations")
 
-                override fun stat(path: String) = ManualFileInfo(true, 0)
+                override fun stat(path: String) = WorkspaceFileInfo(true, 0)
 
                 override fun children(path: String): List<String> {
                     if (!readable) throw IOException("Grant revoked")

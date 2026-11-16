@@ -9,21 +9,18 @@ import java.security.MessageDigest
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
-internal typealias CodexModelJobState = CliModelJobState
-internal typealias CodexModelJobRecord = CliModelJobRecord
-
 internal class CodexModelJobStore(
     private val root: File,
 ) {
     private val jobs = File(root, "codex-model-jobs")
     private val files = CliJobRecordFile()
 
-    fun load(jobId: String): CodexModelJobRecord? {
+    fun load(jobId: String): CliModelJobRecord? {
         val file = recordFile(jobId)
         return files.read(file)?.also { require(it.jobId == jobId) { "CLI journal identity mismatch" } }
     }
 
-    fun put(record: CodexModelJobRecord) {
+    fun put(record: CliModelJobRecord) {
         files.write(recordFile(record.jobId), record)
     }
 
@@ -46,7 +43,7 @@ internal class CodexModelJobStore(
                 )
                 val record = requireNotNull(load(directory.fileName.toString()))
                 !record.state.terminal ||
-                    (record.reconciledAtEpochMillis == null && record.state != CodexModelJobState.EVIDENCE_EXPIRED)
+                    (record.reconciledAtEpochMillis == null && record.state != CliModelJobState.EVIDENCE_EXPIRED)
             }
         }
     }
@@ -73,7 +70,7 @@ internal class CodexModelJobStore(
             }
             val record = runCatching { load(dir.name) }.getOrNull() ?: return@forEach
             if (!record.state.terminal) {
-                put(record.copy(state = CodexModelJobState.INTERRUPTED, terminalAtEpochMillis = now))
+                put(record.copy(state = CliModelJobState.INTERRUPTED, terminalAtEpochMillis = now))
             }
         }
     }
@@ -123,11 +120,11 @@ internal class CodexModelJobStore(
 
 internal sealed interface CodexModelJobSubmit {
     data class Accepted(
-        val record: CodexModelJobRecord,
+        val record: CliModelJobRecord,
     ) : CodexModelJobSubmit
 
     data class Duplicate(
-        val record: CodexModelJobRecord,
+        val record: CliModelJobRecord,
     ) : CodexModelJobSubmit
 
     data object RequestMismatch : CodexModelJobSubmit
@@ -166,14 +163,14 @@ internal class CodexModelJobRunner(
             }
             if (activeJobId != null) return@synchronized CodexModelJobSubmit.Busy
             if (!store.canAcceptNew()) return@synchronized CodexModelJobSubmit.JournalFull
-            val pending = CodexModelJobRecord(jobId, requestSha256, CodexModelJobState.PENDING, clock())
+            val pending = CliModelJobRecord(jobId, requestSha256, CliModelJobState.PENDING, clock())
             store.put(pending)
             activeJobId = jobId
             worker.submit { runJob(pending) }
             CodexModelJobSubmit.Accepted(pending)
         }
 
-    fun query(jobId: String): CodexModelJobRecord? =
+    fun query(jobId: String): CliModelJobRecord? =
         synchronized(lock) {
             store.expireEvidence(clock())
             store.load(jobId)
@@ -181,17 +178,15 @@ internal class CodexModelJobRunner(
 
     fun failure(jobId: String): Throwable? = synchronized(lock) { lastFailure?.takeIf { it.first == jobId }?.second }
 
-    fun cancel(jobId: String): CodexModelJobRecord? =
+    fun cancel(jobId: String): CliModelJobRecord? =
         synchronized(lock) {
             val current = store.load(jobId) ?: return@synchronized null
             if (current.state.terminal) return@synchronized current
             if (activeJobId == jobId) {
                 cancelExecution()
             }
-            terminal(current, CodexModelJobState.CANCELLED)
+            terminal(current, CliModelJobState.CANCELLED)
         }
-
-    fun reconcile(jobId: String): CodexModelJobRecord? = query(jobId)
 
     override fun close() {
         synchronized(lock) {
@@ -200,14 +195,14 @@ internal class CodexModelJobRunner(
         }
     }
 
-    private fun runJob(pending: CodexModelJobRecord) {
+    private fun runJob(pending: CliModelJobRecord) {
         synchronized(lock) {
             val live = store.load(pending.jobId)
-            if (live == null || live.state != CodexModelJobState.PENDING) {
+            if (live == null || live.state != CliModelJobState.PENDING) {
                 clearActive(pending.jobId)
                 return
             }
-            store.put(live.copy(state = CodexModelJobState.RUNNING))
+            store.put(live.copy(state = CliModelJobState.RUNNING))
         }
         val result = runCatching(execute)
         synchronized(lock) {
@@ -216,7 +211,7 @@ internal class CodexModelJobRunner(
                 val smoke = result.getOrThrow()
                 store.put(
                     live.copy(
-                        state = CodexModelJobState.SUCCEEDED,
+                        state = CliModelJobState.SUCCEEDED,
                         terminalAtEpochMillis = clock(),
                         model = smoke.model,
                         outputSha256 = sha256(smoke.text),
@@ -224,7 +219,7 @@ internal class CodexModelJobRunner(
                 )
             } else if (live != null && !live.state.terminal) {
                 lastFailure = pending.jobId to requireNotNull(result.exceptionOrNull())
-                terminal(live, CodexModelJobState.FAILED)
+                terminal(live, CliModelJobState.FAILED)
             }
             clearActive(pending.jobId)
         }
@@ -235,9 +230,9 @@ internal class CodexModelJobRunner(
     }
 
     private fun terminal(
-        record: CodexModelJobRecord,
-        state: CodexModelJobState,
-    ): CodexModelJobRecord = record.copy(state = state, terminalAtEpochMillis = clock()).also(store::put)
+        record: CliModelJobRecord,
+        state: CliModelJobState,
+    ): CliModelJobRecord = record.copy(state = state, terminalAtEpochMillis = clock()).also(store::put)
 
     private fun sha256(value: String): String =
         MessageDigest

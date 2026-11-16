@@ -154,7 +154,7 @@ class PublicRemoteNotesOAuthDeviceTest {
                 }
             c.chatService.sendTestMessage(
                 session,
-                "Use tools.search to discover ${descriptor.name.value}. Call it once with limit 1. " +
+                "Use tools_search to discover ${descriptor.name.value}. Call it once with limit 1. " +
                     "Do not add or change notes, inspect phone or files. Report only that the read succeeded; " +
                     "do not reproduce the demo note content.",
             )

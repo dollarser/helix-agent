@@ -225,7 +225,7 @@ private fun PermissionSessionPicker(controller: SessionPermissionController) {
 @Composable
 @Suppress("FunctionName")
 private fun PermissionToolList(controller: SessionPermissionController) {
-    ToolAvailabilityGroups(controller.tools, { it.name.value }) { descriptor ->
+    ToolAvailabilityGroups(controller.tools, { it.name.value }, { it.discovery.category ?: "other" }) { descriptor ->
         val name = descriptor.name.value
         ToolRow(
             toolName = name,

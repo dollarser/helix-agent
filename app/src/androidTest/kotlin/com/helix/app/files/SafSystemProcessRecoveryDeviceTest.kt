@@ -18,6 +18,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.ui.WorkspaceTreePicker
 import com.helix.core.workspace.AtomicFileWriter
 import com.helix.core.workspace.ScopeRootResolver
+import com.helix.core.workspace.WorkspaceFileBackend
 import com.helix.feature.files.ContentResolverSafTreeCheck
 import com.helix.feature.files.SafAccessMode
 import com.helix.feature.files.SafGrantStore
@@ -255,7 +256,7 @@ class SafSystemProcessRecoveryDeviceTest {
             mutations: MutableList<String> = mutableListOf(),
         ): ManualFileOperations {
             val tracked =
-                object : ManualFileBackend by saf {
+                object : WorkspaceFileBackend by saf {
                     override fun rename(
                         path: String,
                         destination: String,

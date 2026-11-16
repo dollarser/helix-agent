@@ -90,7 +90,7 @@ class NaturalFailureEvidenceDeviceTest {
         repository.set(source, "edit", ToolAvailabilityScope.SESSION, "other", ToolAvailabilityState.DISABLED, 1)
         repository.set(
             source,
-            "files.stat",
+            "files_stat",
             ToolAvailabilityScope.WORKSPACE,
             "other-workspace",
             ToolAvailabilityState.DISABLED,

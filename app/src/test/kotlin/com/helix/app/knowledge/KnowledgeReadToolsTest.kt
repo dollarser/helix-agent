@@ -9,6 +9,7 @@ import com.helix.tools.framework.ToolSchemaValidator
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -54,7 +55,7 @@ class KnowledgeReadToolsTest {
         val call =
             ExecutableToolCall(
                 "call",
-                "knowledge.search",
+                "knowledge_search",
                 "1",
                 Json.parseToJsonElement(args) as JsonObject,
                 ExecutionTargetType.LOCAL_ANDROID,
@@ -64,6 +65,38 @@ class KnowledgeReadToolsTest {
                 },
             )
         return KnowledgeReadTools.executor(search, backend).execute(call)
+    }
+
+    @Test fun allParametersExplainSelectionOrPaginationAndResultsMatchOutputContract() {
+        for (search in listOf(true, false)) {
+            val descriptor = KnowledgeReadTools.descriptor(search)
+            for ((name, property) in descriptor.inputSchema.getValue("properties").jsonObject) {
+                assertTrue(
+                    name,
+                    property.jsonObject["description"]
+                        ?.jsonPrimitive
+                        ?.content
+                        ?.isNotBlank() == true,
+                )
+            }
+        }
+        val search = run("""{"query":"budget"}""") as ToolExecutorResult.Completed
+        assertEquals(
+            ToolSchemaValidation.Valid,
+            ToolSchemaValidator.validate(KnowledgeReadTools.descriptor(true).outputSchema, search.output),
+        )
+        document =
+            Json
+                .parseToJsonElement(
+                    """{"title":"Test","text":"abc","contentHash":"${knowledgeHash("abc")}"}""",
+                ).jsonObject
+        val read = run("""{"kind":"note","id":"test","limit":1}""", false) as ToolExecutorResult.Completed
+        val schema = KnowledgeReadTools.descriptor(false).outputSchema
+        assertEquals(ToolSchemaValidation.Valid, ToolSchemaValidator.validate(schema, read.output))
+        assertTrue(
+            ToolSchemaValidator.validate(schema, JsonObject(read.output.jsonObject - "contentHash"))
+                is ToolSchemaValidation.Invalid,
+        )
     }
 
     @Test fun disabledAccessDoesNotReadAnything() {

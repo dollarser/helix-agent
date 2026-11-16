@@ -57,7 +57,7 @@ HXA-314 首版采用单独 `scheduled-agents.db` 规则/发生/attempt 账本与
 
 ### 模型工具与完成
 
-提供 goal.create/goal.get/goal.update 及当前轮结构化 goal.report。创建/编辑绑定可信 session/Goal 身份与 revision，冲突不覆盖，不能借编辑重置累计用量、恢复激活或绕过用户设定的限制。创建不扩展工具授权，活动目标不重复创建。用户目标与验收文字可保留，模型对自然语言是否完成作判断。
+提供 goal_create/goal_get/goal_update 及当前轮结构化 goal_report。创建/编辑绑定可信 session/Goal 身份与 revision，冲突不覆盖，不能借编辑重置累计用量、恢复激活或绕过用户设定的限制。创建不扩展工具授权，活动目标不重复创建。用户目标与验收文字可保留，模型对自然语言是否完成作判断。
 
 读取返回目标、revision、待结算修改和累计用量。创建、目标/预算编辑及 active/paused 操作只接受当前直接用户请求来源，并引用该请求原文；自动轮和重试不携带此来源。Steer 的新增直接用户来源绑定独立 input/message ID，只有该输入真正进入当前模型请求后才可用于本请求；不把会话历史或原目标原文冒充新指令。模型解释请求语义，原文匹配只证明来源，不是独立语义验证。Plan 模式不开放 Goal 创建或激活，已绑定批准 Plan 的目标不能绕过 Plan 审阅修改。
 
@@ -117,7 +117,9 @@ HXA-314 首版采用单独 `scheduled-agents.db` 规则/发生/attempt 账本与
 
 ## Decision history — 2026-10-21：Goal 工具成组命名
 
-Owner 授权统一成组工具命名，采用 `goal.create/get/update/report`，旧注册名直接移除。用户请求、原会话/Goal 身份、修订校验、预算和轮次结算契约不变；持久用户禁用选择一次性迁移，历史调用和单次批准不改写。工具参数不因外观统一而混淆身份、版本和权限。
+Owner 授权统一成组工具命名，采用 `goal_create/get/update/report`，旧注册名直接移除。用户请求、原会话/Goal 身份、修订校验、预算和轮次结算契约不变；持久用户禁用选择一次性迁移，历史调用和单次批准不改写。工具参数不因外观统一而混淆身份、版本和权限。
+
+2026-11-15 Owner 再次明确不兼容旧内部版本：上述旧名称可用性迁移已移除，当前直接使用 `goal.*` 名称与原作用域；不改 Goal 生命周期、历史调用或批准边界。详见 [执行与审计决定](../permissions/003-dispatch-and-audit.md#decision-history--2026-11-15移除旧内部身份迁移)。
 
 ## Decision history — 2026-10-30：受限外部审阅入口
 

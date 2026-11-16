@@ -10,10 +10,10 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
 
 /**
- * Projects the model's working-memory ledger (HX2-07) from the persisted `todo.write`
+ * Projects the model's working-memory ledger (HX2-07) from the persisted `todo_write`
  * tool calls: the latest SUCCESSFUL + VERIFIED call in the newest turn that has one.
- * Deliberately NOT the `goal.report` "last tool call" rule — progress outlives the steps
- * the model takes after writing it; only a later successful `todo.write` replaces it.
+ * Deliberately NOT the `goal_report` "last tool call" rule — progress outlives the steps
+ * the model takes after writing it; only a later successful `todo_write` replaces it.
  */
 internal object TaskLedgerProjection {
     fun forSession(
@@ -62,7 +62,7 @@ internal object TaskLedgerProjection {
             }
 
     /**
-     * Parses a `todo.write` args object into UI rows. Unknown/blank fields are skipped and
+     * Parses a `todo_write` args object into UI rows. Unknown/blank fields are skipped and
      * anything malformed yields an EMPTY list (fail-closed: a corrupt row never renders a
      * partial or fake ledger).
      */

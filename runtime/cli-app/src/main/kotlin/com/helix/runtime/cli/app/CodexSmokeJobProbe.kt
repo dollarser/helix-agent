@@ -1,11 +1,14 @@
 package com.helix.runtime.cli.app
 
+import com.helix.runtime.cli.client.CliModelJobRecord
+import com.helix.runtime.cli.client.CliModelJobState
+
 internal object CodexSmokeJobProbe {
     fun run(
         runner: CodexModelJobRunner,
         jobId: String,
         requestHash: String,
-    ): CodexModelJobRecord {
+    ): CliModelJobRecord {
         val rejection =
             when (runner.submit(jobId, requestHash)) {
                 is CodexModelJobSubmit.Accepted, is CodexModelJobSubmit.Duplicate -> null
@@ -20,10 +23,10 @@ internal object CodexSmokeJobProbe {
     private fun awaitSmokeJob(
         runner: CodexModelJobRunner,
         jobId: String,
-    ): CodexModelJobRecord {
+    ): CliModelJobRecord {
         repeat(480) {
             runner.query(jobId)?.takeIf { it.state.terminal }?.let {
-                if (it.state == CodexModelJobState.FAILED) runner.failure(jobId)?.let { failure -> throw failure }
+                if (it.state == CliModelJobState.FAILED) runner.failure(jobId)?.let { failure -> throw failure }
                 return it
             }
             Thread.sleep(250)

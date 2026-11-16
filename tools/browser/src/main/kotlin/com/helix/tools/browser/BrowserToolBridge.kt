@@ -12,8 +12,8 @@ package com.helix.tools.browser
  * outcome, and an internal deadline is a TIMED_OUT outcome. The port never throws for a page or
  * model condition (only for a genuine programming error).
  *
- * Node tokens (doc 09 §3.3): `browser.click` / `browser.type` may ONLY consume the short-lived
- * node token minted by the most recent `browser.snapshot`. The port re-validates the token
+ * Node tokens (doc 09 §3.3): `browser_click` / `browser_type` may ONLY consume the short-lived
+ * node token minted by the most recent `browser_snapshot`. The port re-validates the token
  * against the tab's LIVE state (origin / navigation generation / snapshot fingerprint / TTL)
  * before acting; a navigation, refresh, DOM change or TTL expiry makes it stale.
  */

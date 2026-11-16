@@ -55,7 +55,19 @@ public class OkHttpWireClient(
 ) : WireClient {
     override suspend fun open(request: WireRequest): WireResponse =
         suspendCancellableCoroutine { continuation ->
-            val call = client.newCall(Request0Builder.build(request, JSON_MEDIA_TYPE, singleUse = true))
+            val call =
+                client.newCall(
+                    Request0Builder.build(
+                        WireRequest(
+                            request.method,
+                            request.url,
+                            RequestDiagnostics.headers(request.headers),
+                            request.body,
+                        ),
+                        JSON_MEDIA_TYPE,
+                        singleUse = true,
+                    ),
+                )
             continuation.invokeOnCancellation { call.cancel() }
             call.enqueue(
                 object : okhttp3.Callback {

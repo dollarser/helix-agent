@@ -117,7 +117,7 @@ helper 复用手机操作插件的主屏／任务屏、观察、截图、输入�
 
 此原型的独立进程初始化和 Provider 交接使用 Android 非公开平台接口。既有 Debug 设备证据来自 API 36 模拟器和 API 34 真机；Android 12+ 是本轮明确保留的范围，不代表所有版本和 OEM 已验证。接口不匹配会报告启动失败，不自动改用其他操作后端重放任务。
 
-ADB helper 的任务屏由 Helix 持有系统显示 token：helper 重启优先接上原屏并重新观察；原屏消失后只在显式 `ui.launch` 时迁移记录的原 task，不重新启动应用。恢复线索限同一 Helix 进程与当前授权，Helix 本身退出后不保证接回旧 task。显示配置变化仍可能导致 Android 重建 Activity。
+ADB helper 的任务屏由 Helix 持有系统显示 token：helper 重启优先接上原屏并重新观察；原屏消失后只在显式 `ui_launch` 时迁移记录的原 task，不重新启动应用。恢复线索限同一 Helix 进程与当前授权，Helix 本身退出后不保证接回旧 task。显示配置变化仍可能导致 Android 重建 Activity。
 
 任务恢复例外按原 task 消耗，不会永久开启“允许从主屏迁移”；恢复成功后用户再把任务移回主屏，仍须遵守该设置。跨 Helix 进程恢复、手机内无线 ADB 和纯无障碍独立任务屏不在本轮实现范围。
 

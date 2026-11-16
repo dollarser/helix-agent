@@ -164,9 +164,9 @@ AsyncHandle 只是现有 source session/turn/call、job、execution generation�
 
 ### 8.2 模型工具与 ANY/ALL
 
-首版只接 Linux Job，模型面使用 `jobs.status`、`jobs.await`、`jobs.cancel`；collect 复用原 Linux 路径，因为它可能写文件或物化产物，不能并入只读观察。等价旧/新名称在短期过渡中指向同一实现/权限，模型只曝光一套。
+首版只接 Linux Job，模型面使用 `jobs.status`、`jobs_await`、`jobs.cancel`；collect 复用原 Linux 路径，因为它可能写文件或物化产物，不能并入只读观察。等价旧/新名称在短期过渡中指向同一实现/权限，模型只曝光一套。
 
-`jobs.await(handles, condition=ANY|ALL)` 只 join 明确给出的有限集合，不 sleep、不等待全局所有任务。先校验全体身份/权限并去重，空集合或任一非法项在订阅前明确拒绝；不静默跳过。已终态立即返回；ANY 返回触发项及其余已知快照，ALL 只有全部确认终态才满足，终态可为成功/失败/取消。
+`jobs_await(handles, condition=ANY|ALL)` 只 join 明确给出的有限集合，不 sleep、不等待全局所有任务。先校验全体身份/权限并去重，空集合或任一非法项在订阅前明确拒绝；不静默跳过。已终态立即返回；ANY 返回触发项及其余已知快照，ALL 只有全部确认终态才满足，终态可为成功/失败/取消。
 
 | await 返回内容 | 解释 |
 | --- | --- |
@@ -755,7 +755,7 @@ call 与 result 作为完整步骤原子选入/移除或压缩；未结算结果
 
 先保证模型窗口、输出预留、内存/消息长度和用户预算；类别 quota 是可借用的软规则，不把无用来源硬占满。没有可靠 token 计数时记录估算与余量，最终受 Provider 返回和前置容量边界限制；不能把估算写成精确用量。
 
-工具 catalog 丰富不等于每轮 schema 丰富；发现与 `tools.read_result` 等必要后续能力需要可达。新的 `jobs.*` 也采用任务相关曝光，不一律加入所有 Provider 的常驻核心窗口。
+工具 catalog 丰富不等于每轮 schema 丰富；发现与 `tools_read_result` 等必要后续能力需要可达。新的 `jobs.*` 也采用任务相关曝光，不一律加入所有 Provider 的常驻核心窗口。
 
 延续已存在的核心工具优先与发现：先按来源/会话可用性筛选，再按容量选择；发现结果不是执行授权，进入后续实际请求的映射后才可按其 BindingRef 调用。分类额度可借用，Provider 窗口/用户额度/输出预留/协议/内存是硬约束。无工具模式、未知窗口、分页结果和多模态预算需分别测试，不用删除任务目标来凑窗口。
 
@@ -926,7 +926,7 @@ R3 交付时用户应能：导入/安装 → 看组件能力 → 配置必要连
 
 ### J1-2：实现有界 await 与结果映射
 
-**前置：**J1-1；规范 第 8.2 节、第 8.4 至 8.5 节。**主要位置：**jobs.await、观察 timer/watchdog、无进展保护适配。
+**前置：**J1-1；规范 第 8.2 节、第 8.4 至 8.5 节。**主要位置：**jobs_await、观察 timer/watchdog、无进展保护适配。
 
 1. 按契约做 handle 全体验证/去重、ANY/ALL、已终态即时返回和 revision 复核。
 2. 按 B/T/R 计算等待预算，接有界 query/变化唤醒，由平台承担一次 await 内的机械轮询；模型仍可选择查询、等待或处理其他获准工作，不强制所有长任务走同一业务流程。
@@ -1163,7 +1163,7 @@ Automation 未来负责触发新 Run/Turn，不成为 AgentLoop 的工作流大�
 | 执行/日志/原位/清理 | **已完成有界交付**：[原位执行](../development/proot-in-place-execution.md)、[日志](../development/result-log-closeout.md)、[清理](../evidence/development/obsolete-path-cleanup.md) | 不重做原位默认、嵌套 cwd、结果补读、不重放或技术恢复。288 的类型/JSON 分支按具体职责评估，不一律删除 |
 | 插件内容/共同预算 | **结构接缝已交付**：`8297a4be` 的类型化贡献、可信帮助资格、实际调用工具读取引用及唯一 Compiler 预算；删除旧聚合与名称特判 | [286](../completion-records/HXA-286.md)/[293-A](../completion-records/HXA-293.md) 的结果以 checkpoint 证据为限；293-B 效果实验另行，不开放任意历史重写 |
 | 文件/网页/MCP Resources | **文件有界能力已交付，网页/Resources 仍未实施**：原生 glob/字面量 grep 通过主机与双渠道模拟器读回验证，HttpFetchTool 为原始 HTTP；McpClientSession 有元数据无正文读取端口 | [289](../development/tasks/HXA-289.md)/[290](../development/tasks/HXA-290.md)/[291](../development/tasks/HXA-291.md) 不作为结构结算前置；Search 服务选型只阻塞其真实接线 |
-| Browser/Mobile Use | **已有基线＋新能力/待验边界**：BrowserInteractionTools.browser.type、AutomationToolOutcome 的派发/未核实事实及既有后端 | [292](../development/tasks/HXA-292.md) 区分新表单能力、客户端可复现缺陷、仅待 OEM/生命周期验收和模型视觉局限，不重建手机规划器 |
+| Browser/Mobile Use | **已有基线＋新能力/待验边界**：BrowserInteractionTools.browser_type、AutomationToolOutcome 的派发/未核实事实及既有后端 | [292](../development/tasks/HXA-292.md) 区分新表单能力、客户端可复现缺陷、仅待 OEM/生命周期验收和模型视觉局限，不重建手机规划器 |
 | Memory 选择 | **有界实验已完成，保留默认策略**：MemoryContext 最多两域、每域摘要前 1000 字符；现有 list/search/read 已可读后续条目 | [293-B](../completion-records/HXA-293.md) 更正有效样本 baseline/index 各 3/4，未证明候选收益；日志消费仍波动，见[实验记录](../evidence/development/memory-log-effect-experiment.md)，不新增检索平台 |
 | 默认快照/嵌套 cwd 重做前提 | **已被替代/取消**：LinuxRunTool 与原位/日志交付已证明默认 in_place 和严格嵌套 cwd | 取消重复功能实施，不给旧类/接口分层豁免；显式 snapshot 保留有效用途 |
 | 已有能力的其他设备组合 | **仅待验收**：已交付终端/资源/UI 的 OEM、低内存、长稳等未覆盖组合见 [status](../development/status.md) | 按明确授权验证具体组合；不先重构，也不把未覆盖当已知代码缺陷 |
@@ -1225,7 +1225,7 @@ flowchart TD
 
 ### 23.3 执行协议：复用事实，替换含混接口
 
-以下类型名是目标草案，不是新增一整套并存 API 的要求；现有类型能承担职责就直接改造并删除旧形态。模型继续看到 `read`、`write`、`ui.snapshot`、`ui.click` 等具名 schema 工具，绝不暴露一个万能 `execute(action,args)`。内部 Registry 根据精确 binding 分发 JSON 参数是正常实现；宿主编写的领域 handler 可以使用类型化参数，外部 MCP schema 仍需动态验证。
+以下类型名是目标草案，不是新增一整套并存 API 的要求；现有类型能承担职责就直接改造并删除旧形态。模型继续看到 `read`、`write`、`ui_snapshot`、`ui_click` 等具名 schema 工具，绝不暴露一个万能 `execute(action,args)`。内部 Registry 根据精确 binding 分发 JSON 参数是正常实现；宿主编写的领域 handler 可以使用类型化参数，外部 MCP schema 仍需动态验证。
 
 **一份调用身份。**治理后的 `ExecutionContext` 至少包含下列事实；它由宿主创建，模型只能提供该工具 schema 内的业务参数。
 

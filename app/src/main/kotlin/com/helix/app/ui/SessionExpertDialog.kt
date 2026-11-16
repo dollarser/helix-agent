@@ -20,7 +20,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
 import com.helix.app.infrastructure.conversation.ConversationExperts
+import com.helix.app.plugin.ExpertAbilityChoice
 import com.helix.app.plugin.PluginService
+import com.helix.app.plugin.expertAbilityLabel
 import com.helix.app.plugin.expertPluginChoices
 import com.helix.app.plugin.expertSkillChoices
 import com.helix.core.storage.repository.ExpertDefinition
@@ -47,7 +49,7 @@ internal fun SessionExpertDialog(
     var profiles by remember(chatService, sessionId) { mutableStateOf(emptyList<ExpertDefinition>()) }
     var selected by remember(chatService, sessionId) { mutableStateOf<ExpertProfile?>(null) }
     var unavailable by remember(chatService, sessionId) { mutableStateOf(emptySet<String>()) }
-    var dependencyNames by remember(chatService, sessionId) { mutableStateOf(emptyMap<String, String>()) }
+    var dependencyNames by remember(chatService, sessionId) { mutableStateOf(emptyMap<String, ExpertAbilityChoice>()) }
     var loaded by remember(chatService, sessionId) { mutableStateOf(false) }
     var busy by remember(chatService, sessionId) { mutableStateOf(false) }
     var failed by remember(chatService, sessionId) { mutableStateOf(false) }
@@ -61,7 +63,7 @@ internal fun SessionExpertDialog(
                 withContext(Dispatchers.IO) {
                     val p = plugins.expertPluginChoices()
                     val s = plugins.expertSkillChoices()
-                    dependencyNames = (p + s).associate { it.reference to it.name }
+                    dependencyNames = (p + s).associateBy { it.reference }
                     unavailable =
                         profiles
                             .filter { expertDependenciesUnavailable(it, p, s) }
@@ -142,7 +144,7 @@ private fun ExpertChoices(
     profiles: List<ExpertDefinition>,
     selected: ExpertProfile?,
     unavailable: Set<String>,
-    dependencyNames: Map<String, String>,
+    dependencyNames: Map<String, ExpertAbilityChoice>,
     enabled: Boolean,
     onChoose: (String) -> Unit,
 ) {
@@ -151,7 +153,8 @@ private fun ExpertChoices(
         val names =
             (profile.recommendedConnectorIds + profile.recommendedSkillIds)
                 .take(4)
-                .joinToString(" · ") { dependencyNames[it] ?: it.take(48) }
+                .map { dependencyNames[it]?.let { choice -> expertAbilityLabel(choice) } ?: it.take(48) }
+                .joinToString(" · ")
         ConversationMenuRow(
             profile.displayName,
             { onChoose(profile.id) },

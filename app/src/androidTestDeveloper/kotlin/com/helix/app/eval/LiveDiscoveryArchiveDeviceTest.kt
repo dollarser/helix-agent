@@ -61,9 +61,9 @@ class LiveDiscoveryArchiveDeviceTest {
                                 providerId = ProviderId(provider),
                                 mode = AgentMode.ACT,
                                 text =
-                                    "Create exactly one ZIP archive using files.archive from directory " +
+                                    "Create exactly one ZIP archive using files_archive from directory " +
                                         "scope:app:work/$marker/source to scope:app:work/$marker/result.zip. " +
-                                        "Only use tools.search and files.archive; reply DONE after success. " +
+                                        "Only use tools_search and files_archive; reply DONE after success. " +
                                         "Do not modify the source or repeat the archive operation.",
                                 budgets = TurnBudgets(maxOutputTokens = 2048),
                                 clientRequestId = UUID.randomUUID().toString(),
@@ -80,11 +80,11 @@ class LiveDiscoveryArchiveDeviceTest {
                 val record = c.storage.turns.resolve(requireNotNull(turn))
                 assertEquals(record.errorCode, "COMPLETED", record.state)
                 val calls = c.storage.toolCalls.listByTurn(requireNotNull(turn))
-                assertEquals(1, calls.count { it.name == "files.archive" })
-                assertEquals("COMPLETED", calls.single { it.name == "files.archive" }.state)
+                assertEquals(1, calls.count { it.name == "files_archive" })
+                assertEquals("COMPLETED", calls.single { it.name == "files_archive" }.state)
                 ZipFile(archive).use { zip ->
                     val entries = zip.entries().toList().filterNot { it.isDirectory }
-                    // files.archive preserves scope-relative paths, matching ArchiveToolsTest's round trip.
+                    // files_archive preserves scope-relative paths, matching ArchiveToolsTest's round trip.
                     assertEquals(listOf("work/$marker/source/marker.txt"), entries.map { it.name })
                     assertEquals(marker, zip.getInputStream(entries.single()).bufferedReader().use { it.readText() })
                 }

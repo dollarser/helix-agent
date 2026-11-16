@@ -44,7 +44,7 @@ class MobileScrollBoundaryDeviceTest {
                 if (!negativeAck) {
                     val refused =
                         session.dispatch(
-                            "ui.scroll",
+                            "ui_scroll",
                             args(initial, "forward"),
                         ) as ToolDispatchOutcome.ExecutionFailed
                     assertTrue(refused.detail.startsWith("ACTION_NOT_SUPPORTED:"))
@@ -57,9 +57,9 @@ class MobileScrollBoundaryDeviceTest {
                             .put("sideEffectFree", refused.sideEffectFree)
                             .put("requiresReview", refused.requiresReview),
                     )
-                    assertEquals("y=3500;calls=0", receipt(session.output("ui.snapshot")))
+                    assertEquals("y=3500;calls=0", receipt(session.output("ui_snapshot")))
                 }
-                val result = session.dispatch("ui.scroll", args(target(session), "backward"))
+                val result = session.dispatch("ui_scroll", args(target(session), "backward"))
                 if (negativeAck) {
                     val uncertain = result as ToolDispatchOutcome.ExecutionFailed
                     assertEquals("ACTION_FAILED", uncertain.detail)
@@ -75,7 +75,7 @@ class MobileScrollBoundaryDeviceTest {
                     assertTrue(result is ToolDispatchOutcome.Succeeded)
                 }
                 SystemClock.sleep(500)
-                val after = session.output("ui.snapshot")
+                val after = session.output("ui_snapshot")
                 report.put("after", JSONObject(after.toString()))
                 val value = receipt(after)
                 assertTrue(value.endsWith(";calls=1"))
@@ -91,7 +91,7 @@ class MobileScrollBoundaryDeviceTest {
     private fun awaitBottom(session: MobileInteractionSession): JsonObject {
         var before = JsonObject(emptyMap())
         fixture.await("native bottom edge") {
-            before = session.output("ui.snapshot")
+            before = session.output("ui_snapshot")
             before["nodes"]?.jsonArray?.any {
                 it.jsonObject["text"]?.jsonPrimitive?.content == "y=3500;calls=0"
             } == true
@@ -111,7 +111,7 @@ class MobileScrollBoundaryDeviceTest {
 
     private fun target(session: MobileInteractionSession): JsonObject =
         session
-            .output("ui.find", fixture.json("""{"contentDescription":"Boundary scroll target","scrollable":true}"""))
+            .output("ui_find", fixture.json("""{"contentDescription":"Boundary scroll target","scrollable":true}"""))
             .getValue("nodes")
             .jsonArray
             .single()

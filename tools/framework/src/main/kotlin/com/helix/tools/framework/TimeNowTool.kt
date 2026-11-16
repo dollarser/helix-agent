@@ -5,6 +5,7 @@ import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
+import com.helix.tools.framework.ToolDiscoveryHints
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -13,7 +14,7 @@ import java.time.ZoneId
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * The `time.now` built-in tool (doc 01 P0 core tool list, doc 09 P0 list): returns local
+ * The `time_now` built-in tool (doc 01 P0 core tool list, doc 09 P0 list): returns local
  * time, UTC and the time zone. This is the FIRST tool the dispatcher (HXA-035) runs in
  * production code: READ_ONLY operation class, idempotent, in-process — the
  * canonical "no approval needed" path of the pipeline.
@@ -26,7 +27,7 @@ import kotlin.time.Duration.Companion.seconds
  * no real clock in unit tests).
  */
 object TimeNowTool {
-    const val NAME: String = "time.now"
+    const val NAME: String = "time_now"
 
     const val VERSION: Int = 1
 
@@ -67,6 +68,7 @@ object TimeNowTool {
             idempotency = Idempotency.IDEMPOTENT,
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
             origin = ToolOrigin.BuiltInOrigin,
+            discovery = ToolDiscoveryHints(category = "time"),
         )
 
     /** The implementation bound to [descriptor]; the executor checks the cancel signal. */

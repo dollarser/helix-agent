@@ -65,7 +65,7 @@ class PluginAuthorExamplesDeviceTest {
                 c.toolExecution.dispatchToolCall(
                     UUID.randomUUID().toString(),
                     turn,
-                    "skills.read",
+                    "skills_read",
                     args,
                     mode = AgentMode.ACT,
                 )
@@ -228,7 +228,7 @@ class PluginAuthorExamplesDeviceTest {
                 c.toolExecution.dispatchToolCall(
                     UUID.randomUUID().toString(),
                     turn,
-                    "skills.read",
+                    "skills_read",
                     args,
                     mode = AgentMode.ACT,
                 )
@@ -239,7 +239,7 @@ class PluginAuthorExamplesDeviceTest {
                 c.toolExecution.dispatchToolCall(
                     UUID.randomUUID().toString(),
                     turn,
-                    "skills.read",
+                    "skills_read",
                     args,
                     mode = AgentMode.ACT,
                 )

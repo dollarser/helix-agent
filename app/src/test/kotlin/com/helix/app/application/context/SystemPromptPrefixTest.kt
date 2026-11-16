@@ -29,7 +29,7 @@ class SystemPromptPrefixTest {
             "turn",
             FileScopePath("workspace", "start"),
             AgentMode.ACT,
-            setOf("read", "skills.read"),
+            setOf("read", "skills_read"),
         )
     private val owner = NativePluginState("plugin", "runtime", "1", "a".repeat(64), true, 1)
 

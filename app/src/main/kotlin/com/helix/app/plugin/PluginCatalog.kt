@@ -15,12 +15,6 @@ class PluginCatalog(
     val mutationLock get() = storage.connectorMutationLock
     private val dao = storage.connectors
 
-    init {
-        storage.withTransaction {
-            storage.toolAvailability.normalizeSourceRefs(::stableNativeSourceRef)
-        }
-    }
-
     fun claimEndpoint(id: String) {
         dao.claimEndpoint(
             com.helix.core.storage.entity
@@ -218,17 +212,4 @@ class PluginCatalog(
 
     private fun entity(record: InstalledPlugin) =
         ConnectorInstallationEntity(record.id, record.identity, record.revision, encode(record), false)
-}
-
-/** Upgrade current persisted preferences once; the live catalog uses only the stable form. */
-internal fun stableNativeSourceRef(sourceRef: String): String {
-    val parts = sourceRef.split(':')
-    if (parts.size != 4 || parts[0] != "plugin") return sourceRef
-    return try {
-        com.helix.tools.framework.ToolOrigin
-            .PluginOrigin(parts[1], parts[2], parts[3])
-            .canonicalOf()
-    } catch (_: IllegalArgumentException) {
-        sourceRef
-    }
 }

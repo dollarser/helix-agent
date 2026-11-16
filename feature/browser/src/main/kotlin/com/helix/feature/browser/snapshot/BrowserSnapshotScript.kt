@@ -1,7 +1,7 @@
 package com.helix.feature.browser.snapshot
 
 /**
- * The FIXED, versioned DOM-extraction script for `browser.snapshot` (HXA-061; doc 09 §3.4:
+ * The FIXED, versioned DOM-extraction script for `browser_snapshot` (HXA-061; doc 09 §3.4:
  * “DOM 提取和动作通过 Helix 固定、版本化的 JavaScript 片段执行；模型不能提交任意脚本给
  * WebView”).
  *
@@ -30,6 +30,69 @@ object BrowserSnapshotScript {
     const val MAX_VISITED_ELEMENTS = 20000
     const val MAX_BODY_TEXT_LENGTH = 12000
 
+    /** Fixed node classification shared by observation, action traversal and target checks. */
+    internal val KIND_OF =
+        """
+        function kindOf(el) {
+          var t = String(el.tagName || "").toLowerCase();
+          if (t === "a" && el.hasAttribute("href")) return "link";
+          if (t === "button") return "button";
+          if (t === "img") return "image";
+          if (/^h[1-6]$/.test(t)) return "heading";
+          if (t === "input" || t === "select" || t === "textarea") {
+            if (String(el.getAttribute("type") || "").toLowerCase() === "hidden") return null;
+            return "field";
+          }
+          var r = String(el.getAttribute("role") || "").toLowerCase();
+          if (r === "button" || r === "link" || r === "textbox" || r === "checkbox" ||
+              r === "radio" || r === "heading" || r === "menuitem" || r === "option") {
+            return "interactive";
+          }
+          return null;
+        }
+        """.trimIndent()
+
+    /** Shared bounded semantic projection for observation and synchronous action revalidation. */
+    internal val NODE_HELPERS =
+        """
+        function cleanText(s) {
+          if (s === null || s === undefined) return "";
+          s = String(s).replace(/\\s+/g, " ").trim();
+          if (s.length > MAX_TEXT) s = s.substring(0, MAX_TEXT);
+          return s;
+        }
+        $KIND_OF
+        function nameOf(el) {
+          return cleanText(el.getAttribute("aria-label") || el.getAttribute("name") ||
+            el.getAttribute("placeholder") || el.getAttribute("title") || el.id || "");
+        }
+        function textOf(el) {
+          var alt = String(el.getAttribute("alt") || "").trim();
+          if (alt !== "") return cleanText(alt);
+          return cleanText(el.textContent);
+        }
+        function valueOf(el) {
+          var t = String(el.tagName || "").toLowerCase();
+          if (t === "input" || t === "select" || t === "textarea") {
+            // doc 09 §3.3: 密码框默认拒绝 —— the value of a password field is never read.
+            if (String(el.getAttribute("type") || "").toLowerCase() === "password") return null;
+            var ac = String(el.getAttribute("autocomplete") || "").toLowerCase();
+            var label = String((el.getAttribute("name") || el.id || "") + " " +
+                               (el.getAttribute("placeholder") || "")).toLowerCase();
+            if (ac === "password" || ac.endsWith("-password") || label.indexOf("password") >= 0 ||
+                label.indexOf("passwd") >= 0 || label.indexOf("密码") >= 0) return null;
+          }
+          if (t === "select") {
+            var opt = el.selectedIndex >= 0 ? el.options[el.selectedIndex] : null;
+            return opt ? cleanText(opt.textContent) : null;
+          }
+          var v = el.value;
+          if (v === null || v === undefined) return null;
+          v = cleanText(v);
+          return v === "" ? null : v;
+        }
+        """.trimIndent()
+
     /**
      * Walks `document.body` in document order and returns (as the last expression value)
      * an Array of bounded semantic node objects. Interactive / landmark elements are kept;
@@ -41,58 +104,7 @@ object BrowserSnapshotScript {
           var MAX_NODES = 400;
           var MAX_TEXT = 200;
           var MAX_VISITED = 20000;
-          function cleanText(s) {
-            if (s === null || s === undefined) return "";
-            s = String(s).replace(/\\s+/g, " ").trim();
-            if (s.length > MAX_TEXT) s = s.substring(0, MAX_TEXT);
-            return s;
-          }
-          function kindOf(el) {
-            var t = String(el.tagName || "").toLowerCase();
-            if (t === "a" && el.hasAttribute("href")) return "link";
-            if (t === "button") return "button";
-            if (t === "img") return "image";
-            if (/^h[1-6]$/.test(t)) return "heading";
-            if (t === "input" || t === "select" || t === "textarea") {
-              if (String(el.getAttribute("type") || "").toLowerCase() === "hidden") return null;
-              return "field";
-            }
-            var r = String(el.getAttribute("role") || "").toLowerCase();
-            if (r === "button" || r === "link" || r === "textbox" || r === "checkbox" ||
-                r === "radio" || r === "heading" || r === "menuitem" || r === "option") {
-              return "interactive";
-            }
-            return null;
-          }
-          function nameOf(el) {
-            return cleanText(el.getAttribute("aria-label") || el.getAttribute("name") ||
-              el.getAttribute("placeholder") || el.getAttribute("title") || el.id || "");
-          }
-          function textOf(el) {
-            var alt = String(el.getAttribute("alt") || "").trim();
-            if (alt !== "") return cleanText(alt);
-            return cleanText(el.textContent);
-          }
-          function valueOf(el) {
-            var t = String(el.tagName || "").toLowerCase();
-            if (t === "input" || t === "select" || t === "textarea") {
-              // doc 09 §3.3: 密码框默认拒绝 —— the value of a password field is never read.
-              if (String(el.getAttribute("type") || "").toLowerCase() === "password") return null;
-              var ac = String(el.getAttribute("autocomplete") || "").toLowerCase();
-              var label = String((el.getAttribute("name") || el.id || "") + " " +
-                                 (el.getAttribute("placeholder") || "")).toLowerCase();
-              if (ac === "password" || ac.endsWith("-password") || label.indexOf("password") >= 0 ||
-                  label.indexOf("passwd") >= 0 || label.indexOf("密码") >= 0) return null;
-            }
-            if (t === "select") {
-              var opt = el.selectedIndex >= 0 ? el.options[el.selectedIndex] : null;
-              return opt ? cleanText(opt.textContent) : null;
-            }
-            var v = el.value;
-            if (v === null || v === undefined) return null;
-            v = cleanText(v);
-            return v === "" ? null : v;
-          }
+          $NODE_HELPERS
           var nodes = [];
           var visited = 0;
           var truncated = false;

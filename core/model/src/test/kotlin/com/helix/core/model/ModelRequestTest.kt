@@ -291,7 +291,7 @@ class ModelRequestTest {
                 text = "",
                 toolCalls =
                     listOf(
-                        AssistantToolCall(ToolCallId("call_1"), ToolName("time.now"), "{}"),
+                        AssistantToolCall(ToolCallId("call_1"), ToolName("time_now"), "{}"),
                     ),
             )
         val request = ModelRequest(model = "m", messages = listOf(user, step, user))

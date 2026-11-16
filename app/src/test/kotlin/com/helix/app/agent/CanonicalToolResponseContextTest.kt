@@ -52,7 +52,7 @@ class CanonicalToolResponseContextTest {
             "ASSISTANT",
             ChatHistoryBuilder.KIND_TOOL_CALLS,
             AssistantToolResponseContent.attachText(
-                """[{"id":"call-$index","name":"ui.snapshot","arguments":"{}"}]""",
+                """[{"id":"call-$index","name":"ui_snapshot","arguments":"{}"}]""",
                 text,
             ),
         ),
@@ -60,7 +60,7 @@ class CanonicalToolResponseContextTest {
             "result-$index",
             "TOOL",
             ChatHistoryBuilder.KIND_TOOL_RESULT,
-            """{"id":"call-$index","tool":"ui.snapshot","status":"$status","summary":"result"}""",
+            """{"id":"call-$index","tool":"ui_snapshot","status":"$status","summary":"result"}""",
         ),
     )
 

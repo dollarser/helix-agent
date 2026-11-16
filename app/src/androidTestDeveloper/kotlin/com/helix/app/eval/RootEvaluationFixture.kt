@@ -133,7 +133,7 @@ internal class RootEvaluationFixture(
             when (caseId) {
                 "root-001" -> RootTools.PACKAGE_INFO
                 "root-002" -> RootTools.PROCESS_LIST
-                else -> "root.exec"
+                else -> "root_exec"
             }
         val args = buildJsonObject { if (caseId == "root-001") put("packageName", "com.helix.agent.developer") }
         val outcome = dispatch("host-probe-$caseId", name, args)
@@ -158,7 +158,7 @@ internal class RootEvaluationFixture(
             put("sessionState", sessions.status().state.name)
             put("executorGuard", executorGuard?.detail)
             put("operationCalls", operationCalls)
-            put("rootExecAbsent", registry.resolveLatest(ToolName("root.exec")) == null)
+            put("rootExecAbsent", registry.resolveLatest(ToolName("root_exec")) == null)
             put("denied", outcome is ToolDispatchOutcome.Denied || outcome is ToolDispatchOutcome.ExecutionFailed)
         }
     }

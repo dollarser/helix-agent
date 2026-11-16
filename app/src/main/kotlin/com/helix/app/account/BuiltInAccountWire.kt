@@ -13,14 +13,21 @@ class BuiltInAccountWire(
             followRedirects = false,
         ),
 ) : WireClient {
-    private val generation = account?.wire(BuiltInModel.GENERATION_URL, delegate)
     private val revision = account?.revision
+    private val generation = account?.wire(BuiltInModel.GENERATION_URL, delegate, requireNotNull(revision))
+    private val responses = account?.wire(BuiltInModel.RESPONSES_URL, delegate, requireNotNull(revision))
 
     fun newInvocation() = BuiltInAccountWire(account, delegate)
 
     override suspend fun open(request: WireRequest): WireResponse {
         require(
-            (request.method == "POST" && request.url == BuiltInModel.GENERATION_URL) ||
+            (
+                request.method == "POST" && request.url in
+                    setOf(
+                        BuiltInModel.GENERATION_URL,
+                        BuiltInModel.RESPONSES_URL,
+                    )
+            ) ||
                 (request.method == "GET" && isBuiltInCatalogUrl(request.url) && request.body == null),
         )
         if (account == null) {
@@ -32,7 +39,7 @@ class BuiltInAccountWire(
             if (request.method ==
                 "POST"
             ) {
-                generation
+                if (request.url == BuiltInModel.RESPONSES_URL) responses else generation
             } else {
                 account.wire(request.url, delegate, requireNotNull(revision))
             }

@@ -38,6 +38,8 @@ internal class SessionInputProtocolServer(
     val release = CountDownLatch(1)
 
     @Volatile var exercise = false
+
+    @Volatile var exerciseReply: ((String, Int) -> String)? = null
     val port: Int get() = server.localPort
     val requestCount: Int get() = bodies.size
     private val thread = Thread(::acceptLoop, "helix-input-protocol-fixture").apply { isDaemon = true }
@@ -153,10 +155,11 @@ internal class SessionInputProtocolServer(
 
     private fun exerciseStream(body: String): String {
         bodies.add(body)
+        exerciseReply?.let { return it(body, bodies.size) }
         return if (bodies.size == 1) {
             entered.countDown()
             check(release.await(30, TimeUnit.SECONDS)) { "Steer did not release tool response" }
-            SessionInputProtocolStreams.tool(protocol, probe = false)
+            SessionInputProtocolStreams.tool(protocol, probe = false, requestBody = body)
         } else {
             SessionInputProtocolStreams.text(protocol)
         }
@@ -167,7 +170,7 @@ internal class SessionInputProtocolServer(
         return if (tools.isNullOrEmpty()) {
             SessionInputProtocolStreams.text(protocol)
         } else {
-            SessionInputProtocolStreams.tool(protocol, probe = true)
+            SessionInputProtocolStreams.tool(protocol, probe = true, requestBody = body)
         }
     }
 }

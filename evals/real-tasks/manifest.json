@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "scope": "Fixed real-model tasks; one attempt each, no success-selected retries",
+  "cases": [
+    {
+      "id": "file-location",
+      "test": "com.helix.app.eval.FileLocationModelDeviceTest#autonomouslyLocatesCurrentReleaseEvidence",
+      "arguments": {
+        "fileLocationModelAcceptance": "true"
+      },
+      "acceptance": "Current ORCHID path, token and rollback, source reading consumed by the model",
+      "evidence": "file-location-model/<run>/result.json"
+    },
+    {
+      "id": "log-diagnosis",
+      "test": "com.helix.app.proot.NaturalFailureLogTaskDeviceTest#modelDiagnosesOriginalFailureThroughProductionRequestContext",
+      "arguments": {
+        "naturalDiscovery": "true"
+      },
+      "acceptance": "Original saved stderr consumed in a later request, correct marker and exit 7, no command rerun",
+      "evidence": "natural-failure-tasks/diagnosis-<run>/result.json"
+    },
+    {
+      "id": "web-citation",
+      "test": "com.helix.app.eval.BrowserSearchModelDeviceTest#modelSearchesReadsOpensAndCitesPublicSource",
+      "arguments": {
+        "browserSearchModelAcceptance": "true"
+      },
+      "acceptance": "Read search results, open IANA, consume actual source and quote registration/transfer sentence",
+      "evidence": "browser-search-model/<run>/result.json",
+      "constraint": "Daily installation additionally requires browserSearchDailyAcceptance=true; approvals are fixture interventions, not autonomous success."
+    },
+    {
+      "id": "cross-session-recall",
+      "test": "com.helix.app.chat.ResourceReferenceConsumptionDeviceTest#crossSessionNaturalDiscoveryUsesGrantedHistory",
+      "acceptance": "Find an earlier synthetic session through production search/read, consume source and answer current user; no answer injection",
+      "constraint": "Uses candidate BuiltInModel identity, identical to the other three tasks; no overrides or credential setup.",
+      "arguments": {
+        "helixCrossSessionModel": "true"
+      },
+      "evidence": "cross-session-model/<run>/result.json"
+    }
+  ],
+  "modelSelection": "candidate-built-in"
+}

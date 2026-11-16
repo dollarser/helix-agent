@@ -254,7 +254,7 @@ class CodexRealAccountDiagnosticTest {
 
     private fun tool() =
         ModelToolSchema(
-            ToolName("fixture.echo"),
+            ToolName("fixture_echo"),
             "Echo the supplied text for a harmless test",
             """{"type":"object","properties":{"text":{"type":"string"}},
             "required":["text"],"additionalProperties":false}""",

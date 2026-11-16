@@ -2,6 +2,7 @@ package com.helix.app.plugin
 
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
@@ -23,6 +24,7 @@ data class PluginReadinessContext(
             put("browserHost", if (browserAvailable) "AVAILABLE" else "HOST_UNAVAILABLE")
             put("projection", "Individual optional rows may be omitted by the model context budget")
             put("diagnostics", "DETAILS_IN_PLUGIN_SETTINGS")
+            put("names", "Names and aliases identify the same plugin; they do not select, enable or authorize it.")
         }
 }
 
@@ -66,6 +68,8 @@ internal fun pluginReadinessContext(
 internal fun PluginReadinessSnapshot.requestSummary() =
     buildJsonObject {
         put("pluginId", pluginId)
+        put("name", name.original)
+        put("aliases", JsonArray(name.aliases.map(::JsonPrimitive)))
         put("revision", revision)
         put("selected", selected)
         put("enabled", enabled)
