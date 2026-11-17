@@ -22,6 +22,20 @@ public final class BackgroundPreviewPageActivity extends BackgroundTouchActivity
         back.setAllCaps(false);
         back.setOnClickListener(view -> finish());
         page.addView(back);
+        android.content.SharedPreferences facts = getSharedPreferences("background-fixture", 0);
+        TextView state = new TextView(this);
+        state.setText("DYNAMIC_READY");
+        page.addView(state);
+        Button load = new Button(this);
+        load.setText("Load delayed result");
+        load.setAllCaps(false);
+        load.setOnClickListener(view -> {
+            int clicks = facts.getInt("dynamicClicks", 0) + 1;
+            facts.edit().putInt("dynamicClicks", clicks).commit();
+            state.setText("DYNAMIC_LOADING");
+            state.postDelayed(() -> state.setText("DYNAMIC_DONE:" + clicks), 1800);
+        });
+        page.addView(load);
         setContentView(page);
     }
 }

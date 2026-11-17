@@ -29,6 +29,7 @@ import java.util.UUID
 
 /** Explicit opt-in, existing credentials only. Bounded synthetic tasks, independently checked effects. */
 class ClosedLoopRealModelDeviceTest {
+    private val mobileCases = setOf("visual", "nodes", "dynamic", "main-return")
     private val app = ApplicationProvider.getApplicationContext<HelixApplication>()
     private val c get() = app.appContainer
     private val args get() = InstrumentationRegistry.getArguments()
@@ -39,7 +40,7 @@ class ClosedLoopRealModelDeviceTest {
         runBlocking {
             org.junit.Assume.assumeTrue(args.getString("helixRealModel") == "true")
             val case = requireNotNull(args.getString("helixCase"))
-            require(case in setOf("visual", "nodes", "scripts", "handoff"))
+            require(case in setOf("visual", "nodes", "dynamic", "main-return", "scripts", "handoff"))
             val trial = requireNotNull(args.getString("helixTrial"))
             require(trial.matches(Regex("[a-z0-9-]+")))
             check(
@@ -49,11 +50,7 @@ class ClosedLoopRealModelDeviceTest {
             )
             val provider = requireNotNull(args.getString("helixProvider"))
             val model = requireNotNull(args.getString("helixModel"))
-            check(
-                c.storage.providerConfigs
-                    .resolve(provider)
-                    .model == model,
-            )
+            checkConfiguredModel(provider, model)
             val previous = c.chatService.screen.value.openSessionId
             awaitVisualBackend(case)
 
@@ -80,7 +77,13 @@ class ClosedLoopRealModelDeviceTest {
             try {
                 if (case == "visual") {
                     check(provider == com.helix.app.provider.BuiltInModel.PROVIDER_ID)
-                    check(model == com.helix.app.provider.BuiltInModel.MODEL_ID)
+                    check(
+                        model in
+                            setOf(
+                                com.helix.app.provider.BuiltInModel.MODEL_ID,
+                                com.helix.app.provider.BuiltInModel.QWEN_MODEL_ID,
+                            ),
+                    )
                     visualWire = OwnedVisualRequestProbe(c, session, nonce)
                 }
                 check(c.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
@@ -91,16 +94,22 @@ class ClosedLoopRealModelDeviceTest {
                 )
                 val fixture = InstrumentationRegistry.getInstrumentation().context.packageName
                 c.pluginService.setEnabled(plugin.id, true)
-                c.pluginService.catalog.select(session, plugin.id, case in setOf("visual", "nodes"))
+                c.pluginService.catalog.select(session, plugin.id, case in mobileCases)
                 val store = MobileUseGrantStore(lines::lines, lines::setLines, { null })
-                store.configureGlobal(setOf(fixture), false, shareScreens = true)
-                store.configureExecution(background = true, allowMoveFromMain = false)
+                store.configureGlobal(
+                    if (case == "main-return") setOf(fixture, app.packageName) else setOf(fixture),
+                    false,
+                    shareScreens = true,
+                )
+                store.configureExecution(background = case != "main-return", allowMoveFromMain = false)
                 bridge.setEnabled(case == "scripts")
                 if (case == "scripts") {
                     ensureInstalledRuntime(app)
                     skill = prepareSkill(source, session)
                 }
-                c.chatService.openTestSessionControl(session, AgentMode.ACT, TurnBudgets(4096))
+                // Match the current Luna deployment contract maximum; production context admission still applies.
+                c.chatService.openTestSessionControl(session, AgentMode.ACT, TurnBudgets(16_384))
+                if (case == "main-return") prepareOwnedMainReturn(app)
                 val prompt = casePrompt(case, fixture, nonce, skill)
                 val admission = c.chatService.sendSubmission(ChatSubmission(session, 0, "owned-$trial", prompt)).await()
                 check(admission.outcome is ChatSubmissionOutcome.Accepted) {
@@ -160,8 +169,25 @@ class ClosedLoopRealModelDeviceTest {
             assertTrue("Synthetic $trial failed; inspect retained evidence: $failure", passed)
         }
 
+    private fun checkConfiguredModel(
+        provider: String,
+        model: String,
+    ) {
+        val configuredModel =
+            c.storage.providerConfigs
+                .resolve(provider)
+                .model
+        check(
+            model == configuredModel ||
+                (
+                    provider == com.helix.app.provider.BuiltInModel.PROVIDER_ID &&
+                        model == com.helix.app.provider.BuiltInModel.QWEN_MODEL_ID
+                ),
+        )
+    }
+
     private fun awaitVisualBackend(case: String) {
-        if (case in setOf("visual", "nodes") && args.getString("helixAdbHelper") == "true") awaitComputerAdbHelper()
+        if (case in mobileCases && args.getString("helixAdbHelper") == "true") awaitComputerAdbHelper()
     }
 
     private suspend fun exerciseHumanReturn(
@@ -263,6 +289,14 @@ class ClosedLoopRealModelDeviceTest {
                 nodePrompt(fixture, nonce)
             }
 
+            "dynamic" -> {
+                dynamicMobilePrompt(fixture, nonce)
+            }
+
+            "main-return" -> {
+                mainReturnPrompt(fixture, app.packageName, nonce)
+            }
+
             "scripts" -> {
                 scriptsPrompt(requireNotNull(skill), nonce)
             }
@@ -322,6 +356,14 @@ class ClosedLoopRealModelDeviceTest {
                 verifyNodes(calls, root, nonce)
             }
 
+            "dynamic" -> {
+                verifyDynamicMobile(app, c, calls, root, nonce)
+            }
+
+            "main-return" -> {
+                verifyMainReturn(app, c, calls, root, nonce, session)
+            }
+
             "handoff" -> {
                 File(root, "output/after-manual.txt").readText() == nonce &&
                     c.storage.turns
@@ -360,11 +402,14 @@ class ClosedLoopRealModelDeviceTest {
                 it.moveToFirst() && it.getInt(0) > 0 && it.getInt(1) == 1 && it.getInt(2) == 0
             }
         val observed =
-            calls.filter { it.name == "ui_snapshot" && it.state == "COMPLETED" }.any { call ->
-                c.storage.toolResults.byToolCall(call.callId)?.let(c.storage.toolResults::readContent)?.let {
-                    nonce in it && "BACKGROUND_COUNT:1" in it
-                } == true
-            }
+            calls
+                .filter {
+                    it.name in setOf("ui_snapshot", "ui_click", "ui_click_match") && it.state == "COMPLETED"
+                }.any { call ->
+                    c.storage.toolResults.byToolCall(call.callId)?.let(c.storage.toolResults::readContent)?.let {
+                        nonce in it && "BACKGROUND_COUNT:1" in it
+                    } == true
+                }
         return effect && observed && File(root, "output/result.txt").readText() == nonce
     }
 

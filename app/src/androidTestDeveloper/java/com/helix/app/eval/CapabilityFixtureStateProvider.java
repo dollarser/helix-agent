@@ -24,6 +24,12 @@ public final class CapabilityFixtureStateProvider extends ContentProvider {
             cursor.addRow(new Object[] {prefs.getInt("display", -1), prefs.getInt("clicks", 0), prefs.getInt("visual", 0), prefs.getInt("scrollY", 0)});
             return cursor;
         }
+        if ("/dynamic".equals(uri.getPath())) {
+            SharedPreferences prefs = getContext().getSharedPreferences("background-fixture", 0);
+            MatrixCursor cursor = new MatrixCursor(new String[] {"clicks"});
+            cursor.addRow(new Object[] {prefs.getInt("dynamicClicks", -1)});
+            return cursor;
+        }
         if ("/touch".equals(uri.getPath())) {
             SharedPreferences prefs = getContext().getSharedPreferences("touch-review", 0);
             MatrixCursor cursor = new MatrixCursor(new String[] {"x", "y", "clicks", "event"});

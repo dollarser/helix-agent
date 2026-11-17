@@ -114,7 +114,15 @@ class ExistingAccountCloudReadinessDeviceTest {
                     asr.finish()
                 }
             check(transcript.any { it.isLetterOrDigit() })
-            record("speech.http_asr_nonempty=true;recognition_accuracy=not_asserted")
+            val expected = SYNTHETIC_SPEECH_TEXT.filter(Char::isLetterOrDigit)
+            val recognized = transcript.filter(Char::isLetterOrDigit)
+            val matches = recognized == expected
+            // Only a known synthetic sentence is compared. Never log remote transcript text.
+            record(
+                "speech.http_asr_nonempty=true;synthetic_roundtrip_exact_match=$matches;" +
+                    "expected_characters=${expected.length};recognized_characters=${recognized.length}",
+            )
+            check(matches) { "Synthetic TTS/ASR round trip differs; this does not isolate ASR accuracy" }
             // Local close-before-finish exercise only; no claim about remote cancellation.
             HttpFileAsr(settings.session(settings.asrEndpoint, app.account), settings.asrModel).use { asr ->
                 asr.send(FloatArray(1600))
@@ -142,11 +150,34 @@ class ExistingAccountCloudReadinessDeviceTest {
             record("asr_fixture.nonempty=true;source=macos_say;microphone=false;accuracy=not_asserted")
         }
 
+    @Test fun cloudAsrRecognizesKnownSyntheticSentence() =
+        authenticated("asr_known_sentence") {
+            val fixture = File(app.cacheDir, "cloud-readiness-known-sentence.wav")
+            check(fixture.isFile && fixture.length() in 44..640000)
+            val settings = SpeechServiceSettings(httpEnabled = true, useAccountLogin = true)
+            val transcript =
+                HttpFileAsr(settings.session(settings.asrEndpoint, app.account), settings.asrModel).use { asr ->
+                    SpeechWav.consume(fixture.readBytes()) { samples, rate ->
+                        check(rate == 16000)
+                        asr.send(samples)
+                    }
+                    asr.finish()
+                }
+            val expected = SYNTHETIC_SPEECH_TEXT.filter(Char::isLetterOrDigit)
+            val recognized = transcript.filter(Char::isLetterOrDigit)
+            val matches = recognized == expected
+            record(
+                "asr_known_sentence.exact_match=$matches;source=macos_say;microphone=false;" +
+                    "expected_characters=${expected.length};recognized_characters=${recognized.length}",
+            )
+            check(matches) { "Known synthetic sample differs; this is not a real microphone quality check" }
+        }
+
     private fun synthesizeAndPlay(settings: SpeechServiceSettings): List<Float> {
         val audio = mutableListOf<Float>()
         SpeechAudio(app, volume = 0f).sink(24000).use { sink ->
             HttpCloudTts(settings.session(settings.ttsEndpoint, app.account), settings.ttsModel).use { tts ->
-                tts.stream("你好，这是云端语音验证。") { pcm, rate ->
+                tts.stream(SYNTHETIC_SPEECH_TEXT) { pcm, rate ->
                     check(rate == 24000 && audio.size + pcm.size <= 24000 * 20)
                     audio.addAll(pcm.toList())
                     sink.write(pcm) { true }
@@ -368,4 +399,8 @@ class ExistingAccountCloudReadinessDeviceTest {
                     "TECHNICAL_RECOVERY_EXHAUSTED",
                 ),
         )
+
+    private companion object {
+        const val SYNTHETIC_SPEECH_TEXT = "你好，这是云端语音验证。"
+    }
 }
