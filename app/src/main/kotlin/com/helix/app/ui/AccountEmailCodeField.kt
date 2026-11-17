@@ -1,9 +1,7 @@
 package com.helix.app.ui
 
 import android.os.SystemClock
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -13,8 +11,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import com.helix.app.R
 import com.helix.app.account.AccountCaptchaAction
@@ -82,36 +78,19 @@ internal fun AccountEmailCodeField(
             delay(500)
         }
     }
-    OutlinedTextField(
-        code,
-        { onCode(it.filter { char -> char in '0'..'9' }.take(6)) },
-        Modifier.testTag("account-email-code"),
-        label = { Text(stringResource(R.string.account_verification_code)) },
-        singleLine = true,
-        keyboardOptions = accountCodeKeyboard,
-        enabled = enabled && !sending,
-    )
-    TextButton(
-        modifier = Modifier.testTag("account-send-code"),
-        enabled = enabled && !sending && remaining == 0L && send != null,
-        onClick = {
+    AccountEmailCodeInputs(
+        code = code,
+        onCode = onCode,
+        inputEnabled = enabled && !sending,
+        sendEnabled = enabled && !sending && remaining == 0L && send != null,
+        remaining = remaining,
+        onSend = {
             error = null
             accepted = false
             sending = true
             attempt = EmailCaptchaAttempt(current, requireNotNull(send))
         },
-    ) {
-        Text(
-            if (remaining > 0) {
-                stringResource(
-                    R.string.account_code_wait,
-                    remaining,
-                )
-            } else {
-                stringResource(R.string.account_send_code)
-            },
-        )
-    }
+    )
     attempt?.let { pending ->
         challenge(action, {
             if (attempt === pending) {
