@@ -110,11 +110,5 @@ private fun recoverySourceFor(
                 artifactIds = storage.artifacts.listByTurn(turn.id).map { it.id },
             ),
         supersededByCompleted = supersededByCompleted,
-        stopFacts =
-            if (turn.state == TurnState.CANCELLED.name || turn.pauseRequestedAt != null) {
-                loadStopFacts(storage, turn.id)
-            } else {
-                null
-            },
     )
 }

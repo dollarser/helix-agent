@@ -159,13 +159,6 @@
     <string name="turn_notice_inspection_unavailable">未能完成结果核查。</string>
     <string name="turn_notice_details">查看详情</string>
     <string name="run_metrics_title">运行详情</string>
-    <string name="stop_facts_title">停止事实摘要</string>
-    <string name="stop_facts_verified">已验证工具效果：%1$s</string>
-    <string name="stop_facts_recorded">已记录结果：%1$s</string>
-    <string name="stop_facts_unknown">效果未知：%1$s</string>
-    <string name="stop_facts_not_started">未启动：%1$s</string>
-    <string name="stop_facts_artifacts">已登记输出产物：%1$d</string>
-    <string name="stop_facts_boundary">停止不会撤销已执行的操作。效果未知时，请先核对再继续。</string>
     <string name="tool_content_full">查看完整内容</string>
     <string name="tool_content_loading">正在读取内容…</string>
     <string name="tool_content_unavailable">完整内容暂时无法读取</string>

@@ -159,13 +159,6 @@
     <string name="turn_notice_inspection_unavailable">Unable to complete the result check.</string>
     <string name="turn_notice_details">View details</string>
     <string name="run_metrics_title">Run details</string>
-    <string name="stop_facts_title">Stop facts</string>
-    <string name="stop_facts_verified">Verified tool effects: %1$s</string>
-    <string name="stop_facts_recorded">Recorded results: %1$s</string>
-    <string name="stop_facts_unknown">Unknown effects: %1$s</string>
-    <string name="stop_facts_not_started">Not started: %1$s</string>
-    <string name="stop_facts_artifacts">Registered output artifacts: %1$d</string>
-    <string name="stop_facts_boundary">Stopping does not undo executed actions. Check unknown effects before continuing.</string>
     <string name="tool_content_full">View full content</string>
     <string name="tool_content_loading">Loading content…</string>
     <string name="tool_content_unavailable">Full content is unavailable</string>
