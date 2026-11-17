@@ -65,6 +65,20 @@ class AutomationBackendSelectionTest {
         assertEquals(listOf("root", "adb", "shizuku", "accessibility"), port.actions)
     }
 
+    @Test fun optionalObservationDoesNotChangeTheSelectedPrivilegedClickRoute() {
+        for (choice in listOf(
+            AutomationClickBackend.ROOT,
+            AutomationClickBackend.ADB,
+            AutomationClickBackend.SHIZUKU,
+        )) {
+            val port = SelectionPort().apply { selected = choice }
+            val result = execute(port, observeAfter = true) as ToolExecutorResult.Completed
+            assertEquals(listOf(choice.name.lowercase()), port.actions)
+            assertTrue(port.snapshots > 0)
+            assertEquals("ATTACHED", (result.output as JsonObject)["observationStatus"]?.jsonPrimitive?.content)
+        }
+    }
+
     @Test fun unknownRootEffectNeverReplaysOnAnotherBackend() {
         val port = SelectionPort().apply { status = AutomationActionStatus.ACTION_OUTCOME_UNKNOWN }
         val result = execute(port) as ToolExecutorResult.Failed
@@ -122,6 +136,7 @@ class AutomationBackendSelectionTest {
     private fun execute(
         port: SelectionPort,
         extra: Map<String, String> = emptyMap(),
+        observeAfter: Boolean? = null,
     ): ToolExecutorResult {
         val fields =
             mapOf("packageName" to "com.example.target", "viewId" to "android:id/button1", "text" to "Click") + extra
@@ -130,7 +145,10 @@ class AutomationBackendSelectionTest {
                 "call",
                 AutomationTools.CLICK_MATCH,
                 "1",
-                JsonObject(fields.mapValues { JsonPrimitive(it.value) }),
+                JsonObject(
+                    fields.mapValues { JsonPrimitive(it.value) } +
+                        (observeAfter?.let { mapOf("observeAfter" to JsonPrimitive(it)) } ?: emptyMap()),
+                ),
                 ExecutionTargetType.LOCAL_ANDROID,
                 Instant.now().plusSeconds(30),
                 NoCancellation,

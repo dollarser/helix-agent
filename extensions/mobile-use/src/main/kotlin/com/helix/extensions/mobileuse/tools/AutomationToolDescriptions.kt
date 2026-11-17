@@ -131,10 +131,14 @@ private const val CLICK_MATCH_DESCRIPTION =
         "The runtime selects the available backend; do not supply a backend argument. " +
         "An authorized system Install button is within task scope; " +
         "Android may still require manual confirmation. " +
+        "Set observeAfter=true when the next step needs fresh semantic state; read its bounded observation " +
+        "instead of taking a redundant snapshot. Omit for vision or no read. " +
         "Zero or ambiguous targets do not click; unknown outcomes must not be replayed."
 
 private const val CLICK_DESCRIPTION =
     "Click the exact token from the latest ui_snapshot/find/wait or returned post-action observation. " +
         "Do not insert another observation between finding and clicking: it replaces old tokens. " +
         "Use clickTargetToken for a non-clickable child. For a known selector prefer ui_click_match. " +
-        "DISPATCHED does not verify touch acceptance; observe the resulting screen."
+        "Set observeAfter=true when the next step needs screen state; read the returned bounded observation " +
+        "and fresh tokens instead of a redundant snapshot. Omit for vision or no semantic read. " +
+        "UNSETTLED may still be changing. DISPATCHED does not verify touch acceptance; verify the effect."

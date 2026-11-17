@@ -12,6 +12,7 @@ import com.helix.tools.framework.ToolExecutorResult
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -187,3 +188,13 @@ internal class AutomationPostActionObservation(
         private const val MAX_NODE_BYTES = 12 * 1024
     }
 }
+
+internal fun shouldObserveAfter(
+    name: String,
+    args: JsonObject,
+): Boolean =
+    name in setOf(AutomationTools.SET_TEXT, AutomationTools.SCROLL) ||
+        (
+            name in setOf(AutomationTools.CLICK, AutomationTools.CLICK_MATCH) &&
+                args["observeAfter"]?.jsonPrimitive?.booleanOrNull == true
+        )

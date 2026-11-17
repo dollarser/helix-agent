@@ -34,7 +34,8 @@ class MobileUseToolContractsTest {
     @Test fun packagedSkillExplainsObservationRecoveryAndPermissionBoundaries() {
         val root = java.io.File("src/main/assets/plugins/mobile-use/skills/android-ui-task")
         val entry = root.resolve("SKILL.md").readText()
-        assertTrue(entry.toByteArray().size < 1024)
+        assertTrue(entry.toByteArray().size < 4096)
+        assertTrue(entry.contains("do not read every reference before starting"))
         assertTrue(entry.contains("Observe the authorized target"))
         assertTrue(entry.contains("Launch only if it is not already open"))
         assertTrue(entry.contains("references/android-ui-reference.md"))
@@ -43,6 +44,48 @@ class MobileUseToolContractsTest {
         assertTrue(text.contains("ui_wait"))
         assertTrue(text.contains("ACTION_OUTCOME_UNKNOWN"))
         assertTrue(text.contains("does not grant permission"))
+    }
+
+    @Test fun progressiveReferencesArePackagedHashBoundAndKeepSpecializedRules() {
+        val root = java.io.File("src/main/assets/plugins/mobile-use/skills/android-ui-task")
+        val entry = root.resolve("SKILL.md").readText()
+        val resources = root.resolve("references").listFiles()!!.associate { "references/${it.name}" to it.readText() }
+        val document =
+            com.helix.extensions.skills
+                .SkillLoader()
+                .loadBuiltIn(entry, "android-ui-task", resources)
+        assertTrue(resources.keys.all { it in entry && it in document.resources })
+        val semantic = resources.getValue("references/android-ui-reference.md")
+        val vision = resources.getValue("references/vision-and-gestures.md")
+        val display = resources.getValue("references/completion-and-display.md")
+        listOf("saved name/path", "canImeEnter=true", "OUTPUT_LIMIT", "longClick", "NOT_INSTALLED").forEach {
+            assertTrue("Missing semantic edge case: $it", semantic.contains(it))
+        }
+        listOf("pixelsAttached", "ui_gesture", "screenBounds", "contact sheet", "no audio").forEach {
+            assertTrue("Missing vision detail: $it", (entry + vision + semantic).contains(it))
+        }
+        listOf("MAIN_DISPLAY_IN_USE", "original conversation", "main screen", "external effects").forEach {
+            assertTrue("Missing display boundary: $it", (entry + display).contains(it))
+        }
+        val changed = resources + ("references/vision-and-gestures.md" to vision + "\nExtra fact.")
+        val updated =
+            com.helix.extensions.skills
+                .SkillLoader()
+                .loadBuiltIn(entry, "android-ui-task", changed)
+        assertTrue(document.catalogEntry.contentHash != updated.catalogEntry.contentHash)
+    }
+
+    @Test fun displayReleaseGuidanceDoesNotPromiseActivityDestructionOrConfirmedRetention() {
+        val text =
+            java.io
+                .File(
+                    "src/main/assets/plugins/mobile-use/skills/android-ui-task/references/completion-and-display.md",
+                ).readText()
+        assertFalse(text.contains("ends its activities"))
+        listOf("may move its existing tasks", "preserve task identity", "retention can remain", "unconfirmed").forEach {
+            assertTrue("Missing release boundary: $it", text.contains(it))
+        }
+        assertTrue(text.contains("does not roll back external effects or delete app data"))
     }
 
     @Test fun requiredGuidanceKeepsImmediateBoundariesAndDelegatesWorkflowDetails() {

@@ -66,8 +66,18 @@ class AutomationTools(
         listOf(
             descriptor(SNAPSHOT, ToolOperationClass.READ_ONLY, emptyObject(), snapshotOutput()),
             descriptor(FIND, ToolOperationClass.READ_ONLY, findInput(), findOutput()),
-            descriptor(CLICK, ToolOperationClass.EXTERNAL_ACTION, tokenInput(), actionOutput()),
-            descriptor(CLICK_MATCH, ToolOperationClass.EXTERNAL_ACTION, clickMatchInput(), actionOutput()),
+            descriptor(
+                CLICK,
+                ToolOperationClass.EXTERNAL_ACTION,
+                clickInput(),
+                actionOutput(optionalObservation = true),
+            ),
+            descriptor(
+                CLICK_MATCH,
+                ToolOperationClass.EXTERNAL_ACTION,
+                clickMatchInput(),
+                actionOutput(optionalObservation = true),
+            ),
             descriptor(LONG_CLICK, ToolOperationClass.EXTERNAL_ACTION, tokenInput(), actionOutput()),
             descriptor(SET_TEXT, ToolOperationClass.EXTERNAL_ACTION, textInput(), actionOutput(observeAfter = true)),
             descriptor(IME_ENTER, ToolOperationClass.EXTERNAL_ACTION, tokenInput(), actionOutput()),
@@ -147,7 +157,7 @@ class AutomationTools(
                                 ToolExecutorResult.Failed("AUTOMATION_TOOL_UNKNOWN", sideEffectFree = true)
                             }
                         }
-                    if (name in setOf(SET_TEXT, SCROLL)) {
+                    if (shouldObserveAfter(name, call.args)) {
                         AutomationPostActionObservation(boundPort::snapshot, ::snapshotJson).attach(result, call)
                     } else {
                         result
@@ -164,7 +174,7 @@ class AutomationTools(
     ): ToolExecutorResult {
         require("backend" !in call.args) { "BACKEND_IS_HOST_SELECTED" }
         val exact =
-            call.args.keys.all { it in setOf("packageName", "viewId", "text") } &&
+            call.args.keys.all { it in setOf("packageName", "viewId", "text", "observeAfter") } &&
                 listOf("packageName", "viewId", "text").all { it in call.args }
         val backend = boundPort.preferredClickBackend().name.lowercase()
         if (backend in setOf("root", "adb", "shizuku") && exact && !boundPort.usesBackgroundDisplay()) {
@@ -563,6 +573,9 @@ class AutomationTools(
 
     private fun tokenInput() = obj(mapOf("token" to str(32)), listOf("token"))
 
+    private fun clickInput() =
+        obj(mapOf("token" to str(32), "observeAfter" to automationObservationInput()), listOf("token"))
+
     private fun textInput() =
         obj(
             mapOf(
@@ -634,6 +647,7 @@ class AutomationTools(
     private fun clickMatchInput(): JsonObject {
         val fields =
             linkedMapOf(
+                "observeAfter" to automationObservationInput(),
                 "packageName" to str(255),
                 "text" to str(2_000),
                 "contentDescription" to str(2_000),
@@ -686,29 +700,10 @@ class AutomationTools(
         return obj(fields, emptyList())
     }
 
-    private fun actionOutput(observeAfter: Boolean = false): JsonObject {
-        val base = automationActionOutputSchema(includeBackend = true)
-        if (!observeAfter) return base
-        val status =
-            buildJsonObject {
-                put("type", JsonPrimitive("string"))
-                put("enum", JsonArray(AutomationPostActionObservation.STATUSES.map(::JsonPrimitive)))
-            }
-        return JsonObject(
-            base +
-                mapOf(
-                    "properties" to
-                        JsonObject(
-                            base.getValue("properties").jsonObject +
-                                mapOf(
-                                    "observationStatus" to status,
-                                    "observation" to snapshotOutput(),
-                                ),
-                        ),
-                    "required" to JsonArray(base.getValue("required").jsonArray + JsonPrimitive("observationStatus")),
-                ),
-        )
-    }
+    private fun actionOutput(
+        observeAfter: Boolean = false,
+        optionalObservation: Boolean = false,
+    ): JsonObject = AutomationToolSchemas.actionOutput(observeAfter, optionalObservation, snapshotOutput())
 
     private fun findOutput() =
         obj(

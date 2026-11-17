@@ -4,9 +4,43 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
 
 /** Semantic tool schemas, shared by their descriptors and nested node output. */
 internal object AutomationToolSchemas {
+    fun actionOutput(
+        observeAfter: Boolean,
+        optionalObservation: Boolean,
+        snapshot: JsonObject,
+    ): JsonObject {
+        val base = automationActionOutputSchema(includeBackend = true)
+        if (!observeAfter && !optionalObservation) return base
+        val status =
+            buildJsonObject {
+                put("type", JsonPrimitive("string"))
+                put("enum", JsonArray(AutomationPostActionObservation.STATUSES.map(::JsonPrimitive)))
+            }
+        return JsonObject(
+            base +
+                mapOf(
+                    "properties" to
+                        JsonObject(
+                            base.getValue("properties").jsonObject +
+                                mapOf(
+                                    "observationStatus" to status,
+                                    "observation" to snapshot,
+                                ),
+                        ),
+                    "required" to
+                        JsonArray(
+                            base.getValue("required").jsonArray +
+                                if (optionalObservation) emptyList() else listOf(JsonPrimitive("observationStatus")),
+                        ),
+                ),
+        )
+    }
+
     @Suppress("LongMethod") // Full and compact schemas share the same versioned node fields.
     fun nodeSchema(compact: Boolean = false) =
         obj(
@@ -142,3 +176,16 @@ internal object AutomationToolSchemas {
             put("maxItems", JsonPrimitive(6))
         }
 }
+
+internal fun automationObservationInput() =
+    JsonObject(
+        mapOf("type" to JsonPrimitive("boolean")) +
+            mapOf(
+                "default" to JsonPrimitive(false),
+                "description" to
+                    JsonPrimitive(
+                        "True returns bounded fresh semantic state after dispatch, avoiding a separate snapshot. " +
+                            "Use when the next step needs screen state; omit for vision or no semantic read.",
+                    ),
+            ),
+    )

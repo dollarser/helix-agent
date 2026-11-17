@@ -13,6 +13,17 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class GoalToolContractTest {
+    @Test fun reportExplainsActiveTurnRequirementAndOrdinaryTaskCompletion() {
+        val descriptor = GoalReportTool.descriptor()
+        assertEquals("goal_report", descriptor.name.value)
+        assertTrue(descriptor.description.contains("this turn is bound to an active persistent Goal"))
+        assertTrue(descriptor.description.contains("current Goal instructions"))
+        assertTrue(descriptor.description.contains("ordinary chat task"))
+        assertTrue(descriptor.description.contains("normal reply"))
+        assertTrue(descriptor.description.contains("do not create a Goal just to report completion"))
+        assertTrue(descriptor.description.contains("This report does not grant permissions"))
+    }
+
     @Test fun lifecycleInputsExplainSourcesAndReportingRequirements() {
         val registry = ToolRegistry()
         GoalLifecycleTools.register(registry) { ToolExecutorResult.Completed(JsonObject(emptyMap())) }

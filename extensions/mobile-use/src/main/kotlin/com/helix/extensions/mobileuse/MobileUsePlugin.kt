@@ -38,13 +38,16 @@ class MobileUsePlugin(
                     .bufferedReader()
                     .use { it.readText() },
                 "android-ui-task",
-                mapOf(
-                    "references/android-ui-reference.md" to
-                        context.assets
-                            .open("plugins/mobile-use/skills/android-ui-task/references/android-ui-reference.md")
-                            .bufferedReader()
-                            .use { it.readText() },
-                ),
+                listOf(
+                    "references/android-ui-reference.md",
+                    "references/vision-and-gestures.md",
+                    "references/completion-and-display.md",
+                ).associateWith { path ->
+                    context.assets
+                        .open("plugins/mobile-use/skills/android-ui-task/$path")
+                        .bufferedReader()
+                        .use { it.readText() }
+                },
             ),
         )
 
