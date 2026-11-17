@@ -110,15 +110,9 @@ internal class ReleaseConversationScenario {
         request: JSONObject,
         callId: String,
     ): Pair<JSONObject, String> {
-        val tool =
-            request
-                .getJSONArray("tools")
-                .objects()
-                .map { it.getJSONObject("function") }
-                .single { it.getString("description").startsWith("Search user-enabled tools") }
         val function =
             JSONObject()
-                .put("name", tool.getString("name"))
+                .put("name", ReleaseDeclaredTools.searchName(request))
                 .put("arguments", JSONObject().put("query", "read").put("limit", 1).toString())
         val call =
             JSONObject()

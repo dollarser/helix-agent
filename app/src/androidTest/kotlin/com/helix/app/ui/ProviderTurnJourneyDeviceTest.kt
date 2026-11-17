@@ -88,7 +88,7 @@ class ProviderTurnJourneyDeviceTest {
                                     it
                                         .getValue("description")
                                         .jsonPrimitive.content
-                                        .startsWith("Search user-enabled tools")
+                                        .startsWith("Find a missing user-enabled tool")
                                 }
                             toolCallStream(
                                 "chain-search",

@@ -23,7 +23,7 @@ class ReleaseDeclaredToolsTest {
         ambiguous.getJSONArray("tools").put(tool("second", DESCRIPTION))
         assertThrows(IllegalStateException::class.java) { ReleaseDeclaredTools.targetName(ambiguous, "ui_launch") }
         assertThrows(IllegalStateException::class.java) {
-            ReleaseDeclaredTools.targetName(discovered("ui_launch"), "ui_launch")
+            ReleaseDeclaredTools.targetName(discovered("ui.launch"), "ui_launch")
         }
     }
 
@@ -31,7 +31,10 @@ class ReleaseDeclaredToolsTest {
         search: String,
         target: String,
     ) = JSONObject()
-        .put("tools", JSONArray().put(tool(search, "Search user-enabled tools by name")).put(tool(target, DESCRIPTION)))
+        .put(
+            "tools",
+            JSONArray().put(tool(search, "Find a missing user-enabled tool by name")).put(tool(target, DESCRIPTION)),
+        )
 
     private fun discovered(target: String): JSONObject {
         val result =

@@ -4,7 +4,7 @@ import org.json.JSONObject
 
 /** Correlate canonical discovery results with this request's declarations, without reproducing aliases. */
 internal object ReleaseDeclaredTools {
-    fun searchName(request: JSONObject): String = select(request, "tools_search", "Search user-enabled tools")
+    fun searchName(request: JSONObject): String = select(request, "tools_search", "Find a missing user-enabled tool")
 
     fun targetName(
         request: JSONObject,
