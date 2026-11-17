@@ -26,9 +26,17 @@ class AccountSession(
         OkHttpWireClient(followRedirects = false, maxBodyBytes = 65536),
     private val now: () -> Long = System::currentTimeMillis,
     noticeScheduleFile: java.io.File? = null,
+    noticeMonotonicMillis: () -> Long = { System.nanoTime() / 1_000_000 },
 ) {
     internal val accountTransport get() = auth
-    internal val notices by lazy { AccountNoticesStore(this, schedule = AccountNoticeSchedule(noticeScheduleFile)) }
+    internal val notices by lazy {
+        AccountNoticesStore(
+            this,
+            schedule = AccountNoticeSchedule(noticeScheduleFile),
+            cache = AccountNoticeCache(noticeScheduleFile?.parentFile?.resolve("notice-pages")),
+            monotonicMillis = noticeMonotonicMillis,
+        )
+    }
     internal val cooldown = AccountRequestCooldown { System.nanoTime() / 1_000_000 }
     private val gate = Mutex()
     internal val profileRequests = Mutex()
@@ -241,6 +249,20 @@ class AccountSession(
             }
         }
     }
+
+    /** Confirmed password mutation invalidates only its old local session, never a newer login. */
+    internal suspend fun invalidateChangedPasswordSession(expectedRevision: Long) =
+        withContext(kotlinx.coroutines.NonCancellable + Dispatchers.IO) {
+            gate.withLock {
+                if (revision == expectedRevision) {
+                    try {
+                        clear(AccountStatus.REAUTH_REQUIRED)
+                    } catch (_: Exception) {
+                        // clear revokes memory first and leaves storage blocked on failure.
+                    }
+                }
+            }
+        }
 
     internal suspend fun publicRequest(
         operation: String,

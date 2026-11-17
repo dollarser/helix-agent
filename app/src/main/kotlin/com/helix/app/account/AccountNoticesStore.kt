@@ -6,13 +6,15 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
-/** Account-scoped, memory-only notice state. Serialized writes are never replayed after transport failure. */
+/** Account-scoped notice state with a bounded private first-page cache. Writes never replay after failure. */
 @Suppress("TooGenericExceptionCaught")
 internal class AccountNoticesStore(
     private val account: AccountSession,
     private val api: AccountNoticesApi = AccountNoticesClient(account),
     private val wallClockMillis: () -> Long = System::currentTimeMillis,
     private val schedule: AccountNoticeSchedule = AccountNoticeSchedule(),
+    private val monotonicMillis: () -> Long = { System.nanoTime() / 1_000_000 },
+    private val cache: AccountNoticeCache = AccountNoticeCache(),
 ) {
     private val lock = Any()
     private val requests = Mutex()
@@ -24,27 +26,46 @@ internal class AccountNoticesStore(
     private var owner = Owner(account.revision, account.identity, account.noticeAccountKey)
     private var generation = 0L
     private var firstPage: List<AccountNotice> = emptyList()
+    private var refreshedAt: Long? = null
 
     /** Called synchronously by AccountSession on login/logout, before an old body can be displayed. */
     fun resetAccount() =
         synchronized(lock) {
             if (owner != Owner(account.revision, account.identity, account.noticeAccountKey)) {
+                if (owner.identity != "signed-out" || account.identity == "signed-out") cache.clear()
                 owner = Owner(account.revision, account.identity, account.noticeAccountKey)
                 generation++
                 firstPage = emptyList()
+                refreshedAt = null
                 mutableState.value =
                     AccountNoticesState(
-                        unread = if (account.signedIn.value) account.noticeAccountKey?.let(schedule::unread) else null,
+                        unread =
+                            if (account.identity !=
+                                "signed-out"
+                            ) {
+                                account.noticeAccountKey?.let(schedule::unread)
+                            } else {
+                                null
+                            },
                     )
             }
         }
 
-    suspend fun refresh(filter: AccountNoticeState = state.value.filter) {
+    /** Page re-entry reuses successful data; explicit refresh always bypasses this window. */
+    suspend fun refresh(
+        filter: AccountNoticeState = state.value.filter,
+        force: Boolean = true,
+    ) {
         val ticket =
             synchronized(lock) {
                 resetAccount()
+                val before = mutableState.value.withoutExpired(wallClockMillis())
+                mutableState.value = before
+                if (!force && before.filter == filter) {
+                    if (before.loading || before.hasFreshPage(refreshedAt, monotonicMillis())) return
+                }
                 generation++
-                val before = mutableState.value
+                refreshedAt = null
                 mutableState.value =
                     if (before.filter == filter) {
                         before.copy(
@@ -52,7 +73,7 @@ internal class AccountNoticesStore(
                             loadingMore = false,
                             markingRead = emptySet(),
                             failure = null,
-                            invalidated = false,
+                            invalidated = before.invalidated,
                         )
                     } else {
                         AccountNoticesState(filter = filter, unread = before.unread, loading = account.signedIn.value)
@@ -61,7 +82,25 @@ internal class AccountNoticesStore(
             }
         try {
             requests.withLock {
-                perform(ticket) { replace(api.list(1, filter), ticket) }
+                perform(ticket) {
+                    val cached =
+                        if (force) {
+                            null
+                        } else {
+                            cache.read(
+                                ticket.owner.cacheKey,
+                                filter,
+                                wallClockMillis(),
+                                monotonicMillis(),
+                            )
+                        }
+                    if (cached != null) {
+                        replace(cached.page, ticket, cached.ageMillis, save = false)
+                    } else {
+                        cache.invalidate(filter)
+                        replace(api.list(1, filter), ticket)
+                    }
+                }
             }
         } finally {
             update(ticket) { it.copy(loading = false) }
@@ -117,6 +156,11 @@ internal class AccountNoticesStore(
                 }
             } catch (cancelled: CancellationException) {
                 throw cancelled
+            } catch (error: AccountRequestFailure) {
+                update(ticket) {
+                    if (error.status in setOf(401, 403)) cache.clear()
+                    failureState(it, error).copy(countFailure = error)
+                }
             } catch (error: Exception) {
                 update(ticket) { failureState(it, error).copy(countFailure = error) }
             }
@@ -133,6 +177,12 @@ internal class AccountNoticesStore(
             if (unreadIds.isEmpty()) return@withLock
             require(unreadIds.size <= 100)
             update(ticket) { it.copy(markingRead = unreadIds.toSet(), failure = null, invalidated = false) }
+            synchronized(lock) {
+                if (isCurrent(ticket)) {
+                    cache.clear()
+                    refreshedAt = null
+                }
+            }
             perform(ticket) { readAndRefresh(unreadIds, ticket) }
         }
     }
@@ -164,7 +214,7 @@ internal class AccountNoticesStore(
             if (failure.status != 404) throw failure
             update(ticket) { it.copy(items = emptyList(), page = 0, hasMore = false, invalidated = true) }
         }
-        if (isCurrent(ticket)) replace(api.list(1, state.value.filter), ticket)
+        if (isCurrent(ticket)) replace(api.list(1, state.value.filter), ticket, invalidated = true)
     }
 
     private suspend fun perform(
@@ -176,6 +226,11 @@ internal class AccountNoticesStore(
             operation()
         } catch (cancelled: CancellationException) {
             throw cancelled
+        } catch (error: AccountRequestFailure) {
+            update(ticket) {
+                if (error.status in setOf(401, 403)) cache.clear()
+                failureState(it, error)
+            }
         } catch (error: Exception) {
             update(ticket) { failureState(it, error) }
         } finally {
@@ -186,10 +241,15 @@ internal class AccountNoticesStore(
     private fun replace(
         page: AccountNoticesPage,
         ticket: Ticket,
+        ageMillis: Long = 0,
+        save: Boolean = true,
+        invalidated: Boolean = false,
     ) = synchronized(lock) {
         if (!isCurrent(ticket)) return@synchronized
-        account.noticeAccountKey?.let { key -> schedule.record(key, page.unread, wallClockMillis()) }
+        account.noticeAccountKey?.let { key -> schedule.record(key, page.unread, wallClockMillis() - ageMillis) }
+        if (save) cache.write(ticket.owner.cacheKey, state.value.filter, page, wallClockMillis(), monotonicMillis())
         firstPage = page.items
+        refreshedAt = monotonicMillis() - ageMillis
         val items = page.items.distinctBy(AccountNotice::id)
         mutableState.value =
             mutableState.value.copy(
@@ -200,6 +260,7 @@ internal class AccountNoticesStore(
                 hasMore = hasMore(page, items.size, state.value.filter),
                 failure = null,
                 countFailure = null,
+                invalidated = invalidated,
             )
     }
 
@@ -227,7 +288,9 @@ internal class AccountNoticesStore(
         val revision: Long,
         val identity: String,
         val accountKey: String?,
-    )
+    ) {
+        val cacheKey: String get() = "$accountKey\n$identity"
+    }
 
     private data class Ticket(
         val owner: Owner,
@@ -252,3 +315,17 @@ private fun hasMore(
 ): Boolean =
     page.page < 1000 && page.items.size == page.pageSize &&
         loaded < if (filter == AccountNoticeState.ALL) page.total else page.unread
+
+private fun AccountNoticesState.hasFreshPage(
+    refreshedAt: Long?,
+    now: Long,
+): Boolean {
+    val checked = refreshedAt ?: return false
+    val eligible = page > 0 && failure == null && !invalidated
+    return eligible && now - checked in 0 until NOTICE_CACHE_MILLIS
+}
+
+private fun AccountNoticesState.withoutExpired(wall: Long): AccountNoticesState {
+    val active = items.filterNot { it.expiresAt != null && it.expiresAt <= wall / 1000 }
+    return if (active.size == items.size) this else copy(items = active, hasMore = false, invalidated = true)
+}

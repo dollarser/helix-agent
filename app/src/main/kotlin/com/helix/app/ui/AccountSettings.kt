@@ -66,6 +66,7 @@ internal fun AccountAccessEntry(
     var registered by remember { mutableStateOf(false) }
     var recovering by remember { mutableStateOf(false) }
     var recovered by remember { mutableStateOf(false) }
+    var passwordSignInRequired by remember { mutableStateOf(false) }
     val recoveryClient =
         remember(account) {
             com.helix.app.account
@@ -117,7 +118,12 @@ internal fun AccountAccessEntry(
                 UserProfileHeader(profile) { editingProfile = true }
                 ProfileLoadFeedback(profileFailure)
                 if (signedIn) {
-                    AccountIdentityActions(account, profileClient)
+                    AccountIdentityActions(account, profileClient, operationScope = scope, onPasswordBusy = {
+                        loading =
+                            it
+                    }, onSignInRequired = {
+                        whenPasswordSignInRequired(account) { passwordSignInRequired = true }
+                    })
                     UserAccountMenu(
                         noticeState.unread,
                         onNotices = { destination = UserAccountDestination.NOTICES },
@@ -147,6 +153,7 @@ internal fun AccountAccessEntry(
                         },
                     )
                 }
+                PasswordSignInFeedback(passwordSignInRequired, signedIn)
                 if (recovered) Text(stringResource(R.string.account_recovery_success))
                 AccountOperationFeedback(registered, failure, failureDetails)
             }
@@ -172,6 +179,13 @@ internal fun AccountAccessEntry(
         onUsageBack = { destination = UserAccountDestination.OVERVIEW },
         onAccountBack = { destination = UserAccountDestination.OVERVIEW },
         onLogout = { confirmLogout = true },
+        operationScope = scope,
+        onSignInRequired = {
+            whenPasswordSignInRequired(account) {
+                passwordSignInRequired = true
+                destination = UserAccountDestination.OVERVIEW
+            }
+        },
         onFailure = { error ->
             failure = accountFailureLabel(error)
             failureDetails = (error as? com.helix.app.account.AccountRequestFailure)?.details

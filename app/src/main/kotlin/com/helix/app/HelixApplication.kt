@@ -62,6 +62,7 @@ class HelixApplication : Application() {
                         .create(this),
                 ),
             noticeScheduleFile = java.io.File(noBackupFilesDir, "notice-checks.properties"),
+            noticeMonotonicMillis = android.os.SystemClock::elapsedRealtime,
         )
     }
 

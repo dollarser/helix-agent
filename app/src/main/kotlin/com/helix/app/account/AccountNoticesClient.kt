@@ -15,7 +15,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import java.io.IOException
 
-/** No disk cache, model API key, cookies, or automatic replay after uncertain transport failure. */
+/** No HTTP cache, model API key, cookies, or automatic replay after uncertain transport failure. */
 internal class AccountNoticesClient(
     private val account: AccountSession,
     private val transport: WireClient = OkHttpWireClient(followRedirects = false, maxBodyBytes = MAX_BODY_BYTES),

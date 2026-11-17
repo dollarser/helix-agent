@@ -1,6 +1,6 @@
 package com.helix.app.account
 
-/** Transient account data. It is never persisted or used as an offline notice cache. */
+/** Live account projection. Only validated first pages have a bounded private cache. */
 internal data class AccountNoticesState(
     val filter: AccountNoticeState = AccountNoticeState.ALL,
     val items: List<AccountNotice> = emptyList(),

@@ -119,14 +119,29 @@ internal class AccountProfileClient(
     suspend fun changePassword(
         current: String,
         next: String,
+        expectedRevision: Long = account.revision,
     ) {
-        require(next.length in 6..128)
-        val revision = account.revision
+        require(current.isNotBlank() && current.length <= 4096 && next.isNotBlank() && next.length in 6..128)
+        if (account.revision != expectedRevision) throw AccountDataFailure()
+        val revision = expectedRevision
         val username = requireNotNull(account.user.value).username
         request("/account/password", mapOf("current_password" to current, "new_password" to next), revision)
         if (account.revision != revision) throw AccountDataFailure()
         // Password change invalidates the session. Re-authenticate with the original login name.
-        account.login(username, next, expectedRevision = revision)
+        reauthenticateChangedPassword(username, next, revision)
+    }
+
+    @Suppress("TooGenericExceptionCaught") // After confirmed mutation, any failed re-login requires manual sign-in.
+    private suspend fun reauthenticateChangedPassword(username: String, next: String, revision: Long) {
+        try {
+            account.login(username, next, expectedRevision = revision)
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            account.invalidateChangedPasswordSession(revision)
+            throw cancelled
+        } catch (_: Exception) {
+            account.invalidateChangedPasswordSession(revision)
+            throw AccountPasswordChangedSignInRequired()
+        }
     }
 
     private suspend fun userRequest(

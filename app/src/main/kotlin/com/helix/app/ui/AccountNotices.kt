@@ -38,7 +38,7 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
-/** Account content stays in memory. Opening a detail, not listing it, acknowledges reading. */
+/** Opening a detail, not listing it, acknowledges reading. Cache ownership stays in the account store. */
 @Composable
 @Suppress("FunctionName", "LongMethod")
 internal fun AccountNoticesSheet(
@@ -48,7 +48,7 @@ internal fun AccountNoticesSheet(
     val state by store.state.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     var selected by remember(store) { mutableStateOf<AccountNotice?>(null) }
-    LaunchedEffect(store) { store.refresh() }
+    LaunchedEffect(store) { store.refresh(force = false) }
     LaunchedEffect(state.invalidated, state.failure) {
         val status = (state.failure as? AccountRequestFailure)?.status
         if (state.invalidated || status in setOf(401, 403)) selected = null
@@ -60,7 +60,7 @@ internal fun AccountNoticesSheet(
                     selected = state.filter == filter,
                     onClick = {
                         selected = null
-                        scope.launch { store.refresh(filter) }
+                        scope.launch { store.refresh(filter, force = false) }
                     },
                     label = {
                         Text(
@@ -167,9 +167,7 @@ private fun AccountNoticeDetail(
             }
             if (notice.priority == "important") Text(stringResource(R.string.account_notices_important))
             Text(noticeDate(notice.publishedAt), style = MaterialTheme.typography.bodySmall)
-            androidx.compose.foundation.text.selection.SelectionContainer {
-                Text(notice.body, Modifier.testTag("account-notice-body"))
-            }
+            AccountNoticeBody(notice.body)
         }
     }
 }

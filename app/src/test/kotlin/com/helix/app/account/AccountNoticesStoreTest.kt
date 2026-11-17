@@ -290,6 +290,153 @@ class AccountNoticesStoreTest {
             assertTrue(store.state.value.countFailure is IOException)
         }
 
+    @Test fun automaticOpenUsesFiveHourSuccessWindowButManualRefreshBypassesIt() =
+        runBlocking {
+            var now = 0L
+            val api = FakeNotices()
+            val store = AccountNoticesStore(testAccount().also { it.restore() }, api, monotonicMillis = { now })
+            store.refresh(force = false)
+            now = 18_000_000L - 1
+            store.refresh(force = false)
+            assertEquals(1, api.pages.size)
+            now++
+            store.refresh(force = false)
+            assertEquals(2, api.pages.size)
+            store.refresh()
+            assertEquals(3, api.pages.size)
+        }
+
+    @Test fun failedOrCancelledAutomaticOpenDoesNotConsumeTheWindow() =
+        runBlocking {
+            val api = FakeNotices()
+            val store = store(api)
+            api.beforeList = { throw IOException("offline") }
+            store.refresh(force = false)
+            api.beforeList = {}
+            store.refresh(force = false)
+            assertEquals(2, api.pages.size)
+            val release = CompletableDeferred<Unit>()
+            api.beforeList = { release.await() }
+            val pending = launch(start = CoroutineStart.UNDISPATCHED) { store.refresh() }
+            store.refresh(force = false)
+            assertEquals(3, api.pages.size)
+            pending.cancelAndJoin()
+            api.beforeList = {}
+            store.refresh(force = false)
+            assertEquals(4, api.pages.size)
+        }
+
+    @Test fun cachedEmptyPageIsValidButDifferentFilterAndAccountAreNotReused() =
+        runBlocking {
+            val account = testAccount().also { it.restore() }
+            val api = FakeNotices().apply { document = page(emptyList()) }
+            val store = AccountNoticesStore(account, api)
+            store.refresh(force = false)
+            store.refresh(force = false)
+            assertEquals(1, api.pages.size)
+            store.refresh(AccountNoticeState.UNREAD, force = false)
+            assertEquals(2, api.pages.size)
+            account.logout()
+            store.refresh(force = false)
+            assertTrue(
+                store.state.value.items
+                    .isEmpty(),
+            )
+            assertEquals(0, store.state.value.page)
+            assertEquals(2, api.pages.size)
+        }
+
+    @Test fun restartedStoreUsesDurablePageAndManualFailureInvalidatesIt() =
+        runBlocking {
+            val directory =
+                kotlin.io.path
+                    .createTempDirectory("notice-cache-test")
+                    .toFile()
+            try {
+                val account = testAccount().also { it.restore() }
+                val api = FakeNotices()
+
+                fun instance() =
+                    AccountNoticesStore(
+                        account,
+                        api,
+                        { 100000L },
+                        monotonicMillis = { 50000L },
+                        cache = AccountNoticeCache(directory),
+                    )
+                instance().refresh(force = false)
+                val restarted = instance()
+                restarted.refresh(force = false)
+                assertEquals(1, api.pages.size)
+                assertEquals(1, restarted.state.value.items.size)
+                api.beforeList = { throw IOException("offline") }
+                restarted.refresh()
+                assertEquals(2, api.pages.size)
+                api.beforeList = {}
+                instance().refresh(force = false)
+                assertEquals(3, api.pages.size)
+                account.logout()
+                restarted.resetAccount()
+                assertTrue(directory.listFiles().orEmpty().isEmpty())
+            } finally {
+                directory.deleteRecursively()
+            }
+        }
+
+    @Test fun expiredMemoryNoticeIsRemovedEvenWhenRefreshFails() =
+        runBlocking {
+            var wall = 100000L
+            val api = FakeNotices().apply { document = page(listOf(notice(1).copy(expiresAt = 101))) }
+            val store = AccountNoticesStore(testAccount().also { it.restore() }, api, { wall })
+            store.refresh(force = false)
+            wall = 101000L
+            api.beforeList = { throw IOException("offline") }
+            store.refresh(force = false)
+            assertEquals(2, api.pages.size)
+            assertTrue(
+                store.state.value.items
+                    .isEmpty(),
+            )
+            assertTrue(store.state.value.invalidated)
+        }
+
+    @Test fun noticeStoreCreatedBeforeSessionRestoreDoesNotEraseSameLoginCache() =
+        runBlocking {
+            val directory =
+                kotlin.io.path
+                    .createTempDirectory("notice-restore-test")
+                    .toFile()
+            try {
+                val firstAccount = testAccount().also { it.restore() }
+                val api = FakeNotices()
+                val first =
+                    AccountNoticesStore(
+                        firstAccount,
+                        api,
+                        { 100000L },
+                        monotonicMillis = { 50000L },
+                        cache = AccountNoticeCache(directory),
+                    )
+                first.refresh(force = false)
+                val restored = testAccount()
+                val early =
+                    AccountNoticesStore(
+                        restored,
+                        api,
+                        { 100001L },
+                        monotonicMillis = { 50001L },
+                        cache = AccountNoticeCache(directory),
+                    )
+                restored.restore()
+                early.resetAccount()
+                early.refresh(force = false)
+                assertEquals(1, api.pages.size)
+                assertEquals(1, early.state.value.items.size)
+            } finally {
+                directory.deleteRecursively()
+            }
+        }
+
     private suspend fun store(api: FakeNotices): AccountNoticesStore =
         AccountNoticesStore(testAccount().also { it.restore() }, api)
 
