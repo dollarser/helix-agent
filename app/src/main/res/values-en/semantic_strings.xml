@@ -18,4 +18,7 @@
     <string name="semantic_stop">Turn off and stop</string>
     <string name="semantic_clear_selection">Clear selection</string>
   <string name="semantic_progress">Indexed %1$d of %2$d documents</string>
+    <string name="semantic_refresh">Refresh models</string>
+    <string name="semantic_partial_directory">Some local models are temporarily unavailable. Saved choices are preserved; refresh later.</string>
+    <string name="semantic_saved_model_unavailable">Saved model %1$s is unavailable in this list. Refresh or explicitly choose another model.</string>
 </resources>

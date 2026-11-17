@@ -61,7 +61,7 @@ internal fun builtInBindingIssue(
             ProviderBindingIssue.AUTHENTICATION
         }
 
-        catalog.failure == null && catalog.fresh(now) && model !in catalog.models -> {
+        catalog.failure == null && !catalog.partial && catalog.fresh(now) && model !in catalog.models -> {
             ProviderBindingIssue.MODEL_MISSING
         }
 

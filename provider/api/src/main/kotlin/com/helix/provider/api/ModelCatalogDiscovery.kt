@@ -65,17 +65,19 @@ object ModelCatalogDiscovery {
         val purposes = linkedMapOf<String, Set<ModelPurpose>>()
         val outputLimits = linkedMapOf<String, Long>()
         val cursors = mutableSetOf<String>()
+        var partial = false
         var pageUrl = url
         repeat(32) {
             val page = readPage(wire, pageUrl, headers, outputModalitiesOnly)
             if (page.result !is ModelCatalogResult.Listed) return page.result
+            partial = partial || page.result.partial
             ids += page.result.models
             page.result.outputLimits.forEach { (id, limit) ->
                 outputLimits[id] = minOf(outputLimits[id] ?: limit, limit)
             }
             page.result.purposes.forEach { (id, values) -> purposes[id] = purposes[id].orEmpty() + values }
             if (ids.size > ModelCatalogResult.Listed.MAX_MODELS) return incomplete("Model directory exceeds item limit")
-            val cursor = page.cursor ?: return ModelCatalogResult.Listed(ids.toList(), purposes, outputLimits)
+            val cursor = page.cursor ?: return ModelCatalogResult.Listed(ids.toList(), purposes, outputLimits, partial)
             if (!cursors.add(cursor)) return incomplete("Model directory repeated a pagination cursor")
             // Only a cursor value is accepted. Never follow server-provided URLs with credentials.
             pageUrl = url + (if ('?' in url) "&" else "?") + "after_id=" +
@@ -90,6 +92,20 @@ object ModelCatalogDiscovery {
     )
 
     private fun incomplete(detail: String) = ModelCatalogResult.Failed(ModelErrorCode.PROTOCOL, detail, false)
+
+    private fun pageWithCompleteness(
+        body: String,
+        headers: Map<String, List<String>>,
+        outputModalitiesOnly: Boolean,
+    ): Page {
+        val parsed = page(body, outputModalitiesOnly)
+        val listed = parsed.result as? ModelCatalogResult.Listed
+        val partial =
+            headers.any { (name, values) ->
+                name.equals("X-Model-Catalog-Partial", ignoreCase = true) && values.isNotEmpty()
+            }
+        return if (listed != null && partial) parsed.copy(result = listed.copy(partial = true)) else parsed
+    }
 
     @Suppress("ReturnCount") // Malformed pagination must not be mistaken for a complete first page.
     private fun page(body: String, outputModalitiesOnly: Boolean): Page {
@@ -122,7 +138,7 @@ object ModelCatalogDiscovery {
                 if (response.status in
                     200..299
                 ) {
-                    page(response.body.bytes().decodeToString(), outputModalitiesOnly)
+                    pageWithCompleteness(response.body.bytes().decodeToString(), response.headers, outputModalitiesOnly)
                 } else {
                     val (code, retryable) = mapHttpStatus(response.status)
                     Page(ModelCatalogResult.Failed(code, "HTTP ${response.status} on /models", retryable))

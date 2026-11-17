@@ -16,6 +16,31 @@ import org.junit.Assert.fail
 import org.junit.Test
 
 class ModelPurposeTest {
+    @Test fun partialDirectoryHeaderSurvivesSuccessfulDiscoveryAndPages() =
+        runBlocking {
+            val wire =
+                FixtureWire(mapOf("x-model-catalog-partial" to listOf("local_unavailable"))) { url ->
+                    if ("after_id=" in url) {
+                        """{"data":[],"has_more":false}"""
+                    } else {
+                        """{"data":[{"id":"cloud"}],"has_more":true,"last_id":"cloud"}"""
+                    }
+                }
+            val result =
+                ModelCatalogDiscovery.fetch(wire, "https://api.hilex.me/v1/models", emptyMap())
+                    as ModelCatalogResult.Listed
+            assertTrue(result.partial)
+            assertEquals(listOf("cloud"), result.models)
+            assertEquals(2, wire.closed)
+            val complete =
+                ModelCatalogDiscovery.fetch(
+                    FixtureWire { """{"data":[]}""" },
+                    "https://api.hilex.me/v1/models",
+                    emptyMap(),
+                ) as ModelCatalogResult.Listed
+            assertFalse(complete.partial)
+        }
+
     private fun parse(fields: String) = ModelPurposes.parse(Json.parseToJsonElement(fields).jsonObject)
 
     @Test fun architectureModalitiesOverrideOlderDeclarationsAndStrictCatalogNeedsTheField() =
@@ -238,6 +263,7 @@ class ModelPurposeTest {
         }
 
     private class FixtureWire(
+        private val headers: Map<String, List<String>> = emptyMap(),
         private val body: (String) -> String,
     ) : WireClient {
         val urls = mutableListOf<String>()
@@ -249,7 +275,7 @@ class ModelPurposeTest {
             val text = body(request.url)
             return WireResponse(
                 200,
-                emptyMap(),
+                headers,
                 object : WireBody {
                     override suspend fun bytes() = text.toByteArray()
 

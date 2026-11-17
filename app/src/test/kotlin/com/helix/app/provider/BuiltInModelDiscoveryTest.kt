@@ -49,6 +49,49 @@ class BuiltInModelDiscoveryTest {
             {},
         )
 
+    @Test fun partialRefreshPreservesBoundModelTaskButCompleteRemovalRetiresIt() =
+        runBlocking {
+            val chat = setOf(com.helix.provider.api.ModelPurpose.CHAT)
+            result = { ModelCatalogResult.Listed(listOf("a", "b"), mapOf("a" to chat, "b" to chat)) }
+            val discovery = discovery()
+            discovery.refresh(true)
+            millis += 4000
+            result = { ModelCatalogResult.Listed(listOf("a"), mapOf("a" to chat), partial = true) }
+            discovery.refresh(true)
+            val partial = discovery().current()
+            assertEquals(listOf("a"), partial.models)
+            assertEquals(chat, partial.purposes["b"])
+            assertEquals(null, builtInBindingIssue(true, partial, "b", millis))
+            val exported = partial.discoveryResult() as ModelCatalogResult.Listed
+            assertEquals(true, exported.partial)
+            assertEquals(setOf("a"), exported.purposes.keys)
+            millis += 4000
+            result = { ModelCatalogResult.Listed(listOf("a"), mapOf("a" to chat)) }
+            discovery.refresh(true)
+            assertEquals(null, discovery.current().purposes["b"])
+            assertEquals(
+                com.helix.feature.conversation.presentation.ProviderBindingIssue.MODEL_MISSING,
+                builtInBindingIssue(true, discovery.current(), "b", millis),
+            )
+        }
+
+    @Test fun partialDirectorySurvivesRestartAndRefreshesWithoutGrantingMissingModels() =
+        runBlocking {
+            result = { ModelCatalogResult.Listed(listOf("cloud"), partial = true) }
+            val discovery = discovery()
+            discovery.refresh(true)
+            assertEquals(true, discovery().current().partial)
+            assertEquals(listOf("cloud"), discovery.current().models)
+            millis += BuiltInModelCatalog.FAILURE_TTL
+            result = { ModelCatalogResult.Listed(listOf("cloud", "local")) }
+            discovery.refresh(false)
+            assertEquals(false, discovery().current().partial)
+            assertEquals(listOf("cloud", "local"), discovery.current().models)
+            val other = BuiltInModelCatalogStore(backing) { "other-account" }
+            assertEquals(emptyList<String>(), other.read().models)
+            assertEquals(false, other.read().partial)
+        }
+
     @Test fun successfulRefreshReplacesOldTaskEvidenceIncludingUnknown() =
         runBlocking {
             val discovery = discovery()

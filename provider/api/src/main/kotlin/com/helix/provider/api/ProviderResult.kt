@@ -11,6 +11,8 @@ public sealed interface ModelCatalogResult {
         val models: List<String>,
         val purposes: Map<String, Set<ModelPurpose>> = emptyMap(),
         val outputLimits: Map<String, Long> = emptyMap(),
+        /** A successful but incomplete directory must not erase saved model choices. */
+        val partial: Boolean = false,
     ) : ModelCatalogResult {
         init {
             require(purposes.keys.all { it in models })

@@ -48,7 +48,11 @@ internal class BuiltInModelDiscovery(
                             null
                         ) {
                             com.helix.provider.api.ModelCatalogResult
-                                .Listed(cached.models, cached.purposes)
+                                .Listed(
+                                    cached.models,
+                                    cached.purposes.filterKeys { it in cached.models },
+                                    partial = cached.partial,
+                                )
                         } else {
                             null
                         },
@@ -113,7 +117,20 @@ internal class BuiltInModelDiscovery(
                             ?.get(id)
                             .orEmpty()
                     }.filterValues { it.isNotEmpty() }
-            store.save(BuiltInModelCatalog(now(), catalog?.models.orEmpty(), failure, tasks), expectedAccount)
+            val retainedTasks =
+                if (catalog?.partial == true) {
+                    // Missing entries in a partial directory are not revocation evidence.
+                    (tasks + store.read().purposes.filterKeys { it !in catalog.models })
+                        .entries
+                        .take(MAX_MODELS)
+                        .associate { it.toPair() }
+                } else {
+                    tasks
+                }
+            store.save(
+                BuiltInModelCatalog(now(), catalog?.models.orEmpty(), failure, retainedTasks, catalog?.partial == true),
+                expectedAccount,
+            )
             revision++
         }
         onChanged()

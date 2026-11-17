@@ -79,9 +79,10 @@ internal class ProviderCatalogDiscovery(
         }
         builtIn.refresh(true)
         val directory = builtIn.current()
-        return Discovery(
-            directory.failure?.let { ModelCatalogResult.Failed(it, "CATALOG_FAILED", false) }
-                ?: ModelCatalogResult.Listed(directory.models, directory.purposes),
-        )
+        return Discovery(directory.discoveryResult())
     }
 }
+
+internal fun BuiltInModelCatalog.discoveryResult(): ModelCatalogResult =
+    failure?.let { ModelCatalogResult.Failed(it, "CATALOG_FAILED", false) }
+        ?: ModelCatalogResult.Listed(models, purposes.filterKeys { it in models }, partial = partial)

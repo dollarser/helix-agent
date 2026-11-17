@@ -18,4 +18,7 @@
     <string name="semantic_stop">关闭并停止</string>
     <string name="semantic_clear_selection">清除选择</string>
   <string name="semantic_progress">已完成 %1$d / %2$d 份资料</string>
+    <string name="semantic_refresh">刷新模型</string>
+    <string name="semantic_partial_directory">部分本地模型暂不可用。已保留原选择，可稍后刷新。</string>
+    <string name="semantic_saved_model_unavailable">已选模型 %1$s 不在当前列表中。请刷新或明确选择其他模型。</string>
 </resources>
