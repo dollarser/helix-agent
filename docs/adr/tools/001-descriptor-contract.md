@@ -241,3 +241,15 @@ Owner 明确搜索只需在请求前决定是否允许，不需要按服务端�
 发现分类由 `ToolDescriptor.discovery.category` 显式声明；搜索别名只是检索提示，不授权、不改变执行路由。产品工具缺少分类会在注册集测试中暴露。插件是包含连接器（MCP endpoint）、技能及包装信息的安装单元，因此整包检查/安装使用 `plugins_preview` / `plugins_install`，不把插件与连接器视作同义词。
 
 只合并同一执行语义下的参数变体：Browser 文本输入统一为 `browser_type`，`mode=replace|append`；底层追加动作、非幂等属性及审批链保留。文件定位与内容检索、网页提取与交互式浏览器、设备操作与可见 UI 操作仍各自保留明确边界，不为缩减工具数而引入含糊万能工具。
+
+
+### Decision history — 2026-11-17：Mobile Use 按需动作后观察
+
+`ui_click` / `ui_click_match` 接受可选 `observeAfter=true`，默认不增加读取成本；需要下一步语义状态时复用既有动作后观察，免去一次只为取节点的模型往返。不添加批处理执行器或截图，不更换原 call 授权范围、选择后端或当前 display。后观察继续有界等待与输出裁剪，动态页面可返回 `UNSETTLED`；失败、取消、过期或观察不可用不擦除已知输入派发事实、不自动重放。动作仍是 `DISPATCHED` / `UNVERIFIED`，模型必须读取实际观察并验证任务效果，不能把附件存在当作成功。独立快照仍适用于观察缺失、截断、目标加载或视觉任务。
+
+验收使用相同 Luna/日常模拟器的节点闭环，保留计数恰好一次、输入值与文件内容的效果断言；把独立快照和附带观察作为同等的实际节点证据，并单独记录模型与工具审计耗时。单次模型轨迹波动不作为统计提速结论，原始结果保留于 ignored `build/mobile-efficiency-*/`。
+
+
+### Decision history — 2026-11-17：Mobile Use 技能渐进披露
+
+普通节点任务不再先强制加载完整长参考。`android-ui-task/SKILL.md` 保留当前授权/display、token 失效、按需动作后观察、不重放与效果/返回核验等共同决策；语义边界、视觉/手势和交接/display 细节分别按触发条件经 `skills_read_resource` 读取。现有参考内容保留并分组，资源继续进入 SkillLoader 的同一内容 hash，权限与调用机制不变。参考 [Agent Skills specification](https://agentskills.io/specification) 的按需资源结构与 [Anthropic authoring guidance](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices) 的渐进披露原则，不拷贝其产品实现。真实节点 A/B 与此前点击观察实验分开，不能仅用正文变短推断任务更快或质量不降。

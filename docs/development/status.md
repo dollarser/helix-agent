@@ -1,13 +1,13 @@
 # 当前实施状态
 
-更新：2026-11-16。本页只维护当前能力、事实来源与开放边界；当前对话决定工作范围，历史授权不自动延续到新任务。历史命令、统计和安装流水留在原任务/证据，不在这里重复。
+更新：2026-11-17。本页只维护当前能力、事实来源与开放边界；当前对话决定工作范围，历史授权不自动延续到新任务。历史命令、统计和安装流水留在原任务/证据，不在这里重复。
 
 ## 当前能力与唯一说明入口
 
 | 领域 | 当前事实 | 说明与证据 |
 | --- | --- | --- |
 | 对话与 UI | 原生 UI 已接入设计原型参考，页面状态与既有业务服务分层；编辑用户消息不自动发送/建分支，历史回答保留旧输入标记。原型不创造后台能力 | [UI 接入](ui-prototype-integration.md) |
-| 内置模型与账号 | 官方账号 `accounts.hilex.me`、API `api.hilex.me`，语音 WS 为 `wss://api.hilex.me/ws/asr`、`/ws/tts`；Owner 确认令牌跨旧新部署通用，不因换域强制登录。内置默认模型为 `gpt-6-luna`；最新 Android Chat Completions/Responses 真实请求成功，TTS PCM 有一次通过，ASR 仍受间歇 TLS 故障阻断；详见下方最新验收，不把历史 502 归为当前全部不可用，也不外推服务稳定。文件等真实业务目标尚未完成新批次验收。内置模型仅账号 Bearer + 固定 ClientID；单独 ClientID/内置 key 入口已删除。未登录可用自配 API、订阅和可选本地模型；历史绑定在发送前校验，不静默换模型 | [账号](account-login-integration.md)、[历史绑定](terminal-recovery-provider-bindings.md) |
+| 内置模型与账号 | 官方账号 `accounts.hilex.me`、API `api.hilex.me`，语音 WS 为 `wss://api.hilex.me/ws/asr`、`/ws/tts`；Owner 确认令牌跨旧新部署通用，不因换域强制登录。内置默认模型为 `gpt-6-luna`；Android Chat Completions/Responses 真实请求成功，11-17 生产 Android ASR/TTS 合成音频复验通过且 TLS 校验开启；固定合成句识别内容也已核对；真实麦克风、普遍识别准确率和听感尚未验收。详见下方最新验收，不把历史 502/TLS 失败归为当前全部不可用，也不外推服务稳定。文件等真实业务目标尚未完成新批次验收。内置模型仅账号 Bearer + 固定 ClientID；单独 ClientID/内置 key 入口已删除。未登录可用自配 API、订阅和可选本地模型；历史绑定在发送前校验，不静默换模型 | [账号](account-login-integration.md)、[历史绑定](terminal-recovery-provider-bindings.md) |
 | 云端语音 | 云端 HTTP 识别上传 WAV，指定云合成模型支持 PCM 流式边收边播；自建模型 WS 支持 ready 后裸 PCM、ASR partial/final 与同回答 TTS 连续文本输入。ASR 进入 composer 编辑、不自动发送；停止朗读与取消 Agent 分离 | [语音契约](cloud-speech-integration.md)、[最新非真机回归](../evidence/development/nondevice-client-acceptance.md) |
 | 工作区与 PRoot | 默认在已授权 POSIX 工作区原位执行，代码/文档留在原处；主应用登记文件引用。snapshot 为显式复制模式，不自动回写；PATH 当前权限/目录身份复验后原位映射；SAF 工具直接走 Provider，不猜 POSIX 路径、不以双向同步作前置 | [原位执行](proot-in-place-execution.md)、[工作区 ADR](../adr/workspace/004-workspace-binding.md) |
 | 日志与结果 | 工具状态、持久正文、日志流与模型投影分开；同会话已结算成功/失败可补读。日志收取/ACK 不重执行原命令，UNKNOWN 不自动重放；原位内部日志包不包含整份工作副本 | [结果日志](result-log-closeout.md)、[结果契约](../adr/agent/006-model-data-budget-boundaries.md) |
@@ -24,8 +24,17 @@
 
 ## 最新验收及未通过项
 
+- 候选边界：含原生密码找回、人机验证与 renderer 退出处理的新候选已通过完整 Debug 与合成账号设备验收；当前收尾的完整 Debug/Release 主机门禁通过且前后源码指纹一致，双渠道隔离 R8 核心各一项及匿名入口一项通过，分别记录于 ignored `build/account-final-all-20261117/`、`build/account-final-r8-20261117/`。本批独立验证，不沿用账号接入前的 Release/R8 结果；日常数据与登录保留，未推送或发布。
+
+- 2026-11-17 后续官方网页路径已完成真实注册、登录及邮箱已验证核查，覆盖网页验证码发信；此前只读批次的“未发信”仅描述当时范围。原生客户端已接入密码找回与三类发送前人机验证，完整 Debug 门禁与日常 API36 合成账号 17 项回归通过，已保数据覆盖安装；随后 opt-in 隔离匿名表单通过真实原生 WebView/Turnstile 发码，HTTP 200；随后独立收件列表核验确认实收（不是原 instrumentation 自身的断言）；未读取验证码、未重置密码。该测试复用生产表单和正常 TLS，不等于从日常已登录界面导航的完整真实 UI 验收；实际重置及新密码登录仍未验。见[原生接入边界](account-login-integration.md#2026-11-17-原生密码找回与人机验证接入)。
+
+- 2026-11-17 Luna 视觉受控服务实验证实当前部署支持图片：不同合成色块及无图对照、PNG/JPEG/WebP 经 Chat Completions/Responses 六种组合均通过。客户端据此只为精确 Luna 模型启用视觉，保留图片身份/哈希/披露、正常 TLS 与原输入输出预算，不放开音频、文件或外链。随后账号找回接入前的整合候选已通过完整主机门禁及有界应用视觉闭环：真实请求携带可解码图片并完成动作目标。此单例不证明一般视觉可靠性，也不继承为后续账号候选的全产品验收；证据在 ignored `build/mobile-boundary-visual-final-20261117/`。契约及证据入口见[模型 ADR](../adr/provider/001-models-and-connection.md#2026-11-17luna-图片输入按当前部署实证启用)。
+
+- 2026-11-17 Mobile Use 可选动作后观察与技能渐进披露已通过完整 Debug 门禁及有界真实模型任务；入口保留授权、过期 token、页面核验和不重放规则，专项参考按需读取。请求级插件/技能展示快照随后合并重复准备工作，完整 owner/source/name/hash 身份与执行时实时复验保持。八对生产 assembler 样本的 prompt/tool-schema 哈希一致，暖态中位从约 614 ms 降至 136 ms，READINESS 每次从 58 降至 6；这是准备阶段证据，不是整体任务的普遍提速比例。最终候选真实节点任务完成输入、单次点击与文件回读；保留先写文件缺目录恢复和无 active Goal 的报告失败，不把目标成功解释为所有调用都成功。效率改动纳入本轮收尾；随后账号找回接入前的整合候选已通过完整 Debug/Release 主机门禁及双渠道隔离 R8 核心各一项，证据在 ignored `build/final-integration-all-20261117/` 与 `build/final-r8-isolated-20261117/`。后续账号找回及 WebView 修改改变源码输入，不能继承这批 Release/R8 通过；本轮未做真机验收。临时每轮同步 audit 计时已移除。原始证据在 ignored `build/prompt-performance-candidate-20261117/`、`build/prompt-snapshot-debug-final-20261117/` 与 `build/mobile-prompt-snapshot-final-20261117/`。
+- 2026-11-17 真实 Android ASR/TTS 两项复验通过：TTS 返回非零 PCM 并完成静音队列；TTS 音频往返及独立合成 WAV 均返回非空识别文本，正常 TLS 校验保持开启。后续固定合成句经云 TTS 和独立 Tingting 两条来源复验，去标点后均 10/10 字符一致；这不证明普遍准确率，未采集真实麦克风或验证听感，历史 TLS/502 失败仍保留。账号只读复验也通过资料、注册配置、额度及通知；未发送验证码、注册或改绑。见[语音最新边界](cloud-speech-integration.md#2026-11-17-合成音频真实服务复验)及[账号只读复验](account-login-integration.md#2026-11-17-账号只读边界复验)。
+
 - 2026-11-16 账号并发审查修复了调度前后切换账号的请求归属：资料读取、邮箱验证码、绑定、改密及通知读取/已读请求在进入 IO 前冻结会话 revision；改密后的自动重登录在会话锁内再次复核，旧操作不作用于新账号，也不覆盖较新登录。资料读取与更新共享独立串行边界，避免同账号旧读取覆盖刚完成的绑定，不锁推理或其他工具。账号聚焦 JVM 97 项及静态分析通过，含七类延迟请求切换账号后零传输、旧重登录拒绝及跨客户端资料排序回归；该补丁未单独运行设备验证，整合候选验收另计。原始日志在 ignored `build/account-review-20261116/`。
-- 2026-11-16 账号交接更新已接入本地用户名/头像与独立用户页、额度/通知局部加载、每账号每 24 小时最多一次通知自动检查、验证码注册/邮箱绑定及云端 PCM。完整 Debug 门禁和 14 项账号/邮箱/通知界面检查有通过记录；真实资料、注册配置、通知及额度只读接口通过，真实验证码发送、注册和绑定没有执行，模拟流程不代替真实服务验收。当天手势 schema 极端整数与错误诊断误遮修复已分别验收；本轮工作树修改尚未提交，不属于已发布 APK。
+- 2026-11-16 账号交接更新已接入本地用户名/头像与独立用户页、额度/通知局部加载、每账号每 24 小时最多一次通知自动检查、验证码注册/邮箱绑定及云端 PCM。完整 Debug 门禁和 14 项账号/邮箱/通知界面检查有通过记录；真实资料、注册配置、通知及额度只读接口通过，真实验证码发送、注册和绑定没有执行，模拟流程不代替真实服务验收。当天手势 schema 极端整数与错误诊断误遮修复已分别验收；上述账号及协议整合随后已本地提交，不属于已发布 APK。
 - 2026-11-16 13:05–13:13 UTC 的真实服务复测覆盖了上表和下方 11-15 的失败快照：Luna Chat Completions/Responses 两轮成功，返回合法工具参数但未执行手势；最新双请求合计约 91 秒，不代表延迟稳定。TTS 有一次非零 PCM 和静音播放队列完成，未覆盖真实听感。ASR 后续重试仍在 TLS 阶段失败、未收到 HTTP 响应或识别文本，其当前地区限制状态未知。此前三类请求曾由网关日志确认 OpenAI 403 `unsupported_country_region_territory` 映射为 502，这是历史事实，不再表示当前 Luna/TTS 一律不可用。间歇 TLS 原因及地区判断依据仍未确定；正常证书校验保持开启。证据分别留在 ignored `build/real-cloud-retest-latest/`、`build/asr-retry-20261116T1310/` 与 `build/luna-recheck-20261116/`。四项真实业务基线仍未由这些接口探针补齐。
 
 - v0.0.11 / code 1 已作为 GitHub 开发预览发布，ModelScope 同步提供双渠道开发签名 ARM64 APK 与更新清单。源码/tag 固定为 `a957defd`，完整与 Debug CI 通过。整合候选双渠道 Debug 40 项/R8 会话核心各 4 项通过；公开签名包在隔离 API36 上经系统安装器从 0.0.10 覆盖安装，并实际查询线上更新服务。两批范围分别记录，不外推所有设备或历史数据兼容。v0.0.10 首次升级须手动下载；详见[版本说明](../product/releases/v0.0.11.md)与[验收记录](../evidence/development/v0.0.11-preparation-2026-11-13.md)。
@@ -132,3 +141,5 @@ Owner 批准的日常模拟器正式登录与真实额度读取/界面已通过�
 修复后另有 42 项变更路径设备回归全部通过，覆盖输入协议、重复 wire ID、附件/资源消费、定时执行授权变化和合成请求准入；Scheduled 全类 8 项补验也通过。旧夹具以 canonical 名硬编码 OpenAI 响应、将目录 GET 消耗为推理响应，以及把具体 Schema 拒绝标签误认作泛化状态的问题已在测试层纠正：响应从当前请求声明选择合法名，目录请求独立核查，保留未知名拒绝、每轮本地调用独立、wire ID 配对、真实权限变化前置拒绝等原断言。初次失败与后续复验分别保存，不跳过失败项、不放宽生产契约；补验证据在 ignored `build/wire-fixture-validation/device-r2/`。最后 12 项真实 WebView 动作回归也全部通过，继续核查动态节点插入、过期索引、敏感字段、取消和提交结果边界；主 Helix 安装字节保持不变，未清数据或退出登录，证据在 `build/candidate-readiness-wirefix-20261115/browser-final/`。
 
 修复后的普通 Developer APK 已保数据覆盖日常模拟器并核对安装 SHA，真实额度再次通过、原登录保留。普通 Luna 的唯一 UI 提交最终 SERVER_ERROR，6 条生产 HTTP 502 诊断对应 5 次自动技术恢复和末次恢复耗尽，无人工重发。新的单次文件业务提交使用合法 `helix_tool_*` wire 别名，6 次内部请求均 HTTP 502，精确持久诊断明确“OpenAI 拒绝了当前地区的访问，请联系管理员核查”，没有再出现旧 422，亦没有工具执行。网页/跨会话依赖同服务而停止；自然日志仍保留独立隔离包/认证边界，不复制主账号令牌或放宽 guard。业务质量分数保持 null。新批次及原始/修复前失败分别保留在 ignored `build/real-task-live-wirefix-20261115-192002/` 与先前各批次，普通模型/登录证据在 `build/cloud-readiness-20261115/live-wirefix/`。地区恢复后需新批次，不把协议修复或确定性夹具通过当真实业务成功。
+
+真实重置后续交互在等待用户输入阶段到达时限，只确认挑战打开和发码 HTTP 200，未确认重置完成或新密码登录。缺少请求开始见证，不能由没有完成日志推断重置从未提交；未自动重放，日常前台已恢复。该未知边界与已通过的匿名入口导航、合成重置及 Release/R8 核心回归分别记账。

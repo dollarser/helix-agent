@@ -260,3 +260,28 @@ Owner 明确批准本次将测试账号凭据发送至 `accounts.hilex.me`，并
 新普通 Developer App/test 的包 ID 和 SHA 均与冻结制品一致，保数据覆盖后无需重登即可读取真实额度，最终界面仍为已登录。普通 Luna 仅一次 UI 提交，实际模型 `gpt-6-luna`，最终 FAILED/SERVER_ERROR；6 条 HTTP 502 诊断中前 5 条为生产自动恢复，末条恢复耗尽，未人工重发。末条 request ID 为 `7d4110c065529bf0c462b71f0008e876991a50830cc30c4e`；该普通请求没有独立证明地区原因，不沿用历史未知错误作解释。详见 ignored `build/cloud-readiness-20261115/live-wirefix/summary.json`。
 
 同候选单次真实文件任务的 function.name 已全部合法，不再出现 422；该任务 6 条精确持久诊断明确为地区拒绝，尚无工具执行。没有改网络出口、切换模型或放宽权限。相关 request ID 和完整脱敏诊断在 ignored `build/real-task-live-wirefix-20261115-192002/model-failure-diagnostics.json`，未把服务拒绝算作模型质量分数。ASR/TTS 本轮 502 保留原证据，未为取得成功而重复请求。
+
+
+### 2026-11-17 账号只读边界复验
+
+日常 API36 的两个只读设备测试通过，覆盖现有登录下的资料、注册配置、三类额度和通知读取，使用保留用户设置模式。未发送验证码、注册账号、绑定邮箱、修改密码或标记通知已读；这些真实副作用闭环仍未验收。账号 revision 冻结、旧请求不作用于新账户及同账号资料排序已有主机和合成设备回归，不能用模拟场景替代真实验证码流程。原始日志位于 ignored `build/account-boundary-retest-20261117/readonly.log`。
+
+11-15 普通 Luna/工具请求的 502 和地区错误是历史失败；后续真实 Luna Chat Completions/Responses 和有界 Mobile Use 模型任务已有成功，但不证明所有地区、服务稳定性或四项旧业务任务已全部完成。最新整合边界以[当前状态](status.md#最新验收及未通过项)为准。
+
+
+同日受控合成像素服务实验进一步确认 Luna 的 PNG/JPEG/WebP 图片输入，两种协议共六种组合通过，并以不同图片和无图对照核查实际像素消费。客户端按精确模型和已实证格式调整能力声明，不增加账号权限，不绕过图片绑定或披露。服务层验证不代表完整应用视觉任务已验收，详见[模型契约](../adr/provider/001-models-and-connection.md#2026-11-17luna-图片输入按当前部署实证启用)。
+
+### 2026-11-17 原生密码找回与人机验证接入
+
+登录页新增独立“忘记密码”入口，匿名请求重置码及提交新密码，不依赖公开注册开关；成功返回普通登录，不自动登录。注册、绑定、找回发送邮件前统一获取一次性用途 proof，取消验证不发邮件；原生找回固定保留 API Key。验证码、密码和 proof 不持久保存，冷却与迟到结果隔离见[账号契约](../adr/provider/001-models-and-connection.md#2026-11-17邮箱找回与发码前人机验证)。
+
+主机账号聚焦回归 107 项通过；UI 收尾后完整 Debug 门禁通过，源码前后指纹一致，日常 API36 已保数据覆盖安装并校验 APK 字节。合成账号设备 17 项全部通过（43.581 秒），覆盖 proof 单次消费、取消/迟到、邮箱/账号切换、冷却隔离、找回字段精确提交及秘密清理；renderer 测试仅主动调用 crash/killed 回调，不代表真实进程崩溃验收。保留原语言和登录，结束恢复日常前台且无活跃任务。证据位于 ignored `build/account-recovery-debug-r2-20261117/`；该阶段未重验 Release/R8，后续结果见下；不将合成结果计为真实 Turnstile 或实际密码重置。官方网页已完成真实注册、登录及邮箱已验证核查，属于网页路径证据；后续真实原生发码另有下述独立验收，不依据页面存在或模拟 proof 关闭真实流程边界。
+
+
+同日经所有者批准，opt-in 隔离测试 Activity 承载生产 `AccountPasswordRecoveryForm`，使用匿名内存会话、真实原生 WebView/Turnstile 与生产 TLS，找回发码返回 HTTP 200。随后独立收件列表核验确认邮件实收：主题为 Helix AI password reset code，显示时间 16:48 UTC+8 与本次发码 08:48 UTC 对应。此结论来自独立核验报告，不是原 instrumentation 自身的邮件断言；原批次的 pending 收件字段仅反映当时阶段，追加核验记录与其并存。未打开邮件正文、未读取验证码、未提交密码重置，也未验证新密码登录。证据位于 ignored `build/account-recovery-live-20261117/`。这证明真实验证与发信链路，不是合成 proof；但未从日常已登录界面完整导航，不能替代日常真实 UI 入口、实际重置及新密码登录验收。
+
+
+含上述账号与 WebView 修改的新候选，完整 Debug/Release 门禁通过、源码前后指纹一致，双渠道隔离 R8 核心各一项通过（Consumer 23.845 秒、Developer 24.318 秒），覆盖普通对话、工具回填、持久历史、取消、不重放及继续；生产匿名入口导航一项通过（3.093 秒），覆盖注册关闭时仍可找回、返回后秘密清空和原草稿保留。未卸载或清数据。证据见 ignored `build/account-final-all-20261117/`、`build/account-final-r8-20261117/`；账号接入前的 `final-integration-all` / `final-r8-isolated` 仅是旧候选证据，不能继承。当前状态见[最新验收](status.md#最新验收及未通过项)。
+
+
+后续真实密码重置交互批次在 903.244 秒到达等待时限，仅记录 CHALLENGE_OPEN 与 CODE_HTTP_200，未确认重置成功或新密码登录。没有请求开始见证，故不能断言“未提交重置”；未读用户秘密、未在交接后截图、未自动重放，进程结束后恢复日常前台。证据见 ignored `build/account-recovery-reset-live-r2-20261117/outcome.json`。完整门禁之后追加的 opt-in 真实重置测试独立编译验收，未改生产源码；设备核心通过不关闭此真实重置未知边界。

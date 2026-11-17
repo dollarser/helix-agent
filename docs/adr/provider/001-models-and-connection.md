@@ -420,3 +420,26 @@ MCP/A2A 的远端名称不由 Helix 改写。`RemoteToolNames` 在注册边界�
 本轮客户端验收：最终 `scripts/check-all.sh --debug` 完整通过，测试 APK 构建通过；Developer 单测 2142 项、Consumer 1941 项（各5项显式跳过），Provider API 171 项、OpenAI Chat 89 项均无失败。日常 Helix_API_36 保留数据覆盖安装且 APK SHA-256 与本地一致；14项注册/绑定/通知/账号返回流程合成设备测试通过，现有账号对 `/account/me`、注册配置、通知有效列表及三类额度的真实只读验收通过，登录保留。真实发信、注册、绑定及改密未执行，其状态/参数/错误和UI由合成测试覆盖。
 
 真实推理验收仍有环境阻塞：模拟器访问 `api.hilex.me` 的云TTS在TLS握手阶段出现 SSLHandshakeException，人工复查仍在握手阶段出现 SocketException；Luna工具请求在 CONNECT 阶段失败，无HTTP状态、响应正文或请求ID，尚未进入两协议成功比较。TTS未完成，因此其串联ASR也未启动，不能宣称云语音回路通过。两个官方域名均经当前本机网络的198.18段fake-IP解析；账号域正常，Mac对API域的只读HEAD能完成TLS。该证据仅定位到模拟器/API域连接路径差异，不能断言服务端模型失败或证书本身无效；没有改变代理、绕过TLS或重复提交已知成功推理。后续需在API域模拟器网络恢复后重跑真实Luna Chat/Responses及PCM TTS/ASR回路。原始门禁和设备证据保留于 ignored `build/gateway-handoff-*`，本轮未提交、推送或发版。
+
+### 2026-11-17：Luna 图片输入按当前部署实证启用
+
+所有者纠正 Luna 当前支持视觉。使用既有测试账号、正常 TLS 对线上服务执行受控合成像素请求：两张不同色块排列均识别正确，同提示无图对照返回无图；PNG、JPEG、WebP 经 Chat Completions 与 Responses 的六种组合均成功识别。该证据更新前一日文本限定的部署认知，不将旧服务端 checkout 或模型目录存在性当作当前线上能力证明。
+
+客户端为精确 `gpt-6-luna` 启用视觉，不改变默认模型、账号授权或其他模型能力。Chat 接受 `image_url` 对象中的 data URL，Responses 接受 `input_image` 的字符串 data URL；仅放行实测的 PNG/JPEG/WebP base64 形式，不放开外链、文件或音频。既有图片绑定、内容哈希、格式与披露检查仍由生产图片源执行；本次不放宽输入字节及协议余量上限250000或输出上限16384，图片编码字节同样计入输入预算。此保守客户端上限不宣称是当前上游最大能力。
+
+独立网关像素测试与应用图片工具闭环分开验收；前者成功不能替代完整客户端、Dispatcher、截图披露与模型实际消费的验证。真实请求及脱敏证据保留于 ignored `build/luna-pixel-*`，不会保存账号令牌或请求头。
+
+
+### 2026-11-17：区分工具参数输出截断与未知结束原因
+
+Chat 明确返回 `length`、Responses 明确返回 `max_output_tokens` 且工具调用仍未完成时，使用固定诊断 `INCOMPLETE_TOOL_OUTPUT_LIMIT`，说明模型输出达到上限、该未完成调用未执行。仍保持不可自动重试的失败，不产生工具完成事件，不执行或自动重放残缺参数；`stop` 矛盾、未知结束原因和缺少终止事件继续按各自协议错误处理。旧审计中聚合的 `INVALID_FINISH_REASON` 不能倒推为输出限额。两协议解码器、诊断映射及界面文案回归通过；真实主屏测试另保留协议失败和任务文件位置歧义样本，不以合成回归替代真实闭环。
+
+### 2026-11-17：邮箱找回与发码前人机验证
+
+依据所有者指定的 ai-gateway 最新 `docs/client-handoff.md` 与 `docs/human-verification.md`，注册、绑定、找回的发送验证码接口必须携带用途匹配的 `captcha_token`。后者的新契约覆盖旧示例仅含 email 的描述。三个 action 分别为 registration_code、email_binding_code、password_reset_code；最终提交邮件验证码不携带 proof。客户端不尝试无验证降级、不自动重放邮件发送或密码重置。
+
+验证只在专用 WebView 加载固定 `https://accounts.hilex.me/auth/captcha?action=…`。AndroidX WebMessage listener 在加载前安装，限可信 origin、主框架、当前固定 URL、type/action 和有界非空 token；不支持该能力则关闭并提示升级 WebView，不使用宽泛 JavaScript interface。主导航不能转到任意来源，Cloudflare 必要子资源独立限制；文件访问、权限请求和 TLS 错误不放行。proof 只在内存保存，五分钟有效、原子单次消费，任何发送结果后均不可复用。UI 将验证尝试与邮箱、用途及绑定账号 revision 绑定，取消、修改或账户切换后的旧回调不能发送或污染新表单反馈。
+
+密码找回在独立原生表单使用匿名账号接口，不携带模型鉴权、Cookie、ClientID，也不触发 refresh。邮箱按 Locale.ROOT 归一化；六位 ASCII 邮件码保留前导零；新密码不 trim，确认仅本地比对。本次界面不提供可选的 API Key 批量停用项，固定发送 JSON 布尔 `revoke_api_keys=false`，不创建 Key。成功时与 login/refresh 共用账号互斥，清理匹配目标邮箱的本机认证并推进 revision，不退出其他账号、不自动登录。密码和邮件码只在表单内存中，使用密码键盘并关闭自动纠错，成功或离页清空。冷却按单调截止时间计算，HTTP 错误保留 error_code、request_id 和 Retry-After；未知结果提示手动正常登录或重新验证，不重放旧请求。
+
+本次主机账号与安全 UI 聚焦测试、完整 Debug 门禁及 17 项合成设备回归均通过，设备安装字节与门禁制品一致。发送冷却和迟到结果按 action/账号身份隔离；WebView renderer 退出撤销 proof 并释放视图，合成回调测试不代替真实崩溃。设备受控 proof 夹具、完整客户端 Turnstile 与真实邮箱找回分别记账。网页真实注册/登录/邮箱验证的成功不等于原生 WebView 或密码重置端到端验收。凭据、proof、邮箱明文及完整请求体不写日志或证据；本地合成回归日志见 ignored `build/account-recovery-handoff-20261117/`。

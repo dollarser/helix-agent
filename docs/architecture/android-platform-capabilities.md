@@ -222,6 +222,8 @@ Helix 当前 `ShizukuHierarchy` 在 shell/Root UID 的特权进程中连接 UiAu
 
 ### 5.2 工具与操作类型
 
+`ui_click` / `ui_click_match` 可用 `observeAfter=true` 返回同一授权调用中的有界新语义观察，默认不读取。复用附件中的新 token；`UNSETTLED`、截断或不可用需按实际状态继续观察，不能证明效果或授权重放。此选项不采集截图，详见 [工具契约决定](../adr/tools/001-descriptor-contract.md#decision-history--2026-11-17mobile-use-按需动作后观察)。
+
 | Tool | 操作类型 | 实际能力 |
 | --- | --- | --- |
 | `ui_snapshot` / `ui_find` | READ_ONLY | 当前语义树、文本/属性匹配、token 与节点边界 |
