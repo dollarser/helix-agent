@@ -40,7 +40,7 @@ enum class DispatchOutcomeCode {
 }
 
 /**
- * The model-visible, bounded result of a successful dispatch: canonical output text
+ * The model-visible, bounded output received by a dispatch: canonical output text
  * truncated to the descriptor's descriptor maxOutputBytes with the SHA-256 of the
  * FULL (pre-truncation) output preserved — a truncated result still proves which output it
  * was (security doc section 7.3: 超限截断并保留 hash/Artifact 引用).
@@ -85,6 +85,8 @@ sealed interface ToolDispatchOutcome {
         val detail: String,
         val sideEffectFree: Boolean = false,
         val requiresReview: Boolean = false,
+        /** Schema-validated, bounded output received with a declared business failure. */
+        val result: BoundToolResult? = null,
     ) : ToolDispatchOutcome {
         init {
             require(!sideEffectFree || !requiresReview) {

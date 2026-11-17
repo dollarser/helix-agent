@@ -51,6 +51,38 @@ class McpTechnicalRecoveryTest {
         }
     }
 
+    @Test fun correlatedProtocolReplyNeverBecomesBootstrapNetworkRetry() {
+        McpFixture().use { fixture ->
+            var attempts = 0
+            val runtime =
+                McpToolRuntime(
+                    credentials,
+                    gate,
+                    "helix-test",
+                    "1",
+                    clientFactory = { _, _, _ ->
+                        object : McpClientFacade {
+                            override suspend fun connect(endpointUrl: String): McpClientSession {
+                                attempts++
+                                throw McpProtocolResponseException(
+                                    -32602,
+                                    java.net.SocketException("not a retry signal"),
+                                )
+                            }
+                        }
+                    },
+                    retryDelay = { error("must not retry an error reply") },
+                )
+            val failure =
+                assertThrows(McpCallException::class.java) {
+                    runtime.caller(config(fixture)).call(call(), "echo")
+                }
+            assertEquals(1, attempts)
+            assertFalse(failure.requestSent)
+            assertTrue(failure.cause is McpProtocolResponseException)
+        }
+    }
+
     @Test fun lostBusinessReplyRemainsUnknownAndIsNotReplayed() {
         McpFixture(dropToolResponse = true).use { fixture ->
             val runtime = McpToolRuntime(credentials, gate, "helix-test", "1", retryDelay = {})

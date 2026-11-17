@@ -321,7 +321,9 @@ class ToolDispatcher(
     ): ToolDispatchOutcome =
         try {
             val checked =
-                if (result is ToolExecutorResult.Completed && !permitted()) {
+                if ((result is ToolExecutorResult.Completed || result is ToolExecutorResult.FailedWithOutput) &&
+                    !permitted()
+                ) {
                     ToolExecutorResult.CancelledWithEffectTruth(
                         "JOB_OBSERVATION_REVOKED: no new job result was disclosed.",
                         ctx.executor is JobObservationExecutor,
@@ -770,6 +772,24 @@ class ToolDispatcher(
                     ),
                     DecisionSource.FRAMEWORK,
                 )
+            }
+
+            is ToolExecutorResult.FailedWithOutput -> {
+                bindOutput(result.output, descriptor, execStart, ctx)?.let { bound ->
+                    ctx.outputHash = bound.outputHash.hex
+                    ctx.outputTruncated = bound.truncated
+                    finish(
+                        request,
+                        startedAt,
+                        ctx,
+                        ToolDispatchOutcome.ExecutionFailed(
+                            DispatchOutcomeCode.TOOL_FAILED,
+                            "Tool returned a failure result",
+                            result = bound.copy(visualArtifact = result.visualArtifact),
+                        ),
+                        sourceOf(ctx.attemptProof),
+                    )
+                } ?: finishStop(request, startedAt, ctx)
             }
 
             is ToolExecutorResult.Completed -> {
@@ -1236,6 +1256,7 @@ class ToolDispatcher(
 private fun executorAuditDetail(result: ToolExecutorResult?): kotlinx.serialization.json.JsonObject? =
     when (result) {
         is ToolExecutorResult.Completed -> result.auditDetail
+        is ToolExecutorResult.FailedWithOutput -> result.auditDetail
         is ToolExecutorResult.Failed -> result.auditDetail
         is ToolExecutorResult.TimedOutWithEffectTruth -> result.auditDetail
         is ToolExecutorResult.CancelledWithEffectTruth -> result.auditDetail

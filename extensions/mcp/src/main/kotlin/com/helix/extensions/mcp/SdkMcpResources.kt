@@ -14,6 +14,7 @@ import kotlinx.serialization.json.put
 
 internal class SdkMcpResources(
     private val client: Client,
+    private val options: io.modelcontextprotocol.kotlin.sdk.shared.RequestOptions,
 ) {
     suspend fun list(
         cursor: String?,
@@ -23,7 +24,7 @@ internal class SdkMcpResources(
         val params = PaginatedRequestParams(cursor = cursor)
         val page =
             if (templates) {
-                val result = client.listResourceTemplates(ListResourceTemplatesRequest(params))
+                val result = client.listResourceTemplates(ListResourceTemplatesRequest(params), options)
                 McpResourcePage(
                     result.resourceTemplates.map {
                         buildJsonObject {
@@ -36,7 +37,7 @@ internal class SdkMcpResources(
                     result.nextCursor,
                 )
             } else {
-                val result = client.listResources(ListResourcesRequest(params))
+                val result = client.listResources(ListResourcesRequest(params), options)
                 McpResourcePage(
                     result.resources.map {
                         requireResourceUri(it.uri)
@@ -51,9 +52,12 @@ internal class SdkMcpResources(
                     result.nextCursor,
                 )
             }
-        require(page.entries.size <= 128) { "MCP resource page exceeds 128 entries" }
-        require(page.nextCursor == null || page.nextCursor.length <= 4096) { "MCP resource cursor too large" }
-        require(
+        requireResourcePage(page.entries.size <= 128, ResourceListingFailure.LIMIT_EXCEEDED)
+        requireResourcePage(
+            page.nextCursor == null || page.nextCursor.length <= 4096,
+            ResourceListingFailure.LIMIT_EXCEEDED,
+        )
+        requireResourcePage(
             page.entries.sumOf {
                 it
                     .toString()
@@ -61,15 +65,14 @@ internal class SdkMcpResources(
                     .size
                     .toLong()
             } <= 262144,
-        ) {
-            "MCP resource metadata exceeds 256 KiB"
-        }
+            ResourceListingFailure.LIMIT_EXCEEDED,
+        )
         return page
     }
 
     suspend fun read(uri: String): List<McpResourceContent> {
         requireResourceUri(uri)
-        val result = client.readResource(ReadResourceRequest(ReadResourceRequestParams(uri)))
+        val result = client.readResource(ReadResourceRequest(ReadResourceRequestParams(uri)), options)
         require(result.contents.size in 1..64) { "MCP resource content count must be 1..64" }
         var textBytes = 0L
         var binaryBytes = 0L

@@ -22,6 +22,20 @@ internal object ToolFailureContent {
             } else {
                 structured.forEach { (key, value) -> put(key, value) }
             }
+            failure.result?.let { result ->
+                put(
+                    "output",
+                    if (result.truncated) {
+                        kotlinx.serialization.json.JsonPrimitive(
+                            result.payload,
+                        )
+                    } else {
+                        Json.parseToJsonElement(result.payload)
+                    },
+                )
+                put("executorPayloadTruncated", result.truncated)
+                put("executorOutputHash", result.outputHash.hex)
+            }
             put("failureCode", failure.code.name)
             put("sideEffectFree", failure.sideEffectFree)
             put("requiresReview", failure.requiresReview)

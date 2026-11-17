@@ -17,16 +17,7 @@ internal fun bridgeResult(
             when (result) {
                 is ToolDispatchOutcome.Succeeded -> {
                     put("status", "SUCCEEDED")
-                    put("outputHash", result.result.outputHash.hex)
-                    put("truncated", result.result.truncated)
-                    put(
-                        "output",
-                        if (result.result.truncated) {
-                            JsonPrimitive(result.result.payload)
-                        } else {
-                            Json.parseToJsonElement(result.result.payload)
-                        },
-                    )
+                    putOutput(result.result)
                 }
 
                 is ToolDispatchOutcome.Denied -> {
@@ -47,6 +38,7 @@ internal fun bridgeResult(
                     put("detail", result.detail)
                     put("sideEffectFree", result.sideEffectFree)
                     put("requiresReview", result.requiresReview)
+                    result.result?.let { putOutput(it) }
                 }
             }
         }.toString()
@@ -61,4 +53,10 @@ internal fun bridgeResult(
             put("detail", "Inspect the original durable tool result; never replay the action to obtain output.")
         }.toString()
     }
+}
+
+private fun kotlinx.serialization.json.JsonObjectBuilder.putOutput(output: com.helix.core.model.BoundToolResult) {
+    put("outputHash", output.outputHash.hex)
+    put("truncated", output.truncated)
+    put("output", if (output.truncated) JsonPrimitive(output.payload) else Json.parseToJsonElement(output.payload))
 }

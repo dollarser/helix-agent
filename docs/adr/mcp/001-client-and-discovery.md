@@ -118,3 +118,13 @@ Client 不声明未实现的 sampling、elicitation 或 roots。initialize resul
 文件已保存但注册失败明确返回 `SAVED_NOT_REGISTERED`、已验证路径和 hash，不捏造 artifactRef、不回滚文件；取消或撤销仍不得伪称成功，已发生的文件效果保留并遵循现行 UNKNOWN/review。发布前和返回前复查来源，发布过程中复核取消/deadline；缺宿主发布接缝明确失败。
 
 决策依据：[MCP 2025-11-25 Resources](https://modelcontextprotocol.io/specification/2025-11-25/server/resources) 定义 Text/Blob 及 application-controlled 消费；[Codex Resources handler](https://github.com/openai/codex/blob/main/codex-rs/core/src/tools/handlers/mcp_resource/read_mcp_resource.rs) 使用独立 resources/read、解析实际服务器/环境并保留来源。采纳来源绑定和独立协议操作，Helix 按移动端现有工作区/产物路径做有界物化，不照搬其他宿主协议 JSON 回填，也不复制参考代码。
+
+### 2026-11-17 分页身份与错误反馈收敛
+
+Owner 要求参考近期真实故障和竞品优化，不维护旧实现兼容分支。区分模型侧 Helix continuation 与协议侧 opaque cursor：模型首请求可省略或传空串；上游空串、空格仍原样回传，仅 null/缺失表示结束。来源身份（server ID、完整 endpoint）及列表类别由同一实现生成和校验，重连继续校验前序页；来源变化、格式错误、元数据变化、循环或超限明确失败，不静默重置、漏页或伪装结束。
+
+本地 continuation 预检发生在联网和发送标记前，以稳定类型区分无效参数与来源变化，给出重新列举的可执行提示；确认未发生连接/发送的参数失败不进入 UNKNOWN/review。未知传输与取消保持原有事实边界，不按错误文字猜测；JSON-RPC 错误必须由实际 request ID 关联的响应证明，裸 SDK 异常不代表已收到回复。响应见证使用 SDK 0.15 的 RequestOptions 对象身份关联 wire request ID，SDK 升级必须重跑真实 HTTP 与并发乱序回归；已收回复不意味着无副作用，也不授权自动重放。服务已明确返回 `isError=true` 时，通过通用 typed failed-output 保留完整文本、结构化内容及截断引用，同时持久化为失败；不在 Dispatcher 解析 MCP JSON，也不声称远端没有产生任何效果。
+
+依据：[MCP Pagination](https://modelcontextprotocol.io/specification/2026-07-28/server/utilities/pagination)、[Codex pagination](https://github.com/openai/codex/blob/main/codex-rs/codex-mcp/src/pagination.rs)、[OpenAI Agents SDK 工具错误反馈](https://openai.github.io/openai-agents-python/tools/#handling-errors-in-function-tools)。采纳 opaque/null 边界、显式有界失败与模型可修正反馈，不复制参考代码或移植新的固定限制。
+
+验收以生产 `McpToolRuntime.caller` 加实际 HTTP SDK 夹具覆盖双列表三页、上游空串/空格、空页继续、跨来源/endpoint/类别、元数据变化和防循环；Bridge 回归区分本地未发送、服务明确失败和传输未知。先前真实 Luna 二进制消费通过仅证明其对应候选，不替代本次重构的集成门禁或设备验收；最终候选事实由当前验收记录给出。

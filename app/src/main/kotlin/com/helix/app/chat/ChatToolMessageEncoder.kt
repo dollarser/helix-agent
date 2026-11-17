@@ -79,7 +79,7 @@ internal class ChatToolMessageEncoder(
                 summary = str(ConversationR.string.tool_summary_cancelled_before_start)
             }
         }
-        val visual = (settled.outcome as? ToolDispatchOutcome.Succeeded)?.result?.visualArtifact
+        val visual = visualArtifact(settled.outcome)
         val body =
             buildJsonObject {
                 put("id", settled.callId)
@@ -108,6 +108,13 @@ internal class ChatToolMessageEncoder(
             visualArtifact = visual,
         )
     }
+
+    private fun visualArtifact(outcome: ToolDispatchOutcome) =
+        when (outcome) {
+            is ToolDispatchOutcome.Succeeded -> outcome.result.visualArtifact
+            is ToolDispatchOutcome.ExecutionFailed -> outcome.result?.visualArtifact
+            else -> null
+        }
 
     private fun failureSummary(
         settled: SettledCall,

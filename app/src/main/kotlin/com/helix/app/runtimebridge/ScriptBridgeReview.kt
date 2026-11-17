@@ -14,14 +14,7 @@ internal fun reviewUnresolvedScript(
 ): ToolExecutorResult {
     if (unresolved.isEmpty()) return result
     val ids = JsonArray(unresolved.sorted().take(32).map(::JsonPrimitive))
-    val originalAudit =
-        when (result) {
-            is ToolExecutorResult.Completed -> result.auditDetail
-            is ToolExecutorResult.Failed -> result.auditDetail
-            is ToolExecutorResult.TimedOutWithEffectTruth -> result.auditDetail
-            is ToolExecutorResult.CancelledWithEffectTruth -> result.auditDetail
-            ToolExecutorResult.Cancelled, ToolExecutorResult.TimedOut -> null
-        }
+    val originalAudit = scriptAudit(result)
     val detail =
         buildJsonObject {
             put("status", "SCRIPT_CHILD_REQUIRES_REVIEW")
@@ -30,6 +23,7 @@ internal fun reviewUnresolvedScript(
             put("instruction", "Inspect original durable child results. Do not replay this script or its actions.")
             when (result) {
                 is ToolExecutorResult.Completed -> put("scriptOutput", result.output)
+                is ToolExecutorResult.FailedWithOutput -> put("scriptFailureOutput", result.output)
                 is ToolExecutorResult.Failed -> put("scriptFailure", result.detail)
                 is ToolExecutorResult.TimedOutWithEffectTruth -> put("scriptFailure", result.detail)
                 is ToolExecutorResult.CancelledWithEffectTruth -> put("scriptFailure", result.detail)
@@ -51,3 +45,13 @@ internal fun reviewUnresolvedScript(
             ),
     )
 }
+
+private fun scriptAudit(result: ToolExecutorResult): JsonObject? =
+    when (result) {
+        is ToolExecutorResult.Completed -> result.auditDetail
+        is ToolExecutorResult.FailedWithOutput -> result.auditDetail
+        is ToolExecutorResult.Failed -> result.auditDetail
+        is ToolExecutorResult.TimedOutWithEffectTruth -> result.auditDetail
+        is ToolExecutorResult.CancelledWithEffectTruth -> result.auditDetail
+        ToolExecutorResult.Cancelled, ToolExecutorResult.TimedOut -> null
+    }

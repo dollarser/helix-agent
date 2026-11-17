@@ -10,7 +10,11 @@ import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolOrigin
 import com.helix.tools.framework.ToolRegistry
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.int
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -31,6 +35,56 @@ class McpDynamicToolBridgeTest {
             assertTrue(result.detail.contains("connectionAttempts=2"))
             assertFalse(result.detail.contains("private server detail"))
         }
+    }
+
+    @Test fun localCursorFailureIsActionableAndConfirmedNotSent() {
+        ResourceCursorFailure.entries.forEach { reason ->
+            val failure = McpCallException(false, 0, ResourceCursorException(reason))
+            val result = executeFailure(failure) as ToolExecutorResult.Failed
+            assertTrue(result.sideEffectFree)
+            assertFalse(result.requiresReview)
+            assertTrue(result.detail.contains("request=NOT_SENT"))
+            assertTrue(result.detail.contains(reason.name))
+            assertTrue(result.detail.contains("Omit cursor"))
+            assertFalse(result.detail.contains("IllegalArgumentException"))
+            assertEquals(
+                reason.name,
+                result.auditDetail
+                    ?.get("errorCode")
+                    ?.jsonPrimitive
+                    ?.content,
+            )
+        }
+        val afterSubmission =
+            executeFailure(
+                McpCallException(true, 1, ResourceCursorException(ResourceCursorFailure.SOURCE_CHANGED)),
+            ) as ToolExecutorResult.Failed
+        assertFalse(afterSubmission.sideEffectFree)
+        assertTrue(afterSubmission.requiresReview)
+    }
+
+    @Test fun correlatedProtocolErrorIsRepliedButUnwitnessedSdkErrorRemainsUnknown() {
+        val wire =
+            McpCallException(true, 1, McpProtocolResponseException(-32602, IllegalStateException("private body")))
+        val result = executeFailure(wire) as ToolExecutorResult.Failed
+        assertTrue(result.detail.contains("request=REPLIED"))
+        assertTrue(result.detail.contains("Correct arguments"))
+        assertFalse(result.detail.contains("private body"))
+        assertFalse(result.sideEffectFree)
+        assertFalse(result.requiresReview)
+        assertEquals(
+            -32602,
+            result.auditDetail
+                ?.get("protocolErrorCode")
+                ?.jsonPrimitive
+                ?.int,
+        )
+        val noWitness =
+            executeFailure(
+                McpCallException(true, 1, IllegalArgumentException("-32602")),
+            ) as ToolExecutorResult.Failed
+        assertTrue(noWitness.requiresReview)
+        assertTrue(noWitness.detail.contains("request=UNKNOWN"))
     }
 
     @Test fun localAdmissionFailureCarriesNotSentWithoutChangingUnknownFallback() {
@@ -65,6 +119,48 @@ class McpDynamicToolBridgeTest {
             assertFalse(result.sideEffectFree)
             assertEquals(sent, result.requiresReview)
         }
+    }
+
+    @Test fun receivedServerErrorKeepsTextAndStructuredOutputWithoutUnknownEffects() {
+        val registry = ToolRegistry()
+        bridge(metadata()) {
+            McpToolResult(
+                true,
+                listOf(McpResultBlock.Text("Correct the query")),
+                buildJsonObject { put("code", "bad_query") },
+            )
+        }.register(registry)
+        val descriptor = registry.all().single()
+        val result =
+            registry.executor(descriptor.name, descriptor.version).execute(
+                ExecutableToolCall(
+                    "local-call",
+                    descriptor.name.value,
+                    "1",
+                    buildJsonObject {},
+                    ExecutionTargetType.LOCAL_ANDROID,
+                    Instant.now().plusSeconds(5),
+                    NoCancellation,
+                ),
+            ) as ToolExecutorResult.FailedWithOutput
+        val output = result.output.jsonObject
+        assertEquals(true, output.getValue("isError").jsonPrimitive.boolean)
+        assertTrue(output.getValue("blocks").toString().contains("Correct the query"))
+        assertEquals(
+            "bad_query",
+            output
+                .getValue("structuredContent")
+                .jsonObject
+                .getValue("code")
+                .jsonPrimitive.content,
+        )
+        assertEquals(
+            true,
+            result.auditDetail
+                ?.get("mcpServerResultError")
+                ?.jsonPrimitive
+                ?.boolean,
+        )
     }
 
     private fun executeFailure(failure: Throwable): ToolExecutorResult {

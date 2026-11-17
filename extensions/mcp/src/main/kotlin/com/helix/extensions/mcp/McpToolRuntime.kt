@@ -11,6 +11,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import java.time.Duration
 
@@ -56,6 +57,13 @@ class McpToolRuntime(
             var attempts = 0
             try {
                 ensureNotCancelled(call.cancel.isCancelled(), "network start")
+                if (resourceOperation && serverToolName in setOf("list_mcp_resources", "list_mcp_resource_templates")) {
+                    resourceContinuation(
+                        call.args["cursor"]?.jsonPrimitive?.content,
+                        resourceSourceBinding(config),
+                        serverToolName == "list_mcp_resource_templates",
+                    )
+                }
                 val remainingMillis = Duration.between(java.time.Instant.now(), call.deadline).toMillis()
                 require(remainingMillis > 0)
                 runBlocking {
@@ -107,7 +115,7 @@ class McpToolRuntime(
                 session,
                 name,
                 call.args,
-                config.id.value + "\n" + config.endpoint.full,
+                resourceSourceBinding(config),
                 publishBlob =
                     publishResourceBlob?.let { publish ->
                         { blob, index -> publish(call, blob, index) }
@@ -157,7 +165,7 @@ class McpToolRuntime(
             try {
                 return clientFactory(config, bearer, permit).connect(config.endpoint.full)
             } catch (failure: Exception) {
-                if (!isTransientNetworkFailure(failure)) throw failure
+                if (!recoverableBootstrapFailure(failure)) throw failure
                 val started = recoveryStarted ?: System.nanoTime().also { recoveryStarted = it }
                 val elapsed = (System.nanoTime() - started).coerceAtLeast(0) / 1_000_000
                 val remaining = Duration.between(java.time.Instant.now(), call.deadline).toMillis()
@@ -186,3 +194,6 @@ private fun ensureNotCancelled(
 ) {
     if (cancelled) throw CancellationException("cancelled before $stage")
 }
+
+private fun recoverableBootstrapFailure(failure: Exception): Boolean =
+    failure !is McpProtocolResponseException && isTransientNetworkFailure(failure)

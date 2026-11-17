@@ -16,6 +16,22 @@ import org.junit.Test
 class ChatToolDeliveryFactsTest {
     private val encoder = ChatToolMessageEncoder { _, _ -> "cancelled" }
 
+    @Test fun declaredFailureRetainsStructuredOutputInModelHistory() {
+        val payload = """{"blocks":[{"text":"use another value"}],"structuredContent":{"retry":false}}"""
+        val failure =
+            ToolDispatchOutcome.ExecutionFailed(
+                DispatchOutcomeCode.TOOL_FAILED,
+                "Tool returned a failure result",
+                result = BoundToolResult(payload, Sha256("a".repeat(64)), false, 1),
+            )
+        val draft = encoder.toolResultDraft(SettledCall("call", "remote", failure, "t/c"))
+        val body = Json.parseToJsonElement(draft.content).jsonObject
+        assertEquals("TOOL_FAILED", body.getValue("status").jsonPrimitive.content)
+        val summary = Json.parseToJsonElement(body.getValue("summary").jsonPrimitive.content).jsonObject
+        assertEquals(Json.parseToJsonElement(payload), summary["output"])
+        assertEquals("false", body.getValue("requiresReview").jsonPrimitive.content)
+    }
+
     @Test fun modelHistoryOmitsAuditHashButRetainsFileVersionAndDeliveryTruth() {
         val result = BoundToolResult("""{"sha256":"file-version","text":"body"}""", Sha256("a".repeat(64)), true, 1)
         val draft = encoder.toolResultDraft(SettledCall("wire", "read", ToolDispatchOutcome.Succeeded(result), "t/c"))

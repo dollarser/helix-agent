@@ -216,17 +216,20 @@ private class McpToolExecutor(
         return runCatching { caller.call(call, serverToolName) }
             .fold(
                 onSuccess = { result ->
-                    ToolExecutorResult.Completed(
-                        output = result.toJson(),
-                        auditDetail =
-                            buildJsonObject {
-                                put("mcpServerResultError", result.isError)
-                                put("mcpResultBlocks", result.blocks.size)
-                                put("mcpStructuredResult", result.structuredContent != null)
-                                put("mcpConnectionAttempts", result.connectionAttempts)
-                                put("mcpConnectionClosed", result.connectionClosed)
-                            },
-                    )
+                    val output = result.toJson()
+                    val audit =
+                        buildJsonObject {
+                            put("mcpServerResultError", result.isError)
+                            put("mcpResultBlocks", result.blocks.size)
+                            put("mcpStructuredResult", result.structuredContent != null)
+                            put("mcpConnectionAttempts", result.connectionAttempts)
+                            put("mcpConnectionClosed", result.connectionClosed)
+                        }
+                    if (result.isError) {
+                        ToolExecutorResult.FailedWithOutput(output, audit)
+                    } else {
+                        ToolExecutorResult.Completed(output, audit)
+                    }
                 },
                 onFailure = { failure ->
                     mcpFailure(call, failure)
@@ -354,12 +357,8 @@ private fun mcpFailure(
     val state = if (sent) "UNKNOWN" else "NOT_SENT"
     val guidance = if (sent) "Inspect remote effects; cancellation is not rollback" else "No tool request submitted"
     val cause = failure.cause ?: failure
-    val resourceFailure =
-        (cause as? McpResourceException)
-            ?.reason
-            ?.name
-            ?.let { "; resourceFailure=$it" }
-            .orEmpty()
+    resourceFailureFeedback(cause, sent, facts?.connectionAttempts, call.toolCallId)?.let { return it }
+    val resourceFailure = resourceFailureCode(cause)
     val detail =
         "MCP request=$state; originalCallId=${call.toolCallId}; " +
             "connectionAttempts=${facts?.connectionAttempts ?: 1}; " +
@@ -386,3 +385,10 @@ private fun mcpFailure(
         }
     }
 }
+
+private fun resourceFailureCode(cause: Throwable): String =
+    (cause as? McpResourceException)
+        ?.reason
+        ?.name
+        ?.let { "; resourceFailure=$it" }
+        .orEmpty()
