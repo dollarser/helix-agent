@@ -42,6 +42,52 @@ import org.junit.Test
 import java.time.Instant
 
 class AutomationDeviceToolsTest {
+    @Test fun gestureTimeSchemaUsesSemanticBoundsRatherThanStorageExtrema() {
+        val schema = descriptor("ui_gesture").inputSchema
+        val fields =
+            schema
+                .getValue("properties")
+                .jsonObject
+                .getValue("strokes")
+                .jsonObject
+                .getValue("items")
+                .jsonObject
+                .getValue("properties")
+                .jsonObject
+        assertEquals(
+            "0",
+            fields
+                .getValue("startMillis")
+                .jsonObject
+                .getValue("minimum")
+                .jsonPrimitive.content,
+        )
+        assertEquals(
+            "1",
+            fields
+                .getValue("durationMillis")
+                .jsonObject
+                .getValue("minimum")
+                .jsonPrimitive.content,
+        )
+        assertFalse(fields.getValue("startMillis").jsonObject.containsKey("maximum"))
+        assertFalse(fields.getValue("durationMillis").jsonObject.containsKey("maximum"))
+
+        fun input(
+            start: Long,
+            duration: Long,
+        ) = json(
+            """{"frame":"frame","strokes":[{"points":[{"x":1,"y":1}],
+                "startMillis":$start,"durationMillis":$duration}]}""",
+        )
+        for ((start, duration) in listOf(0L to 1L, 0L to 60_000L, 100L to 500L)) {
+            assertEquals(ToolSchemaValidation.Valid, ToolSchemaValidator.validate(schema, input(start, duration)))
+        }
+        for ((start, duration) in listOf(-1L to 1L, Long.MIN_VALUE to 1L, 0L to 0L, 0L to -1L)) {
+            assertTrue(ToolSchemaValidator.validate(schema, input(start, duration)) is ToolSchemaValidation.Invalid)
+        }
+    }
+
     @Test fun samplingParametersShareExactIntegerSemanticsWithTheirSchema() {
         val args = """{"frame":"frame","count":1e0,"intervalMillis":1e3}"""
         assertEquals(

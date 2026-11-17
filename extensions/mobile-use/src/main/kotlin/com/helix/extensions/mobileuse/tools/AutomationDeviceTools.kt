@@ -426,8 +426,8 @@ class AutomationDeviceTools(
             obj(
                 mapOf(
                     "points" to array(point, 512),
-                    "startMillis" to longArgument(),
-                    "durationMillis" to longArgument(),
+                    "startMillis" to gestureTime(0),
+                    "durationMillis" to gestureTime(1),
                 ),
                 "points",
                 "durationMillis",
@@ -589,11 +589,12 @@ class AutomationDeviceTools(
 
     private fun number() = buildJsonObject { put("type", JsonPrimitive("number")) }
 
-    private fun longArgument() =
+    // Do not expose Kotlin storage extrema as model-facing constraints. The selected
+    // backend validates its duration limit and the complete start + duration interval.
+    private fun gestureTime(minimum: Int) =
         buildJsonObject {
             put("type", JsonPrimitive("integer"))
-            put("minimum", JsonPrimitive(Long.MIN_VALUE))
-            put("maximum", JsonPrimitive(Long.MAX_VALUE))
+            put("minimum", JsonPrimitive(minimum))
         }
 
     private fun integer() = buildJsonObject { put("type", JsonPrimitive("integer")) }
