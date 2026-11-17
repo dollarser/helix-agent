@@ -18,6 +18,11 @@ internal class AccountRequestCooldown(
         throw AccountRequestFailure(HttpFailureDetails(429, retryAfterMillis = remaining))
     }
 
+    @Synchronized fun remainingMillis(
+        revision: Long,
+        endpoint: String,
+    ): Long = deadlines[revision to endpoint]?.remaining(monotonicMillis()) ?: 0L
+
     @Synchronized fun record(
         revision: Long,
         endpoint: String,

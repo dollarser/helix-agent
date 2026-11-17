@@ -12,21 +12,7 @@ import java.net.SocketTimeoutException
 internal fun accountFailureLabel(error: Exception): Int =
     when (error) {
         is AccountRequestFailure -> {
-            when (error.details.errorCode) {
-                "provider_auth_failed", "provider_credit_exhausted", "provider_region_restricted",
-                "global_cloud_disabled", "global_budget_exhausted",
-                -> R.string.account_error_service
-
-                "password_change_required" -> R.string.account_initial_password
-
-                "email_verification_required", "email_verification_invalid" -> R.string.account_code_invalid
-
-                "email_in_use", "email_already_verified", "email_binding_changed" -> R.string.account_binding_conflict
-
-                "email_delivery_unavailable", "registration_disabled" -> R.string.account_registration_unavailable
-
-                else -> accountRequestFailureLabel(error.status)
-            }
+            accountErrorLabels[error.details.errorCode] ?: accountRequestFailureLabel(error.status)
         }
 
         is AccountDataFailure -> {
@@ -58,3 +44,29 @@ private fun accountRequestFailureLabel(status: Int): Int =
             else -> R.string.account_error_request
         }
     }
+
+private val accountErrorLabels =
+    mapOf(
+        "provider_auth_failed" to R.string.account_error_service,
+        "provider_credit_exhausted" to R.string.account_error_service,
+        "provider_region_restricted" to R.string.account_error_service,
+        "global_cloud_disabled" to R.string.account_error_service,
+        "global_budget_exhausted" to R.string.account_error_service,
+        "captcha_required" to R.string.account_captcha_retry,
+        "captcha_invalid" to R.string.account_captcha_retry,
+        "captcha_rate_limited" to R.string.account_error_rate_limited,
+        "captcha_unavailable" to R.string.account_captcha_failed,
+        "password_reset_invalid" to R.string.account_reset_code_invalid,
+        "password_reset_code_required" to R.string.account_reset_code_invalid,
+        "invalid_password" to R.string.account_recovery_password_rule,
+        "invalid_email" to R.string.account_email_invalid,
+        "invalid_reset_options" to R.string.account_error_request,
+        "password_change_required" to R.string.account_initial_password,
+        "email_verification_required" to R.string.account_code_invalid,
+        "email_verification_invalid" to R.string.account_code_invalid,
+        "email_in_use" to R.string.account_binding_conflict,
+        "email_already_verified" to R.string.account_binding_conflict,
+        "email_binding_changed" to R.string.account_binding_conflict,
+        "email_delivery_unavailable" to R.string.account_code_unavailable,
+        "registration_disabled" to R.string.account_registration_unavailable,
+    )

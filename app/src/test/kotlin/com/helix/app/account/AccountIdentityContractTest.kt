@@ -117,15 +117,7 @@ class AccountIdentityContractTest {
                 val pending =
                     async(start = CoroutineStart.UNDISPATCHED) {
                         runCatching {
-                            when (operation) {
-                                "read" -> client.refreshUser()
-                                "code" -> client.sendBindingCode("new@example.test")
-                                "bind" -> client.bindEmail("new@example.test", "012345")
-                                "notice-read" -> notices.list(1, AccountNoticeState.ALL)
-                                "notice-count" -> notices.unreadCount()
-                                "notice-mark" -> notices.markRead(listOf("a".repeat(48)))
-                                else -> client.changePassword("password", "new-password")
-                            }
+                            dispatchIdentityOperation(operation, client, notices, account.revision)
                         }.exceptionOrNull()
                     }
                 account.login("other-login", "other-password")
@@ -139,6 +131,47 @@ class AccountIdentityContractTest {
                 assertTrue(account.signedIn.value)
             }
         }
+
+    private suspend fun dispatchIdentityOperation(
+        operation: String,
+        client: AccountProfileClient,
+        notices: AccountNoticesClient,
+        revision: Long,
+    ) {
+        when (operation) {
+            "read" -> {
+                client.refreshUser()
+            }
+
+            "code" -> {
+                client.sendBindingCode(
+                    "new@example.test",
+                    AccountCaptchaProof(AccountCaptchaAction.EMAIL_BINDING, "synthetic"),
+                    revision,
+                )
+            }
+
+            "bind" -> {
+                client.bindEmail("new@example.test", "012345")
+            }
+
+            "notice-read" -> {
+                notices.list(1, AccountNoticeState.ALL)
+            }
+
+            "notice-count" -> {
+                notices.unreadCount()
+            }
+
+            "notice-mark" -> {
+                notices.markRead(listOf("a".repeat(48)))
+            }
+
+            else -> {
+                client.changePassword("password", "new-password")
+            }
+        }
+    }
 
     private fun wire(action: suspend (WireRequest) -> WireResponse) =
         object : WireClient {

@@ -39,7 +39,9 @@ import com.helix.app.R
 internal fun AccountLoginForm(
     loading: Boolean,
     registrationEnabled: Boolean = true,
-    onSendCode: (suspend (String) -> Long)? = null,
+    onSendCode: (suspend (String, com.helix.app.account.AccountCaptchaProof) -> Long)? = null,
+    cooldownMillis: () -> Long = { 0 },
+    onForgotPassword: (() -> Unit)? = null,
     onSubmit: (String, String, Boolean, String) -> Unit,
 ) {
     var email by remember { mutableStateOf("") }
@@ -129,12 +131,18 @@ internal fun AccountLoginForm(
                         Text(stringResource(R.string.account_password_mismatch))
                     }
                 },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+                keyboardOptions =
+                    KeyboardOptions(
+                        keyboardType = KeyboardType.Password,
+                        imeAction = ImeAction.Done,
+                    ),
                 keyboardActions = KeyboardActions(onDone = { submit() }),
             )
         }
         if (register) {
-            AccountEmailCodeField(email, code, { code = it }, !loading && emailValid && registrationEnabled, onSendCode)
+            AccountEmailCodeField(email, code, {
+                code = it
+            }, !loading && emailValid && registrationEnabled, onSendCode, cooldownMillis = cooldownMillis)
             if (!registrationEnabled) Text(stringResource(R.string.account_registration_unavailable))
         }
         Button(
@@ -156,8 +164,18 @@ internal fun AccountLoginForm(
                 ),
             )
         }
+        if (!register && onForgotPassword != null) {
+            TextButton(
+                onForgotPassword,
+                enabled = !loading,
+                modifier = Modifier.testTag("account-forgot-password"),
+            ) {
+                Text(stringResource(R.string.account_forgot_password))
+            }
+        }
         TextButton({
             register = !register
+            code = ""
             password = ""
             confirmation = ""
             visible = false

@@ -122,6 +122,7 @@ android {
 }
 
 dependencies {
+    implementation(libs.androidx.webkit)
     implementation(files(rootProject.file("build/tts/speech.aar")))
     "developerImplementation"(project(":runtime:terminal-renderer"))
     coreLibraryDesugaring(libs.desugar.jdk.libs.nio)

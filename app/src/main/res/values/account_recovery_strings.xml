@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="account_captcha_title">人机验证</string>
+    <string name="account_captcha_cancel">取消</string>
+    <string name="account_captcha_failed">人机验证暂不可用，请关闭后稍后手动重试。</string>
+    <string name="account_captcha_upgrade">请更新 Android System WebView 后重试。无法安全验证时不会发送邮件。</string>
+    <string name="account_captcha_retry">请重新完成人机验证，再手动发送。</string>
+    <string name="account_code_accepted">请求已受理。若邮箱符合条件，请检查收件箱和垃圾邮件；这不保证邮件已经送达。</string>
+    <string name="account_forgot_password">忘记密码？</string>
+    <string name="account_recovery_title">找回密码</string>
+    <string name="account_recovery_hint">仅支持已验证并绑定的邮箱。重置后仍使用原登录名；API Key 保持有效。未绑定邮箱请联系管理员。</string>
+    <string name="account_recovery_password_rule">新密码须为 6–128 个字符，不会自动删除空格。</string>
+    <string name="account_recovery_submit">重置密码</string>
+    <string name="account_recovery_success">密码已重置。请使用原登录名和新密码登录，API Key 保持有效。</string>
+    <string name="account_recovery_uncertain">结果暂不明确，请先尝试用原登录名和刚设置的新密码登录。不要重复提交旧验证码；需要时重新获取。</string>
+    <string name="account_reset_code_invalid">验证码无效、已过期或已使用。请检查六位数字，需要时重新获取。</string>
+    <string name="account_code_unavailable">邮件验证码服务暂不可用，请稍后手动重试。</string>
+</resources>

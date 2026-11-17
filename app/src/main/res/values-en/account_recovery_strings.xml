@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="account_captcha_title">Human verification</string>
+    <string name="account_captcha_cancel">Cancel</string>
+    <string name="account_captcha_failed">Human verification is unavailable. Close this window and try again later.</string>
+    <string name="account_captcha_upgrade">Update Android System WebView and try again. No email is sent without secure verification.</string>
+    <string name="account_captcha_retry">Complete a new human verification before sending again.</string>
+    <string name="account_code_accepted">Request accepted. If the email is eligible, check the inbox and spam folder. Delivery is not guaranteed.</string>
+    <string name="account_forgot_password">Forgot password?</string>
+    <string name="account_recovery_title">Reset password</string>
+    <string name="account_recovery_hint">Use your verified, linked email. Keep using your original login name after resetting. API keys remain valid. Contact an administrator if no email is linked.</string>
+    <string name="account_recovery_password_rule">Use 6–128 characters. Spaces are preserved.</string>
+    <string name="account_recovery_submit">Reset password</string>
+    <string name="account_recovery_success">Password reset. Sign in with your original login name and new password. API keys remain valid.</string>
+    <string name="account_recovery_uncertain">The result is uncertain. Try signing in with your original login name and the new password. Do not resubmit the old code; request a new one if needed.</string>
+    <string name="account_reset_code_invalid">The code is invalid, expired or used. Check the six digits or request a new code.</string>
+    <string name="account_code_unavailable">Email verification is unavailable. Try again later.</string>
+</resources>

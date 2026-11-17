@@ -87,10 +87,17 @@ class AccountEmailBindingDeviceTest {
 
     @Test fun codeIsSentOnlyByExplicitTapAndCannotImmediatelyResend() {
         val account = account()
-        compose.setContent { MaterialTheme { AccountIdentityActions(account, AccountProfileClient(account)) } }
+        val challenge = SyntheticAccountChallenge()
+        compose.setContent {
+            MaterialTheme {
+                AccountIdentityActions(account, AccountProfileClient(account), challenge.content)
+            }
+        }
         compose.onNodeWithTag("account-bind-open").performClick()
         assertEquals(0, sends.get())
         compose.onNodeWithTag("account-send-code").performClick()
+        assertEquals(0, sends.get())
+        compose.runOnIdle { challenge.completeTwice() }
         compose.waitUntil(5000) { sends.get() == 1 }
         compose.onNodeWithTag("account-send-code").assertIsNotEnabled()
         assertEquals("original-name", account.user.value!!.username)

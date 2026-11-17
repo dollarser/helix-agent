@@ -20,11 +20,18 @@ internal data class RegistrationPolicy(
 )
 
 /** No email is sent until the user explicitly invokes sendRegistrationCode/sendBindingCode. */
+@Suppress("TooManyFunctions") // Cohesive identity endpoints and their shared cooldown boundary.
 internal class AccountProfileClient(
     private val account: AccountSession,
     private val transport: WireClient = account.accountTransport,
     private val dispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) {
+    fun remainingCodeCooldownMillis(binding: Boolean): Long =
+        account.cooldown.remainingMillis(
+            if (binding) account.revision else -1L,
+            OfficialServices.ACCOUNT_BASE_URL + if (binding) "/account/email/code" else "/auth/registration-code",
+        )
+
     suspend fun register(
         email: String,
         password: String,
@@ -45,13 +52,16 @@ internal class AccountProfileClient(
         )
     }
 
-    suspend fun sendRegistrationCode(email: String): Long {
+    suspend fun sendRegistrationCode(
+        email: String,
+        proof: AccountCaptchaProof,
+    ): Long {
         val delay =
             profileRetryDelay(
                 parseAccountProfile(
                     account.publicRequest(
                         "registration-code",
-                        mapOf("email" to email),
+                        mapOf("email" to email, "captcha_token" to proof.consume(AccountCaptchaAction.REGISTRATION)),
                     ),
                 ),
             )
@@ -61,9 +71,15 @@ internal class AccountProfileClient(
 
     suspend fun refreshUser() = userRequest("/account/me")
 
-    suspend fun sendBindingCode(email: String): Long {
-        val revision = account.revision
-        val delay = profileRetryDelay(request("/account/email/code", mapOf("email" to email), revision))
+    suspend fun sendBindingCode(
+        email: String,
+        proof: AccountCaptchaProof,
+        expectedRevision: Long,
+    ): Long {
+        val revision = expectedRevision
+        if (account.revision != revision) throw AccountDataFailure()
+        val fields = mapOf("email" to email, "captcha_token" to proof.consume(AccountCaptchaAction.EMAIL_BINDING))
+        val delay = profileRetryDelay(request("/account/email/code", fields, revision))
         rememberCodeCooldown("/account/email/code", revision, delay)
         return delay
     }

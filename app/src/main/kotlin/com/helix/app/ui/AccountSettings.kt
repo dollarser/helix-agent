@@ -64,6 +64,13 @@ internal fun AccountAccessEntry(
     var failure by remember { mutableStateOf<Int?>(null) }
     var failureDetails by remember { mutableStateOf<com.helix.provider.api.wire.HttpFailureDetails?>(null) }
     var registered by remember { mutableStateOf(false) }
+    var recovering by remember { mutableStateOf(false) }
+    var recovered by remember { mutableStateOf(false) }
+    val recoveryClient =
+        remember(account) {
+            com.helix.app.account
+                .AccountPasswordRecoveryClient(account)
+        }
     var confirmLogout by remember { mutableStateOf(false) }
 
     fun perform(operation: suspend () -> Unit) {
@@ -72,6 +79,7 @@ internal fun AccountAccessEntry(
         failure = null
         failureDetails = null
         registered = false
+        recovered = false
         scope.launch {
             try {
                 operation()
@@ -100,7 +108,7 @@ internal fun AccountAccessEntry(
         },
     )
     AccountEntryButton(status, presentation, noticeState.unread ?: 0, profile = profile) { open = true }
-    if (open && destination == UserAccountDestination.OVERVIEW) {
+    if (showAccountOverview(open, recovering, destination)) {
         UserPageFrame(stringResource(R.string.user_page_title), "user-page", { if (!loading) open = false }) {
             Column(
                 Modifier.verticalScroll(rememberScrollState()).padding(bottom = 24.dp),
@@ -132,10 +140,24 @@ internal fun AccountAccessEntry(
                         },
                         registrationEnabled = registrationEnabled,
                         onSendCode = profileClient::sendRegistrationCode,
+                        cooldownMillis = { profileClient.remainingCodeCooldownMillis(false) },
+                        onForgotPassword = {
+                            recovering = true
+                            recovered = false
+                        },
                     )
                 }
+                if (recovered) Text(stringResource(R.string.account_recovery_success))
                 AccountOperationFeedback(registered, failure, failureDetails)
             }
+        }
+    }
+    if (showAccountRecovery(open, recovering)) {
+        AccountPasswordRecoveryForm(recoveryClient, { recovering = false }) {
+            recovering = false
+            recovered = true
+            onRefreshProviders()
+            onChanged()
         }
     }
     if (editingProfile) LocalProfileEditor(profile, profileStore) { editingProfile = false }
@@ -245,3 +267,14 @@ private enum class UserAccountDestination { OVERVIEW, NOTICES, USAGE, ACCOUNT }
 
 private fun keepAccountOpen(user: com.helix.app.account.AccountUser?) =
     user?.let { it.mustChange || it.emailBindingRequired } == true
+
+private fun showAccountOverview(
+    open: Boolean,
+    recovering: Boolean,
+    destination: UserAccountDestination,
+): Boolean = open && !recovering && destination == UserAccountDestination.OVERVIEW
+
+private fun showAccountRecovery(
+    open: Boolean,
+    recovering: Boolean,
+): Boolean = open && recovering

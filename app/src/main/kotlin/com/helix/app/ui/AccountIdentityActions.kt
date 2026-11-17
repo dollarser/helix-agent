@@ -28,9 +28,11 @@ import kotlinx.coroutines.launch
 internal fun AccountIdentityActions(
     account: AccountSession,
     client: AccountProfileClient,
+    challenge: AccountCaptchaContent = defaultAccountCaptchaContent,
 ) {
     val user by account.user.collectAsStateWithLifecycle()
     val current = user ?: return
+    val revision = account.revision
     var dismissed by remember(current.id) { mutableStateOf(false) }
     var expanded by remember(current.id) { mutableStateOf(false) }
     var email by remember(
@@ -104,8 +106,28 @@ internal fun AccountIdentityActions(
                 OutlinedTextField(email, {
                     email = it.take(320)
                 }, label = { Text(stringResource(R.string.account_email)) }, enabled = !busy, singleLine = true)
-                AccountEmailCodeField(email, code, { code = it }, !busy && '@' in email, client::sendBindingCode)
-                TextButton({ perform { client.bindEmail(email.trim(), code) } }, enabled = !busy && code.length == 6) {
+                AccountEmailCodeField(
+                    email,
+                    code,
+                    { code = it },
+                    !busy && '@' in email,
+                    { address, proof -> client.sendBindingCode(address, proof, revision) },
+                    action = com.helix.app.account.AccountCaptchaAction.EMAIL_BINDING,
+                    identity = revision,
+                    cooldownMillis = { client.remainingCodeCooldownMillis(true) },
+                    challenge = challenge,
+                )
+                TextButton(
+                    {
+                        perform {
+                            client.bindEmail(
+                                email.trim(),
+                                code,
+                            )
+                        }
+                    },
+                    enabled = !busy && code.length == 6,
+                ) {
                     Text(stringResource(R.string.account_bind_confirm))
                 }
                 Text(stringResource(R.string.account_bind_keeps_login))

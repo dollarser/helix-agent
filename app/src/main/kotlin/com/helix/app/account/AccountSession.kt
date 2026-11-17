@@ -19,7 +19,7 @@ import java.net.URI
 /** One account owner. Refresh and mutations serialize; generation bodies never automatically replay.
  * The credential boundary sanitizes vendor Keystore/parser failures without secret-bearing causes.
  */
-@Suppress("TooGenericExceptionCaught", "SwallowedException")
+@Suppress("TooGenericExceptionCaught", "SwallowedException", "TooManyFunctions") // One serialized credential owner.
 class AccountSession(
     private val storage: AccountTokenStorage,
     private val auth: WireClient =
@@ -218,22 +218,68 @@ class AccountSession(
         blocked = false
     }
 
+    /** Serializes reset with login/refresh, so a late old refresh cannot revive the reset account. */
+    internal suspend fun resetAuthentication(
+        email: String,
+        operation: suspend () -> Unit,
+    ) = withContext(Dispatchers.IO) {
+        gate.withLock {
+            load()
+            operation()
+            // A different account must never be logged out by anonymous recovery.
+            if (tokens
+                    ?.user
+                    ?.email
+                    ?.trim()
+                    ?.lowercase(java.util.Locale.ROOT) == email
+            ) {
+                try {
+                    clear()
+                } catch (_: Exception) {
+                    throw AccountDataFailure()
+                }
+            }
+        }
+    }
+
     internal suspend fun publicRequest(
         operation: String,
         fields: Map<String, String>? = null,
+    ): ByteArray =
+        publicJsonRequest(
+            operation,
+            fields?.let {
+                buildJsonObject {
+                    it.forEach { (key, value) ->
+                        put(key, value)
+                    }
+                }
+            },
+        )
+
+    internal suspend fun publicJsonRequest(
+        operation: String,
+        fields: kotlinx.serialization.json.JsonObject?,
     ): ByteArray =
         kotlinx.coroutines.withTimeoutOrNull(30000) {
             val endpoint = "${OfficialServices.ACCOUNT_BASE_URL}/auth/$operation"
             val scope =
                 if (operation in
-                    setOf("login", "register", "registration-code", "registration-info")
+                    setOf(
+                        "login",
+                        "register",
+                        "registration-code",
+                        "registration-info",
+                        "password-reset/code",
+                        "password-reset",
+                    )
                 ) {
                     -1L
                 } else {
                     revision
                 }
             cooldown.check(scope, endpoint)
-            val body = buildJsonObject { fields?.forEach { (key, value) -> put(key, value) } }.toString().toByteArray()
+            val body = fields?.toString()?.toByteArray()
             val response =
                 auth.open(
                     WireRequest(
