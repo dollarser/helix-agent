@@ -35,7 +35,7 @@ class AccountLoginFormDeviceTest {
 
     private fun form(
         loading: Boolean = false,
-        submit: (String, String, Boolean) -> Unit = { _, _, _ -> },
+        submit: (String, String, Boolean, String) -> Unit = { _, _, _, _ -> },
     ) {
         compose.setContent {
             val localized =
@@ -53,7 +53,7 @@ class AccountLoginFormDeviceTest {
                                 .verticalScroll(rememberScrollState())
                                 .padding(24.dp),
                         ) {
-                            AccountLoginForm(loading, submit)
+                            AccountLoginForm(loading, onSubmit = submit)
                         }
                     }
                 }
@@ -61,19 +61,23 @@ class AccountLoginFormDeviceTest {
         }
     }
 
-    @Test fun emptyAndInvalidEmailCannotSubmit() {
+    @Test fun loginAcceptsOriginalNonEmailUsername() {
         form()
         compose.onNodeWithTag("account-submit").assertIsNotEnabled()
         compose.onNodeWithTag("account-email").performTextReplacement("invalid")
         compose.onNodeWithTag("account-password").performTextReplacement("synthetic-password")
-        compose.onNodeWithTag("account-submit").assertIsNotEnabled()
+        compose.onNodeWithTag("account-submit").assertIsEnabled()
         compose.onNodeWithTag("account-email").performTextReplacement("test@example.test")
         compose.onNodeWithTag("account-submit").assertIsEnabled()
     }
 
     @Test fun registrationRequiresMatchingConfirmationAndExplicitSubmit() {
         var submitted = false
-        form { _, _, registration -> submitted = registration }
+        var submittedCode = ""
+        form { _, _, registration, code ->
+            submitted = registration
+            submittedCode = code
+        }
         compose.onNodeWithTag("account-switch-mode").performClick()
         compose.onNodeWithTag("account-confirm-password").assertExists()
         compose.onNodeWithTag("account-email").performTextReplacement("test@example.test")
@@ -81,9 +85,11 @@ class AccountLoginFormDeviceTest {
         compose.onNodeWithTag("account-confirm-password").performTextReplacement("different")
         compose.onNodeWithTag("account-submit").assertIsNotEnabled()
         compose.onNodeWithTag("account-confirm-password").performTextReplacement("synthetic-password")
+        compose.onNodeWithTag("account-email-code").performScrollTo().performTextReplacement("012345")
         assertTrue(!submitted)
         compose.onNodeWithTag("account-submit").performScrollTo().performClick()
         assertTrue(submitted)
+        assertEquals("012345", submittedCode)
     }
 
     @Test fun pendingSubmissionDisablesAllAccountMutations() {
@@ -91,7 +97,7 @@ class AccountLoginFormDeviceTest {
         var submissions = 0
         compose.setContent {
             MaterialTheme {
-                AccountLoginForm(loading.value) { _, _, _ ->
+                AccountLoginForm(loading.value) { _, _, _, _ ->
                     submissions++
                     loading.value = true
                 }

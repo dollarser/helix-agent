@@ -79,7 +79,11 @@ class AccountSessionTest {
                     runBlocking { account.login("test@example.test", "fixture-password") }
                 }
                 assertThrows(AccountRequestFailure::class.java) {
-                    runBlocking { account.register("test@example.test", "fixture-password") }
+                    runBlocking {
+                        AccountProfileClient(
+                            account,
+                        ).register("test@example.test", "fixture-password", "012345")
+                    }
                 }
             }
             assertEquals(2, sends)
@@ -227,7 +231,7 @@ class AccountSessionTest {
                     store,
                     wire {
                         assertEquals("https://accounts.hilex.me/auth/login", it.url)
-                        assertEquals(AccountSession.CLIENT_ID, it.headers["X-Client-Id"])
+                        assertEquals(null, it.headers["X-Client-Id"])
                         assertTrue(it.body!!.toString(Charsets.UTF_8).contains("\"username\":\"user@example.test\""))
                         accountResponse(200, payload)
                     },
@@ -325,7 +329,7 @@ class AccountSessionTest {
                         accountResponse(401)
                     },
                 )
-            assertEquals(401, service.open(request()).status)
+            assertEquals(401, service.open(WireRequest("GET", url, emptyMap(), null)).status)
             assertEquals(2, count.get())
         }
 

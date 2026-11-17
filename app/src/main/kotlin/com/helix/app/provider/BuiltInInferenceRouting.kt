@@ -14,21 +14,31 @@ internal fun builtInInferenceHeaders(model: String): Map<String, String> =
 internal class BuiltInInferenceRouting(
     private val delegate: WireClient,
 ) : WireClient {
-    override suspend fun open(request: WireRequest) =
-        if (request.method == "POST" && request.url == BuiltInModel.GENERATION_URL) {
-            val body = Json.parseToJsonElement(requireNotNull(request.body).toString(Charsets.UTF_8)) as JsonObject
+    override suspend fun open(request: WireRequest): com.helix.provider.api.wire.WireResponse {
+        val normalized =
+            try {
+                HilexLunaRequestContract.normalize(request)
+            } catch (error: com.helix.provider.api.wire.WireRequestRejectedException) {
+                throw error
+            } catch (_: IllegalArgumentException) {
+                throw com.helix.provider.api.wire
+                    .WireRequestRejectedException()
+            }
+        return if (normalized.method == "POST" && normalized.url == BuiltInModel.GENERATION_URL) {
+            val body = Json.parseToJsonElement(requireNotNull(normalized.body).toString(Charsets.UTF_8)) as JsonObject
             val model = body["model"] as JsonPrimitive
             require(model.isString)
-            require(request.headers.keys.none { it.equals("X-Inference-Provider", ignoreCase = true) })
+            require(normalized.headers.keys.none { it.equals("X-Inference-Provider", ignoreCase = true) })
             delegate.open(
                 WireRequest(
-                    request.method,
-                    request.url,
-                    request.headers + builtInInferenceHeaders(model.content),
-                    request.body,
+                    normalized.method,
+                    normalized.url,
+                    normalized.headers + builtInInferenceHeaders(model.content),
+                    normalized.body,
                 ),
             )
         } else {
-            delegate.open(request)
+            delegate.open(normalized)
         }
+    }
 }

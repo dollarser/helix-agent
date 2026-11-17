@@ -38,16 +38,27 @@ import com.helix.app.R
 @Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod")
 internal fun AccountLoginForm(
     loading: Boolean,
-    onSubmit: (String, String, Boolean) -> Unit,
+    registrationEnabled: Boolean = true,
+    onSendCode: (suspend (String) -> Long)? = null,
+    onSubmit: (String, String, Boolean, String) -> Unit,
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirmation by remember { mutableStateOf("") }
     var register by remember { mutableStateOf(false) }
+    var code by remember { mutableStateOf("") }
     var visible by remember { mutableStateOf(false) }
     val focus = LocalFocusManager.current
     val emailValid = email.trim().matches(Regex("[^\\s@]+@[^\\s@]+\\.[^\\s@]+"))
-    val ready = !loading && emailValid && password.isNotBlank() && (!register || password == confirmation)
+    val ready =
+        !loading && (if (register) emailValid else email.isNotBlank()) && password.isNotBlank() &&
+            (
+                !register ||
+                    (
+                        registrationEnabled && password.length in 6..128 && password == confirmation &&
+                            code.matches(Regex("[0-9]{6}"))
+                    )
+            )
     LaunchedEffect(loading) {
         if (!loading) {
             password = ""
@@ -59,7 +70,7 @@ internal fun AccountLoginForm(
     fun submit() {
         if (ready) {
             focus.clearFocus()
-            onSubmit(email.trim(), password, register)
+            onSubmit(email.trim(), password, register, code)
         }
     }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -76,12 +87,12 @@ internal fun AccountLoginForm(
             email,
             { email = it.take(320) },
             Modifier.fillMaxWidth().testTag("account-email"),
-            label = { Text(stringResource(R.string.account_email)) },
+            label = { Text(stringResource(if (register) R.string.account_email else R.string.account_login_name)) },
             singleLine = true,
             enabled = !loading,
-            isError = email.isNotEmpty() && !emailValid,
+            isError = register && email.isNotEmpty() && !emailValid,
             supportingText = {
-                if (email.isNotEmpty() &&
+                if (register && email.isNotEmpty() &&
                     !emailValid
                 ) {
                     Text(stringResource(R.string.account_email_invalid))
@@ -121,6 +132,10 @@ internal fun AccountLoginForm(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
                 keyboardActions = KeyboardActions(onDone = { submit() }),
             )
+        }
+        if (register) {
+            AccountEmailCodeField(email, code, { code = it }, !loading && emailValid && registrationEnabled, onSendCode)
+            if (!registrationEnabled) Text(stringResource(R.string.account_registration_unavailable))
         }
         Button(
             ::submit,

@@ -62,7 +62,7 @@ class OfficialGatewayContractTest {
                     },
                     { 0L },
                 )
-            account.register("fixture@example.test", "synthetic-password")
+            AccountProfileClient(account).register("fixture@example.test", "synthetic-password", "012345")
             account.login("fixture@example.test", "synthetic-password")
             account.authorization("synthetic-access", account.revision)
             assertEquals(
@@ -74,7 +74,7 @@ class OfficialGatewayContractTest {
             requests.forEach {
                 assertEquals("POST", it.method)
                 assertEquals("application/json", it.headers["Content-Type"])
-                assertEquals(AccountSession.CLIENT_ID, it.headers["X-Client-Id"])
+                assertEquals(null, it.headers["X-Client-Id"])
             }
         }
 
@@ -153,7 +153,10 @@ class OfficialGatewayContractTest {
                                 """{"data":[{"id":"Qwen3.8-27B"}]}"""
                             } else {
                                 "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"ok\"}," +
-                                    "\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n"
+                                    "\"finish_reason\":\"stop\"}]}\n\n" +
+                                    "data: {\"choices\":[],\"usage\":{\"prompt_tokens\":1," +
+                                    "\"completion_tokens\":1}}\n\n" +
+                                    "data: [DONE]\n\n"
                             },
                         ).also { requests += request }
                 }

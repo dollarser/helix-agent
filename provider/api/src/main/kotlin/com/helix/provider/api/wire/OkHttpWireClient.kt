@@ -39,6 +39,7 @@ public class OkHttpWireClient(
     readTimeoutMillis: Long = DEFAULT_READ_TIMEOUT_MS,
     private val maxBodyBytes: Long = DEFAULT_MAX_BODY_BYTES,
     followRedirects: Boolean = false,
+    writeTimeoutMillis: Long = DEFAULT_WRITE_TIMEOUT_MS,
     private val client: OkHttpClient =
         OkHttpClient
             .Builder()
@@ -47,6 +48,7 @@ public class OkHttpWireClient(
                     .resolve(it)
             }.connectTimeout(connectTimeoutMillis, TimeUnit.MILLISECONDS)
             .readTimeout(readTimeoutMillis, TimeUnit.MILLISECONDS)
+            .writeTimeout(writeTimeoutMillis, TimeUnit.MILLISECONDS)
             .followRedirects(followRedirects)
             .retryOnConnectionFailure(false)
             // HTTP is an explicit endpoint choice, never an automatic HTTPS downgrade.
@@ -167,6 +169,7 @@ public class OkHttpWireClient(
     public companion object {
         const val DEFAULT_CONNECT_TIMEOUT_MS = 10_000L
         const val DEFAULT_READ_TIMEOUT_MS = 120_000L
+        const val DEFAULT_WRITE_TIMEOUT_MS = 10_000L
         const val DEFAULT_MAX_BODY_BYTES = 8L * 1024 * 1024
         private const val CHUNK_SIZE = 16L * 1024
         private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()

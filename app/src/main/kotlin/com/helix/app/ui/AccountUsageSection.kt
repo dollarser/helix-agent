@@ -30,47 +30,49 @@ import kotlinx.coroutines.delay
 internal fun AccountUsageSection(
     account: AccountSession,
     onAccountFailure: (Exception) -> Unit,
+    readUsage: suspend () -> AccountUsageSummary = { AccountUsageClient(account).read().summary() },
 ) {
-    var expanded by remember(account.revision) { mutableStateOf(false) }
     var refresh by remember { mutableIntStateOf(0) }
-    var loading by remember { mutableStateOf(false) }
-    var usage by remember(account.revision) { mutableStateOf<AccountUsageSummary?>(null) }
-    var failure by remember(account.revision) { mutableStateOf<Int?>(null) }
-    var details by remember(account.revision) { mutableStateOf<HttpFailureDetails?>(null) }
+    var loading by remember(account, account.revision) { mutableStateOf(true) }
+    var usage by remember(account, account.revision) { mutableStateOf<AccountUsageSummary?>(null) }
+    var failure by remember(account, account.revision) { mutableStateOf<Int?>(null) }
+    var details by remember(account, account.revision) { mutableStateOf<HttpFailureDetails?>(null) }
     var retryBlocked by remember(details) { mutableStateOf((details?.retryAfterMillis ?: 0) > 0) }
     LaunchedEffect(details) {
         details?.retryAfterMillis?.takeIf { it > 0 }?.let { delay(it) }
         retryBlocked = false
     }
-    LaunchedEffect(expanded, refresh, account.revision) {
-        if (!expanded || retryBlocked) return@LaunchedEffect
+    LaunchedEffect(refresh, account, account.revision) {
+        if (retryBlocked) return@LaunchedEffect
         loading = true
-        usage = null
         failure = null
         details = null
         try {
-            usage = AccountUsageClient(account).read().summary()
+            usage = readUsage()
         } catch (cancelled: CancellationException) {
             throw cancelled
+        } catch (error: AccountRequestFailure) {
+            if (error.status in setOf(401, 403)) usage = null
+            failure = accountFailureLabel(error)
+            details = error.details
+            if (!account.signedIn.value) onAccountFailure(error)
         } catch (error: Exception) {
             failure = accountFailureLabel(error)
-            details = (error as? AccountRequestFailure)?.details
             if (!account.signedIn.value) onAccountFailure(error)
         } finally {
             loading = false
         }
     }
-    OutlinedButton({ expanded = !expanded }, Modifier.testTag("account-usage-toggle")) {
-        Text(stringResource(if (expanded) R.string.account_usage_hide else R.string.account_usage_title))
-    }
-    if (expanded) {
-        Column(Modifier.testTag("account-usage"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (loading) Text(stringResource(R.string.account_usage_loading))
-            failure?.let { AccountFailureNotice(it, details) }
-            usage?.let { AccountUsageContent(it) }
-            OutlinedButton({
-                refresh++
-            }, enabled = !loading && !retryBlocked) { Text(stringResource(R.string.account_usage_refresh)) }
+    Column(Modifier.testTag("account-usage"), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        if (loading) AccountLoadingStatus(R.string.account_usage_loading, "account-usage-loading")
+        failure?.let { AccountFailureNotice(it, details) }
+        if (usage != null) {
+            AccountUsageContent(requireNotNull(usage))
+        } else {
+            AccountUsagePlaceholders()
+        }
+        OutlinedButton({ refresh++ }, enabled = !loading && !retryBlocked) {
+            Text(stringResource(R.string.account_usage_refresh))
         }
     }
 }

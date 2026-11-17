@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="user_usage_conversation">对话</string>
+    <string name="user_usage_transcription">语音识别</string>
+    <string name="user_usage_speech">语音合成</string>
+    <string name="user_usage_remaining">剩余 %1$s %2$s</string>
+    <string name="user_usage_limit">总额度 %1$s %2$s</string>
+    <string name="user_usage_reset">下次重置：%1$s（本地时间）</string>
+    <string name="user_usage_less">收起明细</string>
+    <string name="user_usage_details">额度明细</string>
+    <string name="user_usage_used">已计入 %1$s %2$s</string>
+</resources>

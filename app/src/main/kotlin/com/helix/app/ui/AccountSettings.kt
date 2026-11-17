@@ -2,11 +2,11 @@ package com.helix.app.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -17,12 +17,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.R
-import com.helix.ui.shared.HelixBrandMark
-import com.helix.ui.shared.SharedSheet
+import com.helix.app.account.LocalUserProfileStore
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
@@ -37,21 +37,34 @@ internal fun AccountAccessEntry(
     val signedIn by account.signedIn.collectAsStateWithLifecycle()
     val status by account.status.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
+    val profileClient =
+        remember(account) {
+            com.helix.app.account
+                .AccountProfileClient(account)
+        }
+    var registrationEnabled by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val profileStore = remember(context) { LocalUserProfileStore.get(context) }
+    val profile by profileStore.state.collectAsStateWithLifecycle()
+    var editingProfile by remember { mutableStateOf(false) }
+    var profileFailure by remember { mutableStateOf(false) }
+    val noticeState by account.notices.state.collectAsStateWithLifecycle()
+    var destination by remember(signedIn) { mutableStateOf(UserAccountDestination.OVERVIEW) }
+    AccountNoticePolling(account)
     var open by remember { mutableStateOf(false) }
+    LaunchedEffect(profileStore, open) {
+        try {
+            profileStore.restore()
+            profileFailure = false
+        } catch (_: java.io.IOException) {
+            profileFailure = true
+        }
+    }
     var loading by remember { mutableStateOf(false) }
     var failure by remember { mutableStateOf<Int?>(null) }
     var failureDetails by remember { mutableStateOf<com.helix.provider.api.wire.HttpFailureDetails?>(null) }
     var registered by remember { mutableStateOf(false) }
     var confirmLogout by remember { mutableStateOf(false) }
-    LaunchedEffect(account) {
-        try {
-            account.restore()
-            onChanged()
-        } catch (error: java.io.IOException) {
-            failure = accountFailureLabel(error)
-            failureDetails = (error as? com.helix.app.account.AccountRequestFailure)?.details
-        }
-    }
 
     fun perform(operation: suspend () -> Unit) {
         if (loading) return
@@ -74,64 +87,161 @@ internal fun AccountAccessEntry(
             }
         }
     }
-    AccountEntryButton(status, presentation) { open = true }
-    if (open) {
-        SharedSheet(stringResource(R.string.account_title), "account", { if (!loading) open = false }) {
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    HelixBrandMark(36.dp)
-                    Text("Helix", style = MaterialTheme.typography.headlineMedium)
-                }
+    AccountProfileRefresh(
+        account,
+        profileClient,
+        open,
+        signedIn,
+        onChanged,
+        onRegistration = { registrationEnabled = it },
+        onFailure = { error ->
+            failure = accountFailureLabel(error)
+            failureDetails = (error as? com.helix.app.account.AccountRequestFailure)?.details
+        },
+    )
+    AccountEntryButton(status, presentation, noticeState.unread ?: 0, profile = profile) { open = true }
+    if (open && destination == UserAccountDestination.OVERVIEW) {
+        UserPageFrame(stringResource(R.string.user_page_title), "user-page", { if (!loading) open = false }) {
+            Column(
+                Modifier.verticalScroll(rememberScrollState()).padding(bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(20.dp),
+            ) {
+                UserProfileHeader(profile) { editingProfile = true }
+                ProfileLoadFeedback(profileFailure)
                 if (signedIn) {
-                    Text(stringResource(R.string.account_signed_in), style = MaterialTheme.typography.titleLarge)
-                    AccountUsageSection(account) { error ->
-                        failure = accountFailureLabel(error)
-                        failureDetails = (error as? com.helix.app.account.AccountRequestFailure)?.details
-                    }
-                    OutlinedButton({
-                        confirmLogout = true
-                    }, Modifier.fillMaxWidth(), enabled = !loading) { Text(stringResource(R.string.account_logout)) }
+                    AccountIdentityActions(account, profileClient)
+                    UserAccountMenu(
+                        noticeState.unread,
+                        onNotices = { destination = UserAccountDestination.NOTICES },
+                        onUsage = { destination = UserAccountDestination.USAGE },
+                        onAccount = { destination = UserAccountDestination.ACCOUNT },
+                    )
                 } else {
-                    AccountLoginForm(loading) { email, password, register ->
-                        perform {
-                            if (register) {
-                                account.register(email, password)
-                                registered = true
-                            } else {
-                                account.login(email, password)
-                                open = false
+                    AccountLoginForm(
+                        loading,
+                        onSubmit = { email, password, register, code ->
+                            perform {
+                                if (register) {
+                                    profileClient.register(email, password, code)
+                                    registered = true
+                                } else {
+                                    account.login(email, password)
+                                    open = keepAccountOpen(account.user.value)
+                                }
                             }
-                        }
-                    }
-                }
-                if (registered) {
-                    Text(
-                        stringResource(R.string.account_registered),
-                        color = MaterialTheme.colorScheme.primary,
+                        },
+                        registrationEnabled = registrationEnabled,
+                        onSendCode = profileClient::sendRegistrationCode,
                     )
                 }
-                if (failure != null) {
-                    AccountFailureNotice(requireNotNull(failure), failureDetails)
-                }
-                Text(
-                    stringResource(R.string.account_description),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                AccountOperationFeedback(registered, failure, failureDetails)
             }
         }
     }
-    if (confirmLogout) {
-        AlertDialog(
-            onDismissRequest = { confirmLogout = false },
-            title = { Text(stringResource(R.string.account_logout_confirm)) },
-            confirmButton = {
-                TextButton({
-                    confirmLogout = false
-                    perform { account.logout() }
-                }) { Text(stringResource(R.string.account_logout)) }
-            },
-            dismissButton = { TextButton({ confirmLogout = false }) { Text(stringResource(R.string.account_cancel)) } },
-        )
+    if (editingProfile) LocalProfileEditor(profile, profileStore) { editingProfile = false }
+    AccountNoticeHost(account, destination == UserAccountDestination.NOTICES, signedIn) {
+        destination = UserAccountDestination.OVERVIEW
+    }
+    UserAccountDestinations(
+        account,
+        destination == UserAccountDestination.USAGE,
+        destination == UserAccountDestination.ACCOUNT,
+        loading,
+        onUsageBack = { destination = UserAccountDestination.OVERVIEW },
+        onAccountBack = { destination = UserAccountDestination.OVERVIEW },
+        onLogout = { confirmLogout = true },
+        onFailure = { error ->
+            failure = accountFailureLabel(error)
+            failureDetails = (error as? com.helix.app.account.AccountRequestFailure)?.details
+        },
+        feedback = { AccountOperationFeedback(registered, failure, failureDetails) },
+    )
+    ConfirmAccountLogout(confirmLogout, { confirmLogout = false }) {
+        confirmLogout = false
+        perform { account.logout() }
     }
 }
+
+@Composable
+@Suppress("FunctionName", "LongParameterList")
+private fun AccountProfileRefresh(
+    account: com.helix.app.account.AccountSession,
+    client: com.helix.app.account.AccountProfileClient,
+    open: Boolean,
+    signedIn: Boolean,
+    onChanged: () -> Unit,
+    onRegistration: (Boolean) -> Unit,
+    onFailure: (java.io.IOException) -> Unit,
+) {
+    LaunchedEffect(account) {
+        try {
+            account.restore()
+            onChanged()
+            if (account.signedIn.value) client.refreshUser()
+        } catch (error: java.io.IOException) {
+            onFailure(error)
+        }
+    }
+    LaunchedEffect(open, signedIn) {
+        if (!open) return@LaunchedEffect
+        try {
+            if (signedIn) {
+                client.refreshUser()
+            } else {
+                onRegistration(client.registrationPolicy().enabled)
+            }
+        } catch (error: java.io.IOException) {
+            onFailure(error)
+        }
+    }
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun AccountNoticeHost(
+    account: com.helix.app.account.AccountSession,
+    open: Boolean,
+    signedIn: Boolean,
+    onDismiss: () -> Unit,
+) {
+    if (open && signedIn) AccountNoticesSheet(account.notices, onDismiss)
+    LaunchedEffect(signedIn) { if (!signedIn) onDismiss() }
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun AccountOperationFeedback(
+    registered: Boolean,
+    failure: Int?,
+    details: com.helix.provider.api.wire.HttpFailureDetails?,
+) {
+    if (registered) Text(stringResource(R.string.account_registered), color = MaterialTheme.colorScheme.primary)
+    failure?.let { AccountFailureNotice(it, details) }
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun ConfirmAccountLogout(
+    show: Boolean,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    if (!show) return
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.account_logout_confirm)) },
+        confirmButton = { TextButton(onConfirm) { Text(stringResource(R.string.account_logout)) } },
+        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.account_cancel)) } },
+    )
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun ProfileLoadFeedback(failed: Boolean) {
+    if (failed) Text(stringResource(R.string.user_profile_load_failed))
+}
+
+private enum class UserAccountDestination { OVERVIEW, NOTICES, USAGE, ACCOUNT }
+
+private fun keepAccountOpen(user: com.helix.app.account.AccountUser?) =
+    user?.let { it.mustChange || it.emailBindingRequired } == true

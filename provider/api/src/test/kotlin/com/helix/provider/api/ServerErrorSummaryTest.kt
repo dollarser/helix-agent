@@ -19,6 +19,19 @@ class ServerErrorSummaryTest {
         assertFalse(safe.contains("custom-key"))
     }
 
+    @Test fun structuredExceptionsNeverBypassKnownSecretsOrAllowArbitraryPaths() {
+        val path = "tools[26].function.parameters"
+        assertEquals(path, ServerErrorSummary.parameter(path, emptyList()))
+        assertFalse(ServerErrorSummary.parameter(path, listOf("function")).contains("function"))
+        assertFalse(ServerErrorSummary.code("invalid_function_parameters", listOf("function")).contains("function"))
+        listOf("arbitrary_long_private_value", "tools[26].function.private_credential_value").forEach {
+            assertFalse(ServerErrorSummary.parameter(it, emptyList()).contains("private"))
+        }
+        assertFalse(ServerErrorSummary.code("arbitrary_long_private_value", emptyList()).contains("private"))
+        // A parameter-looking value in free text is not automatically considered safe.
+        assertFalse(ServerErrorSummary.redact("password=$path", emptyList()).contains(path))
+    }
+
     @Test fun unicodeAndUntrustedLongMessagesStayWithinTheUtf8Budget() {
         val safe = ServerErrorSummary.redact("错误原因。".repeat(1000), emptyList())
         assertTrue(safe.toByteArray().size <= 768)

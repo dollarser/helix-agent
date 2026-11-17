@@ -12,7 +12,21 @@ import java.net.SocketTimeoutException
 internal fun accountFailureLabel(error: Exception): Int =
     when (error) {
         is AccountRequestFailure -> {
-            accountRequestFailureLabel(error.status)
+            when (error.details.errorCode) {
+                "provider_auth_failed", "provider_credit_exhausted", "provider_region_restricted",
+                "global_cloud_disabled", "global_budget_exhausted",
+                -> R.string.account_error_service
+
+                "password_change_required" -> R.string.account_initial_password
+
+                "email_verification_required", "email_verification_invalid" -> R.string.account_code_invalid
+
+                "email_in_use", "email_already_verified", "email_binding_changed" -> R.string.account_binding_conflict
+
+                "email_delivery_unavailable", "registration_disabled" -> R.string.account_registration_unavailable
+
+                else -> accountRequestFailureLabel(error.status)
+            }
         }
 
         is AccountDataFailure -> {

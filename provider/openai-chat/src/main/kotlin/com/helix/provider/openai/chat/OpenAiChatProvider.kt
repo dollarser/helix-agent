@@ -53,8 +53,14 @@ public class OpenAiChatProvider(
         }
     }
 
+    private val completeCloudStream = config.endpoint.full.trimEnd('/') == "https://api.hilex.me/v1"
+
     override fun decoderFor(request: com.helix.core.model.ModelRequest): StreamDecoder =
-        ChatCompletionsStreamDecoder(ProviderToolNames(request)::decode)
+        ChatCompletionsStreamDecoder(
+            ProviderToolNames(request)::decode,
+            requireUsageAndDone =
+                completeCloudStream && request.model == "gpt-6-luna",
+        )
 
     override fun streamPath(): String = STREAM_PATH
 

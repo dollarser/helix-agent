@@ -27,6 +27,6 @@ internal class SpeechPcmStream(
     }
 
     fun finish() {
-        require(lowByte < 0 && frames > 0) { "PCM_RESPONSE_INVALID" }
+        if (lowByte >= 0 || frames == 0L) throw SpeechProtocolFailure("PCM_RESPONSE_INVALID")
     }
 }

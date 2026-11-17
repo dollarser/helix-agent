@@ -27,6 +27,7 @@ class HttpSpeechSession(
         OkHttpWireClient(
             connectTimeoutMillis = config.timeoutMillis.toLong(),
             readTimeoutMillis = config.timeoutMillis.toLong(),
+            writeTimeoutMillis = config.timeoutMillis.toLong(),
             maxBodyBytes = 48_000_000,
             followRedirects = false,
         ),
@@ -49,23 +50,35 @@ class HttpSpeechSession(
             response.body.bytes().also { ensureOpen() }
         }
 
-    fun postStream(
-        contentType: String,
+    /** Validate both transfer modes before playback, and finish inside the request's diagnostic scope. */
+    fun postPcm(
         body: ByteArray,
-        consume: (ByteArray) -> Unit,
+        streaming: Boolean,
+        consume: (FloatArray, Int) -> Unit,
     ) {
-        exchange(contentType, body) { response ->
+        exchange("application/json", body) { response ->
             validatePcmHeaders(response.headers)
+            val decoder = SpeechPcmStream(consume)
             var bytes = 0L
-            response.body.forEachChunk { chunk ->
-                currentCoroutineContext().ensureActive()
+
+            fun accept(chunk: ByteArray) {
                 ensureOpen()
                 bytes += chunk.size
-                require(bytes <= MAX_STREAM_BYTES) { "SPEECH_RESPONSE_LIMIT" }
-                consume(chunk)
+                if (bytes > MAX_STREAM_BYTES) throw SpeechProtocolFailure("SPEECH_RESPONSE_LIMIT")
+                decoder.accept(chunk)
                 ensureOpen()
-                true
             }
+            if (streaming) {
+                response.body.forEachChunk { chunk ->
+                    currentCoroutineContext().ensureActive()
+                    accept(chunk)
+                    true
+                }
+            } else {
+                accept(response.body.bytes())
+            }
+            ensureOpen()
+            decoder.finish()
         }
     }
 
@@ -136,14 +149,18 @@ class HttpSpeechSession(
                 .firstOrNull { it.key.equals("X-Audio-Sample-Rate", true) }
                 ?.value
                 ?.firstOrNull()
-        require(rate == null || rate.trim().toIntOrNull() == 24000) { "PCM_SAMPLE_RATE_INVALID" }
+        if (rate != null && rate.trim().toIntOrNull() != 24000) {
+            throw SpeechProtocolFailure("PCM_SAMPLE_RATE_INVALID")
+        }
         val type =
             headers.entries
                 .firstOrNull { it.key.equals("Content-Type", true) }
                 ?.value
                 ?.firstOrNull()
         val mediaType = type?.substringBefore(';')?.trim()
-        require(mediaType == null || mediaType.equals("audio/pcm", true)) { "PCM_CONTENT_TYPE_INVALID" }
+        if (mediaType != null && !mediaType.equals("audio/pcm", true)) {
+            throw SpeechProtocolFailure("PCM_CONTENT_TYPE_INVALID")
+        }
     }
 
     private fun ensureOpen() {

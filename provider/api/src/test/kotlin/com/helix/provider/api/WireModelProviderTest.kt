@@ -316,6 +316,47 @@ class WireModelProviderTest {
             )
         }
 
+    @Test fun hilexUnknownSubmissionAndInterruptedBodyNeverReplay() =
+        runBlocking {
+            for (resource in listOf("chat/completions", "responses")) {
+                for (problem in listOf(IOException("unknown submit"), SocketTimeoutException("unknown submit"))) {
+                    val openWire = FakeWire { error("No response was received") }
+                    openWire.ioFailure = problem
+                    val openProvider =
+                        TestProvider(
+                            config("https://api.hilex.me/v1"),
+                            { "x" },
+                            openWire,
+                            streamResource = resource,
+                        )
+                    val openError = openProvider.stream(request()).toList().single() as ModelEvent.Error
+                    assertEquals(false, openError.retryable)
+                    assertEquals(false, openError.diagnostic?.adapterRetryable)
+                    assertEquals(1, openWire.requests.size)
+                    val closed = BooleanArray(1)
+                    val bodyWire =
+                        FakeWire {
+                            WireResponse(200, emptyMap(), FailingBody(listOf("x".toByteArray()), problem, closed))
+                        }
+                    val bodyProvider =
+                        TestProvider(
+                            config("https://api.hilex.me/v1"),
+                            { "x" },
+                            bodyWire,
+                            streamResource = resource,
+                            newTestDecoder = { ScriptedDecoder(listOf(ModelEvent.TextDelta("partial"))) },
+                        )
+                    val bodyEvents = bodyProvider.stream(request()).toList()
+                    val bodyError = bodyEvents.last() as ModelEvent.Error
+                    assertEquals(false, bodyError.retryable)
+                    assertEquals(false, bodyError.diagnostic?.adapterRetryable)
+                    assertEquals(1, bodyWire.requests.size)
+                    assertTrue(closed[0])
+                    assertTrue(bodyEvents.none { it is ModelEvent.Completed })
+                }
+            }
+        }
+
     @Test
     fun malformedDecoderStructureHasEvidenceAndStopsReading() =
         runBlocking {

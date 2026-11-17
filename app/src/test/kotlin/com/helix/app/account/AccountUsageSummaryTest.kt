@@ -98,4 +98,14 @@ class AccountUsageSummaryTest {
         assertEquals("2026-11-30 16:00:00", accountQuotaResetTime(quota))
         assertEquals(null, accountQuotaResetTime(quota.copy(timezone = "invalid-zone")))
     }
+
+    @Test fun resetDisplayCanUseDeviceTimezoneWithoutChangingServerPeriod() {
+        val quota =
+            documents().summary().quotas[0].copy(
+                resetAt = Instant.parse("2026-11-30T16:00:00Z"),
+                timezone = "Asia/Shanghai",
+            )
+        assertEquals("2026-12-01 01:00:00", accountQuotaResetTime(quota, "Asia/Tokyo"))
+        assertEquals("Asia/Shanghai", quota.timezone)
+    }
 }

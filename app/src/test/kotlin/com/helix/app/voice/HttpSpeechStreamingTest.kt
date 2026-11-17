@@ -74,7 +74,7 @@ class HttpSpeechStreamingTest {
                 Unit
             }
         HttpCloudTts(session(wire)).use { tts ->
-            assertThrows(IllegalArgumentException::class.java) { tts.stream("synthetic") { _, _ -> } }
+            assertThrows(SpeechProtocolFailure::class.java) { tts.stream("synthetic") { _, _ -> } }
         }
         assertEquals(1, wire.requests.size)
         assertTrue(wire.closed)
@@ -116,8 +116,8 @@ class HttpSpeechStreamingTest {
     @Test fun streamedBodyHasAnIndependentBoundEvenForCustomTransports() {
         val wire = Wire { chunk -> repeat(800) { chunk(ByteArray(65536)) } }
         session(wire).use { http ->
-            assertThrows(IllegalArgumentException::class.java) {
-                http.postStream("application/json", byteArrayOf()) { }
+            assertThrows(SpeechProtocolFailure::class.java) {
+                http.postPcm(byteArrayOf(), streaming = true) { _, _ -> }
             }
         }
         assertTrue(wire.closed)
@@ -177,7 +177,7 @@ class HttpSpeechStreamingTest {
                     )
             }
         HttpCloudTts(session(wire)).use { tts ->
-            assertThrows(IllegalArgumentException::class.java) { tts.stream("synthetic") { _, _ -> heard = true } }
+            assertThrows(SpeechProtocolFailure::class.java) { tts.stream("synthetic") { _, _ -> heard = true } }
         }
         assertFalse(heard)
     }
@@ -231,6 +231,63 @@ class HttpSpeechStreamingTest {
             assertEquals(1, wire.requests.size)
             assertTrue(wire.closed)
         }
+    }
+
+    @Test fun incompletePcmRetainsRequestIdAndStopsBeforeNextSegment() {
+        for (audio in listOf(byteArrayOf(), byteArrayOf(0, 64, 1))) {
+            val wire =
+                Wire(mapOf("X-Request-ID" to listOf("fixture-incomplete"))) {
+                    it(audio)
+                    Unit
+                }
+            HttpCloudTts(session(wire)).use { tts ->
+                val failure =
+                    assertThrows(SpeechTransportFailure::class.java) {
+                        tts.stream("字".repeat(2001)) { _, _ -> }
+                    }
+                assertEquals(SpeechFailure.PROTOCOL, speechFailure(failure))
+                assertEquals("fixture-incomplete", speechFailureDetails(failure)?.requestId)
+            }
+            assertEquals(1, wire.requests.size)
+            assertTrue(wire.closed)
+        }
+    }
+
+    @Test fun nonStreamingPcmRejectsEncodedAudioBeforePlaybackAndRetainsDiagnostics() {
+        var read = false
+        var closed = false
+        val wire =
+            object : WireClient {
+                override suspend fun open(request: WireRequest) =
+                    WireResponse(
+                        200,
+                        mapOf("Content-Type" to listOf("audio/wav"), "X-Request-ID" to listOf("fixture-wrong-format")),
+                        object : WireBody {
+                            override suspend fun bytes(): ByteArray {
+                                read = true
+                                return byteArrayOf(0, 64)
+                            }
+
+                            override suspend fun forEachChunk(onChunk: suspend (ByteArray) -> Boolean) {
+                                error("Not streaming")
+                            }
+
+                            override fun close() {
+                                closed = true
+                            }
+                        },
+                    )
+            }
+        HttpCloudTts(session(wire), model = "third-party-voice").use { tts ->
+            val failure =
+                assertThrows(SpeechTransportFailure::class.java) {
+                    tts.stream("synthetic") { _, _ -> error("Invalid format must never reach playback") }
+                }
+            assertEquals(SpeechFailure.PROTOCOL, speechFailure(failure))
+            assertEquals("fixture-wrong-format", speechFailureDetails(failure)?.requestId)
+        }
+        assertFalse(read)
+        assertTrue(closed)
     }
 
     @Test fun streamDeadlineRetainsResponseIdWithoutChangingTimeoutCategory() {

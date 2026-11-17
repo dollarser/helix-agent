@@ -45,6 +45,7 @@ data class SpeechServiceSettings(
             transport ?: com.helix.provider.api.wire.OkHttpWireClient(
                 connectTimeoutMillis = 30000,
                 readTimeoutMillis = config.timeoutMillis.toLong(),
+                writeTimeoutMillis = config.timeoutMillis.toLong(),
                 maxBodyBytes = if (useAccountLogin || providerId != null) 48_000_000 else 12_000_000,
                 followRedirects = false,
             )

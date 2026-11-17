@@ -256,6 +256,7 @@ class BuiltInModelTransportTest {
                 provider
                     .stream(
                         request.copy(
+                            model = BuiltInModel.QWEN_MODEL_ID,
                             messages = listOf(ModelMessage(ModelRole.USER, "inspect", listOf(image))),
                             tools = listOf(ModelToolSchema(ToolName("read"), "Read fixture", schema)),
                         ),
@@ -274,10 +275,60 @@ class BuiltInModelTransportTest {
                 headers.entries.single { it.key.equals("X-Client-Id", true) }.value,
             )
             assertFalse(headers.keys.any { it.equals("Cookie", true) })
-            assertTrue(body.contains("\"model\":\"${BuiltInModel.MODEL_ID}\""))
+            assertTrue(body.contains("\"model\":\"${BuiltInModel.QWEN_MODEL_ID}\""))
             assertTrue(body.contains("\"stream\":true"))
             assertTrue(body.contains("data:image/png;base64,${ArtifactVisionImageSource.PROBE_IMAGE.base64}"))
             assertTrue(body.contains("\"tools\""))
+        }
+
+    @Test fun unsupportedLunaMediaReturnsTypedErrorWithoutSending() =
+        runBlocking {
+            val image = ImageReference(ArtifactRef("fixture-image"), "image/png")
+            val events =
+                provider
+                    .stream(
+                        request.copy(messages = listOf(ModelMessage(ModelRole.USER, "inspect", listOf(image)))),
+                    ).toList()
+            val error = events.single() as ModelEvent.Error
+            assertEquals(ModelErrorCode.PROTOCOL, error.code)
+            assertFalse(error.retryable)
+            assertTrue(
+                error.diagnostic
+                    ?.serverMessage
+                    .orEmpty()
+                    .contains("select another model for media"),
+            )
+            assertEquals(com.helix.core.model.ModelFailureDiagnostic.Stage.CONFIGURATION, error.diagnostic?.stage)
+            assertTrue(requests.isEmpty())
+        }
+
+    @Test fun oversizedLunaInputReturnsActionableErrorWithoutSending() =
+        runBlocking {
+            val events =
+                provider
+                    .stream(
+                        request.copy(messages = listOf(ModelMessage(ModelRole.USER, "x".repeat(250001)))),
+                    ).toList()
+            val error = events.single() as ModelEvent.Error
+            assertEquals(ModelErrorCode.PROTOCOL, error.code)
+            assertFalse(error.retryable)
+            assertTrue(
+                error.diagnostic
+                    ?.serverMessage
+                    .orEmpty()
+                    .contains("compact the conversation"),
+            )
+            assertTrue(requests.isEmpty())
+        }
+
+    @Test fun emptyInterruptedCloudStreamIsNeverAutomaticallyRetried() =
+        runBlocking {
+            reply = { respond(it, 200, "") }
+            val events = provider.stream(request).toList()
+            val error = events.single() as ModelEvent.Error
+            assertFalse(error.retryable)
+            assertEquals(false, error.diagnostic?.adapterRetryable)
+            assertEquals(1, requests.size)
         }
 
     @Test fun errorsKeepClassificationAndRetryEligibilityWithoutAdapterReplay() =
@@ -308,7 +359,8 @@ class BuiltInModelTransportTest {
                 assertEquals(status in listOf(429, 502, 503, 504), event.retryable)
                 assertEquals(status, event.diagnostic?.httpStatus)
                 assertFalse(event.diagnostic.toString().contains("private server diagnostic"))
-                assertEquals(before + (if (status == 401) 2 else 1), requests.size)
+                // Submitted inference is never replayed, including an authentication rejection.
+                assertEquals(before + 1, requests.size)
             }
         }
 
@@ -598,13 +650,17 @@ data: {"response":{"status":"completed","usage":{"input_tokens":1,"output_tokens
 
         const val TEXT_STREAM =
             "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"OK\"}}]}\n\n" +
-                "data: {\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n"
+                "data: {\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}\n\n" +
+                "data: {\"choices\":[],\"usage\":{\"prompt_tokens\":1,\"completion_tokens\":1}}\n\n" +
+                "data: [DONE]\n\n"
         const val TOOL_STREAM =
             "data: {\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{" +
                 "\"index\":0,\"id\":\"call_1\",\"type\":\"function\",\"function\":{" +
                 "\"name\":\"read\",\"arguments\":\"{\\\"path\\\":\"}}]}}]}\n\n" +
                 "data: {\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0," +
                 "\"function\":{\"arguments\":\"\\\"fixture\\\"}\"}}]}}]}\n\n" +
-                "data: {\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"tool_calls\"}]}\n\ndata: [DONE]\n\n"
+                "data: {\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"tool_calls\"}]}\n\n" +
+                "data: {\"choices\":[],\"usage\":{\"prompt_tokens\":1,\"completion_tokens\":1}}\n\n" +
+                "data: [DONE]\n\n"
     }
 }

@@ -39,7 +39,16 @@ fun accountResponse(
 
 fun testAccount() =
     AccountSession(
-        MemoryAccountTokens(AccountTokens("fixture-access", "fixture-refresh", 1000000, 2000000, "fixture-user")),
+        MemoryAccountTokens(
+            AccountTokens(
+                "fixture-access",
+                "fixture-refresh",
+                1000000,
+                2000000,
+                "fixture-user",
+                AccountUser("account-1", "test", null, false, false),
+            ),
+        ),
         object : WireClient {
             override suspend fun open(request: WireRequest) =
                 accountResponse(

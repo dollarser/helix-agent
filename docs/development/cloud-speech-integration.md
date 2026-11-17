@@ -42,7 +42,7 @@ HTTP 阶段已读取 OpenAPI 与 `/docs`；后来 Owner 提供统一客户端接
 - `POST /v1/audio/speech`：JSON `{"input":"文本"}`，文档限定 1–2000 字符，返回单声道 PCM16 WAV；实际固定中文测试句返回 24 kHz WAV。客户端支持 8–48 kHz 的单声道 PCM16 RIFF/WAVE，校验格式、大小、采样率、时长及数据块，不支持的音频必须报错。
 - 公开 ClientID 阶段已按 Owner 新账号要求替换；客户端提供官方 HTTPS 账号模式，不复用用户自配模型 Key。HTTP 是用户明确选择并提示风险的地址，不会将 HTTPS 自动降级。
 
-`CloudSpeechConfig` 保留独立 endpoint、显式协议与超时；HTTP 使用明确协议标识 `http-file-wav-v1`，通过既有 `NormalizedEndpoint` 和 `OkHttpWireClient`。连接复用 Native DNS，禁重定向、自动连接重试与 HTTP follow-up 重放，响应、录音、文本、音频均有界。multipart 需要请求体 Content-Type 与 header 一致，本轮修正 wire seam 并增加真实本地 socket 测试，原 JSON 默认行为保留。
+`CloudSpeechConfig` 保留独立 endpoint、显式协议与超时；HTTP 使用明确协议标识 `http-file-wav-v1`，通过既有 `NormalizedEndpoint` 和 `OkHttpWireClient`。连接复用 Native DNS，禁重定向、自动连接重试与 HTTP follow-up 重放，响应、录音、文本、音频均有界。语音 HTTP 显式将写入与读取超时设为本次请求预算（默认 180 秒），整个交换仍受同一总时限和取消控制；不继承通用传输的 10 秒默认写入超时，也不因上传超时自动重发。multipart 需要请求体 Content-Type 与 header 一致，本轮修正 wire seam 并增加真实本地 socket 测试，原 JSON 默认行为保留。
 
 ## 增量文本提交与安全边界
 

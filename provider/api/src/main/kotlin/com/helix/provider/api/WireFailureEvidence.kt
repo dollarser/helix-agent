@@ -13,6 +13,7 @@ import com.helix.provider.api.wire.WireResponse
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.net.ConnectException
@@ -29,6 +30,7 @@ internal class WireFailureEvidence {
     var chunks = 0L
 
     private var serverError: ServerError? = null
+    private var serverForbidsRetry = false
     private var bodyState: ErrorBodyState? = null
     private var serverMessage: String? = null
     private var serverCode: String? = null
@@ -105,7 +107,8 @@ internal class WireFailureEvidence {
                     ServerError.AUTHENTICATION_ERROR,
                     ServerError.PERMISSION_ERROR,
                 )
-        return ModelEvent.Error(code, canRetry, diagnostic.copy(adapterRetryable = canRetry))
+        val permittedRetry = canRetry && !serverForbidsRetry
+        return ModelEvent.Error(code, permittedRetry, diagnostic.copy(adapterRetryable = permittedRetry))
     }
 
     suspend fun httpFailure(retryable: Boolean): ModelFailureDiagnostic {
@@ -141,20 +144,26 @@ internal class WireFailureEvidence {
                 null
             } ?: return ErrorBodyState.NON_JSON
         val error = parsed["error"] as? JsonObject ?: parsed
+        serverForbidsRetry =
+            listOf(parsed["retryable"], error["retryable"]).any {
+                (it as? JsonPrimitive)?.booleanOrNull == false
+            }
         val message = (error["message"] ?: error["detail"] ?: parsed["detail"]) as? JsonPrimitive
         serverMessage = message?.takeIf { it.isString }?.content?.let { ServerErrorSummary.redact(it, secrets) }
         serverCode =
-            ((error["code"] ?: error["type"]) as? JsonPrimitive)
+            ((parsed["error_code"] ?: error["code"] ?: error["type"]) as? JsonPrimitive)
                 ?.content
                 ?.takeIf { it.matches(Regex("[A-Za-z][A-Za-z_.-]{0,95}")) }
-                ?.let { ServerErrorSummary.redact(it, secrets).take(96) }
+                ?.let { ServerErrorSummary.code(it, secrets).take(96) }
         errorParameter =
             (error["param"] as? JsonPrimitive)
                 ?.takeIf { it.isString }
                 ?.content
                 ?.takeIf { it.matches(Regex("[A-Za-z0-9_.\\[\\]-]{1,128}")) }
-                ?.let { ServerErrorSummary.redact(it, secrets).take(128) }
-        val labels = listOf("code", "type").mapNotNull { (error[it] as? JsonPrimitive)?.content }
+                ?.let { ServerErrorSummary.parameter(it, secrets).take(128) }
+        val labels =
+            listOf(parsed["error_code"], error["code"], error["type"])
+                .mapNotNull { (it as? JsonPrimitive)?.content }
         serverError = labels.firstNotNullOfOrNull { label ->
             ServerError.entries.firstOrNull { it != ServerError.UNKNOWN && it.name.equals(label, true) }
         } ?: ServerError.UNKNOWN

@@ -30,7 +30,7 @@ class AccountUsageClientTest {
                 assertEquals("GET", it.method)
                 assertEquals(null, it.body)
                 assertEquals("Bearer fixture-access", it.headers["Authorization"])
-                assertEquals("helix-android-preview-v1", it.headers["X-Client-Id"])
+                assertEquals(null, it.headers["X-Client-Id"])
             }
         }
 

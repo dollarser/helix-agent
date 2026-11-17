@@ -69,7 +69,7 @@ class ProviderFactory(
                 OpenAiResponsesProvider(
                     config,
                     credentials,
-                    apiWire,
+                    BuiltInInferenceRouting(apiWire),
                     responsesImages(config),
                 )
             }
@@ -78,7 +78,7 @@ class ProviderFactory(
                 OpenAiChatProvider(
                     config,
                     credentials,
-                    apiWire,
+                    BuiltInInferenceRouting(apiWire),
                     chatImages(config),
                 )
             }
@@ -108,7 +108,7 @@ class ProviderFactory(
                             ),
                     ),
                     credentials,
-                    accountWire,
+                    BuiltInInferenceRouting(accountWire),
                     responsesImages(config),
                 ),
             catalog = {

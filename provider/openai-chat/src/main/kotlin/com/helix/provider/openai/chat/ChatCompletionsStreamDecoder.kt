@@ -63,6 +63,7 @@ import kotlinx.serialization.json.longOrNull
 @Suppress("TooManyFunctions", "ReturnCount")
 public class ChatCompletionsStreamDecoder(
     private val decodeToolName: (String) -> String? = { it },
+    private val requireUsageAndDone: Boolean = false,
 ) : StreamDecoder {
     public override var protocolEnded: Boolean = false
         private set
@@ -76,6 +77,8 @@ public class ChatCompletionsStreamDecoder(
     // parser), so this leniency stays at the transport edge by design.
     private val json = Json { ignoreUnknownKeys = true }
     private var terminalEmitted = false
+    private var usageSeen = false
+    private val pendingTerminal = mutableListOf<ModelEvent>()
     private var protocolFailed = false
     private var openToolCalls = LinkedHashMap<Int, OpenToolCall>()
 
@@ -98,7 +101,26 @@ public class ChatCompletionsStreamDecoder(
             if (protocolFailed || protocolEnded) break
         }
         if (reader.isFailed && !protocolFailed) failProtocol(out, "sse: ${reader.failure}")
-        return out
+        return projectCompletion(out)
+    }
+
+    private fun projectCompletion(events: List<ModelEvent>): List<ModelEvent> {
+        if (!requireUsageAndDone) return events
+        val result =
+            events
+                .filter { event ->
+                    if (event is ModelEvent.Completed || event is ModelEvent.Refusal) {
+                        pendingTerminal += event
+                        false
+                    } else {
+                        true
+                    }
+                }.toMutableList()
+        if (protocolEnded && usageSeen && !protocolFailed) {
+            result += pendingTerminal
+            pendingTerminal.clear()
+        }
+        return result
     }
 
     /** The stream ended; flushes the tail and enforces the terminal guard. */
@@ -109,9 +131,10 @@ public class ChatCompletionsStreamDecoder(
             handle(payload, out)
             if (protocolFailed) break
         }
+        val cloudIncomplete = requireUsageAndDone && (!protocolEnded || !usageSeen)
         if (reader.isFailed && !protocolFailed) {
             failProtocol(out, "sse: ${reader.failure}")
-        } else if (!terminalEmitted) {
+        } else if (!terminalEmitted || cloudIncomplete) {
             // No termination: the stream ended (or the connection dropped) before
             // any finish chunk — possibly after a bare [DONE]. Connection-level
             // failure: a retry may succeed.
@@ -119,7 +142,7 @@ public class ChatCompletionsStreamDecoder(
             failureDetail = "missing terminal"
             out += ModelEvent.Error(ModelErrorCode.PROTOCOL, retryable = true)
         }
-        return out
+        return projectCompletion(out)
     }
 
     private fun handle(
@@ -150,6 +173,11 @@ public class ChatCompletionsStreamDecoder(
         out: MutableList<ModelEvent>,
     ) {
         val chunk = parseChunk(payload)
+        if ((chunk["error"] as? JsonObject) != null) {
+            // No documented mid-stream error event: an error object is a
+            // protocol contract violation (non-2xx is the transport's job).
+            throw ProtocolViolation("error object in stream chunk")
+        }
         if (terminalEmitted) {
             // The only chunk the vendor sends after the finish chunk is the
             // usage chunk (empty choices + usage); everything else is a
@@ -157,11 +185,6 @@ public class ChatCompletionsStreamDecoder(
             if (hasChunkContent(chunk)) throw ProtocolViolation("chunk after terminal")
             handleUsage(chunk, out)
             return
-        }
-        if ((chunk["error"] as? JsonObject) != null) {
-            // No documented mid-stream error event: an error object is a
-            // protocol contract violation (non-2xx is the transport's job).
-            throw ProtocolViolation("error object in stream chunk")
         }
         val choices = chunk["choices"] as? JsonArray
         if (choices != null && choices.isNotEmpty()) {
@@ -379,6 +402,7 @@ public class ChatCompletionsStreamDecoder(
         val input = usageCount(usage["prompt_tokens"])
         val output = usageCount(usage["completion_tokens"])
         val cached = usageCount((usage["prompt_tokens_details"] as? JsonObject)?.get("cached_tokens"))
+        usageSeen = true
         out += ModelEvent.Usage(input, output, cachedInputTokens = cached)
     }
 

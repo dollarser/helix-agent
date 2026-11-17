@@ -79,7 +79,7 @@ class BuiltInAccountWireTest {
             assertEquals(0, calls)
         }
 
-    @Test fun refreshRetainsClientIdentityAndNeverFallsBack(): Unit =
+    @Test fun rejectedWriteRetainsClientIdentityAndNeverReplays(): Unit =
         runBlocking {
             val requests = mutableListOf<WireRequest>()
             val transport =
@@ -91,9 +91,9 @@ class BuiltInAccountWireTest {
                     WireRequest("POST", BuiltInModel.GENERATION_URL, emptyMap(), byteArrayOf()),
                 )
             assertEquals(401, response.status)
-            assertEquals(2, requests.size)
+            assertEquals(1, requests.size)
             assertEquals(
-                listOf("Bearer fixture-access", "Bearer fixture-renewed"),
+                listOf("Bearer fixture-access"),
                 requests.map { it.headers["Authorization"] },
             )
             assertTrue(requests.all { it.headers["X-Client-Id"] == BuiltInModel.CLIENT_ID })

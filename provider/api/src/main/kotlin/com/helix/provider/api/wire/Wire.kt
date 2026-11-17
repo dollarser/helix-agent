@@ -119,3 +119,20 @@ public fun mapHttpStatus(status: Int): Pair<ModelErrorCode, Boolean> =
         status in 505..599 -> ModelErrorCode.SERVER_ERROR to false
         else -> ModelErrorCode.SERVER_ERROR to false
     }
+
+/** A local deployment admission rejection, never a network failure or replayable operation. */
+public class WireRequestRejectedException(
+    public val reason: Reason = Reason.INVALID_REQUEST,
+) : IllegalArgumentException(reason.guidance) {
+    public enum class Reason(
+        public val guidance: String,
+    ) {
+        UNSUPPORTED_MEDIA(
+            "This deployment accepts text and custom function tools only; select another model for media.",
+        ),
+        INPUT_TOO_LARGE(
+            "Input exceeds this deployment's byte limit; compact the conversation or select another model.",
+        ),
+        INVALID_REQUEST("The deployment cannot accept this request; check the model configuration."),
+    }
+}

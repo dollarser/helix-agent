@@ -51,6 +51,54 @@ class WireFailureEvidenceTest {
             assertFalse(failure.toString().contains("UNSELECTED_BODY_SENTINEL"))
         }
 
+    @Test fun toolSchemaFailuresKeepStructuredLocationForBothWireFormats() =
+        runBlocking {
+            listOf("tools[26].parameters", "tools[26].function.parameters").forEach { parameter ->
+                val evidence = WireFailureEvidence()
+                evidence.response =
+                    response(
+                        """{"error":{"code":"invalid_function_parameters",
+                            "param":"$parameter","message":"Invalid schema"}}""",
+                    )
+                val failure = evidence.httpError()
+                assertEquals(parameter, failure.diagnostic?.errorParameter)
+                assertEquals("invalid_function_parameters", failure.diagnostic?.serverCode)
+            }
+        }
+
+    @Test fun gatewayBudgetFailureKeepsCodeAndForbidsRetry() =
+        runBlocking {
+            val evidence = WireFailureEvidence()
+            val body =
+                response(
+                    """{"error_code":"account_luna_budget_exhausted",
+                        "detail":"Monthly allowance exhausted","retryable":false}""",
+                )
+            evidence.response = WireResponse(429, emptyMap(), body.body)
+            val failure = evidence.httpError()
+            assertFalse(failure.retryable)
+            assertEquals(false, failure.diagnostic?.adapterRetryable)
+            assertEquals("account_luna_budget_exhausted", failure.diagnostic?.serverCode)
+            assertEquals("Monthly allowance exhausted", failure.diagnostic?.serverMessage)
+        }
+
+    @Test fun explicitRetryTrueNeverWidensLocalPolicy() =
+        runBlocking {
+            val evidence = WireFailureEvidence()
+            evidence.response = response("""{"error_code":"provider_auth_failed","retryable":true}""")
+            val failure = evidence.httpError()
+            assertFalse(failure.retryable)
+            assertEquals("provider_auth_failed", failure.diagnostic?.serverCode)
+        }
+
+    @Test fun knownGatewayCodeStillRedactsMatchingCredential() =
+        runBlocking {
+            val evidence = WireFailureEvidence()
+            evidence.requestHeaders(mapOf("Authorization" to "Bearer account_luna_budget_exhausted"))
+            evidence.response = response("""{"error_code":"account_luna_budget_exhausted","retryable":false}""")
+            assertFalse(evidence.httpError().toString().contains("account_luna_budget_exhausted"))
+        }
+
     private fun response(text: String) =
         WireResponse(
             400,

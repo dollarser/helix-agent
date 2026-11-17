@@ -15,6 +15,8 @@ public class HttpFailureDetails(
     public val detail: String? = null,
     public val requestId: String? = null,
     public val retryAfterMillis: Long? = null,
+    public val errorCode: String? = null,
+    public val retryable: Boolean? = null,
 )
 
 /** Bounded read; a failed diagnostic body never replaces the original HTTP failure. Caller closes body. */
@@ -66,6 +68,10 @@ public fun httpFailureDetails(
         detail?.takeIf { it.isString }?.content?.let { ServerErrorSummary.redact(it, emptyList()) },
         requestId,
         retry,
+        ((parsed?.get("error_code") ?: error?.get("code")) as? JsonPrimitive)
+            ?.content
+            ?.takeIf { it.matches(Regex("[A-Za-z0-9_]{1,96}")) },
+        ((parsed?.get("retryable") ?: error?.get("retryable")) as? JsonPrimitive)?.content?.toBooleanStrictOrNull(),
     )
 }
 

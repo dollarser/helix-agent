@@ -9,6 +9,7 @@
          HXA-027 needs it for the developer instrumented smoke; HXA-028 wires the same
          permission into the production provider UI for both variants. -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- HXA-066 dataSync foreground service: FOREGROUND_SERVICE gates startForeground on
          API 29-33; FOREGROUND_SERVICE_DATA_SYNC is the type-specific grant required on API 34+.
          Declaring both keeps the service launchable across the whole minSdk..targetSdk range. -->

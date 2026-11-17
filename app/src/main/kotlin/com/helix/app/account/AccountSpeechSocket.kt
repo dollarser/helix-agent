@@ -50,7 +50,11 @@ internal fun AccountSession.speechSocket(
             try {
                 connect()
             } catch (rejected: SocketHandshakeFailure) {
-                if (rejected.status != 401) throw rejected
+                if (rejected.status != 401 ||
+                    rejected.details.errorCode?.startsWith("provider_") == true
+                ) {
+                    throw rejected
+                }
                 credential =
                     credentials(credential.access) ?: throw SocketHandshakeFailure(401)
                 connect()

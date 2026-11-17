@@ -61,6 +61,7 @@ class HelixApplication : Application() {
                     com.helix.core.storage.AndroidKeystoreSecretStore
                         .create(this),
                 ),
+            noticeScheduleFile = java.io.File(noBackupFilesDir, "notice-checks.properties"),
         )
     }
 

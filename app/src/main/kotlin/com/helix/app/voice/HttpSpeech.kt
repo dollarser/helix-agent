@@ -125,13 +125,7 @@ class HttpCloudTts(
                     put("speed", 1)
                     if (streaming) put("stream", true)
                 }.toString().toByteArray()
-            val decoder = SpeechPcmStream(consume)
-            if (streaming) {
-                session.postStream("application/json", body, decoder::accept)
-            } else {
-                decoder.accept(session.post("application/json", body))
-            }
-            decoder.finish()
+            session.postPcm(body, streaming, consume)
         }
     }
 
