@@ -55,6 +55,22 @@ class PluginRegistry(
     private val factories = LinkedHashMap<String, HelixPlugin>()
     private val registrations = LinkedHashMap<String, AutoCloseable>()
 
+    /** Capture anew for each display request; ready()/execution entry points remain live and uncached. */
+    fun nativeContentSnapshot(sessionId: String): List<NativeContentSnapshot> =
+        synchronized(catalog.mutationLock) {
+            factories.mapNotNull { (id, plugin) ->
+                val owner = catalog.find(id) ?: return@mapNotNull null
+                NativeContentSnapshot(
+                    owner,
+                    ready(id),
+                    catalog.selectionId(sessionId, id) != null,
+                    selectionError(id),
+                    plugin.requiredInstructions,
+                    plugin.scopedSkills(),
+                )
+            }
+        }
+
     internal fun selectedRuntimes(sessionId: String): List<HelixPlugin> =
         synchronized(catalog.mutationLock) {
             factories

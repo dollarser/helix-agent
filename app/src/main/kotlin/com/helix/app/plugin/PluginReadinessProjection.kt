@@ -20,13 +20,14 @@ internal class PluginReadinessProjection(
         record: InstalledPlugin,
         items: Map<SkillKey, SkillListItem>,
         readable: Set<SkillKey>?,
+        nativeFacts: Map<String, com.helix.extensions.plugin.NativeContentSnapshot>? = null,
     ) = PluginReadinessSnapshot(
         record.id,
         record.revision,
         false,
         record.enabled,
         record.endpoints.map(::endpointFact) + record.skills.map { skillFact(it, items[it], readable) } +
-            listOfNotNull(record.native?.let { nativeFact(record, it) }),
+            listOfNotNull(record.native?.let { nativeFact(record, it, nativeFacts) }),
         record.componentDiagnostics,
         record.pluginName(),
     )
@@ -86,16 +87,28 @@ internal class PluginReadinessProjection(
         )
     }
 
+    private fun nativeStatus(
+        id: String,
+        captured: Map<String, com.helix.extensions.plugin.NativeContentSnapshot>?,
+    ): Pair<String?, Boolean> {
+        if (captured != null) {
+            val fact = captured[id]
+            return (fact?.selectionError ?: if (fact == null) "PLUGIN_HOST_COMPONENT_UNAVAILABLE" else null) to
+                (fact?.ready == true)
+        }
+        val error =
+            nativeRegistry?.selectionError(id)
+                ?: if (nativeRegistry == null) "PLUGIN_HOST_COMPONENT_UNAVAILABLE" else null
+        return error to (nativeRegistry?.ready(id) == true)
+    }
+
     private fun nativeFact(
         record: InstalledPlugin,
         native: NativePluginComponent,
+        captured: Map<String, com.helix.extensions.plugin.NativeContentSnapshot>?,
     ): PluginComponentFact {
-        val reason =
-            pluginSetupReason(
-                nativeRegistry?.selectionError(native.pluginId)
-                    ?: if (nativeRegistry == null) "PLUGIN_HOST_COMPONENT_UNAVAILABLE" else null,
-            )
-        val loaded = nativeRegistry?.ready(native.pluginId) == true
+        val (error, loaded) = nativeStatus(native.pluginId, captured)
+        val reason = pluginSetupReason(error)
         val setup =
             reason ?: when {
                 !loaded -> PluginSetupReason.RELOAD

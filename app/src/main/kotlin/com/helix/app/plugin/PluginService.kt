@@ -11,6 +11,7 @@ import com.helix.extensions.mcp.oauth.McpOAuthVendor
 import com.helix.extensions.mcp.oauth.mcpOAuthVendor
 import com.helix.extensions.plugin.PluginPackage
 import com.helix.extensions.plugin.PluginPackageReader
+import com.helix.extensions.plugin.skillPresentation
 import com.helix.extensions.skills.SkillEnablementScope
 import com.helix.extensions.skills.SkillImportService
 import com.helix.extensions.skills.SkillKey
@@ -226,6 +227,42 @@ class PluginService(
     }
 
     /** Same read-only snapshot as the UI; request exposure still re-enters the normal dispatcher. */
+    fun promptContext(
+        sessionId: String,
+        turnId: String?,
+    ): PluginPromptContext {
+        // Deliberately outside mutationLock: accepted input lookup may acquire a Room transaction.
+        val activations = skills.presentationActivations(sessionId, turnId)
+        return synchronized(catalog.mutationLock) {
+            val native = nativeRegistry?.nativeContentSnapshot(sessionId).orEmpty()
+            val skillFacts =
+                skills.presentationSnapshot(
+                    sessionId,
+                    activations,
+                    native.skillPresentation(),
+                )
+            val selected = catalog.effectiveSelected(sessionId)
+            val installed = list()
+            val items = skillFacts.installed.associateBy { it.key }
+            val readable = skillFacts.model.map { it.key }.toSet()
+            val nativeFacts = native.associateBy { it.owner.pluginId }
+            val snapshots =
+                installed.sortedByDescending { it.id in selected }.take(64).map {
+                    readiness.snapshot(it, items, readable, nativeFacts).copy(selected = it.id in selected)
+                }
+            PluginPromptContext(
+                com.helix.extensions.plugin
+                    .presentationContributions(native, skillFacts),
+                pluginReadinessContext(
+                    snapshots,
+                    installed.size,
+                    browserHostAvailable(),
+                    installed.count { it.id in selected },
+                ),
+            )
+        }
+    }
+
     fun requestReadiness(
         sessionId: String,
         turnId: String? = null,

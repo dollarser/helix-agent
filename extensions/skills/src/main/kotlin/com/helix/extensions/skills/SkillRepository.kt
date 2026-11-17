@@ -98,6 +98,62 @@ class SkillRepository(
                 }.sortedWith(compareBy({ it.key.name }, { it.key.source.name }, { it.key.snapshotHash }))
         }
 
+    /** Capture accepted inputs BEFORE the shared metadata lock; Room transactions must not invert its order. */
+    fun presentationActivations(
+        sessionId: String,
+        turnId: String?,
+    ): List<UserSkillActivation> = acceptedActivations(sessionId, turnId).toList()
+
+    /** Fresh batch projection, not a cache. Native availability is supplied by the host's matching display snapshot. */
+    fun presentationSnapshot(
+        sessionId: String,
+        activations: List<UserSkillActivation>,
+        native: NativeSkillPresentation,
+    ): SkillPresentationSnapshot =
+        synchronized(lock) {
+            val contributed = native.documents.associateBy { it.catalogEntry.toKey() }
+            require(contributed.keys.all { it.source == SkillSource.BUILT_IN && it.ownerId.isNotEmpty() })
+            val documents = records.filterKeys { it !in contributionKeys }.mapValues { it.value.document } + contributed
+
+            fun items(session: String?): List<SkillListItem> =
+                documents
+                    .mapNotNull { (key, document) ->
+                        val available =
+                            if (key in contributed) {
+                                key in if (session == null) native.installedAvailable else native.sessionAvailable
+                            } else {
+                                sourceAvailable(key, session)
+                            }
+                        if (!available) return@mapNotNull null
+                        val enabled =
+                            if (key in contributed) {
+                                true
+                            } else {
+                                pluginAvailable(key, session) || independentlyEnabled(key, session)
+                            }
+                        SkillListItem(
+                            key,
+                            document.catalogEntry.description,
+                            enabled,
+                            document.invocation,
+                            key.ownerId.isEmpty() && key !in contributed && independentlySelectable(key),
+                            key !in contributed && independentlyEnabled(key, session),
+                        )
+                    }.sortedWith(compareBy({ it.key.name }, { it.key.source.name }, { it.key.snapshotHash }))
+            val sessionItems = items(sessionId)
+            val modelItems = sessionItems.filter { modelEligible(documents.getValue(it.key), it.key, activations) }
+            val active =
+                activations.map { activation ->
+                    val document = requireNotNull(documents[activation.key]) { "Unknown accepted skill snapshot" }
+                    require(sessionItems.any { it.key == activation.key && it.enabled }) {
+                        "Accepted skill is disabled"
+                    }
+                    requireModelEligibility(document, activation.key, activations)
+                    ActivatedSkillContent(activation.key, document, activation.arguments)
+                }
+            SkillPresentationSnapshot(items(null), sessionItems, modelItems, documents, active)
+        }
+
     /** User choices exclude content whose availability is controlled by its owning plugin. */
     fun listSelectable(sessionId: String? = null): List<SkillListItem> =
         synchronized(lock) {

@@ -908,7 +908,7 @@ internal class DefaultAppContainer(
                 plugins = pluginRegistry,
                 disabledToolFilter = disabledToolFilter,
                 skills = skillRepository,
-                pluginReadiness = { session, turn -> pluginService.requestReadiness(session, turn) },
+                pluginPromptContext = { session, turn -> pluginService.promptContext(session, turn) },
             ).also {
                 it.mcpDiscovery.register(toolRegistry, executionOwnership::metadataExecutor)
             }

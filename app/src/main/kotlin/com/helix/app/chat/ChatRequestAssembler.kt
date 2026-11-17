@@ -329,12 +329,18 @@ internal class ChatRequestAssembler(
         sessionId: String,
         turnId: String?,
         tools: List<ModelToolSchema>,
-    ) = PromptContentContributions.sections(
-        toolPipeline.skills?.let { toolPipeline.plugins?.contentContributions(it, sessionId, turnId) }.orEmpty(),
-        toolPipeline.mcpDiscovery.catalog(sessionId),
-        toolPipeline.pluginReadiness?.invoke(sessionId, turnId),
-        tools.map { it.name.value }.toSet(),
-    )
+    ): List<com.helix.core.agent.PromptSection> {
+        val snapshot = toolPipeline.pluginPromptContext?.invoke(sessionId, turnId)
+        return PromptContentContributions.sections(
+            snapshot?.contributions ?: toolPipeline.skills
+                ?.let {
+                    toolPipeline.plugins?.contentContributions(it, sessionId, turnId)
+                }.orEmpty(),
+            toolPipeline.mcpDiscovery.catalog(sessionId),
+            snapshot?.readiness,
+            tools.map { it.name.value }.toSet(),
+        )
+    }
 
     private fun modelTools(
         sessionId: String,
