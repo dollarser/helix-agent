@@ -146,6 +146,14 @@ class WireFailureEvidenceTest {
 
     @Test fun missingTerminalMalformedJsonAndNetworkClassesStayDistinct() {
         assertEquals(Reason.MISSING_TERMINAL, WireFailureEvidence.protocolReason("missing terminal"))
+        assertEquals(
+            Reason.INCOMPLETE_TOOL_OUTPUT_LIMIT,
+            WireFailureEvidence.protocolReason("output limit with unfinished tool call"),
+        )
+        assertEquals(
+            Reason.INVALID_FINISH_REASON,
+            WireFailureEvidence.protocolReason("finish reason stop with open tool calls"),
+        )
         assertEquals(Reason.INVALID_JSON, WireFailureEvidence.protocolReason("json: SerializationException"))
         assertEquals(Reason.INVALID_SSE, WireFailureEvidence.protocolReason("sse: invalid encoding"))
         assertEquals(Reason.DNS, WireFailureEvidence.reason(UnknownHostException("PRIVATE_HOST")))

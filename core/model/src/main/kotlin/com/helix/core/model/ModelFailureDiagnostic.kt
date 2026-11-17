@@ -55,6 +55,7 @@ data class ModelFailureDiagnostic(
         INVALID_JSON,
         INVALID_TOOL_CALL,
         INVALID_FINISH_REASON,
+        INCOMPLETE_TOOL_OUTPUT_LIMIT,
         AFTER_TERMINAL,
         VENDOR_ERROR,
         INVALID_SCHEMA,

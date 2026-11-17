@@ -13,6 +13,19 @@ class ModelFailureLabelsTest {
         "$id[${args.joinToString()}]"
     }
 
+    @Test fun incompleteToolOutputLimitHasSpecificLabelWithoutRawModelArguments() {
+        val result =
+            ModelFailureLabels.format(
+                "PROTOCOL",
+                "base",
+                """{"reason":"INCOMPLETE_TOOL_OUTPUT_LIMIT","message":"PRIVATE_ARGUMENTS"}""",
+                strings,
+            )
+        assertTrue(rendered.contains(R.string.model_failure_incomplete_tool_output_limit))
+        assertFalse(rendered.contains(R.string.model_failure_invalid_response))
+        assertFalse(result.contains("PRIVATE_ARGUMENTS"))
+    }
+
     @Test fun exhaustedModelFailureHasStageAndFiveRetriesWithoutRawPayload() {
         val result =
             ModelFailureLabels.format(

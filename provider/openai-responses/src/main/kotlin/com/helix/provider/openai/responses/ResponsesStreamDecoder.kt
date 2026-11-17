@@ -465,7 +465,7 @@ public class ResponsesStreamDecoder(
             obj["response"] as? JsonObject
                 ?: throw ProtocolViolation("response.incomplete: missing response object")
         collectFinalOutput(response, out)
-        assertNoOpenCalls()
+        assertNoOpenCalls(stringOf((response["incomplete_details"] as? JsonObject)?.get("reason")))
         emitUsage(response, out)
         terminalEmitted = true
         // The response-level reason is authoritative over the item-level prime.
@@ -486,12 +486,18 @@ public class ResponsesStreamDecoder(
      * turn marked COMPLETED) — the same user-visible work the model claimed it did.
      * Align: fail the stream, the user retries, the model regenerates.
      */
-    private fun assertNoOpenCalls() {
+    private fun assertNoOpenCalls(incompleteReason: String? = null) {
         if (openSearches.isNotEmpty()) {
             throw ProtocolViolation("response terminated with unfinished web search")
         }
         if (openCalls.isNotEmpty()) {
-            throw ProtocolViolation("response terminated with ${openCalls.size} unfinished function call(s)")
+            throw ProtocolViolation(
+                if (incompleteReason == "max_output_tokens") {
+                    "output limit with unfinished tool call"
+                } else {
+                    "response terminated with ${openCalls.size} unfinished function call(s)"
+                },
+            )
         }
     }
 

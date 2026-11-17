@@ -44,7 +44,7 @@ object BuiltInModel {
         ) {
             capabilities.copy(streaming = true, toolCalls = true, vision = true, reasoning = true)
         } else if (model == MODEL_ID) {
-            capabilities.copy(toolCalls = true, reasoning = true)
+            capabilities.copy(toolCalls = true, vision = true, reasoning = true)
         } else {
             capabilities.copy(streaming = false)
         }

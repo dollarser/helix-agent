@@ -33,7 +33,7 @@ internal object HilexLunaRequestContract {
         fields.remove("max_tokens")
         fields[outputField] = JsonPrimitive(output.coerceAtMost(16384L))
         val messages = body[if (responses) "input" else "messages"] as? JsonArray
-        if (messages?.any { item -> hasMedia(item as? JsonObject) } == true) {
+        if (messages?.any { item -> hasUnsupportedMedia(item as? JsonObject, responses) } == true) {
             throw WireRequestRejectedException(WireRequestRejectedException.Reason.UNSUPPORTED_MEDIA)
         }
         if (!responses && hasTools(body, messages)) {
@@ -59,11 +59,39 @@ internal object HilexLunaRequestContract {
                     (message?.get("tool_calls") as? JsonArray)?.isNotEmpty() == true
             } == true
 
-    private fun hasMedia(message: JsonObject?): Boolean =
+    private fun hasUnsupportedMedia(
+        message: JsonObject?,
+        responses: Boolean,
+    ): Boolean =
         (message?.get("content") as? JsonArray)?.any { item ->
-            val type = ((item as? JsonObject)?.get("type") as? JsonPrimitive)?.contentOrNull
-            type !in setOf("text", "input_text", "output_text")
+            val part = item as? JsonObject
+            val type = (part?.get("type") as? JsonPrimitive)?.contentOrNull
+            when (type) {
+                "text", "input_text", "output_text" -> {
+                    false
+                }
+
+                if (responses) "input_image" else "image_url" -> {
+                    val url =
+                        if (responses) {
+                            part?.get(
+                                "image_url",
+                            )
+                        } else {
+                            (part?.get("image_url") as? JsonObject)?.get("url")
+                        }
+                    !IMAGE_DATA_URL.matches((url as? JsonPrimitive)?.contentOrNull.orEmpty())
+                }
+
+                else -> {
+                    true
+                }
+            }
         } == true
+
+    // Proven deployment inputs only. ArtifactVisionImageSource still verifies binding, hash,
+    // magic, disclosure and size; this adapter does not fetch arbitrary URLs or accept files/audio.
+    private val IMAGE_DATA_URL = Regex("data:image/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}")
 
     private val ENDPOINTS = setOf(BuiltInModel.GENERATION_URL, BuiltInModel.RESPONSES_URL)
 }

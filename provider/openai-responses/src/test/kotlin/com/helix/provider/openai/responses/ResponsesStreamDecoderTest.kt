@@ -404,7 +404,7 @@ class ResponsesStreamDecoderTest {
     }
 
     @Test
-    fun completedWithOpenFunctionCallFails() {
+    fun outputLimitWithOpenFunctionCallIsDiagnosedWithoutExecutingOrRetrying() {
         // RISK-1 alignment: a response that terminates while a function call is still
         // open (truncated mid-arguments) is a protocol failure — the chat/anthropic
         // decoders fail it, and this one used to report a clean length-completion that
@@ -424,13 +424,17 @@ class ResponsesStreamDecoderTest {
                     """"incomplete_details":{"reason":"max_output_tokens"},""" +
                     """"usage":{"input_tokens":2,"output_tokens":128}}}""",
             )
+        val decoder = ResponsesStreamDecoder()
+        val events = decoder.feed((added + delta + incomplete).toByteArray()) + decoder.finish()
+        assertEquals("output limit with unfinished tool call", decoder.failure)
+        assertEquals(0, events.filterIsInstance<ModelEvent.ToolCallFinished>().size)
         assertEquals(
             listOf(
                 ModelEvent.ToolCallStarted(1, ToolCallId("call_1"), "read"),
                 ModelEvent.ToolArgumentsDelta(1, """{"path"}"""),
                 ModelEvent.Error(ModelErrorCode.PROTOCOL, retryable = false),
             ),
-            decodeAll(added + delta + incomplete),
+            events,
         )
     }
 

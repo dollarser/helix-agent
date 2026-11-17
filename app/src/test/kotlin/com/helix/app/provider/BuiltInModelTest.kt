@@ -78,7 +78,7 @@ class BuiltInModelTest {
         val capabilities = BuiltInModel.capabilitiesFor(BuiltInModel.MODEL_ID)
         assertTrue(capabilities.streaming)
         assertTrue(capabilities.toolCalls && capabilities.reasoning)
-        assertFalse(capabilities.vision)
+        assertTrue(capabilities.vision)
         assertFalse(BuiltInModel.capabilitiesFor("future-model").streaming)
         assertTrue(BuiltInModel.capabilitiesFor(BuiltInModel.QWEN_MODEL_ID).toolCalls)
         assertEquals(

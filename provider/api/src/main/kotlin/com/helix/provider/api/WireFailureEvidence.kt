@@ -276,6 +276,7 @@ internal class WireFailureEvidence {
         /** Never export the decoder's potentially vendor-derived detail itself. */
         fun protocolReason(rule: String?): Reason =
             when {
+                rule == "output limit with unfinished tool call" -> Reason.INCOMPLETE_TOOL_OUTPUT_LIMIT
                 rule == "missing terminal" -> Reason.MISSING_TERMINAL
                 rule?.startsWith("sse:") == true -> Reason.INVALID_SSE
                 rule?.startsWith("json:") == true -> Reason.INVALID_JSON

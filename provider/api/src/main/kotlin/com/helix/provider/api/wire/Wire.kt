@@ -128,7 +128,8 @@ public class WireRequestRejectedException(
         public val guidance: String,
     ) {
         UNSUPPORTED_MEDIA(
-            "This deployment accepts text and custom function tools only; select another model for media.",
+            "This media type or reference is not supported by this deployment; " +
+                "use a supported image attachment or select another model.",
         ),
         INPUT_TOO_LARGE(
             "Input exceeds this deployment's byte limit; compact the conversation or select another model.",

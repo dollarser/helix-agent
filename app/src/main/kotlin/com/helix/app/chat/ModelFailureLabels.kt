@@ -55,6 +55,10 @@ internal object ModelFailureLabels {
                     R.string.model_failure_missing_terminal
                 }
 
+                "INCOMPLETE_TOOL_OUTPUT_LIMIT" -> {
+                    R.string.model_failure_incomplete_tool_output_limit
+                }
+
                 "INVALID_JSON", "INVALID_SSE", "INVALID_SCHEMA" -> {
                     R.string.model_failure_invalid_response
                 }

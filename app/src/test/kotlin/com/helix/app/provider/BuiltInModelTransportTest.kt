@@ -281,7 +281,7 @@ class BuiltInModelTransportTest {
             assertTrue(body.contains("\"tools\""))
         }
 
-    @Test fun unsupportedLunaMediaReturnsTypedErrorWithoutSending() =
+    @Test fun lunaImageUsesVerifiedImageSourceAndExistingAccountTransport() =
         runBlocking {
             val image = ImageReference(ArtifactRef("fixture-image"), "image/png")
             val events =
@@ -289,17 +289,11 @@ class BuiltInModelTransportTest {
                     .stream(
                         request.copy(messages = listOf(ModelMessage(ModelRole.USER, "inspect", listOf(image)))),
                     ).toList()
-            val error = events.single() as ModelEvent.Error
-            assertEquals(ModelErrorCode.PROTOCOL, error.code)
-            assertFalse(error.retryable)
-            assertTrue(
-                error.diagnostic
-                    ?.serverMessage
-                    .orEmpty()
-                    .contains("select another model for media"),
-            )
-            assertEquals(com.helix.core.model.ModelFailureDiagnostic.Stage.CONFIGURATION, error.diagnostic?.stage)
-            assertTrue(requests.isEmpty())
+            assertFalse(events.any { it is ModelEvent.Error })
+            assertEquals(listOf(BuiltInModel.GENERATION_URL), originalUrls.toList())
+            assertEquals(1, requests.size)
+            assertTrue(requests.single().second.contains("data:image/png;base64,"))
+            assertTrue(requests.single().second.contains("image_url"))
         }
 
     @Test fun oversizedLunaInputReturnsActionableErrorWithoutSending() =

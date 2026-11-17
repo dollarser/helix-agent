@@ -339,7 +339,7 @@ public class ChatCompletionsStreamDecoder(
 
     /**
      * ThrowsCount suppression is deliberate: each throw is a distinct vendor
-     * contract violation (open calls at stop/length, no calls at tool_calls,
+     * terminal failure (incomplete calls at stop/length, no calls at tool_calls,
      * unknown reason) and fail-closed semantics require stopping at the first
      * one.
      */
@@ -352,7 +352,13 @@ public class ChatCompletionsStreamDecoder(
         when (reason) {
             FINISH_STOP, FINISH_LENGTH -> {
                 if (openToolCalls.isNotEmpty()) {
-                    throw ProtocolViolation("finish reason $reason with open tool calls")
+                    throw ProtocolViolation(
+                        if (reason == FINISH_LENGTH) {
+                            "output limit with unfinished tool call"
+                        } else {
+                            "finish reason $reason with open tool calls"
+                        },
+                    )
                 }
                 terminalEmitted = true
                 out += ModelEvent.Completed(reason)

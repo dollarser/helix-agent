@@ -385,6 +385,24 @@ class ChatCompletionsStreamDecoderTest {
     }
 
     @Test
+    fun lengthWithPartialToolIsExplicitlyDiagnosedButNeverCompletedOrRetried() {
+        val stream =
+            toolStartChunk(0, "call_a", "read") + toolArgsChunk(0, "{\"path\":") +
+                finishChunk("\"length\"") + DONE_SSE
+        for (chunkSize in listOf(1, 7, 8192)) {
+            val decoder = ChatCompletionsStreamDecoder()
+            val events = stream.chunked(chunkSize).flatMap { decoder.feed(it.toByteArray()) } + decoder.finish()
+            assertEquals("output limit with unfinished tool call", decoder.failure)
+            assertEquals(0, events.filterIsInstance<ModelEvent.ToolCallFinished>().size)
+            assertEquals(0, events.filterIsInstance<ModelEvent.Completed>().size)
+            assertEquals(
+                listOf(ModelEvent.Error(ModelErrorCode.PROTOCOL, retryable = false)),
+                events.filterIsInstance<ModelEvent.Error>(),
+            )
+        }
+    }
+
+    @Test
     fun stopWithOpenToolCallsFails() {
         val stream = toolStartChunk(0, "call_a", "read") + finishChunk("\"stop\"")
         assertEquals(
