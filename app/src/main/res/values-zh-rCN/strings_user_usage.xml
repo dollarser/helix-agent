@@ -9,4 +9,6 @@
     <string name="user_usage_less">收起明细</string>
     <string name="user_usage_details">额度明细</string>
     <string name="user_usage_used">已计入 %1$s %2$s</string>
+    <string name="user_usage_cloud_text">云文本</string>
+    <string name="user_usage_token_quota">Token 额度</string>
 </resources>

@@ -9,4 +9,6 @@
     <string name="user_usage_less">Hide details</string>
     <string name="user_usage_details">Quota details</string>
     <string name="user_usage_used">Counted: %1$s %2$s</string>
+    <string name="user_usage_cloud_text">Cloud text</string>
+    <string name="user_usage_token_quota">Token allowance</string>
 </resources>

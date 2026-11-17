@@ -43,7 +43,7 @@ private fun AccountQuotaContent(quota: AccountQuota) {
     val purpose =
         stringResource(
             when (quota.unit) {
-                AccountUsageUnit.TOKENS -> R.string.user_usage_conversation
+                AccountUsageUnit.TOKENS -> accountTokenQuotaLabel(quota.scope)
                 AccountUsageUnit.MINUTES -> R.string.user_usage_transcription
                 AccountUsageUnit.CHARACTERS -> R.string.user_usage_speech
             },
@@ -105,3 +105,10 @@ internal fun accountQuotaResetTime(
         null
     }
 }
+
+internal fun accountTokenQuotaLabel(scope: String?): Int =
+    when (scope) {
+        "cloud_text_tokens" -> R.string.user_usage_cloud_text
+        null -> R.string.user_usage_conversation
+        else -> R.string.user_usage_token_quota
+    }

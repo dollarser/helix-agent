@@ -19,6 +19,7 @@ internal data class AccountQuota(
     val reserved: BigDecimal,
     val remaining: BigDecimal,
     val resetAt: Instant? = null,
+    val scope: String? = null,
 )
 
 internal data class AccountUsageTotal(
@@ -51,6 +52,7 @@ internal fun AccountUsageDocuments.summary(): AccountUsageSummary {
             luna.amount("reserved_tokens"),
             luna.amount("remaining_tokens"),
             luna.resetInstant(),
+            scope = (luna["scope"] as? JsonPrimitive)?.takeIf { it.isString }?.content,
         )
 
     fun audioQuota(

@@ -16,15 +16,16 @@ internal class AccountUsageClient(
     private val account: AccountSession,
     private val transport: WireClient = OkHttpWireClient(followRedirects = false, maxBodyBytes = MAX_BODY_BYTES),
 ) {
-    /** Bind the entire refresh to one login generation, including sequential endpoint reads. */
+    /** Bind one snapshot request and its entire response to one login generation. */
     suspend fun read(): AccountUsageDocuments =
         withContext(Dispatchers.IO) {
             val revision = account.revision
             withTimeoutOrNull(REQUEST_TIMEOUT_MS) {
+                val snapshot = read(AccountUsageResource.SNAPSHOT, revision)
                 AccountUsageDocuments(
-                    read(AccountUsageResource.LUNA, revision),
-                    read(AccountUsageResource.AUDIO, revision),
-                    read(AccountUsageResource.HISTORY, revision),
+                    snapshot.document("luna"),
+                    snapshot.document("audio"),
+                    snapshot.document("usage"),
                 )
             } ?: throw java.net.SocketTimeoutException("Account usage response timeout")
         }
@@ -48,6 +49,9 @@ internal class AccountUsageClient(
         }
     }
 
+    private fun JsonObject.document(name: String): JsonObject =
+        this[name] as? JsonObject ?: throw AccountUsageFormatFailure()
+
     private fun parseDocument(bytes: ByteArray): JsonObject {
         val document =
             try {
@@ -67,9 +71,7 @@ internal class AccountUsageClient(
 internal enum class AccountUsageResource(
     val path: String,
 ) {
-    LUNA("/account/luna-usage"),
-    AUDIO("/account/audio-usage"),
-    HISTORY("/account/usage"),
+    SNAPSHOT("/account/usage-snapshot"),
 }
 
 /** Internal wire documents: never expose arbitrary response fields in UI or logs. */

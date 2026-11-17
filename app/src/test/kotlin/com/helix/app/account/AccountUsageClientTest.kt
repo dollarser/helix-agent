@@ -8,7 +8,7 @@ import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class AccountUsageClientTest {
-    @Test fun usesOnlyAccountManagementEndpointsAndAccountAuthentication() =
+    @Test fun usesSingleSnapshotAndAccountAuthentication() =
         runBlocking {
             val requests = mutableListOf<WireRequest>()
             val client =
@@ -17,11 +17,16 @@ class AccountUsageClientTest {
                     object : WireClient {
                         override suspend fun open(request: WireRequest): com.helix.provider.api.wire.WireResponse {
                             requests += request
-                            return accountResponse(200, "{}")
+                            return accountResponse(
+                                200,
+                                """{"luna":{"model":"synthetic"},"audio":{},"usage":{"today":"fixture"}}""",
+                            )
                         }
                     },
                 )
-            client.read()
+            val snapshot = client.read()
+            assertEquals("\"synthetic\"", snapshot.luna["model"].toString())
+            assertEquals("\"fixture\"", snapshot.history["today"].toString())
             assertEquals(
                 AccountUsageResource.entries.map { OfficialServices.ACCOUNT_BASE_URL + it.path },
                 requests.map { it.url },
@@ -74,7 +79,23 @@ class AccountUsageClientTest {
         assertEquals("Account usage response has an unsupported format", error.message)
     }
 
-    @Test fun accountChangeStopsTheRemainingRefresh() {
+    @Test fun missingOrWrongNestedDocumentsNeverFallBackToLegacyRequests() {
+        for (document in listOf("{}", """{"luna":{},"audio":{},"usage":[]}""")) {
+            var requests = 0
+            val transport =
+                object : WireClient {
+                    override suspend fun open(request: WireRequest): com.helix.provider.api.wire.WireResponse {
+                        requests++
+                        return accountResponse(200, document)
+                    }
+                }
+            val client = AccountUsageClient(testAccount(), transport)
+            assertThrows(AccountUsageFormatFailure::class.java) { runBlocking { client.read() } }
+            assertEquals(1, requests)
+        }
+    }
+
+    @Test fun accountChangeRejectsTheEntireSnapshot() {
         val account = testAccount()
         var requests = 0
         val client =

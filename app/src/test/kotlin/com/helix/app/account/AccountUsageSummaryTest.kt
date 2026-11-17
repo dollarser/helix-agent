@@ -33,6 +33,45 @@ class AccountUsageSummaryTest {
             ).jsonObject,
     )
 
+    @Test fun sharedCloudQuotaPreservesScopeRemainingAndIgnoresAdditiveFields() {
+        val source = documents(remaining = 350)
+        val updated =
+            AccountUsageDocuments(
+                JsonObject(
+                    source.luna +
+                        mapOf(
+                            "scope" to JsonPrimitive("cloud_text_tokens"),
+                            "models" to Json.parseToJsonElement("""["gpt-6-luna","text-embedding-3-small"]"""),
+                        ),
+                ),
+                source.audio,
+                source.history,
+            ).summary().quotas.first()
+        assertEquals("cloud_text_tokens", updated.scope)
+        assertEquals("350", updated.remaining.toPlainString())
+        assertEquals(
+            com.helix.app.R.string.user_usage_cloud_text,
+            com.helix.app.ui
+                .accountTokenQuotaLabel(updated.scope),
+        )
+        assertEquals(
+            com.helix.app.R.string.user_usage_conversation,
+            com.helix.app.ui
+                .accountTokenQuotaLabel(
+                    source
+                        .summary()
+                        .quotas
+                        .first()
+                        .scope,
+                ),
+        )
+        assertEquals(
+            com.helix.app.R.string.user_usage_token_quota,
+            com.helix.app.ui
+                .accountTokenQuotaLabel("future_scope"),
+        )
+    }
+
     @Test fun usesServerRemainingWithoutSubtractingReservationsAgain() {
         val result = documents(remaining = 350).summary()
         assertEquals("350", result.quotas[0].remaining.toPlainString())
