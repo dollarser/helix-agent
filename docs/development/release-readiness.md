@@ -125,3 +125,5 @@ modelscope upload dollars/Helix build/release-metadata/README.md README.md \
 ```
 
 清单按当前分发协议保持 schemaVersion 1，填写真实包名、ABI、versionName/versionCode、公开地址、校验值与大小。再次公开读取清单并检查其每个新下载项；CLI 成功返回不代替下载核验或应用内更新检查。GitHub Release 仍只附 APK，源码使用标签归档，校验与签名身份写入正文。认证失败时保留已完成步骤，不把 Git 凭据缺失等同于 CLI 未登录。
+
+Owner 对 v0.0.12 发布页要求精简：面向用户只保留核心更新、下载与升级提醒，不单列源码/验证或第三方源码/许可长章节。详细提交、CI、签名与验收边界放开发证据；第三方材料保留必要直接链接，不删随包许可。
