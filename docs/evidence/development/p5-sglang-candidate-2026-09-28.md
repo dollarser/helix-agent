@@ -74,7 +74,9 @@ python3 scripts/debug/2026-09-28/run-p5-sglang-harness-baseline.py \
 
 输出目录必须不存在；定向调用在相同命令前设置 `HELIX_P5_CASES=goal-001,goal-002,goal-003` 并使用独立输出目录。
 
-## 后续
+## 当时后续安排
+
+整合及 clean A/B 已另记于上方整合链接与 [P5/P6 记录](p5-clean-baseline-and-p6-2026-09-28.md)；以下保留原交接，不表示当前仍须重复执行。
 
 1. 先审查并整合此候选，取得 clean commit，再冻结同 oracle/fixture/source/APK 的正式 P5/P6 锚点。
 2. 对 `goal-001` 的输出截断做独立、有限的原始模型输出与提示分析；检查 system Goal 报告要求与 plan-only 用户约束的交互。此次没有原始 reasoning 证据，不宣称唯一根因；不直接提高预算、放宽权限或更改完成 owner。

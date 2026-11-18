@@ -115,7 +115,7 @@ python3 scripts/with-host-slot.py -- python3 scripts/debug/2026-10-01/build-ffmp
 python3 scripts/with-host-slot.py -- python3 scripts/debug/2026-10-01/build-ffmpeg-plus.py --profile extended
 python3 scripts/debug/2026-10-01/measure-ffmpeg-plus.py --profile common
 python3 scripts/debug/2026-10-01/measure-ffmpeg-plus.py --profile extended
-# 只有针对本次设备验证明确授权后才执行；不能把此命令当作后续任务的授权。
+# 历史调用示例；复跑核对当前 AGENTS 的模拟器/真机授权范围和实际 serial。
 python3 scripts/with-host-slot.py -- python3 scripts/debug/2026-10-01/probe-ffmpeg-plus-android.py --serial emulator-5554 --profile extended
 python3 scripts/debug/2026-10-01/package-ffmpeg-plus.py
 ```

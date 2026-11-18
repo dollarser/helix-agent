@@ -25,7 +25,7 @@
 
 - `accepted` 是已授权的设计；实际能力和证据查[实施状态](../development/status.md)、[路线](../development/roadmap.md)及完成记录。
 - `proposed` 仍需决定，不能因整理文档而接受。工具 descriptor 与原子绑定已由 ADR-TOOLS-001 接受；会话工作目录绑定已 accepted 并由 HXA-210 完成本地交付。Connector 安全替换/会话启停已接受，HXA-129 已本地交付，整合状态见实施页；签名索引已接受并交付离线范围。
-- 会话权限新方案已接受并由 HXA-209 交付（见[完成记录](../completion-records/HXA-209.md)）；Goal 按 HXA-208 的范围交付。二者不能共用“全绿”结论。
+- 会话权限当前预设/CUSTOM 语义由 HXA-228 承接，HXA-209 的[完成记录](../completion-records/HXA-209.md)仅是旧四态实现基线；当前规则与验收边界见 [PERMISSIONS-001](permissions/001-session-authorization.md)。Goal 按 HXA-208 及后续任务的各自范围交付，不能共用“全绿”结论。
 - 已授权方案可以要求重构现有代码。实现尚未跟上不是架构冲突，不恢复被废弃的兼容行为；未授权的范围变化才需新的决定。
 
 ## 插件优化任务的 ADR 归属（2026-10-11）

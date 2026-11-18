@@ -13,10 +13,7 @@ P5/tool-exposure/public-agent/AndroidWorld 未提交工作当成本任务交付�
 - 保持 TurnEngine、AgentLoop、ToolDispatcher、approval、effect truth 所有权不变；
 - 审查 MCP、Skills、Connector、Marketplace、ToolRegistry 与 PluginRegistry 的长期边界。
 
-调研与设计：
-
-- ../../research/agent-plugin-ecosystem-and-mobile-use-2026-09-28.md
-- ../../architecture/plugin-platform-refactor-2026-09-28.md
+原调研与设计文档为 `agent-plugin-ecosystem-and-mobile-use-2026-09-28.md` 与 `plugin-platform-refactor-2026-09-28.md`，现已退出当前文档树；原文可按名称从 Git 历史恢复。当前插件归属与安装契约见[ADR-CONNECTORS-003](../../adr/connectors/003-ownership-and-installation.md)，不把本页 P0 方案当作当前待实施计划。
 
 ## Plugin Platform P0
 

@@ -1,6 +1,6 @@
 # 2026-10-01 阶段收尾：回放、OAuth、Core、插件与基础等待
 
-本记录是当日阶段快照，不是第二份实时路线图。后续顺序只维护在 [status](../../development/status.md)，具体未闭合要求留在原 HXA。
+本记录是当日阶段快照，不是第二份实时路线图。当前能力和证据入口见 [status](../../development/status.md)，具体未闭合要求留在原 HXA；后续任务由当前用户请求确定，下面的交接顺序保留为当时计划。
 
 ## 结论与范围
 
@@ -16,14 +16,7 @@
 - 完整清单：`build/phase-closeout-2026-10-01/source-before.json`、`source-after.json`，比较一致。清单仅校验源码身份，不包含恢复源码所需的内容。
 - 并行 FFmpeg 预集成及其他设备调查材料保留，不接入、不删除、不声称由本阶段验收。未批量暂存、清理、重置或覆盖他人 WIP。
 
-### 同候选 Debug 制品 SHA-256
-
-| 文件（app/build/outputs/apk/ 下） | SHA-256 |
-| --- | --- |
-| consumer/debug/app-consumer-debug.apk | `e7bdb117ba065a446f5e047d9e3cd6f2f67868dfb789593d5a03bbd17662c122` |
-| developer/debug/app-developer-debug.apk | `559f217c07d5ebc9ae33e0b7b86dfbf416396b78e2dade88e5bad9d2ea257d4c` |
-| androidTest/consumer/debug/app-consumer-debug-androidTest.apk | `5595372629ce6e23ed85cb2a272d775cf71f08c09e5e2fd692093560beb0a006` |
-| androidTest/developer/debug/app-developer-debug-androidTest.apk | `a6a6ccd9ed7cec74f015f209ffad7e7ddd93a2f5bcc9fd141725a5192dccb6c1` |
+同候选双渠道 App/Test Debug 制品的精确校验值保留在上述 `source-before.json`、`source-after.json` 所属证据目录及构建记录；不在历史正文重复维护字节清单。
 
 现存 unsigned Release APK 未在本次重建，不用旧文件冒充签名候选。正式 P5 仍需 clean 提交、同候选 APK、设备和模型条件。
 

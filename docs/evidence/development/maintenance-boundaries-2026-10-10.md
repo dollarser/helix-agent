@@ -12,7 +12,7 @@
 git show 193de8e9:scripts/debug/2026-09-09/extract-chat-responsibilities.py > scripts/debug/2026-10-10/local/extract-chat-responsibilities-retired.py.txt
 ```
 
-保留2026-09-09/run-owned-emulator.py兼容shim：实现委托稳定scripts/run-owned-emulator.py，仍有历史命令与host导入测试引用，不是第二套设备引擎。debug README的会话/文件回归入口改为实际保留的日期路径；没有虚构根目录入口。composer/revision协议保留真实PID死亡与恢复，不因测试曾失败而删除。AttachmentE2e的附件、协议、Goal、安全断言并不因文件大成为重复测试，保留；未跟踪其他脚本与唯一失败输出未动，不按日期清目录。
+当时保留2026-09-09/run-owned-emulator.py兼容shim：实现委托稳定scripts/run-owned-emulator.py，仍有历史命令与host导入测试引用，不是第二套设备引擎。debug README的会话/文件回归入口改为实际保留的日期路径；没有虚构根目录入口。composer/revision协议保留真实PID死亡与恢复，不因测试曾失败而删除。AttachmentE2e的附件、协议、Goal、安全断言并不因文件大成为重复测试，保留；未跟踪其他脚本与唯一失败输出未动，不按日期清目录。
 
 ## 构建与复杂类：有依据的保留
 

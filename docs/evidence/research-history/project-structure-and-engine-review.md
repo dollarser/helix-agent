@@ -22,7 +22,7 @@ QuickJS isolated UID、PRoot/订阅私有同UID进程是已经接受的不同执
 
 ## 文档收敛规则与本轮处理
 
-- 当前事实和顺序只维护在[状态](../../development/status.md)与当前 HXA；任务保存范围，完成记录保存交付时点证据。
+- 当前事实维护在[状态](../../development/status.md)与对应 HXA；Owner 请求确定执行范围，任务保存开发范围，完成记录保存交付时点证据。
 - 删除三份已结束交接：`claude-handoff-207-191-206.md`、`marketplace-branch-handoff.md`、`small-model-handoff.md`；独有定位和限制汇入[历史交接汇总](../development/completed-handoffs-2026-09-22.md)，原文在Git历史中可查。
 - 保留198准备、准备批次和历史缺陷记录，页首明确历史基线；不让旧文件所有权、WAITING_CORE或“尚未授权”继续充当当前指令。
 - 删除未提交的一次性文档替换脚本：工作已体现在diff中，重复执行会插入重复索引或再次删除文件。保留能复跑并核对源码身份的审查探针。

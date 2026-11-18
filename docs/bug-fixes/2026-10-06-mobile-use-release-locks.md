@@ -45,5 +45,5 @@ Mobile Use 与宿主 device-access 的依赖迁移后，仅更新了部分 Debug
 ## Related records
 
 - [原失败运行](https://github.com/dollarser/helix-agent/actions/runs/37336349390)
-- [CI 说明](../development/ci.md)
+- [CI 说明](../development/verification-matrix.md#history-ci)
 - [主机与设备边界](../development/verification-matrix.md)

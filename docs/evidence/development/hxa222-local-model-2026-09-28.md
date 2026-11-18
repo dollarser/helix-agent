@@ -4,7 +4,7 @@
 
 日期：2026-09-28。基点 `c70c44403ff7f78e5347833159723f6d03f585a0`，分支 `refactor/clean-slate-engine`。范围为本地未提交工作树；并行的 Workspace/Memory/HXA-227 修改保留。本记录不证明 main、远端 CI、设备推理或发行验收。
 
-本记录是设备授权前的 host checkpoint，以下 `not requested` 与 APK hashes 属于当时状态。随后所有者授权的 API36 真实 GGUF 实测及修复见[单独记录](hxa222-qwen-real-task-2026-09-28.md)：基础 suite 通过，完整模型任务未通过。
+本记录是设备授权前的 host checkpoint，以下 `not requested` 与 APK hashes 属于当时状态。随后所有者授权的 API36 真实 GGUF 实测及修复见[单独记录](hxa222-closeout-2026-09-28.md#history-hxa222-qwen-real-task-2026-09-28)：基础 suite 通过，完整模型任务未通过。
 
 ## 实现
 

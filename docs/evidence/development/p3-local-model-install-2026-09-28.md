@@ -58,4 +58,4 @@ UI / Session 回归：最终同一 APK/Test APK 下，`LocalModelDialogDeviceTes
 - 没有从公网实际下载几百 MB/GB 权重；公网 URL/revision 由固定元数据和 host/source policy 管理，真实 Android byte-path 由受控 HTTP fixture 证明。
 - 没有物理手机、OEM、热压、Doze、低存储真实清理、蜂窝网络或 CDN 长距离下载数据。
 - 4B 一次 fixed task 通过仍不代表普遍可靠或性能推荐；0.6B compatibility 也不表示适合真实 Agent 工作。
-- P3 不实现 Project Memory、Subagent、GPU/NPU 或新的 Agent runtime；下一 checkpoint 是 P4 首次成功联合旅程。
+- P3 不实现 Project Memory、Subagent、GPU/NPU 或新的 Agent runtime；当时后续安排为 P4 首次成功联合旅程，非当前执行指令。

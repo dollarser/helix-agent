@@ -4,7 +4,7 @@
 
 ## 执行与独立事实
 
-工作区main/1c63934d可用，保留并行文档修改。仅连接日常emulator-5554/API36 arm64/Developer；无真机。用户占用询问未收到回复，连续只读输入队列显示最近触摸距测试约24分钟、无在途instrumentation，才按可用证据继续有界操作。主APK SHA256为81f9157ff6de2ce615a9d8cd2e4218ded069d74a6afa9ccb847f07e1894627e5，既有测试APK为5dd58b4ed50ee56320e05f537f2e8a3378255c870ac7da24420a38fd0b431b6f；本轮没有安装APK。
+工作区main/1c63934d可用，保留并行文档修改。仅连接日常emulator-5554/API36 arm64/Developer；无真机。用户占用询问未收到回复，连续只读输入队列显示最近触摸距测试约24分钟、无在途instrumentation，才按可用证据继续有界操作。已安装主包和测试包身份保存在下述 summary.json；本轮没有安装APK。
 
 主机与设备UTC有约6分钟偏差，先核对设备当前时间；主机超过旧客户端期限不等于设备已到刷新条件。首轮两次正常只读及工具审批拒绝passed，但实际naturalRefresh=not_due，旧期限未变；没有将这些读取算刷新。
 

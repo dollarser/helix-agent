@@ -1,6 +1,6 @@
 # 产品文档入口
 
-本目录保存产品需求、用户任务体验、市场/商业分析与竞品研究。产品研究可以影响优先级，但**不直接授权实现**；当前开发范围仍由 status/HXA/accepted ADR 决定。
+本目录保存产品需求、用户任务体验、市场/商业分析与竞品研究。产品研究可以影响优先级，但**不直接授权实现**；当前任务由 Owner 授权，status 提供事实与验证范围，HXA 记录代码开发任务，accepted ADR 约束已接受的设计。
 
 核心入口：
 
@@ -34,4 +34,4 @@
 - [competitive-evaluation.md](competitive-evaluation.md)：横评方法与待执行协议。
 - [competitive-evidence.md](competitive-evidence.md)：来源、核验批次与材料校正。
 
-竞品文件应保持事实、判断和待验证项分离；研究中的优先级只有进入 status/HXA 后才成为工程任务。
+竞品文件应保持事实、判断和待验证项分离；研究建议只有经 Owner 授权才成为工程任务，不能由 status 导航或研究优先级自行选取工作。

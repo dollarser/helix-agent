@@ -4,7 +4,7 @@
 
 > **历史 Helix 基线提示（2026-09-25）**：本文的 Helix 侧调用链与“差距”基于 2026-09-18～22；普通 Queue/Steer、修订重发、request context manifest、UNKNOWN/review、TurnEngine durable ownership 等已被后续 HXA 实现或重构。当前执行契约看 [ADR-AGENT-001](../../adr/agent/001-turn-coordination.md)，当前实现证据看 [HXA-220 交付记录](../../completion-records/HXA-220.md) 与 [status](../../development/status.md)。竞品机制分析仍可参考，但正文不得作为当前 backlog。
 
-核验日期：2026-09-18。性质：当前实现解释、外部机制研究与端侧演进建议；不是新增 ADR、HXA 排期或功能验收。本页的“建议补足”不表示已授权实施。当前交付、优先级与有效决定分别以[实施状态](../../development/status.md)、[路线](../../development/roadmap.md)、[ADR](../../adr/README.md)为准。
+核验日期：2026-09-18。性质：当前实现解释、外部机制研究与端侧演进建议；不是新增 ADR、HXA 排期或功能验收。本页的“建议补足”不表示已授权实施。交付事实、任务索引与有效决定分别以[实施状态](../../development/status.md)、[路线](../../development/roadmap.md)、[ADR](../../adr/README.md)为准。
 
 同日后续更新：196 平台/核心切片已合入本地 main，尚未完成生产工具接线；授权与 Runtime 修复及设备证据见[收敛记录](../../bug-fixes/2026-09-18-authorization-runtime-convergence.md)。下文研究基线与外部产品核验日期保留，不将后续修复视为四产品横评。
 
@@ -258,7 +258,7 @@ CC 的 subagents 将任务放到独立上下文，hooks 在指定生命周期执
 - [HXA-196～199 的终端链](../../architecture/terminal.md)：有期限后台 Job、用户手动 PTY、重连及综合验收。
 - [HXA-207](../../completion-records/HXA-207.md)：现有 Skill/MCP/Connector 从添加到实际调用、禁用与修复。
 
-202 已有跨页面任务导航，209 已有会话授权，176 已有长 Turn 压缩；不将它们重新列为从零待实现。具体执行顺序仍由 status/roadmap 决定，本文不越过当前基线门禁。
+202 已有跨页面任务导航，209 已有会话授权，176 已有长 Turn 压缩；不将它们重新列为从零待实现。以上为当时建议顺序；当前执行范围由所有者任务决定，status/roadmap 仅提供事实与索引。
 
 执行引擎方向可按以下边界拆分，避免将候选研究挤进已授权任务：
 

@@ -1,5 +1,9 @@
 # Agent 插件生态与 Mobile Use 调研（2026-09-28）
 
+> **2026-11-18 适用性校核：**本页是 2026-09-28～29 的研究与阶段方案，原子工具绑定、插件安装身份及 Mobile Use 原生插件已有后续交付。第 10 节缺口和第 15 节推荐顺序不是当前待办；当前契约见[工具 ADR](../../adr/tools/001-descriptor-contract.md)及[插件 ADR](../../adr/connectors/003-ownership-and-installation.md)，实现范围查对应 HXA。原 manifest 示例和版本仅为历史方案，不能替代现行清单。
+>
+> 当前任务由用户请求确定，status 只提供事实导航，不授予自主执行范围。设备、项目模拟器、真机与外部服务授权统一按 [AGENTS.md](../../../AGENTS.md#verification-and-device-authorization) 及当前任务；本次文档审查未运行设备、模型或 Release 验收，也未重新核验外链和历史忽略目录制品。
+
 > **专项研究输入，目录整理：2026-09-29。**下文比较限于原核验日期；本次未刷新竞品状态。旧起点中的 PluginOrigin、Mobile Use 接线和优先级不能覆盖[当前状态](../../development/status.md)。通用绑定/安装生命周期的目标规范统一见[Harness 第 15 节、第 17 节](../../architecture/harness-refactor-plan.md)，包格式与 native MVP 细节见[Plugin 专项](../../architecture/plugin-platform-plan.md)。
 >
 > 文中“规范 1.0.0 已发布”不单独证明已稳定定型，后续核验的 Working Draft 边界见 Harness 方案 第 12 节。保留原研究原话，不以此承诺完整格式兼容；本专题不继续复制当前实现任务。

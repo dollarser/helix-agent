@@ -1,6 +1,6 @@
 # 小模型批次执行进度记录
 
-> 历史材料（2026-09-22 已核对）：此页只记录 2026-09-20 准备批次及当时命令；后续 198、206 已交付，199 剩物理专项。当前顺序见[当前状态](../../development/status.md)，不沿用下文分工与待办。
+> 历史材料（2026-09-22 已核对）：此页只记录 2026-09-20 准备批次及当时命令；后续 198、206 已交付，199 剩物理专项。当前能力与未闭合边界见[实施状态](../../development/status.md)，实际任务由当前 Owner 请求确定，不沿用下文分工与待办。
 
 - **执行基线**：`d5645774`
 - **执行分支**：`codex/small-model-preparation`
@@ -36,7 +36,7 @@
   - 新增 `scripts/verify-product-journeys.py`（HXA-206 场景校验与报告生成）
   - 新增 `scripts/fixtures/acceptance/valid_fixture_manifest.json`（测试夹具）
   - 新增 `scripts/tests/test_product_journeys.py`（12 项单元测试）
-  - 新增 `docs/evidence/development/hxa-206-preparation.md`（场景映射与契约文档）
+  - 新增 `docs/evidence/development/acceptance-199-206-2026-09-21.md#前序2026-09-20-报告器准备`（场景映射与契约文档）
   - 新增 `docs/evidence/development/small-model-batch-progress.md`（进度跟踪文档）
 - **验证命令与结果**：
   - `python3 scripts/verify-product-journeys.py --help` -> Exit Code 0
@@ -68,7 +68,7 @@
 - **文件修改与新增**：
   - 修改 `docs/development/claude-handoff-207-191-206.md`（澄清 207/191 已交付合入，防止重复开发，链接到 small-model-handoff.md）
   - 修改 `docs/development/implementation-guide.md`（将交接 prompt 更新为通用当前模板，注明既有批次均已交付合入）
-  - 新增 `docs/evidence/development/small-model-docs-review.md`（记录 status/roadmap 事实冲突与协调者最小修正建议，撰写面向用户的单终端帮助与双终端待交付草稿）
+  - 新增 `docs/architecture/terminal.md`（记录 status/roadmap 事实冲突与协调者最小修正建议，撰写面向用户的单终端帮助与双终端待交付草稿）
   - 更新 `docs/evidence/development/small-model-batch-progress.md`（更新进度跟踪）
 - **验证命令与结果**：
   - 检查引用关联，被更新入口均有明确去向与历史说明
@@ -82,7 +82,7 @@
 ## 工作包 D 执行详情
 
 - **文件修改与新增**：
-  - 新增 `docs/evidence/development/hxa-198-ui-preparation.md`（UI 设计、状态/操作表、核心接口需求及测试映射）
+  - 新增 `docs/completion-records/HXA-198.md`（UI 设计、状态/操作表、核心接口需求及测试映射）
   - 更新 `docs/evidence/development/small-model-batch-progress.md`（记录批次总揽与各包状态）
 - **核心与 UI 实现**：
   - `ProotTerminalHost` 支持最多 2 个 live 会话管理与 `CAPACITY_EXHAUSTED` 容量阻断。

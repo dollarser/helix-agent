@@ -36,5 +36,5 @@ These are dedicated-emulator fixtures. Their settings mutations and host force-s
 ## Related records
 
 - [Main verification](../evidence/development/main-merged-verification.md)
-- [Current TODO](../evidence/development/main-optimization-todo.md)
+- [Historical follow-up](../evidence/development/main-optimization-todo.md)
 - [HXA-102](../completion-records/HXA-102.md)

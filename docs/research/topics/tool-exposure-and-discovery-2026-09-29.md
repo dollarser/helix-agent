@@ -1,12 +1,16 @@
 # Agent 工具曝光、按需发现与大规模扩展组织调研
 
+> **2026-11-18 适用性校核：**第 1～11 节是 2026-09-29 快照，第 12.1～12.8 节是 2026-10-12 设计过程，第 12.9 节记录 HXA-280 当次交付。现行[发现 ADR](../../adr/mcp/001-client-and-discovery.md)已采用无固定全局 64 上限、按 schema 成本的近期工作集、零命中保留和 MCP 提前加载；不得恢复旧替换窗口或按数量截断。后续贡献与预算调整以原 ADR/HXA 为准，不把旧默认工具计数固化为门禁。
+>
+> 当前任务由用户请求确定，status 只提供事实导航，不授予自主执行范围。设备、项目模拟器、真机与外部服务授权统一按 [AGENTS.md](../../../AGENTS.md#verification-and-device-authorization) 及当前任务；本次文档审查未运行设备、模型或 Release 验收，也未重新核验外链和历史忽略目录制品。
+
 核对日期：2026-09-29。范围：工具数量、MCP/Skills/Plugins 的组织、竞品机制，以及 Helix 当前源码与历史评测。本文补齐本轮对话分析，不重建一套工具架构。
 
 2026-10-12 Owner 要求结合 Codex、Claude Code、DSH 重新评估，当前源码复核和优化设计见 [第 12 节](#12-2026-10-12-工具架构重新评估与优化设计)。第 4 至 5 节 的日期化缺口不能作为今日待办：原子绑定、部分匹配排序、搜索提示与 Skill 渐进装载已有后续实现。
 
 **2026-09-29 阶段结论（历史快照）：保留小而完整的默认工具组、统一按需发现和当时的 64 个请求硬上限；优先改善检索、工具依赖可达性、动态窗口连续性和精确绑定。** 当前设计已根据 Owner 反馈调整为取消 Helix 自设的全局数量上限，见 第 12.8 节；历史结论不作为新的实施要求。
 
-**状态与授权：**这是研究输入，不是已接受的新契约或实施记录。R1、上下文编译与插件安装的目标规范仍归 [Harness 方案](../../architecture/harness-refactor-plan.md)；当前实施顺序归 [status](../../development/status.md) 和 [HXA-231](../../completion-records/HXA-231.md)。本次只补文档，不修改生产代码、有效 ADR 决定、开发任务或设备验收结果。
+**状态与授权：**这是研究输入，不是已接受的新契约或实施记录。R1、上下文编译与插件安装的目标规范仍归 [Harness 方案](../../architecture/harness-refactor-plan.md)；历史实施归属见 [HXA-231](../../completion-records/HXA-231.md)，当前能力见 [status](../../development/status.md)，执行范围由当前用户请求确定。本次只补文档，不修改生产代码、有效 ADR 决定、开发任务或设备验收结果。
 
 ## 1. 现有文档有没有覆盖
 
@@ -77,7 +81,7 @@ Anthropic 的 MCP code execution 研究讨论按需读取接口，并在代码�
 
 ## 4. Helix 当前源码快照
 
-读取基线：本地 `main`，HEAD `742d93b635fbbefa2263da4234b8c7b8f79f7a6c` 加当时工作树。工作树含其他并行改动，不视为该提交的干净制品。关键文件与 SHA-256 见 第 10 节；后续源码变化应重新计算，不把本页当实时遥测。
+读取基线：本地 `main`，HEAD `742d93b635fbbefa2263da4234b8c7b8f79f7a6c` 加当时工作树。工作树含其他并行改动，不视为该提交的干净制品。历史源码入口见第 10 节；用该基线的 Git 历史追溯，不把本页当实时遥测。
 
 ### 4.1 当前请求路径
 
@@ -311,11 +315,11 @@ Mobile Use 来源
 | 压缩、进程重开、工具结果截断 | 可重新发现，结果分页可达，无隐式重放/旧Turn复活 |
 | 不需要工具的普通问答 | 不强迫每次先搜目录、启动Goal或运行代码 |
 
-先做确定性主机测试与合成模型响应；真实模型、模拟器、真机和账户测试分别获得当次授权并记录。GitHub CI 仍只做主机检查，不启动设备。本文的文档门禁通过也不构成功能或设备通过。
+先做确定性主机测试与合成模型响应；后续设备与服务验证按 AGENTS 的分项授权范围和当前任务记录，不把历史记录当作新一轮运行。GitHub CI 仍只做主机检查，不启动设备。本文的文档门禁通过也不构成功能或设备通过。
 
 ## 10. 源码证据定位
 
-行号是本次读取快照，文件链接指向当前工作树；未来行号变化时用符号与 SHA 复核。C 编号仅用于本页，不是新架构对象。
+行号是本次读取快照，文件链接指向当前工作树；未来行号变化时用符号与基线 Git 历史复核。C 编号仅用于本页，不是新架构对象。
 
 | 编号 | 文件与读取范围 | 支持内容 |
 | --- | --- | --- |
@@ -330,18 +334,7 @@ Mobile Use 来源
 | C9 | [MarketplaceService.kt](../../../app/src/main/kotlin/com/helix/app/marketplace/MarketplaceService.kt)，12–86行 | SKILL/CONNECTOR/MCP状态及包安装 |
 | C10 | [ConnectorService.kt](https://github.com/dollarser/helix-agent/blob/05e910039e03095d98649d96a9e64a3a71bcb078/app/src/main/kotlin/com/helix/app/connector/ConnectorService.kt)，19–97行 | 安装/连接入口与会话选择 |
 
-```text
-C1  00f1d1fda1b662012be321fe55d01cf5ad217aa928e92bdb680c7ff50e272ebf
-C2  a6f2e30ae3fc73aeb37d94d8ac16af87903c118e17dde1b5d4d38840d9927575
-C3  bd188fef95f66d2adfea3dd409ab11ea9f442ba6ac651e09c0d438604b5540f6
-C4  aea4b42a6f2b3756dfb3d87c0b52fc7c7561e8b6835adb2032090acdbf40dc3d
-C5  625445c2b854a547cfc7ebb95f927a9d7943028bddca8a20e9c25f1287a1eb71
-C6  3a707f0bc5fd2fe1614bb7c30408e106af2dd86464c3971872fea23358c1fb96
-C7  d29cdba0b3d2e17057558262ef0ad59b51659a294e2926d5715057fabaf71074
-C8  71c74443455f8f6c7e716e440777eb11d1fa46c1581acc565b0225d4d462ac12
-C9  9bd9b7808363e5e9722e4fcd8dd8ded72a6b39c4f18cfe9d2bf9c21e7dc238db
-C10 5d2fb0926256430781d98854d24f904de99743c6b431f0b4a54e645cfd28ecee
-```
+历史读取哈希清单可从本文件 Git 历史恢复；这里保留源码基线、职责和符号入口，不维护随工作树漂移的逐文件哈希。
 
 ## 11. 外部一手来源
 
@@ -447,7 +440,7 @@ Mobile Use 首个保守候选只将 ui_device 延迟；后续再单独比较 scr
 | 4 | 默认组与 MCP 阈值按成本调整 | 中；依赖已有计量与前面完整性，对照后一项一项选择 | 成功率无已知退化；总 token、请求轮次、耗时和搜索重试有明确取舍；不以默认函数个数作为通过门禁 |
 | 条件性 | Provider 原生发现、PTC、向量检索 | 当前不启动 | 有具体兼容 Provider、大目录失败或结果聚合成本证据及 Owner 实现授权后再评审 |
 
-曝光、搜索和窗口决定写回 ADR-MCP-001 同一主题及 Decision history；工具输入 schema、绑定与外部提示边界归 ADR-TOOLS-001；Skill 内容仍归 ADR-SKILLS-001。当前先完成设计，不创建 accepted 新契约、重复 HXA 或一份脱离 status 的执行排期。
+曝光、搜索和窗口决定写回 ADR-MCP-001 同一主题及 Decision history；工具输入 schema、绑定与外部提示边界归 ADR-TOOLS-001；Skill 内容仍归 ADR-SKILLS-001。当前先完成设计，不创建 accepted 新契约、重复 HXA 或一份脱离当前用户任务的执行排期。
 
 ### 12.6 验证方案
 

@@ -22,15 +22,7 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 2. Room 新增 `message_attachments` 关系，把 `messageId`、`artifactId`、顺序、用途和
    绑定时哈希关联起来。附件绑定后的源 Artifact 视为不可变快照；发送、重试和恢复前
    复核哈希，变化或缺失时失败关闭。大型正文和二进制仍只存文件，不进入 Room。
-3. Provider-neutral 请求物化第一阶段只支持两类：通过 MIME、扩展名和有界字节 probe
-   一致确认的 UTF-8 文本（首批 txt/md/csv/json）变成带来源、信任和哈希的有界
-   `UNTRUSTED` context item，完整内容仍通过 `read(offset,maxBytes)` 分块；图片变成
-   现有 `ImageReference`。UTF-16、PDF、PPT/PPTX、DOC/DOCX、音频、视频及其他未支持
-   类型统一返回 `UNSUPPORTED_ATTACHMENT_TYPE`，并携带封闭的
-   `category=TEXT_ENCODING|DOCUMENT|AUDIO|VIDEO|OTHER`，避免为每种格式扩张错误码。
-   不实现文档解析、渲染、OCR、视频抽帧、音轨提取、转码、内容提取或 Provider file
-   upload，也不把其 base64 放进模型 Context。文件管理器仍可把这些类型作为普通文件
-   保存/分享，但聊天发送必须明确拒绝。
+3. 普通 Provider-neutral 附件物化支持有界 UTF-8 文本和规范化图片；原始二进制不直接塞入模型 Context。PDF 等已支持文档通过现有 Documents 解析及不可变正文快照路径，具体格式、页数/字节限制、失败与来源绑定见 [文档 ADR](../workspace/006-pdf-reading.md)。其他格式明确返回 `UNSUPPORTED_ATTACHMENT_TYPE`，保留类型化原因，不通过通用 base64 或 Provider file upload 绕过支持矩阵。文档预览、正文提取、图片视觉输入和模型确实消费分别是事实；文件管理器能保存/分享不代表模型能解析。
 4. 第一版只把 app-private Artifact 解析为有界 base64/data URL，不上传到公共对象存储，
    也不让 adapter 读取 Android URI。图片在端上完成 bounds-only probe、像素/尺寸/请求
    字节上限、方向修正和元数据剥离；具体上限由 HXA-055 的 API 29/36 与真机内存测试

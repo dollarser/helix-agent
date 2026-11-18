@@ -1,8 +1,8 @@
 # 历史模拟器验证总计划
 
-日期：2026-09-09。状态：**历史验证方案**。本文保留当时的模拟器矩阵设计与 runner 约束，不是当前任务队列，也不重新打开已经完成的 HXA。当前设备验证范围以 [status](../../../development/status.md)、当前 HXA、[验收矩阵](../../../development/verification-matrix.md) 和 Git 为准；AI 代理仅在项目所有者当前任务明确要求时执行本地模拟器/真机验证。
+日期：2026-09-09。状态：**历史验证方案**。本文保留当时的模拟器矩阵设计与 runner 约束，不是当前任务队列，也不重新打开已经完成的 HXA。当前验证范围由 Owner 任务确定，并结合当前 HXA、[验收矩阵](../../../development/verification-matrix.md) 和源码选择；[status](../../../development/status.md) 仅记录能力与证据。设备及外部服务遵循当前 [AGENTS.md](../../../../AGENTS.md#verification-and-device-authorization)：项目模拟器适用常设授权，真机须当轮明确授权，真实外部账号和服务不得从历史计划推定权限。
 
-## 1. 当前方案评审
+## 1. 当时方案评审
 
 [浏览器/Autofill 长稳方案](browser-autofill-soak-plan-2026-09-09.md) 可作为专项子计划，但不能单独回答“所有模拟器测试是否完成”。主要缺口是主 App 接线连续使用、旧应用24小时资源门禁、实际设备网络故障、系统生命周期、ABI/页大小，以及有外部条件的模型/Connector 验收。
 
@@ -120,19 +120,3 @@ crash/ANR已有API34/36实证，归R不是新缺口；使用 `accept-hxa104-proc
 - HXA-120～123正式发布物、SBOM/最终签名/applicationId/商店审核；可做EV-11技术预检，不能宣布发布完成。
 - HXA-126/129/130及ADR-CONNECTORS-002/31/32未接受的新增功能，不生成“待测已实现能力”。
 - Chromium/AOSP源码级修补、符号化及系统问题根治：可在EV-02形成证据，不以模拟器24小时通过推断上游已修复。
-
-## 10. 小模型总执行Prompt
-
-```text
-请执行 docs/evidence/development/verification-plans/emulator-verification-master-plan-2026-09-09.md，浏览器专项按 browser-autofill-soak-plan.md。
-先完成EV-00清单：核实status/roadmap/当前源码和历史完成记录，把G/R/C/X逐项映射到真实case和命令。
-当前只增加测试夹具/runner/证据，不新增产品功能。按AGENTS持续推进授权范围，不重开已完成HXA；一个单元测试、检查点或执行包通过后继续后续工作，不据此结束任务。某项阻塞时记录原因并推进其他可执行项。
-先EV-01及所有新runner的短pilot/故障检测，再冻结产物。先短项排除明显失败，再在独占设备跑EV-02/03长稳。
-同设备只允许一项任务；不得在长稳期间安装、清数据、注入GC或用强杀脚本取证正常轮次。
-EV-04～08补缺口并按影响复用旧证据；EV-09～11缺条件时记录BLOCKED，继续独立可执行包。
-不要读取真实密钥、付费账号或修改生产功能来让fixture通过。Claude/Grok保持搁置，真机门禁独立。
-每包保留全部attempt，首次失败先取证归因；明确是测试bug可修夹具开新轮，产品bug独立登记。
-EV-12逐行复核原始证据、时间/轮数/哈希/PID/skip和请求执行次数，不能仅信脚本PASS。
-上下文恢复先读run-index/handoff/心跳，正在运行的任务只接管监控，不重启。等待由外部runner承担。
-最后交付当前通过/历史复用/失败/外部阻塞/真机发布排除五类结果，不把任何缺项省略成全绿。
-```

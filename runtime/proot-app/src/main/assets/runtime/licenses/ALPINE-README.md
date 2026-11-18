@@ -96,13 +96,13 @@ Android 安装器使用 [XZ for Java](https://tukaani.org/xz/java.html)（`org.t
 
 - 上述二进制包为 **Alpine 官方仓库的未修改再分发**（`.apk` 原样安装，未重编译、未改包）。
   未修改不免除源码和许可证的再分发要求，也不能仅用可变的仓库首页代替精确对应源码。
-- [Helix v0.0.6 发布页](https://github.com/dollarser/helix-agent/releases/tag/v0.0.6)
+- [固定运行时资源页](https://github.com/dollarser/helix-agent/releases/tag/runtime-assets-20260917)
   同时提供 `alpine-corresponding-source.tar.gz` 与 `alpine-source-manifest.json`：根据存档内
   apk 数据库的包名、版本、origin 和 commit，保存 53 个包对应的 38 组 aports 配方、
   本地补丁/构建材料和上游源码；外部输入逐项与原 APKBUILD 的 SHA-512 校验值比对。
   `alpine-release` 仅由已归档配方生成文本，无外部源码压缩包。归档不执行配方，也不声称重编译得到相同二进制。
 - GPL/LGPL/MPL 等组件保留各自许可及对应源码；下载位置、校验值与精确 aports 路径见该清单，
-  并在发布页提供许可证材料。该源码附件补齐应用分发材料，不覆盖既有 runtime 资产 Release。
+  并在发布页提供许可证材料。这些源码附件最初随 v0.0.6 发布，后按所有者要求迁入上述固定资源页；应用版本页仅保留 APK 与标签源码，原运行时资产未被覆盖。
 - `blessing`（sqlite-libs）：SQLite 处于公共领域，"blessing" 为其官方许可标记。
 - `ICU`（icu-libs/icu-data-en）：ICU 许可证（MIT 变体），文本见 ICU 官方
   <https://www.unicode.org/copyright.html>。

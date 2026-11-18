@@ -1,7 +1,7 @@
 # Acceptance fixtures
 
 These are helpers of the existing acceptance runners, not standalone device grants.
-Only run them inside the current task's explicitly authorized owned-device lifecycle.
+Run them inside the applicable [AGENTS device authorization](../../AGENTS.md#verification-and-device-authorization) and the runner's owned-device lifecycle.
 The existing owner, serial, process, permission and evidence checks remain in each
 fixture; promotion does not broaden their device or account scope.
 

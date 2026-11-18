@@ -7,7 +7,7 @@ Deciders: Project owner（2026-10-15 要求按评审更新目标设计和任务�
 
 ## Context
 
-会话历史、压缩检查点与执行状态不能替代可检查、可编辑的长期知识。所有者授权实施 HXA-230；现有 Workspace identity 标识资源，尚未提供显式 Project registry，不推导项目归属。
+会话历史、压缩检查点与执行状态不能替代可检查、可编辑的长期知识。所有者授权实施 HXA-230；Workspace identity 标识资源，项目归属由后续 HXA-246 的显式 Project registry 与成员关系解析，不由路径相近推导。
 
 ## Decision
 
@@ -41,11 +41,11 @@ Global 可独立使用；Project 依赖显式登记与会话关联，入口同�
 
 ## Verification
 
-主机测试覆盖持久化/重建索引、作用域隔离、路径及链接拒绝、限额、冲突、敏感内容、取消、工具模式与效果分类、Memory off/on 对照。HXA-227 固定 host baseline 同时重跑，区分受控上下文/工具 A/B 与真实模型质量。设备 APK 编译不等于交互或进程验证，设备仅在所有者为本任务明确要求后运行。
+主机测试覆盖持久化/重建索引、作用域隔离、路径及链接拒绝、限额、冲突、敏感内容、取消、工具模式与效果分类、Memory off/on 对照。HXA-227 固定 host baseline 同时重跑，区分受控上下文/工具 A/B 与真实模型质量。设备 APK 编译不等于交互或进程验证，设备执行按根目录 [AGENTS.md](../../../AGENTS.md#verification-and-device-authorization) 的模拟器常设授权、真机显式授权与实际任务范围分别判断。
 
 ## Reconsider when
 
-需要完整 Project registry、跨进程并发写、批量归档、自动提取/整理或向量检索时重新评估相关边界。
+需要扩大现有显式 Project 成员关系、跨进程并发写、批量归档、自动提取/整理或向量检索时重新评估相关边界。
 
 ## Decision history — 2026-10-15
 

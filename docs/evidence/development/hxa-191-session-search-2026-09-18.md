@@ -6,7 +6,7 @@
 
 ## 结论
 
-- **搜索切片（PARTIAL）已交付并全门禁验收**：新增只读 `SessionSearchRepository`（复用现有 `SessionDao`/`MessageDao` + `ContentStore`；**无第二会话状态源**）、宿主单测 12 例、Room 设备查询测试 4 例、app 真实 UI 设备测试 7 例。
+- **搜索切片（PARTIAL）已交付并通过下列定向验证，source 门禁未通过**：新增只读 `SessionSearchRepository`（复用现有 `SessionDao`/`MessageDao` + `ContentStore`；**无第二会话状态源**）、宿主单测 12 例、Room 设备查询测试 4 例、app 真实 UI 设备测试 7 例。
 - 双 flavor × 双 API 独占模拟器**四象限矩阵全绿**（consumer/developer × API36/29；AVD `Helix191_API36`/`Helix191_API29`；端口 5642/5644/5646/5648）：每象限 app `OK (7 tests)` + storage connected `4/0/0` + 两阶段重启协议（setup 强杀 + PID 标记 → verify 新进程）+ teardown `closed.json exit 0`（逐象限见[命令与结果](#命令与结果全部实际执行)）。
 - **无 schema 变更 = 已验证的缺失**：`MessageDao.contentSearchCandidates(limit)` 是新增只读 JOIN 查询（`ORDER BY s.createdAt DESC, m.sequence DESC LIMIT :limit`），不改任何表/索引/迁移文件；`HelixStorage` 仅新增只读 `sessionSearch` 仓储入口。候选 = 任何非空且有 `contentRef` 的正文；内容匹配是仓储（非查询）职责。
 - **不在 Compose 主线程扫全量历史**：`ChatService.searchSessions` 先写查询态、`workScope` 200ms 防抖后再扫描、一次性写回（query+hits+scanned+skipped+truncated）；范围行（`chat-session-search-scope`）显式呈现「已检索 N 条正文」，不默默只搜当前页；截断时 `truncated` 置位并呈现范围。

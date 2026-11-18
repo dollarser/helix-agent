@@ -85,7 +85,7 @@ python3 scripts/build-tts-assets.py
 ./gradlew :app:assembleDeveloperDebug
 ```
 
-APKs are under `app/build/outputs/apk/`. Run `./scripts/check-all.sh --source` for source checks or `./scripts/check-all.sh` for the normal Debug gate. See [contributing](CONTRIBUTING.md) and [CI](docs/development/ci.md) for local hooks and layered checks. Build success is not device or live-service acceptance.
+APKs are under `app/build/outputs/apk/`. Run `./scripts/check-all.sh --source` for source checks or `./scripts/check-all.sh` for the normal Debug gate. See [contributing](CONTRIBUTING.md) and [CI](docs/development/verification-matrix.md#history-ci) for local hooks and layered checks. Build success is not device or live-service acceptance.
 
 ## Help and contribution
 

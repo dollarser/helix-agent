@@ -4,7 +4,7 @@
 
 初稿：2026-09-28；契约扩写：2026-09-29；职责准则与内容收敛：2026-09-30；执行边界提案：2026-10-14；总体蓝图：2026-11-06。本页以第 24 节维护后续结构设计；第 1～22 节保留 R/J 方案依据与回归方法，第 23 节保留执行边界设计及其交付衔接。当前结构看[overview](overview.md)，实时实施事实看[status](../development/status.md)。各轮动机见[架构与能力演进索引](../evidence/research-history/architecture-evolution-2026-10-14.md)；历史章节中的“当前/本轮/前置”仅指原基线，不构成当前待办或执行指令。
 
-**授权与现状：**R1 见 [HXA-231](../completion-records/HXA-231.md)，自主恢复余项见 [HXA-232](../development/tasks/HXA-232.md)。2026-10-10 核对：R2-A/Core、R3、J1 已接生产；[HXA-248](../development/tasks/HXA-248.md) J2 和 [HXA-246](../completion-records/HXA-246.md) Project/Memory 本地交付，API36 有界设备及 [HXA-249](../completion-records/HXA-249.md) 真实 J1/AUTO 已通过。[HXA-251](../completion-records/HXA-251.md) 已交付双API有限补验、指定拼音输入与发现提示对照；完整R2-B策略收益、其他IME/OEM、交叉生命周期和长稳仍须证据。实时后续设计依赖见 [status](../development/status.md)，不因目标卡片详细或文档整理而扩大实现、设备、账号或发布授权。
+**授权与现状：**R1 见 [HXA-231](../completion-records/HXA-231.md)，自主恢复余项见 [HXA-232](../development/tasks/HXA-232.md)。2026-10-10 核对：R2-A/Core、R3、J1 已接生产；[HXA-248](../development/tasks/HXA-248.md) J2 和 [HXA-246](../completion-records/HXA-246.md) Project/Memory 本地交付，API36 有界设备及 [HXA-249](../completion-records/HXA-249.md) 真实 J1/AUTO 已通过。[HXA-251](../completion-records/HXA-251.md) 已交付双API有限补验、指定拼音输入与发现提示对照；完整R2-B策略收益、其他IME/OEM、交叉生命周期和长稳仍须证据。当前能力与未完成边界见 [status](../development/status.md)；执行范围由当前用户请求及对应 HXA 决定，不因目标卡片详细或文档整理而扩大实现、设备、账号或发布授权。
 
 **2026-10-11 分层复核的后续承接：**HXA-274 的恢复目标/页面导航与 HXA-277 的原生资源引用已按各自范围交付，见[当前架构](overview.md)与 [status](../development/status.md)。原判断保留在[研究 第 9 节](../research/modules/01-architecture-and-execution-engine.md#9-2026-10-11-分层复核与优化承接)；完整 Turn 宿主和模块重组的新建议见 第 23 节，不再把早期“先不建模块”的迁移选择当作新设计限制。
 
@@ -77,7 +77,7 @@ Helix 保持面向开发者与效率用户的 Android 本机执行工作台：Co
 
 历史双注册表存在结构性错配窗口，不曾据此宣称已复现线上故障。2026-09-30 R1 已以统一绑定替换该结构，并用确定性并发、审批等待和排队替换反例验证新边界。
 
-原详细扩写的源码锚点为 `refactor/clean-slate-engine` / `49d3bd40d3f77319bfaf3429d9b6e90501fb63a7` 加工作树；本轮收敛修订读取的是本地 `main` / `70456eb576aa9a1fa92d25b44142800fc8294b5c` 加工作树。文档起始 SHA-256 为 `0d7321ab911e421eb124df84547a0612ea0a6506669899541d14777e16f0bfbc`。该历史核对时 R1 尚未实现；2026-09-30 后续迁移与 SAF 等其他工作以最新 status 为准，不因保留历史基线重新列为未修复。以下是源码阅读证据，不是本轮运行验证。
+原详细扩写的源码锚点为 `refactor/clean-slate-engine` / `49d3bd40d3f77319bfaf3429d9b6e90501fb63a7` 加工作树；本轮收敛修订读取的是本地 `main` / `70456eb576aa9a1fa92d25b44142800fc8294b5c` 加工作树。原文内容身份可从 Git 历史追溯。该历史核对时 R1 尚未实现；2026-09-30 后续迁移与 SAF 等其他工作以最新 status 为准，不因保留历史基线重新列为未修复。以下是源码阅读证据，不是本轮运行验证。
 
 当时确认的结构缺口：`AgentLoop` 接收字符串资源与 `refreshScreen` 回调；`TurnToolExecutor` 混合消息格式、Room 实体和执行；Scheduler 与 Dispatcher 分别解析 descriptor；短 Job 控制动作占用 reconciliation permit。后续 R1/R2-A/J1 分别承接，不能将原描述重新当作未实现事实；具体历史文件/行范围与 SHA 见 第 12 节 和 第 14 节。
 
@@ -277,7 +277,7 @@ J1/J2 使用 第 19 节 的 T12–T15、T19–T21，并覆盖 launch batch 结�
 | R4 | 有证据的依赖与 owner 清理 | 无第二执行路径；若无实际问题可不做代码改动 |
 | R5 | 插件管理产品体验 | host gate 完整，设备与模型结果分别列出 |
 
-**排期与依赖分开。**R1 已交付，以下描述后续阶段依赖，不是第二份待办或发行前置。当前工作只看 status/HXA；职责收缩随获准切片验收，不据此另起全阶段大重构。
+**排期与依赖分开。**R1 已交付，以下描述后续阶段依赖，不是第二份待办或发行前置。当前工作由用户请求及对应 HXA 确定，status 仅提供事实与证据；职责收缩随获准切片验收，不据此另起全阶段大重构。
 
 依赖关系如下；编号用于交接，不表示当前全部已授权：
 
@@ -362,19 +362,7 @@ R2/J1/R3 按内测瓶颈和当前任务选择；R2 存储端口不能反向成�
 | C16 | [DetachedJobClient.kt](../../runtime/proot-client/src/main/kotlin/com/helix/runtime/proot/client/DetachedJobClient.kt)，71–73、81–151 | QUERY/CANCEL 为同步 Binder；连接有 20 秒等候，不能把未来 await 描述成现成事件协议 |
 | C17 | [根 build.gradle.kts](../../build.gradle.kts)，166–215；[settings.gradle.kts](../../settings.gradle.kts)，30–65 | core:agent 当前仅项目依赖 core:model；模块配置集中在根脚本，没有子目录 build 文件不代表模块不存在 |
 
-关键文件 SHA-256：
-
-```text
-AgentLoop.kt             a642980841f634ca4b4d77791f557454edfd1a1d9270835714aff5d66087b799
-AgentLoopPorts.kt        ebbc142bad5d216769dd1c88e8b7d8488f9d8d575238f51e1eb5b4e4cbeb10d0
-ChatRequestAssembler.kt  87f8f7a18f1cfca231defd91e89c763ffd889f79e5c8b6ea025caf9c60fc5dcc
-ToolDispatcher.kt       151b704e015fe919a5ca9876959bb4b757e074370f5793681c4f42184ccf5976
-ToolScheduler.kt        bb635fb894d667ae490b920022215cf03a85e0a2ba18636e14a4462044ba4cd6
-ExecutionOwnership.kt   1a129a216341643158e6a5b7a22de4b705b5ab1f0abb515e59766d34ef828178
-ToolExecution.kt        21f91e4eda0c25ba3992721a2d80950aab19e26cd47b0a44a555dbeff49b4b94
-ToolDeadlineRunner.kt   da9ee9741441986bc3c58b5838d13f20c488a5a923688494f6e243ea9aeb6745
-DetachedJobClient.kt    b2e696e55505aa26bf1c4c48f84eb3ed4cfbf83a95b893a4fd616ae46c8fc3f8
-```
+当时关键文件的哈希可从本文件 Git 历史追溯；维护正文保留上面的源码版本、路径和符号，不维护一份会随工作树漂移的文件哈希清单。
 
 ### 12.3 竞品矩阵与借鉴边界
 
@@ -1036,9 +1024,9 @@ T22–T26 是跨阶段的职责/反馈回归分类，不要求 R1 实现所有�
 
 主机定向测试优先；阶段结束按当前 HXA 跑全量 JVM、双渠道 unit/lint/debug APK/AndroidTest APK、格式/静态门禁、source 与 diff 检查。文档编辑仅需文档/链接/格式检查，不因本文列出设备测试就执行设备。
 
-设备需当前明确授权，按 API/channel 与任务范围记录；编译 AndroidTest APK 不等于运行通过。真实进程死亡、Binder、PTY/日志、系统拒绝后台窗口和 UI 控制不能全部被 fake Runtime 替代。真机/OEM/Doze/热压/低空间与模拟器分别记账，不主动填满或清理用户设备。
+设备授权统一遵循[根 AGENTS.md](../../AGENTS.md#verification-and-device-authorization)：本地项目模拟器有持续授权，真机须当前明确授权；按 API/channel 与任务范围记录；编译 AndroidTest APK 不等于运行通过。真实进程死亡、Binder、PTY/日志、系统拒绝后台窗口和 UI 控制不能全部被 fake Runtime 替代。真机/OEM/Doze/热压/低空间与模拟器分别记账，不主动填满或清理用户设备。
 
-真实模型同样需要本次授权；沿用 [Harness 系统基线](../development/harness-system-baseline.md) 的配置和已记录 fixture。本地 Provider 是完整 Agent 的一等路径，但不自动拿手机小模型承担所有长程基线。Provider 协议契约至少覆盖 Responses、Chat Completions、Anthropic Messages 和本地能力/窄窗口适配；不扩大当前主动支持模型清单。
+真实模型按根 AGENTS.md 的既有服务授权及本次请求范围使用；沿用 [Harness 系统基线](../development/agent-eval.md#history-harness-system-baseline) 的配置和已记录 fixture。本地 Provider 是完整 Agent 的一等路径，但不自动拿手机小模型承担所有长程基线。Provider 协议契约至少覆盖 Responses、Chat Completions、Anthropic Messages 和本地能力/窄窗口适配；不扩大当前主动支持模型清单。
 
 ### 19.3 必须为零的回归
 
@@ -1436,7 +1424,7 @@ Workspace 后端按实际能力提供 Path、SAF、Job snapshot 或 live mount �
 | 产物保存后发布失败、重复 collect、通知失败 | Room＋产物适配：可按原 receipt 继续发布，不重跑命令/重复引用/重复回写；持久成功不因 UI 异常改成失败 |
 | 搜索/压缩/跨会话引用含环境路径 | 289/293/295：可重新读取准确资源，压缩保留源与副本差别；URI/URL/执行句柄不混用，跨会话不复制 grant 或终端控制权 |
 
-每阶段按当前 AGENTS 运行适用 JVM/静态门禁，日常默认 `./scripts/check-all.sh --debug` 与受影响的双渠道 AndroidTest 编译；只有明确发行/全门禁或 JNI/反射/缩减敏感改动才运行 `--all`/Release/R8，不每片重复慢构建。2026-10-16 本轮仅优化文档，执行文档/秘密扫描及差异检查，复用刚完成的 ARM64 预览证据，不重复设备/模型运行。设备仍需当阶段授权，CI 保持 host-only；真实 Provider 独立于合成模型和编译，PRoot 契约也不代替 FFmpeg/媒体端到端。
+每阶段按当前 AGENTS 运行适用 JVM/静态门禁，日常默认 `./scripts/check-all.sh --debug` 与受影响的双渠道 AndroidTest 编译；只有明确发行/全门禁或 JNI/反射/缩减敏感改动才运行 `--all`/Release/R8，不每片重复慢构建。2026-10-16 本轮仅优化文档，执行文档/秘密扫描及差异检查，复用刚完成的 ARM64 预览证据，不重复设备/模型运行。设备按根 AGENTS.md 和当阶段任务范围执行，CI 保持 host-only；真实 Provider 独立于合成模型和编译，PRoot 契约也不代替 FFmpeg/媒体端到端。
 
 2026-10-17 目录研究追加仅执行文档/ADR/秘密扫描与差异检查，不新增上述目标代码或设备结果。`374ccbc0` 的标题、请求投影及有界 R8 实测只证明原记录范围，不能证明本节新映射、回写或未来远程执行已实现。
 
@@ -1481,7 +1469,7 @@ Workspace 后端按实际能力提供 Path、SAF、Job snapshot 或 live mount �
 
 归档不是停止、删除或撤权；继续已结束会话不复活旧 Turn。Mobile Use 仍是插件，会话管理不移入插件或通用执行器；新会话和跨会话消息不复制手机操作授权及旧 node/frame。远程电脑连接、云会话服务、子 Agent 拓扑/递归互唤和永久删除不在本次目标内，第 23.9 节 的扩展边界保持。
 
-具体执行顺序只归 status：295 A 已交付，301 又补了 Standard R8/真实模型证据；B/C 等 286 契约、287 对应应用/真实 Room 和相应执行接缝就绪后推进，不等待 287/288 整任务结束。B 的读取/授权可先验收，C 的创建与投递后验收；不把整个 295 设为 287 的反向前置。两渠道基于相同宿主能力，不无故增加 Advanced 限制。
+以下为 2026-10-16 的顺序依据，不是当前执行计划；当前由用户请求与对应 HXA 确定：295 A 已交付，301 又补了 Standard R8/真实模型证据；B/C 等 286 契约、287 对应应用/真实 Room 和相应执行接缝就绪后推进，不等待 287/288 整任务结束。B 的读取/授权可先验收，C 的创建与投递后验收；不把整个 295 设为 287 的反向前置。两渠道基于相同宿主能力，不无故增加 Advanced 限制。
 
 ### 23.11 会话存储优化接续
 
@@ -1531,7 +1519,7 @@ JSONL 保留按需导出与独立离线读取，Room/ContentStore 持久事实�
 
 ## 24. 总体架构蓝图与渐进重构路线
 
-设计基线：2026-11-06；实施状态更新：2026-11-08。Owner 要求结合主流 Agent 实战与当前源码，提供可在实施中修订的总体蓝图和分阶段方案。本节是本文件的**后续结构设计入口**，不新增平行计划、开发 Goal 或 HXA；不是生产重构启动授权，也不修改已接受的产品、安全或协议契约。实际实施状态仍归 [status](../development/status.md)，获准切片再落入对应任务。
+设计基线：2026-11-06；实施状态更新：2026-11-12。Owner 要求结合主流 Agent 实战与当前源码，提供可在实施中修订的总体蓝图和分阶段方案。本节是本文件的**后续结构设计入口**，不新增平行计划、开发 Goal 或 HXA；不是生产重构启动授权，也不修改已接受的产品、安全或协议契约。实际实施状态仍归 [status](../development/status.md)，获准切片再落入对应任务。
 
 ### 24.1 结论、基线与范围
 
@@ -1655,7 +1643,7 @@ runtime/                     按实际进程/执行隔离保留
 tools/                       当前具名工具和治理框架
 ```
 
-feature 内优先按能力组织，再区分 presentation/application；不把全 App 再平移成另一层大服务。当前 `feature:browser` 兼有 Android 宿主适配，迁移时按真实资源 owner 归类，不强迫所有 feature 都纯 UI。
+feature 内优先按能力组织，再区分 presentation/application；不把全 App 再平移成另一层大服务。现有 `feature:browser` 兼有 Android 宿主适配，迁移时按真实资源 owner 归类，不强迫所有 feature 都纯 UI。
 
 **建议采用的模块裁决：**
 
@@ -1671,7 +1659,7 @@ feature 内优先按能力组织，再区分 presentation/application；不把�
 
 #### 24.4.1 命名与归属优化：随职责迁移，不做全仓美容式改名
 
-2026-11-06 补充：Owner 要求将命名评估纳入后续重构指导。**先确定职责、事实 owner、生命周期和依赖方向，再确定目录、文件与类名。**下表是当前源码对应的候选调整，不是已完成清单或独立实施授权；候选名称可随 [计划修订机制](#247-如何根据实施事实修订计划) 的实际证据修订，不要求为满足清单而保留无职责的类。
+2026-11-06 补充：Owner 要求将命名评估纳入后续重构指导。**先确定职责、事实 owner、生命周期和依赖方向，再确定目录、文件与类名。**下表保留 2026-11-06 源码基线的命名候选，不是当前缺陷清单或独立实施授权；已交付的 conversation/storage/应用命令变化以 24.1 为准；候选名称可随 [计划修订机制](#247-如何根据实施事实修订计划) 的实际证据修订，不要求为满足清单而保留无职责的类。
 
 | 当前名称/位置 | 问题与目标 | 候选调整及实施阶段 |
 | --- | --- | --- |
@@ -1710,7 +1698,7 @@ feature 内优先按能力组织，再区分 presentation/application；不把�
 
 **融入阶段与完成条件：**A 核对选定切片的名字、当前消费者和动态入口；B/C/D 随上述职责切片改名和移动，E 完成 Gradle/包/可见性边界，F 汇总验证。每片同步 import、全限定名、DI、构建配置、测试发现/选择器及当前文档链接；Manifest、JNI、反射、序列化名称、外部协议标识与 applicationId 单独判断，不随源码符号机械替换。内部当前消费者一次迁完，不留旧名转发器、兼容别名或双实现；有效平台/协议适配不属于待删兼容层。历史完成记录保持当时事实与 Git 可追溯性，不把历史名称伪装成当时已使用新名。
 
-名称迁移按 [验证与收益标准](#246-验证与收益标准) 执行对应编译与行为回归，涉及缩减/反射/JNI 时增加适用门禁；运行设备仍需当前任务授权。**退出依据是职责可辨认、归属正确、消费者完整迁移和原有正确性边界保留，不是改名数量、文件数量或目录对称。**本补充只指导后续获准重构，不启动生产代码改名。
+名称迁移按 [验证与收益标准](#246-验证与收益标准) 执行对应编译与行为回归，涉及缩减/反射/JNI 时增加适用门禁；运行设备统一遵循根 AGENTS.md 的模拟器持续授权和真机当前任务明确授权。**退出依据是职责可辨认、归属正确、消费者完整迁移和原有正确性边界保留，不是改名数量、文件数量或目录对称。**本补充只指导后续获准重构，不启动生产代码改名。
 
 ### 24.5 分阶段实施路线
 
@@ -1768,7 +1756,7 @@ feature 内优先按能力组织，再区分 presentation/application；不把�
 - **静态/编译**：扩展 `test_agent_layer_boundaries.py` 到已经迁好的包；Gradle 真实依赖/可见性承担主约束，字符串扫描作补充。不预先禁掉尚未迁移的全域依赖再靠豁免过门禁。
 - **纯 JVM 契约**：保留 TurnEngineLifecycleTest、StopTurnCommandHandlerTest、TurnRoundCoordinatorTest 等；新增窄命令/状态映射测试。不是把旧私有类断言原样锁死，而是保留正常、边界、取消和恢复语义。
 - **真实 Room**：保留 RoomTurnLifecycleStoreDeviceTest、TurnCommitStoreDeviceTest、TurnReviewResolutionDeviceTest、TurnSubmissionSessionBindingDeviceTest 等原子性/归属覆盖；内存替身和编译不能替代实际事务结果。
-- **表现与 Runtime**：重点覆盖提交后取消/页面恢复、旋转/晚订阅、原实例/generation、进程死亡、撤权和实际容量。设备运行需要对应当前授权，不继承历史记录；CI 永远 host-only。
+- **表现与 Runtime**：重点覆盖提交后取消/页面恢复、旋转/晚订阅、原实例/generation、进程死亡、撤权和实际容量。设备运行按根 AGENTS.md 的对应授权范围，不继承历史运行结论；CI 永远 host-only。
 - **主机门禁**：代码切片按现行 `scripts/check-all.sh --debug` 和受影响测试执行，保持两渠道 AndroidTest 编译；发行、JNI/反射/缩减敏感变更再执行适用 Release/R8 门禁。文档-only 阶段只做文档/ADR/秘密扫描和差异检查。
 
 每片记录与基线比较的：禁止依赖是否消失、同类变更触及哪些无关领域、测试替身是否需要整个 App、启动观察/资源 owner 是否重复、构建/测试耗时是否异常。性能/任务质量另用固定模型、输入、策略、预算与判分比较；没有数据就不宣称更快、更省 Token 或更高成功率。

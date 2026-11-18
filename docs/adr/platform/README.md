@@ -10,7 +10,7 @@
 - accepted [ADR-PLATFORM-004](004-offline-voice-input.md)：本地语音草稿输入与主动回复朗读
 - accepted [ADR-PLATFORM-005](005-local-reminders.md)：本机备忘、日历重复、通知与错过恢复；不触发后台 Agent
 
-2026-10-11 在 ADR-PLATFORM-002 接受 HXA-276/277/279 的 Browser 贡献边界、观察引用、标签发现与有界等待；代码尚未实施。
+2026-10-11 在 ADR-PLATFORM-002 接受 HXA-276/277/279 的 Browser 贡献边界、观察引用、标签发现与有界等待；相关增量已有交付，具体边界见对应完成记录。
 
 - accepted [ADR-PLATFORM-006](006-formula-preview.md)：离线公式与内嵌 Mermaid/SVG 展示边界
 

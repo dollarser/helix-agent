@@ -50,7 +50,7 @@ Deciders: Project owner（知识库后继续备忘/任务提醒）；实现 Agen
 
 ## Reconsider when
 
-Owner 要求自然语言解析、复杂重复、TTS 播报、日历同步或实际定时 Agent 执行时扩展对应契约，不能从普通通知自动扩权。
+Owner 要求超出当前确认式自然语言提案的解析、复杂重复、TTS 播报、日历同步或实际定时 Agent 执行时扩展对应契约，不能从普通通知自动扩权。
 
 ## References
 

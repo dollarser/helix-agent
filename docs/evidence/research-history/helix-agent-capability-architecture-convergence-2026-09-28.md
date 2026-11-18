@@ -1,6 +1,6 @@
 # Helix Agent 能力架构收敛调研（2026-09-28）
 
-> **前期横向研究，2026-09-29 归档。**当前目标与逐卡步骤统一由[Harness 重构方案](../../architecture/harness-refactor-plan.md)承接，推进原则见[开发策略](../../development/feature-refactor-strategy.md)。下文旧 P0/P1 次序、拟议 ExecutionTarget 和接口例子保留为设计来由，不是第二份实施方案；R1 等真实范围只看当前 HXA。
+> **前期横向研究，2026-09-29 归档。**后续设计由[Harness 重构方案](../../architecture/harness-refactor-plan.md)承接，实际任务仍由当前所有者请求确定，推进原则见[开发策略](../../development/feature-refactor-strategy.md)。下文旧 P0/P1 次序、拟议 ExecutionTarget 和接口例子保留为设计来由，不是第二份实施方案；R1 等真实范围查对应 HXA。ExecutionTarget、Desktop/SSH/Remote 等是未采纳的研究候选，不改变 Android 单设备产品范围，也不授权增加占位框架；扩展范围须另有所有者决定。
 
 ---
 

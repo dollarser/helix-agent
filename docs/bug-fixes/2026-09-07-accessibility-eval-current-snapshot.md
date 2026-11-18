@@ -42,5 +42,5 @@ This is one real-model run against a synthetic Android fixture, not physical-dev
 ## Related records
 
 - [Main verification](../evidence/development/main-merged-verification.md)
-- [Current TODO](../evidence/development/main-optimization-todo.md)
+- [Historical follow-up](../evidence/development/main-optimization-todo.md)
 - [HXA-102](../completion-records/HXA-102.md)

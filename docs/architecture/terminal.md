@@ -1,6 +1,6 @@
 # 终端、日志与后台命令
 
-本页说明已交付 Linux Job、手动终端与多会话的当前结构和控制边界，交付证据见下方 HXA-194～199。决策见[执行域](../adr/runtime/001-execution-domains.md)、[终端与 Job](../adr/runtime/002-terminal-and-jobs.md)，最新未闭合条件看[实施状态](../development/status.md)。[HXA-236](../development/tasks/HXA-236.md) 已接入 Linux 原身份 status/`jobs_await` 与独立停止等待并完成基础主机验证；完整 J1 的观察上下文/可信类型进展判断与设备边界仍开放。AUTO/手动后台化仍属 [Harness 第 8 节](harness-refactor-plan.md) 的 J2，不由后台启动或 await 推导为已交付。
+本页说明已交付 Linux Job、手动终端与多会话的当前结构和控制边界，交付证据见下方 HXA-194～199。决策见[执行域](../adr/runtime/001-execution-domains.md)、[终端与 Job](../adr/runtime/002-terminal-and-jobs.md)，最新未闭合条件看[实施状态](../development/status.md)。[HXA-236](../development/tasks/HXA-236.md) 已接入 Linux 原身份 status/`jobs_await` 与独立停止等待并完成基础主机验证；完整 J1 的观察上下文/可信类型进展判断与设备边界仍开放。AUTO 与用户提前释放原等待已由 [HXA-248](../development/tasks/HXA-248.md) J2-1/J2-2 交付；实际身份、租期与验证边界见该任务，不由普通后台启动或 await 推导能力。
 
 ## 三种对象
 
@@ -34,7 +34,7 @@ Runtime 中断留下 ORPHANED 时，先在 Tasks 收取原结果。若旧进程�
 
 原执行记录丢失时，只有 Runtime 校验原绑定后明确返回 NOT_FOUND、原 Turn 已终态或停驻于 INTERRUPTED，且上述重启证据成立，人工收取才可结算原预算并解除占用。宿主保存独立的记录丢失处置审计，页面显示 UNKNOWN 与结果无法恢复，不生成 Runtime 终态、输出回执或 ACK。Runtime 不可用、绑定失效、同次开机及结算失败仍保留占用；不能把通信失败当作记录不存在。此出口不重放命令。
 
-后台任务运行期间，普通获准调用可继续执行；宿主显式包装的 Goal、Plan、Todo 内置 executor 继续处理绑定会话/Turn 的元数据。这个准入不按工具名称或自报 READ_ONLY/METADATA 自动授予，不修改 owner，也不绕过 Dispatcher 权限和各工具的绑定/取消校验。存在 pending 后台时间租期时，`goal_report` 与 `update_goal` 可以上报进度，不能提前上报 complete；先收取原 Job，再检查目标并报告完成。
+后台任务运行期间，普通获准调用可继续执行；宿主显式包装的 Goal、Plan、Todo 内置 executor 继续处理绑定会话/Turn 的元数据。这个准入不按工具名称或自报 READ_ONLY/METADATA 自动授予，不修改 owner，也不绕过 Dispatcher 权限和各工具的绑定/取消校验。存在 pending 后台时间租期时，`goal_report` 与 `goal_update` 可以上报进度，不能提前上报 complete；先收取原 Job，再检查目标并报告完成。
 
 后台 start 已进入现有聊天工具行与 Tasks 命令列表的详情入口。详情只读本地事实：启动回执显示“已提交，当前执行状态待查询”，不把旧 RUNNING 快照当成此刻仍在运行。显式 status/cancel/collect 核验原绑定后记录不可变终态；结果导入、预算结算与占用释放完成后另记结算凭据。成功、失败或取消的执行终态仍可能待结算，页面分别展示；仅有准备绑定不证明任务已启动。打开页面不冷绑定 Runtime、不查询、不 ACK、不重放。
 
@@ -88,11 +88,11 @@ PTY 字节流与一次性 Job 日志不共用截断策略。Runtime 内的近期
 
 ## 手动终端页面
 
-developer 的侧栏提供独立终端入口，无需创建或选择聊天；默认使用 `workspaces/app/terminal`，文件管理器还可显式指定新终端的目录。进入页面先连接保留的终端，仅首次进入且没有保留实例时自动新建；返回和旋转不重复启动，UNKNOWN、已停止或启动失败保留明确处理入口。页面通过 `ManualTerminal` 应用接口使用私有 PTY，不直接持有 PID 或执行许可。按 CPU 与物理容量最多四个手动终端；可共享文件目录，但各自维护 cwd/env、输出与控制身份。达到真实容量限制时需先释放对应占用，历史 UNKNOWN 不冒充已释放。
+developer 的侧栏提供独立终端入口，无需创建或选择聊天；默认使用 `workspaces/app/terminal`，文件管理器还可显式指定新终端的目录。进入页面先连接保留的终端，仅首次进入且没有保留实例时自动新建；返回和旋转不重复启动，已证明停止的窗口关闭；缺失 Runtime PTY 的保留身份不作为不可用 UNKNOWN 窗口展示，原未知结果继续作为私有控制事实保存。启动失败仍有明确处理入口。页面通过 `ManualTerminal` 应用接口使用私有 PTY，不直接持有 PID 或执行许可。按 CPU 与物理容量最多四个手动终端；可共享文件目录，但各自维护 cwd/env、输出与控制身份。达到真实容量限制时需先释放对应占用，历史 UNKNOWN 不冒充已释放。
 
 `ManualTerminalActivity` 在主进程且不导出；ConnectBot termlib 0.2.1 经固定制品校验和显式 close 补丁后在 `:runtime:terminal-renderer` 构建，consumer 不包含组件/native/专用页面。许可证与修改说明在页面可查看，版本与构建决定见 [ADR-RUNTIME-002](../adr/runtime/002-terminal-and-jobs.md)。
 
-页面顶部合并为一行返回、终端切换、键盘、关闭和更多；终端切换菜单包含已有终端及有名额时的“新建终端”。起始 Workspace 目录、Runtime 阶段、停止原因和退出状态收进“终端选项 → 终端信息”，正常连接不再占用正文上方的独立信息/操作行。按钮保留至少 48dp 触控区，标题单行省略；信息和帮助支持滚动及长目录换行。错误、只读连接、UNKNOWN/已停止/未连接仍在正文直接显示，重连/启动只在适用时出现。连接期间单个只读观察循环更新状态；断开、终态或 UNKNOWN 后停止，不自动续租、重放输入或重启 shell。Activity 重建保留应用连接；离开页面撤销连接，原执行与持久占用由 Runtime/应用服务继续管理。视图卸载后在 callback looper 释放 emulator；输出和渲染不进入模型上下文。
+页面顶部合并为一行返回、终端切换、键盘、关闭和更多；终端切换菜单包含已有终端及有名额时的“新建终端”。起始 Workspace 目录、Runtime 阶段、停止原因和退出状态收进“终端选项 → 终端信息”，正常连接不再占用正文上方的独立信息/操作行。按钮保留至少 48dp 触控区，标题单行省略；信息和帮助支持滚动及长目录换行。错误、只读连接及当前窗口的停止中/未连接状态仍在正文直接显示，重连/启动只在适用时出现。连接期间单个只读观察循环更新状态；断开、终态或 UNKNOWN 后停止，不自动续租、重放输入或重启 shell。Activity 重建保留应用连接；离开页面撤销连接，原执行与持久占用由 Runtime/应用服务继续管理。视图卸载后在 callback looper 释放 emulator；输出和渲染不进入模型上下文。
 
 中文 IME、真实 REPL、原目录写入、重建后的环境保留及停止结算已取得产品页面证据，见[页面接线验收](../evidence/development/hxa-197-terminal-page-2026-09-20.md)。生产主进程/Runtime 死亡与重启对账、长输出/超限输入、实际运行长命令的租期终止已通过双 API，见[收口证据](../evidence/development/hxa-197-recovery-closeout-2026-09-20.md)。197 单终端范围已完成；199 已补 API36 独占模拟器的实际 30 分钟脱离回收及默认两小时完整运行中到期，见[专项记录](../evidence/development/acceptance-199-206-2026-09-21.md)。HXA-199 已关闭其完成记录中的范围；剩余 OEM/Doze/热压/物理长稳和真实 16 KiB 等条件按当前 status 单独维护，不重新打开 199，也不以模拟器测量替代这些条件。
 

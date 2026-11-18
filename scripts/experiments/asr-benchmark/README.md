@@ -1,6 +1,6 @@
 # Mobile ASR comparison
 
-Owner-authorized, opt-in local experiment for ADR-PLATFORM-004. This is not a product model selector or a CI device job. The production model and package versions stay unchanged. Device commands require explicit owner authorization for those devices; this runner does not start an emulator, capture microphone input, upload audio, clear data, or send chat messages.
+Owner-authorized, opt-in local experiment for ADR-PLATFORM-004. This is not a product model selector or a CI device job. The production model and package versions stay unchanged. Device commands follow [AGENTS authorization](../../../AGENTS.md#verification-and-device-authorization), including the project-emulator standing authorization and separate physical-device requirement; this runner does not start an emulator, capture microphone input, upload audio, clear data, or send chat messages.
 
 ## Method
 
@@ -29,4 +29,4 @@ The completion evidence records actual commands, exact candidate APK/model/corpu
 
 ## 2026-10-26 ModelScope comparison
 
-The frozen corpus remains unchanged. Additional pinned inputs are `modelscope-small-ctc`, `modelscope-small-transducer` (FP16 encoder/joiner), `modelscope-medium-ctc` and `modelscope-wenet-small`. These are opt-in experiment IDs, not a product selector or old-format compatibility layer. Use the same `host.py`/`device.py` and explicit owned-device authorization. Their source files are enumerated in `inputs.lock.json`; stage only the models under test. The final candidate uses the existing CPU runtime, never the author's Python package. Actual outcomes/limitations are in the [selection record](../../../docs/evidence/development/modelscope-asr-selection-2026-10-26.md). Historical `bilingual` remains the previous fixed baseline; it is not the updated production factory.
+The frozen corpus remains unchanged. Additional pinned inputs are `modelscope-small-ctc`, `modelscope-small-transducer` (FP16 encoder/joiner), `modelscope-medium-ctc` and `modelscope-wenet-small`. These are opt-in experiment IDs, not a product selector or old-format compatibility layer. Use the same `host.py`/`device.py` and the applicable AGENTS authorization and owned-device lifecycle. Their source files are enumerated in `inputs.lock.json`; stage only the models under test. The final candidate uses the existing CPU runtime, never the author's Python package. Actual outcomes/limitations are in the [selection record](../../../docs/evidence/development/modelscope-asr-selection-2026-10-26.md). Historical `bilingual` remains the previous fixed baseline; it is not the updated production factory.

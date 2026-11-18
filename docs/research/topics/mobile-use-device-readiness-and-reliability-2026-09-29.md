@@ -1,5 +1,9 @@
 # Mobile Use：设备就绪、锁屏与后台边界及可靠性优化
 
+> **2026-11-18 适用性校核：**第 1～9 节是 2026-09-29 基线；后续按日期追加的是各候选的研究、失败和验收证据，不能拼成当前全产品通过。当前手机操作契约见[权限 ADR](../../adr/permissions/001-session-authorization.md)与[平台能力](../../architecture/android-platform-capabilities.md)：全局配置与会话选择、实际后端和原调用身份分别判断；旧租约、周期确认、锁屏撤权及未接入截图的描述不再适用。11 月 1 日的停止事实 UI 已由 11 月 16 日精简决定替代，原效果与审计事实仍保留。
+>
+> 当前任务由用户请求确定，status 只提供事实导航，不授予自主执行范围。设备、项目模拟器、真机与外部服务授权统一按 [AGENTS.md](../../../AGENTS.md#verification-and-device-authorization) 及当前任务；本次文档审查未运行设备、模型或 Release 验收，也未重新核验外链和历史忽略目录制品。
+
 日期：2026-09-29。性质：讨论固化与源码评审；优化项为候选设计，不表示已实现或自动获得实施授权。
 
 > **2026-10-14 承接导航：**本页原文保留早期设备许可和截图判断。后续 [HXA-243](../../completion-records/HXA-243.md)接入原生截图/手势，[HXA-244](../../completion-records/HXA-244.md)将会话授权与运行状态分开，[HXA-245](../../completion-records/HXA-245.md)承接插件浮窗；当前规则查[权限 ADR](../../adr/permissions/001-session-authorization.md)，交付范围查 [status](../../development/status.md)。不要从原文恢复锁屏/断连自动撤权、重复截图确认或“截图尚未接入”的旧判断。跨轮脉络见[演进索引](../../evidence/research-history/architecture-evolution-2026-10-14.md)，未接受的自动解锁等候选没有因整理而启用。
@@ -10,7 +14,7 @@
 
 核验起点：当前项目检出分支 `v0.0.3`，HEAD `53beeedfbad96bbe271380c73546111cdbf0c0e6`，另有既存 README 改动。本页描述所读取的源码，不推断手机安装包与工作树一致。本次未执行设备、模型、账号、钉钉业务操作或功能测试。
 
-阅读关系：[当前范围](../../development/status.md)决定正在做什么；[开发原则](../../development/feature-refactor-strategy.md)决定如何取舍；[平台能力 第 5 节](../../architecture/android-platform-capabilities.md#5-accessibility-自动化)和[权限 ADR](../../adr/permissions/003-dispatch-and-audit.md)规定现行规则；[Plugin 方案](../../architecture/plugin-platform-plan.md)负责扩展归属；[Harness 方案](../../architecture/harness-refactor-plan.md)负责公共执行边界。本文不复制这些完整契约，也不把候选变更写入 accepted ADR。
+阅读关系：当前用户任务决定正在做什么，[当前范围](../../development/status.md)提供已实现事实和验证边界；[开发原则](../../development/feature-refactor-strategy.md)决定如何取舍；[平台能力 第 5 节](../../architecture/android-platform-capabilities.md#5-accessibility-自动化)和[权限 ADR](../../adr/permissions/003-dispatch-and-audit.md)规定现行规则；[Plugin 方案](../../architecture/plugin-platform-plan.md)负责扩展归属；[Harness 方案](../../architecture/harness-refactor-plan.md)负责公共执行边界。本文不复制这些完整契约，也不把候选变更写入 accepted ADR。
 
 ## 1. 证据口径与讨论结论
 
@@ -327,15 +331,7 @@ R1 继续是已有授权的下一实施任务；本页提出的缺陷修复建�
 | C13 | [无障碍服务 XML](../../../extensions/mobile-use/src/main/res/xml/helix_accessibility_service.xml)，1–8；[视觉使用](../../product/image-reading.md) | 当前未声明屏幕采集能力；HXA-225 是可复用视觉通道 |
 | C14 | [权限 ADR](../../adr/permissions/003-dispatch-and-audit.md)，14–20、46–52；[候选索引](../../development/candidate-decisions.md) | 现行权限/恢复决定与未排期范围 |
 
-关键文件 SHA-256：
-
-```text
-HelixAccessibilityService.kt  1974da9d6aa46a9e12f3e86ba884c052e90f50a6915f3795e1050fc43a232af2
-AutomationServiceController.kt  0c5c215fe1c5cde8bf4bffd04fe67ba62683db559f3bf78e1f2ee67faa85a6de
-AutomationTools.kt  07d49381ada8bf90a2341fc9030a33faabeaf7de413ba09c9d5a89dd2de86c46
-AutomationNodeActionExecutor.kt  db9fe5ce714343e808e65637d779b6c03d53d56a79c1829ea62d30bc97d5b15f
-AutomationSessionManager.kt  3669ad260e36a9a50f309a177a562eb9cd0863f0917eca17592aa3f84fd35815
-```
+原读取哈希清单保留在本文件 Git 历史；本文保留核验基线、源码入口和分项结果，不维护当前工作树哈希清单。
 
 ### 9.2 本次外部核验
 
@@ -390,7 +386,7 @@ AutomationSessionManager.kt  3669ad260e36a9a50f309a177a562eb9cd0863f0917eca17592
 
 保留两次无效夹具尝试：独立测试进程缺少 Kotlin 可变捕获运行时、Skill 名称不符合父目录契约；修复夹具后复验，不计入有效模型能力结论，也不隐藏已经发生的模型请求成本。样本只证明上述合成场景，不推断全设备或产品成功率。
 
-由实际观察采用的改进是显式人工交回、持久停止事实摘要、同步 QuickJS 调用说明，以及写入前置拒绝的无副作用标记；发布后失败仍保留不确定性。后台屏三个新路由创建/取消/释放及实际原 helper 断连、新 Turn 重连均通过，断连不伪报正常释放或自动重放。实现入口为 [人工交接](../../../app/src/main/kotlin/com/helix/app/chat/HumanHandoff.kt)、[停止事实](../../../feature/conversation/src/main/kotlin/com/helix/feature/conversation/presentation/TurnStopFacts.kt) 和[真实模型夹具](../../../app/src/androidTestDeveloper/kotlin/com/helix/app/eval/ClosedLoopRealModelDeviceTest.kt)。详细构建、失败、请求与设备收据位于忽略目录 `build/real-effect-closeout-2026-11-01/`。浏览器保留、经验转 Skill、真实资料备份与语音不属于本轮。
+由实际观察采用的改进是显式人工交回、持久停止事实摘要、同步 QuickJS 调用说明，以及写入前置拒绝的无副作用标记；发布后失败仍保留不确定性。后台屏三个新路由创建/取消/释放及实际原 helper 断连、新 Turn 重连均通过，断连不伪报正常释放或自动重放。实现入口为 [人工交接](../../../app/src/main/kotlin/com/helix/app/chat/HumanHandoff.kt)、当时的停止事实投影（后已移除，见会话 ADR 的 2026-11-16 决策） 和[真实模型夹具](../../../app/src/androidTestDeveloper/kotlin/com/helix/app/eval/ClosedLoopRealModelDeviceTest.kt)。详细构建、失败、请求与设备收据位于忽略目录 `build/real-effect-closeout-2026-11-01/`。浏览器保留、经验转 Skill、真实资料备份与语音不属于本轮。
 
 ### 2026-11-02：有界长会话与后台生命周期复验
 

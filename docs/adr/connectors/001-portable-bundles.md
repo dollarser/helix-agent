@@ -21,7 +21,7 @@ Connector 是 MCP endpoint 与 Skill snapshot 的产品组合，通过可迁移 
 
 导入后新 endpoint 默认禁用，用户单独配置 SecretStore bearer、测试连接并选择工具后启用。修改认证别名同时禁用，不能自动向新目标发送旧凭据。安装失败如实显示部分结果/未启用快照，不假装跨文件与数据库的原子事务。
 
-OAuth、版本所有权/会话 scope、签名索引各有独立 proposed 决策；能力包导入不自动批准这些扩展，也不宣称兼容所有平台包。
+OAuth、版本所有权/会话 scope、签名索引分别由已接受的 ADR-CONNECTORS-002/003/004 约束；接受设计不等于所有真实服务或在线市场已验收。能力包导入不授予这些扩展的运行权限，也不宣称兼容所有平台包。
 
 ## Alternatives considered
 

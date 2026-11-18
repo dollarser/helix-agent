@@ -1,5 +1,9 @@
 # 数据库与会话存储审查（2026-10-16）
 
+> **2026-11-18 适用性校核：**本页的 53 表、查询计划和代码行号是 2026-10-16 审查快照，链接到当前文件仅供定位，不构成今日表数量或逐字源码证明。后续 HXA-297 已收敛原缺口；当前持久事实和备份边界查[会话 ADR](../../adr/agent/001-turn-coordination.md)及[内容备份 ADR](../../adr/workspace/008-content-backup.md)。JSONL 导出、恢复账本与内容备份分别承担职责，原实验结果不继承为新候选验收。
+>
+> 当前任务由用户请求确定，status 只提供事实导航，不授予自主执行范围。设备、项目模拟器、真机与外部服务授权统一按 [AGENTS.md](../../../AGENTS.md#verification-and-device-authorization) 及当前任务；本次文档审查未运行设备、模型或 Release 验收，也未重新核验外链和历史忽略目录制品。
+
 本轮按 Owner 要求对照当前源码、Room schema 和竞品一手资料，审查数据库表、会话保存内容、历史查询与恢复边界。起点为 `main` / `6bbff42d`，包含工作区已有 HXA-295/296 改动；未覆盖既有工作，未修改生产代码、数据库或当前实施顺序。本文是研究输入，不代表下述建议已经实施，也不另立重构计划。
 
 **结论：保留 Room/SQLite 管理持久事实、文件保存正文与产物的方向。优先改进查询和读取边界，再在既有重构中补齐执行关联和类型化历史；表数量本身不是问题。**
@@ -10,7 +14,7 @@
 
 ### 1.1 表的职责
 
-当前 [HelixDatabase](../../../infrastructure/storage/src/main/kotlin/com/helix/core/storage/HelixDatabase.kt) 与[当前导出 schema](../../../infrastructure/storage/src/androidTest/assets/com.helix.core.storage.HelixDatabase/1.json)一致：schema version 1，53 张业务表。以下按审查职责分组，不是建议改成六个数据库；AndroidTest 的其他历史 schema 不计入当前结构。
+审查当时的 [HelixDatabase](../../../infrastructure/storage/src/main/kotlin/com/helix/core/storage/HelixDatabase.kt) 与[导出 schema 入口](../../../infrastructure/storage/src/androidTest/assets/com.helix.core.storage.HelixDatabase/1.json)一致：schema version 1，53 张业务表。以下按审查职责分组，不是建议改成六个数据库；AndroidTest 的其他历史 schema 不计入当前结构。
 
 | 职责 | 数量 | 当前表 |
 | --- | ---: | --- |

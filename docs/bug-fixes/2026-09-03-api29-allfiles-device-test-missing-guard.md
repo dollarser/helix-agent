@@ -75,11 +75,11 @@ appears in /system/framework/framework.jar!classes2.dex)
 
 ## Regression verification
 
-- API 29 设备上 `AllFilesDeviceTest` 6/6 通过（3 例 API<30 分支断言真实
+- API 29 设备上 `AllFilesDeviceTest` 共 6 例，5 例通过、1 例按设计跳过（3 例 API<30 分支断言真实
   UNAVAILABLE 契约，1 例 happy path 按设计 Assume 跳过，2 例本就不依赖 grant）。
 - API 36 设备上 `AllFilesDeviceTest` 6 例行为不变（grant 由运行环境 appops 授予，
   走原分支）。
-- 完整双设备 developer 全量结果见 status.md 设备矩阵条目。
+- 完整双设备 developer 全量结果当时记录于 `status.md`；该文件已收敛为当前状态，历史矩阵需从本记录日期附近的 Git 版本追溯，不作为当前候选验收。
 
 ## Residual risk
 

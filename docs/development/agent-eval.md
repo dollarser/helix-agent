@@ -67,7 +67,7 @@ python3 scripts/run-agent-eval.py junit --root build/device-eval --context build
 
 JUnit adapter 读取真实 testcase failure/error/skipped，不从 `BUILD SUCCESSFUL` 或空日志推定通过。指标不足时为空；断言覆盖和轨迹计数是不同证据。
 
-2026-09-27 补充的本地模拟器入口为 `scripts/debug/2026-09-27/run-hxa227-final-trajectories.py --run-id <unique-id>`，按 API29/API36 × consumer/developer 串行运行十个 selector，保留每组合的八个 case。运行前需当前任务的明确模拟器授权及已编译的两渠道 APK/test APK。`scripts/instrumentation_junit.py` 从 `am instrument -r` 的 start/terminal bundles 生成真实 JUnit，拒绝缺失、重复、空输出或 runner 崩溃。
+2026-09-27 补充的本地模拟器入口为 `scripts/debug/2026-09-27/run-hxa227-final-trajectories.py --run-id <unique-id>`，按 API29/API36 × consumer/developer 串行运行十个 selector，保留每组合的八个 case。复跑时按 AGENTS 核对项目模拟器预授权范围及两渠道 APK/test APK，真实模型访问另按服务授权与有效配置处理。`scripts/instrumentation_junit.py` 从 `am instrument -r` 的 start/terminal bundles 生成真实 JUnit，拒绝缺失、重复、空输出或 runner 崩溃。
 
 当前全量类基线与核心轨迹分别报告。全量 runner 按类隔离；逐类清理后等待 Android task 销毁完成，失败保留系统日志。`audit-hxa227-baseline.py` 检查完整清单、原始逐方法状态、source manifest、APK hash 与 owned emulator 关闭状态。专用分阶段/soak runner 和条件跳过不计 PASS；具体制品、执行范围及结果见[设备补充证据](../evidence/development/hxa227-device-baseline-2026-09-27.md)。
 
@@ -100,3 +100,74 @@ HXA-230 的 `evals/trajectory/memory-host.json` 使用同一证据协议，命�
 官方加权聚合、逐题准确率、生成记录与实际计分分母分别输出，不以一个比率反推另一类通过数。环境/代码/模型/Prompt/预算变化需要新 cohort，不能补跑挑最好结果；不将隐藏答案交给模型，不为冲分扩大生产授权。
 
 旧批次的 shell/device 命令只作为原计划证据。下一次执行须重新核对固定 revision、应用安装/初始化、清理与 oracle、当前设备和服务授权，再校准；无需重新运行模型来完成纯文档整理。
+
+<a id="history-harness-system-baseline"></a>
+
+## 历史：2026-09-28 至 10-14 Harness 基线
+
+本文保存 2026-09-28～10-14 的 P5/P6 固定基线方法与锚点，分开验证“设备内本地模型最低可用”和“Helix Harness 能否解决问题”。下文的模型、地址、工具数量与绿色锚点均限于该历史实验，不是当前服务可用性或最新候选验收；复跑前核对当前源码、fixture、配置及授权。
+
+### 模型分工
+
+- **Qwen3 4B Instruct 2507 Q4_K_M**：只承担设备内最低能力证明。P3 已覆盖安装/校验/Provider/probe，P4 已覆盖真实 `write`→`read`、artifact 与进程重开。后续不再用设备内模型跑长程系统能力或优化 A/B。
+- **SGLang `Qwen3.8-27B`**：`http://localhost:30008/` 是该固定 Harness 基线使用的模型服务地址，不表示此刻已有服务运行。Android emulator 通过 `10.0.2.2:30008/v1` 使用同一服务，走 Helix 正式 Provider、Agent loop、permission/effect、Tool Dispatcher 与 durable storage。
+
+本分工不表示 4B 是最终推荐手机模型，也不把 SGLang 结果当成设备内推理性能。两类证据回答不同问题。
+
+### P5 固定范围
+
+P5 复用 `evals/m10/fixed-evals.tsv`，不建立第二套 Eval。为了只测 Harness 解题能力而不把 SGLang 的多协议兼容性混入结果，当时系统基线通过 test-only override **统一使用 `OPENAI_CHAT_COMPLETIONS`**；原 HXA-100 仍按数据集中的 Responses/Chat/Anthropic 协议做 adapter 专项。当时 Harness 系统基线固定四组、15 个 case：
+
+1. `files` 4 项：scope read/list、写审批、越界拒绝；
+2. `javascript` 4 项：受控执行、超时、能力缺失、取消不重放；
+3. `skills` 4 项：不可信 hints、未曝光工具、archive traversal、snapshot invalidation；
+4. `goal` 3 项：bounded goal、预算 continuation、写审批暂停。
+
+MCP/A2A/Browser/Accessibility/Root 与多协议兼容等完整 45 项仍属于更广回归，不要求每次 P5/P6 A/B 重跑。
+
+### 性能口径
+
+Files/JavaScript/Skills 的 12 个 fixed case 已持久化 `elapsedMs`；Goal 三项目前只有其他用量与 host wall time，不混入同口径 elapsed。P5 汇总这 12 项的 mean/median/p95/max，并保存每个 suite 的 host wall time。这里的 elapsed 是 **Harness 端到端任务时间**，包含模型请求、Tool、审批、Room 与恢复等待，适合比较 Harness 改动前后是否让同一任务更快/更慢。
+
+它不是 SGLang server 的纯推理性能，因此本基线不声称：
+
+- prefill time；
+- true TTFT；
+- decode-only tokens/s；
+- GPU 显存或服务端吞吐。
+
+如果未来需要优化 SGLang server 本身，另建服务端 profiler；不要把 Harness `elapsedMs` 混成模型 decode 指标。
+
+### 可比较身份
+
+正式 P5 run 必须满足：同一 `gitCommit`、clean worktree、同一 `fixed-evals.tsv` SHA、同一 developer app/test APK、同一 source manifest、同一 SGLang model id。各 suite 继续输出既有 HXA-227 envelope/原始 device record；P5 汇总不另建 oracle；旧 fixed-eval 与当前冻结 contract 不一致时，先显式修正并记录 verifier/fixture 身份，不把跨 oracle 的分数差当作优化 A/B。未提交 candidate 可用于诊断，但不能替代 clean 正式锚点。
+
+复现入口：
+
+```bash
+python3 scripts/debug/2026-09-28/run-p5-sglang-harness-baseline.py
+```
+
+runner 会先执行真实 SGLang UI/provider smoke，再在同一 owned API36 emulator 上依次执行 `files/javascript/skills/goal`，最后关闭自己创建的 emulator。任一 case 失败都保留原始证据并使 P5 gate 失败，不通过重试直到成功来篡改基线。
+
+当前候选结果与 oracle/fixture 修正见 [2026-09-28 P5 验证](../evidence/development/p5-sglang-candidate-2026-09-28.md)。`HELIX_P5_CASES` 可指定逗号分隔的固定 case 子集；子集完成不表示完整基线通过。
+
+v1 正式锚点为 clean `99b7bee7`：15/15 通过；前一 clean `b436247f` 为 14/15，skill-003 的冗余执行请求失败。两者同 fixture/oracle、同 test APK；只改变 base prompt 的充分证据报告指导。完整对照与局限见 [P5/P6 证据](../evidence/development/p5-clean-baseline-and-p6-2026-09-28.md)。单次通过不消除历史截断或证明统计稳定性。
+
+后续所有者授权修正提示词与 skill-003 最终请求矛盾，形成独立 v2 锚点 clean `fce488ce`，15/15 通过；`fixtureVersion=report-refused-import-v2`、实际 prompt hash 与数据集原始 prompt hash 分别记录，安全 oracle 不变。该阶段后续评测使用 v2；上述 v1 A/B 证据保留，不跨版本比较完成率或声称提示词因果收益。见 [v2 证据](../evidence/development/prompt-fixture-v2-2026-09-28.md)。
+
+工具曝光精简候选 clean `d8ee8418` 完整15项为 **13/15**（Files 3/4、JavaScript 4/4、Skills 4/4、Goal 2/3），当时未替代v2绿色锚点。file-003的精确写审批未匹配、goal-001多余业务调用且固定预算耗尽；详情与后续独立取证见[公开评测试跑](../evidence/development/public-agent-pilot-2026-09-28.md)。该轮record的protocol仍为数据集标签，实际运行协议以config及命令的OPENAI_CHAT_COMPLETIONS override为准；后续四个P5 producer已修正该字段并另存datasetProtocol，历史记录不重写。
+
+该阶段工具曝光优化的正式绿色锚点为 clean `8f0aa933`：默认21项、有效自动化会话30项，完整 **15/15**，准备smoke1/1。仍用v2固定fixture/严格oracle，未改预算；精确文件内容提示和Skill读取/启停分组按失败证据修正。原13/15、后续14/15、定向诊断和探测准备失败全部保留，单轮通过不消除模型截断与多余调用。完整身份、性能口径及剩余边界见[公开评测试跑](../evidence/development/public-agent-pilot-2026-09-28.md)。
+
+2026-09-29 整合后的阶段绿色锚点为 clean `8c7a95b4`：完整 **15/15**、准备 smoke 1/1，单次完整运行无 case 重试。冻结源码、安装包、端到端统计和剩余边界见[最终收口](../evidence/development/final-closeout-2026-09-29.md)。本轮不是官方公开榜单，也不关闭模型偶发多余调用。
+
+2026-09-30 新的正式绿色锚点为 clean `92e93bf5`：完整 **15/15**、准备 smoke **1/1**，四组均通过，单次正式运行无 case 重试。独立干净检出重新构建制品，采用相同固定数据集与严格 oracle；模型管理 smoke 随当前 UI 契约更新。完整身份、先前定向失败及验证边界见[Runtime / Provider 设备收口](../evidence/development/runtime-provider-device-closeout-2026-09-30.md)。这是 Harness 固定系统基线，不是完整公开 benchmark 或真实账号验收。
+
+### 2026-10-14 主机基线准备
+
+本轮沿R2-B准备工作，未调整生产ContextCompiler或工具曝光策略。核对发现`run-agent-eval-host.py`的源码身份漏掉整个`extensions`及App构建配置：插件/Mobile Use改变后仍可能得到相同源码指纹。现复用已有`source_manifest`，纳入`extensions`与完整`app`，不另建索引；忽略的构建产物仍不参与指纹。新增回归验证App配置/扩展源码改变必须改变指纹，忽略产物不能改变指纹。
+
+去除manifest固定“8项”的易变数量门禁，仍要求非空、ID唯一、每个选择器对应真实方法；空suite/case、缺失、skip、failure及重复证据不能通过的断言保留。
+
+执行`python3 -m unittest discover -s scripts/tests -p test_agent_eval.py`，19方法通过；通过共享host slot执行`python3 scripts/run-agent-eval-host.py --output build/hxa282/context-host-baseline-2026-10-14-r1`，8个现有主机边界case全部通过，Gradle退出0且前后源码身份不变。原始XML、命令、环境与manifest在该忽略目录；源码指纹`cc40743e579f352361b1b84a9c581abcc1095898679ef6e2060c2421cda74fd9`。此为dirty工作树的主机准备证据，不替代上方clean真实模型锚点，也没有模型调用/token/设备成本数据，不据此声称R2-B收益。

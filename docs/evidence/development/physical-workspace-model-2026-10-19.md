@@ -2,6 +2,8 @@
 
 实际执行日期 2026-10-19 UTC，设备时区 Asia/Shanghai。
 
+旧域名与单独 Client ID 是本页日期的历史协议；现行账号 Bearer 与固定客户端标识见 [Provider ADR](../../adr/provider/001-models-and-connection.md)，不按本记录恢复旧入口。
+
 ## 范围与候选
 
 Owner 在工作区/容量与指导精简交付后，明确要求更新文档并进行真机、真实模型测试。仅固定内置网关 `https://api.sunlingzhang.com/v1`、模型 `Qwen3.8-27B` 与公开 `X-Client-Id: helix-android-preview-v1`；无后端 Key、其他 Provider 或付费回退，不推送、不修改 Release。前轮模拟器/主机结果见[原记录](workspace-capacity-and-guidance-2026-10-19.md)，不迁作真机证据。

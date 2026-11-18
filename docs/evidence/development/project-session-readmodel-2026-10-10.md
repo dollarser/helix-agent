@@ -44,7 +44,7 @@ SHA256 来自最终 runner 的 `artifacts.json`：
 | Developer App | `f5dff6a3f269cf57e41e990ba423b658ddbee403b13b2e96f3b597a7d3acc65a` |
 | Developer AndroidTest | `953645ab76d6969f58443548e5f509a38cf5e788e9d7636def4336176c3229e5` |
 
-稳定复跑入口为 `scripts/run-owned-emulator.py`，须使用 owner 本轮授权且空闲的端口；`--classes` 选择 `com.helix.app.projects.ProjectServiceDeviceTest,com.helix.app.ui.ProjectLifecycleUiDeviceTest,com.helix.app.ui.ProjectSessionsUiDeviceTest,com.helix.app.ui.PinyinComposerDeviceTest`，consumer runner=`com.helix.agent.test/com.helix.app.HelixAndroidJUnitRunner`，developer runner=`com.helix.agent.developer.test/com.helix.app.HelixAndroidJUnitRunner`，相应 Debug APK/AndroidTest APK、API36自有AVD、`--timeout 600 --memory-mb 4096`。Consumer 本次7项主套件加同一自有进程 after-script 的1项拼音；Developer已直接用上述四类验证8项聚合入口。语言未配置时先在自有实例准备拼音，不借用日常实例或将缺条件计为 pass。
+稳定复跑入口为 `scripts/run-owned-emulator.py`，须按当前 [AGENTS.md](../../../AGENTS.md#verification-and-device-authorization) 的项目模拟器预授权范围使用自有实例及空闲端口；`--classes` 选择 `com.helix.app.projects.ProjectServiceDeviceTest,com.helix.app.ui.ProjectLifecycleUiDeviceTest,com.helix.app.ui.ProjectSessionsUiDeviceTest,com.helix.app.ui.PinyinComposerDeviceTest`，consumer runner=`com.helix.agent.test/com.helix.app.HelixAndroidJUnitRunner`，developer runner=`com.helix.agent.developer.test/com.helix.app.HelixAndroidJUnitRunner`，相应 Debug APK/AndroidTest APK、API36自有AVD、`--timeout 600 --memory-mb 4096`。Consumer 本次7项主套件加同一自有进程 after-script 的1项拼音；Developer已直接用上述四类验证8项聚合入口。语言未配置时先在自有实例准备拼音，不借用日常实例或将缺条件计为 pass。
 
 ## 留存与边界
 

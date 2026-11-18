@@ -2,7 +2,7 @@
 
 > **原始运行计划，2026-09-29 从当前控制面移入历史验证计划。**下文“未开始运行”记录的是计划编写时状态，不能据此判断后来是否已跑。实际运行/未闭合条件需查对应 run 的 manifest、原始结果与当前 status；归档本身不宣称全量通过或关闭 ERROR/BLOCKED。
 >
-> 可复用的证据与比较原则统一看[Agent Eval](../../../development/agent-eval.md)、[系统基线](../../../development/harness-system-baseline.md)与[公共验收](../../../development/verification-matrix.md)。本文不构成新的设备、账号或执行授权。
+> 可复用的证据与比较原则统一看[Agent Eval](../../../development/agent-eval.md)、[系统基线](../../../development/agent-eval.md#history-harness-system-baseline)与[公共验收](../../../development/verification-matrix.md)。本文不构成新的设备、账号或执行授权。
 
 ---
 
@@ -25,11 +25,11 @@
 5. BFCL `all` 包含非计分 format sensitivity，`all_scoring` 才是计分类别集合。format sensitivity 对 native function-call 模式不适用时明确记 N/A；若另跑 prompting 模式，独立标记配置。Memory 等类别初始化/关联案例顺序由官方 runner 管理，不能随意按行打散。
 6. 确认专属模拟器的当前授权、型号/API/架构、磁盘/内存与独占端口；只使用合成数据。主机上的现有模型服务须确认允许使用；Web search 所需 SerpAPI 等账号/额度由用户提供并授权，缺失记 BLOCKED，不能冒充完整完成。
 
-退出条件：清单和所有配置已经写盘；分母可复算；依赖缺口逐项列出。设备未获当前授权时先完成主机和夹具准备。
+退出条件：清单和所有配置已经写盘；分母可复算；依赖缺口逐项列出。复跑授权遵循当前 [AGENTS.md](../../../../AGENTS.md#verification-and-device-authorization)，不从本历史计划推定真机或外部服务权限。
 
 ## P1：完善 runner 并校准
 
-已有 `scripts/debug/2026-09-28/run-bfcl-diagnostic.py` 和 `run-androidworld-pilot.py` 只作诊断参考，不直接把循环次数扩大后当官方全量 runner。理解代码前遵循仓库 CodeGraph 规则。
+已有 `scripts/debug/2026-09-28/run-bfcl-diagnostic.py` 和 `run-androidworld-pilot.py` 只作诊断参考，不直接把循环次数扩大后当官方全量 runner。复跑时按当前仓库规则定位源码；CodeGraph 是可选导航，不是前置门禁。
 
 - BFCL 使用官方 generate/evaluate 和正式模型 handler。模型不在注册表时实现最小适配，验证请求/返回协议；不改问题、答案或 checker。依据锁定版本 `--help` 验证命令，不猜参数。
 - AndroidWorld 接入官方 suite 初始化、任务生成、oracle、清理与 checkpoint。Agent 通过 Helix Provider → AgentLoop → 工具 → 持久化路径执行；ADB 仅供环境初始化/取证/判分，不代替 Agent 完成任务。oracle 答案不得进入模型上下文。

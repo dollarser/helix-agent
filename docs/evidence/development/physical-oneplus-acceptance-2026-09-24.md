@@ -1,7 +1,9 @@
-# OnePlus 6T 物理真机全面回归与功能验收记录
+# OnePlus 6T 物理真机定向回归与功能验收记录
+
+历史候选记录：Room 1..28 迁移测试属于当时实现；当前内部版本和测试数据规则见 [AGENTS.md](../../../AGENTS.md) 与[存储 ADR](../../adr/platform/003-storage-encoding.md)。下方后续计划不授予新的真机操作权限。
 
 日期：2026-09-24。
-执行环境：独立物理设备 OnePlus 6T（序列号：`561e3b15`）。
+执行环境：独立物理设备 OnePlus 6T；精确设备标识留在本地原始证据。
 执行脚本：
 - [`scripts/debug/2026-09-24/run-physical-tests.sh`](../../../scripts/debug/2026-09-24/run-physical-tests.sh)
 - [`scripts/debug/2026-09-17/p0/run-device.py`](../../../scripts/debug/2026-09-17/p0/run-device.py)
@@ -81,7 +83,7 @@
      - Runtime 异常死亡对账。
   2. `ProotDetachedOwnerDeathDeviceTest` + `verify-196-owner-death.py`：
      - 在非 instrumentation 的真实主进程中启动带租期的 Detached Job；
-     - 向主进程发送硬性进程终止（SIGKILL，模拟系统因内存压力强杀主进程）；
+     - 向主进程发送硬性进程终止（SIGKILL，只验证强杀恢复边界，不是实际低内存 LMK 触发）；
      - 宿主探针验证 `:proot` 独立进程 PID 未变、后台命令继续运行并在指定预算内成功完成（`SUCCEEDED`），最终持久化终态证明与输出摘要哈希（`outputManifestSha256`）。
 - **执行结果**：**12 项测试全部通过（12/12 PASSED）**，0 失败。
 
@@ -103,7 +105,7 @@
 
 ## 4. 结论与后续计划
 
-1. **物理硬件稳定性闭环**：OnePlus 6T 真机在最新代码基线上完成了全量 184 项硬件与系统集成测试，包括闪存读写、Room 28 数据库迁移、前后台生命周期切换、AppOp 授权撤销以及主进程强杀后的独立后台 Runtime 存活对账，无任何回归或崩溃。
+1. **当时定向回归结果**：OnePlus 6T 在该批候选上完成所列 184 项检查，包括闪存读写、当时 Room 28 迁移、前后台生命周期、AppOp 授权撤销及主进程强杀后的 Runtime 对账。所列批次未报告失败；这不证明完整硬件稳定性、长稳、所有功能或当前候选无回归。
 2. **遗留问题修复**：修复了 `RequestContextManifestDeviceTest` 中的列名对齐与 SQLite 裸连接外键开启问题，以及 `RoomMigrationFixtureTest` 中对最新 live schema 28 的断言。
 3. **后续计划**：
    - 物理真机 Doze 深度休眠长时间挂机巡检可在夜间由长耗时巡检脚本触发；

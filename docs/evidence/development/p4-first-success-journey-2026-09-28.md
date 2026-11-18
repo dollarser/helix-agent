@@ -34,22 +34,12 @@
 成功轮输出目录：`build/p4-first-success/api36-developer-4b/`。
 
 - 模型：Qwen3 4B Instruct 2507 Q4_K_M
-- model SHA-256：`3605803b982cb64aead44f6c1b2ae36e3acdb41d8e46c8a94c6533bc4c67e597`
-- model bytes：2,497,281,120
 - AVD：`Helix_HXA210_API36`，API 36，arm64-v8a，density 400；成功命令使用 8 GiB emulator memory / 4 cores。
-- developer app APK SHA-256：`419dd9b2636a86ae340f80bc9ab2012cabbe60c9d388c0277e69ba8c9b91b6ec`
-- developer AndroidTest APK SHA-256：`760d1749ea265396baaaa4c203e2b87577e513ac89382a34905de7f7d3d60ac6`
 - HTTP fixture：单次 fresh `200` 下载；权重来自已存在、再次 size/SHA 校验的本地 pinned 文件，没有重新拉公网模型。
-- setup PID：2771；setup 以 `Process crashed` 结束，符合 runner 的预期 process-kill boundary。
-- verify PID：5560；与 setup PID 不同。
-- Session：`3d382d911a5184488fcb6d7b1b118aae`
-- Turn：`01c6121ff11e744c33c292cba5fe09d6`，terminal `COMPLETED`
-- Workspace：`ws-ceb0447d-f299-4da8-854b-8cded5abe33a`，revision 1
+- setup 主动结束进程，verify 在不同 PID 恢复；会话、Turn、工作区、产物及安装件的精确身份保留于该目录的原始快照。
 - Tool calls：2；`write:COMPLETED`、`read:COMPLETED`
 - Model calls：3
 - Persisted messages：6
-- Artifact：`art_8947bcdc342944b8a5833593528f7065`
-- Artifact/file SHA-256：`40f35e0627f733e4472a1744c0a377c6e06caada86f21426d42c785b76394219`
 - verify instrumentation：`OK (1 test)`
 - 2 秒 duplicate guard：Turn 仍 1 条，tool/model/message 数不变，文件内容仍为固定字符串，`duplicateSideEffect=false`。
 - runner：`closed.json` exit 0；最终 `adb devices` 为空。

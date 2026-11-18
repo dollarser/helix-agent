@@ -1,11 +1,11 @@
-> 证据快照：本页的状态、分工、命令结果和设备仅对应记录时点，不作为当前开发指令；当前入口为[实施状态](../../development/status.md)。
-
 # M10 验收收尾跟进
 
 日期：2026-09-06。所有者要求完成 main 全量验证后剩余收尾，并授权在合理时接受 ADR-AGENT-004。
-文档状态：历史执行快照，不是当前任务入口或完成记录。当前实施与未关闭项以 [status.md](../../development/status.md) 为准。原矩阵见 [main 验证报告](main-merged-verification.md)。
+文档状态：2026-09-06～08 的历史执行快照，保留阶段性失败、修复及验收范围，不作为当前任务入口。当前能力与未完成边界见 [status.md](../../development/status.md)，任务由所有者指令选择；原矩阵见 [main 验证报告](main-merged-verification.md)。
 
-## 历史执行记录（状态以文末与当前待办为准）
+以下“当前”“下一步”、ADR proposed、Room v8/v9 和兼容接口等措辞均属于对应检查点。后续阶段可以关闭前阶段的具体缺口，但不能将旧失败、跳过或不同制品拼为通过。文内长期重复的开发 Goal active、长稳后置状态不再逐段复述；当时暂停长稳的决定及实际失败仍保留。
+
+## 长稳初始执行与失败记录
 
 - HXA-103：两个 24 小时连续进程测试已启动。API 29 的 WebView workload 于北京时间
   2026-09-06 00:37 开始；API 36 的 Room/FGS/resource 初轮在累计 FD gate 失败后停止；
@@ -207,7 +207,7 @@ consumer Debug 与 storage Debug Lint、storage JVM、Spotless 通过；联合 g
 
 `goal-coordinator-build.log`：core agent/storage JVM 与 consumer Debug/test APK 编译通过。API 34 GoalRunCoordinatorDeviceTest / GoalTurnBindingDeviceTest / ProcessRecoveryTest 合计 16/16 PASS、0 skip；覆盖重复 Continue、恢复后的剩余额度、扩预算不启动、错误 session 回滚。APK hash 见 `goal-coordinator-result.json`。本轮仍是生产协调组件的设备证据，不冒充 ChatService 已调用；下一步在 ChatService 的用户创建/Continue 路径消费该组件、绑定实际执行预算与终态/恢复，并补用户可见的 Goal 状态和额度。长稳未启动。
 
-本轮最终门禁：consumer/storage Debug Lint、app 双 flavor JVM、Spotless 与文档/ADR/i18n/diff 检查通过；联合命令仅 Detekt 失败，仍为原有 53 项，无本轮新文件报告项（`goal-coordinator-gates.log`）。持续 Goal 保持 active，未提交/推送。
+本轮最终门禁：consumer/storage Debug Lint、app 双 flavor JVM、Spotless 与文档/ADR/i18n/diff 检查通过；联合命令仅 Detekt 失败，仍为原有 53 项，无本轮新文件报告项（`goal-coordinator-gates.log`）。
 
 ## Goal run 结束事务接线
 
@@ -233,7 +233,7 @@ JDK 17 执行 `:app:testConsumerDebugUnitTest :app:assembleConsumerDebug :app:as
 
 API 34 的 GoalRunCoordinatorDeviceTest 8 项与 ProcessRecoveryTest 9 项全部通过。consumer APK/测试 APK 构建、consumer JVM、storage Lint、Spotless 通过；日志 `goal-run-monotonic-gates.log`、`goal-run-monotonic-api34.log`，证据 hash 为 `goal-run-monotonic-result.json`。详见 [修复记录](../../bug-fixes/2026-09-06-goal-stale-run-usage.md)。
 
-同时校正 ledger 注释：限制单次 delta 为 5 秒不能证明实际 crash 窗口有界。下一步仍需实现执行前持久准入与未结用量恢复，然后接通 ChatService/UI；持续 Goal 保持 active。
+同时校正 ledger 注释：限制单次 delta 为 5 秒不能证明实际 crash 窗口有界。下一步仍需实现执行前持久准入与未结用量恢复，然后接通 ChatService/UI；
 
 ## HXA-102：持久预算预留及恢复组件
 
@@ -267,7 +267,7 @@ API 34 的真实 ChatService 脚本 wire 验证同一批返回两个 time.now、
 
 consumer JVM 287 项中 284 通过、3 条既有条件跳过，工具框架 JVM 146/146；consumer/测试 APK 构建、consumer Lint、Spotless、807 key i18n 通过。首次 Gradle 调用使用错误的 framework Android 测试任务名，后改用实际 JVM `:tools:framework:test`；新增枚举的 UI 映射遗漏和函数复杂度也已修复。最终联合日志 `goal-tool-complete-gates.log` 仍因原有 Detekt 53 项失败，不宣称全仓门禁已绿。APK hash 见 `goal-tool-result.json`。
 
-持续 Goal 保持 active；下一步为单调时钟执行窗口、UI、真实 kill/restart 及三项真实模型评测。长稳未启动。
+下一步为单调时钟执行窗口、UI、真实 kill/restart 及三项真实模型评测。长稳未启动。
 
 ## HXA-102：Goal 单调时钟执行窗口
 
@@ -283,7 +283,7 @@ Goal 剩余时长在执行标记持久化后动态取值，与工具 descriptor 
 
 工具框架 JVM 150/150；consumer JVM 284 通过、3 条既有条件跳过；最终 API 34 聊天/Goal/恢复 49/49 通过。consumer/测试 APK 构建、consumer Lint、Spotless 通过；全仓 Detekt 仍为 53 项，联合 Gradle exit 1。初次使用不存在的模块级 Spotless/Detekt 任务名，已改为根任务；新增 ReturnCount 已通过调整控制流修正，未抑制该规则。日志 `goal-backend-cancel-final-gates.log`、`goal-backend-cancel-api34.log`，APK hash 见 `goal-backend-cancel-result.json`。
 
-持续 Goal 保持 active；真实 kill/restart、各后端取消/对账、Goal UI 与三项真实模型评测继续推进，未启动长稳。
+真实 kill/restart、各后端取消/对账、Goal UI 与三项真实模型评测继续推进，未启动长稳。
 
 ## HXA-102：真实进程 SIGKILL 后的预算恢复
 
@@ -293,7 +293,7 @@ Goal 剩余时长在执行标记持久化后动态取值，与工具 descriptor 
 
 命令：先 `./gradlew :app:assembleConsumerDebugAndroidTest spotlessCheck detekt --continue`，安装 consumer 测试 APK，再 `python3 scripts/run-goal-process-kill.py --serial emulator-5594`（adb 需在 PATH，或使用 `--adb` 指定路径）。最终 `goal-kill-final-gates.log` 的测试 APK 构建/Spotless 通过，Detekt 仍有既有 53 项，联合 exit 1。设备日志 `goal-kill-control.log`、`goal-kill-prepare.log`、`goal-kill-recover-prepare.log`、`goal-kill-recover-final.log` 与 `goal-kill-regression-api34.log`；PID、阶段、APK hash 见 `goal-kill-result.json`。
 
-范围严格限于真实进程死亡下的持久预算窗口：本次没有调用真实 Provider 或工具后端，也没有模拟设备断电、主线程无限阻塞、审批/文件/UI/浏览器/远端/PRoot 执行中断。不能替代这些后端的取消与未知副作用对账矩阵；Goal UI、完成证据/提醒与三项真实模型固定评测继续推进。长稳未启动，持续 Goal 保持 active。
+范围严格限于真实进程死亡下的持久预算窗口：本次没有调用真实 Provider 或工具后端，也没有模拟设备断电、主线程无限阻塞、审批/文件/UI/浏览器/远端/PRoot 执行中断。不能替代这些后端的取消与未知副作用对账矩阵；Goal UI、完成证据/提醒与三项真实模型固定评测继续推进。长稳未启动，
 
 ## HXA-102：Goal 首批用户入口与持久状态展示
 
@@ -305,7 +305,7 @@ consumer JVM 288 项中 285 通过、3 条既有条件跳过，新增预算输�
 
 最终 consumer/测试 APK 和 consumer Lint 通过，835 key i18n 一致；新增 Compose 复杂度/预算解析控制流已整理，英文数量展示改为单位标注后 Lint 通过。全仓 Detekt 仍有原有 53 项，不能宣称全仓静态门禁完成。日志 `goal-ui-corrected-gates.log`、`goal-ui-lint-fixed-gates.log`、`goal-ui-final-api34.log`，APK hash 见 `goal-ui-result.json`。
 
-这是首批功能入口，不是完整交互验收：仍需完整聊天界面创建/Continue/预算编辑的端到端回归、完成证据与提醒接线、具体后端中断矩阵和三项真实模型固定评测。输入清理、完整预算展示及边界操作继续随界面流程核验处理；统一视觉优化仍在功能验证之后。持续 Goal active，长稳未启动。
+这是首批功能入口，不是完整交互验收：仍需完整聊天界面创建/Continue/预算编辑的端到端回归、完成证据与提醒接线、具体后端中断矩阵和三项真实模型固定评测。输入清理、完整预算展示及边界操作继续随界面流程核验处理；统一视觉优化仍在功能验证之后。
 
 ## HXA-102：Goal 对话框与服务的实际流程验证
 
@@ -349,13 +349,13 @@ GoalRunCoordinator 现以事务保存/清除检查点并写入 audit；按 ADR-G
 
 安装当前 consumer/测试 APK 后，`adb -s emulator-5594 shell am instrument -w -r -e class com.helix.app.chat.GoalRunCoordinatorDeviceTest,com.helix.app.GoalReminderTest,com.helix.app.ui.GoalDialogDeviceTest,com.helix.app.ui.GoalEditorDeviceTest com.helix.agent.test/com.helix.app.HelixAndroidJUnitRunner` → 15/15 通过。新增持久化与状态重建测试使用独立数据库和记录队列，验证恢复不新增 run、不改变累计事实，清除/取消确实移除队列；实际 WorkManager 通知仍由 GoalReminderTest 覆盖。日志 `goal-reminder-wiring-gates.log`、`goal-reminder-wiring-device-build.log`、`goal-reminder-wiring-api34.log`，APK hash 和计数见 `goal-reminder-wiring-result.json`（均在 `build/main-verification/`）。
 
-尚未覆盖提醒按钮的完整 UI 操作、通知点击后的 Goal 导航、检查点消费/删除清理以及 Worker 发布与取消竞态；完成证据与后端执行中断矩阵也仍待收口。本节是已验证的生命周期接线阶段，不是完整提醒或 HXA-102 验收。持续 Goal active，长稳未启动。
+尚未覆盖提醒按钮的完整 UI 操作、通知点击后的 Goal 导航、检查点消费/删除清理以及 Worker 发布与取消竞态；完成证据与后端执行中断矩阵也仍待收口。本节是已验证的生命周期接线阶段，不是完整提醒或 HXA-102 验收。
 
 ## HXA-102：提醒点击导航与 Activity 重建
 
 通知 Intent 现校验 helix Goal URI 与同一 Goal ID extra，从持久化 Goal/run/Turn 绑定查询唯一会话；没有绑定时不创建新会话。ChatService 只打开绑定会话并发布指定 Goal 查看请求，应用壳切到会话页、GoalDialog 过滤对应目标；打开通知不发送 Continued、不调用模型、不授予审批，显式 Continue 保持现有服务门控。首次启动与 onNewIntent 使用统一入口。
 
-实际重建回归发现 `Cannot navigate to sessions. Navigation graph has not been set`：导航 Effect 早于 NavHost 就绪。现等待首个导航栈 entry 后再跳转。Activity 保存已消费的提醒 ID，避免关闭提醒后重建再次打开；新 onNewIntent 重置消费状态，保留新的用户点击。启动 Intent 身份保持不变，避免破坏 ActivityScenario 的生命周期匹配。详见 [缺陷记录](../../bug-fixes/2026-09-06-goal-reminder-navigation-lifecycle.md)。
+实际重建回归发现 `Cannot navigate to sessions. Navigation graph has not been set`：导航 Effect 早于 NavHost 就绪。现等待首个导航栈 entry 后再跳转。Activity 保存已消费的提醒 ID，避免关闭提醒后重建再次打开；新 onNewIntent 重置消费状态，保留新的用户点击。启动 Intent 身份保持不变，避免破坏 ActivityScenario 的生命周期匹配。详见 [缺陷记录](../../bug-fixes/2026-09-06-goal-reminder-identity-and-cancel.md#case-2026-09-06-goal-reminder-navigation-lifecycle)。
 
 最终 consumer JVM 285 通过、3 条既有条件跳过；consumer/测试 APK、consumer Lint、Spotless 通过；联合命令 `./gradlew :app:testConsumerDebugUnitTest :app:assembleConsumerDebug :app:assembleConsumerDebugAndroidTest :app:lintConsumerDebug spotlessCheck detekt --continue` 仍因既有 Detekt 53 项 exit 1，日志 `goal-reminder-navigation-stable-gates.log`。
 
@@ -373,7 +373,7 @@ WorkManager 的取消是异步 best-effort，取消方法返回不等于正在�
 
 命令：`./gradlew :app:testConsumerDebugUnitTest :app:assembleConsumerDebug :app:assembleConsumerDebugAndroidTest :app:lintConsumerDebug spotlessCheck detekt --continue`，consumer/测试 APK、consumer Lint、JVM 与 Spotless 通过，Detekt 仍为既有 53 项。增加异常/取消/超时 JVM 回归后执行 `./gradlew :app:testConsumerDebugUnitTest spotlessCheck detekt --continue`，291 项中 288 通过、3 条条件跳过，仍仅 Detekt 阻止联合命令全绿。设备命令 `adb -s emulator-5594 shell am instrument -w -r -e class com.helix.app.GoalReminderPublicationDeviceTest,com.helix.app.GoalReminderTest com.helix.agent.test/com.helix.app.HelixAndroidJUnitRunner`。日志 `goal-reminder-publication-gates.log`、`goal-reminder-publication-final-gates.log`、`goal-reminder-publication-api34.log`，APK hash 见 `goal-reminder-publication-result.json`，均在 `build/main-verification/`。
 
-详细理由见 [并发修复记录](../../bug-fixes/2026-09-06-goal-reminder-publication-cancellation.md)。仍未完成：删除 Goal 时清理提醒、检查点消费与恢复后的重复提醒边界、完整通知/按钮 UI、各后端执行中断与完成证据。HXA-102 和持续 Goal active；真机与长稳未运行。
+详细理由见 [并发修复记录](../../bug-fixes/2026-09-06-goal-reminder-identity-and-cancel.md#case-2026-09-06-goal-reminder-publication-cancellation)。仍未完成：删除 Goal 时清理提醒、检查点消费与恢复后的重复提醒边界、完整通知/按钮 UI、各后端执行中断与完成证据。HXA-102 和持续 Goal active；真机与长稳未运行。
 
 ## HXA-102：Goal 删除与提醒清理
 
@@ -385,7 +385,7 @@ GoalReminderReconciler 对已被删除的目标转为取消提醒，而不是抛
 
 命令 `./gradlew :app:testConsumerDebugUnitTest :app:assembleConsumerDebug :app:assembleConsumerDebugAndroidTest :app:lintConsumerDebug spotlessCheck detekt --continue`：consumer JVM 291 项中 288 通过、3 条既有条件跳过，consumer/测试 APK、consumer Lint、Spotless 通过；Detekt 仍为既有 53 项，联合命令 exit 1。安装当前 APK 后执行 `adb -s emulator-5594 shell am instrument -w -r -e class com.helix.app.GoalDeletionDeviceTest,com.helix.app.GoalReminderPublicationDeviceTest,com.helix.app.chat.GoalRunCoordinatorDeviceTest com.helix.agent.test/com.helix.app.HelixAndroidJUnitRunner`，16/16。日志 `goal-deletion-gates.log`、`goal-deletion-api34.log`，APK hash 与计数见 `goal-deletion-result.json`，均在 `build/main-verification/`。
 
-根因与不变式见 [删除修复记录](../../bug-fixes/2026-09-06-goal-deletion-reminder-cleanup.md)。检查点消费/恢复重复提醒、完整通知与删除 UI、完成证据、具体后端中断矩阵仍需继续；HXA-102 与持续 Goal active，长稳未启动。
+根因与不变式见 [删除修复记录](../../bug-fixes/2026-09-06-goal-reminder-identity-and-cancel.md#case-2026-09-06-goal-deletion-reminder-cleanup)。检查点消费/恢复重复提醒、完整通知与删除 UI、完成证据、具体后端中断矩阵仍需继续；HXA-102 与
 
 ## HXA-102：检查点恢复幂等与成功记录消费
 
@@ -397,7 +397,7 @@ GoalReminderReconciler 对已被删除的目标转为取消提醒，而不是抛
 
 命令 `./gradlew :app:testConsumerDebugUnitTest :app:assembleConsumerDebug :app:assembleConsumerDebugAndroidTest :app:lintConsumerDebug spotlessCheck detekt --continue`：consumer JVM 291 项中 288 通过、3 条既有条件跳过，consumer/测试 APK、consumer Lint、Spotless 通过；Detekt 仍为既有 53 项，联合命令 exit 1。安装当前 APK 后执行 `adb -s emulator-5594 shell am instrument -w -r -e class com.helix.app.GoalCheckpointDeviceTest,com.helix.app.GoalReminderTest,com.helix.app.GoalDeletionDeviceTest,com.helix.app.GoalReminderPublicationDeviceTest com.helix.agent.test/com.helix.app.HelixAndroidJUnitRunner`，11/11。日志 `goal-checkpoint-gates.log`、`goal-checkpoint-api34.log`，APK hash 与计数见 `goal-checkpoint-result.json`，均在 `build/main-verification/`。
 
-根因与边界见 [修复记录](../../bug-fixes/2026-09-06-goal-checkpoint-recovery-replay.md)。完整 UI、删除中途进程死亡、完成证据和具体后端中断矩阵仍待收口。HXA-102 与持续 Goal active；真机、长稳未运行。
+根因与边界见 [修复记录](../../bug-fixes/2026-09-06-goal-reminder-identity-and-cancel.md#case-2026-09-06-goal-checkpoint-recovery-replay)。完整 UI、删除中途进程死亡、完成证据和具体后端中断矩阵仍待收口。HXA-102 与
 
 ## HXA-102：Goal 提醒按钮的实际界面回归
 
@@ -407,7 +407,7 @@ GoalReminderReconciler 对已被删除的目标转为取消提醒，而不是抛
 
 日志 `goal-reminder-controls-gates.log`、`goal-reminder-controls-api34.log`，APK hash 与计数见 `goal-reminder-controls-result.json`，均在 `build/main-verification/`。这是目标管理组件到服务/存储/WorkManager 的真实点击路径，不替代通知栏点击、预算编辑、删除 UI 或真实模型的完整 ChatScreen 流程。
 
-本轮进一步核实：CriterionSatisfied/CompleteRequested 仅在 core:agent 的事件和 reducer 中出现，App 生产代码还没有调用入口。完成证据生产闭环仍是 HXA-102 的实质未完成项；后端中断/对账矩阵也继续。持续 Goal active，长稳未启动。
+本轮进一步核实：CriterionSatisfied/CompleteRequested 仅在 core:agent 的事件和 reducer 中出现，App 生产代码还没有调用入口。完成证据生产闭环仍是 HXA-102 的实质未完成项；后端中断/对账矩阵也继续。
 
 ## HXA-102：完成证据契约草案与当前进程恢复复验
 
@@ -427,7 +427,7 @@ GoalReminderReconciler 对已被删除的目标转为取消提醒，而不是抛
 
 日志 `goal-budget-ui-gates.log`、`goal-budget-ui-api34.log`、`goal-integrated-current-api34.log`，APK hash、类名与计数见 `goal-budget-ui-result.json`，均在 `build/main-verification/`。组合中的进程 fixture 运行默认 control 路径，不能当作本轮执行了真实 SIGKILL；上一轮真实杀进程证据单独保留。40/40 也不等于全 App、当前 45 项真实模型评测或真实模型 ChatScreen 流程通过。
 
-ADR-GOAL-001 仍 proposed，未收到接受决定，证据契约暂不实现。HXA-102 其他后端中断、删除/通知栏 UI 与真实模型流程仍可继续；持续 Goal active，长稳未启动。
+ADR-GOAL-001 仍 proposed，未收到接受决定，证据契约暂不实现。HXA-102 其他后端中断、删除/通知栏 UI 与真实模型流程仍可继续；
 
 ## HXA-102：重复通知点击复用 Activity
 
@@ -437,7 +437,7 @@ ADR-GOAL-001 仍 proposed，未收到接受决定，证据契约暂不实现。H
 
 命令 `./gradlew :app:assembleConsumerDebug :app:assembleConsumerDebugAndroidTest spotlessCheck detekt --continue`：consumer/测试 APK、Spotless 通过；Detekt 仍既有 53 项，联合命令 exit 1。另执行 `./gradlew :app:lintConsumerDebug`，exit 0。安装 APK 后执行 `adb -s emulator-5594 shell am instrument -w -r -e class com.helix.app.GoalReminderNavigationDeviceTest,com.helix.app.GoalReminderTest,com.helix.app.ui.GoalReminderControlsDeviceTest com.helix.agent.test/com.helix.app.HelixAndroidJUnitRunner`，7/7。
 
-日志 `goal-repeat-notification-before-api34.log`、`goal-repeat-notification-flags-api34.log`、`goal-repeat-notification-final-api34.log`、`goal-repeat-notification-flags-gates.log`、`goal-repeat-notification-lint.log`，APK hash 和前后计数见 `goal-repeat-notification-result.json`，均在 `build/main-verification/`。详见 [修复记录](../../bug-fixes/2026-09-06-goal-repeat-notification-routing.md)。ADR-GOAL-001 仍 proposed，其他 HXA-102 验证与持续 Goal 继续，长稳未启动。
+日志 `goal-repeat-notification-before-api34.log`、`goal-repeat-notification-flags-api34.log`、`goal-repeat-notification-final-api34.log`、`goal-repeat-notification-flags-gates.log`、`goal-repeat-notification-lint.log`，APK hash 和前后计数见 `goal-repeat-notification-result.json`，均在 `build/main-verification/`。详见 [修复记录](../../bug-fixes/2026-09-06-goal-reminder-identity-and-cancel.md#case-2026-09-06-goal-repeat-notification-routing)。ADR-GOAL-001 仍 proposed，其他 HXA-102 验证与持续 Goal 继续，长稳未启动。
 
 ## HXA-102：系统通知栏点击验收
 
@@ -447,7 +447,7 @@ ADR-GOAL-001 仍 proposed，未收到接受决定，证据契约暂不实现。H
 
 最终命令 `./gradlew :app:assembleConsumerDebugAndroidTest spotlessCheck detekt --continue`：测试 APK 与 Spotless 通过；Detekt 仍既有 53 项，联合命令 exit 1。设备命令 `adb -s emulator-5594 shell am instrument -w -r -e class com.helix.app.GoalReminderNavigationDeviceTest,com.helix.app.GoalReminderTest,com.helix.app.ui.GoalReminderControlsDeviceTest com.helix.agent.test/com.helix.app.HelixAndroidJUnitRunner`：7/7。本轮仅测试变更，未重跑 JVM/Lint。
 
-证据位于 `build/main-verification/goal-notification-shade-result.json`、`goal-notification-shade-window-api34.log`（定位失败）、`goal-notification-shade-tree-api34.log`、`goal-notification-shade-visible-api34.log`、`goal-notification-shade-final-api34.log` 与 `goal-notification-shade-final-gates.log`。本次覆盖 API 34 已有 Activity 的通知栏实际点击，不代表所有 API、进程外启动或真实模型完整聊天验收。ADR-GOAL-001 保持 proposed；删除 UI、后端中断/对账和当前主分支全量矩阵继续，持续 Goal active，长稳未启动。
+证据位于 `build/main-verification/goal-notification-shade-result.json`、`goal-notification-shade-window-api34.log`（定位失败）、`goal-notification-shade-tree-api34.log`、`goal-notification-shade-visible-api34.log`、`goal-notification-shade-final-api34.log` 与 `goal-notification-shade-final-gates.log`。本次覆盖 API 34 已有 Activity 的通知栏实际点击，不代表所有 API、进程外启动或真实模型完整聊天验收。ADR-GOAL-001 保持 proposed；删除 UI、后端中断/对账和当前主分支全量矩阵继续，
 
 ## HXA-102：Goal 删除界面接入
 
@@ -459,7 +459,7 @@ GoalDialog 增加删除入口，由 MainActivity/ChatScreen 注入生产 Privacy
 
 专用 API 34 初组删除/提醒 UI 与删除协调器 6/6，最终组合 17/17：`adb -s emulator-5594 shell am instrument -w -r -e class com.helix.app.ui.GoalReminderControlsDeviceTest,com.helix.app.GoalDeletionDeviceTest,com.helix.app.chat.GoalUsageReservationsDeviceTest,com.helix.app.GoalReminderNavigationDeviceTest com.helix.agent.test/com.helix.app.HelixAndroidJUnitRunner`。包含本次系统通知栏真实点击回归。
 
-日志与 APK hash 见 `build/main-verification/goal-deletion-ui-result.json`、`goal-deletion-ui-gates.log`、`goal-deletion-ui-api34.log`、`goal-deletion-ui-final-gates.log`、`goal-deletion-ui-final-api34.log`。删除中途进程死亡、其他 API 和真实模型完整聊天仍待验收；ADR-GOAL-001 proposed 未实施，持续 Goal active，长稳未启动。
+日志与 APK hash 见 `build/main-verification/goal-deletion-ui-result.json`、`goal-deletion-ui-gates.log`、`goal-deletion-ui-api34.log`、`goal-deletion-ui-final-gates.log`、`goal-deletion-ui-final-api34.log`。删除中途进程死亡、其他 API 和真实模型完整聊天仍待验收；ADR-GOAL-001 proposed 未实施，
 
 ## HXA-102：删除事务两侧的真实进程死亡
 
@@ -481,7 +481,7 @@ GoalDialog 增加删除入口，由 MainActivity/ChatScreen 注入生产 Privacy
 
 当前全部 14 个 Goal 文件名设备类加 ProviderModelDiscoveryUiTest 组合 48/48，包含实际 OpenAI/Anthropic 连接探测与界面回归。完整命令/类名见 `build/main-verification/goal-model-cancel-integrated-command.json`；输出 `goal-model-cancel-integrated-api34.log`；前后结果、JVM 计数、APK hash 见 `goal-model-cancel-result.json`。该组合中的 kill fixture 使用 control 阶段，不代表本轮执行了模型 SIGKILL。
 
-本次设备模型输出为本地确定性 HTTP fixture，不能替代真实模型服务中断或模型流实际进程死亡；其余后端及全量矩阵继续。ADR-GOAL-001 仍 proposed，持续 Goal active，长稳未启动。
+本次设备模型输出为本地确定性 HTTP fixture，不能替代真实模型服务中断或模型流实际进程死亡；其余后端及全量矩阵继续。ADR-GOAL-001 仍 proposed，
 
 ## HXA-102：Goal 界面取消和保存重试
 
@@ -489,7 +489,7 @@ GoalEditor/GoalReminderControls 的 IllegalStateException 捕获会包含 Cancel
 
 `./gradlew :app:assembleConsumerDebug :app:assembleConsumerDebugAndroidTest :app:testConsumerDebugUnitTest :app:lintConsumerDebug spotlessCheck detekt --continue`：consumer/测试 APK、consumer JVM（291 项：288 通过/3 项既有跳过）、consumer Lint 与 Spotless 通过；Detekt 仍既有 53 项，联合命令 exit 1。设备命令 `adb -s emulator-5594 shell am instrument -w -r -e class com.helix.app.ui.GoalEditorDeviceTest,com.helix.app.ui.GoalReminderControlsDeviceTest,com.helix.app.GoalDeletionDeviceTest,com.helix.app.chat.GoalModelCancellationDeviceTest com.helix.agent.test/com.helix.app.HelixAndroidJUnitRunner`，API 34 11/11。
 
-日志/APK hash 见 `build/main-verification/goal-editor-cancel-result.json`、`goal-editor-cancel-before-api34.log`、`goal-editor-cancel-final-api34.log`、`goal-editor-cancel-final-gates.log`。早期重试测试文本定位失败不作为生产缺陷证据；使用稳定状态标记后验证错误出现与消失。取消注入直接覆盖保存操作，提醒为异常继承关系修正加正常操作回归，未覆盖所有提醒取消竞态。模型实际 SIGKILL 与其他后端矩阵仍继续；ADR-GOAL-001 proposed 未实施，持续 Goal active，长稳未启动。
+日志/APK hash 见 `build/main-verification/goal-editor-cancel-result.json`、`goal-editor-cancel-before-api34.log`、`goal-editor-cancel-final-api34.log`、`goal-editor-cancel-final-gates.log`。早期重试测试文本定位失败不作为生产缺陷证据；使用稳定状态标记后验证错误出现与消失。取消注入直接覆盖保存操作，提醒为异常继承关系修正加正常操作回归，未覆盖所有提醒取消竞态。模型实际 SIGKILL 与其他后端矩阵仍继续；ADR-GOAL-001 proposed 未实施，
 
 ## HXA-102：生产模型流 SIGKILL 与模型调用记录收口
 
@@ -501,7 +501,7 @@ API 34 修复前 ModelCallRecoveryDeviceTest 1/1 失败，修复后与 ProcessRe
 
 另执行 `python3 scripts/run-model-stream-process-kill.py --serial emulator-5594 --adb "$ANDROID_HOME/platform-tools/adb" --output build/main-verification/model-stream-kill-fixed-api34`，exit 0：PID 9764 实际 SIGKILL，宿主观察 EOF；两次新进程恢复均验证 Turn/run/ModelCall INTERRUPTED、Goal PAUSED，预算保守计入 5076 tokens / 5000 ms、模型次数 1，重复恢复不补回预算。宿主 POST 计数 4→4，含一次持有的 Goal 模型请求；两次恢复后各观察 2 秒，不把该窗口描述为永久不重发证明。
 
-证据/APK hash 见 `build/main-verification/model-call-recovery-result.json` 与 `model-stream-kill-fixed-api34/model-kill-result.json`。`model-stream-kill-api34/` 是修复 ModelCall 之前仅覆盖外层状态的初轮，不能当成完整恢复验收。host fixture 只生成本次文本，不使用真实账号或密钥；模型内容不是实模输出。无 host 参数的普通 instrumentation 会明确条件跳过 ModelStreamProcessKillDeviceTest；独立 runner 成功才算本项通过。其他协议/工具后端及全量矩阵继续，ADR-GOAL-001 proposed 未实施，持续 Goal active，长稳未启动。
+证据/APK hash 见 `build/main-verification/model-call-recovery-result.json` 与 `model-stream-kill-fixed-api34/model-kill-result.json`。`model-stream-kill-api34/` 是修复 ModelCall 之前仅覆盖外层状态的初轮，不能当成完整恢复验收。host fixture 只生成本次文本，不使用真实账号或密钥；模型内容不是实模输出。无 host 参数的普通 instrumentation 会明确条件跳过 ModelStreamProcessKillDeviceTest；独立 runner 成功才算本项通过。其他协议/工具后端及全量矩阵继续，ADR-GOAL-001 proposed 未实施，
 
 ## HXA-102：三协议模型流双边界 SIGKILL 矩阵
 
@@ -524,7 +524,7 @@ ModelStreamProcessKillDeviceTest/host runner 增加明确的 protocol 与 bounda
 
 设备 runner 命令为 `python3 scripts/run-model-stream-process-kill.py --serial emulator-5594 --adb "$ANDROID_HOME/platform-tools/adb" --protocol <OPENAI_CHAT_COMPLETIONS|OPENAI_RESPONSES|ANTHROPIC_MESSAGES> --boundary <headers|body> --output <新证据目录>`，六次独立进程执行；完整可重放命令、每轮日志、PID、API、计数及 APK hash 见 `build/main-verification/model-kill-matrix-api34/matrix-result.json` 与对应子目录。无 host 参数的通用 instrumentation 会明确条件跳过该专用测试；仅独立 runner 成功才算验证通过。
 
-本次不覆盖真实模型服务、所有网络故障/工具后端、其他 API、真机或长稳；其余 HXA-102 与全量门禁继续。ADR-GOAL-001 保持 proposed，持续 Goal active，长稳未启动。
+本次不覆盖真实模型服务、所有网络故障/工具后端、其他 API、真机或长稳；其余 HXA-102 与全量门禁继续。ADR-GOAL-001 保持 proposed，
 
 ## HXA-102：当前工具调度与持久恢复基线
 
@@ -532,7 +532,7 @@ ModelStreamProcessKillDeviceTest/host runner 增加明确的 protocol 与 bounda
 
 在当前 consumer APK 执行 `adb -s emulator-5594 shell am instrument -w -r -e class com.helix.app.ToolSchedulerDeviceTest,com.helix.app.recovery.ProcessRecoveryTest com.helix.agent.test/com.helix.app.HelixAndroidJUnitRunner`：18/18 通过。覆盖已有生产 Dispatcher 集成（取消、结果顺序、审批及持久序列）和数据库恢复 fixture。其恢复 fixture 主要为重开存储/持久行检查，没有在真实工具执行过程中 SIGKILL，不能将该组合记录为工具后端中断矩阵通过。
 
-日志/APK hash/类名见 `build/main-verification/tool-scheduler-current-recovery-result.json`、`tool-scheduler-current-recovery-api34.log`。本轮未修改生产代码，也未重跑 JVM/Lint/Detekt。具体审批、文件、浏览器、UI、MCP、A2A、PRoot/CLI 后端中断仍为 HXA-102 当前待办；模型三协议双边界已单独有真实 SIGKILL 证据。ADR-GOAL-001 proposed 未实施，持续 Goal active，长稳未启动。
+日志/APK hash/类名见 `build/main-verification/tool-scheduler-current-recovery-result.json`、`tool-scheduler-current-recovery-api34.log`。本轮未修改生产代码，也未重跑 JVM/Lint/Detekt。具体审批、文件、浏览器、UI、MCP、A2A、PRoot/CLI 后端中断仍为 HXA-102 当前待办；模型三协议双边界已单独有真实 SIGKILL 证据。ADR-GOAL-001 proposed 未实施，
 
 ## HXA-102：MCP 工具调用中断与连接释放
 
@@ -540,19 +540,19 @@ ModelStreamProcessKillDeviceTest/host runner 增加明确的 protocol 与 bounda
 
 该验证是 JVM 上的真实网络传输测试，使用测试 endpoint permit、无凭据，不涵盖 Android 生产注册/审批路径、进程 SIGKILL、远端效果撤销或重连恢复。MCP 实际工具进程中断矩阵仍待完成。为复用既有网络 fixture 将其改为测试内部可见，并拆分工具请求处理，避免增加 Detekt 复杂度问题；未新增 suppress。
 
-验证命令：`./gradlew :extensions:mcp:test spotlessCheck detekt --continue --no-daemon --max-workers=2`（JDK 17）。MCP JVM **37/37 通过、零跳过**，Spotless 通过；总命令 exit 1，根 Detekt 仍有原有 **53** 项，不能记录全绿。首次检查的新增 fixture 复杂度问题已通过拆分消除。证据：`build/main-verification/mcp-tool-cancel-final-gates.log` 和 `mcp-tool-cancel-result.json`。文档检查 224 Markdown/130 HXA、ADR 检查 28 条均通过。未重跑 Android/Lint；ADR-GOAL-001 仍 proposed，持续 Goal active，长稳未启动。
+验证命令：`./gradlew :extensions:mcp:test spotlessCheck detekt --continue --no-daemon --max-workers=2`（JDK 17）。MCP JVM **37/37 通过、零跳过**，Spotless 通过；总命令 exit 1，根 Detekt 仍有原有 **53** 项，不能记录全绿。首次检查的新增 fixture 复杂度问题已通过拆分消除。证据：`build/main-verification/mcp-tool-cancel-final-gates.log` 和 `mcp-tool-cancel-result.json`。文档检查 224 Markdown/130 HXA、ADR 检查 28 条均通过。未重跑 Android/Lint；ADR-GOAL-001 仍 proposed，
 
 ## HXA-102 收口期间：Provider 行状态与回调静态清理
 
 移除 `ProviderRow` 的重复视觉能力参数，从当前 `ProviderRowUi.capabilities` 派生；将五个操作回调归入 `ProviderRowActions`，提取编辑表单构造，并将独立的模板选择逻辑移至 `ProviderEditTemplate.kt`。保留模型 chip 只预填不自动保存、无密钥编辑不新增密钥要求、手动视觉声明和外部账号入口的原有语义。此项为当前 main 非长稳门禁清理，不声明统一 UI/UX 优化完成，也不改变授权边界。未新增 Detekt suppress。
 
-验证：`./gradlew :app:testConsumerDebugUnitTest :app:lintConsumerDebug :app:assembleConsumerDebug :app:assembleConsumerDebugAndroidTest spotlessCheck detekt --continue --no-daemon --max-workers=2`（JDK 17）执行完毕；Consumer JVM 291 项中 288 通过、3 项既有条件跳过，Consumer Lint/构建/Spotless 通过。根 Detekt 从 53 降至 **51**，总命令仍 exit 1，未放宽规则。专用 API 34 安装该 APK 后，`ProviderFlowTest,ProviderModelDiscoveryUiTest` 组合 **5/5** 通过（创建、失败状态不可选择、删除、模型列表/预填/过滤等现有 UI 回归）。日志及 APK hash 见 `build/main-verification/provider-row-state-result.json`。文档 224 Markdown/130 HXA、ADR 28 条检查通过；非全仓或双变体完整验收。持续 Goal active，ADR-GOAL-001 proposed、长稳后置均保持。
+验证：`./gradlew :app:testConsumerDebugUnitTest :app:lintConsumerDebug :app:assembleConsumerDebug :app:assembleConsumerDebugAndroidTest spotlessCheck detekt --continue --no-daemon --max-workers=2`（JDK 17）执行完毕；Consumer JVM 291 项中 288 通过、3 项既有条件跳过，Consumer Lint/构建/Spotless 通过。根 Detekt 从 53 降至 **51**，总命令仍 exit 1，未放宽规则。专用 API 34 安装该 APK 后，`ProviderFlowTest,ProviderModelDiscoveryUiTest` 组合 **5/5** 通过（创建、失败状态不可选择、删除、模型列表/预填/过滤等现有 UI 回归）。日志及 APK hash 见 `build/main-verification/provider-row-state-result.json`。文档 224 Markdown/130 HXA、ADR 28 条检查通过；非全仓或双变体完整验收。
 
 ## HXA-102 收口期间：ProviderService 托管账号依赖整理
 
 将 `ProviderService` 原有三个托管 Provider 回调归入 `ManagedProviderHooks`，由 AppContainer 继续连接当前变体的 `SubscriptionProviderModule`。默认行为仍是非托管、无探测覆盖、不支持外部账号入口；Developer 仍使用原来三个实现。构造参数从 11 减至 9，编辑/删除/视觉声明的托管限制、探测回退与账号入口判断不变。没有新增服务启动、凭据传递、权限或协议能力；本项仅为 main 静态门禁清理。
 
-验证命令：`./gradlew :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest :app:lintConsumerDebug :app:lintDeveloperDebug spotlessCheck detekt --continue --no-daemon --max-workers=2`（JDK 17）。Consumer 288 通过/3 既有条件跳过，Developer 300 通过/3 既有条件跳过，无失败；双变体 Lint 和 Spotless 通过。根 Detekt 从 51 降至 **50** 项，命令整体 exit 1，仍未全绿。日志及源码 hash 见 `build/main-verification/provider-hooks-result.json`。文档检查 224 Markdown/130 HXA、ADR 28 条通过。本轮未运行设备/真实账号测试，不替代其边界验收。持续 Goal active，ADR-GOAL-001 proposed、长稳后置保持。
+验证命令：`./gradlew :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest :app:lintConsumerDebug :app:lintDeveloperDebug spotlessCheck detekt --continue --no-daemon --max-workers=2`（JDK 17）。Consumer 288 通过/3 既有条件跳过，Developer 300 通过/3 既有条件跳过，无失败；双变体 Lint 和 Spotless 通过。根 Detekt 从 51 降至 **50** 项，命令整体 exit 1，仍未全绿。日志及源码 hash 见 `build/main-verification/provider-hooks-result.json`。文档检查 224 Markdown/130 HXA、ADR 28 条通过。本轮未运行设备/真实账号测试，不替代其边界验收。
 
 ## HXA-102 收口期间：M11 订阅流静态清理与边界回归
 
@@ -560,7 +560,7 @@ ModelStreamProcessKillDeviceTest/host runner 增加明确的 protocol 与 bounda
 
 新增 SubscriptionModelStreamTest 四项边界测试：精确字节上限、字节上限加一、feed 事件溢出、精确事件上限及 finish 溢出；分别验证是否收尾与是否丢弃部分结果。此项不涉及真实订阅账号调用或 Android 进程恢复验收。
 
-验证命令：`./gradlew :runtime:cli-app:testDebugUnitTest :runtime:cli-app:lintDebug spotlessCheck detekt --continue --no-daemon --max-workers=2`（JDK 17）。CLI Runtime JVM **74/74**、零跳过，模块 Lint 和 Spotless 通过；根 Detekt **50→47**，总命令仍 exit 1。证据见 `build/main-verification/subscription-stream-static-result.json` 与同名前缀 gates 日志。本轮未进行真实账号、设备或完整 main 回归；持续 Goal active，ADR-GOAL-001 proposed、长稳后置保持。
+验证命令：`./gradlew :runtime:cli-app:testDebugUnitTest :runtime:cli-app:lintDebug spotlessCheck detekt --continue --no-daemon --max-workers=2`（JDK 17）。CLI Runtime JVM **74/74**、零跳过，模块 Lint 和 Spotless 通过；根 Detekt **50→47**，总命令仍 exit 1。证据见 `build/main-verification/subscription-stream-static-result.json` 与同名前缀 gates 日志。本轮未进行真实账号、设备或完整 main 回归；
 
 ## HXA-102 收口期间：M11 OAuth 解析静态清理
 
@@ -568,13 +568,13 @@ Claude 回调保留大小、URL、路径、错误字段、state、code 的原有
 
 新增 GrokAuthorizationResponseTest 三项：缺少 refresh token、无效 expiry、expiry 算术溢出均不能创建授权会话；现有 Claude/Grok 协议测试继续验证回调与轮询行为。
 
-验证：`./gradlew :runtime:cli-app:testDebugUnitTest :runtime:cli-app:lintDebug spotlessCheck detekt --continue --no-daemon --max-workers=2`（JDK 17）。CLI Runtime JVM **77/77**，无跳过；模块 Lint/Spotless 通过。根 Detekt **47→45**，总命令 exit 1，剩余违规仍需修复。源码 hash 和结果见 `build/main-verification/oauth-parser-static-result.json`。无真实账号登录或设备验收；持续 Goal active，ADR-GOAL-001 proposed、长稳后置保持。
+验证：`./gradlew :runtime:cli-app:testDebugUnitTest :runtime:cli-app:lintDebug spotlessCheck detekt --continue --no-daemon --max-workers=2`（JDK 17）。CLI Runtime JVM **77/77**，无跳过；模块 Lint/Spotless 通过。根 Detekt **47→45**，总命令 exit 1，剩余违规仍需修复。源码 hash 和结果见 `build/main-verification/oauth-parser-static-result.json`。无真实账号登录或设备验收；
 
 ## HXA-102 收口期间：CLI 握手 Binder 死亡处理
 
-发现并修复 `CliStatusHandshakeClient` 未捕获 `RemoteException` 导致 `DeadObjectException` 逃逸。专用 API 34 本地 Android Binder 注入测试从 4 项中 1 项失败转为 **4/4 通过**；保留未处理事务/空文档返回 Failed、调用者不匹配返回 CallerMismatch。只转换握手失败，不重发事务或 Job；Parcel 的 finally 清理保持。缺陷说明见 [Binder 死亡处理](../../bug-fixes/2026-09-07-cli-status-binder-death.md)。
+发现并修复 `CliStatusHandshakeClient` 未捕获 `RemoteException` 导致 `DeadObjectException` 逃逸。专用 API 34 本地 Android Binder 注入测试从 4 项中 1 项失败转为 **4/4 通过**；保留未处理事务/空文档返回 Failed、调用者不匹配返回 CallerMismatch。只转换握手失败，不重发事务或 Job；Parcel 的 finally 清理保持。缺陷说明见 [Binder 死亡处理](../../bug-fixes/2026-09-07-cli-job-remote-exception.md#case-2026-09-07-cli-status-binder-death)。
 
-命令：`./gradlew :runtime:cli-client:testDebugUnitTest :runtime:cli-client:lintDebug :app:testDeveloperDebugUnitTest :app:assembleDeveloperDebug :app:assembleDeveloperDebugAndroidTest spotlessCheck detekt --continue --no-daemon --max-workers=2`（JDK 17）。CLI Client JVM 24/24、Developer JVM 300 通过/3 既有条件跳过；CLI Client Lint、构建、Spotless 通过。根 Detekt **45→44**，总命令仍 exit 1。设备日志、构建日志和 APK hash 见 `build/main-verification/cli-handshake-result.json`。此项不替代真实跨进程 SIGKILL/Job 对账矩阵。持续 Goal active，ADR-GOAL-001 proposed、长稳后置保持。
+命令：`./gradlew :runtime:cli-client:testDebugUnitTest :runtime:cli-client:lintDebug :app:testDeveloperDebugUnitTest :app:assembleDeveloperDebug :app:assembleDeveloperDebugAndroidTest spotlessCheck detekt --continue --no-daemon --max-workers=2`（JDK 17）。CLI Client JVM 24/24、Developer JVM 300 通过/3 既有条件跳过；CLI Client Lint、构建、Spotless 通过。根 Detekt **45→44**，总命令仍 exit 1。设备日志、构建日志和 APK hash 见 `build/main-verification/cli-handshake-result.json`。此项不替代真实跨进程 SIGKILL/Job 对账矩阵。
 
 ## HXA-102 收口期间：CLI Job Binder 通信异常
 
@@ -582,25 +582,25 @@ Claude 回调保留大小、URL、路径、错误字段、state、code 的原有
 
 为 CLI Client 增加模块设备测试入口，复用固定 AndroidX 测试版本及更新该模块锁文件；未移除或升级已有锁定依赖版本。详见 [Job 通信异常](../../bug-fixes/2026-09-07-cli-job-remote-exception.md)。
 
-验证命令：`./gradlew :runtime:cli-client:testDebugUnitTest :runtime:cli-client:lintDebug :runtime:cli-client:assembleDebugAndroidTest :app:testDeveloperDebugUnitTest spotlessCheck detekt --continue --no-daemon --max-workers=2`（JDK 17）。CLI Client 24/24、Developer 300 通过/3 既有跳过，模块 Lint、设备测试构建及 Spotless 通过。最后仅压缩调用排版后复跑 `./gradlew spotlessCheck detekt --continue --no-daemon --max-workers=2`，根 Detekt **44→42**，仍 exit 1。日志和设备已安装测试 APK hash 见 `build/main-verification/cli-job-wire-result.json`。没有把根门禁、真实账号或跨进程恢复记为通过；持续 Goal active，ADR-GOAL-001 proposed、长稳后置保持。
+验证命令：`./gradlew :runtime:cli-client:testDebugUnitTest :runtime:cli-client:lintDebug :runtime:cli-client:assembleDebugAndroidTest :app:testDeveloperDebugUnitTest spotlessCheck detekt --continue --no-daemon --max-workers=2`（JDK 17）。CLI Client 24/24、Developer 300 通过/3 既有跳过，模块 Lint、设备测试构建及 Spotless 通过。最后仅压缩调用排版后复跑 `./gradlew spotlessCheck detekt --continue --no-daemon --max-workers=2`，根 Detekt **44→42**，仍 exit 1。日志和设备已安装测试 APK hash 见 `build/main-verification/cli-job-wire-result.json`。没有把根门禁、真实账号或跨进程恢复记为通过；
 
 ## HXA-102 收口期间：CLI Job PFD 读取异常
 
-API 34 真实 Parcel/PFD 注入复现不可读描述符的 IOException/EBADF 逃逸：新增 3 项中 1 项失败。传输层显式捕获 IOException 返回既有 HANDSHAKE_FAILED，保留有效输出事件、hash 拒绝及单次对账请求。修复后 PFD 与 Binder 组合 **6/6** 通过。详见 [PFD 读取异常](../../bug-fixes/2026-09-07-cli-job-pfd-read-failure.md)。此项不替代提交端管道、真实跨进程 SIGKILL 或副作用恢复。
+API 34 真实 Parcel/PFD 注入复现不可读描述符的 IOException/EBADF 逃逸：新增 3 项中 1 项失败。传输层显式捕获 IOException 返回既有 HANDSHAKE_FAILED，保留有效输出事件、hash 拒绝及单次对账请求。修复后 PFD 与 Binder 组合 **6/6** 通过。详见 [PFD 读取异常](../../bug-fixes/2026-09-07-cli-job-remote-exception.md#case-2026-09-07-cli-job-pfd-read-failure)。此项不替代提交端管道、真实跨进程 SIGKILL 或副作用恢复。
 
-执行 `./gradlew :runtime:cli-client:testDebugUnitTest :runtime:cli-client:lintDebug :runtime:cli-client:assembleDebugAndroidTest :app:testDeveloperDebugUnitTest spotlessCheck detekt --continue --no-daemon --max-workers=2`（JDK 17）：CLI Client JVM 24/24、Developer 300 通过/3 既有条件跳过；模块 Lint、构建、Spotless 通过。根 Detekt 仍 **42** 项、无新增，总命令 exit 1。证据/APK hash 见 `build/main-verification/cli-pfd-result.json`。持续 Goal active，ADR-GOAL-001 proposed、长稳后置保持。
+执行 `./gradlew :runtime:cli-client:testDebugUnitTest :runtime:cli-client:lintDebug :runtime:cli-client:assembleDebugAndroidTest :app:testDeveloperDebugUnitTest spotlessCheck detekt --continue --no-daemon --max-workers=2`（JDK 17）：CLI Client JVM 24/24、Developer 300 通过/3 既有条件跳过；模块 Lint、构建、Spotless 通过。根 Detekt 仍 **42** 项、无新增，总命令 exit 1。证据/APK hash 见 `build/main-verification/cli-pfd-result.json`。
 
 ## HXA-102 收口期间：CLI 请求管道后台写入失败
 
-发现拒绝 256 KiB 请求时后台写线程 EPIPE 未被捕获；API 34 设备回归确证失败。新增 CliRequestPipe 管理一次上传、记录 IOException、清理描述符及有界等待线程，失败上传不保留成功回复。增加完整请求读取的正向回归；修复后上传/PFD/Binder 组合 **8/8** 通过，拒绝事务不重发、无未捕获异常、写线程退出。详见 [请求写线程缺陷](../../bug-fixes/2026-09-07-cli-request-pipe-writer.md)。本地 Binder/PFD 证据不替代真实 companion SIGKILL；远端长期持有描述符的全部内核阻塞情况仍需进一步验证。
+发现拒绝 256 KiB 请求时后台写线程 EPIPE 未被捕获；API 34 设备回归确证失败。新增 CliRequestPipe 管理一次上传、记录 IOException、清理描述符及有界等待线程，失败上传不保留成功回复。增加完整请求读取的正向回归；修复后上传/PFD/Binder 组合 **8/8** 通过，拒绝事务不重发、无未捕获异常、写线程退出。详见 [请求写线程缺陷](../../bug-fixes/2026-09-07-cli-job-remote-exception.md#case-2026-09-07-cli-request-pipe-writer)。本地 Binder/PFD 证据不替代真实 companion SIGKILL；远端长期持有描述符的全部内核阻塞情况仍需进一步验证。
 
-执行 `./gradlew :runtime:cli-client:testDebugUnitTest :runtime:cli-client:lintDebug :runtime:cli-client:assembleDebugAndroidTest :app:testDeveloperDebugUnitTest spotlessCheck detekt --continue --no-daemon --max-workers=2`（JDK 17）：CLI Client JVM 24/24、Developer JVM 300 通过/3 既有条件跳过，模块 Lint、构建、Spotless 通过。根 Detekt 42 项、无新增，总命令 exit 1。证据及 APK hash 见 `build/main-verification/cli-request-pipe-result.json`。持续 Goal active，ADR-GOAL-001 proposed、长稳后置保持。
+执行 `./gradlew :runtime:cli-client:testDebugUnitTest :runtime:cli-client:lintDebug :runtime:cli-client:assembleDebugAndroidTest :app:testDeveloperDebugUnitTest spotlessCheck detekt --continue --no-daemon --max-workers=2`（JDK 17）：CLI Client JVM 24/24、Developer JVM 300 通过/3 既有条件跳过，模块 Lint、构建、Spotless 通过。根 Detekt 42 项、无新增，总命令 exit 1。证据及 APK hash 见 `build/main-verification/cli-request-pipe-result.json`。
 
 ## HXA-102 收口期间：CLI 上传提前接受与保留读取端
 
 新增 CliPrematureAcceptanceDeviceTest：不读取 256 KiB 请求即返回 ACCEPTED，以及保留 PFD 读取端但不消费时提前返回 ACCEPTED。两者均要求传输返回 HANDSHAKE_FAILED/无成功记录，事务一次；保留读取端的清理须在三秒内返回，早于五秒夹具兜底，释放读取端后写线程退出。与上传/PFD/Binder 组合 **10/10** 通过（约 1.073 秒）。未发现需要进一步修改生产代码的缺陷。此项为 API 34 本地 Android Binder/PFD，不能替代真实 companion SIGKILL 或所有内核阻塞情形。
 
-命令 `./gradlew :runtime:cli-client:assembleDebugAndroidTest spotlessCheck detekt --continue --no-daemon --max-workers=2`（JDK 17）：测试构建/Spotless 通过，根 Detekt 仍 42 项、无新增，总命令 exit 1。本轮仅测试修改，未重跑 JVM/Lint。日志和 APK hash：`build/main-verification/cli-premature-ack-result.json`。持续 Goal active，ADR-GOAL-001 proposed、长稳后置保持。
+命令 `./gradlew :runtime:cli-client:assembleDebugAndroidTest spotlessCheck detekt --continue --no-daemon --max-workers=2`（JDK 17）：测试构建/Spotless 通过，根 Detekt 仍 42 项、无新增，总命令 exit 1。本轮仅测试修改，未重跑 JVM/Lint。日志和 APK hash：`build/main-verification/cli-premature-ack-result.json`。
 
 ## HXA-102 收口期间：当前 CLI Runtime 跨进程 fixture 恢复
 
@@ -608,19 +608,19 @@ API 34 真实 Parcel/PFD 注入复现不可读描述符的 IOException/EBADF 逃
 
 现有跨进程类缺少 Codex RUNNING 路径，补充与其他 Provider 一致的用例。最终同组 **8/8** 通过：CODEX/CLAUDE/GROK/COPILOT 四种请求封装分别完成 PFD 结果、对账后不重复交付，以及 RUNNING 取消→CANCELLED、debug 自杀后重绑查询→INTERRUPTED、再次查询一致。四平台均使用 Runtime 内先于账号分支的 helix-fixture/helix-fixture-wait；证明真实独立 Runtime 进程、Binder/PFD 和持久 Job 恢复，不证明真实订阅网络后端。系统 am_proc_died/am_proc_start 日志佐证进程死亡/启动。没有执行 oldRuntime、真实固定模型或付费账号用例。
 
-构建 `./gradlew :runtime:cli-app:assembleDebug :app:assembleDeveloperDebug :app:assembleDeveloperDebugAndroidTest --no-daemon --max-workers=2` 通过；新增用例后 `./gradlew :app:assembleDeveloperDebugAndroidTest spotlessCheck detekt --continue --no-daemon --max-workers=2` 的构建/Spotless 通过，根 Detekt 42 项，exit 1。完整选择器、日志、三个 APK hash 见 `build/main-verification/cli-runtime-cross-process-result.json`。本轮测试增补未重跑 JVM/Lint，且不代表主 App 被杀、提交/提交前后每一边界及真实模型网络全部完成。持续 Goal active，ADR-GOAL-001 proposed、长稳后置保持。
+构建 `./gradlew :runtime:cli-app:assembleDebug :app:assembleDeveloperDebug :app:assembleDeveloperDebugAndroidTest --no-daemon --max-workers=2` 通过；新增用例后 `./gradlew :app:assembleDeveloperDebugAndroidTest spotlessCheck detekt --continue --no-daemon --max-workers=2` 的构建/Spotless 通过，根 Detekt 42 项，exit 1。完整选择器、日志、三个 APK hash 见 `build/main-verification/cli-runtime-cross-process-result.json`。本轮测试增补未重跑 JVM/Lint，且不代表主 App 被杀、提交/提交前后每一边界及真实模型网络全部完成。
 
 ## HXA-102 收口期间：CLI 跨进程测试结构清理
 
 将四个平台的运行中取消/进程死亡用例从 CliRuntimeHandshakeE2eDeviceTest 移至 CliRuntimeRunningRecoveryDeviceTest，提取单次中断与 RUNNING 等待方法。保留四种 Provider、取消/kill 两分支、同 Job 查询一致、对账不重复交付等断言；用有界 while 计数替换未使用的循环变量，未跳过或删除场景。旧类保留历史兼容、冷绑定及 PFD 对账用例。此项仅测试代码清理。
 
-`./gradlew :app:assembleDeveloperDebugAndroidTest spotlessCheck detekt --continue --no-daemon --max-workers=2`（JDK 17）：测试构建、Spotless 通过，根 Detekt **42→39**，总命令 exit 1。安装后重跑原四平台 PFD 对账与四平台 RUNNING 恢复组合 **8/8** 通过（19.01 秒），没有以更小子集替代原场景。选择器、日志及 APK hash 见 `build/main-verification/cli-runtime-test-split-result.json`。仅测试修改，未重跑 JVM/Lint；真实账号网络、主 App 被杀及完整中断矩阵仍待验。持续 Goal active，ADR-GOAL-001 proposed、长稳后置保持。
+`./gradlew :app:assembleDeveloperDebugAndroidTest spotlessCheck detekt --continue --no-daemon --max-workers=2`（JDK 17）：测试构建、Spotless 通过，根 Detekt **42→39**，总命令 exit 1。安装后重跑原四平台 PFD 对账与四平台 RUNNING 恢复组合 **8/8** 通过（19.01 秒），没有以更小子集替代原场景。选择器、日志及 APK hash 见 `build/main-verification/cli-runtime-test-split-result.json`。仅测试修改，未重跑 JVM/Lint；真实账号网络、主 App 被杀及完整中断矩阵仍待验。
 
 ## HXA-102 收口期间：CLI Service fixture 与后端选择分离
 
 提取 debug fixture 执行与等待取消逻辑，降低 CliRuntimeService.onCreate 长度。BuildConfig.DEBUG 门保持；四个订阅后端选择、凭据 ownership、activeModel 安装/清理与取消行为未改变。没有新增网络调用或发布能力。
 
-执行 `./gradlew :runtime:cli-app:testDebugUnitTest :runtime:cli-app:lintDebug :runtime:cli-app:assembleDebug :runtime:cli-app:compileReleaseKotlin spotlessCheck detekt --continue --no-daemon --max-workers=2`（JDK 17）：Runtime JVM **77/77**，模块 Lint、Debug 构建、Release Kotlin 编译、Spotless 通过；根 Detekt **39→38**，总命令 exit 1。安装新 Runtime 后四平台 PFD/运行中取消/进程死亡恢复组合 **8/8** 通过（19.721 秒）。Release 编译不等于 Release 功能/发布验收；debug fixture 不等于真实账号网络。日志与 APK hash 见 `build/main-verification/cli-service-fixture-result.json`。持续 Goal active，ADR-GOAL-001 proposed、长稳后置保持。
+执行 `./gradlew :runtime:cli-app:testDebugUnitTest :runtime:cli-app:lintDebug :runtime:cli-app:assembleDebug :runtime:cli-app:compileReleaseKotlin spotlessCheck detekt --continue --no-daemon --max-workers=2`（JDK 17）：Runtime JVM **77/77**，模块 Lint、Debug 构建、Release Kotlin 编译、Spotless 通过；根 Detekt **39→38**，总命令 exit 1。安装新 Runtime 后四平台 PFD/运行中取消/进程死亡恢复组合 **8/8** 通过（19.721 秒）。Release 编译不等于 Release 功能/发布验收；debug fixture 不等于真实账号网络。日志与 APK hash 见 `build/main-verification/cli-service-fixture-result.json`。
 
 ## HXA-102 收口期间：CLI 本地可用性原因整理
 
@@ -628,31 +628,31 @@ API 34 真实 Parcel/PFD 注入复现不可读描述符的 IOException/EBADF 逃
 
 执行 `./gradlew :runtime:cli-client:testDebugUnitTest :runtime:cli-client:lintDebug :app:assembleDeveloperDebug :app:assembleDeveloperDebugAndroidTest spotlessCheck detekt --continue --no-daemon --max-workers=2`（JDK 17）：CLI Client JVM **24/24**、模块 Lint、构建、Spotless 通过，根 Detekt **38→37**，总命令 exit 1。专用 API 34 实际 pm disable-user→DISABLED、am force-stop→FORCE_STOPPED、通过可见入口恢复后的正常绑定三项 **3/3** 通过；finally 恢复默认启用，最终 dumpsys 确认 enabled=0/stopped=false，与原状态相同。未登录、未删除数据、未操作其他模拟器。
 
-本轮不声称缺包、错误签名或真实账号重新验收；日志与 APK hash 见 `build/main-verification/cli-local-cause-result.json`。持续 Goal active，ADR-GOAL-001 proposed、长稳后置保持。
+本轮不声称缺包、错误签名或真实账号重新验收；日志与 APK hash 见 `build/main-verification/cli-local-cause-result.json`。
 
 ## HXA-102 收口期间：CLI 绑定流程拆分
 
 拆分本地拒绝检查、bindService 结果映射及连接等待，保留 SecurityException→SIGNATURE_MISMATCH、平台 RuntimeException/false→BIND_REFUSED、空绑定→HANDSHAKE_FAILED、等待中断→TIMEOUT 并恢复中断标志；绑定失败不执行无效 unbind，成功连接由调用方显式释放。新增六项 Android 绑定回调注入测试，并仅在测试 Manifest 声明 Runtime 包可见性，未扩大产品 Manifest。
 
-`./gradlew :runtime:cli-client:testDebugUnitTest :runtime:cli-client:lintDebug :runtime:cli-client:assembleDebugAndroidTest :app:assembleDeveloperDebug :app:assembleDeveloperDebugAndroidTest spotlessCheck detekt --continue --no-daemon --max-workers=2`（JDK 17）：CLI Client JVM **24/24**、Lint/构建/Spotless 通过；根 Detekt **37→36**，整体 exit 1。API 34 回调注入 **6/6**，另有真实 Runtime debug fixture 跨进程 PFD/取消/死亡恢复 **8/8**（19.736 秒）。两组证据分开记录，不将注入误记为真实系统异常；真实账号网络与完整 kill 矩阵仍未完成。日志、选择器及 APK hash 见 `build/main-verification/cli-binding-result.json`。持续 Goal active，ADR-GOAL-001 proposed、长稳后置保持。
+`./gradlew :runtime:cli-client:testDebugUnitTest :runtime:cli-client:lintDebug :runtime:cli-client:assembleDebugAndroidTest :app:assembleDeveloperDebug :app:assembleDeveloperDebugAndroidTest spotlessCheck detekt --continue --no-daemon --max-workers=2`（JDK 17）：CLI Client JVM **24/24**、Lint/构建/Spotless 通过；根 Detekt **37→36**，整体 exit 1。API 34 回调注入 **6/6**，另有真实 Runtime debug fixture 跨进程 PFD/取消/死亡恢复 **8/8**（19.736 秒）。两组证据分开记录，不将注入误记为真实系统异常；真实账号网络与完整 kill 矩阵仍未完成。日志、选择器及 APK hash 见 `build/main-verification/cli-binding-result.json`。
 
 ## HXA-102 收口期间：M11 测试 JSON/SSE 行长清理
 
 将 Grok/Copilot 测试的三段超长 JSON/SSE 字面量改成短字符串拼接，移除这三个测试文件的 ktlint 整文件 max-line-length 豁免。解析当前拼接表达式后比对修改前 SHA256，三段 fixture 字节完全一致；未删除测试、改变协议输入或断言。
 
-`./gradlew :runtime:cli-app:testDebugUnitTest spotlessCheck detekt --continue --no-daemon --max-workers=2`（JDK 17）：Runtime JVM **77/77**、Spotless 通过，根 Detekt **36→33**，整体 exit 1。字节 hash 与日志见 `build/main-verification/cli-test-json-result.json`。仅测试字面量排版，未重跑设备/Lint；持续 Goal active，ADR-GOAL-001 proposed、长稳后置保持。
+`./gradlew :runtime:cli-app:testDebugUnitTest spotlessCheck detekt --continue --no-daemon --max-workers=2`（JDK 17）：Runtime JVM **77/77**、Spotless 通过，根 Detekt **36→33**，整体 exit 1。字节 hash 与日志见 `build/main-verification/cli-test-json-result.json`。仅测试字面量排版，未重跑设备/Lint；
 
 ## HXA-102 收口期间：订阅模块双变体契约
 
 新增 SubscriptionProviderIntegration 明确共享的注册、创建、托管判断、探测覆盖与账号入口方法；Consumer/Developer 对象显式实现契约，由编译器检查方法签名。Consumer 仍返回原有无注册/无客户端/无探测覆盖/不支持账号入口的结果，未引入 Runtime 客户端或产品能力。Developer 保留原接线，同时将 openAccount 的 Runtime 不可用分支整理为表达式，保留 NOT_SUPPORTED 与 RUNTIME_UNAVAILABLE 的区别。未增加 suppress 或修改静态门限。
 
-`./gradlew :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest :app:lintConsumerDebug :app:lintDeveloperDebug spotlessCheck detekt --continue --no-daemon --max-workers=2`（JDK 17）：Consumer **288 通过/3 既有跳过**，Developer **300 通过/3 既有跳过**，无失败；双变体 Lint/Spotless 通过。根 Detekt **33→21**，原 Consumer 常量返回/未使用参数由正式 override 契约解决，Developer 多出口同时消除；没有新增豁免或放宽规则，整体命令仍 exit 1。日志与源码 hash：`build/main-verification/subscription-variant-contract-result.json`。本轮未运行设备或账号测试；持续 Goal active，ADR-GOAL-001 proposed、长稳后置保持。
+`./gradlew :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest :app:lintConsumerDebug :app:lintDeveloperDebug spotlessCheck detekt --continue --no-daemon --max-workers=2`（JDK 17）：Consumer **288 通过/3 既有跳过**，Developer **300 通过/3 既有跳过**，无失败；双变体 Lint/Spotless 通过。根 Detekt **33→21**，原 Consumer 常量返回/未使用参数由正式 override 契约解决，Developer 多出口同时消除；没有新增豁免或放宽规则，整体命令仍 exit 1。日志与源码 hash：`build/main-verification/subscription-variant-contract-result.json`。本轮未运行设备或账号测试；
 
 ## HXA-102 收口期间：CLI Job 提交回复编码整理
 
 将 CliRuntimeServiceBinder 的提交 PFD 解析和 runner.submit 结果映射提取为 writeSubmit，保留 ACCEPTED、DUPLICATE、REQUEST_MISMATCH、BUSY、JOURNAL_FULL 回复码及原有查询/取消/对账分派。没有修改协议、增加重发或账号调用。
 
-`./gradlew :runtime:cli-app:testDebugUnitTest :runtime:cli-app:lintDebug :runtime:cli-app:assembleDebug spotlessCheck detekt --continue --no-daemon --max-workers=2`（JDK 17）：Runtime JVM **77/77**、Lint/构建/Spotless 通过，根 Detekt **21→20**，整体 exit 1。新 Runtime 与既有已安装 Developer App/测试 APK 配对，四平台跨进程 fixture **8/8**（20.457 秒），不作为所有 main 最新修改同 APK 的全量验收。日志及配对 APK hash 见 `build/main-verification/cli-submit-reply-result.json`。持续 Goal active，ADR-GOAL-001 proposed、长稳后置保持。
+`./gradlew :runtime:cli-app:testDebugUnitTest :runtime:cli-app:lintDebug :runtime:cli-app:assembleDebug spotlessCheck detekt --continue --no-daemon --max-workers=2`（JDK 17）：Runtime JVM **77/77**、Lint/构建/Spotless 通过，根 Detekt **21→20**，整体 exit 1。新 Runtime 与既有已安装 Developer App/测试 APK 配对，四平台跨进程 fixture **8/8**（20.457 秒），不作为所有 main 最新修改同 APK 的全量验收。日志及配对 APK hash 见 `build/main-verification/cli-submit-reply-result.json`。
 
 ## HXA-102 收口期间：CLI Job 状态与载荷存储分离
 
@@ -660,7 +660,7 @@ API 34 真实 Parcel/PFD 注入复现不可读描述符的 IOException/EBADF 逃
 
 `./gradlew :runtime:cli-app:testDebugUnitTest :runtime:cli-app:lintDebug :runtime:cli-app:assembleDebug spotlessCheck detekt --continue --no-daemon --max-workers=2`（JDK 17）：Lint/构建/Spotless 通过，根 Detekt **20→19**。首轮 JVM 79 项中新增测试因遗漏终态记录必需的 terminalAtEpochMillis 而失败 1 项；修正测试数据后执行 `./gradlew :runtime:cli-app:testDebugUnitTest spotlessCheck --no-daemon --max-workers=2`，**79/79、零跳过**及 Spotless 通过。首轮失败与复验日志均保留。
 
-新 Runtime APK 与既有已安装 Developer App/测试 APK 配对，API 34 跨进程 fixture **8/8**（20.767 秒），涵盖载荷对账及运行中取消/死亡恢复。配对 APK 的设备端 SHA256、命令及日志见 `build/main-verification/cli-payload-store-result.json`；不作为最新 main 同 APK 全量验收或真实账号网络结果。持续 Goal active，ADR-GOAL-001 proposed、长稳后置保持。
+新 Runtime APK 与既有已安装 Developer App/测试 APK 配对，API 34 跨进程 fixture **8/8**（20.767 秒），涵盖载荷对账及运行中取消/死亡恢复。配对 APK 的设备端 SHA256、命令及日志见 `build/main-verification/cli-payload-store-result.json`；不作为最新 main 同 APK 全量验收或真实账号网络结果。
 
 ## HXA-102 收口期间：CLI 等待中断取消遗漏
 
@@ -668,7 +668,7 @@ API 34 真实 Parcel/PFD 注入复现不可读描述符的 IOException/EBADF 逃
 
 `./gradlew :runtime:cli-client:testDebugUnitTest :runtime:cli-client:lintDebug :app:testDeveloperDebugUnitTest :app:assembleDeveloperDebug :app:assembleDeveloperDebugAndroidTest spotlessCheck detekt --continue --no-daemon --max-workers=2`（JDK 17）：Client **30/30**，Developer **300 通过/3 既有跳过**，模块 Lint/构建/Spotless 通过；根 Detekt **19→18**，总命令 exit 1。新 Developer App/测试 APK 与已安装 Runtime 配对，API 34 原八项加多连接中断取消用例 **9/9**（21.186 秒）。
 
-首轮、改进观察条件后的失败、修复后结果及设备端 APK hash 见 `build/main-verification/cli-await-result.json`。该结果验证真实跨进程 debug fixture；尚不代表全部 UI Stop、真实订阅网络或完整 main 同 APK 验收。持续 Goal active，ADR-GOAL-001 proposed、长稳后置保持。
+首轮、改进观察条件后的失败、修复后结果及设备端 APK hash 见 `build/main-verification/cli-await-result.json`。该结果验证真实跨进程 debug fixture；尚不代表全部 UI Stop、真实订阅网络或完整 main 同 APK 验收。
 
 ## HXA-102 收口期间：Codex 连通性响应完成与读取上限
 
@@ -676,15 +676,15 @@ API 34 真实 Parcel/PFD 注入复现不可读描述符的 IOException/EBADF 逃
 
 `./gradlew :runtime:cli-app:testDebugUnitTest :runtime:cli-app:lintDebug :runtime:cli-app:assembleDebug :runtime:cli-app:compileReleaseKotlin spotlessCheck detekt --continue --no-daemon --max-workers=2`（JDK 17）：Runtime JVM **88/88、零跳过**，模块 Lint、Debug 构建、Release Kotlin 编译、Spotless 通过；根 Detekt **18→14**，整体 exit 1。日志与源码/构建产物 hash 见 `build/main-verification/codex-smoke-stream-result.json`。
 
-本轮为本地响应解析验证，未安装新 Runtime APK、未运行设备或订阅账号网络测试，不据此扩写真实账号或 Release 验收。持续 Goal active，ADR-GOAL-001 proposed、长稳后置保持。
+本轮为本地响应解析验证，未安装新 Runtime APK、未运行设备或订阅账号网络测试，不据此扩写真实账号或 Release 验收。
 
 ## HXA-102 收口期间：Codex 模型目录结构验证
 
-提取 CodexSmokeCatalog 并修复目录项类型未验证的问题：非对象项原先抛出未分类异常，数字 slug 原先被当作模型名称。修复前八项中两项失败，修复后八项通过；保留选择顺序、隐藏项过滤及原始字节上限，错误结构归 models-protocol，空目录归 models-empty。详见[缺陷记录](../../bug-fixes/2026-09-07-codex-smoke-catalog-shape.md)。
+提取 CodexSmokeCatalog 并修复目录项类型未验证的问题：非对象项原先抛出未分类异常，数字 slug 原先被当作模型名称。修复前八项中两项失败，修复后八项通过；保留选择顺序、隐藏项过滤及原始字节上限，错误结构归 models-protocol，空目录归 models-empty。详见[缺陷记录](../../bug-fixes/2026-09-07-codex-smoke-stream-completion.md#case-2026-09-07-codex-smoke-catalog-shape)。
 
 `./gradlew :runtime:cli-app:testDebugUnitTest :runtime:cli-app:lintDebug :runtime:cli-app:assembleDebug :runtime:cli-app:compileReleaseKotlin spotlessCheck detekt --continue --no-daemon --max-workers=2`（JDK 17）：Runtime JVM **96/96、零跳过**，模块 Lint、Debug 构建、Release Kotlin 编译、Spotless 通过；根 Detekt **14→13**，整体 exit 1。首轮与复验日志、源码及产物 hash 见 `build/main-verification/codex-smoke-catalog-result.json`。
 
-本轮为本地目录响应验证，未安装新 Runtime APK 或复验设备/真实账号网络；Release 编译不是发布验收。持续 Goal active，ADR-GOAL-001 proposed、长稳后置保持。
+本轮为本地目录响应验证，未安装新 Runtime APK 或复验设备/真实账号网络；Release 编译不是发布验收。
 
 ## HXA-102 收口期间：订阅 Provider 设备契约测试整理
 
@@ -692,7 +692,7 @@ API 34 真实 Parcel/PFD 注入复现不可读描述符的 IOException/EBADF 逃
 
 `./gradlew :app:assembleDeveloperDebug :app:assembleDeveloperDebugAndroidTest spotlessCheck detekt --continue --no-daemon --max-workers=2`（JDK 17）：构建、Spotless 通过，根 Detekt **13→12**，整体 exit 1。新 Developer App/测试 APK 配对既有已安装 Runtime，API 34 四个 Provider debug fixture 集成用例 **4/4**（2.939 秒）；验证探测、模型事件、聊天 COMPLETED、持久化 Turn 及单次 modelCall。日志、精确选择器及设备端 APK hash 见 `build/main-verification/subscription-contract-test-result.json`。
 
-本轮为测试辅助函数整理，未重复运行 JVM/Lint；未覆盖真实账号网络或登录 UI，也不代表最新 Runtime 构建已经安装。持续 Goal active，ADR-GOAL-001 proposed、长稳后置保持。
+本轮为测试辅助函数整理，未重复运行 JVM/Lint；未覆盖真实账号网络或登录 UI，也不代表最新 Runtime 构建已经安装。
 
 ## HXA-102 收口期间：Copilot 登录页面职责分离
 
@@ -700,7 +700,7 @@ API 34 真实 Parcel/PFD 注入复现不可读描述符的 IOException/EBADF 逃
 
 `./gradlew :runtime:cli-app:testDebugUnitTest :runtime:cli-app:lintDebug :runtime:cli-app:assembleDebug :runtime:cli-app:compileReleaseKotlin spotlessCheck detekt --continue --no-daemon --max-workers=2`（JDK 17）：Runtime JVM **96/96、零跳过**，模块 Lint、Debug 构建、Release Kotlin 编译、Spotless 通过；根 Detekt **12→10**，整体 exit 1。安装新 Runtime 后，API 34 Copilot 显式账号入口 **1/1**（0.288 秒），UI hierarchy 确认六按钮及未登录时仅生成 Device Code 启用。
 
-未点击生成码、浏览器、取消或删除凭据；捕获后 Back 退出。此证据仅覆盖未登录初态，不作为实际登录/网络/取消验收，也不是第二阶段统一 UI 优化完成。日志、UI 检查及设备端 APK hash 见 `build/main-verification/copilot-content-result.json`。持续 Goal active，ADR-GOAL-001 proposed、长稳后置保持。
+未点击生成码、浏览器、取消或删除凭据；捕获后 Back 退出。此证据仅覆盖未登录初态，不作为实际登录/网络/取消验收，也不是第二阶段统一 UI 优化完成。日志、UI 检查及设备端 APK hash 见 `build/main-verification/copilot-content-result.json`。
 
 ## HXA-102 收口期间：Grok 登录页面职责分离
 
@@ -708,7 +708,7 @@ API 34 真实 Parcel/PFD 注入复现不可读描述符的 IOException/EBADF 逃
 
 `./gradlew :runtime:cli-app:testDebugUnitTest :runtime:cli-app:lintDebug :runtime:cli-app:assembleDebug :runtime:cli-app:compileReleaseKotlin spotlessCheck detekt --continue --no-daemon --max-workers=2`（JDK 17）：Runtime JVM **96/96、零跳过**，模块 Lint、Debug 构建、Release Kotlin 编译、Spotless 通过；根 Detekt **10→8**，整体 exit 1。新 Runtime APK 的 API 34 Grok 显式账号入口 **1/1**（0.291 秒），UI hierarchy 验证六按钮及未登录时仅生成 Device Code 启用。
 
-没有点击登录、浏览器或删除凭据；检查后 Back 退出。未复验真实账号网络/取消流程，不作为第二阶段统一 UI 优化完成。日志、UI 状态和设备端 APK hash 见 `build/main-verification/grok-content-result.json`。持续 Goal active，ADR-GOAL-001 proposed、长稳后置保持。
+没有点击登录、浏览器或删除凭据；检查后 Back 退出。未复验真实账号网络/取消流程，不作为第二阶段统一 UI 优化完成。日志、UI 状态和设备端 APK hash 见 `build/main-verification/grok-content-result.json`。
 
 ## HXA-102 收口期间：Codex 固定探测与错误文案职责分离
 
@@ -716,7 +716,7 @@ API 34 真实 Parcel/PFD 注入复现不可读描述符的 IOException/EBADF 逃
 
 `./gradlew :runtime:cli-app:testDebugUnitTest :runtime:cli-app:lintDebug :runtime:cli-app:assembleDebug :runtime:cli-app:compileReleaseKotlin spotlessCheck detekt --continue --no-daemon --max-workers=2`（JDK 17）：Runtime JVM **96/96、零跳过**，Lint、Debug 构建、Release Kotlin 编译、Spotless 通过；根 Detekt **8→5**，整体 exit 1。初次提取遗留的表达式尾逗号导致格式检查失败，修正后通过；首轮日志保留。
 
-新 Runtime APK 的 API 34 Codex 显式账号入口 **1/1**（0.290 秒）；UI hierarchy 检查八按钮、未登录时仅两个登录入口启用。未点击登录或固定探测按钮，检查后 Back 退出；不作为真实账号/网络探测验收。日志和设备端 APK hash 见 `build/main-verification/codex-smoke-job-result.json`。持续 Goal active，ADR-GOAL-001 proposed、长稳后置保持。
+新 Runtime APK 的 API 34 Codex 显式账号入口 **1/1**（0.290 秒）；UI hierarchy 检查八按钮、未登录时仅两个登录入口启用。未点击登录或固定探测按钮，检查后 Back 退出；不作为真实账号/网络探测验收。日志和设备端 APK hash 见 `build/main-verification/codex-smoke-job-result.json`。
 
 ## HXA-102 收口期间：Codex 登录页面布局职责分离
 
@@ -724,15 +724,15 @@ API 34 真实 Parcel/PFD 注入复现不可读描述符的 IOException/EBADF 逃
 
 初轮格式检查发现长行，初轮编译发现按钮属性/方法同名导致引用歧义，分别通过拆行和明确的剪贴板方法名修正，保留失败日志。最终执行 `./gradlew :runtime:cli-app:testDebugUnitTest :runtime:cli-app:lintDebug :runtime:cli-app:assembleDebug :runtime:cli-app:compileReleaseKotlin spotlessCheck detekt --continue --no-daemon --max-workers=2`（JDK 17）：Runtime JVM **96/96、零跳过**，Lint、Debug 构建、Release Kotlin 编译、Spotless 通过；根 Detekt **5→3**，整体 exit 1。
 
-安装新 Runtime，API 34 显式账号入口 **1/1**（0.285 秒）；与上一轮 UI hierarchy 逐项比较，八按钮文案及启用状态完全一致。未点击登录/固定探测，Back 退出；未覆盖真实网络登录和取消，不作为全量 UI 验收。日志及设备端 APK hash 见 `build/main-verification/codex-content-result.json`。持续 Goal active，ADR-GOAL-001 proposed、长稳后置保持。
+安装新 Runtime，API 34 显式账号入口 **1/1**（0.285 秒）；与上一轮 UI hierarchy 逐项比较，八按钮文案及启用状态完全一致。未点击登录/固定探测，Back 退出；未覆盖真实网络登录和取消，不作为全量 UI 验收。日志及设备端 APK hash 见 `build/main-verification/codex-content-result.json`。
 
 ## HXA-102 收口期间：刷新异常边界与 Detekt 归零
 
-移除 CodexSubscriptionSmoke 对刷新错误的通用捕获及消息猜测，保留控制器自身的永久失效删除/临时错误保留规则。新增六项本地 HTTP 拦截回归，修复前取消/参数异常两项失败，修复后通过；还验证令牌轮换、一次刷新及重复 401 不发 POST。详见[缺陷记录](../../bug-fixes/2026-09-07-codex-smoke-refresh-exceptions.md)。
+移除 CodexSubscriptionSmoke 对刷新错误的通用捕获及消息猜测，保留控制器自身的永久失效删除/临时错误保留规则。新增六项本地 HTTP 拦截回归，修复前取消/参数异常两项失败，修复后通过；还验证令牌轮换、一次刷新及重复 401 不发 POST。详见[缺陷记录](../../bug-fixes/2026-09-07-codex-smoke-stream-completion.md#case-2026-09-07-codex-smoke-refresh-exceptions)。
 
 `./gradlew :runtime:cli-app:testDebugUnitTest :runtime:cli-app:lintDebug :runtime:cli-app:assembleDebug :runtime:cli-app:compileReleaseKotlin spotlessCheck detekt --continue --no-daemon --max-workers=2`（JDK 17）：**exit 0**，Runtime JVM **102/102、零跳过**，模块 Lint、Debug 构建、Release Kotlin 编译、Spotless、根 Detekt 全部通过。最后三项 Detekt 已消除；首轮 53 项历史报告保留，没有新增豁免或放宽规则。
 
-有效失败基线与夹具初次编译/格式修正日志分别保存，最终命令、源码/产物 hash 见 `build/main-verification/codex-smoke-refresh-result.json`。本轮没有安装新 Runtime 或调用真实账号；根 Detekt 通过不代表根 lintDebug、全仓 JVM、同 APK 全量设备矩阵已完成。持续 Goal active，ADR-GOAL-001 proposed、长稳后置保持。
+有效失败基线与夹具初次编译/格式修正日志分别保存，最终命令、源码/产物 hash 见 `build/main-verification/codex-smoke-refresh-result.json`。本轮没有安装新 Runtime 或调用真实账号；根 Detekt 通过不代表根 lintDebug、全仓 JVM、同 APK 全量设备矩阵已完成。
 
 ## HXA-102 收口期间：全仓 JVM、Lint 与构建统一复验
 
@@ -758,7 +758,7 @@ HELIX_CONNECTOR_SAMPLE_ZIP="$PWD/app/build/outputs/connector-handoff-672dc5a/inp
 
 证据：`build/main-verification/full-main-jvm-lint-result.json`、`full-main-release-flavor-build-result.json`。记录任务范围、逐模块测试计数、条件实例、输入 hash、八个 APK hash；`full-main-jvm-lint-source.json` 的 1,031 个源码/配置文件在两组命令期间均未变化。构建和 Lint 可使用有效缓存，JVM Test task 本轮全部实际执行。
 
-本轮未安装上述 APK，没有将主机侧门禁扩写为设备、签名/商店或真机验收。依赖锁/许可证/secrets 检查、同当前 APK 的固定评测与设备完整矩阵、剩余功能边界及第二阶段统一交互优化继续待办。持续 Goal active，ADR-GOAL-001 proposed、长稳后置保持。
+本轮未安装上述 APK，没有将主机侧门禁扩写为设备、签名/商店或真机验收。依赖锁/许可证/secrets 检查、同当前 APK 的固定评测与设备完整矩阵、剩余功能边界及第二阶段统一交互优化继续待办。
 
 ## HXA-102 收口期间：依赖锁与辅助门禁
 
@@ -776,7 +776,7 @@ CLI 边界脚本首轮仍要求 PFD 实现在旧 Client 文件，并依赖被格
 - `bash scripts/check-a2a-minimal-android-spike.sh`：最小客户端 minApi 29 R8 通过。
 - `bash scripts/check-cli-runtime-lock.sh`：七个固定制品下载 hash、锁元数据与 APK 不捆绑边界通过。OpenAI terms-of-use URL 自动读取返回 **403**，按脚本原规则保留记录；声明链接检查不是法律条款完整读取或分发授权。
 
-日志与校验范围见 `build/main-verification/main-auxiliary-gates-result.json`；锁配置差异见 `cli-client-lint-lock-diff.json`。先前 2,602 JVM 与 APK/Lint 结果保持其原源码快照，本轮只补充 Lint 锁配置及边界脚本适配，不伪造重跑全量 JVM 的记录。PRoot 实际资产检查、设备矩阵、固定模型统一评测和功能/UI 剩余项继续；持续 Goal active，ADR-GOAL-001 proposed、长稳后置保持。
+日志与校验范围见 `build/main-verification/main-auxiliary-gates-result.json`；锁配置差异见 `cli-client-lint-lock-diff.json`。先前 2,602 JVM 与 APK/Lint 结果保持其原源码快照，本轮只补充 Lint 锁配置及边界脚本适配，不伪造重跑全量 JVM 的记录。PRoot 实际资产检查、设备矩阵、固定模型统一评测和功能/UI 剩余项继续；
 
 ## HXA-102 收口期间：PRoot 实际资产复核
 
@@ -786,7 +786,7 @@ CLI 边界脚本首轮仍要求 PFD 实现在旧 Client 文件，并依赖被格
 
 从已验证 tar 提取所有常规 ELF 文件，加上四个 PRoot 侧二进制，执行 `./gradlew :runtime:proot-core:assetGate "-PassetGateArgs=--min-align 16384 --expect-machine 183 $PWD/build/main-verification/proot-assets-audit" --no-daemon --max-workers=2`（JDK 17）：**179 个 ELF、min PT_LOAD p_align=16384、e_machine=183，通过**。本次不重复计算符号链接别名，因此不能与历史整树遍历的 364 条路径计数直接比较。初轮相对路径在模块工作目录下不存在而失败；绝对路径复验通过，两轮均留证。
 
-结果及两 APK hash 见 `build/main-verification/proot-assets-audit-result.json`，文件映射和上游对应关系在 `proot-assets-audit/manifest.json` 与 `upstream-binary-parity.json`。这是锁、打包资产、许可证元数据/材料一致性及 ELF 字节检查，不作为法律分发结论或设备运行验收。当前主机侧既定门禁已获得记录，设备矩阵、统一固定评测、剩余功能及交互优化继续；持续 Goal active，ADR-GOAL-001 proposed、长稳后置保持。
+结果及两 APK hash 见 `build/main-verification/proot-assets-audit-result.json`，文件映射和上游对应关系在 `proot-assets-audit/manifest.json` 与 `upstream-binary-parity.json`。这是锁、打包资产、许可证元数据/材料一致性及 ELF 字节检查，不作为法律分发结论或设备运行验收。当前主机侧既定门禁已获得记录，设备矩阵、统一固定评测、剩余功能及交互优化继续；
 
 ## HXA-102 收口期间：当前 APK 的 API 34 模块与 CLI 恢复复验
 
@@ -794,7 +794,7 @@ CLI 边界脚本首轮仍要求 PFD 实现在旧 Client 文件，并依赖被格
 
 再执行 `./gradlew :app:assembleDeveloperDebugAndroidTest :app:assembleDeveloperDebug :runtime:cli-app:assembleDebug --no-daemon --max-workers=2`，通过；安装当前 Runtime、developer 主包和测试包，逐包核对设备 base.apk SHA256 与构建文件一致。选定 CLI 跨 UID PFD/取消/Runtime 死亡恢复/客户端中断等待 **9/9**，无跳过或失败；四平台 RUNNING 用例各覆盖 cancel 与实际 Runtime 进程退出，按同一 jobId 查询及 reconcile，额外 observer 绑定下中断等待仍落为 CANCELLED。
 
-完整命令、安装日志、五个 APK 的设备/主机 hash、测试输出及计数见 `build/main-verification/current-api34-modules/`（`result.json`、`recovery-apks.json`、`recovery-command.json`、`recovery-result.json`）。本组是模拟器和 debug model fixture 证据，不是四平台真实账号模型调用，不替代主 App 执行中死亡、API 29/36 矩阵、统一固定评测或长稳。持续 Goal 保持 active。
+完整命令、安装日志、五个 APK 的设备/主机 hash、测试输出及计数见 `build/main-verification/current-api34-modules/`（`result.json`、`recovery-apks.json`、`recovery-command.json`、`recovery-result.json`）。本组是模拟器和 debug model fixture 证据，不是四平台真实账号模型调用，不替代主 App 执行中死亡、API 29/36 矩阵、统一固定评测或长稳。
 
 ## HXA-102 收口期间：API 29/36 当前 APK 模块矩阵
 
@@ -850,7 +850,7 @@ Accessibility 评测改为模型真实 ui.snapshot 后选择 token、申请精�
 
 选择本轮同一主包/测试包的结果（browser使用明确标记的本轮复验），对照不可变TSV逐ID核对：**45/45**，无缺项/重复；11组配置中的两个安装APK hash完全相同，并与当前构建文件逐字节hash一致。MCP/A2A宿主执行计数门禁均通过。证据 `build/main-verification/fixed45-current-snapshot-api34/aggregate-result.json`，其中 `allPassed=true`、`firstAttemptAllPassed=false`、`retryCount=1`；原browser FAIL路径与每个case文件均列出。不是使用此前不同APK的结果拼接，也不是首轮全过。
 
-模型为真实本地SGLang；MCP/A2A和Automation目标仍是合成fixture，Root是rooted AVD，不扩大为物理设备或受保护账号验收。API36浏览器短时27/27、文件38/38、Android工具30/30亦通过（`current-api36-basic-modules/result.json`）。PRoot模块两API测试正在执行，宿主分阶段生命周期、其他设备和剩余功能/UI仍待完成；持续Goal active。
+模型为真实本地SGLang；MCP/A2A和Automation目标仍是合成fixture，Root项目是合成系统授权/时钟的负向边界，未执行实际特权操作，不扩大为真实 Root 或受保护账号验收。API36浏览器短时27/27、文件38/38、Android工具30/30亦通过（`current-api36-basic-modules/result.json`）。PRoot模块两API测试正在执行，宿主分阶段生命周期、其他设备和剩余功能/UI仍待完成；持续Goal active。
 
 PRoot模块后续结果：API29、API36各 **56/56**，无跳过或失败；包括真实内置RootFS安装、执行、隔离、取消与通知模块用例。API36测试前显式授予专用Runtime通知权限；宿主专用 `ProotLifecycleHostSetupDeviceTest` 不在本组选择中，仍须随分阶段宿主脚本另验。两台Runtime与测试APK安装hash均核对，命令/逐例日志见 `build/main-verification/current-proot-api29/`、`current-proot-api36/`。这是模块模拟器验收，不冒充完整主App跨进程生命周期矩阵或真机。
 
@@ -1002,7 +1002,7 @@ API29/36 × CODEX/CLAUDE/GROK/COPILOT共**8/8**，八次真实主进程SIGKILL�
 
 证据 `build/main-verification/proot-owner-kill-summary.json` 及两系统 `proot-owner-kill-api*/` 原始日志。API 29 原 result 的 scope 文案误带旧 CLI fixture 名称，原证据保留；实际测试类、guest 命令和启动标记均为 PRoot，聚合记录明确校正。测试 APK 构建、Spotless、Detekt通过（`proot-owner-kill-build.log`）。运行命令为 `python3 scripts/run-proot-owner-process-kill.py --adb <adb> --serial <emulator> --output <new-evidence-dir>`。
 
-此结果证明实际 guest 启动后的直接 Runtime 客户端恢复，不替代完整 ChatService/Goal 的 bash 接线强杀，也不代表自然低内存回收或真机验收。后续仍验证生产绑定及文件写、浏览器、UI 动作等剩余阶段；开发 Goal 保持 active。
+此结果证明实际 guest 启动后的直接 Runtime 客户端恢复，不替代完整 ChatService/Goal 的 bash 接线强杀，也不代表自然低内存回收或真机验收。后续仍验证生产绑定及文件写、浏览器、UI 动作等剩余阶段；
 
 
 ## 2026-09-07：等待审批恢复后的显式拒绝
@@ -1034,7 +1034,7 @@ Developer JVM强制运行307/307、零跳过（初次缺样本条件的3条跳�
 
 完整Goal/Chat/审批/PRoot真实guest链路在API29/36各一次强杀、四次恢复通过，原Job查询/取消/对账、绑定hash/审批消费/预算和不重放均验证；证据 `build/main-verification/proot-goal-binding-summary.json`。这次不再是独立客户端保存测试marker代替生产持久关联；显式对账由测试调用生产API，用户对账UI仍未交付。新增持久化失败的提交前阻断测试，两系统LinuxRunTool套件共12/12；后者测试APK更新，完整Goal日志保留其原测试APKhash，生产APK相同。
 
-Developer JVM307/307零跳过、根lintDebug、Spotless、Detekt、developer构建通过。所有证据位于 `proot-binding-*` 和 `proot-goal-binding-*`。其他后端和剩余边界继续，开发Goal保持active。
+Developer JVM307/307零跳过、根lintDebug、Spotless、Detekt、developer构建通过。所有证据位于 `proot-binding-*` 和 `proot-goal-binding-*`。其他后端和剩余边界继续，
 
 
 ## 2026-09-07：M11完整Goal恢复、会话模型与Runtime冷启动
@@ -1071,7 +1071,7 @@ Developer JVM307/307零跳过、根lintDebug、Spotless、Detekt、developer构�
 
 ## 2026-09-07 超时执行边界修复
 
-区分执行器未提交的超时（确认零副作用）和提交后的超时（requiresReview=true）；保留 TIMEOUT 与原有有限重试/证明处理。两个回归先失败后通过；framework150/150、files110/110，无跳过，两发行包构建、Lint、Detekt通过。首次实现的 ReturnCount 静态失败保留，最终证据 `build/main-verification/timeout-review-final.log`。见 [缺陷记录](../../bug-fixes/2026-09-07-timeout-execution-boundary.md)，不作为设备 SIGKILL 验收。
+区分执行器未提交的超时（确认零副作用）和提交后的超时（requiresReview=true）；保留 TIMEOUT 与原有有限重试/证明处理。两个回归先失败后通过；framework150/150、files110/110，无跳过，两发行包构建、Lint、Detekt通过。首次实现的 ReturnCount 静态失败保留，最终证据 `build/main-verification/timeout-review-final.log`。见 [缺陷记录](../../bug-fixes/2026-09-07-cancelled-execution-review.md#case-2026-09-07-timeout-execution-boundary)，不作为设备 SIGKILL 验收。
 
 ## 2026-09-07 原子文件层实际进程死亡验证
 
@@ -1141,7 +1141,7 @@ ui-goal-event-fixed-build.log记录最新测试APK构建/Spotless/Detekt通过�
 
 ## 2026-09-07 输出校验失败的副作用待核对修复
 
-执行器完成后，输出schema失败现在保留INVALID_OUTPUT并携带requiresReview=true/sideEffectFree=false，避免普通FAILED丢失效果不确定性。回归先149通过/1失败，修复后framework150/150和files110/110通过；两发行包构建、root lintDebug、Spotless、Detekt通过。证据 `build/main-verification/invalid-output-review-{red,green}.log`，见 [缺陷记录](../../bug-fixes/2026-09-07-invalid-output-effect-review.md)。前一轮2620全仓快照早于此修复，不能作为此改动的全仓复验声明；本轮为相关模块验证。
+执行器完成后，输出schema失败现在保留INVALID_OUTPUT并携带requiresReview=true/sideEffectFree=false，避免普通FAILED丢失效果不确定性。回归先149通过/1失败，修复后framework150/150和files110/110通过；两发行包构建、root lintDebug、Spotless、Detekt通过。证据 `build/main-verification/invalid-output-review-{red,green}.log`，见 [缺陷记录](../../bug-fixes/2026-09-07-cancelled-execution-review.md#case-2026-09-07-invalid-output-effect-review)。前一轮2620全仓快照早于此修复，不能作为此改动的全仓复验声明；本轮为相关模块验证。
 
 ## 2026-09-07 M11 CLI 原始Job恢复控制器
 
@@ -1237,7 +1237,7 @@ API29/36 × CODEX/CLAUDE/GROK/COPILOT 全8组通过，8次强杀、16次恢复�
 
 客户端codec可往返该终态，恢复服务映射到明确页面文案；本地已有artifact仍可走独立回读。旧客户端遇到新枚举不能解码，保持不可用边界；未新增破坏性兼容回退。首次JVM回归2项中到期断言失败、时间边界项通过；实现后新增删除失败/重复恢复与同Job不再执行断言，共3项通过。CLI Runtime107/107、Client30/30，无失败/跳过；两发行包及Runtime构建、root lintDebug、Spotless、Detekt通过。证据 cli-evidence-expiry-red.log、cli-evidence-expiry-verified.log；首轮测试通配导入导致格式门禁失败，已修正，原日志保留。
 
-当前仅关闭实现与JVM门禁，不勾选整个到期待办：新状态跨UID Binder/PFD传输、实际恢复页面及设备文件清理仍需API29/36验收。没有修改系统时间、访问账号凭据、运行长稳或真机测试。整个Goal保持active。
+当前仅关闭实现与JVM门禁，不勾选整个到期待办：新状态跨UID Binder/PFD传输、实际恢复页面及设备文件清理仍需API29/36验收。没有修改系统时间、访问账号凭据、运行长稳或真机测试。
 
 ## 2026-09-07 CLI 到期结果跨 UID 与恢复 UI 验收
 
@@ -1285,7 +1285,7 @@ API29/36 × Consumer/Developer每组4/4，共16/16，无失败/跳过；其中�
 
 另修正evidenceExpired=true的SUCCEEDED记录仍显示成功的错误，状态映射优先显示过期说明且无Stop；中英文资源同步。有效JVM回归先失败后通过。首次全组Developer遇外部Connector HTTP/2 SocketTimeoutException，原proot-expiry-report-green.log保留；完整复跑Developer313/313、Consumer300/300，无跳过（proot-expiry-report-retry.log、proot-expiry-report-jvm-summary.json）。该轮随后Detekt发现ReturnCount，改为等价if表达式后定向回归1/1、双包构建、root lintDebug、Spotless、Detekt通过（proot-expiry-report-final.log）。未放宽规则或删除测试。
 
-本组只修正状态映射并明确缺失协议；未宣称PRoot结果恢复完成。过期状态实际设备导航、归档取回全链路仍待验，整个开发Goal保持active。
+本组只修正状态映射并明确缺失协议；未宣称PRoot结果恢复完成。过期状态实际设备导航、归档取回全链路仍待验，整个
 
 ## 2026-09-07 PRoot 非破坏性结果取回原语
 
@@ -1293,7 +1293,7 @@ API29/36 × Consumer/Developer每组4/4，共16/16，无失败/跳过；其中�
 
 API29/36 ProotResultArchiveDeviceTest各2/2：测试handler接入真实ProotRuntimeServiceBinder/Parcel/PFD，两次读取保留原未确认记录与归档；过期、已确认、文件缺失和RUNNING均拒绝。证据 build/main-verification/proot-result-fetch-summary.json、proot-result-fetch-api29/36.log，含安装Runtime/test APK hash。字节为合成归档载荷，handler在Runtime测试进程内，不声称跨UID、真实PRoot执行或内容完整性验收。临时fixture目录在finally删除，不影响安装资产。
 
-PRoot Client23/23、IPC40/40 JVM无失败/跳过；Runtime及测试APK构建、root lintDebug、Spotless、Detekt通过（proot-result-fetch-final-build.log）。首轮通用catch和复杂条件静态失败已按规则修正，保留原日志。客户端尚未接入产品恢复入口，私有持久保存/确认、跨UID强杀与UI仍见开放缺口；整个Goal保持active。
+PRoot Client23/23、IPC40/40 JVM无失败/跳过；Runtime及测试APK构建、root lintDebug、Spotless、Detekt通过（proot-result-fetch-final-build.log）。首轮通用catch和复杂条件静态失败已按规则修正，保留原日志。客户端尚未接入产品恢复入口，私有持久保存/确认、跨UID强杀与UI仍见开放缺口；
 
 ## 2026-09-07 PRoot 精确确认与删除失败修复
 
@@ -1475,7 +1475,7 @@ App/测试 APK、Spotless、Detekt、根级 lintDebug 通过（`proot-ack-ui-gat
 
 API29/36 × 正常完成/初始输出丢失，共四组真实 Goal 场景通过。正常路径模型收到 ToolResult 后结束回复，Turn/Call 均 COMPLETED，Goal 保持 PAUSED / RUN_FINISHED；生产 ChatService 结果动作可显示持久 stdout，重复本地读取后点击确认，经 Binder 精确 ACK 成功。Goal（含预算）、Turn、Call 前后完全相同，每台请求 5 次（含探测）。输出丢失回归仍为 INPUT_REQUIRED / NEEDS_REVIEW，每台 4 请求，无重发。两组皆完成本 fixture 清理。
 
-证据：`build/main-verification/proot-normal-goal-summary.json`、`proot-normal-goal-verified-emulator-*/result.json`、`proot-after-normal-failure-emulator-*/result.json`。资格 JVM 1/1、App/测试构建、Spotless、Detekt、根级 lintDebug 通过（`proot-normal-goal-fixed-build.log`）；Python/文档与 diff 检查通过。缺陷：`docs/bug-fixes/2026-09-07-proot-completed-call-state-mismatch.md`。
+证据：`build/main-verification/proot-normal-goal-summary.json`、`proot-normal-goal-verified-emulator-*/result.json`、`proot-after-normal-failure-emulator-*/result.json`。资格 JVM 1/1、App/测试构建、Spotless、Detekt、根级 lintDebug 通过（`proot-normal-goal-fixed-build.log`）；Python/文档与 diff 检查通过。缺陷：`docs/bug-fixes/2026-09-07-proot-output-failure-missing-review-recovery.md#case-2026-09-07-proot-completed-call-state-mismatch`。
 
 模型仍为脚本服务，恢复控件位于测试 Compose 容器但绑定生产 ChatService，未冒充完整页面导航/真实账号验收。真实 ACK 响应丢失后的 UI 重试、其余归档异常和最终全量门禁继续推进。
 

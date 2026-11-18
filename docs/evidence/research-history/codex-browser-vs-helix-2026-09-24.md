@@ -1,5 +1,7 @@
 # Codex 浏览器能力 vs Helix：差距分析
 
+> 09-24 历史研究：下文“截图仅返回引用”、QuickJS 一概离线及逐次审批是当时基线，不是当前能力缺口。工具图像回填与浏览器现状见 [Browser ADR](../../adr/platform/002-browser-lifecycle.md)，QuickJS 原生访问边界见 [Runtime ADR](../../adr/runtime/003-quickjs.md)。竞品内部机制只限当时公开材料；未见证据不等于不存在，也不能据此得出总体安全性排名。
+
 **日期**：2026-09-24
 **基线**：Helix HEAD `3cf89027`
 **问题**：Helix 有没有操作浏览器的能力？与 Codex 的 `control-in-app-browser` / `mcp__node_repl__js` 差什么？
@@ -240,3 +242,5 @@ Helix 的 QuickJS **不能**当 `node_repl` 用：不能联网、不能碰宿主
 ---
 
 *本文对 Codex 侧的描述来自公开文档与第三方排障资料（已在置信度中标注），Helix 侧结论全部来自本仓源码。未修改任何项目文件。*
+
+历史路径 `docs/architecture/local-code-execution.md` 的内容现归入 `docs/architecture/overview.md#本地执行域与恢复`；上文行号仅指当时快照。

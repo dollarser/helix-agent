@@ -1,5 +1,7 @@
 # 移动端 ASR 候选对照（2026-10-19）
 
+本页是 2026-10-19 的测量与当时选型。2026-10-26 后续离线默认选择见 [ModelScope 对照](modelscope-asr-selection-2026-10-26.md)，当前线上/离线装配见[语音集成](../../development/cloud-speech-integration.md)；旧模型数据继续作为对照，不是当前默认声明。
+
 本记录对应 Owner 追加的“候选都测准确率、速率，再真机测试”，承接 [ADR-PLATFORM-004](../../adr/platform/004-offline-voice-input.md) 和[离线语音输入实施证据](offline-voice-input-2026-10-19.md)。本轮只增加可选评测代码与证据，不替换产品默认模型、不增加云端或 TTS、不升级版本、不发布。ConsumerDebug 独立验证主应用保持 0.0.6 / code 1，原渠道应用与用户数据保留。
 
 ## 固定范围与方法

@@ -8,7 +8,7 @@
 
 ## 本轮删除与溯源
 
-删除62个文件：23个版本专用脚本（11个原跟踪、12个本地未跟踪）和39个旧日志/导航输出/发布产物；共216,059,832字节（约206MiB逻辑大小）。其中v0.0.4本地发布目录的六个文件包括两渠道APK、BUILDINFO、SHA256SUMS、旧发布说明及远端对象描述。版本号、提交和验收边界已转入上述主题摘要；SHA见[逐路径清单](../../../scripts/debug/archive/2026-10-10-historical-version-retirement.json)。SHA用于识别来源，不代表原始字节仍有备份；未跟踪脚本和已删日志不能从Git恢复，按Owner指示保留方法和摘要而非另存一份原始材料。
+删除62个文件：23个版本专用脚本（11个原跟踪、12个本地未跟踪）和39个旧日志/导航输出/发布产物；共216,059,832字节（约206MiB逻辑大小）。其中v0.0.4本地发布目录的六个文件包括两渠道APK、BUILDINFO、SHA256SUMS、旧发布说明及远端对象描述。版本号、提交和验收边界已转入上述主题摘要；逐路径清单可从 Git 提交 `028a62521` 的 `scripts/debug/archive/2026-10-10-historical-version-retirement.json` 恢复；当前工作树不再保留该历史清单。SHA用于识别来源，不代表原始字节仍有备份；未跟踪脚本和已删日志不能从Git恢复，按Owner指示保留方法和摘要而非另存一份原始材料。
 
 原跟踪脚本可按清单baseCommit/path从Git查看，不恢复为当前安装或验收入口。当前使用`run-owned-emulator.py`、`run-acceptance-matrix.py`、`instrumentation_junit.py`、`summarize-owned-runs.py`等支持入口，并按维护手册重新授权/冻结/验证。历史报告保留当时结果和失败，不把旧数量当当前门禁。
 

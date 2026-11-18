@@ -25,7 +25,7 @@
 | EV-03 FD 超限 | pilot 128→137，门限+8；已有取证将新增描述符归类为 goldfish pipe | 节点类型证明是模拟器图形通道，不足以排除 App/夹具生命周期导致的持有，也不能单凭三台并行证明因果。保留 FAIL_RESOURCE，在独占设备做相同负载/空闲与页面释放对照，定位谁打开/关闭；不得直接排除这类FD或放宽门限 |
 | 系统 Binder 采样 | 多轮 system UID-proxy 不可用，结果为 INCONCLUSIVE；API29-off-3 完整10805秒仍不是24小时验收 | 保留功能完成和资源证据不足的区别。采样接口不可用应记录能力缺口，不填零，不拼接中断轮次时长 |
 
-原始证据都在 main 忽略目录 `build/emulator-verification/`；重点为 `ev02-autofill-soak/`、`ev03-app-soak/pilot/` 和 `ev03-app-soak/pilot-fd-forensics.md`。未编辑历史 result.json、冻结身份或当前测试的 handoff/run-index。
+原始证据当时保存在 main 忽略目录 `build/emulator-verification/`；重点为 `ev02-autofill-soak/`、`ev03-app-soak/pilot/` 和 `ev03-app-soak/pilot-fd-forensics.md`。当时未编辑历史 result.json、冻结身份或在途测试的 handoff/run-index；这些旧本机制品已按页首 2026-10-12 清理说明退役，路径仅供追溯。
 
 ## 后续顺序
 

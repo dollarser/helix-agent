@@ -38,5 +38,5 @@ A journal containing only active or unacknowledged records can still refuse admi
 ## Related records
 
 - [Runtime lifecycle](../adr/runtime/001-execution-domains.md)
-- [Current TODO](../evidence/development/main-optimization-todo.md)
+- [Historical follow-up](../evidence/development/main-optimization-todo.md)
 - [HXA-102](../completion-records/HXA-102.md)

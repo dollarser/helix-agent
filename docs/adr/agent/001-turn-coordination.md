@@ -84,7 +84,7 @@ HXA-287 同时保留参数准备、execution-start、持久结算和通知的阶
 
 ### 2. 每个 Turn 保存 immutable execution snapshot
 
-从 schema v30 起，新 Turn 与 `turn_runtime_records` 在同一 Room transaction 创建。记录至少保存：
+当前 Room schema 固定为 1（历史 v30 引入记录见 Decision history）；新 Turn 与 `turn_runtime_records` 在同一 Room transaction 创建。记录至少保存：
 
 - providerId、modelId、providerSnapshot；
 - Agent mode、chatToolsEnabled、reasoning；
@@ -93,7 +93,7 @@ HXA-287 同时保留参数准备、execution-start、持久结算和通知的阶
 
 配置字段创建后不可改；usage checkpoint 只能单调推进并使用 CAS，stale owner 不能退款或重复消费。Goal Turn 存的是 Goal clamp 后的 effective budget。
 
-**进程死亡后不使用这些 checkpoint 复活旧 Turn。** 旧 Turn 的 runtime record 保留为审计、诊断和用量事实；successor Turn 重新经过 admission，创建新的 runtime snapshot 和新的 Turn budget。Goal 的累计预算/用量继续跨 Run 计算，不因 crash 或新 Turn 退款。
+**进程死亡后不使用这些 checkpoint 复活旧 Turn。** 旧 Turn 的 runtime record 保留为审计、诊断和用量事实；successor Turn 重新经过 admission，创建新的 runtime snapshot 和新的 Turn budget。已消费用量保留为审计事实；当前额度与自动续跑轮次按 [预算 ADR](006-model-data-budget-boundaries.md) 和 [Goal ADR](../goal/001-lifecycle-and-completion.md)，不恢复已撤销的累计 token/时长/工具数门禁。
 
 当前开发库按单一基线设计，不要求读取 v29 等旧开发版本，也不为旧 review-resume 入口保留 receipt/checkpoint 兼容字段。当前版本若缺少必要 runtime record，按损坏/不完整事实处理，不从当前 Settings 猜造原执行配置；successor Turn 必须创建自己的 snapshot。仍服务当前原子命令、去重和恢复的字段按真实调用保留，与旧版本兼容无关。
 ### Decision history — 2026-10-02：执行稳定性与业务结果验收分离
@@ -183,8 +183,8 @@ successor admission 必须：
 历史 NEEDS_REVIEW / INTERRUPTED 本身不再阻止创建 successor Turn。若仍存在未解决 effect：
 
 - 模型请求、历史检查和 read-only/inspection 工具可以继续；
-- side-effecting ToolCall 在 effect review/state verification 完成前 fail closed；首版可以保守阻止该 successor Turn 的 side-effecting tool，而不是试图猜 effect overlap；
-- ACKNOWLEDGED_UNKNOWN 允许用户继续，但可能重复原未知 effect 的新 ToolCall不能复用旧 approval/receipt，必须重新经过显式策略/审批；后续可在有可靠 effect-footprint 证据后细化为 overlap gate。
+- 普通新用户任务按正常权限准入，不因历史 UNKNOWN 全会话拒绝写入；自动核查自身仍限只读。原未知效果保留给模型，新动作不能盲重放旧调用；
+- ACKNOWLEDGED_UNKNOWN 只记录人工事实，不授予新权限；新的 ToolCall 不复用旧 approval/receipt，仍经过当前策略和必要审批。
 
 这保证 Session 可继续理解/检查当前世界，同时不会因为“开了新 Turn”就盲重放危险副作用。
 
@@ -194,7 +194,7 @@ Goal 可以跨多个 Turn/Run 持久存在，但 crash/review 后不恢复 same 
 
 - runCount 按新 Run 增加；
 - 已消费 Goal 累计 usage 不退款；
-- successor Turn 获得新的 Turn budget，再受剩余 Goal budget clamp；
+- successor Turn 获得新的执行快照；适用额度及自动续跑上限沿现行预算/Goal ADR，不恢复历史累计门禁；
 - review decision 成为新 Run 的 RecoverySummary 事实，不触发 `BLOCKED -> RUNNING` 的 same-run 特例；
 - Goal 有 unresolved effect 时可保持 BLOCKED；核查完成后进入可重新准入的 PAUSED/READY 语义，再由新的 Run 继续。
 
@@ -205,10 +205,10 @@ Goal 可以跨多个 Turn/Run 持久存在，但 crash/review 后不恢复 same 
 - exact clientRequestId dedup 在 blocker 前处理；原 accepted request 重驱返回原 Turn；
 - 真正 live 的 nonterminal Turn 继续阻止第二 live Turn；
 - INTERRUPTED 是旧 attempt 的终局，不阻止 successor admission；
-- NEEDS_REVIEW 不阻止 successor Turn/模型检查，但 effect gate 按 第 6 节 阻止危险 side effect；
+- NEEDS_REVIEW 不阻止普通 successor Turn；第 6 节保留原未知事实、不重放及自动核查只读边界；
 - 新会话普通发送默认 Queue；用户可将本会话发送方式持久设置为立即发送。该设置仅作用于后续新输入：发送时有可接收的 live Turn 则冻结其身份为 Steer，否则正常 Queue 准入。Steer 仍只在目标 Turn 的合法协调点进入；
 - 未消费 Queue 在输入框上方直接展示，正常完成后按原顺序消费。用户可对单项点击“立即发送”，重验证原配置、附件和当前 live Turn 后以 revision CAS 转为 Steer；保留原输入身份和内容，不能复制重提、默默绑定新 Turn 或释放 Stop 停泊项。失败保留原队列，消费后不再可编辑/转向。界面观察 Room 投递变化，不依赖最终回复或轮询。
-- process recovery 不自动消费 Queue，也不自动启动 successor Turn。恢复必须来自用户“继续”/新消息，或未来另行接受的明确自动激活契约。
+- process recovery 本身不重放旧 Turn/Queue；HXA-232 的持久去重只读核查及队列有界重验证按上文独立准入。用户 Stop/pause 停泊项不自动发送。
 
 Queue、Goal continuation、revise、regenerate、Share/Voice 等 successor 最终都必须重新经过 TurnEngine admission，不能只看 process-local Job map。
 ### 9. REVISE 与 REGENERATE
@@ -305,7 +305,7 @@ HXA-295 A 先交付当前会话 `session_status/history/search/read/rename`：�
 
 已接受引用的只读范围在目标会话内保留，后续 Turn 可继续按需读取同一固定版本，无需每句话重选。工具调用仍校验当前活动 Turn/call 及原用户消息绑定；跨目标会话不可复用。原绑定消息删除或被修订替代后不再授权，来源删除/编辑导致不可用时须重选；已读取并发送的片段不能撤回。输入区移除只影响尚未发送的选择。
 
-HXA-295 B/C 在 HXA-286/287 契约和应用宿主上补齐受控跨会话查询、管理、创建与投递，当前尚未实现：
+HXA-295 B/C 在 HXA-286/287 契约和应用宿主上承接跨会话能力：B 受控查询/管理、C1 幂等创建及 C2/C3 Queue/Steer 投递已于 2026-11-12 完成有界验收，具体范围见 HXA-295，不外推为子 Agent 或所有跨会话旅程通过：
 
 - 用户显式授予的目标/操作范围分别约束查询、元数据变更和发消息；授权版本在查询、执行和发布边界校验。项目成员、同目录、知道 ID、引用快照或 FULL_ACCESS 本身不开放其他会话。
 - 2026-11-12 B 接线：会话菜单显式选择来源/目标，历史读取与元数据管理分别保存到 Room 的修订授权。撤销保留版本以使旧调用/游标失效。列表 SQL 先过滤目标；历史游标绑定来源、目标、操作、查询、授权修订与截止内内容指纹，返回前复核。跨目标读取不传递引用/附件权限；元数据 CAS 与原活动调用及授权修订共用提交边界，归档仍不停止执行。
@@ -410,7 +410,7 @@ GC 引用查询具有索引；目录按需遍历，仅每个候选的引用复�
 - review 后把原 ToolCall 改成 COMPLETED/FAILED：会篡改 executor fact，拒绝。
 - **same-Turn rehydrate / same-open-GoalRun resume**：曾实现并通过主机验证，但要求恢复旧 ModelCall、tool-round、budget checkpoint、review receipt 和 same-run 状态，复杂度高且与主流 Session-continuation Harness 不一致；现改为 successor Turn。
 - process death 后完全丢弃历史、只靠模型自由猜：会丢失 effect uncertainty 和可审计事实，拒绝；采用 RecoverySummary。
-- unresolved effect 阻塞整个 Session：安全但过重；改为允许 successor Turn/inspection、阻止 side-effecting call。
+- unresolved effect 阻塞整个 Session：过重；当前允许普通新任务按正常权限继续，自动核查只读，保留未知事实和不盲重放边界。
 - 只靠 process-local Job map 做 admission：process death 后失真，拒绝。
 - 用 audit JSON 作为执行事实源：audit 是诊断数据，不升级为生命周期 source of truth。
 - 一次性把 ChatService 全部搬进 Engine：扩大耦合与迁移风险，采用 durable authority → live registry → driver/observation 分阶段收敛。
@@ -419,7 +419,7 @@ GC 引用查询具有索引；目录按需遍历，仅每个候选的引用复�
 
 TurnEngine 仍是唯一 durable owner，UNKNOWN、取消、恢复、Queue、Goal 和 review 不再由不同入口各自解释；但恢复模型从“复活 old Turn”简化为“关闭 old attempt + 新 Turn 继续”。
 
-`turn_runtime_records` 只保留 immutable execution config 与 live usage/audit checkpoint；same-Turn review receipt、next ModelCall rehydrate、old Turn budget restore 和 same-run Goal review 已从当前生产模型删除。Turn 级 review 命令幂等由独立 `turn_review_receipts` 承担，逐 ToolCall effect truth 由 `tool_call_reviews` 承担。新增成本是 successor/predecessor identity、RecoverySummary 和 unresolved-effect side-effect gate；这些事实比恢复旧 control state 更直接可解释。
+`turn_runtime_records` 只保留 immutable execution config 与 live usage/audit checkpoint；same-Turn review receipt、next ModelCall rehydrate、old Turn budget restore 和 same-run Goal review 已从当前生产模型删除。Turn 级 review 命令幂等由独立 `turn_review_receipts` 承担，逐 ToolCall effect truth 由 `tool_call_reviews` 承担。新增成本是 successor/predecessor identity、RecoverySummary 和原未知效果的保真传递；这些事实比恢复旧 control state 更直接可解释。
 
 ChatService 已不再作为 live AgentLoop driver：Job registry、cancel/timer、AgentLoop execution 与 per-Turn observation 均由 Engine-owned seam 管理；ChatService 只消费 settlement/observation 更新 UI、reminder 与 queue scheduling。后续不得重新引入第二套 live/durable owner。
 
@@ -432,7 +432,7 @@ Engine 生命周期与 live driver 的交付分别追溯 HXA-220/223，Core 迁�
 - review 不改写原 ToolCall/ToolResult，也不创建 old Turn 的下一 ModelCall；
 - successor Turn 有 durable predecessor identity 和 bounded RecoverySummary；
 - successor 使用新 runtime snapshot / Turn budget，Goal 累计 usage 不退款；
-- unresolved effect 时模型/inspection 可继续、side-effecting ToolCall fail closed；
+- unresolved effect 不全局阻断普通新任务；自动 inspection 仅只读，旧调用不自动重放；
 - ACKNOWLEDGED_UNKNOWN 后重复危险 effect 不复用旧 approval/receipt；
 - exact submit dedup、Queue/Steer、regenerate 原子性保持；
 - timeout executor 未退出时 ownership 不释放；
@@ -441,7 +441,7 @@ Engine 生命周期与 live driver 的交付分别追溯 HXA-220/223，Core 迁�
 
 HXA-274 追加无页面订阅、旧恢复目标失效、重复状态消费和 UI 重建场景；导航仅由当前用户动作触发，原页面回调入口删除。HXA-277 追加观察已结束/Turn 已结算但 executor 未退出、多个消费者共享、旧实例迟到回调和清理失败，分别断言调度、执行与引用事实。复用既有 fixture，每项结果只覆盖实际范围，不继承旧任务通过结论。
 
-AI 代理执行 host tests、静态检查和 AndroidTest APK 编译；模拟器/真机验证仅在项目所有者对当前任务明确要求时执行。未要求时记 `not requested`，已要求但未完成时记 `pending`。
+验证授权统一按[根 AGENTS.md](../../../AGENTS.md#verification-and-device-authorization)：本地项目模拟器有持续授权，真机须当前任务明确授权，外部服务按其独立范围处理；本任务未包含设备验收记 `not requested`，包含但未执行记 `pending`，均不等于通过。
 ## Reconsider when
 
 如果 Provider/执行域提供真正可恢复的 server-side Turn identity、exactly-once effect ledger，或真实任务评估证明 successor Turn 明显劣于 same-Turn continuation，可重新评审恢复边界。跨设备/远端 worker 也需要重新评审 owner 和 recovery，但普通实现修复/内部类拆分不另建 Agent execution ADR。
@@ -467,7 +467,7 @@ HXA-277 扩展原取消 fixture：Room 已结算 CANCELLED、等待 Future 已�
 
 HXA-306 修复草稿缓存提前持久化占位标题造成的命名缺口。采用未命名事实与显示占位分离、输入受理事务内一次命名、手动标题优先；不新增模型请求或双重标题所有者。基于 Claude Code/OpenHands 的自动命名、非阻塞与回退方向，结合 Helix 任意 Provider 和原有受理持久边界，具体取舍见任务。
 
-- 2026-10-21：Owner 明确浅业务编排与必要服务保障并重，采用上述单次业务执行、适配层有界技术恢复和准确交付事实；[本轮主机验收](../../development/technical-recovery-closeout.md)不替代设备或真实服务验收。
+- 2026-10-21：Owner 明确浅业务编排与必要服务保障并重，采用上述单次业务执行、适配层有界技术恢复和准确交付事实；[本轮主机验收](../../development/result-log-closeout.md#history-technical-recovery-closeout)不替代设备或真实服务验收。
 
 - 2026-10-21：Owner 授权结果/日志收尾。失败诊断复用 `tool_results` 与 ContentStore，保留未验证成功的区别；同会话受控补读不重执行。长输出投影与实际模型历史都保留原调用身份、副作用不确定性、关键失败和日志引用，日志视为不可信数据。实现与验收边界见[结果日志收尾](../../development/result-log-closeout.md)。
 

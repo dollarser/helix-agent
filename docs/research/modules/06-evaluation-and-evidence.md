@@ -109,7 +109,7 @@ Desktop/remote Harness 的结论不能替代：
 - app process death；
 - foreground-service/device automation。
 
-设备验证仍遵守项目 owner-explicit 规则；Research 可以定义 eval，但不能因为写了设备命令就授权 AI 自动运行。
+设备验证遵守[根 AGENTS 授权范围](../../../AGENTS.md#verification-and-device-authorization)：项目模拟器常设授权、真机和外部服务边界分别判断。Research 可以定义 eval，但不能因为写了命令就扩大当前任务。
 
 ## 8. 当前公开竞品证据使用规则
 

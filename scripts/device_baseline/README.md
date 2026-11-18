@@ -35,8 +35,7 @@ See the [candidate verification record](../../docs/evidence/development/pre-refa
 for the bounded coverage and remaining execution checks.
 
 Pass the explicitly authorized device serial, target application ID, target APK,
-independent test APK and a new evidence directory. The default `--suite basic` checks
-navigation and installed version on either channel. `--suite mobile-use` requires a
+independent test APK and a new evidence directory. The default `--suite basic` includes the required core conversation journey (real loopback request, read-only tool backfill, durable history after restart, cancellation and no replay) plus navigation and installed-version checks on either channel. `--suite mobile-use` requires a
 Developer target and checks configured app scope, conversation selection, process
 restart and manual deselection. It temporarily enables only that isolated target's
 Accessibility service, records the original settings, then removes its service and
@@ -44,7 +43,7 @@ packages while retaining other enabled services. Neither suite calls a model or
 clears an existing installation; an already installed target is rejected.
 
 `--suite mobile-use-execution --boundary cancel|unknown|stale` additionally requires
-an explicitly authorized emulator and a Developer target. An independent loopback
+an emulator within the [AGENTS authorization scope](../../AGENTS.md#verification-and-device-authorization) and a Developer target. An independent loopback
 provider emits deterministic requests through the real Dispatcher; all effects
 stay in the disposable test Activity. The test creates provider, plugin scope and
 conversation permissions through public UI. It requires emulator `su 0 sqlite3`

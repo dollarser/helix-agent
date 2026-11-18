@@ -85,7 +85,7 @@ python3 scripts/build-tts-assets.py
 ./gradlew :app:assembleDeveloperDebug
 ```
 
-APK 位于 `app/build/outputs/apk/`。快速源码检查为 `./scripts/check-all.sh --source`，常规 Debug 门禁为 `./scripts/check-all.sh`。本地 hooks 安装及分层 CI 见[贡献指南](CONTRIBUTING.md)和 [CI 说明](docs/development/ci.md)；构建通过不代表设备或真实服务验收。
+APK 位于 `app/build/outputs/apk/`。快速源码检查为 `./scripts/check-all.sh --source`，常规 Debug 门禁为 `./scripts/check-all.sh`。本地 hooks 安装及分层 CI 见[贡献指南](CONTRIBUTING.md)和 [CI 说明](docs/development/verification-matrix.md#history-ci)；构建通过不代表设备或真实服务验收。
 
 ## 帮助与贡献
 

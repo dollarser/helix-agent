@@ -11,7 +11,7 @@
 
 > **浅工作流，深边界。Harness 保存事实、权限和不可违反的不变量；LLM 决定任务如何继续。App/进程死亡后默认关闭旧 Turn，恢复 Session/工作区/历史，并通过一个新的 successor Turn 继续，而不是精确 rehydrate 原 Turn。**
 
-Helix 当前 same-Turn rehydrate 不是“错误实现”，它解决了真实的副作用不确定性；但它把两个不同问题绑定得过紧：
+Helix 研究时的 same-Turn rehydrate 不是“错误实现”，它解决了真实的副作用不确定性；但它把两个不同问题绑定得过紧：
 
 1. **上下文连续性**：模型需要知道之前做到哪里、有哪些文件/测试/结果；
 2. **外部副作用真相**：某个已 dispatch 的操作究竟有没有发生。
@@ -142,7 +142,7 @@ Operit 当前 Android 版公开能力包括 chat history/branch/summary、parall
 
 > **Shallow policy, deep invariants（浅策略，深不变量）。**
 
-## 4. Helix 当前 same-Turn 方案为什么会变复杂
+## 4. Helix 研究时的 same-Turn 方案为什么会变复杂
 
 HXA-220 为 same-Turn review resume 引入或强化了：
 
@@ -233,7 +233,7 @@ Do not repeat unresolved side effects blindly.
 
 ### 5.4 Session 不必因为一个 UNKNOWN 完全冻结
 
-当前 Helix 的 session-wide NEEDS_REVIEW gate 安全但偏重。
+研究基线的 session-wide NEEDS_REVIEW gate 偏重；当前实现按本页首部 ADR/HXA 核对。
 
 更轻的候选方案：
 
@@ -300,7 +300,7 @@ Goal
 
 该方向已经由项目所有者接受并写入 ADR-AGENT-001 / ADR-GOAL-001。HXA-220 已改为 successor-Turn 迁移任务；本节保留 Research 层的原因与边界，不再承担实施顺序。
 
-在正式裁决前：
+以下仅保留正式裁决前的历史执行条件，不作为当前待办：
 
 - E1-B3a/B3b 的 single live owner、cancel/timer owner 收敛继续执行；
 - HXA-220 在 E1-B4 前完成 old-Turn terminal / successor-Turn / RecoverySummary / new GoalRun cutover；

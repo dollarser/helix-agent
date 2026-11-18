@@ -45,6 +45,6 @@ adb -s "$ONEPLUS_SERIAL" shell am instrument -w -r \
   com.helix.agent.developer.test/com.helix.app.HelixAndroidJUnitRunner
 ```
 
-第二条默认accessibility，需Owner当轮授权真实服务用量。原始日志在ignored `build/physical-followup-20261012/`：`input-observation-strict-native-before.txt`、`input-observation-fixed.txt`及logcat、`as-qwen-fixed.txt`/logcat、`snapshot-fix-host-final.txt`、`snapshot-fix-source.txt`。完整instrumentation状态经原严格解析器核实，不根据shell退出或单独OK字样判通过。
+第二条默认accessibility；复跑按当前 [AGENTS.md](../../../AGENTS.md#verification-and-device-authorization) 核对真机当轮授权与已配置模型服务的实际授权范围，不从历史命令推定目标或账号可用。原始日志在ignored `build/physical-followup-20261012/`：`input-observation-strict-native-before.txt`、`input-observation-fixed.txt`及logcat、`as-qwen-fixed.txt`/logcat、`snapshot-fix-host-final.txt`、`snapshot-fix-source.txt`。完整instrumentation状态经原严格解析器核实，不根据shell退出或单独OK字样判通过。
 
 无障碍恢复null/0，悬浮窗AppOps恢复default，自有30008 reverse移除；无Root执行服务，未改Root manager。合成会话/模型清理后返回Helix，未操作日常模拟器。当前模型App PID过滤日志无FATAL。本轮观察缺陷及同机有界回归完成；其他OEM、Shizuku、真实账号、整屏视觉及2h/24h长稳仍独立保留，不由两轮成功外推。

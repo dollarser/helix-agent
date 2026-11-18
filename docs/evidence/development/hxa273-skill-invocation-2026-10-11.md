@@ -12,7 +12,7 @@ SkillLoader严格读取`user-invocable`和`disable-model-invocation`布尔值，
 
 参考[Claude Code Skill调用资格](https://code.claude.com/docs/en/skills)和[Codex Skill指引](https://learn.chatgpt.com/docs/build-skills)，采用明确调用方和内容发现/读取分离；Helix将本次调用绑定到既有持久输入与Goal，而不是新增命令解释器或临时激活服务。未复制参考实现。
 
-开发期Room仍是单一v1 baseline；本次增加SessionInput字段并更新core导出schema，不增加历史迁移。未覆盖安装日常APK或操作其数据库，后续覆盖升级需遵守既有备份/重建提示。
+开发期Room仍是单一v1 baseline；本次增加SessionInput字段并更新core导出schema，不增加历史迁移。未覆盖安装日常APK或操作其数据库，后续安装与开发数据处理以当前 [AGENTS](../../../AGENTS.md#verification-and-device-authorization) 为准，不从本轮未安装推导额外的模拟器数据保留要求。
 
 ## 验证
 

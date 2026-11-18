@@ -1,5 +1,9 @@
 # Mobile Use：PackageInstaller Install 不可见、视觉回退与特权后端调研交接
 
+> **2026-11-18 适用性校核：**第 0～31 节保留 2026-10-04 各阶段调查和实测，旧 Consumer/Developer 分工、工具版本号、无障碍依赖及 Root → Shizuku 优先级均是当时快照。现行[平台能力](../../architecture/android-platform-capabilities.md)及[权限 ADR](../../adr/permissions/001-session-authorization.md)定义 Root → ADB → Shizuku → Accessibility 和渠道边界；不能从早期候选图恢复桌面 Companion 产品范围。安装成功、识别成功、模型自主完成分别按原证据结算。
+>
+> 当前任务由用户请求确定，status 只提供事实导航，不授予自主执行范围。设备、项目模拟器、真机与外部服务授权统一按 [AGENTS.md](../../../AGENTS.md#verification-and-device-authorization) 及当前任务；本次文档审查未运行设备、模型或 Release 验收，也未重新核验外链和历史忽略目录制品。
+
 > 日期：2026-10-04  
 > 性质：历史调查与逐阶段证据，不是当前功能状态页。后续实现、权限归属和未闭合工作以[当前状态](../../development/status.md)及有效 ADR 为准。下文“当前”“本轮”均指该段记录阶段。
 > 设计原则：继续遵循 Helix 的浅 Harness 方向——模型决定流程，Harness 提供真实能力、权限、观测和动作原语；不要为 APK 安装写专用状态机。

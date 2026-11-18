@@ -11,15 +11,15 @@
 - [context-navigation.md](context-navigation.md)：复用 CodeGraph 定位结构与关联，结合精确搜索、当前源码和 Git 差异按需读取；不维护平行导航或资料包系统。
 - [开发原则与后续推进策略](feature-refactor-strategy.md)：有限基础收敛、功能取舍、停止条件与评审参考，不规定当前任务步骤。
 - [verification-matrix.md](verification-matrix.md)：公共主机、构建、设备验证规则。
-- [environment.md](environment.md)、[ci.md](ci.md)：开发环境与 GitHub CI 边界。
-- [Agent Eval](agent-eval.md)、[Harness 系统基线](harness-system-baseline.md)：证据字段、比较方法与固定系统测量口径。
+- [environment.md](environment.md)、[设备配置](device-setup.md)、[ci.md](verification-matrix.md#history-ci)：主机环境、本地设备操作参考与 GitHub CI 边界。
+- [Agent Eval](agent-eval.md)、[Harness 系统基线](agent-eval.md#history-harness-system-baseline)：证据字段、比较方法与固定系统测量口径。
 - [内测清单](internal-pilot.md)：用户任务、独立结果核验与反馈记录。
 - [插件作者指南](plugin-authoring.md)：当前组件支持范围、统一诊断和三种生产路径样例；不承诺外部宿主完整执行语义。
 - [发行就绪条件](release-readiness.md)：非重构收口、外部输入与发行依赖，不维护第二份当前状态。
 
 完成的 HXA 转入 `../completion-records/`；运行日志、诊断、历史验证计划和交接证据转入 `../evidence/`；方案研究转入 `../research/`。不要在本目录长期保存阶段性的 Wave 执行手册、按模型命名 handoff、已完成任务计划或时间点设备占用信息；`engineering-playbook.md` 只维护长期方法与案例，不承担阶段排期或交接职责。
 
-当前设备规则以根 `AGENTS.md` 与 [verification-matrix.md](verification-matrix.md) 为准：GitHub CI host-only；AI 代理只在项目所有者对当前任务明确要求时执行本地模拟器/真机验证。
+当前设备规则以根 `AGENTS.md` 与 [verification-matrix.md](verification-matrix.md) 为准：GitHub CI host-only；当前开发任务内的项目模拟器操作与日常覆盖安装按 AGENTS 的预授权范围执行，真机仍须当前任务明确授权，外部服务按其独立授权边界处理。
 
 ## Git 跟踪与留存
 

@@ -1,5 +1,7 @@
 # 离线语音输入：2026-10-19 有界验收
 
+本页保留 2026-10-19 的离线首轮交付与设备结果。后续默认模型已按 [2026-10-26 ModelScope 对照](modelscope-asr-selection-2026-10-26.md)调整；当前线上/离线选择与下载行为见[语音集成](../../development/cloud-speech-integration.md)，不由本页旧打包行为推断。
+
 当前状态：本轮实现及主机/指定设备有界验收完成；真实用户口述体验待 Owner 主动进行。范围仅 ASR 输入草稿与手机模型取舍；[设计](../../adr/platform/004-offline-voice-input.md)。保持 0.0.6 / code 1，未推送/发布，无真实账号或云端 ASR 调用，无用户环境录音。
 
 ## 预检与隔离
@@ -64,7 +66,7 @@
 
 2026-10-19 按 Owner 最新要求，再次用 `adb install -r` 将已通过上述测试的独立 `com.helix.agent.asrvalidation` 安装到 OnePlus 6T 与 Helix_API_36 ARM64 模拟器，两次均返回 Success；读取设备实际 base.apk 的 SHA-256 均与冻结候选一致。两台均核实 versionName 0.0.6 / versionCode 1，并用显式 MainActivity Intent 打开入口；未触发录音、清数据或覆盖原渠道包。此次复装没有重跑功能测试，沿用同一 APK 的上述证据，不能算新模型实测。模拟器宿主麦克风路由保持关闭，最终真实说话体验建议由 Owner 在手机中手动触发。
 
-最新官方方案复核及未实测候选见 [ADR 同主题补充](../../adr/platform/004-offline-voice-input.md)。当前框架仍为官方最新稳定版本；模型定位为已经验证的基础方案，不宣称截至今日全面最优。
+最新官方方案复核及未实测候选见 [ADR 同主题补充](../../adr/platform/004-offline-voice-input.md)。当日复核采用的框架与模型定位为已验证的基础方案；本页不持续声明上游最新版本或截至今日全面最优。
 
 
 后续 Owner 追加的十模型同语料主机/设备对照见[移动 ASR 测量](mobile-asr-comparison-2026-10-19.md)。其中新的新建加载、无测量开销的吞吐与实时节奏数据，应按该记录的固定方法阅读，不与本页初轮逐块 PSS 采样的处理耗时直接混用；本页保留当时执行事实。

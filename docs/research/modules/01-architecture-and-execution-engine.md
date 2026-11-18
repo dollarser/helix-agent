@@ -1,7 +1,7 @@
 # 架构与执行引擎
 
 > 更新：2026-10-14。第 2 节、第 5 节 保留原外部资料核验窗口，第 9 节 是 2026-10-11 分析；第 10 节 重新核验当前源码与主流 Agent 一手资料。研究不覆盖 accepted ADR。
-> 当前执行契约/实现证据：[ADR-AGENT-001](../../adr/agent/001-turn-coordination.md)、[HXA-220](../../completion-records/HXA-220.md)、[HXA-221](../../completion-records/HXA-221.md)、[HXA-223](../../completion-records/HXA-223.md)；当前任务见[实施状态](../../development/status.md)。
+> 当前执行契约/实现证据：[ADR-AGENT-001](../../adr/agent/001-turn-coordination.md)、[HXA-220](../../completion-records/HXA-220.md)、[HXA-221](../../completion-records/HXA-221.md)、[HXA-223](../../completion-records/HXA-223.md)；当前实现状态见[实施状态](../../development/status.md)。
 > 进程死亡专题：[process-death-recovery-and-harness-depth.md](process-death-recovery-and-harness-depth.md)。
 
 ## 1. 总原则：浅策略，深不变量
@@ -183,7 +183,7 @@ Helix 已有单一 AgentLoop、单一 Turn 生命周期权威及统一工具执�
 
 按单一目标实现替换受影响入口；不安排旧版本/旧数据库/旧会话/旧批准迁移，不留双注册、双写或兼容 adapter。本次文档修改不操作持久数据。当前合法调用的幂等、取消、UNKNOWN、原顺序回填与渠道规则仍须保留。
 
-实施时先完成独立主机切片，再按当轮授权执行设备/模型验收；UI 重建/无订阅、迟到回调、权限撤销和 executor 未退出分别覆盖。结构收敛只能证明边界更明确，性能、任务完成率、OEM 与长稳改善必须另有测量。本次没有发现并复现新的运行故障，不能借本节自动关闭或重跑全部历史问题。
+实施时先完成独立主机切片，再按[根 AGENTS 授权范围](../../../AGENTS.md#verification-and-device-authorization)执行设备/模型验收；UI 重建/无订阅、迟到回调、权限撤销和 executor 未退出分别覆盖。结构收敛只能证明边界更明确，性能、任务完成率、OEM 与长稳改善必须另有测量。本次没有发现并复现新的运行故障，不能借本节自动关闭或重跑全部历史问题。
 
 ## 10. 2026-10-14 执行边界与新目标设计复核
 

@@ -5,6 +5,8 @@
 > 核对日期：2026-09-16；源码基线：`main` 的 `782a70424fa3430f62067e0abb1024f246d8aebf`，核对开始时工作树干净。
 > 与[重构研究正文](helix-agent-complete-research-and-product-plan.md)配套。图集解释职责、状态与执行域，不替代[架构规范](../../architecture/overview.md)、[ADR](../../adr/README.md)或[任务索引](../../development/roadmap.md)。实现和验收进度以[状态文档](../../development/status.md)为准。
 
+> 以下【实／计／研】均相对于 09-16 基线。旧只读并行、Workspace 互斥和待交付终端图不是当前调度规则；后续职责与物理资源约束见 [当前架构](../../architecture/overview.md) 和 [调度与审计 ADR](../../adr/permissions/003-dispatch-and-audit.md)。
+
 ## 1. 阅读约定
 
 | 标记 | 含义 |

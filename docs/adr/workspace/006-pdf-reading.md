@@ -15,7 +15,7 @@ Deciders: project owner（功能范围：按优先级推进，PDF与插件/MCP�
 
 - 两渠道提供一个随APK交付的原生`documents`插件，包含`documents_inspect/read/view`和按需加载的`document-reading` Skill。PDF、DOCX各自解析，共用选择、文件权限、Dispatcher、审计及视觉管线；删除等效`files.read_pdf`，不维护兼容别名，不新增AgentLoop、CLI或联网后端。
 - `inspect(path)`在冻结来源授权下复制最多20MiB原字节，hash针对实际快照。既有FileContentStore保存二进制，最小Room索引保存会话、原sourcePath、格式及ContentRef；生成documentRef不是Bearer授权。`read/view`先按索引将原sourcePath交回当前会话文件权限分类，再重新验证原来源后端可读和快照hash。跨会话/撤权/缺失缓存拒绝；源文件变化不替换旧快照，显式inspect才能取得新版本。复制不声称文件系统原子快照。
-- 索引与Session级联删除；既有publication锁和GC保护仍被引用的正文/二进制，会话删除只回收无剩余引用的内容。不保留跨调用renderer/XML对象作为权威状态。开发期Room v1基线增加一张表和Artifact目的字段；沿现有开发库重建规则，不新增历史迁移。本轮不安装设备APK。
+- 索引与Session级联删除；既有publication锁和GC保护仍被引用的正文/二进制，会话删除只回收无剩余引用的内容。不保留跨调用renderer/XML对象作为权威状态。开发期Room v1基线增加一张表和Artifact目的字段；沿现有开发库重建规则，不新增历史迁移。安装与验证状态由对应 HXA 记录，不属于永久实现限制。
 - 所有实际PDF/DOCX解析在非导出、isolated UID的`:document_reader`一次性作业实例中。只传只读源FD、宿主管理的写出FD和有界参数，不传目录、凭据或网络能力，不初始化AppContainer。物理容量为一个文档作业；取消/超时终止自有实例，确认Binder死亡后才释放，未退出不消费输出。工具20秒、进程寿命30秒后备；不引入全局文件执行锁。
 - PDF一次一页，1-based；inspect返回总页数，read提取API35+文字（旧API/扫描页明确不可提取），view观察实际页面/归一化区域。文字至多20000字符，直接按区域缩放平移渲染至长边1600、总像素524288以内、PNG3MiB以内，不先渲染无界高分辨率再裁剪。复杂表格/多栏须视觉核查，不内置OCR。
 - DOCX依据OPC关系和WordprocessingML实际主体结构读取段落、标题样式、表格行/列及内嵌图片关系，按真实内容块定位，不提供Word页码或高保真排版。每次最多32块/20000字符、大表按行继续，下一cursor指向第一个未返回块。单次返回至多256单元格、每块16图像引用，遗漏/截断显式标注；整个包图片关系至多2048、关系表8192项。
@@ -38,7 +38,7 @@ DOCX是主体结构读取，不是Word分页/修订/浮动布局渲染器；复�
 
 ## Verification
 
-HXA-284要求源码、JVM、静态检查、双渠道lint与Debug/Release APK、AndroidTest编译及实际APK隔离声明。设备夹具用合成两页PDF和中文DOCX验证实际文本/页面区域/内嵌图像、越界/损坏输入和源文件不变；未获本轮设备/模型授权时仅编译、不填设备通过。
+HXA-284要求源码、JVM、静态检查、双渠道lint与Debug/Release APK、AndroidTest编译及实际APK隔离声明。设备夹具用合成两页PDF和中文DOCX验证实际文本/页面区域/内嵌图像、越界/损坏输入和源文件不变；模拟器、真机及模型调用分别遵守根目录 [AGENTS.md](../../../AGENTS.md#verification-and-device-authorization) 的当前授权及任务范围；未运行的检查不填通过。
 
 ## Reconsider when
 

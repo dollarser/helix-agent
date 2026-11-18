@@ -40,5 +40,5 @@ The model is real SGLang; the MCP server is a synthetic local fixture. This prov
 ## Related records
 
 - [Main verification](../evidence/development/main-merged-verification.md)
-- [Current TODO](../evidence/development/main-optimization-todo.md)
+- [Historical follow-up](../evidence/development/main-optimization-todo.md)
 - [HXA-102](../completion-records/HXA-102.md)

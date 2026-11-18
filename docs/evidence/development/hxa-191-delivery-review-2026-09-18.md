@@ -1,4 +1,4 @@
-> 整合复审：本页保留分支交付陈述，不能作为 HXA-191 整体验收完成记录。API29 深色及订阅内容配色缺口仍由 HXA-191 跟踪。
+> 整合复审：本页保留 2026-09-18 的分支交付陈述，不能作为 HXA-191 整体验收完成记录。当时的 API29 深色及订阅内容配色缺口已由后续 [2026-09-20 完成记录](../../completion-records/HXA-191.md)收口；本页结果仍只对应原候选。
 
 # HXA-191：深色主题与会话搜索
 
@@ -21,7 +21,7 @@
 | 四象限主题矩阵 `bash scripts/debug/2026-09-18/run-191-theme-matrix.sh`（consumer/developer × API36/29，端口 5700/5702/5704/5706，独占 `HelixApkUpgrade_API*` AVD） | 每象限每模式 setup「process crashed」+ 独立 PID 标记 → verify **`OK (6 tests)`**；**深色真实生效 API36 两 flavor**（`cmd uimode night` no→yes、窗口带 `night` token + `apr=LIGHT_STATUS_BARS` 翻转）；**API29 两象限深色未在设备验证**（模拟器镜像无法强制夜间，实际覆盖浅色 + 非主题面，见[边界](#边界)）；`closed.json` exit 0 |
 | 四象限会话搜索回归 `run-191-search-device.sh`（端口 5642/5644/5646/5648，独占 `Helix191_API*` AVD） | 每象限 app **`OK (8 tests)`** + storage connected **`4/0/0`** + `closed.json` exit 0 |
 | `bash scripts/check-all.sh --artifacts` | exit 0（developer 订阅/运行域边界 + consumer 排除，未被主题改动波及） |
-| `bash scripts/check-all.sh --source` | 除**预期** `Completion index is stale`（本记录触发，协调者重算 index）外全过；`git diff --check` clean |
+| `bash scripts/check-all.sh --source` | 未通过；存在 `Completion index is stale` 等整合项，详细切片记录列出 3 项失败，不能因预计由协调者处理而计为通过；`git diff --check` clean |
 
 本轮验收 APK SHA-256（consumer/developer 各 app + androidTest）：app `e9783c668e540864629bea58dc6b872c7c7b6f59c2ae3e16f36f8f4ce03e22ea` / `5687a451ac3a50e524b7e9dfa9fdd986106ed38ae2aa70192ac58dc45a23061d`；androidTest `1a3d70fed5a1346908277439ad07a5f81f1eded4b51e49498f4016d43dc5f4f7` / `377619b981f56dfb79bd6932198942ad47326bc849115b19d89fd0fe1bc63f0a`。原始日志在 `build/hxa-191-theme-<variant>-api<api>/` 与 `build/hxa-191-search-<variant>-api<api>/`（`build/` 被忽略，不入仓）。逐象限细节与在设备证明见[深色主题证据](hxa-191-dark-theme-2026-09-18.md)。
 

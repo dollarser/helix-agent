@@ -1,5 +1,7 @@
 # HXA-209 seccomp PoC correction — 2026-09-16
 
+> Historical feasibility evidence. The recorded bypass and failures remain unchanged. Current execution policy follows [Runtime ADR](../../../../docs/adr/runtime/001-execution-domains.md); the options below are not a current pending decision or a command to restore the retired universal network filter.
+
 ## Decision
 
 CUSTOM Agent-tool network DENY needs enforcement for Shell, otherwise Shell bypasses

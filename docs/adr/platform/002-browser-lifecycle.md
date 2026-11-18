@@ -39,7 +39,7 @@ Activity 持有 BrowserViewOwner，使用真实 Activity Context 惰性创建宿
 
 ### 原生插件贡献与手动浏览（HXA-276）
 
-`:extensions:browser` 保存宿主已知的 manifest、工具贡献和网页任务 Skill，App composition root 注入已有 BrowserToolBridge 与视觉服务；执行器复用现有工具实现，不创建独立 browser server。12 个原有工具及279两项新增工具统一为 Browser 的 PluginOrigin，走唯一 ToolRegistry 原子发布与同一 Dispatcher；直接删除旧 built-in 注册及内部来源假设，不保留双注册或旧批准转换。
+`:extensions:browser` 保存宿主已知的 manifest、工具贡献和网页任务 Skill，App composition root 注入已有 BrowserToolBridge 与视觉服务；执行器复用现有工具实现，不创建独立 browser server。当前浏览器工具统一为 Browser 的 PluginOrigin（HXA-276 的 12 项及 HXA-279 的两项是历史交付基线，后续工具增量见本文件决定记录），走唯一 ToolRegistry 原子发布与同一 Dispatcher；直接删除旧 built-in 注册及内部来源假设，不保留双注册或旧批准转换。
 
 新会话默认集合与组件就绪规则由 [ADR-CONNECTORS-003](../connectors/003-ownership-and-installation.md)定义。插件贡献不持有 Activity/WebView，也不因选择或状态查看而拉起 UI。手动浏览、书签、历史和用户导航属于浏览器功能；撤销 Agent 来源仅撤下后续准入，不能销毁用户正在浏览的标签。无 host、页面失效或视觉不可用返回真实原因；URL/origin、目标范围、generation/token 与像素披露要求保持有效。
 

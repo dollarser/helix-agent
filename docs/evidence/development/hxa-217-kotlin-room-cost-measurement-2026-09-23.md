@@ -1,4 +1,4 @@
-# HXA-217 请求来源记录 Kotlin/Room 存储成本测量
+# HXA-217 请求来源记录主机存储成本模拟
 
 日期：2026-09-23。
 依据：[HXA-217 完成记录](../../completion-records/HXA-217.md)与 [ADR-AGENT-005](../../adr/agent/005-session-jsonl-export.md)。
@@ -6,11 +6,11 @@
 
 ## 1. 测量目标与方法
 
-本轮测量针对 HXA-217 在 Android 端侧存储模型请求上下文清单（`RequestContextManifest`）的真实物理成本，补充 Kotlin 编解码实现与 SQLite（Room 底层引擎）磁盘分配实测数据。
+本页保留 2026-09-23 的报告数字。复核所链测量脚本可确认：它在主机使用 Python `sqlite3`、`json` 和简化 schema 模拟请求来源存储，不运行 Android、Room 或 Kotlin 编解码器。每次同时写入 `model_calls.requestManifest` 和 `request_manifests`，不是两种策略各自独立的生产成本对照。本次只核对脚本，未重跑历史测量。
 
 ### 测量参数
-- **底层引擎参数**：与 Room 生产配置一致（`page_size = 4096`，`journal_mode = WAL`，`synchronous = NORMAL`，`foreign_keys = ON`）。
-- **编码实现**：采用 Kotlin 原生实现的 [`CompactManifestCodec`](../../../core/model/src/main/kotlin/com/helix/core/model/RequestContextManifest.kt)（消息表示为 `[id, roleCode]` 紧凑元组，输入为 `inputIds` 列表，强制 256 KiB 单行上限守卫与 `isTruncated` 状态标记）。
+- **模拟引擎参数**：脚本显式设置（`page_size = 4096`，`journal_mode = WAL`，`synchronous = NORMAL`，`foreign_keys = ON`）。
+- **编码参照**：生产 Kotlin 类型为 [`CompactManifestCodec`](../../../core/model/src/main/kotlin/com/helix/core/model/RequestContextManifest.kt)；测量脚本独立实现 Python 紧凑元组与截断逻辑，不能用其输出证明 Kotlin 守卫或性能。
 - **长任务模拟**：单会话内连续执行 **100 次模型调用**（每次调用保存当前完整请求来源上下文，包含随轮次累积的历史消息引用与 input IDs）。
 - **执行脚本与测试**：
   - 当时的测试套件：[`RequestContextManifestBenchmarkTest.kt`](https://github.com/dollarser/helix-agent/blob/832020703108d6fad79fc1ccf55fc24bb1d554db/core/model/src/test/kotlin/com/helix/core/model/RequestContextManifestBenchmarkTest.kt)；重复基准在后续 CI 精简中移除，当前边界回归为 `RequestContextManifestTest`。
@@ -19,28 +19,22 @@
 
 ---
 
-## 2. 实测结果
+## 2. 历史主机模拟报告
 
-| 场景 | 消息与输入规模 | 单行 Bounded 字节 | 100次调用 SQLite 磁盘占用 | 写入事务 P50 | 读取解析 P50 | 安全阈值 (10 MiB) |
+| 场景 | 消息与输入规模 | 单行 Bounded 字节 | 100次模拟调用 SQLite 磁盘占用 | 写入事务 P50 | 读取解析 P50 | 脚本比较线 (10 MiB，非产品安全阈值) |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: |
-| **典型会话 (typical)** | 24 消息，4 个 UUID36 input ID | **1,195 B** (~1.17 KiB) | **0.29 MB** (299 KiB) | 0.032 ms | 0.004 ms | **SAFE PASS** |
-| **最大合法场景 (max_valid)** | 512 消息，512 个 UUID36 input ID | **41,015 B** (~40.05 KiB) | **4.22 MB** (4,222 KiB) | 0.066 ms | 0.004 ms | **SAFE PASS** |
-| **64字符标识压力 (ascii64)** | 512 消息，512 个 64字符 ASCII ID | **55,351 B** (~54.05 KiB) | **5.41 MB** | 0.075 ms | 0.005 ms | **SAFE PASS** |
+| **典型会话 (typical)** | 24 消息，4 个 UUID36 input ID | **1,195 B** (~1.17 KiB) | **0.29 MB** (299 KiB) | 0.032 ms | 0.004 ms | 低于脚本比较线 |
+| **最大合法场景 (max_valid)** | 512 消息，512 个 UUID36 input ID | **41,015 B** (~40.05 KiB) | **4.22 MB** (4,222 KiB) | 0.066 ms | 0.004 ms | 低于脚本比较线 |
+| **64字符标识压力 (ascii64)** | 512 消息，512 个 64字符 ASCII ID | **55,351 B** (~54.05 KiB) | **5.41 MB** | 0.075 ms | 0.005 ms | 低于脚本比较线 |
 | **256字符标识极限 (ascii256)** | 512 消息，512 个 256字符 ASCII ID | **153,655 B** (~150 KiB) | **14.67 MB** | 0.142 ms | 0.006 ms | 超出 10MB，但远低于 64MB |
-| **Unicode 极端压力 (unicode256)** | 512 消息，512 个 256字符 Unicode ID | **151,105 B** (受限截断) | **25.48 MB** | 0.281 ms | 0.007 ms | **触发安全截断保护** |
+| **Unicode 极端压力 (unicode256)** | 512 消息，512 个 256字符 Unicode ID | **151,105 B** (受限截断) | **25.48 MB** | 0.281 ms | 0.007 ms | Python 模拟发生截断 |
 
 ---
 
-## 3. 核心结论
+## 3. 可支持的结论与限制
 
-1. **单行 256 KiB 守卫有效**：
-   - 最大合法输入（512 消息 × 512 UUID）单行仅占用 **40.05 KiB**，仅占 256 KiB 上限的 15.6%；
-   - 极端 256 字符 Unicode 输入若不截断将突破 280 KiB，Kotlin `bounded()` 方法准确拦截并截断至 **151 KiB**，设置 `isTruncated = true`，确保绝不破坏 JSONL 单行边界。
-2. **100 轮长任务磁盘增长受控**：
-   - 在 512 消息 × 512 UUID 的长任务满载状态下，经过 100 轮写入与 WAL 归档，最终 SQLite 物理文件大小稳定在 **4.22 MB**，完全处于 **10 MiB 安全线** 之内；
-   - 彻底废除历史提出的未经测量的「64 MiB」无依据配额。
-3. **性能与开销可忽略**：
-   - Kotlin 纯编码 512 消息耗时约 **0.15 ms**；
-   - SQLite 插入事务耗时 P50 为 **0.066 ms**（P95 为 0.18 ms），读取解序列化 P50 为 **0.004 ms**。
-4. **生命周期与空间回收**：
-   - 外键级联（`ON DELETE CASCADE`）在会话删除时 100% 自动清理关联的所有清单记录，无孤儿数据；VACUUM 后完整释放物理磁盘空间。
+- 上表字节和延迟是原报告保留值，没有在本次重测。脚本使用主机 Python 的 JSON 编解码，写入事务同时包含两份清单；这些值不能标作 Kotlin 编码耗时、Android Room 延迟或单一生产表的存储成本。
+- 脚本中 256 KiB 截断只证明该 Python 模拟的行为。生产 Kotlin 上限和畸形输入应由实际 `RequestContextManifestTest` 等回归证明，不能由模拟替代。原报告的 Kotlin 0.15 ms 未附独立结果绑定，本页不再据其宣称性能可忽略。
+- 10 MiB/64 MiB 是脚本选用的比较线，不是已接受的产品配额或普遍安全线。100 次合成调用结果不能外推所有长会话；表中 MB/KiB 为历史显示口径，不作为精确换算依据。
+- 脚本验证自建 schema 的级联删除后两表剩余行数为零；这不独立证明生产 Room 生命周期。`VACUUM` 后仅读取主数据库文件大小，没有再次合计 WAL，不能据此声称完整物理磁盘空间已回收。
+- Android 端侧性能、真实生产 schema、单一存储策略比较、实际 WAL/文件回收与长稳均不由本报告验收。当前实现与任务结论仍查所链完成记录及 ADR；历史原始报告未在本轮重新核验。

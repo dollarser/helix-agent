@@ -9,7 +9,7 @@
 Helix 当前合理的执行域是：
 
 - app/core：类型化业务与轻量工具；
-- QuickJS isolated process：离线生成代码，no privileged host bridge；
+- QuickJS 默认 isolated process、无特权桥；显式原生选项及工具桥按[本地执行契约](../../architecture/overview.md#本地执行域与恢复)处理；
 - PRoot/CLI private process：开发者/Linux 工具、长命令、PTY；
 - subscription/provider private process：订阅客户端或特定 provider transport；
 - Android system capabilities：通过显式 bridge + permission。

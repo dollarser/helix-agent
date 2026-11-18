@@ -5,47 +5,28 @@ Date: 2026-09-16
 HXA: HXA-166, HXA-190, HXA-191, HXA-222
 Deciders: Project owner（当前有效决定；授权按需求合并重编，不新增功能接受范围）
 
-## Decision history — 2026-11-15：Luna 思考与工具协议
-
-内置 Luna 按 Owner 提供的网关契约与[官方模型说明](https://developers.openai.com/api/docs/models/gpt-6-luna.md)支持工具和思考。默认 OFF 显式映射 `none`，避免省略参数后触发上游默认 medium；none 使用 Chat Completions，其余思考强度在请求发出前选择 Responses，包括后续工具结果回填，不在失败后切换协议或静默降低思考强度。账号传输为 Responses 增加固定目标，保留同一次调用的账号身份、刷新与取消边界。Qwen 仍为 Chat + 显式 local 路由，自配 API 的用户协议配置不改写。项目内置默认模型刷新使用仓库的显式原位更新，不向已有主键重复插入，也不以删除重建方式打断旧会话的 provider 关联。
-
-以上为客户端部署契约，目录返回不证明生成可用；本地模拟覆盖参数、流式工具、回填和失败不降级，生产网关的 Responses/工具闭环需独立真实验证，不能以 mock 或官方 OpenAI 支持替代网关实测。
-
-## Decision history — 2026-11-03：历史请求诊断与内置窗口发现
-
-Owner 要求定位旧会话持续失败，并保留服务器 400 的具体说明。HTTP 错误仍只读有界前缀，新增选取 `message/detail` 的脱敏 UTF-8 摘要（最多 768 字节）、错误类型/码和参数名，不保存完整响应或请求。摘要只进入可过期诊断详情；长期 Room 审计保留状态、结构化类型、参数与原调用身份，剔除自由文本摘要。服务端文字是不可信诊断数据，不是权限、工具指令或新的重试依据；默认会话界面不堆砌错误正文。旧请求当时丢失的文字不伪造补全。
-
-内置适配器不再固定返回“窗口未知”，通过原账号传输读取已允许的带输出模态过滤目录，只采用准确模型条目的合法数值元数据；不读未经允许的未过滤目录或猜测全局 `/get_server_info`。缺少窗口证据时，首次已登录请求尝试读取，失败/缺失按账号/地址/模型缓存一分钟，避免每个 token 或回填请求反复探测；取消保持有效。仅服务端实际窗口可收紧已有手动/默认窗口，不硬编码一个未经部署证实的 Qwen 上限；目录成员身份不赋予生成权限。
-
-## Decision history — 2026-11-08：缓存计量与协议边界
-
-保留服务端可选缓存读取/写入输入数到既有 ModelCall usage JSON，缺失或非法为未知而非 0。Anthropic 完整输入继续为普通输入、缓存读、缓存写之和，累计 usage 增量替换同名字段而非再次相加；OpenAI 输入总数已包含缓存部分，不能再加。缓存细分不扣减上下文或 Turn/Goal 的完整 token 计量，也不据此推测费用、后台实现或真实命中。
-
-缓存配置属于精确服务/协议/模型能力，不能由兼容 API 名称推断。Anthropic 的顶层/块级 `cache_control`、OpenAI 新旧模型的隐式缓存及 Responses 专用断点参数、自托管引擎自动前缀缓存分开处理。本轮不向任意兼容端点增加参数、不调用管理接口改服务端缓存配置、不升级留存期限；后续启用专用策略需核实模型支持、费用与数据留存影响。官方来源和实际验证见[长任务缓存验证](../../evidence/development/long-task-cache-2026-11-08.md)。
-
-## Decision history — 2026-11-12：Responses 可选工具参数
-
-Responses function 工具显式发送 `strict: false`，保持 canonical input schema 的 required/optional 与嵌套约束原样，不把可省略字段改成必填或 nullable。省略 strict 会触发服务端 strict 规范化，导致首次分页等调用被迫伪造 cursor；参见 [OpenAI function calling strict mode](https://developers.openai.com/api/docs/guides/function-calling#strict-mode)。该设置仅属于 Responses function wire envelope，原生 web_search、其他协议与本地 schema → policy → authorization 校验链保持不变；服务端 best-effort 输出不授予执行权限。
-
 ## Context
 
 用户需要按会话选择模型，并能区分账号可用、服务端声明与真实能力。模型目录和推理参数不能写死。Provider 可以来自用户配置的 API/自建服务、订阅/managed account，或设备内模型资产；这些是产品 provisioning 方式，不等于 transport 或数据 residence。执行位置、认证方式和产品来源都不应隐式决定它能否驱动完整 Agent loop。
-
 ## Decision
+
+### 官方服务与来源边界
 
 官方部署的账号、推理和语音基址集中于 App `OfficialServices`：`https://accounts.hilex.me`、`https://api.hilex.me/v1` 和 `wss://api.hilex.me`。Owner 确认新旧部署令牌通用；持久账号会话只保存令牌、有效期及会话身份，不保存或判断签发域，不因换域强制重新登录。账号 `/auth/*` 保持 accounts 主机；内置目录与对话从包含 `/v1` 的统一推理基址追加一次方法路径；语音 WS 从无 `/v1` 的统一 WS 基址派生。当前账号令牌目标只允许 accounts/api 两个 HTTPS 主机和精确官方 WS 路径，禁用旧语音域、重定向及旧域回退；用户自配 provider 不受本次部署变更影响。
 
-- 合法成功空目录表示当前没有候选，须清除旧目录候选并保留已选目标；查询失败与成功空目录分别保存。普通 API/订阅的空目录仍不能通过连接检查或触发额外生成。
+- 合法成功空目录表示当前没有候选，须清除旧目录候选并保留已选目标；查询失败与成功空目录分别保存。自配 API 的合法空目录可证明目录连接成功，但不证明生成可用；订阅认证连接仍按适配器契约处理，空目录不能触发额外生成。
 
-- HXA-307 增加 `BUNDLED_SERVICE` provisioning：项目提供的固定 HTTPS 云端服务，连接元数据仍为 Network + None（无用户自配 Key alias），请求鉴权改由应用账号会话注入 Bearer。地址固定，登录入口位于抽屉固定顶部、设置及对话选模；不把账号令牌写进 Provider 配置。仅允许固定 `GET /models` 和 `POST /chat/completions`，拒绝重定向、路径/端口/来源变化、调用方覆盖认证头；同时发送固定公开 ClientID 作为客户端标识（不能单独鉴权），不直连推理端口、不回退其他 Provider。
-- 内置服务不暴露地址、凭据或协议编辑；内置聊天模型直接在会话选择器按网关目录和明确用途启用，无需 API 管理勾选。成功目录缓存 30 分钟、失败 1 分钟，打开时仅过期才刷新，另有显式刷新与短暂防连点；查询单飞合并，取消不发布半份结果。失败保留已有目录，无历史则为空；目录不能证明推理授权、连通性或模型能力，不发送推理健康探测、不伪造连接通过。首个已知 Qwen3.8-27B 保留其项目声明能力，后续新 ID 不继承视觉/工具/思考强度支持；窗口仍未知。已知 Qwen3.8-27B 的思考档位按下述固定官方模板契约提供，不从目录成员关系推断。新草稿不自动选静态模型，已有明确选择、Session/Turn 目标不改写，错误仍由真实调用处理。
-- 内置服务的数据处理范围在项目文档说明；会话窗口不显示传输消息、上下文、工具结果或图片至服务器的提醒。未知留存/训练政策不作承诺。账号权限与额度由服务端管理，未取得配额接口前不猜测余额。401 显示登录/重新登录或账号权限错误，并与用户 API Key 错误区分，429 不猜测具体配额原因/重置时间，502/504 分别呈现服务故障/超时；可恢复的空模型请求最多自动重试五次；认证、确定性错误和部分流不自动重放，不自动切换付费模型。错误显示读取原调用快照身份，不使用后来改变的会话默认值。
+- HXA-307 增加 `BUNDLED_SERVICE` provisioning：项目提供的固定 HTTPS 云端服务，连接元数据仍为 Network + None（无用户自配 Key alias），请求鉴权改由应用账号会话注入 Bearer。地址固定，登录入口位于抽屉固定顶部、设置及对话选模；不把账号令牌写进 Provider 配置。模型链路仅允许固定 `GET /v1/models?output_modalities=all`（及编码后的 `after_id`）、`POST /v1/chat/completions` 与 `POST /v1/responses`；显式语义检索另走固定 `/v1/embeddings`，拒绝重定向、路径/端口/来源变化、调用方覆盖认证头；同时发送固定公开 ClientID 作为客户端标识（不能单独鉴权），不直连推理端口、不回退其他 Provider。
+- 内置服务不暴露地址、凭据或协议编辑；内置聊天模型直接在会话选择器按网关目录和明确用途启用，无需 API 管理勾选。成功目录缓存 5 分钟、失败或部分目录 1 分钟，打开选择器时仅过期才刷新，另有显式刷新与短暂防连点；查询单飞合并，取消不发布半份结果。失败保留已有目录，无历史则为空；目录不能证明推理授权、连通性或模型能力，不发送推理健康探测、不伪造连接通过。已知 Qwen3.8-27B 与 gpt-6-luna 分别采用各自已核实的部署能力，后续新 ID 不继承视觉/工具/思考强度支持；窗口从同一账号目录中精确模型的合法元数据发现，缺失保持未知，不能把模型名或目录成员身份当作窗口证据。已知 Qwen3.8-27B 的思考档位按下述固定官方模板契约提供，不从目录成员关系推断。新草稿不自动选静态模型，已有明确选择、Session/Turn 目标不改写，错误仍由真实调用处理。
+- 内置服务的数据处理范围在项目文档说明；会话窗口不显示传输消息、上下文、工具结果或图片至服务器的提醒。未知留存/训练政策不作承诺。账号权限与额度由服务端管理，额度页面使用独立账号接口的真实快照；目录、客户端用量估算和本地扣减都不冒充可用余额。401 显示登录/重新登录或账号权限错误，并与用户 API Key 错误区分，429 不猜测具体配额原因/重置时间，502/504 分别呈现服务故障/超时；可恢复的空模型请求最多自动重试五次；认证、确定性错误和部分流不自动重放，不自动切换付费模型。错误显示读取原调用快照身份，不使用后来改变的会话默认值。
 
 - Endpoint 分类只描述首跳连接地址，不能证明下游数据驻留或此前已按 host:port 授权。回环可能是转发器；UI 使用本机/局域网/公网/自定义地址等连接标签，不宣称数据不会离开设备。`ON_DEVICE_LOCAL` 仍表示直接设备内推理，连接标签不改变网络、工具或会话授权。
 
 - 2026-10-14 Owner明确将服务端日志关联限定为Debug且自定义API后端：App HTTP层只在宿主FLAG_DEBUGGABLE与自定义表单的显式来源标记同时满足时，读取已有LocalModelCallContext原Turn/model-call身份并发送`x-helix-turn-id`、`x-helix-model-call-id`，覆盖三个网络协议。仅HTTP头、不进入模型JSON/提示词、不是认证或执行授权；Release、官方表单、订阅、设备内模型及无Turn身份的目录/连接探测不发送。既有LineStore保存开发诊断资格与实际transport绑定，旧记录无标记不回填，不依据域名猜测。用户headers不能伪造宿主保留头，没有用户设置入口、Room schema、核心循环或协议适配器修改。
 
 - 2026-10-09 HXA-249：Chat Completions 在 wire 编码时聚合连续前导 SYSTEM 文本为一条同角色消息，以兼容已复现拒绝多 system 的模型服务。保留文本顺序、原历史/来源与观察数据标记，不移动后置 system、不改权限或工具绑定，不做失败后的协议回退/自动重试。仅编码投影，其他协议沿用其原契约。
+
+### 模型配置与会话选择
 
 - 会话输入区只保留一个模型入口；弹窗内暂存模型与该待选模型的推理强度，点击行不提交或关闭。切换待选模型先将待选强度重置为默认，再显示该模型选项；只有“保存”把二者一次提交后关闭。“取消”、返回、外部关闭均丢弃；重开读取已保存值。目录刷新不替换待选目标，新候选已失效时禁止保存；真实会话/已保存模型或强度变化废弃旧编辑，重建只恢复同身份编辑。
 
@@ -59,6 +40,8 @@ Responses function 工具显式发送 `strict: false`，保持 canonical input s
 - 模型偏好和显示名称更新不废止已有连接/能力证据；真实接入配置和相关本地运行参数变化仍失效。能力检测绑定精确 provider/model 与配置生命周期，不先修改来源基础模型；检测 B 不外推 A 或其他模型的工具能力。
 
 - 用户在没有活动轮次或待确认发送时选择会话 Provider/model；草稿只改内存，首次发送才持久化。不修改其他会话或 Provider 默认值，不自动发送。历史消息保留，每轮保存实际目标快照。普通程序化切换继续重置到默认；选模弹窗保存显式选择的合法强度。
+### Provider 身份、元数据与能力验证
+
 - **Provider 分类采用正交维度，不使用一个 `API | SUBSCRIPTION | LOCAL` 枚举同时表达所有事实。** 产品 UI 可以提供 `API / Self-hosted`、`Subscription / Managed account`、`On-device` 三组，但底层至少分别记录 provisioning/ownership、transport、residence 与 auth source。
 - provisioning 表示“配置与凭据由谁管理”：当前目标值为 `USER_CONFIGURED`、`BUNDLED_SERVICE`、`MANAGED_ACCOUNT`、`ON_DEVICE_ASSET`；它决定编辑权和账号/资产管理入口，不直接决定网络位置。内置来源只提供对话选模，不提供用户配置卡片；数据处理范围保留在项目文档。
 - transport 表示“模型请求怎么送达”：`Network(protocol, endpoint)` 或 `OnDeviceLocal`。`MANAGED_ACCOUNT` 通常仍走 `Network`；`USER_CONFIGURED` 也可以指向 loopback、LAN 或公网。
@@ -74,7 +57,19 @@ Responses function 工具显式发送 `strict: false`，保持 canonical input s
 - 自配 API 的连接测试只调用适配器模型目录接口，不携带测试模型、不调用生成、能力或上下文探测。合法空目录也证明目录请求成功；不因来源基础模型缺失或不是对话模型而把服务连接标失败。目录接口不支持时明确提示，绝不偷偷回退生成，也不撤销此前独立验证的模型请求。来源目录状态与逐模型生成／能力证据分开，目录成功不证明生成、工具、视觉、推理或配额。能力检测是用户针对具体模型的显式动作，使用合成工具/图片且不执行设备副作用；未测标未知，不因某档推理未测而否定全部连接。
 - 生成协议检查识别合法的推理/内容流事件，不能仅把可见 TextDelta 当唯一活性证据；仅成功建立网络连接也不能证明协议成功。
 - 基础生成测试保持一次无工具短请求，输出预算为 2048 tokens，为服务端默认推理留出空间。合法 `length` 结束但无内容记为 `OUTPUT_TOKEN_LIMIT`，不误报协议损坏，也不冒充生成通过；不隐式追加付费重试。
-- OpenAI Chat Completions 与 Responses 的函数名统一使用请求内确定映射，wire 名仅含 1–64 位 ASCII 字母、数字、下划线或连字符；先保留全部合法原名，再按 canonical 名排序分配不冲突的别名。声明和历史调用使用同一映射，只有本次声明的工具可从返回名称还原；历史-only 工具仅编码，不获得新调用资格。Chat 的名称分块在首个非空参数或工具调用结束前拼接完成，随后才还原身份，参数开始后的名称变更失败。未知名称不能进入 Dispatcher，内部工具身份、参数、调用 ID 和授权绑定不改名。
+- 工具在注册边界使用 `[A-Za-z0-9_-]{1,64}` 可移植身份，Provider 按相同名称发送声明和历史调用，不再生成协议私有别名。远端 MCP/A2A 原名由注册映射保留，实际远端调用仍用原名；来源与权限读取结构化 origin。返回名称只接受本次实际声明集合，历史-only 工具不获得新调用资格。Chat 名称分块在首个非空参数或工具调用结束前拼接完成，参数开始后的名称变更失败；未知名称不能进入 Dispatcher。
+
+### 内置目录的当前生命周期与部署边界
+
+登录/账号变化、进入绑定内置服务的会话、该会话回前台和打开选择器按有效期刷新。成功目录缓存 5 分钟，失败/部分结果 1 分钟；手动刷新防连点 3 秒，单飞查询与 10 秒超时保持。列表与窗口共享带输出模态过滤的有界分页目录，失败保留同账号最近成功数据，取消或分页失败不发布半份目录。完整目录确认模型缺席后，该不可用事实不因 TTL 到期或刷新失败消失；部分目录只提供正向成员证据，后续正向条目恢复可用性。自配 Provider 的手填模型不由目录缺席撤销，发现仍由用户显式触发。
+
+历史会话保留所选 Provider/model 及消息、工具结果，用户可在原会话显式换模，对后续请求生效。目录变化和模型错误不自动换模、重放请求或修改在途 Turn/队列冻结目标。明确的 model_not_found 或指向 model 参数的权限拒绝只触发受单飞/防连点约束的一次刷新；普通 404、超时、认证失败或 5xx 不构成下架证据。
+
+精确 gpt-6-luna 的默认 OFF 映射 none，其他思考强度使用 Responses；协议在发送前确定，不失败后降级。当前部署的图片输入只放行已实证 PNG/JPEG/WebP data URL；保守输入限制为含协议余量的 UTF-8 字节上界 250000，输出默认 4096、最大 16384，不把字节上界当 token 窗口。工具与图片实际消费仍须分别验收。
+
+官方嵌入调用保留独立资料外发同意与索引生命周期；精确 text-embedding-3-small 每批 1–32 项、各项非空白且不超过 8192 UTF-8 字节、整批不超过 32768 字节。这是当前网关预留限制，不外推到普通 OpenAI 服务或其他模型。目录存在不自动启动索引或证明嵌入请求成功。
+
+账号通知、密码与用量属于账号管理，当前客户端范围见[账号接入](../../development/account-login-integration.md)。通知当前首页缓存为五小时、账号与登录 identity 隔离的私有持久缓存；历史章节中的“正文仅内存”由 2026-11-17 决策替代，不作为现行规则。
 
 ### 选择回执、模型健康与账号生命周期
 
@@ -95,18 +90,51 @@ Responses function 工具显式发送 `strict: false`，保持 canonical input s
 - native source 固定 commit 与 archive SHA-256，许可证随 APK 携带；版本事实和设备验收边界写入 HXA-222 证据。共享 UID 的 private process 提供 crash/lifecycle 隔离，不构成凭据安全沙箱。
 
 自配置 Provider 的协议可由用户显式选择 OpenAI Chat Completions、OpenAI Responses 或 Anthropic Messages，不由品牌模板锁定。协议变更使在线目录结果失效；保存与目录探测使用所选协议，保存后的能力与连接需按现有流程重新验证。订阅及本地模型不暴露无意义的 HTTP 协议切换。
-
 ## Alternatives considered
 
 不以目录第一项或名称猜廉价模型；不把认证成功显示成全部能力通过；不以修改全局 Provider 设置实现会话切换。不把本地模型限制为摘要/辅助调用，也不把 `127.0.0.1` 假 endpoint 当作正式 `OnDeviceLocal` 抽象。不采用 `ProviderKind = API | SUBSCRIPTION | LOCAL` 单枚举，因为它会把 provisioning、transport、residence 与 auth 四个不同问题压成一个维度，并错误地把 Ollama/SGLang/vLLM 或 managed subscription 分类成特殊 Agent 路径。
-
 ## Consequences
 
 同一主题使用一份有效契约。`ProviderConfig`/`ProviderDescriptor` 使用类型化 connection；Room v1 baseline 持久化 provisioning/transport/auth，非法组合 fail closed。设备内推理免于 network egress 提示，但随后工具效果不因此免于授权。实现和 host 编译不等于真实模型完整 Agent loop、性能、热或内存验收；accepted 始终只表示设计决定。
-
 ## Verification
 
-验证目录/认证失败、模型切换的并发拒绝、推理重置、目录变更、reasoning-only 流及请求名称映射；增加分类矩阵：同一 Ollama/SGLang/vLLM 模板的 loopback/LAN/public endpoint 必须得到不同 residence，但 transport 均为 Network；managed subscription 必须是 Network + ManagedAccount 而不是独立 transport；on-device 配置不得含 endpoint/protocol/secret。设备内 Provider 还需覆盖完整 Agent loop 的工具调用、长上下文、错误恢复、资源/热/内存、模型资产完整性和与 network Provider 的同任务 eval。真实账号或设备验证按各自显式授权执行。
+验证目录/认证失败、模型切换的并发拒绝、推理重置、目录变更、reasoning-only 流及请求名称映射；增加分类矩阵：同一 Ollama/SGLang/vLLM 模板的 loopback/LAN/public endpoint 必须得到不同 residence，但 transport 均为 Network；managed subscription 必须是 Network + ManagedAccount 而不是独立 transport；on-device 配置不得含 endpoint/protocol/secret。设备内 Provider 还需覆盖完整 Agent loop 的工具调用、长上下文、错误恢复、资源/热/内存、模型资产完整性和与 network Provider 的同任务 eval。真实账号、模拟器与真机验证分别按根目录 [AGENTS.md](../../../AGENTS.md#verification-and-device-authorization) 的当前授权范围执行，不能把授权视为验收证据。
+## Reconsider when
+
+产品所需能力超出本决定边界，或平台、依赖、资源和设备证据证明当前方案不可行时重新评审；普通实现修复不另造一套决策。
+## References
+
+- [Provider 设置实现与验证](../../evidence/development/provider-settings-2026-09-29.md)
+
+- [实施状态](../../development/status.md)
+- [开发路线](../../development/roadmap.md)
+- [主题入口](README.md)
+
+## 历史决定与原候选证据
+
+以下按原记录保留决定理由、后续取代关系和当时验收；现行规则以上方 Decision 及当前契约段落为准。历史中的“当前”“首版”“未实现”均属于该日期，不授予新任务或证明当前候选通过。原章节标题和锚点保持，便于既有引用追溯。
+
+## Decision history — 2026-11-15：Luna 思考与工具协议
+
+内置 Luna 按 Owner 提供的网关契约与[官方模型说明](https://developers.openai.com/api/docs/models/gpt-6-luna.md)支持工具和思考。默认 OFF 显式映射 `none`，避免省略参数后触发上游默认 medium；none 使用 Chat Completions，其余思考强度在请求发出前选择 Responses，包括后续工具结果回填，不在失败后切换协议或静默降低思考强度。账号传输为 Responses 增加固定目标，保留同一次调用的账号身份、刷新与取消边界。Qwen 仍为 Chat + 显式 local 路由，自配 API 的用户协议配置不改写。项目内置默认模型刷新使用仓库的显式原位更新，不向已有主键重复插入，也不以删除重建方式打断旧会话的 provider 关联。
+
+以上为客户端部署契约，目录返回不证明生成可用；本地模拟覆盖参数、流式工具、回填和失败不降级，生产网关的 Responses/工具闭环需独立真实验证，不能以 mock 或官方 OpenAI 支持替代网关实测。
+
+## Decision history — 2026-11-03：历史请求诊断与内置窗口发现
+
+Owner 要求定位旧会话持续失败，并保留服务器 400 的具体说明。HTTP 错误仍只读有界前缀，新增选取 `message/detail` 的脱敏 UTF-8 摘要（最多 768 字节）、错误类型/码和参数名，不保存完整响应或请求。摘要只进入可过期诊断详情；长期 Room 审计保留状态、结构化类型、参数与原调用身份，剔除自由文本摘要。服务端文字是不可信诊断数据，不是权限、工具指令或新的重试依据；默认会话界面不堆砌错误正文。旧请求当时丢失的文字不伪造补全。
+
+内置适配器不再固定返回“窗口未知”，通过原账号传输读取已允许的带输出模态过滤目录，只采用准确模型条目的合法数值元数据；不读未经允许的未过滤目录或猜测全局 `/get_server_info`。缺少窗口证据时，首次已登录请求尝试读取，窗口字段复用账号作用域的有界分页模型目录；失败/缺失按该目录刷新尝试缓存一分钟，避免每个 token 或回填请求反复探测；取消保持有效。仅服务端实际窗口可收紧已有手动/默认窗口，不硬编码一个未经部署证实的 Qwen 上限；目录成员身份不赋予生成权限。
+
+## Decision history — 2026-11-08：缓存计量与协议边界
+
+保留服务端可选缓存读取/写入输入数到既有 ModelCall usage JSON，缺失或非法为未知而非 0。Anthropic 完整输入继续为普通输入、缓存读、缓存写之和，累计 usage 增量替换同名字段而非再次相加；OpenAI 输入总数已包含缓存部分，不能再加。缓存细分不扣减上下文或 Turn/Goal 的完整 token 计量，也不据此推测费用、后台实现或真实命中。
+
+缓存配置属于精确服务/协议/模型能力，不能由兼容 API 名称推断。Anthropic 的顶层/块级 `cache_control`、OpenAI 新旧模型的隐式缓存及 Responses 专用断点参数、自托管引擎自动前缀缓存分开处理。本轮不向任意兼容端点增加参数、不调用管理接口改服务端缓存配置、不升级留存期限；后续启用专用策略需核实模型支持、费用与数据留存影响。官方来源和实际验证见[长任务缓存验证](../../evidence/development/long-task-cache-2026-11-08.md)。
+
+## Decision history — 2026-11-12：Responses 可选工具参数
+
+Responses function 工具显式发送 `strict: false`，保持 canonical input schema 的 required/optional 与嵌套约束原样，不把可省略字段改成必填或 nullable。省略 strict 会触发服务端 strict 规范化，导致首次分页等调用被迫伪造 cursor；参见 [OpenAI function calling strict mode](https://developers.openai.com/api/docs/guides/function-calling#strict-mode)。该设置仅属于 Responses function wire envelope，原生 web_search、其他协议与本地 schema → policy → authorization 校验链保持不变；服务端 best-effort 输出不授予执行权限。
 
 ## Decision history
 
@@ -156,18 +184,6 @@ HXA-242 当时的验收范围为主机测试、编译与实际 APK 静态配置�
 ## Decision history — 2026-10-15：移除会话常驻 HTTP 提醒
 
 Owner 明确要求删除会话中重复出现的 HTTP 提醒。移除 Composer 的提示块及三套对应翻译，连接信息保留在 Provider 配置和来源页；HTTP 继续可直接使用，不新增确认、发送门槛或自动降级。本轮主机和最终 R8 两渠道 UI 的实际范围见[预览验收](../../evidence/development/v0.0.6-preview-acceptance-2026-10-15.md)。
-
-## Reconsider when
-
-产品所需能力超出本决定边界，或平台、依赖、资源和设备证据证明当前方案不可行时重新评审；普通实现修复不另造一套决策。
-
-## References
-
-- [Provider 设置实现与验证](../../evidence/development/provider-settings-2026-09-29.md)
-
-- [实施状态](../../development/status.md)
-- [开发路线](../../development/roadmap.md)
-- [主题入口](README.md)
 
 ## Decision history — 2026-09-30：探测归属与实际模型
 
@@ -228,7 +244,6 @@ Owner 允许按最新开源 SGLang 检查，部署不支持时由 Owner 升级�
 
 Owner 明确要求会话窗口不提示内置模型将消息、上下文等发送至服务器。移除空白会话 Composer 的专用说明及三份语言资源，数据处理范围继续在 README 中如实说明；不添加替代弹窗，不声明未知留存/训练政策。选模、实际发送目标、工具/敏感附件授权和失败处理契约保持。
 
-
 ## Decision history — 2026-10-21：内置模型账号登录
 
 Owner 提供 AccountAuth.java 接口与测试账号，要求改为账号登录访问模型，并参考国内主流平台交互。采用 accounts.sunlingzhang.com 的 JSON 邮箱/密码登录、注册、旋转 refresh 与 logout，不创建 API Key；访问/刷新令牌使用现有 AndroidKeystoreSecretStore 原子加密记录，不保存密码或把令牌放进 Room、日志、UI saved state。账号服务超时30秒，刷新单飞；到期前30秒刷新，模型响应401仅在读取任何正文前允许一次刷新后重发，已开始的SSE/工具执行不重放。刷新结果不确定即清除本地会话，不自动重试消费过的刷新令牌。退出先阻断本机授权，再尝试远端撤销，迟到正文按原账号会话身份拒绝；目录按登录会话身份缓存，切换/退出不复用旧账号目录，既有 Session/Turn 模型目标不改写。
@@ -253,8 +268,7 @@ Owner 认可先用 HTML 交互原型确定界面，再以现有 Compose 实现�
 
 - **2026-10-21（原型视觉还原）**：Owner指出实际安装界面与HTML参考差异。采用导航局部的14sp/12sp字体层次、16dp/24dp圆角、40dp头像、20dp线性图标和原型灰绿色表面，保留48dp最小触控与系统字体缩放；不改全应用主题、引入字体包或更换框架。M3 Expressive导航容器升级作为另行评估项，本次没有实施。验证和安装边界见同一账号接入记录。
 
-- 2026-10-21：Owner 报告历史会话引用已删除来源却被提示未测试。发送、计划执行、重试与出站确认重新校验持久 Provider 是否存在；FK 清空来源但保留 model 的历史绑定显示“来源已删除”，不解释为普通未选模型。来源修改导致证据失效时持久标记“配置已更新”，与从未测试、认证错误、网络错误和其他测试失败分开；重新测试不要求更换原模型。显示名/选择偏好变化保持既有有效绑定，新选择菜单是否隐藏某模型不构成其不可用证据。内置模型仅凭新鲜成功的账号目录判定退目录，失败或过期目录不撤销历史绑定；普通 API 目录仍为展示证据，不能把任意 HTTP 错误假定为模型不存在。会话页显示就地模型选择和来源设置入口，保留草稿，不自动切换 Provider/model。
-
+- 2026-10-21：Owner 报告历史会话引用已删除来源却被提示未测试。发送、计划执行、重试与出站确认重新校验持久 Provider 是否存在；FK 清空来源但保留 model 的历史绑定显示“来源已删除”，不解释为普通未选模型。来源修改导致证据失效时持久标记“配置已更新”，与从未测试、认证错误、网络错误和其他测试失败分开；重新测试不要求更换原模型。显示名/选择偏好变化保持既有有效绑定，新选择菜单是否隐藏某模型不构成其不可用证据。当时内置模型仅凭新鲜成功的账号目录判定退目录，失败或过期目录不撤销历史绑定；2026-11-18 后改为保留完整目录缺席证据至后续正向条目恢复，具体变更见文末同日 Decision history。普通 API 目录仍为展示证据，不能把任意 HTTP 错误假定为模型不存在。会话页显示就地模型选择和来源设置入口，保留草稿，不自动切换 Provider/model。
 
 ## Decision history — 2026-10-30：模型目录按用途分类
 
@@ -266,7 +280,6 @@ Owner 要求不同厂商目录不得将嵌入模型混入对话候选。目录�
 - 目录查询不自动发送计费推理探测。用户显式连接/能力检测在已明确非 chat 时先停止；只对用户明确选择的未知用途模型执行原有检测。
 
 依据：[OpenAI 模型列表](https://developers.openai.com/api/reference/resources/models/methods/list)、[Gemini 模型方法](https://ai.google.dev/api/models)、[SiliconFlow 目录过滤](https://api-docs.siliconflow.cn/docs/api/models-get)、[Cohere 模型 endpoints](https://docs.cohere.com/reference/list-models)。原生厂商分页/线上账号与设备验证不由主机单测替代。
-
 
 ## Decision history — 2026-10-30：内置目录直接启用
 
@@ -296,13 +309,11 @@ Owner 报告覆盖安装后未登录时出现“来源已删除”，重新登�
 
 会话投影单独提供原始 providerId/modelId/reasoning 编辑快照，包含来源已删除后保留的 modelId；保存比较该快照，不再用可显示模型反推原始配置。真实并发修改、会话切换、运行中和不支持的思考强度继续拒绝旧保存，不自动改选来源、不迁移格式或清理草稿。错误文本保留，重复的“选择模型／模型设置”按钮删除；恢复使用输入区或会话设置中的既有模型选择器。正常覆盖更新应保留 Android 私有数据和 Keystore 凭据；账号过期、撤销或存储失败仍依既有认证契约处理，不能由错误文案推断覆盖安装删除了真实登录信息。
 
-
 ## Decision history — 2026-11-05：未选模型的输入占位提示
 
 Owner 要求把“请选择模型再发送”放在输入文字的位置，移除输入框底部重复提醒。空输入且未选模型时使用该占位文案；已有文本继续显示原草稿，已选模型恢复正常输入占位。模型选择仍走现有输入区模型入口，首次使用的欢迎页快捷入口保留，不增加新按钮或自动弹窗。移除重复底部入口及其回调；普通发送的选模前置校验、程序化拒绝原因、本地命令资格和具体权限／错误的持续可见性不变。
 
 本次实现移除 Composer 的重复选模回调，调用方和原测试改走已有模型选择入口。最终源码通过完整双渠道 Debug 门禁及测试包构建；Helix_API_36／API36 保留数据更新后，18 项检查通过：占位与真实错误两项、输入交互五项、既有布局／状态十项、真实生产输入／选模取消一项。实际截图确认空输入显示占位、有文本不覆盖、底部没有重复提醒；未选模型发送拦截、草稿、附件状态、本地命令与持续错误仍保留。源码、安装包身份与逐项证据在 ignored `build/composer-model-placeholder-*`；前一技能阶段的真实模型验证有独立收据，本轮未额外运行模型生成，未声称它是在此输入占位候选上重跑。已恢复原安全 profile、草稿模型与会话启动目标，专用合成会话清理，未清数据、改目录授权、使用真机、提交、推送或发布；本次不含 Release／R8 和全语言／OEM 视觉验收。
-
 
 ## Decision history — 2026-11-05：未选模型仅在发送时提醒
 
@@ -310,13 +321,11 @@ Owner 随后明确取消常驻选模提示。输入区始终使用普通占位�
 
 本次改动通过完整双渠道 Debug 门禁和 Developer 测试 APK 构建；Helix_API_36／API 36 保留数据覆盖安装后，19 项检查通过：输入占位／真实错误 2 项、交互 5 项、既有输入区状态 10 项、生产页面点击提醒与选模取消 1 项、真实提交服务拒绝未选模型且不消费草稿 1 项。截图确认普通占位和点击后的 Toast；缺少模型不创建 Turn 或用户消息，既有模型入口保留。原语言、草稿模型和启动目标已恢复／核对，专用页面测试会话清理；本轮未运行真实模型生成、真机、Release 或全语言视觉验收，未提交、推送或发布。源码和安装包绑定、原始输出保留于 ignored `build/model-send-reminder-*`。
 
-
 ## Decision history — 2026-11-05：上下文窗口常驻会话
 
 Owner 要求上下文窗口在会话页持续可见，未发送消息、空输入或尚无 usage 时也保留既有紧凑环形入口；移除输入选项中的重复入口，不新增说明行。没有测量数据时显示“?”并提供可访问的未知状态说明，不伪造 0% 或模型窗口；已有实际占比、压力颜色、估算标记和详情继续读取同一 usage。点击环形入口查看详情；不改变上下文计量、模型选择、请求预算或压缩逻辑。
 
 本次实现通过完整双渠道 Debug 门禁和 Developer 测试 APK 构建；Helix_API_36／API 36 保留数据覆盖安装后，19 项检查通过：未知/实测用量与大字体 2 项、输入交互 5 项、既有输入区布局/状态 10 项、空输入及选项菜单生产页面 1 项、本地协议夹具驱动的普通会话及真实 Dispatcher 写入/产物回访 1 项。未知状态没有 0% 的进度语义；截图确认空会话“?”、实际输出后占比和选项菜单不含重复入口。源输入与安装包身份、原始输出和截图保留在 ignored `build/context-always-visible-*`。仅对 Developer/API36 做本轮设备验证，没有运行真实远端模型、真机、Release 或全语言/OEM 视觉验收；未提交、推送或发布。
-
 
 ## Decision history — 2026-11-05：新会话零用量与紧凑菜单
 
@@ -326,18 +335,15 @@ Owner 指出新会话应显示 0%，不能把未发起请求与缺失遥测混�
 
 本次最终整合源码通过双渠道 Debug 全门禁与测试 APK 构建。Helix_API_36／API36 Developer 保留数据覆盖安装后 27 项通过：上下文状态/大字体 2、持久统计边界 2、菜单行密度/大字体 2、添加入口 4、真实菜单与原生插件前两项排序 1、既有输入区 10、输入交互 5、普通回复及真实 Dispatcher 产物场景 1。新草稿/空持久会话为 0%，导入历史及已有请求无统计仍未知；四张生产页面截图核对零值、分组、置顶和会话管理布局。插件排序依据实际安装记录 ID，列表项 UI 状态按同一 ID 绑定。原始输出、初轮失败及修复、源码/制品绑定均保留在 ignored `build/conversation-menu-*`；只读酷安诊断见现有 Mobile Use 研究主题。本轮没有真机、Release 或远端真实模型验收，未提交、推送或发布。
 
-
 ## Decision history — 2026-11-12：统一服务设置
 
 Owner 要求继续合并服务编辑与模型管理。用户配置服务仅保留“服务设置”入口，内含“连接设置”和“模型”两个区域；切换区域保留未保存草稿，不触发网络或持久化。每区保存仅应用本区，成功反馈后保持设置打开，关闭则丢弃尚未保存的草稿。模型选择保持既有 revision 检查与逐模型测试边界，不把编辑连接或模型候选应用为当前会话切换。订阅及本地模型保留各自认证/下载入口，不展示用户 API Key 编辑。
-
 
 ## Decision history — 2026-11-12：思考强度独立发现
 
 思考强度发现不再调用混合文本／工具／图片的付费能力探测。刷新目录在同一配置／账号代次内发布精确模型元数据；服务明确声明优先。仅对 HTTPS api.openai.com:443/v1 的 Responses / Chat Completions 和已逐项核实的精确模型 ID，补充官方模型文档的档位契约，不按前缀猜测、不用于兼容网关。OFF 是省略参数，NONE 是独立的 none 档位。
 
 无声明为未知；空声明为不支持调节；目录认证／传输失败为检测失败。ReasoningDelta 只证明收到思考内容，不能推出 low/medium/high 整套档位；没有摘要也不能推出不支持。官方 [reasoning summaries](https://developers.openai.com/api/docs/guides/reasoning#reasoning-summaries) 明确摘要需 opt-in。固定契约来源为 [GPT-4.1](https://developers.openai.com/api/docs/models/gpt-4.1)、[GPT-5](https://developers.openai.com/api/docs/models/gpt-5)、[GPT-5.1](https://developers.openai.com/api/docs/models/gpt-5.1)、[GPT-5.2](https://developers.openai.com/api/docs/models/gpt-5.2)、[GPT-5.4](https://developers.openai.com/api/docs/models/gpt-5.4)、[GPT-6 Astra](https://developers.openai.com/api/docs/models/gpt-6-astra)，核实日期 2026-11-12。未覆盖的新模型保持未知。
-
 
 ## Decision history — 2026-11-13：API 单页编辑与统一保存
 
@@ -358,7 +364,6 @@ Owner 要求自配 API 连接测试只请求模型目录，将上下文和能力
 ## Decision history — 2026-11-13：会话模型按服务分组
 
 Owner 要求会话模型选择器以来源服务作为一级标题，标题下仅列该服务已勾选的模型，移除每个模型下重复的来源副标题。每组及模型项保持精确 Provider ID 与模型 ID 身份，不按服务显示名或模型名合并；搜索继续匹配服务名、模型 ID 和显示名，只展示匹配模型所在的非空组。来源级不可用原因放在组标题下，逐模型失败、思考强度、选择／保存／取消、未就绪配置入口及权限准入沿既有契约，不因分组改变。
-
 
 ## Decision history — 2026-11-15：官方服务域名与不可用反馈
 
@@ -453,3 +458,13 @@ Chat 明确返回 `length`、Responses 明确返回 `max_output_tokens` 且工�
 普通账户详情提供修改密码入口，与必须修改初始密码共用旧密码、新密码和确认字段。确认只在本地比对；密码不 trim，新密码仍限6–128字符并拒绝全空白，以免设置出登录校验不接受的密码。表单冻结账号 revision，切换身份清空输入；请求只能作用于原账号。已确认 `/account/password` 成功但原登录名重新认证失败时，单独提示“密码已修改，请重新登录”，只失效匹配 revision 的旧本机认证，不清除较新账号、不重放改密。此提示由稳定父级承载，不因子表单随认证清除而丢失。真实密码修改未验收，不以合成结果代替。
 
 服务明确声明的部分模型目录不撤销用户已保存的模型选择；同账号目录缺席模型的既有 purpose 仅供历史绑定继续识别，不冒充当前目录可选项或新的授权。完整目录仍可淘汰已缺席条目，账号隔离保持；这不将分页传输失败当成合法 partial 成功。语义检索设置不会自动选首项、替换模型或启动索引。额度 scope 为 `cloud_text_tokens` 时显示“云文本”与实际数值，不以新文案推断额外收费规则；语义服务费用提示按当前选择区分官方额度与自定义服务。
+
+## Decision history — 2026-11-18：目录刷新与历史模型下架
+
+Owner 根据主流 Agent 调研要求优化模型目录生命周期。内置目录先展示缓存，登录/账号变化、进入绑定内置服务的会话、该会话回到前台及打开模型选择器均触发按有效期刷新；成功 5 分钟、失败/部分结果 1 分钟，手动刷新防连点 3 秒，单飞与 10 秒超时保持。模型列表和上下文窗口共享同一份带输出模态过滤的分页结果，未知窗口一分钟后可重查。普通自配 Provider 仍按显式发现/保存刷新，不后台遍历用户端点；其目录不是手工模型 ID 的撤销依据。
+
+分别保存最近尝试时间、最近成功时间和完整目录成员证据。失败保留成功数据；部分目录只增加正向成员证据，不通过缺失撤销模型。完整目录确认缺失后，会话显示模型当前不可用并提供原位选择入口，事实不随缓存过期或请求失败失效；后续正向条目恢复可用性。账号切换不复用另一账号目录，迟到结果不得发布。列表存在不保证推理成功。
+
+明确的 `model_not_found` 或参数指向 `model` 的权限拒绝仅触发一次受单飞/防连点约束的目录刷新；普通 404、超时、认证失败及 5xx 不视为下架。原错误照常交付，不自动替换模型或重放请求。Session 保留已选 Provider/model 与历史消息/工具事实；用户可在原会话显式保存另一个模型，对后续请求生效。运行中 Turn、队列接收时目标、失败重试与 UNKNOWN 恢复继续遵循原有执行身份和恢复边界，不因目录变化改写。
+
+参考：[Cline 选择器打开时刷新](https://github.com/cline/cline/releases/tag/desktop-v0.0.28)、[OpenCode 模型选择](https://opencode.ai/docs/models/)、[Continue 模型发现](https://docs.continue.dev/guides/ollama-guide)。这些是设计输入，5 分钟与账号目录权威性是 Helix 的产品决定，不声称所有 Agent 采用相同策略。离线单元/模拟器回归与线上服务可用性分别验收。

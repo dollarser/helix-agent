@@ -1,5 +1,7 @@
 # 维度一：文档与代码一致性
 
+> 证据口径：本页完成记录核对包含抽样，链接/数量检查不等于逐篇语义验收；历史测试数字来自记录，未在本次重跑。“待核实无”仅限本页所查静态声明，不覆盖产品、设备或线上行为。
+
 **审查基线**：git HEAD `3cf89027`（2026-09-24）+ 未提交工作树（16 个修改文件 + 未跟踪的 Root 文件管理/两级导航 WIP）
 **审查方式**：只读静态阅读 + grep 取证；所有结论附 file:line；未运行 gradle 构建/测试
 **审查范围**：docs/ 全部 524 篇 md、README.md、AGENTS.md 与 settings.gradle.kts、app/build.gradle.kts、各 AndroidManifest.xml、consumer/developer 源集、核心实现代码
@@ -210,3 +212,5 @@
 
 ---
 *本报告为只读审查，未修改 /Users/dollars/Helix 下任何文件；辅助脚本位于 /tmp/helix_linkcheck.py。标注"待核实"项：无（所有结论均基于已读代码/文档或 git 取证）。*
+
+历史路径 `docs/architecture/extensions.md` 的内容现归入 `docs/architecture/overview.md#mcpskillsconnector-与-a2a`；上文行号仅指当时快照。

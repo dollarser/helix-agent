@@ -39,5 +39,5 @@ This proves only the controlled emulator process boundary. It does not establish
 
 - [Empty-list cleanup fix](2026-09-07-accessibility-test-empty-settings-cleanup.md)
 - [Main verification](../evidence/development/main-merged-verification.md)
-- [Current TODO](../evidence/development/main-optimization-todo.md)
+- [Historical follow-up](../evidence/development/main-optimization-todo.md)
 - [HXA-102](../completion-records/HXA-102.md)

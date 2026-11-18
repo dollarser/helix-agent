@@ -6,6 +6,6 @@
 - [2026-09-09 浏览器/Autofill 长稳子计划](browser-autofill-soak-plan-2026-09-09.md)
 - [2026-09-29 BFCL/AndroidWorld 原全量计划](public-benchmark-full-run-plan-2026-09-29.md)：原清单、校准、执行和结案口径；“计划未开始”不覆盖后来 run 事实。
 
-可复用的现行方法看[Agent Eval](../../../development/agent-eval.md)与[系统基线](../../../development/harness-system-baseline.md)，不从这里恢复固定设备占用或旧任务顺序。
+可复用的现行方法看[Agent Eval](../../../development/agent-eval.md)与[系统基线](../../../development/agent-eval.md#history-harness-system-baseline)，不从这里恢复固定设备占用或旧任务顺序。
 
-当前设备范围与授权只看根 `AGENTS.md`、`docs/development/status.md`、当前 HXA 和 `docs/development/verification-matrix.md`。AI 代理只有在项目所有者对当前任务明确要求时才执行本地模拟器/真机验证；历史命令和旧设备 serial 不构成授权。
+当前授权以根 [AGENTS.md](../../../../AGENTS.md) 和所有者当前任务为准：本地项目模拟器按其持续授权执行相关有界验证；真机仍需当前任务明确授权；外部服务遵循其中独立范围与安全边界。status 仅提供事实，历史计划、命令和旧 serial 均不新增授权。

@@ -1,6 +1,14 @@
 # helix-docs：官方用户文档查询能力设计
 
-> 设计与实现记录：设计基线为 2026-10-14 的 `main` / `667a81bcad8c4d34f1bf84e9b4aaf23d697ab5d0` 加当时工作区。Owner 后续授权并实施了内置 Skill＋版本化离线章节、资源发现及默认模型读取路径；实现边界和阶段结果见本文 第 11 节。内容仍是随包开发预览，不能据此声称静态帮助 UI、官方在线服务、双语正文或正式发行已交付。当前总体状态见 [status](../../development/status.md)。
+> 设计与实现记录：设计基线为 2026-10-14 的 `main` / `667a81bcad8c4d34f1bf84e9b4aaf23d697ab5d0` 加当时工作区。Owner 后续授权并实施了内置 Skill＋版本化离线章节、资源发现及默认模型读取路径；实现边界和阶段结果见本文 第 11 节。内容仍是随包开发预览；静态帮助 UI、官方在线服务和正式发行需独立证据。当前总体状态见 [status](../../development/status.md)。
+
+## 当前承接（2026-11-18）
+
+以下第 1–11 节保留 2026-10-14/15 设计与验收快照，其中“仅英文”“未传实际渠道”等是当时缺口。当前 [HelixUserGuide](../../../extensions/skills/src/main/kotlin/com/helix/extensions/skills/HelixUserGuide.kt) 已打包英文与[中文索引/八章](../../../extensions/skills/src/main/resources/helix-docs/index.zh-CN.md)；[HelixHelpIdentity](../../../extensions/skills/src/main/kotlin/com/helix/extensions/skills/HelixHelpIdentity.kt) 接收宿主 versionName、versionCode、distribution、applicationId 和 debuggable，未提供值保留 null。revision 覆盖实际资源内容，仍不包含 sourceRevision/dirty、签名或正式发布证明。英文正文仍位于 Kotlin，中文为受跟踪资源，不是整库文档自动发布。
+
+2026-11-18 文本修订同步英文 Mobile Use 的“插件与专家”入口、电脑 ADB helper 与后台屏边界，并将入门说明从仅自配 API 改为模型来源配置。仍未提供独立内容生成管线、完整模型设置分项说明或截图专题；双语章节主题对应不等于每句内容逐字等价。
+
+本次核对代码与文档事实，并通过 `:extensions:skills:test --tests com.helix.extensions.skills.BuiltInSkillsTest`；未重新运行模型问答、APK 构建或安装；帮助文字修订须随后续成功构建交付，旧 APK 不会因仓库文档更新而改变。下方历史数量、失败和未验证范围保持原日期归属。
 
 ## 1. 产品定位与结论
 

@@ -7,6 +7,6 @@
 - [deepseek-harness-goal.md](deepseek-harness-goal.md)：DeepSeek Harness 的 Goal 参考快照，不是 Helix Goal 使用说明。
 - [ui/](ui/README.md)：用户提供的 UI 参考图与原始来源。
 
-Helix 自身的功能说明从[产品入口](../product/README.md)进入；当前 Linux/后台任务看[执行域](../architecture/local-code-execution.md)与[终端](../architecture/terminal.md)。旧 Linux 集成和 2026-09-10 后台机制核对已归[历史研究](../evidence/research-history/README.md)，保留原结论但不用于判断当前能力。
+Helix 自身的功能说明从[产品入口](../product/README.md)进入；当前 Linux/后台任务看[执行域](../architecture/overview.md#本地执行域与恢复)与[终端](../architecture/terminal.md)。旧 Linux 集成和 2026-09-10 后台机制核对已归[历史研究](../evidence/research-history/README.md)，保留原结论但不用于判断当前能力。
 
-引用外部实现时遵守根 `AGENTS.md` 的许可证和代码复制规则；参考资料中的可行方案只有进入 ADR/HXA 后才成为项目决定。
+引用外部实现时遵守根 `AGENTS.md` 的许可证和代码复制规则；参考方案需经 Owner 授权；真实架构决策记录于适用 ADR，代码开发在既有 HXA 记录。写入研究或任务本身不授予实施权限。

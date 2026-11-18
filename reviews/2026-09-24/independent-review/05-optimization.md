@@ -1,6 +1,10 @@
 # 维度五:优化与删减
 
-> 审查对象:`/Users/dollars/Helix`,基线 git HEAD `3cf89027`(2026-09-24)+ 未提交工作树(16 个改动 + 未跟踪的 Root 文件管理新功能:`app/src/{consumer,developer}/.../root/RootFileModule.kt`、`app/src/main/.../files/RootFileOperations.kt`、`tools/root/.../RootFileAccessor.kt`)。
+> 后续边界：旧 schema 迁移 append-only 建议对应当时 1..28 链；当前发布前内部版本固定为 1，不维护旧测试数据迁移链。KSP 与 Kotlin 版本号不同本身不证明不兼容，须依据所用版本兼容说明和构建结果。跨模块共享的 SSE 类型不能声明为 Kotlin `internal` 后直接供其他模块调用；共享方案还需明确可见性和协议差异，本文估算不构成实现契约。
+
+> 同批意见冲突：本文“保留参考模型也必须删除绑定测试”的建议与[架构复核](02-architecture.md#turnreducerkt--a01-的参考模型部分本身内聚高)不一致，不作为删测依据。先验证生产契约与保留的正确性边界，再按实际替代实现调整覆盖。原列举保留为历史建议，零 import、行数或“零风险”标签不能独立证明可删除。
+
+> 审查对象:仓库根目录,基线 git HEAD `3cf89027`(2026-09-24)+ 未提交工作树(16 个改动 + 未跟踪的 Root 文件管理新功能:`app/src/{consumer,developer}/.../root/RootFileModule.kt`、`app/src/main/.../files/RootFileOperations.kt`、`tools/root/.../RootFileAccessor.kt`)。
 > 方法:纯静态取证(grep/find/wc/diff/git log),未运行 gradle 构建/测试,仓库严格只读。所有"可移除"结论均附无引用 grep 证据。
 
 ## 总评
@@ -154,7 +158,7 @@ R1-R3 建议打包做"core/agent 死族处置"决策(删除 或 ADR 归档为 M1
 2. `ProotJobLauncher.kt`(约 220 行):`start`/`submitWithOwner` + `runJob` 的 launch 段。
 3. `ProotJobTerminalizer.kt`(约 220 行):终态簇 + `publishTerminal`。
 4. `runJob` 剩余 monitor/collect 段留在主类或抽 `ProotJobMonitor`(约 250 行)。
-**依赖顺序**:capacity(独立)→ terminalizer → launcher/monitor。**风险**:中(companion APK 作业状态机是 HXA-083+ 核心;历史 P2 "PRoot 提交拒绝时泄漏 PFD" 位于 `runJob` 段,拆分时顺带修复;6 个测试文件 + `ProotJobRunnerDeviceTest` 600 行)。
+**依赖顺序**:capacity(独立)→ terminalizer → launcher/monitor。**风险**:中(companion APK 作业状态机是 HXA-083+ 核心;历史 P2 "PRoot 提交拒绝时泄漏 PFD" 的可达性已被核心路径复核撤回，不以此作为修复依据;6 个测试文件 + `ProotJobRunnerDeviceTest` 600 行)。
 
 ### 3.4 BrowserController.kt(877 行,feature/browser)
 
@@ -312,3 +316,5 @@ R1-R3 建议打包做"core/agent 死族处置"决策(删除 或 ADR 归档为 M1
 *本报告基于 HEAD 3cf89027 + 工作树的静态取证(grep/find/diff/wc/git log),未运行构建或测试;所有"可移除"结论的 grep 证据已在上文逐条给出。审查过程未修改仓库任何文件。*
 
 > 后续留存变化（2026-10-05）：以上是审查时的目录状态；所有者随后明确授权删除过期材料，旧不可执行脚本归档和清单已移除。恢复提交、删除清单和保留边界见[清理记录](../../../docs/evidence/development/obsolete-material-cleanup-2026-10-05.md)。
+
+历史路径 `docs/evidence/development/repository-hygiene-2026-09-22.md` 的内容现归入 `docs/evidence/development/test-script-maintenance-2026-10-10.md#前序2026-09-22-稳定入口与-spike-构建`；上文行号仅指当时快照。

@@ -17,9 +17,9 @@ Bug reports, reproducible fixes, documentation, and tests are welcome in Chinese
 # 按影响范围运行模块测试与构建 / Run affected module tests and builds.
 ```
 
-完整主机门禁见 [scripts/README.md](scripts/README.md)。UI 或设备行为变更应记录实际设备/API、构建渠道、通过/失败/跳过项；编译成功不能替代设备验证。自动化 Agent 使用设备或消耗真实服务额度须取得本次任务明确授权，GitHub CI 不启动模拟器。
+完整主机门禁见 [scripts/README.md](scripts/README.md)。UI 或设备行为变更应记录实际设备/API、构建渠道、通过/失败/跳过项；编译成功不能替代设备验证。自动化 Agent 遵循 [AGENTS.md](AGENTS.md#verification-and-device-authorization) 的项目模拟器预授权、真机与外部服务边界；GitHub CI 不启动模拟器。
 
-See the scripts guide for full host gates. Record device/API, edition, and pass/fail/skip results for device behavior changes. AI agents require explicit task authorization for device testing or paid/live services. GitHub CI is host-only.
+See the scripts guide for full host gates. Record device/API, edition, and pass/fail/skip results for device behavior changes. AI agents follow the project-emulator standing authorization and physical-device/external-service boundaries in [AGENTS.md](AGENTS.md#verification-and-device-authorization). GitHub CI is host-only.
 
 ## 提交 PR / Pull requests
 

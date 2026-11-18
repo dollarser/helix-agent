@@ -1,5 +1,7 @@
 # 维度三:UI 与产品交互
 
+> 适用边界：以下是 2026-09-24 静态 UI 发现与提案。控件计数、推导的热路径和“风险”没有帧耗时/ANR 实测；加载、错误、权限提示是否常驻须按当前 AGENTS 的具体状态与恢复需要判断，不能将“全部加进度/提示”或组件数量目标作为现行规范。
+
 **审查基线**:HEAD `3cf89027` + 未提交工作树(FilesHome/FilesScreenActions/GroupedNavigation/FileManagerService/strings.xml 各 +4 根目录字符串/测试若干/未跟踪 RootFileModule+RootFileOperations)。
 **审查方式**:只读静态走查(grep + 全文阅读关键 Composable);i18n 用临时脚本 `/tmp/i18n_check.py` 对比三份 strings.xml;未跑 gradle。所有结论附 file:line;未经设备验证的标注"待核实"。
 

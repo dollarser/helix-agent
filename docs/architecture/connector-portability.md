@@ -48,11 +48,11 @@ flowchart TD
 
 2026-09-05 已读取 WorkBuddy 官方[连接器规范](https://open.workbuddy.cn/docs/connector)正文：公开包使用 `connector-meta.json`、`mcp.json` / `cli.json` 和可选 Skills；这不是 Codex/Claude manifest 的统一格式。已补齐 `streamableHttp` 传输别名和 `staticHeaders` 的独立认证提示；元信息、CLI、OAuth/token 表单与 host 版本条件没有据此获得运行兼容。QwenWork 的[扩展说明](https://docs.qwenwork.ai/features/extensions)说明产品概念，未提供本任务可验证的稳定导出 schema。WorkBuddy 于 2026-09-08 补充用户提供的 GitHub/可灵真实市场包，QwenWork 另有用户提供的真实参考包；样本验收见 [HXA-125 进展](../evidence/development/hxa-125-progress.md)，均不称为官方认证。
 
-## 4. 当前实现契约
+## 4. 导入基线与当前生命周期
 
-设置页提供 ZIP/JSON picker，内容只进本地导入流程，不作为聊天附件发给模型。ZIP 可直接装插件目录内容，也可有单一外层目录。解析不落地任意外来路径；拒绝 traversal、symlink/special Unix entry、重名路径、过深/过大配置与解压炸弹。上限：压缩输入与总内容 16 MiB、单文件 4 MiB、配置 256 KiB、1024 entries、64 Skills、32 MCP endpoints。完整包 hash 包括未执行的文件，更新产生新安装版本，不替换旧快照。
+设置页提供 ZIP/JSON picker，内容只进本地导入流程，不作为聊天附件发给模型。ZIP 可直接装插件目录内容，也可有单一外层目录。解析不落地任意外来路径；拒绝 traversal、symlink/special Unix entry、重名路径、过深/过大配置与解压炸弹。上限：压缩输入与总内容 16 MiB、单文件 4 MiB、配置 256 KiB、1024 entries、64 Skills、32 MCP endpoints。完整包 hash 包括未执行的文件；安装身份、更新替换与会话归属按 [ADR-CONNECTORS-003](../adr/connectors/003-ownership-and-installation.md) 的当前契约处理。
 
-MCP 原始 headers/环境变量不进入持久记录。首版仅迁移无 userinfo/query/fragment/变量占位的 HTTPS URL；不符合的端点给出需配置诊断，用户可修正导出内容后重导。query 经常混有 token，后续可在类型化编辑器明确区分参数与凭据后支持。Connector 内部 Skill 目录按原文声明名归一，文件字节保留；拒绝非单层路径及同包重名，普通 Skill 名称和内容校验不变。源 `enabled/disabled` 不授予 Helix 能力；新 Skill 默认禁用，已存在同 hash 的共享 Skill 保持既有用户选择。
+MCP 原始 headers/环境变量不进入持久记录。首版仅迁移无 userinfo/query/fragment/变量占位的 HTTPS URL；不符合的端点给出需配置诊断，用户可修正导出内容后重导。query 经常混有 token，后续可在类型化编辑器明确区分参数与凭据后支持。Connector 内部 Skill 目录按原文声明名归一，文件字节保留；拒绝非单层路径及同包重名，普通 Skill 名称和内容校验不变。源 `enabled/disabled` 不授予 Helix 能力；Skill 按安装 owner 隔离副本和身份；同 hash 不跨安装去重或继承另一来源的选择。安装、启用与会话选择遵循当前归属 ADR。
 
 安装只产生 package 记录与 Skill snapshot；测试连接时才懒注册 MCP，因此导入不联网、不激活任何服务。相同 package hash 的重复安装返回既有记录。MCP 用每次安装专属 UUID 命名空间，避免与用户已有 server 冲突。模型工具名在注册边界生成来源限定的可移植名称，远端原名保留供派发，具体规则见[工具契约 ADR](../adr/tools/001-descriptor-contract.md#可移植工具名与来源边界2026-11-16)。不静默改写 Skill 中的源平台工具名；模型通过当前工具目录发现可调用名称，必要时修改源 Skill 并重导。
 
@@ -60,15 +60,15 @@ MCP 原始 headers/环境变量不进入持久记录。首版仅迁移无 userin
 
 停用移除动态工具且使旧 executor 引用在调用前拒绝执行。已经送达远端的调用可以完成，不能声称远端撤销；断线不自动重放。App 进程重启后 package 和 Skill 状态保留，MCP 显示未激活，要求重新测试，不在启动时连接第三方。停用、移除本地连接、厂商撤销 consent 是三种不同动作。
 
-移除只删除连接器记录和该连接本地 Secret，保留 disabled MCP 配置行作为既有记录，保留 Skill snapshot。无其他 connector 引用的 Skill 会停用；共用 Skill 保持原状态。更新并行安装，旧版由用户显式移除。安装中断可能留下未启用的 Skill 快照，它不会产生新授权，重复导入按内容 hash 复用；这不是横跨 Room/文件系统的全局原子事务。
+移除、更新、回滚与 owner 隔离的 Skill 内容由 [ADR-CONNECTORS-003](../adr/connectors/003-ownership-and-installation.md)统一规定；本页的首版导入基线不再定义并行安装/手动删除旧版的生命周期。保留固定内容身份、来源归属、凭据隔离和失败可恢复，不用安装成功冒充启用或执行授权。
 
 QwenWork 用户参考包已支持 `qwenwork.mcp/v1 → dynamic.servers`；新增元数据适配保留 `references/helix-import/original-SKILL.md.txt`，普通 Skill metadata 字符串约定不变。源 policy 不转为本地授权，CLI 依赖只展示。
 
 HXA-125 模拟器实测补充：MCP 注册适配允许已知的根 JSON Schema 2020-12 声明，剩余 schema 必须通过原有 ToolSchema 子集校验；保留原始来源 hash。API 29/36 的匿名真实服务调用与跨进程恢复已验证，详见[验收进展](../evidence/development/hxa-125-progress.md)。
 
-## 5. 当前分期状态
+## 5. 阶段追溯（2026-09-25）
 
-长期架构不复制完整 roadmap；当前任务状态以 [status](../development/status.md) 和 [roadmap](../development/roadmap.md) 为准。Connector 相关阶段截至 2026-09-25：
+以下保留截至 2026-09-25 的阶段记录，不作为当前未完成清单；后续 OAuth 真实服务与安全替换以对应 HXA/ADR 为准。当前能力入口为 [status](../development/status.md)，[roadmap](../development/roadmap.md)只索引任务。
 
 1. **HXA-125 收尾验收**：公开来源与匿名服务/恢复已有证据，受保护服务仍需独立账号下的拒绝、撤销和重连验证；见[进展记录](../evidence/development/hxa-125-progress.md)。
 2. **HXA-126 进行中**：预注册 public-client OAuth 核心已整合；两家真实服务注册/redirect 条件与动态注册仍未闭合。

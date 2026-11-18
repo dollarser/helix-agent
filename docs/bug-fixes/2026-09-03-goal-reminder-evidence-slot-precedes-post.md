@@ -63,7 +63,7 @@ return Result.success()
   （证据槽先于两次系统服务调用）。
 - 修复后双设备全量设备套件（含 GoalReminderTest ×2）通过；后续任何
   "reminder notification expected after the worker ran" 失败将携带 15 s 重轮询
-  耗尽的信息，可直接判定为真实生产缺陷而非窗口踩点。
+  耗尽的信息，证明在该等待窗口内未观察到通知；仍需结合 Worker、系统通知与夹具状态定位，不能仅凭超时判定生产缺陷。
 
 ## Residual risk
 

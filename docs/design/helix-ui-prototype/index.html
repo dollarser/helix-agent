@@ -25,9 +25,9 @@ const PAGES=[
 ['startup','启动与恢复','AppStartupScreen.kt','启动、失败、预览库重建确认','设置'],
 ['question-input','请求用户输入','UserQuestionDialog.kt','单选、多选、自填、取消','会话'],
 ['background','后台工作与调用结果','BackgroundTaskDialog.kt','状态、停止、结果、调用清单','工作'],
-['chat','当前会话','ConversationSection.kt','发送、停止、消息操作、草稿','会话'],
-['history','全部会话','chat/ui/ConversationHistoryScreen.kt','搜索、筛选、打开、重命名、删除','会话'],
-['search','会话内搜索','ConversationSearch.kt','搜索、定位消息','会话'],
+['chat','当前会话','feature/conversation/src/main/kotlin/com/helix/feature/conversation/presentation/ChatScreen.kt','发送、停止、消息操作、草稿','会话'],
+['history','全部会话','feature/conversation/src/main/kotlin/com/helix/feature/conversation/presentation/ConversationHistoryScreen.kt','搜索、筛选、打开、重命名、删除','会话'],
+['search','会话内搜索','feature/conversation/src/main/kotlin/com/helix/feature/conversation/presentation/ConversationSearch.kt','搜索、定位消息','会话'],
 ['session','会话设置','SessionSettingsScreen.kt','工作区、专家、连接器、导出、归档','会话'],
 ['projects','项目','projects/ui/ProjectsScreen.kt','新建、检索、打开项目','项目'],
 ['project','项目详情','projects/ui/ProjectDetailScreen.kt','说明、项目会话、工作目录','项目'],
@@ -45,7 +45,7 @@ const PAGES=[
 ['knowledge','知识库','knowledge/KnowledgeScreen.kt','来源/笔记、搜索、多选、问答','工作'],
 ['source','来源详情','knowledge/KnowledgeScreen.kt','原件、提取、引用、笔记','工作'],
 ['note','知识笔记','knowledge/KnowledgeScreen.kt','编辑、引用快照、保存','工作'],
-['question','知识问答','ui/ChatScreen.kt','范围、内容去向、生成、引用、保存笔记','工作'],
+['question','知识问答','ui/AppConversationRoute.kt','范围、内容去向、生成、引用、保存笔记','工作'],
 ['collect','收集到 Helix','knowledge/KnowledgeCaptureActivity.kt','材料校验、收集、不自动发送','工作'],
 ['memory','人格与记忆','MemoryDialog.kt','会话人格、记忆编辑、显式保存','工作'],
 ['reminders','提醒','reminder/ReminderScreen.kt','列表、创建、暂停、时间解释','工作'],
@@ -313,7 +313,7 @@ case 'detail-connector-save':{const endpoint=read('connector-url'),c=d.oauth;if(
 case 'detail-oauth-document':info('客户端注册文档预览','<pre>{"client_id":"demo-client","redirect_uris":["helix://oauth/callback"]}</pre><p>不请求 URL；声明不提供工具权限。</p>');return true;
 case 'detail-device-code':open('detail-device-code');return true;
 case 'detail-device-expired':info('设备码已过期','<p>没有连接，未保留凭据；可以重新开始。</p>'+btn('重新申请演示码','detail-device-code','outline'));return true;
-case 'detail-connector-tools':open('info',{title:'连接器工具与范围',body:detailToggle('documents.search（启用 / 禁用）','connector-search',d.connectorSearch!==false)+detailToggle('documents.read（启用 / 禁用）','connector-read',d.connectorRead!==false)+field('资料范围（演示）','connector-scope',d.connectorScope||'用户选定资料')+btn('保存范围','detail-connector-tools-save','primary')+note('启用不等于逐次授权。不能只相信远端 readOnlyHint。')});return true;
+case 'detail-connector-tools':open('info',{title:'连接器工具与范围',body:detailToggle('documents.search（启用 / 禁用）','connector-search',d.connectorSearch!==false)+detailToggle('documents_read（启用 / 禁用）','connector-read',d.connectorRead!==false)+field('资料范围（演示）','connector-scope',d.connectorScope||'用户选定资料')+btn('保存范围','detail-connector-tools-save','primary')+note('启用不等于逐次授权。不能只相信远端 readOnlyHint。')});return true;
 case 'detail-connector-tools-save':d.connectorScope=read('connector-scope');close();toast('工具可用性与范围已模拟保存');return true;
 case 'detail-mcp-import':open('detail-mcp-import');return true;
 case 'detail-mcp-preview':{d.mcpDraft=read('mcp-json');let parsed;try{parsed=JSON.parse(d.mcpDraft)}catch{return detailFail('JSON 语法错误，未导入','mcp-json'),true}const servers=parsed.mcpServers;if(!servers||typeof servers!=='object'||Array.isArray(servers)||!Object.keys(servers).length)return detailFail('需要非空 mcpServers 对象','mcp-json'),true;const list=[];for(const [name,server]of Object.entries(servers)){if(!server||typeof server!=='object'||!detailEndpoint(server.url))return detailFail('每个 MCP 服务需要合法 HTTP endpoint','mcp-json'),true;if(server.command)return detailFail('此模拟导入仅支持 HTTP transport，不执行 command','mcp-json'),true;if(!['streamable-http','sse',undefined].includes(server.transport))return detailFail('Transport 应为 streamable-http 或 sse','mcp-json'),true;if(server.headers&&Object.keys(server.headers).some(k=>/auth|token|key|cookie/i.test(k)))return detailFail('不要把凭据放进导入 JSON；使用独立登录流程','mcp-json'),true;list.push({name,url:server.url,transport:server.transport||'streamable-http',enabled:false})}d.mcpPreview=list;renderModal();return true}
@@ -400,7 +400,7 @@ case 'inline-voice-dismiss':d.voiceError='';render();return true;
 case 'send':if(S.voice==='recording'){toast('先结束录音，再编辑或发送');return true}return false;
 case 'intent-plugin-add':info('添加插件或技能',link('market','发现可安装内容','search')+btn('导入插件包','detail-package-picker','listrow','folder')+btn('导入独立技能','detail-skill-import','listrow','book')+btn('创作技能','skill-create','listrow','edit')+`<details><summary>高级接入</summary>${btn('粘贴 MCP JSON','detail-mcp-import','listrow','terminal')}</details>`);return true;
 case 'intent-plugin-detail':d.pluginTarget=v;go('plugin');return true;
-case 'intent-plugin-content':if(v)d.pluginTarget=v;info('提示与工具 · 只读检查',d.pluginTarget==='browser'?'<p>内置网页任务技能：在用户选定网页范围内导航、观察与交互。</p><p>工具来自当前 APK 的浏览器贡献；网页输出不授予本地权限。</p>':'<p>资料整理技能：核对来源，输出引用与待办。</p><p>工具：documents.search / documents.read（演示）。声明不是许可。</p><small>配置在连接器页；工具禁用在权限页；本页不提供第二套授权。</small>');return true;
+case 'intent-plugin-content':if(v)d.pluginTarget=v;info('提示与工具 · 只读检查',d.pluginTarget==='browser'?'<p>内置网页任务技能：在用户选定网页范围内导航、观察与交互。</p><p>工具来自当前 APK 的浏览器贡献；网页输出不授予本地权限。</p>':'<p>资料整理技能：核对来源，输出引用与待办。</p><p>工具：documents.search / documents_read（演示）。声明不是许可。</p><small>配置在连接器页；工具禁用在权限页；本页不提供第二套授权。</small>');return true;
 case 'readiness-open':go('readiness');return true;
 case 'intent-plugin-update':info('资料助手更新','<p>1.0 → 1.1</p><p>作者说明：改进资料检索提示。贡献变化：更新整理技能；端点与认证范围不变。</p>'+note('点击更新即表达对当前展示版本的安装意图；不另加重复批准工具的弹窗。')+btn('更新到 1.1（模拟）','intent-plugin-update-commit','primary'));return true;
 case 'intent-plugin-update-commit':if(!d.marketTrusted)return detailFail('目录签名未验证，原版本保留'),true;d.pluginVersion='1.1';close();toast('模拟更新完成，原会话选择保留，不批准后续工具');return true;

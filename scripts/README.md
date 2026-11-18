@@ -1,6 +1,6 @@
 # 脚本入口与留存
 
-`./scripts/check-all.sh` 是共享主机门禁入口，需要 JDK 17、Android SDK（ANDROID_HOME）和已配置的项目依赖。默认 `--debug` 执行 source → Debug 分析/测试/构建 → Debug artifacts，任一失败即停止；不运行 Release/R8 或设备测试。按变更选用，任务明确要求的门禁仍须执行；[CI](../docs/development/ci.md)显式分档，不依赖本地默认值。
+`./scripts/check-all.sh` 是共享主机门禁入口，需要 JDK 17、Android SDK（ANDROID_HOME）和已配置的项目依赖。默认 `--debug` 执行 source → Debug 分析/测试/构建 → Debug artifacts，任一失败即停止；不运行 Release/R8 或设备测试。按变更选用，任务明确要求的门禁仍须执行；[CI](../docs/development/verification-matrix.md#history-ci)显式分档，不依赖本地默认值。
 
 | 分组 | 入口 / 约束 |
 | --- | --- |
@@ -14,7 +14,7 @@
 | 设备与长稳 | `run-*`、`accept-hxa-*` 保留稳定入口及既有 HXA 参数；不由 check-all 自动调用 |
 | 临时调试 | 一次性编辑器按日期放入 `scripts/local/debug/YYYY-MM-DD/`（忽略）；需维护的诊断/测试工具经审查后跟踪；产物写入 build |
 
-有效历史验收保留或迁入稳定入口；失效改写器与冗余兼容入口经授权按逐路径清单退役，旧命令从记录的Git提交恢复。一次性编辑脚本禁止在最终源码重复执行。设备操作须有当前 owner 授权；默认自建独占实例，owner 指定现有实例时保留其数据且不套用自动关闭流程。`__pycache__/` 已由全局 gitignore 规则忽略，不提交解释器缓存。
+有效历史验收保留或迁入稳定入口；失效改写器与冗余兼容入口经授权按逐路径清单退役，旧命令从记录的Git提交恢复。一次性编辑脚本禁止在最终源码重复执行。设备操作遵守[根 AGENTS 授权范围](../AGENTS.md#verification-and-device-authorization)：项目模拟器有常设授权，真机与外部服务另行判断。隔离 runner 仍须自建独占实例并按所有权清理；日常模拟器更新按根规则执行，不套用独占实例自动关闭流程。`__pycache__/` 已由全局 gitignore 规则忽略，不提交解释器缓存。
 
 Release 构建验证不等于签名发行、R8 行为验证、完整 SBOM/许可证验收或商店审核。CI 保留独立的提交区间 whitespace 检查。
 
@@ -26,7 +26,7 @@ Release 构建验证不等于签名发行、R8 行为验证、完整 SBOM/许可
 | --- | --- |
 | pre-commit | 保留 `check-staged.py`：暂存 blob 的秘密扫描、冲突和空白检查；不联网、不运行 Gradle。属性也取自暂存树，未暂存的 `.gitattributes` 不影响结论；Git 须支持 [`--attr-source`](https://git-scm.com/docs/git)。耗时由钩子输出，通常目标 3 秒内 |
 | pre-push | `check-push.py` 读取 Git 提供的全部 ref/OID，删除不声称源码通过，标签解析到提交；在独立临时 Git clone 中检查真正推送的提交，不 stash/reset 用户文件，不依赖工作区是否干净。运行范围空白检查及现有 `check-all.sh --source`，不执行 Gradle、锁重写、设备或真实账号测试 |
-| CI / 显式完整门禁 | 保留源码、锁、构建、Lint、JVM 测试、Debug/Release/R8、制品及运行时资源的相应兜底；设备验证仍需另行授权。仅已知本地 hook 文件变化可走 source，CI planner、工作流和构建门禁修改仍要求 Debug CI |
+| CI / 显式完整门禁 | 保留源码、锁、构建、Lint、JVM 测试、Debug/Release/R8、制品及运行时资源的相应兜底；设备验证遵守根 AGENTS 的模拟器、真机与外部服务边界。仅已知本地 hook 文件变化可走 source，CI planner、工作流和构建门禁修改仍要求 Debug CI |
 
 pre-push 使用现有 CI planner 查找 main 上最近完整通过 `source/runtime-assets/android/verify` 的祖先；不是简单使用远端 tip 或 `HEAD^`。自动查询需要已授权的 `gh`。离线、权限不足、历史不足或没有已验证祖先会阻断，可在人工核实后用 `CI_BASE=<祖先 SHA> git ... push` 显式指定；不静默缩短范围。新分支与非快进更新也按每个实际推送提交验证。
 
@@ -48,7 +48,7 @@ Reusable entry points live directly in `scripts/`; logs and generated evidence b
   A physical device requires current owner authorization and explicit `--physical-device` with its serial; connectivity alone grants nothing. The runner rejects emulator serials in physical mode, labels device kind, and preserves all duration/resource/failure gates. It never installs or resets packages; back up user data and inspect fixture scope first. CI remains host-only.
   `--detach` starts an independent session with closed terminal input and adjacent owner/launcher logs; the run's manifest/result remain authoritative. On macOS a temporary `caffeinate` follows the worker. Keep the host awake and the device connected. Completion requires the exact unskipped instrumentation method, device-measured duration, matching process evidence and original resource gates; per-sample `meminfo/` retains memory categories for diagnosis.
 
-Use `--help` for runner arguments. Retired dated shims are recovered through Git provenance; retained callers use stable paths. Existing devices need explicit owner designation; owned runners retain their exclusive-process requirements. Successful helper tests do not constitute device acceptance.
+Use `--help` for runner arguments. Retired dated shims are recovered through Git provenance; retained callers use stable paths. Use the project-emulator standing authorization or current explicit physical-device authorization in [AGENTS](../AGENTS.md#verification-and-device-authorization); always select the verified target serial. Owned runners retain their exclusive-process requirements. Successful helper tests do not constitute device acceptance.
 
 `scripts/debug/` contains retained diagnostics and task-specific fixtures. Consult its README before execution; promote supported utilities here. Repository-wide tracking and deletion rules live in [Git 跟踪与留存](../docs/development/README.md#git-跟踪与留存), including the distinction between ignored outputs and irreplaceable local evidence.
 
@@ -89,8 +89,8 @@ RECENT_MESSAGES quote bindings and draft selections are removed; queued inputs
 with those references require withdrawal and reselection before resending. Authored
 text, attachments, current HISTORY references and other settings remain. Content
 files are not erased. This is an external development maintenance operation, not
-an App compatibility reader; device backup/restore and any data loss require
-explicit task authorization. Never restore a partial output from a failed run.
+an App compatibility reader; device backup/restore and data handling follow the applicable
+[AGENTS authorization and safeguards](../AGENTS.md#verification-and-device-authorization). Never restore a partial output from a failed run.
 
 `verify-preview-assets.py` 离线核对公式/图表预览的 KaTeX、Mermaid Tiny、独立 DOMPurify 固定资源与许可清单，以及 SVG 资源目录，不下载或执行包脚本；由 `check-all.sh` 的源码检查调用。
 
@@ -133,4 +133,4 @@ ADB helper 的任务屏由 Helix 持有系统显示 token：helper 重启优先�
 | 真实模型闭环 | `MobileUseCurrentModelJourneyDeviceTest`，显式 `helixRealModel=true`，仅使用已有授权模型配置与专用测试应用 |
 | Root 身份与点击／派发前拒绝 | `RootMobileUseProbeDeviceTest#applicationGrantedRootObservesAndClicksFixture`，显式 `helixRootProbe=true`；已知服务拒绝环境使用独立方法 `authorizedRootWithBlockedServicesRefusesWithoutClicking` 并另传 `helixRootServiceRefusal=true` |
 
-设备测试只在 owner 当前授权时运行，并传 `helix.preserveUserSettings=true`。任务屏测试以 `helixAdbHelper=true` 或 `helixRootHelper=true` 明确后端；ADB 用例报告 `ADB_HELPER_START_NOW` 后再运行上面的启动命令。异常专项由外部控制器响应 `BACKGROUND_DISCONNECT_READY`（核对原进程后终止），`helixRecovery=true` 验证接管与迁移，`helixInFlight=true` 验证实际 DOWN 后中断与持久未决记录；二者不是普通冒烟，不能无人响应就当设备失败或通过。`RECOVERY_OBSERVE` 标记给出暂停阶段和 app cache 文件：外部核对／操作专用测试 task 后删除该标记才继续，`migrated` 阶段将已恢复 task 移回主屏，`recoveredPrimaryRefused` 阶段确认未被工具移走后移回新屏。`BACKGROUND_FOCUS_WAIT` 则在核对 UNKNOWN 后创建标记。阶段编排、持续采样、环境快照和历史原始证据留在 ignored 本地目录，不作为通用 CI 或重复提交的测试框架。
+设备测试按根 AGENTS 的适用授权范围运行，并传 `helix.preserveUserSettings=true`。任务屏测试以 `helixAdbHelper=true` 或 `helixRootHelper=true` 明确后端；ADB 用例报告 `ADB_HELPER_START_NOW` 后再运行上面的启动命令。异常专项由外部控制器响应 `BACKGROUND_DISCONNECT_READY`（核对原进程后终止），`helixRecovery=true` 验证接管与迁移，`helixInFlight=true` 验证实际 DOWN 后中断与持久未决记录；二者不是普通冒烟，不能无人响应就当设备失败或通过。`RECOVERY_OBSERVE` 标记给出暂停阶段和 app cache 文件：外部核对／操作专用测试 task 后删除该标记才继续，`migrated` 阶段将已恢复 task 移回主屏，`recoveredPrimaryRefused` 阶段确认未被工具移走后移回新屏。`BACKGROUND_FOCUS_WAIT` 则在核对 UNKNOWN 后创建标记。阶段编排、持续采样、环境快照和历史原始证据留在 ignored 本地目录，不作为通用 CI 或重复提交的测试框架。

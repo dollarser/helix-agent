@@ -41,5 +41,5 @@ Gradle 仅强制重跑选定测试任务，报告与日志复制到该次输出�
 设备端仍使用 `ConnectorSuppliedArchiveDeviceTest`、`WorkBuddySuppliedArchiveDeviceTest`、
 `ConnectorExternalDeviceTest` 的显式参数和当前授权 serial。先编译对应主 APK/AndroidTest APK，
 再按方法要求推送这些本地输入；不要将旧 `accept-hxa-125-*.sh` 的默认包名当成所有渠道通用。
-日常模拟器和真实模型必须有当轮授权。导入通过不证明 QwenWork/WorkBuddy 的宿主 CLI、
+日常模拟器、真机及真实服务分别遵守[根 AGENTS 的授权范围](../../../AGENTS.md#verification-and-device-authorization)，样本准备不扩大授权。导入通过不证明 QwenWork/WorkBuddy 的宿主 CLI、
 账号服务或业务兼容；公开配置解析、联网 MCP 与真实模型也分别记账。

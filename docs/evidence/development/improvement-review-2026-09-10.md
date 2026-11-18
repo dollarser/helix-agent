@@ -61,7 +61,7 @@
 
 **D-H2. roadmap 与 status/矩阵对 HXA-185 状态矛盾**
 - `roadmap.md` 第 1074 行仍写"状态：in progress（代码已写入，待 Claude 验证）"；verification-matrix 321/327 行标"已完成"、completion-records/HXA-185.md 存在、status.md 称验证完毕。AGENTS.md 要求新会话同时读 status 与 roadmap，两源矛盾会直接导致接错任务（09-07 D-H1 失效模式的复现）。
-- **建议**：roadmap HXA-185 改 completed 并链完成记录。**这是下一个 HXA 的第一件事**——它影响任务接续机制本身。
+- **建议**：roadmap HXA-185 改 completed 并链完成记录。这是当时的优先级建议；当前任务仍由所有者指定，不能由旧审查自动选择。
 
 **D-H3. superseded/已接受 ADR 的过期状态引用未清账，机械检查两轮未落地**
 - `roadmap.md` 第 650 行仍写"依 **accepted** [ADR-PROVIDER-002]"（0024 已被 0025 superseded）；`completion-records/HXA-088.md` 第 11 行"ADR-WORKSPACE-003 保持 proposed"无后续指引（0008 已 accepted）；`adr/0008-git-workspace-management.md` 第 59 行小节标题"Status 仍为 proposed"与文件头 `accepted` 自相矛盾。
@@ -156,37 +156,15 @@
 - 仓库卫生干净：`build/` 零跟踪、`local.properties` 未跟踪、PRoot RootFS 二进制禁入库、`.git` 仅 82 MB、提交粒度健康（feat/fix/test/docs + scope）。
 - `SecretStore.kt`（Keystore 主密钥 + AES-GCM、fail-closed、`SecretAlias` 间接引用）模式全库统一；detekt 配置无 baseline、无堆积豁免。
 
-## 7. 亮点汇总（无需动作）
+## 7. 当时建议的优先级索引
 
-1. 文档链接治理与 ADR 状态机是当前体系最强的一环（1424 链接 0 缺失、42 ADR 状态链全一致）。
-2. 审批卡 / 出网披露 / 连接测试三处安全 UX 是真实差异化，i18n 三套键 parity + CJK 门禁覆盖全部 UI 模块。
-3. 架构拆分收敛：HXA-179/183/184 后无状态双源，组合根与共享 IPC 模块均朝健康方向。
-4. 依赖锁定与 CI pin SHA 的供应链纪律。
-5. fail-closed 诚实空态与用户可见恢复（turn 中断、文件传输中断）。
+正文保留问题、依据及建议；删除重复亮点和逐项行动流水。下表只记录 2026-09-10 的排序，不作为当前发布门禁或自主任务。
 
-## 8. 建议行动序
+| 当时分组 | 正文条目 |
+| --- | --- |
+| 发布前优先 | P-H3、D-H2、P-H1、P-H2、E-H2、E-H1 |
+| 工程门禁 | D-H3、E-M1、E-M3、A-H1 |
+| 中期 | A-M2/E-M4/E-L2、A-M3、审批分层/英文文案检查/深色主题、E-M2、D-H1 |
+| 小项 | lockfile 数量派生、Python 缓存忽略、过时 AGENTS 叙述和 D-M3 断链 |
 
-**发布前必修（先做）**
-1. P-H3 Advanced 文案修正（当天可完）
-2. D-H2 roadmap HXA-185 状态回写（下一个 HXA 第一件事）
-3. P-H1 onboarding 引导（模板→连接测试→示例任务）
-4. P-H2 权限中心 + `POST_NOTIFICATIONS` 请求
-5. E-H2 release 开 R8 + CI 补 Release 变体构建
-6. E-H1 THIRD_PARTY_NOTICES 自动生成 + CI 门禁
-
-**工程门禁第二批**
-7. D-H3 ADR 状态机械检查 + 3 处清账
-8. E-M1 `scripts/check-all.sh` 统一入口
-9. E-M3 CI 加 osv-scanner
-10. A-H1 proot/cli 共享 transport 层（含 `PfdManifestChannel.readFromStart` 显式 close 修正）
-
-**中期**
-11. A-M2 + E-M4 spikes 移出主构建（联动 E-L2 魔法数派生化）
-12. A-M3 eval 台架下沉 testing/
-13. UX：审批卡分层折叠 + i18n 门禁补英文字面量扫描；深色模式进发布批次
-14. E-M2 flake 结构化（retries + 隔离复跑）
-15. D-H1 status.md 瘦身（可与下一个文档类 HXA 一并收口，顺序 H2→H1→H3→M1/M2）
-
-**低成本快赢（随时可做）**：`check-lockfiles` 魔法数派生、`.gitignore` 加 `scripts/__pycache__`、删 AGENTS.md 第 9 行过去式门禁、D-M3 断链修复。
-
-**下一轮审查**：恢复 09-07 式对 P0/P1 代码项的逐条回归核对（本轮未覆盖）。
+本文没有重新验证 09-07 P0/P1 代码问题。GitHub CI 当前仅允许主机检查、构建及 AndroidTest 编译；第 6 节的历史设备池讨论不授权在 GitHub Actions 运行模拟器或设备测试。重试只能保留并解释原失败，不能替代缺陷修复。纯文档整理不另建 HXA。

@@ -4,7 +4,7 @@
 >
 > **目的**：**了解 Android 平台机制本身**。与是否在某款 app（如 Helix）里开放某项能力**无关**——本文只讲机制。
 >
-> **与 Helix 的关系**：Helix 只是这些机制的一个真实落地（独立 UID + PRoot + linker 跳板）。Helix 侧的实现与决策见 [helix-linux-command-integration.md](../evidence/research-history/helix-linux-command-integration.md) 与权威架构文档 [local-code-execution.md](../architecture/local-code-execution.md)；本文把它们当「在哪里能看到」的指路，不作为论述主线。
+> **与 Helix 的关系**：当前 Helix PRoot 是同 APK、同 UID 的非导出私有进程，不是独立 UID 沙箱。实现与决策见 [local-code-execution.md](../architecture/overview.md#本地执行域与恢复)；[旧集成研究](../evidence/research-history/helix-linux-command-integration.md)只用于追溯。下文是机制说明，不是所有 Android/OEM、ELF 类型、targetSdk 或分发政策的通用保证，具体启动路径须以固定资产与实际设备证据核验。
 
 ---
 
@@ -46,7 +46,7 @@ Android 用 SELinux 做强制访问控制。对「执行一个文件」，它区
 
 - 拒 `app_data_file` 的 `execute_no_trans`，是为了**禁止 app 把「自己写到磁盘上的东西」当代码直接 exec**（挡 RCE / 数据当代码执行 / 从可写存储跑代码）。
 - 但 `execute`（mmap）必须授，否则 app 连自己的 `.so` 原生库都无法映射成可执行内存、加载不了。
-- 于是「跑自己的原生代码」的**官方认可路径**就是：让系统动态链接器去**映射**它，而不是直接 exec 它（见 第 3 节）。
+- 显式链接器启动路径可能利用 exec 与映射检查的差别（见第 3 节）；运行可行不等于平台或商店认可从可写目录加载任意代码，也不保证所有 ELF 都可由该链接器加载。
 - 附带：**app 改不了自己文件的 SELinux 类型**。app 能写的地方（filesDir、app 专属外部目录）都是受限标签，所以「换个存放路径绕开限制」走不通。
 
 ---
@@ -55,13 +55,13 @@ Android 用 SELinux 做强制访问控制。对「执行一个文件」，它区
 
 ### 3.1 linker64 是什么
 
-`/system/bin/linker64`（32 位叫 `linker`）是 **Bionic 的动态链接器**，也叫 ELF 解释器 / 程序加载器。它是 Android 上**每个动态链接可执行文件启动时必经的程序**：
+`/system/bin/linker64`（32 位叫 `linker`）是 **Bionic 的动态链接器**，也叫 ELF 解释器 / 程序加载器。它负责兼容的 Android/Bionic 动态 ELF 装载；具体解释器由 ELF 与 ABI 决定：
 
-- 动态链接 ELF 里有个 `PT_INTERP` 头，内容就是 `/system/bin/linker64` 这个路径；
-- 你 `execve(某动态二进制)` 时，内核的 ELF 加载器读 `PT_INTERP`，**真正执行的是 linker64**，把原二进制路径当参数传进去；
+- 动态可执行 ELF 的 `PT_INTERP` 指定解释器；常见 64 位 Android/Bionic 程序使用 `/system/bin/linker64`，并非所有 ELF 都使用该路径；
+- 你 `execve(某动态二进制)` 时，内核的 ELF 加载器读 `PT_INTERP`，按解释器和 ELF 加载约定交接控制；这与用户显式执行 linker64 并传入路径的调用形式不同；
 - linker64 再把原二进制 `mmap` 进内存、解析符号依赖（libc 等）、跑初始化，最后跳到它的 `entry`/`main`。
 
-所以它**不是外挂 trick**，而是 Android 程序**本来就有的启动路径**——跳板只是**显式点名**它，让它去加载你自己打包的那个二进制。
+显式链接器启动是本项目锁定组件采用的加载方式；是否适用仍取决于 ELF 类型、ABI、链接器支持和目标系统策略，不能从动态程序正常启动机制推导任意文件可执行。
 
 ### 3.2 为什么能过 SELinux：把「一次被拒的 exec」拆成「两次都被授的操作」
 
@@ -84,7 +84,7 @@ execve("<app私有目录>/mybin")   →  查 app_data_file:execute_no_trans  →
 
 ### 3.3 统一理解
 
-其实**每个动态链接的 Android 程序，正常启动就是「内核先跑 linker、linker 再 mmap 加载它」**（`PT_INTERP` 干的）。SELinux 策略本就按「linker 会去 mmap 你的 app 代码」这个模型写的——所以 `execute`（mmap）授、`execute_no_trans`（直接 exec）拒。跳板只是把你的启动**显式对齐到策略预期的那条路径**上；对**静态二进制**（没有 `PT_INTERP`、内核不会自动拉起 linker）尤其必要。静态 / 动态都不影响 SELinux 这层——真正被查的只有「对哪个标签的文件、做的是 execve 还是 mmap」。
+上述比较说明 exec 与可执行映射的权限检查不同，不构成静态二进制的通用加载保证。没有 `PT_INTERP` 的文件不会因此自动变成 Bionic linker 支持的输入；必须使用本项目锁定、实际验证过的制品与启动链。文件标签、进程域、Android 版本和 ELF 装载能力均需分别核对。
 
 ---
 
@@ -92,7 +92,7 @@ execve("<app私有目录>/mybin")   →  查 app_data_file:execute_no_trans  →
 
 - **Android 自带的是 toybox，不是 busybox**（AOSP 用 toybox 替代了 busybox）。toybox 是单文件多 applet，提供大量标准 Unix 命令（`ls`/`cp`/`mv`/`cat`/`sort`/…），但 applet 集合与 flag 跟 busybox 有差异，且随 Android 版本 / OEM 变化。
 - **调系统 toybox 不用跳板**（它是 /system 文件）：`ProcessBuilder("/system/bin/toybox", <applet>, ...)`、或 `/system/bin/sh -c`、或单 applet 包装 `/system/bin/<cmd>`。
-- **内置自己的 busybox 仍然要跳板**：因为 SELinux 那个拒绝是**按文件标签（`app_data_file`）判**的，跟二进制「是不是静态链接」「需不需要 libc」**无关**。静态链接只省「运行时找 libc」，省不掉「app 私有目录文件不许直接 execve」（见 第 2 节、第 3 节）。
+- **内置 busybox 需匹配实际加载路径**：静态链接不豁免文件执行策略，也不证明它能由 system linker 装载。应核对该制品的 ELF/ABI、存放位置及目标系统，不从名称推断启动方式。
 - **无 root**，所以 `iptables`/`mount`/`route` 这类特权命令 toybox / busybox 都跑不了——那是内核权限问题，不是工具问题。
 - 查某台设备到底有哪些 applet：`/system/bin/toybox --list` 或 `ls /system/bin`。
 
@@ -125,4 +125,4 @@ execve("<app私有目录>/mybin")   →  查 app_data_file:execute_no_trans  →
   - 若你 app 声明了 `INTERNET`，它就能联网；
   - 能触及你进程可访问的敏感数据（DB、key 所在位置）。
 - 因此「**给谁执行、命令来源是否受信**」是安全核心：命令来源若不可信（模型输出 / 网页 / 文件内容），等于给了它一个**以你 app 权限运行的 RCE**。
-- 想要更强的隔离（独立 UID、无网、有界 FS）需要额外机制（独立 app / UID、PRoot 等）——那是**产品 / 架构决策**，不是 Android 机制本身。
+- 想要更强的隔离（独立 UID、无网、有界 FS）需要实际操作系统隔离与权限机制；PRoot 的路径模拟自身不能提供这些保证。这是需要验证的产品/架构决策。

@@ -4,9 +4,9 @@
 
 所有者授权整理并提交当前修复、最终双渠道门禁、冻结源码后的完整 P5 和手机实际流程验证。本轮不推送、不发布，不扩展数据库迁移、备份或恢复 UI。
 
-## 开发期数据库
+## 2026-09-29 候选的开发期数据库行为
 
-按所有者明确选择，同版本 Room identity 不兼容时自动删除数据库并按当前 v1 baseline 重建；兼容库重开不清空，数据库外文件保留，其他错误不触发清库。会话、Provider 配置、权限及产物索引不保留，不声称文件保留等于索引或会话保留。
+以下保留当时实现，不作为现行数据库恢复策略；当前开发数据处理遵循 [AGENTS](../../../AGENTS.md#task-and-change-discipline)。按当时所有者明确选择，同版本 Room identity 不兼容时自动删除数据库并按当前 v1 baseline 重建；兼容库重开不清空，数据库外文件保留，其他错误不触发清库。会话、Provider 配置、权限及产物索引不保留，不声称文件保留等于索引或会话保留。
 
 PLC110 / API35 / developer：storage `FreshSchemaDeviceTest` 2/2，通过旧 identity 重建、兼容重开及文件保留断言。修复 APK 覆盖安装成功，MainActivity resumed、进程持续存活且对应进程无 AndroidRuntime 崩溃日志。日志为 `build/development-db-reset-device.log`；主机 build/static/source 日志为 `build/development-db-reset-final.log` 和 `build/development-db-reset-source.log`。
 
@@ -31,4 +31,4 @@ PLC110 / API35 / developer：storage `FreshSchemaDeviceTest` 2/2，通过旧 ide
 
 ## 保留边界
 
-模型截断、额外调用、通用视觉识别质量、OEM/JNI/Binder 长稳、账号与正式发行不由本记录关闭。R1 仍是后续实施任务。
+模型截断、额外调用、通用视觉识别质量、OEM/JNI/Binder 长稳、账号与正式发行不由本记录关闭。R1 是当时的后续实施任务，本页不选择当前工作。

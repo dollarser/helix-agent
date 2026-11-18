@@ -1,5 +1,7 @@
 # Helix 项目代码综合审查报告
 
+> 后续裁定入口：本报告保留初次静态审查意见；直接删减 TurnReducer/测试及新增模块建议已在[结构复核第 0 节](2026-09-24-structure-review.md)收窄或撤回；三条“反向依赖”的撤回见[独立架构复核](independent-review/02-architecture.md)；Goal 预算、PRoot 拒绝路径等具体误报见[核心路径独立复核](independent-review/04-core-path-bugs.md)。“缺少 GitHub 设备 CI 导致缺陷”的推断亦已在[补充复核](2026-09-24-supplement-verification-and-release.md)撤回。原问题等级和建议不等于当前待办或实施授权。
+
 **审查基线**：HEAD `3cf89027`（2026-09-24），工作树含 8 个未提交修改（含 `ChatService.kt`、`GroupedNavigation.kt`、`SessionDao.kt`）
 **代码规模**：32 个 Gradle 模块 / 1854 个 `.kt` 文件 / 296,560 行（`:app` 单独占 832 文件、137,807 行 = **46%**）
 **审查方式**：只读代码走查 + 文档交叉核对 + git 取证；所有结论均附文件:行号，关键项已二次核验

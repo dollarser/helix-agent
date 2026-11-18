@@ -27,7 +27,7 @@ HXA-182 实现 ADR-WORKSPACE-002 手动传输恢复时，在 `FilesScreen.kt` �
 
 ## Alternatives considered
 
-- **直接删除传输恢复功能**：用户提出若无用可直接删除，但该功能承载了 ADR-WORKSPACE-002 所规定的“进程意外终止后原子回滚与未决传输手动恢复”架构契约，并在 `FileTransferRecoveryDeviceTest` 中有严格回归断言，故不可删除其核心逻辑，而应做合理的交互收敛与位置规整。
+- **直接删除传输恢复功能**：该功能承载 ADR-WORKSPACE-002 的未决传输核查与手动恢复，不能因收敛入口而删除其核心逻辑。进程终止并不保证文件系统副作用原子回滚，恢复仍需核对原操作与实际两端状态。
 
 ## Regression verification
 
@@ -40,7 +40,7 @@ HXA-182 实现 ADR-WORKSPACE-002 手动传输恢复时，在 `FilesScreen.kt` �
 
 ## Residual risk
 
-无已知剩余风险。
+本页原验证声明没有独立运行目录及 APK 身份，不能扩展为所有目录、字体或设备布局通过；入口移动也不证明传输中断的全部恢复边界。
 
 ## Related records
 

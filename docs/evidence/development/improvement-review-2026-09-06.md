@@ -398,7 +398,7 @@
 
 ## 5. 当前未决事项清单
 
-汇总自 status.md（In progress / Next task / Current interfaces / Known limitations）、`verification-gaps-progress.md`"尚未执行"、`connector-handoff.md`"待完成项"、`hxa-125-progress.md`"剩余门禁"。本清单是 2026-09-06 快照，实施时以 status.md 为准。
+汇总自 status.md（In progress / Next task / Current interfaces / Known limitations）、`verification-gaps-progress.md`"尚未执行"、`connector-handoff.md`"待完成项"、`hxa-125-progress.md`"剩余门禁"。本清单是 2026-09-06 快照，当前状态由 status.md 提供事实入口，实施范围仍由所有者当前任务决定。
 
 **A. 进行中任务**
 1. M13/HXA-125（in progress）：① 独立测试账号/受保护 MCP 服务的 bearer 握手、无效凭据、权限拒绝、厂商撤销与重连；② WorkBuddy 真实导出样本（现仅规范衍生 fixture）；③ Codex/Claude 完整插件（工具名+脚本依赖）具体样本；④ QwenWork 参考包的 CLI 与账号业务（`requires.bins=dws` 未运行，仅 Skill/endpoint 导入层通过）。
@@ -432,14 +432,16 @@
 
 ---
 
-## 6. 优先级路线图
+## 6. 当时的建议优先级（非当前计划）
 
-### P0（安全，本周可完成，总改动量 < 100 行）
+下列顺序保留当时的取舍，不建立新任务。PRoot `-S` 或路径检查建议没有被本报告验证为安全隔离；共享 UID 的运行环境不能据此称为凭据沙箱。GitHub CI 现行范围是主机检查与测试 APK 编译，历史 spike/设备矩阵建议不授权在 GitHub 执行设备测试。
+
+### P0（当时评估为安全优先）
 
 1. **S1** provider 传输层禁用（或有界化）重定向——~3 行 + 测试。
 2. **S4** A2A 通道补齐 egress 地址门控——复用 `McpSsrfEndpointGate` + NO_PROXY + 钉扎。
 3. **S5** 消灭 raw 异常文案上屏——统一"封闭错误码→资源键"映射（复用 ApprovalUiMapper 模式），一次解决安全（路径泄漏）+ 文案一致性 + i18n 三件事。
-4. **S7** 时间窗口 Long 溢出——改 `until > since + WINDOW`。
+4. **S7** 时间窗口 Long 溢出——原建议为 `until > since + WINDOW`，但加法同样可能溢出，不能直接视为正确补丁；须先定义允许范围，再以边界测试验证无溢出实现。
 5. **S8** A2A 非流式 settle 改指数退避——~20 行。
 6. 工程快赢：ci.yml 加 `./scripts/check-i18n.sh`（1 行）；spotless/detekt 排除 `.claude`/`.codegraph`（几行）。
 
@@ -492,7 +494,7 @@
 - **错误体系**：HelixError 构造期校验（有界文案、safeDetails 字符集）；PathResolution/Workspace 异常消息全部预写、不嵌入文件系统细节；PolicyEngine/Ssrf 拒绝码是稳定 enum。
 - **SSRF 分层**：decision-time floor（PolicyEngine）+ connection-time 全地址分类（含 IPv4-mapped/compatible 解包、Azure IMDS v6）+ connect 后 peer 复验，三层都测了。
 - **原子写**：fsync 顺序（data fsync → rename → 目录 best-effort fsync）注释讲清楚了为什么；temp 回收不跟随 symlink。
-- **纪律**：零 TODO、零阻塞调用、零共享可变状态、API 29 兼容性有意识规避（Collectors.toList()、手写 skip 都有注释说明原因）。
+- **兼容性证据**：API 29 适配中有 Collectors.toList()、手写 skip 等理由注释；本报告前文同时记录阻塞与共享状态问题，不能据此声称全仓零阻塞或零共享可变状态。
 - **flavor 隔离**：consumer/developer 同名 seam + developerImplementation + `verify-variant-boundaries.sh` 机械门禁（dex+arsc+manifest 标记扫描），未发现 consumer 泄漏。
 - **日志纪律**：生产代码仅 8 条 Log，全部只记不透明 id，无 prompt/路径/密钥。
 - **PRoot/IPC 协议**：逐事务签名再校验、fail-closed 状态机、PFD 有界传输、terminalCommit 防篡改、exactly-once 重放、orphan sweep pid 复用保护、篡改归档 fail-closed。

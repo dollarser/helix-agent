@@ -1,6 +1,6 @@
 # Document-first storage
 
-Owner-authorized task, 2026-10-26. This is the implementation record, not evidence that all stages have shipped.
+Owner-authorized task, 2026-10-26. This is a chronological implementation and acceptance record. Earlier checkpoints retain their original failures and incomplete boundaries; later follow-ups do not make every earlier candidate pass. Current contracts live in the topic ADRs linked below, and current development/device authority is in [AGENTS.md](../../AGENTS.md). This record does not assign a new task or establish release acceptance.
 
 ## Authority and inventory
 
@@ -23,7 +23,7 @@ Document-first and public placement are independent. Owner's final decision fixe
 
 Open content remains externally editable. Reads recheck live access and content; writes require the previously observed content hash and preserve conflicting content. Renames and deletion must be reflected by catalog rebuild. MediaStore replacement stages a pending row, verifies bytes and persists a private publication receipt before exposing the new row and removing an unchanged prior row. Recovery reconciles that original operation; changed content is retained rather than overwritten. Neither MediaStore nor SAF promises cross-app compare-and-swap or filesystem-level replacement atomicity. Private staging/receipts are operational state, not a second content authority. Shared paths are under `Documents/Helix/library/` with no package subdirectory. Queries still require the current OS owner package; a common directory does not authorize taking over another channel's files. Reinstall does not confer ownership of previous rows; no automatic old-database import or file adoption.
 
-## Execution order and acceptance
+## Original execution order and acceptance
 
 1. Establish fixed shared document IO for ordinary user content and private open-file history. Reuse existing SAF only for existing document/folder adoption; test cancellation, revocation, conflict, provider failure and interrupted publication.
 2. Replace knowledge content authority and import/original handling; rebuild catalog/search from documents. Preserve ordinary note save, extraction state, frozen references and answer-save idempotency. Remove replaced body tables/readers, not user files. No silent import of old databases.
@@ -33,7 +33,7 @@ Open content remains externally editable. Reads recheck live access and content;
 
 Each stage must report actual wiring and tests separately. No automatic data deletion, migration chain, credentials, model request, push or release. All owned internal format/schema versions remain 1; content hashes/revisions remain truthful.
 
-## Current implementation checkpoint
+## Initial implementation checkpoint
 
 - Shared `MediaStoreDocuments` + private historical `PrivateDocumentStorage` are wired into `KnowledgeStore`; sources/notes and their frozen source links use Markdown documents, answers and conversation provenance use private records. Room knowledge tables/DAOs and their schema fixture have been replaced, not retained as an alternate body authority. Import/extraction/original viewing use shared resource references, not FileProvider guesses at private paths.
 - Catalog/search are bounded file projections. Resource ID, title/file name and observed content hash remain distinct. Existing `knowledge_read/search` read these files under the unchanged default-off user authority; this is not yet general-purpose model file-write access or terminal mounting of MediaStore.
@@ -57,7 +57,7 @@ The final Standard follow-up passed seven tests: six synthetic download/resource
 
 Unapproved content changed or deleted outside the repository cannot be silently approved. Approval reads and verifies the identified content, then records its immutable canonical snapshot in the same transaction as the review state/audit. A conditional READY transition rejects a competing review. Execution and restart resolve the approved snapshot, never newly edited content; existing APPROVED→EXECUTING claim/Goal transaction remains unchanged. Failed/rolled-back plan insertion may leave an unapproved document; it never mints execution eligibility. Reconciliation can accept only that exact ID/body, not a changed orphan. Referenced plan deletion refuses before deleting its content.
 
-Initial plan checkpoint: model JVM 177 tests, storage JVM 268 tests, filtered App Plan tests 19 tests all passed; this is not final device acceptance. No old database was migrated, reset or opened to bypass its identity guard. Existing installations with a different schema identity still require the project's explicit clean-install decision.
+Initial plan checkpoint: model JVM 177 tests, storage JVM 268 tests, filtered App Plan tests 19 tests all passed; this is not final device acceptance. No old database was migrated, reset or opened to bypass its identity guard. That checkpoint did not authorize or perform a clean install of existing installations with a different schema identity. Current development-data handling follows [AGENTS.md](../../AGENTS.md) and the [storage ADR](../adr/platform/003-storage-encoding.md), rather than this historical checkpoint's pending action.
 
 
 ## Device checkpoint and remaining access boundaries

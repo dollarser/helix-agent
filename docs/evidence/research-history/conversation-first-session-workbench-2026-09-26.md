@@ -34,7 +34,7 @@ HXA-226 已完成 Drawer / Settings / recovery authority 收敛，并在 API 36 
 - Models / Extensions / Setup / Permissions focused surface 均可达；
 - 320 / 360 / 412dp × 1.0 / 1.3 / 2.0 字体矩阵没有裁剪、重叠或关键动作不可达；
 - active Turn 下 Stop + Send 同排且 Queue / Steer 仍可用；
-- 横屏和基础 TalkBack 焦点顺序通过；
+- 横屏及基础 TalkBack 首次焦点/语义树检查通过；未验证完整手势导航顺序；
 - 未发现 HXA-226 引入的 behavioral regression；
 - 唯一失败是既有 `TasksDashboardDeviceTest` fixture 没有先展开 Work 分组，不是产品缺陷；
 - 真机、TalkBack 手势逐项播报、CANCELLING 瞬态和 process-death 两阶段恢复仍未覆盖。

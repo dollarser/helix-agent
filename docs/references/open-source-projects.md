@@ -141,14 +141,14 @@ Helix 项目源码使用根 `LICENSE` 声明的 Apache License 2.0。该选择�
 - 核实 release：`1.0.18`（2026-08-10）
 - 许可证：Apache-2.0。
 - 可参考：Android 本地模型下载、模型清单、设备能力、推理 UI 和性能展示。
-- 当前用途：仅为未来手机本地模型准备；M0-M12 不要求接入。
+- 用途：本地模型资产和交互设计参考；Helix 已有独立本地模型实现，当前范围见[本地模型](../product/local-models.md)，不采用 Gallery 作为运行底座。
 
 ### 5.3 llama.cpp
 
 - 仓库：[ggml-org/llama.cpp](https://github.com/ggml-org/llama.cpp)
 - 许可证：MIT。
 - 可参考：GGUF、本地 CPU/GPU 推理和 Android native 构建。
-- 当前不依赖：本地模型不是首版 Agent 正确性的前提，且模型内存、上下文和温控需要单独技术评估。
+- 当前依赖：Helix 本地 CPU 推理已采用固定 llama.cpp 源码；准确 revision 与构建边界见[本地 JNI 说明](../../app/src/main/cpp/README.md)和构建锁。设备模型、内存、上下文与温控仍须分别验证。
 
 ### 5.4 WebAssembly runtimes
 
@@ -284,10 +284,10 @@ Helix 自己实现三个最小 adapter，不直接依赖大型 Agent SDK：OpenA
 
 模型名称（包括用户举例的 Qwen 版本）不是客户端编译常量。用户配置 `modelId`，Provider 能力探测返回实际可用性。不要在文档里假设某个未来或别名模型一定存在。
 
-消费者订阅后端只参考厂商官方客户端：
+以下是早期官方客户端研究来源，不是当前订阅实现清单；实际 adapter、认证和渠道边界以 [Provider ADR](../adr/provider/001-models-and-connection.md) 为准：
 
 - [openai/codex](https://github.com/openai/codex)：Apache-2.0；官方 app-server 有 ChatGPT browser/device-code login，凭据由 Codex 管理。
-- [Anthropic Claude Code setup](https://docs.anthropic.com/en/docs/claude-code/getting-started)：官方文档说明 Pro/Max 登录；Helix 只使用公开 CLI/SDK 接口。
+- [Anthropic Claude Code setup](https://docs.anthropic.com/en/docs/claude-code/getting-started)：官方文档说明 Pro/Max 登录；这里仅保存研究入口，不证明 Helix 当前通过该 CLI/SDK 实现。
 
 不要复制 Pi 或其他第三方的 OAuth token 实现来冒充官方 Provider；不提取浏览器 Cookie 或其他 App token。
 
