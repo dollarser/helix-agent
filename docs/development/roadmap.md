@@ -2,6 +2,8 @@
 
 核对日期：2026-11-18。
 
+Owner 已关闭多设备与长期稳定性补测；历史未覆盖项保留事实，但不再作为本轮执行队列，也不记为通过。单设备必要功能与失败修复、真实外部服务前置分别处理，范围见 [status](status.md#仍开放与未启动)。
+
 按工作类型区分尚未完成的范围与已完成记录；每个 HXA 只出现一次。分类不是执行顺序，也不因登记而取得代码、设备、账号或发行授权。当前事实看 [status](status.md)，任务范围与验收以原 HXA 为准，未接受的建议看[候选索引](candidate-decisions.md)。
 
 已实现但缺明确验收证据的任务归“缺陷修复与验证收尾”，不是重新开发。已结案的有界任务归完成记录，原失败、未请求与未覆盖边界仍保留；完成不等于全设备、所有模型或正式发行通过。
@@ -52,9 +54,9 @@
 | HXA-271 | 阶段实现与有界验收已交付；进程恢复/视觉等明确余项 pending | 会话执行交互与信息层级 | [任务](tasks/HXA-271.md) |
 | HXA-283 | 旧 PDF 入口已由284接替；原卡验收余项未单独结案 | 有界 PDF 读取与总结 | [任务](tasks/HXA-283.md) |
 | HXA-289 | 原生有界能力与双渠道真实 SAF 已验证；Luna 自主定位与独立搜索专项单轮通过，效率与外部协议覆盖仍有边界 | Workspace 路径匹配与文件内容搜索 | [任务](tasks/HXA-289.md) |
-| HXA-295 | A/B/C 已交付，Debug 与模拟器有界验收通过；真实模型发现质量等未覆盖范围见原记录 | 会话查询、管理、幂等创建与 Queue/Steer 投递 | [任务](tasks/HXA-295.md) / [B/C 证据](../evidence/development/session-management-cross-session-2026-11-12.md) |
-| HXA-309 | 主机/模拟器已交付；最终候选真机手测 pending | 本机备忘与任务提醒 | [任务](tasks/HXA-309.md) / [证据](../evidence/development/local-reminders-2026-10-19.md) |
-| HXA-310 | 主机/模拟器/下载已交付；实际口述、外放听感及真机质量待手测 | 本机回复主动朗读 | [任务](tasks/HXA-310.md) / [证据](../evidence/development/read-aloud-2026-10-19.md) |
+| HXA-295 | A/B/C 已交付，Debug 与模拟器有界验收通过；真实自然找回单样本已通过；普遍发现质量等边界见原记录 | 会话查询、管理、幂等创建与 Queue/Steer 投递 | [任务](tasks/HXA-295.md) / [B/C 证据](../evidence/development/session-management-cross-session-2026-11-12.md) |
+| HXA-309 | 主机/模拟器已交付；11-18真机通知/详情与强停恢复通过，其他组合有界 | 本机备忘与任务提醒 | [任务](tasks/HXA-309.md) / [证据](../evidence/development/local-reminders-2026-10-19.md) |
+| HXA-310 | 主机/模拟器/下载已交付；11-18真机生成及Owner口述/朗读正常，耳机/普遍质量未确认 | 本机回复主动朗读 | [任务](tasks/HXA-310.md) / [证据](../evidence/development/read-aloud-2026-10-19.md) |
 
 ## 发行与外部条件
 

@@ -6,7 +6,7 @@
 
 ## 当前部署（2026-11-18）
 
-官方账号地址为 `https://accounts.hilex.me`，模型公网 base URL 为 `https://api.hilex.me/v1`，由 `OfficialServices` 统一派生。OpenAI 云模型不得通过本机免认证入口调用。账号请求使用 Bearer access token 和有效 `X-Client-ID`；自配 API Key 使用自身 Bearer Key，不借用账号管理令牌，不在客户端存放 Worker 内部密钥或上游 OpenAI 服务密钥。
+官方账号地址为 `https://accounts.hilex.me`，模型公网 base URL 为 `https://api.hilex.me/v1`，由 `OfficialServices` 统一派生。OpenAI 云模型不得通过本机免认证入口调用。账号管理请求使用 Bearer access token；模型服务请求另外携带有效 `X-Client-ID`；自配 API Key 使用自身 Bearer Key，不借用账号管理令牌，不在客户端存放 Worker 内部密钥或上游 OpenAI 服务密钥。
 
 Owner 确认旧、新账号域使用通用令牌，持久记录不保存或判断签发域；有效会话不因换域强制重新登录。官方请求目标仅允许当前 accounts/api HTTPS 主机，WS 精确限定当前官方路径，不保留旧域回退或重定向。第三方 Provider 与自定义语音认证路径保持独立。
 
@@ -35,7 +35,7 @@ Owner 确认旧、新账号域使用通用令牌，持久记录不保存或判�
 ## 已采用的契约与入口
 
 - 设置、对话选模中的“Helix账号”均打开同一现有底部面板。登录使用邮箱/密码；注册为独立模式，确认密码后显式提交，注册成功不自动登录。
-- `https://accounts.hilex.me/auth/login`：JSON `username/password`；`/auth/register` 为 `email/password`；`/auth/refresh` 和 `/auth/logout` 为 `refresh_token`。
+- `https://accounts.hilex.me/auth/login`：JSON `email/password`；`/auth/register` 为 `email/password/code` 与可选 `display_name`；`/auth/refresh` 和 `/auth/logout` 为 `refresh_token`。
 - 响应读取 `access_token/refresh_token/expires_in/refresh_expires_in`。密码不保存；令牌组合为一条记录，经现有 Android Keystore AES-GCM SecretStore 原子保存，避免独立access/refresh写入撕裂。
 - 内置模型使用固定目录服务地址和生成地址，模型条目由服务发现，经 AccountSession 注入 `Authorization: Bearer …` 与应用版本 User-Agent；同时发送固定公开 `X-Client-Id` 标识客户端，不复用自配Provider Key；单独ClientID及内置Key直调均废弃。None连接元数据表示无自配Key alias，不表示免登录。
 - 到期前30秒单飞刷新；401最多在响应正文前刷新并重发一次，已经开始的流不重放。刷新失败或结果不确定清除本机会话，需重新登录，不重试旋转请求。退出在远端请求前清除本机访问权，即使远端失败也不恢复；新账号、退出后的迟到正文不能进入新会话。
@@ -68,6 +68,28 @@ Owner 确认旧、新账号域使用通用令牌，持久记录不保存或判�
 
 ## 验收证据与开放边界
 
-[账号接入历史验收](../evidence/development/account-integration-through-2026-11-17.md)按原候选保留初版主机测试、双渠道真实账号、域名切换、错误分类、密码找回与通知收尾结果。普通/强制改密及验证码窄屏布局已实现；真实找回发码与独立收件核查有历史证据，实际重置及新密码登录仍未确认。不能用此前账号、网页或合成 proof 通过关闭该边界。
+[账号接入历史验收](../evidence/development/account-integration-through-2026-11-17.md)按原候选保留初版主机测试、双渠道真实账号、域名切换、错误分类、密码找回与通知收尾结果。普通/强制改密及验证码窄屏布局已实现；真实找回发码与独立收件核查有历史证据，实际重置及新密码登录在11-18由Owner手动完成并确认成功，见[最新补验](tasks/HXA-307.md#2026-11-18-账号与云语音补验)。这不是Agent读取验证码或合成proof的自动验收；原未知请求和失败保留。
 
 最近候选的验证范围以[实施状态](status.md#最新验收及未通过项)为入口；文档整理没有重跑主机、设备或线上验收。
+
+## 人机验证与发码
+
+注册、邮箱绑定、找回密码共用 `AccountEmailCodeField`：先人机验证，验证通过后才启用发送验证码，验证回调不自动发送。内存 proof 在五分钟内单次消费；邮箱、用途、账号身份或表单可用性改变及离页都会使未发送 proof 失效。发送失败、取消或过期后需重新验证，不自动重放发码请求。服务端仍可能拒绝过期或无效 proof，展示其错误。
+
+账号服务当前嵌入入口自动启动验证，加载、挑战和失败重试共用一张网页卡片，没有外围中间页。网页负责可视视口尺寸及取消回传；客户端以透明全窗口 WebView 承载，不再注入样式、复制取消按钮或改写页面。网页取消经同源、主框架、当前 URL 和用途校验退出原生窗口，系统返回同样退出；取消后不能接收迟到 proof。客户端只兜底网页无法处理的加载、TLS及渲染器失败，并提供取消；依赖受限消息能力，不支持时提示更新 WebView。验证 WebView 保持网页文字比例100%，保留手势缩放，原生表单仍跟随系统字体。历史检查点见 [HXA-307](tasks/HXA-307.md#服务端草案停止边界)。Owner 已明确确认新版人机验证到发码完整链路人工测试通过；该待验证项关闭，证据属于人工确认，不由合成布局测试替代，也不外推所有入口和异常组合。
+
+## 邮箱身份与服务器用户名（2026-11-19）
+
+依据账号服务 `docs/client-migration-email-identity.md` 及 `cloudflare/src/store.mjs` 的当前契约：邮箱是唯一登录凭据，`display_name` 是可重复的展示名，稳定 `id` 才是账号身份。客户端不再发送或解析旧 `username` 字段。改密后用账号邮箱重新认证，找回提示也使用邮箱。
+
+注册用户名选填，空白不发送该字段，使用服务器默认“用户”；填写时按 NFC、1–80 Unicode 码点及拒绝 Unicode C 类字符校验。个人资料不再保存安装级用户名，头像仍在本机；用户名通过 `PATCH /account/profile` 只携带 `display_name` 更新；按 Owner 已发布的新接口，不再要求、缓存或发送当前密码。服务端执行每24小时一次及同值幂等；客户端不自动重放修改，不因改名重建认证或通知身份。成功响应按原账号 revision 和稳定 id 校验后保存，包含可选秒时间戳 `display_name_updated_at`。退出、切换账号后不能把旧响应写入新账号。
+
+本轮只读服务器文档与源码，未修改服务器；当前验收及真实注册/改名未执行边界见 HXA-307。
+
+## 账号交互收敛（2026-11-19）
+
+Owner 已人工确认上一邮箱身份候选的真实登录、注册和改名成功。这属于人工结果，不冒充自动设备/服务测试；其后 Owner 发布免密码改名服务，客户端已重新核对迁移文档与 store/worker 的当前字段。
+
+注册成功显示一次 Toast 并切换登录表单，保留邮箱、清空密码/确认/验证码和注册用户名，不自动登录；注册失败保留注册模式，切换模式清除上一模式的错误。找回成功同样返回登录并短提示，未知结果及需要重新登录的状态保留明确恢复信息。头像入口与原云端账号入口进入同一个“账号资料”页面，集中显示头像、邮箱、用户名及改密/退出入口，复用原窗口；用户名修改仅用登录态。头像选取后一次导入保存，取消或失败保留旧头像，保存不关闭账号页或丢失用户名草稿。成功改名、头像和改密改用一次性 Toast，不把成功文字常驻页面；错误仍在相应表单显示。验证范围见 HXA-307 的本轮记录。
+
+Owner 随后明确确认新版免密码改名真实线上验证，以及人机验证到发码完整链路均已人工测试通过。两项待验证关闭，不重复发码或改名；未新增自动线上请求、Release或真机验收。
