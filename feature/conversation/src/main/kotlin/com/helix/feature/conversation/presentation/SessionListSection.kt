@@ -247,7 +247,6 @@ internal fun SessionListSection(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        session.directoryRef?.let { Text(it, style = MaterialTheme.typography.labelSmall) }
                         FlowRow {
                             TextButton({ onRename(session.id) }) { Text(stringResource(R.string.chat_rename)) }
                             TextButton(

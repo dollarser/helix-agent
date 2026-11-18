@@ -59,7 +59,16 @@ class SessionListLayoutDeviceTest : ConversationDeviceTestFixture() {
         fontScale: Float,
         archived: Boolean = false,
     ) {
-        val session = SessionRowUi("fixture", title, 1_800_000_000_000, archived, "Helix", "model")
+        val session =
+            SessionRowUi(
+                "fixture",
+                title,
+                1_800_000_000_000,
+                archived,
+                "Helix",
+                "model",
+                directoryRef = "scope:ws-3032e938-4b5e-4b9d-a904-c59b4f423c72:工作目录/long-directory",
+            )
         var opened: String? = null
         var action: String? = null
         showSession(session, width, fontScale, { opened = it }, { action = it })
@@ -77,6 +86,7 @@ class SessionListLayoutDeviceTest : ConversationDeviceTestFixture() {
         val timeBounds = timeNode.getUnclippedBoundsInRoot()
         val row = compose.onNodeWithTag("chat-session-fixture")
         val rowBounds = row.getUnclippedBoundsInRoot()
+        compose.onNodeWithText(requireNotNull(session.directoryRef), useUnmergedTree = true).assertDoesNotExist()
         assertTrue(titleBounds.right - titleBounds.left > 0.dp)
         assertTrue(titleBounds.right + 8.dp <= timeBounds.left)
         assertTrue(timeBounds.right <= rowBounds.right)

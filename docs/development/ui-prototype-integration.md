@@ -168,6 +168,16 @@ UI/state：主题、导航布局、共享卡片/入口、composer、原处语音
 
 ### 会话长标题与时间布局（2026-11-18）
 
-会话行中标题原来没有受剩余宽度约束，长标题会挤压右侧时间使其逐字换行。现由标题使用剩余空间、最多两行省略，时间保持单行且不换行；底部操作使用可换行布局，保留状态图标和可点击动作。修改位于 [SessionListSection.kt](../../feature/conversation/src/main/kotlin/com/helix/feature/conversation/presentation/SessionListSection.kt)，没有改变会话数据或排序。
+会话行中标题原来没有受剩余宽度约束，长标题会挤压右侧时间使其逐字换行。现由标题使用剩余空间、最多两行省略，时间保持单行且不换行；底部操作使用可换行布局，保留归档状态和可点击动作。修改位于 [SessionListSection.kt](../../feature/conversation/src/main/kotlin/com/helix/feature/conversation/presentation/SessionListSection.kt)，没有改变会话数据或排序。
 
 [SessionListLayoutDeviceTest](../../feature/conversation/src/androidTest/kotlin/com/helix/feature/conversation/presentation/SessionListLayoutDeviceTest.kt) 覆盖窄屏、长中英文标题、大字体、状态与操作布局。最终整合候选通过完整 Debug 门禁及隔离 API36 的 24 项核心、9 项 UI 回归，已保数据覆盖日常模拟器；该数字是包含模型目录优化的整合套件，不全部归为布局测试。源码/制品/安装绑定及最终结果见 ignored `build/model-directory-refresh/`，当前候选边界见 [status](status.md#最新验收及未通过项)。未验真机或 Release/R8。
+
+### 实际安装入口复核与内部路径隐藏（2026-11-18）
+
+复现时前台实际为旧验证包 `com.helix.validation.closeoutnovb.developer`（11-17 安装），其长标题仍挤压时间；日常 `com.helix.agent.developer` 安装哈希与上一轮验收候选一致，真实历史列表已正确限制标题并保持时间单行。两包并存，不能仅凭应用名称、版本名或组件测试截图认定前台就是已更新候选。原布局夹具未填写 directoryRef，也未经过主应用导航，这是此前截图缺工作目录、现场身份检查不足的具体原因。
+
+按所有者补充要求，列表不再显示内部工作目录引用；只删除表现层 Text，持久目录绑定不变。组件测试带真实形状的目录字段并断言不显示；新增 `SessionHistoryLayoutDeviceTest` 经主应用导航、Room 投影、真实主题进入活动/归档列表，验证长中英文标题、单行时间、路径隐藏、点击打开及原目录绑定保持。列表没有独立状态图标，状态覆盖指 Provider/模型信息、归档标识与操作按钮，不冒称测试了不存在的图标。
+
+本轮源检查431项、会话 JVM、Spotless、Detekt、Developer Debug Lint 与主/测试 APK 构建通过。隔离 API36 组件5项（含280dp/2倍字体）及主应用2项（270dp/1.5倍字体）通过并查看截图。初轮 runner 身份不匹配、AVD并行限制、旧测试包versionCode降级拒绝及全新安装启动页阻挡的失败均保留；未通过卸载、清库或修改版本消除它们，改用独立测试 AVD，并复用首次启动处理后重验。证据在 ignored `build/session-list-real-20261118/`。未重跑完整 Debug 总门禁、Release/R8、真机或线上推理，不继承前批完整验收。
+
+Developer Debug 已以 `install -r` 覆盖日常 `Helix_API_36`，安装字节与通过检查的候选一致，原首次安装时间保持。实际日常列表截图确认路径隐藏、时间单行，并打开原长标题会话再返回列表；安装及导航前后30个会话、557条消息、247次工具调用、40个Turn的行内容摘要完全一致。没有重命名、删除、卸载或清数据；旧验证包保留。日常截图为上述证据目录的 `daily-list-after.png`，绑定与数据核验为 `install-receipt.json`、`data-before/summary.json`、`data-after/summary.json`。
