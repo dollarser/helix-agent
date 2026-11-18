@@ -35,7 +35,7 @@ android {
         externalNativeBuild.cmake { abiFilters("arm64-v8a", "x86_64") }
         targetSdk = 36
         versionCode = 1
-        versionName = "0.0.11"
+        versionName = "0.0.12"
         testInstrumentationRunner =
             if (isolatedRoomValidation) {
                 "com.helix.app.HelixIsolatedRoomTestRunner"
