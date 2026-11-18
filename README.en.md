@@ -98,3 +98,5 @@ APKs are under `app/build/outputs/apk/`. Run `./scripts/check-all.sh --source` f
 ## License
 
 Helix-owned source is [Apache License 2.0](LICENSE). Third-party libraries, runtimes, tools and weights retain their own licenses. [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) records attribution and distribution requirements, not a complete release SBOM. Each release body lists exact artifacts, checksums and corresponding-source links.
+
+Advanced FFmpeg: [corresponding sources, build recipes and licenses](https://github.com/dollarser/helix-agent/releases/download/runtime-assets-20260917/helix-ffmpeg-9.0.2-ready-av1-20261113-notice-source.tar.gz). See [third-party notices](THIRD_PARTY_NOTICES.md).

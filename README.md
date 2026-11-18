@@ -98,3 +98,5 @@ APK 位于 `app/build/outputs/apk/`。快速源码检查为 `./scripts/check-all
 ## 许可证
 
 Helix 自有源码采用 [Apache License 2.0](LICENSE)。第三方库、运行时、工具和模型权重保留各自许可证；归属与分发要求见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)，该文件不是完整发行 SBOM。确切附件、校验值和对应源码链接见各版本发布正文。
+
+Advanced FFmpeg：[对应源码、构建配方及许可](https://github.com/dollarser/helix-agent/releases/download/runtime-assets-20260917/helix-ffmpeg-9.0.2-ready-av1-20261113-notice-source.tar.gz)；其他随包组件见[第三方声明](THIRD_PARTY_NOTICES.md)。
