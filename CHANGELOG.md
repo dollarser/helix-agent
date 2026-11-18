@@ -4,7 +4,7 @@
 
 Notable changes for users, newest first. Entries are curated rather than copied from commit logs, using the grouping approach of [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Development previews do not promise stable data or API compatibility. Published dates below use UTC; an unreleased candidate has no release date.
 
-## 0.0.12 development preview (preparing)
+## [0.0.12](https://github.com/dollarser/helix-agent/releases/tag/v0.0.12) - 2026-11-18 (Development preview)
 
 Email login, passwordless renaming, unified account profiles and registration return; single-card verification; model catalog refresh and historical selection protection; on-demand attachments and stable restore references; long-title, internal-path and window-flicker fixes.
 

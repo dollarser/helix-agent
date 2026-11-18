@@ -10,7 +10,7 @@ Helix brings mobile interaction, a browser, files and tools into one conversatio
 
 > **Development preview: Android 10+, ARM64 APKs.** These are not stable releases and use a development certificate. In-place updates and historical data retention are not guaranteed. Save important material first; uninstalling removes private application data. Check the downloaded version's notes for features, signing and upgrade conditions, and the [changelog](CHANGELOG.md) for version changes.
 
-**v0.0.12 is being prepared** with account, model catalog and attachment recovery improvements. See [release notes](docs/product/releases/v0.0.12.en.md).
+**v0.0.12 is available** with account, model catalog and attachment recovery improvements. See [release notes](docs/product/releases/v0.0.12.en.md).
 
 ## What it does
 
