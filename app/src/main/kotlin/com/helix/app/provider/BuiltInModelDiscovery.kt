@@ -27,6 +27,18 @@ internal class BuiltInModelDiscovery(
 
     fun current(): BuiltInModelCatalog = synchronized(publicationLock) { store.read() }
 
+    suspend fun contextWindow(
+        model: String,
+        force: Boolean = false,
+    ): Long? {
+        val cached = current()
+        val retryMissing =
+            cached.contextWindows[model] == null &&
+                now() - cached.checkedAt >= BuiltInModelCatalog.FAILURE_TTL
+        refresh(force || retryMissing)
+        return current().contextWindows[model]
+    }
+
     suspend fun refresh(force: Boolean) =
         withContext(Dispatchers.IO) {
             if (!store.accountAvailable()) return@withContext
@@ -39,27 +51,14 @@ internal class BuiltInModelDiscovery(
                 ) {
                     return@withLock
                 }
-                if (force && cached.checkedAt > 0 && now() - cached.checkedAt < MANUAL_COOLDOWN) return@withLock
+                if (force && cached.checkedAt > 0 &&
+                    now() - cached.checkedAt in 0 until MANUAL_COOLDOWN
+                ) {
+                    return@withLock
+                }
                 val result = fetch()
                 if (store.identity() != account) return@withLock
-                publish(
-                    result.first
-                        ?: if (result.second !=
-                            null
-                        ) {
-                            com.helix.provider.api.ModelCatalogResult
-                                .Listed(
-                                    cached.models,
-                                    cached.purposes.filterKeys { it in cached.models },
-                                    partial = cached.partial,
-                                )
-                        } else {
-                            null
-                        },
-                    result.second,
-                    observed,
-                    account,
-                )
+                publish(result.first, result.second, observed, account)
             }
         }
 
@@ -107,36 +106,55 @@ internal class BuiltInModelDiscovery(
     ) {
         synchronized(publicationLock) {
             if (revision != expectedRevision) return
-            val tasks =
-                catalog
-                    ?.models
-                    .orEmpty()
-                    .associateWith { id ->
-                        catalog
-                            ?.purposes
-                            ?.get(id)
-                            .orEmpty()
-                    }.filterValues { it.isNotEmpty() }
-            val retainedTasks =
-                if (catalog?.partial == true) {
-                    // Missing entries in a partial directory are not revocation evidence.
-                    (tasks + store.read().purposes.filterKeys { it !in catalog.models })
-                        .entries
-                        .take(MAX_MODELS)
-                        .associate { it.toPair() }
+            if (store.identity() != expectedAccount) return
+            val previous = store.read()
+            val next =
+                if (catalog == null) {
+                    previous.copy(checkedAt = now(), failure = requireNotNull(failure))
                 } else {
-                    tasks
+                    mergeCatalog(previous, catalog)
                 }
-            store.save(
-                BuiltInModelCatalog(now(), catalog?.models.orEmpty(), failure, retainedTasks, catalog?.partial == true),
-                expectedAccount,
-            )
+            store.save(next, expectedAccount)
             revision++
         }
         onChanged()
     }
 
     private fun now() = clock.now().toEpochMilli()
+
+    private fun mergeCatalog(
+        previous: BuiltInModelCatalog,
+        catalog: ModelCatalogResult.Listed,
+    ): BuiltInModelCatalog {
+        val complete =
+            if (!catalog.partial) {
+                catalog.models
+            } else {
+                previous.completeModels?.let { (it + catalog.models).distinct() }
+            }
+        val tasks =
+            catalog.purposes +
+                if (catalog.partial) previous.purposes.filterKeys { it !in catalog.models } else emptyMap()
+        val windows =
+            catalog.contextWindows +
+                if (catalog.partial) {
+                    previous.contextWindows.filterKeys { it !in catalog.models }
+                } else {
+                    emptyMap()
+                }
+        if ((complete?.size ?: 0) > MAX_MODELS || tasks.size > MAX_MODELS || windows.size > MAX_MODELS) {
+            return previous.copy(checkedAt = now(), failure = ModelErrorCode.PROTOCOL)
+        }
+        return BuiltInModelCatalog(
+            checkedAt = now(),
+            models = catalog.models,
+            purposes = tasks,
+            partial = catalog.partial,
+            successfulAt = now(),
+            completeModels = complete,
+            contextWindows = windows,
+        )
+    }
 
     private companion object {
         const val MAX_MODELS = 1024

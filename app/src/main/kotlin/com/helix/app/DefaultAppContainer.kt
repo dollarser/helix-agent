@@ -1210,6 +1210,7 @@ internal class DefaultAppContainer(
         appScope.launch {
             account.identityState.collect {
                 providerService.refresh()
+                providerService.refreshBuiltInModels()
             }
         }
         appScope.launch(Dispatchers.IO) { pluginService.cleanupRetired() }

@@ -357,6 +357,15 @@ fun ChatScreen(
         screen.modelBindingIssue?.let { issue ->
             Column(Modifier.fillMaxWidth().padding(8.dp).testTag("model-binding-issue")) {
                 Text(stringResource(issue.messageResource), color = MaterialTheme.colorScheme.error)
+                if (issue == ProviderBindingIssue.MODEL_UNAVAILABLE) {
+                    TextButton(
+                        onClick = { modelPickerRequest++ },
+                        enabled = !screen.isSending && screen.pendingDisclosure == null,
+                        modifier = Modifier.testTag("replace-unavailable-model"),
+                    ) {
+                        Text(stringResource(R.string.chat_select_model))
+                    }
+                }
             }
         }
         screen.blockedReason?.let { reason ->

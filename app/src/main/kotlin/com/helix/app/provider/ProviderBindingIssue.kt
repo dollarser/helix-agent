@@ -49,20 +49,19 @@ private fun bindingFailure(code: ModelErrorCode): ProviderBindingIssue =
         else -> ProviderBindingIssue.TEST_FAILED
     }
 
-/** A successful fresh account directory can retire a model; a failed/stale fetch cannot. */
+/** A complete account directory establishes absence until subsequent positive directory evidence. */
 internal fun builtInBindingIssue(
     accountAvailable: Boolean,
     catalog: BuiltInModelCatalog,
     model: String,
-    now: Long,
 ): ProviderBindingIssue? =
     when {
         !accountAvailable -> {
             ProviderBindingIssue.AUTHENTICATION
         }
 
-        catalog.failure == null && !catalog.partial && catalog.fresh(now) && model !in catalog.models -> {
-            ProviderBindingIssue.MODEL_MISSING
+        catalog.modelMissing(model) -> {
+            ProviderBindingIssue.MODEL_UNAVAILABLE
         }
 
         catalog.purposes[model].isNullOrEmpty() -> {

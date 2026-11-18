@@ -72,28 +72,28 @@ class ProviderBindingIssueTest {
         )
     }
 
-    @Test fun onlyFreshSuccessfulAuthoritativeDirectoryCanRetireBuiltInModel() {
+    @Test fun completeDirectoryRetirementSurvivesExpiryAndRefreshFailure() {
         val catalog =
             BuiltInModelCatalog(
                 100,
                 listOf("new"),
                 purposes = mapOf("new" to setOf(com.helix.provider.api.ModelPurpose.CHAT)),
             )
-        assertEquals(ProviderBindingIssue.MODEL_MISSING, builtInBindingIssue(true, catalog, "old", 101))
-        assertNull(builtInBindingIssue(true, catalog, "new", 101))
+        assertEquals(ProviderBindingIssue.MODEL_UNAVAILABLE, builtInBindingIssue(true, catalog, "old"))
+        assertNull(builtInBindingIssue(true, catalog, "new"))
         assertEquals(
             ProviderBindingIssue.MODEL_TASK_UNKNOWN,
-            builtInBindingIssue(true, catalog.copy(purposes = emptyMap()), "new", 101),
+            builtInBindingIssue(true, catalog.copy(purposes = emptyMap()), "new"),
         )
         assertEquals(
-            ProviderBindingIssue.NETWORK,
-            builtInBindingIssue(true, catalog.copy(failure = ModelErrorCode.TRANSPORT), "old", 101),
+            ProviderBindingIssue.MODEL_UNAVAILABLE,
+            builtInBindingIssue(true, catalog.copy(failure = ModelErrorCode.TRANSPORT), "old"),
         )
         assertEquals(
-            ProviderBindingIssue.MODEL_TASK_UNKNOWN,
-            builtInBindingIssue(true, catalog, "old", BuiltInModelCatalog.SUCCESS_TTL + 100),
+            ProviderBindingIssue.MODEL_UNAVAILABLE,
+            builtInBindingIssue(true, catalog.copy(checkedAt = 1), "old"),
         )
-        assertEquals(ProviderBindingIssue.AUTHENTICATION, builtInBindingIssue(false, catalog, "new", 101))
+        assertEquals(ProviderBindingIssue.AUTHENTICATION, builtInBindingIssue(false, catalog, "new"))
     }
 
     @Test fun changedMarkerSurvivesRestartAndClearsOnlyWithNewEvidenceOrDeletion() {

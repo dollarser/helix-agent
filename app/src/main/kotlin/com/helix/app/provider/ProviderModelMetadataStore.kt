@@ -63,6 +63,7 @@ class ProviderModelMetadataStore(
                 old.copy(
                     purposes = catalog.purposes[id].orEmpty().ifEmpty { old.purposes },
                     maxOutputTokens = catalog.outputLimits[id],
+                    contextWindow = catalog.contextWindows[id] ?: old.contextWindow,
                 )
             },
         )

@@ -118,6 +118,21 @@ internal fun AppConversationRoute(
     var renameId by remember { mutableStateOf<String?>(null) }
     var accessSource by remember { mutableStateOf<com.helix.feature.conversation.presentation.SessionRowUi?>(null) }
     val sessionId = screen.openSessionId
+    val boundProvider = screen.selectedModel?.providerId
+    LaunchedEffect(sessionId, boundProvider) {
+        if (com.helix.app.provider.BuiltInModel
+                .owns(boundProvider.orEmpty())
+        ) {
+            providerService.refreshBuiltInModels()
+        }
+    }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        if (com.helix.app.provider.BuiltInModel
+                .owns(boundProvider.orEmpty())
+        ) {
+            providerService.refreshBuiltInModels()
+        }
+    }
     androidx.lifecycle.compose.LifecycleResumeEffect(chatService) {
         val view = chatService.showConversation()
         onPauseOrDispose { view.close() }

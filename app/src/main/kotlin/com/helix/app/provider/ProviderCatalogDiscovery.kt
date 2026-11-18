@@ -73,6 +73,7 @@ internal class ProviderCatalogDiscovery(
                                 ?: OpenAiReasoningMetadata.forModel(config.transport, model)?.reasoningEfforts,
                         purposes = server.purposes.ifEmpty { catalog.purposes[model].orEmpty() },
                         maxOutputTokens = server.maxOutputTokens ?: catalog.outputLimits[model],
+                        contextWindow = server.contextWindow ?: catalog.contextWindows[model],
                     )
                 }
             return Discovery(catalog, metadata)
@@ -85,4 +86,9 @@ internal class ProviderCatalogDiscovery(
 
 internal fun BuiltInModelCatalog.discoveryResult(): ModelCatalogResult =
     failure?.let { ModelCatalogResult.Failed(it, "CATALOG_FAILED", false) }
-        ?: ModelCatalogResult.Listed(models, purposes.filterKeys { it in models }, partial = partial)
+        ?: ModelCatalogResult.Listed(
+            models,
+            purposes.filterKeys { it in models },
+            partial = partial,
+            contextWindows = contextWindows.filterKeys { it in models },
+        )

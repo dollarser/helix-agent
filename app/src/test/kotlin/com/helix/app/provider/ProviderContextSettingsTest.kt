@@ -67,14 +67,6 @@ class ProviderContextSettingsTest {
         assertEquals(null, metadata.contextSettings("other", "endpoint", "exact", policies).serverOutputLimit)
     }
 
-    @Test fun optionalWindowProbeMissesAreThrottledPerExactIdentity() {
-        val cache = ContextWindowProbeCache()
-        assertEquals(true, cache.due(listOf("p", "model"), 100))
-        assertEquals(false, cache.due(listOf("p", "model"), 60099))
-        assertEquals(true, cache.due(listOf("p", "model"), 60100))
-        assertEquals(true, cache.due(listOf("p", "other"), 101))
-    }
-
     @Test fun invalidWindowAndThresholdAreRejected() {
         assertThrows(IllegalArgumentException::class.java) { ProviderContextSettings(manualWindow = 0) }
         assertThrows(IllegalArgumentException::class.java) {

@@ -10,7 +10,6 @@ internal class ProviderBindingValidation(
     private val tests: ProviderTestStatusStore,
     private val rows: () -> List<ProviderRowUi>,
     private val managed: (String) -> Boolean,
-    private val now: () -> Long,
 ) {
     suspend fun validate(
         providerId: String?,
@@ -56,7 +55,7 @@ internal class ProviderBindingValidation(
             }
 
             BuiltInModel.owns(id) -> {
-                builtInBindingIssue(tests.builtInCatalog.accountAvailable(), tests.builtInCatalog.read(), model, now())
+                builtInBindingIssue(tests.builtInCatalog.accountAvailable(), tests.builtInCatalog.read(), model)
             }
 
             else -> {

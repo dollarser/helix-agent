@@ -49,17 +49,24 @@ internal object WireModelCatalogParser {
             val collected = ArrayList<String>()
             val purposes = linkedMapOf<String, Set<ModelPurpose>>()
             val outputLimits = linkedMapOf<String, Long>()
+            val contextWindows = linkedMapOf<String, Long>()
             for (value in entries) {
                 val entry = requireNotNull(value as? JsonObject) { "model entry is not an object" }
                 val id = entry["id"] as? JsonPrimitive
                 require(id != null && id.isString) { "model entry has no id string" }
                 val text = id.content
                 declaredOutputLimit(entry)?.let { outputLimits[text] = it }
+                ContextWindowDiscovery.window(entry)?.let { contextWindows[text] = it }
                 collected += text
                 purposes[text] =
                     if (outputModalitiesOnly) ModelPurposes.outputModalities(entry) else ModelPurposes.parse(entry)
             }
-            ModelCatalogResult.Listed(collected, purposes.filterValues { it.isNotEmpty() }, outputLimits)
+            ModelCatalogResult.Listed(
+                collected,
+                purposes.filterValues { it.isNotEmpty() },
+                outputLimits,
+                contextWindows = contextWindows,
+            )
         } catch (error: IllegalArgumentException) {
             ModelCatalogResult.Failed(
                 ModelErrorCode.PROTOCOL,

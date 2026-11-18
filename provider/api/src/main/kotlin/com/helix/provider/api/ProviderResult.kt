@@ -13,10 +13,13 @@ public sealed interface ModelCatalogResult {
         val outputLimits: Map<String, Long> = emptyMap(),
         /** A successful but incomplete directory must not erase saved model choices. */
         val partial: Boolean = false,
+        val contextWindows: Map<String, Long> = emptyMap(),
     ) : ModelCatalogResult {
         init {
             require(purposes.keys.all { it in models })
             require(outputLimits.keys.all { it in models })
+            require(contextWindows.keys.all { it in models })
+            require(contextWindows.values.all { it in 1024..ProviderCapabilities.MAX_CONTEXT_BOUND })
             require(outputLimits.values.all { it in 1..ProviderCapabilities.MAX_CONTEXT_BOUND })
             require(models.size <= MAX_MODELS) { "at most $MAX_MODELS models per list" }
             require(models.toSet().size == models.size) { "model ids must be unique" }

@@ -19,6 +19,7 @@
     <string name="chat_blocked_provider_untested">该 Provider 未完成连接测试（设置 → Provider → 连接测试）</string>
     <string name="chat_model_authentication">模型来源登录已失效或认证不可用，请重新登录或检查密钥，也可选择其他模型。</string>
     <string name="chat_model_missing">当前会话未绑定有效的模型，请重新选择模型。</string>
+    <string name="chat_model_unavailable">此模型当前不可用，请选择其他模型继续会话。</string>
     <string name="chat_model_network">模型来源连接失败，请检查网络后重新测试，或选择其他模型。</string>
     <string name="chat_model_source_changed">模型来源配置已更新，请到模型设置重新测试，或选择其他模型。草稿已保留。</string>
     <string name="chat_model_source_deleted">模型来源已删除，请重新选择模型。草稿已保留。</string>
