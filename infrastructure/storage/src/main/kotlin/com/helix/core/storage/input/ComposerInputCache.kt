@@ -25,6 +25,18 @@ class ComposerInputCache(
     private val current = mutableMapOf<String, ComposerInputSnapshot?>()
     private val latestRevision = mutableMapOf<String, Long>()
 
+    /** Explicit chip removal preserves the text and revision of the current editor snapshot. */
+    @Synchronized
+    fun removeAttachments(
+        sessionId: String,
+        ids: Set<String>,
+    ) {
+        val draft = get(sessionId) ?: return
+        val attachments = Json.parseToJsonElement(draft.attachmentIdsJson) as JsonArray
+        val retained = JsonArray(attachments.filterNot { (it as JsonPrimitive).content in ids })
+        if (retained != attachments) save(draft.copy(attachmentIdsJson = retained.toString()))
+    }
+
     @Synchronized
     fun get(sessionId: String): ComposerInputSnapshot? {
         require(sessionId.isNotBlank())

@@ -51,7 +51,14 @@ internal class KnowledgePdfExtraction(
     }
 
     suspend fun extract(bytes: ByteArray): Result {
-        if (Build.VERSION.SDK_INT < 35) return limited(bytes)
+        if (Build.VERSION.SDK_INT < 35 &&
+            (
+                Build.VERSION.SDK_INT < 31 || android.os.ext.SdkExtensions
+                    .getExtensionVersion(Build.VERSION_CODES.S) < 13
+            )
+        ) {
+            return limited(bytes)
+        }
         val job = currentCoroutineContext()[Job]
         val work = DocumentParseWork(Instant.now().plusSeconds(20)) { job?.isActive == false }
         val file = Files.createTempFile(context.cacheDir.toPath(), "knowledge-pdf-", ".pdf").toFile()

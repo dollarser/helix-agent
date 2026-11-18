@@ -427,6 +427,15 @@ internal class DefaultAppContainer(
 
     private val scopeRoots = ScopeRootResolver(sessionWorkspaces::resolveRoot)
 
+    init {
+        com.helix.app.infrastructure.chat
+            .AttachmentOrphanRecovery(
+                sessionWorkspaces.resolveRoot(APP_SCOPE_ID),
+                storage.artifacts::referenceCount,
+                onFailure = { android.util.Log.w("HelixAttachments", "Orphan recovery retained an entry", it) },
+            ).recover()
+    }
+
     private fun documentBackend(scope: String): com.helix.core.workspace.WorkspaceFileBackend? {
         val resource = storage.workspaces.find(scope)
         if (!scope.startsWith("saf-") && resource?.backend != "SAF") return null
@@ -1057,6 +1066,8 @@ internal class DefaultAppContainer(
             sourceMetadata = featureFiles.metadataReader::metadata,
             resolveWorkspacePath = { scopePath -> resolveFileScopePath(scopePath, scopeRoots) },
             openPreviewSource = featureFiles.sourceOpener::openStream,
+            releaseCopiedSource = com.helix.app.infrastructure.chat
+                .CopiedCameraSource(context)::release,
         )
 
     private val scheduledModelGuard =

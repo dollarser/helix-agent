@@ -47,7 +47,14 @@ class KnowledgePdfDeviceTest {
     @Suppress("LongMethod") // One owned native-PDF-to-click journey, with deterministic cleanup.
     fun importedPageCoverageAndCitationUseTheActualPdfPage() =
         runBlocking {
-            assumeTrue(Build.VERSION.SDK_INT >= 35)
+            assumeTrue(
+                Build.VERSION.SDK_INT >= 35 ||
+                    (
+                        Build.VERSION.SDK_INT >= 31 &&
+                            android.os.ext.SdkExtensions
+                                .getExtensionVersion(Build.VERSION_CODES.S) >= 13
+                    ),
+            )
             val context = InstrumentationRegistry.getInstrumentation().targetContext
             val documents = KnowledgeFixtureDocuments()
             val store = KnowledgeStore(documents, KnowledgeFixtureDocuments())

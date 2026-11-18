@@ -14,6 +14,7 @@
 | 执行与恢复 | TurnEngine 驱动 durable 生命周期，SessionWorkScheduler 仲裁 Queue/Goal；业务工具单次执行，明确安全条件下保留有界技术恢复，未知副作用不视为回滚 | [总体架构](../architecture/overview.md)、[执行审计](../adr/permissions/003-dispatch-and-audit.md) |
 | 终端 | 独立于聊天；进入/新建 shell 与核对历史执行分开。普通工具按 CPU 最多四、压力降一；手动 PTY 最多四、Job 最多四，共享六槽，UNKNOWN 不冒充已释放容量 | [恢复与绑定](terminal-recovery-provider-bindings.md)、[覆盖安装故障](../bug-fixes/2026-10-19-terminal-package-replacement.md) |
 | 知识库、分享、提醒与朗读 | HXA-308～314 的知识库、检索问答、确认式提醒、本机朗读和最小定时 Agent 均已有有界交付；原阶段“不含 TTS”等措辞不再是产品全局限制。分享面板打开不等于接收 App 已保存 | [知识库/分享](knowledge-conversation-integration.md#history-knowledge-sharing-closeout)、[知识库 ADR](../adr/workspace/007-local-knowledge.md)、[Goal ADR](../adr/goal/001-lifecycle-and-completion.md) |
+| 会话附件 | 非图片默认提供元数据及稳定文件引用，由工具按需读取；图片仍走规范化视觉载荷。项目切换不搬迁附件，导入快照恢复保留引用，移除/永久会话删除按共享引用保护并可恢复回收 | [附件契约](../adr/agent/003-attachments.md)、[HXA-049 本轮范围与边界](../completion-records/HXA-049.md#2026-11-18元数据按需读取与快照生命周期当前候选) |
 | 文档与应用备份 | PDF 导入复用隔离解析器，区分页覆盖、无文本和部分提取；回答引用可打开修订绑定的页/片段。设置中的本地备份默认包含会话、记忆、配置与任务历史，原件/工作区可选，静态凭据独立加密且默认关闭；恢复先预检与明确确认，重启前消费者屏障、替换日志及失败回滚，任务暂停且不重放。不是进程/系统授权或账号登录镜像 | [PDF](../adr/workspace/006-pdf-reading.md)、[应用备份](../adr/workspace/008-content-backup.md) |
 | 请求观测 | 消息操作按需显示持久请求的客户端首响应/首字、耗时、报告 Token 和全请求平均吞吐；缺失值为未知，不推算金额或服务器速度 | [结果投影](../adr/agent/006-model-data-budget-boundaries.md) |
 | 工具、扩展与内置帮助 | Plugin/Skill/MCP 等贡献复用宿主授权与执行边界；技能按安装归属管理，当前消息输入框已有原子技能标记与斜杠发现，见[技能 ADR](../adr/skills/001-authoring-and-installation.md)；工具按来源发现和按需 schema，独立短名不机械命名空间化。内置帮助的资源读取仍是动态有效入口 | [工具契约](tool-contracts.md)、[安装归属 ADR](../adr/connectors/003-ownership-and-installation.md)、[插件计划](../architecture/plugin-platform-plan.md) |
@@ -24,7 +25,11 @@
 
 ## 最新验收及未通过项
 
-2026-11-18 的模型目录与会话列表候选已通过完整 Debug 主机门禁，以及隔离 API36 的 24 项核心与 9 项 UI 回归。Developer Debug 已覆盖更新日常 `Helix_API_36`，安装字节与成功构建一致、原安装时间保持。源码输入和制品绑定见本地 ignored `build/model-directory-refresh/accepted-build.json`，结果见 `accepted-r2.log`、`device-core-r3/`、`device-ui-r2/` 与 `install-receipt.json`。本页只索引已发生的验收；当前文档整理没有再次运行设备或服务。
+2026-11-18 附件收尾候选通过完整 Debug/Release 主机门禁、隔离 API36/API34/API29 共123项 Debug 回归、Consumer Release 4项冒烟及同候选覆盖安装配置检查，并通过1项真实已配置模型按需读取附件回归。新增封闭目录未登记快照的启动回收与可恢复验证；API31–34/S Extensions13+ 的 PDF 文本提取已实现，但缺匹配设备，正向分支仍待验证。日常 Developer Debug 已保数据覆盖，安装字节和六类持久数据摘要核对通过，临时测试包已清理。具体范围、失败记录与边界见 [HXA-049](../completion-records/HXA-049.md#2026-11-18-后续收尾)；不代表所有 SAF 提供方、模型、真机或历史孤儿全盘清扫已验收。
+
+2026-11-18 后续 UI 候选隐藏会话列表内部目录引用，保留目录绑定；针对性主机检查及隔离 API36 组件5项、真实主应用2项通过。已保数据覆盖日常包，实际列表/打开交互及会话、消息、工具、Turn内容摘要核对通过。旧验证包与日常包并存的现场根因、具体边界见[UI入口复核](ui-prototype-integration.md#实际安装入口复核与内部路径隐藏2026-11-18)，证据为 ignored `build/session-list-real-20261118/`；未把此前完整 Debug 门禁算作本轮重跑。
+
+2026-11-18 前一模型目录与会话列表候选已通过完整 Debug 主机门禁，以及隔离 API36 的 24 项核心与 9 项 UI 回归。Developer Debug 已覆盖更新日常 `Helix_API_36`，安装字节与成功构建一致、原安装时间保持。源码输入和制品绑定见本地 ignored `build/model-directory-refresh/accepted-build.json`，结果见 `accepted-r2.log`、`device-core-r3/`、`device-ui-r2/` 与 `install-receipt.json`。本页只索引已发生的验收。
 
 该候选覆盖目录缓存/刷新、历史选模保留和长标题布局，详见 [HXA-307](tasks/HXA-307.md#2026-11-18-目录刷新与历史选择)及 [UI 接入](ui-prototype-integration.md)。未重新验收 Release/R8、真机或线上模型；既有 Release 与真实服务记录不能继承为新候选通过。
 

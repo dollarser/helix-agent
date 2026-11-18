@@ -655,6 +655,9 @@ class WorkspaceArtifactStore(
 
     private val trashOperations = WorkspaceTrashOperations(::resolve, ::resolveContained)
 
+    /** Application lifecycle only: a closed, single-file attachment directory, kept recoverable. */
+    fun retireAttachmentSnapshot(path: FileScopePath): TrashEntry = trashOperations.retireAttachment(path)
+
     fun supportsRecoverableTrash(scope: String): Boolean = metadataRoot(scope) != null
 
     fun moveToTrash(path: FileScopePath): TrashEntry =

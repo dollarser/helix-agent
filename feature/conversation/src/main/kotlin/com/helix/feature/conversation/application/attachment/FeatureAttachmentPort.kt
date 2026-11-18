@@ -42,6 +42,9 @@ interface FeatureAttachmentPort {
     fun stagedPreview(entry: StagedAttachmentCandidate): ByteArray?
 
     suspend fun imageReferencesFor(messageId: String): List<ImageReference>
+
+    /** Releases only unused owned snapshots; shared/history/input bindings retain their bytes. */
+    suspend fun discard(entry: StagedAttachmentCandidate): String?
 }
 
 /** Provider-reported labels are untrusted; the import adapter verifies the durable bytes. */

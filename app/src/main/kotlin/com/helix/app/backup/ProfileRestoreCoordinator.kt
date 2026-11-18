@@ -238,7 +238,8 @@ internal class ProfileRestoreCoordinator(
                 "files/workspaces/saf-grants.json",
                 "files/mcp_oauth_attempts",
                 "files/execution-admission",
-            ) || path.matches(Regex("files/workspaces/app/restored-[a-f0-9-]{36}")) ||
+            ) || AttachmentRestorePath.permitted(path) ||
+            path.matches(Regex("files/workspaces/app/restored-[a-f0-9-]{36}")) ||
             path.matches(Regex("files/workspaces/managed/ws-[a-f0-9-]{36}")) ||
             path.matches(Regex("databases/(helix|scheduled-agents|reminders)\\.db(-wal|-shm|-journal)?")) ||
             PortablePreferences.permittedRoot(path)

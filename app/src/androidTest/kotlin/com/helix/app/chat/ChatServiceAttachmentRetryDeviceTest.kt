@@ -221,11 +221,11 @@ class ChatServiceAttachmentRetryDeviceTest : ForegroundDeviceTestHost() {
                         .single()
                 assertEquals(queued.attachments.single().artifactId, binding.artifactId)
                 assertEquals(queued.attachments.single().boundSha256, binding.boundSha256)
-                assertTrue(
-                    wire.requestBodies
-                        .single { it.contains(QUEUED_ATTACHMENT_TEXT) }
-                        .contains(QUEUED_ATTACHMENT_BODY),
-                )
+                val queuedRequest = wire.requestBodies.single { it.contains(QUEUED_ATTACHMENT_TEXT) }
+                org.junit.Assert.assertFalse(queuedRequest.contains(QUEUED_ATTACHMENT_BODY))
+                val attachment = fixture.storage.artifacts.resolve(binding.artifactId)
+                assertTrue(queuedRequest.contains(attachment.relativePath))
+                assertTrue(queuedRequest.contains(binding.boundSha256))
 
                 val acceptedAgain = fixture.service.confirmSubmission(submission).await()
                 assertEquals(ChatSubmissionOutcome.Accepted(delivered.consumedTurnId!!), acceptedAgain.outcome)

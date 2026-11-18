@@ -19,7 +19,7 @@ import org.junit.Test
  * returned unchanged (no pure-text regression).
  */
 class AttachmentContextTest {
-    @Test fun pdfPreviewNeverClaimsCompletenessAndKeepsAnExplicitSourceForPageReading() {
+    @Test fun pdfMetadataKeepsAnExplicitSourceWithoutInjectingExtractedText() {
         for (truncated in listOf(false, true)) {
             val text =
                 AttachmentMaterialization.Text(
@@ -30,15 +30,22 @@ class AttachmentContextTest {
                     truncated,
                     900,
                 )
-            val block = AttachmentContextBlock.Text(text, "input/attachments/paper.pdf", "attachment-scope")
+            val block =
+                AttachmentContextBlock.Text(
+                    text,
+                    com.helix.core.workspace.FileScopePath.fromModelReference(
+                        "scope:attachment-scope:input/attachments/paper.pdf",
+                    ),
+                )
             val out = AttachmentContext.buildUserMessageContent("总结这份PDF", listOf(block))
             assertTrue(out.contains("scope:attachment-scope:input/attachments/paper.pdf"))
             assertTrue(out.contains("documents_inspect"))
-            assertTrue(out.contains("不代表完整文档"))
+            assertTrue(out.contains("正文未载入"))
+            assertFalse(out.contains("preview"))
             assertFalse(out.contains("全文内联"))
             assertFalse(out.contains("可分块读取"))
             assertTrue(out.contains(AttachmentContext.UNTRUSTED_MARKER))
-            assertEquals(truncated, out.contains("文档文本预览已截断"))
+            assertFalse(out.contains("文档文本预览已截断"))
         }
     }
 
@@ -65,13 +72,9 @@ class AttachmentContextTest {
         fileName: String = "notes.txt",
         kind: TextAttachmentKind = TextAttachmentKind.TXT,
     ) = AttachmentContextBlock.Text(
-        fileName = fileName,
-        kind = kind,
-        content = content,
-        sha256 = sha,
-        truncated = truncated,
-        sizeBytes = content.toByteArray().size.toLong(),
-        relativePath = relativePath,
+        AttachmentMaterialization.Text(fileName, kind, content, sha, truncated, content.toByteArray().size.toLong()),
+        com.helix.core.workspace
+            .FileScopePath("app", relativePath),
     )
 
     private fun imageBlock(
@@ -103,40 +106,30 @@ class AttachmentContextTest {
         assertTrue(out.contains(AttachmentContext.UNTRUSTED_MARKER))
         assertTrue(out.contains("notes.txt"))
         assertTrue(out.indexOf(AttachmentContext.UNTRUSTED_MARKER) < out.indexOf("notes.txt"))
-        assertEquals(relativePath, pathValueOf(out))
+        assertEquals("scope:app:$relativePath", pathValueOf(out))
     }
 
     @Test
-    fun theInlinedBodyIsBoundedToMaxInlineTextBytes() {
-        // 10_000 'x' (1 byte each) exceeds the 8192-byte cap: only the leading 8192 bytes inline,
-        // as ONE contiguous run (the isolated 'x' in the file name is not part of that run).
-        val out = AttachmentContext.buildUserMessageContent("", listOf(block("x".repeat(10_000), truncated = true)))
-        assertTrue(out.contains("x".repeat(com.helix.core.model.input.InputAttachmentLimits.MAX_INLINE_TEXT_BYTES)))
-        assertFalse(
-            out.contains("x".repeat(com.helix.core.model.input.InputAttachmentLimits.MAX_INLINE_TEXT_BYTES + 1)),
-        )
+    fun everyNonImageKindUsesMetadataOnlyRegardlessOfSize() {
+        for (kind in TextAttachmentKind.entries) {
+            for (content in listOf("NEVER_INLINE_MARKER", "🙂".repeat(5000))) {
+                val out = AttachmentContext.buildUserMessageContent("", listOf(block(content, true, kind = kind)))
+                assertFalse(out.contains(content.take(40)))
+                assertTrue(out.contains("正文未载入"))
+                assertEquals("scope:app:$relativePath", pathValueOf(out))
+                assertFalse(out.contains("全文内联"))
+            }
+        }
     }
 
     @Test
     fun theOnlyPathShapedValueIsScopeRelativeNeverAbsolute() {
         val out = AttachmentContext.buildUserMessageContent("", listOf(block("正文", truncated = false)))
         val path = pathValueOf(out)
-        assertEquals("input/attachments/att_test123/notes.txt", path)
+        assertEquals("scope:app:input/attachments/att_test123/notes.txt", path)
         assertFalse(path.startsWith("/"))
         // No line of the injected message ever leads with '/' (no host-absolute path leaks in).
         assertFalse(out.lineSequence().any { it.startsWith("/") })
-    }
-
-    @Test
-    fun boundedPrefixTruncatesMultibyteCharsWithoutSplittingSurrogates() {
-        // 5_000 emoji (U+1F642: 2 chars / 4 UTF-8 bytes each) = 20_000 bytes. The bound cuts at the
-        // 8_192-byte mark: exactly 2_048 whole emoji, no torn surrogate pair.
-        val bounded = AttachmentContext.boundedPrefix("🙂".repeat(5_000))
-        assertTrue(bounded.startsWith("🙂"))
-        val bytes = bounded.toByteArray().size
-        assertTrue(bytes <= com.helix.core.model.input.InputAttachmentLimits.MAX_INLINE_TEXT_BYTES)
-        assertEquals(com.helix.core.model.input.InputAttachmentLimits.MAX_INLINE_TEXT_BYTES, bytes)
-        assertTrue(bounded.length % 2 == 0)
     }
 
     @Test
@@ -185,6 +178,6 @@ class AttachmentContextTest {
     private fun pathValueOf(out: String): String =
         out
             .lineSequence()
-            .first { it.startsWith("完整内容路径") }
+            .first { it.startsWith("附件路径（") }
             .substringAfterLast("：")
 }

@@ -2,6 +2,7 @@ package com.helix.app.ui
 
 import android.graphics.Bitmap
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.assertIsDisplayed
@@ -10,6 +11,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.unit.dp
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.feature.conversation.presentation.ChatImageRef
 import com.helix.feature.conversation.presentation.ChatImageUi
@@ -150,6 +152,41 @@ class ChatImagePreviewDeviceTest {
         } finally {
             check(file.delete())
         }
+    }
+
+    @Test fun longAttachmentNamesKeepRemovalReachableAtLargeFontInNarrowComposer() {
+        val pending =
+            mutableStateOf(
+                listOf(
+                    PendingAttachmentUi("long", "很长的附件标题".repeat(15) + "-long-document.txt", 1024, false, false),
+                ),
+            )
+        compose.setContent {
+            val density = androidx.compose.ui.platform.LocalDensity.current
+            androidx.compose.runtime.CompositionLocalProvider(
+                androidx.compose.ui.platform.LocalDensity provides
+                    androidx.compose.ui.unit.Density(
+                        density.density,
+                        2f,
+                    ),
+            ) {
+                MaterialTheme {
+                    androidx.compose.foundation.layout.Box(
+                        androidx.compose.ui.Modifier
+                            .width(320.dp),
+                    ) {
+                        PendingAttachmentStrip(pending.value, { pending.value = emptyList() }, "session") { null }
+                    }
+                }
+            }
+        }
+        val remove = compose.onNodeWithTag("chat-pending-remove-long").assertIsDisplayed()
+        val strip = compose.onNodeWithTag("chat-pending-attachments").getUnclippedBoundsInRoot()
+        val bounds = remove.getUnclippedBoundsInRoot()
+        assertTrue(bounds.left >= strip.left && bounds.right <= strip.right)
+        captureUiExperience("attachment-narrow-large-font")
+        remove.performClick()
+        compose.onNodeWithTag("chat-pending-attachments").assertDoesNotExist()
     }
 
     private fun awaitLoaded() =

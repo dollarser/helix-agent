@@ -40,6 +40,36 @@ class StorageAttachmentAdapter(
 
     override val workspaceScopeId: String get() = staging.workspaceScopeId
 
+    override suspend fun discard(entry: StagedAttachmentCandidate): String? {
+        val ids = listOfNotNull(entry.artifactId, entry.normalizedArtifactId)
+        storage.composerDrafts.removeAttachments(entry.sessionId, ids.toSet())
+        var released = emptyList<String>()
+        storage.withTransaction {
+            released = storage.artifacts.releaseUnboundSnapshots(ids, entry.sessionId)
+        }
+        val files =
+            com.helix.core.workspace.WorkspaceArtifactStore(
+                rootResolver =
+                    com.helix.core.workspace.ScopeRootResolver { scope ->
+                        staging.resolveWorkspacePath(FileScopePath(scope, ""))
+                    },
+            )
+        return try {
+            released.forEach { reference ->
+                val path = FileScopePath.fromModelReference(reference)
+                storage.withTransaction {
+                    if (storage.artifacts.referenceCount(reference) == 0 && files.stat(path).exists) {
+                        files.ensureLayout(path.scopeId)
+                        files.retireAttachmentSnapshot(path)
+                    }
+                }
+            }
+            null
+        } catch (_: java.io.IOException) {
+            str(R.string.files_workspace_cleanup_failed)
+        }
+    }
+
     override fun sourceMetadata(uri: String): AttachmentSourceMetadata =
         staging.sourceMetadata(uri).let { AttachmentSourceMetadata(it.sizeBytes, it.mimeType, it.displayName) }
 
@@ -83,8 +113,20 @@ class StorageAttachmentAdapter(
                     }
                 }
             }
-        // A completed durable import may remain inert, but cancellation never stages it in the live composer.
-        context.ensureActive()
+        if (prepared is AttachmentPreparation.Ready) {
+            staging.releaseCopiedSource(uri, prepared.entry.boundSha256)
+        }
+        // Cancellation never stages a late import; registered bytes remain recoverable in trash.
+        try {
+            context.ensureActive()
+        } catch (cancelled: CancellationException) {
+            if (prepared is AttachmentPreparation.Ready) {
+                kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable + kotlinx.coroutines.Dispatchers.IO) {
+                    discard(prepared.entry)
+                }
+            }
+            throw cancelled
+        }
         return prepared
     }
 

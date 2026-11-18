@@ -79,6 +79,10 @@ class ArtifactVisionImageSourceTest {
                 rows.putIfAbsent(artifact.id, artifact)
             }
 
+            override fun hasBindings(ids: List<String>): Boolean = false
+
+            override fun deleteUnbound(ids: List<String>): Int = ids.count { rows.remove(it) != null }
+
             override fun byId(id: String): ArtifactEntity? = rows[id]
 
             override fun listBySession(sessionId: String): List<ArtifactEntity> =

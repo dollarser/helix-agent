@@ -109,9 +109,7 @@ class DocumentReaderService : Service() {
             require(operation in setOf("inspect", "read", "view"))
             when (request.getString("format")) {
                 "pdf" -> {
-                    PdfRenderer(source).use { renderer ->
-                        readPage(renderer, image, request, operation!!)
-                    }
+                    parsePdf(source, image, request, operation!!)
                 }
 
                 "docx" -> {
@@ -123,6 +121,21 @@ class DocumentReaderService : Service() {
                 }
             }
         }
+
+    private fun parsePdf(
+        source: ParcelFileDescriptor,
+        image: ParcelFileDescriptor,
+        request: Bundle,
+        operation: String,
+    ): Bundle {
+        if (operation == "read" && Build.VERSION.SDK_INT in 31..34 &&
+            android.os.ext.SdkExtensions
+                .getExtensionVersion(Build.VERSION_CODES.S) >= 13
+        ) {
+            return readExtendedPdf(source, request)
+        }
+        return PdfRenderer(source).use { renderer -> readPage(renderer, image, request, operation) }
+    }
 
     private fun parseDocx(
         source: ParcelFileDescriptor,
@@ -151,6 +164,28 @@ class DocumentReaderService : Service() {
             )
         }
     }
+
+    @androidx.annotation.RequiresExtension(extension = Build.VERSION_CODES.S, version = 13)
+    private fun readExtendedPdf(
+        source: ParcelFileDescriptor,
+        request: Bundle,
+    ): Bundle =
+        android.graphics.pdf.PdfRendererPreV(source).use { renderer ->
+            val number = request.getInt("page", 1)
+            if (number !in 1..renderer.pageCount) return error("RANGE_OUT_OF_BOUNDS")
+            val text =
+                renderer.openPage(number - 1).use { page ->
+                    pdfTextSlice(
+                        page.textContents.asSequence().map { it.text },
+                        request.getInt("textOffset", 0),
+                        request.getInt("textLimit", DocumentLimits.TEXT),
+                    )
+                }
+            Bundle().apply {
+                putString("metadata", pageMetadata(renderer.pageCount, number, request, "read", text).toString())
+                putBoolean("image", false)
+            }
+        }
 
     private fun readPage(
         renderer: PdfRenderer,
@@ -199,7 +234,14 @@ class DocumentReaderService : Service() {
             },
         )
         put("pageCount", pageCount)
-        put("textExtractionSupported", Build.VERSION.SDK_INT >= 35)
+        put(
+            "textExtractionSupported",
+            Build.VERSION.SDK_INT >= 35 ||
+                (
+                    Build.VERSION.SDK_INT >= 31 && android.os.ext.SdkExtensions
+                        .getExtensionVersion(Build.VERSION_CODES.S) >= 13
+                ),
+        )
         put("truncated", text.truncated)
         put("partial", operation != "inspect")
         put(
@@ -216,7 +258,7 @@ class DocumentReaderService : Service() {
         putJsonArray("warnings") {
             add(
                 (
-                    "Text can omit diagrams/layout; scanned pages and Android below API35 " +
+                    "Text can omit diagrams/layout; scanned pages and devices without platform text extraction " +
                         "require view with model vision."
                 ),
             )

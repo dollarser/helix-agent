@@ -22,5 +22,6 @@ class AttachmentStagingSupport(
     val workspaceScopeId: String,
     val sourceMetadata: (String) -> SafSourceMetadata,
     val resolveWorkspacePath: (FileScopePath) -> Path,
+    val releaseCopiedSource: (String, String) -> Unit = { _, _ -> },
     val openPreviewSource: (String) -> java.io.InputStream = { error("Preview source unavailable") },
 )
