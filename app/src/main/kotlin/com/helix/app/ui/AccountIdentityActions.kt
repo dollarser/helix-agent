@@ -39,7 +39,7 @@ internal fun AccountIdentityActions(
     var expanded by remember(current.id) { mutableStateOf(false) }
     var email by remember(
         current.id,
-    ) { mutableStateOf(current.email ?: current.username.takeIf { '@' in it }.orEmpty()) }
+    ) { mutableStateOf(current.email.orEmpty()) }
     var code by remember(current.id) { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var failure by remember { mutableStateOf<Exception?>(null) }

@@ -9,15 +9,17 @@ import kotlinx.serialization.json.put
 /** Account identity is separate from installation-local profile and login generation. */
 data class AccountUser(
     val id: String,
-    val username: String,
+    val displayName: String,
     val email: String?,
     val mustChange: Boolean,
     val emailBindingRequired: Boolean,
+    val displayNameUpdatedAt: Long? = null,
 ) {
     internal fun document() =
         buildJsonObject {
             put("id", id)
-            put("username", username)
+            put("display_name", displayName)
+            displayNameUpdatedAt?.let { put("display_name_updated_at", it) }
             email?.let { put("email", it) }
             put("must_change", mustChange)
             put("email_binding_required", emailBindingRequired)
@@ -33,10 +35,11 @@ data class AccountUser(
             val id = text("id")?.takeIf { it.isNotBlank() } ?: return null
             return AccountUser(
                 id,
-                text("username").orEmpty(),
+                text("display_name").orEmpty(),
                 text("email"),
                 flag("must_change"),
                 flag("email_binding_required"),
+                text("display_name_updated_at")?.toLongOrNull(),
             )
         }
     }

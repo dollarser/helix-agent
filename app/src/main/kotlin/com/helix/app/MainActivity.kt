@@ -418,7 +418,10 @@ internal fun HelixApp(container: AppContainer) {
     HelixTheme {
         metricsMessageId?.let { id ->
             com.helix.app.ui
-                .MessageRunMetricsDialog(id, container.conversationDetails) { metricsMessageId = null }
+                .MessageRunMetricsDialog(
+                    id,
+                    container.conversationDetails::messageRunMetrics,
+                ) { metricsMessageId = null }
         }
         citationUrl?.let(com.helix.core.model.citation.Citation::parse)?.let { citation ->
             com.helix.app.ui.CitationPreviewDialog(citation, resolve = {

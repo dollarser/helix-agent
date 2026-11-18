@@ -155,7 +155,7 @@ class AccountNoticeCacheRestartDeviceTest {
                                 (
                                     """{"access_token":"synthetic-next","refresh_token":"synthetic-next-refresh",""" +
                                         """"expires_in":600,"refresh_expires_in":1200,""" +
-                                        """"user":{"id":"other","username":"other"}}"""
+                                        """"user":{"id":"other","display_name":"other"}}"""
                                 ).toByteArray()
 
                             override suspend fun forEachChunk(onChunk: suspend (ByteArray) -> Boolean) {

@@ -28,31 +28,36 @@ class AccountCaptchaFlowDeviceTest {
     private val challenge = SyntheticAccountChallenge()
     private val email = mutableStateOf("first@example.test")
     private val identity = mutableStateOf(1L)
+    private val purpose = mutableStateOf(AccountCaptchaAction.PASSWORD_RESET)
+    private val visible = mutableStateOf(true)
     private val sends = AtomicInteger()
 
     private fun form(
         action: AccountCaptchaAction = AccountCaptchaAction.PASSWORD_RESET,
         send: suspend (String, AccountCaptchaProof) -> Long,
     ) {
+        purpose.value = action
         compose.setContent {
             MaterialTheme {
                 Column {
-                    AccountEmailCodeField(
-                        email.value,
-                        "",
-                        {},
-                        true,
-                        send,
-                        action = action,
-                        identity = identity.value,
-                        challenge = challenge.content,
-                    )
+                    if (visible.value) {
+                        AccountEmailCodeField(
+                            email.value,
+                            "",
+                            {},
+                            true,
+                            send,
+                            action = purpose.value,
+                            identity = identity.value,
+                            challenge = challenge.content,
+                        )
+                    }
                 }
             }
         }
     }
 
-    private fun open() = compose.onNodeWithTag("account-send-code").performClick()
+    private fun open() = compose.onNodeWithTag("account-verify-human").performClick()
 
     private fun noFeedback() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
@@ -72,7 +77,7 @@ class AccountCaptchaFlowDeviceTest {
             challenge.cancel()
             late(proof)
         }
-        compose.onNodeWithTag("account-send-code").assertIsEnabled()
+        compose.onNodeWithTag("account-verify-human").assertIsEnabled()
         assertEquals(0, sends.get())
         noFeedback()
     }
@@ -84,7 +89,11 @@ class AccountCaptchaFlowDeviceTest {
             0
         }
         open()
+        compose.onNodeWithTag("account-send-code").assertIsNotEnabled()
         compose.runOnIdle { challenge.completeTwice() }
+        compose.waitForIdle()
+        assertEquals(0, sends.get())
+        compose.onNodeWithTag("account-send-code").assertIsEnabled().performClick()
         compose.waitUntil(5000) { sends.get() == 1 }
         compose.waitForIdle()
         val context = InstrumentationRegistry.getInstrumentation().targetContext
@@ -101,7 +110,7 @@ class AccountCaptchaFlowDeviceTest {
         compose.runOnIdle { email.value = "second@example.test" }
         compose.waitForIdle()
         compose.runOnIdle { challenge.complete(challenge.proof()) }
-        compose.onNodeWithTag("account-send-code").assertIsEnabled()
+        compose.onNodeWithTag("account-verify-human").assertIsEnabled()
         assertEquals(0, sends.get())
     }
 
@@ -114,6 +123,92 @@ class AccountCaptchaFlowDeviceTest {
         compose.runOnIdle { identity.value = 2L }
         compose.waitForIdle()
         compose.runOnIdle { challenge.complete(challenge.proof()) }
+        assertEquals(0, sends.get())
+    }
+
+    @Test fun registrationWaitsForExplicitSendAndRequiresNewProofAfterFailure() {
+        form(action = AccountCaptchaAction.REGISTRATION) { _, proof ->
+            proof.consume(AccountCaptchaAction.REGISTRATION)
+            sends.incrementAndGet()
+            throw AccountDataFailure()
+        }
+        open()
+        compose.runOnIdle { challenge.complete(challenge.proof()) }
+        compose.onNodeWithTag("account-send-code").assertIsEnabled()
+        assertEquals(0, sends.get())
+        compose.onNodeWithTag("account-send-code").performClick()
+        compose.waitUntil(5000) { sends.get() == 1 }
+        compose.onNodeWithTag("account-send-code").assertIsNotEnabled()
+        compose.onNodeWithTag("account-verify-human").assertIsEnabled()
+    }
+
+    @Test fun verifiedProofExpiresWithoutSending() {
+        form { _, _ ->
+            sends.incrementAndGet()
+            0
+        }
+        var now = 0L
+        open()
+        compose.runOnIdle {
+            challenge.complete(AccountCaptchaProof(AccountCaptchaAction.PASSWORD_RESET, "synthetic") { now })
+        }
+        compose.onNodeWithTag("account-send-code").assertIsEnabled()
+        compose.runOnIdle { now = 300_000 }
+        compose.mainClock.advanceTimeBy(1000)
+        compose.onNodeWithTag("account-send-code").assertIsNotEnabled()
+        compose.onNodeWithTag("account-verify-human").assertIsEnabled()
+        assertEquals(0, sends.get())
+    }
+
+    @Test fun editingEmailDiscardsCompletedProofEvenWhenAddressRestored() {
+        form { _, _ ->
+            sends.incrementAndGet()
+            0
+        }
+        open()
+        lateinit var proof: AccountCaptchaProof
+        compose.runOnIdle {
+            proof = challenge.proof()
+            challenge.complete(proof)
+        }
+        compose.onNodeWithTag("account-send-code").assertIsEnabled()
+        compose.runOnIdle { email.value = "second@example.test" }
+        compose.waitForIdle()
+        compose.runOnIdle { email.value = "first@example.test" }
+        compose.onNodeWithTag("account-send-code").assertIsNotEnabled()
+        org.junit.Assert.assertFalse(proof.isUsable(AccountCaptchaAction.PASSWORD_RESET))
+        assertEquals(0, sends.get())
+    }
+
+    @Test fun changingPurposeDiscardsCompletedProof() {
+        form { _, _ ->
+            sends.incrementAndGet()
+            0
+        }
+        open()
+        compose.runOnIdle { challenge.complete(challenge.proof()) }
+        compose.onNodeWithTag("account-send-code").assertIsEnabled()
+        compose.runOnIdle { purpose.value = AccountCaptchaAction.REGISTRATION }
+        compose.onNodeWithTag("account-send-code").assertIsNotEnabled()
+        assertEquals(0, sends.get())
+    }
+
+    @Test fun closingFormDiscardsProofAndReopeningRequiresVerification() {
+        form { _, _ ->
+            sends.incrementAndGet()
+            0
+        }
+        open()
+        lateinit var proof: AccountCaptchaProof
+        compose.runOnIdle {
+            proof = challenge.proof()
+            challenge.complete(proof)
+        }
+        compose.runOnIdle { visible.value = false }
+        compose.waitForIdle()
+        org.junit.Assert.assertFalse(proof.isUsable(AccountCaptchaAction.PASSWORD_RESET))
+        compose.runOnIdle { visible.value = true }
+        compose.onNodeWithTag("account-send-code").assertIsNotEnabled()
         assertEquals(0, sends.get())
     }
 
@@ -137,12 +232,13 @@ class AccountCaptchaFlowDeviceTest {
         }
         open()
         compose.runOnIdle { challenge.complete(challenge.proof()) }
+        compose.onNodeWithTag("account-send-code").performClick()
         compose.waitUntil(5000) { sends.get() == 1 }
         compose.waitForIdle()
         compose.onNodeWithTag("account-send-code").assertIsNotEnabled()
         compose.runOnIdle { identity.value = 2L }
         compose.waitForIdle()
-        compose.onNodeWithTag("account-send-code").assertIsEnabled()
+        compose.onNodeWithTag("account-verify-human").assertIsEnabled()
         noFeedback()
     }
 
@@ -174,12 +270,13 @@ class AccountCaptchaFlowDeviceTest {
         }
         open()
         compose.runOnIdle { challenge.complete(challenge.proof()) }
+        compose.onNodeWithTag("account-send-code").performClick()
         compose.waitUntil(5000) { sends.get() == 1 }
         change()
         compose.waitForIdle()
         compose.runOnIdle { response.complete(Unit) }
         compose.waitForIdle()
-        compose.onNodeWithTag("account-send-code").assertIsEnabled()
+        compose.onNodeWithTag("account-verify-human").assertIsEnabled()
         noFeedback()
         assertEquals(1, sends.get())
     }

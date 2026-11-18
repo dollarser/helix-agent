@@ -23,6 +23,13 @@ internal class AccountCaptchaProof(
         require(token.isNotBlank() && token.length <= 2048)
     }
 
+    internal fun isUsable(expected: AccountCaptchaAction): Boolean =
+        action == expected && monotonicMillis() - created in 0 until 300_000 && value.get() != null
+
+    internal fun discard() {
+        value.set(null)
+    }
+
     internal fun consume(expected: AccountCaptchaAction): String {
         val token = value.getAndSet(null)
         require(action == expected && monotonicMillis() - created in 0 until 300_000 && token != null) {

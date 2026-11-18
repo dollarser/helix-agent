@@ -36,11 +36,14 @@ internal class AccountProfileClient(
         email: String,
         password: String,
         code: String,
+        displayName: String = "",
     ) = withContext(Dispatchers.IO) {
         require(
             email.isNotBlank() && email.length <= 320 && password.length in 6..128 && code.matches(Regex("[0-9]{6}")),
         )
-        account.publicRequest("register", mapOf("email" to email, "password" to password, "code" to code))
+        val fields = mutableMapOf("email" to email, "password" to password, "code" to code)
+        if (displayName.isNotBlank()) fields["display_name"] = normalizedDisplayName(displayName)
+        account.publicRequest("register", fields)
         Unit
     }
 
@@ -124,17 +127,22 @@ internal class AccountProfileClient(
         require(current.isNotBlank() && current.length <= 4096 && next.isNotBlank() && next.length in 6..128)
         if (account.revision != expectedRevision) throw AccountDataFailure()
         val revision = expectedRevision
-        val username = requireNotNull(account.user.value).username
+        val email =
+            requireNotNull(
+                account.user.value
+                    ?.email
+                    ?.takeIf { it.isNotBlank() },
+            )
         request("/account/password", mapOf("current_password" to current, "new_password" to next), revision)
         if (account.revision != revision) throw AccountDataFailure()
-        // Password change invalidates the session. Re-authenticate with the original login name.
-        reauthenticateChangedPassword(username, next, revision)
+        // Password change invalidates the session. Re-authenticate with the login email.
+        reauthenticateChangedPassword(email, next, revision)
     }
 
     @Suppress("TooGenericExceptionCaught") // After confirmed mutation, any failed re-login requires manual sign-in.
-    private suspend fun reauthenticateChangedPassword(username: String, next: String, revision: Long) {
+    private suspend fun reauthenticateChangedPassword(email: String, next: String, revision: Long) {
         try {
-            account.login(username, next, expectedRevision = revision)
+            account.login(email, next, expectedRevision = revision)
         } catch (cancelled: kotlinx.coroutines.CancellationException) {
             account.invalidateChangedPasswordSession(revision)
             throw cancelled
@@ -144,14 +152,29 @@ internal class AccountProfileClient(
         }
     }
 
+    suspend fun changeDisplayName(
+        name: String,
+        expectedRevision: Long = account.revision,
+    ) {
+        val normalized = normalizedDisplayName(name)
+        userRequest(
+            "/account/profile",
+            mapOf("display_name" to normalized),
+            expectedRevision,
+            "PATCH",
+        )
+    }
+
     private suspend fun userRequest(
         path: String,
         fields: Map<String, String>? = null,
+        revision: Long = account.revision,
+        method: String = if (fields == null) "GET" else "POST",
     ) {
-        val revision = account.revision
         // Serialize profile reads/mutations across clients so an older read cannot undo a completed binding.
         account.profileRequests.withLock {
-            val next = AccountUser.parse(request(path, fields, revision)["user"]) ?: throw AccountDataFailure()
+            if (account.revision != revision) throw AccountDataFailure()
+            val next = AccountUser.parse(request(path, fields, revision, method)["user"]) ?: throw AccountDataFailure()
             account.updateUser(next, revision)
         }
     }
@@ -160,6 +183,7 @@ internal class AccountProfileClient(
         path: String,
         fields: Map<String, String>? = null,
         expectedRevision: Long,
+        method: String = if (fields == null) "GET" else "POST",
     ): JsonObject =
         withContext(dispatcher) {
             withTimeout(30000) {
@@ -175,13 +199,7 @@ internal class AccountProfileClient(
                 val response =
                     account.wire(endpoint, transport, expectedRevision).open(
                         WireRequest(
-                            if (fields ==
-                                null
-                            ) {
-                                "GET"
-                            } else {
-                                "POST"
-                            },
+                            method,
                             endpoint,
                             mapOf("Content-Type" to "application/json"),
                             bytes,

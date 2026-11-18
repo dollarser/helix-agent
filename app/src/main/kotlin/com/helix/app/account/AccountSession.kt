@@ -27,11 +27,13 @@ class AccountSession(
     private val now: () -> Long = System::currentTimeMillis,
     noticeScheduleFile: java.io.File? = null,
     noticeMonotonicMillis: () -> Long = { System.nanoTime() / 1_000_000 },
+    private val noticeTransport: WireClient? = null,
 ) {
     internal val accountTransport get() = auth
     internal val notices by lazy {
         AccountNoticesStore(
             this,
+            api = noticeTransport?.let { AccountNoticesClient(this, it) } ?: AccountNoticesClient(this),
             schedule = AccountNoticeSchedule(noticeScheduleFile),
             cache = AccountNoticeCache(noticeScheduleFile?.parentFile?.resolve("notice-pages")),
             monotonicMillis = noticeMonotonicMillis,
@@ -72,7 +74,7 @@ class AccountSession(
         require(email.isNotBlank() && email.length <= 320 && password.isNotBlank() && password.length <= 4096)
         gate.withLock {
             if (expectedRevision != null && revision != expectedRevision) throw AccountDataFailure()
-            val payload = publicRequest("login", mapOf("username" to email, "password" to password))
+            val payload = publicRequest("login", mapOf("email" to email, "password" to password))
             try {
                 val next = AccountTokens.response(payload, now())
                 storage.save(next)
@@ -97,7 +99,8 @@ class AccountSession(
     ) = withContext(Dispatchers.IO) {
         gate.withLock {
             if (revision != expectedRevision) throw AccountDataFailure()
-            val current = tokens ?: return@withLock
+            val current = tokens ?: throw AccountDataFailure()
+            if (current.user?.id != next.id) throw AccountDataFailure()
             val updated =
                 AccountTokens(
                     current.access,

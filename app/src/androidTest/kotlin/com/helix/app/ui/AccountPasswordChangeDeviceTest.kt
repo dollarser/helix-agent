@@ -81,7 +81,18 @@ class AccountPasswordChangeDeviceTest {
         val account = account()
         compose.setContent {
             MaterialTheme {
-                UserAccountDestinations(account, false, true, false, {}, {}, {}, {}, feedback = {})
+                UserAccountDestinations(
+                    account,
+                    { error("Usage is not opened") },
+                    false,
+                    true,
+                    false,
+                    {},
+                    {},
+                    {},
+                    {},
+                    feedback = {},
+                )
             }
         }
         compose.onNodeWithTag("profile-change-password").performScrollTo().performClick()
@@ -198,7 +209,7 @@ class AccountPasswordChangeDeviceTest {
                     return response(
                         """{"access_token":"synthetic-next","refresh_token":"synthetic-next-refresh",
                     "expires_in":3600,"refresh_expires_in":7200,"user":{"id":"synthetic-user",
-                    "username":"original-name","email":"synthetic@example.test","must_change":false,
+                    "display_name":"original-name","email":"synthetic@example.test","must_change":false,
                     "email_binding_required":false}}""",
                     )
                 }

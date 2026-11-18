@@ -14,10 +14,15 @@ import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -27,11 +32,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.webkit.WebMessageCompat
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
@@ -60,7 +68,10 @@ internal fun AccountCaptchaDialog(
     val policy = remember(action) { AccountCaptchaPolicy(action) }
     var webView by remember { mutableStateOf<WebView?>(null) }
     var failed by remember { mutableStateOf(false) }
-    val supported = remember { WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER) }
+    val supported =
+        remember {
+            WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)
+        }
     DisposableEffect(policy) {
         onDispose {
             policy.close()
@@ -74,42 +85,66 @@ internal fun AccountCaptchaDialog(
             }
         }
     }
-    Dialog(onDismissRequest = {
+    AccountCaptchaWindow(onDismiss = {
         policy.close()
         onDismiss()
     }) {
-        Surface {
-            Column(Modifier.padding(16.dp)) {
+        if (!supported || failed) {
+            AccountCaptchaError(supported) {
+                policy.close()
+                onDismiss()
+            }
+        } else {
+            AndroidView(
+                factory = { context ->
+                    WebView(context).also { view ->
+                        webView = view
+                        configureCaptchaWebView(
+                            view,
+                            policy,
+                            { failed = true },
+                            { if (webView === it) webView = null },
+                            onProof,
+                            onDismiss,
+                        )
+                    }
+                },
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+    }
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun AccountCaptchaError(
+    supported: Boolean,
+    onDismiss: () -> Unit,
+) {
+    Box(Modifier.fillMaxSize().padding(12.dp), contentAlignment = Alignment.Center) {
+        Surface(Modifier.widthIn(max = 400.dp).fillMaxWidth(), shape = MaterialTheme.shapes.large) {
+            Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp)) {
                 Text(stringResource(R.string.account_captcha_title))
-                if (!supported || failed) {
-                    Text(
-                        stringResource(
-                            if (supported) R.string.account_captcha_failed else R.string.account_captcha_upgrade,
-                        ),
-                    )
-                } else {
-                    AndroidView(
-                        factory = { context ->
-                            WebView(context).also { view ->
-                                webView = view
-                                configureCaptchaWebView(
-                                    view,
-                                    policy,
-                                    { failed = true },
-                                    { if (webView === it) webView = null },
-                                    onProof,
-                                )
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 300.dp, max = 480.dp),
-                    )
-                }
-                TextButton({
-                    policy.close()
-                    onDismiss()
-                }) { Text(stringResource(R.string.account_captcha_cancel)) }
+                val message = if (supported) R.string.account_captcha_failed else R.string.account_captcha_upgrade
+                Text(stringResource(message))
+                TextButton(onDismiss) { Text(stringResource(R.string.account_captcha_cancel)) }
             }
         }
+    }
+}
+
+/** The trusted page owns its card and cancel action; host Back remains available even while loading. */
+@Composable
+@Suppress("FunctionName")
+internal fun AccountCaptchaWindow(
+    onDismiss: () -> Unit,
+    content: @Composable () -> Unit,
+) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Surface(Modifier.fillMaxSize(), color = Color.Transparent, content = content)
     }
 }
 
@@ -120,6 +155,7 @@ private fun configureCaptchaWebView(
     failed: () -> Unit,
     onDestroyed: (WebView) -> Unit,
     onProof: (AccountCaptchaProof) -> Unit,
+    onDismiss: () -> Unit,
 ) {
     if (!WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
         policy.close()
@@ -129,6 +165,12 @@ private fun configureCaptchaWebView(
     view.settings.apply {
         javaScriptEnabled = true
         domStorageEnabled = true
+        // The hosted challenge has fixed internal dimensions; retain page zoom for accessibility.
+        textZoom = 100
+        useWideViewPort = true
+        loadWithOverviewMode = true
+        builtInZoomControls = true
+        displayZoomControls = false
         allowFileAccess = false
         allowContentAccess = false
         mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
@@ -137,6 +179,7 @@ private fun configureCaptchaWebView(
         setGeolocationEnabled(false)
     }
     CookieManager.getInstance().setAcceptThirdPartyCookies(view, true)
+    view.setBackgroundColor(android.graphics.Color.TRANSPARENT)
     view.webChromeClient =
         object : WebChromeClient() {
             override fun onPermissionRequest(request: PermissionRequest) = request.deny()
@@ -155,7 +198,11 @@ private fun configureCaptchaWebView(
             _,
             ->
             if (message.type == WebMessageCompat.TYPE_STRING) {
-                policy.receive(origin.toString(), mainFrame, source.url, message.data)?.let(onProof)
+                if (policy.receiveCancellation(origin.toString(), mainFrame, source.url, message.data)) {
+                    onDismiss()
+                } else {
+                    policy.receive(origin.toString(), mainFrame, source.url, message.data)?.let(onProof)
+                }
             }
         }
     }

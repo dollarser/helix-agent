@@ -338,7 +338,7 @@ internal fun AppConversationRoute(
     var tasksOpen by remember(sessionId) { mutableStateOf(false) }
     var interruptionResult by rememberSaveable(sessionId) { mutableStateOf<String?>(null) }
     interruptionResult?.let { original ->
-        TaskResultDialog(details, dashboard, original, allowCollect = false) {
+        TaskResultDialog(details::taskResult, { dashboard.collectResult(it) }, original, allowCollect = false) {
             interruptionResult =
                 null
         }

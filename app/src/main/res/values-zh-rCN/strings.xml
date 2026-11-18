@@ -1579,7 +1579,7 @@
     <string name="account_login">登录</string>
     <string name="account_register">注册</string>
     <string name="account_logout">退出登录</string>
-    <string name="account_registered">注册已提交，账号就绪后请登录。</string>
+    <string name="account_registered">注册成功，请登录。</string>
     <string name="account_failure">账号操作未完成，请稍后重试。</string>
     <string name="account_busy">正在处理…</string>
     <string name="account_welcome">欢迎使用 Helix</string>
@@ -1772,15 +1772,12 @@
     <string name="user_page_title">用户</string>
     <string name="user_profile_default_name">Helix 用户</string>
     <string name="user_profile_edit">编辑资料</string>
-    <string name="user_profile_name">用户名</string>
-    <string name="user_profile_local_only">仅保存在此设备，不修改云端账号资料；退出或切换账号后仍保留。</string>
     <string name="user_profile_choose_avatar">选择头像</string>
     <string name="user_profile_remove_avatar">移除头像</string>
-    <string name="user_profile_name_hint">最多 40 个字符，留空使用默认名称。</string>
     <string name="user_profile_save_failed">资料保存失败，请尝试其他图片或重试。</string>
     <string name="user_profile_load_failed">本机资料读取失败，请重新打开此页重试。</string>
     <string name="user_profile_avatar">用户头像</string>
-    <string name="user_profile_account_section">云端账号</string>
+    <string name="user_profile_account_section">账号资料</string>
     <string name="user_profile_account_manage">管理账号</string>
-    <string name="user_profile_saved">资料已保存</string>
+    <string name="user_profile_saved">头像已更新</string>
 </resources>

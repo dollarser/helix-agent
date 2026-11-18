@@ -51,8 +51,7 @@ class AccountRecoveryResetLiveDeviceTest {
         check(android.os.Build.HARDWARE == "ranchu")
         check(InstrumentationRegistry.getInstrumentation().targetContext.packageName == "com.helix.agent.developer")
         val email = requireNotNull(args.getString("recoveryEmail"))
-        val username = args.getString("recoveryUsername") ?: email
-        val transport = RecoveryAcceptanceTransport(email, username)
+        val transport = RecoveryAcceptanceTransport(email)
         val account = AccountSession(RecoveryMemoryStorage(), transport)
         val finished = CountDownLatch(1)
         val passed = AtomicBoolean(false)
@@ -60,7 +59,7 @@ class AccountRecoveryResetLiveDeviceTest {
             MaterialTheme { RecoveryAcceptanceFlow(account, email, finished, passed) }
         }
         compose.onNodeWithTag("account-reset-email").performTextReplacement(email)
-        compose.onNodeWithTag("account-send-code").performScrollTo().performClick()
+        compose.onNodeWithTag("account-verify-human").performScrollTo().performClick()
         reportRecoveryStage("CHALLENGE_OPEN")
         // Interactive handoff only. Never inspect editable values after opening the challenge.
         compose.waitUntil(15 * 60_000L) { finished.count == 0L }
@@ -97,7 +96,7 @@ private fun RecoveryAcceptanceFlow(
         Column(Modifier.verticalScroll(rememberScrollState())) {
             Text("密码已重置。请手动输入账号和新密码，验证登录。")
             Text(message)
-            AccountLoginForm(loading, registrationEnabled = false) { name, password, registration, _ ->
+            AccountLoginForm(loading, registrationEnabled = false) { name, password, registration, _, _ ->
                 check(!registration)
                 scope.launch {
                     loading = true
@@ -148,7 +147,6 @@ private fun reportRecoveryStage(stage: String) {
 
 private class RecoveryAcceptanceTransport(
     private val email: String,
-    private val username: String,
 ) : WireClient {
     val codeCalls = AtomicInteger()
     val resetCalls = AtomicInteger()
@@ -170,7 +168,7 @@ private class RecoveryAcceptanceTransport(
             "/auth/login" -> {
                 check(resetCalls.get() == 1 && loginCalls.incrementAndGet() == 1)
                 val body = Json.parseToJsonElement(requireNotNull(request.body).toString(Charsets.UTF_8)).jsonObject
-                check(body.getValue("username").jsonPrimitive.content in setOf(email, username))
+                check(body.getValue("email").jsonPrimitive.content == email)
             }
 
             "/account/me" -> {

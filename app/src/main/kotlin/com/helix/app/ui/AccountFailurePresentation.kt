@@ -68,5 +68,7 @@ private val accountErrorLabels =
         "email_already_verified" to R.string.account_binding_conflict,
         "email_binding_changed" to R.string.account_binding_conflict,
         "email_delivery_unavailable" to R.string.account_code_unavailable,
+        "display_name_invalid" to R.string.account_display_name_invalid,
+        "display_name_change_limited" to R.string.account_display_name_limited,
         "registration_disabled" to R.string.account_registration_unavailable,
     )

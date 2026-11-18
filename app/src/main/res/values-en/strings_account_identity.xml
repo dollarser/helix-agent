@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="account_login_name">Login name</string>
     <string name="account_registration_unavailable">Registration or email delivery is unavailable. Try again later.</string>
     <string name="account_verification_code">Six-digit code</string>
     <string name="account_code_wait">Resend in %1$d seconds</string>
@@ -11,7 +10,7 @@
     <string name="account_change_password">Change and sign in again</string>
     <string name="account_bind_email">Verify and bind email</string>
     <string name="account_bind_confirm">Bind email</string>
-    <string name="account_bind_keeps_login">Binding email keeps your original login name and password.</string>
+    <string name="account_bind_keeps_login">Verifying email keeps your username and password.</string>
     <string name="account_bind_later">Not now</string>
     <string name="account_code_invalid">Enter a valid six-digit code. Request a new one if it expired.</string>
     <string name="account_binding_conflict">Email binding changed. Refresh your account and try again.</string>

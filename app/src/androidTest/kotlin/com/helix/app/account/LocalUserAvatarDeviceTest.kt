@@ -31,11 +31,11 @@ class LocalUserAvatarDeviceTest {
                 val persistence = LocalUserProfilePersistence(File(root, "profile"))
                 val importer = LocalUserAvatarImporter(app.contentResolver)
                 val store = LocalUserProfileStore(persistence, importer::import)
-                store.save("Local name", uri)
+                store.save(uri)
                 assertTrue(source.delete())
                 val restored = LocalUserProfileStore(persistence, importer::import)
                 restored.restore()
-                assertEquals("Local name", restored.state.value.displayName)
+                assertEquals(store.state.value.avatarFile, restored.state.value.avatarFile)
                 val image =
                     BitmapFactory.decodeFile(
                         restored.state.value.avatarFile!!
@@ -46,7 +46,7 @@ class LocalUserAvatarDeviceTest {
                 assertEquals(256, image.height)
                 image.recycle()
                 val oldAvatar = restored.state.value.avatarFile!!
-                restored.save("Same name", removeAvatar = true)
+                restored.save(removeAvatar = true)
                 assertFalse(oldAvatar.exists())
             } finally {
                 root.deleteRecursively()
@@ -63,11 +63,11 @@ class LocalUserAvatarDeviceTest {
                 val persistence = LocalUserProfilePersistence(File(root, "profile"))
                 val importer = LocalUserAvatarImporter(app.contentResolver)
                 val store = LocalUserProfileStore(persistence, importer::import)
-                store.saveName("Before")
-                val failure = runCatching { store.save("After", uri) }.exceptionOrNull()
+                store.save()
+                val failure = runCatching { store.save(uri) }.exceptionOrNull()
                 assertNotNull(failure)
-                assertEquals(LocalUserProfile("Before"), store.state.value)
-                assertEquals(LocalUserProfile("Before"), persistence.read())
+                assertEquals(LocalUserProfile(), store.state.value)
+                assertEquals(LocalUserProfile(), persistence.read())
             } finally {
                 root.deleteRecursively()
             }

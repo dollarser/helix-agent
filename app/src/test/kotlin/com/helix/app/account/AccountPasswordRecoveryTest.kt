@@ -215,7 +215,7 @@ class AccountPasswordRecoveryTest {
 {"access_token":"new","refresh_token":"new-r",
 "expires_in":600,
 "refresh_expires_in":1200,
-"user":{"id":"other","username":"other","email":"other@example.test"}}""",
+"user":{"id":"other","display_name":"other","email":"other@example.test"}}""",
                             )
                         }
                     },

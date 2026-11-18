@@ -232,7 +232,7 @@ class AccountSessionTest {
                     wire {
                         assertEquals("https://accounts.hilex.me/auth/login", it.url)
                         assertEquals(null, it.headers["X-Client-Id"])
-                        assertTrue(it.body!!.toString(Charsets.UTF_8).contains("\"username\":\"user@example.test\""))
+                        assertTrue(it.body!!.toString(Charsets.UTF_8).contains("\"email\":\"user@example.test\""))
                         accountResponse(200, payload)
                     },
                     { 100L },

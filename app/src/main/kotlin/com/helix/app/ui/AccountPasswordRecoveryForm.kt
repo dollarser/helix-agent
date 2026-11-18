@@ -3,9 +3,12 @@ package com.helix.app.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -44,6 +47,7 @@ internal fun AccountPasswordRecoveryForm(
     val scope = rememberCoroutineScope()
     val validEmail = email.trim().matches(Regex("[^\\s@]+@[^\\s@]+\\.[^\\s@]+"))
     val ready = recoveryInputReady(email, code, password, confirmation)
+    val submitEnabled = !busy && ready
     val mismatch = recoveryPasswordsMismatch(password, confirmation)
     UserPageFrame(stringResource(R.string.account_recovery_title), "account-recovery", {
         if (!busy) {
@@ -53,8 +57,12 @@ internal fun AccountPasswordRecoveryForm(
             onBack()
         }
     }) {
-        Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(stringResource(R.string.account_recovery_hint))
+        Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Text(
+                stringResource(R.string.account_recovery_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             OutlinedTextField(
                 email,
                 { email = it.take(320) },
@@ -62,6 +70,7 @@ internal fun AccountPasswordRecoveryForm(
                 label = { Text(stringResource(R.string.account_email)) },
                 singleLine = true,
                 enabled = !busy,
+                shape = RoundedCornerShape(14.dp),
             )
             AccountEmailCodeField(
                 email,
@@ -77,9 +86,10 @@ internal fun AccountPasswordRecoveryForm(
                 password,
                 { password = it.take(4096) },
                 Modifier.fillMaxWidth().testTag("account-reset-password"),
-                label = { Text(stringResource(R.string.account_new_password)) },
+                label = { Text(stringResource(R.string.account_recovery_new_password)) },
                 singleLine = true,
                 enabled = !busy,
+                shape = RoundedCornerShape(14.dp),
                 visualTransformation = PasswordVisualTransformation(),
                 keyboardOptions = accountPasswordKeyboard,
                 supportingText = { Text(stringResource(R.string.account_recovery_password_rule)) },
@@ -91,38 +101,49 @@ internal fun AccountPasswordRecoveryForm(
                 label = { Text(stringResource(R.string.account_confirm_password)) },
                 singleLine = true,
                 enabled = !busy,
+                shape = RoundedCornerShape(14.dp),
                 visualTransformation = PasswordVisualTransformation(),
                 keyboardOptions = accountPasswordKeyboard,
                 isError = mismatch,
             )
             if (mismatch) {
-                Text(stringResource(R.string.account_password_mismatch))
+                Text(
+                    stringResource(R.string.account_password_mismatch),
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                )
             }
-            Button(onClick = {
-                if (!busy && ready) {
-                    busy = true
-                    failure = null
-                    val submittedEmail = email
-                    val submittedCode = code
-                    val submittedPassword = password
-                    val submittedConfirmation = confirmation
-                    scope.launch {
-                        try {
-                            client.reset(submittedEmail, submittedCode, submittedPassword, submittedConfirmation)
-                            password = ""
-                            confirmation = ""
-                            code = ""
-                            onSuccess()
-                        } catch (cancelled: CancellationException) {
-                            throw cancelled
-                        } catch (error: Exception) {
-                            failure = error
-                        } finally {
-                            busy = false
+            Button(
+                onClick = {
+                    if (!busy && ready) {
+                        busy = true
+                        failure = null
+                        val submittedEmail = email
+                        val submittedCode = code
+                        val submittedPassword = password
+                        val submittedConfirmation = confirmation
+                        scope.launch {
+                            try {
+                                client.reset(submittedEmail, submittedCode, submittedPassword, submittedConfirmation)
+                                password = ""
+                                confirmation = ""
+                                code = ""
+                                onSuccess()
+                            } catch (cancelled: CancellationException) {
+                                throw cancelled
+                            } catch (error: Exception) {
+                                failure = error
+                            } finally {
+                                busy = false
+                            }
                         }
                     }
-                }
-            }, enabled = !busy && ready, modifier = Modifier.fillMaxWidth().testTag("account-reset-submit")) {
+                },
+                enabled = submitEnabled,
+                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp).testTag("account-reset-submit"),
+                border = actionButtonBorder(submitEnabled, filled = true),
+            ) {
                 Text(stringResource(if (busy) R.string.account_busy else R.string.account_recovery_submit))
             }
             failure?.let {

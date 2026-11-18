@@ -19,6 +19,25 @@ internal class AccountCaptchaPolicy(
         closed.set(true)
     }
 
+    @Suppress("ReturnCount") // Reject each untrusted cancellation boundary before closing the one-shot dialog.
+    fun receiveCancellation(
+        origin: String,
+        mainFrame: Boolean,
+        currentUrl: String?,
+        message: String?,
+    ): Boolean {
+        if (closed.get() || !mainFrame || !trustedOrigin(origin)) return false
+        if (currentUrl != url) return false
+        if (message == null || message.length > 4096) return false
+        val body = runCatching { Json.parseToJsonElement(message) as? JsonObject }.getOrNull() ?: return false
+        if (body["type"] != JsonPrimitive("captcha-cancelled") ||
+            body["action"] != JsonPrimitive(action.wireValue)
+        ) {
+            return false
+        }
+        return closed.compareAndSet(false, true)
+    }
+
     @Suppress("ReturnCount") // Explicit fail-closed message boundaries precede single-use delivery.
     fun receive(
         origin: String,

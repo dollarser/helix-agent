@@ -26,11 +26,9 @@ internal class LocalUserProfileStore internal constructor(
     suspend fun restore() = withContext(Dispatchers.IO) { mutex.withLock { restoreLocked() } }
 
     suspend fun save(
-        displayName: String,
         avatarUri: Uri? = null,
         removeAvatar: Boolean = false,
     ) {
-        val name = normalizedProfileName(displayName)
         require(avatarUri == null || !removeAvatar)
         withContext(Dispatchers.IO) {
             mutex.withLock {
@@ -39,7 +37,7 @@ internal class LocalUserProfileStore internal constructor(
                 val bytes = avatarUri?.let { avatarImporter(it) }
                 currentCoroutineContext().ensureActive()
                 val replacement = bytes?.let(persistence::writeAvatar)
-                val next = LocalUserProfile(name, replacement ?: old.avatarFile.takeUnless { removeAvatar })
+                val next = LocalUserProfile(replacement ?: old.avatarFile.takeUnless { removeAvatar })
                 var committed = false
                 try {
                     persistence.save(next)
@@ -53,9 +51,7 @@ internal class LocalUserProfileStore internal constructor(
         }
     }
 
-    suspend fun saveName(value: String) = save(value)
-
-    suspend fun reset() = save("", removeAvatar = true)
+    suspend fun reset() = save(removeAvatar = true)
 
     private fun restoreLocked() {
         if (!restored) {

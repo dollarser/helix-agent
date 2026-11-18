@@ -50,8 +50,8 @@ class AccountRecoveryLiveChallengeDeviceTest {
             }
         }
         compose.onNodeWithTag("account-reset-email").performTextReplacement(email)
-        compose.onNodeWithTag("account-send-code").performScrollTo().performClick()
-        // The visible real challenge is completed by the explicitly authorized operator, never test injection.
+        compose.onNodeWithTag("account-verify-human").performScrollTo().performClick()
+        // The operator completes the real challenge, then explicitly taps Send code; no test injection or auto-send.
         compose.waitUntil(240_000) { status.get() != 0 }
         assertEquals(1, calls.get())
         assertEquals(200, status.get())

@@ -14,11 +14,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
@@ -41,11 +43,13 @@ import java.util.Locale
 class AccountEmailCodeLayoutDeviceTest {
     @get:Rule val compose = createComposeRule()
     private val wait = mutableStateOf(0L)
+    private val challenge = SyntheticAccountChallenge()
 
     private fun show(
         width: Int,
         scale: Float = 1f,
         english: Boolean = false,
+        verification: Boolean = false,
     ) {
         compose.setContent {
             val base = LocalContext.current
@@ -58,7 +62,12 @@ class AccountEmailCodeLayoutDeviceTest {
             ) {
                 MaterialTheme {
                     Column(Modifier.width(width.dp)) {
-                        AccountEmailCodeInputs("012345", {}, true, wait.value == 0L, wait.value, {})
+                        if (verification) {
+                            AccountEmailCodeField("layout@example.test", "", {
+                            }, true, { _, _ -> error("No send in layout test") }, challenge = challenge.content)
+                        } else {
+                            AccountEmailCodeInputs("012345", {}, true, wait.value == 0L, wait.value, {})
+                        }
                     }
                 }
             }
@@ -151,6 +160,24 @@ class AccountEmailCodeLayoutDeviceTest {
             .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
         assertTrue(layouts.isNotEmpty())
         assertTrue(layouts.none { it.hasVisualOverflow })
+    }
+
+    @Test fun verificationAndSendStaySeparateAtNarrowWidthAndLargeEnglishFont() {
+        show(240, 2f, english = true, verification = true)
+        compose.onNodeWithTag("account-send-code").assertIsNotEnabled()
+        compose.onNodeWithTag("account-verify-human").performClick()
+        compose.runOnIdle { challenge.complete(challenge.proof()) }
+        compose.onNodeWithTag("account-send-code").assertIsEnabled()
+        compose.onNodeWithTag("account-verify-human").assertIsNotEnabled()
+        assertStacked()
+        val layouts = mutableListOf<TextLayoutResult>()
+        compose
+            .onNodeWithText("Verification complete", useUnmergedTree = true)
+            .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+        assertTrue(layouts.isNotEmpty() && layouts.none { it.hasVisualOverflow })
+        val verify = compose.onNodeWithTag("account-verify-human").fetchSemanticsNode().boundsInRoot
+        val row = compose.onNodeWithTag("account-code-row").fetchSemanticsNode().boundsInRoot
+        assertTrue(verify.bottom <= row.top)
     }
 
     private fun assertStacked() {

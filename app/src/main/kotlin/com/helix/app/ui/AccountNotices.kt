@@ -53,71 +53,75 @@ internal fun AccountNoticesSheet(
         val status = (state.failure as? AccountRequestFailure)?.status
         if (state.invalidated || status in setOf(401, 403)) selected = null
     }
-    UserPageFrame(stringResource(R.string.account_notices_title), "account-notices-page", onDismiss) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            AccountNoticeState.entries.forEach { filter ->
-                FilterChip(
-                    selected = state.filter == filter,
-                    onClick = {
-                        selected = null
-                        scope.launch { store.refresh(filter, force = false) }
-                    },
-                    label = {
-                        Text(
-                            stringResource(
-                                if (filter ==
-                                    AccountNoticeState.ALL
-                                ) {
-                                    R.string.account_notices_all
-                                } else {
-                                    R.string.account_notices_unread
-                                },
-                            ),
-                        )
-                    },
-                    modifier = Modifier.testTag("account-notices-filter-${filter.name}"),
-                )
-            }
-            TextButton({
-                selected = null
-                scope.launch { store.refresh() }
-            }, enabled = !state.loading) {
-                Text(stringResource(R.string.account_usage_refresh))
-            }
-        }
-        AccountNoticesStatus(state)
-        LazyColumn(
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.testTag("account-notices-list"),
-        ) {
-            if (state.loading && state.items.isEmpty()) {
-                item { AccountNoticePlaceholders() }
-            }
-            items(state.items, key = { it.id }) { notice ->
-                AccountNoticeRow(notice) {
-                    selected = notice
-                    if (!notice.isRead) scope.launch { store.markRead(listOf(notice.id)) }
+    UserPageHost {
+        UserPageFrame(stringResource(R.string.account_notices_title), "account-notices-page", onDismiss) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                AccountNoticeState.entries.forEach { filter ->
+                    FilterChip(
+                        selected = state.filter == filter,
+                        onClick = {
+                            selected = null
+                            scope.launch { store.refresh(filter, force = false) }
+                        },
+                        label = {
+                            Text(
+                                stringResource(
+                                    if (filter ==
+                                        AccountNoticeState.ALL
+                                    ) {
+                                        R.string.account_notices_all
+                                    } else {
+                                        R.string.account_notices_unread
+                                    },
+                                ),
+                            )
+                        },
+                        modifier = Modifier.testTag("account-notices-filter-${filter.name}"),
+                    )
+                }
+                TextButton({
+                    selected = null
+                    scope.launch { store.refresh() }
+                }, enabled = !state.loading) {
+                    Text(stringResource(R.string.account_usage_refresh))
                 }
             }
-            if (state.hasMore) {
-                item {
-                    OutlinedButton(
-                        { scope.launch { store.loadMore() } },
-                        enabled = !state.loading && !state.loadingMore,
-                        modifier = Modifier.fillMaxWidth().testTag("account-notices-more"),
-                    ) { Text(stringResource(R.string.account_notices_more)) }
+            AccountNoticesStatus(state)
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.testTag("account-notices-list"),
+            ) {
+                if (state.loading && state.items.isEmpty()) {
+                    item { AccountNoticePlaceholders() }
+                }
+                items(state.items, key = { it.id }) { notice ->
+                    AccountNoticeRow(notice) {
+                        selected = notice
+                        if (!notice.isRead) scope.launch { store.markRead(listOf(notice.id)) }
+                    }
+                }
+                if (state.hasMore) {
+                    item {
+                        val moreEnabled = !state.loading && !state.loadingMore
+                        OutlinedButton(
+                            { scope.launch { store.loadMore() } },
+                            enabled = moreEnabled,
+                            border = actionButtonBorder(moreEnabled),
+                            modifier = Modifier.fillMaxWidth().testTag("account-notices-more"),
+                        ) { Text(stringResource(R.string.account_notices_more)) }
+                    }
                 }
             }
         }
-    }
-    selected?.let { notice ->
-        AccountNoticeDetail(
-            notice,
-            failure = state.failure,
-            marking = notice.id in state.markingRead,
-            onRetry = { scope.launch { store.markRead(listOf(notice.id)) } },
-            onDismiss = { selected = null },
-        )
+        selected?.let { notice ->
+            AccountNoticeDetail(
+                notice,
+                failure = state.failure,
+                marking = notice.id in state.markingRead,
+                onRetry = { scope.launch { store.markRead(listOf(notice.id)) } },
+                onDismiss = { selected = null },
+            )
+        }
     }
 }
 

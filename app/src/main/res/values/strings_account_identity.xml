@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="account_login_name">登录名</string>
     <string name="account_registration_unavailable">注册或验证码服务暂不可用，请稍后重试。</string>
     <string name="account_verification_code">六位验证码</string>
     <string name="account_code_wait">%1$d 秒后可重发</string>
@@ -11,7 +10,7 @@
     <string name="account_change_password">修改并重新登录</string>
     <string name="account_bind_email">验证并绑定邮箱</string>
     <string name="account_bind_confirm">确认绑定</string>
-    <string name="account_bind_keeps_login">绑定邮箱不会更改原登录名和密码。</string>
+    <string name="account_bind_keeps_login">验证邮箱不会更改用户名和密码。</string>
     <string name="account_bind_later">稍后处理</string>
     <string name="account_code_invalid">请输入有效的六位验证码，过期后可重新获取。</string>
     <string name="account_binding_conflict">邮箱绑定状态已变化，请刷新账号后重试。</string>

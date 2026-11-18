@@ -1,5 +1,7 @@
 package com.helix.app.ui
 
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.isEnabled
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -152,8 +154,10 @@ class BackgroundTaskFlowDeviceTest {
                             compose.onNodeWithTag("task-tab-1").performClick()
                             compose.onNodeWithTag("task-result-${done.id}").performClick()
                             compose.waitUntil(10000) {
-                                val node = compose.onNodeWithTag("task-collect-${done.id}").fetchSemanticsNode()
-                                !node.config.contains(androidx.compose.ui.semantics.SemanticsProperties.Disabled)
+                                compose
+                                    .onAllNodes(hasTestTag("task-collect-${done.id}") and isEnabled())
+                                    .fetchSemanticsNodes()
+                                    .size == 1
                             }
                             compose.onNodeWithTag("task-collect-${done.id}").performClick()
                             compose.waitUntil(10000) { storage.turns.resolve(done.id).resultCollectedAt != null }

@@ -1,5 +1,6 @@
 package com.helix.app.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxSize
@@ -22,8 +23,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
 import androidx.core.view.WindowCompat
 import com.helix.app.R
@@ -38,10 +37,10 @@ internal fun UserPageFrame(
     onBack: () -> Unit,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    Dialog(
-        onBack,
-        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
-    ) {
+    if (!LocalUserPageHost.current) {
+        UserPageHost { UserPageFrame(title, tag, onBack, content) }
+    } else {
+        BackHandler(onBack = onBack)
         UserPageSystemBars()
         // Paint behind system bars; inset content only, rather than revealing the dimmed caller.
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {

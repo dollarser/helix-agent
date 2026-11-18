@@ -1,5 +1,6 @@
 package com.helix.app.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.heightIn
@@ -24,7 +25,6 @@ import androidx.compose.ui.unit.dp
 import com.helix.app.R
 import com.helix.app.chat.MessageRunMetrics
 import com.helix.app.chat.ModelRequestMetric
-import com.helix.app.infrastructure.conversation.ConversationWorkspaceDetails
 import kotlinx.coroutines.CancellationException
 import java.util.Locale
 import com.helix.feature.conversation.R as ConversationR
@@ -36,27 +36,30 @@ internal val LocalRunMetricsHandler = staticCompositionLocalOf<((String) -> Unit
 @Suppress("FunctionName", "TooGenericExceptionCaught")
 internal fun MessageRunMetricsDialog(
     messageId: String,
-    chat: ConversationWorkspaceDetails,
+    load: suspend (String) -> MessageRunMetrics,
     onDismiss: () -> Unit,
 ) {
     var metrics by remember(messageId) { mutableStateOf<MessageRunMetrics?>(null) }
     var failed by remember(messageId) { mutableStateOf(false) }
     LaunchedEffect(messageId) {
         try {
-            metrics = chat.messageRunMetrics(messageId)
+            metrics = load(messageId)
         } catch (cancel: CancellationException) {
             throw cancel
         } catch (_: Exception) {
             failed = true
         }
     }
+    val waiting = metrics == null && !failed
+    BackHandler(enabled = waiting, onBack = onDismiss)
+    if (waiting) return
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(ConversationR.string.run_metrics_title)) },
         text = {
             val snapshot = metrics
             if (snapshot == null) {
-                Text(stringResource(if (failed) R.string.run_metrics_failed else R.string.citation_loading))
+                Text(stringResource(R.string.run_metrics_failed))
             } else {
                 LazyColumn(
                     Modifier.heightIn(max = 480.dp).testTag("run-metrics"),

@@ -40,7 +40,7 @@ public class WireRequest(
     }
 
     internal companion object {
-        val METHODS = setOf("GET", "POST", "HEAD")
+        val METHODS = setOf("GET", "POST", "HEAD", "PATCH")
     }
 }
 

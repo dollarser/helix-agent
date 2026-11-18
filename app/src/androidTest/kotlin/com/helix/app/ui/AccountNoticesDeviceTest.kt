@@ -43,6 +43,12 @@ class AccountNoticesDeviceTest {
         }
         compose.runOnIdle { assertEquals(0, fixture.api.readCalls) }
         compose.onNodeWithText(label(R.string.account_notices_important)).assertIsDisplayed()
+        val windows =
+            compose.runOnIdle {
+                android.view.inspector.WindowInspector
+                    .getGlobalWindowViews()
+                    .toSet()
+            }
         compose.onNodeWithTag("notice-${fixture.notice.id}").performClick()
         compose.waitUntil(5_000) {
             fixture.api.readCalls == 1 &&
@@ -50,6 +56,14 @@ class AccountNoticesDeviceTest {
                     .isEmpty()
         }
         compose.onNodeWithTag("account-notice-body").assertTextEquals(fixture.notice.body)
+        compose.runOnIdle {
+            assertEquals(
+                windows,
+                android.view.inspector.WindowInspector
+                    .getGlobalWindowViews()
+                    .toSet(),
+            )
+        }
         compose.onNodeWithTag("account-notice-detail-page-back").performClick()
         compose.onNodeWithTag("account-notice-detail-page").assertDoesNotExist()
         compose.onNodeWithTag("notice-${fixture.notice.id}").performClick()
@@ -59,6 +73,14 @@ class AccountNoticesDeviceTest {
         compose.waitForIdle()
         compose.onNodeWithTag("account-notice-detail-page").assertDoesNotExist()
         compose.onNodeWithTag("account-notices-page").assertIsDisplayed()
+        compose.runOnIdle {
+            assertEquals(
+                windows,
+                android.view.inspector.WindowInspector
+                    .getGlobalWindowViews()
+                    .toSet(),
+            )
+        }
         compose.runOnIdle { assertEquals(1, fixture.api.readCalls) }
     }
 

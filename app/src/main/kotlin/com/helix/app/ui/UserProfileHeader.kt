@@ -16,12 +16,14 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
+import com.helix.app.account.AccountUser
 import com.helix.app.account.LocalUserProfile
 
 @Composable
 @Suppress("FunctionName")
 internal fun UserProfileHeader(
     profile: LocalUserProfile,
+    user: AccountUser? = null,
     onEdit: () -> Unit,
 ) {
     Surface(onClick = onEdit, color = Color.Transparent, modifier = Modifier.testTag("profile-edit")) {
@@ -33,12 +35,17 @@ internal fun UserProfileHeader(
             LocalProfileAvatar(profile.avatarFile, 76.dp)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(
-                    profile.displayName ?: stringResource(R.string.user_profile_default_name),
+                    user?.displayName?.takeIf { it.isNotBlank() } ?: stringResource(R.string.user_profile_default_name),
                     Modifier.testTag("profile-display-name"),
                     style = MaterialTheme.typography.headlineSmall,
+                    maxLines = 2,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                 )
                 Text(
-                    stringResource(R.string.user_profile_edit),
+                    user?.email?.takeIf { it.isNotBlank() }
+                        ?: user?.displayName?.takeIf { it.isNotBlank() }
+                        ?: stringResource(R.string.user_profile_edit),
+                    modifier = Modifier.testTag("profile-account-identity"),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

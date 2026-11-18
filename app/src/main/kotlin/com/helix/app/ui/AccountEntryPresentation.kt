@@ -36,6 +36,7 @@ internal fun AccountEntryButton(
     profile: com.helix.app.account.LocalUserProfile =
         com.helix.app.account
             .LocalUserProfile(),
+    displayName: String? = null,
     onClick: () -> Unit,
 ) {
     val title =
@@ -52,7 +53,7 @@ internal fun AccountEntryButton(
             if (status == AccountStatus.SIGNED_IN) R.string.account_manage else R.string.account_model_access,
         )
     if (presentation == AccountEntryPresentation.DRAWER) {
-        DrawerAccountHeader(profile.displayName ?: title, subtitle, unread, profile, onClick)
+        DrawerAccountHeader(displayName?.takeIf { it.isNotBlank() } ?: title, subtitle, unread, profile, onClick)
     } else if (presentation == AccountEntryPresentation.SETTINGS) {
         SettingsEntryRow(title, R.drawable.ic_drawer_user, onClick, Modifier.testTag("account-entry"), subtitle)
     } else {

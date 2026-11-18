@@ -35,29 +35,46 @@ import com.helix.app.R
  * Conditional login/register validation shares one form; network operations stay in the service.
  */
 @Composable
-@Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod")
+@Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod", "LongParameterList")
 internal fun AccountLoginForm(
     loading: Boolean,
     registrationEnabled: Boolean = true,
     onSendCode: (suspend (String, com.helix.app.account.AccountCaptchaProof) -> Long)? = null,
     cooldownMillis: () -> Long = { 0 },
     onForgotPassword: (() -> Unit)? = null,
-    onSubmit: (String, String, Boolean, String) -> Unit,
+    loginRequest: Int = 0,
+    onModeChanged: () -> Unit = {},
+    onSubmit: (String, String, Boolean, String, String) -> Unit,
 ) {
+    var name by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirmation by remember { mutableStateOf("") }
     var register by remember { mutableStateOf(false) }
     var code by remember { mutableStateOf("") }
     var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(loginRequest) {
+        register = false
+        name = ""
+        code = ""
+        password = ""
+        confirmation = ""
+        visible = false
+    }
     val focus = LocalFocusManager.current
     val emailValid = email.trim().matches(Regex("[^\\s@]+@[^\\s@]+\\.[^\\s@]+"))
     val ready =
-        !loading && (if (register) emailValid else email.isNotBlank()) && password.isNotBlank() &&
+        !loading && emailValid && password.isNotBlank() &&
             (
                 !register ||
                     (
-                        registrationEnabled && password.length in 6..128 && password == confirmation &&
+                        registrationEnabled && (
+                            name.isBlank() ||
+                                com.helix.app.account
+                                    .isDisplayNameValid(name)
+                        ) &&
+                            password.length in 6..128 &&
+                            password == confirmation &&
                             code.matches(Regex("[0-9]{6}"))
                     )
             )
@@ -72,7 +89,11 @@ internal fun AccountLoginForm(
     fun submit() {
         if (ready) {
             focus.clearFocus()
-            onSubmit(email.trim(), password, register, code)
+            val submittedPassword = password
+            password = ""
+            confirmation = ""
+            visible = false
+            onSubmit(email.trim(), submittedPassword, register, code, name)
         }
     }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -89,12 +110,12 @@ internal fun AccountLoginForm(
             email,
             { email = it.take(320) },
             Modifier.fillMaxWidth().testTag("account-email"),
-            label = { Text(stringResource(if (register) R.string.account_email else R.string.account_login_name)) },
+            label = { Text(stringResource(R.string.account_email)) },
             singleLine = true,
             enabled = !loading,
-            isError = register && email.isNotEmpty() && !emailValid,
+            isError = email.isNotEmpty() && !emailValid,
             supportingText = {
-                if (register && email.isNotEmpty() &&
+                if (email.isNotEmpty() &&
                     !emailValid
                 ) {
                     Text(stringResource(R.string.account_email_invalid))
@@ -104,6 +125,28 @@ internal fun AccountLoginForm(
             keyboardActions = KeyboardActions(onNext = { focus.moveFocus(FocusDirection.Next) }),
             shape = RoundedCornerShape(14.dp),
         )
+        if (register) {
+            OutlinedTextField(
+                name,
+                { name = it },
+                Modifier.fillMaxWidth().testTag("account-display-name"),
+                label = { Text(stringResource(R.string.account_display_name_optional)) },
+                singleLine = true,
+                enabled = !loading,
+                isError =
+                    name.isNotBlank() &&
+                        !com.helix.app.account
+                            .isDisplayNameValid(name),
+                supportingText = {
+                    if (name.isNotBlank() &&
+                        !com.helix.app.account
+                            .isDisplayNameValid(name)
+                    ) {
+                        Text(stringResource(R.string.account_display_name_invalid))
+                    }
+                },
+            )
+        }
         AccountPasswordField(
             password,
             { password = it.take(4096) },
@@ -174,6 +217,7 @@ internal fun AccountLoginForm(
             }
         }
         TextButton({
+            onModeChanged()
             register = !register
             code = ""
             password = ""

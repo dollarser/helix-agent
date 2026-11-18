@@ -63,6 +63,7 @@ internal fun AccountUsageSection(
             loading = false
         }
     }
+    val refreshEnabled = !loading && !retryBlocked
     Column(Modifier.testTag("account-usage"), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         if (loading) AccountLoadingStatus(R.string.account_usage_loading, "account-usage-loading")
         failure?.let { AccountFailureNotice(it, details) }
@@ -71,7 +72,7 @@ internal fun AccountUsageSection(
         } else {
             AccountUsagePlaceholders()
         }
-        OutlinedButton({ refresh++ }, enabled = !loading && !retryBlocked) {
+        OutlinedButton({ refresh++ }, enabled = refreshEnabled, border = actionButtonBorder(refreshEnabled)) {
             Text(stringResource(R.string.account_usage_refresh))
         }
     }

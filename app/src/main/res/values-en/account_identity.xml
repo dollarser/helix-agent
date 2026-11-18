@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="account_email_unbound">Not bound</string>
+    <string name="account_identity_unavailable">Account details unavailable</string>
+    <string name="account_display_name">Username</string>
+    <string name="account_display_name_optional">Username (optional)</string>
+    <string name="account_display_name_rule">1–80 visible characters. Change once every 24 hours.</string>
+    <string name="account_display_name_save">Save username</string>
+    <string name="account_display_name_saved">Username updated</string>
+    <string name="account_display_name_invalid">Enter 1–80 visible characters.</string>
+    <string name="account_display_name_limited">Username can only be changed once every 24 hours.</string>
+</resources>

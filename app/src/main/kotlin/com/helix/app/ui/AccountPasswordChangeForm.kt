@@ -13,6 +13,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -39,6 +40,7 @@ internal fun AccountPasswordChangeForm(
     onBusy: (Boolean) -> Unit = {},
     onSuccess: () -> Unit = {},
 ) {
+    val context = LocalContext.current
     val identity by account.identityState.collectAsStateWithLifecycle()
     val revision = remember(identity) { account.revision }
     var current by remember(identity) { mutableStateOf("") }
@@ -82,6 +84,7 @@ internal fun AccountPasswordChangeForm(
                         try {
                             client.changePassword(old, replacement, revision)
                             changed = true
+                            showAccountToast(context, R.string.account_password_change_success)
                             onSuccess()
                         } catch (cancelled: CancellationException) {
                             throw cancelled
@@ -102,7 +105,6 @@ internal fun AccountPasswordChangeForm(
             enabled = ready,
             modifier = Modifier.fillMaxWidth().testTag("password-change-submit"),
         ) { Text(stringResource(R.string.account_change_password)) }
-        if (changed) Text(stringResource(R.string.account_password_change_success))
         failure?.let { AccountFailureNotice(accountFailureLabel(it), (it as? AccountRequestFailure)?.details) }
     }
 }

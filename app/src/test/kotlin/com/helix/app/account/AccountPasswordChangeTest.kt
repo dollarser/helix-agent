@@ -13,7 +13,7 @@ import org.junit.Test
 import java.io.IOException
 
 class AccountPasswordChangeTest {
-    @Test fun passwordMutationPreservesSpacesAndReauthenticatesOriginalUsername() =
+    @Test fun passwordMutationPreservesSpacesAndReauthenticatesEmail() =
         runBlocking {
             val calls = mutableListOf<WireRequest>()
             val transport =
@@ -22,7 +22,7 @@ class AccountPasswordChangeTest {
                     accountResponse(200, if (request.url.endsWith("/auth/login")) login else "{}")
                 }
             val account = AccountSession(MemoryAccountTokens(), transport, { 100L })
-            account.login("original-name", "old-password")
+            account.login("contact@example.test", "old-password")
             val revision = account.revision
             AccountProfileClient(account).changePassword(" old password ", " new password ", revision)
             assertEquals(3, calls.size)
@@ -31,7 +31,7 @@ class AccountPasswordChangeTest {
             assertEquals(" old password ", mutation.getValue("current_password").jsonPrimitive.content)
             assertEquals(" new password ", mutation.getValue("new_password").jsonPrimitive.content)
             val reauth = Json.parseToJsonElement(calls[2].body!!.decodeToString()).jsonObject
-            assertEquals("original-name", reauth.getValue("username").jsonPrimitive.content)
+            assertEquals("contact@example.test", reauth.getValue("email").jsonPrimitive.content)
             assertEquals(" new password ", reauth.getValue("password").jsonPrimitive.content)
             assertTrue(account.revision > revision)
         }
@@ -48,9 +48,9 @@ class AccountPasswordChangeTest {
                     },
                     { 100L },
                 )
-            account.login("original-name", "old-password")
+            account.login("contact@example.test", "old-password")
             val old = account.revision
-            account.login("original-name", "new-session-password")
+            account.login("contact@example.test", "new-session-password")
             val client = AccountProfileClient(account)
             val stale = runCatching { client.changePassword("old", "new-password", old) }.exceptionOrNull()
             assertTrue(stale is AccountDataFailure)
@@ -71,7 +71,7 @@ class AccountPasswordChangeTest {
             for (unknown in listOf(false, true)) {
                 var sends = 0
                 val account = AccountSession(MemoryAccountTokens(), wire { accountResponse(200, login) }, { 100L })
-                account.login("original-name", "old-password")
+                account.login("contact@example.test", "old-password")
                 val revision = account.revision
                 val client =
                     AccountProfileClient(
@@ -102,7 +102,7 @@ class AccountPasswordChangeTest {
                     },
                     { 100L },
                 )
-            account.login("original-name", "old-password")
+            account.login("contact@example.test", "old-password")
             val client = AccountProfileClient(account, wire { accountResponse(200, "{}") })
             val error = runCatching { client.changePassword("old-password", "new-password") }.exceptionOrNull()
             assertTrue(error is AccountPasswordChangedSignInRequired)
@@ -114,9 +114,9 @@ class AccountPasswordChangeTest {
     @Test fun cleanupAfterConfirmedChangeCannotClearNewerLogin() =
         runBlocking {
             val account = AccountSession(MemoryAccountTokens(), wire { accountResponse(200, login) }, { 100L })
-            account.login("original-name", "old-password")
+            account.login("contact@example.test", "old-password")
             val old = account.revision
-            account.login("original-name", "newer-session")
+            account.login("contact@example.test", "newer-session")
             account.invalidateChangedPasswordSession(old)
             assertTrue(account.signedIn.value)
         }
@@ -129,6 +129,6 @@ class AccountPasswordChangeTest {
     private val login =
         """
         {"access_token":"test-access","refresh_token":"test-refresh","expires_in":3600,"refresh_expires_in":7200,
-        "user":{"id":12,"username":"original-name","email":"contact@example.test","must_change":false}}
+        "user":{"id":12,"display_name":"original-name","email":"contact@example.test","must_change":false}}
         """.trimIndent()
 }

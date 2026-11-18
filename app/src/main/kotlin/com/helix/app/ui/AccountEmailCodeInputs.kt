@@ -52,6 +52,7 @@ internal fun AccountEmailCodeInputs(
             modifier = modifier.heightIn(min = 56.dp).testTag("account-send-code"),
             enabled = sendEnabled,
             shape = RoundedCornerShape(14.dp),
+            border = actionButtonBorder(sendEnabled),
         ) {
             Text(
                 if (remaining > 0) {

@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -23,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.R
 import com.helix.app.account.LocalUserProfileStore
+import com.helix.app.account.summary
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
@@ -33,8 +33,15 @@ internal fun AccountAccessEntry(
     account: com.helix.app.account.AccountSession,
     onRefreshProviders: () -> Unit,
     onChanged: () -> Unit,
+    readUsage: suspend () -> com.helix.app.account.AccountUsageSummary = {
+        com.helix.app.account
+            .AccountUsageClient(account)
+            .read()
+            .summary()
+    },
 ) {
     val signedIn by account.signedIn.collectAsStateWithLifecycle()
+    val user by account.user.collectAsStateWithLifecycle()
     val status by account.status.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     val profileClient =
@@ -46,7 +53,6 @@ internal fun AccountAccessEntry(
     val context = LocalContext.current
     val profileStore = remember(context) { LocalUserProfileStore.get(context) }
     val profile by profileStore.state.collectAsStateWithLifecycle()
-    var editingProfile by remember { mutableStateOf(false) }
     var profileFailure by remember { mutableStateOf(false) }
     val noticeState by account.notices.state.collectAsStateWithLifecycle()
     var destination by remember(signedIn) { mutableStateOf(UserAccountDestination.OVERVIEW) }
@@ -63,9 +69,8 @@ internal fun AccountAccessEntry(
     var loading by remember { mutableStateOf(false) }
     var failure by remember { mutableStateOf<Int?>(null) }
     var failureDetails by remember { mutableStateOf<com.helix.provider.api.wire.HttpFailureDetails?>(null) }
-    var registered by remember { mutableStateOf(false) }
+    var loginRequest by remember { androidx.compose.runtime.mutableIntStateOf(0) }
     var recovering by remember { mutableStateOf(false) }
-    var recovered by remember { mutableStateOf(false) }
     var passwordSignInRequired by remember { mutableStateOf(false) }
     val recoveryClient =
         remember(account) {
@@ -74,13 +79,17 @@ internal fun AccountAccessEntry(
         }
     var confirmLogout by remember { mutableStateOf(false) }
 
+    fun navigate(next: UserAccountDestination) {
+        failure = null
+        failureDetails = null
+        destination = next
+    }
+
     fun perform(operation: suspend () -> Unit) {
         if (loading) return
         loading = true
         failure = null
         failureDetails = null
-        registered = false
-        recovered = false
         scope.launch {
             try {
                 operation()
@@ -108,90 +117,108 @@ internal fun AccountAccessEntry(
             failureDetails = (error as? com.helix.app.account.AccountRequestFailure)?.details
         },
     )
-    AccountEntryButton(status, presentation, noticeState.unread ?: 0, profile = profile) { open = true }
-    if (showAccountOverview(open, recovering, destination)) {
-        UserPageFrame(stringResource(R.string.user_page_title), "user-page", { if (!loading) open = false }) {
-            Column(
-                Modifier.verticalScroll(rememberScrollState()).padding(bottom = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(20.dp),
-            ) {
-                UserProfileHeader(profile) { editingProfile = true }
-                ProfileLoadFeedback(profileFailure)
-                if (signedIn) {
-                    AccountIdentityActions(account, profileClient, operationScope = scope, onPasswordBusy = {
-                        loading =
-                            it
-                    }, onSignInRequired = {
-                        whenPasswordSignInRequired(account) { passwordSignInRequired = true }
-                    })
-                    UserAccountMenu(
-                        noticeState.unread,
-                        onNotices = { destination = UserAccountDestination.NOTICES },
-                        onUsage = { destination = UserAccountDestination.USAGE },
-                        onAccount = { destination = UserAccountDestination.ACCOUNT },
-                    )
-                } else {
-                    AccountLoginForm(
-                        loading,
-                        onSubmit = { email, password, register, code ->
-                            perform {
-                                if (register) {
-                                    profileClient.register(email, password, code)
-                                    registered = true
-                                } else {
-                                    account.login(email, password)
-                                    open = keepAccountOpen(account.user.value)
+    AccountEntryButton(
+        status,
+        presentation,
+        noticeState.unread ?: 0,
+        profile = profile,
+        displayName = user?.displayName,
+    ) {
+        open =
+            true
+    }
+    UserPageHost(open) {
+        if (showAccountOverview(open, recovering, destination)) {
+            UserPageFrame(stringResource(R.string.user_page_title), "user-page", { if (!loading) open = false }) {
+                Column(
+                    Modifier.verticalScroll(rememberScrollState()).padding(bottom = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(20.dp),
+                ) {
+                    UserProfileHeader(profile, user) { navigate(UserAccountDestination.ACCOUNT) }
+                    ProfileLoadFeedback(profileFailure)
+                    if (signedIn) {
+                        AccountIdentityActions(account, profileClient, operationScope = scope, onPasswordBusy = {
+                            loading =
+                                it
+                        }, onSignInRequired = {
+                            whenPasswordSignInRequired(account) { passwordSignInRequired = true }
+                        })
+                        UserAccountMenu(
+                            noticeState.unread,
+                            onNotices = { navigate(UserAccountDestination.NOTICES) },
+                            onUsage = { navigate(UserAccountDestination.USAGE) },
+                            onAccount = { navigate(UserAccountDestination.ACCOUNT) },
+                        )
+                    } else {
+                        AccountLoginForm(
+                            loading,
+                            onSubmit = { email, password, register, code, name ->
+                                perform {
+                                    if (register) {
+                                        profileClient.register(email, password, code, name)
+                                        loginRequest++
+                                        showAccountToast(context, R.string.account_registered)
+                                    } else {
+                                        account.login(email, password)
+                                        open = keepAccountOpen(account.user.value)
+                                    }
                                 }
-                            }
-                        },
-                        registrationEnabled = registrationEnabled,
-                        onSendCode = profileClient::sendRegistrationCode,
-                        cooldownMillis = { profileClient.remainingCodeCooldownMillis(false) },
-                        onForgotPassword = {
-                            recovering = true
-                            recovered = false
-                        },
-                    )
+                            },
+                            registrationEnabled = registrationEnabled,
+                            loginRequest = loginRequest,
+                            onModeChanged = {
+                                failure = null
+                                failureDetails = null
+                            },
+                            onSendCode = profileClient::sendRegistrationCode,
+                            cooldownMillis = { profileClient.remainingCodeCooldownMillis(false) },
+                            onForgotPassword = {
+                                failure = null
+                                failureDetails = null
+                                recovering = true
+                            },
+                        )
+                    }
+                    PasswordSignInFeedback(passwordSignInRequired, signedIn)
+                    AccountOperationFeedback(failure, failureDetails)
                 }
-                PasswordSignInFeedback(passwordSignInRequired, signedIn)
-                if (recovered) Text(stringResource(R.string.account_recovery_success))
-                AccountOperationFeedback(registered, failure, failureDetails)
             }
         }
-    }
-    if (showAccountRecovery(open, recovering)) {
-        AccountPasswordRecoveryForm(recoveryClient, { recovering = false }) {
-            recovering = false
-            recovered = true
-            onRefreshProviders()
-            onChanged()
-        }
-    }
-    if (editingProfile) LocalProfileEditor(profile, profileStore) { editingProfile = false }
-    AccountNoticeHost(account, destination == UserAccountDestination.NOTICES, signedIn) {
-        destination = UserAccountDestination.OVERVIEW
-    }
-    UserAccountDestinations(
-        account,
-        destination == UserAccountDestination.USAGE,
-        destination == UserAccountDestination.ACCOUNT,
-        loading,
-        onUsageBack = { destination = UserAccountDestination.OVERVIEW },
-        onAccountBack = { destination = UserAccountDestination.OVERVIEW },
-        onLogout = { confirmLogout = true },
-        operationScope = scope,
-        onSignInRequired = {
-            whenPasswordSignInRequired(account) {
-                passwordSignInRequired = true
-                destination = UserAccountDestination.OVERVIEW
+        if (showAccountRecovery(open, recovering)) {
+            AccountPasswordRecoveryForm(recoveryClient, { recovering = false }) {
+                recovering = false
+                loginRequest++
+                showAccountToast(context, R.string.account_recovery_success)
+                onRefreshProviders()
+                onChanged()
             }
-        },
-        onFailure = { error ->
-            failure = accountFailureLabel(error)
-            failureDetails = (error as? com.helix.app.account.AccountRequestFailure)?.details
-        },
-        feedback = { AccountOperationFeedback(registered, failure, failureDetails) },
-    )
+        }
+        AccountNoticeHost(account, destination == UserAccountDestination.NOTICES, signedIn) {
+            destination = UserAccountDestination.OVERVIEW
+        }
+        UserAccountDestinations(
+            account,
+            readUsage,
+            destination == UserAccountDestination.USAGE,
+            destination == UserAccountDestination.ACCOUNT,
+            loading,
+            onUsageBack = { navigate(UserAccountDestination.OVERVIEW) },
+            onAccountBack = { navigate(UserAccountDestination.OVERVIEW) },
+            onLogout = { confirmLogout = true },
+            operationScope = scope,
+            onSignInRequired = {
+                whenPasswordSignInRequired(account) {
+                    passwordSignInRequired = true
+                    destination = UserAccountDestination.OVERVIEW
+                }
+            },
+            onFailure = { error ->
+                failure = accountFailureLabel(error)
+                failureDetails = (error as? com.helix.app.account.AccountRequestFailure)?.details
+            },
+            feedback = { AccountOperationFeedback(failure, failureDetails) },
+        )
+    }
     ConfirmAccountLogout(confirmLogout, { confirmLogout = false }) {
         confirmLogout = false
         perform { account.logout() }
@@ -247,11 +274,9 @@ private fun AccountNoticeHost(
 @Composable
 @Suppress("FunctionName")
 private fun AccountOperationFeedback(
-    registered: Boolean,
     failure: Int?,
     details: com.helix.provider.api.wire.HttpFailureDetails?,
 ) {
-    if (registered) Text(stringResource(R.string.account_registered), color = MaterialTheme.colorScheme.primary)
     failure?.let { AccountFailureNotice(it, details) }
 }
 

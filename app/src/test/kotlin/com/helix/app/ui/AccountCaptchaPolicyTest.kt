@@ -11,6 +11,25 @@ class AccountCaptchaPolicyTest {
     private val action = AccountCaptchaAction.PASSWORD_RESET
     private val message = """{"type":"captcha-completed","action":"password_reset_code","token":"synthetic-proof"}"""
 
+    @Test fun trustedCancellationClosesOnceAndRejectsLateProof() {
+        val gate = AccountCaptchaPolicy(action)
+        val cancel = """{"type":"captcha-cancelled","action":"password_reset_code"}"""
+        assertFalse(gate.receiveCancellation("https://challenges.cloudflare.com", true, gate.url, cancel))
+        assertFalse(gate.receiveCancellation(AccountCaptchaPolicy.ORIGIN, false, gate.url, cancel))
+        assertFalse(gate.receiveCancellation(AccountCaptchaPolicy.ORIGIN, true, gate.url + "&other=1", cancel))
+        assertFalse(
+            gate.receiveCancellation(
+                AccountCaptchaPolicy.ORIGIN,
+                true,
+                gate.url,
+                cancel.replace("password_reset", "registration"),
+            ),
+        )
+        assertTrue(gate.receiveCancellation(AccountCaptchaPolicy.ORIGIN, true, gate.url, cancel))
+        assertFalse(gate.receiveCancellation(AccountCaptchaPolicy.ORIGIN, true, gate.url, cancel))
+        assertNull(gate.receive(AccountCaptchaPolicy.ORIGIN, true, gate.url, message))
+    }
+
     @Test fun trustedMainFrameCanDeliverExactlyOnce() {
         val gate = AccountCaptchaPolicy(action)
         assertNotNull(gate.receive(AccountCaptchaPolicy.ORIGIN, true, gate.url, message))

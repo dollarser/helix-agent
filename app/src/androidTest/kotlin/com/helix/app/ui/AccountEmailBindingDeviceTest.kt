@@ -95,12 +95,14 @@ class AccountEmailBindingDeviceTest {
         }
         compose.onNodeWithTag("account-bind-open").performClick()
         assertEquals(0, sends.get())
-        compose.onNodeWithTag("account-send-code").performClick()
+        compose.onNodeWithTag("account-verify-human").performClick()
         assertEquals(0, sends.get())
         compose.runOnIdle { challenge.completeTwice() }
+        assertEquals(0, sends.get())
+        compose.onNodeWithTag("account-send-code").performClick()
         compose.waitUntil(5000) { sends.get() == 1 }
         compose.onNodeWithTag("account-send-code").assertIsNotEnabled()
-        assertEquals("original-name", account.user.value!!.username)
+        assertEquals("original-name", account.user.value!!.displayName)
         assertTrue(account.signedIn.value)
     }
 }

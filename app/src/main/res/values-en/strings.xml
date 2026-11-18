@@ -1582,7 +1582,7 @@
     <string name="account_login">Sign in</string>
     <string name="account_register">Register</string>
     <string name="account_logout">Sign out</string>
-    <string name="account_registered">Registration submitted. Sign in when your account is ready.</string>
+    <string name="account_registered">Registration successful. Sign in to continue.</string>
     <string name="account_failure">Account operation could not be completed. Try again later.</string>
     <string name="account_busy">Working…</string>
     <string name="account_welcome">Welcome to Helix</string>
@@ -1775,15 +1775,12 @@
     <string name="user_page_title">Profile</string>
     <string name="user_profile_default_name">Helix user</string>
     <string name="user_profile_edit">Edit profile</string>
-    <string name="user_profile_name">Display name</string>
-    <string name="user_profile_local_only">Saved only on this device, not to your cloud account. Kept when signing out or switching accounts.</string>
     <string name="user_profile_choose_avatar">Choose photo</string>
     <string name="user_profile_remove_avatar">Remove photo</string>
-    <string name="user_profile_name_hint">Up to 40 characters. Leave empty to use the default.</string>
     <string name="user_profile_save_failed">Could not save your profile. Try another image or try again.</string>
     <string name="user_profile_load_failed">Could not load your local profile. Reopen this page to retry.</string>
     <string name="user_profile_avatar">User avatar</string>
-    <string name="user_profile_account_section">Cloud account</string>
+    <string name="user_profile_account_section">Account profile</string>
     <string name="user_profile_account_manage">Manage account</string>
-    <string name="user_profile_saved">Profile saved</string>
+    <string name="user_profile_saved">Avatar updated</string>
 </resources>

@@ -172,7 +172,10 @@ private fun TaskModals(
 ) {
     when {
         resultTurn.value != null -> {
-            TaskResultDialog(details, dashboard, requireNotNull(resultTurn.value)) { resultTurn.value = null }
+            TaskResultDialog(details::taskResult, { dashboard.collectResult(it) }, requireNotNull(resultTurn.value)) {
+                resultTurn.value =
+                    null
+            }
         }
 
         selectedPlan.value != null -> {

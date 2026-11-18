@@ -16,21 +16,18 @@ internal class LocalUserProfilePersistence(
     fun read(): LocalUserProfile {
         if (!manifest.exists()) return LocalUserProfile()
         val properties = Properties()
-        val name =
-            try {
-                manifest.inputStream().use { properties.load(it) }
-                properties.getProperty("name")?.let(::normalizedProfileName)
-            } catch (error: IllegalArgumentException) {
-                throw IOException("Invalid local profile", error)
-            }
+        try {
+            manifest.inputStream().use { properties.load(it) }
+        } catch (error: IllegalArgumentException) {
+            throw IOException("Invalid local profile", error)
+        }
         val avatar = properties.getProperty("avatar")?.takeIf { AVATAR_NAME.matches(it) }
-        return LocalUserProfile(name, avatar?.let { File(directory, it) }?.takeIf { it.isFile })
+        return LocalUserProfile(avatar?.let { File(directory, it) }?.takeIf { it.isFile })
     }
 
     fun save(profile: LocalUserProfile) {
         ensureDirectory()
         val properties = Properties()
-        profile.displayName?.let { properties.setProperty("name", it) }
         profile.avatarFile?.let {
             require(it.parentFile == directory && AVATAR_NAME.matches(it.name))
             properties.setProperty("avatar", it.name)

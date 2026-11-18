@@ -38,7 +38,7 @@ class AccountIdentityContractTest {
                             writes++
                             "new@example.test"
                         }
-                    accountResponse(200, """{"user":{"id":12,"username":"original-login","email":"$email"}}""")
+                    accountResponse(200, """{"user":{"id":12,"display_name":"original-login","email":"$email"}}""")
                 }
             val refresh = async { AccountProfileClient(account, transport).refreshUser() }
             readStarted.await()
@@ -182,7 +182,7 @@ class AccountIdentityContractTest {
         """
 {"access_token":"a","refresh_token":"r",
         "expires_in":600,"refresh_expires_in":1200,
-        "user":{"id":12,"username":"original-login",
+        "user":{"id":12,"display_name":"original-login",
                 "email":"contact@example.test",
         "must_change":1,"email_binding_required":true}}
         """.trimIndent()
@@ -195,7 +195,7 @@ class AccountIdentityContractTest {
             assertTrue(account.user.value!!.mustChange)
             assertEquals("12", account.noticeAccountKey)
             val restored = AccountTokens.stored(storage.value!!.encoded())
-            assertEquals("original-login", restored.user!!.username)
+            assertEquals("original-login", restored.user!!.displayName)
             assertEquals("12", AccountTokens.response(login.toByteArray(), 100L).user!!.id)
             val withoutUser =
                 """
@@ -239,7 +239,7 @@ class AccountIdentityContractTest {
                         accountResponse(
                             200,
                             """
-{"user":{"id":12,"username":"original-login",
+{"user":{"id":12,"display_name":"original-login",
                 "email":"new@example.test",
                 "must_change":0,"email_binding_required":false}}
                             """.trimIndent(),
@@ -247,7 +247,7 @@ class AccountIdentityContractTest {
                     },
                 )
             client.bindEmail("new@example.test", "012345")
-            assertEquals("original-login", account.user.value!!.username)
+            assertEquals("original-login", account.user.value!!.displayName)
             assertEquals("new@example.test", account.user.value!!.email)
             assertFalse(account.user.value!!.emailBindingRequired)
             assertFalse(account.user.value!!.mustChange)
