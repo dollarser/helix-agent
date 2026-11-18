@@ -102,3 +102,26 @@ CI 真正依赖的固定运行时二进制保留在既有资源 Release，保持
 ## 8. 状态维护
 
 当前状态写 status，任务范围写 HXA，长期合同写主题 ADR，历史结果写 evidence/completion。新的验证只替代对应版本和范围，不重写旧失败。优先关闭明确的缺陷和证据缺口；账户、设备、发行决策和研究候选分别维护，不混成“继续收尾”一个无限任务。
+
+### ModelScope 命令行发布
+
+使用官方 [ModelScope Hub CLI](https://github.com/modelscope/modelscope_hub#ms-hub-upload)，无需克隆数据集或配置 Git/LFS 上传凭据。本机发布前先核对 `modelscope --version`、`modelscope upload --help` 与 `modelscope whoami`；本次确认的 CLI 为 modelscope-hub 0.7.1。认证由 CLI 本地登录管理，令牌不写进文档、脚本或日志。
+
+成功构建、签名并完成当前候选验收后，将仅含本版 APK 的目录上传到新版本子目录：
+
+```bash
+modelscope upload dollars/Helix build/release-apks releases/v0.0.12 \
+  --repo-type dataset --revision master --include '*.apk' \
+  --commit-message 'Publish Helix v0.0.12 APKs'
+```
+
+示例中的本地目录必须替换为本轮已核验的签名制品目录，版本路径随版本明确指定；不上传整个工作区，不使用会删除远端其他文件的 `--sync`。旧版本目录保留，不覆盖已发布同名 APK。上传成功后从公开 `resolve/master/releases/v<versionName>/...apk` 完整下载并核对 SHA-256、字节数；确认两渠道均可下载后才发布 `update-manifest.json` 和下载 README：
+
+```bash
+modelscope upload dollars/Helix build/release-metadata/update-manifest.json update-manifest.json \
+  --repo-type dataset --revision master --commit-message 'Update Helix release manifest'
+modelscope upload dollars/Helix build/release-metadata/README.md README.md \
+  --repo-type dataset --revision master --commit-message 'Update Helix download page'
+```
+
+清单按当前分发协议保持 schemaVersion 1，填写真实包名、ABI、versionName/versionCode、公开地址、校验值与大小。再次公开读取清单并检查其每个新下载项；CLI 成功返回不代替下载核验或应用内更新检查。GitHub Release 仍只附 APK，源码使用标签归档，校验与签名身份写入正文。认证失败时保留已完成步骤，不把 Git 凭据缺失等同于 CLI 未登录。
