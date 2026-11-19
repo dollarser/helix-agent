@@ -33,6 +33,34 @@ class StagedGateTest(unittest.TestCase):
         self.assertNotEqual(0, result.returncode)
         self.assertNotIn(TOKEN, result.stdout + result.stderr)
 
+    def test_workflow_linter_reads_index_and_failure_blocks(self):
+        (self.repo / '.github/workflows').mkdir(parents=True)
+        binary = self.repo / 'bin'
+        binary.mkdir()
+        tool = binary / 'actionlint'
+        tool.write_text('#!/bin/sh\nbody=$(cat)\n[ "$body" = VALID ]\n')
+        tool.chmod(0o755)
+        env = dict(os.environ, PATH=str(binary)+os.pathsep+os.environ['PATH'])
+        self.stage('.github/workflows/ci.yml', b'INVALID\n')
+        (self.repo / '.github/workflows/ci.yml').write_text('VALID\n')
+        self.assertNotEqual(0, self.run_gate(env).returncode)
+        self.stage('.github/workflows/ci.yml', b'VALID\n')
+        (self.repo / '.github/workflows/ci.yml').write_text('INVALID\n')
+        self.assertEqual(0, self.run_gate(env).returncode)
+
+    def test_workflow_missing_linter_blocks_but_plain_commit_does_not_need_it(self):
+        (self.repo / '.github/workflows').mkdir(parents=True)
+        import shutil
+        binary = self.repo / 'bin'
+        binary.mkdir()
+        for name in ('git', 'rg'):
+            (binary / name).symlink_to(shutil.which(name))
+        env = dict(os.environ, PATH=str(binary))
+        self.stage('plain.txt', b'plain\n')
+        self.assertEqual(0, self.run_gate(env).returncode)
+        self.stage('.github/workflows/ci.yml', b'name: fixture\n')
+        self.assertIn('require actionlint', self.run_gate(env).stderr)
+
     def test_unborn_and_empty_index(self):
         self.assertEqual(0, self.run_gate().returncode)
         self.stage("hello.txt", b"safe\n")

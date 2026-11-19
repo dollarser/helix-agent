@@ -24,7 +24,7 @@ Release 构建验证不等于签名发行、R8 行为验证、完整 SBOM/许可
 
 | 阶段 | 检查与依赖 |
 | --- | --- |
-| pre-commit | 保留 `check-staged.py`：暂存 blob 的秘密扫描、冲突和空白检查；不联网、不运行 Gradle。属性也取自暂存树，未暂存的 `.gitattributes` 不影响结论；Git 须支持 [`--attr-source`](https://git-scm.com/docs/git)。耗时由钩子输出，通常目标 3 秒内 |
+| pre-commit | 保留 `check-staged.py`：暂存 blob 的秘密扫描、冲突和空白检查；不联网、不运行 Gradle。属性也取自暂存树，未暂存的 `.gitattributes` 不影响结论；Git 须支持 [`--attr-source`](https://git-scm.com/docs/git)。仅暂存 `.github/workflows/*.yml`/`*.yaml` 时额外要求 PATH 中的 [actionlint](https://github.com/rhysd/actionlint/releases/tag/v1.7.12)（已验证1.7.12），检查暂存内容与Actions表达式上下文；缺失或检查失败阻止提交，未暂存文件不会改变结论。普通提交无需该工具；不自动安装或联网，禁用可选shellcheck/pyflakes子检查。耗时由钩子输出，通常目标3秒内 |
 | pre-push | `check-push.py` 读取 Git 提供的全部 ref/OID，删除不声称源码通过，标签解析到提交；在独立临时 Git clone 中检查真正推送的提交，不 stash/reset 用户文件，不依赖工作区是否干净。运行范围空白检查及现有 `check-all.sh --source`，不执行 Gradle、锁重写、设备或真实账号测试 |
 | CI / 显式完整门禁 | 保留源码、锁、构建、Lint、JVM 测试、Debug/Release/R8、制品及运行时资源的相应兜底；设备验证仍需另行授权。仅已知本地 hook 文件变化可走 source，CI planner、工作流和构建门禁修改仍要求 Debug CI |
 
@@ -134,3 +134,10 @@ ADB helper 的任务屏由 Helix 持有系统显示 token：helper 重启优先�
 | Root 身份与点击／派发前拒绝 | `RootMobileUseProbeDeviceTest#applicationGrantedRootObservesAndClicksFixture`，显式 `helixRootProbe=true`；已知服务拒绝环境使用独立方法 `authorizedRootWithBlockedServicesRefusesWithoutClicking` 并另传 `helixRootServiceRefusal=true` |
 
 设备测试只在 owner 当前授权时运行，并传 `helix.preserveUserSettings=true`。任务屏测试以 `helixAdbHelper=true` 或 `helixRootHelper=true` 明确后端；ADB 用例报告 `ADB_HELPER_START_NOW` 后再运行上面的启动命令。异常专项由外部控制器响应 `BACKGROUND_DISCONNECT_READY`（核对原进程后终止），`helixRecovery=true` 验证接管与迁移，`helixInFlight=true` 验证实际 DOWN 后中断与持久未决记录；二者不是普通冒烟，不能无人响应就当设备失败或通过。`RECOVERY_OBSERVE` 标记给出暂停阶段和 app cache 文件：外部核对／操作专用测试 task 后删除该标记才继续，`migrated` 阶段将已恢复 task 移回主屏，`recoveredPrimaryRefused` 阶段确认未被工具移走后移回新屏。`BACKGROUND_FOCUS_WAIT` 则在核对 UNKNOWN 后创建标记。阶段编排、持续采样、环境快照和历史原始证据留在 ignored 本地目录，不作为通用 CI 或重复提交的测试框架。
+
+
+## CI分支基线与性能诊断
+
+日常main/dev的PR和push保留独立source/Debug门禁及verify汇总；手动full保留Release/R8完整门禁。push先寻找当前分支最近十次成功运行中、四个job（source/runtime-assets/android/verify）均成功且为当前提交祖先的基线，找不到再查询main。失败、取消、source-only、缺job、错误分支、非祖先不算基线；API异常或未找到可靠基线回退Debug，不静默跳过。每分支最多十次job查询、最多两个分支；PR仍按完整merge-base差异，手动scope不受自动分类缩小。pre-push的main祖先审查是独立本地策略，不替代远端分支规则。
+
+可信main/dev的非PR成功步骤可写语音/运行时缓存，Gradle缓存维持可信分支写入限制；语音键排除不参与构建的ASR README，命中仍校验。60分钟Android job内给诊断上传预留时间，监督器记录阶段耗时、最后输出任务及有界资源/线程快照；失败/取消也尝试保存profile。双渠道Lint及双ABI检查保留，不从单次任务累计时间推断可删冗余。下一次自然运行核对语音和Lint缓存，不额外触发设备或full基准。

@@ -14,7 +14,8 @@ class CiGatesTest(unittest.TestCase):
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
         self.root = Path(self.directory.name)
-        (self.root / 'scripts').mkdir()
+        (self.root / 'scripts' / 'ci').mkdir(parents=True)
+        shutil.copy2(ROOT / 'scripts/ci/run_gate.py', self.root / 'scripts/ci/run_gate.py')
         for name in ('check-all.sh', 'ci-run-gate.sh'):
             shutil.copy2(ROOT / 'scripts' / name, self.root / 'scripts' / name)
         (self.root / 'scripts' / 'verify-preview-assets.py').write_text('pass\n')
