@@ -85,3 +85,17 @@ class GateMonitorTest(unittest.TestCase):
             self.assertIn('ci-run-gate.sh ' + gate, workflow)
         self.assertIn('timeout-minutes: 60', workflow)
         self.assertNotIn('connectedAndroidTest', workflow)
+
+    def test_profile_input_uses_job_context_and_cache_saves_keep_success_guard(self):
+        workflow = (ROOT / '.github/workflows/ci.yml').read_text()
+        self.assertIn("if-no-files-found: ${{ job.status == 'success' && 'error' || 'ignore' }}", workflow)
+        self.assertNotIn("if-no-files-found: ${{ success()", workflow)
+        for name in ('Save verified downloads', 'Save verified speech inputs'):
+            step = workflow.split('- name: ' + name, 1)[1].split('- name:', 1)[0]
+            condition = next(line.strip() for line in step.splitlines() if line.strip().startswith('if:'))
+            self.assertIn("github.ref == 'refs/heads/main'", condition)
+            self.assertIn("github.ref == 'refs/heads/dev'", condition)
+            self.assertIn("github.event_name != 'pull_request'", condition)
+            # No status function overrides Actions' implicit success() guard.
+            for status in ('always(', 'failure(', 'cancelled('):
+                self.assertNotIn(status, condition)

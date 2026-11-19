@@ -247,7 +247,7 @@ jobs:
         with:
           name: ci-profiles-${{ github.sha }}
           retention-days: 1
-          if-no-files-found: ${{ success() && 'error' || 'ignore' }}
+          if-no-files-found: ${{ job.status == 'success' && 'error' || 'ignore' }}
           path: build/reports/profile/
 
       - name: Save gate diagnostics
