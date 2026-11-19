@@ -25,10 +25,12 @@ Release 构建验证不等于签名发行、R8 行为验证、完整 SBOM/许可
 | 阶段 | 检查与依赖 |
 | --- | --- |
 | pre-commit | 保留 `check-staged.py`：暂存 blob 的秘密扫描、冲突和空白检查；不联网、不运行 Gradle。属性也取自暂存树，未暂存的 `.gitattributes` 不影响结论；Git 须支持 [`--attr-source`](https://git-scm.com/docs/git)。耗时由钩子输出，通常目标 3 秒内 |
-| pre-push | `check-push.py` 读取 Git 提供的全部 ref/OID，删除不声称源码通过，标签解析到提交；在独立临时 Git clone 中检查真正推送的提交，不 stash/reset 用户文件，不依赖工作区是否干净。运行范围空白检查及现有 `check-all.sh --source`，不执行 Gradle、锁重写、设备或真实账号测试 |
-| CI / 显式完整门禁 | 保留源码、锁、构建、Lint、JVM 测试、Debug/Release/R8、制品及运行时资源的相应兜底；设备验证遵守根 AGENTS 的模拟器、真机与外部服务边界。仅已知本地 hook 文件变化可走 source，CI planner、工作流和构建门禁修改仍要求 Debug CI |
+| pre-push | `check-push.py` 读取 Git 提供的全部 ref/OID，删除不声称源码通过，标签解析到提交；在独立临时 Git clone 中检查真正推送的提交，不 stash/reset 用户文件，不依赖工作区是否干净。运行范围空白检查及现有 `check-all.sh --source`；已知纯文档/源码检查器变化到此结束，其他变化追加 `check-all.sh --jvm`（全部纯 JVM 模块测试）。不准备语音、不构建 APK、不重写锁、不运行设备或真实账号测试 |
+| CI / 显式完整门禁 | main/dev 的 PR/push 独立执行 source 或 Debug 门禁，未知范围回退 Debug，保留 `verify` 汇总状态；Release/R8 留给显式 `--all` 或手动 CI `full`，发布者仍负责完整门禁与授权的本地设备验收；设备验证遵守根 AGENTS 的模拟器、真机与外部服务边界。仅已知本地 hook 文件变化可走 source，CI planner、工作流和构建门禁修改仍要求 Debug CI |
 
-pre-push 使用现有 CI planner 查找 main 上最近完整通过 `source/runtime-assets/android/verify` 的祖先；不是简单使用远端 tip 或 `HEAD^`。自动查询需要已授权的 `gh`。离线、权限不足、历史不足或没有已验证祖先会阻断，可在人工核实后用 `CI_BASE=<祖先 SHA> git ... push` 显式指定；不静默缩短范围。新分支与非快进更新也按每个实际推送提交验证。
+pre-push 正常快进使用 Git 传入的真实远端 OID 到待推送 OID，既不依赖工作区 HEAD，也不依赖可能过时的 tracking ref；此路径无需 GitHub API。新分支、非快进或本地缺少远端对象时保守追加全部纯 JVM 测试，并使用现有 CI planner 查找 main 上最近完整通过 `source/runtime-assets/android/verify` 的祖先。该回退查询需要已授权的 `gh`；离线、权限不足、历史不足或没有已验证祖先时阻断，可在人工核实后用 `CI_BASE=<祖先 SHA>` 显式指定；不退回 `HEAD^` 或静默当作文档。多 ref 按各自范围验证，同一提交不同目的分支不会漏掉更宽范围。共享 Gradle/依赖配置和未知文件均走 JVM。远端 push 仍从已通过完整 Android 检查的祖先计算范围，避免先前失败的代码被后续文档提交隐藏。
+
+纯 JVM 测试复用 Gradle 依赖/构建缓存，但不保存可跳过测试的 hook 成功凭据；第一次解析依赖或编译可能耗时数分钟，需要本机可用的 JDK/SDK 与依赖访问。它不是 Android UI、原生代码、Lint 或 Release 验收；这些由独立 CI/发版门禁兜底。失败时读取输出的本地日志并修复后重推；环境缺失不算通过。删除 ref 不运行门禁，也不声称代码已通过。
 
 每次推送都重新检查范围，并验证秘密扫描器可用；成功的 source 结果只按精确提交与 Git/Python/rg/检查器指纹缓存于忽略目录 `build/hooks/`，失败和取消不缓存，修改提交或工具后重新运行。日志和耗时也在该目录，重复同一提交无需重复全套 source。未暂存/部分暂存内容、未跟踪文件和用户原有索引不会被隔离检查修改。缓存不是远端 CI 证据。钩子可被 `--no-verify` 绕过，所以不删除远端必要检查，也不把本地钩子成功等同于可发布。
 
@@ -134,3 +136,5 @@ ADB helper 的任务屏由 Helix 持有系统显示 token：helper 重启优先�
 | Root 身份与点击／派发前拒绝 | `RootMobileUseProbeDeviceTest#applicationGrantedRootObservesAndClicksFixture`，显式 `helixRootProbe=true`；已知服务拒绝环境使用独立方法 `authorizedRootWithBlockedServicesRefusesWithoutClicking` 并另传 `helixRootServiceRefusal=true` |
 
 设备测试按根 AGENTS 的适用授权范围运行，并传 `helix.preserveUserSettings=true`。任务屏测试以 `helixAdbHelper=true` 或 `helixRootHelper=true` 明确后端；ADB 用例报告 `ADB_HELPER_START_NOW` 后再运行上面的启动命令。异常专项由外部控制器响应 `BACKGROUND_DISCONNECT_READY`（核对原进程后终止），`helixRecovery=true` 验证接管与迁移，`helixInFlight=true` 验证实际 DOWN 后中断与持久未决记录；二者不是普通冒烟，不能无人响应就当设备失败或通过。`RECOVERY_OBSERVE` 标记给出暂停阶段和 app cache 文件：外部核对／操作专用测试 task 后删除该标记才继续，`migrated` 阶段将已恢复 task 移回主屏，`recoveredPrimaryRefused` 阶段确认未被工具移走后移回新屏。`BACKGROUND_FOCUS_WAIT` 则在核对 UNKNOWN 后创建标记。阶段编排、持续采样、环境快照和历史原始证据留在 ignored 本地目录，不作为通用 CI 或重复提交的测试框架。
+
+`ci-run-gate.sh` 保留检查范围和退出码，委托 `ci/run_gate.py` 记录阶段时长、最后输出任务及有界超时诊断。超时返回124，取消不算通过；GitHub Android job 提供绝对截止时间，为上传预留空间。性能比较必须区分 full/debug 与冷暖缓存，不能用本机假进程测试声称远端提速。

@@ -10,9 +10,9 @@ on:
         default: full
         required: true
   pull_request:
-    branches: [main]
+    branches: [main, dev]
   push:
-    branches: [main]
+    branches: [main, dev]
 
 permissions:
   contents: read
@@ -79,6 +79,8 @@ jobs:
           java-version: "17"
       - name: Configure Gradle for asset verification
         uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+        with:
+          cache-read-only: ${{ github.event_name == 'pull_request' || (github.ref != 'refs/heads/main' && github.ref != 'refs/heads/dev') }}
       - name: Restore locked downloads
         id: downloads
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -102,7 +104,7 @@ jobs:
           HELIX_ROOTFS_ARCHIVE_URL: ${{ vars.HELIX_ROOTFS_ARCHIVE_URL }}
         run: ./scripts/build-proot-assets.sh
       - name: Save verified downloads
-        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && steps.downloads.outputs.cache-hit != 'true'
+        if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev') && github.event_name != 'pull_request' && steps.downloads.outputs.cache-hit != 'true'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/helix-runtime-downloads
@@ -126,6 +128,8 @@ jobs:
     timeout-minutes: 60
 
     steps:
+      - name: Reserve time for timeout diagnostics
+        run: echo "HELIX_CI_JOB_DEADLINE=$(( $(date +%s) + 3420 ))" >> "$GITHUB_ENV"
       - name: Check out source
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
@@ -137,6 +141,8 @@ jobs:
 
       - name: Configure Gradle
         uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0 (node24)
+        with:
+          cache-read-only: ${{ github.event_name == 'pull_request' || (github.ref != 'refs/heads/main' && github.ref != 'refs/heads/dev') }}
 
       - name: Configure Android SDK
         uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4.0.1 (node24)
@@ -172,7 +178,7 @@ jobs:
         id: speech
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          key: speech-${{ runner.os }}-${{ runner.arch }}-ndk28.2.13676358-cmake3.31.6-${{ hashFiles('config/asr/**', 'config/tts/**', 'scripts/build-asr-assets.py', 'scripts/build-tts-assets.py', 'scripts/prepare-asr-download-assets.py', 'scripts/ci/fetch_locked_asset.py') }}
+          key: speech-${{ runner.os }}-${{ runner.arch }}-ndk28.2.13676358-cmake3.31.6-${{ hashFiles('config/asr/**', '!config/asr/README.md', 'config/tts/**', 'scripts/build-asr-assets.py', 'scripts/build-tts-assets.py', 'scripts/prepare-asr-download-assets.py', 'scripts/ci/fetch_locked_asset.py') }}
           path: |
             build/asr/manifest.json
             build/asr/asr-only.aar
@@ -198,7 +204,7 @@ jobs:
           python3 scripts/prepare-asr-download-assets.py --verify
           python3 scripts/build-tts-assets.py --verify
       - name: Save verified speech inputs
-        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && steps.speech.outputs.cache-hit != 'true'
+        if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev') && github.event_name != 'pull_request' && steps.speech.outputs.cache-hit != 'true'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           key: ${{ steps.speech.outputs.cache-primary-key }}
@@ -214,34 +220,38 @@ jobs:
             build/tts/speech.aar
             build/tts/assets
             build/tts/test-assets
-      - name: Run selected Android gate
+      - name: Analyze selected Android variants
         env:
           CI_SCOPE: ${{ needs.source.outputs.scope }}
         run: |
           case "$CI_SCOPE" in
-            debug)
-              ./scripts/ci-run-gate.sh --debug-build-analysis
-              ;;
-            full) ./scripts/ci-run-gate.sh --build ;;
+            debug) ./scripts/ci-run-gate.sh --debug-build-analysis ;;
+            full) ./scripts/ci-run-gate.sh --analysis ;;
             *) exit 2 ;;
           esac
-          ./scripts/ci-run-gate.sh --artifacts
-          if [ "$CI_SCOPE" = full ]; then
-            ./scripts/ci-run-gate.sh --release-artifacts
-          fi
+      - name: Test and build all variants
+        if: needs.source.outputs.scope == 'full'
+        run: |
+          ./scripts/check-lockfiles.sh
+          ./scripts/ci-run-gate.sh --tests-build
+      - name: Verify Debug artifacts
+        run: ./scripts/ci-run-gate.sh --artifacts
+      - name: Verify Release artifacts
+        if: needs.source.outputs.scope == 'full'
+        run: ./scripts/ci-run-gate.sh --release-artifacts
 
       # Small task profiles are useful on successful runs too; no APK/test-data upload.
       - name: Save Gradle performance profiles
-        if: success()
+        if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ci-profiles-${{ github.sha }}
           retention-days: 1
-          if-no-files-found: error
+          if-no-files-found: ${{ success() && 'error' || 'ignore' }}
           path: build/reports/profile/
 
       - name: Save gate diagnostics
-        if: failure()
+        if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ci-android-${{ github.sha }}

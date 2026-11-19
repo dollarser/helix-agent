@@ -12,7 +12,7 @@ spec.loader.exec_module(ci)
 
 class CiPlanTest(unittest.TestCase):
     def test_only_known_source_changes_skip_android(self):
-        for name in ['docs/a.md', 'README.md', 'README.en.md', 'scripts/README.md',
+        for name in ['docs/a.md', 'README.md', 'README.en.md', 'CHANGELOG.md', 'CHANGELOG.zh-CN.md', 'scripts/README.md',
                      'scripts/tests/test_ci_plan.py', '.agents/skills/example/SKILL.md',
                      '.githooks/pre-commit', '.githooks/pre-push', 'scripts/check-staged.py',
                      'scripts/check-push.py', 'scripts/install-hooks.py']:

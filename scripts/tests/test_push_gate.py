@@ -43,6 +43,68 @@ class PushGateTest(unittest.TestCase):
     def check(self, head=None):
         gate.check_snapshot(self.root, head or self.head, self.base, self.cache, 'tools')
 
+    def test_real_git_push_uses_stdin_range_and_blocks_failed_jvm(self):
+        remote = self.root / 'remote.git'
+        subprocess.run(['git', 'init', '--bare', '--quiet', str(remote)], check=True)
+        self.git('push', '--quiet', str(remote), 'HEAD:refs/heads/main')
+        hooks = self.root / '.git/hooks'
+        hook = hooks / 'pre-push'
+        import shlex
+        hook.write_text('#!/bin/sh\nexec ' + shlex.quote(os.sys.executable) + ' ' +
+                        shlex.quote(str(ROOT / 'scripts/check-push.py')) + ' "$@"\n')
+        hook.chmod(0o755)
+        self.git('config', 'core.hooksPath', str(hooks))
+        (self.root / 'docs').mkdir()
+        (self.root / 'docs/note.md').write_text('Documentation\n')
+        self.git('add', 'docs/note.md')
+        self.git('commit', '--quiet', '-m', 'Docs')
+        docs = self.git('rev-parse', 'HEAD')
+        result = subprocess.run(['git', '-C', str(self.root), 'push', str(remote), 'HEAD:refs/heads/main'],
+                                capture_output=True, text=True)
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertNotIn('pure JVM tests', result.stdout + result.stderr)
+        (self.root / 'new.txt').write_text('code update\n')
+        self.git('add', 'new.txt')
+        self.git('commit', '--quiet', '-m', 'Code')
+        result = subprocess.run(['git', '-C', str(self.root), 'push', str(remote), 'HEAD:refs/heads/main'],
+                                capture_output=True, text=True)
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn('JVM gate failed', result.stderr)
+        actual = subprocess.check_output(['git', '--git-dir', str(remote), 'rev-parse', 'main'], text=True).strip()
+        self.assertEqual(docs, actual)
+
+    def test_actual_remote_range_docs_and_shared_build_fallback(self):
+        (self.root / 'docs').mkdir()
+        (self.root / 'docs/note.md').write_text('Documentation\n')
+        docs = self.commit()
+        no_api = lambda _: self.fail('Normal pushes must not query GitHub')
+        self.assertEqual((self.head, 'source'), gate.push_scope(self.root, docs, self.head, no_api))
+        (self.root / 'build.gradle.kts').write_text('// shared build\n')
+        code = self.commit()
+        self.assertEqual((docs, 'jvm'), gate.push_scope(self.root, code, docs, no_api))
+        self.assertEqual((self.base, 'jvm'), gate.push_scope(self.root, docs, gate.ZERO, None, self.base))
+        self.assertEqual((self.base, 'jvm'), gate.push_scope(self.root, docs, code, None, self.base))
+        self.assertEqual((self.base, 'jvm'), gate.push_scope(self.root, docs, 'f'*40, None, self.base))
+
+    def test_same_head_different_destinations_keep_each_scope(self):
+        (self.root / 'docs').mkdir()
+        (self.root / 'docs/note.md').write_text('Documentation\n')
+        head = self.commit()
+        raw = f'a {head} a {self.head}\nb {head} b {self.base}\n'
+        with patch.object(gate, 'fingerprint', return_value='tools'), patch.object(gate, 'check_snapshot') as check:
+            gate.run(self.root, raw, None)
+        self.assertEqual(['source', 'jvm'], [c.args[-1] for c in check.call_args_list])
+
+    def test_jvm_failure_is_not_hidden_by_source_receipt(self):
+        (self.root / 'scripts/check-all.sh').write_text(
+            '#!/bin/sh\n[ "$1" = --source ] && exit 0\nexit 9\n')
+        head = self.commit()
+        for _ in range(2):
+            with self.assertRaisesRegex(RuntimeError, 'JVM gate failed'):
+                gate.check_snapshot(self.root, head, self.base, self.cache, 'tools', 'jvm')
+        # Docs-only scope does not invoke the failing Gradle gate.
+        gate.check_snapshot(self.root, head, self.base, self.cache, 'tools', 'source')
+
     def test_dirty_index_and_worktree_do_not_change_pushed_snapshot(self):
         (self.root / 'payload').write_text('dirty staged\n')
         self.git('add', 'payload')

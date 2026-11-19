@@ -14,7 +14,8 @@ class CiGatesTest(unittest.TestCase):
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
         self.root = Path(self.directory.name)
-        (self.root / 'scripts').mkdir()
+        (self.root / 'scripts' / 'ci').mkdir(parents=True)
+        shutil.copy2(ROOT / 'scripts/ci/run_gate.py', self.root / 'scripts/ci/run_gate.py')
         for name in ('check-all.sh', 'ci-run-gate.sh'):
             shutil.copy2(ROOT / 'scripts' / name, self.root / 'scripts' / name)
         (self.root / 'scripts' / 'verify-preview-assets.py').write_text('pass\n')
@@ -45,6 +46,14 @@ class CiGatesTest(unittest.TestCase):
     def append_gradle_args(self):
         (self.root / 'gradlew').write_text(
             '#!/usr/bin/env bash\nprintf "%s\\n" "$@" >> gradle-args.txt\nexit "${FAKE_EXIT:-0}"\n')
+
+    def test_pure_jvm_gate_does_not_prepare_assets_or_rewrite_locks(self):
+        result, args = self.run_gate('--jvm')
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertEqual(['jvmUnitTests'], args)
+        self.assertFalse((self.root / 'gate-steps.txt').exists())
+        result, _ = self.run_gate('--jvm', exit_code=7)
+        self.assertEqual(7, result.returncode)
 
     def test_default_and_explicit_debug_preserve_checks_without_release_tasks(self):
         self.append_gradle_args()

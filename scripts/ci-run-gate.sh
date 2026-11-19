@@ -9,15 +9,4 @@ esac
 mkdir -p build/ci
 export HELIX_GRADLE_PROFILE=1
 export HELIX_CI_GRADLE_BUDGET=1
-started=$SECONDS
-set +e
-./scripts/check-all.sh "$1" 2>&1 | tee "build/ci/$gate.log"
-result=$?
-set -e
-elapsed=$((SECONDS - started))
-printf '%s\t%s\t%s\n' "$gate" "$elapsed" "$result" > "build/ci/$gate.tsv"
-if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
-    printf '\n### %s\n\nDuration: %s seconds. Exit code: %s.\n' \
-        "$gate" "$elapsed" "$result" >> "$GITHUB_STEP_SUMMARY"
-fi
-exit "$result"
+exec python3 scripts/ci/run_gate.py "$gate"

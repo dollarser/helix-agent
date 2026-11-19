@@ -761,6 +761,11 @@ subprojects {
 }
 
 // Select host unit-test variants explicitly: Gradle's aggregate `test` includes Release too.
+val jvmUnitTests =
+    tasks.register("jvmUnitTests") {
+        group = "verification"
+        description = "Run pure JVM tests without Android, speech assets or APK builds."
+    }
 val debugUnitTests =
     tasks.register("debugUnitTests") {
         group = "verification"
@@ -769,6 +774,7 @@ val debugUnitTests =
 subprojects {
     val modulePath = path
     plugins.withId("org.jetbrains.kotlin.jvm") {
+        jvmUnitTests.configure { dependsOn("$modulePath:test") }
         debugUnitTests.configure { dependsOn("$modulePath:test") }
     }
     plugins.withId("com.android.library") {

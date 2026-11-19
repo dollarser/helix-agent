@@ -90,7 +90,7 @@ def fingerprint():
     return hashlib.sha256('\n'.join(tools).encode()).hexdigest()
 
 
-def check_snapshot(root, head, base, cache, identity):
+def check_snapshot(root, head, base, cache, identity, scope="source"):
     started = time.monotonic()
     with tempfile.TemporaryDirectory(prefix='push-', dir=cache) as directory:
         snapshot = Path(directory) / 'source'
@@ -114,6 +114,8 @@ def check_snapshot(root, head, base, cache, identity):
             prior = None
         if prior == {'commit': head, 'tools': identity, 'source': 'passed'}:
             print(f'pre-push {head[:12]}: range passed; exact-commit source cache reused ({time.monotonic()-started:.2f}s).')
+            if scope == "jvm":
+                check_jvm(snapshot, env, cache, head)
             return
         command = snapshot / 'scripts/check-all.sh'
         if not command.is_file():
@@ -132,7 +134,36 @@ def check_snapshot(root, head, base, cache, identity):
             os.replace(temporary, receipt)
         finally:
             temporary.unlink(missing_ok=True)
+        if scope == "jvm":
+            check_jvm(snapshot, env, cache, head)
         print(f'pre-push {head[:12]}: committed range and source gate passed ({time.monotonic()-started:.2f}s).')
+
+
+def check_jvm(snapshot, env, cache, head):
+    started = time.monotonic()
+    log = cache / f'{head}-jvm.log'
+    print(f'pre-push {head[:12]}: pure JVM tests (no APK/speech); log: {log}', flush=True)
+    with log.open('w') as output:
+        result = subprocess.run(['bash', 'scripts/check-all.sh', '--jvm'], cwd=snapshot,
+                                env=env, stdin=subprocess.DEVNULL, stdout=output, stderr=subprocess.STDOUT)
+    if result.returncode:
+        raise RuntimeError(f'Committed JVM gate failed (exit {result.returncode}); see {log}')
+    print(f'pre-push JVM passed ({time.monotonic()-started:.2f}s).')
+
+
+def push_scope(root, head, remote_oid, get, explicit=None):
+    # Git supplies the actual destination tip, independent of local tracking refs.
+    # New/rewritten/unknown history cannot earn a docs-only shortcut.
+    if remote_oid != ZERO:
+        try:
+            remote = git(root, 'rev-parse', '--verify', remote_oid + '^{commit}')
+            if ancestor(root, remote, head):
+                paths = git(root, 'diff', '--name-only', '--no-renames', '-z', remote, head).split('\0')
+                scope = 'source' if ci.classify([p for p in paths if p]) == 'source' else 'jvm'
+                return remote, scope
+        except subprocess.SubprocessError:
+            pass
+    return baseline(root, head, get, explicit), 'jvm'
 
 
 def run(root, refs, get, explicit=None):
@@ -147,12 +178,13 @@ def run(root, refs, get, explicit=None):
     checked = set()
     for local_ref, oid, remote_ref, remote_oid in pending:
         head = git(root, 'rev-parse', '--verify', oid + '^{commit}')
-        if head in checked:
+        base, scope = push_scope(root, head, remote_oid, get, explicit)
+        key = (head, base, scope)
+        if key in checked:
             continue
-        base = baseline(root, head, get, explicit)
         print(f'pre-push {local_ref} → {remote_ref}: checking {base[:12]}..{head[:12]}', flush=True)
-        check_snapshot(root, head, base, cache, identity)
-        checked.add(head)
+        check_snapshot(root, head, base, cache, identity, scope)
+        checked.add(key)
     print(f'pre-push: {len(checked)} committed snapshots checked in {time.monotonic()-started:.2f}s.')
 
 
@@ -167,7 +199,14 @@ def main():
         run(root, raw, None)
         return
     explicit = os.environ.get('CI_BASE')
-    get = github_get(repository(args.url)) if not explicit else None
+    api = None
+
+    def get(path):
+        nonlocal api
+        if api is None:
+            api = github_get(repository(args.url))
+        return api(path)
+
     run(root, raw, get, explicit)
 
 

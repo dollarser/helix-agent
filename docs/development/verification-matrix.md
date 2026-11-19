@@ -130,8 +130,11 @@ python3 scripts/verify-integrated-runtime-apks.py --build-type release
 
 ### 使用
 
+- 本地 hooks：安装、真实推送范围与失败处理见 [scripts/README](../../scripts/README.md#本地提交与推送钩子)。pre-commit 仅暂存内容；pre-push 的 source/纯 JVM 检查不替代远端 Debug 或发布完整门禁。main/dev 的 PR/push 保留独立 `verify` 状态，不依赖开发者安装 hooks。
 - GitHub 手动运行：在 Actions 中选择 Android CI，使用 `workflow_dispatch` 的 `full` 或 `debug` 范围。具体步骤以 workflow 为准。
-- 排查失败：查看失败步骤、门禁日志及上传的诊断；耗时与缓存命中以该次运行的日志/profile 为准，不将排队时间或编译总时长当作单测耗时。
+- 排查失败：查看各分析、测试构建、制品步骤，以及 `build/ci/` 中阶段 JSON/TSV、日志和资源快照。CI 门禁每五分钟报告最后输出的任务（不是该任务的准确运行时长），到 job 第57分钟前主动失败并尝试保存进程/JVM诊断，保留60分钟上限和上传时间；人工硬取消仍可能阻止上传。
+- 缓存：仅可信 `main/dev` 非 PR 运行可写 Gradle/锁定资源缓存；语音缓存排除不参与构建的 ASR README，仍包含锁、许可和构建脚本，命中后仍验内容。新键首次可能冷构建，后续命中须用真实运行确认。
+- #137 与历史对照、已确认缺口和待远端验证项见 [CI 耗时复核](../evidence/development/ci-137-timing-2026-11-19.md)。
 
 ### 边界
 
