@@ -9,6 +9,7 @@ import subprocess
 import sys
 from urllib.error import URLError
 from urllib.request import Request, urlopen
+from urllib.parse import quote
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -32,7 +33,7 @@ def classify(paths):
         path = Path(name)
         if (name.startswith(('docs/', 'scripts/debug/'))
                 or (name.startswith('scripts/tests/') and path.suffix == '.py')) or name in {
-                'README.md', 'README.en.md', 'AGENTS.md', 'LICENSE', 'CONTRIBUTING.md',
+                'README.md', 'README.en.md', 'CHANGELOG.md', 'CHANGELOG.zh-CN.md', 'AGENTS.md', 'LICENSE', 'CONTRIBUTING.md',
                 'SECURITY.md', 'THIRD_PARTY_NOTICES.md', 'scripts/README.md',
                 '.githooks/pre-commit', '.githooks/pre-push', 'scripts/check-staged.py',
                 'scripts/check-push.py', 'scripts/install-hooks.py'} or re.fullmatch(
@@ -45,20 +46,28 @@ def classify(paths):
 def successful_android_jobs(jobs):
     required = {'source', 'runtime-assets', 'android', 'verify'}
     outcomes = {job['name']: job.get('conclusion') for job in jobs}
-    return all(outcomes.get(name) == 'success' for name in required)
+    return all(outcomes.get(name) == 'success' and sum(job['name'] == name for job in jobs) == 1
+               for name in required)
 
 
-def proven_base(get, ancestor):
-    # Bounded discovery. No prior qualifying run or unavailable API means Debug CI.
-    runs = get('actions/workflows/ci.yml/runs?branch=main&status=success&per_page=30')['workflow_runs']
-    for run in runs:
-        if run.get('event') not in {'push', 'workflow_dispatch'} or not ancestor(run['head_sha']):
-            continue
-        jobs = get(f"actions/runs/{run['id']}/jobs?filter=latest&per_page=100")
-        if jobs.get('total_count', 0) > 100:
-            continue
-        if successful_android_jobs(jobs['jobs']):
-            return run['head_sha']
+def proven_base(get, ancestor, branch='main'):
+    # At most two branch queries and ten job queries per branch. API errors
+    # propagate to the planner's conservative Debug fallback, never source-only.
+    for candidate_branch in dict.fromkeys((branch, 'main')):
+        runs = get('actions/workflows/ci.yml/runs?branch=' + quote(candidate_branch, safe='') +
+                   '&status=success&per_page=10')['workflow_runs']
+        for run in runs[:10]:
+            if (run.get('event') not in {'push', 'workflow_dispatch'}
+                    or run.get('head_branch') != candidate_branch
+                    or run.get('conclusion') != 'success'
+                    or run.get('status') != 'completed'
+                    or not ancestor(run['head_sha'])):
+                continue
+            jobs = get(f"actions/runs/{run['id']}/jobs?filter=latest&per_page=100")
+            if jobs.get('total_count', 0) > 100:
+                continue
+            if successful_android_jobs(jobs['jobs']):
+                return run['head_sha']
     return None
 
 
@@ -82,7 +91,7 @@ def plan(event_name, event, get=api_get):
             raise ValueError('Manual scope must be debug or full')
         try:
             base = proven_base(get, is_ancestor)
-        except (URLError, OSError, KeyError, ValueError, subprocess.CalledProcessError):
+        except (URLError, OSError, KeyError, ValueError, TypeError, subprocess.CalledProcessError):
             base = None
         return {'scope': requested, 'reason': 'explicit manual verification', 'base': base, 'paths': []}
     try:
@@ -97,14 +106,17 @@ def plan(event_name, event, get=api_get):
                 if path not in responses:
                     responses[path] = get(path)
                 return responses[path]
-            base = proven_base(cached_get, is_ancestor)
+            ref = event.get('ref', '')
+            if not isinstance(ref, str) or not ref.startswith('refs/heads/') or not ref[11:]:
+                raise ValueError('Push must identify its branch')
+            base = proven_base(cached_get, is_ancestor, ref[11:])
         if base:
             paths = git('diff', '--name-only', '--no-renames', base, 'HEAD').splitlines()
             scope = classify(paths)
             return {'scope': scope, 'reason': 'changes since verified Debug base' if event_name == 'push'
                     else 'complete pull request diff', 'base': base, 'paths': paths}
 
-    except (URLError, OSError, KeyError, ValueError, subprocess.CalledProcessError):
+    except (URLError, OSError, KeyError, ValueError, TypeError, subprocess.CalledProcessError):
         # Do not log token-bearing requests or quietly skip when discovery fails.
         pass
     return {'scope': 'debug', 'reason': 'no verifiable baseline; conservative Debug gate', 'base': None, 'paths': []}
