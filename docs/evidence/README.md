@@ -15,3 +15,9 @@
 - [completion-records/](../completion-records/index.md)：每个已完成 HXA 的交付时点证据，是查具体任务结果的首选入口。
 
 证据文件不维护“当前 backlog”。如果历史 evidence 中出现 `todo`、`pending`、旧 HXA owner 或旧设备状态，先看文件日期/基线，再回到 status/HXA 判断今天是否仍成立。
+
+## 本地原始输出的保留边界
+
+2026-11-19 按 Owner 要求清理可重建产物、增量缓存及历史运行输出。旧文档中的 `build/...`、截图和 logcat 路径仅标识当时来源，不保证原件仍存在，也不代表当前代码通过。发布包及身份/签名/校验、符号映射的独有归档保留；源码、fixture、黄金快照、基准输入和恢复备份不属清理对象。后续验证可以重新生成本地产物，不恢复旧证据。
+
+可复用结论：发布与旧版更新检测见 [v0.0.12 发布记录](development/v0.0.12-publication-2026-11-18.md)；账号人工确认见 [HXA-307](../development/tasks/HXA-307.md#后续人工验收确认)；附件及 PDF 验收边界见 [HXA-049](../completion-records/HXA-049.md#2026-11-18-后续收尾)；CI 超时、表达式失败和构建耗时分析见 [CI 复核](development/ci-137-timing-2026-11-19.md)。具体数量和未验证范围以对应记录为准。
