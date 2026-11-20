@@ -35,6 +35,18 @@ import org.junit.Test
 import java.time.Instant
 
 class AutomationToolsTest {
+    @Test fun descriptionsKeepCallConstraintsWithoutPrescribingBackendSelection() {
+        val descriptions = tools.descriptors().associate { it.name.value to it.description }
+        val snapshot = descriptions.getValue(AutomationTools.SNAPSHOT)
+        assertTrue(snapshot.contains("replaces earlier tokens"))
+        assertTrue(snapshot.contains("truncated/recoveryHint"))
+        assertTrue(!snapshot.contains("Observation chooses"))
+        assertTrue(!snapshot.contains("Shizuku"))
+        assertTrue(descriptions.getValue(AutomationTools.SET_TEXT).contains("canImeEnter=true"))
+        assertTrue(descriptions.getValue(AutomationTools.CLICK).contains("verify the effect"))
+        assertTrue(descriptions.getValue(AutomationTools.CLICK_MATCH).contains("unknown outcomes must not be replayed"))
+    }
+
     @Test fun longClickCapabilitySuppliesItsActualToolAndParentTokenWithoutExecutingIt() {
         val original = clickableAncestorSnapshot()
         val tree = requireNotNull(original.snapshot)

@@ -1,10 +1,29 @@
 # 插件作者指南与组件支持范围
 
-更新：2026-10-13。对应 [HXA-275](../completion-records/HXA-275.md)、[HXA-281](../completion-records/HXA-281.md) 和 [ADR-CONNECTORS-003](../adr/connectors/003-ownership-and-installation.md)。以下描述当前源码能力，不代表旧发布 APK 已支持。
+更新：2026-11-20。对应 [HXA-275](../completion-records/HXA-275.md)、[HXA-281](../completion-records/HXA-281.md) 和 [ADR-CONNECTORS-003](../adr/connectors/003-ownership-and-installation.md)。以下描述当前源码能力，不代表旧发布 APK 已支持。
 
 ## 格式与执行边界
 
 原生 Mobile Use/Browser 使用短 `SKILL.md` 入口，长流程放在 `references/` 中，通过 `skills_read_resource` 按准确快照读取。会话选择只注入发现元数据及必需短操作规则；正文通过普通读取或可信用户显式激活装载。原生参考资料的字节也绑定内容 hash，不能用同名新资料替代已接受的旧快照。外部导入仍采用现有文件快照，不执行包内脚本。
+
+### 提示内容归属
+
+2026-11-20 核对现有请求路径后，沿用以下分层，不新增提示框架：
+
+| 层次 | 内容与边界 |
+| --- | --- |
+| 宿主环境 `env.*` | Android 宿主事实、当前工作目录、跨工具路径及版本冲突契约。文件参数默认值和读取大小限制由工具 schema 说明，不在环境段重复。 |
+| 插件必要指导 / Skill | 跨工具操作规则放 `requiredInstructions`；流程、平台边缘情况放按需 Skill/参考资料。原生指导和目录来自当前已选且注册就绪的内容快照；未选、停用或注册失败不注入其指南。零工具指导插件仍有效，不能按工具数量删除。 |
+| 单工具 description / 参数 | 作用、有效输入、结果含义和调用必需约束。Mobile Use 保留新鲜 token、坐标基准、输入能力、未知结果不重放；后端固定优先级由实现决定，不让模型据静态说明选后端。 |
+| 动态状态 / 工具结果 | 当前能力、连接/目标/语义可用性、具体拒绝与恢复。注册就绪不等于系统权限齐备；短不可用状态可以保留，不当作执行许可。工具暴露另经模式、发现和禁用过滤，执行仍重新授权。 |
+
+入口是 `PluginService.promptContext` → `NativeContentSnapshot` → `PromptContentContributions` / `SystemPromptContext`，工具经 `ToolModelSchemaProjection` 后交给 Provider。`PromptScope` 是装配审计分类，不是新的模型权限层。Browser 的内置标签边界、Terminal 的共享 UID/非 Android shell/原位与快照区别、文档的不可变引用和页码仍属于正确调用所需事实，不为压缩文本删除。
+
+停用后的过滤约束新请求的目录、必要指导和新的 Skill/资源读取，不清除历史消息中已经观察到的内容，也不让历史节点 token 或旧权限恢复有效性。单个工具被禁用与整个插件停用不同；前者撤回该工具 schema，不能据此删除零工具指导或插件其他仍可用的能力。
+
+工具发现缓存和最终 schema 投影均复查原生 owner 的会话选择、注册就绪及 descriptor 身份，避免注册失效后旧发现项仍暴露。该检查不解析执行 scope、不探测无关 runtime；执行端继续沿原 Dispatcher 授权，不以请求快照替代实时权限。
+
+一手依据：[Codex AGENTS.md](https://developers.openai.com/codex/guides/agents-md)将项目指引与任务上下文分开，[Codex Skills](https://developers.openai.com/codex/skills)渐进加载目录和正文；[Claude Code Skills](https://code.claude.com/docs/en/skills)区分发现描述与工作流，[MCP tool search](https://code.claude.com/docs/en/mcp#scale-with-mcp-tool-search)区分服务说明与按需工具定义；OpenCode 分别提供[项目指引](https://opencode.ai/docs/instructions/)、[工具契约](https://opencode.ai/docs/tools/)和[按需 Skill](https://opencode.ai/docs/skills/)。采用职责分离和按需披露，不照搬桌面权限、上下文阈值或特定 Provider 协议；不推断未公开实现，也不将文本缩短当作任务完成率提升。
 
 标准包入口是根目录 `plugin.json`，采用生产解析器支持的 Agent Plugins `1.0.0` schema；不是 Standard 应用渠道。标准 MCP 配置位于 `mcp.json`。外部导入入口还识别 `.claude-plugin/plugin.json`、`.codex-plugin/plugin.json`、`.codebuddy-plugin/plugin.json`、`connector.json`、MCP JSON 导出和 `qwenwork.mcp/v1`。这里只承诺下表的组件子集，不承诺外部宿主完整运行语义或未来格式版本。
 

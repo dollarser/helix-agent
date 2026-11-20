@@ -25,7 +25,7 @@ object BrowserOpenTool {
             version = ToolVersion(VERSION),
             description =
                 "Open a new Helix in-app browser tab, select it, and navigate it to an http/https " +
-                    "URL. Returns the new tab id; pass it to the other browser.* tools. An empty " +
+                    "URL. Returns the new tab id; pass it to the other browser tools. An empty " +
                     "url opens a blank tab. Use browser_navigate to reuse an existing tab. " +
                     "Opening a tab does not prove page loading; use browser_snapshot to inspect it.",
             inputSchema =

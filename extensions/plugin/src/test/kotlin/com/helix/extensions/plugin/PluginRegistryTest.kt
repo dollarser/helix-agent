@@ -20,6 +20,35 @@ import org.junit.Test
 import kotlin.time.Duration.Companion.seconds
 
 class PluginRegistryTest {
+    @Test fun modelExposureWithdrawsStaleNativeDescriptorsWithoutResolvingExecutionScope() {
+        val catalog = MemoryNativePluginCatalog()
+        val registry = PluginRegistry(ToolRegistry(), catalog)
+        val base = plugin("fixture")
+        val descriptor = base.tools().single().descriptor
+        var unavailable = false
+        registry.register(
+            object : HelixPlugin by base {
+                override fun registrationError() = "UNAVAILABLE".takeIf { unavailable }
+
+                override fun scopeFor(
+                    descriptor: ToolDescriptor,
+                    sessionId: String,
+                ): com.helix.core.policy.UserScope? = error("Model exposure must not resolve execution scope")
+            },
+        )
+        assertFalse(registry.modelAvailable(descriptor, "session"))
+        catalog.selections["session" to "fixture"] = "selection"
+        assertTrue(registry.modelAvailable(descriptor, "session"))
+        assertFalse(registry.modelAvailable(descriptor.copy(description = "retired schema"), "session"))
+        unavailable = true
+        assertFalse(registry.modelAvailable(descriptor, "session"))
+        unavailable = false
+        assertTrue(registry.modelAvailable(descriptor, "session"))
+        registry.setEnabled("fixture", false)
+        assertFalse(registry.modelAvailable(descriptor, "session"))
+        assertTrue(registry.modelAvailable(descriptor.copy(origin = ToolOrigin.BuiltInOrigin), "session"))
+    }
+
     @Test fun unselectedContextDoesNotProbeNativeRuntimeAndSelectionStillRechecksReadiness() {
         val catalog = MemoryNativePluginCatalog()
         val registry = PluginRegistry(ToolRegistry(), catalog)

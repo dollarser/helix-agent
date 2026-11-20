@@ -9,6 +9,7 @@ import com.helix.extensions.mcp.McpToolDispatchFacts
 import com.helix.tools.framework.AuditSink
 import com.helix.tools.framework.ToolDescriptor
 import com.helix.tools.framework.ToolDispatcher
+import com.helix.tools.framework.ToolOrigin
 import com.helix.tools.framework.ToolRegistry
 import com.helix.tools.framework.ToolScheduler
 import kotlinx.serialization.json.JsonObject
@@ -46,8 +47,16 @@ class ToolPipeline(
     internal val mcpDiscovery =
         com.helix.app.mcp
             .McpToolDiscovery(registry) { sessionId, descriptor ->
-                disabledToolFilter?.invoke(sessionId, descriptor) ?: true
+                modelAvailable(sessionId, descriptor)
             }
+
+    /** A stale discovery window must not expose a retired or unselected native registration. */
+    internal fun modelAvailable(
+        sessionId: String,
+        descriptor: ToolDescriptor,
+    ): Boolean =
+        (disabledToolFilter?.invoke(sessionId, descriptor) ?: true) &&
+            (plugins?.modelAvailable(descriptor, sessionId) ?: (descriptor.origin !is ToolOrigin.PluginOrigin))
 
     private var mcpFactsProvider:
         ((String, String, ToolDescriptor, JsonObject, DataSensitivity) -> McpToolDispatchFacts?)? = null

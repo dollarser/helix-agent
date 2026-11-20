@@ -56,12 +56,12 @@ internal object AutomationToolDescriptions {
             }
 
             AutomationTools.BACK -> {
-                "Navigate back once in the authorized phone session using the host-selected ready backend. " +
+                "Navigate back once in the authorized phone session. " +
                     "Observe where navigation ends."
             }
 
             AutomationTools.HOME -> {
-                "Go to Android Home in the authorized session using the host-selected ready backend. " +
+                "Go to Android Home in the authorized session. " +
                     "This does not finish the user's task."
             }
 
@@ -81,8 +81,7 @@ private const val SNAPSHOT_DESCRIPTION =
         "observations. For scrolling choose a node with scrollable=true. " +
         "Offscreen nodes require scrolling before clicking. " +
         "Check truncated/recoveryHint before " +
-        "concluding a control is absent. Observation chooses ready Root, then a computer ADB helper, " +
-        "then Shizuku, then Accessibility."
+        "concluding a control is absent."
 
 private const val FIND_DESCRIPTION =
     "Find controls in a fresh screen observation using observed labels or attributes. " +
@@ -128,7 +127,6 @@ private const val CLICK_MATCH_DESCRIPTION =
         "If the latest observation already has suggestedClickToken, ui_click avoids another read. " +
         "Optional timeoutMillis waits up to 60000; normally omit pollMillis (default " +
         "100, range 50..1000). " +
-        "The runtime selects the available backend; do not supply a backend argument. " +
         "An authorized system Install button is within task scope; " +
         "Android may still require manual confirmation. " +
         "Set observeAfter=true when the next step needs fresh semantic state; read its bounded observation " +

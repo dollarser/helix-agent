@@ -375,10 +375,9 @@ internal class ChatRequestAssembler(
                 admitted,
                 ModelToolExposureOrder.defaultNames(preferred),
             )
-            // HXA-209 (ADR section 1.1): a disabled tool leaves the model schema through the
-            // SAME shared predicate the execution entry refuses with — visible() applies it too,
-            // but the schema list is the last gate before truncation and must not drift.
-            .filter { toolPipeline.disabledToolFilter?.invoke(sessionId, it) ?: true }
+            // Recheck the shared disable predicate and native registration before schema projection.
+            // Discovery uses the same exposure gate; execution still resolves its own authority.
+            .filter { toolPipeline.modelAvailable(sessionId, it) }
             .filter {
                 it.name.value !in
                     (com.helix.app.memory.MemoryTools.reads + com.helix.app.memory.MemoryTools.writes) ||

@@ -71,6 +71,18 @@ class PluginRegistry(
             }
         }
 
+    /** Exposure only: recheck this owner without probing unrelated runtimes or resolving execution scope. */
+    fun modelAvailable(
+        descriptor: com.helix.tools.framework.ToolDescriptor,
+        sessionId: String,
+    ): Boolean {
+        val origin = descriptor.origin as? ToolOrigin.PluginOrigin ?: return true
+        return synchronized(catalog.mutationLock) {
+            catalog.selectionId(sessionId, origin.pluginId) != null &&
+                ready(origin.pluginId) && runtime(descriptor) != null
+        }
+    }
+
     internal fun selectedRuntimes(sessionId: String): List<HelixPlugin> =
         synchronized(catalog.mutationLock) {
             factories

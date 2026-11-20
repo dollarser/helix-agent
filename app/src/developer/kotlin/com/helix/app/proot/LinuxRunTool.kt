@@ -90,7 +90,7 @@ object LinuxRunTool {
                     "Use argv for a program or script for /bin/sh syntax. Returns stdout/stderr and exit code. " +
                     "In-place files stay at their paths; list artifacts for verified references. " +
                     "Snapshot deliverables use output/. Requires ADVANCED and current session authorization. " +
-                    "For FFmpeg read /data/helix-media/bin/README.md. Longer tasks use code.linux.job.start.",
+                    "For FFmpeg read /data/helix-media/bin/README.md. Longer tasks use code_linux_job_start.",
             inputSchema = inputSchema(),
             outputSchema = outputSchema(),
             operationClass = ToolOperationClass.CODE_EXECUTION,
