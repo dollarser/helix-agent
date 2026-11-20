@@ -140,11 +140,11 @@ class MobileUseUnknownSourcesPilotDeviceTest {
                         put("chromeInstallAppOp", appOp)
                         put("permissionAllowed", allowed)
                         put("assistantText", assistantText)
-                        put("usedOpenSettings", calls.any { it.name == "device.open_settings" })
+                        put("usedOpenSettings", calls.any { it.name == "device_open_settings" })
                         put(
                             "openedGooglePlay",
                             calls.any {
-                                it.name == "device.open_url" && it.argsJson.contains("play.google.com")
+                                it.name == "device_open_url" && it.argsJson.contains("play.google.com")
                             },
                         )
                         put(
@@ -181,12 +181,12 @@ class MobileUseUnknownSourcesPilotDeviceTest {
                 check(failure == null) { requireNotNull(failure) }
                 assertTrue("Chrome unknown-app-source permission was not enabled; evidence=$evidenceFile", allowed)
                 assertTrue(
-                    "Model never used device.open_settings; evidence=$evidenceFile",
-                    calls.any { it.name == "device.open_settings" },
+                    "Model never used device_open_settings; evidence=$evidenceFile",
+                    calls.any { it.name == "device_open_settings" },
                 )
                 assertFalse(
                     "Model incorrectly fell back to Google Play; evidence=$evidenceFile",
-                    calls.any { it.name == "device.open_url" && it.argsJson.contains("play.google.com") },
+                    calls.any { it.name == "device_open_url" && it.argsJson.contains("play.google.com") },
                 )
             }
         }
@@ -220,7 +220,7 @@ class MobileUseUnknownSourcesPilotDeviceTest {
         while (
             container.chatService.screen.value.openSessionId != session ||
             com.helix.app.automation.AutomationModule
-                .scopeFor("ui.snapshot", session) == null
+                .scopeFor("ui_snapshot", session) == null
         ) {
             check(SystemClock.elapsedRealtime() < deadline) { "Mobile Use projection did not converge" }
             Thread.sleep(50)

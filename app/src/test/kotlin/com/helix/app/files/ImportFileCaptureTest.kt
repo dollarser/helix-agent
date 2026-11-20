@@ -1,6 +1,8 @@
 package com.helix.app.files
 
 import com.helix.core.workspace.ScopeRootResolver
+import com.helix.core.workspace.WorkspaceFileBackend
+import com.helix.core.workspace.WorkspaceFileInfo
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -86,8 +88,8 @@ class ImportFileCaptureTest {
     @Test fun sameSizeExternalChangeDuringReadIsRejected() {
         var calls = 0
         val backend =
-            object : ManualFileBackend {
-                override fun stat(path: String) = ManualFileInfo(false, 4)
+            object : WorkspaceFileBackend {
+                override fun stat(path: String) = WorkspaceFileInfo(false, 4)
 
                 override fun read(path: String): InputStream =
                     ByteArrayInputStream(

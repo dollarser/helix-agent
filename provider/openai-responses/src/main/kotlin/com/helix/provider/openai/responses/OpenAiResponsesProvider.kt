@@ -4,6 +4,7 @@ import com.helix.core.model.ProviderProtocol
 import com.helix.provider.api.CredentialLookup
 import com.helix.provider.api.ProviderConfig
 import com.helix.provider.api.ProviderDescriptor
+import com.helix.provider.api.ProviderToolNames
 import com.helix.provider.api.StreamDecoder
 import com.helix.provider.api.WireModelProvider
 import com.helix.provider.api.resolveCredential
@@ -52,7 +53,7 @@ public class OpenAiResponsesProvider(
     }
 
     override fun decoderFor(request: com.helix.core.model.ModelRequest): StreamDecoder =
-        ResponsesStreamDecoder(ResponsesToolNames(request)::decode)
+        ResponsesStreamDecoder(ProviderToolNames(request)::decode)
 
     override fun streamPath(): String = STREAM_PATH
 

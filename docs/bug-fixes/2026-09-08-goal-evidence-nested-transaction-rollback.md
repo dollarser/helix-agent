@@ -37,4 +37,4 @@ This is component/transaction acceptance, not physical-device, true process-kill
 
 - [HXA-102 verification records](../completion-records/HXA-102.md)
 - [ADR-GOAL-001 evidence verification contract](../adr/goal/001-lifecycle-and-completion.md)
-- [Current optimization checklist](../evidence/development/main-optimization-todo.md)
+- [Historical optimization checklist](../evidence/development/main-optimization-todo.md)

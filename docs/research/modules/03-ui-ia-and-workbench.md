@@ -189,7 +189,7 @@ active Turn 不因这些 UI 变更 retroactively 改写。
 
 ### Expert
 
-当前没有 Expert domain。下一轮若实现，先定义一个 Session-level behavior preset；一个 Session 最多一个 primary Expert。
+研究时没有 Expert domain。下列为当时设计建议，当前实现以 [status](../../development/status.md) 和相应 ADR 为准；若实施，先定义一个 Session-level behavior preset；一个 Session 最多一个 primary Expert。
 
 Expert 可以建议：
 
@@ -238,7 +238,7 @@ submit acceptance
 immutable bounded content snapshot
 ```
 
-Memory 只有 HXA-230 的真实 Markdown-native memory backend 存在时才展示。不能先做一个空“记忆”菜单。Memory 的 global/project scope、`MEMORY.md`/topic Markdown 与 progressive disclosure 见 `../agent-memory-and-activity-presentation-2026-09-26.md`。
+Memory 只有 HXA-230 的真实 Markdown-native memory backend 存在时才展示。不能先做一个空“记忆”菜单。Memory 的 global/project scope、`MEMORY.md`/topic Markdown 与 progressive disclosure 见 [历史 Memory 设计](../../evidence/research-history/agent-memory-and-activity-presentation-2026-09-26.md)。
 
 ## 12. Session Permission 需要产品语义修正
 
@@ -251,9 +251,9 @@ READ_ONLY
 CUSTOM
 ```
 
-但当前 `READ_ONLY` 对 mutation/command 是 ASK，不是真正 DENY，因此用户心智更接近 “Ask before changes”。
+但研究基线的 `READ_ONLY` 对 mutation/command 是 ASK，不是真正 DENY，因此用户心智更接近 “Ask before changes”。
 
-推荐下一轮在 ADR-PERMISSIONS-001 中重新裁决：
+这项后续裁决已进入 [ADR-PERMISSIONS-001](../../adr/permissions/001-session-authorization.md)；以下保留当时建议，不恢复旧预设：
 
 - Approval required；
 - Workspace trusted；

@@ -19,6 +19,7 @@ import com.helix.app.provider.ProviderService
 import com.helix.app.provider.ProviderTestStatusStore
 import com.helix.app.sendTestMessage
 import com.helix.app.test.ForegroundDeviceTestHost
+import com.helix.app.test.registeredFixtureToolName
 import com.helix.app.vision.BoundImageAccess
 import com.helix.app.vision.ToolVisionConsent
 import com.helix.core.model.ModelRole
@@ -58,6 +59,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -88,7 +90,7 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
     companion object {
         private const val SESSION_ID = "session-e2e"
         private const val PROVIDER_ID = "prov-e2e"
-        private const val SCOPE_ID = "scope-ws"
+        private const val SCOPE_ID = "app"
         private const val URI_KEY = "content://fake/share/1"
         private const val AWAIT_TIMEOUT_MILLIS = 30_000L
         private const val POLL_MILLIS = 25L
@@ -100,6 +102,7 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
 
     /** The fake SAF uri -> the local file it serves (the uri is never a real path). */
     private val sourceFiles = HashMap<String, File>()
+    private val fixturePipelines = HashMap<HelixStorage, com.helix.app.tool.ToolPipeline>()
 
     @Test
     fun goalContinueUsesTheRealModelBoundaryAndPersistsLifetimeUsage() {
@@ -326,8 +329,8 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
                             .GoalBudgets(maxGoalRounds = 1),
                     )
                 }
+            fixture.wire.scriptToolCall("executed", "time_now", "{}")
             fixture.wire.script(
-                sseResponse(toolCallStream("executed", "\"time.now\"", "{}")),
                 sseResponse(textAnswerStream("checked")),
                 sseResponse(textAnswerStream("continued")),
             )
@@ -389,8 +392,10 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
                             .GoalBudgets(maxGoalRounds = 1),
                     )
                 }
+            fixture.wire.scriptForRequest { body ->
+                sseResponse(twoTimeCallStream(registeredFixtureToolName(body, "time_now")))
+            }
             fixture.wire.script(
-                sseResponse(twoTimeCallStream()),
                 sseResponse(textAnswerStream("checked twice")),
                 sseResponse(textAnswerStream("continued")),
             )
@@ -486,11 +491,12 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
         }
     }
 
-    private fun twoTimeCallStream(): String {
+    private fun twoTimeCallStream(wireName: String): String {
+        val nameJson = org.json.JSONObject.quote(wireName)
         val extra =
             "{\"id\":\"two\",\"index\":1,\"type\":\"function\"," +
-                "\"function\":{\"name\":\"time.now\",\"arguments\":\"{}\"}},"
-        return toolCallStream("one", "\"time.now\"", "{}").replace(
+                "\"function\":{\"name\":$nameJson,\"arguments\":\"{}\"}},"
+        return toolCallStream("one", nameJson, "{}").replace(
             "\"tool_calls\":[",
             "\"tool_calls\":[" + extra,
         )
@@ -644,6 +650,24 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
             assertTrue("request must carry the attachment label, was: $body1", body1.contains("【附件 1/1"))
             assertTrue("request must carry the bound hash", body1.contains(rawSha.take(16)))
             assertTrue("request must carry the UNTRUSTED marker", body1.contains(AttachmentContext.UNTRUSTED_MARKER))
+            assertFalse("ordinary attachment bytes are not injected", body1.contains("e2e text body one"))
+            val restoreErrors =
+                runBlocking {
+                    fixture.service.restoreDraftAttachments(SESSION_ID, listOf(binding.artifactId))
+                }
+            assertTrue(restoreErrors.isEmpty())
+            fixture.service.removePendingAttachment(binding.artifactId)
+            await(fixture, "bound input removed from composer") {
+                fixture.service.screen.value.pendingAttachments
+                    .isEmpty()
+            }
+            assertEquals(
+                binding.boundSha256,
+                fixture.storage.artifacts
+                    .resolve(binding.artifactId)
+                    .sha256,
+            )
+
             assertEquals("收到附件，共 2 行。", fixture.assistantMessage())
 
             // History recovery through the REAL request path: a second (plain) send must
@@ -692,14 +716,24 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
 
                 assertEquals(1, fixture.wire.callCount)
                 val body = fixture.wire.lastRequestBody
+                assertFalse("source references must not be double wrapped", body.contains("scope:app:scope:app:"))
+                val source =
+                    fixture.storage.artifacts
+                        .listBySession(
+                            requireNotNull(fixture.service.screen.value.openSessionId),
+                        ).first()
+                assertTrue(
+                    "the actual persisted source reference reaches the model",
+                    body.contains(source.relativePath),
+                )
                 assertTrue("$name: the wire must carry the attachment label", body.contains("【附件 1/1"))
                 assertTrue(
                     "$name: the attachment block must be UNTRUSTED",
                     body.contains(AttachmentContext.UNTRUSTED_MARKER),
                 )
                 assertTrue(
-                    "$name: the wire must carry the extracted text, was: $body",
-                    body.contains(marker),
+                    "$name: the wire must not carry extracted text, was: $body",
+                    !body.contains(marker),
                 )
             } finally {
                 settleAndClose(fixture)
@@ -760,7 +794,7 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
     }
 
     @Test
-    fun ephemeralDraftImageCanPreviewAndRemoveWithoutPersistingASession() {
+    fun draftImageIsPinnedAndRemovalRetiresBothSnapshotsRecoverably() {
         val fixture = newFixture(vision = true)
         try {
             await(fixture, "session opens") { fixture.service.screen.value.openSessionId == SESSION_ID }
@@ -774,17 +808,37 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
             assertTrue(runBlocking { fixture.service.previewImage(reference) } != null)
             assertEquals(0, fixture.wire.callCount)
             assertEquals(
-                1,
+                2,
                 fixture.storage.sessions
                     .list()
                     .size,
             )
+            val snapshots = fixture.storage.artifacts.listBySession(draftId)
+            assertEquals(2, snapshots.size)
             fixture.service.removePendingAttachment(pending.id)
             await(fixture, "draft image removed") {
                 fixture.service.screen.value.pendingAttachments
                     .isEmpty()
             }
             org.junit.Assert.assertNull(runBlocking { fixture.service.previewImage(reference) })
+            assertTrue(
+                fixture.storage.artifacts
+                    .listBySession(draftId)
+                    .isEmpty(),
+            )
+            val trash = File(fixture.workspaceRoot, ".helix/trash").listFiles().orEmpty()
+            assertEquals("both original and normalized bytes remain recoverable", 2, trash.size)
+            val store = WorkspaceArtifactStore(ScopeRootResolver { fixture.workspaceRoot.toPath() })
+            trash.forEach { store.restoreFromTrash(FileScopePath("app", ".helix/trash/${it.name}")) }
+            snapshots.forEach { artifact ->
+                val file =
+                    File(fixture.workspaceRoot, FileScopePath.fromModelReference(artifact.relativePath).relativePath)
+                assertEquals(
+                    artifact.sha256,
+                    com.helix.core.workspace.AtomicFileWriter
+                        .sha256Hex(file.toPath()),
+                )
+            }
         } finally {
             settleAndClose(fixture)
         }
@@ -1068,7 +1122,7 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
         try {
             stageImageAttachment(fixture)
             fixture.wire.script(
-                httpErrorResponse(500),
+                httpErrorResponse(400),
                 sseResponse(textAnswerStream("不会到达。")),
             )
             sendToDisclosure(fixture)
@@ -1113,29 +1167,32 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
     @Test
     fun toolBackfillKeepsContentBeyondTheTimelinePreview() {
         val fixture = newFixture(vision = false)
-        val name = "backfill-${UUID.randomUUID()}.txt"
-        val binding = requireNotNull(fixture.storage.workspaces.binding(SESSION_ID))
-        val file =
-            fixture.storage.workspaces
-                .managedDirectory(binding.workspaceId)
-                .resolve(name)
-                .toFile()
-        val path = "scope:${binding.workspaceId}:$name"
         val tail = "VERIFIED_PAYLOAD_TAIL"
         try {
-            file.parentFile!!.mkdirs()
-            file.writeText("synthetic prefix ".repeat(100) + tail)
-            stageTextAttachment(fixture, "Read the selected fixture file.\n")
-            fixture.wire.script(
-                sseResponse(toolCallStream("call-long-result", "\"read\"", """{"path":"$path"}""")),
-                sseResponse(textAnswerStream("Fixture read completed.")),
-            )
+            authorizeFixtureAttachmentRead(fixture)
+            stageTextAttachment(fixture, "synthetic prefix ".repeat(600) + tail)
+            val path =
+                fixture.storage.artifacts
+                    .listBySession(SESSION_ID)
+                    .single()
+                    .relativePath
+            fixture.wire.scriptToolCall("call-long-result", "read", """{"path":"$path"}""")
+            fixture.wire.script(sseResponse(textAnswerStream("Fixture read completed.")))
             sendToDisclosure(fixture)
             fixture.service.confirmSend()
             await(fixture, "full tool payload is backfilled") {
                 fixture.wire.callCount == 2 && turnIsTerminal(fixture)
             }
-            assertTrue("model must receive the tail beyond 512 characters", fixture.wire.lastRequestBody.contains(tail))
+            assertFalse(
+                fixture.wire.requests
+                    .first()
+                    .body
+                    .contains("synthetic prefix"),
+            )
+            assertTrue(
+                "model must receive the tail beyond the attachment preview",
+                fixture.wire.lastRequestBody.contains(tail),
+            )
             val toolMessage =
                 fixture.storage.messages
                     .listBySession(SESSION_ID)
@@ -1148,8 +1205,202 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
             )
         } finally {
             settleAndClose(fixture)
-            file.delete()
         }
+    }
+
+    @Test
+    fun projectSwitchKeepsAttachmentIdentityAndUnreadableToolPathReportsFailure() {
+        val fixture = newFixture(vision = false)
+        try {
+            authorizeFixtureAttachmentRead(fixture)
+            stageTextAttachment(fixture, "PRIVATE_NOT_IN_REQUEST")
+            val artifact =
+                fixture.storage.artifacts
+                    .listBySession(SESSION_ID)
+                    .single()
+            val projectSession = "project-owner-${UUID.randomUUID()}"
+            fixture.storage.sessions.create(projectSession, "Project", PROVIDER_ID, "model-e2e", 1)
+            val directoryReference = fixture.storage.workspaces.defaultDirectory(projectSession, 1)
+            val directory = FileScopePath.fromModelReference(directoryReference)
+            val projectId = "project-${UUID.randomUUID()}"
+            fixture.storage.projects.create(
+                com.helix.core.storage.entity.ProjectEntity(
+                    projectId,
+                    "Attachment project",
+                    "",
+                    "",
+                    directory.scopeId,
+                    "",
+                    1,
+                    1,
+                    1,
+                    null,
+                ),
+            )
+            assertTrue(runBlocking { fixture.service.selectConversationProject(SESSION_ID, projectId) })
+            assertTrue(runBlocking { fixture.service.selectConversationProject(SESSION_ID, null) })
+            assertEquals(artifact, fixture.storage.artifacts.resolve(artifact.id))
+            val missing = artifact.relativePath + ".missing"
+            fixture.wire.scriptToolCall("missing-source", "read", """{"path":"$missing"}""")
+            fixture.wire.script(sseResponse(textAnswerStream("The requested file could not be read.")))
+            sendToDisclosure(fixture)
+            fixture.service.confirmSend()
+            await(fixture, "read failure reaches the model") { fixture.wire.callCount == 2 && turnIsTerminal(fixture) }
+            assertFalse(
+                fixture.wire.requests
+                    .first()
+                    .body
+                    .contains("PRIVATE_NOT_IN_REQUEST"),
+            )
+            assertTrue(
+                "Missing file must reach the model as a read error",
+                fixture.wire.lastRequestBody.contains("not found"),
+            )
+            val relativePath = FileScopePath.fromModelReference(artifact.relativePath).relativePath
+            assertTrue(File(fixture.workspaceRoot, relativePath).isFile)
+        } finally {
+            settleAndClose(fixture)
+        }
+    }
+
+    @Test
+    fun removingPendingAttachmentPreservesAnotherSessionsSharedSnapshot() {
+        val fixture = newFixture(vision = false)
+        try {
+            stageTextAttachment(fixture, "shared snapshot bytes")
+            val source =
+                fixture.storage.artifacts
+                    .listBySession(SESSION_ID)
+                    .single()
+            val fork = "attachment-fork-${UUID.randomUUID()}"
+            fixture.storage.sessions.create(fork, "Fork", PROVIDER_ID, "model-e2e", 1)
+            val copied = fixture.storage.artifacts.copyReference(source.id, "shared-${UUID.randomUUID()}", fork)
+            fixture.service.removePendingAttachment(source.id)
+            await(fixture, "only unbound owner is released") {
+                fixture.storage.artifacts
+                    .listBySession(SESSION_ID)
+                    .isEmpty()
+            }
+            assertEquals(copied, fixture.storage.artifacts.resolve(copied.id))
+            val path = FileScopePath.fromModelReference(copied.relativePath)
+            assertEquals("shared snapshot bytes", File(fixture.workspaceRoot, path.relativePath).readText())
+        } finally {
+            settleAndClose(fixture)
+        }
+    }
+
+    @Test
+    @Suppress("LongMethod") // One imported source follows the real copy/read/conflict and project reuse flow.
+    fun explicitProjectCopyIsReadableAndConflictDoesNotReplaceEitherFile() {
+        val fixture = newFixture(vision = false)
+        try {
+            authorizeFixtureAttachmentRead(fixture)
+            val config = requireNotNull(fixture.storage.sessionPermissionConfigs.forSession(SESSION_ID))
+            fixture.storage.sessionPermissionConfigs.setForSession(
+                SESSION_ID,
+                config.copy(
+                    rules =
+                        config.rules +
+                            (
+                                com.helix.core.model.OperationEffect.FILE_MUTATION_WORKSPACE to
+                                    com.helix.core.model.OperationRule.ALLOW
+                            ),
+                ),
+                System.currentTimeMillis(),
+            )
+            fixture.service.setMode(com.helix.core.model.AgentMode.ACT)
+            await(fixture, "user execution mode persists") {
+                fixture.service.runControl.value.mode == com.helix.core.model.AgentMode.ACT
+            }
+            stageTextAttachment(fixture, "PROJECT_REUSABLE_ATTACHMENT")
+            val source =
+                fixture.storage.artifacts
+                    .listBySession(SESSION_ID)
+                    .single()
+            val directory = FileScopePath.fromModelReference(fixture.storage.workspaces.defaultDirectory(SESSION_ID, 1))
+            val project =
+                com.helix.core.storage.entity.ProjectEntity(
+                    "project-${UUID.randomUUID()}",
+                    "Reuse",
+                    "",
+                    "",
+                    directory.scopeId,
+                    "",
+                    1,
+                    1,
+                    1,
+                    null,
+                )
+            fixture.storage.projects.create(project)
+            assertTrue(runBlocking { fixture.service.selectConversationProject(SESSION_ID, project.id) })
+            val destination = FileScopePath(directory.scopeId, "shared-attachment.txt")
+            val args = """{"source":"${source.relativePath}","destination":"${destination.toModelReference()}"}"""
+            fixture.wire.scriptToolCall("project-copy", "files_copy", args)
+            fixture.wire.scriptToolCall("project-read", "read", """{"path":"shared-attachment.txt"}""")
+            fixture.wire.scriptToolCall("project-conflict", "files_copy", args)
+            fixture.wire.script(sseResponse(textAnswerStream("Copied explicitly; source preserved.")))
+            fixture.service.sendTestMessage("将附件复制为当前项目的 shared-attachment.txt，读取后验证重复复制不会覆盖。")
+            await(fixture, "copy disclosure") { fixture.service.screen.value.pendingDisclosure != null }
+            fixture.service.confirmSend()
+            await(fixture, "project tool chain settles") { fixture.wire.callCount == 4 && turnIsTerminal(fixture) }
+            assertTrue(fixture.wire.lastRequestBody.contains("PROJECT_REUSABLE_ATTACHMENT"))
+            assertTrue(fixture.wire.lastRequestBody.contains("destination already exists"))
+            val copied =
+                fixture.storage.workspaces
+                    .managedDirectory(
+                        directory.scopeId,
+                    ).resolve(destination.relativePath)
+            assertEquals("PROJECT_REUSABLE_ATTACHMENT", copied.toFile().readText())
+            val sourcePath = FileScopePath.fromModelReference(source.relativePath)
+            assertEquals(
+                source.sha256,
+                FileContentStore.sha256Hex(File(fixture.workspaceRoot, sourcePath.relativePath)),
+            )
+            val other = "project-reader-${UUID.randomUUID()}"
+            fixture.storage.sessions.create(other, "Other project conversation", PROVIDER_ID, "model-e2e", 1)
+            fixture.service.openSession(other)
+            await(fixture, "second project conversation opens") { fixture.service.screen.value.openSessionId == other }
+            assertTrue(runBlocking { fixture.service.selectConversationProject(other, project.id) })
+            assertEquals(
+                fixture.storage.sessions
+                    .resolve(SESSION_ID)
+                    .directoryRef,
+                fixture.storage.sessions
+                    .resolve(other)
+                    .directoryRef,
+            )
+            copied.toFile().writeText("EDITABLE_PROJECT_COPY")
+            assertEquals("PROJECT_REUSABLE_ATTACHMENT", File(fixture.workspaceRoot, sourcePath.relativePath).readText())
+            com.helix.app.test
+                .discoverFixtureTool(requireNotNull(fixturePipelines[fixture.storage]), other, "read")
+            fixture.wire.scriptToolCall("reuse-project-file", "read", """{"path":"shared-attachment.txt"}""")
+            fixture.wire.script(sseResponse(textAnswerStream("Read the editable project copy.")))
+            fixture.service.sendTestMessage("读取当前项目中的 shared-attachment.txt")
+            await(fixture, "other conversation reads the project copy") {
+                fixture.wire.callCount == 6 &&
+                    fixture.storage.turns
+                        .listBySession(other)
+                        .any { it.state == TurnState.COMPLETED.name }
+            }
+            assertTrue(fixture.wire.lastRequestBody.contains("EDITABLE_PROJECT_COPY"))
+        } finally {
+            settleAndClose(fixture)
+        }
+    }
+
+    /** Synthetic user configuration, never model-granted permission or a production default change. */
+    private fun authorizeFixtureAttachmentRead(fixture: Fixture) {
+        val previous = requireNotNull(fixture.storage.sessionPermissionConfigs.forSession(SESSION_ID))
+        val externalRead = com.helix.core.model.OperationEffect.FILE_READ_EXTERNAL
+        val allow = com.helix.core.model.OperationRule.ALLOW
+        fixture.storage.sessionPermissionConfigs.setForSession(
+            SESSION_ID,
+            previous.copy(
+                mode = com.helix.core.model.SessionPermissionMode.CUSTOM,
+                rules = previous.rules + (externalRead to allow),
+            ),
+            System.currentTimeMillis(),
+        )
     }
 
     private fun persistedToolAliases(fixture: Fixture): Map<String, String> {
@@ -1171,18 +1422,44 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
 
     @Test
     fun repeatedWireIdAcrossSuccessfulRoundsKeepsIndependentLocalResults() {
-        verifyRepeatedWireId("\"time.now\"", "COMPLETED")
+        verifyRepeatedWireId("COMPLETED")
     }
 
     @Test
     fun repeatedWireIdAcrossRejectedRoundsKeepsIndependentLocalResults() {
-        // Unknown/unexposed tools are framework failures, not user or recovery-policy denials.
-        verifyRepeatedWireId("\"fixture.unregistered\"", "FAILED")
+        // A declared tool with invalid schema reaches dispatch without executing or causing effects.
+        verifyRepeatedWireId("DENIED", expectedResultStatus = "DENIED", argsJson = """{"unexpected":true}""")
+    }
+
+    @Test
+    fun unknownWireToolFailsBeforeCreatingAnyLocalToolCall() {
+        val fixture = newFixture(vision = false)
+        try {
+            stageTextAttachment(fixture, "synthetic unknown tool fixture")
+            fixture.wire.script(sseResponse(toolCallStream("unknown", "\"fixture_unregistered\"", "{}")))
+            sendToDisclosure(fixture)
+            fixture.service.confirmSend()
+            await(fixture, "unknown tool terminalizes at the protocol boundary") { turnIsTerminal(fixture) }
+            val turn =
+                fixture.storage.turns
+                    .listBySession(SESSION_ID)
+                    .single()
+            assertEquals(TurnState.FAILED.name, turn.state)
+            assertEquals("PROTOCOL", turn.errorCode)
+            assertEquals(1, fixture.wire.callCount)
+            assertTrue(
+                fixture.storage.toolCalls
+                    .listByTurn(turn.id)
+                    .isEmpty(),
+            )
+        } finally {
+            settleAndClose(fixture)
+        }
     }
 
     @Test
     fun selectedSessionModelIsUsedForInitialAndBackfillRequests() {
-        verifyRepeatedWireId("\"time.now\"", "COMPLETED", sessionModel = "session-selected-model")
+        verifyRepeatedWireId("COMPLETED", sessionModel = "session-selected-model")
     }
 
     @Test
@@ -1212,8 +1489,8 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
                     .modelId == "model-e2e"
             }
             assertEquals(0, fixture.wire.callCount)
+            fixture.wire.scriptToolCall("explicit-model-tool", "time_now", "{}")
             fixture.wire.script(
-                sseResponse(toolCallStream("explicit-model-tool", "\"time.now\"", "{}")),
                 sseResponse(textAnswerStream("Explicit selection completed.")),
             )
             val admitted =
@@ -1267,19 +1544,16 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
     }
 
     private fun verifyRepeatedWireId(
-        nameJson: String,
         expectedState: String,
+        expectedResultStatus: String = "SUCCEEDED",
         argsJson: String = "{}",
         sessionModel: String? = "model-e2e",
     ) {
         val fixture = newFixture(vision = false, sessionModel = sessionModel)
         try {
             stageTextAttachment(fixture, "synthetic repeated tool id fixture")
-            fixture.wire.script(
-                sseResponse(toolCallStream("same-wire-id", nameJson, argsJson)),
-                sseResponse(toolCallStream("same-wire-id", nameJson, argsJson)),
-                sseResponse(textAnswerStream("Repeated calls handled.")),
-            )
+            repeat(2) { fixture.wire.scriptToolCall("same-wire-id", "time_now", argsJson) }
+            fixture.wire.script(sseResponse(textAnswerStream("Repeated calls handled.")))
             sendToDisclosure(fixture)
             fixture.service.confirmSend()
             await(fixture, "two repeated-ID rounds complete") {
@@ -1301,28 +1575,60 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
                 val result = fixture.storage.toolResults.byToolCall(call.callId)
                 assertEquals("tool=${call.name}, result=$result, turn=${turn.errorCode}", expectedState, call.state)
                 assertNotNull(result)
-                if (expectedState == "FAILED") {
-                    assertEquals("FAILED", result?.status)
-                    assertTrue(requireNotNull(result).summary.isNotBlank())
+                assertEquals(expectedResultStatus, result?.status)
+                if (expectedState == "DENIED") {
+                    assertTrue(requireNotNull(result).summary.contains("registered schema"))
+                    assertTrue(result.summary.contains("unexpected"))
                 }
-                assertTrue(!fixture.wire.lastRequestBody.contains(call.callId))
             }
             verifyLiveToolLabels(fixture, calls.map { it.callId }.toSet(), expectedState)
-            val messages =
-                kotlinx.serialization.json.Json
-                    .parseToJsonElement(fixture.wire.lastRequestBody)
-                    .let { it as kotlinx.serialization.json.JsonObject }
-                    .getValue("messages")
-                    as kotlinx.serialization.json.JsonArray
-            val results =
-                messages
-                    .map { it as kotlinx.serialization.json.JsonObject }
-                    .filter { it["role"].toString() == "\"tool\"" }
-            assertEquals(2, results.size)
-            results.forEach { assertEquals("\"same-wire-id\"", it["tool_call_id"].toString()) }
+            verifyRepeatedToolBackfill(
+                fixture.wire.lastRequestBody,
+                calls.map { "${turn.id}/${it.callId}" }.toSet(),
+                if (expectedState == "DENIED") "INVALID_ARGUMENTS" else "SUCCEEDED",
+            )
         } finally {
             settleAndClose(fixture)
         }
+    }
+
+    private fun verifyRepeatedToolBackfill(
+        requestBody: String,
+        expectedCallRefs: Set<String>,
+        outcomeCode: String,
+    ) {
+        val array = org.json.JSONObject(requestBody).getJSONArray("messages")
+        val messages = (0 until array.length()).map(array::getJSONObject)
+        val results = messages.filter { it.getString("role") == "tool" }
+        assertEquals(2, results.size)
+        results.forEach {
+            assertEquals("same-wire-id", it.getString("tool_call_id"))
+            assertTrue(it.getString("content").startsWith("[$outcomeCode] "))
+        }
+        val calls =
+            messages.filter { it.optJSONArray("tool_calls") != null }.flatMap { message ->
+                val toolCalls = message.getJSONArray("tool_calls")
+                (0 until toolCalls.length()).map(toolCalls::getJSONObject)
+            }
+        assertEquals(2, calls.size)
+        calls.forEach { call ->
+            assertEquals("same-wire-id", call.getString("id"))
+            assertFalse(call.has("localId"))
+            assertEquals(
+                registeredFixtureToolName(requestBody, "time_now"),
+                call.getJSONObject("function").getString("name"),
+            )
+        }
+        // Local references are intentional result-delivery facts, not protocol pairing identities.
+        val deliveredRefs =
+            results
+                .map { result ->
+                    org.json
+                        .JSONObject(
+                            result.getString("content").substringAfter("\nDelivery facts: "),
+                        ).getString("callRef")
+                }.toSet()
+        assertEquals(expectedCallRefs, deliveredRefs)
     }
 
     private fun verifyLiveToolLabels(
@@ -1334,10 +1640,10 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
         val zh = AppLanguageStore.wrapForLocale(context, AppLanguageStore.localeListFor(AppLanguage.ZH_CN))
         val label =
             zh.getString(
-                if (expectedState == "COMPLETED") {
-                    ConversationR.string.tool_state_completed
-                } else {
-                    ConversationR.string.tool_state_failed
+                when (expectedState) {
+                    "COMPLETED" -> ConversationR.string.tool_state_completed
+                    "DENIED" -> com.helix.app.R.string.approval_code_invalid_arguments
+                    else -> error("Unexpected repeated-call fixture state $expectedState")
                 },
             )
         await(fixture, "tool timeline contains the exact settled local calls") {
@@ -1356,8 +1662,8 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
         val fixture = newFixture(vision = false)
         try {
             stageTextAttachment(fixture, "e2e tool body\n")
+            fixture.wire.scriptToolCall("call-e2e", "time_now", "{}")
             fixture.wire.script(
-                sseResponse(toolCallStream("call-e2e", "\"time.now\"", "{}")),
                 sseResponse(textAnswerStream("现在的时间已查到。")),
             )
 
@@ -1375,7 +1681,7 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
             // The tool actually ran (durable timeline row) and the FINAL answer persisted.
             val toolCalls = fixture.storage.toolCalls.listByTurn(turn.id)
             assertEquals(1, toolCalls.size)
-            assertEquals("time.now", toolCalls.single().name)
+            assertEquals("time_now", toolCalls.single().name)
             assertEquals("现在的时间已查到。", fixture.assistantMessage())
             // The back-fill request carried BOTH the attachment block and the tool result.
             val body2 = fixture.wire.lastRequestBody
@@ -1819,7 +2125,9 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
         // attachments are always session-scoped).
         storage.sessions.create(SESSION_ID, "e2e session", PROVIDER_ID, sessionModel, System.currentTimeMillis())
         service.openSession(SESSION_ID)
-        return Fixture(storage, service, wire, workspaceRoot, dbName, dataDir, serviceScope, suffix, vision)
+        return Fixture(storage, service, wire, workspaceRoot, dbName, dataDir, serviceScope, suffix, vision).also {
+            await(it, "fixture session opens") { service.screen.value.openSessionId == SESSION_ID }
+        }
     }
 
     /** Builds the production-shaped ChatService over [storage] (fresh in-memory state). */
@@ -1883,7 +2191,7 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
             storage = storage,
             providerService = providerService,
             profileStore = FixedStandardProfileStore,
-            toolPipeline = fixtureToolPipeline(app, storage),
+            toolPipeline = fixtureToolPipeline(app, storage, workspaceRoot),
             idGenerator = { "id-${UUID.randomUUID()}" },
             scope = serviceScope,
             attachmentStaging = stagingFor(workspaceRoot),
@@ -1895,9 +2203,10 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
     private fun fixtureToolPipeline(
         app: HelixApplication,
         storage: HelixStorage,
+        attachmentRoot: File,
     ): com.helix.app.tool.ToolPipeline {
         val shared = app.appContainer.toolPipeline
-        val registry = fixtureImplementations(shared, storage)
+        val registry = fixtureImplementations(shared, storage, attachmentRoot)
         val clock =
             com.helix.core.model
                 .SystemClock()
@@ -1948,27 +2257,52 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
                 com.helix.tools.framework
                     .ToolScheduler(clock, dispatcher, registry),
             ).also { pipeline ->
-                com.helix.app.test
-                    .discoverFixtureTool(pipeline, SESSION_ID, "time.now")
+                discoverAttachmentTools(storage, pipeline)
             }
+    }
+
+    private fun discoverAttachmentTools(
+        storage: HelixStorage,
+        pipeline: com.helix.app.tool.ToolPipeline,
+    ) {
+        fixturePipelines[storage] = pipeline
+        listOf("time_now", "read", "files_copy").forEach { name ->
+            com.helix.app.test
+                .discoverFixtureTool(pipeline, SESSION_ID, name)
+        }
     }
 
     /** File execution and authorization must resolve the same fixture-owned Workspace registry. */
     private fun fixtureImplementations(
         shared: com.helix.app.tool.ToolPipeline,
         storage: HelixStorage,
+        attachmentRoot: File,
     ): com.helix.tools.framework.ToolRegistry {
         val registry =
             com.helix.tools.framework
                 .ToolRegistry()
-        val store = WorkspaceArtifactStore(ScopeRootResolver(storage.workspaces::managedDirectory))
+        val store =
+            WorkspaceArtifactStore(
+                ScopeRootResolver { scope ->
+                    if (scope == "app") attachmentRoot.toPath() else storage.workspaces.managedDirectory(scope)
+                },
+            )
         shared.registry.all().forEach { descriptor ->
             val executor =
-                if (descriptor.name.value == "read") {
-                    com.helix.tools.files.ReadTool
-                        .executor(store)
-                } else {
-                    requireNotNull(shared.registry.executor(descriptor.name, descriptor.version))
+                when (descriptor.name.value) {
+                    "read" -> {
+                        com.helix.tools.files.ReadTool
+                            .executor(store)
+                    }
+
+                    "files_copy" -> {
+                        com.helix.tools.files.FilesCopyTool
+                            .executor(store)
+                    }
+
+                    else -> {
+                        requireNotNull(shared.registry.executor(descriptor.name, descriptor.version))
+                    }
                 }
             registry.register(descriptor, executor)
         }

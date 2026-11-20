@@ -1,5 +1,7 @@
 package com.helix.runtime.cli.app
 
+import com.helix.runtime.cli.client.CliModelJobRecord
+import com.helix.runtime.cli.client.CliModelJobState
 import java.io.IOException
 import java.net.ConnectException
 import java.net.SocketTimeoutException
@@ -70,11 +72,11 @@ internal object CodexLoginFailure {
 
     fun smokeResult(
         context: android.content.Context,
-        result: Result<CodexModelJobRecord>,
+        result: Result<CliModelJobRecord>,
     ): String =
         result.fold(
             onSuccess = {
-                if (it.state == CodexModelJobState.SUCCEEDED) {
+                if (it.state == CliModelJobState.SUCCEEDED) {
                     context.getString(R.string.codex_smoke_success, it.model, CodexSubscriptionSmoke.EXPECTED_TEXT)
                 } else {
                     context.getString(R.string.codex_smoke_failed, "job-${it.state.name.lowercase()}", "none")

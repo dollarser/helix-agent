@@ -1,5 +1,7 @@
 # Helix 2026-09-24 审查复核与独立代码审查
 
+> 当前适用边界：本页保留 2026-09-24 的建议；其中新增远端 device CI smoke 未采纳。GitHub CI 当前明确 host-only，本地设备回归走[验证矩阵](../../docs/development/verification-matrix.md)并遵守[AGENTS](../../AGENTS.md)授权范围。版本号、旧迁移链及当时未完成项也不据此恢复为当前要求。
+
 > 复核基线：`main @ 3cf89027`，工作树存在未提交修改。  
 > 范围：`reviews/2026-09-24/` 全部审查材料 + 当前源码/CI/状态文档交叉核验。  
 > 方法：静态源码复核、Git 现场核对、现有测试/验收文档核对；本轮未重新执行 Gradle、模拟器或真机测试，因此涉及运行时触发概率的结论会明确区分“代码确定”与“需动态复现”。
@@ -429,7 +431,7 @@ NoChange("page-requires-navigation")
 - `runtime:quickjs -> tools:framework`
 - `feature:browser -> tools:browser`
 
-后续结构复核已经正确指出：
+[独立架构复核](independent-review/02-architecture.md)已明确裁定（早期结构报告第 1.2 节仍保留误判）：
 
 - storage 持久化 policy 的领域值对象，并不天然构成反转；
 - runtime/feature 实现 tools 中定义的 port，本身符合依赖契约的方式。

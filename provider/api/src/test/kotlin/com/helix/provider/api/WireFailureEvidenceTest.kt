@@ -14,6 +14,21 @@ import java.net.UnknownHostException
 import javax.net.ssl.SSLHandshakeException
 
 class WireFailureEvidenceTest {
+    @Test fun longServerCooldownDoesNotRetryAtTheShorterLocalCap() =
+        runBlocking {
+            val evidence = WireFailureEvidence()
+            val original = response("""{"detail":"Wait for quota reset"}""")
+            evidence.response =
+                WireResponse(
+                    429,
+                    mapOf("Retry-After" to listOf("900"), "X-Request-ID" to listOf("req_123")),
+                    original.body,
+                )
+            val failure = evidence.httpError()
+            assertFalse(failure.retryable)
+            assertEquals("req_123", failure.diagnostic?.requestId)
+        }
+
     @Test fun selectedErrorFieldsAreSanitizedWithoutRetainingTheOtherBodyFields() =
         runBlocking {
             val evidence = WireFailureEvidence()
@@ -36,12 +51,60 @@ class WireFailureEvidenceTest {
             assertFalse(failure.toString().contains("UNSELECTED_BODY_SENTINEL"))
         }
 
+    @Test fun toolSchemaFailuresKeepStructuredLocationForBothWireFormats() =
+        runBlocking {
+            listOf("tools[26].parameters", "tools[26].function.parameters").forEach { parameter ->
+                val evidence = WireFailureEvidence()
+                evidence.response =
+                    response(
+                        """{"error":{"code":"invalid_function_parameters",
+                            "param":"$parameter","message":"Invalid schema"}}""",
+                    )
+                val failure = evidence.httpError()
+                assertEquals(parameter, failure.diagnostic?.errorParameter)
+                assertEquals("invalid_function_parameters", failure.diagnostic?.serverCode)
+            }
+        }
+
+    @Test fun gatewayBudgetFailureKeepsCodeAndForbidsRetry() =
+        runBlocking {
+            val evidence = WireFailureEvidence()
+            val body =
+                response(
+                    """{"error_code":"account_luna_budget_exhausted",
+                        "detail":"Monthly allowance exhausted","retryable":false}""",
+                )
+            evidence.response = WireResponse(429, emptyMap(), body.body)
+            val failure = evidence.httpError()
+            assertFalse(failure.retryable)
+            assertEquals(false, failure.diagnostic?.adapterRetryable)
+            assertEquals("account_luna_budget_exhausted", failure.diagnostic?.serverCode)
+            assertEquals("Monthly allowance exhausted", failure.diagnostic?.serverMessage)
+        }
+
+    @Test fun explicitRetryTrueNeverWidensLocalPolicy() =
+        runBlocking {
+            val evidence = WireFailureEvidence()
+            evidence.response = response("""{"error_code":"provider_auth_failed","retryable":true}""")
+            val failure = evidence.httpError()
+            assertFalse(failure.retryable)
+            assertEquals("provider_auth_failed", failure.diagnostic?.serverCode)
+        }
+
+    @Test fun knownGatewayCodeStillRedactsMatchingCredential() =
+        runBlocking {
+            val evidence = WireFailureEvidence()
+            evidence.requestHeaders(mapOf("Authorization" to "Bearer account_luna_budget_exhausted"))
+            evidence.response = response("""{"error_code":"account_luna_budget_exhausted","retryable":false}""")
+            assertFalse(evidence.httpError().toString().contains("account_luna_budget_exhausted"))
+        }
+
     private fun response(text: String) =
         WireResponse(
             400,
             mapOf(
                 "Content-Type" to listOf("application/json; charset=utf-8"),
-                "X-Request-Id" to listOf("PRIVATE_HEADER_SENTINEL"),
+                "X-Request-Id" to listOf("req_diagnostic_fixture"),
                 "Set-Cookie" to listOf("PRIVATE_COOKIE"),
             ),
             object : WireBody {
@@ -83,19 +146,27 @@ class WireFailureEvidenceTest {
 
     @Test fun missingTerminalMalformedJsonAndNetworkClassesStayDistinct() {
         assertEquals(Reason.MISSING_TERMINAL, WireFailureEvidence.protocolReason("missing terminal"))
+        assertEquals(
+            Reason.INCOMPLETE_TOOL_OUTPUT_LIMIT,
+            WireFailureEvidence.protocolReason("output limit with unfinished tool call"),
+        )
+        assertEquals(
+            Reason.INVALID_FINISH_REASON,
+            WireFailureEvidence.protocolReason("finish reason stop with open tool calls"),
+        )
         assertEquals(Reason.INVALID_JSON, WireFailureEvidence.protocolReason("json: SerializationException"))
         assertEquals(Reason.INVALID_SSE, WireFailureEvidence.protocolReason("sse: invalid encoding"))
         assertEquals(Reason.DNS, WireFailureEvidence.reason(UnknownHostException("PRIVATE_HOST")))
         assertEquals(Reason.TLS, WireFailureEvidence.reason(SSLHandshakeException("PRIVATE_CERT")))
     }
 
-    @Test fun retryAfterIsParsedAndBoundedWithoutLoggingItsRawValue() =
+    @Test fun retryAfterPreservesServerCooldownWithoutLoggingItsRawValue() =
         runBlocking {
             val evidence = WireFailureEvidence()
             evidence.response = WireResponse(429, mapOf("Retry-After" to listOf("30")), response("").body)
             assertEquals(30_000L, evidence.httpFailure(true).retryAfterMillis)
             evidence.response = WireResponse(429, mapOf("retry-after" to listOf("999999999")), response("").body)
-            assertEquals(300_000L, evidence.httpFailure(true).retryAfterMillis)
+            assertEquals(999_999_999_000L, evidence.httpFailure(true).retryAfterMillis)
         }
 
     @Test fun diagnosticReadFailureDoesNotReplaceTheOriginalHttpStatus() =
@@ -120,7 +191,7 @@ class WireFailureEvidenceTest {
             assertFalse(diagnostic.toString().contains("PRIVATE_BODY"))
         }
 
-    @Test fun tlsAndIdentityFailuresAreNotTransientButDnsAndResetAre() {
+    @Test fun transportFailuresNeverReplayAmbiguousRequests() {
         val evidence = WireFailureEvidence()
         val tls =
             evidence.transport(
@@ -138,14 +209,14 @@ class WireFailureEvidenceTest {
         assertFalse(changed.retryable)
         assertEquals(Reason.ACCOUNT_CHANGED, changed.diagnostic?.reason)
         assertFalse(changed.toString().contains("PRIVATE"))
-        org.junit.Assert.assertTrue(
+        assertFalse(
             evidence
                 .transport(
                     UnknownHostException("PRIVATE_HOST"),
                     com.helix.core.model.ModelFailureDiagnostic.Stage.CONNECT,
                 ).retryable,
         )
-        org.junit.Assert.assertTrue(
+        assertFalse(
             evidence
                 .transport(
                     java.net.SocketException("reset"),

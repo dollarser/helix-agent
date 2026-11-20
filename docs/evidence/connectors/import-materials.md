@@ -25,6 +25,6 @@ python3 scripts/connector-samples.py test offline --output build/connector-sampl
 python3 scripts/connector-samples.py test public-mcp --output build/connector-samples-public
 ```
 
-第二条是独立显式联网的匿名文档 MCP 服务验收，不需要样本路径、账号或真实模型。直接 Gradle 执行时，`HELIX_CONNECTOR_ACCEPTANCE_DIR` 现在只启用离线解析；联网另需 `HELIX_PUBLIC_MCP_ACCEPTANCE=true`。设备入口与实际参数见样本说明，不能盲用历史 serial/包名；只有当轮指定设备授权才执行。
+第二条是独立显式联网的匿名文档 MCP 服务验收，不需要样本路径、账号或真实模型。直接 Gradle 执行时，`HELIX_CONNECTOR_ACCEPTANCE_DIR` 现在只启用离线解析；联网另需 `HELIX_PUBLIC_MCP_ACCEPTANCE=true`。设备入口与实际参数见样本说明，不能盲用历史 serial/包名；按当前 [AGENTS 设备范围](../../../AGENTS.md#verification-and-device-authorization)区分项目模拟器预授权与真机明确授权，复跑入口本身不授予外部服务或设备权限。
 
 复制材料不是重新测试。`672dc5a` 集成树验证为 708 JVM 项（702 通过、6 项预期跳过）、2 Python 通过、双 flavor debug 和 consumer AndroidTest 构建及质量门禁通过；设备证据来自此前版本，本次集成未重新运行模拟器。

@@ -16,7 +16,7 @@ class ToolPayloadPresentationTest {
             "nextOffset":1,
             "eof":true}
             """.trimIndent()
-        val shown = presentToolPayload("skills.list", raw).text
+        val shown = presentToolPayload("skills_list", raw).text
         assertTrue(shown.contains("notes"))
         assertTrue(shown.contains("Explain snapshotHash and callId in a document"))
         assertFalse(shown.contains("internal-hash"))
@@ -33,10 +33,10 @@ class ToolPayloadPresentationTest {
                 "error":{"callId":"customer-order"}
             }
             """.trimIndent()
-        val shown = presentToolPayload("skills.read", raw).text
+        val shown = presentToolPayload("skills_read", raw).text
         assertTrue(shown.contains(instructions))
         assertTrue(shown.contains("customer-order"))
-        val external = presentToolPayload("mcp.business.read", raw).text
+        val external = presentToolPayload("mcp_business_read_fixture", raw).text
         assertTrue(external.contains("hidden"))
         assertTrue(external.contains("customer-order"))
     }
@@ -53,7 +53,7 @@ class ToolPayloadPresentationTest {
             "text":"snapshotHash is a visible label",
             "enabled":true}]}
             """.trimIndent()
-        val shown = presentToolPayload("ui.snapshot", raw).text
+        val shown = presentToolPayload("ui_snapshot", raw).text
         assertFalse(shown.contains("private-node"))
         assertFalse(shown.contains("parent-node"))
         assertFalse(shown.contains("88"))
@@ -67,11 +67,11 @@ class ToolPayloadPresentationTest {
             "TARGET_NOT_FOUND: No click dispatched. snapshotHash must be checked.",
             "const callId = 'business';\nconsole.log(callId)",
             "{broken JSON containing snapshotHash",
-        ).forEach { assertEquals(it, presentToolPayload("skills.read", it).text) }
+        ).forEach { assertEquals(it, presentToolPayload("skills_read", it).text) }
     }
 
     @Test fun truncatedJsonSummaryNeverFallsBackToRawInternalMetadata() {
-        val view = presentToolPayload("skills.list", "{\"snapshotHash\":\"internal-hash\",\"entries\":[…")
+        val view = presentToolPayload("skills_list", "{\"snapshotHash\":\"internal-hash\",\"entries\":[…")
         assertTrue(view.incomplete)
         assertEquals("", view.text)
         assertEquals("ordinary prose…", presentToolPayload("read", "ordinary prose…").text)
@@ -80,7 +80,7 @@ class ToolPayloadPresentationTest {
     @Test fun diagnosticViewerKeepsOriginalFieldsWhileSearchUsesOnlyDisplayContent() {
         val raw = """{"name":"notes","snapshotHash":"private-hash","instructions":"business content"}"""
         assertTrue(formatToolPayload(raw).contains("private-hash"))
-        val row = ToolTimelineRow("turn", "call", "skills.read", raw, "COMPLETED", raw, null)
+        val row = ToolTimelineRow("turn", "call", "skills_read", raw, "COMPLETED", raw, null)
         val screen =
             ChatScreenState(emptyList(), "session", null, emptyList(), emptyList(), null, null, null, null)
                 .copy(toolTimeline = listOf(row))
@@ -101,6 +101,6 @@ class ToolPayloadPresentationTest {
 
     @Test fun emptyArgumentsDoNotGeneratePlaceholderContent() {
         assertEquals("", presentToolPayload("read", "{}").text)
-        assertEquals("", presentToolPayload("skills.read", """{"snapshotHash":"hidden","ownerId":"hidden"}""").text)
+        assertEquals("", presentToolPayload("skills_read", """{"snapshotHash":"hidden","ownerId":"hidden"}""").text)
     }
 }

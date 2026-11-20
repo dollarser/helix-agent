@@ -67,7 +67,7 @@ class DurableToolLoopProgressTest {
             )
         }
         // A remote or renamed ordinary tool cannot acquire trusted semantics from its name.
-        assertEquals(ToolLoopProgress.Decision.STOP, decision(calls(name = "goal.get")))
+        assertEquals(ToolLoopProgress.Decision.STOP, decision(calls(name = "goal_get")))
         for (capability in listOf(Capability.ACCESSIBILITY_AUTOMATION, Capability.MOBILE_USE)) {
             assertEquals(
                 if (capability ==
@@ -89,7 +89,7 @@ class DurableToolLoopProgressTest {
     }
 
     @Test fun successfulPhoneCyclesWithFreshTokensAndContentPromptReviewWithoutStopping() {
-        val names = listOf("ui.device", "ui.find", "ui.click", "ui.screenshot")
+        val names = listOf("ui_device", "ui_find", "ui_click", "ui_screenshot")
         val saved =
             List(24) { index ->
                 calls()[0].copy(
@@ -105,11 +105,11 @@ class DurableToolLoopProgressTest {
                     requiredCapabilities = setOf(Capability.MOBILE_USE),
                     operationClass =
                         if (name ==
-                            "ui.click"
+                            "ui_click"
                         ) {
                             ToolOperationClass.EXTERNAL_ACTION
                         } else if (name ==
-                            "ui.screenshot"
+                            "ui_screenshot"
                         ) {
                             ToolOperationClass.LOCAL_MUTATION
                         } else {

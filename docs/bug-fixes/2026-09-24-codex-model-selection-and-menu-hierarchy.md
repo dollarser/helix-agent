@@ -19,13 +19,13 @@ Affected modules: core/storage, app/chat, app/ui
 
 ## Root cause
 
-1. `SessionDao` 缺少更新特定会话模型标识的原子更新方法，`ChatService` 在用户选择新模型后仅在内存状态流动，未能将新的 modelId 写入 Room 数据库；
-2. `NavigationDrawer` 直接对 `ShellDestination.entries` 进行 `forEach` 渲染，未按照功能领域（会话、工作、扩展、设置与管理）分组并支持收折状态驱动；
+1. 原实现已有 `SessionDao.selectModel` 持久化路径，但将 INTERRUPTED Turn 当成活动执行而拒绝切换；ChatService 的草稿分支未核对草稿是否属于目标会话，且部分选择成功路径未刷新会话列表；
+2. `GroupedNavigation` 已按功能分组，但组内入口始终展开，没有收折状态；
 3. Codex Subscription Smoke 测试脚本与客户端定义中的固定版本号未及时跟踪官方发布。
 
 ## Fix and invariants
 
-1. **持久化模型更新**：在 `SessionDao` 中增加原子更新语句 `@Query("UPDATE sessions SET selected_model = :modelId WHERE id = :sessionId")`，并在 `ChatService.switchModel` 中触发持久化与状态刷新。
+1. **模型选择边界**：原提交 `c5d452168` 将 INTERRUPTED 纳入既有 DAO 更新准入，ChatService 同步区分中断历史与活动执行；草稿只在 ID 与目标会话一致时使用，并补齐持久选择后的会话列表刷新。实际字段为 `providerId`/`modelId`，没有新增 `selected_model` 列或 `switchModel` 方法。
 2. **两级折叠抽屉导航**：
    - 在 `GroupedNavigation.kt` 中引入按 `navigationGroup()` 分组的二级折叠抽屉机制；
    - 默认根据当前所在路由自动展开对应的大类组（如处于文件或终端时自动展开“工作”组），支持点击组标题（带 ▴/▾ 指示符）展开或收起；
@@ -39,6 +39,8 @@ Affected modules: core/storage, app/chat, app/ui
 
 ## Regression verification
 
+以下保留原交付记录的验证声明；该页未提供独立运行目录、设备身份或 APK 绑定。本次文档核查通过 Git `c5d452168` 确认上述代码变更，未重新执行这些测试，也不据此扩展其验证范围。
+
 1. 单元测试与端到端测试：
    - `./gradlew :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest` 全部通过；
    - `GroupedNavigationDeviceTest` 与 `MainActivityTest` 全部通过；
@@ -48,7 +50,7 @@ Affected modules: core/storage, app/chat, app/ui
 
 ## Residual risk
 
-无已知剩余风险。
+原记录的真机/测试声明缺少本页可定位的原始运行证据；当前模型目录、运行中切换与中断恢复契约应查 [Provider ADR](../adr/provider/001-models-and-connection.md)，不能仅凭本次历史修复推断全部会话切换场景通过。
 
 ## Related records
 

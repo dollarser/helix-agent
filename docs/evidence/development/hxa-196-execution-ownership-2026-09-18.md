@@ -1,6 +1,6 @@
 # HXA-196：跨调用执行占用切片
 
-日期：2026-09-18。基线：`ea60a282`，独立分支 `codex/hxa-196-product`。这是生产接线的前置切片，不是 HXA-196 完成记录。
+日期：2026-09-18。基线：`ea60a282`，独立分支 `codex/hxa-196-product`。这是生产接线的前置切片，不是 HXA-196 完成记录。下文执行互斥与占用模型仅描述当时实现；当前并发约束以 [AGENTS](../../../AGENTS.md#product-and-architecture-invariants) 和有效 Runtime ADR 为准，不据此恢复全局写入锁。
 
 ## 实现与边界
 
@@ -30,6 +30,6 @@ bash scripts/debug/2026-09-18/run-execution-ownership-device.sh hxa196-ownership
 python3 scripts/debug/2026-09-18/summarize-execution-ownership.py hxa196-ownership-v3'
 ```
 
-## 下一切片
+## 当时的下一切片
 
 优先完成后台 Job 的预算归属和绑定恢复，再接异步工具。Goal heartbeat 与 Job 重叠的时间不得重复计费，Turn 返回后的后台时间不得遗漏；查询不得续租，未知提交不得重放。结果导入完成前仍须保留冲突执行限制。真实物理设备后台验收独立保留。

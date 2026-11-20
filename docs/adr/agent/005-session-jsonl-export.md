@@ -45,7 +45,7 @@ HXA-231 增量在同一 manifest 的 `tools` 中记录实际曝光名称及绑�
 
 会话顶部的“会话详情”保留“导出会话 JSONL”，经系统保存位置选择器交付结构化记录，属于会话级的次要操作。Owner 决定移除与复制同文的单条“消息分享”，不删除 JSONL 导出。文件/产物详情的文件交付、预览文本及任务汇总分享继续使用本地系统选择器，命名明确交付对象，不产生云端会话链接。
 
-当前格式为 `helix.session-export` / `formatVersion=2`，UTF-8、LF、一行一个 JSON object。导出只覆盖用户选择 session 的 durable facts，并有显式 header/complete footer。
+当前格式为 `helix.session-export` / `formatVersion=1`，UTF-8、LF、一行一个 JSON object。导出只覆盖用户选择 session 的 durable facts，并有显式 header/complete footer。
 
 至少可以表达：
 
@@ -130,7 +130,7 @@ HXA-211/217 的完成记录保留当时实际验证；本 ADR 只维护当前功
 - 大会话资源上限；
 - 独立解析器无需 App 私有绝对路径。
 
-设备验证遵守项目 owner-explicit 规则：只有项目所有者在当前任务明确要求时，AI 代理才运行模拟器/真机验证；未要求时记录 `not requested`，已要求但尚未完成时记录 `pending`。GitHub Actions 不执行设备测试。
+设备验证遵守根目录 [AGENTS.md](../../../AGENTS.md#verification-and-device-authorization)：本地项目模拟器适用常设授权，真机及外部服务按各自授权边界执行；授权不代表实际运行或通过。未纳入任务记 `not requested`，已纳入但未完成记 `pending`。GitHub Actions 不执行设备测试。
 
 ## Reconsider when
 

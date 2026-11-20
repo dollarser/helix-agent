@@ -1,6 +1,6 @@
 # FFmpeg through the existing Helix Linux Job
 
-Advanced only. Run `ffmpeg` and `ffprobe` from the available Bash / code.linux.run tool or code.linux.job.start. This is the packaged Ready-AV1 Android/Bionic binary exposed inside PRoot through an explicit system-linker bridge, not a musl package, new Service, or separate execution engine. No new permission is granted. PRoot shares Helix UID and permissions and is not a security sandbox.
+Advanced only. Run `ffmpeg` and `ffprobe` from the available Bash / code_linux_run tool or code_linux_job_start. This is the packaged Ready-AV1 Android/Bionic binary exposed inside PRoot through an explicit system-linker bridge, not a musl package, new Service, or separate execution engine. No new permission is granted. PRoot shares Helix UID and permissions and is not a security sandbox.
 
 ## Discover before processing
 
@@ -14,7 +14,7 @@ For explicit snapshot jobs, use the tool's files for authorized input copies. Th
 
 In snapshot mode only, write final deliverables under /workspace/output/, e.g. `mkdir -p output; ffmpeg -nostdin -n -i input.mp4 ... output/clip.mp4`. These files are verified and published as ordinary session files after a successful original Job. The snapshot transfer archive contains only output/ deliverables, result.txt when present, and captured stdout/stderr. In-place transfer contains only captured streams and file-reference metadata. Do not use result.txt or the legacy 1 MiB output import for binary media. Intermediate files can live under the job's /tmp; never delete user source files to make space.
 
-The short tool defaults to 60 seconds. For longer work use the existing background Job (default 300 seconds, maximum 1800), observe by originalCallId / jobs.await, and collect the original result. Acceptance is not completion. Cancel and failed collection do not authorize replay or automatic quota renewal. A nonzero process exit does not publish produced output files as successful artifacts.
+The short tool defaults to 60 seconds. For longer work use the existing background Job (default 300 seconds, maximum 1800), observe by originalCallId / jobs_await, and collect the original result. Acceptance is not completion. Cancel and failed collection do not authorize replay or automatic quota renewal. A nonzero process exit does not publish produced output files as successful artifacts.
 
 ## Native CLI, not five presets
 

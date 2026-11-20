@@ -9,7 +9,7 @@ import org.junit.Assert.assertTrue
 import java.io.File
 import java.util.UUID
 
-/** Seeded Room ownership around a real normal ProductionLinuxExecutor run. */
+/** Seeded Room ownership around a real normal LinuxJobExecution run. */
 internal class NormalProotResultFixture(
     private val context: Context,
 ) : AutoCloseable {
@@ -41,7 +41,7 @@ internal class NormalProotResultFixture(
         call: LinuxRunTool.ParsedLinuxCall,
         spec: ProotJobSpec,
     ) {
-        storage.toolCalls.append("stored", "turn", call.toolCallId, "code.linux.run", "1", "{}", "RUNNING")
+        storage.toolCalls.append("stored", "turn", call.toolCallId, "code_linux_run", "1", "{}", "RUNNING")
         ProotJobBindingStore(storage).record(call, spec)
     }
 

@@ -53,5 +53,3 @@ data class McpOAuthPkce(
         }
     }
 }
-
-typealias McpOAuthPkceChallenge = McpOAuthPkce

@@ -7,6 +7,7 @@ import com.helix.core.model.ToolVersion
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
+import com.helix.tools.framework.ToolDiscoveryHints
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolOrigin
@@ -31,10 +32,10 @@ private const val ST_FETCHED: String = "fetched"
 private const val ST_REFUSED: String = "refused"
 
 // ===========================================================================
-// http.fetch — a bounded GET/HEAD with full SSRF / redirect / peer / scope re-checks
+// http_fetch — a bounded GET/HEAD with full SSRF / redirect / peer / scope re-checks
 // ===========================================================================
 object HttpFetchTool {
-    const val NAME: String = "http.fetch"
+    const val NAME: String = "http_fetch"
 
     const val VERSION: Int = 1
 
@@ -44,13 +45,11 @@ object HttpFetchTool {
             name = ToolName(NAME),
             version = ToolVersion(VERSION),
             description =
-                "Fetch one http/https resource with GET or HEAD and return the bounded response body. " +
-                    "The whole request is SSRF-gated: every resolved A/AAAA/IPv4-mapped address is " +
-                    "checked, only the verified set is connected to, the actual peer is revalidated, and " +
-                    "the original hostname is kept for TLS Host/SNI/certificate validation; each redirect " +
-                    "hop re-runs the origin/DNS/IP/scope decision. Standard allows only the public " +
-                    "internet; Advanced may reach a loopback/LAN host only through the user's pre-created " +
-                    "exact scope. A policy refusal returns status 'refused' with a stable reason code.",
+                "Fetch one HTTP/HTTPS URL with GET or HEAD for raw response text, status and media type. " +
+                    "Use web_fetch for readable page text, or browser_open for JavaScript, login and interaction. " +
+                    "Does not use browser cookies or extract page text. The response body is bounded to 256 KiB. " +
+                    "Inspect httpStatus and truncated; fetched means a response was received, not HTTP success. " +
+                    "A refused result includes a reason; do not bypass its network or scope restriction.",
             inputSchema =
                 objectSchema(
                     properties =
@@ -58,7 +57,11 @@ object HttpFetchTool {
                             put("url", stringSchema(MAX_URL_LEN, "The absolute http/https URL to fetch."))
                             put(
                                 "method",
-                                enumSchema(listOf("GET", "HEAD"), "GET (default) or HEAD."),
+                                enumSchema(
+                                    listOf("GET", "HEAD"),
+                                    "GET (default) reads the bounded body; " +
+                                        "HEAD reads response metadata without a body.",
+                                ),
                             )
                         },
                     required = listOf("url"),
@@ -85,7 +88,13 @@ object HttpFetchTool {
                             put("httpStatus", integerSchema("The final HTTP status code; 0 when refused."))
                             put("contentType", stringSchema(256, "The response Content-Type; empty when absent."))
                             put("body", stringSchema(MAX_BODY_CHARS, "The UTF-8 decoded, bounded response body."))
-                            put("byteLength", integerSchema("How many body bytes were available (the full length)."))
+                            put(
+                                "byteLength",
+                                integerSchema(
+                                    "Declared Content-Length when present, otherwise bytes observed; " +
+                                        "not always the complete resource size.",
+                                ),
+                            )
                             put(
                                 "truncated",
                                 buildJsonObject {
@@ -116,6 +125,7 @@ object HttpFetchTool {
             idempotency = Idempotency.NON_IDEMPOTENT,
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
             origin = ToolOrigin.BuiltInOrigin,
+            discovery = ToolDiscoveryHints(category = "http"),
         )
 
     fun executor(bridge: HttpFetchBridge): ToolExecutor =
@@ -126,14 +136,14 @@ object HttpFetchTool {
                 val url =
                     strArg(call.args, "url", MAX_URL_LEN)
                         ?: return ToolExecutorResult.Failed(
-                            "invalid 'http.fetch' arguments: 'url' must be a non-empty string",
+                            "invalid 'http_fetch' arguments: 'url' must be a non-empty string",
                         )
                 val method =
                     (call.args["method"] as? JsonPrimitive)?.takeIf { it.isString }?.content?.uppercase()
                         ?: "GET"
                 if (method != "GET" && method != "HEAD") {
                     return ToolExecutorResult.Failed(
-                        "invalid 'http.fetch' arguments: 'method' must be GET or HEAD",
+                        "invalid 'http_fetch' arguments: 'method' must be GET or HEAD",
                     )
                 }
                 val out =
@@ -215,7 +225,7 @@ object HttpFetchTool {
 // ===========================================================================
 object HttpFetchTools {
     /**
-     * Registers the `http.fetch` contract and implementation against the shared [bridge]. Called
+     * Registers the `http_fetch` contract and implementation against the shared [bridge]. Called
      * once from the app container (which owns the production [HttpFetchBridgeImpl]); tests build a
      * [ToolRegistry] / [ToolRegistry] pair and a fake bridge.
      */

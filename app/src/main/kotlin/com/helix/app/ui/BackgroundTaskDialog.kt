@@ -42,7 +42,7 @@ internal fun BackgroundTaskDialog(
     var tab by remember(sessionId) { mutableStateOf(0) }
     var result by remember(sessionId) { mutableStateOf<String?>(null) }
     if (result != null) {
-        TaskResultDialog(details, dashboard, requireNotNull(result)) { result = null }
+        TaskResultDialog(details::taskResult, { dashboard.collectResult(it) }, requireNotNull(result)) { result = null }
         return
     }
     AlertDialog(

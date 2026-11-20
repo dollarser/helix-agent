@@ -7,6 +7,7 @@ import com.helix.core.model.ToolVersion
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
+import com.helix.tools.framework.ToolDiscoveryHints
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolOrigin
@@ -60,7 +61,8 @@ object WebSearchTool {
                     "Requires enabled Web Search settings and a provider-specific key; consumes provider credits. " +
                     "DeepSeek queries must be at most 128 Unicode characters. " +
                     "Returns untrusted snippets and source URLs, not verified page contents. " +
-                    "Use web_fetch to verify claims. " +
+                    "Use web_fetch to read source pages; " +
+                    "use browser_search for browser-based search without an API key. " +
                     "Never automatically retry an uncertain search; it may have consumed quota.",
             inputSchema = inputSchema(),
             outputSchema =
@@ -99,6 +101,7 @@ object WebSearchTool {
             idempotency = Idempotency.NON_IDEMPOTENT,
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
             origin = ToolOrigin.BuiltInOrigin,
+            discovery = ToolDiscoveryHints(category = "web"),
         )
 
     private fun inputSchema(): JsonObject =

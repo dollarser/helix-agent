@@ -27,6 +27,7 @@ import com.helix.core.policy.PolicyEngine
 import com.helix.core.policy.SessionPermissionConfig
 import com.helix.core.policy.SessionPermissionSource
 import com.helix.core.policy.ToolAvailabilitySource
+import com.helix.tools.framework.ToolScheduler.BatchSettlement
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
@@ -147,12 +148,12 @@ class ToolSchedulerTest {
         val releaseParent = CountDownLatch(1)
         val unrelated = AtomicInteger()
         register(
-            "r.child",
+            "r_child",
             ToolOperationClass.READ_ONLY,
             TimingExecutor(0, json("{}"), AtomicInteger(), AtomicInteger()),
         )
         register(
-            "r.other",
+            "r_other",
             ToolOperationClass.READ_ONLY,
             object : ToolExecutor {
                 override fun execute(call: ExecutableToolCall): ToolExecutorResult {
@@ -162,16 +163,17 @@ class ToolSchedulerTest {
             },
         )
         register(
-            "r.parent",
+            "r_parent",
             ToolOperationClass.READ_ONLY,
             object : ToolExecutor {
                 override fun execute(call: ExecutableToolCall): ToolExecutorResult {
                     val child =
                         scheduler.scheduleBatch(
-                            listOf(this@ToolSchedulerTest.call("child", "r.child")),
+                            listOf(this@ToolSchedulerTest.call("child", "r_child")),
                             call.toolCallId,
                         )
-                    assertTrue(child.outcomes.single() is ToolDispatchOutcome.Succeeded)
+                    val settlement = child.settlements.single() as BatchSettlement.Outcome
+                    assertTrue(settlement.outcome is ToolDispatchOutcome.Succeeded)
                     childFinished.countDown()
                     check(releaseParent.await(5, TimeUnit.SECONDS))
                     return ToolExecutorResult.Completed(json("{}"))
@@ -179,15 +181,17 @@ class ToolSchedulerTest {
             },
         )
         scheduler = ToolScheduler(clock, dispatcher, registry, maxConcurrency = 4, resourceGate = { 1 })
-        val parent = CompletableFuture.supplyAsync { scheduler.scheduleBatch(listOf(call("parent", "r.parent"))) }
+        val parent = CompletableFuture.supplyAsync { scheduler.scheduleBatch(listOf(call("parent", "r_parent"))) }
         try {
             assertTrue(childFinished.await(5, TimeUnit.SECONDS))
-            val other = CompletableFuture.supplyAsync { scheduler.scheduleBatch(listOf(call("other", "r.other"))) }
+            val other = CompletableFuture.supplyAsync { scheduler.scheduleBatch(listOf(call("other", "r_other"))) }
             Thread.sleep(100)
             assertEquals(0, unrelated.get())
             releaseParent.countDown()
-            assertTrue(parent.get(5, TimeUnit.SECONDS).outcomes.single() is ToolDispatchOutcome.Succeeded)
-            assertTrue(other.get(5, TimeUnit.SECONDS).outcomes.single() is ToolDispatchOutcome.Succeeded)
+            val parentSlot = parent.get(5, TimeUnit.SECONDS).settlements.single() as BatchSettlement.Outcome
+            assertTrue(parentSlot.outcome is ToolDispatchOutcome.Succeeded)
+            val otherSlot = other.get(5, TimeUnit.SECONDS).settlements.single() as BatchSettlement.Outcome
+            assertTrue(otherSlot.outcome is ToolDispatchOutcome.Succeeded)
         } finally {
             releaseParent.countDown()
         }
@@ -199,7 +203,7 @@ class ToolSchedulerTest {
         val active = AtomicInteger()
         val childEffects = AtomicInteger()
         register(
-            "r.held",
+            "r_held",
             ToolOperationClass.READ_ONLY,
             object : ToolExecutor {
                 override fun execute(call: ExecutableToolCall): ToolExecutorResult {
@@ -212,7 +216,7 @@ class ToolSchedulerTest {
             },
         )
         register(
-            "r.child",
+            "r_child",
             ToolOperationClass.READ_ONLY,
             object : ToolExecutor {
                 override fun execute(call: ExecutableToolCall): ToolExecutorResult {
@@ -224,7 +228,7 @@ class ToolSchedulerTest {
         val scheduler = ToolScheduler(clock, dispatcher, registry, maxConcurrency = 4, resourceGate = { 4 })
         val parents =
             CompletableFuture.supplyAsync {
-                scheduler.scheduleBatch((1..4).map { call("held-$it", "r.held") })
+                scheduler.scheduleBatch((1..4).map { call("held-$it", "r_held") })
             }
         val cancelled =
             java.util.concurrent.atomic
@@ -237,7 +241,7 @@ class ToolSchedulerTest {
                         listOf(
                             call(
                                 "child",
-                                "r.child",
+                                "r_child",
                                 cancel =
                                     object : CancelSignal {
                                         override fun isCancelled() = cancelled.get()
@@ -248,7 +252,8 @@ class ToolSchedulerTest {
                     )
                 }
             cancelled.set(true)
-            assertEquals(ToolDispatchOutcome.Cancelled, child.get(3, TimeUnit.SECONDS).outcomes.single())
+            val childSlot = child.get(3, TimeUnit.SECONDS).settlements.single() as BatchSettlement.Outcome
+            assertEquals(ToolDispatchOutcome.Cancelled, childSlot.outcome)
             assertEquals(4, active.get())
             assertEquals(0, childEffects.get())
         } finally {
@@ -266,7 +271,7 @@ class ToolSchedulerTest {
             if (event.correlationId in setOf("call-2", "call-3")) laterCallsSettled.countDown()
         }
         register(
-            "r.slow",
+            "r_slow",
             ToolOperationClass.READ_ONLY,
             object : ToolExecutor {
                 override fun execute(call: ExecutableToolCall): ToolExecutorResult {
@@ -276,23 +281,26 @@ class ToolSchedulerTest {
             },
         )
         register(
-            "r.fast1",
+            "r_fast1",
             ToolOperationClass.READ_ONLY,
             TimingExecutor(0, json("""{"i":2}"""), AtomicInteger(), AtomicInteger()),
         )
         register(
-            "r.fast2",
+            "r_fast2",
             ToolOperationClass.READ_ONLY,
             TimingExecutor(0, json("""{"i":3}"""), AtomicInteger(), AtomicInteger()),
         )
         val scheduler = ToolScheduler(clock, dispatcher, registry)
-        val calls = listOf(call("call-1", "r.slow"), call("call-2", "r.fast1"), call("call-3", "r.fast2"))
+        val calls = listOf(call("call-1", "r_slow"), call("call-2", "r_fast1"), call("call-3", "r_fast2"))
         val batch = scheduler.scheduleBatch(calls)
-        assertNull(batch.error)
+        assertNull(batch.firstError)
         assertEquals(
             "results must come back in CALL sequence",
             listOf("""{"i":1}""", """{"i":2}""", """{"i":3}"""),
-            batch.outcomes.map { (it as ToolDispatchOutcome.Succeeded).result.payload },
+            batch.settlements.map {
+                val outcome = (it as BatchSettlement.Outcome).outcome as ToolDispatchOutcome.Succeeded
+                outcome.result.payload
+            },
         )
         // The completion order was NOT the call order (proves the barrier re-ordered):
         val completedOrder = sink.events.map { it.correlationId }
@@ -305,16 +313,18 @@ class ToolSchedulerTest {
     fun nonConflictingReadOnlyCallsOverlapAndTheCapBoundsThem() {
         val inFlight = AtomicInteger()
         val maxSeen = AtomicInteger()
-        register("r.a", ToolOperationClass.READ_ONLY, TimingExecutor(120, json("{}"), inFlight, maxSeen))
-        register("r.b", ToolOperationClass.READ_ONLY, TimingExecutor(120, json("{}"), inFlight, maxSeen))
-        register("r.c", ToolOperationClass.READ_ONLY, TimingExecutor(120, json("{}"), inFlight, maxSeen))
+        register("r_a", ToolOperationClass.READ_ONLY, TimingExecutor(120, json("{}"), inFlight, maxSeen))
+        register("r_b", ToolOperationClass.READ_ONLY, TimingExecutor(120, json("{}"), inFlight, maxSeen))
+        register("r_c", ToolOperationClass.READ_ONLY, TimingExecutor(120, json("{}"), inFlight, maxSeen))
         val scheduler = ToolScheduler(clock, dispatcher, registry)
         val batch =
             scheduler.scheduleBatch(
-                listOf(call("call-a", "r.a"), call("call-b", "r.b"), call("call-c", "r.c")),
+                listOf(call("call-a", "r_a"), call("call-b", "r_b"), call("call-c", "r_c")),
             )
-        assertNull(batch.error)
-        assertEquals(3, batch.outcomes.count { it is ToolDispatchOutcome.Succeeded })
+        assertNull(batch.firstError)
+        val successes =
+            batch.settlements.count { it is BatchSettlement.Outcome && it.outcome is ToolDispatchOutcome.Succeeded }
+        assertEquals(3, successes)
         // Default total concurrency is 2: exactly two overlap, the third waits.
         assertEquals("cap 2 must be honored", 2, maxSeen.get())
     }
@@ -323,12 +333,12 @@ class ToolSchedulerTest {
     fun sharedUserResourceKeysDoNotSerializeReadOnlyCalls() {
         val inFlight = AtomicInteger()
         val maxSeen = AtomicInteger()
-        register("r.f1", ToolOperationClass.READ_ONLY, TimingExecutor(60, json("{}"), inFlight, maxSeen))
-        register("r.f2", ToolOperationClass.READ_ONLY, TimingExecutor(60, json("{}"), inFlight, maxSeen))
+        register("r_f1", ToolOperationClass.READ_ONLY, TimingExecutor(60, json("{}"), inFlight, maxSeen))
+        register("r_f2", ToolOperationClass.READ_ONLY, TimingExecutor(60, json("{}"), inFlight, maxSeen))
         val extractor = ResourceKeyExtractor { _, _ -> setOf("file:a.txt") }
         val scheduler = ToolScheduler(clock, dispatcher, registry, resourceKeyExtractor = extractor)
-        val batch = scheduler.scheduleBatch(listOf(call("call-1", "r.f1"), call("call-2", "r.f2")))
-        assertNull(batch.error)
+        val batch = scheduler.scheduleBatch(listOf(call("call-1", "r_f1"), call("call-2", "r_f2")))
+        assertNull(batch.firstError)
         assertEquals("user-file conflict is not a harness result lock", 2, maxSeen.get())
     }
 
@@ -337,14 +347,14 @@ class ToolSchedulerTest {
         val inFlight = AtomicInteger()
         val maxSeen = AtomicInteger()
         // One read + two writes: the writes are exclusive (first version: full barrier).
-        register("r.x", ToolOperationClass.READ_ONLY, TimingExecutor(50, json("{}"), inFlight, maxSeen))
+        register("r_x", ToolOperationClass.READ_ONLY, TimingExecutor(50, json("{}"), inFlight, maxSeen))
         register(
-            "w.y",
+            "w_y",
             ToolOperationClass.LOCAL_MUTATION,
             TimingExecutor(50, json("{}"), inFlight, maxSeen),
         )
         register(
-            "w.z",
+            "w_z",
             ToolOperationClass.LOCAL_MUTATION,
             TimingExecutor(50, json("{}"), inFlight, maxSeen),
         )
@@ -355,9 +365,9 @@ class ToolSchedulerTest {
         val scheduler = ToolScheduler(clock, dispatcher, registry, maxConcurrency = 2)
         val batch =
             scheduler.scheduleBatch(
-                listOf(call("call-r", "r.x"), call("call-w1", "w.y"), call("call-w2", "w.z")),
+                listOf(call("call-r", "r_x"), call("call-w1", "w_y"), call("call-w2", "w_z")),
             )
-        assertNull(batch.error)
+        assertNull(batch.firstError)
         assertEquals("writes may overlap within physical capacity", 2, maxSeen.get())
     }
 
@@ -370,7 +380,7 @@ class ToolSchedulerTest {
         val inFlight = AtomicInteger()
         val maxSeen = AtomicInteger()
         register(
-            "b.a",
+            "b_a",
             ToolOperationClass.LOCAL_MUTATION,
             TimingExecutor(30, json("{}"), inFlight, maxSeen),
         )
@@ -379,11 +389,11 @@ class ToolSchedulerTest {
             ApprovalAcquisition.Approved(ApprovalProof("call-b2", "2".repeat(64))),
         )
         val scheduler = ToolScheduler(clock, dispatcher, registry, maxConcurrency = 2)
-        val batch = scheduler.scheduleBatch(listOf(call("call-b1", "b.a"), call("call-b2", "b.a")))
+        val batch = scheduler.scheduleBatch(listOf(call("call-b1", "b_a"), call("call-b2", "b_a")))
         assertEquals(2, batch.settlements.size)
         assertTrue(
             batch.settlements.all {
-                it is ToolScheduler.BatchSettlement.Outcome && it.outcome is ToolDispatchOutcome.Succeeded
+                it is BatchSettlement.Outcome && it.outcome is ToolDispatchOutcome.Succeeded
             },
         )
         // Two cards, with DIFFERENT binding hashes despite identical tool + args.
@@ -410,7 +420,7 @@ class ToolSchedulerTest {
     fun failedBatchActionSpendsOneProofAndSettlesWithoutReplay() {
         val attempts = AtomicInteger()
         register(
-            "b.once",
+            "b_once",
             ToolOperationClass.LOCAL_MUTATION,
             object : ToolExecutor {
                 override fun execute(c: ExecutableToolCall): ToolExecutorResult {
@@ -421,8 +431,8 @@ class ToolSchedulerTest {
         )
         broker.script(ApprovalAcquisition.Approved(ApprovalProof("call-once", "3".repeat(64))))
         val scheduler = ToolScheduler(clock, dispatcher, registry, maxConcurrency = 2)
-        val batch = scheduler.scheduleBatch(listOf(call("call-once", "b.once")))
-        val settled = batch.settlements.single() as ToolScheduler.BatchSettlement.Outcome
+        val batch = scheduler.scheduleBatch(listOf(call("call-once", "b_once")))
+        val settled = batch.settlements.single() as BatchSettlement.Outcome
         assertTrue(settled.outcome is ToolDispatchOutcome.ExecutionFailed)
         assertEquals(1, attempts.get())
         assertEquals(1, broker.acquireCalls.size)
@@ -434,17 +444,17 @@ class ToolSchedulerTest {
     fun isolatedQuickJsCallsOverlapWithinCapacity() {
         val inFlight = AtomicInteger()
         val maxSeen = AtomicInteger()
-        register("js.a", ToolOperationClass.READ_ONLY, TimingExecutor(60, json("{}"), inFlight, maxSeen))
-        register("js.b", ToolOperationClass.READ_ONLY, TimingExecutor(60, json("{}"), inFlight, maxSeen))
+        register("js_a", ToolOperationClass.READ_ONLY, TimingExecutor(60, json("{}"), inFlight, maxSeen))
+        register("js_b", ToolOperationClass.READ_ONLY, TimingExecutor(60, json("{}"), inFlight, maxSeen))
         val scheduler = ToolScheduler(clock, dispatcher, registry, maxConcurrency = 2)
         val batch =
             scheduler.scheduleBatch(
                 listOf(
-                    call("call-1", "js.a", ExecutionTargetType.LOCAL_QUICKJS),
-                    call("call-2", "js.b", ExecutionTargetType.LOCAL_QUICKJS),
+                    call("call-1", "js_a", ExecutionTargetType.LOCAL_QUICKJS),
+                    call("call-2", "js_b", ExecutionTargetType.LOCAL_QUICKJS),
                 ),
             )
-        assertNull(batch.error)
+        assertNull(batch.firstError)
         assertEquals("isolated instances must not share a global lane", 2, maxSeen.get())
     }
 
@@ -453,7 +463,7 @@ class ToolSchedulerTest {
     @Test
     fun maxConcurrencyAboveTheHardCapIsRejected() {
         register(
-            "r.a",
+            "r_a",
             ToolOperationClass.READ_ONLY,
             TimingExecutor(1, json("{}"), AtomicInteger(), AtomicInteger()),
         )
@@ -467,19 +477,19 @@ class ToolSchedulerTest {
     fun resourceGateOnlyLowersAndNeverRaises() {
         val inFlight = AtomicInteger()
         val maxSeen = AtomicInteger()
-        register("g.a", ToolOperationClass.READ_ONLY, TimingExecutor(60, json("{}"), inFlight, maxSeen))
-        register("g.b", ToolOperationClass.READ_ONLY, TimingExecutor(60, json("{}"), inFlight, maxSeen))
+        register("g_a", ToolOperationClass.READ_ONLY, TimingExecutor(60, json("{}"), inFlight, maxSeen))
+        register("g_b", ToolOperationClass.READ_ONLY, TimingExecutor(60, json("{}"), inFlight, maxSeen))
         // Gate 1 with cap 2: effective 1 (the gate lowers).
         var gate = 1
         val lowering = ToolScheduler(clock, dispatcher, registry, maxConcurrency = 2, resourceGate = { gate })
-        val batch = lowering.scheduleBatch(listOf(call("call-1", "g.a"), call("call-2", "g.b")))
-        assertNull(batch.error)
+        val batch = lowering.scheduleBatch(listOf(call("call-1", "g_a"), call("call-2", "g_b")))
+        assertNull(batch.firstError)
         assertEquals("gate 1 must serialize", 1, maxSeen.get())
         // Gate 4 with cap 1: effective 1 (the gate can never raise).
         maxSeen.set(0)
         gate = 4
         val capped = ToolScheduler(clock, dispatcher, registry, maxConcurrency = 1, resourceGate = { gate })
-        capped.scheduleBatch(listOf(call("call-1", "g.a"), call("call-2", "g.b")))
+        capped.scheduleBatch(listOf(call("call-1", "g_a"), call("call-2", "g_b")))
         assertEquals("gate must never raise the cap", 1, maxSeen.get())
     }
 
@@ -496,15 +506,15 @@ class ToolSchedulerTest {
                     return ToolExecutorResult.Completed(json("{}"))
                 }
             }
-        register("q.a", ToolOperationClass.READ_ONLY, recording)
-        register("q.b", ToolOperationClass.READ_ONLY, recording)
-        register("q.c", ToolOperationClass.READ_ONLY, recording)
+        register("q_a", ToolOperationClass.READ_ONLY, recording)
+        register("q_b", ToolOperationClass.READ_ONLY, recording)
+        register("q_c", ToolOperationClass.READ_ONLY, recording)
         val scheduler = ToolScheduler(clock, dispatcher, registry, maxConcurrency = 1)
         val batch =
             scheduler.scheduleBatch(
-                listOf(call("call-1", "q.a"), call("call-2", "q.b"), call("call-3", "q.c")),
+                listOf(call("call-1", "q_a"), call("call-2", "q_b"), call("call-3", "q_c")),
             )
-        assertNull(batch.error)
+        assertNull(batch.firstError)
         assertEquals(listOf("call-1", "call-2", "call-3"), starts)
     }
 
@@ -514,7 +524,7 @@ class ToolSchedulerTest {
     fun cancelledUnstartedCallEndsInDurableAbortedBeforeStart() {
         val gate = CountDownLatch(1)
         register(
-            "c.slow",
+            "c_slow",
             ToolOperationClass.READ_ONLY,
             object : ToolExecutor {
                 override fun execute(call: ExecutableToolCall): ToolExecutorResult {
@@ -525,7 +535,7 @@ class ToolSchedulerTest {
             },
         )
         register(
-            "c.fast",
+            "c_fast",
             ToolOperationClass.READ_ONLY,
             TimingExecutor(1, json("{}"), AtomicInteger(), AtomicInteger()),
         )
@@ -534,8 +544,8 @@ class ToolSchedulerTest {
         val scheduler = ToolScheduler(clock, dispatcher, registry, maxConcurrency = 1)
         val calls =
             listOf(
-                call("call-1", "c.slow"),
-                call("call-2", "c.fast", cancel = cancel),
+                call("call-1", "c_slow"),
+                call("call-2", "c_fast", cancel = cancel),
             )
         val batchFuture =
             CompletableFuture.supplyAsync {
@@ -546,11 +556,11 @@ class ToolSchedulerTest {
         assertTrue("the slow call must start", gate.await(5, TimeUnit.SECONDS))
         cancel.cancelled = true
         val batch = batchFuture.join()
-        assertNull(batch.error)
-        assertTrue(batch.outcomes[0] is ToolDispatchOutcome.Succeeded)
+        assertNull(batch.firstError)
+        assertTrue((batch.settlements[0] as BatchSettlement.Outcome).outcome is ToolDispatchOutcome.Succeeded)
         assertTrue(
             "the queued cancelled call must be durably CANCELLED",
-            batch.outcomes[1] is ToolDispatchOutcome.Cancelled,
+            (batch.settlements[1] as BatchSettlement.Outcome).outcome is ToolDispatchOutcome.Cancelled,
         )
         // The durable audit (doc 11: CANCELLED_BEFORE_START): the unstarted call's row is
         // CANCELLED_BEFORE_START with its queuedAt stamp and the attempt metadata.
@@ -578,7 +588,7 @@ class ToolSchedulerTest {
     fun aDenyConfigFlippedWhileQueuedBlocksTheCallWithoutACard() {
         val gate = CountDownLatch(1)
         register(
-            "q.slow",
+            "q_slow",
             ToolOperationClass.LOCAL_MUTATION,
             object : ToolExecutor {
                 override fun execute(call: ExecutableToolCall): ToolExecutorResult {
@@ -589,7 +599,7 @@ class ToolSchedulerTest {
             },
         )
         register(
-            "q.victim",
+            "q_victim",
             ToolOperationClass.READ_ONLY,
             TimingExecutor(1, json("{}"), AtomicInteger(), AtomicInteger()),
         )
@@ -603,7 +613,7 @@ class ToolSchedulerTest {
             )
         val batchFuture =
             CompletableFuture.supplyAsync {
-                scheduler.scheduleBatch(listOf(call("call-1", "q.slow"), call("call-2", "q.victim")))
+                scheduler.scheduleBatch(listOf(call("call-1", "q_slow"), call("call-2", "q_victim")))
             }
         // The victim is provably still in the queue (concurrency 1, the barrier holds
         // the only slot); flip its session mode FULL_ACCESS -> a DENY on its effect now.
@@ -613,9 +623,9 @@ class ToolSchedulerTest {
                 mapOf(OperationEffect.FILE_MUTATION_EXTERNAL to OperationRule.DENY),
             )
         val batch = batchFuture.join()
-        assertNull(batch.error)
-        assertTrue(batch.outcomes[0] is ToolDispatchOutcome.Succeeded)
-        val denied = batch.outcomes[1] as? ToolDispatchOutcome.Denied
+        assertNull(batch.firstError)
+        assertTrue((batch.settlements[0] as BatchSettlement.Outcome).outcome is ToolDispatchOutcome.Succeeded)
+        val denied = (batch.settlements[1] as BatchSettlement.Outcome).outcome as? ToolDispatchOutcome.Denied
         assertNotNull("a DENY flipped while queued must block the call at start", denied)
         assertEquals(DispatchOutcomeCode.OPERATION_DENIED, denied!!.code)
         assertEquals("the flipped DENY stops the call before any card", 0, broker.acquireCalls.size)
@@ -631,7 +641,7 @@ class ToolSchedulerTest {
     fun anAskConfigFlippedWhileQueuedPresentsACardAtDispatchStart() {
         val gate = CountDownLatch(1)
         register(
-            "q.slow",
+            "q_slow",
             ToolOperationClass.LOCAL_MUTATION,
             object : ToolExecutor {
                 override fun execute(call: ExecutableToolCall): ToolExecutorResult {
@@ -642,7 +652,7 @@ class ToolSchedulerTest {
             },
         )
         register(
-            "q.victim",
+            "q_victim",
             ToolOperationClass.READ_ONLY,
             TimingExecutor(1, json("{}"), AtomicInteger(), AtomicInteger()),
         )
@@ -657,16 +667,16 @@ class ToolSchedulerTest {
             )
         val batchFuture =
             CompletableFuture.supplyAsync {
-                scheduler.scheduleBatch(listOf(call("call-1", "q.slow"), call("call-2", "q.victim")))
+                scheduler.scheduleBatch(listOf(call("call-1", "q_slow"), call("call-2", "q_victim")))
             }
         // Policy alone would run the victim card-free; the flip FULL_ACCESS -> WORKSPACE
         // while it is queued must force exactly one card when it starts.
         assertTrue("the barrier call must start", gate.await(5, TimeUnit.SECONDS))
         source.config = SessionPermissionConfig.of(SessionPermissionMode.WORKSPACE_TRUSTED)
         val batch = batchFuture.join()
-        assertNull(batch.error)
-        assertTrue(batch.outcomes[0] is ToolDispatchOutcome.Succeeded)
-        assertTrue(batch.outcomes[1] is ToolDispatchOutcome.Succeeded)
+        assertNull(batch.firstError)
+        assertTrue((batch.settlements[0] as BatchSettlement.Outcome).outcome is ToolDispatchOutcome.Succeeded)
+        assertTrue((batch.settlements[1] as BatchSettlement.Outcome).outcome is ToolDispatchOutcome.Succeeded)
         assertEquals("the flipped ASK forces exactly one card at start", 1, broker.acquireCalls.size)
         assertEquals(1, broker.consumeCalls.size)
         val row = sink.events.first { it.correlationId == "call-2" }
@@ -677,39 +687,39 @@ class ToolSchedulerTest {
     @Test
     fun oneFailingItemNeverCancelsTheOthers() {
         register(
-            "f.bad",
+            "f_bad",
             ToolOperationClass.READ_ONLY,
             object : ToolExecutor {
                 override fun execute(call: ExecutableToolCall): ToolExecutorResult = ToolExecutorResult.Failed("boom")
             },
         )
         register(
-            "f.ok",
+            "f_ok",
             ToolOperationClass.READ_ONLY,
             TimingExecutor(60, json("{}"), AtomicInteger(), AtomicInteger()),
         )
         val scheduler = ToolScheduler(clock, dispatcher, registry)
         val batch =
             scheduler.scheduleBatch(
-                listOf(call("call-1", "f.bad"), call("call-2", "f.ok")),
+                listOf(call("call-1", "f_bad"), call("call-2", "f_ok")),
             )
-        assertNull("a tool failure is a settled outcome, not a batch error", batch.error)
-        assertTrue(batch.outcomes[0] is ToolDispatchOutcome.ExecutionFailed)
-        assertTrue(batch.outcomes[1] is ToolDispatchOutcome.Succeeded)
+        assertNull("a tool failure is a settled outcome, not a batch error", batch.firstError)
+        assertTrue((batch.settlements[0] as BatchSettlement.Outcome).outcome is ToolDispatchOutcome.ExecutionFailed)
+        assertTrue((batch.settlements[1] as BatchSettlement.Outcome).outcome is ToolDispatchOutcome.Succeeded)
     }
 
     @Test
     fun dispatcherControlFlowSurfacesAsBatchErrorWithSettledOutcomes() {
         // A turn stop during the approval wait: the dispatcher throws the control flow;
-        // the scheduler must surface it as [ToolScheduler.BatchResult.error] while still
+        // the scheduler must surface it as [ToolScheduler.BatchResult.firstError] while still
         // returning the settled outcomes of the independent calls.
         register(
-            "t.a",
+            "t_a",
             ToolOperationClass.READ_ONLY,
             TimingExecutor(1, json("{}"), AtomicInteger(), AtomicInteger()),
         )
         register(
-            "t.b",
+            "t_b",
             ToolOperationClass.LOCAL_MUTATION,
             TimingExecutor(1, json("{}"), AtomicInteger(), AtomicInteger()),
         )
@@ -733,30 +743,30 @@ class ToolSchedulerTest {
         val scheduler = ToolScheduler(clock, throwingDispatcher, registry)
         val batch =
             scheduler.scheduleBatch(
-                listOf(call("call-a", "t.a"), call("call-b", "t.b")),
+                listOf(call("call-a", "t_a"), call("call-b", "t_b")),
             )
-        assertTrue(batch.error is TurnStopForTest)
+        assertTrue(batch.firstError is TurnStopForTest)
         // The independent read still settled SUCCEEDED; the aborted slot is null.
-        assertTrue(batch.outcomes[0] is ToolDispatchOutcome.Succeeded)
-        assertEquals("the aborted slot is null", null, batch.outcomes[1])
+        assertTrue((batch.settlements[0] as BatchSettlement.Outcome).outcome is ToolDispatchOutcome.Succeeded)
+        assertTrue((batch.settlements[1] as BatchSettlement.Thrown).cause is TurnStopForTest)
     }
 
     @Test
     fun everyExceptionalSlotKeepsItsOwnCauseInCallOrder() {
         register(
-            "t.first",
+            "t_first",
             ToolOperationClass.LOCAL_MUTATION,
             TimingExecutor(1, json("{}"), AtomicInteger(), AtomicInteger()),
         )
         register(
-            "t.second",
+            "t_second",
             ToolOperationClass.LOCAL_MUTATION,
             TimingExecutor(1, json("{}"), AtomicInteger(), AtomicInteger()),
         )
 
         class PerCallThrowingBroker : ApprovalBroker {
             override fun acquire(request: ApprovalRequest): ApprovalAcquisition {
-                if (request.binding.toolName == "t.first") throw FirstFailure()
+                if (request.binding.toolName == "t_first") throw FirstFailure()
                 throw SecondFailure()
             }
 
@@ -774,25 +784,25 @@ class ToolSchedulerTest {
 
         val batch =
             ToolScheduler(clock, throwingDispatcher, registry).scheduleBatch(
-                listOf(call("call-first", "t.first"), call("call-second", "t.second")),
+                listOf(call("call-first", "t_first"), call("call-second", "t_second")),
             )
 
-        assertTrue((batch.settlements[0] as ToolScheduler.BatchSettlement.Thrown).cause is FirstFailure)
-        assertTrue((batch.settlements[1] as ToolScheduler.BatchSettlement.Thrown).cause is SecondFailure)
+        assertTrue((batch.settlements[0] as BatchSettlement.Thrown).cause is FirstFailure)
+        assertTrue((batch.settlements[1] as BatchSettlement.Thrown).cause is SecondFailure)
         assertTrue(batch.firstError is FirstFailure)
     }
 
     @Test
     fun duplicateToolCallIdsFailBeforeAnyDispatch() {
         register(
-            "t.read",
+            "t_read",
             ToolOperationClass.READ_ONLY,
             TimingExecutor(1, json("{}"), AtomicInteger(), AtomicInteger()),
         )
         val scheduler = ToolScheduler(clock, dispatcher, registry)
 
         assertThrows(IllegalArgumentException::class.java) {
-            scheduler.scheduleBatch(listOf(call("same-id", "t.read"), call("same-id", "t.read")))
+            scheduler.scheduleBatch(listOf(call("same-id", "t_read"), call("same-id", "t_read")))
         }
         assertTrue(sink.events.isEmpty())
     }
@@ -810,7 +820,7 @@ class ToolSchedulerTest {
     @Test
     fun releaseDuringFailedAdmissionCannotBeLostBeforeWaitSubscription() {
         register(
-            "r.wake",
+            "r_wake",
             ToolOperationClass.READ_ONLY,
             TimingExecutor(0, json("{}"), AtomicInteger(), AtomicInteger()),
         )
@@ -852,10 +862,11 @@ class ToolSchedulerTest {
         val result = CompletableFuture<ToolScheduler.BatchResult>()
         val worker =
             batchThread("release-window") {
-                result.complete(scheduler.scheduleBatch(listOf(call("wake", "r.wake"))))
+                result.complete(scheduler.scheduleBatch(listOf(call("wake", "r_wake"))))
             }
         try {
-            assertTrue(result.get(5, TimeUnit.SECONDS).outcomes.single() is ToolDispatchOutcome.Succeeded)
+            val resultSlot = result.get(5, TimeUnit.SECONDS).settlements.single() as BatchSettlement.Outcome
+            assertTrue(resultSlot.outcome is ToolDispatchOutcome.Succeeded)
         } finally {
             release.invoke(scheduler, "held")
             worker.join(5_000)
@@ -877,15 +888,15 @@ class ToolSchedulerTest {
                 }
             }
         register(
-            "r.before",
+            "r_before",
             ToolOperationClass.READ_ONLY,
             executor {
                 firstStarted.countDown()
                 check(releaseFirst.await(5, TimeUnit.SECONDS))
             },
         )
-        register("w.change", ToolOperationClass.LOCAL_MUTATION, executor { value.set(42) })
-        register("r.after", ToolOperationClass.READ_ONLY, executor { observed.set(value.get()) })
+        register("w_change", ToolOperationClass.LOCAL_MUTATION, executor { value.set(42) })
+        register("r_after", ToolOperationClass.READ_ONLY, executor { observed.set(value.get()) })
         broker.script(ApprovalAcquisition.Approved(ApprovalProof("write-proof", "1".repeat(64))))
         val scheduler = ToolScheduler(clock, dispatcher, registry, maxConcurrency = 2)
         val result = CompletableFuture<ToolScheduler.BatchResult>()
@@ -894,8 +905,8 @@ class ToolSchedulerTest {
                 result.complete(
                     scheduler.scheduleBatch(
                         listOf(
-                            call("before", "r.before"),
-                            call("write", "w.change"),
+                            call("before", "r_before"),
+                            call("write", "w_change"),
                         ),
                     ),
                 )
@@ -905,9 +916,11 @@ class ToolSchedulerTest {
             releaseFirst.countDown()
             val batch = result.get(5, TimeUnit.SECONDS)
             assertNull(batch.firstError)
-            assertTrue(batch.outcomes.all { it is ToolDispatchOutcome.Succeeded })
-            val next = scheduler.scheduleBatch(listOf(call("after", "r.after")))
-            assertTrue(next.outcomes.single() is ToolDispatchOutcome.Succeeded)
+            val allSucceeded =
+                batch.settlements.all { it is BatchSettlement.Outcome && it.outcome is ToolDispatchOutcome.Succeeded }
+            assertTrue(allSucceeded)
+            val next = scheduler.scheduleBatch(listOf(call("after", "r_after")))
+            assertTrue((next.settlements.single() as BatchSettlement.Outcome).outcome is ToolDispatchOutcome.Succeeded)
             assertEquals(42, observed.get())
         } finally {
             releaseFirst.countDown()
@@ -930,12 +943,12 @@ class ToolSchedulerTest {
         val aResult = CompletableFuture<ToolScheduler.BatchResult>()
         val bResult = CompletableFuture<ToolScheduler.BatchResult>()
         val a =
-            batchThread("cross-batch-a") { aResult.complete(scheduler.scheduleBatch(listOf(call("a-1", "x.a")))) }
+            batchThread("cross-batch-a") { aResult.complete(scheduler.scheduleBatch(listOf(call("a-1", "x_a")))) }
         assertTrue("a-1 must start", a1Started.await(5, TimeUnit.SECONDS))
         val b =
             batchThread("cross-batch-b") {
                 bGo.await(10, TimeUnit.SECONDS)
-                bResult.complete(scheduler.scheduleBatch(listOf(call("b-1", "x.b"))))
+                bResult.complete(scheduler.scheduleBatch(listOf(call("b-1", "x_b"))))
             }
         bGo.countDown()
         Thread.sleep(150) // let B reach the admission wait
@@ -953,8 +966,8 @@ class ToolSchedulerTest {
             "batch B must be woken by A's release, not only by its own (never-submitted) futures",
             b.isAlive,
         )
-        assertTrue(aResult.get().outcomes[0] is ToolDispatchOutcome.Succeeded)
-        assertTrue(bResult.get().outcomes[0] is ToolDispatchOutcome.Succeeded)
+        assertTrue((aResult.get().settlements[0] as BatchSettlement.Outcome).outcome is ToolDispatchOutcome.Succeeded)
+        assertTrue((bResult.get().settlements[0] as BatchSettlement.Outcome).outcome is ToolDispatchOutcome.Succeeded)
     }
 
     @Test
@@ -972,16 +985,17 @@ class ToolSchedulerTest {
         val bResult = CompletableFuture<ToolScheduler.BatchResult>()
         val a =
             batchThread("cross-lane-a") {
-                aResult.complete(scheduler.scheduleBatch(listOf(call("a-1", "w.x"), call("a-2", "w.y"))))
+                aResult.complete(scheduler.scheduleBatch(listOf(call("a-1", "w_x"), call("a-2", "w_y"))))
             }
         assertTrue("a-1 must start", a1Started.await(5, TimeUnit.SECONDS))
         val b =
             batchThread("cross-lane-b") {
                 bGo.await(10, TimeUnit.SECONDS)
-                bResult.complete(scheduler.scheduleBatch(listOf(call("b-1", "w.z"))))
+                bResult.complete(scheduler.scheduleBatch(listOf(call("b-1", "w_z"))))
             }
         bGo.countDown()
-        assertTrue(bResult.get(5, TimeUnit.SECONDS).outcomes.single() is ToolDispatchOutcome.Succeeded)
+        val bResultSlot = bResult.get(5, TimeUnit.SECONDS).settlements.single() as BatchSettlement.Outcome
+        assertTrue(bResultSlot.outcome is ToolDispatchOutcome.Succeeded)
         synchronized(starts) {
             assertEquals("unrelated writes complete while a-1 is held", setOf("a-1", "a-2", "b-1"), starts.toSet())
         }
@@ -993,12 +1007,11 @@ class ToolSchedulerTest {
             "batch B must be woken by A's release across the exclusive lane",
             b.isAlive,
         )
-        assertEquals(
-            "both of A's writes settle in call order",
-            2,
-            aResult.get().outcomes.count { it is ToolDispatchOutcome.Succeeded },
-        )
-        assertTrue(bResult.get().outcomes[0] is ToolDispatchOutcome.Succeeded)
+        val aSettlements = aResult.get().settlements
+        val aSuccesses =
+            aSettlements.count { it is BatchSettlement.Outcome && it.outcome is ToolDispatchOutcome.Succeeded }
+        assertEquals("both of A's writes settle in call order", 2, aSuccesses)
+        assertTrue((bResult.get().settlements[0] as BatchSettlement.Outcome).outcome is ToolDispatchOutcome.Succeeded)
         synchronized(starts) {
             assertEquals("every write runs exactly once", setOf("a-1", "a-2", "b-1"), starts.toSet())
         }
@@ -1023,7 +1036,7 @@ class ToolSchedulerTest {
         starts: MutableList<String>,
     ) {
         register(
-            "x.a",
+            "x_a",
             ToolOperationClass.READ_ONLY,
             object : ToolExecutor {
                 override fun execute(call: ExecutableToolCall): ToolExecutorResult {
@@ -1035,7 +1048,7 @@ class ToolSchedulerTest {
             },
         )
         register(
-            "x.b",
+            "x_b",
             ToolOperationClass.READ_ONLY,
             object : ToolExecutor {
                 override fun execute(call: ExecutableToolCall): ToolExecutorResult {
@@ -1063,9 +1076,9 @@ class ToolSchedulerTest {
                     return ToolExecutorResult.Completed(json("{}"))
                 }
             }
-        register("w.x", ToolOperationClass.LOCAL_MUTATION, recording)
-        register("w.y", ToolOperationClass.LOCAL_MUTATION, recording)
-        register("w.z", ToolOperationClass.LOCAL_MUTATION, recording)
+        register("w_x", ToolOperationClass.LOCAL_MUTATION, recording)
+        register("w_y", ToolOperationClass.LOCAL_MUTATION, recording)
+        register("w_z", ToolOperationClass.LOCAL_MUTATION, recording)
         broker.script(
             ApprovalAcquisition.Approved(ApprovalProof("a-1", "1".repeat(64))),
             ApprovalAcquisition.Approved(ApprovalProof("a-2", "2".repeat(64))),
@@ -1219,7 +1232,7 @@ class ToolSchedulerTest {
             release.countDown()
         }
         val batch = result.get(5, TimeUnit.SECONDS)
-        val outcome = (batch.settlements[1] as ToolScheduler.BatchSettlement.Outcome).outcome
+        val outcome = (batch.settlements[1] as BatchSettlement.Outcome).outcome
         assertEquals(DispatchOutcomeCode.UNKNOWN_TOOL, (outcome as ToolDispatchOutcome.Denied).code)
         assertEquals(0, executions.get())
         assertEquals(1, broker.acquireCalls.size)
@@ -1239,7 +1252,7 @@ class ToolSchedulerTest {
             },
         )
         val result = ToolScheduler(clock, dispatcher, registry).scheduleBatch(listOf(request))
-        val outcome = (result.settlements.single() as ToolScheduler.BatchSettlement.Outcome).outcome
+        val outcome = (result.settlements.single() as BatchSettlement.Outcome).outcome
         assertEquals(DispatchOutcomeCode.UNKNOWN_TOOL, (outcome as ToolDispatchOutcome.Denied).code)
         assertEquals(0, executions.get())
     }

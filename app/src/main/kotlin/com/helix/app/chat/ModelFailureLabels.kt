@@ -55,6 +55,10 @@ internal object ModelFailureLabels {
                     R.string.model_failure_missing_terminal
                 }
 
+                "INCOMPLETE_TOOL_OUTPUT_LIMIT" -> {
+                    R.string.model_failure_incomplete_tool_output_limit
+                }
+
                 "INVALID_JSON", "INVALID_SSE", "INVALID_SCHEMA" -> {
                     R.string.model_failure_invalid_response
                 }
@@ -74,6 +78,7 @@ internal object ModelFailureLabels {
         ) {
             detail = strings(R.string.model_failure_http, arrayOf<Any>(status, detail))
         }
+        detail = withServerDetails(detail, facts, strings)
         val partial =
             (facts?.get("recoveryDecision") as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull ==
                 "PARTIAL_OR_TERMINAL_STREAM" ||
@@ -93,6 +98,30 @@ internal object ModelFailureLabels {
         } else {
             label
         }
+    }
+
+    private fun withServerDetails(
+        base: String,
+        facts: JsonObject?,
+        strings: (Int, Array<out Any>) -> String,
+    ): String {
+        var detail = base
+        val serverDetail = (facts?.get("serverMessage") as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull
+        if (!serverDetail.isNullOrBlank()) detail += "\n" + serverDetail.take(768)
+        val requestId = (facts?.get("requestId") as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull
+        if (requestId != null && requestId.matches(Regex("[A-Za-z0-9._:-]{1,128}"))) {
+            detail += "\n" + strings(R.string.cloud_request_id, arrayOf(requestId))
+        }
+        val retryAfter =
+            (
+                facts?.get(
+                    "retryAfterMillis",
+                ) as? kotlinx.serialization.json.JsonPrimitive
+            )?.contentOrNull?.toLongOrNull()
+        if (retryAfter != null && retryAfter > 0) {
+            detail += "\n" + strings(R.string.cloud_retry_after, arrayOf(1 + (retryAfter - 1) / 1000))
+        }
+        return detail
     }
 
     private fun parse(payload: String): JsonObject? =

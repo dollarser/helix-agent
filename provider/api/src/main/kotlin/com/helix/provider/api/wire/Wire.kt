@@ -40,7 +40,7 @@ public class WireRequest(
     }
 
     internal companion object {
-        val METHODS = setOf("GET", "POST", "HEAD")
+        val METHODS = setOf("GET", "POST", "HEAD", "PATCH")
     }
 }
 
@@ -119,3 +119,21 @@ public fun mapHttpStatus(status: Int): Pair<ModelErrorCode, Boolean> =
         status in 505..599 -> ModelErrorCode.SERVER_ERROR to false
         else -> ModelErrorCode.SERVER_ERROR to false
     }
+
+/** A local deployment admission rejection, never a network failure or replayable operation. */
+public class WireRequestRejectedException(
+    public val reason: Reason = Reason.INVALID_REQUEST,
+) : IllegalArgumentException(reason.guidance) {
+    public enum class Reason(
+        public val guidance: String,
+    ) {
+        UNSUPPORTED_MEDIA(
+            "This media type or reference is not supported by this deployment; " +
+                "use a supported image attachment or select another model.",
+        ),
+        INPUT_TOO_LARGE(
+            "Input exceeds this deployment's byte limit; compact the conversation or select another model.",
+        ),
+        INVALID_REQUEST("The deployment cannot accept this request; check the model configuration."),
+    }
+}

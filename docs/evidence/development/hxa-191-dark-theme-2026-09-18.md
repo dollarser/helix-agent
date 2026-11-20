@@ -1,5 +1,7 @@
 # HXA-191 深色主题切片证据：统一跟随系统主题与四象限设备验收（2026-09-18）
 
+本文保留切片交接时的结果及协调分工；末尾 status/index 更新建议不是当前待办。最终任务归属查 [HXA-191 完成记录](../../completion-records/HXA-191.md)，下文未通过的 source 检查不记为通过。
+
 本记录属于 HXA-191「深色主题」轮（接续「会话搜索」切片，worktree `Helix-theme-191`，分支 `codex/hxa-191-dark-theme`，基线 `5bfce200`）。本轮**只交付 HXA-191 的「深色主题」部分**，并对**已合并的会话搜索**做回归；与上一轮会话搜索（[切片证据](hxa-191-session-search-2026-09-18.md)）合起来，**HXA-191 两部分均交付并本地验收**，故本轮写完成记录 [`evidence/development/hxa-191-delivery-review-2026-09-18.md`](../../evidence/development/hxa-191-delivery-review-2026-09-18.md)。
 
 ## 结论
@@ -7,7 +9,7 @@
 - **深色主题（统一跟随系统）已交付并四象限设备验收**（深色真实生效 API36 两 flavor；API29 深色受模拟器镜像限制未在设备验证，见[边界](#边界与外部事实)）：**两侧都显式接线**——(a) **Compose 侧**：`Theme.kt` 的 `HelixTheme` 在两个组合根（首启提示 + 主壳）显式按 `isSystemInDarkTheme()` 选 dark/light（material3 1.4 裸 `MaterialTheme {}` 是**固定浅色**、并不跟随系统——这是复审退回的核心缺陷，本轮修正；已对照 material3 1.4.0 字节核验无任何 material3 类引用 `isSystemInDarkTheme`/`uiMode`），对话框为树内 M3 `AlertDialog` 随根翻转；(b) **Android 窗口侧**：新增 `values-night` 平台主题（`app` + `runtime/cli-app` 各一份），使状态栏/导航栏/浅色状态栏标志/预 Compose 窗口背景在夜间随系统翻深，与浅色基线严格对应。
 - 双 flavor × 双 API 独占模拟器**主题矩阵**（consumer/developer × API36/29；AVD `HelixApkUpgrade_API36/29`；端口 5700/5702/5704/5706）：每象限每模式 **setup（写 PID 标记 + `killProcess` 强杀）→ verify `OK (6 tests)`**，`closed.json exit 0`。**深色真实生效仅 API36**：两 flavor 均 `cmd uimode night` no→yes、前景 `MainActivity` 窗口 `mFullConfiguration` 夜间带 `night`、状态栏 appearance flag `apr=LIGHT_STATUS_BARS` 由 light 有 / dark 无翻转。**API29 模拟器镜像无法被强制夜间**（`cmd uimode night yes` 等 5 种标准方式均 no-op、`settings …/ui_night_mode` 三命名空间皆 `null`），故 **API29 两象限实际覆盖的是浅色主题 + 两阶段真进程重启 + 5 目的地 + 3 语言 + 大字体（`font_scale` 1.0→1.3 为矩阵自设值，非系统深色后果）**，深色渲染在 API29 **未在设备验证**（属模拟器镜像限制、非代码缺口——同一 API-无关代码路径已在 API36 验证，见[边界](#边界与外部事实)）。逐象限逐模式原始日志见各 `build/hxa-191-theme-<variant>-api<api>/`。
 - **已合并会话搜索回归四象限全绿**（`Helix191_API36/29`；端口 5642/5644/5646/5648）：每象限 app `SessionSearchDeviceTest` **`OK (8 tests)`** + storage connected `SessionSearchQueryDeviceTest` **`4/0/0`** + `closed.json exit 0`。
-- **P1 全绿**：`./gradlew spotlessCheck detekt test` BUILD SUCCESSFUL；`check-all --source` 除**预期**的 completion-index 未重算（协调者职责，见[建议 status 更新](#建议-status-更新供协调者整合本执行者不直接改全局-statusroadmapindex)）外全过；`check-all --artifacts` 绿（developer 订阅/运行域边界未被主题改动波及）；`git diff --check` clean。
+- **主机定向检查通过，source 门禁未通过**：`./gradlew spotlessCheck detekt test` BUILD SUCCESSFUL；`check-all --source` 存在下文列出的 3 项整合失败（协调者职责，见[建议 status 更新](#建议-status-更新供协调者整合本执行者不直接改全局-statusroadmapindex)）；`check-all --artifacts` 通过（developer 订阅/运行域边界未被主题改动波及）；`git diff --check` clean。预期整合失败仍是失败，不能称本轮完整门禁全绿。
 
 ## 本轮交付（实现，非既有证据）
 
@@ -35,7 +37,7 @@
 | consumer debug androidTest | `1a3d70fed5a1346908277439ad07a5f81f1eded4b51e49498f4016d43dc5f4f7` |
 | developer debug androidTest | `377619b981f56dfb79bd6932198942ad47326bc849115b19d89fd0fe1bc63f0a` |
 
-每象限 `artifacts.json` 记录当次安装的 app/test APK 哈希（consumer 象限 = `e9783c…`/`1a3d70…`，developer 象限 = `5687a4…`/`377619…`），与本轮构建产物一致。**测试 APK 由本轮交付源码重建**（APK mtime 22:46 新于 `Theme.kt` 22:45 / `HelixThemeDeviceTest.kt` 22:32），保证「已运行的 APK」=「已提交的源码」编译产物。
+每象限 `artifacts.json` 记录当次安装的 app/test APK 哈希（consumer 象限 = `e9783c…`/`1a3d70…`，developer 象限 = `5687a4…`/`377619…`），与本轮构建产物一致。原记录报告测试 APK 在交付源码修改后重建（APK mtime 22:46 新于 `Theme.kt` 22:45 / `HelixThemeDeviceTest.kt` 22:32）；mtime 仅为时间顺序辅证，不能单独证明提交源码与构建输入完全一致，本次文档复核未重建该历史候选。
 
 ## 命令与结果（全部实际执行）
 

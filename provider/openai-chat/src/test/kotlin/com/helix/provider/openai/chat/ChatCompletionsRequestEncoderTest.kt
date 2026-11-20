@@ -10,6 +10,7 @@ import com.helix.core.model.ModelToolSchema
 import com.helix.core.model.ReasoningEffort
 import com.helix.core.model.ToolCallId
 import com.helix.core.model.ToolName
+import com.helix.provider.api.ProviderToolNames
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -72,13 +73,13 @@ class ChatCompletionsRequestEncoderTest {
                     ModelRole.ASSISTANT,
                     "",
                     toolCalls =
-                        listOf(AssistantToolCall(ToolCallId("original"), ToolName("jobs.await"), "{}")),
+                        listOf(AssistantToolCall(ToolCallId("original"), ToolName("jobs_await"), "{}")),
                 ),
                 ModelMessage(
                     ModelRole.TOOL,
                     "Original result",
                     toolCallId = ToolCallId("original"),
-                    toolName = ToolName("jobs.await"),
+                    toolName = ToolName("jobs_await"),
                 ),
             )
         val encoded = parsed(encoder.encode(ModelRequest("fixture", messages))).getValue("messages").jsonArray
@@ -322,7 +323,7 @@ class ChatCompletionsRequestEncoderTest {
             ModelRequest(
                 model = "m",
                 messages = listOf(ModelMessage(ModelRole.USER, "hi")),
-                tools = listOf(ModelToolSchema(ToolName("t.a"), "d", schema)),
+                tools = listOf(ModelToolSchema(ToolName("t_a"), "d", schema)),
             )
         val tool =
             parsed(encoder.encode(request))["tools"]?.jsonArray?.get(0)?.jsonObject
@@ -331,7 +332,7 @@ class ChatCompletionsRequestEncoderTest {
         val parameters = function["parameters"]?.jsonObject ?: error("no parameters")
         // The canonical schema text round-trips structurally (same object shape).
         assertEquals(parsed(schema), parameters)
-        assertEquals("t.a", str(function, "name"))
+        assertEquals(ProviderToolNames(request).encode("t_a"), str(function, "name"))
     }
 
     @Test
@@ -390,12 +391,12 @@ class ChatCompletionsRequestEncoderTest {
                     listOf(
                         AssistantToolCall(
                             ToolCallId("call_a1"),
-                            ToolName("time.now"),
+                            ToolName("time_now"),
                             "{\"tz\":\"UTC\"}",
                         ),
                         AssistantToolCall(
                             ToolCallId("call_b2"),
-                            ToolName("file.read"),
+                            ToolName("file_read"),
                             "{\"path\":\"a.txt\"}",
                         ),
                     ),
@@ -405,7 +406,7 @@ class ChatCompletionsRequestEncoderTest {
                 role = ModelRole.TOOL,
                 text = "1700000000",
                 toolCallId = ToolCallId("call_a1"),
-                toolName = ToolName("time.now"),
+                toolName = ToolName("time_now"),
             )
         val request =
             ModelRequest(
@@ -431,7 +432,7 @@ class ChatCompletionsRequestEncoderTest {
         assertEquals("call_a1", first["id"]?.jsonPrimitive?.content)
         assertEquals("function", first["type"]?.jsonPrimitive?.content)
         val fn = first["function"]?.jsonObject
-        assertEquals("time.now", fn?.get("name")?.jsonPrimitive?.content)
+        assertEquals(ProviderToolNames(request).encode("time_now"), fn?.get("name")?.jsonPrimitive?.content)
         assertEquals("{\"tz\":\"UTC\"}", fn?.get("arguments")?.jsonPrimitive?.content)
         val second = calls?.get(1)!!.jsonObject
         assertEquals("call_b2", second["id"]?.jsonPrimitive?.content)
@@ -448,8 +449,8 @@ class ChatCompletionsRequestEncoderTest {
                 text = "checking",
                 toolCalls =
                     listOf(
-                        AssistantToolCall(ToolCallId("call_a1"), ToolName("time.now"), "{\"tz\":\"UTC\"}"),
-                        AssistantToolCall(ToolCallId("call_b2"), ToolName("file.read"), "{\"path\":\"a.txt\"}"),
+                        AssistantToolCall(ToolCallId("call_a1"), ToolName("time_now"), "{\"tz\":\"UTC\"}"),
+                        AssistantToolCall(ToolCallId("call_b2"), ToolName("file_read"), "{\"path\":\"a.txt\"}"),
                     ),
             )
         val request =
@@ -463,13 +464,13 @@ class ChatCompletionsRequestEncoderTest {
                             ModelRole.TOOL,
                             "1700000000",
                             toolCallId = ToolCallId("call_a1"),
-                            toolName = ToolName("time.now"),
+                            toolName = ToolName("time_now"),
                         ),
                         ModelMessage(
                             ModelRole.TOOL,
                             "content",
                             toolCallId = ToolCallId("call_b2"),
-                            toolName = ToolName("file.read"),
+                            toolName = ToolName("file_read"),
                         ),
                         ModelMessage(
                             ModelRole.USER,

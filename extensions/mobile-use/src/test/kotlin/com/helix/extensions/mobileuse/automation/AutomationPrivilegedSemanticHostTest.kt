@@ -21,7 +21,7 @@ class AutomationPrivilegedSemanticHostTest {
     private val call =
         ExecutableToolCall(
             "call",
-            "ui.snapshot",
+            "ui_snapshot",
             "6",
             JsonObject(emptyMap()),
             ExecutionTargetType.LOCAL_ANDROID,

@@ -13,7 +13,7 @@
 - 可用磁盘至少 30 GiB；加入 PRoot/多模拟器后推荐 60 GiB。
 - Git 2.40+。
 - Bash、`ripgrep`、`unzip`、`strings`，以及 `sha256sum` 或 `shasum`；仓库门禁会直接调用它们。
-- 真实平台验收需对应设备；主机构建不要求连接真机，设备操作仍须当前明确授权。
+- 真实平台验收需对应设备；主机构建不要求连接真机，设备操作按 AGENTS 区分项目模拟器预授权与真机的当前任务明确授权。
 
 当前主机门禁及 Developer APK 的 RootFS 压缩打包需要 Python 3.11+（含标准库 `lzma`）；
 不要求为普通 Android 构建安装 Docker、Node.js 或 Rust。官方
@@ -73,7 +73,7 @@ M0 已按下表创建 `gradle/libs.versions.toml`。当前构建和 lockfile 是
 - 不引入 Hilt/Koin；采用手工 `AppContainer`。
 - 不引入 LangChain4j/Semantic Kernel；自研有限 Agent Loop。
 - Provider 流协议直接使用 OkHttp；Ktor 只封装在 MCP module，因为官方 SDK 依赖 Ktor。
-- HXA-077 / accepted ADR-A2A-001 选择 Helix 自有 `A2aClientFacade` + 既有 OkHttp 5.5.0 / `okhttp-sse` 5.5.0 / kotlinx.serialization 1.9.0 实现最小 A2A v1.0 Client；官方 A2A Java SDK 1.3.1.Final 只保留在 `:spikes:a2a-sdk` 作为 JVM/R8 决策证据，不得进入 production module。API 29/36 运行与真实 App APK/SBOM 验收仍待补齐。
+- HXA-077 / accepted ADR-A2A-001 选择 Helix 自有 `A2aClientFacade` + 既有 OkHttp 5.5.0 / `okhttp-sse` 5.5.0 / kotlinx.serialization 1.9.0 实现最小 A2A v1.0 Client；官方 A2A Java SDK 1.3.1.Final 只保留在 `:spikes:a2a-sdk` 作为 JVM/R8 决策证据，不得进入 production module。该 Spike 不代表当前全产品验收；后续实现及验证范围见 [A2A ADR](../adr/a2a/001-client-interoperability.md) 和 HXA-077～079 完成记录。
 - 不引入通用 shell/process 库；PRoot Runner 自己封装明确的 argv 和 lifecycle。
 - 不使用已 deprecated 的 `androidx.security:security-crypto` 作为新设计核心；使用 Android Keystore + 明确的加密存储封装。
 - Agent Skills 自行实现 Kotlin parser/loader；官方 `skills-ref` 只作规范 fixture，不作 Android production 依赖。
@@ -140,206 +140,12 @@ sdkmanager --list_installed
 
 - `java -version` 与 `./gradlew --version` 的 Launcher/Daemon JVM 都必须是 17。
 - `./gradlew --version` 显示的 Gradle 自带 Kotlin 版本不是项目 Kotlin plugin 版本；项目版本只以 `gradle/libs.versions.toml` 为准。
-- `sdkmanager --list_installed` 必须至少包含 Platform 36、Build Tools 36.0.0、Platform Tools、NDK 28.2.13676358 和 CMake 3.31.6。
+- `sdkmanager --list_installed` 必须至少包含 Platform 36 与编译用 Platform 37.0、Build Tools 36.0.0、Platform Tools、NDK 28.2.13676358 和 CMake 3.31.6。
 - 不依赖开发机的全局 Gradle，所有构建只使用 `./gradlew`。
 
 ## 5. 模拟器和真机矩阵
 
-本节是配置与覆盖参考，不授予设备操作权限；所有安装、启动、ADB 与 instrumentation 示例仅在当前任务已获对应授权时执行。输入默认值见[验收参考](verification-matrix.md#模拟器输入默认值)。
-
-### 5.1 按变更选择验证
-
-- 当前无设备 CI：按变更分档执行源码检查、JVM unit tests、Spotless、Detekt、双 flavor Lint/APK、依赖/制品扫描，见 [CI 分层](ci.md)。
-- Android UI、生命周期、持久化恢复或平台能力变化时，按任务/HXA 准备适用的 instrumentation APK、用例与预期；设备执行须由 owner 对当前任务、相应模拟器/真机明确授权。未要求记 `not requested`，已要求未完成记 `pending`，不伪报设备通过。
-- 本地模拟器按主机支持的 ABI 选择，Apple Silicon 使用 arm64-v8a；报告必须写真实 API/ABI，不能把一种架构的结果冒充另一种。GitHub CI 不执行设备矩阵，也不规划 emulator job。
-
-### 5.2 设备覆盖参考（按任务风险与授权选用）
-
-| 设备 | 架构/API | 用途 |
-| --- | --- | --- |
-| Emulator A | 主机原生 ABI / API 29 | 最低版本行为；Apple Silicon 用 arm64-v8a，Linux x86-64 用 x86_64 |
-| Emulator B | 主机原生 ABI / API 36 | 当前 target、自动测试；Apple Silicon 用 arm64-v8a，Linux x86-64 用 x86_64 |
-| Device A | arm64 / API 34 或 35 | 主流真机、功耗/后台 |
-| Device B | arm64 / API 36 | 新系统、真实 16 KiB page、QuickJS/PRoot 全部 ELF/smoke、前台限制 |
-| Low-memory device | arm64 / 4–6 GiB RAM | QuickJS/PRoot 资源压力 |
-| Rooted test device | arm64 / API 34+ | libsu 授权、拒绝、RootService；不得使用主力手机 |
-| Secondary automation device | arm64 / API 34+ | Accessibility 跨 App 和敏感界面拒绝 |
-
-QuickJS、WebView、PRoot、Accessibility、Root 和 CLI Runtime 不能只在模拟器验收。Root/Accessibility 自动化使用专用测试设备和自建 fixture App。
-
-### 5.2.1 设备占用与并行 worktree
-
-Android 设备是共享的外部状态，不受 Git worktree 隔离。开始 instrumentation 前必须先
-执行 `adb devices -l`，确认目标设备没有其他任务正在安装 APK、运行 instrumentation、修改
-权限/locale/网络转发或重启；无法确认空闲时，选择无人使用的设备或新建独立 AVD，不抢占
-未知所有者的会话。需要长期占用时在任务记录中声明设备/API/ABI/用途，不记录真实序列号。
-
-同一设备上的 consumer/developer、主 App/test APK/Runtime companion 安装默认串行。测试
-Provider authority 必须由 `${applicationId}` 派生或显式保证变体唯一；固定 authority、端口、
-applicationId、系统 locale、持久 grant 和已安装旧 APK 都可能跨 worktree 冲突。出现
-`INSTALL_FAILED_CONFLICTING_PROVIDER`、`ClassNotFoundException`、找不到测试类或行为与当前
-源码不符时，先核对实际安装的主包、test package、version/commit 对应产物和 companion，
-再重装正确的 app/test 配对；不得把被其他分支覆盖的 APK 当作当前实现或平台证据。
-
-设备资源不足或占用冲突属于测试调度问题，不授权降低产品要求、删除断言、跳过安全路径或
-把专项设备门禁改写成 JVM/in-process 替代证据。只有最小、与 Helix 实现无关的真实边界
-复现仍失败，才可以把问题升级为平台阻塞候选。
-
-### 5.3 创建 Helix AVD
-
-安装与主机架构匹配的 Google APIs 镜像。Apple Silicon 使用 `arm64-v8a`；Linux x86-64 使用 `x86_64`，不能为了复用命令而安装错误 ABI：
-
-```bash
-helix_host_abi="arm64-v8a" # Linux x86-64 改为 x86_64
-sdkmanager \
-  "system-images;android-29;google_apis;${helix_host_abi}" \
-  "system-images;android-36;google_apis;${helix_host_abi}"
-
-printf 'no\n' | avdmanager create avd \
-  --name Helix_API_29 \
-  --package "system-images;android-29;google_apis;${helix_host_abi}"
-printf 'no\n' | avdmanager create avd \
-  --name Helix_API_36 \
-  --package "system-images;android-36;google_apis;${helix_host_abi}"
-```
-
-创建后必须把显示设为手机级分辨率 **1080×2400 @ 420dpi**（与参考 `Helix_API_36` 一致）。`avdmanager create avd` 不带 `--device` profile 时默认落在 320×640 @ 160；该尺寸下 provider 行下半部分（状态明细、`provider-test`/`provider-delete` 按钮）会落到可视区之外或被输入法遮挡，令 `ProviderModelDiscoveryUiTest`、`ProviderFlowTest` 等 provider 行 UI 测试确定性失败，高度被 clamp（如 1080×1920）时带模型分区的行仍会失败——需要完整 2400 高度。分辨率是创建期配置，改法是在该 AVD 的 `config.ini`（本机 AVD 目录内，不进仓库）写入 `hw.lcd.width=1080`、`hw.lcd.height=2400`、`hw.lcd.density=420` 后重启 AVD。若此前用 `adb shell wm size`/`wm density` 临时改过，须先 `wm size reset` 与 `wm density reset` 清掉持久在 `/data` 的覆盖，否则冷启动仍被 clamp。
-
-需要在浏览器完成 OAuth、输入 Device Code 或执行其他人工键盘验收的 AVD，还必须在同一 `config.ini`
-设置 `hw.keyboard=yes`，并以 `-no-snapshot-load` 或 `-no-snapshot` 冷启动。`-no-snapshot-save` 只禁止保存，
-仍可能加载旧快照，不能修复创建时的 `hw.keyboard=no`。启动后可用 `hardware-qemu.ini` 中实际生效的
-`hw.keyboard = true` 复核；若希望连接宿主硬件键盘时仍显示软键盘，再显式设置
-`adb shell settings put secure show_ime_with_hard_keyboard 1`。
-
-若同名 AVD 已存在，不要用 `--force` 覆盖；先通过 Android Studio Device Manager 检查其 API、ABI、磁盘和快照状态。普通开发从 Device Manager 启动即可；命令行冷启动参考：
-
-```bash
-emulator -avd Helix_API_36 -no-snapshot-load
-adb wait-for-device
-adb shell getprop ro.build.version.sdk
-adb shell getprop ro.product.cpu.abi
-```
-
-预期分别为 `36` 和与所装镜像一致的 ABI。设备测试报告必须记录 API、ABI、模拟器/真机和实际 test count；`BUILD SUCCESSFUL` 不能单独替代功能证据。
-
-### 5.4 真机准备
-
-1. 在专用测试设备开启 Developer options 与 USB debugging。
-2. 首次连接时在设备端确认电脑指纹；不要在共享或不可信电脑上选择永久信任。
-3. 执行 `adb devices -l`，状态必须为 `device`，不能是 `unauthorized` 或 `offline`。
-4. 同时连接多个设备时，先设置当前终端的 `ANDROID_SERIAL`，避免 instrumentation 跑到错误设备；完成后取消该临时变量。
-5. 不在日志、完成记录或仓库中保存硬件序列号、个人通知、真实账号或用户文件。
-
-### 5.5 真机安装、启动与日志闭环
-
-先确认目标设备、目标渠道与实际系统边界，再构建当前 developer 测试主包；它尚不等于最终商店/官网 artifact。下列占位符不得替换后提交到仓库：
-
-```bash
-export ANDROID_SERIAL="<adb-device-serial>"
-
-adb devices -l
-adb shell getprop ro.product.model
-adb shell getprop ro.build.version.sdk
-adb shell getprop ro.product.cpu.abi
-
-./gradlew :app:assembleDeveloperDebug
-adb install -r app/build/outputs/apk/developer/debug/app-developer-debug.apk
-adb shell monkey -p com.helix.agent.developer -c android.intent.category.LAUNCHER 1
-adb shell pidof com.helix.agent.developer
-```
-
-`pidof` 有输出只证明进程存活，不代表界面、Provider 或 Tool 功能已验收。冷启动和异常日志可分别检查：
-
-```bash
-adb shell am force-stop com.helix.agent.developer
-adb shell monkey -p com.helix.agent.developer -c android.intent.category.LAUNCHER 1
-adb logcat -d -v threadtime | rg -i \
-  'FATAL EXCEPTION|ANR in com\.helix\.agent\.developer'
-```
-
-首次启动告知、通知权限、Accessibility、All files access 和 Root 等都必须由测试人员在 App/系统 UI 中做真实选择。只读查验通知状态的示例：
-
-```bash
-adb shell dumpsys package com.helix.agent.developer | \
-  rg -A2 'android.permission.POST_NOTIFICATIONS'
-```
-
-不使用 `pm grant`、直接改 App 数据库或自动点击敏感系统页伪造用户授权。如果只需重装测试 APK，不要执行 `pm clear` 或卸载主包，否则会丢失用户已确认的首次启动与 Provider 配置。完成后执行 `unset ANDROID_SERIAL`。
-
-### 5.6 真机访问本机或远程自建模型
-
-先分清两个“本机”：手机中的 `127.0.0.1` 是手机自己，开发机中的 `127.0.0.1` 是开发机自己。`ssh -L 30008:127.0.0.1:30008 <ssh-host>` 默认只在开发机的 loopback 上监听，手机不能通过开发机的局域网 IP 访问它。
-
-USB 连接调试时优先使用 `adb reverse`，无需向局域网开放模型端口：
-
-```bash
-# 终端 A：只向开发机 loopback 建立到远程模型服务的隧道
-ssh -N -o ExitOnForwardFailure=yes \
-  -L 127.0.0.1:30008:127.0.0.1:30008 <ssh-host>
-
-# 终端 B：将手机 127.0.0.1:30008 反向到开发机 127.0.0.1:30008
-adb reverse tcp:30008 tcp:30008
-adb reverse --list
-```
-
-此时 App 或 instrumentation 使用 `http://127.0.0.1:30008/v1`。远程 SGLang 可以继续只监听远程主机的 `127.0.0.1:30008`；SSH 进程是远程目标的访问者。调试结束后移除 reverse，并在终端 A 按 `Ctrl-C` 停止 SSH：
-
-```bash
-adb reverse --remove tcp:30008
-```
-
-只有在验证 Wi-Fi/实际 LAN 路径时，才把 SSH 本地转发绑定到开发机的具体局域网地址：
-
-```bash
-helix_host_ip="<development-host-lan-ip>"
-
-ssh -N -o ExitOnForwardFailure=yes \
-  -L "${helix_host_ip}:30008:127.0.0.1:30008" <ssh-host>
-```
-
-不建议绑定 `0.0.0.0`；它会向开发机所有可达网卡暴露端口。手机和开发机必须位于互通网段，并允许 macOS/Linux 防火墙接收该端口。分层验证：
-
-```bash
-# 开发机：必须显示具体 LAN IP，而不是只有 127.0.0.1
-lsof -nP -iTCP:30008 -sTCP:LISTEN
-curl --fail --max-time 5 "http://${helix_host_ip}:30008/v1/models"
-
-# 手机：先只验证 TCP 可达，再跑 Helix Provider smoke
-adb shell nc -zvw 3 "${helix_host_ip}" 30008
-```
-
-developer 真机的 SGLang 产品类型冒烟测试可按方法级逐项执行，避免 OEM 后台策略中止整类 instrumentation 后丢失已完成项的证据：
-
-```bash
-./gradlew :app:assembleDeveloperDebug :app:assembleDeveloperDebugAndroidTest
-adb install -r app/build/outputs/apk/developer/debug/app-developer-debug.apk
-adb install -r app/build/outputs/apk/androidTest/developer/debug/app-developer-debug-androidTest.apk
-
-helix_smoke_class="com.helix.app.provider.SelfHostedSmokeTest"
-helix_runner="com.helix.agent.developer.test/androidx.test.runner.AndroidJUnitRunner"
-
-adb shell am instrument -w -r \
-  -e helix.smoke.host "${helix_host_ip}" \
-  -e class "${helix_smoke_class}#sglangConfigurationCheckAndModelListPass" \
-  "${helix_runner}"
-adb shell am instrument -w -r \
-  -e helix.smoke.host "${helix_host_ip}" \
-  -e class "${helix_smoke_class}#sglangTextStreamCompletesWithTextDelta" \
-  "${helix_runner}"
-adb shell am instrument -w -r \
-  -e helix.smoke.host "${helix_host_ip}" \
-  -e class "${helix_smoke_class}#sglangToolCallCompletesWithClosedToolIndex" \
-  "${helix_runner}"
-```
-
-使用 USB reverse 时将 `helix_host_ip` 设为 `127.0.0.1`。上述 SGLang smoke 固定使用 `30008`；同类中 Ollama smoke 使用 `11434`，服务不存在时必须显式 skip，不能记录为通过。明文 HTTP 可达性不是授权：Helix 仍要求用户在 UI 中确认精确 `host:port`，Android 系统权限、MCP annotation 或进入 Advanced 都不能代替该授权。无认证模型端口只能在可信网络中临时开放。
-
-收尾时只卸载 instrumentation 测试包，保留主 App 及其用户数据：
-
-```bash
-adb uninstall com.helix.agent.developer.test
-adb shell pm list packages | rg 'com\.helix\.agent'
-```
+设备覆盖选择、AVD 创建、并行占用、真机安装及自建模型连通性调试已集中到[设备配置与调试](device-setup.md)。授权和测试证据分别遵循 AGENTS 与验收矩阵。
 
 ## 6. Gradle 约定
 
@@ -388,7 +194,7 @@ libsu 目前使用 JitPack，因此 M9 允许唯一例外，并限制 group：
 ```kotlin
 exclusiveContent {
     forRepository { maven("https://jitpack.io") }
-    filter { includeGroup(../"com.github.topjohnwu.libsu") }
+    filter { includeGroup("com.github.topjohnwu.libsu") }
 }
 ```
 
@@ -445,7 +251,7 @@ HELIX_TEST_API_KEY
 
 ## 8. 推荐仓库目录
 
-下图是目标模块/目录布局，不是实时实现清单。目录存在、可参与 Gradle 构建或包含 marker 都不表示业务能力已落位；已实现范围、空骨架和唯一当前任务以[实施状态](status.md)为准。
+下图是目标模块/目录布局，不是实时实现清单。目录存在、可参与 Gradle 构建或包含 marker 都不表示业务能力已落位；当前模块以 `settings.gradle.kts` 和源码为准，交付事实见[实施状态](status.md)，执行任务由当前用户请求决定。
 
 ```text
 Helix/
@@ -455,7 +261,7 @@ Helix/
 ├── provider/
 ├── extensions/
 │   ├── mcp/
-│   ├── a2a/                  # HXA-077 接受方案后创建
+│   ├── a2a/                  # 已有有界客户端实现
 │   └── skills/
 ├── feature/
 │   ├── browser/
@@ -486,8 +292,7 @@ Helix/
 │   ├── bug-fixes/
 │   ├── evidence/
 │   ├── research/
-│   ├── postmortems/
-│   └── references/
+│   └── postmortems/
 ├── gradle/
 │   ├── libs.versions.toml
 │   └── wrapper/
@@ -513,7 +318,7 @@ Helix/
 ./gradlew lintConsumerDebug lintDeveloperDebug
 ```
 
-设备 instrumentation 不属于默认主机命令。只有项目所有者在当前任务明确要求对应模拟器/真机验证时，才运行例如：
+设备 instrumentation 不属于默认主机命令。按改动影响及 AGENTS 对相应设备的授权范围执行，例如：
 
 ```bash
 ./gradlew connectedConsumerDebugAndroidTest connectedDeveloperDebugAndroidTest
@@ -546,7 +351,7 @@ consumer 是完整 Standard 产品渠道，需要验证时按授权单独安装 
 git diff --check
 ```
 
-Android UI、持久化恢复、生命周期或平台能力变化时，按影响准备对应 flavor 的设备用例；只在当前明确授权后执行。被要求的设备验收未完成时不能宣称该验收通过，未要求的设备矩阵不自动阻断独立主机交付。不要用 `./gradlew test` 替代设备证据，也不要为凑绿临时升级依赖或降低 compile/target SDK。旧开发测试数据不新增 App 迁移链，数据处置与当前状态恢复边界见[验收参考](verification-matrix.md#设备恢复与发布)。
+Android UI、持久化恢复、生命周期或平台能力变化时，按影响准备对应 flavor 的设备用例；按 AGENTS 对应设备的授权范围执行。被要求的设备验收未完成时不能宣称该验收通过，未要求的设备矩阵不自动阻断独立主机交付。不要用 `./gradlew test` 替代设备证据，也不要为凑绿临时升级依赖或降低 compile/target SDK。旧开发测试数据不新增 App 迁移链，数据处置与当前状态恢复边界见[验收参考](verification-matrix.md#设备恢复与发布)。
 
 ## 10. PRoot 资产构建环境
 
@@ -568,7 +373,7 @@ Android UI、持久化恢复、生命周期或平台能力变化时，按影响�
 
 ## 11. 当前 CI 与后续扩展
 
-当前 [Android CI](../../.github/workflows/ci.yml) 按变更选择 source、debug、full，具体门禁、缓存、手动完整验证和证据见 [CI 分层](ci.md)。Action 固定 commit SHA；当前制品是 consumer/developer 两个主 App Debug APK，PRoot/订阅 Runtime 内置于 developer，不再是额外 Runtime APK。
+当前 [Android CI](../../.github/workflows/ci.yml) 按变更选择 source、debug、full，具体门禁、缓存、手动完整验证和证据见 [CI 分层](verification-matrix.md#history-ci)。Action 固定 commit SHA；当前制品是 consumer/developer 两个主 App Debug APK，PRoot/订阅 Runtime 内置于 developer，不再是额外 Runtime APK。
 
 远端 CI 不运行模拟器、真机或付费模型；HXA 设备、真实账号和发行验收分别执行。CI 缓存不包含 secret、Runtime home 或真实 Provider/A2A 响应。不要用源码检查通过推断 Android 构建通过，也不要用 Debug 档代替 HXA 完整主机门禁。
 
@@ -612,7 +417,7 @@ git diff --check
 
 若还需手工下载未记录文件、修改绝对路径或复制他人 `local.properties` 才能构建，则开发环境文档不合格。
 
-继续当前仓库开发时，任务状态只以[实施状态](status.md)为准：`In progress` 非空则续接，否则使用 `Next task`；已有完成记录的 HXA 不重复实现。分支、commit、CI、SDK 和设备均以实时检查为准，不在长期文档中固化机器快照。
+继续当前仓库开发时，按当前用户请求及有效交接摘要续做；[实施状态](status.md)用于核对事实与开放边界，不提供自动启动的 `In progress` / `Next task` 队列。已有完成记录的 HXA 不重复实现。分支、commit、CI、SDK 和设备均以实时检查为准，不在长期文档中固化机器快照。
 
 ### 13.2 已验证参考工作站
 
@@ -634,4 +439,4 @@ git diff --check
 | 依赖突然要求 compileSdk 37 | 先检查 version catalog、lockfile 和依赖 diff；197 已显式升级 compileSdk 37，targetSdk 仍为 36；不得绕过依赖 metadata。 |
 | Gradle 输出 Kotlin 2.3.20，但 catalog 是 2.3.21 | 前者是 Gradle 自带 Kotlin，后者才是项目 Kotlin plugin；以 catalog 和 resolved dependency 为准。 |
 | Unit test 通过但功能仍异常 | 查看当前 HXA 的 verification matrix；涉及 Android/Room/WebView/权限/Runtime 时补跑指定设备测试和真实边界 fixture。 |
-| instrumentation 报 `Failed to inject touch input` | `androidx.compose.ui.test` 的误导包装，真实原因在紧跟的 `Reason:` 行，多为 `could not find any node`（目标不在组合树里）而非输入注入失败；按 `Reason` 定位，最常见是 AVD 分辨率太小把 provider 行内容压出可视区（见 5.3），先修正分辨率再重跑，不要当输入注入 bug 排查。 |
+| instrumentation 报 `Failed to inject touch input` | `androidx.compose.ui.test` 的误导包装，真实原因在紧跟的 `Reason:` 行，多为 `could not find any node`（目标不在组合树里）而非输入注入失败；按 `Reason` 定位，应核对节点是否存在、是否需要滚动、当前屏幕/字体与布局是否匹配；不能一律提高分辨率掩盖窄屏缺陷（见[AVD 配置](device-setup.md#3-创建-helix-avd)）。 |

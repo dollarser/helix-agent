@@ -13,7 +13,7 @@ import org.junit.Test
 import java.lang.reflect.Proxy
 
 class SessionAccessRepositoryTest {
-    private val caller = SessionHistoryCaller("source", "turn", "call", "session.status")
+    private val caller = SessionHistoryCaller("source", "turn", "call", "session_status")
 
     @Test fun revokeAndRegrantNeverReviveCapturedScope() {
         val fixture = Fixture()

@@ -45,15 +45,20 @@ internal fun KnowledgeSemanticDialog(
     var revision by remember { mutableStateOf(initial.modelRevision) }
     var selected by remember { mutableStateOf(initial.keys) }
     var models by remember { mutableStateOf<List<String>>(emptyList()) }
+    var partial by remember { mutableStateOf(false) }
+    var refresh by remember { mutableStateOf(0) }
     var loading by remember { mutableStateOf(true) }
     var failed by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var advanced by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    LaunchedEffect(semantic) {
+    LaunchedEffect(semantic, refresh) {
+        loading = true
+        failed = false
         try {
-            models = semantic.models(force = true)
-            if (model !in models) model = models.firstOrNull().orEmpty()
+            val directory = semantic.directory(force = true)
+            models = directory.models
+            partial = directory.partial
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (_: java.io.IOException) {
@@ -74,6 +79,10 @@ internal fun KnowledgeSemanticDialog(
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 Text(stringResource(R.string.semantic_disclosure))
                 SemanticModelOptions(loading, failed, models, model) { model = it }
+                SemanticDirectoryNotice(SemanticModelDirectory(models, partial), model)
+                TextButton(enabled = !loading && !busy, onClick = { refresh++ }) {
+                    Text(stringResource(R.string.semantic_refresh))
+                }
                 Text(stringResource(R.string.semantic_selection, selected.size))
                 SemanticSourceOptions(candidates, selected) { selected = it }
                 TextButton(onClick = { advanced = !advanced }) { Text(stringResource(R.string.semantic_parameters)) }
@@ -93,25 +102,35 @@ internal fun KnowledgeSemanticDialog(
             }
         },
         confirmButton = {
-            TextButton(enabled = !busy && model in models && selected.size in 1..64, onClick = {
-                busy = true
-                scope.launch {
-                    try {
-                        semantic.apply(SemanticConfiguration(model, queryPrefix, documentPrefix, revision, selected))
-                        onDismiss()
-                    } catch (cancelled: CancellationException) {
-                        throw cancelled
-                    } catch (_: java.io.IOException) {
-                        failed = true
-                    } catch (_: IllegalArgumentException) {
-                        failed = true
-                    } catch (_: IllegalStateException) {
-                        failed = true
-                    } finally {
-                        busy = false
+            TextButton(
+                enabled =
+                    SemanticModelDirectory(models, partial).canEnable(
+                        model,
+                        selected.size,
+                        busy || loading || failed,
+                    ),
+                onClick = {
+                    busy = true
+                    scope.launch {
+                        try {
+                            semantic.apply(
+                                SemanticConfiguration(model, queryPrefix, documentPrefix, revision, selected),
+                            )
+                            onDismiss()
+                        } catch (cancelled: CancellationException) {
+                            throw cancelled
+                        } catch (_: java.io.IOException) {
+                            failed = true
+                        } catch (_: IllegalArgumentException) {
+                            failed = true
+                        } catch (_: IllegalStateException) {
+                            failed = true
+                        } finally {
+                            busy = false
+                        }
                     }
-                }
-            }) { Text(stringResource(R.string.semantic_enable)) }
+                },
+            ) { Text(stringResource(R.string.semantic_enable)) }
         },
         dismissButton = {
             TextButton(
@@ -124,7 +143,7 @@ internal fun KnowledgeSemanticDialog(
 
 @Composable
 @Suppress("FunctionName")
-private fun SemanticModelOptions(
+internal fun SemanticModelOptions(
     loading: Boolean,
     failed: Boolean,
     models: List<String>,
@@ -172,5 +191,30 @@ private fun SemanticSourceOptions(
         TextButton(onClick = { onSelect(emptySet()) }) {
             Text(stringResource(R.string.semantic_clear_selection))
         }
+    }
+}
+
+internal data class SemanticModelDirectory(
+    val models: List<String>,
+    val partial: Boolean = false,
+) {
+    fun missingSelection(selected: String): Boolean = selected.isNotEmpty() && selected !in models
+
+    fun canEnable(
+        selected: String,
+        selectedDocuments: Int,
+        blocked: Boolean,
+    ): Boolean = !blocked && selected in models && selectedDocuments in 1..64
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun SemanticDirectoryNotice(
+    directory: SemanticModelDirectory,
+    selected: String,
+) {
+    if (directory.partial) Text(stringResource(R.string.semantic_partial_directory))
+    if (directory.missingSelection(selected)) {
+        Text(stringResource(R.string.semantic_saved_model_unavailable, selected))
     }
 }

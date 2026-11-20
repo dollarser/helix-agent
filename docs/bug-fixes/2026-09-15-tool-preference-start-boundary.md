@@ -52,6 +52,6 @@ Related HXA: HXA-200
 
 ## Related records
 
-- [收尾复核与201交接](2026-09-15-tool-preference-start-boundary.md)
+- [后续审计与取消恢复收口](2026-09-15-hxa200-audit-recovery.md)
 - [ADR-PERMISSIONS-003](../adr/permissions/003-dispatch-and-audit.md)
 - [产品任务包与验收命令](../product/task-experience.md)

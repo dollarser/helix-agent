@@ -114,7 +114,7 @@ class SkillCreationRealModelDeviceTest {
                 that copy. Do not use a manual authoring UI.
                 Validate and install the exact content with existing Skill tools, enable for this session, verify
                 discovery, then actually read the installed Skill instructions and its reference and use
-                skills.run to execute the installed scripts/copy.py now.
+                skills_run to execute the installed scripts/copy.py now.
                 Verify output/skill-result.txt by reading it. No external downloads or accounts.
                 Finish with a concise result.
                 """.trimIndent()
@@ -138,13 +138,13 @@ class SkillCreationRealModelDeviceTest {
             val calls = c.storage.toolCalls.listByTurn(turn.id)
             val requiredTools =
                 listOf(
-                    "skills.preview",
-                    "skills.install",
-                    "skills.enable",
-                    "skills.list",
-                    "skills.read",
-                    "skills.read_resource",
-                    "skills.run",
+                    "skills_preview",
+                    "skills_install",
+                    "skills_enable",
+                    "skills_list",
+                    "skills_read",
+                    "skills_read_resource",
+                    "skills_run",
                 )
             for (tool in requiredTools) {
                 check(calls.any { it.name == tool && it.state == "COMPLETED" }) { "Missing actual completed $tool" }

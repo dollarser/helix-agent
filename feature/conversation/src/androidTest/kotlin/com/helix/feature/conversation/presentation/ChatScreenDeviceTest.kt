@@ -29,6 +29,30 @@ class ChatScreenDeviceTest : ConversationDeviceTestFixture() {
     private var sends = 0
     private var newSessions = 0
 
+    @Test fun unavailableModelOpensPickerWithoutReplacingHistoryOrDraft() {
+        val historical =
+            conversationScreenFixture().copy(
+                isDraft = false,
+                selectedModel = SelectedModelUi("cloud", "retired-model"),
+                messages = listOf(MessageUi("history", "assistant", "Keep the previous answer")),
+                modelBindingIssue = ProviderBindingIssue.MODEL_UNAVAILABLE,
+            )
+        screen.value = historical
+        render()
+        compose.onNodeWithTag("replace-unavailable-model").assertIsDisplayed().performClick()
+        compose.onNodeWithTag("chat-model-list").assertIsDisplayed()
+        compose.onNodeWithTag("chat-model-picker-cancel").performClick()
+        compose.onNodeWithTag("chat-input").assertTextEquals("Keep this unsent draft")
+        compose.runOnIdle {
+            assertEquals(historical, screen.value)
+            assertEquals(0, sends)
+            assertEquals(0, newSessions)
+            screen.value = historical.copy(modelBindingIssue = null)
+        }
+        compose.onNodeWithTag("replace-unavailable-model").assertDoesNotExist()
+        compose.onNodeWithTag("model-binding-issue").assertDoesNotExist()
+    }
+
     @Test fun defaultScreenKeepsSecondarySurfacesClosedAndDetailsCanBeDismissedRepeatedly() {
         render()
         compose.onNodeWithTag("chat-header").assertIsDisplayed()

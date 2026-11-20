@@ -19,14 +19,29 @@ import java.net.URI
 /** One account owner. Refresh and mutations serialize; generation bodies never automatically replay.
  * The credential boundary sanitizes vendor Keystore/parser failures without secret-bearing causes.
  */
-@Suppress("TooGenericExceptionCaught", "SwallowedException")
+@Suppress("TooGenericExceptionCaught", "SwallowedException", "TooManyFunctions") // One serialized credential owner.
 class AccountSession(
     private val storage: AccountTokenStorage,
     private val auth: WireClient =
         OkHttpWireClient(followRedirects = false, maxBodyBytes = 65536),
     private val now: () -> Long = System::currentTimeMillis,
+    noticeScheduleFile: java.io.File? = null,
+    noticeMonotonicMillis: () -> Long = { System.nanoTime() / 1_000_000 },
+    private val noticeTransport: WireClient? = null,
 ) {
+    internal val accountTransport get() = auth
+    internal val notices by lazy {
+        AccountNoticesStore(
+            this,
+            api = noticeTransport?.let { AccountNoticesClient(this, it) } ?: AccountNoticesClient(this),
+            schedule = AccountNoticeSchedule(noticeScheduleFile),
+            cache = AccountNoticeCache(noticeScheduleFile?.parentFile?.resolve("notice-pages")),
+            monotonicMillis = noticeMonotonicMillis,
+        )
+    }
+    internal val cooldown = AccountRequestCooldown { System.nanoTime() / 1_000_000 }
     private val gate = Mutex()
+    internal val profileRequests = Mutex()
     private val sessionRevision =
         java.util.concurrent.atomic
             .AtomicLong()
@@ -43,6 +58,10 @@ class AccountSession(
     val status = mutableStatus.asStateFlow()
     private val mutableIdentity = MutableStateFlow("signed-out")
     internal val identityState = mutableIdentity.asStateFlow()
+    private val mutableUser = MutableStateFlow<AccountUser?>(null)
+    val user = mutableUser.asStateFlow()
+    internal val noticeAccountKey: String? get() = tokens?.user?.id
+
     val identity: String get() = tokens?.identity ?: "signed-out"
 
     suspend fun restore() = withContext(Dispatchers.IO) { gate.withLock { load() } }
@@ -50,10 +69,12 @@ class AccountSession(
     suspend fun login(
         email: String,
         password: String,
+        expectedRevision: Long? = null,
     ) = withContext(Dispatchers.IO) {
         require(email.isNotBlank() && email.length <= 320 && password.isNotBlank() && password.length <= 4096)
         gate.withLock {
-            val payload = exchange("login", mapOf("username" to email, "password" to password))
+            if (expectedRevision != null && revision != expectedRevision) throw AccountDataFailure()
+            val payload = publicRequest("login", mapOf("email" to email, "password" to password))
             try {
                 val next = AccountTokens.response(payload, now())
                 storage.save(next)
@@ -72,14 +93,32 @@ class AccountSession(
         }
     }
 
-    suspend fun register(
-        email: String,
-        password: String,
+    internal suspend fun updateUser(
+        next: AccountUser,
+        expectedRevision: Long,
     ) = withContext(Dispatchers.IO) {
-        require(email.isNotBlank() && email.length <= 320 && password.isNotBlank() && password.length <= 4096)
         gate.withLock {
-            exchange("register", mapOf("email" to email, "password" to password))
-            Unit
+            if (revision != expectedRevision) throw AccountDataFailure()
+            val current = tokens ?: throw AccountDataFailure()
+            if (current.user?.id != next.id) throw AccountDataFailure()
+            val updated =
+                AccountTokens(
+                    current.access,
+                    current.refresh,
+                    current.expires,
+                    current.refreshExpires,
+                    current.identity,
+                    next,
+                )
+            try {
+                storage.save(updated)
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                throw AccountDataFailure()
+            }
+            tokens = updated
+            mutableUser.value = next
         }
     }
 
@@ -90,7 +129,7 @@ class AccountSession(
                 val previous = tokens
                 // Revoke local access before the network wait, including all old response consumers.
                 clear()
-                if (previous != null) exchange("logout", mapOf("refresh_token" to previous.refresh))
+                if (previous != null) publicRequest("logout", mapOf("refresh_token" to previous.refresh))
                 Unit
             }
         }
@@ -127,20 +166,19 @@ class AccountSession(
                     try {
                         current =
                             AccountTokens.response(
-                                exchange("refresh", mapOf("refresh_token" to current.refresh)),
+                                publicRequest("refresh", mapOf("refresh_token" to current.refresh)),
                                 now(),
                                 current.identity,
+                                current.user,
                             )
                         storage.save(current)
                         tokens = current
+                        mutableUser.value = current.user
                     } catch (cancelled: kotlinx.coroutines.CancellationException) {
                         clear(AccountStatus.REAUTH_REQUIRED)
                         throw cancelled
                     } catch (rejected: AccountRequestFailure) {
                         clear(AccountStatus.REAUTH_REQUIRED)
-                        if (rejected.status in setOf(401, 403)) {
-                            return@withLock null
-                        }
                         throw rejected
                     } catch (network: IOException) {
                         clear(AccountStatus.REAUTH_REQUIRED)
@@ -173,6 +211,8 @@ class AccountSession(
     }
 
     private fun publishIdentity() {
+        mutableUser.value = tokens?.user
+        notices.resetAccount()
         mutableState.value = tokens != null
         mutableStatus.value = if (tokens != null) AccountStatus.SIGNED_IN else AccountStatus.SIGNED_OUT
         mutableIdentity.value = identity
@@ -189,27 +229,101 @@ class AccountSession(
         blocked = false
     }
 
-    private suspend fun exchange(
+    /** Serializes reset with login/refresh, so a late old refresh cannot revive the reset account. */
+    internal suspend fun resetAuthentication(
+        email: String,
+        operation: suspend () -> Unit,
+    ) = withContext(Dispatchers.IO) {
+        gate.withLock {
+            load()
+            operation()
+            // A different account must never be logged out by anonymous recovery.
+            if (tokens
+                    ?.user
+                    ?.email
+                    ?.trim()
+                    ?.lowercase(java.util.Locale.ROOT) == email
+            ) {
+                try {
+                    clear()
+                } catch (_: Exception) {
+                    throw AccountDataFailure()
+                }
+            }
+        }
+    }
+
+    /** Confirmed password mutation invalidates only its old local session, never a newer login. */
+    internal suspend fun invalidateChangedPasswordSession(expectedRevision: Long) =
+        withContext(kotlinx.coroutines.NonCancellable + Dispatchers.IO) {
+            gate.withLock {
+                if (revision == expectedRevision) {
+                    try {
+                        clear(AccountStatus.REAUTH_REQUIRED)
+                    } catch (_: Exception) {
+                        // clear revokes memory first and leaves storage blocked on failure.
+                    }
+                }
+            }
+        }
+
+    internal suspend fun publicRequest(
         operation: String,
-        fields: Map<String, String>,
+        fields: Map<String, String>? = null,
+    ): ByteArray =
+        publicJsonRequest(
+            operation,
+            fields?.let {
+                buildJsonObject {
+                    it.forEach { (key, value) ->
+                        put(key, value)
+                    }
+                }
+            },
+        )
+
+    internal suspend fun publicJsonRequest(
+        operation: String,
+        fields: kotlinx.serialization.json.JsonObject?,
     ): ByteArray =
         kotlinx.coroutines.withTimeoutOrNull(30000) {
-            val body = buildJsonObject { fields.forEach { (key, value) -> put(key, value) } }.toString().toByteArray()
+            val endpoint = "${OfficialServices.ACCOUNT_BASE_URL}/auth/$operation"
+            val scope =
+                if (operation in
+                    setOf(
+                        "login",
+                        "register",
+                        "registration-code",
+                        "registration-info",
+                        "password-reset/code",
+                        "password-reset",
+                    )
+                ) {
+                    -1L
+                } else {
+                    revision
+                }
+            cooldown.check(scope, endpoint)
+            val body = fields?.toString()?.toByteArray()
             val response =
                 auth.open(
                     WireRequest(
-                        "POST",
-                        "${OfficialServices.ACCOUNT_BASE_URL}/auth/$operation",
+                        if (fields == null) "GET" else "POST",
+                        endpoint,
                         mapOf(
-                            "X-Client-Id" to CLIENT_ID,
                             "Content-Type" to "application/json",
-                            "User-Agent" to AGENT,
                         ),
-                        body,
+                        if (fields == null) null else body,
                     ),
                 )
             try {
-                if (response.status !in 200..299) throw AccountRequestFailure(response.status)
+                if (response.status !in 200..299) {
+                    val details =
+                        com.helix.provider.api.wire
+                            .readHttpFailure(response)
+                    cooldown.record(scope, endpoint, details)
+                    throw AccountRequestFailure(details)
+                }
                 response.body.bytes().also { require(it.size <= 65536) }
             } finally {
                 response.body.close()
@@ -220,7 +334,6 @@ class AccountSession(
 
     companion object {
         const val CLIENT_ID = "helix-android-preview-v1"
-        const val AGENT = "android-ai-client/1.0"
         private val HOSTS =
             setOf(URI(OfficialServices.ACCOUNT_BASE_URL).host, URI(OfficialServices.INFERENCE_BASE_URL).host)
 
@@ -228,7 +341,8 @@ class AccountSession(
             val uri = URI(endpoint)
             require(uri.scheme == "https" && uri.host in HOSTS && uri.port in setOf(-1, 443))
             require(
-                uri.userInfo == null && uri.fragment == null && (uri.query == null || isBuiltInCatalogUrl(endpoint)),
+                uri.userInfo == null && uri.fragment == null &&
+                    (uri.query == null || isBuiltInCatalogUrl(endpoint) || isAccountNoticesUrl(endpoint)),
             )
         }
     }
@@ -248,41 +362,39 @@ private class AccountServiceWire(
     // No account and refresh rejection must return local 401 before any service body is emitted.
     @Suppress("ReturnCount")
     override suspend fun open(request: WireRequest): WireResponse {
-        require(request.url == endpoint)
-        require(
-            request.headers.keys.none {
-                it.lowercase() in
-                    setOf("authorization", "x-client-id", "cookie", "proxy-authorization")
-            },
-        )
+        validateRequest(request)
         val current =
             try {
                 account.authorization(expectedRevision = revision)
             } catch (failure: AccountRequestFailure) {
-                return errorResponse(failure.status)
+                return errorResponse(failure.details)
             } ?: return errorResponse(401)
+        try {
+            account.cooldown.check(revision, endpoint)
+        } catch (failure: AccountRequestFailure) {
+            return errorResponse(failure.details)
+        }
         boundIdentity.compareAndSet(null, current.identity)
         if (boundIdentity.get() != current.identity) {
             throw com.helix.provider.api.wire.WireRequestStateException(
                 com.helix.provider.api.wire.WireRequestStateException.Reason.ACCOUNT_CHANGED,
             )
         }
-        var response = send(request, current)
-        if (response.status == 401) {
-            response.body.close()
-            val next =
-                try {
-                    account.authorization(current.access, revision)
-                } catch (failure: AccountRequestFailure) {
-                    return errorResponse(failure.status)
-                } ?: return errorResponse(401)
-            if (next.identity != current.identity) {
-                throw com.helix.provider.api.wire.WireRequestStateException(
-                    com.helix.provider.api.wire.WireRequestStateException.Reason.ACCOUNT_CHANGED,
-                )
-            }
-            response = send(request, next)
+        val logicalRequest =
+            WireRequest(
+                request.method,
+                request.url,
+                com.helix.provider.api.wire.RequestDiagnostics
+                    .headers(request.headers),
+                request.body,
+            )
+        var response = send(logicalRequest, current)
+        if (response.status ==
+            401
+        ) {
+            response = refreshRejected(request = logicalRequest, current = current, response = response)
         }
+        response = retainCooldown(response)
         val body = response.body
 
         fun checkIdentity() {
@@ -311,6 +423,60 @@ private class AccountServiceWire(
         )
     }
 
+    /** Classify the rejecting service before refreshing; only reads can replay. */
+    @Suppress("ReturnCount")
+    private suspend fun refreshRejected(
+        request: WireRequest,
+        current: AccountTokens,
+        response: WireResponse,
+    ): WireResponse {
+        val details =
+            try {
+                com.helix.provider.api.wire
+                    .readHttpFailure(response)
+            } finally {
+                response.body.close()
+            }
+        if (details.errorCode?.startsWith("provider_") == true) return errorResponse(details)
+        // A rejected write may already have reached an upstream. Never replay it implicitly.
+        val next =
+            try {
+                account.authorization(current.access, revision)
+            } catch (failure: AccountRequestFailure) {
+                return errorResponse(failure.details)
+            } ?: return errorResponse(401)
+        if (next.identity != current.identity) {
+            throw com.helix.provider.api.wire.WireRequestStateException(
+                com.helix.provider.api.wire.WireRequestStateException.Reason.ACCOUNT_CHANGED,
+            )
+        }
+        if (request.method != "GET") return errorResponse(details)
+        return send(request, next)
+    }
+
+    private fun validateRequest(request: WireRequest) {
+        require(request.url == endpoint)
+        require(
+            request.headers.keys.none {
+                it.lowercase() in
+                    setOf("authorization", "x-client-id", "cookie", "proxy-authorization")
+            },
+        )
+    }
+
+    private suspend fun retainCooldown(response: WireResponse): WireResponse {
+        if (response.status != 429) return response
+        val details =
+            try {
+                com.helix.provider.api.wire
+                    .readHttpFailure(response)
+            } finally {
+                response.body.close()
+            }
+        account.cooldown.record(revision, endpoint, details)
+        return errorResponse(details)
+    }
+
     private suspend fun send(
         request: WireRequest,
         current: AccountTokens,
@@ -319,33 +485,79 @@ private class AccountServiceWire(
             WireRequest(
                 request.method,
                 endpoint,
-                request.headers.filterKeys { !it.equals("User-Agent", true) } +
-                    mapOf(
-                        "Authorization" to "Bearer ${current.access}",
-                        "X-Client-Id" to AccountSession.CLIENT_ID,
-                        "User-Agent" to AccountSession.AGENT,
-                    ),
+                request.headers +
+                    buildMap {
+                        put("Authorization", "Bearer ${current.access}")
+                        if (URI(endpoint).host == URI(OfficialServices.INFERENCE_BASE_URL).host) {
+                            put("X-Client-Id", AccountSession.CLIENT_ID)
+                        }
+                    },
                 request.body,
             ),
         )
 
     private fun errorResponse(status: Int) =
-        WireResponse(
-            status,
-            emptyMap(),
-            object : WireBody {
-                override suspend fun bytes() = ByteArray(0)
+        errorResponse(
+            com.helix.provider.api.wire
+                .HttpFailureDetails(status),
+        )
 
-                override suspend fun forEachChunk(onChunk: suspend (ByteArray) -> Boolean) = Unit
+    private fun errorResponse(details: com.helix.provider.api.wire.HttpFailureDetails): WireResponse {
+        val bytes =
+            if (details.detail == null && details.errorCode == null) {
+                ByteArray(0)
+            } else {
+                buildJsonObject {
+                    details.detail?.let { put("detail", it) }
+                    details.errorCode?.let { put("error_code", it) }
+                    details.retryable?.let { put("retryable", it) }
+                }.toString().toByteArray()
+            }
+        return WireResponse(
+            details.status,
+            buildMap {
+                details.requestId?.let { put("X-Request-ID", listOf(it)) }
+                details.retryAfterMillis?.let {
+                    put(
+                        "Retry-After",
+                        listOf(
+                            (
+                                it / 1000 +
+                                    if (it % 1000 ==
+                                        0L
+                                    ) {
+                                        0
+                                    } else {
+                                        1
+                                    }
+                            ).toString(),
+                        ),
+                    )
+                }
+            },
+            object : WireBody {
+                override suspend fun bytes() = bytes
+
+                override suspend fun forEachChunk(onChunk: suspend (ByteArray) -> Boolean) {
+                    onChunk(bytes)
+                }
 
                 override fun close() = Unit
             },
         )
+    }
 }
 
 internal class AccountRequestFailure(
-    val status: Int,
-) : IOException("Account request failed: HTTP $status")
+    val details: com.helix.provider.api.wire.HttpFailureDetails,
+) : IOException("Account request failed: HTTP ${details.status}") {
+    constructor(status: Int) : this(
+        com.helix.provider.api.wire
+            .HttpFailureDetails(status),
+    )
+
+    val status: Int get() = details.status
+}
 
 /** Sanitized local response/storage failure; never mislabeled as a network outage. */
 internal class AccountDataFailure :

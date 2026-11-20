@@ -27,17 +27,17 @@ internal object SessionTargetTools {
         checkActive: () -> Unit,
     ): ToolExecutorResult {
         require("referenceMessageId" !in call.args && "referenceHash" !in call.args)
-        if (call.toolName == "session.list") return list(grants, caller, call, checkActive)
+        if (call.toolName == "session_list") return list(grants, caller, call, checkActive)
         val target = call.args["targetSessionId"]?.jsonPrimitive?.content ?: caller.sessionId
-        val mutation = call.toolName in setOf("session.rename", "session.archive", "session.restore")
-        val access = grants.resolve(caller, target, manage = mutation, metadataOnly = call.toolName == "session.status")
+        val mutation = call.toolName in setOf("session_rename", "session_archive", "session_restore")
+        val access = grants.resolve(caller, target, manage = mutation, metadataOnly = call.toolName == "session_status")
         checkActive()
         return if (mutation) {
             mutate(grants, caller, access, call, notify)
         } else {
             val output =
                 when (call.toolName) {
-                    "session.status" -> {
+                    "session_status" -> {
                         grants.status(caller, access).let { session ->
                             val execution = grants.execution(caller, access)
                             val state = TurnState.entries.firstOrNull { it.name == execution?.state }
@@ -69,11 +69,11 @@ internal object SessionTargetTools {
                         }
                     }
 
-                    "session.history", "session.search" -> {
+                    "session_history", "session_search" -> {
                         SessionToolHistory.history(history, caller, call, checkActive, access)
                     }
 
-                    "session.read" -> {
+                    "session_read" -> {
                         SessionToolHistory.read(history, caller, call, checkActive, access)
                     }
 
@@ -96,11 +96,11 @@ internal object SessionTargetTools {
     ): ToolExecutorResult {
         val changed =
             when (call.toolName) {
-                "session.rename" -> {
+                "session_rename" -> {
                     grants.rename(caller, access, call.text("expectedTitle"), call.text("title"))
                 }
 
-                "session.archive", "session.restore" -> {
+                "session_archive", "session_restore" -> {
                     grants.archive(
                         caller,
                         access,
@@ -115,7 +115,7 @@ internal object SessionTargetTools {
                 }
             }
         return if (!changed) {
-            ToolExecutorResult.Failed("SESSION_CHANGED: read session.status before retry.", sideEffectFree = true)
+            ToolExecutorResult.Failed("SESSION_CHANGED: read session_status before retry.", sideEffectFree = true)
         } else {
             // A committed mutation remains successful if an observer fails or access is subsequently revoked.
             val notified = SessionTools.notifyRename(notify)
@@ -123,7 +123,7 @@ internal object SessionTargetTools {
                 buildJsonObject {
                     put("sessionId", access.targetSessionId)
                     put("applied", true)
-                    if (call.toolName == "session.rename") put("title", call.text("title").trim())
+                    if (call.toolName == "session_rename") put("title", call.text("title").trim())
                 },
                 auditDetail = buildJsonObject { put("observerNotified", notified) },
             )

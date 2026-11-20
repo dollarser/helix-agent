@@ -34,15 +34,17 @@ internal class SdkMcpClientFacade(
             )
         val sdkTransport = StreamableHttpClientTransport(client = httpClient, url = endpointUrl)
         val transport = NegotiatedProtocolTransport(sdkTransport)
+        val responseWitness = McpResponseWitness()
 
         try {
-            sdkClient.connect(transport)
+            sdkClient.connect(ResponseWitnessTransport(transport, responseWitness))
             val serverVersion = checkNotNull(sdkClient.serverVersion) { "MCP server identity missing after initialize" }
             val protocolVersion = transport.negotiatedProtocolVersion
             check(!protocolVersion.isNullOrBlank()) { "MCP protocol version missing after initialize" }
             val session =
                 SdkMcpClientSession(
                     sdkClient = sdkClient,
+                    responseWitness = responseWitness,
                     httpClient = httpClient,
                     capabilities = sdkClient.serverCapabilities ?: ServerCapabilities(),
                     identity =

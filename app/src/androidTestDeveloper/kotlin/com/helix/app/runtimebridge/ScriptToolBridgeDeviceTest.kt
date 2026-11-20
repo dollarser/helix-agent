@@ -46,10 +46,10 @@ class ScriptToolBridgeDeviceTest {
                 container.toolExecution.dispatchToolCall(
                     "$id-parent",
                     id,
-                    "code.javascript.run",
+                    "code_javascript_run",
                     buildJsonObject {
                         put("toolBridge", true)
-                        put("code", "const r=helix.call('time.now',{}); return {child:r,native:typeof native};")
+                        put("code", "const r=helix.call('time_now',{}); return {child:r,native:typeof native};")
                     }.toString(),
                 )
             val output = succeeded(result)
@@ -66,7 +66,7 @@ class ScriptToolBridgeDeviceTest {
             val calls = storage.toolCalls.listByTurn(id)
             assertEquals(2, calls.size)
             assertTrue(calls.all { it.state == "COMPLETED" })
-            assertTrue(calls.any { it.name == "time.now" && it.callId.startsWith("script-") })
+            assertTrue(calls.any { it.name == "time_now" && it.callId.startsWith("script-") })
             settings.setEnabled(false)
             verifyDisabled(app, id)
         } finally {
@@ -83,7 +83,7 @@ class ScriptToolBridgeDeviceTest {
             app.appContainer.toolExecution.dispatchToolCall(
                 "$id-off",
                 id,
-                "code.javascript.run",
+                "code_javascript_run",
                 buildJsonObject {
                     put("toolBridge", true)
                     put("code", "throw new Error('must not start');")
@@ -94,7 +94,7 @@ class ScriptToolBridgeDeviceTest {
             1,
             app.appContainer.storage.toolCalls
                 .listByTurn(id)
-                .count { it.name == "time.now" },
+                .count { it.name == "time_now" },
         )
     }
 

@@ -1151,7 +1151,7 @@
     <string name="user_question_skip">Skip</string>
     <string name="user_question_title">Your preference</string>
     <string name="git_diff_read_error">Could not read the diff. Refresh the repository and try again.</string>
-    <string name="tool_rejected_binding_unavailable">This tool was not exposed in this request or its binding is no longer valid. Nothing was executed. Search the exact tool name with tools.search, then use the schema exposed in the next request. Do not repeat this call directly.</string>
+    <string name="tool_rejected_binding_unavailable">This tool was not exposed in this request or its binding is no longer valid. Nothing was executed. Search the exact tool name with tools_search, then use the schema exposed in the next request. Do not repeat this call directly.</string>
     <string name="quickjs_native_save_failed">Could not read or save native access settings. Please try again.</string>
     <string name="provider_models_manage">Manage conversation models</string>
     <string name="provider_models_manage_title">%1$s · Models</string>
@@ -1505,7 +1505,6 @@
     <string name="document_sources_title">Document sources</string>
     <string name="document_source_preview_note">Opens the current source. Reading refers to the snapshot SHA-256 and page/block cited in the answer. Exact location jumping is unavailable; source changes are indicated.</string>
     <string name="document_plugin_select">PDF/DOCX reading needs the Documents plugin · Select</string>
-    <string name="document_plugin_name">Documents</string>
     <string name="workspace_location_details">Location details</string>
     <string name="workspace_copy_location">Copy full path</string>
     <string name="preview_reset_title">Reset previous preview data</string>
@@ -1564,7 +1563,7 @@
     <string name="cloud_voice_connection_error">Could not reach the speech service. Try again shortly.</string>
     <string name="speech_services_title">Speech services</string>
     <string name="speech_http_input_title">Cloud speech input</string>
-    <string name="speech_http_description">HTTP mode recognizes completed recordings and synthesizes text segments. Continuous streaming is not supported. HTTP is unencrypted.</string>
+    <string name="speech_http_description">Recordings are uploaded in segments. Cloud PCM speech can play as it arrives. Custom HTTP connections without HTTPS are unencrypted.</string>
     <string name="speech_http_loopback">Enter an address reachable from Android. 127.0.0.1 refers to this device, not your computer.</string>
     <string name="speech_http_enable">Online speech</string>
     <string name="speech_asr_endpoint">Full ASR transcription URL</string>
@@ -1583,7 +1582,7 @@
     <string name="account_login">Sign in</string>
     <string name="account_register">Register</string>
     <string name="account_logout">Sign out</string>
-    <string name="account_registered">Registration submitted. Sign in when your account is ready.</string>
+    <string name="account_registered">Registration successful. Sign in to continue.</string>
     <string name="account_failure">Account operation could not be completed. Try again later.</string>
     <string name="account_busy">Working…</string>
     <string name="account_welcome">Welcome to Helix</string>
@@ -1762,4 +1761,26 @@
     <string name="provider_save_conflict">This service changed. Close and reopen it before saving.</string>
     <string name="provider_context_independent_save">Changes saved here take effect immediately, even if you cancel service settings.</string>
     <string name="provider_model_immediate_setting">This action takes effect immediately; cancelling service settings does not undo it.</string>
+    <string name="account_notices_title">Notifications</string>
+    <string name="account_notices_all">All</string>
+    <string name="account_notices_unread">Unread</string>
+    <string name="account_notices_changed">This notice is no longer available. The list has been refreshed.</string>
+    <string name="account_notices_loading">Loading notifications…</string>
+    <string name="account_notices_empty">No notifications</string>
+    <string name="account_notices_more">Load more</string>
+    <string name="account_notices_important">Important</string>
+    <string name="account_notices_forbidden">Access is restricted. Check your account permissions or complete the required password change.</string>
+    <string name="account_notices_manage_account">Manage account</string>
+    <string name="account_notices_retry_read">Retry marking as read</string>
+    <string name="user_page_title">Profile</string>
+    <string name="user_profile_default_name">Helix user</string>
+    <string name="user_profile_edit">Edit profile</string>
+    <string name="user_profile_choose_avatar">Choose photo</string>
+    <string name="user_profile_remove_avatar">Remove photo</string>
+    <string name="user_profile_save_failed">Could not save your profile. Try another image or try again.</string>
+    <string name="user_profile_load_failed">Could not load your local profile. Reopen this page to retry.</string>
+    <string name="user_profile_avatar">User avatar</string>
+    <string name="user_profile_account_section">Account profile</string>
+    <string name="user_profile_account_manage">Manage account</string>
+    <string name="user_profile_saved">Avatar updated</string>
 </resources>

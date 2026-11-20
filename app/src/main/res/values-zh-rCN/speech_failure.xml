@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="speech_failure_network">无法连接语音服务。请检查网络和服务地址后重试。</string>
+    <string name="speech_failure_timeout">语音服务响应超时。请稍后重试。</string>
+    <string name="speech_failure_authentication">语音服务拒绝了账号访问。请检查登录状态和权限后重试。</string>
+    <string name="speech_failure_http">语音接口返回 HTTP 错误。请检查服务地址和后端状态后重试。</string>
+    <string name="speech_failure_protocol">语音服务返回了不支持的响应。请检查服务协议和后端配置。</string>
+    <string name="speech_failure_service">语音服务未能完成请求。请检查后端状态后重试。</string>
+</resources>

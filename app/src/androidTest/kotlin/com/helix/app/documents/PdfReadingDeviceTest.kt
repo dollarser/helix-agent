@@ -46,7 +46,7 @@ class PdfReadingDeviceTest {
     private fun call() =
         ExecutableToolCall(
             "pdf-device",
-            "documents.read",
+            "documents_read",
             "1",
             JsonObject(emptyMap()),
             ExecutionTargetType.LOCAL_ANDROID,
@@ -62,7 +62,20 @@ class PdfReadingDeviceTest {
         assertTrue(info.processName.endsWith(":document_reader"))
     }
 
-    @Test fun realNativeReaderExtractsOrRendersTheRequestedPageWithoutChangingSource() {
+    @Suppress("LongMethod") // One source is checked across text capability, page rendering and crop pixels.
+    @Test
+    fun realNativeReaderExtractsOrRendersTheRequestedPageWithoutChangingSource() {
+        println(
+            "PDF_PLATFORM api=${Build.VERSION.SDK_INT} extensionS=" +
+                if (Build.VERSION.SDK_INT >=
+                    31
+                ) {
+                    android.os.ext.SdkExtensions
+                        .getExtensionVersion(Build.VERSION_CODES.S)
+                } else {
+                    0
+                },
+        )
         withReader { root, reader ->
             val pdf = File(root, "fixture.pdf")
             val document = PdfDocument()
@@ -81,7 +94,12 @@ class PdfReadingDeviceTest {
             val textOrImage = parse(reader, "fixture.pdf", 2, "read")
             assertEquals(2, textOrImage.metadata["pageCount"]!!.jsonPrimitive.int)
             assertEquals("page:2", textOrImage.metadata["coverage"]!!.jsonPrimitive.content)
-            if (Build.VERSION.SDK_INT >= 35) {
+            if (Build.VERSION.SDK_INT >= 35 ||
+                (
+                    Build.VERSION.SDK_INT >= 31 && android.os.ext.SdkExtensions
+                        .getExtensionVersion(Build.VERSION_CODES.S) >= 13
+                )
+            ) {
                 assertTrue(textOrImage.metadata["textExtractionSupported"]!!.jsonPrimitive.boolean)
                 assertTrue(
                     textOrImage.metadata["text"]!!

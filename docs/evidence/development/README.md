@@ -11,6 +11,10 @@
 
 ## 专项交付证据
 
+- [账号接入历史验收](account-integration-through-2026-11-17.md)：初版鉴权、账号界面、域名切换、找回和通知收尾，保留真实重置结果未知；现行说明回到开发文档。
+
+- [截至 2026-11-17 的候选验收快照](candidate-validation-through-2026-11-17.md)：从 status 移出的原批次记录，保留源码/设备/服务及失败边界；最新候选只看 status，不将旧通过合并为新通过。
+
 - [2026-11-08 长任务缓存前缀与计量](long-task-cache-2026-11-08.md)：确定性工具/schema、固定说明与新鲜目录分层、三协议缓存 usage；前缀字节与服务端实际命中分开。
 
 - [2026-11-08 网页、Resources 与有界客户端验收](continue-delivery-2026-11-08.md)：Fetch、MCP 文本与合成下一请求、API36 预览/SAF及自然修复；最终门禁、双渠道 Release 基础入口与日常覆盖安装完成，自然诊断仍有失败。
@@ -27,7 +31,7 @@
 
 - [2026-10-03 HXA-245 Mobile Use 插件悬浮首版](hxa245-plugin-overlay-host-2026-10-03.md)：插件窗口、接管与截图/手势避让的主机验证；所有者随后请求的[全量模拟器与修复记录](hxa245-emulator-validation-2026-10-03.md)列出双渠道/API 常规结果、各 37 项故障矩阵及明确跳过/不确定项。
 
-本目录保存开发过程中的验收、整合、调查、复核和历史进度快照。文件数量较多，**不要按目录列表推断当前状态**；当前任务只看 `docs/development/status.md` 和 active HXA。
+本目录保存开发过程中的验收、整合、调查、复核和历史进度快照。文件数量较多，**不要按目录列表推断当前状态**；当前事实查 `docs/development/status.md` 和相关 HXA，当前任务由用户请求确定，历史记录不选择下一项工作。
 
 已整理的旧版本报告：
 
@@ -71,7 +75,7 @@
 - [acceptance-199-206-2026-09-21.md](acceptance-199-206-2026-09-21.md)
 - [completed-handoffs-2026-09-22.md](completed-handoffs-2026-09-22.md)
 - [document-review-convergence-2026-09-22.md](document-review-convergence-2026-09-22.md)
-- [repository-hygiene-2026-09-22.md](repository-hygiene-2026-09-22.md)
+- [repository-hygiene-2026-09-22.md](test-script-maintenance-2026-10-10.md#前序2026-09-22-稳定入口与-spike-构建)
 - [documentation-review-history-2026-09-02.md](documentation-review-history-2026-09-02.md)
 
 新 evidence 应带日期/基线、实际执行事实和未覆盖边界。一次性工作指令不要放这里；需要长期决策进入 ADR，需要当前实施进入 HXA，需要最终任务交付进入 completion record。

@@ -22,7 +22,7 @@ plugin.json + skills/ + mcp.json + extensions.com.helix.agent
 
 ### 2026-10-11 任务化与目标实现
 
-所有者于 2026-10-11 要求把插件研究转为 HXA-272～279；截至 2026-10-14 已按各自范围有界交付。具体承接见[研究到任务映射](../research/topics/helix-plugin-architecture-optimization-2026-10-11.md#7-任务承接与验收)，当前事实、未覆盖矩阵和下一步只在 [status](../development/status.md)维护；不从本页旧设计重建实现队列。跨轮变化见[演进索引](../evidence/research-history/architecture-evolution-2026-10-14.md)。
+所有者于 2026-10-11 要求把插件研究转为 HXA-272～279；截至 2026-10-14 已按各自范围有界交付。具体承接见[研究到任务映射](../research/topics/helix-plugin-architecture-optimization-2026-10-11.md#7-任务承接与验收)，当前事实与未覆盖矩阵从 [status](../development/status.md)进入，实施范围仍由当前用户任务与适用 HXA 确定；不从本页旧设计重建实现队列。跨轮变化见[演进索引](../evidence/research-history/architecture-evolution-2026-10-14.md)。
 
 当轮采用单一目标实现：Skill 内容统一后删除原生正文专用注入；Browser 作为 APK 已知 native contribution 替换旧 built-in 发布；原生资源按实际 owner 和使用引用收尾。当轮未安排旧版本、数据库、会话或批准迁移，不保留双写/双注册；此历史范围不授权后续清库，外部包格式支持独立维护。MCP 仍是可选 adapter，Mobile Use 不为对齐 CUA 改成 MCP。相关契约归四份主题 ADR 及 Decision history，见 [ADR 归属表](../adr/README.md#插件优化任务的-adr-归属2026-10-11)。272首阶段结果见[证据](../evidence/development/hxa272-skill-content-2026-10-11.md)，后续各项验证由各 HXA 记录，不能从设计接受推导完整验收通过。
 
@@ -37,7 +37,7 @@ plugin.json + skills/ + mcp.json + extensions.com.helix.agent
 | AutomationModule 直接注册 ui.*，局部创建 PluginRegistry | 已有 App 级唯一 PluginRegistry；R1 使用统一 ToolBinding 原子发布 |
 | Marketplace 以 CONNECTOR/MCP/SKILL 分类，缺包与组件区分 | HXA-235 已统一包目录与组件投影；后续完善诊断体验和未覆盖的生命周期验收，不重做主体 |
 
-当前实现、验证和下一步只看 [status](../development/status.md) 与[候选索引](../development/candidate-decisions.md)。
+当前实现与验证从 [status](../development/status.md)进入；[候选索引](../development/candidate-decisions.md)不自动选择或授权下一任务。
 
 ## 3. 目标模型
 
@@ -106,7 +106,7 @@ Plugin package 组织 manifest、Skill、MCP server 与 host extension；Connect
 
 ### 6.3 工具表
 
-初版迁移保留九个既有模型接口：`ui.snapshot`、`ui.find`、`ui.click`、`ui.long_click`、`ui.set_text`、`ui.scroll`、`ui.back`、`ui.home`、`ui.wait`。这是初版范围，不是现行工具数量上限或完整清单。
+初版迁移保留九个既有模型接口：`ui_snapshot`、`ui_find`、`ui_click`、`ui_long_click`、`ui_set_text`、`ui_scroll`、`ui_back`、`ui_home`、`ui_wait`。这是初版范围，不是现行工具数量上限或完整清单。
 
 是否改成 `mobile.observe + mobile.act` 等面向模型接口，应由实际 Eval 决定；不能为模仿 Computer Use 同时改 provenance 和工具语义。
 
@@ -171,11 +171,11 @@ Mobile Use 初版 MVP 主要使用 Accessibility 语义树。HXA-243 等后续�
 | 范围 | 本专项应验证 |
 | --- | --- |
 | Manifest/归属 | 支持版本解析、重复插件 ID、已知/未知 runtime、PluginOrigin/contractHash、MobileUsePlugin 全部贡献的来源；默认 Built-in 构造仅在仍保留时测 |
-| 注册集成 | App 级唯一 PluginRegistry，候选批次发布；developer ui.snapshot 的 provenance 为 mobile-use，复用 R1 绑定/撤销测试 |
+| 注册集成 | App 级唯一 PluginRegistry，候选批次发布；developer ui_snapshot 的 provenance 为 mobile-use，复用 R1 绑定/撤销测试 |
 | Android 行为 | snapshot/find、click/set_text/scroll、stale token、敏感目标/动作、force-stop/许可清理；已授权目标恢复不引入额外周期确认 |
 | 已有 R3 生命周期与剩余验收 | 主体及有限补验见 HXA-235/HXA-251；完整在途引用/撤销/进程死亡组合按主方案验收，不在这里复制一套 oracle |
 
-主机命令按[公共验收](../development/verification-matrix.md)及当前任务，保持 Spotless/Detekt/source/diff 等适用门禁。设备仅在本次明确授权后运行，不能用历史“可行时跑模拟器”作为授权。
+主机命令按[公共验收](../development/verification-matrix.md)及当前任务，保持 Spotless/Detekt/source/diff 等适用门禁。设备范围按根目录 [AGENTS.md](../../AGENTS.md#verification-and-device-authorization) 的当前规则执行：项目模拟器有常设授权，真机仍需当前任务显式请求；未运行不记通过。
 
 ## 13. 本次 MVP 完成定义
 

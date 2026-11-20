@@ -14,9 +14,9 @@ import java.util.UUID
 
 /**
  * HX2-07 (research doc section 16): the conversation's Progress section projects the
- * model's task ledger from its latest successful + verified `todo.write` — the rows
+ * model's task ledger from its latest successful + verified `todo_write` — the rows
  * render in the model's order with the doc's markers, and later tool work on the same
- * turn does NOT invalidate the ledger (only a later successful `todo.write` replaces it).
+ * turn does NOT invalidate the ledger (only a later successful `todo_write` replaces it).
  */
 class TaskLedgerProgressDeviceTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
@@ -53,7 +53,7 @@ class TaskLedgerProgressDeviceTest {
             storage.withTransaction {
                 storage.sessions.create(sessionId, "Ledger fixture", null, null, 1000)
                 storage.turns.start(id = turnId, sessionId = sessionId, startedAt = 2000)
-                storage.toolCalls.append(callId, turnId, callId, "todo.write", "1", ledgerArgs, "COMPLETED")
+                storage.toolCalls.append(callId, turnId, callId, "todo_write", "1", ledgerArgs, "COMPLETED")
                 val result =
                     storage.toolResults.append(
                         "result-$callId",
@@ -68,7 +68,7 @@ class TaskLedgerProgressDeviceTest {
                     "later-${UUID.randomUUID()}",
                     turnId,
                     "later",
-                    "time.now",
+                    "time_now",
                     "1",
                     "{}",
                     "COMPLETED",

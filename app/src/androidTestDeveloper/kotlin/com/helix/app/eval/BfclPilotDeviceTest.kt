@@ -131,20 +131,22 @@ class BfclPilotDeviceTest {
                     .listActive()
                     .isEmpty(),
             ) { "BLOCKED: unrelated active turns" }
-            check(originalTools.none { it.name.value.startsWith("mcp.$server.") }) {
+            check(originalTools.none { (it.origin as? ToolOrigin.McpOrigin)?.serverId == server }) {
                 "BLOCKED: fixture namespace is already occupied"
             }
         }
 
         private fun fixtureTools(): List<com.helix.tools.framework.ToolDescriptor> {
-            val prototype = requireNotNull(c.toolPipeline.resolveLatest("tools.search"))
+            val prototype = requireNotNull(c.toolPipeline.resolveLatest("tools_search"))
             val tools =
                 requireNotNull(input).getValue("functions").jsonArray.map { value ->
                     val function = value.jsonObject
                     val name = function.getValue("name").jsonPrimitive.content
                     require(name.matches(Regex("f[0-9]+")))
                     prototype.copy(
-                        name = ToolName("mcp.$server.$name"),
+                        name =
+                            com.helix.tools.framework.RemoteToolNames
+                                .mcp(server, name),
                         description = function.getValue("description").jsonPrimitive.content,
                         inputSchema = function.getValue("parameters").jsonObject,
                         outputSchema = buildJsonObject {},

@@ -11,7 +11,7 @@ Deciders: Project owner（知识库后继续备忘/任务提醒）；实现 Agen
 
 ## Decision
 
-- 本机 Agent 工具统一使用 `device.*`。Owner 授权参考 WorkBuddy 迁移且不兼容旧工具；个人通知提醒提供 `device.create_reminder/list_reminders/cancel_reminder`，不是系统 Clock 的响铃闹钟。创建只接受明确未来时间及 UTC offset，一次性近似通知，不从工具描述、外部文本或 ASR partial 获得授权；进入普通 Dispatcher/Policy/Approval 链路后复用本服务。当前工具不替换原有手动编辑与重复提醒能力。
+- 本机 Agent 工具统一使用 `device.*`。Owner 授权参考 WorkBuddy 迁移且不兼容旧工具；个人通知提醒提供 `device_create_reminder/list_reminders/cancel_reminder`，不是系统 Clock 的响铃闹钟。创建只接受明确未来时间及 UTC offset，一次性近似通知，不从工具描述、外部文本或 ASR partial 获得授权；进入普通 Dispatcher/Policy/Approval 链路后复用本服务。当前工具不替换原有手动编辑与重复提醒能力。
 - 查询最多返回 50 个活动定时条目及实际 scheduling 状态，返回 `hasMore`，更多条目通过现有提醒页查看。取消必须在同一会话先查询准确 ID/revision；服务在同一 mutation 边界重检持久状态/修订后，先保存 CANCELLED 再撤销投影。进程恢复后必须重新查询；查询快照不是持久授权，不改写旧审计或重放调用。创建身份绑定原会话、Turn、调用 ID，重复执行不会分配第二条身份；失败后需核对实际持久状态，不能把异常视为回滚或自动重试。
 - 独立备忘/提醒页面与 `reminders.db` Room 持久领域，不把个人条目伪装成已有 Turn/Goal。纯备忘无需时间；定时条目保存原始本地日期、IANA 固定时区、一次/每日/每周/每月规则及下一发生时间。指定时区不跟随设备旅行变化；月末按原始锚点截到短月份月末，后续恢复原日；DST 缺口向后平移，重叠用较早偏移。界面展示实际偏移及重复含义，明确保存才创建。可选自然语言起草同样必须经用户核对与保存，知识库文本或模型提案不能授权创建任务。
 - 自然语言入口只处理用户本次描述，用户选择既有 API/设备内模型并确认内容去向，发送描述、固定参照时间和时区；不读取/上传提醒库、聊天或知识库，不使用订阅 CLI。确认绑定 Provider 配置与目标，执行前变更使请求失效。模型无工具能力，只能返回严格有界的提案或澄清问题；缺少准确时间、含糊时段、不支持的重复不能静默补成可执行安排。提案仅有现有规则字段；拒绝未知字段、错误类型、过去时间、无效时区以及 NLP 阶段含糊的 DST 缺口/重叠。用户仍可在原有编辑页手动选择并核对现有日历解析规则。
@@ -50,7 +50,7 @@ Deciders: Project owner（知识库后继续备忘/任务提醒）；实现 Agen
 
 ## Reconsider when
 
-Owner 要求自然语言解析、复杂重复、TTS 播报、日历同步或实际定时 Agent 执行时扩展对应契约，不能从普通通知自动扩权。
+Owner 要求超出当前确认式自然语言提案的解析、复杂重复、TTS 播报、日历同步或实际定时 Agent 执行时扩展对应契约，不能从普通通知自动扩权。
 
 ## References
 

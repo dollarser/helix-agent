@@ -8,6 +8,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 internal class SdkMcpClientSession(
     private val sdkClient: Client,
+    private val responseWitness: McpResponseWitness,
     private val httpClient: HttpClient,
     private val capabilities: ServerCapabilities,
     private val identity: McpServerIdentity,
@@ -19,14 +20,23 @@ internal class SdkMcpClientSession(
 
     override suspend fun ping() {
         check(!closed.get()) { "MCP session is closed" }
-        sdkClient.ping()
+        responseWitness.observe("ping") { sdkClient.ping(it) }
     }
 
     override suspend fun snapshotMetadata(limits: McpMetadataLimits): McpMetadataSnapshot {
         check(!closed.get()) { "MCP session is closed" }
-        val toolsResult = capabilities.tools?.let { sdkClient.listTools() }
-        val resourcesResult = capabilities.resources?.let { sdkClient.listResources() }
-        val promptsResult = capabilities.prompts?.let { sdkClient.listPrompts() }
+        val toolsResult =
+            capabilities.tools?.let {
+                responseWitness.observe("tools/list") { sdkClient.listTools(options = it) }
+            }
+        val resourcesResult =
+            capabilities.resources?.let {
+                responseWitness.observe("resources/list") { sdkClient.listResources(options = it) }
+            }
+        val promptsResult =
+            capabilities.prompts?.let {
+                responseWitness.observe("prompts/list") { sdkClient.listPrompts(options = it) }
+            }
 
         return McpMetadataSnapshot(
             capabilities = capabilities.toSnapshot(),
@@ -52,7 +62,10 @@ internal class SdkMcpClientSession(
     ): McpToolResult {
         check(!closed.get()) { "MCP session is closed" }
         require(name.isNotBlank()) { "MCP tool name must not be blank" }
-        val result = sdkClient.callTool(name, arguments.mapValues { (_, value) -> value.toSdkValue() })
+        val result =
+            responseWitness.observe("tools/call") {
+                sdkClient.callTool(name, arguments.mapValues { (_, value) -> value.toSdkValue() }, options = it)
+            }
         require(result.content.size <= limits.maxBlocks) {
             "MCP tool result exceeds ${limits.maxBlocks} blocks"
         }
@@ -72,17 +85,20 @@ internal class SdkMcpClientSession(
         return McpToolResult(result.isError == true, blocks, structured)
     }
 
-    private fun resources(): SdkMcpResources {
+    private fun resources(options: io.modelcontextprotocol.kotlin.sdk.shared.RequestOptions): SdkMcpResources {
         check(!closed.get()) { "MCP session is closed" }
         if (capabilities.resources == null) throw McpResourceException(McpResourceFailure.UNSUPPORTED)
-        return SdkMcpResources(sdkClient)
+        return SdkMcpResources(sdkClient, options)
     }
 
-    override suspend fun listResources(cursor: String?): McpResourcePage = resources().list(cursor, false)
+    override suspend fun listResources(cursor: String?): McpResourcePage =
+        responseWitness.observe("resources/list") { resources(it).list(cursor, false) }
 
-    override suspend fun listResourceTemplates(cursor: String?): McpResourcePage = resources().list(cursor, true)
+    override suspend fun listResourceTemplates(cursor: String?): McpResourcePage =
+        responseWitness.observe("resources/templates/list") { resources(it).list(cursor, true) }
 
-    override suspend fun readResource(uri: String): List<McpResourceContent> = resources().read(uri)
+    override suspend fun readResource(uri: String): List<McpResourceContent> =
+        responseWitness.observe("resources/read") { resources(it).read(uri) }
 
     override suspend fun close() {
         if (!closed.compareAndSet(false, true)) return

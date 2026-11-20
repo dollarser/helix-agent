@@ -9,6 +9,7 @@ import com.helix.core.model.ToolVersion
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
+import com.helix.tools.framework.ToolDiscoveryHints
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolOrigin
@@ -19,7 +20,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlin.time.Duration.Companion.seconds
 
 object NotificationsQueryTool {
-    const val NAME: String = "device.notifications_query"
+    const val NAME: String = "device_notifications_query"
 
     const val VERSION: Int = 1
 
@@ -90,6 +91,7 @@ object NotificationsQueryTool {
             idempotency = Idempotency.IDEMPOTENT,
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
             origin = ToolOrigin.BuiltInOrigin,
+            discovery = ToolDiscoveryHints(category = "device"),
         )
 
     fun executor(bridge: NotificationsBridge): ToolExecutor =
@@ -100,46 +102,46 @@ object NotificationsQueryTool {
                 val arr =
                     call.args["allowedPackages"] as? JsonArray
                         ?: return ToolExecutorResult.Failed(
-                            "invalid 'device.notifications_query' arguments: 'allowedPackages' must be an array",
+                            "invalid 'device_notifications_query' arguments: 'allowedPackages' must be an array",
                         )
                 val packages = mutableListOf<String>()
                 for (el in arr) {
                     val s =
                         (el as? JsonPrimitive)?.takeIf { it.isString }?.content
                             ?: return ToolExecutorResult.Failed(
-                                "device.notifications_query: allowedPackages entries must be strings",
+                                "device_notifications_query: allowedPackages entries must be strings",
                             )
                     if (s.isBlank() || s.length > MAX_PACKAGE_LEN) {
                         return ToolExecutorResult.Failed(
-                            "invalid 'device.notifications_query' arguments: each package must be 1..$MAX_PACKAGE_LEN",
+                            "invalid 'device_notifications_query' arguments: each package must be 1..$MAX_PACKAGE_LEN",
                         )
                     }
                     packages.add(s)
                 }
                 if (packages.isEmpty() || packages.size > MAX_ALLOWED_PACKAGES) {
                     return ToolExecutorResult.Failed(
-                        "invalid 'device.notifications_query' arguments: 'allowedPackages' must have " +
+                        "invalid 'device_notifications_query' arguments: 'allowedPackages' must have " +
                             "1..$MAX_ALLOWED_PACKAGES entries",
                     )
                 }
                 val since =
                     notificationsCalendarToolsIntArg(call.args, "sinceEpochMillis")
                         ?: return ToolExecutorResult.Failed(
-                            "invalid 'device.notifications_query' arguments: 'sinceEpochMillis' must be an integer",
+                            "invalid 'device_notifications_query' arguments: 'sinceEpochMillis' must be an integer",
                         )
                 val until =
                     notificationsCalendarToolsIntArg(call.args, "untilEpochMillis")
                         ?: return ToolExecutorResult.Failed(
-                            "invalid 'device.notifications_query' arguments: 'untilEpochMillis' must be an integer",
+                            "invalid 'device_notifications_query' arguments: 'untilEpochMillis' must be an integer",
                         )
                 if (until <= since) {
                     return ToolExecutorResult.Failed(
-                        "device.notifications_query: untilEpochMillis must be after sinceEpochMillis",
+                        "device_notifications_query: untilEpochMillis must be after sinceEpochMillis",
                     )
                 }
                 if (until - since > MAX_NOTIFICATION_WINDOW_MS) {
                     return ToolExecutorResult.Failed(
-                        "invalid 'device.notifications_query' arguments: the time window may be at most 24h",
+                        "invalid 'device_notifications_query' arguments: the time window may be at most 24h",
                     )
                 }
                 val out = bridge.query(NotificationQueryRequest(packages, since, until))

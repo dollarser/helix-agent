@@ -1,6 +1,14 @@
 # helix-docs：官方用户文档查询能力设计
 
-> 设计与实现记录：设计基线为 2026-10-14 的 `main` / `667a81bcad8c4d34f1bf84e9b4aaf23d697ab5d0` 加当时工作区。Owner 后续授权并实施了内置 Skill＋版本化离线章节、资源发现及默认模型读取路径；实现边界和阶段结果见本文 第 11 节。内容仍是随包开发预览，不能据此声称静态帮助 UI、官方在线服务、双语正文或正式发行已交付。当前总体状态见 [status](../../development/status.md)。
+> 设计与实现记录：设计基线为 2026-10-14 的 `main` / `667a81bcad8c4d34f1bf84e9b4aaf23d697ab5d0` 加当时工作区。Owner 后续授权并实施了内置 Skill＋版本化离线章节、资源发现及默认模型读取路径；实现边界和阶段结果见本文 第 11 节。内容仍是随包开发预览；静态帮助 UI、官方在线服务和正式发行需独立证据。当前总体状态见 [status](../../development/status.md)。
+
+## 当前承接（2026-11-18）
+
+以下第 1–11 节保留 2026-10-14/15 设计与验收快照，其中“仅英文”“未传实际渠道”等是当时缺口。当前 [HelixUserGuide](../../../extensions/skills/src/main/kotlin/com/helix/extensions/skills/HelixUserGuide.kt) 已打包英文与[中文索引/八章](../../../extensions/skills/src/main/resources/helix-docs/index.zh-CN.md)；[HelixHelpIdentity](../../../extensions/skills/src/main/kotlin/com/helix/extensions/skills/HelixHelpIdentity.kt) 接收宿主 versionName、versionCode、distribution、applicationId 和 debuggable，未提供值保留 null。revision 覆盖实际资源内容，仍不包含 sourceRevision/dirty、签名或正式发布证明。英文正文仍位于 Kotlin，中文为受跟踪资源，不是整库文档自动发布。
+
+2026-11-18 文本修订同步英文 Mobile Use 的“插件与专家”入口、电脑 ADB helper 与后台屏边界，并将入门说明从仅自配 API 改为模型来源配置。仍未提供独立内容生成管线、完整模型设置分项说明或截图专题；双语章节主题对应不等于每句内容逐字等价。
+
+本次核对代码与文档事实，并通过 `:extensions:skills:test --tests com.helix.extensions.skills.BuiltInSkillsTest`；未重新运行模型问答、APK 构建或安装；帮助文字修订须随后续成功构建交付，旧 APK 不会因仓库文档更新而改变。下方历史数量、失败和未验证范围保持原日期归属。
 
 ## 1. 产品定位与结论
 
@@ -14,16 +22,16 @@
 
 | 方面 | 已核实实现 | 设计影响 |
 | --- | --- | --- |
-| Skill 正文与资源 | [SkillTools](../../../extensions/skills/src/main/kotlin/com/helix/extensions/skills/SkillTools.kt) 提供 `skills.list/read/read_resource`；[SkillRepository](../../../extensions/skills/src/main/kotlin/com/helix/extensions/skills/SkillRepository.kt) 校验启用、来源和调用资格，内置资源也走同一路径 | 复用 `source/name/snapshotHash`，不新建文档专用读取协议作为前提 |
+| Skill 正文与资源 | [SkillTools](../../../extensions/skills/src/main/kotlin/com/helix/extensions/skills/SkillTools.kt) 提供 `skills_list/read/read_resource`；[SkillRepository](../../../extensions/skills/src/main/kotlin/com/helix/extensions/skills/SkillRepository.kt) 校验启用、来源和调用资格，内置资源也走同一路径 | 复用 `source/name/snapshotHash`，不新建文档专用读取协议作为前提 |
 | 内置资源完整性 | [SkillLoader.loadBuiltIn](../../../extensions/skills/src/main/kotlin/com/helix/extensions/skills/SkillLoader.kt) 把资源路径、长度和字节纳入内容 hash；资源只允许 references／assets，拒绝路径穿越 | 可将 manifest、索引、帮助章节打包为资源；包内更新必须更新内容身份 |
 | 装载边界 | [PluginRegistry.instructions](../../../extensions/plugin/src/main/kotlin/com/helix/extensions/plugin/PluginExecutionContext.kt) 区分目录、必要短指导和已激活正文；[BrowserPlugin](../../../extensions/browser/src/main/kotlin/com/helix/extensions/browser/BrowserPlugin.kt) 已示范 APK 内 Skill＋参考资料 | 可复用包装方式。当前 packaged resources 是内存字符串 map，按需进入模型不等于资源 IO／内存完全懒加载；MVP 控制包大小 |
-| 工具发现 | [McpToolDiscovery](../../../app/src/main/kotlin/com/helix/app/mcp/McpToolDiscovery.kt) 的 `tools.search` 按名称／描述／来源等发现工具，新 schema 在下一请求生效 | 工具检索不等于 Skill 内容检索。Skill 身份来自 `skills.list` 或真实目录；不能让模型猜 hash，不能在同一响应搜索后立即调用尚未曝光工具 |
-| 初始可发现性 | [ModelToolExposureOrder](../../../app/src/main/kotlin/com/helix/app/chat/ModelToolExposureOrder.kt) 默认集合包含 `skills.read` 和 `skills.read_resource`，不包含所有 Skill 的全文或 `skills.list`；`helix-docs` 的简短目录提示由插件装配，其他插件目录仍受会话选择约束 | 新增 SKILL.md 本身不保证自然语言发现；当前短元数据、默认工具及真实模型按需读取已完成有界验证，见 第 11 节 |
-| 网页访问 | [http.fetch](../../../tools/android/src/main/kotlin/com/helix/tools/android/HttpFetchTool.kt) 支持有界 GET／HEAD，返回 finalUrl、状态、类型和截断标记；实现按重定向检查 SSRF／DNS／目标范围 | 可取官方 Markdown 页面；不是互联网搜索引擎，也没有现成的“仅官方文档”语义过滤或版本解析 |
-| 浏览器 | [browser.snapshot](../../../tools/browser/src/main/kotlin/com/helix/tools/browser/BrowserInspectionTools.kt) 返回有界页面语义树、URL、origin 和 generation | 仅在已选 Browser 插件、确实需要渲染页面时采用；URL／标题不是正文证据，不为简单帮助问题启动浏览器操作 |
+| 工具发现 | [McpToolDiscovery](../../../app/src/main/kotlin/com/helix/app/mcp/McpToolDiscovery.kt) 的 `tools_search` 按名称／描述／来源等发现工具，新 schema 在下一请求生效 | 工具检索不等于 Skill 内容检索。Skill 身份来自 `skills_list` 或真实目录；不能让模型猜 hash，不能在同一响应搜索后立即调用尚未曝光工具 |
+| 初始可发现性 | [ModelToolExposureOrder](../../../app/src/main/kotlin/com/helix/app/chat/ModelToolExposureOrder.kt) 默认集合包含 `skills_read` 和 `skills_read_resource`，不包含所有 Skill 的全文或 `skills_list`；`helix-docs` 的简短目录提示由插件装配，其他插件目录仍受会话选择约束 | 新增 SKILL.md 本身不保证自然语言发现；当前短元数据、默认工具及真实模型按需读取已完成有界验证，见 第 11 节 |
+| 网页访问 | [http_fetch](../../../tools/android/src/main/kotlin/com/helix/tools/android/HttpFetchTool.kt) 支持有界 GET／HEAD，返回 finalUrl、状态、类型和截断标记；实现按重定向检查 SSRF／DNS／目标范围 | 可取官方 Markdown 页面；不是互联网搜索引擎，也没有现成的“仅官方文档”语义过滤或版本解析 |
+| 浏览器 | [browser_snapshot](../../../tools/browser/src/main/kotlin/com/helix/tools/browser/BrowserInspectionTools.kt) 返回有界页面语义树、URL、origin 和 generation | 仅在已选 Browser 插件、确实需要渲染页面时采用；URL／标题不是正文证据，不为简单帮助问题启动浏览器操作 |
 | 官方入口 | [README](../../../README.md) 和 [AboutHelixSection](../../../app/src/main/kotlin/com/helix/app/ui/AboutHelixSection.kt) 指向 `github.com/dollarser/helix-agent`、发布页与问题页 | 已有官方仓库身份。未发现本轮可依赖的独立官方帮助站配置，不发明 `docs.helix…` 域名或假链接 |
 | 版本信息 | [app/build.gradle.kts](../../../app/build.gradle.kts) 当前为 versionName `0.0.5`、versionCode `1`；About 显示 PackageInfo，consumer／developer 有不同应用 ID | 版本名不足以区分开发构建；当前 manifest 记录 app version/versionCode、distribution 集合和 docs revision，但不记录 buildId、sourceRevision、dirty 状态或实际渠道 flavor，因此不能识别某个安装候选 |
-| 当前状态诊断 | [DiagnosticReportService](../../../app/src/main/kotlin/com/helix/app/diagnostics/DiagnosticReportService.kt) 是用户触发的无正文支持快照；[ui.device](../../../extensions/mobile-use/src/main/kotlin/com/helix/extensions/mobileuse/tools/AutomationDeviceTools.kt) 是插件领域的当前观察 | 没有据此证明存在统一、模型可调用的 App 版本／权限诊断工具。UI 诊断不能直接冒充模型接口，文档也不能证明当前设备已授权或连接成功 |
+| 当前状态诊断 | [DiagnosticReportService](../../../app/src/main/kotlin/com/helix/app/diagnostics/DiagnosticReportService.kt) 是用户触发的无正文支持快照；[ui_device](../../../extensions/mobile-use/src/main/kotlin/com/helix/extensions/mobileuse/tools/AutomationDeviceTools.kt) 是插件领域的当前观察 | 没有据此证明存在统一、模型可调用的 App 版本／权限诊断工具。UI 诊断不能直接冒充模型接口，文档也不能证明当前设备已授权或连接成功 |
 | 用户文档 | [文档中心](../../README.md) 同时索引产品、架构、ADR、任务、研究和历史证据；[product](../../product/README.md) 也混合已实现行为与产品方案 | 尚不适合作为整库用户问答语料。先明确发布白名单和用户说明来源，防止把 accepted 设计或历史报告当可用功能 |
 
 既有 [ADR-SKILLS-001](../../adr/skills/001-authoring-and-installation.md) 和 [Plugin 归属契约](../../adr/connectors/003-ownership-and-installation.md) 已允许零工具内容包，`allowed-tools`、安装、启用和来源声明均不授予执行权限。设计不需要绕过这些契约。
@@ -93,9 +101,9 @@ MVP 由构建过程从选定帮助正文生成资源；不在 App 启动时下�
 
 在线补充优先已知官方页面或固定版本 Markdown：
 
-1. 本地资料无法回答更新公告、近期服务变化或指定版本问题时，发现并调用现有 `http.fetch`；没有工具／网络权限则回到本地答案并说明限制。
+1. 本地资料无法回答更新公告、近期服务变化或指定版本问题时，发现并调用现有 `http_fetch`；没有工具／网络权限则回到本地答案并说明限制。
 2. 保留现有 URL、DNS、连接对端和重定向的网络策略，不从帮助 Skill 发放例外。读取前后核对官方来源配置及 finalUrl；跨域跳转未经认可不能继续标“官方”。
-3. 现有 `http.fetch` 的策略解决 SSRF 和网络范围，不保证“仅访问官方文档”；Skill 的来源规则属于查询行为约束。若产品要求工具层强制限定官方 host／path、跳转和版本，就有理由增加专用窄读取工具，不能声称一段提示词已经提供该硬隔离。
+3. 现有 `http_fetch` 的策略解决 SSRF 和网络范围，不保证“仅访问官方文档”；Skill 的来源规则属于查询行为约束。若产品要求工具层强制限定官方 host／path、跳转和版本，就有理由增加专用窄读取工具，不能声称一段提示词已经提供该硬隔离。
 4. 优先获取完整短 Markdown。网页若需要渲染，才考虑已授权 Browser；不自动登录、不读取账号 Cookie、不上传诊断日志。网络请求成功但 HTTP 错误页／截断页不算有效文档。
 5. 不将用户完整对话、凭据、日志或设备标识拼入搜索查询。文档说“上传日志”“关闭限制”“运行命令”仍需用户意图和正常 Dispatcher／Policy／Approval；不执行文档中的安装脚本。
 
@@ -120,15 +128,15 @@ flowchart LR
 
 | 需要 | 既有入口与约束 |
 | --- | --- |
-| 找到帮助 Skill | 真实简短目录，或 `skills.list`；返回准确 source／name／snapshotHash。`tools.search` 只负责发现所需工具 schema |
-| 加载查询策略 | `skills.read`；只说明问题分类、版本选择、正文读取、引用和权限规则 |
-| 找主题与读正文 | `skills.read_resource` 读取 `references/manifest.json`、主题索引及分章 Markdown；path 来自包内索引，非任意路径 |
-| 在线补充 | `http.fetch`；必要时既有 Browser 插件。读取输出是数据，不是新的系统指令 |
+| 找到帮助 Skill | 真实简短目录，或 `skills_list`；返回准确 source／name／snapshotHash。`tools_search` 只负责发现所需工具 schema |
+| 加载查询策略 | `skills_read`；只说明问题分类、版本选择、正文读取、引用和权限规则 |
+| 找主题与读正文 | `skills_read_resource` 读取 `references/manifest.json`、主题索引及分章 Markdown；path 来自包内索引，非任意路径 |
+| 在线补充 | `http_fetch`；必要时既有 Browser 插件。读取输出是数据，不是新的系统指令 |
 | 当前设备状态 | 现有、实际可调用且获授权的只读工具或用户提供的状态；没有对应工具时说明需要哪项信息，不冒充已经检查 |
 
-已实现 Skill 名称 `helix-docs`，描述涵盖 Helix 功能／配置／排障且排除任意 PDF/Word 处理。资源读取遵守现有精确 Skill 身份、模型资格、来源可用和启用检查。它目前作为简短目录提示注入 PromptRegistry，并将 `skills.read_resource` 加入默认模型工具面；这是为保证自然语言帮助查询可发现所作的具体实现选择，较原设计“只在真实简短目录里可发现”的 token 策略更常驻。未做关键词硬路由；Skill 文字不授予权限。
+已实现 Skill 名称 `helix-docs`，描述涵盖 Helix 功能／配置／排障且排除任意 PDF/Word 处理。资源读取遵守现有精确 Skill 身份、模型资格、来源可用和启用检查。它目前作为简短目录提示注入 PromptRegistry，并将 `skills_read_resource` 加入默认模型工具面；这是为保证自然语言帮助查询可发现所作的具体实现选择，较原设计“只在真实简短目录里可发现”的 token 策略更常驻。未做关键词硬路由；Skill 文字不授予权限。
 
-策略与正文分别交付：`SKILL.md` 保持短小；当前 manifest 列出 8 个章节的标题、id、路径和实现状态，单独的 Markdown 索引提供英文主题别名；还未提供中文发现别名、章节/资源 hash 字段或官方 canonical URL。正文按稳定章节拆分；不把 `tools.search` 包装成并不存在的全文搜索。
+策略与正文分别交付：`SKILL.md` 保持短小；当前 manifest 列出 8 个章节的标题、id、路径和实现状态，单独的 Markdown 索引提供英文主题别名；还未提供中文发现别名、章节/资源 hash 字段或官方 canonical URL。正文按稳定章节拆分；不把 `tools_search` 包装成并不存在的全文搜索。
 
 可用的初始工程预算是：Skill 正文约 1～2 KiB、索引约 4～8 KiB、单章约 4～12 KiB，整个首版资源包控制在数百 KiB。它们是待测目标，非已证最优值，也不修改现有框架上限。初始请求只增加一个 Skill 的简短元数据；manifest／正文在需要时进入上下文。同一任务同一 hash 避免无意义重复读取，压缩后凭真实来源重新读取，不创建第二份长期摘要事实库。
 
@@ -190,7 +198,7 @@ MVP 合计初估 **5～9 人日**，表示工作量而非日历工期；未知�
 
 本地证据目录：`build/helix-docs-design-2026-10-14/`，含 `baseline-head.txt`、`baseline-status.txt`、`baseline.diff` 和 `source-sha256.txt`。本轮实际验证：`./scripts/check-docs.sh` exit 0（866 份 Markdown、268 项 HXA 导航）；`./scripts/verify-adr.sh` exit 0（37 份当前 ADR）；`git diff --check` 通过。日志分别为 `docs-check.log`、`adr-check.log`；9 份关键源码 SHA-256 结束复核一致。
 
-2026-10-15 Owner 授权继续完成内置帮助 Skill 和预览准备。实际改动位于 `extensions/skills`、默认工具曝光、插件提示装配及相关测试：manifest 从章节资源稳定计算 SHA-256 revision；每个 Skill snapshot hash 同时覆盖 Skill 正文、manifest、索引和章节；`skills.read_resource` 只能按精确 hash/相对路径从已启用且模型可读的 Skill 取回内容。默认目录只加入一条简短 `helix-docs` 元数据，正文按需读取。章节目前是模块内英文源文本，不是从 `docs/product/help/` 生成；内容审校、渠道/dirty build 绑定、完整引用语义评测和静态帮助查看器均未完成。当前用户要求暂不改最终版本号、不覆盖真机；0.06 的版本映射和 OnePlus 保留数据安装决定仍待回复。
+2026-10-15 Owner 授权继续完成内置帮助 Skill 和预览准备。实际改动位于 `extensions/skills`、默认工具曝光、插件提示装配及相关测试：manifest 从章节资源稳定计算 SHA-256 revision；每个 Skill snapshot hash 同时覆盖 Skill 正文、manifest、索引和章节；`skills_read_resource` 只能按精确 hash/相对路径从已启用且模型可读的 Skill 取回内容。默认目录只加入一条简短 `helix-docs` 元数据，正文按需读取。章节目前是模块内英文源文本，不是从 `docs/product/help/` 生成；内容审校、渠道/dirty build 绑定、完整引用语义评测和静态帮助查看器均未完成。当前用户要求暂不改最终版本号、不覆盖真机；0.06 的版本映射和 OnePlus 保留数据安装决定仍待回复。
 
 本阶段定向验证命令 `./gradlew :extensions:skills:test --tests com.helix.extensions.skills.BuiltInSkillsTest :extensions:plugin:test --tests com.helix.extensions.plugin.PluginRegistryTest :app:testDeveloperDebugUnitTest --tests com.helix.app.chat.ModelToolExposureOrderTest` exit 0；skills 2 项、plugin 20 项及 App 指定测试通过。覆盖资源 revision/hash、默认可读章节、路径穿越/错误 hash/禁用拒绝、插件规则及默认工具面。该主机阶段未执行设备、真实模型、长稳、全仓回归或正式发布验收；设备与模型的后续结果另记如下。保留早期失败尝试，不把定向测试扩张为完整 第 10 节 验收。
 

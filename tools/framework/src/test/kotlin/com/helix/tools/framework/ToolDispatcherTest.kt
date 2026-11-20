@@ -55,7 +55,7 @@ import kotlin.time.Duration.Companion.seconds
  * full pipeline — validate → capability → policy → approval → timeout/cancel → execute →
  * bound result → verify → audit — including the same-turn denial invariant (the exact
  * denied high-risk action is not re-requested in the same turn; material parameter/scope
- * changes may generate a new approval) and the first real tool (`time.now`).
+ * changes may generate a new approval) and the first real tool (`time_now`).
  */
 class ToolDispatcherTest {
     private lateinit var clock: FakeClock
@@ -75,6 +75,35 @@ class ToolDispatcherTest {
         broker = ScriptedBroker()
         sink = RecordingSink()
         dispatcher = ToolDispatcher(clock, registry, center, PolicyEngine(clock), broker, sink)
+    }
+
+    @Test fun receivedFailureKeepsBoundedOutputAndDoesNotClaimUnknownOrReplay() {
+        val d = descriptor(operationClass = ToolOperationClass.READ_ONLY, maxOutputBytes = 20L)
+        val payload = json("""{"data":"01234567890123456789"}""")
+        val executor = CaptureExecutor { ToolExecutorResult.FailedWithOutput(payload) }
+        registry.register(d, executor)
+        val failed = dispatcher.dispatch(request(d.name, d.version, emptyArgs())) as ToolDispatchOutcome.ExecutionFailed
+        assertEquals(DispatchOutcomeCode.TOOL_FAILED, failed.code)
+        assertFalse(failed.requiresReview)
+        assertFalse(failed.sideEffectFree)
+        val output = requireNotNull(failed.result)
+        assertTrue(output.truncated)
+        assertTrue(output.payload.toByteArray().size <= 20)
+        assertEquals(sha256Hex(CanonicalArgs.canonicalize(payload)), output.outputHash.hex)
+        assertEquals(output.outputHash.hex, sink.events.single().outputHash)
+        assertEquals(1, executor.calls.size)
+    }
+
+    @Test fun receivedFailureStillValidatesOutputSchema() {
+        val d =
+            descriptor(
+                operationClass = ToolOperationClass.READ_ONLY,
+                outputSchema = json("""{"type":"object","required":["ok"]}"""),
+            )
+        registry.register(d, CaptureExecutor { ToolExecutorResult.FailedWithOutput(emptyObject()) })
+        val failed = dispatcher.dispatch(request(d.name, d.version, emptyArgs())) as ToolDispatchOutcome.ExecutionFailed
+        assertEquals(DispatchOutcomeCode.INVALID_OUTPUT, failed.code)
+        assertNull(failed.result)
     }
 
     @Test fun executorReceivesTheOriginalConversationAndApprovedScopeIdentity() {
@@ -1052,7 +1081,7 @@ class ToolDispatcherTest {
         assertTrue("contract changed", variant.contractHash.hex != d.contractHash.hex)
     }
 
-    // ------------------------------------------------------------- time.now end-to-end
+    // ------------------------------------------------------------- time_now end-to-end
 
     @Test
     fun timeNowRunsTheNoApprovalPathEndToEnd() {

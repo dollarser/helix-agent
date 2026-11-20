@@ -30,7 +30,7 @@ interface ToolCallDao {
     fun listByTurn(turnId: String): List<ToolCallEntity>
 
     @Query(
-        "SELECT * FROM tool_calls WHERE name IN ('bash','code.linux.run','code.linux.job.start') " +
+        "SELECT * FROM tool_calls WHERE name IN ('bash','code_linux_run','code_linux_job_start') " +
             "AND (createdAt < :beforeTime OR (createdAt = :beforeTime AND id < :beforeId)) " +
             "ORDER BY createdAt DESC, id DESC LIMIT :limit",
     )
@@ -78,7 +78,7 @@ interface ToolCallDao {
 
     /** Pending background work survives the recent-Turn window; settled history stays bounded. */
     @Query(
-        "SELECT c.* FROM tool_calls c WHERE c.name = 'code.linux.job.start' " +
+        "SELECT c.* FROM tool_calls c WHERE c.name = 'code_linux_job_start' " +
             "AND EXISTS (SELECT 1 FROM audit_events p WHERE p.id = 'proot-job-' || c.callId " +
             "AND p.type = 'proot.job_prepared' AND p.actor = 'platform') " +
             "AND (((c.state NOT IN ('FAILED', 'DENIED') OR EXISTS " +
@@ -88,7 +88,7 @@ interface ToolCallDao {
             "AND s.type = 'proot.job_settled' AND s.actor = 'platform') AND NOT EXISTS " +
             "(SELECT 1 FROM audit_events d WHERE d.id = 'proot-disposed-' || c.callId " +
             "AND d.type = 'proot.job_disposed' AND d.actor = 'platform')) " +
-            "OR c.id IN (SELECT id FROM tool_calls WHERE name = 'code.linux.job.start' " +
+            "OR c.id IN (SELECT id FROM tool_calls WHERE name = 'code_linux_job_start' " +
             "ORDER BY rowid DESC LIMIT :recentLimit)) ORDER BY c.rowid DESC",
     )
     fun detachedJobCandidates(recentLimit: Int): List<ToolCallEntity>

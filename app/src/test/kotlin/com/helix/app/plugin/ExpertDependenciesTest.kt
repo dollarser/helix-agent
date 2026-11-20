@@ -6,6 +6,7 @@ import com.helix.extensions.skills.SkillListItem
 import com.helix.extensions.skills.SkillSource
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class ExpertDependenciesTest {
@@ -13,6 +14,7 @@ class ExpertDependenciesTest {
         val skill = skill("notes", SkillSource.USER_IMPORTED, "a".repeat(64))
         val choice = expertSkillChoices(listOf(skill)).single()
         assertEquals("notes", choice.name)
+        assertNull(choice.pluginName)
         assertEquals(expertSkillReference(skill.key), choice.reference)
         assertFalse(choice.available)
     }

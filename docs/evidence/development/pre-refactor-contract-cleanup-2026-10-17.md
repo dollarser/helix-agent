@@ -2,7 +2,9 @@
 
 Date: 2026-10-17
 Task: [HXA-303](../../completion-records/HXA-303.md)
-Status: 已完成授权范围；主机门禁通过，设备/真实服务 not requested
+Status: 初始主机范围完成；追加8项样本/公开MCP通过，本地提交由后续HXA-304记录；设备/真实模型本记录未执行
+
+下文未提交、自动重建和后续队列是各历史阶段快照；升级确认、提交及设备/模型追加结果见 [HXA-304](../../completion-records/HXA-304.md)，不以本页选择当前任务。
 
 ## 起点与范围
 

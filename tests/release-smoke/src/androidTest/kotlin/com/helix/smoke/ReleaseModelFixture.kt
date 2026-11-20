@@ -69,6 +69,13 @@ internal class ReleaseModelFixture(
         }
         val request = JSONObject(body.toString(Charsets.UTF_8))
         if (conversation?.holdCancelledRequest(request, socket) == true) return
+        respondModel(socket, request)
+    }
+
+    private fun respondModel(
+        socket: Socket,
+        request: JSONObject,
+    ) {
         val response = conversation?.reply(request) ?: model(request)
         val message = response.first
         val finish = response.second
@@ -117,13 +124,14 @@ internal class ReleaseModelFixture(
         val results = toolMessages.associateBy { it.optString("tool_call_id") }
         val step = steps(phase, results).firstOrNull { it.id !in results }
         return if (step != null) {
-            if (step.tool !in tools) {
+            val wireName = ReleaseDeclaredTools.targetName(request, step.tool)
+            if (wireName == null) {
                 check(step.id + "-search" !in results) { "Discovery did not expose ${step.tool}" }
                 val query = JSONObject().put("query", step.tool)
-                call(step.id + "-search", "tools.search", query)
+                call(step.id + "-search", ReleaseDeclaredTools.searchName(request), query)
             } else {
                 check(emitted.add(step.id)) { "Unexpected replay of ${step.id}" }
-                call(step.id, step.tool, step.arguments().put("__helix_intent", "Check ${step.id}"))
+                call(step.id, wireName, step.arguments().put("__helix_intent", "Check ${step.id}"))
             }
         } else {
             if (phase == "stale-capture") {
@@ -145,11 +153,11 @@ internal class ReleaseModelFixture(
         results: Map<String, JSONObject>,
     ): List<Step> {
         val launch =
-            Step("r8-$phase-launch", "ui.launch") {
+            Step("r8-$phase-launch", "ui_launch") {
                 JSONObject().put("packageName", fixturePackage)
             }
         val ready =
-            Step("r8-$phase-ready", "ui.wait") {
+            Step("r8-$phase-ready", "ui_wait") {
                 JSONObject()
                     .put("text", "R8 target button")
                     .put("timeoutMillis", 10_000)
@@ -161,7 +169,7 @@ internal class ReleaseModelFixture(
             when (phase) {
                 "cancel" -> {
                     listOf(
-                        Step("r8-cancel-wait", "ui.wait") {
+                        Step("r8-cancel-wait", "ui_wait") {
                             JSONObject().put("text", "R8_NEVER_PRESENT").put("timeoutMillis", 60_000)
                         },
                     )
@@ -169,8 +177,8 @@ internal class ReleaseModelFixture(
 
                 "unknown" -> {
                     listOf(
-                        Step("r8-unknown-device", "ui.device") { JSONObject() },
-                        Step("r8-unknown-gesture", "ui.gesture") {
+                        Step("r8-unknown-device", "ui_device") { JSONObject() },
+                        Step("r8-unknown-gesture", "ui_gesture") {
                             val observation = results.getValue("r8-unknown-device").opt("content")
                             val frame = checkNotNull(findField(observation, "frame"))
                             check(ReleaseFixtureState.x > 0 && ReleaseFixtureState.y > 0)
@@ -184,14 +192,14 @@ internal class ReleaseModelFixture(
                 }
 
                 "stale-capture" -> {
-                    listOf(Step("r8-stale-snapshot", "ui.snapshot") { JSONObject() })
+                    listOf(Step("r8-stale-snapshot", "ui_snapshot") { JSONObject() })
                 }
 
                 "stale-replay" -> {
                     listOf(
-                        Step("r8-stale-old", "ui.click") { JSONObject().put("token", checkNotNull(oldToken)) },
-                        Step("r8-stale-fresh-snapshot", "ui.snapshot") { JSONObject() },
-                        Step("r8-stale-fresh", "ui.click") {
+                        Step("r8-stale-old", "ui_click") { JSONObject().put("token", checkNotNull(oldToken)) },
+                        Step("r8-stale-fresh-snapshot", "ui_snapshot") { JSONObject() },
+                        Step("r8-stale-fresh", "ui_click") {
                             val observation = results.getValue("r8-stale-fresh-snapshot").opt("content")
                             val fresh = checkNotNull(findNode(observation)).getString("token")
                             check(fresh != oldToken)

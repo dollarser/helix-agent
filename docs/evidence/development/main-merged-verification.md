@@ -2,8 +2,10 @@
 
 # main 合并后全量验证
 
-日期：2026-09-05～2026-09-06。基线：`61bad35`，工作分支 `main`。本轮由所有者授权验证
+初始验证：2026-09-05～2026-09-06；后续阶段记录追加至 2026-09-08。初始基线：`61bad35`，工作分支 `main`。本轮由所有者授权验证
 当前 main 的 M0～M10 并收尾实际失败；物理真机不在本轮范围。
+
+本文按阶段保留旧 APK、失败、修复与未完成项；“继续”“下一步”“Goal active”和当时的兼容/版本策略不是当前任务或契约。阶段结果不可合并成当前候选全量通过；HXA-102 的收口索引见[完成记录](../../completion-records/HXA-102.md)，当前权限与版本纪律见 [AGENTS.md](../../../AGENTS.md)。
 
 ## 验证范围
 
@@ -534,7 +536,7 @@ Developer JVM307/307零跳过、根lintDebug、Spotless、Detekt、developer构�
 
 ## 2026-09-07 超时执行边界修复
 
-区分执行器未提交的超时（确认零副作用）和提交后的超时（requiresReview=true）；保留 TIMEOUT 与原有有限重试/证明处理。两个回归先失败后通过；framework150/150、files110/110，无跳过，两发行包构建、Lint、Detekt通过。首次实现的 ReturnCount 静态失败保留，最终证据 `build/main-verification/timeout-review-final.log`。见 [缺陷记录](../../bug-fixes/2026-09-07-timeout-execution-boundary.md)，不作为设备 SIGKILL 验收。
+区分执行器未提交的超时（确认零副作用）和提交后的超时（requiresReview=true）；保留 TIMEOUT 与原有有限重试/证明处理。两个回归先失败后通过；framework150/150、files110/110，无跳过，两发行包构建、Lint、Detekt通过。首次实现的 ReturnCount 静态失败保留，最终证据 `build/main-verification/timeout-review-final.log`。见 [缺陷记录](../../bug-fixes/2026-09-07-cancelled-execution-review.md#case-2026-09-07-timeout-execution-boundary)，不作为设备 SIGKILL 验收。
 
 ## 2026-09-07 原子文件层实际进程死亡验证
 
@@ -604,7 +606,7 @@ ui-goal-event-fixed-build.log记录最新测试APK构建/Spotless/Detekt通过�
 
 ## 2026-09-07 输出校验失败的副作用待核对修复
 
-执行器完成后，输出schema失败现在保留INVALID_OUTPUT并携带requiresReview=true/sideEffectFree=false，避免普通FAILED丢失效果不确定性。回归先149通过/1失败，修复后framework150/150和files110/110通过；两发行包构建、root lintDebug、Spotless、Detekt通过。证据 `build/main-verification/invalid-output-review-{red,green}.log`，见 [缺陷记录](../../bug-fixes/2026-09-07-invalid-output-effect-review.md)。前一轮2620全仓快照早于此修复，不能作为此改动的全仓复验声明；本轮为相关模块验证。
+执行器完成后，输出schema失败现在保留INVALID_OUTPUT并携带requiresReview=true/sideEffectFree=false，避免普通FAILED丢失效果不确定性。回归先149通过/1失败，修复后framework150/150和files110/110通过；两发行包构建、root lintDebug、Spotless、Detekt通过。证据 `build/main-verification/invalid-output-review-{red,green}.log`，见 [缺陷记录](../../bug-fixes/2026-09-07-cancelled-execution-review.md#case-2026-09-07-invalid-output-effect-review)。前一轮2620全仓快照早于此修复，不能作为此改动的全仓复验声明；本轮为相关模块验证。
 
 ## 2026-09-07 M11 CLI 原始Job恢复控制器
 
@@ -938,7 +940,7 @@ App/测试 APK、Spotless、Detekt、根级 lintDebug 通过（`proot-ack-ui-gat
 
 API29/36 × 正常完成/初始输出丢失，共四组真实 Goal 场景通过。正常路径模型收到 ToolResult 后结束回复，Turn/Call 均 COMPLETED，Goal 保持 PAUSED / RUN_FINISHED；生产 ChatService 结果动作可显示持久 stdout，重复本地读取后点击确认，经 Binder 精确 ACK 成功。Goal（含预算）、Turn、Call 前后完全相同，每台请求 5 次（含探测）。输出丢失回归仍为 INPUT_REQUIRED / NEEDS_REVIEW，每台 4 请求，无重发。两组皆完成本 fixture 清理。
 
-证据：`build/main-verification/proot-normal-goal-summary.json`、`proot-normal-goal-verified-emulator-*/result.json`、`proot-after-normal-failure-emulator-*/result.json`。资格 JVM 1/1、App/测试构建、Spotless、Detekt、根级 lintDebug 通过（`proot-normal-goal-fixed-build.log`）；Python/文档与 diff 检查通过。缺陷：`docs/bug-fixes/2026-09-07-proot-completed-call-state-mismatch.md`。
+证据：`build/main-verification/proot-normal-goal-summary.json`、`proot-normal-goal-verified-emulator-*/result.json`、`proot-after-normal-failure-emulator-*/result.json`。资格 JVM 1/1、App/测试构建、Spotless、Detekt、根级 lintDebug 通过（`proot-normal-goal-fixed-build.log`）；Python/文档与 diff 检查通过。缺陷：`docs/bug-fixes/2026-09-07-proot-output-failure-missing-review-recovery.md#case-2026-09-07-proot-completed-call-state-mismatch`。
 
 模型仍为脚本服务，恢复控件位于测试 Compose 容器但绑定生产 ChatService，未冒充完整页面导航/真实账号验收。真实 ACK 响应丢失后的 UI 重试、其余归档异常和最终全量门禁继续推进。
 

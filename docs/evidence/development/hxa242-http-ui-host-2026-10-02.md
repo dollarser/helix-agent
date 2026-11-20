@@ -68,6 +68,6 @@ APK 校验首次失败是工具输出形态差异：编译 Manifest 返回 `@ref
 
 ## 剩余边界与交接
 
-本轮设备状态 **not requested**。没有沿用 HXA-241 的模拟器通过记录；真实键盘/分屏/大字体布局、当前 HTTP 在 Android 上的实际收发和 Mobile Use 设备交互仍需单独授权验收。没有执行 Release 打包、商店发布或真实账号兼容测试，不承诺远端服务一定可连。
+本轮设备状态 **not requested**。没有沿用 HXA-241 的模拟器通过记录；真实键盘/分屏/大字体布局、当前 HTTP 在 Android 上的实际收发和 Mobile Use 设备交互在本轮未验收；后续按当前 [AGENTS](../../../AGENTS.md#verification-and-device-authorization) 的项目模拟器、真机与外部服务范围执行。没有执行 Release 打包、商店发布或真实账号兼容测试，不承诺远端服务一定可连。
 
 自动化许可上限、敏感动作政策、屏幕截图和坐标操作不在此次实现范围。本轮 HTTP 需求和既有 HXA-242 主机范围已完成，不代表所有产品流程无限制或全仓没有缺陷。修改留在 main 工作区，未提交、未推送；原始构建产物/日志留在 ignored `build/`，不自动纳入 Git。

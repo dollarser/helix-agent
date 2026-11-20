@@ -18,7 +18,7 @@ class AutomationPrivilegedNavigationTest {
     private val call =
         ExecutableToolCall(
             "call",
-            "ui.launch",
+            "ui_launch",
             "1",
             JsonObject(emptyMap()),
             ExecutionTargetType.LOCAL_ANDROID,

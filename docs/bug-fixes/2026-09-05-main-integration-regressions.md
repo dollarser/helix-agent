@@ -7,7 +7,7 @@ Affected modules: app, feature:files, feature:browser, runtime:quickjs
 
 ## Problem
 
-main 各工作线单独验证后，应用端 `code.javascript.run` 仍返回 `BIND_FAILED`；
+main 各工作线单独验证后，应用端 `code_javascript_run` 仍返回 `BIND_FAILED`；
 图片在首次编码超预算后直接返回失败，未尝试缩小；WebView 没有处理 renderer 退出。
 库级 Lint 未进入共同 CI，API 29 不兼容调用和生命周期问题未被此前应用 Lint 覆盖。
 

@@ -83,7 +83,7 @@ class AndroidSystemToolsMappingTest {
         walk(c.output)
     }
 
-    // ── device.open_url ──────────────────────────────────────────────────────────────────
+    // ── device_open_url ──────────────────────────────────────────────────────────────────
 
     @Test
     fun openUriOpenedEmitsOpenedWithEmptyReason() {
@@ -153,7 +153,7 @@ class AndroidSystemToolsMappingTest {
         assertTrue(f.detail.contains("url"))
     }
 
-    // ── device.open_settings ───────────────────────────────────────────────────────────────
+    // ── device_open_settings ───────────────────────────────────────────────────────────────
 
     @Test
     fun openSettingsOpenedEchoesTargetAndPackage() {
@@ -225,7 +225,7 @@ class AndroidSystemToolsMappingTest {
         assertEquals("settings page unavailable", out.getValue("reason").jsonPrimitive.content)
     }
 
-    // ── device.clipboard_read ─────────────────────────────────────────────────────────────────────
+    // ── device_clipboard_read ─────────────────────────────────────────────────────────────────────
 
     @Test
     fun clipboardReadEmitsTheBoundedText() {
@@ -268,7 +268,7 @@ class AndroidSystemToolsMappingTest {
         assertEquals("clipboard read failed", f.detail)
     }
 
-    // ── device.clipboard_write ────────────────────────────────────────────────────────────────────
+    // ── device_clipboard_write ────────────────────────────────────────────────────────────────────
 
     @Test
     fun clipboardWriteEmitsWrittenWithLength() {
@@ -337,7 +337,7 @@ class AndroidSystemToolsMappingTest {
         assertTrue(f.detail.contains("text"))
     }
 
-    // ── device.share_text ──────────────────────────────────────────────────────────────────────
+    // ── device_share_text ──────────────────────────────────────────────────────────────────────
 
     @Test
     fun shareSharedEmitsSharedWithEmptyReason() {
@@ -535,11 +535,11 @@ class AndroidSystemToolsMappingTest {
 
     @Test
     fun descriptorsCarryTheExpectedContract() {
-        checkDescriptor(AndroidOpenUriTool.descriptor(), "device.open_url")
-        checkDescriptor(AndroidOpenSettingsTool.descriptor(), "device.open_settings")
-        checkDescriptor(ClipboardReadTool.descriptor(), "device.clipboard_read")
-        checkDescriptor(ClipboardWriteTool.descriptor(), "device.clipboard_write")
-        checkDescriptor(AndroidShareTool.descriptor(), "device.share_text")
+        checkDescriptor(AndroidOpenUriTool.descriptor(), "device_open_url")
+        checkDescriptor(AndroidOpenSettingsTool.descriptor(), "device_open_settings")
+        checkDescriptor(ClipboardReadTool.descriptor(), "device_clipboard_read")
+        checkDescriptor(ClipboardWriteTool.descriptor(), "device_clipboard_write")
+        checkDescriptor(AndroidShareTool.descriptor(), "device_share_text")
     }
 
     @Test

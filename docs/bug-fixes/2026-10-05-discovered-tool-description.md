@@ -14,7 +14,7 @@ Related HXA: HXA-231
 
 ## Root cause
 
-2026-10-05 模拟器最新会话在 `tools.search` 找到 `code.linux.run` 后，请求组装抛出 `tool description exceeds 1024 chars`。原描述为 900 字符，`FileToolArguments.modelSchema` 追加路径说明后变成 1124 字符，超过 Helix 自身的 1024 字符限制。后续请求继续曝光已发现工具，因而重复失败；失败发生在模型请求发出之前，不是服务端额度错误。
+2026-10-05 模拟器最新会话在 `tools_search` 找到 `code_linux_run` 后，请求组装抛出 `tool description exceeds 1024 chars`。原描述为 900 字符，`FileToolArguments.modelSchema` 追加路径说明后变成 1124 字符，超过 Helix 自身的 1024 字符限制。后续请求继续曝光已发现工具，因而重复失败；失败发生在模型请求发出之前，不是服务端额度错误。
 
 ## Fix and invariants
 

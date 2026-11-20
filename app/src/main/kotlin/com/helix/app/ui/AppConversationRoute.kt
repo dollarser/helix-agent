@@ -118,6 +118,21 @@ internal fun AppConversationRoute(
     var renameId by remember { mutableStateOf<String?>(null) }
     var accessSource by remember { mutableStateOf<com.helix.feature.conversation.presentation.SessionRowUi?>(null) }
     val sessionId = screen.openSessionId
+    val boundProvider = screen.selectedModel?.providerId
+    LaunchedEffect(sessionId, boundProvider) {
+        if (com.helix.app.provider.BuiltInModel
+                .owns(boundProvider.orEmpty())
+        ) {
+            providerService.refreshBuiltInModels()
+        }
+    }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        if (com.helix.app.provider.BuiltInModel
+                .owns(boundProvider.orEmpty())
+        ) {
+            providerService.refreshBuiltInModels()
+        }
+    }
     androidx.lifecycle.compose.LifecycleResumeEffect(chatService) {
         val view = chatService.showConversation()
         onPauseOrDispose { view.close() }
@@ -151,7 +166,7 @@ internal fun AppConversationRoute(
             expertLoadFailed = true
         }
     }
-    var selectedPluginNames by remember(sessionId) { mutableStateOf(emptyList<String>()) }
+    var selectedPluginNames by remember(sessionId) { mutableStateOf(emptyList<com.helix.app.plugin.PluginName>()) }
     var pluginLoadFailed by remember(sessionId) { mutableStateOf(false) }
     LaunchedEffect(sessionId, connectorsOpen, expertOpen) {
         try {
@@ -323,7 +338,7 @@ internal fun AppConversationRoute(
     var tasksOpen by remember(sessionId) { mutableStateOf(false) }
     var interruptionResult by rememberSaveable(sessionId) { mutableStateOf<String?>(null) }
     interruptionResult?.let { original ->
-        TaskResultDialog(details, dashboard, original, allowCollect = false) {
+        TaskResultDialog(details::taskResult, { dashboard.collectResult(it) }, original, allowCollect = false) {
             interruptionResult =
                 null
         }

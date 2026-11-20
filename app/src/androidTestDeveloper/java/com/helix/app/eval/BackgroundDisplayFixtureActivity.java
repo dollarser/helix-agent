@@ -26,7 +26,7 @@ public final class BackgroundDisplayFixtureActivity extends BackgroundTouchActiv
         }
         facts = getSharedPreferences("background-fixture", 0);
         facts.edit().putInt("display", displayId()).putInt("task", getTaskId()).commit();
-        if (saved == null) facts.edit().putInt("clicks", 0).putInt("visual", 0).putInt("scrollY", 0).commit();
+        if (saved == null) facts.edit().putInt("clicks", 0).putInt("visual", 0).putInt("scrollY", 0).putInt("dynamicClicks", 0).commit();
         if (getIntent().hasExtra("numericReadback")) {
             facts.edit().putBoolean("numericReadback", getIntent().getBooleanExtra("numericReadback", false)).commit();
         }

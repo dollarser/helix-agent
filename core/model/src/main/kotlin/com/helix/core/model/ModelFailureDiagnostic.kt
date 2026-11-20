@@ -17,6 +17,7 @@ data class ModelFailureDiagnostic(
     val serverMessage: String? = null,
     val serverCode: String? = null,
     val errorParameter: String? = null,
+    val requestId: String? = null,
 ) {
     enum class Stage { CONFIGURATION, CONNECT, HTTP, STREAM }
 
@@ -54,16 +55,18 @@ data class ModelFailureDiagnostic(
         INVALID_JSON,
         INVALID_TOOL_CALL,
         INVALID_FINISH_REASON,
+        INCOMPLETE_TOOL_OUTPUT_LIMIT,
         AFTER_TERMINAL,
         VENDOR_ERROR,
         INVALID_SCHEMA,
     }
 
     companion object {
-        const val MAX_RETRY_AFTER_MILLIS = 300_000L
+        const val MAX_RETRY_AFTER_MILLIS = Long.MAX_VALUE
     }
 
     init {
+        require(requestId == null || requestId.matches(Regex("[A-Za-z0-9._:-]{1,128}")))
         require(serverMessage == null || serverMessage.toByteArray().size <= 768)
         require(serverCode == null || serverCode.length <= 96)
         require(errorParameter == null || errorParameter.length <= 128)

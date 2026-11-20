@@ -80,7 +80,7 @@ class FixedProviderEvaluationDeviceTest {
                 ModelMessage(ModelRole.SYSTEM, EVAL_CONTEXT),
                 ModelMessage(ModelRole.USER, cells[4]),
             )
-        val descriptor = requireNotNull(container.toolPipeline.registry.resolveLatest(ToolName("time.now")))
+        val descriptor = requireNotNull(container.toolPipeline.registry.resolveLatest(ToolName("time_now")))
         val tools =
             if (toolCase) {
                 listOf(ModelToolSchema(descriptor.name, descriptor.description, descriptor.inputSchema.toString()))
@@ -92,7 +92,7 @@ class FixedProviderEvaluationDeviceTest {
         val calls = first.filterIsInstance<ModelEvent.ToolCallStarted>()
         var events = first
         var dispatchVerified = false
-        val singleRead = calls.singleOrNull()?.name == "time.now"
+        val singleRead = calls.singleOrNull()?.name == "time_now"
         if (toolCase && singleRead && terminal(first) is ModelEvent.Completed) {
             val call = calls.single()
             require(first.filterIsInstance<ModelEvent.ToolCallFinished>().any { it.index == call.index })
@@ -134,7 +134,7 @@ class FixedProviderEvaluationDeviceTest {
     ): JsonObject {
         val model = config.getValue("model").jsonPrimitive.content
         val toolCase = cells[5] == "single_tool_then_complete"
-        val descriptor = requireNotNull(container.toolPipeline.registry.resolveLatest(ToolName("time.now")))
+        val descriptor = requireNotNull(container.toolPipeline.registry.resolveLatest(ToolName("time_now")))
         val text = events.filterIsInstance<ModelEvent.TextDelta>().joinToString("") { it.text }
         val passed =
             (terminal(events) as? ModelEvent.Completed)?.finishReason == "stop" && text.isNotBlank() &&

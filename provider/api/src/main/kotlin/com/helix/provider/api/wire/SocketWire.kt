@@ -8,6 +8,7 @@ import okhttp3.WebSocketListener
 import okio.ByteString
 import okio.ByteString.Companion.toByteString
 import java.io.IOException
+import java.net.SocketTimeoutException
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -45,6 +46,7 @@ public fun interface SocketConnector {
 
 public class SocketHandshakeFailure(
     public val status: Int,
+    public val details: HttpFailureDetails = HttpFailureDetails(status),
 ) : IOException("Socket handshake rejected: $status")
 
 /** No redirects or automatic application-message replay. Queue capacity bounds received audio. */
@@ -73,13 +75,13 @@ public class OkHttpSocketConnector : SocketConnector {
                 .Builder()
                 .url(url)
                 .apply {
-                    headers.forEach { (key, value) ->
+                    RequestDiagnostics.headers(headers).forEach { (key, value) ->
                         header(key, value)
                     }
                 }.build()
         stream.socket = client.newWebSocket(request, stream)
         try {
-            if (!stream.open.await(30, TimeUnit.SECONDS)) throw IOException("Socket handshake timeout")
+            if (!stream.open.await(30, TimeUnit.SECONDS)) throw SocketTimeoutException("Socket handshake timeout")
             stream.failure?.let { throw it }
             return stream
         } catch (error: Exception) {
@@ -113,7 +115,15 @@ public class OkHttpSocketConnector : SocketConnector {
             t: Throwable,
             response: Response?,
         ) {
-            failure = response?.let { SocketHandshakeFailure(it.code) } ?: IOException("Socket transport failed")
+            failure = response?.let {
+                val body =
+                    try {
+                        it.peekBody(8192).string()
+                    } catch (_: IOException) {
+                        null
+                    }
+                SocketHandshakeFailure(it.code, httpFailureDetails(it.code, it.headers.toMultimap(), body))
+            } ?: IOException("Socket transport failed")
             open.countDown()
             terminal = SocketMessage.Closed(1006)
         }

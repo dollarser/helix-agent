@@ -93,9 +93,9 @@ class AccountAccessFlowDeviceTest {
         submit()
         compose.waitUntil(10000) { account.status.value == AccountStatus.SIGNED_IN }
         compose.waitUntil(10000) {
-            compose.onAllNodesWithTag("account-sheet").fetchSemanticsNodes().isEmpty()
+            compose.onAllNodesWithTag("user-page").fetchSemanticsNodes().isEmpty()
         }
-        compose.onNodeWithTag("account-sheet").assertDoesNotExist()
+        compose.onNodeWithTag("user-page").assertDoesNotExist()
         assertOriginalTask()
     }
 
@@ -106,8 +106,8 @@ class AccountAccessFlowDeviceTest {
         compose.waitUntil(10000) {
             compose.onAllNodesWithTag("account-failure").fetchSemanticsNodes().isNotEmpty()
         }
-        compose.onNodeWithTag("account-sheet").assertIsDisplayed()
-        compose.onNodeWithTag("account-close").performClick()
+        compose.onNodeWithTag("user-page").assertIsDisplayed()
+        compose.onNodeWithTag("user-page-back").performClick()
         assertOriginalTask()
         assertEquals(AccountStatus.SIGNED_OUT, account.status.value)
     }
@@ -124,9 +124,10 @@ class AccountAccessFlowDeviceTest {
             .onNodeWithTag("account-failure")
             .assertTextEquals(serviceFailureLabel)
         compose.runOnIdle { status = 200 }
+        compose.onNodeWithTag("account-password").performTextReplacement("synthetic-password")
         compose.onNodeWithTag("account-submit").performScrollTo().performClick()
         compose.waitUntil(10000) { account.signedIn.value }
-        compose.waitUntil(10000) { compose.onAllNodesWithTag("account-sheet").fetchSemanticsNodes().isEmpty() }
+        compose.waitUntil(10000) { compose.onAllNodesWithTag("user-page").fetchSemanticsNodes().isEmpty() }
         assertOriginalTask()
     }
 

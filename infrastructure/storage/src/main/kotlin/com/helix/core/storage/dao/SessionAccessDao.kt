@@ -118,7 +118,7 @@ interface SessionAccessDao : UserSessionMetadataCommands {
             "AND g.targetSessionId = :target AND g.manageMetadata = 1 AND g.revision = :revision)) " +
             "AND EXISTS (SELECT 1 FROM turns t JOIN tool_calls c ON c.turnId = t.id " +
             "WHERE t.sessionId = :source AND t.id = :turnId AND t.state = 'RUNNING_TOOL' " +
-            "AND c.id = :callId AND c.name = 'session.rename' AND c.state = 'RUNNING')",
+            "AND c.id = :callId AND c.name = 'session_rename' AND c.state = 'RUNNING')",
     )
     @Suppress("LongParameterList") // Room binds identity, grant revision and title CAS in one atomic statement.
     fun rename(

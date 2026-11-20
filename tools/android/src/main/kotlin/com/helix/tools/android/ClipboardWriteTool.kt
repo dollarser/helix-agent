@@ -9,6 +9,7 @@ import com.helix.core.model.ToolVersion
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
+import com.helix.tools.framework.ToolDiscoveryHints
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolOrigin
@@ -18,7 +19,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlin.time.Duration.Companion.seconds
 
 object ClipboardWriteTool {
-    const val NAME: String = "device.clipboard_write"
+    const val NAME: String = "device_clipboard_write"
 
     const val VERSION: Int = 1
 
@@ -63,6 +64,7 @@ object ClipboardWriteTool {
             idempotency = Idempotency.IDEMPOTENT,
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
             origin = ToolOrigin.BuiltInOrigin,
+            discovery = ToolDiscoveryHints(category = "device"),
         )
 
     fun executor(bridge: AndroidSystemBridge): ToolExecutor =
@@ -73,7 +75,7 @@ object ClipboardWriteTool {
                 val text =
                     strArg(call.args, "text", MAX_CLIPBOARD_WRITE)
                         ?: return ToolExecutorResult.Failed(
-                            "invalid 'device.clipboard_write' arguments: 'text' must be a non-empty string",
+                            "invalid 'device_clipboard_write' arguments: 'text' must be a non-empty string",
                         )
                 val out = bridge.clipboardWrite(text)
                 val status =

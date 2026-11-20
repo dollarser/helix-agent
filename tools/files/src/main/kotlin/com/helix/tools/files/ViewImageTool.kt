@@ -8,6 +8,7 @@ import com.helix.core.workspace.FileScopePath
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
+import com.helix.tools.framework.ToolDiscoveryHints
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolOrigin
@@ -37,7 +38,7 @@ object ViewImageTool {
                     "Exact bytes of a trusted Mobile Use screenshot may reuse " +
                     "the same conversation's active screen grant; " +
                     "ordinary files still need their own disclosure. File access alone does not grant image sharing. " +
-                    "For the current phone screen, prefer ui.screenshot.",
+                    "For the current phone screen, prefer ui_screenshot.",
             inputSchema =
                 buildJsonObject {
                     put("type", "object")
@@ -47,37 +48,15 @@ object ViewImageTool {
                             put("type", "string")
                             put("minLength", 1)
                             put("maxLength", 4096)
+                            put(
+                                "description",
+                                "Workspace image reference from a file tool or attachment, not an image URL.",
+                            )
                         }
                     }
                     putJsonArray("required") { add("path") }
                 },
-            outputSchema =
-                buildJsonObject {
-                    put("type", "object")
-                    put("additionalProperties", false)
-                    putJsonObject("properties") {
-                        listOf("status", "artifactId", "sha256", "mediaType").forEach { key ->
-                            putJsonObject(key) { put("type", "string") }
-                        }
-                        listOf("width", "height", "sizeBytes").forEach { key ->
-                            putJsonObject(key) {
-                                put("type", "integer")
-                                put("minimum", 1)
-                            }
-                        }
-                    }
-                    putJsonArray("required") {
-                        listOf(
-                            "status",
-                            "artifactId",
-                            "sha256",
-                            "mediaType",
-                            "width",
-                            "height",
-                            "sizeBytes",
-                        ).forEach(::add)
-                    }
-                },
+            outputSchema = outputSchema(),
             operationClass = ToolOperationClass.READ_ONLY,
             timeout = 30.seconds,
             maxOutputBytes = 4096,
@@ -85,7 +64,36 @@ object ViewImageTool {
             idempotency = Idempotency.IDEMPOTENT,
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
             origin = ToolOrigin.BuiltInOrigin,
+            discovery = ToolDiscoveryHints(category = "files"),
         )
+
+    private fun outputSchema() =
+        buildJsonObject {
+            put("type", "object")
+            put("additionalProperties", false)
+            putJsonObject("properties") {
+                listOf("status", "artifactId", "sha256", "mediaType").forEach { key ->
+                    putJsonObject(key) { put("type", "string") }
+                }
+                listOf("width", "height", "sizeBytes").forEach { key ->
+                    putJsonObject(key) {
+                        put("type", "integer")
+                        put("minimum", 1)
+                    }
+                }
+            }
+            putJsonArray("required") {
+                listOf(
+                    "status",
+                    "artifactId",
+                    "sha256",
+                    "mediaType",
+                    "width",
+                    "height",
+                    "sizeBytes",
+                ).forEach(::add)
+            }
+        }
 
     fun executor(preparation: ToolVisualPreparation): ToolExecutor =
         object : ToolExecutor {

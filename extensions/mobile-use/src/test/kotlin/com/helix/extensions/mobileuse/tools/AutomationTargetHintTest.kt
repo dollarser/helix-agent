@@ -8,7 +8,7 @@ class AutomationTargetHintTest {
     @Test fun emptyTaskScreenReportsAMissingObjectWithAnActionableNextStep() {
         val hint = requireNotNull(missingTargetHint("TARGET_UNAVAILABLE"))
         assertTrue(hint.contains("No actionable app or window"))
-        assertTrue(hint.contains("ui.launch"))
+        assertTrue(hint.contains("ui_launch"))
         assertNull(missingTargetHint("UNSUPPORTED_UI"))
         assertNull(missingTargetHint("ROOT_UNAVAILABLE"))
         assertNull(missingTargetHint("TARGET_NOT_ALLOWLISTED"))

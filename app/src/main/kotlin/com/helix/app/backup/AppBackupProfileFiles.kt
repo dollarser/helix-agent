@@ -37,7 +37,7 @@ internal class AppBackupProfileFiles(
             roots["files/$relative"] = target
         }
         val privateFiles = File(profile, "restored-${identities.restoreId}").apply { check(mkdirs()) }
-        copyGroup("attachment", File(privateFiles, "attachments"))
+        stageAttachments(privateFiles)
         val payloads =
             (snapshot.state.getValue("workspacePayloads") as JsonArray)
                 .map { it.jsonPrimitive.content }
@@ -51,6 +51,34 @@ internal class AppBackupProfileFiles(
         stageWorkspaces(payloads)
         stageNetwork()
         stageApprovedPlans()
+    }
+
+    private fun stageAttachments(privateFiles: File) {
+        val artifacts = AppBackupCapture.rows(source, "artifacts").associateBy { AppBackupCapture.text(it, "id") }
+        groups["attachment"].orEmpty().forEach { descriptor ->
+            val id = descriptor.getValue("path").jsonPrimitive.content
+            val artifact = artifacts.getValue(id)
+            val target = AttachmentRestorePath.target(AppBackupCapture.text(artifact, "relativePath"))
+            if (target == null) {
+                copy(descriptor, "attachments/$id", privateFiles)
+            } else {
+                // Forks can own the same snapshot. Publish it once, with identical bytes required.
+                val existing = roots[target]
+                if (existing != null) {
+                    require(
+                        com.helix.core.workspace.AtomicFileWriter
+                            .sha256Hex(existing.toPath()) ==
+                            descriptor.getValue("sha256").jsonPrimitive.content,
+                    ) {
+                        "BACKUP_ATTACHMENT_CONFLICT"
+                    }
+                } else {
+                    val staged = File(profile, "attachment-snapshots")
+                    copy(descriptor, id, staged)
+                    roots[target] = File(staged, id)
+                }
+            }
+        }
     }
 
     private fun stageWorkspaces(payloads: Set<String>) {

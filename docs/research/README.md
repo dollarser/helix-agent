@@ -4,8 +4,8 @@
 
 Research 不是实现授权，也不是 current backlog。使用顺序：
 
-1. 当前事实/下一步：[`development/status.md`](../development/status.md)；
-2. 当前工作范围：active HXA；
+1. 当前事实与验证入口：[`development/status.md`](../development/status.md)，不从中自行选下一任务；
+2. 当前工作范围：Owner 已授权任务及对应 active HXA；
 3. 长期契约：[`ADR`](../adr/README.md)；
 4. 方案、竞品、冲突裁决：[`modules/`](modules/README.md)；
 5. 需要追查旧基线/旧 Agent 原始报告：[`evidence/research-history/`](../evidence/research-history/README.md)。

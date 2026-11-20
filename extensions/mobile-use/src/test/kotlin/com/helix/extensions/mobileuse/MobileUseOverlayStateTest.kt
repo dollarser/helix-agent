@@ -37,7 +37,7 @@ class MobileUseOverlayStateTest {
                 true,
                 listOf(
                     com.helix.extensions.plugin
-                        .PluginTaskApproval("approval-a", "ui.click", "Click", "token"),
+                        .PluginTaskApproval("approval-a", "ui_click", "Click", "token"),
                 ),
             )
         assertTrue(state.canReview(first, pending, "approval-a"))

@@ -26,9 +26,9 @@ import java.time.Instant
 class MemoryToolsTest {
     @Test fun creationSentinelIsRejectedForEditingAndDeletion() {
         service()
-        for (name in listOf("memory.edit", "memory.delete")) {
+        for (name in listOf("memory_edit", "memory_delete")) {
             val args =
-                if (name == "memory.edit") {
+                if (name == "memory_edit") {
                     """{"scope":"global","path":"user.md","expectedHash":"new","old":"a","replacement":"b"}"""
                 } else {
                     """{"scope":"global","path":"user.md","expectedHash":"new"}"""
@@ -46,7 +46,7 @@ class MemoryToolsTest {
         service()
         val write =
             execute(
-                "memory.write",
+                "memory_write",
                 """{"scope":"global","path":"user.md",
             "type":"user","source":"Synthetic test","body":"Synthetic preference","expectedHash":"new"}""",
             )
@@ -54,23 +54,23 @@ class MemoryToolsTest {
         assertEquals(
             com.helix.tools.framework.ToolSchemaValidation.Valid,
             com.helix.tools.framework.ToolSchemaValidator.validate(
-                MemoryToolSchemas.output("memory.write"),
+                MemoryToolSchemas.output("memory_write"),
                 write.output,
             ),
         )
         val read =
-            execute("memory.read", """{"scope":"global","path":"user.md"}""")
+            execute("memory_read", """{"scope":"global","path":"user.md"}""")
                 as ToolExecutorResult.Completed
         assertEquals(
             com.helix.tools.framework.ToolSchemaValidation.Valid,
             com.helix.tools.framework.ToolSchemaValidator
-                .validate(MemoryToolSchemas.output("memory.read"), read.output),
+                .validate(MemoryToolSchemas.output("memory_read"), read.output),
         )
-        val list = execute("memory.list", """{"scope":"global"}""") as ToolExecutorResult.Completed
+        val list = execute("memory_list", """{"scope":"global"}""") as ToolExecutorResult.Completed
         assertEquals(
             com.helix.tools.framework.ToolSchemaValidation.Valid,
             com.helix.tools.framework.ToolSchemaValidator
-                .validate(MemoryToolSchemas.output("memory.list"), list.output),
+                .validate(MemoryToolSchemas.output("memory_list"), list.output),
         )
     }
 
@@ -106,7 +106,7 @@ class MemoryToolsTest {
         val service = service()
         assertTrue(
             execute(
-                "memory.write",
+                "memory_write",
                 """{"scope":"global",
 "path":"user.md",
 "type":"user",
@@ -117,11 +117,11 @@ class MemoryToolsTest {
         )
         val result =
             execute(
-                "memory.search",
+                "memory_search",
                 """{"scope":"global","query":"Chinese"}""",
             ) as ToolExecutorResult.Completed
         assertTrue(result.output.toString().contains("user.md"))
-        assertTrue(execute("memory.read", """{"scope":"global","path":"user.md"}""") is ToolExecutorResult.Completed)
+        assertTrue(execute("memory_read", """{"scope":"global","path":"user.md"}""") is ToolExecutorResult.Completed)
         assertEquals(1, service.list(MemoryScope.Global).size)
     }
 
@@ -136,7 +136,7 @@ class MemoryToolsTest {
         assertEquals(
             ToolExecutorResult.Cancelled,
             execute(
-                "memory.write",
+                "memory_write",
                 args,
                 object : CancelSignal {
                     override fun isCancelled() = true
@@ -144,8 +144,8 @@ class MemoryToolsTest {
             ),
         )
         flags["auto-global"] = false
-        assertTrue(execute("memory.write", args) is ToolExecutorResult.Failed)
-        assertTrue(execute("memory.list", """{"scope":"project"}""") is ToolExecutorResult.Failed)
+        assertTrue(execute("memory_write", args) is ToolExecutorResult.Failed)
+        assertTrue(execute("memory_list", """{"scope":"project"}""") is ToolExecutorResult.Failed)
         assertTrue(service.list(MemoryScope.Global).isEmpty())
     }
 

@@ -30,8 +30,8 @@ class McpToolDiscoveryTest {
             com.helix.tools.android.ClipboardReadTool
                 .descriptor(),
         )
-        assertTrue(discovery.search("s", "设置 配置", 8).any { it.name.value == "settings.inspect" })
-        assertTrue(discovery.search("s", "剪贴板", 8).any { it.name.value == "device.clipboard_read" })
+        assertTrue(discovery.search("s", "设置 配置", 8).any { it.name.value == "settings_inspect" })
+        assertTrue(discovery.search("s", "剪贴板", 8).any { it.name.value == "device_clipboard_read" })
     }
 
     @Test fun standaloneQuestionToolKeepsItsShortNameAndDiscoveryCategory() {
@@ -60,17 +60,37 @@ class McpToolDiscoveryTest {
         val defaults =
             com.helix.app.chat.ModelToolExposureOrder
                 .defaultNames(emptySet())
-        assertFalse(discovery.visible("s", registry.all(), defaults).any { it.name.value.startsWith("session.") })
+        assertFalse(discovery.visible("s", registry.all(), defaults).any { it.name.value.startsWith("session_") })
         val matches = discovery.search("s", "会话 历史", 8)
-        assertTrue(matches.any { it.name.value == "session.history" })
-        assertTrue(discovery.visible("s", registry.all(), defaults).any { it.name.value == "session.history" })
-        assertFalse(discovery.visible("other", registry.all(), defaults).any { it.name.value.startsWith("session.") })
+        assertTrue(matches.any { it.name.value == "session_history" })
+        assertTrue(discovery.visible("s", registry.all(), defaults).any { it.name.value == "session_history" })
+        assertFalse(discovery.visible("other", registry.all(), defaults).any { it.name.value.startsWith("session_") })
+    }
+
+    @Test fun fileSearchToolsKeepFileCategoryAndRespectAvailability() {
+        val glob =
+            com.helix.tools.files.GlobTool
+                .descriptor()
+        val grep =
+            com.helix.tools.files.GrepTool
+                .descriptor()
+        listOf(glob, grep).forEach(::registerFixture)
+        discovery.visible("s", registry.all())
+        for (tool in listOf(glob, grep)) {
+            assertEquals("files", ToolDiscoveryMetadata.of(tool).category)
+            assertEquals(listOf(tool), discovery.search("s", tool.name.value, 8, category = "files"))
+        }
+        assertTrue(discovery.search("s", "内容 搜索", 8, category = "files").contains(grep))
+        assertTrue(discovery.search("s", "文件名 通配", 8, category = "files").contains(glob))
+        val filtered = McpToolDiscovery(registry) { _, tool -> tool != grep }
+        assertTrue(filtered.search("s", "grep", 8, category = "files").isEmpty())
+        assertTrue(discovery.search("s", "glob", 8, category = "browser").isEmpty())
     }
 
     private val registry = ToolRegistry()
 
     private val discovery = McpToolDiscovery(registry).also { it.register(registry) }
-    private val search = requireNotNull(registry.resolveLatest(ToolName("tools.search")))
+    private val search = requireNotNull(registry.resolveLatest(ToolName("tools_search")))
 
     private val fixtureExecutor =
         object : com.helix.tools.framework.ToolExecutor {
@@ -93,7 +113,7 @@ class McpToolDiscoveryTest {
 
     private fun remote(index: Int): ToolDescriptor =
         search.copy(
-            name = ToolName("mcp.catalog.tool_$index"),
+            name = ToolName("mcp_catalog_tool_$index"),
             description = "catalog operation $index",
             operationClass = ToolOperationClass.NETWORK,
             origin = ToolOrigin.McpOrigin("catalog", "2025-03-26", "a".repeat(64)),
@@ -102,13 +122,13 @@ class McpToolDiscoveryTest {
     private fun catalog(count: Int = 500) = replaceCatalog("catalog", (0 until count).map(::remote))
 
     @Test fun discoveredMaximumLengthDescriptionRemainsValidAcrossRequests() {
-        val tool = search.copy(name = ToolName("code.linux.run"), description = "x".repeat(1024))
+        val tool = search.copy(name = ToolName("code_linux_run"), description = "x".repeat(1024))
         registerFixture(tool)
         val defaults =
             com.helix.app.chat.ModelToolExposureOrder
                 .defaultNames(emptySet())
         assertFalse(tool in discovery.visible("session", registry.all(), defaults))
-        assertEquals(listOf(tool), discovery.search("session", "code.linux.run", 1))
+        assertEquals(listOf(tool), discovery.search("session", "code_linux_run", 1))
         repeat(3) {
             val loaded = discovery.visible("session", registry.all(), defaults)
             assertTrue(tool in loaded)
@@ -127,13 +147,13 @@ class McpToolDiscoveryTest {
     }
 
     @Test fun optionalBuiltInNeedsDiscoveryAndNeverLeaksAcrossSessions() {
-        val time = search.copy(name = ToolName("time.now"), description = "Current time")
+        val time = search.copy(name = ToolName("time_now"), description = "Current time")
         registerFixture(time)
         val defaults =
             com.helix.app.chat.ModelToolExposureOrder
                 .defaultNames(emptySet())
         assertFalse(time in discovery.visible("session", registry.all(), defaults))
-        assertEquals(listOf(time), discovery.search("session", "time.now", 1))
+        assertEquals(listOf(time), discovery.search("session", "time_now", 1))
         assertTrue(time in discovery.visible("session", registry.all(), defaults))
         assertFalse(time in discovery.visible("another-session", registry.all(), defaults))
     }
@@ -144,36 +164,36 @@ class McpToolDiscoveryTest {
         val filtered =
             McpToolDiscovery(registry) { _, descriptor ->
                 checked += descriptor.name.value
-                descriptor.name.value != "mcp.catalog.tool_0"
+                descriptor.name.value != "mcp_catalog_tool_0"
             }
         assertEquals(listOf(remote(499)), filtered.search("session", "tool_499", 1))
-        assertEquals(listOf("mcp.catalog.tool_499"), checked)
+        assertEquals(listOf("mcp_catalog_tool_499"), checked)
         checked.clear()
         assertEquals(listOf(remote(1)), filtered.search("session", "catalog", 1))
-        assertEquals(listOf("mcp.catalog.tool_0", "mcp.catalog.tool_1", "mcp.catalog.tool_499"), checked)
+        assertEquals(listOf("mcp_catalog_tool_0", "mcp_catalog_tool_1", "mcp_catalog_tool_499"), checked)
     }
 
     @Test fun exactNameAndNameMatchesRankAheadOfDescriptionMentions() {
-        val exact = search.copy(name = ToolName("files.archive"), description = "Create an archive")
-        val mention = search.copy(name = ToolName("aaa.helper"), description = "Use files.archive to archive files")
+        val exact = search.copy(name = ToolName("files_archive"), description = "Create an archive")
+        val mention = search.copy(name = ToolName("aaa_helper"), description = "Use files_archive to archive files")
         registerFixture(exact)
         registerFixture(mention)
-        assertEquals(listOf(exact), discovery.search("session", "files.archive", 1))
-        assertEquals(listOf(exact), discovery.search("session", "files.archive", 16))
+        assertEquals(listOf(exact), discovery.search("session", "files_archive", 1))
+        assertEquals(listOf(exact), discovery.search("session", "files_archive", 16))
         assertEquals(exact, discovery.search("session", "archive", 2).first())
     }
 
     @Test fun exactDisabledToolDoesNotDiscoverAnUnrelatedSubstitute() {
-        val mkdir = search.copy(name = ToolName("files.mkdir"), description = "Create a directory")
-        val other = search.copy(name = ToolName("code.helper"), description = "Alternative to files.mkdir")
+        val mkdir = search.copy(name = ToolName("files_mkdir"), description = "Create a directory")
+        val other = search.copy(name = ToolName("code_helper"), description = "Alternative to files_mkdir")
         registerFixture(mkdir)
         registerFixture(other)
         val filtered = McpToolDiscovery(registry) { _, descriptor -> descriptor != mkdir }
-        assertTrue(filtered.search("session", "files.mkdir", 16).isEmpty())
+        assertTrue(filtered.search("session", "files_mkdir", 16).isEmpty())
     }
 
     @Test fun workspaceDirectoryCreationIsDefaultButStillSubjectToAdmission() {
-        val mkdir = search.copy(name = ToolName("files.mkdir"), description = "Create a directory")
+        val mkdir = search.copy(name = ToolName("files_mkdir"), description = "Create a directory")
         registerFixture(mkdir)
         val defaults =
             com.helix.app.chat.ModelToolExposureOrder
@@ -185,9 +205,9 @@ class McpToolDiscoveryTest {
     }
 
     @Test fun compositeQueryFallsBackToRankedPartialMatches() {
-        val click = search.copy(name = ToolName("android.ui.click"), description = "Click Android UI controls")
-        val capture = search.copy(name = ToolName("android.screen.capture"), description = "Capture the Android screen")
-        val weak = search.copy(name = ToolName("misc.screen.helper"), description = "Screen helper")
+        val click = search.copy(name = ToolName("android_ui_click"), description = "Click Android UI controls")
+        val capture = search.copy(name = ToolName("android_screen_capture"), description = "Capture the Android screen")
+        val weak = search.copy(name = ToolName("misc_screen_helper"), description = "Screen helper")
         registerFixture(click)
         registerFixture(capture)
         registerFixture(weak)
@@ -198,8 +218,8 @@ class McpToolDiscoveryTest {
     }
 
     @Test fun completeTermMatchesRankFirstWithoutHidingComplementaryPartialMatches() {
-        val complete = search.copy(name = ToolName("android.ui.click"), description = "Click a button on Android UI")
-        val partial = search.copy(name = ToolName("android.screen"), description = "Inspect Android UI")
+        val complete = search.copy(name = ToolName("android_ui_click"), description = "Click a button on Android UI")
+        val partial = search.copy(name = ToolName("android_screen"), description = "Inspect Android UI")
         registerFixture(complete)
         registerFixture(partial)
 
@@ -210,8 +230,8 @@ class McpToolDiscoveryTest {
     }
 
     @Test fun unavailableCompleteMatchesStillAllowAvailablePartialDiscovery() {
-        val complete = search.copy(name = ToolName("android.ui.click"), description = "Click a button on Android UI")
-        val partial = search.copy(name = ToolName("android.screen"), description = "Inspect Android UI")
+        val complete = search.copy(name = ToolName("android_ui_click"), description = "Click a button on Android UI")
+        val partial = search.copy(name = ToolName("android_screen"), description = "Inspect Android UI")
         listOf(complete, partial).forEach(::registerFixture)
         val filtered = McpToolDiscovery(registry) { _, tool -> tool != complete }
         assertEquals(listOf(partial), filtered.search("session", "android ui click", 8))
@@ -219,30 +239,32 @@ class McpToolDiscoveryTest {
     }
 
     @Test fun englishWholeWordsRankBeforeButDoNotHideSubstringMatches() {
-        val execute = search.copy(name = ToolName("sample.execute"), description = "Execute a command")
-        val download = search.copy(name = ToolName("browser.download"), description = "Download executable files")
-        val done = search.copy(name = ToolName("plan.submit"), description = "Record previously executed steps")
+        val execute = search.copy(name = ToolName("sample_execute"), description = "Execute a command")
+        val download = search.copy(name = ToolName("browser_download"), description = "Download executable files")
+        val done = search.copy(name = ToolName("plan_submit"), description = "Record previously executed steps")
         listOf(execute, download, done).forEach(::registerFixture)
         assertEquals(listOf(execute, done), discovery.search("session", "execute", 8))
         assertEquals(listOf(download), discovery.search("session", "executable", 8))
     }
 
     @Test fun underscoreNameComponentsRankBeforeLongerNumbersAndExactNamesRemainPrecise() {
-        val issue = search.copy(name = ToolName("sample.create_issue"), description = "Create a record")
-        val log = search.copy(name = ToolName("sample.read_log"), description = "Inspect saved output")
-        val exact = search.copy(name = ToolName("sample.tool_49"), description = "Inspect a record")
-        val longer = search.copy(name = ToolName("sample.tool_499"), description = "Inspect a record")
+        // These are synthetic operation tools, not copies of tools_search's parameter descriptions.
+        val fixture = search.copy(inputSchema = Json.parseToJsonElement("{}").jsonObject)
+        val issue = fixture.copy(name = ToolName("sample_create_issue"), description = "Create a record")
+        val log = fixture.copy(name = ToolName("sample_read_log"), description = "Inspect saved output")
+        val exact = fixture.copy(name = ToolName("sample_tool_49"), description = "Inspect a record")
+        val longer = fixture.copy(name = ToolName("sample_tool_499"), description = "Inspect a record")
         listOf(issue, log, exact, longer).forEach(::registerFixture)
         assertEquals(listOf(issue), discovery.search("s", "issue", 8))
         assertEquals(listOf(log), discovery.search("s", "read log", 8))
         assertEquals(listOf(exact, longer), discovery.search("s", "tool_49", 8))
-        assertEquals(listOf(exact), discovery.search("s", "sample.tool_49", 8))
+        assertEquals(listOf(exact), discovery.search("s", "sample_tool_49", 8))
     }
 
     @Test fun camelCaseSchemaFieldFragmentsRemainDiscoverableWithoutDescriptionMatches() {
         val tool =
             search.copy(
-                name = ToolName("sample.inspect"),
+                name = ToolName("sample_inspect"),
                 description = "Inspect a record",
                 inputSchema =
                     Json
@@ -278,7 +300,7 @@ class McpToolDiscoveryTest {
         catalog()
         assertEquals(listOf(search), discovery.visible("session", registry.all()))
         val found = discovery.search("session", "tool_499", 8)
-        assertEquals(listOf("mcp.catalog.tool_499"), found.map { it.name.value })
+        assertEquals(listOf("mcp_catalog_tool_499"), found.map { it.name.value })
         assertEquals(listOf(search) + found, discovery.visible("session", registry.all()))
         assertEquals(listOf(search), discovery.visible("other", registry.all()))
     }
@@ -286,7 +308,7 @@ class McpToolDiscoveryTest {
     @Test
     fun discoveryAndLoadedWindowSurviveTheModelToolLimit() {
         catalog()
-        val other = (0 until 160).map { search.copy(name = ToolName("local.tool_$it")) }
+        val other = (0 until 160).map { search.copy(name = ToolName("local_tool_$it")) }
         val admitted = other + registry.all()
         assertTrue(search in discovery.visible("session", admitted))
         val found = discovery.search("session", "catalog", McpToolDiscovery.WINDOW)
@@ -299,7 +321,7 @@ class McpToolDiscoveryTest {
     @Test
     fun searchedSmallCatalogToolAlsoSurvivesTheModelToolLimit() {
         catalog(3)
-        val other = (0 until 160).map { search.copy(name = ToolName("local.tool_$it")) }
+        val other = (0 until 160).map { search.copy(name = ToolName("local_tool_$it")) }
         val found = discovery.search("session", "tool_2", 1).single()
         assertTrue(found in discovery.visible("session", other + registry.all()))
         assertFalse(found in discovery.visible("session", other + listOf(search)))
@@ -307,12 +329,12 @@ class McpToolDiscoveryTest {
 
     @Test
     fun separateSearchesRetainRelatedValidCapabilitiesWithoutSharingAcrossSessions() {
-        val start = search.copy(name = ToolName("code.job.start"), description = "Start a background job")
-        val await = search.copy(name = ToolName("jobs.await"), description = "Await a background job")
+        val start = search.copy(name = ToolName("code_job_start"), description = "Start a background job")
+        val await = search.copy(name = ToolName("jobs_await"), description = "Await a background job")
         registerFixture(start)
         registerFixture(await)
-        assertEquals(listOf(start), discovery.search("session", "code.job.start", 8))
-        assertEquals(listOf(await), discovery.search("session", "jobs.await", 8))
+        assertEquals(listOf(start), discovery.search("session", "code_job_start", 8))
+        assertEquals(listOf(await), discovery.search("session", "jobs_await", 8))
         assertEquals(setOf(search, start, await), discovery.visible("session", registry.all()).toSet())
         assertEquals(setOf(start, await), discovery.search("session", "job start await", 8).toSet())
         assertEquals(setOf(search, start, await), discovery.visible("session", registry.all()).toSet())
@@ -320,9 +342,16 @@ class McpToolDiscoveryTest {
     }
 
     @Test fun chineseActionAndSchemaFieldsAreDiscoverableWithSourceFilters() {
-        val screenshot = search.copy(name = ToolName("ui.screenshot"), description = "Capture current frame")
-        val click = search.copy(name = ToolName("ui.click"), description = "Press a node")
-        val archive = search.copy(name = ToolName("files.archive"), description = "Create ZIP")
+        val screenshot = search.copy(name = ToolName("ui_screenshot"), description = "Capture current frame")
+        val click = search.copy(name = ToolName("ui_click"), description = "Press a node")
+        val archive =
+            search.copy(
+                name = ToolName("files_archive"),
+                description = "Create ZIP",
+                discovery =
+                    com.helix.tools.framework
+                        .ToolDiscoveryHints(category = "files"),
+            )
         listOf(screenshot, click, archive).forEach(::registerFixture)
         assertEquals(listOf(screenshot), discovery.search("session", "截图", 8))
         assertEquals(listOf(archive), discovery.search("session", "压缩", 8, source = "helix", category = "files"))
@@ -352,14 +381,14 @@ class McpToolDiscoveryTest {
     }
 
     @Test fun recentWindowUsesSchemaCostRatherThanARequestToolCount() {
-        val tools = (1..24).map { search.copy(name = ToolName("files.fixture_$it"), description = "small contract") }
+        val tools = (1..24).map { search.copy(name = ToolName("files_fixture_$it"), description = "small contract") }
         tools.forEach(::registerFixture)
         tools.forEach { discovery.search("session", it.name.value, 1) }
         assertTrue(discovery.visible("session", registry.all()).containsAll(tools))
         val large =
             (1..80).map {
                 search.copy(
-                    name = ToolName("files.large_$it"),
+                    name = ToolName("files_large_$it"),
                     description = "x".repeat(ToolDescriptor.MAX_DESCRIPTION_LENGTH),
                 )
             }
@@ -378,15 +407,15 @@ class McpToolDiscoveryTest {
         val origin = ToolOrigin.PluginOrigin("mobile-use", "1", "mobile-use")
         val gesture =
             search.copy(
-                name = ToolName("ui.gesture"),
+                name = ToolName("ui_gesture"),
                 origin = origin,
-                discoveryCompanions = setOf(ToolName("ui.screenshot"), ToolName("ui.device")),
+                discoveryCompanions = setOf(ToolName("ui_screenshot"), ToolName("ui_device")),
             )
-        val screenshot = search.copy(name = ToolName("ui.screenshot"), origin = origin)
-        val device = search.copy(name = ToolName("ui.device"), origin = origin)
+        val screenshot = search.copy(name = ToolName("ui_screenshot"), origin = origin)
+        val device = search.copy(name = ToolName("ui_device"), origin = origin)
         listOf(gesture, screenshot, device).forEach(::registerFixture)
         val filtered = McpToolDiscovery(registry) { _, descriptor -> descriptor != device }
-        assertEquals(listOf(gesture), filtered.search("session", "ui.gesture", 1))
+        assertEquals(listOf(gesture), filtered.search("session", "ui_gesture", 1))
         val visible = filtered.visible("session", registry.all())
         assertTrue(screenshot in visible)
         assertFalse(device in visible)
@@ -451,11 +480,11 @@ class McpToolDiscoveryTest {
         assertEquals(listOf(search), discovery.visible("session", registry.all()))
     }
 
-    @Test fun rawPreflightKeepsPreviouslyDeferredLongNameSourcesOutOfProjection() {
+    @Test fun rawPreflightAccountsForMaximumPortableNamesBeforeProjection() {
         val tools =
             (1..16).map {
                 remote(it).copy(
-                    name = ToolName("mcp.catalog.${"a".repeat(64)}.${"t$it".padEnd(51, 'b')}"),
+                    name = ToolName("mcp_catalog_t$it".padEnd(64, 'b')),
                     description = "x".repeat(800),
                     inputSchema =
                         Json
@@ -470,7 +499,7 @@ class McpToolDiscoveryTest {
                     .toolBytes(it.description, it.inputSchema.toString())
             }
         assertEquals(15920L, withoutNames)
-        assertEquals(17968L, withoutNames + tools.sumOf { it.name.value.length })
+        assertEquals(16944L, withoutNames + tools.sumOf { it.name.value.length })
         replaceCatalog("catalog", tools)
         assertEquals(listOf(search), discovery.visible("session", registry.all()))
     }
@@ -483,7 +512,7 @@ class McpToolDiscoveryTest {
         val selected = discovery.search("session", "tool_499", 1)
         assertTrue(discovery.visible("session", registry.all()).containsAll(found + selected))
         val current = discovery.visible("session", registry.all())
-        assertTrue(discovery.search("session", "no match", 8).isEmpty())
+        assertTrue(discovery.search("session", "nonexistent-capability-zz", 8).isEmpty())
         assertEquals(current, discovery.visible("session", registry.all()))
     }
 
@@ -531,7 +560,7 @@ class McpToolDiscoveryTest {
         val call =
             ExecutableToolCall(
                 "call",
-                "tools.search",
+                "tools_search",
                 search.version.value.toString(),
                 Json.parseToJsonElement("""{"query":"tool_499"}""").jsonObject,
                 ExecutionTargetType.LOCAL_ANDROID,
@@ -580,7 +609,7 @@ class McpToolDiscoveryTest {
     fun foreignMcpNamesAreOnlySearchHintsAndCannotBypassSourceAvailability() {
         val action =
             search.copy(
-                name = ToolName("mcp.catalog.create_issue"),
+                name = ToolName("mcp_catalog_create_issue"),
                 description = "Create an issue",
                 operationClass = ToolOperationClass.NETWORK,
                 origin = ToolOrigin.McpOrigin("catalog", "2025-03-26", "a".repeat(64)),
@@ -593,7 +622,7 @@ class McpToolDiscoveryTest {
     }
 
     @Test fun optionalBuiltInIsSearchableAndOnlyLoadedForItsSession() {
-        val local = search.copy(name = ToolName("files.archive"), description = "Create a file archive")
+        val local = search.copy(name = ToolName("files_archive"), description = "Create a file archive")
         registerFixture(local)
         assertFalse(local in discovery.visible("session", registry.all()))
         assertEquals(listOf(local), discovery.search("session", "archive", 8))
@@ -604,7 +633,7 @@ class McpToolDiscoveryTest {
     }
 
     @Test fun builtInDisableAppliesToSearchAndLoadedSchemas() {
-        val local = search.copy(name = ToolName("files.archive"), description = "Create a file archive")
+        val local = search.copy(name = ToolName("files_archive"), description = "Create a file archive")
         registerFixture(local)
         var enabled = true
         val filtered = McpToolDiscovery(registry) { _, descriptor -> descriptor != local || enabled }
@@ -615,17 +644,17 @@ class McpToolDiscoveryTest {
     }
 
     @Test fun defaultsAndDiscoveryShareOneBoundedSurface() {
-        val locals = (0 until 100).map { search.copy(name = ToolName("local.tool_$it")) }
+        val locals = (0 until 100).map { search.copy(name = ToolName("local_tool_$it")) }
         locals.forEach(::registerFixture)
-        val defaults = setOf("local.tool_0", "local.tool_1")
+        val defaults = setOf("local_tool_0", "local_tool_1")
         assertEquals(3, discovery.visible("session", registry.all(), defaults).size)
-        discovery.search("session", "local.tool_99", 1)
+        discovery.search("session", "local_tool_99", 1)
         assertEquals(4, discovery.visible("session", registry.all(), defaults).size)
         assertEquals(3, discovery.visible("other", registry.all(), defaults).size)
     }
 
     @Test fun currentModeAdmissionAlsoBoundsSearchResults() {
-        val local = search.copy(name = ToolName("files.archive"), description = "Create a file archive")
+        val local = search.copy(name = ToolName("files_archive"), description = "Create a file archive")
         registerFixture(local)
         discovery.visible("session", listOf(search))
         assertTrue(discovery.search("session", "archive", 8).isEmpty())
@@ -641,16 +670,16 @@ class McpToolDiscoveryTest {
     @Test
     fun aDisabledToolLeavesSearchAndTheVisibleWindow() {
         catalog(3)
-        val disabled = mutableSetOf("mcp.catalog.tool_1")
+        val disabled = mutableSetOf("mcp_catalog_tool_1")
         val filtered = McpToolDiscovery(registry) { _, descriptor -> descriptor.name.value !in disabled }
         assertEquals(
-            listOf("mcp.catalog.tool_0", "mcp.catalog.tool_2"),
+            listOf("mcp_catalog_tool_0", "mcp_catalog_tool_2"),
             filtered.search("session", "catalog", 8).map { it.name.value },
         )
         val visible = filtered.visible("session", registry.all()).map { it.name.value }
-        assertFalse(visible.contains("mcp.catalog.tool_1"))
-        assertTrue(visible.contains("tools.search"))
-        assertTrue(visible.containsAll(listOf("mcp.catalog.tool_0", "mcp.catalog.tool_2")))
+        assertFalse(visible.contains("mcp_catalog_tool_1"))
+        assertTrue(visible.contains("tools_search"))
+        assertTrue(visible.containsAll(listOf("mcp_catalog_tool_0", "mcp_catalog_tool_2")))
     }
 
     @Test
@@ -658,14 +687,14 @@ class McpToolDiscoveryTest {
         catalog(3)
         val disabled = mutableSetOf<String>()
         val filtered = McpToolDiscovery(registry) { _, descriptor -> descriptor.name.value !in disabled }
-        assertEquals(listOf("mcp.catalog.tool_1"), filtered.search("session", "tool_1", 1).map { it.name.value })
-        disabled += "mcp.catalog.tool_1"
+        assertEquals(listOf("mcp_catalog_tool_1"), filtered.search("session", "tool_1", 1).map { it.name.value })
+        disabled += "mcp_catalog_tool_1"
         val visible = filtered.visible("session", registry.all()).map { it.name.value }
         assertFalse(
             "a disable landing after the search removes the loaded window",
-            visible.contains("mcp.catalog.tool_1"),
+            visible.contains("mcp_catalog_tool_1"),
         )
-        assertTrue(visible.contains("tools.search"))
+        assertTrue(visible.contains("tools_search"))
         assertTrue(filtered.search("session", "tool_1", 1).isEmpty())
     }
 }

@@ -101,7 +101,7 @@ class FixedJavascriptEvaluationDeviceTest {
     ) {
         val session = container.chatService.createSession("fixed-${cells[0]}", provider, model)
         val context =
-            "This is an isolated JavaScript evaluation. Call code.javascript.run exactly once " +
+            "This is an isolated JavaScript evaluation. Call code_javascript_run exactly once " +
                 "with this exact helixMain body, without rewriting it: " + code(cells[0]) +
                 " After the tool result, describe its actual outcome without retrying. " +
                 "For cancellation, the host will press Stop after execution begins."
@@ -168,7 +168,7 @@ class FixedJavascriptEvaluationDeviceTest {
         if (!resolvedApprovals.add(approval.id)) return
         val args = Json.parseToJsonElement(call.argsJson).jsonObject
         val exactCode =
-            call.name == "code.javascript.run" &&
+            call.name == "code_javascript_run" &&
                 args["code"]?.jsonPrimitive?.content == code(caseId)
         if (exactCode) {
             container.chatService.approveApproval(approval.id)
@@ -212,7 +212,7 @@ class FixedJavascriptEvaluationDeviceTest {
                     ?.decision == "APPROVED"
             }
         if (call == null || result == null || approved != true) return false
-        return call.name == "code.javascript.run" &&
+        return call.name == "code_javascript_run" &&
             verifyJavascriptOutcome(
                 id,
                 call.state,

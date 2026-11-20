@@ -2,6 +2,8 @@
 
 日期：2026-10-13（Asia/Shanghai）。本轮Owner授权模拟器、同一OnePlus及现有Qwen/Codex；指定Remote Notes MCP虚拟认证Site，并批准发布最小原生回调修正。保留前次成功、失败与当前pending的区别。本记录不关闭HXA-126真实厂商账号、全部OEM、24h或商店发行边界。
 
+本文按当时执行阶段追加，运行中 PID、pending 与后续动作均为历史交接快照，不是当前待执行指令。R3/R4/R5 失败和最后有界验收分别保留；后续独立两小时结果见[10-14 连续任务记录](autonomous-app-and-stability-2026-10-14.md)。
+
 ## 实施与来源
 
 当前订阅Runtime合入Developer主APK的`:subscriptions`，使用手机已有Helix登录；未导入主机CLI凭据。错误的旧独立Runtime/库测试宿主配置准备在文件不存在处失败，未读取/刷新主机凭据，已退役；[清理记录](runtime-artifact-retirement-2026-10-13.md)和提交`bee04ad5`保留来源。

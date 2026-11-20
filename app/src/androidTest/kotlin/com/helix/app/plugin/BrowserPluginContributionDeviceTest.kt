@@ -60,23 +60,29 @@ class BrowserPluginContributionDeviceTest {
                         arguments,
                         mode = AgentMode.ACT,
                     )
-                    val tabs = dispatch("browser.tabs", "{}")
+                    val tabs = dispatch("browser_tabs", "{}")
                     assertTrue(tabs.toString(), tabs is ToolDispatchOutcome.Succeeded)
                     assertTrue(tabs.toString().contains(id))
-                    val snapshot = dispatch("browser.snapshot", """{"tabId":"$id"}""")
+                    val snapshot = dispatch("browser_snapshot", """{"tabId":"$id"}""")
                     assertTrue(snapshot.toString(), snapshot is ToolDispatchOutcome.Succeeded)
                     assertTrue(snapshot.toString().contains("\"urlTruncated\":true"))
+                    assertTrue(snapshot.toString().contains("\"view\":\"full\""))
+                    val text = dispatch("browser_snapshot", """{"tabId":"$id","view":"text"}""")
+                    assertTrue(text.toString(), text is ToolDispatchOutcome.Succeeded)
+                    assertTrue(text.toString().contains("\"view\":\"text\""))
+                    assertTrue(text.toString().contains("Ready fixture"))
+                    assertFalse(text.toString().contains("\"nodes\":"))
                     val arguments =
                         """{"tabId":"$id","query":"Ready fixture","condition":"PRESENT",""" +
                             """"timeoutMillis":500}"""
-                    val found = dispatch("browser.wait", arguments)
+                    val found = dispatch("browser_wait", arguments)
                     assertTrue(found.toString(), found is ToolDispatchOutcome.Succeeded)
                     assertTrue(found.toString().contains("SATISFIED"))
-                    val absent = dispatch("browser.wait", arguments.replace("Ready fixture", "Missing fixture"))
+                    val absent = dispatch("browser_wait", arguments.replace("Ready fixture", "Missing fixture"))
                     assertTrue(absent.toString(), absent is ToolDispatchOutcome.Succeeded)
                     assertTrue(absent.toString().contains("TIMED_OUT"))
                     c.pluginService.selectFromUser(session, plugin.id, false)
-                    val denied = dispatch("browser.wait", arguments)
+                    val denied = dispatch("browser_wait", arguments)
                     assertTrue(denied.toString(), denied is ToolDispatchOutcome.Denied)
                     assertEquals(DispatchOutcomeCode.TOOL_DISABLED, (denied as ToolDispatchOutcome.Denied).code)
                     scenario.onActivity { c.browser.closeTab(id) }
@@ -104,10 +110,11 @@ class BrowserPluginContributionDeviceTest {
                 .snapshot()
                 .filter {
                     it.descriptor.name.value
-                        .startsWith("browser.")
+                        .startsWith("browser_")
                 }
-        assertEquals(20, bindings.size)
-        assertTrue(bindings.any { it.descriptor.name.value == "browser.search" })
+        assertEquals(19, bindings.size)
+        assertFalse(bindings.any { it.descriptor.name.value == "browser_extract_text" })
+        assertTrue(bindings.any { it.descriptor.name.value == "browser_search" })
         assertTrue(bindings.all { it.descriptor.origin == ToolOrigin.PluginOrigin("browser", "1", "browser") })
         val first = UUID.randomUUID().toString()
         c.storage.sessions.create(first, "Browser contribution fixture", null, null, 0)
@@ -183,7 +190,7 @@ class BrowserPluginContributionDeviceTest {
                 c.toolExecution.dispatchToolCall(
                     UUID.randomUUID().toString(),
                     turn,
-                    "browser.snapshot",
+                    "browser_snapshot",
                     """{"tabId":"$tabId"}""",
                     mode = AgentMode.ACT,
                 )

@@ -7,6 +7,7 @@ import com.helix.core.model.ToolVersion
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
+import com.helix.tools.framework.ToolDiscoveryHints
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolOrigin
@@ -22,8 +23,8 @@ import kotlinx.serialization.json.put
 import kotlin.time.Duration.Companion.seconds
 
 internal object MemoryTools {
-    val reads = setOf("memory.list", "memory.search", "memory.read")
-    val writes = setOf("memory.write", "memory.edit", "memory.delete")
+    val reads = setOf("memory_list", "memory_search", "memory_read")
+    val writes = setOf("memory_write", "memory_edit", "memory_delete")
 
     fun register(
         registry: ToolRegistry,
@@ -45,6 +46,7 @@ internal object MemoryTools {
                     idempotency = if (writing) Idempotency.NON_IDEMPOTENT else Idempotency.IDEMPOTENT,
                     executionTarget = ExecutionTargetType.LOCAL_ANDROID,
                     origin = ToolOrigin.BuiltInOrigin,
+                    discovery = ToolDiscoveryHints(category = "memory"),
                 )
 
             registry.register(
@@ -66,23 +68,23 @@ internal object MemoryTools {
             "description":"Memory scope; project requires the trusted current project identity, never a path."}""",
                         ).jsonObject,
             )
-        if (name != "memory.list" && name != "memory.search") {
+        if (name != "memory_list" && name != "memory_search") {
             fields["path"] =
                 MemoryToolSchemas.text(67, "Logical Markdown memory path returned by list/search; not a device path.")
         }
-        if (name == "memory.search") fields["query"] = MemoryToolSchemas.text(256, "Search terms for scoped memory.")
+        if (name == "memory_search") fields["query"] = MemoryToolSchemas.text(256, "Search terms for scoped memory.")
         if (name in writes) {
             fields["expectedHash"] =
                 buildJsonObject {
                     put("type", "string")
-                    put("pattern", if (name == "memory.write") "^(new|[0-9a-f]{64})$" else "^[0-9a-f]{64}$")
+                    put("pattern", if (name == "memory_write") "^(new|[0-9a-f]{64})$" else "^[0-9a-f]{64}$")
                     put(
                         "description",
-                        "Exact SHA-256 from read/list/search; 'new' is only valid when creating with memory.write.",
+                        "Exact SHA-256 from read/list/search; 'new' is only valid when creating with memory_write.",
                     )
                 }
         }
-        if (name == "memory.write") {
+        if (name == "memory_write") {
             fields["type"] =
                 Json
                     .parseToJsonElement(
@@ -92,7 +94,7 @@ internal object MemoryTools {
             fields["body"] =
                 MemoryToolSchemas.text(32000, "Body text without frontmatter; the host generates metadata.")
         }
-        if (name == "memory.edit") {
+        if (name == "memory_edit") {
             fields["old"] = MemoryToolSchemas.text(32000, "Exact nonempty text occurring once in the stored Markdown.")
             fields["replacement"] = MemoryToolSchemas.text(32000, "Replacement text; empty deletes the matched text.")
         }
@@ -167,10 +169,10 @@ internal object MemoryTools {
                 .jsonPrimitive.content
         }
         return when (call.toolName) {
-            "memory.list", "memory.search" -> {
+            "memory_list", "memory_search" -> {
                 val entries =
                     if (call.toolName ==
-                        "memory.list"
+                        "memory_list"
                     ) {
                         service.list(scope)
                     } else {
@@ -179,7 +181,7 @@ internal object MemoryTools {
                 entryList(entries)
             }
 
-            "memory.read" -> {
+            "memory_read" -> {
                 service.read(scope, arg("path")).let {
                     buildJsonObject {
                         put("markdown", it.markdown)
@@ -189,7 +191,7 @@ internal object MemoryTools {
                 }
             }
 
-            "memory.write" -> {
+            "memory_write" -> {
                 service
                     .save(
                         scope,
@@ -199,13 +201,13 @@ internal object MemoryTools {
                     ).let { buildJsonObject { put("hash", it.hash) } }
             }
 
-            "memory.edit" -> {
+            "memory_edit" -> {
                 service
                     .edit(scope, arg("path"), arg("expectedHash"), arg("old"), arg("replacement"))
                     .let { buildJsonObject { put("hash", it.hash) } }
             }
 
-            "memory.delete" -> {
+            "memory_delete" -> {
                 service.delete(scope, arg("path"), arg("expectedHash"))
                 buildJsonObject { put("deleted", true) }
             }

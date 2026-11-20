@@ -25,7 +25,7 @@ CANNOT LINK EXECUTABLE "/opt/helix-media/lib/libhelix_ffmpeg.so": library "libic
 - 当前电脑的 31 个 Helix AVD 配置已设 `hw.keyboard=yes`；修改前配置备份在 ignored 构建证据目录。
 - 两个 owned emulator runner 在启动前应用硬件键盘默认值，启动后设置 `show_ime_with_hard_keyboard=1`，共用 `scripts/emulator_input.py`。
 - 当前日常模拟器 `Helix_API_36` / `emulator-5554` 的既有 Gboard 已添加“简体中文 / 拼音”，保留原英语键盘。通过键盘事件输入 `nihao`，观察到“你好”候选，空格提交后输入框实际文字为“你好”；不是直接注入 Unicode 文本冒充拼音验收。
-- 仓库 AGENTS 记录后续启动的输入偏好：新 AVD 交付前须配置可用的中文输入法并验证候选与提交。硬件键盘开关不会自动给没有中文输入法的镜像安装语言包；新镜像仍需完成该准备步骤。
+- 当时仓库 AGENTS 记录的输入准备要求为：新 AVD 交付前配置可用的中文输入法并验证候选与提交。当前适用范围见 [验证矩阵](../../development/verification-matrix.md#模拟器输入默认值)，非输入任务不因此增加输入法验收。硬件键盘开关不会自动给没有中文输入法的镜像安装语言包；新镜像仍需完成该准备步骤。
 
 ## 当前验证
 

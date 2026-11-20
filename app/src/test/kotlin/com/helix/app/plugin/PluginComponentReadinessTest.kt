@@ -68,5 +68,6 @@ class PluginComponentReadinessTest {
             )
         },
         diagnostics.map(PluginDiagnostics::project),
+        PluginName("owner"),
     )
 }

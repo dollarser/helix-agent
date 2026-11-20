@@ -174,7 +174,7 @@ class PolicyEngineTest {
 
     @Test
     fun planModeMetadataAtLowRiskIsAllowed() {
-        // plan.submit is a METADATA op: admitted in Plan at the same cap as READ_ONLY, not a
+        // plan_submit is a METADATA op: admitted in Plan at the same cap as READ_ONLY, not a
         // disguised read.
         val evaluation =
             engine.evaluate(

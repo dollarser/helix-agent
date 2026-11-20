@@ -83,7 +83,7 @@ class ToolPresentationMetadataTest {
 
     @Test
     fun bashMcpAndSkillSchemasShareOneMetadataContract() {
-        for (name in listOf("bash", "mcp.documents.search", "skill.review.run")) {
+        for (name in listOf("bash", "mcp_documents_search", "skill_review_run")) {
             val schema =
                 ModelToolSchema(
                     ToolName(name),

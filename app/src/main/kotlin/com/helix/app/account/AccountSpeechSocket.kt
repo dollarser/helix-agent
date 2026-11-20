@@ -23,7 +23,7 @@ internal fun AccountSession.speechSocket(
         try {
             runBlocking { authorization(failed, expectedRevision = version) }
         } catch (rejected: AccountRequestFailure) {
-            throw SocketHandshakeFailure(rejected.status)
+            throw SocketHandshakeFailure(rejected.status, rejected.details)
         } catch (_: kotlinx.coroutines.TimeoutCancellationException) {
             throw java.net.SocketTimeoutException("Speech authorization timeout")
         }
@@ -33,20 +33,28 @@ internal fun AccountSession.speechSocket(
             credentials() ?: throw SocketHandshakeFailure(401)
         val identity = credential.identity
 
+        val diagnostics =
+            com.helix.provider.api.wire.RequestDiagnostics
+                .headers(emptyMap())
+
         fun connect(): SocketConnection =
             delegate.connect(
                 url,
-                mapOf(
-                    "Authorization" to "Bearer ${credential.access}",
-                    "X-Client-ID" to AccountSession.CLIENT_ID,
-                    "User-Agent" to AccountSession.AGENT,
-                ),
+                diagnostics +
+                    mapOf(
+                        "Authorization" to "Bearer ${credential.access}",
+                        "X-Client-ID" to AccountSession.CLIENT_ID,
+                    ),
             )
         val socket =
             try {
                 connect()
             } catch (rejected: SocketHandshakeFailure) {
-                if (rejected.status != 401) throw rejected
+                if (rejected.status != 401 ||
+                    rejected.details.errorCode?.startsWith("provider_") == true
+                ) {
+                    throw rejected
+                }
                 credential =
                     credentials(credential.access) ?: throw SocketHandshakeFailure(401)
                 connect()

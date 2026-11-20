@@ -94,6 +94,53 @@ class WorkspaceSearchTest {
             ),
         )
 
+    @Test fun integralDecimalPaginationMatchesSchemaAcceptedValues() {
+        repeat(4) { write("record$it.txt", "needle") }
+        val input =
+            kotlinx.serialization.json.Json
+                .parseToJsonElement(
+                    """{"path":"scope:ws:.","offset":1e0,"maxResults":2.0}""",
+                ).jsonObject
+        assertEquals(ToolSchemaValidation.Valid, ToolSchemaValidator.validate(GlobTool.descriptor().inputSchema, input))
+        val output = (execute(false, input) as ToolExecutorResult.Completed).output.jsonObject
+        assertEquals("1", output.getValue("offset").jsonPrimitive.content)
+        assertEquals(2, output.getValue("matches").jsonArray.size)
+        assertEquals("3", output.getValue("nextOffset").jsonPrimitive.content)
+    }
+
+    @Test fun omittedPathPatternUsesAllFilesAndValidatesForBothTools() {
+        write("nested/record.txt", "unique needle")
+        for (content in listOf(false, true)) {
+            val input = if (content) args("query" to "needle") else args()
+            assertEquals(
+                ToolSchemaValidation.Valid,
+                ToolSchemaValidator.validate(SearchToolContract.descriptor(content).inputSchema, input),
+            )
+            val output = (execute(content, input) as ToolExecutorResult.Completed).output.jsonObject
+            assertEquals(
+                "scope:ws:nested/record.txt",
+                output
+                    .getValue("matches")
+                    .jsonArray
+                    .single()
+                    .jsonObject
+                    .getValue("path")
+                    .jsonPrimitive.content,
+            )
+        }
+    }
+
+    @Test fun invalidEmptyOrMultilineContentQueriesFailSchemaValidation() {
+        for (query in listOf("", "first\nsecond", "first\rsecond", "last\n", "last\r")) {
+            assertTrue(
+                ToolSchemaValidator.validate(
+                    GrepTool.descriptor().inputSchema,
+                    args("query" to query),
+                ) is ToolSchemaValidation.Invalid,
+            )
+        }
+    }
+
     private fun result(
         content: Boolean,
         vararg values: Pair<String, Any>,

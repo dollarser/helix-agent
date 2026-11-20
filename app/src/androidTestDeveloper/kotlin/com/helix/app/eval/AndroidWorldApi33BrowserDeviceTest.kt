@@ -267,9 +267,9 @@ class AndroidWorldApi33BrowserDeviceTest {
                     .all()
                     .filterNot { tool ->
                         val discovery =
-                            tool.name.value == "tools.search" &&
+                            tool.name.value == "tools_search" &&
                                 tool.operationClass == ToolOperationClass.READ_ONLY
-                        tool.name.value.startsWith("ui.") || discovery
+                        tool.name.value.startsWith("ui_") || discovery
                     }.forEach { tool ->
                         container.storage.toolAvailability.set(
                             tool.origin.canonicalOf(),
@@ -298,14 +298,14 @@ class AndroidWorldApi33BrowserDeviceTest {
                     .filterValues { rows ->
                         rows.any {
                             it.descriptor.name.value
-                                .startsWith("ui.")
+                                .startsWith("ui_")
                         }
                     }.forEach { (owner, rows) ->
                         originalBindings[owner] = rows
                         val replacements =
                             rows.map { registered ->
                                 if (!registered.descriptor.name.value
-                                        .startsWith("ui.")
+                                        .startsWith("ui_")
                                 ) {
                                     registered.binding
                                 } else {
@@ -361,7 +361,7 @@ class AndroidWorldApi33BrowserDeviceTest {
                     rows
                         .filter {
                             it.descriptor.name.value
-                                .startsWith("ui.")
+                                .startsWith("ui_")
                         }.forEach { guarded ->
                             val original =
                                 requireNotNull(originalBindings[owner]).single {
@@ -864,7 +864,7 @@ class AndroidWorldApi33BrowserDeviceTest {
             .listByTurn(turnId)
             .asReversed()
             .asSequence()
-            .filter { it.state == "COMPLETED" && it.name in setOf("ui.snapshot", "ui.find", "ui.wait") }
+            .filter { it.state == "COMPLETED" && it.name in setOf("ui_snapshot", "ui_find", "ui_wait") }
             .mapNotNull { container.storage.toolResults.byToolCall(it.callId) }
             .mapNotNull { container.storage.toolResults.readContent(it) }
             .firstNotNullOfOrNull { findToken(Json.parseToJsonElement(it), token) }
@@ -877,8 +877,8 @@ class AndroidWorldApi33BrowserDeviceTest {
         nodes: List<BrowserNode>,
     ): BrowserNode? =
         when (name) {
-            "ui.click" -> observedBrowserNode(turnId, input)?.let { matchObservedNode(it, nodes) }
-            "ui.click_match" -> matchBrowserNode(input, nodes)
+            "ui_click" -> observedBrowserNode(turnId, input)?.let { matchObservedNode(it, nodes) }
+            "ui_click_match" -> matchBrowserNode(input, nodes)
             else -> null
         }
 
@@ -962,19 +962,19 @@ class AndroidWorldApi33BrowserDeviceTest {
         check(task in setOf("BrowserDraw", "BrowserMaze")) { "BROWSER_TASK_UNSUPPORTED" }
         val input = Json.parseToJsonElement(arguments).jsonObject
         return when {
-            name in setOf("ui.device", "ui.apps", "tools.search") -> {
+            name in setOf("ui_device", "ui_apps", "tools_search") -> {
                 container.toolPipeline.resolveLatest(name)?.operationClass == ToolOperationClass.READ_ONLY
             }
 
-            name in setOf("ui.back", "ui.home") -> {
+            name in setOf("ui_back", "ui_home") -> {
                 true
             }
 
-            name == "ui.system" -> {
+            name == "ui_system" -> {
                 input["action"]?.jsonPrimitive?.content in setOf("back", "home")
             }
 
-            name == "ui.launch" -> {
+            name == "ui_launch" -> {
                 input["packageName"]?.jsonPrimitive?.content in
                     setOf("com.google.android.documentsui", "com.helix.agent.developer")
             }
@@ -1001,9 +1001,9 @@ class AndroidWorldApi33BrowserDeviceTest {
             )
         check(active in browserPackages) { "BROWSER_STAGE_PACKAGE_UNVERIFIED" }
         return when {
-            name in setOf("ui.snapshot", "ui.find", "ui.wait") -> true
+            name in setOf("ui_snapshot", "ui_find", "ui_wait") -> true
 
-            name == "ui.click_match" && input["packageName"] != null &&
+            name == "ui_click_match" && input["packageName"] != null &&
                 input["packageName"]?.jsonPrimitive?.content != active -> false
 
             active == "com.google.android.documentsui" -> safeFilesAction(turnId, name, input, nodes)
@@ -1020,7 +1020,7 @@ class AndroidWorldApi33BrowserDeviceTest {
         input: JsonObject,
         nodes: List<BrowserNode>,
     ): Boolean {
-        if (name in setOf("ui.scroll", "ui.screenshot")) return true
+        if (name in setOf("ui_scroll", "ui_screenshot")) return true
         return selectedBrowserNode(turnId, name, input, nodes)?.let { selected ->
             selected.text in setOf("Downloads", "Download", "task.html") ||
                 selected.description in setOf("Show roots", "Show navigation drawer")
@@ -1061,15 +1061,15 @@ class AndroidWorldApi33BrowserDeviceTest {
     ): Boolean {
         val renderer = verifiedRenderer(nodes)
         return when (name) {
-            "ui.screenshot" -> {
+            "ui_screenshot" -> {
                 true
             }
 
-            "ui.gesture" -> {
+            "ui_gesture" -> {
                 BrowserGuardGeometry.gestureInsideBounds(input, renderer.bounds)
             }
 
-            "ui.scroll" -> {
+            "ui_scroll" -> {
                 safeRendererScroll(turnId, input, nodes, renderer.bounds)
             }
 
@@ -1101,7 +1101,7 @@ class AndroidWorldApi33BrowserDeviceTest {
         bounds: Rect,
     ): Boolean {
         val tokenNode = observedBrowserNode(turnId, input) ?: return false
-        return selectedBrowserNode(turnId, "ui.click", input, nodes)?.let { selected ->
+        return selectedBrowserNode(turnId, "ui_click", input, nodes)?.let { selected ->
             tokenNode["scrollable"]?.jsonPrimitive?.content == "true" && selected.inRenderer &&
                 !selected.bounds.isEmpty && bounds.contains(selected.bounds)
         } ?: false
@@ -1116,7 +1116,7 @@ class AndroidWorldApi33BrowserDeviceTest {
     ): Boolean {
         val target = taskPackage(task)
         return when {
-            name in setOf("ui.snapshot", "ui.find", "ui.wait", "ui.screenshot") -> {
+            name in setOf("ui_snapshot", "ui_find", "ui_wait", "ui_screenshot") -> {
                 safeObservation(turnId, name, ui)
             }
 
@@ -1182,23 +1182,23 @@ class AndroidWorldApi33BrowserDeviceTest {
                 root?.recycle()
             }
         return when {
-            name in setOf("ui.device", "ui.apps", "tools.search") -> {
+            name in setOf("ui_device", "ui_apps", "tools_search") -> {
                 container.toolPipeline.resolveLatest(name)?.operationClass == ToolOperationClass.READ_ONLY
             }
 
-            name in setOf("ui.snapshot", "ui.find", "ui.wait") -> {
+            name in setOf("ui_snapshot", "ui_find", "ui_wait") -> {
                 active == target
             }
 
-            name in setOf("ui.back", "ui.home") -> {
+            name in setOf("ui_back", "ui_home") -> {
                 true
             }
 
-            name == "ui.system" -> {
+            name == "ui_system" -> {
                 input["action"]?.jsonPrimitive?.content in setOf("back", "home")
             }
 
-            name == "ui.launch" -> {
+            name == "ui_launch" -> {
                 input["packageName"]?.jsonPrimitive?.content == target
             }
 
@@ -1219,11 +1219,11 @@ class AndroidWorldApi33BrowserDeviceTest {
         bounds: Rect,
     ): Boolean =
         when {
-            name == "ui.gesture" -> {
+            name == "ui_gesture" -> {
                 !bounds.isEmpty && BrowserGuardGeometry.gestureInsideBounds(input, bounds)
             }
 
-            name == "ui.click_match" && input["packageName"] != null &&
+            name == "ui_click_match" && input["packageName"] != null &&
                 input["packageName"]?.jsonPrimitive?.content != target -> {
                 false
             }
@@ -1231,14 +1231,14 @@ class AndroidWorldApi33BrowserDeviceTest {
             else -> {
                 name in
                     setOf(
-                        "ui.click",
-                        "ui.click_match",
-                        "ui.long_click",
-                        "ui.set_text",
-                        "ui.ime_enter",
-                        "ui.scroll",
-                        "ui.set_progress",
-                        "ui.screenshot",
+                        "ui_click",
+                        "ui_click_match",
+                        "ui_long_click",
+                        "ui_set_text",
+                        "ui_ime_enter",
+                        "ui_scroll",
+                        "ui_set_progress",
+                        "ui_screenshot",
                     )
             }
         }

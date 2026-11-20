@@ -109,8 +109,8 @@ class MobileUseReturnModelDeviceTest {
                     .forEach { report("RETURN_REPLY ${c.storage.messages.readContent(it)}") }
                 assertEquals(turn.errorCode, "COMPLETED", turn.state)
                 if (requireScreenshot) {
-                    assertTrue("Frame observation missing", calls.any { it.name == "ui.device" })
-                    val captures = calls.filter { it.name == "ui.screenshot" && it.state == "COMPLETED" }
+                    assertTrue("Frame observation missing", calls.any { it.name == "ui_device" })
+                    val captures = calls.filter { it.name == "ui_screenshot" && it.state == "COMPLETED" }
                     assertTrue("Successful screenshot missing", captures.isNotEmpty())
                     assertTrue(
                         "Screenshot pixels were not attached for the model",

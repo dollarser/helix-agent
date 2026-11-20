@@ -30,7 +30,7 @@ import java.io.File
 
 /**
  * v1 schema enforcement fixtures added with the post-HXA-014 review (kept separate from
- * [RoomMigrationFixtureTest] so each class stays focused):
+ * [FreshSchemaDeviceTest] so each class stays focused):
  *
  * - [v1OneTimeGuardsRejectRepeatedTransitions] — decide/consume/markVerified/archive/finish
  *   are each one-time and throw on a repeated transition;

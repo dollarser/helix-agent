@@ -1,7 +1,7 @@
 package com.helix.feature.browser.snapshot
 
 /**
- * The result of one `browser.snapshot` (HXA-061; doc 09 §3.3). A BOUNDED semantic tree of
+ * The result of one `browser_snapshot` (HXA-061; doc 09 §3.3). A BOUNDED semantic tree of
  * the tab's current page plus the metadata a [SnapshotNode.token] is bound to.
  *
  * Every page-derived string is wrapped in [UntrustedWebContent] (doc 09 §3.4): the tree is
@@ -31,7 +31,7 @@ data class BrowserSnapshot(
  * null (the fixed script never reads it, doc 09 §3.3 密码框默认拒绝).
  *
  * [token] is the short-lived node token the host minted for this node; it is the ONLY
- * handle the HXA-062 `browser.click`/`browser.type` tools may use, and it is bound to
+ * handle the HXA-062 `browser_click`/`browser_type` tools may use, and it is bound to
  * (tab, origin, navigation generation, fingerprint, TTL).
  */
 data class SnapshotNode(

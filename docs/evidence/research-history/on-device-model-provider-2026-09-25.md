@@ -1,8 +1,8 @@
 # 端侧小模型作为 Provider：可行性与接入方案
 
 **日期**：2026-09-25
-**性质**：候选方案研究。**未立项**，不构成实现要求（见 [文档职责](../../README.md)）。
-**基线**：HEAD `43e8aef6` + 当时工作树；`compileSdk = 37` / `minSdk = 29` / `targetSdk = 36`；真机 PLC110（OnePlus 6T）/ Android 15。
+**性质**：历史候选研究；“未立项”仅指 2026-09-25。后续 [HXA-222](../../completion-records/HXA-222.md) 已交付本地模型接入，现行边界见 [Provider ADR](../../adr/provider/README.md)。下文进程内推理、Consumer HTTP、包体/R8 和阶段顺序均为旧方案，不作为当前实现要求。设备型号/SoC/指令集及第三方性能推算未在本次文档梳理复验，不得据此选择运行参数（见 [文档职责](../../README.md)）。
+**基线**：HEAD `43e8aef6` + 当时工作树；`compileSdk = 37` / `minSdk = 29` / `targetSdk = 36`；原稿记录 PLC110 / Android 15，但同时将其标为 OnePlus 6T，设备身份存在冲突；本页不据此推导 SoC 或指令集。
 **问题**：如果希望手机端自己执行一个小模型并当作 Provider 使用，最合理的方案是什么？
 
 ---
@@ -15,7 +15,7 @@
 | 走 loopback HTTP 服务（最常见的想法） | **❌ 在 consumer 构建走不通**。传输层明文被禁，且还有两道附加门（见 第 三 节） |
 | 那走什么 | **进程内 `ModelProvider` 实现**（llama.cpp + GGUF via JNI），不经过 HTTP（见 第 四 节） |
 | 要改多少契约 | **很少**。`ModelProvider` 接口、能力探测、会话级快照全可复用；只缺一个 `residence` 取值（见 第 五 节） |
-| 推理引擎 | **llama.cpp + GGUF**。第一理由是 Helix 特有的：**GBNF 语法约束解码**能把"小模型吐坏工具 JSON"变成结构上不可能（见 第 六 节） |
+| 推理引擎 | **llama.cpp + GGUF**。第一理由是 Helix 特有的：**GBNF 语法约束解码**可限制支持的输出语法；不保证完整输出、参数语义或工具选择正确（见 第 六 节） |
 | 立刻能做的验证 | **零代码**：developer 包 + 手机内跑 llama.cpp server + 已有 Ollama 模板（见 第 九 节） |
 
 **一句话**：Helix 的 Provider 抽象是**为"网络服务"设计的**——`endpoint` 必填、`residence` 从 endpoint 派生、三个协议全是 HTTP。本机模型不是网络服务，所以正确做法是**补一个本机档位**，而不是硬把它塞进 loopback 这条 consumer 已被封死的路。
@@ -37,7 +37,7 @@
 
 ### 2.3 接口本身完全可复用
 
-[模型 Provider 与订阅通路](../../architecture/providers.md) 规定 `ModelProvider` 负责"模型请求、流事件、能力和错误归一"。接口是 `stream(request: ModelRequest): Flow<ModelEvent>`——**JNI 回调转 Kotlin Flow 是现成模式**，不需要为本地模型发明新流机制。
+[模型 Provider 与订阅通路](../../architecture/overview.md#模型-provider-与订阅通路) 规定 `ModelProvider` 负责"模型请求、流事件、能力和错误归一"。接口是 `stream(request: ModelRequest): Flow<ModelEvent>`——**JNI 回调转 Kotlin Flow 是现成模式**，不需要为本地模型发明新流机制。
 
 `ProviderCapabilities`（`streaming` / `toolCalls` / `parallelToolCalls` / `vision` / `reasoning` / `jsonSchemaOutput` / `maxContextTokens` + `CapabilitySource`）与四阶段连接测试同样可复用，本地模型也能被真实探测而非手工声明。
 
@@ -121,22 +121,13 @@ Agent 循环 → ChatService → ModelProvider（现有契约）
 
 Helix 是**工具调用驱动**的 Agent，每个工具的入参有严格 JSON Schema（`ToolDescriptor.inputSchema`），且调用必须经过 schema 校验、能力/策略、授权解析、执行限额、验证与审计。
 
-**小模型最常见的失败不是"不够聪明"，而是"吐不出合法 JSON"。** llama.cpp 的 **GBNF 语法约束解码**可以按 schema 强制输出合法结构——这把该失败模式从**致命**变成**结构上不可能**。
+原稿把非法 JSON 认定为小模型最常见失败，但没有本项目任务矩阵支持这一频率判断。GBNF 可约束受支持的输出语法；截断、取消、schema 子集支持、参数语义和工具选择仍须独立验证，不能据此声称结构错误不可能。
 
-MediaPipe LLM Inference API、ONNX Runtime GenAI 等的约束解码能力明显更弱或不可控。**这是选 llama.cpp 的第一理由，不是性能。**
+当时偏向 llama.cpp 的理由是可显式控制语法；本文未提供与其他引擎同版本的约束解码对照，不能据此判定其他实现整体更弱。
 
-### 6.2 工程参数（第三方实测，置信度中）
+### 6.2 工程参数的证据限制
 
-参考 2026-07 一篇针对骁龙 8 Gen 2 / 7B 的实测：
-
-| 项 | 结论 |
-|---|---|
-| 量化 | **Q4_K_M 是甜点**：4.1 GB / 16 tok·s⁻¹；Q4_0 更快（18）但困惑度明显下降；Q5_K_M 4.8 GB 仅 12 |
-| KV cache | **只量化 V**（`cache_type_v = q8_0`，K 保持 F16）：4096 ctx 内存 **约 2 GB → 约 1.1 GB**，近乎零成本，应默认开 |
-| 线程 | **绑大核**。默认铺满全部核心反而更慢（14 → 16 tok·s⁻¹） |
-| ABI | **只出 `arm64-v8a`**。`armeabi-v7a` 下 NEON 路径回退，性能断崖 |
-| GPU / NPU | **不要先做**。GPU（OpenCL/Vulkan）只在 **< 1B** 有优势；7B 级受显存带宽限制，CPU 更稳定。NPU 需按 SoC 用 QNN/Genie 逐个适配 |
-| 模型分发 | 模型 0.4–2.5 GB，**不能进 APK**，必须下载（见 第 七 节） |
+原稿依据未具名、未绑定版本的第三方 7B/骁龙 8 Gen 2 报告，推荐量化、KV cache、绑核与 GPU 参数。该来源和目标设备身份未核实，不能作为默认参数或跨机型性能结论；原数表仅可从 Git 历史追溯。应在实际模型、引擎 revision 和设备上比较首 token、生成速度、内存、热状态及输出质量，再选择参数。模型不随 APK 打包的后续决定见 HXA-222 与现行 Provider ADR。
 
 ### 6.3 其他候选与不选的理由
 
@@ -174,7 +165,7 @@ Helix 目前**没有大资产下载能力**（浏览器侧只有 `browser.downlo
 
 ## 八、产品定位：先接辅助调用，不要驱动 Agent 循环
 
-**1–2B 参数模型撑不起 Helix 的 Agent 循环**：多步工具调用、严格 JSON Schema、十几个工具（含 12 个 `browser.*`）、并行批次、UNKNOWN 停泊与恢复对账。把这些压给一个小模型，失败率会高到不可用。
+1–2B 模型在多步工具调用、严格参数、并行批次和未知效果恢复中的可靠性需要实测；参数量本身不足以证明不可用。以下辅助调用顺序是当时的研究建议，不是本地模型当前支持范围。
 
 真正高价值的落点，按优先级：
 
@@ -202,11 +193,7 @@ Helix 目前**没有大资产下载能力**（浏览器侧只有 `browser.downlo
 
 ## 十、设备现实
 
-当前真机 PLC110（OnePlus 6T）是 **骁龙 845**：4×Cortex-A75 + 4×Cortex-A55，支持 ARMv8.2-A dot-product 指令，**不支持 i8mm**（ARMv8.6 才有）；LPDDR4X 带宽约 30 GB/s。
-
-按 第 6.2 节 的 8 Gen 2 数据打折，**1.5B 级 Q4_K_M 大致落在个位数 tok·s⁻¹**。这个量级：短摘要与聊天可用；多步 Agent 循环会非常慢。
-
-**该数字是推算，不是实测**（见 第 十二 节）。做 S0 时应实测目标机型的首 token 延迟与生成速度，而不是依赖推算。
+原稿把 PLC110 与 OnePlus 6T 视为同一设备，并据此推导 SoC、CPU 指令集与生成速度。身份未核实，整条推算不成立；不保留可直接用于 ABI、KV cache 或线程配置的数值建议。实际运行能力应以目标设备和冻结模型/引擎的测量为准，后续交付见 HXA-222。
 
 ---
 
@@ -230,9 +217,9 @@ Helix 目前**没有大资产下载能力**（浏览器侧只有 `browser.downlo
 | 明文 HTTP 需逐 host:port 授权 | `provider/api/.../CleartextAuthorization.kt:40`；[开发环境](../../development/environment.md) | **高** |
 | 摘要调用不使用工具调用 | [ADR-AGENT-002](../../adr/agent/002-context-compaction.md) | **高** |
 | Android 17 起 loopback 有明文隐式配置 | Android 官方「网络安全配置」文档的 Localhost configuration 一节 | **中高**——文档未明确"显式 `cleartextTrafficPermitted="false"` 是否覆盖该隐式配置"，且本项**不影响结论**（`minSdk=29` 与真机 API 35 都不在豁免范围） |
-| llama.cpp 量化 / KV cache / 线程 / ABI 参数 | 第三方 2026-07 实测文章（骁龙 8 Gen 2 / 7B） | **中**——单一来源，未在目标机型复现 |
-| 骁龙 845 的 tok·s⁻¹ 推算 | 由上述数据外推 | **低**——**必须实测** |
-| 小模型无法可靠驱动 Helix 的 Agent 循环 | 基于模型规模与工具 schema 复杂度的判断 | **中**——**应由 S0 实测证伪或证实** |
+| llama.cpp 量化 / KV cache / 线程 / ABI 参数 | 原稿未具名第三方文章 | **未核实**，已移除可操作数表 |
+| 目标机型的速度与指令集 | 原稿设备身份冲突 | **不成立**，不得依此选参数 |
+| 小模型 Agent 可靠性 | 原稿无本项目任务矩阵 | **待实测**，不能仅由参数量裁定 |
 
 **未核实项**：
 
@@ -247,7 +234,7 @@ Helix 目前**没有大资产下载能力**（浏览器侧只有 `browser.downlo
 
 **本仓**：
 
-- [模型 Provider 与订阅通路](../../architecture/providers.md)
+- [模型 Provider 与订阅通路](../../architecture/overview.md#模型-provider-与订阅通路)
 - [产品需求](../../product/requirements.md)（`FR-LLM-009`、`FR-LLM-006`）
 - [Provider ADR 入口](../../adr/provider/README.md)、[模型与连接](../../adr/provider/001-models-and-connection.md)
 - [上下文与步骤边界压缩](../../adr/agent/002-context-compaction.md)

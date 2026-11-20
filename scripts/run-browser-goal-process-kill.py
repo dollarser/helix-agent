@@ -57,7 +57,7 @@ class Fixture(ModelFixture):
         token = re.search(r'token=([^\s"\\]+)', text).group(1)
         arguments = json.dumps({'tabId': tab, 'token': token})
         delta = {'tool_calls': [{'id': 'browser-goal-fixture', 'index': 0, 'type': 'function',
-                                'function': {'name': 'browser.click', 'arguments': arguments}}]}
+                                'function': {'name': 'browser_click', 'arguments': arguments}}]}
         chunks = [{'id': 'fixture', 'object': 'chat.completion.chunk', 'choices': [
             {'index': 0, 'delta': d, 'finish_reason': finish}]} for d, finish in
             [(delta, None), ({}, 'tool_calls')]]
@@ -135,7 +135,7 @@ def main():
         assert Fixture.actions == 1, 'Browser action replayed'
         result = dict(serial=args.serial, unsettled=Fixture.unsettled, installedApks=hashes, records=records,
                       modelRequests=before, backfillRequests=Fixture.backfills, browserActions=Fixture.actions,
-                      scope=('Production action held after execution before result settlement' if Fixture.unsettled else 'Production Goal/browser.click with actual held navigation and model backfill; no action replay'))
+                      scope=('Production action held after execution before result settlement' if Fixture.unsettled else 'Production Goal/browser_click with actual held navigation and model backfill; no action replay'))
     finally:
         Fixture.release.set()
         server.shutdown()

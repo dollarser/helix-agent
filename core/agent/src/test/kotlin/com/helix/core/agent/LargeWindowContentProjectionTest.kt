@@ -107,7 +107,7 @@ class LargeWindowContentProjectionTest {
                     retention = if (index < 2) PromptContentRetention.REQUIRED else PromptContentRetention.OPTIONAL,
                     priority = if (name == "catalog") 100 else 50,
                     identity = PromptContentIdentity(name, revision, "resource-$name"),
-                    readReference = if (name == "memory") PromptContentReadReference("memory.read", "{}") else null,
+                    readReference = if (name == "memory") PromptContentReadReference("memory_read", "{}") else null,
                 ) {
                     onRead()
                     "$name:$revision\n" + "C".repeat(if (name == "memory") 65_536 else 8192)

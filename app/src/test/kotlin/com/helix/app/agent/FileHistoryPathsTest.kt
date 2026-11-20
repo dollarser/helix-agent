@@ -72,7 +72,7 @@ class FileHistoryPathsTest {
     }
 
     @Test fun unknownToolsAndUnstructuredOrTruncatedPayloadsAreNotRewritten() {
-        for (name in listOf("mcp.read", "plugin.read", "code.javascript.run", "tools.result.read")) {
+        for (name in listOf("mcp.read", "plugin.read", "code_javascript_run", "tools.result.read")) {
             assertEquals(arguments, FileHistoryPaths.project(name, arguments, directory))
         }
         val payloads =

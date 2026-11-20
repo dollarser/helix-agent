@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="account_email_unbound">未绑定</string>
+    <string name="account_identity_unavailable">账号资料暂不可用</string>
+    <string name="account_display_name">用户名</string>
+    <string name="account_display_name_optional">用户名（选填）</string>
+    <string name="account_display_name_rule">1–80 个可见字符，每 24 小时可修改一次。</string>
+    <string name="account_display_name_save">保存用户名</string>
+    <string name="account_display_name_saved">用户名已更新</string>
+    <string name="account_display_name_invalid">请输入 1–80 个可见字符。</string>
+    <string name="account_display_name_limited">用户名每 24 小时只能修改一次，请稍后再试。</string>
+</resources>

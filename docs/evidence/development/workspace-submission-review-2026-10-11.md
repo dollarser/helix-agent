@@ -17,11 +17,7 @@
 
 比对 `build/physical-model-fix-20261010/summary.json` 中的 sourceSha256，三个文件均匹配：
 
-| 文件 | SHA-256 |
-| --- | --- |
-| AccessibilityTargetObserver.kt | `4ac5f77edae24574874df7a5d08c6f4fb72c0d0cb7b0b5a3fa84c42fc12a2e14` |
-| HelixAccessibilityService.kt | `f9394043091384a70340ed4cf98dca5c52737cd69f60e1ca4b350057843ee6f6` |
-| AccessibilityTargetObserverTest.kt | `aed266478214aeec057da8d7f57f25d24078cfdd36967335e3fa9cd3bf82a652` |
+匹配文件为 `AccessibilityTargetObserver.kt`、`HelixAccessibilityService.kt` 和 `AccessibilityTargetObserverTest.kt`；逐文件完整性值保留在上述本地验收摘要，不在本页镜像。
 
 历史记录为 Mobile Use 224 项主机回归、既有主机门禁及 OnePlus/API35/Qwen 有界旅程通过，见[原证据](physical-mobile-use-black-screen-2026-10-10.md)和 [HXA-269](../../completion-records/HXA-269.md)。本轮只核对身份，不重跑设备/模型；视觉黑屏的全部原因、长后台及其他 OEM 边界仍按原任务保留。
 

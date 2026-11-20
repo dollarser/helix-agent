@@ -42,8 +42,21 @@ class PrivacyDeletionService(
         chat.preparePermanentDeletion(sessionId)
         storage.goalControls.bySession(sessionId).forEach { cancelGoalReminder(it.goalId) }
         val manifest = storage.deleteSessionPermanently(sessionId)
-        // Session deletion removes its records, never an external resource or a shared workspace.
-        // User files remain until an explicit workspace cleanup can account for all references/jobs.
+        // Only app-owned import snapshots are recoverably retired. Projects/external files stay in place.
+        manifest.unreferencedWorkspacePaths.forEach { reference ->
+            val path =
+                com.helix.core.workspace.FileScopePath
+                    .fromModelReference(reference)
+            storage.withTransaction {
+                if (com.helix.core.workspace.AttachmentSnapshotPath
+                        .contains(path) &&
+                    storage.artifacts.referenceCount(reference) == 0 && workspace.stat(path).exists
+                ) {
+                    workspace.ensureLayout(path.scopeId)
+                    workspace.retireAttachmentSnapshot(path)
+                }
+            }
+        }
 
         return DeletionResult("session:$sessionId", 1 + manifest.deletedContentBodies, cleanReplayEvidence())
     }

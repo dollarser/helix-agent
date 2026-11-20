@@ -54,7 +54,7 @@ class EvaluationTrajectoryDeviceTest {
                             ?.mode == AgentMode.ACT
                     }
                     com.helix.app.test
-                        .discoverFixtureTool(container.toolPipeline, session, "time.now")
+                        .discoverFixtureTool(container.toolPipeline, session, "time_now")
                     val submission =
                         ChatSubmission(
                             session,
@@ -86,7 +86,7 @@ class EvaluationTrajectoryDeviceTest {
         val turn = storage.turns.listBySession(session).single()
         val calls = storage.toolCalls.listByTurn(turn.id)
         assertEquals("COMPLETED", turn.state)
-        assertEquals(listOf("read", "time.now"), calls.map { it.name })
+        assertEquals(listOf("read", "time_now"), calls.map { it.name })
         assertEquals(listOf("FAILED", "COMPLETED"), calls.map { it.state })
         assertEquals(3, storage.modelCalls.listByTurn(turn.id).size)
         assertEquals(3, requests)
@@ -174,7 +174,7 @@ class EvaluationTrajectoryDeviceTest {
                 check(call.state == "FAILED")
                 val result = requireNotNull(storage.toolResults.byToolCall(call.id))
                 check(result.status == "FAILED")
-                toolCallStream("eval-time", "\"time.now\"", "{}")
+                toolCallStream("eval-time", "\"time_now\"", "{}")
             }
 
             3 -> {

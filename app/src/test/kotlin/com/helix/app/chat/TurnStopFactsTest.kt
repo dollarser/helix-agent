@@ -32,8 +32,8 @@ class TurnStopFactsTest {
     }
 
     @Test fun continuationRetainsOriginalIdsAndWarnsAgainstReplay() {
-        val facts = TurnStopFacts(listOf(StopActionFact("original", "ui.click", StopEffect.UNKNOWN)), 2)
-        assertEquals(true, facts.continuationContext().contains("original ui.click: UNKNOWN"))
+        val facts = TurnStopFacts(listOf(StopActionFact("original", "ui_click", StopEffect.UNKNOWN)), 2)
+        assertEquals(true, facts.continuationContext().contains("original ui_click: UNKNOWN"))
         assertEquals(true, facts.continuationContext().contains("never replayed blindly"))
     }
 

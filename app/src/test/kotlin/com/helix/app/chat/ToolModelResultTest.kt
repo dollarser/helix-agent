@@ -10,6 +10,36 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ToolModelResultTest {
+    @Test fun savedResultReaderDefaultsFirstPageOffsetAndRejectsFileParameters() {
+        val input =
+            kotlinx.serialization.json.buildJsonObject {
+                put("resultRef", kotlinx.serialization.json.JsonPrimitive("turn/call"))
+            }
+        assertEquals(0, ToolResultReadTool.requestedOffset(input))
+        assertEquals(
+            com.helix.tools.framework.ToolSchemaValidation.Valid,
+            com.helix.tools.framework.ToolSchemaValidator
+                .validate(ToolResultReadTool.descriptor.inputSchema, input),
+        )
+        val wrong =
+            kotlinx.serialization.json.buildJsonObject {
+                put("path", kotlinx.serialization.json.JsonPrimitive("scope:ws:note.txt"))
+            }
+        assertTrue(
+            com.helix.tools.framework.ToolSchemaValidator
+                .validate(ToolResultReadTool.descriptor.inputSchema, wrong)
+                is com.helix.tools.framework.ToolSchemaValidation.Invalid,
+        )
+        for (offset in listOf(
+            kotlinx.serialization.json.JsonPrimitive(-1),
+            kotlinx.serialization.json.JsonPrimitive(0.5),
+        )) {
+            org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {
+                ToolResultReadTool.requestedOffset(kotlinx.serialization.json.JsonObject(input + ("offset" to offset)))
+            }
+        }
+    }
+
     @Test fun knownEnvelopeIsReducedBeforeApplyingTheInlineBudget() {
         val data = "\"".repeat(9000)
         val inner =
@@ -23,7 +53,7 @@ class ToolModelResultTest {
                     put("outputBytes", kotlinx.serialization.json.JsonPrimitive(inner.toByteArray().size))
                 }.toString()
         assertTrue(original.toByteArray().size > 32_768)
-        val projected = ToolModelResult.project("code.javascript.run", original, "t/c")
+        val projected = ToolModelResult.project("code_javascript_run", original, "t/c")
         val body =
             kotlinx.serialization.json.Json
                 .parseToJsonElement(projected)
@@ -43,7 +73,7 @@ class ToolModelResultTest {
         val projected =
             kotlinx.serialization.json.Json
                 .parseToJsonElement(
-                    ToolModelResult.project("code.javascript.run", original, "t/c"),
+                    ToolModelResult.project("code_javascript_run", original, "t/c"),
                 ).jsonObject
         val preview = projected.getValue("preview").jsonPrimitive.content
         val offset = projected.getValue("nextOffset").jsonPrimitive.int
@@ -70,7 +100,7 @@ class ToolModelResultTest {
         val projected =
             kotlinx.serialization.json.Json
                 .parseToJsonElement(
-                    ToolModelResult.project("future.tool", payload, "t/c"),
+                    ToolModelResult.project("future_tool", payload, "t/c"),
                 ).jsonObject
         assertTrue(projected.getValue("sourceTruncated").jsonPrimitive.boolean)
         assertEquals("UNKNOWN", projected.getValue("status").jsonPrimitive.content)
@@ -87,11 +117,11 @@ class ToolModelResultTest {
         for (name in listOf(
             "write",
             "edit",
-            "files.copy",
-            "files.move",
-            "files.delete",
-            "files.archive",
-            "files.extract",
+            "files_copy",
+            "files_move",
+            "files_delete",
+            "files_archive",
+            "files_extract",
         )) {
             val projected =
                 kotlinx.serialization.json.Json
@@ -121,12 +151,12 @@ class ToolModelResultTest {
             "read",
             "grep",
             "glob",
-            "ui.snapshot",
+            "ui_snapshot",
             "bash",
-            "code.linux.run",
-            "skills.run",
-            "code.linux.job.start",
-            "mcp.server.write",
+            "code_linux_run",
+            "skills_run",
+            "code_linux_job_start",
+            "mcp_server_write_fixture",
         )) {
             assertEquals(payload, ToolModelResult.project(name, payload, "t/c"))
         }
@@ -138,7 +168,7 @@ class ToolModelResultTest {
                 val width = unit.toByteArray().size
                 val payload = unit.repeat(size / width) + "a".repeat(size % width)
                 assertEquals(size, payload.toByteArray().size)
-                for (tool in listOf("ui.snapshot", "mcp.search", "future.tool")) {
+                for (tool in listOf("ui_snapshot", "mcp.search", "future_tool")) {
                     assertInlineBoundary(tool, payload, size)
                 }
             }
@@ -169,16 +199,16 @@ class ToolModelResultTest {
 
     @Test fun missingReadCapabilityPreservesFullBodyAndReadResultsAreNeverReprojected() {
         val payload = "😀".repeat(10_000)
-        assertEquals(payload, ToolModelResult.project("ui.snapshot", payload))
+        assertEquals(payload, ToolModelResult.project("ui_snapshot", payload))
         assertEquals(payload, ToolModelResult.project(ToolResultReadTool.NAME, payload, "turn/call"))
     }
 
     @Test fun savedExecutionPagesKeepOriginalLogHandleWithoutRepeatingTheAction() {
-        for (name in listOf("bash", "code.linux.run", "skills.run", "code.linux.job.start")) {
+        for (name in listOf("bash", "code_linux_run", "skills_run", "code_linux_job_start")) {
             val content = "{\"error\":\"${"x".repeat(3000)}\",\"exitCode\":7,\"logTruncated\":true}"
             val page = ToolResultReadTool.page("original/call", content, 0, name)
             assertEquals("original/call", page.getValue("logRef").jsonPrimitive.content)
-            assertEquals("code.linux.job.read_log", page.getValue("logReadTool").jsonPrimitive.content)
+            assertEquals("code_linux_job_read_log", page.getValue("logReadTool").jsonPrimitive.content)
             assertEquals(7, page.getValue("exitCode").jsonPrimitive.int)
             assertTrue(page.getValue("logTruncated").jsonPrimitive.boolean)
             assertTrue(page.getValue("truncated").jsonPrimitive.boolean)
@@ -194,7 +224,7 @@ class ToolModelResultTest {
                     .validate(ToolResultReadTool.outputSchema, page),
             )
         }
-        assertFalse(ToolResultReadTool.page("t/c", "failure", 0, "files.archive").containsKey("logRef"))
+        assertFalse(ToolResultReadTool.page("t/c", "failure", 0, "files_archive").containsKey("logRef"))
     }
 
     @Test fun completeResultBodyDoesNotClaimSeparateStreamsWereRead() {
@@ -251,7 +281,7 @@ class ToolModelResultTest {
                     ToolModelResult.project("mcp.search", payload, reference),
                 ).jsonObject
         assertTrue(projected.getValue("truncated").jsonPrimitive.boolean)
-        assertEquals("tools.read_result", projected.getValue("readTool").jsonPrimitive.content)
+        assertEquals("tools_read_result", projected.getValue("readTool").jsonPrimitive.content)
         assertEquals("result_body", projected.getValue("paginationScope").jsonPrimitive.content)
         assertEquals(ToolResultReadTool.PAGINATION_HINT, projected.getValue("readHint").jsonPrimitive.content)
         var offset = 0
@@ -314,7 +344,7 @@ class ToolModelResultTest {
         assertFalse(page.getValue("truncated").jsonPrimitive.boolean)
         assertFalse(page.containsKey("nextOffset"))
         assertTrue(page.toString().toByteArray().size < 65_536)
-        assertEquals(page.toString(), ToolModelResult.project("tools.read_result", page.toString(), "t/c"))
+        assertEquals(page.toString(), ToolModelResult.project("tools_read_result", page.toString(), "t/c"))
         val empty = ToolResultReadTool.page("t/c", payload, 8192, maxCharacters = 8192)
         assertEquals("", empty.getValue("content").jsonPrimitive.content)
         assertFalse(empty.getValue("truncated").jsonPrimitive.boolean)
@@ -326,7 +356,7 @@ class ToolModelResultTest {
         val restored = StringBuilder()
         var offset = 0
         do {
-            val page = ToolResultReadTool.page("turn/call", payload, offset, "ui.snapshot")
+            val page = ToolResultReadTool.page("turn/call", payload, offset, "ui_snapshot")
             restored.append(page.getValue("content").jsonPrimitive.content)
             offset = page["nextOffset"]?.jsonPrimitive?.int ?: -1
         } while (offset >= 0)
@@ -343,12 +373,12 @@ class ToolModelResultTest {
         assertEquals(
             """{"result":{"status":"user data","values":[1,2]}}""",
             ToolModelResult.project(
-                "code.javascript.run",
+                "code_javascript_run",
                 """{"outputBytes":30,"result":"{\"status\":\"user data\",\"values\":[1,2]}"}""",
             ),
         )
         val opaque = """{"result":"not json","outputBytes":8}"""
-        assertEquals(opaque, ToolModelResult.project("code.javascript.run", opaque))
+        assertEquals(opaque, ToolModelResult.project("code_javascript_run", opaque))
         org.junit.Assert.assertThrows(
             IllegalArgumentException::class.java,
         ) { ToolResultReadTool.page("t/c", "abc", -1) }
@@ -369,7 +399,7 @@ class ToolModelResultTest {
 
     @Test fun readsExternalToolsAndUnrecognizedFormatsRemainLossless() {
         val payload = """{"content":{"usageBytesAfter":"user text"},"sha256":"hash","truncated":true,"next":123}"""
-        for (name in listOf("read", "browser.snapshot", "mcp.server.write", "future.tool")) {
+        for (name in listOf("read", "browser_snapshot", "mcp_server_write_fixture", "future_tool")) {
             assertEquals(payload, ToolModelResult.project(name, payload))
         }
         assertEquals("not json", ToolModelResult.project("write", "not json"))
@@ -379,7 +409,7 @@ class ToolModelResultTest {
     @Test fun deletionPreservesRecoveryReference() {
         assertEquals(
             """{"trashRef":"ref","sizeBytes":9}""",
-            ToolModelResult.project("files.delete", """{"trashRef":"ref","sizeBytes":9,"usageBytesAfter":99}"""),
+            ToolModelResult.project("files_delete", """{"trashRef":"ref","sizeBytes":9,"usageBytesAfter":99}"""),
         )
     }
 }

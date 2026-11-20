@@ -78,13 +78,13 @@ class AntigravityTransportTest {
 
     @Test fun selectedModelToolRoundAndSignedHistoryUseOneTarget() {
         val bodies = mutableListOf<String>()
-        val name = AntigravityRequest.wireName("files.read")
+        val name = AntigravityRequest.wireName("files_read")
         fixture(action = { _, _, model ->
             val first =
                 ModelRequest(
                     "selected-b",
                     listOf(ModelMessage(ModelRole.USER, "read")),
-                    tools = listOf(ModelToolSchema(ToolName("files.read"), "Read a fixture", """{"type":"object"}""")),
+                    tools = listOf(ModelToolSchema(ToolName("files_read"), "Read a fixture", """{"type":"object"}""")),
                 )
             val result = model.run(first)
             val started = result.events.filterIsInstance<ModelEvent.ToolCallStarted>().single()

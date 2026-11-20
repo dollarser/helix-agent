@@ -2,7 +2,7 @@ package com.helix.app.plugin
 
 data class PluginSessionRow(
     val id: String,
-    val name: String,
+    val pluginName: PluginName,
     val selected: Boolean,
     val defaultSelected: Boolean,
     val available: Boolean,

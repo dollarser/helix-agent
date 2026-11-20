@@ -260,7 +260,7 @@ internal class RoomConversationHistoryReader(
             val result = storage.toolResults.byToolCall(call.callId)
             val interruptedProot =
                 prootRecoveryEligible(turn.state, call.state) &&
-                    call.name in setOf("bash", "code.linux.run", "skills.run")
+                    call.name in setOf("bash", "code_linux_run", "skills_run")
             ConversationToolSnapshot(
                 turnId = turn.id,
                 callId = call.callId,

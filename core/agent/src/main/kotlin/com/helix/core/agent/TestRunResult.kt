@@ -3,7 +3,7 @@ package com.helix.core.agent
 /**
  * A structured reading of a test/build command's output (P1, research doc section 44
  * "structured test result"). The agent runs the test command through an exec tool (bash /
- * code.linux.run); [parse] recovers the aggregate result from the raw log so the model (and the
+ * code_linux_run); [parse] recovers the aggregate result from the raw log so the model (and the
  * tool timeline) see a clean "N passed, M failed" summary instead of re-reading the whole log.
  *
  * Pure + fail-open: [parse] returns null when no recognized aggregate line is present, so a

@@ -16,6 +16,31 @@ import org.junit.Assert.fail
 import org.junit.Test
 
 class ModelPurposeTest {
+    @Test fun partialDirectoryHeaderSurvivesSuccessfulDiscoveryAndPages() =
+        runBlocking {
+            val wire =
+                FixtureWire(mapOf("x-model-catalog-partial" to listOf("local_unavailable"))) { url ->
+                    if ("after_id=" in url) {
+                        """{"data":[],"has_more":false}"""
+                    } else {
+                        """{"data":[{"id":"cloud"}],"has_more":true,"last_id":"cloud"}"""
+                    }
+                }
+            val result =
+                ModelCatalogDiscovery.fetch(wire, "https://api.hilex.me/v1/models", emptyMap())
+                    as ModelCatalogResult.Listed
+            assertTrue(result.partial)
+            assertEquals(listOf("cloud"), result.models)
+            assertEquals(2, wire.closed)
+            val complete =
+                ModelCatalogDiscovery.fetch(
+                    FixtureWire { """{"data":[]}""" },
+                    "https://api.hilex.me/v1/models",
+                    emptyMap(),
+                ) as ModelCatalogResult.Listed
+            assertFalse(complete.partial)
+        }
+
     private fun parse(fields: String) = ModelPurposes.parse(Json.parseToJsonElement(fields).jsonObject)
 
     @Test fun architectureModalitiesOverrideOlderDeclarationsAndStrictCatalogNeedsTheField() =
@@ -49,6 +74,18 @@ class ModelPurposeTest {
             assertEquals("https://custom.test/v1/models?output_modalities=all&after_id=next", wire.urls.last())
         }
 
+    @Test fun officialKeyDirectoryRequestsAllModalitiesButThirdPartyUrlsStayUntouched() =
+        runBlocking {
+            val wire = FixtureWire { """{"data":[]}""" }
+            for (url in listOf("https://api.hilex.me/v1/models", "https://custom.test/v1/models")) {
+                ModelCatalogDiscovery.fetch(wire, url, emptyMap())
+            }
+            assertEquals(
+                listOf("https://api.hilex.me/v1/models?output_modalities=all", "https://custom.test/v1/models"),
+                wire.urls,
+            )
+        }
+
     @Test fun standardDirectoryAndOpaqueAliasesRemainUnknown() {
         assertEquals(
             emptySet<ModelPurpose>(),
@@ -69,7 +106,7 @@ class ModelPurposeTest {
         assertEquals(setOf(ModelPurpose.OTHER), parse("""{"capabilities":{"chat":false},"task":"chat"}"""))
         assertEquals(setOf(ModelPurpose.RERANK), parse("""{"endpoints":["rerank"]}"""))
         assertEquals(
-            setOf(ModelPurpose.IMAGE, ModelPurpose.AUDIO),
+            setOf(ModelPurpose.IMAGE, ModelPurpose.TRANSCRIPTION),
             parse("""{"tasks":["text-to-image","speech-to-text"]}"""),
         )
         assertEquals(
@@ -176,12 +213,13 @@ class ModelPurposeTest {
                 FixtureWire { url ->
                     if ("after_id=" in url) {
                         """{
-                    "data":[{"id":"same","type":"embedding","max_output_tokens":4096},{"id":"tail","task":"chat"}],
+                    "data":[{"id":"same","type":"embedding","max_output_tokens":4096,"context_length":32768},
+                        {"id":"tail","task":"chat","context_length":8192}],
                     "has_more":false
                 }"""
                     } else {
                         """{
-                            "data":[{"id":"same","max_output_tokens":8192}],
+                            "data":[{"id":"same","max_output_tokens":8192,"context_length":65536}],
                             "has_more":true,"last_id":"https://other.test/a?b=1"
                         }"""
                     }
@@ -195,6 +233,7 @@ class ModelPurposeTest {
             assertEquals(listOf("same", "tail"), result.models)
             assertEquals(setOf(ModelPurpose.EMBEDDING), result.purposes["same"])
             assertEquals(mapOf("same" to 4096L), result.outputLimits)
+            assertEquals(mapOf("same" to 32768L, "tail" to 8192L), result.contextWindows)
             assertEquals(2, wire.closed)
             val expected = "https://custom.test/v1/models?after_id=https%3A%2F%2Fother.test%2Fa%3Fb%3D1"
             assertEquals(expected, wire.urls.last())
@@ -226,6 +265,7 @@ class ModelPurposeTest {
         }
 
     private class FixtureWire(
+        private val headers: Map<String, List<String>> = emptyMap(),
         private val body: (String) -> String,
     ) : WireClient {
         val urls = mutableListOf<String>()
@@ -237,7 +277,7 @@ class ModelPurposeTest {
             val text = body(request.url)
             return WireResponse(
                 200,
-                emptyMap(),
+                headers,
                 object : WireBody {
                     override suspend fun bytes() = text.toByteArray()
 

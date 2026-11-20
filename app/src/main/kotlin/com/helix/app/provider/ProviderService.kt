@@ -217,6 +217,7 @@ class ProviderService(
             ::metadataFor,
             { _contextRevision.value++ },
             ::refresh,
+            builtInModels,
         )
     }
 
@@ -300,6 +301,11 @@ class ProviderService(
             refreshManagedAccounts()
             refreshNow()
         }
+    }
+
+    /** Foreground/account events refresh only the internal account catalog, never probe generation. */
+    fun refreshBuiltInModels() {
+        workScope.launch { builtInModels.refresh(false) }
     }
 
     /** The actual read; only ever run on the service's IO scope. */
@@ -567,8 +573,15 @@ class ProviderService(
         val config = stored.copy(model = modelId ?: stored.model)
         if (config.transport is ProviderTransport.Network) _networkOperations.value += 1
         val provider = factory.create(config)
+        val catalogIdentity = testStatus.builtInCatalog.identity()
         return BoundModelProvider(provider, config.model, conversationAllowed = {
             !conversationProhibited(providerId, config.model, stored.transport.cacheKey)
+        }, onFailure = { error ->
+            if (BuiltInModel.owns(providerId) && modelDirectoryRejected(error)) {
+                workScope.launch {
+                    if (testStatus.builtInCatalog.identity() == catalogIdentity) builtInModels.refresh(true)
+                }
+            }
         }) {
             val observed = managedAccountFor(providerId)
             val current = storedConfig(providerId)
@@ -603,7 +616,7 @@ class ProviderService(
             testStatus,
             { rows.value },
             managed.isManaged,
-        ) { clock.now().toEpochMilli() }
+        )
     }
 
     /** Bundled contract permits attempting a request; it is not a successful connection test. */

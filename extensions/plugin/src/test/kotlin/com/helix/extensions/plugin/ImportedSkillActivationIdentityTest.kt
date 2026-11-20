@@ -42,9 +42,27 @@ class ImportedSkillActivationIdentityTest {
                 .filterIsInstance<PluginContentContribution.ActivatedSkill>()
                 .single()
         assertEquals(firstKey, contribution.key)
+        assertEquals(
+            contribution,
+            presentationContributions(
+                emptyList(),
+                repository.presentationSnapshot(
+                    "session",
+                    repository.presentationActivations("session", "turn"),
+                    emptyList<NativeContentSnapshot>().skillPresentation(),
+                ),
+            ).filterIsInstance<PluginContentContribution.ActivatedSkill>().single(),
+        )
         selected = "conn-second"
         org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {
             registry.contentContributions(repository, "session", "turn")
+        }
+        org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {
+            repository.presentationSnapshot(
+                "session",
+                repository.presentationActivations("session", "turn"),
+                emptyList<NativeContentSnapshot>().skillPresentation(),
+            )
         }
     }
 
@@ -78,5 +96,26 @@ class ImportedSkillActivationIdentityTest {
         assertEquals(key, contribution.key)
         assertEquals("Exact body", contribution.body.trim())
         assertEquals("argument", contribution.acceptedArguments)
+        val display =
+            repository.presentationSnapshot(
+                "session",
+                repository.presentationActivations("session", "turn"),
+                emptyList<NativeContentSnapshot>().skillPresentation(),
+            )
+        assertEquals(key, display.activated.single().key)
+        assertEquals(
+            contribution,
+            presentationContributions(emptyList(), display)
+                .filterIsInstance<PluginContentContribution.ActivatedSkill>()
+                .single(),
+        )
+        repository.setEnabled(key, false, SkillEnablementScope.SESSION, "session")
+        org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {
+            repository.presentationSnapshot(
+                "session",
+                repository.presentationActivations("session", "turn"),
+                emptyList<NativeContentSnapshot>().skillPresentation(),
+            )
+        }
     }
 }

@@ -36,4 +36,4 @@
 
 - [Claude Code permissions](https://code.claude.com/docs/en/permissions)：规则支持allow/ask/deny及工具参数限制，但不同工具的规则语法和覆盖面需分别理解，不能据此推导Helix的风险等级。
 - [Android通知权限](https://developer.android.com/develop/ui/compose/notifications/notification-permission)：通知可用性依赖用户授权，必须保留应用内可达路径。
-- [ADR-PERMISSIONS-003](../../adr/permissions/003-dispatch-and-audit.md)、[ADR-PERMISSIONS-003](../../adr/permissions/003-dispatch-and-audit.md)、[HXA-200完成记录](../../completion-records/HXA-200.md)、[HXA-201完成记录](../../completion-records/HXA-201.md)。精确批次的架构许可不等于完整批量审阅UI已交付，仍须从生产入口验收。
+- [ADR-PERMISSIONS-003](../../adr/permissions/003-dispatch-and-audit.md)、[HXA-200完成记录](../../completion-records/HXA-200.md)、[HXA-201完成记录](../../completion-records/HXA-201.md)。精确批次的架构许可不等于完整批量审阅UI已交付，仍须从生产入口验收。

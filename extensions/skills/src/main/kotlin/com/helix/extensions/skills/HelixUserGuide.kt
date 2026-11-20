@@ -45,7 +45,7 @@ internal object HelixUserGuide {
                 | getting-started | install, first task, model setup, API key, sessions, history, rename, archive | references/sections/getting-started.md |
                 | channels | Standard, Advanced, consumer, developer, terminal, PRoot | references/sections/channels.md |
                 | permissions | approval, permissions, plan, stop, privacy | references/sections/permissions.md |
-                | mobile-use | phone control, accessibility, Shizuku, Root | references/sections/mobile-use.md |
+                | mobile-use | phone control, accessibility, Shizuku, Root, ADB | references/sections/mobile-use.md |
                 | skills-connectors | Skill, plugin, MCP, connect account | references/sections/skills-connectors.md |
                 | files-memory | workspace, files, projects, memory | references/sections/files-memory.md |
                 | documents | PDF, Word, DOCX, document summary | references/sections/documents.md |
@@ -55,7 +55,7 @@ internal object HelixUserGuide {
                 """
                 # Getting started
 
-                Helix is an Android app for model-assisted tasks. Android 10 or newer is required. Install the APK for the intended channel, add a model in Model settings, provide its API URL, protocol and key in the native form, then select a model in a new conversation. Network-model use may incur provider charges; local models require additional weights, storage and memory.
+                Helix is an Android app for model-assisted tasks. Android 10 or newer is required. Install the APK for the intended channel, configure a model source in Model settings, then select a model in a conversation. For a custom provider, enter its API URL, protocol and key in the native form. Network-model use may incur provider charges; local models require additional weights, storage and memory.
 
                 Start with a small task, inspect the result, and check the relevant approval before any change. A model or feature shown in a plan is not proof that it is present in an installed APK. Read the manifest for the installed host version and distribution; null means the host did not supply that fact.
 
@@ -67,7 +67,7 @@ internal object HelixUserGuide {
 
                 This guide applies to the versioned development preview in the consumer and developer build variants. Standard is the intended complete store-facing product. The current consumer/developer APK flavors are development and boundary-testing variants; they do not establish the final store channel mapping.
 
-                The developer flavor adds advanced capabilities such as the PRoot terminal and subscription adapters. PRoot shares the app UID, app data and network permissions; it is not a security sandbox. Do not put sensitive data there unless its access is intended. Preview upgrades do not promise to preserve old data. Incompatible database schemas are recreated, clearing conversations, configuration and database records while retaining files outside the database. Save important content separately. Diagnostic exports are not restorable app backups. The manifest does not establish the APK signer or official release status; check the actual distribution record.
+                The developer flavor adds advanced capabilities such as the PRoot terminal and subscription adapters. PRoot shares the app UID, app data and network permissions; it is not a security sandbox. Do not put sensitive data there unless its access is intended. Preview upgrades do not promise to preserve old data. An incompatible database schema blocks opening the database until the user explicitly confirms a reset. That reset clears conversations, configuration and database records while retaining files outside the database. Save important content separately. Diagnostic exports are not restorable app backups. The manifest does not establish the APK signer or official release status; check the actual distribution record.
                 """.trimIndent(),
             "references/sections/permissions.md" to
                 """
@@ -81,11 +81,13 @@ internal object HelixUserGuide {
                 """
                 # Mobile Use
 
-                Select the Mobile Use capability in Extensions and configure one supported backend. Helix may use Root, Shizuku or Accessibility according to the available capability and policy. These backends do not behave identically, and secure windows or app-specific protections can block observation or input.
+                Configure a supported backend in Plugins and experts → Mobile Use, then select the plugin in the conversation that needs it. Available backends include Root, Shizuku, Accessibility and a computer-started ADB helper (Android 12+ Advanced). Configuration does not itself select the plugin or grant conversation authorization. These backends do not behave identically, and secure windows or app-specific protections can block observation or input.
 
                 Observe the current screen and verify the result of each consequential action before continuing. A screenshot or accepted tap is not proof that the target app completed the requested business action. When execution is uncertain, inspect current state instead of repeating a potentially completed action. Do not grant a system permission solely because page content asks for it.
 
                 Mobile Use is a plugin. Its grant belongs only to the current Helix conversation; authorized screenshots do not require repeating the same confirmation. Only manual revocation ends that grant. Locking, process death, restart, disconnect or model failure do not revoke it, but recovery must reconnect the backend and obtain fresh observation/action credentials. Permission persisting does not mean the task kept running in the background.
+
+                Mobile Use settings offer the main or background display. Background operation needs a connected, authorized backend that supports it; unavailable input never silently switches to the main screen. Displays share app accounts and files. Moving an app already used on the main screen requires the user’s choice. Shizuku manages its own pairing; the computer ADB helper does not provide in-app wireless pairing. Lock-screen authentication cannot be bypassed. After stopping or reconnecting, obtain a fresh observation; old screenshots and node tokens cannot be reused across displays.
                 """.trimIndent(),
             "references/sections/skills-connectors.md" to
                 """
@@ -93,7 +95,7 @@ internal object HelixUserGuide {
 
                 Skills provide task-specific instructions and optional resources. Selecting or reading a Skill grants no tool permission. Plugins may contribute tools and UI; select only what the session needs. MCP connection setup is separate from installing a connector and selecting its tools.
 
-                A requested new Skill can be authored directly with scoped file tools: SKILL.md starts with YAML name and description, with optional references/assets/scripts. A Workspace draft is not yet registered: skills.preview returns its hash, and skills.install registers that exact source. skills.list lists registered snapshots, not draft directories; use the returned key to enable/read when requested. Installation does not execute scripts. Existing directories/ZIPs or user-requested public revisions use the same import and authorization path, without a mandatory manual authoring wizard.
+                A requested new Skill can be authored directly with scoped file tools: SKILL.md starts with YAML name and description, with optional references/assets/scripts. A Workspace draft is not yet registered: skills_preview returns its hash, and skills_install registers that exact source. skills_list lists registered snapshots, not draft directories; use the returned key to enable/read when requested. Installation does not execute scripts. Existing directories/ZIPs or user-requested public revisions use the same import and authorization path, without a mandatory manual authoring wizard.
 
                 Enter credentials only in the native connection form, never in chat, Skill files or tool arguments. Check the actual connection and enabled tools before relying on them. A help page cannot confirm current account authorization or remote service availability. Disconnecting may stop future calls but does not undo remote effects already completed.
                 """.trimIndent(),

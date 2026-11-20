@@ -65,6 +65,120 @@ class AutomationPostActionObservationTest {
     private fun completed(call: ExecutableToolCall = call()): JsonObject =
         (execute(call) as ToolExecutorResult.Completed).output.jsonObject
 
+    @Test fun clickObservationIsOptInAndKeepsTheOriginalAuthority() {
+        val args = Json.parseToJsonElement("""{"token":"original"}""").jsonObject
+        val plain = call(AutomationTools.CLICK).copy(args = args)
+        assertFalse(completed(plain).containsKey("observation"))
+        assertEquals(0, port.observations)
+        val disabled =
+            plain.copy(
+                args =
+                    JsonObject(args + ("observeAfter" to kotlinx.serialization.json.JsonPrimitive(false))),
+            )
+        assertFalse(completed(disabled).containsKey("observation"))
+        assertEquals(0, port.observations)
+        val optedIn =
+            plain.copy(
+                args = JsonObject(plain.args + ("observeAfter" to kotlinx.serialization.json.JsonPrimitive(true))),
+            )
+        val output = completed(optedIn)
+        assertSame(optedIn, port.originalCall)
+        assertEquals(3, port.actions)
+        assertEquals("ATTACHED", output.getValue("observationStatus").jsonPrimitive.content)
+        assertEquals("UNVERIFIED", output.getValue("effectStatus").jsonPrimitive.content)
+        val descriptor = tools.descriptors().single { it.name.value == AutomationTools.CLICK }
+        assertEquals(ToolSchemaValidation.Valid, ToolSchemaValidator.validate(descriptor.inputSchema, optedIn.args))
+        assertEquals(ToolSchemaValidation.Valid, ToolSchemaValidator.validate(descriptor.outputSchema, output))
+    }
+
+    @Test fun optedInClickFailureDoesNotReadOrReplay() {
+        port.action = AutomationActionStatus.ACTION_OUTCOME_UNKNOWN
+        val args =
+            Json
+                .parseToJsonElement(
+                    """{"token":"original","observeAfter":true}""",
+                ).jsonObject
+        val output = execute(call(AutomationTools.CLICK).copy(args = args)) as ToolExecutorResult.Failed
+        assertTrue(output.requiresReview)
+        assertEquals(1, port.actions)
+        assertEquals(0, port.observations)
+    }
+
+    @Test fun optedInClickRetainsCancellationScopeAndIncompleteEvidenceBoundaries() {
+        for (scenario in listOf("cancelled", "revoked", "changing", "oversized")) {
+            val local = ObservationPort()
+            var cancelled = false
+            var revision = 0
+            val original = requireNotNull(local.result.snapshot)
+            when (scenario) {
+                "cancelled" -> {
+                    local.afterAction = { cancelled = true }
+                }
+
+                "revoked" -> {
+                    local.afterAction = {
+                        local.result = AutomationSnapshotResult(AutomationSnapshotStatus.TARGET_NOT_ALLOWLISTED)
+                    }
+                }
+
+                "changing" -> {
+                    local.beforeRead = {
+                        val nodes = original.nodes.map { it.copy(text = "state-${revision++}") }
+                        local.result = local.result.copy(snapshot = original.copy(nodes = nodes))
+                    }
+                }
+
+                "oversized" -> {
+                    val nodes = (1..100).map { original.nodes.single().copy(token = "fresh-$it") }
+                    local.result = local.result.copy(snapshot = original.copy(nodes = nodes))
+                }
+            }
+            val cancel =
+                object : CancelSignal {
+                    override fun isCancelled() = cancelled
+                }
+            val args =
+                Json
+                    .parseToJsonElement(
+                        """{"token":"original","observeAfter":true}""",
+                    ).jsonObject
+            val call = call(AutomationTools.CLICK, cancel).copy(args = args)
+            val result =
+                AutomationTools(local)
+                    .executor(AutomationTools.CLICK)
+                    .execute(call) as ToolExecutorResult.Completed
+            val output = result.output.jsonObject
+            assertEquals(1, local.actions)
+            assertEquals("UNVERIFIED", output.getValue("effectStatus").jsonPrimitive.content)
+            val expected =
+                when (scenario) {
+                    "cancelled" -> "SKIPPED_CANCELLED"
+                    "revoked" -> "UNAVAILABLE"
+                    "changing" -> "UNSETTLED"
+                    else -> "ATTACHED"
+                }
+            assertEquals(expected, output.getValue("observationStatus").jsonPrimitive.content)
+            if (scenario in setOf("cancelled", "revoked")) {
+                assertFalse(output["observation"]?.jsonObject?.containsKey("nodes") == true)
+            } else if (scenario == "oversized") {
+                val observation = output.getValue("observation").jsonObject
+                assertEquals("true", observation.getValue("truncated").jsonPrimitive.content)
+            }
+        }
+    }
+
+    @Test fun selectorClickCanReturnFreshStateWithoutAnotherModelRound() {
+        val snapshot = requireNotNull(port.result.snapshot)
+        port.result =
+            port.result.copy(snapshot = snapshot.copy(nodes = snapshot.nodes.map { it.copy(clickable = true) }))
+        val args = Json.parseToJsonElement("""{"text":"Form","observeAfter":true}""").jsonObject
+        val call = call(AutomationTools.CLICK_MATCH).copy(args = args)
+        val output = completed(call)
+        assertEquals("ATTACHED", output.getValue("observationStatus").jsonPrimitive.content)
+        assertEquals(1, port.actions)
+        assertSame(call, port.originalCall)
+    }
+
     @Test fun inputAndScrollReturnFreshStateThroughTheOriginalBoundPort() {
         for (name in listOf(AutomationTools.SCROLL, AutomationTools.SET_TEXT)) {
             val call = call(name)
@@ -243,7 +357,7 @@ class AutomationPostActionObservationTest {
             observation
                 .getValue("recoveryHint")
                 .jsonPrimitive.content
-                .contains("ui.find"),
+                .contains("ui_find"),
         )
         assertFalse(observation.toString().contains("original"))
     }
@@ -277,7 +391,7 @@ class AutomationPostActionObservationTest {
                     output
                         .getValue("nextObservation")
                         .jsonPrimitive.content
-                        .contains("ui.snapshot"),
+                        .contains("ui_snapshot"),
                 )
             }
             val schema = tools.descriptors().single { it.name.value == AutomationTools.SCROLL }.outputSchema

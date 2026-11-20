@@ -49,6 +49,121 @@ class BuiltInModelDiscoveryTest {
             {},
         )
 
+    @Test fun clockRollbackDoesNotEraseSuccessfulEvidenceOrBlockManualRefresh() =
+        runBlocking {
+            val discovery = discovery()
+            discovery.refresh(false)
+            val previous = discovery.current()
+            millis = 500
+            result = { ModelCatalogResult.Failed(ModelErrorCode.TRANSPORT, "offline", true) }
+            discovery.refresh(true)
+            assertEquals(2, calls)
+            assertEquals(previous.successfulAt, discovery().current().successfulAt)
+            assertEquals(previous.completeModels, discovery().current().completeModels)
+            assertEquals(ModelErrorCode.TRANSPORT, discovery.current().failure)
+        }
+
+    @Test fun retirementPersistsThroughFailureAndPartialAbsenceUntilPositiveEvidence() =
+        runBlocking {
+            val discovery = discovery()
+            result = { ModelCatalogResult.Listed(listOf("a")) }
+            discovery.refresh(false)
+            val successfulAt = millis
+            millis += BuiltInModelCatalog.SUCCESS_TTL
+            result = { ModelCatalogResult.Failed(ModelErrorCode.TRANSPORT, "offline", true) }
+            discovery.refresh(false)
+            assertEquals(successfulAt, discovery().current().successfulAt)
+            assertEquals(millis, discovery.current().checkedAt)
+            assertEquals(true, discovery().current().modelMissing("b"))
+            millis += BuiltInModelCatalog.FAILURE_TTL
+            result = { ModelCatalogResult.Listed(listOf("c"), partial = true) }
+            discovery.refresh(false)
+            assertEquals(false, discovery.current().modelMissing("a"))
+            assertEquals(false, discovery.current().modelMissing("c"))
+            assertEquals(true, discovery.current().modelMissing("b"))
+            millis += BuiltInModelCatalog.FAILURE_TTL
+            result = { ModelCatalogResult.Listed(listOf("b"), partial = true) }
+            discovery.refresh(false)
+            assertEquals(false, discovery().current().modelMissing("b"))
+        }
+
+    @Test fun windowsShareDirectoryCacheAndMissingMetadataRetriesAfterOneMinute() =
+        runBlocking {
+            val discovery = discovery()
+            result = { ModelCatalogResult.Listed(listOf("a", "b"), contextWindows = mapOf("a" to 8192L)) }
+            discovery.refresh(false)
+            assertEquals(8192L, discovery.contextWindow("a"))
+            assertEquals(null, discovery.contextWindow("b"))
+            assertEquals(1, calls)
+            assertEquals(8192L, discovery().current().contextWindows["a"])
+            millis += BuiltInModelCatalog.FAILURE_TTL - 1
+            assertEquals(null, discovery.contextWindow("b"))
+            assertEquals(1, calls)
+            millis++
+            result = { ModelCatalogResult.Listed(listOf("a", "b"), contextWindows = mapOf("b" to 32768L)) }
+            assertEquals(32768L, discovery.contextWindow("b"))
+            assertEquals(2, calls)
+            assertEquals(null, discovery.contextWindow("a"))
+            assertEquals(2, calls)
+        }
+
+    @Test fun partialFirstDirectoryCannotRetireAndManualRefreshIsRateLimited() =
+        runBlocking {
+            val discovery = discovery()
+            result = { ModelCatalogResult.Listed(listOf("a"), partial = true) }
+            discovery.refresh(true)
+            assertEquals(false, discovery.current().modelMissing("unseen"))
+            millis += 2999
+            discovery.refresh(true)
+            assertEquals(1, calls)
+            millis++
+            discovery.refresh(true)
+            assertEquals(2, calls)
+        }
+
+    @Test fun partialRefreshPreservesBoundModelTaskButCompleteRemovalRetiresIt() =
+        runBlocking {
+            val chat = setOf(com.helix.provider.api.ModelPurpose.CHAT)
+            result = { ModelCatalogResult.Listed(listOf("a", "b"), mapOf("a" to chat, "b" to chat)) }
+            val discovery = discovery()
+            discovery.refresh(true)
+            millis += 4000
+            result = { ModelCatalogResult.Listed(listOf("a"), mapOf("a" to chat), partial = true) }
+            discovery.refresh(true)
+            val partial = discovery().current()
+            assertEquals(listOf("a"), partial.models)
+            assertEquals(chat, partial.purposes["b"])
+            assertEquals(null, builtInBindingIssue(true, partial, "b"))
+            val exported = partial.discoveryResult() as ModelCatalogResult.Listed
+            assertEquals(true, exported.partial)
+            assertEquals(setOf("a"), exported.purposes.keys)
+            millis += 4000
+            result = { ModelCatalogResult.Listed(listOf("a"), mapOf("a" to chat)) }
+            discovery.refresh(true)
+            assertEquals(null, discovery.current().purposes["b"])
+            assertEquals(
+                com.helix.feature.conversation.presentation.ProviderBindingIssue.MODEL_UNAVAILABLE,
+                builtInBindingIssue(true, discovery.current(), "b"),
+            )
+        }
+
+    @Test fun partialDirectorySurvivesRestartAndRefreshesWithoutGrantingMissingModels() =
+        runBlocking {
+            result = { ModelCatalogResult.Listed(listOf("cloud"), partial = true) }
+            val discovery = discovery()
+            discovery.refresh(true)
+            assertEquals(true, discovery().current().partial)
+            assertEquals(listOf("cloud"), discovery.current().models)
+            millis += BuiltInModelCatalog.FAILURE_TTL
+            result = { ModelCatalogResult.Listed(listOf("cloud", "local")) }
+            discovery.refresh(false)
+            assertEquals(false, discovery().current().partial)
+            assertEquals(listOf("cloud", "local"), discovery.current().models)
+            val other = BuiltInModelCatalogStore(backing) { "other-account" }
+            assertEquals(emptyList<String>(), other.read().models)
+            assertEquals(false, other.read().partial)
+        }
+
     @Test fun successfulRefreshReplacesOldTaskEvidenceIncludingUnknown() =
         runBlocking {
             val discovery = discovery()

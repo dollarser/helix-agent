@@ -5,10 +5,35 @@ import com.helix.core.storage.dao.ArtifactDao
 import com.helix.core.storage.entity.ArtifactEntity
 import java.io.File
 
+@Suppress("TooManyFunctions") // Registration, lookup and reference-aware release share this artifact authority.
 class ArtifactRepository(
     private val dao: ArtifactDao,
     private val writeReference: (String, () -> Unit) -> Unit = { _, write -> write() },
 ) {
+    /** Caller holds the Room transaction; foreign keys remain the final binding guard. */
+    @Suppress("ReturnCount") // Bound, external and releasable resources have distinct retention outcomes.
+    fun releaseUnboundSnapshots(
+        ids: List<String>,
+        sessionId: String,
+    ): List<String> {
+        if (ids.isEmpty() || dao.hasBindings(ids)) return emptyList()
+        val rows = ids.mapNotNull(dao::byId)
+        require(rows.all { it.sessionId == sessionId })
+        if (rows.any {
+                !com.helix.core.workspace.AttachmentSnapshotPath.contains(
+                    com.helix.core.workspace.FileScopePath
+                        .fromModelReference(it.relativePath),
+                )
+            }
+        ) {
+            return emptyList()
+        }
+        dao.deleteUnbound(rows.map { it.id })
+        return rows.map { it.relativePath }.distinct().filter { dao.countByRelativePath(it) == 0 }
+    }
+
+    fun referenceCount(path: String): Int = dao.countByRelativePath(path)
+
     /** Re-verify a document/backend stream without inventing a local path or copying the project. */
     fun registerOrRefreshStream(
         entity: ArtifactEntity,
@@ -63,9 +88,11 @@ class ArtifactRepository(
         sha256: String,
         file: File,
     ): ArtifactEntity {
-        verifyBeforeRegistration(relativePath, mediaType, size, sha256, file)
         val entity = ArtifactEntity(id, sessionId, relativePath, mediaType, size, sha256)
-        writeReference(relativePath) { dao.insert(entity) }
+        writeReference(relativePath) {
+            verifyBeforeRegistration(relativePath, mediaType, size, sha256, file)
+            dao.insert(entity)
+        }
         return entity
     }
 
@@ -89,11 +116,11 @@ class ArtifactRepository(
         file: File,
         purpose: String = "OUTPUT",
     ): ArtifactEntity {
-        verifyBeforeRegistration(relativePath, mediaType, size, sha256, file)
         // Refresh the stable row first and insert only when no row exists yet: the
         // single-statement upsert (ON CONFLICT ... DO UPDATE) that would do both needs
         // SQLite 3.24, and minSdk 29 AOSP images ship 3.22.
         writeReference(relativePath) {
+            verifyBeforeRegistration(relativePath, mediaType, size, sha256, file)
             val refreshed =
                 dao.refreshBySessionAndPath(
                     sessionId,
@@ -157,7 +184,10 @@ class ArtifactRepository(
     ): ArtifactEntity {
         val source = resolve(sourceId)
         val copied = source.copy(id = id, sessionId = sessionId, turnId = null)
-        writeReference(copied.relativePath) { dao.insert(copied) }
+        writeReference(copied.relativePath) {
+            check(dao.byId(sourceId) == source) { "Artifact source changed before reference copy" }
+            dao.insert(copied)
+        }
         return copied
     }
 

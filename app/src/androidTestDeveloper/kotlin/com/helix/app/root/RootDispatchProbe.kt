@@ -37,8 +37,8 @@ internal class RootDispatchProbe(
     }
 
     fun verifyFiveToolsAndDisable() {
-        assertEquals("active", success("root.status", "{}").getValue("session").jsonPrimitive.content)
-        val file = success("root.file.read", """{"scopeId":"system-etc","relativePath":"hosts","maxBytes":64}""")
+        assertEquals("active", success("root_status", "{}").getValue("session").jsonPrimitive.content)
+        val file = success("root_file_read", """{"scopeId":"system-etc","relativePath":"hosts","maxBytes":64}""")
         assertTrue(
             file
                 .getValue("windowLength")
@@ -49,29 +49,29 @@ internal class RootDispatchProbe(
         assertEquals(
             "com.helix.agent.developer",
             success(
-                "root.package.info",
+                "root_package_info",
                 """{"packageName":"com.helix.agent.developer"}""",
             ).getValue("packageName").jsonPrimitive.content,
         )
-        assertTrue(success("root.process.list", """{"limit":5}""").getValue("processes").jsonArray.size in 1..5)
+        assertTrue(success("root_process_list", """{"limit":5}""").getValue("processes").jsonArray.size in 1..5)
         assertTrue(
-            success("root.log.read", """{"maxLines":5,"minPriority":"I"}""").getValue("lines").jsonArray.size <= 5,
+            success("root_log_read", """{"maxLines":5,"minPriority":"I"}""").getValue("lines").jsonArray.size <= 5,
         )
         assertFalse(
             dispatch(
-                "root.file.read",
+                "root_file_read",
                 """{"scopeId":"system-etc","relativePath":"../build.prop"}""",
             ) is ToolDispatchOutcome.Succeeded,
         )
         container.sessionPermissionEdit.setToolAvailability(
             ToolOrigin.BuiltInOrigin.canonicalOf(),
-            "root.process.list",
+            "root_process_list",
             ToolAvailabilityScope.SESSION,
             session,
             true,
             System.currentTimeMillis(),
         )
-        val denied = dispatch("root.process.list", "{}")
+        val denied = dispatch("root_process_list", "{}")
         assertTrue(denied is ToolDispatchOutcome.Denied)
         assertEquals(DispatchOutcomeCode.TOOL_DISABLED, (denied as ToolDispatchOutcome.Denied).code)
     }
@@ -79,7 +79,7 @@ internal class RootDispatchProbe(
     fun verifyDisconnectedScopeCannotRead() {
         assertFalse(
             dispatch(
-                "root.file.read",
+                "root_file_read",
                 """{"scopeId":"system-etc","relativePath":"hosts"}""",
             ) is ToolDispatchOutcome.Succeeded,
         )

@@ -241,8 +241,8 @@ class RootMobileUseDeviceTest {
         toolCallId = "$session-$id",
         turnId = turn,
         sessionId = session,
-        toolName = ToolName("ui.click_match"),
-        toolVersion = requireNotNull(container.toolPipeline.resolveLatest("ui.click_match")).version,
+        toolName = ToolName("ui_click_match"),
+        toolVersion = requireNotNull(container.toolPipeline.resolveLatest("ui_click_match")).version,
         args =
             buildJsonObject {
                 put("packageName", target)
@@ -260,7 +260,7 @@ class RootMobileUseDeviceTest {
     private fun callForObservation() =
         com.helix.tools.framework.ExecutableToolCall(
             "observe",
-            "ui.snapshot",
+            "ui_snapshot",
             "5",
             buildJsonObject {},
             ExecutionTargetType.LOCAL_ANDROID,

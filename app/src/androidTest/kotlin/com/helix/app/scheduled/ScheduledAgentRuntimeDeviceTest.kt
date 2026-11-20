@@ -25,14 +25,15 @@ class ScheduledAgentRuntimeDeviceTest {
         runBlocking {
             val wire =
                 ScriptedSseWire().apply {
+                    scriptToolCall("safe-time", "time_now", "{}")
                     script(
-                        sseResponse(toolCallStream("safe-time", "\"time.now\"", "{}")),
                         sseResponse(textAnswerStream("Synthetic clock reviewed.")),
                     )
                 }
             ScheduledRuntimeFixture(wire.wireClient).use { f ->
-                val attempt = f.execute("Use time.now, then report the synthetic test clock.")
-                assertEquals("COMPLETED", attempt.state)
+                val attempt = f.execute("Use time_now, then report the synthetic test clock.")
+                assertEquals(f.failureFacts(attempt, wire), "COMPLETED", attempt.state)
+                assertEquals(listOf(com.helix.app.provider.BuiltInModel.CATALOG_URL), f.catalogRequests)
                 assertEquals(
                     "PLAN",
                     f.storage.turnRuntimeRecords
@@ -54,7 +55,7 @@ class ScheduledAgentRuntimeDeviceTest {
                 assertEquals(2, wire.callCount)
                 assertTrue(wire.lastRequestBody.contains("tool_call_id"))
                 assertEquals(
-                    "time.now",
+                    "time_now",
                     f.storage.toolCalls
                         .listByTurn(attempt.turnId)
                         .single()
@@ -73,7 +74,7 @@ class ScheduledAgentRuntimeDeviceTest {
             val wire =
                 ScriptedSseWire().apply {
                     script(
-                        sseResponse(toolCallStream("unsafe", "\"synthetic.write\"", "{}")),
+                        sseResponse(toolCallStream("unsafe", "\"synthetic_write\"", "{}")),
                         sseResponse(textAnswerStream("Cannot perform the write.")),
                     )
                 }
@@ -83,7 +84,7 @@ class ScheduledAgentRuntimeDeviceTest {
                     TimeNowTool.descriptor().copy(
                         name =
                             com.helix.core.model
-                                .ToolName("synthetic.write"),
+                                .ToolName("synthetic_write"),
                         operationClass = ToolOperationClass.LOCAL_MUTATION,
                     )
                 f.pipeline.registry.register(
@@ -97,7 +98,7 @@ class ScheduledAgentRuntimeDeviceTest {
                         }
                     },
                 )
-                f.execute("Try synthetic.write only; it must be denied by read-only policy.")
+                f.execute("Try synthetic_write only; it must be denied by read-only policy.")
                 assertFalse(executed)
                 assertTrue(
                     f.storage.toolCalls
@@ -233,7 +234,7 @@ class ScheduledAgentRuntimeDeviceTest {
             rejectNextRequestAfterRealChange { fixture ->
                 fixture.storage.toolAvailability.set(
                     TimeNowTool.descriptor().origin.canonicalOf(),
-                    "time.now",
+                    "time_now",
                     ToolAvailabilityScope.SESSION,
                     "bound",
                     ToolAvailabilityState.DISABLED,
@@ -246,8 +247,8 @@ class ScheduledAgentRuntimeDeviceTest {
     private suspend fun rejectNextRequestAfterRealChange(change: (ScheduledRuntimeFixture) -> Unit) {
         val wire =
             ScriptedSseWire().apply {
+                scriptToolCall("actual-time", "time_now", "{}")
                 script(
-                    sseResponse(toolCallStream("actual-time", "\"time.now\"", "{}")),
                     sseResponse(textAnswerStream("Must never be requested after authorization changes")),
                 )
             }
@@ -257,8 +258,9 @@ class ScheduledAgentRuntimeDeviceTest {
                 change(fixture)
                 changed = true
             }
-            val attempt = fixture.execute("Read time.now and then summarize the result.")
-            assertTrue(changed)
+            val attempt = fixture.execute("Read time_now and then summarize the result.")
+            assertTrue(fixture.failureFacts(attempt, wire), changed)
+            assertEquals(listOf(com.helix.app.provider.BuiltInModel.CATALOG_URL), fixture.catalogRequests)
             assertEquals("FAILED", attempt.state)
             assertEquals(1, wire.callCount)
             // A second model-call admission exists, but its pre-stream scope guard rejects the wire call.
@@ -283,6 +285,35 @@ class ScheduledAgentRuntimeDeviceTest {
                 )
             assertTrue(rule.scopeHash != fixture.execution.scope("bound", rule.runtimeBudgetMillis).hash)
         }
+    }
+
+    /** Only isolated synthetic state; do not expose request headers or prompt/history bodies. */
+    private fun ScheduledRuntimeFixture.failureFacts(
+        attempt: com.helix.core.storage.scheduled.ScheduledAttempt,
+        wire: ScriptedSseWire,
+    ): String {
+        val turn = storage.turns.find(attempt.turnId)
+        val requests =
+            wire.requests.map { request ->
+                val body =
+                    if (request.method == "POST" && request.body.isNotBlank()) {
+                        runCatching { org.json.JSONObject(request.body) }.getOrNull()
+                    } else {
+                        null
+                    }
+                val declarations = body?.optJSONArray("tools")
+                val tools =
+                    (0 until (declarations?.length() ?: 0)).map { index ->
+                        val tool = declarations!!.getJSONObject(index)
+                        (tool.optJSONObject("function") ?: tool).optString("name")
+                    }
+                "method=${request.method}, path=${java.net.URI(
+                    request.url,
+                ).path}, model=${body?.optString("model")}, tools=$tools"
+            }
+        return "attempt=${attempt.state}, turn=${turn?.state}/${turn?.errorCode}, " +
+            "selectionFailure=${wire.responseSelectionFailure}, pending=${wire.pendingResponseCount}, " +
+            "catalog=$catalogRequests, requests=$requests"
     }
 
     @Test fun confirmedRuleBudgetBeyondTwoMinutesRemainsValidUntilItsOwnDeadline(): Unit =

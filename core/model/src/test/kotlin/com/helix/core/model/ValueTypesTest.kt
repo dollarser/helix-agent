@@ -42,11 +42,11 @@ class ValueTypesTest {
                 "read",
                 "write",
                 "bash",
-                "time.now",
-                "files.list",
-                "browser.click",
-                "code.javascript.run",
-                "mcp.my_server.tool-a",
+                "time_now",
+                "files_list",
+                "browser_click",
+                "code_javascript_run",
+                "mcp_my_server_tool_a",
             )
         for (name in names) {
             assertEquals(name, ToolName(name).value)
@@ -60,10 +60,10 @@ class ValueTypesTest {
             assertThrows<IllegalArgumentException>("tool name $name accepted") { ToolName(name) }
         }
         // Over total length, over segment count, over segment length, or bad first character.
-        assertThrows<IllegalArgumentException> { ToolName("a".repeat(129)) }
+        assertThrows<IllegalArgumentException> { ToolName("a".repeat(65)) }
         assertThrows<IllegalArgumentException> { ToolName(List(9) { "a" }.joinToString(".")) }
         assertThrows<IllegalArgumentException> { ToolName("a." + "b".repeat(65)) }
-        assertThrows<IllegalArgumentException> { ToolName("-a") }
+        assertEquals("-a", ToolName("-a").value)
         // Strict ASCII: Unicode letters/digits are not in the [A-Za-z0-9_-] contract.
         assertThrows<IllegalArgumentException> { ToolName("café") }
         assertThrows<IllegalArgumentException> { ToolName("café.tool") }

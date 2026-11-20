@@ -1,6 +1,7 @@
 package com.helix.app.files
 
 import com.helix.app.files.ManualFileOperations.Companion.join
+import com.helix.core.workspace.WorkspaceFileBackend
 import java.security.MessageDigest
 import java.util.concurrent.CancellationException
 
@@ -8,9 +9,9 @@ import java.util.concurrent.CancellationException
 internal class ManualFileTree {
     @Suppress("NestedBlockDepth") // Nested input/output resources close independently on cancellation.
     fun copyTree(
-        from: ManualFileBackend,
+        from: WorkspaceFileBackend,
         source: String,
-        to: ManualFileBackend,
+        to: WorkspaceFileBackend,
         target: String,
         cancel: () -> Boolean,
         depth: Int,
@@ -41,9 +42,9 @@ internal class ManualFileTree {
 
     @Suppress("ReturnCount") // Missing and mismatched nodes fail comparison immediately.
     fun sameTree(
-        from: ManualFileBackend,
+        from: WorkspaceFileBackend,
         source: String,
-        to: ManualFileBackend,
+        to: WorkspaceFileBackend,
         target: String,
         cancel: () -> Boolean,
         depth: Int,
@@ -60,7 +61,7 @@ internal class ManualFileTree {
     }
 
     fun fingerprint(
-        fs: ManualFileBackend,
+        fs: WorkspaceFileBackend,
         path: String,
         cancel: () -> Boolean = { false },
         depth: Int = 0,
@@ -90,7 +91,7 @@ internal class ManualFileTree {
     }
 
     private fun hash(
-        fs: ManualFileBackend,
+        fs: WorkspaceFileBackend,
         path: String,
         cancel: () -> Boolean,
     ): ByteArray {
@@ -108,7 +109,7 @@ internal class ManualFileTree {
     }
 
     fun deleteTree(
-        fs: ManualFileBackend,
+        fs: WorkspaceFileBackend,
         path: String,
         cancel: () -> Boolean,
         depth: Int,

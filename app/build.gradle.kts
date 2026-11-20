@@ -35,7 +35,7 @@ android {
         externalNativeBuild.cmake { abiFilters("arm64-v8a", "x86_64") }
         targetSdk = 36
         versionCode = 1
-        versionName = "0.0.11"
+        versionName = "0.0.12"
         testInstrumentationRunner =
             if (isolatedRoomValidation) {
                 "com.helix.app.HelixIsolatedRoomTestRunner"
@@ -122,6 +122,7 @@ android {
 }
 
 dependencies {
+    implementation(libs.androidx.webkit)
     implementation(files(rootProject.file("build/tts/speech.aar")))
     "developerImplementation"(project(":runtime:terminal-renderer"))
     coreLibraryDesugaring(libs.desugar.jdk.libs.nio)
@@ -148,7 +149,7 @@ dependencies {
     // storage-backed approval broker and audit sink; the approval card + audit page are
     // the UI of that pipeline (doc 02 section 5.3/7.1; doc 11 唯一入口).
     implementation(project(":tools:framework"))
-    // HXA-042: the first non-time.now business tools (read/write/edit/files.*) enter the
+    // HXA-042: the first non-time_now business tools (read/write/edit/files.*) enter the
     // production tool table; their store lives in core:workspace (atomic publish + quota).
     implementation(project(":tools:files"))
     implementation(project(":core:workspace"))
@@ -165,7 +166,7 @@ dependencies {
     // and the skills.* tools. Skill instructions never bypass the normal tool pipeline.
     implementation(project(":extensions:skills"))
     // HXA-053: the isolated QuickJS backend (the non-exported one-shot Service + the
-    // main-process JsExecutionClient, ADR-0015) hosts the `code.javascript.run` tool. Shared
+    // main-process JsExecutionClient, ADR-0015) hosts the `code_javascript_run` tool. Shared
     // (implementation) so BOTH consumer and developer register it: ADR-0013 Standard is the
     // complete store-facing product and QuickJS (APK-embedded interpreter) is in scope for
     // consumer (local-code-execution doc section 8). The Service manifest entry merges into
@@ -216,6 +217,7 @@ dependencies {
     testImplementation(libs.junit4)
     testImplementation(testFixtures(project(":core:agent")))
     // Reuse the locked transport in deterministic OAuth interceptor tests; not a production dependency.
+    implementation(libs.okhttp.wire)
     testImplementation(libs.okhttp.wire)
     testImplementation(libs.mockwebserver)
     if (providers.gradleProperty("helix.asrBenchmark").orNull == "true") {
@@ -230,8 +232,8 @@ dependencies {
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.test.junit)
     androidTestImplementation(libs.espresso.core)
-    // The production-migration device test builds a v1 fixture database (MigrationTestHelper).
-    // Pinned component already locked in core:storage; no new module or version.
+    // Fresh-baseline device tests build a v1 fixture database (MigrationTestHelper).
+    // Pinned component already locked in infrastructure:storage; no new module or version.
     androidTestImplementation(libs.room.testing)
 
     androidTestImplementation(platform(libs.compose.bom))

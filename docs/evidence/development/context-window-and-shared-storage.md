@@ -20,7 +20,7 @@ Goal 正常 Turn 结束按 ADR-GOAL-001 暂停并等待显式 Continue；立即 
 
 摘要输出基础额度为 2048 tokens，较大上下文可增至 4096，仍受用户输出预算和窗口限制；不使用过小的 512 基础额度。对探测确认支持推理的 Provider，摘要明确选 LOW，避免省略推理参数时服务按默认强度消耗摘要额度；普通对话推理设置不变。其他 Provider 保持 OFF 的既有协议行为，不能据此声称所有服务都关闭了内部推理。
 
-摘要不带工具，使用当前 Provider 与既有出站/Turn/Goal 预算。完整摘要成功才原子写入独立 CONTEXT_CHECKPOINT_V1 消息并关闭对应模型调用，之后请求使用不可信历史摘要加未覆盖原文。可选 preservedMessageIds 保留覆盖边界之前的当前输入等必要原文；旧 checkpoint 缺少此字段时按空集合读取。原消息/附件不删除，UI 不暴露 checkpoint JSON；无需新增 Room schema。取消、拒绝、未完整结束、预算不足不发布半成品；恢复关闭未完调用，不自动重放。手动压缩后圆环用 ≈ 标记估算，下一次真实请求以实际 usage 更新。现行决策见 [ADR-AGENT-002](../../adr/agent/002-context-compaction.md)，它取代 [ADR-AGENT-002](../../adr/agent/002-context-compaction.md)。
+摘要不带工具，使用当前 Provider 与既有出站/Turn/Goal 预算。完整摘要成功才原子写入独立 CONTEXT_CHECKPOINT_V1 消息并关闭对应模型调用，之后请求使用不可信历史摘要加未覆盖原文。可选 preservedMessageIds 保留覆盖边界之前的当前输入等必要原文；旧 checkpoint 缺少此字段时按空集合读取。原消息/附件不删除，UI 不暴露 checkpoint JSON；无需新增 Room schema。取消、拒绝、未完整结束、预算不足不发布半成品；恢复关闭未完调用，不自动重放。手动压缩后圆环用 ≈ 标记估算，下一次真实请求以实际 usage 更新。现行决策见 [ADR-AGENT-002](../../adr/agent/002-context-compaction.md)，历史决策演进见该 ADR 的 Decision history 与 Git 历史。
 
 ## HXA-172 对话基线（历史状态）
 
@@ -32,13 +32,13 @@ ProviderCapabilities 可以保存 maxContextTokens，但 CapabilityProbe 当前�
 
 新增圆环使用当前 endpoint/model 最近一次持久 ModelCall 的 inputTokens，绝不累计整个 Turn 的多次模型调用。缺少 usage 或窗口上限显示问号；异常、缺字段、负数、切换模型/endpoint 不借用旧记录。进度条最多填满，百分比保留超过 100 的情况。点击显示来源和限制：不包括后续输出、未发送输入，不能等同于下一次请求精确 token 数。它是最近一次请求的上下文输入快照，不是实时完整会话 tokenizer。
 
-## 可参考的生产机制
+## HXA-172 当时参考的生产机制（研究记录）
 
 - [Codex 配置参考](https://learn.chatgpt.com/docs/config-file/config-reference)：区分 model_context_window 与 model_auto_compact_token_limit，未设置压缩阈值时使用模型默认值。Helix 应同样区分服务上限、用户使用上限、输出预留和触发阈值，而不是复用轮次预算。
 - [Claude Code 上下文管理](https://code.claude.com/docs/en/how-claude-code-works)：接近上限时先清理旧工具输出，再摘要；支持查看上下文和手动定向压缩。说明中明确指出早期细节可能丢失以及巨大单文件可能导致反复压缩。
 - [DeepSeek Harness 压缩子系统](https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/subsystems/compaction.md)：以实际请求压力触发，保留必要片段，持久化摘要替代范围，保证同会话串行并处理取消与恢复。
 
-建议后续独立实现：按 Provider 与 model 精确绑定窗口配置；服务声明优先并允许用户设置更小使用上限；按最终请求（消息、工具 schema、图像、输出预留）估算压力，结合 usage 校准；接近阈值先压缩旧工具内容，再生成可追溯摘要。保留原始历史、当前用户意图、工具调用/结果配对和审批事实；摘要永远不是权限来源。摘要写入与替换范围要原子化，取消、进程死亡和预算不足不损坏历史；不可压缩的单项过大要明确返回。该方案会改变模型可见历史及持久化契约，应单独形成 ADR 与故障/恢复验收，不能为了显示圆环静默接入。
+当时提出的后续实现建议（不作为当前待办）：按 Provider 与 model 精确绑定窗口配置；服务声明优先并允许用户设置更小使用上限；按最终请求（消息、工具 schema、图像、输出预留）估算压力，结合 usage 校准；接近阈值先压缩旧工具内容，再生成可追溯摘要。保留原始历史、当前用户意图、工具调用/结果配对和审批事实；摘要永远不是权限来源。摘要写入与替换范围要原子化，取消、进程死亡和预算不足不损坏历史；不可压缩的单项过大要明确返回。该方案会改变模型可见历史及持久化契约，应单独形成 ADR 与故障/恢复验收，不能为了显示圆环静默接入。
 
 ## HXA-172 共享存储基线与分发约束（历史状态）
 

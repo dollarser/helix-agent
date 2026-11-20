@@ -140,7 +140,7 @@ internal class AutomationClickMatchExecutor(
                 }
 
                 matches.all(::automationNodeOffscreen) -> {
-                    "TARGET_OFFSCREEN: scroll a fresh scrollable container with ui.scroll, " +
+                    "TARGET_OFFSCREEN: scroll a fresh scrollable container with ui_scroll, " +
                         "then observe again before clicking; do not guess coordinates."
                 }
 

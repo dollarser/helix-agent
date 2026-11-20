@@ -16,8 +16,8 @@ internal class AppConversationTools(
     ): Boolean {
         val names =
             buildList {
-                if (conversation) addAll(listOf("session.history", "session.search", "session.read"))
-                if (knowledge) addAll(listOf("knowledge.search", "knowledge.read"))
+                if (conversation) addAll(listOf("session_history", "session_search", "session_read"))
+                if (knowledge) addAll(listOf("knowledge_search", "knowledge_read"))
             }
         val bindings = toolPipeline.registry.snapshot()
         return names.all { name ->

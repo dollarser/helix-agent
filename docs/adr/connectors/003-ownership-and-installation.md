@@ -27,7 +27,7 @@ Connector 安装同时涉及 Skill 快照、注册记录、端点配置和凭据
 
 软件包版本、持久安装 revision、运行实例 incarnation 与用户授权分别表达。内容、启用状态不变的原生冷启动仅重建进程投影，不写库或递增安装 revision；健康 repair 不替换绑定、不写库。实际内容/启停变化或丢失投影的必要 repair 才经过原 CAS 发布。宿主 APK 更新由当前实例绑定识别，不单凭升级事件增加安装 revision。预发布阶段内置 package 及当前工具声明版本固定为 1；普通详情仅显示包版本，不显示内部安装 revision。两渠道拥有各自安装历史，计数可不同；历史审计版本和所有 CAS/选择计数不回退。
 
-原生工具的持久用户偏好以稳定 pluginId/runtimeId 和工具名识别，版本不构成权限变化。当前安装数据中的版本来源键由启动事务一次性规范化，合并时保留明确禁用及原范围，不维持双轨读写；来源主体/runtime 变化不继承同名工具的偏好。Mobile Use 授权继续由用户配置和持久会话选择身份派生，安装 revision 或非权限配置变化不撤销它。单次调用证明与实际 execution binding 的边界见 [ADR-PERMISSIONS-003](../permissions/003-dispatch-and-audit.md)。
+原生工具的持久用户偏好以稳定 pluginId/runtimeId 和工具名识别，版本不构成权限变化。只读写当前稳定来源键，不保留旧带版本来源键的启动迁移或双轨读写；来源主体/runtime 变化不继承同名工具的偏好。Mobile Use 授权继续由用户配置和持久会话选择身份派生，安装 revision 或非权限配置变化不撤销它。单次调用证明与实际 execution binding 的边界见 [ADR-PERMISSIONS-003](../permissions/003-dispatch-and-audit.md)。
 
 ### 2. 每个会话独立启停 Connector
 
@@ -37,7 +37,7 @@ Connector 安装同时涉及 Skill 快照、注册记录、端点配置和凭据
 
 会话开关控制该包提供的 Skill、MCP 与 native 工具。可用性按组件核对已提交引用、当前会话选择及各自规则；一个未配置 MCP 不使独立可用的 Skill 失效，纯 Skill 包不要求 published tools。内容读取与调用资格由 [ADR-SKILLS-001](../skills/001-authoring-and-installation.md)定义；工具显式禁用及现有授权规则仍生效。打开插件不强行启用被单独禁用的工具，不自动登录、提升授权预设或修改其他来源。面板区分“已选择”和“需配置/不可用”，并提供现有修复入口。
 
-关闭 Connector 撤销的是本会话的这一来源。相同准确 SkillKey 若仍由独立用户安装或其他已选 Connector 有效提供，可以继续可用，界面说明剩余来源；单独全局启用一个包内 Skill 不得绕过该包的会话开关，必须有独立安装归属。不同端点身份不按 URL 自动合并。用户要完全禁用某个工具时使用既有工具禁用项，不创造新的权限优先级。
+关闭 Connector 撤销的是本会话的这一来源。同名或同 hash 的独立安装及其他已选 Connector 副本仍可按各自 owner 的准确 SkillKey 使用；它们不共享同一个 SkillKey 或借用被关闭来源的资格。单独全局启用一个包内 Skill 不得绕过该包的会话开关，必须有独立安装归属。不同端点身份不按 URL 自动合并。用户要完全禁用某个工具时使用既有工具禁用项，不创造新的权限优先级。
 
 选择变更在下一次上下文构建生效：不再注入关闭来源的 Skill 指令、目录和工具 schema；Skill list/read 与实际工具调用均按可信 sessionId 校验，不能只在 UI 隐藏。已经进入历史消息、摘要或正在发送的请求中的内容不会因此被擦除，也不能承诺模型忘记它；保留历史及审计，不靠删除历史实现启停。
 
@@ -109,7 +109,7 @@ UI、模型目录和诊断使用同一只读投影，表达准确来源及原因
 
 插件是交付及能力贡献单元，传输按真实执行边界选择；原生、进程/IPC 适配和 MCP 均进入同一工具治理链。Mobile Use 保持 native，不为对齐参考产品增加 MCP 回环。宿主保有系统授权、连接服务与 Agent 执行所有权；插件不拥有第二个 ModelClient/AgentLoop。
 
-Browser 由 APK 已知的 `:extensions:browser` 贡献 manifest、现有 12 个工具及网页任务 Skill，App 注入已有 bridge/视觉服务。工具仅以该插件的 PluginOrigin 原子发布，直接删除旧 built-in 注册，不做来源或批准转换。Browser 在两个渠道的产品新会话默认集合中提供，用户选择仍按 第 2 节 独立保存；会话选择不拉起 WebView 或批准网站访问。Activity/WebView 与手动浏览的具体边界见 [ADR-PLATFORM-002](../platform/002-browser-lifecycle.md)。
+Browser 由 APK 已知的 `:extensions:browser` 贡献 manifest、当前已注册的浏览器工具及网页任务 Skill（最初 HXA-276 为 12 项，后续增量见浏览器 ADR），App 注入已有 bridge/视觉服务。工具仅以该插件的 PluginOrigin 原子发布，直接删除旧 built-in 注册，不做来源或批准转换。Browser 在两个渠道的产品新会话默认集合中提供，用户选择仍按 第 2 节 独立保存；会话选择不拉起 WebView 或批准网站访问。Activity/WebView 与手动浏览的具体边界见 [ADR-PLATFORM-002](../platform/002-browser-lifecycle.md)。
 
 ### 11. 原生实例、共享资源与释放（HXA-277）
 
@@ -139,7 +139,7 @@ HXA-288 的结果及产物类型不建立第二资源状态机：复用已交付
 
 HXA-286 的贡献模型不要求所有组件都是 tool 或都创建 Runtime：Skill/Agent 定义、hooks/LSP 声明、资源与工具按实际类型诊断，安装/识别、宿主支持、会话选择和执行授权分别表达。不为未知组件合成占位工具，也不因能解析 manifest 就创建进程。未来已实现的组件经原来源身份接入，不靠插件名特判。
 
-插件可以贡献未来 Agent 定义，实际运行仍由宿主的同一引擎实现协调；这与禁止插件自建第二条 ModelClient/AgentLoop 治理路径一致。原生通知不是任意可执行 hook 接口，生命周期资源也不必仅属于一次调用。HXA-286/288 验证已有声明/引用与权限反例，脚本、子任务和语言服务器运行保持未启用。
+插件可以贡献未来 Agent 定义，实际运行仍由宿主的同一引擎实现协调；这与禁止插件自建第二条 ModelClient/AgentLoop 治理路径一致。原生通知不是任意可执行 hook 接口，生命周期资源也不必仅属于一次调用。HXA-286/288 验证已有声明/引用与权限反例，任意生命周期 hooks、子任务和语言服务器运行不因这些声明开放；已实现的受控 Skill 脚本执行沿 [Skill ADR](../skills/001-authoring-and-installation.md) 独立治理。
 
 依赖就绪、账号连接和调用授权也不得合为单个“已安装可用”布尔值。CLI/包内服务首先需要获准的目标环境、版本/ABI、解释器/动态库、来源与校验；导入/预览/readiness 不执行 setup 或安装依赖。凭据由既有宿主账号 owner 解析为该目标的受控能力，不进入模型上下文/包正文或因更新自动换绑；实际进程的同 UID 边界如实呈现。新组件运行按明确目标包另定任务，现有插件管理 UI、会话选择和事务归属保留。
 
@@ -171,7 +171,7 @@ HXA-274/275 验收部分可用、配置保存但未加载、过期投影、无 h
 
 HXA-274 同时覆盖无订阅与页面重建、重复读取不自动导航、旧恢复目标失效及取消不改变选择/配置；HXA-277 分别断言等待已结束但原 Job 运行、Turn 已结算但 executor 未退出、UI 销毁但其他消费者仍有引用时的容量与资源事实。用原执行 fixture 扩展断言，不重复 HXA-238/236/248 已有执行机制。
 
-确定性故障测试与 API29/36 × consumer/developer 的独占设备恢复验收互补；强杀必须发生在指定提交边界并观察新进程恢复，不以普通安装后重启替代。具体入口归对应 HXA；设备和真实账号在获得当轮授权后执行，文档检查通过不代表功能验收。
+确定性故障测试与 API29/36 × consumer/developer 的独占设备恢复验收互补；强杀必须发生在指定提交边界并观察新进程恢复，不以普通安装后重启替代。具体入口归对应 HXA；设备按[根 AGENTS.md](../../../AGENTS.md#verification-and-device-authorization)区分本地模拟器持续授权与真机当轮授权，真实账号/外部服务遵循其独立范围，文档检查通过不代表功能验收。
 
 ## Reconsider when
 
@@ -230,7 +230,7 @@ HXA-274 同时覆盖无订阅与页面重建、重复读取不自动导航、旧
 - `extensions/mobile-use` 合并原 tools/automation 的观察、节点、手势、校验及测试，以及原 app 中的自动化专属 Root/Shizuku 适配器；类归属 `com.helix.extensions.mobileuse`。独立服务进程、Binder caller 校验与原执行容量限制保持。
 - 宿主装配已授权的服务与插件；插件使用原 Dispatcher、ToolImagePublication、PluginTaskHost，不获得 DAO 或第二个 AgentLoop。操作范围仍是独立的全局插件配置与会话选择。
 - 停用插件撤销工具发布并在动作前拒绝旧会话执行，不撤销系统权限。新鲜观察按操作能力选择 Root → Shizuku → 无障碍；已有 token/frame 固定原后端，不因失败或 UNKNOWN 跨后端重放。
-- `ui.click_match` 移除模型手选 backend 的参数；动作成功显式返回 observationRequired 与下一步观察提示。工具描述、内置 skill 与实际输出共同约束观察有效期。
+- `ui_click_match` 移除模型手选 backend 的参数；动作成功显式返回 observationRequired 与下一步观察提示。工具描述、内置 skill 与实际输出共同约束观察有效期。
 
 本决定按所有者要求不提供旧模块/API 兼容桥；验证事实记录于 [五项优化证据](../../evidence/development/mobile-use-refactor-2026-10-05.md)。
 
@@ -342,3 +342,16 @@ hash 保留用于预览到安装的内容固定、整树校验和脚本执行绑
 参考 [Claude Code Plugins](https://code.claude.com/docs/en/plugins) 的插件封装和命名空间，以及 [Codex Skills](https://developers.openai.com/codex/skills/) 的按来源发现及同名技能身份边界。它们支持按安装来源管理的方向，但文档不能证明其底层是否进行字节去重。Helix 根据当前小规模内容和频繁更新场景选择少量重复存储，换取直接的归属、更新和卸载语义，不宣称复制其未公开实现。
 
 技能可读或被选择不等于工具依赖已就绪。compatibility/allowed-tools 仍是未验证声明，不按名称猜依赖、不自动开启插件；执行仍受当前工具、来源、策略及授权限制。卸载提示明确删除此插件的技能并保留其他安装，不再承诺保留全部快照。实现验收覆盖同内容不同 owner、独立安装并存、更新/取消/恢复、专家选择与历史身份，不以本文代替测试结果。
+
+
+## Decision history — 2026-11-15：插件名称本地化与跨语言发现
+
+Owner 要求中文“手机操作”可被模型识别为 Mobile Use，其他插件统一随界面语言显示。内置 Mobile Use、Browser、Documents、Chat Reply 的稳定 pluginId/runtimeId 不变；名称由同一随包中英文目录提供给插件管理、会话选择、输入摘要、搜索及模型目录。界面按当前语言选名称，无对应翻译回退英文；未知或导入插件保留作者原名，不按同名冒充内置插件、不擅自改写大小写。
+
+插件搜索和工具发现同时识别原名、稳定原生 ID、中英文显示名；只为已受信任的原生来源附加内置别名。模型 readiness/tool catalog 显式携带名称别名与原来源身份，未选择/禁用/请求不可用状态仍独立呈现。别名只是发现元数据，不注册新工具，不改变安装身份、会话选择、工具 schema 或授权，不按同名合并来源。第三方清单的任意文本仍是非可信数据，缺少作者本地化元数据不等于宿主有权机器翻译品牌。
+
+参考 [Claude Code manifest](https://code.claude.com/docs/en/plugins/manifest-reference#displayname) 的 name/displayName 分层、[VS Code AI tools](https://code.visualstudio.com/api/extension-guides/ai/tools) 的模型描述/展示名称分层以及 [MCP tools](https://modelcontextprotocol.io/specification/2025-11-25/server/tools) 的 name/title/description 分工。跨语言别名共用目录是 Helix 针对当前插件规模的实现选择，不宣称是这些产品通用标准或自动翻译能力。
+
+## Decision history — 2026-11-15：直接消费当前名称和身份
+
+Owner 再次明确不兼容旧内部版本。移除旧带版本来源键的启动转换和 MCP 无当前写入者的独立 refresh alias 清理；OAuth 当前绑定记录、access-token 投影、刷新单飞、撤销和迟到回调边界保持。插件会话行只携带一个必填 `PluginName`，readiness 同样要求明确名称，避免重复 String 或默认 ID 掩盖漏传的本地化信息。文档插件准备提示按可信原生安装身份与当前选择/就绪状态判定，不因第三方同名或语言变化而隐藏选择入口。名称 aliases 继续作为当前跨语言发现数据，不是旧工具入口或兼容转发。浏览器观察、动作遍历和同步目标复核共用固定节点分类，不合并各自的遍历终止语义、不削弱动态目标与敏感字段拒绝。

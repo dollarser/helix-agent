@@ -562,7 +562,7 @@ class LongTurnCompactionDeviceTest {
             val schema =
                 com.helix.core.model.ModelToolSchema(
                     com.helix.core.model
-                        .ToolName("time.now"),
+                        .ToolName("time_now"),
                     "Synthetic schema cost",
                     """{"type":"object","description":"${"x".repeat(52000)}"}""",
                 )
@@ -583,7 +583,7 @@ class LongTurnCompactionDeviceTest {
                     current.id,
                     "TOOL",
                     ChatHistoryBuilder.KIND_TOOL_RESULT,
-                    """{"id":"call-$step","tool":"time.now","status":"COMPLETED","summary":"short settled result"}""",
+                    """{"id":"call-$step","tool":"time_now","status":"COMPLETED","summary":"short settled result"}""",
                 )
             }
         }
@@ -607,7 +607,7 @@ class LongTurnCompactionDeviceTest {
             turn,
             "ASSISTANT",
             ChatHistoryBuilder.KIND_TOOL_CALLS,
-            """[{"id":"call-$index","name":"time.now","arguments":"{}"}]""",
+            """[{"id":"call-$index","name":"time_now","arguments":"{}"}]""",
         )
     }
 
@@ -618,7 +618,7 @@ class LongTurnCompactionDeviceTest {
     ) {
         calls(storage, turn, index)
         val content =
-            """{"id":"call-$index","tool":"time.now","status":"COMPLETED","summary":"""" +
+            """{"id":"call-$index","tool":"time_now","status":"COMPLETED","summary":"""" +
                 "verified log ".repeat(400) + "\"}"
         storage.messages.append(next(), "s", turn, "TOOL", ChatHistoryBuilder.KIND_TOOL_RESULT, content)
     }

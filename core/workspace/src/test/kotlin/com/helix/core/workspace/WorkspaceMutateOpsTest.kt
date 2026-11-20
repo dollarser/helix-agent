@@ -15,8 +15,8 @@ import java.security.MessageDigest
 import java.util.Arrays
 
 /**
- * HXA-043: the copy / move / trash store seams behind `files.copy` / `files.move` /
- * `files.delete` — explicit conflict policy (an existing destination, file OR directory, is
+ * HXA-043: the copy / move / trash store seams behind `files_copy` / `files_move` /
+ * `files_delete` — explicit conflict policy (an existing destination, file OR directory, is
  * refused without an explicit overwrite; an overwrite into a directory is always refused),
  * cross-scope operations (destination-scope quota gated; a cross-scope move never loses its
  * source), and the trash: delete is a rename into `.helix/trash/` with a reversible entry name,
@@ -25,6 +25,22 @@ import java.util.Arrays
  * All cases run against JVM temp dirs (verification matrix HXA-043 device: 无).
  */
 class WorkspaceMutateOpsTest {
+    @Test
+    fun attachmentRetirementKeepsLongUnicodeNamesRecoverable() {
+        val root = freshScope("attachment-retirement")
+        val path = ref("input/attachments/att_${"a".repeat(32)}/${"文".repeat(60)}.txt", "app")
+        val file = write(root, path.relativePath, "retained bytes")
+        val files = store(root)
+        val entry = files.retireAttachmentSnapshot(path)
+        assertFalse(Files.exists(file))
+        assertTrue(entry.trashName.toByteArray().size < 255)
+        files.restoreFromTrash(ref(".helix/trash/${entry.trashName}", "app"))
+        assertEquals("retained bytes", Files.readString(file))
+        write(root, path.parent.relativePath + "/other.txt", "another file")
+        assertThrows(java.io.IOException::class.java) { files.retireAttachmentSnapshot(path) }
+        assertTrue(Files.exists(file))
+    }
+
     @get:Rule
     val tmp = TemporaryFolder()
 

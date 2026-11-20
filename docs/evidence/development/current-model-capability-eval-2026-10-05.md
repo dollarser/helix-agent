@@ -74,9 +74,9 @@
 
 ## 验证与复现
 
-入口：`CurrentModelCapabilityDeviceTest#solveOwnedTask`。必须明确 `helixRealModel=true`、本地 Provider ID、模型、trial 和 case；默认不会调用真实服务。主机驱动为 `scripts/debug/2026-10-05/run-capability-eval.py`，Provider/模型由 `HELIX_EVAL_PROVIDER` / `HELIX_EVAL_MODEL` 输入，不保存凭据；真实服务仍须每个任务的当前所有者授权。
+入口：`CurrentModelCapabilityDeviceTest#solveOwnedTask`。必须明确 `helixRealModel=true`、本地 Provider ID、模型、trial 和 case；默认不会调用真实服务。主机驱动为 `scripts/debug/2026-10-05/run-capability-eval.py`，Provider/模型由 `HELIX_EVAL_PROVIDER` / `HELIX_EVAL_MODEL` 输入，不保存凭据；复跑权限以当前 [AGENTS](../../../AGENTS.md#verification-and-device-authorization) 为准：项目模拟器和已配置模型开发测试遵循已有授权范围，真机及范围外外部服务另行明确授权。
 
-后续审查已加固该驱动：还需 `--allow-real-model`，默认五项含 keyboard；拒绝复用 trial 和未知/重复 case。使用共用 instrumentation 解析器核对唯一指定测试通过，再校验本次 JSON 身份、COMPLETED 和独立评分；失败非零退出。超时先停止被测进程，避免后台模型任务继续运行；缺失统计字段保留 null。只有再次获得当次设备/额度授权后才执行，例如：
+后续审查已加固该驱动：还需 `--allow-real-model`，默认五项含 keyboard；拒绝复用 trial 和未知/重复 case。使用共用 instrumentation 解析器核对唯一指定测试通过，再校验本次 JSON 身份、COMPLETED 和独立评分；失败非零退出。超时先停止被测进程，避免后台模型任务继续运行；缺失统计字段保留 null。确认目标、配置和权限落在当前授权范围内后才能复跑；以下保留原入口示例，不授权复用历史 serial 或扩展服务范围：
 
 ```text
 HELIX_EVAL_PROVIDER='<local-provider-id>' HELIX_EVAL_MODEL='<model-name>' \

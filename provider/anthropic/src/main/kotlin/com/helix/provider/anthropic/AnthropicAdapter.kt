@@ -1,6 +1,8 @@
 package com.helix.provider.anthropic
 
 import com.helix.core.model.ModelEvent
+import com.helix.core.model.ModelRequest
+import com.helix.provider.api.ProviderToolNames
 
 /**
  * Anthropic Messages protocol adapter (HXA-024).
@@ -26,5 +28,6 @@ public class AnthropicAdapter(
     public val requestBodyEncoder: AnthropicRequestEncoder =
         AnthropicRequestEncoder(imageResolver)
 
-    public fun newDecoder(): AnthropicStreamDecoder = AnthropicStreamDecoder()
+    public fun newDecoder(request: ModelRequest): AnthropicStreamDecoder =
+        AnthropicStreamDecoder(ProviderToolNames(request)::decode)
 }

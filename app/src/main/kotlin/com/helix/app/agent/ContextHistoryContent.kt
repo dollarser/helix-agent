@@ -73,7 +73,7 @@ internal object ContextHistoryContent {
             )
             appendLine("Revision: ${manifest.revision}")
             appendLine(
-                "No transcript is included. Use session.history/search/read with referenceMessageId=$messageId " +
+                "No transcript is included. Use session_history/search/read with referenceMessageId=$messageId " +
                     "and referenceHash=${reference.contentSha256} to retrieve evidence before answering. " +
                     "Only this revision explicitly shared with this conversation is readable; " +
                     "changed or unavailable sources require reselection.",

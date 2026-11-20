@@ -44,7 +44,7 @@ class ExecutionOwnershipDeviceTest {
                     toolCallId = "$session-independent",
                     turnId = turn,
                     sessionId = session,
-                    toolName = ToolName("time.now"),
+                    toolName = ToolName("time_now"),
                     toolVersion = ToolVersion(1),
                     args = buildJsonObject {},
                     mode = AgentMode.ACT,

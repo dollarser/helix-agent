@@ -22,7 +22,7 @@ internal object AppWorkspaceTools {
         workspaceStore: WorkspaceArtifactStore,
         artifactSink: WorkspaceArtifactStore.ArtifactSink? = null,
     ) {
-        // HXA-042: the first non-time.now business tools enter the production tool table. The
+        // HXA-042: the first non-time_now business tools enter the production tool table. The
         // contractHash gate (ContractHashGateTest / ADR-0011) is the mechanical proof that a
         // security-descriptor change invalidates any approval minted for the old contract.
         // Only the IMPLEMENTATIONS take [artifactSink] — the descriptors (and their contract

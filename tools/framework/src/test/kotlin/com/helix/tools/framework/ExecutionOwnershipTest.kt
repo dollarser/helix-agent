@@ -355,7 +355,7 @@ class ExecutionOwnershipTest {
         assertEquals(owner, gate.retainedOwners().singleOrNull())
         requireNotNull(gate.acquire("ordinary-write")).close()
         assertTrue(
-            gate.guard(implementation).execute(bound.copy(toolName = "goal.report")) is ToolExecutorResult.Completed,
+            gate.guard(implementation).execute(bound.copy(toolName = "goal_report")) is ToolExecutorResult.Completed,
         )
     }
 

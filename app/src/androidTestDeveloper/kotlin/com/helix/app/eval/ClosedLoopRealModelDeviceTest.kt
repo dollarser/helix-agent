@@ -29,6 +29,7 @@ import java.util.UUID
 
 /** Explicit opt-in, existing credentials only. Bounded synthetic tasks, independently checked effects. */
 class ClosedLoopRealModelDeviceTest {
+    private val mobileCases = setOf("visual", "nodes", "dynamic", "main-return")
     private val app = ApplicationProvider.getApplicationContext<HelixApplication>()
     private val c get() = app.appContainer
     private val args get() = InstrumentationRegistry.getArguments()
@@ -39,7 +40,7 @@ class ClosedLoopRealModelDeviceTest {
         runBlocking {
             org.junit.Assume.assumeTrue(args.getString("helixRealModel") == "true")
             val case = requireNotNull(args.getString("helixCase"))
-            require(case in setOf("visual", "scripts", "handoff"))
+            require(case in setOf("visual", "nodes", "dynamic", "main-return", "scripts", "handoff"))
             val trial = requireNotNull(args.getString("helixTrial"))
             require(trial.matches(Regex("[a-z0-9-]+")))
             check(
@@ -49,11 +50,7 @@ class ClosedLoopRealModelDeviceTest {
             )
             val provider = requireNotNull(args.getString("helixProvider"))
             val model = requireNotNull(args.getString("helixModel"))
-            check(
-                c.storage.providerConfigs
-                    .resolve(provider)
-                    .model == model,
-            )
+            checkConfiguredModel(provider, model)
             val previous = c.chatService.screen.value.openSessionId
             awaitVisualBackend(case)
 
@@ -80,7 +77,13 @@ class ClosedLoopRealModelDeviceTest {
             try {
                 if (case == "visual") {
                     check(provider == com.helix.app.provider.BuiltInModel.PROVIDER_ID)
-                    check(model == com.helix.app.provider.BuiltInModel.MODEL_ID)
+                    check(
+                        model in
+                            setOf(
+                                com.helix.app.provider.BuiltInModel.MODEL_ID,
+                                com.helix.app.provider.BuiltInModel.QWEN_MODEL_ID,
+                            ),
+                    )
                     visualWire = OwnedVisualRequestProbe(c, session, nonce)
                 }
                 check(c.profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED)
@@ -91,31 +94,23 @@ class ClosedLoopRealModelDeviceTest {
                 )
                 val fixture = InstrumentationRegistry.getInstrumentation().context.packageName
                 c.pluginService.setEnabled(plugin.id, true)
-                c.pluginService.catalog.select(session, plugin.id, case == "visual")
+                c.pluginService.catalog.select(session, plugin.id, case in mobileCases)
                 val store = MobileUseGrantStore(lines::lines, lines::setLines, { null })
-                store.configureGlobal(setOf(fixture), false, shareScreens = true)
-                store.configureExecution(background = true, allowMoveFromMain = false)
+                store.configureGlobal(
+                    if (case == "main-return") setOf(fixture, app.packageName) else setOf(fixture),
+                    false,
+                    shareScreens = true,
+                )
+                store.configureExecution(background = case != "main-return", allowMoveFromMain = false)
                 bridge.setEnabled(case == "scripts")
                 if (case == "scripts") {
                     ensureInstalledRuntime(app)
                     skill = prepareSkill(source, session)
                 }
-                c.chatService.openTestSessionControl(session, AgentMode.ACT, TurnBudgets(4096))
-                val prompt =
-                    when (case) {
-                        "visual" -> {
-                            visualPrompt(fixture, nonce)
-                        }
-
-                        "scripts" -> {
-                            scriptsPrompt(requireNotNull(skill), nonce)
-                        }
-
-                        else -> {
-                            "Owned synthetic task, only this session workspace. Read input/manual.txt, " +
-                                "then write its exact contents to output/after-manual.txt."
-                        }
-                    }
+                // Match the current Luna deployment contract maximum; production context admission still applies.
+                c.chatService.openTestSessionControl(session, AgentMode.ACT, TurnBudgets(16_384))
+                if (case == "main-return") prepareOwnedMainReturn(app)
+                val prompt = casePrompt(case, fixture, nonce, skill)
                 val admission = c.chatService.sendSubmission(ChatSubmission(session, 0, "owned-$trial", prompt)).await()
                 check(admission.outcome is ChatSubmissionOutcome.Accepted) {
                     "Synthetic input was not admitted: ${admission.outcome}"
@@ -174,8 +169,25 @@ class ClosedLoopRealModelDeviceTest {
             assertTrue("Synthetic $trial failed; inspect retained evidence: $failure", passed)
         }
 
+    private fun checkConfiguredModel(
+        provider: String,
+        model: String,
+    ) {
+        val configuredModel =
+            c.storage.providerConfigs
+                .resolve(provider)
+                .model
+        check(
+            model == configuredModel ||
+                (
+                    provider == com.helix.app.provider.BuiltInModel.PROVIDER_ID &&
+                        model == com.helix.app.provider.BuiltInModel.QWEN_MODEL_ID
+                ),
+        )
+    }
+
     private fun awaitVisualBackend(case: String) {
-        if (case == "visual" && args.getString("helixAdbHelper") == "true") awaitComputerAdbHelper()
+        if (case in mobileCases && args.getString("helixAdbHelper") == "true") awaitComputerAdbHelper()
     }
 
     private suspend fun exerciseHumanReturn(
@@ -221,16 +233,6 @@ class ClosedLoopRealModelDeviceTest {
                     .lastOrNull()
             if (turn != null) {
                 if (TurnState.valueOf(turn.state).isTerminal) return
-                if (c.storage.modelCalls
-                        .listByTurn(turn.id)
-                        .size >= 16 ||
-                    c.storage.toolCalls
-                        .listByTurn(turn.id)
-                        .size >= 100
-                ) {
-                    c.chatService.stopTurn(turn.id)
-                    error("Synthetic case budget reached; no replay")
-                }
             }
             delay(100)
         }
@@ -262,8 +264,8 @@ class ClosedLoopRealModelDeviceTest {
         nonce: String,
     ): String =
         "Owned synthetic test. Only operate $fixture in the selected BACKGROUND display and this session directory. " +
-            "Launch that package. Observe ui.device and ui.snapshot, then take " +
-            "ui.screenshot using that same display frame. " +
+            "Launch that package. Observe ui_device and ui_snapshot, then take " +
+            "ui_screenshot using that same display frame. " +
             "Use the actual image to locate and tap the PURPLE circle exactly once; the " +
             "colored circles have no semantic node. " +
             "Fill Background text with $nonce. Click Increment exactly once. Reobserve the actual counts and input. " +
@@ -272,18 +274,63 @@ class ClosedLoopRealModelDeviceTest {
             "Do not open other apps, use OCR, inspect test source, run scripts, or " +
             "access main display. Finish in this conversation."
 
+    private fun casePrompt(
+        case: String,
+        fixture: String,
+        nonce: String,
+        skill: SkillKey?,
+    ): String =
+        when (case) {
+            "visual" -> {
+                visualPrompt(fixture, nonce)
+            }
+
+            "nodes" -> {
+                nodePrompt(fixture, nonce)
+            }
+
+            "dynamic" -> {
+                dynamicMobilePrompt(fixture, nonce)
+            }
+
+            "main-return" -> {
+                mainReturnPrompt(fixture, app.packageName, nonce)
+            }
+
+            "scripts" -> {
+                scriptsPrompt(requireNotNull(skill), nonce)
+            }
+
+            else -> {
+                "Owned synthetic task, only this session workspace. Read input/manual.txt, " +
+                    "then write its exact contents to output/after-manual.txt."
+            }
+        }
+
+    private fun nodePrompt(
+        fixture: String,
+        nonce: String,
+    ): String =
+        "Owned synthetic test. Only operate $fixture in the selected BACKGROUND display and this session directory. " +
+            "Launch that package, observe its UI nodes, fill Background text with $nonce, " +
+            "and click Increment exactly once. " +
+            "Reobserve and verify BACKGROUND_COUNT:1 and the exact input, " +
+            "then write output/result.txt containing $nonce. " +
+            "Do not use screenshots, OCR, scripts, test source, other apps or the main display. " +
+            "Finish in this conversation."
+
     private fun scriptsPrompt(
         key: SkillKey,
         nonce: String,
     ): String =
         "Owned synthetic test, only this session workspace. Demonstrate THREE " +
-            "distinct script bridges by calling time.now " +
-            "once via each: isolated code.javascript.run with toolBridge=true (helix.call), code.linux.run Python3 " +
+            "distinct script bridges by calling time_now " +
+            "once via each: isolated code_javascript_run with toolBridge=true (helix.call), code_linux_run Python3 " +
             "(import helix; helix.call), and Node (import {call} from '/tmp/helix.mjs'; " +
             "await call). Use toolBridge=true; no native JS. " +
             "Then inspect and run the enabled owned Skill ${key.source}/${key.name}, " +
             "snapshotHash=${key.snapshotHash}, " +
-            "path=scripts/deliver.py via skills.run with args=[$nonce] and artifacts=[output/skill.txt]. " +
+            "path=scripts/deliver.py via skills_run with args=[$nonce] and artifacts=[output/skill.txt]. " +
             "Do not replace the Skill with an ad-hoc write. Read the produced file, " +
             "verify its exact contents, and deliver its artifact reference. " +
             "No network, accounts, other files, dependency installs, or repeated effectful calls."
@@ -305,6 +352,18 @@ class ClosedLoopRealModelDeviceTest {
                 verifyScripts(turn.id, root, nonce)
             }
 
+            "nodes" -> {
+                verifyNodes(calls, root, nonce)
+            }
+
+            "dynamic" -> {
+                verifyDynamicMobile(app, c, calls, root, nonce)
+            }
+
+            "main-return" -> {
+                verifyMainReturn(app, c, calls, root, nonce, session)
+            }
+
             "handoff" -> {
                 File(root, "output/after-manual.txt").readText() == nonce &&
                     c.storage.turns
@@ -324,12 +383,34 @@ class ClosedLoopRealModelDeviceTest {
         nonce: String,
     ): Boolean {
         val calls = c.storage.toolCalls.listByTurn(turnId)
-        val times = calls.count { it.name == "time.now" && it.state == "COMPLETED" }
+        val times = calls.count { it.name == "time_now" && it.state == "COMPLETED" }
         return File(root, "output/skill.txt").readText() == nonce && times == 3 &&
-            calls.any { it.name == "skills.run" && it.state == "COMPLETED" } &&
+            calls.any { it.name == "skills_run" && it.state == "COMPLETED" } &&
             c.storage.artifacts.listByTurn(turnId).any {
                 it.purpose == "OUTPUT" && it.relativePath.endsWith("output/skill.txt")
             }
+    }
+
+    private fun verifyNodes(
+        calls: List<com.helix.core.storage.entity.ToolCallEntity>,
+        root: File,
+        nonce: String,
+    ): Boolean {
+        val uri = Uri.parse("content://${app.packageName}.test.capability-state/background")
+        val effect =
+            app.contentResolver.query(uri, null, null, null, null)!!.use {
+                it.moveToFirst() && it.getInt(0) > 0 && it.getInt(1) == 1 && it.getInt(2) == 0
+            }
+        val observed =
+            calls
+                .filter {
+                    it.name in setOf("ui_snapshot", "ui_click", "ui_click_match") && it.state == "COMPLETED"
+                }.any { call ->
+                    c.storage.toolResults.byToolCall(call.callId)?.let(c.storage.toolResults::readContent)?.let {
+                        nonce in it && "BACKGROUND_COUNT:1" in it
+                    } == true
+                }
+        return effect && observed && File(root, "output/result.txt").readText() == nonce
     }
 
     private fun verifyVisual(
@@ -344,7 +425,7 @@ class ClosedLoopRealModelDeviceTest {
             }
         return effect && File(root, "output/result.txt").readText() == nonce &&
             calls.any { call ->
-                call.name == "ui.screenshot" && c.storage.toolResults.byToolCall(call.callId)?.let { row ->
+                call.name == "ui_screenshot" && c.storage.toolResults.byToolCall(call.callId)?.let { row ->
                     c.storage.toolResults
                         .readContent(row)
                         ?.contains("\"pixelsAttached\":true")

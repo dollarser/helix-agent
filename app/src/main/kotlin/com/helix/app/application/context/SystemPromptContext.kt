@@ -129,9 +129,9 @@ internal class SystemPromptContext(
             val scope = if (project == null) "global" else "project"
             val resourceOwner = project?.key?.value?.let { "memory:project:$it" } ?: "memory:global"
             val readReference =
-                if ("memory.read" in toolNames) {
+                if ("memory_read" in toolNames) {
                     com.helix.core.agent.PromptContentReadReference(
-                        "memory.read",
+                        "memory_read",
                         kotlinx.serialization.json
                             .buildJsonObject {
                                 put("scope", kotlinx.serialization.json.JsonPrimitive(scope))
@@ -166,6 +166,6 @@ internal class SystemPromptContext(
     }
 
     private companion object {
-        val FILE_TOOL_NAMES = setOf("read", "view_image", "write", "edit", "files.list", "files.stat", "glob", "grep")
+        val FILE_TOOL_NAMES = setOf("read", "view_image", "write", "edit", "files_list", "files_stat", "glob", "grep")
     }
 }

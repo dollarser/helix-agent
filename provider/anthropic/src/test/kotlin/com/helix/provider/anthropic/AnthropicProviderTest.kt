@@ -26,6 +26,47 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AnthropicProviderTest {
+    @Test
+    fun productionProviderBindsReturnedNamesToTheCurrentRequest() =
+        runBlocking {
+            val request =
+                userRequest().copy(
+                    tools =
+                        listOf(
+                            com.helix.core.model.ModelToolSchema(
+                                com.helix.core.model
+                                    .ToolName("tools_search"),
+                                "search",
+                                """{"type":"object"}""",
+                            ),
+                        ),
+                )
+            val alias =
+                com.helix.provider.api
+                    .ProviderToolNames(request)
+                    .encode("tools_search")
+            val delta = """{"type":"message_delta","delta":{"stop_reason":"tool_use"},"usage":{}}"""
+            for (name in listOf(alias, "tools.search", "unavailable")) {
+                val stream =
+                    sse(
+                        "content_block_start",
+                        """{"type":"content_block_start","index":0,""" +
+                            """"content_block":{"type":"tool_use","id":"c1","name":"$name","input":{}}}""",
+                    ) +
+                        sse("content_block_stop", """{"type":"content_block_stop","index":0}""") +
+                        sse("message_delta", delta)
+                val wire = FakeWire(WireResponse(200, emptyMap(), FakeBody(stream.toByteArray())))
+                val events = provider(wire).stream(request).toList()
+                if (name == alias) {
+                    assertEquals("tools_search", events.filterIsInstance<ModelEvent.ToolCallStarted>().single().name)
+                    assertTrue(events.last() is ModelEvent.Completed)
+                } else {
+                    assertTrue(events.none { it is ModelEvent.ToolCallStarted })
+                    assertEquals(ModelErrorCode.PROTOCOL, events.filterIsInstance<ModelEvent.Error>().single().code)
+                }
+            }
+        }
+
     private class FakeBody(
         bytes: ByteArray,
     ) : WireBody {

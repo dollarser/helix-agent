@@ -7,7 +7,7 @@ Affected modules: app
 
 ## Problem
 
-`code.linux.job.start` 的 schema 版本为 1，审批卡却用工具版本是否至少为 2 判断 PRoot 联网能力，导致 script/argv 两种卡片错误显示离线。
+`code_linux_job_start` 的 schema 版本为 1，审批卡却用工具版本是否至少为 2 判断 PRoot 联网能力，导致 script/argv 两种卡片错误显示离线。
 
 ## Impact
 

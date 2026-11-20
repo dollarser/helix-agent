@@ -13,7 +13,7 @@ Affected modules: `core:workspace`, `app`
    手动 adb 复现（装 consumer debug APK → 进入文件页）看到页面直接显示错误文本
    `No interface method toList()Ljava/util/List; in class java.util.stream.BaseStream…`
    —— `WorkspaceArtifactStore.listDir` 调用的 `Stream.toList()` 是 Java 16 的接口默认方法，
-   Android 平台 API 31 起才有，API 29 上运行时 `NoSuchMethodError`，被 UI 的
+   本轮 API 29 平台缺少该方法，运行时 `NoSuchMethodError` 被 UI 的
    `runCatching` 捕获后渲染为错误态（所以不崩、logcat 无 crash，只有 30 秒静默）。
 2. 修复第 1 处后，同 6 例中 4 例（凡是打开文件预览的）又暴露同类缺陷：
    `java.lang.NoSuchMethodError: No virtual method skipNBytes(J)V in class
@@ -30,7 +30,7 @@ Affected modules: `core:workspace`, `app`
 
 任何真实的 Android 10（API 29）用户：文件管理页（HXA-046）无法列出 Workspace 任何
 目录；`read` 工具与文本预览对任何文件都失败（`ReadWindow` 是 `read` 的唯一读路径）。
-文件工具区（`files.list`/`read`/预览）在该 API 等级上整体不可用。是生产能力缺失，
+文件工具区（`files_list`/`read`/预览）在该 API 等级上整体不可用。是生产能力缺失，
 不是测试问题。
 
 ## Root cause
@@ -62,11 +62,11 @@ Affected modules: `core:workspace`, `app`
   `waitUntil` 条件即满足即返回，零成本；只覆盖 API 29 镜像冷启动 + 首帧）。
 - **长期不变式**：凡在设备上运行的模块（全部 `jvmLibraries` 与 Android 模块），
   生产代码不得调用 API 29 平台缺失的 `java.*` 标准库方法。已知缺失/需逐一核实的
-  包括：`Stream.toList`（API 31+）、`InputStream.skipNBytes`/`readNBytes`、
-  `OutputStream.writeNBytes`/`flushNBytes`（API 29 平台缺失，设备/javap 实测）、
+  包括：`Stream.toList`、`InputStream.skipNBytes`/`readNBytes`、
   `List.of`/`Map.of`/`Set.of`/`Map.entry`/`Collectors.toUnmodifiable*`/
   `Objects.requireNonNullElse`（API 30+）、`Files.mismatch`（API 31+）。
-  使用任何 Java 9+ 新增的 `java.*` 方法前必须核对其 Android API level。
+  使用任何 Java 9+ 新增的 `java.*` 方法前必须核对其 Android API level。原清单误列的
+  `OutputStream.writeNBytes`/`flushNBytes` 并非 Java 标准库 API，不能作为设备缺失方法的实测证据。
 - 本次已对全部生产源码 grep 审计上述清单：除已修两处外无其他命中；
   `feature:files-allfiles` 的 `Path.of` 属 Android 模块，由 lint NewApi（minSdk 29）
   持续覆盖且历次门禁全绿，判定安全，不改。

@@ -24,6 +24,20 @@ class AtomicToolBindingTest {
         revision: String = "implementation-1",
     ) = ToolBinding(TimeNowTool.descriptor().copy(name = ToolName(name)), executor(), revision)
 
+    @Test fun obsoleteNamesCannotResolveOrAdmitTheCurrentBinding() {
+        val registry = ToolRegistry()
+        val current = registry.registerBatch(listOf(binding("goal_create"))).single()
+        val obsolete = current.ref.copy(name = ToolName("create_goal"))
+        assertNull(registry.resolveBinding(obsolete))
+        assertThrows(IllegalArgumentException::class.java) {
+            registry.resolveBinding(obsolete.name, obsolete.version)
+        }
+        var entered = false
+        assertNull(registry.admit(obsolete) { entered = true })
+        assertFalse(entered)
+        assertSame(current, registry.resolveBinding(current.ref))
+    }
+
     @Test fun replacementAndRemovalRejectOldRefsWhileUnrelatedPublishPreservesThem() {
         val registry = ToolRegistry()
         val first = binding("first")
@@ -163,7 +177,7 @@ class AtomicToolBindingTest {
             }
         }
         assertEquals(before, registry.snapshot())
-        registry.registerBatch(listOf(binding("after-failure")))
+        registry.registerBatch(listOf(binding("after_failure")))
         assertEquals(2, registry.snapshot().size)
     }
 

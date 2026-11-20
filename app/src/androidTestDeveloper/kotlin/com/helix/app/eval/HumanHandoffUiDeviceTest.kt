@@ -70,7 +70,7 @@ class HumanHandoffUiDeviceTest {
             id,
             id,
             id,
-            "ui.snapshot",
+            "ui_snapshot",
             "1",
             "{}",
             com.helix.core.model.ToolCallState.COMPLETED.name,
@@ -79,7 +79,7 @@ class HumanHandoffUiDeviceTest {
         compose.waitUntil(10_000) {
             val screen = c.chatService.screen.value
             screen.openSessionId == id && screen.activeTurn?.state == TurnState.RECEIVING_MODEL &&
-                screen.toolTimeline.any { it.turnId == id && it.toolName == "ui.snapshot" }
+                screen.toolTimeline.any { it.turnId == id && it.toolName == "ui_snapshot" }
         }
         compose.runOnIdle {
             turn = id

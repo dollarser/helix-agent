@@ -64,7 +64,7 @@ class MemoryProcessRecoveryDeviceTest {
                 FileScopePath.fromModelReference(
                     requireNotNull(storage.sessions.resolve(SESSION).directoryRef),
                 )
-            val request = SystemPromptRequest(SESSION, null, directory, AgentMode.ACT, setOf("memory.read"))
+            val request = SystemPromptRequest(SESSION, null, directory, AgentMode.ACT, setOf("memory_read"))
             val facts = StoredSystemPromptFactsProvider(storage, { "" }, memory).collect(request)
             val prompt = SystemPromptContext(packagedPromptTemplates).build(request, facts)
             assertTrue(prompt.content.contains(FIXTURE))

@@ -49,9 +49,9 @@ class PromptContentContributionsTest {
         val contribution = PluginContentContribution.SkillCatalog(key, "description", owner)
         val absent = resolve(listOf(contribution), emptySet()).single()
         assertNull(absent.readReference)
-        val admitted = resolve(listOf(contribution), setOf("skills.read")).single()
+        val admitted = resolve(listOf(contribution), setOf("skills_read")).single()
         assertEquals(PromptContentRetention.OPTIONAL, admitted.retention)
-        assertEquals("skills.read", admitted.readReference!!.tool)
+        assertEquals("skills_read", admitted.readReference!!.tool)
         assertTrue(admitted.readReference!!.argumentsJson.contains(key.snapshotHash))
         assertEquals(absent.contentHash, admitted.contentHash)
     }
@@ -65,8 +65,8 @@ class PromptContentContributionsTest {
                 .also { registry ->
                     PromptContentContributions.sections(emptyList(), catalog, null, tools).forEach(registry::register)
                 }.assemble()
-        assertFalse(content(emptySet()).contains("tools.search"))
-        assertTrue(content(setOf("tools.search")).contains("Use tools.search for callable schemas"))
+        assertFalse(content(emptySet()).contains("tools_search"))
+        assertTrue(content(setOf("tools_search")).contains("Use tools_search for callable schemas"))
         assertTrue(content(emptySet()).contains("omitted 2 rows"))
     }
 
@@ -78,7 +78,7 @@ class PromptContentContributionsTest {
                 PluginContentContribution.SkillCatalog(key, "shared description", owner),
                 PluginContentContribution.SkillCatalog(key, "shared description", second),
             )
-        val section = resolve(items, setOf("skills.read")).single()
+        val section = resolve(items, setOf("skills_read")).single()
         assertEquals(listOf("plugin-a", "plugin-b"), section.identity!!.owners.map { it.id })
         assertEquals(listOf(7L, 8L), section.identity!!.owners.map { it.revision })
         assertEquals(key.snapshotHash, section.identity!!.revision)
@@ -104,7 +104,7 @@ class PromptContentContributionsTest {
                     PluginContentContribution.SkillCatalog(first, "Same instructions"),
                     PluginContentContribution.SkillCatalog(second, "Same instructions"),
                 ),
-                setOf("skills.read"),
+                setOf("skills_read"),
             )
         assertEquals(2, sections.size)
         assertEquals(2, sections.map { it.readReference!!.argumentsJson }.distinct().size)
@@ -119,12 +119,41 @@ class PromptContentContributionsTest {
                     (0..7).map { ToolSourceCatalogEntry("source-$it", listOf("category-$it"), "revision-$it") },
                     omitted,
                 )
-            val sections = PromptContentContributions.sections(emptyList(), catalog, null, setOf("tools.search"))
+            val sections = PromptContentContributions.sections(emptyList(), catalog, null, setOf("tools_search"))
             val content = PromptRegistry().also { registry -> sections.forEach(registry::register) }.assemble()
-            assertEquals(1, Regex("Use tools.search for callable schemas").findAll(content).count())
+            assertEquals(1, Regex("Use tools_search for callable schemas").findAll(content).count())
             catalog.entries.forEach { entry -> assertTrue(content.contains(entry.source)) }
             assertTrue(sections.all { it.trust == TrustLevel.UNTRUSTED })
         }
+    }
+
+    @Test fun modelPromptContainsBothPluginNamesWithoutChangingSelectionOrTrust() {
+        val names = listOf("mobile-use", "browser", "documents", "chat-reply")
+        val snapshots =
+            names.map { id ->
+                com.helix.app.plugin.PluginReadinessSnapshot(
+                    "bundled-plugin:$id",
+                    1,
+                    false,
+                    true,
+                    emptyList(),
+                    emptyList(),
+                    com.helix.app.plugin
+                        .PluginName(id, id),
+                )
+            }
+        val readiness =
+            com.helix.app.plugin
+                .pluginReadinessContext(snapshots, snapshots.size, true)
+        val sections = PromptContentContributions.sections(emptyList(), null, readiness, emptySet())
+        val content = PromptRegistry().also { registry -> sections.forEach(registry::register) }.assemble()
+        for (snapshot in snapshots) {
+            assertTrue(content.contains(snapshot.pluginId))
+            snapshot.name.aliases.forEach { assertTrue(content.contains(it)) }
+        }
+        assertTrue(content.contains("\"selected\":false"))
+        assertTrue(content.contains("do not select, enable or authorize"))
+        assertTrue(sections.all { it.trust == TrustLevel.UNTRUSTED })
     }
 
     private fun resolve(

@@ -86,13 +86,13 @@ class PrivilegedNavigationDeviceTest {
                 assertTrue("$name: $result", result is ToolDispatchOutcome.Succeeded)
                 return Json.parseToJsonElement((result as ToolDispatchOutcome.Succeeded).result.payload).jsonObject
             }
-            execute("ui.launch", """{"packageName":"${app.packageName}"}""")
+            execute("ui_launch", """{"packageName":"${app.packageName}"}""")
             SystemClock.sleep(800)
-            execute("ui.home")
+            execute("ui_home")
             SystemClock.sleep(800)
-            execute("ui.system", """{"action":"recents"}""")
+            execute("ui_system", """{"action":"recents"}""")
             SystemClock.sleep(800)
-            execute("ui.back")
+            execute("ui_back")
             app.startActivity(
                 Intent()
                     .setComponent(
@@ -106,20 +106,20 @@ class PrivilegedNavigationDeviceTest {
                     ).putExtra("notificationPrompt", true),
             )
             SystemClock.sleep(1200)
-            val snapshot = execute("ui.snapshot")
+            val snapshot = execute("ui_snapshot")
             assertEquals("shizuku", snapshot.getValue("backend").jsonPrimitive.content)
             val deny =
                 snapshot.getValue("nodes").jsonArray.map { it.jsonObject }.single {
                     it["viewId"]?.jsonPrimitive?.content?.endsWith(":id/permission_deny_button") == true
                 }
-            execute("ui.click", """{"token":"${deny.getValue("token").jsonPrimitive.content}"}""")
+            execute("ui_click", """{"token":"${deny.getValue("token").jsonPrimitive.content}"}""")
             SystemClock.sleep(400)
             val uri = android.net.Uri.parse("content://${app.packageName}.test.capability-state/result")
             app.contentResolver.query(uri, null, null, null, null)!!.use {
                 assertTrue(it.moveToFirst())
                 assertEquals(0, it.getInt(2))
             }
-            val observed = execute("ui.device")
+            val observed = execute("ui_device")
             assertEquals("shizuku", observed.getValue("clickMatchBackend").jsonPrimitive.content)
             println("PRIVILEGED_NAVIGATION_PASSED")
         } finally {

@@ -1,7 +1,7 @@
 # 架构与执行引擎
 
 > 更新：2026-10-14。第 2 节、第 5 节 保留原外部资料核验窗口，第 9 节 是 2026-10-11 分析；第 10 节 重新核验当前源码与主流 Agent 一手资料。研究不覆盖 accepted ADR。
-> 当前执行契约/实现证据：[ADR-AGENT-001](../../adr/agent/001-turn-coordination.md)、[HXA-220](../../completion-records/HXA-220.md)、[HXA-221](../../completion-records/HXA-221.md)、[HXA-223](../../completion-records/HXA-223.md)；当前任务见[实施状态](../../development/status.md)。
+> 当前执行契约/实现证据：[ADR-AGENT-001](../../adr/agent/001-turn-coordination.md)、[HXA-220](../../completion-records/HXA-220.md)、[HXA-221](../../completion-records/HXA-221.md)、[HXA-223](../../completion-records/HXA-223.md)；当前实现状态见[实施状态](../../development/status.md)。
 > 进程死亡专题：[process-death-recovery-and-harness-depth.md](process-death-recovery-and-harness-depth.md)。
 
 ## 1. 总原则：浅策略，深不变量
@@ -183,7 +183,7 @@ Helix 已有单一 AgentLoop、单一 Turn 生命周期权威及统一工具执�
 
 按单一目标实现替换受影响入口；不安排旧版本/旧数据库/旧会话/旧批准迁移，不留双注册、双写或兼容 adapter。本次文档修改不操作持久数据。当前合法调用的幂等、取消、UNKNOWN、原顺序回填与渠道规则仍须保留。
 
-实施时先完成独立主机切片，再按当轮授权执行设备/模型验收；UI 重建/无订阅、迟到回调、权限撤销和 executor 未退出分别覆盖。结构收敛只能证明边界更明确，性能、任务完成率、OEM 与长稳改善必须另有测量。本次没有发现并复现新的运行故障，不能借本节自动关闭或重跑全部历史问题。
+实施时先完成独立主机切片，再按[根 AGENTS 授权范围](../../../AGENTS.md#verification-and-device-authorization)执行设备/模型验收；UI 重建/无订阅、迟到回调、权限撤销和 executor 未退出分别覆盖。结构收敛只能证明边界更明确，性能、任务完成率、OEM 与长稳改善必须另有测量。本次没有发现并复现新的运行故障，不能借本节自动关闭或重跑全部历史问题。
 
 ## 10. 2026-10-14 执行边界与新目标设计复核
 
@@ -207,7 +207,7 @@ Owner 要求评估“接口明确、默认同进程、Memory/插件各守职责�
 | [TurnEngine](https://github.com/dollarser/helix-agent/blob/9965d2dff694441458b4036942c4b8b9749f0f8e/app/src/main/kotlin/com/helix/app/engine/TurnEngine.kt)、[TurnExecutionDriver](https://github.com/dollarser/helix-agent/blob/9965d2dff694441458b4036942c4b8b9749f0f8e/app/src/main/kotlin/com/helix/app/engine/TurnExecutionDriver.kt) 依赖 HelixStorage 和 App collaborators；[AppAgentRuntime](../../../app/src/main/kotlin/com/helix/app/application/agent/AppAgentRuntime.kt) 回调原提交/取消命令 | “完整 Turn 宿主与具体数据库解耦”仍是真实增量，远大于替换工具 DTO；优先定义事务命令端口，不复制 Room 到新数据库或内存状态机 |
 | [MemoryService](../../../app/src/main/kotlin/com/helix/app/memory/MemoryService.kt)、[MarkdownMemoryStore](../../../core/workspace/src/main/kotlin/com/helix/core/workspace/memory/MarkdownMemoryStore.kt)、[MemoryContext](../../../core/workspace/src/main/kotlin/com/helix/core/workspace/memory/MemoryContext.kt) 已分开管理、正文与摘要装载；[MemoryTools](../../../app/src/main/kotlin/com/helix/app/memory/MemoryTools.kt) 进入 Dispatcher | 不新建 Memory 服务或搬进 Executor。可把 MemoryContext 对具体 store 的依赖替换为有界文档快照；项目身份、开关、hash 冲突、路径限制继续在原领域落实 |
 | [HelixPlugin / PluginRegistry](../../../extensions/plugin/src/main/kotlin/com/helix/extensions/plugin/PluginRegistry.kt)、[NativeResource](../../../extensions/plugin/src/main/kotlin/com/helix/extensions/plugin/NativeResource.kt) 已有贡献与真实资源引用；[MobileUsePresentedExecutor](../../../extensions/mobile-use/src/main/kotlin/com/helix/extensions/mobileuse/MobileUsePresentedExecutor.kt) 组合原执行、浮窗与引用；[AutomationGestureDispatch](../../../extensions/mobile-use/src/main/kotlin/com/helix/extensions/mobileuse/automation/AutomationGestureDispatch.kt) 等实际回调释放 | Mobile Use 已在插件中，不重做 HXA-277，不拉回宿主。新生命周期必须保留插件取消新准入和旧引用排空的区别 |
-| [VisualArtifact](../../../core/model/src/main/kotlin/com/helix/core/model/VisualArtifact.kt) 已是文件引用＋哈希；[WorkspaceToolImagePublisher](../../../app/src/main/kotlin/com/helix/app/vision/WorkspaceToolImagePublisher.kt) 在 HXA-284 提交后仍按 documents.view 名称决定内部观察用途 | 不发明第二视觉通路。产物用途应由可信生产者以类型表达；以后续切片替换现有目的分类，不重做 documents 基础 |
+| [VisualArtifact](../../../core/model/src/main/kotlin/com/helix/core/model/VisualArtifact.kt) 已是文件引用＋哈希；[WorkspaceToolImagePublisher](../../../app/src/main/kotlin/com/helix/app/vision/WorkspaceToolImagePublisher.kt) 在 HXA-284 提交后仍按 documents_view 名称决定内部观察用途 | 不发明第二视觉通路。产物用途应由可信生产者以类型表达；以后续切片替换现有目的分类，不重做 documents 基础 |
 | [ExecutionTarget](../../../core/model/src/main/kotlin/com/helix/core/model/ExecutionTarget.kt) 注释仍把 PRoot/CLI 写成独立 APK/UID，与 accepted [Runtime ADR](../../adr/runtime/001-execution-domains.md) 不符 | 是本轮确认的说明债务，不能据此设计错误的隔离保证；迁移时一并清理。本轮未据此声明运行故障 |
 
 ### 10.3 主流 Agent 一手资料重新核验

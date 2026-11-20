@@ -1,125 +1,84 @@
 package com.helix.app.voice
 
-import com.helix.core.model.NormalizedEndpoint
-import com.helix.provider.api.wire.OkHttpWireClient
-import com.helix.provider.api.wire.WireClient
-import com.helix.provider.api.wire.WireRequest
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.job
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.toRequestBody
+import okio.Buffer
 import java.io.ByteArrayOutputStream
-import java.net.URI
 import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.atomic.AtomicReference
-
-/** Confirmed HTTP file/WAV contract. Not a WebSocket or partial-ASR implementation. */
-class HttpSpeechSession(
-    private val config: CloudSpeechConfig,
-    private val wire: WireClient =
-        OkHttpWireClient(
-            connectTimeoutMillis = config.timeoutMillis.toLong(),
-            readTimeoutMillis = config.timeoutMillis.toLong(),
-            maxBodyBytes = 12_000_000,
-            followRedirects = false,
-        ),
-) : AutoCloseable {
-    private val closed = AtomicBoolean()
-    private val active = AtomicReference<Job?>(null)
-
-    init {
-        require(config.protocol == PROTOCOL)
-        NormalizedEndpoint.parse(config.endpoint.toString())
-    }
-
-    fun post(
-        contentType: String,
-        body: ByteArray,
-    ): ByteArray =
-        runBlocking {
-            try {
-                withTimeout(config.timeoutMillis.toLong()) {
-                    check(!closed.get())
-                    val job = currentCoroutineContext().job
-                    check(active.compareAndSet(null, job))
-                    try {
-                        check(!closed.get())
-                        val response =
-                            wire.open(
-                                WireRequest(
-                                    "POST",
-                                    config.endpoint.toString(),
-                                    mapOf("Content-Type" to contentType),
-                                    body,
-                                ),
-                            )
-                        try {
-                            check(response.status == 200) { "SPEECH_HTTP_${response.status}" }
-                            response.body.bytes().also { check(!closed.get()) }
-                        } finally {
-                            response.body.close()
-                        }
-                    } finally {
-                        active.compareAndSet(job, null)
-                    }
-                }
-            } catch (_: kotlinx.coroutines.TimeoutCancellationException) {
-                throw java.net.SocketTimeoutException("Speech request timeout")
-            }
-        }
-
-    override fun close() {
-        closed.set(true)
-        active.getAndSet(null)?.cancel()
-    }
-
-    companion object {
-        const val PROTOCOL = "http-file-wav-v1"
-
-        fun config(endpoint: String) =
-            CloudSpeechConfig(
-                URI(NormalizedEndpoint.parse(endpoint).full),
-                PROTOCOL,
-                180_000,
-                allowCleartext = true,
-            )
-    }
-}
 
 /** Keep only this user-started capture in memory; upload once at explicit end-of-input. */
 class HttpFileAsr(
     private val session: HttpSpeechSession,
+    private val model: String? = null,
+    private val responseFormat: String = "json",
 ) : CloudAsrConnection {
     private val pcm = ByteArrayOutputStream()
     private val closed = AtomicBoolean()
+    private val finished = AtomicBoolean()
+    private val transcript = StringBuilder()
+
+    init {
+        require(responseFormat in setOf("json", "text"))
+    }
 
     override fun send(samples: FloatArray): String {
         check(!closed.get())
-        check(pcm.size() + samples.size * 2 <= 16000 * 120 * 2) { "ASR_DURATION_LIMIT" }
+        check(!finished.get())
+        require(samples.size in 1..16000)
+        if (pcm.size() + samples.size * 2 > 16000 * 300 * 2) {
+            finished.set(true)
+            submitSegment()
+            // A failed/ambiguous submission leaves the capture terminal; only success reopens it.
+            finished.set(false)
+        }
         pcm.write(encodeSpeechPcm(samples))
-        return ""
+        return transcript.toString()
     }
 
     override fun finish(): String {
         check(!closed.get())
+        check(finished.compareAndSet(false, true)) { "ASR_ALREADY_SUBMITTED" }
         require(pcm.size() > 0)
+        submitSegment()
+        return transcript.toString()
+    }
+
+    private fun submitSegment() {
         val wav = SpeechWav.encode(pcm.toByteArray(), 16000)
-        val boundary = "helix-speech-file"
-        val start =
-            "--$boundary\r\nContent-Disposition: form-data; name=\"file\"; filename=\"capture.wav\"\r\n" +
-                "Content-Type: audio/wav\r\n\r\n"
-        val body = start.toByteArray() + wav + "\r\n--$boundary--\r\n".toByteArray()
-        val response = session.post("multipart/form-data; boundary=$boundary", body)
+        pcm.reset() // Never replay an ambiguous upload on another finish/send call.
+        require(wav.size <= 21 * 1024 * 1024) { "ASR_FILE_LIMIT" }
+        val multipart =
+            MultipartBody
+                .Builder()
+                .setType(MultipartBody.FORM)
+                .apply {
+                    model?.let { addFormDataPart("model", it) }
+                    addFormDataPart("response_format", responseFormat)
+                    addFormDataPart("file", "capture.wav", wav.toRequestBody("audio/wav".toMediaType()))
+                }.build()
+        val buffer = Buffer()
+        multipart.writeTo(buffer)
+        val response = session.post(multipart.contentType().toString(), buffer.readByteArray())
         check(response.size <= 100_000) { "ASR_RESPONSE_LIMIT" }
-        val text = Json.parseToJsonElement(response.toString(Charsets.UTF_8)).jsonObject["text"] as? JsonPrimitive
-        require(text != null && text.isString && text.content.length <= 20_000) { "ASR_RESPONSE_INVALID" }
-        return text.content
+        val text =
+            if (responseFormat == "text") {
+                response.toString(Charsets.UTF_8)
+            } else {
+                val decoded = Json.parseToJsonElement(response.toString(Charsets.UTF_8)).jsonObject
+                val value = decoded["text"] as? JsonPrimitive
+                require(value != null && value.isString) { "ASR_RESPONSE_INVALID" }
+                value.content
+            }
+        require(text.length <= 20_000) { "ASR_RESPONSE_INVALID" }
+        if (transcript.isNotEmpty() && text.isNotEmpty()) transcript.append('\n')
+        transcript.append(text)
+        require(transcript.length <= 20_000) { "ASR_TEXT_LIMIT" }
     }
 
     override fun close() {
@@ -142,4 +101,45 @@ class HttpWavTts(
     }
 
     override fun close() = session.close()
+}
+
+/** HTTP PCM chunks are delivered synchronously, with backpressure, before response EOF. */
+class HttpCloudTts(
+    private val session: HttpSpeechSession,
+    private val model: String = "gpt-realtime-2.1-mini",
+    private val voice: String = "marin",
+) : CloudTtsConnection {
+    override fun stream(
+        text: String,
+        consume: (FloatArray, Int) -> Unit,
+    ) {
+        require(text.isNotBlank())
+        val streaming = model == "gpt-realtime-2.1-mini"
+        for (part in speechCodePointChunks(text)) {
+            val body =
+                buildJsonObject {
+                    put("model", model)
+                    put("input", part)
+                    put("voice", voice)
+                    put("response_format", "pcm")
+                    put("speed", 1)
+                    if (streaming) put("stream", true)
+                }.toString().toByteArray()
+            session.postPcm(body, streaming, consume)
+        }
+    }
+
+    override fun close() = session.close()
+}
+
+internal fun speechCodePointChunks(text: String): List<String> {
+    val result = mutableListOf<String>()
+    var offset = 0
+    while (offset < text.length) {
+        val count = minOf(2000, text.codePointCount(offset, text.length))
+        val end = text.offsetByCodePoints(offset, count)
+        result.add(text.substring(offset, end))
+        offset = end
+    }
+    return result
 }

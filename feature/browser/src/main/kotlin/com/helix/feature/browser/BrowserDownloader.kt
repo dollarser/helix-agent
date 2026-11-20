@@ -238,7 +238,7 @@ class BrowserDownloader(
         }
 
     private companion object {
-        // browser.download (doc 09 §3.4): bounded redirects + per-socket-idle timeouts + chunk size.
+        // browser_download (doc 09 §3.4): bounded redirects + per-socket-idle timeouts + chunk size.
         const val MAX_REDIRECTS = 5
         const val CONNECT_TIMEOUT_MS = 30_000
         const val READ_TIMEOUT_MS = 30_000

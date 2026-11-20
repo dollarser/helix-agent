@@ -9,11 +9,15 @@ internal object BuiltInModelRegistration {
     fun ensureRegistered(storage: HelixStorage) {
         val existing = storage.providerConfigs.find(BuiltInModel.PROVIDER_ID)
         if (existing != null) {
-            // Existing rows are validated by the provider service/factory. A corrupt row must not
-            // prevent startup or overwrite a persisted binding while other providers remain usable.
-            return
+            // Refresh the project-owned default, not user-selected session/draft bindings.
+            // Invalid configurations remain visible to the normal validation path.
+            if (runCatching { BuiltInModel.validate(configFrom(existing)) }.isFailure ||
+                existing.model == BuiltInModel.MODEL_ID
+            ) {
+                return
+            }
         }
-        storage.providerConfigs.save(
+        storage.providerConfigs.overwrite(
             ProviderConfigSpec(
                 id = BuiltInModel.PROVIDER_ID,
                 displayName = "Helix",

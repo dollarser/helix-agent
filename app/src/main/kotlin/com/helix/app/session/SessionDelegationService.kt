@@ -137,7 +137,7 @@ class SessionDelegationService internal constructor(
         caller: SessionHistoryCaller,
         delivery: Delivery,
     ) {
-        val expectedTool = if (delivery.kind == SessionInputDelivery.QUEUE) "session.queue" else "session.steer"
+        val expectedTool = if (delivery.kind == SessionInputDelivery.QUEUE) "session_queue" else "session_steer"
         require(caller.toolName == expectedTool)
         require(delivery.target.isNotBlank() && delivery.target.length <= 256 && '\u0000' !in delivery.target)
         require(delivery.key.isNotBlank() && delivery.key.length <= 128 && '\u0000' !in delivery.key)

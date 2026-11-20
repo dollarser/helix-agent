@@ -329,12 +329,18 @@ internal class ChatRequestAssembler(
         sessionId: String,
         turnId: String?,
         tools: List<ModelToolSchema>,
-    ) = PromptContentContributions.sections(
-        toolPipeline.skills?.let { toolPipeline.plugins?.contentContributions(it, sessionId, turnId) }.orEmpty(),
-        toolPipeline.mcpDiscovery.catalog(sessionId),
-        toolPipeline.pluginReadiness?.invoke(sessionId, turnId),
-        tools.map { it.name.value }.toSet(),
-    )
+    ): List<com.helix.core.agent.PromptSection> {
+        val snapshot = toolPipeline.pluginPromptContext?.invoke(sessionId, turnId)
+        return PromptContentContributions.sections(
+            snapshot?.contributions ?: toolPipeline.skills
+                ?.let {
+                    toolPipeline.plugins?.contentContributions(it, sessionId, turnId)
+                }.orEmpty(),
+            toolPipeline.mcpDiscovery.catalog(sessionId),
+            snapshot?.readiness,
+            tools.map { it.name.value }.toSet(),
+        )
+    }
 
     private fun modelTools(
         sessionId: String,
@@ -353,9 +359,13 @@ internal class ChatRequestAssembler(
             ModePolicy
                 .filterTools(control.mode, latest, control.chatToolsEnabled) {
                     ToolModeProfile(it.operationClass)
-                }.filter { !it.name.value.startsWith("memory.") || memory?.enabled == true }
-                .filter { !recoveryOnly || it.operationClass == com.helix.core.model.ToolOperationClass.READ_ONLY }
-                .filter {
+                }.filter {
+                    it.name.value !in
+                        (com.helix.app.memory.MemoryTools.reads + com.helix.app.memory.MemoryTools.writes) ||
+                        memory?.enabled == true
+                }.filter {
+                    !recoveryOnly || it.operationClass == com.helix.core.model.ToolOperationClass.READ_ONLY
+                }.filter {
                     it.name.value !in com.helix.app.goal.GoalLifecycleTools.names ||
                         control.mode != AgentMode.PLAN
                 }
@@ -365,12 +375,14 @@ internal class ChatRequestAssembler(
                 admitted,
                 ModelToolExposureOrder.defaultNames(preferred),
             )
-            // HXA-209 (ADR section 1.1): a disabled tool leaves the model schema through the
-            // SAME shared predicate the execution entry refuses with — visible() applies it too,
-            // but the schema list is the last gate before truncation and must not drift.
-            .filter { toolPipeline.disabledToolFilter?.invoke(sessionId, it) ?: true }
-            .filter { !it.name.value.startsWith("memory.") || memory?.enabled == true }
-            .filter { !recoveryOnly || it.operationClass == com.helix.core.model.ToolOperationClass.READ_ONLY }
+            // Recheck the shared disable predicate and native registration before schema projection.
+            // Discovery uses the same exposure gate; execution still resolves its own authority.
+            .filter { toolPipeline.modelAvailable(sessionId, it) }
+            .filter {
+                it.name.value !in
+                    (com.helix.app.memory.MemoryTools.reads + com.helix.app.memory.MemoryTools.writes) ||
+                    memory?.enabled == true
+            }.filter { !recoveryOnly || it.operationClass == com.helix.core.model.ToolOperationClass.READ_ONLY }
             .filter {
                 it.name.value !in com.helix.app.goal.GoalLifecycleTools.names || control.mode != AgentMode.PLAN
             }.let {

@@ -13,6 +13,7 @@ import com.helix.provider.api.wire.WireResponse
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.net.ConnectException
@@ -29,6 +30,7 @@ internal class WireFailureEvidence {
     var chunks = 0L
 
     private var serverError: ServerError? = null
+    private var serverForbidsRetry = false
     private var bodyState: ErrorBodyState? = null
     private var serverMessage: String? = null
     private var serverCode: String? = null
@@ -48,10 +50,8 @@ internal class WireFailureEvidence {
         error: IOException,
         stage: Stage,
     ): ModelEvent.Error {
-        val retryable =
-            error !is WireRequestStateException &&
-                error !is SSLException && error !is java.net.ProtocolException &&
-                error !is java.net.MalformedURLException && error !is java.net.UnknownServiceException
+        // No proof that the upstream did not accept the body: do not replay on an empty response.
+        val retryable = false
         val reason = reason(error)
         val code =
             when {
@@ -94,14 +94,21 @@ internal class WireFailureEvidence {
                 .mapHttpStatus(requireNotNull(response).status)
         val diagnostic = httpFailure(retryable)
         val canRetry =
-            retryable && diagnostic.serverError !in
+            retryable && (
+                com.helix.provider.api.wire
+                    .httpFailureDetails(
+                        requireNotNull(response).status,
+                        requireNotNull(response).headers,
+                    ).retryAfterMillis ?: 0L
+            ) <= 300_000L && diagnostic.serverError !in
                 setOf(
                     ServerError.INSUFFICIENT_QUOTA,
                     ServerError.INVALID_API_KEY,
                     ServerError.AUTHENTICATION_ERROR,
                     ServerError.PERMISSION_ERROR,
                 )
-        return ModelEvent.Error(code, canRetry, diagnostic.copy(adapterRetryable = canRetry))
+        val permittedRetry = canRetry && !serverForbidsRetry
+        return ModelEvent.Error(code, permittedRetry, diagnostic.copy(adapterRetryable = permittedRetry))
     }
 
     suspend fun httpFailure(retryable: Boolean): ModelFailureDiagnostic {
@@ -137,20 +144,26 @@ internal class WireFailureEvidence {
                 null
             } ?: return ErrorBodyState.NON_JSON
         val error = parsed["error"] as? JsonObject ?: parsed
+        serverForbidsRetry =
+            listOf(parsed["retryable"], error["retryable"]).any {
+                (it as? JsonPrimitive)?.booleanOrNull == false
+            }
         val message = (error["message"] ?: error["detail"] ?: parsed["detail"]) as? JsonPrimitive
         serverMessage = message?.takeIf { it.isString }?.content?.let { ServerErrorSummary.redact(it, secrets) }
         serverCode =
-            ((error["code"] ?: error["type"]) as? JsonPrimitive)
+            ((parsed["error_code"] ?: error["code"] ?: error["type"]) as? JsonPrimitive)
                 ?.content
                 ?.takeIf { it.matches(Regex("[A-Za-z][A-Za-z_.-]{0,95}")) }
-                ?.let { ServerErrorSummary.redact(it, secrets).take(96) }
+                ?.let { ServerErrorSummary.code(it, secrets).take(96) }
         errorParameter =
             (error["param"] as? JsonPrimitive)
                 ?.takeIf { it.isString }
                 ?.content
                 ?.takeIf { it.matches(Regex("[A-Za-z0-9_.\\[\\]-]{1,128}")) }
-                ?.let { ServerErrorSummary.redact(it, secrets).take(128) }
-        val labels = listOf("code", "type").mapNotNull { (error[it] as? JsonPrimitive)?.content }
+                ?.let { ServerErrorSummary.parameter(it, secrets).take(128) }
+        val labels =
+            listOf(parsed["error_code"], error["code"], error["type"])
+                .mapNotNull { (it as? JsonPrimitive)?.content }
         serverError = labels.firstNotNullOfOrNull { label ->
             ServerError.entries.firstOrNull { it != ServerError.UNKNOWN && it.name.equals(label, true) }
         } ?: ServerError.UNKNOWN
@@ -199,25 +212,16 @@ internal class WireFailureEvidence {
             serverMessage,
             serverCode,
             errorParameter,
+            com.helix.provider.api.wire
+                .httpFailureDetails(response?.status ?: 500, headers)
+                .requestId,
         )
     }
 
     private fun retryAfter(headers: Map<String, List<String>>): Long? =
-        headers.entries.firstOrNull { it.key.equals("retry-after", true) }?.value?.firstOrNull()?.let { value ->
-            val millis =
-                value.toLongOrNull()?.takeIf { it >= 0 }?.let { it.coerceAtMost(300) * 1000 }
-                    ?: try {
-                        val deadline =
-                            java.time.ZonedDateTime.parse(
-                                value,
-                                java.time.format.DateTimeFormatter.RFC_1123_DATE_TIME,
-                            )
-                        (deadline.toInstant().toEpochMilli() - System.currentTimeMillis()).coerceAtLeast(0)
-                    } catch (_: java.time.format.DateTimeParseException) {
-                        null
-                    }
-            millis?.coerceAtMost(ModelFailureDiagnostic.MAX_RETRY_AFTER_MILLIS)
-        }
+        com.helix.provider.api.wire
+            .httpFailureDetails(response?.status ?: 500, headers)
+            .retryAfterMillis
 
     companion object {
         private const val ERROR_PREFIX_BYTES = 8192
@@ -272,6 +276,7 @@ internal class WireFailureEvidence {
         /** Never export the decoder's potentially vendor-derived detail itself. */
         fun protocolReason(rule: String?): Reason =
             when {
+                rule == "output limit with unfinished tool call" -> Reason.INCOMPLETE_TOOL_OUTPUT_LIMIT
                 rule == "missing terminal" -> Reason.MISSING_TERMINAL
                 rule?.startsWith("sse:") == true -> Reason.INVALID_SSE
                 rule?.startsWith("json:") == true -> Reason.INVALID_JSON

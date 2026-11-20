@@ -22,11 +22,11 @@ import kotlinx.serialization.json.jsonPrimitive
  *
  * Rules (fail-closed: an unproven effect is UNDETERMINED, never dropped; a parseable effect is
  * never guessed optimistic):
- * - Shell (`code.linux.run`, developer only): COMMAND_EXECUTION is determined; the six other
+ * - Shell (`code_linux_run`, developer only): COMMAND_EXECUTION is determined; the six other
  *   categories are UNDETERMINED — a `cd` is not a containment boundary and no isolation layer
  *   proves the absence of a file/network/device effect. The explicit `rm -rf` hit is the
  *   separate floor rule (ADR section 3).
- * - QuickJS (`code.javascript.run`): the sandboxed engine is the whole effect surface —
+ * - QuickJS (`code_javascript_run`): the sandboxed engine is the whole effect surface —
  *   COMMAND_EXECUTION, nothing else (its host bridge is a closed, platform-owned set; doc 03).
  * - MCP / A2A origins: UNDETERMINED remote business mutation — a `readOnlyHint`, a tool name
  *   and the model-visible description never prove the absence of a remote write (ADR 1.2);
@@ -62,14 +62,14 @@ class SessionToolEffectClassifier(
         if (special != null) return special
         val name = descriptor.name.value
         return when (name) {
-            "skills.preview", "skills.install" -> {
+            "skills_preview", "skills_install" -> {
                 val reads = fileFootprint(name, request.args, request.sessionId, readTool = true).footprint
                 val installation =
-                    if (name == "skills.install") setOf(OperationEffect.DEVICE_SYSTEM_MUTATION) else emptySet()
+                    if (name == "skills_install") setOf(OperationEffect.DEVICE_SYSTEM_MUTATION) else emptySet()
                 CallEffectClassification(reads.copy(undeterminedEffects = reads.undeterminedEffects + installation))
             }
 
-            LINUX_RUN, LINUX_JOB_START, "skills.run" -> {
+            LINUX_RUN, LINUX_JOB_START, "skills_run" -> {
                 linuxClassification(request.args)
             }
 
@@ -181,7 +181,7 @@ class SessionToolEffectClassifier(
                 CallEffectClassification(OperationFootprint())
             }
 
-            name.startsWith(BROWSER_PREFIX) -> {
+            com.helix.core.model.Capability.WEB_BROWSING in descriptor.requiredCapabilities -> {
                 undetermined(OperationEffect.REMOTE_BUSINESS_MUTATION)
             }
 
@@ -205,7 +205,7 @@ class SessionToolEffectClassifier(
     ): CallEffectClassification {
         val name = descriptor.name.value
         val source =
-            if (name == "documents.inspect") {
+            if (name == "documents_inspect") {
                 (request.args["path"] as? JsonPrimitive)?.content
             } else {
                 (request.args["documentRef"] as? JsonPrimitive)?.content?.let {
@@ -360,46 +360,44 @@ class SessionToolEffectClassifier(
                 com.helix.app.memory.MemoryTools.writes
                     .associateWith { OperationEffect.FILE_MUTATION_EXTERNAL } +
                 mapOf(
-                    "session.rename" to OperationEffect.DEVICE_SYSTEM_MUTATION,
-                    "session.create" to OperationEffect.DEVICE_SYSTEM_MUTATION,
-                    "session.queue" to OperationEffect.DEVICE_SYSTEM_MUTATION,
-                    "session.steer" to OperationEffect.DEVICE_SYSTEM_MUTATION,
-                    "session.archive" to OperationEffect.DEVICE_SYSTEM_MUTATION,
-                    "session.restore" to OperationEffect.DEVICE_SYSTEM_MUTATION,
-                    "settings.apply" to OperationEffect.DEVICE_SYSTEM_MUTATION,
-                    "device.open_settings" to OperationEffect.DEVICE_SYSTEM_MUTATION,
+                    "session_rename" to OperationEffect.DEVICE_SYSTEM_MUTATION,
+                    "session_create" to OperationEffect.DEVICE_SYSTEM_MUTATION,
+                    "session_queue" to OperationEffect.DEVICE_SYSTEM_MUTATION,
+                    "session_steer" to OperationEffect.DEVICE_SYSTEM_MUTATION,
+                    "session_archive" to OperationEffect.DEVICE_SYSTEM_MUTATION,
+                    "session_restore" to OperationEffect.DEVICE_SYSTEM_MUTATION,
+                    "settings_apply" to OperationEffect.DEVICE_SYSTEM_MUTATION,
+                    "device_open_settings" to OperationEffect.DEVICE_SYSTEM_MUTATION,
                 )
 
-        const val LINUX_RUN: String = "code.linux.run"
-        const val LINUX_JOB_START: String = "code.linux.job.start"
-        const val LINUX_JOB_CANCEL: String = "code.linux.job.cancel"
-        const val LINUX_JOB_COLLECT: String = "code.linux.job.collect"
+        const val LINUX_RUN: String = "code_linux_run"
+        const val LINUX_JOB_START: String = "code_linux_job_start"
+        const val LINUX_JOB_CANCEL: String = "code_linux_job_cancel"
+        const val LINUX_JOB_COLLECT: String = "code_linux_job_collect"
 
-        const val QUICKJS_RUN: String = "code.javascript.run"
+        const val QUICKJS_RUN: String = "code_javascript_run"
 
-        const val HTTP_FETCH: String = "http.fetch"
+        const val HTTP_FETCH: String = "http_fetch"
 
         private val NETWORK_READ_TOOLS = setOf(HTTP_FETCH, "web_fetch")
 
-        private const val BROWSER_PREFIX = "browser."
-
         private const val SCOPE_PREFIX = "scope:"
 
-        private const val FILES_MOVE: String = "files.move"
+        private const val FILES_MOVE: String = "files_move"
 
         private val FILE_READ_TOOLS: Set<String> =
-            setOf("read", "view_image", "files.list", "files.stat", "glob", "grep")
+            setOf("read", "view_image", "files_list", "files_stat", "glob", "grep")
 
         private val FILE_MUTATION_TOOLS: Set<String> =
             setOf(
                 "write",
                 "edit",
-                "files.copy",
-                "files.move",
-                "files.delete",
-                "files.mkdir",
-                "files.extract",
-                "files.archive",
+                "files_copy",
+                "files_move",
+                "files_delete",
+                "files_mkdir",
+                "files_extract",
+                "files_archive",
             )
 
         private val SOURCE_KEYS: Set<String> = setOf("source")
@@ -413,7 +411,7 @@ private fun ToolDescriptor.isDeviceFileHandoff(): Boolean =
 
 private fun ToolDescriptor.isBrowserUpload(): Boolean {
     val owner = origin
-    return name.value == "browser.upload" && owner is ToolOrigin.PluginOrigin &&
+    return name.value == "browser_upload" && owner is ToolOrigin.PluginOrigin &&
         owner.pluginId == "browser" && owner.runtimeId == "browser"
 }
 

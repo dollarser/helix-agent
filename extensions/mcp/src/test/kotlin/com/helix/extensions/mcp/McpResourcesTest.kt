@@ -18,6 +18,25 @@ import java.util.concurrent.Executors
 
 class McpResourcesTest {
     @Test
+    fun emptyCursorReadsFirstPageForResourcesAndTemplates() =
+        runBlocking {
+            ResourceFixture().use { fixture ->
+                val session = McpClients.sdk("resource-test", "1").connect(fixture.endpoint)
+                try {
+                    for (name in listOf("list_mcp_resources", "list_mcp_resource_templates")) {
+                        val omitted = McpResourceTools.execute(session, name, buildJsonObject {})
+                        val empty = McpResourceTools.execute(session, name, buildJsonObject { put("cursor", "") })
+                        assertEquals(omitted.structuredContent, empty.structuredContent)
+                    }
+                    assertTrue("resources/list" in fixture.methods)
+                    assertTrue("resources/templates/list" in fixture.methods)
+                } finally {
+                    session.close()
+                }
+            }
+        }
+
+    @Test
     fun sdkReadsPaginatedTextAndTemplatesWithoutCallingRemoteTool() =
         runBlocking {
             ResourceFixture().use { fixture ->
@@ -299,7 +318,7 @@ class McpResourcesTest {
     private fun args(uri: String): JsonObject = buildJsonObject { put("uri", uri) }
 }
 
-private class ResourceFixture(
+internal class ResourceFixture(
     private val mode: String = "normal",
 ) : AutoCloseable {
     private val executor = Executors.newCachedThreadPool()
@@ -308,6 +327,57 @@ private class ResourceFixture(
     val cursors = CopyOnWriteArrayList<String>()
     private var generation = 0
     val endpoint: String
+
+    var changedFirstPage = false
+
+    private fun opaquePage(
+        params: JsonObject?,
+        templates: Boolean,
+    ): String {
+        val cursor = params?.get("cursor")?.jsonPrimitive?.content
+        val page =
+            when (cursor) {
+                null -> 0
+                "" -> 1
+                "opaque-$generation", "  " -> 2
+                else -> error("Cursor was not preserved for this connection")
+            }
+        val key = if (templates) "resourceTemplates" else "resources"
+        val uriKey = if (templates) "uriTemplate" else "uri"
+        val label =
+            when {
+                mode == "opaque-empty-limit" -> "x".repeat(262145)
+                page == 0 && changedFirstPage -> "Changed"
+                else -> "Page$page"
+            }
+        val next = opaqueNext(page)
+        val entries =
+            if (mode == "opaque-empty-space" && page == 0) {
+                "[]"
+            } else {
+                "[{\"$uriKey\":\"memo://page/$page\",\"name\":\"$label\"}]"
+            }
+        return "{\"$key\":$entries$next}"
+    }
+
+    private fun opaqueNext(page: Int): String =
+        when (page) {
+            0 -> {
+                ",\"nextCursor\":\"\""
+            }
+
+            1 -> {
+                when (mode) {
+                    "opaque-empty-cycle" -> ",\"nextCursor\":\"\""
+                    "opaque-empty-space" -> ",\"nextCursor\":\"  \""
+                    else -> ",\"nextCursor\":\"opaque-$generation\""
+                }
+            }
+
+            else -> {
+                ""
+            }
+        }
 
     init {
         server.executor = executor
@@ -339,7 +409,9 @@ private class ResourceFixture(
                                 }
 
                                 "resources/list" -> {
-                                    if (params?.get("cursor") == null || mode == "cycle") {
+                                    if (mode.startsWith("opaque-empty")) {
+                                        opaquePage(params, false)
+                                    } else if (params?.get("cursor") == null || mode == "cycle") {
                                         val next = if (mode == "session-cursor") "page-$generation" else "page-two"
                                         """{"resources":[{"uri":"memo://one","name":"One"}],"nextCursor":"$next"}"""
                                     } else {
@@ -348,7 +420,11 @@ private class ResourceFixture(
                                 }
 
                                 "resources/templates/list" -> {
-                                    """{"resourceTemplates":[{"uriTemplate":"memo://item/{id}","name":"Item"}]}"""
+                                    if (mode.startsWith("opaque-empty")) {
+                                        opaquePage(params, true)
+                                    } else {
+                                        """{"resourceTemplates":[{"uriTemplate":"memo://item/{id}","name":"Item"}]}"""
+                                    }
                                 }
 
                                 "resources/read" -> {

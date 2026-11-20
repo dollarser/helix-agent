@@ -4,7 +4,7 @@ package com.helix.tools.framework
  * Where a tool's registration comes from (architecture doc section 7.1).
  *
  * The origin is registry data, not a trust signal by itself: it determines
- * namespace rules (built-in names vs `mcp.*` names) and what provenance
+ * source ownership and what provenance
  * facts are persisted with the descriptor.
  */
 sealed interface ToolOrigin {

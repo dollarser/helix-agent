@@ -3,9 +3,11 @@ package com.helix.app.eval
 import android.content.Context
 import android.os.SystemClock
 import com.helix.app.AppContainer
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 import java.io.File
 
@@ -75,6 +77,18 @@ private fun evidenceCalls(
             buildJsonObject {
                 put("name", call.name)
                 put("state", call.state)
+                put(
+                    "dispatchTimings",
+                    JsonArray(
+                        c.storage.auditEvents
+                            .listByCorrelation(call.callId)
+                            .filter { it.type == com.helix.app.approval.StorageAuditSink.TYPE }
+                            .map { event ->
+                                val payload = Json.parseToJsonElement(event.redactedPayload).jsonObject
+                                kotlinx.serialization.json.JsonObject(payload.filterKeys { it in TIMING_KEYS })
+                            },
+                    ),
+                )
                 put("args", call.argsJson)
                 val result = c.storage.toolResults.byToolCall(call.callId)
                 put("resultStatus", result?.status)
@@ -106,4 +120,16 @@ private fun evidenceTurns(
                 )
             }
         },
+    )
+
+private val TIMING_KEYS =
+    setOf(
+        "startedAt",
+        "queuedAt",
+        "policyDecidedAt",
+        "approvalAcquiredAt",
+        "executionStartedAt",
+        "finishedAt",
+        "code",
+        "attemptId",
     )

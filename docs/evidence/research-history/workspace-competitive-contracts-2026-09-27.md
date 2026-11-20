@@ -1,6 +1,6 @@
 # Workspace 契约竞品核对
 
-> **2026-09-27 研究快照，2026-09-29 归档。**[HXA-210](../../completion-records/HXA-210.md)已完成其记录范围，本文最后的建议顺序不是当前排期。当前目录行为见[Workspace ADR](../../adr/workspace/004-workspace-binding.md)和[产品说明](../../product/workspace.md)；完整 Project Memory 仍单独见[候选索引](../../development/candidate-decisions.md)。本次不重新验证外部来源。
+> **2026-09-27 研究快照，2026-09-29 归档。**[HXA-210](../../completion-records/HXA-210.md)已完成其记录范围，本文最后的建议顺序不是当前排期。当前目录行为见[Workspace ADR](../../adr/workspace/004-workspace-binding.md)和[产品说明](../../product/workspace.md)；完整 Project Memory 后由 [HXA-246](../../completion-records/HXA-246.md) 承接，当前契约见 [Memory](../../product/memory.md)。本次不重新验证外部来源。
 
 ---
 

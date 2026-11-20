@@ -25,6 +25,7 @@ import com.helix.tools.framework.ToolRegistry
 import kotlinx.serialization.json.buildJsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -58,25 +59,19 @@ class NativePluginRevisionDeviceTest {
         assertTrue(diagnostic, unexpected.isEmpty())
     }
 
-    @Test fun realRoomRestartKeepsRevisionSelectionGrantAndNormalizedDisable() {
+    @Test fun roomBackedRegistryRecreationAndRepairKeepSelectionGrantAndStableDisable() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val name = "native-revision-${UUID.randomUUID()}.db"
         val directory = File(context.cacheDir, name).apply { mkdirs() }
         val storage = HelixStorage.open(context, name, File(directory, "content"))
         try {
-            storage.toolAvailability.set(
-                "plugin:mobile-use:0.2.0:mobile-use",
-                "fixture.read",
-                ToolAvailabilityScope.GLOBAL,
-                "",
-                ToolAvailabilityState.DISABLED,
-                1,
-            )
+            initializeAvailabilityFixture(storage)
             val catalog = PluginCatalog(storage)
             val native = RoomNativePluginCatalog(catalog)
             val firstTools = ToolRegistry("host-1")
             val first = PluginRegistry(firstTools, native)
             first.register(plugin())
+            assertStableDisable(storage)
             storage.sessions.create("fixture", "Fixture", null, null, 1)
             catalog.select("fixture", "bundled-plugin:mobile-use", true)
             val preferences = InMemoryLineStore()
@@ -97,6 +92,7 @@ class NativePluginRevisionDeviceTest {
             val restarted = PluginRegistry(restartedTools, RoomNativePluginCatalog(PluginCatalog(storage)))
             restarted.register(plugin())
             assertEquals(initial, native.find("mobile-use"))
+            assertStableDisable(storage)
             assertNotEquals(
                 oldRef.incarnation,
                 restartedTools
@@ -108,11 +104,14 @@ class NativePluginRevisionDeviceTest {
             assertEquals(grant, grants().find("fixture"))
             restarted.repair("mobile-use")
             assertEquals(initial, native.find("mobile-use"))
-            assertNormalizedDisable(storage)
+            assertStableDisable(storage)
             restartedTools.replaceOwner(oldRef.owner, emptyList())
             restarted.repair("mobile-use")
             assertEquals(initial!!.revision + 1, native.find("mobile-use")!!.revision)
+            assertEquals(selection, native.selectionId("fixture", "mobile-use"))
             assertEquals(grant, grants().find("fixture"))
+            assertStableDisable(storage)
+            assertNull(restartedTools.resolveBinding(oldRef))
         } finally {
             storage.close()
             context.deleteDatabase(name)
@@ -120,11 +119,36 @@ class NativePluginRevisionDeviceTest {
         }
     }
 
-    private fun assertNormalizedDisable(storage: HelixStorage) {
-        assertTrue(storage.toolAvailability.byTool("plugin:mobile-use:0.2.0:mobile-use", "fixture.read").isEmpty())
-        assertEquals(
+    private fun initializeAvailabilityFixture(storage: HelixStorage) {
+        storage.toolAvailability.set(
+            "plugin:mobile-use:mobile-use",
+            "fixture_read",
+            ToolAvailabilityScope.GLOBAL,
+            "",
             ToolAvailabilityState.DISABLED,
-            storage.toolAvailability.statesFor("plugin:mobile-use:mobile-use", "fixture.read", "fixture", null).global,
+            1,
+        )
+        storage.toolAvailability.set(
+            "plugin:mobile-use:0.2.0:mobile-use",
+            "fixture_read",
+            ToolAvailabilityScope.SESSION,
+            "fixture",
+            ToolAvailabilityState.ENABLED,
+            1,
+        )
+    }
+
+    private fun assertStableDisable(storage: HelixStorage) {
+        val current =
+            storage.toolAvailability.statesFor("plugin:mobile-use:mobile-use", "fixture_read", "fixture", null)
+        assertEquals(ToolAvailabilityState.DISABLED, current.global)
+        // Obsolete persisted keys stay separate: no implicit copy, deletion, or session override.
+        assertNull(current.session)
+        assertEquals(
+            ToolAvailabilityState.ENABLED,
+            storage.toolAvailability
+                .statesFor("plugin:mobile-use:0.2.0:mobile-use", "fixture_read", "fixture", null)
+                .session,
         )
     }
 
@@ -141,7 +165,7 @@ class NativePluginRevisionDeviceTest {
             )
         val descriptor =
             ToolDescriptor(
-                ToolName("fixture.read"),
+                ToolName("fixture_read"),
                 ToolVersion(1),
                 "Read fixture",
                 buildJsonObject {},

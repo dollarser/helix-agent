@@ -84,9 +84,9 @@ class CurrentScreenGestureDeviceTest {
                     ),
                 )
 
-            val device = readWhenReady("ui.device", "READY", ::dispatch)
+            val device = readWhenReady("ui_device", "READY", ::dispatch)
             println("OBSERVED_DEVICE=$device")
-            val semantic = readWhenReady("ui.snapshot", "SUCCESS", ::dispatch)
+            val semantic = readWhenReady("ui_snapshot", "SUCCESS", ::dispatch)
             println("OBSERVED_SEMANTIC=${semantic.result.payload}")
             if (snapshotOnly) {
                 assertTrue("$semantic", semantic is ToolDispatchOutcome.Succeeded)
@@ -98,7 +98,7 @@ class CurrentScreenGestureDeviceTest {
                 assertTrue(result.getValue("status").jsonPrimitive.content == "SUCCESS")
                 assertTrue(result.getValue("backend").jsonPrimitive.content in setOf("root", "shizuku"))
                 args.getString("helixClickLabel")?.let { label ->
-                    val found = dispatch("ui.find", buildJsonObject { put("text", label) })
+                    val found = dispatch("ui_find", buildJsonObject { put("text", label) })
                     assertTrue("$found", found is ToolDispatchOutcome.Succeeded)
                     val payload =
                         Json
@@ -108,7 +108,7 @@ class CurrentScreenGestureDeviceTest {
                     val token =
                         requireNotNull(payload["suggestedClickToken"]) { "Missing unique click target: $payload" }
                             .jsonPrimitive.content
-                    val clicked = dispatch("ui.click", buildJsonObject { put("token", token) })
+                    val clicked = dispatch("ui_click", buildJsonObject { put("token", token) })
                     assertTrue("$clicked", clicked is ToolDispatchOutcome.Succeeded)
                     println("SEMANTIC_NODE_ACTION=$clicked")
                 }
@@ -121,11 +121,11 @@ class CurrentScreenGestureDeviceTest {
                     .jsonObject
                     .getValue("frame")
                     .jsonPrimitive.content
-            val capture = dispatch("ui.screenshot", buildJsonObject { put("frame", frame) })
+            val capture = dispatch("ui_screenshot", buildJsonObject { put("frame", frame) })
             assertTrue("$capture", capture is ToolDispatchOutcome.Succeeded)
             val gesture =
                 dispatch(
-                    "ui.gesture",
+                    "ui_gesture",
                     Json
                         .parseToJsonElement(
                             """{"frame":"$frame","strokes":[{"points":[{"x":$x,"y":$y}],"durationMillis":100}]}""",

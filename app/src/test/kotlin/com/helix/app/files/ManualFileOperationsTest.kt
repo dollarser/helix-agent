@@ -2,6 +2,7 @@ package com.helix.app.files
 
 import com.helix.core.workspace.ScopeRootResolver
 import com.helix.core.workspace.WorkspaceArtifactStore
+import com.helix.core.workspace.WorkspaceFileBackend
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
@@ -28,7 +29,7 @@ class ManualFileOperationsTest {
         ops = operations(nio)
     }
 
-    private fun operations(fs: ManualFileBackend) = ManualFileOperations({ fs }, { writable })
+    private fun operations(fs: WorkspaceFileBackend) = ManualFileOperations({ fs }, { writable })
 
     private fun put(
         path: String,
@@ -96,7 +97,7 @@ class ManualFileOperationsTest {
         put("b", "old")
         ops =
             operations(
-                object : ManualFileBackend by nio {
+                object : WorkspaceFileBackend by nio {
                     override fun rename(
                         path: String,
                         destination: String,
@@ -127,7 +128,7 @@ class ManualFileOperationsTest {
         ops.mkdir("manual", "", "folder")
         ops =
             operations(
-                object : ManualFileBackend by nio {
+                object : WorkspaceFileBackend by nio {
                     override fun delete(path: String) {
                         if (path ==
                             "a"
@@ -159,7 +160,7 @@ class ManualFileOperationsTest {
         var reads = 0
         ops =
             operations(
-                object : ManualFileBackend by nio {
+                object : WorkspaceFileBackend by nio {
                     override fun read(path: String): java.io.InputStream {
                         if (path == "a" && ++reads == 2) put("a", "edited")
                         return nio.read(path)

@@ -1,6 +1,8 @@
 package com.helix.runtime.cli.app
 
+import com.helix.runtime.cli.client.CliModelJobRecord
 import com.helix.runtime.cli.client.CliModelJobRecordCodec
+import com.helix.runtime.cli.client.CliModelJobState
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -15,10 +17,10 @@ class CodexEvidenceExpiryTest {
         try {
             val store = CodexPayloadJobStore(root)
             val record =
-                CodexModelJobRecord(
+                CliModelJobRecord(
                     "job_000000000001",
                     "a".repeat(64),
-                    CodexModelJobState.SUCCEEDED,
+                    CliModelJobState.SUCCEEDED,
                     1,
                     2,
                     "fixture",
@@ -61,10 +63,10 @@ class CodexEvidenceExpiryTest {
         try {
             val store = CodexPayloadJobStore(root)
             val record =
-                CodexModelJobRecord(
+                CliModelJobRecord(
                     "job_000000000002",
                     "a".repeat(64),
-                    CodexModelJobState.CANCELLED,
+                    CliModelJobState.CANCELLED,
                     1,
                     100,
                 )
@@ -85,10 +87,10 @@ class CodexEvidenceExpiryTest {
         try {
             val store = CodexPayloadJobStore(root)
             val record =
-                CodexModelJobRecord(
+                CliModelJobRecord(
                     "job_000000000003",
                     "a".repeat(64),
-                    CodexModelJobState.CANCELLED,
+                    CliModelJobState.CANCELLED,
                     1,
                     2,
                 )

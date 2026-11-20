@@ -60,7 +60,7 @@ internal class JobObservationDispatchFixture : AutoCloseable {
     val scheduler = ToolScheduler(observations.clock, dispatcher, registry, maxConcurrency = 1, resourceGate = { 1 })
 
     fun descriptor(
-        name: String = "jobs.await",
+        name: String = "jobs_await",
         output: String = "{\"type\":\"object\"}",
     ) = ToolDescriptor(
         name = ToolName(name),
@@ -86,7 +86,7 @@ internal class JobObservationDispatchFixture : AutoCloseable {
 
     fun call(
         id: String = "observe",
-        name: String = "jobs.await",
+        name: String = "jobs_await",
         args: JsonObject = observations.call().args,
     ) = ToolDispatchRequest(
         toolCallId = id,

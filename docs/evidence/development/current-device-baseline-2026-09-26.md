@@ -170,7 +170,7 @@ Tests skipped by design or environmental assumption (`assumeTrue`):
 | Execution Infrastructure Crashes | 1 cascade (`DataSyncForegroundService`) | **0** (clean isolated recovery) | -1 crash |
 | Duplicate Summary Rows | 180 duplicates | **0** (single-writer enforced) | 0 duplicate |
 
-All 4 additional classes discovered by the AST manifest generator (`GoalModelReportFlowDeviceTest`, `LiveGoalModelReportDeviceTest`, `RunControlModeUiDeviceTest`, `RunControlSettingsUiDeviceTest`) executed cleanly and passed.
+All 4 additional classes discovered by the AST manifest generator (`GoalModelReportFlowDeviceTest`, `LiveGoalModelReportDeviceTest`, `RunControlModeUiDeviceTest`, `RunControlSettingsUiDeviceTest`) were included in the baseline. `LiveGoalModelReportDeviceTest` is listed as SKIP / ASSUMPTION above, so discovery coverage must not be described as four passing classes.
 
 ---
 

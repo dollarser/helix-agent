@@ -2,10 +2,9 @@ package com.helix.app.account
 
 import com.helix.app.provider.BuiltInModel
 import com.helix.app.provider.builtInConfig
+import com.helix.app.voice.HttpCloudTts
 import com.helix.app.voice.HttpFileAsr
-import com.helix.app.voice.HttpWavTts
 import com.helix.app.voice.SpeechServiceSettings
-import com.helix.app.voice.SpeechWav
 import com.helix.core.model.ModelEvent
 import com.helix.core.model.ModelMessage
 import com.helix.core.model.ModelRequest
@@ -27,13 +26,18 @@ import org.junit.Test
 class OfficialGatewayContractTest {
     @Test fun accountModeDerivesUrlsAndCustomModeRetainsItsOwnAddresses() {
         val settings = SpeechServiceSettings(true, "https://custom.test/asr", "https://custom.test/tts", true, true)
-        assertEquals("wss://api.sunlingzhang.com/ws/asr", settings.asrEndpoint)
-        assertEquals("wss://api.sunlingzhang.com/ws/tts", settings.ttsEndpoint)
+        // Named cloud models override a stale socket toggle; self-hosted sockets remain explicit.
+        assertEquals("https://api.hilex.me/v1/audio/transcriptions", settings.asrEndpoint)
+        assertEquals("https://api.hilex.me/v1/audio/speech", settings.ttsEndpoint)
+        val selfHosted = settings.copy(asrModel = "self-hosted", ttsModel = "self-hosted")
+        selfHosted.validate()
+        assertEquals("wss://api.hilex.me/ws/asr", selfHosted.asrEndpoint)
+        assertEquals("wss://api.hilex.me/ws/tts", selfHosted.ttsEndpoint)
         assertEquals(
-            "https://api.sunlingzhang.com/v1/audio/transcriptions",
+            "https://api.hilex.me/v1/audio/transcriptions",
             settings.copy(webSocket = false).asrEndpoint,
         )
-        assertEquals("https://api.sunlingzhang.com/v1/audio/speech", settings.copy(webSocket = false).ttsEndpoint)
+        assertEquals("https://api.hilex.me/v1/audio/speech", settings.copy(webSocket = false).ttsEndpoint)
         val custom = settings.copy(useAccountLogin = false, webSocket = false)
         custom.validate()
         assertEquals("https://custom.test/asr", custom.asrEndpoint)
@@ -58,19 +62,19 @@ class OfficialGatewayContractTest {
                     },
                     { 0L },
                 )
-            account.register("fixture@example.test", "synthetic-password")
+            AccountProfileClient(account).register("fixture@example.test", "synthetic-password", "012345")
             account.login("fixture@example.test", "synthetic-password")
             account.authorization("synthetic-access", account.revision)
             assertEquals(
                 listOf("register", "login", "refresh").map {
-                    "https://accounts.sunlingzhang.com/auth/$it"
+                    "https://accounts.hilex.me/auth/$it"
                 },
                 requests.map { it.url },
             )
             requests.forEach {
                 assertEquals("POST", it.method)
                 assertEquals("application/json", it.headers["Content-Type"])
-                assertEquals(AccountSession.CLIENT_ID, it.headers["X-Client-Id"])
+                assertEquals(null, it.headers["X-Client-Id"])
             }
         }
 
@@ -91,23 +95,29 @@ class OfficialGatewayContractTest {
                         200,
                         emptyMap(),
                         object : com.helix.provider.api.wire.WireBody {
-                            override suspend fun bytes() = SpeechWav.encode(byteArrayOf(0, 0), 16000)
+                            override suspend fun bytes() = byteArrayOf(0, 0)
 
                             override suspend fun forEachChunk(onChunk: suspend (ByteArray) -> Boolean) =
-                                error("File response only")
+                                onChunk(byteArrayOf(0, 0)).let { Unit }
 
                             override fun close() = Unit
                         },
                     )
                 }
             }
-        HttpFileAsr(settings.session(settings.asrEndpoint, testAccount(), wire)).use {
+        HttpFileAsr(settings.session(settings.asrEndpoint, testAccount(), wire), settings.asrModel).use {
             it.send(floatArrayOf(0f))
             assertEquals("synthetic transcript", it.finish())
         }
-        HttpWavTts(
+        HttpCloudTts(
             settings.session(settings.ttsEndpoint, testAccount(), wire),
-        ).use { it.stream("synthetic", { _, _ -> }) }
+            settings.ttsModel,
+        ).use {
+            it.stream("synthetic") { samples, rate ->
+                assertEquals(24000, rate)
+                assertEquals(1, samples.size)
+            }
+        }
         assertEquals(listOf(OfficialServices.asr(false), OfficialServices.tts(false)), requests.map { it.url })
         requests.forEach {
             assertEquals("POST", it.method)
@@ -117,7 +127,18 @@ class OfficialGatewayContractTest {
         assertTrue(requests[0].headers.getValue("Content-Type").startsWith("multipart/form-data; boundary="))
         assertTrue(requireNotNull(requests[0].body).toString(Charsets.ISO_8859_1).contains("name=\"file\""))
         assertEquals("application/json", requests[1].headers["Content-Type"])
-        assertEquals("{\"input\":\"synthetic\"}", requireNotNull(requests[1].body).toString(Charsets.UTF_8))
+        val requestJson =
+            kotlinx.serialization.json.Json.parseToJsonElement(
+                requireNotNull(requests[1].body).toString(Charsets.UTF_8),
+            )
+        assertEquals(
+            kotlinx.serialization.json.Json.parseToJsonElement(
+                """{"model":"gpt-realtime-2.1-mini","input":"synthetic",
+                    "voice":"marin","response_format":"pcm","speed":1,"stream":true}""",
+            ),
+            requestJson,
+        )
+        assertTrue(requireNotNull(requests[0].body).toString(Charsets.UTF_8).contains("gpt-transcribe"))
     }
 
     @Test fun catalogAndSseGenerationAppendPathsAfterExactlyOneV1() =
@@ -132,7 +153,10 @@ class OfficialGatewayContractTest {
                                 """{"data":[{"id":"Qwen3.8-27B"}]}"""
                             } else {
                                 "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"ok\"}," +
-                                    "\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n"
+                                    "\"finish_reason\":\"stop\"}]}\n\n" +
+                                    "data: {\"choices\":[],\"usage\":{\"prompt_tokens\":1," +
+                                    "\"completion_tokens\":1}}\n\n" +
+                                    "data: [DONE]\n\n"
                             },
                         ).also { requests += request }
                 }
@@ -153,8 +177,8 @@ class OfficialGatewayContractTest {
             assertTrue(events.any { it is ModelEvent.Completed })
             assertEquals(
                 listOf(
-                    "https://api.sunlingzhang.com/v1/models?output_modalities=all",
-                    "https://api.sunlingzhang.com/v1/chat/completions",
+                    "https://api.hilex.me/v1/models?output_modalities=all",
+                    "https://api.hilex.me/v1/chat/completions",
                 ),
                 requests.map {
                     it.url
@@ -194,10 +218,15 @@ class OfficialGatewayContractTest {
                 .close()
             assertTrue(connected)
         }
-        assertThrows(IllegalArgumentException::class.java) {
-            testAccount().speechSocket("wss://api.sunlingzhang.com/v1/ws/asr")
+        for (url in listOf("wss://api.hilex.me/v1/ws/asr", "wss://api.sunlingzhang.com/ws/asr")) {
+            assertThrows(IllegalArgumentException::class.java) { testAccount().speechSocket(url) }
         }
-        for (host in listOf("asr.sunlingzhang.com", "tts.sunlingzhang.com")) {
+        for (host in listOf(
+            "accounts.sunlingzhang.com",
+            "api.sunlingzhang.com",
+            "asr.sunlingzhang.com",
+            "tts.sunlingzhang.com",
+        )) {
             assertThrows(
                 IllegalArgumentException::class.java,
             ) { AccountSession.validateTarget("https://$host/v1/audio/speech") }

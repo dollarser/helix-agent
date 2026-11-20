@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="account_usage_title">Quota and usage</string>
+    <string name="account_usage_hide">Hide quota and usage</string>
+    <string name="account_usage_loading">Loading account usage…</string>
+    <string name="account_usage_tokens">tokens</string>
+    <string name="account_usage_minutes">minutes</string>
+    <string name="account_usage_characters">characters</string>
+    <string name="account_usage_amounts">Remaining %1$s / limit %2$s %3$s\nCounted %4$s · Reserved/pending %5$s</string>
+    <string name="account_usage_reserved_note">Counted usage includes reserved/pending amounts. Remaining quota comes directly from the server. Daily/monthly periods use Asia/Shanghai.</string>
+    <string name="account_usage_statistics">Request statistics · %1$s</string>
+    <string name="account_usage_count">%1$s: %2$d requests</string>
+    <string name="account_usage_recent">Recent requests (up to 20)</string>
+    <string name="account_usage_record">%1$s · Status %2$s</string>
+    <string name="account_usage_pending">Pending</string>
+    <string name="account_usage_refresh">Refresh</string>
+    <string name="account_usage_reset_at">Next reset: %1$s (%2$s)</string>
+</resources>

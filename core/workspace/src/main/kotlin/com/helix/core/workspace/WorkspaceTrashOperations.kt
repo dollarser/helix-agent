@@ -11,8 +11,28 @@ internal class WorkspaceTrashOperations(
     private val resolve: (String) -> Path,
     private val resolveContained: (FileScopePath, Path) -> Path,
 ) {
+    /** Retire the single-file import directory, avoiding filesystem filename limits for long source names. */
+    fun retireAttachment(path: FileScopePath): TrashEntry {
+        require(AttachmentSnapshotPath.contains(path))
+        val root = resolve(path.scopeId)
+        val source = resolveContained(path, root)
+        require(Files.isRegularFile(source)) { "Attachment snapshot unavailable" }
+        val parent = source.parent
+        Files.newDirectoryStream(parent).use { children ->
+            if (children.toList() != listOf(source)) {
+                throw java.io.IOException("Attachment directory has other files; retained")
+            }
+        }
+        val size = Files.size(source)
+        val sha = AtomicFileWriter.sha256Hex(source)
+        val entryDir = PathResolution.join(root, WorkspaceLayout.TRASH)
+        val entryName = uniqueTrashEntryName(entryDir, path.parent.relativePath)
+        Files.move(parent, entryDir.resolve(entryName), StandardCopyOption.ATOMIC_MOVE)
+        return TrashEntry(path.parent.relativePath, entryName, size, sha)
+    }
+
     /**
-     * Moves the regular file at [path] into the scope's `.helix/trash/` (HXA-043 `files.delete`)
+     * Moves the regular file at [path] into the scope's `.helix/trash/` (HXA-043 `files_delete`)
      * as a single rename: the file's bytes and size are unchanged, the scope's aggregate usage
      * is unchanged (the trash lives inside the scope), and the original path is gone.
      *
@@ -49,7 +69,7 @@ internal class WorkspaceTrashOperations(
         require(isTrashReference(trashRef.relativePath)) { "path is not a trash entry" }
         val root = resolve(trashRef.scopeId)
         val entry = resolveContained(trashRef, root)
-        if (!Files.exists(entry) || !Files.isRegularFile(entry)) {
+        if (!Files.exists(entry) || (!Files.isRegularFile(entry) && !Files.isDirectory(entry))) {
             throw FileNotFoundException("trash entry not found: ${trashRef.toModelReference()}")
         }
         val originalRel = decodeTrashEntryName(entry.fileName.toString())

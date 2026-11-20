@@ -22,7 +22,7 @@ class KnowledgeOriginalPdfToolsTest {
         val body = "Synthetic derived PDF evidence"
         val original = knowledgeHash("Synthetic original file identities and extraction coverage")
         val f = KnowledgeReferenceFixture(temporary.root, body, "SOURCE", "INCOMPLETE", original)
-        val result = f.execute("knowledge.search", f.scoped(f.args("""{"query":"evidence"}""")))
+        val result = f.execute("knowledge_search", f.scoped(f.args("""{"query":"evidence"}""")))
         val output = (result as ToolExecutorResult.Completed).output.jsonObject
         val hit =
             output
@@ -45,7 +45,7 @@ class KnowledgeOriginalPdfToolsTest {
                     put("contentHash", hash)
                 },
             )
-        assertTrue(f.execute("knowledge.read", next) is ToolExecutorResult.Completed)
+        assertTrue(f.execute("knowledge_read", next) is ToolExecutorResult.Completed)
     }
 
     @Test fun nativeIoInterruptionSettlesAsCancelledAndNeverPublishesAPage() {
@@ -57,7 +57,7 @@ class KnowledgeOriginalPdfToolsTest {
                 .DocumentException("PARSER_CONNECTION_FAILED")
         val result =
             f.execute(
-                "knowledge.read",
+                "knowledge_read",
                 f.scoped(
                     f.args(
                         """{"kind":"source","id":"selected","fileIndex":0,"page":1}""",
@@ -90,7 +90,7 @@ class KnowledgeOriginalPdfToolsTest {
                 put("contentHash", f.reference.sourceHash)
             },
         )
-        val result = f.execute("knowledge.read", request("selected", 25_000)) as ToolExecutorResult.Completed
+        val result = f.execute("knowledge_read", request("selected", 25_000)) as ToolExecutorResult.Completed
         val output = result.output.jsonObject
         assertTrue(
             output
@@ -105,11 +105,11 @@ class KnowledgeOriginalPdfToolsTest {
         )
         listOf(false, true).forEach { global ->
             f.enabled = global
-            assertTrue(f.execute("knowledge.read", request("private", 0)) is ToolExecutorResult.Failed)
+            assertTrue(f.execute("knowledge_read", request("private", 0)) is ToolExecutorResult.Failed)
         }
         assertEquals(listOf("selected"), f.pdfReads)
         f.documents["selected"] = "Changed preview"
-        assertTrue(f.execute("knowledge.read", request("selected", 0)) is ToolExecutorResult.Failed)
+        assertTrue(f.execute("knowledge_read", request("selected", 0)) is ToolExecutorResult.Failed)
         assertEquals(listOf("selected"), f.pdfReads)
     }
 }

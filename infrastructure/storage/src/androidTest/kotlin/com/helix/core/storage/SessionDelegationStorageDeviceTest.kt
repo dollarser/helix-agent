@@ -105,7 +105,7 @@ class SessionDelegationStorageDeviceTest {
                 "steer-call",
                 "source-turn",
                 "wire-steer",
-                "session.steer",
+                "session_steer",
                 "1",
                 "{}",
                 "RUNNING",
@@ -142,7 +142,7 @@ class SessionDelegationStorageDeviceTest {
                 "steer-call",
                 "source-turn",
                 "wire-steer",
-                "session.steer",
+                "session_steer",
                 "1",
                 "{}",
                 "RUNNING",
@@ -184,7 +184,7 @@ class SessionDelegationStorageDeviceTest {
                     "history-call",
                     turn.id,
                     "history-wire",
-                    "session.history",
+                    "session_history",
                     "1",
                     "{}",
                     "c".repeat(64),
@@ -196,7 +196,7 @@ class SessionDelegationStorageDeviceTest {
                     "target",
                     turn.id,
                     "history-call",
-                    "session.history",
+                    "session_history",
                 )
             val page = storage.sessionHistory.page(caller, Long.MAX_VALUE, 20)
             assertEquals(spec().delegation, page.delegations["target-message"])
@@ -227,7 +227,7 @@ class SessionDelegationStorageDeviceTest {
         storage.sessions.create("target", "Target", null, null, 0)
         storage.database.turnDao().insert(TurnEntity("source-turn", "source", "RUNNING_TOOL", 0, 0, null, null))
         storage.database.toolCallDao().insert(
-            ToolCallEntity("source-call", "source-turn", "wire", "session.queue", "1", "{}", "a".repeat(64), "RUNNING"),
+            ToolCallEntity("source-call", "source-turn", "wire", "session_queue", "1", "{}", "a".repeat(64), "RUNNING"),
         )
         storage.sessionAccess.setGrant("source", "target", false, false, true)
     }

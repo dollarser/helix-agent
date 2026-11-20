@@ -8,6 +8,7 @@ import com.helix.core.storage.HelixStorage
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
+import com.helix.tools.framework.ToolDiscoveryHints
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolOrigin
@@ -19,8 +20,8 @@ import kotlin.time.Duration.Companion.seconds
 
 /** Model-owned semantic report. The host validates ownership, never certifies its truth. */
 internal object GoalReportTool {
-    const val NAME = "goal.report"
-    const val UPDATE_NAME = "goal.update"
+    const val NAME = "goal_report"
+    const val UPDATE_NAME = "goal_update"
     private val schema =
         Json
             .parseToJsonElement(
@@ -34,46 +35,42 @@ internal object GoalReportTool {
         }""",
             ).jsonObject
 
+    fun descriptor(): ToolDescriptor =
+        ToolDescriptor(
+            name = ToolName(NAME),
+            version = ToolVersion(1),
+            description =
+                """
+                Report progress only when this turn is bound to an active persistent Goal,
+                as stated in the current Goal instructions. This is not a general task-completion tool.
+                For an ordinary chat task, finish with a normal reply after verifying the result;
+                do not create a Goal just to report completion.
+                Report the current Goal status after checking your work.
+                You judge whether the objective is complete. Include results,
+                checks and remaining limitations in summary. Use in_progress
+                when useful work remains; blocked only if external help is needed.
+                Finish other tools before reporting, then explain the result.
+                This report does not grant permissions.
+                """.trimIndent().replace("\n", " "),
+            inputSchema = schema,
+            outputSchema = schema,
+            operationClass = ToolOperationClass.READ_ONLY,
+            timeout = 5.seconds,
+            maxOutputBytes = 32768,
+            requiredCapabilities = emptySet(),
+            idempotency = Idempotency.IDEMPOTENT,
+            executionTarget = ExecutionTargetType.LOCAL_ANDROID,
+            origin = ToolOrigin.BuiltInOrigin,
+            discovery = ToolDiscoveryHints(category = "goals"),
+        )
+
     fun register(
         registry: ToolRegistry,
         storage: HelixStorage,
         decorate: (ToolExecutor) -> ToolExecutor = { it },
     ) {
-        registerName(NAME, registry, storage, decorate)
-    }
-
-    private fun registerName(
-        name: String,
-        registry: ToolRegistry,
-        storage: HelixStorage,
-        decorate: (ToolExecutor) -> ToolExecutor,
-    ) {
-        val descriptor =
-            ToolDescriptor(
-                name = ToolName(name),
-                version = ToolVersion(1),
-                description =
-                    """
-                    Report the current Goal status after checking your work.
-                    You judge whether the objective is complete. Include results,
-                    checks and remaining limitations in summary. Use in_progress
-                    when useful work remains; blocked only if external help is needed.
-                    Finish other tools before reporting, then explain the result.
-                    This report does not grant permissions.
-                    """.trimIndent().replace("\n", " "),
-                inputSchema = schema,
-                outputSchema = schema,
-                operationClass = ToolOperationClass.READ_ONLY,
-                timeout = 5.seconds,
-                maxOutputBytes = 32768,
-                requiredCapabilities = emptySet(),
-                idempotency = Idempotency.IDEMPOTENT,
-                executionTarget = ExecutionTargetType.LOCAL_ANDROID,
-                origin = ToolOrigin.BuiltInOrigin,
-            )
-
         registry.register(
-            descriptor,
+            descriptor(),
             decorate(
                 object : ToolExecutor {
                     @Suppress("ReturnCount") // Explicit ownership and cancellation rejection boundaries.
@@ -87,7 +84,11 @@ internal object GoalReportTool {
                                 call.turnId?.let { storage.turns.resolve(it).sessionId == call.sessionId } == true
                         val running = run?.let { storage.goals.resolve(it.goalId).state == "RUNNING" } == true
                         if (!active || !owned || !running) {
-                            return ToolExecutorResult.Failed("No active Goal for this request", sideEffectFree = true)
+                            return ToolExecutorResult.Failed(
+                                "No active Goal for this request. For an ordinary task, report the verified result " +
+                                    "in a normal reply; do not create a Goal just to report completion.",
+                                sideEffectFree = true,
+                            )
                         }
                         if (call.args
                                 .getValue("status")

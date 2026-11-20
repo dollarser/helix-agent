@@ -55,7 +55,7 @@ import kotlinx.serialization.json.longOrNull
  */
 @Suppress("TooManyFunctions")
 public class ResponsesStreamDecoder(
-    private val decodeToolName: (String) -> String = { it },
+    private val decodeToolName: (String) -> String? = { it },
 ) : StreamDecoder {
     private val parser = ResponsesSseParser()
 
@@ -302,10 +302,11 @@ public class ResponsesStreamDecoder(
         if (toolCallCount > MAX_TOOL_CALLS) {
             throw ProtocolViolation("too many function calls in one response")
         }
+        val canonicalName = decodeToolName(name) ?: throw ProtocolViolation("unknown function name")
         openCalls[index] = id
         argumentBuffers[index] = StringBuilder()
         hasFunctionCall = true
-        out += ModelEvent.ToolCallStarted(index, id, decodeToolName(name))
+        out += ModelEvent.ToolCallStarted(index, id, canonicalName)
     }
 
     private fun handleTextDelta(
@@ -464,7 +465,7 @@ public class ResponsesStreamDecoder(
             obj["response"] as? JsonObject
                 ?: throw ProtocolViolation("response.incomplete: missing response object")
         collectFinalOutput(response, out)
-        assertNoOpenCalls()
+        assertNoOpenCalls(stringOf((response["incomplete_details"] as? JsonObject)?.get("reason")))
         emitUsage(response, out)
         terminalEmitted = true
         // The response-level reason is authoritative over the item-level prime.
@@ -485,12 +486,18 @@ public class ResponsesStreamDecoder(
      * turn marked COMPLETED) — the same user-visible work the model claimed it did.
      * Align: fail the stream, the user retries, the model regenerates.
      */
-    private fun assertNoOpenCalls() {
+    private fun assertNoOpenCalls(incompleteReason: String? = null) {
         if (openSearches.isNotEmpty()) {
             throw ProtocolViolation("response terminated with unfinished web search")
         }
         if (openCalls.isNotEmpty()) {
-            throw ProtocolViolation("response terminated with ${openCalls.size} unfinished function call(s)")
+            throw ProtocolViolation(
+                if (incompleteReason == "max_output_tokens") {
+                    "output limit with unfinished tool call"
+                } else {
+                    "response terminated with ${openCalls.size} unfinished function call(s)"
+                },
+            )
         }
     }
 

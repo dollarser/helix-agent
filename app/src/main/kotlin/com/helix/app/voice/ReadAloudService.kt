@@ -30,6 +30,8 @@ data class ReadAloudState(
     val messageId: String? = null,
     val phase: ReadAloudPhase = ReadAloudPhase.IDLE,
     val busy: Boolean = false,
+    val serviceFailure: SpeechFailure? = null,
+    val errorDetails: com.helix.provider.api.wire.HttpFailureDetails? = null,
 )
 
 /** One physical synthesis/output owner. Cancel signals do not release capacity before native exit. */
@@ -142,7 +144,9 @@ class ReadAloudService(
                                 ReadAloudState(
                                     id,
                                     ReadAloudPhase.FAILED,
-                                    (failure as? SpeechSocketFailure)?.closeCode == 1013,
+                                    speechFailure(failure) == SpeechFailure.BUSY,
+                                    if (uploadsText) speechFailure(failure) else null,
+                                    if (uploadsText) speechFailureDetails(failure) else null,
                                 )
                         }
                     } finally {

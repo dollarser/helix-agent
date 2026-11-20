@@ -1,5 +1,7 @@
 # Helix 移动端导航、菜单命名与设置交互深度审查
 
+> 本文是 2026-09-24 的导航提案，五个固定顶级入口与 Workspace 容器不是已实施声明。当前产品路径见[任务体验](../../docs/product/task-experience.md)；权限入口须按现行权限 ADR 区分系统授权、会话授权与能力准备，不能按本文旧页面命名推断权限。
+
 > 审查日期：2026-09-24
 > 基线：当前本地 `main @ 3cf89027` 工作树
 > 范围：抽屉导航、菜单命名、页面层级、Capabilities / Readiness / Permissions / Audit / Extensions / Settings 的边界，及 Settings 内部折叠与子页面设计。

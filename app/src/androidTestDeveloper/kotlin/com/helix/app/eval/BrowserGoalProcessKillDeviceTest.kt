@@ -87,7 +87,7 @@ class BrowserGoalProcessKillDeviceTest {
         chat.setMode(AgentMode.GOAL)
         chat.setTurnBudgets(TurnBudgets(maxOutputTokens = 512))
         facts.setProperty("unsettled", unsettled.toString())
-        if (unsettled) hold.install(container, "browser.click")
+        if (unsettled) hold.install(container, "browser_click")
         discoverFixtureTool(container.toolPipeline, session, facts.getProperty("tool"))
         chat.continueGoal(
             goal,
@@ -136,7 +136,7 @@ class BrowserGoalProcessKillDeviceTest {
         facts.setProperty("provider", provider)
         save(facts)
         assertTrue(container.providerService.runConnectionTest(provider) is ProbeOutcome.Ok)
-        facts.setProperty("tool", "browser.click")
+        facts.setProperty("tool", "browser_click")
         save(facts)
     }
 

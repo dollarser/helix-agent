@@ -1,6 +1,8 @@
 # HXA-226 simulator verification
 
-- **基线**：`2187f05d refactor(ui): converge navigation and settings authority`（主 worktree `/Users/dollars/Helix`，分支 `refactor/clean-slate-engine`，工作树干净）
+本页为 2026-09-26 的历史候选与审查快照，建议和分支状态不是当前执行计划。复现片段保留旧脚本参数；任何重跑须按根 `AGENTS.md` 核实当前目标并为所有 ADB 命令显式指定模拟器 serial，不能直接复制无目标的历史命令。
+
+- **基线**：`2187f05d refactor(ui): converge navigation and settings authority`（主工作树，分支 `refactor/clean-slate-engine`，工作树干净）
 - **设备**：`emulator-5554` / API 36 / arm64-v8a / google_apis / 1080x2400 @ 420dpi（= 411.4dp）/ 无窗口
 - **变体**：`consumer`（`com.helix.agent`）+ `developer`（`com.helix.agent.developer`），均 debug
 - **日期**：2026-09-26
@@ -84,10 +86,10 @@
 | 顶部 inset | `SystemBarInsetsDeviceTest`：9 个 route × 2 轮（含 `recreate()`），`shell-top-bar` 顶部不得与 systemBars/displayCutout 重叠 | consumer `OK (1)` / developer `OK (1)` |
 | secondary Back 触控 | 实测 `settings/permissions` 页 Back 容器 `[11,136][137,262]` = **126×126 px = 48×48 dp @420dpi**，标签 `Back` | 达标 |
 | 横屏 | 412dp 旋转后会话列表与 composer 均正常，无重叠 | 通过 |
-| TalkBack 基本焦点顺序 | TalkBack 启用后首个焦点落在左上角 drawer 按钮；无障碍树遍历顺序严格自上而下，会话列表与 composer 的**全部可交互节点均有标签**（`App navigation` / `New session` / `Search` / `Session list` / `Chat settings` / `Voice` / `Attachment` / `Chat ▾` / `Choose model ▾` / `Response options` / `Send`） | 通过 |
+| TalkBack 首焦点与无障碍树 smoke | TalkBack 启用后首个焦点落在左上角 drawer 按钮；所采集无障碍树按自上而下顺序排列，会话列表与 composer 的**全部可交互节点均有标签**（`App navigation` / `New session` / `Search` / `Session list` / `Chat settings` / `Voice` / `Attachment` / `Chat ▾` / `Choose model ▾` / `Response options` / `Send`） | 仅首焦点/树结构通过；未验证完整 TalkBack 手势焦点或逐项播报 |
 
 - 静态核实 `CompactPageHeader.kt:34` 使用 `Modifier.size(48.dp)`，并给 `‹` 加 `clearAndSetSemantics { contentDescription = common_back }`。
-- `TurnProgressLabel.kt:69` 对 `chat-turn-progress` 声明 `liveRegion = LiveRegionMode.Polite`，状态变化会被 TalkBack 播报。
+- `TurnProgressLabel.kt:69` 对 `chat-turn-progress` 声明 `liveRegion = LiveRegionMode.Polite`，声明了礼貌播报语义；本轮未逐项核实实际 TalkBack 播报。
 
 ### 6. 其余 UI 面回归（本轮一并跑）
 
@@ -151,8 +153,8 @@ adb -s emulator-5554 shell am instrument -w -r \
 ### R2. 按类隔离跑 HXA-226 契约（consumer）
 
 ```bash
-cd /Users/dollars/Helix
-export JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home
+# 从项目根目录执行
+# 使用本机已配置的 JDK 17（见开发环境文档）
 ./gradlew :app:assembleConsumerDebug :app:assembleConsumerDebugAndroidTest
 ./scripts/debug/2026-09-26/run-isolated.sh \
   scripts/debug/2026-09-26/hxa226-consumer-classes.txt /tmp/helix-hxa226/isolated consumer
@@ -161,8 +163,8 @@ export JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home
 ### R3. 补齐 consumer 上被跳过的 Readiness→Runtime deep-link（developer）
 
 ```bash
-cd /Users/dollars/Helix
-export JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home
+# 从项目根目录执行
+# 使用本机已配置的 JDK 17（见开发环境文档）
 ./gradlew :app:assembleDeveloperDebug :app:assembleDeveloperDebugAndroidTest
 adb install -r -t app/build/outputs/apk/developer/debug/app-developer-debug.apk
 adb install -r -t app/build/outputs/apk/androidTest/developer/debug/app-developer-debug-androidTest.apk
@@ -239,7 +241,7 @@ adb shell uiautomator dump /sdcard/ui.xml && adb exec-out cat /sdcard/ui.xml
 
 - **现状**：`ChatStopProgressDeviceTest.verifyStop` 只断言**终止态**（`chat-stop` `assertDoesNotExist`、`chat-turn-progress` 等于 `chat_cancelled`）。CANCELLING 期间「Stop 仍渲染但 `enabled=false`」这一行为（`ConversationComposer.kt:162-170`）**没有任何设备断言**。
 - **本轮外部捕获尝试**：`screencap` 轮询（~2fps）与 `screenrecord` 30fps 抽帧都**未能取到可判读的 CANCELLING 帧**——该状态在本 fixture 配置下短于一次抽帧间隔。这本身说明它不适合用外部截图验证。
-- **改法**：在 `ChatStopProgressDeviceTest` 内加一个进程内断言——点击 `chat-stop` 后、等待终态前，用 `compose.waitUntil { chat.screen.value.activeTurn?.state?.name == "CANCELLING" }` 捕获瞬态，并断言 `chat-stop` 存在且 `assertIsNotEnabled()`、`chat-send` 仍在。若瞬态确实不可观测，则该用例应改为**断言 CANCELLING 标签不可达**（即承认 `chat_cancelling` 是死资源），并据此决定是否删除该字符串。
+- **改法**：在 `ChatStopProgressDeviceTest` 内加一个进程内断言——点击 `chat-stop` 后、等待终态前，用 `compose.waitUntil { chat.screen.value.activeTurn?.state?.name == "CANCELLING" }` 捕获瞬态，并断言 `chat-stop` 存在且 `assertIsNotEnabled()`、`chat-send` 仍在。若外部采样未观察到瞬态，不能据此认定状态不可达或字符串是死资源；应以可控执行器/取消屏障固定该状态后验证，是否删除需独立的可达性证据。
 - **辅助工具**：`scripts/debug/2026-09-26/helix-sse-fixture.py` 是 host 侧 OpenAI 兼容 SSE 夹具（配合 `adb reverse tcp:18443 tcp:18443`），可持续吐 token 把 Turn 长时间保持在 RUNNING，用于手动放大 CANCELLING 窗口。本轮未使用（结论已可由代码确定），留给后续需要真机可复现证据时使用。
 - **边界**：只加测试；若发现需要改状态机才能让瞬态可观测，**停下来交给强模型**，不在本轮改。
 
@@ -285,7 +287,7 @@ adb shell uiautomator dump /sdcard/ui.xml && adb exec-out cat /sdcard/ui.xml
 
 ## 未覆盖边界
 
-- **真机**：本轮只在模拟器（API 36 / arm64-v8a）验证。真机 `3B1587004UE00000`（OnePlus 6T / Android 15）未使用。
+- **真机**：本轮只在模拟器（API 36 / arm64-v8a）验证。OnePlus 6T / Android 15 真机未使用。
 - **`CapabilityReadinessDeviceTest.readinessStateRecoversAfterProcessReopen` 的两阶段恢复**：本轮按单进程方式运行（未传 `-e recoveryPhase setup|verify`），只覆盖了「无相位参数」的单进程路径；真实两阶段进程死亡恢复需要 `scripts/run-*-process-kill.py` 家族，本轮未跑。
 - **consumer 上被跳过的 `runtimeRepairRoutesToRuntimeAuthorityAndReturns`**：已在 developer 补齐，consumer 侧仍为 `assumeTrue` 跳过（设计门控）。
 - **CANCELLING 瞬态**：见 S2，无设备证据。

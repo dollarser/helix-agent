@@ -14,6 +14,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.helix.app.HelixApplication
 import com.helix.app.R
 import com.helix.app.connector.PluginSessionChoice
+import com.helix.app.plugin.PluginName
 import com.helix.app.plugin.PluginSessionRow
 import com.helix.app.plugin.PluginSetupReason
 import org.junit.Assert.assertEquals
@@ -26,7 +27,7 @@ class PluginSessionChoiceDeviceTest {
     private val row =
         PluginSessionRow(
             "bundled-plugin:mobile-use",
-            "Mobile Use",
+            PluginName("Mobile Use"),
             false,
             false,
             true,

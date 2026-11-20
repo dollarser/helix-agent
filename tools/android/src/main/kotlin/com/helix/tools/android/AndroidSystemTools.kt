@@ -95,19 +95,19 @@ internal fun bounded(detail: String): String {
 }
 
 // ===========================================================================
-// device.open_url — open an http/https URL in the system handler (只打开)
+// device_open_url — open an http/https URL in the system handler (只打开)
 // ===========================================================================
 
 // ===========================================================================
-// device.clipboard_read — read the system clipboard (gated by visible-foreground)
+// device_clipboard_read — read the system clipboard (gated by visible-foreground)
 // ===========================================================================
 
 // ===========================================================================
-// device.clipboard_write — write text to the system clipboard (gated by visible-foreground)
+// device_clipboard_write — write text to the system clipboard (gated by visible-foreground)
 // ===========================================================================
 
 // ===========================================================================
-// device.share_text — share text via the system chooser (分享输入先预览)
+// device_share_text — share text via the system chooser (分享输入先预览)
 // ===========================================================================
 
 // ===========================================================================

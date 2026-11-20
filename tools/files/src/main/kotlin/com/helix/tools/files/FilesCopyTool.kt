@@ -12,6 +12,7 @@ import com.helix.core.workspace.WorkspaceQuota
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
+import com.helix.tools.framework.ToolDiscoveryHints
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolOrigin
@@ -24,7 +25,7 @@ import java.nio.file.FileAlreadyExistsException
 import kotlin.time.Duration.Companion.seconds
 
 object FilesCopyTool {
-    const val NAME: String = "files.copy"
+    const val NAME: String = "files_copy"
 
     const val VERSION: Int = 1
 
@@ -44,6 +45,7 @@ object FilesCopyTool {
             idempotency = Idempotency.NON_IDEMPOTENT,
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
             origin = ToolOrigin.BuiltInOrigin,
+            discovery = ToolDiscoveryHints(category = "files"),
         )
 
     fun executor(store: WorkspaceArtifactStore): ToolExecutor =
@@ -62,7 +64,7 @@ object FilesCopyTool {
                 val source = filesMutateToolsRefArg(call.args, "source")
                 val destination = filesMutateToolsRefArg(call.args, "destination")
                 if (source == null || destination == null) {
-                    return ToolExecutorResult.Failed("invalid 'files.copy' arguments")
+                    return ToolExecutorResult.Failed("invalid 'files_copy' arguments")
                 }
                 val srcRegion = filesMutateToolsUserRegionOf(source)
                 if (srcRegion == null) {

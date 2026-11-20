@@ -1,6 +1,7 @@
 package com.helix.app.connector
 
 import com.helix.app.R
+import com.helix.app.plugin.PluginName
 import com.helix.app.plugin.PluginSessionRow
 import com.helix.app.plugin.PluginSetupReason
 import org.junit.Assert.assertEquals
@@ -8,7 +9,8 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class PluginSessionStateTest {
-    private val ready = PluginSessionRow("plugin", "Mobile Use", false, false, true, true, readyComponents = 1)
+    private val ready =
+        PluginSessionRow("plugin", PluginName("Mobile Use"), false, false, true, true, readyComponents = 1)
 
     @Test fun primaryPluginsSortFirstWithoutPromotingNamesOrReorderingOtherEntries() {
         val rows =

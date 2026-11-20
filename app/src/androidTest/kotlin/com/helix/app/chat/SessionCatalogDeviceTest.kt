@@ -396,12 +396,12 @@ class SessionCatalogDeviceTest {
         ).forEach {
             turn = f.storage.turns.updateState(turn, it, 0, null, null)
         }
-        f.storage.toolCalls.append("creation-call", turn.id, "wire-call", "session.create", "1", "{}", "RUNNING")
+        f.storage.toolCalls.append("creation-call", turn.id, "wire-call", "session_create", "1", "{}", "RUNNING")
         return com.helix.core.storage.repository.SessionHistoryCaller(
             source,
             turn.id,
             "creation-call",
-            "session.create",
+            "session_create",
         )
     }
 

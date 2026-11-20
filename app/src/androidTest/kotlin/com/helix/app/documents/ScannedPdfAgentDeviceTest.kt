@@ -146,7 +146,7 @@ class ScannedPdfAgentDeviceTest {
                                 .readContent(it)
                                 .orEmpty()
                         }
-                val viewed = calls.any { it.name == "documents.view" && it.state == "COMPLETED" }
+                val viewed = calls.any { it.name == "documents_view" && it.state == "COMPLETED" }
                 val pagePattern = Regex("(?i)(page|页|p\\.)\\s*[:：]?\\s*2|第\\s*2\\s*页")
                 val pageCited = pagePattern.containsMatchIn(answer)
                 File(app.cacheDir, "scanned-pdf-agent-result.json").writeText(
@@ -176,7 +176,7 @@ class ScannedPdfAgentDeviceTest {
                 )
                 assertTrue("Initial prompt must not contain the answer or image", observer.firstClean)
                 assertTrue("A rendered image must reach a later real model request", observer.imageSeen)
-                assertTrue("The Agent must actually call documents.view", viewed)
+                assertTrue("The Agent must actually call documents_view", viewed)
                 assertTrue("The model must read the unpredictable raster code", code in answer)
                 assertTrue("The answer must cite the source filename", "synthetic-scanned-report.pdf" in answer)
                 assertTrue("The answer must cite page two", pageCited)

@@ -16,9 +16,9 @@ internal object ModelToolExposureOrder {
             "read",
             "write",
             "edit",
-            "files.list",
-            "files.stat",
-            "files.mkdir",
+            "files_list",
+            "files_stat",
+            "files_mkdir",
             "glob",
             "grep",
             "view_image",
@@ -26,18 +26,18 @@ internal object ModelToolExposureOrder {
 
     fun defaultNames(preferred: Set<String>): Set<String> {
         val shared =
-            (coreFiles.keys - "files.stat") + GoalLifecycleTools.names +
+            (coreFiles.keys - "files_stat") + GoalLifecycleTools.names +
                 setOf(
-                    "tools.search",
+                    "tools_search",
                     "ask_user",
                     ToolResultReadTool.NAME,
-                    "plan.submit",
-                    "todo.write",
-                    "skills.enable",
-                    "skills.read",
-                    "skills.read_resource",
+                    "plan_submit",
+                    "todo_write",
+                    "skills_enable",
+                    "skills_read",
+                    "skills_read_resource",
                 )
-        return shared + preferred + if (preferred.isEmpty()) setOf("code.javascript.run") else emptySet()
+        return shared + preferred + if (preferred.isEmpty()) setOf("code_javascript_run") else emptySet()
     }
 
     fun prioritize(
@@ -56,7 +56,7 @@ internal object ModelToolExposureOrder {
         val name = tool.name.value
         return when {
             name in GoalLifecycleTools.names || name == ToolResultReadTool.NAME -> 0
-            name == "tools.search" || name == "ask_user" -> 10
+            name == "tools_search" || name == "ask_user" -> 10
             name in coreFiles -> 20 + requireNotNull(coreFiles[name])
             name in preferred -> 30
             else -> 100

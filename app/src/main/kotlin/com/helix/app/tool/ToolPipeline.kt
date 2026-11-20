@@ -9,6 +9,7 @@ import com.helix.extensions.mcp.McpToolDispatchFacts
 import com.helix.tools.framework.AuditSink
 import com.helix.tools.framework.ToolDescriptor
 import com.helix.tools.framework.ToolDispatcher
+import com.helix.tools.framework.ToolOrigin
 import com.helix.tools.framework.ToolRegistry
 import com.helix.tools.framework.ToolScheduler
 import kotlinx.serialization.json.JsonObject
@@ -23,7 +24,7 @@ import kotlinx.serialization.json.JsonObject
  * façade — the UI never touches the dispatcher, the scheduler, the broker or storage
  * directly.
  *
- * The HXA-036 registered set is the first real tool, `time.now` (read-only, no approval); the
+ * The HXA-036 registered set is the first real tool, `time_now` (read-only, no approval); the
  * mutating tools arrive with their own HXAs and register here.
  */
 class ToolPipeline(
@@ -35,19 +36,27 @@ class ToolPipeline(
     val plugins: com.helix.extensions.plugin.PluginRegistry? = null,
     /**
      * HXA-209 (ADR-PERMISSIONS-001 section 1.1): the shared disabled-tool predicate — the
-     * ONE instance the model schema, tools.search, the loaded window and the execution entry
+     * ONE instance the model schema, tools_search, the loaded window and the execution entry
      * all read, so a disable can never be visible on one surface and refused on another.
      * Null when no availability store is wired (everything stays visible).
      */
     val disabledToolFilter: ((sessionId: String, descriptor: ToolDescriptor) -> Boolean)? = null,
     val skills: com.helix.extensions.skills.SkillRepository? = null,
-    val pluginReadiness: ((String, String?) -> com.helix.app.plugin.PluginReadinessContext)? = null,
+    val pluginPromptContext: ((String, String?) -> com.helix.app.plugin.PluginPromptContext)? = null,
 ) {
     internal val mcpDiscovery =
         com.helix.app.mcp
             .McpToolDiscovery(registry) { sessionId, descriptor ->
-                disabledToolFilter?.invoke(sessionId, descriptor) ?: true
+                modelAvailable(sessionId, descriptor)
             }
+
+    /** A stale discovery window must not expose a retired or unselected native registration. */
+    internal fun modelAvailable(
+        sessionId: String,
+        descriptor: ToolDescriptor,
+    ): Boolean =
+        (disabledToolFilter?.invoke(sessionId, descriptor) ?: true) &&
+            (plugins?.modelAvailable(descriptor, sessionId) ?: (descriptor.origin !is ToolOrigin.PluginOrigin))
 
     private var mcpFactsProvider:
         ((String, String, ToolDescriptor, JsonObject, DataSensitivity) -> McpToolDispatchFacts?)? = null

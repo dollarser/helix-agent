@@ -45,7 +45,7 @@ HXA-227 `repair-api36-r7` 的失败是真实保留证据：SAF panel 已正常�
 - **当前限定条件下无法稳定复现。** 不满足修改 production 的证据门槛。
 - 不改 `SafGrantStore`、`liveSources()`、ContentResolver liveness 判定或 UI 缓存；尤其不以缓存旧成功来源换取表面稳定。
 - 历史问题继续作为 known limitation。若再次复现，当前测试会保留语义树，并在 timeout catch 读取 `knownScopeIds` + `liveSources`；应优先区分：registry empty、registry known/live empty、registry known/live recovered 三种情况，再决定是否需要 provider/query 时序诊断或最小修复。
-- P2 到此停止，下一主线进入 P3 本地模型安装最小闭环。
+- 当时 P2 到此停止，后续转入 P3 本地模型安装最小闭环；这不是当前任务选择指令。
 
 ## 边界
 

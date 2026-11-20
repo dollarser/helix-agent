@@ -65,7 +65,7 @@ class AutomationSettledObservationTest {
         val call =
             ExecutableToolCall(
                 "original-call",
-                "ui.scroll",
+                "ui_scroll",
                 "6",
                 JsonObject(emptyMap()),
                 ExecutionTargetType.LOCAL_ANDROID,

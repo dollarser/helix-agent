@@ -113,7 +113,7 @@ flowchart TB
 
 ## 7. 对 Helix Mobile Use 的参考
 
-Helix 当前 Mobile Use 是另一种接入形态：宿主已知的 Kotlin `MobileUsePlugin` 注册多个类型化 `ToolBinding`，通过普通 Helix Dispatcher 执行；具体能力由 Automation/Device tools 和 permission center 提供。它包含 `ui.apps`、`ui.launch`、`ui.snapshot`、`ui.find`、`ui.click`、`ui.click_match`、`ui.set_text`、`ui.scroll`、`ui.back`、`ui.wait`、`ui.device`、`ui.screenshot`、`ui.gesture`、`android.open_uri` 等工具。
+Helix 当前 Mobile Use 是另一种接入形态：宿主已知的 Kotlin `MobileUsePlugin` 注册多个类型化 `ToolBinding`，通过普通 Helix Dispatcher 执行；具体能力由 Automation/Device tools 和 permission center 提供。它包含 `ui_apps`、`ui_launch`、`ui_snapshot`、`ui_find`、`ui_click`、`ui_click_match`、`ui_set_text`、`ui_scroll`、`ui_back`、`ui_wait`、`ui_device`、`ui_screenshot`、`ui_gesture`、`android.open_uri` 等工具。
 
 两种设计面向的调用形态不同：
 

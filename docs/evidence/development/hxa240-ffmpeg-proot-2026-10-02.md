@@ -97,9 +97,11 @@ H.264/HEVC 的 MediaCodec 路径继续依赖设备，历史异步参数只是候
 
 提交保留必要的独立 Lite/Plus/Ready 构建与回归源码、来源/许可证、固定 Ready-AV1 ZIP、HXA-240 生产接线、JVM/AndroidTest 及主机和制品验证入口。普通构建直接消费已固定的 vendor ZIP；复建时使用已记录的源码 SHA 和工具链。`build/` 中的 APK、RootFS、构建对象、原始日志和退休的媒体 Service 草稿不进入 Git；其他代理的评审与一次性改写脚本留在原工作区。具体提交身份以 Git 日志为准，本文保留上述实现阶段的精确验证结果。
 
-## 仍需单独授权的设备验收
+## 当轮尚未执行的设备验收
 
-指定 ARM64 设备上验证 PRoot 内 Android/Bionic 动态加载、普通多输入滤镜/字幕/AV1 操作、系统字体、H.264/HEVC MediaCodec、旧 Job 停止与重开、多文件收取及原会话归属；真实 16 KiB 页设备和性能/热/内存结果均独立记录。新增真实 Room 产物回归本轮仅编译，不把 stub、APK 或历史 Plus 模拟器记录计为当前设备通过。
+复跑按当前 [AGENTS 设备范围](../../../AGENTS.md#verification-and-device-authorization) 执行；项目模拟器预授权与真机明确授权分开。后续局部加载修复见 [10-04 记录](ffmpeg-linker-emulator-input-2026-10-04.md)；11-12/13 的完整 App/PRoot 媒体补验见本页末节及 [0.0.11 记录](v0.0.11-preparation-2026-11-13.md)，不追溯改写本轮未执行的状态。
+
+当轮计划在指定 ARM64 设备上验证 PRoot 内 Android/Bionic 动态加载、普通多输入滤镜/字幕/AV1 操作、系统字体、H.264/HEVC MediaCodec、旧 Job 停止与重开、多文件收取及原会话归属；真实 16 KiB 页设备和性能/热/内存结果均独立记录。新增真实 Room 产物回归本轮仅编译，不把 stub、APK 或历史 Plus 模拟器记录计为当前设备通过。
 
 ## 依据
 

@@ -26,7 +26,7 @@ internal class ChatToolTimeline(
 
     /**
      * The open session's Progress card (HX2-07): the model's latest ledger right after a
-     * successful `todo.write` settles. Scoped to the OPEN session — a settle for another
+     * successful `todo_write` settles. Scoped to the OPEN session — a settle for another
      * session must not rewrite the screen the user is looking at (the next refresh rebuilds
      * it from storage).
      */

@@ -21,9 +21,9 @@ import java.util.UUID
 
 /** Personal notification reminders, explicitly not ringing alarms in another Clock app. */
 internal object DeviceReminderTools {
-    const val CREATE = "device.create_reminder"
-    const val LIST = "device.list_reminders"
-    const val CANCEL = "device.cancel_reminder"
+    const val CREATE = "device_create_reminder"
+    const val LIST = "device_list_reminders"
+    const val CANCEL = "device_cancel_reminder"
     private const val MAX_LIST = 50
 
     private fun schema(
@@ -51,12 +51,12 @@ internal object DeviceReminderTools {
                     LIST -> {
                         "List up to 50 active Helix notification reminders. " +
                             "Returns exact id, revision, time and label. " +
-                            "Call before device.cancel_reminder; never guess IDs from time or label. " +
+                            "Call before device_cancel_reminder; never guess IDs from time or label. " +
                             "Does not list alarms managed by other Clock apps."
                     }
 
                     else -> {
-                        "Cancel a Helix reminder returned by device.list_reminders in this session. " +
+                        "Cancel a Helix reminder returned by device_list_reminders in this session. " +
                             "Pass its exact [id] and [revision]. Changed or inactive reminders " +
                             "are refused; list again. Cancels the whole reminder. " +
                             "Cannot cancel another Clock app's alarm."

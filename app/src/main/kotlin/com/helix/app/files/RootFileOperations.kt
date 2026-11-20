@@ -1,5 +1,7 @@
 package com.helix.app.files
 
+import com.helix.core.workspace.WorkspaceFileBackend
+import com.helix.core.workspace.WorkspaceFileInfo
 import java.io.File
 
 /**
@@ -28,7 +30,7 @@ internal interface RootFileOperations {
     /**
      * Retrieves file metadata for [relativePath].
      */
-    fun stat(relativePath: String): ManualFileInfo?
+    fun stat(relativePath: String): WorkspaceFileInfo?
 
     /** Direct bounded text bytes, including a UTF-8 boundary lookahead when requested. */
     fun viewerTextBytes(
@@ -69,5 +71,5 @@ internal interface RootFileOperations {
     /**
      * Manual mutation backend for the root filesystem, or null if mutations are not supported.
      */
-    fun manualBackend(): ManualFileBackend?
+    fun manualBackend(): WorkspaceFileBackend?
 }

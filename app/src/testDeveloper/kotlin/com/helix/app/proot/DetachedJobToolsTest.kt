@@ -102,7 +102,7 @@ class DetachedJobToolsTest {
 
     @Test fun leaseSchemaIsSeparateFromTheSubmitDeadlineAndControlOnlyAcceptsOriginalCallId() {
         val start = DetachedJobTools.start()
-        assertEquals("code.linux.job.start", start.name.value)
+        assertEquals("code_linux_job_start", start.name.value)
         assertEquals(ToolOperationClass.CODE_EXECUTION, start.operationClass)
         val properties = start.inputSchema.getValue("properties").jsonObject
         assertFalse(properties.containsKey("timeoutSeconds"))

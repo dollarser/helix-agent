@@ -1,9 +1,10 @@
 # 产品文档入口
 
-本目录保存产品需求、用户任务体验、市场/商业分析与竞品研究。产品研究可以影响优先级，但**不直接授权实现**；当前开发范围仍由 status/HXA/accepted ADR 决定。
+本目录保存产品需求、用户任务体验、市场/商业分析与竞品研究。产品研究可以影响优先级，但**不直接授权实现**；当前任务由 Owner 授权，status 提供事实与验证范围，HXA 记录代码开发任务，accepted ADR 约束已接受的设计。
 
 核心入口：
 
+- [v0.0.12 版本说明](releases/v0.0.12.md)（[English](releases/v0.0.12.en.md)）：已发布开发预览；账号、模型目录、附件与界面更新，以及两渠道下载和升级提醒。
 - [v0.0.11 版本说明](releases/v0.0.11.md)（[English](releases/v0.0.11.en.md)）：已发布开发预览的功能、两站下载、升级风险、源码与 CI 身份；会话核心验收、公开签名包的系统安装/线上更新检查及历史真机证据分开记录。v0.0.10 首次升级须手动下载，不保证覆盖安装或历史数据保留。
 - [v0.0.10 版本说明](releases/v0.0.10.md)（[English](releases/v0.0.10.en.md)）：该次开发预览的功能、安装条件、发布入口和验证边界；版本说明是发布快照，不代表后续 main 的全部变化。
 - [requirements.md](requirements.md)：Android 单机版产品需求与能力边界。
@@ -34,4 +35,4 @@
 - [competitive-evaluation.md](competitive-evaluation.md)：横评方法与待执行协议。
 - [competitive-evidence.md](competitive-evidence.md)：来源、核验批次与材料校正。
 
-竞品文件应保持事实、判断和待验证项分离；研究中的优先级只有进入 status/HXA 后才成为工程任务。
+竞品文件应保持事实、判断和待验证项分离；研究建议只有经 Owner 授权才成为工程任务，不能由 status 导航或研究优先级自行选取工作。

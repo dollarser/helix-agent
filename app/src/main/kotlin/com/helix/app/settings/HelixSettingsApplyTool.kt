@@ -11,6 +11,7 @@ import com.helix.feature.conversation.application.SettingsExecutionAuthority
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
+import com.helix.tools.framework.ToolDiscoveryHints
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolOrigin
@@ -27,13 +28,13 @@ import kotlin.time.Duration.Companion.seconds
 internal object HelixSettingsApplyTool {
     fun descriptor() =
         ToolDescriptor(
-            name = ToolName("settings.apply"),
+            name = ToolName("settings_apply"),
             version = ToolVersion(1),
             description =
                 "Change THIS session's mode/model/reasoning defaults for future inputs through normal tool " +
                     "authorization. The running turn retains its original configuration. " +
                     "Pending inputs must drain first. " +
-                    "Use settings.inspect to find configured models. Cannot grant permissions, enable native " +
+                    "Use settings_inspect to find configured models. Cannot grant permissions, enable native " +
                     "QuickJS, change profile, or create credentials. No separate settings confirmation is needed.",
             inputSchema =
                 Json
@@ -53,6 +54,7 @@ internal object HelixSettingsApplyTool {
             idempotency = Idempotency.IDEMPOTENT,
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
             origin = ToolOrigin.BuiltInOrigin,
+            discovery = ToolDiscoveryHints(category = "settings"),
         )
 
     fun register(

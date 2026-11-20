@@ -508,14 +508,18 @@ class AppBackupRestoreDeviceTest {
             1,
         )
         val file =
-            File(roots.resolveRoot("app").toFile(), "synthetic-attachment.txt").apply {
+            File(
+                roots.resolveRoot("app").toFile(),
+                "input/attachments/att_0123456789abcdef0123456789abcdef/synthetic-attachment.txt",
+            ).apply {
+                parentFile!!.mkdirs()
                 writeText("SYNTHETIC_ATTACHMENT")
             }
         val hash = DocumentStorage.hash(file.readBytes())
         source.artifacts.register(
             "attachment",
             "session",
-            "scope:app:synthetic-attachment.txt",
+            "scope:app:input/attachments/att_0123456789abcdef0123456789abcdef/synthetic-attachment.txt",
             "text/plain",
             file.length(),
             hash,
@@ -538,6 +542,10 @@ class AppBackupRestoreDeviceTest {
         val attachment = actual.messageAttachments.listByMessage("message").single()
         val artifact = actual.artifacts.resolve(attachment.artifactId)
         assertEquals(attachment.boundSha256, artifact.sha256)
+        assertEquals(
+            "scope:app:input/attachments/att_0123456789abcdef0123456789abcdef/synthetic-attachment.txt",
+            artifact.relativePath,
+        )
         val file = File(context.filesDir, "workspaces/app/${artifact.relativePath.removePrefix("scope:app:")}")
         assertEquals("SYNTHETIC_ATTACHMENT", file.readText())
         assertEquals(artifact.sha256, DocumentStorage.hash(file.readBytes()))

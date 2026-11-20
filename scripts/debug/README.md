@@ -5,10 +5,7 @@ Save temporary automation **before running it**, under `scripts/local/debug/YYYY
 Keep reusable supported runners at their existing `scripts/` paths. Store logs, APKs,
 screenshots, UI dumps and user data only in ignored `build/` directories.
 
-Every emulator run must launch its own process, reject an already connected serial,
-and shut down that process in `finally`. Never borrow an emulator started by another
-person or agent. A physical device must be selected explicitly; fixture tests must
-not run against user data.
+Device authority follows [AGENTS](../../AGENTS.md#verification-and-device-authorization), including standing project-emulator authorization and explicit physical-device authorization. The isolated runners below must launch their own process, reject an already connected serial and shut down that process in `finally`; never borrow another agent’s active run. Daily-emulator updates use their separately authorized path. Fixture scope and exact serial must be verified before execution.
 
 Tracking, archival and deletion follow the single [repository retention policy](../../docs/development/README.md#git-跟踪与留存).
 The [cleanup record](../../docs/evidence/development/obsolete-material-cleanup-2026-10-05.md)

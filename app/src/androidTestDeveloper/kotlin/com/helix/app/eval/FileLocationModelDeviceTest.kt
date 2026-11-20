@@ -27,16 +27,22 @@ import org.junit.Test
 import java.io.File
 import java.util.UUID
 
-/** Real model chooses its own search strategy. No replayed responses or prescribed tool sequence. */
+/** Separate autonomous task acceptance from explicitly requested search-tool coverage. */
 class FileLocationModelDeviceTest {
-    @Suppress("LongMethod", "CyclomaticComplexMethod")
     @Test
-    fun autonomouslyLocatesCurrentReleaseEvidence() =
+    fun autonomouslyLocatesCurrentReleaseEvidence() = runCase(FileLocationAcceptance.AUTONOMOUS)
+
+    @Test
+    fun consumesGlobAndGrepResultsToLocateEvidence() = runCase(FileLocationAcceptance.SEARCH_TOOLS)
+
+    @Suppress("LongMethod", "CyclomaticComplexMethod")
+    private fun runCase(acceptance: FileLocationAcceptance) =
         runBlocking {
             val args = InstrumentationRegistry.getArguments()
-            assumeTrue(args.getString("fileLocationModelAcceptance") == "true")
+            assumeTrue(args.getString(acceptance.argument) == "true")
+            val layout = FileLocationLayout.valueOf(args.getString("fileLocationLayout") ?: "BASELINE")
             val app = ApplicationProvider.getApplicationContext<HelixApplication>()
-            check(app.packageName == "com.helix.agent.developer")
+            check(app.packageName in setOf("com.helix.agent.developer", "com.helix.agent.developer.asrvalidation"))
             val c = app.awaitAppContainer()
             app.account.restore()
             check(app.account.signedIn.value) { "Model account unavailable: ${app.account.status.value}" }
@@ -50,7 +56,7 @@ class FileLocationModelDeviceTest {
             val directory = File(app.cacheDir, "file-location-model/$suffix").apply { check(mkdirs()) }
             val session =
                 c.chatService.createSession(
-                    "File location model acceptance $suffix",
+                    "File location ${acceptance.name.lowercase()} $suffix",
                     BuiltInModel.PROVIDER_ID,
                     BuiltInModel.MODEL_ID,
                 )
@@ -62,7 +68,7 @@ class FileLocationModelDeviceTest {
                     .toFile()
             val fixture = File(root, "search-$suffix").apply { check(mkdirs()) }
             val token = "CLEARANCE_${UUID.randomUUID().toString().replace("-", "") }"
-            val relative = "teams/flight/releases/release-$suffix.md"
+            val relative = "${layout.targetDirectory}/release-$suffix.md"
             File(fixture, relative).apply {
                 parentFile!!.mkdirs()
                 writeText(
@@ -71,12 +77,12 @@ class FileLocationModelDeviceTest {
                 )
             }
             repeat(24) { index ->
-                File(fixture, "archive/batch-$index/release-$index.md").apply {
+                File(fixture, "${layout.oldDirectory}/batch-$index/release-$index.md").apply {
                     parentFile!!.mkdirs()
                     writeText("# ORCHID release\nState: SUPERSEDED\nApproval token: OLD-$index\n")
                 }
             }
-            File(fixture, "teams/other/release-current.md").apply {
+            File(fixture, layout.otherPath).apply {
                 parentFile!!.mkdirs()
                 writeText("# JASMINE release\nState: CURRENT\nApproval token: WRONG-PROJECT\n")
             }
@@ -91,7 +97,7 @@ class FileLocationModelDeviceTest {
                     directory,
                     captureSyntheticResponses = true,
                 ) { "" }
-            val allowed = setOf("tools.search", "tools.read_result", "glob", "grep", "read", "files.list", "files.stat")
+            val allowed = setOf("tools_search", "tools_read_result", "glob", "grep", "read", "files_list", "files_stat")
             val availability =
                 NaturalFixtureAvailability(
                     c.storage.toolAvailability,
@@ -100,6 +106,9 @@ class FileLocationModelDeviceTest {
                         .map { it.origin.canonicalOf() to it.name.value },
                     session,
                 )
+            val began = android.os.SystemClock.elapsedRealtime()
+            var fixtureApprovals = 0
+            val admission = SyntheticModelSubmission(session) { fixtureApprovals++ }
             var completed = false
             var cleanup = false
 
@@ -109,13 +118,42 @@ class FileLocationModelDeviceTest {
                 val result =
                     JSONObject()
                         .put("completed", completed)
+                        .put("acceptance", acceptance.name)
+                        .put("layout", layout.name)
+                        .put("turnCompleted", turns.lastOrNull()?.state == "COMPLETED")
                         .put("realModel", true)
+                        .put(
+                            "modelIdentities",
+                            JSONArray(
+                                turns.flatMap { c.storage.modelCalls.listByTurn(it.id) }.map {
+                                    val snapshot = JSONObject(it.providerSnapshot)
+                                    JSONObject()
+                                        .put("providerId", snapshot.getString("providerId"))
+                                        .put("modelId", snapshot.getString("model"))
+                                },
+                            ),
+                        ).put("elapsedMs", android.os.SystemClock.elapsedRealtime() - began)
+                        .put("humanInterventions", 0)
+                        .put("fixtureApprovals", fixtureApprovals)
+                        .put("submissionReceipts", admission.receipts)
                         .put("expectedToken", token)
                         .put("expectedPath", relative)
                         .put("httpStatuses", JSONArray(wire.statuses))
                         .put("wireRequests", wire.calls)
-                        .put("answer", turns.lastOrNull()?.let { liveResourceAnswer(c, session, it.id) }.orEmpty())
                         .put(
+                            "modelCalls",
+                            turns.sumOf {
+                                c.storage.modelCalls
+                                    .listByTurn(it.id)
+                                    .size
+                            },
+                        ).put(
+                            "answer",
+                            turns
+                                .lastOrNull()
+                                ?.let { liveResourceAnswer(c, session, it.id) }
+                                .orEmpty(),
+                        ).put(
                             "turns",
                             JSONArray(
                                 turns.map {
@@ -154,16 +192,13 @@ class FileLocationModelDeviceTest {
                 wireField.set(factory, wire)
                 ActivityScenario.launch(MainActivity::class.java).use {
                     val prompt =
-                        "在合成测试目录 $reference 中定位 ORCHID 项目当前有效的发布记录。" +
-                            "目录有历史版本和其他项目，请自行查找并核实正文。" +
+                        "在合成测试目录 $reference 中" + layout.request +
                             "告诉我准确相对文件路径、Approval token 和 Rollback 原文，" +
                             "并说明如何排除旧版。" +
-                            "只读这个目录，不修改文件，不访问网络。"
-                    val receipt =
-                        c.chatService
-                            .sendSubmission(
-                                ChatSubmission(session, 0, UUID.randomUUID().toString(), prompt),
-                            ).await()
+                            "只读这个目录，不修改文件，不访问网络。" + acceptance.prompt
+                    val request = ChatSubmission(session, 0, UUID.randomUUID().toString(), prompt)
+                    val receipt = admission.submit(c, request)
+                    evidence()
                     assertTrue(receipt.outcome is ChatSubmissionOutcome.Accepted)
                     withTimeout(300_000) {
                         while (true) {
@@ -173,6 +208,7 @@ class FileLocationModelDeviceTest {
                                 .filter { it.state == "AWAITING_APPROVAL" }
                                 .forEach { call ->
                                     check(call.name in allowed)
+                                    fixtureApprovals += 1
                                     c.chatService.approveApproval(
                                         requireNotNull(c.storage.approvals.byToolCall(call.id)).id,
                                     )
@@ -185,8 +221,8 @@ class FileLocationModelDeviceTest {
                     }
                     evidence()
                     assertTrue(
-                        "Require grounded answer and actual glob/grep/read consumption: $directory",
-                        verifyFileLocationEvidence(directory),
+                        "Require ${acceptance.name} evidence: $directory",
+                        verifyFileLocationEvidence(directory, acceptance),
                     )
                     completed = true
                     evidence()

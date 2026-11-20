@@ -12,7 +12,7 @@
 | --- | --- |
 | 浏览器截图只能回传文件路径 | 已过时。`BrowserScreenshotTool` 调用 `ToolVisualPreparation` 并携带 `visualArtifact`；HXA-225 已接生产视觉通路 |
 | R3 插件生命周期尚未开发 | 已过时。HXA-235 已实现统一安装目录、选择、停用、更新、卸载和修复；HXA-251 有有限 Room/设备补验 |
-| Helix 没有动态工具发现 | 不成立。`tools.search` 已搜索多种来源；有精确名称优先、零命中保留与禁用过滤 |
+| Helix 没有动态工具发现 | 不成立。`tools_search` 已搜索多种来源；有精确名称优先、零命中保留与禁用过滤 |
 | 每个 Codex 插件都有自己的独立 server | 不成立。PDF/Documents 可主要提供 Skill；GitHub/Outlook 引用连接器；本机 CUA 配置同时启用 browser/computer 两个 surface |
 | 主流 Agent 的内置插件都应优先通过 MCP 接入 | 样本不支持这条统一规则。核心原生工具、官方组件包和宿主框架插件分属不同层级；MCP 是其中一种接入方式，详见 第 2.7 节 |
 | 内置 Computer Use 自动继承 ChatGPT 全部系统权限 | 不准确。本机 MCP 配置指向独立应用身份 `Codex Computer Use`；官方文档要求为其检查录屏和辅助功能授权 |
@@ -190,8 +190,8 @@ MCP 包装不会自动取得截图/辅助功能授权，也不会自动隔离所
 | 原生插件 | 贡献工具、bundledSkills、preferredTools、scope 和图像范围 | 无统一服务依赖/实例释放接口；已有领域清理逻辑仍存在 |
 | Browser | 12 个 `browser.*` 工具，为 BuiltInOrigin；已有 WebView bridge 和生产视觉链 | 与 Mobile Use 的插件归属不同；当前没有完整 tab list/close、wait 和 role/label locator 组合 |
 | Mobile Use | 已有 Skill、目标范围、语义/截图/手势、后端选择、停止和悬浮交互 | 设备/OEM与真实任务质量仍按具体证据判定 |
-| 图像 | HXA-225 已接 view_image、browser.screenshot、VisualArtifact 和 Provider 编码 | 文件保存、像素准备、发送和识别是不同事实 |
-| 发现 | 多来源 tools.search、窗口和精确名称优先已存在；HXA-252 已交付发现提示 | 原生 bundled Skill 仍整段注入；有限模型对照不能外推 |
+| 图像 | HXA-225 已接 view_image、browser_screenshot、VisualArtifact 和 Provider 编码 | 文件保存、像素准备、发送和识别是不同事实 |
+| 发现 | 多来源 tools_search、窗口和精确名称优先已存在；HXA-252 已交付发现提示 | 原生 bundled Skill 仍整段注入；有限模型对照不能外推 |
 | 异步执行 | J1/J2 已支持本地原 Job 观察、等待和后台释放 | 外部委托任务的 provider 不是自动获得支持 |
 | 执行环境 | Android 原生、隔离 QuickJS、PRoot/CLI 各有边界 | 桌面 Skill 依赖不等于 Android Standard 已具备依赖 |
 

@@ -45,6 +45,7 @@ object ModelFailureDiagnostics {
                 put("receivedBytes", failure.receivedBytes)
                 put("receivedChunks", failure.receivedChunks)
                 put("elapsedMillis", failure.elapsedMillis)
+                failure.requestId?.let { put("requestId", it) }
                 failure.requestIdHash?.let { put("requestIdHash", it) }
                 failure.adapterRetryable?.let { put("adapterRetryable", it) }
                 failure.serverError?.let { put("serverError", it.name) }

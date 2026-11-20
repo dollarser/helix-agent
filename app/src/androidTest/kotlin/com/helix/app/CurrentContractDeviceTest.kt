@@ -64,11 +64,11 @@ class CurrentDiscoveryDeviceTest {
         val all = c.toolPipeline.registry.all()
         val developer = app.packageName.endsWith(".developer")
         if (!developer) {
-            assertFalse(all.any { it.name.value.startsWith("ui.") || it.name.value.startsWith("code.linux.") })
+            assertFalse(all.any { it.name.value.startsWith("ui_") || it.name.value.startsWith("code_linux_") })
         }
         val names =
-            listOf("browser.click", "documents.read") +
-                if (developer) listOf("ui.screenshot", "code.linux.job.start") else emptyList()
+            listOf("browser_click", "documents_read") +
+                if (developer) listOf("ui_screenshot", "code_linux_job_start") else emptyList()
         for (name in names) {
             val descriptor = requireNotNull(all.singleOrNull { it.name.value == name }) { "Missing tool: $name" }
             assertTrue("Missing declarations: $name", descriptor.discoveryCompanions.isNotEmpty())

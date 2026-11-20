@@ -2,7 +2,7 @@
 
 # Resolved normal-path gap: CLI result durability before acknowledgement
 
-Status: resolved for current normal subscription path; legacy reconcile boundary retained
+Status at 2026-09-07: normal subscription path resolved; legacy reconcile boundary retained in that candidate
 Date: 2026-09-07
 Related HXA: HXA-102
 Affected modules: CLI Runtime Binder, CLI client, subscription result recovery
@@ -42,7 +42,7 @@ The deletion window remains for legacy reconcile callers. The current owned norm
 ## Related records
 
 - [Runtime lifecycle decision](../../adr/runtime/001-execution-domains.md)
-- [Current TODO](main-optimization-todo.md)
+- [Historical TODO snapshot](main-optimization-todo.md)
 - [HXA-102](../../completion-records/HXA-102.md)
 
 

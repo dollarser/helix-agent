@@ -158,8 +158,12 @@ class LiveResourceModelDeviceTest {
                 bridge.register(registry)
                 bridges[serverId] = bridge
                 val allowed =
-                    setOf("tools.search", "tools.read_result", "web_fetch") +
-                        McpResourceTools.names.map { "mcp.$serverId.$it" }
+                    setOf("tools_search", "tools_read_result", "web_fetch") +
+                        McpResourceTools.names.map {
+                            com.helix.tools.framework.RemoteToolNames
+                                .mcp(serverId, it)
+                                .value
+                        }
                 availability =
                     NaturalFixtureAvailability(
                         c.storage.toolAvailability,
@@ -213,7 +217,11 @@ class LiveResourceModelDeviceTest {
                                 if (it.name == "web_fetch") {
                                     check(arguments.optString("url") == "https://example.com/")
                                 }
-                                if (it.name.endsWith(".read_mcp_resource")) {
+                                if (it.name ==
+                                    com.helix.tools.framework.RemoteToolNames
+                                        .mcp(serverId, "read_mcp_resource")
+                                        .value
+                                ) {
                                     check(arguments.optString("uri") == "memo://live/source")
                                 }
                                 c.chatService.approveApproval(requireNotNull(c.storage.approvals.byToolCall(it.id)).id)
@@ -222,7 +230,7 @@ class LiveResourceModelDeviceTest {
                             delay(100)
                         }
                     }
-                    publishLiveResourceEvidence(c, session, directory, wire, expected, false)
+                    publishLiveResourceEvidence(c, session, directory, wire, serverId, expected, false)
                     val turn =
                         c.storage.turns
                             .listBySession(session)
@@ -231,13 +239,13 @@ class LiveResourceModelDeviceTest {
                     assertTrue("Model did not quote the source-only marker", expected in answer)
                     assertTrue("Model omitted the source URI", "memo://live/source" in answer)
                 }
-                val facts = publishLiveResourceEvidence(c, session, directory, wire, expected, true)
+                val facts = publishLiveResourceEvidence(c, session, directory, wire, serverId, expected, true)
                 assertTrue("Actual persisted and consumed web/resource results required", facts)
                 passed = true
             } finally {
                 try {
                     finishOwnedCase(c.storage, c.chatService, session, {}, {
-                        publishLiveResourceEvidence(c, session, directory, wire, expected, passed)
+                        publishLiveResourceEvidence(c, session, directory, wire, serverId, expected, passed)
                     }, { stopped ->
                         try {
                             if (stopped) wireField.set(factory, original)

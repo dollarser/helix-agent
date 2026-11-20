@@ -47,6 +47,14 @@ class CiGatesTest(unittest.TestCase):
         (self.root / 'gradlew').write_text(
             '#!/usr/bin/env bash\nprintf "%s\\n" "$@" >> gradle-args.txt\nexit "${FAKE_EXIT:-0}"\n')
 
+    def test_pure_jvm_gate_does_not_prepare_assets_or_rewrite_locks(self):
+        result, args = self.run_gate('--jvm')
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertEqual(['jvmUnitTests'], args)
+        self.assertFalse((self.root / 'gate-steps.txt').exists())
+        result, _ = self.run_gate('--jvm', exit_code=7)
+        self.assertEqual(7, result.returncode)
+
     def test_default_and_explicit_debug_preserve_checks_without_release_tasks(self):
         self.append_gradle_args()
         for gate in (None, '--debug'):

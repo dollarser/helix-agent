@@ -31,7 +31,7 @@ import org.junit.Test
 
 /**
  * HXA-192 device acceptance: the real Plan review -> execution UI loop. The sibling
- * PlanSubmitIntegrationDeviceTest proves the production `plan.submit` tool/Room (the 提交计划
+ * PlanSubmitIntegrationDeviceTest proves the production `plan_submit` tool/Room (the 提交计划
  * precondition) and TasksDashboardDeviceTest proves the dashboard display + cancel decision;
  * NEITHER proves the execute closed loop, which is what this class adds.
  *

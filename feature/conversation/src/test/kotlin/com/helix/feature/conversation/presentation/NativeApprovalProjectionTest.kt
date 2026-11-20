@@ -13,7 +13,7 @@ class NativeApprovalProjectionTest {
         ApprovalCardUi(
             approvalId = id,
             bindingHash = "bound-$id",
-            toolName = "ui.click",
+            toolName = "ui_click",
             sourceRef = "builtin",
             operationClass = ToolOperationClass.PRIVILEGED,
             state = ApprovalCardState.PENDING,

@@ -9,7 +9,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SessionCreationServiceTest {
-    private val caller = SessionHistoryCaller("source", "turn", "call", "session.create")
+    private val caller = SessionHistoryCaller("source", "turn", "call", "session_create")
 
     @Test fun defaultDeniesAndDoesNotCreate() {
         val store = Store()

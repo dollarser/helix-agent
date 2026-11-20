@@ -1148,7 +1148,7 @@
     <string name="user_question_skip">跳过</string>
     <string name="user_question_title">需要你的选择</string>
     <string name="git_diff_read_error">无法读取差异，请刷新仓库后重试。</string>
-    <string name="tool_rejected_binding_unavailable">该工具未在本次请求开放或绑定已失效，未执行。请先用 tools.search 精确搜索工具名，再按下一轮提供的参数定义调用；不要直接重试本次调用。</string>
+    <string name="tool_rejected_binding_unavailable">该工具未在本次请求开放或绑定已失效，未执行。请先用 tools_search 精确搜索工具名，再按下一轮提供的参数定义调用；不要直接重试本次调用。</string>
     <string name="quickjs_native_save_failed">无法读取或保存原生访问设置，请重试。</string>
     <string name="provider_models_manage">管理会话模型</string>
     <string name="provider_models_manage_title">%1$s · 模型</string>
@@ -1502,7 +1502,6 @@
     <string name="document_sources_title">文档来源</string>
     <string name="document_source_preview_note">下方打开当前原文件；实际阅读以回答中的快照 SHA-256 和页码/内容块为准。暂不支持精确跳转；原文变化会提示。</string>
     <string name="document_plugin_select">图文阅读需选用“文档”插件 · 去选择</string>
-    <string name="document_plugin_name">文档</string>
     <string name="workspace_location_details">位置详情</string>
     <string name="workspace_copy_location">复制完整路径</string>
     <string name="preview_reset_title">需要重置旧预览版数据</string>
@@ -1561,7 +1560,7 @@
     <string name="cloud_voice_connection_error">暂时无法连接语音服务，请稍后重试。</string>
     <string name="speech_services_title">语音服务</string>
     <string name="speech_http_input_title">云端语音输入</string>
-    <string name="speech_http_description">HTTP 模式：录音结束后识别，分段合成朗读；不支持持续流式。HTTP 传输未加密。</string>
+    <string name="speech_http_description">录音按段上传识别，云端 PCM 语音可边接收边播放。自定义 HTTP（非 HTTPS）传输不加密。</string>
     <string name="speech_http_loopback">填写 Android 设备可访问的地址；127.0.0.1 指此设备，不是电脑。</string>
     <string name="speech_http_enable">在线语音</string>
     <string name="speech_asr_endpoint">ASR 转写完整地址</string>
@@ -1580,7 +1579,7 @@
     <string name="account_login">登录</string>
     <string name="account_register">注册</string>
     <string name="account_logout">退出登录</string>
-    <string name="account_registered">注册已提交，账号就绪后请登录。</string>
+    <string name="account_registered">注册成功，请登录。</string>
     <string name="account_failure">账号操作未完成，请稍后重试。</string>
     <string name="account_busy">正在处理…</string>
     <string name="account_welcome">欢迎使用 Helix</string>
@@ -1759,4 +1758,26 @@
     <string name="provider_save_conflict">此服务已发生变化，请关闭并重新打开后再保存。</string>
     <string name="provider_context_independent_save">此处保存立即生效，不受服务设置取消影响。</string>
     <string name="provider_model_immediate_setting">此操作立即生效，取消服务设置不会撤销。</string>
+    <string name="account_notices_title">通知</string>
+    <string name="account_notices_all">全部</string>
+    <string name="account_notices_unread">未读</string>
+    <string name="account_notices_changed">该通知已失效，已刷新列表。</string>
+    <string name="account_notices_loading">正在加载通知…</string>
+    <string name="account_notices_empty">暂无通知</string>
+    <string name="account_notices_more">加载更多</string>
+    <string name="account_notices_important">重要</string>
+    <string name="account_notices_forbidden">账号访问受限，请检查权限或先完成首次密码修改。</string>
+    <string name="account_notices_manage_account">管理账号</string>
+    <string name="account_notices_retry_read">重试标记已读</string>
+    <string name="user_page_title">用户</string>
+    <string name="user_profile_default_name">Helix 用户</string>
+    <string name="user_profile_edit">编辑资料</string>
+    <string name="user_profile_choose_avatar">选择头像</string>
+    <string name="user_profile_remove_avatar">移除头像</string>
+    <string name="user_profile_save_failed">资料保存失败，请尝试其他图片或重试。</string>
+    <string name="user_profile_load_failed">本机资料读取失败，请重新打开此页重试。</string>
+    <string name="user_profile_avatar">用户头像</string>
+    <string name="user_profile_account_section">账号资料</string>
+    <string name="user_profile_account_manage">管理账号</string>
+    <string name="user_profile_saved">头像已更新</string>
 </resources>

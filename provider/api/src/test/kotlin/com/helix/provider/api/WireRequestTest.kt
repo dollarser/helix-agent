@@ -33,7 +33,7 @@ class WireRequestTest {
 
     @Test
     fun unknownMethodIsRejected() {
-        assertThrows(IllegalArgumentException::class.java) { validRequest("PATCH") }
+        assertThrows(IllegalArgumentException::class.java) { validRequest("TRACE") }
         assertThrows(IllegalArgumentException::class.java) { validRequest("post") }
     }
 

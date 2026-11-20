@@ -61,7 +61,7 @@ class ToolCallPresentationStorageDeviceTest {
             } else {
                 null
             }
-        storage.toolCalls.append(id, turn.id, id, "time.now", "1", "{}", state.name)
+        storage.toolCalls.append(id, turn.id, id, "time_now", "1", "{}", state.name)
         if (state == ToolCallState.COMPLETED) {
             val result = storage.toolResults.append("result-$id", id, "SUCCEEDED", "Synthetic settled result", null)
             storage.toolResults.markVerified(result)
@@ -85,7 +85,7 @@ class ToolCallPresentationStorageDeviceTest {
                         id = state,
                         turnId = "turn",
                         callId = state,
-                        name = "time.now",
+                        name = "time_now",
                         version = "1",
                         argsJson = "{}",
                         state = state,

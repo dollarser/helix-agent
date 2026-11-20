@@ -19,7 +19,7 @@ class AutomationPrivilegedAdmissionTest {
         val call =
             ExecutableToolCall(
                 "call",
-                "ui.click_match",
+                "ui_click_match",
                 "1",
                 JsonObject(emptyMap()),
                 ExecutionTargetType.LOCAL_ANDROID,

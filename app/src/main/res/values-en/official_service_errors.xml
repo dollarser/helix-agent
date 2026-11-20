@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="builtin_model_protocol_error">The built-in model endpoint or response format is incompatible. Check the service deployment and try again.</string>
+    <string name="account_error_endpoint">The account endpoint or response is incompatible. Check the service deployment and try again.</string>
+</resources>

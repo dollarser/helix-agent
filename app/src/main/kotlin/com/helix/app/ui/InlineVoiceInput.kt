@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -218,11 +217,7 @@ internal fun InlineVoiceControls(
             ) {
                 CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
             }
-            Text(
-                stringResource(voiceStatusText(state, permission)),
-                Modifier.testTag("voice-status"),
-                style = MaterialTheme.typography.bodyMedium,
-            )
+            VoiceStatusNotice(state, permission)
         }
         VoiceUploadNotice(uploadsAudio && !uploadConsent, destination)
         val finalOnlyCloud = uploadsAudio && uploadConsent && !supportsPartial
@@ -320,7 +315,7 @@ internal fun voiceStatusText(
             }
 
             VoiceCapture.Phase.FAILED -> {
-                voiceFailureText(state.failure)
+                state.serviceFailure?.let(::speechFailureText) ?: voiceFailureText(state.failure)
             }
 
             else -> {
@@ -357,3 +352,16 @@ private fun approveVoiceConsent(
     consent: com.helix.app.voice.SpeechConsentStore,
     identity: String,
 ): Boolean = capture.destination?.let { consent.approve("asr", it, identity) } == true
+
+internal fun speechFailureText(failure: com.helix.app.voice.SpeechFailure): Int =
+    when (failure) {
+        com.helix.app.voice.SpeechFailure.NETWORK -> R.string.speech_failure_network
+        com.helix.app.voice.SpeechFailure.TIMEOUT -> R.string.speech_failure_timeout
+        com.helix.app.voice.SpeechFailure.AUTHENTICATION -> R.string.speech_failure_authentication
+        com.helix.app.voice.SpeechFailure.PERMISSION -> R.string.speech_failure_permission
+        com.helix.app.voice.SpeechFailure.INVALID_REQUEST -> R.string.speech_failure_invalid_request
+        com.helix.app.voice.SpeechFailure.HTTP -> R.string.speech_failure_http
+        com.helix.app.voice.SpeechFailure.PROTOCOL -> R.string.speech_failure_protocol
+        com.helix.app.voice.SpeechFailure.BUSY -> R.string.speech_model_busy
+        com.helix.app.voice.SpeechFailure.SERVICE -> R.string.speech_failure_service
+    }

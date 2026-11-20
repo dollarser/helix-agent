@@ -51,7 +51,7 @@ ALLOWLIST: list[tuple[str, str, str]] = [
     # locales so `model-visible ⇔ persisted` holds on history reconstruction. Translating them
     # would change the model request with the UI language.
     ("conversation/application/attachment/AttachmentContext.kt", "", "model-visible attachment injection; byte-stable across locales"),
-    # Fixed, versioned DOM-extraction JS for browser.snapshot (SCRIPT_VERSION, pinned by
+    # Fixed, versioned DOM-extraction JS for browser_snapshot (SCRIPT_VERSION, pinned by
     # BrowserSnapshotScriptTest). The only CJK is a JS comment inside the versioned constant; the
     # script bytes must not change per locale.
     ("snapshot/BrowserSnapshotScript.kt", "", "fixed versioned pinned JS script; locale-independent"),

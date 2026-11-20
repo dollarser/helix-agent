@@ -28,7 +28,7 @@ import org.junit.Test
 import java.time.Instant
 
 /**
- * Unit tests for the `plan.submit` built-in tool (research doc section 4.3; HX2-05): the
+ * Unit tests for the `plan_submit` built-in tool (research doc section 4.3; HX2-05): the
  * contract facts, the executor's persist-REVIEW_REQUIRED behavior and its fail-closed exits,
  * over a hand-written [PlanDao] fake — no dispatcher, no Room.
  */
@@ -91,7 +91,7 @@ class PlanToolsTest {
     @Test
     fun theContractIsAMetadataL0ControlToolAdmittedByPlanMode() {
         val d = PlanTools.descriptor() // construction also enforces the ToolSchema subset
-        assertEquals(ToolName("plan.submit"), d.name)
+        assertEquals(ToolName("plan_submit"), d.name)
         assertEquals(ToolVersion(1), d.version)
         assertEquals(ToolOperationClass.METADATA, d.operationClass)
         assertTrue(d.origin is ToolOrigin.BuiltInOrigin)

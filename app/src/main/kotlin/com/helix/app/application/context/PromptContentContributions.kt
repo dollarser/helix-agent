@@ -186,8 +186,8 @@ internal object PromptContentContributions {
         }
 
     private fun catalogReadHint(tools: Set<String>): String =
-        if ("tools.search" in tools) {
-            "Use tools.search for callable schemas when relevant; results remain subject to policy.\n"
+        if ("tools_search" in tools) {
+            "Use tools_search for callable schemas when relevant; results remain subject to policy.\n"
         } else {
             "Only the current request's callable schemas are available.\n"
         }
@@ -225,11 +225,11 @@ private fun NativePluginState.identity() = PromptContentOwner(pluginId, runtimeI
 private fun SkillKey.identity() = "${source.name}:$ownerId:$name@$snapshotHash"
 
 private fun SkillKey.readReference(tools: Set<String>): PromptContentReadReference? =
-    if ("skills.read" !in tools) {
+    if ("skills_read" !in tools) {
         null
     } else {
         PromptContentReadReference(
-            "skills.read",
+            "skills_read",
             buildJsonObject {
                 put("source", source.name)
                 put("name", name)

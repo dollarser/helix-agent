@@ -40,6 +40,6 @@ internal object DetachedCommandProjection {
         accepted: Boolean,
         terminal: DetachedCommandFacts?,
     ): Boolean =
-        toolName == "code.linux.job.start" && terminal?.settled != true &&
+        toolName == "code_linux_job_start" && terminal?.settled != true &&
             (terminal != null || accepted || callState in setOf("NEEDS_REVIEW", "INTERRUPTED"))
 }

@@ -37,6 +37,7 @@ import com.helix.extensions.mobileuse.tools.AutomationToolSchemas.str
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
+import com.helix.tools.framework.ToolDiscoveryHints
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolJsonNumbers
@@ -65,8 +66,18 @@ class AutomationTools(
         listOf(
             descriptor(SNAPSHOT, ToolOperationClass.READ_ONLY, emptyObject(), snapshotOutput()),
             descriptor(FIND, ToolOperationClass.READ_ONLY, findInput(), findOutput()),
-            descriptor(CLICK, ToolOperationClass.EXTERNAL_ACTION, tokenInput(), actionOutput()),
-            descriptor(CLICK_MATCH, ToolOperationClass.EXTERNAL_ACTION, clickMatchInput(), actionOutput()),
+            descriptor(
+                CLICK,
+                ToolOperationClass.EXTERNAL_ACTION,
+                clickInput(),
+                actionOutput(optionalObservation = true),
+            ),
+            descriptor(
+                CLICK_MATCH,
+                ToolOperationClass.EXTERNAL_ACTION,
+                clickMatchInput(),
+                actionOutput(optionalObservation = true),
+            ),
             descriptor(LONG_CLICK, ToolOperationClass.EXTERNAL_ACTION, tokenInput(), actionOutput()),
             descriptor(SET_TEXT, ToolOperationClass.EXTERNAL_ACTION, textInput(), actionOutput(observeAfter = true)),
             descriptor(IME_ENTER, ToolOperationClass.EXTERNAL_ACTION, tokenInput(), actionOutput()),
@@ -146,7 +157,7 @@ class AutomationTools(
                                 ToolExecutorResult.Failed("AUTOMATION_TOOL_UNKNOWN", sideEffectFree = true)
                             }
                         }
-                    if (name in setOf(SET_TEXT, SCROLL)) {
+                    if (shouldObserveAfter(name, call.args)) {
                         AutomationPostActionObservation(boundPort::snapshot, ::snapshotJson).attach(result, call)
                     } else {
                         result
@@ -163,7 +174,7 @@ class AutomationTools(
     ): ToolExecutorResult {
         require("backend" !in call.args) { "BACKEND_IS_HOST_SELECTED" }
         val exact =
-            call.args.keys.all { it in setOf("packageName", "viewId", "text") } &&
+            call.args.keys.all { it in setOf("packageName", "viewId", "text", "observeAfter") } &&
                 listOf("packageName", "viewId", "text").all { it in call.args }
         val backend = boundPort.preferredClickBackend().name.lowercase()
         if (backend in setOf("root", "adb", "shizuku") && exact && !boundPort.usesBackgroundDisplay()) {
@@ -304,7 +315,7 @@ class AutomationTools(
                         "recoveryHint",
                         JsonPrimitive(
                             "Returned nodes are limited by maxResults; the wait condition used all matching nodes. " +
-                                "Narrow the selector with ui.find or inspect ui.snapshot for more context.",
+                                "Narrow the selector with ui_find or inspect ui_snapshot for more context.",
                         ),
                     )
                 }
@@ -367,7 +378,7 @@ class AutomationTools(
                             "recoveryHint",
                             JsonPrimitive(
                                 "Model output is limited to 200 nodes and 128 KiB. " +
-                                    "Use ui.find for a specific observed label/attribute in the captured tree. " +
+                                    "Use ui_find for a specific observed label/attribute in the captured tree. " +
                                     "OUTPUT_LIMIT is separate from collection limits; " +
                                     "do not assume omitted controls are absent.",
                             ),
@@ -388,7 +399,7 @@ class AutomationTools(
 
             snapshot.truncated -> {
                 "The captured tree is incomplete; result pages cannot recover omitted nodes. " +
-                    "If the target is missing, use ui.device then ui.screenshot. " +
+                    "If the target is missing, use ui_device then ui_screenshot. " +
                     "Perform the next permitted tool call; do not end with a plan to do it."
             }
 
@@ -426,9 +437,9 @@ class AutomationTools(
                     JsonPrimitive(
                         "Semantic observation is unavailable; " +
                             "this does not establish that the screen has no controls. " +
-                            "Check ui.device for an independently authorized screenshot/gesture backend. " +
+                            "Check ui_device for an independently authorized screenshot/gesture backend. " +
                             "If available, " +
-                            "use ui.screenshot and act only on a visible target with ui.gesture. " +
+                            "use ui_screenshot and act only on a visible target with ui_gesture. " +
                             "Do not repeat equivalent semantic queries or bypass authorization; " +
                             "otherwise report the limitation.",
                     ),
@@ -444,7 +455,7 @@ class AutomationTools(
                 put(
                     "recoveryHint",
                     JsonPrimitive(
-                        "Inspect the current target with ui.snapshot. A verified return to an already authorized " +
+                        "Inspect the current target with ui_snapshot. A verified return to an already authorized " +
                             "target resumes automatically. A new target needs authorization; never bypass it. " +
                             "If no permitted path exists, report the incomplete work and stop.",
                     ),
@@ -461,8 +472,8 @@ class AutomationTools(
                 put(
                     "actionHint",
                     JsonPrimitive(
-                        "Offscreen matches. Call ui.snapshot or ui.find(scrollable=true); scroll a fresh container " +
-                            "token with ui.scroll, then observe. Check scrollDirections: forward/backward may switch " +
+                        "Offscreen matches. Call ui_snapshot or ui_find(scrollable=true); scroll a fresh container " +
+                            "token with ui_scroll, then observe. Check scrollDirections: forward/backward may switch " +
                             "tabs. Do not click offscreen tokens or guess coordinates.",
                     ),
                 )
@@ -481,8 +492,8 @@ class AutomationTools(
                 put(
                     "actionHint",
                     JsonPrimitive(
-                        "If this is the intended control, call ui.click(suggestedClickToken) next. " +
-                            "ui.find/ui.snapshot/ui.wait replace tokens: after another query use its fresh result. " +
+                        "If this is the intended control, call ui_click(suggestedClickToken) next. " +
+                            "ui_find/ui_snapshot/ui_wait replace tokens: after another query use its fresh result. " +
                             "Never reuse the earlier token.",
                     ),
                 )
@@ -554,12 +565,16 @@ class AutomationTools(
         if (operation == ToolOperationClass.READ_ONLY) Idempotency.IDEMPOTENT else Idempotency.NON_IDEMPOTENT,
         ExecutionTargetType.LOCAL_ANDROID,
         origin,
+        discovery = ToolDiscoveryHints(category = "ui"),
         discoveryCompanions = setOf(SNAPSHOT, FIND, LONG_CLICK).filter { it != name }.map(::ToolName).toSet(),
     )
 
     private fun emptyObject() = obj(emptyMap(), emptyList())
 
     private fun tokenInput() = obj(mapOf("token" to str(32)), listOf("token"))
+
+    private fun clickInput() =
+        obj(mapOf("token" to str(32), "observeAfter" to automationObservationInput()), listOf("token"))
 
     private fun textInput() =
         obj(
@@ -632,6 +647,7 @@ class AutomationTools(
     private fun clickMatchInput(): JsonObject {
         val fields =
             linkedMapOf(
+                "observeAfter" to automationObservationInput(),
                 "packageName" to str(255),
                 "text" to str(2_000),
                 "contentDescription" to str(2_000),
@@ -684,29 +700,10 @@ class AutomationTools(
         return obj(fields, emptyList())
     }
 
-    private fun actionOutput(observeAfter: Boolean = false): JsonObject {
-        val base = automationActionOutputSchema(includeBackend = true)
-        if (!observeAfter) return base
-        val status =
-            buildJsonObject {
-                put("type", JsonPrimitive("string"))
-                put("enum", JsonArray(AutomationPostActionObservation.STATUSES.map(::JsonPrimitive)))
-            }
-        return JsonObject(
-            base +
-                mapOf(
-                    "properties" to
-                        JsonObject(
-                            base.getValue("properties").jsonObject +
-                                mapOf(
-                                    "observationStatus" to status,
-                                    "observation" to snapshotOutput(),
-                                ),
-                        ),
-                    "required" to JsonArray(base.getValue("required").jsonArray + JsonPrimitive("observationStatus")),
-                ),
-        )
-    }
+    private fun actionOutput(
+        observeAfter: Boolean = false,
+        optionalObservation: Boolean = false,
+    ): JsonObject = AutomationToolSchemas.actionOutput(observeAfter, optionalObservation, snapshotOutput())
 
     private fun findOutput() =
         obj(
@@ -765,18 +762,18 @@ class AutomationTools(
                 "Do not bypass protection with screenshots, coordinates or another backend. " +
                 "Do not finish with a promise to take a screenshot without a tool call."
 
-        const val SNAPSHOT = "ui.snapshot"
-        const val FIND = "ui.find"
-        const val CLICK = "ui.click"
-        const val CLICK_MATCH = "ui.click_match"
-        const val LONG_CLICK = "ui.long_click"
-        const val SET_TEXT = "ui.set_text"
-        const val IME_ENTER = "ui.ime_enter"
-        const val SET_PROGRESS = "ui.set_progress"
-        const val SCROLL = "ui.scroll"
-        const val BACK = "ui.back"
-        const val HOME = "ui.home"
-        const val WAIT = "ui.wait"
+        const val SNAPSHOT = "ui_snapshot"
+        const val FIND = "ui_find"
+        const val CLICK = "ui_click"
+        const val CLICK_MATCH = "ui_click_match"
+        const val LONG_CLICK = "ui_long_click"
+        const val SET_TEXT = "ui_set_text"
+        const val IME_ENTER = "ui_ime_enter"
+        const val SET_PROGRESS = "ui_set_progress"
+        const val SCROLL = "ui_scroll"
+        const val BACK = "ui_back"
+        const val HOME = "ui_home"
+        const val WAIT = "ui_wait"
         const val MAX_OUTPUT_BYTES = 512L * 1024L
     }
 }

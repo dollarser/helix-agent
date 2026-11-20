@@ -7,7 +7,7 @@ Affected modules: app
 
 ## Problem
 
-真实模型读取浏览器标题/标题节点时，browser.snapshot 已成功返回完整结构，模型仍反复查询，
+真实模型读取浏览器标题/标题节点时，browser_snapshot 已成功返回完整结构，模型仍反复查询，
 直至 MODEL_CALL_LIMIT。实际回填 JSON 在第一个 node token 中间被截断，标题字段完全丢失。
 
 ## Impact

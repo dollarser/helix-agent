@@ -91,7 +91,7 @@ class ApprovalFlowTest {
         dispatcher = ToolDispatcher(clock, registry, center, PolicyEngine(clock), broker, sink)
         l2Descriptor =
             ToolDescriptor(
-                name = ToolName("fs.write"),
+                name = ToolName("fs_write"),
                 version = ToolVersion(1),
                 description = "writes a file",
                 inputSchema = json("""{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}"""),

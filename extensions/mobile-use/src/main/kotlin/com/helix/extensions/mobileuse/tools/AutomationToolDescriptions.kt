@@ -56,12 +56,12 @@ internal object AutomationToolDescriptions {
             }
 
             AutomationTools.BACK -> {
-                "Navigate back once in the authorized phone session using the host-selected ready backend. " +
+                "Navigate back once in the authorized phone session. " +
                     "Observe where navigation ends."
             }
 
             AutomationTools.HOME -> {
-                "Go to Android Home in the authorized session using the host-selected ready backend. " +
+                "Go to Android Home in the authorized session. " +
                     "This does not finish the user's task."
             }
 
@@ -74,23 +74,22 @@ internal object AutomationToolDescriptions {
 private const val SNAPSHOT_DESCRIPTION =
     "Observe the current authorized Android screen without acting. Returns fresh node tokens, " +
         "labels, bounds and state; omitted flags mean false. " +
-        "A node's longClick supplies ui.long_click and its fresh target token for selection/context actions. " +
+        "A node's longClick supplies ui_long_click and its fresh target token for selection/context actions. " +
         "Compare ancestorContexts for overlapping same-label controls; visibleToUser does not prove topmost. " +
         "Each new semantic observation replaces earlier tokens, even if the screen looks unchanged. " +
         "Inspect this result before another read; do not collect tokens across " +
         "observations. For scrolling choose a node with scrollable=true. " +
         "Offscreen nodes require scrolling before clicking. " +
         "Check truncated/recoveryHint before " +
-        "concluding a control is absent. Observation chooses ready Root, then a computer ADB helper, " +
-        "then Shizuku, then Accessibility."
+        "concluding a control is absent."
 
 private const val FIND_DESCRIPTION =
     "Find controls in a fresh screen observation using observed labels or attributes. " +
         "Default text matching is exact; use match=contains for a substring. " +
         "Compare ancestorContexts for same-label overlapping controls; never pick the first arbitrarily. " +
         "A node's longClick gives the tool and token for selection/context actions. " +
-        "For simply clicking a known label/viewId, prefer ui.click_match instead of find then click. " +
-        "An actionable unique match supplies suggestedClickToken: if intended, call ui.click immediately. " +
+        "For simply clicking a known label/viewId, prefer ui_click_match instead of find then click. " +
+        "An actionable unique match supplies suggestedClickToken: if intended, call ui_click immediately. " +
         "This observation replaces all earlier node tokens. Offscreen matches are not clickable: " +
         "find a fresh container with scrollable=true, scroll its token and read the returned observation. " +
         "Does not click or wait."
@@ -102,10 +101,10 @@ private const val SCROLL_DESCRIPTION =
         "leftward swipe may require right or forward. " +
         "At an edge the opposite direction may be absent. Forward/backward follow the widget's axis. " +
         "read the returned observation for new controls/tokens. " +
-        "Use a token from the latest observation or ui.find(scrollable=true), not the offscreen button's " +
+        "Use a token from the latest observation or ui_find(scrollable=true), not the offscreen button's " +
         "token or clickTargetToken. A later observation invalidates the earlier container token. " +
         "UNSETTLED may include fresh state that is still changing; query again if needed. " +
-        "For coordinate/canvas gestures use ui.device, ui.screenshot and ui.gesture instead."
+        "For coordinate/canvas gestures use ui_device, ui_screenshot and ui_gesture instead."
 
 private const val WAIT_DESCRIPTION =
     "Wait read-only for a screen condition: present/absent require a selector; changed/stable " +
@@ -116,25 +115,28 @@ private const val WAIT_DESCRIPTION =
         "pollMillis (default 100, range 50..1000). Inspect waitStatus. " +
         "Nodes default to maxResults=20 (maximum 50); conditions use all matching captured nodes. " +
         "matchCount counts captured matches; captureTruncated and queryTruncated distinguish incomplete " +
-        "capture from limited returned nodes, and truncated covers either. Narrow with ui.find or inspect " +
-        "ui.snapshot when queryTruncated. TIMED_OUT does not prove the previous action failed. " +
+        "capture from limited returned nodes, and truncated covers either. Narrow with ui_find or inspect " +
+        "ui_snapshot when queryTruncated. TIMED_OUT does not prove the previous action failed. " +
         "A unique intended match in a complete result provides " +
-        "suggestedClickToken for ui.click. Never repeat unchanged waits indefinitely."
+        "suggestedClickToken for ui_click. Never repeat unchanged waits indefinitely."
 
 private const val CLICK_MATCH_DESCRIPTION =
     "Prefer this tool for finding and clicking a known label or viewId in one call; " +
         "no intermediate token is needed. " +
         "Use observed selectors, preferably packageName and a unique viewId or exact text. " +
-        "If the latest observation already has suggestedClickToken, ui.click avoids another read. " +
+        "If the latest observation already has suggestedClickToken, ui_click avoids another read. " +
         "Optional timeoutMillis waits up to 60000; normally omit pollMillis (default " +
         "100, range 50..1000). " +
-        "The runtime selects the available backend; do not supply a backend argument. " +
         "An authorized system Install button is within task scope; " +
         "Android may still require manual confirmation. " +
+        "Set observeAfter=true when the next step needs fresh semantic state; read its bounded observation " +
+        "instead of taking a redundant snapshot. Omit for vision or no read. " +
         "Zero or ambiguous targets do not click; unknown outcomes must not be replayed."
 
 private const val CLICK_DESCRIPTION =
-    "Click the exact token from the latest ui.snapshot/find/wait or returned post-action observation. " +
+    "Click the exact token from the latest ui_snapshot/find/wait or returned post-action observation. " +
         "Do not insert another observation between finding and clicking: it replaces old tokens. " +
-        "Use clickTargetToken for a non-clickable child. For a known selector prefer ui.click_match. " +
-        "DISPATCHED does not verify touch acceptance; observe the resulting screen."
+        "Use clickTargetToken for a non-clickable child. For a known selector prefer ui_click_match. " +
+        "Set observeAfter=true when the next step needs screen state; read the returned bounded observation " +
+        "and fresh tokens instead of a redundant snapshot. Omit for vision or no semantic read. " +
+        "UNSETTLED may still be changing. DISPATCHED does not verify touch acceptance; verify the effect."

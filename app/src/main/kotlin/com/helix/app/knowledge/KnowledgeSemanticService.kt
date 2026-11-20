@@ -93,13 +93,18 @@ internal class KnowledgeSemanticService(
             prefs.getString("generation", "").orEmpty(),
         )
 
-    suspend fun models(force: Boolean = false): List<String> =
+    suspend fun models(force: Boolean = false): List<String> = directory(force).models
+
+    suspend fun directory(force: Boolean = false): SemanticModelDirectory =
         withContext(Dispatchers.IO) {
             val service = requireNotNull(app).awaitAppContainer().providerService
             service.builtInModels.refresh(force)
             val catalog = service.builtInModels.current()
             check(catalog.failure == null) { "Embedding directory unavailable" }
-            catalog.models.filter { ModelPurpose.EMBEDDING in catalog.purposes[it].orEmpty() }
+            SemanticModelDirectory(
+                catalog.models.filter { ModelPurpose.EMBEDDING in catalog.purposes[it].orEmpty() },
+                catalog.partial,
+            )
         }
 
     @android.annotation.SuppressLint("UseKtx") // Consent changes require checked durable publication.
@@ -246,6 +251,7 @@ internal class KnowledgeSemanticService(
                 async {
                     capacity.withPermit {
                         require(authorized(config)) { "Semantic consent changed" }
+                        validateOfficialEmbeddingInputs(config.model, inputs)
                         client().embed(config.model, inputs)
                     }
                 }

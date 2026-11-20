@@ -62,6 +62,6 @@ Affected modules: app（agent、chat、runcontrol、UI），无数据库迁移
 ## Related records
 
 - [模型数据与预算边界决定](../adr/agent/006-model-data-budget-boundaries.md)
-- [模式与上下文说明](../architecture/agent-modes.md)
+- [模式与上下文说明](../architecture/overview.md#agent-模式goal-与上下文)
 - [上下文压缩](../adr/agent/002-context-compaction.md)
 - [HXA-176](../completion-records/HXA-176.md)

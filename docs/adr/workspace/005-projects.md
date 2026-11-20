@@ -7,7 +7,7 @@ Deciders: project owner（本轮要求完整项目设计与重构）
 
 ## Context
 
-项目是长期工作的组织和上下文边界；会话是一次对话/任务线程；Workspace 是真实资源身份，不能互相替代。当前仅有会话目录绑定与 Project Memory 的未接入身份接口。
+项目是长期工作的组织和上下文边界；会话是一次对话/任务线程；Workspace 是真实资源身份，不能互相替代。本机 Project registry、显式成员关系与 Project Memory 已由 HXA-246 接入；它们不由会话目录相同推导。
 
 竞品参考：[ChatGPT/Codex 项目](https://learn.chatgpt.com/docs/projects?surface=app)区分项目共享资料与具体会话；[Claude Cowork](https://support.claude.com/en/articles/14116274-organize-your-tasks-with-projects-in-claude-cowork)支持已有目录和项目指令；[Manus](https://manus.im/blog/manus-projects-self-updating)将经过用户授权的长期资料与单次任务分离。只采纳产品关系，不复制代码、云端架构或自动授权行为。
 

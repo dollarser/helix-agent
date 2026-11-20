@@ -84,8 +84,8 @@ class MemoryPromptDeviceTest {
                     )
                 }
                 val directory = FileScopePath.fromModelReference(shared)
-                val requestA = SystemPromptRequest(a, null, directory, AgentMode.ACT, setOf("memory.read"))
-                val requestB = SystemPromptRequest(b, null, directory, AgentMode.ACT, setOf("memory.read"))
+                val requestA = SystemPromptRequest(a, null, directory, AgentMode.ACT, setOf("memory_read"))
+                val requestB = SystemPromptRequest(b, null, directory, AgentMode.ACT, setOf("memory_read"))
                 val promptA = builder.build(requestA, facts.collect(requestA))
                 val promptB = builder.build(requestB, facts.collect(requestB))
                 assertTrue(promptA.content.contains("FIRST_MEMORY"))
@@ -127,7 +127,7 @@ class MemoryPromptDeviceTest {
                 )
             val builder = SystemPromptContext(packagedPromptTemplates)
             val facts = StoredSystemPromptFactsProvider(storage, { "" }, service)
-            val request = SystemPromptRequest("session", null, path, AgentMode.ACT, setOf("memory.read"))
+            val request = SystemPromptRequest("session", null, path, AgentMode.ACT, setOf("memory_read"))
             assertFalse(
                 builder
                     .build(request, facts.collect(request))

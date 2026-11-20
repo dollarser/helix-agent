@@ -1,10 +1,14 @@
 # 内置工具与插件：桌面及移动端 Agent 对照与优化建议
 
+> **2026-11-18 适用性校核：**本页各节保留 2026-10-15～24 的竞品研究、源码基线和当时方案；“尚未实施”仅指该节日期。286～294 的后续状态以各任务/结案记录为准，当前已包含 glob/grep、网页研究、MCP Resources、会话控制和原位工作区等交付，不能从旧表重开已完成缺口。当前契约入口为[工具 ADR](../../adr/tools/001-descriptor-contract.md)、[MCP ADR](../../adr/mcp/001-client-and-discovery.md)和[工作目录 ADR](../../adr/workspace/004-workspace-binding.md)；模型交互终端、子 Agent、hooks/LSP 等须分别核对其实际承接范围，研究不自动授权实现。
+>
+> 当前任务由用户请求确定，status 只提供事实导航，不授予自主执行范围。设备、项目模拟器、真机与外部服务授权统一按 [AGENTS.md](../../../AGENTS.md#verification-and-device-authorization) 及当前任务；本次文档审查未运行设备、模型或 Release 验收，也未重新核验外链和历史忽略目录制品。
+
 2026-10-16 当前复核见 [第 10 节](#10-2026-10-16-预览后重构与能力复核)。前文保留研究脉络，实施状态由最新 HXA/证据覆盖；这份研究不另建执行顺序，目标方案仍归 Harness 第 23 节。
 
 > 调研日期：2026-10-15。Helix 基线为 `main` / `1e918cc7` 及本轮读取的工作区源码。本文整理本轮竞品分析，区分源码事实、产品文档声明和建议；未运行竞品，也未新增设备或真实模型测试。外部默认分支和在线文档会变化，本文不构成跨版本能力保证。
 >
-> **性质：日期化研究输入。** 2026-10-15 Owner 要求按本次评审优化文档和任务，已采用部分登记为 HXA-286～294，均未实施；其余仍为候选。当前顺序只看 [status](../../development/status.md)，任务范围看 HXA，目标契约看 [ADR](../../adr/README.md)；本文不另建开发计划。
+> **性质：日期化研究输入。** 2026-10-15 Owner 要求按本次评审优化文档和任务，已采用部分登记为 HXA-286～294，均未实施；其余仍为候选。当前任务由用户请求确定，[status](../../development/status.md)只提供事实导航，任务范围看 HXA，目标契约看 [ADR](../../adr/README.md)；本文不另建开发计划。
 >
 > 2026-10-15 Owner 补充：工具及插件设计应扩大主流竞品参考，优先统一模型侧语义、常用命名和描述格式；本次在原研究基础上增补 第 2 节、第 4 节，未将源码事实整体重新定基线。另有文档整理进程，本次按要求不运行文档门禁，仅修改本专题。
 
@@ -47,11 +51,11 @@ Helix 已覆盖文件、网页交互、手机操作、文档读取、代码执�
 | 能力 | 当前已核实事实 | 建议补充或整理 |
 | --- | --- | --- |
 | 文件 | 有读写、精确编辑、列举、属性、复制移动、删除、目录、归档及图片查看；`files.search` 仅按文件名子串匹配 | 补路径模式匹配与正文搜索；澄清名称搜索和内容搜索的区别 |
-| 网页研究 | `http.fetch` 提供有界 GET／HEAD；Browser 能打开和操作网页 | 补独立搜索服务入口与正文提取，支持来源引用；HTTP 请求工具不能充当搜索引擎 |
+| 网页研究 | `http_fetch` 提供有界 GET／HEAD；Browser 能打开和操作网页 | 补独立搜索服务入口与正文提取，支持来源引用；HTTP 请求工具不能充当搜索引擎 |
 | 浏览器 | 注册导航、标签页、snapshot／find、点击、输入、滚动、等待、截图、下载等工具 | 后续补键盘提交、选择控件与授权文件上传；明确输入是替换、追加还是提交 |
 | Mobile Use | 已有语义节点与设备／像素动作，覆盖 snapshot、find、点击、输入、滚动、启动、截图及手势；默认及单独截图发现配套已在后续收尾修复 | 286 迁移并保留配套回归；292 再验证参数、单位与观察来源改进，不重复规划已修缺口 |
-| Documents | `documents.inspect/read/view` 读取 PDF／DOCX，使用快照、来源身份及页／块引用 | 先补长文定位与表格阅读体验，再按任务增加生成／编辑、XLSX、OCR；目前不能声称支持文档编辑 |
-| 代码与长任务 | Developer 有 `code.linux.run` 及后台 Job；QuickJS 是另一条隔离执行路径 | 已有终端 UI／PTY 不等于模型拥有通用持久交互终端工具；先统一可发现的 Job 控制和结果收取 |
+| Documents | `documents_inspect/read/view` 读取 PDF／DOCX，使用快照、来源身份及页／块引用 | 先补长文定位与表格阅读体验，再按任务增加生成／编辑、XLSX、OCR；目前不能声称支持文档编辑 |
+| 代码与长任务 | Developer 有 `code_linux_run` 及后台 Job；QuickJS 是另一条隔离执行路径 | 已有终端 UI／PTY 不等于模型拥有通用持久交互终端工具；先统一可发现的 Job 控制和结果收取 |
 | 计划与协作 | 已有 plan、todo、Goal、`ask_user`、Memory | 评估 Goal 状态报告重叠，避免多个入口含义近似；不以此重建执行引擎 |
 | Skills | 有安装、激活、正文和资源读取，已有多个内置工作流；`helix-docs` 已有随包帮助预览 | 工作流优先用 Skill 复用现有工具；有指导文本不等于具备其所需搜索或执行能力 |
 | 插件与 MCP | 有可移植包导入、市场、配置诊断、会话选择和远程 MCP；SDK 会读取部分 Resources／Prompts 元数据 | 导入成功不能表示 hooks／LSP／agents／stdio 全部可运行；优先补资源内容读取、模板与分页，Prompts 按场景推进 |
@@ -87,7 +91,7 @@ Helix 已覆盖文件、网页交互、手机操作、文档读取、代码执�
 | 精确编辑 | DSH `edit` 与 Claude Code `Edit` 采用字面量替换；Codex／Cline 还有 patch 形式 | 保留 `edit`，常见字段优先对齐 `old_string/new_string/replace_all`。补丁格式只有在编码任务受益且边界齐备时增加，不把任意 diff 当作字面量替换 |
 | 路径匹配 | `glob/Glob`；模式作用于文件名／路径 | 首选模型名 `glob`，提供 `pattern` 和搜索根，整合旧名称子串入口；不要称为全文搜索 |
 | 文件内容搜索 | `grep/Grep/grep_search`；大小写、正则和输出模式存在差异 | 首选 `grep`，明确字面量／正则、范围、上下文行及匹配上限；内部仍可属于 files 能力 |
-| 网页搜索／读取 | DSH `web_search/web_fetch`，Claude Code `WebSearch/WebFetch`，Gemini 使用搜索与 fetch 分离入口 | 候选改为 `web_search/web_fetch`，优先于初稿的 `web.search/web.read`；原 `http.fetch` 保留原始 HTTP 职责。fetch 是否包含正文提取须写清，不默认承诺额外模型总结 |
+| 网页搜索／读取 | DSH `web_search/web_fetch`，Claude Code `WebSearch/WebFetch`，Gemini 使用搜索与 fetch 分离入口 | 候选改为 `web_search/web_fetch`，优先于初稿的 `web.search/web.read`；原 `http_fetch` 保留原始 HTTP 职责。fetch 是否包含正文提取须写清，不默认承诺额外模型总结 |
 | 命令与交互进程 | `Bash/bash`、`run_shell_command`、Codex 的执行／stdin 分离入口，语义并不等价 | 一次命令与持久进程输入分开。只有确实使用 Bash 才叫 `bash`；现有 argv／`/bin/sh` 入口不能只改名冒充 Bash |
 | 提问／计划 | `ask_user/ask_question/AskUserQuestion` 及不同计划工具 | 现有 `ask_user` 保留；优先统一问题、选项和回答语义，Goal 修订不伪装成普通 Todo |
 | 浏览器 | Playwright 的 `browser_snapshot/browser_type/browser_press_key` 等 | `browser.*` 领域可保留，动作词与桌面相近；统一快照引用、输入、提交、等待的契约，点号／下划线不作为单独收益项目 |
@@ -126,7 +130,7 @@ Helix 已覆盖文件、网页交互、手机操作、文档读取、代码执�
 | `web_fetch` | Retrieve readable content from a specified HTTP or HTTPS page. Use web_search when the URL is not known. Returns the final URL, extracted content, and truncation or extraction limits; it does not interact with page controls. |
 | 手机文本替换入口 | Replace the text of an editable element from the current UI observation. This action does not press Enter or submit the form. Returns the input outcome and any available post-action observation; verify submission separately. |
 
-现有 `browser.type/ui.set_text`、`update_goal/goal.report`、`code.linux.job.*/jobs.await` 应按上述方法分别梳理输入效果、目标修改／状态报告、启动／观察／收取职责。不能为了名称简短丢失这些差异。
+现有 `browser_type/ui_set_text`、`update_goal/goal_report`、`code.linux.job.*/jobs_await` 应按上述方法分别梳理输入效果、目标修改／状态报告、启动／观察／收取职责。不能为了名称简短丢失这些差异。
 
 ### 4.5 模型适配的范围
 
@@ -155,7 +159,7 @@ Helix 已覆盖文件、网页交互、手机操作、文档读取、代码执�
 
 ### 5.3 Mobile Use 的具体前置依赖缺口
 
-[MobileUsePlugin.preferredTools](../../../extensions/mobile-use/src/main/kotlin/com/helix/extensions/mobileuse/MobileUsePlugin.kt) 在初次评审时包含 `ui.screenshot` 与 `ui.gesture`，遗漏了截图所需的 `ui.device/frame`；Workset 也只对 `ui.gesture` 补齐视觉前置工具。Owner 随后要求结合竞品继续收尾，已在现有入口补入默认 `ui.device`，单独发现 `ui.screenshot` 时配套同来源 `ui.device`。具体主机结果与设备边界见[追加收尾](../../evidence/development/pre-refactor-finish-2026-10-15.md#竞品对照追加收尾)。
+[MobileUsePlugin.preferredTools](../../../extensions/mobile-use/src/main/kotlin/com/helix/extensions/mobileuse/MobileUsePlugin.kt) 在初次评审时包含 `ui_screenshot` 与 `ui_gesture`，遗漏了截图所需的 `ui_device/frame`；Workset 也只对 `ui_gesture` 补齐视觉前置工具。Owner 随后要求结合竞品继续收尾，已在现有入口补入默认 `ui_device`，单独发现 `ui_screenshot` 时配套同来源 `ui_device`。具体主机结果与设备边界见[追加收尾](../../evidence/development/pre-refactor-finish-2026-10-15.md#竞品对照追加收尾)。
 
 本次只修具体配套缺口，仍由原会话可用性、当前请求快照和完整插件来源绑定过滤；发现不授予权限。声明式依赖及删除插件 ID／工具名分支继续归 HXA-286，没有提前实施整个重构。没有把单元测试收益量化为真实模型完成率。
 
@@ -165,7 +169,7 @@ Helix 已覆盖文件、网页交互、手机操作、文档读取、代码执�
 
 2026-10-15 再次核对一手资料：[Claude Tool search](https://platform.claude.com/docs/en/agents-and-tools/tool-use/tool-search-tool) 将发现与按需装载分开；Helix 据此保留已有发现机制，补齐所选截图能力的必要前置，而不常驻全部插件 Schema。[Claude Computer use](https://platform.claude.com/docs/en/agents-and-tools/tool-use/computer-use-tool) 要求应用处理截图与屏幕坐标缩放；这一方向继续归 HXA-292，当前修复不替代坐标契约重组。
 
-[Codex 工具运行源码](https://github.com/openai/codex/blob/main/codex-rs/core/src/tools/parallel.rs) 区分 handler 能自行完成取消与外部中断，并追踪终态。采纳的原则是保留执行端能确认的结果，不复制其并发实现或将 task abort 推导成 Android 效果已回滚。Helix 在插件尚未派发动作、只读等待取消以及点击匹配的观察准备阶段返回已有的带效果事实结果；动作开始后的未知回执、watchdog 抢先终止及物理容量占用仍遵循原 Dispatcher。另修正 `ui.system` 中“锁屏结束授权”的旧描述，保持会话配置与运行就绪分离，恢复后重新观察。
+[Codex 工具运行源码](https://github.com/openai/codex/blob/main/codex-rs/core/src/tools/parallel.rs) 区分 handler 能自行完成取消与外部中断，并追踪终态。采纳的原则是保留执行端能确认的结果，不复制其并发实现或将 task abort 推导成 Android 效果已回滚。Helix 在插件尚未派发动作、只读等待取消以及点击匹配的观察准备阶段返回已有的带效果事实结果；动作开始后的未知回执、watchdog 抢先终止及物理容量占用仍遵循原 Dispatcher。另修正 `ui_system` 中“锁屏结束授权”的旧描述，保持会话配置与运行就绪分离，恢复后重新观察。
 
 随后真实模型验收暴露了已验证业务成功却未返回对话的遵循缺口；在插件必要指导中明确返回/观察/回复的顺序，保持 [HXA-250](../../completion-records/HXA-250.md) 的既有例外和授权工具路径。没有由宿主猜测业务完成并强制导航；小样本复测只能证明本轮旅程，不量化普遍模型收益。
 
@@ -241,7 +245,7 @@ MCP 下一项实用补充是**资源消费闭环**：列举／分页、模板发
 
 ## 7. 评审后的任务承接
 
-2026-10-15 已将本次评审与 [Harness 第 23 节](../../architecture/harness-refactor-plan.md#23-2026-10-14-执行边界重构提案) 合并安排。研究不再维护另一份 P0～P3 排序；下表只索引已采用建议的归属，已记录的设计依赖与状态查看 [status](../../development/status.md#仍开放与未启动)。
+2026-10-15 已将本次评审与 [Harness 第 23 节](../../architecture/harness-refactor-plan.md#23-2026-10-14-执行边界重构提案) 合并安排。研究不再维护另一份 P0～P3 排序；下表只索引已采用建议的归属，已记录的设计依赖与状态查看 [status](../../development/status.md)。
 
 | 研究建议 | 承接任务与边界 |
 | --- | --- |
@@ -287,7 +291,7 @@ Documents 生成/编辑、XLSX/OCR、媒体深化、模型持久终端、hooks/L
 
 ## 10. 2026-10-16 预览后重构与能力复核
 
-Owner 要求在 ARM64 预览本地收尾后，按竞品与当前实现更新既有计划。本次源码起点 `4b09357c`（生产候选仍为 `89e8ffe7`）；CodeGraph 仅作导航，关键入口另读当前源码。未复制竞品实现、引入依赖或执行第三方账号业务；官方页面读取日期为 2026-10-16，动态文档的行为不外推到全部版本。执行顺序仍只由 status 决定，设计集中在 [Harness 第 23 节](../../architecture/harness-refactor-plan.md#23-2026-10-14-执行边界重构提案)。
+Owner 要求在 ARM64 预览本地收尾后，按竞品与当前实现更新既有计划。本次源码起点 `4b09357c`（生产候选仍为 `89e8ffe7`）；CodeGraph 仅作导航，关键入口另读当前源码。未复制竞品实现、引入依赖或执行第三方账号业务；官方页面读取日期为 2026-10-16，动态文档的行为不外推到全部版本。执行范围由当前用户请求确定，status 只作事实导航，设计集中在 [Harness 第 23 节](../../architecture/harness-refactor-plan.md#23-2026-10-14-执行边界重构提案)。
 
 ### 10.1 官方证据与采用边界
 
@@ -390,7 +394,7 @@ Owner 追加要求：充分参考支持云端/远端执行的 Agent，给出当�
 
 ### 11.6 2026-10-19：原位默认与近期边界
 
-Owner 明确默认选定真实工作区原位操作，独立终端无需聊天，worktree/snapshot 显式选择。对照 [VS Code 终端](https://code.visualstudio.com/docs/terminal/basics)在工作区起始并独立管理实例、[Claude Code worktrees](https://code.claude.com/docs/en/worktrees)为并行隔离显式创建 checkout，以及 [ContentResolver](https://developer.android.com/reference/android/content/ContentResolver#openOutputStream(android.net.Uri))按 URI 打开输出流：采用能力决定桥接，而非按 URI/远程标签一律复制。Provider 可写不推导 Shell/Git 或原子条件写能力；远程协议仍未立项。287/288 必须同时验原位与显式快照的权限/身份/恢复；当前 `code.linux.run` 保持快照到完整迁移，近期只改善真实来源、模式、输出与既有冲突/Git 入口，不提前实现通用变更账本或逐调用 diff。
+Owner 明确默认选定真实工作区原位操作，独立终端无需聊天，worktree/snapshot 显式选择。对照 [VS Code 终端](https://code.visualstudio.com/docs/terminal/basics)在工作区起始并独立管理实例、[Claude Code worktrees](https://code.claude.com/docs/en/worktrees)为并行隔离显式创建 checkout，以及 [ContentResolver](https://developer.android.com/reference/android/content/ContentResolver#openOutputStream(android.net.Uri))按 URI 打开输出流：采用能力决定桥接，而非按 URI/远程标签一律复制。Provider 可写不推导 Shell/Git 或原子条件写能力；远程协议仍未立项。287/288 必须同时验原位与显式快照的权限/身份/恢复；当前 `code_linux_run` 保持快照到完整迁移，近期只改善真实来源、模式、输出与既有冲突/Git 入口，不提前实现通用变更账本或逐调用 diff。
 
 ## 12. 2026-10-24 当前实现与后续计划校核
 

@@ -15,6 +15,7 @@ import com.helix.app.HelixApplication
 import com.helix.app.R
 import com.helix.app.connector.ConnectorSessionPanelState
 import com.helix.app.connector.PluginSessionPicker
+import com.helix.app.plugin.PluginName
 import com.helix.app.plugin.PluginSessionRow
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -37,7 +38,8 @@ import com.helix.ui.shared.R as SharedR
 class LocalPickerPresentationDeviceTest {
     @get:Rule val compose = createComposeRule()
     private val app = ApplicationProvider.getApplicationContext<HelixApplication>()
-    private val row = PluginSessionRow("fixture", "Example Plugin", false, false, true, true, readyComponents = 1)
+    private val row =
+        PluginSessionRow("fixture", PluginName("Example Plugin"), false, false, true, true, readyComponents = 1)
     private val tag = "connector-session-sheet"
 
     @Test fun initialReadCreatesNoPlaceholderAndOpensOnlyResolvedContent() {

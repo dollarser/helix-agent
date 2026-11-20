@@ -6,29 +6,29 @@ Owner 授权优化工具命名、参数与描述，并明确独立工具可以�
 
 | 能力 | 当前公开名称 | 本轮处理 |
 | --- | --- | --- |
-| Goal 生命周期 | `goal.create/get/update/report` | 创建、查询、更新统一；保留原持久身份、修订、结算与用户请求要求 |
-| 设置查询 | `settings.inspect` | 无参数，只返回当前设置、可选模型及能力可用性 |
-| 设置修改 | `settings.apply` | 走普通授权，只改变后续输入默认值，不改变当前 Turn |
-| 工具发现与结果 | `tools.search`, `tools.read_result` | 结果读取与发现归组；读取不重执行原工具 |
+| Goal 生命周期 | `goal_create/get/update/report` | 创建、查询、更新统一；保留原持久身份、修订、结算与用户请求要求 |
+| 设置查询 | `settings_inspect` | 无参数，只返回当前设置、可选模型及能力可用性 |
+| 设置修改 | `settings_apply` | 走普通授权，只改变后续输入默认值，不改变当前 Turn |
+| 工具发现与结果 | `tools_search`, `tools_read_result` | 结果读取与发现归组；读取不重执行原工具 |
 | 用户澄清 | `ask_user` | 保留独立短名，立即返回待答；回答不替代审批 |
 | 文件和命令短名 | `read/write/edit/bash/view_image` | 保留既有公开短名及同一作用域实现/权限链路 |
-| 浏览器、会话、技能、记忆 | `browser.*`, `session.*`, `skills.*`, `memory.*` | 保持已有清晰分组；记忆契约按操作细化 |
-| 本机、界面自动化与 Root | `device.*`, `ui.*`, `root.*` | 保持能力及来源边界，不混并为一个权限域 |
+| 浏览器、会话、技能、记忆 | `browser_*`, `session_*`, `skills_*`, `memory_*` | 保持已有清晰分组；记忆契约按操作细化 |
+| 本机、界面自动化与 Root | `device_*`, `ui_*`, `root_*` | 保持能力及来源边界，不混并为一个权限域 |
 | 外部 MCP/A2A | 各自安装来源命名空间 | 不因内置工具整理改写外部工具名称或授予权限 |
 
-旧 Goal 名、旧设置名及旧结果读取名从注册目录直接移除，不提供别名/调用转发。一次性移动原来源的用户 ENABLED/DISABLED 选择，冲突时禁用优先；不转移单次批准，不修改历史 ToolCall/审计，不删除已有 Goal、记忆、设置或会话。既有 `ask_user` 从始至终保持原公开名称，问题与回答持久身份不变。
+旧 Goal 名、旧设置名及旧结果读取名从注册目录直接移除，不提供别名/调用转发。当前只读写现行工具名与稳定来源键，不保留旧名称/带版本来源键的启动迁移；不转移单次批准，不修改历史 ToolCall/审计，不删除已有 Goal、记忆、设置或会话。既有 `ask_user` 从始至终保持原公开名称，问题与回答持久身份不变。2026-11-15 Owner 明确不兼容旧内部版本后，移除早期一次性迁移实现；下文旧验收数字保留当时含义，不作为当前候选证据。
 
 ## 设置职责
 
-删除旧设置提案队列、对应弹窗和重复页面快捷入口，不再返回“等待设置确认”这种与实际应用状态分离的成功结果。导航统一由已有 `device.open_page` 请求，补齐 `permissions` 和 `session` 白名单目标，保留原有权限页/会话设置页能力。
+删除旧设置提案队列、对应弹窗和重复页面快捷入口，不再返回“等待设置确认”这种与实际应用状态分离的成功结果。导航统一由已有 `device_open_page` 请求，补齐 `permissions` 和 `session` 白名单目标，保留原有权限页/会话设置页能力。
 
-`settings.inspect` 输入仅为空对象；action/page/模式等字段由 schema 拒绝，执行器也在访问应用前拒绝。取消和过期同样不能读取应用。它归 READ_ONLY，不授予操作权限。
+`settings_inspect` 输入仅为空对象；action/page/模式等字段由 schema 拒绝，执行器也在访问应用前拒绝。取消和过期同样不能读取应用。它归 READ_ONLY，不授予操作权限。
 
-`settings.apply` 保持 LOCAL_MUTATION 与 DEVICE_SYSTEM_MUTATION 效果分类。修改必须绑定当前 live 工具调用/Turn，校验取消、时限、模型可用性及排队输入；当前运行参数不变。不能修改权限、安全档位、原生 QuickJS 开关或凭据。失败不会假装设置已经生效。
+`settings_apply` 保持 LOCAL_MUTATION 与 DEVICE_SYSTEM_MUTATION 效果分类。修改必须绑定当前 live 工具调用/Turn，校验取消、时限、模型可用性及排队输入；当前运行参数不变。不能修改权限、安全档位、原生 QuickJS 开关或凭据。失败不会假装设置已经生效。
 
 ## 参数与结果
 
-- 记忆输入逐字段说明逻辑 path、来源、正文、唯一字面匹配及替换内容；逻辑路径不等于 Workspace/设备路径。`expectedHash` 是当前内容 SHA-256；`new` 只供 memory.write 创建，编辑/删除不接受此 sentinel。Global/可信当前 Project 与原冲突检查不变。
+- 记忆输入逐字段说明逻辑 path、来源、正文、唯一字面匹配及替换内容；逻辑路径不等于 Workspace/设备路径。`expectedHash` 是当前内容 SHA-256；`new` 只供 memory_write 创建，编辑/删除不接受此 sentinel。Global/可信当前 Project 与原冲突检查不变。
 - 记忆按 list/search、read、write/edit、delete 分别声明输出字段。正文始终标为不可信数据，不能变成指令或授权。输出校验不改写底层内容或掩盖失败。
 - 工具结果分页明确 offset/nextOffset 为 Unicode code point，不是 UTF-16 单元或字节；持续读取到 truncated=false。结构包含引用、偏移、总字符数、正文与截断标志，nextOffset 仅在需要续页时返回。
 - 设置查询/修改与 ask_user 也声明实际输出结构。用户澄清返回 AWAITING_ANSWER，不是已收到答案；超时或推荐选项不表示同意。

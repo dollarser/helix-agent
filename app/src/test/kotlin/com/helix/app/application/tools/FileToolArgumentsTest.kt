@@ -23,7 +23,7 @@ class FileToolArgumentsTest {
                         """"value":{"type":"number","default":0.7""" +
                         ""","minimum":-1.25e-3,"enum":[0.123456789012345678901,1e400]}}}""",
                 ).jsonObject
-        for (name in listOf("write", "bfcl.sample")) {
+        for (name in listOf("write", "bfcl_sample")) {
             val descriptor =
                 com.helix.tools.files.WriteTool.descriptor().copy(
                     name =
@@ -41,7 +41,7 @@ class FileToolArgumentsTest {
     }
 
     @Test fun skillImportSourceIsFrozenBeforeApprovalWithoutChangingExpectedHash() {
-        for (tool in listOf("skills.preview", "skills.install")) {
+        for (tool in listOf("skills_preview", "skills_install")) {
             val input = """{"path":".agents/skills/demo","expectedHash":"pinned"}"""
             val bound = FileToolArguments.bindRequest(input, FileScopePath("first", "project"), tool)
             val body = Json.parseToJsonElement(bound).jsonObject
@@ -53,21 +53,21 @@ class FileToolArgumentsTest {
 
     @Test fun skillWorkspaceIsFrozenWithoutRetargetingSnapshotIdentityOrScriptArguments() {
         val input = """{"source":"USER_IMPORTED","name":"demo","path":"scripts/run.py","args":["../literal",""]}"""
-        val first = FileToolArguments.bindRequest(input, FileScopePath("first", "project"), "skills.run")
+        val first = FileToolArguments.bindRequest(input, FileScopePath("first", "project"), "skills_run")
         val body = Json.parseToJsonElement(first).jsonObject
         assertEquals("scope:first:project", body.getValue("workspace").jsonPrimitive.content)
         assertEquals("USER_IMPORTED", body.getValue("source").jsonPrimitive.content)
         assertEquals("scripts/run.py", body.getValue("path").jsonPrimitive.content)
         assertEquals(Json.parseToJsonElement(input).jsonObject.getValue("args"), body.getValue("args"))
-        assertEquals(first, FileToolArguments.bindRequest(first, FileScopePath("second", "other"), "skills.run"))
+        assertEquals(first, FileToolArguments.bindRequest(first, FileScopePath("second", "other"), "skills_run"))
     }
 
     @Test fun linuxWorkspaceIsBoundBeforeApprovalAndDoesNotFollowLaterDirectorySelection() {
         val original = FileScopePath("first", "project")
-        val bound = FileToolArguments.bindRequest("""{"script":"pwd"}""", original, "code.linux.run")
+        val bound = FileToolArguments.bindRequest("""{"script":"pwd"}""", original, "code_linux_run")
         val parsed = Json.parseToJsonElement(bound).jsonObject
         assertEquals("scope:first:project", parsed.getValue("workspace").jsonPrimitive.content)
-        val rebound = FileToolArguments.bindRequest(bound, FileScopePath("second", "elsewhere"), "code.linux.run")
+        val rebound = FileToolArguments.bindRequest(bound, FileScopePath("second", "elsewhere"), "code_linux_run")
         assertEquals(parsed, Json.parseToJsonElement(rebound).jsonObject)
     }
 
@@ -90,15 +90,15 @@ class FileToolArgumentsTest {
                 "write",
                 "edit",
                 "view_image",
-                "files.list",
-                "files.stat",
+                "files_list",
+                "files_stat",
                 "glob",
-                "files.mkdir",
-                "files.copy",
-                "files.move",
-                "files.delete",
-                "files.archive",
-                "files.extract",
+                "files_mkdir",
+                "files_copy",
+                "files_move",
+                "files_delete",
+                "files_archive",
+                "files_extract",
             )
         for (name in names) {
             val original =

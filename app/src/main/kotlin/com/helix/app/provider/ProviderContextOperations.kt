@@ -18,9 +18,8 @@ internal class ProviderContextOperations(
     private val metadataFor: (String, String) -> ModelMetadata?,
     private val changed: () -> Unit,
     private val refresh: () -> Unit,
+    private val builtIn: BuiltInModelDiscovery,
 ) {
-    private val contextWindowProbes = ContextWindowProbeCache()
-
     suspend fun load(
         providerId: String,
         model: String? = null,
@@ -34,15 +33,10 @@ internal class ProviderContextOperations(
         val stored =
             testStatus.modelMetadata
                 .contextSettings(providerId, config.transport.cacheKey, selectedModel, contextSettingsStore)
-        val detected = metadataFor(providerId, selectedModel)?.contextWindow
-        val missingWindow = stored.serverWindow == null && detected == null
-        val mayDiscover = BuiltInModel.owns(providerId) && testStatus.builtInCatalog.accountAvailable()
-        if (missingWindow && mayDiscover) {
-            val key = testStatus.builtInCatalog.identity() + listOf(config.transport.cacheKey, selectedModel)
-            if (contextWindowProbes.due(key, clock.now().toEpochMilli())) {
-                return discover(providerId, selectedModel, expectedConfig)
-            }
+        if (BuiltInModel.owns(providerId)) {
+            return stored.copy(serverWindow = null).withDetectedWindow(builtIn.contextWindow(selectedModel))
         }
+        val detected = metadataFor(providerId, selectedModel)?.contextWindow
         return stored.withDetectedWindow(detected)
     }
 
@@ -88,6 +82,17 @@ internal class ProviderContextOperations(
         expectedConfig: ProviderConfig? = null,
     ): ProviderContextSettings =
         run {
+            if (BuiltInModel.owns(providerId)) {
+                val config = storedConfig(providerId)
+                if (expectedConfig != null && !sameProviderEditableConfig(config, expectedConfig)) {
+                    throw ProviderDraftSaveConflictException()
+                }
+                val window = builtIn.contextWindow(model, force = true)
+                return@run contextSettingsStore
+                    .read(providerId, config.transport.cacheKey, model)
+                    .copy(serverWindow = null)
+                    .withDetectedWindow(window)
+            }
             val account = managedAccountFor(providerId)
             check(account == null || account.ready) { "Account is not ready" }
             val (token, config) =

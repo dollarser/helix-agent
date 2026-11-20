@@ -114,7 +114,7 @@ interface TurnDao {
 
     @Query(
         "SELECT t.* FROM turns t WHERE t.sessionId = :sessionId AND EXISTS " +
-            "(SELECT 1 FROM tool_calls c WHERE c.turnId = t.id AND c.name = 'todo.write' " +
+            "(SELECT 1 FROM tool_calls c WHERE c.turnId = t.id AND c.name = 'todo_write' " +
             "AND c.state = 'COMPLETED') ORDER BY t.startedAt DESC, t.rowid DESC LIMIT :limit OFFSET :offset",
     )
     fun ledgerCandidates(

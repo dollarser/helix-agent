@@ -1,5 +1,9 @@
 # Mobile Use：PackageInstaller Install 不可见、视觉回退与特权后端调研交接
 
+> **2026-11-18 适用性校核：**第 0～31 节保留 2026-10-04 各阶段调查和实测，旧 Consumer/Developer 分工、工具版本号、无障碍依赖及 Root → Shizuku 优先级均是当时快照。现行[平台能力](../../architecture/android-platform-capabilities.md)及[权限 ADR](../../adr/permissions/001-session-authorization.md)定义 Root → ADB → Shizuku → Accessibility 和渠道边界；不能从早期候选图恢复桌面 Companion 产品范围。安装成功、识别成功、模型自主完成分别按原证据结算。
+>
+> 当前任务由用户请求确定，status 只提供事实导航，不授予自主执行范围。设备、项目模拟器、真机与外部服务授权统一按 [AGENTS.md](../../../AGENTS.md#verification-and-device-authorization) 及当前任务；本次文档审查未运行设备、模型或 Release 验收，也未重新核验外链和历史忽略目录制品。
+
 > 日期：2026-10-04  
 > 性质：历史调查与逐阶段证据，不是当前功能状态页。后续实现、权限归属和未闭合工作以[当前状态](../../development/status.md)及有效 ADR 为准。下文“当前”“本轮”均指该段记录阶段。
 > 设计原则：继续遵循 Helix 的浅 Harness 方向——模型决定流程，Harness 提供真实能力、权限、观测和动作原语；不要为 APK 安装写专用状态机。
@@ -17,7 +21,7 @@
 本次按所有者“继续文档的工作，解决该文档的问题”推进现有视觉回退及主机验证。起始 HEAD 为 `53bb00f65d95d0127fa1c5aa6b072b8a6f96caa1`，工作树已有大量未提交实验改动；本文不把它们全部归为本轮交付，也不提交或覆盖其他工作。
 
 - 第 2～5、8、10 节中的 AVD / Qwen 结果来自原交接记录，**不是本轮重新执行**；缺少原始运行目录、APK SHA、完整动作轨迹的记录不能用作新候选验收。
-- 当前主线已没有 Accessibility direct-query fallback，`ui.click_match` 使用 fresh snapshot 与唯一 clickable target；第 14 节更新原先过时的 detekt/保留或回退待办。
+- 当前主线已没有 Accessibility direct-query fallback，`ui_click_match` 使用 fresh snapshot 与唯一 clickable target；第 14 节更新原先过时的 detekt/保留或回退待办。
 - 主机收敛：通用语义/视觉恢复提示、连接测试不能冒充视觉证明、纯视觉 fixture 的结果身份与同帧/成功动作断言、compiled XML flags 回归。
 - 当前任务的设备和真实模型执行状态为 **not requested**，未调用 ADB、模拟器或 Qwen。第 16 节列的是未来获授权后的验收步骤，不是可自动执行的命令。
 - 检查期间检测到同工作区并行加入 Shizuku 实验依赖/入口；它们不属于本轮视觉修复，不能据此宣称已有正式后端或整树验收。
@@ -92,7 +96,7 @@
 | Accessibility direct query | ❌ TARGET_NOT_FOUND | 不是 DFS 遍历问题 |
 | uiautomator dump / UiAutomation | ✅ 能看到 Install | 测试/系统 automation 通道能力更高 |
 | Qwen capability probe | ✅ vision=true | 模型视觉能力已正式验证 |
-| ui.screenshot → Qwen | ✅ pixelsAttached=true | 像素真的送入模型 |
+| ui_screenshot → Qwen | ✅ pixelsAttached=true | 像素真的送入模型 |
 | Qwen 识别当前安装页 | ✅ | 准确报告 Cancel + Install |
 | Helix libsu RootService（当前 emulator） | ❌ DENIED/DISCONNECTED | adb shell root ≠ App 获得 root |
 | adb shell | ✅ uid=0(root) | 当前 AVD 的 adbd/shell 是 root |
@@ -255,8 +259,8 @@ source=PROBED
 在用户保持当前安装确认页不动时，Helix 执行：
 
 ~~~text
-ui.device
-→ ui.screenshot
+ui_device
+→ ui_screenshot
 → Qwen3.8-27B
 ~~~
 
@@ -291,18 +295,18 @@ Exact visible action buttons:
 
 ## 6. 通用视觉回退契约
 
-默认路径：fresh semantic observation → 已观察到的唯一目标动作；有界语义查询仍无目标时，由模型决定切换到 `ui.device → ui.screenshot → ui.gesture → 新观察`。不再要求生产执行 direct query，也不为 PackageInstaller 硬编码英文按钮、重开次数或安装状态机。
+默认路径：fresh semantic observation → 已观察到的唯一目标动作；有界语义查询仍无目标时，由模型决定切换到 `ui_device → ui_screenshot → ui_gesture → 新观察`。不再要求生产执行 direct query，也不为 PackageInstaller 硬编码英文按钮、重开次数或安装状态机。
 
 | 边界 | 当前要求 |
 | --- | --- |
 | 视觉能力 | 精确 provider/model 已确认 vision；`CONNECTION_ONLY` 不构成证明。未知或仅连接状态由既有 capability probe 求证，明确 MANUAL/PROBED false 不自动覆盖 |
 | 像素 | `pixelsAttached=true`；仅返回图片路径、SAVED 或模型自述不等于收到像素 |
 | 坐标 | 模型从本次图像识别；通过 `imageWidth/imageHeight` 与 `screenBounds` 映射到物理屏幕像素 |
-| frame | screenshot 与 gesture 使用同一 token；两者之间再调 `ui.device` 会替换 frame。窗口/旋转/许可变化后重新观察 |
+| frame | screenshot 与 gesture 使用同一 token；两者之间再调 `ui_device` 会替换 frame。窗口/旋转/许可变化后重新观察 |
 | 结果 | 动作成功回执仅证明 dispatch；必须重新观察真实 end state。UNKNOWN 不盲目重试 |
 | 权限 | 既有 Dispatcher / Conversation scope / 敏感 UI / 图片来源与接收方校验保持；不能因语义失败提升权限 |
 
-frame 是观察身份与几何/许可绑定，不是屏幕像素永远不变的保证；动画、延迟和同窗口内容变化仍需设备验证。安装完成应来自 fresh success UI 或正向 package 事实。`ui.apps` 只列 Android 可见、授权且可启动的应用，并可能截断；未列出微信不能单独证明尚未安装。
+frame 是观察身份与几何/许可绑定，不是屏幕像素永远不变的保证；动画、延迟和同窗口内容变化仍需设备验证。安装完成应来自 fresh success UI 或正向 package 事实。`ui_apps` 只列 Android 可见、授权且可启动的应用，并可能截断；未列出微信不能单独证明尚未安装。
 
 ---
 
@@ -348,16 +352,16 @@ DIRECT_QUERY_RESULT=TARGET_NOT_FOUND
 11:40 的 Mobile Use WeChat pilot 工具链是：
 
 ~~~text
-ui.device
-ui.screenshot
-ui.find("weixin")
-ui.click(APK)
-ui.device
-ui.screenshot
-ui.click_match("Done")
+ui_device
+ui_screenshot
+ui_find("weixin")
+ui_click(APK)
+ui_device
+ui_screenshot
+ui_click_match("Done")
 ~~~
 
-没有 ui.gesture Install，也没有 ui.click_match("Install")。
+没有 ui_gesture Install，也没有 ui_click_match("Install")。
 
 助手文本明确是：
 
@@ -392,9 +396,9 @@ WeChat installed successfully. Let me dismiss the dialog.
 
 1. 起始 `PackageManager` 检查微信不存在；外部准备 fresh 安装确认页，fixture 不自行卸载用户数据。
 2. 正式 `runCapabilityTest` 确认 vision；Turn 必须 `COMPLETED`。
-3. 仅允许 `ui.device/ui.screenshot/ui.gesture/ui.apps`，拒绝 semantic、Root、shell 等替代工具混入。
+3. 仅允许 `ui_device/ui_screenshot/ui_gesture/ui_apps`，拒绝 semantic、Root、shell 等替代工具混入。
 4. 通过持久 `ToolCallEntity.id` 查结果（不能混用模型 `callId`）；结果必须 verified，截图为 SAVED 且 `pixelsAttached=true`。
-5. 每次 gesture 前必须有匹配 frame 的已交付截图；`ui.device` 或前一次 gesture 使该测试的截图资格失效；动作结果必须 `SUCCEEDED`。
+5. 每次 gesture 前必须有匹配 frame 的已交付截图；`ui_device` 或前一次 gesture 使该测试的截图资格失效；动作结果必须 `SUCCEEDED`。
 6. 至少一次成功 gesture，最后动作后有新观察，最终 package 存在。
 
 这些断言加强因果证据，但无法阻止测试外的人手/另一进程同时点 Install。设备验收必须独占该场景并保留完整轨迹，不能把 fixture 编译当成 clean E2E 通过。Developer 中另有 `VisualInstallEvalService` 实验；本轮加上 `android.permission.DUMP` 调用保护、debuggable 检查与显式启用参数，拆分过长方法，并修复其结果身份查询。该 Service 未具有相同的严格同帧/动作断言，因此输出改为 `DIAGNOSTIC_ONLY`，不再输出 `PASS`；正式验收使用上述 instrumentation fixture。
@@ -567,7 +571,7 @@ Mobile Use ADB Bridge
 
 ## 14. Direct-query 实验已不在当前生产路径
 
-本轮核对 `AutomationClickMatchExecutor`、`AutomationTools` 与 `HelixAccessibilityService`，当前 `ui.click_match` 使用 fresh snapshot，映射唯一 clickable target 后调用既有 `nodeAction`。不存在 `findAccessibilityNodeInfosByText/ViewId` 的生产 fallback。
+本轮核对 `AutomationClickMatchExecutor`、`AutomationTools` 与 `HelixAccessibilityService`，当前 `ui_click_match` 使用 fresh snapshot，映射唯一 clickable target 后调用既有 `nodeAction`。不存在 `findAccessibilityNodeInfosByText/ViewId` 的生产 fallback。
 
 因此原“保留或回退 direct-query、解决其 detekt”的待办已过时。历史 `TARGET_NOT_FOUND` 保留为诊断结果，不再增加重复查询。初次主机检查的实际 detekt/格式失败来自并行 `VisualInstallEvalService`，不能归到已移除的 direct-query。
 
@@ -747,7 +751,7 @@ Model responsibilities:
 
 ## 22. 所有者选择 Shizuku：正式工具接入
 
-所有者随后明确“不自建，接入 Shizuku”。本轮已将诊断能力接入 Advanced/developer 的 Mobile Use：设置显示状态并提供显式授权入口，`ui.device` v2 返回 `shizukuState`，`ui.click_match` v4 接受显式 `backend=shizuku` 和精确 `packageName` / `viewId` / `text`。默认仍走普通 Accessibility，不自动提权、切换或重放；Consumer APK 不包含 Shizuku 实现和依赖。
+所有者随后明确“不自建，接入 Shizuku”。本轮已将诊断能力接入 Advanced/developer 的 Mobile Use：设置显示状态并提供显式授权入口，`ui_device` v2 返回 `shizukuState`，`ui_click_match` v4 接受显式 `backend=shizuku` 和精确 `packageName` / `viewId` / `text`。默认仍走普通 Accessibility，不自动提权、切换或重放；Consumer APK 不包含 Shizuku 实现和依赖。
 
 生产路径保留原 Dispatcher、会话批准范围、无障碍租约和共享输入占用。诊断阶段的 `uiautomator dump` 会抑制无障碍服务，不能直接搬入正式路径；现改为 Shizuku UserService 内 `UiAutomation`，使用 `FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES`，双次新鲜节点观察与注入前 guard。输入派发后的页面变化不再误判为执行失败；取消、期限及原授权有效性仍检查，未知结果不自动重试。
 
@@ -778,7 +782,7 @@ API36 模拟器正式 Dispatcher 用例已通过：只读、旧范围、范围�
 
 所有者追加 Root 验证并明确选择 Root → Shizuku → Accessibility。已在既有 API34 Root AVD 验证真实应用 UID 0；由于旧数据库版本不兼容，保留旧数据，并按授权新建 `Helix_MobileUse_Root_API34_20261004`。官方 Magisk 临时 setup + 正常管理器授权提供应用 Root，ADB shell 仍 UID 2000；原 API36 的 shell su 不能充当 Helix 应用授权。
 
-当前 `ui.click_match` v5 默认为 `backend=auto`：对精确 packageName/viewId/text 且无其他筛选参数的点击，执行前按已授权且连接的 Root、Shizuku、Accessibility 选择一次。显式后端固定路径，失败/UNKNOWN 不重放。`ui.device` v3 报告两种特权状态和精确点击首选后端；其他操作仍使用现有 Accessibility 能力。本节更新第 22 节的默认后端结论，第 22 节保留为上一阶段证据。
+当前 `ui_click_match` v5 默认为 `backend=auto`：对精确 packageName/viewId/text 且无其他筛选参数的点击，执行前按已授权且连接的 Root、Shizuku、Accessibility 选择一次。显式后端固定路径，失败/UNKNOWN 不重放。`ui_device` v3 报告两种特权状态和精确点击首选后端；其他操作仍使用现有 Accessibility 能力。本节更新第 22 节的默认后端结论，第 22 节保留为上一阶段证据。
 
 Root 复用 libsu 非 daemon 服务与共享有界特权点击协议。Mobile Use 有独立显式授权/断开入口，允许跨应用连接存续；原 `root.*` 后台失权行为不变。系统权限不代替原 Dispatcher/会话 scope/租约/取消/审计，也不自动创建 Root shell。Root manager 撤销未来授权未必杀死已运行服务，设置已明确提示并提供断开入口。
 
@@ -833,7 +837,7 @@ Mobile Use 不能保证无法检测。Android 可提供控制、屏幕捕获、�
 本次优化沿用既有 Plugin、Workspace 与 Dispatcher 边界，未新增规划器或执行域：
 
 - 标准根 `plugin.json` 优先，其他宿主清单允许共存但不覆盖标准配置。无效标准根不会退回外来格式；没有标准根时，外来清单歧义仍拒绝。
-- `connectors.preview/install` 支持工作区标准插件目录。源内容先经既有 Workspace 权限和有界复制，再解析私有快照；符号链接、深度/条目/字节超限均拒绝。目录和 ZIP 的相同文件获得同一内容 hash，安装时重新捕获、校验预览 hash，之后不再读取源目录。文件选择器仍是 ZIP/JSON，不支持任意系统路径。
+- `plugins_preview/install` 支持工作区标准插件目录。源内容先经既有 Workspace 权限和有界复制，再解析私有快照；符号链接、深度/条目/字节超限均拒绝。目录和 ZIP 的相同文件获得同一内容 hash，安装时重新捕获、校验预览 hash，之后不再读取源目录。文件选择器仍是 ZIP/JSON，不支持任意系统路径。
 - Mobile Use 的调用 scope/data origin 从名称前缀判断改为插件实际声明的完整 descriptor 匹配。相同名称但来源、版本或执行契约不同的工具不获得该上下文；插件停用时不提供路由。这个匹配不授予权限，真实 binding、会话选择和调用准入仍由原 Dispatcher 检查。
 - 复用原 `android-ui-task` Skill，说明 Root → Shizuku → Accessibility 的精确三字段点击适用范围、其他操作的无障碍依赖，以及 UNKNOWN 后不得切换后端盲重试。设置页 Root 状态使用本地化说明。更高权限不被描述为防检测能力。
 
@@ -845,7 +849,7 @@ Mobile Use 不能保证无法检测。Android 可提供控制、屏幕捕获、�
 
 所有者要求精确点击增加随机扰动，视觉点击保持精准或更小扰动。Root/Shizuku 共用的 `ShizukuClickOperation` 现在在两次层级观察确认目标未变化后，仅采样一次中心附近落点。每轴偏移范围为 `±min(floor(轴尺寸 / 20), 4)` 屏幕像素，包含零偏移；例如 20×20 目标最多偏移各 1 像素，80×80 及更大目标最多各 4 像素。小于 20 像素的轴保持中心，窄目标不会沿窄轴偏出。
 
-实际采样坐标送入既有 live guard，再用同一坐标注入；拒绝时不重新采样、不回中心、不换后端重放。两次观察间的节点或旋转变化仍直接拒绝，注入后失败仍返回 UNKNOWN。无障碍语义点击使用控件 ACTION_CLICK，没有可添加偏移的坐标；视觉 `ui.gesture` 保留已校验的原始坐标，额外扰动为零。没有加入随机等待或行为伪装，也不据此宣称不可检测。
+实际采样坐标送入既有 live guard，再用同一坐标注入；拒绝时不重新采样、不回中心、不换后端重放。两次观察间的节点或旋转变化仍直接拒绝，注入后失败仍返回 UNKNOWN。无障碍语义点击使用控件 ACTION_CLICK，没有可添加偏移的坐标；视觉 `ui_gesture` 保留已校验的原始坐标，额外扰动为零。没有加入随机等待或行为伪装，也不据此宣称不可检测。
 
 本次主机执行 `:app:testDeveloperDebugUnitTest --tests com.helix.app.automation.shizuku.*`：19 项通过，含新增 4 项扰动边界测试；Automation 的 125 项报告按未变输入增量复用。developer debug APK 构建、developer AndroidTest Kotlin 编译、`spotlessCheck detekt` 通过。日志位于 `build/mobile-use-click-jitter-2026-10-04/`。设备验证 **not requested**，未验证微信/抖音实际命中率或风控效果，未提交/推送。
 
@@ -896,7 +900,7 @@ Android 提供读取已启用无障碍服务的 API；接收输入的应用可�
 
 所有者追加实现请求后，Root/Shizuku 精确点击在既有单次落点扰动之外，增加 60–120 ms 的单次短按时长采样。执行固定 `input touchscreen -d 0 swipe x y x y duration`：起终点使用同一个经 guard 校验的坐标，不增加滑动距离，不拆成独立 DOWN/UP 进程。AOSP 的输入命令实现支持这类同点、带时长的手势；这是系统注入，不冒充硬件触摸，也未复制参考项目代码。[AOSP InputShellCommand](https://github.com/aosp-mirror/platform_frameworks_base/blob/master/services/core/java/com/android/server/input/InputShellCommand.java)
 
-无障碍语义点击和视觉 `ui.gesture` 保持原有行为，视觉坐标不叠加噪声。原权限、窗口/旋转校验、取消和截止时间、进程终止及 UNKNOWN 不重放约束继续有效。请求时长不保证实际时长，OEM 或自定义触摸处理仍需设备验证；第 24 节的历史设备通过不覆盖这一变更。
+无障碍语义点击和视觉 `ui_gesture` 保持原有行为，视觉坐标不叠加噪声。原权限、窗口/旋转校验、取消和截止时间、进程终止及 UNKNOWN 不重放约束继续有效。请求时长不保证实际时长，OEM 或自定义触摸处理仍需设备验证；第 24 节的历史设备通过不覆盖这一变更。
 
 环境伪造尚未实现：仍需明确是哪个环境信号、出现什么提示及适用设备。修改 Helix 自身的环境值不能证明其他应用观察到相同变化；不在信息不足时加入全局系统属性改写或第三方 Hook 依赖。当前短按改动不等于完成“防检测”，没有微信/抖音/小红书规避效果证据。
 

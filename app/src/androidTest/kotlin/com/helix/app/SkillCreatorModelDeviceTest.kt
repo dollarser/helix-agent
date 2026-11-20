@@ -67,7 +67,7 @@ class SkillCreatorModelDeviceTest {
                     ownedSession,
                     "Create a useful Skill for summarizing a local text file. Use write to create $path/SKILL.md. " +
                         "Its YAML name must be $name, with description and Markdown instructions. The parent exists. " +
-                        "Then call skills.preview on $path and fix any errors. " +
+                        "Then call skills_preview on $path and fix any errors. " +
                         "Do not install, enable or use external tools.",
                 )
                 awaitCreatedDraft(container, ownedSession, path)
@@ -127,7 +127,7 @@ class SkillCreatorModelDeviceTest {
                         "turn=${turn.state}; error=${turn.errorCode}; calls=${calls.map { it.name to it.state }}",
                         calls.any {
                             it.name ==
-                                "skills.preview" &&
+                                "skills_preview" &&
                                 it.state == "COMPLETED"
                         },
                     )

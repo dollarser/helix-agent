@@ -1,5 +1,9 @@
 # 插件提示与管理体验审查（2026-10-16）
 
+> **2026-11-18 适用性校核：**本页保留 2026-10-16 基线与当时建议。当前内容贡献、预算、插件配置和 Skill 执行分别查[插件 ADR](../../adr/connectors/003-ownership-and-installation.md)、[Skills ADR](../../adr/skills/001-authoring-and-installation.md)及 HXA-286/293；后续已有受控 skills_run 与按安装所有者隔离的 Skill 身份，不能把下文“脚本仅可读”等旧基线当作当前能力，也不据此宣称任意 hooks/常驻 stdio 已交付。
+>
+> 当前任务由用户请求确定，status 只提供事实导航，不授予自主执行范围。设备、项目模拟器、真机与外部服务授权统一按 [AGENTS.md](../../../AGENTS.md#verification-and-device-authorization) 及当前任务；本次文档审查未运行设备、模型或 Release 验收，也未重新核验外链和历史忽略目录制品。
+
 依据当前源码及竞品一手资料，服务于 [HXA-298](../../completion-records/HXA-298.md)。起点 `main` / `6bbff42d`，包含 HXA-295～297 未提交工作；研究结论不等于模型效果验收。
 
 ## Helix 如何提供插件提示
@@ -9,8 +13,8 @@
 | 工具描述与参数 | 原生插件的 `ToolDescriptor` 或已连接 MCP 元数据，经既有发现/工作集和 Dispatcher 绑定 | 工具作用、输入约束、结果与错误语义；工具名不能代替当前 schema |
 | 必要指导 | `HelixPlugin.requiredInstructions`，仅随当前会话已选择且实际就绪的原生 runtime 注入 | 每次操作必须遵循的领域规则，不承担长流程或通用系统提示 |
 | Skill 目录 | 同一 SkillRepository 的来源、会话选择和调用资格过滤；source/name/snapshotHash/description | 何时使用、准确读取身份；选择插件不意味着注入全文 |
-| Skill 正文 | 模型通过 `skills.read` 按需读取，或本次可信用户显式调用的持久激活 | 任务流程、决策与完成条件；用户参数单独标记 |
-| 参考资料 | `skills.read_resource`，沿用同一快照 hash、来源及调用资格 | 详细规则、例子和长参考；内容变化使旧身份失效 |
+| Skill 正文 | 模型通过 `skills_read` 按需读取，或本次可信用户显式调用的持久激活 | 任务流程、决策与完成条件；用户参数单独标记 |
+| 参考资料 | `skills_read_resource`，沿用同一快照 hash、来源及调用资格 | 详细规则、例子和长参考；内容变化使旧身份失效 |
 
 当前入口：[PluginExecutionContext](../../../extensions/plugin/src/main/kotlin/com/helix/extensions/plugin/PluginExecutionContext.kt)、[PluginRegistry](../../../extensions/plugin/src/main/kotlin/com/helix/extensions/plugin/PluginRegistry.kt)、[ChatRequestAssembler](../../../app/src/main/kotlin/com/helix/app/chat/ChatRequestAssembler.kt)。工具执行、权限、历史和压缩继续由既有宿主负责。Skill/MCP 文本不授予 capability、屏幕共享或跨会话权限；管理预览不等同执行读取。
 
@@ -63,7 +67,7 @@ Owner 随后明确实施前述建议并允许联网、日常模拟器与真实�
 
 远程 MCP 已有连接和 OAuth 凭据协调路径。`PluginPackage.kt` 的 `endpoint` 对 HTTP 配置保留端点，剥离源凭据并提示重新配置；对 command/stdio 返回 `STDIO_REQUIRES_ANDROID_RUNTIME`，不注册可运行端点。`SkillTools` 提供正文和资源读取，不提供包内脚本的安装/执行承诺。`McpStdioJobBridge` 已有固定 argv、有界 Job、取消与对账底座，但当前引用仍在专门设备测试中，没有接成导入插件的通用 stdio 服务生命周期。
 
-当前 [Runtime 决策](../../adr/runtime/001-execution-domains.md)已是 Developer 单 APK 内私有进程、共享 UID 和网络能力；`ProotToolModule` 将 `code.linux.run` 接到既有 Runtime。不要沿用 [HXA-128 历史评估](../../evidence/development/connector-stdio-portability.md)的独立 APK/无网结论，也不能将私有进程称作凭据安全隔离。Standard 不含 PRoot，可复用远程 MCP；默认隔离 QuickJS 不是 Node/Python 的通用替代品。
+当前 [Runtime 决策](../../adr/runtime/001-execution-domains.md)已是 Developer 单 APK 内私有进程、共享 UID 和网络能力；`ProotToolModule` 将 `code_linux_run` 接到既有 Runtime。不要沿用 [HXA-128 历史评估](../../evidence/development/connector-stdio-portability.md)的独立 APK/无网结论，也不能将私有进程称作凭据安全隔离。Standard 不含 PRoot，可复用远程 MCP；默认隔离 QuickJS 不是 Node/Python 的通用替代品。
 
 | 样本/路径 | 已确认内容 | 真正运行还需要什么 |
 | --- | --- | --- |

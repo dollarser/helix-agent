@@ -35,6 +35,18 @@ import org.junit.Test
 import java.time.Instant
 
 class AutomationToolsTest {
+    @Test fun descriptionsKeepCallConstraintsWithoutPrescribingBackendSelection() {
+        val descriptions = tools.descriptors().associate { it.name.value to it.description }
+        val snapshot = descriptions.getValue(AutomationTools.SNAPSHOT)
+        assertTrue(snapshot.contains("replaces earlier tokens"))
+        assertTrue(snapshot.contains("truncated/recoveryHint"))
+        assertTrue(!snapshot.contains("Observation chooses"))
+        assertTrue(!snapshot.contains("Shizuku"))
+        assertTrue(descriptions.getValue(AutomationTools.SET_TEXT).contains("canImeEnter=true"))
+        assertTrue(descriptions.getValue(AutomationTools.CLICK).contains("verify the effect"))
+        assertTrue(descriptions.getValue(AutomationTools.CLICK_MATCH).contains("unknown outcomes must not be replayed"))
+    }
+
     @Test fun longClickCapabilitySuppliesItsActualToolAndParentTokenWithoutExecutingIt() {
         val original = clickableAncestorSnapshot()
         val tree = requireNotNull(original.snapshot)
@@ -56,7 +68,7 @@ class AutomationToolsTest {
                 .single()
                 .jsonObject
         assertEquals(
-            "ui.long_click",
+            "ui_long_click",
             node
                 .getValue("longClick")
                 .jsonObject
@@ -305,18 +317,18 @@ class AutomationToolsTest {
         val descriptors = tools.descriptors()
         assertEquals(
             setOf(
-                "ui.snapshot",
-                "ui.find",
-                "ui.click",
-                "ui.click_match",
-                "ui.long_click",
-                "ui.set_text",
-                "ui.ime_enter",
-                "ui.set_progress",
-                "ui.scroll",
-                "ui.back",
-                "ui.home",
-                "ui.wait",
+                "ui_snapshot",
+                "ui_find",
+                "ui_click",
+                "ui_click_match",
+                "ui_long_click",
+                "ui_set_text",
+                "ui_ime_enter",
+                "ui_set_progress",
+                "ui_scroll",
+                "ui_back",
+                "ui_home",
+                "ui_wait",
             ),
             descriptors.map { it.name.value }.toSet(),
         )
@@ -387,7 +399,7 @@ class AutomationToolsTest {
                 snapshot
                     .getValue("recoveryHint")
                     .jsonPrimitive.content
-                    .contains("ui.device"),
+                    .contains("ui_device"),
             )
         }
         for (status in listOf(AutomationSnapshotStatus.SENSITIVE_UI, AutomationSnapshotStatus.TARGET_NOT_ALLOWLISTED)) {
@@ -398,7 +410,7 @@ class AutomationToolsTest {
                     ?.jsonPrimitive
                     ?.content
                     .orEmpty()
-                    .contains("ui.gesture"),
+                    .contains("ui_gesture"),
             )
         }
     }
@@ -579,7 +591,7 @@ class AutomationToolsTest {
             found
                 .getValue("actionHint")
                 .jsonPrimitive.content
-                .contains("not a ui.find"),
+                .contains("not a ui_find"),
         )
         assertEquals(
             ToolSchemaValidation.Valid,
@@ -592,7 +604,7 @@ class AutomationToolsTest {
             found
                 .getValue("actionHint")
                 .jsonPrimitive.content
-                .contains("ui.snapshot"),
+                .contains("ui_snapshot"),
         )
         assertTrue(
             found
@@ -605,7 +617,7 @@ class AutomationToolsTest {
             found
                 .getValue("actionHint")
                 .jsonPrimitive.content
-                .contains("ui.scroll"),
+                .contains("ui_scroll"),
         )
         assertEquals(
             "true",
@@ -655,7 +667,7 @@ class AutomationToolsTest {
         val found = completed(execute(AutomationTools.FIND, args("text" to "Continue")))
         assertEquals("FOUND", found["status"]?.jsonPrimitive?.content)
         assertTrue(found.toString().contains(TOKEN))
-        assertEquals("ui.click", found.getValue("suggestedAction").jsonPrimitive.content)
+        assertEquals("ui_click", found.getValue("suggestedAction").jsonPrimitive.content)
         assertEquals(TOKEN, found.getValue("suggestedClickToken").jsonPrimitive.content)
 
         val checked =
@@ -726,7 +738,7 @@ class AutomationToolsTest {
             missing
                 .getValue("recoveryHint")
                 .jsonPrimitive.content
-                .contains("ui.screenshot"),
+                .contains("ui_screenshot"),
         )
     }
 
@@ -872,7 +884,7 @@ class AutomationToolsTest {
         port.snapshotResult = ambiguousClickableSnapshot()
         val ambiguous = execute(AutomationTools.CLICK_MATCH, args("className" to "Button")) as ToolExecutorResult.Failed
         assertTrue(ambiguous.detail.startsWith("TARGET_AMBIGUOUS:"))
-        assertTrue(ambiguous.detail.contains("ui.find"))
+        assertTrue(ambiguous.detail.contains("ui_find"))
         assertTrue(ambiguous.sideEffectFree)
         assertTrue(port.nodeRequests.isEmpty())
     }
@@ -901,7 +913,7 @@ class AutomationToolsTest {
         port.snapshotResult = result.copy(snapshot = snapshot.copy(nodes = listOf(node)))
         val refused = execute(AutomationTools.CLICK_MATCH, args("text" to "Continue")) as ToolExecutorResult.Failed
         assertTrue(refused.detail.startsWith("TARGET_OFFSCREEN:"))
-        assertTrue(refused.detail.contains("ui.scroll"))
+        assertTrue(refused.detail.contains("ui_scroll"))
         assertTrue(refused.sideEffectFree)
         assertFalse(refused.requiresReview)
         assertTrue(port.nodeRequests.isEmpty())
@@ -931,8 +943,8 @@ class AutomationToolsTest {
         port.actionResult = AutomationActionResult(AutomationActionStatus.STALE_TOKEN)
         val failed = execute(AutomationTools.CLICK, args("token" to TOKEN)) as ToolExecutorResult.Failed
         assertTrue(failed.detail.startsWith("STALE_TOKEN:"))
-        assertTrue(failed.detail.contains("ui.click_match"))
-        assertTrue(failed.detail.contains("ui.find") || failed.detail.contains("ui.snapshot"))
+        assertTrue(failed.detail.contains("ui_click_match"))
+        assertTrue(failed.detail.contains("ui_find") || failed.detail.contains("ui_snapshot"))
         assertEquals("Refusal must not trigger an automatic action replay", 2, port.nodeRequests.size)
         assertEquals("Refusal must leave the recovery decision to the caller", 0, port.snapshots)
         assertTrue(failed.sideEffectFree)

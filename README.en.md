@@ -10,6 +10,8 @@ Helix brings mobile interaction, a browser, files and tools into one conversatio
 
 > **Development preview: Android 10+, ARM64 APKs.** These are not stable releases and use a development certificate. In-place updates and historical data retention are not guaranteed. Save important material first; uninstalling removes private application data. Check the downloaded version's notes for features, signing and upgrade conditions, and the [changelog](CHANGELOG.md) for version changes.
 
+**v0.0.12 is available** with account, model catalog and attachment recovery improvements. See [release notes](docs/product/releases/v0.0.12.en.md).
+
 ## What it does
 
 | Capability | Examples and scope |
@@ -85,7 +87,7 @@ python3 scripts/build-tts-assets.py
 ./gradlew :app:assembleDeveloperDebug
 ```
 
-APKs are under `app/build/outputs/apk/`. Run `./scripts/check-all.sh --source` for source checks or `./scripts/check-all.sh` for the normal Debug gate. See [contributing](CONTRIBUTING.md) and [CI](docs/development/ci.md) for local hooks and layered checks. Build success is not device or live-service acceptance.
+APKs are under `app/build/outputs/apk/`. Run `./scripts/check-all.sh --source` for source checks or `./scripts/check-all.sh` for the normal Debug gate. See [contributing](CONTRIBUTING.md) and [CI](docs/development/verification-matrix.md#history-ci) for local hooks and layered checks. Build success is not device or live-service acceptance.
 
 ## Help and contribution
 
@@ -96,3 +98,5 @@ APKs are under `app/build/outputs/apk/`. Run `./scripts/check-all.sh --source` f
 ## License
 
 Helix-owned source is [Apache License 2.0](LICENSE). Third-party libraries, runtimes, tools and weights retain their own licenses. [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) records attribution and distribution requirements, not a complete release SBOM. Each release body lists exact artifacts, checksums and corresponding-source links.
+
+Advanced FFmpeg: [corresponding sources, build recipes and licenses](https://github.com/dollarser/helix-agent/releases/download/runtime-assets-20260917/helix-ffmpeg-9.0.2-ready-av1-20261113-notice-source.tar.gz). See [third-party notices](THIRD_PARTY_NOTICES.md).

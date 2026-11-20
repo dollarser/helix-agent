@@ -10,6 +10,8 @@ Helix 将手机操作、浏览器、文件和工具放进同一会话。你选�
 
 > **开发预览，Android 10+，ARM64 APK。** 尚非稳定发行，使用开发签名。升级不保证可以覆盖安装或保留历史数据，请先另存重要内容；卸载会删除应用私有数据。功能、签名及升级条件以下载版本的说明为准，版本变化见[更新日志](CHANGELOG.zh-CN.md)。
 
+**v0.0.12 已发布**：账号体验、模型目录和附件恢复优化，见[版本说明](docs/product/releases/v0.0.12.md)。
+
 ## 能做什么
 
 | 能力 | 示例与范围 |
@@ -85,7 +87,7 @@ python3 scripts/build-tts-assets.py
 ./gradlew :app:assembleDeveloperDebug
 ```
 
-APK 位于 `app/build/outputs/apk/`。快速源码检查为 `./scripts/check-all.sh --source`，常规 Debug 门禁为 `./scripts/check-all.sh`。本地 hooks 安装及分层 CI 见[贡献指南](CONTRIBUTING.md)和 [CI 说明](docs/development/ci.md)；构建通过不代表设备或真实服务验收。
+APK 位于 `app/build/outputs/apk/`。快速源码检查为 `./scripts/check-all.sh --source`，常规 Debug 门禁为 `./scripts/check-all.sh`。本地 hooks 安装及分层 CI 见[贡献指南](CONTRIBUTING.md)和 [CI 说明](docs/development/verification-matrix.md#history-ci)；构建通过不代表设备或真实服务验收。
 
 ## 帮助与贡献
 
@@ -96,3 +98,5 @@ APK 位于 `app/build/outputs/apk/`。快速源码检查为 `./scripts/check-all
 ## 许可证
 
 Helix 自有源码采用 [Apache License 2.0](LICENSE)。第三方库、运行时、工具和模型权重保留各自许可证；归属与分发要求见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)，该文件不是完整发行 SBOM。确切附件、校验值和对应源码链接见各版本发布正文。
+
+Advanced FFmpeg：[对应源码、构建配方及许可](https://github.com/dollarser/helix-agent/releases/download/runtime-assets-20260917/helix-ffmpeg-9.0.2-ready-av1-20261113-notice-source.tar.gz)；其他随包组件见[第三方声明](THIRD_PARTY_NOTICES.md)。

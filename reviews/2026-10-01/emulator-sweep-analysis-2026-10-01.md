@@ -2,7 +2,7 @@
 
 > 仓库归档说明（2026-10-02）：仅将宿主用户名/安装目录替换为环境变量占位符，未改动历史测试数字、断言或结论。字节一致的原件保留在 ignored `build/hxa241/emulator-sweep-original-2026-10-01.md`，原件 SHA-256：`af56b9785a26f4e37e955329e70f96eed9e8acb7b3fa1cc01ca8d50e896b786e`。`HELIX_SWEEP_WORKTREE` 需指向独立测试工作树，不能指向主 checkout。
 
-> 个人分析笔记，非项目文档，不登记 `docs/INDEX.md`。
+> 历史个人分析笔记，现由 [reviews 索引](../README.md)留存；不是当前规范或验收结论。
 > 测试环境：隔离 worktree `${HELIX_SWEEP_WORKTREE}`（detached @ `05e91003` / tag `v0.0.4`），主 checkout 未受影响。
 
 ## 一、测试范围与方法
@@ -100,7 +100,7 @@
 | `ui.MessageCopyDeviceTest` | 复制内容断言不符 ×2 | **2 → 0（偶发）** |
 | `ui.SessionSettingsDeviceTest` | `ComposeTimeoutException` | **1 → 2（不稳定）** |
 
-**结论**：其中 3 个是确定性超时（可能真慢或真缺节点），另 3 个是抖动。抖动那 3 个大概率是**两台模拟器并行争抢 CPU** 放大的——后续单独串行复跑全部转绿或结果漂移。
+**结论**：其中 3 个是确定性超时（可能真慢或真缺节点），另 3 个是抖动。单独串行复跑转绿或结果漂移，只能说明结果不稳定；当时没有 CPU 争用对照证据，不能据此确定根因。
 
 ### 跳过（34 个用例 / 20 个类）— 均为设计内跳过
 
@@ -152,7 +152,7 @@
 
 验证：`IaAuthorityDeviceTest` **OK (2 tests)**（原 1/2 失败）。两处都改为**按生产策略断言**，比原来更强：consumer 下显式断言该分组不存在。
 
-> 修复只在 worktree 里。要落到主线需把上面两段 diff 手工应用到主 checkout。
+> 这是当时仅在 worktree 内的修复记录。后续引用时先核对当前源码与 HXA-241，不直接重复应用旧 diff。
 
 ## 五、建议的下一步（按性价比排序）
 

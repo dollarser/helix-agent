@@ -335,7 +335,7 @@ class ApprovalCardUiMapperTest {
         // A non-CODE_EXECUTION descriptor never gets the code-execution section.
         val nonCode =
             ToolDescriptor(
-                name = ToolName("fs.write"),
+                name = ToolName("fs_write"),
                 version = ToolVersion(2),
                 description = "写入文件",
                 inputSchema = Json.parseToJsonElement("""{"type":"object"}""") as kotlinx.serialization.json.JsonObject,
@@ -399,7 +399,7 @@ class ApprovalCardUiMapperTest {
         val card =
             ApprovalUiMapper.buildCard(
                 approvalId = "a-plain",
-                binding = jsBinding().copy(toolName = "fs.write", executionTarget = ExecutionTargetType.LOCAL_ANDROID),
+                binding = jsBinding().copy(toolName = "fs_write", executionTarget = ExecutionTargetType.LOCAL_ANDROID),
                 state = ApprovalCardState.PENDING,
                 descriptor = plainDescriptor(),
                 arguments = buildJsonObject { put("path", "/x") },
@@ -418,7 +418,7 @@ class ApprovalCardUiMapperTest {
     private fun jsBinding() =
         ApprovalBinding(
             toolCallId = "call-js",
-            toolName = "code.javascript.run",
+            toolName = "code_javascript_run",
             toolVersion = "1",
             schemaHash = "a".repeat(64),
             contractHash = "b".repeat(64),
@@ -431,7 +431,7 @@ class ApprovalCardUiMapperTest {
 
     private fun plainDescriptor() =
         ToolDescriptor(
-            name = ToolName("fs.write"),
+            name = ToolName("fs_write"),
             version = ToolVersion(2),
             description = "写入文件",
             inputSchema = Json.parseToJsonElement("""{"type":"object"}""") as kotlinx.serialization.json.JsonObject,
@@ -454,7 +454,7 @@ class ApprovalCardUiMapperTest {
     fun buildCardMapsEveryMandatedFieldFromTrustedFacts() {
         val descriptor =
             ToolDescriptor(
-                name = ToolName("fs.write"),
+                name = ToolName("fs_write"),
                 version = ToolVersion(2),
                 description = "向 Workspace 写入一个文件（可覆盖已有文件）",
                 inputSchema =
@@ -481,7 +481,7 @@ class ApprovalCardUiMapperTest {
         val binding =
             ApprovalBinding(
                 toolCallId = "call-1",
-                toolName = "fs.write",
+                toolName = "fs_write",
                 toolVersion = "2",
                 schemaHash = "b".repeat(64),
                 contractHash = "e".repeat(64),
@@ -523,7 +523,7 @@ class ApprovalCardUiMapperTest {
         assertEquals(binding.hash, card.bindingHash)
         // HXA-201 slice 2: the (sourceRef, toolName) identity the future-preference actions
         // bind to — trusted from the descriptor, never a display name.
-        assertEquals("fs.write", card.toolName)
+        assertEquals("fs_write", card.toolName)
         assertEquals("built-in", card.sourceRef)
         assertEquals(ToolOperationClass.LOCAL_MUTATION, card.operationClass)
         assertEquals(ApprovalCardState.PENDING, card.state)
@@ -553,7 +553,7 @@ class ApprovalCardUiMapperTest {
     fun buildCardWithoutEgressShowsNoEgressAndMcpSource() {
         val descriptor =
             ToolDescriptor(
-                name = ToolName("mcp.tool"),
+                name = ToolName("mcp_tool"),
                 version = ToolVersion(1),
                 description = "mcp tool",
                 inputSchema =
@@ -580,7 +580,7 @@ class ApprovalCardUiMapperTest {
         val binding =
             ApprovalBinding(
                 toolCallId = "c",
-                toolName = "mcp.tool",
+                toolName = "mcp_tool",
                 toolVersion = "1",
                 schemaHash = "b".repeat(64),
                 contractHash = "e".repeat(64),
@@ -608,7 +608,7 @@ class ApprovalCardUiMapperTest {
             )
         // HXA-201 slice 2: the MCP identity is the canonical origin ref, not the server id alone.
         assertEquals("mcp:srv-7:2025-03-26:" + "a".repeat(64), card.sourceRef)
-        assertEquals("mcp.tool", card.toolName)
+        assertEquals("mcp_tool", card.toolName)
         assertEquals(ToolOperationClass.LOCAL_MUTATION, card.operationClass)
         assertEquals(R.string.approval_source_mcp, card.sourceRes)
         assertEquals(listOf("srv-7"), card.sourceArgs)

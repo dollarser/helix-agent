@@ -6,9 +6,9 @@
 
 用户操作和用户建立的规则可以授予权限；模型、项目文本、Skill、MCP、网页与远端 Agent 不能自行授予。Android 权限、Root 授权等只满足相应能力条件。提示词排序不提高信任等级。
 
-目标授权界面以工具启用/禁用和会话预设表达：FULL_ACCESS、WORKSPACE、READ_ONLY 都允许 Agent 工具联网，CUSTOM 可以进一步限制效果；禁止 Agent 工具联网不禁止模型 Provider 请求。工具禁用应从曝光和分派两处生效，直接构造调用不能绕过。
+授权界面以工具启用/禁用及现行 APPROVAL_REQUIRED、FULL_ACCESS、READ_ONLY、CUSTOM 等会话模式表达，操作类别规则见权限 ADR，不恢复旧 WORKSPACE 或 READ_ONLY=ASK 语义；禁止 Agent 工具联网不禁止模型 Provider 请求。工具禁用应从曝光和分派两处生效，直接构造调用不能绕过。
 
-效果规则合并遵循 DENY > ASK > ALLOW；工作区模式仅自动允许所选范围内的符合条件操作。CUSTOM 禁写覆盖文件工具和 Shell 写入，无法可靠约束的执行不能伪装安全。特殊递归删除确认仅针对明确解析的 rm -rf dir；不扩大成所有等价删除的默认拦截。Chat/Plan 的只读边界仍独立有效，批准计划只绑定版本，不批准全部工具。
+效果规则合并遵循 DENY > ASK > ALLOW；文件 scope 与会话模式分别检查。CUSTOM 禁写覆盖文件工具和 Shell 写入，无法可靠约束的执行不能伪装安全。特殊递归删除确认仅针对明确解析的 rm -rf dir；不扩大成所有等价删除的默认拦截。Chat/Plan 的只读边界仍独立有效，批准计划只绑定版本，不批准全部工具。
 
 ## 分派与证明
 
@@ -20,7 +20,7 @@
 
 ## 执行域和数据
 
-[本地执行](../architecture/local-code-execution.md)区分 isolated QuickJS 与同 UID PRoot/Subscriptions。后者有进程崩溃边界，没有凭据、网络或文件安全隔离承诺。非导出组件、受限 API 与快照校验仍必要，但不能被描述成独立 UID 防护。
+[本地执行](../architecture/overview.md#本地执行域与恢复)区分 QuickJS 默认 isolated、显式原生选项私有进程，以及同 UID PRoot/Subscriptions。后者有进程崩溃边界，没有凭据、网络或文件安全隔离承诺。非导出组件、受限 API 与快照校验仍必要，但不能被描述成独立 UID 防护。
 
 凭据与真实用户材料不进入日志、仓库或测试 fixture。工具输出、导入包、文件路径、WebView 与外部协议内容按不可信输入处理。下载、解包、导回与产物读取绑定真实 scope，拒绝逃逸与身份错配。依赖使用可追溯固定版本；发现兼容问题允许有意识升级并验证，不为保留锁版本而保留故障。
 

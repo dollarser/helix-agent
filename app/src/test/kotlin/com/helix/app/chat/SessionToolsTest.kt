@@ -44,7 +44,7 @@ class SessionToolsTest {
         dao.hasKnowledgeReferences = true
         val names = repository.referenceToolNames("s")
         assertEquals(
-            setOf("knowledge.search", "knowledge.read", "session.history", "session.search", "session.read"),
+            setOf("knowledge_search", "knowledge_read", "session_history", "session_search", "session_read"),
             names,
         )
         assertTrue(ModelToolExposureOrder.defaultNames(names).containsAll(names))
@@ -61,13 +61,13 @@ class SessionToolsTest {
             )
             assertFalse("sessionId" in tool.inputSchema.getValue("properties").jsonObject)
             assertEquals(
-                name !in setOf("session.rename", "session.archive", "session.restore"),
+                name !in setOf("session_rename", "session_archive", "session_restore"),
                 tool.operationClass.isReviewModeAdmitted,
             )
         }
         assertEquals(
             ToolOperationClass.LOCAL_MUTATION,
-            SessionToolDescriptors.descriptor("session.rename").operationClass,
+            SessionToolDescriptors.descriptor("session_rename").operationClass,
         )
     }
 
@@ -75,7 +75,7 @@ class SessionToolsTest {
         repeat(25) { body("m$it", "message $it", it.toLong()) }
         body("system", "secret prompt", 26, role = "SYSTEM")
         body("old", "revised away", 27, supersededBy = "new")
-        val page = output(execute("session.history"))
+        val page = output(execute("session_history"))
         assertEquals(20, page.getValue("entries").jsonArray.size)
         assertEquals(
             "m24",
@@ -88,7 +88,7 @@ class SessionToolsTest {
         )
         assertEquals(5, page.getValue("nextBeforeSequence").jsonPrimitive.int)
         body("newly-appended", "new", 100)
-        val older = output(execute("session.history", """{"beforeSequence":5}"""))
+        val older = output(execute("session_history", """{"beforeSequence":5}"""))
         assertEquals(5, older.getValue("entries").jsonArray.size)
         assertFalse(older.getValue("hasMore").jsonPrimitive.boolean)
         assertFalse(page.toString().contains("secret prompt"))
@@ -115,7 +115,7 @@ class SessionToolsTest {
                 createdAtEpoch = 1,
             )
         body("foreign-message", "PRIVATE live update", 2, session = "foreign")
-        val found = output(execute("session.search", """{"query":"messageCount"}"""))
+        val found = output(execute("session_search", """{"query":"messageCount"}"""))
         val entry =
             found
                 .getValue("entries")
@@ -125,40 +125,40 @@ class SessionToolsTest {
         assertEquals("foreign", entry.text("sourceSessionId"))
         assertEquals(0, entry.getValue("referenceOrdinal").jsonPrimitive.int)
         dao.rows.removeAll { it.sessionId == "foreign" }
-        val read = output(execute("session.read", readArgs("shared", frozen, 0)))
+        val read = output(execute("session_read", readArgs("shared", frozen, 0)))
         assertEquals(store.read(frozen), read.text("content"))
-        assertTrue(execute("session.read", readArgs("foreign-message", frozen)) is ToolExecutorResult.Failed)
+        assertTrue(execute("session_read", readArgs("foreign-message", frozen)) is ToolExecutorResult.Failed)
     }
 
     @Test fun readRejectsOtherSessionAndWrongHashEvenWhenIdsAreKnown() {
         val ref = body("other", "private body", 1, session = "foreign")
-        assertTrue(execute("session.read", readArgs("other", ref)) is ToolExecutorResult.Failed)
+        assertTrue(execute("session_read", readArgs("other", ref)) is ToolExecutorResult.Failed)
         body("ours", "public body", 2)
-        assertTrue(execute("session.read", readArgs("ours", ref)) is ToolExecutorResult.Failed)
+        assertTrue(execute("session_read", readArgs("ours", ref)) is ToolExecutorResult.Failed)
         dao.active = false
-        assertTrue(execute("session.status") is ToolExecutorResult.Failed)
+        assertTrue(execute("session_status") is ToolExecutorResult.Failed)
     }
 
     @Test fun unicodeReadPagesAreExactAndOversizedOffsetsFail() {
         val content = "😀中".repeat(1500)
         val ref = body("m", content, 1)
-        val first = output(execute("session.read", readArgs("m", ref)))
+        val first = output(execute("session_read", readArgs("m", ref)))
         val offset = first.getValue("nextOffset").jsonPrimitive.int
         assertEquals(2048, offset)
-        val last = output(execute("session.read", readArgs("m", ref, offset = offset)))
+        val last = output(execute("session_read", readArgs("m", ref, offset = offset)))
         assertEquals(content, first.text("content") + last.text("content"))
         assertFalse(last.getValue("truncated").jsonPrimitive.boolean)
-        assertTrue(execute("session.read", readArgs("m", ref, offset = Int.MAX_VALUE)) is ToolExecutorResult.Failed)
+        assertTrue(execute("session_read", readArgs("m", ref, offset = Int.MAX_VALUE)) is ToolExecutorResult.Failed)
     }
 
     @Test fun emptySearchPageHasACursorAndCanReachOlderMatches() {
         body("needle", "a Needle older than page", 0)
         repeat(41) { body("recent$it", "other text", it.toLong() + 1) }
-        val first = output(execute("session.search", """{"query":"needle"}"""))
+        val first = output(execute("session_search", """{"query":"needle"}"""))
         assertTrue(first.getValue("entries").jsonArray.isEmpty())
         assertTrue(first.getValue("hasMore").jsonPrimitive.boolean)
         val next = first.getValue("nextBeforeSequence").jsonPrimitive.int
-        val older = output(execute("session.search", """{"query":"needle","beforeSequence":$next}"""))
+        val older = output(execute("session_search", """{"query":"needle","beforeSequence":$next}"""))
         assertEquals(
             "needle",
             older
@@ -175,7 +175,7 @@ class SessionToolsTest {
         store.delete(missing)
         body("large", "needle" + "x".repeat(SessionHistoryRepository.MAX_CONTENT_BYTES), 2)
         body("good", "needle available", 3)
-        val result = output(execute("session.search", """{"query":"needle"}"""))
+        val result = output(execute("session_search", """{"query":"needle"}"""))
         assertEquals(2, result.getValue("unavailableContents").jsonPrimitive.int)
         assertEquals(1, result.getValue("entries").jsonArray.size)
         assertFalse(result.toString().contains("secret needle missing"))
@@ -188,7 +188,7 @@ class SessionToolsTest {
             object : CancelSignal {
                 override fun isCancelled() = cancelled
             }
-        assertEquals(ToolExecutorResult.Cancelled, execute("session.history", cancel = signal))
+        assertEquals(ToolExecutorResult.Cancelled, execute("session_history", cancel = signal))
         cancelled = false
         val interrupting =
             object : ContentStore by store {
@@ -197,11 +197,11 @@ class SessionToolsTest {
                     maxBytes: Int,
                 ): String = store.readBounded(ref, maxBytes).also { cancelled = true }
             }
-        assertEquals(ToolExecutorResult.Cancelled, execute("session.read", readArgs("m", ref), signal, interrupting))
+        assertEquals(ToolExecutorResult.Cancelled, execute("session_read", readArgs("m", ref), signal, interrupting))
         cancelled = false
-        val search = execute("session.search", """{"query":"private"}""", signal, interrupting)
+        val search = execute("session_search", """{"query":"private"}""", signal, interrupting)
         assertEquals(ToolExecutorResult.Cancelled, search)
-        assertEquals(ToolExecutorResult.TimedOut, execute("session.status", deadline = Instant.EPOCH))
+        assertEquals(ToolExecutorResult.TimedOut, execute("session_status", deadline = Instant.EPOCH))
         cancelled = false
         val sourceRef = body("scoped-source", "private scoped content", 1, session = "source")
         val shared = share()
@@ -217,7 +217,7 @@ class SessionToolsTest {
             }
         assertEquals(
             ToolExecutorResult.Cancelled,
-            execute("session.read", scoped(shared, readArgs("scoped-source", sourceRef)), signal, interruptingSource),
+            execute("session_read", scoped(shared, readArgs("scoped-source", sourceRef)), signal, interruptingSource),
         )
     }
 
@@ -233,18 +233,18 @@ class SessionToolsTest {
                         dao.rows[0] = dao.rows[0].copy(supersededBy = "new")
                     }
             }
-        assertTrue(execute("session.read", readArgs("m", ref), content = revising) is ToolExecutorResult.Failed)
+        assertTrue(execute("session_read", readArgs("m", ref), content = revising) is ToolExecutorResult.Failed)
     }
 
     @Test fun renameIsConditionalAndOnlyChangesCurrentTitle() {
         val before = dao.session
-        val renamed = execute("session.rename", """{"expectedTitle":"Original","title":"New title"}""")
+        val renamed = execute("session_rename", """{"expectedTitle":"Original","title":"New title"}""")
         assertTrue(renamed is ToolExecutorResult.Completed)
         assertEquals(before.copy(title = "New title", searchTitle = "new title"), dao.session)
-        val stale = execute("session.rename", """{"expectedTitle":"Original","title":"Overwrite"}""")
+        val stale = execute("session_rename", """{"expectedTitle":"Original","title":"Overwrite"}""")
         assertTrue(stale is ToolExecutorResult.Failed)
         dao.active = false
-        val late = execute("session.rename", """{"expectedTitle":"New title","title":"Late"}""")
+        val late = execute("session_rename", """{"expectedTitle":"New title","title":"Late"}""")
         assertTrue(late is ToolExecutorResult.Failed)
         assertEquals("New title", dao.session.title)
     }
@@ -252,7 +252,7 @@ class SessionToolsTest {
     @Test fun notificationFailureDoesNotMisreportCommittedRename() {
         val result =
             execute(
-                "session.rename",
+                "session_rename",
                 """{"expectedTitle":"Original","title":"Saved"}""",
                 onRenamed = { error("observer failed") },
             )
@@ -318,12 +318,12 @@ class SessionToolsTest {
         assertFalse(initial.contains("TAIL_EVIDENCE"))
         assertTrue(initial.contains("referenceMessageId=binding"))
         assertEquals(text.length.toLong(), manifest.contentBytes)
-        val found = output(execute("session.search", scoped(shared, """{"query":"TAIL_EVIDENCE"}""")))
+        val found = output(execute("session_search", scoped(shared, """{"query":"TAIL_EVIDENCE"}""")))
         assertTrue(found.toString().contains("TAIL_EVIDENCE"))
-        val first = output(execute("session.read", scoped(shared, readArgs("long", bodyRef))))
+        val first = output(execute("session_read", scoped(shared, readArgs("long", bodyRef))))
         assertEquals(2048, first.getValue("nextOffset").jsonPrimitive.int)
         assertFalse(first.text("content").contains("TAIL_EVIDENCE"))
-        val tail = output(execute("session.read", scoped(shared, readArgs("long", bodyRef, offset = 70_000))))
+        val tail = output(execute("session_read", scoped(shared, readArgs("long", bodyRef, offset = 70_000))))
         assertEquals("TAIL_EVIDENCE", tail.text("content"))
     }
 
@@ -344,14 +344,14 @@ class SessionToolsTest {
         }
         val shared = share()
         body("later", "LATER_PRIVATE", 50, session = "source")
-        val first = output(execute("session.search", scoped(shared, """{"query":"OLDEST_EVIDENCE"}""")))
+        val first = output(execute("session_search", scoped(shared, """{"query":"OLDEST_EVIDENCE"}""")))
         assertEquals(0, first.getValue("entries").jsonArray.size)
         assertTrue(first.getValue("hasMore").jsonPrimitive.boolean)
         val before = first.getValue("nextBeforeSequence").jsonPrimitive.int
         val second =
             output(
                 execute(
-                    "session.search",
+                    "session_search",
                     scoped(
                         shared,
                         """{"query":"OLDEST_EVIDENCE","beforeSequence":$before}""",
@@ -359,21 +359,21 @@ class SessionToolsTest {
                 ),
             )
         assertTrue(second.toString().contains("OLDEST_EVIDENCE"))
-        val later = output(execute("session.search", scoped(shared, """{"query":"LATER_PRIVATE"}""")))
+        val later = output(execute("session_search", scoped(shared, """{"query":"LATER_PRIVATE"}""")))
         assertEquals(0, later.getValue("entries").jsonArray.size)
     }
 
     @Test fun sourceEditsDeletionAndForgedBindingsFailClosed() {
         body("source-old", "fixed evidence", 1, session = "source")
         val shared = share()
-        assertTrue(execute("session.history", scoped(shared)) is ToolExecutorResult.Completed)
+        assertTrue(execute("session_history", scoped(shared)) is ToolExecutorResult.Completed)
         val bindingIndex = dao.rows.indexOfFirst { it.id == "binding" }
         val binding = dao.rows[bindingIndex]
         dao.activeTurn = "follow-up-turn"
-        assertTrue(execute("session.history", scoped(shared)) is ToolExecutorResult.Completed)
+        assertTrue(execute("session_history", scoped(shared)) is ToolExecutorResult.Completed)
         assertTrue(
             execute(
-                "session.read",
+                "session_read",
                 scoped(
                     shared,
                     readArgs(
@@ -387,33 +387,33 @@ class SessionToolsTest {
         body("foreign-binding", "Other conversation", 1, session = "other-target")
         dao.snapshots += dao.snapshots.single().copy(messageId = "foreign-binding")
         assertTrue(
-            execute("session.history", scoped(shared).replace("binding", "foreign-binding"))
+            execute("session_history", scoped(shared).replace("binding", "foreign-binding"))
                 is ToolExecutorResult.Failed,
         )
         dao.rows[bindingIndex] = binding
         val forged = scoped(shared).replace("binding", "source-old")
-        assertTrue(execute("session.history", forged) is ToolExecutorResult.Failed)
+        assertTrue(execute("session_history", forged) is ToolExecutorResult.Failed)
         assertTrue(
             execute(
-                "session.history",
+                "session_history",
                 scoped(shared).replace(shared.sha256, "0".repeat(64)),
             ) is ToolExecutorResult.Failed,
         )
         val index = dao.rows.indexOfFirst { it.id == "source-old" }
         val original = dao.rows[index]
         dao.rows[index] = original.copy(contentRef = store.write("edited evidence").toStorageString())
-        assertTrue(execute("session.history", scoped(shared)) is ToolExecutorResult.Failed)
+        assertTrue(execute("session_history", scoped(shared)) is ToolExecutorResult.Failed)
         dao.rows[index] = original
         dao.sources.remove("source")
-        assertTrue(execute("session.history", scoped(shared)) is ToolExecutorResult.Failed)
+        assertTrue(execute("session_history", scoped(shared)) is ToolExecutorResult.Failed)
     }
 
     @Test fun scopedBodiesAreCredentialGuardedAndEmptySourcesCannotBeShared() {
         org.junit.Assert.assertThrows(IllegalArgumentException::class.java) { share() }
         val secret = body("private", "key sk-abcdefghijklmnopq", 1, session = "source")
         val shared = share()
-        assertTrue(execute("session.read", scoped(shared, readArgs("private", secret))) is ToolExecutorResult.Failed)
-        val search = output(execute("session.search", scoped(shared, """{"query":"key"}""")))
+        assertTrue(execute("session_read", scoped(shared, readArgs("private", secret))) is ToolExecutorResult.Failed)
+        val search = output(execute("session_search", scoped(shared, """{"query":"key"}""")))
         assertEquals(0, search.getValue("entries").jsonArray.size)
         assertEquals(1, search.getValue("unavailableContents").jsonPrimitive.int)
         assertFalse(search.toString().contains("sk-abcdefghijklmnopq"))
@@ -564,7 +564,7 @@ class SessionToolsTest {
             title: String,
             searchTitle: String,
         ): Int {
-            if (caller(sessionId, turnId, callId, "session.rename") == null || session.title != expectedTitle) return 0
+            if (caller(sessionId, turnId, callId, "session_rename") == null || session.title != expectedTitle) return 0
             session = session.copy(title = title, searchTitle = searchTitle)
             return 1
         }

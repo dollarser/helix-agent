@@ -27,7 +27,7 @@ class RequestBudgetDiagnosticsTest {
             (0 until 100).map { index ->
                 com.helix.core.model.ModelToolSchema(
                     com.helix.core.model
-                        .ToolName("private.tool_$index"),
+                        .ToolName("private_tool_$index"),
                     "private description",
                     "{\"description\":\"${"x".repeat(index * 10)}\"}",
                 )

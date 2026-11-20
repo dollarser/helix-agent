@@ -33,10 +33,10 @@ class AutomationToolOutcomeTest {
                 .toToolOutcome(coordinateAction = true) as ToolExecutorResult.Failed
         assertTrue(result.sideEffectFree)
         assertFalse(result.requiresReview)
-        assertTrue(result.detail.contains("Call ui.device"))
+        assertTrue(result.detail.contains("Call ui_device"))
         assertTrue(result.detail.contains("generation numbers are not coordinate frames"))
         assertTrue(result.detail.contains("consumes its frame"))
-        assertFalse(result.detail.contains("ui.click_match"))
+        assertFalse(result.detail.contains("ui_click_match"))
     }
 
     @Test fun inaccessiblePlatformServicesExplainRootIdentityWithoutInventingAnInputEffect() {
@@ -55,7 +55,7 @@ class AutomationToolOutcomeTest {
             val result = AutomationActionResult(status).toToolOutcome() as ToolExecutorResult.Failed
             assertTrue(result.sideEffectFree)
             assertFalse(result.requiresReview)
-            assertTrue(result.detail.contains("ui.click_match"))
+            assertTrue(result.detail.contains("ui_click_match"))
         }
         val unknown =
             AutomationActionResult(
@@ -67,7 +67,7 @@ class AutomationToolOutcomeTest {
                 AutomationActionStatus.TARGET_CHANGED,
             ).toToolOutcome() as ToolExecutorResult.Failed
         assertTrue(changed.detail.contains("still needed"))
-        assertTrue(changed.detail.contains("ui.device"))
+        assertTrue(changed.detail.contains("ui_device"))
         assertTrue(changed.sideEffectFree)
         assertFalse(changed.requiresReview)
     }
@@ -77,9 +77,9 @@ class AutomationToolOutcomeTest {
             AutomationActionResult(AutomationActionStatus.ACTION_NOT_SUPPORTED).toToolOutcome()
                 as ToolExecutorResult.Failed
         assertTrue(result.detail.startsWith("ACTION_NOT_SUPPORTED:"))
-        assertTrue(result.detail.contains("ui.snapshot"))
+        assertTrue(result.detail.contains("ui_snapshot"))
         assertTrue(result.detail.contains("scrollable container"))
-        assertTrue(result.detail.contains("ui.device.systemActions"))
+        assertTrue(result.detail.contains("ui_device.systemActions"))
         assertTrue(result.detail.contains("use back to close the shade"))
         assertTrue(result.detail.contains("scrollDirections"))
         assertTrue(result.detail.contains("not finger motion"))

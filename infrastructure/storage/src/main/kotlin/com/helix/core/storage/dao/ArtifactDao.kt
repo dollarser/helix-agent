@@ -7,6 +7,7 @@ import androidx.room.Query
 import com.helix.core.storage.entity.ArtifactEntity
 
 @Dao
+@Suppress("TooManyFunctions") // Explicit Room queries for artifact registration, lookup and binding-aware release.
 interface ArtifactDao {
     @Insert(onConflict = OnConflictStrategy.ABORT)
     fun insert(artifact: ArtifactEntity)
@@ -71,4 +72,13 @@ interface ArtifactDao {
 
     @Query("SELECT COUNT(*) FROM artifacts WHERE relativePath = :relativePath")
     fun countByRelativePath(relativePath: String): Int
+
+    @Query(
+        "SELECT EXISTS(SELECT 1 FROM message_attachments WHERE artifactId IN (:ids)) OR " +
+            "EXISTS(SELECT 1 FROM session_input_attachments WHERE artifactId IN (:ids))",
+    )
+    fun hasBindings(ids: List<String>): Boolean
+
+    @Query("DELETE FROM artifacts WHERE id IN (:ids)")
+    fun deleteUnbound(ids: List<String>): Int
 }

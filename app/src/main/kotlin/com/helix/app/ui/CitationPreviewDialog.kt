@@ -1,5 +1,6 @@
 package com.helix.app.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -41,6 +42,8 @@ internal fun CitationPreviewDialog(
         }
         loaded = true
     }
+    BackHandler(enabled = !loaded, onBack = onDismiss)
+    if (!loaded) return
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(content?.title ?: stringResource(R.string.citation_title)) },
@@ -53,9 +56,7 @@ internal fun CitationPreviewDialog(
                         if (content?.noText == true) {
                             stringResource(R.string.citation_no_text)
                         } else {
-                            content?.excerpt ?: stringResource(
-                                if (loaded) R.string.citation_unavailable else R.string.citation_loading,
-                            )
+                            content?.excerpt ?: stringResource(R.string.citation_unavailable)
                         },
                     )
                 }

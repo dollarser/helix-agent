@@ -36,15 +36,15 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
 /**
- * HXA-192 R2 device acceptance: the `plan.submit` built-in tool (research doc 4.3; HX2-05)
+ * HXA-192 R2 device acceptance: the `plan_submit` built-in tool (research doc 4.3; HX2-05)
  * wired through the PRODUCTION pipeline — the app's real tool registry, the mode/policy filter
  * and the real [ToolScheduler] + [ToolDispatcher], against REAL Room storage (no Fake
  * PlanRepository, no hand-inserted plan or audit rows: the plan row is written by the registered
  * executor and the audit rows by the storage-backed audit sink).
  *
- * - 归属 / 版本 / READY 行 / 一致性 (R2 task 2): a PLAN-mode `plan.submit` succeeds and its
+ * - 归属 / 版本 / READY 行 / 一致性 (R2 task 2): a PLAN-mode `plan_submit` succeeds and its
  *   durable facts agree — the plan row is READY with the exact submitted artifact (v1), the
- *   tool-call row is COMPLETED as `plan.submit` v2 on the same turn, and the audit row settles
+ *   tool-call row is COMPLETED as `plan_submit` v2 on the same turn, and the audit row settles
  *   SUCCESS correlated to the same call. One call adds exactly ONE plan row (non-idempotent:
  *   never double-inserted by the single call).
  * - 伪造 Turn 参数被拒绝 (R2 task 3): a turn id that never resolved is rejected BEFORE any row
@@ -68,7 +68,7 @@ class PlanSubmitIntegrationDeviceTest {
     private val sessionId = "plan-submit-session-$run"
     private val turnId = "plan-submit-turn-$run"
 
-    /** A schema-valid plan.submit argument set (objective + steps + acceptanceCriteria + extras). */
+    /** A schema-valid plan_submit argument set (objective + steps + acceptanceCriteria + extras). */
     private val validArgs: JsonObject =
         buildJsonObject {
             put("objective", JsonPrimitive("Migrate the storage layer"))
@@ -199,13 +199,13 @@ class PlanSubmitIntegrationDeviceTest {
             container.toolExecution.dispatchToolCall(
                 callId,
                 turnId,
-                "plan.submit",
+                "plan_submit",
                 validArgs.toString(),
                 mode = AgentMode.PLAN,
             )
         val succeeded =
             outcome as? ToolDispatchOutcome.Succeeded
-                ?: throw AssertionError("a PLAN-mode plan.submit must succeed, got $outcome")
+                ?: throw AssertionError("a PLAN-mode plan_submit must succeed, got $outcome")
         val payload = Json.parseToJsonElement(succeeded.result.payload).jsonObject
         val planId = (payload["planId"] as JsonPrimitive).content
 
@@ -229,14 +229,14 @@ class PlanSubmitIntegrationDeviceTest {
         assertEquals(listOf("single writer during update"), artifact.assumptions)
         assertEquals(1, artifact.version)
 
-        // Ownership + version + consistency: the tool-call row is COMPLETED as plan.submit v2
+        // Ownership + version + consistency: the tool-call row is COMPLETED as plan_submit v2
         // on THIS turn, and exactly ONE plan row was added (one call -> one artifact).
         val callRow =
             container.storage.toolCalls
                 .byTurnAndCallId(turnId, callId)
                 ?: throw AssertionError("the tool-call row must be persisted for the turn")
         assertEquals("COMPLETED", callRow.state)
-        assertEquals("plan.submit", callRow.name)
+        assertEquals("plan_submit", callRow.name)
         assertEquals("2", callRow.version)
         assertEquals(
             before + 1,
@@ -267,7 +267,7 @@ class PlanSubmitIntegrationDeviceTest {
             container.toolExecution.dispatchToolCall(
                 callId,
                 forgedTurn,
-                "plan.submit",
+                "plan_submit",
                 validArgs.toString(),
                 mode = AgentMode.PLAN,
             )
@@ -295,7 +295,7 @@ class PlanSubmitIntegrationDeviceTest {
             container.toolExecution.dispatchToolCall(
                 callId,
                 turnId,
-                "plan.submit",
+                "plan_submit",
                 argsMissingCriteria.toString(),
                 mode = AgentMode.PLAN,
             )
@@ -333,14 +333,14 @@ class PlanSubmitIntegrationDeviceTest {
 
                 override fun isCancelled(): Boolean = cancelled
             }
-        // plan.submit is already registered in the production registry (both flavors), so the
+        // plan_submit is already registered in the production registry (both flavors), so the
         // real registry + dispatcher resolve it — only the cancel signal is injected here.
         val request =
             ToolDispatchRequest(
                 toolCallId = callId,
                 turnId = turnId,
                 sessionId = sessionId,
-                toolName = ToolName("plan.submit"),
+                toolName = ToolName("plan_submit"),
                 toolVersion = ToolVersion(2),
                 args = validArgs,
                 mode = AgentMode.PLAN,
@@ -353,8 +353,9 @@ class PlanSubmitIntegrationDeviceTest {
             )
         val scheduler = ToolScheduler(clock, container.toolPipeline.dispatcher, container.toolPipeline.registry)
         val batch = runBatch(listOf(request), scheduler)
-        batch.error?.let { throw AssertionError("cancel settlement failed", it) }
-        assertTrue(batch.outcomes.single() is ToolDispatchOutcome.Cancelled)
+        batch.firstError?.let { throw AssertionError("cancel settlement failed", it) }
+        val settlement = batch.settlements.single() as ToolScheduler.BatchSettlement.Outcome
+        assertTrue(settlement.outcome is ToolDispatchOutcome.Cancelled)
         // Cancelled before the executor ran: no plan row, but a durable CANCELLED_BEFORE_START.
         assertEquals(
             before,

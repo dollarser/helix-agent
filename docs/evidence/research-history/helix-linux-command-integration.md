@@ -2,13 +2,13 @@
 
 > **历史参考，2026-09-29 归档。**原文未提供完整统一基准日期，故不补造日期。下文的 companion APK/独立 UID、QuickJS 进程内和 L0–L4 风险分级等描述不代表当前 Helix；旧源码行号和章节号也可能失效。
 >
-> 当前执行边界见[本地执行域](../../architecture/local-code-execution.md)、[Runtime ADR](../../adr/runtime/001-execution-domains.md)与[终端/Job](../../architecture/terminal.md)。本次只保留原始参考与来源，不按旧配置恢复实现。仍适用的“手动应用能力与 Agent Tool 入口分离”已汇总到当前执行域文档。
+> 当前执行边界见[本地执行域](../../architecture/overview.md#本地执行域与恢复)、[Runtime ADR](../../adr/runtime/001-execution-domains.md)与[终端/Job](../../architecture/terminal.md)。本次只保留原始参考与来源，不按旧配置恢复实现。仍适用的“手动应用能力与 Agent Tool 入口分离”已汇总到当前执行域文档。
 
 ---
 
 > **本文档定位**：Helix 侧——现在能跑什么代码、为什么这么隔离、如何在「**不开放给 agent 工具面**」的前提下集成一个跑 Linux 命令的能力，以及 PRoot 在代码里的实现细节。
 >
-> **前置阅读**：Android 机制本身（SELinux 双权限 `execute` / `execute_no_trans`、linker64 跳板、toybox/busybox、PRoot、Termux、爆炸半径）见 [android-native-execution-mechanisms.md](../../references/android-native-execution-mechanisms.md)。权威架构见 [local-code-execution.md](../../architecture/local-code-execution.md)（尤其 第 6 节 PRoot 方案、第 6.2 节 Termux 对比、第 6.3 节 运行时组成）。
+> **前置阅读**：Android 机制本身（SELinux 双权限 `execute` / `execute_no_trans`、linker64 跳板、toybox/busybox、PRoot、Termux、爆炸半径）见 [android-native-execution-mechanisms.md](../../references/android-native-execution-mechanisms.md)。权威架构见 [local-code-execution.md](../../architecture/overview.md#本地执行域与恢复)（尤其 第 6 节 PRoot 方案、第 6.2 节 Termux 对比、第 6.3 节 运行时组成）。
 >
 > **性质**：参考性说明，**不是** ADR；与权威文档 / 代码冲突时以后者为准。
 
@@ -36,7 +36,7 @@
 - **有界 IPC**：每个 job 通过 Binder/PFD 接收**经审批的输入快照**，输出也以快照返回。
 - **仍过 Policy**：Linux 命令每次都经 Policy Engine，属 L2。
 - **rootfs**：固定 Alpine **3.22.5** minirootfs（aarch64），**53 个 pinned 包**（musl、busybox 1.37、bash、git、python3 3.12、nodejs 22、ripgrep、libcurl、openssl、sqlite 等）；SHA-256 锁定，唯一版本真相是 `runtime-lock.json`。基线必装包见 `RuntimeBaseline.kt:18`。`apk` 数据库仅离线审计，**不是安装通道**。
-- 详细定位、Termux 对比与集成结论、运行时布局见 [local-code-execution.md 第 6 节](../../architecture/local-code-execution.md)；许可证与包清单见 [ALPINE-README.md](../../../runtime/proot-app/src/main/assets/runtime/licenses/ALPINE-README.md)。
+- 详细定位、Termux 对比与集成结论、运行时布局见 [local-code-execution.md 第 6 节](../../architecture/overview.md#本地执行域与恢复)；许可证与包清单见 [ALPINE-README.md](../../../runtime/proot-app/src/main/assets/runtime/licenses/ALPINE-README.md)。
 
 ---
 
@@ -124,7 +124,7 @@
 ## 参考
 
 - [android-native-execution-mechanisms.md](../../references/android-native-execution-mechanisms.md)（Android 机制：SELinux 双权限、linker64 跳板、toybox/busybox、PRoot、Termux、爆炸半径）
-- [docs/architecture/local-code-execution.md](../../architecture/local-code-execution.md)（权威；第 6 节 PRoot 方案、第 6.2 节 Termux 对比、第 6.3 节 运行时组成）
+- [docs/architecture/overview.md#本地执行域与恢复](../../architecture/overview.md#本地执行域与恢复)（当前执行域概览；原研究引用的章节编号仅属于当时版本）
 - [docs/adr/permissions/003-dispatch-and-audit.md](../../adr/permissions/003-dispatch-and-audit.md)（能力优先的授权边界与不可变安全内核）
 - `runtime/proot-app/src/main/kotlin/com/helix/runtime/proot/app/ProotJobRunner.kt`（启动链 + SELinux 注释）
 - `app/src/developer/kotlin/com/helix/app/proot/LinuxRunTool.kt`、`runtime/quickjs/src/main/kotlin/com/helix/runtime/quickjs/tool/CodeJavascriptRunTool.kt`、`app/src/developer/kotlin/com/helix/app/root/RootModule.kt`

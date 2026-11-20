@@ -32,6 +32,11 @@ internal enum class AccountEntryPresentation { DRAWER, MODEL_PICKER, SETTINGS }
 internal fun AccountEntryButton(
     status: AccountStatus,
     presentation: AccountEntryPresentation,
+    unread: Int = 0,
+    profile: com.helix.app.account.LocalUserProfile =
+        com.helix.app.account
+            .LocalUserProfile(),
+    displayName: String? = null,
     onClick: () -> Unit,
 ) {
     val title =
@@ -48,7 +53,7 @@ internal fun AccountEntryButton(
             if (status == AccountStatus.SIGNED_IN) R.string.account_manage else R.string.account_model_access,
         )
     if (presentation == AccountEntryPresentation.DRAWER) {
-        DrawerAccountHeader(title, subtitle, onClick)
+        DrawerAccountHeader(displayName?.takeIf { it.isNotBlank() } ?: title, subtitle, unread, profile, onClick)
     } else if (presentation == AccountEntryPresentation.SETTINGS) {
         SettingsEntryRow(title, R.drawable.ic_drawer_user, onClick, Modifier.testTag("account-entry"), subtitle)
     } else {
@@ -71,6 +76,8 @@ internal fun AccountEntryButton(
 private fun DrawerAccountHeader(
     title: String,
     subtitle: String,
+    unread: Int,
+    profile: com.helix.app.account.LocalUserProfile,
     onClick: () -> Unit,
 ) {
     Surface(
@@ -83,22 +90,7 @@ private fun DrawerAccountHeader(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Box(
-                Modifier
-                    .size(
-                        40.dp,
-                    ).testTag(
-                        "drawer-account-avatar",
-                    ).background(MaterialTheme.colorScheme.secondaryContainer, CircleShape),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    painterResource(R.drawable.ic_drawer_user),
-                    null,
-                    Modifier.size(22.dp),
-                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                )
-            }
+            LocalProfileAvatar(profile.avatarFile, 40.dp, Modifier.testTag("drawer-account-avatar"))
             Column(Modifier.weight(1f)) {
                 Text(title, style = MaterialTheme.typography.titleMedium)
                 Text(
@@ -106,6 +98,11 @@ private fun DrawerAccountHeader(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            }
+            if (unread > 0) {
+                androidx.compose.material3.Badge(Modifier.testTag("account-unread-badge")) {
+                    Text(if (unread > 99) "99+" else unread.toString())
+                }
             }
             DrawerChevron()
         }

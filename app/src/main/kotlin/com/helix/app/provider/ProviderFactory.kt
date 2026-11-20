@@ -69,7 +69,7 @@ class ProviderFactory(
                 OpenAiResponsesProvider(
                     config,
                     credentials,
-                    apiWire,
+                    BuiltInInferenceRouting(apiWire),
                     responsesImages(config),
                 )
             }
@@ -78,7 +78,7 @@ class ProviderFactory(
                 OpenAiChatProvider(
                     config,
                     credentials,
-                    apiWire,
+                    BuiltInInferenceRouting(apiWire),
                     chatImages(config),
                 )
             }
@@ -96,9 +96,21 @@ class ProviderFactory(
     private fun createBuiltIn(config: ProviderConfig): ModelProvider {
         BuiltInModel.validate(config)
         val accountWire = (builtInWire as? com.helix.app.account.BuiltInAccountWire)?.newInvocation() ?: builtInWire
-        val adapter = OpenAiChatProvider(config, credentials, accountWire, chatImages(config))
+        val adapter = OpenAiChatProvider(config, credentials, BuiltInInferenceRouting(accountWire), chatImages(config))
         return BuiltInModelProvider(
             adapter,
+            responses =
+                OpenAiResponsesProvider(
+                    config.copy(
+                        connection =
+                            config.connection.copy(
+                                transport = config.network.copy(protocol = ProviderProtocol.OPENAI_RESPONSES),
+                            ),
+                    ),
+                    credentials,
+                    BuiltInInferenceRouting(accountWire),
+                    responsesImages(config),
+                ),
             catalog = {
                 com.helix.provider.api.ModelCatalogDiscovery.fetch(
                     accountWire,
@@ -110,7 +122,7 @@ class ProviderFactory(
             window = { model ->
                 com.helix.provider.api.ContextWindowDiscovery.read(
                     accountWire,
-                    emptyMap(),
+                    builtInInferenceHeaders(model),
                     BuiltInModel.CATALOG_URL,
                     null,
                     model,

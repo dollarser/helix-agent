@@ -85,6 +85,7 @@ release_artifact_checks() {
 case "${1:---debug}" in
     --debug) source_checks; debug_build_analysis_checks; artifact_checks ;;
     --source) source_checks ;;
+    --jvm) ./gradlew ${gradle_options[@]+"${gradle_options[@]}"} jvmUnitTests ;;
     --analysis) analysis_checks ;;
     --release-analysis) release_analysis_checks ;;
     --debug-build-analysis) debug_build_analysis_checks ;;
@@ -95,5 +96,5 @@ case "${1:---debug}" in
     --artifacts) artifact_checks ;;
     --release-artifacts) release_artifact_checks ;;
     --all) source_checks; build_checks; artifact_checks; release_artifact_checks ;;
-    *) printf 'Usage: %s [--debug (default)|--source|--analysis|--release-analysis|--tests-build|--debug-build-analysis|--debug-analysis|--debug-tests-build|--build|--artifacts|--release-artifacts|--all]\n' "$0" >&2; exit 2 ;;
+    *) printf 'Usage: %s [--debug (default)|--source|--jvm|--analysis|--release-analysis|--tests-build|--debug-build-analysis|--debug-analysis|--debug-tests-build|--build|--artifacts|--release-artifacts|--all]\n' "$0" >&2; exit 2 ;;
 esac

@@ -74,7 +74,10 @@ internal class ToolDispatchRequests(
         val pluginContext = toolPipeline.plugins?.executionContext(descriptor, turn.sessionId)
         val accessibilityOrigin =
             pluginContext?.dataOrigin == DataOrigin.ACCESSIBILITY ||
-                (pluginContext == null && descriptor?.name?.value?.startsWith("ui.") == true)
+                (
+                    pluginContext == null &&
+                        com.helix.core.model.Capability.MOBILE_USE in descriptor?.requiredCapabilities.orEmpty()
+                )
         return ToolDispatchRequest(
             toolCallId = toolCallId,
             turnId = turn.id,
@@ -90,7 +93,7 @@ internal class ToolDispatchRequests(
                 when {
                     pluginContext != null -> pluginContext.dataOrigin
                     accessibilityOrigin -> DataOrigin.ACCESSIBILITY
-                    descriptor?.name?.value?.startsWith("root.") == true -> DataOrigin.ROOT
+                    descriptor?.executionTarget == ExecutionTargetType.LOCAL_ROOT -> DataOrigin.ROOT
                     else -> DataOrigin.WORKSPACE
                 },
             scope =

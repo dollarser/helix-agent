@@ -4,7 +4,7 @@ import com.helix.tools.browser.BrowserNodeAction
 import kotlinx.serialization.json.JsonPrimitive
 
 /**
- * The FIXED, versioned action scripts for `browser.click` / `browser.type` / `browser.scroll`
+ * The FIXED, versioned action scripts for `browser_click` / `browser_type` / `browser_scroll`
  * (HXA-062; doc 09 §3.4: “DOM 提取和动作通过 Helix 固定、版本化的 JavaScript 片段执行；模型不能
  * 提交任意脚本给 WebView”).
  *
@@ -49,23 +49,7 @@ object BrowserActionScript {
           var OTP_NAME = new RegExp(
             "otp|one[-_]?time[-_]?code|verification[-_]?code|verify[-_]?code|auth[-_]?code|" +
             "sms[-_]?code|mfa[-_]?code|2[-_]?fa|totp|captcha|passcode|secret[-_]?code|device[-_]?code", "i");
-          function kindOf(el) {
-            var t = String(el.tagName || "").toLowerCase();
-            if (t === "a" && el.hasAttribute("href")) return "link";
-            if (t === "button") return "button";
-            if (t === "img") return "image";
-            if (/^h[1-6]$/.test(t)) return "heading";
-            if (t === "input" || t === "select" || t === "textarea") {
-              if (String(el.getAttribute("type") || "").toLowerCase() === "hidden") return null;
-              return "field";
-            }
-            var r = String(el.getAttribute("role") || "").toLowerCase();
-            if (r === "button" || r === "link" || r === "textbox" || r === "checkbox" ||
-                r === "radio" || r === "heading" || r === "menuitem" || r === "option") {
-              return "interactive";
-            }
-            return null;
-          }
+          ${BrowserSnapshotScript.KIND_OF}
           var target = null;
           var visited = 0;
           var seen = 0;
@@ -79,10 +63,11 @@ object BrowserActionScript {
               if (el.hidden) continue;
               var kind = kindOf(el);
               if (kind !== null) {
-                if (seen === __NODE_INDEX__) target = el;
+                if (seen === __NODE_INDEX__) { target = el; return; }
                 seen++;
               }
               if (el.children && el.children.length > 0) walk(el);
+              if (target) return;
             }
           }
           var body = document ? document.body : null;
@@ -95,8 +80,11 @@ object BrowserActionScript {
      * `refuse` with the EXACT rules of [com.helix.tools.browser.SensitiveFieldClassifier]
      * (password → payment → one-time-code, first match wins; bare “code” is not a trigger).
      */
+    internal const val TARGET_CHECK = "/* host target revalidation */"
+
     private val CLASSIFY =
         """
+        $TARGET_CHECK
         if (!target) {
           return { v: 1, status: "not-found", nodeIndex: __NODE_INDEX__, tag: "", role: "",
                    type: "", autocomplete: "", nameId: "", placeholder: "", reason: "" };
@@ -120,7 +108,7 @@ object BrowserActionScript {
         else if ((tag === "input" || tag === "select" || tag === "textarea") && OTP_NAME.test(label)) refuse = "one-time-code";
         """.trimIndent()
 
-    /** `browser.click`: focus + click the located element unless a sensitive-field gate refuses it. */
+    /** `browser_click`: focus + click the located element unless a sensitive-field gate refuses it. */
     private val CLICK_ACT =
         """
           var performed = false;
@@ -139,7 +127,7 @@ object BrowserActionScript {
         })();
         """.trimIndent()
 
-    /** `browser.type`: set the field's value + fire input events; refuses sensitive / non-field. */
+    /** `browser_type`: set the field's value + fire input events; refuses sensitive / non-field. */
     private val TYPE_ACT =
         """
           var isField = (tag === "input" || tag === "select" || tag === "textarea");
@@ -250,7 +238,7 @@ object BrowserActionScript {
             CLASSIFY.replace("__NODE_INDEX__", nodeIndex.toString()) +
             NODE_ACTION.replace("__NODE_INDEX__", nodeIndex.toString())
 
-    /** `browser.scroll`: a bounded viewport scroll of the current page. */
+    /** `browser_scroll`: a bounded viewport scroll of the current page. */
     private val SCROLL_FIXED =
         """
         (function () {
@@ -263,11 +251,11 @@ object BrowserActionScript {
         })();
         """.trimIndent()
 
-    /** Builds the `browser.click` script for the element at [nodeIndex] (a host-validated Int). */
+    /** Builds the `browser_click` script for the element at [nodeIndex] (a host-validated Int). */
     fun click(nodeIndex: Int): String = (HEAD + CLASSIFY + CLICK_ACT).replace("__NODE_INDEX__", nodeIndex.toString())
 
     /**
-     * Builds the `browser.type` script: types [text] into the field at [nodeIndex]. [text] is
+     * Builds the `browser_type` script: types [text] into the field at [nodeIndex]. [text] is
      * injected as a JSON string literal (its quotes / backslashes / newlines are neutralized),
      * so no page or model value can alter the script's structure.
      */
@@ -282,7 +270,7 @@ object BrowserActionScript {
             TYPE_ACT.replace("__NODE_INDEX__", n)
     }
 
-    /** Builds the `browser.scroll` script for a viewport scroll of [dx] / [dy] CSS pixels. */
+    /** Builds the `browser_scroll` script for a viewport scroll of [dx] / [dy] CSS pixels. */
     fun scroll(
         dx: Int,
         dy: Int,

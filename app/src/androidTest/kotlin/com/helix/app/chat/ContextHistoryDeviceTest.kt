@@ -85,7 +85,7 @@ class ContextHistoryDeviceTest {
                     storage,
                     snapshot.rows,
                 ) { snapshot.contents[it.id] }
-            assertTrue(mapped.single().content!!.contains("session.history/search/read"))
+            assertTrue(mapped.single().content!!.contains("session_history/search/read"))
             assertEquals(
                 mapped.single().content,
                 mapped

@@ -88,7 +88,7 @@ class ProviderTurnJourneyDeviceTest {
                                     it
                                         .getValue("description")
                                         .jsonPrimitive.content
-                                        .startsWith("Search user-enabled tools")
+                                        .startsWith("Find a missing user-enabled tool")
                                 }
                             toolCallStream(
                                 "chain-search",
@@ -120,7 +120,7 @@ class ProviderTurnJourneyDeviceTest {
                     val firstTurn = storage.turns.listBySession(id).single()
                     assertTrue(
                         storage.toolCalls.listByTurn(firstTurn.id).any {
-                            it.name == "tools.search" && it.state == "COMPLETED"
+                            it.name == "tools_search" && it.state == "COMPLETED"
                         },
                     )
                     // Preserve the newest turn while making the older history eligible for compaction.

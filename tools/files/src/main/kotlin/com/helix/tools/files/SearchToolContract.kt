@@ -11,6 +11,7 @@ import com.helix.core.workspace.WorkspaceArtifactStore
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
+import com.helix.tools.framework.ToolDiscoveryHints
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolOrigin
@@ -28,21 +29,17 @@ internal object SearchToolContract {
             description =
                 (
                     if (content) {
-                        "Find literal text in UTF-8 lines (grep -F; no regex). " +
-                            "Returns 1-based lines, " +
-                            "bounded previews and SHA-256 for read-back verification. " +
-                            "Binary/UTF-16 and files >256 KiB are skipped. "
+                        "Search file contents for literal text (not regex). Use this to narrow many candidate files " +
+                            "before read; returns paths, 1-based line numbers and bounded matching previews. " +
+                            "Only UTF-8 files up to 256 KiB are searched; skipped files are counted. "
                     } else {
-                        "Find workspace files by relative path glob. " +
-                            "For name substring search: **/*word*, ignoreCase=true. " +
-                            "Returns anchored paths, without content versions. "
+                        "Find files recursively by relative filename/path patterns, without reading their contents. " +
+                            "Use grep when you know text inside the file, or read when you already know its path. "
                     }
-                ) + "Glob: *, ?, whole ** segments; other characters literal. Hidden files included. " +
-                    "exclude prunes matching directories. Symlinks are not followed. " +
-                    "At most 20000 entries / 8 MiB content per call. Results are not an atomic snapshot. " +
-                    "offset re-scans. Use nextOffset to page matches; narrow the root at scan limits. " +
-                    "Check complete/truncated and skipped counts. Empty partial results do not prove absence. " +
-                    "Use read before edits. A stale location never authorizes a write.",
+                ) + "Hidden files are included; symbolic links are not followed. " +
+                    "Follow nextOffset when present. At scan limits, narrow path/pattern instead. " +
+                    "Check complete and skipped counts: incomplete results do not prove absence. " +
+                    "Pages rescan the directory and are not an atomic snapshot. Read before editing.",
             inputSchema = inputSchema(content),
             outputSchema = outputSchema(),
             operationClass = ToolOperationClass.READ_ONLY,
@@ -52,7 +49,19 @@ internal object SearchToolContract {
             idempotency = Idempotency.IDEMPOTENT,
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
             origin = ToolOrigin.BuiltInOrigin,
+            discovery = ToolDiscoveryHints(category = "files"),
         )
+
+    private fun pathPatternSchema() =
+        buildJsonObject {
+            filesMetaToolsStr(
+                256,
+                "Relative glob: *, ?, whole ** segments; other characters literal. " +
+                    "Default **/*; use **/*word* for a filename substring.",
+            ).forEach { (key, value) -> put(key, value) }
+            put("default", JsonPrimitive("**/*"))
+            put("minLength", JsonPrimitive(1))
+        }
 
     private fun inputSchema(content: Boolean) =
         buildJsonObject {
@@ -60,16 +69,52 @@ internal object SearchToolContract {
             put(
                 "properties",
                 buildJsonObject {
-                    put("path", filesMetaToolsStr(512, "Search root model reference"))
-                    put("pattern", filesMetaToolsStr(256, "Relative path glob; default **/*"))
-                    if (content) put("query", filesMetaToolsStr(256, "Nonempty literal text on one line"))
-                    put("ignoreCase", filesMetaToolsBool())
-                    put("exclude", filesMetaToolsStringArray(8))
-                    put("offset", filesMetaToolsIntObject(0, 20_000, 0, "Number of matches to skip by re-scanning"))
+                    put("path", filesMetaToolsStr(512, "Directory reference: scope:<scopeId>:<relativePath>."))
+                    put("pattern", pathPatternSchema())
+                    if (content) {
+                        put(
+                            "query",
+                            buildJsonObject {
+                                filesMetaToolsStr(
+                                    256,
+                                    "Literal text within a single line; not a regular expression.",
+                                ).forEach { (key, value) -> put(key, value) }
+                                put("minLength", JsonPrimitive(1))
+                                put("pattern", JsonPrimitive("^[^\\r\\n]+$(?![\\r\\n])"))
+                            },
+                        )
+                    }
+                    put(
+                        "ignoreCase",
+                        buildJsonObject {
+                            put("type", JsonPrimitive("boolean"))
+                            put("default", JsonPrimitive(false))
+                            put("description", JsonPrimitive("Ignore case in path patterns and content query."))
+                        },
+                    )
+                    put(
+                        "exclude",
+                        buildJsonObject {
+                            filesMetaToolsStringArray(8).forEach { (key, value) -> put(key, value) }
+                            put(
+                                "description",
+                                JsonPrimitive("Relative globs to skip; matching directories prune subtrees."),
+                            )
+                        },
+                    )
+                    put(
+                        "offset",
+                        filesMetaToolsIntObject(
+                            0,
+                            20_000,
+                            0,
+                            "Omit initially; then copy nextOffset. Counts matches, not bytes; each page rescans.",
+                        ),
+                    )
                     put("maxResults", filesMetaToolsIntObject(1, 100, 40, "Maximum matches per page"))
                 },
             )
-            val required = if (content) listOf("path", "query") else listOf("path", "pattern")
+            val required = if (content) listOf("path", "query") else listOf("path")
             put("required", JsonArray(required.map(::JsonPrimitive)))
             put("additionalProperties", JsonPrimitive(false))
         }
@@ -160,7 +205,12 @@ internal object SearchToolContract {
                 } catch (_: SymlinkEscapesRoot) {
                     ToolExecutorResult.Failed("Search root leaves its authorized scope")
                 } catch (_: IllegalArgumentException) {
-                    ToolExecutorResult.Failed("Invalid search arguments or unavailable directory")
+                    ToolExecutorResult.Failed(
+                        "Invalid search: path must name an available directory. " +
+                            "Pattern uses *, ?, or whole ** segments; " +
+                            "grep query must be nonempty literal text on one line. Correct arguments before retrying.",
+                        sideEffectFree = true,
+                    )
                 } catch (_: IOException) {
                     ToolExecutorResult.Failed("Search could not finish; no complete result is available")
                 }

@@ -319,7 +319,7 @@ Pro 候选价值：多 Workspace、SAF/All-files 完整 UI、Browser Agent、高
 ## 12. 本轮建议
 
 1. 当前产品叙事从“安全型本机 Agent”调整为“能力优先的 Android 本机执行工作台”。
-2. 按[实施状态](../development/status.md)的当前任务推进，不重复立项已实现的文件闭环；把首次真实任务作为演示和激活指标。
+2. 在 Owner 授权的任务内推进，借助[实施状态](../development/status.md)核实能力和证据，不从状态页自行选择工作或重复立项已实现的文件闭环；把首次真实任务作为演示和激活指标。
 3. 优先横评 Operit、PalmClaw、RikkaHub、DSHA、AndCode、PocketCode；Tasker/Auto.js/Hamibot 与云端开发产品用于验证替代选择，详见[横评计划](competitive-evaluation.md)。
 4. Advanced 的产品目标是减少高级能力安装与使用摩擦；developer 只是当前开发测试构建，不作为用户等级。用户承担主动开启和确认后的操作责任，产品承担真实展示和不越权责任。
 5. 先发布维护方提供的任务模板；Tasker 插件桥接、Auto.js/AutoJs6 任意来源脚本导入与兼容 Runtime 作为后续研究，不放进 MVP，也不承诺任意脚本零差异执行。

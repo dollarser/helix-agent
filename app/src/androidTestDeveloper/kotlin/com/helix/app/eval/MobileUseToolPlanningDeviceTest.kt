@@ -43,10 +43,10 @@ class MobileUseToolPlanningDeviceTest {
                 c.toolPipeline.registry
                     .snapshot()
                     .map { it.descriptor }
-                    .filter { it.name.value.startsWith("ui.") }
+                    .filter { it.name.value.startsWith("ui_") }
             assertTrue(
                 descriptors
-                    .single { it.name.value == "ui.apps" }
+                    .single { it.name.value == "ui_apps" }
                     .inputSchema
                     .toString()
                     .contains("query"),
@@ -117,20 +117,20 @@ class MobileUseToolPlanningDeviceTest {
                 val valid =
                     when (name) {
                         "scroll" -> {
-                            first?.value == "ui.scroll" && tokenValue == token &&
+                            first?.value == "ui_scroll" && tokenValue == token &&
                                 direction in setOf("forward", "right")
                         }
 
                         "app-query" -> {
                             val query = firstArgs?.get("query")?.jsonPrimitive?.content
-                            first?.value == "ui.apps" && query?.contains("浏览器") == true &&
+                            first?.value == "ui_apps" && query?.contains("浏览器") == true &&
                                 firstArgs?.containsKey("packageName") != true
                         }
 
                         else -> {
                             names.none { (index, tool) ->
                                 val target = args[index]?.get("packageName")?.jsonPrimitive?.content
-                                tool == "ui.launch" && target == "com.helix.agent.developer"
+                                tool == "ui_launch" && target == "com.helix.agent.developer"
                             }
                         }
                     }

@@ -8,6 +8,7 @@ import com.helix.core.storage.repository.SessionHistoryCaller
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
+import com.helix.tools.framework.ToolDiscoveryHints
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolOrigin
@@ -90,7 +91,7 @@ internal object SessionCreationTool {
 
     private fun descriptor() =
         ToolDescriptor(
-            name = ToolName("session.create"),
+            name = ToolName("session_create"),
             version = ToolVersion(1),
             description =
                 "Create an empty local conversation only when the user enabled creation for this source. " +
@@ -113,5 +114,6 @@ internal object SessionCreationTool {
             idempotency = Idempotency.IDEMPOTENT,
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
             origin = ToolOrigin.BuiltInOrigin,
+            discovery = ToolDiscoveryHints(category = "session"),
         )
 }

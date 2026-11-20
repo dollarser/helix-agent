@@ -55,8 +55,8 @@ class PluginSkillModelDeviceTest {
                 c.chatService.openTestSessionControl(id, AgentMode.ACT, TurnBudgets(maxOutputTokens = 32768))
                 c.chatService.sendTestMessage(
                     id,
-                    "This is a read-only plugin documentation check. Call skills.list, find chat-reply, " +
-                        "then call skills.read with its exact source/name/snapshotHash/ownerId. " +
+                    "This is a read-only plugin documentation check. Call skills_list, find chat-reply, " +
+                        "then call skills_read with its exact source/name/snapshotHash/ownerId. " +
                         "Report its first Markdown heading. " +
                         "Do not call any phone tool, send messages, or modify files.",
                 )
@@ -75,9 +75,9 @@ class PluginSkillModelDeviceTest {
                         .last()
                 assertEquals(turn.errorCode, "COMPLETED", turn.state)
                 val calls = c.storage.toolCalls.listByTurn(turn.id)
-                assertTrue(calls.any { it.name == "skills.list" })
-                assertTrue(calls.any { it.name == "skills.read" && it.state == "COMPLETED" })
-                assertTrue(calls.none { it.name.startsWith("ui.") || it.name == "chat.reply" })
+                assertTrue(calls.any { it.name == "skills_list" })
+                assertTrue(calls.any { it.name == "skills_read" && it.state == "COMPLETED" })
+                assertTrue(calls.none { it.name.startsWith("ui_") || it.name == "chat.reply" })
                 println("PLUGIN_SKILL_MODEL=PASS calls=${calls.size}")
             } finally {
                 session?.let {

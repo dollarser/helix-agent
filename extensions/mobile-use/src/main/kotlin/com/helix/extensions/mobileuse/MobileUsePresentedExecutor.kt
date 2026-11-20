@@ -69,4 +69,4 @@ internal class MobileUsePresentedExecutor(
 
 /** Classification comes from the trusted registered descriptor, never tool arguments or model metadata. */
 internal fun retainsMobileUseOverlay(toolName: String): Boolean =
-    toolName in setOf("ui.snapshot", "ui.find", "ui.wait", "ui.device", "ui.apps")
+    toolName in setOf("ui_snapshot", "ui_find", "ui_wait", "ui_device", "ui_apps")

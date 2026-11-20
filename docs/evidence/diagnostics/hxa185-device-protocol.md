@@ -5,7 +5,6 @@
 ## 主机协议
 
 ```sh
-python3 scripts/debug/2026-09-10/test_soak_evidence.py
 python3 scripts/test-run-browser-autofill-soak-faults.py
 python3 scripts/test-run-ev04-mainapp-soak-logic.py
 python3 scripts/test-run-ev04-mainapp-soak-fixture-logic.py
@@ -14,7 +13,7 @@ python3 scripts/test-run-ev04-mainapp-soak-fixture-logic.py
 sh scripts/debug/2026-09-09/run-documentation-gates.sh
 ```
 
-这些命令来自当时的诊断轮次；当前执行应选择相关回归并重新冻结制品。故障脚本里的模拟进程测试不是实际设备验收。
+已移除不再存在的 `test_soak_evidence.py` 命令；其历史结果仍由完成记录承载。其余命令来自当时的诊断轮次；当前执行应选择相关回归并重新冻结制品。故障脚本里的模拟进程测试不是实际设备验收。
 
 ## 设备诊断
 

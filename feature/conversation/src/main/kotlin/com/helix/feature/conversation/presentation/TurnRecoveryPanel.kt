@@ -46,7 +46,6 @@ fun TurnRecoveryPanel(
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         RecoveryPanelFacts(panel)
-        panel.stopFacts?.let { StopFactsSummary(it) }
         RecoveryOperationButtons(
             panel = panel,
             busy = busy,

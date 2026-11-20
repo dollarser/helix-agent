@@ -30,7 +30,7 @@ Helix 可以借鉴 Codex、DeepSeek Harness 等 Agent Harness 的编排思想，
 | deferred network approval（先连接/发送后补批） | **禁止** | DNS/连接/发送前完成 origin、数据类别、scope 和审批；网络失败不能变成授权 | HXA-033/035/066 |
 | 本地创建云端任务、轮询并 apply diff | **当前不采纳** | 属于 Remote Worker/云端执行与数据出境，需未来新执行目标、威胁模型和 ADR | — |
 | A2A 外部 Agent Client | **Client-only 已交付** | 用户配置 endpoint；Agent Card/Skill 固定快照；远端 Task 作为 NETWORK ToolCall，不继承本机批准/能力；Server/webhook/远端直接 ToolCall 与递归 peer 编排仍不在当前范围 | HXA-077～079 / ADR-A2A-001 |
-| 跨会话 memories | **延后且默认关闭** | 必须用户可见、可删、按数据类别授权；Secret 与高敏原文不得自动沉淀 | future ADR |
+| 跨会话 memories | **已独立交付** | Markdown Memory 与显式 Global/Project 作用域；用户可见、可编辑、可停用，Secret 与高敏原文不得自动沉淀 | HXA-230/246、ADR-AGENT-013 |
 
 ## 3. 首版确定性 Tool Scheduler
 
@@ -68,11 +68,11 @@ HXA-238 按所有者裁决取消读写类别、同用户路径和同网络 origi
 
 一个业务 ToolCall 只调用一次 executor，审批证明消费一次，不再退款后重执行。失败、参数问题和已回传错误交给模型决定新的动作；新动作仍经过当前授权和权限管线，不意味着每次必弹卡。历史审计 attemptId 保留，不删除历史结果。
 
-运行保障放在能说明请求边界的适配器：直接推理的空响应、业务提交前的 MCP bootstrap、协议允许的只读结果重连。自有技术退避共用两次额外尝试、指数退避与 ±20% 抖动、十秒新重试准入窗口；MCP 继续受原调用截止时间约束，取消中断等待，清理另有一秒保留预算。十秒窗口不是普通模型生成的总时长限制；模型开始交付任何文本/推理/工具片段后不重新生成，不重复派发旧工具。底层业务 POST 禁隐式连接/503 follow-up 重放和默认重定向，不在多个层次嵌套重试业务动作。
+运行保障放在能说明请求边界的适配器：直接推理的空响应、业务提交前的 MCP bootstrap、协议允许的只读结果重连。MCP 等技术恢复按各自适配器保留有界退避；直接推理按当前 [Provider 契约](../adr/provider/001-models-and-connection.md#decision-history--2026-11-03模型失败诊断与请求恢复)允许空响应最多五次额外尝试，不沿用旧两次上限。技术恢复的十秒新重试准入窗口不充当模型生成总时长；MCP 继续受原调用截止时间约束，取消中断等待，清理另有一秒保留预算。十秒窗口不是普通模型生成的总时长限制；模型开始交付任何文本/推理/工具片段后不重新生成，不重复派发旧工具。底层业务 POST 禁隐式连接/503 follow-up 重放和默认重定向，不在多个层次嵌套重试业务动作。
 
 MCP bootstrap 重连并不证明远端初始化资源、凭据刷新等完全无副作用；只能确认尚未提交 tools/call。已提交且无回包的业务动作记录 UNKNOWN/需核查，尽可能查询原操作，服务没有查询契约时明确无法核实，不创建新远端操作冒充恢复。等待、attach、已保存结果补取仍使用原身份。
 
-任何参数、scope、origin、数据类别、代码/命令、execution target、页面/UI token、Android 权限或副作用类别变化均重新走正常调用授权。不从 QuickJS/PRoot 失败回退到主 App shell，不因 sandbox/权限拒绝自动请求 Root、All-files、Accessibility、LAN 或更宽目录。实现与验收见[技术恢复收尾](../development/technical-recovery-closeout.md)。
+任何参数、scope、origin、数据类别、代码/命令、execution target、页面/UI token、Android 权限或副作用类别变化均重新走正常调用授权。不从 QuickJS/PRoot 失败回退到主 App shell，不因 sandbox/权限拒绝自动请求 Root、All-files、Accessibility、LAN 或更宽目录。实现与验收见[技术恢复收尾](../development/result-log-closeout.md#history-technical-recovery-closeout)。
 
 ## 4. 持久事件与用户交互
 

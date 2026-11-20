@@ -410,7 +410,7 @@ class SessionForkDeviceTest {
                 com.helix.core.model.TurnState.RECEIVING_MODEL,
                 com.helix.core.model.TurnState.RUNNING_TOOL,
             ).fold(sender) { current, state -> storage.turns.updateState(current, state, 0, null, null) }
-            storage.toolCalls.append("sender-call", "sender-turn", "wire", "session.queue", "1", "{}", "RUNNING")
+            storage.toolCalls.append("sender-call", "sender-turn", "wire", "session_queue", "1", "{}", "RUNNING")
             storage.sessionAccess.setGrant("sender", "s", false, false, true)
             val spec =
                 com.helix.core.model.input.SessionInputSpec(

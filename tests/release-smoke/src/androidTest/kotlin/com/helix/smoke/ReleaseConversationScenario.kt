@@ -40,6 +40,13 @@ internal class ReleaseConversationScenario {
 
     fun reply(request: JSONObject): Pair<JSONObject, String>? {
         val phase = phase(request) ?: return null
+        return replyForPhase(request, phase)
+    }
+
+    private fun replyForPhase(
+        request: JSONObject,
+        phase: String,
+    ): Pair<JSONObject, String> {
         requests.computeIfAbsent(phase) { AtomicInteger() }.incrementAndGet()
         val messages = request.getJSONArray("messages").objects()
         if (phase == "tool") {
@@ -50,23 +57,7 @@ internal class ReleaseConversationScenario {
                 }
             if (result == null) {
                 check(count(phase) == 1) { "Read-only tool was replayed" }
-                val tool =
-                    request
-                        .getJSONArray("tools")
-                        .objects()
-                        .map { it.getJSONObject("function") }
-                        .single { it.getString("description").startsWith("Search user-enabled tools") }
-                val function =
-                    JSONObject()
-                        .put("name", tool.getString("name"))
-                        .put("arguments", JSONObject().put("query", "read").put("limit", 1).toString())
-                val call =
-                    JSONObject()
-                        .put("id", callId)
-                        .put("index", 0)
-                        .put("type", "function")
-                        .put("function", function)
-                return JSONObject().put("role", "assistant").put("tool_calls", JSONArray().put(call)) to "tool_calls"
+                return searchToolCall(request, callId)
             }
             val content = result.opt("content")?.toString().orEmpty()
             check(content.contains("\"schemaAvailability\":\"next_request\"")) {
@@ -113,6 +104,23 @@ internal class ReleaseConversationScenario {
             restoredHistories.incrementAndGet()
         }
         return JSONObject().put("role", "assistant").put("content", answer(phase)) to "stop"
+    }
+
+    private fun searchToolCall(
+        request: JSONObject,
+        callId: String,
+    ): Pair<JSONObject, String> {
+        val function =
+            JSONObject()
+                .put("name", ReleaseDeclaredTools.searchName(request))
+                .put("arguments", JSONObject().put("query", "read").put("limit", 1).toString())
+        val call =
+            JSONObject()
+                .put("id", callId)
+                .put("index", 0)
+                .put("type", "function")
+                .put("function", function)
+        return JSONObject().put("role", "assistant").put("tool_calls", JSONArray().put(call)) to "tool_calls"
     }
 }
 

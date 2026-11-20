@@ -116,8 +116,8 @@ class MarketplaceReuseModelDeviceTest {
                     c.chatService.openTestSessionControl(id, AgentMode.ACT, TurnBudgets(maxOutputTokens = 32768))
                     c.chatService.sendTestMessage(
                         id,
-                        "Read the selected $name Skill using skills.list and skills.read with exact identity. " +
-                            "Execute its marker workflow. Use tools.search with its desktop example name to " +
+                        "Read the selected $name Skill using skills_list and skills_read with exact identity. " +
+                            "Execute its marker workflow. Use tools_search with its desktop example name to " +
                             "find the current tool; do not call the desktop alias. Only that synthetic MCP " +
                             "read is authorized. Report the exact returned marker. Do not use phone or file tools.",
                     )
@@ -131,7 +131,13 @@ class MarketplaceReuseModelDeviceTest {
                             c.storage.toolCalls
                                 .listByTurn(turn.id)
                                 .filter {
-                                    it.name == "mcp.${endpoint.id}.fixture_read" && it.argsJson.contains("market-reuse")
+                                    it.name ==
+                                        com.helix.tools.framework.RemoteToolNames
+                                            .mcp(
+                                                endpoint.id,
+                                                "fixture_read",
+                                            ).value &&
+                                        it.argsJson.contains("market-reuse")
                                 }.forEach { call ->
                                     c.storage.approvals.byToolCall(call.id)?.let { approval ->
                                         c.chatService.approveApproval(approval.id)
@@ -148,7 +154,12 @@ class MarketplaceReuseModelDeviceTest {
                     val calls = c.storage.toolCalls.listByTurn(turn.id)
                     println("MARKET_MODEL_TRAJECTORY=" + calls.joinToString { "${it.name}:${it.state}" })
                     assertEquals(turn.errorCode, "COMPLETED", turn.state)
-                    verifyCalls(calls, "mcp.${endpoint.id}.fixture_read")
+                    verifyCalls(
+                        calls,
+                        com.helix.tools.framework.RemoteToolNames
+                            .mcp(endpoint.id, "fixture_read")
+                            .value,
+                    )
                     verifyFinalAnswer(c.storage.messages, id)
                     println("MARKET_MODEL=PASS model=$model calls=${calls.size}")
                 } finally {
@@ -176,10 +187,10 @@ class MarketplaceReuseModelDeviceTest {
         calls: List<ToolCallEntity>,
         actualMcpName: String,
     ) {
-        for (tool in listOf("skills.read", "tools.search", actualMcpName)) {
+        for (tool in listOf("skills_read", "tools_search", actualMcpName)) {
             assertTrue("Missing $tool", calls.any { it.name == tool && it.state == "COMPLETED" })
         }
-        assertTrue(calls.none { it.name.startsWith("mcp__") || it.name.startsWith("ui.") })
+        assertTrue(calls.none { it.name.startsWith("mcp__") || it.name.startsWith("ui_") })
     }
 
     private fun verifyFinalAnswer(

@@ -9,7 +9,7 @@ import kotlinx.serialization.json.contentOrNull
 import java.net.URI
 
 /** Directory-declared tasks, not inference health or tool-call capabilities. Empty means unknown. */
-enum class ModelPurpose { CHAT, EMBEDDING, RERANK, IMAGE, AUDIO, VIDEO, OTHER }
+enum class ModelPurpose { CHAT, EMBEDDING, RERANK, IMAGE, TRANSCRIPTION, AUDIO, VIDEO, OTHER }
 
 /** Explicit server fields only. Opaque model IDs and aliases never imply a task. */
 object ModelPurposes {
@@ -18,11 +18,28 @@ object ModelPurposes {
             (entry["architecture"] as? JsonObject)?.get("output_modalities") as? JsonArray
                 ?: return emptySet()
         val modalities = values.mapNotNull { (it as? JsonPrimitive)?.takeIf { value -> value.isString }?.content }
+        val endpoints =
+            entry["endpoints"]
+                ?.let(::tokens)
+                .orEmpty()
+                .mapNotNull(::purpose)
+                .toSet()
         return buildSet {
-            if ("text" in modalities) add(ModelPurpose.CHAT)
+            if ("text" in modalities && (endpoints.isEmpty() || ModelPurpose.CHAT in endpoints)) {
+                add(ModelPurpose.CHAT)
+            }
+            if ("transcription" in modalities ||
+                ModelPurpose.TRANSCRIPTION in endpoints
+            ) {
+                add(ModelPurpose.TRANSCRIPTION)
+            }
             if ("embeddings" in modalities) add(ModelPurpose.EMBEDDING)
             if ("image" in modalities) add(ModelPurpose.IMAGE)
-            if ("audio" in modalities) add(ModelPurpose.AUDIO)
+            if ("audio" in modalities || "speech" in modalities ||
+                ModelPurpose.AUDIO in endpoints
+            ) {
+                add(ModelPurpose.AUDIO)
+            }
             if ("video" in modalities) add(ModelPurpose.VIDEO)
             if (isEmpty()) add(ModelPurpose.OTHER)
         }
@@ -92,9 +109,9 @@ object ModelPurposes {
 
             "image", "text-to-image", "image-to-image", "images/generations" -> ModelPurpose.IMAGE
 
-            "audio", "speech-to-text", "text-to-speech", "transcription",
-            "audio/speech", "audio/transcriptions",
-            -> ModelPurpose.AUDIO
+            "speech-to-text", "transcription", "audio/transcriptions" -> ModelPurpose.TRANSCRIPTION
+
+            "audio", "speech", "text-to-speech", "audio/speech" -> ModelPurpose.AUDIO
 
             "video", "text-to-video" -> ModelPurpose.VIDEO
 

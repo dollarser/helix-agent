@@ -125,7 +125,7 @@ class DispatchAuditPayloadTest {
                 correlationId = "t",
                 turnId = "t",
                 sessionId = "s",
-                toolName = "time.now",
+                toolName = "time_now",
                 toolVersion = "1",
                 code = DispatchOutcomeCode.SUCCESS,
                 decisionSource = DecisionSource.POLICY,

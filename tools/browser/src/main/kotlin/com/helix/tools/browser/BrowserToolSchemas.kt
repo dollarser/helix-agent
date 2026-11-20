@@ -22,7 +22,7 @@ import kotlinx.serialization.json.buildJsonObject
 //   the most recent [BrowserSnapshotTool]; the port re-validates it against the tab's LIVE state
 //   (origin / navigation generation / fingerprint / TTL) and a navigation, refresh, DOM change or
 //   TTL expiry makes it stale (a `stale-token` outcome the model reads as "take a fresh snapshot").
-// - `browser.type` password / payment / one-time-code fields are refused by default (doc 09 §3.3)
+// - `browser_type` password / payment / one-time-code fields are refused by default (doc 09 §3.3)
 //   — a `refused` outcome carrying the category, never a typed character.
 // - [BrowserScreenshotTool] captures only the Helix WebView and saves to the Workspace (doc 09
 //   §3.3); the model sees a model-safe Workspace reference plus size/SHA-256, never a raw path.
@@ -46,7 +46,7 @@ internal const val MAX_NODE_TEXT: Int = 200
 internal const val MAX_NODES: Int = 400
 internal const val MAX_SCROLL_PX: Int = 100_000
 
-/** Raw bound on `browser.download`'s optional suggested name (the policy caps it at 128 anyway). */
+/** Raw bound on `browser_download`'s optional suggested name (the policy caps it at 128 anyway). */
 internal const val MAX_DL_SUGGESTED_NAME: Int = 256
 
 /** Post-sanitize file name is capped by the policy at 128 chars; this is the output bound. */
@@ -155,7 +155,7 @@ internal fun bounded(detail: String): String {
     return if (t.length <= MAX_DETAIL_CHARS) t else t.take(MAX_DETAIL_CHARS) + "…"
 }
 
-/** The shared `status` field for browser.click / browser.type (performed / refused / stale-token). */
+/** The shared `status` field for browser_click / browser_type (performed / refused / stale-token). */
 internal fun actionStatusSchema(): JsonObject =
     enumSchema(
         listOf(ST_ACT_PERFORMED, ST_ACT_REFUSED, ST_ACT_STALE),

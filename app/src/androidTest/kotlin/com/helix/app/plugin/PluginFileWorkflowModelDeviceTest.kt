@@ -123,8 +123,8 @@ class PluginFileWorkflowModelDeviceTest {
                 val prefix = "scope:${ref.scopeId}:$relativePrefix"
                 c.chatService.sendTestMessage(
                     id,
-                    "Run the selected $name workflow: discover it with skills.list and read its exact Skill. " +
-                        "Discover file tools with tools.search. Primary orders=${prefix}missing-orders.csv; " +
+                    "Run the selected $name workflow: discover it with skills_list and read its exact Skill. " +
+                        "Discover file tools with tools_search. Primary orders=${prefix}missing-orders.csv; " +
                         "first try reading that primary path, then recover using fallback=${prefix}orders.csv. " +
                         "Returns=${prefix}returns.csv. Save the JSON totals to ${prefix}totals.json " +
                         "and read it back. " +
@@ -211,7 +211,7 @@ class PluginFileWorkflowModelDeviceTest {
         calls: List<ToolCallEntity>,
         prefix: String,
     ) {
-        for (tool in listOf("skills.list", "skills.read", "tools.search")) {
+        for (tool in listOf("skills_list", "skills_read", "tools_search")) {
             assertTrue("Missing successful $tool", calls.any { it.name == tool && it.state == "COMPLETED" })
         }
         assertTrue(

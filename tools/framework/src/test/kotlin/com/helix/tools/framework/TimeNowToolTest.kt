@@ -13,7 +13,7 @@ import java.time.Instant
 import java.util.concurrent.TimeUnit
 
 /**
- * HXA-035: the first real tool's contract — `time.now` must be the canonical no-approval
+ * HXA-035: the first real tool's contract — `time_now` must be the canonical no-approval
  * path (doc 01 P0: L0, READ_ONLY, idempotent, in-process) and its output must satisfy its
  * own registered output schema.
  */
@@ -32,7 +32,7 @@ class TimeNowToolTest {
     @Test
     fun theContractIsTheCanonicalNoApprovalShape() {
         val d = TimeNowTool.descriptor()
-        assertEquals("time.now", d.name.value)
+        assertEquals("time_now", d.name.value)
         assertEquals(1, d.version.value)
         assertEquals(ToolOperationClass.READ_ONLY, d.operationClass)
         assertEquals(Idempotency.IDEMPOTENT, d.idempotency)
@@ -47,7 +47,7 @@ class TimeNowToolTest {
         val call =
             ExecutableToolCall(
                 toolCallId = "call-tn-1",
-                toolName = "time.now",
+                toolName = "time_now",
                 toolVersion = "1",
                 args = Json.parseToJsonElement("{}").jsonObject,
                 executionTarget = ExecutionTargetType.LOCAL_ANDROID,
@@ -76,7 +76,7 @@ class TimeNowToolTest {
         TimeNowTool.register(registry, clock)
         try {
             TimeNowTool.register(registry, clock)
-            throw AssertionError("duplicate time.now registration must fail")
+            throw AssertionError("duplicate time_now registration must fail")
         } catch (expected: IllegalArgumentException) {
             assertTrue(expected.message?.contains("duplicate") ?: false)
         }

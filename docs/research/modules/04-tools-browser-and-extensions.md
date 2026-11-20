@@ -47,7 +47,7 @@ Mobile Use 整机截图和原生手势已由 HXA-243 等后续工作接入；具
 
 Android Chrome 没有同等扩展控制模型；Helix 也明确不应抽取其它 App 的 cookie/credential。自有 WebView 会话已经可以保留 Helix 自己的登录态。
 
-通用 QuickJS 继续保持 isolated/offline/no privileged host bridge；需要 shell/network 的开发任务走受权限控制的 PRoot/CLI，不把 QuickJS 改成万能宿主脚本。
+QuickJS 默认保持 isolated/no privileged host bridge；现行用户显式原生开关、工具桥与私有进程边界见[本地代码执行](../../architecture/overview.md#本地执行域与恢复)，不能从旧离线基线推断当前一律无网络，也不能由 Skill 自行开启原生能力。
 
 ## 4. Extension：MCP / Skill / Connector / A2A
 

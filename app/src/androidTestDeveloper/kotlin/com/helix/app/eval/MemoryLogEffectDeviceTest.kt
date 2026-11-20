@@ -447,7 +447,7 @@ class MemoryLogEffectDeviceTest {
                     .byToolCall(call.id)
                     ?.let(c.storage.toolResults::readContent)
             }
-        val readTool = if (log) ProotLogTool.NAME else "memory.read"
+        val readTool = if (log) ProotLogTool.NAME else "memory_read"
         val read = calls.any { it.state == "COMPLETED" && it.name == readTool }
         val deniedAnswer =
             Regex("未知|无法|没有.*资料|无权限|不可访问|不能确定")

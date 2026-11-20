@@ -11,11 +11,12 @@ import com.helix.app.R
 internal fun <T> ToolAvailabilityGroups(
     tools: List<T>,
     name: (T) -> String,
+    category: (T) -> String,
     content: @Composable (T) -> Unit,
 ) {
     ToolAvailabilityDisclosure(stringResource(R.string.settings_perm_tools_label), "settings-perm-tools") {
         Text(stringResource(R.string.settings_perm_tools_note))
-        tools.groupBy { name(it).substringBefore('.') }.toSortedMap().forEach { (group, entries) ->
+        tools.groupBy(category).toSortedMap().forEach { (group, entries) ->
             androidx.compose.runtime.key(group) {
                 ToolAvailabilityDisclosure("$group (${entries.size})", "settings-perm-group-$group") {
                     entries.sortedBy(name).forEach { tool -> content(tool) }

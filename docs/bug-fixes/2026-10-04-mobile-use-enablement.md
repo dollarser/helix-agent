@@ -15,7 +15,7 @@ Affected modules: app, tools/automation, extensions/mobile-use
 
 ## Root cause
 
-`ui.apps` 不必要地通过无障碍运行态读取 PackageManager；插件 scope 和开启入口统一要求服务连接。
+`ui_apps` 不必要地通过无障碍运行态读取 PackageManager；插件 scope 和开启入口统一要求服务连接。
 
 ## Fix and invariants
 

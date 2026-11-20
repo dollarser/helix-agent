@@ -141,7 +141,7 @@ class TurnCommitStoreDeviceTest {
             kotlinx.coroutines.runBlocking { turn.beginToolBatch(listOf("call")) }
             kotlinx.coroutines.runBlocking {
                 turn.commitModelToolStep(
-                    """[{"id":"call","name":"time.now","arguments":"{}"}]""",
+                    """[{"id":"call","name":"time_now","arguments":"{}"}]""",
                 )
             }
             turn.settleBatchCall("call", false)

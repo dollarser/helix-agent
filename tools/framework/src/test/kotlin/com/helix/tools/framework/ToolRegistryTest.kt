@@ -43,8 +43,8 @@ class ToolRegistryTest {
         assertEquals(3, registry.all().size)
         assertEquals("read", registry.resolve(ToolName("read"), ToolVersion(1)).name.value)
         assertEquals(
-            "mcp.wikipedia.search",
-            registry.resolve(ToolName("mcp.wikipedia.search"), ToolVersion(1)).name.value,
+            RemoteToolNames.mcp("wikipedia", "search").value,
+            registry.resolve(ToolName(RemoteToolNames.mcp("wikipedia", "search").value), ToolVersion(1)).name.value,
         )
     }
 

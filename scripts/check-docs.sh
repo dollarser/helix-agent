@@ -45,11 +45,7 @@ required_doc_entries = (
     "product/competitive-landscape.md",
     "product/market-users-and-commercialization.md",
     "architecture/overview.md",
-    "architecture/local-code-execution.md",
     "architecture/android-platform-capabilities.md",
-    "architecture/providers.md",
-    "architecture/extensions.md",
-    "architecture/agent-modes.md",
     "architecture/terminal.md",
     "architecture/mobile-tool-orchestration.md",
     "development/status.md",
@@ -65,6 +61,12 @@ for relative_path in required_doc_entries:
     required_path = root / "docs" / relative_path
     if not required_path.is_file():
         fail(required_path, "required documentation entry is missing")
+
+# These contracts share the architecture overview after documentation consolidation.
+architecture_overview = (root / "docs/architecture/overview.md").read_text(encoding="utf-8")
+for heading in ("本地执行域与恢复", "模型 Provider 与订阅通路", "MCP、Skills、Connector 与 A2A", "Agent 模式、Goal 与上下文"):
+    if not re.search(r"^## " + re.escape(heading) + r"$", architecture_overview, re.MULTILINE):
+        fail(root / "docs/architecture/overview.md", f"required architecture section is missing: {heading}")
 
 unexpected_top_level_docs = sorted(
     path.name for path in (root / "docs").glob("*.md") if path.name != "README.md"
@@ -189,7 +191,7 @@ for path in sorted(bug_fix_dir.glob("*.md")):
     if not related_ids:
         fail(path, "requires at least one Related HXA")
     for task_id in related_ids:
-        if task_id not in roadmap_ids:
+        if task_id not in active_ids | completed_ids:
             fail(path, f"references unknown HXA task: {task_id}")
     positions: list[int] = []
     for section in bug_fix_sections:
@@ -258,6 +260,6 @@ if errors:
 
 print(
     "Documentation verification passed "
-    f"({len(markdown_files)} Markdown files, {len(roadmap_ids)} HXA tasks)."
+    f"({len(markdown_files)} Markdown files, {len(active_ids | completed_ids)} HXA tasks)."
 )
 PY

@@ -14,15 +14,15 @@ enum class BrowserNodeAction(
     val parameter: String?,
     val help: String,
 ) {
-    APPEND("browser.append", "text", "Append text to an editable text input or textarea."),
+    APPEND("browser_type", "text", "Append text to an editable text input or textarea."),
     SELECT(
-        "browser.select",
+        "browser_select",
         "value",
         "Select one enabled single-select option by exact value or visible label; ambiguous matches are refused.",
     ),
-    PRESS("browser.press", "key", "Dispatch synthetic keydown/keyup to the node. No native default action is implied."),
+    PRESS("browser_press", "key", "Dispatch synthetic keydown/keyup to the node. No native default action is implied."),
     SUBMIT(
-        "browser.submit",
+        "browser_submit",
         null,
         "Request form submission using the named enabled submit button and native validation.",
     ),
@@ -43,7 +43,7 @@ object BrowserNodeActionTool {
                     " Requires a fresh snapshot token; sensitive fields are refused. " +
                     "Performed only means DOM dispatch, not business success. Observe the result before proceeding; " +
                     "never automatically replay an uncertain action. " +
-                    "Use browser.submit for form submission, not press Enter.",
+                    "Use browser_submit for form submission, not press Enter.",
             inputSchema =
                 objectSchema(
                     buildJsonObject {

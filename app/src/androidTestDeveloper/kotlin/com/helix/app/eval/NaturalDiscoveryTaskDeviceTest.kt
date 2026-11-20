@@ -63,7 +63,7 @@ class NaturalDiscoveryTaskDeviceTest {
                         .all()
                         .distinctBy { it.origin.canonicalOf() to it.name }
                 val allowed =
-                    setOf("tools.search", "tools.read_result", "files.archive", "files.list", "files.stat", "read")
+                    setOf("tools_search", "tools_read_result", "files_archive", "files_list", "files_stat", "read")
                 val disabled = tools.filter { it.name.value !in allowed }
                 var turn: String? = null
                 try {
@@ -117,7 +117,7 @@ class NaturalDiscoveryTaskDeviceTest {
                     val record = c.storage.turns.resolve(id)
                     val calls = c.storage.toolCalls.listByTurn(id)
                     val modelCalls = c.storage.modelCalls.listByTurn(id)
-                    val archives = calls.count { it.name == "files.archive" && it.state == "COMPLETED" }
+                    val archives = calls.count { it.name == "files_archive" && it.state == "COMPLETED" }
                     val verified = verifiesArchive(target, marker)
                     val intact = File(source, "marker.txt").readText() == marker
                     val pass =

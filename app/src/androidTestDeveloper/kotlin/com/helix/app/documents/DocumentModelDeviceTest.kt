@@ -140,7 +140,7 @@ class DocumentModelDeviceTest {
                 assertEquals(turn.errorCode, TurnState.COMPLETED.name, turn.state)
                 assertTrue(
                     "No real document inspection",
-                    calls.any { it.name == "documents.inspect" && it.state == "COMPLETED" },
+                    calls.any { it.name == "documents_inspect" && it.state == "COMPLETED" },
                 )
                 assertDocumentRead(format, calls)
                 assertTrue("Incorrect summary: $answer", answer.replace(" ", "").contains("ORANGE-42|42|9|PENDING"))
@@ -169,7 +169,7 @@ class DocumentModelDeviceTest {
     ) {
         if (format == "pdf" && Build.VERSION.SDK_INT < 35) {
             val viewedPages =
-                calls.filter { it.name == "documents.view" && it.state == "COMPLETED" }.map {
+                calls.filter { it.name == "documents_view" && it.state == "COMPLETED" }.map {
                     Json
                         .parseToJsonElement(it.argsJson)
                         .jsonObject
@@ -180,7 +180,7 @@ class DocumentModelDeviceTest {
         } else {
             assertTrue(
                 "No real document read",
-                calls.any { it.name == "documents.read" && it.state == "COMPLETED" },
+                calls.any { it.name == "documents_read" && it.state == "COMPLETED" },
             )
         }
     }

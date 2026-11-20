@@ -4,7 +4,6 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.core.model.AgentMode
 import com.helix.core.model.ToolDispatchOutcome
-import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.tools.framework.ToolOrigin
 import org.junit.Assert.assertEquals
@@ -22,11 +21,11 @@ class McpToolDiscoveryDeviceTest {
             require(owned.title == "Catalog test" && owned.providerId == null && owned.modelId == null)
             val turns = container.storage.turns.listBySession(previous)
             require(turns.all { it.state == "CREATED" })
-            require(turns.flatMap { container.storage.toolCalls.listByTurn(it.id) }.all { it.name == "tools.search" })
+            require(turns.flatMap { container.storage.toolCalls.listByTurn(it.id) }.all { it.name == "tools_search" })
             container.storage.deleteSessionPermanently(previous)
         }
         val pipeline = container.toolPipeline
-        val search = requireNotNull(pipeline.resolveLatest("tools.search"))
+        val search = requireNotNull(pipeline.resolveLatest("tools_search"))
         val server = "discoveryfixture"
         val session = "catalog-${System.nanoTime()}"
         val turn = "catalog-turn-${System.nanoTime()}"
@@ -37,7 +36,9 @@ class McpToolDiscoveryDeviceTest {
         val catalog =
             (0 until 500).map { index ->
                 search.copy(
-                    name = ToolName("mcp.$server.tool_$index"),
+                    name =
+                        com.helix.tools.framework.RemoteToolNames
+                            .mcp(server, "tool_$index"),
                     description = "catalog operation $index",
                     operationClass = ToolOperationClass.NETWORK,
                     origin = ToolOrigin.McpOrigin(server, "2025-03-26", "a".repeat(64)),
@@ -60,7 +61,7 @@ class McpToolDiscoveryDeviceTest {
                 container.toolExecution.dispatchToolCall(
                     turn,
                     turn,
-                    "tools.search",
+                    "tools_search",
                     """{"query":"tool_499"}""",
                     mode = AgentMode.ACT,
                 )
@@ -69,7 +70,16 @@ class McpToolDiscoveryDeviceTest {
                 pipeline.mcpDiscovery
                     .visible(session, pipeline.registry.all())
                     .filter { it.origin is ToolOrigin.McpOrigin }
-            assertEquals(listOf("mcp.$server.tool_499"), visible.map { it.name.value })
+            assertEquals(
+                listOf(
+                    com.helix.tools.framework.RemoteToolNames
+                        .mcp(server, "tool_499")
+                        .value,
+                ),
+                visible.map {
+                    it.name.value
+                },
+            )
             pipeline.registry.replaceMcpServer(server, emptyList())
             assertTrue(pipeline.mcpDiscovery.visible(session, pipeline.registry.all()).none { it in catalog })
         } finally {

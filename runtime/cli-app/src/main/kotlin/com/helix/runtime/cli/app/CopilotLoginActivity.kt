@@ -14,7 +14,7 @@ class CopilotLoginActivity : Activity() {
     private lateinit var content: CopilotLoginContent
     private val worker = Executors.newSingleThreadExecutor()
 
-    @Volatile private var cancellation: CopilotLoginCancellation? = null
+    @Volatile private var cancellation: DeviceLoginCancellation? = null
     private var verificationUri: String? = null
     private var userCode: String? = null
 
@@ -54,7 +54,7 @@ class CopilotLoginActivity : Activity() {
         if (cancellation != null) return
         setBusy(true)
         content.status.setText(R.string.copilot_preparing)
-        val active = CopilotLoginCancellation().also { cancellation = it }
+        val active = DeviceLoginCancellation().also { cancellation = it }
         worker.execute {
             runCatching {
                 val attempt = controller.start()

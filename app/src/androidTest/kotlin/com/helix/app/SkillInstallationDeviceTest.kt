@@ -36,7 +36,7 @@ class SkillInstallationDeviceTest {
                     container.toolExecution.dispatchToolCall(
                         id,
                         id,
-                        "skills.install",
+                        "skills_install",
                         """{"path":"$path","expectedHash":"$hash"}""",
                         mode = mode,
                     )

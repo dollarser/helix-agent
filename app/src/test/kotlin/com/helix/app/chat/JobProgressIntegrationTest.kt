@@ -22,7 +22,7 @@ class JobProgressIntegrationTest {
     private val binding = JobObservationBinding("s", "t", "job", "p", "e", "g", "a".repeat(64))
     private val calls =
         (1..6).map {
-            ToolDispatchCall("c$it", "t", "c$it", "jobs.await", "1", "{}", "a".repeat(64), "COMPLETED")
+            ToolDispatchCall("c$it", "t", "c$it", "jobs_await", "1", "{}", "a".repeat(64), "COMPLETED")
         }
 
     private fun evidence(

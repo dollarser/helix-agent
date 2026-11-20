@@ -92,7 +92,7 @@ internal class CodexCapabilityProbe(
         val nonce = "HELIX_" + UUID.randomUUID().toString().replace("-", "")
         val tool =
             ModelToolSchema(
-                ToolName("helix_probe.echo"),
+                ToolName("helix_probe_echo"),
                 "Return the supplied text unchanged.",
                 """{"type":"object","properties":{"text":{"type":"string"}},
                 "required":["text"],"additionalProperties":false}""",

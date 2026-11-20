@@ -16,15 +16,15 @@ class SessionHistoryStorageDeviceTest {
     @Test fun callerAndRenameAreBoundToTheOriginalActiveCall() =
         withDatabase { db ->
             val dao = db.sessionHistoryDao()
-            assertEquals("Original", dao.caller("s", "t", "c", "session.rename")?.title)
-            assertNull(dao.caller("foreign", "t", "c", "session.rename"))
-            assertNull(dao.caller("s", "t", "c", "session.read"))
+            assertEquals("Original", dao.caller("s", "t", "c", "session_rename")?.title)
+            assertNull(dao.caller("foreign", "t", "c", "session_rename"))
+            assertNull(dao.caller("s", "t", "c", "session_read"))
             assertEquals(0, db.sessionAccessDao().rename("s", "s", 0L, "t", "c", "stale", "wrong", "wrong"))
             assertEquals(1, db.sessionAccessDao().rename("s", "s", 0L, "t", "c", "Original", "Saved", "saved"))
             assertEquals("scope:ws:folder", db.sessionDao().byId("s")?.directoryRef)
             db.toolCallDao().updateState("c", "COMPLETED")
             assertEquals(0, db.sessionAccessDao().rename("s", "s", 0L, "t", "c", "Saved", "late", "late"))
-            assertNull(dao.caller("s", "t", "c", "session.rename"))
+            assertNull(dao.caller("s", "t", "c", "session_rename"))
         }
 
     @Test fun queryReadsOnlyEffectiveOwnedTextAndPaginatesWithoutNewAppendInterference() =
@@ -83,7 +83,7 @@ class SessionHistoryStorageDeviceTest {
             assertEquals(false, dao.budgetContinuationClear("t"))
             assertEquals(false, dao.budgetContinuationClear("missing"))
             db.toolCallDao().insert(
-                ToolCallEntity("ledger", "latest", "wire-ledger", "todo.write", "1", "{}", "a".repeat(64), "COMPLETED"),
+                ToolCallEntity("ledger", "latest", "wire-ledger", "todo_write", "1", "{}", "a".repeat(64), "COMPLETED"),
             )
             assertEquals(listOf("latest"), dao.ledgerCandidates("s", 0, 1).map { it.id })
             assertEquals(emptyList<TurnEntity>(), dao.ledgerCandidates("s", 1, 1))
@@ -108,7 +108,7 @@ class SessionHistoryStorageDeviceTest {
             db.sessionDao().insert(SessionEntity("foreign", "Private", null, null, 1, null))
             db.turnDao().insert(TurnEntity("t", "s", "RUNNING_TOOL", 0, 1, null, null))
             db.toolCallDao().insert(
-                ToolCallEntity("c", "t", "wire", "session.rename", "1", "{}", "a".repeat(64), "RUNNING"),
+                ToolCallEntity("c", "t", "wire", "session_rename", "1", "{}", "a".repeat(64), "RUNNING"),
             )
             test(db)
             val saved = db.sessionDao().byId("s")

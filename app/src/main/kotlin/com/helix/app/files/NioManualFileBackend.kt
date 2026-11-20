@@ -2,6 +2,8 @@ package com.helix.app.files
 
 import com.helix.core.workspace.FileScopePath
 import com.helix.core.workspace.ScopeRootResolver
+import com.helix.core.workspace.WorkspaceFileBackend
+import com.helix.core.workspace.WorkspaceFileInfo
 import com.helix.core.workspace.WorkspaceLayout
 import com.helix.core.workspace.resolveFileScopePath
 import java.io.InputStream
@@ -17,7 +19,7 @@ internal class NioManualFileBackend(
     private val roots: ScopeRootResolver,
     private val workspace: Boolean,
     private val requireWrite: () -> Unit,
-) : ManualFileBackend {
+) : WorkspaceFileBackend {
     private fun path(
         relative: String,
         mutate: Boolean = false,
@@ -43,12 +45,12 @@ internal class NioManualFileBackend(
         path(path, true)
     }
 
-    override fun stat(path: String): ManualFileInfo? {
+    override fun stat(path: String): WorkspaceFileInfo? {
         val target = path(path)
         if (!Files.exists(target, LinkOption.NOFOLLOW_LINKS)) return null
         val directory = Files.isDirectory(target, LinkOption.NOFOLLOW_LINKS)
         require(directory || Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS)) { "Unsupported file type" }
-        return ManualFileInfo(directory, if (directory) 0 else Files.size(target))
+        return WorkspaceFileInfo(directory, if (directory) 0 else Files.size(target))
     }
 
     override fun children(path: String): List<String> =

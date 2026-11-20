@@ -77,3 +77,9 @@ python3 scripts/verify-integrated-runtimes.py --avd Helix_API_36 --port 5620 --o
 4. 后续若要求执行不可信脚本同时隔离主数据/订阅凭据，需要新的隔离底座/ADR；不能把同 UID 私有进程包装成安全沙箱。
 
 本记录是本地实现与有界证据，不是 main 集成、真实账号或发布许可。
+
+## 前序：2026-09-10 独立组件安装器
+
+单 APK 重构前，Developer 曾把 Subscriptions/PRoot APK 内嵌到主包，经独立 FileProvider 交系统安装确认；校验固定包名及同一非空签名，不静默安装、清数据或自动绑定。三包 Release 必须先使用相同签名，仅补签主包不足以签好内部 APK。Consumer 不带组件与安装权限。该路径后来由本记录的单 APK 方案删除，不是当前安装指导。
+
+当时四项 RuntimeApkPolicy JVM、双渠道 Debug 构建/lint、内嵌字节及三包签名核对通过；没有设备安装、升级或拒绝/取消旅程证据。旧安装器的原文与制品体积属历史来源，不据主机结果补写设备通过。

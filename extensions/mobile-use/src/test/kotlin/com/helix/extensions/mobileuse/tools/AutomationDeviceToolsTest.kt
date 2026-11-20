@@ -42,13 +42,59 @@ import org.junit.Test
 import java.time.Instant
 
 class AutomationDeviceToolsTest {
+    @Test fun gestureTimeSchemaUsesSemanticBoundsRatherThanStorageExtrema() {
+        val schema = descriptor("ui_gesture").inputSchema
+        val fields =
+            schema
+                .getValue("properties")
+                .jsonObject
+                .getValue("strokes")
+                .jsonObject
+                .getValue("items")
+                .jsonObject
+                .getValue("properties")
+                .jsonObject
+        assertEquals(
+            "0",
+            fields
+                .getValue("startMillis")
+                .jsonObject
+                .getValue("minimum")
+                .jsonPrimitive.content,
+        )
+        assertEquals(
+            "1",
+            fields
+                .getValue("durationMillis")
+                .jsonObject
+                .getValue("minimum")
+                .jsonPrimitive.content,
+        )
+        assertFalse(fields.getValue("startMillis").jsonObject.containsKey("maximum"))
+        assertFalse(fields.getValue("durationMillis").jsonObject.containsKey("maximum"))
+
+        fun input(
+            start: Long,
+            duration: Long,
+        ) = json(
+            """{"frame":"frame","strokes":[{"points":[{"x":1,"y":1}],
+                "startMillis":$start,"durationMillis":$duration}]}""",
+        )
+        for ((start, duration) in listOf(0L to 1L, 0L to 60_000L, 100L to 500L)) {
+            assertEquals(ToolSchemaValidation.Valid, ToolSchemaValidator.validate(schema, input(start, duration)))
+        }
+        for ((start, duration) in listOf(-1L to 1L, Long.MIN_VALUE to 1L, 0L to 0L, 0L to -1L)) {
+            assertTrue(ToolSchemaValidator.validate(schema, input(start, duration)) is ToolSchemaValidation.Invalid)
+        }
+    }
+
     @Test fun samplingParametersShareExactIntegerSemanticsWithTheirSchema() {
         val args = """{"frame":"frame","count":1e0,"intervalMillis":1e3}"""
         assertEquals(
             ToolSchemaValidation.Valid,
-            ToolSchemaValidator.validate(descriptor("ui.screenshot").inputSchema, json(args)),
+            ToolSchemaValidator.validate(descriptor("ui_screenshot").inputSchema, json(args)),
         )
-        val result = execute("ui.screenshot", args) as ToolExecutorResult.Completed
+        val result = execute("ui_screenshot", args) as ToolExecutorResult.Completed
         assertEquals(
             1,
             result.output.jsonObject
@@ -64,7 +110,7 @@ class AutomationDeviceToolsTest {
         for (bad in listOf("0", "5", "1.5", "\"2\"")) {
             assertTrue(
                 ToolSchemaValidator.validate(
-                    descriptor("ui.screenshot").inputSchema,
+                    descriptor("ui_screenshot").inputSchema,
                     json("""{"frame":"frame","count":$bad}"""),
                 ) is ToolSchemaValidation.Invalid,
             )
@@ -86,9 +132,9 @@ class AutomationDeviceToolsTest {
                 .discoveryCompanions
                 .map { it.value }
                 .toSet()
-        assertEquals(setOf("ui.screenshot", "ui.device", "ui.wait", "ui.long_click"), companions("ui.gesture"))
-        assertEquals(setOf("ui.device"), companions("ui.screenshot"))
-        assertTrue(companions("ui.device").isEmpty())
+        assertEquals(setOf("ui_screenshot", "ui_device", "ui_wait", "ui_long_click"), companions("ui_gesture"))
+        assertEquals(setOf("ui_device"), companions("ui_screenshot"))
+        assertTrue(companions("ui_device").isEmpty())
     }
 
     private fun toolsFor(hostPackage: String) =
@@ -110,19 +156,19 @@ class AutomationDeviceToolsTest {
             val expected = Capability.MOBILE_USE
             assertEquals(setOf(expected), it.requiredCapabilities)
         }
-        assertEquals(ToolOperationClass.EXTERNAL_ACTION, descriptor("ui.gesture").operationClass)
-        assertEquals(ToolOperationClass.LOCAL_MUTATION, descriptor("ui.screenshot").operationClass)
-        assertEquals(ToolOperationClass.READ_ONLY, descriptor("ui.apps").operationClass)
+        assertEquals(ToolOperationClass.EXTERNAL_ACTION, descriptor("ui_gesture").operationClass)
+        assertEquals(ToolOperationClass.LOCAL_MUTATION, descriptor("ui_screenshot").operationClass)
+        assertEquals(ToolOperationClass.READ_ONLY, descriptor("ui_apps").operationClass)
         assertTrue(
             ToolSchemaValidator.validate(
-                descriptor("ui.device").inputSchema,
+                descriptor("ui_device").inputSchema,
                 json("""{"allApplications":true}"""),
             ) is ToolSchemaValidation.Invalid,
         )
     }
 
     @Test fun deviceAndAppOutputsMatchTheirDeclaredSchemas() {
-        for (name in listOf("ui.device", "ui.apps")) {
+        for (name in listOf("ui_device", "ui_apps")) {
             val completed = execute(name, "{}") as ToolExecutorResult.Completed
             assertEquals(
                 ToolSchemaValidation.Valid,
@@ -134,16 +180,16 @@ class AutomationDeviceToolsTest {
 
     @Test fun dialogWindowDoesNotChangeAbsoluteDisplayCoordinates() {
         port.windowBounds = AutomationNodeBounds(70, 1016, 1010, 1458)
-        val device = (execute("ui.device", "{}") as ToolExecutorResult.Completed).output.jsonObject
+        val device = (execute("ui_device", "{}") as ToolExecutorResult.Completed).output.jsonObject
         assertEquals(json("""{"left":0,"top":0,"right":1080,"bottom":2400}"""), device["screenBounds"])
         assertEquals(json("""{"left":70,"top":1016,"right":1010,"bottom":1458}"""), device["windowBounds"])
-        assertEquals(1, descriptor("ui.device").version.value)
+        assertEquals(1, descriptor("ui_device").version.value)
         assertEquals(
             ToolSchemaValidation.Valid,
-            ToolSchemaValidator.validate(descriptor("ui.device").outputSchema, device),
+            ToolSchemaValidator.validate(descriptor("ui_device").outputSchema, device),
         )
         execute(
-            "ui.gesture",
+            "ui_gesture",
             """{"frame":"frame","strokes":[
             {"points":[{"x":885,"y":1380}],"durationMillis":100}]}""",
         )
@@ -171,7 +217,7 @@ class AutomationDeviceToolsTest {
         val image =
             (
                 execute(
-                    "ui.screenshot",
+                    "ui_screenshot",
                     """{"frame":"frame"}""",
                 ) as ToolExecutorResult.Completed
             ).output.jsonObject
@@ -194,7 +240,7 @@ class AutomationDeviceToolsTest {
             val output =
                 (
                     execute(
-                        "ui.apps",
+                        "ui_apps",
                         """{"query":"$query"}""",
                     ) as ToolExecutorResult.Completed
                 ).output.jsonObject
@@ -214,7 +260,7 @@ class AutomationDeviceToolsTest {
             assertFalse(output.containsKey("packageName"))
             assertEquals(
                 ToolSchemaValidation.Valid,
-                ToolSchemaValidator.validate(descriptor("ui.apps").outputSchema, output),
+                ToolSchemaValidator.validate(descriptor("ui_apps").outputSchema, output),
             )
         }
     }
@@ -229,9 +275,9 @@ class AutomationDeviceToolsTest {
                 ),
                 truncated = true,
             )
-        val found = (execute("ui.apps", """{"query":"browser"}""") as ToolExecutorResult.Completed).output.jsonObject
+        val found = (execute("ui_apps", """{"query":"browser"}""") as ToolExecutorResult.Completed).output.jsonObject
         assertEquals(2, found.getValue("apps").jsonArray.size)
-        val missing = (execute("ui.apps", """{"query":"unlisted"}""") as ToolExecutorResult.Completed).output.jsonObject
+        val missing = (execute("ui_apps", """{"query":"unlisted"}""") as ToolExecutorResult.Completed).output.jsonObject
         assertTrue(missing.getValue("apps").jsonArray.isEmpty())
         assertEquals("LISTED", missing.getValue("status").jsonPrimitive.content)
         assertEquals(true, missing.getValue("truncated").jsonPrimitive.boolean)
@@ -239,14 +285,14 @@ class AutomationDeviceToolsTest {
 
     @Test fun invalidAppQueryStopsBeforeCallingThePackageCatalog() {
         listOf("""{"query":"   "}""", """{"query":"Browser","packageName":"com.example.app"}""").forEach {
-            val result = execute("ui.apps", it) as ToolExecutorResult.Failed
+            val result = execute("ui_apps", it) as ToolExecutorResult.Failed
             assertTrue(result.sideEffectFree)
         }
         assertEquals(0, port.catalogCalls)
         listOf("""{"query":12}""", """{"query":"${"x".repeat(257)}"}""").forEach {
             assertTrue(
                 ToolSchemaValidator.validate(
-                    descriptor("ui.apps").inputSchema,
+                    descriptor("ui_apps").inputSchema,
                     json(it),
                 ) is ToolSchemaValidation.Invalid,
             )
@@ -254,7 +300,7 @@ class AutomationDeviceToolsTest {
     }
 
     @Test fun packageQueryRetainsExactTargetAndAbsenceFact() {
-        val result = execute("ui.apps", """{"packageName":"com.example.missing"}""") as ToolExecutorResult.Completed
+        val result = execute("ui_apps", """{"packageName":"com.example.missing"}""") as ToolExecutorResult.Completed
         assertEquals("com.example.missing", port.queriedPackage)
         assertEquals(
             "\"NOT_INSTALLED\"",
@@ -270,18 +316,18 @@ class AutomationDeviceToolsTest {
         )
         assertEquals(
             ToolSchemaValidation.Valid,
-            ToolSchemaValidator.validate(descriptor("ui.apps").outputSchema, result.output),
+            ToolSchemaValidator.validate(descriptor("ui_apps").outputSchema, result.output),
         )
-        assertEquals(1, descriptor("ui.apps").version.value)
+        assertEquals(1, descriptor("ui_apps").version.value)
     }
 
     @Test fun originIdentifiesEachHostIndependentlyOfAppLabelsForegroundAndQuery() {
         for (host in listOf("com.helix.agent", "com.helix.agent.developer")) {
             val hosted = toolsFor(host)
             for ((name, args) in listOf(
-                "ui.device" to "{}",
-                "ui.apps" to "{}",
-                "ui.apps" to
+                "ui_device" to "{}",
+                "ui_apps" to "{}",
+                "ui_apps" to
                     """{"packageName":"com.example.missing"}""",
             )) {
                 val output =
@@ -295,7 +341,7 @@ class AutomationDeviceToolsTest {
                         output,
                     ),
                 )
-                if (name == "ui.device") {
+                if (name == "ui_device") {
                     assertEquals("com.example.app", output.getValue("packageName").jsonPrimitive.content)
                 }
                 assertTrue(
@@ -310,21 +356,21 @@ class AutomationDeviceToolsTest {
 
     @Test fun unavailableObservationStillReportsHostWithoutInventingForegroundOrFrame() {
         port.frameAvailable = false
-        val output = (execute("ui.device", "{}") as ToolExecutorResult.Completed).output.jsonObject
+        val output = (execute("ui_device", "{}") as ToolExecutorResult.Completed).output.jsonObject
         assertEquals("com.helix.agent.developer", output.getValue("originatingHelixPackage").jsonPrimitive.content)
         assertEquals("UNAVAILABLE", output.getValue("status").jsonPrimitive.content)
         assertFalse(output.containsKey("frame"))
         assertFalse(output.containsKey("packageName"))
         assertEquals(
             ToolSchemaValidation.Valid,
-            ToolSchemaValidator.validate(descriptor("ui.device").outputSchema, output),
+            ToolSchemaValidator.validate(descriptor("ui_device").outputSchema, output),
         )
     }
 
     @Test fun screenshotPublishesThroughOriginalCallAndVisionSidecar() {
         port.capture = port.capture.copy(frame = "capture-bound-frame")
-        val call = call("ui.screenshot", json("""{"frame":"frame"}"""))
-        val result = tools.executor("ui.screenshot").execute(call) as ToolExecutorResult.Completed
+        val call = call("ui_screenshot", json("""{"frame":"frame"}"""))
+        val result = tools.executor("ui_screenshot").execute(call) as ToolExecutorResult.Completed
         assertSame(call, publishedCall)
         assertSame(visual, result.visualArtifact)
         assertEquals(
@@ -338,9 +384,9 @@ class AutomationDeviceToolsTest {
             result.output.jsonObject
                 .getValue("actionHint")
                 .toString()
-                .contains("ui.gesture"),
+                .contains("ui_gesture"),
         )
-        assertEquals(1, descriptor("ui.screenshot").version.value)
+        assertEquals(1, descriptor("ui_screenshot").version.value)
         assertEquals(
             "1",
             result.output.jsonObject
@@ -367,7 +413,7 @@ class AutomationDeviceToolsTest {
         )
         assertEquals(
             ToolSchemaValidation.Valid,
-            ToolSchemaValidator.validate(descriptor("ui.screenshot").outputSchema, result.output),
+            ToolSchemaValidator.validate(descriptor("ui_screenshot").outputSchema, result.output),
         )
         assertFalse(result.output.toString().contains("base64"))
         assertTrue(result.output.toString().contains("pixelsAttached"))
@@ -375,7 +421,7 @@ class AutomationDeviceToolsTest {
 
     @Test fun unsupportedScreenshotNeverPublishesAnImageOrFakeArtifact() {
         port.capture = AutomationScreenshot("PLATFORM_SCREENSHOT_ERROR_6")
-        val result = execute("ui.screenshot", """{"frame":"frame"}""") as ToolExecutorResult.Completed
+        val result = execute("ui_screenshot", """{"frame":"frame"}""") as ToolExecutorResult.Completed
         assertEquals(null, publishedCall)
         assertEquals(null, result.visualArtifact)
         assertFalse(result.output.jsonObject.containsKey("reference"))
@@ -384,7 +430,7 @@ class AutomationDeviceToolsTest {
     @Test fun failedCapturePreservesStatusAndExplainsOpaqueFrameRecoveryWithoutPublishing() {
         for (status in listOf("NO_ACTIVE_SESSION", "STALE_FRAME", "TARGET_CHANGED", "SCOPE_DENIED")) {
             port.capture = AutomationScreenshot(status)
-            val result = execute("ui.screenshot", """{"frame":"page"}""") as ToolExecutorResult.Completed
+            val result = execute("ui_screenshot", """{"frame":"page"}""") as ToolExecutorResult.Completed
             assertEquals(
                 status,
                 result.output.jsonObject
@@ -395,14 +441,14 @@ class AutomationDeviceToolsTest {
                 result.output.jsonObject
                     .getValue("actionHint")
                     .jsonPrimitive.content
-                    .contains("ui.device"),
+                    .contains("ui_device"),
             )
             assertEquals(null, publishedCall)
             assertEquals(null, result.visualArtifact)
             assertFalse(result.output.jsonObject.containsKey("reference"))
             assertEquals(
                 ToolSchemaValidation.Valid,
-                ToolSchemaValidator.validate(descriptor("ui.screenshot").outputSchema, result.output),
+                ToolSchemaValidator.validate(descriptor("ui_screenshot").outputSchema, result.output),
             )
         }
         assertEquals(0, port.observations)
@@ -414,9 +460,9 @@ class AutomationDeviceToolsTest {
                 {"points":[{"x":100,"y":200}],"startMillis":1e2,"durationMillis":$token}]}"""
             assertEquals(
                 ToolSchemaValidation.Valid,
-                ToolSchemaValidator.validate(descriptor("ui.gesture").inputSchema, json(args)),
+                ToolSchemaValidator.validate(descriptor("ui_gesture").inputSchema, json(args)),
             )
-            assertTrue(execute("ui.gesture", args) is ToolExecutorResult.Completed)
+            assertTrue(execute("ui_gesture", args) is ToolExecutorResult.Completed)
             assertEquals(100L, port.strokes.single().startMillis)
             assertEquals(300L, port.strokes.single().durationMillis)
         }
@@ -427,9 +473,9 @@ class AutomationDeviceToolsTest {
             {"points":[{"x":100,"y":200},{"x":200,"y":500}],"durationMillis":300}]}"""
         assertEquals(
             ToolSchemaValidation.Valid,
-            ToolSchemaValidator.validate(descriptor("ui.gesture").inputSchema, json(args)),
+            ToolSchemaValidator.validate(descriptor("ui_gesture").inputSchema, json(args)),
         )
-        val completed = execute("ui.gesture", args) as ToolExecutorResult.Completed
+        val completed = execute("ui_gesture", args) as ToolExecutorResult.Completed
         assertEquals(
             "DISPATCHED",
             completed.output.jsonObject
@@ -451,7 +497,7 @@ class AutomationDeviceToolsTest {
         )
         assertEquals(
             ToolSchemaValidation.Valid,
-            ToolSchemaValidator.validate(descriptor("ui.gesture").outputSchema, completed.output),
+            ToolSchemaValidator.validate(descriptor("ui_gesture").outputSchema, completed.output),
         )
         assertEquals(
             2,
@@ -460,22 +506,22 @@ class AutomationDeviceToolsTest {
                 .points.size,
         )
         port.result = AutomationActionResult(AutomationActionStatus.ACTION_OUTCOME_UNKNOWN)
-        val failed = execute("ui.gesture", args) as ToolExecutorResult.Failed
+        val failed = execute("ui_gesture", args) as ToolExecutorResult.Failed
         assertFalse(failed.sideEffectFree)
         assertTrue(failed.requiresReview)
     }
 
     @Test fun systemActionsUseExistingPortAndInvalidInputsDoNotAct() {
-        execute("ui.system", """{"action":"recents"}""")
+        execute("ui_system", """{"action":"recents"}""")
         assertEquals(listOf(AutomationGlobalAction.RECENTS), actions.performed)
-        val bad = execute("ui.system", """{"action":"root"}""") as ToolExecutorResult.Failed
+        val bad = execute("ui_system", """{"action":"root"}""") as ToolExecutorResult.Failed
         assertTrue(bad.sideEffectFree)
         assertEquals(1, actions.performed.size)
     }
 
     @Test fun expiredCallNeverReachesTheDevicePort() {
-        val expired = call("ui.device", json("{}")).copy(deadline = Instant.EPOCH)
-        val result = tools.executor("ui.device").execute(expired) as ToolExecutorResult.TimedOutWithEffectTruth
+        val expired = call("ui_device", json("{}")).copy(deadline = Instant.EPOCH)
+        val result = tools.executor("ui_device").execute(expired) as ToolExecutorResult.TimedOutWithEffectTruth
         assertTrue(result.sideEffectFree)
         assertFalse(result.requiresReview)
         assertEquals(0, port.observations)
@@ -484,7 +530,7 @@ class AutomationDeviceToolsTest {
     @Test fun cancelledGestureNeverDispatchesOrClaimsAnEffect() {
         val cancelled =
             call(
-                "ui.gesture",
+                "ui_gesture",
                 json(
                     """{"frame":"frame","strokes":[
                 {"points":[{"x":100,"y":200}],"durationMillis":100}]}""",
@@ -495,7 +541,7 @@ class AutomationDeviceToolsTest {
                         override fun isCancelled() = true
                     },
             )
-        val result = tools.executor("ui.gesture").execute(cancelled) as ToolExecutorResult.CancelledWithEffectTruth
+        val result = tools.executor("ui_gesture").execute(cancelled) as ToolExecutorResult.CancelledWithEffectTruth
         assertTrue(result.sideEffectFree)
         assertFalse(result.requiresReview)
         assertTrue(port.strokes.isEmpty())
@@ -515,11 +561,11 @@ class AutomationDeviceToolsTest {
             {"kind":"pinch","center":{"x":500,"y":500},"span":100,"scale":2}}"""
         assertTrue(
             ToolSchemaValidator.validate(
-                descriptor("ui.gesture").inputSchema,
+                descriptor("ui_gesture").inputSchema,
                 json(args),
             ) is ToolSchemaValidation.Valid,
         )
-        tools.executor("ui.gesture").execute(call("ui.gesture", json(args)))
+        tools.executor("ui_gesture").execute(call("ui_gesture", json(args)))
         assertEquals(2, port.strokes.size)
         assertEquals(
             450f,
@@ -543,7 +589,7 @@ class AutomationDeviceToolsTest {
             """{"frame":"frame","pattern":{"kind":"tap","center":{"x":1,"y":1},"scale":2}}""",
         )) {
             port.strokes = emptyList()
-            assertTrue(tools.executor("ui.gesture").execute(call("ui.gesture", json(bad))) is ToolExecutorResult.Failed)
+            assertTrue(tools.executor("ui_gesture").execute(call("ui_gesture", json(bad))) is ToolExecutorResult.Failed)
             assertTrue(port.strokes.isEmpty())
         }
     }

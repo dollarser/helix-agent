@@ -59,7 +59,7 @@ Chat Completions、Responses、Anthropic 三个独立 SSE reader 都在整个 ch
 
 编译范围：`:app:compileConsumerDebugAndroidTestKotlin :app:compileDeveloperDebugAndroidTestKotlin` 通过；`:core:storage:assembleDebugAndroidTest` 已生成测试 APK。没有打包新的 App APK，没有运行 instrumentation。设备状态 **not requested**；真实 Provider / OAuth 账号、FFmpeg / PRoot 媒体端到端、OEM / 进程强杀和长稳均未执行。
 
-后续应在所有者明确授权设备验证时执行增强的 ProcessRecoveryTest、TurnCommitStoreDeviceTest 及既有 ToolSettlementRecoveryDeviceTest。ModelCall 在其他终态父 Turn 下的遗留 RUNNING 情况尚缺可达异常链证据，本轮不据猜测扩大修改。
+上述增强的 ProcessRecoveryTest、TurnCommitStoreDeviceTest 及既有 ToolSettlementRecoveryDeviceTest 在本轮仅编译；今后复验按当前任务范围及 [AGENTS.md](../../../AGENTS.md#verification-and-device-authorization) 区分本地项目模拟器、物理设备和外部服务权限。ModelCall 在其他终态父 Turn 下的遗留 RUNNING 情况尚缺可达异常链证据，本轮不据猜测扩大修改。
 
 ## 第二轮文件清单
 

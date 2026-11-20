@@ -24,13 +24,6 @@ Goal结果：state=COMPLETED，runs=2，modelCalls=6，automaticRounds=0，compl
 
 当次Goal/两Skill共15次实际持久化模型调用，全部COMPLETED，所有关联Turn COMPLETED且无errorCode；最大单次outputTokens=2172。这是本轮有界证据，不解释没有逐调用记录的历史截断。
 
-Goal real UI fixture 工具事实：get_goal:COMPLETED, update_goal:COMPLETED, get_goal:COMPLETED, update_goal:COMPLETED。
-
-Skill Creator evaluation 工具事实：write:COMPLETED, tools.search:COMPLETED, skills.preview:COMPLETED, write:COMPLETED, tools.search:COMPLETED, skills.preview:COMPLETED, skills.install:COMPLETED, skills.enable:COMPLETED, skills.read:COMPLETED。
-
-冻结基础e9889f24，最终制品SHA256：
-
-- developer-app: `557dce87f27db98129f22bd3c4505608b05203e73f01379d75c8b72d69b84633`
-- developer-test: `efce842c9ea1900d73d9f7c4e736085d08839ca5b47e08fc5e8ee5b3f05bec3e`
+Goal 与 Skill 的实际调用链及最终制品身份保存在上述 ignored 证据中的工具账本和 artifacts 记录；冻结基础为 `e9889f24`。Goal 已实际调用 get_goal/update_goal，Skill 已完成 preview、install、enable、read，不仅是模型文字声明。
 
 最终完整主机test/detekt/spotless/双渠道Debug lint/App及AndroidTest编译通过：model-closeout-host-r4.log（43秒990 tasks/31 executed）；含实验模块的完整model-closeout-host-r5.log也通过（42秒1033 tasks/19 executed）。所有修改仅AndroidTest；生产APK hash保持。source172项、803个Markdown/249 HXA/36 ADR门禁与文档校验通过，不把宿主通过代替设备通过。

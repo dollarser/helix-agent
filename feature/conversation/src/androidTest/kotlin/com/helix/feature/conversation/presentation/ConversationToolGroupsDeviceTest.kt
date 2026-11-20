@@ -152,7 +152,7 @@ class ConversationToolGroupsDeviceTest : ConversationDeviceTestFixture(usesClipb
                         ToolTimelineItem(
                             rows.first().copy(
                                 callId = "display",
-                                toolName = "ui.device",
+                                toolName = "ui_device",
                                 resultSummary =
                                     """{
 "displayId":7,"executionDisplay":"background",

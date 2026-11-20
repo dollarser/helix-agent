@@ -38,7 +38,7 @@ class PluginReadinessSnapshotTest {
         )
 
     private fun snapshot(vararg facts: PluginComponentFact) =
-        PluginReadinessSnapshot("package-a", 7, false, true, facts.toList(), emptyList())
+        PluginReadinessSnapshot("package-a", 7, false, true, facts.toList(), emptyList(), PluginName("package-a"))
 
     @Test fun savedIsNotLoadedAndUnselectedIsNotRequestReady() {
         val state = snapshot(offline)

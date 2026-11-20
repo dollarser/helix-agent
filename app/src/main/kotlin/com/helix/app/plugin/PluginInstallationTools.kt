@@ -7,6 +7,7 @@ import com.helix.core.model.ToolVersion
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
+import com.helix.tools.framework.ToolDiscoveryHints
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolOrigin
@@ -26,13 +27,16 @@ internal object PluginInstallationTools {
         for (install in listOf(false, true)) {
             val descriptor =
                 ToolDescriptor(
-                    name = ToolName(if (install) "connectors.install" else "connectors.preview"),
+                    name = ToolName(if (install) "plugins_install" else "plugins_preview"),
                     version = ToolVersion(1),
                     description =
                         if (install) {
-                            "Install a reviewed workspace plugin directory/JSON/ZIP with its exact hash; no connection."
+                            "Install the complete plugin package reviewed by plugins_preview using its exact hash. " +
+                                "A package may contain MCP connectors, skills and metadata; " +
+                                "installation does not connect endpoints."
                         } else {
-                            "Preview a workspace plugin directory/JSON/ZIP: hash, endpoints, Skills and diagnostics."
+                            "Inspect a workspace plugin directory/JSON/ZIP without installing it. " +
+                                "Returns the package hash, MCP connectors, skills and diagnostics for review."
                         },
                     inputSchema = Json.parseToJsonElement(if (install) INPUT else PREVIEW_INPUT).jsonObject,
                     outputSchema = Json.parseToJsonElement(if (install) OUTPUT else PREVIEW_OUTPUT).jsonObject,
@@ -43,6 +47,7 @@ internal object PluginInstallationTools {
                     idempotency = Idempotency.IDEMPOTENT,
                     executionTarget = ExecutionTargetType.LOCAL_ANDROID,
                     origin = ToolOrigin.BuiltInOrigin,
+                    discovery = ToolDiscoveryHints(category = "plugins"),
                 )
 
             registry.register(
@@ -84,7 +89,8 @@ internal object PluginInstallationTools {
                             ToolExecutorResult.Completed(output)
                         } catch (_: Exception) {
                             ToolExecutorResult.Failed(
-                                "CONNECTOR_NOT_CONFIRMED: check installed hash; refresh preview",
+                                "PLUGIN_NOT_CONFIRMED: inspect the package with plugins_preview " +
+                                    "and retry with its exact hash",
                             )
                         }
                 },
@@ -148,8 +154,8 @@ internal object PluginInstallationTools {
 
     private const val INPUT = """{
       "type":"object","properties":{
-        "path":{"type":"string","minLength":1,"maxLength":512},
-        "expectedHash":{"type":"string","pattern":"^[a-f0-9]{64}$"}},
+        "path":{"type":"string","minLength":1,"maxLength":512,"description":"Workspace plugin package path: directory, JSON or ZIP."},
+        "expectedHash":{"type":"string","pattern":"^[a-f0-9]{64}$","description":"Exact hash returned by plugins_preview for the reviewed package."}},
       "required":["path","expectedHash"],"additionalProperties":false
     }"""
     private const val OUTPUT = """{
@@ -159,7 +165,7 @@ internal object PluginInstallationTools {
       },"required":["id","name","hash","installed","diagnostics"],"additionalProperties":false
     }"""
     private const val PREVIEW_INPUT = """{
-      "type":"object","properties":{"path":{"type":"string","minLength":1,"maxLength":512}},
+      "type":"object","properties":{"path":{"type":"string","minLength":1,"maxLength":512,"description":"Workspace plugin package path: directory, JSON or ZIP."}},
       "required":["path"],"additionalProperties":false
     }"""
     private const val PREVIEW_OUTPUT = """{

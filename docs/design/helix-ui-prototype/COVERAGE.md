@@ -64,9 +64,9 @@
 | [设备自动化](index.html#mobile) | `mobile` | [源码](../../../app/src/developer/kotlin/com/helix/app/automation/MobileUseSettings.kt) | Advanced、授权、可用性 | 正常 / 加载 / 空 / 错误 / 取消（评审控制） |
 | [关于 Helix](index.html#about) | `about` | [源码](../../../app/src/main/kotlin/com/helix/app/ui/AboutHelixSection.kt) | 渠道、版本、许可 | 正常 / 加载 / 空 / 错误 / 取消（评审控制） |
 
-> 当前消息操作：用户消息仅编辑/复制，编辑不创建分支；模型回复保留创建分支。详见 [消息操作修订](MESSAGE_ACTIONS.md)。
+> 当前消息操作：用户消息仅编辑/复制，编辑不创建分支；模型回复保留创建分支。详见 [消息操作修订](DESIGN.md#消息操作修订)。
 
-> 当前语音交互已按用户要求改为识别结果直接进入输入框，结束后原处编辑。此前弹窗预览/加入草稿描述以 [语音输入修订](VOICE_INPUT.md) 为准。
+> 当前语音交互已按用户要求改为识别结果直接进入输入框，结束后原处编辑。此前弹窗预览/加入草稿描述以 [语音输入修订](DESIGN.md#语音输入修订) 为准。
 
 ## 共用面板与跨页流程
 
@@ -85,7 +85,7 @@
 | 模式命令 | Chat/Plan/Act/Goal、草稿候选 | `/` 只插入草稿，明确发送后更新；命令不发给模型 | ComposerCommandParser / ConversationModeControls |
 | 权限预设 | 按需、只读、完全访问、确认/取消 | 会话预设与单次工具审批分离；完全访问不扩大 Plan | ComposerPermissionMenu |
 | 消息 | 用户/助手、流式/已停止 | 用户消息仅编辑/复制、不创建分支；模型回复保留分支；模拟复制、重试、成果跳转 | ConversationMessage / MessageRevisionDialog |
-| 录音 | 权限未授予/拒绝、加载、流式预览、编辑 | 结束后可编辑；加入草稿后仍需发送；取消保持原稿 | OfflineVoiceDialog |
+| 录音 | 权限未授予/拒绝、加载、流式预览、编辑 | 直接进入输入框、结束后可编辑且仍需发送；取消恢复原稿 | OfflineVoiceDialog |
 | 朗读 | 资源未就绪、准备中、可用、模拟播放/停止 | 资源就绪不自动播；离开聊天/开始录音停止；无暂停定位 | LiveReplyReadAloud / SystemVoiceSettings |
 | 工具 | 等待审批/拒绝/执行中/已核验/UNKNOWN | 绑定 call，允许一次；未知需核对事实，不能自动重放 | ApprovalCardScreen / ToolPurpose |
 | 目标 | 运行/请求暂停/已暂停/取消/阻塞 | 继续新 Run；未知副作用先核对；轮数阻塞明确处理 | GoalDialog / TasksScreen |

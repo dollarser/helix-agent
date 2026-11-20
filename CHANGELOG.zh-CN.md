@@ -4,6 +4,12 @@
 
 面向用户整理重要变化，最新版本在前，不直接堆叠 Git 提交记录；分类方式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。开发预览不承诺稳定的数据或 API 兼容性。下列已发布日期采用 UTC；未发布候选不填写发布日期。
 
+## [0.0.12](https://github.com/dollarser/helix-agent/releases/tag/v0.0.12) - 2026-11-18（开发预览）
+
+邮箱登录与免密码改名、统一账号资料和注册返回登录；单卡人机验证；模型目录刷新与历史选择保护；附件按需读取、稳定引用和恢复；长标题、内部路径及窗口闪烁修复。
+
+[Release notes](docs/product/releases/v0.0.12.md). versionCode = 1.
+
 ## [0.0.11](https://github.com/dollarser/helix-agent/releases/tag/v0.0.11) - 2026-11-14（GitHub 开发预览）
 
 [相对 v0.0.10 的变化](https://github.com/dollarser/helix-agent/compare/v0.0.10...v0.0.11) · [版本说明](docs/product/releases/v0.0.11.md) · [English notes](docs/product/releases/v0.0.11.en.md)

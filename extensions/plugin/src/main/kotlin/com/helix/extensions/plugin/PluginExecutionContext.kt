@@ -44,7 +44,7 @@ sealed interface PluginContentContribution {
     ) : PluginContentContribution
 }
 
-/** Same snapshot eligibility as skills.read; no frontmatter grants ambient discovery. */
+/** Same snapshot eligibility as skills_read; no frontmatter grants ambient discovery. */
 fun PluginRegistry.contentContributions(
     repository: com.helix.extensions.skills.SkillRepository,
     sessionId: String,

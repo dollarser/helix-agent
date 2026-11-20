@@ -35,7 +35,7 @@ internal object BrowserSnapshotLinks {
                                 "token",
                                 stringSchema(
                                     MAX_TOKEN,
-                                    "Original observed link token; use browser.click, not a reconstructed URL.",
+                                    "Original observed link token; use browser_click, not a reconstructed URL.",
                                 ),
                             )
                             put(

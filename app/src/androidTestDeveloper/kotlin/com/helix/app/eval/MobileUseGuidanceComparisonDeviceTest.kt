@@ -37,7 +37,7 @@ class MobileUseGuidanceComparisonDeviceTest {
         for (selector in listOf("text" to "下载", "viewId" to "store:id/download")) {
             val call =
                 buildJsonObject {
-                    put("name", JsonPrimitive("ui.click_match"))
+                    put("name", JsonPrimitive("ui_click_match"))
                     put("args", buildJsonObject { put(selector.first, JsonPrimitive(selector.second)) })
                 }
             assertTrue(preferred("known-selector", call))
@@ -45,7 +45,7 @@ class MobileUseGuidanceComparisonDeviceTest {
         assertFalse(preferred("known-selector", null))
         val invalid =
             buildJsonObject {
-                put("name", JsonPrimitive("ui.click_match"))
+                put("name", JsonPrimitive("ui_click_match"))
                 put("args", buildJsonObject { put("text", JsonObject(emptyMap())) })
             }
         assertFalse(preferred("known-selector", invalid))
@@ -77,7 +77,7 @@ class MobileUseGuidanceComparisonDeviceTest {
                 app.appContainer.toolPipeline.registry
                     .snapshot()
                     .map { it.descriptor }
-                    .filter { it.name.value.startsWith("ui.") }
+                    .filter { it.name.value.startsWith("ui_") }
                     .associateBy { it.name.value }
             val provider =
                 app.appContainer.providerService.modelProviderFor(
@@ -143,7 +143,7 @@ class MobileUseGuidanceComparisonDeviceTest {
                     ?.jsonPrimitive
                     ?.content
             var input = descriptor.inputSchema
-            if (variant == "baseline" && name in setOf("ui.wait", "ui.click_match")) {
+            if (variant == "baseline" && name in setOf("ui_wait", "ui_click_match")) {
                 val properties = input.getValue("properties").jsonObject
                 val poll = properties.getValue("pollMillis").jsonObject
                 input =
@@ -202,16 +202,16 @@ class MobileUseGuidanceComparisonDeviceTest {
             calls.count {
                 val tool = it.text("name")
                 val token = it.getValue("args").jsonObject.text("token")
-                scenario.name == "latest-token" && tool == "ui.click" && token != LATEST_TOKEN
+                scenario.name == "latest-token" && tool == "ui_click" && token != LATEST_TOKEN
             }
         val observations =
             calls.count {
                 val tool = it.text("name")
-                scenario.name == "known-selector" && tool in setOf("ui.find", "ui.snapshot")
+                scenario.name == "known-selector" && tool in setOf("ui_find", "ui_snapshot")
             }
         val coordinates =
             calls.count {
-                scenario.name == "transition" && it.text("name") == "ui.gesture"
+                scenario.name == "transition" && it.text("name") == "ui_gesture"
             }
         return buildJsonObject {
             put("variant", JsonPrimitive(variant))
@@ -260,23 +260,23 @@ class MobileUseGuidanceComparisonDeviceTest {
         val args = call.getValue("args").jsonObject
         return when (scenario) {
             "known-selector" -> {
-                name == "ui.click_match" && (
+                name == "ui_click_match" && (
                     args.text("text") == "下载" ||
                         args.text("viewId") == "store:id/download"
                 )
             }
 
             "latest-token" -> {
-                (name == "ui.click" && args.text("token") == LATEST_TOKEN) ||
-                    (name == "ui.click_match" && args.text("text") == "下载")
+                (name == "ui_click" && args.text("token") == LATEST_TOKEN) ||
+                    (name == "ui_click_match" && args.text("text") == "下载")
             }
 
             "wait" -> {
-                name == "ui.wait"
+                name == "ui_wait"
             }
 
             else -> {
-                name in setOf("ui.snapshot", "ui.device", "ui.wait")
+                name in setOf("ui_snapshot", "ui_device", "ui_wait")
             }
         }
     }
@@ -290,13 +290,13 @@ class MobileUseGuidanceComparisonDeviceTest {
             ),
             Scenario(
                 "latest-token",
-                "任务：点击下载。先前ui.snapshot的下载token=$OLD_TOKEN；随后一次ui.find又观察到" +
+                "任务：点击下载。先前ui_snapshot的下载token=$OLD_TOKEN；随后一次ui_find又观察到" +
                     "同一唯一下载按钮，最新suggestedClickToken=$LATEST_TOKEN，包com.example.store。只选择下一步。",
             ),
             Scenario("wait", "下载仍在进行，请只等待text=打开的按钮出现，最多60秒，现在不要点击它。选择下一步工具。"),
             Scenario(
                 "transition",
-                "启动广告截图后的ui.gesture返回TARGET_CHANGED、sideEffectFree=true。" +
+                "启动广告截图后的ui_gesture返回TARGET_CHANGED、sideEffectFree=true。" +
                     "旧图中有跳过按钮，但转场可能已结束；目前没有新截图。任务是进入应用主界面，请选择下一步。",
             ),
         )

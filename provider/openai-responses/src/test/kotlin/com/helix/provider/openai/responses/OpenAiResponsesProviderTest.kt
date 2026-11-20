@@ -14,6 +14,7 @@ import com.helix.provider.api.ModelCatalogResult
 import com.helix.provider.api.ProviderCapabilities
 import com.helix.provider.api.ProviderCheckResult
 import com.helix.provider.api.ProviderConfig
+import com.helix.provider.api.ProviderToolNames
 import com.helix.provider.api.wire.WireBody
 import com.helix.provider.api.wire.WireClient
 import com.helix.provider.api.wire.WireRequest
@@ -99,13 +100,13 @@ class OpenAiResponsesProviderTest {
                         listOf(
                             com.helix.core.model.ModelToolSchema(
                                 com.helix.core.model
-                                    .ToolName("files.read"),
+                                    .ToolName("files_read"),
                                 "read",
                                 """{"type":"object"}""",
                             ),
                         ),
                 )
-            val alias = ResponsesToolNames(request).encode("files.read")
+            val alias = ProviderToolNames(request).encode("files_read")
             val response =
                 sse(
                     "response.output_item.added",
@@ -113,8 +114,50 @@ class OpenAiResponsesProviderTest {
                 )
             val wire = FakeWire(WireResponse(200, emptyMap(), FakeBody(response.toByteArray())))
             val events = provider(wire).stream(request).toList()
-            assertEquals("files.read", events.filterIsInstance<ModelEvent.ToolCallStarted>().single().name)
+            assertEquals("files_read", events.filterIsInstance<ModelEvent.ToolCallStarted>().single().name)
             assertTrue(String(requireNotNull(wire.requests.single().body)).contains("\"name\":\"$alias\""))
+        }
+
+    @Test fun providerRejectsUnknownAndHistoryOnlyNamesBeforeEmittingCalls() =
+        runBlocking {
+            val old =
+                com.helix.core.model.AssistantToolCall(
+                    com.helix.core.model
+                        .ToolCallId("old"),
+                    com.helix.core.model
+                        .ToolName("mcp_retired_tool"),
+                    "{}",
+                )
+            val request =
+                userRequest().copy(
+                    tools =
+                        listOf(
+                            com.helix.core.model.ModelToolSchema(
+                                com.helix.core.model
+                                    .ToolName("files_read"),
+                                "test",
+                                """{"type":"object"}""",
+                            ),
+                        ),
+                    messages =
+                        listOf(
+                            ModelMessage(ModelRole.ASSISTANT, "", toolCalls = listOf(old)),
+                            ModelMessage(ModelRole.TOOL, "ok", toolCallId = old.id, toolName = old.name),
+                        ),
+                )
+            for (name in listOf("files.read", "missing", ProviderToolNames(request).encode(old.name.value))) {
+                val response =
+                    sse(
+                        "response.output_item.added",
+                        """{"output_index":0,"item":{"type":"function_call","call_id":"c1","name":"$name"}}""",
+                    )
+                val events =
+                    provider(
+                        FakeWire(WireResponse(200, emptyMap(), FakeBody(response.toByteArray()))),
+                    ).stream(request).toList()
+                assertTrue(events.none { it is ModelEvent.ToolCallStarted || it is ModelEvent.Completed })
+                assertEquals(ModelErrorCode.PROTOCOL, events.filterIsInstance<ModelEvent.Error>().single().code)
+            }
         }
 
     // --- SSE fixtures (same shapes as the HXA-022 decoder tests) -------------

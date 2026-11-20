@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="account_retry_after">请等待 %1$d 秒后再重试。</string>
+    <string name="account_request_id">请求编号：%1$s</string>
+    <string name="account_copy_request_id">复制请求编号</string>
+    <string name="account_request_id_copied">已复制请求编号</string>
+</resources>

@@ -19,7 +19,11 @@ Client 不声明未实现的 sampling、elicitation 或 roots。initialize resul
 
 取消 Helix 自设的全局64工具数量上限及请求/绑定/manifest联动计数校验，不以另一固定全局数量替代，不静默截断最终集合。工具数量不等于上下文成本；已有上下文预检、Provider已知协议限制和manifest字节容量仍有效。实际工具绑定必须完整记录，无法容纳则明确失败，不删绑定掩盖超限。默认工具复用共享常用契约及已选原生插件preferred组，避免动作可见而观察不可见；模式、功能开关与用户禁用先于曝光选择，优先级不注册工具或扩大能力。具体集合由当前源码与授权任务定义，不设随实现变化的固定计数门禁。
 
-`tools.search` 复用同一注册表，覆盖已启用的内置、MCP、A2A 工具；完整名称优先，再按名称/描述/来源/参数字段及宿主维护的中英文别名相关性排序。全关键词和完整词命中用于排序，不排除互补的部分匹配或词形片段。名称、描述、参数字段及元数据保留子串召回；词边界提升排序质量而非缩减可用能力，camelCase字段、中文和限定名称仍可检索。精确名称被禁用时不自动替换成另一能力。可按source/category过滤，搜索自身不进入结果。每次请求提供准入快照的简短来源/类别目录，元数据不是权限或instructions。一次搜索最多返回16个匹配；本次发现及可用、同来源的宿主已知操作前置契约完整装载，近期有效成员按估计schema字节预算保留，优先新发现，不设整个请求的工具数量上限。零命中保留有效旧成员，失效/撤销/模式变化立即过滤。其他会话不继承；下一次模型请求重新校验版本、当前模式和可用性。
+`tools_search` 复用同一注册表，覆盖已启用的内置、MCP、A2A 工具；完整名称优先，再按名称/描述/来源/参数字段及宿主维护的中英文别名相关性排序。全关键词和完整词命中用于排序，不排除互补的部分匹配或词形片段。名称、描述、参数字段及元数据保留子串召回；词边界提升排序质量而非缩减可用能力，camelCase字段、中文和限定名称仍可检索。精确名称被禁用时不自动替换成另一能力。可按source/category过滤，搜索自身不进入结果。每次请求提供准入快照的简短来源/类别目录，元数据不是权限或instructions。一次搜索最多返回16个匹配；本次发现及可用、同来源的宿主已知操作前置契约完整装载，近期有效成员按估计schema字节预算保留，优先新发现，不设整个请求的工具数量上限。零命中保留有效旧成员，失效/撤销/模式变化立即过滤。其他会话不继承；下一次模型请求重新校验版本、当前模式和可用性。
+
+工具检索元数据由已注册 `ToolDescriptor.discovery` 声明：`category` 是可选用途分类，`keywords` 是有界检索短语；未声明分类时才按名称命名空间推导。独立短名由工具本身声明用途，不再由 App 维护另一份名称例外表。发布时冻结关键词集合，检索元数据不进入执行授权契约，也不能扩展能力或可调用范围。搜索索引同时读取输入 schema 的嵌套参数名称与描述；不索引用户参数值、默认值或任意扩展元数据。来源目录修订覆盖名称、版本、描述、schema 与检索提示，而非只看版本号。
+
+全局检索是默认路径。source/category 仅是模型可省略的精确筛选，零命中不会自动放宽或加载其他工具；返回 `status=no_matches` 和明确 `retryHint`，提示去除筛选或简化用途重新搜索。结果依然仅在下一请求暴露完整 schema，隐藏/禁用/未准入工具不出现在结果中。
 
 近期成员采用64KiB估计schema预算，本次匹配和前置契约不因该软预算丢弃，超出实际上下文或manifest字节容量仍明确失败。MCP按来源组在16KiB估计schema预算内提前提供，超过成本的来源继续可搜索；不再有合计16/17个工具的数量突变。成本使用与请求相同的最终路径说明、展示元数据及规范化schema投影，加现有每工具32-token包络估算，不再按未增强的descriptor计费；MCP组先以含名称的原始字节下界跳过已超预算目录，避免为未选中契约提前触发模型投影验证。不改变模型输入估算总口径。近期预算包含本次匹配成本，超过64KiB的单工具或能力组可能在下一次搜索后需要重新发现；该静态缓存不随256K上下文扩大，不应称作大窗口自适应优化。以上是当前有界启发式，不是模型精确token容量、权限规则或普遍最优值；基于真实任务对照和当前上下文约束继续评估。Byte估计与最终Provider/token口径区别保留，动态缓存不是Room恢复事实。进程重开重新发现；搜索和加载从不授予执行许可。
 
@@ -67,21 +71,23 @@ Client 不声明未实现的 sampling、elicitation 或 roots。initialize resul
 
 ## Decision history
 
+- 2026-11-16：Owner要求对照主流Agent深度优化工具选择/定义，无旧版兼容要求。将分类与检索提示归属到已注册工具契约，补参数描述与嵌套字段检索；默认全局搜索、过滤无命中返回恢复提示，保留精确过滤与下一请求生效、原权限链。此变更改善发现可理解性，不预设真实模型效率收益；任务验收与指定工具覆盖继续分开。
+
 - 2026-11-13（大窗口召回修正）：Owner明确未来以≥256K模型为前提、任务成功率和工具可用性优先。撤回上一轮全关键词硬过滤及英文词边界准入，保留它们的排序优势和原子能力组，部分匹配、词干和字段片段仍可达；精确名称与授权边界不变。不为小窗口另加策略，不凭空扩大默认常驻或引入固定全局工具数。最终投影成本与诊断继续保留，16KiB eager/64KiB recent仍是已知静态启发式，不宣称解决大型schema往返淘汰或真实模型成功率；以256K任务组合、160项默认能力、80KiB schema重新发现的JVM回归明确当前边界。
 
 - 2026-11-13：Owner要求参考主流Agent实际改进工具加载。采用最终modelSchema成本统一计费、可用全关键词匹配优先和词边界匹配，保留中文/限定名称、部分匹配回退、完整能力组及全部原授权边界。对照[OpenAI工具发现](https://developers.openai.com/api/docs/guides/tools-tool-search)与[Claude工具搜索](https://platform.claude.com/docs/en/agents-and-tools/tool-use/tool-search-tool)的按需活跃集合原则，不复制原生deferred协议、不套固定工具数或常驻数量。默认工具组暂不整体隐藏；改变近期保留成本不等于扩大执行许可，也不声称已完成整上下文自适应工作集或真实模型成功率验收。
 
 - 2026-10-16（现状与运行资格）：Owner 要求收敛后续文档。区分 Resources 元数据与正文消费、有限 stdio Job 基础与常驻协议服务；保持 291 独立范围。依据 [MCP transport](https://modelcontextprotocol.io/specification/2025-11-25/basic/transports) 和 [lifecycle](https://modelcontextprotocol.io/specification/2025-11-25/basic/lifecycle) 明确未来双向流/协商/关闭及凭据前置，不宣称本次已经实现常驻 stdio。
 
-- 2026-10-13：Owner要求优化工具发现误调用并直接复用外部插件。工具描述/Skill/历史中的名称仅是发现线索，调用以本次实际schema为准；tools.search版本4明确schemaAvailability=next_request，仍重验撤销/版本，不在同批或旧请求开放。其他宿主的mcp__限定名可按远端动作部分检索，返回Helix当前名称；不注册执行别名、不自动调度或重放。Browser观察描述就近提醒动作需先发现。实际模型收益与设备验证另计，主机契约不冒充遵循率。
+- 2026-10-13：Owner要求优化工具发现误调用并直接复用外部插件。工具描述/Skill/历史中的名称仅是发现线索，调用以本次实际schema为准；tools_search版本4明确schemaAvailability=next_request，仍重验撤销/版本，不在同批或旧请求开放。其他宿主的mcp__限定名可按远端动作部分检索，返回Helix当前名称；不注册执行别名、不自动调度或重放。Browser观察描述就近提醒动作需先发现。实际模型收益与设备验证另计，主机契约不冒充遵循率。
 
-- 2026-10-12：Owner授权实施完整工具优化，HXA-280切片3将替换窗口改为新发现优先、可用前置契约及有界近期保留；MCP提前加载按来源组成本，取消16/17数量阈值。Mobile Use只将ui.device改为发现，坐标动作发现同时加载可用截图/设备契约；其他默认组保持。保留撤销、原身份、取消和UNKNOWN不重放；有界真实对照及成本取舍记录在任务证据，不预报收益。
+- 2026-10-12：Owner授权实施完整工具优化，HXA-280切片3将替换窗口改为新发现优先、可用前置契约及有界近期保留；MCP提前加载按来源组成本，取消16/17数量阈值。Mobile Use只将ui_device改为发现，坐标动作发现同时加载可用截图/设备契约；其他默认组保持。保留撤销、原身份、取消和UNKNOWN不重放；有界真实对照及成本取舍记录在任务证据，不预报收益。
 
-- 2026-10-12：HXA-280切片2采用注册事实的只读来源/类别/字段投影与宿主中文别名，tools.search新增可选过滤及来源输出，版本随契约更新；目录仅来自当前会话准入快照，撤销即时过滤。没有复制竞品代码或将远端hints用于权限/常驻优先级。
+- 2026-10-12：HXA-280切片2采用注册事实的只读来源/类别/字段投影与宿主中文别名，tools_search新增可选过滤及来源输出，版本随契约更新；目录仅来自当前会话准入快照，撤销即时过滤。没有复制竞品代码或将远端hints用于权限/常驻优先级。
 
 - 2026-10-12：Owner要求结合Codex、Claude Code和DSH重新设计并实施工具优化，明确取消没有充分依据的全局64上限。采用原子注册/模型投影分离、实际上下文与Provider约束、完整绑定和字节存储边界；不全量常驻或引入新的脚本执行域。研究与候选切片见[工具专题第 12 节](../../research/topics/tool-exposure-and-discovery-2026-09-29.md#12-2026-10-12-工具架构重新评估与优化设计)，实施与实际验证由HXA-280承接；后续窗口/目录策略在同一ADR更新，不由历史计数倒推当前默认集合。
 
-- 2026-09-28：所有者明确授权优化工具数量与曝光。AndroidWorld 小样本发现64截断留下 `ui.click` 却丢掉 `ui.snapshot`，且旧搜索仅支持MCP。收敛为基础集合、已开启自动化组和统一按需发现；不增加上限，不改变 Dispatcher/approval/effect owner。证据见[公开评测试跑](../../evidence/development/public-agent-pilot-2026-09-28.md)。
+- 2026-09-28：所有者明确授权优化工具数量与曝光。AndroidWorld 小样本发现64截断留下 `ui_click` 却丢掉 `ui_snapshot`，且旧搜索仅支持MCP。收敛为基础集合、已开启自动化组和统一按需发现；不增加上限，不改变 Dispatcher/approval/effect owner。证据见[公开评测试跑](../../evidence/development/public-agent-pilot-2026-09-28.md)。
 
 - 2026-09-28：19项候选的skill-004轨迹显示基础启停需要多次发现，耗尽固定模型调用预算。将Skill读取/启停作为同一默认基础组，收敛到21项（有自动化会话30项）；安装、预览、移除仍按需发现，保持64上限和独立权限检查。
 
@@ -112,3 +118,13 @@ Client 不声明未实现的 sampling、elicitation 或 roots。initialize resul
 文件已保存但注册失败明确返回 `SAVED_NOT_REGISTERED`、已验证路径和 hash，不捏造 artifactRef、不回滚文件；取消或撤销仍不得伪称成功，已发生的文件效果保留并遵循现行 UNKNOWN/review。发布前和返回前复查来源，发布过程中复核取消/deadline；缺宿主发布接缝明确失败。
 
 决策依据：[MCP 2025-11-25 Resources](https://modelcontextprotocol.io/specification/2025-11-25/server/resources) 定义 Text/Blob 及 application-controlled 消费；[Codex Resources handler](https://github.com/openai/codex/blob/main/codex-rs/core/src/tools/handlers/mcp_resource/read_mcp_resource.rs) 使用独立 resources/read、解析实际服务器/环境并保留来源。采纳来源绑定和独立协议操作，Helix 按移动端现有工作区/产物路径做有界物化，不照搬其他宿主协议 JSON 回填，也不复制参考代码。
+
+### 2026-11-17 分页身份与错误反馈收敛
+
+Owner 要求参考近期真实故障和竞品优化，不维护旧实现兼容分支。区分模型侧 Helix continuation 与协议侧 opaque cursor：模型首请求可省略或传空串；上游空串、空格仍原样回传，仅 null/缺失表示结束。来源身份（server ID、完整 endpoint）及列表类别由同一实现生成和校验，重连继续校验前序页；来源变化、格式错误、元数据变化、循环或超限明确失败，不静默重置、漏页或伪装结束。
+
+本地 continuation 预检发生在联网和发送标记前，以稳定类型区分无效参数与来源变化，给出重新列举的可执行提示；确认未发生连接/发送的参数失败不进入 UNKNOWN/review。未知传输与取消保持原有事实边界，不按错误文字猜测；JSON-RPC 错误必须由实际 request ID 关联的响应证明，裸 SDK 异常不代表已收到回复。响应见证使用 SDK 0.15 的 RequestOptions 对象身份关联 wire request ID，SDK 升级必须重跑真实 HTTP 与并发乱序回归；已收回复不意味着无副作用，也不授权自动重放。服务已明确返回 `isError=true` 时，通过通用 typed failed-output 保留完整文本、结构化内容及截断引用，同时持久化为失败；不在 Dispatcher 解析 MCP JSON，也不声称远端没有产生任何效果。
+
+依据：[MCP Pagination](https://modelcontextprotocol.io/specification/2026-07-28/server/utilities/pagination)、[Codex pagination](https://github.com/openai/codex/blob/main/codex-rs/codex-mcp/src/pagination.rs)、[OpenAI Agents SDK 工具错误反馈](https://openai.github.io/openai-agents-python/tools/#handling-errors-in-function-tools)。采纳 opaque/null 边界、显式有界失败与模型可修正反馈，不复制参考代码或移植新的固定限制。
+
+验收以生产 `McpToolRuntime.caller` 加实际 HTTP SDK 夹具覆盖双列表三页、上游空串/空格、空页继续、跨来源/endpoint/类别、元数据变化和防循环；Bridge 回归区分本地未发送、服务明确失败和传输未知。先前真实 Luna 二进制消费通过仅证明其对应候选，不替代本次重构的集成门禁或设备验收；最终候选事实由当前验收记录给出。

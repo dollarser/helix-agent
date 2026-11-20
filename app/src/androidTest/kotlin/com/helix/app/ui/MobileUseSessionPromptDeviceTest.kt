@@ -14,6 +14,7 @@ import com.helix.app.HelixApplication
 import com.helix.app.R
 import com.helix.app.connector.MOBILE_USE_PLUGIN_ID
 import com.helix.app.connector.MobileUseSessionState
+import com.helix.app.plugin.PluginName
 import com.helix.app.plugin.PluginSessionRow
 import com.helix.app.plugin.PluginSetupReason
 import kotlinx.coroutines.CancellationException
@@ -30,7 +31,7 @@ class MobileUseSessionPromptDeviceTest {
     @get:Rule val compose = createComposeRule()
     private val app = ApplicationProvider.getApplicationContext<HelixApplication>()
     private val ready =
-        PluginSessionRow(MOBILE_USE_PLUGIN_ID, "Mobile Use", false, false, true, true, readyComponents = 1)
+        PluginSessionRow(MOBILE_USE_PLUGIN_ID, PluginName("Mobile Use"), false, false, true, true, readyComponents = 1)
 
     @Test fun realEmptyConversationReadsLocalStatusBeforeOpeningAndDoesNotSelect() {
         val c = app.appContainer

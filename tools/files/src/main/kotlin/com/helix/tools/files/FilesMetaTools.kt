@@ -1,6 +1,7 @@
 package com.helix.tools.files
 
 import com.helix.core.workspace.FileScopePath
+import com.helix.tools.framework.ToolJsonNumbers
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -17,11 +18,11 @@ import kotlinx.serialization.json.jsonPrimitive
  * (Plain block comment, not KDoc: it documents the file, not a declaration.)
  */
 
-// ── files.stat ────────────────────────────────────────────────────────────────────────────
+// ── files_stat ────────────────────────────────────────────────────────────────────────────
 
-// ── files.list ────────────────────────────────────────────────────────────────────────────
+// ── files_list ────────────────────────────────────────────────────────────────────────────
 
-// ── files.mkdir ───────────────────────────────────────────────────────────────────────────
+// ── files_mkdir ───────────────────────────────────────────────────────────────────────────
 
 // ── shared, package-private helpers (kept tiny and side-effect free) ──────────────────────
 
@@ -33,7 +34,7 @@ internal fun filesMetaToolsParsePath(args: JsonObject): FileScopePath? {
 internal fun filesMetaToolsIntArg(
     args: JsonObject,
     key: String,
-): Int? = (args[key] as? JsonPrimitive)?.content?.toIntOrNull()
+): Int? = ToolJsonNumbers.intOrNull(args[key])
 
 internal fun filesMetaToolsStr(
     maxLength: Int,

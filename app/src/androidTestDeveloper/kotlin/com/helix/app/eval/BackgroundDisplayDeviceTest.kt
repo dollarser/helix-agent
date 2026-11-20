@@ -51,7 +51,7 @@ class BackgroundDisplayDeviceTest {
         args: JsonObject = buildJsonObject {},
     ): ToolDispatchOutcome {
         val callId = "$session-${++sequence}"
-        if (name == "ui.gesture" && InstrumentationRegistry.getArguments().getString("helixInFlight") == "true") {
+        if (name == "ui_gesture" && InstrumentationRegistry.getArguments().getString("helixInFlight") == "true") {
             // The crash case must include the production call journal, not only Dispatcher audit events.
             return container.toolExecution.dispatchToolCall(callId, turn, name, args.toString())
         }
@@ -121,17 +121,17 @@ class BackgroundDisplayDeviceTest {
         }
         val before = firstVisibleRow(snapshot)
         output(
-            "ui.scroll",
+            "ui_scroll",
             buildJsonObject {
                 put("token", container.getValue("token").jsonPrimitive.content)
                 put("direction", "down")
             },
         )
         val deadline = SystemClock.elapsedRealtime() + 3000
-        var after = firstVisibleRow(output("ui.snapshot").getValue("nodes").jsonArray.map { it.jsonObject })
+        var after = firstVisibleRow(output("ui_snapshot").getValue("nodes").jsonArray.map { it.jsonObject })
         while (after == before && SystemClock.elapsedRealtime() < deadline) {
             SystemClock.sleep(100)
-            after = firstVisibleRow(output("ui.snapshot").getValue("nodes").jsonArray.map { it.jsonObject })
+            after = firstVisibleRow(output("ui_snapshot").getValue("nodes").jsonArray.map { it.jsonObject })
         }
         assertTrue("vertical content must move, not switch a horizontal pager: $before -> $after", after > before)
         report("BACKGROUND_VERTICAL_SCROLL=$before->$after")
@@ -165,14 +165,14 @@ class BackgroundDisplayDeviceTest {
         repeat(3) { cycle ->
             awaitStablePreviewWindow()
             output(
-                "ui.click_match",
+                "ui_click_match",
                 buildJsonObject {
                     put("viewId", "android:id/button2")
                     put("text", "Open page")
                 },
             )
             output(
-                "ui.wait",
+                "ui_wait",
                 buildJsonObject {
                     put("text", "BACKGROUND_PREVIEW_PAGE")
                     put("condition", "present")
@@ -191,7 +191,7 @@ class BackgroundDisplayDeviceTest {
             }
             assertTrue("New page pixels must actually reach the local preview", visible)
             awaitStablePreviewWindow()
-            output("ui.click_match", buildJsonObject { put("text", "Back to fixture") })
+            output("ui_click_match", buildJsonObject { put("text", "Back to fixture") })
             val snapshot = readyFixtureSnapshot()
             assertTrue(snapshot.toString(), snapshot.toString().contains("BACKGROUND_COUNT:"))
             awaitPreview(value, 240)
@@ -202,7 +202,7 @@ class BackgroundDisplayDeviceTest {
     private fun awaitStablePreviewWindow() {
         fun observe() =
             output(
-                "ui.wait",
+                "ui_wait",
                 buildJsonObject {
                     put("condition", "stable")
                     put("stableMillis", 500)
@@ -260,18 +260,18 @@ class BackgroundDisplayDeviceTest {
             )
             verifyEmptyTarget()
             val launch = buildJsonObject { put("packageName", fixturePackage) }
-            assertTrue(dispatch("ui.launch", launch) is ToolDispatchOutcome.Denied)
+            assertTrue(dispatch("ui_launch", launch) is ToolDispatchOutcome.Denied)
             container.sessionPermissionEdit.saveSessionConfig(
                 session,
                 SessionPermissionConfig.of(SessionPermissionMode.FULL_ACCESS),
                 now + 1,
             )
-            assertEquals("DISPATCHED", output("ui.launch", launch).getValue("status").jsonPrimitive.content)
-            var device = output("ui.device")
+            assertEquals("DISPATCHED", output("ui_launch", launch).getValue("status").jsonPrimitive.content)
+            var device = output("ui_device")
             val deadline = SystemClock.elapsedRealtime() + 8_000
             while (device["frame"] == null && SystemClock.elapsedRealtime() < deadline) {
                 SystemClock.sleep(100)
-                device = output("ui.device")
+                device = output("ui_device")
             }
             assertEquals("READY", device.getValue("status").jsonPrimitive.content)
             displayId =
@@ -320,23 +320,23 @@ class BackgroundDisplayDeviceTest {
             val original = input.getValue("token").jsonPrimitive.content
             typeAfterReadOnlyRefreshIfStale(observed, displayId)
             assertTrue(
-                dispatch("ui.click", buildJsonObject { put("token", original) }) !is ToolDispatchOutcome.Succeeded,
+                dispatch("ui_click", buildJsonObject { put("token", original) }) !is ToolDispatchOutcome.Succeeded,
             )
             output(
-                "ui.click_match",
+                "ui_click_match",
                 buildJsonObject {
                     put("packageName", fixturePackage)
                     put("viewId", "android:id/button1")
                     put("text", "Increment")
                 },
             )
-            val after = output("ui.snapshot").toString()
+            val after = output("ui_snapshot").toString()
             assertTrue(after, after.contains("BACKGROUND_COUNT:${initialCount + 1}"))
             assertTrue(after, after.contains(typedText))
             report("BACKGROUND_TASK_ID=" + Regex("BACKGROUND_TASK_ID:(\\d+)").find(after)!!.groupValues[1])
-            device = output("ui.device")
+            device = output("ui_device")
             val frame = device.getValue("frame").jsonPrimitive.content
-            val capture = output("ui.screenshot", buildJsonObject { put("frame", frame) })
+            val capture = output("ui_screenshot", buildJsonObject { put("frame", frame) })
             assertEquals("SAVED", capture.getValue("status").jsonPrimitive.content)
             report(
                 "BACKGROUND_CAPTURE reference=${capture.getValue("reference").jsonPrimitive.content};" +
@@ -485,7 +485,7 @@ class BackgroundDisplayDeviceTest {
     }
 
     private fun verifyEmptyTarget() {
-        val emptyTarget = output("ui.device")
+        val emptyTarget = output("ui_device")
         report("BACKGROUND_EMPTY_TARGET=$emptyTarget")
         if (InstrumentationRegistry.getArguments().getString("helixAdbHelper") == "true") {
             assertEquals("adb", emptyTarget.getValue("clickMatchBackend").jsonPrimitive.content)
@@ -527,7 +527,7 @@ class BackgroundDisplayDeviceTest {
         awaitPreview(activePresentation, 240)
         turn = "$session-next-turn"
         container.storage.turns.start(turn, session, System.currentTimeMillis())
-        val continued = output("ui.device")
+        val continued = output("ui_device")
         assertEquals(displayId, continued.getValue("displayId").jsonPrimitive.int)
         assertEquals(fixturePackage, continued.getValue("packageName").jsonPrimitive.content)
         assertTrue(readyFixtureSnapshot().toString().contains(typedText))
@@ -550,7 +550,7 @@ class BackgroundDisplayDeviceTest {
         SystemClock.sleep(1_500)
         assertTrue(app.getSystemService(DisplayManager::class.java).getDisplay(displayId) != null)
         awaitPreview(activePresentation, 240)
-        val refused = dispatch("ui.device")
+        val refused = dispatch("ui_device")
         if (refused is ToolDispatchOutcome.Succeeded) {
             val status =
                 Json
@@ -574,7 +574,7 @@ class BackgroundDisplayDeviceTest {
     }
 
     private fun verifyInFlightDisconnect(displayId: Int) {
-        val fresh = output("ui.device")
+        val fresh = output("ui_device")
         val frame = fresh.getValue("frame").jsonPrimitive.content
         val bounds = fresh.getValue("windowBounds").jsonObject
         val x = (bounds.getValue("left").jsonPrimitive.int + bounds.getValue("right").jsonPrimitive.int) / 2
@@ -591,7 +591,7 @@ class BackgroundDisplayDeviceTest {
             )
             val future =
                 executor.submit<ToolDispatchOutcome> {
-                    dispatch("ui.gesture", longGesture(frame, x, y))
+                    dispatch("ui_gesture", longGesture(frame, x, y))
                 }
             SystemClock.sleep(500)
             if (future.isDone) {
@@ -634,7 +634,7 @@ class BackgroundDisplayDeviceTest {
         assertTrue(outcome is ToolDispatchOutcome.ExecutionFailed && outcome.requiresReview && !outcome.sideEffectFree)
         val call =
             container.storage.toolCalls.listByTurn(turn).single {
-                it.name == "ui.gesture" && Json
+                it.name == "ui_gesture" && Json
                     .parseToJsonElement(it.argsJson)
                     .jsonObject["strokes"]
                     ?.jsonArray
@@ -722,11 +722,11 @@ class BackgroundDisplayDeviceTest {
         }
         assertTrue(app.getSystemService(DisplayManager::class.java).getDisplay(displayId) != null)
         reconnectRequestedHelper()
-        assertEquals(displayId, output("ui.device").getValue("displayId").jsonPrimitive.int)
+        assertEquals(displayId, output("ui_device").getValue("displayId").jsonPrimitive.int)
         readyFixtureSnapshot()
         val stale =
             dispatch(
-                "ui.set_text",
+                "ui_set_text",
                 buildJsonObject {
                     put("token", oldToken)
                     put("text", "MUST_NOT_WRITE")
@@ -751,7 +751,7 @@ class BackgroundDisplayDeviceTest {
         stage: String = "primaryRefused",
     ) {
         assertTrue(app.getSystemService(DisplayManager::class.java).getDisplay(displayId) != null)
-        val refused = dispatch("ui.launch", buildJsonObject { put("packageName", fixturePackage) })
+        val refused = dispatch("ui_launch", buildJsonObject { put("packageName", fixturePackage) })
         assertTrue(
             "Must preserve the main-display migration setting: $refused",
             refused is ToolDispatchOutcome.ExecutionFailed && refused.sideEffectFree &&
@@ -781,7 +781,7 @@ class BackgroundDisplayDeviceTest {
             },
         )
         awaitRecoveryObservation("removed")
-        val empty = output("ui.device")
+        val empty = output("ui_device")
         assertEquals("TARGET_UNAVAILABLE", empty.getValue("status").jsonPrimitive.content)
         val replacement =
             lease.javaClass
@@ -793,7 +793,7 @@ class BackgroundDisplayDeviceTest {
         awaitRecoveryObservation("empty")
         assertEquals(
             "DISPATCHED",
-            output("ui.launch", buildJsonObject { put("packageName", fixturePackage) })
+            output("ui_launch", buildJsonObject { put("packageName", fixturePackage) })
                 .getValue("status")
                 .jsonPrimitive.content,
         )
@@ -844,10 +844,10 @@ class BackgroundDisplayDeviceTest {
 
     private fun awaitReadyRecoveryDevice(): JsonObject {
         val deadline = SystemClock.elapsedRealtime() + 8_000
-        var observed = output("ui.device")
+        var observed = output("ui_device")
         while (observed["status"]?.jsonPrimitive?.content != "READY" && SystemClock.elapsedRealtime() < deadline) {
             SystemClock.sleep(100)
-            observed = output("ui.device")
+            observed = output("ui_device")
         }
         assertEquals(
             "Recovery target did not become ready: $observed",
@@ -957,7 +957,7 @@ class BackgroundDisplayDeviceTest {
 
     private fun readyFixtureSnapshot(): JsonObject {
         val deadline = SystemClock.elapsedRealtime() + 5000
-        var observed = output("ui.snapshot")
+        var observed = output("ui_snapshot")
 
         fun ready(): Boolean =
             observed["nodes"]?.jsonArray?.any {
@@ -965,7 +965,7 @@ class BackgroundDisplayDeviceTest {
             } == true
         while (!ready() && SystemClock.elapsedRealtime() < deadline) {
             SystemClock.sleep(100)
-            observed = output("ui.snapshot")
+            observed = output("ui_snapshot")
         }
         assertTrue("Fixture semantic tree unavailable: ${observed["status"]}", ready())
         return observed
@@ -985,7 +985,7 @@ class BackgroundDisplayDeviceTest {
                     .single { it["editable"]?.jsonPrimitive?.content == "true" }
             val result =
                 dispatch(
-                    "ui.set_text",
+                    "ui_set_text",
                     buildJsonObject {
                         put("token", input.getValue("token"))
                         put("text", typedText)
@@ -998,7 +998,7 @@ class BackgroundDisplayDeviceTest {
             ) { "Unexpected input outcome; do not replay: $result" }
             println("BACKGROUND_READ_ONLY_REFRESH_AFTER_STALE")
             SystemClock.sleep(300)
-            val fresh = output("ui.device")
+            val fresh = output("ui_device")
             assertEquals(expectedDisplay, fresh.getValue("displayId").jsonPrimitive.int)
             assertEquals(
                 InstrumentationRegistry.getInstrumentation().context.packageName,

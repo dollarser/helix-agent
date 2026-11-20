@@ -180,7 +180,7 @@ class ProgressiveSkillModelDeviceTest {
 
                                     "workflow" -> {
                                         c.pluginService.selectFromUser(session, "bundled-plugin:chat-reply", true)
-                                        "Read chat-reply using skills.list then skills.read with its exact hash. " +
+                                        "Read chat-reply using skills_list then skills_read with its exact hash. " +
                                             "Use only this synthetic message: 'Can we meet at 3pm?'. " +
                                             "Draft exactly 'Yes, see you at 3pm.' for review. " +
                                             "Do not inspect phone, send messages or write files."
@@ -253,7 +253,7 @@ class ProgressiveSkillModelDeviceTest {
                                         "Operate only this test app and Helix. Fill 测试输入 with 你好 Helix, " +
                                             (
                                                 if (findBeforeScroll) {
-                                                    "Locate 完成测试 using ui.find before scrolling. "
+                                                    "Locate 完成测试 using ui_find before scrolling. "
                                                 } else {
                                                     ""
                                                 }
@@ -261,7 +261,7 @@ class ProgressiveSkillModelDeviceTest {
                                             "Scroll to 完成测试, click once; verify success. Stay there." +
                                             (
                                                 if (observationHint) {
-                                                    " After ui.set_text/ui.scroll, read observation when " +
+                                                    " After ui_set_text/ui_scroll, read observation when " +
                                                         "observationStatus=ATTACHED. " +
                                                         "Use its fresh tokens for the next action; " +
                                                         "query again only when needed."
@@ -270,9 +270,9 @@ class ProgressiveSkillModelDeviceTest {
                                                 }
                                             ) +
                                             if (visual) {
-                                                " For the final click, use ui.device then ui.screenshot. " +
+                                                " For the final click, use ui_device then ui_screenshot. " +
                                                     "Locate 完成测试 from the attached pixels and click using " +
-                                                    "ui.gesture with that screenshot's frame. Do not guess coordinates."
+                                                    "ui_gesture with that screenshot's frame. Do not guess coordinates."
                                             } else {
                                                 ""
                                             }
@@ -334,9 +334,9 @@ class ProgressiveSkillModelDeviceTest {
                                                 .lastOrNull { it.role == "ASSISTANT" && it.kind == "TEXT" }
                                                 ?.let(c.storage.messages::readContent)
                                                 .orEmpty()
-                                        calls.any { it.name == "skills.read" && it.state == "COMPLETED" } &&
+                                        calls.any { it.name == "skills_read" && it.state == "COMPLETED" } &&
                                             calls.none {
-                                                it.name.startsWith("ui.") || it.name == "chat.reply" ||
+                                                it.name.startsWith("ui_") || it.name == "chat.reply" ||
                                                     it.name == "write" || it.name == "file.write"
                                             } &&
                                             reply.contains("Yes, see you at 3pm.")
@@ -353,7 +353,7 @@ class ProgressiveSkillModelDeviceTest {
                                                     text.complete(value)
                                                 }
                                         }
-                                        calls.any { it.name == "browser.click" && it.state == "COMPLETED" } &&
+                                        calls.any { it.name == "browser_click" && it.state == "COMPLETED" } &&
                                             text.get(5, java.util.concurrent.TimeUnit.SECONDS) == "\"VERIFIED:1\""
                                     }
 
@@ -379,7 +379,7 @@ class ProgressiveSkillModelDeviceTest {
                                 }
                             val offscreenFind =
                                 calls.indexOfFirst { call ->
-                                    call.name == "ui.find" && call.state == "COMPLETED" &&
+                                    call.name == "ui_find" && call.state == "COMPLETED" &&
                                         c.storage.toolResults.byToolCall(call.id)?.let {
                                             c.storage.toolResults
                                                 .readContent(it)
@@ -389,7 +389,7 @@ class ProgressiveSkillModelDeviceTest {
                             val offscreenRecovered =
                                 offscreenFind >= 0 &&
                                     calls.drop(offscreenFind + 1).any {
-                                        it.name == "ui.scroll" &&
+                                        it.name == "ui_scroll" &&
                                             it.state == "COMPLETED"
                                     }
                             val success =
@@ -397,7 +397,7 @@ class ProgressiveSkillModelDeviceTest {
                                     (!findBeforeScroll || offscreenRecovered)
                             if (postObservation) {
                                 val attached =
-                                    calls.filter { it.name in setOf("ui.set_text", "ui.scroll") }.count { call ->
+                                    calls.filter { it.name in setOf("ui_set_text", "ui_scroll") }.count { call ->
                                         c.storage.toolResults
                                             .byToolCall(call.id)
                                             ?.let(c.storage.toolResults::readContent)
@@ -407,10 +407,10 @@ class ProgressiveSkillModelDeviceTest {
                                 assertTrue("No actual post-action observation returned", attached > 0)
                             }
                             if (visual) {
-                                assertTrue(calls.any { it.name == "ui.gesture" && it.state == "COMPLETED" })
+                                assertTrue(calls.any { it.name == "ui_gesture" && it.state == "COMPLETED" })
                                 assertTrue(
                                     calls.any { call ->
-                                        call.name == "ui.screenshot" && call.state == "COMPLETED" &&
+                                        call.name == "ui_screenshot" && call.state == "COMPLETED" &&
                                             c.storage.toolResults.byToolCall(call.id)?.let {
                                                 c.storage.toolResults
                                                     .readContent(

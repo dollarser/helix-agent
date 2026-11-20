@@ -1,5 +1,7 @@
 # 外部插件市场复用与工具发现指导
 
+后续设备及真实模型补验见[独立记录](plugin-marketplace-device-model-2026-10-13.md)；本页 not requested 仅属于本次主机实现阶段。
+
 HXA-281。Owner明确要求参考两条会话并优化工具/插件逻辑，选择先支持导入、市场、Skill及可运行MCP，其他组件显示限制。参考会话只用于识别安装/加载/当前绑定、工具成功/UI显示、MCP OAuth/平台账户的分层；不使用其远程服务、账号、权限或私有源代码。
 
 ## 研究与选择
@@ -14,7 +16,7 @@ HXA-281。Owner明确要求参考两条会话并优化工具/插件逻辑，选�
 
 ## 实现
 
-工具名引用仅作发现线索，base/Browser描述就近提醒核对本请求schema；tools.search版本4返回schemaAvailability=next_request。外部mcp__限定名只在搜索中提取动作部分，不注册Dispatcher别名，撤销和当前身份仍过滤。
+工具名引用仅作发现线索，base/Browser描述就近提醒核对本请求schema；当时 tools.search 版本4返回schemaAvailability=next_request（内部工具版本后续统一为1，当前声明以源码为准）。外部mcp__限定名只在搜索中提取动作部分，不注册Dispatcher别名，撤销和当前身份仍过滤。
 
 外部包增加实际路径数组及有序MCP声明；标准根权威和安全归档检查保持。市场目录与插件分开，内含包逐项预览/安装，只有索引时可选择对应原包。稳定市场/条目身份进入原PluginService，当前目录hash与安装revision双重检查；目录添加/更新/移除不连接服务、不更改实际安装/会话选择。所有磁盘读取/安装/卸载从市场UI迁到IO，取消传播；没有新增全局执行锁。
 

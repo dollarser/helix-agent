@@ -7,6 +7,7 @@ import com.helix.core.model.ToolVersion
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
+import com.helix.tools.framework.ToolDiscoveryHints
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolOrigin
@@ -16,7 +17,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlin.time.Duration.Companion.seconds
 
 object AndroidOpenSettingsTool {
-    const val NAME: String = "device.open_settings"
+    const val NAME: String = "device_open_settings"
     const val VERSION: Int = 1
 
     private val targets = AndroidSettingsTarget.entries.map { it.wire }
@@ -35,6 +36,7 @@ object AndroidOpenSettingsTool {
             idempotency = Idempotency.NON_IDEMPOTENT,
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
             origin = ToolOrigin.BuiltInOrigin,
+            discovery = ToolDiscoveryHints(category = "device"),
         )
 
     private fun description(): String =
@@ -113,7 +115,7 @@ object AndroidOpenSettingsTool {
         val request =
             parseRequest(call.args)
                 ?: return ToolExecutorResult.Failed(
-                    "invalid 'device.open_settings' arguments: expected a supported action and valid packageName",
+                    "invalid 'device_open_settings' arguments: expected a supported action and valid packageName",
                 )
         return mapOutcome(bridge.openSettings(request.action, request.packageName))
     }

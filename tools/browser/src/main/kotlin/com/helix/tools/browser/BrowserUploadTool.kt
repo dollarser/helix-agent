@@ -23,7 +23,7 @@ data class BrowserUploadOutcome(
 )
 
 object BrowserUploadTool {
-    const val NAME = "browser.upload"
+    const val NAME = "browser_upload"
     const val MAX_BYTES = 1024 * 1024
 
     fun descriptor(origin: ToolOrigin.PluginOrigin) =
@@ -95,7 +95,7 @@ object BrowserUploadTool {
                     )
                 } else {
                     ToolExecutorResult.Failed(
-                        "browser.upload: " +
+                        "browser_upload: " +
                             result.action.reason.ifEmpty {
                                 result.action.status.name
                                     .lowercase()

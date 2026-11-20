@@ -40,5 +40,5 @@ The expiry interval was accelerated by aging only the owned synthetic Job metada
 ## Related records
 
 - [Runtime lifecycle](../adr/runtime/001-execution-domains.md)
-- [Current TODO](../evidence/development/main-optimization-todo.md)
+- [Historical follow-up](../evidence/development/main-optimization-todo.md)
 - [HXA-102](../completion-records/HXA-102.md)

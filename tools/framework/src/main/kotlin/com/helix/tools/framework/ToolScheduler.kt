@@ -107,14 +107,6 @@ class ToolScheduler(
         /** First exceptional settlement in call order, for turn-level propagation only. */
         val firstError: Throwable?
             get() = settlements.filterIsInstance<BatchSettlement.Thrown>().firstOrNull()?.cause
-
-        /** Compatibility summary for existing diagnostics; production must inspect [settlements]. */
-        val outcomes: List<ToolDispatchOutcome?>
-            get() = settlements.map { (it as? BatchSettlement.Outcome)?.outcome }
-
-        /** Compatibility alias for [firstError]. It never classifies another slot's cause. */
-        val error: Throwable?
-            get() = firstError
     }
 
     /**

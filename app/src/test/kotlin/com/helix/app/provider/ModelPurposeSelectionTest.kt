@@ -75,7 +75,13 @@ class ModelPurposeSelectionTest {
         assertFalse(current.modelSelectable("vector"))
         assertTrue(current.conversationProhibited("vector"))
         assertTrue(current.modelSelectable("multi"))
-        for (purpose in listOf(ModelPurpose.RERANK, ModelPurpose.AUDIO, ModelPurpose.VIDEO, ModelPurpose.OTHER)) {
+        for (purpose in listOf(
+            ModelPurpose.RERANK,
+            ModelPurpose.TRANSCRIPTION,
+            ModelPurpose.AUDIO,
+            ModelPurpose.VIDEO,
+            ModelPurpose.OTHER,
+        )) {
             assertTrue(
                 current
                     .copy(

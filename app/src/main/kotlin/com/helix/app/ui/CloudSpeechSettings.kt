@@ -10,6 +10,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -44,6 +45,17 @@ internal fun CloudSpeechSettingsEntry(
             )
         }
         var error by remember { mutableStateOf(false) }
+        var providerLoadFailed by remember { mutableStateOf(false) }
+        var providers by remember { mutableStateOf(emptyList<com.helix.app.voice.SpeechProviderOption>()) }
+        LaunchedEffect(settings) {
+            try {
+                providers = settings.availableProviders()
+            } catch (cancel: kotlinx.coroutines.CancellationException) {
+                throw cancel
+            } catch (_: Exception) {
+                providerLoadFailed = true
+            }
+        }
         SharedSheet(stringResource(R.string.speech_services_title), "speech-services", { open = false }) {
             Column {
                 Text(stringResource(R.string.speech_local_section))
@@ -54,40 +66,33 @@ internal fun CloudSpeechSettingsEntry(
                     draft = draft.copy(httpEnabled = it)
                 })
                 if (draft.httpEnabled) {
-                    SpeechSettingToggle(stringResource(R.string.speech_ws_enable), draft.webSocket, { enabled ->
-                        draft =
-                            draft.copy(
-                                webSocket = enabled,
-                                useAccountLogin = if (enabled) true else draft.useAccountLogin,
-                            )
+                    val selfHostedLabel = stringResource(R.string.cloud_speech_self_hosted_ws)
+                    SpeechSettingToggle(selfHostedLabel, draft.webSocket, { enabled ->
+                        draft = speechTransportSelection(draft, enabled)
                     })
                     Text(
                         stringResource(
-                            if (draft.webSocket) R.string.speech_ws_description else R.string.speech_http_description,
+                            if (draft.webSocket) {
+                                R.string.cloud_speech_self_hosted_hint
+                            } else {
+                                R.string.speech_http_description
+                            },
                         ),
                     )
-                    if (!draft.useAccountLogin) {
-                        Text(stringResource(R.string.speech_http_loopback))
-                        OutlinedTextField(
-                            draft.customAsrEndpoint,
-                            { draft = draft.copy(customAsrEndpoint = it) },
-                            label = { Text(stringResource(R.string.speech_asr_endpoint)) },
-                            singleLine = true,
-                        )
-                        OutlinedTextField(
-                            draft.customTtsEndpoint,
-                            { draft = draft.copy(customTtsEndpoint = it) },
-                            label = { Text(stringResource(R.string.speech_tts_endpoint)) },
-                            singleLine = true,
-                        )
+                    if (!draft.useAccountLogin && draft.providerId == null) {
+                        SpeechCustomEndpoints(draft) { draft = it }
                     }
                     SpeechSettingToggle(
                         stringResource(R.string.speech_use_account_login),
                         draft.useAccountLogin,
-                        { draft = draft.copy(useAccountLogin = it) },
+                        { draft = draft.copy(useAccountLogin = it, providerId = null) },
                         enabled = !draft.webSocket,
                     )
-                    if (draft.useAccountLogin) Text(stringResource(R.string.speech_account_setup_hint))
+                    if (providerLoadFailed) Text(stringResource(R.string.cloud_speech_providers_failed))
+                    SpeechProviderChoices(providers, draft) { draft = it }
+                    if (draft.useAccountLogin || draft.providerId != null) {
+                        SpeechModelFields(draft) { draft = it }
+                    }
                 }
                 if (error) Text(stringResource(R.string.speech_settings_invalid))
                 TextButton({
@@ -126,5 +131,111 @@ internal fun SpeechSettingToggle(
     ) {
         Text(label, Modifier.weight(1f))
         Switch(checked, onCheckedChange = null, enabled = enabled)
+    }
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun SpeechModelFields(
+    draft: com.helix.app.voice.SpeechServiceSettings,
+    onChange: (com.helix.app.voice.SpeechServiceSettings) -> Unit,
+) {
+    if (draft.useAccountLogin) Text(stringResource(R.string.speech_account_setup_hint))
+    OutlinedTextField(
+        draft.asrModel,
+        { onChange(draft.copy(asrModel = it.trim())) },
+        label = { Text(stringResource(R.string.cloud_speech_asr_model)) },
+        singleLine = true,
+    )
+    Text(
+        stringResource(
+            if (draft.asrWebSocket) {
+                R.string.cloud_speech_route_ws
+            } else {
+                R.string.cloud_speech_route_http
+            },
+        ),
+    )
+    OutlinedTextField(
+        draft.ttsModel,
+        { onChange(draft.copy(ttsModel = it.trim())) },
+        label = { Text(stringResource(R.string.cloud_speech_tts_model)) },
+        singleLine = true,
+    )
+    Text(
+        stringResource(
+            if (draft.ttsWebSocket) {
+                R.string.cloud_speech_route_ws
+            } else {
+                R.string.cloud_speech_route_http
+            },
+        ),
+    )
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun SpeechCustomEndpoints(
+    draft: com.helix.app.voice.SpeechServiceSettings,
+    onChange: (com.helix.app.voice.SpeechServiceSettings) -> Unit,
+) {
+    Text(stringResource(R.string.speech_http_loopback))
+    OutlinedTextField(
+        draft.customAsrEndpoint,
+        { onChange(draft.copy(customAsrEndpoint = it)) },
+        label = { Text(stringResource(R.string.speech_asr_endpoint)) },
+        singleLine = true,
+    )
+    OutlinedTextField(
+        draft.customTtsEndpoint,
+        { onChange(draft.copy(customTtsEndpoint = it)) },
+        label = { Text(stringResource(R.string.speech_tts_endpoint)) },
+        singleLine = true,
+    )
+}
+
+private fun speechTransportSelection(
+    draft: com.helix.app.voice.SpeechServiceSettings,
+    enabled: Boolean,
+) = draft.copy(
+    webSocket = enabled,
+    providerId = if (enabled) null else draft.providerId,
+    useAccountLogin = if (enabled) true else draft.useAccountLogin,
+    asrModel = if (enabled) "self-hosted" else "gpt-transcribe",
+    ttsModel = if (enabled) "self-hosted" else "gpt-realtime-2.1-mini",
+)
+
+@Composable
+@Suppress("FunctionName")
+private fun SpeechProviderChoices(
+    providers: List<com.helix.app.voice.SpeechProviderOption>,
+    draft: com.helix.app.voice.SpeechServiceSettings,
+    onChange: (com.helix.app.voice.SpeechServiceSettings) -> Unit,
+) {
+    if (providers.isNotEmpty()) {
+        Text(stringResource(R.string.cloud_speech_api_services))
+        providers.forEach { provider ->
+            TextButton({
+                onChange(
+                    draft.copy(
+                        providerId = provider.id,
+                        useAccountLogin = false,
+                        webSocket = false,
+                        customAsrEndpoint = provider.asrEndpoint,
+                        customTtsEndpoint = provider.ttsEndpoint,
+                        asrModel = "gpt-transcribe",
+                        ttsModel = "gpt-realtime-2.1-mini",
+                    ),
+                )
+            }) {
+                Text(
+                    if (draft.providerId == provider.id) {
+                        "✓ ${provider.displayName}"
+                    } else {
+                        provider.displayName
+                    },
+                )
+            }
+        }
     }
 }

@@ -61,7 +61,7 @@ internal fun selectionIssueLabel(row: PluginSessionRow): Int? {
 private fun PluginSessionState(row: PluginSessionRow) {
     Text(
         com.helix.app.plugin
-            .pluginLabel(row.name),
+            .pluginLabel(row.pluginName),
         style = MaterialTheme.typography.bodyLarge,
     )
     selectionIssueLabel(row)?.let {

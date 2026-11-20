@@ -375,7 +375,7 @@ internal class DefaultAppContainer(
                 .createDirectories(it)
         }
 
-    private val legacyScopeRoots: ScopeRootResolver =
+    private val directScopeRoots: ScopeRootResolver =
         ScopeRootResolver { scopeId ->
             if (scopeId == APP_SCOPE_ID) {
                 appScopeRoot
@@ -399,13 +399,13 @@ internal class DefaultAppContainer(
                 .SharedStorageAccess(appContext)
                 .resolveRoot(scopeId)
         } else {
-            legacyScopeRoots.resolveRoot(scopeId)
+            directScopeRoots.resolveRoot(scopeId)
         }
 
     private val sessionWorkspaces =
         com.helix.app.chat.SessionWorkspaceService(
             storage.workspaces,
-            legacyScopeRoots,
+            directScopeRoots,
             selectedRoots = ScopeRootResolver(::resolveUserSelectedRoot),
         ) { path ->
             com.helix.app.files
@@ -426,6 +426,15 @@ internal class DefaultAppContainer(
             }
 
     private val scopeRoots = ScopeRootResolver(sessionWorkspaces::resolveRoot)
+
+    init {
+        com.helix.app.infrastructure.chat
+            .AttachmentOrphanRecovery(
+                sessionWorkspaces.resolveRoot(APP_SCOPE_ID),
+                storage.artifacts::referenceCount,
+                onFailure = { android.util.Log.w("HelixAttachments", "Orphan recovery retained an entry", it) },
+            ).recover()
+    }
 
     private fun documentBackend(scope: String): com.helix.core.workspace.WorkspaceFileBackend? {
         val resource = storage.workspaces.find(scope)
@@ -609,7 +618,7 @@ internal class DefaultAppContainer(
         // HXA-045: initialize the all-files module (developer flavor builds the roots registry;
         // consumer is a no-op). Runs before any tool can resolve an af- scope.
         AllFilesModule.init(context)
-        // The first real tool (HXA-035): `time.now` — the canonical L0 no-approval path.
+        // The first real tool (HXA-035): `time_now` — the canonical L0 no-approval path.
         TimeNowTool.register(toolRegistry, appClock)
         com.helix.app.memory.MemoryTools
             .register(toolRegistry, memory)
@@ -633,15 +642,15 @@ internal class DefaultAppContainer(
             ) { conversation.goalRuntime.executeGoalTool(it) }
         com.helix.app.goal.GoalReportTool
             .register(toolRegistry, storage, executionOwnership::metadataExecutor)
-        // HX2-05: `plan.submit` — Plan mode's structured termination tool; persists the
+        // HX2-05: `plan_submit` — Plan mode's structured termination tool; persists the
         // versioned PlanArtifact REVIEW_REQUIRED through the same repository the review
         // loop (ChatService.planReview) drives.
         com.helix.app.plan.PlanTools
             .register(toolRegistry, storage.plans, {
                 idGenerator.next()
             }, executionOwnership::metadataExecutor)
-        // HX2-07: `todo.write` — the model's working-memory ledger; read-only L0 echo whose
-        // durable record is the dispatcher's own tool-call row (like `goal.report`).
+        // HX2-07: `todo_write` — the model's working-memory ledger; read-only L0 echo whose
+        // durable record is the dispatcher's own tool-call row (like `goal_report`).
         com.helix.app.todo.TodoWriteTool
             .register(toolRegistry, executionOwnership::metadataExecutor)
         // HXA-095: developer registers only the five high-level Root reads; consumer is a
@@ -760,7 +769,7 @@ internal class DefaultAppContainer(
         registerSessionRuntimeTools(toolRegistry, jsExecutionClient, userQuestions, executionOwnership, scriptBridge) {
             nativeRecovery.observe()
         }
-        // HXA-085: the PRoot `code.linux.run` tool (developer flavor only; the consumer
+        // HXA-085: the PRoot `code_linux_run` tool (developer flavor only; the consumer
         // no-op registers nothing). Registration does NO bind and starts NO process
         // (ADR-0007): the availability gate runs per execution, and the only bind paths
         // are the user-click zero-Job verification and the approved job's own cold bind.
@@ -782,8 +791,6 @@ internal class DefaultAppContainer(
         )
         com.helix.app.settings.HelixSettingsTool
             .register(toolRegistry) { this }
-        com.helix.app.tool
-            .migrateBuiltInToolAvailability(storage)
         AppAndroidTools.register(
             context,
             toolRegistry,
@@ -910,7 +917,7 @@ internal class DefaultAppContainer(
                 plugins = pluginRegistry,
                 disabledToolFilter = disabledToolFilter,
                 skills = skillRepository,
-                pluginReadiness = { session, turn -> pluginService.requestReadiness(session, turn) },
+                pluginPromptContext = { session, turn -> pluginService.promptContext(session, turn) },
             ).also {
                 it.mcpDiscovery.register(toolRegistry, executionOwnership::metadataExecutor)
             }
@@ -1059,6 +1066,8 @@ internal class DefaultAppContainer(
             sourceMetadata = featureFiles.metadataReader::metadata,
             resolveWorkspacePath = { scopePath -> resolveFileScopePath(scopePath, scopeRoots) },
             openPreviewSource = featureFiles.sourceOpener::openStream,
+            releaseCopiedSource = com.helix.app.infrastructure.chat
+                .CopiedCameraSource(context)::release,
         )
 
     private val scheduledModelGuard =
@@ -1212,6 +1221,7 @@ internal class DefaultAppContainer(
         appScope.launch {
             account.identityState.collect {
                 providerService.refresh()
+                providerService.refreshBuiltInModels()
             }
         }
         appScope.launch(Dispatchers.IO) { pluginService.cleanupRetired() }

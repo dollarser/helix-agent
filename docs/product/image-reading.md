@@ -42,7 +42,7 @@
                          模型继续分析
 ```
 
-`browser.screenshot` 保存图片后使用同一准备管线；已有图表/截图文件通过 `view_image` 进入。没有新增录屏、整机截屏或 OCR 服务，也不替代 Mobile Use 的 Accessibility 语义树。
+`browser_screenshot` 保存图片后使用同一准备管线；已有图表/截图文件通过 `view_image` 进入。没有新增录屏、整机截屏或 OCR 服务，也不替代 Mobile Use 的 Accessibility 语义树。
 
 ## 3. 用户可能看到什么
 
@@ -102,6 +102,6 @@ Chat Completions 的合成观察是 Helix 的兼容策略，不等于所有兼�
 
 ## 7. 验收口径
 
-单测与编码 fixture 证明原始事实、权限、预算、字节和消息格式符合预期；真实像素的 Android fixture 另行编译，执行需要当前设备授权。它们不能替代真实模型识别质量测试。
+单测与编码 fixture 证明原始事实、权限、预算、字节和消息格式符合预期；真实像素的 Android fixture 另行编译，执行遵守[根 AGENTS 的设备授权范围](../../AGENTS.md#verification-and-device-authorization)。它们不能替代真实模型识别质量测试。
 
 后续真实验证应使用不把答案泄漏在文件名/文本输出中的图像：例如随机色块/图表标签，要求 Agent 通过读取工具回答；另外验证取消发送、模型不支持、过期图片、工作目录切换及多轮窗口。历史截图出现、Base64 出现或模型自称“看到了”都不能单独算视觉验收成功。

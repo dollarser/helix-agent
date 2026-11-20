@@ -26,7 +26,7 @@ import org.junit.Test
 import java.time.Instant
 
 /**
- * Unit tests for the `todo.write` built-in tool (research doc section 16; HX2-07): the
+ * Unit tests for the `todo_write` built-in tool (research doc section 16; HX2-07): the
  * contract facts, the executor's echo-and-validate behavior and its fail-closed exits,
  * plus the [TaskLedgerProjection.itemsFromArgs] parse rules — no dispatcher, no Room.
  */

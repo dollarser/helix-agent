@@ -9,6 +9,7 @@ enum class ProviderBindingIssue(
     SOURCE_DELETED(R.string.chat_model_source_deleted),
     CONFIGURATION_CHANGED(R.string.chat_model_source_changed),
     MODEL_MISSING(R.string.chat_model_missing),
+    MODEL_UNAVAILABLE(R.string.chat_model_unavailable),
     MODEL_NOT_CHAT(R.string.provider_model_not_chat),
     MODEL_TASK_UNKNOWN(R.string.builtin_model_tasks_missing),
     AUTHENTICATION(R.string.chat_model_authentication),

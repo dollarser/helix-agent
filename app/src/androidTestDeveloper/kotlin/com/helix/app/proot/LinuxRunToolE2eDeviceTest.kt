@@ -40,7 +40,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 
 /**
- * HXA-085 device acceptance: the `code.linux.run` tool end-to-end from the MAIN app
+ * HXA-085 device acceptance: the `code_linux_run` tool end-to-end from the MAIN app
  * process — descriptor gate (policy/registration), the production executor running a
  * REAL job through the separately signed PRoot Runtime (cold bind, re-handshake per
  * execution, NO replay), the hash-verified output archive, the WORKSPACE IMPORT of the
@@ -96,7 +96,7 @@ class LinuxRunToolE2eDeviceTest {
     @Test
     fun theDescriptorIsL2CodeExecutionOnLocalProot() {
         val d = LinuxRunTool.descriptor()
-        assertEquals("code.linux.run", d.name.value)
+        assertEquals("code_linux_run", d.name.value)
         assertEquals(com.helix.core.model.ToolOperationClass.CODE_EXECUTION, d.operationClass)
         assertEquals(com.helix.core.model.ToolOperationClass.CODE_EXECUTION, d.operationClass)
         assertEquals(ExecutionTargetType.LOCAL_PROOT, d.executionTarget)
@@ -138,13 +138,38 @@ class LinuxRunToolE2eDeviceTest {
     fun anApprovedLinuxCallRunsTheJobAndImportsTheVerifiedResult() {
         runOnWorker(timeoutMs = 180_000L) {
             val store = e2eWorkspaceStore()
-            // 1) Stage an input file THROUGH THE STORE (the only read path the tool has).
-            //    The seed is an output-region artifact (its region is where the store
-            //    created it — the tool reads through the store, never by region).
-            val seedParent = File(context.filesDir, "output")
-            seedParent.mkdirs()
-            val inputRef = FileScopePath("app", "output/e2e-linux-seed.txt")
-            store.writeArtifact(inputRef, "SEED-FROM-MAIN-APP\n".toByteArray(), WorkspaceLayout.OUTPUT)
+            // Real importer output is an attachment reference, not a fabricated terminal path.
+            val bytes = "SEED-FROM-MAIN-APP\n".toByteArray()
+            val imported =
+                com.helix.feature.files
+                    .AttachmentImporter(
+                        com.helix.feature.files.SafImportPipeline(
+                            scopeRoots =
+                                com.helix.core.workspace
+                                    .ScopeRootResolver { context.filesDir.toPath() },
+                            opener =
+                                com.helix.feature.files
+                                    .SafSourceOpener { bytes.inputStream() },
+                        ),
+                    ).importAttachment(
+                        workspaceScopeId = "app",
+                        sourceUri = "content://synthetic-attachment/seed",
+                        reported =
+                            com.helix.feature.files.SafSourceMetadata(
+                                bytes.size.toLong(),
+                                "text/plain",
+                                "e2e-linux-seed.txt",
+                            ),
+                        cancel =
+                            com.helix.feature.files
+                                .SafCancelToken { false },
+                        sink = null,
+                        sessionId = "session",
+                    )
+            assertEquals(com.helix.feature.files.ImportStatus.COMPLETED, imported.status)
+            val inputRef = FileScopePath.fromModelReference(requireNotNull(imported.modelRef))
+            scratch += context.filesDir.resolve(inputRef.relativePath).parentFile!!
+            check(File(context.filesDir, "output").let { it.isDirectory || it.mkdirs() })
             val outputRef = FileScopePath("app", "output/e2e-linux-result.txt")
             // 2) The EXACT arguments the approval would bind.
             val args =
@@ -158,6 +183,11 @@ class LinuxRunToolE2eDeviceTest {
                             add(
                                 JsonPrimitive(
                                     "cat /workspace/e2e-linux-seed.txt > result.txt" +
+                                        " && python3 -c \"from pathlib import Path; " +
+                                        "p=Path('/workspace/e2e-linux-seed.txt'); " +
+                                        "assert p.read_bytes()==b'SEED-FROM-MAIN-APP\\n'; " +
+                                        "p.write_text('MODIFIED_SNAPSHOT'); " +
+                                        "print('PYTHON_READ_OK', file=__import__('sys').stderr)\"" +
                                         " && echo TOOL_OUT && echo TOOL_ERR >&2",
                                 ),
                             )
@@ -204,13 +234,15 @@ class LinuxRunToolE2eDeviceTest {
             assertEquals("SUCCEEDED", out["state"]!!.jsonPrimitive.content)
             assertEquals("0", out["exitCode"]!!.jsonPrimitive.content)
             assertTrue(out["stdout"]!!.jsonPrimitive.content.contains("TOOL_OUT"))
+            assertTrue(out["stderr"]!!.jsonPrimitive.content.contains("PYTHON_READ_OK"))
+            assertEquals("SEED-FROM-MAIN-APP\n", String(store.readAll(inputRef), Charsets.UTF_8))
             assertTrue(out["stderr"]!!.jsonPrimitive.content.contains("TOOL_ERR"))
             assertEquals("true", out["outputImported"]!!.jsonPrimitive.content)
             // 4) The import landed in the WORKSPACE (main app side), hash-matched.
-            val imported = store.readAll(outputRef)
-            assertEquals("SEED-FROM-MAIN-APP\n", String(imported, Charsets.UTF_8))
+            val resultBytes = store.readAll(outputRef)
+            assertEquals("SEED-FROM-MAIN-APP\n", String(resultBytes, Charsets.UTF_8))
             assertEquals(
-                sha256(imported),
+                sha256(resultBytes),
                 out["outputSha256"]!!.jsonPrimitive.content,
             )
             // 5) The audit detail carries the job ids (reconcilable by job id, never replayed).
@@ -437,7 +469,7 @@ class LinuxRunToolE2eDeviceTest {
         val scratchRoot = File(context.filesDir, "proot-jobs-e2e-" + nextId())
         scratch += scratchRoot
         val executor =
-            LinuxRunTool.ProductionLinuxExecutor(
+            LinuxJobExecution(
                 client = jobClient,
                 gate = { supervisorGate() },
                 store = store,

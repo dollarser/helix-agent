@@ -8,6 +8,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.long
 import kotlinx.serialization.json.put
 
 /** Directory evidence only. A listed model is not a promise about inference or model capabilities. */
@@ -16,12 +17,20 @@ data class BuiltInModelCatalog(
     val models: List<String> = emptyList(),
     val failure: ModelErrorCode? = null,
     val purposes: Map<String, Set<com.helix.provider.api.ModelPurpose>> = emptyMap(),
+    val partial: Boolean = false,
+    val successfulAt: Long = if (failure == null) checkedAt else 0,
+    /** Complete membership, plus later positively observed partial entries. Null means not yet known. */
+    val completeModels: List<String>? = if (checkedAt > 0 && failure == null && !partial) models else null,
+    val contextWindows: Map<String, Long> = emptyMap(),
 ) {
+    fun modelMissing(model: String): Boolean = completeModels?.let { model !in it } == true
+
     fun fresh(now: Long): Boolean =
-        checkedAt > 0 && now >= checkedAt && now - checkedAt < if (failure == null) SUCCESS_TTL else FAILURE_TTL
+        checkedAt > 0 && now >= checkedAt &&
+            now - checkedAt < if (failure == null && !partial) SUCCESS_TTL else FAILURE_TTL
 
     companion object {
-        const val SUCCESS_TTL = 30 * 60_000L
+        const val SUCCESS_TTL = 5 * 60_000L
         const val FAILURE_TTL = 60_000L
     }
 }
@@ -36,11 +45,12 @@ internal class BuiltInModelCatalogStore(
 
     fun read(): BuiltInModelCatalog {
         val rows = backing.lines(KEY)
-        if (!accountAvailable() || rows.size != 6 || rows.take(2) != identity()) return BuiltInModelCatalog()
+        if (!accountAvailable() || rows.size != 10 || rows.take(2) != identity()) return BuiltInModelCatalog()
         return try {
             val at = rows[2].toLong().also { require(it > 0) }
             val models = requireNotNull(parseModels(rows[3]))
             val failure = if (rows[4] == "LISTED") null else ModelErrorCode.valueOf(rows[4])
+            val partial = rows[6].also { require(it in setOf("PARTIAL", "COMPLETE")) } == "PARTIAL"
             BuiltInModelCatalog(
                 at,
                 models,
@@ -55,12 +65,28 @@ internal class BuiltInModelCatalogStore(
                                     it.jsonPrimitive.content,
                                 )
                             }.toSet()
-                    }.also { require(it.keys.all { id -> id in models }) },
+                    }.also { require(it.size <= 1024 && (partial || it.keys.all { id -> id in models })) },
+                partial = partial,
+                successfulAt = rows[7].toLong().also { require(it >= 0) },
+                completeModels = rows[8].takeUnless { it == "null" }?.let { requireNotNull(parseModels(it)) },
+                contextWindows = parseWindows(rows[9], models, partial),
             )
         } catch (_: IllegalArgumentException) {
             BuiltInModelCatalog()
         }
     }
+
+    private fun parseWindows(
+        raw: String,
+        models: List<String>,
+        partial: Boolean,
+    ): Map<String, Long> =
+        Json.parseToJsonElement(raw).jsonObject.mapValues { it.value.jsonPrimitive.long }.also { windows ->
+            require(windows.size <= 1024)
+            require(partial || windows.keys.all { it in models })
+            requireNotNull(parseModels(JsonArray(windows.keys.map(::JsonPrimitive)).toString()))
+            require(windows.values.all { it in 1024..1_000_000 })
+        }
 
     fun save(
         value: BuiltInModelCatalog,
@@ -72,7 +98,7 @@ internal class BuiltInModelCatalogStore(
                 com.helix.provider.api.ModelCatalogResult
                     .Listed(
                         value.models,
-                        value.purposes,
+                        value.purposes.filterKeys { it in value.models },
                     ).models
                     .map(::JsonPrimitive),
             )
@@ -88,6 +114,10 @@ internal class BuiltInModelCatalogStore(
                             put(id, JsonArray(purposes.map { JsonPrimitive(it.name) }))
                         }
                     }.toString(),
+                    if (value.partial) "PARTIAL" else "COMPLETE",
+                    value.successfulAt.toString(),
+                    value.completeModels?.let { JsonArray(it.map(::JsonPrimitive)).toString() } ?: "null",
+                    buildJsonObject { value.contextWindows.forEach { (id, window) -> put(id, window) } }.toString(),
                 ),
         )
     }

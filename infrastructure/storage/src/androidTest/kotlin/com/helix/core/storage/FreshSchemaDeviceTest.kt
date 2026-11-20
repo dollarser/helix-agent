@@ -12,7 +12,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** Runtime proof that a fresh install creates the current additive schema. */
+/** Runtime proof that a fresh install creates the current version-1 baseline. */
 @RunWith(AndroidJUnit4::class)
 class FreshSchemaDeviceTest {
     private val context: Context = ApplicationProvider.getApplicationContext()

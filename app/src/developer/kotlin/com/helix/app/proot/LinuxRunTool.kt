@@ -4,15 +4,12 @@ import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
-import com.helix.core.workspace.WorkspaceArtifactStore
 import com.helix.runtime.proot.client.ProotEnvScreen
-import com.helix.runtime.proot.client.ProotJobClient
 import com.helix.runtime.proot.ipc.ProotJobCommand
-import com.helix.runtime.proot.ipc.ProotJobRecord
-import com.helix.runtime.proot.ipc.ProotJobSpec
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
+import com.helix.tools.framework.ToolDiscoveryHints
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolOrigin
@@ -23,7 +20,6 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
-import java.io.File
 import java.security.MessageDigest
 import kotlin.time.Duration.Companion.seconds
 
@@ -36,7 +32,7 @@ enum class LinuxRuntimeGate {
 }
 
 /**
- * The `code.linux.run` built-in tool (roadmap HXA-085): runs an Agent-proposed Linux
+ * The `code_linux_run` built-in tool (roadmap HXA-085): runs an Agent-proposed Linux
  * command in the bundled private PRoot process.
  *
  * Contract:
@@ -49,7 +45,7 @@ enum class LinuxRuntimeGate {
  * - ADR-0049: trusted developer execution shares app data and network permissions.
  */
 object LinuxRunTool {
-    const val NAME: String = "code.linux.run"
+    const val NAME: String = "code_linux_run"
 
     /**
      * The minimum future distance of a job's kill deadline (the wire invariant: the
@@ -94,7 +90,7 @@ object LinuxRunTool {
                     "Use argv for a program or script for /bin/sh syntax. Returns stdout/stderr and exit code. " +
                     "In-place files stay at their paths; list artifacts for verified references. " +
                     "Snapshot deliverables use output/. Requires ADVANCED and current session authorization. " +
-                    "For FFmpeg read /data/helix-media/bin/README.md. Longer tasks use code.linux.job.start.",
+                    "For FFmpeg read /data/helix-media/bin/README.md. Longer tasks use code_linux_job_start.",
             inputSchema = inputSchema(),
             outputSchema = outputSchema(),
             operationClass = ToolOperationClass.CODE_EXECUTION,
@@ -104,6 +100,7 @@ object LinuxRunTool {
             idempotency = Idempotency.NON_IDEMPOTENT,
             executionTarget = ExecutionTargetType.LOCAL_PROOT,
             origin = ToolOrigin.BuiltInOrigin,
+            discovery = ToolDiscoveryHints(category = "code"),
         )
 
     @Suppress("LongMethod") // the schema is the contract: every field is a review surface
@@ -550,36 +547,6 @@ object LinuxRunTool {
 
         registry.register(d, executor(runner))
     }
-
-    // ------------------------------------------------------------------ production seam
-
-    /** Compatibility constructor; all job execution is owned by [LinuxJobExecution]. */
-    @Suppress("LongParameterList") // Pass the existing production ports and single shared ownership explicitly.
-    class ProductionLinuxExecutor(
-        client: ProotJobClient,
-        gate: () -> LinuxRuntimeGate,
-        store: WorkspaceArtifactStore,
-        scratchRoot: File,
-        jobIdProvider: () -> String,
-        knownSecretValues: () -> Set<String>,
-        recheckBeforeSubmit: (ParsedLinuxCall) -> ToolExecutorResult?,
-        beforeSubmit: (ParsedLinuxCall, ProotJobSpec) -> Unit,
-        persistVerifiedResult: (ParsedLinuxCall, ProotJobRecord, File) -> Unit,
-        ownership: com.helix.tools.framework.ExecutionOwnership? = null,
-        registeredArtifacts: ((ParsedLinuxCall) -> JsonObject)? = null,
-    ) : LinuxExecutor by LinuxJobExecution(
-            client,
-            gate,
-            store,
-            scratchRoot,
-            jobIdProvider,
-            knownSecretValues,
-            recheckBeforeSubmit,
-            beforeSubmit,
-            persistVerifiedResult,
-            ownership,
-            registeredArtifacts,
-        )
 
     @Suppress("SwallowedException", "TooGenericExceptionCaught")
     internal fun sha256Hex(bytes: ByteArray): String {

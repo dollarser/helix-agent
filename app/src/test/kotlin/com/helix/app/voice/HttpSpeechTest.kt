@@ -137,14 +137,14 @@ class HttpSpeechTest {
         val settings =
             SpeechServiceSettings(
                 true,
-                "https://api.sunlingzhang.com/v1/audio/transcriptions",
-                "https://api.sunlingzhang.com/v1/audio/speech",
+                "https://api.hilex.me/v1/audio/transcriptions",
+                "https://api.hilex.me/v1/audio/speech",
                 true,
             )
         store.save(settings)
         assertEquals(settings, store.read())
         assertEquals(
-            "https://api.sunlingzhang.com/v1/audio/speech",
+            "https://api.hilex.me/v1/audio/speech",
             settings.copy(customTtsEndpoint = "https://evil.test/speech").ttsEndpoint,
         )
         assertThrows(IllegalArgumentException::class.java) {
@@ -162,9 +162,9 @@ class HttpSpeechTest {
                 .testAccount()
         val settings = SpeechServiceSettings(useAccountLogin = true)
         for (endpoint in listOf(
-            "https://api.sunlingzhang.com/v1/audio/speech",
-            "https://api.sunlingzhang.com:443/v1/audio/speech",
-            "https://api.sunlingzhang.com/v1/audio/transcriptions",
+            "https://api.hilex.me/v1/audio/speech",
+            "https://api.hilex.me:443/v1/audio/speech",
+            "https://api.hilex.me/v1/audio/transcriptions",
         )) {
             var calls = 0
             val transport =

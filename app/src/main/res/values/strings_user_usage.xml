@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="user_usage_conversation">Conversation</string>
+    <string name="user_usage_transcription">Transcription</string>
+    <string name="user_usage_speech">Speech synthesis</string>
+    <string name="user_usage_remaining">%1$s %2$s remaining</string>
+    <string name="user_usage_limit">Limit: %1$s %2$s</string>
+    <string name="user_usage_reset">Resets: %1$s (local time)</string>
+    <string name="user_usage_less">Hide details</string>
+    <string name="user_usage_details">Quota details</string>
+    <string name="user_usage_used">Counted: %1$s %2$s</string>
+    <string name="user_usage_cloud_text">Cloud text</string>
+    <string name="user_usage_token_quota">Token allowance</string>
+</resources>

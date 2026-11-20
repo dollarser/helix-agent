@@ -85,9 +85,9 @@ internal class DetachedGoalFixture(
                         put("leaseSeconds", 20)
                     }.toString()
                 },
-                ScriptedTaskModelServer.Step("goal.report") { report },
+                ScriptedTaskModelServer.Step("goal_report") { report },
                 ScriptedTaskModelServer.Step(DetachedJobTools.COLLECT) { originalResult() },
-                ScriptedTaskModelServer.Step("goal.report") { report },
+                ScriptedTaskModelServer.Step("goal_report") { report },
             ).let { if (collectInModel) it else it.take(2) }.withDiscovery(),
         )
         turn =
@@ -106,7 +106,7 @@ internal class DetachedGoalFixture(
                 ).value
     }
 
-    /** Ordinary Act loop: no fixture-side polling may hide a missing jobs.await integration. */
+    /** Ordinary Act loop: no fixture-side polling may hide a missing jobs_await integration. */
     suspend fun submitAwaitJourney(
         auto: Boolean = false,
         fast: Boolean = false,
@@ -147,7 +147,7 @@ internal class DetachedGoalFixture(
                         }
                     }.toString()
                 },
-                ScriptedTaskModelServer.Step("time.now") { "{}" },
+                ScriptedTaskModelServer.Step("time_now") { "{}" },
                 ScriptedTaskModelServer.Step(DetachedJobTools.AWAIT) {
                     buildJsonObject {
                         put(
@@ -182,11 +182,11 @@ internal class DetachedGoalFixture(
 
     private fun List<ScriptedTaskModelServer.Step>.withDiscovery(): List<ScriptedTaskModelServer.Step> =
         flatMap { step ->
-            if (step.toolName == "goal.report") {
+            if (step.toolName == "goal_report") {
                 listOf(step)
             } else {
                 listOf(
-                    ScriptedTaskModelServer.Step("tools.search") {
+                    ScriptedTaskModelServer.Step("tools_search") {
                         buildJsonObject {
                             put("query", step.toolName)
                             put("limit", 1)

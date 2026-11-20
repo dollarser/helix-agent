@@ -5,6 +5,8 @@ Date: 2026-10-01
 Related HXA: HXA-236, HXA-237
 Affected modules: app, tools/framework
 
+历史适用范围：下述全局 owner／互斥说明属于 2026-10-01 候选。当前并发以物理容量和具体不可重入资源为边界，写入／代码／终端不构成全局锁；原始执行身份、未知效果与实际退出后释放的保证仍保留。当前规则见 [AGENTS](../../AGENTS.md) 与 [Runtime ADR](../adr/runtime/001-execution-domains.md)。
+
 2026-10-01 所有者反馈 v0.0.4 运行 JS 和 bash 显示 `EXECUTION_BUSY`/运行时在忙。本轮从 `refs/tags/v0.0.4` 对比到修复前 `4d449fb9`：ExecutionOwnership、NativeJavascriptOwnership、ForegroundProotOwnership 与手动终端启动的相关代码没有修复此缺陷；HXA-237 的字体/键盘改动不等于执行占用已经修好。
 
 ## Problem

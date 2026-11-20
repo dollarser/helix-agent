@@ -16,6 +16,7 @@ import com.helix.core.workspace.WriteOutcome
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
+import com.helix.tools.framework.ToolDiscoveryHints
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolOrigin
@@ -73,10 +74,10 @@ object WriteTool {
             description =
                 "Atomically write UTF-8 content to a workspace file by model reference; " +
                     "existing files require overwrite=true. The parent directory must already exist: " +
-                    "use files.mkdir first when creating a new output directory " +
-                    "(discover it with tools.search if needed). Writes persist after task failure/cancellation; " +
+                    "use files_mkdir first when creating a new output directory " +
+                    "(discover it with tools_search if needed). Writes persist after task failure/cancellation; " +
                     "the result is a receipt, not a backup. If undo is requested, first copy the original " +
-                    "with files.copy, verify its sha256, then overwrite using that expectedSha256. " +
+                    "with files_copy, verify its sha256, then overwrite using that expectedSha256. " +
                     "Restore only explicitly, checking the current file hash to avoid replacing newer changes.",
             inputSchema = inputSchema(),
             outputSchema = outputSchema(),
@@ -87,6 +88,7 @@ object WriteTool {
             idempotency = Idempotency.IDEMPOTENT,
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
             origin = ToolOrigin.BuiltInOrigin,
+            discovery = ToolDiscoveryHints(category = "files"),
         )
 
     private fun inputSchema(): JsonObject =
@@ -282,7 +284,7 @@ object WriteTool {
         val reject =
             when {
                 !store.stat(parsed.path.parent).isDirectory -> {
-                    "destination parent directory does not exist: create it with files.mkdir first, " +
+                    "destination parent directory does not exist: create it with files_mkdir first, " +
                         "or choose a file in an existing directory"
                 }
 

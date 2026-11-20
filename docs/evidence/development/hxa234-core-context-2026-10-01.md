@@ -47,6 +47,6 @@ python3 scripts/with-host-slot.py -- ./gradlew spotlessCheck --console=plain
 
 新增 TurnCommitStoreDeviceTest 九个实际 Room 用例以及原压缩/分叉回归已编译：错归属/步骤/phase、活跃调用冲突、重复、取消、事务回滚、下一步骤身份。**设备执行 not requested**，不能记为运行通过。真实 P5、真实模型轨迹、OEM、输入/UI 背压及资源压力仍需独立验收。
 
-这是 R2-A 本地主机交付，不是 R2-B 策略优化或整个剩余清单完成。不从类迁移推导 token、延迟或任务成功率收益。下一项按 [status](../../development/status.md) 推进 R3；设备/账号缺口不阻塞独立本地开发。
+这是 R2-A 本地主机交付，不是 R2-B 策略优化或整个剩余清单完成。不从类迁移推导 token、延迟或任务成功率收益。当时后续安排为 R3；[status](../../development/status.md)仅提供当前事实，后续任务由用户请求确定，不能凭此历史安排自主推进。设备/账号缺口与独立本地开发分别记录。
 
 2026-10-01 核对官方 [Codex App Server](https://openai.com/index/unlocking-the-codex-harness/)、[Anthropic 长任务 Harness](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents)、[上下文工程](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents)。采用共享核心/宿主适配、持久真实结果、分阶段回归和有界上下文方法；未复制外部代码，未据此引入桌面服务部署或强制业务流程。

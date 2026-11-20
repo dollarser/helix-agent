@@ -20,7 +20,6 @@ data class TurnRecoveryPanelUi(
     val goalId: String?,
     val goalObjective: String?,
     val inlineNoticeShown: Boolean = false,
-    val stopFacts: TurnStopFacts? = null,
 )
 
 /** One turn's recovery facts plus its bound Goal identity, as gathered by [loadTurnRecoverySources]. */
@@ -35,7 +34,6 @@ data class TurnRecoverySource(
      * (later CANCELLED / INTERRUPTED turns do NOT supersede).
      */
     val supersededByCompleted: Boolean = false,
-    val stopFacts: TurnStopFacts? = null,
 )
 
 /**
@@ -63,6 +61,5 @@ fun recoveryPanelsFor(
                         !source.supersededByCompleted,
                 goalId = source.goalId,
                 goalObjective = source.goalObjective,
-                stopFacts = source.stopFacts,
             )
         }.associateBy { it.turnId }

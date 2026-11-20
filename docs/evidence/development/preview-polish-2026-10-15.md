@@ -44,7 +44,7 @@ Release 真机目标及实际通过的独立测试宿主 SHA-256 保存在每次
 
 ## 本轮主要改动文件
 
-- 交互：[ComposerModelMenu](../../../feature/conversation/src/main/kotlin/com/helix/feature/conversation/presentation/ComposerModelMenu.kt)、[ProotRuntimeSection](../../../app/src/main/kotlin/com/helix/app/ui/ProotRuntimeSection.kt)、当时的 `ProotVerificationNote`（HXA-305 已替换为 原 ProotEntryNote（后由 [安装状态事实](../../../app/src/main/kotlin/com/helix/app/application/runtime/ProotInstallationStatus.kt) 与 UI 本地化取代））、Developer `ProotToolModule` 及三语言资源；相关模型、Runtime 设备测试。
+- 交互：[ComposerModelMenu](../../../feature/conversation/src/main/kotlin/com/helix/feature/conversation/presentation/ComposerModelMenu.kt)、[ProotRuntimeSection](../../../app/src/main/kotlin/com/helix/app/ui/ProotRuntimeSection.kt)、当时的 `ProotVerificationNote`（HXA-305 曾替换为 `ProotEntryNote`，后由[安装状态事实](../../../app/src/main/kotlin/com/helix/app/application/runtime/ProotInstallationStatus.kt)与 UI 本地化取代）、Developer `ProotToolModule` 及三语言资源；相关模型、Runtime 设备测试。
 - 帮助：[BundledHelp](../../../app/src/main/kotlin/com/helix/app/skills/BundledHelp.kt)、`DefaultAppContainer`、Skills 中的 `BuiltInSkills`、`HelixHelpIdentity`、`HelixUserGuide`、`HelixUserGuideZh`、9 个中文 Markdown 资源，以及主机/设备断言。
 - 验证：[独立测试宿主](../../../tests/release-smoke/build.gradle.kts)、[Release 运行器](../../../scripts/run-release-smoke.py)、[隔离构建入口](../../../scripts/release-smoke.init.gradle)、`settings.gradle.kts`、主机门禁与依赖锁；[设备运行器](../../../scripts/device_baseline/run.py)及对应 Python 回归。
 - 文档：[发行 ADR](../../adr/platform/001-distribution.md)、[HXA-122](../../development/tasks/HXA-122.md)、README 中英文、status、release-readiness、本轮记录及前轮记录的事实更正；不把其他所有者的既有 dirty 文件算作本轮成果。
@@ -78,4 +78,4 @@ Release 真机目标及实际通过的独立测试宿主 SHA-256 保存在每次
 python3 scripts/run-release-smoke.py --help
 ```
 
-构建不操作设备。测试宿主本身是 Debug APK，受测 Helix 必须是 non-debuggable 的 R8 Release，两者不混淆。运行时需按当次 Owner 授权指定设备，传入目标 APK、`tests/release-smoke/build/outputs/apk/androidTest/debug/release-smoke-debug-androidTest.apk`、正确 applicationId、全新输出目录及 SDK 工具路径。init 脚本只生成测试签名隔离包，不进入正常分发脚本。运行器拒绝已有同名安装；不会用卸载旧包来绕过签名或身份错误。
+构建不操作设备。测试宿主本身是 Debug APK，受测 Helix 必须是 non-debuggable 的 R8 Release，两者不混淆。运行时按当前 [AGENTS.md](../../../AGENTS.md#verification-and-device-authorization) 指定设备：本地项目模拟器适用预授权，真机须本轮明确授权；传入目标 APK、`tests/release-smoke/build/outputs/apk/androidTest/debug/release-smoke-debug-androidTest.apk`、正确 applicationId、全新输出目录及 SDK 工具路径。init 脚本只生成测试签名隔离包，不进入正常分发脚本。运行器拒绝已有同名安装；不会用卸载旧包来绕过签名或身份错误。

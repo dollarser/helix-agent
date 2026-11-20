@@ -29,6 +29,8 @@ import com.helix.feature.files.AttachmentImporter
 import com.helix.feature.files.SafImportPipeline
 import com.helix.feature.files.SafSourceOpener
 import com.helix.provider.api.wire.WireClient
+import com.helix.provider.api.wire.WireRequest
+import com.helix.provider.api.wire.WireResponse
 import com.helix.tools.framework.TimeNowTool
 import com.helix.tools.framework.ToolDispatcher
 import com.helix.tools.framework.ToolRegistry
@@ -45,6 +47,7 @@ import java.io.File
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 import java.util.UUID
+import java.util.concurrent.CopyOnWriteArrayList
 
 /** All conversation/history/workspace/tool state is isolated. The sole optional network is builtin Qwen. */
 internal class ScheduledRuntimeFixture(
@@ -67,6 +70,7 @@ internal class ScheduledRuntimeFixture(
     val engine =
         createRoomTurnEngine(storage, clock, ::newId)
     var afterTool: () -> Unit = {}
+    val catalogRequests = CopyOnWriteArrayList<String>()
     val pipeline = pipeline()
     val providers: ProviderService
     val chat: ChatService
@@ -103,7 +107,13 @@ internal class ScheduledRuntimeFixture(
             if (wire == null) {
                 ProviderFactory({ error("No user credentials") }, ProviderFactory.defaultWire(), { error("No images") })
             } else {
-                ProviderFactory({ error("No user credentials") }, wire, { error("No images") }, builtInWire = wire)
+                val modelWire = mockModelWire(wire, status.builtInCatalog.read().models)
+                ProviderFactory(
+                    { error("No user credentials") },
+                    modelWire,
+                    { error("No images") },
+                    builtInWire = modelWire,
+                )
             }
         providers = ProviderService(storage, factory, status, idGenerator = ::newId, scope = scope)
         listOf("bound", "foreground").forEach {
@@ -151,7 +161,7 @@ internal class ScheduledRuntimeFixture(
         service = ScheduledAgentService(ledger, execution, ScheduledFakeWake())
         providers.refresh()
         com.helix.app.test
-            .discoverFixtureTool(pipeline, "bound", "time.now")
+            .discoverFixtureTool(pipeline, "bound", "time_now")
     }
 
     suspend fun ready() {
@@ -166,6 +176,49 @@ internal class ScheduledRuntimeFixture(
         chat.openSession("foreground")
         withTimeout(10_000) { chat.screen.first { it.openSessionId == "foreground" } }
     }
+
+    /** Metadata reads are separate HTTP exchanges and must not consume scripted inference responses. */
+    private fun mockModelWire(
+        delegate: WireClient,
+        models: List<String>,
+    ): WireClient =
+        object : WireClient {
+            override suspend fun open(request: WireRequest): WireResponse {
+                if (request.method == "GET" && request.url == BuiltInModel.CATALOG_URL) {
+                    check(request.body == null)
+                    catalogRequests += request.url
+                    val data = org.json.JSONArray()
+                    models.forEach { model ->
+                        data.put(
+                            org.json
+                                .JSONObject()
+                                .put("id", model)
+                                .put("context_length", 32768)
+                                .put("output_modalities", org.json.JSONArray().put("text")),
+                        )
+                    }
+                    val body =
+                        org.json
+                            .JSONObject()
+                            .put("data", data)
+                            .toString()
+                            .toByteArray()
+                    return WireResponse(
+                        200,
+                        mapOf("content-type" to listOf("application/json")),
+                        com.helix.app.chat
+                            .SseBody(body),
+                    )
+                }
+                check(
+                    request.method == "POST" &&
+                        request.url in setOf(BuiltInModel.GENERATION_URL, BuiltInModel.RESPONSES_URL),
+                ) {
+                    "Unexpected synthetic scheduled transport ${request.method} ${java.net.URI(request.url).path}"
+                }
+                return delegate.open(request)
+            }
+        }
 
     suspend fun execute(
         prompt: String,

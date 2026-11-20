@@ -25,6 +25,7 @@ import com.helix.extensions.a2a.A2aTaskSubmission
 import com.helix.extensions.a2a.A2aTaskUpdate
 import com.helix.extensions.a2a.A2aTransportFailure
 import com.helix.tools.framework.ExecutableToolCall
+import com.helix.tools.framework.RemoteToolNames
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonArray
@@ -116,7 +117,7 @@ class A2aTaskRunnerDeviceTest {
                 TOOL_CALL_ID,
                 "turn-device",
                 TOOL_CALL_ID,
-                "a2a.device.echo",
+                RemoteToolNames.a2a(AGENT_ID, SKILL.skillId).value,
                 "1",
                 "{\"task\":\"device recovery\"}",
                 "RUNNING",
@@ -144,7 +145,7 @@ class A2aTaskRunnerDeviceTest {
         fun call(): ExecutableToolCall =
             ExecutableToolCall(
                 toolCallId = TOOL_CALL_ID,
-                toolName = "a2a.device.echo",
+                toolName = RemoteToolNames.a2a(AGENT_ID, SKILL.skillId).value,
                 toolVersion = "1",
                 args = buildJsonObject { put("task", "device recovery") },
                 executionTarget = ExecutionTargetType.LOCAL_ANDROID,

@@ -45,9 +45,6 @@ python3 scripts/with-host-slot.py -- python3 scripts/run-owned-emulator.py \
   --output build/maintenance-followup-20261010/live-context-qwen
 ```
 
-- feature-pages-consumer App `b6c8a9972e7278d7c3a4564494ce88fe6a7b4a8a6f7a86ce690efd9eca5ffbe5`；Test `98c2fa072314b6db2d12101d7da9be16d2c02e383ddef09abecef9a83e726d17`。
-- feature-pages-developer App `557dce87f27db98129f22bd3c4505608b05203e73f01379d75c8b72d69b84633`；Test `0c29e74102d72b5d600d86f1b8e101b5002d540749feae811393175d82493674`。
-- live-context-qwen App `557dce87f27db98129f22bd3c4505608b05203e73f01379d75c8b72d69b84633`；Test `0c29e74102d72b5d600d86f1b8e101b5002d540749feae811393175d82493674`。
 
 页面/模型三个实例都自然结束并由finally关闭；日常5554保持运行，未覆盖日常APK、清数据、修改系统安全权限或启用持久访问。首次地址超时在用户确认后恢复，未更换账号/模型、重启用户服务或删除数据。真机卡顿黑屏仍缺指定实体设备与日志；完整并发/恢复组合、其他IME/OEM/长稳和需要外部账号/域名的验收独立。
 

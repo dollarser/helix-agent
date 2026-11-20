@@ -10,4 +10,5 @@
     <string name="model_failure_account_changed">Account changed; the original task stopped</string>
     <string name="model_failure_account">Account unavailable; check sign-in status</string>
     <string name="model_failure_configuration">Connection configuration or protocol is incompatible</string>
+    <string name="model_failure_incomplete_tool_output_limit">Model output limit reached before tool arguments were complete. The incomplete call was not executed.</string>
 </resources>

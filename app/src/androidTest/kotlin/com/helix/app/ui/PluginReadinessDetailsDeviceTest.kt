@@ -13,6 +13,7 @@ import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
 import com.helix.app.HelixApplication
 import com.helix.app.plugin.PluginComponentFact
+import com.helix.app.plugin.PluginName
 import com.helix.app.plugin.PluginReadinessDetails
 import com.helix.app.plugin.PluginReadinessSnapshot
 import com.helix.extensions.plugin.PluginComponentKind
@@ -40,6 +41,7 @@ class PluginReadinessDetailsDeviceTest {
                 ),
             ),
             emptyList(),
+            PluginName("Example plugin"),
         )
 
     @Test fun detailsShowStatusDirectlyAndDiagnosticsStayOnDemand() {
@@ -96,7 +98,7 @@ class PluginReadinessDetailsDeviceTest {
         val row =
             com.helix.app.plugin.PluginSessionRow(
                 "package-a",
-                "Example plugin",
+                PluginName("Example plugin"),
                 false,
                 false,
                 true,

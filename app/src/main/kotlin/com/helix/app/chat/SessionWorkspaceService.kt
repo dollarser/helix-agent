@@ -60,7 +60,7 @@ internal class SessionWorkspaceService(
         return FileScopePath(resource.id, "").toModelReference()
     }
 
-    @Suppress("ReturnCount") // Legacy, managed and external backends resolve independently.
+    @Suppress("ReturnCount") // Direct, managed and external backends resolve independently.
     fun resolveRoot(scopeId: String): Path {
         val resource = workspaces.find(scopeId) ?: return roots.resolveRoot(scopeId)
         require(resource.availability == "READY") { "Workspace unavailable; explicit rebind required" }
@@ -78,7 +78,7 @@ internal class SessionWorkspaceService(
     }
 
     /** SAF keeps the same document-tree adapter and live grants; never manufacture a POSIX path. */
-    @Suppress("ReturnCount") // Managed and legacy sources do not require external translation.
+    @Suppress("ReturnCount") // Managed and direct sources do not require external translation.
     fun source(path: FileScopePath): FileScopePath {
         val resource = workspaces.find(path.scopeId) ?: return path
         require(resource.availability == "READY") { "Workspace unavailable" }

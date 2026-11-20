@@ -35,7 +35,7 @@ import java.util.concurrent.atomic.AtomicLong
  * HXA-086 isolation from the MAIN-APP side (the companion-side
  * `ProotIsolationDeviceTest` covers the same boundary for the companion's
  * own app-data + shared storage + network; this class adds the piece only
- * the main app can prove): the guest of a real `code.linux.run` execution
+ * the main app can prove): the guest of a real `code_linux_run` execution
  * (the production executor, the same wiring as [ProotToolModule.registerTools])
  * can neither READ nor WRITE the main app's dataDir — the path is simply
  * outside the guest's visible universe (chroot + the runner's binds), and
@@ -204,7 +204,7 @@ class ProotRuntimeIsolationE2eDeviceTest {
     private fun productionExecutor(store: WorkspaceArtifactStore): LinuxRunTool.LinuxExecutor {
         val scratchRoot = File(context.filesDir, "proot-iso-e2e-" + nextId())
         scratch += scratchRoot
-        return LinuxRunTool.ProductionLinuxExecutor(
+        return LinuxJobExecution(
             client = jobClient,
             gate = { LinuxRuntimeGate.READY },
             store = store,

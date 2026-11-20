@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application>
+        <service android:name="com.helix.app.test.BlockedObservationService"
+            android:process=":blocked_observation" android:exported="true" />
         <activity android:name="com.helix.app.test.KnowledgeSenderActivity" android:exported="true" />
         <provider android:name="com.helix.app.test.KnowledgeFixtureProvider"
             android:authorities="${applicationId}.knowledgefixture" android:exported="false"

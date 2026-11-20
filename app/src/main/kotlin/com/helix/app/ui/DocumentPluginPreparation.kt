@@ -13,6 +13,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import com.helix.app.R
 import com.helix.app.plugin.PluginService
+import com.helix.app.plugin.PluginSessionRow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -29,7 +30,7 @@ internal fun DocumentPluginPreparation(
     LaunchedEffect(service, sessionId, pickerOpen) {
         selected =
             withContext(Dispatchers.IO) {
-                service.sessionRows(sessionId).any { it.name == "documents" && it.selected && it.ready }
+                service.sessionRows(sessionId).any(::isDocumentPluginReady)
             }
     }
     if (!selected) {
@@ -38,3 +39,7 @@ internal fun DocumentPluginPreparation(
         }
     }
 }
+
+/** Matches the installation identity minted by RoomNativePluginCatalog, never a display name. */
+internal fun isDocumentPluginReady(row: PluginSessionRow): Boolean =
+    row.id == "bundled-plugin:documents" && row.available && row.enabled && row.selected && row.ready

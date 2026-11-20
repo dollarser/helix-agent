@@ -15,14 +15,14 @@ Advanced 用户无法通过产品设置授权精确局域网服务，配置服�
 
 ## Root cause
 
-底层 SSRF 策略支持显式 LAN host/port 范围，但 app 为 MCP、http.fetch 和 Dispatcher 长期传入空集合，
+底层 SSRF 策略支持显式 LAN host/port 范围，但 app 为 MCP、http_fetch 和 Dispatcher 长期传入空集合，
 设置中也没有创建该范围的入口。高敏数据出网规则并不等于 LAN capability 范围。
 
 ## Fix and invariants
 
 Advanced 设置提供精确 origin 新增、列表和撤销，规范化为 host/port 后交给现有策略。
 同步持久化成功才发布新授权；撤销写入失败会显示失败，当前进程先撤销，不声称已持久撤销。
-拒绝路径、凭据、查询、通配符和超过 64 个条目。MCP、http.fetch 及 Dispatcher 每次读取当前范围。
+拒绝路径、凭据、查询、通配符和超过 64 个条目。MCP、http_fetch 及 Dispatcher 每次读取当前范围。
 服务导入、模型和 MCP annotation 都不创建范围，也不创建 Tool Approval Proof。
 Standard 与 metadata 地址仍遵循原策略。
 
@@ -39,7 +39,7 @@ Standard 与 metadata 地址仍遵循原策略。
 
 ## Residual risk
 
-此补充覆盖 MCP 与 http.fetch 的现有 LAN 策略入口，未宣告其他网络客户端全部覆盖。
+此补充覆盖 MCP 与 http_fetch 的现有 LAN 策略入口，未宣告其他网络客户端全部覆盖。
 长稳测试已经启动，其已安装 APK 早于这项接线，不能作为新增代码的 24 小时证明。
 
 ## Related records

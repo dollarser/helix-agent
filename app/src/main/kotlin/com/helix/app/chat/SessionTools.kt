@@ -47,7 +47,7 @@ internal object SessionTools {
                     call.toolName,
                 )
             val session = repository.caller(caller)
-            if (call.toolName in setOf("session.list", "session.rename", "session.archive", "session.restore") ||
+            if (call.toolName in setOf("session_list", "session_rename", "session_archive", "session_restore") ||
                 "targetSessionId" in call.args
             ) {
                 return SessionTargetTools.execute(
@@ -62,7 +62,7 @@ internal object SessionTools {
             }
             val output =
                 when (call.toolName) {
-                    "session.status" -> {
+                    "session_status" -> {
                         buildJsonObject {
                             put("sessionId", session.id)
                             put("title", session.title)
@@ -72,11 +72,11 @@ internal object SessionTools {
                         }
                     }
 
-                    "session.history", "session.search" -> {
+                    "session_history", "session_search" -> {
                         SessionToolHistory.history(repository, caller, call, checkActive = { checkActive(call) })
                     }
 
-                    "session.read" -> {
+                    "session_read" -> {
                         SessionToolHistory.read(repository, caller, call, checkActive = { checkActive(call) })
                     }
 

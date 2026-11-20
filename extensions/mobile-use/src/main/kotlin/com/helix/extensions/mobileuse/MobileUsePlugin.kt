@@ -38,13 +38,16 @@ class MobileUsePlugin(
                     .bufferedReader()
                     .use { it.readText() },
                 "android-ui-task",
-                mapOf(
-                    "references/android-ui-reference.md" to
-                        context.assets
-                            .open("plugins/mobile-use/skills/android-ui-task/references/android-ui-reference.md")
-                            .bufferedReader()
-                            .use { it.readText() },
-                ),
+                listOf(
+                    "references/android-ui-reference.md",
+                    "references/vision-and-gestures.md",
+                    "references/completion-and-display.md",
+                ).associateWith { path ->
+                    context.assets
+                        .open("plugins/mobile-use/skills/android-ui-task/$path")
+                        .bufferedReader()
+                        .use { it.readText() }
+                },
             ),
         )
 
@@ -131,20 +134,20 @@ class MobileUsePlugin(
     override val dataOrigin = com.helix.core.policy.DataOrigin.ACCESSIBILITY
     override val preferredTools =
         setOf(
-            "ui.apps",
-            "ui.launch",
-            "ui.snapshot",
-            "ui.find",
-            "ui.click",
-            "ui.click_match",
-            "ui.set_text",
-            "ui.scroll",
-            "ui.back",
-            "ui.wait",
-            "ui.device",
-            "ui.screenshot",
-            "ui.gesture",
-            "device.open_url",
+            "ui_apps",
+            "ui_launch",
+            "ui_snapshot",
+            "ui_find",
+            "ui_click",
+            "ui_click_match",
+            "ui_set_text",
+            "ui_scroll",
+            "ui_back",
+            "ui_wait",
+            "ui_device",
+            "ui_screenshot",
+            "ui_gesture",
+            "device_open_url",
         )
 
     override fun configurationError(): String? =

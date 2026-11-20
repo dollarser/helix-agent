@@ -20,7 +20,7 @@ internal fun evaluationAutomationPort(
     val call =
         com.helix.tools.framework.ExecutableToolCall(
             "fixture-observe",
-            "ui.snapshot",
+            "ui_snapshot",
             "1",
             JsonObject(emptyMap()),
             com.helix.core.model.ExecutionTargetType.LOCAL_ANDROID,
@@ -53,8 +53,11 @@ internal fun exposedEvaluationTools(
         ModePolicy
             .filterTools(mode, latest, control.chatToolsEnabled) {
                 ToolModeProfile(it.operationClass)
-            }.filter { !it.name.value.startsWith("memory.") || container.memory?.enabled == true }
-            .filter { it.name.value !in GoalLifecycleTools.names || mode != AgentMode.PLAN }
+            }.filter {
+                it.name.value !in
+                    (com.helix.app.memory.MemoryTools.reads + com.helix.app.memory.MemoryTools.writes) ||
+                    container.memory?.enabled == true
+            }.filter { it.name.value !in GoalLifecycleTools.names || mode != AgentMode.PLAN }
     val exposed =
         container.toolPipeline.mcpDiscovery
             .visible(
@@ -62,8 +65,11 @@ internal fun exposedEvaluationTools(
                 admitted,
                 ModelToolExposureOrder.defaultNames(preferred),
             ).filter { container.toolPipeline.disabledToolFilter?.invoke(session, it) ?: true }
-            .filter { !it.name.value.startsWith("memory.") || container.memory?.enabled == true }
-            .filter { it.name.value !in GoalLifecycleTools.names || mode != AgentMode.PLAN }
+            .filter {
+                it.name.value !in
+                    (com.helix.app.memory.MemoryTools.reads + com.helix.app.memory.MemoryTools.writes) ||
+                    container.memory?.enabled == true
+            }.filter { it.name.value !in GoalLifecycleTools.names || mode != AgentMode.PLAN }
             .let {
                 ModelToolExposureOrder.prioritize(
                     it,

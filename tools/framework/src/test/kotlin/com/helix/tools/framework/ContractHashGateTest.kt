@@ -15,7 +15,7 @@ import org.junit.Test
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * HXA-042 gate (roadmap + ADR-0011): the FIRST non-`time.now` business tools register, so the
+ * HXA-042 gate (roadmap + ADR-0011): the FIRST non-`time_now` business tools register, so the
  * descriptor approval-invalidation gap must be closed by MECHANICAL TEST, not KDoc. A contract
  * that keeps `(name, version, schemaHash)` constant but changes a security field (timeout, output
  * cap, required capabilities, operation class, idempotency, or origin) MUST produce a
@@ -46,7 +46,7 @@ class ContractHashGateTest {
     fun ambiguousA2aSourceTextCannotReuseApprovalContract() {
         val first =
             descriptor().copy(
-                name = ToolName("a2a.remote.tool"),
+                name = ToolName("a2a_remote_tool"),
                 operationClass = ToolOperationClass.NETWORK,
                 origin =
                     ToolOrigin.A2aOrigin(
@@ -250,7 +250,7 @@ class ContractHashGateTest {
         protocolVersion: String,
     ): ToolDescriptor =
         ToolDescriptor(
-            name = ToolName("mcp.$serverId.tool"),
+            name = ToolName("mcp_${serverId}_tool"),
             version = ToolVersion(1),
             description = "mcp tool",
             inputSchema = json("""{"type":"object"}"""),

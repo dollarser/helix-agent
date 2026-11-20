@@ -34,9 +34,9 @@ class MobileSelectionMenuDeviceTest {
         try {
             MobileInteractionSession(app, setOf("com.google.android.documentsui")).use { session ->
                 prepareFolder()
-                session.output("ui.device")
+                session.output("ui_device")
                 SystemClock.sleep(1000)
-                val snapshot = session.output("ui.snapshot")
+                val snapshot = session.output("ui_snapshot")
                 report.put("before", JSONObject(snapshot.toString()))
                 val nodes = snapshot.getValue("nodes").jsonArray.map { it.jsonObject }
                 val label =
@@ -44,7 +44,7 @@ class MobileSelectionMenuDeviceTest {
                         it["text"]?.jsonPrimitive?.content?.startsWith("helix_menu_") == true && it["longClick"] != null
                     }
                 val longClick = label.getValue("longClick").jsonObject
-                assertEquals("ui.long_click", longClick.getValue("tool").jsonPrimitive.content)
+                assertEquals("ui_long_click", longClick.getValue("tool").jsonPrimitive.content)
                 val token = longClick.getValue("token").jsonPrimitive.content
                 val action =
                     session.output(
@@ -54,7 +54,7 @@ class MobileSelectionMenuDeviceTest {
                 report.put("longClick", JSONObject(action.toString()))
                 SystemClock.sleep(1000)
                 report.put("rawSelected", inspect())
-                val selected = session.output("ui.snapshot")
+                val selected = session.output("ui_snapshot")
                 report.put("selected", JSONObject(selected.toString()))
                 assertTrue(
                     selected
@@ -75,7 +75,7 @@ class MobileSelectionMenuDeviceTest {
         report: JSONObject,
     ) {
         val query = """{"contentDescription":"More options","clickable":true,"match":"exact"}"""
-        val found = session.output("ui.find", fixture.json(query))
+        val found = session.output("ui_find", fixture.json(query))
         report.put("menuTarget", JSONObject(found.toString()))
         assertEquals("true", found.getValue("ambiguous").jsonPrimitive.content)
         val menu =
@@ -88,11 +88,11 @@ class MobileSelectionMenuDeviceTest {
                 } == true
             }
         val token = menu.getValue("token").jsonPrimitive.content
-        val action = session.output("ui.click", fixture.json("""{"token":"$token"}"""))
+        val action = session.output("ui_click", fixture.json("""{"token":"$token"}"""))
         report.put("menuClick", JSONObject(action.toString()))
         val expected = """{"condition":"present","text":"Move to","match":"contains","timeoutMillis":3000}"""
-        val wait = session.output("ui.wait", fixture.json(expected))
-        report.put("menu", JSONObject(session.output("ui.snapshot").toString()))
+        val wait = session.output("ui_wait", fixture.json(expected))
+        report.put("menu", JSONObject(session.output("ui_snapshot").toString()))
         report.put("wait", JSONObject(wait.toString()))
         assertEquals("FOUND", wait.getValue("status").jsonPrimitive.content)
         assertTrue(

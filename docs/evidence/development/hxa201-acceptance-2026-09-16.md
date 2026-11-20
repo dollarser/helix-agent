@@ -33,7 +33,7 @@ python3 scripts/debug/2026-09-16/summarize-hxa201-host.py
 
 核心 model142/policy1177/agent271/framework164/storage89，共1843通过；app consumer529/developer555通过，各4项既有外部材料条件跳过。合计2927通过/8跳过/0失败。新增保存反馈2项、设置模型12项均见本次 XML。补充停止断言后，`spotlessCheck detekt` 和双flavor测试APK重新构建通过（`final-static4.log`），并用于上述最终设备矩阵。双 flavor Debug lint各0错误/0警告；构建含主APK及测试APK。汇总及APK SHA256：`build/hxa201-closeout/host-summary.json`。
 
-## 四象限真实设备
+## 四象限模拟器实跑
 
 ```sh
 python3 scripts/debug/2026-09-15/run-hxa201-acceptance.py

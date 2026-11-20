@@ -154,7 +154,7 @@ class KnowledgeLiveModelDeviceTest {
                 )
                 assertTrue(
                     c.storage.toolCalls.listByTurn(accepted.turnId).any {
-                        it.name == "session.search" || it.name == "session.read"
+                        it.name == "session_search" || it.name == "session_read"
                     },
                 )
                 val answer =
@@ -292,7 +292,7 @@ class KnowledgeLiveModelDeviceTest {
                     session,
                     0,
                     UUID.randomUUID().toString(),
-                    "Read the attached Harbor source again with knowledge.read/search. " +
+                    "Read the attached Harbor source again with knowledge_read/search. " +
                         "Confirm its owner exactly; do not rely only on previous answer.",
                 )
             val followupResult = chat.sendSubmission(followup).await().outcome
@@ -322,8 +322,8 @@ class KnowledgeLiveModelDeviceTest {
             assertTrue(
                 "Follow-up must really read the prior attached source",
                 c.storage.toolCalls.listByTurn(followupAccepted.turnId).any {
-                    it.name == "knowledge.read" ||
-                        it.name == "knowledge.search"
+                    it.name == "knowledge_read" ||
+                        it.name == "knowledge_search"
                 },
             )
             for (id in sourceIds.toList()) {
@@ -361,7 +361,7 @@ class KnowledgeLiveModelDeviceTest {
             assertTrue(
                 c.storage.toolCalls
                     .listByTurn(accepted.turnId)
-                    .any { it.name == "knowledge.read" },
+                    .any { it.name == "knowledge_read" },
             )
             File(app.cacheDir, "knowledge-live-facts.json").writeText(
                 buildJsonObject {

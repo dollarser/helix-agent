@@ -1,6 +1,6 @@
-> 当前消息操作：用户消息仅编辑/复制，编辑不创建分支；模型回复保留创建分支。详见 [消息操作修订](MESSAGE_ACTIONS.md)。
+> 当前消息操作：用户消息仅编辑/复制，编辑不创建分支；模型回复保留创建分支。详见 [消息操作修订](DESIGN.md#消息操作修订)。
 
-> 当前语音交互已按用户要求改为识别结果直接进入输入框，结束后原处编辑。此前弹窗预览/加入草稿描述以 [语音输入修订](VOICE_INPUT.md) 为准。
+> 当前语音交互已按用户要求改为识别结果直接进入输入框，结束后原处编辑。此前弹窗预览/加入草稿描述以 [语音输入修订](DESIGN.md#语音输入修订) 为准。
 
 # 设计规范与 Compose 实施映射
 
@@ -64,7 +64,7 @@
 
 1. 账号：未登录可配置 API/订阅/本地；只有内置来源受 Helix 登录约束。登录回到原模型选择，搜索和候选、原草稿保留；不自动保存模型、不自动发送。生成中模型选择不得改当前冻结目标。
 2. 模式：新会话默认 Act，Chat/Plan/Act/Goal 命令只先编辑草稿。任务模式和会话权限预设不是同一维度。完全访问不扩张 Plan。
-3. 语音：主动录音、预览、编辑、加入草稿、另行发送。拒绝/取消不改原文。切换会话、后台和焦点丢失停止；原型只演示部分生命周期，不假装已通过 Android 音频焦点验收。
+3. 语音：主动录音，识别结果直接进入输入框，结束后原处编辑、另行发送。拒绝/取消不改原文。切换会话、后台和焦点丢失停止；原型只演示部分生命周期，不假装已通过 Android 音频焦点验收。
 4. 工具：schema → policy → authorization → limits → verification/audit；允许本次与拒绝对应具体 call。执行、效果核验、结果保存、模型消费分别呈现；UNKNOWN 不当失败回滚，不自动重放。
 5. Goal：目标、Run、激活分开；停止请求不等于执行器退出；轮数耗尽需调整原目标并明确解决阻塞，默认设置不复活旧任务。计划审阅不批准全部工具。
 6. 文件：直接编辑、请求绑定目录、执行副本、成果分别命名；冲突保留编辑并可重载/另存，成果不自动源回写。
@@ -81,7 +81,7 @@
 | 1 | theme / 壳层 | 现有 theme、GroupedNavigation、DrawerVisuals、DrawerSettingsNavigation、AdaptiveConversationHeader | tokens、排版、图标、行高、手机抽屉/宽屏侧栏；同一界面逐项测量 |
 | 2 | chat / add / message | ConversationSection、ConversationComposer、ComposerToolbar/AddSheet、ConversationMessage、MessageRevisionDialog | 默认会话、输入框、消息操作、分支和停止；取消与草稿保留 |
 | 3 | models / account | ComposerModelMenu、ModelPickerEdit、AccountLoginForm、AccountSettings、ProviderFormDialog | 模型选择保存回执、忙碌拒绝、登录回跳与搜索；不改变认证域 |
-| 4 | voice / speech | OfflineVoiceDialog、LiveReplyReadAloud、CloudSpeechSettings、SystemVoiceSettings | 流式识别预览、确认合并、资源就绪不自动播、停止与生命周期 |
+| 4 | voice / speech | OfflineVoiceDialog、LiveReplyReadAloud、CloudSpeechSettings、SystemVoiceSettings | 输入框内流式识别、取消恢复原稿、资源就绪不自动播、停止与生命周期 |
 | 5 | tool / goal / plan | ApprovalCardScreen、TasksScreen、TurnProgressLabel | 四个完成事实、UNKNOWN 核对、Goal 状态与原身份；不可用假回执 |
 | 6 | history / project / artifact | ConversationHistoryScreen、ProjectsScreen、ProjectDetailScreen、ArtifactsScreen | 列表、搜索、筛选、详情、返回与空态 |
 | 7 | knowledge / reminder / scheduled | KnowledgeScreen/QuestionScreen、ReminderScreen/InterpretScreen、ScheduledAgentScreen | 来源选择、冻结引用、时间预览、只读规则与明确范围 |
@@ -98,3 +98,32 @@
 模拟系统选择器、额外筛选/预览及错过展示策略属于评审设计；真实 Android 表面和已有服务所有权保持原契约。
 
 第三轮按 [复审说明](REVIEW.md) 调整：插件已添加/发现、项目工作台、渠道与 profile 分离、新会话默认权限；成果侧览采用手机模态阅读/宽屏并排。新增布局不改变执行域或真实资源身份。
+
+
+## 消息操作修订
+
+按本轮用户要求，当前原型的用户消息只显示“编辑 / 复制”，不提供创建分支。模型回复继续保留复制、朗读、更多操作，并在更多操作里保留创建分支。
+
+编辑用户消息时：
+
+- 在当前会话原处更新该条文字，不创建分支、不截断或删除后续消息。
+- 保留当前输入草稿，不自动重发，不自动重新生成模型回复。
+- 后续已存在的模型回复标明“基于编辑前的消息生成”，避免把旧回复误认为新结果。
+- 取消保持原消息。生成中暂不允许编辑，先停止生成。
+- 即使绕过界面直接触发用户消息的分支动作，模拟处理器也拒绝；模型回复仍可创建分支并保留原记录。
+
+此为原型设计修订，未修改 Compose、应用代码或 ADR。两个入口各通过 80 项离线 DOM 检查，浏览器视觉仍未验收。
+
+
+## 语音输入修订
+
+用户本轮明确要求识别结果直接进入输入框，替代此前“弹窗预览→加入草稿”的原型设计。此说明只调整本目录原型；Android 当前实现及 ADR-PLATFORM-004 未在本任务修改，后续 Compose 实施需同步处理该契约变更。
+
+- 点击麦克风后，识别文字实时追加到录音前草稿之后；输入框就是唯一的文字结果区域。
+- 录音期间输入框只读，显示“录音中 / 取消 / 结束录音”，发送按钮不可用，避免手动编辑与局部转写争抢文本。
+- 结束录音或达到 120 秒后，识别文字留在同一输入框并立即可编辑。没有识别结果编辑弹窗，也没有“加入草稿”步骤。
+- 用户仍须主动发送；识别、结束录音、权限确认均不发送。
+- 取消、切换会话、后台中断恢复录音前原草稿；模拟的迟到结果通过录音代次校验丢弃，不覆盖新输入。
+- 麦克风拒绝使用输入区提示；系统授权本身仍使用明确模拟的权限对话框。
+
+这是纯模拟转写，不使用麦克风、不执行 ASR。手机与宽屏共用同一输入区状态，手机不再被编辑结果的 Sheet 遮挡。新增直接输入、取消/迟到边界测试；当前两个交付入口分别通过 78 项 DOM 检查，实际浏览器视觉与 Android 语音仍未验收。

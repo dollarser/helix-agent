@@ -30,7 +30,7 @@ import java.nio.file.Path
 import java.time.Instant
 
 /**
- * HXA-042 (verification matrix row `:tools:files:test`): the `read` tool — the FIRST non-`time.now`
+ * HXA-042 (verification matrix row `:tools:files:test`): the `read` tool — the FIRST non-`time_now`
  * business tool in the production tool table. Covers the mandated contract:
  * - the descriptor is a valid, registerable built-in (L1 READ_ONLY idempotent LOCAL_ANDROID);
  * - offset/maxBytes paging: a 10 MiB file is exactly ten 1 MiB windows with no byte skipped or

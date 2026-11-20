@@ -237,7 +237,7 @@ class LiveContextCompactionDeviceTest {
                 callId,
                 coordinator.id,
                 callId,
-                "session.read",
+                "session_read",
                 "1",
                 args.toString(),
                 "RUNNING",
@@ -251,13 +251,13 @@ class LiveContextCompactionDeviceTest {
         val result =
             requireNotNull(
                 registry.executor(
-                    ToolName("session.read"),
+                    ToolName("session_read"),
                     ToolVersion(1),
                 ),
             ).execute(
                 ExecutableToolCall(
                     callId,
-                    "session.read",
+                    "session_read",
                     "1",
                     args,
                     ExecutionTargetType.LOCAL_ANDROID,
@@ -284,7 +284,7 @@ class LiveContextCompactionDeviceTest {
             ModelEvent.ToolCallStarted(
                 0,
                 ToolCallId(callId),
-                "session.read",
+                "session_read",
             ),
         )
         stream.apply(ModelEvent.ToolArgumentsDelta(0, args.toString()))
@@ -293,7 +293,7 @@ class LiveContextCompactionDeviceTest {
         val step =
             kotlinx.serialization.json.buildJsonObject {
                 put("id", callId)
-                put("name", "session.read")
+                put("name", "session_read")
                 put("arguments", args.toString())
             }
         coordinator.commitModelToolStep("[$step]")
@@ -329,7 +329,7 @@ class LiveContextCompactionDeviceTest {
             ChatToolMessageEncoder { _, _ -> "" }.toolResultDraft(
                 SettledCall(
                     callId,
-                    "session.read",
+                    "session_read",
                     ToolDispatchOutcome.Succeeded(
                         BoundToolResult(
                             encoded,

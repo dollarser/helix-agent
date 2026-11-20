@@ -28,11 +28,11 @@ import kotlinx.serialization.json.longOrNull
  * Chunk semantics (vendor-documented shapes):
  * - `choices[0].delta.content` (non-empty) → [ModelEvent.TextDelta];
  * - `choices[0].delta.tool_calls[]` keyed by the vendor fragment `index`:
- *   a fragment carrying `id` + `function.name` starts the call
- *   ([ModelEvent.ToolCallStarted]); later fragments for the same index carry
- *   incremental `function.arguments` ([ModelEvent.ToolArgumentsDelta]); a
- *   duplicate start or an arguments fragment for an unknown index fails the
- *   stream;
+ *   a fragment carrying `id` opens the index; name fragments are assembled
+ *   before the first non-empty arguments or the tool_calls finish chunk.
+ *   Only then is the request-scoped name resolved and [ModelEvent.ToolCallStarted]
+ *   emitted, followed by [ModelEvent.ToolArgumentsDelta]. Duplicate starts,
+ *   unknown names/indexes and name changes after arguments fail the stream;
  * - `choices[0].finish_reason`: `stop` → [ModelEvent.Completed](`stop`),
  *   `length` → Completed(`length`), `tool_calls` → [ModelEvent.ToolCallFinished]
  *   for every open index (ascending) then Completed(`tool_calls`),
@@ -61,7 +61,10 @@ import kotlinx.serialization.json.longOrNull
  * early return per vendor contract violation.
  */
 @Suppress("TooManyFunctions", "ReturnCount")
-public class ChatCompletionsStreamDecoder : StreamDecoder {
+public class ChatCompletionsStreamDecoder(
+    private val decodeToolName: (String) -> String? = { it },
+    private val requireUsageAndDone: Boolean = false,
+) : StreamDecoder {
     public override var protocolEnded: Boolean = false
         private set
     private val reader = ChatSseReader()
@@ -74,6 +77,8 @@ public class ChatCompletionsStreamDecoder : StreamDecoder {
     // parser), so this leniency stays at the transport edge by design.
     private val json = Json { ignoreUnknownKeys = true }
     private var terminalEmitted = false
+    private var usageSeen = false
+    private val pendingTerminal = mutableListOf<ModelEvent>()
     private var protocolFailed = false
     private var openToolCalls = LinkedHashMap<Int, OpenToolCall>()
 
@@ -96,7 +101,26 @@ public class ChatCompletionsStreamDecoder : StreamDecoder {
             if (protocolFailed || protocolEnded) break
         }
         if (reader.isFailed && !protocolFailed) failProtocol(out, "sse: ${reader.failure}")
-        return out
+        return projectCompletion(out)
+    }
+
+    private fun projectCompletion(events: List<ModelEvent>): List<ModelEvent> {
+        if (!requireUsageAndDone) return events
+        val result =
+            events
+                .filter { event ->
+                    if (event is ModelEvent.Completed || event is ModelEvent.Refusal) {
+                        pendingTerminal += event
+                        false
+                    } else {
+                        true
+                    }
+                }.toMutableList()
+        if (protocolEnded && usageSeen && !protocolFailed) {
+            result += pendingTerminal
+            pendingTerminal.clear()
+        }
+        return result
     }
 
     /** The stream ended; flushes the tail and enforces the terminal guard. */
@@ -107,9 +131,10 @@ public class ChatCompletionsStreamDecoder : StreamDecoder {
             handle(payload, out)
             if (protocolFailed) break
         }
+        val cloudIncomplete = requireUsageAndDone && (!protocolEnded || !usageSeen)
         if (reader.isFailed && !protocolFailed) {
             failProtocol(out, "sse: ${reader.failure}")
-        } else if (!terminalEmitted) {
+        } else if (!terminalEmitted || cloudIncomplete) {
             // No termination: the stream ended (or the connection dropped) before
             // any finish chunk — possibly after a bare [DONE]. Connection-level
             // failure: a retry may succeed.
@@ -117,7 +142,7 @@ public class ChatCompletionsStreamDecoder : StreamDecoder {
             failureDetail = "missing terminal"
             out += ModelEvent.Error(ModelErrorCode.PROTOCOL, retryable = true)
         }
-        return out
+        return projectCompletion(out)
     }
 
     private fun handle(
@@ -148,6 +173,11 @@ public class ChatCompletionsStreamDecoder : StreamDecoder {
         out: MutableList<ModelEvent>,
     ) {
         val chunk = parseChunk(payload)
+        if ((chunk["error"] as? JsonObject) != null) {
+            // No documented mid-stream error event: an error object is a
+            // protocol contract violation (non-2xx is the transport's job).
+            throw ProtocolViolation("error object in stream chunk")
+        }
         if (terminalEmitted) {
             // The only chunk the vendor sends after the finish chunk is the
             // usage chunk (empty choices + usage); everything else is a
@@ -155,11 +185,6 @@ public class ChatCompletionsStreamDecoder : StreamDecoder {
             if (hasChunkContent(chunk)) throw ProtocolViolation("chunk after terminal")
             handleUsage(chunk, out)
             return
-        }
-        if ((chunk["error"] as? JsonObject) != null) {
-            // No documented mid-stream error event: an error object is a
-            // protocol contract violation (non-2xx is the transport's job).
-            throw ProtocolViolation("error object in stream chunk")
         }
         val choices = chunk["choices"] as? JsonArray
         if (choices != null && choices.isNotEmpty()) {
@@ -252,9 +277,8 @@ public class ChatCompletionsStreamDecoder : StreamDecoder {
             if (openToolCalls.containsKey(i)) {
                 throw ProtocolViolation("duplicate tool call start for index $i")
             }
-            val name = (function?.get("name") as? JsonPrimitive)?.contentOrNull
-            if (id.isEmpty() || name.isNullOrEmpty()) {
-                throw ProtocolViolation("tool call fragment missing id/name")
+            if (id.isEmpty()) {
+                throw ProtocolViolation("tool call fragment missing id")
             }
             // A vendor id outside the ToolCallId charset cannot be represented:
             // fail the stream instead of emitting a partial event.
@@ -278,36 +302,44 @@ public class ChatCompletionsStreamDecoder : StreamDecoder {
             if (toolCallCount > MAX_TOOL_CALLS) {
                 throw ProtocolViolation("too many function calls in one response")
             }
-            openToolCalls[i] = OpenToolCall(toolCallId, name)
-            out += ModelEvent.ToolCallStarted(i, toolCallId, name)
-            // Some OpenAI-compatible servers (observed: Ollama /v1, HXA-027 device
-            // smoke) carry the complete function arguments in the SAME start
-            // fragment instead of separate incremental fragments — emit them
-            // after the start; this is not a duplicate start.
-            emitArguments(i, function, out)
-        } else {
-            if (!openToolCalls.containsKey(i)) {
-                throw ProtocolViolation("arguments fragment for unknown tool call index $i")
-            }
-            emitArguments(i, function, out)
+            openToolCalls[i] = OpenToolCall(toolCallId)
+        }
+        val call = openToolCalls[i] ?: throw ProtocolViolation("fragment for unknown tool call index $i")
+        val name = optionalString(function, "name")
+        if (!name.isNullOrEmpty()) call.appendName(name)
+        // Ollama may include complete arguments in the same fragment as the name.
+        val arguments = optionalString(function, "arguments")
+        if (!arguments.isNullOrEmpty()) {
+            startCall(i, call, out)
+            out += ModelEvent.ToolArgumentsDelta(i, arguments)
         }
     }
 
-    /** Emits [ModelEvent.ToolArgumentsDelta] when the fragment carries a non-blank `function.arguments`. */
-    private fun emitArguments(
-        index: Int,
+    private fun optionalString(
         function: JsonObject?,
+        key: String,
+    ): String? {
+        val value = function?.get(key)
+        if (value == null || value is JsonNull) return null
+        if (value !is JsonPrimitive || !value.isString) throw ProtocolViolation("function.$key must be a string")
+        return value.content
+    }
+
+    private fun startCall(
+        index: Int,
+        call: OpenToolCall,
         out: MutableList<ModelEvent>,
     ) {
-        val arguments = (function?.get("arguments") as? JsonPrimitive)?.contentOrNull
-        if (arguments != null && arguments.isNotEmpty()) {
-            out += ModelEvent.ToolArgumentsDelta(index, arguments)
-        }
+        if (call.started) return
+        if (call.name.isEmpty()) throw ProtocolViolation("tool call fragment missing name")
+        val canonicalName = decodeToolName(call.name.toString()) ?: throw ProtocolViolation("unknown function name")
+        call.started = true
+        out += ModelEvent.ToolCallStarted(index, call.id, canonicalName)
     }
 
     /**
      * ThrowsCount suppression is deliberate: each throw is a distinct vendor
-     * contract violation (open calls at stop/length, no calls at tool_calls,
+     * terminal failure (incomplete calls at stop/length, no calls at tool_calls,
      * unknown reason) and fail-closed semantics require stopping at the first
      * one.
      */
@@ -320,7 +352,13 @@ public class ChatCompletionsStreamDecoder : StreamDecoder {
         when (reason) {
             FINISH_STOP, FINISH_LENGTH -> {
                 if (openToolCalls.isNotEmpty()) {
-                    throw ProtocolViolation("finish reason $reason with open tool calls")
+                    throw ProtocolViolation(
+                        if (reason == FINISH_LENGTH) {
+                            "output limit with unfinished tool call"
+                        } else {
+                            "finish reason $reason with open tool calls"
+                        },
+                    )
                 }
                 terminalEmitted = true
                 out += ModelEvent.Completed(reason)
@@ -347,7 +385,10 @@ public class ChatCompletionsStreamDecoder : StreamDecoder {
     }
 
     private fun closeOpenToolCalls(out: MutableList<ModelEvent>) {
-        openToolCalls.keys.sorted().forEach { out += ModelEvent.ToolCallFinished(it) }
+        openToolCalls.toSortedMap().forEach { (index, call) ->
+            startCall(index, call, out)
+            out += ModelEvent.ToolCallFinished(index)
+        }
         openToolCalls.clear()
         // The id guard is stream-scoped (a vendor may never reuse an id within ONE
         // response); a fresh stream is a fresh namespace.
@@ -367,6 +408,7 @@ public class ChatCompletionsStreamDecoder : StreamDecoder {
         val input = usageCount(usage["prompt_tokens"])
         val output = usageCount(usage["completion_tokens"])
         val cached = usageCount((usage["prompt_tokens_details"] as? JsonObject)?.get("cached_tokens"))
+        usageSeen = true
         out += ModelEvent.Usage(input, output, cachedInputTokens = cached)
     }
 
@@ -382,10 +424,22 @@ public class ChatCompletionsStreamDecoder : StreamDecoder {
 
     private class OpenToolCall(
         val id: ToolCallId,
-        val name: String,
-    )
+    ) {
+        val name = StringBuilder()
+        var started = false
+
+        fun appendName(fragment: String) {
+            if (started) throw ProtocolViolation("function name changed after arguments")
+            if (name.length + fragment.length > MAX_WIRE_NAME_LENGTH || !WIRE_NAME_FRAGMENT.matches(fragment)) {
+                throw ProtocolViolation("invalid function name")
+            }
+            name.append(fragment)
+        }
+    }
 
     private companion object {
+        const val MAX_WIRE_NAME_LENGTH = 64
+        val WIRE_NAME_FRAGMENT = Regex("[a-zA-Z0-9_-]+")
         const val DONE_TOKEN = "[DONE]"
         const val FINISH_STOP = "stop"
         const val FINISH_LENGTH = "length"

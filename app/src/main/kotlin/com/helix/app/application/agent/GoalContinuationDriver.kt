@@ -159,8 +159,8 @@ internal class GoalContinuationDriver(
                 "[Goal continuation ${facts.roundsUsed + 1}/" +
                     "${facts.goal.budgets.maxGoalRounds}] " +
                     "Continue the existing objective using current history and results. " +
-                    "Do not repeat settled actions. Read goal.get, then report complete, in_progress or blocked " +
-                    "with goal.update.",
+                    "Do not repeat settled actions. Read goal_get, then report complete, in_progress or blocked " +
+                    "with goal_update.",
             budgets = activation.control.budgets,
             reasoning = activation.control.reasoning,
             goalId = GoalId(activation.goalId),

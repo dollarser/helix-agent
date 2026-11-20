@@ -12,6 +12,7 @@ import com.helix.runtime.proot.core.JobLogText
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
+import com.helix.tools.framework.ToolDiscoveryHints
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolOrigin
@@ -30,7 +31,7 @@ import kotlin.time.Duration.Companion.seconds
 
 /** Original call/session identity only. Neither preview nor saved reads bind, submit, collect or acknowledge. */
 internal object ProotLogTool {
-    const val NAME = "code.linux.job.read_log"
+    const val NAME = "code_linux_job_read_log"
     private const val PAGE_CHARACTERS = 2048
     private const val MAX_LIVE_PAGES = 520 // Existing spool is bounded to 4 MiB / 8 KiB chunks.
 
@@ -80,6 +81,7 @@ internal object ProotLogTool {
             Idempotency.IDEMPOTENT,
             ExecutionTargetType.LOCAL_ANDROID,
             ToolOrigin.BuiltInOrigin,
+            discovery = ToolDiscoveryHints(category = "code"),
         )
 
     @Suppress("ReturnCount") // Cancellation, expiry and unavailable evidence are distinct outcomes.
@@ -158,7 +160,7 @@ internal object ProotLogTool {
         require(storage.turns.resolve(requireNotNull(call.turnId)).sessionId == call.sessionId)
         require(storage.turns.resolve(parts[0]).sessionId == call.sessionId)
         val source = requireNotNull(storage.toolCalls.byTurnAndCallId(parts[0], parts[1]))
-        require(source.name in setOf("bash", "code.linux.run", "skills.run", DetachedJobTools.START))
+        require(source.name in setOf("bash", "code_linux_run", "skills_run", DetachedJobTools.START))
         val binding = ProotJobBindingStore(storage).resolve(parts[1])
         require(binding["sessionId"]?.jsonPrimitive?.content?.let { it == call.sessionId } != false)
         require(binding.getValue("turnId").jsonPrimitive.content == parts[0])

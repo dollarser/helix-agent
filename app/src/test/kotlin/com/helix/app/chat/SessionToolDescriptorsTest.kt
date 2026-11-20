@@ -15,8 +15,39 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SessionToolDescriptorsTest {
+    @Test fun everyInputParameterExplainsItsSourceAndUnits() {
+        for (name in SessionToolDescriptors.names) {
+            val descriptor = SessionToolDescriptors.descriptor(name)
+            for ((field, property) in descriptor.inputSchema.getValue("properties").jsonObject) {
+                val help = property.jsonObject["description"]?.jsonPrimitive?.content
+                assertTrue("$name.$field", !help.isNullOrBlank())
+            }
+            assertTrue(
+                descriptor.outputSchema
+                    .getValue("properties")
+                    .jsonObject
+                    .isNotEmpty(),
+            )
+        }
+    }
+
+    @Test fun readOutputMatchesActualUnicodePageAndRejectsMissingEvidence() {
+        val page = ToolResultReadTool.page("ignored", "a😀b", 1, maxCharacters = 1)
+        val result =
+            kotlinx.serialization.json.JsonObject(
+                page - "resultRef" +
+                    mapOf("messageId" to JsonPrimitive("message"), "contentHash" to JsonPrimitive("hash")),
+            )
+        val schema = SessionToolDescriptors.descriptor("session_read").outputSchema
+        assertEquals(ToolSchemaValidation.Valid, ToolSchemaValidator.validate(schema, result))
+        assertTrue(
+            ToolSchemaValidator.validate(schema, kotlinx.serialization.json.JsonObject(result - "content"))
+                is ToolSchemaValidation.Invalid,
+        )
+    }
+
     @Test fun cursorGuidancePreservesOptionalNonNullableCursorContract() {
-        for (name in listOf("session.list", "session.history", "session.search")) {
+        for (name in listOf("session_list", "session_history", "session_search")) {
             val schema = SessionToolDescriptors.descriptor(name).inputSchema
             val cursor =
                 schema
@@ -30,7 +61,7 @@ class SessionToolDescriptorsTest {
             assertTrue(help.contains("never invent or modify"))
             assertFalse(schema.getValue("required").jsonArray.contains(JsonPrimitive("cursor")))
             assertEquals(JsonPrimitive("string"), cursor["type"])
-            val firstPage = if (name == "session.search") """{"query":"needle"}""" else "{}"
+            val firstPage = if (name == "session_search") """{"query":"needle"}""" else "{}"
             assertEquals(
                 ToolSchemaValidation.Valid,
                 ToolSchemaValidator.validate(schema, Json.parseToJsonElement(firstPage)),
@@ -38,7 +69,7 @@ class SessionToolDescriptorsTest {
             for (value in listOf(JsonNull, JsonPrimitive(""))) {
                 val invalid =
                     buildJsonObject {
-                        if (name == "session.search") put("query", JsonPrimitive("needle"))
+                        if (name == "session_search") put("query", JsonPrimitive("needle"))
                         put("cursor", value)
                     }
                 assertTrue(ToolSchemaValidator.validate(schema, invalid) is ToolSchemaValidation.Invalid)
@@ -47,7 +78,7 @@ class SessionToolDescriptorsTest {
     }
 
     @Test fun historyAndSearchExplainTheTwoDistinctPaginationProtocols() {
-        for (name in listOf("session.history", "session.search")) {
+        for (name in listOf("session_history", "session_search")) {
             val descriptor = SessionToolDescriptors.descriptor(name)
             val properties = descriptor.inputSchema.getValue("properties").jsonObject
             val cursorHelp =
@@ -72,7 +103,7 @@ class SessionToolDescriptorsTest {
         }
         val listHelp =
             SessionToolDescriptors
-                .descriptor("session.list")
+                .descriptor("session_list")
                 .inputSchema
                 .getValue("properties")
                 .jsonObject

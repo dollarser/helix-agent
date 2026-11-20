@@ -11,6 +11,7 @@ import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.PublishedToolImage
 import com.helix.tools.framework.ToolBinding
 import com.helix.tools.framework.ToolDescriptor
+import com.helix.tools.framework.ToolDiscoveryHints
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolImagePublication
@@ -36,7 +37,7 @@ import kotlin.time.Duration.Companion.seconds
 
 object DocumentTools {
     val origin = ToolOrigin.PluginOrigin("documents", "1", "documents")
-    val names = setOf("documents.inspect", "documents.read", "documents.view")
+    val names = setOf("documents_inspect", "documents_read", "documents_view")
 
     fun owns(descriptor: ToolDescriptor): Boolean = descriptor.origin == origin && descriptor.name.value in names
 
@@ -160,7 +161,7 @@ object DocumentTools {
 
     fun descriptor(operation: String): ToolDescriptor =
         ToolDescriptor(
-            name = ToolName("documents.$operation"),
+            name = ToolName("documents_$operation"),
             version = ToolVersion(1),
             description =
                 when (operation) {
@@ -176,7 +177,7 @@ object DocumentTools {
                             "or up to 32 DOCX body blocks (startBlock, " +
                             "1-based). Follow nextCursor as startBlock. Cite sourceSha256 and page/block " +
                             "locations; truncated or unread content is not full coverage. Use " +
-                            "documents.view for diagrams, scanned pages and embedded images."
+                            "documents_view for diagrams, scanned pages and embedded images."
                     )
 
                     "view" -> (
@@ -197,7 +198,8 @@ object DocumentTools {
             idempotency = Idempotency.IDEMPOTENT,
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
             origin = origin,
-            discoveryCompanions = names.filter { it != "documents.$operation" }.map(::ToolName).toSet(),
+            discovery = ToolDiscoveryHints(category = "documents"),
+            discoveryCompanions = names.filter { it != "documents_$operation" }.map(::ToolName).toSet(),
         )
 
     private fun outputSchema() =

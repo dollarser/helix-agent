@@ -1,5 +1,7 @@
 # HXA-197 私有进程 PTY 可行性探针
 
+历史探针与当时未完成边界保留如下；后续生产实现和验收查[终端规范](../../../../docs/architecture/terminal.md)及[HXA-197](../../../../docs/completion-records/HXA-197.md)，不把本文“待生产”恢复为当前任务。
+
 本目录是 Helix 自写的诊断源码，不参与生产构建。父级 `prepare-termlib-build-spike.py` 将它复制到忽略的 `build/hxa197-termlib-build-spike`，并复制工程当前的 proot-core、Android 安装器、锁定资产和已包内 loader。组件编译探针与本 PTY 探针在同一 APK 中，但 PTY 测试不调用 termlib，不证明渲染或产品已接线。
 
 使用 `posix_openpt`、`fork`、`setsid`、`TIOCSCTTY`、`dup2` 与 `execve` 启动 shell（早期为系统 shell，当前为锁定 PRoot 内的 Alpine shell）。child 的 fork/exec 之间不调用 JVM；Service 非导出、运行于 `:pty`，测试校验 PID 与 instrumentation 主进程不同。失败路径终止并回收直接子进程/进程组，关闭 master。它不是生产会话管理器，不接受任意命令参数，也不暴露 Agent 工具。

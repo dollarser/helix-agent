@@ -16,7 +16,7 @@ class DocumentParseCapacityTest {
     private fun call() =
         ExecutableToolCall(
             "c",
-            "documents.read",
+            "documents_read",
             "1",
             JsonObject(emptyMap()),
             ExecutionTargetType.LOCAL_ANDROID,

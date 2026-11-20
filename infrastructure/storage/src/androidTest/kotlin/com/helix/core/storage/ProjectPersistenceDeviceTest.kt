@@ -82,7 +82,7 @@ class ProjectPersistenceDeviceTest {
                 db.projectDao().bind(ProjectSessionEntity("session", project.id))
                 db.turnDao().insert(TurnEntity("turn", "session", "RUNNING_TOOL", 0, 1, null, null))
                 db.toolCallDao().insert(
-                    ToolCallEntity("call", "turn", "provider-call", "memory.read", "1", "{}", "hash", "RUNNING"),
+                    ToolCallEntity("call", "turn", "provider-call", "memory_read", "1", "{}", "hash", "RUNNING"),
                 )
                 assertEquals(project.id, db.projectDao().forTool("session", "turn", "call")?.id)
                 assertNull(db.projectDao().forTool("another", "turn", "call"))

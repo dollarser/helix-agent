@@ -1,5 +1,8 @@
 package com.helix.app.provider
 
+import com.helix.app.test.findDeclaredFixtureToolName
+import com.helix.app.test.registeredFixtureToolDescription
+import org.json.JSONObject
 import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
@@ -26,18 +29,19 @@ import java.util.concurrent.atomic.AtomicLong
  *    request carries `tools` (the `CapabilityProbe`'s tool phase). The probe never sees a scripted
  *    task step.
  *  - **armed** (a task cycle): [arm] queues the scripted steps. Each model request in the turn returns
- *    the NEXT step as a tool-call SSE, chosen by counting the completed tool results already in the
- *    request body (`"tool_call_id"` occurrences — the OpenAI chat encoder re-sends every settled tool
- *    result as `{"role":"tool","tool_call_id":...}`, and the assistant `tool_calls` steps carry only
- *    `"id"`, so this count is exactly the number of steps finished so far). Once the queue is
+ *    the NEXT step as a tool-call SSE, chosen by counting completed scripted call ids in the
+ *    request. If the target is not declared, a real tools_search call first loads it; this auxiliary
+ *    discovery does not advance the script. Once the queue is
  *    exhausted the server returns the final text (`finish_reason:"stop"`) to end the turn.
  *
  * A step's arguments are a **supplier** so the fixture can resolve app-generated values at request
- * time (e.g. a browser node token minted by the just-run `browser.snapshot`); fixed arguments are a
+ * time (e.g. a browser node token minted by the just-run `browser_snapshot`); fixed arguments are a
  * constant supplier. The server never reads the credential and never logs request secrets — the body
- * is scanned only for the step index. The model ids are short fixture strings.
+ * is inspected only for the step index and current tool declarations. The model ids are short fixture strings.
  */
-internal class ScriptedTaskModelServer : AutoCloseable {
+internal class ScriptedTaskModelServer(
+    private val toolDescription: (String) -> String = ::registeredFixtureToolDescription,
+) : AutoCloseable {
     /**
      * One scripted assistant fragment: a single tool call. [args] returns the raw JSON-object text
      * (e.g. `{"path":"scope:app:output/x.txt","content":"hi"}`) evaluated at request time.
@@ -209,11 +213,33 @@ internal class ScriptedTaskModelServer : AutoCloseable {
             // Probe-compatible, identical to LoopbackModelServer.OPENAI_LISTED.
             return if (requestBody.contains("\"tools\"")) openaiEchoToolStream else openaiTextStream
         }
-        val completed = countOccurrences(requestBody, TOOL_RESULT_MARKER)
+        val messages = JSONObject(requestBody).optJSONArray("messages")
+        val results =
+            (0 until (messages?.length() ?: 0))
+                .map { messages!!.getJSONObject(it) }
+                .filter { it.optString("role") == "tool" }
+                .map { it.getString("tool_call_id") }
+        val completed = results.count { it.matches(Regex("call_ev04_[0-9]+")) }
         val steps = armedSteps
         return if (completed < steps.size) {
             val step = steps[completed]
-            toolCallStream("call_ev04_" + callCounter.incrementAndGet(), step.toolName, step.args())
+            val wireName =
+                findDeclaredFixtureToolName(requestBody, step.toolName, toolDescription(step.toolName))
+            if (wireName == null) {
+                val discoveryId = "discover_ev04_$completed"
+                check(discoveryId !in results) { "Discovery did not expose ${step.toolName}" }
+                toolCallStream(
+                    discoveryId,
+                    com.helix.app.test.declaredFixtureToolName(
+                        requestBody,
+                        "tools_search",
+                        toolDescription("tools_search"),
+                    ),
+                    JSONObject().put("query", step.toolName).put("limit", 1).toString(),
+                )
+            } else {
+                toolCallStream("call_ev04_" + callCounter.incrementAndGet(), wireName, step.args())
+            }
         } else {
             finalResponseRequested.countDown()
             val gate = finalResponseGate
@@ -364,19 +390,6 @@ internal class ScriptedTaskModelServer : AutoCloseable {
         return sb.append("\"").toString()
     }
 
-    private fun countOccurrences(
-        haystack: String,
-        needle: String,
-    ): Int {
-        var count = 0
-        var idx = haystack.indexOf(needle)
-        while (idx >= 0) {
-            count++
-            idx = haystack.indexOf(needle, idx + needle.length)
-        }
-        return count
-    }
-
     /** Reads the request head up to and including the CRLFCRLF separator (requests are small). */
     private fun readUntilHead(input: InputStream): String {
         val sb = StringBuilder()
@@ -425,9 +438,6 @@ internal class ScriptedTaskModelServer : AutoCloseable {
     companion object {
         /** The model id the fixture registers providers for (also the first listed model). */
         const val MODEL_ID: String = "fixture-model-ev04"
-
-        /** The OpenAI chat encoder's settled-tool-result marker (see chatStream's count). */
-        private const val TOOL_RESULT_MARKER = "\"tool_call_id\""
 
         /** The CRLFCRLF request-head terminator. */
         private val HEAD_END: ByteArray =

@@ -584,7 +584,7 @@ internal class ApplicationToolGateway(
 
     /**
      * Parse + normalize a tool call's raw arguments into the JSON object the dispatcher sees.
-     * No-argument tools (e.g. time.now, whose ONLY valid input is {}) receive arguments as an
+     * No-argument tools (e.g. time_now, whose ONLY valid input is {}) receive arguments as an
      * empty string or no argument fragments at all on many OpenAI-compatible servers (observed:
      * Ollama) — the decoders skip blank fragments, so the accumulated buffer ends up empty.
      * Normalize empty to the empty object: a tool that REQUIRES arguments still gets its precise

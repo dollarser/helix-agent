@@ -1,6 +1,6 @@
 # 独立文档处理插件设计
 
-日期：2026-10-14。状态：accepted scope；Owner已授权按本方案实现，开发与验收状态见HXA-284。
+日期：2026-10-14。性质：已实施功能的原始设计与取舍记录。现行工具契约见[文档 ADR](../adr/workspace/006-pdf-reading.md)，开发与验收见 [HXA-284](../completion-records/HXA-284.md)。下文“建议/拟议/首轮预算”保留设计阶段表述，不替代实际实现；2026-10-15 已补主机、API36 原生文档及 Qwen 合成文件验收，见[收尾证据](../evidence/development/pre-refactor-closeout-2026-10-15.md)，不是本次文档整理重测。
 
 Owner要求：参考Codex PDF和Documents插件，设计Helix独立文档插件，优先PDF与Word图文阅读；初始轮仅写方案；2026-10-14 Owner追加“按这个思路实现插件”。后续补充以最优方案为主，不要求兼容或复用旧实现。宿主授权、视觉和成果能力保持统一，内部实现可重构。
 
@@ -73,9 +73,9 @@ flowchart TD
 
 | 工具 | 输入要点 | 输出与用途 |
 | --- | --- | --- |
-| `documents.inspect` | 已授权文件引用 | 格式、源快照hash、documentRef、页数或结构统计、读取能力、限制和警告；不自动外发全文 |
-| `documents.read` | documentRef；PDF页或DOCX块范围；可选继续cursor | 有界正文/表格、图像引用、来源定位、截断/未支持标记与下一位置 |
-| `documents.view` | documentRef与页/图片定位；必要的有界PDF区域 | PDF页/区域或DOCX嵌入图片的真实视觉观察；明确是否已进入模型请求 |
+| `documents_inspect` | 已授权文件引用 | 格式、源快照hash、documentRef、页数或结构统计、读取能力、限制和警告；不自动外发全文 |
+| `documents_read` | documentRef；PDF页或DOCX块范围；可选继续cursor | 有界正文/表格、图像引用、来源定位、截断/未支持标记与下一位置 |
+| `documents_view` | documentRef与页/图片定位；必要的有界PDF区域 | PDF页/区域或DOCX嵌入图片的真实视觉观察；明确是否已进入模型请求 |
 
 首版不增加“自动总结”“自动判断重要页”“运行Python”“万能转换”工具。总结与阅读策略交给当前模型。三工具构成完整阅读组，沿现有发现工作集策略呈现，不让工具数量增长成为使用前提。
 
@@ -155,11 +155,11 @@ PDF全页与区域、DOCX图像均有源像素/解码限额；输出上限不代
 
 主机验证覆盖格式伪装、越界/撤权、源变化/过期身份、跨会话引用、ZIP/XML攻击、文本/表格截断、外链不请求、图片发送拒绝、插件关闭/移除、取消和进程死亡。执行当前任务要求的`./scripts/check-all.sh --all`、双渠道制品与测试APK编译；文档阶段仅`bash scripts/check-docs.sh`。
 
-设备矩阵建议API29/34/35/36，验证旧API视觉路径与新API文字路径；明确渠道、真实工作进程UID、无网络/凭据访问、FD释放、并发/取消恢复和资源。设备测试只有当轮Owner明确授权后执行；GitHub CI仅主机检查。
+设备矩阵建议API29/34/35/36，验证旧API视觉路径与新API文字路径；明确渠道、真实工作进程UID、无网络/凭据访问、FD释放、并发/取消恢复和资源。后续执行遵循 [AGENTS.md](../../AGENTS.md#verification-and-device-authorization) 的模拟器、真机及服务授权边界；GitHub CI仅主机检查。
 
 真实模型样本包括中文扫描PDF、正文与图表结论不同的报告、复杂多栏/表格、DOCX内嵌图片、重名不同文件、部分不支持图表、大文件截断。参考答案不写进文件名或工具元数据。记录答案/数值准确率、来源定位、已读覆盖、每任务调用/图片/token/时延、权限交互和峰值资源；关键数据错误、未读自称全文、未授权外发或原文改变为失败。质量阈值在基线后确定，不预报“成功率提升”。
 
-当前交付和验证以HXA-284为准。统一插件及主机整合已交付，详见[验证记录](../evidence/development/documents-plugin-2026-10-14.md)；设备/真实模型not requested，不继承HXA-283或其他插件历史绿色。
+交付和验证以HXA-284为准。[2026-10-14 验证记录](../evidence/development/documents-plugin-2026-10-14.md)当时仅完成主机整合，设备/真实模型为 not requested；后续 2026-10-15 有独立[收尾验收](../evidence/development/pre-refactor-closeout-2026-10-15.md)。两阶段候选与执行范围分别保留，不继承HXA-283或其他插件历史绿色。
 
 ## 12 开放决策与后续范围
 

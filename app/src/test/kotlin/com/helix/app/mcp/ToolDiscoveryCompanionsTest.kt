@@ -10,7 +10,7 @@ import org.junit.Test
 
 class ToolDiscoveryCompanionsTest {
     private val registry = ToolRegistry().also { McpToolDiscovery(it).register(it) }
-    private val base = requireNotNull(registry.resolveLatest(ToolName("tools.search")))
+    private val base = requireNotNull(registry.resolveLatest(ToolName("tools_search")))
     private val origin = ToolOrigin.PluginOrigin("new-plugin", "1", "native")
 
     private fun tool(
@@ -23,9 +23,9 @@ class ToolDiscoveryCompanionsTest {
     )
 
     @Test fun arbitraryPluginExpandsTransitiveCycleOnceInStableOrder() {
-        val action = tool("sample.act", "sample.observe")
-        val observe = tool("sample.observe", "sample.frame")
-        val frame = tool("sample.frame", "sample.act")
+        val action = tool("sample_act", "sample_observe")
+        val observe = tool("sample_observe", "sample_frame")
+        val frame = tool("sample_frame", "sample_act")
         assertEquals(
             listOf(action, observe, frame),
             ToolDiscoveryWorkset.complete(listOf(action), listOf(frame, observe, action)),
@@ -33,8 +33,8 @@ class ToolDiscoveryCompanionsTest {
     }
 
     @Test fun unavailableMatchesAndCompanionsCannotEnterTheSnapshot() {
-        val action = tool("sample.act", "sample.observe")
-        val observe = tool("sample.observe")
+        val action = tool("sample_act", "sample_observe")
+        val observe = tool("sample_observe")
         assertEquals(emptyList<Any>(), ToolDiscoveryWorkset.complete(listOf(action), listOf(observe)))
         assertEquals(listOf(action), ToolDiscoveryWorkset.complete(listOf(action), listOf(action)))
         val replacement = action.copy(description = "Replacement implementation contract")
@@ -42,16 +42,16 @@ class ToolDiscoveryCompanionsTest {
     }
 
     @Test fun missingCompanionDoesNotBorrowAnotherOriginOrActivateIt() {
-        val action = tool("sample.act", "sample.observe")
-        val foreign = tool("sample.observe").copy(origin = origin.copy(pluginVersion = "2"))
+        val action = tool("sample_act", "sample_observe")
+        val foreign = tool("sample_observe").copy(origin = origin.copy(pluginVersion = "2"))
         assertEquals(listOf(action), ToolDiscoveryWorkset.complete(listOf(action), listOf(action, foreign)))
     }
 
     @Test fun exposureBudgetKeepsTheCompleteCompanionGroupOrOmitsIt() {
-        val recent = tool("sample.act", "sample.observe")
-        val observe = tool("sample.observe")
+        val recent = tool("sample_act", "sample_observe")
+        val observe = tool("sample_observe")
         val huge =
-            tool("sample.huge").copy(
+            tool("sample_huge").copy(
                 inputSchema =
                     kotlinx.serialization.json.buildJsonObject {
                         put("type", kotlinx.serialization.json.JsonPrimitive("object"))
@@ -64,8 +64,8 @@ class ToolDiscoveryCompanionsTest {
     }
 
     @Test fun recentGroupsAreChargedForModelOnlyMetadataAndRemainDiscoverable() {
-        val recent = tool("sample.act", "sample.observe")
-        val observe = tool("sample.observe")
+        val recent = tool("sample_act", "sample_observe")
+        val observe = tool("sample_observe")
 
         fun rawBytes(tool: com.helix.tools.framework.ToolDescriptor): Long =
             tool.name.value
@@ -81,7 +81,7 @@ class ToolDiscoveryCompanionsTest {
                     .size + 128L
         val rawGroup = rawBytes(recent) + rawBytes(observe)
         val newBase =
-            tool("sample.new").copy(
+            tool("sample_new").copy(
                 inputSchema =
                     kotlinx.serialization.json.buildJsonObject {
                         put("type", kotlinx.serialization.json.JsonPrimitive("object"))

@@ -67,7 +67,7 @@ class MobileLongPressDeviceTest {
         LongPressReferenceInput.openFixtureDirectory()
         var snapshot: JsonObject? = null
         fixture.await("DocumentsUI file after folder navigation") {
-            snapshot = session.output("ui.snapshot")
+            snapshot = session.output("ui_snapshot")
             snapshot?.get("nodes")?.jsonArray?.any {
                 it.jsonObject["text"]?.jsonPrimitive?.content == "helix_long_press_fixture.jpg"
             } == true
@@ -97,10 +97,10 @@ class MobileLongPressDeviceTest {
         val frame = device.getValue("frame").jsonPrimitive.content
         val gesture = """{"frame":"$frame","pattern":{"kind":"long_press",
             "center":{"x":$x,"y":$y},"durationMillis":$duration}}"""
-        val result = session.output("ui.gesture", fixture.json(gesture))
+        val result = session.output("ui_gesture", fixture.json(gesture))
         val expectation = """{"condition":"present","text":"selected","match":"contains","timeoutMillis":1000}"""
-        val wait = session.output("ui.wait", fixture.json(expectation))
-        val after = session.output("ui.snapshot")
+        val wait = session.output("ui_wait", fixture.json(expectation))
+        val after = session.output("ui_snapshot")
         return JSONObject()
             .put("durationMillis", duration)
             .put("x", x)
@@ -114,7 +114,7 @@ class MobileLongPressDeviceTest {
         MobileInteractionSession(app, setOf("com.google.android.documentsui")).use { session ->
             observeDevice(session)
             SystemClock.sleep(1000)
-            val snapshot = session.output("ui.snapshot")
+            val snapshot = session.output("ui_snapshot")
             File(app.filesDir, "mobile-long-press-evidence/semantic-before.json").writeText(snapshot.toString())
             assertTrue(
                 snapshot.getValue("nodes").jsonArray.none {
@@ -127,9 +127,9 @@ class MobileLongPressDeviceTest {
                 }
             assertEquals("true", target["longClickable"]?.jsonPrimitive?.content)
             val token = target.getValue("token").jsonPrimitive.content
-            val action = session.output("ui.long_click", fixture.json("""{"token":"$token"}"""))
+            val action = session.output("ui_long_click", fixture.json("""{"token":"$token"}"""))
             val expectation = """{"condition":"present","text":"1 selected","match":"exact","timeoutMillis":3000}"""
-            val wait = session.output("ui.wait", fixture.json(expectation))
+            val wait = session.output("ui_wait", fixture.json(expectation))
             val evidence =
                 JSONObject()
                     .put("before", JSONObject(snapshot.toString()))
@@ -144,7 +144,7 @@ class MobileLongPressDeviceTest {
     private fun observeDevice(session: MobileInteractionSession): JsonObject {
         var observed: JsonObject? = null
         fixture.await("read-only device target ready") {
-            observed = session.output("ui.device")
+            observed = session.output("ui_device")
             observed?.get("frame") != null
         }
         return checkNotNull(observed)
@@ -168,7 +168,7 @@ class MobileLongPressDeviceTest {
                     val frame = device.getValue("frame").jsonPrimitive.content
                     val result =
                         session.output(
-                            "ui.gesture",
+                            "ui_gesture",
                             fixture.json(
                                 """{"frame":"$frame","pattern":{"kind":"long_press","center":${fixture.point(
                                     "bx",

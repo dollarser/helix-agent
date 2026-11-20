@@ -1,5 +1,7 @@
 # MCP OAuth客户端配置收尾
 
+后续 Notion 自然刷新与重启复用已有[独立验收](notion-natural-refresh-2026-10-15.md)；下方 pending 保留本检查点的原始边界，不代表后续从未执行。
+
 日期：2026-10-15。归属[HXA-126](../../development/tasks/HXA-126.md)、[ADR-CONNECTORS-002](../../adr/connectors/002-oauth.md)。Owner要求继续上一轮Notion/Linear收尾；本记录不代替两家真实账号的业务/生命周期验收。
 
 ## 问题及选择

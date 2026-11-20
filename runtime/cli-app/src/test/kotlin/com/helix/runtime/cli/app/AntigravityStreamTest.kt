@@ -28,9 +28,9 @@ class AntigravityStreamTest {
 
     @Test fun toolCallsWaitForStopAndDurableSignedReplay() {
         var saved = false
-        val name = AntigravityRequest.wireName("files.read")
+        val name = AntigravityRequest.wireName("files_read")
         val decoder =
-            AntigravityStreamDecoder(mapOf(name to "files.read")) { _, parts ->
+            AntigravityStreamDecoder(mapOf(name to "files_read")) { _, parts ->
                 assertTrue(parts.toString().contains("signature"))
                 saved = true
             }
@@ -49,9 +49,9 @@ class AntigravityStreamTest {
     }
 
     @Test fun missingStopAndLengthNeverReleasePendingTools() {
-        val name = AntigravityRequest.wireName("files.read")
+        val name = AntigravityRequest.wireName("files_read")
         listOf(false, true).forEach { length ->
-            val decoder = AntigravityStreamDecoder(mapOf(name to "files.read")) { _, _ -> error("No replay") }
+            val decoder = AntigravityStreamDecoder(mapOf(name to "files_read")) { _, _ -> error("No replay") }
             val pending = decoder.feed(frame("""[{"functionCall":{"name":"$name","args":{}}}]""").toByteArray())
             val final = if (length) decoder.feed(frame("[]", "MAX_TOKENS").toByteArray()) else decoder.finish()
             assertFalse((pending + final).any { it is ModelEvent.ToolCallStarted })
@@ -60,8 +60,8 @@ class AntigravityStreamTest {
     }
 
     @Test fun replayPersistenceFailureCannotPublishSuccessfulTools() {
-        val name = AntigravityRequest.wireName("files.read")
-        val decoder = AntigravityStreamDecoder(mapOf(name to "files.read")) { _, _ -> error("Disk failure") }
+        val name = AntigravityRequest.wireName("files_read")
+        val decoder = AntigravityStreamDecoder(mapOf(name to "files_read")) { _, _ -> error("Disk failure") }
         val events =
             decoder.feed(
                 frame(

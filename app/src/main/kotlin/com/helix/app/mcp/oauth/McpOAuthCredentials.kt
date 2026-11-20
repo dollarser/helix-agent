@@ -60,8 +60,6 @@ internal class McpOAuthCredentials(
         check(isCurrent(binding)) { "OAUTH_LOGIN_CANCELLED_OR_REPLACED" }
         write(OAuthCredential(binding, tokens))
         secrets.put(tokenAlias(binding.serverId), tokens.accessToken)
-        // Remove aliases written by the old, unbound implementation.
-        secrets.delete(SecretAlias(McpOAuthCoordinator.refreshAlias(binding.serverId)))
     }
 
     fun hasToken(serverId: String): Boolean = secrets.contains(recordAlias(serverId))
@@ -124,7 +122,6 @@ internal class McpOAuthCredentials(
         begin(serverId, UUID.randomUUID().toString())
         secrets.delete(recordAlias(serverId))
         secrets.delete(tokenAlias(serverId))
-        secrets.delete(SecretAlias(McpOAuthCoordinator.refreshAlias(serverId)))
         check(!secrets.contains(recordAlias(serverId)) && !secrets.contains(tokenAlias(serverId))) {
             "OAUTH_LOCAL_CLEAR_FAILED"
         }

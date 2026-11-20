@@ -75,7 +75,7 @@ class ConversationToolGroupsTest {
                 it.copy(
                     value =
                         it.value.copy(
-                            toolName = "ui.scroll",
+                            toolName = "ui_scroll",
                             resultSummary = """{"observationStatus":"UNSETTLED"}""",
                         ),
                 )
@@ -89,7 +89,7 @@ class ConversationToolGroupsTest {
     @Test fun routeEvidenceIsTypedAndDoesNotAcceptModelTextOrMalformedJson() {
         val row =
             tool("c0").value.copy(
-                toolName = "ui.device",
+                toolName = "ui_device",
                 resultSummary = """{
 "displayId":4,"executionDisplay":"background",
 "packageName":"com.example.fixture"

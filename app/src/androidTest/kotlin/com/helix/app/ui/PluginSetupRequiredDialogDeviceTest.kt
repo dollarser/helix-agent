@@ -70,4 +70,13 @@ class PluginSetupRequiredDialogDeviceTest {
         compose.waitForIdle()
         assertEquals(1, navigations)
     }
+
+    @Test fun systemBackCancelsWithoutOpeningSettings() {
+        show(PluginSetupReason.MOBILE_BACKEND, R.string.plugin_setup_mobile_backend)
+        InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
+        compose.waitForIdle()
+        compose.onNodeWithTag("plugin-setup-explanation").assertDoesNotExist()
+        assertEquals(0, navigations)
+        assertEquals(1, dismissals)
+    }
 }

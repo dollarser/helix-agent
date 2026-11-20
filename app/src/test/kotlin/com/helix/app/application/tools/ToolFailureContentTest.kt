@@ -15,6 +15,49 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ToolFailureContentTest {
+    @Test fun largeReceivedFailureProjectsReaderHandleWithoutLosingSavedOutput() {
+        val payload = """{"message":"${"x".repeat(40000)}"}"""
+        val failure =
+            ToolDispatchOutcome.ExecutionFailed(
+                DispatchOutcomeCode.TOOL_FAILED,
+                "Tool returned a failure result",
+                result =
+                    com.helix.core.model.BoundToolResult(
+                        payload,
+                        com.helix.core.model
+                            .Sha256("c".repeat(64)),
+                        false,
+                        1,
+                    ),
+            )
+        val saved = ToolFailureContent.encode(failure)
+        val projected = Json.parseToJsonElement(ToolModelResult.project("remote", saved, "turn/call")).jsonObject
+        assertEquals("TOOL_FAILED", projected.getValue("failureCode").jsonPrimitive.content)
+        assertEquals("turn/call", projected.getValue("resultRef").jsonPrimitive.content)
+        assertEquals(Json.parseToJsonElement(payload), Json.parseToJsonElement(saved).jsonObject["output"])
+        assertTrue(projected.toString().toByteArray().size < 32768)
+    }
+
+    @Test fun truncatedFailureOutputIsPreservedAsTextWithItsFullHash() {
+        val failure =
+            ToolDispatchOutcome.ExecutionFailed(
+                DispatchOutcomeCode.TOOL_FAILED,
+                "Tool returned a failure result",
+                result =
+                    com.helix.core.model.BoundToolResult(
+                        "{\"partial",
+                        com.helix.core.model
+                            .Sha256("b".repeat(64)),
+                        true,
+                        1,
+                    ),
+            )
+        val output = Json.parseToJsonElement(ToolFailureContent.encode(failure)).jsonObject
+        assertEquals("{\"partial", output.getValue("output").jsonPrimitive.content)
+        assertTrue(output.getValue("executorPayloadTruncated").jsonPrimitive.boolean)
+        assertEquals("b".repeat(64), output.getValue("executorOutputHash").jsonPrimitive.content)
+    }
+
     @Test fun failureFactsOverrideUntrustedFieldsAndCredentialsAreMasked() {
         val credential = "sk-" + "a".repeat(24)
         val output =

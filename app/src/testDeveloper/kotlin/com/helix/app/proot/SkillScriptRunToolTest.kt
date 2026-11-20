@@ -54,7 +54,7 @@ class SkillScriptRunToolTest {
         val call =
             ExecutableToolCall(
                 "fixture",
-                "skills.run",
+                "skills_run",
                 "1",
                 args,
                 ExecutionTargetType.LOCAL_PROOT,
@@ -63,7 +63,7 @@ class SkillScriptRunToolTest {
                 "session",
                 "turn",
             )
-        val executor = registry.executor(ToolName("skills.run"), ToolVersion(1))
+        val executor = registry.executor(ToolName("skills_run"), ToolVersion(1))
         assertTrue(executor.execute(call) is ToolExecutorResult.Failed)
         assertTrue(captured.isEmpty())
         repository.setEnabled(key, true, SkillEnablementScope.SESSION, "session")
@@ -71,7 +71,7 @@ class SkillScriptRunToolTest {
         val parsed = captured.single()
         val argv = (parsed.command as ProotJobCommand.Argv).arguments
         assertEquals(listOf("", "a; echo no", "中文"), argv.takeLast(3))
-        assertEquals("skills.run", parsed.originalToolName)
+        assertEquals("skills_run", parsed.originalToolName)
         val copied = root.resolve("runtime-copy").toFile()
         ScriptBundleTree.copyVerified(snapshot.directory.toFile(), copied, key.snapshotHash)
         copied.resolve("scripts/run.py").writeText("modified only execution resources")

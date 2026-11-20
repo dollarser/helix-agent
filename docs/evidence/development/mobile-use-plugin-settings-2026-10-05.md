@@ -1,5 +1,7 @@
 # Mobile Use 插件配置、内置 skill 与内容查看
 
+这是当日按阶段追加的记录；其中 `tools/automation` 的模块归属随后由[五项重构](mobile-use-refactor-2026-10-05.md)替换。保留原 UI/授权与安装结果，不将旧模块说明作为当前结构。
+
 日期：2026-10-05。范围：所有者要求插件全局配置、会话仅启停、集中授权、内置 skill 自动注入及插件内容展开查看。对应 [ADR-CONNECTORS-003](../../adr/connectors/003-ownership-and-installation.md) 与 [ADR-PERMISSIONS-001](../../adr/permissions/001-session-authorization.md) 同日决定。
 
 ## 实现

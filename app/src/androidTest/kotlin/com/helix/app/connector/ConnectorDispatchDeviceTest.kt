@@ -129,7 +129,7 @@ class ConnectorDispatchDeviceTest {
 
     private fun descriptor(server: String) =
         ToolDescriptor(
-            name = ToolName("mcp.$server.fixture"),
+            name = ToolName("mcp_${server}_fixture"),
             version = ToolVersion(1),
             description = "Connector dispatch fixture",
             inputSchema =

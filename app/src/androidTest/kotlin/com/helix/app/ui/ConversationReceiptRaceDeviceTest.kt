@@ -1,7 +1,6 @@
 package com.helix.app.ui
 
 import android.net.Uri
-import android.view.KeyEvent
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.ComposeTimeoutException
@@ -48,7 +47,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
-/** UI acceptance for receipt ownership across recreation and revision attachment disclosure. */
+/** UI acceptance for receipt ownership, recreation and attachment-preserving manual message edits. */
 @Suppress("LongMethod") // Each test preserves one full activity/service ownership journey.
 class ConversationReceiptRaceDeviceTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
@@ -102,11 +101,12 @@ class ConversationReceiptRaceDeviceTest {
                             com.helix.feature.conversation.application.attachment.AttachmentContextBlock.Text(
                                 "honest.txt",
                                 com.helix.core.model.TextAttachmentKind.TXT,
-                                "hello\n",
                                 artifact.sha256,
-                                false,
                                 6,
-                                "input/attachments/$attachmentId/honest.txt",
+                                com.helix.core.workspace.FileScopePath(
+                                    "app",
+                                    "input/attachments/$attachmentId/honest.txt",
+                                ),
                             ),
                         ),
                     )
@@ -248,7 +248,7 @@ class ConversationReceiptRaceDeviceTest {
         }
 
     @Test
-    fun attachmentRevisionDisclosureIsAcknowledgedOnlyByTheRevisionEditor() =
+    fun attachmentMessageEditPreservesBindingsAndDoesNotSendAgain() =
         runBlocking {
             compose.resetDeterministicUiState()
             val container = compose.container()
@@ -318,62 +318,22 @@ class ConversationReceiptRaceDeviceTest {
                         .performScrollTo()
                         .assertIsEnabled()
                         .performClick()
-                    try {
-                        compose.waitUntil(WAIT_MILLIS) {
-                            storage.composerDrafts.get(session)?.revisedMessageId == target &&
-                                revisionInputCount() == 1
-                        }
-                    } catch (failure: ComposeTimeoutException) {
-                        val screen = chat.screen.value
-                        throw AssertionError(
-                            "revision draft missing after enabled edit click: " +
-                                "draft=${storage.composerDrafts.get(session)}, " +
-                                "blocked=${screen.blockedReason}, isSending=${screen.isSending}, " +
-                                "pendingDisclosure=${screen.pendingDisclosure != null}, " +
-                                "pendingAttachments=${screen.pendingAttachments.map { it.id }}, " +
-                                "staged=${chat.currentStagedAttachmentIds(session)}, " +
-                                "editNodes=${compose.onAllNodesWithTag(
-                                    "chat-edit-$target",
-                                ).fetchSemanticsNodes().size}, " +
-                                "revisionNodes=${revisionInputCount()}",
-                            failure,
-                        )
+                    awaitMessageEditor()
+                    compose.onNodeWithTag("message-edit-input").assertIsEnabled()
+                    val bindings = storage.messageAttachments.listByMessage(target)
+                    val before = storage.messages.resolve(target)
+                    compose.onNodeWithTag("message-edit-input").performTextReplacement(REVISED_TEXT)
+                    compose.onNodeWithTag("message-edit-save").performClick()
+                    compose.waitUntil(WAIT_MILLIS) {
+                        compose.onAllNodesWithTag("message-edit-input").fetchSemanticsNodes().isEmpty()
                     }
-                    compose
-                        .onNodeWithTag("message-revision-input", useUnmergedTree = true)
-                        .performTextReplacement(REVISED_TEXT)
-                    compose.onNodeWithTag("message-revision-send").performClick()
-                    compose.waitUntil(WAIT_MILLIS) { chat.screen.value.pendingDisclosure != null }
-                    compose.onNodeWithTag("egress-confirm").performClick()
-
-                    try {
-                        compose.waitUntil(WAIT_MILLIS) {
-                            storage.turns.listBySession(session).size == 2 &&
-                                storage.composerDrafts.get(session) == null &&
-                                revisionInputCount() == 0
-                        }
-                    } catch (failure: ComposeTimeoutException) {
-                        val screen = chat.screen.value
-                        throw AssertionError(
-                            "attachment revision send did not settle: " +
-                                "turns=${storage.turns.listBySession(session)}, " +
-                                "draft=${storage.composerDrafts.get(session)}, " +
-                                "blocked=${screen.blockedReason}, isSending=${screen.isSending}, " +
-                                "pendingDisclosure=${screen.pendingDisclosure != null}, " +
-                                "pendingAttachments=${screen.pendingAttachments.map { it.id }}, " +
-                                "staged=${chat.currentStagedAttachmentIds(session)}, " +
-                                "target=${storage.messages.resolve(target)}, " +
-                                "latestUser=${storage.messages.latestUser(session)}, " +
-                                "revisionNodes=${revisionInputCount()}",
-                            failure,
-                        )
-                    }
-                    compose.onNodeWithTag("message-revision-input", useUnmergedTree = true).assertDoesNotExist()
-                    assertEquals(2, storage.turns.listBySession(session).size)
-                    assertTrue(storage.messages.resolve(target).supersededBy != null)
-                    val replacement = requireNotNull(storage.messages.latestUser(session))
-                    assertTrue(storage.messages.readContent(replacement)?.contains(REVISED_TEXT) == true)
-                    assertEquals(1, storage.messageAttachments.listByMessage(replacement.id).size)
+                    val edited = storage.messages.resolve(target)
+                    assertEquals(before.turnId, edited.turnId)
+                    assertEquals(before.supersededBy, edited.supersededBy)
+                    assertEquals(bindings, storage.messageAttachments.listByMessage(target))
+                    assertTrue(storage.messages.readContent(edited)?.contains(REVISED_TEXT) == true)
+                    assertEquals(1, storage.turns.listBySession(session).size)
+                    assertNull(chat.screen.value.pendingDisclosure)
                     assertNull(chat.loadComposerDraft(session))
                 } finally {
                     storage.turns.listBySession(session).forEach { chat.stopTurn(it.id) }
@@ -386,7 +346,7 @@ class ConversationReceiptRaceDeviceTest {
         }
 
     @Test
-    fun dismissedRevisionStaysSavedAndCanBeReopenedFromTheSameMessage() =
+    fun cancelledMessageEditPreservesOriginalAndOrdinaryComposer() =
         runBlocking {
             compose.resetDeterministicUiState()
             val container = compose.container()
@@ -400,67 +360,52 @@ class ConversationReceiptRaceDeviceTest {
                 java.util.UUID
                     .randomUUID()
                     .toString()
-            storage.sessions.create(session, "Dismiss revision", null, null, System.currentTimeMillis())
+            storage.sessions.create(session, "Cancel edit", null, null, System.currentTimeMillis())
             storage.messages.append(message, session, null, "USER", "TEXT", "before edit")
             try {
                 chat.openSession(session)
-                compose.waitUntil(WAIT_MILLIS) {
-                    compose.onAllNodesWithTag("chat-message-toggle-$message").fetchSemanticsNodes().size == 1
-                }
+                awaitEditableComposer()
+                compose.onNodeWithTag("chat-input").performTextInput("ordinary draft")
                 compose.onNodeWithTag("chat-message-toggle-$message").performScrollTo().performClick()
                 compose
                     .onNodeWithTag("chat-edit-$message")
                     .performScrollTo()
                     .assertIsEnabled()
                     .performClick()
-                compose.waitUntil(WAIT_MILLIS) {
-                    storage.composerDrafts.get(session)?.revisedMessageId == message && revisionInputCount() == 1
-                }
-                compose
-                    .onNodeWithTag("message-revision-input", useUnmergedTree = true)
-                    .performTextReplacement(DISMISSED_REVISION_TEXT)
-                androidx.test.espresso.Espresso
-                    .closeSoftKeyboard()
-                InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
-                compose.waitUntil(WAIT_MILLIS) {
-                    revisionInputCount() == 0 && storage.composerDrafts.get(session)?.text == DISMISSED_REVISION_TEXT
-                }
-                compose.waitForIdle()
-                assertEquals(0, revisionInputCount())
-
-                compose.onNodeWithTag("chat-new-session").performClick()
-                compose.waitUntil(WAIT_MILLIS) {
-                    chat.screen.value.isDraft && chat.screen.value.openSessionId != session &&
-                        compose.onAllNodesWithTag("chat-edit-$message").fetchSemanticsNodes().isEmpty()
-                }
-                assertEquals(DISMISSED_REVISION_TEXT, storage.composerDrafts.get(session)?.text)
-                chat.openSession(session)
-                compose.waitUntil(WAIT_MILLIS) {
-                    chat.screen.value.openSessionId == session && revisionInputCount() == 1
-                }
-                InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
-                compose.waitUntil(WAIT_MILLIS) { revisionInputCount() == 0 }
-
-                compose.onNodeWithTag("chat-message-toggle-$message").performScrollTo().performClick()
-                compose
-                    .onNodeWithTag("chat-edit-$message")
-                    .performScrollTo()
-                    .assertIsEnabled()
-                    .performClick()
-                compose.waitUntil(WAIT_MILLIS) { revisionInputCount() == 1 }
-                val reopenedText =
+                awaitMessageEditor()
+                compose.onNodeWithTag("message-edit-input").assertIsEnabled().performTextReplacement("discard edit")
+                compose.onNodeWithTag("message-edit-cancel").performClick()
+                compose.onNodeWithTag("message-edit-input").assertDoesNotExist()
+                assertEquals("before edit", storage.messages.readContent(storage.messages.resolve(message)))
+                assertEquals("ordinary draft", composerText())
+                compose.onNodeWithTag("chat-edit-$message").performScrollTo().performClick()
+                awaitMessageEditor()
+                val reopened =
                     compose
-                        .onNodeWithTag("message-revision-input", useUnmergedTree = true)
+                        .onNodeWithTag("message-edit-input")
+                        .assertIsEnabled()
                         .fetchSemanticsNode()
                         .config
                         .getOrNull(SemanticsProperties.EditableText)
                         ?.text
-                assertEquals(DISMISSED_REVISION_TEXT, reopenedText)
+                assertEquals("before edit", reopened)
+                compose.onNodeWithTag("message-edit-cancel").performClick()
+                assertEquals(0, storage.turns.listBySession(session).size)
             } finally {
                 chat.closeSession()
                 storage.sessions.archive(session, System.currentTimeMillis())
             }
         }
+
+    private fun awaitMessageEditor() {
+        compose.waitUntil(WAIT_MILLIS) {
+            compose
+                .onAllNodesWithTag("message-edit-input")
+                .fetchSemanticsNodes()
+                .singleOrNull()
+                ?.let { it.config.getOrNull(SemanticsProperties.Disabled) == null } == true
+        }
+    }
 
     private fun awaitEditableComposer() {
         compose.waitUntil(WAIT_MILLIS) {
@@ -481,12 +426,6 @@ class ConversationReceiptRaceDeviceTest {
             ?.getOrNull(SemanticsProperties.EditableText)
             ?.text
             .orEmpty()
-
-    private fun revisionInputCount(): Int =
-        compose
-            .onAllNodesWithTag("message-revision-input", useUnmergedTree = true)
-            .fetchSemanticsNodes()
-            .size
 
     private fun submissionGate(chat: ChatService): Mutex {
         val field = ChatService::class.java.getDeclaredField("submissionGate").apply { isAccessible = true }
@@ -528,7 +467,6 @@ class ConversationReceiptRaceDeviceTest {
         const val RECREATED_TEXT = "RECOVER-AFTER-RECREATE"
         const val ORIGINAL_TEXT = "ORIGINAL-WITH-ATTACHMENT"
         const val REVISED_TEXT = "REVISED-WITH-ATTACHMENT"
-        const val DISMISSED_REVISION_TEXT = "SAVED-REVISION-AFTER-BACK"
         const val ACCEPTED_ATTACHMENT_TEXT = "ACCEPTED-ATTACHMENT-BEFORE-PAGE-RESTORE"
     }
 }

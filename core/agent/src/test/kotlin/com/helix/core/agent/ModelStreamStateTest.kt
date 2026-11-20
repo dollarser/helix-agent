@@ -51,7 +51,7 @@ class ModelStreamStateTest {
         assertEquals(TurnState.COMPLETED, promise.terminal(false).state)
 
         val action = ModelStreamState()
-        action.apply(ModelEvent.ToolCallStarted(0, ToolCallId("call_1"), "ui.apps"))
+        action.apply(ModelEvent.ToolCallStarted(0, ToolCallId("call_1"), "ui_apps"))
         action.apply(ModelEvent.ToolArgumentsDelta(0, "{}"))
         action.apply(ModelEvent.ToolCallFinished(0))
         action.apply(ModelEvent.Completed("tool_calls"))
@@ -69,7 +69,7 @@ class ModelStreamStateTest {
             )
         assertTrue(diagnostic.contains("\"finishReason\":\"tool_calls\""))
         assertTrue(diagnostic.contains("\"toolCalls\":1"))
-        assertFalse(diagnostic.contains("ui.apps"))
+        assertFalse(diagnostic.contains("ui_apps"))
     }
 
     @Test fun finishDiagnosticsNeverPersistArbitraryProviderText() {
@@ -190,7 +190,7 @@ class ModelStreamStateTest {
     @Test
     fun totalToolArgumentsOverflowFailsClosedBeforeDispatch() {
         val state = ModelStreamState(maxToolArgumentsChars = 4)
-        state.apply(ModelEvent.ToolCallStarted(0, ToolCallId("call-1"), "time.now"))
+        state.apply(ModelEvent.ToolCallStarted(0, ToolCallId("call-1"), "time_now"))
         state.apply(ModelEvent.ToolArgumentsDelta(0, "1234"))
         state.apply(ModelEvent.ToolArgumentsDelta(0, "5"))
         state.apply(ModelEvent.ToolCallFinished(0))

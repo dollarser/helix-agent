@@ -23,7 +23,7 @@ class SettingsToolContractTest {
         expired: Boolean = false,
     ) = ExecutableToolCall(
         "call",
-        "settings.inspect",
+        "settings_inspect",
         "1",
         Json.parseToJsonElement(args) as JsonObject,
         ExecutionTargetType.LOCAL_ANDROID,
@@ -36,9 +36,9 @@ class SettingsToolContractTest {
     @Test fun registryHasOnlySeparatedInspectAndApplyEntries() {
         val registry = ToolRegistry()
         HelixSettingsTool.register(registry) { error("Registration must not access the app") }
-        assertEquals(setOf("settings.inspect", "settings.apply"), registry.all().map { it.name.value }.toSet())
-        assertNull(registry.resolveLatest(ToolName("helix.settings")))
-        assertNull(registry.resolveLatest(ToolName("helix.settings.apply")))
+        assertEquals(setOf("settings_inspect", "settings_apply"), registry.all().map { it.name.value }.toSet())
+        assertNull(registry.resolveLatest(ToolName("helix_settings")))
+        assertNull(registry.resolveLatest(ToolName("helix_settings_apply")))
     }
 
     @Test fun obsoleteProposalAndMutationArgsNeverReachApp() {

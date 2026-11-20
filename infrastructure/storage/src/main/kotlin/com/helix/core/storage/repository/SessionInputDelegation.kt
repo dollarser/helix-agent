@@ -33,7 +33,7 @@ internal class SessionInputDelegation(
                 origin.sourceSessionId,
                 origin.sourceTurnId,
                 origin.sourceCallId,
-                if (spec.delivery == SessionInputDelivery.QUEUE) "session.queue" else "session.steer",
+                if (spec.delivery == SessionInputDelivery.QUEUE) "session_queue" else "session_steer",
             )
         val currentGrant = grant?.delegateTasks == true && grant.revision == origin.grantRevision
         val liveTarget = target != null && target.archivedAt == null

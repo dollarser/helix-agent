@@ -7,6 +7,7 @@ import com.helix.core.model.ToolVersion
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
+import com.helix.tools.framework.ToolDiscoveryHints
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolOrigin
@@ -16,7 +17,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlin.time.Duration.Companion.seconds
 
 object BrowserClickTool {
-    const val NAME: String = "browser.click"
+    const val NAME: String = "browser_click"
     const val VERSION: Int = 1
 
     fun descriptor(origin: ToolOrigin.PluginOrigin): ToolDescriptor =
@@ -24,7 +25,7 @@ object BrowserClickTool {
             name = ToolName(NAME),
             version = ToolVersion(VERSION),
             description =
-                "Click the node named by a short-lived token from the most recent browser.snapshot of " +
+                "Click the node named by a short-lived token from the most recent browser_snapshot of " +
                     "a tab. Password, payment and one-time-code fields are refused; the token must " +
                     "still be valid (a navigation, refresh, DOM change or expiry makes it stale).",
             inputSchema =
@@ -34,7 +35,7 @@ object BrowserClickTool {
                             put("tabId", stringSchema(MAX_TAB_ID, "The tab the token belongs to."))
                             put(
                                 "token",
-                                stringSchema(MAX_TOKEN, "The node token from the most recent browser.snapshot."),
+                                stringSchema(MAX_TOKEN, "The node token from the most recent browser_snapshot."),
                             )
                         },
                     required = listOf("tabId", "token"),
@@ -64,6 +65,7 @@ object BrowserClickTool {
             idempotency = Idempotency.NON_IDEMPOTENT,
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
             origin = origin,
+            discovery = ToolDiscoveryHints(category = "browser"),
         )
 
     fun executor(bridge: BrowserToolBridge): ToolExecutor =
@@ -74,12 +76,12 @@ object BrowserClickTool {
                 val tabId =
                     strArg(call.args, "tabId", MAX_TAB_ID)
                         ?: return ToolExecutorResult.Failed(
-                            "invalid 'browser.click' arguments: 'tabId' must be a string",
+                            "invalid 'browser_click' arguments: 'tabId' must be a string",
                         )
                 val token =
                     strArg(call.args, "token", MAX_TOKEN)
                         ?: return ToolExecutorResult.Failed(
-                            "invalid 'browser.click' arguments: 'token' must be a string",
+                            "invalid 'browser_click' arguments: 'token' must be a string",
                         )
                 val out = bridge.click(tabId, token)
                 return actionResult(out)
@@ -88,10 +90,10 @@ object BrowserClickTool {
 }
 
 // ===========================================================================
-// browser.type
+// browser_type
 // ===========================================================================
 object BrowserTypeTool {
-    const val NAME: String = "browser.type"
+    const val NAME: String = "browser_type"
     const val VERSION: Int = 1
 
     fun descriptor(origin: ToolOrigin.PluginOrigin): ToolDescriptor =
@@ -99,9 +101,9 @@ object BrowserTypeTool {
             name = ToolName(NAME),
             version = ToolVersion(VERSION),
             description =
-                "Type text into the field named by a short-lived token from the most recent " +
-                    "browser.snapshot of a tab. Password, payment and one-time-code fields are " +
-                    "refused by default; the token must still be valid.",
+                "Set text in an editable field: replace its contents by default, or append with mode=append. " +
+                    "Use a fresh browser_snapshot token. Sensitive fields are refused. " +
+                    "This does not submit the form; use browser_submit and observe the result.",
             inputSchema =
                 objectSchema(
                     properties =
@@ -109,9 +111,16 @@ object BrowserTypeTool {
                             put("tabId", stringSchema(MAX_TAB_ID, "The tab the token belongs to."))
                             put(
                                 "token",
-                                stringSchema(MAX_TOKEN, "The node token from the most recent browser.snapshot."),
+                                stringSchema(MAX_TOKEN, "The node token from the most recent browser_snapshot."),
                             )
-                            put("text", stringSchema(MAX_TYPE_TEXT, "The text to type into the field."))
+                            put(
+                                "text",
+                                stringSchema(MAX_TYPE_TEXT, "Literal text; empty clears in replace mode."),
+                            )
+                            put(
+                                "mode",
+                                enumSchema(listOf("replace", "append"), "Default replace; append keeps text."),
+                            )
                         },
                     required = listOf("tabId", "token", "text"),
                 ),
@@ -140,6 +149,7 @@ object BrowserTypeTool {
             idempotency = Idempotency.NON_IDEMPOTENT,
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
             origin = origin,
+            discovery = ToolDiscoveryHints(category = "browser"),
         )
 
     fun executor(bridge: BrowserToolBridge): ToolExecutor =
@@ -147,19 +157,26 @@ object BrowserTypeTool {
             @Suppress("ReturnCount")
             override fun execute(call: ExecutableToolCall): ToolExecutorResult {
                 if (call.cancel.isCancelled()) return ToolExecutorResult.Cancelled
+                val mode = if ("mode" in call.args) strArg(call.args, "mode", 16) else "replace"
+                if (mode == "append") {
+                    return BrowserNodeActionTool.executor(bridge, BrowserNodeAction.APPEND).execute(call)
+                }
+                if (mode != "replace") {
+                    return ToolExecutorResult.Failed("mode must be replace or append", sideEffectFree = true)
+                }
                 val tabId =
                     strArg(call.args, "tabId", MAX_TAB_ID)
                         ?: return ToolExecutorResult.Failed(
-                            "invalid 'browser.type' arguments: 'tabId' must be a string",
+                            "invalid 'browser_type' arguments: 'tabId' must be a string",
                         )
                 val token =
                     strArg(call.args, "token", MAX_TOKEN)
                         ?: return ToolExecutorResult.Failed(
-                            "invalid 'browser.type' arguments: 'token' must be a string",
+                            "invalid 'browser_type' arguments: 'token' must be a string",
                         )
                 val text =
                     strArg(call.args, "text", MAX_TYPE_TEXT)
-                        ?: return ToolExecutorResult.Failed("invalid 'browser.type' arguments: 'text' must be a string")
+                        ?: return ToolExecutorResult.Failed("invalid 'browser_type' arguments: 'text' must be a string")
                 val out = bridge.type(tabId, token, text)
                 return actionResult(out)
             }
@@ -215,10 +232,10 @@ private fun actionOutput(
     }
 
 // ===========================================================================
-// browser.scroll
+// browser_scroll
 // ===========================================================================
 object BrowserScrollTool {
-    const val NAME: String = "browser.scroll"
+    const val NAME: String = "browser_scroll"
     const val VERSION: Int = 1
 
     fun descriptor(origin: ToolOrigin.PluginOrigin): ToolDescriptor =
@@ -263,6 +280,7 @@ object BrowserScrollTool {
             idempotency = Idempotency.NON_IDEMPOTENT,
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
             origin = origin,
+            discovery = ToolDiscoveryHints(category = "browser"),
         )
 
     fun executor(bridge: BrowserToolBridge): ToolExecutor =
@@ -273,17 +291,17 @@ object BrowserScrollTool {
                 val tabId =
                     strArg(call.args, "tabId", MAX_TAB_ID)
                         ?: return ToolExecutorResult.Failed(
-                            "invalid 'browser.scroll' arguments: 'tabId' must be a string",
+                            "invalid 'browser_scroll' arguments: 'tabId' must be a string",
                         )
                 val dx =
                     intArg(call.args, "dx", -MAX_SCROLL_PX, MAX_SCROLL_PX)
                         ?: return ToolExecutorResult.Failed(
-                            "invalid 'browser.scroll' arguments: 'dx' must be an integer",
+                            "invalid 'browser_scroll' arguments: 'dx' must be an integer",
                         )
                 val dy =
                     intArg(call.args, "dy", -MAX_SCROLL_PX, MAX_SCROLL_PX)
                         ?: return ToolExecutorResult.Failed(
-                            "invalid 'browser.scroll' arguments: 'dy' must be an integer",
+                            "invalid 'browser_scroll' arguments: 'dy' must be an integer",
                         )
                 val out = bridge.scroll(tabId, dx, dy)
                 return when (out.status) {

@@ -31,7 +31,7 @@ import java.io.File
  * [com.helix.app.profile.ChannelCapabilities]).
  *
  * Owns the cold-bind [ProotRuntimeSupervisor] + [ProotJobClient] and registers the
- * `code.linux.run` tool (L2 CODE_EXECUTION, per-call approval, shared host UID and network permissions under ADR-0049).
+ * `code_linux_run` tool (L2 CODE_EXECUTION, per-call approval, shared host UID and network permissions under ADR-0049).
  *
  * Registration and passive inspection never bind. A missing environment is prepared on the
  * first authorized execution; an existing damaged or outdated copy requires user maintenance.
@@ -137,7 +137,7 @@ internal object ProotToolModule {
                 DetachedJobBootProof.current(appContext)
             }
         val executor =
-            LinuxRunTool.ProductionLinuxExecutor(
+            LinuxJobExecution(
                 client = jobClient,
                 gate = { availabilityGate() },
                 store = workspaceStore,
@@ -396,7 +396,7 @@ internal object ProotToolModule {
         turnId: String,
         callId: String,
     ): DetachedCommandFacts? {
-        if (storage.toolCalls.byTurnAndCallId(turnId, callId)?.name != "code.linux.job.start") return null
+        if (storage.toolCalls.byTurnAndCallId(turnId, callId)?.name != "code_linux_job_start") return null
         val sessionId = storage.turns.resolve(turnId).sessionId
         val original = ProotJobBindingStore(storage).resolveDetached(sessionId, callId)
         return DetachedJobObservationStore(storage).read(original)

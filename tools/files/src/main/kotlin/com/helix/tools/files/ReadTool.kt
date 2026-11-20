@@ -13,6 +13,7 @@ import com.helix.core.workspace.WorkspaceArtifactStore
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
+import com.helix.tools.framework.ToolDiscoveryHints
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolJsonNumbers
@@ -28,7 +29,7 @@ import java.io.IOException
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * The `read` built-in file tool (roadmap HXA-042 — the FIRST non-`time.now` business tool in the
+ * The `read` built-in file tool (roadmap HXA-042 — the FIRST non-`time_now` business tool in the
  * production tool table). Returns a bounded window of a workspace file by offset + byte cap, with
  * encoding-boundary and stable-EOF semantics (the windowing is [com.helix.core.workspace.ReadWindow]).
  *
@@ -58,7 +59,8 @@ object ReadTool {
             version = ToolVersion(VERSION),
             description =
                 "Read a bounded window of a workspace file by model reference, with offset/maxBytes paging. " +
-                    "Read a known file path directly; use files.list to locate alternatives if it is missing. " +
+                    "Read a known file path directly. For unknown paths, use glob (names) or grep (contents) " +
+                    "to narrow candidates before reading many files. " +
                     "Before editing, set includeSha256=true for a full-file hash from the same read stream " +
                     "(up to 32 MiB, including bytes outside this window). Ordinary previews do not hash the file.",
             inputSchema = inputSchema(),
@@ -70,6 +72,7 @@ object ReadTool {
             idempotency = Idempotency.IDEMPOTENT,
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
             origin = ToolOrigin.BuiltInOrigin,
+            discovery = ToolDiscoveryHints(category = "files"),
         )
 
     private fun inputSchema(): JsonObject =
@@ -112,7 +115,13 @@ object ReadTool {
                             put("minimum", JsonPrimitive(1))
                             put("maximum", JsonPrimitive(ReadWindow.MAX_WINDOW_BYTES))
                             put("default", JsonPrimitive(DEFAULT_MAX_BYTES))
-                            put("description", JsonPrimitive("Maximum number of bytes to return"))
+                            put(
+                                "description",
+                                JsonPrimitive(
+                                    "Byte window size; request a small preview when sufficient. " +
+                                        "Default 1048576; continue with nextOffset.",
+                                ),
+                            )
                         },
                     )
                 },
@@ -180,7 +189,13 @@ object ReadTool {
                 store: WorkspaceArtifactStore,
                 call: ExecutableToolCall,
             ): ToolExecutorResult {
-                val parsed = parseArgs(call.args) ?: return ToolExecutorResult.Failed("invalid 'read' arguments")
+                val parsed =
+                    parseArgs(call.args) ?: return ToolExecutorResult.Failed(
+                        "invalid read arguments: provide a workspace path, " +
+                            "nonnegative byte offset and positive maxBytes. " +
+                            "For a saved tool result use tools_read_result with resultRef instead.",
+                        sideEffectFree = true,
+                    )
                 return try {
                     val window =
                         store.readWindow(parsed.path, parsed.offset, parsed.maxBytes, parsed.includeSha256) {

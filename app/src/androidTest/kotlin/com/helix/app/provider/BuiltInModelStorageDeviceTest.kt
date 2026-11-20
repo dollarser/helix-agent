@@ -35,6 +35,12 @@ class BuiltInModelStorageDeviceTest {
                     .list()
                     .size,
             )
+            assertEquals(
+                "gpt-6-luna",
+                f.storage.providerConfigs
+                    .resolve(BuiltInModel.PROVIDER_ID)
+                    .model,
+            )
             assertNull(f.launch.draftModel())
             assertNull(
                 f.storage.providerConfigs
@@ -45,6 +51,35 @@ class BuiltInModelStorageDeviceTest {
             f.launch.selectDraftModel("custom", "chosen")
             BuiltInModelRegistration.ensureRegistered(f.storage)
             assertEquals("custom" to "chosen", LineConversationLaunchStore(f.preferences).draftModel())
+        }
+    }
+
+    @Test fun refreshesOwnedDefaultWithoutRetargetingExistingSession() {
+        Fixture().use { f ->
+            f.storage.providerConfigs.save(
+                ProviderConfigSpec(
+                    BuiltInModel.PROVIDER_ID,
+                    "Helix",
+                    ProviderProtocol.OPENAI_CHAT_COMPLETIONS,
+                    BuiltInModel.API_ROOT,
+                    BuiltInModel.QWEN_MODEL_ID,
+                    "{}",
+                    null,
+                    "{}",
+                    provisioningKind = "BUNDLED_SERVICE",
+                    authKind = "NONE",
+                ),
+            )
+            f.storage.sessions.create("previous", "Existing", BuiltInModel.PROVIDER_ID, BuiltInModel.QWEN_MODEL_ID, 1)
+            val before = f.storage.sessions.resolve("previous")
+            BuiltInModelRegistration.ensureRegistered(f.storage)
+            assertEquals(
+                "gpt-6-luna",
+                f.storage.providerConfigs
+                    .resolve(BuiltInModel.PROVIDER_ID)
+                    .model,
+            )
+            assertEquals(before, f.storage.sessions.resolve("previous"))
         }
     }
 
@@ -71,18 +106,29 @@ class BuiltInModelStorageDeviceTest {
                     }
                 val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
                 try {
+                    val status = ProviderTestStatusStore(f.preferences) { "storage-fixture" }
+                    status.builtInCatalog.save(
+                        BuiltInModelCatalog(
+                            System.currentTimeMillis(),
+                            listOf(BuiltInModel.MODEL_ID),
+                            purposes = mapOf(BuiltInModel.MODEL_ID to setOf(com.helix.provider.api.ModelPurpose.CHAT)),
+                        ),
+                    )
                     val service =
                         ProviderService(
                             f.storage,
                             ProviderFactory({ error("No secrets") }, wire, { error("No images") }, builtInWire = wire),
-                            ProviderTestStatusStore(f.preferences),
+                            status,
                             idGenerator = { UUID.randomUUID().toString() },
                             scope = scope,
                         )
                     val id = BuiltInModel.PROVIDER_ID
                     assertTrue(service.chatSelectable(id))
                     assertEquals(ConnectionTestStatus.Untested, service.statusFor(id))
-                    assertEquals(BuiltInModel.capabilities, service.capabilitiesFor(id, BuiltInModel.MODEL_ID))
+                    assertEquals(
+                        BuiltInModel.capabilitiesFor(BuiltInModel.MODEL_ID),
+                        service.capabilitiesFor(id, BuiltInModel.MODEL_ID),
+                    )
                     assertEquals(false, service.capabilitiesFor(id, "other")?.toolCalls)
                     assertEquals(false, service.capabilitiesFor(id, "other")?.vision)
                     assertTrue(runCatching { service.delete(id) }.exceptionOrNull() is IllegalArgumentException)

@@ -1,7 +1,7 @@
 package com.helix.tools.android
 
 /**
- * The synchronous port the `http.fetch` tool (HXA-066) executes against.
+ * The synchronous port the `http_fetch` tool (HXA-066) executes against.
  *
  * Production is [HttpFetchBridgeImpl] (the raw-socket transport in this module); unit tests inject
  * a fake. The port is PURE JVM (no Android types in the interface or the outcomes) and returns one
@@ -74,7 +74,8 @@ enum class HttpFetchStatus {
  * Outcome of [HttpFetchBridge.fetch]. On [HttpFetchStatus.FETCHED], [finalUrl] is the URL actually
  * fetched (after redirects), [httpStatus] the final HTTP status code, [contentType] the response
  * `Content-Type` (or ""), [body] the UTF-8 decoded body (bounded to the request's byte cap),
- * [bodyBytes] how many body bytes were available (so [truncated] tells the model the body was cut),
+ * [bodyBytes] the declared Content-Length, or the observed decoded byte count when unknown.
+ * With an unknown length and [truncated], this count is a lower bound, not a full response size.
  * [redirectCount] the number of hops followed, and [reason] "". On REFUSED the body fields are
  * empty/zero and [reason] is the stable refusal code; on TIMEOUT/ERROR [reason] is a bounded note.
  * All fields are non-null; logical absence is "" / 0 / false.

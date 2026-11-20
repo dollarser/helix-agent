@@ -13,7 +13,7 @@ data class OriginalRecoveryTargets(
     val turnId: String,
     val sessionId: String,
     val subscriptionModelCallIds: List<String>,
-    /** INTERRUPTED/NEEDS_REVIEW bash, code.linux.run or skills.run calls only. */
+    /** INTERRUPTED/NEEDS_REVIEW bash, code_linux_run or skills_run calls only. */
     val unknownProotCallIds: List<String>,
 )
 

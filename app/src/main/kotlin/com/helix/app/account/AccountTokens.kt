@@ -17,6 +17,7 @@ class AccountTokens(
     val expires: Long,
     val refreshExpires: Long,
     val identity: String,
+    val user: AccountUser? = null,
 ) {
     init {
         require(access.isNotBlank() && refresh.isNotBlank())
@@ -31,6 +32,7 @@ class AccountTokens(
             put("expires_at", expires)
             put("refresh_expires_at", refreshExpires)
             put("identity", identity)
+            user?.let { put("user", it.document()) }
         }.toString()
 
     companion object {
@@ -38,6 +40,7 @@ class AccountTokens(
             bytes: ByteArray,
             now: Long,
             identity: String = UUID.randomUUID().toString(),
+            previousUser: AccountUser? = null,
         ): AccountTokens {
             val value = Json.parseToJsonElement(bytes.toString(Charsets.UTF_8)).jsonObject
 
@@ -52,6 +55,7 @@ class AccountTokens(
                 expiry("expires_in"),
                 expiry("refresh_expires_in"),
                 identity,
+                AccountUser.parse(value["user"]) ?: previousUser,
             )
         }
 
@@ -63,6 +67,7 @@ class AccountTokens(
                 value.getValue("expires_at").jsonPrimitive.long,
                 value.getValue("refresh_expires_at").jsonPrimitive.long,
                 value.getValue("identity").jsonPrimitive.content,
+                AccountUser.parse(value["user"]),
             )
         }
     }

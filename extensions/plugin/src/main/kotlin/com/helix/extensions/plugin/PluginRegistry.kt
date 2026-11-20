@@ -55,6 +55,34 @@ class PluginRegistry(
     private val factories = LinkedHashMap<String, HelixPlugin>()
     private val registrations = LinkedHashMap<String, AutoCloseable>()
 
+    /** Capture anew for each display request; ready()/execution entry points remain live and uncached. */
+    fun nativeContentSnapshot(sessionId: String): List<NativeContentSnapshot> =
+        synchronized(catalog.mutationLock) {
+            factories.mapNotNull { (id, plugin) ->
+                val owner = catalog.find(id) ?: return@mapNotNull null
+                NativeContentSnapshot(
+                    owner,
+                    ready(id),
+                    catalog.selectionId(sessionId, id) != null,
+                    selectionError(id),
+                    plugin.requiredInstructions,
+                    plugin.scopedSkills(),
+                )
+            }
+        }
+
+    /** Exposure only: recheck this owner without probing unrelated runtimes or resolving execution scope. */
+    fun modelAvailable(
+        descriptor: com.helix.tools.framework.ToolDescriptor,
+        sessionId: String,
+    ): Boolean {
+        val origin = descriptor.origin as? ToolOrigin.PluginOrigin ?: return true
+        return synchronized(catalog.mutationLock) {
+            catalog.selectionId(sessionId, origin.pluginId) != null &&
+                ready(origin.pluginId) && runtime(descriptor) != null
+        }
+    }
+
     internal fun selectedRuntimes(sessionId: String): List<HelixPlugin> =
         synchronized(catalog.mutationLock) {
             factories

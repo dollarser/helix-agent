@@ -32,6 +32,37 @@ class RootToolsTest {
     private val tools = RootTools(port, sessions)
 
     @Test
+    fun contractsExplainEveryInputAndRejectUnsupportedLogSeverity() {
+        for (descriptor in tools.descriptors()) {
+            assertFalse(descriptor.description.startsWith("High-level bounded Root read"))
+            descriptor.inputSchema["properties"]?.jsonObject?.forEach { (name, schema) ->
+                assertTrue("${descriptor.name.value}.$name", schema.jsonObject["description"] != null)
+            }
+        }
+        val schema = tools.descriptors().single { it.name.value == RootTools.LOG_READ }.inputSchema
+        for (priority in listOf("V", "D", "I", "W", "E", "F", "S")) {
+            assertEquals(
+                com.helix.tools.framework.ToolSchemaValidation.Valid,
+                com.helix.tools.framework.ToolSchemaValidator
+                    .validate(schema, json("minPriority" to priority)),
+            )
+        }
+        assertTrue(
+            com.helix.tools.framework.ToolSchemaValidator
+                .validate(schema, json("minPriority" to "X"))
+                is com.helix.tools.framework.ToolSchemaValidation.Invalid,
+        )
+        val status = tools.descriptors().single { it.name.value == RootTools.STATUS }
+        assertEquals(
+            com.helix.tools.framework.ToolSchemaValidation.Valid,
+            com.helix.tools.framework.ToolSchemaValidator.validate(
+                status.outputSchema,
+                completed(execute(RootTools.STATUS, JsonObject(emptyMap()))),
+            ),
+        )
+    }
+
+    @Test
     fun integralRepresentationsKeepLimitsAndInvalidValuesDoNotReachRoot() {
         sessions.start()
         for (token in listOf("2", "2.0", "2e0", "20e-1")) {
@@ -63,7 +94,7 @@ class RootToolsTest {
     fun registryContainsOnlyFiveHighLevelReadsWithCorrectRiskAndTarget() {
         val descriptors = tools.descriptors()
         assertEquals(
-            listOf("root.file.read", "root.log.read", "root.package.info", "root.process.list", "root.status"),
+            listOf("root_file_read", "root_log_read", "root_package_info", "root_process_list", "root_status"),
             descriptors.map { it.name.value }.sorted(),
         )
         assertFalse(descriptors.any { it.name.value == "root.exec" })

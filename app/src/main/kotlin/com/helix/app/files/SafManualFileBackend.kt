@@ -6,6 +6,8 @@ import android.provider.DocumentsContract
 import android.provider.DocumentsContract.Document
 import androidx.core.net.toUri
 import com.helix.core.workspace.FileScopePath
+import com.helix.core.workspace.WorkspaceFileBackend
+import com.helix.core.workspace.WorkspaceFileInfo
 import com.helix.feature.files.SafAccessMode
 import com.helix.feature.files.SafGrantStore
 import com.helix.feature.files.SafTreeScopeService
@@ -20,7 +22,7 @@ internal class SafManualFileBackend(
     private val grants: SafGrantStore,
     private val service: SafTreeScopeService,
     private val scopeId: String,
-) : ManualFileBackend {
+) : WorkspaceFileBackend {
     private data class Node(
         val uri: Uri,
         val name: String,
@@ -129,7 +131,7 @@ internal class SafManualFileBackend(
         tree(true)
     }
 
-    override fun stat(path: String): ManualFileInfo? = lookup(path)?.let { ManualFileInfo(it.directory, it.size) }
+    override fun stat(path: String): WorkspaceFileInfo? = lookup(path)?.let { WorkspaceFileInfo(it.directory, it.size) }
 
     override fun children(path: String): List<String> =
         entries(requireNotNull(lookup(path)).uri).map { it.name }.also {

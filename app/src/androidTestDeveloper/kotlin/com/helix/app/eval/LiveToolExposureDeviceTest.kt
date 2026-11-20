@@ -69,13 +69,13 @@ class LiveToolExposureDeviceTest {
 
             val server = "exposurefixture"
             val called = AtomicInteger()
-            val prototype = requireNotNull(c.toolPipeline.resolveLatest("tools.search"))
+            val prototype = requireNotNull(c.toolPipeline.resolveLatest("tools_search"))
             val originalTools = c.toolPipeline.registry.all()
             val disabled = mutableListOf<com.helix.tools.framework.ToolDescriptor>()
             val tools =
                 (0 until 70).map { index ->
                     prototype.copy(
-                        name = ToolName("mcp.$server.echo_$index"),
+                        name = ToolName("mcp_${server}_echo_$index"),
                         description = "Return empty fixture JSON",
                         inputSchema = Json.parseToJsonElement("{}").jsonObject,
                         outputSchema = Json.parseToJsonElement("{}").jsonObject,

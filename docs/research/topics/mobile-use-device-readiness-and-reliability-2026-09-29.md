@@ -1,5 +1,9 @@
 # Mobile Use：设备就绪、锁屏与后台边界及可靠性优化
 
+> **2026-11-18 适用性校核：**第 1～9 节是 2026-09-29 基线；后续按日期追加的是各候选的研究、失败和验收证据，不能拼成当前全产品通过。当前手机操作契约见[权限 ADR](../../adr/permissions/001-session-authorization.md)与[平台能力](../../architecture/android-platform-capabilities.md)：全局配置与会话选择、实际后端和原调用身份分别判断；旧租约、周期确认、锁屏撤权及未接入截图的描述不再适用。11 月 1 日的停止事实 UI 已由 11 月 16 日精简决定替代，原效果与审计事实仍保留。
+>
+> 当前任务由用户请求确定，status 只提供事实导航，不授予自主执行范围。设备、项目模拟器、真机与外部服务授权统一按 [AGENTS.md](../../../AGENTS.md#verification-and-device-authorization) 及当前任务；本次文档审查未运行设备、模型或 Release 验收，也未重新核验外链和历史忽略目录制品。
+
 日期：2026-09-29。性质：讨论固化与源码评审；优化项为候选设计，不表示已实现或自动获得实施授权。
 
 > **2026-10-14 承接导航：**本页原文保留早期设备许可和截图判断。后续 [HXA-243](../../completion-records/HXA-243.md)接入原生截图/手势，[HXA-244](../../completion-records/HXA-244.md)将会话授权与运行状态分开，[HXA-245](../../completion-records/HXA-245.md)承接插件浮窗；当前规则查[权限 ADR](../../adr/permissions/001-session-authorization.md)，交付范围查 [status](../../development/status.md)。不要从原文恢复锁屏/断连自动撤权、重复截图确认或“截图尚未接入”的旧判断。跨轮脉络见[演进索引](../../evidence/research-history/architecture-evolution-2026-10-14.md)，未接受的自动解锁等候选没有因整理而启用。
@@ -10,7 +14,7 @@
 
 核验起点：当前项目检出分支 `v0.0.3`，HEAD `53beeedfbad96bbe271380c73546111cdbf0c0e6`，另有既存 README 改动。本页描述所读取的源码，不推断手机安装包与工作树一致。本次未执行设备、模型、账号、钉钉业务操作或功能测试。
 
-阅读关系：[当前范围](../../development/status.md)决定正在做什么；[开发原则](../../development/feature-refactor-strategy.md)决定如何取舍；[平台能力 第 5 节](../../architecture/android-platform-capabilities.md#5-accessibility-自动化)和[权限 ADR](../../adr/permissions/003-dispatch-and-audit.md)规定现行规则；[Plugin 方案](../../architecture/plugin-platform-plan.md)负责扩展归属；[Harness 方案](../../architecture/harness-refactor-plan.md)负责公共执行边界。本文不复制这些完整契约，也不把候选变更写入 accepted ADR。
+阅读关系：当前用户任务决定正在做什么，[当前范围](../../development/status.md)提供已实现事实和验证边界；[开发原则](../../development/feature-refactor-strategy.md)决定如何取舍；[平台能力 第 5 节](../../architecture/android-platform-capabilities.md#5-accessibility-自动化)和[权限 ADR](../../adr/permissions/003-dispatch-and-audit.md)规定现行规则；[Plugin 方案](../../architecture/plugin-platform-plan.md)负责扩展归属；[Harness 方案](../../architecture/harness-refactor-plan.md)负责公共执行边界。本文不复制这些完整契约，也不把候选变更写入 accepted ADR。
 
 ## 1. 证据口径与讨论结论
 
@@ -37,7 +41,7 @@
 
 “不支持后台界面操作”指当前 Mobile Use 不能把任意隐藏应用窗口当可操作目标，并不意味着所有 Android 组件在锁屏时都无法运行。“可以请求亮屏”也不代表任何后台时刻均能成功启动 Activity。[A03–A05]
 
-当前 `ui.wait` **已经存在**，不能重新登记为“从零增加 UI 等待”。它与尚待实施的通用 `jobs.await` 不同；真正缺的是条件表达、完成原因、控制响应和生产路径验证。[C05–C06]
+当前 `ui_wait` **已经存在**，不能重新登记为“从零增加 UI 等待”。它与尚待实施的通用 `jobs_await` 不同；真正缺的是条件表达、完成原因、控制响应和生产路径验证。[C05–C06]
 
 ## 2. 设备状态与运行位置必须分开
 
@@ -90,11 +94,11 @@ Agent ToolCall
     → 同一平台服务
 ```
 
-MobileUsePlugin 当前只负责 manifest、PluginOrigin 和工具绑定，不拥有新的 Turn/Goal/规划循环。实际注册 10 个工具：`ui.snapshot/find/click/long_click/set_text/set_progress/scroll/back/home/wait`。[C04–C05]
+MobileUsePlugin 当前只负责 manifest、PluginOrigin 和工具绑定，不拥有新的 Turn/Goal/规划循环。实际注册 10 个工具：`ui_snapshot/find/click/long_click/set_text/set_progress/scroll/back/home/wait`。[C04–C05]
 
 值得保留的基础：精确允许包、服务授权实时检查、节点 token 的 package/window/generation/fingerprint 校验、动作前重新取节点、30 秒 token TTL、有界节点和文字、敏感目标拒绝、显式停止及取消、统一工具结算。这里的 **AutomationSession 是短时设备操作许可，不是用户的聊天 Session**。[C02–C10]
 
-现行限制是最多 5 分钟/30 次动作尝试，每 10 次要求检查点确认；拒绝和失败的动作尝试也消耗该计数。它不是 Agent 总工具轮数或 Linux Job 租期，`ui.snapshot/find/wait` 的观察调用数也不能直接等同于动作计数。[C02]
+现行限制是最多 5 分钟/30 次动作尝试，每 10 次要求检查点确认；拒绝和失败的动作尝试也消耗该计数。它不是 Agent 总工具轮数或 Linux Job 租期，`ui_snapshot/find/wait` 的观察调用数也不能直接等同于动作计数。[C02]
 
 本页不把这些数字当行业标准，更不把“按当前设计停止”报告成违反当前契约的 bug。是否调整默认值、检查点和锁屏生命周期，需要独立的产品/权限决定。
 
@@ -106,7 +110,7 @@ MobileUsePlugin 当前只负责 manifest、PluginOrigin 和工具绑定，不拥
 | --- | --- | --- | --- |
 | MU-01 | P0 | 非成功动作一律返回 `sideEffectFree=true`，包括平台动作可能已发出的异常路径 | 源码可确认的过强分类；副作用反例未实测。先补调用前/发出后故障注入与正确 outcome |
 | MU-02 | P1 | 熄屏、安全锁定、到期等原因最终可能只显示 `NO_ACTIVE_SESSION` | 缺少可行动诊断；先解释为何停止，再讨论锁屏后接续 |
-| MU-03 | P1 | `ui.wait` 是同步 sleep 轮询，仅表达找到匹配节点；到期无独立 reason | 已实现但不足；统一生产等待与测试，区分条件满足、到期、取消、授权阻塞 |
+| MU-03 | P1 | `ui_wait` 是同步 sleep 轮询，仅表达找到匹配节点；到期无独立 reason | 已实现但不足；统一生产等待与测试，区分条件满足、到期、取消、授权阻塞 |
 | MU-04 | P1 | 查找会重新抓取并替换全部 token；find/wait 缺失截断与快照来源元数据 | 可能导致旧 token 无效和漏查误判；明确 observation identity，避免只靠 Prompt 补救 |
 | MU-05 | P1 | 配置要输入包名，启动结果未被 UI 消费，显示偏底层状态 | 可用性和错误反馈缺口；应用选择、就地修复、停止原因与恢复入口优先 |
 | MU-06 | P1 | controller 的全局 monitor 覆盖节点遍历/动作调用；动作 port 不传取消上下文 | 潜在停止延迟，未证明设备死锁；缩短锁范围并保留准入与失效栅栏 |
@@ -143,19 +147,19 @@ C01 的非交互事件直接结束 session，C03 的查询返回 `NO_ACTIVE_SESS
 
 生产入口是 `AutomationTools.wait()`：默认 2 秒、100 毫秒轮询，schema 上限 10 秒，受 ToolCall deadline 限制，每轮检查取消；授权/暂停阻塞会立即返回。它到期时仍返回最后一次 `findJson`，通常为 `NOT_FOUND`，没有单列 `WAIT_EXPIRED`，空/无效查询也未在循环前统一退出。[C05]
 
-另一个 `AutomationWaiter` 提供独立枚举和可注入时钟，但本次搜索仅发现其自身及测试引用，生产 `ui.wait` 没有调用它。**不能用这个 helper 的通过情况替代生产等待验收。**[C06、C12]
+另一个 `AutomationWaiter` 提供独立枚举和可注入时钟，但本次搜索仅发现其自身及测试引用，生产 `ui_wait` 没有调用它。**不能用这个 helper 的通过情况替代生产等待验收。**[C06、C12]
 
 建议逐步支持节点出现/消失、enabled、字段值匹配、目标窗口到达等封闭条件；先从失败样本需要的条件开始，不一次建设任意表达式 DSL。返回 condition、reason、elapsed、最近有效 observation ref；截断搜索不证明不存在，无法读取界面也不证明元素消失。
 
 优先事件通知加合并/去抖、必要时有界低频探测；事件到达后仍读取和验证事实，不把事件本身当完成证明。使用适合测量经过时间的时钟，避免墙钟调整延长等待，持久授权到期继续遵守其原合同。
 
-当前 `ACCESSIBILITY_AUTOMATION` 在 EffectFootprint 中即使 READ_ONLY 也保守排他。因此不能声称 `ui.wait` 期间其他工具天然可以并行；也不能直接去掉排他标志，因为观察会替换 token。[C11] 如引入 completion 接口，复用 Harness 的相关设计，不要求所有工具先全部异步化。
+当前 `ACCESSIBILITY_AUTOMATION` 在 EffectFootprint 中即使 READ_ONLY 也保守排他。因此不能声称 `ui_wait` 期间其他工具天然可以并行；也不能直接去掉排他标志，因为观察会替换 token。[C11] 如引入 completion 接口，复用 Harness 的相关设计，不要求所有工具先全部异步化。
 
 普通 UI 条件等待仍应短时、有界；等待用户解锁不是把 10 秒改成几小时。不得长时间占用业务 executor、控制许可或全局锁；实际 Binder/节点调用未返回时，不把 coroutine/Future 取消当作底层已结束，不无界补线程。
 
 ### 4.4 MU-04：观察身份、查找范围与 token 生命周期
 
-当前 `ui.find` 每次调用 `port.snapshot()`，并不是查询先前模型已看过的不可变树。每次 snapshot 清空旧 token；每次成功节点动作也清空 token。现有工具描述已经提醒用最新 token，但连续多个 find 的结果中，早先 token 仍可能被模型误用。[C05、C07、C09]
+当前 `ui_find` 每次调用 `port.snapshot()`，并不是查询先前模型已看过的不可变树。每次 snapshot 清空旧 token；每次成功节点动作也清空 token。现有工具描述已经提醒用最新 token，但连续多个 find 的结果中，早先 token 仍可能被模型误用。[C05、C07、C09]
 
 同时，snapshot 的结构有 `createdAt` 和 bounds，但模型投影未传出；find/wait 的输出主要是 status/nodes/recovery，没有 package/window/generation/truncated。遍历最多 200 节点、深度 16、字段 256 字符与总 16,384 字符，`NOT_FOUND` 可能只是预算内未找到。[C05、C07–C08]
 
@@ -175,7 +179,7 @@ C01 的非交互事件直接结束 session，C03 的查询返回 `NO_ACTIVE_SESS
 
 ### 4.6 MU-06：停止响应需要独立检查
 
-C03 的 `snapshot/performNodeAction/performGlobalAction/stop` 共用对象 monitor，前几项在锁内调用平台服务。节点遍历或平台调用变慢时，停止和状态查询可能排队。`ui.wait` 的 sleep 本身不在这个 monitor 内，不能误写成“等待全程持锁”。[C03、C05]
+C03 的 `snapshot/performNodeAction/performGlobalAction/stop` 共用对象 monitor，前几项在锁内调用平台服务。节点遍历或平台调用变慢时，停止和状态查询可能排队。`ui_wait` 的 sleep 本身不在这个 monitor 内，不能误写成“等待全程持锁”。[C03、C05]
 
 建议短临界区捕获有效 session/取消 epoch，平台调用在受限通道执行，发布前复核 owner；关闭新动作准入与等待在途调用返回分别报告。必须保留精确目标和取消线性化点，不能为了减少锁就允许 stop 之后启动新动作。迟到事件不能恢复旧 session。
 
@@ -191,7 +195,7 @@ C03 的 `snapshot/performNodeAction/performGlobalAction/stop` 共用对象 monit
 
 ### 4.8 MU-08 / MU-09：截图与授权摩擦是不同工作
 
-目前 XML 未声明 `canTakeScreenshot`，工具列表没有截图入口；已有 `view_image` 与 browser.screenshot 不等于获得手机屏幕。[C04–C05、C13]
+目前 XML 未声明 `canTakeScreenshot`，工具列表没有截图入口；已有 `view_image` 与 browser_screenshot 不等于获得手机屏幕。[C04–C05、C13]
 
 截图候选优先走 Android 官方能力：API 30+ 的屏幕截图和 API 34+ 的窗口截图各有支持条件。窗口模式可减少无关界面及覆盖层影响；不支持或受保护窗口明确返回原因，不旁路 `FLAG_SECURE`。API29 不因此获得同等能力，MediaProjection 如另行采用必须独立处理其授权和生命周期。[A04]
 
@@ -288,7 +292,7 @@ R1 继续是已有授权的下一实施任务；本页提出的缺陷修复建�
 | V02 | 熄屏/锁屏与准备执行竞争 | 新动作准入关闭；在途调用如实结算，不报未发生 |
 | V03 | 点击前失败、发出后异常/超时、平台接受但业务失败 | 仅真正未发出可 sideEffectFree；无重复提交 |
 | V04 | 慢 snapshot/Binder，用户停止与迟到回包 | 停止入口可响应；旧回包不能重新启用或发布新 token |
-| V05 | 生产 ui.wait 找到/到期/取消/无效条件/授权暂停 | 用生产 executor 验证；无 sleep 盲等用户，无错误成功 |
+| V05 | 生产 ui_wait 找到/到期/取消/无效条件/授权暂停 | 用生产 executor 验证；无 sleep 盲等用户，无错误成功 |
 | V06 | 新快照替换、并列查找、同名节点、截断列表 | token 归属准确；截断 NOT_FOUND 不被解释为绝对不存在 |
 | V07 | 用户接管、目标跳转、检查点确认 | 不扩大允许包；旧确认/不同任务/会话拒绝复用 |
 | V08 | 解锁通知被重复点击，原任务已取消/过期 | 不执行旧任务；重新观察和准入 |
@@ -327,15 +331,7 @@ R1 继续是已有授权的下一实施任务；本页提出的缺陷修复建�
 | C13 | [无障碍服务 XML](../../../extensions/mobile-use/src/main/res/xml/helix_accessibility_service.xml)，1–8；[视觉使用](../../product/image-reading.md) | 当前未声明屏幕采集能力；HXA-225 是可复用视觉通道 |
 | C14 | [权限 ADR](../../adr/permissions/003-dispatch-and-audit.md)，14–20、46–52；[候选索引](../../development/candidate-decisions.md) | 现行权限/恢复决定与未排期范围 |
 
-关键文件 SHA-256：
-
-```text
-HelixAccessibilityService.kt  1974da9d6aa46a9e12f3e86ba884c052e90f50a6915f3795e1050fc43a232af2
-AutomationServiceController.kt  0c5c215fe1c5cde8bf4bffd04fe67ba62683db559f3bf78e1f2ee67faa85a6de
-AutomationTools.kt  07d49381ada8bf90a2341fc9030a33faabeaf7de413ba09c9d5a89dd2de86c46
-AutomationNodeActionExecutor.kt  db9fe5ce714343e808e65637d779b6c03d53d56a79c1829ea62d30bc97d5b15f
-AutomationSessionManager.kt  3669ad260e36a9a50f309a177a562eb9cd0863f0917eca17592aa3f84fd35815
-```
+原读取哈希清单保留在本文件 Git 历史；本文保留核验基线、源码入口和分项结果，不维护当前工作树哈希清单。
 
 ### 9.2 本次外部核验
 
@@ -377,7 +373,7 @@ AutomationSessionManager.kt  3669ad260e36a9a50f309a177a562eb9cd0863f0917eca17592
 | --- | --- |
 | [BuiltinShellManager](https://github.com/wangzan101/Mika/blob/5f630d9765038fa5178f3d7687a3cf5c22fbcfb4/app/src/main/java/com/wangzan101/mika/cap/phone/setup/BuiltinShellManager.kt)、[AgentDisplay](https://github.com/wangzan101/Mika/blob/5f630d9765038fa5178f3d7687a3cf5c22fbcfb4/app/src/main/java/com/wangzan101/mika/cap/phone/display/AgentDisplay.kt)、[ShellService](https://github.com/wangzan101/Mika/blob/5f630d9765038fa5178f3d7687a3cf5c22fbcfb4/app/src/main/java/com/wangzan101/mika/cap/phone/shell/ShellService.kt)：shell helper、Surface/ImageReader、display launch/input | Helix 已有 Shizuku UserService 和特权语义后端，复用而非新增无线 ADB 协议。用户选主屏/后台屏；`ShellBackgroundDisplays` 绑定会话 owner 和随机 displaySession，帧/窗口/节点/坐标一致路由。旧 token 不跨 Turn/屏幕复用，后台能力失败不退到主屏。Android 14+ 读取实际焦点 flags，旧版本报告降级；同 App 数据共享，主屏占用由显式用户选择移动。无 ALWAYS_UNLOCKED 或锁屏认证绕过。 |
 | [SandboxTools](https://github.com/wangzan101/Mika/blob/5f630d9765038fa5178f3d7687a3cf5c22fbcfb4/core/src/main/kotlin/com/wangzan101/mika/core/cap/sandbox/SandboxTools.kt)、[SandboxBridge](https://github.com/wangzan101/Mika/blob/5f630d9765038fa5178f3d7687a3cf5c22fbcfb4/app/src/main/java/com/wangzan101/mika/cap/sandbox/SandboxBridge.kt)：随机 socket/token 与同任务 SubActions | Helix 原有 PRoot/QuickJS、Jobs/PTY、流日志/恢复和产物，无须重写。实际缺口是脚本回调统一工具。新增 `HostToolBridge` 与执行期 socket/Binder 接口，经原 ApplicationToolGateway/Dispatcher/批准/审计；注册表决定工具集合，不硬编码 Mobile Use。原 session/Turn、取消、deadline、display 选择仍由宿主绑定；脚本身份字段不采信。默认 isolated JS 不转 native。 |
-| [ScriptManifest](https://github.com/wangzan101/Mika/blob/5f630d9765038fa5178f3d7687a3cf5c22fbcfb4/core/src/main/kotlin/com/wangzan101/mika/core/knowledge/ScriptManifest.kt)：脚本发现和 needs | Helix 原可发现 scripts 文件但资源读取只含 references/assets，也无运行入口。补 `skills.scripts`、有界脚本读取、固定快照检查及 `skills.run` 现有运行器入口；运行前真实依赖探测，清单声明不是已满足。Skill 资源复制到该 Job 私有暂存，真实工作区不复制，不将源快照变成可写运行目录。 |
+| [ScriptManifest](https://github.com/wangzan101/Mika/blob/5f630d9765038fa5178f3d7687a3cf5c22fbcfb4/core/src/main/kotlin/com/wangzan101/mika/core/knowledge/ScriptManifest.kt)：脚本发现和 needs | Helix 原可发现 scripts 文件但资源读取只含 references/assets，也无运行入口。补 `skills_scripts`、有界脚本读取、固定快照检查及 `skills_run` 现有运行器入口；运行前真实依赖探测，清单声明不是已满足。Skill 资源复制到该 Job 私有暂存，真实工作区不复制，不将源快照变成可写运行目录。 |
 | Mika 取消/进程处理与输出机制 | Helix 已有 process group、持久 Jobs 与 UNKNOWN 恢复。针对实际启动竞态复用 `awaitPtyProcessIdentity` 等待原 unreaped PID 身份，先启动 stdout/stderr drain；仅补桥凭证跨块/截断脱敏。取消后保留已发动作真值，断连/进程死亡不自动重放，不声称 PRoot 提供强隔离。 |
 
 设计变更分别记入 Permissions、Runtime/QuickJS、Terminal/Jobs、Skills 现有 ADR。后台屏与脚本桥/Skill 的主机及设备结果分别保留在忽略的 `build/background-display-2026-11-01/` 和 `build/script-tool-bridge-2026-11-01/`；最终收据才可证明实际通过范围，编译或中间失败不代表设备验收。
@@ -390,7 +386,7 @@ AutomationSessionManager.kt  3669ad260e36a9a50f309a177a562eb9cd0863f0917eca17592
 
 保留两次无效夹具尝试：独立测试进程缺少 Kotlin 可变捕获运行时、Skill 名称不符合父目录契约；修复夹具后复验，不计入有效模型能力结论，也不隐藏已经发生的模型请求成本。样本只证明上述合成场景，不推断全设备或产品成功率。
 
-由实际观察采用的改进是显式人工交回、持久停止事实摘要、同步 QuickJS 调用说明，以及写入前置拒绝的无副作用标记；发布后失败仍保留不确定性。后台屏三个新路由创建/取消/释放及实际原 helper 断连、新 Turn 重连均通过，断连不伪报正常释放或自动重放。实现入口为 [人工交接](../../../app/src/main/kotlin/com/helix/app/chat/HumanHandoff.kt)、[停止事实](../../../feature/conversation/src/main/kotlin/com/helix/feature/conversation/presentation/TurnStopFacts.kt) 和[真实模型夹具](../../../app/src/androidTestDeveloper/kotlin/com/helix/app/eval/ClosedLoopRealModelDeviceTest.kt)。详细构建、失败、请求与设备收据位于忽略目录 `build/real-effect-closeout-2026-11-01/`。浏览器保留、经验转 Skill、真实资料备份与语音不属于本轮。
+由实际观察采用的改进是显式人工交回、持久停止事实摘要、同步 QuickJS 调用说明，以及写入前置拒绝的无副作用标记；发布后失败仍保留不确定性。后台屏三个新路由创建/取消/释放及实际原 helper 断连、新 Turn 重连均通过，断连不伪报正常释放或自动重放。实现入口为 [人工交接](../../../app/src/main/kotlin/com/helix/app/chat/HumanHandoff.kt)、当时的停止事实投影（后已移除，见会话 ADR 的 2026-11-16 决策） 和[真实模型夹具](../../../app/src/androidTestDeveloper/kotlin/com/helix/app/eval/ClosedLoopRealModelDeviceTest.kt)。详细构建、失败、请求与设备收据位于忽略目录 `build/real-effect-closeout-2026-11-01/`。浏览器保留、经验转 Skill、真实资料备份与语音不属于本轮。
 
 ### 2026-11-02：有界长会话与后台生命周期复验
 
@@ -429,9 +425,9 @@ API 36 合成渲染验收使用 200 轮、400 条消息、1000 次工具调用�
 本轮没有新增真实模型样本或声称未来 Skill 的业务成功率；之前有界模型证据与本轮确定性正确性验收分开。Release/R8 主机构建、测试签名收缩包设备证据和 Debug／真机证据也分别记账，不外推正式发布签名、全 OEM、真实账号迁移或长期耗电。
 
 
-Owner 随后明确以 Agent 直接创建、导入已有内容及公开来源下载安装替换任务草稿按钮。当前入口复用正常文件工具、`skills.preview/install/list/enable/read/read_resource/run`：源路径在原请求中固定，支持已授权工作区的普通目录；单 Skill ZIP 的仓库修订外层名不再被误当作 Skill 名，内容仍按实际 manifest 与 tree hash 固定。统一 Dispatcher 的源读取效果区分工作区与外部，安装不因此产生读取权限，安装也不自动执行脚本。已有管理编辑器仅作可选入口，不是 Agent 创建前置步骤。
+Owner 随后明确以 Agent 直接创建、导入已有内容及公开来源下载安装替换任务草稿按钮。当前入口复用正常文件工具、`skills_preview/install/list/enable/read/read_resource/run`：源路径在原请求中固定，支持已授权工作区的普通目录；单 Skill ZIP 的仓库修订外层名不再被误当作 Skill 名，内容仍按实际 manifest 与 tree hash 固定。统一 Dispatcher 的源读取效果区分工作区与外部，安装不因此产生读取权限，安装也不自动执行脚本。已有管理编辑器仅作可选入口，不是 Agent 创建前置步骤。
 
-API36 使用自有合成文件、本地 ZIP 和回环 HTTP ZIP，实际走过创建／下载、固定 hash 安装、立即发现、会话启用、正文及资源读取；安装阶段没有执行脚本，显式 `skills.run` 后才生成预期文件。该样本验证公开下载链路和仓库 ZIP 布局，不代表实际访问或信任任何第三方 GitHub 仓库，也不是新真实模型样本。原始夹具状态大小写失败、浏览器异步提交等待修正、最终日志、源码输入和安装读回保留在忽略目录 `build/skill-agent-paths-2026-11-02/`；真机最终更新及预置选择后的持久会话冷恢复仍为 pending；Owner 随后要求暂停全部真机操作，模拟器优先，不以先前候选替代。
+API36 使用自有合成文件、本地 ZIP 和回环 HTTP ZIP，实际走过创建／下载、固定 hash 安装、立即发现、会话启用、正文及资源读取；安装阶段没有执行脚本，显式 `skills_run` 后才生成预期文件。该样本验证公开下载链路和仓库 ZIP 布局，不代表实际访问或信任任何第三方 GitHub 仓库，也不是新真实模型样本。原始夹具状态大小写失败、浏览器异步提交等待修正、最终日志、源码输入和安装读回保留在忽略目录 `build/skill-agent-paths-2026-11-02/`；真机最终更新及预置选择后的持久会话冷恢复仍为 pending；Owner 随后要求暂停全部真机操作，模拟器优先，不以先前候选替代。
 
 
 ### 2026-11-02：模拟器优先补验
@@ -450,7 +446,7 @@ Owner 暂停全部真机操作后，仅在 Helix_API_36 补验。原模拟器没
 
 ### 2026-11-03：真实 Skill 补样本失败与离线停止修复
 
-Owner 明确批准自建内置网关接收本次正常 Agent 上下文后，API36 最终 Debug 的补样本未通过：原始 Turn 有 13 条模型调用、19 次工具调用。模型先写出缺少 YAML frontmatter 的 SKILL.md，连续四次预览仅收到泛化错误，补齐后同源预览成功；未完成安装、`skills.run` 和独立文件结果。加载器原本有准确格式错误，但导入层包装异常后工具未识别；现在只提取已知校验异常的有界信息，其他 I/O 错误仍隐藏内部路径，实际工具执行器单测覆盖此差异。
+Owner 明确批准自建内置网关接收本次正常 Agent 上下文后，API36 最终 Debug 的补样本未通过：原始 Turn 有 13 条模型调用、19 次工具调用。模型先写出缺少 YAML frontmatter 的 SKILL.md，连续四次预览仅收到泛化错误，补齐后同源预览成功；未完成安装、`skills_run` 和独立文件结果。加载器原本有准确格式错误，但导入层包装异常后工具未识别；现在只提取已知校验异常的有界信息，其他 I/O 错误仍隐藏内部路径，实际工具执行器单测覆盖此差异。
 
 测试收尾未留下有效停止意图，随后诊断启动触发产品既有的只读恢复检查，额外出现两条模型尝试记录（一条完成、一条未结算）；客户端记录不能证明未结算请求的网关实际消费，也没有证据将其称为原写操作重放。通过测试 Runner 的现有持有启动模式，在账户、AppContainer 和恢复调度之前直接打开 Room，仅为该合成任务及后继写停止意图；不清数据、不删除失败历史、不修改用户 provider 或记忆配置。测试专用发送前门禁按同一持久账本限制目的地、模型、输出预算、请求数和时间；取消作用域中的停止、证据保存与恢复各自有 finally 保证。隔离假 provider 回归覆盖超时后证据失败、停止持久化、新 PID 恢复零后继请求及显式新用户 Turn 仍可入场。该离线修复不是新的真实模型通过样本；原始失败和修复日志分别保存在忽略目录 `build/real-model-final-2026-11-03/` 与 `build/skill-timeout-repair-2026-11-03/`。真机继续暂停。
 
@@ -466,13 +462,13 @@ Owner 再次授权最多 24 次请求、240 秒的真实补测后，准备阶段
 
 后台投影现在按原候选集合批量读取会话/Goal 标量和审批 `EXISTS`，避免逐项加载工具参数；500 仅为 SQLite 分批绑定大小，不裁剪任务数量。沿用同一事务、排序、领取/审批/停止事实与原授权路径；排队刷新复用 `refreshScreen` 已有的后台刷新。保留原库更新后，候选任务为 2030，未采样首个本地任务为 5.451 秒、入场前等待 4.054 秒；同进程后两次为 1.293/1.095 秒，基线后两次为 1.117/0.960 秒。结果证明本次首任务瓶颈改善，不代表暖态全面提速、所有规模或 OEM 性能。
 
-帮助 manifest 和中英文索引此前给相对文件目录的路径，实际资源 API 却要求 Skill 根路径；现统一给出含 `references/` 的可直接使用值，回归直接读取每个公开路径，不在测试端偷偷补前缀。预览说明明确返回安装 hash，发现说明区分草稿与已注册快照；原搜索词的八项结果现在包含 `skills.preview`。没有强制模型执行固定业务步骤、自动安装或运行脚本。本轮完整双渠道 Debug/Release R8 门禁、10 项 Room/帮助设备回归及假 provider 停止后新 PID 零恢复检查通过；日常 API36 保数据更新，真机仍暂停。数据、候选与日志保存在忽略目录 `build/skill-admission-profile-2026-11-03/`。本轮本地诊断不以假 provider 替代真实模型结果；后续授权与实际复验见下。
+帮助 manifest 和中英文索引此前给相对文件目录的路径，实际资源 API 却要求 Skill 根路径；现统一给出含 `references/` 的可直接使用值，回归直接读取每个公开路径，不在测试端偷偷补前缀。预览说明明确返回安装 hash，发现说明区分草稿与已注册快照；原搜索词的八项结果现在包含 `skills_preview`。没有强制模型执行固定业务步骤、自动安装或运行脚本。本轮完整双渠道 Debug/Release R8 门禁、10 项 Room/帮助设备回归及假 provider 停止后新 PID 零恢复检查通过；日常 API36 保数据更新，真机仍暂停。数据、候选与日志保存在忽略目录 `build/skill-admission-profile-2026-11-03/`。本轮本地诊断不以假 provider 替代真实模型结果；后续授权与实际复验见下。
 
 ### 2026-11-03：按需模型调用约定与真实 Skill 闭环通过
 
 Owner 明确取消开发测试的人为请求次数和时长上限，允许按需使用项目已配置模型服务；该约定写入项目 `AGENTS.md`，不创建自定义 rule，也不改变产品权限或泄露凭据。真实模型夹具取消专项次数、时长和工具总数限制；发送前仍校验固定服务与本任务身份，结束后关闭持久门禁并停止任务。仅离线超时回归保留有界模式，用于验证超时、停止和进程恢复边界；新增回归确认无界模式跨过旧阈值后仍可发送、关闭后仍拒绝。
 
-API36 日常最终 Debug 上，内置 `builtin-helix-qwen`／`Qwen3.8-27B` 经已有自建网关完成一个真实样本：12 次模型请求、18 次工具调用，case 含收尾约 164.5 秒。模型自行创建 manifest、参考和 Python 脚本，完成 `skills.preview → install → enable → list → read/read_resource → run`，工具均完成；模型读取结果，测试另行比较工作区输出与本次 52 字节 ASCII 随机文本全文，且执行产物 hash 与输入一致。该样本没有覆盖二进制或 CRLF 字节保真。没有人工替模型补文件或执行脚本；这是一个闭环成功样本，不能外推整体成功率、任意公开仓库安装或真机表现。原始工具轨迹、实际测试 APK 身份、运行与停止审计保存在忽略目录 `build/skill-model-unbounded-2026-11-03/`；该阶段真机暂停。
+API36 日常最终 Debug 上，内置 `builtin-helix-qwen`／`Qwen3.8-27B` 经已有自建网关完成一个真实样本：12 次模型请求、18 次工具调用，case 含收尾约 164.5 秒。模型自行创建 manifest、参考和 Python 脚本，完成 `skills_preview → install → enable → list → read/read_resource → run`，工具均完成；模型读取结果，测试另行比较工作区输出与本次 52 字节 ASCII 随机文本全文，且执行产物 hash 与输入一致。该样本没有覆盖二进制或 CRLF 字节保真。没有人工替模型补文件或执行脚本；这是一个闭环成功样本，不能外推整体成功率、任意公开仓库安装或真机表现。原始工具轨迹、实际测试 APK 身份、运行与停止审计保存在忽略目录 `build/skill-model-unbounded-2026-11-03/`；该阶段真机暂停。
 
 ### 2026-11-03：真机原会话收尾、空恢复排队与 Standard R8
 
@@ -480,7 +476,7 @@ Owner 重新授权真机测试后，实际设备确认为 ONEPLUS A6013、Androi
 
 测试侧观察排队投影回调进一步解释了剩余入场等待：启动恢复为全部历史未归档会话排空队列，54 次回调即使没有待处理输入仍刷新投影，其中 4190 毫秒落在首任务 4636 毫秒的入场前等待内。现按 Room 的 `PENDING/NEEDS_ATTENTION` 输入选取未归档会话；调度器仍重读停止、输入状态和原执行身份，不自动恢复旧 Goal 激活。保留同库未采样本地任务从 6058 毫秒降至 1717 毫秒，入场前等待从 4636 降至 87 毫秒；暖态没有一致提速。此结果解释本次冷等待，不能倒推原真实样本 53 秒的全部构成；独立查询耗时也不相加冒充完整路径。21 项恢复/停止/会话/后台存储回归通过，新查询覆盖重复、停驻、失败、撤回与归档状态；生命周期夹具显式构造未绑定来源，不再假定设备没有保存默认模型。
 
-Standard/consumer 非 debuggable R8 隔离包在 API36 完成同 ID、同本地测试签名覆盖安装；独立只读检查确认原合成会话和产物保留且未新增 provider POST，不把重新创建配置算作保留；公共 UI 验证浏览器手动页/任务页归属、文本 Skill 安装启用与读取、实际指令文件结果、产物预览、旋转及进程恢复，并通过三项基础入口检查。驱动是本地确定性 provider，不是新的真实模型成功率样本。按现有渠道契约 consumer 不含 Mobile Use/PRoot，不将 Developer 的后台屏或 Python `skills.run` 归入 Standard 验收；公共夹具已移除该误用，并优先匹配操作的 contentDescription，避免把同名会话标题当按钮。签名使用已有 debug key，仅隔离包升级通过，不代表正式发行证书或商店验收。
+Standard/consumer 非 debuggable R8 隔离包在 API36 完成同 ID、同本地测试签名覆盖安装；独立只读检查确认原合成会话和产物保留且未新增 provider POST，不把重新创建配置算作保留；公共 UI 验证浏览器手动页/任务页归属、文本 Skill 安装启用与读取、实际指令文件结果、产物预览、旋转及进程恢复，并通过三项基础入口检查。驱动是本地确定性 provider，不是新的真实模型成功率样本。按现有渠道契约 consumer 不含 Mobile Use/PRoot，不将 Developer 的后台屏或 Python `skills_run` 归入 Standard 验收；公共夹具已移除该误用，并优先匹配操作的 contentDescription，避免把同名会话标题当按钮。签名使用已有 debug key，仅隔离包升级通过，不代表正式发行证书或商店验收。
 
 模拟器原合成加密备份恢复到真机全新隔离包，连续两次冷恢复确认会话、附件与 hash、专家/记忆/Skill 文本和假凭据正确，账户会话不恢复、运行中动作保持未知且未重放；没有覆盖日常 profile，也没有授予隔离包所有文件访问。证据继承原合成归档，当前恢复执行与候选独立记录。持续窗口的旧裸 `am start` 试验因逐轮新建 Activity，不适合作为正常恢复内存/FD 基准；原始数据保留，改用 Launcher Intent 并逐轮核对单 Activity。SAF 夹具也补齐关闭系统选择器的后置断言，避免遗留外部 Activity 干扰后续恢复。所有候选、成功/失败日志和窗口条件在忽略目录 `build/device-followup-2026-11-03/`，不以短时 USB 供电观察代替续航、Doze 或全部 OEM 结论。
 
@@ -503,9 +499,9 @@ Owner 指出问题不限会话工具：新功能反复附带自明说明、泛�
 
 ### 2026-11-04：手机操作工具契约与后台屏生命周期复核
 
-对照 Mika `0091d2d67b541a417df913a23fefbb8e3a04e4a7`，本轮采用其观察、执行、效果分层思路，复用 Helix 既有工具发现、脚本桥和 `skills.run`，不复制另一套 Agent 循环或短序列执行器。此前真实酷安轨迹未出现 `tools.search`，不足以认定发现缓存丢失；多屏收集与新的批操作工具暂未引入，未声称性能收益。
+对照 Mika `0091d2d67b541a417df913a23fefbb8e3a04e4a7`，本轮采用其观察、执行、效果分层思路，复用 Helix 既有工具发现、脚本桥和 `skills_run`，不复制另一套 Agent 循环或短序列执行器。此前真实酷安轨迹未出现 `tools_search`，不足以认定发现缓存丢失；多屏收集与新的批操作工具暂未引入，未声称性能收益。
 
-实际差距是工具可见契约不一致：`ui.find(scrollable=true)` 已有实现，离屏提示却否认该参数；现与 schema/解析/帮助统一，并补可编辑过滤。节点公布实际支持的滚动方向，工具支持明确上下左右，避免将泛化 forward 当作垂直滚动而切换横向分页。点击前的同窗口内容变化与遮挡分别反馈，不再统称目标切换；DOWN 后失去确认仍为 UNKNOWN，不自动重放。成功派发保留未验证效果的结构化事实，但移除重复说明。
+实际差距是工具可见契约不一致：`ui_find(scrollable=true)` 已有实现，离屏提示却否认该参数；现与 schema/解析/帮助统一，并补可编辑过滤。节点公布实际支持的滚动方向，工具支持明确上下左右，避免将泛化 forward 当作垂直滚动而切换横向分页。点击前的同窗口内容变化与遮挡分别反馈，不再统称目标切换；DOWN 后失去确认仍为 UNKNOWN，不自动重放。成功派发保留未验证效果的结构化事实，但移除重复说明。
 
 Android 公开 VirtualDisplay 不设置 DESTROY_CONTENT_ON_REMOVAL 时，正常释放可将标准任务迁回主屏；迁移也可能改变焦点。实现检查迁移与恢复原焦点，边界见 [授权 ADR](../../adr/permissions/001-session-authorization.md#decision-history--2026-11-04后台屏初始模式与任务保留)。首次设备夹具发现独立测试 Activity 引用宿主 Kotlin 运行库导致迁移时崩溃，改用 Java 独立 Activity；第二次滚动失败中系统独立记录 DOWN 接受、scrollY=220，说明仅比较首行裁剪后 top 的断言不能判定滚动效果。原失败保留，最终使用可见行变化、截图及原任务重新打开验证，不将派发成功等同业务效果。最终实测与候选记录于忽略目录 `build/mobile-use-followup-2026-11-04/`。
 
@@ -537,7 +533,7 @@ Android 公开 VirtualDisplay 不设置 DESTROY_CONTENT_ON_REMOVAL 时，正常�
 
 设备合成操作与 Compose 截图测试分别运行；合批曾触发两个 UiAutomation 持有方的连接冲突，拆批后的界面回归单独记账。测试不清除日常数据，不触碰 Shizuku 主服务或其他应用进程。
 
-对既有酷安模型任务只读提取 Room 的模型调用时间及 Dispatcher 审计，没有重跑账号或请求。该历史 Turn 约 696.9 秒，45 个模型调用的客户端区间合计约 645.4 秒（92.6%），47 个工具派发区间合计约 29.6 秒、时间并集约 27.6 秒（4.0%），未归属区间约 23.8 秒。模型区间中位数约 7.05 秒、最长约 186.4 秒；单次 `ui.launch` 派发约 0.437 秒，三次 `ui.snapshot` 合计约 2.22 秒，显式 `ui.wait` 为 1 秒。模型区间含客户端请求、网络及流式生成，不能拆称纯推理/等待；页面首帧就绪也没有独立计时。该单例支持优先检查模型回合与等待来源，不证明任何新候选提速。
+对既有酷安模型任务只读提取 Room 的模型调用时间及 Dispatcher 审计，没有重跑账号或请求。该历史 Turn 约 696.9 秒，45 个模型调用的客户端区间合计约 645.4 秒（92.6%），47 个工具派发区间合计约 29.6 秒、时间并集约 27.6 秒（4.0%），未归属区间约 23.8 秒。模型区间中位数约 7.05 秒、最长约 186.4 秒；单次 `ui_launch` 派发约 0.437 秒，三次 `ui_snapshot` 合计约 2.22 秒，显式 `ui_wait` 为 1 秒。模型区间含客户端请求、网络及流式生成，不能拆称纯推理/等待；页面首帧就绪也没有独立计时。该单例支持优先检查模型回合与等待来源，不证明任何新候选提速。
 
 先前生成文案额外列出的热度/讨论数仍未被观察证据支持。本轮插件指引要求逐项核对所报名称、数字和单位、保留原文并省略未请求的数字；这是结果核验指导，不是 Harness 能保证任意最终自然语言事实正确的新能力。历史 ANR 的图形通道等待与资源压力结论保留，深层原因未证实，不宣称本轮修复了该历史 ANR。原始分项日志、失败和时间摘要保留于 ignored 的 `build/ordered-closeout-*` 证据中。
 
@@ -614,7 +610,7 @@ Owner 要求参考主流 Agent 优化会话、项目和工作目录的关系。�
 
 Owner 要求先完成工作目录优化，再分析日常模拟器最新酷安下载安装 X 浏览器任务。只读提取该会话的 49 次原始调用、结果和对应截图；安装器节点确认“X浏览器／已安装应用。”，最终列表给出 `com.mmbox.xbrowser`。共 4 次失败，属于 3 类：两次手势在 DOWN 前因 FRAME_CHANGED 拒绝，取帧到手势创建约 13／16 秒，首张是自动结束的开屏广告、后续已是首页；第二次具体哪个节点变化未证明。一次横向滚动节点只公布 forward/right，模型却传 left；原工具描述按横纵方向推荐 left/right 容易混淆内容导航与手指轨迹。最后一次尝试把来源 Helix 启动到后台屏，被主屏可见冲突保护正确拒绝；旧启动描述及通用结束交接指引未统一区分主屏和后台屏。另有两次猜测错误包名的精确安装查询，随后列表发现真实包名。
 
-据此判断为动态页面观察时机、模型参数选择与工具指引共同作用，不能据单个成功任务归结模型能力不足或量化模型能力差异。保留现有 18 个工具名称及授权／帧身份／不重放／主屏冲突保护，未发现工具名或未知参数导致的失败。统一 scroll 的描述、方向参数、恢复提示及技能参考，要求精确采用节点公布的方向；统一后台完成不启动宿主到虚拟屏。`ui.apps(query)` 提供按已知名称或包名子串发现候选，保留歧义、截断和原状态，空结果不冒充未安装；不能与精确包名查询混用。相关决策记入权限 ADR 既有 Decision history，不引入新的执行域、授权或版本。
+据此判断为动态页面观察时机、模型参数选择与工具指引共同作用，不能据单个成功任务归结模型能力不足或量化模型能力差异。保留现有 18 个工具名称及授权／帧身份／不重放／主屏冲突保护，未发现工具名或未知参数导致的失败。统一 scroll 的描述、方向参数、恢复提示及技能参考，要求精确采用节点公布的方向；统一后台完成不启动宿主到虚拟屏。`ui_apps(query)` 提供按已知名称或包名子串发现候选，保留歧义、截断和原状态，空结果不冒充未安装；不能与精确包名查询混用。相关决策记入权限 ADR 既有 Decision history，不引入新的执行域、授权或版本。
 
 双渠道完整 Debug 门禁、手机操作模块 345 项 JVM 检查、双渠道设备测试源码编译通过，覆盖新增查询、歧义、截断、非法参数边界及既有动作保护。候选保留数据覆盖安装到 Helix_API_36／API36，安装 APK 与主机字节核对；首次安装因存储不足失败，确认三个旧微信安装包完全同哈希后仅删两份重复副本、保留原件和所有应用数据，重试成功。已配置真实模型完成 3 个合成观察规划场景：选择公布的滚动方向、按名称查询包名、后台结束不启动来源 Helix；只记录模型选择，执行工具调用数为 0，不等于真实触摸或完整安装任务重跑。安全 profile、草稿模型及会话启动目标按原字段核对未变。原始失败、源码／制品身份、规划调用及收据保留于 ignored 的 `build/mobile-use-xbrowser-*`。未清数据、重做下载／安装任务、使用真机、推送或发布；不宣称其他应用、模型或动态页面普遍通过。
 

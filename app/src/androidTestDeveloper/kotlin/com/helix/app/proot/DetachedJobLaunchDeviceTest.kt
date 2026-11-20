@@ -158,14 +158,14 @@ class DetachedJobLaunchDeviceTest {
         init {
             storage.sessions.create("session", "Launch test", null, null, 1)
             storage.turns.start("turn", "session", 2)
-            storage.toolCalls.append("stored", "turn", "call", "code.linux.run", "2", "{}", "RUNNING")
+            storage.toolCalls.append("stored", "turn", "call", "code_linux_run", "2", "{}", "RUNNING")
         }
 
         fun run(): ToolExecutorResult =
             ownership.guard(LinuxRunTool.executor(launcher)).execute(
                 ExecutableToolCall(
                     "call",
-                    "code.linux.run",
+                    "code_linux_run",
                     "2",
                     buildJsonObject { put("script", "sleep 2; printf LAUNCH_OK") },
                     ExecutionTargetType.LOCAL_PROOT,

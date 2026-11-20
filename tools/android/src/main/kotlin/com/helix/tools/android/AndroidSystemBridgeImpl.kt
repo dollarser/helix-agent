@@ -16,7 +16,7 @@ import java.net.URISyntaxException
  * builds the real Android `Intent`s, drives the real system `ClipboardManager`, and enforces the
  * security controls the port's KDoc promises:
  *
- * - [openUri] only OPENS an http/https URL in the OS handler (`device.open_url` 只打开). The scheme
+ * - [openUri] only OPENS an http/https URL in the OS handler (`device_open_url` 只打开). The scheme
  *   gate ([isHttpUrl]) runs BEFORE any intent is built, so a non-http(s) URL never reaches the
  *   launcher; a launch failure is a stable [OpenUriStatus.NO_HANDLER] / [OpenUriStatus.ERROR], never
  *   a fake success.

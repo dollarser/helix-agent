@@ -121,7 +121,7 @@ internal fun isOwnedVisualRequest(
     body: JsonObject,
     nonce: String,
 ): Boolean =
-    body["model"]?.jsonPrimitive?.content == BuiltInModel.MODEL_ID &&
+    body["model"]?.jsonPrimitive?.content in setOf(BuiltInModel.MODEL_ID, BuiltInModel.QWEN_MODEL_ID) &&
         (body["messages"] as? JsonArray).orEmpty().any {
             it.jsonObject["role"]?.jsonPrimitive?.content == "user" && nonce in it.jsonObject["content"].toString()
         }

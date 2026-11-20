@@ -32,7 +32,7 @@ Developer/API36第二轮业务7项通过（包括真实Qwen4次工具调用、�
 
 模拟器使用`scripts/run-owned-emulator.py --raw-results`、自有只读API36实例、两个独立端口及独立输出目录，未覆盖日常APK/数据；每次记录APK hash、设备属性、逐方法状态、日志和closed.json。所有授权启动均保留主机键盘与可用IME，拼音候选/实际中文提交由PinyinComposerDeviceTest验证。真机定向am instrument逐方法由instrumentation_junit.require_passed核验；只有真实终态为0且runner成功结束才记通过，不从测试总数推导。
 
-当前Developer主APK SHA256：313cea3b75cdf19a09ccac4c18aeec4c40ccbb4422af56ce222ee30f1080ebaa；Standard主APK：e5656ec74a3595e5c96b922f8d9d15c322689d45948fe84397e5166ef91ecdc1。每次冻结制品详情以各run的artifacts.json为准；不将测试APK编译等同设备通过。
+每次冻结制品身份以各 run 的 `artifacts.json` 为准；不将测试 APK 编译等同设备通过。
 
 ## 验证边界
 

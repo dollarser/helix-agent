@@ -18,13 +18,13 @@ Affected modules: tools/root, app/files, app/ui
 ## Root cause
 
 1. **Android 14 进程挂载命名空间隔离（Mount Namespace Isolation）**：Zygote 在 fork 应用进程时为应用创建了独立的 mount namespace，并在 `/data/data` 上覆盖了仅包含自身包名的隔离挂载视图。`libsu` 默认继承调用进程的 mount namespace，导致即使用户具有 Root 权限，执行的普通 Shell 也处于该受限挂载空间中。
-2. **Android MediaProvider FUSE 虚拟文件系统限制**：`/storage/emulated` 为 Android FUSE 守护进程的挂载点。FUSE daemon 针对 `/storage/emulated` 自身的根目录枚举（`opendir`/`readdir`）直接返回 `EACCES` / `Permission denied`（即便 UID 为 0 亦然），只处理 `/storage/emulated/<userId>`（如 `/storage/emulated/0`）的子节点访问。原有的单一 `find $path -maxdepth 1` 命令因此直接返回失败（exit code 1）。
+2. **Android MediaProvider FUSE 虚拟文件系统限制**：`/storage/emulated` 为 Android FUSE 守护进程的挂载点。本次设备上，`/storage/emulated` 根目录枚举返回 `EACCES` / `Permission denied`，UID 0 也未绕过；直接访问已确认用户的子路径则可用。这是该设备挂载/访问路径的观测，不足以断言所有 Android FUSE 实现都拒绝父目录枚举。原有的单一 `find $path -maxdepth 1` 命令因此直接返回失败（exit code 1）。
 3. **符号链接未解引用**：`find` 默认不对命令行中指定的软链接（如 `/sdcard`、`/etc`）进行目录解引用，导致软链接目录枚举为空。
 
 ## Fix and invariants
 
 1. **启用 Global Mount Namespace**：在 `RootFileAccessor` 中通过 `Shell.setDefaultBuilder` 配置 `Shell.FLAG_MOUNT_MASTER`（在执行 su 时附带 `--mount-master` / `-M`），使 Root Shell 运行于系统的全局 mount namespace。
-2. **底层持久路径重定向**：在 `RootFileAccessor` 的路径解析层 `resolvePath` 中，将 `/data/data` 智能映射至全版本 Android 共通的底层真实持久数据路径 `/data/user/0`（各 Android 版本的该路径均不受沙盒遮罩影响）。
+2. **底层路径映射**：在 `RootFileAccessor` 的路径解析层 `resolvePath` 中，将 `/data/data` 映射至主用户路径 `/data/user/0`。这是本次实现和设备验证采用的路径，不保证所有 Android/OEM、用户身份或挂载命名空间均可访问。
 3. **挂载点探测与软链接解引用**：
    - 针对 `/storage/emulated`，增加智能子节点探测（通过 `/data/media/*` 及 `/storage/emulated/0` 探测存在的用户卷），返回 `0` 等有效用户目录；
    - 在 `find` 中加入 `-H` 参数，自动解引用命令行参数中的符号链接，使 `/sdcard` 和 `/etc` 等能够顺畅直接展开。
@@ -42,13 +42,13 @@ Affected modules: tools/root, app/files, app/ui
    - `./gradlew :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest`（824 项 developer 单元测试全部通过，含 `FileManagerServiceRootTest` 5 项测试）；
    - `./scripts/verify-variant-boundaries.sh` 与 `./scripts/check-all.sh --source` 100% 通过。
 2. **真机验证（OnePlus 6T / Android 14 / APatch）**：
-   - 在设备 `561e3b15` 上安装 `app-developer-debug.apk`；
+   - 在该 OnePlus 6T 上安装 `app-developer-debug.apk`；
    - 导航至 `/data/data`，成功突破沙盒列出全量 271 个应用的私有目录；
    - 导航至 `/storage/emulated`，成功列出 `0`；进入 `0` -> `Android` -> `data` 完整列出各应用包名目录并支持子文件预览与属性详情查看。
 
 ## Residual risk
 
-多用户隔离场景下，非主用户（如双开或工作空间 user 10+）的私有目录需通过其对应的 user id 访问。当前设计已通过自动探测 `/data/media/*` 支持该机制。
+非主用户（如双开或工作空间 user 10+）具有各自路径与访问条件。自动探测 `/data/media/*` 只是候选卷发现，不证明多用户私有目录授权或可读性；本次明确记录的真机范围为表述中的 OnePlus 6T。Root、SELinux、挂载实现和 OEM 差异仍可能拒绝访问。
 
 ## Related records
 

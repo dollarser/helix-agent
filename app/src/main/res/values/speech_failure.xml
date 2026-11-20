@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="speech_failure_network">Could not connect to the speech service. Check your connection and service address, then retry.</string>
+    <string name="speech_failure_timeout">The speech service did not respond in time. Try again later.</string>
+    <string name="speech_failure_authentication">The speech service rejected account access. Check your sign-in and permissions, then retry.</string>
+    <string name="speech_failure_http">The speech endpoint returned an HTTP error. Check the service address and backend status, then retry.</string>
+    <string name="speech_failure_protocol">The speech service returned an unsupported response. Check the service protocol and backend configuration.</string>
+    <string name="speech_failure_service">The speech service could not complete the request. Check the backend status, then retry.</string>
+</resources>

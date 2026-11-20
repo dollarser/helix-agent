@@ -46,7 +46,7 @@ SCOPE_CLASSES = {
     ],
     "215": [
         "com.helix.app.chat.MessageRevisionDeviceTest",
-        "com.helix.app.ui.MessageEditResendFlowDeviceTest",
+        "com.helix.app.ui.MessageEditFlowDeviceTest",
         "com.helix.app.chat.ChatServiceAttachmentRetryDeviceTest",
         "com.helix.app.chat.ConversationDraftRecoveryDeviceTest",
         "com.helix.app.chat.SessionForkDeviceTest",
@@ -130,7 +130,8 @@ PROCESS_RECOVERY_SCOPE_BY_SCENARIO = {
 
 STORAGE_216 = [
     "com.helix.core.storage.SessionInputStorageDeviceTest",
-    "com.helix.core.storage.SessionInputMigrationDeviceTest",
+    "com.helix.core.storage.FreshSchemaDeviceTest",
+    "com.helix.core.storage.PreviewDatabaseGateDeviceTest",
 ]
 
 

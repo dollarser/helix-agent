@@ -8,6 +8,7 @@ import com.helix.core.model.ToolVersion
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
+import com.helix.tools.framework.ToolDiscoveryHints
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolJsonNumbers
@@ -212,7 +213,7 @@ class RootTools(
     ) = ToolDescriptor(
         name = ToolName(name),
         version = ToolVersion(1),
-        description = "High-level bounded Root read: $name.",
+        description = toolDescription(name),
         inputSchema = input,
         outputSchema = output,
         operationClass = ToolOperationClass.READ_ONLY,
@@ -222,7 +223,45 @@ class RootTools(
         idempotency = Idempotency.IDEMPOTENT,
         executionTarget = ExecutionTargetType.LOCAL_ROOT,
         origin = ToolOrigin.BuiltInOrigin,
+        discovery = ToolDiscoveryHints(category = "root"),
     )
+
+    private fun toolDescription(name: String): String =
+        when (name) {
+            STATUS -> {
+                "Inspect Root grant, service and session availability without activating a Root session."
+            }
+
+            FILE_READ -> {
+                "Read a byte window of a file within an already granted Root scope. " +
+                    "Prefer read for ordinary files; this tool requires a scopeId and relativePath. " +
+                    "Returns UTF-8 or base64 content; continue at offset + windowLength until eof."
+            }
+
+            PACKAGE_INFO -> {
+                "Inspect an installed Android package by package name using the active Root session. " +
+                    "Returns UID, installation path and version; does not launch or modify the app."
+            }
+
+            PROCESS_LIST -> {
+                "List a bounded snapshot of running Android processes with PID, UID and name. " +
+                    "Requires an active Root session; does not signal or stop processes."
+            }
+
+            LOG_READ -> {
+                "Read recent Android logcat lines at or above a severity using the active Root session. " +
+                    "Returns a bounded diagnostic snapshot, not a live stream."
+            }
+
+            else -> {
+                error("Unknown Root tool: $name")
+            }
+        }
+
+    private fun described(
+        schema: JsonObject,
+        description: String,
+    ): JsonObject = JsonObject(schema + ("description" to JsonPrimitive(description)))
 
     private fun emptyObjectSchema() = objectSchema(emptyMap(), emptyList())
 
@@ -241,10 +280,16 @@ class RootTools(
     private fun fileReadInputSchema() =
         objectSchema(
             mapOf(
-                "scopeId" to stringSchema(64),
-                "relativePath" to stringSchema(1024),
-                "offset" to JsonObject(integerSchema(0) + ("maximum" to JsonPrimitive(Long.MAX_VALUE))),
-                "maxBytes" to integerSchema(1, MAX_FILE_BYTES),
+                "scopeId" to
+                    described(stringSchema(64), "Exact identifier of an existing user-granted Root file scope."),
+                "relativePath" to
+                    described(stringSchema(1024), "File path relative to that scope, not an absolute path."),
+                "offset" to
+                    described(
+                        JsonObject(integerSchema(0) + ("maximum" to JsonPrimitive(Long.MAX_VALUE))),
+                        "Zero-based byte offset; omit for 0. Continue at previous offset + windowLength.",
+                    ),
+                "maxBytes" to described(integerSchema(1, MAX_FILE_BYTES), "Byte window limit; defaults to 65536."),
             ),
             listOf("scopeId", "relativePath"),
         )
@@ -264,7 +309,11 @@ class RootTools(
             listOf("scopeId", "relativePath", "offset", "sizeBytes", "windowLength", "encoding", "content", "eof"),
         )
 
-    private fun packageInputSchema() = objectSchema(mapOf("packageName" to stringSchema(255)), listOf("packageName"))
+    private fun packageInputSchema() =
+        objectSchema(
+            mapOf("packageName" to described(stringSchema(255), "Exact Android package identifier, not an app label.")),
+            listOf("packageName"),
+        )
 
     private fun packageOutputSchema() =
         objectSchema(
@@ -277,7 +326,11 @@ class RootTools(
             listOf("packageName", "uid", "sourceDir", "versionName"),
         )
 
-    private fun processInputSchema() = objectSchema(mapOf("limit" to integerSchema(1, MAX_PROCESSES)), emptyList())
+    private fun processInputSchema() =
+        objectSchema(
+            mapOf("limit" to described(integerSchema(1, MAX_PROCESSES), "Maximum process records; defaults to 100.")),
+            emptyList(),
+        )
 
     private fun processOutputSchema() =
         objectSchema(
@@ -301,7 +354,18 @@ class RootTools(
 
     private fun logInputSchema() =
         objectSchema(
-            mapOf("maxLines" to integerSchema(1, MAX_LOG_LINES), "minPriority" to stringSchema(1)),
+            mapOf(
+                "maxLines" to described(integerSchema(1, MAX_LOG_LINES), "Maximum recent log lines; defaults to 200."),
+                "minPriority" to
+                    described(
+                        JsonObject(
+                            stringSchema(1) +
+                                ("enum" to JsonArray(listOf("V", "D", "I", "W", "E", "F", "S").map(::JsonPrimitive))),
+                        ),
+                        "Minimum logcat severity: verbose, debug, info, warning, " +
+                            "error, fatal or silent. Defaults to I.",
+                    ),
+            ),
             emptyList(),
         )
 
@@ -401,11 +465,11 @@ class RootTools(
             .replace(BEARER, "Bearer <redacted>")
 
     companion object {
-        const val STATUS = "root.status"
-        const val FILE_READ = "root.file.read"
-        const val PACKAGE_INFO = "root.package.info"
-        const val PROCESS_LIST = "root.process.list"
-        const val LOG_READ = "root.log.read"
+        const val STATUS = "root_status"
+        const val FILE_READ = "root_file_read"
+        const val PACKAGE_INFO = "root_package_info"
+        const val PROCESS_LIST = "root_process_list"
+        const val LOG_READ = "root_log_read"
         const val DEFAULT_FILE_BYTES = 64 * 1024
         const val MAX_FILE_BYTES = 256 * 1024
         const val MAX_PROCESSES = 512

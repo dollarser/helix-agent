@@ -37,5 +37,5 @@ Recovery component clicks are device-tested; full navigation, screen layout and 
 
 ## Related records
 
-- [Current TODO](../evidence/development/main-optimization-todo.md)
+- [Historical follow-up](../evidence/development/main-optimization-todo.md)
 - [HXA-102](../completion-records/HXA-102.md)

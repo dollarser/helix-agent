@@ -30,11 +30,11 @@ import java.util.concurrent.TimeUnit
  * - a password field and a payment field are REFUSED (the JS gate and the host
  *   [com.helix.tools.browser.SensitiveFieldClassifier] agree; the reason is the category), while
  *   an ordinary field / button PERFORMS;
- * - `browser.type` actually mutates the DOM (a fresh snapshot reads the new value back);
+ * - `browser_type` actually mutates the DOM (a fresh snapshot reads the new value back);
  * - a node token from a pre-navigation snapshot is STALE on the action path after a navigation;
  * - an action addressed to an unknown tab fails closed as NO_TAB;
- * - `browser.scroll` reports SCROLLED on a settled page;
- * - `browser.screenshot` fails closed as NO_PAGE when the tab's WebView is not attached to a
+ * - `browser_scroll` reports SCROLLED on a settled page;
+ * - `browser_screenshot` fails closed as NO_PAGE when the tab's WebView is not attached to a
  *   sized window (this harness keeps it detached, as [BrowserSnapshotDeviceTest] does) — the
  *   happy SAVED path is pinned by the JVM mapping test plus core:workspace's writeArtifact tests.
  *
@@ -292,6 +292,81 @@ class BrowserActionsDeviceTest {
         navigateToLoadedPage(tab, "data:text/html,<input value=new>")
         assertEquals(ActionStatus.STALE_TOKEN, bridge.nodeAction(tab, normal, BrowserNodeAction.APPEND, "bad").status)
         assertTrue(bridge.snapshot(tab).nodes.any { it.value == "new" })
+    }
+
+    @Test
+    fun dynamicInsertionRefusesOldIndexAndFreshObservationRecoversWithoutReplay() {
+        val tab = onMain { controller.newTab() }
+        navigateToLoadedPage(
+            tab,
+            "data:text/html,<p id=note>Before</p>" +
+                "<button id=go onclick=\"this.dataset.clicks=Number(this.dataset.clicks||0)+1\">Go</button>",
+        )
+        val original =
+            bridge
+                .snapshot(tab)
+                .nodes
+                .single { it.text == "Go" }
+                .token
+        evaluateFixture(tab, "document.getElementById('note').textContent='Unrelated update'; 'ok';")
+        // Unrelated body text does not force a full snapshot or invalidate the observed target.
+        assertEquals(ActionStatus.PERFORMED, bridge.click(tab, original).status)
+        evaluateFixture(
+            tab,
+            "var extra=document.createElement('button'); extra.textContent='Other'; " +
+                "extra.onclick=function(){this.dataset.clicked='yes'}; document.body.prepend(extra); 'ok';",
+        )
+        assertEquals(ActionStatus.STALE_TOKEN, bridge.click(tab, original).status)
+        assertEquals("\"1\"", evaluateFixture(tab, "document.getElementById('go').dataset.clicks"))
+        assertEquals("\"no\"", evaluateFixture(tab, "document.querySelector('button').dataset.clicked || 'no'"))
+        val fresh =
+            bridge
+                .snapshot(tab)
+                .nodes
+                .single { it.text == "Go" }
+                .token
+        assertEquals(ActionStatus.PERFORMED, bridge.click(tab, fresh).status)
+        assertEquals("\"2\"", evaluateFixture(tab, "document.getElementById('go').dataset.clicks"))
+    }
+
+    @Test
+    fun changedInputAndLinkAreRefusedBeforeDispatch() {
+        val tab = onMain { controller.newTab() }
+        navigateToLoadedPage(tab, "data:text/html,<input id=field value=before><a id=link href='/old'>Link</a>")
+        val observed = bridge.snapshot(tab)
+        assertTrue("fixture snapshot failed: ${observed.message}", observed.ok)
+        assertTrue("fixture must include input and link", observed.nodes.any { it.text == "Link" && it.href == "/old" })
+        val field = observed.nodes.single { it.value == "before" }.token
+        val link = observed.nodes.single { it.text == "Link" }.token
+        evaluateFixture(tab, "document.getElementById('field').name='renamed'; 'ok';")
+        assertEquals(ActionStatus.STALE_TOKEN, bridge.type(tab, field, "overwrite").status)
+        evaluateFixture(tab, "document.getElementById('field').removeAttribute('name'); 'ok';")
+        evaluateFixture(
+            tab,
+            "document.getElementById('field').value='changed'; " +
+                "document.getElementById('link').href='#new'; 'ok';",
+        )
+        assertEquals(ActionStatus.STALE_TOKEN, bridge.type(tab, field, "overwrite").status)
+        assertEquals(ActionStatus.STALE_TOKEN, bridge.nodeAction(tab, field, BrowserNodeAction.APPEND, "append").status)
+        assertEquals(ActionStatus.STALE_TOKEN, bridge.click(tab, link).status)
+        assertEquals("\"changed\"", evaluateFixture(tab, "document.getElementById('field').value"))
+    }
+
+    /** Fixture-only DOM mutation/read; production tools still accept no arbitrary scripts. */
+    private fun evaluateFixture(
+        tab: String,
+        script: String,
+    ): String? {
+        var raw: String? = null
+        val done = CountDownLatch(1)
+        onMain {
+            controller.evaluateFixed(tab, script) { outcome ->
+                raw = (outcome as? EvalFixedOutcome.Result)?.raw
+                done.countDown()
+            }
+        }
+        assertTrue("fixture evaluation timed out", done.await(10, TimeUnit.SECONDS))
+        return raw
     }
 
     // ---------------------------------------------------------------- helpers

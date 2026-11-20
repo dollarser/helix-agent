@@ -1,5 +1,7 @@
 # Provider 设置层级与配置表单
 
+历史表单记录：额外 HTTP 确认已由[HXA-242](hxa242-http-ui-host-2026-10-02.md)撤销；模型输入/目录交互又由[组合框调整](model-combobox-navigation-permissions-2026-10-05.md)接续。当前目录策略见 [Provider ADR](../../adr/provider/001-models-and-connection.md)，下方保留原实现和验收身份。
+
 日期：2026-09-29。所有者明确要求三类入口、可选 API Key、字段顺序、模型发现多选以及统一订阅操作。工作基于 `4a1443df`，位于独立 `codex/provider-settings` 分支，复用空闲工作树；主目录的会话/视觉并行改动未修改。
 
 ## 实现范围

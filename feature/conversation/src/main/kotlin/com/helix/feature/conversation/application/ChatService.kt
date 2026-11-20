@@ -1494,7 +1494,7 @@ class ChatService(
             openSessionId == sessionId && active == null && !turnGateHolds(sessionId)
         } else {
             val turnId = call.turnId
-            call.sessionId == sessionId && call.toolName == "settings.apply" && turnId != null &&
+            call.sessionId == sessionId && call.toolName == "settings_apply" && turnId != null &&
                 active?.turnId == turnId && !inputCommands.hasPending(sessionId) &&
                 !call.isStopped(clock.now()) && turnHistory.turn(turnId)?.state != TurnState.CANCELLING
         }
@@ -1543,27 +1543,27 @@ class ChatService(
         }
         val reported = attachmentMetadata(uri, sessionId) ?: return
         if (openSessionId != sessionId) return
-        val draft = sessionDraft
-        if (draft != null && draft.session.id == sessionId) {
-            drafts.addAttachment(
-                sessionId,
-                DraftAttachment(
-                    idGenerator(),
-                    uri,
-                    reported.displayName.orEmpty(),
-                    reported.sizeBytes,
-                    isImage = reported.mimeType?.startsWith("image/") == true,
-                ),
-            )
-            refreshScreen()
+        if (!pinDraftAttachments(sessionId)) return
+        val prepared = prepareAttachment(uri, reported, sessionId) ?: return
+        // An old import cannot enter the new composer; retire only its unused private copies.
+        if (openSessionId != sessionId) {
+            if (prepared is AttachmentPreparation.Ready) attachmentPort.discard(prepared.entry)
             return
         }
-        val prepared = prepareAttachment(uri, reported, sessionId) ?: return
-        // An old import's error must not replace the newly opened session's feedback.
-        if (openSessionId != sessionId) return
         when (prepared) {
             is AttachmentPreparation.Rejected -> setBlocked(prepared.reason)
             is AttachmentPreparation.Ready -> if (admitStagedEntry(prepared.entry)) refreshScreen()
+        }
+    }
+
+    private suspend fun pinDraftAttachments(sessionId: String): Boolean {
+        if (sessionDraft?.session?.id != sessionId) return true
+        val previous = saveSessionDraft(sessionId)
+        return if (previous == null) {
+            false
+        } else {
+            previous.forEach { stageAttachmentNow(it.uri, sessionId) }
+            openSessionId == sessionId
         }
     }
 
@@ -1598,17 +1598,23 @@ class ChatService(
             null
         }
 
-    private fun admitStagedEntry(entry: StagedAttachmentCandidate): Boolean =
+    private suspend fun admitStagedEntry(entry: StagedAttachmentCandidate): Boolean =
         when (inputState.admit(entry) { openSessionId }) {
             ComposerInputState.Admission.ADDED -> {
                 true
             }
 
-            ComposerInputState.Admission.STALE_SESSION, ComposerInputState.Admission.DUPLICATE -> {
+            ComposerInputState.Admission.STALE_SESSION -> {
+                attachmentPort.discard(entry)
+                false
+            }
+
+            ComposerInputState.Admission.DUPLICATE -> {
                 false
             }
 
             ComposerInputState.Admission.FULL -> {
+                attachmentPort.discard(entry)
                 setBlocked(
                     str(R.string.chat_blocked_max_attachments, InputAttachmentLimits.MAX_ATTACHMENTS_PER_MESSAGE),
                 )
@@ -1652,8 +1658,10 @@ class ChatService(
     /** Removes one staged attachment addressed by its [PendingAttachmentUi.id] (the artifact id). */
     fun removePendingAttachment(id: String) {
         workScope.launch {
+            val removed = stagedAttachments.firstOrNull { it.artifactId == id }
             drafts.removeAttachment(id)
             inputState.removeStaged(listOf(id))
+            removed?.let { attachmentPort.discard(it) }?.let(::setBlocked)
             refreshScreen()
         }
     }
@@ -1707,7 +1715,7 @@ class ChatService(
 
     // --------------------------------------------------------------------------------
     // Plan review (research doc section 4.2/4.3; HX2-05): the user's decisions on a plan
-    // submitted through `plan.submit` — approve / revise / cancel / execute.
+    // submitted through `plan_submit` — approve / revise / cancel / execute.
     // --------------------------------------------------------------------------------
 
     suspend fun reviewPlan(planId: String): PlanReview {
@@ -2666,7 +2674,13 @@ class ChatService(
         materialized.mapIndexed { index, m ->
             when (m) {
                 is AttachmentMaterialization.Text -> {
-                    AttachmentContextBlock.Text(m, staged[index].relativePath, attachmentPort.workspaceScopeId)
+                    AttachmentContextBlock.Text(
+                        m,
+                        com.helix.core.workspace.FileScopePath(
+                            attachmentPort.workspaceScopeId,
+                            staged[index].relativePath,
+                        ),
+                    )
                 }
 
                 is AttachmentMaterialization.Image -> {

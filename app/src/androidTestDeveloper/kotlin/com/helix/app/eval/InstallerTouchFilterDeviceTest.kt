@@ -89,7 +89,7 @@ class InstallerTouchFilterDeviceTest {
                 val call =
                     ExecutableToolCall(
                         "installer-touch",
-                        "ui.gesture",
+                        "ui_gesture",
                         "1",
                         JsonObject(emptyMap()),
                         ExecutionTargetType.LOCAL_ANDROID,

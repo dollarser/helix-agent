@@ -357,6 +357,15 @@ fun ChatScreen(
         screen.modelBindingIssue?.let { issue ->
             Column(Modifier.fillMaxWidth().padding(8.dp).testTag("model-binding-issue")) {
                 Text(stringResource(issue.messageResource), color = MaterialTheme.colorScheme.error)
+                if (issue == ProviderBindingIssue.MODEL_UNAVAILABLE) {
+                    TextButton(
+                        onClick = { modelPickerRequest++ },
+                        enabled = !screen.isSending && screen.pendingDisclosure == null,
+                        modifier = Modifier.testTag("replace-unavailable-model"),
+                    ) {
+                        Text(stringResource(R.string.chat_select_model))
+                    }
+                }
             }
         }
         screen.blockedReason?.let { reason ->
@@ -521,12 +530,15 @@ fun ChatScreen(
                 val past = screen.turns.firstOrNull { it.id == entry.key && it.id != screen.activeTurn?.id }
                 if (past?.state == TurnState.FAILED && past.errorLabel != null) {
                     item(key = "error-${entry.key}") {
-                        Text(
-                            past.errorLabel,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.testTag("chat-turn-error-${entry.key}"),
-                        )
+                        Column {
+                            Text(
+                                past.errorLabel,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.testTag("chat-turn-error-${entry.key}"),
+                            )
+                            CopyTextButton(past.errorLabel, "chat-copy-error-${entry.key}")
+                        }
                     }
                 }
                 // HXA-204 slice 2: the settled turn's recovery panel (the active turn's panel is
@@ -589,6 +601,7 @@ fun ChatScreen(
                             color = MaterialTheme.colorScheme.error,
                             modifier = Modifier.testTag("chat-turn-error"),
                         )
+                        CopyTextButton(turn.errorLabel, "chat-copy-error")
                         turn.budgetDetail?.let { Text(it, modifier = Modifier.testTag("chat-budget-detail")) }
                     }
                 }

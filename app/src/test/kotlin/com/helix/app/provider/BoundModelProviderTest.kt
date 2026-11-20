@@ -23,6 +23,22 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class BoundModelProviderTest {
+    @Test fun modelRejectionIsObservedWithoutRetryOrChangingTheFailure() =
+        runBlocking {
+            val failure = ModelEvent.Error(ModelErrorCode.HTTP_ERROR, false)
+            var requests = 0
+            val delegate =
+                object : ModelProvider by Fixture() {
+                    override fun stream(request: ModelRequest) = flowOf(failure).also { requests++ }
+                }
+            val observed = mutableListOf<ModelEvent.Error>()
+            val bound = BoundModelProvider(delegate, "b", onFailure = { observed += it }) { true }
+            val actual = bound.stream(ModelRequest("b", listOf(ModelMessage(ModelRole.USER, "task")))).toList()
+            assertEquals(listOf(failure), actual)
+            assertEquals(listOf(failure), observed)
+            assertEquals(1, requests)
+        }
+
     @Test fun boundApplicationProviderPreservesInferenceRecoveryCapabilityWithoutEnablingManagedAdapters() {
         val bound = BoundModelProvider(Fixture(recovery = true), "b") { true }
         assertTrue(bound.allowsEmptyInferenceRetry)

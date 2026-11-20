@@ -12,6 +12,7 @@ import com.helix.core.storage.repository.PlanRepository
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
+import com.helix.tools.framework.ToolDiscoveryHints
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolOrigin
@@ -24,7 +25,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * The `plan.submit` built-in tool (research doc section 4.3; HX2-05): Plan mode's structured
+ * The `plan_submit` built-in tool (research doc section 4.3; HX2-05): Plan mode's structured
  * plan-submission tool (the `exit_plan_mode` analogue). Plan mode is read-only research and a
  * plain text answer can end the turn; when the user wants a reviewable plan, that plan is NOT
  * freeform assistant text — it is a versioned [PlanArtifact], and this tool is the ONLY way such
@@ -46,7 +47,7 @@ import kotlin.time.Duration.Companion.seconds
  * cancel) through [PlanReviewService].
  */
 object PlanTools {
-    const val NAME: String = "plan.submit"
+    const val NAME: String = "plan_submit"
 
     const val VERSION: Int = 1
 
@@ -98,6 +99,7 @@ object PlanTools {
             idempotency = Idempotency.NON_IDEMPOTENT,
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
             origin = ToolOrigin.BuiltInOrigin,
+            discovery = ToolDiscoveryHints(category = "plan"),
         )
 
     /** The implementation; [plans] is the same repository the app container exposes (ADR-0001). */

@@ -1,5 +1,9 @@
 # Agent 插件生态与 Mobile Use 调研（2026-09-28）
 
+> **2026-11-18 适用性校核：**本页是 2026-09-28～29 的研究与阶段方案，原子工具绑定、插件安装身份及 Mobile Use 原生插件已有后续交付。第 10 节缺口和第 15 节推荐顺序不是当前待办；当前契约见[工具 ADR](../../adr/tools/001-descriptor-contract.md)及[插件 ADR](../../adr/connectors/003-ownership-and-installation.md)，实现范围查对应 HXA。原 manifest 示例和版本仅为历史方案，不能替代现行清单。
+>
+> 当前任务由用户请求确定，status 只提供事实导航，不授予自主执行范围。设备、项目模拟器、真机与外部服务授权统一按 [AGENTS.md](../../../AGENTS.md#verification-and-device-authorization) 及当前任务；本次文档审查未运行设备、模型或 Release 验收，也未重新核验外链和历史忽略目录制品。
+
 > **专项研究输入，目录整理：2026-09-29。**下文比较限于原核验日期；本次未刷新竞品状态。旧起点中的 PluginOrigin、Mobile Use 接线和优先级不能覆盖[当前状态](../../development/status.md)。通用绑定/安装生命周期的目标规范统一见[Harness 第 15 节、第 17 节](../../architecture/harness-refactor-plan.md)，包格式与 native MVP 细节见[Plugin 专项](../../architecture/plugin-platform-plan.md)。
 >
 > 文中“规范 1.0.0 已发布”不单独证明已稳定定型，后续核验的 Working Draft 边界见 Harness 方案 第 12 节。保留原研究原话，不以此承诺完整格式兼容；本专题不继续复制当前实现任务。
@@ -357,7 +361,7 @@ PluginRegistry
 ├── generation/token stale protection
 ├── sensitive target policy
 ├── semantic sensitive action policy
-└── ui.snapshot/find/click/... tools
+└── ui_snapshot/find/click/... tools
 ```
 
 因此 Mobile Use MVP 应主要完成**插件化**，而不是替换 runtime。
@@ -733,7 +737,7 @@ Plugin selected 不能自动 enable everything，否则会把 package selection 
 
 ### 15.11 Tool exposure 与 Plugin 平台必须一起收敛
 
-2026-09-29 证据校正：历史 AndroidWorld 试跑确认64项截断曾留下 `ui.click` 却缺少 `ui.snapshot`；后续P5还记录了Skill过度依赖搜索导致的额外模型往返。二者不能概括为“P5已证明核心write被挤掉”，也不证明当前源码仍有相同截断。完整来源与当前默认工具/发现分析见[工具曝光与发现专题](tool-exposure-and-discovery-2026-09-29.md)；安装量增长需要更好的组织与发现，不意味着全部schema进入每次请求。
+2026-09-29 证据校正：历史 AndroidWorld 试跑确认64项截断曾留下 `ui_click` 却缺少 `ui_snapshot`；后续P5还记录了Skill过度依赖搜索导致的额外模型往返。二者不能概括为“P5已证明核心write被挤掉”，也不证明当前源码仍有相同截断。完整来源与当前默认工具/发现分析见[工具曝光与发现专题](tool-exposure-and-discovery-2026-09-29.md)；安装量增长需要更好的组织与发现，不意味着全部schema进入每次请求。
 
 长期必须明确：
 

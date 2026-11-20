@@ -5,11 +5,11 @@
 主入口：
 
 - [overview.md](overview.md)：总体职责与调用路径。
-- [agent-modes.md](agent-modes.md)：Chat/Plan/Act/Goal 模式与执行入口。
-- [local-code-execution.md](local-code-execution.md)：本地执行域与进程边界。
+- [Agent 模式、Goal 与上下文](overview.md#agent-模式goal-与上下文)：Chat/Plan/Act/Goal 模式与执行入口。
+- [本地执行域与恢复](overview.md#本地执行域与恢复)：本地执行域与进程边界。
 - [terminal.md](terminal.md)：终端与后台 Job。
-- [providers.md](providers.md)：Provider 协议、连接与订阅通路。
-- [extensions.md](extensions.md)：MCP、Skill、Connector、A2A 总体扩展边界。
+- [模型 Provider 与订阅通路](overview.md#模型-provider-与订阅通路)：Provider 协议、连接与订阅通路。
+- [MCP、Skills、Connector 与 A2A](overview.md#mcpskillsconnector-与-a2a)：MCP、Skill、Connector、A2A 总体扩展边界。
 - [connector-portability.md](connector-portability.md)：Connector 可移植性。
 - [mobile-tool-orchestration.md](mobile-tool-orchestration.md)：移动端工具协调。
 - [android-platform-capabilities.md](android-platform-capabilities.md)：Android 系统能力边界。

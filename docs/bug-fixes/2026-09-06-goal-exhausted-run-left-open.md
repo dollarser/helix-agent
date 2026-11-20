@@ -45,4 +45,4 @@ consumer Debug Lint、core agent JVM 和 CLI client JVM 回归联合命令 exit 
 
 - [ADR-GOAL-001](../adr/goal/001-lifecycle-and-completion.md)
 - [HXA-102](../completion-records/HXA-102.md)
-- [当前待办](../evidence/development/main-optimization-todo.md)
+- [当时优化跟进](../evidence/development/main-optimization-todo.md)

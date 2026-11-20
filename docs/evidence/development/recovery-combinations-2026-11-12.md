@@ -29,3 +29,10 @@
 ## 明确边界
 
 真实进程死亡覆盖会话权限及插件安装切点；PRoot新增测试是实际执行/取消加journal重开，不是Runtime进程死亡迁移。共享查询阻塞交叉使用JVM受控端口，不冒充真实Binder阻塞。J1/AUTO使用scripted模型经生产Provider/Dispatcher/Runtime，未调用真实模型；没有证明新的策略收益。插件HTTP为本机协议fixture，未验证第三方生产服务或账号。权限恢复走生产保存服务，不替代输入框UI、IME和全部自定义权限矩阵。完整OEM、热压/Doze/低内存、原位目录/分支/Runtime死亡交叉矩阵继续保持各HXA原开放边界。
+
+
+## 2026-11-15 原位目录与 Runtime 死亡代表性交叉
+
+新增独立 Developer Debug 验证包上的 `InPlaceRuntimeDeathDeviceTest`：managed 原目录单次写入后切换会话目录，真实终止原 Runtime Binder，再核对原 job/execution/hash 的 ORPHANED、无 exitCode；Room 重开后三次读取保持原绑定，外会话及伪造 Turn 仍拒绝，不重放、不写入新目录、不制造成功收据。API36 上1项通过，未重跑旧49项/7次死亡矩阵。
+
+首次夹具将独立 Room 的 managed 目录放在 no_backup 下，Runtime 正确拒绝；仅为本用例把独立状态移入其唯一 files/workspaces/app 子树，默认旧 Fixture 路径与生产权限均未改。失败与最终通过及 APK/源输入映射保存在 ignored `build/task-efficiency-20261115/`。此证据不扩展为主 App 死亡、真实分支 UI、Binder 阻塞或物理低内存验证。

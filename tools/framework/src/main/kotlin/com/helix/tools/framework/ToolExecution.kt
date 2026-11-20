@@ -70,6 +70,13 @@ sealed interface ToolExecutorResult {
         val visualArtifact: com.helix.core.model.VisualArtifact? = null,
     ) : ToolExecutorResult
 
+    /** A received business failure with output, not an unknown transport outcome or replay instruction. */
+    data class FailedWithOutput(
+        val output: JsonElement,
+        val auditDetail: JsonObject? = null,
+        val visualArtifact: com.helix.core.model.VisualArtifact? = null,
+    ) : ToolExecutorResult
+
     /**
      * A terminal tool failure with a stable, model-visible message.
      *

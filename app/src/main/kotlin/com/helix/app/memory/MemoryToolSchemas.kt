@@ -73,40 +73,40 @@ internal object MemoryToolSchemas {
 
     fun output(name: String): JsonObject =
         when (name) {
-            "memory.list", "memory.search" -> listing
-            "memory.read" -> read
-            "memory.write", "memory.edit" -> mutation
-            "memory.delete" -> deletion
+            "memory_list", "memory_search" -> listing
+            "memory_read" -> read
+            "memory_write", "memory_edit" -> mutation
+            "memory_delete" -> deletion
             else -> error("Unknown memory operation")
         }
 
     fun description(name: String): String {
         val operation =
             when (name) {
-                "memory.list" -> {
-                    "List paths and versions in [scope]; use memory.read for bodies. "
+                "memory_list" -> {
+                    "List paths and versions in [scope]; use memory_read for bodies. "
                 }
 
-                "memory.search" -> {
+                "memory_search" -> {
                     "Search [scope] with [query]; returns up to eight paths and versions, not bodies. "
                 }
 
-                "memory.read" -> {
+                "memory_read" -> {
                     "Read [path] in the selected scope and return its Markdown and current hash. "
                 }
 
-                "memory.write" -> {
+                "memory_write" -> {
                     "Create or replace a memory document from [type], [source] and [body]. " +
                         "Use expectedHash='new' only for creation; replacing requires its exact current SHA-256. " +
                         "Stored UTF-8 Markdown including host metadata must fit 32 KiB. "
                 }
 
-                "memory.edit" -> {
+                "memory_edit" -> {
                     "Replace the unique literal [old] text with [replacement] in [path]. " +
                         "Read first and pass the exact current expectedHash. No regex or guessed content version. "
                 }
 
-                "memory.delete" -> {
+                "memory_delete" -> {
                     "Delete [path] using its exact current expectedHash; read first. "
                 }
 

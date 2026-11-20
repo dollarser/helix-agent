@@ -124,7 +124,7 @@ class SessionAccessRepository(
         expectedTitle: String,
         title: String,
     ): Boolean {
-        require(caller.toolName == "session.rename" && access.manageMetadata)
+        require(caller.toolName == "session_rename" && access.manageMetadata)
         require(expectedTitle.length <= 200 && title.isNotBlank() && title.length <= 200 && '\u0000' !in title)
         validate(caller, access)
         return dao.rename(
@@ -145,9 +145,9 @@ class SessionAccessRepository(
         access: SessionAccess,
         expectedArchived: Boolean,
     ): Boolean {
-        require(caller.toolName in setOf("session.archive", "session.restore") && access.manageMetadata)
+        require(caller.toolName in setOf("session_archive", "session_restore") && access.manageMetadata)
         validate(caller, access)
-        val archivedAt = if (caller.toolName == "session.archive") System.currentTimeMillis() else null
+        val archivedAt = if (caller.toolName == "session_archive") System.currentTimeMillis() else null
         return dao.archive(
             caller.sessionId,
             access.targetSessionId,

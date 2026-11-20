@@ -39,7 +39,7 @@ Activity 持有 BrowserViewOwner，使用真实 Activity Context 惰性创建宿
 
 ### 原生插件贡献与手动浏览（HXA-276）
 
-`:extensions:browser` 保存宿主已知的 manifest、工具贡献和网页任务 Skill，App composition root 注入已有 BrowserToolBridge 与视觉服务；执行器复用现有工具实现，不创建独立 browser server。12 个原有工具及279两项新增工具统一为 Browser 的 PluginOrigin，走唯一 ToolRegistry 原子发布与同一 Dispatcher；直接删除旧 built-in 注册及内部来源假设，不保留双注册或旧批准转换。
+`:extensions:browser` 保存宿主已知的 manifest、工具贡献和网页任务 Skill，App composition root 注入已有 BrowserToolBridge 与视觉服务；执行器复用现有工具实现，不创建独立 browser server。当前浏览器工具统一为 Browser 的 PluginOrigin（HXA-276 的 12 项及 HXA-279 的两项是历史交付基线，后续工具增量见本文件决定记录），走唯一 ToolRegistry 原子发布与同一 Dispatcher；直接删除旧 built-in 注册及内部来源假设，不保留双注册或旧批准转换。
 
 新会话默认集合与组件就绪规则由 [ADR-CONNECTORS-003](../connectors/003-ownership-and-installation.md)定义。插件贡献不持有 Activity/WebView，也不因选择或状态查看而拉起 UI。手动浏览、书签、历史和用户导航属于浏览器功能；撤销 Agent 来源仅撤下后续准入，不能销毁用户正在浏览的标签。无 host、页面失效或视觉不可用返回真实原因；URL/origin、目标范围、generation/token 与像素披露要求保持有效。
 
@@ -56,11 +56,11 @@ Activity 持有 BrowserViewOwner，使用真实 Activity Context 惰性创建宿
 - **标签发现**：在原会话/目标 scope 和输出上限内返回准确 tab ID、允许披露的标题/URL、选中状态与页面/host 状态。只读列表不加载页面、不获取额外权限；别的上下文内容不能因共享 BrowserController 自动披露。无可操作页面与空列表按实际原因区分。
 - **条件等待**：在已有只读页面观察上等待首版明确支持的页面/目标条件，绑定准确 tab、owner、页面身份及原调用 deadline；参数校验限定条件集合、等待上限与输出大小，不接受任意页面 JS。达到条件、超时、取消、页面/host 失效分别结算，页面变化不把旧 token 指向新页面；需要继续时重新观察并发起新调用。等待引用使用上节生命周期，不建第二个调度器。
 
-首版`browser.tabs`只披露原会话调用创建的逻辑标签，或原准确BrowserTabScope；未识别scope不回退。来源标记只保存在现有不持久化逻辑标签，不是授权，也不回填手动标签或旧来源。未明确目标scope的手动/其他会话标签不进入列表。`browser.wait`只支持已settled文档的语义子串PRESENT/ABSENT，最多10秒并受原deadline及单调时间约束；加载中NO_PAGE，导航/host变化明确失效。截断树不能证明ABSENT，多匹配不提供唯一token。
+首版`browser_tabs`只披露原会话调用创建的逻辑标签，或原准确BrowserTabScope；未识别scope不回退。来源标记只保存在现有不持久化逻辑标签，不是授权，也不回填手动标签或旧来源。未明确目标scope的手动/其他会话标签不进入列表。`browser_wait`只支持已settled文档的语义子串PRESENT/ABSENT，最多10秒并受原deadline及单调时间约束；加载中NO_PAGE，导航/host变化明确失效。截断树不能证明ABSENT，多匹配不提供唯一token。
 
 标签列表只提供元数据，URL含HTML也不能作为当前页面正文的证据；读取正文使用真实snapshot。列表和快照的URL/标题按声明上限返回完整Unicode前缀并明确各自截断，不扩大schema；完整页面URL、origin、fingerprint和token身份不变，前缀不能当作完整导航目标。
 
-匹配数量/歧义、截断、实际后端、观察过期与像素是否提供仅补执行器能够证明的字段；通用输出语义见 [ADR-TOOLS-001](../tools/001-descriptor-contract.md)。超时或未知效果不自动重放点击、发送、安装等动作，拒绝也不触发后端绕行。首版不扩展 tab close、完整 role/label locator、任意脚本 API 或通用 Observation 平台；Mobile Use 已有 `ui.wait` 继续复用。
+匹配数量/歧义、截断、实际后端、观察过期与像素是否提供仅补执行器能够证明的字段；通用输出语义见 [ADR-TOOLS-001](../tools/001-descriptor-contract.md)。超时或未知效果不自动重放点击、发送、安装等动作，拒绝也不触发后端绕行。首版不扩展 tab close、完整 role/label locator、任意脚本 API 或通用 Observation 平台；Mobile Use 已有 `ui_wait` 继续复用。
 
 ## Alternatives considered
 
@@ -143,30 +143,39 @@ Owner 授权浏览器优化与模拟器验证，暂不使用真机或发布。�
 
 ## Decision history — 2026-11-11：高频表单动作
 
-Owner 要求补齐高频工具。在既有 Browser 贡献及授权链增加 `browser.append`、`browser.select`、`browser.press`、`browser.submit`，不接受任意脚本。动作使用短期 snapshot token，执行前再次校验 tab/origin/generation/fingerprint/TTL，保留敏感字段拒绝与主线程派发边界。四项均为 NON_IDEMPOTENT；页面变化后不能验证结果时返回需要复核的未知效果，禁止自动重放。
+Owner 要求补齐高频工具。在既有 Browser 贡献及授权链增加 `browser_type(mode=append)`、`browser_select`、`browser_press`、`browser_submit`，不接受任意脚本。动作使用短期 snapshot token，执行前再次校验 tab/origin/generation/fingerprint/TTL，保留敏感字段拒绝与主线程派发边界。四项均为 NON_IDEMPOTENT；页面变化后不能验证结果时返回需要复核的未知效果，禁止自动重放。
 
 Append 只追加可编辑文本 input/textarea；select 只接受唯一、启用的单选 option 精确 value 或显示 label，二者合并命中必须唯一，缺失/重复/禁用不产生成功。Press 仅派发明确键集合的合成 keydown/keyup，不承诺原生默认动作；Enter 提交使用 submit。Submit 只对表单内启用的 submit 按钮调用原生 requestSubmit，保留浏览器约束验证及页面 preventDefault；performed 仅证明派发，不证明业务提交成功，需再观察页面/业务结果。动作异步派发队列中尚未开始的任务在超时/中断后不再启动；此改动不调整冷引擎启动时的同步 open 等待。
 
-同轮增加 `browser.upload`：只接受单个不超过 1 MiB 的 `scope:` 文件、预读 SHA-256、精确 HTTP(S) pageUrl 和短期节点 token。Workspace 读取与远端副作用共同进入既有授权分类；读取后的实际内容 hash 必须匹配请求。派发前重新提取 DOM 由宿主复验指纹，并用随机的一次性 document→节点标记防止同 URL 导航或节点重排后重定向数据。标记不携带字节或宿主权限，最多保留十秒。文件作为有界不可变副本进入固定脚本，不开放裸路径、任意 content URI 或永久特权桥。input/change 可能立即外发，因此授权覆盖接收页面和文件；attached 仅代表赋给字段及事件派发，不代表服务器接收，未知结果不得自动重放。
+同轮增加 `browser_upload`：只接受单个不超过 1 MiB 的 `scope:` 文件、预读 SHA-256、精确 HTTP(S) pageUrl 和短期节点 token。Workspace 读取与远端副作用共同进入既有授权分类；读取后的实际内容 hash 必须匹配请求。派发前重新提取 DOM 由宿主复验指纹，并用随机的一次性 document→节点标记防止同 URL 导航或节点重排后重定向数据。标记不携带字节或宿主权限，最多保留十秒。文件作为有界不可变副本进入固定脚本，不开放裸路径、任意 content URI 或永久特权桥。input/change 可能立即外发，因此授权覆盖接收页面和文件；attached 仅代表赋给字段及事件派发，不代表服务器接收，未知结果不得自动重放。
 
 验证分别记录 host、真实 WebView 合成页面和外部网站；离线夹具不证明真实账号业务成功。2026-11-11 API36 合成页面专项 15 项通过，涵盖四项动作、上传来源/页面反例及未知效果；最终集成门禁另行记录，不继承旧 Release 或真实网站结论。
 
 ### Decision history — 2026-11-11：现有浏览器搜索导航
 
-`browser.search` 是 Browser 插件的具名导航工具，显式 engine/query 生成固定 HTTPS 搜索地址，复用会话所属 tab 与当前 URL policy；不是结构化 API。导航拒绝或目标不匹配不能报告 started；仅实际接受导航返回 started，页面结果由后续 snapshot/wait 证据决定。固定引擎为 Bing、Google、DuckDuckGo，不绕过验证码、登录或外站拒绝。
+`browser_search` 是 Browser 插件的具名导航工具，显式 engine/query 生成固定 HTTPS 搜索地址，复用会话所属 tab 与当前 URL policy；不是结构化 API。导航拒绝或目标不匹配不能报告 started；仅实际接受导航返回 started，页面结果由后续 snapshot/wait 证据决定。固定引擎为 Bing、Google、DuckDuckGo，不绕过验证码、登录或外站拒绝。
 
 搜索开页将取消/截止时间检查传至主线程执行点。同步主线程 hop 超时或中断移除尚未执行的 Runnable；已开始的物理操作不能假称撤销，返回 unknown 并要求检查，不自动重放。共享 onMain 的这项排队取消修正沿用 Browser 原有 controller/host 归属，不引入另一执行域。原生 DeepSeek/Tavily 搜索则见工具契约 ADR，费用与凭据不由 Browser 导航默许。
 
 ## Decision history — 2026-11-11：有界正文观察
 
-真实搜索回归中，只有交互节点的快照不能提供 IANA 普通段落证据。`browser.snapshot` 增加独立 `text` / `textTruncated`：读取当前可见 light DOM 文本，不读取表单值、可编辑内容、隐藏子树或脚本/样式；不跨 iframe/shadow root。字符上限 12000、独立遍历上限 20000，任一预算提前结束明确标记正文不完整。正文仍为不可信外部数据，不授予后续执行权限。
+真实搜索回归中，只有交互节点的快照不能提供 IANA 普通段落证据。`browser_snapshot` 增加独立 `text` / `textTruncated`：读取当前可见 light DOM 文本，不读取表单值、可编辑内容、隐藏子树或脚本/样式；不跨 iframe/shadow root。字符上限 12000、独立遍历上限 20000，任一预算提前结束明确标记正文不完整。正文仍为不可信外部数据，不授予后续执行权限。
 
-工具结果构造时正文位于 nodes 前，但持久结果规范化会重排 JSON 字段，大快照仍可能需要分页读取正文。普通段落更新由重新 snapshot 观察；`browser.find` / `browser.wait` 仍匹配语义动作节点，不充当全文搜索。正文遍历不改变动作节点顺序或索引，正文内容不进入动作树 fingerprint，不扩大动作令牌权限。主机重新校验正文类型/长度与截断字段。独立正文预算不代表节点预算截断，两个标记分别保留。
+工具结果构造时正文位于 nodes 前，但持久结果规范化会重排 JSON 字段，大快照仍可能需要分页读取正文。普通段落更新由重新 snapshot 观察；`browser_find` / `browser_wait` 仍匹配语义动作节点，不充当全文搜索。正文遍历不改变动作节点顺序或索引，正文内容不进入动作树 fingerprint，不扩大动作令牌权限。主机重新校验正文类型/长度与截断字段。独立正文预算不代表节点预算截断，两个标记分别保留。
 
 正文可见性按 light DOM / CSS 布局判断，不等同像素可见：`visibility:hidden` 不剪断可由子节点恢复 `visibility:visible` 的遍历；文本节点依据其父元素的计算 visibility 判断。正文不保证排除视口外、被遮挡、overflow 或 clip-path 完全裁切的文本。`textTruncated=false` 只表示未触及正文提取预算，不证明完整像素可见范围、frame 或 shadow 内容覆盖。
 
 ## Decision history — 2026-11-12：按用途选择快照正文视图
 
-`browser.snapshot` 增加可选 `view=full|text`，默认 full 保留既有动作节点与 token；text 使用同一次宿主观察但不序列化 nodes，返回显式 view，并保留 URL/title、截断、origin、navigationGeneration、fingerprint、observedAtMillis、正文和实际观测 nodeCount。节点未返回不等于页面无节点。text 另返回同次观察的紧凑 links（text、href、原 token、hrefMayBeTruncated），最多 40 条且整个数组不超过 12 KiB UTF-8，只保留完整条目；树截断或条目省略以 linksTruncated 表达。原 href 提取在 200 UTF-16 单元处有界，达到该长度保守标记可能截断；href 只作展示，不能从缩略面包屑推断导航地址。浏览器点击使用原 link token，未返回的链接可用 browser.find 查找；其他交互仍可请求 full。所有动作保持原身份、有效期、schema 发现与权限链。文本提取的 12000 字符及遍历边界不变，节点/正文截断分别表达。两种视图都刷新观察，不将正文视图冒充保存结果的静态读取。
+`browser_snapshot` 增加可选 `view=full|text`，默认 full 保留既有动作节点与 token；text 使用同一次宿主观察但不序列化 nodes，返回显式 view，并保留 URL/title、截断、origin、navigationGeneration、fingerprint、observedAtMillis、正文和实际观测 nodeCount。节点未返回不等于页面无节点。text 另返回同次观察的紧凑 links（text、href、原 token、hrefMayBeTruncated），最多 40 条且整个数组不超过 12 KiB UTF-8，只保留完整条目；树截断或条目省略以 linksTruncated 表达。原 href 提取在 200 UTF-16 单元处有界，达到该长度保守标记可能截断；href 只作展示，不能从缩略面包屑推断导航地址。浏览器点击使用原 link token，未返回的链接可用 browser_find 查找；其他交互仍可请求 full。所有动作保持原身份、有效期、schema 发现与权限链。文本提取的 12000 字符及遍历边界不变，节点/正文截断分别表达。两种视图都刷新观察，不将正文视图冒充保存结果的静态读取。
 
 此选择针对真实长快照分页的共同成本，不按查询或网站裁剪。参考 [Playwright MCP](https://github.com/microsoft/playwright-mcp) 的定向查找与不同快照输出选择，以及 [Anthropic 上下文工程](https://www.anthropic.com/research/effective-context-engineering-for-ai-agents) 的按需读取原则；保留完整动作观察而非全局删除节点。实际效率与功能验证记入 HXA-290，不由实现本身推定。
+
+
+### 2026-11-16: 合并文本输入动作
+
+`browser_type` 统一文本输入，`mode=replace`（缺省）替换，`mode=append` 追加；不再单独发布追加工具。
+两种模式共享字段目标、token、敏感字段拒绝及 EXTERNAL_ACTION/NON_IDEMPOTENT 边界，保留各自已有执行路径。
+`browser_press` 仅派发按键事件，`browser_submit` 执行原生表单校验和提交，不能互相替代；
+`browser_open` 新建标签、`browser_navigate` 改变已有标签，保留明确不同的目标/生命周期语义。
+截图、结构快照与内容查找返回不同观察形式，不合并成含混的万能动作。

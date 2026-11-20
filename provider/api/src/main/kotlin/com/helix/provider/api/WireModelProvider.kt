@@ -119,11 +119,25 @@ public abstract class WireModelProvider(
             val response =
                 try {
                     wire.open(prepared)
+                } catch (error: com.helix.provider.api.wire.WireRequestRejectedException) {
+                    emit(
+                        ModelEvent.Error(
+                            ModelErrorCode.PROTOCOL,
+                            false,
+                            evidence
+                                .failure(
+                                    Stage.CONFIGURATION,
+                                    com.helix.core.model.ModelFailureDiagnostic.Reason.INVALID_CONFIGURATION,
+                                    false,
+                                ).copy(serverMessage = error.reason.guidance),
+                        ),
+                    )
+                    return@flow
                 } catch (error: SocketTimeoutException) {
-                    emit(evidence.transport(error, Stage.CONNECT))
+                    emit(cloudStreamFailure(evidence.transport(error, Stage.CONNECT)))
                     return@flow
                 } catch (error: IOException) {
-                    emit(evidence.transport(error, Stage.CONNECT))
+                    emit(cloudStreamFailure(evidence.transport(error, Stage.CONNECT)))
                     return@flow
                 }
             evidence.response = response
@@ -153,13 +167,13 @@ public abstract class WireModelProvider(
 
         suspend fun feedEvents(events: List<ModelEvent>) {
             for (event in events) {
-                emit(
+                val annotated =
                     if (event is ModelEvent.Error && event.diagnostic == null) {
                         evidence.annotate(event, decoder.failure)
                     } else {
                         event
-                    },
-                )
+                    }
+                emit(cloudStreamFailure(annotated))
                 if (event is ModelEvent.Error) failed = true
                 if (isTerminalEvent(event)) {
                     terminalEmitted = true
@@ -175,9 +189,24 @@ public abstract class WireModelProvider(
             }
             if (!failed) feedEvents(decodeEvents(evidence) { decoder.finish() })
         } catch (error: SocketTimeoutException) {
-            if (!terminalEmitted) emit(evidence.transport(error, Stage.STREAM))
+            if (!terminalEmitted) emit(cloudStreamFailure(evidence.transport(error, Stage.STREAM)))
         } catch (error: IOException) {
-            if (!terminalEmitted) emit(evidence.transport(error, Stage.STREAM))
+            if (!terminalEmitted) emit(cloudStreamFailure(evidence.transport(error, Stage.STREAM)))
+        }
+    }
+
+    /** An interrupted submitted cloud inference is not safe to replay, even before text arrives. */
+    private fun cloudStreamFailure(event: ModelEvent): ModelEvent {
+        val cloudEndpoint =
+            wireUrl(streamPath()) in
+                setOf(
+                    "https://api.hilex.me/v1/chat/completions",
+                    "https://api.hilex.me/v1/responses",
+                )
+        return if (cloudEndpoint && event is ModelEvent.Error) {
+            event.copy(retryable = false, diagnostic = event.diagnostic?.copy(adapterRetryable = false))
+        } else {
+            event
         }
     }
 

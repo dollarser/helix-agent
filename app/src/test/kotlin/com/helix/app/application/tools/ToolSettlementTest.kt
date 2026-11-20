@@ -13,6 +13,34 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ToolSettlementTest {
+    @Test fun receivedFailurePersistsOutputWithoutSuccessOrUnknownState() {
+        val store = RecordingStore()
+        val payload = """{"structuredContent":{"reason":"bad argument"},"blocks":[{"text":"details"}]}"""
+        settlement(store).settleToolCall(
+            "row",
+            "call",
+            "remote",
+            ToolDispatchOutcome.ExecutionFailed(
+                DispatchOutcomeCode.TOOL_FAILED,
+                "Tool returned a failure result",
+                result = BoundToolResult(payload, Sha256("a".repeat(64)), false, 1),
+            ),
+        )
+        val command = requireNotNull(store.command)
+        assertEquals(ToolCallState.FAILED, command.state)
+        assertFalse(command.verified)
+        val content =
+            kotlinx.serialization.json.Json.parseToJsonElement(
+                requireNotNull(command.content),
+            ) as kotlinx.serialization.json.JsonObject
+        assertEquals(
+            kotlinx.serialization.json.Json
+                .parseToJsonElement(payload),
+            content["output"],
+        )
+        assertEquals(listOf("commit", "read", "publish"), store.events)
+    }
+
     @Test fun successCommitsCompleteContentBeforeReadingProjection() {
         val store = RecordingStore()
         val payload = "x".repeat(700)

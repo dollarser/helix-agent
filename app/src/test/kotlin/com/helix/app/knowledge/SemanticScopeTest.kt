@@ -49,7 +49,7 @@ class SemanticScopeTest {
         }
         val result =
             f.execute(
-                "knowledge.search",
+                "knowledge_search",
                 f.scoped(f.args("""{"query":"different words"}""")),
                 cancel =
                     object : com.helix.core.model.CancelSignal {
@@ -72,7 +72,7 @@ class SemanticScopeTest {
             f.enabled = global
             val result =
                 f.execute(
-                    "knowledge.search",
+                    "knowledge_search",
                     f.scoped(f.args("""{"query":"different words"}""")),
                 ) as ToolExecutorResult.Completed
             assertEquals(listOf("selected"), observed)
@@ -88,7 +88,7 @@ class SemanticScopeTest {
         f.related = { listOf(candidate("private", f.documents.getValue("private"))) }
         assertTrue(
             f.execute(
-                "knowledge.search",
+                "knowledge_search",
                 f.scoped(f.args("""{"query":"different words"}""")),
             ) is ToolExecutorResult.Failed,
         )
@@ -102,7 +102,7 @@ class SemanticScopeTest {
             listOf(candidate("selected", "Original evidence"))
         }
         assertTrue(
-            f.execute("knowledge.search", f.scoped(f.args("""{"query":"absent"}"""))) is ToolExecutorResult.Failed,
+            f.execute("knowledge_search", f.scoped(f.args("""{"query":"absent"}"""))) is ToolExecutorResult.Failed,
         )
         f.documents["selected"] = "Original evidence"
         f.related = {
@@ -110,7 +110,7 @@ class SemanticScopeTest {
             listOf(candidate("selected", "Original evidence"))
         }
         assertTrue(
-            f.execute("knowledge.search", f.scoped(f.args("""{"query":"absent"}"""))) is ToolExecutorResult.Failed,
+            f.execute("knowledge_search", f.scoped(f.args("""{"query":"absent"}"""))) is ToolExecutorResult.Failed,
         )
     }
 }

@@ -30,7 +30,7 @@ ORG_GRADLE_PROJECT_includeSpikes=true python3 scripts/with-host-slot.py -- \
 
 ## 有授权的设备测试模板
 
-仅在当前任务已有对应授权时使用设备/模型；同一任务的许可不因压缩或交接重新询问。新建实例时使用自有 serial 和新输出目录；所有者指定日常实例则保留既有数据并记录安装/清理边界。不因设备验收而清数据，不用快照恢复冒充当前数据库；设备授权不含真实账号或模型额度授权。
+设备、测试数据及服务权限统一以 [AGENTS.md 的验证与设备授权](../../AGENTS.md#verification-and-device-authorization) 为准：本地项目模拟器有长期授权，真机仍需当前任务显式授权；模拟器内测试夹具的可处置范围不扩大到真实外部账号或服务。遵守当前任务更具体的保留数据或暂停要求，不因压缩或交接重复询问已有许可。新建实例时使用自有 serial 和新输出目录，记录实际安装/清理边界，不用快照恢复冒充当前数据库。
 
 ```sh
 python3 scripts/with-host-slot.py -- python3 scripts/run-owned-emulator.py \
@@ -42,7 +42,7 @@ python3 scripts/with-host-slot.py -- python3 scripts/run-owned-emulator.py \
   --classes YOUR_CURRENT_CLASSES --output build/debug/YOUR_FRESH_ATTEMPT
 ```
 
-runner负责冻结APK及SHA、自有进程检查、键盘默认值、连续TestRunner/System.out日志和finally关闭。仅当任务覆盖输入/IME或所有者要求准备手动中文输入时，才执行实际拼音预编辑/候选/中文commit验证；无关设备测试不新增该阻塞条件。允许真实模型时才加 `--reverse-port YOUR_PORT` 和明确的 `--instrument-arg KEY=VALUE`，只用本轮指定服务和合成会话。
+runner负责冻结APK及SHA、自有进程检查、键盘默认值、连续TestRunner/System.out日志和finally关闭。仅当任务覆盖输入/IME或所有者要求准备手动中文输入时，才执行实际拼音预编辑/候选/中文commit验证；无关设备测试不新增该阻塞条件。夹具需要访问主机端口时才加 `--reverse-port YOUR_PORT`，并按场景传入明确的 `--instrument-arg KEY=VALUE`；本地夹具与真实模型服务分开记录，服务调用遵循上述授权范围并使用合成会话。
 
 after-script必须在读取合成结果或执行切点前核对 `owner.json` 的PID仍活着、serial及AVD一致。只导出本轮自己创建的fixture及最小逐调用字段；不读取既有用户会话/凭据。进程死亡的setup本来会崩溃，它不是通过；必须记录新PID、持久状态以及原执行未重放的verify结果。
 
@@ -104,13 +104,13 @@ owned汇总严格检查实际方法结果、owner与closed PID一致、正常退
 
 Root/Shizuku依赖的UiAutomation与测试自己持有的UiAutomation可能竞争同一个系统服务。高权限后端测试使用外部ADB完成已授权的临时设置，在自有MainActivity可见之后启用服务，退出恢复原值；避免一边保留测试UiAutomation、一边声称验证了另一Root连接。授予App Root后仍须明确connect。合成目标的视觉ALL_CAPS与实际节点文字应保持一致，精确选择器按实际文字/ID验证，不能因测试不匹配而放宽生产匹配规则。单独的shell UID0不证明App RootService或任务可执行。[真机对照与失败记录](../evidence/development/physical-followup-2026-10-12.md#批准后的升级后端与模型补验)保留当前案例。
 
-语言已勾选、键盘可见或UTF-8注入成功不能证明拼音可用。运行实际预编辑→中文候选→点击提交夹具，并在Helix未运行的系统输入框对照原生崩溃。Gboard公开词包缺失/0字节与解码器故障应保留大小、哈希、版本及健康对照；root读取须单独授权，只检查公共资源，不读个人词库、账号或凭据。不要清日常数据；可在新空白自有AVD等下载完成、普通重启输入法后复验，再冷启动确认。原故障证据与替代环境通过分别记录。
+语言已勾选、键盘可见或UTF-8注入成功不能证明拼音可用。运行实际预编辑→中文候选→点击提交夹具，并在Helix未运行的系统输入框对照原生崩溃。Gboard公开词包缺失/0字节与解码器故障应保留大小、哈希、版本及健康对照；root读取遵循上述设备与权限边界，只检查本次诊断需要的公共资源，不读个人词库、账号或凭据。模拟器数据处置遵循现行授权及当前任务约束；可先在新空白自有AVD等下载完成、普通重启输入法后复验，再冷启动确认。原故障证据与替代环境通过分别记录。
 
 真实视觉用运行时像素决定且提示/初始DOM未披露答案的合成目标，独立核验操作结果。fake Provider编码、请求manifest输入ID、准备图片标志都不能证明模型收到图片；实际请求图片字节的哈希应与持久附件对应。截图前后相同仍可能有DOM状态变化，要明确效果核验来源。后台返回还须检查实际会话可见内容及截图；非单色首次使用须知并非成功返回会话。当前案例及失败尝试见[2026-10-12补验](../evidence/development/device-vision-stability-followup-2026-10-12.md)。
 
 ## 何时删除或晋升脚本
 
-一次性源码/文档改写器完成后，以当前源码、稳定回归和Git历史承接，不继续当迁移入口。重复launcher/解析器合并到现有稳定入口并更新调用方；只有Mock/Pure host测试进入自动发现，设备/真实服务测试仍显式opt-in。依赖锁、vendor输入、许可证、唯一协议或未关闭问题的诊断不能按日期删除。
+一次性源码/文档改写器完成后，以当前源码、稳定回归和Git历史承接，不继续当迁移入口。重复launcher/解析器合并到现有稳定入口并更新调用方；只有Mock/Pure host测试进入自动发现，设备/真实服务测试不进入自动主机发现，按任务需要与上述授权范围显式执行。依赖锁、vendor输入、许可证、唯一协议或未关闭问题的诊断不能按日期删除。
 
 删除前逐路径核对实际用途、所有当前调用者及替代；tracked源码记录Git来源，未提交或本地唯一脚本先保存并校验恢复副本。本地历史脚本按日期归入 `scripts/local/debug/`，详细校验清单也保留在该忽略目录；本地历史文档放入 `docs/local/`。Git文档记录稳定来源及处置结果。原始失败日志、数据库及模型轨迹和脚本分开留存，本地tar不是长期备份。历史复现以删除清单中的Git提交和路径恢复，禁止直接在当前工作树重跑旧改写器。
 

@@ -57,13 +57,34 @@ class BuiltInModelTest {
         assertFalse(row.capabilitiesForModel("future-model")!!.toolCalls)
         assertFalse(row.capabilitiesForModel("future-model")!!.reasoning)
         assertTrue(row.capabilitiesForModel(BuiltInModel.MODEL_ID)!!.reasoning)
-        assertEquals(com.helix.core.model.ReasoningEffort.FALLBACK, row.reasoningOptionsFor(BuiltInModel.MODEL_ID))
+        assertEquals(
+            BuiltInModel.reasoningOptionsFor(BuiltInModel.MODEL_ID),
+            row.reasoningOptionsFor(BuiltInModel.MODEL_ID),
+        )
         assertEquals(emptyList<com.helix.core.model.ReasoningEffort>(), row.reasoningOptionsFor("future-model"))
         assertEquals(listOf(BuiltInModel.MODEL_ID), row.conversationModels)
         assertEquals(CapabilitySource.BUNDLED_CONTRACT, row.capabilities?.source)
         assertEquals(ProviderSetupStep.READY, ProviderSetupStep.forRow(row))
         assertFalse(ProviderProvisioningKind.BUNDLED_SERVICE in ProviderChannelPolicy.groups(false))
         assertTrue(ProviderChannelPolicy.permits("BUNDLED_SERVICE", false))
+    }
+
+    @Test fun currentDefaultIsLunaWithoutBorrowingQwenCapabilities() {
+        assertEquals("gpt-6-luna", BuiltInModel.MODEL_ID)
+        assertEquals("builtin-helix-qwen", BuiltInModel.PROVIDER_ID)
+        val config = builtInConfig()
+        val snapshot = ProviderTurnSnapshot.encode(config, null)
+        assertTrue(snapshot.contains("\"model\":\"gpt-6-luna\""))
+        val capabilities = BuiltInModel.capabilitiesFor(BuiltInModel.MODEL_ID)
+        assertTrue(capabilities.streaming)
+        assertTrue(capabilities.toolCalls && capabilities.reasoning)
+        assertTrue(capabilities.vision)
+        assertFalse(BuiltInModel.capabilitiesFor("future-model").streaming)
+        assertTrue(BuiltInModel.capabilitiesFor(BuiltInModel.QWEN_MODEL_ID).toolCalls)
+        assertEquals(
+            com.helix.core.model.ReasoningEffort.FALLBACK,
+            BuiltInModel.reasoningOptionsFor(BuiltInModel.QWEN_MODEL_ID),
+        )
     }
 
     @Test fun configurationCannotRetargetOrBecomeUserConfigured() {
@@ -85,6 +106,8 @@ class BuiltInModelTest {
         assertEquals(R.string.builtin_model_rate_limit, BuiltInModel.errorLabelForSnapshot("RATE_LIMITED", snapshot))
         assertEquals(R.string.builtin_model_service_error, BuiltInModel.errorLabelForSnapshot("SERVER_ERROR", snapshot))
         assertEquals(R.string.builtin_model_timeout, BuiltInModel.errorLabelForSnapshot("TIMEOUT", snapshot))
+        assertEquals(R.string.builtin_model_service_error, BuiltInModel.errorLabelForSnapshot("TRANSPORT", snapshot))
+        assertEquals(R.string.builtin_model_protocol_error, BuiltInModel.errorLabelForSnapshot("PROTOCOL", snapshot))
         assertNull(BuiltInModel.errorLabelForSnapshot("AUTH", snapshot.replace(BuiltInModel.PROVIDER_ID, "custom")))
         assertNull(BuiltInModel.errorLabelForSnapshot("AUTH", "broken"))
         assertNull(BuiltInModel.errorLabelForSnapshot("AUTH", null))

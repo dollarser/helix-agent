@@ -49,7 +49,9 @@ object McpResourceTools {
                     } else {
                         "resources"
                     }} on this server. " +
-                        "Pass nextCursor unchanged for the next page (up to 16 pages); " +
+                        "This cursor is a Helix continuation, not a raw server cursor. " +
+                        "Omit it (or use an empty string) for the first page. " +
+                        "Pass nextCursor unchanged for later pages (up to 16); " +
                         "changed listings require restarting."
                 },
                 schema,
@@ -173,7 +175,7 @@ object McpResourceTools {
                             .size
                             .toLong()
                     }
-                require(scannedBytes <= 1048576) { "MCP discovery exceeds 1 MiB metadata" }
+                requireResourcePage(scannedBytes <= 1048576, ResourceListingFailure.LIMIT_EXCEEDED)
                 if (page.entries.any {
                         kotlinx.coroutines.currentCoroutineContext().ensureActive()
                         checkCurrent()
@@ -192,11 +194,18 @@ object McpResourceTools {
                     return true
                 }
                 cursor = page.nextCursor
-                require(cursor == null || (seen.add(cursor) && seen.size < 16)) {
-                    "MCP resource discovery cursor cycle or page budget exceeded"
-                }
+                checkDiscoveryCursor(cursor, seen)
             } while (cursor != null)
         }
         return false
+    }
+
+    private fun checkDiscoveryCursor(
+        cursor: String?,
+        seen: MutableSet<String>,
+    ) {
+        if (cursor == null) return
+        requireResourcePage(seen.add(cursor), ResourceListingFailure.CURSOR_CYCLE)
+        requireResourcePage(seen.size < 16, ResourceListingFailure.LIMIT_EXCEEDED)
     }
 }

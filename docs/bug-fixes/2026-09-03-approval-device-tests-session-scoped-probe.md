@@ -81,7 +81,7 @@ HXA-048（统一 ChatService 每会话 turn 模型）之后，`screen.toolTimeli
 - 修复后 `:app:connectedDeveloperDebugAndroidTest` 全量（双设备，**不清 App 数据、
   保留跨类残留打开会话的真实运行形态**）：9 例审批/审计测试全部通过，套件全绿
   （含新增 `ChatSessionLifecycleDeviceTest` ×2 与 `GoalReminderTest` ×2；
-  完整数字见 status.md 设备矩阵条目）。
+  完整数字当时记录于 status.md 设备矩阵，需从本记录日期附近的 Git 版本追溯，当前状态页不再承载该历史矩阵）。
 
 ## Residual risk
 

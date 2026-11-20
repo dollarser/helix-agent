@@ -118,6 +118,7 @@ internal fun LocalModelDialog(
                             result = null
                         },
                         enabled = job == null,
+                        border = actionButtonBorder(job == null),
                         modifier = Modifier.testTag("local-model-curated"),
                     ) { Text(stringResource(R.string.local_model_curated)) }
                     OutlinedButton(
@@ -127,6 +128,7 @@ internal fun LocalModelDialog(
                             result = null
                         },
                         enabled = job == null,
+                        border = actionButtonBorder(job == null),
                         modifier = Modifier.testTag("local-model-advanced"),
                     ) { Text(stringResource(R.string.local_model_advanced)) }
                 }
@@ -275,6 +277,7 @@ private fun CuratedLocalModelFields(
         OutlinedButton(
             onClick = { onSelected(entry.id) },
             enabled = job == null,
+            border = actionButtonBorder(job == null),
             modifier = Modifier.fillMaxWidth().testTag("local-model-catalog-${entry.id}"),
         ) {
             val evidence =

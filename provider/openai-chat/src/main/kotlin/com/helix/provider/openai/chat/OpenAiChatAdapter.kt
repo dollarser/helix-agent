@@ -2,6 +2,7 @@ package com.helix.provider.openai.chat
 
 import com.helix.core.model.ModelEvent
 import com.helix.core.model.ModelRequest
+import com.helix.provider.api.ProviderToolNames
 
 /**
  * OpenAI Chat Completions protocol adapter (HXA-023, protocol
@@ -28,5 +29,6 @@ public class OpenAiChatAdapter(
         ChatCompletionsRequestEncoder(imageResolver)
 
     /** One decoder per stream (one model call); never share across calls. */
-    public fun newDecoder(): ChatCompletionsStreamDecoder = ChatCompletionsStreamDecoder()
+    public fun newDecoder(request: ModelRequest): ChatCompletionsStreamDecoder =
+        ChatCompletionsStreamDecoder(ProviderToolNames(request)::decode)
 }

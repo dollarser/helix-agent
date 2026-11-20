@@ -48,8 +48,9 @@ internal class SessionInputAttachments(
                     is com.helix.core.model.attachment.AttachmentMaterialization.Text -> {
                         AttachmentContextBlock.Text(
                             value,
-                            storage.artifacts.resolve(input.attachments[index].artifactId).relativePath,
-                            staging.workspaceScopeId,
+                            com.helix.core.workspace.FileScopePath.fromModelReference(
+                                storage.artifacts.resolve(input.attachments[index].artifactId).relativePath,
+                            ),
                         )
                     }
 
@@ -61,6 +62,9 @@ internal class SessionInputAttachments(
                             value.sizeBytes,
                             value.width,
                             value.height,
+                            FileScopePath.fromModelReference(
+                                storage.artifacts.resolve(input.attachments[index].artifactId).relativePath,
+                            ),
                         )
                     }
 

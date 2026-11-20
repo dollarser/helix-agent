@@ -20,6 +20,35 @@ import org.junit.Test
 import kotlin.time.Duration.Companion.seconds
 
 class PluginRegistryTest {
+    @Test fun modelExposureWithdrawsStaleNativeDescriptorsWithoutResolvingExecutionScope() {
+        val catalog = MemoryNativePluginCatalog()
+        val registry = PluginRegistry(ToolRegistry(), catalog)
+        val base = plugin("fixture")
+        val descriptor = base.tools().single().descriptor
+        var unavailable = false
+        registry.register(
+            object : HelixPlugin by base {
+                override fun registrationError() = "UNAVAILABLE".takeIf { unavailable }
+
+                override fun scopeFor(
+                    descriptor: ToolDescriptor,
+                    sessionId: String,
+                ): com.helix.core.policy.UserScope? = error("Model exposure must not resolve execution scope")
+            },
+        )
+        assertFalse(registry.modelAvailable(descriptor, "session"))
+        catalog.selections["session" to "fixture"] = "selection"
+        assertTrue(registry.modelAvailable(descriptor, "session"))
+        assertFalse(registry.modelAvailable(descriptor.copy(description = "retired schema"), "session"))
+        unavailable = true
+        assertFalse(registry.modelAvailable(descriptor, "session"))
+        unavailable = false
+        assertTrue(registry.modelAvailable(descriptor, "session"))
+        registry.setEnabled("fixture", false)
+        assertFalse(registry.modelAvailable(descriptor, "session"))
+        assertTrue(registry.modelAvailable(descriptor.copy(origin = ToolOrigin.BuiltInOrigin), "session"))
+    }
+
     @Test fun unselectedContextDoesNotProbeNativeRuntimeAndSelectionStillRechecksReadiness() {
         val catalog = MemoryNativePluginCatalog()
         val registry = PluginRegistry(ToolRegistry(), catalog)
@@ -540,7 +569,7 @@ class PluginRegistryTest {
             )
         val contribution =
             object : HelixPlugin by base {
-                override val preferredTools = setOf("fixture.fixture")
+                override val preferredTools = setOf("fixture_fixture")
                 override val skills = listOf(skill("guide"))
                 override val requiredInstructions = "Mandatory operational rule"
                 override val dataOrigin = com.helix.core.policy.DataOrigin.ACCESSIBILITY
@@ -569,7 +598,7 @@ class PluginRegistryTest {
         assertEquals(emptyList<com.helix.core.policy.UserScope>(), registry.imageScopes("session"))
         catalog.selections["session" to "fixture"] = "selection"
         assertEquals(scope, registry.executionContext(descriptor, "session")?.scope)
-        assertEquals(setOf("fixture.fixture"), registry.preferredTools("session"))
+        assertEquals(setOf("fixture_fixture"), registry.preferredTools("session"))
         assertEquals(listOf(scope), registry.imageScopes("session"))
         val contributions = registry.contentContributions(repository, "session")
         assertEquals(
@@ -812,7 +841,7 @@ class PluginRegistryTest {
             )
         val descriptor =
             ToolDescriptor(
-                name = ToolName("fixture.$id"),
+                name = ToolName("fixture_${id.replace('-', '_')}"),
                 version = ToolVersion(1),
                 description = "fixture tool",
                 inputSchema = buildJsonObject {},
@@ -850,7 +879,7 @@ class PluginRegistryTest {
 
                 override fun tools() =
                     listOf(
-                        binding.copy(descriptor = binding.descriptor.copy(name = ToolName("new.tool"))),
+                        binding.copy(descriptor = binding.descriptor.copy(name = ToolName("new_tool"))),
                         binding,
                     )
             }

@@ -8,6 +8,7 @@ import androidx.compose.ui.test.isDisplayed
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.helix.app.MainActivity
 import com.helix.app.R
@@ -164,7 +165,23 @@ class ChatStopProgressDeviceTest {
         compose.onNodeWithTag("chat-send").assertIsDisplayed()
         assertEquals(1, server.heldStreams.get())
         assertStoppedSettlement(goal, session)
+        compose.onNodeWithText("停止事实摘要").assertDoesNotExist()
+        compose.onNodeWithText("Stop facts").assertDoesNotExist()
         captureChatLayout(compose.activity, "stopped")
+        server.holdChatStreams.set(false)
+        // The fixture returns plain text, not the Goal completion report required by
+        // continuous Goal mode. Verify a fresh conversation turn without resuming the paused Goal.
+        chat.setMode(AgentMode.CHAT)
+        awaitConfiguration(session, AgentMode.CHAT)
+        chat.sendTestMessage("Continue with a brief reply.")
+        compose.waitUntil(10_000) {
+            storage.turns.listBySession(session).size == 2 &&
+                chat.screen.value.activeTurn
+                    ?.state
+                    ?.name == "COMPLETED"
+        }
+        assertEquals(listOf("CANCELLED", "COMPLETED"), storage.turns.listBySession(session).map { it.state })
+        assertEquals("PAUSED", storage.goals.resolve(goal).state)
     }
 
     private fun verifyExplicitRetry(
@@ -219,7 +236,7 @@ class ChatStopProgressDeviceTest {
         compose.onNodeWithTag("chat-retry").assertDoesNotExist()
         chat.setMode(AgentMode.CHAT)
         compose.waitUntil(10_000) { chat.runControl.value.mode == AgentMode.CHAT && chat.screen.value.hasGoals }
-        compose.onNodeWithTag("chat-composer-options").performClick()
+        compose.onNodeWithTag("chat-conversation-details").performClick()
         compose.onNodeWithTag("goal-manage").assertIsDisplayed()
         captureChatLayout(compose.activity, "failed-goal")
         assertEquals(

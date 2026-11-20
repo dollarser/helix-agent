@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -29,6 +30,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.helix.feature.conversation.R
 import com.helix.feature.conversation.presentation.SessionRowUi
@@ -217,16 +219,21 @@ internal fun SessionListSection(
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             Text(
                                 session.title.ifBlank { stringResource(R.string.chat_new_session) },
                                 style = MaterialTheme.typography.titleSmall,
+                                modifier = Modifier.weight(1f),
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
                             )
                             Text(
                                 UiLabels.formatTime(session.createdAt),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                softWrap = false,
                             )
                         }
                         val noProvider = stringResource(R.string.chat_no_provider)
@@ -240,8 +247,7 @@ internal fun SessionListSection(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        session.directoryRef?.let { Text(it, style = MaterialTheme.typography.labelSmall) }
-                        Row {
+                        FlowRow {
                             TextButton({ onRename(session.id) }) { Text(stringResource(R.string.chat_rename)) }
                             TextButton(
                                 onClick = { if (session.isArchived) onRestore(session.id) else onArchive(session.id) },

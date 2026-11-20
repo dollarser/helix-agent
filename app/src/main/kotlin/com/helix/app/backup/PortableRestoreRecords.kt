@@ -68,7 +68,7 @@ internal class PortableRestoreRecords(
             }
 
             "artifacts" -> {
-                if (text("id") in attachmentIds) {
+                if (text("id") in attachmentIds && AttachmentRestorePath.target(text("relativePath")) == null) {
                     set("relativePath", "scope:app:restored-$restoreId/attachments/${text("id")}")
                 }
             }

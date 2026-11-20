@@ -33,7 +33,7 @@ import java.nio.charset.StandardCharsets
 import java.time.Instant
 
 /**
- * HXA-053 (JVM): the `code.javascript.run` descriptor contract, the executor's 11-status mapping
+ * HXA-053 (JVM): the `code_javascript_run` descriptor contract, the executor's 11-status mapping
  * to stable ToolResult semantics, the redacted §4.8 audit block, and the Plan-mode exclusion.
  * The execution seam is a fake [JsExecutor] that returns a canned [JsExecutionResult] per status,
  * so no Android/Parcel surface is touched.
@@ -97,7 +97,7 @@ class CodeJavascriptRunToolTest {
     @Test
     fun descriptorIsL2CodeExecutionOnTheQuickJsLane() {
         val d = CodeJavascriptRunTool.descriptor()
-        assertEquals("code.javascript.run", d.name.value)
+        assertEquals("code_javascript_run", d.name.value)
         assertEquals(1, d.version.value)
         assertEquals(ToolOperationClass.CODE_EXECUTION, d.operationClass)
         assertEquals(ExecutionTargetType.LOCAL_QUICKJS, d.executionTarget)

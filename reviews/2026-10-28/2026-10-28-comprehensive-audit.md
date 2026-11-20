@@ -130,15 +130,15 @@ Core 循环/生命周期 owner、Room 持久权威、应用层展示适配、执
 
 ### 1. 当前产品范围文档没有完整反映文档插件
 
-[requirements.md:79](../../docs/product/requirements.md#L79) 仍将 PDF/DOCX 对话读取统一列为未来、当前未支持附件；[competitive-evaluation.md:63](../../docs/product/competitive-evaluation.md#L63) 将 PDF 排除当前通过率。较新的 [文档插件方案:9–18](../../docs/product/document-processing-plugin.md#L9) 明确首版 PDF/DOCX 阅读及限制。
+[requirements.md:79](https://github.com/dollarser/helix-agent/blob/9362690bb1a6154185bbd40b83b0e9ae0f48d54b/docs/product/requirements.md#L79) 仍将 PDF/DOCX 对话读取统一列为未来、当前未支持附件；[competitive-evaluation.md:63](https://github.com/dollarser/helix-agent/blob/9362690bb1a6154185bbd40b83b0e9ae0f48d54b/docs/product/competitive-evaluation.md#L63) 将 PDF 排除当前通过率。较新的 [文档插件方案:9–18](https://github.com/dollarser/helix-agent/blob/9362690bb1a6154185bbd40b83b0e9ae0f48d54b/docs/product/document-processing-plugin.md#L9) 明确首版 PDF/DOCX 阅读及限制。
 
-确认的是**当前范围/评测文档不完整**，不是已经证明附件安全拒绝实现错误。直接附件发送与显式启用插件后的受控阅读是不同入口；[requirements.md:446](../../docs/product/requirements.md#L446) 的附件拒绝不能粗暴删除，也不能用插件阅读自动授权整文上传。
+确认的是**当前范围/评测文档不完整**，不是已经证明附件安全拒绝实现错误。直接附件发送与显式启用插件后的受控阅读是不同入口；[requirements.md:446](https://github.com/dollarser/helix-agent/blob/9362690bb1a6154185bbd40b83b0e9ae0f48d54b/docs/product/requirements.md#L446) 的附件拒绝不能粗暴删除，也不能用插件阅读自动授权整文上传。
 
 建议按格式、入口、API/模型能力列适用性，区分 PDF/DOCX 阅读、旧 DOC/PPT、宏、生成/编辑和上传。否则产品评估会漏掉已交付价值，验收人员也可能使用过时 oracle。
 
 ### 2. 成功率指标没有明确冻结任务分母及其映射
 
-[requirements.md:359–360](../../docs/product/requirements.md#L359) 要求固定40条支持场景 E2E≥80%、有效输入确定性工具成功率≥95%。[验收场景:401–447](../../docs/product/requirements.md#L401) 实际混列43条任务、安全拒绝、恢复和未来条件；竞品 C01–C07 又是另一组。
+[requirements.md:359–360](https://github.com/dollarser/helix-agent/blob/9362690bb1a6154185bbd40b83b0e9ae0f48d54b/docs/product/requirements.md#L359) 要求固定40条支持场景 E2E≥80%、有效输入确定性工具成功率≥95%。[验收场景:401–447](https://github.com/dollarser/helix-agent/blob/9362690bb1a6154185bbd40b83b0e9ae0f48d54b/docs/product/requirements.md#L401) 实际混列43条任务、安全拒绝、恢复和未来条件；竞品 C01–C07 又是另一组。
 
 现有固定 Harness suite 可提供具体能力证据，但不能自动证明这一产品指标。缺少40条具名任务与输入、oracle、渠道/能力/provider适用性、尝试次数和失败分类的映射，指标无法独立重算。不能由测试总数或 Turn COMPLETED 推导任务成功率。
 
@@ -150,7 +150,7 @@ Core 循环/生命周期 owner、Room 持久权威、应用层展示适配、执
 
 可验证方向是普通模式提供一个边界小、合成输入、明确文件产物的首任务，与当前示例比较首次正确产物时间和人工介入，而非只看点击率。实施前无需新增长期 Goal 或新框架。
 
-[商业化假设:258–268](../../docs/product/market-users-and-commercialization.md#L258) 将完整 SAF UI、Browser Agent、Git/diff 等列 Pro 候选，同时承诺 Standard 完整。免费与 Standard 并不必然同义，收费也不必然违反完整 Standard；但商业 entitlement、渠道政策、系统权限和运行配置需要正交说明。此处是未来定价决策前的定义缺口，不是要求现在实现计费或删减免费功能。
+[商业化假设:258–268](https://github.com/dollarser/helix-agent/blob/9362690bb1a6154185bbd40b83b0e9ae0f48d54b/docs/product/market-users-and-commercialization.md#L258) 将完整 SAF UI、Browser Agent、Git/diff 等列 Pro 候选，同时承诺 Standard 完整。免费与 Standard 并不必然同义，收费也不必然违反完整 Standard；但商业 entitlement、渠道政策、系统权限和运行配置需要正交说明。此处是未来定价决策前的定义缺口，不是要求现在实现计费或删减免费功能。
 
 ### 4. 竞品取舍的审查结论
 

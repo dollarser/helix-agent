@@ -31,7 +31,7 @@ sealed interface BrowserUrlDecision {
 
 /**
  * A URL-denial reason. [code] is the STABLE, locale-independent token this reason maps to in the
- * HXA-062 `browser.navigate` tool outcome — it must be byte-stable across UI languages, so it is
+ * HXA-062 `browser_navigate` tool outcome — it must be byte-stable across UI languages, so it is
  * never user-facing wording. The user-facing wording is resolved from resources at the UI
  * boundary (HXA-069, see `DenialReason.userLabel` in `com.helix.feature.browser.ui`).
  */

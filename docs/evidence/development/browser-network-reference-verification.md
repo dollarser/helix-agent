@@ -17,6 +17,6 @@
 
 初版固定等 100ms 再关闭无法保证请求已经抵达服务器，校验拒绝该批结果；已改为请求抵达后再触发操作。API29 曾出现 CreatePlatformSocket Operation not permitted，重启专用模拟器后同一测试通过；该环境异常根因未进一步确定，不作为生产修复或引用失败。无效日志保留为 `*-invalid-fixed-delay`、`*-invalid-socket-permission`。
 
-复跑：先按 HXA-154 构建测试 APK；`python3 scripts/diagnostics/run-jni-reference-trace.py <dedicated-serial> --count 100 --scenario <scenario>`，scenario 为 network-close、network-stop、network-background、network-recreate。原始结果在忽略目录 `build/reference-trace/emulator-*-network-*-100/`，包含配对日志、server-requests.json 与 metadata.json。完整 Kotlin/JVM/构建/spotless/detekt/browser lint 命令见 roadmap；均通过，JVM 116 项。
+复跑：先按 HXA-154 构建测试 APK；`python3 scripts/diagnostics/run-jni-reference-trace.py <dedicated-serial> --count 100 --scenario <scenario>`，scenario 为 network-close、network-stop、network-background、network-recreate。原始结果在忽略目录 `build/reference-trace/emulator-*-network-*-100/`，包含配对日志、server-requests.json 与 metadata.json。完整 Kotlin/JVM/构建/spotless/detekt/browser lint 命令见 [HXA-155 完成记录](../../completion-records/HXA-155.md)；均通过，JVM 116 项。
 
 本地与网络有界路径都未复现裸创建的目标弱引用残留。继续保持按需创建及现有 detach/destroy，不添加强制 GC、额外导航或延迟销毁。平台原生问题的 [上游复现材料](native-reference-upstream-report.md) 已整理；发布、上游修复验证、真机和长稳仍未执行。

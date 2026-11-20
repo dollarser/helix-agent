@@ -33,7 +33,7 @@ internal class KnowledgeReferenceFixture(
     val dao =
         SessionToolsTest.HistoryDao().apply {
             allowedTools =
-                setOf("knowledge.search", "knowledge.read", "session.history", "session.search", "session.read")
+                setOf("knowledge_search", "knowledge_read", "session_history", "session_search", "session_read")
         }
     val documents = mutableMapOf("selected" to initial, "private" to "UNSELECTED_PRIVATE_EVIDENCE")
     var enabled = false
@@ -193,7 +193,7 @@ internal class KnowledgeReferenceFixture(
     ): com.helix.tools.framework.ToolExecutorResult {
         dao.activeTurn = turn
         dao.activeCall = callId
-        return KnowledgeReadTools.executor(name == "knowledge.search", backend).execute(
+        return KnowledgeReadTools.executor(name == "knowledge_search", backend).execute(
             ExecutableToolCall(callId, name, "1", args, ExecutionTargetType.LOCAL_ANDROID, deadline, cancel, "s", turn),
         )
     }

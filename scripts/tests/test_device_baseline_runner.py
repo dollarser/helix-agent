@@ -26,6 +26,36 @@ runner = load_script("device_baseline_runner", "run.py")
 
 
 class DeviceBaselineClassificationTest(unittest.TestCase):
+    def test_validated_instrumentation_args_are_saved_before_device_execution(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            classes = root / "classes.txt"
+            classes.write_text("com.helix.app.Fixture#method\n")
+            output = root / "run"
+            argv = ["run.py", str(classes), "--serial", "fixture-serial", "--out-dir", str(output),
+                    "--instrument-arg", "helix.preserveUserSettings=true",
+                    "--instrument-arg", "helixModelId=model-v1"]
+            with patch.object(sys, "argv", argv), \
+                    patch.object(runner, "get_git_commit", return_value="fixture-commit"), \
+                    patch.object(runner, "acquire_single_writer_lock"), \
+                    patch.object(runner, "check_device_online", return_value=False), \
+                    patch.object(runner, "run_cmd") as execute, \
+                    self.assertRaises(SystemExit) as stopped:
+                runner.main()
+            self.assertEqual(1, stopped.exception.code)
+            execute.assert_not_called()
+            metadata = json.loads((output / "run.json").read_text())
+            self.assertEqual({"helix.preserveUserSettings": "true", "helixModelId": "model-v1"},
+                             metadata["instrumentation_args"])
+
+    def test_instrumentation_args_accept_only_nonsecret_flags_and_identifiers(self):
+        self.assertEqual(["-e", "fileLocationModelAcceptance", "true", "-e", "helixModelId", "model-v1"],
+                         runner.instrumentation_args(["fileLocationModelAcceptance=true", "helixModelId=model-v1"]))
+        for values in (["class=other"], ["apiKey=value"], ["x=a;echo"], ["x="],
+                       ["x=true", "x=false"], ["bad flag=true"], ["flag"]):
+            with self.assertRaises(ValueError):
+                runner.instrumentation_args(values)
+
     def test_exit_status_requires_actual_passes_not_just_completed_collection(self):
         self.assertEqual(0, runner.summary_exit_code({"results": [{"verdict": "PASS"}], "missing_count": 0}))
         for verdict in ("FAIL", "SKIP / ASSUMPTION", "PHASE_RUNNER_REQUIRED", "UNRESOLVED", "NO_VERDICT / PROCESS_CRASH"):

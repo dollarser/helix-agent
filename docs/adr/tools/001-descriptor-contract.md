@@ -13,10 +13,10 @@ Deciders: Project owner（2026-10-15 要求按评审更新目标设计和任务�
 
 ## Decision
 
-1. 引入覆盖**整个安全 descriptor** 的 `ToolDescriptor.contractHash`：对 descriptor 的规范化形式做 SHA-256。当前实现使用固定顺序 JSON array：首项 `helix-tool-contract-v2`，随后为字符串字段 `name`、`version`、`description`、`schemaHash`、`operationClass`、`timeout`(ms)、`maxOutputBytes`、`requiredCapabilities`(按 name 排序并用逗号连接)、`idempotency`、`executionTarget`，末项为来源字段 JSON array。来源依次为 `built-in`；`plugin/pluginId/pluginVersion/runtimeId`；`mcp/serverId/protocolVersion/sourceSchemaHash`；`a2a/agentId/skillId/interfaceOrigin/binding/protocolVersion/cardHash/skillHash`（斜线在这里分隔字段说明，不是运行时拼接符）。字符串按 JSON 转义、无空白编码后取 UTF-8 SHA-256，避免分隔符进入来源字段造成碰撞。`schemaHash` 原算法不变。`contractHash` 是 `schemaHash` 的**超集**（schema 变则两者都变）。
+1. 引入覆盖**整个安全 descriptor** 的 `ToolDescriptor.contractHash`：对 descriptor 的规范化形式做 SHA-256。当前实现使用固定顺序 JSON array：首项 `helix-tool-contract-v1`，随后为字符串字段 `name`、`version`、`description`、`schemaHash`、`operationClass`、`timeout`(ms)、`maxOutputBytes`、`requiredCapabilities`(按 name 排序并用逗号连接)、`idempotency`、`executionTarget`，末项为来源字段 JSON array。来源依次为 `built-in`；`plugin/pluginId/pluginVersion/runtimeId`；`mcp/serverId/protocolVersion/sourceSchemaHash`；`a2a/agentId/skillId/interfaceOrigin/binding/protocolVersion/cardHash/skillHash`（斜线在这里分隔字段说明，不是运行时拼接符）。字符串按 JSON 转义、无空白编码后取 UTF-8 SHA-256，避免分隔符进入来源字段造成碰撞。`schemaHash` 原算法不变。`contractHash` 是 `schemaHash` 的**超集**（schema 变则两者都变）。
 2. `contractHash` 作为**直接字段**并入 `ApprovalBinding`（在 `schemaHash` 之后），进入 binding 的 `canonicalJson` 与 `hash`。`executionTarget` 已是 binding 既有直接字段（HXA-034/035 精确绑定），保持不变。
 3. 来源契约编码刻意**排除** `serverProvidedHints`：这些是不可信的、展示用文本，若纳入契约会让一个 MCP 服务器通过编辑 hint 使已授予的审批失效（反被服务器握有否决权）。`serverProvidedHints` 变化**不得**改变 `contractHash`（机械测试强制这一反向不变量）。
-4. `description` **纳入**契约（fail-closed）：description 是模型可见的工具语义，若改动却保持 `schemaHash` 不变会误导模型；把它纳入 contractHash 使任何描述变化都强制新审批。代价是描述文案改动会使既有审批失效——这被判定为正确方向（宁可失效也不放行），内置描述由产品代码维护，外部描述仍是不可信声明，不能授予权限。
+4. `description` **纳入**契约（fail-closed）：description 是模型可见的工具语义，若改动却保持 `schemaHash` 不变会误导模型；把它纳入 contractHash 使描述变化失效旧请求绑定与精确审批。新调用仍按当前权限解析 ALLOW/ASK/DENY，并非所有文案变化都额外弹卡。代价是描述文案改动会使既有精确审批失效——这被判定为正确方向（宁可失效也不放行），内置描述由产品代码维护，外部描述仍是不可信声明，不能授予权限。
 5. `ToolDispatcher.buildBinding` 在批准时从**本次请求绑定且仍有效的** descriptor 取 `contractHash` 写入 binding（与 `schemaHash` 同源、同点）。
 6. 机械门禁：`ContractHashGateTest`（`tools/framework`）逐字段证明每个安全字段单独变化都保持 `schemaHash` 不变而改变 `contractHash`，进而改变 `ApprovalBinding.hash`（旧凭证不匹配）；`ToolDispatcherTest` 证明 dispatcher 实际把当前 descriptor 的 `contractHash` 绑进呈现给 broker 的 binding。二者是"拒绝"的证据，不是 KDoc 约定。
 
@@ -45,7 +45,7 @@ ToolDescriptor.discoveryCompanions 是能力提供方声明的同来源曝光配
 
 所有者授权的审查修复保持原撤销排序：Registry 锁内只提交内存准入标记，随后在锁外消费绑定的持久审批证明；消费失败不执行工具。已经先准入的调用保留其原 executor，后到的撤销不伪造已准入动作没有发生；先撤销则不能准入、消费或执行。这样不在目录锁内等待 Room，也不开放跳过授权的执行路径。
 
-`tools.search` 和封闭的 `ask_user` 通过受信任 metadata executor 避免被原后台 Job owner 阻断；发现与反问不授予执行权限，普通写入/Runtime 启动仍受原 owner 互斥控制。
+`tools_search` 和封闭的 `ask_user` 通过受信任 metadata executor 避免被原后台 Job owner 阻断；发现与反问不授予执行权限，普通写入/Runtime 启动仍受原 owner 互斥控制。
 
 ### 插件增量复用同一绑定与结果契约（HXA-276/277/279）
 
@@ -98,7 +98,7 @@ HXA-286/287/288 保留参数准备、规范化/schema 校验、policy/授权、�
 
 插件来源和新增观察结果继续使用同一绑定与结算通路。增加事实字段会占用输出预算，需保持有界且与模型实际收到的产物一致；内部契约改变后，旧请求与不匹配批准直接失效，调用方重新发现并按当前规则准入。
 
-v2 编码使旧 contractHash/精确批准不再匹配，须重新审批，不能兼容重用旧凭证。现有 `origin.canonicalOf()` 仍供来源启停键和展示使用，本轮不迁移这些键，避免把已有禁用设置意外恢复为默认启用。原子绑定按上述 R1 决定实施；完整插件安装/更新生命周期仍不在此范围。
+当前编码标识固定为 v1；契约内容变化仍真实改变 contractHash，旧精确批准不能兼容复用，新调用按当前规则重新准入。现有 `origin.canonicalOf()` 仍供来源启停键和展示使用，本轮不迁移这些键，避免把已有禁用设置意外恢复为默认启用。原子绑定按上述 R1 决定实施；完整插件安装/更新生命周期仍不在此范围。
 
 同一主题维护一份规范；接受设计和实现验收仍分开记账。
 
@@ -174,7 +174,7 @@ HXA-289 的 `glob` / `grep` 采用原 Dispatcher、请求目录绑定和 Workspa
 
 ## Decision history — 2026-11-07：独立网页正文读取
 
-Owner 授权完成后续事项。HXA-290 的 Fetch 采用独立 `web_fetch` 文本读取契约，保留 `http.fetch` 原始响应语义与 Provider/MCP 严格端点类型。网页 query 是请求数据，不是授权；新 URL 解析仍进入既有 SSRF、精确网络 scope、Dispatcher、取消和结果路径。OkHttp 负责 HTTP framing/解压，jsoup 仅本机解析受控字节，不增加浏览器、登录态、Node 或其他执行域。选用 MIT 解析库避免把旧正则去标签冒充通用正文提取，并保留完整上游许可。
+Owner 授权完成后续事项。HXA-290 的 Fetch 采用独立 `web_fetch` 文本读取契约，保留 `http_fetch` 原始响应语义与 Provider/MCP 严格端点类型。网页 query 是请求数据，不是授权；新 URL 解析仍进入既有 SSRF、精确网络 scope、Dispatcher、取消和结果路径。OkHttp 负责 HTTP framing/解压，jsoup 仅本机解析受控字节，不增加浏览器、登录态、Node 或其他执行域。选用 MIT 解析库避免把旧正则去标签冒充通用正文提取，并保留完整上游许可。
 
 结果区分真实来源 URL、返回文本 hash、输入/正文截断与解析覆盖，不把摘要、空壳、登录页或搜索片段宣称为已读全文。第三方正文不能改变权限或成为宿主指令；保留实际下一请求消费和真实网页质量的独立验证要求。参考 [jsoup 官方说明](https://jsoup.org/) 与 [OWASP SSRF 防护](https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html)，实施状态及尚未验证范围归 [HXA-290](../../development/tasks/HXA-290.md)。
 
@@ -207,7 +207,7 @@ Owner 授权完成后续事项。HXA-290 的 Fetch 采用独立 `web_fetch` 文�
 
 按 owner 本轮「实现让 Helix 使用现有浏览器搜索，同时支持 deepseek 等大模型厂商的搜索」要求，区分两条执行路径，不将网页抓取冒充原生 API：
 
-- `browser.search(query, engine)` 支持显式选择 Bing、Google、DuckDuckGo，固定 HTTPS 查询地址，复用现有 Browser bridge 的会话归属、出站治理、导航、取消与容量。返回导航状态；模型需继续 `browser.wait` / `browser.snapshot` 获取页面证据。它不提供结构化 API 命中、不绕过网站登录或验证码，也不需要 Tavily/DeepSeek key。
+- `browser_search(query, engine)` 支持显式选择 Bing、Google、DuckDuckGo，固定 HTTPS 查询地址，复用现有 Browser bridge 的会话归属、出站治理、导航、取消与容量。返回导航状态；模型需继续 `browser_wait` / `browser_snapshot` 获取页面证据。它不提供结构化 API 命中、不绕过网站登录或验证码，也不需要 Tavily/DeepSeek key。
 - `web_search` 由用户设置明确选定 Tavily Basic 或 DeepSeek Search，按服务商隔离 SecretStore 密钥，不复用聊天模型凭据，不自动 fallback 或开通收费服务。设置保存服务商与 opt-in；UI 切换服务商时关闭未保存的启用状态，只有显式保存才改变生效配置。
 - DeepSeek [官方独立 Search API](https://api-docs.deepseek.com/guides/search/) 是 `POST https://api.deepseek.com/v1/tools/search`、Bearer key；固定 `count=5`、`need_content=false`，query 按官方 1–128 Unicode 字符限制校验，`summary` 映射有界 snippet。该路径不调用聊天模型，亦不依赖某个模型支持 Responses。2026-11-11 文档标价成功且非空搜索每千次 US$0.75；实际账户计费以厂商为准，不以网络失败推断未扣费。
 - [Responses API](https://api-docs.deepseek.com/guides/responses_api/) 的 server-side `web_search` 与上述独立端点不是同一协议，官方支持限制不同；本轮没有向所有 OpenAI-compatible 模型盲目添加搜索 flag。OpenAI、Anthropic、Gemini 的原生搜索协议与引用约束未在本轮实现，不声明通用兼容。
@@ -220,3 +220,36 @@ Owner 明确搜索只需在请求前决定是否允许，不需要按服务端�
 首版仅支持官方 HTTPS `api.openai.com:443/v1` 的 Responses，保持用户已选模型与凭据；不向任意兼容端点加 flag，不静默改模型/协议、不另起嵌套模型。模型若不支持，由原服务错误路径明确失败，无付费 fallback。引用通过安全 URL 校验后的 Markdown 链接进入原有正文流/持久化；原生调用不生成本地 function_call 或要求本地回填。请求诊断记录是否授权原生搜索。含原生搜索的请求禁止自动空响应重试，避免未知执行后再次计费；取消/断线不证明未收费。压缩、连接检查和独立分析请求默认不含此能力。
 
 依据：[OpenAI Web search](https://developers.openai.com/api/docs/guides/tools-web-search)。服务端可执行多次搜索，设置披露搜索调用费与模型 token 费；2026-11-12 核查公开标价为每千次搜索 US$10 加适用 token，实际账户价格为准。不注册账户、改账单或自动发起真实验收请求。此合同不授予真实账号消费权限。首版验证需区分离线流/协议、实际调用事件和引用、真实下一轮模型消费，自动选择搜索的模型没有调用搜索不算搜索实接通过。
+
+### Decision history — 2026-11-16：面向模型的工具契约统一
+
+按 owner 要求参考主流 Agent 实践，不保留旧内部接口兼容层。采用用途边界清晰、参数就地说明与真实输出结构分离的契约：
+
+- 描述优先说明何时选择该工具、与相近工具的区别及不可省略的结果语义；字段说明携带参数来源、默认值、单位、分页和版本绑定。Root 状态/文件/进程/日志各有具体用途，不再共享无信息的占位描述。
+- Session/Knowledge 的分页字段区分 cursor、sequence、Unicode code-point offset 与内容/manifest 哈希；Goal 保留用户请求和 revision 前置条件。模型看到的说明不替代现有执行校验或授权。
+- 输出 schema 按执行器实际路径描述公共字段，不能把导航开始说成页面加载完毕，或将 HTTP 已读长度当作完整资源长度。不同输出形态保留真实差异；当前 schema 子集不支持 nullable/组合类型时使用描述和公共结构，不伪造严格验证能力。
+- 保留有意义的短名并统一领域命名，具体规则采用下方可移植名称契约。规范名在注册时确定，Provider 只验证当前请求成员，不再二次改名；请求绑定和结构化来源身份保持独立。
+
+依据：[Anthropic tool engineering](https://www.anthropic.com/research/writing-tools-for-agents)、[工具定义指南](https://platform.claude.com/docs/en/agents-and-tools/tool-use/define-tools)、[MCP tools](https://modelcontextprotocol.io/specification/2025-11-25/server/tools)。验证要将契约测试、执行结果与真实模型选择分开；单轮任务完成不证明所有描述或效率最优。
+
+### 可移植工具名与来源边界（2026-11-16）
+
+内置及随应用交付的插件工具采用 `lower_snake_case`，最长 64 字符；已有简洁、明确的 `read`、`write`、`edit`、`glob`、`grep` 等名称保留。描述和 Schema 说明对象、用途、前提、参数与结果，不把工具名当权限或执行目标。OpenAI、Anthropic 与 CLI 发送注册时的规范名，不再分别改写内置工具名；解码仍验证工具属于本次请求，历史工具名不能扩大当前调用集合。
+
+第三方 MCP 的名字仅在服务内唯一，且可包含点号、最长 128 字符，不能直接当作跨服务的模型标识。注册边界生成稳定的 `mcp_<来源提示>_<操作提示>_<摘要>` 名称，原始名称保留用于向远端派发；A2A 采用同样的来源隔离原则。来源身份、schema、权限与原子绑定仍为独立结构化字段，不从可读前缀推导。无旧版名称别名或双注册。
+
+发现分类由 `ToolDescriptor.discovery.category` 显式声明；搜索别名只是检索提示，不授权、不改变执行路由。产品工具缺少分类会在注册集测试中暴露。插件是包含连接器（MCP endpoint）、技能及包装信息的安装单元，因此整包检查/安装使用 `plugins_preview` / `plugins_install`，不把插件与连接器视作同义词。
+
+只合并同一执行语义下的参数变体：Browser 文本输入统一为 `browser_type`，`mode=replace|append`；底层追加动作、非幂等属性及审批链保留。文件定位与内容检索、网页提取与交互式浏览器、设备操作与可见 UI 操作仍各自保留明确边界，不为缩减工具数而引入含糊万能工具。
+
+
+### Decision history — 2026-11-17：Mobile Use 按需动作后观察
+
+`ui_click` / `ui_click_match` 接受可选 `observeAfter=true`，默认不增加读取成本；需要下一步语义状态时复用既有动作后观察，免去一次只为取节点的模型往返。不添加批处理执行器或截图，不更换原 call 授权范围、选择后端或当前 display。后观察继续有界等待与输出裁剪，动态页面可返回 `UNSETTLED`；失败、取消、过期或观察不可用不擦除已知输入派发事实、不自动重放。动作仍是 `DISPATCHED` / `UNVERIFIED`，模型必须读取实际观察并验证任务效果，不能把附件存在当作成功。独立快照仍适用于观察缺失、截断、目标加载或视觉任务。
+
+验收使用相同 Luna/日常模拟器的节点闭环，保留计数恰好一次、输入值与文件内容的效果断言；把独立快照和附带观察作为同等的实际节点证据，并单独记录模型与工具审计耗时。单次模型轨迹波动不作为统计提速结论，原始结果保留于 ignored `build/mobile-efficiency-*/`。
+
+
+### Decision history — 2026-11-17：Mobile Use 技能渐进披露
+
+普通节点任务不再先强制加载完整长参考。`android-ui-task/SKILL.md` 保留当前授权/display、token 失效、按需动作后观察、不重放与效果/返回核验等共同决策；语义边界、视觉/手势和交接/display 细节分别按触发条件经 `skills_read_resource` 读取。现有参考内容保留并分组，资源继续进入 SkillLoader 的同一内容 hash，权限与调用机制不变。参考 [Agent Skills specification](https://agentskills.io/specification) 的按需资源结构与 [Anthropic authoring guidance](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices) 的渐进披露原则，不拷贝其产品实现。真实节点 A/B 与此前点击观察实验分开，不能仅用正文变短推断任务更快或质量不降。

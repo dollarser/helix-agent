@@ -58,13 +58,11 @@ internal object TestFixtures {
 
     fun a2aSpec(
         skillId: String = "echo-skill",
-        skillSlug: String = "echo-skill_deadbeef0000",
         cardHash: String = "b".repeat(64),
         skillHash: String = "c".repeat(64),
     ): A2aToolSpec =
         A2aToolSpec(
             skillId = skillId,
-            skillSlug = skillSlug,
             description = "UNTRUSTED_A2A_CONTENT test Skill",
             cardHash = cardHash,
             skillHash = skillHash,

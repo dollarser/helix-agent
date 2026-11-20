@@ -4,7 +4,7 @@
 
 ## 1. 当前范围
 
-近期保持一个 Android 本机产品、一条执行管线。R1 已由 [HXA-231](../completion-records/HXA-231.md) 交付，后续所有者授权的实施范围由 [status](status.md) 和对应 HXA 维护；本页不扩展其授权。重构以外继续推进内测、真实设备和发行准备。[roadmap](roadmap.md) 仅作任务索引，不承担实时排期。
+近期保持一个 Android 本机产品、一条执行管线。R1 已由 [HXA-231](../completion-records/HXA-231.md) 交付，当前对话决定实施范围，[status](status.md) 与对应 HXA 提供事实及合同；本页不自行启动内测、设备或发行工作。[roadmap](roadmap.md) 仅作任务索引，不承担实时排期。
 
 模型下载配置、Memory/Workspace 增量设备验收、首次成功旅程、恢复 UI、脱敏诊断、分类空间与发布残留管理已有交付证据，不再列为从零开发任务。这里的“已有交付”不代表所有 OEM、真实账号或发行版本通过。
 
@@ -23,7 +23,7 @@
 | 本地收口 | 清理事实漂移与验证当前源码 | 文档指向同一状态；全部主机门禁及制品边界通过；已知问题有范围、复现入口和停止条件 | 不触碰并行 WIP，不因整理而再次开发已完成功能 |
 | 内测准备与试用 | 验证真实用户独立完成任务 | 使用[内测验收清单](internal-pilot.md)，记录首次成功、人工介入、失败恢复和结果正确性；发现可复现阻碍先修 | 试用者、专用目录、设备和模型配置；实际设备/服务使用另按当前授权 |
 | 条件性补验 | 真机资源及 Memory/模型效果 | 当前候选包的锁屏/后台、低内存、温升、取消、恢复和存储压力有证据；Memory off/on 有独立结果核验 | 指定真机/OEM；模型服务或账号授权；16 KiB 真机单列 |
-| 候选版本回归 | 给内测或重构形成统一锚点 | 冻结源码/APK 后完整 P5；必要的 API/渠道矩阵按变更范围选择，专项与普通测试分开记账 | 干净且已提交源码；独占设备和本机服务授权 |
+| 候选版本回归 | 给内测或重构形成统一锚点 | 冻结源码/APK 后完整 P5；必要的 API/渠道矩阵按变更范围选择，专项与普通测试分开记账 | 可复现源码输入与候选绑定；发布时另核对提交，设备/服务按 AGENTS 授权 |
 | 发行 | 120 → 122 → 121 → 123 | 选渠道、确定身份及数据承诺、签名候选验收、提交材料；审核结果如实记录 | 所有者渠道/身份/签名决策与外部提交授权 |
 
 不要为了“清单全绿”无限运行模型测试或扩大权限。已有失败需记录；新证据不足时保留边界，恢复入口或诊断完成不等于原始问题根治。
@@ -65,7 +65,7 @@ python3 scripts/with-host-slot.py -- python3 scripts/run-acceptance-matrix.py \
 
 - 设备内模型继续聚焦 **Qwen3 4B Instruct 2507 Q4_K_M**，复用现有 ModelScope/Hugging Face 精选入口及高级导入。0.6B/1.7B 只留历史对照，不重新投入主动验收。
 - 本地模型优化先测 load、prefill、decode、首响应、PSS/RSS 与 cancel-to-exit；模拟器固定任务不定义手机最低配置。KV/prefix、线程/batch、逐 token 输出及 GPU/NPU 仅在存在瓶颈证据后另行决定，不是本轮缺失功能。
-- Harness 回归使用既定 SGLang 固定任务；规范、身份和统计口径见[系统基线](harness-system-baseline.md)。BFCL/AndroidWorld 是诊断，不是官方榜单结果或扩大权限的理由。
+- Harness 回归沿用固定任务方法，实际模型/服务由当前任务选择并冻结身份，不要求复活历史 SGLang 部署；规范、身份和统计口径见[系统基线](agent-eval.md#history-harness-system-baseline)。BFCL/AndroidWorld 是诊断，不是官方榜单结果或扩大权限的理由。
 - Global/Project Memory 的生产接线及 HXA-246 本地主机、API36 双渠道 UI/Memory 和项目记忆进程恢复已交付，范围见[原任务](../completion-records/HXA-246.md)。其他设备、真实任务效果、过时信息、跨会话污染与长稳仍需独立验证，不能仅凭 prompt 中出现文本声称提升。
 - 统一 PDF/DOCX 阅读由 [HXA-284](../completion-records/HXA-284.md)交付，已有 API36 及 OnePlus/API34 原生读取与真实模型切片，见[重构前收尾](../evidence/development/pre-refactor-closeout-2026-10-15.md)和[真机记录](../evidence/development/device-ui-model-validation-2026-10-15.md)。完整 R8 文档矩阵、大文档资源峰值、其他格式、编辑/生成、OCR 与完整 Office 排版不由这些切片推导通过。
 - `helix-docs` 使用内置 Skill 与按需离线章节。2026-10-15 后续优化补齐八章中文资源，版本/编号/applicationId/渠道/可调试状态由安装宿主提供；未知事实为 null，不再硬编码旧版本或声称通用 Release 签名。构建 commit/dirty、签名证书、静态帮助 UI 和源文档自动生成未包含，验证边界见[本轮记录](../evidence/development/preview-polish-2026-10-15.md)。
@@ -102,3 +102,28 @@ CI 真正依赖的固定运行时二进制保留在既有资源 Release，保持
 ## 8. 状态维护
 
 当前状态写 status，任务范围写 HXA，长期合同写主题 ADR，历史结果写 evidence/completion。新的验证只替代对应版本和范围，不重写旧失败。优先关闭明确的缺陷和证据缺口；账户、设备、发行决策和研究候选分别维护，不混成“继续收尾”一个无限任务。
+
+### ModelScope 命令行发布
+
+使用官方 [ModelScope Hub CLI](https://github.com/modelscope/modelscope_hub#ms-hub-upload)，无需克隆数据集或配置 Git/LFS 上传凭据。本机发布前先核对 `modelscope --version`、`modelscope upload --help` 与 `modelscope whoami`；本次确认的 CLI 为 modelscope-hub 0.7.1。认证由 CLI 本地登录管理，令牌不写进文档、脚本或日志。
+
+成功构建、签名并完成当前候选验收后，将仅含本版 APK 的目录上传到新版本子目录：
+
+```bash
+modelscope upload dollars/Helix build/release-apks releases/v0.0.12 \
+  --repo-type dataset --revision master --include '*.apk' \
+  --commit-message 'Publish Helix v0.0.12 APKs'
+```
+
+示例中的本地目录必须替换为本轮已核验的签名制品目录，版本路径随版本明确指定；不上传整个工作区，不使用会删除远端其他文件的 `--sync`。旧版本目录保留，不覆盖已发布同名 APK。上传成功后从公开 `resolve/master/releases/v<versionName>/...apk` 完整下载并核对 SHA-256、字节数；确认两渠道均可下载后才发布 `update-manifest.json` 和下载 README：
+
+```bash
+modelscope upload dollars/Helix build/release-metadata/update-manifest.json update-manifest.json \
+  --repo-type dataset --revision master --commit-message 'Update Helix release manifest'
+modelscope upload dollars/Helix build/release-metadata/README.md README.md \
+  --repo-type dataset --revision master --commit-message 'Update Helix download page'
+```
+
+清单按当前分发协议保持 schemaVersion 1，填写真实包名、ABI、versionName/versionCode、公开地址、校验值与大小。再次公开读取清单并检查其每个新下载项；CLI 成功返回不代替下载核验或应用内更新检查。GitHub Release 仍只附 APK，源码使用标签归档，校验与签名身份写入正文。认证失败时保留已完成步骤，不把 Git 凭据缺失等同于 CLI 未登录。
+
+Owner 对 v0.0.12 发布页要求精简：面向用户只保留核心更新、下载与升级提醒，不单列源码/验证或第三方源码/许可长章节。详细提交、CI、签名与验收边界放开发证据；第三方材料及必要直接链接放仓库 README/第三方声明，不放发布页，不删随包许可。

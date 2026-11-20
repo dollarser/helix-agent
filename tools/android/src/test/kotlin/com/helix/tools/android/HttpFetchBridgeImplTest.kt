@@ -178,6 +178,15 @@ class HttpFetchBridgeImplTest {
         }
     }
 
+    @Test
+    fun incompleteBodyIsReportedAsErrorNotSuccessfulPaddedContent() {
+        LocalServer(response = { "HTTP/1.1 200 OK\r\nContent-Length: 5\r\n\r\nab" }).use { server ->
+            val outcome = bridge(policy(server.port)).fetch(request(server.url()))
+            assertEquals(HttpFetchStatus.ERROR, outcome.status)
+            assertEquals("", outcome.body)
+        }
+    }
+
     private fun redirectPolicyChange(
         expand: Boolean,
         standard: Boolean,

@@ -1,6 +1,6 @@
 # Helix 文档复核历史
 
-初始复核日期：2026-08-31。复核后文档版本：Baseline 1.3。本文是累积复核记录；唯一当前进度以[实施状态](../../development/status.md)为准。
+初始复核日期：2026-08-31。复核后文档版本：Baseline 1.3。本文保留各节日期对应的累积复核记录；文中的“当前”“下一任务”、旧权限与 CI 方案均为当时快照，不构成现行指令。当前事实见[实施状态](../../development/status.md)，任务与操作权限以用户请求及根 `AGENTS.md` 为准。
 
 ## 1. 复核范围
 
@@ -47,7 +47,7 @@
 
 - ADR-PLATFORM-003 的 Context 仓库事实更正：version catalog 与 [05 第 4 节](../../development/environment.md) 基线其实已固定 `kotlinx-serialization-json` 1.9.0，只是无模块消费且未应用 serialization 编译器插件；Alternatives 第 1 条的比较措辞随之调整。决定不变，仍为 `proposed`。
 - 新增 [ADR-AGENT-001](../../adr/agent/001-turn-coordination.md)（proposed）：把 HXA-011 的 3 条严格增量 Turn 状态边（预调用预算失败、同一响应内串行、`INTERRUPTED` 恢复/丢弃）从“契约解释”升级为正式决定；[02 第 5.2 节](../../architecture/overview.md) 状态图同步补全（原图另漏 `RUNNING_TOOL→RECORDING_TOOL_RESULT`）。
-- Plan 双重门措辞规范化（[02 第 5.1 节](../../architecture/overview.md)、[10 第 6.1 节](../../architecture/providers.md)）：operation class 为主判断，动态风险 ≤ L1 为上限，与 HXA-012 `ModePolicy` 实现一致。
+- Plan 双重门措辞规范化（[02 第 5.1 节](../../architecture/overview.md)、[10 第 6.1 节](../../architecture/overview.md#模型-provider-与订阅通路)）：operation class 为主判断，动态风险 ≤ L1 为上限，与 HXA-012 `ModePolicy` 实现一致。
 - [05 第 8 节](../../development/environment.md) 目录树补 `docs/completion-records/`、`config/` 与根 `LICENSE`/`THIRD_PARTY_NOTICES.md`。
 - 历史 `small-model-handoff.md` 的当前事实曾更新到 HXA-013 入口；第 4/5 节标注为交接时快照。该快照已在 2026-09-01 完成信息迁移后删除。
 - HXA-011/012 完成记录的决策记录行补 ADR-AGENT-001 引用与文档同步事实。
@@ -147,7 +147,7 @@
 本轮是 HXA-030～037 完成后的跨层缺陷审查，不改变各 HXA 的原交付范围：
 
 - `core:storage` 将 provider 覆盖从会触发外键 `ON DELETE SET NULL` 的 `REPLACE` 改为原地 UPDATE；Keystore 临时文件改用唯一名称；Goal criteria 非字符串引用改为显式失败。迁移链 v1→v2→v3、审批一次性消费与并发守卫重新核验通过。
-- `tools:framework` 修正取消与真失败的审计分类，保留 audit sink 的原始 suppressed 异常；Scheduler 槽位改为全局 toolCallId、准入检查与占槽原子化，并按精确 `(../name, version)` 解析 footprint。技术重试仍只接受逐 attempt 确认零副作用的结果。
+- `tools:framework` 修正取消与真失败的审计分类，保留 audit sink 的原始 suppressed 异常；Scheduler 槽位改为全局 toolCallId、准入检查与占槽原子化，并按精确 `(name, version)` 解析 footprint。技术重试仍只接受逐 attempt 确认零副作用的结果。
 - `app` 将屏状态更新改为原子操作，保留跨会话待审批卡，清理取消槽和 Turn cancel 生命周期；工具参数 working set 设 1,048,576 UTF-16 code unit 上限，截断工具流 fail closed，空参数归一为 `{}`，审计页明确过滤只作用于已加载页。
 - 三个 Provider 解码器拒绝跨 index 重复 toolCallId；Responses 补齐孤儿/重复/未闭合工具流检查。`core:agent` 收紧 `CancelFinished` 的 uncertain call 归属。
 - 验证：JVM 全矩阵 747/0，设备 app 39/39 + storage 38/38（API 36 arm64 模拟器），app lint、Spotless、Detekt、五个门禁脚本和 `git diff --check` 通过。
@@ -164,7 +164,7 @@
 
 - accepted ADR-AGENT-001 为当前有效决定 的同响应串行生产决定：HXA-037 的有界只读并发继续保留，生产聊天改由唯一 batch-safe `TurnCoordinator` 持有 Turn aggregate phase、当前 ModelCall/stream checkpoint 和事务化模型回填。M1 reducer 只保留历史测试与旧恢复数据兼容。
 - 修复第二轮以后异常仍引用首个 ModelCall 的状态错误；终局 assistant/Turn/ModelCall、工具步骤 close/assistant ToolCalls、按序结果回填/下一 ModelCall/Turn 回环分别形成原子 Room 边界。外部工具副作用始终在事务外，恢复只对账、不盲目重放。
-- Scheduler 由“nullable outcome + 全批 first error”升级为每调用 `Outcome/Thrown(../cause)`，未知副作用进入 `NEEDS_REVIEW`，重复 ToolCall identity 在准入前拒绝；同时修复异常 future 先唤醒、slot 后释放造成的漏唤醒死等。
+- Scheduler 由“nullable outcome + 全批 first error”升级为每调用 `Outcome/Thrown(cause)`，未知副作用进入 `NEEDS_REVIEW`，重复 ToolCall identity 在准入前拒绝；同时修复异常 future 先唤醒、slot 后释放造成的漏唤醒死等。
 - Provider-neutral 流边界新增累计文本、调用数、聚合参数和事件序列失败关闭；发送路径增加模型可见长度/NUL 检查，并在可配置预算 UI 落地前使用固定输出 token 上限。
 - API 36 arm64-v8a 模拟器通过完整 consumer instrumentation；第二 ModelCall 失败、部分文本、合法状态边和进程恢复均有设备 fixture。当前状态转入 M4/HXA-040，不把本次架构收口扩写成文件业务工具已经可用。
 
@@ -172,7 +172,7 @@
 
 本轮针对 HXA-040~044（workspace 文件工具与工具分发框架）处理一份外部对抗性审查：逐条确认属实后修复，并在 commit 前由独立 LLM 复审 agent 重审（逐条 P1 核对 + 检查修复是否引入新洞），复审发现并入同一 commit：
 
-- **P1-1 路径泄漏：属实，修复。** 十个文件工具的 catch 链末端全部具备 sanitized `IOException`（read 与 meta 四件套 stat/list/search/mkdir 本次补齐）；`PathResolution` 的两处裸 `toRealPath()` 改 fail-closed 助手（root → `ScopeNotAvailable(../"scope root is not available")`，中间段竞态删除 → `FileNotFoundException(../"file not found")`），新增测试断言错误消息不含真实路径。复审 agent 逐工具与 store 错误路径复核后确认 CLOSED。
+- **P1-1 路径泄漏：属实，修复。** 十个文件工具的 catch 链末端全部具备 sanitized `IOException`（read 与 meta 四件套 stat/list/search/mkdir 本次补齐）；`PathResolution` 的两处裸 `toRealPath()` 改 fail-closed 助手（root → `ScopeNotAvailable("scope root is not available")`，中间段竞态删除 → `FileNotFoundException("file not found")`），新增测试断言错误消息不含真实路径。复审 agent 逐工具与 store 错误路径复核后确认 CLOSED。
 - **P1-2 工具 timeout 无执行方：属实，修复。** `ToolDispatcher` 新增看门狗：executor 在 daemon 线程池执行，`deadline`（execStart + descriptor.timeout，同一 clock）到期即结算为稳定 TIMEOUT（阻塞线程 best-effort 中断后放弃），新增 2 个测试（30s 睡眠按 400ms 超时结算且只结算一次；deadline 前异常按内联传播）。复审确认池的并发实际上被 ToolScheduler 硬顶 ≤4 限制，不会失控；approval proof 在执行 START 时消费、超时结算语义正确。
 - **P1-3 目录 fsync 顺序：属实，修复。** `writeAtomic` 与 `writeAtomicStream`（044 的流式路径同修）均改为 file data fsync → 原子 rename → 目录 fsync，持久化的目录项是 target 的。复审发现并补修派生问题：重排后 rename **之后**的目录 fsync 失败原会“报失败但文件已发布”（部分文件系统目录 fsync 恒返回 ENOSYS），与工具层“失败 = 未执行”的不变量冲突——已把 rename 后的目录 fsync 降级为 best-effort（失败仅掉电持久性降级，不报失败），KDoc 同步。
 - **P1-4 内存无界：属实，修复。** copy/跨 scope move 改 64 KiB 块流式复制 + 增量 SHA-256（新增多 chunk 测试：逐字节一致、hash 覆盖全文件、源保留、无 temp 残留）；edit 设 50 MiB 上限 + probe 门 + 整文件严格 UTF-8 解码，并按复审意见在 readAll 紧邻前补 size 复检（收窄 probe→readAll TOCTOU 的 OOM 维度窗口；`expectedSha256` 前置哈希在解码之后触发，只兜 clobber 不兜内存）；write 的 content 设 schema maxLength 4 MiB + `parseArgs` 防御复检（复检才是真边界）。
@@ -211,7 +211,7 @@
 
 - 项目所有者明确 Standard 应以 Google Play 和国内 Android 应用商店为目标渠道，同时保留尽可能完整的产品能力，不因抽象安全偏好或未经核验的准则预先裁剪。
 - 官方政策核验显示：Google Play 允许文件/文档管理核心用途申请 All-files，也允许非辅助工具在声明、显著披露和同意后使用 Accessibility；但明确禁止 Accessibility 驱动的 Agent 自主规划执行，只允许狭窄、用户可理解的确定性自动化，并禁止从 Play 外下载 DEX/JAR/native executable code。
-- 新增 accepted [ADR-PLATFORM-001](../../adr/platform/001-distribution.md)取代 ADR-PLATFORM-001：Standard 改为商店/官网完整产品；渠道差异必须有当前政策原文或真实审核反馈，并局限于对应渠道。consumer/developer 降为当前工程机制，不再分别代表“商店阉割版/官网完整版”。
+- 当时接受的分发调整现收敛于 [ADR-PLATFORM-001](../../adr/platform/001-distribution.md)：Standard 改为商店/官网完整产品；渠道差异必须有当前政策原文或真实审核反馈，并局限于对应渠道。consumer/developer 降为当前工程机制，不再分别代表“商店阉割版/官网完整版”。
 - 同步产品需求、Android 能力、总体架构、安全门禁、M12 路线与验收矩阵、开发环境、实施指南、市场与竞品文档。本次没有提交商店、没有获得审核结果，也没有修改 flavor/applicationId 或能力实现代码。
 
 ## 22. 全仓文档去重与权威层收口（2026-09-02）

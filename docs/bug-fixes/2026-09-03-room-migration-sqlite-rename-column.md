@@ -1,9 +1,11 @@
-# Bug Fix: Room v1→v2 migration used `RENAME COLUMN`, which crashes on API 29 (SQLite < 3.25)
+# Bug Fix: Room v1→v2 migration used unsupported `RENAME COLUMN` on the tested API 29 runtime
 
 Status: fixed
 Date: 2026-09-03
 Related HXA: HXA-034, HXA-048
 Affected modules: `core:storage`
+
+Historical scope: this records the 2026-09-03 migration candidate. Current development uses the version-1 baseline and no legacy migration chain; see [storage encoding](../adr/platform/003-storage-encoding.md). The old migration and its tests below are historical evidence, not instructions to restore them.
 
 ## Problem
 
@@ -14,8 +16,9 @@ Affected modules: `core:storage`
 ALTER TABLE approvals RENAME COLUMN argsHash TO bindingHash
 ```
 
-`ALTER TABLE ... RENAME COLUMN` requires SQLite ≥ 3.25. Android only ships that version from
-API 30 (Android 11); the project's `minSdk` is **29** (`build.gradle.kts`, `app/build.gradle.kts`).
+The tested API 29 runtime rejected this `ALTER TABLE ... RENAME COLUMN` statement.
+The project's `minSdk` at this checkpoint was **29** (`build.gradle.kts`, `app/build.gradle.kts`);
+this device result does not establish one SQLite version for every Android API/OEM build.
 On an API 29 (Android 10) device the v1→v2 upgrade throws
 `android.database.sqlite.SQLiteException: near "COLUMN": syntax error` and the app crashes
 on launch for any existing user still on Room schema v1.
@@ -27,7 +30,9 @@ failed on the `Helix_API_29` emulator while passing on `Helix_API_36`.
 
 Any real Android 10 (API 29) user whose on-disk database is still schema v1 hits a fatal
 upgrade crash at app launch — the database cannot be opened, so the app is unusable until the
-database is wiped (losing local data). It is a production data-loss path, not test-only.
+database is repaired or the faulty migration is replaced. Wiping would lose data, but the
+recorded launch failure itself does not prove deletion or authorize a wipe. This is a production
+availability defect, not test-only.
 
 ## Root cause
 
@@ -63,9 +68,9 @@ Invariants that must keep holding:
 - `argsHash → bindingHash` is the only column-identity change; every other column and all
   row values are preserved verbatim, and every migrated row is permanently expired
   (`expiresAt = 0`).
-- No other statement in the codebase may use a SQLite ≥ 3.25-only feature
-  (`RENAME COLUMN`, `CREATE INDEX … ON … WHERE`, `ALTER TABLE … RENAME COLUMN`, etc.) while
-  `minSdk` is 29. This is a durable constraint for future schema changes.
+- SQL used on supported devices must be verified against their actual SQLite capabilities.
+  This failure establishes the unsupported `ALTER TABLE … RENAME COLUMN` path on the tested
+  API 29 runtime; it does not establish that partial indexes are SQLite 3.25-only.
 
 ## Alternatives considered
 
@@ -96,7 +101,7 @@ The regression is exercised on a real Room/SQLite runtime (JVM cannot reach it).
   API 29 total: 47 tests, 8 failures — down from the 10 recorded in the HXA-048 record. The
   8 remaining are unrelated pre-existing issues (`GoalReminderTest` ×2
   `POST_NOTIFICATIONS` grant on an API 29 device; `FilesScreenTest` ×6 `ComposeTimeoutException`
-  on the slow emulator under concurrent load).
+  whose cause was not yet established in this checkpoint).
 - **API 36 — `Helix_API_36(AVD) - 16`** (`TEST-Helix_API_36*.xml`): 47 tests, **0 failures** —
   no regression, both migration cases PASS.
 
@@ -109,9 +114,10 @@ The copy-and-swap is also covered on-device by
 
 The API 29 device matrix is still not fully green for reasons unrelated to this fix:
 `GoalReminderTest` calls `grantRuntimePermission("POST_NOTIFICATIONS")` (API 33+) without an
-SDK guard, and `FilesScreenTest` can time out on the slow API 29 emulator under concurrent
-full-suite load. Those are tracked separately and do not affect the migration path. The
-migration itself now has no known residual risk on any supported API level ≥ 29.
+SDK guard, and `FilesScreenTest` timed out. The file failures were subsequently traced to
+[missing Java APIs](2026-09-03-jvm-stdlib-calls-missing-on-api29.md), not established emulator slowness.
+These separate failures do not change the two migration passes reported above; those passes
+do not prove all supported devices or OEM SQLite builds.
 
 ## Related records
 

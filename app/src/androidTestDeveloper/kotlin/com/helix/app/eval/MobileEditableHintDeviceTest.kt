@@ -49,7 +49,7 @@ class MobileEditableHintDeviceTest {
                 assertEquals(".md", before.getValue("editableValue").jsonPrimitive.content)
                 assertEquals("false", before.getValue("isShowingHintText").jsonPrimitive.content)
                 val token = before.getValue("token").jsonPrimitive.content
-                val action = session.output("ui.set_text", fixture.json("""{"token":"$token","text":""}"""))
+                val action = session.output("ui_set_text", fixture.json("""{"token":"$token","text":""}"""))
                 evidence.put("action", JSONObject(action.toString()))
                 val after = requireNotNull(field(session, fixture))
                 evidence.put("after", JSONObject(after.toString()))
@@ -57,7 +57,7 @@ class MobileEditableHintDeviceTest {
                 assertEquals("", after.getValue("text").jsonPrimitive.content)
                 assertEquals(".md", after.getValue("hintText").jsonPrimitive.content)
                 assertEquals("true", after.getValue("isShowingHintText").jsonPrimitive.content)
-                val actual = session.output("ui.find", fixture.json("""{"text":"length=0;value="}"""))
+                val actual = session.output("ui_find", fixture.json("""{"text":"length=0;value="}"""))
                 evidence.put("nativeValueReceipt", JSONObject(actual.toString()))
                 assertEquals(1, actual.getValue("nodes").jsonArray.size)
                 val preview =
@@ -75,7 +75,7 @@ class MobileEditableHintDeviceTest {
                     },
                 )
                 val fresh = requireNotNull(field(session, fixture)).getValue("token").jsonPrimitive.content
-                session.output("ui.set_text", fixture.json("""{"token":"$fresh","text":".md"}"""))
+                session.output("ui_set_text", fixture.json("""{"token":"$fresh","text":".md"}"""))
                 val restored = requireNotNull(field(session, fixture))
                 evidence.put("restored", JSONObject(restored.toString()))
                 assertEquals(".md", restored.getValue("editableValue").jsonPrimitive.content)
@@ -93,7 +93,7 @@ class MobileEditableHintDeviceTest {
     ): JsonObject? =
         session
             .output(
-                "ui.find",
+                "ui_find",
                 fixture.json("""{"contentDescription":"Fixture extension","editable":true}"""),
             )["nodes"]
             ?.jsonArray

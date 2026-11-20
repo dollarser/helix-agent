@@ -9,7 +9,7 @@
 - CI 保留既有 source/debug/full 分层。补齐 full 的实际 Release APK 边界检查，不把“构建 Release”误认为“扫描过 Release”。本地 `--all` 同步包含该检查。
 - 可选 `.githooks/pre-commit` 已入库，本轮 commit 通过 `git -c core.hooksPath=.githooks commit` 实际执行；未覆盖可能被其他 worktree 使用的共享 hooks 配置。远端不信任本地 hook 作为通过证明。
 
-实现与用法见[CI 分层](../../development/ci.md)。本轮没有改变 Android runner 平台、删除 JVM 测试或放宽 lint/制品断言。
+实现与用法见[CI 分层](../../development/verification-matrix.md#history-ci)。本轮没有改变 Android runner 平台、删除 JVM 测试或放宽 lint/制品断言。
 
 ## 本地证据
 

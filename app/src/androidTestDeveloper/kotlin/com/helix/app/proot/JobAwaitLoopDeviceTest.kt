@@ -101,16 +101,16 @@ class JobAwaitLoopDeviceTest {
                     assertEquals(
                         if (fast) 1 else 4,
                         allCalls.count {
-                            it.name == "tools.search" &&
+                            it.name == "tools_search" &&
                                 it.state == "COMPLETED"
                         },
                     )
-                    val calls = allCalls.filter { it.name != "tools.search" }
+                    val calls = allCalls.filter { it.name != "tools_search" }
                     assertEquals(
                         if (fast) {
                             listOf(DetachedJobTools.START)
                         } else {
-                            listOf(DetachedJobTools.START, "time.now", DetachedJobTools.AWAIT, DetachedJobTools.COLLECT)
+                            listOf(DetachedJobTools.START, "time_now", DetachedJobTools.AWAIT, DetachedJobTools.COLLECT)
                         },
                         calls.map { it.name },
                     )

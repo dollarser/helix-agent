@@ -13,7 +13,7 @@ import kotlinx.serialization.json.jsonPrimitive
 
 /*
  * The archive half of the `files.*` namespace (roadmap HXA-047): FilesArchiveTool
- * (`files.archive`, create) and FilesExtractTool (`files.extract`, extract).
+ * (`files_archive`, create) and FilesExtractTool (`files_extract`, extract).
  *
  * The FORMAT work (zip/tar parse + produce, the Zip Slip / expansion / entry-type defenses, the
  * size and count bounds) lives in the pure, store-independent [ArchiveCodec]. This file is the
@@ -22,8 +22,8 @@ import kotlinx.serialization.json.jsonPrimitive
  * to sanitized model-visible detail. Model-safe FileScopePath references only — the real path never
  * appears in arguments, output, or failure text (doc 10).
  *
- * Placement policy (explicit, fail-closed): `files.archive` reads any user region
- * (`input/`/`work/`/`output/`) and writes the archive file into `work/` only. `files.extract`
+ * Placement policy (explicit, fail-closed): `files_archive` reads any user region
+ * (`input/`/`work/`/`output/`) and writes the archive file into `work/` only. `files_extract`
  * reads a `.zip`/`.tar` file from any user region and writes its members into an EXISTING
  * directory inside `work/` only — extracting into `.helix/` or another scope is impossible because
  * the destination region is fixed to `work/` and the store enforces containment + quota per member.
@@ -275,6 +275,6 @@ internal fun archiveToolsCollectMembers(
     return total
 }
 
-// ── files.archive ───────────────────────────────────────────────────────────────────────────────
+// ── files_archive ───────────────────────────────────────────────────────────────────────────────
 
-// ── files.extract ───────────────────────────────────────────────────────────────────────────────
+// ── files_extract ───────────────────────────────────────────────────────────────────────────────

@@ -109,6 +109,6 @@ watchdog 已抢先结束时，插件迟到的结果不自动覆盖原调用的�
 
 上述有界 R8 取消、进程死亡 UNKNOWN/不重放及旧 node 失效对照已通过；仍不覆盖全部 live UNKNOWN 回调组合、旧 gesture frame 矩阵、Root/Shizuku 或其他 OEM。SQLite 的模拟器只读取证不代表 Mobile Use Root 后端验收。R8 边界测试使用受控回环 Provider；追加的 Qwen 真实业务旅程是独立 Developer Debug 证据，不继承为 R8 真实 Provider 通过。未进行第三方账号业务或媒体端到端；Notion/Linear 已结案，提前结束专项和长稳继续暂停。
 
-正式 v0.0.6 的候选源码冻结、发行身份、签名及发布仍按[发行条件](../../development/release-readiness.md)处理，不能用隔离测试签名包宣称发布完成。预览不保留旧数据的决定已落实；日常模拟器应用不因此获得被清库或覆盖的授权。
+正式 v0.0.6 的候选源码冻结、发行身份、签名及发布仍按[发行条件](../../development/release-readiness.md)处理，不能用隔离测试签名包宣称发布完成。当轮预览不保留旧数据的决定不扩展当轮日常模拟器操作范围；后续模拟器操作授权以当前 [AGENTS.md](../../../AGENTS.md#verification-and-device-authorization) 为准，本记录不沿用旧限制或授予额外权限。
 
 主要文件：[市场目录](../../../app/src/main/kotlin/com/helix/app/marketplace/MarketplaceCatalog.kt)、三语言资源与目录测试；[等待工具修复](../../../extensions/mobile-use/src/main/kotlin/com/helix/extensions/mobileuse/tools/AutomationTools.kt)与对应 JVM 测试；[配置旅程](../../../tests/release-smoke/src/androidTest/kotlin/com/helix/smoke/MobileUseReleaseTest.kt)、[执行边界宿主](../../../tests/release-smoke/src/androidTest/kotlin/com/helix/smoke/MobileUseExecutionReleaseTest.kt)及独立回环/Activity/只读探针；[运行器](../../../scripts/run-release-smoke.py)及 Python 回归；[Detekt 构建规则](../../../build.gradle.kts)、原插件评审、ADR-CONNECTORS-005、status 与本记录。

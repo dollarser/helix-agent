@@ -66,8 +66,11 @@ class SessionModelDeviceTest {
                     check(service.runConnectionTest(alternate) is ProbeOutcome.Ok)
                     service.saveSelectedModels(provider, listOf("fixture-model-a", "fixture-model-b"))
                     service.saveSelectedModels(alternate, listOf("fixture-model-a", "fixture-model-c"))
+                    val previousSession = chat.screen.value.openSessionId
                     compose.onNodeWithTag("chat-new-session").performClick()
-                    compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) { chat.screen.value.isDraft }
+                    compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
+                        chat.screen.value.isDraft && chat.screen.value.openSessionId != previousSession
+                    }
                     val selected =
                         chat.requestSessionModelSelection(chat.screen.value.openSessionId, provider, "fixture-model-b")
                     assertEquals(SessionModelSelectionResult.APPLIED, selected.await())

@@ -6,7 +6,10 @@ import java.io.File
 
 /** Join durable execution identity to successful tool-role delivery, not merely matching prompt text. */
 @Suppress("CyclomaticComplexMethod", "LongMethod") // Independent execution, delivery and answer acceptance facts.
-internal fun verifyFileLocationEvidence(directory: File): Boolean {
+internal fun verifyFileLocationEvidence(
+    directory: File,
+    acceptance: FileLocationAcceptance,
+): Boolean {
     val result = JSONObject(File(directory, "result.json").readText())
     val token = result.getString("expectedToken")
     val path = result.getString("expectedPath")
@@ -65,13 +68,26 @@ internal fun verifyFileLocationEvidence(directory: File): Boolean {
     val answer = result.optString("answer")
     val checkpoint = path.substringAfterLast("release-").removeSuffix(".md")
     val supportedAnswer = token in answer && path in answer && "restore synthetic checkpoint SEED-$checkpoint" in answer
+    val taskPassed =
+        consumed.getValue("read") && absentInitially && supportedAnswer &&
+            result
+                .getJSONArray("turns")
+                .fileObjects()
+                .lastOrNull()
+                ?.optString("state") == "COMPLETED"
+    val searchCoveragePassed = consumed.getValue("glob") && consumed.getValue("grep")
+    val acceptancePassed = taskPassed && (acceptance == FileLocationAcceptance.AUTONOMOUS || searchCoveragePassed)
     val audit =
         JSONObject()
+            .put("acceptance", acceptance.name)
+            .put("taskPassed", taskPassed)
+            .put("searchCoveragePassed", searchCoveragePassed)
+            .put("acceptancePassed", acceptancePassed)
             .put("consumed", JSONObject(consumed))
             .put("tokenAbsentInitially", absentInitially)
             .put("answerSupported", supportedAnswer)
     File(directory, "source-audit.json").writeText(audit.toString(2))
-    return consumed.values.all { it } && absentInitially && supportedAnswer
+    return acceptancePassed
 }
 
 private fun JSONArray.fileObjects(): List<JSONObject> = (0 until length()).map { getJSONObject(it) }
