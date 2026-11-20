@@ -29,6 +29,7 @@ class CiPlanTest(unittest.TestCase):
         jobs = [{'name': name, 'conclusion': 'success'} for name in
                 ['source', 'runtime-assets', 'android', 'verify']]
         self.assertTrue(ci.successful_android_jobs(jobs))
+        self.assertFalse(ci.successful_android_jobs(jobs + [jobs[0]]))
         for index in range(len(jobs)):
             self.assertFalse(ci.successful_android_jobs(jobs[:index] + jobs[index + 1:]))
             for result in ['failure', 'cancelled', 'skipped', '', None]:
@@ -38,6 +39,8 @@ class CiPlanTest(unittest.TestCase):
         runs = [{'id': 3, 'event': 'workflow_dispatch', 'head_sha': 'c' * 40},
                 {'id': 2, 'event': 'push', 'head_sha': 'b' * 40},
                 {'id': 1, 'event': 'push', 'head_sha': 'a' * 40}]
+        for run in runs:
+            run.update(head_branch='main', status='completed', conclusion='success')
         def get(path):
             if '/runs?' in path:
                 return {'workflow_runs': runs}
@@ -54,18 +57,18 @@ class CiPlanTest(unittest.TestCase):
     def test_cancelled_code_then_docs_does_not_hide_code(self):
         with patch.object(ci, 'proven_base', return_value='a' * 40), patch.object(
                 ci, 'git', return_value='app/src/main/Main.kt\ndocs/a.md') as git:
-            result = ci.plan('push', {'before': 'b' * 40})
+            result = ci.plan('push', {'ref': 'refs/heads/dev', 'before': 'b' * 40})
         self.assertEqual('debug', result['scope'])
         self.assertEqual('a' * 40, git.call_args.args[-2])
         with patch.object(ci, 'proven_base', return_value='b' * 40), patch.object(
                 ci, 'git', return_value='docs/a.md'):
-            self.assertEqual('source', ci.plan('push', {})['scope'])
+            self.assertEqual('source', ci.plan('push', {'ref': 'refs/heads/dev'})['scope'])
 
     def test_missing_or_unavailable_baseline_defaults_debug_never_source(self):
         with patch.object(ci, 'proven_base', return_value=None):
-            self.assertEqual('debug', ci.plan('push', {})['scope'])
+            self.assertEqual('debug', ci.plan('push', {'ref': 'refs/heads/dev'})['scope'])
         with patch.object(ci, 'proven_base', side_effect=OSError('unavailable')):
-            self.assertEqual('debug', ci.plan('push', {})['scope'])
+            self.assertEqual('debug', ci.plan('push', {'ref': 'refs/heads/dev'})['scope'])
 
     def test_pr_complete_diff_and_full_only_by_explicit_dispatch(self):
         with patch.object(ci, 'git', side_effect=['a' * 40, 'docs/a.md']):
@@ -153,3 +156,64 @@ class WhitespaceRangeTest(unittest.TestCase):
         result = ci.check_whitespace(boundary)
         self.assertNotEqual(0, result.returncode)
         self.assertIn('space before tab', result.stdout)
+
+
+class BranchBaselineTest(unittest.TestCase):
+    def run_entry(self, sha, branch='dev', conclusion='success', **extra):
+        return dict(id=sha[0], head_sha=sha, head_branch=branch, event='push',
+                    status='completed', conclusion=conclusion, **extra)
+
+    def get_for(self, dev, main, incomplete=()):
+        self.calls = []
+        def get(path):
+            self.calls.append(path)
+            if 'branch=dev&' in path:
+                return {'workflow_runs': dev}
+            if 'branch=main&' in path:
+                return {'workflow_runs': main}
+            names = ['source'] if any('/'+i+'/' in path for i in incomplete) else ['source', 'runtime-assets', 'android', 'verify']
+            return {'jobs': [{'name': n, 'conclusion': 'success'} for n in names]}
+        return get
+
+    def test_green_dev_then_docs_uses_dev_not_main(self):
+        get = self.get_for([self.run_entry('b'*40)], [self.run_entry('a'*40, 'main')])
+        with patch.object(ci, 'is_ancestor', return_value=True), patch.object(ci, 'git', return_value='docs/note.md') as diff:
+            result = ci.plan('push', {'ref': 'refs/heads/dev'}, get)
+        self.assertEqual(('source', 'b'*40), (result['scope'], result['base']))
+        self.assertEqual('b'*40, diff.call_args.args[-2])
+        self.assertFalse(any('branch=main' in p for p in self.calls))
+
+    def test_failed_cancelled_source_only_and_nonancestor_do_not_hide_code(self):
+        for candidate, incomplete, ancestors in [
+            (self.run_entry('b'*40, conclusion='failure'), (), {'a'*40}),
+            (self.run_entry('b'*40, conclusion='cancelled'), (), {'a'*40}),
+            (self.run_entry('b'*40), ('b',), {'a'*40, 'b'*40}),
+            (self.run_entry('b'*40), (), {'a'*40}),
+            (self.run_entry('b'*40, 'other'), (), {'a'*40, 'b'*40}),
+        ]:
+            get = self.get_for([candidate], [self.run_entry('a'*40, 'main')], incomplete)
+            with patch.object(ci, 'is_ancestor', side_effect=lambda sha: sha in ancestors), patch.object(ci, 'git', return_value='app/src/main/App.kt\ndocs/note.md'):
+                result = ci.plan('push', {'ref': 'refs/heads/dev'}, get)
+            self.assertEqual(('debug', 'a'*40), (result['scope'], result['base']))
+
+    def test_fallback_absence_api_error_and_invalid_ref_are_conservative(self):
+        get = self.get_for([], [self.run_entry('a'*40, 'main')])
+        self.assertEqual('a'*40, ci.proven_base(get, lambda _: True, 'dev'))
+        get = self.get_for([], [])
+        self.assertIsNone(ci.proven_base(get, lambda _: True, 'dev'))
+        for failure in [OSError('offline'), KeyError('bad response'), TypeError('bad response')]:
+            with patch.object(ci, 'is_ancestor', return_value=True):
+                result = ci.plan('push', {'ref': 'refs/heads/dev'}, lambda _: (_ for _ in ()).throw(failure))
+            self.assertEqual('debug', result['scope'])
+        for ref in ['', None, 'refs/tags/v1']:
+            result = ci.plan('push', {'ref': ref}, lambda _: self.fail('Invalid ref queried API'))
+            self.assertEqual('debug', result['scope'])
+
+    def test_main_queries_once_and_search_is_bounded(self):
+        get = self.get_for([], [])
+        self.assertIsNone(ci.proven_base(get, lambda _: True, 'main'))
+        self.assertEqual(1, len(self.calls))
+        runs = [self.run_entry(str(i)*40) for i in range(1,10)]*4
+        get = self.get_for(runs, [], tuple(str(i) for i in range(1,10)))
+        self.assertIsNone(ci.proven_base(get, lambda _: True, 'dev'))
+        self.assertEqual(12, len(self.calls))  # ten job lookups plus two branch requests

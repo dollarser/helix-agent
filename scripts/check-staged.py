@@ -5,6 +5,7 @@ import shutil
 import subprocess
 import sys
 import time
+import tempfile
 from public_oauth import sanitize
 
 PATTERNS = Path(__file__).with_name("secret-pattern.txt")
@@ -23,6 +24,7 @@ def main():
     changed = set(git("diff", "--cached", "--name-only", "--no-renames", "--no-ext-diff",
                       "--no-textconv", "--diff-filter=ACMT", "-z").split(b"\0")) - {b""}
     count = 0
+    workflows = []
     for entry in git("ls-files", "--stage", "-z").split(b"\0"):
         if not entry:
             continue
@@ -56,6 +58,10 @@ def main():
             raise RuntimeError(f"potential secret in staged path {path.decode(errors='backslashreplace')!r}; content suppressed")
         if scan_code != 1:
             raise RuntimeError("blob reader or secret scanner failed; refusing to pass")
+        if path.startswith(b'.github/workflows/') and path.endswith((b'.yml', b'.yaml')):
+            if mode == b'120000':
+                raise RuntimeError('Workflow must be a regular staged file')
+            workflows.append((path.decode(), git('cat-file', 'blob', oid.decode('ascii'))))
         count += 1
     # Attribute rules must come from the index too, not an unstaged .gitattributes.
     tree = git("write-tree").decode().strip()
@@ -63,6 +69,19 @@ def main():
                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     if whitespace.returncode:
         raise RuntimeError("staged whitespace/conflict-marker check failed; inspect the staged diff locally")
+    if workflows:
+        linter = shutil.which('actionlint')
+        if not linter:
+            raise RuntimeError('Workflow changes require actionlint on PATH (validated: 1.7.12); install it and retry')
+        # Isolate from unstaged workflow/configuration files. No shell/Python
+        # execution or optional external linters; validate staged Actions syntax.
+        with tempfile.TemporaryDirectory(prefix='helix-workflow-index-') as directory:
+            for path, blob in workflows:
+                result = subprocess.run([linter, '-no-color', '-shellcheck=', '-pyflakes=',
+                                         '-stdin-filename', path, '-'], input=blob, cwd=directory,
+                                        stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                if result.returncode:
+                    raise RuntimeError('Staged workflow actionlint failed: ' + result.stdout.decode(errors='replace'))
     elapsed = time.monotonic() - started
     print(f"Staged gate passed: {count} blobs, {elapsed:.3f}s; no Gradle or network.")
     if elapsed > 3:

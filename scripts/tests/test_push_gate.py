@@ -191,7 +191,7 @@ class PushGateTest(unittest.TestCase):
         def get(path):
             if 'jobs' in path:
                 return {'jobs': [{'name': n, 'conclusion': 'success'} for n in ['source', 'runtime-assets', 'android', 'verify']]}
-            return {'workflow_runs': [{'id': 1, 'event': 'push', 'head_sha': self.base}]}
+            return {'workflow_runs': [{'id': 1, 'event': 'push', 'head_sha': self.base, 'head_branch': 'main', 'status': 'completed', 'conclusion': 'success'}]}
         self.assertEqual(self.base, gate.baseline(self.root, self.head, get))
 
     def test_inherited_git_environment_does_not_retarget_snapshot(self):
