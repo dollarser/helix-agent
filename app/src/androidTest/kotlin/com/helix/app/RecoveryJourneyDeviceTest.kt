@@ -262,6 +262,47 @@ class RecoveryJourneyDeviceTest {
         }
     }
 
+    @Test fun freshMessageCompletesWhileOriginalEffectRemainsUnknown() =
+        runBlocking {
+            val container = compose.container()
+            val chat = container.chatService
+            val storage = container.storage
+            LoopbackModelServer(LoopbackModelServer.Mode.OPENAI_LISTED).use { server ->
+                server.forceTextResponses = true
+                server.start()
+                val provider = createProvider(container, server.port)
+                val session = chat.createSession("Recovery follow-up", provider, MODEL)
+                try {
+                    val original = UUID.randomUUID().toString()
+                    seedTerminalTurn(storage, SystemClock(), session, original, null, TurnState.INTERRUPTED, 0L)
+                    storage.toolCalls.append(
+                        "$original-action",
+                        original,
+                        "gesture",
+                        "ui_click",
+                        "1",
+                        "{}",
+                        "INTERRUPTED",
+                    )
+                    val call = storage.toolCalls.listByTurn(original).single()
+                    chat.openSession(session)
+                    settle { chat.screen.value.openSessionId == session }
+                    chat.sendTestMessage(session, "What is two plus two?")
+                    settle { storage.turns.listBySession(session).any { it.id != original && it.state == "COMPLETED" } }
+                    val successor = storage.turns.listBySession(session).single { it.id != original }
+                    assertTrue(storage.modelCalls.listByTurn(successor.id).isNotEmpty())
+                    assertTrue(storage.toolCalls.listByTurn(successor.id).isEmpty())
+                    assertEquals("INTERRUPTED", storage.turns.resolve(original).state)
+                    assertEquals(call, storage.toolCalls.listByTurn(original).single())
+                    org.junit.Assert.assertNull(storage.toolResults.byToolCall(call.id))
+                } finally {
+                    chat.closeSession()
+                    storage.sessions.archive(session, System.currentTimeMillis())
+                    container.providerService.delete(provider)
+                }
+            }
+        }
+
     // ---- helpers ----
 
     private fun openAndAwaitPanel(sessionId: String): String {
