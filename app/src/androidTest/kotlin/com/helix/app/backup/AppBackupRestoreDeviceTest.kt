@@ -16,6 +16,7 @@ import com.helix.core.model.input.ConversationReferenceSnapshotInput
 import com.helix.core.storage.HelixStorage
 import com.helix.core.storage.backup.AppBackupArchive
 import com.helix.core.storage.content.DocumentStorage
+import com.helix.core.storage.content.MediaStoreDocuments
 import com.helix.core.storage.knowledge.KnowledgeNote
 import com.helix.core.storage.knowledge.KnowledgeStore
 import com.helix.core.storage.repository.ExpertDefinition
@@ -232,6 +233,7 @@ class AppBackupRestoreDeviceTest {
                                 )
                             try {
                                 coordinator.queue(prepared, previous, ownership)
+                                assertSecondPreviewRejected(coordinator, previous, ownership, prepared)
                             } finally {
                                 previous.close()
                             }
@@ -274,6 +276,45 @@ class AppBackupRestoreDeviceTest {
                     safeDeleteBackupTree(root)
                 }
             }
+        }
+
+    private fun assertSecondPreviewRejected(
+        coordinator: ProfileRestoreCoordinator,
+        storage: HelixStorage,
+        ownership: ExecutionOwnership,
+        active: PreparedProfileRestore,
+    ) {
+        val stage = coordinator.stageDirectory()
+        PreparedProfileRestore(
+            stage,
+            emptyMap(),
+            active.state,
+            active.preferences,
+            emptyList(),
+            emptyMap(),
+            false,
+        ).use {
+            val failure =
+                org.junit.Assert.assertThrows(IllegalStateException::class.java) {
+                    coordinator.queue(it, storage, ownership)
+                }
+            assertEquals("RESTORE_ALREADY_PENDING", failure.message)
+        }
+        assertFalse(stage.exists())
+        assertTrue(active.directory.isDirectory)
+    }
+
+    @Test fun changedStageFailsAndReclaimsRolledBackFiles() =
+        recoveryFixture { fixture ->
+            fixture.transaction().queue(mapOf("files/native-hosts.txt" to fixture.replacement))
+            fixture.pointer("QUEUED")
+            fixture.replacement.appendText("changed after preview")
+            val failure =
+                org.junit.Assert.assertThrows(IllegalStateException::class.java) {
+                    fixture.coordinator.recoverBeforeConsumers()
+                }
+            assertEquals("RESTORE_STAGE_CHANGED", failure.message)
+            fixture.assertOriginalRestored()
         }
 
     @Test fun interruptedReplacementRollsBackBeforeAnyConsumerOpens() =
@@ -382,6 +423,32 @@ class AppBackupRestoreDeviceTest {
             assertTrue(fixture.stage.exists())
             // Exiting without confirming leaves both the restored database and recovery pointer intact.
             assertTrue(fixture.context.getDatabasePath("helix.db").exists())
+        }
+
+    @Test fun mediaStoreRollbackRetainsUnrelatedDocument() =
+        recoveryFixture { fixture ->
+            val documents = MediaStoreDocuments(fixture.context, "rollback-${UUID.randomUUID()}")
+            val existing = documents.save("notes", "existing.txt", byteArrayOf(1), mimeType = "text/plain")
+            try {
+                val journal = File(fixture.stage, "public-publications.json")
+                val publication = RestoreLibraryDocuments(documents, journal)
+                val saved = publication.save("notes", "restored.md", byteArrayOf(2), mimeType = "text/plain")
+                assertTrue(DocumentStorage.Entry(saved.reference, saved.name) in documents.entries("notes"))
+                RestoreLibraryDocuments(documents, journal).rollback()
+                assertEquals(listOf(existing.reference), documents.references("notes"))
+                assertEquals(existing.hash, documents.read(existing.reference, 16).hash)
+                assertFalse(journal.exists())
+            } finally {
+                documents.list("notes").forEach(documents::delete)
+            }
+        }
+
+    @Test fun nextStartupReclaimsFinishedStageAfterPointerDeletion() =
+        recoveryFixture { fixture ->
+            val marker = File(fixture.stage.parentFile, "cleanup-${fixture.stage.name}")
+            marker.writeBytes(byteArrayOf())
+            fixture.coordinator.recoverBeforeConsumers()
+            fixture.assertOriginalRestored()
         }
 
     @Test fun completionMarkerNeverDeletesAnActiveRecoveryStage() =
@@ -598,6 +665,8 @@ private class RecoveryFixture(
     fun assertOriginalRestored() {
         assertEquals("original", original.readText())
         assertFalse(ProfileReplacement.pending(context))
+        assertFalse(stage.exists())
+        assertFalse(File(stage.parentFile, "cleanup-${stage.name}").exists())
         assertEquals(
             "en",
             context.getSharedPreferences("com.helix.app.language", Context.MODE_PRIVATE).getString("choice", null),

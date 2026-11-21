@@ -53,7 +53,9 @@ class RestoreLibraryDocumentsTest {
             val publications = RestoreLibraryDocuments(target, journal)
             publications.save("notes", "synthetic.md", "New".toByteArray())
             publications.save("originals/web", "public-page.html", "HTML".toByteArray())
-            publications.rollback()
+            target.reads.clear()
+            RestoreLibraryDocuments(target, journal).rollback()
+            assertFalse(old.reference in target.reads)
             assertEquals(listOf(old.reference), target.references("notes"))
             assertTrue(target.references("originals/web").isEmpty())
             assertFalse(journal.exists())
@@ -62,8 +64,72 @@ class RestoreLibraryDocumentsTest {
         }
     }
 
-    private class Documents : DocumentStorage {
+    @Test fun publishedReceiptUsesActualNameAndNeverRetargetsToSameNameCopy() {
+        val root = Files.createTempDirectory("library-identity").toFile()
+        try {
+            val target = Documents { name -> name.substringBeforeLast('.') + ".txt" }
+            val journal = File(root, "journal.json")
+            val publications = RestoreLibraryDocuments(target, journal)
+            val saved = publications.save("notes", "note.md", byteArrayOf(1))
+            val copy = target.save("notes", saved.name, saved.bytes)
+            target.reads.clear()
+            RestoreLibraryDocuments(target, journal).rollback()
+            assertEquals(listOf(saved.reference), target.reads)
+            assertEquals(listOf(copy.reference), target.references("notes"))
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
+    @Test fun interruptedSaveUsesOwnedStemAndOriginalHashAfterProviderRenamesExtension() {
+        val root = Files.createTempDirectory("library-intent").toFile()
+        try {
+            val target = Documents()
+            val interrupted =
+                object : DocumentStorage by target {
+                    override fun save(
+                        directory: String,
+                        name: String,
+                        bytes: ByteArray,
+                        previous: DocumentStorage.File?,
+                        mimeType: String,
+                    ): DocumentStorage.File {
+                        target.save(directory, name.substringBeforeLast('.') + " (1).txt", bytes)
+                        error("Interrupted after publication")
+                    }
+                }
+            val journal = File(root, "journal.json")
+            assertThrows(IllegalStateException::class.java) {
+                RestoreLibraryDocuments(interrupted, journal).save("notes", "note.md", byteArrayOf(1))
+            }
+            val saved = target.list("notes").single()
+            val duplicate = target.save("notes", saved.name, saved.bytes)
+            target.reads.clear()
+            val recovery = RestoreLibraryDocuments(target, journal)
+            assertThrows(IllegalArgumentException::class.java) { recovery.rollback() }
+            assertTrue(target.reads.isEmpty())
+            target.delete(duplicate)
+            target.change(saved.reference, byteArrayOf(2))
+            assertThrows(IllegalArgumentException::class.java) { recovery.rollback() }
+            assertTrue(journal.exists())
+            assertEquals(listOf(saved.reference), target.references("notes"))
+            target.change(saved.reference, saved.bytes)
+            recovery.rollback()
+            assertTrue(target.references("notes").isEmpty())
+            assertFalse(journal.exists())
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
+    private class Documents(
+        private val displayName: (String) -> String = { it },
+    ) : DocumentStorage {
         private val values = linkedMapOf<String, ByteArray>()
+
+        private val names = mutableMapOf<String, Pair<String, String>>()
+        private var nextId = 1
+        val reads = mutableListOf<String>()
 
         fun snapshot() = values.mapValues { DocumentStorage.hash(it.value) }
 
@@ -77,17 +143,23 @@ class RestoreLibraryDocumentsTest {
 
         override fun list(directory: String) = references(directory).map { read(it, Int.MAX_VALUE) }
 
-        override fun references(directory: String) = values.keys.filter { it.substringBeforeLast('/') == directory }
+        override fun references(directory: String) = values.keys.filter { names.getValue(it).first == directory }
+
+        override fun entries(directory: String) =
+            references(directory).map {
+                DocumentStorage.Entry(it, names.getValue(it).second)
+            }
 
         override fun read(
             reference: String,
             maxBytes: Int,
         ): DocumentStorage.File {
+            reads += reference
             val bytes = values.getValue(reference).copyOf()
             require(bytes.size <= maxBytes)
             return DocumentStorage.File(
                 reference,
-                reference.substringAfterLast('/'),
+                names.getValue(reference).second,
                 bytes,
                 DocumentStorage.hash(bytes),
             )
@@ -100,9 +172,11 @@ class RestoreLibraryDocumentsTest {
             previous: DocumentStorage.File?,
             mimeType: String,
         ): DocumentStorage.File {
-            check(previous == null && "$directory/$name" !in values)
-            values["$directory/$name"] = bytes.copyOf()
-            return read("$directory/$name", Int.MAX_VALUE)
+            check(previous == null)
+            val reference = (nextId++).toString()
+            values[reference] = bytes.copyOf()
+            names[reference] = directory to displayName(name)
+            return read(reference, Int.MAX_VALUE)
         }
 
         override fun delete(previous: DocumentStorage.File) {

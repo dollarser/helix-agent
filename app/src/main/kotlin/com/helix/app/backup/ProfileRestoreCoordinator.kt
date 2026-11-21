@@ -44,6 +44,7 @@ internal class ProfileRestoreCoordinator(
         ownership: ExecutionOwnership,
     ) = synchronized(ProfileReplacement.lock) {
         prepared.beginQueue()
+        var publishingPointer = false
         try {
             ownership.withIdleProfile {
                 check(!pointer.exists()) { "RESTORE_ALREADY_PENDING" }
@@ -60,12 +61,13 @@ internal class ProfileRestoreCoordinator(
                             "phase" to JsonPrimitive("QUEUED"),
                         ),
                     )
+                publishingPointer = true
                 AtomicFileWriter.writeAtomic(pointer.toPath(), metadata.toString().toByteArray())
             }
         } finally {
             // A persistence exception may follow a committed atomic rename. Keep the stage
-            // whenever a durable pointer exists; never delete an uncertain queued restore.
-            prepared.endQueue(preserve = pointer.exists())
+            // only when this attempt reached publication under the exclusive replacement lock.
+            prepared.endQueue(preserve = publishingPointer && pointer.exists())
         }
     }
 
@@ -108,15 +110,7 @@ internal class ProfileRestoreCoordinator(
                 }
                 PortablePreferences.refreshLoaded(context, state.getValue("preferences") as JsonObject)
             } catch (failure: Exception) {
-                if (transaction.phase() == "COMMITTED") {
-                    transaction.requestRollback()
-                    transaction.recover()
-                } else if (transaction.phase() == "PREPARED") {
-                    transaction.abortPrepared()
-                }
-                library.rollback()
-                restorePreviousPreferences(directory)
-                check(pointer.delete())
+                rollback(directory, transaction, library)
                 throw failure
             }
         }
@@ -128,32 +122,28 @@ internal class ProfileRestoreCoordinator(
         library: RestoreLibraryDocuments,
     ) {
         if (plan.getValue("phase").jsonPrimitive.content == "ROLLBACK") {
-            when (transaction.phase()) {
-                "PREPARED" -> {
-                    transaction.abortPrepared()
-                }
-
-                "COMMITTED" -> {
-                    transaction.requestRollback()
-                    transaction.recover()
-                }
-
-                else -> {
-                    transaction.recover()
-                }
-            }
-            library.rollback()
-            restorePreviousPreferences(directory)
-            check(pointer.delete())
+            rollback(directory, transaction, library)
             error("RESTORE_FAILED_ROLLED_BACK")
         }
         if (plan.getValue("phase").jsonPrimitive.content == "APPLYING" && transaction.phase() != "COMMITTED") {
-            if (transaction.phase() == "PREPARED") transaction.abortPrepared() else transaction.recover()
-            library.rollback()
-            restorePreviousPreferences(directory)
-            check(pointer.delete())
+            rollback(directory, transaction, library)
             error("RESTORE_INTERRUPTED_ROLLED_BACK")
         }
+    }
+
+    private fun rollback(
+        directory: File,
+        transaction: RestoreFileTransaction,
+        library: RestoreLibraryDocuments,
+    ) {
+        when (transaction.phase()) {
+            "PREPARED" -> transaction.abortPrepared()
+            "COMMITTED" -> transaction.requestRollback()
+        }
+        check(transaction.recover() == RestoreFileTransaction.Outcome.ROLLED_BACK)
+        library.rollback()
+        restorePreviousPreferences(directory)
+        finishStage(directory)
     }
 
     fun markConsumerFailure() =
@@ -177,10 +167,14 @@ internal class ProfileRestoreCoordinator(
             if (!pointer.exists()) return@synchronized
             val directory = directory(readPointer())
             check(transaction(directory).phase() == "COMMITTED")
-            AtomicFileWriter.writeAtomic(File(home, "cleanup-${directory.name}").toPath(), byteArrayOf())
-            check(pointer.delete())
-            cleanupCompleted()
+            finishStage(directory)
         }
+
+    private fun finishStage(directory: File) {
+        AtomicFileWriter.writeAtomic(File(home, "cleanup-${directory.name}").toPath(), byteArrayOf())
+        check(pointer.delete())
+        cleanupCompleted()
+    }
 
     private fun cleanupCompleted() {
         // Completion marker and pending deletion are separate durable writes. A crash between

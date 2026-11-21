@@ -1,5 +1,6 @@
 package com.helix.app.backup
 
+import com.helix.core.storage.content.DocumentPendingCleanup
 import com.helix.core.storage.content.DocumentReadAccess
 import com.helix.core.storage.content.DocumentStorage
 import com.helix.core.workspace.AtomicFileWriter
@@ -49,10 +50,16 @@ internal class RestoreLibraryDocuments(
                     "sha256" to JsonPrimitive(DocumentStorage.hash(bytes)),
                 ),
             )
-        val entries = read() + item
-        require(entries.size <= 1024)
-        AtomicFileWriter.writeAtomic(journal.toPath(), JsonArray(entries).toString().toByteArray())
-        return target.save(directory, ownedName, bytes, mimeType = mimeType)
+        val entries = read()
+        require(entries.size < 1024)
+        write(entries + item)
+        val saved = target.save(directory, ownedName, bytes, mimeType = mimeType)
+        val published =
+            JsonObject(
+                item + mapOf("reference" to JsonPrimitive(saved.reference), "actualName" to JsonPrimitive(saved.name)),
+            )
+        write(entries + published)
+        return saved
     }
 
     override fun delete(previous: DocumentStorage.File): Unit = error("RESTORE_PUBLIC_DELETE_FORBIDDEN")
@@ -63,16 +70,33 @@ internal class RestoreLibraryDocuments(
             val name = item.getValue("name").jsonPrimitive.content
             val hash = item.getValue("sha256").jsonPrimitive.content
             require(name.contains(Regex("restore-[a-f0-9-]{36}")))
-            val matches =
-                target
-                    .references(directory)
-                    .map { target.read(it, 16 * 1024 * 1024) }
-                    .filter { it.name == name || it.name.startsWith("$name.") }
-            require(matches.size <= 1 && matches.all { it.hash == hash }) { "RESTORE_PUBLIC_ROLLBACK_CONFLICT" }
-            matches.forEach(target::delete)
-            (target as? com.helix.core.storage.content.DocumentPendingCleanup)?.discardOwnedPending(directory, name)
+            val entries = target.entries(directory)
+            val reference = item["reference"]?.jsonPrimitive?.content
+            val actualName = item["actualName"]?.jsonPrimitive?.content
+            val candidate =
+                if (reference != null) {
+                    entries.singleOrNull { it.reference == reference }.also {
+                        require(it == null || it.name == actualName) { "RESTORE_PUBLIC_ROLLBACK_CONFLICT" }
+                    }
+                } else {
+                    val matches = entries.filter { DocumentPendingCleanup.matchesOwnedName(name, it.name) }
+                    require(matches.size <= 1) { "RESTORE_PUBLIC_ROLLBACK_CONFLICT" }
+                    matches.singleOrNull()
+                }
+            if (candidate != null) {
+                val file = target.read(candidate.reference, 16 * 1024 * 1024)
+                require(file.reference == candidate.reference && file.name == candidate.name && file.hash == hash) {
+                    "RESTORE_PUBLIC_ROLLBACK_CONFLICT"
+                }
+                target.delete(file)
+            }
+            if (reference == null) (target as? DocumentPendingCleanup)?.discardOwnedPending(directory, name)
         }
         if (journal.exists()) check(journal.delete())
+    }
+
+    private fun write(entries: List<JsonObject>) {
+        AtomicFileWriter.writeAtomic(journal.toPath(), JsonArray(entries).toString().toByteArray())
     }
 
     private fun read(): List<JsonObject> {
@@ -82,7 +106,8 @@ internal class RestoreLibraryDocuments(
         require(rows.size <= 1024)
         return rows.map { value ->
             (value as JsonObject).also {
-                require(it.keys == setOf("directory", "name", "sha256"))
+                val intent = setOf("directory", "name", "sha256")
+                require(it.keys == intent || it.keys == intent + setOf("reference", "actualName"))
             }
         }
     }

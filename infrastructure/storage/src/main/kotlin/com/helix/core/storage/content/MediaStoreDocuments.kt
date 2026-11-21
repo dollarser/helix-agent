@@ -53,7 +53,10 @@ class MediaStoreDocuments(
     }
 
     @Synchronized
-    override fun references(directory: String): List<String> =
+    override fun references(directory: String): List<String> = entries(directory).map { it.reference }
+
+    @Synchronized
+    override fun entries(directory: String): List<DocumentStorage.Entry> =
         operation {
             recover()
             val relative = directory(directory)
@@ -61,7 +64,7 @@ class MediaStoreDocuments(
             requireNotNull(
                 resolver.query(
                     collection,
-                    arrayOf(MediaStore.MediaColumns._ID),
+                    arrayOf(MediaStore.MediaColumns._ID, MediaStore.MediaColumns.DISPLAY_NAME),
                     "${MediaStore.MediaColumns.RELATIVE_PATH} = ? AND " +
                         "${MediaStore.MediaColumns.IS_PENDING} = 0 AND " +
                         "${MediaStore.MediaColumns.OWNER_PACKAGE_NAME} = ?",
@@ -73,7 +76,7 @@ class MediaStoreDocuments(
                     while (cursor.moveToNext()) {
                         check(size < MAX_FILES) { "DOCUMENT_CATALOG_LIMIT" }
                         val id = cursor.getLong(0).toString()
-                        if (id !in unpublished) add(id)
+                        if (id !in unpublished) add(DocumentStorage.Entry(id, cursor.getString(1)))
                     }
                 }
             }
@@ -196,7 +199,7 @@ class MediaStoreDocuments(
             buildList {
                 while (cursor.moveToNext()) {
                     val name = cursor.getString(1)
-                    if (name == expectedName || name.startsWith("$expectedName.")) add(cursor.getLong(0).toString())
+                    if (DocumentPendingCleanup.matchesOwnedName(expectedName, name)) add(cursor.getLong(0).toString())
                     require(size <= 1) { "RESTORE_PENDING_CONFLICT" }
                 }
             }
@@ -212,7 +215,7 @@ class MediaStoreDocuments(
         val matches = pendingMatches(relative, expectedName)
         matches.forEach { reference ->
             val current = metadata(uri(reference))
-            check(current.second && (current.first == expectedName || current.first.startsWith("$expectedName.")))
+            check(current.second && DocumentPendingCleanup.matchesOwnedName(expectedName, current.first))
             val publication =
                 if (Files.exists(receipt)) {
                     Properties().apply {

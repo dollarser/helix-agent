@@ -22,6 +22,18 @@ interface DocumentStorage : DocumentReadAccess {
 
     fun references(directory: String): List<String>
 
+    data class Entry(
+        val reference: String,
+        val name: String,
+    )
+
+    /** Path-backed stores can derive the display name. Opaque references require provider metadata. */
+    fun entries(directory: String): List<Entry> =
+        references(directory).map { reference ->
+            require(reference.substringBeforeLast('/', "") == directory)
+            Entry(reference, reference.substringAfterLast('/'))
+        }
+
     override fun read(
         reference: String,
         maxBytes: Int,
@@ -67,6 +79,21 @@ interface DocumentPendingCleanup {
         directory: String,
         expectedName: String,
     )
+
+    companion object {
+        /** MediaStore can replace/append a MIME extension or add a collision suffix to the owned stem. */
+        fun matchesOwnedName(
+            expectedName: String,
+            actualName: String,
+        ): Boolean {
+            val stem = expectedName.substringBeforeLast('.')
+            if (!actualName.startsWith(stem)) return false
+            val suffix = actualName.substring(stem.length)
+            return suffix.isEmpty() || suffix.startsWith('.') || collisionSuffix.matches(suffix)
+        }
+
+        private val collisionSuffix = Regex(" \\([0-9]+\\)\\..+")
+    }
 }
 
 /** Explicit user open/share capability; private Agent history does not expose a URI. */
