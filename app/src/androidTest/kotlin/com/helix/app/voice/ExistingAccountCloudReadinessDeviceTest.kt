@@ -173,6 +173,35 @@ class ExistingAccountCloudReadinessDeviceTest {
             check(matches) { "Known synthetic sample differs; this is not a real microphone quality check" }
         }
 
+    @Test fun cloudAsrRecognizesFrozenTransportSentence() =
+        authenticated("asr_transport_baseline") {
+            val wav =
+                InstrumentationRegistry
+                    .getInstrumentation()
+                    .context.assets
+                    .open(
+                        "voice/transport-sentence.wav",
+                    ).use {
+                        it.readBytes()
+                    }
+            val settings = SpeechServiceSettings(httpEnabled = true, useAccountLogin = true)
+            val transcript =
+                HttpFileAsr(settings.session(settings.asrEndpoint, app.account), settings.asrModel).use { asr ->
+                    SpeechWav.consume(wav) { samples, rate ->
+                        check(rate == 16000)
+                        asr.send(samples)
+                    }
+                    asr.finish()
+                }
+            val expected = "你好，这是语音传输测试。".filter(Char::isLetterOrDigit)
+            val recognized = transcript.filter(Char::isLetterOrDigit)
+            record(
+                "asr_transport_baseline.exact_match=${recognized == expected};" +
+                    "expected=${expected.length};recognized=${recognized.length}",
+            )
+            check(recognized == expected) { "Frozen transport sentence transcription differs" }
+        }
+
     private fun synthesizeAndPlay(settings: SpeechServiceSettings): List<Float> {
         val audio = mutableListOf<Float>()
         SpeechAudio(app, volume = 0f).sink(24000).use { sink ->
